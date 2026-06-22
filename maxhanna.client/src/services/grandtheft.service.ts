@@ -60,8 +60,7 @@ export interface GTPlayerState {
   carColorG?: number;
   carColorB?: number;
   passengerOfUserId?: number;
-}
-
+} 
 export interface GTUpdatePositionResponse {
   ok: boolean;
   players: GTPlayerState[];

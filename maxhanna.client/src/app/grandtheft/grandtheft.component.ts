@@ -187,6 +187,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private passengerHostVelX = 0;
   private passengerHostVelZ = 0;
   private passengerHostVelYaw = 0;
+  private _reloading = false;
+  private _pistolDrawTimer = 0;
 
   camYaw = 0; camPitch = 0.2;
   camDist = 4; camHeight = 2;
@@ -370,6 +372,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     this.renderer.loadGLTF('assets/grandtheft/lambo/scene.gltf').then(car => {
       if (car) this.renderer.carMeshes.push(car);
+    }); 
+    this.renderer.loadGLTF('assets/grandtheft/mitsubishi/scene.gltf').then(car => {
+      if (car) this.renderer.carMeshes.push(car);
     });
     this.renderer.loadGLTF('assets/grandtheft/hilux/scene.gltf').then(car => {
       if (car) this.renderer.carMeshes.push(car);
@@ -409,6 +414,35 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/colt/scene.gltf').then(colt => {
       if (colt) this.renderer.coltMesh = colt;
     });
+    // --- First-person weapon models (with animations) ---
+    {
+      const armsOut: { animations?: any; skeleton?: any } = {};
+      this.renderer.loadGLTF('assets/grandtheft/first_person_arms/scene.gltf', true, armsOut).then(arms => {
+        if (arms) {
+          this.renderer.firstPersonArmsMesh = arms;
+          this.renderer.firstPersonArmsSkeleton = armsOut.skeleton ?? null;
+          this.renderer.firstPersonArmsAnimations = armsOut.animations ?? null;
+          console.log('[FP ARMS] loaded',
+            arms.length, 'primitives,',
+            this.renderer.firstPersonArmsAnimations?.length ?? 0, 'animations:',
+            (this.renderer.firstPersonArmsAnimations || []).map(a => a.name));
+        }
+      });
+    }
+    {
+      const m23Out: { animations?: any; skeleton?: any } = {};
+      this.renderer.loadGLTF('assets/grandtheft/first_person_mark23/scene.gltf', true, m23Out).then(m => {
+        if (m) {
+          this.renderer.mark23Mesh = m;
+          this.renderer.mark23Skeleton = m23Out.skeleton ?? null;
+          this.renderer.mark23Animations = m23Out.animations ?? null;
+          console.log('[FP MARK23] loaded',
+            m.length, 'primitives,',
+            this.renderer.mark23Animations?.length ?? 0, 'animations:',
+            (this.renderer.mark23Animations || []).map(a => a.name));
+        }
+      });
+    }
     this.renderer.loadGLTF('assets/grandtheft/rocket_launcher/scene.gltf').then(rk => {
       if (rk) this.renderer.rocketLauncherMesh = rk;
     });
@@ -439,6 +473,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     Promise.all(buildingPromises).then(() => {
       this.renderer.clearChunkCache();
     });
+    
     this.isLoaded = true;
 
     if (!this.isMobile) {
@@ -2781,7 +2816,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.garageDoorOpenness = this.garageDoorOpenness;
     this.renderer.garageCarMesh = this.garageCarMesh;
     // Activate arm bone override when pistol is equipped
-    this.renderer.armOverrideActive = this.currentWeapon === 1;
+    this.renderer.armOverrideActive = (this.currentWeapon === 1) && !this.firstPerson;
     // Feed walk animation state to renderer
     this.renderer.walkSpeed = this.isInCar ? 0 : this.carSpeed;
     this.renderer.punchTime = this.punchTimer;
@@ -2821,7 +2856,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               scale: this.passenger.scale,
             });
           }
-          if (this.currentWeapon === 1 && this.renderer.coltMesh) {
+          // FIX: Third-person pistol model only. In first-person the Mark23
+          // arms system draws the weapon instead (see renderFirstPersonWeapon).
+          if (this.currentWeapon === 1 && this.renderer.coltMesh && !this.firstPerson) {
             attached.push({
               mesh: this.renderer.coltMesh,
               offsetX: 0.2,
@@ -2837,6 +2874,19 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.trafficNodes,
         this.viewDistance
       );
+      // First-person weapon overlay
+      if (this.firstPerson && !this.isInCar) {
+        const anims = this.pickFirstPersonAnims();
+        this.renderer.renderFirstPersonWeapon(
+          camX, camY, camZ,
+          this.camYaw, this.camPitch,
+          this.currentWeapon,
+          anims.arms,
+          anims.mark23,
+          dt
+        );
+        if (this._pistolDrawTimer > 0) this._pistolDrawTimer = Math.max(0, this._pistolDrawTimer - dt);
+      }
     } catch (e) {
       console.error('render error', e);
     }
@@ -3396,7 +3446,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (!siren.paused) { siren.pause(); siren.currentTime = 0; }
     }
   }
-
+  private pickFirstPersonAnims(): { arms: string; mark23: string | null } {
+    if (this.currentWeapon === 1) {
+      // Pistol
+      if (this.isShooting) return { arms: 'finger_gun_fire', mark23: 'Shoot' };
+      if (this._reloading) return { arms: 'finger_gun_fix', mark23: 'Reload' };
+      // When you just switched to the pistol, play Draw once, then Hide after unequip.
+      // Simple heuristic: use 'Draw' for the first 0.5s after switching, else 'Hide' pose.
+      if (this._pistolDrawTimer > 0) return { arms: 'finger_gun_idle', mark23: 'Draw' };
+      return { arms: 'finger_gun_idle', mark23: 'Hide' };
+    }
+    // Unarmed
+    if (this.punchTimer > 0) return { arms: 'jab.R', mark23: null };
+    return { arms: 'relax', mark23: null };
+  }
   /**
    * NEW: Hooker "services" logic. If the player is in a car with a
    * hooker passenger and no other NPCs/pedestrians/players are nearby

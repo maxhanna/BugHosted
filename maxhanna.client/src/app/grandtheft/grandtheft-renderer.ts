@@ -14,7 +14,19 @@
   jointWeights?: Float32Array;
   minY?: number;
 }
-
+export interface GltfAnimation {
+  name: string;
+  duration: number;                       // seconds (longest channel)
+  channels: {
+    nodeIndex: number;                    // GLTF node index
+    path: 'translation' | 'rotation' | 'scale' | 'weights';
+    sampler: {
+      input: Float32Array;                // keyframe times (seconds)
+      output: Float32Array;               // flat values (3 for translation, 4 for rotation, 3 for scale)
+      interpolation: 'LINEAR' | 'STEP' | 'CUBICSPLINE';
+    };
+  }[];
+}
 export interface BuildingPlacement {
   model: CityMesh[];
   x: number;
@@ -378,6 +390,30 @@ export class GrandTheftRenderer {
   public trafficLightMesh: CityMesh[] | null = null;
   public currentModelUrl: string | null = null;
   public droppedWeapons: any[] = [];
+  // --- First-person weapon system ---
+  public firstPersonArmsMesh: CityMesh[] | null = null;
+  public firstPersonArmsSkeleton: {
+    boneParents: Int32Array;
+    boneLocalMatrices: Float32Array;      // bind-pose local matrices
+    inverseBindMatrices: Float32Array;
+    skinRootWorld: Float32Array;
+    nodeToBoneIdx: Map<number, number>;
+    boneCount: number;
+    nodeNames: string[];                  // json.nodes[i].name (for targeted bone overrides)
+  } | null = null;
+  public firstPersonArmsAnimations: GltfAnimation[] | null = null;
+
+  public mark23Mesh: CityMesh[] | null = null;
+  public mark23Skeleton: {
+    boneParents: Int32Array;
+    boneLocalMatrices: Float32Array;
+    inverseBindMatrices: Float32Array;
+    skinRootWorld: Float32Array;
+    nodeToBoneIdx: Map<number, number>;
+    boneCount: number;
+    nodeNames: string[];
+  } | null = null;
+  public mark23Animations: GltfAnimation[] | null = null;
 
   // Skeleton data for CPU skinning (used by Franklin model)
   public skelBoneParents: Int32Array | null = null;
@@ -753,7 +789,214 @@ void main() {
     }
     this.playerMesh = this.generateSamplePlayerModel();
   }
+  /**
+   * Sample a GLTF animation at time t (seconds). Writes local transforms into
+   * `outLocal` (a Float32Array of length boneCount*16). Bones not targeted by
+   * the animation keep their bind-pose local matrix from `skeleton.boneLocalMatrices`.
+   */
+  sampleAnimation(
+    anim: GltfAnimation,
+    t: number,
+    skeleton: {
+      boneCount: number;
+      boneLocalMatrices: Float32Array;
+      nodeToBoneIdx: Map<number, number>;
+    },
+    outLocal: Float32Array
+  ): void {
+    // Start from bind pose
+    outLocal.set(skeleton.boneLocalMatrices);
 
+    // Loop the animation
+    let time = t;
+    if (anim.duration > 0) time = time % anim.duration;
+
+    for (const ch of anim.channels) {
+      const boneIdx = skeleton.nodeToBoneIdx.get(ch.nodeIndex);
+      if (boneIdx === undefined) continue;
+      const s = ch.sampler;
+      const n = s.input.length;
+      if (n === 0) continue;
+
+      // Find keyframe interval [i, i+1]
+      let i = 0;
+      while (i < n - 1 && s.input[i + 1] <= time) i++;
+
+      const comp = ch.path === 'rotation' ? 4 : 3;
+      const interp = s.interpolation;
+      const cubic = interp === 'CUBICSPLINE';   // each keyframe has in-tangent, value, out-tangent
+      const stride = cubic ? comp * 3 : comp;
+
+      let frac = 0;
+      if (i < n - 1) {
+        const t0 = s.input[i], t1 = s.input[i + 1];
+        if (t1 > t0) frac = Math.min(1, Math.max(0, (time - t0) / (t1 - t0)));
+      }
+
+      const base = i * stride;
+      const v0 = s.output.subarray(base + (cubic ? comp : 0), base + (cubic ? comp * 2 : comp));
+      let v1: Float32Array;
+      if (i < n - 1) {
+        const b1 = (i + 1) * stride;
+        v1 = s.output.subarray(b1 + (cubic ? comp : 0), b1 + (cubic ? comp * 2 : comp));
+      } else {
+        v1 = v0;   // hold last
+      }
+
+      // Build a fresh local matrix from the bind-pose one then overwrite TRS
+      const mOff = boneIdx * 16;
+      // copy current (bind) so scale/translation not touched by other channels stays
+      // (we already set outLocal = bind above, so just patch the channel's path)
+      if (ch.path === 'translation') {
+        let x = v0[0], y = v0[1], z = v0[2];
+        if (interp !== 'STEP') {
+          x += (v1[0] - x) * frac;
+          y += (v1[1] - y) * frac;
+          z += (v1[2] - z) * frac;
+        }
+        outLocal[mOff + 12] = x;
+        outLocal[mOff + 13] = y;
+        outLocal[mOff + 14] = z;
+      } else if (ch.path === 'scale') {
+        let x = v0[0], y = v0[1], z = v0[2];
+        if (interp !== 'STEP') {
+          x += (v1[0] - x) * frac;
+          y += (v1[1] - y) * frac;
+          z += (v1[2] - z) * frac;
+        }
+        // Patch scale into the existing 3x3 (keep rotation/translation)
+        // For simplicity assume no rotation channel conflicts; re-normalize axes.
+        outLocal[mOff + 0] = x;
+        outLocal[mOff + 5] = y;
+        outLocal[mOff + 10] = z;
+      } else if (ch.path === 'rotation') {
+        let qx = v0[0], qy = v0[1], qz = v0[2], qw = v0[3];
+        if (interp !== 'STEP') {
+          // SLERP
+          let dot = qx * v1[0] + qy * v1[1] + qz * v1[2] + qw * v1[3];
+          let q2x = v1[0], q2y = v1[1], q2z = v1[2], q2w = v1[3];
+          if (dot < 0) { q2x = -q2x; q2y = -q2y; q2z = -q2z; q2w = -q2w; dot = -dot; }
+          if (dot > 0.9995) {
+            qx += (q2x - qx) * frac; qy += (q2y - qy) * frac; qz += (q2z - qz) * frac; qw += (q2w - qw) * frac;
+            const l = Math.hypot(qx, qy, qz, qw) || 1; qx /= l; qy /= l; qz /= l; qw /= l;
+          } else {
+            const o = dot, theta = Math.acos(Math.min(1, Math.max(-1, o)));
+            const sTheta = Math.sin(theta);
+            const w0 = Math.sin((1 - frac) * theta) / sTheta;
+            const w1 = Math.sin(frac * theta) / sTheta;
+            qx = qx * w0 + q2x * w1; qy = qy * w0 + q2y * w1; qz = qz * w0 + q2z * w1; qw = qw * w0 + q2w * w1;
+          }
+        }
+        // Write rotation into the 3x3 of the local matrix, preserving translation/scale
+        const tx = outLocal[mOff + 12], ty = outLocal[mOff + 13], tz = outLocal[mOff + 14];
+        quatToMat4([qx, qy, qz, qw], new Float32Array(outLocal.buffer, mOff * 4, 16));
+        outLocal[mOff + 12] = tx; outLocal[mOff + 13] = ty; outLocal[mOff + 14] = tz;
+      }
+    }
+  }
+  /**
+ * Given sampled local matrices, compute final joint matrices (world * invBind)
+ * suitable for upload to a skinning uniform array, or for CPU skinning.
+ */
+  computeJointMatrices(
+    skeleton: {
+      boneCount: number;
+      boneParents: Int32Array;
+      skinRootWorld: Float32Array;
+      inverseBindMatrices: Float32Array;
+    },
+    localMatrices: Float32Array,
+    outJoint: Float32Array        // length boneCount*16
+  ): void {
+    // Forward kinematics: jointWorld[b] = parentWorld * local[b]
+    for (let b = 0; b < skeleton.boneCount; b++) {
+      if (skeleton.boneParents[b] < 0) {
+        mat4.multiply(
+          new Float32Array(outJoint.buffer, b * 16 * 4, 16),
+          skeleton.skinRootWorld,
+          new Float32Array(localMatrices.buffer, b * 16 * 4, 16)
+        );
+      }
+    }
+    for (let b = 0; b < skeleton.boneCount; b++) {
+      const p = skeleton.boneParents[b];
+      if (p >= 0) {
+        mat4.multiply(
+          new Float32Array(outJoint.buffer, b * 16 * 4, 16),
+          new Float32Array(outJoint.buffer, p * 16 * 4, 16),
+          new Float32Array(localMatrices.buffer, b * 16 * 4, 16)
+        );
+      }
+    }
+    // Multiply by inverse bind
+    for (let b = 0; b < skeleton.boneCount; b++) {
+      mat4.multiply(
+        new Float32Array(outJoint.buffer, b * 16 * 4, 16),
+        new Float32Array(outJoint.buffer, b * 16 * 4, 16),
+        new Float32Array(skeleton.inverseBindMatrices.buffer, b * 16 * 4, 16)
+      );
+    }
+  }
+  /**
+ * CPU-skin a mesh using the given joint matrices. Writes new positions/normals
+ * into the mesh's VBO. Mirrors the math in skinPlayerMesh() but is generic.
+ */
+  skinMeshGeneric(
+    meshes: CityMesh[],
+    skeleton: { boneCount: number },
+    jointMatrices: Float32Array
+  ): void {
+    const gl = this.gl;
+    for (const mesh of meshes) {
+      if (!mesh.restPositions || !mesh.jointIndices || !mesh.jointWeights || !mesh.vertexCount) continue;
+      const vCount = mesh.vertexCount;
+      const newVerts = new Float32Array(vCount * 3);
+      const newNorm = mesh.restNormals ? new Float32Array(vCount * 3) : null;
+      for (let i = 0; i < vCount; i++) {
+        const px = mesh.restPositions[i * 3], py = mesh.restPositions[i * 3 + 1], pz = mesh.restPositions[i * 3 + 2];
+        let sx = 0, sy = 0, sz = 0;
+        const j = mesh.jointIndices.subarray(i * 4, i * 4 + 4);
+        const w = mesh.jointWeights.subarray(i * 4, i * 4 + 4);
+        for (let k = 0; k < 4; k++) {
+          if (w[k] <= 0) continue;
+          const m = new Float32Array(jointMatrices.buffer, j[k] * 16 * 4, 16);
+          sx += (m[0] * px + m[4] * py + m[8] * pz + m[12]) * w[k];
+          sy += (m[1] * px + m[5] * py + m[9] * pz + m[13]) * w[k];
+          sz += (m[2] * px + m[6] * py + m[10] * pz + m[14]) * w[k];
+        }
+        newVerts[i * 3] = sx; newVerts[i * 3 + 1] = sy; newVerts[i * 3 + 2] = sz;
+        if (newNorm && mesh.restNormals) {
+          const nx = mesh.restNormals[i * 3], ny = mesh.restNormals[i * 3 + 1], nz = mesh.restNormals[i * 3 + 2];
+          let snx = 0, sny = 0, snz = 0;
+          for (let k = 0; k < 4; k++) {
+            if (w[k] <= 0) continue;
+            const m = new Float32Array(jointMatrices.buffer, j[k] * 16 * 4, 16);
+            snx += (m[0] * nx + m[4] * ny + m[8] * nz) * w[k];
+            sny += (m[1] * nx + m[5] * ny + m[9] * nz) * w[k];
+            snz += (m[2] * nx + m[6] * ny + m[10] * nz) * w[k];
+          }
+          const l = Math.hypot(snx, sny, snz) || 1;
+          newNorm[i * 3] = snx / l; newNorm[i * 3 + 1] = sny / l; newNorm[i * 3 + 2] = snz / l;
+        }
+      }
+      // Rebuild the interleaved VBO (pos3 + nrm3 + col4 + uv2 = 12 floats per vertex)
+      // Your createMesh uploads 12-float stride; re-upload positions/normals only.
+      gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vbo);
+      const oldData = new Float32Array(vCount * 12);
+      gl.getBufferSubData(gl.ARRAY_BUFFER, 0, oldData);
+      for (let i = 0; i < vCount; i++) {
+        oldData[i * 12 + 0] = newVerts[i * 3];
+        oldData[i * 12 + 1] = newVerts[i * 3 + 1];
+        oldData[i * 12 + 2] = newVerts[i * 3 + 2];
+        if (newNorm) {
+          oldData[i * 12 + 3] = newNorm[i * 3];
+          oldData[i * 12 + 4] = newNorm[i * 3 + 1];
+          oldData[i * 12 + 5] = newNorm[i * 3 + 2];
+        }
+      }
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, oldData);
+    }
+  }
   // CPU skinning: compute bone transforms, blend vertices, update VBO
   skinPlayerMesh(meshes: CityMesh | CityMesh[], dt: number = 0): void {
     try {
@@ -2449,7 +2692,216 @@ void main() {
       img.src = (url.startsWith('blob:') || url.startsWith('data:')) ? url : bust(url);
     });
   }
-  async loadGLTF(url: string, storeSkeleton: boolean = true): Promise<CityMesh[] | null> {
+  // State for first-person animation playback
+  private _fpAnimTime = 0;
+  private _fpCurrentAnim: { arms?: string; mark23?: string } = { arms: 'relax', mark23: 'Draw' };
+
+  /**
+   * Called by the component every frame (after render()) to draw first-person
+   * arms + Mark23 with the correct animation. The component picks the anim
+   * names based on game state (shoot, reload, idle, etc.).
+   */
+  renderFirstPersonWeapon(
+    camX: number, camY: number, camZ: number,
+    camYaw: number, camPitch: number,
+    weapon: number,            // 0=unarmed, 1=pistol
+    armsAnim: string,          // e.g. 'relax', 'finger_gun_idle', 'finger_gun_fire'
+    mark23Anim: string | null, // e.g. 'Draw', 'Shoot', 'Reload', 'Hide' or null if unarmed
+    dt: number
+  ): void {
+    const gl = this.gl;
+    this._fpAnimTime += dt;
+
+    gl.disable(gl.DEPTH_TEST);
+    // 1. Arms
+    if (this.firstPersonArmsMesh && this.firstPersonArmsSkeleton) {
+      const sk = this.firstPersonArmsSkeleton;
+      const local = new Float32Array(sk.boneLocalMatrices);   // copy
+      const anim = (this.firstPersonArmsAnimations || []).find(a => a.name === armsAnim);
+      if (anim) this.sampleAnimation(anim, this._fpAnimTime, sk, local);
+      const joint = new Float32Array(sk.boneCount * 16);
+      this.computeJointMatrices(sk, local, joint);
+      this.skinMeshGeneric(this.firstPersonArmsMesh, sk, joint);
+
+      // Position: slightly below + in front of camera. Tune offsets.
+      const fx = Math.sin(camYaw) * Math.cos(camPitch);
+      const fy = -Math.sin(camPitch);
+      const fz = Math.cos(camYaw) * Math.cos(camPitch);
+      const rightX = Math.cos(camYaw), rightZ = -Math.sin(camYaw);
+      const armsX = camX + fx * 0.4 + rightX * 0.2;
+      const armsY = camY + fy * 0.4 - 0.3;        // drop a bit
+      const armsZ = camZ + fz * 0.4 + rightZ * 0.2;
+      // Face the camera direction
+      for (const m of this.firstPersonArmsMesh) {
+        this.drawMesh(this.firstPersonArmsMesh, armsX, armsY, armsZ, camYaw, [1, 1, 1], [1, 1, 1, 1]);
+      }
+    }
+
+    // 2. Mark23 (pistol only)
+    if (weapon === 1 && this.mark23Mesh && this.mark23Skeleton && mark23Anim) {
+      const sk = this.mark23Skeleton;
+      const local = new Float32Array(sk.boneLocalMatrices);
+      const anim = (this.mark23Animations || []).find(a => a.name === mark23Anim);
+      if (anim) this.sampleAnimation(anim, this._fpAnimTime, sk, local);
+      const joint = new Float32Array(sk.boneCount * 16);
+      this.computeJointMatrices(sk, local, joint);
+      this.skinMeshGeneric(this.mark23Mesh, sk, joint);
+
+      // Position relative to camera, slightly forward and right
+      const fx = Math.sin(camYaw) * Math.cos(camPitch);
+      const fy = -Math.sin(camPitch);
+      const fz = Math.cos(camYaw) * Math.cos(camPitch);
+      const rightX = Math.cos(camYaw), rightZ = -Math.sin(camYaw);
+      const mx = camX + fx * 0.5 + rightX * 0.15;
+      const my = camY + fy * 0.5 - 0.2;
+      const mz = camZ + fz * 0.5 + rightZ * 0.15;
+      this.drawMesh(this.mark23Mesh, mx, my, mz, camYaw, [1, 1, 1], [1, 1, 1, 1]);
+    }
+    gl.enable(gl.DEPTH_TEST);
+  }
+  /**
+ * Extract animation data from a parsed GLTF json + buffers.
+ * Returns an array of GltfAnimation, one per entry in json.animations.
+ * Mirrors the math used by the skin parser above.
+ */
+  private extractGltfAnimations(json: any, buffers: ArrayBuffer[]): GltfAnimation[] | null {
+    if (!json.animations || !json.accessors || !json.bufferViews) return null;
+    const out: GltfAnimation[] = [];
+    for (const anim of json.animations) {
+      const channels: GltfAnimation['channels'] = [];
+      let maxTime = 0;
+      for (const ch of anim.channels || []) {
+        const samplerDef = anim.samplers[ch.sampler];
+        if (!samplerDef) continue;
+
+        const inAcc = json.accessors[samplerDef.input];
+        const inBV = json.bufferViews[inAcc.bufferView];
+        const inBuf = buffers[inBV.buffer];
+        const inOff = (inBV.byteOffset || 0) + (inAcc.byteOffset || 0);
+        const inCount = inAcc.count;
+        const inView = new Float32Array(inBuf, inOff, inCount);
+        const times = new Float32Array(inView);   // copy (slice may not align)
+        for (let i = 0; i < inCount; i++) if (times[i] > maxTime) maxTime = times[i];
+
+        const outAcc = json.accessors[samplerDef.output];
+        const outBV = json.bufferViews[outAcc.bufferView];
+        const outBuf = buffers[outBV.buffer];
+        const outOff = (outBV.byteOffset || 0) + (outAcc.byteOffset || 0);
+
+        // component count per keyframe:
+        //   translation/scale = 3, rotation = 4, weights = N morph targets (skip)
+        let comp = 3;
+        if (ch.path === 'rotation') comp = 4;
+        if (ch.path === 'weights') continue;                 // morph targets not supported
+        const totalCount = outAcc.count * comp;
+        const output = new Float32Array(outBuf, outOff, totalCount);
+
+        const interpolation = (samplerDef.interpolation || 'LINEAR') as
+          'LINEAR' | 'STEP' | 'CUBICSPLINE';
+
+        channels.push({
+          nodeIndex: ch.target.node,
+          path: ch.target.path as 'translation' | 'rotation' | 'scale',
+          sampler: { input: times, output, interpolation },
+        });
+      }
+      out.push({
+        name: anim.name || ('anim_' + out.length),
+        duration: maxTime,
+        channels,
+      });
+    }
+    return out.length > 0 ? out : null;
+  }
+
+  /**
+   * Separate skeleton-extraction for first-person models. Returns everything
+   * skinPlayerMesh needs without polluting the shared `skel*` fields used by
+   * the third-person player model.
+   */
+  private extractGltfSkeleton(json: any, buffers: ArrayBuffer[]) {
+    if (!json.skins || json.skins.length === 0) return null;
+    const skin = json.skins[0];
+    const jointNodes: number[] = skin.joints;
+    const numBones = jointNodes.length;
+    const nodeToBoneIdx = new Map<number, number>();
+    for (let b = 0; b < numBones; b++) nodeToBoneIdx.set(jointNodes[b], b);
+
+    const ibmAcc = json.accessors[skin.inverseBindMatrices];
+    const ibmBV = json.bufferViews[ibmAcc.bufferView];
+    const ibmBuf = buffers[ibmBV.buffer];
+    const ibmOff = (ibmBV.byteOffset || 0) + (ibmAcc.byteOffset || 0);
+    const inverseBindMatrices = new Float32Array(ibmBuf, ibmOff, numBones * 16);
+
+    // Build parents + local matrices (same algorithm as loadGLTF)
+    const boneLocalTf = new Float32Array(numBones * 16);
+    const parents = new Int32Array(numBones);
+    parents.fill(-1);
+    for (const rootIdx of (json.scenes[json.scene ?? 0]?.nodes || [])) {
+      const addParents = (ni: number, pi: number) => {
+        (json.nodes[ni] as any).parent = pi;
+        for (const c of (json.nodes[ni].children || [])) addParents(c, ni);
+      };
+      addParents(rootIdx, -1);
+    }
+    for (let b = 0; b < numBones; b++) {
+      const node = json.nodes[jointNodes[b]];
+      const pIdx = node.parent ?? -1;
+      if (pIdx >= 0 && nodeToBoneIdx.has(pIdx)) parents[b] = nodeToBoneIdx.get(pIdx)!;
+      const local = mat4.identity(mat4.create());
+      if (node.matrix) { for (let i = 0; i < 16; i++) local[i] = node.matrix[i]; }
+      else if (node.rotation || node.translation) {
+        const q = node.rotation || [0, 0, 0, 1];
+        const t = node.translation || [0, 0, 0];
+        const s = node.scale || [1, 1, 1];
+        quatPosScaleToMat4([q[0], q[1], q[2], q[3]], [t[0], t[1], t[2]], [s[0], s[1], s[2]], local);
+      }
+      for (let i = 0; i < 16; i++) boneLocalTf[b * 16 + i] = local[i];
+    }
+    // skinRootWorld = world transform of the parent of the skeleton root bone
+    let skeletonRootNodeIdx = -1;
+    for (let b = 0; b < numBones; b++) {
+      if (parents[b] < 0) { skeletonRootNodeIdx = jointNodes[b]; break; }
+    }
+    let skinRootWorld = mat4.identity(mat4.create());
+    if (skeletonRootNodeIdx >= 0) {
+      const rootParentIdx = json.nodes[skeletonRootNodeIdx].parent ?? -1;
+      if (rootParentIdx >= 0) {
+        // recompute world transforms
+        const nodeWorld = new Map<number, Float32Array>();
+        const trav = (ni: number, pw: Float32Array) => {
+          const n = json.nodes[ni];
+          const local = mat4.identity(mat4.create());
+          if (n.matrix) { for (let i = 0; i < 16; i++) local[i] = n.matrix[i]; }
+          else if (n.rotation || n.translation) {
+            const q = n.rotation || [0, 0, 0, 1], t = n.translation || [0, 0, 0], s = n.scale || [1, 1, 1];
+            quatPosScaleToMat4([q[0], q[1], q[2], q[3]], [t[0], t[1], t[2]], [s[0], s[1], s[2]], local);
+          }
+          const w = mat4.create(); mat4.multiply(w, pw, local);
+          nodeWorld.set(ni, w);
+          for (const c of (n.children || [])) trav(c, w);
+        };
+        for (const r of (json.scenes[json.scene ?? 0]?.nodes || [])) trav(r, mat4.identity(mat4.create()));
+        const pw = nodeWorld.get(rootParentIdx);
+        if (pw) skinRootWorld = new Float32Array(pw);
+      }
+    }
+    const nodeNames: string[] = (json.nodes || []).map((n: any) => n.name || '');
+    return {
+      boneParents: parents,
+      boneLocalMatrices: boneLocalTf,
+      inverseBindMatrices,
+      skinRootWorld,
+      nodeToBoneIdx,
+      boneCount: numBones,
+      nodeNames,
+    };
+  }
+  async loadGLTF(
+    url: string,
+    storeSkeleton: boolean = true,
+    out?: { animations?: GltfAnimation[] | null; skeleton?: ReturnType<GrandTheftRenderer['extractGltfSkeleton']> }
+  ): Promise<CityMesh[] | null> {
     try {
       const isGLB = url.endsWith('.glb');
       const raw = await (await fetch(bust(url))).arrayBuffer();
@@ -3090,7 +3542,10 @@ void main() {
           meshes.push(mesh);
         }
       }
-
+      if (out) {
+        out.animations = this.extractGltfAnimations(json, buffers);
+        out.skeleton = this.extractGltfSkeleton(json, buffers);
+      }
       return meshes.length > 0 ? meshes : null;
     } catch (e) {
       console.error('Failed to load glTF', url, e);
