@@ -1638,6 +1638,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             passengerOfUserId: p.passengerOfUserId ?? 0
           } as OtherPlayerState;
           this.otherPlayers.push(newPlayer);
+          
+          // FIX: If our Franklin model hasn't loaded yet, we assigned the boxy fallback.
+          // Check again in a moment to upgrade them to the real Franklin mesh.
+          if (!this.renderer.playerMesh) {
+            setTimeout(() => {
+              if (this.renderer.playerMesh && newPlayer.mesh !== this.renderer.playerMesh) {
+                newPlayer.mesh = this.renderer.playerMesh;
+              }
+            }, 2000);
+          }
           if (p.modelUrl) {
             (async () => {
               try {

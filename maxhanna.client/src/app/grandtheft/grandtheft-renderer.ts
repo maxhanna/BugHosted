@@ -335,24 +335,10 @@ export class GrandTheftRenderer {
   public policeCarMesh: CityMesh[] | null = null;
   public hospitalMesh: CityMesh[] | null = null;
   public vendingMachineMesh: CityMesh[] | null = null;
-  // FIX: Home base mesh — the japaneseShop. Loaded from
-  // assets/grandtheft/japaneseShop/scene.gltf. Rendered at building center
-  // (120, 40) — chunk (1,0), one block east of the hospital. The procedural
-  // building for this chunk is suppressed in getCityChunk().
   public homeBaseMesh: CityMesh[] | null = null;
-  // FIX: Garage state. The component sets these each frame. The renderer
-  // draws a black door panel that slides up based on openness, and the
-  // stored car mesh inside the garage when present.
   public garageDoorOpenness = 0;
   public garageCarMesh: CityMesh | CityMesh[] | null = null;
-  // Taxi mesh — loaded from assets/grandtheft/taxi/scene.gltf by the
-  // component. Falls back to a yellow-and-black checker box mesh
-  // generated procedurally in getTaxiMesh() if the GLTF isn't loaded yet.
   public taxiMesh: CityMesh[] | null = null;
-  // Hooker NPC model - loaded from assets/grandtheft/hooker/scene.gltf.
-  // Used for both world pedestrians (gender='hooker') and the passenger
-  // mesh (so the skin is preserved across the ride, like
-  // taxiMission.passengerMesh).
   public hookerMesh: CityMesh[] | null = null;
   public rocketMesh: CityMesh[] | null = null;
   public coltMesh: CityMesh[] | null = null;
@@ -370,7 +356,6 @@ export class GrandTheftRenderer {
   public skelBindJointMatrices: Float32Array | null = null;
   public skelSkinRootWorld: Float32Array | null = null;
   public skelIsReady = false;
-  // Transform params applied after CPU skinning (same as loadGLTF's second pass)
   public skelNeedsRotation = false;
   public skelAngleX = 0;
   public skelCosX = 1;
@@ -383,9 +368,7 @@ export class GrandTheftRenderer {
   public skelCenterZ = 0;
   public skelScaleFactor = 1;
   public skelExtraScale: [number, number, number] = [1, 1, 1];
-  // Per-frame arm override when pistol is equipped
   public armOverrideActive = false;
-  // Walk animation state
   public walkSpeed = 0;
   public walkTime = 0;
   public punchTime = 0;
@@ -511,7 +494,6 @@ void main() {
     vec3 lightVec = uPointLightPos[i] - vWorldPos;
     float dist = length(lightVec);
 
-    // Expanded radius from 25.0 to 80.0 so it hits the floor and street
     if(dist < 80.0) {
       float atten = 1.0 - (dist / 80.0);
       atten = atten * atten; // Quadratic falloff
@@ -519,7 +501,6 @@ void main() {
       vec3 pL = lightVec / dist;
       float pDiff = max(dot(N, pL), 0.0);
 
-      // Increased intensity multiplier from 2.0 to 4.0, made color slightly warmer
       pointLightContribution += pDiff * vec3(1.0, 0.85, 0.5) * atten * baseColor.rgb * 4.0;
 
       vec3 pR = reflect(-pL, N);
@@ -687,26 +668,13 @@ void main() {
     this.skyDayBlendLoc = gl.getUniformLocation(this.skyProgram, 'uDayBlend')!;
     this.skyTimeLoc = gl.getUniformLocation(this.skyProgram, 'uTime')!;
 
-    // 36 vertices (12 triangles) for a cube
     const verts = new Float32Array([
-      // Front face (Z = 1)
-      -1, -1, 1, 1, -1, 1, 1, 1, 1,
-      -1, -1, 1, 1, 1, 1, -1, 1, 1,
-      // Back face (Z = -1)
-      1, -1, -1, -1, -1, -1, -1, 1, -1,
-      1, -1, -1, -1, 1, -1, 1, 1, -1,
-      // Top face (Y = 1)
-      -1, 1, 1, 1, 1, 1, 1, 1, -1,
-      -1, 1, 1, 1, 1, -1, -1, 1, -1,
-      // Bottom face (Y = -1)
-      -1, -1, -1, 1, -1, -1, 1, -1, 1,
-      -1, -1, -1, 1, -1, 1, -1, -1, 1,
-      // Right face (X = 1)
-      1, -1, 1, 1, -1, -1, 1, 1, -1,
-      1, -1, 1, 1, 1, -1, 1, 1, 1,
-      // Left face (X = -1)
-      -1, -1, -1, -1, -1, 1, -1, 1, 1,
-      -1, -1, -1, -1, 1, 1, -1, 1, -1
+      -1, -1, 1, 1, -1, 1, 1, 1, 1, -1, -1, 1, 1, 1, 1, -1, 1, 1,
+      1, -1, -1, -1, -1, -1, -1, 1, -1, 1, -1, -1, -1, 1, -1, 1, 1, -1,
+      -1, 1, 1, 1, 1, 1, 1, 1, -1, -1, 1, 1, 1, 1, -1, -1, 1, -1,
+      -1, -1, -1, 1, -1, -1, 1, -1, 1, -1, -1, -1, 1, -1, 1, -1, -1, 1,
+      1, -1, 1, 1, -1, -1, 1, 1, -1, 1, -1, 1, 1, 1, -1, 1, 1, 1,
+      -1, -1, -1, -1, -1, 1, -1, 1, 1, -1, -1, -1, -1, 1, 1, -1, 1, -1
     ]);
     this.skyVao = gl.createVertexArray()!;
     gl.bindVertexArray(this.skyVao);
@@ -722,7 +690,7 @@ void main() {
     const gl = this.gl;
     gl.depthMask(false);
     gl.disable(gl.DEPTH_TEST);
-    gl.disable(gl.CULL_FACE); // Prevent triangle clipping
+    gl.disable(gl.CULL_FACE);
     gl.useProgram(this.skyProgram);
     gl.uniformMatrix4fv(this.skyProjLoc, false, this.projMatrix);
     gl.uniformMatrix4fv(this.skyViewLoc, false, this.viewMatrix);
@@ -764,16 +732,13 @@ void main() {
       const invBind = skel.skelInverseBindMatrices;
       const jointMat = skel.skelJointMatrices!;
 
-      // Create working copy of local matrices for animation
       const animLocal = new Float32Array(skel.skelBoneLocalMatrices);
 
-      // ---- Apply walk animation to animLocal (Franklin only - 66 bones) ----
       if (this.walkSpeed > 0.1 && numBones > 63) {
         this.applyWalkAnimation(animLocal);
         this.walkTime += dt * Math.min(this.walkSpeed * 0.15, 2.0);
       }
 
-      // ---- Apply arm override/punch (only if skeleton has right arm bones) ----
       if (numBones > 35) {
         if (this.armOverrideActive) {
           const m33 = new Float32Array(animLocal.buffer, 33 * 16 * 4, 16);
@@ -806,12 +771,6 @@ void main() {
         }
       }
 
-      // ---- 1. Compute bone world transforms from animLocal ----
-      // FIX (Bug 2): The old code passed `jointMat` (the full array) as the
-      // output, which always writes to offset 0 regardless of which bone b
-      // is.  For a single-root skeleton where root == bone 0 this works by
-      // accident, but it's incorrect for any other layout.  Now we write to
-      // bone b's proper slot.
       for (let b = 0; b < numBones; b++) {
         if (parents[b] < 0) {
           mat4.multiply(
@@ -831,7 +790,6 @@ void main() {
         }
       }
 
-      // ---- 2. Compute joint matrices: jointMat[i] = world[i] * invBind[i] ----
       const tempMat = new Float32Array(16);
       for (let b = 0; b < numBones; b++) {
         const wOff = b * 16;
@@ -841,32 +799,22 @@ void main() {
         for (let i = 0; i < 16; i++) w[i] = tempMat[i];
       }
 
-      // ---- 3. Skin each vertex, apply global transforms, upload VBO ----
       const meshList = Array.isArray(meshes) ? meshes : [meshes];
       for (const mesh of meshList) {
         if (!mesh.jointIndices || !mesh.jointWeights || !mesh.restPositions || !mesh.restNormals || !mesh.vbo) continue;
         const vCount = mesh.vertexCount || 0;
         if (vCount === 0) continue;
 
-        // FIX (Bug 4): Validate VBO size before reading.  If vCount (from
-        // the POSITION accessor) exceeds the actual VBO vertex count (from
-        // maxIndex+1 in createMesh), getBufferSubData would fail silently
-        // and `existing` would be all zeros.  Writing zeros back would make
-        // every vertex have color (0,0,0,0) — completely invisible.
         gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vbo);
         const bufferSize = gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE) as number;
         const vboVertexCount = Math.floor(bufferSize / (12 * 4));
         const safeVCount = Math.min(vCount, vboVertexCount);
         if (safeVCount === 0) continue;
 
-        // Read back existing VBO data to preserve color and UV
         const existing = new Float32Array(safeVCount * 12);
         gl.getBufferSubData(gl.ARRAY_BUFFER, 0, existing);
 
-        // Sanity check: if the first vertex has zero color alpha, the read
-        // likely failed.  Skip skinning to avoid corrupting the VBO.
         if (existing[9] === 0 && existing[6] === 0 && existing[7] === 0 && existing[8] === 0) {
-          // Could be a legitimately black mesh — only skip if ALL are zero
           let allZero = true;
           for (let i = 6; i < Math.min(60, safeVCount * 12); i++) {
             if (existing[i] !== 0) { allZero = false; break; }
@@ -903,17 +851,6 @@ void main() {
             if (w === 0) continue;
             const bi = ji[v * 4 + j] * 16;
 
-            // FIX (Bug 1): The old code read consecutive elements
-            // jointMat[bi+0..bi+11], which treats the column-major matrix
-            // as if it were row-major.  This computes Mᵀ·v instead of M·v.
-            // For identity matrices (bind pose) both are the same, but for
-            // any animated bone the result is completely wrong — vertices
-            // end up at garbage positions, making the model invisible.
-            //
-            // Correct column-major M·v indexing:
-            //   result.x = M[0]*x + M[4]*y + M[8]*z  + M[12]
-            //   result.y = M[1]*x + M[5]*y + M[9]*z  + M[13]
-            //   result.z = M[2]*x + M[6]*y + M[10]*z + M[14]
             const m00 = jointMat[bi], m01 = jointMat[bi + 4], m02 = jointMat[bi + 8], m03 = jointMat[bi + 12];
             const m10 = jointMat[bi + 1], m11 = jointMat[bi + 5], m12 = jointMat[bi + 9], m13 = jointMat[bi + 13];
             const m20 = jointMat[bi + 2], m21 = jointMat[bi + 6], m22 = jointMat[bi + 10], m23 = jointMat[bi + 14];
@@ -965,10 +902,8 @@ void main() {
     }
   }
 
-  // Apply procedural walk cycle to a copy of local bone matrices
   private applyWalkAnimation(animLocal: Float32Array): void {
     const t = this.walkTime;
-    // Bone indices for the mixamorig skeleton
     const HIPS = 1, LEFT_ARM = 9, LEFT_FOREARM = 10, RIGHT_ARM = 33, RIGHT_FOREARM = 34;
     const LEFT_THIGH = 56, LEFT_KNEE = 57, LEFT_FOOT = 58;
     const RIGHT_THIGH = 61, RIGHT_KNEE = 62, RIGHT_FOOT = 63;
@@ -983,30 +918,23 @@ void main() {
       for (let i = 0; i < 16; i++) m[i] = temp[i];
     };
 
-    // Left leg
     applyRotX(LEFT_THIGH, Math.sin(leftPhase) * LEG_SWING);
     applyRotX(LEFT_KNEE, Math.abs(Math.sin(leftPhase)) * -KNEE_BEND);
-
-    // Right leg
     applyRotX(RIGHT_THIGH, Math.sin(rightPhase) * LEG_SWING);
     applyRotX(RIGHT_KNEE, Math.abs(Math.sin(rightPhase)) * -KNEE_BEND);
 
-    // Arms swing opposite to legs (skip right arm if arm override or punch active)
     if (!this.armOverrideActive && this.punchTime <= 0) {
       applyRotX(LEFT_ARM, Math.sin(leftPhase + Math.PI) * ARM_SWING);
       applyRotX(LEFT_FOREARM, Math.abs(Math.sin(leftPhase + Math.PI)) * -ELBOW_BEND);
       applyRotX(RIGHT_ARM, Math.sin(rightPhase + Math.PI) * ARM_SWING);
       applyRotX(RIGHT_FOREARM, Math.abs(Math.sin(rightPhase + Math.PI)) * -ELBOW_BEND);
     } else {
-      // Left arm still swings when override is active on right
       applyRotX(LEFT_ARM, Math.sin(leftPhase + Math.PI) * ARM_SWING);
       applyRotX(LEFT_FOREARM, Math.abs(Math.sin(leftPhase + Math.PI)) * -ELBOW_BEND);
     }
 
-    // Hip vertical bob
     const hips = new Float32Array(animLocal.buffer, HIPS * 16 * 4, 16);
     hips[13] += Math.abs(Math.sin(t)) * -HIP_BOB;
-    // Hip slight yaw twist
     mat4.identity(rot); mat4.rotateY(rot, rot, Math.sin(t) * 0.05);
     mat4.multiply(temp, hips, rot);
     for (let i = 0; i < 16; i++) hips[i] = temp[i];
@@ -1257,7 +1185,6 @@ void main() {
     const rng = this.mulberry32(seed);
     const blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
 
-    // Ground layer: differs by biome
     if (isBeach) {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.76, 0.70, 0.50, 1.0, idxOffset);
     } else if (isMountain) {
@@ -1267,7 +1194,6 @@ void main() {
     }
     idxOffset += 4;
 
-    // Water edge for beach chunks adjacent to ocean
     if (isBeach && isWaterAdjacent()) {
       const cx2 = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
       const cz2 = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
@@ -1283,7 +1209,6 @@ void main() {
         const blockWorldZ = gz * GRID_PITCH + GRID_PITCH / 2;
 
         if (isMountain) {
-          // Rocky terrain: stack rock boxes for a mountain feel
           const rockCount = 3 + Math.floor(rng() * 5);
           for (let ri = 0; ri < rockCount; ri++) {
             const rx = blockWorldX - 12 + rng() * 24;
@@ -1295,7 +1220,6 @@ void main() {
             this.addBox(verts, indices, rx, rh / 2, rz, rw, rh, rd, shade, shade * 0.9, shade * 0.8, 1.0, idxOffset);
             idxOffset += 24;
           }
-          // Sparse small trees
           if (rng() < 0.3) {
             const tx = blockWorldX - 10 + rng() * 20;
             const tz = blockWorldZ - 10 + rng() * 20;
@@ -1308,12 +1232,10 @@ void main() {
           continue;
         }
 
-        // Sidewalk
         this.addPlane(verts, indices, blockWorldX, 0.02, blockWorldZ, BLOCK_SIZE + 6, BLOCK_SIZE + 6, 0.4, 0.4, 0.4, 1.0, idxOffset);
         idxOffset += 4;
 
         if (isBeach) {
-          // Sand lot with occasional palm-like shapes
           this.addPlane(verts, indices, blockWorldX, 0.03, blockWorldZ, BLOCK_SIZE, BLOCK_SIZE, 0.82, 0.75, 0.55, 1.0, idxOffset);
           idxOffset += 4;
           if (rng() < 0.2) {
@@ -1328,21 +1250,13 @@ void main() {
           continue;
         }
 
-        // Grass / Lot
         const grassG = isSuburb ? 0.35 : 0.1;
         this.addPlane(verts, indices, blockWorldX, 0.03, blockWorldZ, BLOCK_SIZE, BLOCK_SIZE, 0.08, grassG, 0.08, 1.0, idxOffset);
         idxOffset += 4;
 
-        // Skip building generation for the hospital chunk — the hospital
-        // model is drawn separately in the render loop and occupies this
-        // block. Without this, a procedural building would overlap the hospital.
         if (cx === 0 && cz === 0) continue;
-        // FIX: Skip building generation for the home base chunk (1, 0).
-        // The japaneseShop model is drawn separately and occupies this
-        // block, replacing the procedural building that would spawn here.
         if (cx === 1 && cz === 0) continue;
 
-        // Buildings: fewer in suburbs, more in city
         const buildChance = isSuburb ? 0.45 : 0.75;
         if (rng() >= buildChance) continue;
 
@@ -1355,7 +1269,6 @@ void main() {
           const b = 0.3 + rng() * 0.3;
           this.addBox(verts, indices, blockWorldX, h / 2 + 0.04, blockWorldZ, w, h, d, r, g, b, 1.0, idxOffset);
           idxOffset += 24;
-          // Roof
           this.addBox(verts, indices, blockWorldX, h + 0.04 + 0.4, blockWorldZ, w + 0.5, 0.8, d + 0.5, 0.4, 0.15, 0.1, 1.0, idxOffset);
           idxOffset += 24;
         } else {
@@ -1372,14 +1285,12 @@ void main() {
       }
     }
 
-    // Road center line markings
     if (!isMountain && !isBeach) {
       const dashLen = 1.5;
       const dashWid = 0.3;
       const dashH = 0.02;
       const dashSpacing = 4;
       const dashOffset = 2;
-      // Horizontal roads (along X, at fixed Z)
       for (let ri = 0; ri < 2; ri++) {
         const roadZ = cz * CHUNK_SIZE + ri * GRID_PITCH;
         for (let x = cx * CHUNK_SIZE + dashOffset; x <= cx * CHUNK_SIZE + CHUNK_SIZE - dashOffset; x += dashSpacing) {
@@ -1387,7 +1298,6 @@ void main() {
           idxOffset += 24;
         }
       }
-      // Vertical roads (along Z, at fixed X)
       for (let ri = 0; ri < 2; ri++) {
         const roadX = cx * CHUNK_SIZE + ri * GRID_PITCH;
         for (let z = cz * CHUNK_SIZE + dashOffset; z <= cz * CHUNK_SIZE + CHUNK_SIZE - dashOffset; z += dashSpacing) {
@@ -1446,8 +1356,6 @@ void main() {
   }
 
   getLampsNear(x: number, z: number, radius: number): { x: number; z: number }[] {
-    // Gather lamp post positions from nearby city chunks. Used for
-    // traffic car collision detection so cars don't drive through lamps.
     const lamps: { x: number; z: number }[] = [];
     const cx = Math.floor(x / CHUNK_SIZE);
     const cz = Math.floor(z / CHUNK_SIZE);
@@ -1535,23 +1443,15 @@ void main() {
   getOtherPlayerMesh(color: [number, number, number]): CityMesh { return this.getPlayerMesh(color); }
 
   getPedestrianMesh(gender: string, seed: number | string = 0): CityMesh | CityMesh[] {
-    // NEW: Hooker peds use the dedicated hooker mesh so their skin is
-    // preserved across the ride and on drop-off (mirrors the way
-    // taxiMission.passengerMesh captures the exact mesh instance).
     if (gender === 'hooker') {
       return this.getHookerMesh();
     }
-    // If we have loaded GLTF NPC meshes (redneck, jillValentine), pick
-    // deterministically by `seed` so every client picks the same skin for the
-    // same entity id and the skin doesn't flicker between sync frames.
     if (this.npcMeshes.length > 0) {
       if (this.npcMeshes.length === 1) return this.npcMeshes[0];
       return this.npcMeshes[hashSeed(seed) % this.npcMeshes.length];
     }
-    // Fallback to legacy single npcMesh if it exists
     if (this.npcMesh) return this.npcMesh;
 
-    // Fallback to generated geometry
     const color: [number, number, number] = gender === 'female' ? [0.85, 0.45, 0.85] : [0.45, 0.55, 0.85];
     const key = `ped_${gender}_${color.join(',')}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
@@ -1561,8 +1461,6 @@ void main() {
   }
 
   getNPCCarMesh(color: [number, number, number], seed: number | string = 0): CityMesh | CityMesh[] {
-    // 10% chance to spawn a bus, deterministic per seed so the choice is
-    // stable across sync frames and identical across clients.
     if (this.busMesh && (hashSeed(seed) % 10) < 1) {
       return this.busMesh;
     }
@@ -1610,57 +1508,36 @@ void main() {
   }
 
   getTaxiMesh(): CityMesh | CityMesh[] {
-    // Prefer the loaded GLTF taxi model.
     if (this.taxiMesh) return this.taxiMesh;
-    // Fallback: a yellow cab with a black-and-yellow checker stripe down
-    // the side, so the vehicle is still recognisable as a taxi even if
-    // the GLTF hasn't finished loading (or is missing).
     const key = 'taxi_fallback';
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
     const indices: number[] = [];
-    // Yellow body
     this.addBox(verts, indices, 0, 0.4, 0, 2.0, 0.8, 4.0, 1.0, 0.85, 0.1, 1.0, 0);
-    // Black cabin / window band
     this.addBox(verts, indices, 0, 1.0, -0.2, 1.6, 0.6, 2.0, 0.05, 0.05, 0.05, 1.0, 24);
-    // Wheels
     this.addBox(verts, indices, -1.2, 0.2, -1.5, 0.3, 0.4, 0.3, 0.05, 0.05, 0.05, 1.0, 48);
     this.addBox(verts, indices, 1.2, 0.2, -1.5, 0.3, 0.4, 0.3, 0.05, 0.05, 0.05, 1.0, 72);
     this.addBox(verts, indices, -1.2, 0.2, 1.5, 0.3, 0.4, 0.3, 0.05, 0.05, 0.05, 1.0, 96);
     this.addBox(verts, indices, 1.2, 0.2, 1.5, 0.3, 0.4, 0.3, 0.05, 0.05, 0.05, 1.0, 120);
-    // Headlights
     this.addBox(verts, indices, -0.5, 0.3, -2.0, 0.3, 0.2, 0.1, 1.0, 0.9, 0.4, 1.0, 144);
     this.addBox(verts, indices, 0.5, 0.3, -2.0, 0.3, 0.2, 0.1, 1.0, 0.9, 0.4, 1.0, 168);
-    // Tail lights (red)
     this.addBox(verts, indices, -0.5, 0.3, 2.0, 0.3, 0.2, 0.1, 0.8, 0.0, 0.0, 1.0, 192);
     this.addBox(verts, indices, 0.5, 0.3, 2.0, 0.3, 0.2, 0.1, 0.8, 0.0, 0.0, 1.0, 216);
-    // 'TAXI' roof sign — small black box on the roof so it's obviously a cab
     this.addBox(verts, indices, 0, 1.4, 0, 0.8, 0.2, 0.4, 0.05, 0.05, 0.05, 1.0, 240);
     const fm = this.createMesh(verts, indices);
     this.meshCache.set(key, fm);
     return fm;
   }
 
-  /**
-   * NEW: Returns the hooker mesh, falling back to a procedural pink
-   * figure if the GLTF hasn't loaded yet. Mirrors getTaxiMesh()'s
-   * fallback pattern. Used by getPedestrianMesh('hooker', ...) and by
-   * the component's passenger state so the skin is identical in both
-   * world and seat.
-   */
   getHookerMesh(): CityMesh | CityMesh[] {
     if (this.hookerMesh) return this.hookerMesh;
     const key = 'hooker_fallback';
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
     const indices: number[] = [];
-    // Pink dress torso
     this.addBox(verts, indices, 0, 0.9, 0, 0.6, 1.2, 0.4, 0.95, 0.45, 0.65, 1.0, 0);
-    // Light skin head
     this.addBox(verts, indices, 0, 1.7, 0, 0.4, 0.4, 0.4, 0.95, 0.78, 0.65, 1.0, 24);
-    // Red hair
     this.addBox(verts, indices, 0, 1.9, 0, 0.45, 0.2, 0.45, 0.65, 0.1, 0.15, 1.0, 48);
-    // Legs (pink boots)
     this.addBox(verts, indices, -0.15, 0.25, 0, 0.18, 0.6, 0.3, 0.4, 0.15, 0.3, 1.0, 0);
     this.addBox(verts, indices, 0.15, 0.25, 0, 0.18, 0.6, 0.3, 0.4, 0.15, 0.3, 1.0, 0);
     const fm = this.createMesh(verts, indices);
@@ -1668,28 +1545,16 @@ void main() {
     return fm;
   }
 
-  // Giant floating arrow / cone marker that hovers above a hailing
-  // pedestrian. Rendered with depth test off so it shines through
-  // buildings (see render()). The caller animates y with a sine bob and
-  // scales the marker via drawMesh scale.
   getHailMarkerMesh(): CityMesh {
     if (this.meshCache.has('hail_marker')) return this.meshCache.get('hail_marker')!;
     const verts: number[] = [];
     const indices: number[] = [];
-    // Downward-pointing pyramid (apex at the bottom) — like a map pin.
-    // Built from 4 triangular sides + a square base. Apex at y=-1.0,
-    // base at y=0.5, so the tip points down toward the pedestrian.
     const apex = [0, -1.0, 0];
     const r = 0.6;
     const topY = 0.5;
     const base = [[
       [-r, topY, -r], [r, topY, -r], [r, topY, r], [-r, topY, r],
     ]];
-    // We use the 10-float-per-vertex layout so we can pass explicit
-    // normals (createMesh auto-computes normals only for 7-float input).
-    // Colours are pure taxi-yellow; the caller tints via drawMesh color.
-    // Parameter types are required (noImplicitAny): each vertex is a
-    // 3-tuple [x, y, z] and each normal is a 3-tuple [nx, ny, nz].
     const pushTri = (a: number[], b: number[], c: number[], n: number[]) => {
       const baseIdx = verts.length / 10;
       for (const p of [a, b, c]) {
@@ -1698,12 +1563,10 @@ void main() {
       indices.push(baseIdx, baseIdx + 1, baseIdx + 2);
     };
     const b0 = base[0][0], b1 = base[0][1], b2 = base[0][2], b3 = base[0][3];
-    // 4 slanted sides
     pushTri(b0, b1, apex, [-0.4, 0.5, -0.4]);
     pushTri(b1, b2, apex, [0.4, 0.5, -0.4]);
     pushTri(b2, b3, apex, [0.4, 0.5, 0.4]);
     pushTri(b3, b0, apex, [-0.4, 0.5, 0.4]);
-    // Top square (so the marker reads as a solid object from above)
     pushTri(b0, b3, b2, [0, 1, 0]);
     pushTri(b0, b2, b1, [0, 1, 0]);
     const mesh = this.createMesh(verts, indices);
@@ -1711,22 +1574,16 @@ void main() {
     return mesh;
   }
 
-  // Flat ground ring drawn at the destination. Lies at y≈0.02 so it sits
-  // just above the road. Rendered with depth write off so it blends
-  // cleanly over the road texture.
   getDestinationMarkerMesh(): CityMesh {
     if (this.meshCache.has('dest_marker')) return this.meshCache.get('dest_marker')!;
     const verts: number[] = [];
     const indices: number[] = [];
-    // Ring: outer radius 4, inner radius 3, 32 segments around. Laid
-    // flat in the XZ plane (normal = +Y) so it hugs the ground.
     const SEG = 32;
     const rOut = 4.0, rIn = 3.0;
     for (let i = 0; i < SEG; i++) {
       const a0 = (i / SEG) * Math.PI * 2;
       const a1 = ((i + 1) / SEG) * Math.PI * 2;
       const baseIdx = verts.length / 10;
-      // 4 verts: (in0, out0, out1, in1) — two triangles per segment.
       const pushV = (a: number, r: number) => verts.push(
         Math.cos(a) * r, 0, Math.sin(a) * r,
         0, 1, 0,
@@ -1740,14 +1597,10 @@ void main() {
     return mesh;
   }
 
-  // Vertical translucent beam that shoots up from the destination so the
-  // player can see the drop-off from anywhere on the map. Rendered with
-  // depth test off and additive-ish alpha so it glows over buildings.
   getDestinationBeamMesh(): CityMesh {
     if (this.meshCache.has('dest_beam')) return this.meshCache.get('dest_beam')!;
     const verts: number[] = [];
     const indices: number[] = [];
-    // Thin tall cylinder, height 40m, radius 0.4. Built as 8 segments.
     const SEG = 8;
     const r = 0.4;
     const h = 40.0;
@@ -1755,7 +1608,6 @@ void main() {
       const a0 = (i / SEG) * Math.PI * 2;
       const a1 = ((i + 1) / SEG) * Math.PI * 2;
       const baseIdx = verts.length / 10;
-      // Bottom ring (y=0) and top ring (y=h). Outward-facing normals.
       const pushV = (a: number, y: number) => verts.push(
         Math.cos(a) * r, y, Math.sin(a) * r,
         Math.cos(a), 0, Math.sin(a),
@@ -1798,10 +1650,6 @@ void main() {
     if (pitch) mat4.rotateX(this.modelMatrix, this.modelMatrix, pitch);
     mat4.rotateY(this.modelMatrix, this.modelMatrix, yaw);
 
-    // Flip upside-down GLTF models (e.g. maleNPC).
-    // rotateX(π) then rotateY(π) ≡ rotateZ(π), which maps (x,y,z)→(-x,-y,z).
-    // This flips Y (upright) and mirrors X (negligible for symmetric characters)
-    // while preserving Z direction and winding order.
     const meshList = Array.isArray(mesh) ? mesh : [mesh];
     if (meshList.some(m => m.needsFlip)) {
       mat4.rotateX(this.modelMatrix, this.modelMatrix, Math.PI);
@@ -1809,7 +1657,6 @@ void main() {
       mat4.translate(this.modelMatrix, this.modelMatrix, [0, -2, 0]);
     }
 
-    // Apply180° rotation around Y-axis for motorcycle meshes to flip them
     if (meshList.some(m => m.texture?.toString().includes('motorcycle'))) {
       mat4.rotateY(this.modelMatrix, this.modelMatrix, Math.PI);
     }
@@ -1855,7 +1702,7 @@ void main() {
     let dayBlend = Math.max(0, Math.min(1, (sunHeight + 0.1) / 0.3));
     this.dayBlend = dayBlend;
 
-    const nightSky = [0.05, 0.06, 0.1];   // Slightly brighter sky
+    const nightSky = [0.05, 0.06, 0.1];
     const daySky = [0.7, 0.8, 0.9];
     this.skyColor = [
       nightSky[0] + (daySky[0] - nightSky[0]) * dayBlend,
@@ -1863,7 +1710,7 @@ void main() {
       nightSky[2] + (daySky[2] - nightSky[2]) * dayBlend
     ];
 
-    const nightLight = [0.3, 0.3, 0.4];   // Brightened moonlight (was 0.15)
+    const nightLight = [0.3, 0.3, 0.4];
     const dayLight = [1.0, 1.0, 0.95];
     this.lightColor = [
       nightLight[0] + (dayLight[0] - nightLight[0]) * dayBlend,
@@ -1871,7 +1718,7 @@ void main() {
       nightLight[2] + (dayLight[2] - nightLight[2]) * dayBlend
     ];
 
-    const nightAmb = [0.18, 0.18, 0.25];  // Brightened ambient so shadows aren't pure black (was 0.08)
+    const nightAmb = [0.18, 0.18, 0.25];
     const dayAmb = [0.3, 0.3, 0.35];
     this.ambientColor = [
       nightAmb[0] + (dayAmb[0] - nightAmb[0]) * dayBlend,
@@ -1890,16 +1737,7 @@ void main() {
     deadBodies: any[],
     vendingMachines: any[],
     playerMesh: CityMesh | CityMesh[] | null,
-    // taxiMode visual markers — see TaxiMarker type in the component.
-    // 'hail'        : floating arrow above a hailing pedestrian
-    // 'destination' : flat ground ring at the drop-off point
-    // 'beam'        : tall translucent beam at the drop-off point
     markers: any[],
-    // Meshes drawn attached to the player's vehicle (position + yaw
-    // follow the player). Used for the taxi passenger: the component
-    // populates this with the picked-up ped's mesh and a back-seat
-    // offset so the passenger visibly rides along in the cab.
-    // offsetX/Z are in the player's LOCAL frame (before yaw rotation)
     attachedMeshes: any[],
     trafficNodes?: { x: number; z: number }[],
     farPlane?: number
@@ -1929,7 +1767,6 @@ void main() {
     const pcx = Math.floor(camX / CHUNK_SIZE);
     const pcz = Math.floor(camZ / CHUNK_SIZE);
 
-    // Gather nearby lamps for point lights
     const nearbyLamps: { x: number; y: number; z: number }[] = [];
 
     for (let dz = -2; dz <= 2; dz++) {
@@ -1948,12 +1785,8 @@ void main() {
     for (const npc of serverNPCs) this.drawMesh(npc.mesh, npc.x, 0, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const p of otherPlayers) {
-      // FIX: Skip passengers in the shadow pass — they're drawn inside
-      // the host's car in the main pass. Drawing them here would cast
-      // a shadow at their stale on-foot position.
       if (p.passengerOfUserId && p.passengerOfUserId > 0) continue;
       if (p.isInCar) {
-        // FIX: Use the same vehicleType-based mesh selection as the main pass.
         const vType = p.vehicleType || 'car';
         let carMesh: CityMesh | CityMesh[];
         const col: [number, number, number] = [p.carColorR ?? 1, p.carColorG ?? 1, p.carColorB ?? 1];
@@ -1967,7 +1800,6 @@ void main() {
       this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     }
     if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15], [1, 1, 1, 1], true);
-    // FIX: Draw home base (japaneseShop) in shadow pass at building center (120, 40)
     if (this.homeBaseMesh) this.drawMesh(this.homeBaseMesh, 120, 0, 40, 0, [10, 10, 10], [1, 1, 1, 1], true);
     if (this.vendingMachineMesh) {
       for (const vm of vendingMachines) {
@@ -2017,7 +1849,6 @@ void main() {
     gl.bindTexture(gl.TEXTURE_2D, this.shadowTexture);
     gl.uniform1i(this.shadowMapLoc, 1);
 
-    // Point lights (only at night)
     nearbyLamps.sort((a, b) => (a.x - camX) ** 2 + (a.z - camZ) ** 2 - ((b.x - camX) ** 2 + (b.z - camZ) ** 2));
     const pointLights = nearbyLamps.slice(0, 16);
     const pointLightPositions = new Float32Array(16 * 3);
@@ -2029,7 +1860,7 @@ void main() {
     }
 
     gl.uniform1f(this.dayBlendLoc, this.dayBlend);
-    gl.uniform1i(this.numPointLightsLoc, this.dayBlend < 0.5 ? numLights : 0); // Only at night
+    gl.uniform1i(this.numPointLightsLoc, this.dayBlend < 0.5 ? numLights : 0);
     gl.uniform3fv(this.pointLightPosLoc, pointLightPositions);
 
     for (let dz = -2; dz <= 2; dz++) {
@@ -2037,7 +1868,6 @@ void main() {
         const chunk = this.getCityChunk(pcx + dx, pcz + dz);
         this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1]);
 
-        // Draw Lamp Models
         if (this.lampMesh) {
           for (const lamp of chunk.lamps) {
             this.drawMesh(this.lampMesh, lamp.x, 0, lamp.z, 0, [1, 1, 1], [1, 1, 1, 1]);
@@ -2046,7 +1876,6 @@ void main() {
       }
     }
 
-    // --- Traffic lights at intersections ---
     if (trafficNodes) {
       const lightPhase = Math.floor(performance.now() / 6000) % 2;
       const sidewalkOffset = 22;
@@ -2065,9 +1894,6 @@ void main() {
             this.drawMesh(this.trafficLightMesh, node.x + corners[ci][0], 0, node.z + corners[ci][1], yawCorner[ci], [2, 2, 2]);
           }
         }
-        // Draw the coloured indicator lights on the lamp posts at each corner
-        // (sidewalk, not mid-road). Red when lightPhase === 0 (horizontal),
-        // green when lightPhase === 1.
         const redOn = lightPhase === 0;
         for (const node of trafficNodes) {
           const ndx = node.x - camX, ndz = node.z - camZ;
@@ -2080,7 +1906,6 @@ void main() {
           }
         }
       } else {
-        // Fallback: box poles + coloured lights on sidewalk
         const poleMesh = this.meshCache.get('tl_pole');
         if (!poleMesh) {
           const pv: number[] = []; const pi: number[] = [];
@@ -2109,25 +1934,15 @@ void main() {
     for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, (pc as any)._expY ?? 0, pc.z, pc.yaw);
 
     for (const npc of serverNPCs) {
-      // FIX: Apply explosion jump offset (_expY) if the car was launched
-      // by a nearby explosion. This makes traffic cars jump too.
       const expY = (npc as any)._expY ?? 0;
       this.drawMesh(npc.mesh, npc.x, expY, npc.z, npc.yaw);
-      // NEW (Feature 1): Draw a driver mesh inside the car. Skip
-      // on-foot cops (type 'cop') — those aren't vehicles. The
-      // driver mesh is positioned at the same offset as the
-      // player's driverInCarMesh (offsetX:0.3, offsetY:0.3,
-      // offsetZ:0.2) and rotated by the car's yaw.
       if (npc.hasDriver !== false && npc.type !== 'cop') {
         const dMesh = this.getPedestrianMesh(npc.gender || 'male', npc.id);
         const sinY = Math.sin(npc.yaw), cosY = Math.cos(npc.yaw);
-        // Driver seat (right side: +0.3 X). Y = -0.3 to sit inside the
-        // car cabin instead of sticking out through the roof.
         const dOffX = 0.3, dOffZ = 0.2;
         const dwx = npc.x + (dOffX * cosY + dOffZ * sinY);
         const dwz = npc.z + (-dOffX * sinY + dOffZ * cosY);
         this.drawMesh(dMesh, dwx, -0.3, dwz, npc.yaw, [0.85, 0.85, 0.85]);
-        // Front passenger (if any) — left side: -0.3 X
         if ((npc.passengerCount || 0) > 0) {
           const pMesh = this.getPedestrianMesh('female', npc.id + 1);
           const pOffX = -0.3, pOffZ = 0.2;
@@ -2136,14 +1951,11 @@ void main() {
           this.drawMesh(pMesh, pwx, -0.3, pwz, npc.yaw, [0.7, 0.7, 0.7]);
         }
       }
-      // Draw Police Lights
       if (npc.type === 'police') {
         const isRed = (performance.now() / 300) % 2 < 1;
         const lightColor: [number, number, number, number] = isRed ? [1, 0, 0, 1] : [0, 0, 1, 1];
-        // Draw a flashing box on the roof
         this.drawMesh(this.getBoxMesh(0.8, 0.2, 0.4), npc.x, 1.2, npc.z, npc.yaw, [1, 1, 1], lightColor);
       }
-      // Draw brake light for stopped traffic cars
       if (npc.state === 'stop') {
         this.drawMesh(this.getBoxMesh(0.4, 0.2, 0.3), npc.x, 1.0, npc.z, npc.yaw, [1, 1, 1], [1, 0, 0, 1]);
       }
@@ -2151,82 +1963,41 @@ void main() {
 
     for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw);
     for (const p of otherPlayers) {
-      // FIX: If this player is a passenger in another player's car
-      // (passengerOfUserId != 0), skip drawing them here — they'll be
-      // drawn inside the host's car below. This prevents the passenger
-      // from appearing as a separate on-foot model next to the car.
       if (p.passengerOfUserId && p.passengerOfUserId > 0) {
-        // Find the host player and draw the passenger inside their car
         const host = otherPlayers.find(h => h.userId === p.passengerOfUserId);
         if (host && host.isInCar) {
           const sinY = Math.sin(host.yaw), cosY = Math.cos(host.yaw);
-          // Passenger seat: left side (-0.3 X), same Z as driver
           const offX = -0.3, offZ = 0.2;
           const wx = host.posX + (offX * cosY + offZ * sinY);
           const wz = host.posZ + (-offX * sinY + offZ * cosY);
           this.drawMesh(p.mesh, wx, -0.3, wz, host.yaw, [0.85, 0.85, 0.85]);
         }
-        // If host not found or not in car, skip drawing — the passenger
-        // is effectively invisible until the host's data arrives. This
-        // is better than showing them standing at a stale position.
         continue;
       }
-      // If the other player is in a car (as the driver), draw a car
-      // mesh under them and position their character mesh at the
-      // driver seat offset (same convention as driverInCarMesh).
-      // This makes their car visible — and carjackable — to us.
       if (p.isInCar) {
-        // FIX: Pick the correct car mesh based on the player's vehicleType
-        // instead of always using carMeshes[0]. This matches the same
-        // mesh-selection logic used in pollNPCs for NPC cars.
         const vType = p.vehicleType || 'car';
         let carMesh: CityMesh | CityMesh[];
         const col: [number, number, number] = [p.carColorR ?? 1, p.carColorG ?? 1, p.carColorB ?? 1];
-        if (vType === 'taxi') {
-          carMesh = this.getTaxiMesh();
-        } else if (vType === 'bus') {
-          carMesh = this.busMesh || this.getNPCCarMesh(col, p.userId);
-        } else if (vType === 'motorcycle') {
-          carMesh = this.motorcycleMeshes.length > 0
-            ? this.motorcycleMeshes[0]
-            : this.getNPCCarMesh(col, p.userId);
-        } else if (vType === 'police') {
-          carMesh = this.getPoliceCarMesh();
-        } else {
-          carMesh = this.carMeshes.length > 0
-            ? this.carMeshes[0]
-            : this.getNPCCarMesh(col, p.userId);
-        }
+        if (vType === 'taxi') carMesh = this.getTaxiMesh();
+        else if (vType === 'bus') carMesh = this.busMesh || this.getNPCCarMesh(col, p.userId);
+        else if (vType === 'motorcycle') carMesh = this.motorcycleMeshes.length > 0 ? this.motorcycleMeshes[0] : this.getNPCCarMesh(col, p.userId);
+        else if (vType === 'police') carMesh = this.getPoliceCarMesh();
+        else carMesh = this.carMeshes.length > 0 ? this.carMeshes[0] : this.getNPCCarMesh(col, p.userId);
         this.drawMesh(carMesh, p.posX, 0, p.posZ, p.yaw);
         const sinY = Math.sin(p.yaw), cosY = Math.cos(p.yaw);
         const offX = 0.3, offZ = 0.2;
         const wx = p.posX + (offX * cosY + offZ * sinY);
         const wz = p.posZ + (-offX * sinY + offZ * cosY);
-        // Y = -0.3 to sit inside the car cabin instead of sticking out.
         this.drawMesh(p.mesh, wx, -0.3, wz, p.yaw, [0.85, 0.85, 0.85]);
       } else {
         this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw);
       }
     }
 
-    // Draw the hospital at its fixed world location (block center of
-    // chunk 0,0). Only one exists. The procedural building for this chunk
-    // is suppressed in getCityChunk() to make room.
-    if (this.hospitalMesh) {
-      this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15]);
-    }
-    // FIX: Draw home base (japaneseShop) at building center (120, 40) —
-    // chunk (1, 0). One block east of the hospital. The procedural
-    // building for this chunk is suppressed in getCityChunk().
-    if (this.homeBaseMesh) {
-      this.drawMesh(this.homeBaseMesh, 120, 0, 40, 0, [10, 10, 10]);
-    }
-    // FIX: Draw the stored car inside the garage (if any).
-    if (this.garageCarMesh) {
-      this.drawMesh(this.garageCarMesh, 120, 0, 42, 0);
-    }
+    if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15]);
+    if (this.homeBaseMesh) this.drawMesh(this.homeBaseMesh, 120, 0, 40, 0, [10, 10, 10]);
+    if (this.garageCarMesh) this.drawMesh(this.garageCarMesh, 120, 0, 42, 0);
 
-    // Draw vending machines at their procedural positions.
     if (this.vendingMachineMesh) {
       for (const vm of vendingMachines) {
         this.drawMesh(this.vendingMachineMesh, vm.x, 0, vm.z, vm.yaw);
@@ -2235,17 +2006,9 @@ void main() {
 
     if (playerMesh) this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw);
 
-    // Attached meshes (e.g. taxi passenger) — drawn relative to the
-    // player's vehicle. The component supplies an offset in the
-    // player's LOCAL frame; we rotate it by carYaw so the passenger
-    // stays in the back seat when the cab turns.
     if (attachedMeshes && attachedMeshes.length > 0) {
       const sinY = Math.sin(carYaw), cosY = Math.cos(carYaw);
       for (const am of attachedMeshes) {
-        // Rotate (offsetX, offsetZ) by carYaw to get world-space delta.
-        // Forward in the player's frame is +Z, which maps to
-        // (sin(yaw), cos(yaw)) in world space — matching how the
-        // movement code in updateCar() applies acceleration.
         const wx = targetX + (am.offsetX * cosY + am.offsetZ * sinY);
         const wz = targetZ + (-am.offsetX * sinY + am.offsetZ * cosY);
         const s = am.scale ?? 1;
@@ -2253,31 +2016,21 @@ void main() {
       }
     }
 
-    // Flying blood particles — always render on top (depth test off).
     gl.disable(gl.DEPTH_TEST);
     for (const b of bloodSplats) {
       const t = b.age / b.lifetime;
       const alpha = 1.0 - t;
-      // Slight darken as the droplet ages (oxidation), plus shrink slightly.
       const sz = b.size * (1.0 - t * 0.3);
       const tint = 0.85 - t * 0.25;
       this.drawMesh(this.getBloodMesh(), b.x, b.y, b.z, 0, [sz, sz, sz], [tint, 0.0, 0.0, alpha]);
     }
 
-    // Ground decals (blood pools, money stacks) live at y=0.01 and MUST be
-    // depth-tested so they're occluded by buildings, walls, cars, and other
-    // world geometry. Without this they render through everything.
-    // Disable depth WRITES so overlapping decals blend correctly instead of
-    // one hiding the other.
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(false);
     for (const bp of bloodPools) {
       const progress = bp.age / bp.lifetime;
       const poolScale = 1 + progress * bp.maxRadius;
       const alpha = Math.max(0, 1.0 - progress * 0.5);
-      // Slight random rotation per pool (based on position) so the blobs
-      // don't all align the same way. Deterministic so the pool doesn't
-      // spin as it grows.
       const rot = ((bp.x * 0.7 + bp.z * 1.3) % (Math.PI * 2));
       this.drawMesh(this.getBloodPoolMesh(bp.variant || 0), bp.x, 0.01, bp.z, rot, [poolScale, 1, poolScale], [1.0, 1.0, 1.0, alpha]);
     }
@@ -2288,8 +2041,6 @@ void main() {
     }
     gl.depthMask(true);
 
-    // Dead bodies are solid 3D meshes — they need full depth test AND depth
-    // write so they're occluded by walls and properly occlude things behind them.
     for (const db of deadBodies) {
       const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
       const dbPitch = isHuman ? -Math.PI / 2 : 0;
@@ -2298,8 +2049,6 @@ void main() {
       this.drawMesh(db.mesh, db.x, 0.02, db.z, -db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, fadeAlpha], false, dbPitch);
     }
 
-    // Tracers / rockets / explosions / muzzle flashes are bright overlay
-    // effects — disable depth test again so they always render on top.
     gl.disable(gl.DEPTH_TEST);
     for (const t of tracers) {
       const alpha = 1.0 - (t.age / t.lifetime);
@@ -2322,58 +2071,32 @@ void main() {
     }
     for (const e of explosions) {
       const progress = e.age / e.lifetime;
-      // FIX: Multi-layer explosion for depth-appropriate look.
-      // Layer 1: Bright yellow-white core (expands fast, fades fast)
       const coreScale = 1 + progress * 4;
       const coreAlpha = (1.0 - progress) * 1.2;
       this.drawMesh(this.getExplosionMesh(), e.x, e.y + 0.5, e.z, 0, [coreScale, coreScale, coreScale], [1, 1, 1, Math.min(1, coreAlpha)]);
-      // Layer 2: Orange fireball (larger, slightly delayed expansion)
       const fireScale = 2 + progress * 8;
       const fireAlpha = (1.0 - progress) * 0.8;
       this.drawMesh(this.getExplosionMesh(), e.x, e.y + 1.0, e.z, 0, [fireScale, fireScale * 0.8, fireScale], [1, 0.5, 0.0, fireAlpha]);
-      // Layer 3: Dark smoke (largest, slow expansion, fades to dark)
       const smokeScale = 3 + progress * 12;
       const smokeAlpha = (1.0 - progress) * 0.5;
       this.drawMesh(this.getExplosionMesh(), e.x, e.y + 2.0 + progress * 3, e.z, 0, [smokeScale, smokeScale, smokeScale], [0.2, 0.2, 0.2, smokeAlpha]);
     }
     for (const m of muzzleFlashes) {
-      // Simple visible muzzle flash: a small bright 3D star (crossed boxes)
-      // positioned 1.5m in front of the player along the shoot direction.
-      // The 3D mesh has faces pointing in all directions, so it's visible
-      // from any camera angle and at least one face always catches the sun.
       const t = m.age / m.lifetime;
       const alpha = 1.0 - t;
       const weaponScale = m.weapon === 2 ? 1.4 : m.weapon === 1 ? 1.0 : 0.75;
-
-      // Position 1.5m forward along the shoot direction — clearly in front
-      // of the player, not inside their chest. No targetTo / rotation
-      // matrices needed because the star mesh is 3D and visible from any
-      // angle.
       const dirLen = Math.hypot(m.dirX, m.dirY, m.dirZ) || 1;
       const fx = m.dirX / dirLen, fy = m.dirY / dirLen, fz = m.dirZ / dirLen;
       const barrelOffset = 1.5;
       const flashX = m.x + fx * barrelOffset;
       const flashY = m.y + fy * barrelOffset;
       const flashZ = m.z + fz * barrelOffset;
-
-      // Slight scale flicker for visual interest.
       const s = weaponScale * (0.9 + 0.2 * Math.sin(t * 40));
       this.drawMesh(this.getMuzzleFlashMesh(), flashX, flashY, flashZ, 0, [s, s, s], [1.0, 1.0, 1.0, alpha]);
     }
 
-    // --- Taxi-mode markers ---
-    // Ground ring is depth-tested (occluded by buildings). Hail markers
-    // and the destination beam render on top so the player can always
-    // see where to go.
     if (markers && markers.length > 0) {
-      // Disable back-face culling for marker rendering. The pyramid
-      // hail marker and the thin destination beam are built from
-      // hand-rolled triangles whose winding isn't guaranteed to match
-      // the rest of the scene's CCW convention — disabling cull here
-      // ensures the markers are visible from every camera angle.
       gl.disable(gl.CULL_FACE);
-      // First pass: ground rings (depth test ON, depth write OFF so
-      // overlapping decals blend).
       gl.enable(gl.DEPTH_TEST);
       gl.depthMask(false);
       for (const m of markers) {
@@ -2384,11 +2107,9 @@ void main() {
       }
       gl.depthMask(true);
 
-      // Second pass: hail markers + destination beam — always on top.
       gl.disable(gl.DEPTH_TEST);
       for (const m of markers) {
         if (m.type === 'hail') {
-          // Bob up and down 0.3m around y=3.2 (above the ped's head).
           const bob = Math.sin(performance.now() / 300 + (m.phase || 0)) * 0.3;
           this.drawMesh(this.getHailMarkerMesh(), m.x, 3.2 + bob, m.z, performance.now() / 600, [1.4, 1.4, 1.4], [1.0, 1.0, 1.0, 1.0]);
         } else if (m.type === 'beam') {
@@ -2424,32 +2145,24 @@ void main() {
 
   private getExplosionMesh(): CityMesh {
     if (this.meshCache.has('explosion')) return this.meshCache.get('explosion')!;
-    // FIX: Build a sphere (icosphere-like) instead of a cube for a more
-    // realistic explosion shape. The sphere is built from latitude/longitude
-    // subdivisions, with outward-facing normals so lighting works.
     const verts: number[] = [], indices: number[] = [];
     const stacks = 6, slices = 10;
     let vIdx = 0;
     for (let stack = 0; stack <= stacks; stack++) {
-      const phi = (stack / stacks) * Math.PI; // 0..π (top to bottom)
+      const phi = (stack / stacks) * Math.PI;
       const y = Math.cos(phi);
       const r = Math.sin(phi);
       for (let slice = 0; slice <= slices; slice++) {
         const theta = (slice / slices) * Math.PI * 2;
         const x = r * Math.cos(theta);
         const z = r * Math.sin(theta);
-        // Position (radius 0.5)
         verts.push(x * 0.5, y * 0.5, z * 0.5);
-        // Normal (outward)
         verts.push(x, y, z);
-        // Color (orange — overridden by drawMesh color multiplier)
         verts.push(1.0, 0.5, 0.0, 1.0);
-        // UV
         verts.push(slice / slices, stack / stacks);
         vIdx++;
       }
     }
-    // Build faces
     for (let stack = 0; stack < stacks; stack++) {
       for (let slice = 0; slice < slices; slice++) {
         const a = stack * (slices + 1) + slice;
@@ -2466,33 +2179,18 @@ void main() {
   }
 
   private getMuzzleFlashMesh(): CityMesh {
-    // 3D muzzle flash "star" — a bright center cube plus 3 perpendicular
-    // elongated spikes (along X, Y, Z). All 3D, so visible from any
-    // camera angle. Uses addBox (7 floats/vertex) — createMesh
-    // synthesizes outward normals via triangle winding, so each face
-    // lights correctly and at least one face always catches the sun.
     if (this.meshCache.has('muzzle_flash')) return this.meshCache.get('muzzle_flash')!;
     const verts: number[] = [], indices: number[] = [];
-
-    // Bright yellow-white center cube
     this.addBox(verts, indices, 0, 0, 0, 0.4, 0.4, 0.4, 1.0, 0.95, 0.7, 1.0, 0);
-    // Forward spike along +Z (the barrel direction) — bright yellow
     this.addBox(verts, indices, 0, 0, 0.55, 0.18, 0.18, 1.1, 1.0, 0.85, 0.3, 1.0, 24);
-    // Side spike along +X — orange
     this.addBox(verts, indices, 0.45, 0, 0, 0.9, 0.15, 0.15, 1.0, 0.6, 0.15, 1.0, 48);
-    // Vertical spike along +Y — orange
     this.addBox(verts, indices, 0, 0.45, 0, 0.15, 0.9, 0.15, 1.0, 0.6, 0.15, 1.0, 72);
-
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set('muzzle_flash', mesh);
     return mesh;
   }
 
   private getBloodMesh(): CityMesh {
-    // Small sphere — looks like a flying blood droplet, not a red cube.
-    // The size is then scaled per-particle via drawMesh's scale parameter.
-    // NOTE: pushes 10 floats per vertex (pos3+norm3+color4) to match the
-    // 10-float branch of createMesh. Do NOT mix with addBox (7 floats) here.
     if (this.meshCache.has('blood')) return this.meshCache.get('blood')!;
     const verts: number[] = [], indices: number[] = [];
     const stacks = 5, slices = 8;
@@ -2521,58 +2219,36 @@ void main() {
   }
 
   private getBloodPoolMesh(variant: number = 0): CityMesh {
-    // Irregular 16-sided blob shape, different per variant. Darker color at
-    // the center (oxidized blood), lighter at the edges (fresh blood).
-    // Clockwise winding (when viewed from above) gives upward-facing normals
-    // so the pool is lit correctly by the sun.
     const key = `bloodpool_${variant}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [], indices: number[] = [];
-
-    // Seeded RNG so each variant is different but deterministic.
     const rng = this.mulberry32(variant * 7919 + 31);
-
     const SEGMENTS = 16;
     const centerIdx = 0;
-
-    // Center vertex: darker (oxidized)
     verts.push(0, 0, 0, 0.35, 0.0, 0.0, 1.0);
-
-    // Perimeter vertices: lighter (fresh), randomized radius for organic blob
     for (let i = 0; i < SEGMENTS; i++) {
       const theta = (i / SEGMENTS) * Math.PI * 2;
-      // Base radius 0.85, vary +/- 0.20 per vertex for irregular shape
       const r = 0.85 + (rng() - 0.5) * 0.40;
       const x = Math.cos(theta) * r;
       const z = Math.sin(theta) * r;
-      // Slight color variation around the perimeter
       const tint = 0.55 + (rng() - 0.5) * 0.10;
       verts.push(x, 0, z, tint, 0.0, 0.0, 1.0);
     }
-
-    // Triangle fan with clockwise winding (when viewed from above) for
-    // upward-facing normals. Triangle = (center, i+1, i) so that the cross
-    // product (perim[i+1] - center) x (perim[i] - center) points +Y.
     for (let i = 0; i < SEGMENTS; i++) {
       const next = (i + 1) % SEGMENTS;
       indices.push(centerIdx, 1 + next, 1 + i);
     }
-
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set(key, mesh);
     return mesh;
   }
   getPoliceCarMesh(): CityMesh | CityMesh[] {
-    if (this.policeCarMesh) {
-      return this.policeCarMesh;
-    }
+    if (this.policeCarMesh) return this.policeCarMesh;
     const key = `police_car`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
     const indices: number[] = [];
-    // Black body
     this.addBox(verts, indices, 0, 0.4, 0, 2.0, 0.8, 4.0, 0.1, 0.1, 0.1, 1.0, 0);
-    // White doors
     this.addBox(verts, indices, 0, 0.6, 0, 2.1, 0.4, 2.0, 0.9, 0.9, 0.9, 1.0, 24);
     this.addBox(verts, indices, 0, 1.0, -0.2, 1.6, 0.6, 2.0, 0.1, 0.1, 0.1, 1.0, 48);
     const mesh = this.createMesh(verts, indices);
@@ -2684,7 +2360,6 @@ void main() {
       let globalMinZ = Infinity, globalMaxZ = -Infinity;
       const textureCache = new Map<number, WebGLTexture | null>();
 
-      // Build node transform list from node hierarchy
       const entries: { meshIndex: number; transform: Float32Array; nodeIndex: number }[] = [];
       if (json.nodes && json.nodes.length > 0 && json.scenes) {
         const identity = mat4.identity(mat4.create());
@@ -2703,7 +2378,6 @@ void main() {
           for (const rootIdx of scene.nodes) traverse(rootIdx, identity);
         }
       }
-      // Fallback: if no nodes reference meshes, process all meshes directly
       if (entries.length === 0 && json.meshes) {
         const identity = mat4.identity(mat4.create());
         for (let mi = 0; mi < json.meshes.length; mi++) {
@@ -2711,7 +2385,6 @@ void main() {
         }
       }
 
-      // Parse skin data if present
       let isSkinnedModel = false;
       let boneParents: Int32Array | null = null;
       let boneLocalMatrices: Float32Array | null = null;
@@ -2727,21 +2400,17 @@ void main() {
         nodeToBoneIdx = new Map();
         for (let b = 0; b < numBones; b++) nodeToBoneIdx.set(jointNodes[b], b);
 
-        // Parse inverse bind matrices
         const ibmAcc = json.accessors[skin.inverseBindMatrices];
         const ibmBufView = json.bufferViews[ibmAcc.bufferView];
         const ibmBuf = buffers[ibmBufView.buffer];
         const ibmByteOff = (ibmBufView.byteOffset || 0) + (ibmAcc.byteOffset || 0);
         inverseBindMatrices = new Float32Array(ibmBuf, ibmByteOff, numBones * 16);
 
-        // Build bone hierarchy and local transforms from node tree
         const boneLocalTf = new Float32Array(numBones * 16);
         const parents = new Int32Array(numBones);
         parents.fill(-1);
 
-        // First, collect all node world transforms
         const nodeWorldTransforms = new Map<number, Float32Array>();
-        // Add parent references to nodes for hierarchy building
         const addParents = (nodeIdx: number, parentIdx: number) => {
           json.nodes[nodeIdx].parent = parentIdx;
           for (const child of (json.nodes[nodeIdx].children || [])) addParents(child, nodeIdx);
@@ -2767,7 +2436,6 @@ void main() {
           traverseNodes(rootIdx, mat4.identity(mat4.create()));
         }
 
-        // For each bone, find its parent and store local transform
         for (let b = 0; b < numBones; b++) {
           const nodeIdx = jointNodes[b];
           const node = json.nodes[nodeIdx];
@@ -2788,18 +2456,24 @@ void main() {
           for (let i = 0; i < 16; i++) boneLocalTf[b * 16 + i] = local[i];
         }
 
+        // FIX: skinRootWorld must be the world transform of the PARENT of the skeleton root bone,
+        // not the root bone itself. Otherwise, the root bone's local matrix is applied twice.
         if (skeletonRootNodeIdx >= 0) {
-          skinRootWorld = nodeWorldTransforms.get(skeletonRootNodeIdx) || mat4.identity(mat4.create());
+          const rootNode = json.nodes[skeletonRootNodeIdx];
+          const rootParentIdx = rootNode.parent ?? -1;
+          if (rootParentIdx >= 0 && nodeWorldTransforms.has(rootParentIdx)) {
+            skinRootWorld = nodeWorldTransforms.get(rootParentIdx);
+          } else {
+            skinRootWorld = mat4.identity(mat4.create());
+          }
+        } else {
+          skinRootWorld = mat4.identity(mat4.create());
         }
 
         boneParents = parents;
         boneLocalMatrices = boneLocalTf;
         isSkinnedModel = true;
 
-        // Store skeleton data on renderer for later CPU skinning
-        // Only store when loading the PLAYER model (storeSkeleton=true).
-        // NPC models (jillValentine, redneck) pass storeSkeleton=false so they
-        // never overwrite Franklin's 66-bone skeleton data, regardless of load order.
         if (storeSkeleton) {
           this.skelBoneParents = parents;
           this.skelBoneLocalMatrices = boneLocalTf;
@@ -2811,8 +2485,6 @@ void main() {
           this.skelIsReady = false;
         }
 
-        // Compute bind-pose world transforms for each bone
-        // (only for player skeleton, not NPCs)
         if (storeSkeleton) {
           this.skelBindWorldMatrices = new Float32Array(numBones * 16);
           for (let b = 0; b < numBones; b++) {
@@ -2835,7 +2507,6 @@ void main() {
             }
           }
 
-          // Compute bind-pose joint matrices: jointMat[b] = bindWorld[b] * inverseBind[b]
           this.skelBindJointMatrices = new Float32Array(numBones * 16);
           for (let b = 0; b < numBones; b++) {
             const bindWorld = new Float32Array(this.skelBindWorldMatrices.buffer, b * 16 * 4, 16);
@@ -2849,7 +2520,6 @@ void main() {
         }
       }
 
-      // Helper: transform a vec3 by a4x4 matrix
       const txPos = (m: Float32Array, x: number, y: number, z: number): [number, number, number] => {
         const w = m[3] * x + m[7] * y + m[11] * z + m[15];
         const invW = w !== 0 ? 1 / w : 1;
@@ -2859,7 +2529,6 @@ void main() {
           (m[2] * x + m[6] * y + m[10] * z + m[14]) * invW,
         ];
       };
-      // Helper: transform a normal by the upper-left3x3 (no translation)
       const txNrm = (m: Float32Array, x: number, y: number, z: number): [number, number, number] => {
         const nx = m[0] * x + m[4] * y + m[8] * z;
         const ny = m[1] * x + m[5] * y + m[9] * z;
@@ -2868,7 +2537,6 @@ void main() {
         return len > 0.00001 ? [nx / len, ny / len, nz / len] : [x, y, z];
       };
 
-      // First pass: extract raw geometry, apply node transforms, find global bounding box
       for (const entry of entries) {
         const meshDef = json.meshes[entry.meshIndex];
         if (!meshDef) continue;
@@ -2878,7 +2546,6 @@ void main() {
           && tf[6] === 0 && tf[7] === 0 && tf[8] === 0 && tf[9] === 0
           && tf[11] === 0 && tf[12] === 0 && tf[13] === 0 && tf[14] === 0;
 
-        // Check if this entry's node has a skin reference
         const entryNode = json.nodes[entry.nodeIndex];
         const isSkinned = isSkinnedModel && entryNode && entryNode.skin !== undefined;
 
@@ -2955,7 +2622,6 @@ void main() {
 
           const vCount = posAcc.count;
 
-          // Read skin data if this is a skinned primitive
           let restPos: Float32Array | undefined;
           let restNrm: Float32Array | undefined;
           let jointIdx: Uint16Array | undefined;
@@ -2986,9 +2652,22 @@ void main() {
             const jiByteOff = (jiBufView.byteOffset || 0) + (jiAcc.byteOffset || 0);
             const jiStride = jiBufView.byteStride || 8;
             jointIdx = new Uint16Array(vCount * 4);
+            // FIX: Support all possible joint component types (UNSIGNED_SHORT, UNSIGNED_BYTE, UNSIGNED_INT)
             if (jiAcc.componentType === 5123) {
               for (let i = 0; i < vCount; i++) {
                 const src = new Uint16Array(jiBuf, jiByteOff + i * jiStride, 4);
+                jointIdx[i * 4] = src[0]; jointIdx[i * 4 + 1] = src[1];
+                jointIdx[i * 4 + 2] = src[2]; jointIdx[i * 4 + 3] = src[3];
+              }
+            } else if (jiAcc.componentType === 5121) {
+              for (let i = 0; i < vCount; i++) {
+                const src = new Uint8Array(jiBuf, jiByteOff + i * jiStride, 4);
+                jointIdx[i * 4] = src[0]; jointIdx[i * 4 + 1] = src[1];
+                jointIdx[i * 4 + 2] = src[2]; jointIdx[i * 4 + 3] = src[3];
+              }
+            } else if (jiAcc.componentType === 5125) {
+              for (let i = 0; i < vCount; i++) {
+                const src = new Uint32Array(jiBuf, jiByteOff + i * jiStride, 4);
                 jointIdx[i * 4] = src[0]; jointIdx[i * 4 + 1] = src[1];
                 jointIdx[i * 4 + 2] = src[2]; jointIdx[i * 4 + 3] = src[3];
               }
@@ -3100,7 +2779,6 @@ void main() {
       }
 
       if (primitiveData.length === 0) return null;
-      // Second pass: Calculate global transformations
       const dimX = globalMaxX - globalMinX;
       const dimY = globalMaxY - globalMinY;
       const dimZ = globalMaxZ - globalMinZ;
@@ -3111,20 +2789,10 @@ void main() {
           needsRotation = true;
         }
       }
-      // Car models face -Z (OpenGL convention), flip180° around Y to face +Z
       const needsYFlip = url.includes('crownVic') || url.includes('maleNPC') || url.includes('taxi') || url.includes('hilux');
-      // FIX: pizzaMoped faces -X (backwards), so it needs BOTH the 180° Y
-      // flip (to face +Z convention like other cars) AND a 90° Y rotation
-      // to align with the forward axis. Without the Y flip, the model
-      // appears backwards when driving forward.
       const needsY90 = url.includes('pizzaMoped');
       const needsYFlipMoped = url.includes('pizzaMoped');
 
-      // Redneck ships lying on its BACK (head along local -Z), so it needs +π/2 around X
-      // to stand up. Face-down models (head along +Z) use -π/2.
-      // Face-down models (head along +Z) use -π/2; face-up (head along -Z)
-      // use +π/2. Add new characters to the appropriate branch based on
-      // how their source GLTF was authored.
       const angleX = needsRotation
         ? (url.includes('redneck') ? Math.PI / 2 : -Math.PI / 2)
         : 0;
@@ -3151,7 +2819,6 @@ void main() {
             x = -x;
             z = -z;
           }
-          // FIX: Apply 180° Y flip to pizzaMoped so it faces forward.
           if (needsYFlipMoped) {
             x = -x;
             z = -z;
@@ -3167,15 +2834,11 @@ void main() {
       const targetHeight = url.includes('citylight') ? 5.0 : 2.0;
       const scaleFactor = targetHeight / Math.max(0.001, finalHeight);
       const centerX = (rotMinX + rotMaxX) / 2;
-      const centerY = rotMinY; // Set base to exactly y=0
+      const centerY = rotMinY;
       const centerZ = (rotMinZ + rotMaxZ) / 2;
 
-      // Bus: ~2x as wide (X), tall (Y), and long (Z).
       const extraScale: [number, number, number] = url.includes('/bus/') ? [2, 2, 2] : [1, 1, 1];
 
-      // Store skinning transform parameters for later CPU skinning
-      // Only store for the PLAYER skeleton (storeSkeleton=true) so NPC
-      // models don't overwrite Franklin's center/scale/rotation.
       if (isSkinnedModel && storeSkeleton) {
         this.skelNeedsRotation = needsRotation;
         this.skelAngleX = angleX;
@@ -3191,7 +2854,6 @@ void main() {
         this.skelExtraScale = extraScale;
       }
 
-      // Apply global scaling and rotation to all primitives
       for (const p of primitiveData) {
         const { verts, indices, texture, restPos, restNrm, jointIdx, jointWgt, vCount, isSkinned } = p;
         for (let i = 0; i < verts.length; i += 12) {
@@ -3205,7 +2867,6 @@ void main() {
             y = y2;
             z = z2;
 
-            // Apply rotation to normals
             let nx = verts[i + 3];
             let ny = verts[i + 4];
             let nz = verts[i + 5];
@@ -3223,7 +2884,6 @@ void main() {
             verts[i + 3] = -nx;
             verts[i + 5] = -nz;
           }
-          // FIX: Apply 180° Y flip to pizzaMoped normals too.
           if (needsYFlipMoped) {
             x = -x;
             z = -z;
@@ -3233,7 +2893,6 @@ void main() {
             verts[i + 5] = -nz;
           }
           if (needsY90) {
-            // Rotate 90° clockwise around Y: +X → +Z
             const tmpX = x;
             x = z;
             z = -tmpX;
