@@ -807,10 +807,15 @@ void main() {
       }
 
       // ---- 1. Compute bone world transforms from animLocal ----
+      // FIX (Bug 2): The old code passed `jointMat` (the full array) as the
+      // output, which always writes to offset 0 regardless of which bone b
+      // is.  For a single-root skeleton where root == bone 0 this works by
+      // accident, but it's incorrect for any other layout.  Now we write to
+      // bone b's proper slot.
       for (let b = 0; b < numBones; b++) {
         if (parents[b] < 0) {
           mat4.multiply(
-            jointMat,
+            new Float32Array(jointMat.buffer, b * 16 * 4, 16),
             skel.skelSkinRootWorld,
             new Float32Array(animLocal.buffer, b * 16 * 4, 16)
           );
@@ -836,17 +841,42 @@ void main() {
         for (let i = 0; i < 16; i++) w[i] = tempMat[i];
       }
 
-      // ---- 4. Skin each vertex, apply global transforms, upload VBO ----
+      // ---- 3. Skin each vertex, apply global transforms, upload VBO ----
       const meshList = Array.isArray(meshes) ? meshes : [meshes];
       for (const mesh of meshList) {
         if (!mesh.jointIndices || !mesh.jointWeights || !mesh.restPositions || !mesh.restNormals || !mesh.vbo) continue;
         const vCount = mesh.vertexCount || 0;
         if (vCount === 0) continue;
 
-        // Read back existing VBO data to preserve color and UV
-        const existing = new Float32Array(vCount * 12);
+        // FIX (Bug 4): Validate VBO size before reading.  If vCount (from
+        // the POSITION accessor) exceeds the actual VBO vertex count (from
+        // maxIndex+1 in createMesh), getBufferSubData would fail silently
+        // and `existing` would be all zeros.  Writing zeros back would make
+        // every vertex have color (0,0,0,0) — completely invisible.
         gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vbo);
+        const bufferSize = gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE) as number;
+        const vboVertexCount = Math.floor(bufferSize / (12 * 4));
+        const safeVCount = Math.min(vCount, vboVertexCount);
+        if (safeVCount === 0) continue;
+
+        // Read back existing VBO data to preserve color and UV
+        const existing = new Float32Array(safeVCount * 12);
         gl.getBufferSubData(gl.ARRAY_BUFFER, 0, existing);
+
+        // Sanity check: if the first vertex has zero color alpha, the read
+        // likely failed.  Skip skinning to avoid corrupting the VBO.
+        if (existing[9] === 0 && existing[6] === 0 && existing[7] === 0 && existing[8] === 0) {
+          // Could be a legitimately black mesh — only skip if ALL are zero
+          let allZero = true;
+          for (let i = 6; i < Math.min(60, safeVCount * 12); i++) {
+            if (existing[i] !== 0) { allZero = false; break; }
+          }
+          if (allZero) {
+            console.warn('skinPlayerMesh: VBO read returned zeros, skipping to avoid corruption');
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+            continue;
+          }
+        }
 
         const ji = mesh.jointIndices;
         const jw = mesh.jointWeights;
@@ -862,7 +892,7 @@ void main() {
         const sf = this.skelScaleFactor;
         const ex = this.skelExtraScale[0], ey = this.skelExtraScale[1], ez = this.skelExtraScale[2];
 
-        for (let v = 0; v < vCount; v++) {
+        for (let v = 0; v < safeVCount; v++) {
           let px = 0, py = 0, pz = 0;
           let nx = 0, ny = 0, nz = 0;
           const rpx = rp[v * 3], rpy = rp[v * 3 + 1], rpz = rp[v * 3 + 2];
@@ -872,9 +902,21 @@ void main() {
             const w = jw[v * 4 + j];
             if (w === 0) continue;
             const bi = ji[v * 4 + j] * 16;
-            const m00 = jointMat[bi], m01 = jointMat[bi + 1], m02 = jointMat[bi + 2], m03 = jointMat[bi + 3];
-            const m10 = jointMat[bi + 4], m11 = jointMat[bi + 5], m12 = jointMat[bi + 6], m13 = jointMat[bi + 7];
-            const m20 = jointMat[bi + 8], m21 = jointMat[bi + 9], m22 = jointMat[bi + 10], m23 = jointMat[bi + 11];
+
+            // FIX (Bug 1): The old code read consecutive elements
+            // jointMat[bi+0..bi+11], which treats the column-major matrix
+            // as if it were row-major.  This computes Mᵀ·v instead of M·v.
+            // For identity matrices (bind pose) both are the same, but for
+            // any animated bone the result is completely wrong — vertices
+            // end up at garbage positions, making the model invisible.
+            //
+            // Correct column-major M·v indexing:
+            //   result.x = M[0]*x + M[4]*y + M[8]*z  + M[12]
+            //   result.y = M[1]*x + M[5]*y + M[9]*z  + M[13]
+            //   result.z = M[2]*x + M[6]*y + M[10]*z + M[14]
+            const m00 = jointMat[bi], m01 = jointMat[bi + 4], m02 = jointMat[bi + 8], m03 = jointMat[bi + 12];
+            const m10 = jointMat[bi + 1], m11 = jointMat[bi + 5], m12 = jointMat[bi + 9], m13 = jointMat[bi + 13];
+            const m20 = jointMat[bi + 2], m21 = jointMat[bi + 6], m22 = jointMat[bi + 10], m23 = jointMat[bi + 14];
 
             px += w * (m00 * rpx + m01 * rpy + m02 * rpz + m03);
             py += w * (m10 * rpx + m11 * rpy + m12 * rpz + m13);
@@ -2968,7 +3010,14 @@ void main() {
             const pi = (posOffset / 4) + i * posStride;
             let x = posData[pi], y = posData[pi + 1], z = posData[pi + 2];
 
-            if (!identityTf) {
+            // FIX: For skinned meshes, do NOT apply the mesh node's transform.
+            // Per the GLTF spec, the mesh node's transform is replaced by the
+            // skinning joint matrices.  Applying it here would cause a mismatch:
+            // the VBO would have nodeTransform(rawPos) while restPos (used by
+            // the CPU skinner) has rawPos.  When the skinner overwrites the
+            // VBO every frame, vertices would jump to a different position,
+            // making the model invisible.
+            if (!identityTf && !isSkinned) {
               [x, y, z] = txPos(tf, x, y, z);
             }
             verts.push(x, y, z);
@@ -2980,7 +3029,7 @@ void main() {
             if (normData) {
               const ni = (normOffset / 4) + i * normStride;
               let nx = normData[ni], ny = normData[ni + 1], nz = normData[ni + 2];
-              if (!identityTf) {
+              if (!identityTf && !isSkinned) {
                 [nx, ny, nz] = txNrm(tf, nx, ny, nz);
               }
               verts.push(nx, ny, nz);
