@@ -1288,7 +1288,6 @@ void main() {
       return ((t ^ t >>> 14) >>> 0) / 4294967296;
     }
   }
-
   private createMesh(verts: number[], indices: number[], texture: WebGLTexture | null = null): CityMesh {
     const gl = this.gl;
     const vao = gl.createVertexArray()!;
@@ -1361,7 +1360,7 @@ void main() {
 
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bufferData(gl.ARRAY_BUFFER, interleaved, gl.STATIC_DRAW);
-    
+
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
 
     const useUint32 = maxIndex > 0xffff;
@@ -1394,13 +1393,17 @@ void main() {
     }
 
     gl.bindVertexArray(null);
+ 
+    const originalVBO = new Float32Array(interleaved);
+
     return {
       vao, vbo, ibo,
       indexCount: indices.length,
       indexType: useUint32 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT,
       texture,
-      minY: meshMinY  // <--- ADD THIS
-    }; 
+      minY: meshMinY,
+      originalVBO    
+    };
   }
 
   private computeNormalMatrix(out: Float32Array, m: Float32Array) {
