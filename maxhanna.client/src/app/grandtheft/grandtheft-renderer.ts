@@ -754,168 +754,172 @@ void main() {
 
   // CPU skinning: compute bone transforms, blend vertices, update VBO
   skinPlayerMesh(meshes: CityMesh | CityMesh[], dt: number = 0): void {
-    const skel = this;
-    if (!skel.skelBoneParents || !skel.skelBoneLocalMatrices || !skel.skelInverseBindMatrices || !skel.skelSkinRootWorld) return;
+    try {
+      const skel = this;
+      if (!skel.skelBoneParents || !skel.skelBoneLocalMatrices || !skel.skelInverseBindMatrices || !skel.skelSkinRootWorld) return;
 
-    const gl = this.gl;
-    const numBones = skel.skelBoneCount;
-    const parents = skel.skelBoneParents;
-    const invBind = skel.skelInverseBindMatrices;
-    const jointMat = skel.skelJointMatrices!;
+      const gl = this.gl;
+      const numBones = skel.skelBoneCount;
+      const parents = skel.skelBoneParents;
+      const invBind = skel.skelInverseBindMatrices;
+      const jointMat = skel.skelJointMatrices!;
 
-    // Create working copy of local matrices for animation
-    const animLocal = new Float32Array(skel.skelBoneLocalMatrices);
+      // Create working copy of local matrices for animation
+      const animLocal = new Float32Array(skel.skelBoneLocalMatrices);
 
-    // ---- Apply walk animation to animLocal (Franklin only - 66 bones) ----
-    if (this.walkSpeed > 0.1 && numBones > 63) {
-      this.applyWalkAnimation(animLocal);
-      this.walkTime += dt * Math.min(this.walkSpeed * 0.15, 2.0);
-    }
-
-    // ---- Apply arm override/punch (only if skeleton has right arm bones) ----
-    if (numBones > 35) {
-      if (this.armOverrideActive) {
-        const m33 = new Float32Array(animLocal.buffer, 33 * 16 * 4, 16);
-        quatToMat4([0, 0.7071068, 0, 0.7071068], m33);
-        m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
-
-        const m34 = new Float32Array(animLocal.buffer, 34 * 16 * 4, 16);
-        quatToMat4([0, 0, 0, 1], m34);
-        m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
-
-        const m35 = new Float32Array(animLocal.buffer, 35 * 16 * 4, 16);
-        quatToMat4([0.5, 0, 0, 0.8660254], m35);
-        m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
-      } else if (this.punchTime > 0) {
-        const t = this.punchTime / 0.3;
-        const punchAmount = t < 0.5 ? t * 2 : 2 - t * 2;
-        const extendAngle = -0.8 * punchAmount;
-
-        const m33 = new Float32Array(animLocal.buffer, 33 * 16 * 4, 16);
-        quatToMat4([Math.sin(extendAngle / 2), 0, 0, Math.cos(extendAngle / 2)], m33);
-        m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
-
-        const m34 = new Float32Array(animLocal.buffer, 34 * 16 * 4, 16);
-        quatToMat4([0, 0, 0, 1], m34);
-        m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
-
-        const m35 = new Float32Array(animLocal.buffer, 35 * 16 * 4, 16);
-        quatToMat4([0, 0, 0, 1], m35);
-        m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
+      // ---- Apply walk animation to animLocal (Franklin only - 66 bones) ----
+      if (this.walkSpeed > 0.1 && numBones > 63) {
+        this.applyWalkAnimation(animLocal);
+        this.walkTime += dt * Math.min(this.walkSpeed * 0.15, 2.0);
       }
-    }
 
-    // ---- 1. Compute bone world transforms from animLocal ----
-    for (let b = 0; b < numBones; b++) {
-      if (parents[b] < 0) {
-        mat4.multiply(
-          jointMat,
-          skel.skelSkinRootWorld,
-          new Float32Array(animLocal.buffer, b * 16 * 4, 16)
-        );
+      // ---- Apply arm override/punch (only if skeleton has right arm bones) ----
+      if (numBones > 35) {
+        if (this.armOverrideActive) {
+          const m33 = new Float32Array(animLocal.buffer, 33 * 16 * 4, 16);
+          quatToMat4([0, 0.7071068, 0, 0.7071068], m33);
+          m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
+
+          const m34 = new Float32Array(animLocal.buffer, 34 * 16 * 4, 16);
+          quatToMat4([0, 0, 0, 1], m34);
+          m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
+
+          const m35 = new Float32Array(animLocal.buffer, 35 * 16 * 4, 16);
+          quatToMat4([0.5, 0, 0, 0.8660254], m35);
+          m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
+        } else if (this.punchTime > 0) {
+          const t = this.punchTime / 0.3;
+          const punchAmount = t < 0.5 ? t * 2 : 2 - t * 2;
+          const extendAngle = -0.8 * punchAmount;
+
+          const m33 = new Float32Array(animLocal.buffer, 33 * 16 * 4, 16);
+          quatToMat4([Math.sin(extendAngle / 2), 0, 0, Math.cos(extendAngle / 2)], m33);
+          m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
+
+          const m34 = new Float32Array(animLocal.buffer, 34 * 16 * 4, 16);
+          quatToMat4([0, 0, 0, 1], m34);
+          m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
+
+          const m35 = new Float32Array(animLocal.buffer, 35 * 16 * 4, 16);
+          quatToMat4([0, 0, 0, 1], m35);
+          m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
+        }
       }
-    }
-    for (let b = 0; b < numBones; b++) {
-      if (parents[b] >= 0) {
-        mat4.multiply(
-          new Float32Array(jointMat.buffer, b * 16 * 4, 16),
-          new Float32Array(jointMat.buffer, parents[b] * 16 * 4, 16),
-          new Float32Array(animLocal.buffer, b * 16 * 4, 16)
-        );
+
+      // ---- 1. Compute bone world transforms from animLocal ----
+      for (let b = 0; b < numBones; b++) {
+        if (parents[b] < 0) {
+          mat4.multiply(
+            jointMat,
+            skel.skelSkinRootWorld,
+            new Float32Array(animLocal.buffer, b * 16 * 4, 16)
+          );
+        }
       }
-    }
+      for (let b = 0; b < numBones; b++) {
+        if (parents[b] >= 0) {
+          mat4.multiply(
+            new Float32Array(jointMat.buffer, b * 16 * 4, 16),
+            new Float32Array(jointMat.buffer, parents[b] * 16 * 4, 16),
+            new Float32Array(animLocal.buffer, b * 16 * 4, 16)
+          );
+        }
+      }
 
-    // ---- 2. Compute joint matrices: jointMat[i] = world[i] * invBind[i] ----
-    const tempMat = new Float32Array(16);
-    for (let b = 0; b < numBones; b++) {
-      const wOff = b * 16;
-      const w = new Float32Array(jointMat.buffer, wOff * 4, 16);
-      const ib = new Float32Array(invBind.buffer, wOff * 4, 16);
-      mat4.multiply(tempMat, w, ib);
-      for (let i = 0; i < 16; i++) w[i] = tempMat[i];
-    }
+      // ---- 2. Compute joint matrices: jointMat[i] = world[i] * invBind[i] ----
+      const tempMat = new Float32Array(16);
+      for (let b = 0; b < numBones; b++) {
+        const wOff = b * 16;
+        const w = new Float32Array(jointMat.buffer, wOff * 4, 16);
+        const ib = new Float32Array(invBind.buffer, wOff * 4, 16);
+        mat4.multiply(tempMat, w, ib);
+        for (let i = 0; i < 16; i++) w[i] = tempMat[i];
+      }
 
-    // ---- 4. Skin each vertex, apply global transforms, upload VBO ----
-    const meshList = Array.isArray(meshes) ? meshes : [meshes];
-    for (const mesh of meshList) {
-      if (!mesh.jointIndices || !mesh.jointWeights || !mesh.restPositions || !mesh.restNormals || !mesh.vbo) continue;
-      const vCount = mesh.vertexCount || 0;
-      if (vCount === 0) continue;
+      // ---- 4. Skin each vertex, apply global transforms, upload VBO ----
+      const meshList = Array.isArray(meshes) ? meshes : [meshes];
+      for (const mesh of meshList) {
+        if (!mesh.jointIndices || !mesh.jointWeights || !mesh.restPositions || !mesh.restNormals || !mesh.vbo) continue;
+        const vCount = mesh.vertexCount || 0;
+        if (vCount === 0) continue;
 
-      // Read back existing VBO data to preserve color and UV
-      const existing = new Float32Array(vCount * 12);
-      gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vbo);
-      gl.getBufferSubData(gl.ARRAY_BUFFER, 0, existing);
+        // Read back existing VBO data to preserve color and UV
+        const existing = new Float32Array(vCount * 12);
+        gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vbo);
+        gl.getBufferSubData(gl.ARRAY_BUFFER, 0, existing);
 
-      const ji = mesh.jointIndices;
-      const jw = mesh.jointWeights;
-      const rp = mesh.restPositions;
-      const rn = mesh.restNormals;
+        const ji = mesh.jointIndices;
+        const jw = mesh.jointWeights;
+        const rp = mesh.restPositions;
+        const rn = mesh.restNormals;
 
-      const needsRotation = this.skelNeedsRotation;
-      const cosX = this.skelCosX, sinX = this.skelSinX;
-      const needsYFlip = this.skelNeedsYFlip;
-      const needsYFlipMoped = this.skelNeedsYFlipMoped;
-      const needsY90 = this.skelNeedsY90;
-      const cx = this.skelCenterX, cy = this.skelCenterY, cz = this.skelCenterZ;
-      const sf = this.skelScaleFactor;
-      const ex = this.skelExtraScale[0], ey = this.skelExtraScale[1], ez = this.skelExtraScale[2];
+        const needsRotation = this.skelNeedsRotation;
+        const cosX = this.skelCosX, sinX = this.skelSinX;
+        const needsYFlip = this.skelNeedsYFlip;
+        const needsYFlipMoped = this.skelNeedsYFlipMoped;
+        const needsY90 = this.skelNeedsY90;
+        const cx = this.skelCenterX, cy = this.skelCenterY, cz = this.skelCenterZ;
+        const sf = this.skelScaleFactor;
+        const ex = this.skelExtraScale[0], ey = this.skelExtraScale[1], ez = this.skelExtraScale[2];
 
-      for (let v = 0; v < vCount; v++) {
-        let px = 0, py = 0, pz = 0;
-        let nx = 0, ny = 0, nz = 0;
-        const rpx = rp[v * 3], rpy = rp[v * 3 + 1], rpz = rp[v * 3 + 2];
-        const rnx = rn[v * 3], rny = rn[v * 3 + 1], rnz = rn[v * 3 + 2];
+        for (let v = 0; v < vCount; v++) {
+          let px = 0, py = 0, pz = 0;
+          let nx = 0, ny = 0, nz = 0;
+          const rpx = rp[v * 3], rpy = rp[v * 3 + 1], rpz = rp[v * 3 + 2];
+          const rnx = rn[v * 3], rny = rn[v * 3 + 1], rnz = rn[v * 3 + 2];
 
-        for (let j = 0; j < 4; j++) {
-          const w = jw[v * 4 + j];
-          if (w === 0) continue;
-          const bi = ji[v * 4 + j] * 16;
-          const m00 = jointMat[bi], m01 = jointMat[bi + 1], m02 = jointMat[bi + 2], m03 = jointMat[bi + 3];
-          const m10 = jointMat[bi + 4], m11 = jointMat[bi + 5], m12 = jointMat[bi + 6], m13 = jointMat[bi + 7];
-          const m20 = jointMat[bi + 8], m21 = jointMat[bi + 9], m22 = jointMat[bi + 10], m23 = jointMat[bi + 11];
+          for (let j = 0; j < 4; j++) {
+            const w = jw[v * 4 + j];
+            if (w === 0) continue;
+            const bi = ji[v * 4 + j] * 16;
+            const m00 = jointMat[bi], m01 = jointMat[bi + 1], m02 = jointMat[bi + 2], m03 = jointMat[bi + 3];
+            const m10 = jointMat[bi + 4], m11 = jointMat[bi + 5], m12 = jointMat[bi + 6], m13 = jointMat[bi + 7];
+            const m20 = jointMat[bi + 8], m21 = jointMat[bi + 9], m22 = jointMat[bi + 10], m23 = jointMat[bi + 11];
 
-          px += w * (m00 * rpx + m01 * rpy + m02 * rpz + m03);
-          py += w * (m10 * rpx + m11 * rpy + m12 * rpz + m13);
-          pz += w * (m20 * rpx + m21 * rpy + m22 * rpz + m23);
+            px += w * (m00 * rpx + m01 * rpy + m02 * rpz + m03);
+            py += w * (m10 * rpx + m11 * rpy + m12 * rpz + m13);
+            pz += w * (m20 * rpx + m21 * rpy + m22 * rpz + m23);
 
-          nx += w * (m00 * rnx + m01 * rny + m02 * rnz);
-          ny += w * (m10 * rnx + m11 * rny + m12 * rnz);
-          nz += w * (m20 * rnx + m21 * rny + m22 * rnz);
+            nx += w * (m00 * rnx + m01 * rny + m02 * rnz);
+            ny += w * (m10 * rnx + m11 * rny + m12 * rnz);
+            nz += w * (m20 * rnx + m21 * rny + m22 * rnz);
+          }
+
+          const nlen = Math.hypot(nx, ny, nz) || 1;
+          nx /= nlen; ny /= nlen; nz /= nlen;
+
+          let fx = px, fy = py, fz = pz;
+          let fnx = nx, fny = ny, fnz = nz;
+
+          if (needsRotation) {
+            let ty = fy * cosX - fz * sinX;
+            let tz = fy * sinX + fz * cosX;
+            fy = ty; fz = tz;
+            let tny = fny * cosX - fnz * sinX;
+            let tnz = fny * sinX + fnz * cosX;
+            fny = tny; fnz = tnz;
+          }
+          if (needsYFlip) { fx = -fx; fz = -fz; fnx = -fnx; fnz = -fnz; }
+          if (needsYFlipMoped) { fx = -fx; fz = -fz; fnx = -fnx; fnz = -fnz; }
+          if (needsY90) {
+            const tx = fx; fx = fz; fz = -tx;
+            const tnx = fnx; fnx = fnz; fnz = -tnx;
+          }
+
+          const dst = v * 12;
+          existing[dst] = (fx - cx) * sf * ex;
+          existing[dst + 1] = (fy - cy) * sf * ey;
+          existing[dst + 2] = (fz - cz) * sf * ez;
+          existing[dst + 3] = fnx;
+          existing[dst + 4] = fny;
+          existing[dst + 5] = fnz;
         }
 
-        const nlen = Math.hypot(nx, ny, nz) || 1;
-        nx /= nlen; ny /= nlen; nz /= nlen;
-
-        let fx = px, fy = py, fz = pz;
-        let fnx = nx, fny = ny, fnz = nz;
-
-        if (needsRotation) {
-          let ty = fy * cosX - fz * sinX;
-          let tz = fy * sinX + fz * cosX;
-          fy = ty; fz = tz;
-          let tny = fny * cosX - fnz * sinX;
-          let tnz = fny * sinX + fnz * cosX;
-          fny = tny; fnz = tnz;
-        }
-        if (needsYFlip) { fx = -fx; fz = -fz; fnx = -fnx; fnz = -fnz; }
-        if (needsYFlipMoped) { fx = -fx; fz = -fz; fnx = -fnx; fnz = -fnz; }
-        if (needsY90) {
-          const tx = fx; fx = fz; fz = -tx;
-          const tnx = fnx; fnx = fnz; fnz = -tnx;
-        }
-
-        const dst = v * 12;
-        existing[dst] = (fx - cx) * sf * ex;
-        existing[dst + 1] = (fy - cy) * sf * ey;
-        existing[dst + 2] = (fz - cz) * sf * ez;
-        existing[dst + 3] = fnx;
-        existing[dst + 4] = fny;
-        existing[dst + 5] = fnz;
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, existing);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
       }
-
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, existing);
-      gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    } catch (e) {
+      console.error('skinPlayerMesh error', e);
     }
   }
 

@@ -359,14 +359,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/policeMan/scene.gltf', false).then(cop => {
       if (cop) this.renderer.copMesh = cop;
     });
-    
+
     this.renderer.loadGLTF('assets/grandtheft/lambo/scene.gltf').then(car => {
       if (car) this.renderer.carMeshes.push(car);
-    }); 
+    });
     this.renderer.loadGLTF('assets/grandtheft/hilux/scene.gltf').then(car => {
       if (car) this.renderer.carMeshes.push(car);
     });
-     
+
     this.renderer.loadGLTF('assets/grandtheft/pizzaMoped/scene.gltf').then(moto => {
       if (moto) this.renderer.motorcycleMeshes.push(moto);
     });
@@ -2707,50 +2707,54 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.punchTime = this.punchTimer;
     if (this.punchTimer > 0) this.punchTimer = Math.max(0, this.punchTimer - dt);
 
-    this.renderer.render(
-      camX, camY, camZ, this.camYaw, this.camPitch, aspect,
-      targetX, this.carY - CAR_HEIGHT + rockOffset, targetZ, this.carYaw,
-      allNPCs, this.otherPlayers, allPeds, this.parkedCars,
-      this.tracers, this.muzzleFlashes, this.rockets, this.explosions, this.bloodSplats,
-      this.bloodPools,
-      this.moneyStacks,
-      this.deadBodies,
-      this.vendingMachines,
-      renderMesh,
-      this.taxiMarkers,
-      // NEW: Assemble driver + passenger + taxi-attached meshes. The
-      // renderer iterates these and draws each at targetX/Y/Z + a
-      // yaw-rotated offset (renderer lines ~1735-1747), so the passenger
-      // rides along in the front seat for free.
-      (() => {
-        const attached: any[] = [];
-        if (this.driverInCarMesh) attached.push(this.driverInCarMesh);
-        if (this.passenger) {
-          attached.push({
-            mesh: this.passenger.mesh,
-            offsetX: this.passenger.offsetX,
-            offsetY: this.passenger.offsetY,
-            offsetZ: this.passenger.offsetZ,
-            yaw: this.passenger.yaw,
-            scale: this.passenger.scale,
-          });
-        }
-        if (this.currentWeapon === 1 && this.renderer.coltMesh) {
-          attached.push({
-            mesh: this.renderer.coltMesh,
-            offsetX: 0.2,
-            offsetY: -0.1,
-            offsetZ: 0.5,
-            yaw: Math.PI / 2,
-            scale: 0.8,
-          });
-        }
-        attached.push(...this.taxiAttachedMeshes);
-        return attached;
-      })(),
-      this.trafficNodes,
-      this.viewDistance
-    );
+    try {
+      this.renderer.render(
+        camX, camY, camZ, this.camYaw, this.camPitch, aspect,
+        targetX, this.carY - CAR_HEIGHT + rockOffset, targetZ, this.carYaw,
+        allNPCs, this.otherPlayers, allPeds, this.parkedCars,
+        this.tracers, this.muzzleFlashes, this.rockets, this.explosions, this.bloodSplats,
+        this.bloodPools,
+        this.moneyStacks,
+        this.deadBodies,
+        this.vendingMachines,
+        renderMesh,
+        this.taxiMarkers,
+        // NEW: Assemble driver + passenger + taxi-attached meshes. The
+        // renderer iterates these and draws each at targetX/Y/Z + a
+        // yaw-rotated offset (renderer lines ~1735-1747), so the passenger
+        // rides along in the front seat for free.
+        (() => {
+          const attached: any[] = [];
+          if (this.driverInCarMesh) attached.push(this.driverInCarMesh);
+          if (this.passenger) {
+            attached.push({
+              mesh: this.passenger.mesh,
+              offsetX: this.passenger.offsetX,
+              offsetY: this.passenger.offsetY,
+              offsetZ: this.passenger.offsetZ,
+              yaw: this.passenger.yaw,
+              scale: this.passenger.scale,
+            });
+          }
+          if (this.currentWeapon === 1 && this.renderer.coltMesh) {
+            attached.push({
+              mesh: this.renderer.coltMesh,
+              offsetX: 0.2,
+              offsetY: -0.1,
+              offsetZ: 0.5,
+              yaw: Math.PI / 2,
+              scale: 0.8,
+            });
+          }
+          attached.push(...this.taxiAttachedMeshes);
+          return attached;
+        })(),
+        this.trafficNodes,
+        this.viewDistance
+      );
+    } catch (e) {
+      console.error('render error', e);
+    }
 
     this.hudSpeed = Math.abs(this.carSpeed) * (this.isInCar ? 3.6 : 1);
     this.animFrameId = requestAnimationFrame(this.gameLoop);
@@ -3301,7 +3305,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const dist = Math.sqrt(closestDistSq);
     const vol = Math.max(0, Math.min(1, 1 - dist / MAX_SIREN_DIST));
     if (vol > 0.01) {
-      if (siren.paused) { siren.volume = 0; siren.play().catch(() => {}); }
+      if (siren.paused) { siren.volume = 0; siren.play().catch(() => { }); }
       siren.volume = vol * 0.5;
     } else {
       if (!siren.paused) { siren.pause(); siren.currentTime = 0; }
