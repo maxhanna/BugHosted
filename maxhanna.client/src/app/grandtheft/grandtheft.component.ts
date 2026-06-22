@@ -341,7 +341,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     this.renderer = new GrandTheftRenderer(canvas);
-    this.renderer.initPlayerModel('assets/grandtheft/franklin/scene.gltf', false);
+    this.renderer.initPlayerModel('assets/grandtheft/franklin/scene.gltf', true);
     this.renderer.loadGLTF('assets/grandtheft/citylight/scene.gltf').then(lamps => {
       if (lamps) this.renderer.lampMesh = lamps;
     });
