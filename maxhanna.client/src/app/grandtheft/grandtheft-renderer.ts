@@ -2404,6 +2404,8 @@ void main() {
       let nodeToBoneIdx: Map<number, number> | null = null;
       let skeletonRootNodeIdx = -1;
       let skinRootWorld: Float32Array | null = null;
+      // FIX: Move rootBoneWorld declaration here so it's in scope for the bounding box calculation later
+      let rootBoneWorld: Float32Array | null = null;
 
       if (json.skins && json.skins.length > 0) {
         const skin = json.skins[0];
@@ -2481,7 +2483,6 @@ void main() {
 
         // FIX: Compute the root bone's world transform so we can compute the bounding box
         // in the skeleton's world space, not the mesh node's local space.
-        let rootBoneWorld: Float32Array | null = null;
         let rootBoneIdx = -1;
         for (let b = 0; b < numBones; b++) {
           if (parents[b] < 0) { rootBoneIdx = b; break; }
