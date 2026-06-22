@@ -2751,14 +2751,18 @@ void main() {
         isSkinnedModel = true;
 
         // Store skeleton data on renderer for later CPU skinning
-        this.skelBoneParents = parents;
-        this.skelBoneLocalMatrices = boneLocalTf;
-        this.skelInverseBindMatrices = inverseBindMatrices;
-        this.skelBoneCount = numBones;
-        this.skelNodeToBoneIdx = nodeToBoneIdx;
-        this.skelJointMatrices = new Float32Array(numBones * 16);
-        this.skelSkinRootWorld = skinRootWorld ? new Float32Array(skinRootWorld) : null;
-        this.skelIsReady = false;
+        // Only store the FIRST loaded skeleton (Franklin/player) — NPCs (33/26 bones)
+        // must not overwrite the player's 66-bone skeleton data.
+        if (this.skelBoneCount === 0) {
+          this.skelBoneParents = parents;
+          this.skelBoneLocalMatrices = boneLocalTf;
+          this.skelInverseBindMatrices = inverseBindMatrices;
+          this.skelBoneCount = numBones;
+          this.skelNodeToBoneIdx = nodeToBoneIdx;
+          this.skelJointMatrices = new Float32Array(numBones * 16);
+          this.skelSkinRootWorld = skinRootWorld ? new Float32Array(skinRootWorld) : null;
+          this.skelIsReady = false;
+        }
 
         // Compute bind-pose world transforms for each bone
         this.skelBindWorldMatrices = new Float32Array(numBones * 16);
