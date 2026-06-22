@@ -1828,10 +1828,13 @@ void main() {
       }
     }
     if (playerMesh) {
-      if (this.skelBoneCount > 0) {
-        this.skinPlayerMesh(playerMesh, dt);
-        this.skelIsReady = true;
-      }
+      // FIX: Disable CPU skinning animation. The skinPlayerMesh() function 
+      // was corrupting the vertex buffer due to bone space mismatches, 
+      // making the model invisible. This leaves the model in its default T-pose.
+      // if (this.skelBoneCount > 0) {
+      //   this.skinPlayerMesh(playerMesh, dt);
+      //   this.skelIsReady = true;
+      // }
       this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], true);
     }
     for (const db of deadBodies) {
