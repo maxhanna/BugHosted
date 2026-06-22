@@ -197,10 +197,6 @@ export class FileUploadComponent implements AfterViewInit {
     } catch (ex) {
       console.log(ex);
       this.userNotificationEvent.emit((ex as Error).message);
-    } finally {
-      if (this.inputtedParentRef) { 
-        this.inputtedParentRef.preventShowSecurityPopup = false;
-      }
     }
   }
 
@@ -247,11 +243,11 @@ export class FileUploadComponent implements AfterViewInit {
       this.uploadFileList = [];
       this.uploadedFileList = [];
       this.fileInput.nativeElement.value = '';
-      this.displayListContainer = false;
-
+      this.displayListContainer = false; 
       this.fileUploadTopics = [];
-  this.duplicateFileNames = [];
+      this.duplicateFileNames = [];
       if (this.inputtedParentRef) {
+        this.inputtedParentRef.preventShowSecurityPopup = false;
         this.inputtedParentRef.closeOverlay();
       }
     }
