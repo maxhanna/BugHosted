@@ -8,8 +8,8 @@ import { User } from '../../services/datacontracts/user/user';
 const CHUNK_SIZE = 80;
 const CAR_HEIGHT = 0.4;
 
-const WEAPON_NAMES = ['Pistol', 'Rifle', 'Shotgun', 'Rocket Launcher'];
-const WEAPON_COOLDOWNS = [300, 150, 800, 1500];
+const WEAPON_NAMES = ['Unarmed', 'Pistol', 'Rifle', 'Shotgun', 'Rocket Launcher'];
+const WEAPON_COOLDOWNS = [400, 300, 150, 800, 1500];
 
 const HOSPITAL_X = 40;
 const HOSPITAL_Z = 40;
@@ -36,7 +36,7 @@ const GARAGE_DOOR_OPEN_SPEED = 3; // units per second
 const VENDING_MACHINE_INTERVAL = 10;
 const VENDING_MACHINE_HEAL_DIST = 4;
 const VENDING_MACHINE_OFFSET = 12;
-const WEAPON_DAMAGES = [15, 25, 8, 100];
+const WEAPON_DAMAGES = [10, 15, 25, 8, 100];
 const PLAYER_POLL_FAST_MS = 200;
 const PLAYER_POLL_SLOW_MS = 1000;
 const ENTER_CAR_DIST = 4;
@@ -291,6 +291,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   playerVehicleColor: [number, number, number] = [1, 1, 1];
 
   currentWeapon = 0;
+  private punchTimer = 0;
   health = 100;
   wantedLevel = 0;
   lastShootTime = 0;
@@ -1740,15 +1741,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const originY = this.carY + (this.isInCar ? 0.5 : 1.2);
     const originZ = this.carZ;
 
-    if (this.currentWeapon === 3) { // Rocket
+    if (this.currentWeapon === 0) { // Unarmed – punch
+      this.punchTimer = 0.3;
+      this.checkBulletHit(originX, originY, originZ, dirX, dirY, dirZ, 3);
+    } else if (this.currentWeapon === 4) { // Rocket
       this.rockets.push({ x: originX, y: originY, z: originZ, vx: dirX * 40, vy: dirY * 40, vz: dirZ * 40, age: 0, lifetime: 3 });
-      this.playWeaponSound(3);
+      this.playWeaponSound(4);
     } else {
-      const tracerLifetime = this.currentWeapon === 1 ? 0.15 : 0.3;
+      const tracerLifetime = this.currentWeapon === 2 ? 0.15 : 0.3;
       this.tracers.push({ originX, originY, originZ, dirX, dirY, dirZ, age: 0, lifetime: tracerLifetime });
       this.muzzleFlashes.push({ x: originX, y: originY, z: originZ, dirX, dirY, dirZ, weapon: this.currentWeapon, age: 0, lifetime: 0.08 });
 
-      if (this.currentWeapon === 2) { // Shotgun
+      if (this.currentWeapon === 3) { // Shotgun
         for (let i = 1; i < 8; i++) {
           const spread = 0.08;
           this.tracers.push({ originX, originY, originZ, dirX: dirX + (Math.random() - 0.5) * spread, dirY: dirY + (Math.random() - 0.5) * spread, dirZ: dirZ + (Math.random() - 0.5) * spread, age: 0, lifetime: 0.2 });
@@ -1789,28 +1793,26 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
    * (no re-download) but can play independently.
    */
   private playWeaponSound(weapon: number) {
+    if (weapon === 0) return; // Unarmed – no sound
     try {
       let base: HTMLAudioElement | null = null;
       let vol = 0.3;
-      if (weapon === 0) { base = this.uziSound; vol = 0.2; }    // Pistol → uzi
-      else if (weapon === 1) { base = this.uziSound; vol = 0.3; }
-      else if (weapon === 2) { base = this.uziSound; vol = 0.35; } // Shotgun → uzi
-      else if (weapon === 3) { base = this.rocketSound; vol = 0.5; }
+      if (weapon === 1) { base = this.uziSound; vol = 0.2; }    // Pistol → uzi
+      else if (weapon === 2) { base = this.uziSound; vol = 0.3; }
+      else if (weapon === 3) { base = this.uziSound; vol = 0.35; } // Shotgun → uzi
+      else if (weapon === 4) { base = this.rocketSound; vol = 0.5; }
       if (!base) {
-        // Lazy-load if not yet created
-        if (weapon === 0 || weapon === 1 || weapon === 2) { this.uziSound = new Audio('assets/grandtheft/uzi.mp3'); base = this.uziSound; }
-        else if (weapon === 3) { this.rocketSound = new Audio('assets/grandtheft/rocket.mp3'); base = this.rocketSound; }
+        if (weapon >= 1 && weapon <= 3) { this.uziSound = new Audio('assets/grandtheft/uzi.mp3'); base = this.uziSound; }
+        else if (weapon === 4) { this.rocketSound = new Audio('assets/grandtheft/rocket.mp3'); base = this.rocketSound; }
       }
       if (!base) return;
-      // Clone the audio element so overlapping shots don't cut each other.
-      // The clone shares the buffered data (no re-fetch) but plays independently.
       const clone = base.cloneNode(true) as HTMLAudioElement;
       clone.volume = vol * this.sfxVolume;
       clone.play().catch(() => { /* ignore autoplay errors */ });
     } catch (e) { /* ignore audio errors */ }
   }
 
-  private checkBulletHit(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number) {
+  private checkBulletHit(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxRange: number = 50) {
     const checkTargets = (list: any[], isPlayer: boolean) => {
       for (const t of list) {
         const tx = t.posX || t.x;
@@ -1819,7 +1821,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
         const vx = tx - ox, vy = ty - oy, vz = tz - oz;
         const proj = vx * dx + vy * dy + vz * dz;
-        if (proj < 0 || proj > 50) continue;
+        if (proj < 0 || proj > maxRange) continue;
 
         const closestX = ox + dx * proj, closestY = oy + dy * proj, closestZ = oz + dz * proj;
         const distSq = (tx - closestX) ** 2 + (ty - closestY) ** 2 + (tz - closestZ) ** 2;
@@ -2699,7 +2701,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.garageDoorOpenness = this.garageDoorOpenness;
     this.renderer.garageCarMesh = this.garageCarMesh;
     // Activate arm bone override when pistol is equipped
-    this.renderer.armOverrideActive = this.currentWeapon === 0;
+    this.renderer.armOverrideActive = this.currentWeapon === 1;
+    // Feed walk animation state to renderer
+    this.renderer.walkSpeed = this.isInCar ? 0 : this.carSpeed;
+    this.renderer.punchTime = this.punchTimer;
+    if (this.punchTimer > 0) this.punchTimer = Math.max(0, this.punchTimer - dt);
 
     this.renderer.render(
       camX, camY, camZ, this.camYaw, this.camPitch, aspect,
@@ -2729,7 +2735,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             scale: this.passenger.scale,
           });
         }
-        if (this.currentWeapon === 0 && this.renderer.coltMesh) {
+        if (this.currentWeapon === 1 && this.renderer.coltMesh) {
           attached.push({
             mesh: this.renderer.coltMesh,
             offsetX: 0.2,

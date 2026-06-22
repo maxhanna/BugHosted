@@ -385,6 +385,10 @@ export class GrandTheftRenderer {
   public skelExtraScale: [number, number, number] = [1, 1, 1];
   // Per-frame arm override when pistol is equipped
   public armOverrideActive = false;
+  // Walk animation state
+  public walkSpeed = 0;
+  public walkTime = 0;
+  public punchTime = 0;
 
   private timeOfDay = 0.3;
   private lastFrameTime = 0;
@@ -749,46 +753,78 @@ void main() {
   }
 
   // CPU skinning: compute bone transforms, blend vertices, update VBO
-  skinPlayerMesh(meshes: CityMesh | CityMesh[]): void {
+  skinPlayerMesh(meshes: CityMesh | CityMesh[], dt: number = 0): void {
     const skel = this;
     if (!skel.skelBoneParents || !skel.skelBoneLocalMatrices || !skel.skelInverseBindMatrices || !skel.skelSkinRootWorld) return;
 
     const gl = this.gl;
     const numBones = skel.skelBoneCount;
     const parents = skel.skelBoneParents;
-    const localMat = skel.skelBoneLocalMatrices;
     const invBind = skel.skelInverseBindMatrices;
     const jointMat = skel.skelJointMatrices!;
 
-    // ---- 1. Compute bone world transforms ----
-    // First pass: root bones (parent < 0) use skin root world
+    // Create working copy of local matrices for animation
+    const animLocal = new Float32Array(skel.skelBoneLocalMatrices);
+
+    // ---- Apply walk animation to animLocal ----
+    if (this.walkSpeed > 0.1) {
+      this.applyWalkAnimation(animLocal, numBones);
+      this.walkTime += dt * Math.min(this.walkSpeed * 0.15, 2.0);
+    }
+
+    // ---- Apply arm override to animLocal if active (overwrites walk arm swing) ----
+    if (this.armOverrideActive) {
+      const m33 = new Float32Array(animLocal.buffer, 33 * 16 * 4, 16);
+      quatToMat4([0, 0.7071068, 0, 0.7071068], m33);
+      m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
+
+      const m34 = new Float32Array(animLocal.buffer, 34 * 16 * 4, 16);
+      quatToMat4([0, 0, 0, 1], m34);
+      m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
+
+      const m35 = new Float32Array(animLocal.buffer, 35 * 16 * 4, 16);
+      quatToMat4([0.5, 0, 0, 0.8660254], m35);
+      m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
+    } else if (this.punchTime > 0) {
+      // Punch animation: extend right arm forward, retract
+      const t = this.punchTime / 0.3;
+      const punchAmount = t < 0.5 ? t * 2 : 2 - t * 2;
+      const extendAngle = -0.8 * punchAmount;
+
+      const m33 = new Float32Array(animLocal.buffer, 33 * 16 * 4, 16);
+      quatToMat4([Math.sin(extendAngle / 2), 0, 0, Math.cos(extendAngle / 2)], m33);
+      m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
+
+      const m34 = new Float32Array(animLocal.buffer, 34 * 16 * 4, 16);
+      quatToMat4([0, 0, 0, 1], m34);
+      m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
+
+      const m35 = new Float32Array(animLocal.buffer, 35 * 16 * 4, 16);
+      quatToMat4([0, 0, 0, 1], m35);
+      m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
+    }
+
+    // ---- 1. Compute bone world transforms from animLocal ----
     for (let b = 0; b < numBones; b++) {
       if (parents[b] < 0) {
-        const offset = b * 16;
         mat4.multiply(
-          jointMat, // temporarily store world here
+          jointMat,
           skel.skelSkinRootWorld,
-          new Float32Array(localMat.buffer, offset * 4, 16)
+          new Float32Array(animLocal.buffer, b * 16 * 4, 16)
         );
       }
     }
-    // Second pass: children compute from parent
     for (let b = 0; b < numBones; b++) {
       if (parents[b] >= 0) {
-        const pIdx = parents[b];
-        const pW = new Float32Array(jointMat.buffer, pIdx * 16 * 4, 16);
-        const cL = new Float32Array(localMat.buffer, b * 16 * 4, 16);
-        const cW = new Float32Array(jointMat.buffer, b * 16 * 4, 16);
-        mat4.multiply(cW, pW, cL);
+        mat4.multiply(
+          new Float32Array(jointMat.buffer, b * 16 * 4, 16),
+          new Float32Array(jointMat.buffer, parents[b] * 16 * 4, 16),
+          new Float32Array(animLocal.buffer, b * 16 * 4, 16)
+        );
       }
     }
 
-    // ---- 2. Apply arm override if active (uses a copy of localMat to avoid permanent mutation) ----
-    if (this.armOverrideActive) {
-      this.overrideRightArm(jointMat, localMat);
-    }
-
-    // ---- 3. Compute joint matrices: jointMat[i] = world[i] * invBind[i] ----
+    // ---- 2. Compute joint matrices: jointMat[i] = world[i] * invBind[i] ----
     const tempMat = new Float32Array(16);
     for (let b = 0; b < numBones; b++) {
       const wOff = b * 16;
@@ -882,50 +918,51 @@ void main() {
     }
   }
 
-  // Override right arm bones for pistol aiming pose (uses a copy of localMat, never mutates original)
-  private overrideRightArm(jointMat: Float32Array, localMat: Float32Array): void {
-    const numBones = this.skelBoneCount;
-    const parents = this.skelBoneParents!;
+  // Apply procedural walk cycle to a copy of local bone matrices
+  private applyWalkAnimation(animLocal: Float32Array, numBones: number): void {
+    const t = this.walkTime;
+    // Bone indices for the mixamorig skeleton
+    const HIPS = 1, LEFT_ARM = 9, LEFT_FOREARM = 10, RIGHT_ARM = 33, RIGHT_FOREARM = 34;
+    const LEFT_THIGH = 56, LEFT_KNEE = 57, LEFT_FOOT = 58;
+    const RIGHT_THIGH = 61, RIGHT_KNEE = 62, RIGHT_FOOT = 63;
+    const LEG_SWING = 0.5, KNEE_BEND = 0.3, ARM_SWING = 0.4, ELBOW_BEND = 0.15, HIP_BOB = 0.08;
+    const leftPhase = t, rightPhase = t + Math.PI;
+    const temp = new Float32Array(16), rot = new Float32Array(16);
 
-    // Copy localMat and override arm bones in the copy
-    const overrideLocal = new Float32Array(localMat);
+    const applyRotX = (bone: number, angle: number) => {
+      const m = new Float32Array(animLocal.buffer, bone * 16 * 4, 16);
+      mat4.identity(rot); mat4.rotateX(rot, rot, angle);
+      mat4.multiply(temp, m, rot);
+      for (let i = 0; i < 16; i++) m[i] = temp[i];
+    };
 
-    // Bone 33 = RightArm: rotate ~90° around Y (from -X side toward +Z forward)
-    const m33 = new Float32Array(overrideLocal.buffer, 33 * 16 * 4, 16);
-    quatToMat4([0, 0.7071068, 0, 0.7071068], m33);
-    m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
+    // Left leg
+    applyRotX(LEFT_THIGH, Math.sin(leftPhase) * LEG_SWING);
+    applyRotX(LEFT_KNEE, Math.abs(Math.sin(leftPhase)) * -KNEE_BEND);
 
-    // Bone 34 = RightForeArm: identity (straight)
-    const m34 = new Float32Array(overrideLocal.buffer, 34 * 16 * 4, 16);
-    quatToMat4([0, 0, 0, 1], m34);
-    m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
+    // Right leg
+    applyRotX(RIGHT_THIGH, Math.sin(rightPhase) * LEG_SWING);
+    applyRotX(RIGHT_KNEE, Math.abs(Math.sin(rightPhase)) * -KNEE_BEND);
 
-    // Bone 35 = RightHand: tilt ~60° around X for pistol grip
-    const m35 = new Float32Array(overrideLocal.buffer, 35 * 16 * 4, 16);
-    quatToMat4([0.5, 0, 0, 0.8660254], m35);
-    m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
-
-    // Recompute world transforms from overrideLocal for all bones
-    // (must recompute from root because the override affects the chain)
-    for (let b = 0; b < numBones; b++) {
-      if (parents[b] < 0) {
-        const offset = b * 16;
-        mat4.multiply(
-          new Float32Array(jointMat.buffer, offset * 4, 16),
-          this.skelSkinRootWorld!,
-          new Float32Array(overrideLocal.buffer, offset * 4, 16)
-        );
-      }
+    // Arms swing opposite to legs (skip right arm if arm override or punch active)
+    if (!this.armOverrideActive && this.punchTime <= 0) {
+      applyRotX(LEFT_ARM, Math.sin(leftPhase + Math.PI) * ARM_SWING);
+      applyRotX(LEFT_FOREARM, Math.abs(Math.sin(leftPhase + Math.PI)) * -ELBOW_BEND);
+      applyRotX(RIGHT_ARM, Math.sin(rightPhase + Math.PI) * ARM_SWING);
+      applyRotX(RIGHT_FOREARM, Math.abs(Math.sin(rightPhase + Math.PI)) * -ELBOW_BEND);
+    } else {
+      // Left arm still swings when override is active on right
+      applyRotX(LEFT_ARM, Math.sin(leftPhase + Math.PI) * ARM_SWING);
+      applyRotX(LEFT_FOREARM, Math.abs(Math.sin(leftPhase + Math.PI)) * -ELBOW_BEND);
     }
-    for (let b = 0; b < numBones; b++) {
-      if (parents[b] >= 0) {
-        mat4.multiply(
-          new Float32Array(jointMat.buffer, b * 16 * 4, 16),
-          new Float32Array(jointMat.buffer, parents[b] * 16 * 4, 16),
-          new Float32Array(overrideLocal.buffer, b * 16 * 4, 16)
-        );
-      }
-    }
+
+    // Hip vertical bob
+    const hips = new Float32Array(animLocal.buffer, HIPS * 16 * 4, 16);
+    hips[13] += Math.abs(Math.sin(t)) * -HIP_BOB;
+    // Hip slight yaw twist
+    mat4.identity(rot); mat4.rotateY(rot, rot, Math.sin(t) * 0.05);
+    mat4.multiply(temp, hips, rot);
+    for (let i = 0; i < 16; i++) hips[i] = temp[i];
   }
 
   resize(w: number, h: number) {
@@ -1892,7 +1929,7 @@ void main() {
     }
     if (playerMesh) {
       if (this.skelBoneCount > 0) {
-        this.skinPlayerMesh(playerMesh);
+        this.skinPlayerMesh(playerMesh, dt);
         this.skelIsReady = true;
       }
       this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], true);
