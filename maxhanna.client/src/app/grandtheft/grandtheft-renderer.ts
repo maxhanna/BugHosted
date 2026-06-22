@@ -1,4 +1,5 @@
 ﻿export interface CityMesh {
+  originalVBO?: Float32Array;
   vao: WebGLVertexArrayObject;
   vbo: WebGLBuffer;
   ibo: WebGLBuffer;
@@ -937,10 +938,6 @@ void main() {
       );
     }
   }
-  /**
- * CPU-skin a mesh using the given joint matrices. Writes new positions/normals
- * into the mesh's VBO. Mirrors the math in skinPlayerMesh() but is generic.
- */
   skinMeshGeneric(
     meshes: CityMesh[],
     skeleton: { boneCount: number },
@@ -949,11 +946,15 @@ void main() {
     const gl = this.gl;
     for (const mesh of meshes) {
       if (!mesh.restPositions || !mesh.jointIndices || !mesh.jointWeights || !mesh.vertexCount) continue;
+      if (!mesh.originalVBO) continue;   // can't skin safely without bind-pose snapshot
+
       const vCount = mesh.vertexCount;
-      const newVerts = new Float32Array(vCount * 3);
-      const newNorm = mesh.restNormals ? new Float32Array(vCount * 3) : null;
+      const newData = new Float32Array(mesh.originalVBO);   // fresh copy of bind-pose
+
       for (let i = 0; i < vCount; i++) {
-        const px = mesh.restPositions[i * 3], py = mesh.restPositions[i * 3 + 1], pz = mesh.restPositions[i * 3 + 2];
+        const px = mesh.restPositions[i * 3];
+        const py = mesh.restPositions[i * 3 + 1];
+        const pz = mesh.restPositions[i * 3 + 2];
         let sx = 0, sy = 0, sz = 0;
         const j = mesh.jointIndices.subarray(i * 4, i * 4 + 4);
         const w = mesh.jointWeights.subarray(i * 4, i * 4 + 4);
@@ -964,9 +965,14 @@ void main() {
           sy += (m[1] * px + m[5] * py + m[9] * pz + m[13]) * w[k];
           sz += (m[2] * px + m[6] * py + m[10] * pz + m[14]) * w[k];
         }
-        newVerts[i * 3] = sx; newVerts[i * 3 + 1] = sy; newVerts[i * 3 + 2] = sz;
-        if (newNorm && mesh.restNormals) {
-          const nx = mesh.restNormals[i * 3], ny = mesh.restNormals[i * 3 + 1], nz = mesh.restNormals[i * 3 + 2];
+        newData[i * 12 + 0] = sx;
+        newData[i * 12 + 1] = sy;
+        newData[i * 12 + 2] = sz;
+
+        if (mesh.restNormals) {
+          const nx = mesh.restNormals[i * 3];
+          const ny = mesh.restNormals[i * 3 + 1];
+          const nz = mesh.restNormals[i * 3 + 2];
           let snx = 0, sny = 0, snz = 0;
           for (let k = 0; k < 4; k++) {
             if (w[k] <= 0) continue;
@@ -976,25 +982,14 @@ void main() {
             snz += (m[2] * nx + m[6] * ny + m[10] * nz) * w[k];
           }
           const l = Math.hypot(snx, sny, snz) || 1;
-          newNorm[i * 3] = snx / l; newNorm[i * 3 + 1] = sny / l; newNorm[i * 3 + 2] = snz / l;
+          newData[i * 12 + 3] = snx / l;
+          newData[i * 12 + 4] = sny / l;
+          newData[i * 12 + 5] = snz / l;
         }
       }
-      // Rebuild the interleaved VBO (pos3 + nrm3 + col4 + uv2 = 12 floats per vertex)
-      // Your createMesh uploads 12-float stride; re-upload positions/normals only.
+
       gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vbo);
-      const oldData = new Float32Array(vCount * 12);
-      gl.getBufferSubData(gl.ARRAY_BUFFER, 0, oldData);
-      for (let i = 0; i < vCount; i++) {
-        oldData[i * 12 + 0] = newVerts[i * 3];
-        oldData[i * 12 + 1] = newVerts[i * 3 + 1];
-        oldData[i * 12 + 2] = newVerts[i * 3 + 2];
-        if (newNorm) {
-          oldData[i * 12 + 3] = newNorm[i * 3];
-          oldData[i * 12 + 4] = newNorm[i * 3 + 1];
-          oldData[i * 12 + 5] = newNorm[i * 3 + 2];
-        }
-      }
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, oldData);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, newData);
     }
   }
   // CPU skinning: compute bone transforms, blend vertices, update VBO
@@ -1366,6 +1361,7 @@ void main() {
 
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bufferData(gl.ARRAY_BUFFER, interleaved, gl.STATIC_DRAW);
+    
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
 
     const useUint32 = maxIndex > 0xffff;
@@ -2710,6 +2706,15 @@ void main() {
     dt: number
   ): void {
     const gl = this.gl;
+    console.log('[FP RENDER]', {
+      arms: !!this.firstPersonArmsMesh,
+      armsSkel: !!this.firstPersonArmsSkeleton,
+      armsAnim: this.firstPersonArmsAnimations?.length ?? 0,
+      mark23: !!this.mark23Mesh,
+      mark23Skel: !!this.mark23Skeleton,
+      mark23Anim: this.mark23Animations?.length ?? 0,
+      weapon, 
+    });
     this._fpAnimTime += dt;
 
     gl.disable(gl.DEPTH_TEST);
@@ -2732,9 +2737,7 @@ void main() {
       const armsY = camY + fy * 0.4 - 0.3;        // drop a bit
       const armsZ = camZ + fz * 0.4 + rightZ * 0.2;
       // Face the camera direction
-      for (const m of this.firstPersonArmsMesh) {
-        this.drawMesh(this.firstPersonArmsMesh, armsX, armsY, armsZ, camYaw, [1, 1, 1], [1, 1, 1, 1]);
-      }
+      this.drawMesh(this.firstPersonArmsMesh, armsX, armsY, armsZ, camYaw, [1, 1, 1], [1, 1, 1, 1]);
     }
 
     // 2. Mark23 (pistol only)

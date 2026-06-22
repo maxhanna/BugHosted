@@ -2856,18 +2856,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               scale: this.passenger.scale,
             });
           }
-          // FIX: Third-person pistol model only. In first-person the Mark23
-          // arms system draws the weapon instead (see renderFirstPersonWeapon).
-          if (this.currentWeapon === 1 && this.renderer.coltMesh && !this.firstPerson) {
-            attached.push({
-              mesh: this.renderer.coltMesh,
-              offsetX: 0.2,
-              offsetY: -0.1,
-              offsetZ: 0.5,
-              yaw: Math.PI / 2,
-              scale: 0.8,
-            });
-          }
+        
           attached.push(...this.taxiAttachedMeshes);
           return attached;
         })(),
