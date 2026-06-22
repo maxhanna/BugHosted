@@ -2766,37 +2766,40 @@ void main() {
         }
 
         // Compute bind-pose world transforms for each bone
-        this.skelBindWorldMatrices = new Float32Array(numBones * 16);
-        for (let b = 0; b < numBones; b++) {
-          if (parents[b] < 0) {
-            mat4.multiply(
-              new Float32Array(this.skelBindWorldMatrices.buffer, b * 16 * 4, 16),
-              skinRootWorld!,
-              new Float32Array(boneLocalTf.buffer, b * 16 * 4, 16)
-            );
+        // (only for player skeleton, not NPCs)
+        if (storeSkeleton) {
+          this.skelBindWorldMatrices = new Float32Array(numBones * 16);
+          for (let b = 0; b < numBones; b++) {
+            if (parents[b] < 0) {
+              mat4.multiply(
+                new Float32Array(this.skelBindWorldMatrices.buffer, b * 16 * 4, 16),
+                skinRootWorld!,
+                new Float32Array(boneLocalTf.buffer, b * 16 * 4, 16)
+              );
+            }
           }
-        }
-        for (let b = 0; b < numBones; b++) {
-          if (parents[b] >= 0) {
-            const pIdx = parents[b];
-            mat4.multiply(
-              new Float32Array(this.skelBindWorldMatrices.buffer, b * 16 * 4, 16),
-              new Float32Array(this.skelBindWorldMatrices.buffer, pIdx * 16 * 4, 16),
-              new Float32Array(boneLocalTf.buffer, b * 16 * 4, 16)
-            );
+          for (let b = 0; b < numBones; b++) {
+            if (parents[b] >= 0) {
+              const pIdx = parents[b];
+              mat4.multiply(
+                new Float32Array(this.skelBindWorldMatrices.buffer, b * 16 * 4, 16),
+                new Float32Array(this.skelBindWorldMatrices.buffer, pIdx * 16 * 4, 16),
+                new Float32Array(boneLocalTf.buffer, b * 16 * 4, 16)
+              );
+            }
           }
-        }
 
-        // Compute bind-pose joint matrices: jointMat[b] = bindWorld[b] * inverseBind[b]
-        this.skelBindJointMatrices = new Float32Array(numBones * 16);
-        for (let b = 0; b < numBones; b++) {
-          const bindWorld = new Float32Array(this.skelBindWorldMatrices.buffer, b * 16 * 4, 16);
-          const invBind = new Float32Array(inverseBindMatrices.buffer, b * 16 * 4, 16);
-          mat4.multiply(
-            new Float32Array(this.skelBindJointMatrices.buffer, b * 16 * 4, 16),
-            bindWorld,
-            invBind
-          );
+          // Compute bind-pose joint matrices: jointMat[b] = bindWorld[b] * inverseBind[b]
+          this.skelBindJointMatrices = new Float32Array(numBones * 16);
+          for (let b = 0; b < numBones; b++) {
+            const bindWorld = new Float32Array(this.skelBindWorldMatrices.buffer, b * 16 * 4, 16);
+            const invBind = new Float32Array(inverseBindMatrices.buffer, b * 16 * 4, 16);
+            mat4.multiply(
+              new Float32Array(this.skelBindJointMatrices.buffer, b * 16 * 4, 16),
+              bindWorld,
+              invBind
+            );
+          }
         }
       }
 
@@ -3118,7 +3121,9 @@ void main() {
       const extraScale: [number, number, number] = url.includes('/bus/') ? [2, 2, 2] : [1, 1, 1];
 
       // Store skinning transform parameters for later CPU skinning
-      if (isSkinnedModel) {
+      // Only store for the PLAYER skeleton (storeSkeleton=true) so NPC
+      // models don't overwrite Franklin's center/scale/rotation.
+      if (isSkinnedModel && storeSkeleton) {
         this.skelNeedsRotation = needsRotation;
         this.skelAngleX = angleX;
         this.skelCosX = cosX;
