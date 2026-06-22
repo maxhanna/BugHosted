@@ -866,6 +866,14 @@ void main() {
             ny += w * (m10 * rnx + m11 * rny + m12 * rnz);
             nz += w * (m20 * rnx + m21 * rny + m22 * rnz);
           }
+          // FIX: Safety check — if animation produces NaN/Infinity (e.g. from
+          // bad bone indices or corrupted joint matrices), fall back to the
+          // rest position instead of corrupting the VBO with NaN vertices
+          // (which would make the mesh permanently invisible).
+          if (!isFinite(px) || !isFinite(py) || !isFinite(pz)) {
+            px = rpx; py = rpy; pz = rpz;
+            nx = rnx; ny = rny; nz = rnz;
+          }
 
           const nlen = Math.hypot(nx, ny, nz);
           if (!nlen || isNaN(nlen)) {
@@ -914,6 +922,12 @@ void main() {
     const HIPS = 1, LEFT_ARM = 9, LEFT_FOREARM = 10, RIGHT_ARM = 33, RIGHT_FOREARM = 34;
     const LEFT_THIGH = 56, LEFT_KNEE = 57, LEFT_FOOT = 58;
     const RIGHT_THIGH = 61, RIGHT_KNEE = 62, RIGHT_FOOT = 63;
+
+    // FIX: Guard against skeletons that don't have these bone indices.
+    // Applying rotations to wrong bones can severely distort or break the mesh.
+    const numBones = animLocal.length / 16;
+    if (numBones <= RIGHT_FOOT) return; // skeleton too small for walk anim
+
     const LEG_SWING = 0.5, KNEE_BEND = 0.3, ARM_SWING = 0.4, ELBOW_BEND = 0.15, HIP_BOB = 0.08;
     const leftPhase = t, rightPhase = t + Math.PI;
     const temp = new Float32Array(16), rot = new Float32Array(16);
@@ -2715,12 +2729,14 @@ void main() {
             const pi = (posOffset / 4) + i * posStride;
             let x = posData[pi], y = posData[pi + 1], z = posData[pi + 2];
 
-            // FIX: For skinned meshes, compute bounding box in the skeleton's world space
-            // (using the root bone's world transform). This ensures the scale and center
-            // match the CPU skinner's output.
-            if (isSkinned && rootBoneWorld) {
-              [x, y, z] = txPos(rootBoneWorld, x, y, z);
-            } else if (!identityTf) {
+            // AFTER (FIXED):
+            // FIX: For skinned meshes, do NOT apply rootBoneWorld to the bounding box.
+            // skinPlayerMesh() produces positions in raw restPos space (bind-pose joint
+            // matrices are identity), so the center/scale must also be computed from
+            // raw restPos. Applying rootBoneWorld here creates a space mismatch that
+            // offsets every vertex by -rootBoneWorld_translation * scaleFactor,
+            // burying the model underground.
+            if (!isSkinned && !identityTf) {
               [x, y, z] = txPos(tf, x, y, z);
             }
             verts.push(x, y, z);
