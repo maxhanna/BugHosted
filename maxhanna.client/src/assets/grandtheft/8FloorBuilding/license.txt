@@ -1,0 +1,8 @@
+Model Information:
+* title:	8 FLOOR BUILDING
+* source:	https://sketchfab.com/3d-models/8-floor-building-9a560e8f20864fd1828507bf27e82fb1
+* author:	SMK (https://sketchfab.com/Seraj.Karam)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

@@ -1,0 +1,8 @@
+Model Information:
+* title:	Low poly Hotel 2
+* source:	https://sketchfab.com/3d-models/low-poly-hotel-2-cb6de0ec6a1443da8656379227a5a834
+* author:	assetfactory (https://sketchfab.com/assetfactory)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

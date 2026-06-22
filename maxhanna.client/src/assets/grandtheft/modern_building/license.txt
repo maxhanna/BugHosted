@@ -1,0 +1,8 @@
+Model Information:
+* title:	Modern Building
+* source:	https://sketchfab.com/3d-models/modern-building-23bdeb7cb6914643a76b1840b4c88579
+* author:	Blender Studio (https://sketchfab.com/Blend_GUY)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

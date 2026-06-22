@@ -1,0 +1,8 @@
+Model Information:
+* title:	panel apartment (PlaceHolder)
+* source:	https://sketchfab.com/3d-models/panel-apartment-placeholder-648a9e4791ed49209823c4133e28b44a
+* author:	trashbinkr (https://sketchfab.com/ChristopherKR)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

@@ -72,6 +72,9 @@ export interface GTUpdatePositionResponse {
   deadBodies?: DeadBodyData[];
   evicted?: boolean;
   respawnAtHome?: boolean;
+  ownedWeapons?: any[];
+  droppedWeapons?: any[];
+  ammo?:any;
   chatMessages?: { userId: number; username: string; message: string; timestamp: string }[];
 }
 
@@ -142,9 +145,9 @@ export class GrandtheftService {
     }
   }
 
-  async hit(attackerId: number, targetId: number, worldId: number, damage: number): Promise<void> {
+  async hit(attackerId: number, targetId: number, worldId: number, damage: number, attackerX: number = 0, attackerZ: number = 0): Promise<void> {
     try {
-      await this.http.post(`${this.baseUrl}/hit`, { attackerId, targetId, worldId, damage }).toPromise();
+      await this.http.post(`${this.baseUrl}/hit`, { attackerId, targetId, worldId, damage, attackerX, attackerZ }).toPromise();
     } catch (e) {
       console.error('Error registering hit', e);
     }
@@ -174,6 +177,15 @@ export class GrandtheftService {
       return await this.http.post(`${this.baseUrl}/garage/remove`, { userId }).toPromise() ?? null;
     } catch (e) {
       console.error('Error removing garage car', e);
+      return null;
+    }
+  }
+
+  async pickup(userId: number, dropId: number): Promise<any> {
+    try {
+      return await this.http.post(`${this.baseUrl}/pickup`, { userId, dropId }).toPromise();
+    } catch (e) {
+      console.error('Error picking up weapon', e);
       return null;
     }
   }

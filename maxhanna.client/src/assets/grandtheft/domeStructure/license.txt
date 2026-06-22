@@ -1,0 +1,8 @@
+Model Information:
+* title:	Dome Structure
+* source:	https://sketchfab.com/3d-models/dome-structure-b23aed165d58491f85f4c4415fe915d6
+* author:	trashbinkr (https://sketchfab.com/ChristopherKR)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

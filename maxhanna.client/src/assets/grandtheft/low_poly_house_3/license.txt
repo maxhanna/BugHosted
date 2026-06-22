@@ -1,0 +1,8 @@
+Model Information:
+* title:	Low poly house 3
+* source:	https://sketchfab.com/3d-models/low-poly-house-3-d7d42b52319d44cf89d6d6404970cd46
+* author:	assetfactory (https://sketchfab.com/assetfactory)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

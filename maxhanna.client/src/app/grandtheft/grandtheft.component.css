@@ -50,6 +50,21 @@
   text-shadow: 0 0 12px rgba(255, 0, 0, 0.8);
 }
 
+#gt-target-health {
+  position: absolute;
+  top: calc(50% + 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 16;
+  color: #fff;
+  font-size: 14px;
+  font-weight: bold;
+  text-shadow: 0 0 4px rgba(0,0,0,0.8);
+  pointer-events: none;
+  white-space: nowrap;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
 #gt-crosshair {
   position: absolute;
   top: 50%;
@@ -273,6 +288,17 @@
   border-color: #ff9800;
   color: #fff;
   background: rgba(255, 152, 0, 0.2);
+}
+
+.weapon-slot.unowned {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.weapon-slot .ammo-count {
+  font-size: 8px;
+  color: #aaa;
+  margin-left: 2px;
 }
 
 /* Mobile controls */

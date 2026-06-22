@@ -14,10 +14,10 @@ namespace maxhanna.Server.Controllers
 		public const int GRID_PITCH = 80;
 		public const int BLOCK_SIZE = 30;
 		public const int SIDEWALK_SIZE = BLOCK_SIZE + 6; // 36
-		public const int BIOME_RADIUS_CITY = 28;
-		public const int BIOME_RADIUS_MOUNTAIN = 35;
-		public const int BIOME_RADIUS_SUBURB = 45;
-		public const int BIOME_RADIUS_BEACH = 55;
+		public const int BIOME_RADIUS_CITY = 18;
+		public const int BIOME_RADIUS_MOUNTAIN = 30;
+		public const int BIOME_RADIUS_SUBURB = 50;
+		public const int BIOME_RADIUS_BEACH = 60;
 
 		// Signed 32-bit multiply (C# equivalent of JS Math.imul)
 		private static int Imul(int a, int b)
@@ -55,7 +55,7 @@ namespace maxhanna.Server.Controllers
 
 		// Returns true if there is a building at the given world position.
 		// Replicates the frontend's per-chunk procedural building generation.
-		public static bool IsBuildingAt(float x, float z)
+		public static bool IsBuildingAt(float x, float z, float margin = 2.0f)
 		{
 			int cx = (int)Math.Floor(x / CHUNK_SIZE);
 			int cz = (int)Math.Floor(z / CHUNK_SIZE);
@@ -73,24 +73,19 @@ namespace maxhanna.Server.Controllers
 			uint state = (uint)((cx * 100003 + cz * 70001) & 0xFFFFFFFF);
 
 			bool isSuburb = biome == "suburb";
-			float buildChance = isSuburb ? 0.45f : 0.75f;
+			float buildChance = isSuburb ? 0.85f : 0.75f;
 			if (RngNext(ref state) >= buildChance) return false;
 
-			float w, d;
-			if (isSuburb)
-			{
-				w = 10f + RngNext(ref state) * 14f;
-				d = 10f + RngNext(ref state) * 14f;
-			}
-			else
-			{
-				float maxDim = BLOCK_SIZE + 6;
-				w = 14f + RngNext(ref state) * (maxDim - 14f);
-				d = 14f + RngNext(ref state) * (maxDim - 14f);
-			}
+			float maxDim = SIDEWALK_SIZE;
+			float w = isSuburb
+				? 10f + RngNext(ref state) * (maxDim - 10f)
+				: 14f + RngNext(ref state) * (maxDim - 14f);
+			float d = isSuburb
+				? 10f + RngNext(ref state) * (maxDim - 10f)
+				: 14f + RngNext(ref state) * (maxDim - 14f);
 
-			float halfW = w / 2f;
-			float halfD = d / 2f;
+			float halfW = w / 2f + margin;
+			float halfD = d / 2f + margin;
 			return Math.Abs(x - blockCenterX) < halfW && Math.Abs(z - blockCenterZ) < halfD;
 		}
 
@@ -252,6 +247,8 @@ namespace maxhanna.Server.Controllers
 		private const float COP_ORBIT_SPEED = 0.9f;
 		private static readonly ConcurrentDictionary<int, PlayerShootState> _shootingPlayers = new();
 		private static readonly ConcurrentDictionary<int, int> _playerHealth = new();
+		private static readonly ConcurrentDictionary<int, float> _playerX = new();
+		private static readonly ConcurrentDictionary<int, float> _playerZ = new();
 		private static readonly ConcurrentDictionary<int, string> _playerModelUrls = new();
 		private static readonly ConcurrentDictionary<int, double> _lastDamageTime = new();
 		private static readonly ConcurrentDictionary<int, int> _playerWantedLevels = new();
@@ -282,7 +279,32 @@ namespace maxhanna.Server.Controllers
 		// Max 100 messages; entries older than 120s are pruned on each send.
 		private static readonly ConcurrentDictionary<int, List<ChatMessageEntry>> _worldChatMessages = new();
 		private class ChatMessageEntry { public int UserId { get; set; } public string Username { get; set; } = ""; public string Message { get; set; } = ""; public DateTime Timestamp { get; set; } }
- 
+
+		// Dropped weapons system — weapons on the floor that players can pick up
+		private static readonly ConcurrentDictionary<long, DroppedWeapon> _droppedWeapons = new();
+		private static long _nextDropId = 1000000;
+		private static long GetNextDropId() => Interlocked.Increment(ref _nextDropId);
+		private class DroppedWeapon
+		{
+			public long Id { get; set; }
+			public float PosX { get; set; }
+			public float PosZ { get; set; }
+			public int WeaponType { get; set; }
+			public int Ammo { get; set; }
+			public bool IsHomeBase { get; set; }
+			public DateTime DroppedAt { get; set; }
+		}
+		// Track each player's owned weapons and ammo (indexed by weapon type 0–4)
+		// Always has weapon 0 (Unarmed) with ammo 0. Weapons 1–4 are collected.
+		private static readonly ConcurrentDictionary<int, bool[]> _playerWeapons = new();
+		private static readonly ConcurrentDictionary<int, int[]> _playerAmmo = new();
+		// Home base weapon respawn cooldowns
+		private static readonly bool[] _homeBaseWeaponCollected = new bool[5];
+		private static readonly DateTime[] _homeBaseWeaponRespawnAt = new DateTime[5];
+		private const int HOME_BASE_WEAPON_RESPAWN_SECONDS = 60;
+		private static readonly float[] HOME_BASE_WEAPON_X = { 0, 117, 120, 0, 123 };
+		private static readonly float[] HOME_BASE_WEAPON_Z = { 0, 48, 48, 0, 48 };
+
 		private static long _nextNpcId = 1;
 		private static long GetNextNpcId() => Interlocked.Increment(ref _nextNpcId);
 
@@ -329,6 +351,10 @@ namespace maxhanna.Server.Controllers
 			// traffic. The actual vehicle type is stored in Type (e.g. "car",
 			// "taxi", "motorcycle") so other players render the correct model.
 			public bool IsParked { get; set; } = false;
+			// Panic mode: when shot at, NPCs flee from the shooter
+			public DateTime? PanicUntil { get; set; } = null;
+			public float PanicFromX { get; set; } = 0f;
+			public float PanicFromZ { get; set; } = 0f;
 		}
 
 		private class DeadPlayerBody
@@ -406,6 +432,9 @@ namespace maxhanna.Server.Controllers
 
 				if (!_playerHealth.ContainsKey(req.UserId)) _playerHealth[req.UserId] = req.Health;
 				else if (req.Health > _playerHealth[req.UserId]) _playerHealth[req.UserId] = Math.Min(100, req.Health); // Allow healing
+
+				_playerX[req.UserId] = req.PosX;
+				_playerZ[req.UserId] = req.PosZ;
 
 				_playerMoney[req.UserId] = Math.Max(0, req.Money);
 				// FIX: Use the explicit IsInCar field from the request instead
@@ -603,29 +632,46 @@ namespace maxhanna.Server.Controllers
 						npc.X += sepX * 0.3f;
 						npc.Z += sepZ * 0.3f;
 
-						// Move towards target (only if not too close after separation)
-						float dx = npc.TargetX - npc.X;
-						float dz = npc.TargetZ - npc.Z;
-						float dist = (float)Math.Sqrt(dx * dx + dz * dz);
-						if (dist > 0.5f)
+						// Panic mode: flee from the shooter
+						if (npc.PanicUntil.HasValue && DateTime.UtcNow < npc.PanicUntil.Value)
 						{
-							npc.X += (dx / dist) * npc.Speed * 0.1f;
-							npc.Z += (dz / dist) * npc.Speed * 0.1f;
+							float pdx = npc.X - npc.PanicFromX;
+							float pdz = npc.Z - npc.PanicFromZ;
+							float pDist = (float)Math.Sqrt(pdx * pdx + pdz * pdz);
+							if (pDist > 0.1f)
+							{
+								float fleeSpeed = npc.Speed * 1.5f;
+								float pmx = (pdx / pDist) * fleeSpeed * 0.1f;
+								float pmz = (pdz / pDist) * fleeSpeed * 0.1f;
+								npc.X += pmx;
+								npc.Z += pmz;
+							}
 						}
 						else
 						{
-							// Set new target using road/sidewalk points
-							// (not random offsets which can be inside buildings)
-							if (npc.Type != "cop")
+							// Move towards target (only if not too close after separation)
+							float dx = npc.TargetX - npc.X;
+							float dz = npc.TargetZ - npc.Z;
+							float dist = (float)Math.Sqrt(dx * dx + dz * dz);
+							if (dist > 0.5f)
 							{
-								var pathRng = new Random();
-								float tx = npc.TargetX, tz = npc.TargetZ;
-								if (npc.Type == "ped_male" || npc.Type == "ped_female")
-									GetRandomSidewalkPointNearPlayer(npc.X, npc.Z, out tx, out tz, pathRng);
-								else
-									GetRandomRoadPointNearPlayer(npc.X, npc.Z, out tx, out tz, pathRng);
-								npc.TargetX = tx;
-								npc.TargetZ = tz;
+								npc.X += (dx / dist) * npc.Speed * 0.1f;
+								npc.Z += (dz / dist) * npc.Speed * 0.1f;
+							}
+							else
+							{
+								// Set new target using road/sidewalk points
+								if (npc.Type != "cop")
+								{
+									var pathRng = new Random();
+									float tx = npc.TargetX, tz = npc.TargetZ;
+									if (npc.Type == "ped_male" || npc.Type == "ped_female")
+										GetRandomSidewalkPointNearPlayer(npc.X, npc.Z, out tx, out tz, pathRng);
+									else
+										GetRandomRoadPointNearPlayer(npc.X, npc.Z, out tx, out tz, pathRng);
+									npc.TargetX = tx;
+									npc.TargetZ = tz;
+								}
 							}
 						}
 
@@ -664,7 +710,18 @@ namespace maxhanna.Server.Controllers
 				if (_playerHealth.TryGetValue(req.UserId, out var serverHp)) yourHealth = serverHp;
 				// FIX: Include respawnAtHome flag so the client teleports to
 				// the home base if the player was inactive for >30 minutes.
-				return Ok(new { ok = true, players, wantedLevel, evicted, yourHealth, respawnAtHome, chatMessages });
+				// Initialize weapon state for new players
+				if (!_playerWeapons.ContainsKey(req.UserId))
+					_playerWeapons[req.UserId] = new bool[5] { true, false, false, false, false };
+				if (!_playerAmmo.ContainsKey(req.UserId))
+					_playerAmmo[req.UserId] = new int[5];
+				var pwArr = _playerWeapons[req.UserId];
+				var paArr = _playerAmmo[req.UserId];
+				var dw = BuildDroppedWeapons();
+				return Ok(new { ok = true, players, wantedLevel, evicted, yourHealth, respawnAtHome, chatMessages,
+					droppedWeapons = dw,
+					ownedWeapons = pwArr,
+					ammo = paArr });
 			}
 			catch (Exception ex)
 			{
@@ -834,130 +891,180 @@ namespace maxhanna.Server.Controllers
 					const float INTERSECTION_RADIUS = 14f;
 					const float SPEED_FACTOR = 0.5f;
 
-					// Build road graph around this NPC
-					int npcCX = (int)Math.Floor(npc.X / CityLayout.CHUNK_SIZE);
-					int npcCZ = (int)Math.Floor(npc.Z / CityLayout.CHUNK_SIZE);
-					var nodes = CityLayout.GetRoadNodes(npcCX, npcCZ, 4);
-					if (nodes.Count < 2)
+					// Panic mode: flee from the shooter instead of following path
+					bool isPanicking = npc.PanicUntil.HasValue && DateTime.UtcNow < npc.PanicUntil.Value;
+					if (isPanicking)
 					{
-						// Fallback for areas with no roads — use old movement
-						float moveX = (tdx / distToTarget) * npc.Speed * SPEED_FACTOR;
-						float moveZ = (tdz / distToTarget) * npc.Speed * SPEED_FACTOR;
-						float nextX = npc.X + moveX;
-						float nextZ = npc.Z + moveZ;
-						if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
-						npc.Yaw = (float)Math.Atan2(moveX, moveZ);
+						npc.PathIndices = null;
+						float pdx = npc.X - npc.PanicFromX;
+						float pdz = npc.Z - npc.PanicFromZ;
+						float pDist = (float)Math.Sqrt(pdx * pdx + pdz * pdz);
+						if (pDist > 0.1f)
+						{
+							float fleeSpeed = npc.Speed * 1.5f;
+							float fmoveX = (pdx / pDist) * fleeSpeed * SPEED_FACTOR;
+							float fmoveZ = (pdz / pDist) * fleeSpeed * SPEED_FACTOR;
+							float fnextX = npc.X + fmoveX;
+							float fnextZ = npc.Z + fmoveZ;
+							if (!CityLayout.IsBuildingAt(fnextX, fnextZ)) { npc.X = fnextX; npc.Z = fnextZ; }
+							npc.Yaw = (float)Math.Atan2(fmoveX, fmoveZ);
+						}
 					}
 					else
 					{
-						// Find or build a path
-						if (npc.PathIndices == null || npc.PathIdx >= npc.PathIndices.Count)
+						// Build road graph around this NPC
+						int npcCX = (int)Math.Floor(npc.X / CityLayout.CHUNK_SIZE);
+						int npcCZ = (int)Math.Floor(npc.Z / CityLayout.CHUNK_SIZE);
+						var nodes = CityLayout.GetRoadNodes(npcCX, npcCZ, 4);
+						if (nodes.Count < 2)
 						{
-							// Pick a random start/end node and build a path
-							int startIdx = CityLayout.ClosestNode(nodes, npc.X, npc.Z);
-							int endIdx = rng.Next(nodes.Count);
-							if (endIdx == startIdx) endIdx = (startIdx + 1) % nodes.Count;
-							npc.PathIndices = CityLayout.FindPath(nodes, startIdx, endIdx);
-							npc.PathIdx = 0;
-							if (npc.PathIndices == null || npc.PathIndices.Count < 2)
-							{
-								npc.PathIndices = new List<int> { startIdx, (startIdx + 1) % nodes.Count };
-							}
-							// Set lane offset based on first edge direction
-							var fromN = nodes[npc.PathIndices[0]];
-							var toN = nodes[npc.PathIndices[1]];
-							var off = CityLayout.GetLaneOffset(fromN.x, fromN.z, toN.x, toN.z, true);
-							npc.LaneOffsetX = off.ox;
-							npc.LaneOffsetZ = off.oz;
-						}
-
-						int currIdx = npc.PathIndices[npc.PathIdx];
-						int nextIdx = npc.PathIdx + 1 < npc.PathIndices.Count ? npc.PathIndices[npc.PathIdx + 1] : currIdx;
-						var currNode = nodes[currIdx];
-						var nextNode = nodes[nextIdx];
-
-						float targetX = nextNode.x + npc.LaneOffsetX;
-						float targetZ = nextNode.z + npc.LaneOffsetZ;
-						float ddx2 = targetX - npc.X;
-						float ddz2 = targetZ - npc.Z;
-						float distToTarget2 = (float)Math.Sqrt(ddx2 * ddx2 + ddz2 * ddz2);
-
-						// Traffic light check at intersections
-						bool lightStop = false;
-						if (nextIdx != currIdx && distToTarget2 < INTERSECTION_RADIUS)
-						{
-							float nodeDx = nextNode.x - currNode.x;
-							float nodeDz = nextNode.z - currNode.z;
-							bool isHorizontal = Math.Abs(nodeDx) > Math.Abs(nodeDz);
-							if (CityLayout.IsLightRedForX() == isHorizontal)
-							{
-								lightStop = true;
-							}
-						}
-
-						// Obstacle check — other NPCs ahead
-						bool blocked = false;
-						for (float ahead = 2f; ahead < 8f; ahead += 2f)
-						{
-							float cx = npc.X + (float)Math.Sin(npc.Yaw) * ahead;
-							float cz = npc.Z + (float)Math.Cos(npc.Yaw) * ahead;
-							foreach (var otherKv in npcs)
-							{
-								if (otherKv.Key == kv.Key || otherKv.Value.DeadAt != null) continue;
-								float odx = otherKv.Value.X - cx;
-								float odz = otherKv.Value.Z - cz;
-								if (odx * odx + odz * odz < 9f) { blocked = true; break; }
-							}
-							if (blocked) break;
-						}
-
-						if (lightStop || blocked || npc.Stopped)
-						{
-							npc.Stopped = true;
-							npc.StopTimer += 0.016f;
-							if (npc.StopTimer > 1.5f) { npc.Stopped = false; npc.StopTimer = 0; }
+							// Fallback for areas with no roads — use old movement
+							float moveX = (tdx / distToTarget) * npc.Speed * SPEED_FACTOR;
+							float moveZ = (tdz / distToTarget) * npc.Speed * SPEED_FACTOR;
+							float nextX = npc.X + moveX;
+							float nextZ = npc.Z + moveZ;
+							if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
+							npc.Yaw = (float)Math.Atan2(moveX, moveZ);
 						}
 						else
 						{
-							npc.StopTimer = 0f;
-							if (distToTarget2 < 2.5f)
+							// Find or build a path
+							if (npc.PathIndices == null || npc.PathIdx >= npc.PathIndices.Count)
 							{
-								// Advance to next node
-								npc.PathIdx++;
-								if (npc.PathIdx >= npc.PathIndices.Count)
+								// Pick a random start/end node and build a path
+								int startIdx = CityLayout.ClosestNode(nodes, npc.X, npc.Z);
+								int endIdx = rng.Next(nodes.Count);
+								if (endIdx == startIdx) endIdx = (startIdx + 1) % nodes.Count;
+								npc.PathIndices = CityLayout.FindPath(nodes, startIdx, endIdx);
+								npc.PathIdx = 0;
+								if (npc.PathIndices == null || npc.PathIndices.Count < 2)
 								{
-									// Reached end — pick new destination
-									int newEnd = rng.Next(nodes.Count);
-									npc.PathIndices = CityLayout.FindPath(nodes, currIdx, newEnd);
-									npc.PathIdx = 0;
-									if (npc.PathIndices == null || npc.PathIndices.Count < 2)
+									npc.PathIndices = new List<int> { startIdx, (startIdx + 1) % nodes.Count };
+								}
+								// Set lane offset based on first edge direction
+								var fromN = nodes[npc.PathIndices[0]];
+								var toN = nodes[npc.PathIndices[1]];
+								var off = CityLayout.GetLaneOffset(fromN.x, fromN.z, toN.x, toN.z, true);
+								npc.LaneOffsetX = off.ox;
+								npc.LaneOffsetZ = off.oz;
+							}
+
+							int currIdx = npc.PathIndices[npc.PathIdx];
+							int nextIdx = npc.PathIdx + 1 < npc.PathIndices.Count ? npc.PathIndices[npc.PathIdx + 1] : currIdx;
+							var currNode = nodes[currIdx];
+							var nextNode = nodes[nextIdx];
+
+							float targetX = nextNode.x + npc.LaneOffsetX;
+							float targetZ = nextNode.z + npc.LaneOffsetZ;
+							float ddx2 = targetX - npc.X;
+							float ddz2 = targetZ - npc.Z;
+							float distToTarget2 = (float)Math.Sqrt(ddx2 * ddx2 + ddz2 * ddz2);
+
+							// Check overshoot: if moving away from target, auto-advance
+							bool overshot = false;
+							if (distToTarget2 > 1.0f)
+							{
+								float dotProduct = ddx2 * (float)Math.Sin(npc.Yaw) + ddz2 * (float)Math.Cos(npc.Yaw);
+								if (dotProduct < 0)
+								{
+									overshot = true;
+									npc.PathIdx++;
+									if (npc.PathIdx >= npc.PathIndices.Count)
 									{
-										npc.PathIndices = new List<int> { currIdx, (currIdx + 1) % nodes.Count };
+										npc.PathIndices = null;
 									}
-									var nn = nodes[npc.PathIndices[0]];
-									var nm = nodes[npc.PathIndices[1]];
-									var off2 = CityLayout.GetLaneOffset(nn.x, nn.z, nm.x, nm.z, true);
-									npc.LaneOffsetX = off2.ox;
-									npc.LaneOffsetZ = off2.oz;
+									else
+									{
+										var cn2 = nodes[npc.PathIndices[npc.PathIdx]];
+										var nn3 = nodes[npc.PathIndices[npc.PathIdx + 1 < npc.PathIndices.Count ? npc.PathIdx + 1 : npc.PathIdx]];
+										var off4 = CityLayout.GetLaneOffset(cn2.x, cn2.z, nn3.x, nn3.z, true);
+										npc.LaneOffsetX = off4.ox;
+										npc.LaneOffsetZ = off4.oz;
+									}
+								}
+							}
+							if (!overshot && npc.PathIndices != null)
+							{
+								distToTarget2 = (float)Math.Sqrt(ddx2 * ddx2 + ddz2 * ddz2);
+
+								// Traffic light check at intersections
+								bool lightStop = false;
+								if (nextIdx != currIdx && distToTarget2 < INTERSECTION_RADIUS)
+								{
+									float nodeDx = nextNode.x - currNode.x;
+									float nodeDz = nextNode.z - currNode.z;
+									bool isHorizontal = Math.Abs(nodeDx) > Math.Abs(nodeDz);
+									if (CityLayout.IsLightRedForX() == isHorizontal)
+									{
+										lightStop = true;
+									}
+								}
+
+								// Obstacle check — other NPCs ahead
+								bool blocked = false;
+								for (float ahead = 2f; ahead < 8f; ahead += 2f)
+								{
+									float cx = npc.X + (float)Math.Sin(npc.Yaw) * ahead;
+									float cz = npc.Z + (float)Math.Cos(npc.Yaw) * ahead;
+									foreach (var otherKv in npcs)
+									{
+										if (otherKv.Key == kv.Key || otherKv.Value.DeadAt != null) continue;
+										float odx = otherKv.Value.X - cx;
+										float odz = otherKv.Value.Z - cz;
+										if (odx * odx + odz * odz < 9f) { blocked = true; break; }
+									}
+									if (blocked) break;
+								}
+
+								if (lightStop || blocked || npc.Stopped)
+								{
+									npc.Stopped = true;
+									npc.StopTimer += 0.016f;
+									if (npc.StopTimer > 1.5f) { npc.Stopped = false; npc.StopTimer = 0; }
 								}
 								else
 								{
-									// Update lane offset for new segment
-									var cn = nodes[npc.PathIndices[npc.PathIdx]];
-									var nn2 = nodes[npc.PathIndices[npc.PathIdx + 1 < npc.PathIndices.Count ? npc.PathIdx + 1 : npc.PathIdx]];
-									var off3 = CityLayout.GetLaneOffset(cn.x, cn.z, nn2.x, nn2.z, true);
-									npc.LaneOffsetX = off3.ox;
-									npc.LaneOffsetZ = off3.oz;
+									npc.StopTimer = 0f;
+									if (distToTarget2 < 2.5f)
+									{
+										// Advance to next node
+										npc.PathIdx++;
+										if (npc.PathIdx >= npc.PathIndices.Count)
+										{
+											// Reached end — pick new destination
+											int newEnd = rng.Next(nodes.Count);
+											npc.PathIndices = CityLayout.FindPath(nodes, currIdx, newEnd);
+											npc.PathIdx = 0;
+											if (npc.PathIndices == null || npc.PathIndices.Count < 2)
+											{
+												npc.PathIndices = new List<int> { currIdx, (currIdx + 1) % nodes.Count };
+											}
+											var nn = nodes[npc.PathIndices[0]];
+											var nm = nodes[npc.PathIndices[1]];
+											var off2 = CityLayout.GetLaneOffset(nn.x, nn.z, nm.x, nm.z, true);
+											npc.LaneOffsetX = off2.ox;
+											npc.LaneOffsetZ = off2.oz;
+										}
+										else
+										{
+											// Update lane offset for new segment
+											var cn = nodes[npc.PathIndices[npc.PathIdx]];
+											var nn2 = nodes[npc.PathIndices[npc.PathIdx + 1 < npc.PathIndices.Count ? npc.PathIdx + 1 : npc.PathIdx]];
+											var off3 = CityLayout.GetLaneOffset(cn.x, cn.z, nn2.x, nn2.z, true);
+											npc.LaneOffsetX = off3.ox;
+											npc.LaneOffsetZ = off3.oz;
+										}
+									}
+									else
+									{
+										float moveX = (ddx2 / distToTarget2) * npc.Speed * SPEED_FACTOR;
+										float moveZ = (ddz2 / distToTarget2) * npc.Speed * SPEED_FACTOR;
+										float nextX = npc.X + moveX;
+										float nextZ = npc.Z + moveZ;
+										if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
+										npc.Yaw = (float)Math.Atan2(moveX, moveZ);
+									}
 								}
-							}
-							else
-							{
-								float moveX = (ddx2 / distToTarget2) * npc.Speed * SPEED_FACTOR;
-								float moveZ = (ddz2 / distToTarget2) * npc.Speed * SPEED_FACTOR;
-								float nextX = npc.X + moveX;
-								float nextZ = npc.Z + moveZ;
-								if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
-								npc.Yaw = (float)Math.Atan2(moveX, moveZ);
 							}
 						}
 					}
@@ -1304,7 +1411,35 @@ namespace maxhanna.Server.Controllers
 				nearbyPolice++;
 			}
 
-			return Ok(new { cars, pedestrians, parkedCars, deadBodies });
+			var dw = BuildDroppedWeapons();
+			return Ok(new { cars, pedestrians, parkedCars, deadBodies, droppedWeapons = dw });
+		}
+
+		private List<object> BuildDroppedWeapons()
+		{
+			var now = DateTime.UtcNow;
+			var result = new List<object>();
+			// Clean up expired regular drops (>30s old)
+			var expired = _droppedWeapons.Where(kv => (now - kv.Value.DroppedAt).TotalSeconds > 30).Select(kv => kv.Key).ToList();
+			foreach (var k in expired) _droppedWeapons.TryRemove(k, out _);
+			// Include active dropped weapons
+			foreach (var kv in _droppedWeapons)
+			{
+				result.Add(new { id = kv.Key, posX = kv.Value.PosX, posZ = kv.Value.PosZ, weaponType = kv.Value.WeaponType });
+			}
+			// Include home base weapons that are available
+			for (int i = 1; i <= 4; i++)
+			{
+				if (HOME_BASE_WEAPON_X[i] == 0) continue;
+				if (_homeBaseWeaponCollected[i] && now < _homeBaseWeaponRespawnAt[i]) continue;
+				if (_homeBaseWeaponCollected[i] && now >= _homeBaseWeaponRespawnAt[i])
+					_homeBaseWeaponCollected[i] = false;
+				if (!_homeBaseWeaponCollected[i])
+				{
+					result.Add(new { id = (long)(-i), posX = HOME_BASE_WEAPON_X[i], posZ = HOME_BASE_WEAPON_Z[i], weaponType = i });
+				}
+			}
+			return result;
 		}
 
 		private void SeedNPCs(int worldId, float posX = 0, float posZ = 0)
@@ -1568,27 +1703,87 @@ namespace maxhanna.Server.Controllers
 		{
 			if (req.TargetId <= 0) return BadRequest(new { ok = false });
 			var worldId = req.WorldId;
-			if (!_worldNpcs.ContainsKey(worldId)) return Ok(new { ok = true });
-
-			var npcs = _worldNpcs[worldId];
 			var hitAnything = false;
+			bool targetDied = false;
+			float deathX = 0, deathZ = 0;
+			int deathWeapon = 0;
 
-			foreach (var kv in npcs)
+			if (_worldNpcs.ContainsKey(worldId))
 			{
-				if (kv.Key == req.TargetId && kv.Value.Health > 0 && kv.Value.DeadAt == null)
+				var npcs = _worldNpcs[worldId];
+				foreach (var kv in npcs)
 				{
-					kv.Value.Health -= req.Damage;
-					hitAnything = true;
-					if (kv.Value.Health <= 0) kv.Value.DeadAt = DateTime.UtcNow;
-					break;
+					if (kv.Key == req.TargetId && kv.Value.Health > 0 && kv.Value.DeadAt == null)
+					{
+						kv.Value.Health -= req.Damage;
+						hitAnything = true;
+						if (kv.Value.Health <= 0)
+						{
+							kv.Value.DeadAt = DateTime.UtcNow;
+							targetDied = true;
+							deathX = kv.Value.X;
+							deathZ = kv.Value.Z;
+							// Cops always drop pistol with ammo
+							if (kv.Value.Type == "cop")
+							{
+								var drop = new DroppedWeapon { Id = GetNextDropId(), PosX = deathX, PosZ = deathZ, WeaponType = 1, Ammo = 15, DroppedAt = DateTime.UtcNow };
+								_droppedWeapons[drop.Id] = drop;
+							}
+						}
+						kv.Value.PanicUntil = DateTime.UtcNow.AddSeconds(5);
+						kv.Value.PanicFromX = req.AttackerX;
+						kv.Value.PanicFromZ = req.AttackerZ;
+						break;
+					}
+				}
+
+				// Panic nearby NPCs/peds within 15 units of the attacker position
+				{
+					float panicRadius = 15f;
+					foreach (var kv in npcs)
+					{
+						if (kv.Value.DeadAt.HasValue || kv.Value.PanicUntil.HasValue) continue;
+						float pdx = kv.Value.X - req.AttackerX;
+						float pdz = kv.Value.Z - req.AttackerZ;
+						if (pdx * pdx + pdz * pdz < panicRadius * panicRadius)
+						{
+							kv.Value.PanicUntil = DateTime.UtcNow.AddSeconds(5);
+							kv.Value.PanicFromX = req.AttackerX;
+							kv.Value.PanicFromZ = req.AttackerZ;
+						}
+					}
 				}
 			}
 
 			int playerTargetId = (int)req.TargetId;
 			if (_playerHealth.TryGetValue(playerTargetId, out var hp))
 			{
-				_playerHealth[playerTargetId] = Math.Max(0, hp - req.Damage);
+				int newHp = Math.Max(0, hp - req.Damage);
+				_playerHealth[playerTargetId] = newHp;
 				hitAnything = true;
+				if (newHp <= 0)
+				{
+					targetDied = true;
+					_playerX.TryGetValue(playerTargetId, out deathX);
+					_playerZ.TryGetValue(playerTargetId, out deathZ);
+					// Respawn home base weapons on player death
+					for (int i = 1; i <= 4; i++) _homeBaseWeaponCollected[i] = false;
+					// Drop all weapons the player had (except Unarmed)
+					if (_playerWeapons.TryGetValue(playerTargetId, out var pw))
+					{
+						var ammoArr = _playerAmmo.TryGetValue(playerTargetId, out var pa) ? pa : new int[5];
+						for (int w = 1; w <= 4; w++)
+						{
+							if (pw[w])
+							{
+								var drop = new DroppedWeapon { Id = GetNextDropId(), PosX = deathX, PosZ = deathZ, WeaponType = w, Ammo = ammoArr[w], DroppedAt = DateTime.UtcNow };
+								_droppedWeapons[drop.Id] = drop;
+							}
+						}
+					}
+					_playerWeapons[playerTargetId] = new bool[5] { true, false, false, false, false };
+					_playerAmmo[playerTargetId] = new int[5];
+				}
 			}
 
 			// Increment wanted level for attacker (if not police)
@@ -1603,6 +1798,45 @@ namespace maxhanna.Server.Controllers
 			}
 
 			return Ok(new { ok = true, hit = hitAnything, targetHealth = _playerHealth.TryGetValue(playerTargetId, out var th) ? th : 0 });
+		}
+
+		[HttpPost("pickup")]
+		public IActionResult Pickup([FromBody] GTPickupRequest req)
+		{
+			if (req.UserId <= 0) return BadRequest(new { ok = false, message = "invalid user" });
+			if (_droppedWeapons.TryRemove(req.DropId, out var drop))
+			{
+				if (!_playerWeapons.ContainsKey(req.UserId))
+					_playerWeapons[req.UserId] = new bool[5] { true, false, false, false, false };
+				if (!_playerAmmo.ContainsKey(req.UserId))
+					_playerAmmo[req.UserId] = new int[5];
+				var pw = _playerWeapons[req.UserId];
+				var pa = _playerAmmo[req.UserId];
+				pw[drop.WeaponType] = true;
+				pa[drop.WeaponType] += drop.Ammo;
+				return Ok(new { ok = true, weaponType = drop.WeaponType, ammo = pa[drop.WeaponType] });
+			}
+			// Check home base weapon pickups
+			if (drop == null && req.DropId < 0)
+			{
+				int hbIdx = (int)(-req.DropId);
+				if (hbIdx >= 1 && hbIdx <= 4 && !_homeBaseWeaponCollected[hbIdx])
+				{
+					if (!_playerWeapons.ContainsKey(req.UserId))
+						_playerWeapons[req.UserId] = new bool[5] { true, false, false, false, false };
+					if (!_playerAmmo.ContainsKey(req.UserId))
+						_playerAmmo[req.UserId] = new int[5];
+					var pw = _playerWeapons[req.UserId];
+					var pa = _playerAmmo[req.UserId];
+					int ammo = hbIdx == 1 ? 15 : hbIdx == 2 ? 30 : hbIdx == 4 ? 5 : 10;
+					pw[hbIdx] = true;
+					pa[hbIdx] += ammo;
+					_homeBaseWeaponCollected[hbIdx] = true;
+					_homeBaseWeaponRespawnAt[hbIdx] = DateTime.UtcNow.AddSeconds(HOME_BASE_WEAPON_RESPAWN_SECONDS);
+					return Ok(new { ok = true, weaponType = hbIdx, ammo = pa[hbIdx] });
+				}
+			}
+			return Ok(new { ok = false, message = "already picked up" });
 		}
 
 		private void SimulateDamage(GTUpdatePositionRequest req)
@@ -1704,10 +1938,11 @@ namespace maxhanna.Server.Controllers
 	public class GrandTheftScoreRequest { public int UserId { get; set; } public int Score { get; set; } }
 	public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string? ModelUrl { get; set; } public int Money { get; set; } = 0; public bool IsInCar { get; set; } public string? VehicleType { get; set; } public float CarColorR { get; set; } = 1f; public float CarColorG { get; set; } = 1f; public float CarColorB { get; set; } = 1f; public int PassengerOfUserId { get; set; } = 0; public string? ChatMessage { get; set; } }
 	public class GTShootRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public int Weapon { get; set; } = 0; public float OriginX { get; set; } public float OriginY { get; set; } public float OriginZ { get; set; } public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } }
-	public class GTHitRequest { public int AttackerId { get; set; } public long TargetId { get; set; } public int WorldId { get; set; } = 1; public int Damage { get; set; } = 10; }
+	public class GTHitRequest { public int AttackerId { get; set; } public long TargetId { get; set; } public int WorldId { get; set; } = 1; public int Damage { get; set; } = 10; public float AttackerX { get; set; } public float AttackerZ { get; set; } }
 	public class GTStealCarRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; }
 	public class GTParkCarRequest { public int WorldId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float ColorR { get; set; } public float ColorG { get; set; } public float ColorB { get; set; } public string? VehicleType { get; set; } }
 	public class GTGarageRequest { public int UserId { get; set; } public string? VehicleType { get; set; } public float ColorR { get; set; } = 1f; public float ColorG { get; set; } = 1f; public float ColorB { get; set; } = 1f; public float Yaw { get; set; } = 0f; }
 	public class GTGarageRemoveRequest { public int UserId { get; set; } }
 	public class PlayerShootState { public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } public int Weapon { get; set; } public DateTime LastUpdated { get; set; } }
+	public class GTPickupRequest { public int UserId { get; set; } public long DropId { get; set; } }
 }

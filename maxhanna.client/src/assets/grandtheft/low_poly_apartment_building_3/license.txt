@@ -1,0 +1,8 @@
+Model Information:
+* title:	Low poly apartment building 3
+* source:	https://sketchfab.com/3d-models/low-poly-apartment-building-3-b4a0c3ba97d243c8b734406615fc05de
+* author:	assetfactory (https://sketchfab.com/assetfactory)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

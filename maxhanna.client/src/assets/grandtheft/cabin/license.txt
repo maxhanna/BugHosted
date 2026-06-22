@@ -1,0 +1,8 @@
+Model Information:
+* title:	Cabin
+* source:	https://sketchfab.com/3d-models/cabin-53ad2bf209954d6e8ad80ecd2f2a322f
+* author:	smarteeartee (https://sketchfab.com/smarteeartee)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

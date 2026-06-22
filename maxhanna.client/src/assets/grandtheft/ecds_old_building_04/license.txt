@@ -1,0 +1,8 @@
+Model Information:
+* title:	ECDS [OLD] Building 04
+* source:	https://sketchfab.com/3d-models/ecds-old-building-04-7d576f0194cb4780b1fddacc4fcbc7c7
+* author:	kenuliy15 (https://sketchfab.com/kenuliy15)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

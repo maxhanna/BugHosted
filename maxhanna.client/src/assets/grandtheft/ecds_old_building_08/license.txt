@@ -1,0 +1,8 @@
+Model Information:
+* title:	ECDS [OLD] Building 08
+* source:	https://sketchfab.com/3d-models/ecds-old-building-08-6c0372dc2e03476bbb00df3c1a546c54
+* author:	kenuliy15 (https://sketchfab.com/kenuliy15)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

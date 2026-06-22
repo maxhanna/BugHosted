@@ -1,0 +1,8 @@
+Model Information:
+* title:	Bank Minimalist model
+* source:	https://sketchfab.com/3d-models/bank-minimalist-model-6e72f64f0fa54b2e9b1b3c0423c4e9a5
+* author:	Horizech (https://sketchfab.com/horizech)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

@@ -1,0 +1,8 @@
+Model Information:
+* title:	Low poly shopping center
+* source:	https://sketchfab.com/3d-models/low-poly-shopping-center-aac463cd39bf41caafb4e3fa7cdc6b14
+* author:	assetfactory (https://sketchfab.com/assetfactory)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

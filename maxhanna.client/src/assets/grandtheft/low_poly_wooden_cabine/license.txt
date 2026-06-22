@@ -1,0 +1,8 @@
+Model Information:
+* title:	LOW POLY WOODEN CABINE
+* source:	https://sketchfab.com/3d-models/low-poly-wooden-cabine-5cb73d080fcb4968b50c6d4b040a04e6
+* author:	POLYSCAN (https://sketchfab.com/POLYSCAN3D)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

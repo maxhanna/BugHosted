@@ -1,0 +1,8 @@
+Model Information:
+* title:	Low poly cafe
+* source:	https://sketchfab.com/3d-models/low-poly-cafe-c9ab7a69f9c94e4784c5bb085b4b07b4
+* author:	assetfactory (https://sketchfab.com/assetfactory)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

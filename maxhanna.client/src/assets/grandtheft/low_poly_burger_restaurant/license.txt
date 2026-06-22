@@ -1,0 +1,8 @@
+Model Information:
+* title:	Low poly burger restaurant
+* source:	https://sketchfab.com/3d-models/low-poly-burger-restaurant-90d7b38c42ec4ebdbd6646fe4ece9547
+* author:	assetfactory (https://sketchfab.com/assetfactory)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

@@ -291,6 +291,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   playerVehicleColor: [number, number, number] = [1, 1, 1];
 
   currentWeapon = 0;
+  ownedWeapons: boolean[] = [true, false, false, false, false];
+  ammo: number[] = [0, 0, 0, 0, 0];
+  droppedWeapons: any[] = [];
+  private pickupCooldown = 0;
   private punchTimer = 0;
   health = 100;
   wantedLevel = 0;
@@ -408,6 +412,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/trafficLight/scene.gltf').then(tl => {
       if (tl) this.renderer.trafficLightMesh = tl;
     });
+    // Load city building models
+    for (const name of GrandTheftRenderer.CITY_BUILDING_NAMES) {
+      this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`).then(m => {
+        if (m) this.renderer.cityBuildingMeshes.push(m);
+      });
+    }
+    // Load suburb building models
+    for (const name of GrandTheftRenderer.SUBURB_BUILDING_NAMES) {
+      this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`).then(m => {
+        if (m) this.renderer.suburbBuildingMeshes.push(m);
+      });
+    }
     this.isLoaded = true;
 
     if (!this.isMobile) {
@@ -1585,8 +1601,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.camPitch = 0.2;
     }
 
-    // Process incoming chat messages
-    if (res && res.chatMessages) {
+    // Process dropped weapons from server
+    if (res && res.droppedWeapons) {
+      this.droppedWeapons = res.droppedWeapons;
+    } 
+    // Process player weapon inventory from server
+    if (res && res.ownedWeapons) {
+      this.ownedWeapons = res.ownedWeapons;
+      this.ammo = res.ammo;
+    }
+
+    if (res?.chatMessages) {
+      // Process incoming chat messages
       for (const msg of res.chatMessages) {
         const key = `${msg.userId}_${msg.timestamp}`;
         if (this.knownChatTimestamps.has(key)) continue;
@@ -1597,8 +1623,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
         this.chatMessages.push(msg);
         if (this.chatMessages.length > 50) this.chatMessages.shift();
-      }
+      } 
     }
+
 
     if (res) {
       for (const p of res.players) {
@@ -1739,6 +1766,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private shoot() {
     const now = performance.now();
     if (now - this.lastShootTime < WEAPON_COOLDOWNS[this.currentWeapon]) return;
+
+    // Check ammo for non-unarmed weapons
+    if (this.currentWeapon !== 0) {
+      if (this.ammo[this.currentWeapon] <= 0) return;
+      this.ammo[this.currentWeapon]--;
+      if (this.ammo[this.currentWeapon] <= 0) {
+        this.ownedWeapons[this.currentWeapon] = false;
+        this.currentWeapon = 0;
+      }
+    }
     this.lastShootTime = now;
 
     const userId = this.getUserId();
@@ -1840,12 +1877,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (distSq < 1.0) { // Hit radius
           this.spawnBlood(tx, ty, tz, dx, dy, dz);
           if (isPlayer) {
-            this.gtService.hit(this.getUserId(), t.userId, 1, WEAPON_DAMAGES[this.currentWeapon]);
+            this.gtService.hit(this.getUserId(), t.userId, 1, WEAPON_DAMAGES[this.currentWeapon], ox, oz);
           } else {
             // Deduct locally for instant visual feedback
             t.health = (t.health ?? 100) - WEAPON_DAMAGES[this.currentWeapon];
             // Tell the server to permanently apply the damage!
-            this.gtService.hit(this.getUserId(), t.id, 1, WEAPON_DAMAGES[this.currentWeapon]);
+            this.gtService.hit(this.getUserId(), t.id, 1, WEAPON_DAMAGES[this.currentWeapon], ox, oz);
             this.score += 10;
           }
           return true;
@@ -2087,30 +2124,24 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const dmg = dmgAt(dist);
         if (dmg <= 0) continue;
         if (isPlayer) {
-          this.gtService.hit(this.getUserId(), t.userId, 1, dmg);
+          this.gtService.hit(this.getUserId(), t.userId, 1, dmg, this.carX, this.carZ);
           this.spawnBlood(tx, 1.2, tz, dx, 0, dz);
         } else if (isCar) {
           t.health = (t.health ?? 100) - dmg;
-          // FIX: Make cars jump when hit by an explosion. The closer they
-          // are to the blast, the higher they jump. This creates a visual
-          // "pop" when cars explode. We store the jump velocity on the car
-          // object and apply it in the game loop (updateVehicleCollisions
-          // or a new update step).
-          const jumpForce = (1 - dist / BLAST_RADIUS) * 8; // up to 8 m/s upward
+          const jumpForce = (1 - dist / BLAST_RADIUS) * 8;
           if (jumpForce > 0) {
             (t as any).jumpVel = Math.max((t as any).jumpVel ?? 0, jumpForce);
-            // Also push the car away from the blast center
             if (dist > 0.01) {
               const pushForce = (1 - dist / BLAST_RADIUS) * 5;
               (t as any).pushVelX = ((t as any).pushVelX ?? 0) + (dx / dist) * pushForce;
               (t as any).pushVelZ = ((t as any).pushVelZ ?? 0) + (dz / dist) * pushForce;
             }
           }
-          this.gtService.hit(this.getUserId(), t.id, 1, dmg);
+          this.gtService.hit(this.getUserId(), t.id, 1, dmg, this.carX, this.carZ);
         } else {
           t.health = (t.health ?? 100) - dmg;
           this.spawnBlood(tx, 1.0, tz, dx, 0, dz);
-          this.gtService.hit(this.getUserId(), t.id, 1, dmg);
+          this.gtService.hit(this.getUserId(), t.id, 1, dmg, this.carX, this.carZ);
         }
       }
     };
@@ -2137,12 +2168,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const passThrough = Math.round(selfDmg * 0.4);
         if (passThrough > 0) {
           this.health = Math.max(0, this.health - passThrough);
-          this.gtService.hit(this.getUserId(), this.getUserId(), 1, passThrough);
+          this.gtService.hit(this.getUserId(), this.getUserId(), 1, passThrough, this.carX, this.carZ);
           this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, selfDx, 0, selfDz);
         }
       } else {
         this.health = Math.max(0, this.health - selfDmg);
-        this.gtService.hit(this.getUserId(), this.getUserId(), 1, selfDmg);
+        this.gtService.hit(this.getUserId(), this.getUserId(), 1, selfDmg, this.carX, this.carZ);
         this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, selfDx, 0, selfDz);
       }
     }
@@ -2707,6 +2738,29 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     // NEW: Apply car-rocking offset (hooker service) to the render Y.
     const rockOffset = this.getCarRockOffset();
+
+    // Weapon pickup collision
+    if (this.pickupCooldown > 0) this.pickupCooldown -= dt;
+    if (this.pickupCooldown <= 0 && this.droppedWeapons) {
+      for (const dw of this.droppedWeapons) {
+        const dx = this.carX - dw.posX;
+        const dz = this.carZ - dw.posZ;
+        if (dx * dx + dz * dz < 2.0) {
+          this.pickupCooldown = 0.5;
+          this.gtService.pickup(this.getUserId(), dw.id).then(r => {
+            if (r && r.ok) {
+              this.ownedWeapons[r.weaponType] = true;
+              this.ammo[r.weaponType] = r.ammo;
+              this.currentWeapon = r.weaponType;
+              this.droppedWeapons = this.droppedWeapons.filter(x => x.id !== dw.id);
+            }
+          });
+          break;
+        }
+      }
+    }
+    // Sync dropped weapons to renderer for drawing
+    this.renderer.droppedWeapons = this.droppedWeapons;
 
     // FIX: Sync garage state to the renderer so it draws the door + car.
     this.renderer.garageDoorOpenness = this.garageDoorOpenness;

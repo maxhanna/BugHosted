@@ -1,0 +1,8 @@
+Model Information:
+* title:	Japanese Storefront | Blender
+* source:	https://sketchfab.com/3d-models/japanese-storefront-blender-a7383a9963074fe78128a4c66240a77e
+* author:	Lit For 20 (https://sketchfab.com/LitFor20)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

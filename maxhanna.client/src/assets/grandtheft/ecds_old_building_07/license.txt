@@ -1,0 +1,8 @@
+Model Information:
+* title:	ECDS [OLD] Building 07
+* source:	https://sketchfab.com/3d-models/ecds-old-building-07-1f2afa70b70045f2a18a6410cf5e5e55
+* author:	kenuliy15 (https://sketchfab.com/kenuliy15)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

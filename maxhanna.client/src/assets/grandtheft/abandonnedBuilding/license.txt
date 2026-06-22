@@ -1,0 +1,8 @@
+Model Information:
+* title:	Abandoned building gameready
+* source:	https://sketchfab.com/3d-models/abandoned-building-gameready-a4229e2d257f4639a03fd082ef4c6853
+* author:	Katydid (https://sketchfab.com/Katydid.)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

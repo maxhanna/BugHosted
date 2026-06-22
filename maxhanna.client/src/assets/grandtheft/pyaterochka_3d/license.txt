@@ -1,0 +1,8 @@
+Model Information:
+* title:	Pyaterochka 3D
+* source:	https://sketchfab.com/3d-models/pyaterochka-3d-f595b0d862aa4ba99c5bd350f881d749
+* author:	SanyaKrutoy99 (https://sketchfab.com/SanyaKrutoy99)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

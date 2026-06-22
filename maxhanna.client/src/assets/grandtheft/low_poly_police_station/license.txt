@@ -1,0 +1,8 @@
+Model Information:
+* title:	Low poly police station
+* source:	https://sketchfab.com/3d-models/low-poly-police-station-b0966e9eceb948a6925967170a6a6e52
+* author:	assetfactory (https://sketchfab.com/assetfactory)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

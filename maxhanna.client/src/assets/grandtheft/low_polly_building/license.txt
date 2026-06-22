@@ -1,0 +1,8 @@
+Model Information:
+* title:	Low Polly building
+* source:	https://sketchfab.com/3d-models/low-polly-building-1c22cb68ffe348d899a3c86f159af26b
+* author:	falucskaiadam32 (https://sketchfab.com/falucskaiadam32)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

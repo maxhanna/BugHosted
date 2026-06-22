@@ -1,0 +1,8 @@
+Model Information:
+* title:	Psx Groceries Store
+* source:	https://sketchfab.com/3d-models/psx-groceries-store-21a3be50255e405a918972abd99ba180
+* author:	apispride00 (https://sketchfab.com/apispride00)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

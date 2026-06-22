@@ -14,20 +14,30 @@
   jointWeights?: Float32Array;
 }
 
+export interface BuildingPlacement {
+  model: CityMesh[];
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+  scale: [number, number, number];
+}
 export interface CityChunk {
   mesh: CityMesh;
   cx: number;
   cz: number;
   lamps: { x: number; z: number }[];
+  buildings: BuildingPlacement[];
 }
 
 const CHUNK_SIZE = 80;
 const GRID_PITCH = 80;
 const BLOCK_SIZE = 30;
-const BIOME_RADIUS_CITY = 28;
-const BIOME_RADIUS_MOUNTAIN = 35;
-const BIOME_RADIUS_SUBURB = 45;
-const BIOME_RADIUS_BEACH = 55;
+const SIDEWALK_SIZE = BLOCK_SIZE + 6; // 36
+const BIOME_RADIUS_CITY = 18;
+const BIOME_RADIUS_MOUNTAIN = 30;
+const BIOME_RADIUS_SUBURB = 50;
+const BIOME_RADIUS_BEACH = 60;
 function getBiome(cx: number, cz: number): string {
   const d = Math.sqrt(cx * cx + cz * cz);
   if (d <= BIOME_RADIUS_CITY) return 'city';
@@ -342,8 +352,28 @@ export class GrandTheftRenderer {
   public hookerMesh: CityMesh[] | null = null;
   public rocketMesh: CityMesh[] | null = null;
   public coltMesh: CityMesh[] | null = null;
+  public cityBuildingMeshes: CityMesh[][] = [];
+  public suburbBuildingMeshes: CityMesh[][] = [];
+  static CITY_BUILDING_NAMES = [
+    '2BuildingsModularFaces','8FloorBuilding','25thFloorBuilding','abandonnedBuilding','bank',
+    'Building6','Building18Tokyo','buildingRandom','domeStructure',
+    'ecds_old_building_04','ecds_old_building_05','ecds_old_building_06','ecds_old_building_07','ecds_old_building_08','ecds_old_building_09',
+    'industrial_building_psx','low_polly_building','low_poly_apartment_2','low_poly_apartment_building_2','low_poly_apartment_building_3',
+    'low_poly_cinema','low_poly_city_hall','low_poly_gas_station','low_poly_hotel_1','low_poly_hotel_2',
+    'low_poly_pharmacy','low_poly_police_station','low_poly_school','low_poly_shopping_center',
+    'modern_building','panel_apartment_placeholder','psx_groceries_store','pyaterochka_3d',
+    'residential_complex_modern_apartment_building','ukraine_building'
+  ];
+  static SUBURB_BUILDING_NAMES = [
+    'brooklynCornerhouse','brooklynStreetBuilding','cabin',
+    'hungry_jacks_restaurant_low_poly','japanese_storefront__blender',
+    'low_poly_burger_restaurant','low_poly_cafe','low_poly_generic_restaurant','low_poly_generic_shop',
+    'low_poly_house_2','low_poly_house_3','low_poly_house_4','low_poly_house_5',
+    'low_poly_pizza_restaurant','low_poly_wooden_cabine','residential_family_house'
+  ];
   public trafficLightMesh: CityMesh[] | null = null;
   public currentModelUrl: string | null = null;
+  public droppedWeapons: any[] = [];
 
   // Skeleton data for CPU skinning (used by Franklin model)
   public skelBoneParents: Int32Array | null = null;
@@ -1171,6 +1201,7 @@ void main() {
     const verts: number[] = [];
     const indices: number[] = [];
     let idxOffset = 0;
+    const buildings: BuildingPlacement[] = [];
 
     const worldOriginX = cx * CHUNK_SIZE;
     const worldOriginZ = cz * CHUNK_SIZE;
@@ -1182,7 +1213,7 @@ void main() {
       this.addPlane(verts, indices, cx2, -2.5, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.0, 0.2, 0.5, 0.8, idxOffset);
       idxOffset += 4;
       const mesh = this.createMesh(verts, indices);
-      const chunk = { mesh, cx, cz, lamps: [] };
+      const chunk: CityChunk = { mesh, cx, cz, lamps: [], buildings };
       this.chunkCache.set(key, chunk);
       return chunk;
     }
@@ -1253,8 +1284,8 @@ void main() {
           continue;
         }
 
-        this.addPlane(verts, indices, blockWorldX, 0.02, blockWorldZ, BLOCK_SIZE + 6, BLOCK_SIZE + 6, 0.4, 0.4, 0.4, 1.0, idxOffset);
-        idxOffset += 4;
+        this.addBox(verts, indices, blockWorldX, 0.05, blockWorldZ, SIDEWALK_SIZE, 0.1, SIDEWALK_SIZE, 0.4, 0.4, 0.4, 1.0, idxOffset);
+        idxOffset += 24;
 
         if (isBeach) {
           this.addPlane(verts, indices, blockWorldX, 0.03, blockWorldZ, BLOCK_SIZE, BLOCK_SIZE, 0.82, 0.75, 0.55, 1.0, idxOffset);
@@ -1271,37 +1302,55 @@ void main() {
           continue;
         }
 
-        const grassG = isSuburb ? 0.35 : 0.1;
-        this.addPlane(verts, indices, blockWorldX, 0.03, blockWorldZ, BLOCK_SIZE, BLOCK_SIZE, 0.08, grassG, 0.08, 1.0, idxOffset);
-        idxOffset += 4;
+        const grassG = isSuburb ? 0.45 : 0.1;
+        this.addBox(verts, indices, blockWorldX, 0.075, blockWorldZ, BLOCK_SIZE, 0.15, BLOCK_SIZE, 0.08, grassG, 0.08, 1.0, idxOffset);
+        idxOffset += 24;
 
         if (cx === 0 && cz === 0) continue;
         if (cx === 1 && cz === 0) continue;
 
-        const buildChance = isSuburb ? 0.45 : 0.75;
-        if (rng() >= buildChance) continue;
-
         if (isSuburb) {
-          const w = 10 + rng() * 14;
-          const d = 10 + rng() * 14;
+          const buildChance = 0.85;
+          if (rng() >= buildChance) continue;
+          const maxDim = SIDEWALK_SIZE;
+          const w = 10 + rng() * (maxDim - 10);
+          const d = 10 + rng() * (maxDim - 10);
           const h = 6 + rng() * 14;
-          const r = 0.5 + rng() * 0.4;
-          const g = 0.4 + rng() * 0.3;
-          const b = 0.3 + rng() * 0.3;
-          this.addBox(verts, indices, blockWorldX, h / 2 + 0.04, blockWorldZ, w, h, d, r, g, b, 1.0, idxOffset);
-          idxOffset += 24;
-          this.addBox(verts, indices, blockWorldX, h + 0.04 + 0.4, blockWorldZ, w + 0.5, 0.8, d + 0.5, 0.4, 0.15, 0.1, 1.0, idxOffset);
-          idxOffset += 24;
+          const models = this.suburbBuildingMeshes;
+          if (models.length > 0) {
+            const mi = Math.floor(rng() * models.length);
+            const model = models[mi];
+            const scale = Math.min(w, d) / 15;
+            const yaw = Math.floor(rng() * 4) * Math.PI / 2;
+            buildings.push({ model, x: blockWorldX, y: h / 2 + 0.04, z: blockWorldZ, yaw, scale: [scale, scale, scale] });
+          } else {
+            const r = 0.5 + rng() * 0.4;
+            const g = 0.4 + rng() * 0.3;
+            const b = 0.3 + rng() * 0.3;
+            this.addBox(verts, indices, blockWorldX, h / 2 + 0.04, blockWorldZ, w, h, d, r, g, b, 1.0, idxOffset);
+            idxOffset += 24;
+          }
         } else {
-          const maxDim = BLOCK_SIZE + 6;
+          const buildChance = 0.75;
+          if (rng() >= buildChance) continue;
+          const maxDim = SIDEWALK_SIZE;
           const w = 14 + rng() * (maxDim - 14);
           const d = 14 + rng() * (maxDim - 14);
           const h = 20 + rng() * 100;
-          const r = 0.4 + rng() * 0.4;
-          const g = 0.4 + rng() * 0.4;
-          const b = 0.4 + rng() * 0.4;
-          this.addBox(verts, indices, blockWorldX, h / 2 + 0.04, blockWorldZ, w, h, d, r, g, b, 1.0, idxOffset);
-          idxOffset += 24;
+          const models = this.cityBuildingMeshes;
+          if (models.length > 0) {
+            const mi = Math.floor(rng() * models.length);
+            const model = models[mi];
+            const scale = Math.min(w, d) / 20;
+            const yaw = Math.floor(rng() * 4) * Math.PI / 2;
+            buildings.push({ model, x: blockWorldX, y: h / 2 + 0.04, z: blockWorldZ, yaw, scale: [scale, scale, scale] });
+          } else {
+            const r = 0.4 + rng() * 0.4;
+            const g = 0.4 + rng() * 0.4;
+            const b = 0.4 + rng() * 0.4;
+            this.addBox(verts, indices, blockWorldX, h / 2 + 0.04, blockWorldZ, w, h, d, r, g, b, 1.0, idxOffset);
+            idxOffset += 24;
+          }
         }
       }
     }
@@ -1341,7 +1390,7 @@ void main() {
       }
     }
 
-    const chunk = { mesh, cx, cz, lamps };
+    const chunk: CityChunk = { mesh, cx, cz, lamps, buildings };
     this.chunkCache.set(key, chunk);
     return chunk;
   }
@@ -1618,6 +1667,18 @@ void main() {
     return mesh;
   }
 
+  getPickupMesh(): CityMesh {
+    if (this.meshCache.has('pickup')) return this.meshCache.get('pickup')!;
+    const verts: number[] = [];
+    const indices: number[] = [];
+    this.addBox(verts, indices, 0, -0.15, 0.15, 0.3, 0.3, 0.3, 1, 1, 1, 1, 0);
+    this.addBox(verts, indices, 0, 0, 0, 0.3, 0.3, 0.3, 1, 1, 1, 1, 0);
+    this.addBox(verts, indices, -0.1, 0.15, 0, 0.1, 0.1, 0.2, 1, 1, 1, 1, 0);
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set('pickup', mesh);
+    return mesh;
+  }
+
   getDestinationBeamMesh(): CityMesh {
     if (this.meshCache.has('dest_beam')) return this.meshCache.get('dest_beam')!;
     const verts: number[] = [];
@@ -1794,6 +1855,9 @@ void main() {
       for (let dx = -2; dx <= 2; dx++) {
         const chunk = this.getCityChunk(pcx + dx, pcz + dz);
         this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1], true);
+        for (const bld of chunk.buildings) {
+          this.drawMesh(bld.model, bld.x, bld.y, bld.z, bld.yaw, bld.scale, [1, 1, 1, 1], true);
+        }
         for (const lamp of chunk.lamps) {
           const distSq = (lamp.x - camX) ** 2 + (lamp.z - camZ) ** 2;
           if (distSq < 50 * 50) {
@@ -1896,6 +1960,9 @@ void main() {
           for (const lamp of chunk.lamps) {
             this.drawMesh(this.lampMesh, lamp.x, 0, lamp.z, 0, [1, 1, 1], [1, 1, 1, 1]);
           }
+        }
+        for (const bld of chunk.buildings) {
+          this.drawMesh(bld.model, bld.x, bld.y, bld.z, bld.yaw, bld.scale, [1, 1, 1, 1]);
         }
       }
     }
@@ -2143,6 +2210,18 @@ void main() {
       }
       gl.enable(gl.DEPTH_TEST);
       gl.enable(gl.CULL_FACE);
+    }
+
+    // Draw dropped weapons as rotating pickups
+    if (this.droppedWeapons && this.droppedWeapons.length > 0) {
+      const now = performance.now() / 1000;
+      for (const dw of this.droppedWeapons) {
+        const colors: Record<number, [number, number, number]> = { 1: [0.6, 0.6, 0.6], 2: [0.2, 0.6, 1.0], 3: [0.8, 0.3, 0.1], 4: [0.1, 0.9, 0.2] };
+        const c = colors[dw.weaponType] || [1, 1, 1];
+        const spin = now * 2 + dw.id;
+        const hover = Math.sin(now * 3 + dw.id) * 0.15;
+        this.drawMesh(this.getPickupMesh(), dw.posX, 0.3 + hover, dw.posZ, spin, [0.3, 0.3, 0.3], [c[0], c[1], c[2], 1]);
+      }
     }
 
     gl.enable(gl.DEPTH_TEST);

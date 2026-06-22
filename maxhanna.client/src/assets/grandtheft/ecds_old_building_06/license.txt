@@ -1,0 +1,8 @@
+Model Information:
+* title:	ECDS [OLD] Building 06
+* source:	https://sketchfab.com/3d-models/ecds-old-building-06-18c8a44d0aff4d5b8a8ae23d6d1e396a
+* author:	kenuliy15 (https://sketchfab.com/kenuliy15)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

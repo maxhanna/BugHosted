@@ -1,0 +1,8 @@
+Model Information:
+* title:	Russian shoe repair shop. Будка по ремонту обуви
+* source:	https://sketchfab.com/3d-models/russian-shoe-repair-shop-a60e52bd903843a49e9364ce43be8e2a
+* author:	Erfin (https://sketchfab.com/7162420)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works
