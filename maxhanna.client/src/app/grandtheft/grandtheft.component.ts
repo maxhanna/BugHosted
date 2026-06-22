@@ -328,7 +328,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   constructor(private gtService: GrandtheftService, private userEventService: UserEventService) { super(); }
 
-  ngOnInit() { this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, "grandtheft", "Started playing Grand Theft!"); }
+  ngOnInit() { 
+    if (!this.parentRef?.user?.id) {
+      this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, "grandtheft", "Started playing Grand Theft!"); 
+    } 
+  }
 
   ngAfterViewInit() {
     this.isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;

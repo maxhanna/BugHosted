@@ -2479,6 +2479,22 @@ void main() {
           skinRootWorld = mat4.identity(mat4.create());
         }
 
+        // FIX: Compute the root bone's world transform so we can compute the bounding box
+        // in the skeleton's world space, not the mesh node's local space.
+        let rootBoneWorld: Float32Array | null = null;
+        let rootBoneIdx = -1;
+        for (let b = 0; b < numBones; b++) {
+          if (parents[b] < 0) { rootBoneIdx = b; break; }
+        }
+        if (rootBoneIdx >= 0) {
+          rootBoneWorld = mat4.create();
+          mat4.multiply(
+            rootBoneWorld,
+            skinRootWorld!,
+            new Float32Array(boneLocalTf.buffer, rootBoneIdx * 16 * 4, 16)
+          );
+        }
+
         boneParents = parents;
         boneLocalMatrices = boneLocalTf;
         isSkinnedModel = true;
@@ -2698,10 +2714,12 @@ void main() {
             const pi = (posOffset / 4) + i * posStride;
             let x = posData[pi], y = posData[pi + 1], z = posData[pi + 2];
 
-            // FIX: The CPU skinner outputs world-space vertices. We MUST apply 
-            // the node transform here so the bounding box (and thus centerX/Y/Z 
-            // and scaleFactor) are calculated in the exact same world space.
-            if (!identityTf) {
+            // FIX: For skinned meshes, compute bounding box in the skeleton's world space
+            // (using the root bone's world transform). This ensures the scale and center
+            // match the CPU skinner's output.
+            if (isSkinned && rootBoneWorld) {
+              [x, y, z] = txPos(rootBoneWorld, x, y, z);
+            } else if (!identityTf) {
               [x, y, z] = txPos(tf, x, y, z);
             }
             verts.push(x, y, z);
