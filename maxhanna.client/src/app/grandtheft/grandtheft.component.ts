@@ -1621,9 +1621,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           }
         } else {
           const color = this.playerColors[Math.abs(p.userId) % this.playerColors.length];
-          // Fallback to franklin (the local player mesh) so other human
-          // players look like franklin too — not generic colored boxes.
-          // Only NPCs (serverPedestrians) use the npcMeshes pool.
           const placeholderMesh = this.renderer.playerMesh || this.renderer.getOtherPlayerMesh(color);
           const newPlayer = {
             userId: p.userId, posX: p.posX, posY: p.posY, posZ: p.posZ,
@@ -1638,7 +1635,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             passengerOfUserId: p.passengerOfUserId ?? 0
           } as OtherPlayerState;
           this.otherPlayers.push(newPlayer);
-          
+
           // FIX: If our Franklin model hasn't loaded yet, we assigned the boxy fallback.
           // Check again in a moment to upgrade them to the real Franklin mesh.
           if (!this.renderer.playerMesh) {

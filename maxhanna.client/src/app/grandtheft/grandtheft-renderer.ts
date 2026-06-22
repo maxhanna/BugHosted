@@ -849,7 +849,10 @@ void main() {
           for (let j = 0; j < 4; j++) {
             const w = jw[v * 4 + j];
             if (w === 0) continue;
-            const bi = ji[v * 4 + j] * 16;
+            let boneIdx = ji[v * 4 + j];
+            // FIX: Prevent NaN from out-of-bounds bone indices (e.g. 255 padding in UNSIGNED_BYTE)
+            if (boneIdx >= numBones) boneIdx = 0;
+            const bi = boneIdx * 16;
 
             const m00 = jointMat[bi], m01 = jointMat[bi + 4], m02 = jointMat[bi + 8], m03 = jointMat[bi + 12];
             const m10 = jointMat[bi + 1], m11 = jointMat[bi + 5], m12 = jointMat[bi + 9], m13 = jointMat[bi + 13];
@@ -864,8 +867,12 @@ void main() {
             nz += w * (m20 * rnx + m21 * rny + m22 * rnz);
           }
 
-          const nlen = Math.hypot(nx, ny, nz) || 1;
-          nx /= nlen; ny /= nlen; nz /= nlen;
+          const nlen = Math.hypot(nx, ny, nz);
+          if (!nlen || isNaN(nlen)) {
+            nx = 0; ny = 1; nz = 0;
+          } else {
+            nx /= nlen; ny /= nlen; nz /= nlen;
+          }
 
           let fx = px, fy = py, fz = pz;
           let fnx = nx, fny = ny, fnz = nz;
@@ -2461,11 +2468,8 @@ void main() {
         if (skeletonRootNodeIdx >= 0) {
           const rootNode = json.nodes[skeletonRootNodeIdx];
           const rootParentIdx = rootNode.parent ?? -1;
-          if (rootParentIdx >= 0 && nodeWorldTransforms.has(rootParentIdx)) {
-            skinRootWorld = nodeWorldTransforms.get(rootParentIdx) ?? mat4.identity(mat4.create());
-          } else {
-            skinRootWorld = mat4.identity(mat4.create());
-          }
+          const parentWorld = rootParentIdx >= 0 ? nodeWorldTransforms.get(rootParentIdx) : undefined;
+          skinRootWorld = parentWorld ? new Float32Array(parentWorld) : mat4.identity(mat4.create());
         } else {
           skinRootWorld = mat4.identity(mat4.create());
         }
