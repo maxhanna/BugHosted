@@ -1335,7 +1335,7 @@ void main() {
           if (models.length > 0) {
             const mi = Math.floor(rng() * models.length);
             const model = models[mi];
-            const scale = Math.min(w, d) / 15;
+            const scale = Math.min(w, d) / 15 * 5;
             const yaw = Math.floor(rng() * 4) * Math.PI / 2;
             const subMinY = this.getModelMinY(model);
             buildings.push({
@@ -1364,7 +1364,7 @@ void main() {
           if (models.length > 0) {
             const mi = Math.floor(rng() * models.length);
             const model = models[mi];
-            const scale = Math.min(w, d) / 20;
+            const scale = Math.min(w, d) / 20 * 5;
             const yaw = Math.floor(rng() * 4) * Math.PI / 2;
             const cityMinY = this.getModelMinY(model);
             buildings.push({ model, x: blockWorldX, y: -cityMinY * scale + 0.15, z: blockWorldZ, yaw, scale: [scale, scale, scale] });
@@ -3070,6 +3070,9 @@ void main() {
       console.error('Failed to load glTF', url, e);
       return null;
     }
+  }
+  clearChunkCache() {
+    this.chunkCache.clear();
   }
   private getModelMinY(meshes: CityMesh[]): number {
     let minY = 0;

@@ -412,18 +412,27 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/trafficLight/scene.gltf').then(tl => {
       if (tl) this.renderer.trafficLightMesh = tl;
     });
-    // Load city building models
+    // Load city + suburb building models, then clear chunk cache
+    // so chunks regenerate WITH the models instead of falling back
+    // to plain boxes (the old code cached chunks before models loaded).
+    const buildingPromises: Promise<void>[] = [];
     for (const name of GrandTheftRenderer.CITY_BUILDING_NAMES) {
-      this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`).then(m => {
-        if (m) this.renderer.cityBuildingMeshes.push(m);
-      });
+      buildingPromises.push(
+        this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`).then(m => {
+          if (m) this.renderer.cityBuildingMeshes.push(m);
+        })
+      );
     }
-    // Load suburb building models
     for (const name of GrandTheftRenderer.SUBURB_BUILDING_NAMES) {
-      this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`).then(m => {
-        if (m) this.renderer.suburbBuildingMeshes.push(m);
-      });
+      buildingPromises.push(
+        this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`).then(m => {
+          if (m) this.renderer.suburbBuildingMeshes.push(m);
+        })
+      );
     }
+    Promise.all(buildingPromises).then(() => {
+      this.renderer.clearChunkCache();
+    });
     this.isLoaded = true;
 
     if (!this.isMobile) {
