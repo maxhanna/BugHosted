@@ -766,42 +766,43 @@ void main() {
     // Create working copy of local matrices for animation
     const animLocal = new Float32Array(skel.skelBoneLocalMatrices);
 
-    // ---- Apply walk animation to animLocal ----
-    if (this.walkSpeed > 0.1) {
-      this.applyWalkAnimation(animLocal, numBones);
+    // ---- Apply walk animation to animLocal (Franklin only - 66 bones) ----
+    if (this.walkSpeed > 0.1 && numBones > 63) {
+      this.applyWalkAnimation(animLocal);
       this.walkTime += dt * Math.min(this.walkSpeed * 0.15, 2.0);
     }
 
-    // ---- Apply arm override to animLocal if active (overwrites walk arm swing) ----
-    if (this.armOverrideActive) {
-      const m33 = new Float32Array(animLocal.buffer, 33 * 16 * 4, 16);
-      quatToMat4([0, 0.7071068, 0, 0.7071068], m33);
-      m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
+    // ---- Apply arm override/punch (only if skeleton has right arm bones) ----
+    if (numBones > 35) {
+      if (this.armOverrideActive) {
+        const m33 = new Float32Array(animLocal.buffer, 33 * 16 * 4, 16);
+        quatToMat4([0, 0.7071068, 0, 0.7071068], m33);
+        m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
 
-      const m34 = new Float32Array(animLocal.buffer, 34 * 16 * 4, 16);
-      quatToMat4([0, 0, 0, 1], m34);
-      m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
+        const m34 = new Float32Array(animLocal.buffer, 34 * 16 * 4, 16);
+        quatToMat4([0, 0, 0, 1], m34);
+        m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
 
-      const m35 = new Float32Array(animLocal.buffer, 35 * 16 * 4, 16);
-      quatToMat4([0.5, 0, 0, 0.8660254], m35);
-      m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
-    } else if (this.punchTime > 0) {
-      // Punch animation: extend right arm forward, retract
-      const t = this.punchTime / 0.3;
-      const punchAmount = t < 0.5 ? t * 2 : 2 - t * 2;
-      const extendAngle = -0.8 * punchAmount;
+        const m35 = new Float32Array(animLocal.buffer, 35 * 16 * 4, 16);
+        quatToMat4([0.5, 0, 0, 0.8660254], m35);
+        m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
+      } else if (this.punchTime > 0) {
+        const t = this.punchTime / 0.3;
+        const punchAmount = t < 0.5 ? t * 2 : 2 - t * 2;
+        const extendAngle = -0.8 * punchAmount;
 
-      const m33 = new Float32Array(animLocal.buffer, 33 * 16 * 4, 16);
-      quatToMat4([Math.sin(extendAngle / 2), 0, 0, Math.cos(extendAngle / 2)], m33);
-      m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
+        const m33 = new Float32Array(animLocal.buffer, 33 * 16 * 4, 16);
+        quatToMat4([Math.sin(extendAngle / 2), 0, 0, Math.cos(extendAngle / 2)], m33);
+        m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
 
-      const m34 = new Float32Array(animLocal.buffer, 34 * 16 * 4, 16);
-      quatToMat4([0, 0, 0, 1], m34);
-      m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
+        const m34 = new Float32Array(animLocal.buffer, 34 * 16 * 4, 16);
+        quatToMat4([0, 0, 0, 1], m34);
+        m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
 
-      const m35 = new Float32Array(animLocal.buffer, 35 * 16 * 4, 16);
-      quatToMat4([0, 0, 0, 1], m35);
-      m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
+        const m35 = new Float32Array(animLocal.buffer, 35 * 16 * 4, 16);
+        quatToMat4([0, 0, 0, 1], m35);
+        m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
+      }
     }
 
     // ---- 1. Compute bone world transforms from animLocal ----
@@ -919,7 +920,7 @@ void main() {
   }
 
   // Apply procedural walk cycle to a copy of local bone matrices
-  private applyWalkAnimation(animLocal: Float32Array, numBones: number): void {
+  private applyWalkAnimation(animLocal: Float32Array): void {
     const t = this.walkTime;
     // Bone indices for the mixamorig skeleton
     const HIPS = 1, LEFT_ARM = 9, LEFT_FOREARM = 10, RIGHT_ARM = 33, RIGHT_FOREARM = 34;
