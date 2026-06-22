@@ -12,6 +12,7 @@
   restNormals?: Float32Array;
   jointIndices?: Uint16Array;
   jointWeights?: Float32Array;
+  minY?: number;
 }
 
 export interface BuildingPlacement {
@@ -1143,7 +1144,21 @@ void main() {
     gl.vertexAttribPointer(uvLoc, 2, gl.FLOAT, false, stride, 40);
 
     gl.bindVertexArray(null);
-    return { vao, vbo, ibo, indexCount: indices.length, indexType: useUint32 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, texture };
+    // Compute lowest Y so GLTF models can be grounded
+    let meshMinY = 0;
+    for (let i = 0; i < vertexCount; i++) {
+      const y = interleaved[i * 12 + 1];
+      if (y < meshMinY) meshMinY = y;
+    }
+
+    gl.bindVertexArray(null);
+    return {
+      vao, vbo, ibo,
+      indexCount: indices.length,
+      indexType: useUint32 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT,
+      texture,
+      minY: meshMinY  // <--- ADD THIS
+    }; 
   }
 
   private computeNormalMatrix(out: Float32Array, m: Float32Array) {
@@ -1322,7 +1337,15 @@ void main() {
             const model = models[mi];
             const scale = Math.min(w, d) / 15;
             const yaw = Math.floor(rng() * 4) * Math.PI / 2;
-            buildings.push({ model, x: blockWorldX, y: h / 2 + 0.04, z: blockWorldZ, yaw, scale: [scale, scale, scale] });
+            const subMinY = this.getModelMinY(model);
+            buildings.push({
+              model,
+              x: blockWorldX,
+              y: -subMinY * scale + 0.15,
+              z: blockWorldZ,
+              yaw,
+              scale: [scale, scale, scale]
+            });
           } else {
             const r = 0.5 + rng() * 0.4;
             const g = 0.4 + rng() * 0.3;
@@ -1343,7 +1366,8 @@ void main() {
             const model = models[mi];
             const scale = Math.min(w, d) / 20;
             const yaw = Math.floor(rng() * 4) * Math.PI / 2;
-            buildings.push({ model, x: blockWorldX, y: h / 2 + 0.04, z: blockWorldZ, yaw, scale: [scale, scale, scale] });
+            const cityMinY = this.getModelMinY(model);
+            buildings.push({ model, x: blockWorldX, y: -cityMinY * scale + 0.15, z: blockWorldZ, yaw, scale: [scale, scale, scale] });
           } else {
             const r = 0.4 + rng() * 0.4;
             const g = 0.4 + rng() * 0.4;
@@ -3047,7 +3071,13 @@ void main() {
       return null;
     }
   }
-
+  private getModelMinY(meshes: CityMesh[]): number {
+    let minY = 0;
+    for (const m of meshes) {
+      if (m.minY !== undefined && m.minY < minY) minY = m.minY;
+    }
+    return minY;
+  }
   generateSamplePlayerModel(): CityMesh {
     const verts: number[] = [];
     const indices: number[] = [];
