@@ -629,6 +629,27 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 
+						// NPC car hits pedestrian in UpdatePosition too
+						if (npc.Health > 0)
+						{
+							bool isCar = npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi";
+							if (isCar)
+							{
+								foreach (var otherNpc in npcs.Values)
+								{
+									if (otherNpc.Id == npc.Id || otherNpc.DeadAt.HasValue) continue;
+									if (otherNpc.Type != "ped_male" && otherNpc.Type != "ped_female") continue;
+									float pdx = npc.X - otherNpc.X;
+									float pdz = npc.Z - otherNpc.Z;
+									if (pdx * pdx + pdz * pdz < 2.0f * 2.0f)
+									{
+										otherNpc.Health -= 25;
+										if (otherNpc.Health <= 0) otherNpc.DeadAt = DateTime.UtcNow;
+									}
+								}
+							}
+						}
+
 						npc.LastUpdate = now;
 					}
 				}
@@ -937,6 +958,24 @@ namespace maxhanna.Server.Controllers
 								float nextZ = npc.Z + moveZ;
 								if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
 								npc.Yaw = (float)Math.Atan2(moveX, moveZ);
+							}
+						}
+					}
+
+					// NPC car hits pedestrian — same 25 damage as player car
+					if (npc.Health > 0 && (npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi"))
+					{
+						foreach (var otherKv in npcs)
+						{
+							if (otherKv.Key == kv.Key || otherKv.Value.DeadAt != null) continue;
+							var ped = otherKv.Value;
+							if (ped.Type != "ped_male" && ped.Type != "ped_female") continue;
+							float pdx = npc.X - ped.X;
+							float pdz = npc.Z - ped.Z;
+							if (pdx * pdx + pdz * pdz < 2.0f * 2.0f)
+							{
+								ped.Health -= 25;
+								if (ped.Health <= 0) ped.DeadAt = DateTime.UtcNow;
 							}
 						}
 					}

@@ -1,0 +1,8 @@
+Model Information:
+* title:	PSX Colt 1911
+* source:	https://sketchfab.com/3d-models/psx-colt-1911-9360559d7f3040418fcb1a4af369ad59
+* author:	Charckes (https://sketchfab.com/charlesmoch)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

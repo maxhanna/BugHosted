@@ -397,6 +397,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/rocket/scene.gltf').then(rkt => {
       if (rkt) this.renderer.rocketMesh = rkt;
     });
+    this.renderer.loadGLTF('assets/grandtheft/colt/scene.gltf').then(colt => {
+      if (colt) this.renderer.coltMesh = colt;
+    });
     this.renderer.loadGLTF('assets/grandtheft/trafficLight/scene.gltf').then(tl => {
       if (tl) this.renderer.trafficLightMesh = tl;
     });
@@ -2695,6 +2698,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // FIX: Sync garage state to the renderer so it draws the door + car.
     this.renderer.garageDoorOpenness = this.garageDoorOpenness;
     this.renderer.garageCarMesh = this.garageCarMesh;
+    // Activate arm bone override when pistol is equipped
+    this.renderer.armOverrideActive = this.currentWeapon === 0;
 
     this.renderer.render(
       camX, camY, camZ, this.camYaw, this.camPitch, aspect,
@@ -2722,6 +2727,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             offsetZ: this.passenger.offsetZ,
             yaw: this.passenger.yaw,
             scale: this.passenger.scale,
+          });
+        }
+        if (this.currentWeapon === 0 && this.renderer.coltMesh) {
+          attached.push({
+            mesh: this.renderer.coltMesh,
+            offsetX: 0.2,
+            offsetY: -0.1,
+            offsetZ: 0.5,
+            yaw: Math.PI / 2,
+            scale: 0.8,
           });
         }
         attached.push(...this.taxiAttachedMeshes);

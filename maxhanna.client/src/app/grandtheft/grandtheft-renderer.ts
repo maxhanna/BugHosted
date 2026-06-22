@@ -7,6 +7,11 @@
   texture?: WebGLTexture | null;
   bounds?: { w: number; h: number; d: number };
   needsFlip?: boolean;
+  vertexCount?: number;
+  restPositions?: Float32Array;
+  restNormals?: Float32Array;
+  jointIndices?: Uint16Array;
+  jointWeights?: Float32Array;
 }
 
 export interface CityChunk {
@@ -215,6 +220,48 @@ const mat4 = {
   }
 };
 
+// Quaternion to 4x4 rotation matrix (column-major, as used by mat4)
+function quatToMat4(q: number[], out: Float32Array): void {
+  const qx = q[0], qy = q[1], qz = q[2], qw = q[3];
+  const xx = qx * qx, yy = qy * qy, zz = qz * qz;
+  const xy = qx * qy, xz = qx * qz, yz = qy * qz;
+  const wx = qw * qx, wy = qw * qy, wz = qw * qz;
+  out[0] = 1 - 2 * (yy + zz);
+  out[1] = 2 * (xy + wz);
+  out[2] = 2 * (xz - wy);
+  out[3] = 0;
+  out[4] = 2 * (xy - wz);
+  out[5] = 1 - 2 * (xx + zz);
+  out[6] = 2 * (yz + wx);
+  out[7] = 0;
+  out[8] = 2 * (xz + wy);
+  out[9] = 2 * (yz - wx);
+  out[10] = 1 - 2 * (xx + yy);
+  out[11] = 0;
+  out[12] = 0; out[13] = 0; out[14] = 0; out[15] = 1;
+}
+// Quaternion + translation + scale to 4x4 matrix
+function quatPosScaleToMat4(q: number[], t: number[], s: number[], out: Float32Array): void {
+  const qx = q[0], qy = q[1], qz = q[2], qw = q[3];
+  const sx = s[0], sy = s[1], sz = s[2];
+  const xx = qx * qx, yy = qy * qy, zz = qz * qz;
+  const xy = qx * qy, xz = qx * qz, yz = qy * qz;
+  const wx = qw * qx, wy = qw * qy, wz = qw * qz;
+  out[0] = (1 - 2 * (yy + zz)) * sx;
+  out[1] = 2 * (xy + wz) * sx;
+  out[2] = 2 * (xz - wy) * sx;
+  out[3] = 0;
+  out[4] = 2 * (xy - wz) * sy;
+  out[5] = (1 - 2 * (xx + zz)) * sy;
+  out[6] = 2 * (yz + wx) * sy;
+  out[7] = 0;
+  out[8] = 2 * (xz + wy) * sz;
+  out[9] = 2 * (yz - wx) * sz;
+  out[10] = (1 - 2 * (xx + yy)) * sz;
+  out[11] = 0;
+  out[12] = t[0]; out[13] = t[1]; out[14] = t[2]; out[15] = 1;
+}
+
 const CACHE_BUST = 'v1';
 function bust(url: string): string { return url + '?_=' + CACHE_BUST; }
 
@@ -308,8 +355,36 @@ export class GrandTheftRenderer {
   // taxiMission.passengerMesh).
   public hookerMesh: CityMesh[] | null = null;
   public rocketMesh: CityMesh[] | null = null;
+  public coltMesh: CityMesh[] | null = null;
   public trafficLightMesh: CityMesh[] | null = null;
   public currentModelUrl: string | null = null;
+
+  // Skeleton data for CPU skinning (used by Franklin model)
+  public skelBoneParents: Int32Array | null = null;
+  public skelBoneLocalMatrices: Float32Array | null = null;
+  public skelInverseBindMatrices: Float32Array | null = null;
+  public skelBoneCount = 0;
+  public skelNodeToBoneIdx: Map<number, number> | null = null;
+  public skelJointMatrices: Float32Array | null = null;
+  public skelBindWorldMatrices: Float32Array | null = null;
+  public skelBindJointMatrices: Float32Array | null = null;
+  public skelSkinRootWorld: Float32Array | null = null;
+  public skelIsReady = false;
+  // Transform params applied after CPU skinning (same as loadGLTF's second pass)
+  public skelNeedsRotation = false;
+  public skelAngleX = 0;
+  public skelCosX = 1;
+  public skelSinX = 0;
+  public skelNeedsYFlip = false;
+  public skelNeedsY90 = false;
+  public skelNeedsYFlipMoped = false;
+  public skelCenterX = 0;
+  public skelCenterY = 0;
+  public skelCenterZ = 0;
+  public skelScaleFactor = 1;
+  public skelExtraScale: [number, number, number] = [1, 1, 1];
+  // Per-frame arm override when pistol is equipped
+  public armOverrideActive = false;
 
   private timeOfDay = 0.3;
   private lastFrameTime = 0;
@@ -665,16 +740,192 @@ void main() {
     if (modelUrl) {
       const loaded = await this.loadGLTF(modelUrl);
       if (loaded && loaded.length > 0) {
-        // needsFlip controls the 180° rotateX(π)+rotateY(π) correction
-        // applied in drawMesh. Set to false for models that are already
-        // upright in their source GLTF (e.g. franklin). For models that
-        // ship upside-down (e.g. maleNPC), keep the default true.
         for (const m of loaded) m.needsFlip = needsFlip;
         this.playerMesh = loaded;
         return;
       }
     }
     this.playerMesh = this.generateSamplePlayerModel();
+  }
+
+  // CPU skinning: compute bone transforms, blend vertices, update VBO
+  skinPlayerMesh(meshes: CityMesh | CityMesh[]): void {
+    const skel = this;
+    if (!skel.skelBoneParents || !skel.skelBoneLocalMatrices || !skel.skelInverseBindMatrices || !skel.skelSkinRootWorld) return;
+
+    const gl = this.gl;
+    const numBones = skel.skelBoneCount;
+    const parents = skel.skelBoneParents;
+    const localMat = skel.skelBoneLocalMatrices;
+    const invBind = skel.skelInverseBindMatrices;
+    const jointMat = skel.skelJointMatrices!;
+
+    // ---- 1. Compute bone world transforms ----
+    // First pass: root bones (parent < 0) use skin root world
+    for (let b = 0; b < numBones; b++) {
+      if (parents[b] < 0) {
+        const offset = b * 16;
+        mat4.multiply(
+          jointMat, // temporarily store world here
+          skel.skelSkinRootWorld,
+          new Float32Array(localMat.buffer, offset * 4, 16)
+        );
+      }
+    }
+    // Second pass: children compute from parent
+    for (let b = 0; b < numBones; b++) {
+      if (parents[b] >= 0) {
+        const pIdx = parents[b];
+        const pW = new Float32Array(jointMat.buffer, pIdx * 16 * 4, 16);
+        const cL = new Float32Array(localMat.buffer, b * 16 * 4, 16);
+        const cW = new Float32Array(jointMat.buffer, b * 16 * 4, 16);
+        mat4.multiply(cW, pW, cL);
+      }
+    }
+
+    // ---- 2. Apply arm override if active (uses a copy of localMat to avoid permanent mutation) ----
+    if (this.armOverrideActive) {
+      this.overrideRightArm(jointMat, localMat);
+    }
+
+    // ---- 3. Compute joint matrices: jointMat[i] = world[i] * invBind[i] ----
+    const tempMat = new Float32Array(16);
+    for (let b = 0; b < numBones; b++) {
+      const wOff = b * 16;
+      const w = new Float32Array(jointMat.buffer, wOff * 4, 16);
+      const ib = new Float32Array(invBind.buffer, wOff * 4, 16);
+      mat4.multiply(tempMat, w, ib);
+      for (let i = 0; i < 16; i++) w[i] = tempMat[i];
+    }
+
+    // ---- 4. Skin each vertex, apply global transforms, upload VBO ----
+    const meshList = Array.isArray(meshes) ? meshes : [meshes];
+    for (const mesh of meshList) {
+      if (!mesh.jointIndices || !mesh.jointWeights || !mesh.restPositions || !mesh.restNormals || !mesh.vbo) continue;
+      const vCount = mesh.vertexCount || 0;
+      if (vCount === 0) continue;
+
+      // Read back existing VBO data to preserve color and UV
+      const existing = new Float32Array(vCount * 12);
+      gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vbo);
+      gl.getBufferSubData(gl.ARRAY_BUFFER, 0, existing);
+
+      const ji = mesh.jointIndices;
+      const jw = mesh.jointWeights;
+      const rp = mesh.restPositions;
+      const rn = mesh.restNormals;
+
+      const needsRotation = this.skelNeedsRotation;
+      const cosX = this.skelCosX, sinX = this.skelSinX;
+      const needsYFlip = this.skelNeedsYFlip;
+      const needsYFlipMoped = this.skelNeedsYFlipMoped;
+      const needsY90 = this.skelNeedsY90;
+      const cx = this.skelCenterX, cy = this.skelCenterY, cz = this.skelCenterZ;
+      const sf = this.skelScaleFactor;
+      const ex = this.skelExtraScale[0], ey = this.skelExtraScale[1], ez = this.skelExtraScale[2];
+
+      for (let v = 0; v < vCount; v++) {
+        let px = 0, py = 0, pz = 0;
+        let nx = 0, ny = 0, nz = 0;
+        const rpx = rp[v * 3], rpy = rp[v * 3 + 1], rpz = rp[v * 3 + 2];
+        const rnx = rn[v * 3], rny = rn[v * 3 + 1], rnz = rn[v * 3 + 2];
+
+        for (let j = 0; j < 4; j++) {
+          const w = jw[v * 4 + j];
+          if (w === 0) continue;
+          const bi = ji[v * 4 + j] * 16;
+          const m00 = jointMat[bi], m01 = jointMat[bi + 1], m02 = jointMat[bi + 2], m03 = jointMat[bi + 3];
+          const m10 = jointMat[bi + 4], m11 = jointMat[bi + 5], m12 = jointMat[bi + 6], m13 = jointMat[bi + 7];
+          const m20 = jointMat[bi + 8], m21 = jointMat[bi + 9], m22 = jointMat[bi + 10], m23 = jointMat[bi + 11];
+
+          px += w * (m00 * rpx + m01 * rpy + m02 * rpz + m03);
+          py += w * (m10 * rpx + m11 * rpy + m12 * rpz + m13);
+          pz += w * (m20 * rpx + m21 * rpy + m22 * rpz + m23);
+
+          nx += w * (m00 * rnx + m01 * rny + m02 * rnz);
+          ny += w * (m10 * rnx + m11 * rny + m12 * rnz);
+          nz += w * (m20 * rnx + m21 * rny + m22 * rnz);
+        }
+
+        const nlen = Math.hypot(nx, ny, nz) || 1;
+        nx /= nlen; ny /= nlen; nz /= nlen;
+
+        let fx = px, fy = py, fz = pz;
+        let fnx = nx, fny = ny, fnz = nz;
+
+        if (needsRotation) {
+          let ty = fy * cosX - fz * sinX;
+          let tz = fy * sinX + fz * cosX;
+          fy = ty; fz = tz;
+          let tny = fny * cosX - fnz * sinX;
+          let tnz = fny * sinX + fnz * cosX;
+          fny = tny; fnz = tnz;
+        }
+        if (needsYFlip) { fx = -fx; fz = -fz; fnx = -fnx; fnz = -fnz; }
+        if (needsYFlipMoped) { fx = -fx; fz = -fz; fnx = -fnx; fnz = -fnz; }
+        if (needsY90) {
+          const tx = fx; fx = fz; fz = -tx;
+          const tnx = fnx; fnx = fnz; fnz = -tnx;
+        }
+
+        const dst = v * 12;
+        existing[dst] = (fx - cx) * sf * ex;
+        existing[dst + 1] = (fy - cy) * sf * ey;
+        existing[dst + 2] = (fz - cz) * sf * ez;
+        existing[dst + 3] = fnx;
+        existing[dst + 4] = fny;
+        existing[dst + 5] = fnz;
+      }
+
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, existing);
+      gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    }
+  }
+
+  // Override right arm bones for pistol aiming pose (uses a copy of localMat, never mutates original)
+  private overrideRightArm(jointMat: Float32Array, localMat: Float32Array): void {
+    const numBones = this.skelBoneCount;
+    const parents = this.skelBoneParents!;
+
+    // Copy localMat and override arm bones in the copy
+    const overrideLocal = new Float32Array(localMat);
+
+    // Bone 33 = RightArm: rotate ~90° around Y (from -X side toward +Z forward)
+    const m33 = new Float32Array(overrideLocal.buffer, 33 * 16 * 4, 16);
+    quatToMat4([0, 0.7071068, 0, 0.7071068], m33);
+    m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
+
+    // Bone 34 = RightForeArm: identity (straight)
+    const m34 = new Float32Array(overrideLocal.buffer, 34 * 16 * 4, 16);
+    quatToMat4([0, 0, 0, 1], m34);
+    m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
+
+    // Bone 35 = RightHand: tilt ~60° around X for pistol grip
+    const m35 = new Float32Array(overrideLocal.buffer, 35 * 16 * 4, 16);
+    quatToMat4([0.5, 0, 0, 0.8660254], m35);
+    m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
+
+    // Recompute world transforms from overrideLocal for all bones
+    // (must recompute from root because the override affects the chain)
+    for (let b = 0; b < numBones; b++) {
+      if (parents[b] < 0) {
+        const offset = b * 16;
+        mat4.multiply(
+          new Float32Array(jointMat.buffer, offset * 4, 16),
+          this.skelSkinRootWorld!,
+          new Float32Array(overrideLocal.buffer, offset * 4, 16)
+        );
+      }
+    }
+    for (let b = 0; b < numBones; b++) {
+      if (parents[b] >= 0) {
+        mat4.multiply(
+          new Float32Array(jointMat.buffer, b * 16 * 4, 16),
+          new Float32Array(jointMat.buffer, parents[b] * 16 * 4, 16),
+          new Float32Array(overrideLocal.buffer, b * 16 * 4, 16)
+        );
+      }
+    }
   }
 
   resize(w: number, h: number) {
@@ -1639,7 +1890,13 @@ void main() {
         this.drawMesh(this.vendingMachineMesh, vm.x, 0, vm.z, vm.yaw, [1, 1, 1], [1, 1, 1, 1], true);
       }
     }
-    if (playerMesh) this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], true);
+    if (playerMesh) {
+      if (this.skelBoneCount > 0) {
+        this.skinPlayerMesh(playerMesh);
+        this.skelIsReady = true;
+      }
+      this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], true);
+    }
     for (const db of deadBodies) {
       const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
       const dbPitch = isHuman ? -Math.PI / 2 : 0;
@@ -2336,7 +2593,7 @@ void main() {
       }
 
       const meshes: CityMesh[] = [];
-      const primitiveData: { verts: number[]; indices: number[]; texture: WebGLTexture | null }[] = [];
+      const primitiveData: { verts: number[]; indices: number[]; texture: WebGLTexture | null; restPos?: Float32Array; restNrm?: Float32Array; jointIdx?: Uint16Array; jointWgt?: Float32Array; vCount: number; isSkinned?: boolean }[] = [];
 
       let globalMinX = Infinity, globalMaxX = -Infinity;
       let globalMinY = Infinity, globalMaxY = -Infinity;
@@ -2344,7 +2601,7 @@ void main() {
       const textureCache = new Map<number, WebGLTexture | null>();
 
       // Build node transform list from node hierarchy
-      const entries: { meshIndex: number; transform: Float32Array }[] = [];
+      const entries: { meshIndex: number; transform: Float32Array; nodeIndex: number }[] = [];
       if (json.nodes && json.nodes.length > 0 && json.scenes) {
         const identity = mat4.identity(mat4.create());
         const traverse = (nodeIdx: number, parentWorld: Float32Array) => {
@@ -2354,7 +2611,7 @@ void main() {
           else { mat4.identity(local); }
           const world = mat4.create();
           mat4.multiply(world, parentWorld, local);
-          if (node.mesh !== undefined) entries.push({ meshIndex: node.mesh, transform: world });
+          if (node.mesh !== undefined) entries.push({ meshIndex: node.mesh, transform: world, nodeIndex: nodeIdx });
           for (const child of (node.children || [])) traverse(child, world);
         };
         const scene = json.scenes[json.scene ?? 0];
@@ -2366,7 +2623,137 @@ void main() {
       if (entries.length === 0 && json.meshes) {
         const identity = mat4.identity(mat4.create());
         for (let mi = 0; mi < json.meshes.length; mi++) {
-          entries.push({ meshIndex: mi, transform: identity });
+          entries.push({ meshIndex: mi, transform: identity, nodeIndex: -1 });
+        }
+      }
+
+      // Parse skin data if present
+      let isSkinnedModel = false;
+      let boneParents: Int32Array | null = null;
+      let boneLocalMatrices: Float32Array | null = null;
+      let inverseBindMatrices: Float32Array | null = null;
+      let nodeToBoneIdx: Map<number, number> | null = null;
+      let skeletonRootNodeIdx = -1;
+      let skinRootWorld: Float32Array | null = null;
+
+      if (json.skins && json.skins.length > 0) {
+        const skin = json.skins[0];
+        const jointNodes: number[] = skin.joints;
+        const numBones = jointNodes.length;
+        nodeToBoneIdx = new Map();
+        for (let b = 0; b < numBones; b++) nodeToBoneIdx.set(jointNodes[b], b);
+
+        // Parse inverse bind matrices
+        const ibmAcc = json.accessors[skin.inverseBindMatrices];
+        const ibmBufView = json.bufferViews[ibmAcc.bufferView];
+        const ibmBuf = buffers[ibmBufView.buffer];
+        const ibmByteOff = (ibmBufView.byteOffset || 0) + (ibmAcc.byteOffset || 0);
+        inverseBindMatrices = new Float32Array(ibmBuf, ibmByteOff, numBones * 16);
+
+        // Build bone hierarchy and local transforms from node tree
+        const boneLocalTf = new Float32Array(numBones * 16);
+        const parents = new Int32Array(numBones);
+        parents.fill(-1);
+
+        // First, collect all node world transforms
+        const nodeWorldTransforms = new Map<number, Float32Array>();
+        // Add parent references to nodes for hierarchy building
+        const addParents = (nodeIdx: number, parentIdx: number) => {
+          json.nodes[nodeIdx].parent = parentIdx;
+          for (const child of (json.nodes[nodeIdx].children || [])) addParents(child, nodeIdx);
+        };
+        for (const rootIdx of (json.scenes[json.scene ?? 0]?.nodes || [])) addParents(rootIdx, -1);
+
+        const traverseNodes = (nodeIdx: number, parentWorld: Float32Array) => {
+          const node = json.nodes[nodeIdx];
+          const local = mat4.create();
+          if (node.matrix) { for (let i = 0; i < 16; i++) local[i] = node.matrix[i]; }
+          else if (node.rotation || node.translation) {
+            const q = node.rotation || [0, 0, 0, 1];
+            const t = node.translation || [0, 0, 0];
+            const s = node.scale || [1, 1, 1];
+            quatPosScaleToMat4([q[0], q[1], q[2], q[3]], [t[0], t[1], t[2]], [s[0], s[1], s[2]], local);
+          }
+          const world = mat4.create();
+          mat4.multiply(world, parentWorld, local);
+          nodeWorldTransforms.set(nodeIdx, world);
+          for (const child of (node.children || [])) traverseNodes(child, world);
+        };
+        for (const rootIdx of (json.scenes[json.scene ?? 0]?.nodes || [])) {
+          traverseNodes(rootIdx, mat4.identity(mat4.create()));
+        }
+
+        // For each bone, find its parent and store local transform
+        for (let b = 0; b < numBones; b++) {
+          const nodeIdx = jointNodes[b];
+          const node = json.nodes[nodeIdx];
+          const parentIdx = node.parent ?? -1;
+          if (parentIdx >= 0 && nodeToBoneIdx.has(parentIdx)) {
+            parents[b] = nodeToBoneIdx.get(parentIdx)!;
+          } else {
+            if (skeletonRootNodeIdx < 0) skeletonRootNodeIdx = nodeIdx;
+          }
+          const local = mat4.create();
+          if (node.matrix) { for (let i = 0; i < 16; i++) local[i] = node.matrix[i]; }
+          else if (node.rotation || node.translation) {
+            const q = node.rotation || [0, 0, 0, 1];
+            const t = node.translation || [0, 0, 0];
+            const s = node.scale || [1, 1, 1];
+            quatPosScaleToMat4([q[0], q[1], q[2], q[3]], [t[0], t[1], t[2]], [s[0], s[1], s[2]], local);
+          }
+          for (let i = 0; i < 16; i++) boneLocalTf[b * 16 + i] = local[i];
+        }
+
+        if (skeletonRootNodeIdx >= 0) {
+          skinRootWorld = nodeWorldTransforms.get(skeletonRootNodeIdx) || mat4.identity(mat4.create());
+        }
+
+        boneParents = parents;
+        boneLocalMatrices = boneLocalTf;
+        isSkinnedModel = true;
+
+        // Store skeleton data on renderer for later CPU skinning
+        this.skelBoneParents = parents;
+        this.skelBoneLocalMatrices = boneLocalTf;
+        this.skelInverseBindMatrices = inverseBindMatrices;
+        this.skelBoneCount = numBones;
+        this.skelNodeToBoneIdx = nodeToBoneIdx;
+        this.skelJointMatrices = new Float32Array(numBones * 16);
+        this.skelSkinRootWorld = skinRootWorld ? new Float32Array(skinRootWorld) : null;
+        this.skelIsReady = false;
+
+        // Compute bind-pose world transforms for each bone
+        this.skelBindWorldMatrices = new Float32Array(numBones * 16);
+        for (let b = 0; b < numBones; b++) {
+          if (parents[b] < 0) {
+            mat4.multiply(
+              new Float32Array(this.skelBindWorldMatrices.buffer, b * 16 * 4, 16),
+              skinRootWorld!,
+              new Float32Array(boneLocalTf.buffer, b * 16 * 4, 16)
+            );
+          }
+        }
+        for (let b = 0; b < numBones; b++) {
+          if (parents[b] >= 0) {
+            const pIdx = parents[b];
+            mat4.multiply(
+              new Float32Array(this.skelBindWorldMatrices.buffer, b * 16 * 4, 16),
+              new Float32Array(this.skelBindWorldMatrices.buffer, pIdx * 16 * 4, 16),
+              new Float32Array(boneLocalTf.buffer, b * 16 * 4, 16)
+            );
+          }
+        }
+
+        // Compute bind-pose joint matrices: jointMat[b] = bindWorld[b] * inverseBind[b]
+        this.skelBindJointMatrices = new Float32Array(numBones * 16);
+        for (let b = 0; b < numBones; b++) {
+          const bindWorld = new Float32Array(this.skelBindWorldMatrices.buffer, b * 16 * 4, 16);
+          const invBind = new Float32Array(inverseBindMatrices.buffer, b * 16 * 4, 16);
+          mat4.multiply(
+            new Float32Array(this.skelBindJointMatrices.buffer, b * 16 * 4, 16),
+            bindWorld,
+            invBind
+          );
         }
       }
 
@@ -2398,6 +2785,10 @@ void main() {
           && tf[1] === 0 && tf[2] === 0 && tf[3] === 0 && tf[4] === 0
           && tf[6] === 0 && tf[7] === 0 && tf[8] === 0 && tf[9] === 0
           && tf[11] === 0 && tf[12] === 0 && tf[13] === 0 && tf[14] === 0;
+
+        // Check if this entry's node has a skin reference
+        const entryNode = json.nodes[entry.nodeIndex];
+        const isSkinned = isSkinnedModel && entryNode && entryNode.skin !== undefined;
 
         for (const prim of meshDef.primitives || []) {
 
@@ -2471,6 +2862,57 @@ void main() {
           }
 
           const vCount = posAcc.count;
+
+          // Read skin data if this is a skinned primitive
+          let restPos: Float32Array | undefined;
+          let restNrm: Float32Array | undefined;
+          let jointIdx: Uint16Array | undefined;
+          let jointWgt: Float32Array | undefined;
+
+          if (isSkinned && prim.attributes.JOINTS_0 !== undefined && prim.attributes.WEIGHTS_0 !== undefined) {
+            restPos = new Float32Array(vCount * 3);
+            for (let i = 0; i < vCount; i++) {
+              const pi = (posOffset / 4) + i * posStride;
+              restPos[i * 3] = posData[pi];
+              restPos[i * 3 + 1] = posData[pi + 1];
+              restPos[i * 3 + 2] = posData[pi + 2];
+            }
+            restNrm = new Float32Array(vCount * 3);
+            if (normData) {
+              for (let i = 0; i < vCount; i++) {
+                const ni = (normOffset / 4) + i * normStride;
+                restNrm[i * 3] = normData[ni];
+                restNrm[i * 3 + 1] = normData[ni + 1];
+                restNrm[i * 3 + 2] = normData[ni + 2];
+              }
+            } else {
+              for (let i = 0; i < vCount * 3; i++) restNrm[i] = i % 3 === 1 ? 1 : 0;
+            }
+            const jiAcc = json.accessors[prim.attributes.JOINTS_0];
+            const jiBufView = json.bufferViews[jiAcc.bufferView];
+            const jiBuf = buffers[jiBufView.buffer];
+            const jiByteOff = (jiBufView.byteOffset || 0) + (jiAcc.byteOffset || 0);
+            const jiStride = jiBufView.byteStride || 8;
+            jointIdx = new Uint16Array(vCount * 4);
+            if (jiAcc.componentType === 5123) {
+              for (let i = 0; i < vCount; i++) {
+                const src = new Uint16Array(jiBuf, jiByteOff + i * jiStride, 4);
+                jointIdx[i * 4] = src[0]; jointIdx[i * 4 + 1] = src[1];
+                jointIdx[i * 4 + 2] = src[2]; jointIdx[i * 4 + 3] = src[3];
+              }
+            }
+            const wgtAcc = json.accessors[prim.attributes.WEIGHTS_0];
+            const wgtBufView = json.bufferViews[wgtAcc.bufferView];
+            const wgtBuf = buffers[wgtBufView.buffer];
+            const wgtByteOff = (wgtBufView.byteOffset || 0) + (wgtAcc.byteOffset || 0);
+            const wgtStride = wgtBufView.byteStride || 16;
+            jointWgt = new Float32Array(vCount * 4);
+            for (let i = 0; i < vCount; i++) {
+              const src = new Float32Array(wgtBuf, wgtByteOff + i * wgtStride, 4);
+              jointWgt[i * 4] = src[0]; jointWgt[i * 4 + 1] = src[1];
+              jointWgt[i * 4 + 2] = src[2]; jointWgt[i * 4 + 3] = src[3];
+            }
+          }
 
           for (let i = 0; i < vCount; i++) {
             const pi = (posOffset / 4) + i * posStride;
@@ -2554,7 +2996,7 @@ void main() {
             }
           }
 
-          primitiveData.push({ verts, indices, texture });
+          primitiveData.push({ verts, indices, texture, restPos, restNrm, jointIdx, jointWgt, vCount, isSkinned });
         }
       }
 
@@ -2632,9 +3074,25 @@ void main() {
       // Bus: ~2x as wide (X), tall (Y), and long (Z).
       const extraScale: [number, number, number] = url.includes('/bus/') ? [2, 2, 2] : [1, 1, 1];
 
+      // Store skinning transform parameters for later CPU skinning
+      if (isSkinnedModel) {
+        this.skelNeedsRotation = needsRotation;
+        this.skelAngleX = angleX;
+        this.skelCosX = cosX;
+        this.skelSinX = sinX;
+        this.skelNeedsYFlip = needsYFlip;
+        this.skelNeedsY90 = needsY90;
+        this.skelNeedsYFlipMoped = needsYFlipMoped;
+        this.skelCenterX = centerX;
+        this.skelCenterY = centerY;
+        this.skelCenterZ = centerZ;
+        this.skelScaleFactor = scaleFactor;
+        this.skelExtraScale = extraScale;
+      }
+
       // Apply global scaling and rotation to all primitives
       for (const p of primitiveData) {
-        const { verts, indices, texture } = p;
+        const { verts, indices, texture, restPos, restNrm, jointIdx, jointWgt, vCount, isSkinned } = p;
         for (let i = 0; i < verts.length; i += 12) {
           let x = verts[i];
           let y = verts[i + 1];
@@ -2688,8 +3146,16 @@ void main() {
           verts[i + 2] = (z - centerZ) * scaleFactor * extraScale[2];
         }
 
+        const mesh = this.createMesh(verts, indices, texture);
+        if (isSkinned && restPos && restNrm && jointIdx && jointWgt) {
+          mesh.vertexCount = vCount;
+          mesh.restPositions = restPos;
+          mesh.restNormals = restNrm;
+          mesh.jointIndices = jointIdx;
+          mesh.jointWeights = jointWgt;
+        }
         if (indices.length > 0 && verts.length > 0) {
-          meshes.push(this.createMesh(verts, indices, texture));
+          meshes.push(mesh);
         }
       }
 
