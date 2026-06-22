@@ -2372,9 +2372,14 @@ void main() {
         const identity = mat4.identity(mat4.create());
         const traverse = (nodeIdx: number, parentWorld: Float32Array) => {
           const node = json.nodes[nodeIdx];
-          const local = mat4.create();
+          const local = mat4.identity(mat4.create());
           if (node.matrix) { for (let i = 0; i < 16; i++) local[i] = node.matrix[i]; }
-          else { mat4.identity(local); }
+          else if (node.rotation || node.translation) {
+            const q = node.rotation || [0, 0, 0, 1];
+            const t = node.translation || [0, 0, 0];
+            const s = node.scale || [1, 1, 1];
+            quatPosScaleToMat4([q[0], q[1], q[2], q[3]], [t[0], t[1], t[2]], [s[0], s[1], s[2]], local);
+          }
           const world = mat4.create();
           mat4.multiply(world, parentWorld, local);
           if (node.mesh !== undefined) entries.push({ meshIndex: node.mesh, transform: world, nodeIndex: nodeIdx });
@@ -2426,7 +2431,7 @@ void main() {
 
         const traverseNodes = (nodeIdx: number, parentWorld: Float32Array) => {
           const node = json.nodes[nodeIdx];
-          const local = mat4.create();
+          const local = mat4.identity(mat4.create());
           if (node.matrix) { for (let i = 0; i < 16; i++) local[i] = node.matrix[i]; }
           else if (node.rotation || node.translation) {
             const q = node.rotation || [0, 0, 0, 1];
@@ -2452,7 +2457,7 @@ void main() {
           } else {
             if (skeletonRootNodeIdx < 0) skeletonRootNodeIdx = nodeIdx;
           }
-          const local = mat4.create();
+          const local = mat4.identity(mat4.create());
           if (node.matrix) { for (let i = 0; i < 16; i++) local[i] = node.matrix[i]; }
           else if (node.rotation || node.translation) {
             const q = node.rotation || [0, 0, 0, 1];
