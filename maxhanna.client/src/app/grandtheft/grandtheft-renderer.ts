@@ -353,6 +353,8 @@ export class GrandTheftRenderer {
   public hookerMesh: CityMesh[] | null = null;
   public rocketMesh: CityMesh[] | null = null;
   public coltMesh: CityMesh[] | null = null;
+  public rocketLauncherMesh: CityMesh[] | null = null;  
+  public m4a1Mesh: CityMesh[] | null = null;           
   public cityBuildingMeshes: CityMesh[][] = [];
   public suburbBuildingMeshes: CityMesh[][] = [];
   static CITY_BUILDING_NAMES = [
@@ -1850,6 +1852,13 @@ void main() {
   ) {
     const gl = this.gl;
     const now = performance.now();
+    // --- Item pickup rendering config ---
+    // Pickups are drawn 5x smaller than default world objects and spin so
+    // players can spot them. PICKUP_SCALE = 0.2 means 1/5 of the default 1.0.
+    // If your models arrive at a different native size, tune this number.
+    const PICKUP_SCALE = 0.2;
+    const PICKUP_SPIN_SPEED = 1.5;                 // radians / second
+    const pickupYaw = (now / 1000) * PICKUP_SPIN_SPEED;
     const dt = (this.lastFrameTime === 0 ? 0 : (now - this.lastFrameTime) / 1000);
     this.lastFrameTime = now;
     this.updateSun(dt);
@@ -1929,6 +1938,19 @@ void main() {
       const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
       const dbPitch = isHuman ? -Math.PI / 2 : 0;
       this.drawMesh(db.mesh, db.x, 0.02, db.z, db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, 1], true, dbPitch);
+    }
+     
+    // --- Weapon pickups (main pass): real models, 5x smaller, rotating ---
+    for (const w of this.droppedWeapons) {
+      if (w == null || w.weaponType == null) continue;
+      this.drawMesh(
+        this.getWeaponPickupMesh(w.weaponType),
+        w.posX, 0.5, w.posZ,                         // hover just above ground
+        pickupYaw,                                    // spins over time
+        [PICKUP_SCALE, PICKUP_SCALE, PICKUP_SCALE],   // 5x smaller
+        [1, 1, 1, 1],
+        false                                         // main (lit) pass
+      );
     }
 
     gl.disable(gl.POLYGON_OFFSET_FILL);
@@ -3073,6 +3095,18 @@ void main() {
   }
   clearChunkCache() {
     this.chunkCache.clear();
+  }
+  /**
+ * Returns the real weapon model for an item pickup based on weaponType.
+ * 1=Pistol, 2=Rifle, 3=Shotgun, 4=Rocket Launcher.
+ * Falls back to the procedural box pickup (getPickupMesh) when no GLTF
+ * model is loaded yet (e.g. Shotgun, or models still downloading).
+ */
+  getWeaponPickupMesh(weaponType: number): CityMesh | CityMesh[] {
+    if (weaponType === 1 && this.coltMesh) return this.coltMesh;             // Pistol
+    if (weaponType === 2 && this.m4a1Mesh) return this.m4a1Mesh;             // Rifle (M4A1)
+    if (weaponType === 4 && this.rocketLauncherMesh) return this.rocketLauncherMesh; // Rocket Launcher
+    return this.getPickupMesh();                                             // Shotgun / fallback
   }
   private getModelMinY(meshes: CityMesh[]): number {
     let minY = 0;
