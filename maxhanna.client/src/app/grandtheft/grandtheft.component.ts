@@ -2788,6 +2788,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.punchTimer > 0) this.punchTimer = Math.max(0, this.punchTimer - dt);
 
     try {
+      // CRITICAL: renderer has its own droppedWeapons field. If we don't copy
+      // the server's list into it every frame, render() has nothing to draw.
+      this.renderer.droppedWeapons = this.droppedWeapons || [];
+      // Uncomment the next line once to verify the array is populated:
+      console.log('[PICKUPS]', this.droppedWeapons.length, this.droppedWeapons);
       this.renderer.render(
         camX, camY, camZ, this.camYaw, this.camPitch, aspect,
         targetX, this.carY - CAR_HEIGHT + rockOffset, targetZ, this.carYaw,

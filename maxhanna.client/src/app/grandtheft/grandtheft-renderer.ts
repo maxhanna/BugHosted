@@ -352,6 +352,7 @@ export class GrandTheftRenderer {
   public taxiMesh: CityMesh[] | null = null;
   public hookerMesh: CityMesh[] | null = null;
   public rocketMesh: CityMesh[] | null = null;
+  private _warnedPickups: Set<number> = new Set();
   public coltMesh: CityMesh[] | null = null;
   public rocketLauncherMesh: CityMesh[] | null = null;  
   public m4a1Mesh: CityMesh[] | null = null;           
@@ -1938,18 +1939,18 @@ void main() {
       const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
       const dbPitch = isHuman ? -Math.PI / 2 : 0;
       this.drawMesh(db.mesh, db.x, 0.02, db.z, db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, 1], true, dbPitch);
-    }
-     
-    // --- Weapon pickups (main pass): real models, 5x smaller, rotating ---
+    } 
+
+    // --- Weapon pickups (shadow pass) ---
     for (const w of this.droppedWeapons) {
       if (w == null || w.weaponType == null) continue;
       this.drawMesh(
         this.getWeaponPickupMesh(w.weaponType),
-        w.posX, 0.5, w.posZ,                         // hover just above ground
-        pickupYaw,                                    // spins over time
-        [PICKUP_SCALE, PICKUP_SCALE, PICKUP_SCALE],   // 5x smaller
+        w.posX, 1.0, w.posZ,
+        pickupYaw,
+        [PICKUP_SCALE, PICKUP_SCALE, PICKUP_SCALE],
         [1, 1, 1, 1],
-        false                                         // main (lit) pass
+        true
       );
     }
 
@@ -2258,15 +2259,18 @@ void main() {
       gl.enable(gl.CULL_FACE);
     }
 
-    // Draw dropped weapons as rotating pickups
+    // Draw dropped weapons as rotating pickups (real weapon models)
     if (this.droppedWeapons && this.droppedWeapons.length > 0) {
-      const now = performance.now() / 1000;
       for (const dw of this.droppedWeapons) {
-        const colors: Record<number, [number, number, number]> = { 1: [0.6, 0.6, 0.6], 2: [0.2, 0.6, 1.0], 3: [0.8, 0.3, 0.1], 4: [0.1, 0.9, 0.2] };
-        const c = colors[dw.weaponType] || [1, 1, 1];
-        const spin = now * 2 + dw.id;
-        const hover = Math.sin(now * 3 + dw.id) * 0.15;
-        this.drawMesh(this.getPickupMesh(), dw.posX, 0.3 + hover, dw.posZ, spin, [0.3, 0.3, 0.3], [c[0], c[1], c[2], 1]);
+        if (dw == null || dw.weaponType == null) continue;
+        const hover = Math.sin((now / 1000) * 3 + (dw.id || 0)) * 0.15;
+        this.drawMesh(
+          this.getWeaponPickupMesh(dw.weaponType),
+          dw.posX, 1.0 + hover, dw.posZ,
+          pickupYaw + (dw.id || 0),
+          [PICKUP_SCALE, PICKUP_SCALE, PICKUP_SCALE],
+          [1, 1, 1, 1]
+        );
       }
     }
 
@@ -3106,6 +3110,15 @@ void main() {
     if (weaponType === 1 && this.coltMesh) return this.coltMesh;             // Pistol
     if (weaponType === 2 && this.m4a1Mesh) return this.m4a1Mesh;             // Rifle (M4A1)
     if (weaponType === 4 && this.rocketLauncherMesh) return this.rocketLauncherMesh; // Rocket Launcher
+    // Log once per missing type so you can see why a pickup is a box
+    if (!this._warnedPickups) this._warnedPickups = new Set();
+    if (!this._warnedPickups.has(weaponType)) {
+      console.warn('[PICKUP] No GLTF model for weaponType', weaponType,
+        '— using box fallback. (colt=' + !!this.coltMesh,
+        'm4a1=' + !!this.m4a1Mesh,
+        'rocketLauncher=' + !!this.rocketLauncherMesh + ')');
+      this._warnedPickups.add(weaponType);
+    }
     return this.getPickupMesh();                                             // Shotgun / fallback
   }
   private getModelMinY(meshes: CityMesh[]): number {
