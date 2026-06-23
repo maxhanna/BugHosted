@@ -2741,7 +2741,7 @@ void main() {
     // 1. Arms — always draw in bind pose (skip skinning unless we have a
     // specific gun animation that needs bone transforms).
     if (this.firstPersonArmsMesh) {
-      if (this.firstPersonArmsSkeleton) {
+      if (this.firstPersonArmsSkeleton && armsAnim !== 'relax') {
         const sk = this.firstPersonArmsSkeleton;
         const local = new Float32Array(sk.boneLocalMatrices);
         const anim = (this.firstPersonArmsAnimations || []).find(a => a.name === armsAnim);
@@ -2758,7 +2758,7 @@ void main() {
 
     // 2. Mark23 (pistol only)
     if (weapon === 1 && this.mark23Mesh) {
-      if (this.mark23Skeleton && mark23Anim) {
+      if (this.mark23Skeleton && mark23Anim && mark23Anim !== 'Hide') {
         const sk = this.mark23Skeleton;
         const local = new Float32Array(sk.boneLocalMatrices);
         const anim = (this.mark23Animations || []).find(a => a.name === mark23Anim);
