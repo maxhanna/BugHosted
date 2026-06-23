@@ -2312,8 +2312,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
       const currIdx = car.path[car.pathIdx];
       const nextIdx = car.pathIdx + 1 < car.path.length ? car.path[car.pathIdx + 1] : -1;
-      const currNode = this.trafficNodes[currIdx];
-      const nextNode = nextIdx >= 0 ? this.trafficNodes[nextIdx] : null;
+      const currNode = currIdx >= 0 && currIdx < this.trafficNodes.length ? this.trafficNodes[currIdx] : null;
+      const nextNode = nextIdx >= 0 && nextIdx < this.trafficNodes.length ? this.trafficNodes[nextIdx] : null;
+      if (!currNode || !nextNode) { this.trafficCars.splice(ci, 1); continue; }
 
       const lane = this.trafficLanes.find(l => l.fromIdx === currIdx && l.toIdx === nextIdx);
       const laneOffX = lane ? lane.offsetX : 0;
@@ -2681,7 +2682,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.lastTime = now;
 
     if (this.isPassenger) {
-      // NEW: Passenger follows the host's car — no movement input.
       this.updatePassengerFollow();
     } else if (this.isInCar && this.vehicleType === 'plane') this.updatePlane(dt);
     else if (this.isInCar && this.vehicleType === 'motorcycle') this.updateMotorcycle(dt);
@@ -2697,10 +2697,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateVendingMachines();
     this.checkNearCar();
     this.checkNearVendingMachine();
-    // NEW: Show the 'Press E to pick up' prompt when a hooker is in range.
     this.showPassengerPrompt = this.canPickupPassenger();
-    // NEW: Update steal-car / enter-passenger prompts based on which side
-    // of another player's car the local player is standing on.
     this.checkNearOtherPlayerCar();
     this.updateVehicleCollisions();
     this.updateExplosionJumps(dt);
@@ -2712,8 +2709,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updatePoliceSiren();
     this.updateTaxiMission(dt);
 
-    // FIX: Include trafficCars in the car-death explosion check so they
-    // explode when destroyed (not just serverNPCs and parkedCars).
     for (const v of [...this.serverNPCs, ...this.parkedCars, ...this.trafficCars]) {
       if (v.health <= 0 && !this.deadNPCIds.has(v.id)) {
         this.deadNPCIds.add(v.id);
@@ -2788,7 +2783,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.carHealth = 400;
           this.wantedLevel = 0;
           if (this.isInCar) this.exitCar();
-          // NEW: Reset passenger state on respawn
           if (this.isPassenger) this.exitPassenger();
           this.carX = HOSPITAL_SPAWN_X;
           this.carZ = HOSPITAL_SPAWN_Z;
@@ -2833,14 +2827,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const camZ = targetZ - Math.cos(this.camYaw) * effectiveDist;
     const camY = targetY + effectiveHeight;
     const renderMesh = this.isInCar ? this.playerVehicleMesh : (this.firstPerson ? null : this.renderer.playerMesh);
-    // Merge traffic cars and local pedestrians for rendering
     const allNPCs = [...this.serverNPCs, ...this.trafficCars];
     const allPeds = [...this.serverPedestrians, ...this.localPedestrians];
-
-    // NEW: Apply car-rocking offset (hooker service) to the render Y.
     const rockOffset = this.getCarRockOffset();
 
-    // Weapon pickup collision
     if (this.pickupCooldown > 0) this.pickupCooldown -= dt;
     if (this.pickupCooldown <= 0 && this.droppedWeapons) {
       for (const dw of this.droppedWeapons) {
@@ -2860,25 +2850,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
       }
     }
-    // Sync dropped weapons to renderer for drawing
     this.renderer.droppedWeapons = this.droppedWeapons;
-
-    // FIX: Sync garage state to the renderer so it draws the door + car.
     this.renderer.garageDoorOpenness = this.garageDoorOpenness;
     this.renderer.garageCarMesh = this.garageCarMesh;
-    // Activate arm bone override when pistol is equipped
     this.renderer.armOverrideActive = (this.currentWeapon === 1) && !this.firstPerson;
-    // Feed walk animation state to renderer
     this.renderer.walkSpeed = this.isInCar ? 0 : this.carSpeed;
     this.renderer.punchTime = this.punchTimer;
     if (this.punchTimer > 0) this.punchTimer = Math.max(0, this.punchTimer - dt);
 
     try {
-      // CRITICAL: renderer has its own droppedWeapons field. If we don't copy
-      // the server's list into it every frame, render() has nothing to draw.
       this.renderer.droppedWeapons = this.droppedWeapons || [];
-      // Uncomment the next line once to verify the array is populated:
-      console.log('[PICKUPS]', this.droppedWeapons.length, this.droppedWeapons);
       this.renderer.render(
         camX, camY, camZ, this.camYaw, this.camPitch, aspect,
         targetX, this.carY - CAR_HEIGHT + rockOffset, targetZ, this.carYaw,
@@ -2890,10 +2871,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.vendingMachines,
         renderMesh,
         this.taxiMarkers,
-        // NEW: Assemble driver + passenger + taxi-attached meshes. The
-        // renderer iterates these and draws each at targetX/Y/Z + a
-        // yaw-rotated offset (renderer lines ~1735-1747), so the passenger
-        // rides along in the front seat for free.
+
         (() => {
           const attached: any[] = [];
           if (this.driverInCarMesh) attached.push(this.driverInCarMesh);

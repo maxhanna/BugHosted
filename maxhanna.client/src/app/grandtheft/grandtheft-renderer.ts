@@ -2155,7 +2155,7 @@ void main() {
         for (const lamp of chunk.lamps) {
           const distSq = (lamp.x - camX) ** 2 + (lamp.z - camZ) ** 2;
           if (distSq < 50 * 50) {
-            nearbyLamps.push({ x: lamp.x, y: 3.05, z: lamp.z });
+            nearbyLamps.push({ x: lamp.x, y: 1.05, z: lamp.z });
           }
         }
       }
@@ -2270,7 +2270,7 @@ void main() {
         }
         if (this.hydrantMesh) {
           for (const hydrant of chunk.hydrants) {
-            this.drawMesh(this.hydrantMesh, hydrant.x, 0, hydrant.z, 0, [1, 1, 1], [1, 1, 1, 1]);
+            this.drawMesh(this.hydrantMesh, hydrant.x, 0, hydrant.z, 0, [1, 1, 1], [1, 0, 0, 1]);
           }
         }
         for (const bld of chunk.buildings) {
