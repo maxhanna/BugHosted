@@ -945,11 +945,13 @@ void main() {
   ): void {
     const gl = this.gl;
     for (const mesh of meshes) {
+      // Skip meshes that aren't skinnable OR don't have a bind-pose snapshot
       if (!mesh.restPositions || !mesh.jointIndices || !mesh.jointWeights || !mesh.vertexCount) continue;
-      if (!mesh.originalVBO) continue;   // can't skin safely without bind-pose snapshot
+      if (!mesh.originalVBO) continue;
 
       const vCount = mesh.vertexCount;
-      const newData = new Float32Array(mesh.originalVBO);   // fresh copy of bind-pose
+      // Always start from the bind-pose snapshot — never from the live VBO.
+      const newData = new Float32Array(mesh.originalVBO);
 
       for (let i = 0; i < vCount; i++) {
         const px = mesh.restPositions[i * 3];
