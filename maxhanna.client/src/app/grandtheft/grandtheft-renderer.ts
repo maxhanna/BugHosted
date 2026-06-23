@@ -2772,7 +2772,9 @@ void main() {
       const safeVCount = Math.min(vCount, vboVCount);
       if (safeVCount === 0) continue;
 
-      const out = new Float32Array(safeVCount * 12);
+      const existing = new Float32Array(safeVCount * 12);
+      gl.getBufferSubData(gl.ARRAY_BUFFER, 0, existing);
+
       const ji = mesh.jointIndices;
       const jw = mesh.jointWeights;
       const rp = mesh.restPositions;
@@ -2832,15 +2834,15 @@ void main() {
         }
 
         const d = v * 12;
-        out[d] = (fx - cx) * sf * ex;
-        out[d + 1] = (fy - cy) * sf * ey;
-        out[d + 2] = (fz - cz) * sf * ez;
-        out[d + 3] = fnx;
-        out[d + 4] = fny;
-        out[d + 5] = fnz;
+        existing[d] = (fx - cx) * sf * ex;
+        existing[d + 1] = (fy - cy) * sf * ey;
+        existing[d + 2] = (fz - cz) * sf * ez;
+        existing[d + 3] = fnx;
+        existing[d + 4] = fny;
+        existing[d + 5] = fnz;
       }
 
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, out);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, existing);
       gl.bindBuffer(gl.ARRAY_BUFFER, null);
     }
   }
