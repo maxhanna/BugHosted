@@ -1,0 +1,11 @@
+Model Information:
+* title:	Low Poly Stack of Money
+* source:	https://sketchfab.com/3d-models/low-poly-stack-of-money-632cf7dbc59a496283d1a6092dc6f9b0
+* author:	Courvois (https://sketchfab.com/CourvoisZ)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Low Poly Stack of Money" (https://sketchfab.com/3d-models/low-poly-stack-of-money-632cf7dbc59a496283d1a6092dc6f9b0) by Courvois (https://sketchfab.com/CourvoisZ) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

@@ -2695,6 +2695,7 @@ void main() {
   }
   // State for first-person animation playback
   private _fpAnimTime = 0;
+  private _fpLoggedStatus = false;
   private _fpCurrentAnim: { arms?: string; mark23?: string } = { arms: 'relax', mark23: 'Draw' };
 
   /**
@@ -2711,55 +2712,54 @@ void main() {
     dt: number
   ): void {
     const gl = this.gl;
-    console.log('[FP RENDER]', {
-      arms: !!this.firstPersonArmsMesh,
-      armsSkel: !!this.firstPersonArmsSkeleton,
-      armsAnim: this.firstPersonArmsAnimations?.length ?? 0,
-      mark23: !!this.mark23Mesh,
-      mark23Skel: !!this.mark23Skeleton,
-      mark23Anim: this.mark23Animations?.length ?? 0,
-      weapon, 
-    });
+    if (!this._fpLoggedStatus) {
+      console.log('[FP RENDER]', {
+        arms: !!this.firstPersonArmsMesh,
+        armsSkel: !!this.firstPersonArmsSkeleton,
+        armsAnim: this.firstPersonArmsAnimations?.length ?? 0,
+        mark23: !!this.mark23Mesh,
+        mark23Skel: !!this.mark23Skeleton,
+        mark23Anim: this.mark23Animations?.length ?? 0,
+        weapon, 
+      });
+      this._fpLoggedStatus = true;
+    }
     this._fpAnimTime += dt;
 
     gl.disable(gl.DEPTH_TEST);
+    // Shared direction vectors
+    const fx = Math.sin(camYaw) * Math.cos(camPitch);
+    const fy = -Math.sin(camPitch);
+    const fz = Math.cos(camYaw) * Math.cos(camPitch);
+    const rightX = Math.cos(camYaw), rightZ = -Math.sin(camYaw);
     // 1. Arms
-    if (this.firstPersonArmsMesh && this.firstPersonArmsSkeleton) {
-      const sk = this.firstPersonArmsSkeleton;
-      const local = new Float32Array(sk.boneLocalMatrices);   // copy
-      const anim = (this.firstPersonArmsAnimations || []).find(a => a.name === armsAnim);
-      if (anim) this.sampleAnimation(anim, this._fpAnimTime, sk, local);
-      const joint = new Float32Array(sk.boneCount * 16);
-      this.computeJointMatrices(sk, local, joint);
-      this.skinMeshGeneric(this.firstPersonArmsMesh, sk, joint);
-
-      // Position: slightly below + in front of camera. Tune offsets.
-      const fx = Math.sin(camYaw) * Math.cos(camPitch);
-      const fy = -Math.sin(camPitch);
-      const fz = Math.cos(camYaw) * Math.cos(camPitch);
-      const rightX = Math.cos(camYaw), rightZ = -Math.sin(camYaw);
+    if (this.firstPersonArmsMesh) {
+      if (this.firstPersonArmsSkeleton) {
+        const sk = this.firstPersonArmsSkeleton;
+        const local = new Float32Array(sk.boneLocalMatrices);
+        const anim = (this.firstPersonArmsAnimations || []).find(a => a.name === armsAnim);
+        if (anim) this.sampleAnimation(anim, this._fpAnimTime, sk, local);
+        const joint = new Float32Array(sk.boneCount * 16);
+        this.computeJointMatrices(sk, local, joint);
+        this.skinMeshGeneric(this.firstPersonArmsMesh, sk, joint);
+      }
       const armsX = camX + fx * 0.4 + rightX * 0.2;
-      const armsY = camY + fy * 0.4 - 0.3;        // drop a bit
+      const armsY = camY + fy * 0.4 - 0.3;
       const armsZ = camZ + fz * 0.4 + rightZ * 0.2;
-      // Face the camera direction
       this.drawMesh(this.firstPersonArmsMesh, armsX, armsY, armsZ, camYaw, [1, 1, 1], [1, 1, 1, 1]);
     }
 
     // 2. Mark23 (pistol only)
-    if (weapon === 1 && this.mark23Mesh && this.mark23Skeleton && mark23Anim) {
-      const sk = this.mark23Skeleton;
-      const local = new Float32Array(sk.boneLocalMatrices);
-      const anim = (this.mark23Animations || []).find(a => a.name === mark23Anim);
-      if (anim) this.sampleAnimation(anim, this._fpAnimTime, sk, local);
-      const joint = new Float32Array(sk.boneCount * 16);
-      this.computeJointMatrices(sk, local, joint);
-      this.skinMeshGeneric(this.mark23Mesh, sk, joint);
-
-      // Position relative to camera, slightly forward and right
-      const fx = Math.sin(camYaw) * Math.cos(camPitch);
-      const fy = -Math.sin(camPitch);
-      const fz = Math.cos(camYaw) * Math.cos(camPitch);
-      const rightX = Math.cos(camYaw), rightZ = -Math.sin(camYaw);
+    if (weapon === 1 && this.mark23Mesh) {
+      if (this.mark23Skeleton && mark23Anim) {
+        const sk = this.mark23Skeleton;
+        const local = new Float32Array(sk.boneLocalMatrices);
+        const anim = (this.mark23Animations || []).find(a => a.name === mark23Anim);
+        if (anim) this.sampleAnimation(anim, this._fpAnimTime, sk, local);
+        const joint = new Float32Array(sk.boneCount * 16);
+        this.computeJointMatrices(sk, local, joint);
+        this.skinMeshGeneric(this.mark23Mesh, sk, joint);
+      }
       const mx = camX + fx * 0.5 + rightX * 0.15;
       const my = camY + fy * 0.5 - 0.2;
       const mz = camZ + fz * 0.5 + rightZ * 0.15;

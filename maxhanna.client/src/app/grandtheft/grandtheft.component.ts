@@ -458,14 +458,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const buildingPromises: Promise<void>[] = [];
     for (const name of GrandTheftRenderer.CITY_BUILDING_NAMES) {
       buildingPromises.push(
-        this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`).then(m => {
+        this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`, false).then(m => {
           if (m) this.renderer.cityBuildingMeshes.push(m);
         })
       );
     }
     for (const name of GrandTheftRenderer.SUBURB_BUILDING_NAMES) {
       buildingPromises.push(
-        this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`).then(m => {
+        this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`, false).then(m => {
           if (m) this.renderer.suburbBuildingMeshes.push(m);
         })
       );
@@ -3751,6 +3751,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           const walkAngle = Math.random() * Math.PI * 2;
           const walkDist = 15;
           const pedId = --this.pedIdCounter;
+          this.stolenNpcIds.add(pedId);
           this.localPedestrians.push({
             id: pedId,
             x: this.carX + Math.sin(walkAngle + Math.PI) * 3,
@@ -3791,6 +3792,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           const walkAngle = Math.random() * Math.PI * 2;
           const walkDist = 25;
           const pedId = --this.pedIdCounter;
+          this.stolenNpcIds.add(pedId);
           this.localPedestrians.push({
             id: pedId,
             x: m.destinationX, z: m.destinationZ,
