@@ -41,6 +41,7 @@ export interface CityChunk {
   cx: number;
   cz: number;
   lamps: { x: number; z: number }[];
+  hydrants: { x: number; z: number }[];
   buildings: BuildingPlacement[];
 }
 
@@ -392,6 +393,7 @@ export class GrandTheftRenderer {
     'low_poly_pizza_restaurant','low_poly_wooden_cabine','residential_family_house'
   ];
   public trafficLightMesh: CityMesh[] | null = null;
+  public hydrantMesh: CityMesh[] | null = null;
   public currentModelUrl: string | null = null;
   public droppedWeapons: any[] = [];
   // --- First-person weapon system ---
@@ -1478,7 +1480,7 @@ void main() {
       this.addPlane(verts, indices, cx2, -2.5, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.0, 0.2, 0.5, 0.8, idxOffset);
       idxOffset += 4;
       const mesh = this.createMesh(verts, indices);
-      const chunk: CityChunk = { mesh, cx, cz, lamps: [], buildings };
+      const chunk: CityChunk = { mesh, cx, cz, lamps: [], hydrants: [], buildings };
       this.chunkCache.set(key, chunk);
       return chunk;
     }
@@ -1654,17 +1656,26 @@ void main() {
     const mesh = this.createMesh(verts, indices);
 
     const lamps: { x: number; z: number }[] = [];
+    const hydrants: { x: number; z: number }[] = [];
     if (!isMountain && !isBeach) {
       const halfSidewalk = (BLOCK_SIZE + 6) / 2;
       const sidewalkEdge = GRID_PITCH / 2 - halfSidewalk;
       for (let ly = 0; ly < 2; ly++) {
         for (let lx = 0; lx < 2; lx++) {
-          lamps.push({ x: cx * CHUNK_SIZE + lx * GRID_PITCH - sidewalkEdge, z: cz * CHUNK_SIZE + ly * GRID_PITCH - sidewalkEdge });
+          const lxPos = cx * CHUNK_SIZE + lx * GRID_PITCH - sidewalkEdge;
+          const lzPos = cz * CHUNK_SIZE + ly * GRID_PITCH - sidewalkEdge;
+          lamps.push({ x: lxPos, z: lzPos });
+          // Place fire hydrants on ~1/3 of corners, opposite a lamp
+          const cornerSeed = ((cx * 100003 + cz * 70001) * 31 + ly * 7 + lx * 13) >>> 0;
+          const hydrantRng = this.mulberry32(cornerSeed);
+          if (hydrantRng() < 0.33) {
+            hydrants.push({ x: lxPos, z: lzPos });
+          }
         }
       }
     }
 
-    const chunk: CityChunk = { mesh, cx, cz, lamps, buildings };
+    const chunk: CityChunk = { mesh, cx, cz, lamps, hydrants, buildings };
     this.chunkCache.set(key, chunk);
     return chunk;
   }
@@ -2096,6 +2107,7 @@ void main() {
     markers: any[],
     attachedMeshes: any[],
     playerCarOnFire: boolean,
+    carFireX: number, carFireZ: number, carFireYaw: number,
     trafficNodes?: { x: number; z: number }[],
     farPlane?: number
   ) {
@@ -2143,7 +2155,7 @@ void main() {
         for (const lamp of chunk.lamps) {
           const distSq = (lamp.x - camX) ** 2 + (lamp.z - camZ) ** 2;
           if (distSq < 50 * 50) {
-            nearbyLamps.push({ x: lamp.x, y: 4.05, z: lamp.z });
+            nearbyLamps.push({ x: lamp.x, y: 3.05, z: lamp.z });
           }
         }
       }
@@ -2254,6 +2266,11 @@ void main() {
         if (this.lampMesh) {
           for (const lamp of chunk.lamps) {
             this.drawMesh(this.lampMesh, lamp.x, 0, lamp.z, 0, [1, 1, 1], [1, 1, 1, 1]);
+          }
+        }
+        if (this.hydrantMesh) {
+          for (const hydrant of chunk.hydrants) {
+            this.drawMesh(this.hydrantMesh, hydrant.x, 0, hydrant.z, 0, [1, 1, 1], [1, 1, 1, 1]);
           }
         }
         for (const bld of chunk.buildings) {
@@ -2535,9 +2552,9 @@ void main() {
       }
     }
     if (playerCarOnFire) {
-      const sinYf = Math.sin(carYaw), cosYf = Math.cos(carYaw);
-      const fx = targetX + cosYf * 0.8;
-      const fz = targetZ + sinYf * 0.8;
+      const sinYf = Math.sin(carFireYaw), cosYf = Math.cos(carFireYaw);
+      const fx = carFireX + cosYf * 0.8;
+      const fz = carFireZ + sinYf * 0.8;
       const flicker = 0.85 + Math.sin(now / 100) * 0.15;
       this.drawMesh(fireMesh, fx, 0.6, fz, 0, [fireScale * flicker, fireScale * flicker, fireScale * flicker], fireColor);
     }

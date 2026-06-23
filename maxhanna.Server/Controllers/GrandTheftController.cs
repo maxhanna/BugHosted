@@ -302,8 +302,8 @@ namespace maxhanna.Server.Controllers
 		private static readonly bool[] _homeBaseWeaponCollected = new bool[5];
 		private static readonly DateTime[] _homeBaseWeaponRespawnAt = new DateTime[5];
 		private const int HOME_BASE_WEAPON_RESPAWN_SECONDS = 60;
-		private static readonly float[] HOME_BASE_WEAPON_X = { 0, 117, 120, 0, 123 };
-		private static readonly float[] HOME_BASE_WEAPON_Z = { 0, 48, 48, 0, 48 };
+		private static readonly float[] HOME_BASE_WEAPON_X = { 0, 117, 120, 114, 123 };
+		private static readonly float[] HOME_BASE_WEAPON_Z = { 0, 48, 48, 48, 48 };
 
 		private static long _nextNpcId = 1;
 		private static long GetNextNpcId() => Interlocked.Increment(ref _nextNpcId);
@@ -710,7 +710,7 @@ namespace maxhanna.Server.Controllers
 							}
 							if (npc.OnFire && npc.FireStartedAt.HasValue)
 							{
-								if ((DateTime.UtcNow - npc.FireStartedAt.Value).TotalSeconds >= 4.0)
+								if ((DateTime.UtcNow - npc.FireStartedAt.Value).TotalSeconds >= 10.0)
 								{
 									npc.Health = 0;
 									npc.DeadAt = DateTime.UtcNow;

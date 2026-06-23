@@ -1,12 +1,11 @@
 ﻿<div class="componentMain">
-  <app-title-bar [title]="'Grand Theft'"
-    [hasMenu]="true"
-    (menuClicked)="openMenuPanel()"
+  <app-title-bar [title]="'Grand Theft'" [hasMenu]="true" (menuClicked)="openMenuPanel()"
     (closeClicked)="remove_me('GrandTheftComponent');">
   </app-title-bar>
 
   <div class="popupPanel" *ngIf="!parentRef?.user?.id">
-    <app-user [loginOnly]="true" [inputtedParentRef]="parentRef" (close)="closeLoginPanel()" [loginReasonMessage]="'Please log in to play Grand Theft!'"></app-user>
+    <app-user [loginOnly]="true" [inputtedParentRef]="parentRef" (close)="closeLoginPanel()"
+      [loginReasonMessage]="'Please log in to play Grand Theft!'"></app-user>
   </div>
 
   <div id="gt-container">
@@ -74,9 +73,8 @@
     </div>
 
     <div id="gt-weapon-wheel" *ngIf="showWeaponWheel">
-      <div class="weapon-slot" *ngFor="let w of weaponNames; let i = index"
-        [class.active]="currentWeapon === i" [class.owned]="ownedWeapons[i]" [class.unowned]="!ownedWeapons[i]"
-        (click)="ownedWeapons[i] && selectWeapon(i)">
+      <div class="weapon-slot" *ngFor="let w of weaponNames; let i = index" [class.active]="currentWeapon === i"
+        [class.owned]="ownedWeapons[i]" [class.unowned]="!ownedWeapons[i]" (click)="ownedWeapons[i] && selectWeapon(i)">
         {{ w }}<span *ngIf="i > 0 && ownedWeapons[i]" class="ammo-count"> ({{ ammo[i] }})</span>
       </div>
     </div>
@@ -113,6 +111,7 @@
       </div>
       <div id="gt-mobile-car" (touchstart)="onButtonTouch($event); toggleCar()">CAR</div>
       <div id="gt-mobile-view" (touchstart)="onButtonTouch($event); toggleView()">V</div>
+      <div id="gt-mobile-weapon-wheel" (touchstart)="onButtonTouch($event); toggleWeaponWheel()">W</div>
       <div id="gt-mobile-fire" (touchstart)="onButtonTouch($event); mobileShoot()"
         (touchend)="onButtonTouch($event); mobileShootEnd()">FIRE</div>
       <div id="gt-mobile-chat" (touchstart)="onButtonTouch($event); isChatOpen = true; chatInput = ''">CHAT</div>
@@ -127,7 +126,8 @@
         </div>
       </div>
       <div id="gt-chat-input" *ngIf="isChatOpen">
-        <input #chatInputRef [(ngModel)]="chatInput" (keydown.enter)="sendChatMessage()" (keydown.escape)="isChatOpen = false; chatInput = ''" placeholder="Type a message..." autofocus />
+        <input #chatInputRef [(ngModel)]="chatInput" (keydown.enter)="sendChatMessage()"
+          (keydown.escape)="isChatOpen = false; chatInput = ''" placeholder="Type a message..." autofocus />
       </div>
     </div>
 

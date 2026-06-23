@@ -216,6 +216,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _wasDead = false;
   _carOnFire = false;
   _carFireStarted = 0;
+  _carFireX = 0;
+  _carFireZ = 0;
+  _carFireYaw = 0;
   private _respawnTimer: any = null;
   isLoaded = false;
   showMap = false;
@@ -367,11 +370,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     });
     for (let ci = 1; ci <= 29; ci++) {
+      if (ci === 27) continue; // char27 is a fire hydrant, not a pedestrian
       const ciStr = ci.toString();
       this.renderer.loadGLTF(`assets/grandtheft/char${ciStr}/scene.gltf`, false).then(npc => {
         if (npc) this.renderer.npcMeshes.push(npc);
       });
     }
+    this.renderer.loadGLTF('assets/grandtheft/char27/scene.gltf', false).then(hydrant => {
+      if (hydrant) this.renderer.hydrantMesh = hydrant;
+    });
     this.renderer.loadGLTF('assets/grandtheft/bus/scene.gltf').then(bus => {
       if (bus) this.renderer.busMesh = bus;
     });
@@ -825,6 +832,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     e.preventDefault();
     e.stopPropagation();
   }
+  toggleWeaponWheel() { this.showWeaponWheel = !this.showWeaponWheel; }
 
   toggleCar() {
     // If we're a passenger in another player's car, E exits the car.
@@ -2747,9 +2755,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (!this._carOnFire) {
         this._carOnFire = true;
         this._carFireStarted = performance.now() / 1000;
+        this._carFireX = this.carX;
+        this._carFireZ = this.carZ;
+        this._carFireYaw = this.carYaw;
       }
       const fireElapsed = (performance.now() / 1000) - this._carFireStarted;
-      if (fireElapsed >= 4.0) {
+      if (fireElapsed >= 10.0) {
         this.carHealth = 0;
       }
     } else if (this.isInCar && this.carHealth > 80) {
@@ -2759,6 +2770,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     if (this.isInCar && this.carHealth <= 0) {
       this.spawnExplosion(this.carX, 0.5, this.carZ);
+      this._carOnFire = false;
+      this._carFireStarted = 0;
       this.exitCar();
       this.carHealth = 400;
     }
@@ -2898,7 +2911,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           attached.push(...this.taxiAttachedMeshes);
           return attached;
         })(),
-        this._carOnFire,
+        this._carOnFire, this._carFireX, this._carFireZ, this._carFireYaw,
         this.trafficNodes,
         this.viewDistance
       );
@@ -3268,8 +3281,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (!this.isInCar || this.vehicleType === 'plane') return;
 
     const carRadius = 2.0;
-    const speed = Math.abs(this.carSpeed);
-    const collisionDamage = speed < 2 ? 1 : speed * 3;
+    const actualSpeed = Math.hypot(this.carVx, this.carVz);
+    const collisionDamage = actualSpeed < 2 ? 0 : actualSpeed * 3;
 
     for (const v of [...this.serverNPCs, ...this.parkedCars]) {
       if (v.health <= 0) continue;
@@ -3282,7 +3295,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const nx = dx / dist;
         this.carX += nx * overlap * 0.5;
         this.carVx *= -0.3; this.carVz *= -0.3;
-        this.carSpeed *= 0.5;
+        this.carSpeed = Math.hypot(this.carVx, this.carVz);
         v.health -= collisionDamage;
         this.carHealth -= collisionDamage * 0.5;
       }
@@ -3294,7 +3307,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const dz = this.carZ - ped.z;
       const dist = Math.sqrt(dx * dx + dz * dz);
       if (dist < 2.0) {
-        const impactForce = Math.max(2, Math.abs(this.carSpeed) * 0.5);
+        const impactForce = Math.max(2, actualSpeed * 0.5);
         const angle = Math.atan2(ped.z - this.carZ, ped.x - this.carX);
         ped.x += Math.cos(angle) * impactForce;
         ped.z += Math.sin(angle) * impactForce;
