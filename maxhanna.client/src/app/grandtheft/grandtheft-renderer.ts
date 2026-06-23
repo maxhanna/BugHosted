@@ -367,6 +367,7 @@ export class GrandTheftRenderer {
   public rocketMesh: CityMesh[] | null = null;
   private _warnedPickups: Set<number> = new Set();
   public coltMesh: CityMesh[] | null = null;
+  public moneyMesh: CityMesh[] | null = null;
   public rocketLauncherMesh: CityMesh[] | null = null;  
   public m4a1Mesh: CityMesh[] | null = null;           
   public cityBuildingMeshes: CityMesh[][] = [];
@@ -2419,7 +2420,12 @@ void main() {
     for (const ms of moneyStacks) {
       const progress = ms.age / ms.lifetime;
       const alpha = 1.0 - progress;
-      this.drawMesh(this.getMoneyStackMesh(), ms.x, 0.01, ms.z, ms.yaw || 0, [1, 1, 1], [1, 1, 1, alpha]);
+      const spin = performance.now() / 1000 * 2 + ms.x;
+      if (this.moneyMesh) {
+        this.drawMesh(this.moneyMesh, ms.x, 0.1, ms.z, spin, [1, 1, 1], [1, 1, 1, alpha]);
+      } else {
+        this.drawMesh(this.getMoneyStackMesh(), ms.x, 0.01, ms.z, spin, [1, 1, 1], [1, 1, 1, alpha]);
+      }
     }
     gl.depthMask(true);
 
