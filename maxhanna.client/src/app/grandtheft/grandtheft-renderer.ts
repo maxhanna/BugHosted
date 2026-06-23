@@ -2304,8 +2304,8 @@ void main() {
           for (let ci = 0; ci < corners.length; ci++) {
             const lx = node.x + corners[ci][0];
             const lz = node.z + corners[ci][1];
-            this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), lx + 0.15, 3.9, lz, 4, [0.3, 0.3, 0.3], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
-            this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), lx + 0.15, 3.7, lz, 4, [0.3, 0.3, 0.3], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
+            this.drawMesh(this.getSphereMesh(0.3), lx + 0.15, 3.9, lz, 0, [1, 1, 1], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
+            this.drawMesh(this.getSphereMesh(0.3), lx + 0.15, 3.7, lz, 0, [1, 1, 1], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
           }
         }
       } else {
@@ -2327,8 +2327,8 @@ void main() {
           for (let ci = 0; ci < corners.length; ci++) {
             const lx = node.x + corners[ci][0];
             const lz = node.z + corners[ci][1];
-            this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), lx, 2.6, lz, 0, [0.3, 0.3, 0.3], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
-            this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), lx, 2.2, lz, 0, [0.3, 0.3, 0.3], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
+            this.drawMesh(this.getSphereMesh(0.3), lx, 2.6, lz, 0, [1, 1, 1], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
+            this.drawMesh(this.getSphereMesh(0.3), lx, 2.2, lz, 0, [1, 1, 1], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
           }
         }
       }
@@ -2725,6 +2725,34 @@ void main() {
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [], indices: number[] = [];
     this.addBox(verts, indices, 0, 0, 0, w, h, d, 1, 1, 1, 1, 0);
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set(key, mesh);
+    return mesh;
+  }
+  private getSphereMesh(radius: number): CityMesh {
+    const key = `sphere_${radius}`;
+    if (this.meshCache.has(key)) return this.meshCache.get(key)!;
+    const verts: number[] = [], indices: number[] = [];
+    const stacks = 10, slices = 16;
+    const startIndex = verts.length / 10;
+    for (let i = 0; i <= stacks; i++) {
+      const v = i / stacks;
+      const theta = v * Math.PI;
+      const sinT = Math.sin(theta), cosT = Math.cos(theta);
+      for (let j = 0; j <= slices; j++) {
+        const u = j / slices;
+        const phi = u * Math.PI * 2;
+        const sinP = Math.sin(phi), cosP = Math.cos(phi);
+        verts.push(cosP * sinT * radius, cosT * radius, sinP * sinT * radius, cosP * sinT, cosT, sinP * sinT, 1, 1, 1, 1);
+      }
+    }
+    for (let i = 0; i < stacks; i++) {
+      for (let j = 0; j < slices; j++) {
+        const aI = startIndex + i * (slices + 1) + j;
+        const bI = startIndex + (i + 1) * (slices + 1) + j;
+        indices.push(aI, bI, aI + 1, bI, bI + 1, aI + 1);
+      }
+    }
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set(key, mesh);
     return mesh;
