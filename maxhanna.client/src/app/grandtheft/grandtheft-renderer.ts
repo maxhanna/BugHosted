@@ -2746,7 +2746,7 @@ void main() {
     if (weapon === 1 && this.mark23Mesh) {
       const mx = camX + fx * 0.4 + rightX * 0.06;
       const my = camY + fy * 2.4 - 2.2;
-      const mz = camZ + fz * 0.4 + rightZ * 0.06;
+      const mz = camZ + fz * 3.4 + rightZ * 0.06;
       this.drawMesh(this.mark23Mesh, mx, my, mz, camYaw, [1, 1, 1], [1, 1, 1, 1]);
     }
     gl.enable(gl.DEPTH_TEST);
