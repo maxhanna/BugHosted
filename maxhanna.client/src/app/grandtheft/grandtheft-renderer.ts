@@ -2738,15 +2738,15 @@ void main() {
     const fz = Math.cos(camYaw) * Math.cos(camPitch);
     const rightX = Math.cos(camYaw), rightZ = -Math.sin(camYaw);
     if (this.firstPersonArmsMesh) {
-      const ax = camX + fx * 0.4 + rightX * 0.2;
-      const ay = camY + fy * 0.4 - 0.3;
-      const az = camZ + fz * 0.4 + rightZ * 0.2;
+      const ax = camX + fx * 0.3 + rightX * 0.15;
+      const ay = camY + fy * 0.3 - 0.7;
+      const az = camZ + fz * 0.3 + rightZ * 0.15;
       this.drawMesh(this.firstPersonArmsMesh, ax, ay, az, camYaw, [1, 1, 1], [1, 1, 1, 1]);
     }
     if (weapon === 1 && this.mark23Mesh) {
-      const mx = camX + fx * 0.5 + rightX * 0.15;
-      const my = camY + fy * 0.5 - 0.2;
-      const mz = camZ + fz * 0.5 + rightZ * 0.15;
+      const mx = camX + fx * 0.35 + rightX * 0.12;
+      const my = camY + fy * 0.35 - 0.55;
+      const mz = camZ + fz * 0.35 + rightZ * 0.12;
       this.drawMesh(this.mark23Mesh, mx, my, mz, camYaw, [1, 1, 1], [1, 1, 1, 1]);
     }
     gl.enable(gl.DEPTH_TEST);
