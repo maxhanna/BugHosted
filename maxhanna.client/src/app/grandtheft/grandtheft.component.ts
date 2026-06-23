@@ -1067,7 +1067,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
         this.isInCar = true;
         this.vehicleType = 'car';
-        this.carHealth = 100;
+        this.carHealth = 400;
 
         // Use a default car mesh (we don't know the other player's model)
         const carMeshes = this.renderer.carMeshes;
@@ -2129,7 +2129,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
       this.isInCar = true;
       this.vehicleType = this.garageCar.vehicleType as any;
-      this.carHealth = 100;
+      this.carHealth = 400;
       this.playerVehicleMesh = this.garageCarMesh;
       this.playerVehicleColor = [this.garageCar.colorR, this.garageCar.colorG, this.garageCar.colorB];
       if (this.renderer.playerMesh) {
@@ -2754,7 +2754,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (this._wasDead && !this._respawnTimer) {
         this._respawnTimer = setTimeout(() => {
           this.health = 100;
-          this.carHealth = 100;
+          this.carHealth = 400;
           this.wantedLevel = 0;
           if (this.isInCar) this.exitCar();
           // NEW: Reset passenger state on respawn
