@@ -311,6 +311,7 @@ function hashSeed(s: number | string): number {
 
 export class GrandTheftRenderer {
   private gl: WebGL2RenderingContext;
+  public getGl(): WebGL2RenderingContext { return this.gl; }
   private program: WebGLProgram;
   private projLoc: WebGLUniformLocation;
   private viewLoc: WebGLUniformLocation;
@@ -418,6 +419,8 @@ export class GrandTheftRenderer {
   public mark23Animations: GltfAnimation[] | null = null;
   public mark23JointMatrices: Float32Array | null = null;
   public mark23AnimTime = 0;
+  public mark23Center: [number, number, number] = [0, 0, 0];
+  public mark23Scale = 1;
 
   // Skeleton data for CPU skinning (used by Franklin model)
   public skelBoneParents: Int32Array | null = null;
@@ -2780,14 +2783,8 @@ void main() {
       const rp = mesh.restPositions;
       const rn = mesh.restNormals;
 
-      const needsRotation = this.skelNeedsRotation;
-      const cosX = this.skelCosX, sinX = this.skelSinX;
-      const needsYFlip = this.skelNeedsYFlip;
-      const needsYFlipMoped = this.skelNeedsYFlipMoped;
-      const needsY90 = this.skelNeedsY90;
-      const cx = this.skelCenterX, cy = this.skelCenterY, cz = this.skelCenterZ;
-      const sf = this.skelScaleFactor;
-      const ex = this.skelExtraScale[0], ey = this.skelExtraScale[1], ez = this.skelExtraScale[2];
+      const cx = this.mark23Center[0], cy = this.mark23Center[1], cz = this.mark23Center[2];
+      const sf = this.mark23Scale;
 
       for (let v = 0; v < safeVCount; v++) {
         let px = 0, py = 0, pz = 0, nx = 0, ny = 0, nz = 0;
@@ -2816,30 +2813,13 @@ void main() {
         if (nlen > 0.0001) { nx /= nlen; ny /= nlen; nz /= nlen; }
         else { nx = 0; ny = 1; nz = 0; }
 
-        let fx = px, fy = py, fz = pz;
-        let fnx = nx, fny = ny, fnz = nz;
-        if (needsRotation) {
-          let ty = fy * cosX - fz * sinX;
-          let tz = fy * sinX + fz * cosX;
-          fy = ty; fz = tz;
-          let tny = fny * cosX - fnz * sinX;
-          let tnz = fny * sinX + fnz * cosX;
-          fny = tny; fnz = tnz;
-        }
-        if (needsYFlip) { fx = -fx; fz = -fz; fnx = -fnx; fnz = -fnz; }
-        if (needsYFlipMoped) { fx = -fx; fz = -fz; fnx = -fnx; fnz = -fnz; }
-        if (needsY90) {
-          const tx = fx; fx = fz; fz = -tx;
-          const tnx = fnx; fnx = fnz; fnz = -tnx;
-        }
-
         const d = v * 12;
-        existing[d] = (fx - cx) * sf * ex;
-        existing[d + 1] = (fy - cy) * sf * ey;
-        existing[d + 2] = (fz - cz) * sf * ez;
-        existing[d + 3] = fnx;
-        existing[d + 4] = fny;
-        existing[d + 5] = fnz;
+        existing[d] = (px - cx) * sf;
+        existing[d + 1] = (py - cy) * sf;
+        existing[d + 2] = (pz - cz) * sf;
+        existing[d + 3] = nx;
+        existing[d + 4] = ny;
+        existing[d + 5] = nz;
       }
 
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, existing);

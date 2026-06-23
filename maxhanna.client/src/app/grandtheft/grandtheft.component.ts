@@ -434,11 +434,32 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     {
       const m23Out: { animations?: any; skeleton?: any } = {};
-      this.renderer.loadGLTF('assets/grandtheft/first_person_mark23/scene.gltf', true, m23Out).then(m => {
+      this.renderer.loadGLTF('assets/grandtheft/first_person_mark23/scene.gltf', false, m23Out).then(m => {
         if (m) {
           this.renderer.mark23Mesh = m;
           this.renderer.mark23Skeleton = m23Out.skeleton ?? null;
           this.renderer.mark23Animations = m23Out.animations ?? null;
+          // Compute center/scale from first mesh VBO for animation skinning
+          const gl = this.renderer.getGl();
+          if (gl && m.length > 0 && m[0].vbo) {
+            gl.bindBuffer(gl.ARRAY_BUFFER, m[0].vbo);
+            const size = gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE) as number;
+            const vCount = Math.floor(size / 48);
+            if (vCount > 0) {
+              const buf = new Float32Array(vCount * 12);
+              gl.getBufferSubData(gl.ARRAY_BUFFER, 0, buf);
+              let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity, minZ = Infinity, maxZ = -Infinity;
+              for (let i = 0; i < vCount; i++) {
+                const x = buf[i * 12], y = buf[i * 12 + 1], z = buf[i * 12 + 2];
+                if (x < minX) minX = x; if (x > maxX) maxX = x;
+                if (y < minY) minY = y; if (y > maxY) maxY = y;
+                if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+              }
+              this.renderer.mark23Center = [(minX + maxX) / 2, minY, (minZ + maxZ) / 2];
+              this.renderer.mark23Scale = 2.0 / Math.max(0.001, maxY - minY);
+            }
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+          }
           console.log('[FP MARK23] loaded',
             m.length, 'primitives,',
             this.renderer.mark23Animations?.length ?? 0, 'animations:',
