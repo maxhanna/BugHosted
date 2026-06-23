@@ -2733,22 +2733,24 @@ void main() {
     this._fpAnimTime += dt;
 
     gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.BLEND);
     const fx = Math.sin(camYaw) * Math.cos(camPitch);
     const fy = -Math.sin(camPitch);
     const fz = Math.cos(camYaw) * Math.cos(camPitch);
     const rightX = Math.cos(camYaw), rightZ = -Math.sin(camYaw);
     if (this.firstPersonArmsMesh) {
       const ax = camX + fx * 0.2 + rightX * 0.06;
-      const ay = camY + fy * 0.2 - 2.5;
-      const az = camZ + fz * 0.2 + rightZ * 0.06;
+      const ay = camY + fy * 2.2 - 2.5;
+      const az = camZ + fz * 3.2 + rightZ * 0.06;
       this.drawMesh(this.firstPersonArmsMesh, ax, ay, az, camYaw, [0.6, 0.6, 0.6], [1, 1, 1, 1]);
     }
     if (weapon === 1 && this.mark23Mesh) {
       const mx = camX + fx * 0.4 + rightX * 0.06;
-      const my = camY + fy * 0.4 - 2.2;
-      const mz = camZ + fz * 0.4 + rightZ * 0.06;
+      const my = camY + fy * 2.4 - 2.2;
+      const mz = camZ + fz * 3.4 + rightZ * 0.06;
       this.drawMesh(this.mark23Mesh, mx, my, mz, camYaw, [1, 1, 1], [1, 1, 1, 1]);
     }
+    gl.enable(gl.BLEND);
     gl.enable(gl.DEPTH_TEST);
   }
   /**
