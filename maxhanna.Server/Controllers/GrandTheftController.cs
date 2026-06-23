@@ -1760,10 +1760,19 @@ namespace maxhanna.Server.Controllers
 					{
 						kv.Value.Health -= req.Damage;
 						hitAnything = true;
+						bool isVehicle = kv.Value.Type == "car" || kv.Value.Type == "bus" || kv.Value.Type == "taxi" || kv.Value.Type == "police" || kv.Value.Type == "bike" || kv.Value.Type == "motorcycle";
 						if (kv.Value.Health <= 0)
 						{
-							kv.Value.DeadAt = DateTime.UtcNow;
-							targetDied = true;
+							if (isVehicle)
+							{
+								// Vehicles catch fire instead of dying instantly
+								kv.Value.Health = 1;
+							}
+							else
+							{
+								kv.Value.DeadAt = DateTime.UtcNow;
+								targetDied = true;
+							}
 							deathX = kv.Value.X;
 							deathZ = kv.Value.Z;
 							// Cops always drop pistol with ammo

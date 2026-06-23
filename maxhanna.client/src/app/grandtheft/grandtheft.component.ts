@@ -366,6 +366,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.renderer.npcMeshes.push(npc);
       }
     });
+    for (let ci = 1; ci <= 29; ci++) {
+      const ciStr = ci.toString();
+      this.renderer.loadGLTF(`assets/grandtheft/char${ciStr}/scene.gltf`, false).then(npc => {
+        if (npc) this.renderer.npcMeshes.push(npc);
+      });
+    }
     this.renderer.loadGLTF('assets/grandtheft/bus/scene.gltf').then(bus => {
       if (bus) this.renderer.busMesh = bus;
     });
@@ -380,6 +386,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (car) this.renderer.carMeshes.push(car);
     });
     this.renderer.loadGLTF('assets/grandtheft/hilux/scene.gltf').then(car => {
+      if (car) this.renderer.carMeshes.push(car);
+    });
+    this.renderer.loadGLTF('assets/grandtheft/jeep/scene.gltf').then(car => {
+      if (car) this.renderer.carMeshes.push(car);
+    });
+    this.renderer.loadGLTF('assets/grandtheft/monsterTruck/scene.gltf').then(car => {
+      if (car) this.renderer.carMeshes.push(car);
+    });
+    this.renderer.loadGLTF('assets/grandtheft/suv/scene.gltf').then(car => {
       if (car) this.renderer.carMeshes.push(car);
     });
 
@@ -451,6 +466,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     });
     this.renderer.loadGLTF('assets/grandtheft/m4a1_rifle/scene.gltf').then(m4 => {
       if (m4) this.renderer.m4a1Mesh = m4;
+    });
+    this.renderer.loadGLTF('assets/grandtheft/shotgun/scene.gltf').then(sg => {
+      if (sg) this.renderer.shotgunMesh = sg;
     });
     this.renderer.loadGLTF('assets/grandtheft/trafficLight/scene.gltf').then(tl => {
       if (tl) this.renderer.trafficLightMesh = tl;

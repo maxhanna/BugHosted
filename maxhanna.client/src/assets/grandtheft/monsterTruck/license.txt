@@ -1,0 +1,8 @@
+Model Information:
+* title:	Vehicle_Monster_Truck_Skin_Default
+* source:	https://sketchfab.com/3d-models/vehicle-monster-truck-skin-default-a00d4029519940789a4c907b03f9d64e
+* author:	ROCK FF 99 (https://sketchfab.com/amansoyal781)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

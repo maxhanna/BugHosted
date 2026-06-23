@@ -368,8 +368,9 @@ export class GrandTheftRenderer {
   private _warnedPickups: Set<number> = new Set();
   public coltMesh: CityMesh[] | null = null;
   public moneyMesh: CityMesh[] | null = null;
-  public rocketLauncherMesh: CityMesh[] | null = null;  
-  public m4a1Mesh: CityMesh[] | null = null;           
+  public rocketLauncherMesh: CityMesh[] | null = null;
+  public m4a1Mesh: CityMesh[] | null = null;
+  public shotgunMesh: CityMesh[] | null = null;
   public cityBuildingMeshes: CityMesh[][] = [];
   public suburbBuildingMeshes: CityMesh[][] = [];
   static CITY_BUILDING_NAMES = [
@@ -380,7 +381,8 @@ export class GrandTheftRenderer {
     'low_poly_cinema','low_poly_city_hall','low_poly_gas_station','low_poly_hotel_1','low_poly_hotel_2',
     'low_poly_pharmacy','low_poly_police_station','low_poly_school','low_poly_shopping_center',
     'modern_building','panel_apartment_placeholder','psx_groceries_store','pyaterochka_3d',
-    'residential_complex_modern_apartment_building','ukraine_building'
+    'residential_complex_modern_apartment_building',    'ukraine_building',
+    'michaelsoft'
   ];
   static SUBURB_BUILDING_NAMES = [
     'brooklynCornerhouse','brooklynStreetBuilding','cabin',
@@ -3576,6 +3578,7 @@ void main() {
   getWeaponPickupMesh(weaponType: number): CityMesh | CityMesh[] {
     if (weaponType === 1 && this.coltMesh) return this.coltMesh;             // Pistol
     if (weaponType === 2 && this.m4a1Mesh) return this.m4a1Mesh;             // Rifle (M4A1)
+    if (weaponType === 3 && this.shotgunMesh) return this.shotgunMesh;       // Shotgun
     if (weaponType === 4 && this.rocketLauncherMesh) return this.rocketLauncherMesh; // Rocket Launcher
     // Log once per missing type so you can see why a pickup is a box
     if (!this._warnedPickups) this._warnedPickups = new Set();

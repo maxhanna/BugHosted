@@ -1,0 +1,8 @@
+Model Information:
+* title:	Vehicle SUV Skin Default
+* source:	https://sketchfab.com/3d-models/vehicle-suv-skin-default-0ac912c084394f7583a6168cce9d00b5
+* author:	ROCK FF 99 (https://sketchfab.com/amansoyal781)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

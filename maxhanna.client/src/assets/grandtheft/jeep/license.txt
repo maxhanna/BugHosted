@@ -1,0 +1,8 @@
+Model Information:
+* title:	Vehicle Jeep Skin Default
+* source:	https://sketchfab.com/3d-models/vehicle-jeep-skin-default-047e4677355c4656ad6bfcfa401b7500
+* author:	ROCK FF 99 (https://sketchfab.com/amansoyal781)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works
