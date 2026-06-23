@@ -2306,8 +2306,8 @@ void main() {
             const lz = node.z + corners[ci][1];
             this.drawMesh(this.getSphereMesh(0.075), lx + 0.15, 3.86, lz + 0.12, 0, [1, 1, 1], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
             this.drawMesh(this.getSphereMesh(0.075), lx + 0.15, 3.70, lz + 0.12, 0, [1, 1, 1], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
-            this.drawMesh(this.getSphereMesh(0.075), lx - 3.15, 3.86, lz + 2, 0, [1, 1, 1], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
-            this.drawMesh(this.getSphereMesh(0.075), lx - 3.15, 3.70, lz + 2, 0, [1, 1, 1], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
+            this.drawMesh(this.getSphereMesh(0.075), lx - 3.15, 3.86, lz + 2.4, 0, [1, 1, 1], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
+            this.drawMesh(this.getSphereMesh(0.075), lx - 3.15, 3.70, lz + 2.4, 0, [1, 1, 1], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
           }
         }
       } else {
