@@ -2140,7 +2140,7 @@ void main() {
         for (const lamp of chunk.lamps) {
           const distSq = (lamp.x - camX) ** 2 + (lamp.z - camZ) ** 2;
           if (distSq < 50 * 50) {
-            nearbyLamps.push({ x: lamp.x, y: 4.5, z: lamp.z });
+            nearbyLamps.push({ x: lamp.x, y: 4.05, z: lamp.z });
           }
         }
       }
@@ -2422,7 +2422,7 @@ void main() {
       const alpha = 1.0 - progress;
       const spin = performance.now() / 1000 * 2 + ms.x;
       if (this.moneyMesh) {
-        this.drawMesh(this.moneyMesh, ms.x, 0.1, ms.z, spin, [1, 1, 1], [1, 1, 1, alpha]);
+        this.drawMesh(this.moneyMesh, ms.x, 0.1, ms.z, spin, [0.1, 0.1, 0.1], [1, 1, 1, alpha]);
       } else {
         this.drawMesh(this.getMoneyStackMesh(), ms.x, 0.01, ms.z, spin, [1, 1, 1], [1, 1, 1, alpha]);
       }
@@ -2738,9 +2738,10 @@ void main() {
     const fy = -Math.sin(camPitch);
     const fz = Math.cos(camYaw) * Math.cos(camPitch);
     const rightX = Math.cos(camYaw), rightZ = -Math.sin(camYaw);
-    // 1. Arms
+    // 1. Arms — always draw in bind pose (skip skinning unless we have a
+    // specific gun animation that needs bone transforms).
     if (this.firstPersonArmsMesh) {
-      if (this.firstPersonArmsSkeleton) {
+      if (this.firstPersonArmsSkeleton && armsAnim !== 'relax') {
         const sk = this.firstPersonArmsSkeleton;
         const local = new Float32Array(sk.boneLocalMatrices);
         const anim = (this.firstPersonArmsAnimations || []).find(a => a.name === armsAnim);
@@ -2757,7 +2758,7 @@ void main() {
 
     // 2. Mark23 (pistol only)
     if (weapon === 1 && this.mark23Mesh) {
-      if (this.mark23Skeleton && mark23Anim) {
+      if (this.mark23Skeleton && mark23Anim && mark23Anim !== 'Hide') {
         const sk = this.mark23Skeleton;
         const local = new Float32Array(sk.boneLocalMatrices);
         const anim = (this.mark23Animations || []).find(a => a.name === mark23Anim);
