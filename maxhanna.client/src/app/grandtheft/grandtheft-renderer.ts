@@ -2733,40 +2733,17 @@ void main() {
     this._fpAnimTime += dt;
 
     gl.disable(gl.DEPTH_TEST);
-    // Shared direction vectors
     const fx = Math.sin(camYaw) * Math.cos(camPitch);
     const fy = -Math.sin(camPitch);
     const fz = Math.cos(camYaw) * Math.cos(camPitch);
     const rightX = Math.cos(camYaw), rightZ = -Math.sin(camYaw);
-    // 1. Arms — always draw in bind pose (skip skinning unless we have a
-    // specific gun animation that needs bone transforms).
     if (this.firstPersonArmsMesh) {
-      if (this.firstPersonArmsSkeleton && armsAnim !== 'relax') {
-        const sk = this.firstPersonArmsSkeleton;
-        const local = new Float32Array(sk.boneLocalMatrices);
-        const anim = (this.firstPersonArmsAnimations || []).find(a => a.name === armsAnim);
-        if (anim) this.sampleAnimation(anim, this._fpAnimTime, sk, local);
-        const joint = new Float32Array(sk.boneCount * 16);
-        this.computeJointMatrices(sk, local, joint);
-        this.skinMeshGeneric(this.firstPersonArmsMesh, sk, joint);
-      }
-      const armsX = camX + fx * 0.4 + rightX * 0.2;
-      const armsY = camY + fy * 0.4 - 0.3;
-      const armsZ = camZ + fz * 0.4 + rightZ * 0.2;
-      this.drawMesh(this.firstPersonArmsMesh, armsX, armsY, armsZ, camYaw, [1, 1, 1], [1, 1, 1, 1]);
+      const ax = camX + fx * 0.4 + rightX * 0.2;
+      const ay = camY + fy * 0.4 - 0.3;
+      const az = camZ + fz * 0.4 + rightZ * 0.2;
+      this.drawMesh(this.firstPersonArmsMesh, ax, ay, az, camYaw, [1, 1, 1], [1, 1, 1, 1]);
     }
-
-    // 2. Mark23 (pistol only)
     if (weapon === 1 && this.mark23Mesh) {
-      if (this.mark23Skeleton && mark23Anim && mark23Anim !== 'Hide') {
-        const sk = this.mark23Skeleton;
-        const local = new Float32Array(sk.boneLocalMatrices);
-        const anim = (this.mark23Animations || []).find(a => a.name === mark23Anim);
-        if (anim) this.sampleAnimation(anim, this._fpAnimTime, sk, local);
-        const joint = new Float32Array(sk.boneCount * 16);
-        this.computeJointMatrices(sk, local, joint);
-        this.skinMeshGeneric(this.mark23Mesh, sk, joint);
-      }
       const mx = camX + fx * 0.5 + rightX * 0.15;
       const my = camY + fy * 0.5 - 0.2;
       const mz = camZ + fz * 0.5 + rightZ * 0.15;
