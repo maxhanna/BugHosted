@@ -2265,7 +2265,7 @@ void main() {
 
         if (this.lampMesh) {
           for (const lamp of chunk.lamps) {
-            this.drawMesh(this.lampMesh, lamp.x, 0, lamp.z, 0, [1, 1, 1], [1, 1, 1, 1]);
+            this.drawMesh(this.lampMesh, lamp.x, 0, lamp.z, 0, [1, 1, 1], [0.25, 0.3, 0.22, 1]);
           }
         }
         if (this.hydrantMesh) {
