@@ -2304,8 +2304,8 @@ void main() {
           for (let ci = 0; ci < corners.length; ci++) {
             const lx = node.x + corners[ci][0];
             const lz = node.z + corners[ci][1];
-            this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), lx + 1, 3.9, lz, 4, [0.3, 0.3, 0.3], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
-            this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), lx + 1, 3.7, lz, 4, [0.3, 0.3, 0.3], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
+            this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), lx + 0.1, 3.9, lz, 4, [0.3, 0.3, 0.3], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
+            this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), lx + 0.1, 3.7, lz, 4, [0.3, 0.3, 0.3], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
           }
         }
       } else {
