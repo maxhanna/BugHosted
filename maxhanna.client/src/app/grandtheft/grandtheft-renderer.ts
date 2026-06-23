@@ -2744,9 +2744,9 @@ void main() {
       this.drawMesh(this.firstPersonArmsMesh, ax, ay, az, camYaw, [0.6, 0.6, 0.6], [1, 1, 1, 1]);
     }
     if (weapon === 1 && this.mark23Mesh) {
-      const mx = camX + fx * 0.55 + rightX * 0.06;
+      const mx = camX + fx * 0.55 + rightX * 0.08;
       const my = camY + fy * 0.55 - 2.2;
-      const mz = camZ + fz * 0.55 + rightZ * 0.06;
+      const mz = camZ + fz * 0.55 + rightZ * 0.08;
       this.drawMesh(this.mark23Mesh, mx, my, mz, camYaw, [1, 1, 1], [1, 1, 1, 1]);
     }
     gl.enable(gl.DEPTH_TEST);
