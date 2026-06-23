@@ -416,6 +416,8 @@ export class GrandTheftRenderer {
     nodeNames: string[];
   } | null = null;
   public mark23Animations: GltfAnimation[] | null = null;
+  public mark23JointMatrices: Float32Array | null = null;
+  public mark23AnimTime = 0;
 
   // Skeleton data for CPU skinning (used by Franklin model)
   public skelBoneParents: Int32Array | null = null;
@@ -2709,28 +2711,123 @@ void main() {
    * arms + Mark23 with the correct animation. The component picks the anim
    * names based on game state (shoot, reload, idle, etc.).
    */
+  private skinMark23Meshes(animName: string, dt: number): void {
+    const skel = this.mark23Skeleton;
+    const anims = this.mark23Animations;
+    if (!skel || !anims || !this.mark23Mesh) return;
+    const anim = anims.find(a => a.name === animName);
+    if (!anim) return;
+
+    const gl = this.gl;
+    const numBones = skel.boneCount;
+    const parents = skel.boneParents;
+    const invBind = skel.inverseBindMatrices;
+
+    if (!this.mark23JointMatrices || this.mark23JointMatrices.length !== numBones * 16) {
+      this.mark23JointMatrices = new Float32Array(numBones * 16);
+    }
+    const jointMat = this.mark23JointMatrices;
+
+    this.mark23AnimTime += dt;
+
+    const animLocal = new Float32Array(skel.boneLocalMatrices);
+    this.sampleAnimation(anim, this.mark23AnimTime, skel, animLocal);
+
+    for (let b = 0; b < numBones; b++) {
+      if (parents[b] < 0) {
+        mat4.multiply(
+          new Float32Array(jointMat.buffer, b * 16 * 4, 16),
+          skel.skinRootWorld,
+          new Float32Array(animLocal.buffer, b * 16 * 4, 16)
+        );
+      }
+    }
+    for (let b = 0; b < numBones; b++) {
+      if (parents[b] >= 0) {
+        mat4.multiply(
+          new Float32Array(jointMat.buffer, b * 16 * 4, 16),
+          new Float32Array(jointMat.buffer, parents[b] * 16 * 4, 16),
+          new Float32Array(animLocal.buffer, b * 16 * 4, 16)
+        );
+      }
+    }
+
+    const tempMat = new Float32Array(16);
+    for (let b = 0; b < numBones; b++) {
+      const wOff = b * 16;
+      const w = new Float32Array(jointMat.buffer, wOff * 4, 16);
+      const ib = new Float32Array(invBind.buffer, wOff * 4, 16);
+      mat4.multiply(tempMat, w, ib);
+      for (let i = 0; i < 16; i++) w[i] = tempMat[i];
+    }
+
+    for (const mesh of this.mark23Mesh) {
+      if (!mesh.jointIndices || !mesh.jointWeights || !mesh.restPositions || !mesh.restNormals || !mesh.vbo) continue;
+      const vCount = mesh.vertexCount || 0;
+      if (vCount === 0) continue;
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vbo);
+      const bufferSize = gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE) as number;
+      const vboVCount = Math.floor(bufferSize / (12 * 4));
+      const safeVCount = Math.min(vCount, vboVCount);
+      if (safeVCount === 0) continue;
+
+      const out = new Float32Array(safeVCount * 12);
+      const ji = mesh.jointIndices;
+      const jw = mesh.jointWeights;
+      const rp = mesh.restPositions;
+      const rn = mesh.restNormals;
+
+      for (let v = 0; v < safeVCount; v++) {
+        let px = 0, py = 0, pz = 0, nx = 0, ny = 0, nz = 0;
+        const rpx = rp[v * 3], rpy = rp[v * 3 + 1], rpz = rp[v * 3 + 2];
+        const rnx = rn[v * 3], rny = rn[v * 3 + 1], rnz = rn[v * 3 + 2];
+
+        for (let j = 0; j < 4; j++) {
+          const w = jw[v * 4 + j];
+          if (w === 0) continue;
+          let bi = ji[v * 4 + j];
+          if (bi >= numBones) bi = 0;
+          const bOff = bi * 16;
+          const m00 = jointMat[bOff], m01 = jointMat[bOff + 4], m02 = jointMat[bOff + 8], m03 = jointMat[bOff + 12];
+          const m10 = jointMat[bOff + 1], m11 = jointMat[bOff + 5], m12 = jointMat[bOff + 9], m13 = jointMat[bOff + 13];
+          const m20 = jointMat[bOff + 2], m21 = jointMat[bOff + 6], m22 = jointMat[bOff + 10], m23 = jointMat[bOff + 14];
+
+          px += w * (m00 * rpx + m01 * rpy + m02 * rpz + m03);
+          py += w * (m10 * rpx + m11 * rpy + m12 * rpz + m13);
+          pz += w * (m20 * rpx + m21 * rpy + m22 * rpz + m23);
+          nx += w * (m00 * rnx + m01 * rny + m02 * rnz);
+          ny += w * (m10 * rnx + m11 * rny + m12 * rnz);
+          nz += w * (m20 * rnx + m21 * rny + m22 * rnz);
+        }
+
+        const nlen = Math.hypot(nx, ny, nz);
+        if (nlen > 0.0001) { nx /= nlen; ny /= nlen; nz /= nlen; }
+        else { nx = 0; ny = 1; nz = 0; }
+
+        const d = v * 12;
+        out[d] = px; out[d + 1] = py; out[d + 2] = pz;
+        out[d + 3] = nx; out[d + 4] = ny; out[d + 5] = nz;
+      }
+
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, out);
+      gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    }
+  }
+
   renderFirstPersonWeapon(
     camX: number, camY: number, camZ: number,
     camYaw: number, camPitch: number,
-    weapon: number,            // 0=unarmed, 1=pistol
-    armsAnim: string,          // e.g. 'relax', 'finger_gun_idle', 'finger_gun_fire'
-    mark23Anim: string | null, // e.g. 'Draw', 'Shoot', 'Reload', 'Hide' or null if unarmed
+    weapon: number,
+    armsAnim: string,
+    mark23Anim: string | null,
     dt: number
   ): void {
     const gl = this.gl;
-    if (!this._fpLoggedStatus) {
-      console.log('[FP RENDER]', {
-        arms: !!this.firstPersonArmsMesh,
-        armsSkel: !!this.firstPersonArmsSkeleton,
-        armsAnim: this.firstPersonArmsAnimations?.length ?? 0,
-        mark23: !!this.mark23Mesh,
-        mark23Skel: !!this.mark23Skeleton,
-        mark23Anim: this.mark23Animations?.length ?? 0,
-        weapon, 
-      });
-      this._fpLoggedStatus = true;
+
+    if (weapon === 1 && this.mark23Mesh && this.mark23Skeleton && this.mark23Animations && mark23Anim) {
+      this.skinMark23Meshes(mark23Anim, dt);
     }
-    this._fpAnimTime += dt;
 
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.BLEND);
@@ -2740,15 +2837,15 @@ void main() {
     const rightX = Math.cos(camYaw), rightZ = -Math.sin(camYaw);
     if (this.firstPersonArmsMesh) {
       const ax = camX + fx * 0.2 + rightX * 0.06;
-      const ay = camY + fy * 0.2 - 1.5;
-      const az = camZ + fz * 1.2 + rightZ * 0.06;
+      const ay = camY + fy * 0.2 - 2.5;
+      const az = camZ + fz * 0.2 + rightZ * 0.06;
       this.drawMesh(this.firstPersonArmsMesh, ax, ay, az, camYaw + Math.PI, [0.6, 0.6, 0.6], [1, 1, 1, 1]);
     }
     if (weapon === 1 && this.mark23Mesh) {
       const mx = camX + fx * 0.4 + rightX * 0.06;
-      const my = camY + fy * 2.4 - 2.2;
-      const mz = camZ + fz * 3.4 + rightZ * 0.06;
-      this.drawMesh(this.mark23Mesh, mx, my, mz, camYaw, [1, 1, 1], [1, 1, 1, 1]);
+      const my = camY + fy * 0.4 - 2.2;
+      const mz = camZ + fz * 0.4 + rightZ * 0.06;
+      this.drawMesh(this.mark23Mesh, mx, my, mz, camYaw + Math.PI, [1, 1, 1], [1, 1, 1, 1]);
     }
     gl.enable(gl.BLEND);
     gl.enable(gl.DEPTH_TEST);
