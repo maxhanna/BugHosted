@@ -2738,9 +2738,9 @@ void main() {
     const fz = Math.cos(camYaw) * Math.cos(camPitch);
     const rightX = Math.cos(camYaw), rightZ = -Math.sin(camYaw);
     if (this.firstPersonArmsMesh) {
-      const ax = camX + fx * 0.3 + rightX * 0.15;
-      const ay = camY + fy * 0.3 - 0.7;
-      const az = camZ + fz * 0.3 + rightZ * 0.15;
+      const ax = camX + fx * 0.4 + rightX * 0.06;
+      const ay = camY + fy * 0.4 - 2.2;
+      const az = camZ + fz * 0.4 + rightZ * 0.06;
       this.drawMesh(this.firstPersonArmsMesh, ax, ay, az, camYaw, [0.6, 0.6, 0.6], [1, 1, 1, 1]);
     }
     if (weapon === 1 && this.mark23Mesh) {
