@@ -1,0 +1,8 @@
+Model Information:
+* title:	Free Fire Character
+* source:	https://sketchfab.com/3d-models/free-fire-character-54cd48fe189040d5ab18b154f549abd0
+* author:	ffg89490 (https://sketchfab.com/ffg89490)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

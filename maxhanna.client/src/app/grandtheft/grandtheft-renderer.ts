@@ -597,8 +597,8 @@ void main() {
     }
   }
 
-  vec3 finalColor = mix(color, uFogColor, fog * baseColor.a);
-  FragColor = vec4(finalColor, baseColor.a);
+  vec3 finalColor = mix(color, uFogColor, fog * vColor.a);
+  FragColor = vec4(finalColor, vColor.a);
 }
 `;
 
@@ -2093,6 +2093,7 @@ void main() {
     playerMesh: CityMesh | CityMesh[] | null,
     markers: any[],
     attachedMeshes: any[],
+    playerCarOnFire: boolean,
     trafficNodes?: { x: number; z: number }[],
     farPlane?: number
   ) {
@@ -2507,6 +2508,36 @@ void main() {
       }
       gl.enable(gl.DEPTH_TEST);
       gl.enable(gl.CULL_FACE);
+    }
+
+    // Draw car fires (reuse explosion fire sphere on hood)
+    const fireMesh = this.getExplosionMesh();
+    const fireColor: [number, number, number, number] = [1, 0.5, 0.0, 0.9];
+    const fireScale = 0.6;
+    for (const npc of serverNPCs) {
+      if ((npc as any).isBurning) {
+        const sinYf = Math.sin(npc.yaw), cosYf = Math.cos(npc.yaw);
+        const fx = npc.x + cosYf * 0.8;
+        const fz = npc.z + sinYf * 0.8;
+        const flicker = 0.85 + Math.sin(now / 100) * 0.15;
+        this.drawMesh(fireMesh, fx, 0.6, fz, 0, [fireScale * flicker, fireScale * flicker, fireScale * flicker], fireColor);
+      }
+    }
+    for (const pc of parkedCars) {
+      if ((pc as any).isBurning) {
+        const sinYf = Math.sin(pc.yaw), cosYf = Math.cos(pc.yaw);
+        const fx = pc.x + cosYf * 0.8;
+        const fz = pc.z + sinYf * 0.8;
+        const flicker = 0.85 + Math.sin(now / 100) * 0.15;
+        this.drawMesh(fireMesh, fx, 0.6, fz, 0, [fireScale * flicker, fireScale * flicker, fireScale * flicker], fireColor);
+      }
+    }
+    if (playerCarOnFire) {
+      const sinYf = Math.sin(carYaw), cosYf = Math.cos(carYaw);
+      const fx = targetX + cosYf * 0.8;
+      const fz = targetZ + sinYf * 0.8;
+      const flicker = 0.85 + Math.sin(now / 100) * 0.15;
+      this.drawMesh(fireMesh, fx, 0.6, fz, 0, [fireScale * flicker, fireScale * flicker, fireScale * flicker], fireColor);
     }
 
     // Draw dropped weapons as rotating pickups (real weapon models)

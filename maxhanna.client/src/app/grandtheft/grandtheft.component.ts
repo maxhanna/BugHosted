@@ -64,6 +64,7 @@ interface ParkedCar {
   x: number; z: number; yaw: number;
   type: string;
   health: number;
+  isBurning?: boolean;
   mesh: CityMesh | CityMesh[];
   colorR: number; colorG: number; colorB: number;
 }
@@ -167,7 +168,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   carSpeed = 0;
   carAngleVel = 0;
 
-  carHealth = 100;
+  carHealth = 400;
   isInCar = false;
   vehicleType: 'car' | 'bus' | 'plane' | 'bike' | 'motorcycle' | 'taxi' = 'car';
   // NEW: Passenger state. When isPassenger is true, the player is riding
@@ -194,7 +195,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   camDist = 4; camHeight = 2;
   firstPerson = false;
   private isPointerLocked = false;
-  serverNPCs: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean }[] = [];
+  serverNPCs: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean; isBurning?: boolean }[] = [];
   serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
@@ -213,6 +214,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   money = 1000;
   moneyStacks: { x: number; z: number; amount: number; yaw: number; age: number; lifetime: number }[] = [];
   private _wasDead = false;
+  _carOnFire = false;
+  _carFireStarted = 0;
   private _respawnTimer: any = null;
   isLoaded = false;
   showMap = false;
@@ -1466,6 +1469,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           passengerCount: c.passengerCount ?? 0,
           // NEW: Cop shooting flag for visualization + sound
           isShootingAt: c.isShootingAt || false,
+          isBurning: c.isBurning || false,
           ...interp
         };
       });
@@ -1526,7 +1530,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const localHp = existing?.health ?? prevParkedHealth.get(pc.id);
         const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
         if (existing) {
-          existing.x = pc.posX; existing.z = pc.posZ; existing.yaw = pc.yaw; existing.health = health;
+          existing.x = pc.posX; existing.z = pc.posZ; existing.yaw = pc.yaw; existing.health = health; existing.isBurning = pc.isBurning || false;
           // Refresh mesh only for special types that may have been loading
           // async (police, taxi, bus, motorcycle). Regular cars keep their
           // existing mesh so exiting doesn't randomly change the model.
@@ -1543,6 +1547,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         return {
           id: pc.id, x: pc.posX, z: pc.posZ, yaw: pc.yaw,
           type: pc.type || 'car', health,
+          isBurning: pc.isBurning || false,
           colorR: pc.colorR, colorG: pc.colorG, colorB: pc.colorB,
           // FIX: Server now sends the actual vehicle type (e.g. "car",
           // "taxi", "motorcycle", "police", "bus") instead of "parked".
@@ -2719,10 +2724,25 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.serverPedestrians = this.serverPedestrians.filter(p => p.health > 0);
     this.parkedCars = this.parkedCars.filter(pc => pc.health > 0);
 
+    // Player car fire system
+    if (this.isInCar && this.carHealth > 0 && this.carHealth <= 80) {
+      if (!this._carOnFire) {
+        this._carOnFire = true;
+        this._carFireStarted = performance.now() / 1000;
+      }
+      const fireElapsed = (performance.now() / 1000) - this._carFireStarted;
+      if (fireElapsed >= 4.0) {
+        this.carHealth = 0;
+      }
+    } else if (this.isInCar && this.carHealth > 80) {
+      this._carOnFire = false;
+      this._carFireStarted = 0;
+    }
+
     if (this.isInCar && this.carHealth <= 0) {
       this.spawnExplosion(this.carX, 0.5, this.carZ);
       this.exitCar();
-      this.carHealth = 100;
+      this.carHealth = 400;
     }
 
     if (this.health <= 0) {
@@ -2860,6 +2880,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           attached.push(...this.taxiAttachedMeshes);
           return attached;
         })(),
+        this._carOnFire,
         this.trafficNodes,
         this.viewDistance
       );
@@ -3229,7 +3250,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (!this.isInCar || this.vehicleType === 'plane') return;
 
     const carRadius = 2.0;
-    const collisionDamage = Math.abs(this.carSpeed) * 3;
+    const speed = Math.abs(this.carSpeed);
+    const collisionDamage = speed < 2 ? 1 : speed * 3;
 
     for (const v of [...this.serverNPCs, ...this.parkedCars]) {
       if (v.health <= 0) continue;

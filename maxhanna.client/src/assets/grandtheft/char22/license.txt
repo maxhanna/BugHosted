@@ -1,0 +1,8 @@
+Model Information:
+* title:	free fire /with bones bundle
+* source:	https://sketchfab.com/3d-models/free-fire-with-bones-bundle-d7aa01075f484a0a9aa7b302244193e1
+* author:	ROCK FF 99 (https://sketchfab.com/amansoyal781)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

@@ -323,6 +323,9 @@ namespace maxhanna.Server.Controllers
 			public float Cg { get; set; }
 			public float Cb { get; set; }
 			public int Health { get; set; } = 100;
+			public int MaxHealth { get; set; } = 100;
+			public bool OnFire { get; set; } = false;
+			public DateTime? FireStartedAt { get; set; } = null;
 			public DateTime LastUpdate { get; set; }
 			public int TargetUserId { get; set; } = 0;
 			public DateTime? DeadAt { get; set; } = null;
@@ -678,7 +681,7 @@ namespace maxhanna.Server.Controllers
 						// NPC car hits pedestrian in UpdatePosition too
 						if (npc.Health > 0)
 						{
-							bool isCar = npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi";
+							bool isCar = npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi" || npc.Type == "police";
 							if (isCar)
 							{
 								foreach (var otherNpc in npcs.Values)
@@ -692,6 +695,25 @@ namespace maxhanna.Server.Controllers
 										otherNpc.Health -= 25;
 										if (otherNpc.Health <= 0) otherNpc.DeadAt = DateTime.UtcNow;
 									}
+								}
+							}
+						}
+
+						// Car fire system: catch fire at 20% HP, explode after 4s
+						if (npc.Health > 0 && (npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi" || npc.Type == "police" || npc.Type == "bike" || npc.Type == "motorcycle"))
+						{
+							int fireThreshold = Math.Max(80, npc.MaxHealth / 5);
+							if (npc.Health <= fireThreshold && !npc.OnFire)
+							{
+								npc.OnFire = true;
+								npc.FireStartedAt = DateTime.UtcNow;
+							}
+							if (npc.OnFire && npc.FireStartedAt.HasValue)
+							{
+								if ((DateTime.UtcNow - npc.FireStartedAt.Value).TotalSeconds >= 4.0)
+								{
+									npc.Health = 0;
+									npc.DeadAt = DateTime.UtcNow;
 								}
 							}
 						}
@@ -840,7 +862,7 @@ namespace maxhanna.Server.Controllers
 									X = npc.X,
 									Z = npc.Z,
 									Yaw = npc.Yaw,
-									Health = 150,
+									Health = 400, MaxHealth = 400,
 									Cr = 0.1f,
 									Cg = 0.1f,
 									Cb = 0.2f,
@@ -877,7 +899,7 @@ namespace maxhanna.Server.Controllers
 
 				if (distSq > 200f * 200f) continue;
 
-				if (npc.IsParked) { parkedCars.Add(new { id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw, speed = 0f, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, health = npc.Health }); continue; }
+				if (npc.IsParked) { parkedCars.Add(new { id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw, speed = 0f, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, health = npc.Health, isBurning = npc.OnFire }); continue; }
 
 				float tdx = npc.TargetX - npc.X;
 				float tdz = npc.TargetZ - npc.Z;
@@ -1070,7 +1092,7 @@ namespace maxhanna.Server.Controllers
 					}
 
 					// NPC car hits pedestrian — same 25 damage as player car
-					if (npc.Health > 0 && (npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi"))
+					if (npc.Health > 0 && (npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi" || npc.Type == "police"))
 					{
 						foreach (var otherKv in npcs)
 						{
@@ -1083,6 +1105,25 @@ namespace maxhanna.Server.Controllers
 							{
 								ped.Health -= 25;
 								if (ped.Health <= 0) ped.DeadAt = DateTime.UtcNow;
+							}
+						}
+					}
+
+					// Car fire system in GetNPCs
+					if (npc.Health > 0 && (npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi" || npc.Type == "police" || npc.Type == "bike" || npc.Type == "motorcycle"))
+					{
+						int fireThreshold = Math.Max(80, npc.MaxHealth / 5);
+						if (npc.Health <= fireThreshold && !npc.OnFire)
+						{
+							npc.OnFire = true;
+							npc.FireStartedAt = DateTime.UtcNow;
+						}
+						if (npc.OnFire && npc.FireStartedAt.HasValue)
+						{
+							if ((DateTime.UtcNow - npc.FireStartedAt.Value).TotalSeconds >= 4.0)
+							{
+								npc.Health = 0;
+								npc.DeadAt = DateTime.UtcNow;
 							}
 						}
 					}
@@ -1286,7 +1327,7 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				var entry = new { id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount, isShootingAt = npc.IsShootingAt };
+				var entry = new { id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount, isShootingAt = npc.IsShootingAt, isBurning = npc.OnFire };
 				if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") pedestrians.Add(entry);
 				else cars.Add(entry);
 			}
@@ -1342,7 +1383,8 @@ namespace maxhanna.Server.Controllers
 					TargetZ = z,
 					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
 					Speed = type == "bike" || type == "motorcycle" ? 6.0f : 4.0f,
-					Health = type == "bike" || type == "motorcycle" ? 80 : 100,
+					Health = type == "bike" || type == "motorcycle" ? 200 : 400,
+					MaxHealth = type == "bike" || type == "motorcycle" ? 200 : 400,
 					Cr = type == "taxi" ? 1.0f : (float)rng.NextDouble(),
 					Cg = type == "taxi" ? 0.85f : (float)rng.NextDouble(),
 					Cb = type == "taxi" ? 0.1f : (float)rng.NextDouble(),
@@ -1401,7 +1443,7 @@ namespace maxhanna.Server.Controllers
 					TargetZ = z,
 					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
 					Speed = 15.0f,
-					Health = 150,
+					Health = 400, MaxHealth = 400,
 					Cr = 0.1f,
 					Cg = 0.1f,
 					Cb = 0.2f,
@@ -1466,7 +1508,8 @@ namespace maxhanna.Server.Controllers
 					TargetZ = z,
 					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
 					Speed = type == "bike" || type == "motorcycle" ? 6.0f : 4.0f,
-					Health = type == "bike" || type == "motorcycle" ? 80 : 100,
+					Health = type == "bike" || type == "motorcycle" ? 200 : 400,
+					MaxHealth = type == "bike" || type == "motorcycle" ? 200 : 400,
 					Cr = type == "taxi" ? 1.0f : (float)rng.NextDouble(),
 					Cg = type == "taxi" ? 0.85f : (float)rng.NextDouble(),
 					Cb = type == "taxi" ? 0.1f : (float)rng.NextDouble(),
@@ -1688,7 +1731,7 @@ namespace maxhanna.Server.Controllers
 				X = req.PosX,
 				Z = req.PosZ,
 				Yaw = req.Yaw,
-				Health = 100,
+				Health = 400, MaxHealth = 400,
 				Cr = req.ColorR,
 				Cg = req.ColorG,
 				Cb = req.ColorB,

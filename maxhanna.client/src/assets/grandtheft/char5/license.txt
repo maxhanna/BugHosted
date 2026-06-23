@@ -1,0 +1,8 @@
+Model Information:
+* title:	Free fire bundle
+* source:	https://sketchfab.com/3d-models/free-fire-bundle-9bc692f5de9f48a1a043f908d8429f9e
+* author:	ROCK FF 99 (https://sketchfab.com/amansoyal781)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

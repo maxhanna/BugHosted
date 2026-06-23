@@ -16,6 +16,7 @@ export interface GTNPCData {
   hasDriver?: boolean;
   passengerCount?: number;
   isShootingAt?: boolean;
+  isBurning?: boolean;
 }
 
 export interface DeadBodyData {
