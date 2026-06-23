@@ -311,7 +311,6 @@ function hashSeed(s: number | string): number {
 
 export class GrandTheftRenderer {
   private gl: WebGL2RenderingContext;
-  public getGl(): WebGL2RenderingContext { return this.gl; }
   private program: WebGLProgram;
   private projLoc: WebGLUniformLocation;
   private viewLoc: WebGLUniformLocation;
@@ -417,10 +416,6 @@ export class GrandTheftRenderer {
     nodeNames: string[];
   } | null = null;
   public mark23Animations: GltfAnimation[] | null = null;
-  public mark23JointMatrices: Float32Array | null = null;
-  public mark23AnimTime = 0;
-  public mark23Center: [number, number, number] = [0, 0, 0];
-  public mark23Scale = 1;
 
   // Skeleton data for CPU skinning (used by Franklin model)
   public skelBoneParents: Int32Array | null = null;
@@ -2714,119 +2709,6 @@ void main() {
    * arms + Mark23 with the correct animation. The component picks the anim
    * names based on game state (shoot, reload, idle, etc.).
    */
-  private skinMark23Meshes(animName: string, dt: number): void {
-    const skel = this.mark23Skeleton;
-    const anims = this.mark23Animations;
-    if (!skel || !anims || !this.mark23Mesh) return;
-    const anim = anims.find(a => a.name === animName);
-    if (!anim) return;
-
-    const gl = this.gl;
-    const numBones = skel.boneCount;
-    const parents = skel.boneParents;
-    const invBind = skel.inverseBindMatrices;
-
-    if (!this.mark23JointMatrices || this.mark23JointMatrices.length !== numBones * 16) {
-      this.mark23JointMatrices = new Float32Array(numBones * 16);
-    }
-    const jointMat = this.mark23JointMatrices;
-
-    this.mark23AnimTime += dt;
-
-    const animLocal = new Float32Array(skel.boneLocalMatrices);
-    this.sampleAnimation(anim, this.mark23AnimTime, skel, animLocal);
-
-    for (let b = 0; b < numBones; b++) {
-      if (parents[b] < 0) {
-        mat4.multiply(
-          new Float32Array(jointMat.buffer, b * 16 * 4, 16),
-          skel.skinRootWorld,
-          new Float32Array(animLocal.buffer, b * 16 * 4, 16)
-        );
-      }
-    }
-    for (let b = 0; b < numBones; b++) {
-      if (parents[b] >= 0) {
-        mat4.multiply(
-          new Float32Array(jointMat.buffer, b * 16 * 4, 16),
-          new Float32Array(jointMat.buffer, parents[b] * 16 * 4, 16),
-          new Float32Array(animLocal.buffer, b * 16 * 4, 16)
-        );
-      }
-    }
-
-    const tempMat = new Float32Array(16);
-    for (let b = 0; b < numBones; b++) {
-      const wOff = b * 16;
-      const w = new Float32Array(jointMat.buffer, wOff * 4, 16);
-      const ib = new Float32Array(invBind.buffer, wOff * 4, 16);
-      mat4.multiply(tempMat, w, ib);
-      for (let i = 0; i < 16; i++) w[i] = tempMat[i];
-    }
-
-    for (const mesh of this.mark23Mesh) {
-      if (!mesh.jointIndices || !mesh.jointWeights || !mesh.restPositions || !mesh.restNormals || !mesh.vbo) continue;
-      const vCount = mesh.vertexCount || 0;
-      if (vCount === 0) continue;
-
-      gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vbo);
-      const bufferSize = gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE) as number;
-      const vboVCount = Math.floor(bufferSize / (12 * 4));
-      const safeVCount = Math.min(vCount, vboVCount);
-      if (safeVCount === 0) continue;
-
-      const existing = new Float32Array(safeVCount * 12);
-      gl.getBufferSubData(gl.ARRAY_BUFFER, 0, existing);
-
-      const ji = mesh.jointIndices;
-      const jw = mesh.jointWeights;
-      const rp = mesh.restPositions;
-      const rn = mesh.restNormals;
-
-      const cx = this.mark23Center[0], cy = this.mark23Center[1], cz = this.mark23Center[2];
-      const sf = this.mark23Scale;
-
-      for (let v = 0; v < safeVCount; v++) {
-        let px = 0, py = 0, pz = 0, nx = 0, ny = 0, nz = 0;
-        const rpx = rp[v * 3], rpy = rp[v * 3 + 1], rpz = rp[v * 3 + 2];
-        const rnx = rn[v * 3], rny = rn[v * 3 + 1], rnz = rn[v * 3 + 2];
-
-        for (let j = 0; j < 4; j++) {
-          const w = jw[v * 4 + j];
-          if (w === 0) continue;
-          let bi = ji[v * 4 + j];
-          if (bi >= numBones) bi = 0;
-          const bOff = bi * 16;
-          const m00 = jointMat[bOff], m01 = jointMat[bOff + 4], m02 = jointMat[bOff + 8], m03 = jointMat[bOff + 12];
-          const m10 = jointMat[bOff + 1], m11 = jointMat[bOff + 5], m12 = jointMat[bOff + 9], m13 = jointMat[bOff + 13];
-          const m20 = jointMat[bOff + 2], m21 = jointMat[bOff + 6], m22 = jointMat[bOff + 10], m23 = jointMat[bOff + 14];
-
-          px += w * (m00 * rpx + m01 * rpy + m02 * rpz + m03);
-          py += w * (m10 * rpx + m11 * rpy + m12 * rpz + m13);
-          pz += w * (m20 * rpx + m21 * rpy + m22 * rpz + m23);
-          nx += w * (m00 * rnx + m01 * rny + m02 * rnz);
-          ny += w * (m10 * rnx + m11 * rny + m12 * rnz);
-          nz += w * (m20 * rnx + m21 * rny + m22 * rnz);
-        }
-
-        const nlen = Math.hypot(nx, ny, nz);
-        if (nlen > 0.0001) { nx /= nlen; ny /= nlen; nz /= nlen; }
-        else { nx = 0; ny = 1; nz = 0; }
-
-        const d = v * 12;
-        existing[d] = (px - cx) * sf;
-        existing[d + 1] = (py - cy) * sf;
-        existing[d + 2] = (pz - cz) * sf;
-        existing[d + 3] = nx;
-        existing[d + 4] = ny;
-        existing[d + 5] = nz;
-      }
-
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, existing);
-      gl.bindBuffer(gl.ARRAY_BUFFER, null);
-    }
-  }
-
   renderFirstPersonWeapon(
     camX: number, camY: number, camZ: number,
     camYaw: number, camPitch: number,
@@ -2836,14 +2718,6 @@ void main() {
     dt: number
   ): void {
     const gl = this.gl;
-
-    try {
-      if (weapon === 1 && this.mark23Mesh && this.mark23Skeleton && this.mark23Animations && mark23Anim) {
-        this.skinMark23Meshes(mark23Anim, dt);
-      }
-    } catch (e) {
-      console.error('skinMark23 error', e);
-    }
 
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.BLEND);

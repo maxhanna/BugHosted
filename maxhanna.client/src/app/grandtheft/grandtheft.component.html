@@ -61,10 +61,10 @@
       <div id="gt-health-bar">
         <div id="gt-health-fill" [style.width.%]="health"></div>
       </div>
-      <div id="gt-players" *ngIf="otherPlayers.length > 0">
+      <div id="gt-players" *ngIf="otherPlayers.length >0">
         {{ otherPlayers.length }} other player(s) nearby
       </div>
-      <div id="gt-controls-hint">
+      <div id="gt-controls-hint" *ngIf="!isMobile">
         WASD Move | Mouse Aim | Click Shoot | E Vehicle | V View | M Map | L Leaderboard
       </div>
     </div>
