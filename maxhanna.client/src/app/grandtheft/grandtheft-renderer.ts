@@ -2742,7 +2742,7 @@ void main() {
       const ax = camX + fx * 0.2 + rightX * 0.06;
       const ay = camY + fy * 0.2 - 1.5;
       const az = camZ + fz * 1.2 + rightZ * 0.06;
-      this.drawMesh(this.firstPersonArmsMesh, ax, ay, az, camYaw, [0.6, 0.6, 0.6], [1, 1, 1, 1]);
+      this.drawMesh(this.firstPersonArmsMesh, ax, ay, az, camYaw + Math.PI, [0.6, 0.6, 0.6], [1, 1, 1, 1]);
     }
     if (weapon === 1 && this.mark23Mesh) {
       const mx = camX + fx * 0.4 + rightX * 0.06;
