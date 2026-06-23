@@ -302,7 +302,7 @@ namespace maxhanna.Server.Controllers
 		private static readonly bool[] _homeBaseWeaponCollected = new bool[5];
 		private static readonly DateTime[] _homeBaseWeaponRespawnAt = new DateTime[5];
 		private const int HOME_BASE_WEAPON_RESPAWN_SECONDS = 60;
-		private static readonly float[] HOME_BASE_WEAPON_X = { 0, 117, 120, 114, 123 };
+		private static readonly float[] HOME_BASE_WEAPON_X = { 0, 114, 120, 117, 123 };
 		private static readonly float[] HOME_BASE_WEAPON_Z = { 0, 48, 48, 48, 48 };
 
 		private static long _nextNpcId = 1;
