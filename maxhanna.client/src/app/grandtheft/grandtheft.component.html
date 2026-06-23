@@ -6,7 +6,7 @@
   </app-title-bar>
 
   <div class="popupPanel" *ngIf="!parentRef?.user?.id">
-    <app-user [loginOnly]="true" [inputtedParentRef]="parentRef" (close)="closeLoginPanel()"></app-user>
+    <app-user [loginOnly]="true" [inputtedParentRef]="parentRef" (close)="closeLoginPanel()" [loginReasonMessage]="'Please log in to play Grand Theft!'"></app-user>
   </div>
 
   <div id="gt-container">

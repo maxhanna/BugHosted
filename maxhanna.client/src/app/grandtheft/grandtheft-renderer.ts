@@ -2778,6 +2778,15 @@ void main() {
       const rp = mesh.restPositions;
       const rn = mesh.restNormals;
 
+      const needsRotation = this.skelNeedsRotation;
+      const cosX = this.skelCosX, sinX = this.skelSinX;
+      const needsYFlip = this.skelNeedsYFlip;
+      const needsYFlipMoped = this.skelNeedsYFlipMoped;
+      const needsY90 = this.skelNeedsY90;
+      const cx = this.skelCenterX, cy = this.skelCenterY, cz = this.skelCenterZ;
+      const sf = this.skelScaleFactor;
+      const ex = this.skelExtraScale[0], ey = this.skelExtraScale[1], ez = this.skelExtraScale[2];
+
       for (let v = 0; v < safeVCount; v++) {
         let px = 0, py = 0, pz = 0, nx = 0, ny = 0, nz = 0;
         const rpx = rp[v * 3], rpy = rp[v * 3 + 1], rpz = rp[v * 3 + 2];
@@ -2805,9 +2814,30 @@ void main() {
         if (nlen > 0.0001) { nx /= nlen; ny /= nlen; nz /= nlen; }
         else { nx = 0; ny = 1; nz = 0; }
 
+        let fx = px, fy = py, fz = pz;
+        let fnx = nx, fny = ny, fnz = nz;
+        if (needsRotation) {
+          let ty = fy * cosX - fz * sinX;
+          let tz = fy * sinX + fz * cosX;
+          fy = ty; fz = tz;
+          let tny = fny * cosX - fnz * sinX;
+          let tnz = fny * sinX + fnz * cosX;
+          fny = tny; fnz = tnz;
+        }
+        if (needsYFlip) { fx = -fx; fz = -fz; fnx = -fnx; fnz = -fnz; }
+        if (needsYFlipMoped) { fx = -fx; fz = -fz; fnx = -fnx; fnz = -fnz; }
+        if (needsY90) {
+          const tx = fx; fx = fz; fz = -tx;
+          const tnx = fnx; fnx = fnz; fnz = -tnx;
+        }
+
         const d = v * 12;
-        out[d] = px; out[d + 1] = py; out[d + 2] = pz;
-        out[d + 3] = nx; out[d + 4] = ny; out[d + 5] = nz;
+        out[d] = (fx - cx) * sf * ex;
+        out[d + 1] = (fy - cy) * sf * ey;
+        out[d + 2] = (fz - cz) * sf * ez;
+        out[d + 3] = fnx;
+        out[d + 4] = fny;
+        out[d + 5] = fnz;
       }
 
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, out);
@@ -2825,8 +2855,12 @@ void main() {
   ): void {
     const gl = this.gl;
 
-    if (weapon === 1 && this.mark23Mesh && this.mark23Skeleton && this.mark23Animations && mark23Anim) {
-      this.skinMark23Meshes(mark23Anim, dt);
+    try {
+      if (weapon === 1 && this.mark23Mesh && this.mark23Skeleton && this.mark23Animations && mark23Anim) {
+        this.skinMark23Meshes(mark23Anim, dt);
+      }
+    } catch (e) {
+      console.error('skinMark23 error', e);
     }
 
     gl.disable(gl.DEPTH_TEST);
