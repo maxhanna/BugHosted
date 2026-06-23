@@ -2294,7 +2294,7 @@ void main() {
           const ndx = node.x - camX, ndz = node.z - camZ;
           if (ndx * ndx + ndz * ndz > 250 * 250) continue;
           for (let ci = 0; ci < corners.length; ci++) {
-            this.drawMesh(this.trafficLightMesh, node.x + corners[ci][0], 0, node.z + corners[ci][1], yawCorner[ci], [2, 2, 2]);
+            this.drawMesh(this.trafficLightMesh, node.x + corners[ci][0], 0, node.z + corners[ci][1], yawCorner[ci], [2, 2, 2], [0.25, 0.3, 0.22, 1]);
           }
         }
         const redOn = lightPhase === 0;
@@ -2304,8 +2304,8 @@ void main() {
           for (let ci = 0; ci < corners.length; ci++) {
             const lx = node.x + corners[ci][0];
             const lz = node.z + corners[ci][1];
-            this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), lx, 4, lz, 0, [0.3, 0.3, 0.3], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
-            this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), lx, 3.8, lz, 0, [0.3, 0.3, 0.3], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
+            this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), lx, 4.2, lz, 0, [0.3, 0.3, 0.3], redOn ? [1, 0.1, 0.1, 1] : [0.05, 0.15, 0.05, 0.4]);
+            this.drawMesh(this.getBoxMesh(0.6, 0.2, 0.6), lx, 4, lz, 0, [0.3, 0.3, 0.3], redOn ? [0.05, 0.15, 0.05, 0.4] : [0.1, 1, 0.1, 1]);
           }
         }
       } else {
@@ -2321,7 +2321,7 @@ void main() {
           for (let ci = 0; ci < corners.length; ci++) {
             const lx = node.x + corners[ci][0];
             const lz = node.z + corners[ci][1];
-            this.drawMesh(this.meshCache.get('tl_pole')!, lx, 0, lz, 0, [1, 1, 1], [1, 1, 1, 1]);
+            this.drawMesh(this.meshCache.get('tl_pole')!, lx, 0, lz, 0, [1, 1, 1], [0.25, 0.3, 0.22, 1]);
           }
           const redOn = lightPhase === 0;
           for (let ci = 0; ci < corners.length; ci++) {
