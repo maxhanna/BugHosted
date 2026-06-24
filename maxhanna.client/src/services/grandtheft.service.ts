@@ -147,11 +147,12 @@ export class GrandtheftService {
     }
   }
 
-  async hit(attackerId: number, targetId: number, worldId: number, damage: number, attackerX: number = 0, attackerZ: number = 0): Promise<void> {
+  async hit(attackerId: number, targetId: number, worldId: number, damage: number, attackerX: number = 0, attackerZ: number = 0): Promise<any> {
     try {
-      await this.http.post(`${this.baseUrl}/hit`, { attackerId, targetId, worldId, damage, attackerX, attackerZ }).toPromise();
+      return await this.http.post(`${this.baseUrl}/hit`, { attackerId, targetId, worldId, damage, attackerX, attackerZ }).toPromise();
     } catch (e) {
       console.error('Error registering hit', e);
+      return null;
     }
   }
 

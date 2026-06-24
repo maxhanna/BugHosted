@@ -327,6 +327,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private autoFireTimer: any = null;
   weaponNames = WEAPON_NAMES;
   isMobile = false;
+  damageAlpha = 0;
   radioOn = false;
   radioSongs: string[] = [];
   radioIndex = -1;
@@ -1928,12 +1929,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     // Server-authoritative health update for local player
     if (res && res.yourHealth !== undefined) {
-      // Visualize cop shooting us if we took damage. Cops are now
-      // Type == "cop" (on foot), not "police" (in car). We check both
-      // in case a police car is still chasing. The IsShootingAt flag
-      // from the server is more reliable than the damage check, but
-      // we keep the damage check as a fallback.
       if (res.yourHealth < this.health) {
+        this.damageAlpha = 0.4;
         let foundShooter = false;
         const checkShooter = (npc: any) => {
           if (npc.type !== 'cop' && npc.type !== 'police') return;
@@ -2112,13 +2109,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
         if (distSq < 1.0) { // Hit radius
           this.spawnBlood(tx, ty, tz, dx, dy, dz);
+          const dmg = WEAPON_DAMAGES[this.currentWeapon];
           if (isPlayer) {
-            this.gtService.hit(this.getUserId(), t.userId, 1, WEAPON_DAMAGES[this.currentWeapon], ox, oz);
+            t.health = Math.max(0, (t.health ?? 100) - dmg);
+            this.gtService.hit(this.getUserId(), t.userId, 1, dmg, ox, oz).then((res: any) => {
+              if (res && res.targetHealth !== undefined) t.health = res.targetHealth;
+            });
           } else {
-            // Deduct locally for instant visual feedback
-            t.health = (t.health ?? 100) - WEAPON_DAMAGES[this.currentWeapon];
-            // Tell the server to permanently apply the damage!
-            this.gtService.hit(this.getUserId(), t.id, 1, WEAPON_DAMAGES[this.currentWeapon], ox, oz);
+            t.health = (t.health ?? 100) - dmg;
+            this.gtService.hit(this.getUserId(), t.id, 1, dmg, ox, oz);
             this.score += 10;
           }
           return true;
@@ -2396,7 +2395,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const jumpForce = (1 - selfDist / BLAST_RADIUS) * 8;
       this.carVy = Math.max(this.carVy ?? 0, jumpForce);
     }
-
+ 
     const selfDmg = dmgAt(selfDist);
     if (selfDmg > 0) {
       if (this.isInCar) {
@@ -2404,11 +2403,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const passThrough = Math.round(selfDmg * 0.4);
         if (passThrough > 0) {
           this.health = Math.max(0, this.health - passThrough);
+          this.damageAlpha = 0.5; // FIX: trigger red flash for explosion damage
           this.gtService.hit(this.getUserId(), this.getUserId(), 1, passThrough, this.carX, this.carZ);
           this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, selfDx, 0, selfDz);
         }
       } else {
         this.health = Math.max(0, this.health - selfDmg);
+        this.damageAlpha = 0.5; // FIX: trigger red flash for explosion damage
         this.gtService.hit(this.getUserId(), this.getUserId(), 1, selfDmg, this.carX, this.carZ);
         this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, selfDx, 0, selfDz);
       }
@@ -3096,6 +3097,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       console.error('render error', e);
     }
 
+    if (this.damageAlpha > 0) {
+      this.damageAlpha = Math.max(0, this.damageAlpha - dt * 1.5);
+    }
+    
     this.hudSpeed = Math.abs(this.carSpeed) * (this.isInCar ? 3.6 : 1);
     this.animFrameId = requestAnimationFrame(this.gameLoop);
   };
@@ -3689,27 +3694,46 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private updateRemoteShooting(dt: number) {
     for (const p of this.otherPlayers) {
       if (!p.isShooting) { p.remoteShootTimer = 0; continue; }
+
+      // FIX: Fire immediately when shooting just started (timer was 0),
+      // then every 0.15s for continuous fire. Previously the first shot
+      // was delayed by 0.15s, so quick taps produced no muzzle flash.
+      const wasZero = p.remoteShootTimer === 0;
       p.remoteShootTimer += dt;
-      if (p.remoteShootTimer < 0.15) continue;
+      if (!wasZero && p.remoteShootTimer < 0.15) continue;
       p.remoteShootTimer = 0;
 
-      if (p.weapon === 3) {
-        const dirX = Math.sin(p.camYaw) * Math.cos(p.camPitch);
-        const dirY = -Math.sin(p.camPitch);
-        const dirZ = Math.cos(p.camYaw) * Math.cos(p.camPitch);
-        this.rockets.push({ x: p.posX, y: p.posY + 0.5, z: p.posZ, vx: dirX * 40, vy: dirY * 40, vz: dirZ * 40, age: 0, lifetime: 3 });
-        // Play rocket sound for remote player's rocket shot
-        this.playWeaponSound(3);
+      const rdirX = Math.sin(p.camYaw) * Math.cos(p.camPitch);
+      const rdirY = -Math.sin(p.camPitch);
+      const rdirZ = Math.cos(p.camYaw) * Math.cos(p.camPitch);
+
+      // FIX: Use the correct Y offset based on whether the remote
+      // player is in a car. Players in cars have their muzzle at
+      // posY + 0.5 (window height), on foot it's posY + 1.2.
+      const originY = p.posY + (p.isInCar ? 0.5 : 1.2);
+
+      // FIX: Weapon 4 is the Rocket Launcher, not weapon 3 (Shotgun).
+      if (p.weapon === 4) {
+        this.rockets.push({
+          x: p.posX, y: originY, z: p.posZ,
+          vx: rdirX * 40, vy: rdirY * 40, vz: rdirZ * 40,
+          age: 0, lifetime: 3
+        });
+        this.playWeaponSound(4);
       } else {
-        const rdirX = Math.sin(p.camYaw) * Math.cos(p.camPitch);
-        const rdirY = -Math.sin(p.camPitch);
-        const rdirZ = Math.cos(p.camYaw) * Math.cos(p.camPitch);
-        this.tracers.push({ originX: p.posX, originY: p.posY + 0.5, originZ: p.posZ, dirX: rdirX, dirY: rdirY, dirZ: rdirZ, age: 0, lifetime: 0.3 });
-        // Spawn a muzzle flash for the remote shooter too — previously
-        // missing, so other players appeared to shoot with no flash.
-        this.muzzleFlashes.push({ x: p.posX, y: p.posY + 1.0, z: p.posZ, dirX: rdirX, dirY: rdirY, dirZ: rdirZ, weapon: p.weapon, age: 0, lifetime: 0.08 });
-        // Play the appropriate sound based on the remote player's weapon.
-        // Weapon 0 = Pistol, 1 = Rifle (uzi), 2 = Shotgun, 3 = Rocket (handled above).
+        this.tracers.push({
+          originX: p.posX, originY, originZ: p.posZ,
+          dirX: rdirX, dirY: rdirY, dirZ: rdirZ,
+          age: 0, lifetime: 0.3
+        });
+        // FIX: Spawn a muzzle flash at the correct position so other
+        // players see the gun firing. Use the remote player's weapon
+        // type for proper flash scaling.
+        this.muzzleFlashes.push({
+          x: p.posX, y: originY, z: p.posZ,
+          dirX: rdirX, dirY: rdirY, dirZ: rdirZ,
+          weapon: p.weapon, age: 0, lifetime: 0.08
+        });
         this.playWeaponSound(p.weapon);
       }
     }

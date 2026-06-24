@@ -1795,7 +1795,7 @@ namespace maxhanna.Server.Controllers
 			int baseGx = (int)Math.Round(px / 80f);
 			int baseGz = (int)Math.Round(pz / 80f);
 
-			for (int attempt = 0; attempt < 50; attempt++)
+			for (int attempt = 0; attempt < 100; attempt++)
 			{
 				int gx = baseGx + rng.Next(-gridRange, gridRange + 1);
 				int gz = baseGz + rng.Next(-gridRange, gridRange + 1);
@@ -1820,6 +1820,11 @@ namespace maxhanna.Server.Controllers
 
 				if (CityLayout.IsBuildingAt(x, z)) continue;
 
+				int cx = (int)Math.Floor(x / 80f);
+				int cz = (int)Math.Floor(z / 80f);
+				string biome = CityLayout.GetBiome(cx, cz);
+				if (biome == "ocean" || biome == "beach") continue;
+
 				if (minDist > 0f)
 				{
 					float dx = x - px;
@@ -1830,9 +1835,29 @@ namespace maxhanna.Server.Controllers
 				return;
 			}
 
-			// Fallback: farthest point we can find
-			x = px + (float)(rng.NextDouble() - 0.5) * 120f;
-			z = pz + (float)(rng.NextDouble() - 0.5) * 120f;
+			// Fallback: scan for nearest non-ocean, non-beach point
+			for (int dr = 1; dr < 20; dr++)
+			{
+				for (int dgx = -dr; dgx <= dr; dgx++)
+				{
+					for (int dgz = -dr; dgz <= dr; dgz++)
+					{
+						if (Math.Abs(dgx) != dr && Math.Abs(dgz) != dr) continue;
+						int gx = baseGx + dgx;
+						int gz = baseGz + dgz;
+						string biome = CityLayout.GetBiome(gx, gz);
+						if (biome != "ocean" && biome != "beach")
+						{
+							x = gx * 80f + 40f;
+							z = gz * 80f + 40f;
+							return;
+						}
+					}
+				}
+			}
+
+			x = px + (float)(rng.NextDouble() - 0.5) * 80f;
+			z = pz + (float)(rng.NextDouble() - 0.5) * 80f;
 		}
 
 		private void GetRandomSidewalkPointNearPlayer(float px, float pz, out float x, out float z, Random rng, float minDist = 0f)
@@ -1842,7 +1867,7 @@ namespace maxhanna.Server.Controllers
 			int baseGx = (int)Math.Round((px - 40f) / 80f);
 			int baseGz = (int)Math.Round((pz - 40f) / 80f);
 
-			for (int attempt = 0; attempt < 50; attempt++)
+			for (int attempt = 0; attempt < 100; attempt++)
 			{
 				int gx = baseGx + rng.Next(-gridRange, gridRange + 1);
 				int gz = baseGz + rng.Next(-gridRange, gridRange + 1);
@@ -1859,6 +1884,9 @@ namespace maxhanna.Server.Controllers
 
 				if (edge < 2) x += (float)(rng.NextDouble() - 0.5) * 30f;
 				else z += (float)(rng.NextDouble() - 0.5) * 30f;
+
+				string biome = CityLayout.GetBiome(gx, gz);
+				if (biome == "ocean") continue;
 
 				if (minDist > 0f)
 				{
@@ -2023,6 +2051,10 @@ namespace maxhanna.Server.Controllers
 			bool targetDied = false;
 			float deathX = 0, deathZ = 0;
 			int deathWeapon = 0;
+			// FIX: Track the target's health from whichever source was hit
+			// (NPC or player), instead of only looking up _playerHealth which
+			// returns 0 for NPC targets.
+			int targetHealthResult = 0;
 
 			if (_worldNpcs.ContainsKey(worldId))
 			{
@@ -2055,6 +2087,9 @@ namespace maxhanna.Server.Controllers
 								_droppedWeapons[drop.Id] = drop;
 							}
 						}
+						// FIX: Capture the NPC's health AFTER modification (including
+						// the vehicle fire clamp to 1) so the client gets the real value.
+						targetHealthResult = kv.Value.Health;
 						kv.Value.PanicUntil = DateTime.UtcNow.AddSeconds(5);
 						kv.Value.PanicFromX = req.AttackerX;
 						kv.Value.PanicFromZ = req.AttackerZ;
@@ -2086,6 +2121,8 @@ namespace maxhanna.Server.Controllers
 				int newHp = Math.Max(0, hp - req.Damage);
 				_playerHealth[playerTargetId] = newHp;
 				hitAnything = true;
+				// FIX: Capture the player's health for the response
+				targetHealthResult = newHp;
 				if (newHp <= 0)
 				{
 					targetDied = true;
@@ -2122,7 +2159,9 @@ namespace maxhanna.Server.Controllers
 				_lastWantedDecay[req.AttackerId] = DateTime.UtcNow;
 			}
 
-			return Ok(new { ok = true, hit = hitAnything, targetHealth = _playerHealth.TryGetValue(playerTargetId, out var th) ? th : 0 });
+			// FIX: Return the correctly-tracked targetHealth (NPC or player),
+			// plus targetDied so the client can react immediately.
+			return Ok(new { ok = true, hit = hitAnything, targetHealth = targetHealthResult, targetDied = targetDied });
 		}
 
 		[HttpPost("pickup")]

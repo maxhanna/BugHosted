@@ -952,3 +952,16 @@
   opacity: 0;
   pointer-events: none;
 }
+#gt-damage-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at center,
+      transparent 30%,
+      rgba(255, 0, 0, 0.6) 100%);
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0;
+}
