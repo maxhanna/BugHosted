@@ -498,9 +498,6 @@ namespace maxhanna.Server.Controllers
 					await cmd.ExecuteNonQueryAsync();
 				}
 
-				if (!_playerHealth.ContainsKey(req.UserId)) _playerHealth[req.UserId] = req.Health;
-				else if (req.Health > _playerHealth[req.UserId]) _playerHealth[req.UserId] = Math.Min(100, req.Health); // Allow healing
-
 				_playerX[req.UserId] = req.PosX;
 				_playerZ[req.UserId] = req.PosZ;
 
