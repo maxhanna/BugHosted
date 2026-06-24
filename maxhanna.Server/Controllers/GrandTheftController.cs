@@ -56,6 +56,7 @@ namespace maxhanna.Server.Controllers
 				if (cz >= -5 && cz <= 5) return "city";
 				return "suburb";
 			}
+			if (cx >= 35 && cx <= 44 && cz >= 11 && cz <= 15) return "aeroport";
 			return "ocean";
 		}
 
@@ -68,7 +69,7 @@ namespace maxhanna.Server.Controllers
 			if (cx == 1 && cz == 0) return true;
 
 			string biome = GetBiome(cx, cz);
-			if (biome == "mountain" || biome == "beach" || biome == "ocean" || biome == "bridge") return false;
+			if (biome == "mountain" || biome == "beach" || biome == "ocean" || biome == "bridge" || biome == "aeroport") return false;
 
 			float blockCenterX = cx * CHUNK_SIZE + CHUNK_SIZE / 2f;
 			float blockCenterZ = cz * CHUNK_SIZE + CHUNK_SIZE / 2f;
@@ -360,6 +361,7 @@ namespace maxhanna.Server.Controllers
 			public string Gender { get; set; } = "male";
 			public float X { get; set; }
 			public float Z { get; set; }
+			public float Y { get; set; } = 0f;
 			public float Yaw { get; set; }
 			public float Speed { get; set; }
 			public float TargetX { get; set; }
@@ -723,6 +725,26 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 
+						// Aircraft movement in UpdatePosition
+						if (npc.Type == "helicopter" || npc.Type == "plane")
+						{
+							float acAlt = npc.Type == "helicopter" ? 25f + (float)(rng.NextDouble() * 10f) : 45f + (float)(rng.NextDouble() * 15f);
+							if (npc.Y == 0) npc.Y = acAlt;
+							npc.Y += (acAlt - npc.Y) * 0.02f;
+							if (dist > 10f)
+							{
+								npc.X += (dx / dist) * npc.Speed * 0.1f;
+								npc.Z += (dz / dist) * npc.Speed * 0.1f;
+								npc.Yaw = (float)Math.Atan2(dx, dz);
+							}
+							else
+							{
+								GetRandomAeroportOrDistantPoint(npc.X, npc.Z, out float tx, out float tz, rng);
+								npc.TargetX = tx;
+								npc.TargetZ = tz;
+							}
+						}
+
 						// NPC car hits pedestrian in UpdatePosition too
 						if (npc.Health > 0)
 						{
@@ -745,7 +767,7 @@ namespace maxhanna.Server.Controllers
 						}
 
 						// Car fire system: catch fire at 20% HP or in ocean, explode after 10s
-						if (npc.Health > 0 && (npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi" || npc.Type == "police" || npc.Type == "bike" || npc.Type == "motorcycle"))
+						if (npc.Health > 0 && (npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi" || npc.Type == "police" || npc.Type == "bike" || npc.Type == "motorcycle" || npc.Type == "helicopter" || npc.Type == "plane"))
 						{
 							int cx = (int)Math.Floor(npc.X / CityLayout.CHUNK_SIZE);
 							int cz = (int)Math.Floor(npc.Z / CityLayout.CHUNK_SIZE);
@@ -812,6 +834,7 @@ namespace maxhanna.Server.Controllers
 			var cars = new List<object>();
 			var pedestrians = new List<object>();
 			var parkedCars = new List<object>();
+			var aircraft = new List<object>();
 			var deadBodies = new List<object>();
 			var deadIds = new List<long>();
 			var rng = new Random();
@@ -942,20 +965,84 @@ namespace maxhanna.Server.Controllers
 				if (distSq < 150f * 150f)
 				{
 					if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") nearbyPeds++;
+					else if (npc.Type == "helicopter" || npc.Type == "plane") { }
 					else if (!npc.IsParked) nearbyCars++;
 				}
 
 				if (distSq > 200f * 200f) continue;
 
-				if (npc.IsParked) { parkedCars.Add(new { id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw, speed = 0f, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, health = npc.Health, isBurning = npc.OnFire }); continue; }
+				if (npc.IsParked) { parkedCars.Add(new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = 0f, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, health = npc.Health, isBurning = npc.OnFire }); continue; }
 
 				float tdx = npc.TargetX - npc.X;
 				float tdz = npc.TargetZ - npc.Z;
 				float distToTarget = (float)Math.Sqrt(tdx * tdx + tdz * tdz);
 
-				bool isVehicle = npc.Type == "car" || npc.Type == "bus" || npc.Type == "bike" || npc.Type == "motorcycle" || npc.Type == "taxi";
+				bool isVehicle = npc.Type == "car" || npc.Type == "bus" || npc.Type == "bike" || npc.Type == "motorcycle" || npc.Type == "taxi" || npc.Type == "helicopter" || npc.Type == "plane";
 
-				if (isVehicle)
+				if (isVehicle && (npc.Type == "helicopter" || npc.Type == "plane"))
+				{
+					// Aircraft simulation: fly in the sky
+					float acAlt = npc.Type == "helicopter" ? 25f + (float)(rng.NextDouble() * 10f) : 45f + (float)(rng.NextDouble() * 15f);
+					if (npc.Y == 0) npc.Y = acAlt;
+					npc.Y += (acAlt - npc.Y) * 0.02f;
+
+					bool isPanicking = npc.PanicUntil.HasValue && DateTime.UtcNow < npc.PanicUntil.Value;
+					if (isPanicking)
+					{
+						float pdx = npc.X - npc.PanicFromX;
+						float pdz = npc.Z - npc.PanicFromZ;
+						float pDist = (float)Math.Sqrt(pdx * pdx + pdz * pdz);
+						if (pDist > 0.1f)
+						{
+							npc.X += (pdx / pDist) * npc.Speed * SPEED_FACTOR * 1.5f;
+							npc.Z += (pdz / pDist) * npc.Speed * SPEED_FACTOR * 1.5f;
+							npc.Yaw = (float)Math.Atan2(pdx, pdz);
+							npc.Y += 10f * 0.016f;
+						}
+					}
+					else
+					{
+						if (distToTarget < 10f)
+						{
+							// Pick a new random distant target
+							float tx, tz;
+							GetRandomAeroportOrDistantPoint(npc.X, npc.Z, out tx, out tz, rng);
+							npc.TargetX = tx;
+							npc.TargetZ = tz;
+						}
+						else
+						{
+							float moveX = (tdx / distToTarget) * npc.Speed * SPEED_FACTOR;
+							float moveZ = (tdz / distToTarget) * npc.Speed * SPEED_FACTOR;
+							npc.X += moveX;
+							npc.Z += moveZ;
+							npc.Yaw = (float)Math.Atan2(moveX, moveZ);
+						}
+					}
+
+					// Fire system for aircraft
+					if (npc.Health > 0)
+					{
+						int cxc = (int)Math.Floor(npc.X / CityLayout.CHUNK_SIZE);
+						int czc = (int)Math.Floor(npc.Z / CityLayout.CHUNK_SIZE);
+						if (!npc.OnFire && CityLayout.GetBiome(cxc, czc) == "ocean") { npc.OnFire = true; npc.FireStartedAt = DateTime.UtcNow; }
+						int fireThreshold = Math.Max(80, npc.MaxHealth / 5);
+						if (npc.Health <= fireThreshold && !npc.OnFire)
+						{
+							npc.OnFire = true;
+							npc.FireStartedAt = DateTime.UtcNow;
+						}
+						if (npc.OnFire && npc.FireStartedAt.HasValue)
+						{
+							if ((DateTime.UtcNow - npc.FireStartedAt.Value).TotalSeconds >= 10.0)
+							{
+								npc.Health = 0;
+								npc.DeadAt = DateTime.UtcNow;
+							}
+						}
+					}
+				}
+				else if (isVehicle)
 				{
 					// --- Traffic-aware vehicle movement ---
 					const float INTERSECTION_RADIUS = 14f;
@@ -1158,7 +1245,7 @@ namespace maxhanna.Server.Controllers
 					}
 
 					// Car fire system in GetNPCs (also checks ocean submersion)
-					if (npc.Health > 0 && (npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi" || npc.Type == "police" || npc.Type == "bike" || npc.Type == "motorcycle"))
+					if (npc.Health > 0 && (npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi" || npc.Type == "police" || npc.Type == "bike" || npc.Type == "motorcycle" || npc.Type == "helicopter" || npc.Type == "plane"))
 					{
 						int cxc = (int)Math.Floor(npc.X / CityLayout.CHUNK_SIZE);
 						int czc = (int)Math.Floor(npc.Z / CityLayout.CHUNK_SIZE);
@@ -1378,8 +1465,9 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				var entry = new { id = npc.Id, posX = npc.X, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount, isShootingAt = npc.IsShootingAt, isBurning = npc.OnFire };
+				var entry = new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount, isShootingAt = npc.IsShootingAt, isBurning = npc.OnFire };
 				if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") pedestrians.Add(entry);
+				else if (npc.Type == "helicopter" || npc.Type == "plane") aircraft.Add(entry);
 				else cars.Add(entry);
 			}
 			foreach (var id in deadIds) npcs.TryRemove(id, out _);
@@ -1504,8 +1592,42 @@ namespace maxhanna.Server.Controllers
 				nearbyPolice++;
 			}
 
+			// Spawn aircraft near aeroport if player is in range
+			int playerCX = (int)Math.Floor(posX / CityLayout.CHUNK_SIZE);
+			int playerCZ = (int)Math.Floor(posZ / CityLayout.CHUNK_SIZE);
+			bool nearAeroport = Math.Abs(playerCX - 40) <= 10 && Math.Abs(playerCZ - 13) <= 8;
+			int nearbyAircraft = 0;
+			foreach (var kv in npcs) if (kv.Value.Type == "helicopter" || kv.Value.Type == "plane") nearbyAircraft++;
+			while (nearAeroport && nearbyAircraft < 3)
+			{
+				long id = GetNextNpcId();
+				string acType = nearbyAircraft % 2 == 0 ? "helicopter" : "plane";
+				int acx = 35 + rng.Next(10);
+				int acz = 11 + rng.Next(5);
+				float x = acx * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 40f;
+				float z = acz * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 40f;
+				float y = acType == "helicopter" ? 25f + (float)rng.NextDouble() * 10f : 45f + (float)rng.NextDouble() * 15f;
+				npcs[id] = new NpcState
+				{
+					Id = id,
+					Type = acType,
+					X = x,
+					Y = y,
+					Z = z,
+					TargetX = x + (float)(rng.NextDouble() - 0.5) * 200f,
+					TargetZ = z + (float)(rng.NextDouble() - 0.5) * 200f,
+					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
+					Speed = acType == "helicopter" ? 8f : 15f,
+					Health = 200, MaxHealth = 200,
+					Cr = 0.5f + (float)rng.NextDouble() * 0.5f,
+					Cg = 0.5f + (float)rng.NextDouble() * 0.5f,
+					Cb = 0.5f + (float)rng.NextDouble() * 0.5f,
+				};
+				nearbyAircraft++;
+			}
+
 			var dw = BuildDroppedWeapons();
-			return Ok(new { cars, pedestrians, parkedCars, deadBodies, droppedWeapons = dw });
+			return Ok(new { cars, pedestrians, parkedCars, aircraft, deadBodies, droppedWeapons = dw });
 		}
 
 		private List<object> BuildDroppedWeapons()
@@ -1590,6 +1712,34 @@ namespace maxhanna.Server.Controllers
 					Cr = 0.4f,
 					Cg = 0.4f,
 					Cb = 0.4f
+				};
+			}
+
+			// Seed aircraft at the aeroport
+			for (int i = 0; i < 3; i++)
+			{
+				long id = GetNextNpcId();
+				string acType = i % 2 == 0 ? "helicopter" : "plane";
+				int acx = 35 + rng.Next(10);
+				int acz = 11 + rng.Next(5);
+				float ax = acx * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 40f;
+				float az = acz * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 40f;
+				float ay = acType == "helicopter" ? 25f + (float)rng.NextDouble() * 10f : 45f + (float)rng.NextDouble() * 15f;
+				dict[id] = new NpcState
+				{
+					Id = id,
+					Type = acType,
+					X = ax,
+					Y = ay,
+					Z = az,
+					TargetX = ax + (float)(rng.NextDouble() - 0.5) * 200f,
+					TargetZ = az + (float)(rng.NextDouble() - 0.5) * 200f,
+					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
+					Speed = acType == "helicopter" ? 8f : 15f,
+					Health = 200, MaxHealth = 200,
+					Cr = 0.5f + (float)rng.NextDouble() * 0.5f,
+					Cg = 0.5f + (float)rng.NextDouble() * 0.5f,
+					Cb = 0.5f + (float)rng.NextDouble() * 0.5f,
 				};
 			}
 		}
@@ -1678,6 +1828,36 @@ namespace maxhanna.Server.Controllers
 			// Fallback
 			x = px + (float)(rng.NextDouble() - 0.5) * 80f;
 			z = pz + (float)(rng.NextDouble() - 0.5) * 80f;
+		}
+
+		private void GetRandomAeroportOrDistantPoint(float px, float pz, out float x, out float z, Random rng)
+		{
+			// 50% chance: pick a point at the aeroport (cx 35-44, cz 11-15)
+			if (rng.NextDouble() < 0.5)
+			{
+				int acx = 35 + rng.Next(10);
+				int acz = 11 + rng.Next(5);
+				x = acx * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 60f;
+				z = acz * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 60f;
+			}
+			else
+			{
+				// Pick a distant random point (any biome except ocean)
+				for (int attempt = 0; attempt < 20; attempt++)
+				{
+					int gx = (int)Math.Round(px / 80f) + rng.Next(-15, 16);
+					int gz = (int)Math.Round(pz / 80f) + rng.Next(-15, 16);
+					int cx = (int)Math.Floor((gx * 80f) / 80f);
+					int cz = (int)Math.Floor((gz * 80f) / 80f);
+					string biome = CityLayout.GetBiome(cx, cz);
+					if (biome == "ocean") continue;
+					x = gx * 80f + 40f;
+					z = gz * 80f + 40f;
+					return;
+				}
+				x = px + (float)(rng.NextDouble() - 0.5) * 300f;
+				z = pz + (float)(rng.NextDouble() - 0.5) * 300f;
+			}
 		}
 
 		[HttpPost("stealcar/{npcId}")]

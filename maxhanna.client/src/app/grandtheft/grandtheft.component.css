@@ -1,4 +1,4 @@
-#gt-container {
+﻿#gt-container {
   position: relative;
   width: 100vw;
   height: calc(100vh - 60px);
@@ -59,7 +59,7 @@
   color: #fff;
   font-size: 14px;
   font-weight: bold;
-  text-shadow: 0 0 4px rgba(0,0,0,0.8);
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
   pointer-events: none;
   white-space: nowrap;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -304,11 +304,12 @@
 /* Mobile controls */
 #gt-mobile {
   position: absolute;
-  top: 0;
+  bottom: 0;
   left: 0;
   width: 100%;
-  height: 100%;
+  height: 100px;
   pointer-events: none;
+  z-index: 20;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
   /* FIX: Prevent browser scroll/zoom gestures from stealing touches

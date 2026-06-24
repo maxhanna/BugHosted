@@ -1,0 +1,8 @@
+Model Information:
+* title:	1987 BMW E34 (LP)
+* source:	https://sketchfab.com/3d-models/1987-bmw-e34-lp-1baa016f2c814cd7ace8ea86a927fa4a
+* author:	KrStolorz (Krzysztof Stolorz) (https://sketchfab.com/KrStolorz)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

@@ -1,0 +1,8 @@
+Model Information:
+* title:	Cirrus SR 22
+* source:	https://sketchfab.com/3d-models/cirrus-sr-22-f0f1089f374f4d398f0483403fe6af7a
+* author:	helijah (https://sketchfab.com/helijah)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

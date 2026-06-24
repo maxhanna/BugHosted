@@ -1,0 +1,8 @@
+Model Information:
+* title:	Lexus IS300/200
+* source:	https://sketchfab.com/3d-models/lexus-is300200-281a547f226543d680e4f27ae0304278
+* author:	BlackHorn860 (https://sketchfab.com/black.horn_860)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

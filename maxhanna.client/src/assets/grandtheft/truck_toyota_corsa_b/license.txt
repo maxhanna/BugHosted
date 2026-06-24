@@ -1,0 +1,8 @@
+Model Information:
+* title:	Truck Toyota Corsa B
+* source:	https://sketchfab.com/3d-models/truck-toyota-corsa-b-e3ae80546a4d48d5a79774fc7bce5766
+* author:	randombug (https://sketchfab.com/randombug)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

@@ -1,0 +1,8 @@
+Model Information:
+* title:	Low poly 1:1 EA18G Growler
+* source:	https://sketchfab.com/3d-models/low-poly-11-ea18g-growler-344cc000ff614afeba2508054fe7d354
+* author:	Yi Tsung Lee (https://sketchfab.com/WTigerTw)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

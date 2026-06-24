@@ -1,0 +1,8 @@
+Model Information:
+* title:	1970 Dodge Challenger R/T (LP)
+* source:	https://sketchfab.com/3d-models/1970-dodge-challenger-rt-lp-f1133ce19b284bb5816993cc325d01de
+* author:	KrStolorz (Krzysztof Stolorz) (https://sketchfab.com/KrStolorz)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

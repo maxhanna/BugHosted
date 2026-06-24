@@ -1,0 +1,8 @@
+Model Information:
+* title:	Low poly 1:1 USAF F22A Raptor
+* source:	https://sketchfab.com/3d-models/low-poly-11-usaf-f22a-raptor-ea657ca469424ad68c4b9e013b993c46
+* author:	Yi Tsung Lee (https://sketchfab.com/WTigerTw)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

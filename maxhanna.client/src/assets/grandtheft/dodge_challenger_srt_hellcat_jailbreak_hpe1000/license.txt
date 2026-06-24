@@ -1,0 +1,8 @@
+Model Information:
+* title:	Dodge Challenger SRT Hellcat Jailbreak HPE1000
+* source:	https://sketchfab.com/3d-models/dodge-challenger-srt-hellcat-jailbreak-hpe1000-6b48e002dcd441d2b38cc34c5df14fac
+* author:	RPMRender (https://sketchfab.com/RPMRender)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

@@ -1,0 +1,8 @@
+Model Information:
+* title:	BMW X7 xDrive 50i
+* source:	https://sketchfab.com/3d-models/bmw-x7-xdrive-50i-4274f483285f48d1840064dea31b2518
+* author:	RPMRender (https://sketchfab.com/RPMRender)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

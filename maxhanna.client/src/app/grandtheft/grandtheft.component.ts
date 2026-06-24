@@ -167,10 +167,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   carVx = 0; carVz = 0; carVy = 0;
   carSpeed = 0;
   carAngleVel = 0;
+  carPitch = 0;
+  carRoll = 0;
 
   carHealth = 400;
   isInCar = false;
-  vehicleType: 'car' | 'bus' | 'plane' | 'bike' | 'motorcycle' | 'taxi' = 'car';
+  vehicleType: 'car' | 'bus' | 'plane' | 'bike' | 'motorcycle' | 'taxi' | 'boat' | 'helicopter' = 'car';
   // NEW: Passenger state. When isPassenger is true, the player is riding
   // in another player's car. They can't control the car but move with it.
   // passengerOfUserId tracks whose car we're in so we can follow their
@@ -195,7 +197,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   camDist = 4; camHeight = 2;
   firstPerson = false;
   private isPointerLocked = false;
-  serverNPCs: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean; isBurning?: boolean }[] = [];
+  serverNPCs: { id: number; x: number; y: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean; isBurning?: boolean }[] = [];
   serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
@@ -406,6 +408,43 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/suv/scene.gltf').then(car => {
       if (car) this.renderer.carMeshes.push(car);
     });
+    this.renderer.loadGLTF('assets/grandtheft/psxlow_poly_pickup/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/renault_4_cv/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/subaru_impreza/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/truck_toyota_corsa_b/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/vehicle_-_subaru_brz_rocket_bunny/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/1963_alpine_renault_a110_lp/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/1987_bmw_e34_lp/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/1993_fso_polonez_mr93_lp/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/2009_volkswagen_amarok_lp/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/ac_-_bmw_1m_free/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/bmw_m4_csl/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/bmw_vision_neue_klasse/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/bmw_x7_xdrive_50i/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/dodge_challenger_srt_hellcat_jailbreak_hpe1000/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/dodge_demon_hpe1200/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/ford_mustang_shelby_gt500kr/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/free_ai_based_conceptcar_049_public_domain_cc0/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/free_concept_car_037_-_public_domain_cc0/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/free_concept_car_040__-_public_domain_cc0/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/free_sci-fi_vehicle_031-02_-_public_domain_cc0/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/freightliner_century/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/kenworth_t2000/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/lexus_is300200/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/ps1_gt1-style_model_-_1992_emery_aventus/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/ps1_gt1-style_model_-_1994_kineto_rm-x/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/ps1_gt1-style_model_-_1997_dale_aristocrat/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/psx_bus/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/animated_yacht/scene.gltf').then(b => { if (b) this.renderer.boatMeshes.push(b); });
+    this.renderer.loadGLTF('assets/grandtheft/super-yacht02/scene.gltf').then(b => { if (b) this.renderer.boatMeshes.push(b); });
+    this.renderer.loadGLTF('assets/grandtheft/bell_uh-1_iroquois_huey/scene.gltf').then(h => { if (h) this.renderer.helicopterMeshes.push(h); });
+    this.renderer.loadGLTF('assets/grandtheft/bell_222_x/scene.gltf').then(h => { if (h) this.renderer.helicopterMeshes.push(h); });
+    this.renderer.loadGLTF('assets/grandtheft/bell_ch-146_griffon/scene.gltf').then(h => { if (h) this.renderer.helicopterMeshes.push(h); });
+    this.renderer.loadGLTF('assets/grandtheft/bell_206_jet_ranger/scene.gltf').then(h => { if (h) this.renderer.helicopterMeshes.push(h); });
+    this.renderer.loadGLTF('assets/grandtheft/cirrus_sr_22/scene.gltf').then(p => { if (p) this.renderer.planeMeshes.push(p); });
+    this.renderer.loadGLTF('assets/grandtheft/low_poly_11_ea18g_growler/scene.gltf').then(p => { if (p) this.renderer.planeMeshes.push(p); });
+    this.renderer.loadGLTF('assets/grandtheft/low_poly_11_usaf_f22a_raptor/scene.gltf').then(p => { if (p) this.renderer.planeMeshes.push(p); });
 
     this.renderer.loadGLTF('assets/grandtheft/pizzaMoped/scene.gltf').then(moto => {
       if (moto) this.renderer.motorcycleMeshes.push(moto);
@@ -1031,6 +1070,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           }
 
           if (this.vehicleType === 'plane') { this.camDist = 12; this.camHeight = 5; }
+          else if (this.vehicleType === 'helicopter') { this.camDist = 10; this.camHeight = 4; }
+          else if (this.vehicleType === 'boat') { this.camDist = 8; this.camHeight = 3; }
           else if (this.vehicleType === 'motorcycle') { this.camDist = 6; this.camHeight = 2.5; }
           else { this.camDist = 8; this.camHeight = 3; }
 
@@ -1452,7 +1493,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (p.type === 'police') existingPolice.set(p.id, p);
     }
 
-    this.serverNPCs = data.cars
+    const allVehicles = [...data.cars, ...(data.aircraft || [])];
+    this.serverNPCs = allVehicles
       .filter(c => !this.deadNPCIds.has(c.id) && !this.stolenNpcIds.has(c.id))
       .map(c => {
         const serverHp = c.health ?? 100;
@@ -1470,27 +1512,31 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           mesh = this.renderer.busMesh || this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB], c.id);
         } else if (c.type === 'taxi') {
           mesh = this.renderer.getTaxiMesh();
+        } else if (c.type === 'helicopter') {
+          mesh = this.renderer.getHelicopterMesh(c.id);
+        } else if (c.type === 'plane') {
+          mesh = this.renderer.getPlaneMesh(c.id);
         } else {
           mesh = this.renderer.getNPCCarMesh([c.colorR, c.colorG, c.colorB], c.id);
         }
 
         const JUMP_THRESHOLD = 50;
-        const newX = c.posX, newZ = c.posZ, newYaw = c.yaw, newSpeed = c.speed ?? 0;
+        const newX = c.posX, newZ = c.posZ, newYaw = c.yaw, newSpeed = c.speed ?? 0, newY = c.posY || 0;
         const existing = prevNPCState.get(c.id) ?? existingPolice.get(c.id);
         const interp = (() => {
           if (!existing) {
-            return { prevX: newX, prevZ: newZ, prevYaw: newYaw, targetX: newX, targetZ: newZ, targetYaw: newYaw, speed: newSpeed, lastUpdate: pollTimestamp };
+            return { prevX: newX, prevZ: newZ, prevYaw: newYaw, targetX: newX, targetZ: newZ, targetYaw: newYaw, speed: newSpeed, lastUpdate: pollTimestamp, prevY: newY, targetY: newY };
           }
           const jumpDist = Math.hypot(newX - existing.x, newZ - existing.z);
           if (jumpDist > JUMP_THRESHOLD) {
-            return { prevX: newX, prevZ: newZ, prevYaw: newYaw, targetX: newX, targetZ: newZ, targetYaw: newYaw, speed: newSpeed, lastUpdate: pollTimestamp };
+            return { prevX: newX, prevZ: newZ, prevYaw: newYaw, targetX: newX, targetZ: newZ, targetYaw: newYaw, speed: newSpeed, lastUpdate: pollTimestamp, prevY: newY, targetY: newY };
           }
-          return { prevX: existing.x, prevZ: existing.z, prevYaw: existing.yaw, targetX: newX, targetZ: newZ, targetYaw: newYaw, speed: newSpeed, lastUpdate: pollTimestamp };
+          return { prevX: existing.x, prevZ: existing.z, prevYaw: existing.yaw, targetX: newX, targetZ: newZ, targetYaw: newYaw, speed: newSpeed, lastUpdate: pollTimestamp, prevY: existing.y ?? newY, targetY: newY };
         })();
 
         return {
           id: c.id,
-          x: interp.prevX, z: interp.prevZ, yaw: interp.prevYaw,
+          x: interp.prevX, y: interp.prevY, z: interp.prevZ, yaw: interp.prevYaw,
           type: c.type || 'car',
           health,
           colorR: c.colorR, colorG: c.colorG, colorB: c.colorB,
@@ -2691,7 +2737,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     if (this.isPassenger) {
       this.updatePassengerFollow();
-    } else if (this.isInCar && this.vehicleType === 'plane') this.updatePlane(dt);
+    } else if (this.isInCar && this.vehicleType === 'boat') this.updateBoat(dt);
+    else if (this.isInCar && this.vehicleType === 'helicopter') this.updateHelicopter(dt);
+    else if (this.isInCar && this.vehicleType === 'plane') this.updatePlane(dt);
     else if (this.isInCar && this.vehicleType === 'motorcycle') this.updateMotorcycle(dt);
     else if (this.isInCar) this.updateCar(dt);
     else this.updateWalking(dt);
@@ -2753,8 +2801,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.serverPedestrians = this.serverPedestrians.filter(p => p.health > 0);
     this.parkedCars = this.parkedCars.filter(pc => pc.health > 0);
 
-    // Water submersion: cars in ocean biome sink and then burn
-    if (this.isInCar && this.carHealth > 0) {
+    // Water submersion: cars in ocean biome sink and then burn (skip for boats)
+    if (this.isInCar && this.carHealth > 0 && this.vehicleType !== 'boat') {
       const ocx = Math.floor(this.carX / 80), ocz = Math.floor(this.carZ / 80);
       const inOcean = !(ocx >= -2 && ocx <= 3 && ocz >= -2 && ocz <= 2) &&
         !(ocx >= 4 && ocx <= 5 && ocz >= -1 && ocz <= 1) &&
@@ -3128,33 +3176,164 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.pushOutOfBuildings();
   }
 
-  private updatePlane(dt: number) {
-    const accel = 25, maxSpeed = 60, turnSpeed = 1.5;
+  private updateBoat(dt: number) {
+    const accel = 15, maxSpeed = 35, turnSpeed = 1.5;
+    let accelForce = 0;
+    if (this.keys.has('KeyW')) accelForce = accel;
+    if (this.keys.has('KeyS')) accelForce = -accel;
+    if (this.isMobile && this.joystickActive) {
+      accelForce = accel * this.joystickY;
+    }
+    const forwardX = Math.sin(this.carYaw), forwardZ = Math.cos(this.carYaw);
+    if (accelForce !== 0) {
+      this.carVx += forwardX * accelForce * dt;
+      this.carVz += forwardZ * accelForce * dt;
+    }
+    const onLand = this.carY <= CAR_HEIGHT + 0.1;
+    if (onLand) {
+      const spd = Math.hypot(this.carVx, this.carVz);
+      if (spd > 0.5) {
+        const glideFactor = Math.max(0, 1 - 2.0 * dt);
+        this.carVx *= glideFactor;
+        this.carVz *= glideFactor;
+      } else {
+        this.carVx = 0; this.carVz = 0;
+      }
+    } else {
+      let steer = 0;
+      if (this.keys.has('KeyA')) steer = 1;
+      if (this.keys.has('KeyD')) steer = -1;
+      if (this.isMobile && this.joystickActive) steer += -this.joystickX;
+      const spd = Math.hypot(this.carVx, this.carVz);
+      if (spd > 0.5) this.carYaw += steer * turnSpeed * dt * Math.min(1, spd / 5);
+      const drag = 0.3;
+      this.carVx *= Math.max(0, 1 - drag * dt);
+      this.carVz *= Math.max(0, 1 - drag * dt);
+    }
+    this.carX += this.carVx * dt;
+    this.carZ += this.carVz * dt;
+    this.carSpeed = Math.hypot(this.carVx, this.carVz);
+    this.carY = CAR_HEIGHT;
+  }
 
-    // Keyboard
+  private updateHelicopter(dt: number) {
+    const maxSpeed = 35, climbRate = 10, yawSpeed = 2.0;
+
+    // The helicopter yaw follows the camera yaw (like GTA)
+    this.carYaw = this.camYaw;
+
+    // W = ascend, S = descend (collective)
+    if (this.keys.has('KeyW')) this.carVy = Math.min(this.carVy + climbRate * dt, 8);
+    else if (this.keys.has('KeyS')) this.carVy = Math.max(this.carVy - climbRate * dt, -8);
+    else this.carVy *= 0.92;
+
+    // Forward/backward tilt based on camera pitch
+    const fwdTilt = Math.max(-1, Math.min(1, -this.camPitch * 0.8));
+    this.carPitch = -fwdTilt * 0.3;
+
+    // Move in camera direction
+    const forwardX = Math.sin(this.carYaw), forwardZ = Math.cos(this.carYaw);
+    const targetVx = forwardX * fwdTilt * maxSpeed;
+    const targetVz = forwardZ * fwdTilt * maxSpeed;
+    this.carVx += (targetVx - this.carVx) * Math.min(1, 3 * dt);
+    this.carVz += (targetVz - this.carVz) * Math.min(1, 3 * dt);
+
+    // Side movement with A/D
+    const rightX = Math.cos(this.carYaw), rightZ = -Math.sin(this.carYaw);
+    let sideInput = 0;
+    if (this.keys.has('KeyA')) sideInput = 1;
+    if (this.keys.has('KeyD')) sideInput = -1;
+    if (sideInput !== 0) {
+      this.carVx += rightX * sideInput * 15 * dt;
+      this.carVz += rightZ * sideInput * 15 * dt;
+    }
+    this.carRoll = this.carRoll * 0.95 + sideInput * 0.2 * dt;
+
+    // Q/E for yaw pedals (subtle adjustment)
+    if (this.keys.has('KeyQ')) this.camYaw -= yawSpeed * dt;
+    if (this.keys.has('KeyE')) this.camYaw += yawSpeed * dt;
+
+    this.carX += this.carVx * dt;
+    this.carZ += this.carVz * dt;
+    this.carY += this.carVy * dt;
+    this.carSpeed = Math.hypot(this.carVx, this.carVz);
+
+    if (this.carY < CAR_HEIGHT) { this.carY = CAR_HEIGHT; this.carVy = Math.max(0, this.carVy); }
+  }
+
+  private updatePlane(dt: number) {
+    const accel = 20, maxSpeed = 70, stallSpeed = 8, turnSpeed = 1.2;
+
+    // Throttle
     if (this.keys.has('KeyW')) this.carSpeed = Math.min(this.carSpeed + accel * dt, maxSpeed);
     if (this.keys.has('KeyS')) this.carSpeed = Math.max(this.carSpeed - accel * dt, 0);
-    if (this.keys.has('KeyA')) this.carYaw += turnSpeed * dt;
-    if (this.keys.has('KeyD')) this.carYaw -= turnSpeed * dt;
 
-    // Mobile joystick: Y = throttle, X = yaw
+    // Mobile: joystick Y = throttle
     if (this.isMobile && this.joystickActive) {
       if (this.joystickY > 0.1) this.carSpeed = Math.min(this.carSpeed + accel * this.joystickY * dt, maxSpeed);
       else if (this.joystickY < -0.1) this.carSpeed = Math.max(this.carSpeed + accel * this.joystickY * dt, 0);
-      this.carYaw += -this.joystickX * turnSpeed * dt;
     }
 
-    // Pitch up/down with Space/Shift
-    if (this.keys.has('Space')) this.carVy = Math.min(this.carVy + 10 * dt, 10);
-    else if (this.keys.has('ShiftLeft')) this.carVy = Math.max(this.carVy - 10 * dt, -10);
-    else this.carVy *= 0.95;
+    // Pitch & roll with A/D (yaw at low speed, roll at high speed)
+    if (this.keys.has('KeyA')) this.carRoll = Math.max(-0.8, this.carRoll - 1.5 * dt);
+    if (this.keys.has('KeyD')) this.carRoll = Math.min(0.8, this.carRoll + 1.5 * dt);
 
-    this.carX += Math.sin(this.carYaw) * this.carSpeed * dt;
-    this.carZ += Math.cos(this.carYaw) * this.carSpeed * dt;
+    // Pitch with mouse
+    if (this.isPointerLocked) {
+      const pitchInput = -this.camPitch * 0.3;
+      this.carPitch = Math.max(-0.5, Math.min(0.5, this.carPitch + pitchInput));
+    }
+
+    // Pitch with space/shift if no mouse
+    if (this.keys.has('Space')) this.carPitch = Math.max(-0.5, this.carPitch - 1.5 * dt);
+    else if (this.keys.has('ShiftLeft')) this.carPitch = Math.min(0.5, this.carPitch + 1.5 * dt);
+    else if (!this.isPointerLocked) this.carPitch *= 0.95;
+
+    // Banked turn: roll induces yaw
+    const bankFactor = this.carRoll * 1.5;
+    this.carYaw += bankFactor * turnSpeed * dt * Math.min(1, this.carSpeed / 20);
+
+    // Roll returns to level when no input
+    if (!this.keys.has('KeyA') && !this.keys.has('KeyD')) {
+      this.carRoll *= Math.max(0, 1 - 2.0 * dt);
+    }
+
+    // Lift physics: lift = speed^2 * cos(pitch) * liftFactor
+    const liftFactor = 0.006;
+    const speed = this.carSpeed;
+    const cosPitch = Math.cos(this.carPitch);
+    const sinPitch = Math.sin(this.carPitch);
+    const lift = speed * speed * cosPitch * liftFactor;
+    const dragForce = speed * 0.02;
+
+    // Gravity
+    const gravity = -5;
+
+    // Vertical velocity: lift + thrust vertical component + gravity
+    const thrustVy = speed * sinPitch * 0.3;
+    this.carVy += (lift + thrustVy + gravity - this.carVy * 0.5) * dt;
+    this.carSpeed -= dragForce * dt;
+
+    // Stall: lose lift at low speed
+    if (speed < stallSpeed && this.carPitch < -0.05) {
+      this.carVy += (gravity * 1.5) * dt;
+    }
+
+    const forwardX = Math.sin(this.carYaw), forwardZ = Math.cos(this.carYaw);
+    this.carX += forwardX * this.carSpeed * dt;
+    this.carZ += forwardZ * this.carSpeed * dt;
     this.carY += this.carVy * dt;
 
-    if (this.carY < CAR_HEIGHT) { this.carY = CAR_HEIGHT; this.carVy = 0; }
-    this.pushOutOfBuildings();
+    // Ground collision: land or crash
+    if (this.carY < CAR_HEIGHT) {
+      if (this.carSpeed > stallSpeed && Math.abs(this.carPitch) > 0.3) {
+        this.carHealth -= 50 * dt;
+      }
+      this.carY = CAR_HEIGHT;
+      this.carVy = Math.max(0, this.carVy);
+      this.carPitch = 0;
+      this.carRoll = 0;
+    }
   }
 
   private pushOutOfBuildings() {
@@ -3627,6 +3806,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         // Linear interpolation between prev and target.
         npc.x = npc.prevX + (npc.targetX - npc.prevX) * t;
         npc.z = npc.prevZ + (npc.targetZ - npc.prevZ) * t;
+        if (npc.prevY !== undefined && npc.targetY !== undefined)
+          npc.y = npc.prevY + (npc.targetY - npc.prevY) * t;
         // Yaw: interpolate through the shorter arc.
         let yawDiff = npc.targetYaw - npc.prevYaw;
         while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;

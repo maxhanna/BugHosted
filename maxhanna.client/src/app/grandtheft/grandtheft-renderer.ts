@@ -69,6 +69,8 @@ export function getBiome(cx: number, cz: number): string {
     if (cz >= -5 && cz <= 5) return 'city';
     return 'suburb';
   }
+  // Island 5 (Aeroport): north of beach resort
+  if (cx >= 35 && cx <= 44 && cz >= 11 && cz <= 15) return 'aeroport';
   return 'ocean';
 }
 
@@ -366,6 +368,9 @@ export class GrandTheftRenderer {
   public busMesh: CityMesh[] | null = null;
   public copMesh: CityMesh | CityMesh[] | null = null;
   public carMeshes: CityMesh[][] = [];
+  public boatMeshes: CityMesh[][] = [];
+  public helicopterMeshes: CityMesh[][] = [];
+  public planeMeshes: CityMesh[][] = [];
   public motorcycleMeshes: CityMesh[][] = [];
   public policeCarMesh: CityMesh[] | null = null;
   public hospitalMesh: CityMesh[] | null = null;
@@ -1510,6 +1515,7 @@ void main() {
     const isMountain = biome === 'mountain';
     const isCity = biome === 'city';
     const isBridge = biome === 'bridge';
+    const isAeroport = biome === 'aeroport';
 
     const seed = (cx * 100003 + cz * 70001) >>> 0;
     const rng = this.mulberry32(seed);
@@ -1547,6 +1553,9 @@ void main() {
       idxOffset += 4;
     } else if (isBridge) {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.5, 0.5, 0.5, 1.0, idxOffset);
+      idxOffset += 4;
+    } else if (isAeroport) {
+      this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.25, 0.25, 0.25, 1.0, idxOffset);
       idxOffset += 4;
     } else {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.08, 0.08, 0.08, 1.0, idxOffset);
@@ -1626,6 +1635,28 @@ void main() {
           continue;
         }
 
+        if (isAeroport) {
+          const isCentralColumn = bx === Math.floor(blocksPerChunk / 2);
+          const runwayW = 8;
+          const runwayLen = GRID_PITCH;
+          if (isCentralColumn) {
+            this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ, runwayW, 0.2, runwayLen, 0.15, 0.15, 0.15, 1.0, idxOffset);
+            idxOffset += 24;
+            this.addBox(verts, indices, blockWorldX, 0.05, blockWorldZ + 6, 0.5, 0.1, 2, 1, 1, 1, 0.6, idxOffset);
+            idxOffset += 24;
+            this.addBox(verts, indices, blockWorldX, 0.05, blockWorldZ - 6, 0.5, 0.1, 2, 1, 1, 1, 0.6, idxOffset);
+            idxOffset += 24;
+          }
+          const isTerminalRow = by === 0 || by === blocksPerChunk - 1;
+          if (isTerminalRow && rng() < 0.3) {
+            const tx = blockWorldX - 10 + rng() * 20;
+            this.addBox(verts, indices, tx, 4, blockWorldZ, 12, 8, 10, 0.5, 0.5, 0.5, 1.0, idxOffset);
+            idxOffset += 24;
+            this.addBox(verts, indices, tx, 8.1, blockWorldZ, 13, 0.3, 11, 0.7, 0.7, 0.7, 1.0, idxOffset);
+            idxOffset += 24;
+          }
+          continue;
+        }
         if (isBridge) {
           const gx = cx * blocksPerChunk + bx;
           const gz = cz * blocksPerChunk + by;
@@ -1644,6 +1675,7 @@ void main() {
 
         if (cx === 0 && cz === 0) continue;
         if (cx === 1 && cz === 0) continue;
+        if (isAeroport) continue;
 
         if (isSuburb) {
           const hasPOI = rng() < 0.25;
@@ -1716,7 +1748,7 @@ void main() {
       }
     }
 
-    if (!isMountain && !isBeach) {
+    if (!isMountain && !isBeach && !isAeroport) {
       const dashLen = 1.5;
       const dashWid = 0.3;
       const dashH = 0.02;
@@ -1742,7 +1774,7 @@ void main() {
 
     const lamps: { x: number; z: number }[] = [];
     const hydrants: { x: number; z: number }[] = [];
-    if (!isMountain && !isBeach) {
+    if (!isMountain && !isBeach && !isAeroport) {
       const halfSidewalk = SIDEWALK_SIZE / 2;
       const sidewalkEdge = GRID_PITCH / 2 - halfSidewalk;
       for (let ly = 0; ly < 2; ly++) {
@@ -1903,6 +1935,30 @@ void main() {
     const mesh = this.getPlayerMesh(color);
     this.meshCache.set(key, mesh);
     return mesh;
+  }
+
+  getBoatMesh(seed: number | string = 0): CityMesh | CityMesh[] {
+    if (this.boatMeshes.length > 0) {
+      if (this.boatMeshes.length === 1) return this.boatMeshes[0];
+      return this.boatMeshes[hashSeed(seed) % this.boatMeshes.length];
+    }
+    return this.getNPCCarMesh([0.5, 0.5, 0.5], seed);
+  }
+
+  getHelicopterMesh(seed: number | string = 0): CityMesh | CityMesh[] {
+    if (this.helicopterMeshes.length > 0) {
+      if (this.helicopterMeshes.length === 1) return this.helicopterMeshes[0];
+      return this.helicopterMeshes[hashSeed(seed) % this.helicopterMeshes.length];
+    }
+    return this.getNPCCarMesh([0.5, 0.5, 0.5], seed);
+  }
+
+  getPlaneMesh(seed: number | string = 0): CityMesh | CityMesh[] {
+    if (this.planeMeshes.length > 0) {
+      if (this.planeMeshes.length === 1) return this.planeMeshes[0];
+      return this.planeMeshes[hashSeed(seed) % this.planeMeshes.length];
+    }
+    return this.getNPCCarMesh([0.5, 0.5, 0.5], seed);
   }
 
   getNPCCarMesh(color: [number, number, number], seed: number | string = 0): CityMesh | CityMesh[] {
@@ -2251,7 +2307,10 @@ void main() {
       }
     }
     for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, (pc as any)._expY ?? 0, pc.z, pc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-    for (const npc of serverNPCs) this.drawMesh(npc.mesh, npc.x, 0, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+    for (const npc of serverNPCs) {
+      const vy = (npc.type === 'helicopter' || npc.type === 'plane') ? (npc.y || 0) : 0;
+      this.drawMesh(npc.mesh, npc.x, vy, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+    }
     for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     for (const p of otherPlayers) {
       if (p.passengerOfUserId && p.passengerOfUserId > 0) continue;
@@ -2261,10 +2320,14 @@ void main() {
         const col: [number, number, number] = [p.carColorR ?? 1, p.carColorG ?? 1, p.carColorB ?? 1];
         if (vType === 'taxi') carMesh = this.getTaxiMesh();
         else if (vType === 'bus') carMesh = this.busMesh || this.getNPCCarMesh(col, p.userId);
+        else if (vType === 'boat') carMesh = this.getBoatMesh(p.userId);
+        else if (vType === 'helicopter') carMesh = this.getHelicopterMesh(p.userId);
+        else if (vType === 'plane') carMesh = this.getPlaneMesh(p.userId);
         else if (vType === 'motorcycle') carMesh = this.motorcycleMeshes.length > 0 ? this.motorcycleMeshes[0] : this.getNPCCarMesh(col, p.userId);
         else if (vType === 'police') carMesh = this.getPoliceCarMesh();
         else carMesh = this.carMeshes.length > 0 ? this.carMeshes[0] : this.getNPCCarMesh(col, p.userId);
-        this.drawMesh(carMesh, p.posX, 0, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+        const vehicleY = (vType === 'helicopter' || vType === 'plane') ? (p.posY || 0) : 0;
+        this.drawMesh(carMesh, p.posX, vehicleY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
       }
       this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
     }
@@ -2433,7 +2496,8 @@ void main() {
 
     for (const npc of serverNPCs) {
       const submerged = getBiome(Math.floor(npc.x / 80), Math.floor(npc.z / 80)) === 'ocean';
-      const expY = submerged ? -1.5 : (npc as any)._expY ?? 0;
+      const isAircraft = npc.type === 'helicopter' || npc.type === 'plane';
+      const expY = isAircraft ? (npc.y || 0) : (submerged ? -1.5 : (npc as any)._expY ?? 0);
       this.drawMesh(npc.mesh, npc.x, expY, npc.z, npc.yaw);
       if (npc.hasDriver !== false && npc.type !== 'cop') {
         const dMesh = this.getPedestrianMesh(npc.gender || 'male', npc.id);
@@ -2479,10 +2543,14 @@ void main() {
         const col: [number, number, number] = [p.carColorR ?? 1, p.carColorG ?? 1, p.carColorB ?? 1];
         if (vType === 'taxi') carMesh = this.getTaxiMesh();
         else if (vType === 'bus') carMesh = this.busMesh || this.getNPCCarMesh(col, p.userId);
+        else if (vType === 'boat') carMesh = this.getBoatMesh(p.userId);
+        else if (vType === 'helicopter') carMesh = this.getHelicopterMesh(p.userId);
+        else if (vType === 'plane') carMesh = this.getPlaneMesh(p.userId);
         else if (vType === 'motorcycle') carMesh = this.motorcycleMeshes.length > 0 ? this.motorcycleMeshes[0] : this.getNPCCarMesh(col, p.userId);
         else if (vType === 'police') carMesh = this.getPoliceCarMesh();
         else carMesh = this.carMeshes.length > 0 ? this.carMeshes[0] : this.getNPCCarMesh(col, p.userId);
-        this.drawMesh(carMesh, p.posX, 0, p.posZ, p.yaw);
+        const vy = (vType === 'helicopter' || vType === 'plane') ? (p.posY || 0) : 0;
+        this.drawMesh(carMesh, p.posX, vy, p.posZ, p.yaw);
         const sinY = Math.sin(p.yaw), cosY = Math.cos(p.yaw);
         const offX = 0.3, offZ = 0.2;
         const wx = p.posX + (offX * cosY + offZ * sinY);
@@ -2634,8 +2702,9 @@ void main() {
         const sinYf = Math.sin(npc.yaw), cosYf = Math.cos(npc.yaw);
         const fx = npc.x + cosYf * 0.8;
         const fz = npc.z + sinYf * 0.8;
+        const fireY = (npc.type === 'helicopter' || npc.type === 'plane') ? (npc.y || 0) + 0.6 : 0.6;
         const flicker = 0.85 + Math.sin(now / 100) * 0.15;
-        this.drawMesh(fireMesh, fx, 0.6, fz, 0, [fireScale * flicker, fireScale * flicker, fireScale * flicker], fireColor);
+        this.drawMesh(fireMesh, fx, fireY, fz, 0, [fireScale * flicker, fireScale * flicker, fireScale * flicker], fireColor);
       }
     }
     for (const pc of parkedCars) {

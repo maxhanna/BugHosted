@@ -1,0 +1,8 @@
+Model Information:
+* title:	super-yacht02
+* source:	https://sketchfab.com/3d-models/super-yacht02-fd751411f3d74899a653efe214c97c97
+* author:	sherif shawky (https://sketchfab.com/shawky.sherif1)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

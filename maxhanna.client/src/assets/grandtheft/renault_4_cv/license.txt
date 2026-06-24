@@ -1,0 +1,8 @@
+Model Information:
+* title:	Renault 4 Cv
+* source:	https://sketchfab.com/3d-models/renault-4-cv-0f83b887e76946559b000ef7b37b7816
+* author:	helijah (https://sketchfab.com/helijah)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

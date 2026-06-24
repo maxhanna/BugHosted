@@ -1,0 +1,8 @@
+Model Information:
+* title:	PSX/Low Poly Pickup
+* source:	https://sketchfab.com/3d-models/psxlow-poly-pickup-31b9d6538c4d4c6c8355052ca20e351a
+* author:	domi236 (https://sketchfab.com/domi236)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

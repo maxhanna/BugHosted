@@ -4,6 +4,7 @@ import { HttpClient } from '@angular/common/http';
 export interface GTNPCData {
   id: number;
   posX: number;
+  posY?: number;
   posZ: number;
   yaw: number;
   speed: number;
@@ -37,6 +38,7 @@ export interface GTNPCResponse {
   cars: GTNPCData[];
   pedestrians: GTNPCData[];
   parkedCars: GTNPCData[];
+  aircraft?: GTNPCData[];
   deadBodies?: DeadBodyData[];
 }
 

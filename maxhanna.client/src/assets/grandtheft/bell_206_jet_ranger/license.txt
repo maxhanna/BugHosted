@@ -1,0 +1,8 @@
+Model Information:
+* title:	Bell 206 Jet Ranger
+* source:	https://sketchfab.com/3d-models/bell-206-jet-ranger-76b3a340e3d34517a26c2e8142b2867e
+* author:	helijah (https://sketchfab.com/helijah)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

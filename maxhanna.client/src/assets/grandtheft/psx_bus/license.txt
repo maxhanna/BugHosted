@@ -1,0 +1,8 @@
+Model Information:
+* title:	PSX Bus
+* source:	https://sketchfab.com/3d-models/psx-bus-b16ea5da83d14981a5dc2d8d199a1efd
+* author:	Namahoi (https://sketchfab.com/Namahoi)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

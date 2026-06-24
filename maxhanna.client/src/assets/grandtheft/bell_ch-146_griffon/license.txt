@@ -1,0 +1,8 @@
+Model Information:
+* title:	Bell CH-146 Griffon
+* source:	https://sketchfab.com/3d-models/bell-ch-146-griffon-3f6ff604c6c24ad4a08107357e59b29e
+* author:	helijah (https://sketchfab.com/helijah)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

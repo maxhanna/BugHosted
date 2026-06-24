@@ -1,0 +1,8 @@
+Model Information:
+* title:	Bell UH-1 Iroquois (Huey)
+* source:	https://sketchfab.com/3d-models/bell-uh-1-iroquois-huey-f3ca0e7bfcd5479d900e76438be0d76f
+* author:	helijah (https://sketchfab.com/helijah)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

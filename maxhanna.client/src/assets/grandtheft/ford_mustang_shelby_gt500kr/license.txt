@@ -1,0 +1,8 @@
+Model Information:
+* title:	Ford Mustang Shelby GT500KR
+* source:	https://sketchfab.com/3d-models/ford-mustang-shelby-gt500kr-679dc00183a145c1b2021f6933308172
+* author:	RPMRender (https://sketchfab.com/RPMRender)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

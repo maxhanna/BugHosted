@@ -1,0 +1,8 @@
+Model Information:
+* title:	Dodge Demon HPE1200
+* source:	https://sketchfab.com/3d-models/dodge-demon-hpe1200-24c5b4f40a624ecf908be1209da84829
+* author:	RPMRender (https://sketchfab.com/RPMRender)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

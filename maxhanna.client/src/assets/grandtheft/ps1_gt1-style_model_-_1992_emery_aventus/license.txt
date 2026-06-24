@@ -1,0 +1,8 @@
+Model Information:
+* title:	PS1 GT1-Style Model - 1992 Emery Aventus
+* source:	https://sketchfab.com/3d-models/ps1-gt1-style-model-1992-emery-aventus-297520b5f6d74629a1670fd39572c096
+* author:	Aike (https://sketchfab.com/anathlyst)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

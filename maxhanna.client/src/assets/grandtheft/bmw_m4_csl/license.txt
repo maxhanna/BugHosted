@@ -1,0 +1,8 @@
+Model Information:
+* title:	BMW M4 CSL
+* source:	https://sketchfab.com/3d-models/bmw-m4-csl-43b6158879c1490aafacd8b480147eb9
+* author:	RPMRender (https://sketchfab.com/RPMRender)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

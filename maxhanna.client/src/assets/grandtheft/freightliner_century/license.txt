@@ -1,0 +1,8 @@
+Model Information:
+* title:	Freightliner Century
+* source:	https://sketchfab.com/3d-models/freightliner-century-c3301ad6ed3244b0bc2568c11d962ed8
+* author:	Korolv (https://sketchfab.com/Korolv)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

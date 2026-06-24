@@ -1,0 +1,8 @@
+Model Information:
+* title:	BMW Vision Neue Klasse
+* source:	https://sketchfab.com/3d-models/bmw-vision-neue-klasse-1c95afb9d4544d70a75b764f965c1b5f
+* author:	KOElkast1007 (https://sketchfab.com/koelkastasbers)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

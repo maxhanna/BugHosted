@@ -1,0 +1,8 @@
+Model Information:
+* title:	Bell 222 X
+* source:	https://sketchfab.com/3d-models/bell-222-x-65e868d0d8934ef999d870471e4358e3
+* author:	helijah (https://sketchfab.com/helijah)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works
