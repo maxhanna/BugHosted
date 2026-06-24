@@ -261,10 +261,7 @@ namespace maxhanna.Server.Controllers
 			float perpZ = -dx / len * laneOffset;
 			if (forward) return (perpX, perpZ);
 			return (-perpX, -perpZ);
-		}
-		// Returns true if the traffic light at this intersection is currently red
-		// for vehicles travelling along the X axis (horizontal roads).
-		// Phase alternates every 6s, matching the client renderer.
+		} 
 		public static bool IsLightRedForX()
 		{
 			long ms = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -348,33 +345,21 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, int> _playerWantedLevels = new();
 		private static readonly ConcurrentDictionary<int, DateTime> _lastWantedDecay = new();
 		private static readonly ConcurrentDictionary<int, double> _lastPoliceDamageTime = new();
-		private static readonly ConcurrentDictionary<int, int> _playerMoney = new();
-		// NEW (Feature 3): Track which players are currently in cars and which
-		// have been carjacked. In-memory only — resets on server restart,
-		// avoids a DB migration. isInCar is inferred from CarSpeed > 0 with
-		// a 5-second cooldown so stopped-in-car still counts as in-car.
+		private static readonly ConcurrentDictionary<int, int> _playerMoney = new(); 
 		private static readonly ConcurrentDictionary<int, bool> _playerInCar = new();
 		private static readonly ConcurrentDictionary<int, DateTime> _playerInCarTime = new();
-		private static readonly ConcurrentDictionary<int, bool> _evictedPlayers = new();
-		// NEW: Track each player's vehicle type and car color so other
-		// players can render the correct car model (not just carMeshes[0]).
+		private static readonly ConcurrentDictionary<int, bool> _evictedPlayers = new(); 
 		private static readonly ConcurrentDictionary<int, string> _playerVehicleType = new();
 		private static readonly ConcurrentDictionary<int, float> _playerCarColorR = new();
 		private static readonly ConcurrentDictionary<int, float> _playerCarColorG = new();
-		private static readonly ConcurrentDictionary<int, float> _playerCarColorB = new();
-		// FIX: Track which player's car this player is a passenger in.
-		// 0 = not a passenger. Other players read this to render the
-		// passenger inside the host's car instead of on foot.
+		private static readonly ConcurrentDictionary<int, float> _playerCarColorB = new(); 
 		private static readonly ConcurrentDictionary<int, int> _playerPassengerOf = new();
 		private const float DEAD_BODY_TIMEOUT_SECONDS = 30;
 		private static readonly ConcurrentDictionary<int, DeadPlayerBody> _deadPlayerBodies = new();
-		private static readonly ConcurrentDictionary<int, ConcurrentDictionary<long, NpcState>> _worldNpcs = new();
-		// In-memory chat messages per world. Transient — lost on restart.
-		// Max 100 messages; entries older than 120s are pruned on each send.
+		private static readonly ConcurrentDictionary<int, ConcurrentDictionary<long, NpcState>> _worldNpcs = new(); 
 		private static readonly ConcurrentDictionary<int, List<ChatMessageEntry>> _worldChatMessages = new();
 		private class ChatMessageEntry { public int UserId { get; set; } public string Username { get; set; } = ""; public string Message { get; set; } = ""; public DateTime Timestamp { get; set; } }
 
-		// Dropped weapons system — weapons on the floor that players can pick up
 		private static readonly ConcurrentDictionary<long, DroppedWeapon> _droppedWeapons = new();
 		private static long _nextDropId = 1000000;
 		private static long GetNextDropId() => Interlocked.Increment(ref _nextDropId);
@@ -425,31 +410,21 @@ namespace maxhanna.Server.Controllers
 			public int TargetUserId { get; set; } = 0;
 			public DateTime? DeadAt { get; set; } = null;
 			public float ApproachAngle { get; set; } = 0f;
-			// NEW (Bug 3): If this cop exited a police car to chase the
-			// player, this stores the Id of the parked police car so the
-			// cop can walk back and re-enter it when the player loses their
-			// wanted level. 0 means no home vehicle (cop will become a
-			// normal pedestrian on wanted-loss).
 			public long HomeVehicleId { get; set; } = 0;
-			// Traffic/path state for road-following vehicles
 			public List<int>? PathIndices { get; set; } = null;
 			public int PathIdx { get; set; } = 0;
+			public int PathChunkX { get; set; } = 0;
+			public int PathChunkZ { get; set; } = 0;
 			public float LaneOffsetX { get; set; } = 0f;
 			public float LaneOffsetZ { get; set; } = 0f;
 			public float StopTimer { get; set; } = 0f;
 			public bool Stopped { get; set; } = false;
 			public bool HasDriver { get; set; } = true;
 			public int PassengerCount { get; set; } = 0;
-			// NEW: Cop on-foot shooting state. Cops must be stationary for
-			// 3-4 seconds before they can fire, and can't move while shooting.
 			public double StationaryTime { get; set; } = 0;
 			public long LastShotTime { get; set; } = 0;
 			public bool IsShootingAt { get; set; } = false;
-			// FIX: IsParked distinguishes player-parked cars from active NPC
-			// traffic. The actual vehicle type is stored in Type (e.g. "car",
-			// "taxi", "motorcycle") so other players render the correct model.
 			public bool IsParked { get; set; } = false;
-			// Panic mode: when shot at, NPCs flee from the shooter
 			public DateTime? PanicUntil { get; set; } = null;
 			public float PanicFromX { get; set; } = 0f;
 			public float PanicFromZ { get; set; } = 0f;
@@ -1137,7 +1112,7 @@ namespace maxhanna.Server.Controllers
 				}
 				else if (isVehicle)
 				{
-					// --- Traffic-aware vehicle movement ---
+					// --- Traffic-aware vehicle movement --- 
 					const float INTERSECTION_RADIUS = 14f;
 					const float SPEED_FACTOR = 0.5f;
 
@@ -1178,10 +1153,15 @@ namespace maxhanna.Server.Controllers
 						}
 						else
 						{
-							// Find or build a path
+							if (npc.PathChunkX != npcCX || npc.PathChunkZ != npcCZ)
+							{
+								npc.PathIndices = null;
+								npc.PathChunkX = npcCX;
+								npc.PathChunkZ = npcCZ;
+							}
+
 							if (npc.PathIndices == null || npc.PathIdx >= npc.PathIndices.Count)
 							{
-								// Pick a random start/end node and build a path
 								int startIdx = CityLayout.ClosestNode(nodes, npc.X, npc.Z);
 								int endIdx = rng.Next(nodes.Count);
 								if (endIdx == startIdx) endIdx = (startIdx + 1) % nodes.Count;
@@ -1191,7 +1171,6 @@ namespace maxhanna.Server.Controllers
 								{
 									npc.PathIndices = new List<int> { startIdx, (startIdx + 1) % nodes.Count };
 								}
-								// Set lane offset based on first edge direction
 								var fromN = nodes[npc.PathIndices[0]];
 								var toN = nodes[npc.PathIndices[1]];
 								var off = CityLayout.GetLaneOffset(fromN.x, fromN.z, toN.x, toN.z, true);
@@ -1201,6 +1180,13 @@ namespace maxhanna.Server.Controllers
 
 							int currIdx = npc.PathIndices[npc.PathIdx];
 							int nextIdx = npc.PathIdx + 1 < npc.PathIndices.Count ? npc.PathIndices[npc.PathIdx + 1] : currIdx;
+
+							if (currIdx < 0 || currIdx >= nodes.Count || nextIdx < 0 || nextIdx >= nodes.Count)
+							{
+								npc.PathIndices = null;
+								continue;
+							}
+
 							var currNode = nodes[currIdx];
 							var nextNode = nodes[nextIdx];
 
@@ -1210,7 +1196,6 @@ namespace maxhanna.Server.Controllers
 							float ddz2 = targetZ - npc.Z;
 							float distToTarget2 = (float)Math.Sqrt(ddx2 * ddx2 + ddz2 * ddz2);
 
-							// Check overshoot: if moving away from target, auto-advance
 							bool overshot = false;
 							if (distToTarget2 > 1.0f)
 							{
@@ -1225,9 +1210,9 @@ namespace maxhanna.Server.Controllers
 									}
 									else
 									{
-										var cn2 = nodes[npc.PathIndices[npc.PathIdx]];
+										var cn = nodes[npc.PathIndices[npc.PathIdx]];
 										var nn3 = nodes[npc.PathIndices[npc.PathIdx + 1 < npc.PathIndices.Count ? npc.PathIdx + 1 : npc.PathIdx]];
-										var off4 = CityLayout.GetLaneOffset(cn2.x, cn2.z, nn3.x, nn3.z, true);
+										var off4 = CityLayout.GetLaneOffset(cn.x, cn.z, nn3.x, nn3.z, true);
 										npc.LaneOffsetX = off4.ox;
 										npc.LaneOffsetZ = off4.oz;
 									}
@@ -1318,62 +1303,9 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 					}
-
-					// NPC car hits pedestrian — same 25 damage as player car
-					if (npc.Health > 0 && (npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi" || npc.Type == "police"))
-					{
-						foreach (var otherKv in npcs)
-						{
-							if (otherKv.Key == kv.Key || otherKv.Value.DeadAt != null) continue;
-							var ped = otherKv.Value;
-							if (ped.Type != "ped_male" && ped.Type != "ped_female") continue;
-							float pdx = npc.X - ped.X;
-							float pdz = npc.Z - ped.Z;
-							if (pdx * pdx + pdz * pdz < 2.0f * 2.0f)
-							{
-								ped.Health -= 25;
-								if (ped.Health <= 0) ped.DeadAt = DateTime.UtcNow;
-							}
-						}
-					}
-
-					// Car fire system in GetNPCs (also checks ocean submersion)
-					if (npc.Health > 0 && (npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi" || npc.Type == "police" || npc.Type == "bike" || npc.Type == "motorcycle" || npc.Type == "helicopter" || npc.Type == "plane"))
-					{
-						int cxc = (int)Math.Floor(npc.X / CityLayout.CHUNK_SIZE);
-						int czc = (int)Math.Floor(npc.Z / CityLayout.CHUNK_SIZE);
-						if (!npc.OnFire && CityLayout.GetBiome(cxc, czc) == "ocean") { npc.OnFire = true; npc.FireStartedAt = DateTime.UtcNow; }
-						int fireThreshold = Math.Max(80, npc.MaxHealth / 5);
-						if (npc.Health <= fireThreshold && !npc.OnFire)
-						{
-							npc.OnFire = true;
-							npc.FireStartedAt = DateTime.UtcNow;
-						}
-						if (npc.OnFire && npc.FireStartedAt.HasValue)
-						{
-							if ((DateTime.UtcNow - npc.FireStartedAt.Value).TotalSeconds >= 10.0)
-							{
-								npc.Health = 0;
-								npc.DeadAt = DateTime.UtcNow;
-							}
-						}
-					}
 				}
 				else if (npc.Type == "cop")
-				{
-					// NEW (Bug 3D): If the cop has been relieved of duty
-					// (TargetUserId == 0) and is close to its home police
-					// car, re-enter the car and become a "police" NPC with
-					// a driver again. The parked car is removed.
-					//
-					// FIX: Only attempt re-entry when TargetUserId == 0
-					// (i.e., the cop's wanted target was lost). Without
-					// this gate, the cop re-enters the car on the very
-					// next tick after exiting it — because the parked
-					// car is at the same position the cop spawned at,
-					// so the distance check passes immediately. The cop
-					// would never chase on foot; it would just arrive
-					// and immediately drive away.
+				{ 
 					bool copReEntered = false;
 					if (npc.TargetUserId == 0
 						&& npc.HomeVehicleId != 0
@@ -1459,17 +1391,7 @@ namespace maxhanna.Server.Controllers
 							float nextZ = npc.Z + moveZ;
 							if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
 						}
-
-						// NEW: Cop shooting logic. Cops can only fire if:
-						// - Actively hunting this player (TargetUserId == userId)
-						// - Player has a wanted level
-						// - Cop has been in combat range for >= 3.5 seconds (shooting phase)
-						// - Cop is within 25 units of the player
-						// - At least 500ms since the last shot (fire rate)
-						// Damage is applied directly to _playerHealth. The
-						// IsShootingAt flag is set so the client can visualize
-						// the shot (tracer + pistol sound) — it's cleared on
-						// the next tick.
+ 
 						npc.IsShootingAt = false;
 						if (npc.TargetUserId == userId && wantedLevel > 0
 								&& npc.StationaryTime >= 3.5)
@@ -1483,10 +1405,7 @@ namespace maxhanna.Server.Controllers
 								if (npc.LastShotTime == 0 || (nowMs - npc.LastShotTime) > 500)
 								{
 									npc.LastShotTime = nowMs;
-									npc.IsShootingAt = true;
-									// Apply pistol damage (5 per shot). The target is the
-									// player identified by `userId` (the GetNPCs query param).
-									// If we don't have a stored health value, default to 100.
+									npc.IsShootingAt = true; 
 									if (_playerHealth.TryGetValue(userId, out var hp))
 										_playerHealth[userId] = Math.Max(0, hp - 5);
 									else
@@ -1495,18 +1414,7 @@ namespace maxhanna.Server.Controllers
 								}
 							}
 						}
-
-						// NEW (Bug 2): Face the player only while actively
-						// hunting them. Otherwise face the movement direction
-						// (pedestrian-style) so the cop doesn't appear sideways.
-						//
-						// FIX: The policeMan GLTF model faces +X by default
-						// (not +Z like pedestrian models). The yaw convention
-						// assumes +Z forward (yaw=0 → +Z). So we subtract π/2
-						// to compensate for the model's 90° offset.
-						// Also, the face-player formula uses (posX - npc.X,
-						// posZ - npc.Z) — direction from cop TO player — so
-						// the cop faces toward the player, not away.
+ 
 						const float copModelOffset = -(float)Math.PI / 2f;
 						if (npc.TargetUserId == userId && wantedLevel > 0)
 						{
@@ -2083,10 +1991,7 @@ namespace maxhanna.Server.Controllers
 			long id = GetNextNpcId();
 			_worldNpcs[req.WorldId][id] = new NpcState
 			{
-				Id = id,
-				// FIX: Store the ACTUAL vehicle type (e.g. "car", "taxi",
-				// "motorcycle") so other players render the correct model.
-				// IsParked=true distinguishes this from active NPC traffic.
+				Id = id, 
 				Type = string.IsNullOrEmpty(req.VehicleType) ? "car" : req.VehicleType!,
 				IsParked = true,
 				X = req.PosX,
@@ -2111,10 +2016,7 @@ namespace maxhanna.Server.Controllers
 			var hitAnything = false;
 			bool targetDied = false;
 			float deathX = 0, deathZ = 0;
-			int deathWeapon = 0;
-			// FIX: Track the target's health from whichever source was hit
-			// (NPC or player), instead of only looking up _playerHealth which
-			// returns 0 for NPC targets.
+			int deathWeapon = 0; 
 			int targetHealthResult = 0;
 
 			if (_worldNpcs.ContainsKey(worldId))
@@ -2147,9 +2049,7 @@ namespace maxhanna.Server.Controllers
 								var drop = new DroppedWeapon { Id = GetNextDropId(), PosX = deathX, PosZ = deathZ, WeaponType = 1, Ammo = 15, DroppedAt = DateTime.UtcNow };
 								_droppedWeapons[drop.Id] = drop;
 							}
-						}
-						// FIX: Capture the NPC's health AFTER modification (including
-						// the vehicle fire clamp to 1) so the client gets the real value.
+						} 
 						targetHealthResult = kv.Value.Health;
 						kv.Value.PanicUntil = DateTime.UtcNow.AddSeconds(5);
 						kv.Value.PanicFromX = req.AttackerX;
@@ -2220,9 +2120,7 @@ namespace maxhanna.Server.Controllers
 
 				_lastWantedDecay[req.AttackerId] = DateTime.UtcNow;
 			}
-
-			// FIX: Return the correctly-tracked targetHealth (NPC or player),
-			// plus targetDied so the client can react immediately.
+ 
 			return Ok(new { ok = true, hit = hitAnything, targetHealth = targetHealthResult, targetDied = targetDied });
 		}
 
