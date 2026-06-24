@@ -45,48 +45,93 @@ namespace maxhanna.Server.Controllers
 
 		public static string GetBiome(int cx, int cz)
 		{
-			double d = Math.Sqrt(cx * cx + cz * cz);
-			if (d <= BIOME_RADIUS_CITY) return "city";
-			if (d <= BIOME_RADIUS_MOUNTAIN) return "mountain";
-			if (d <= BIOME_RADIUS_SUBURB) return "suburb";
-			if (d <= BIOME_RADIUS_BEACH) return "beach";
+			if (cx >= -2 && cx <= 3 && cz >= -2 && cz <= 2) return cz >= 2 || cz <= -2 ? "beach" : "city";
+			if (cx >= 4 && cx <= 5 && cz >= -1 && cz <= 1) return "bridge";
+			if (cx >= 6 && cx <= 15 && cz >= -5 && cz <= 5) return cz >= 4 || cz <= -4 ? "beach" : "city";
+			if (cx >= 16 && cx <= 17 && cz >= -2 && cz <= 2) return "bridge";
+			if (cx >= 18 && cx <= 30 && cz >= -7 && cz <= 7) return cz >= 6 || cz <= -6 ? "beach" : "suburb";
+			if (cx >= 31 && cx <= 32 && cz >= -3 && cz <= 3) return "bridge";
+			if (cx >= 33 && cx <= 50 && cz >= -10 && cz <= 10) {
+				if (cz >= 8 || cz <= -8) return "beach";
+				if (cz >= -5 && cz <= 5) return "city";
+				return "suburb";
+			}
 			return "ocean";
 		}
 
 		// Returns true if there is a building at the given world position.
-		// Replicates the frontend's per-chunk procedural building generation.
+		// Mirrors the frontend's per-chunk multi-building layout.
 		public static bool IsBuildingAt(float x, float z, float margin = 2.0f)
 		{
 			int cx = (int)Math.Floor(x / CHUNK_SIZE);
 			int cz = (int)Math.Floor(z / CHUNK_SIZE);
-			// Home base block (chunk 1, 0 — japaneseShop + garage) is
-			// always blocked so NPC vehicles, pedestrians and cops never
-			// enter the player's home area.
 			if (cx == 1 && cz == 0) return true;
 
 			string biome = GetBiome(cx, cz);
-			if (biome == "mountain" || biome == "beach" || biome == "ocean") return false;
+			if (biome == "mountain" || biome == "beach" || biome == "ocean" || biome == "bridge") return false;
 
 			float blockCenterX = cx * CHUNK_SIZE + CHUNK_SIZE / 2f;
 			float blockCenterZ = cz * CHUNK_SIZE + CHUNK_SIZE / 2f;
-
 			uint state = (uint)((cx * 100003 + cz * 70001) & 0xFFFFFFFF);
-
-			bool isSuburb = biome == "suburb";
-			float buildChance = isSuburb ? 0.85f : 0.75f;
-			if (RngNext(ref state) >= buildChance) return false;
-
 			float maxDim = SIDEWALK_SIZE;
-			float w = isSuburb
-				? 10f + RngNext(ref state) * (maxDim - 10f)
-				: 14f + RngNext(ref state) * (maxDim - 14f);
-			float d = isSuburb
-				? 10f + RngNext(ref state) * (maxDim - 10f)
-				: 14f + RngNext(ref state) * (maxDim - 14f);
+			bool isSuburb = biome == "suburb";
 
-			float halfW = w / 2f + margin;
-			float halfD = d / 2f + margin;
-			return Math.Abs(x - blockCenterX) < halfW && Math.Abs(z - blockCenterZ) < halfD;
+			if (isSuburb)
+			{
+				bool hasPOI = RngNext(ref state) < 0.25f;
+				if (hasPOI)
+				{
+					RngNext(ref state); // poi model index
+					RngNext(ref state); // poi yaw
+				}
+				int numHouses = 1 + (int)(RngNext(ref state) * 3);
+				for (int hi = 0; hi < numHouses; hi++)
+				{
+					if (RngNext(ref state) >= 0.85f) continue;
+					float hw = 8f + RngNext(ref state) * (maxDim * 0.4f);
+					float hd = 8f + RngNext(ref state) * (maxDim * 0.4f);
+					RngNext(ref state); // h
+					float xOff = -10f + RngNext(ref state) * 20f;
+					float zOff = -10f + RngNext(ref state) * 20f;
+					RngNext(ref state); // model index
+					RngNext(ref state); // yaw
+					float halfW = hw / 2f + margin;
+					float halfD = hd / 2f + margin;
+					float bx = blockCenterX + xOff;
+					float bz = blockCenterZ + zOff;
+					if (Math.Abs(x - bx) < halfW && Math.Abs(z - bz) < halfD) return true;
+				}
+				return false;
+			}
+			else
+			{
+				int numBld = 3 + (int)(RngNext(ref state) * 4);
+				for (int bi = 0; bi < numBld; bi++)
+				{
+					if (RngNext(ref state) >= 0.85f) continue;
+					float bw = 8f + RngNext(ref state) * (maxDim * 0.3f);
+					float bd = 6f + RngNext(ref state) * (maxDim * 0.25f);
+					RngNext(ref state); // h
+					int side = bi % 2 == 0 ? -1 : 1;
+					RngNext(ref state); // edgeOff
+					RngNext(ref state); // model index
+					float px, pz;
+					if (bi < 4)
+					{
+						px = blockCenterX + side * (maxDim / 2f - bd / 2f);
+						pz = blockCenterZ + side * (maxDim / 2f - bd / 2f);
+					}
+					else
+					{
+						px = blockCenterX + side * (maxDim / 2f - bd / 2f);
+						pz = blockCenterZ + side * (maxDim / 2f - bd / 2f);
+					}
+					float halfW = bw / 2f + margin;
+					float halfD = bd / 2f + margin;
+					if (Math.Abs(x - px) < halfW && Math.Abs(z - pz) < halfD) return true;
+				}
+				return false;
+			}
 		}
 
 		// Returns true if a point is on a road.

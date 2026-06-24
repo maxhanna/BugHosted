@@ -49,16 +49,26 @@ const CHUNK_SIZE = 80;
 const GRID_PITCH = 80;
 const BLOCK_SIZE = 30;
 const SIDEWALK_SIZE = BLOCK_SIZE + 6; // 36
-const BIOME_RADIUS_CITY = 18;
 const BIOME_RADIUS_MOUNTAIN = 30;
-const BIOME_RADIUS_SUBURB = 50;
-const BIOME_RADIUS_BEACH = 60;
 function getBiome(cx: number, cz: number): string {
-  const d = Math.sqrt(cx * cx + cz * cz);
-  if (d <= BIOME_RADIUS_CITY) return 'city';
-  if (d <= BIOME_RADIUS_MOUNTAIN) return 'mountain';
-  if (d <= BIOME_RADIUS_SUBURB) return 'suburb';
-  if (d <= BIOME_RADIUS_BEACH) return 'beach';
+  // Island 1 (smallest Home/Spawn): garage + hospital + starter shops
+  if (cx >= -2 && cx <= 3 && cz >= -2 && cz <= 2) return cz >= 2 || cz <= -2 ? 'beach' : 'city';
+  // Bridge 1→2
+  if (cx >= 4 && cx <= 5 && cz >= -1 && cz <= 1) return 'bridge';
+  // Island 2 (Downtown): dense city with waterfront beach
+  if (cx >= 6 && cx <= 15 && cz >= -5 && cz <= 5) return cz >= 4 || cz <= -4 ? 'beach' : 'city';
+  // Bridge 2→3
+  if (cx >= 16 && cx <= 17 && cz >= -2 && cz <= 2) return 'bridge';
+  // Island 3 (Suburbs): residential with coastal beach
+  if (cx >= 18 && cx <= 30 && cz >= -7 && cz <= 7) return cz >= 6 || cz <= -6 ? 'beach' : 'suburb';
+  // Bridge 3→4
+  if (cx >= 31 && cx <= 32 && cz >= -3 && cz <= 3) return 'bridge';
+  // Island 4 (largest Beach Resort): coastal shops, restaurants, marina
+  if (cx >= 33 && cx <= 50 && cz >= -10 && cz <= 10) {
+    if (cz >= 8 || cz <= -8) return 'beach';
+    if (cz >= -5 && cz <= 5) return 'city';
+    return 'suburb';
+  }
   return 'ocean';
 }
 
@@ -1499,6 +1509,7 @@ void main() {
     const isSuburb = biome === 'suburb';
     const isMountain = biome === 'mountain';
     const isCity = biome === 'city';
+    const isBridge = biome === 'bridge';
 
     const seed = (cx * 100003 + cz * 70001) >>> 0;
     const rng = this.mulberry32(seed);
@@ -1508,6 +1519,8 @@ void main() {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.76, 0.70, 0.50, 1.0, idxOffset);
     } else if (isMountain) {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.25, 0.22, 0.18, 1.0, idxOffset);
+    } else if (isBridge) {
+      this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.5, 0.5, 0.5, 1.0, idxOffset);
     } else {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.08, 0.08, 0.08, 1.0, idxOffset);
     }
@@ -1557,18 +1570,54 @@ void main() {
         if (isBeach) {
           this.addPlane(verts, indices, blockWorldX, 0.03, blockWorldZ, BLOCK_SIZE, BLOCK_SIZE, 0.82, 0.75, 0.55, 1.0, idxOffset);
           idxOffset += 4;
-          if (rng() < 0.2) {
-            const px = blockWorldX - 8 + rng() * 16;
-            const pz = blockWorldZ - 8 + rng() * 16;
-            const ph = 3 + rng() * 4;
+          const numPalms = 1 + Math.floor(rng() * 3);
+          for (let pi = 0; pi < numPalms; pi++) {
+            const px = blockWorldX - 10 + rng() * 20;
+            const pz = blockWorldZ - 10 + rng() * 20;
+            const ph = 2 + rng() * 5;
             this.addBox(verts, indices, px, ph / 2, pz, 0.3, ph, 0.3, 0.3, 0.15, 0.05, 1.0, idxOffset);
             idxOffset += 24;
-            this.addBox(verts, indices, px, ph + 0.5, pz, 2.5, 0.5, 2.5, 0.0, 0.4, 0.0, 1.0, idxOffset);
+            const crownSize = 1.5 + rng() * 2;
+            this.addBox(verts, indices, px, ph + 0.3, pz, crownSize, 0.5, crownSize, 0.0, 0.5, 0.0, 1.0, idxOffset);
             idxOffset += 24;
+          }
+          if (cx >= 0 && rng() < 0.4) {
+            const bxOff = -12 + rng() * 24;
+            this.addBox(verts, indices, blockWorldX + bxOff, 0.12, blockWorldZ + 14, 3, 0.25, 6, 0.5, 0.35, 0.15, 1.0, idxOffset);
+            idxOffset += 24;
+          }
+          const nearCity = getBiome(cx + 1, cz) === 'city' || getBiome(cx - 1, cz) === 'city' || getBiome(cx, cz + 1) === 'city' || getBiome(cx, cz - 1) === 'city';
+          if (nearCity && rng() < 0.3) {
+            const stallX = blockWorldX - 10 + rng() * 20;
+            const stallZ = blockWorldZ - 8 + rng() * 16;
+            this.addBox(verts, indices, stallX, 1, stallZ, 3, 2, 2, 0.7, 0.5, 0.3, 1.0, idxOffset);
+            idxOffset += 24;
+            this.addBox(verts, indices, stallX, 2.2, stallZ, 3.5, 0.15, 2.5, 0.8, 0.3, 0.1, 1.0, idxOffset);
+            idxOffset += 24;
+          }
+          if (isWaterAdjacent() && rng() < 0.35) {
+            const dockLen = 10 + rng() * 15;
+            const dockDir = getBiome(cx, cz + 1) === 'ocean' ? 1 : getBiome(cx, cz - 1) === 'ocean' ? -1 : 0;
+            if (dockDir !== 0) {
+              this.addBox(verts, indices, blockWorldX + rng() * 6 - 3, 0.15, blockWorldZ + dockDir * (dockLen / 2 + 10), 4, 0.3, dockLen, 0.5, 0.35, 0.15, 1.0, idxOffset);
+              idxOffset += 24;
+            }
           }
           continue;
         }
 
+        if (isBridge) {
+          const gx = cx * blocksPerChunk + bx;
+          const gz = cz * blocksPerChunk + by;
+          const roadZ0 = gz * GRID_PITCH;
+          const roadZ1 = gz * GRID_PITCH + GRID_PITCH;
+          const railSpan = GRID_PITCH - 4;
+          this.addBox(verts, indices, gx * GRID_PITCH + GRID_PITCH / 2, 0.4, roadZ0 + 1, railSpan, 0.8, 0.2, 0.5, 0.5, 0.5, 1.0, idxOffset);
+          idxOffset += 24;
+          this.addBox(verts, indices, gx * GRID_PITCH + GRID_PITCH / 2, 0.4, roadZ1 - 1, railSpan, 0.8, 0.2, 0.5, 0.5, 0.5, 1.0, idxOffset);
+          idxOffset += 24;
+          continue;
+        }
         const grassG = isSuburb ? 0.45 : 0.1;
         this.addBox(verts, indices, blockWorldX, 0.075, blockWorldZ, BLOCK_SIZE, 0.15, BLOCK_SIZE, 0.08, grassG, 0.08, 1.0, idxOffset);
         idxOffset += 24;
@@ -1577,55 +1626,71 @@ void main() {
         if (cx === 1 && cz === 0) continue;
 
         if (isSuburb) {
-          const buildChance = 0.85;
-          if (rng() >= buildChance) continue;
+          const hasPOI = rng() < 0.25;
+          if (hasPOI) {
+            const poiModels = this.suburbBuildingMeshes.filter((_, i) => i % 3 === 0);
+            if (poiModels.length > 0) {
+              const mi = Math.floor(rng() * poiModels.length);
+              const model = poiModels[mi];
+              const poiScale = 6 + rng() * 3;
+              const poiMinY = this.getModelMinY(model);
+              buildings.push({ model, x: blockWorldX, y: -poiMinY * poiScale + 0.15, z: blockWorldZ, yaw: Math.floor(rng() * 4) * Math.PI / 2, scale: [poiScale, poiScale, poiScale] });
+            }
+          }
+          const numHouses = 1 + Math.floor(rng() * 3);
           const maxDim = SIDEWALK_SIZE;
-          const w = 10 + rng() * (maxDim - 10);
-          const d = 10 + rng() * (maxDim - 10);
-          const h = 6 + rng() * 14;
-          const models = this.suburbBuildingMeshes;
-          if (models.length > 0) {
-            const mi = Math.floor(rng() * models.length);
-            const model = models[mi];
-            const scale = Math.min(w, d) / 15 * 5;
-            const yaw = Math.floor(rng() * 4) * Math.PI / 2;
-            const subMinY = this.getModelMinY(model);
-            buildings.push({
-              model,
-              x: blockWorldX,
-              y: -subMinY * scale + 0.15,
-              z: blockWorldZ,
-              yaw,
-              scale: [scale, scale, scale]
-            });
-          } else {
-            const r = 0.5 + rng() * 0.4;
-            const g = 0.4 + rng() * 0.3;
-            const b = 0.3 + rng() * 0.3;
-            this.addBox(verts, indices, blockWorldX, h / 2 + 0.04, blockWorldZ, w, h, d, r, g, b, 1.0, idxOffset);
-            idxOffset += 24;
+          for (let hi = 0; hi < numHouses; hi++) {
+            if (rng() >= 0.85) continue;
+            const w = 8 + rng() * (maxDim * 0.4);
+            const d = 8 + rng() * (maxDim * 0.4);
+            const h = 6 + rng() * 10;
+            const xOff = -10 + rng() * 20;
+            const zOff = -10 + rng() * 20;
+            const models = this.suburbBuildingMeshes;
+            if (models.length > 0) {
+              const mi = Math.floor(rng() * models.length);
+              const model = models[mi];
+              const scale = Math.min(w, d) / 15 * 5;
+              const yaw = Math.floor(rng() * 4) * Math.PI / 2;
+              const subMinY = this.getModelMinY(model);
+              buildings.push({ model, x: blockWorldX + xOff, y: -subMinY * scale + 0.15, z: blockWorldZ + zOff, yaw, scale: [scale, scale, scale] });
+            } else {
+              const r = 0.5 + rng() * 0.4;
+              const g = 0.4 + rng() * 0.3;
+              const b = 0.3 + rng() * 0.3;
+              this.addBox(verts, indices, blockWorldX + xOff, h / 2 + 0.04, blockWorldZ + zOff, w, h, d, r, g, b, 1.0, idxOffset);
+              idxOffset += 24;
+            }
           }
         } else {
-          const buildChance = 0.75;
-          if (rng() >= buildChance) continue;
+          const numBld = 3 + Math.floor(rng() * 4);
           const maxDim = SIDEWALK_SIZE;
-          const w = 14 + rng() * (maxDim - 14);
-          const d = 14 + rng() * (maxDim - 14);
-          const h = 20 + rng() * 100;
-          const models = this.cityBuildingMeshes;
-          if (models.length > 0) {
-            const mi = Math.floor(rng() * models.length);
-            const model = models[mi];
-            const scale = Math.min(w, d) / 20 * 5;
-            const yaw = Math.floor(rng() * 4) * Math.PI / 2;
-            const cityMinY = this.getModelMinY(model);
-            buildings.push({ model, x: blockWorldX, y: -cityMinY * scale + 0.15, z: blockWorldZ, yaw, scale: [scale, scale, scale] });
-          } else {
-            const r = 0.4 + rng() * 0.4;
-            const g = 0.4 + rng() * 0.4;
-            const b = 0.4 + rng() * 0.4;
-            this.addBox(verts, indices, blockWorldX, h / 2 + 0.04, blockWorldZ, w, h, d, r, g, b, 1.0, idxOffset);
-            idxOffset += 24;
+          for (let bi = 0; bi < numBld; bi++) {
+            if (rng() >= 0.85) continue;
+            const w = 8 + rng() * (maxDim * 0.3);
+            const d = 6 + rng() * (maxDim * 0.25);
+            const h = 15 + rng() * 50;
+            const side = bi % 2 === 0 ? -1 : 1;
+            const edgeOff = (Math.floor(bi / 2) / Math.ceil(numBld / 2)) * maxDim - maxDim / 2 + w / 2 + rng() * 2;
+            const bx = blockWorldX + (side === -1 ? -maxDim / 2 + d / 2 : (bi < 4 ? edgeOff : 0));
+            const bz = blockWorldZ + (side === 1 ? maxDim / 2 - d / 2 : (bi < 4 ? 0 : edgeOff));
+            const px = Math.abs(bx - blockWorldX) < maxDim / 3 ? blockWorldX + (side * maxDim / 2 - side * d / 2) : bx;
+            const pz = Math.abs(bz - blockWorldZ) < maxDim / 3 ? blockWorldZ + (side * maxDim / 2 - side * d / 2) : bz;
+            const models = this.cityBuildingMeshes;
+            if (models.length > 0) {
+              const mi = Math.floor(rng() * models.length);
+              const model = models[mi];
+              const scale = Math.min(w, d) / 20 * 5;
+              const yaw = side === -1 ? 0 : Math.PI / 2;
+              const cityMinY = this.getModelMinY(model);
+              buildings.push({ model, x: px, y: -cityMinY * scale + 0.15, z: pz, yaw, scale: [scale, scale, scale] });
+            } else {
+              const r = 0.4 + rng() * 0.4;
+              const g = 0.4 + rng() * 0.4;
+              const b = 0.4 + rng() * 0.4;
+              this.addBox(verts, indices, px, h / 2 + 0.04, pz, w, h, d, r, g, b, 1.0, idxOffset);
+              idxOffset += 24;
+            }
           }
         }
       }
@@ -1665,13 +1730,18 @@ void main() {
           const lxPos = cx * CHUNK_SIZE + lx * GRID_PITCH - sidewalkEdge;
           const lzPos = cz * CHUNK_SIZE + ly * GRID_PITCH - sidewalkEdge;
           lamps.push({ x: lxPos, z: lzPos });
-          // Place fire hydrants on ~1/3 of corners, opposite a lamp
           const cornerSeed = ((cx * 100003 + cz * 70001) * 31 + ly * 7 + lx * 13) >>> 0;
           const hydrantRng = this.mulberry32(cornerSeed);
           if (hydrantRng() < 0.33) {
             hydrants.push({ x: lxPos, z: lzPos });
           }
         }
+      }
+      if (isCity) {
+        lamps.push({ x: cx * CHUNK_SIZE + GRID_PITCH / 2 - sidewalkEdge, z: cz * CHUNK_SIZE + GRID_PITCH / 2 });
+        lamps.push({ x: cx * CHUNK_SIZE + GRID_PITCH / 2 + sidewalkEdge, z: cz * CHUNK_SIZE + GRID_PITCH / 2 });
+        lamps.push({ x: cx * CHUNK_SIZE + GRID_PITCH / 2, z: cz * CHUNK_SIZE + GRID_PITCH / 2 - sidewalkEdge });
+        lamps.push({ x: cx * CHUNK_SIZE + GRID_PITCH / 2, z: cz * CHUNK_SIZE + GRID_PITCH / 2 + sidewalkEdge });
       }
     }
 

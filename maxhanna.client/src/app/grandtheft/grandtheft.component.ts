@@ -678,6 +678,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer?.clearCache();
   }
 
+  selectNextWeapon() {
+    for (let i = 1; i < this.weaponNames.length; i++) {
+      const next = (this.currentWeapon + i) % this.weaponNames.length;
+      if (this.ownedWeapons[next] && this.ammo[next] > 0) { this.selectWeapon(next); return; }
+    }
+  }
   selectWeapon(idx: number) {
     this.currentWeapon = idx;
     this.showWeaponWheel = false;

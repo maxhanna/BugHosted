@@ -104,6 +104,8 @@
     </div>
 
     <div id="gt-mobile" *ngIf="isMobile">
+      <div id="gt-mobile-chat" (touchstart)="onButtonTouch($event); isChatOpen = true; chatInput = ''">CHAT</div>
+      <div id="gt-mobile-weapon-wheel" (touchstart)="onButtonTouch($event); selectNextWeapon()">W</div>
       <div id="gt-joystick">
         <div id="gt-joystick-base">
           <div id="gt-joystick-thumb"></div>
@@ -111,11 +113,9 @@
       </div>
       <div id="gt-mobile-car" (touchstart)="onButtonTouch($event); toggleCar()">CAR</div>
       <div id="gt-mobile-view" (touchstart)="onButtonTouch($event); toggleView()">V</div>
-      <div id="gt-mobile-weapon-wheel" (touchstart)="onButtonTouch($event); toggleWeaponWheel()">W</div>
       <div id="gt-mobile-fire" (touchstart)="onButtonTouch($event); mobileShoot()"
         (touchend)="onButtonTouch($event); mobileShootEnd()">FIRE</div>
-      <div id="gt-mobile-chat" (touchstart)="onButtonTouch($event); isChatOpen = true; chatInput = ''">CHAT</div>
-    </div>
+      </div>
 
     <!-- Chat display overlay -->
     <div id="gt-chat-overlay">
