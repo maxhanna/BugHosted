@@ -18,22 +18,15 @@ const HOSPITAL_Z = 40;
 const HOSPITAL_SPAWN_X = HOSPITAL_X;
 const HOSPITAL_SPAWN_Z = HOSPITAL_Z + 22;
 const HOSPITAL_SPAWN_YAW = Math.PI;
-// FIX: Home base (japaneseShop). Occupies the building slot at chunk (1,0)
-// — one block east of the hospital. The procedural building for this chunk
-// is suppressed in the renderer. Players who were inactive >30 min respawn here.
 const HOME_BASE_X = 120;
 const HOME_BASE_Z = 40;
 const HOME_BASE_YAW = 0;
-// FIX: Garage constants. The garage entrance is on the south side of the
-// home base building (facing +Z). The garage interior is at the building
-// center. The detection zone is a radius around the entrance — when the
-// player enters it, the door opens and the stored car (if any) appears.
 const GARAGE_ENTRANCE_X = 120;
 const GARAGE_ENTRANCE_Z = 52;
 const GARAGE_INTERIOR_X = 120;
 const GARAGE_INTERIOR_Z = 42;
 const GARAGE_DETECT_RADIUS = 18;
-const GARAGE_DOOR_OPEN_SPEED = 3; // units per second
+const GARAGE_DOOR_OPEN_SPEED = 3;
 
 const VENDING_MACHINE_INTERVAL = 10;
 const VENDING_MACHINE_HEAL_DIST = 4;
@@ -42,13 +35,10 @@ const WEAPON_DAMAGES = [10, 15, 25, 8, 100];
 const PLAYER_POLL_FAST_MS = 200;
 const PLAYER_POLL_SLOW_MS = 1000;
 const ENTER_CAR_DIST = 4;
-// NEW: Hooker "services" constants. When the player is in a car with a
-// hooker passenger in a secluded area (no NPCs within this radius), the
-// car rocks, health regenerates, and money drains.
 const HOOKER_SECLUDED_RADIUS = 50;
-const HOOKER_HEAL_PER_SEC = 5;     // health regained per second
-const HOOKER_MONEY_PER_SEC = 10;   // money drained per second
-const HOOKER_MAX_MONEY = 80;       // cap on total money drained per session
+const HOOKER_HEAL_PER_SEC = 5;
+const HOOKER_MONEY_PER_SEC = 10;
+const HOOKER_MAX_MONEY = 80;
 
 interface DeadBody {
   id: number;
@@ -85,18 +75,11 @@ interface OtherPlayerState {
   camYaw: number;
   camPitch: number;
   remoteShootTimer: number;
-  // NEW (Feature 3): true while the remote player is driving a car.
-  // Set from the server's IsInCar field (now explicitly sent by the client).
   isInCar: boolean;
-  // FIX: Vehicle type + car color so the renderer can draw the correct
-  // car model (taxi, bus, motorcycle, etc.) instead of always carMeshes[0].
   vehicleType?: string;
   carColorR?: number;
   carColorG?: number;
   carColorB?: number;
-  // FIX: If this player is a passenger in another player's car, this is
-  // the host player's userId. 0 = not a passenger. The renderer uses this
-  // to draw the passenger inside the host's car instead of on foot.
   passengerOfUserId?: number;
 }
 
@@ -175,16 +158,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   carHealth = 400;
   isInCar = false;
   vehicleType: 'car' | 'bus' | 'plane' | 'bike' | 'motorcycle' | 'taxi' | 'boat' | 'helicopter' = 'car';
-  // NEW: Passenger state. When isPassenger is true, the player is riding
-  // in another player's car. They can't control the car but move with it.
-  // passengerOfUserId tracks whose car we're in so we can follow their
-  // position updates. The passenger exits with the same E key.
   isPassenger = false;
   passengerOfUserId = 0;
-  // FIX: Passenger path smoothing. Stores the host's last-known position,
-  // the time it was received, and the computed velocity. Between polls
-  // (every 200ms), we dead-reckon the host's position and lerp the
-  // passenger toward it for smooth movement.
   private passengerHostLastX = 0;
   private passengerHostLastZ = 0;
   private passengerHostLastYaw = 0;
@@ -250,11 +225,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   taxiAttachedMeshes: { mesh: CityMesh | CityMesh[]; offsetX: number; offsetY: number; offsetZ: number; yaw: number; scale?: number }[] = [];
   private driverInCarMesh: { mesh: CityMesh | CityMesh[]; offsetX: number; offsetY: number; offsetZ: number; yaw: number; scale?: number } | null = null;
 
-  // NEW: Passenger riding in the player's vehicle. Generalises the
-  // taxiMission.passengerMesh pattern to any vehicle. `mesh` is captured
-  // at pickup time so the passenger's skin is preserved across the ride,
-  // even if npcMeshes[] changes mid-ride (a la taxi mission line ~2250).
-  // `kind: 'player'` is reserved for future MP passenger support.
   passenger: {
     kind: 'npc' | 'player';
     id: number;
@@ -268,33 +238,22 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     scale: number;
   } | null = null;
   showPassengerPrompt = false;
-  // NEW: Prompts for interacting with other players' cars. Set each frame
-  // by checkNearOtherPlayerCar(). Only one is true at a time.
   showStealCarPrompt = false;
   showEnterPassengerPrompt = false;
 
-  // Chat state
   isChatOpen = false;
   chatInput = '';
   pendingChatMessage = '';
   chatMessages: { userId: number; username: string; message: string; timestamp: string }[] = [];
   private knownChatTimestamps: Set<string> = new Set();
-  // NEW: Hooker "services" state. Tracks the car-rocking animation phase
-  // and the total money drained in the current session (caps at HOOKER_MAX_MONEY).
   private carRockPhase = 0;
   private hookerMoneyDrained = 0;
-  carRocking = false; // read by the renderer to apply the rocking offset
-  // FIX: Garage state. The door animates open/closed (0 = closed, 1 = open).
-  // garageCar holds the stored car's data (or null if empty). garageCarMesh
-  // is the rendered mesh of the stored car inside the garage.
-  garageDoorOpenness = 0; // 0 = closed, 1 = fully open
+  carRocking = false;
+  garageDoorOpenness = 0;
   garageCar: { vehicleType: string; colorR: number; colorG: number; colorB: number; yaw: number } | null = null;
   private garageCarMesh: CityMesh | CityMesh[] | null = null;
   private garagePollTimer = 0;
-  private wasInGarage = false; // tracks if player was inside garage last frame
-  // FIX: Cooldown to prevent auto-entering the stored car immediately
-  // after storing it. Set to ~3 seconds when a car is stored; counts
-  // down each frame. Auto-enter only fires when this reaches 0.
+  private wasInGarage = false;
   private garageStoreCooldown = 0;
 
   private _lastVendingChunkX = 999;
@@ -317,7 +276,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   showMenuPanel = false;
   sfxVolume = 1.0;
   viewDistance = 500;
-  // Sound effects for weapons. Loaded lazily on first use.
   private uziSound: HTMLAudioElement | null = null;
   private rocketSound: HTMLAudioElement | null = null;
   private policeSirenSound: HTMLAudioElement | null = null;
@@ -353,10 +311,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   constructor(private gtService: GrandtheftService, private userEventService: UserEventService, private todoService: TodoService, private fileService: FileService, private ngZone: NgZone) { super(); }
 
-  ngOnInit() { 
+  ngOnInit() {
     if (!this.parentRef?.user?.id) {
-      this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, "grandtheft", "Started playing Grand Theft!"); 
-    } 
+      this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, "grandtheft", "Started playing Grand Theft!");
+    }
   }
 
   ngAfterViewInit() {
@@ -383,7 +341,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     });
     for (let ci = 1; ci <= 29; ci++) {
-      if (ci === 27) continue; // char27 is a fire hydrant, not a pedestrian
+      if (ci === 27) continue;
       const ciStr = ci.toString();
       this.renderer.loadGLTF(`assets/grandtheft/char${ciStr}/scene.gltf`, false).then(npc => {
         if (npc) this.renderer.npcMeshes.push(npc);
@@ -401,7 +359,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     this.renderer.loadGLTF('assets/grandtheft/lambo/scene.gltf').then(car => {
       if (car) this.renderer.carMeshes.push(car);
-    }); 
+    });
     this.renderer.loadGLTF('assets/grandtheft/mitsubishi/scene.gltf').then(car => {
       if (car) this.renderer.carMeshes.push(car);
     });
@@ -464,7 +422,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/hospital/scene.gltf').then(hospital => {
       if (hospital) this.renderer.hospitalMesh = hospital;
     });
-    // FIX: Load home base (japaneseShop) mesh
     this.renderer.loadGLTF('assets/grandtheft/japaneseShop/scene.gltf').then(shop => {
       if (shop) this.renderer.homeBaseMesh = shop;
     });
@@ -474,9 +431,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/taxi/scene.gltf').then(taxi => {
       if (taxi) this.renderer.taxiMesh = taxi;
     });
-    // NEW: Hooker NPC model. The hooker GLTF ships already-upright
-    // (like redneck), so needsFlip=false. jillValentine ships
-    // upside-down and needs needsFlip=true, but the hooker doesn't.
     this.renderer.loadGLTF('assets/grandtheft/hooker/scene.gltf', false).then(hooker => {
       if (hooker) {
         for (const m of hooker) m.needsFlip = false;
@@ -492,7 +446,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/money/scene.gltf', false).then(m => {
       if (m) this.renderer.moneyMesh = m;
     });
-    // --- First-person weapon models (with animations) ---
     {
       const armsOut: { animations?: any; skeleton?: any } = {};
       this.renderer.loadGLTF('assets/grandtheft/first_person_arms/scene.gltf', true, armsOut).then(arms => {
@@ -500,10 +453,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.renderer.firstPersonArmsMesh = arms;
           this.renderer.firstPersonArmsSkeleton = armsOut.skeleton ?? null;
           this.renderer.firstPersonArmsAnimations = armsOut.animations ?? null;
-          console.log('[FP ARMS] loaded',
-            arms.length, 'primitives,',
-            this.renderer.firstPersonArmsAnimations?.length ?? 0, 'animations:',
-            (this.renderer.firstPersonArmsAnimations || []).map(a => a.name));
         }
       });
     }
@@ -514,7 +463,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.renderer.mark23Mesh = m;
           this.renderer.mark23Skeleton = m23Out.skeleton ?? null;
           this.renderer.mark23Animations = m23Out.animations ?? null;
-          console.log('[FP MARK23] loaded');
         }
       });
     }
@@ -530,9 +478,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/trafficLight/scene.gltf').then(tl => {
       if (tl) this.renderer.trafficLightMesh = tl;
     });
-    // Load city + suburb building models, then clear chunk cache
-    // so chunks regenerate WITH the models instead of falling back
-    // to plain boxes (the old code cached chunks before models loaded).
     const buildingPromises: Promise<void>[] = [];
     for (const name of GrandTheftRenderer.CITY_BUILDING_NAMES) {
       buildingPromises.push(
@@ -551,7 +496,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     Promise.all(buildingPromises).then(() => {
       this.renderer.clearChunkCache();
     });
-    
+
     this.isLoaded = true;
 
     if (!this.isMobile) {
@@ -609,7 +554,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
       canvas.addEventListener('mousedown', (e) => {
         if (e.button !== 0 || this.showWeaponWheel) return;
-        this.unlockAudio(); // FIX: unlock audio on first user interaction
+        this.unlockAudio();
         this.isShooting = true;
         this.shoot();
         this.startAutoFire();
@@ -621,9 +566,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
 
     if (this.isMobile) {
-      // Defer initTouchControls so the *ngIf="isMobile" DOM has time to
-      // render. Without this, document.getElementById('gt-joystick-thumb')
-      // returns null because Angular hasn't processed the *ngIf yet.
       setTimeout(() => this.initTouchControls(canvas), 0);
     }
 
@@ -717,7 +659,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const dx = b.x - a.x, dz = b.z - a.z;
       const len = Math.hypot(dx, dz);
       if (len === 0) continue;
-      const laneOffset = 4.0; // Changed from 12.5
+      const laneOffset = 4.0;
       const perpX = dz / len * laneOffset, perpZ = -dx / len * laneOffset;
       this.trafficLanes.push({ fromIdx: edge[0], toIdx: edge[1], offsetX: perpX, offsetZ: perpZ });
       this.trafficLanes.push({ fromIdx: edge[1], toIdx: edge[0], offsetX: -perpX, offsetZ: -perpZ });
@@ -749,8 +691,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.joystickThumbEl = document.getElementById('gt-joystick-thumb');
 
     const updateThumb = (x: number, y: number) => {
-      // FIX: Set joystickX/Y FIRST, before the null check, so movement
-      // works even if the thumb element isn't rendered yet.
       const dx = x - window.innerWidth / 4;
       const dy = y - window.innerHeight * 0.7;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -764,7 +704,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.joystickX = 0;
         this.joystickY = 0;
       }
-      // Update the visual thumb position if the element exists.
       if (this.joystickThumbEl) {
         const thumbOffset = Math.min(dist, 80);
         const tx = dist > 1 ? (dx / dist) * thumbOffset : 0;
@@ -773,9 +712,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     };
 
-    // FIX: Remove { passive: true } so we can call preventDefault().
-    // passive listeners cannot prevent the browser from scrolling/zooming,
-    // which steals touch events on mobile.
     canvas.addEventListener('touchstart', (e) => {
       e.preventDefault();
       for (let i = 0; i < e.changedTouches.length; i++) {
@@ -819,19 +755,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }, { passive: false });
 
-    // FIX: Also listen on document for touchstart so we don't miss touches
-    // that land on the #gt-mobile overlay (which sits on top of the canvas).
-    // The overlay has pointer-events: none, but some browsers still route
-    // touchstart to the topmost element. This ensures we always catch it.
     document.addEventListener('touchstart', (e) => {
-      // If the touch landed on one of the mobile buttons (FIRE/CAR/V),
-      // let Angular's (touchstart) binding handle it — don't interfere.
       const target = e.target as HTMLElement;
       if (target && (target.id === 'gt-mobile-fire' || target.id === 'gt-mobile-car' || target.id === 'gt-mobile-view')) {
         return;
       }
-      // Only handle touches that aren't already captured by the canvas
-      // listener (i.e., touches on the overlay that didn't reach canvas).
       for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
         if (t.clientX < window.innerWidth / 2 && this.joystickId === -1) {
@@ -884,12 +812,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   mobileShoot() { this.unlockAudio(); this.isShooting = true; this.shoot(); this.startAutoFire(); }
   mobileShootEnd() { this.isShooting = false; this.stopAutoFire(); }
 
-  /**
-   * FIX: Called by the mobile button (touchstart) handlers. Prevents the
-   * browser from also firing a click event 300ms later, and stops the
-   * touch from propagating to the document/canvas touch listeners (which
-   * would otherwise treat it as a joystick or camera-look touch).
-   */
   onButtonTouch(e: TouchEvent) {
     e.preventDefault();
     e.stopPropagation();
@@ -897,15 +819,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   toggleWeaponWheel() { this.showWeaponWheel = !this.showWeaponWheel; }
 
   toggleCar() {
-    // If we're a passenger in another player's car, E exits the car.
     if (this.isPassenger) {
       this.exitPassenger();
       return;
     }
     if (this.isInCar) {
-      // If we're driving, have no passenger, are slow, and a
-      // hooker is nearby, pick her up instead of exiting. Once we have
-      // a passenger, E always exits the car (and drops her off too).
       if (!this.passenger && this.tryPickupPassenger()) {
         return;
       }
@@ -913,16 +831,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     } else if (this.nearCar) {
       this.enterCar();
     } else {
-      // NEW: Check which side of another player's car we're on.
-      // Driver side → steal (ejects the other player).
-      // Passenger side → enter as passenger (does NOT eject).
       const side = this.getOtherPlayerCarSide();
       if (side === 'passenger') {
         this.tryEnterAsPassenger();
       } else if (side === 'driver') {
-        this.enterCar(); // carjack path — ejects the other player
+        this.enterCar();
       } else if (this.nearVendingMachine) {
-        // Use vending machine: heal to 100%
         this.health = 100;
       }
     }
@@ -949,13 +863,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.chatInput = '';
   }
 
-  /**
-   * NEW: Returns true if a hooker is currently within pickup range of
-   * the player's car. Used to drive the on-screen 'Press E' prompt.
-   */
   private canPickupPassenger(): boolean {
     if (!this.isInCar || this.passenger) return false;
-    if (this.taxiMission) return false; // don't conflict with an active taxi fare
+    if (this.taxiMission) return false;
     if (Math.abs(this.carSpeed) > 5) return false;
     const PICKUP_DIST_SQ = 5 * 5;
     const check = (arr: any[]): boolean => {
@@ -970,14 +880,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     return check(this.serverPedestrians) || check(this.localPedestrians);
   }
 
-  /**
-   * NEW: Pick up the nearest hooker NPC as a passenger. Mirrors the
-   * taxi-mission pickup (lines ~2254-2270) but uses the front passenger
-   * seat (offsetX=-0.3, mirror of the driver's +0.3). Captures ped.mesh
-   * directly so the skin is preserved across the ride and on drop-off,
-   * regardless of npcMeshes[] changes mid-ride. Returns true if a
-   * passenger was picked up.
-   */
   private tryPickupPassenger(): boolean {
     if (this.taxiMission) return false;
     if (Math.abs(this.carSpeed) > 5) return false;
@@ -998,12 +900,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.passenger = {
       kind: 'npc',
       id: ped.id,
-      mesh: ped.mesh, // <-- preserve exact mesh instance (taxi pattern)
+      mesh: ped.mesh,
       gender: ped.gender,
       type: ped.type,
-      // Front passenger seat: mirror of driver offset (driver uses +0.3 X).
-      // Offset convention (see renderer lines ~1735-1747):
-      //   +X = one side, -X = other side; +Z = forward; offsetY = above carY.
       offsetX: -0.3,
       offsetY: -0.3,
       offsetZ: 0.2,
@@ -1016,21 +915,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     return true;
   }
 
-  /**
-   * NEW: Drop the current passenger as a pedestrian next to the car,
-   * preserving the same skin mesh she had when picked up. Mirrors the
-   * taxi-mission drop-off pattern (lines ~2323-2334). The passenger
-   * exits on the OPPOSITE side of the car from the driver (driver exits
-   * at carYaw + PI/2; passenger at carYaw - PI/2).
-   */
   private dropPassenger(nearX: number, nearZ: number, carYaw: number) {
     if (!this.passenger) return;
     const p = this.passenger;
-    const angle = carYaw - Math.PI / 2; // opposite side from driver
+    const angle = carYaw - Math.PI / 2;
     const exitDist = 3.0;
     const px = nearX + Math.sin(angle) * exitDist;
     const pz = nearZ + Math.cos(angle) * exitDist;
-    // Walk target: a random traffic node so she wanders off naturally.
     let tx = px + (Math.random() - 0.5) * 20;
     let tz = pz + (Math.random() - 0.5) * 20;
     if (this.trafficNodes.length > 0) {
@@ -1042,10 +933,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       id: p.id,
       x: px,
       z: pz,
-      yaw: carYaw + Math.PI, // face away from the car
+      yaw: carYaw + Math.PI,
       gender: p.gender,
       type: p.type,
-      mesh: p.mesh, // <-- preserved skin
+      mesh: p.mesh,
       health: 100,
       targetX: tx,
       targetZ: tz,
@@ -1072,7 +963,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
           this.playerVehicleMesh = v.mesh;
           this.playerVehicleColor = [v.colorR || 1, v.colorG || 1, v.colorB || 1];
-          // Attach the player character as a visible driver in the car
           if (this.renderer.playerMesh) {
             this.driverInCarMesh = {
               mesh: this.renderer.playerMesh,
@@ -1091,10 +981,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           else if (this.vehicleType === 'motorcycle') { this.camDist = 6; this.camHeight = 2.5; }
           else { this.camDist = 8; this.camHeight = 3; }
 
-          // NEW (Feature 2): Handle the StealCar response to add
-          // evicted NPCs to serverPedestrians immediately, instead
-          // of waiting ~1s for the next poll. The server returns
-          // evictedNpcs (driver + passengers) in the response body.
           this.gtService.stealCar(v.id, userId).then((stealRes: any) => {
             if (stealRes && stealRes.evictedNpcs) {
               for (const ep of stealRes.evictedNpcs) {
@@ -1104,8 +990,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
                   gender: ep.gender || 'male',
                   type: ep.type,
                   mesh: this.renderer.getPedestrianMesh(ep.gender || 'male', ep.id),
-                  // FIX: Use full health (100) so evicted peds don't die
-                  // immediately. The server now returns health=100.
                   health: ep.health ?? 100,
                   prevX: ep.posX, prevZ: ep.posZ, prevYaw: ep.yaw,
                   targetX: ep.posX, targetZ: ep.posZ, targetYaw: ep.yaw,
@@ -1130,37 +1014,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     if (tryEnter(this.serverNPCs)) return;
     if (tryEnter(this.parkedCars, true)) return;
-    // NEW (Feature 3): Try to carjack another player's car.
     if (this.tryCarjackPlayer(userId)) return;
   }
 
-  /**
-   * NEW (Feature 3): Attempt to steal a car from another nearby
-   * player who is currently driving. Calls the existing stealCar
-   * endpoint with a NEGATIVE npcId (-userId) — the server interprets
-   * this as a player-carjack and sets the eviction flag for the
-   * target. The target's next UpdatePosition call will see
-   * evicted=true and call exitCar() on their client.
-   *
-   * Locally, we take over the car position/yaw and use a default
-   * car mesh (we don't know the other player's car model). The
-   * other player is marked as not-in-car on our side so the
-   * renderer stops drawing a car under them.
-   */
   private tryCarjackPlayer(userId: number): boolean {
     for (const op of this.otherPlayers) {
       if (!op.isInCar) continue;
       const dx = op.posX - this.carX;
       const dz = op.posZ - this.carZ;
       if (Math.sqrt(dx * dx + dz * dz) < ENTER_CAR_DIST) {
-        // Take over the other player's car position
         this.carX = op.posX; this.carZ = op.posZ; this.carYaw = op.yaw;
         this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
         this.isInCar = true;
         this.vehicleType = 'car';
         this.carHealth = 400;
 
-        // Use a default car mesh (we don't know the other player's model)
         const carMeshes = this.renderer.carMeshes;
         this.playerVehicleMesh = carMeshes.length > 0 ? carMeshes[0] : null;
         this.playerVehicleColor = [0.5, 0.5, 0.5];
@@ -1177,13 +1045,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
         this.camDist = 8; this.camHeight = 3;
 
-        // Tell the server to evict the other player. Reuses the
-        // existing stealCar service method with -userId convention.
         this.gtService.stealCar(-op.userId, userId);
 
-        // Locally mark the other player as evicted so the renderer
-        // stops drawing a car under them. The server will confirm
-        // on the next poll when their IsInCar flips to false.
         op.isInCar = false;
 
         return true;
@@ -1192,11 +1055,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     return false;
   }
 
-  /**
-   * NEW (Feature 3): Returns true if any other player in a car is
-   * within ENTER_CAR_DIST. Used by toggleCar() to decide whether
-   * to attempt a carjack.
-   */
   private nearOtherPlayerCar(): boolean {
     for (const op of this.otherPlayers) {
       if (!op.isInCar) continue;
@@ -1207,26 +1065,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     return false;
   }
 
-  /**
-   * NEW: Checks if the local player is near another player's car and on
-   * which side. Returns:
-   *   'driver'    — near the driver side (right side of car) → steal car
-   *   'passenger' — near the passenger side (left side of car) → enter as passenger
-   *   null        — not near any other player's car
-   *
-   * Side detection: the car's right direction (driver side, right-hand
-   * drive) is (cos(yaw), -sin(yaw)). Dot the relative position vector
-   * with this. Positive → driver side, negative → passenger side.
-   */
   private getOtherPlayerCarSide(): 'driver' | 'passenger' | null {
     for (const op of this.otherPlayers) {
       if (!op.isInCar) continue;
-      const dx = this.carX - op.posX; // player relative to car
+      const dx = this.carX - op.posX;
       const dz = this.carZ - op.posZ;
       const distSq = dx * dx + dz * dz;
       if (distSq > ENTER_CAR_DIST * ENTER_CAR_DIST) continue;
-      // Car's right direction (driver side): perpendicular to forward (sin, cos).
-      // Forward is (sin(yaw), cos(yaw)). Right is (cos(yaw), -sin(yaw)).
       const rightX = Math.cos(op.yaw);
       const rightZ = -Math.sin(op.yaw);
       const dot = dx * rightX + dz * rightZ;
@@ -1235,11 +1080,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     return null;
   }
 
-  /**
-   * NEW: Called every frame to update the steal-car / enter-passenger
-   * prompts based on which side of another player's car the local
-   * player is standing on.
-   */
   private checkNearOtherPlayerCar() {
     if (this.isInCar || this.isPassenger) {
       this.showStealCarPrompt = false;
@@ -1251,26 +1091,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.showEnterPassengerPrompt = (side === 'passenger');
   }
 
-  /**
-   * Enter another player's car as a PASSENGER. Does NOT eject the host
-   * player. The passenger follows the host's position each frame via
-   * updatePassengerFollow(). The passenger can exit at any time with E
-   * (via exitPassenger). The passenger cannot control the car.
-   *
-   * This is called from toggleCar() when the local player is on the
-   * passenger side of the host's car. Returns true on success.
-   */
   private tryEnterAsPassenger(): boolean {
     for (const op of this.otherPlayers) {
       if (!op.isInCar) continue;
       const dx = op.posX - this.carX;
       const dz = op.posZ - this.carZ;
       if (Math.sqrt(dx * dx + dz * dz) < ENTER_CAR_DIST) {
-        // Become a passenger — does NOT eject the host
         this.isPassenger = true;
         this.passengerOfUserId = op.userId;
-        this.isInCar = false; // we're not the driver
-        // Snap to the host's car position
+        this.isInCar = false;
         this.carX = op.posX;
         this.carZ = op.posZ;
         this.carYaw = op.yaw;
@@ -1283,15 +1112,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     return false;
   }
 
-  /**
-   * NEW: Exit the passenger seat. Places the player on foot next to the
-   * host's car. Called when E is pressed while isPassenger is true.
-   */
   private exitPassenger() {
-    // Find the host to get the current car position
     const host = this.otherPlayers.find(p => p.userId === this.passengerOfUserId);
     if (host) {
-      // Exit to the side of the car
       const angle = host.yaw + Math.PI / 2;
       this.carX = host.posX + Math.sin(angle) * 2.5;
       this.carZ = host.posZ + Math.cos(angle) * 2.5;
@@ -1304,23 +1127,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.camHeight = 2;
   }
 
-  /**
-   * Called every frame when isPassenger is true. Follows the host
-   * player's position/yaw from the otherPlayers array so the passenger
-   * rides along without controlling the car.
-   *
-   * FIX: Uses velocity-based dead reckoning + lerp for smooth movement.
-   * The host's position only updates every 200ms (poll interval). Without
-   * smoothing, the passenger would snap to the new position every 200ms
-   * and freeze in between — causing choppy movement. Instead, we:
-   * 1. Track the host's position + velocity (computed from position delta
-   *    between polls).
-   * 2. Each frame, predict where the host should be now:
-   *    predicted = lastKnown + velocity * timeSinceLastPoll
-   * 3. Lerp the passenger's position toward the predicted position at
-   *    15% per frame (~2 frames to catch up). This eliminates the snap
-   *    while keeping the passenger close to the host.
-   */
   private updatePassengerFollow() {
     if (!this.isPassenger) return;
     const host = this.otherPlayers.find(p => p.userId === this.passengerOfUserId);
@@ -1330,16 +1136,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     const now = performance.now();
 
-    // Detect if the host's position was updated since last frame (new poll).
-    // We compare against the stored last-known position. If it changed,
-    // recompute velocity.
     const hostMoved = (host.posX !== this.passengerHostLastX || host.posZ !== this.passengerHostLastZ || host.yaw !== this.passengerHostLastYaw);
     if (hostMoved && this.passengerHostLastTime > 0) {
       const dt = (now - this.passengerHostLastTime) / 1000;
       if (dt > 0.001) {
         this.passengerHostVelX = (host.posX - this.passengerHostLastX) / dt;
         this.passengerHostVelZ = (host.posZ - this.passengerHostLastZ) / dt;
-        // Yaw velocity: handle angle wrap
         let dyaw = host.yaw - this.passengerHostLastYaw;
         while (dyaw > Math.PI) dyaw -= Math.PI * 2;
         while (dyaw < -Math.PI) dyaw += Math.PI * 2;
@@ -1350,7 +1152,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.passengerHostLastYaw = host.yaw;
       this.passengerHostLastTime = now;
     } else if (this.passengerHostLastTime === 0) {
-      // First frame — just store the position, no velocity yet
       this.passengerHostLastX = host.posX;
       this.passengerHostLastZ = host.posZ;
       this.passengerHostLastYaw = host.yaw;
@@ -1363,19 +1164,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       return;
     }
 
-    // Dead-reckon: predict where the host should be now based on velocity
     const timeSincePoll = (now - this.passengerHostLastTime) / 1000;
     const predictedX = this.passengerHostLastX + this.passengerHostVelX * timeSincePoll;
     const predictedZ = this.passengerHostLastZ + this.passengerHostVelZ * timeSincePoll;
     let predictedYaw = this.passengerHostLastYaw + this.passengerHostVelYaw * timeSincePoll;
 
-    // Lerp the passenger toward the predicted position (15% per frame).
-    // This smooths out the snap that would otherwise occur every 200ms.
     const lerpFactor = 0.15;
     this.carX += (predictedX - this.carX) * lerpFactor;
     this.carZ += (predictedZ - this.carZ) * lerpFactor;
 
-    // Yaw: lerp through the shorter arc
     let yawDiff = predictedYaw - this.carYaw;
     while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
     while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
@@ -1404,10 +1201,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         colorR: color[0], colorG: color[1], colorB: color[2]
       });
 
-      // Tell server to park the car, and update local ID when server responds
-      // FIX: Send the vehicleType so the server stores the actual type (not
-      // just "parked"). This ensures other players render the correct car
-      // model when they see the parked car.
       this.gtService.parkCar(1, this.carX, this.carZ, this.carYaw, color[0], color[1], color[2], this.vehicleType).then((res: any) => {
         const localCar = this.parkedCars.find(p => p.id === tempId);
         if (localCar && res && res.id) {
@@ -1418,43 +1211,26 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     this.playerVehicleMesh = null;
     this.driverInCarMesh = null;
-    // FIX: If exiting inside the garage, store the car to the garage DB
-    // instead of parking it on the street. The car is saved with its
-    // vehicle type + color so it can be restored when the player returns.
-    // The player is left on foot outside the garage entrance.
     if (this.isInGarageInterior()) {
       const userId = this.getUserId();
       if (userId && mesh) {
-        // Store the car to the server. Do NOT set garageCar/garageCarMesh
-        // here — the poll will fetch it for rendering. Setting it here
-        // would trigger auto-enter on the next frame.
         this.gtService.storeGarageCar(
           userId,
           this.vehicleType,
           color[0], color[1], color[2],
           this.carYaw
         );
-        // FIX: Set a 10-second cooldown so the player isn't auto-entered
-        // back into the car they just stored. The poll may re-fetch the
-        // car within 2s, but the cooldown blocks auto-enter.
         this.garageStoreCooldown = 10;
-        // Clear any existing garageCar state so the poll doesn't trigger
-        // auto-enter before the cooldown elapses.
         this.garageCar = null;
         this.garageCarMesh = null;
-        // Skip the normal parkCar call — the car goes into the garage, not the street
         this.isInCar = false; this.vehicleType = 'car';
         this.carVx = 0; this.carVz = 0; this.carSpeed = 0; this.carY = CAR_HEIGHT;
         this.camDist = 4; this.camHeight = 2;
-        // Move player outside the garage entrance
         this.carX = GARAGE_ENTRANCE_X;
         this.carZ = GARAGE_ENTRANCE_Z + 3;
         return;
       }
     }
-    // NEW: Drop off the passenger (if any) as a pedestrian next to the
-    // car, preserving the same skin mesh she had when picked up.
-    // Mirrors taxi-mission drop-off (lines ~2323-2334).
     if (this.passenger) {
       this.dropPassenger(this.carX, this.carZ, this.carYaw);
     }
@@ -1463,10 +1239,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carVx = 0; this.carVz = 0; this.carSpeed = 0; this.carY = CAR_HEIGHT;
     this.isInCar = false; this.vehicleType = 'car';
     this.camDist = 4; this.camHeight = 2;
-    // Abandon any active taxi mission. If we were mid-delivery, the
-    // passenger is silently dropped (no fare) — they'd realistically
-    // just get out and walk away too. The next time the player enters
-    // a taxi, the search timer will start fresh.
     this.taxiMission = null;
     this.taxiMarkers = [];
     this.taxiAttachedMeshes = [];
@@ -1492,7 +1264,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         height: '0', width: '0',
         playerVars: { autoplay: 0, controls: 0, disablekb: 1, fs: 0, modestbranding: 1, playsinline: 1 },
         events: {
-          onReady: () => {},
+          onReady: () => { },
           onStateChange: (e: any) => {
             if (e.data === 1) {
               this.ngZone.run(() => {
@@ -1561,7 +1333,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   private startPolling() { this.pollMultiplayer(); }
   private stopPolling() { if (this._pollTimer) { clearTimeout(this._pollTimer); this._pollTimer = null; } }
-  private startNPCPolling() { this.pollNPCs(); this.npcPollTimer = setInterval(() => this.pollNPCs(), 1000); } // Faster polling for smoothness
+  private startNPCPolling() { this.pollNPCs(); this.npcPollTimer = setInterval(() => this.pollNPCs(), 1000); }
   private stopNPCPolling() { if (this.npcPollTimer) { clearInterval(this.npcPollTimer); this.npcPollTimer = null; } }
 
   private async pollNPCs(): Promise<void> {
@@ -1573,10 +1345,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const c of this.serverNPCs) prevCarHealth.set(c.id, c.health);
     const prevPedHealth = new Map<number, number>();
     for (const p of this.serverPedestrians) prevPedHealth.set(p.id, p.health);
-    // FIX: Track peds that were recently added via StealCar eviction but
-    // haven't appeared in the server's GetNPCs response yet. We preserve
-    // them for up to 5 seconds after their lastUpdate time so they don't
-    // disappear during the 1-second poll gap.
     const now = performance.now();
     const recentlyEvictedPeds = this.serverPedestrians.filter(p =>
       (now - (p.lastUpdate || 0)) < 5000 && !data.pedestrians.some((sp: any) => sp.id === p.id)
@@ -1644,12 +1412,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           colorR: c.colorR, colorG: c.colorG, colorB: c.colorB,
           mesh,
           remoteShootTimer: 0,
-          // NEW (Feature 1): capture driver info so the renderer
-          // can draw a driver mesh inside the car.
           gender: c.gender,
           hasDriver: c.hasDriver !== false,
           passengerCount: c.passengerCount ?? 0,
-          // NEW: Cop shooting flag for visualization + sound
           isShootingAt: c.isShootingAt || false,
           isBurning: c.isBurning || false,
           ...interp
@@ -1694,8 +1459,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           ...interp
         };
       });
-    // FIX: Merge recently-evicted peds back in so they don't disappear
-    // during the 1-second poll gap between StealCar and GetNPCs.
     if (recentlyEvictedPeds.length > 0) {
       this.serverPedestrians = [...this.serverPedestrians, ...recentlyEvictedPeds];
     }
@@ -1713,9 +1476,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
         if (existing) {
           existing.x = pc.posX; existing.z = pc.posZ; existing.yaw = pc.yaw; existing.health = health; existing.isBurning = pc.isBurning || false;
-          // Refresh mesh only for special types that may have been loading
-          // async (police, taxi, bus, motorcycle). Regular cars keep their
-          // existing mesh so exiting doesn't randomly change the model.
           if (pc.type === 'police')
             existing.mesh = this.renderer.getPoliceCarMesh();
           else if (pc.type === 'taxi')
@@ -1731,9 +1491,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           type: pc.type || 'car', health,
           isBurning: pc.isBurning || false,
           colorR: pc.colorR, colorG: pc.colorG, colorB: pc.colorB,
-          // FIX: Server now sends the actual vehicle type (e.g. "car",
-          // "taxi", "motorcycle", "police", "bus") instead of "parked".
-          // Pick the correct mesh based on the type.
           mesh: pc.type === 'motorcycle'
             ? this.renderer.getMotorcycleMesh([pc.colorR, pc.colorG, pc.colorB], pc.id)
             : pc.type === 'taxi'
@@ -1801,31 +1558,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.health, this.currentWeapon, this.isShooting,
       this.renderer.currentModelUrl || undefined,
       this.money,
-      // FIX: Send explicit isInCar + vehicle type + car color so other
-      // players render the correct car. The old CarSpeed-based inference
-      // failed when players stopped in their cars for >5 seconds.
       this.isInCar,
       this.vehicleType,
       this.playerVehicleColor[0],
       this.playerVehicleColor[1],
       this.playerVehicleColor[2],
-      // FIX: Send passengerOfUserId so the host knows we're in their car.
       this.isPassenger ? this.passengerOfUserId : 0,
       chatMsg
     );
 
-    // NEW (Feature 3): If the server says we were carjacked, exit
-    // the car immediately. The carjacker's client has already taken
-    // over our car position; we just need to stop driving.
     if (res && res.evicted && this.isInCar) {
       this.exitCar();
     }
-    // NEW: If we were carjacked while a passenger, exit the passenger seat.
     if (res && res.evicted && this.isPassenger) {
       this.exitPassenger();
     }
-    // FIX: If the server says we should respawn at home base (inactive
-    // >30 min), teleport there immediately.
     if (res && res.respawnAtHome) {
       if (this.isInCar) this.exitCar();
       if (this.isPassenger) this.exitPassenger();
@@ -1838,18 +1585,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.camPitch = 0.2;
     }
 
-    // Process dropped weapons from server
     if (res && res.droppedWeapons) {
       this.droppedWeapons = res.droppedWeapons;
-    } 
-    // Process player weapon inventory from server
+    }
     if (res && res.ownedWeapons) {
       this.ownedWeapons = res.ownedWeapons;
       this.ammo = res.ammo;
     }
 
     if (res?.chatMessages) {
-      // Process incoming chat messages
       for (const msg of res.chatMessages) {
         const key = `${msg.userId}_${msg.timestamp}`;
         if (this.knownChatTimestamps.has(key)) continue;
@@ -1860,9 +1604,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
         this.chatMessages.push(msg);
         if (this.chatMessages.length > 50) this.chatMessages.shift();
-      } 
+      }
     }
-
 
     if (res) {
       for (const p of res.players) {
@@ -1877,14 +1620,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           existing.carColorG = p.carColorG ?? 1;
           existing.carColorB = p.carColorB ?? 1;
           existing.passengerOfUserId = p.passengerOfUserId ?? 0;
-          // Update model if remote player changed modelUrl
           if (p.modelUrl && p.modelUrl !== existing.modelUrl) {
             existing.modelUrl = p.modelUrl;
             (async () => {
               try {
                 const loaded = await this.renderer.loadGLTF(p.modelUrl!);
                 if (loaded && loaded.length > 0) existing.mesh = loaded;
-              } catch (e) { /* ignore load errors */ }
+              } catch (e) { }
             })();
           }
         } else {
@@ -1904,8 +1646,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           } as OtherPlayerState;
           this.otherPlayers.push(newPlayer);
 
-          // FIX: If our Franklin model hasn't loaded yet, we assigned the boxy fallback.
-          // Check again in a moment to upgrade them to the real Franklin mesh.
           if (!this.renderer.playerMesh) {
             setTimeout(() => {
               if (this.renderer.playerMesh && newPlayer.mesh !== this.renderer.playerMesh) {
@@ -1917,8 +1657,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             (async () => {
               try {
                 const loaded = await this.renderer.loadGLTF(p.modelUrl!);
-                if (loaded && loaded.length > 0) newPlayer.mesh = loaded; // KEEP ALL MESHES
-              } catch (e) { /* ignore */ }
+                if (loaded && loaded.length > 0) newPlayer.mesh = loaded;
+              } catch (e) { }
             })();
           }
         }
@@ -1927,7 +1667,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.otherPlayers = this.otherPlayers.filter(op => activeIds.has(op.userId));
     }
 
-    // Server-authoritative health update for local player
     if (res && res.yourHealth !== undefined) {
       if (res.yourHealth < this.health) {
         this.damageAlpha = 0.4;
@@ -1956,7 +1695,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         };
         for (const npc of this.serverNPCs) checkShooter(npc);
         for (const ped of this.serverPedestrians) checkShooter(ped);
-        // Play pistol sound if a cop shot us
         if (foundShooter) this.playWeaponSound(0);
       }
       this.health = res.yourHealth;
@@ -2000,7 +1738,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const now = performance.now();
     if (now - this.lastShootTime < WEAPON_COOLDOWNS[this.currentWeapon]) return;
 
-    // Check ammo for non-unarmed weapons
     if (this.currentWeapon !== 0) {
       if (this.ammo[this.currentWeapon] <= 0) return;
       this.ammo[this.currentWeapon]--;
@@ -2022,10 +1759,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const originY = this.carY + (this.isInCar ? 0.5 : 1.2);
     const originZ = this.carZ;
 
-    if (this.currentWeapon === 0) { // Unarmed – punch
+    if (this.currentWeapon === 0) {
       this.punchTimer = 0.3;
       this.checkBulletHit(originX, originY, originZ, dirX, dirY, dirZ, 3);
-    } else if (this.currentWeapon === 4) { // Rocket
+    } else if (this.currentWeapon === 4) {
       this.rockets.push({ x: originX, y: originY, z: originZ, vx: dirX * 40, vy: dirY * 40, vz: dirZ * 40, age: 0, lifetime: 3 });
       this.playWeaponSound(4);
     } else {
@@ -2033,7 +1770,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.tracers.push({ originX, originY, originZ, dirX, dirY, dirZ, age: 0, lifetime: tracerLifetime });
       this.muzzleFlashes.push({ x: originX, y: originY, z: originZ, dirX, dirY, dirZ, weapon: this.currentWeapon, age: 0, lifetime: 0.08 });
 
-      if (this.currentWeapon === 3) { // Shotgun
+      if (this.currentWeapon === 3) {
         for (let i = 1; i < 8; i++) {
           const spread = 0.08;
           this.tracers.push({ originX, originY, originZ, dirX: dirX + (Math.random() - 0.5) * spread, dirY: dirY + (Math.random() - 0.5) * spread, dirZ: dirZ + (Math.random() - 0.5) * spread, age: 0, lifetime: 0.2 });
@@ -2044,13 +1781,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
-  /**
-   * FIX: Unlocks audio playback on the first user interaction. Browsers
-   * block Audio.play() until the user has interacted with the page. We
-   * create the Audio objects and call play() once (which may fail silently),
-   * then set a flag so subsequent plays work. Called from mousedown and
-   * mobileShoot (both are user gestures).
-   */
   private unlockAudio() {
     if (this.audioUnlocked) return;
     this.audioUnlocked = true;
@@ -2061,26 +1791,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       [this.uziSound, this.rocketSound, this.policeSirenSound].forEach(a => {
         if (a) { a.volume = 0; a.play().then(() => { a.pause(); a.currentTime = 0; a.volume = 0.3; }).catch(() => { }); }
       });
-    } catch (e) { /* ignore */ }
+    } catch (e) { }
   }
 
-  /**
-   * Plays the appropriate weapon sound effect.
-   * - Weapon 0 (Pistol): pistol.mp3
-   * - Weapon 1 (Rifle): uzi.mp3
-   * - Weapon 3 (Rocket Launcher): rocket.mp3
-   * FIX: Clones the Audio element on each shot so rapid fire doesn't
-   * cut off the previous sound. The clone shares the same audio buffer
-   * (no re-download) but can play independently.
-   */
   private playWeaponSound(weapon: number) {
-    if (weapon === 0) return; // Unarmed – no sound
+    if (weapon === 0) return;
     try {
       let base: HTMLAudioElement | null = null;
       let vol = 0.3;
-      if (weapon === 1) { base = this.uziSound; vol = 0.2; }    // Pistol → uzi
+      if (weapon === 1) { base = this.uziSound; vol = 0.2; }
       else if (weapon === 2) { base = this.uziSound; vol = 0.3; }
-      else if (weapon === 3) { base = this.uziSound; vol = 0.35; } // Shotgun → uzi
+      else if (weapon === 3) { base = this.uziSound; vol = 0.35; }
       else if (weapon === 4) { base = this.rocketSound; vol = 0.5; }
       if (!base) {
         if (weapon >= 1 && weapon <= 3) { this.uziSound = new Audio('assets/grandtheft/uzi.mp3'); base = this.uziSound; }
@@ -2089,8 +1810,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (!base) return;
       const clone = base.cloneNode(true) as HTMLAudioElement;
       clone.volume = vol * this.sfxVolume;
-      clone.play().catch(() => { /* ignore autoplay errors */ });
-    } catch (e) { /* ignore audio errors */ }
+      clone.play().catch(() => { });
+    } catch (e) { }
   }
 
   private checkBulletHit(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxRange: number = 50) {
@@ -2107,7 +1828,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const closestX = ox + dx * proj, closestY = oy + dy * proj, closestZ = oz + dz * proj;
         const distSq = (tx - closestX) ** 2 + (ty - closestY) ** 2 + (tz - closestZ) ** 2;
 
-        if (distSq < 1.0) { // Hit radius
+        if (distSq < 1.0) {
           this.spawnBlood(tx, ty, tz, dx, dy, dz);
           const dmg = WEAPON_DAMAGES[this.currentWeapon];
           if (isPlayer) {
@@ -2128,9 +1849,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     checkTargets(this.otherPlayers, true);
 
     checkTargets(this.serverPedestrians, false);
-    // FIX: localPedestrians were missing from hit detection — bullets
-    // passed right through them. They're the bulk of foot traffic, so
-    // most peds appeared unhittable ("background" pedestrians).
     checkTargets(this.localPedestrians, false);
     checkTargets(this.serverNPCs, false);
     checkTargets(this.parkedCars, false);
@@ -2172,18 +1890,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
-  /**
-   * FIX: Applies explosion-induced jump + push velocities to parked and
-   * traffic cars. Each car may have jumpVel, pushVelX, pushVelZ set by
-   * spawnExplosion(). We apply gravity to jumpVel and move the car, then
-   * decay the push velocity. When the car lands (y <= 0), we stop.
-   * This makes cars visibly "pop" when an explosion hits near them.
-   */
   private updateExplosionJumps(dt: number) {
     const GRAVITY = 20.0;
     const applyJump = (car: any) => {
       if (car.jumpVel === undefined && car.pushVelX === undefined && car.pushVelZ === undefined) return;
-      // Apply upward velocity + gravity
       if (car.jumpVel !== undefined && car.jumpVel > 0) {
         car._expY = (car._expY ?? 0) + car.jumpVel * dt;
         car.jumpVel -= GRAVITY * dt;
@@ -2192,10 +1902,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           car.jumpVel = 0;
         }
       }
-      // Apply push velocity (horizontal)
       if (car.pushVelX !== undefined && Math.abs(car.pushVelX) > 0.01) {
         car.x = (car.x ?? 0) + car.pushVelX * dt;
-        car.pushVelX *= 0.92; // friction
+        car.pushVelX *= 0.92;
       }
       if (car.pushVelZ !== undefined && Math.abs(car.pushVelZ) > 0.01) {
         car.z = (car.z ?? 0) + car.pushVelZ * dt;
@@ -2207,21 +1916,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const sn of this.serverNPCs) applyJump(sn);
   }
 
-  /**
-   * FIX: Garage system. Each frame:
-   * 1. Checks if the player is within GARAGE_DETECT_RADIUS of the entrance.
-   * 2. If yes: opens the door (animates openness → 1). Polls the server
-   *    for the stored car (every 2s) and renders it inside the garage.
-   * 3. If no: closes the door (animates openness → 0).
-   * 4. If the player just entered the garage on foot (not in a car),
-   *    and there's a stored car, auto-enter it.
-   * 5. If the player exits their car while inside the garage, store it.
-   * 6. If the player drives the car out of the garage (past the entrance),
-   *    remove it from the garage DB.
-   */
   private updateGarage(dt: number) {
-    // FIX: Count down the store cooldown so auto-enter is re-enabled
-    // after a few seconds.
     if (this.garageStoreCooldown > 0) {
       this.garageStoreCooldown -= dt;
     }
@@ -2231,17 +1926,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const dist = Math.sqrt(dx * dx + dz * dz);
     const nearGarage = dist < GARAGE_DETECT_RADIUS;
 
-    // Animate door
     if (nearGarage) {
       this.garageDoorOpenness = Math.min(1, this.garageDoorOpenness + GARAGE_DOOR_OPEN_SPEED * dt);
     } else {
       this.garageDoorOpenness = Math.max(0, this.garageDoorOpenness - GARAGE_DOOR_OPEN_SPEED * dt);
     }
 
-    // Poll server for stored car every 2 seconds when near garage.
-    // FIX: Skip the poll entirely while the store cooldown is active —
-    // otherwise the poll re-populates garageCar and after the cooldown
-    // expires, auto-enter fires, putting the player back in the car.
     if (nearGarage && this.garageStoreCooldown <= 0) {
       this.garagePollTimer += dt;
       if (this.garagePollTimer > 2) {
@@ -2257,7 +1947,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
                 colorB: res.colorB ?? 1,
                 yaw: res.yaw ?? 0,
               };
-              // Build the mesh for the stored car
               const col: [number, number, number] = [this.garageCar.colorR, this.garageCar.colorG, this.garageCar.colorB];
               if (this.garageCar.vehicleType === 'taxi') {
                 this.garageCarMesh = this.renderer.getTaxiMesh();
@@ -2283,11 +1972,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
 
-    // Check if player is inside the garage interior
     const inGarageInterior = this.isInGarageInterior();
 
-    // If the player just drove OUT of the garage (was inside, now not),
-    // and they're in a car, remove it from the garage DB.
     if (this.wasInGarage && !inGarageInterior && this.isInCar) {
       const userId = this.getUserId();
       if (userId) {
@@ -2298,11 +1984,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
 
-    // If the player is on foot near the garage and there's a stored car,
-    // auto-enter it — BUT only if the store cooldown has elapsed (prevents
-    // instantly re-entering the car the player just stored).
     if (nearGarage && !this.isInCar && !this.isPassenger && this.garageCar && this.garageCarMesh && this.garageStoreCooldown <= 0) {
-      // Place the player inside the stored car
       this.carX = GARAGE_INTERIOR_X;
       this.carZ = GARAGE_INTERIOR_Z;
       this.carYaw = this.garageCar.yaw;
@@ -2323,7 +2005,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         };
       }
       this.camDist = 8; this.camHeight = 3;
-      // Clear the stored car locally (server removal happens when driven out)
       this.garageCar = null;
       this.garageCarMesh = null;
     }
@@ -2331,18 +2012,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.wasInGarage = inGarageInterior;
   }
 
-  /** Returns true if the player is inside the garage interior zone. */
   private isInGarageInterior(): boolean {
     const dx = this.carX - GARAGE_INTERIOR_X;
     const dz = this.carZ - GARAGE_INTERIOR_Z;
-    return dx * dx + dz * dz < 10 * 10; // 10-unit radius interior
+    return dx * dx + dz * dz < 10 * 10;
   }
 
   private spawnExplosion(x: number, y: number, z: number) {
     this.explosions.push({ x, y, z, age: 0, lifetime: 1.0 });
 
-    const BLAST_RADIUS = 12.0; // FIX: Increased from 10 to 12 for chain reactions
-    const BLAST_MAX_DMG = 200; // FIX: Increased so cars near the blast explode too
+    const BLAST_RADIUS = 12.0;
+    const BLAST_MAX_DMG = 200;
     const BLAST_MIN_DMG = 50;
     const dmgAt = (dist: number) => {
       if (dist >= BLAST_RADIUS) return 0;
@@ -2388,14 +2068,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     checkExplosionHits(this.trafficCars, false, true);
     checkExplosionHits(this.localPedestrians, false);
 
-    // FIX: Also jump the player's own car if caught in the blast
     const selfDx = this.carX - x, selfDz = this.carZ - z;
     const selfDist = Math.sqrt(selfDx * selfDx + selfDz * selfDz);
     if (selfDist < BLAST_RADIUS && this.isInCar) {
       const jumpForce = (1 - selfDist / BLAST_RADIUS) * 8;
       this.carVy = Math.max(this.carVy ?? 0, jumpForce);
     }
- 
+
     const selfDmg = dmgAt(selfDist);
     if (selfDmg > 0) {
       if (this.isInCar) {
@@ -2403,13 +2082,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const passThrough = Math.round(selfDmg * 0.4);
         if (passThrough > 0) {
           this.health = Math.max(0, this.health - passThrough);
-          this.damageAlpha = 0.5; // FIX: trigger red flash for explosion damage
+          this.damageAlpha = 0.5;
           this.gtService.hit(this.getUserId(), this.getUserId(), 1, passThrough, this.carX, this.carZ);
           this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, selfDx, 0, selfDz);
         }
       } else {
         this.health = Math.max(0, this.health - selfDmg);
-        this.damageAlpha = 0.5; // FIX: trigger red flash for explosion damage
+        this.damageAlpha = 0.5;
         this.gtService.hit(this.getUserId(), this.getUserId(), 1, selfDmg, this.carX, this.carZ);
         this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, selfDx, 0, selfDz);
       }
@@ -2423,11 +2102,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (this.trafficCars.length < 35) this.spawnTrafficCar();
     }
 
-    // Update traffic light timers
     const lightPhase = Math.floor(performance.now() / 6000) % 2;
     const intersectionRadius = 14;
     const isRedForX = lightPhase === 0;
-
 
     if (Math.floor(this.carX / 80) !== this._lastTrafficChunkX || Math.floor(this.carZ / 80) !== this._lastTrafficChunkZ) {
       this._lastTrafficChunkX = Math.floor(this.carX / 80);
@@ -2518,7 +2195,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
                 const otherDx = odx / olen;
                 const otherDz = odz / olen;
                 const dot = Math.abs(ourDx * otherDx + ourDz * otherDz);
-                if (dot < 0.3) { // perpendicular = cross traffic
+                if (dot < 0.3) {
                   car.state = 'stop';
                   car.stopTimer = 0.5;
                   car.nextYaw = car.yaw;
@@ -2531,10 +2208,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
       }
 
-      // --- Collision detection: look ahead for obstacles ---
-      // Check other traffic cars, server NPCs, parked cars, lamp posts,
-      // and pedestrians. If something is directly ahead within 3m, stop.
-      // If within 6m, slow down.
       const carFwdX = Math.sin(car.yaw);
       const carFwdZ = Math.cos(car.yaw);
       let blocked = false;
@@ -2545,66 +2218,51 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const dz = oz - car.z;
         const dist = Math.hypot(dx, dz);
         if (dist > farR) return;
-        // Is it in front of the car? (dot product with forward direction)
         const dot = dx * carFwdX + dz * carFwdZ;
-        if (dot < 0) return; // behind us, ignore
+        if (dot < 0) return;
         if (dist < closeR) blocked = true;
         else slowDown = true;
       };
 
-      // Other traffic cars
       for (const other of this.trafficCars) {
         if (other.id === car.id || other.health <= 0) continue;
-        checkObstacle(other.x, other.z, 3.5, 7);
+        checkObstacle(other.x, other.z, 4.0, 8.0);
       }
-      // Server NPCs (cars/buses)
       for (const npc of this.serverNPCs) {
         if (npc.health <= 0) continue;
-        checkObstacle(npc.x, npc.z, 3.5, 7);
+        checkObstacle(npc.x, npc.z, 4.0, 8.0);
       }
-      // Parked cars
       for (const pc of this.parkedCars) {
         if (pc.health <= 0) continue;
-        checkObstacle(pc.x, pc.z, 3.5, 7);
+        checkObstacle(pc.x, pc.z, 4.0, 8.0);
       }
-      // Lamp posts (thin — use smaller radius)
       const nearbyLamps = this.renderer.getLampsNear(car.x, car.z, 8);
       for (const lamp of nearbyLamps) {
         checkObstacle(lamp.x, lamp.z, 2, 5);
       }
-      // Pedestrians — cars should slow down -> stop for peds in the road.
-      // Use bigger radii than for cars so braking starts earlier: slow
-      // from 6m, full stop at 3m. This gives the car visible deceleration
-      // before stopping, rather than a sudden halt.
-      // Local pedestrians (client-side spawned)
       for (const ped of this.localPedestrians) {
         if (ped.health <= 0) continue;
         checkObstacle(ped.x, ped.z, 3, 6);
       }
-      // Server pedestrians (synced from server)
       for (const ped of this.serverPedestrians) {
         if (ped.health <= 0) continue;
         checkObstacle(ped.x, ped.z, 3, 6);
       }
-      // Other players (human players connected to the server) — same
-      // treatment as peds. Cars must not drive through human players.
       for (const op of this.otherPlayers) {
         if (op.health <= 0) continue;
         checkObstacle(op.posX, op.posZ, 3, 6);
       }
 
-      if (blocked) {
-        car.state = 'stop';
-        car.stopTimer = 0.3;
-        car.nextYaw = car.yaw;
-        continue;
-      }
+      // FIX: Removed hard stop for blocked obstacles. 
+      // Instead of entering a 0.3s 'stop' state (which caused stop-and-go rubber banding),
+      // we just set speedMult to 0 so the car smoothly stops and resumes immediately.
+      // if (blocked) {
+      //   car.state = 'stop';
+      //   car.stopTimer = 0.3;
+      //   car.nextYaw = car.yaw;
+      //   continue;
+      // }
 
-      // --- Traffic light check ---
-      // Stop if approaching an intersection where the light is red for
-      // our direction. Horizontal roads (driving along X) stop when
-      // light is red for X; vertical roads (driving along Z) stop when
-      // red for Z. The phase alternates every 6s.
       if (nextNode && distToTarget < intersectionRadius) {
         const isHDir = Math.abs(nextNode.x - currNode.x) > Math.abs(nextNode.z - currNode.z);
         if ((isHDir && isRedForX) || (!isHDir && !isRedForX)) {
@@ -2615,19 +2273,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
       }
 
-      // --- Building collision for traffic cars ---
-      // Push car back onto the road if it's overlapping a building.
       this.pushTrafficCarOutOfBuildings(car);
 
-      // --- Advance to next node when we reach the intersection ---
       if (distToTarget < 2) {
         car.pathIdx++;
         if (car.pathIdx < car.path.length) {
-          // SHARP TURN: snap yaw to the new segment direction.
-          // This produces a crisp 90° turn at the intersection rather
-          // than a gradual curve.
           const newTarget = this.trafficNodes[car.path[car.pathIdx]];
           car.yaw = Math.atan2(newTarget.x - currNode.x, newTarget.z - currNode.z);
+          // FIX: Snap car to the intersection center to prevent corner cutting,
+          // which previously caused cars to clip buildings and get pushed backwards.
+          car.x = currNode.x + laneOffX;
+          car.z = currNode.z + laneOffZ;
         }
         continue;
       }
@@ -2635,6 +2291,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       let speedMult = 1.0;
       if (approachingTurn) speedMult *= 0.35;
       if (slowDown) speedMult *= 0.4;
+      if (blocked) speedMult = 0.0; // FIX: Smooth stop instead of hard stop
+
       const tdx = targetX - car.x;
       const tdz = targetZ - car.z;
       const targetYaw = Math.atan2(tdx, tdz);
@@ -2647,7 +2305,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       car.x += Math.sin(car.yaw) * speed * dt;
       car.z += Math.cos(car.yaw) * speed * dt;
     }
-    // Push server NPCs out of buildings too (they don't use the lane system)
+
     for (const npc of this.serverNPCs) this.pushTrafficCarOutOfBuildings(npc);
   }
 
@@ -2663,10 +2321,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const seed = (chunkCX * 100003 + chunkCZ * 70001) >>> 0;
         const m32 = (s: number) => { let seed2 = s | 0; return () => { seed2 = seed2 + 0x6D2B79F5 | 0; let t = Math.imul(seed2 ^ seed2 >>> 15, 1 | seed2); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; };
         const rng = m32(seed);
-        // Skip the hospital chunk
         if (chunkCX === 0 && chunkCZ === 0) continue;
-        // Home base chunk (1,0) always acts as a full-block building
-        // so NPCs are pushed out of the player's home area.
         if (chunkCX === 1 && chunkCZ === 0) {
           const blockCX = 1 * CHUNK_SIZE + CHUNK_SIZE / 2;
           const blockCZ = 0 * CHUNK_SIZE + CHUNK_SIZE / 2;
@@ -2750,9 +2405,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.pedSpawnTimer = 0;
       const srcNode = filteredNodes[Math.floor(Math.random() * filteredNodes.length)];
       const dstNode = filteredNodes[Math.floor(Math.random() * filteredNodes.length)];
-      // NEW: ~15% of spawned peds are hookers (type='hooker',
-      // gender='hooker'). Hookers use the dedicated hookerMesh and can
-      // be picked up as passengers via E.
       const isHooker = Math.random() < 0.15;
       const gender = isHooker ? 'hooker' : (Math.random() < 0.5 ? 'male' : 'female');
       const type = isHooker ? 'hooker' : undefined;
@@ -2903,7 +2555,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.serverPedestrians = this.serverPedestrians.filter(p => p.health > 0);
     this.parkedCars = this.parkedCars.filter(pc => pc.health > 0);
 
-    // Water submersion: cars in ocean biome sink and then burn (skip for boats)
     if (this.isInCar && this.carHealth > 0 && this.vehicleType !== 'boat') {
       const ocx = Math.floor(this.carX / 80), ocz = Math.floor(this.carZ / 80);
       const inOcean = !(ocx >= -2 && ocx <= 3 && ocz >= -2 && ocz <= 2) &&
@@ -2935,7 +2586,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
 
-    // Player car fire system (land-based)
     if (this.isInCar && this.carHealth > 0 && !this._carSubmerged && this.carHealth <= 80 && !this._carOnFire) {
       this._carOnFire = true;
       this._carFireStarted = performance.now() / 1000;
@@ -3058,7 +2708,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.vendingMachines,
         renderMesh,
         this.taxiMarkers,
-
         (() => {
           const attached: any[] = [];
           if (this.driverInCarMesh) attached.push(this.driverInCarMesh);
@@ -3072,16 +2721,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               scale: this.passenger.scale,
             });
           }
-
           attached.push(...this.taxiAttachedMeshes);
           return attached;
         })(),
         this._carOnFire, this._carFireX, this._carFireZ, this._carFireYaw,
         this.trafficNodes,
         this.viewDistance,
-        !this.isMobile 
+        !this.isMobile
       );
-      // First-person weapon overlay
       if (this.firstPerson && !this.isInCar) {
         const anims = this.pickFirstPersonAnims();
         this.renderer.renderFirstPersonWeapon(
@@ -3101,7 +2748,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.damageAlpha > 0) {
       this.damageAlpha = Math.max(0, this.damageAlpha - dt * 1.5);
     }
-    
+
     this.hudSpeed = Math.abs(this.carSpeed) * (this.isInCar ? 3.6 : 1);
     this.animFrameId = requestAnimationFrame(this.gameLoop);
   };
@@ -3156,29 +2803,25 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     let accelForce = 0;
     let isReversing = false;
 
-    // Keyboard
     if (this.keys.has('KeyW')) accelForce = 25;
     if (this.keys.has('KeyS')) {
-      if (this.carSpeed > 1) { accelForce = -45; } // Braking
-      else { isReversing = true; accelForce = -15; } // Reverse
+      if (this.carSpeed > 1) { accelForce = -45; }
+      else { isReversing = true; accelForce = -15; }
     }
 
     let steer = 0;
     if (this.keys.has('KeyA')) steer = 1;
     if (this.keys.has('KeyD')) steer = -1;
 
-    // Mobile joystick: Y axis (forward/back) = accelerate/brake,
-    // X axis (left/right) = steer.joystickY > 0 = push up = forward.
     if (this.isMobile && this.joystickActive) {
       if (this.joystickY > 0.1) accelForce = 25 * this.joystickY;
       else if (this.joystickY < -0.1) {
         if (this.carSpeed > 1) { accelForce = -45 * (-this.joystickY); }
         else { isReversing = true; accelForce = -15 * (-this.joystickY); }
       }
-      steer += -this.joystickX; // joystickX > 0 = right = steer right (-1)
+      steer += -this.joystickX;
     }
 
-    // Steering effectiveness depends on speed
     const speedFactor = Math.min(1, Math.abs(this.carSpeed) / 5);
     const steerDir = this.carSpeed < -0.5 ? -1 : 1;
     this.carYaw += steer * 2.5 * dt * speedFactor * steerDir;
@@ -3191,23 +2834,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const forwardX = Math.sin(this.carYaw), forwardZ = Math.cos(this.carYaw);
     const rightX = Math.cos(this.carYaw), rightZ = -Math.sin(this.carYaw);
 
-    // Decompose velocity into forward and lateral components
     let fwdSpeed = this.carVx * forwardX + this.carVz * forwardZ;
     let latSpeed = this.carVx * rightX + this.carVz * rightZ;
 
-    // Rolling friction
     fwdSpeed *= Math.max(0, 1 - 1.5 * dt);
 
-    // Lateral grip (Handbrake reduces grip to allow drifting)
     const isHandbraking = this.keys.has('Space');
     const grip = isHandbraking ? 1.5 : 12.0;
     latSpeed *= Math.max(0, 1 - grip * dt);
 
-    // Recompose velocity
     this.carVx = fwdSpeed * forwardX + latSpeed * rightX;
     this.carVz = fwdSpeed * forwardZ + latSpeed * rightZ;
 
-    // Speed clamp
     const maxSpd = isReversing ? 15 : 55;
     const currentSpd = Math.hypot(this.carVx, this.carVz);
     if (currentSpd > maxSpd) {
@@ -3215,7 +2853,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.carVz = (this.carVz / currentSpd) * maxSpd;
     }
 
-    this.carSpeed = fwdSpeed; // HUD Speed
+    this.carSpeed = fwdSpeed;
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
     this.carY = CAR_HEIGHT;
@@ -3226,7 +2864,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     let accelForce = 0;
     let isReversing = false;
 
-    // Keyboard
     if (this.keys.has('KeyW')) accelForce = 35;
     if (this.keys.has('KeyS')) {
       if (this.carSpeed > 1) accelForce = -50;
@@ -3237,7 +2874,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.keys.has('KeyA')) steer = 1;
     if (this.keys.has('KeyD')) steer = -1;
 
-    // Mobile joystick
     if (this.isMobile && this.joystickActive) {
       if (this.joystickY > 0.1) accelForce = 35 * this.joystickY;
       else if (this.joystickY < -0.1) {
@@ -3263,7 +2899,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     let latSpeed = this.carVx * rightX + this.carVz * rightZ;
 
     fwdSpeed *= Math.max(0, 1 - 1.0 * dt);
-    // Motorcycles have very high grip
     latSpeed *= Math.max(0, 1 - 20.0 * dt);
 
     this.carVx = fwdSpeed * forwardX + latSpeed * rightX;
@@ -3326,26 +2961,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private updateHelicopter(dt: number) {
     const maxSpeed = 35, climbRate = 10, yawSpeed = 2.0;
 
-    // The helicopter yaw follows the camera yaw (like GTA)
     this.carYaw = this.camYaw;
 
-    // W = ascend, S = descend (collective)
     if (this.keys.has('KeyW')) this.carVy = Math.min(this.carVy + climbRate * dt, 8);
     else if (this.keys.has('KeyS')) this.carVy = Math.max(this.carVy - climbRate * dt, -8);
     else this.carVy *= 0.92;
 
-    // Forward/backward tilt based on camera pitch
     const fwdTilt = Math.max(-1, Math.min(1, -this.camPitch * 0.8));
     this.carPitch = -fwdTilt * 0.3;
 
-    // Move in camera direction
     const forwardX = Math.sin(this.carYaw), forwardZ = Math.cos(this.carYaw);
     const targetVx = forwardX * fwdTilt * maxSpeed;
     const targetVz = forwardZ * fwdTilt * maxSpeed;
     this.carVx += (targetVx - this.carVx) * Math.min(1, 3 * dt);
     this.carVz += (targetVz - this.carVz) * Math.min(1, 3 * dt);
 
-    // Side movement with A/D
     const rightX = Math.cos(this.carYaw), rightZ = -Math.sin(this.carYaw);
     let sideInput = 0;
     if (this.keys.has('KeyA')) sideInput = 1;
@@ -3356,7 +2986,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.carRoll = this.carRoll * 0.95 + sideInput * 0.2 * dt;
 
-    // Q/E for yaw pedals (subtle adjustment)
     if (this.keys.has('KeyQ')) this.camYaw -= yawSpeed * dt;
     if (this.keys.has('KeyE')) this.camYaw += yawSpeed * dt;
 
@@ -3371,41 +3000,33 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private updatePlane(dt: number) {
     const accel = 20, maxSpeed = 70, stallSpeed = 8, turnSpeed = 1.2;
 
-    // Throttle
     if (this.keys.has('KeyW')) this.carSpeed = Math.min(this.carSpeed + accel * dt, maxSpeed);
     if (this.keys.has('KeyS')) this.carSpeed = Math.max(this.carSpeed - accel * dt, 0);
 
-    // Mobile: joystick Y = throttle
     if (this.isMobile && this.joystickActive) {
       if (this.joystickY > 0.1) this.carSpeed = Math.min(this.carSpeed + accel * this.joystickY * dt, maxSpeed);
       else if (this.joystickY < -0.1) this.carSpeed = Math.max(this.carSpeed + accel * this.joystickY * dt, 0);
     }
 
-    // Pitch & roll with A/D (yaw at low speed, roll at high speed)
     if (this.keys.has('KeyA')) this.carRoll = Math.max(-0.8, this.carRoll - 1.5 * dt);
     if (this.keys.has('KeyD')) this.carRoll = Math.min(0.8, this.carRoll + 1.5 * dt);
 
-    // Pitch with mouse
     if (this.isPointerLocked) {
       const pitchInput = -this.camPitch * 0.3;
       this.carPitch = Math.max(-0.5, Math.min(0.5, this.carPitch + pitchInput));
     }
 
-    // Pitch with space/shift if no mouse
     if (this.keys.has('Space')) this.carPitch = Math.max(-0.5, this.carPitch - 1.5 * dt);
     else if (this.keys.has('ShiftLeft')) this.carPitch = Math.min(0.5, this.carPitch + 1.5 * dt);
     else if (!this.isPointerLocked) this.carPitch *= 0.95;
 
-    // Banked turn: roll induces yaw
     const bankFactor = this.carRoll * 1.5;
     this.carYaw += bankFactor * turnSpeed * dt * Math.min(1, this.carSpeed / 20);
 
-    // Roll returns to level when no input
     if (!this.keys.has('KeyA') && !this.keys.has('KeyD')) {
       this.carRoll *= Math.max(0, 1 - 2.0 * dt);
     }
 
-    // Lift physics: lift = speed^2 * cos(pitch) * liftFactor
     const liftFactor = 0.006;
     const speed = this.carSpeed;
     const cosPitch = Math.cos(this.carPitch);
@@ -3413,15 +3034,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const lift = speed * speed * cosPitch * liftFactor;
     const dragForce = speed * 0.02;
 
-    // Gravity
     const gravity = -5;
 
-    // Vertical velocity: lift + thrust vertical component + gravity
     const thrustVy = speed * sinPitch * 0.3;
     this.carVy += (lift + thrustVy + gravity - this.carVy * 0.5) * dt;
     this.carSpeed -= dragForce * dt;
 
-    // Stall: lose lift at low speed
     if (speed < stallSpeed && this.carPitch < -0.05) {
       this.carVy += (gravity * 1.5) * dt;
     }
@@ -3431,7 +3049,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carZ += forwardZ * this.carSpeed * dt;
     this.carY += this.carVy * dt;
 
-    // Ground collision: land or crash
     if (this.carY < CAR_HEIGHT) {
       if (this.carSpeed > stallSpeed && Math.abs(this.carPitch) > 0.3) {
         this.carHealth -= 50 * dt;
@@ -3448,12 +3065,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const cz = Math.floor(this.carZ / CHUNK_SIZE);
     const margin = this.isInCar ? 1.5 : 0.5;
 
-    // FIX: Skip building collision at the home base chunk (1, 0) when
-    // near the garage. This allows the player to drive into the garage.
-    // The home base building is replaced by the japaneseShop model, and
-    // the garage entrance is on the south side. We disable collision for
-    // the entire chunk when the player is within the garage detection
-    // radius so they can drive in and out smoothly.
     const garageDx = this.carX - GARAGE_ENTRANCE_X;
     const garageDz = this.carZ - GARAGE_ENTRANCE_Z;
     const nearGarage = (garageDx * garageDx + garageDz * garageDz) < (GARAGE_DETECT_RADIUS * GARAGE_DETECT_RADIUS);
@@ -3462,7 +3073,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       for (let dx = -1; dx <= 1; dx++) {
         const chunkCX = cx + dx;
         const chunkCZ = cz + dz;
-        // Skip the home base chunk when near the garage
         if (nearGarage && chunkCX === 1 && chunkCZ === 0) continue;
         this.renderer.getCityChunk(chunkCX, chunkCZ);
         this.checkBuildingsInChunk(chunkCX, chunkCZ, margin);
@@ -3502,9 +3112,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
-  // Regenerate vending machine positions when the player moves to a new
-  // 80m chunk. Vending machines are placed at grid intersections where
-  // (gx % 10 === 0 && gz % 10 === 0), giving one per 800m × 800m area.
   private updateVendingMachines() {
     const chunkX = Math.floor(this.carX / 80);
     const chunkZ = Math.floor(this.carZ / 80);
@@ -3513,22 +3120,19 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this._lastVendingChunkZ = chunkZ;
 
     this.vendingMachines = [];
-    const range = 3;  // generate in a 7x7 chunk area around the player
+    const range = 3;
     for (let dz = -range; dz <= range; dz++) {
       for (let dx = -range; dx <= range; dx++) {
         const gx = chunkX + dx;
         const gz = chunkZ + dz;
-        // Only place a vending machine at every 10th grid intersection
         if (((gx % VENDING_MACHINE_INTERVAL) + VENDING_MACHINE_INTERVAL) % VENDING_MACHINE_INTERVAL !== 0) continue;
         if (((gz % VENDING_MACHINE_INTERVAL) + VENDING_MACHINE_INTERVAL) % VENDING_MACHINE_INTERVAL !== 0) continue;
-        // Place at the block corner (sidewalk edge), facing the road
         const baseX = gx * 80;
         const baseZ = gz * 80;
-        // Offset to the sidewalk corner
         this.vendingMachines.push({
           x: baseX + VENDING_MACHINE_OFFSET,
           z: baseZ + VENDING_MACHINE_OFFSET,
-          yaw: -Math.PI / 4,  // face toward the intersection
+          yaw: -Math.PI / 4,
         });
       }
     }
@@ -3659,8 +3263,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (b.y <= 0.02) {
         b.y = 0.02;
         b.vx = 0; b.vy = 0; b.vz = 0;
-        // Only drop one pool per particle, and only if the particle has lived
-        // long enough to have travelled (avoids 14 pools stacking at impact).
         if (b.age > 0.05 && b.age < 0.15 && Math.random() < 0.5) {
           this.bloodPools.push({ x: b.x, z: b.z, age: 0, lifetime: 30, maxRadius: 0.6, variant: Math.floor(Math.random() * 4) });
         }
@@ -3675,7 +3277,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
       let hit = false;
       if (r.y <= 0) hit = true;
-      // Simple collision check with NPCs
       for (const npc of [...this.serverNPCs, ...this.parkedCars]) {
         if (Math.sqrt((npc.x - r.x) ** 2 + (npc.z - r.z) ** 2) < 2) { hit = true; break; }
       }
@@ -3696,9 +3297,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const p of this.otherPlayers) {
       if (!p.isShooting) { p.remoteShootTimer = 0; continue; }
 
-      // FIX: Fire immediately when shooting just started (timer was 0),
-      // then every 0.15s for continuous fire. Previously the first shot
-      // was delayed by 0.15s, so quick taps produced no muzzle flash.
       const wasZero = p.remoteShootTimer === 0;
       p.remoteShootTimer += dt;
       if (!wasZero && p.remoteShootTimer < 0.15) continue;
@@ -3708,12 +3306,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const rdirY = -Math.sin(p.camPitch);
       const rdirZ = Math.cos(p.camYaw) * Math.cos(p.camPitch);
 
-      // FIX: Use the correct Y offset based on whether the remote
-      // player is in a car. Players in cars have their muzzle at
-      // posY + 0.5 (window height), on foot it's posY + 1.2.
       const originY = p.posY + (p.isInCar ? 0.5 : 1.2);
 
-      // FIX: Weapon 4 is the Rocket Launcher, not weapon 3 (Shotgun).
       if (p.weapon === 4) {
         this.rockets.push({
           x: p.posX, y: originY, z: p.posZ,
@@ -3727,9 +3321,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           dirX: rdirX, dirY: rdirY, dirZ: rdirZ,
           age: 0, lifetime: 0.3
         });
-        // FIX: Spawn a muzzle flash at the correct position so other
-        // players see the gun firing. Use the remote player's weapon
-        // type for proper flash scaling.
         this.muzzleFlashes.push({
           x: p.posX, y: originY, z: p.posZ,
           dirX: rdirX, dirY: rdirY, dirZ: rdirZ,
@@ -3740,12 +3331,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
-  /**
-   * NEW: Per-frame check for cop shooting. The server sets isShootingAt
-   * on cop NPCs when they fire at the player. We spawn a tracer from the
-   * cop toward the local player and play a pistol sound. This runs every
-   * frame so we catch every shot, not just when the player takes damage.
-   */
   private updateCopShooting() {
     const checkNPC = (npc: any) => {
       if (npc.type !== 'cop' && npc.type !== 'police') return;
@@ -3774,10 +3359,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const ped of this.serverPedestrians) checkNPC(ped);
   }
 
-  /**
-   * Plays the police siren loop when any police NPC is near the player
-   * and the wanted level is > 0. Volume attenuates with distance.
-   */
   private updatePoliceSiren() {
     const siren = this.policeSirenSound;
     if (!siren) return;
@@ -3810,46 +3391,29 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   private pickFirstPersonAnims(): { arms: string; mark23: string | null } {
     if (this.currentWeapon === 1) {
-      // Pistol
       if (this.isShooting) return { arms: 'finger_gun_fire', mark23: 'Shoot' };
       if (this._reloading) return { arms: 'finger_gun_fix', mark23: 'Reload' };
-      // When you just switched to the pistol, play Draw once, then Hide after unequip.
-      // Simple heuristic: use 'Draw' for the first 0.5s after switching, else 'Hide' pose.
       if (this._pistolDrawTimer > 0) return { arms: 'finger_gun_idle', mark23: 'Draw' };
       return { arms: 'finger_gun_idle', mark23: 'Hide' };
     }
-    // Unarmed
     if (this.punchTimer > 0) return { arms: 'jab.R', mark23: null };
     return { arms: 'relax', mark23: null };
   }
-  /**
-   * NEW: Hooker "services" logic. If the player is in a car with a
-   * hooker passenger and no other NPCs/pedestrians/players are nearby
-   * (secluded area), the car starts rocking, the player's health
-   * regenerates slowly, and their money drains (capped at $80 total
-   * per session). The rocking is applied as a Y-offset oscillation
-   * on carY, read by the renderer via the carRocking flag.
-   */
+
   private updatePassenger(dt: number) {
-    // Reset rocking state by default
     this.carRocking = false;
 
     if (!this.isInCar || !this.passenger) {
       this.carRockPhase = 0;
-      // Reset the money-drained counter when the passenger leaves so
-      // a new session can drain up to $80 again.
       if (!this.passenger) this.hookerMoneyDrained = 0;
       return;
     }
 
-    // The car must be stopped (or nearly stopped) for the service to occur.
     if (Math.abs(this.carSpeed) > 1) {
       this.carRockPhase = 0;
       return;
     }
 
-    // Check if the area is secluded: no NPCs, pedestrians, parked cars,
-    // or other players within HOOKER_SECLUDED_RADIUS.
     const r = HOOKER_SECLUDED_RADIUS;
     const rSq = r * r;
     const isNear = (x: number, z: number) => {
@@ -3869,59 +3433,32 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       return;
     }
 
-    // Secluded + stopped + has hooker passenger → start rocking
     this.carRocking = true;
-    this.carRockPhase += dt * 3; // rocking speed (3 rad/s ≈ ~2 rocks/sec)
+    this.carRockPhase += dt * 3;
 
-    // Regenerate health (cap at 100)
     if (this.health < 100) {
       this.health = Math.min(100, this.health + HOOKER_HEAL_PER_SEC * dt);
     }
 
-    // Drain money (cap at HOOKER_MAX_MONEY total per session)
     if (this.hookerMoneyDrained < HOOKER_MAX_MONEY && this.money > 0) {
       const drain = Math.min(
         HOOKER_MONEY_PER_SEC * dt,
         HOOKER_MAX_MONEY - this.hookerMoneyDrained,
-        this.money // can't go below 0
+        this.money
       );
       this.money -= Math.floor(drain);
       this.hookerMoneyDrained += drain;
     }
   }
 
-  /**
-   * NEW: Returns the car-rocking Y-offset for the current frame.
-   * Called by the renderer (or inline in the render call) to apply
-   * a vertical bounce to the car while the hooker service is active.
-   * Returns 0 when not rocking.
-   */
   getCarRockOffset(): number {
     if (!this.carRocking) return 0;
-    return Math.sin(this.carRockPhase) * 0.08; // ±8cm bounce
+    return Math.sin(this.carRockPhase) * 0.08;
   }
 
-
-  /** --- NPC path smoothing ---
-  
-  pollNPCs() runs every 1s. Between polls, we lerp each NPC's
-  rendered position from its `prev` (where it was at the last poll)
-  to its `target` (where the server says it is now). After 1s
-  elapses, we keep dead-reckoning along targetYaw at the NPC's
-  server-reported speed until the next poll arrives — so a fast-
-  moving police car stays roughly where it should be even with
-  1s of network latency, instead of freezing in place.
-  
-  Yaw is interpolated through the shorter arc (angle-wrap aware)
-  so a car turning from yaw=350° to yaw=10° rotates forward 20°
-  instead of backward 340°.  */
   private updateNPCInterpolation() {
     const now = performance.now();
-    // Must match the npcPollTimer interval in startNPCPolling().
     const POLL_INTERVAL = 1000;
-    // Allow dead-reckoning to overshoot by up to 1 extra poll interval
-    // before clamping — gives slow polls some slack without letting
-    // NPCs fly off into infinity if the server stops responding.
     const MAX_T = 2.0;
 
     const interp = (npc: any) => {
@@ -3929,20 +3466,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const elapsed = now - npc.lastUpdate;
       const t = Math.min(MAX_T, elapsed / POLL_INTERVAL);
       if (t <= 1) {
-        // Linear interpolation between prev and target.
         npc.x = npc.prevX + (npc.targetX - npc.prevX) * t;
         npc.z = npc.prevZ + (npc.targetZ - npc.prevZ) * t;
         if (npc.prevY !== undefined && npc.targetY !== undefined)
           npc.y = npc.prevY + (npc.targetY - npc.prevY) * t;
-        // Yaw: interpolate through the shorter arc.
         let yawDiff = npc.targetYaw - npc.prevYaw;
         while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
         while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
         npc.yaw = npc.prevYaw + yawDiff * t;
       } else {
-        // Dead-reckon beyond target using the server-reported speed.
-        // Without this, a fast-moving car would freeze at its last
-        // known position for up to 1s every poll, looking choppy.
         const overshootSec = (elapsed - POLL_INTERVAL) / 1000;
         const dist = (npc.speed || 0) * overshootSec;
         npc.x = npc.targetX + Math.sin(npc.targetYaw) * dist;
@@ -3955,42 +3487,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const ped of this.serverPedestrians) interp(ped);
   }
 
-  /** --- Taxi mission implementation --- 
-  State machine:
-    idle    -> (every 4s, pick nearest ped within 60m) -> pickup
-    pickup  -> (taxi within 5m and stopped)             -> deliver
-    deliver -> (taxi within 6m of dest and stopped)     -> payout -> idle
-    ANY     -> (player exits taxi / ped despawns)        -> idle
-  
-  Markers built each frame go into `this.taxiMarkers` which is
-  consumed by render() (3D arrow + ground ring + beam) and drawMap()
-  (minimap blip at the destination). 
-
-  Live countdown for the HUD: ceil(4 - elapsed), clamped to 0.
-  Computed every frame regardless of whether we're still in
-  cooldown so the HUD always shows a sensible number.
-  
-  Keep the markers empty during the cooldown so the previous
-  arrow disappears immediately after a payout.
-
-  Find the nearest pedestrian (server + local) within 60m of
-  the taxi. Server peds get priority because their positions
-  are shared across multiplayer clients.
-  
-  We use a `findBest()` helper that RETURNS the candidate rather
-  than mutating a `let best` variable. TypeScript's control-flow
-  analysis narrows a `let x: T | null = null` to `null` after the
-  initializer, and (with strict mode) doesn't always widen it
-  back at use sites when the assignment happens inside a closure
-  — leaving `best` typed as `never` inside `if (best) { ... }`.
-  Returning the value from a function forces TS to treat the
-  return type as the declared `T | null`, sidestepping the bug.
-  */
   private updateTaxiMission(dt: number) {
-    // Refresh the convenience flag for the template.
     this.taxiMode = this.isInCar && this.vehicleType === 'taxi';
 
-    // If the player is no longer driving a taxi, drop everything.
     if (!this.taxiMode) {
       this.taxiMission = null;
       this.taxiMarkers = [];
@@ -4000,7 +3499,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
 
     if (this.taxiMission === null) {
-      // Hunt for a hailing pedestrian.
       this.taxiSearchTimer += dt;
       this.taxiSearchCountdown = Math.max(0, Math.ceil(4 - this.taxiSearchTimer));
       if (this.taxiSearchTimer < 4) {
@@ -4013,8 +3511,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         let result: TaxiCandidate | null = null;
         let resultDistSq = PICKUP_SCAN_RADIUS * PICKUP_SCAN_RADIUS;
         const consider = (id: number, x: number, z: number, mesh: CityMesh | CityMesh[], gender: string) => {
-          // Don't pick up a ped we're already mid-mission with, and skip
-          // cops (they're chasing the player, not commuting).
           if (this.stolenNpcIds.has(id)) return;
           const dx = x - this.carX, dz = z - this.carZ;
           const dSq = dx * dx + dz * dz;
@@ -4119,10 +3615,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           { type: 'beam', x: m.destinationX, z: m.destinationZ },
         ];
 
-        // Timer countdown — fare gets out if it expires.
         m.timer = Math.max(0, m.timer - dt);
         if (m.timer <= 0) {
-          // Fare leaves the cab — no payout, streak broken.
           const walkAngle = Math.random() * Math.PI * 2;
           const walkDist = 15;
           const pedId = --this.pedIdCounter;
@@ -4146,24 +3640,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           return;
         }
 
-        // Drop-off check: taxi within 6m of destination and stopped.
         const dx = m.destinationX - this.carX, dz = m.destinationZ - this.carZ;
         const dropDist = Math.sqrt(dx * dx + dz * dz);
         if (dropDist < 6 && Math.abs(this.carSpeed) < 3) {
-          // Payout!
           this.money += m.fare;
-          // Spawn a money stack at the destination so it FEELS like
-          // getting paid — the existing money-pickup logic will
-          // collect it on the next frame.
           this.moneyStacks.push({
             x: m.destinationX, z: m.destinationZ,
             amount: m.fare,
             yaw: Math.random() * Math.PI * 2,
             age: 0, lifetime: 30,
           });
-          // Drop the passenger at the destination — they walk away
-          // from the cab for ~25m then despawn when out of range (the
-          // existing localPedestrians distance cull handles that).
           const walkAngle = Math.random() * Math.PI * 2;
           const walkDist = 25;
           const pedId = --this.pedIdCounter;
@@ -4179,10 +3665,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             targetZ: m.destinationZ + Math.cos(walkAngle) * walkDist,
             waitTimer: 0,
           });
-          // Reset for the next fare. The search timer makes the
-          // player wait ~4s before the next ped spawns a hail marker,
-          // which gives the dropped passenger time to walk away
-          // without immediately being re-flagged as a target.
           this.taxiMission = null;
           this.taxiMarkers = [];
           this.taxiAttachedMeshes = [];
@@ -4193,7 +3675,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.taxiMarkers = [];
     }
   }
-
 
   get leaderboardData(): { userId: number; money: number; health: number; carSpeed: number }[] {
     const all = [...this.otherPlayers];
@@ -4230,32 +3711,25 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const scale = 0.5;
     const cx = 150, cy = 150;
 
-    // Draw others
     ctx.fillStyle = '#ff0000';
     for (const p of this.otherPlayers) {
       ctx.beginPath(); ctx.arc(cx + (p.posX - this.carX) * scale, cy + (p.posZ - this.carZ) * scale, 3, 0, Math.PI * 2); ctx.fill();
     }
 
-    // Draw NPCs
     ctx.fillStyle = '#ffff00';
     for (const npc of [...this.serverNPCs, ...this.parkedCars]) {
       ctx.beginPath(); ctx.arc(cx + (npc.x - this.carX) * scale, cy + (npc.z - this.carZ) * scale, 2, 0, Math.PI * 2); ctx.fill();
     }
 
-    // Draw self
     ctx.fillStyle = '#00ff00';
     ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
 
-    // FIX: Draw home base (japaneseShop) as a special marker — a purple
-    // diamond with "H" label so players can find their way back.
     {
       const hbx = cx + (HOME_BASE_X - this.carX) * scale;
       const hby = cy + (HOME_BASE_Z - this.carZ) * scale;
-      // Pulsing glow
       const pulse = 8 + Math.sin(performance.now() / 400) * 2;
       ctx.fillStyle = 'rgba(180, 100, 255, 0.3)';
       ctx.beginPath(); ctx.arc(hbx, hby, pulse, 0, Math.PI * 2); ctx.fill();
-      // Diamond marker
       ctx.fillStyle = '#b464ff';
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 1.5;
@@ -4266,7 +3740,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       ctx.lineTo(hbx - 6, hby);
       ctx.closePath();
       ctx.fill(); ctx.stroke();
-      // Label
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 9px sans-serif';
       ctx.textAlign = 'center';
@@ -4276,19 +3749,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       ctx.textBaseline = 'alphabetic';
     }
 
-    // Taxi mission: draw the destination as a pulsing yellow ring + a
-    // line from the player to the destination so it's easy to follow.
     if (this.taxiMission && this.taxiMission.state === 'deliver') {
       const m = this.taxiMission;
       const mx = cx + (m.destinationX - this.carX) * scale;
       const my = cy + (m.destinationZ - this.carZ) * scale;
-      // Dashed line from player to destination
       ctx.strokeStyle = 'rgba(255, 220, 0, 0.7)';
       ctx.lineWidth = 2;
       ctx.setLineDash([5, 5]);
       ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(mx, my); ctx.stroke();
       ctx.setLineDash([]);
-      // Pulsing ring
       const pulse = 5 + Math.sin(performance.now() / 200) * 2;
       ctx.strokeStyle = '#ffdc00';
       ctx.lineWidth = 2;
@@ -4296,8 +3765,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       ctx.fillStyle = '#ffdc00';
       ctx.beginPath(); ctx.arc(mx, my, 2, 0, Math.PI * 2); ctx.fill();
     }
-    // Taxi mission: show the hailing pedestrian as a yellow exclamation
-    // point on the minimap during the pickup phase.
     if (this.taxiMission && this.taxiMission.state === 'pickup') {
       const m = this.taxiMission;
       const mx = cx + (m.passengerX - this.carX) * scale;
@@ -4343,7 +3810,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       });
     }
   }
-
 
   async closeLoginPanel() {
     await this.ngOnInit();
