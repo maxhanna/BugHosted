@@ -455,7 +455,9 @@ namespace maxhanna.Server.Controllers
 		private const float HOME_BASE_Z = 40f;
 		private const float HOME_BASE_YAW = 0f;
 		private const int INACTIVITY_RESPAWN_MINUTES = 30;
-		[HttpPost("UpdatePosition")]
+        public float SPEED_FACTOR { get; private set; } = 0.5f;
+
+        [HttpPost("UpdatePosition")]
 		public async Task<IActionResult> UpdatePosition([FromBody] GTUpdatePositionRequest req)
 		{
 			if (req.UserId <= 0) return BadRequest(new { ok = false });
@@ -758,18 +760,22 @@ namespace maxhanna.Server.Controllers
 						// Aircraft movement in UpdatePosition
 						if (npc.Type == "helicopter" || npc.Type == "plane")
 						{
-							float acAlt = npc.Type == "helicopter" ? 25f + (float)(rng.NextDouble() * 10f) : 45f + (float)(rng.NextDouble() * 15f);
+							var airRng = new Random();
+							float acAlt = npc.Type == "helicopter" ? 25f + (float)(airRng.NextDouble() * 10f) : 45f + (float)(airRng.NextDouble() * 15f);
 							if (npc.Y == 0) npc.Y = acAlt;
 							npc.Y += (acAlt - npc.Y) * 0.02f;
-							if (dist > 10f)
+							float adx = npc.TargetX - npc.X;
+							float adz = npc.TargetZ - npc.Z;
+							float adist = (float)Math.Sqrt(adx * adx + adz * adz);
+							if (adist > 10f)
 							{
-								npc.X += (dx / dist) * npc.Speed * 0.1f;
-								npc.Z += (dz / dist) * npc.Speed * 0.1f;
-								npc.Yaw = (float)Math.Atan2(dx, dz);
+								npc.X += (adx / adist) * npc.Speed * 0.1f;
+								npc.Z += (adz / adist) * npc.Speed * 0.1f;
+								npc.Yaw = (float)Math.Atan2(adx, adz);
 							}
 							else
 							{
-								GetRandomAeroportOrDistantPoint(npc.X, npc.Z, out float tx, out float tz, rng);
+								GetRandomAeroportOrDistantPoint(npc.X, npc.Z, out float tx, out float tz, airRng);
 								npc.TargetX = tx;
 								npc.TargetZ = tz;
 							}
