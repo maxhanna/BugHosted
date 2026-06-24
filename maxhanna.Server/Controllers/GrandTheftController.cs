@@ -338,6 +338,7 @@ namespace maxhanna.Server.Controllers
 		private const float COP_ORBIT_SPEED = 0.9f;
 		private static readonly ConcurrentDictionary<int, PlayerShootState> _shootingPlayers = new();
 		private static readonly ConcurrentDictionary<int, int> _playerHealth = new();
+		private static readonly ConcurrentDictionary<int, int> _lastClientHealth = new();
 		private static readonly ConcurrentDictionary<int, float> _playerX = new();
 		private static readonly ConcurrentDictionary<int, float> _playerZ = new();
 		private static readonly ConcurrentDictionary<int, string> _playerModelUrls = new();
@@ -504,6 +505,7 @@ namespace maxhanna.Server.Controllers
 				_playerZ[req.UserId] = req.PosZ;
 
 				_playerMoney[req.UserId] = Math.Max(0, req.Money);
+				int lastClientHp = _lastClientHealth.GetOrAdd(req.UserId, req.Health);
 
 				if (!_playerHealth.ContainsKey(req.UserId))
 				{
@@ -514,25 +516,24 @@ namespace maxhanna.Server.Controllers
 					int currentServerHp = _playerHealth[req.UserId];
 					if (req.Health > currentServerHp)
 					{
-						bool recentlyDamaged = false;
-						if (_lastPoliceDamageTime.TryGetValue(req.UserId, out var lastDmg))
+						// Client claims they have more health than the server.
+						// If this is a heal, req.Health should be > lastClientHp.
+						// If it's a stale packet, req.Health will == lastClientHp.
+						if (req.Health > lastClientHp)
 						{
-							var msSinceDmg = (DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond) - lastDmg;
-							if (msSinceDmg < 2000) recentlyDamaged = true;
-						}
-
-						if (!recentlyDamaged)
-						{
+							// Legitimate heal (e.g. vending machine, hooker)
 							_playerHealth[req.UserId] = Math.Min(100, req.Health);
 						}
+						// else: stale packet, ignore the overwrite!
 					}
 					else
 					{
-						// Client took damage locally (falling, explosions) or is syncing down. Accept it.
+						// Client took damage locally or is syncing down. Accept it.
 						_playerHealth[req.UserId] = req.Health;
 					}
 				}
- 
+				_lastClientHealth[req.UserId] = req.Health;
+
 				_playerInCar[req.UserId] = req.IsInCar;
 				_playerInCarTime[req.UserId] = DateTime.UtcNow; 
 				if (!string.IsNullOrEmpty(req.VehicleType))
