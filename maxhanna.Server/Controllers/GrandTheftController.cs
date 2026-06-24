@@ -90,8 +90,6 @@ namespace maxhanna.Server.Controllers
 			z = cz * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 60f;
 		}
 
-		// Returns true if there is a building at the given world position.
-		// Mirrors the frontend's per-chunk multi-building layout.
 		public static bool IsBuildingAt(float x, float z, float margin = 2.0f)
 		{
 			int cx = (int)Math.Floor(x / CHUNK_SIZE);
@@ -107,6 +105,9 @@ namespace maxhanna.Server.Controllers
 			float maxDim = SIDEWALK_SIZE;
 			bool isSuburb = biome == "suburb";
 
+			float halfSW = SIDEWALK_SIZE / 2f;
+			int[][] edges = new int[][] { new int[] { 0, 1 }, new int[] { 0, -1 }, new int[] { 1, 0 }, new int[] { -1, 0 } };
+
 			if (isSuburb)
 			{
 				bool hasPOI = RngNext(ref state) < 0.25f;
@@ -115,54 +116,71 @@ namespace maxhanna.Server.Controllers
 					RngNext(ref state); // poi model index
 					RngNext(ref state); // poi yaw
 				}
-				int numHouses = 1 + (int)(RngNext(ref state) * 3);
-				for (int hi = 0; hi < numHouses; hi++)
+
+				foreach (var edge in edges)
 				{
-					if (RngNext(ref state) >= 0.85f) continue;
-					float hw = 8f + RngNext(ref state) * (maxDim * 0.4f);
-					float hd = 8f + RngNext(ref state) * (maxDim * 0.4f);
-					RngNext(ref state); // h
-					float xOff = -10f + RngNext(ref state) * 20f;
-					float zOff = -10f + RngNext(ref state) * 20f;
-					RngNext(ref state); // model index
-					RngNext(ref state); // yaw
-					float halfW = hw / 2f + margin;
-					float halfD = hd / 2f + margin;
-					float bx = blockCenterX + xOff;
-					float bz = blockCenterZ + zOff;
-					if (Math.Abs(x - bx) < halfW && Math.Abs(z - bz) < halfD) return true;
+					int numHouses = 1 + (int)(RngNext(ref state) * 2);
+					float houseWidth = (SIDEWALK_SIZE - 8f) / numHouses;
+					for (int i = 0; i < numHouses; i++)
+					{
+						if (RngNext(ref state) >= 0.7f) continue;
+						float w = houseWidth;
+						float d = 8f + RngNext(ref state) * (SIDEWALK_SIZE * 0.3f);
+
+						float px, pz;
+						if (edge[0] == 0)
+						{
+							px = blockCenterX - halfSW + 4f + houseWidth / 2f + i * houseWidth;
+							pz = blockCenterZ + edge[1] * (halfSW - d / 2f - 1f);
+						}
+						else
+						{
+							pz = blockCenterZ - halfSW + 4f + houseWidth / 2f + i * houseWidth;
+							px = blockCenterX + edge[0] * (halfSW - d / 2f - 1f);
+						}
+						float halfW = w / 2f + margin;
+						float halfD = d / 2f + margin;
+						if (Math.Abs(x - px) < halfW && Math.Abs(z - pz) < halfD) return true;
+					}
 				}
-				return false;
 			}
 			else
 			{
-				int numBld = 3 + (int)(RngNext(ref state) * 4);
-				for (int bi = 0; bi < numBld; bi++)
+				foreach (var edge in edges)
 				{
-					if (RngNext(ref state) >= 0.85f) continue;
-					float bw = 8f + RngNext(ref state) * (maxDim * 0.3f);
-					float bd = 6f + RngNext(ref state) * (maxDim * 0.25f);
-					RngNext(ref state); // h
-					int side = bi % 2 == 0 ? -1 : 1;
-					RngNext(ref state); // edgeOff
-					RngNext(ref state); // model index
-					float px, pz;
-					if (bi < 4)
+					int numStores = 2 + (int)(RngNext(ref state) * 2);
+					float storeWidth = (SIDEWALK_SIZE - 4f) / numStores;
+					for (int i = 0; i < numStores; i++)
 					{
-						px = blockCenterX + side * (maxDim / 2f - bd / 2f);
-						pz = blockCenterZ + side * (maxDim / 2f - bd / 2f);
+						if (RngNext(ref state) >= 0.8f) continue;
+						float w = storeWidth;
+						float d = 8f + RngNext(ref state) * (SIDEWALK_SIZE * 0.2f);
+
+						float px, pz;
+						if (edge[0] == 0)
+						{
+							px = blockCenterX - halfSW + 2f + storeWidth / 2f + i * storeWidth;
+							pz = blockCenterZ + edge[1] * (halfSW - d / 2f - 1f);
+						}
+						else
+						{
+							pz = blockCenterZ - halfSW + 2f + storeWidth / 2f + i * storeWidth;
+							px = blockCenterX + edge[0] * (halfSW - d / 2f - 1f);
+						}
+						float halfW = w / 2f + margin;
+						float halfD = d / 2f + margin;
+						if (Math.Abs(x - px) < halfW && Math.Abs(z - pz) < halfD) return true;
 					}
-					else
-					{
-						px = blockCenterX + side * (maxDim / 2f - bd / 2f);
-						pz = blockCenterZ + side * (maxDim / 2f - bd / 2f);
-					}
-					float halfW = bw / 2f + margin;
-					float halfD = bd / 2f + margin;
-					if (Math.Abs(x - px) < halfW && Math.Abs(z - pz) < halfD) return true;
 				}
-				return false;
 			}
+
+			// Medians on right and bottom edges of the chunk
+			float medianW = 2f;
+			float medianHalf = medianW / 2f + margin;
+			if (Math.Abs(x - (blockCenterX + CHUNK_SIZE / 2f)) < medianHalf && Math.Abs(z - blockCenterZ) < CHUNK_SIZE / 2f) return true;
+			if (Math.Abs(z - (blockCenterZ + CHUNK_SIZE / 2f)) < medianHalf && Math.Abs(x - blockCenterX) < CHUNK_SIZE / 2f) return true;
+
+			return false;
 		}
 
 		// Returns true if a point is on a road.
@@ -237,13 +255,12 @@ namespace maxhanna.Server.Controllers
 			float dz = toZ - fromZ;
 			float len = (float)Math.Sqrt(dx * dx + dz * dz);
 			if (len < 0.001f) return (0, 0);
-			const float laneOffset = 12.5f;
+			const float laneOffset = 4.0f; // Changed from 12.5f
 			float perpX = dz / len * laneOffset;
 			float perpZ = -dx / len * laneOffset;
 			if (forward) return (perpX, perpZ);
 			return (-perpX, -perpZ);
 		}
-
 		// Returns true if the traffic light at this intersection is currently red
 		// for vehicles travelling along the X axis (horizontal roads).
 		// Phase alternates every 6s, matching the client renderer.

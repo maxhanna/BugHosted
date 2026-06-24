@@ -1559,6 +1559,14 @@ void main() {
     } else if (isBridge) {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.5, 0.5, 0.5, 1.0, idxOffset);
       idxOffset += 4;
+      // Add bridge support pillars
+      for (let p = 0; p < 4; p++) {
+        const px = worldOriginX + 10 + p * 20;
+        this.addBox(verts, indices, px, -15, worldOriginZ + 10, 4, 30, 4, 0.4, 0.4, 0.4, 1.0, idxOffset);
+        idxOffset += 24;
+        this.addBox(verts, indices, px, -15, worldOriginZ + CHUNK_SIZE - 10, 4, 30, 4, 0.4, 0.4, 0.4, 1.0, idxOffset);
+        idxOffset += 24;
+      }
     } else if (isAeroport) {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.25, 0.25, 0.25, 1.0, idxOffset);
       idxOffset += 4;
@@ -1604,39 +1612,24 @@ void main() {
         if (isBeach) {
           this.addPlane(verts, indices, blockWorldX, 0.03, blockWorldZ, BLOCK_SIZE, BLOCK_SIZE, 0.82, 0.75, 0.55, 1.0, idxOffset);
           idxOffset += 4;
-          const numPalms = 1 + Math.floor(rng() * 3);
-          for (let pi = 0; pi < numPalms; pi++) {
-            const px = blockWorldX - 10 + rng() * 20;
-            const pz = blockWorldZ - 10 + rng() * 20;
-            const ph = 2 + rng() * 5;
+          const halfSW = SIDEWALK_SIZE / 2;
+          // Align palms in a row
+          for (let i = 0; i < 4; i++) {
+            const px = blockWorldX - halfSW + 5 + i * (SIDEWALK_SIZE / 4);
+            const pz = blockWorldZ - halfSW + 5;
+            const ph = 2 + rng() * 3;
             this.addBox(verts, indices, px, ph / 2, pz, 0.3, ph, 0.3, 0.3, 0.15, 0.05, 1.0, idxOffset);
             idxOffset += 24;
-            const crownSize = 1.5 + rng() * 2;
-            this.addBox(verts, indices, px, ph + 0.3, pz, crownSize, 0.5, crownSize, 0.0, 0.5, 0.0, 1.0, idxOffset);
+            this.addBox(verts, indices, px, ph + 0.3, pz, 1.5, 0.5, 1.5, 0.0, 0.5, 0.0, 1.0, idxOffset);
             idxOffset += 24;
           }
-          if (cx >= 0 && rng() < 0.4) {
-            const bxOff = -12 + rng() * 24;
-            this.addBox(verts, indices, blockWorldX + bxOff, 0.12, blockWorldZ + 14, 3, 0.25, 6, 0.5, 0.35, 0.15, 1.0, idxOffset);
-            idxOffset += 24;
-          }
-          const nearCity = getBiome(cx + 1, cz) === 'city' || getBiome(cx - 1, cz) === 'city' || getBiome(cx, cz + 1) === 'city' || getBiome(cx, cz - 1) === 'city';
-          if (nearCity && rng() < 0.3) {
-            const stallX = blockWorldX - 10 + rng() * 20;
-            const stallZ = blockWorldZ - 8 + rng() * 16;
-            this.addBox(verts, indices, stallX, 1, stallZ, 3, 2, 2, 0.7, 0.5, 0.3, 1.0, idxOffset);
-            idxOffset += 24;
-            this.addBox(verts, indices, stallX, 2.2, stallZ, 3.5, 0.15, 2.5, 0.8, 0.3, 0.1, 1.0, idxOffset);
-            idxOffset += 24;
-          }
-          if (isWaterAdjacent() && rng() < 0.35) {
-            const dockLen = 10 + rng() * 15;
-            const dockDir = getBiome(cx, cz + 1) === 'ocean' ? 1 : getBiome(cx, cz - 1) === 'ocean' ? -1 : 0;
-            if (dockDir !== 0) {
-              this.addBox(verts, indices, blockWorldX + rng() * 6 - 3, 0.15, blockWorldZ + dockDir * (dockLen / 2 + 10), 4, 0.3, dockLen, 0.5, 0.35, 0.15, 1.0, idxOffset);
-              idxOffset += 24;
-            }
-          }
+          // Align stalls on the opposite side
+          const stallX = blockWorldX + halfSW - 4;
+          const stallZ = blockWorldZ + halfSW - 4;
+          this.addBox(verts, indices, stallX, 1, stallZ, 3, 2, 2, 0.7, 0.5, 0.3, 1.0, idxOffset);
+          idxOffset += 24;
+          this.addBox(verts, indices, stallX, 2.2, stallZ, 3.5, 0.15, 2.5, 0.8, 0.3, 0.1, 1.0, idxOffset);
+          idxOffset += 24;
           continue;
         }
 
@@ -1662,18 +1655,21 @@ void main() {
           }
           continue;
         }
+
         if (isBridge) {
-          const gx = cx * blocksPerChunk + bx;
-          const gz = cz * blocksPerChunk + by;
-          const roadZ0 = gz * GRID_PITCH;
-          const roadZ1 = gz * GRID_PITCH + GRID_PITCH;
+          const halfSW = SIDEWALK_SIZE / 2;
           const railSpan = GRID_PITCH - 4;
-          this.addBox(verts, indices, gx * GRID_PITCH + GRID_PITCH / 2, 0.4, roadZ0 + 1, railSpan, 0.8, 0.2, 0.5, 0.5, 0.5, 1.0, idxOffset);
+          // Thick guard rails
+          this.addBox(verts, indices, blockWorldX, 0.4, blockWorldZ - halfSW, railSpan, 0.8, 0.5, 0.5, 0.5, 0.5, 1.0, idxOffset);
           idxOffset += 24;
-          this.addBox(verts, indices, gx * GRID_PITCH + GRID_PITCH / 2, 0.4, roadZ1 - 1, railSpan, 0.8, 0.2, 0.5, 0.5, 0.5, 1.0, idxOffset);
+          this.addBox(verts, indices, blockWorldX, 0.4, blockWorldZ + halfSW, railSpan, 0.8, 0.5, 0.5, 0.5, 0.5, 1.0, idxOffset);
+          idxOffset += 24;
+          // Center divider
+          this.addBox(verts, indices, blockWorldX, 0.3, blockWorldZ, railSpan, 0.6, 0.2, 0.1, 0.1, 0.1, 1.0, idxOffset);
           idxOffset += 24;
           continue;
         }
+
         const grassG = isSuburb ? 0.45 : 0.1;
         this.addBox(verts, indices, blockWorldX, 0.075, blockWorldZ, BLOCK_SIZE, 0.15, BLOCK_SIZE, 0.08, grassG, 0.08, 1.0, idxOffset);
         idxOffset += 24;
@@ -1681,6 +1677,12 @@ void main() {
         if (cx === 0 && cz === 0) continue;
         if (cx === 1 && cz === 0) continue;
         if (isAeroport) continue;
+
+        const halfSW = SIDEWALK_SIZE / 2;
+        const edges = [
+          { dx: 0, dz: 1 }, { dx: 0, dz: -1 },
+          { dx: 1, dz: 0 }, { dx: -1, dz: 0 }
+        ];
 
         if (isSuburb) {
           const hasPOI = rng() < 0.25;
@@ -1694,66 +1696,95 @@ void main() {
               buildings.push({ model, x: blockWorldX, y: -poiMinY * poiScale + 0.15, z: blockWorldZ, yaw: Math.floor(rng() * 4) * Math.PI / 2, scale: [poiScale, poiScale, poiScale] });
             }
           }
-          const numHouses = 1 + Math.floor(rng() * 3);
-          const maxDim = SIDEWALK_SIZE;
-          for (let hi = 0; hi < numHouses; hi++) {
-            if (rng() >= 0.85) continue;
-            const w = 8 + rng() * (maxDim * 0.4);
-            const d = 8 + rng() * (maxDim * 0.4);
-            const h = 6 + rng() * 10;
-            const xOff = -10 + rng() * 20;
-            const zOff = -10 + rng() * 20;
-            const models = this.suburbBuildingMeshes;
-            if (models.length > 0) {
-              const mi = Math.floor(rng() * models.length);
-              const model = models[mi];
-              const scale = Math.min(w, d) / 15 * 5;
-              const yaw = Math.floor(rng() * 4) * Math.PI / 2;
-              const subMinY = this.getModelMinY(model);
-              buildings.push({ model, x: blockWorldX + xOff, y: -subMinY * scale + 0.15, z: blockWorldZ + zOff, yaw, scale: [scale, scale, scale] });
-            } else {
-              const r = 0.5 + rng() * 0.4;
-              const g = 0.4 + rng() * 0.3;
-              const b = 0.3 + rng() * 0.3;
-              this.addBox(verts, indices, blockWorldX + xOff, h / 2 + 0.04, blockWorldZ + zOff, w, h, d, r, g, b, 1.0, idxOffset);
-              idxOffset += 24;
+
+          for (const edge of edges) {
+            const numHouses = 1 + Math.floor(rng() * 2);
+            const houseWidth = (SIDEWALK_SIZE - 8) / numHouses;
+            for (let i = 0; i < numHouses; i++) {
+              if (rng() >= 0.7) continue;
+              const w = houseWidth;
+              const d = 8 + rng() * (SIDEWALK_SIZE * 0.3);
+              const h = 6 + rng() * 10;
+
+              let px, pz, yaw;
+              if (edge.dx === 0) {
+                px = blockWorldX - halfSW + 4 + houseWidth / 2 + i * houseWidth;
+                pz = blockWorldZ + edge.dz * (halfSW - d / 2 - 1);
+                yaw = edge.dz > 0 ? Math.PI : 0;
+              } else {
+                pz = blockWorldZ - halfSW + 4 + houseWidth / 2 + i * houseWidth;
+                px = blockWorldX + edge.dx * (halfSW - d / 2 - 1);
+                yaw = edge.dx > 0 ? -Math.PI / 2 : Math.PI / 2;
+              }
+
+              const models = this.suburbBuildingMeshes;
+              if (models.length > 0) {
+                const mi = Math.floor(rng() * models.length);
+                const model = models[mi];
+                const scale = Math.min(w, d) / 15 * 5;
+                const subMinY = this.getModelMinY(model);
+                buildings.push({ model, x: px, y: -subMinY * scale + 0.15, z: pz, yaw, scale: [scale, scale, scale] });
+              } else {
+                const r = 0.5 + rng() * 0.4;
+                const g = 0.4 + rng() * 0.3;
+                const b = 0.3 + rng() * 0.3;
+                this.addBox(verts, indices, px, h / 2 + 0.04, pz, w, h, d, r, g, b, 1.0, idxOffset);
+                idxOffset += 24;
+              }
             }
           }
         } else {
-          const numBld = 3 + Math.floor(rng() * 4);
-          const maxDim = SIDEWALK_SIZE;
-          for (let bi = 0; bi < numBld; bi++) {
-            if (rng() >= 0.85) continue;
-            const w = 8 + rng() * (maxDim * 0.3);
-            const d = 6 + rng() * (maxDim * 0.25);
-            const h = 15 + rng() * 50;
-            const side = bi % 2 === 0 ? -1 : 1;
-            const edgeOff = (Math.floor(bi / 2) / Math.ceil(numBld / 2)) * maxDim - maxDim / 2 + w / 2 + rng() * 2;
-            const bx = blockWorldX + (side === -1 ? -maxDim / 2 + d / 2 : (bi < 4 ? edgeOff : 0));
-            const bz = blockWorldZ + (side === 1 ? maxDim / 2 - d / 2 : (bi < 4 ? 0 : edgeOff));
-            const px = Math.abs(bx - blockWorldX) < maxDim / 3 ? blockWorldX + (side * maxDim / 2 - side * d / 2) : bx;
-            const pz = Math.abs(bz - blockWorldZ) < maxDim / 3 ? blockWorldZ + (side * maxDim / 2 - side * d / 2) : bz;
-            const models = this.cityBuildingMeshes;
-            if (models.length > 0) {
-              const mi = Math.floor(rng() * models.length);
-              const model = models[mi];
-              const scale = Math.min(w, d) / 20 * 5;
-              const yaw = side === -1 ? 0 : Math.PI / 2;
-              const cityMinY = this.getModelMinY(model);
-              buildings.push({ model, x: px, y: -cityMinY * scale + 0.15, z: pz, yaw, scale: [scale, scale, scale] });
-            } else {
-              const r = 0.4 + rng() * 0.4;
-              const g = 0.4 + rng() * 0.4;
-              const b = 0.4 + rng() * 0.4;
-              this.addBox(verts, indices, px, h / 2 + 0.04, pz, w, h, d, r, g, b, 1.0, idxOffset);
-              idxOffset += 24;
+          // City Buildings aligned in rows
+          for (const edge of edges) {
+            const numStores = 2 + Math.floor(rng() * 2);
+            const storeWidth = (SIDEWALK_SIZE - 4) / numStores;
+            for (let i = 0; i < numStores; i++) {
+              if (rng() >= 0.8) continue;
+              const w = storeWidth;
+              const d = 8 + rng() * (SIDEWALK_SIZE * 0.2);
+
+              let px, pz, yaw;
+              if (edge.dx === 0) {
+                px = blockWorldX - halfSW + 2 + storeWidth / 2 + i * storeWidth;
+                pz = blockWorldZ + edge.dz * (halfSW - d / 2 - 1);
+                yaw = edge.dz > 0 ? Math.PI : 0;
+              } else {
+                pz = blockWorldZ - halfSW + 2 + storeWidth / 2 + i * storeWidth;
+                px = blockWorldX + edge.dx * (halfSW - d / 2 - 1);
+                yaw = edge.dx > 0 ? -Math.PI / 2 : Math.PI / 2;
+              }
+
+              const models = this.cityBuildingMeshes;
+              if (models.length > 0) {
+                const mi = Math.floor(rng() * models.length);
+                const model = models[mi];
+                const scale = Math.min(w, d) / 20 * 5;
+                const cityMinY = this.getModelMinY(model);
+                buildings.push({ model, x: px, y: -cityMinY * scale + 0.15, z: pz, yaw, scale: [scale, scale, scale] });
+              } else {
+                const r = 0.4 + rng() * 0.4;
+                const g = 0.4 + rng() * 0.4;
+                const b = 0.4 + rng() * 0.4;
+                const h = 15 + rng() * 50;
+                this.addBox(verts, indices, px, h / 2 + 0.04, pz, w, h, d, r, g, b, 1.0, idxOffset);
+                idxOffset += 24;
+              }
             }
           }
         }
       }
     }
 
-    if (!isMountain && !isBeach && !isAeroport) {
+    // Add continuous center medians to city and suburb roads
+    if (!isMountain && !isBeach && !isAeroport && !isBridge) {
+      const medianW = 2;
+      this.addBox(verts, indices, worldOriginX + CHUNK_SIZE, 0.1, worldOriginZ + CHUNK_SIZE / 2, medianW, 0.2, CHUNK_SIZE, 0.1, 0.1, 0.1, 1.0, idxOffset);
+      idxOffset += 24;
+      this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.1, worldOriginZ + CHUNK_SIZE, CHUNK_SIZE, 0.2, medianW, 0.1, 0.1, 0.1, 1.0, idxOffset);
+      idxOffset += 24;
+    }
+
+    if (!isMountain && !isBeach && !isAeroport && !isBridge) {
       const dashLen = 1.5;
       const dashWid = 0.3;
       const dashH = 0.02;

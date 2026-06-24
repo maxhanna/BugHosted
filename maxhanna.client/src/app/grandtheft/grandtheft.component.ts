@@ -717,7 +717,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const dx = b.x - a.x, dz = b.z - a.z;
       const len = Math.hypot(dx, dz);
       if (len === 0) continue;
-      const laneOffset = 12.5;
+      const laneOffset = 4.0; // Changed from 12.5
       const perpX = dz / len * laneOffset, perpZ = -dx / len * laneOffset;
       this.trafficLanes.push({ fromIdx: edge[0], toIdx: edge[1], offsetX: perpX, offsetZ: perpZ });
       this.trafficLanes.push({ fromIdx: edge[1], toIdx: edge[0], offsetX: -perpX, offsetZ: -perpZ });
