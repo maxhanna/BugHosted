@@ -439,11 +439,7 @@ namespace maxhanna.Server.Controllers
 			public DateTime DiedAt { get; set; }
 		}
 
-		public GrandTheftController(IConfiguration config) { _config = config; }
-		// FIX: Home base coordinates — the japaneseShop. Occupies the building
-		// slot at chunk (1,0), one block east of the hospital (40,40). The
-		// procedural building for this chunk is suppressed in the renderer.
-		// Players who have been inactive for >30 minutes respawn here on rejoin.
+		public GrandTheftController(IConfiguration config) { _config = config; } 
 		private const float HOME_BASE_X = 120f;
 		private const float HOME_BASE_Z = 40f;
 		private const float HOME_BASE_YAW = 0f;
@@ -458,11 +454,7 @@ namespace maxhanna.Server.Controllers
 			{
 				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await conn.OpenAsync();
-
-				// FIX: Check if the player was inactive for >30 minutes. If so,
-				// override their position to the home base (japaneseShop).
-				// We do this BEFORE the UPSERT so the saved position is the
-				// home base, not their stale logged-out position.
+ 
 				bool respawnAtHome = false;
 				using (var checkCmd = new MySqlCommand("SELECT last_seen FROM maxhanna.grandtheft_player_state WHERE user_id = @uid", conn))
 				{
@@ -540,18 +532,9 @@ namespace maxhanna.Server.Controllers
 						_playerHealth[req.UserId] = req.Health;
 					}
 				}
-
-				// FIX: Use the explicit IsInCar field from the request instead
-				// of inferring from CarSpeed. The old inference (CarSpeed > 0.5
-				// with 5-second cooldown) caused "sometimes can't see the car"
-				// — if a player stopped in their car for >5s, other players
-				// would see them as standing. The client now sends its actual
-				// isInCar state every tick.
+ 
 				_playerInCar[req.UserId] = req.IsInCar;
-				_playerInCarTime[req.UserId] = DateTime.UtcNow;
-				// Store vehicle type and color so other players render the
-				// correct car model (taxi, bus, motorcycle, etc.) instead of
-				// always using carMeshes[0].
+				_playerInCarTime[req.UserId] = DateTime.UtcNow; 
 				if (!string.IsNullOrEmpty(req.VehicleType))
 					_playerVehicleType[req.UserId] = req.VehicleType!;
 				if (req.IsInCar)
@@ -559,10 +542,7 @@ namespace maxhanna.Server.Controllers
 					_playerCarColorR[req.UserId] = req.CarColorR;
 					_playerCarColorG[req.UserId] = req.CarColorG;
 					_playerCarColorB[req.UserId] = req.CarColorB;
-				}
-				// FIX: Store which player's car this player is a passenger in.
-				// 0 = not a passenger. Other players read this to render the
-				// passenger inside the host's car.
+				} 
 				_playerPassengerOf[req.UserId] = req.PassengerOfUserId;
 
 				if (req.Health <= 0)
@@ -654,13 +634,7 @@ namespace maxhanna.Server.Controllers
 					else
 					{
 						_lastWantedDecay[req.UserId] = DateTime.UtcNow;
-					}
-
-					// FIX: Removed the old "Police damage simulation" block.
-					// Cop damage is now handled in the cop movement branch
-					// (GetNPCs endpoint), which only fires when the cop has
-					// been stationary for 3.5s and has a clear shot. This
-					// prevents cops from shooting while driving or walking.
+					} 
 				}
 
 				var players = new List<object>();
@@ -848,19 +822,10 @@ namespace maxhanna.Server.Controllers
 
 						npc.LastUpdate = now;
 					}
-				}
-
-				// NEW (Feature 3): If this player was carjacked, signal eviction
-				// so their client calls exitCar(). The flag is set by another
-				// player calling StealCar with a negative npcId (see below).
-				bool evicted = _evictedPlayers.TryRemove(req.UserId, out _);
-				// FIX: Return the player's current health so the client can
-				// detect damage from cop shooting and visualize the shot.
+				} 
+				bool evicted = _evictedPlayers.TryRemove(req.UserId, out _); 
 				int yourHealth = req.Health;
-				if (_playerHealth.TryGetValue(req.UserId, out var serverHp)) yourHealth = serverHp;
-				// FIX: Include respawnAtHome flag so the client teleports to
-				// the home base if the player was inactive for >30 minutes.
-				// Initialize weapon state for new players
+				if (_playerHealth.TryGetValue(req.UserId, out var serverHp)) yourHealth = serverHp; 
 				if (!_playerWeapons.ContainsKey(req.UserId))
 					_playerWeapons[req.UserId] = new bool[5] { true, false, false, false, false };
 				if (!_playerAmmo.ContainsKey(req.UserId))
@@ -2171,13 +2136,8 @@ namespace maxhanna.Server.Controllers
 			var now = DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond;
 			if (_lastDamageTime.TryGetValue(req.UserId, out var last) && (now - last) < 150) return;
 			_lastDamageTime[req.UserId] = now;
-		}
-
-		// FIX: Garage system. Players can store one car per house. The car
-		// is saved to the grandtheft_garage table with its type + color.
-		// When the player approaches the garage, the server returns the
-		// stored car (if any). When the player drives the car out, it's
-		// removed from the garage.
+		} 
+		
 		[HttpGet("garage/{userId}")]
 		public async Task<IActionResult> GetGarageCar(int userId)
 		{
