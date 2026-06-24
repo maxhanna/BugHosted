@@ -13,7 +13,7 @@ namespace maxhanna.Server.Controllers
 		public const int CHUNK_SIZE = 80;
 		public const int GRID_PITCH = 80;
 		public const int BLOCK_SIZE = 30;
-		public const int SIDEWALK_SIZE = BLOCK_SIZE + 6; // 36
+		public const int SIDEWALK_SIZE = 55;
 		public const int BIOME_RADIUS_CITY = 18;
 		public const int BIOME_RADIUS_MOUNTAIN = 30;
 		public const int BIOME_RADIUS_SUBURB = 50;
@@ -744,9 +744,12 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 
-						// Car fire system: catch fire at 20% HP, explode after 4s
+						// Car fire system: catch fire at 20% HP or in ocean, explode after 10s
 						if (npc.Health > 0 && (npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi" || npc.Type == "police" || npc.Type == "bike" || npc.Type == "motorcycle"))
 						{
+							int cx = (int)Math.Floor(npc.X / CityLayout.CHUNK_SIZE);
+							int cz = (int)Math.Floor(npc.Z / CityLayout.CHUNK_SIZE);
+							if (!npc.OnFire && CityLayout.GetBiome(cx, cz) == "ocean") { npc.OnFire = true; npc.FireStartedAt = DateTime.UtcNow; }
 							int fireThreshold = Math.Max(80, npc.MaxHealth / 5);
 							if (npc.Health <= fireThreshold && !npc.OnFire)
 							{
@@ -1154,9 +1157,12 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 
-					// Car fire system in GetNPCs
+					// Car fire system in GetNPCs (also checks ocean submersion)
 					if (npc.Health > 0 && (npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi" || npc.Type == "police" || npc.Type == "bike" || npc.Type == "motorcycle"))
 					{
+						int cxc = (int)Math.Floor(npc.X / CityLayout.CHUNK_SIZE);
+						int czc = (int)Math.Floor(npc.Z / CityLayout.CHUNK_SIZE);
+						if (!npc.OnFire && CityLayout.GetBiome(cxc, czc) == "ocean") { npc.OnFire = true; npc.FireStartedAt = DateTime.UtcNow; }
 						int fireThreshold = Math.Max(80, npc.MaxHealth / 5);
 						if (npc.Health <= fireThreshold && !npc.OnFire)
 						{
@@ -1165,7 +1171,7 @@ namespace maxhanna.Server.Controllers
 						}
 						if (npc.OnFire && npc.FireStartedAt.HasValue)
 						{
-							if ((DateTime.UtcNow - npc.FireStartedAt.Value).TotalSeconds >= 4.0)
+							if ((DateTime.UtcNow - npc.FireStartedAt.Value).TotalSeconds >= 10.0)
 							{
 								npc.Health = 0;
 								npc.DeadAt = DateTime.UtcNow;

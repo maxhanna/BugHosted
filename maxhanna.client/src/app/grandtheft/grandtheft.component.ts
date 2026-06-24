@@ -219,6 +219,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   _carFireX = 0;
   _carFireZ = 0;
   _carFireYaw = 0;
+  _carSubmerged = false;
+  _carSubmergeStart = 0;
   private _respawnTimer: any = null;
   isLoaded = false;
   showMap = false;
@@ -2751,30 +2753,59 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.serverPedestrians = this.serverPedestrians.filter(p => p.health > 0);
     this.parkedCars = this.parkedCars.filter(pc => pc.health > 0);
 
-    // Player car fire system
-    if (this.isInCar && this.carHealth > 0 && this.carHealth <= 80) {
-      if (!this._carOnFire) {
-        this._carOnFire = true;
-        this._carFireStarted = performance.now() / 1000;
-        this._carFireX = this.carX;
-        this._carFireZ = this.carZ;
-        this._carFireYaw = this.carYaw;
+    // Water submersion: cars in ocean biome sink and then burn
+    if (this.isInCar && this.carHealth > 0) {
+      const ocx = Math.floor(this.carX / 80), ocz = Math.floor(this.carZ / 80);
+      const inOcean = !(ocx >= -2 && ocx <= 3 && ocz >= -2 && ocz <= 2) &&
+        !(ocx >= 4 && ocx <= 5 && ocz >= -1 && ocz <= 1) &&
+        !(ocx >= 6 && ocx <= 15 && ocz >= -5 && ocz <= 5) &&
+        !(ocx >= 16 && ocx <= 17 && ocz >= -2 && ocz <= 2) &&
+        !(ocx >= 18 && ocx <= 30 && ocz >= -7 && ocz <= 7) &&
+        !(ocx >= 31 && ocx <= 32 && ocz >= -3 && ocz <= 3) &&
+        !(ocx >= 33 && ocx <= 50 && ocz >= -10 && ocz <= 10);
+      if (inOcean) {
+        if (!this._carSubmerged) { this._carSubmerged = true; this._carSubmergeStart = performance.now() / 1000; }
+        const subElapsed = (performance.now() / 1000) - this._carSubmergeStart;
+        const subT = Math.min(subElapsed / 2.0, 1.0);
+        this.carY = CAR_HEIGHT - subT * 3.4;
+        if (subT >= 1.0 && !this._carOnFire) {
+          this._carOnFire = true;
+          this._carFireStarted = performance.now() / 1000;
+          this._carFireX = this.carX;
+          this._carFireZ = this.carZ;
+          this._carFireYaw = this.carYaw;
+        }
+        if (this._carOnFire) {
+          const fireElapsed = (performance.now() / 1000) - this._carFireStarted;
+          if (fireElapsed >= 10.0) this.carHealth = 0;
+        }
+      } else {
+        if (this._carSubmerged) { this._carSubmerged = false; this.carY = CAR_HEIGHT; }
+        if (this.carHealth > 80) { this._carOnFire = false; this._carFireStarted = 0; }
       }
+    }
+
+    // Player car fire system (land-based)
+    if (this.isInCar && this.carHealth > 0 && !this._carSubmerged && this.carHealth <= 80 && !this._carOnFire) {
+      this._carOnFire = true;
+      this._carFireStarted = performance.now() / 1000;
+      this._carFireX = this.carX;
+      this._carFireZ = this.carZ;
+      this._carFireYaw = this.carYaw;
+    }
+    if (this.isInCar && this._carOnFire && !this._carSubmerged) {
       const fireElapsed = (performance.now() / 1000) - this._carFireStarted;
-      if (fireElapsed >= 10.0) {
-        this.carHealth = 0;
-      }
-    } else if (this.isInCar && this.carHealth > 80) {
-      this._carOnFire = false;
-      this._carFireStarted = 0;
+      if (fireElapsed >= 10.0) this.carHealth = 0;
     }
 
     if (this.isInCar && this.carHealth <= 0) {
       this.spawnExplosion(this.carX, 0.5, this.carZ);
       this._carOnFire = false;
       this._carFireStarted = 0;
+      this._carSubmerged = false;
       this.exitCar();
       this.carHealth = 400;
+      this.carY = CAR_HEIGHT;
     }
 
     if (this.health <= 0) {

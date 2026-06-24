@@ -48,9 +48,9 @@ export interface CityChunk {
 const CHUNK_SIZE = 80;
 const GRID_PITCH = 80;
 const BLOCK_SIZE = 30;
-const SIDEWALK_SIZE = BLOCK_SIZE + 6; // 36
+const SIDEWALK_SIZE = 55;
 const BIOME_RADIUS_MOUNTAIN = 30;
-function getBiome(cx: number, cz: number): string {
+export function getBiome(cx: number, cz: number): string {
   // Island 1 (smallest Home/Spawn): garage + hospital + starter shops
   if (cx >= -2 && cx <= 3 && cz >= -2 && cz <= 2) return cz >= 2 || cz <= -2 ? 'beach' : 'city';
   // Bridge 1→2
@@ -1517,19 +1517,39 @@ void main() {
 
     if (isBeach) {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.76, 0.70, 0.50, 1.0, idxOffset);
+      idxOffset += 4;
+      if (isWaterAdjacent()) {
+        const cx2 = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
+        const cz2 = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
+        const dirs = [[0, 1, 1], [0, -1, -1], [1, 0, 1], [-1, 0, -1]];
+        for (const [ddx, ddz, sign] of dirs) {
+          if (getBiome(cx + ddx, cz + ddz) === 'ocean') {
+            const numSteps = 6;
+            const stepH = 0.3;
+            for (let si = 0; si < numSteps; si++) {
+              const t = (si + 1) / numSteps;
+              const sz = cz * CHUNK_SIZE + (ddz === 1 ? CHUNK_SIZE - t * CHUNK_SIZE + stepH : ddz === -1 ? t * CHUNK_SIZE - stepH : CHUNK_SIZE / 2);
+              const sx = cx * CHUNK_SIZE + (ddx === 1 ? CHUNK_SIZE - t * CHUNK_SIZE + stepH : ddx === -1 ? t * CHUNK_SIZE - stepH : CHUNK_SIZE / 2);
+              const sy = -t * 2.5 + stepH / 2;
+              const sw = ddx !== 0 ? stepH * 1.5 : CHUNK_SIZE;
+              const sd = ddz !== 0 ? stepH * 1.5 : CHUNK_SIZE;
+              this.addBox(verts, indices, sx, sy, sz, sw, stepH, sd, 0.6 - t * 0.15, 0.55 - t * 0.15, 0.35 - t * 0.1, 1.0, idxOffset);
+              idxOffset += 24;
+            }
+            break;
+          }
+        }
+        this.addPlane(verts, indices, cx2, -0.45, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.0, 0.35, 0.65, 0.5, idxOffset);
+        idxOffset += 4;
+      }
     } else if (isMountain) {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.25, 0.22, 0.18, 1.0, idxOffset);
+      idxOffset += 4;
     } else if (isBridge) {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.5, 0.5, 0.5, 1.0, idxOffset);
+      idxOffset += 4;
     } else {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.08, 0.08, 0.08, 1.0, idxOffset);
-    }
-    idxOffset += 4;
-
-    if (isBeach && isWaterAdjacent()) {
-      const cx2 = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
-      const cz2 = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
-      this.addPlane(verts, indices, cx2, -0.5, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.0, 0.3, 0.6, 0.7, idxOffset);
       idxOffset += 4;
     }
 
@@ -1723,7 +1743,7 @@ void main() {
     const lamps: { x: number; z: number }[] = [];
     const hydrants: { x: number; z: number }[] = [];
     if (!isMountain && !isBeach) {
-      const halfSidewalk = (BLOCK_SIZE + 6) / 2;
+      const halfSidewalk = SIDEWALK_SIZE / 2;
       const sidewalkEdge = GRID_PITCH / 2 - halfSidewalk;
       for (let ly = 0; ly < 2; ly++) {
         for (let lx = 0; lx < 2; lx++) {
@@ -2406,10 +2426,14 @@ void main() {
       }
     }
 
-    for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, (pc as any)._expY ?? 0, pc.z, pc.yaw);
+    for (const pc of parkedCars) {
+      const submergeY = getBiome(Math.floor(pc.x / 80), Math.floor(pc.z / 80)) === 'ocean' ? -1.5 : 0;
+      this.drawMesh(pc.mesh, pc.x, (pc as any)._expY ?? submergeY, pc.z, pc.yaw);
+    }
 
     for (const npc of serverNPCs) {
-      const expY = (npc as any)._expY ?? 0;
+      const submerged = getBiome(Math.floor(npc.x / 80), Math.floor(npc.z / 80)) === 'ocean';
+      const expY = submerged ? -1.5 : (npc as any)._expY ?? 0;
       this.drawMesh(npc.mesh, npc.x, expY, npc.z, npc.yaw);
       if (npc.hasDriver !== false && npc.type !== 'cop') {
         const dMesh = this.getPedestrianMesh(npc.gender || 'male', npc.id);
@@ -2631,6 +2655,7 @@ void main() {
       this.drawMesh(fireMesh, fx, 0.6, fz, 0, [fireScale * flicker, fireScale * flicker, fireScale * flicker], fireColor);
     }
 
+    gl.enable(gl.DEPTH_TEST);
     // Draw dropped weapons as rotating pickups (real weapon models)
     if (this.droppedWeapons && this.droppedWeapons.length > 0) {
       for (const dw of this.droppedWeapons) {
