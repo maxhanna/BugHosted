@@ -55,7 +55,8 @@ namespace maxhanna.Server.Controllers
 			if (cx >= 16 && cx <= 17 && cz >= -2 && cz <= 2) return "bridge";
 			if (cx >= 18 && cx <= 30 && cz >= -7 && cz <= 7) return cz >= 6 || cz <= -6 ? "beach" : "suburb";
 			if (cx >= 31 && cx <= 32 && cz >= -3 && cz <= 3) return "bridge";
-			if (cx >= 33 && cx <= 50 && cz >= -10 && cz <= 10) {
+			if (cx >= 33 && cx <= 50 && cz >= -10 && cz <= 10)
+			{
 				if (cz >= 8 || cz <= -8) return "beach";
 				if (cz >= -5 && cz <= 5) return "city";
 				return "suburb";
@@ -472,9 +473,9 @@ namespace maxhanna.Server.Controllers
 		private const float HOME_BASE_Z = 40f;
 		private const float HOME_BASE_YAW = 0f;
 		private const int INACTIVITY_RESPAWN_MINUTES = 30;
-        public float SPEED_FACTOR { get; private set; } = 0.5f;
+		public float SPEED_FACTOR { get; private set; } = 0.5f;
 
-        [HttpPost("UpdatePosition")]
+		[HttpPost("UpdatePosition")]
 		public async Task<IActionResult> UpdatePosition([FromBody] GTUpdatePositionRequest req)
 		{
 			if (req.UserId <= 0) return BadRequest(new { ok = false });
@@ -536,6 +537,35 @@ namespace maxhanna.Server.Controllers
 				_playerZ[req.UserId] = req.PosZ;
 
 				_playerMoney[req.UserId] = Math.Max(0, req.Money);
+
+				if (!_playerHealth.ContainsKey(req.UserId))
+				{
+					_playerHealth[req.UserId] = req.Health;
+				}
+				else
+				{
+					int currentServerHp = _playerHealth[req.UserId];
+					if (req.Health > currentServerHp)
+					{
+						bool recentlyDamaged = false;
+						if (_lastPoliceDamageTime.TryGetValue(req.UserId, out var lastDmg))
+						{
+							var msSinceDmg = (DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond) - lastDmg;
+							if (msSinceDmg < 2000) recentlyDamaged = true;
+						}
+
+						if (!recentlyDamaged)
+						{
+							_playerHealth[req.UserId] = Math.Min(100, req.Health);
+						}
+					}
+					else
+					{
+						// Client took damage locally (falling, explosions) or is syncing down. Accept it.
+						_playerHealth[req.UserId] = req.Health;
+					}
+				}
+
 				// FIX: Use the explicit IsInCar field from the request instead
 				// of inferring from CarSpeed. The old inference (CarSpeed > 0.5
 				// with 5-second cooldown) caused "sometimes can't see the car"
@@ -863,10 +893,19 @@ namespace maxhanna.Server.Controllers
 				var pwArr = _playerWeapons[req.UserId];
 				var paArr = _playerAmmo[req.UserId];
 				var dw = BuildDroppedWeapons();
-				return Ok(new { ok = true, players, wantedLevel, evicted, yourHealth, respawnAtHome, chatMessages,
+				return Ok(new
+				{
+					ok = true,
+					players,
+					wantedLevel,
+					evicted,
+					yourHealth,
+					respawnAtHome,
+					chatMessages,
 					droppedWeapons = dw,
 					ownedWeapons = pwArr,
-					ammo = paArr });
+					ammo = paArr
+				});
 			}
 			catch (Exception ex)
 			{
@@ -986,7 +1025,8 @@ namespace maxhanna.Server.Controllers
 									X = npc.X,
 									Z = npc.Z,
 									Yaw = npc.Yaw,
-									Health = 400, MaxHealth = 400,
+									Health = 400,
+									MaxHealth = 400,
 									Cr = 0.1f,
 									Cg = 0.1f,
 									Cb = 0.2f,
@@ -1635,7 +1675,8 @@ namespace maxhanna.Server.Controllers
 					TargetZ = z,
 					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
 					Speed = 15.0f,
-					Health = 400, MaxHealth = 400,
+					Health = 400,
+					MaxHealth = 400,
 					Cr = 0.1f,
 					Cg = 0.1f,
 					Cb = 0.2f,
@@ -1677,7 +1718,8 @@ namespace maxhanna.Server.Controllers
 					TargetZ = z + (float)(rng.NextDouble() - 0.5) * 200f,
 					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
 					Speed = acType == "helicopter" ? 8f : 15f,
-					Health = 200, MaxHealth = 200,
+					Health = 200,
+					MaxHealth = 200,
 					Cr = 0.5f + (float)rng.NextDouble() * 0.5f,
 					Cg = 0.5f + (float)rng.NextDouble() * 0.5f,
 					Cb = 0.5f + (float)rng.NextDouble() * 0.5f,
@@ -1797,7 +1839,8 @@ namespace maxhanna.Server.Controllers
 						TargetZ = az + (float)(rng.NextDouble() - 0.5) * 200f,
 						Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
 						Speed = acType == "helicopter" ? 8f : 15f,
-						Health = 200, MaxHealth = 200,
+						Health = 200,
+						MaxHealth = 200,
 						Cr = 0.5f + (float)rng.NextDouble() * 0.5f,
 						Cg = 0.5f + (float)rng.NextDouble() * 0.5f,
 						Cb = 0.5f + (float)rng.NextDouble() * 0.5f,
@@ -2049,7 +2092,8 @@ namespace maxhanna.Server.Controllers
 				X = req.PosX,
 				Z = req.PosZ,
 				Yaw = req.Yaw,
-				Health = 400, MaxHealth = 400,
+				Health = 400,
+				MaxHealth = 400,
 				Cr = req.ColorR,
 				Cg = req.ColorG,
 				Cb = req.ColorB,
@@ -2138,8 +2182,9 @@ namespace maxhanna.Server.Controllers
 				int newHp = Math.Max(0, hp - req.Damage);
 				_playerHealth[playerTargetId] = newHp;
 				hitAnything = true;
-				// FIX: Capture the player's health for the response
 				targetHealthResult = newHp;
+				_lastPoliceDamageTime[playerTargetId] = DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond;
+
 				if (newHp <= 0)
 				{
 					targetDied = true;
