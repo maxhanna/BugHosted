@@ -5,9 +5,6 @@ using System.Threading;
 
 namespace maxhanna.Server.Controllers
 {
-	// Mirrors the frontend renderer's procedural city generation so the
-	// backend can query building positions for NPC collision avoidance.
-	// MUST stay in sync with grandtheft-renderer.ts getCityChunk().
 	internal static class CityLayout
 	{
 		public const int CHUNK_SIZE = 80;
@@ -19,13 +16,26 @@ namespace maxhanna.Server.Controllers
 		public const int BIOME_RADIUS_SUBURB = 50;
 		public const int BIOME_RADIUS_BEACH = 60;
 
-		// Signed 32-bit multiply (C# equivalent of JS Math.imul)
-		private static int Imul(int a, int b)
+		// Reused edges array — avoids per-call allocation
+		private static readonly int[][] EDGES = new int[][]
 		{
-			unchecked { return a * b; }
+			new int[] { 0, 1 }, new int[] { 0, -1 }, new int[] { 1, 0 }, new int[] { -1, 0 }
+		};
+
+		// ── Road graph cache ──────────────────────────────────────────
+		// Building road nodes + adjacency is O(N²) via GetRoadEdges.
+		// Cache the result per (chunkX, chunkZ) so we only pay once.
+		private const int ROAD_RADIUS = 4;
+		private static readonly ConcurrentDictionary<(int cx, int cz), RoadGraph> _roadGraphCache = new();
+
+		internal sealed class RoadGraph
+		{
+			public (float x, float z)[] Nodes = null!;
+			public int[][] Adjacency = null!;
 		}
 
-		// Mulberry32 PRNG — same algorithm as the frontend's mulberry32().
+		private static int Imul(int a, int b) { unchecked { return a * b; } }
+
 		private static uint Mulberry32(ref uint state)
 		{
 			unchecked
@@ -103,23 +113,17 @@ namespace maxhanna.Server.Controllers
 			float blockCenterX = cx * CHUNK_SIZE + CHUNK_SIZE / 2f;
 			float blockCenterZ = cz * CHUNK_SIZE + CHUNK_SIZE / 2f;
 			uint state = (uint)((cx * 100003 + cz * 70001) & 0xFFFFFFFF);
-			float maxDim = SIDEWALK_SIZE;
 			bool isSuburb = biome == "suburb";
-
 			float halfSW = SIDEWALK_SIZE / 2f;
-			int[][] edges = new int[][] { new int[] { 0, 1 }, new int[] { 0, -1 }, new int[] { 1, 0 }, new int[] { -1, 0 } };
 
 			if (isSuburb)
 			{
 				bool hasPOI = RngNext(ref state) < 0.25f;
-				if (hasPOI)
-				{
-					RngNext(ref state); // poi model index
-					RngNext(ref state); // poi yaw
-				}
+				if (hasPOI) { RngNext(ref state); RngNext(ref state); }
 
-				foreach (var edge in edges)
+				for (int e = 0; e < EDGES.Length; e++)
 				{
+					var edge = EDGES[e];
 					int numHouses = 1 + (int)(RngNext(ref state) * 2);
 					float houseWidth = (SIDEWALK_SIZE - 8f) / numHouses;
 					for (int i = 0; i < numHouses; i++)
@@ -127,7 +131,6 @@ namespace maxhanna.Server.Controllers
 						if (RngNext(ref state) >= 0.7f) continue;
 						float w = houseWidth;
 						float d = 8f + RngNext(ref state) * (SIDEWALK_SIZE * 0.3f);
-
 						float px, pz;
 						if (edge[0] == 0)
 						{
@@ -139,16 +142,15 @@ namespace maxhanna.Server.Controllers
 							pz = blockCenterZ - halfSW + 4f + houseWidth / 2f + i * houseWidth;
 							px = blockCenterX + edge[0] * (halfSW - d / 2f - 1f);
 						}
-						float halfW = w / 2f + margin;
-						float halfD = d / 2f + margin;
-						if (Math.Abs(x - px) < halfW && Math.Abs(z - pz) < halfD) return true;
+						if (Math.Abs(x - px) < w / 2f + margin && Math.Abs(z - pz) < d / 2f + margin) return true;
 					}
 				}
 			}
 			else
 			{
-				foreach (var edge in edges)
+				for (int e = 0; e < EDGES.Length; e++)
 				{
+					var edge = EDGES[e];
 					int numStores = 2 + (int)(RngNext(ref state) * 2);
 					float storeWidth = (SIDEWALK_SIZE - 4f) / numStores;
 					for (int i = 0; i < numStores; i++)
@@ -156,7 +158,6 @@ namespace maxhanna.Server.Controllers
 						if (RngNext(ref state) >= 0.8f) continue;
 						float w = storeWidth;
 						float d = 8f + RngNext(ref state) * (SIDEWALK_SIZE * 0.2f);
-
 						float px, pz;
 						if (edge[0] == 0)
 						{
@@ -168,42 +169,31 @@ namespace maxhanna.Server.Controllers
 							pz = blockCenterZ - halfSW + 2f + storeWidth / 2f + i * storeWidth;
 							px = blockCenterX + edge[0] * (halfSW - d / 2f - 1f);
 						}
-						float halfW = w / 2f + margin;
-						float halfD = d / 2f + margin;
-						if (Math.Abs(x - px) < halfW && Math.Abs(z - pz) < halfD) return true;
+						if (Math.Abs(x - px) < w / 2f + margin && Math.Abs(z - pz) < d / 2f + margin) return true;
 					}
 				}
 			}
 
-			// Medians on right and bottom edges of the chunk
-			float medianW = 2f;
-			float medianHalf = medianW / 2f + margin;
+			float medianHalf = 1f + margin;
 			if (Math.Abs(x - (blockCenterX + CHUNK_SIZE / 2f)) < medianHalf && Math.Abs(z - blockCenterZ) < CHUNK_SIZE / 2f) return true;
 			if (Math.Abs(z - (blockCenterZ + CHUNK_SIZE / 2f)) < medianHalf && Math.Abs(x - blockCenterX) < CHUNK_SIZE / 2f) return true;
-
 			return false;
 		}
 
-		// Returns true if a point is on a road.
 		public static bool IsRoadAt(float x, float z)
 		{
 			float dx = x % GRID_PITCH;
 			if (dx < 0) dx += GRID_PITCH;
 			float distToGridX = Math.Min(dx, GRID_PITCH - dx);
-
 			float dz = z % GRID_PITCH;
 			if (dz < 0) dz += GRID_PITCH;
 			float distToGridZ = Math.Min(dz, GRID_PITCH - dz);
-
 			float sidewalkHalf = SIDEWALK_SIZE / 2f;
 			float blockCenterOffset = GRID_PITCH / 2f;
 			float roadHalfWidth = blockCenterOffset - sidewalkHalf;
-
 			return distToGridX < roadHalfWidth || distToGridZ < roadHalfWidth;
 		}
 
-		// Returns road intersection nodes (grid points) within radius chunks of (cx, cz).
-		// Mirrors grandtheft-renderer.ts getRoadNodesInRadius().
 		public static List<(float x, float z)> GetRoadNodes(int cx, int cz, int radius)
 		{
 			var nodes = new List<(float x, float z)>();
@@ -228,8 +218,6 @@ namespace maxhanna.Server.Controllers
 			return nodes;
 		}
 
-		// Builds undirected edges between adjacent nodes (same row/col, GRID_PITCH apart).
-		// Mirrors grandtheft-renderer.ts getRoadEdges().
 		public static List<(int from, int to)> GetRoadEdges(List<(float x, float z)> nodes)
 		{
 			var edges = new List<(int from, int to)>();
@@ -240,38 +228,75 @@ namespace maxhanna.Server.Controllers
 					float dx = Math.Abs(nodes[i].x - nodes[j].x);
 					float dz = Math.Abs(nodes[i].z - nodes[j].z);
 					if ((dx == GRID_PITCH && dz == 0) || (dx == 0 && dz == GRID_PITCH))
-					{
 						edges.Add((i, j));
-					}
 				}
 			}
 			return edges;
 		}
 
-		// Returns the lane offset perpendicular to the road direction for
-		// right-hand driving: offset is (+perpZ, -perpX) normalized to 12.5.
+		// ── Cached road graph ─────────────────────────────────────────
+		// Returns nodes + pre-built adjacency for the chunk, cached forever.
+		// Uses a dictionary to build edges in O(N) instead of O(N²).
+		public static RoadGraph GetRoadGraph(int cx, int cz)
+		{
+			var key = (cx, cz);
+			if (_roadGraphCache.TryGetValue(key, out var existing)) return existing;
+
+			var nodes = GetRoadNodes(cx, cz, ROAD_RADIUS);
+			int n = nodes.Count;
+			var adjLists = new List<int>[n];
+			for (int i = 0; i < n; i++) adjLists[i] = new List<int>(4);
+
+			// O(N) edge build via coordinate lookup
+			var nodeIndex = new Dictionary<(int, int), int>(n);
+			for (int i = 0; i < n; i++)
+			{
+				int gx = (int)Math.Round(nodes[i].x / GRID_PITCH);
+				int gz = (int)Math.Round(nodes[i].z / GRID_PITCH);
+				nodeIndex[(gx, gz)] = i;
+			}
+			for (int i = 0; i < n; i++)
+			{
+				int gx = (int)Math.Round(nodes[i].x / GRID_PITCH);
+				int gz = (int)Math.Round(nodes[i].z / GRID_PITCH);
+				if (nodeIndex.TryGetValue((gx + 1, gz), out var r)) { adjLists[i].Add(r); adjLists[r].Add(i); }
+				if (nodeIndex.TryGetValue((gx, gz + 1), out var d)) { adjLists[i].Add(d); adjLists[d].Add(i); }
+			}
+
+			var graph = new RoadGraph
+			{
+				Nodes = nodes.ToArray(),
+				Adjacency = new int[n][]
+			};
+			for (int i = 0; i < n; i++) graph.Adjacency[i] = adjLists[i].ToArray();
+
+			// Only add if no other thread beat us; return the winner
+			_roadGraphCache.TryAdd(key, graph);
+			return _roadGraphCache[key];
+		}
+
 		public static (float ox, float oz) GetLaneOffset(float fromX, float fromZ, float toX, float toZ, bool forward)
 		{
 			float dx = toX - fromX;
 			float dz = toZ - fromZ;
 			float len = (float)Math.Sqrt(dx * dx + dz * dz);
 			if (len < 0.001f) return (0, 0);
-			const float laneOffset = 4.0f; // Changed from 12.5f
+			const float laneOffset = 4.0f;
 			float perpX = dz / len * laneOffset;
 			float perpZ = -dx / len * laneOffset;
 			if (forward) return (perpX, perpZ);
 			return (-perpX, -perpZ);
-		} 
+		}
+
 		public static bool IsLightRedForX()
 		{
 			long ms = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 			return (ms / 6000) % 2 == 0;
 		}
 
-		// Find index of the node closest to (x, z).
 		public static int ClosestNode(List<(float x, float z)> nodes, float x, float z)
 		{
-			int best = -1;
+			int best = 0;
 			float bestDist = float.MaxValue;
 			for (int i = 0; i < nodes.Count; i++)
 			{
@@ -280,22 +305,30 @@ namespace maxhanna.Server.Controllers
 				float d = dx * dx + dz * dz;
 				if (d < bestDist) { bestDist = d; best = i; }
 			}
-			return Math.Max(0, best);
+			return best;
 		}
 
-		// Simple BFS pathfind on the grid between node indices.
-		// Returns list of node indices forming a path, or null if unreachable.
+		public static int ClosestNodeArr((float x, float z)[] nodes, float x, float z)
+		{
+			int best = 0;
+			float bestDist = float.MaxValue;
+			for (int i = 0; i < nodes.Length; i++)
+			{
+				float dx = nodes[i].x - x;
+				float dz = nodes[i].z - z;
+				float d = dx * dx + dz * dz;
+				if (d < bestDist) { bestDist = d; best = i; }
+			}
+			return best;
+		}
+
 		public static List<int>? FindPath(List<(float x, float z)> nodes, int start, int end)
 		{
 			if (nodes.Count < 2) return null;
 			var edges = GetRoadEdges(nodes);
 			var adj = new List<List<int>>(nodes.Count);
 			for (int i = 0; i < nodes.Count; i++) adj.Add(new List<int>());
-			foreach (var e in edges)
-			{
-				adj[e.from].Add(e.to);
-				adj[e.to].Add(e.from);
-			}
+			foreach (var e in edges) { adj[e.from].Add(e.to); adj[e.to].Add(e.from); }
 			int[] prev = new int[nodes.Count];
 			bool[] visited = new bool[nodes.Count];
 			for (int i = 0; i < nodes.Count; i++) prev[i] = -1;
@@ -308,18 +341,41 @@ namespace maxhanna.Server.Controllers
 				if (cur == end) break;
 				foreach (var nxt in adj[cur])
 				{
-					if (!visited[nxt])
-					{
-						visited[nxt] = true;
-						prev[nxt] = cur;
-						queue.Enqueue(nxt);
-					}
+					if (!visited[nxt]) { visited[nxt] = true; prev[nxt] = cur; queue.Enqueue(nxt); }
 				}
 			}
 			if (!visited[end]) return null;
 			var path = new List<int>();
-			for (int at = end; at != -1; at = prev[at])
-				path.Add(at);
+			for (int at = end; at != -1; at = prev[at]) path.Add(at);
+			path.Reverse();
+			return path;
+		}
+
+		// BFS using a pre-built cached RoadGraph — no edge rebuild, no List allocation
+		public static List<int>? FindPathCached(RoadGraph graph, int start, int end)
+		{
+			int n = graph.Nodes.Length;
+			if (n < 2) return null;
+			int[] prev = new int[n];
+			bool[] visited = new bool[n];
+			for (int i = 0; i < n; i++) prev[i] = -1;
+			var queue = new Queue<int>(n);
+			queue.Enqueue(start);
+			visited[start] = true;
+			while (queue.Count > 0)
+			{
+				int cur = queue.Dequeue();
+				if (cur == end) break;
+				var neighbors = graph.Adjacency[cur];
+				for (int i = 0; i < neighbors.Length; i++)
+				{
+					int nxt = neighbors[i];
+					if (!visited[nxt]) { visited[nxt] = true; prev[nxt] = cur; queue.Enqueue(nxt); }
+				}
+			}
+			if (!visited[end]) return null;
+			var path = new List<int>();
+			for (int at = end; at != -1; at = prev[at]) path.Add(at);
 			path.Reverse();
 			return path;
 		}
@@ -333,8 +389,6 @@ namespace maxhanna.Server.Controllers
 		private const int INACTIVITY_TIMEOUT_SECONDS = 15;
 		private const float POLICE_ARRIVAL_DISTANCE = 15.0f;
 		private const float COP_APPROACH_RADIUS = 7.0f;
-		// COP_ORBIT_SPEED was designed for 60fps (0.015 rad/tick → 0.9 rad/s).
-		// GetNPCs runs ~1/s so multiply by 60 for the same effective rate.
 		private const float COP_ORBIT_SPEED = 0.9f;
 		private static readonly ConcurrentDictionary<int, PlayerShootState> _shootingPlayers = new();
 		private static readonly ConcurrentDictionary<int, int> _playerHealth = new();
@@ -346,18 +400,18 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, int> _playerWantedLevels = new();
 		private static readonly ConcurrentDictionary<int, DateTime> _lastWantedDecay = new();
 		private static readonly ConcurrentDictionary<int, double> _lastPoliceDamageTime = new();
-		private static readonly ConcurrentDictionary<int, int> _playerMoney = new(); 
+		private static readonly ConcurrentDictionary<int, int> _playerMoney = new();
 		private static readonly ConcurrentDictionary<int, bool> _playerInCar = new();
 		private static readonly ConcurrentDictionary<int, DateTime> _playerInCarTime = new();
-		private static readonly ConcurrentDictionary<int, bool> _evictedPlayers = new(); 
+		private static readonly ConcurrentDictionary<int, bool> _evictedPlayers = new();
 		private static readonly ConcurrentDictionary<int, string> _playerVehicleType = new();
 		private static readonly ConcurrentDictionary<int, float> _playerCarColorR = new();
 		private static readonly ConcurrentDictionary<int, float> _playerCarColorG = new();
-		private static readonly ConcurrentDictionary<int, float> _playerCarColorB = new(); 
+		private static readonly ConcurrentDictionary<int, float> _playerCarColorB = new();
 		private static readonly ConcurrentDictionary<int, int> _playerPassengerOf = new();
 		private const float DEAD_BODY_TIMEOUT_SECONDS = 30;
 		private static readonly ConcurrentDictionary<int, DeadPlayerBody> _deadPlayerBodies = new();
-		private static readonly ConcurrentDictionary<int, ConcurrentDictionary<long, NpcState>> _worldNpcs = new(); 
+		private static readonly ConcurrentDictionary<int, ConcurrentDictionary<long, NpcState>> _worldNpcs = new();
 		private static readonly ConcurrentDictionary<int, List<ChatMessageEntry>> _worldChatMessages = new();
 		private class ChatMessageEntry { public int UserId { get; set; } public string Username { get; set; } = ""; public string Message { get; set; } = ""; public DateTime Timestamp { get; set; } }
 
@@ -374,11 +428,8 @@ namespace maxhanna.Server.Controllers
 			public bool IsHomeBase { get; set; }
 			public DateTime DroppedAt { get; set; }
 		}
-		// Track each player's owned weapons and ammo (indexed by weapon type 0–4)
-		// Always has weapon 0 (Unarmed) with ammo 0. Weapons 1–4 are collected.
 		private static readonly ConcurrentDictionary<int, bool[]> _playerWeapons = new();
 		private static readonly ConcurrentDictionary<int, int[]> _playerAmmo = new();
-		// Home base weapon respawn cooldowns
 		private static readonly bool[] _homeBaseWeaponCollected = new bool[5];
 		private static readonly DateTime[] _homeBaseWeaponRespawnAt = new DateTime[5];
 		private const int HOME_BASE_WEAPON_RESPAWN_SECONDS = 60;
@@ -440,7 +491,7 @@ namespace maxhanna.Server.Controllers
 			public DateTime DiedAt { get; set; }
 		}
 
-		public GrandTheftController(IConfiguration config) { _config = config; } 
+		public GrandTheftController(IConfiguration config) { _config = config; }
 		private const float HOME_BASE_X = 120f;
 		private const float HOME_BASE_Z = 40f;
 		private const float HOME_BASE_YAW = 0f;
@@ -455,7 +506,7 @@ namespace maxhanna.Server.Controllers
 			{
 				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await conn.OpenAsync();
- 
+
 				bool respawnAtHome = false;
 				using (var checkCmd = new MySqlCommand("SELECT last_seen FROM maxhanna.grandtheft_player_state WHERE user_id = @uid", conn))
 				{
@@ -500,7 +551,6 @@ namespace maxhanna.Server.Controllers
 
 				_playerX[req.UserId] = req.PosX;
 				_playerZ[req.UserId] = req.PosZ;
-
 				_playerMoney[req.UserId] = Math.Max(0, req.Money);
 				int lastClientHp = _lastClientHealth.GetOrAdd(req.UserId, req.Health);
 
@@ -513,26 +563,18 @@ namespace maxhanna.Server.Controllers
 					int currentServerHp = _playerHealth[req.UserId];
 					if (req.Health > currentServerHp)
 					{
-						// Client claims they have more health than the server.
-						// If this is a heal, req.Health should be > lastClientHp.
-						// If it's a stale packet, req.Health will == lastClientHp.
 						if (req.Health > lastClientHp)
-						{
-							// Legitimate heal (e.g. vending machine, hooker)
 							_playerHealth[req.UserId] = Math.Min(100, req.Health);
-						}
-						// else: stale packet, ignore the overwrite!
 					}
 					else
 					{
-						// Client took damage locally or is syncing down. Accept it.
 						_playerHealth[req.UserId] = req.Health;
 					}
 				}
 				_lastClientHealth[req.UserId] = req.Health;
 
 				_playerInCar[req.UserId] = req.IsInCar;
-				_playerInCarTime[req.UserId] = DateTime.UtcNow; 
+				_playerInCarTime[req.UserId] = DateTime.UtcNow;
 				if (!string.IsNullOrEmpty(req.VehicleType))
 					_playerVehicleType[req.UserId] = req.VehicleType!;
 				if (req.IsInCar)
@@ -540,7 +582,7 @@ namespace maxhanna.Server.Controllers
 					_playerCarColorR[req.UserId] = req.CarColorR;
 					_playerCarColorG[req.UserId] = req.CarColorG;
 					_playerCarColorB[req.UserId] = req.CarColorB;
-				} 
+				}
 				_playerPassengerOf[req.UserId] = req.PassengerOfUserId;
 
 				if (req.Health <= 0)
@@ -556,7 +598,6 @@ namespace maxhanna.Server.Controllers
 							DiedAt = DateTime.UtcNow
 						};
 					}
-					// Reset wanted level and money on death
 					_playerWantedLevels[req.UserId] = 0;
 					_playerMoney[req.UserId] = 0;
 				}
@@ -577,7 +618,6 @@ namespace maxhanna.Server.Controllers
 				var cutoff = DateTime.UtcNow.AddSeconds(-1);
 				foreach (var kv in _shootingPlayers) if (kv.Value.LastUpdated < cutoff) _shootingPlayers.TryRemove(kv.Key, out _);
 
-				// Chat message handling
 				var chatMessages = new List<object>();
 				if (!string.IsNullOrEmpty(req.ChatMessage))
 				{
@@ -592,13 +632,11 @@ namespace maxhanna.Server.Controllers
 					lock (messages)
 					{
 						messages.Add(new ChatMessageEntry { UserId = req.UserId, Username = senderUsername, Message = req.ChatMessage, Timestamp = DateTime.UtcNow });
-						// Prune old messages (>120s) and cap at 100
 						var pruneCutoff = DateTime.UtcNow.AddSeconds(-120);
 						messages.RemoveAll(m => m.Timestamp < pruneCutoff);
 						while (messages.Count > 100) messages.RemoveAt(0);
 					}
 				}
-				// Always include recent chat messages in response
 				{
 					var messages = _worldChatMessages.GetOrAdd(req.WorldId, _ => new List<ChatMessageEntry>());
 					lock (messages)
@@ -607,20 +645,15 @@ namespace maxhanna.Server.Controllers
 						foreach (var m in messages)
 						{
 							if (m.Timestamp >= chatCutoff)
-							{
 								chatMessages.Add(new { userId = m.UserId, username = m.Username, message = m.Message, timestamp = m.Timestamp });
-							}
 						}
 					}
 				}
 
-				// Wanted Level Logic
 				int wantedLevel = 0;
 				if (_playerWantedLevels.TryGetValue(req.UserId, out var w)) wantedLevel = w;
-
 				if (wantedLevel > 0)
 				{
-					// Decay wanted level
 					if (_lastWantedDecay.TryGetValue(req.UserId, out var lastDecay))
 					{
 						if ((DateTime.UtcNow - lastDecay).TotalSeconds > 20)
@@ -632,7 +665,7 @@ namespace maxhanna.Server.Controllers
 					else
 					{
 						_lastWantedDecay[req.UserId] = DateTime.UtcNow;
-					} 
+					}
 				}
 
 				var players = new List<object>();
@@ -674,42 +707,52 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				// NPC Logic
+				// ── NPC simulation ──────────────────────────────────────
+				// Only simulate NPCs within 300 units of the requesting player.
+				// Other players' requests handle distant NPCs.
 				if (_worldNpcs.ContainsKey(req.WorldId))
 				{
 					var npcs = _worldNpcs[req.WorldId];
 					var now = DateTime.UtcNow;
+					var simRng = new Random();
+					const float simRadiusSq = 300f * 300f;
+
 					foreach (var npc in npcs.Values)
 					{
 						if (npc.DeadAt.HasValue) continue;
 
-						// NEW: Proper separation force instead of random nudge
+						// Skip far NPCs — saves O(N²) work when world is large
+						float sfdx = npc.X - req.PosX;
+						float sfdz = npc.Z - req.PosZ;
+						if (sfdx * sfdx + sfdz * sfdz > simRadiusSq) continue;
+
+						// Separation force with quick-reject
 						float sepX = 0f, sepZ = 0f;
 						float minSep = npc.Type == "cop" ? 3.5f : 2.0f;
-						int sepCount = 0;
+						float minSepSq = minSep * minSep;
 
 						foreach (var otherNpc in npcs.Values)
 						{
 							if (otherNpc.Id == npc.Id || otherNpc.DeadAt.HasValue) continue;
 							float sdx = npc.X - otherNpc.X;
+							// Quick component-wise reject before Math.Sqrt
+							if (sdx > minSep || sdx < -minSep) continue;
 							float sdz = npc.Z - otherNpc.Z;
+							if (sdz > minSep || sdz < -minSep) continue;
 							float sDistSq = sdx * sdx + sdz * sdz;
-							if (sDistSq < minSep * minSep && sDistSq > 0.01f)
+							if (sDistSq < minSepSq && sDistSq > 0.01f)
 							{
 								float sDist = (float)Math.Sqrt(sDistSq);
 								float force = (minSep - sDist) / minSep;
 								sepX += (sdx / sDist) * force;
 								sepZ += (sdz / sDist) * force;
-								sepCount++;
 							}
 						}
 
-						// Apply separation force
 						npc.X += sepX * 0.3f;
 						npc.Z += sepZ * 0.3f;
 
-						// Panic mode: flee from the shooter
-						if (npc.PanicUntil.HasValue && DateTime.UtcNow < npc.PanicUntil.Value)
+						if (npc.PanicUntil.HasValue && now < npc.PanicUntil.Value)
 						{
 							float pdx = npc.X - npc.PanicFromX;
 							float pdz = npc.Z - npc.PanicFromZ;
@@ -717,15 +760,12 @@ namespace maxhanna.Server.Controllers
 							if (pDist > 0.1f)
 							{
 								float fleeSpeed = npc.Speed * 1.5f;
-								float pmx = (pdx / pDist) * fleeSpeed * 0.1f;
-								float pmz = (pdz / pDist) * fleeSpeed * 0.1f;
-								npc.X += pmx;
-								npc.Z += pmz;
+								npc.X += (pdx / pDist) * fleeSpeed * 0.1f;
+								npc.Z += (pdz / pDist) * fleeSpeed * 0.1f;
 							}
 						}
 						else
 						{
-							// Move towards target (only if not too close after separation)
 							float dx = npc.TargetX - npc.X;
 							float dz = npc.TargetZ - npc.Z;
 							float dist = (float)Math.Sqrt(dx * dx + dz * dz);
@@ -736,26 +776,22 @@ namespace maxhanna.Server.Controllers
 							}
 							else
 							{
-								// Set new target using road/sidewalk points
 								if (npc.Type != "cop")
 								{
-									var pathRng = new Random();
 									float tx = npc.TargetX, tz = npc.TargetZ;
 									if (npc.Type == "ped_male" || npc.Type == "ped_female")
-										GetRandomSidewalkPointNearPlayer(npc.X, npc.Z, out tx, out tz, pathRng);
+										GetRandomSidewalkPointNearPlayer(npc.X, npc.Z, out tx, out tz, simRng);
 									else
-										GetRandomRoadPointNearPlayer(npc.X, npc.Z, out tx, out tz, pathRng);
+										GetRandomRoadPointNearPlayer(npc.X, npc.Z, out tx, out tz, simRng);
 									npc.TargetX = tx;
 									npc.TargetZ = tz;
 								}
 							}
 						}
 
-						// Aircraft movement in UpdatePosition
 						if (npc.Type == "helicopter" || npc.Type == "plane")
 						{
-							var airRng = new Random();
-							float acAlt = npc.Type == "helicopter" ? 25f + (float)(airRng.NextDouble() * 10f) : 45f + (float)(airRng.NextDouble() * 15f);
+							float acAlt = npc.Type == "helicopter" ? 25f + (float)(simRng.NextDouble() * 10f) : 45f + (float)(simRng.NextDouble() * 15f);
 							if (npc.Y == 0) npc.Y = acAlt;
 							npc.Y += (acAlt - npc.Y) * 0.02f;
 							float adx = npc.TargetX - npc.X;
@@ -769,13 +805,12 @@ namespace maxhanna.Server.Controllers
 							}
 							else
 							{
-								GetRandomAeroportOrDistantPoint(npc.X, npc.Z, out float tx, out float tz, airRng);
+								GetRandomAeroportOrDistantPoint(npc.X, npc.Z, out float tx, out float tz, simRng);
 								npc.TargetX = tx;
 								npc.TargetZ = tz;
 							}
 						}
 
-						// NPC car hits pedestrian in UpdatePosition too
 						if (npc.Health > 0)
 						{
 							bool isCar = npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi" || npc.Type == "police";
@@ -787,43 +822,36 @@ namespace maxhanna.Server.Controllers
 									if (otherNpc.Type != "ped_male" && otherNpc.Type != "ped_female") continue;
 									float pdx = npc.X - otherNpc.X;
 									float pdz = npc.Z - otherNpc.Z;
-									if (pdx * pdx + pdz * pdz < 2.0f * 2.0f)
+									if (pdx * pdx + pdz * pdz < 4f)
 									{
 										otherNpc.Health -= 25;
-										if (otherNpc.Health <= 0) otherNpc.DeadAt = DateTime.UtcNow;
+										if (otherNpc.Health <= 0) otherNpc.DeadAt = now;
 									}
 								}
 							}
 						}
 
-						// Car fire system: catch fire at 20% HP or in ocean, explode after 10s
 						if (npc.Health > 0 && (npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi" || npc.Type == "police" || npc.Type == "bike" || npc.Type == "motorcycle" || npc.Type == "helicopter" || npc.Type == "plane"))
 						{
 							int cx = (int)Math.Floor(npc.X / CityLayout.CHUNK_SIZE);
 							int cz = (int)Math.Floor(npc.Z / CityLayout.CHUNK_SIZE);
-							if (!npc.OnFire && CityLayout.GetBiome(cx, cz) == "ocean") { npc.OnFire = true; npc.FireStartedAt = DateTime.UtcNow; }
+							if (!npc.OnFire && CityLayout.GetBiome(cx, cz) == "ocean") { npc.OnFire = true; npc.FireStartedAt = now; }
 							int fireThreshold = Math.Max(80, npc.MaxHealth / 5);
-							if (npc.Health <= fireThreshold && !npc.OnFire)
+							if (npc.Health <= fireThreshold && !npc.OnFire) { npc.OnFire = true; npc.FireStartedAt = now; }
+							if (npc.OnFire && npc.FireStartedAt.HasValue && (now - npc.FireStartedAt.Value).TotalSeconds >= 10.0)
 							{
-								npc.OnFire = true;
-								npc.FireStartedAt = DateTime.UtcNow;
-							}
-							if (npc.OnFire && npc.FireStartedAt.HasValue)
-							{
-								if ((DateTime.UtcNow - npc.FireStartedAt.Value).TotalSeconds >= 10.0)
-								{
-									npc.Health = 0;
-									npc.DeadAt = DateTime.UtcNow;
-								}
+								npc.Health = 0;
+								npc.DeadAt = now;
 							}
 						}
 
 						npc.LastUpdate = now;
 					}
-				} 
-				bool evicted = _evictedPlayers.TryRemove(req.UserId, out _); 
+				}
+
+				bool evicted = _evictedPlayers.TryRemove(req.UserId, out _);
 				int yourHealth = req.Health;
-				if (_playerHealth.TryGetValue(req.UserId, out var serverHp)) yourHealth = serverHp; 
+				if (_playerHealth.TryGetValue(req.UserId, out var serverHp)) yourHealth = serverHp;
 				if (!_playerWeapons.ContainsKey(req.UserId))
 					_playerWeapons[req.UserId] = new bool[5] { true, false, false, false, false };
 				if (!_playerAmmo.ContainsKey(req.UserId))
@@ -831,19 +859,7 @@ namespace maxhanna.Server.Controllers
 				var pwArr = _playerWeapons[req.UserId];
 				var paArr = _playerAmmo[req.UserId];
 				var dw = BuildDroppedWeapons();
-				return Ok(new
-				{
-					ok = true,
-					players,
-					wantedLevel,
-					evicted,
-					yourHealth,
-					respawnAtHome,
-					chatMessages,
-					droppedWeapons = dw,
-					ownedWeapons = pwArr,
-					ammo = paArr
-				});
+				return Ok(new { ok = true, players, wantedLevel, evicted, yourHealth, respawnAtHome, chatMessages, droppedWeapons = dw, ownedWeapons = pwArr, ammo = paArr });
 			}
 			catch (Exception ex)
 			{
@@ -868,6 +884,7 @@ namespace maxhanna.Server.Controllers
 			var deadBodies = new List<object>();
 			var deadIds = new List<long>();
 			var rng = new Random();
+			var now = DateTime.UtcNow;
 
 			int nearbyCars = 0;
 			int nearbyPeds = 0;
@@ -878,10 +895,9 @@ namespace maxhanna.Server.Controllers
 			{
 				var npc = kv.Value;
 
-				// Dead body handling
 				if (npc.DeadAt != null)
 				{
-					if ((DateTime.UtcNow - npc.DeadAt.Value).TotalSeconds > DEAD_BODY_TIMEOUT_SECONDS)
+					if ((now - npc.DeadAt.Value).TotalSeconds > DEAD_BODY_TIMEOUT_SECONDS)
 					{
 						deadIds.Add(kv.Key);
 					}
@@ -889,7 +905,7 @@ namespace maxhanna.Server.Controllers
 					{
 						float ddx = npc.X - posX;
 						float ddz = npc.Z - posZ;
-						if (ddx * ddx + ddz * ddz < 250f * 250f)
+						if (ddx * ddx + ddz * ddz < 62500f)
 						{
 							deadBodies.Add(new
 							{
@@ -909,31 +925,20 @@ namespace maxhanna.Server.Controllers
 					continue;
 				}
 
-				if (npc.Health <= 0) { npc.DeadAt = DateTime.UtcNow; continue; }
+				if (npc.Health <= 0) { npc.DeadAt = now; continue; }
 
 				if (npc.Type == "police" || npc.Type == "cop")
 				{
 					if (npc.TargetUserId == userId && wantedLevel == 0)
 					{
-						// NEW (Bug 3): Instead of deleting the cop, either walk
-						// back to the police car (if it still exists and is
-						// parked) or become a normal pedestrian. Clear the target
-						// so the cop stops chasing and the movement branch below
-						// uses pedestrian-style wandering.
 						npc.TargetUserId = 0;
-						if (npc.HomeVehicleId != 0
-							&& npcs.TryGetValue(npc.HomeVehicleId, out var homeCar)
-							&& homeCar.IsParked)
+						if (npc.HomeVehicleId != 0 && npcs.TryGetValue(npc.HomeVehicleId, out var homeCar) && homeCar.IsParked)
 						{
-							// Walk back to the police car. The re-entry check in
-							// the cop movement branch below will convert the cop
-							// back to a "police" NPC when it gets close enough.
 							npc.TargetX = homeCar.X;
 							npc.TargetZ = homeCar.Z;
 						}
 						else
 						{
-							// Car gone or occupied — become a normal pedestrian.
 							npc.HomeVehicleId = 0;
 							npc.Type = "ped_" + npc.Gender;
 							GetRandomSidewalkPointNearPlayer(npc.X, npc.Z, out float sx, out float sz, rng);
@@ -941,9 +946,6 @@ namespace maxhanna.Server.Controllers
 							npc.TargetZ = sz;
 							npc.Speed = 2.0f;
 						}
-						// Do NOT continue — fall through so the cop/ped actually
-						// moves this tick. The movement branch will handle
-						// walking toward the target or re-entering the car.
 					}
 					if (npc.TargetUserId == userId && wantedLevel > 0)
 					{
@@ -972,12 +974,9 @@ namespace maxhanna.Server.Controllers
 								npc.Type = "cop";
 								npc.Speed = 5.0f;
 								npc.ApproachAngle = (float)Math.Atan2(npc.X - posX, npc.Z - posZ);
-								// NEW (Bug 3): Remember the parked police car so the
-								// cop can walk back to it when the player loses wanted.
 								npc.HomeVehicleId = parkedId;
 							}
 						}
-
 						npc.TargetX = posX + (float)Math.Cos(npc.ApproachAngle) * COP_APPROACH_RADIUS;
 						npc.TargetZ = posZ + (float)Math.Sin(npc.ApproachAngle) * COP_APPROACH_RADIUS;
 					}
@@ -987,20 +986,16 @@ namespace maxhanna.Server.Controllers
 				float dz = npc.Z - posZ;
 				float distSq = dx * dx + dz * dz;
 
-				if (distSq > 300f * 300f && !npc.IsParked)
-				{
-					deadIds.Add(kv.Key);
-					continue;
-				}
+				if (distSq > 90000f && !npc.IsParked) { deadIds.Add(kv.Key); continue; }
 
-				if (distSq < 150f * 150f)
+				if (distSq < 22500f)
 				{
 					if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") nearbyPeds++;
 					else if (npc.Type == "helicopter" || npc.Type == "plane") { }
 					else if (!npc.IsParked) nearbyCars++;
 				}
 
-				if (distSq > 200f * 200f) continue;
+				if (distSq > 40000f) continue;
 
 				if (npc.IsParked) { parkedCars.Add(new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = 0f, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, health = npc.Health, isBurning = npc.OnFire }); continue; }
 
@@ -1012,12 +1007,11 @@ namespace maxhanna.Server.Controllers
 
 				if (isVehicle && (npc.Type == "helicopter" || npc.Type == "plane"))
 				{
-					// Aircraft simulation: fly in the sky
 					float acAlt = npc.Type == "helicopter" ? 25f + (float)(rng.NextDouble() * 10f) : 45f + (float)(rng.NextDouble() * 15f);
 					if (npc.Y == 0) npc.Y = acAlt;
 					npc.Y += (acAlt - npc.Y) * 0.02f;
 
-					bool isPanicking = npc.PanicUntil.HasValue && DateTime.UtcNow < npc.PanicUntil.Value;
+					bool isPanicking = npc.PanicUntil.HasValue && now < npc.PanicUntil.Value;
 					if (isPanicking)
 					{
 						float pdx = npc.X - npc.PanicFromX;
@@ -1028,16 +1022,14 @@ namespace maxhanna.Server.Controllers
 							npc.X += (pdx / pDist) * npc.Speed * SPEED_FACTOR * 1.5f;
 							npc.Z += (pdz / pDist) * npc.Speed * SPEED_FACTOR * 1.5f;
 							npc.Yaw = (float)Math.Atan2(pdx, pdz);
-							npc.Y += 10f * 0.016f;
+							npc.Y += 0.16f;
 						}
 					}
 					else
 					{
 						if (distToTarget < 10f)
 						{
-							// Pick a new random distant target
-							float tx, tz;
-							GetRandomAeroportOrDistantPoint(npc.X, npc.Z, out tx, out tz, rng);
+							GetRandomAeroportOrDistantPoint(npc.X, npc.Z, out float tx, out float tz, rng);
 							npc.TargetX = tx;
 							npc.TargetZ = tz;
 						}
@@ -1051,36 +1043,26 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 
-					// Fire system for aircraft
 					if (npc.Health > 0)
 					{
 						int cxc = (int)Math.Floor(npc.X / CityLayout.CHUNK_SIZE);
 						int czc = (int)Math.Floor(npc.Z / CityLayout.CHUNK_SIZE);
-						if (!npc.OnFire && CityLayout.GetBiome(cxc, czc) == "ocean") { npc.OnFire = true; npc.FireStartedAt = DateTime.UtcNow; }
+						if (!npc.OnFire && CityLayout.GetBiome(cxc, czc) == "ocean") { npc.OnFire = true; npc.FireStartedAt = now; }
 						int fireThreshold = Math.Max(80, npc.MaxHealth / 5);
-						if (npc.Health <= fireThreshold && !npc.OnFire)
+						if (npc.Health <= fireThreshold && !npc.OnFire) { npc.OnFire = true; npc.FireStartedAt = now; }
+						if (npc.OnFire && npc.FireStartedAt.HasValue && (now - npc.FireStartedAt.Value).TotalSeconds >= 10.0)
 						{
-							npc.OnFire = true;
-							npc.FireStartedAt = DateTime.UtcNow;
-						}
-						if (npc.OnFire && npc.FireStartedAt.HasValue)
-						{
-							if ((DateTime.UtcNow - npc.FireStartedAt.Value).TotalSeconds >= 10.0)
-							{
-								npc.Health = 0;
-								npc.DeadAt = DateTime.UtcNow;
-							}
+							npc.Health = 0;
+							npc.DeadAt = now;
 						}
 					}
 				}
 				else if (isVehicle)
 				{
-					// --- Traffic-aware vehicle movement --- 
 					const float INTERSECTION_RADIUS = 14f;
-					const float SPEED_FACTOR = 0.5f;
+					const float SPEED_FACTOR_LOCAL = 0.5f;
 
-					// Panic mode: flee from the shooter instead of following path
-					bool isPanicking = npc.PanicUntil.HasValue && DateTime.UtcNow < npc.PanicUntil.Value;
+					bool isPanicking = npc.PanicUntil.HasValue && now < npc.PanicUntil.Value;
 					if (isPanicking)
 					{
 						npc.PathIndices = null;
@@ -1090,8 +1072,8 @@ namespace maxhanna.Server.Controllers
 						if (pDist > 0.1f)
 						{
 							float fleeSpeed = npc.Speed * 1.5f;
-							float fmoveX = (pdx / pDist) * fleeSpeed * SPEED_FACTOR;
-							float fmoveZ = (pdz / pDist) * fleeSpeed * SPEED_FACTOR;
+							float fmoveX = (pdx / pDist) * fleeSpeed * SPEED_FACTOR_LOCAL;
+							float fmoveZ = (pdz / pDist) * fleeSpeed * SPEED_FACTOR_LOCAL;
 							float fnextX = npc.X + fmoveX;
 							float fnextZ = npc.Z + fmoveZ;
 							if (!CityLayout.IsBuildingAt(fnextX, fnextZ)) { npc.X = fnextX; npc.Z = fnextZ; }
@@ -1100,15 +1082,17 @@ namespace maxhanna.Server.Controllers
 					}
 					else
 					{
-						// Build road graph around this NPC
 						int npcCX = (int)Math.Floor(npc.X / CityLayout.CHUNK_SIZE);
 						int npcCZ = (int)Math.Floor(npc.Z / CityLayout.CHUNK_SIZE);
-						var nodes = CityLayout.GetRoadNodes(npcCX, npcCZ, 4);
-						if (nodes.Count < 2)
+
+						// Use cached road graph instead of rebuilding every call
+						var graph = CityLayout.GetRoadGraph(npcCX, npcCZ);
+						var nodes = graph.Nodes;
+
+						if (nodes.Length < 2)
 						{
-							// Fallback for areas with no roads — use old movement
-							float moveX = (tdx / distToTarget) * npc.Speed * SPEED_FACTOR;
-							float moveZ = (tdz / distToTarget) * npc.Speed * SPEED_FACTOR;
+							float moveX = (tdx / distToTarget) * npc.Speed * SPEED_FACTOR_LOCAL;
+							float moveZ = (tdz / distToTarget) * npc.Speed * SPEED_FACTOR_LOCAL;
 							float nextX = npc.X + moveX;
 							float nextZ = npc.Z + moveZ;
 							if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
@@ -1125,15 +1109,13 @@ namespace maxhanna.Server.Controllers
 
 							if (npc.PathIndices == null || npc.PathIdx >= npc.PathIndices.Count)
 							{
-								int startIdx = CityLayout.ClosestNode(nodes, npc.X, npc.Z);
-								int endIdx = rng.Next(nodes.Count);
-								if (endIdx == startIdx) endIdx = (startIdx + 1) % nodes.Count;
-								npc.PathIndices = CityLayout.FindPath(nodes, startIdx, endIdx);
+								int startIdx = CityLayout.ClosestNodeArr(nodes, npc.X, npc.Z);
+								int endIdx = rng.Next(nodes.Length);
+								if (endIdx == startIdx) endIdx = (startIdx + 1) % nodes.Length;
+								npc.PathIndices = CityLayout.FindPathCached(graph, startIdx, endIdx);
 								npc.PathIdx = 0;
 								if (npc.PathIndices == null || npc.PathIndices.Count < 2)
-								{
-									npc.PathIndices = new List<int> { startIdx, (startIdx + 1) % nodes.Count };
-								}
+									npc.PathIndices = new List<int> { startIdx, (startIdx + 1) % nodes.Length };
 								var fromN = nodes[npc.PathIndices[0]];
 								var toN = nodes[npc.PathIndices[1]];
 								var off = CityLayout.GetLaneOffset(fromN.x, fromN.z, toN.x, toN.z, true);
@@ -1143,8 +1125,7 @@ namespace maxhanna.Server.Controllers
 
 							int currIdx = npc.PathIndices[npc.PathIdx];
 							int nextIdx = npc.PathIdx + 1 < npc.PathIndices.Count ? npc.PathIndices[npc.PathIdx + 1] : currIdx;
-
-							if (currIdx < 0 || currIdx >= nodes.Count || nextIdx < 0 || nextIdx >= nodes.Count)
+							if (currIdx < 0 || currIdx >= nodes.Length || nextIdx < 0 || nextIdx >= nodes.Length)
 							{
 								npc.PathIndices = null;
 								continue;
@@ -1152,7 +1133,6 @@ namespace maxhanna.Server.Controllers
 
 							var currNode = nodes[currIdx];
 							var nextNode = nodes[nextIdx];
-
 							float targetX = nextNode.x + npc.LaneOffsetX;
 							float targetZ = nextNode.z + npc.LaneOffsetZ;
 							float ddx2 = targetX - npc.X;
@@ -1167,10 +1147,7 @@ namespace maxhanna.Server.Controllers
 								{
 									overshot = true;
 									npc.PathIdx++;
-									if (npc.PathIdx >= npc.PathIndices.Count)
-									{
-										npc.PathIndices = null;
-									}
+									if (npc.PathIdx >= npc.PathIndices.Count) { npc.PathIndices = null; }
 									else
 									{
 										var cn = nodes[npc.PathIndices[npc.PathIdx]];
@@ -1183,35 +1160,29 @@ namespace maxhanna.Server.Controllers
 							}
 							if (!overshot && npc.PathIndices != null)
 							{
-								distToTarget2 = (float)Math.Sqrt(ddx2 * ddx2 + ddz2 * ddz2);
-
-								// Traffic light check at intersections
+								// Traffic light check
 								bool lightStop = false;
 								if (nextIdx != currIdx && distToTarget2 < INTERSECTION_RADIUS)
 								{
 									float nodeDx = nextNode.x - currNode.x;
 									float nodeDz = nextNode.z - currNode.z;
 									bool isHorizontal = Math.Abs(nodeDx) > Math.Abs(nodeDz);
-									if (CityLayout.IsLightRedForX() == isHorizontal)
-									{
-										lightStop = true;
-									}
+									if (CityLayout.IsLightRedForX() == isHorizontal) lightStop = true;
 								}
 
-								// Obstacle check — other NPCs ahead
+								// Obstacle check — single pass, quick-reject by forward distance
 								bool blocked = false;
-								for (float ahead = 2f; ahead < 8f; ahead += 2f)
+								float sinYaw = (float)Math.Sin(npc.Yaw);
+								float cosYaw = (float)Math.Cos(npc.Yaw);
+								foreach (var otherKv in npcs)
 								{
-									float cx = npc.X + (float)Math.Sin(npc.Yaw) * ahead;
-									float cz = npc.Z + (float)Math.Cos(npc.Yaw) * ahead;
-									foreach (var otherKv in npcs)
-									{
-										if (otherKv.Key == kv.Key || otherKv.Value.DeadAt != null) continue;
-										float odx = otherKv.Value.X - cx;
-										float odz = otherKv.Value.Z - cz;
-										if (odx * odx + odz * odz < 9f) { blocked = true; break; }
-									}
-									if (blocked) break;
+									if (otherKv.Key == kv.Key || otherKv.Value.DeadAt != null) continue;
+									float relX = otherKv.Value.X - npc.X;
+									float relZ = otherKv.Value.Z - npc.Z;
+									float forward = relX * sinYaw + relZ * cosYaw;
+									if (forward < 1f || forward > 9f) continue;
+									float side = relX * cosYaw - relZ * sinYaw;
+									if (side * side < 9f) { blocked = true; break; }
 								}
 
 								if (lightStop || blocked || npc.Stopped)
@@ -1225,18 +1196,14 @@ namespace maxhanna.Server.Controllers
 									npc.StopTimer = 0f;
 									if (distToTarget2 < 2.5f)
 									{
-										// Advance to next node
 										npc.PathIdx++;
 										if (npc.PathIdx >= npc.PathIndices.Count)
 										{
-											// Reached end — pick new destination
-											int newEnd = rng.Next(nodes.Count);
-											npc.PathIndices = CityLayout.FindPath(nodes, currIdx, newEnd);
+											int newEnd = rng.Next(nodes.Length);
+											npc.PathIndices = CityLayout.FindPathCached(graph, currIdx, newEnd);
 											npc.PathIdx = 0;
 											if (npc.PathIndices == null || npc.PathIndices.Count < 2)
-											{
-												npc.PathIndices = new List<int> { currIdx, (currIdx + 1) % nodes.Count };
-											}
+												npc.PathIndices = new List<int> { currIdx, (currIdx + 1) % nodes.Length };
 											var nn = nodes[npc.PathIndices[0]];
 											var nm = nodes[npc.PathIndices[1]];
 											var off2 = CityLayout.GetLaneOffset(nn.x, nn.z, nm.x, nm.z, true);
@@ -1245,7 +1212,6 @@ namespace maxhanna.Server.Controllers
 										}
 										else
 										{
-											// Update lane offset for new segment
 											var cn = nodes[npc.PathIndices[npc.PathIdx]];
 											var nn2 = nodes[npc.PathIndices[npc.PathIdx + 1 < npc.PathIndices.Count ? npc.PathIdx + 1 : npc.PathIdx]];
 											var off3 = CityLayout.GetLaneOffset(cn.x, cn.z, nn2.x, nn2.z, true);
@@ -1255,8 +1221,8 @@ namespace maxhanna.Server.Controllers
 									}
 									else
 									{
-										float moveX = (ddx2 / distToTarget2) * npc.Speed * SPEED_FACTOR;
-										float moveZ = (ddz2 / distToTarget2) * npc.Speed * SPEED_FACTOR;
+										float moveX = (ddx2 / distToTarget2) * npc.Speed * SPEED_FACTOR_LOCAL;
+										float moveZ = (ddz2 / distToTarget2) * npc.Speed * SPEED_FACTOR_LOCAL;
 										float nextX = npc.X + moveX;
 										float nextZ = npc.Z + moveZ;
 										if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
@@ -1268,16 +1234,13 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 				else if (npc.Type == "cop")
-				{ 
+				{
 					bool copReEntered = false;
-					if (npc.TargetUserId == 0
-						&& npc.HomeVehicleId != 0
-						&& npcs.TryGetValue(npc.HomeVehicleId, out var homeCar2)
-						&& homeCar2.IsParked)
+					if (npc.TargetUserId == 0 && npc.HomeVehicleId != 0 && npcs.TryGetValue(npc.HomeVehicleId, out var homeCar2) && homeCar2.IsParked)
 					{
 						float hcdx = npc.X - homeCar2.X;
 						float hcdz = npc.Z - homeCar2.Z;
-						if (hcdx * hcdx + hcdz * hcdz < 2.5f * 2.5f)
+						if (hcdx * hcdx + hcdz * hcdz < 6.25f)
 						{
 							npc.Type = "police";
 							npc.X = homeCar2.X;
@@ -1295,29 +1258,17 @@ namespace maxhanna.Server.Controllers
 					}
 					if (!copReEntered)
 					{
-						// Cop engagement phases. StationaryTime accumulates
-						// while the cop is within 25 units of the hunted player.
-						//   0 – 3.5s : orbit (close in on the player)
-						//   3.5+     : shoot (stand still, fire at player)
-						// Once shooting starts the cop stays in shoot mode
-						// until the player dies or the wanted level drops to 0
-						// (both reset StationaryTime via the conditions below).
 						if (npc.TargetUserId == userId && wantedLevel > 0)
 						{
 							float sdx = npc.X - posX;
 							float sdz = npc.Z - posZ;
-							if (sdx * sdx + sdz * sdz < 25f * 25f)
+							if (sdx * sdx + sdz * sdz < 625f)
 								npc.StationaryTime += 1.0;
 							else
 								npc.StationaryTime = 0;
 						}
 						else
-						{
 							npc.StationaryTime = 0;
-						}
-
-						// Removed the 5.5s reset — once shooting starts the cop
-						// stays in shoot mode until player die s or wanted level drops.
 
 						if (distToTarget < 2.0f)
 						{
@@ -1331,20 +1282,16 @@ namespace maxhanna.Server.Controllers
 								}
 								else
 								{
-									// Shoot phase: chase the player's current position
 									npc.TargetX = posX;
 									npc.TargetZ = posZ;
 								}
 							}
 							else if (npc.HomeVehicleId == 0)
 							{
-								// Not hunting, no car to return to — wander
 								GetRandomSidewalkPointNearPlayer(npc.X, npc.Z, out float sx, out float sz, rng);
 								npc.TargetX = sx;
 								npc.TargetZ = sz;
 							}
-							// else: keep walking toward the home car (target
-							// already set by the wanted-loss block above).
 						}
 						else
 						{
@@ -1354,21 +1301,20 @@ namespace maxhanna.Server.Controllers
 							float nextZ = npc.Z + moveZ;
 							if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
 						}
- 
+
 						npc.IsShootingAt = false;
-						if (npc.TargetUserId == userId && wantedLevel > 0
-								&& npc.StationaryTime >= 3.5)
+						if (npc.TargetUserId == userId && wantedLevel > 0 && npc.StationaryTime >= 3.5)
 						{
 							float sdx = npc.X - posX;
 							float sdz = npc.Z - posZ;
 							float sdistSq = sdx * sdx + sdz * sdz;
-							if (sdistSq < 25f * 25f)
+							if (sdistSq < 625f)
 							{
-								var nowMs = DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond;
+								var nowMs = now.Ticks / TimeSpan.TicksPerMillisecond;
 								if (npc.LastShotTime == 0 || (nowMs - npc.LastShotTime) > 500)
 								{
 									npc.LastShotTime = nowMs;
-									npc.IsShootingAt = true; 
+									npc.IsShootingAt = true;
 									if (_playerHealth.TryGetValue(userId, out var hp))
 										_playerHealth[userId] = Math.Max(0, hp - 5);
 									else
@@ -1377,25 +1323,20 @@ namespace maxhanna.Server.Controllers
 								}
 							}
 						}
- 
+
 						const float copModelOffset = -(float)Math.PI / 2f;
 						if (npc.TargetUserId == userId && wantedLevel > 0)
-						{
 							npc.Yaw = (float)Math.Atan2(posX - npc.X, posZ - npc.Z) + copModelOffset;
-						}
 						else
-						{
 							npc.Yaw = (float)Math.Atan2(tdx, tdz) + copModelOffset;
-						}
 					}
 				}
 				else
 				{
-					// Pedestrian movement (unchanged)
+					// Pedestrian movement
 					if (distToTarget < 2.0f)
 					{
-						float targetX = 0, targetZ = 0;
-						GetRandomSidewalkPointNearPlayer(posX, posZ, out targetX, out targetZ, rng);
+						GetRandomSidewalkPointNearPlayer(posX, posZ, out float targetX, out float targetZ, rng);
 						npc.TargetX = targetX;
 						npc.TargetZ = targetZ;
 					}
@@ -1409,9 +1350,11 @@ namespace maxhanna.Server.Controllers
 						{
 							if (otherKv.Key == kv.Key || otherKv.Value.DeadAt != null) continue;
 							float sdx = npc.X - otherKv.Value.X;
+							if (sdx > 2f || sdx < -2f) continue;
 							float sdz = npc.Z - otherKv.Value.Z;
+							if (sdz > 2f || sdz < -2f) continue;
 							float sDistSq = sdx * sdx + sdz * sdz;
-							if (sDistSq < 2f * 2f && sDistSq > 0.01f)
+							if (sDistSq < 4f && sDistSq > 0.01f)
 							{
 								float sDist = (float)Math.Sqrt(sDistSq);
 								float force = (2f - sDist) / 2f;
@@ -1436,18 +1379,14 @@ namespace maxhanna.Server.Controllers
 			}
 			foreach (var id in deadIds) npcs.TryRemove(id, out _);
 
-			// Add dead player bodies
+			// Dead player bodies
 			var expiredPlayers = new List<int>();
 			foreach (var kv in _deadPlayerBodies)
 			{
-				if ((DateTime.UtcNow - kv.Value.DiedAt).TotalSeconds > DEAD_BODY_TIMEOUT_SECONDS)
-				{
-					expiredPlayers.Add(kv.Key);
-					continue;
-				}
+				if ((now - kv.Value.DiedAt).TotalSeconds > DEAD_BODY_TIMEOUT_SECONDS) { expiredPlayers.Add(kv.Key); continue; }
 				float ddx = kv.Value.PosX - posX;
 				float ddz = kv.Value.PosZ - posZ;
-				if (ddx * ddx + ddz * ddz < 250f * 250f)
+				if (ddx * ddx + ddz * ddz < 62500f)
 				{
 					deadBodies.Add(new
 					{
@@ -1467,13 +1406,10 @@ namespace maxhanna.Server.Controllers
 			}
 			foreach (var pid in expiredPlayers) _deadPlayerBodies.TryRemove(pid, out _);
 
+			// Spawn cars
 			while (nearbyCars < 20)
 			{
 				long id = GetNextNpcId();
-				// "taxi" added to the traffic pool — appears with the same
-				// probability as the other vehicle types so the city has a
-				// steady trickle of cabs the player can steal and use to
-				// start taxi missions (see grandtheft.component.ts).
 				var type = new[] { "car", "bus", "bike", "motorcycle", "taxi" }[rng.Next(5)];
 				GetRandomRoadPointNearPlayer(posX, posZ, out float x, out float z, rng, minDist: 150f);
 				npcs[id] = new NpcState
@@ -1498,6 +1434,7 @@ namespace maxhanna.Server.Controllers
 				nearbyCars++;
 			}
 
+			// Spawn pedestrians
 			while (nearbyPeds < 40)
 			{
 				long id = GetNextNpcId();
@@ -1525,17 +1462,12 @@ namespace maxhanna.Server.Controllers
 			// Spawn Police
 			int nearbyPolice = 0;
 			foreach (var kv in npcs) if ((kv.Value.Type == "police" || kv.Value.Type == "cop") && kv.Value.TargetUserId == userId) nearbyPolice++;
-
 			int totalDesired = wantedLevel * 2;
 			while (wantedLevel > 0 && nearbyPolice < totalDesired)
 			{
 				long id = GetNextNpcId();
 				GetRandomRoadPointNearPlayer(posX, posZ, out float x, out float z, rng, minDist: 150f);
-
-				// NEW: Evenly distribute approach angles so cops spread out from the start
-				// Small random jitter (+/-0.3 rad) keeps it looking natural
 				float angle = (float)(nearbyPolice * Math.PI * 2.0 / totalDesired) + (float)(rng.NextDouble() * 0.6 - 0.3);
-
 				npcs[id] = new NpcState
 				{
 					Id = id,
@@ -1552,23 +1484,19 @@ namespace maxhanna.Server.Controllers
 					Cg = 0.1f,
 					Cb = 0.2f,
 					TargetUserId = userId,
-					ApproachAngle = angle  // <-- NEW
+					ApproachAngle = angle
 				};
 				nearbyPolice++;
 			}
 
-			// Spawn aircraft near any airport if player is in range
+			// Spawn aircraft near airports
 			int playerCX = (int)Math.Floor(posX / CityLayout.CHUNK_SIZE);
 			int playerCZ = (int)Math.Floor(posZ / CityLayout.CHUNK_SIZE);
 			bool nearAnyAeroport = false;
 			foreach (var zone in CityLayout.AIRPORT_ZONES)
 			{
 				if (playerCX >= zone.minCx - 5 && playerCX <= zone.maxCx + 5 &&
-					playerCZ >= zone.minCz - 5 && playerCZ <= zone.maxCz + 5)
-				{
-					nearAnyAeroport = true;
-					break;
-				}
+					playerCZ >= zone.minCz - 5 && playerCZ <= zone.maxCz + 5) { nearAnyAeroport = true; break; }
 			}
 			int nearbyAircraft = 0;
 			foreach (var kv in npcs) if (kv.Value.Type == "helicopter" || kv.Value.Type == "plane") nearbyAircraft++;
@@ -1598,13 +1526,13 @@ namespace maxhanna.Server.Controllers
 				nearbyAircraft++;
 			}
 
-			// Spawn parked boats near water
+			// Spawn parked boats near water — WITH ITERATION CAP to prevent infinite loop
 			bool nearWater = false;
-			for (int dx = -2; dx <= 2; dx++)
+			for (int dxc = -2; dxc <= 2; dxc++)
 			{
-				for (int dz = -2; dz <= 2; dz++)
+				for (int dzc = -2; dzc <= 2; dzc++)
 				{
-					string b = CityLayout.GetBiome(playerCX + dx, playerCZ + dz);
+					string b = CityLayout.GetBiome(playerCX + dxc, playerCZ + dzc);
 					if (b == "ocean" || b == "beach") { nearWater = true; break; }
 				}
 				if (nearWater) break;
@@ -1613,8 +1541,10 @@ namespace maxhanna.Server.Controllers
 			{
 				int parkedBoats = 0;
 				foreach (var kv in npcs) if (kv.Value.Type == "boat" && kv.Value.IsParked) parkedBoats++;
-				while (parkedBoats < 5)
+				int boatAttempts = 0;
+				while (parkedBoats < 5 && boatAttempts < 50) // CAP to prevent infinite loop
 				{
+					boatAttempts++;
 					long id = GetNextNpcId();
 					float bx = posX + (float)(rng.NextDouble() - 0.5) * 200f;
 					float bz = posZ + (float)(rng.NextDouble() - 0.5) * 200f;
@@ -1673,22 +1603,25 @@ namespace maxhanna.Server.Controllers
 			}
 
 			var dw = BuildDroppedWeapons();
-			return Ok(new { cars, pedestrians, parkedCars, aircraft, deadBodies, droppedWeapons = dw }); 
+			return Ok(new { cars, pedestrians, parkedCars, aircraft, deadBodies, droppedWeapons = dw });
 		}
 
 		private List<object> BuildDroppedWeapons()
 		{
 			var now = DateTime.UtcNow;
 			var result = new List<object>();
-			// Clean up expired regular drops (>30s old)
-			var expired = _droppedWeapons.Where(kv => (now - kv.Value.DroppedAt).TotalSeconds > 30).Select(kv => kv.Key).ToList();
-			foreach (var k in expired) _droppedWeapons.TryRemove(k, out _);
-			// Include active dropped weapons
+
+			// Clean up expired drops — manual loop instead of LINQ
+			var expiredKeys = new List<long>();
 			foreach (var kv in _droppedWeapons)
 			{
-				result.Add(new { id = kv.Key, posX = kv.Value.PosX, posZ = kv.Value.PosZ, weaponType = kv.Value.WeaponType });
+				if ((now - kv.Value.DroppedAt).TotalSeconds > 30)
+					expiredKeys.Add(kv.Key);
+				else
+					result.Add(new { id = kv.Key, posX = kv.Value.PosX, posZ = kv.Value.PosZ, weaponType = kv.Value.WeaponType });
 			}
-			// Include home base weapons that are available
+			foreach (var k in expiredKeys) _droppedWeapons.TryRemove(k, out _);
+
 			for (int i = 1; i <= 4; i++)
 			{
 				if (HOME_BASE_WEAPON_X[i] == 0) continue;
@@ -1696,9 +1629,7 @@ namespace maxhanna.Server.Controllers
 				if (_homeBaseWeaponCollected[i] && now >= _homeBaseWeaponRespawnAt[i])
 					_homeBaseWeaponCollected[i] = false;
 				if (!_homeBaseWeaponCollected[i])
-				{
 					result.Add(new { id = (long)(-i), posX = HOME_BASE_WEAPON_X[i], posZ = HOME_BASE_WEAPON_Z[i], weaponType = i });
-				}
 			}
 			return result;
 		}
@@ -1707,8 +1638,6 @@ namespace maxhanna.Server.Controllers
 		{
 			var dict = _worldNpcs[worldId];
 			var rng = new Random();
-			// Keep "taxi" in the seed pool too so cabs are present the moment
-			// a player joins (not only after the dynamic spawner kicks in).
 			var vTypes = new[] { "car", "bus", "bike", "motorcycle", "taxi" };
 			var gTypes = new[] { "ped_male", "ped_female" };
 
@@ -1761,7 +1690,6 @@ namespace maxhanna.Server.Controllers
 				};
 			}
 
-			// Seed aircraft at all airports (3 per airport zone)
 			foreach (var zone in CityLayout.AIRPORT_ZONES)
 			{
 				for (int i = 0; i < 3; i++)
@@ -1805,24 +1733,14 @@ namespace maxhanna.Server.Controllers
 				int gx = baseGx + rng.Next(-gridRange, gridRange + 1);
 				int gz = baseGz + rng.Next(-gridRange, gridRange + 1);
 
-				if (rng.NextDouble() < 0.5)
-				{
-					x = gx * 80f;
-					z = pz + (float)(rng.NextDouble() - 0.5) * 120f;
-				}
-				else
-				{
-					x = px + (float)(rng.NextDouble() - 0.5) * 120f;
-					z = gz * 80f;
-				}
+				if (rng.NextDouble() < 0.5) { x = gx * 80f; z = pz + (float)(rng.NextDouble() - 0.5) * 120f; }
+				else { x = px + (float)(rng.NextDouble() - 0.5) * 120f; z = gz * 80f; }
 
-				// Ensure the point is not inside a building
 				for (int b = 0; b < 5 && CityLayout.IsBuildingAt(x, z); b++)
 				{
 					x += (float)(rng.NextDouble() - 0.5) * 20f;
 					z += (float)(rng.NextDouble() - 0.5) * 20f;
 				}
-
 				if (CityLayout.IsBuildingAt(x, z)) continue;
 
 				int cx = (int)Math.Floor(x / 80f);
@@ -1832,15 +1750,13 @@ namespace maxhanna.Server.Controllers
 
 				if (minDist > 0f)
 				{
-					float dx = x - px;
-					float dz = z - pz;
-					if (dx * dx + dz * dz < minDist * minDist) continue;
+					float ddx = x - px;
+					float ddz = z - pz;
+					if (ddx * ddx + ddz * ddz < minDist * minDist) continue;
 				}
-
 				return;
 			}
 
-			// Fallback: scan for nearest non-ocean, non-beach point
 			for (int dr = 1; dr < 20; dr++)
 			{
 				for (int dgx = -dr; dgx <= dr; dgx++)
@@ -1860,14 +1776,12 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 			}
-
 			x = px + (float)(rng.NextDouble() - 0.5) * 80f;
 			z = pz + (float)(rng.NextDouble() - 0.5) * 80f;
 		}
 
 		private void GetRandomSidewalkPointNearPlayer(float px, float pz, out float x, out float z, Random rng, float minDist = 0f)
 		{
-			// Use the same 80m grid as the frontend (GRID_PITCH = 80).
 			int gridRange = minDist > 0f ? Math.Max(6, (int)(minDist / 80f) + 2) : 3;
 			int baseGx = (int)Math.Round((px - 40f) / 80f);
 			int baseGz = (int)Math.Round((pz - 40f) / 80f);
@@ -1876,17 +1790,14 @@ namespace maxhanna.Server.Controllers
 			{
 				int gx = baseGx + rng.Next(-gridRange, gridRange + 1);
 				int gz = baseGz + rng.Next(-gridRange, gridRange + 1);
-
 				float cx = gx * 80f + 40f;
 				float cz = gz * 80f + 40f;
 				float sidewalkEdge = 18f;
-
 				int edge = rng.Next(4);
 				if (edge == 0) { x = cx; z = cz - sidewalkEdge; }
 				else if (edge == 1) { x = cx; z = cz + sidewalkEdge; }
 				else if (edge == 2) { x = cx - sidewalkEdge; z = cz; }
 				else { x = cx + sidewalkEdge; z = cz; }
-
 				if (edge < 2) x += (float)(rng.NextDouble() - 0.5) * 30f;
 				else z += (float)(rng.NextDouble() - 0.5) * 30f;
 
@@ -1895,29 +1806,24 @@ namespace maxhanna.Server.Controllers
 
 				if (minDist > 0f)
 				{
-					float dx = x - px;
-					float dz = z - pz;
-					if (dx * dx + dz * dz < minDist * minDist) continue;
+					float ddx = x - px;
+					float ddz = z - pz;
+					if (ddx * ddx + ddz * ddz < minDist * minDist) continue;
 				}
-
 				return;
 			}
-
-			// Fallback
 			x = px + (float)(rng.NextDouble() - 0.5) * 80f;
 			z = pz + (float)(rng.NextDouble() - 0.5) * 80f;
 		}
 
 		private void GetRandomAeroportOrDistantPoint(float px, float pz, out float x, out float z, Random rng)
 		{
-			// 50% chance: pick a point at any airport
 			if (rng.NextDouble() < 0.5)
 			{
 				CityLayout.GetRandomAeroportWorldPoint(rng, out x, out z);
 			}
 			else
 			{
-				// Pick a distant random point (any biome except ocean)
 				for (int attempt = 0; attempt < 20; attempt++)
 				{
 					int gx = (int)Math.Round(px / 80f) + rng.Next(-15, 16);
@@ -1938,11 +1844,6 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("stealcar/{npcId}")]
 		public IActionResult StealCar(long npcId, [FromBody] GTStealCarRequest req)
 		{
-			// NEW (Feature 3): Negative npcId means carjack a human player.
-			// The target userId is -npcId. Sets the eviction flag; the target
-			// player's next UpdatePosition call will see evicted=true and
-			// call exitCar() on their client. Reuses the existing stealCar
-			// service method so no new endpoint/service change is needed.
 			if (npcId < 0)
 			{
 				int targetUserId = (int)(-npcId);
@@ -1953,13 +1854,7 @@ namespace maxhanna.Server.Controllers
 			if (_worldNpcs.ContainsKey(req.WorldId) && _worldNpcs[req.WorldId].TryRemove(npcId, out var npc))
 			{
 				var rng = new Random();
-				// NEW (Feature 2): Collect evicted NPCs so we can return them to
-				// the client in the response. The client adds them to
-				// serverPedestrians immediately, avoiding the 1-second poll
-				// delay. The NPCs are ALSO inserted into _worldNpcs so future
-				// polls from other players see them.
 				var evictedNpcs = new List<object>();
-				// Evict driver as a pedestrian NPC
 				if (npc.HasDriver)
 				{
 					long driverId = GetNextNpcId();
@@ -1987,7 +1882,6 @@ namespace maxhanna.Server.Controllers
 					};
 					evictedNpcs.Add(new { id = driverId, posX = driverX, posZ = driverZ, yaw = driverYaw, gender = npc.Gender, type = "ped_" + npc.Gender, health = 100, speed = 2.0f, colorR = 0.4f, colorG = 0.4f, colorB = 0.4f });
 				}
-				// Evict passengers as pedestrian NPCs
 				for (int p = 0; p < npc.PassengerCount; p++)
 				{
 					long passengerId = GetNextNpcId();
@@ -2007,7 +1901,7 @@ namespace maxhanna.Server.Controllers
 						Z = passZ,
 						TargetX = passTx,
 						TargetZ = passTz,
-						Yaw = (float)Math.Atan2(passTx - passX, passTz - passZ),
+						Yaw = passYaw,
 						Speed = 2.0f,
 						Health = 100,
 						Cr = 0.4f,
@@ -2028,7 +1922,7 @@ namespace maxhanna.Server.Controllers
 			long id = GetNextNpcId();
 			_worldNpcs[req.WorldId][id] = new NpcState
 			{
-				Id = id, 
+				Id = id,
 				Type = string.IsNullOrEmpty(req.VehicleType) ? "car" : req.VehicleType!,
 				IsParked = true,
 				X = req.PosX,
@@ -2053,7 +1947,6 @@ namespace maxhanna.Server.Controllers
 			var hitAnything = false;
 			bool targetDied = false;
 			float deathX = 0, deathZ = 0;
-			int deathWeapon = 0; 
 			int targetHealthResult = 0;
 
 			if (_worldNpcs.ContainsKey(worldId))
@@ -2068,25 +1961,16 @@ namespace maxhanna.Server.Controllers
 						bool isVehicle = kv.Value.Type == "car" || kv.Value.Type == "bus" || kv.Value.Type == "taxi" || kv.Value.Type == "police" || kv.Value.Type == "bike" || kv.Value.Type == "motorcycle";
 						if (kv.Value.Health <= 0)
 						{
-							if (isVehicle)
-							{
-								// Vehicles catch fire instead of dying instantly
-								kv.Value.Health = 1;
-							}
-							else
-							{
-								kv.Value.DeadAt = DateTime.UtcNow;
-								targetDied = true;
-							}
+							if (isVehicle) { kv.Value.Health = 1; }
+							else { kv.Value.DeadAt = DateTime.UtcNow; targetDied = true; }
 							deathX = kv.Value.X;
 							deathZ = kv.Value.Z;
-							// Cops always drop pistol with ammo
 							if (kv.Value.Type == "cop")
 							{
 								var drop = new DroppedWeapon { Id = GetNextDropId(), PosX = deathX, PosZ = deathZ, WeaponType = 1, Ammo = 15, DroppedAt = DateTime.UtcNow };
 								_droppedWeapons[drop.Id] = drop;
 							}
-						} 
+						}
 						targetHealthResult = kv.Value.Health;
 						kv.Value.PanicUntil = DateTime.UtcNow.AddSeconds(5);
 						kv.Value.PanicFromX = req.AttackerX;
@@ -2095,15 +1979,15 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				// Panic nearby NPCs/peds within 15 units of the attacker position
 				{
 					float panicRadius = 15f;
+					float panicRadiusSq = panicRadius * panicRadius;
 					foreach (var kv in npcs)
 					{
 						if (kv.Value.DeadAt.HasValue || kv.Value.PanicUntil.HasValue) continue;
 						float pdx = kv.Value.X - req.AttackerX;
 						float pdz = kv.Value.Z - req.AttackerZ;
-						if (pdx * pdx + pdz * pdz < panicRadius * panicRadius)
+						if (pdx * pdx + pdz * pdz < panicRadiusSq)
 						{
 							kv.Value.PanicUntil = DateTime.UtcNow.AddSeconds(5);
 							kv.Value.PanicFromX = req.AttackerX;
@@ -2127,17 +2011,15 @@ namespace maxhanna.Server.Controllers
 					targetDied = true;
 					_playerX.TryGetValue(playerTargetId, out deathX);
 					_playerZ.TryGetValue(playerTargetId, out deathZ);
-					// Respawn home base weapons on player death
 					for (int i = 1; i <= 4; i++) _homeBaseWeaponCollected[i] = false;
-					// Drop all weapons the player had (except Unarmed)
 					if (_playerWeapons.TryGetValue(playerTargetId, out var pw))
 					{
 						var ammoArr = _playerAmmo.TryGetValue(playerTargetId, out var pa) ? pa : new int[5];
-						for (int w = 1; w <= 4; w++)
+						for (int wi = 1; wi <= 4; wi++)
 						{
-							if (pw[w])
+							if (pw[wi])
 							{
-								var drop = new DroppedWeapon { Id = GetNextDropId(), PosX = deathX, PosZ = deathZ, WeaponType = w, Ammo = ammoArr[w], DroppedAt = DateTime.UtcNow };
+								var drop = new DroppedWeapon { Id = GetNextDropId(), PosX = deathX, PosZ = deathZ, WeaponType = wi, Ammo = ammoArr[wi], DroppedAt = DateTime.UtcNow };
 								_droppedWeapons[drop.Id] = drop;
 							}
 						}
@@ -2147,17 +2029,15 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 
-			// Increment wanted level for attacker (if not police)
 			if (hitAnything && req.AttackerId > 0)
 			{
 				if (_playerWantedLevels.TryGetValue(req.AttackerId, out var w))
 					_playerWantedLevels[req.AttackerId] = Math.Min(5, w + 1);
 				else
 					_playerWantedLevels[req.AttackerId] = 1;
-
 				_lastWantedDecay[req.AttackerId] = DateTime.UtcNow;
 			}
- 
+
 			return Ok(new { ok = true, hit = hitAnything, targetHealth = targetHealthResult, targetDied = targetDied });
 		}
 
@@ -2177,7 +2057,6 @@ namespace maxhanna.Server.Controllers
 				pa[drop.WeaponType] += drop.Ammo;
 				return Ok(new { ok = true, weaponType = drop.WeaponType, ammo = pa[drop.WeaponType] });
 			}
-			// Check home base weapon pickups
 			if (drop == null && req.DropId < 0)
 			{
 				int hbIdx = (int)(-req.DropId);
@@ -2204,12 +2083,11 @@ namespace maxhanna.Server.Controllers
 		{
 			var worldId = req.WorldId;
 			if (!_worldNpcs.ContainsKey(worldId)) return;
-
 			var now = DateTime.UtcNow.Ticks / TimeSpan.TicksPerMillisecond;
 			if (_lastDamageTime.TryGetValue(req.UserId, out var last) && (now - last) < 150) return;
 			_lastDamageTime[req.UserId] = now;
-		} 
-		
+		}
+
 		[HttpGet("garage/{userId}")]
 		public async Task<IActionResult> GetGarageCar(int userId)
 		{
@@ -2223,23 +2101,11 @@ namespace maxhanna.Server.Controllers
 				using var rdr = await cmd.ExecuteReaderAsync();
 				if (await rdr.ReadAsync())
 				{
-					return Ok(new
-					{
-						ok = true,
-						hasCar = true,
-						vehicleType = rdr.GetString("vehicle_type"),
-						colorR = rdr.GetFloat("color_r"),
-						colorG = rdr.GetFloat("color_g"),
-						colorB = rdr.GetFloat("color_b"),
-						yaw = rdr.GetFloat("yaw")
-					});
+					return Ok(new { ok = true, hasCar = true, vehicleType = rdr.GetString("vehicle_type"), colorR = rdr.GetFloat("color_r"), colorG = rdr.GetFloat("color_g"), colorB = rdr.GetFloat("color_b"), yaw = rdr.GetFloat("yaw") });
 				}
 				return Ok(new { ok = true, hasCar = false });
 			}
-			catch (Exception ex)
-			{
-				return StatusCode(500, new { ok = false, error = ex.Message });
-			}
+			catch (Exception ex) { return StatusCode(500, new { ok = false, error = ex.Message }); }
 		}
 
 		[HttpPost("garage/store")]
@@ -2250,7 +2116,6 @@ namespace maxhanna.Server.Controllers
 			{
 				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				await conn.OpenAsync();
-				// UPSERT: store one car per user (replace if exists)
 				using var cmd = new MySqlCommand(@"
                                         INSERT INTO maxhanna.grandtheft_garage (user_id, vehicle_type, color_r, color_g, color_b, yaw)
                                         VALUES (@uid, @vt, @cr, @cg, @cb, @yaw)
@@ -2264,10 +2129,7 @@ namespace maxhanna.Server.Controllers
 				await cmd.ExecuteNonQueryAsync();
 				return Ok(new { ok = true });
 			}
-			catch (Exception ex)
-			{
-				return StatusCode(500, new { ok = false, error = ex.Message });
-			}
+			catch (Exception ex) { return StatusCode(500, new { ok = false, error = ex.Message }); }
 		}
 
 		[HttpPost("garage/remove")]
@@ -2283,10 +2145,7 @@ namespace maxhanna.Server.Controllers
 				await cmd.ExecuteNonQueryAsync();
 				return Ok(new { ok = true });
 			}
-			catch (Exception ex)
-			{
-				return StatusCode(500, new { ok = false, error = ex.Message });
-			}
+			catch (Exception ex) { return StatusCode(500, new { ok = false, error = ex.Message }); }
 		}
 	}
 
