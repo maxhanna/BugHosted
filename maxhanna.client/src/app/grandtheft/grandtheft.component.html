@@ -155,6 +155,21 @@
       </div>
       <div class="gt-taxi-hint">Stop near the marker to pick up / drop off</div>
     </div>
+
+    <!-- Radio controls -->
+    <div id="gt-radio" *ngIf="isInCar && radioSongs.length > 0">
+      <div id="gt-radio-info">
+        <span class="radio-label">RADIO</span>
+        <span class="radio-song">{{ radioSongTitle || 'OFF' }}</span>
+      </div>
+      <div id="gt-radio-buttons">
+        <button *ngIf="isMobile" class="radio-btn" (click)="prevRadio()">◀</button>
+        <button class="radio-btn random-btn" (click)="randomRadio()">RANDOM</button>
+        <button *ngIf="isMobile" class="radio-btn" (click)="nextRadio()">▶</button>
+      </div>
+      <div id="gt-radio-hint" *ngIf="!isMobile">↑↓ / ←→ to change</div>
+    </div>
+    <div id="gt-yt-player"></div>
   </div>
 </div>
 

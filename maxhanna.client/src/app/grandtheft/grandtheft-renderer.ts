@@ -51,6 +51,11 @@ const BLOCK_SIZE = 30;
 const SIDEWALK_SIZE = 55;
 const BIOME_RADIUS_MOUNTAIN = 30;
 export function getBiome(cx: number, cz: number): string {
+  // Airports on each island's south beach edge
+  if (cx >= 0 && cx <= 2 && cz === -2) return 'aeroport';
+  if (cx >= 9 && cx <= 13 && cz === -5) return 'aeroport';
+  if (cx >= 23 && cx <= 28 && cz === -7) return 'aeroport';
+  if (cx >= 38 && cx <= 44 && cz === -10) return 'aeroport';
   // Island 1 (smallest Home/Spawn): garage + hospital + starter shops
   if (cx >= -2 && cx <= 3 && cz >= -2 && cz <= 2) return cz >= 2 || cz <= -2 ? 'beach' : 'city';
   // Bridge 1→2

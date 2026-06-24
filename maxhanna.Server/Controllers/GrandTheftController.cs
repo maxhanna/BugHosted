@@ -45,6 +45,10 @@ namespace maxhanna.Server.Controllers
 
 		public static string GetBiome(int cx, int cz)
 		{
+			if (cx >= 0 && cx <= 2 && cz == -2) return "aeroport";
+			if (cx >= 9 && cx <= 13 && cz == -5) return "aeroport";
+			if (cx >= 23 && cx <= 28 && cz == -7) return "aeroport";
+			if (cx >= 38 && cx <= 44 && cz == -10) return "aeroport";
 			if (cx >= -2 && cx <= 3 && cz >= -2 && cz <= 2) return cz >= 2 || cz <= -2 ? "beach" : "city";
 			if (cx >= 4 && cx <= 5 && cz >= -1 && cz <= 1) return "bridge";
 			if (cx >= 6 && cx <= 15 && cz >= -5 && cz <= 5) return cz >= 4 || cz <= -4 ? "beach" : "city";
@@ -58,6 +62,32 @@ namespace maxhanna.Server.Controllers
 			}
 			if (cx >= 35 && cx <= 44 && cz >= 11 && cz <= 15) return "aeroport";
 			return "ocean";
+		}
+
+		public static readonly (int minCx, int maxCx, int minCz, int maxCz)[] AIRPORT_ZONES = new[]
+		{
+			(0, 2, -2, -2),
+			(9, 13, -5, -5),
+			(23, 28, -7, -7),
+			(38, 44, -10, -10),
+			(35, 44, 11, 15)
+		};
+
+		public static bool IsAeroportChunk(int cx, int cz)
+		{
+			foreach (var z in AIRPORT_ZONES)
+				if (cx >= z.minCx && cx <= z.maxCx && cz >= z.minCz && cz <= z.maxCz) return true;
+			return false;
+		}
+
+		public static void GetRandomAeroportWorldPoint(Random rng, out float x, out float z)
+		{
+			int zi = rng.Next(AIRPORT_ZONES.Length);
+			var zone = AIRPORT_ZONES[zi];
+			int cx = zone.minCx + rng.Next(zone.maxCx - zone.minCx + 1);
+			int cz = zone.minCz + rng.Next(zone.maxCz - zone.minCz + 1);
+			x = cx * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 60f;
+			z = cz * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 60f;
 		}
 
 		// Returns true if there is a building at the given world position.
@@ -1592,20 +1622,26 @@ namespace maxhanna.Server.Controllers
 				nearbyPolice++;
 			}
 
-			// Spawn aircraft near aeroport if player is in range
+			// Spawn aircraft near any airport if player is in range
 			int playerCX = (int)Math.Floor(posX / CityLayout.CHUNK_SIZE);
 			int playerCZ = (int)Math.Floor(posZ / CityLayout.CHUNK_SIZE);
-			bool nearAeroport = Math.Abs(playerCX - 40) <= 10 && Math.Abs(playerCZ - 13) <= 8;
+			bool nearAnyAeroport = false;
+			foreach (var zone in CityLayout.AIRPORT_ZONES)
+			{
+				if (playerCX >= zone.minCx - 5 && playerCX <= zone.maxCx + 5 &&
+					playerCZ >= zone.minCz - 5 && playerCZ <= zone.maxCz + 5)
+				{
+					nearAnyAeroport = true;
+					break;
+				}
+			}
 			int nearbyAircraft = 0;
 			foreach (var kv in npcs) if (kv.Value.Type == "helicopter" || kv.Value.Type == "plane") nearbyAircraft++;
-			while (nearAeroport && nearbyAircraft < 3)
+			while (nearAnyAeroport && nearbyAircraft < 3)
 			{
 				long id = GetNextNpcId();
 				string acType = nearbyAircraft % 2 == 0 ? "helicopter" : "plane";
-				int acx = 35 + rng.Next(10);
-				int acz = 11 + rng.Next(5);
-				float x = acx * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 40f;
-				float z = acz * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 40f;
+				CityLayout.GetRandomAeroportWorldPoint(rng, out float x, out float z);
 				float y = acType == "helicopter" ? 25f + (float)rng.NextDouble() * 10f : 45f + (float)rng.NextDouble() * 15f;
 				npcs[id] = new NpcState
 				{
@@ -1715,32 +1751,35 @@ namespace maxhanna.Server.Controllers
 				};
 			}
 
-			// Seed aircraft at the aeroport
-			for (int i = 0; i < 3; i++)
+			// Seed aircraft at all airports (3 per airport zone)
+			foreach (var zone in CityLayout.AIRPORT_ZONES)
 			{
-				long id = GetNextNpcId();
-				string acType = i % 2 == 0 ? "helicopter" : "plane";
-				int acx = 35 + rng.Next(10);
-				int acz = 11 + rng.Next(5);
-				float ax = acx * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 40f;
-				float az = acz * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 40f;
-				float ay = acType == "helicopter" ? 25f + (float)rng.NextDouble() * 10f : 45f + (float)rng.NextDouble() * 15f;
-				dict[id] = new NpcState
+				for (int i = 0; i < 3; i++)
 				{
-					Id = id,
-					Type = acType,
-					X = ax,
-					Y = ay,
-					Z = az,
-					TargetX = ax + (float)(rng.NextDouble() - 0.5) * 200f,
-					TargetZ = az + (float)(rng.NextDouble() - 0.5) * 200f,
-					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
-					Speed = acType == "helicopter" ? 8f : 15f,
-					Health = 200, MaxHealth = 200,
-					Cr = 0.5f + (float)rng.NextDouble() * 0.5f,
-					Cg = 0.5f + (float)rng.NextDouble() * 0.5f,
-					Cb = 0.5f + (float)rng.NextDouble() * 0.5f,
-				};
+					long id = GetNextNpcId();
+					string acType = i % 2 == 0 ? "helicopter" : "plane";
+					int cx = zone.minCx + rng.Next(zone.maxCx - zone.minCx + 1);
+					int cz = zone.minCz + rng.Next(zone.maxCz - zone.minCz + 1);
+					float ax = cx * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 40f;
+					float az = cz * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 40f;
+					float ay = acType == "helicopter" ? 25f + (float)rng.NextDouble() * 10f : 45f + (float)rng.NextDouble() * 15f;
+					dict[id] = new NpcState
+					{
+						Id = id,
+						Type = acType,
+						X = ax,
+						Y = ay,
+						Z = az,
+						TargetX = ax + (float)(rng.NextDouble() - 0.5) * 200f,
+						TargetZ = az + (float)(rng.NextDouble() - 0.5) * 200f,
+						Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
+						Speed = acType == "helicopter" ? 8f : 15f,
+						Health = 200, MaxHealth = 200,
+						Cr = 0.5f + (float)rng.NextDouble() * 0.5f,
+						Cg = 0.5f + (float)rng.NextDouble() * 0.5f,
+						Cb = 0.5f + (float)rng.NextDouble() * 0.5f,
+					};
+				}
 			}
 		}
 
@@ -1832,13 +1871,10 @@ namespace maxhanna.Server.Controllers
 
 		private void GetRandomAeroportOrDistantPoint(float px, float pz, out float x, out float z, Random rng)
 		{
-			// 50% chance: pick a point at the aeroport (cx 35-44, cz 11-15)
+			// 50% chance: pick a point at any airport
 			if (rng.NextDouble() < 0.5)
 			{
-				int acx = 35 + rng.Next(10);
-				int acz = 11 + rng.Next(5);
-				x = acx * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 60f;
-				z = acz * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 60f;
+				CityLayout.GetRandomAeroportWorldPoint(rng, out x, out z);
 			}
 			else
 			{

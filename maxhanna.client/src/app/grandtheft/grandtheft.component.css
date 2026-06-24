@@ -875,3 +875,80 @@
 .gt-chat-popup-input button:active {
   opacity: 0.8;
 }
+
+/* Radio controls - bottom right */
+#gt-radio {
+  position: absolute;
+  bottom: 160px;
+  right: 15px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  user-select: none;
+  pointer-events: auto;
+}
+#gt-radio-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  background: rgba(0, 0, 0, 0.75);
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+.radio-label {
+  font-size: 10px;
+  color: #888;
+  letter-spacing: 2px;
+}
+.radio-song {
+  font-size: 12px;
+  color: #fff;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#gt-radio-buttons {
+  display: flex;
+  gap: 4px;
+}
+.radio-btn {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.radio-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+.radio-btn:active {
+  background: rgba(255, 255, 255, 0.35);
+}
+.random-btn {
+  background: rgba(255, 200, 50, 0.2);
+  border-color: rgba(255, 200, 50, 0.4);
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+.random-btn:hover {
+  background: rgba(255, 200, 50, 0.35);
+}
+#gt-radio-hint {
+  font-size: 9px;
+  color: #666;
+  text-align: right;
+}
+#gt-yt-player {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}

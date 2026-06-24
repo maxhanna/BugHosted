@@ -1,9 +1,11 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, NgZone } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { GrandTheftRenderer, CityMesh } from './grandtheft-renderer';
 import { GrandtheftService } from '../../services/grandtheft.service';
 import { UserEventService } from '../../services/user-event.service';
 import { User } from '../../services/datacontracts/user/user';
+import { TodoService } from '../../services/todo.service';
+import { FileService } from '../../services/file.service';
 
 const CHUNK_SIZE = 80;
 const CAR_HEIGHT = 0.4;
@@ -325,6 +327,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private autoFireTimer: any = null;
   weaponNames = WEAPON_NAMES;
   isMobile = false;
+  radioOn = false;
+  radioSongs: string[] = [];
+  radioIndex = -1;
+  radioSongTitle = '';
+  private ytPlayer: any = null;
+  private ytApiReady: Promise<void> | null = null;
   private joystickActive = false;
   private joystickId = -1;
   private joystickX = 0;
@@ -342,7 +350,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     [0.1, 0.6, 0.6], [0.5, 0.3, 0.1],
   ];
 
-  constructor(private gtService: GrandtheftService, private userEventService: UserEventService) { super(); }
+  constructor(private gtService: GrandtheftService, private userEventService: UserEventService, private todoService: TodoService, private fileService: FileService, private ngZone: NgZone) { super(); }
 
   ngOnInit() { 
     if (!this.parentRef?.user?.id) {
@@ -561,6 +569,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.renderer.resize(canvas.width, canvas.height);
     });
 
+    this.initRadio();
+
     document.addEventListener('keydown', (e) => {
       this.keys.add(e.code);
       if (e.code === 'Space') e.preventDefault();
@@ -574,6 +584,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (e.code === 'KeyV') this.toggleView();
       if (e.code === 'KeyM') this.showMap = !this.showMap;
       if (e.code === 'KeyL') this.showLeaderboard = !this.showLeaderboard;
+      if (this.isInCar && !this.isMobile) {
+        if (e.code === 'ArrowUp' || e.code === 'ArrowLeft') { e.preventDefault(); this.prevRadio(); }
+        if (e.code === 'ArrowDown' || e.code === 'ArrowRight') { e.preventDefault(); this.nextRadio(); }
+      }
       if (e.code === 'Tab' || e.code === 'KeyQ') {
         e.preventDefault();
         this.showWeaponWheel = !this.showWeaponWheel;
@@ -1068,6 +1082,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               scale: 0.85,
             };
           }
+          if (!this.radioOn && this.radioSongs.length) this.randomRadio();
 
           if (this.vehicleType === 'plane') { this.camDist = 12; this.camHeight = 5; }
           else if (this.vehicleType === 'helicopter') { this.camDist = 10; this.camHeight = 4; }
@@ -1455,6 +1470,92 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.taxiMarkers = [];
     this.taxiAttachedMeshes = [];
     this.taxiSearchTimer = 0;
+    this.stopRadio();
+  }
+
+  private async initRadio() {
+    const userId = this.getUserId();
+    if (!userId) return;
+    const todos = await this.todoService.getTodo(userId, 'Music');
+    if (todos && Array.isArray(todos)) {
+      this.radioSongs = todos
+        .filter((s: any) => s.url && s.url.includes('youtube'))
+        .map((s: any) => this.fileService.parseYoutubeId(s.url))
+        .filter((id: string) => id.length > 0);
+    }
+    if (this.ytPlayer) return;
+    this.ensureYtApi().then(() => {
+      const div = document.getElementById('gt-yt-player');
+      if (!div || this.ytPlayer) return;
+      this.ytPlayer = new (window as any).YT.Player('gt-yt-player', {
+        height: '0', width: '0',
+        playerVars: { autoplay: 0, controls: 0, disablekb: 1, fs: 0, modestbranding: 1, playsinline: 1 },
+        events: {
+          onReady: () => {},
+          onStateChange: (e: any) => {
+            if (e.data === 1) {
+              this.ngZone.run(() => {
+                this.radioSongTitle = this.ytPlayer?.getVideoData?.()?.title || '';
+              });
+            }
+            if (e.data === 0) this.nextRadio();
+          }
+        }
+      });
+    });
+  }
+
+  private ensureYtApi(): Promise<void> {
+    if (this.ytApiReady) return this.ytApiReady;
+    this.ytApiReady = new Promise<void>((resolve) => {
+      const w = window as any;
+      if (w.YT?.Player) { resolve(); return; }
+      w.onYouTubeIframeAPIReady = () => resolve();
+      if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        tag.async = true;
+        document.head.appendChild(tag);
+      }
+    });
+    return this.ytApiReady;
+  }
+
+  private playRadio(index: number) {
+    if (!this.ytPlayer || !this.radioSongs.length) return;
+    this.radioIndex = (index + this.radioSongs.length) % this.radioSongs.length;
+    const id = this.radioSongs[this.radioIndex];
+    try {
+      this.ytPlayer.loadVideoById(id);
+      this.radioOn = true;
+      this.ngZone.run(() => {
+        this.radioSongTitle = this.ytPlayer?.getVideoData?.()?.title || '';
+      });
+    } catch { }
+  }
+
+  nextRadio() {
+    if (!this.radioSongs.length) return;
+    if (!this.radioOn) { this.randomRadio(); return; }
+    this.playRadio(this.radioIndex + 1);
+  }
+
+  prevRadio() {
+    if (!this.radioSongs.length) return;
+    if (!this.radioOn) { this.randomRadio(); return; }
+    this.playRadio(this.radioIndex - 1);
+  }
+
+  randomRadio() {
+    if (!this.radioSongs.length) return;
+    if (this.radioOn && this.ytPlayer) try { this.ytPlayer.stopVideo(); } catch { }
+    this.playRadio(Math.floor(Math.random() * this.radioSongs.length));
+  }
+
+  private stopRadio() {
+    this.radioOn = false;
+    this.radioSongTitle = '';
+    if (this.ytPlayer) try { this.ytPlayer.stopVideo(); } catch { }
   }
 
   private startPolling() { this.pollMultiplayer(); }
