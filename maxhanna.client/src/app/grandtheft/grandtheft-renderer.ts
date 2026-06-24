@@ -2274,9 +2274,7 @@ void main() {
       nightAmb[1] + (dayAmb[1] - nightAmb[1]) * dayBlend,
       nightAmb[2] + (dayAmb[2] - nightAmb[2]) * dayBlend
     ];
-  }
-
-  render(
+  } render(
     camX: number, camY: number, camZ: number, camYaw: number, camPitch: number, aspect: number,
     targetX: number, targetY: number, targetZ: number, carYaw: number,
     serverNPCs: any[], otherPlayers: any[], serverPedestrians: any[], parkedCars: any[],
@@ -2291,125 +2289,122 @@ void main() {
     playerCarOnFire: boolean,
     carFireX: number, carFireZ: number, carFireYaw: number,
     trafficNodes?: { x: number; z: number }[],
-    farPlane?: number
+    farPlane?: number,
+    enableShadows: boolean = true
   ) {
     const gl = this.gl;
     const now = performance.now();
-    // --- Item pickup rendering config ---
-    // Pickups are drawn 5x smaller than default world objects and spin so
-    // players can spot them. PICKUP_SCALE = 0.2 means 1/5 of the default 1.0.
-    // If your models arrive at a different native size, tune this number.
     const PICKUP_SCALE = 0.2;
-    const PICKUP_SPIN_SPEED = 1.5;                 // radians / second
+    const PICKUP_SPIN_SPEED = 1.5;
     const pickupYaw = (now / 1000) * PICKUP_SPIN_SPEED;
     const dt = (this.lastFrameTime === 0 ? 0 : (now - this.lastFrameTime) / 1000);
     this.lastFrameTime = now;
     this.updateSun(dt);
 
-    // 1. Shadow Pass
-    const shadowDist = 80.0;
-    mat4.ortho(this.lightProj, -shadowDist, shadowDist, -shadowDist, shadowDist, -shadowDist, shadowDist * 2);
-    const sunPos = [camX - this.sunDir[0] * 50, camY - this.sunDir[1] * 50, camZ - this.sunDir[2] * 50];
-    mat4.lookAt(this.lightView, sunPos, [camX, camY, camZ], [0, 1, 0]);
-    mat4.multiply(this.lightSpaceMatrix, this.lightProj, this.lightView);
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowFBO);
-    gl.viewport(0, 0, this.shadowMapSize, this.shadowMapSize);
-    gl.clear(gl.DEPTH_BUFFER_BIT);
-    gl.useProgram(this.depthProgram);
-    gl.uniformMatrix4fv(this.depthLightSpaceLoc, false, this.lightSpaceMatrix);
-
-    gl.enable(gl.POLYGON_OFFSET_FILL);
-    gl.polygonOffset(2.0, 2.0);
-
+    // FIX: Declare these outside the shadow pass so the main pass can use them!
     const pcx = Math.floor(camX / CHUNK_SIZE);
     const pcz = Math.floor(camZ / CHUNK_SIZE);
-
     const nearbyLamps: { x: number; y: number; z: number }[] = [];
 
-    for (let dz = -2; dz <= 2; dz++) {
-      for (let dx = -2; dx <= 2; dx++) {
-        const chunk = this.getCityChunk(pcx + dx, pcz + dz);
-        this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1], true);
-        for (const bld of chunk.buildings) {
-          this.drawMesh(bld.model, bld.x, bld.y, bld.z, bld.yaw, bld.scale, [1, 1, 1, 1], true);
-        }
-        for (const lamp of chunk.lamps) {
-          const distSq = (lamp.x - camX) ** 2 + (lamp.z - camZ) ** 2;
-          if (distSq < 50 * 50) {
-            nearbyLamps.push({ x: lamp.x, y: 1.05, z: lamp.z });
+    // 1. Shadow Pass
+    if (enableShadows) {
+      const shadowDist = 80.0;
+      mat4.ortho(this.lightProj, -shadowDist, shadowDist, -shadowDist, shadowDist, -shadowDist, shadowDist * 2);
+      const sunPos = [camX - this.sunDir[0] * 50, camY - this.sunDir[1] * 50, camZ - this.sunDir[2] * 50];
+      mat4.lookAt(this.lightView, sunPos, [camX, camY, camZ], [0, 1, 0]);
+      mat4.multiply(this.lightSpaceMatrix, this.lightProj, this.lightView);
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowFBO);
+      gl.viewport(0, 0, this.shadowMapSize, this.shadowMapSize);
+      gl.clear(gl.DEPTH_BUFFER_BIT);
+      gl.useProgram(this.depthProgram);
+      gl.uniformMatrix4fv(this.depthLightSpaceLoc, false, this.lightSpaceMatrix);
+
+      gl.enable(gl.POLYGON_OFFSET_FILL);
+      gl.polygonOffset(2.0, 2.0);
+
+      for (let dz = -2; dz <= 2; dz++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const chunk = this.getCityChunk(pcx + dx, pcz + dz);
+          this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1], true);
+          for (const bld of chunk.buildings) {
+            this.drawMesh(bld.model, bld.x, bld.y, bld.z, bld.yaw, bld.scale, [1, 1, 1, 1], true);
+          }
+          for (const lamp of chunk.lamps) {
+            const distSq = (lamp.x - camX) ** 2 + (lamp.z - camZ) ** 2;
+            if (distSq < 50 * 50) {
+              nearbyLamps.push({ x: lamp.x, y: 1.05, z: lamp.z });
+            }
           }
         }
       }
-    }
-    for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, (pc as any)._expY ?? 0, pc.z, pc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-    for (const npc of serverNPCs) {
-      const vy = (npc.type === 'helicopter' || npc.type === 'plane') ? (npc.y || 0) : 0;
-      this.drawMesh(npc.mesh, npc.x, vy, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-    }
-    for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-    for (const p of otherPlayers) {
-      if (p.passengerOfUserId && p.passengerOfUserId > 0) continue;
-      if (p.isInCar) {
-        const vType = p.vehicleType || 'car';
-        let carMesh: CityMesh | CityMesh[];
-        const col: [number, number, number] = [p.carColorR ?? 1, p.carColorG ?? 1, p.carColorB ?? 1];
-        if (vType === 'taxi') carMesh = this.getTaxiMesh();
-        else if (vType === 'bus') carMesh = this.busMesh || this.getNPCCarMesh(col, p.userId);
-        else if (vType === 'boat') carMesh = this.getBoatMesh(p.userId);
-        else if (vType === 'helicopter') carMesh = this.getHelicopterMesh(p.userId);
-        else if (vType === 'plane') carMesh = this.getPlaneMesh(p.userId);
-        else if (vType === 'motorcycle') carMesh = this.motorcycleMeshes.length > 0 ? this.motorcycleMeshes[0] : this.getNPCCarMesh(col, p.userId);
-        else if (vType === 'police') carMesh = this.getPoliceCarMesh();
-        else carMesh = this.carMeshes.length > 0 ? this.carMeshes[0] : this.getNPCCarMesh(col, p.userId);
-        const vehicleY = (vType === 'helicopter' || vType === 'plane') ? (p.posY || 0) : 0;
-        this.drawMesh(carMesh, p.posX, vehicleY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+      for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, (pc as any)._expY ?? 0, pc.z, pc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+      for (const npc of serverNPCs) {
+        const vy = (npc.type === 'helicopter' || npc.type === 'plane') ? (npc.y || 0) : 0;
+        this.drawMesh(npc.mesh, npc.x, vy, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
       }
-      this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-    }
-    if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15], [1, 1, 1, 1], true);
-    if (this.homeBaseMesh) this.drawMesh(this.homeBaseMesh, 120, 0, 40, 0, [10, 10, 10], [1, 1, 1, 1], true);
-    if (this.vendingMachineMesh) {
-      for (const vm of vendingMachines) {
-        this.drawMesh(this.vendingMachineMesh, vm.x, 0, vm.z, vm.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+      for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+      for (const p of otherPlayers) {
+        if (p.passengerOfUserId && p.passengerOfUserId > 0) continue;
+        if (p.isInCar) {
+          const vType = p.vehicleType || 'car';
+          let carMesh: CityMesh | CityMesh[];
+          const col: [number, number, number] = [p.carColorR ?? 1, p.carColorG ?? 1, p.carColorB ?? 1];
+          if (vType === 'taxi') carMesh = this.getTaxiMesh();
+          else if (vType === 'bus') carMesh = this.busMesh || this.getNPCCarMesh(col, p.userId);
+          else if (vType === 'boat') carMesh = this.getBoatMesh(p.userId);
+          else if (vType === 'helicopter') carMesh = this.getHelicopterMesh(p.userId);
+          else if (vType === 'plane') carMesh = this.getPlaneMesh(p.userId);
+          else if (vType === 'motorcycle') carMesh = this.motorcycleMeshes.length > 0 ? this.motorcycleMeshes[0] : this.getNPCCarMesh(col, p.userId);
+          else if (vType === 'police') carMesh = this.getPoliceCarMesh();
+          else carMesh = this.carMeshes.length > 0 ? this.carMeshes[0] : this.getNPCCarMesh(col, p.userId);
+          const vehicleY = (vType === 'helicopter' || vType === 'plane') ? (p.posY || 0) : 0;
+          this.drawMesh(carMesh, p.posX, vehicleY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+        }
+        this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
       }
-    }
-    if (playerMesh) {
-      // FIX: Disable CPU skinning animation. The skinPlayerMesh() function 
-      // was corrupting the vertex buffer due to bone space mismatches, 
-      // making the model invisible. This leaves the model in its default T-pose.
-      // if (this.skelBoneCount > 0) {
-      //   this.skinPlayerMesh(playerMesh, dt);
-      //   this.skelIsReady = true;
-      // }
-      this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], true);
-    }
-    for (const db of deadBodies) {
-      const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
-      const dbPitch = isHuman ? -Math.PI / 2 : 0;
-      this.drawMesh(db.mesh, db.x, 0.02, db.z, db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, 1], true, dbPitch);
-    } 
+      if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15], [1, 1, 1, 1], true);
+      if (this.homeBaseMesh) this.drawMesh(this.homeBaseMesh, 120, 0, 40, 0, [10, 10, 10], [1, 1, 1, 1], true);
+      if (this.vendingMachineMesh) {
+        for (const vm of vendingMachines) {
+          this.drawMesh(this.vendingMachineMesh, vm.x, 0, vm.z, vm.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+        }
+      }
+      if (playerMesh) {
+        this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], true);
+      }
+      for (const db of deadBodies) {
+        const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
+        const dbPitch = isHuman ? -Math.PI / 2 : 0;
+        this.drawMesh(db.mesh, db.x, 0.02, db.z, db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, 1], true, dbPitch);
+      }
 
-    // --- Weapon pickups (shadow pass) ---
-    for (const w of this.droppedWeapons) {
-      if (w == null || w.weaponType == null) continue;
-      this.drawMesh(
-        this.getWeaponPickupMesh(w.weaponType),
-        w.posX, 1.0, w.posZ,
-        pickupYaw,
-        [PICKUP_SCALE, PICKUP_SCALE, PICKUP_SCALE],
-        [1, 1, 1, 1],
-        true
-      );
-    }
+      for (const w of this.droppedWeapons) {
+        if (w == null || w.weaponType == null) continue;
+        this.drawMesh(
+          this.getWeaponPickupMesh(w.weaponType),
+          w.posX, 1.0, w.posZ,
+          pickupYaw,
+          [PICKUP_SCALE, PICKUP_SCALE, PICKUP_SCALE],
+          [1, 1, 1, 1],
+          true
+        );
+      }
 
-    gl.disable(gl.POLYGON_OFFSET_FILL);
+      gl.disable(gl.POLYGON_OFFSET_FILL);
+    } else {
+      // Mobile shadow optimization. Clear the depth buffer so the shader 
+      // evaluates to 0.0 (no shadow), skipping the second mesh render pass.
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowFBO);
+      gl.viewport(0, 0, this.shadowMapSize, this.shadowMapSize);
+      gl.clear(gl.DEPTH_BUFFER_BIT);
+    }
 
     // 2. Main Pass
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.clearColor(0, 0, 0, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); 
 
     mat4.perspective(this.projMatrix, Math.PI / 4, aspect, 0.1, farPlane ?? 500.0);
     const dirX = Math.sin(camYaw) * Math.cos(camPitch);

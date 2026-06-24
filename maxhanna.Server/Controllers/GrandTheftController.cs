@@ -1598,8 +1598,82 @@ namespace maxhanna.Server.Controllers
 				nearbyAircraft++;
 			}
 
+			// Spawn parked boats near water
+			bool nearWater = false;
+			for (int dx = -2; dx <= 2; dx++)
+			{
+				for (int dz = -2; dz <= 2; dz++)
+				{
+					string b = CityLayout.GetBiome(playerCX + dx, playerCZ + dz);
+					if (b == "ocean" || b == "beach") { nearWater = true; break; }
+				}
+				if (nearWater) break;
+			}
+			if (nearWater)
+			{
+				int parkedBoats = 0;
+				foreach (var kv in npcs) if (kv.Value.Type == "boat" && kv.Value.IsParked) parkedBoats++;
+				while (parkedBoats < 5)
+				{
+					long id = GetNextNpcId();
+					float bx = posX + (float)(rng.NextDouble() - 0.5) * 200f;
+					float bz = posZ + (float)(rng.NextDouble() - 0.5) * 200f;
+					int bcx = (int)Math.Floor(bx / CityLayout.CHUNK_SIZE);
+					int bcz = (int)Math.Floor(bz / CityLayout.CHUNK_SIZE);
+					if (CityLayout.GetBiome(bcx, bcz) != "ocean") continue;
+
+					npcs[id] = new NpcState
+					{
+						Id = id,
+						Type = "boat",
+						IsParked = true,
+						X = bx,
+						Y = 0f,
+						Z = bz,
+						Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
+						Speed = 0f,
+						Health = 200,
+						MaxHealth = 200,
+						Cr = 0.5f + (float)rng.NextDouble() * 0.5f,
+						Cg = 0.5f + (float)rng.NextDouble() * 0.5f,
+						Cb = 0.5f + (float)rng.NextDouble() * 0.5f,
+					};
+					parkedBoats++;
+				}
+			}
+
+			// Spawn parked aircraft at airports
+			if (nearAnyAeroport)
+			{
+				int parkedAircraft = 0;
+				foreach (var kv in npcs) if ((kv.Value.Type == "helicopter" || kv.Value.Type == "plane") && kv.Value.IsParked) parkedAircraft++;
+				while (parkedAircraft < 4)
+				{
+					long id = GetNextNpcId();
+					string acType = parkedAircraft % 2 == 0 ? "helicopter" : "plane";
+					CityLayout.GetRandomAeroportWorldPoint(rng, out float x, out float z);
+					npcs[id] = new NpcState
+					{
+						Id = id,
+						Type = acType,
+						IsParked = true,
+						X = x,
+						Y = 0f,
+						Z = z,
+						Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
+						Speed = 0f,
+						Health = 200,
+						MaxHealth = 200,
+						Cr = 0.5f + (float)rng.NextDouble() * 0.5f,
+						Cg = 0.5f + (float)rng.NextDouble() * 0.5f,
+						Cb = 0.5f + (float)rng.NextDouble() * 0.5f,
+					};
+					parkedAircraft++;
+				}
+			}
+
 			var dw = BuildDroppedWeapons();
-			return Ok(new { cars, pedestrians, parkedCars, aircraft, deadBodies, droppedWeapons = dw });
+			return Ok(new { cars, pedestrians, parkedCars, aircraft, deadBodies, droppedWeapons = dw }); 
 		}
 
 		private List<object> BuildDroppedWeapons()

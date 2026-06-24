@@ -3072,13 +3072,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               scale: this.passenger.scale,
             });
           }
-        
+
           attached.push(...this.taxiAttachedMeshes);
           return attached;
         })(),
         this._carOnFire, this._carFireX, this._carFireZ, this._carFireYaw,
         this.trafficNodes,
-        this.viewDistance
+        this.viewDistance,
+        !this.isMobile 
       );
       // First-person weapon overlay
       if (this.firstPerson && !this.isInCar) {
