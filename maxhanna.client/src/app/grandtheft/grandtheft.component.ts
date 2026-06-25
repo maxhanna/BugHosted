@@ -316,6 +316,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     [0.9, 0.7, 0.1], [0.6, 0.2, 0.6], [1.0, 0.5, 0.0],
     [0.1, 0.6, 0.6], [0.5, 0.3, 0.1],
   ];
+  debugLabels = false;
 
   constructor(private gtService: GrandtheftService, private userEventService: UserEventService, private todoService: TodoService, private fileService: FileService, private ngZone: NgZone) { super(); }
 
