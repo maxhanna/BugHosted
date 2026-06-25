@@ -1523,22 +1523,29 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             existing.mesh = this.renderer.getMotorcycleMesh([pc.colorR, pc.colorG, pc.colorB], pc.id);
           else if (pc.type === 'bus' && this.renderer.busMesh)
             existing.mesh = this.renderer.busMesh;
+          else if (pc.type === 'helicopter')
+            existing.mesh = this.renderer.getHelicopterMesh(pc.id);
+          else if (pc.type === 'plane')
+            existing.mesh = this.renderer.getPlaneMesh(pc.id);
+          else if (pc.type === 'boat')
+            existing.mesh = this.renderer.getBoatMesh(pc.id);
           return existing;
         }
+        let parkedMesh: CityMesh | CityMesh[];
+        if (pc.type === 'motorcycle') parkedMesh = this.renderer.getMotorcycleMesh([pc.colorR, pc.colorG, pc.colorB], pc.id);
+        else if (pc.type === 'taxi') parkedMesh = this.renderer.getTaxiMesh();
+        else if (pc.type === 'police') parkedMesh = this.renderer.getPoliceCarMesh();
+        else if (pc.type === 'bus') parkedMesh = this.renderer.busMesh || this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB], pc.id);
+        else if (pc.type === 'helicopter') parkedMesh = this.renderer.getHelicopterMesh(pc.id);
+        else if (pc.type === 'plane') parkedMesh = this.renderer.getPlaneMesh(pc.id);
+        else if (pc.type === 'boat') parkedMesh = this.renderer.getBoatMesh(pc.id);
+        else parkedMesh = this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB], pc.id);
         return {
           id: pc.id, x: pc.posX, z: pc.posZ, yaw: pc.yaw,
           type: pc.type || 'car', health,
           isBurning: pc.isBurning || false,
           colorR: pc.colorR, colorG: pc.colorG, colorB: pc.colorB,
-          mesh: pc.type === 'motorcycle'
-            ? this.renderer.getMotorcycleMesh([pc.colorR, pc.colorG, pc.colorB], pc.id)
-            : pc.type === 'taxi'
-              ? this.renderer.getTaxiMesh()
-              : pc.type === 'police'
-                ? this.renderer.getPoliceCarMesh()
-                : pc.type === 'bus'
-                  ? (this.renderer.busMesh || this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB], pc.id))
-                  : this.renderer.getNPCCarMesh([pc.colorR, pc.colorG, pc.colorB], pc.id),
+          mesh: parkedMesh,
         };
       }), ...localOnlyParked];
 
