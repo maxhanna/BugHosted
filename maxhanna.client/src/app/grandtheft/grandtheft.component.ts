@@ -147,6 +147,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private lastTime = 0;
   private keys: Set<string> = new Set();
 
+  debugLabel = false;
   carX = HOSPITAL_SPAWN_X; carY = CAR_HEIGHT; carZ = HOSPITAL_SPAWN_Z;
   carYaw = HOSPITAL_SPAWN_YAW;
   carVx = 0; carVz = 0; carVy = 0;
@@ -288,6 +289,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   damageAlpha = 0;
   vehicleName = '';
   vehicleBannerTimer = 0;
+  hoverLabel = '';
+  private _hoverVx = 0;
+  private _hoverVy = 0;
+  private _hoverDirty = false;
+  private _hoverLastRead = 0;
   radioOn = false;
   radioSongs: string[] = [];
   radioIndex = -1;
@@ -313,10 +319,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   constructor(private gtService: GrandtheftService, private userEventService: UserEventService, private todoService: TodoService, private fileService: FileService, private ngZone: NgZone) { super(); }
 
-  ngOnInit() {
-    if (!this.parentRef?.user?.id) {
-      this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, "grandtheft", "Started playing Grand Theft!");
-    }
+  ngOnInit() { 
+    this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, "grandtheft", "Started playing Grand Theft!");
+    this.debugLabel = (this.parentRef?.user?.id && this.parentRef.user.id === 1) ? true : false;
   }
 
   ngAfterViewInit() {
@@ -563,6 +568,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.camPitch = Math.max(-1.2, Math.min(0.8, this.camPitch));
       });
 
+      canvas.addEventListener('mousemove', (e) => {
+        if (this.isPointerLocked) return;
+        this._hoverVx = e.clientX;
+        this._hoverVy = e.clientY;
+        this._hoverDirty = true;
+      });
       canvas.addEventListener('mousedown', (e) => {
         if (e.button !== 0 || this.showWeaponWheel) return;
         this.unlockAudio();
@@ -2817,6 +2828,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.viewDistance,
         !this.isMobile
       );
+      // DEBUG hover model label (remove when done) — throttle readPixels to ~5hz
+      if (this.isPointerLocked) { this._hoverVx = canvas.width / 2; this._hoverVy = canvas.height / 2; this._hoverDirty = true; }
+      if (this._hoverDirty && now - this._hoverLastRead > 200) {
+        this.hoverLabel = this.renderer.getLabelAtViewport(this._hoverVx, this._hoverVy) || '';
+        this._hoverDirty = false;
+        this._hoverLastRead = now;
+      }
       if (this.firstPerson && !this.isInCar) {
         const anims = this.pickFirstPersonAnims();
         this.renderer.renderFirstPersonWeapon(

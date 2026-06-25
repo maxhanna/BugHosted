@@ -564,6 +564,20 @@ export class GrandTheftRenderer {
   private lightView = mat4.create();
   private lightSpaceMatrix = mat4.create();
 
+  // === DEBUG PICKING SYSTEM (remove when done) ===
+  private _pickInit = false;
+  private _pickFBO: WebGLFramebuffer | null = null;
+  private _pickTex: WebGLTexture | null = null;
+  private _pickDepth: WebGLRenderbuffer | null = null;
+  private _pickProg: WebGLProgram | null = null;
+  private _pickPvLoc: WebGLUniformLocation | null = null;
+  private _pickMLoc: WebGLUniformLocation | null = null;
+  private _pickCLoc: WebGLUniformLocation | null = null;
+  private _pickIdMap = new Map<number, string>();
+  private _pickNextId = 1;
+  private _pickPixel = new Uint8Array(4);
+  private _pickPV = mat4.create();
+
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl2', { antialias: true });
     if (!gl) throw new Error('WebGL2 not supported');
@@ -1339,6 +1353,80 @@ void main() {
     this.gl.canvas.width = w;
     this.gl.canvas.height = h;
     this.gl.viewport(0, 0, w, h);
+    if (this._pickInit) this._resizePickResources(w, h);
+  }
+
+  // DEBUG PICKING helpers
+  private _initPickResources(w: number, h: number) {
+    if (this._pickInit) return;
+    this._pickInit = true;
+    const gl = this.gl;
+    this._pickFBO = gl.createFramebuffer();
+    this._pickTex = gl.createTexture();
+    this._pickDepth = gl.createRenderbuffer();
+    const vs = `#version 300 es
+in vec3 aPos;
+uniform mat4 uPV;
+uniform mat4 uM;
+void main(){gl_Position=uPV*uM*vec4(aPos,1.0)}`;
+    const fs = `#version 300 es
+precision highp float;out vec4 c;uniform vec3 uPC;void main(){c=vec4(uPC,1.0)}`;
+    this._pickProg = this.createProgram(vs, fs);
+    const p = this._pickProg!;
+    this._pickPvLoc = gl.getUniformLocation(p, 'uPV');
+    this._pickMLoc = gl.getUniformLocation(p, 'uM');
+    this._pickCLoc = gl.getUniformLocation(p, 'uPC');
+    this._resizePickResources(w, h);
+  }
+  private _resizePickResources(w: number, h: number) {
+    if (w < 1 || h < 1) return;
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this._pickTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, this._pickDepth);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, w, h);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._pickFBO);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this._pickTex, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this._pickDepth);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+  private _pickId(label: string): number {
+    for (const [id, lbl] of this._pickIdMap) if (lbl === label) return id;
+    const id = this._pickNextId++;
+    this._pickIdMap.set(id, label);
+    return id;
+  }
+  private _drawPickMesh(mesh: CityMesh | CityMesh[], x: number, y: number, z: number, yaw: number, scale: [number, number, number], label: string, pitch = 0) {
+    mat4.identity(this.modelMatrix);
+    mat4.translate(this.modelMatrix, this.modelMatrix, [x, y, z]);
+    if (pitch) mat4.rotateX(this.modelMatrix, this.modelMatrix, pitch);
+    mat4.rotateY(this.modelMatrix, this.modelMatrix, yaw);
+    const list = Array.isArray(mesh) ? mesh : [mesh];
+    if (list.some(m => m.needsFlip)) {
+      mat4.rotateX(this.modelMatrix, this.modelMatrix, Math.PI);
+      mat4.rotateY(this.modelMatrix, this.modelMatrix, Math.PI);
+      mat4.translate(this.modelMatrix, this.modelMatrix, [0, -2, 0]);
+    }
+    mat4.scale(this.modelMatrix, this.modelMatrix, scale);
+    const id = this._pickId(label);
+    const gl = this.gl;
+    gl.uniformMatrix4fv(this._pickMLoc, false, this.modelMatrix);
+    gl.uniform3f(this._pickCLoc!, (id & 0xFF) / 255, ((id >> 8) & 0xFF) / 255, ((id >> 16) & 0xFF) / 255);
+    for (const m of list) {
+      gl.bindVertexArray(m.vao);
+      gl.drawElements(gl.TRIANGLES, m.indexCount, m.indexType || gl.UNSIGNED_SHORT, 0);
+    }
+  }
+  getLabelAtViewport(vx: number, vy: number): string | null {
+    if (!this._pickInit) return null;
+    const gl = this.gl;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._pickFBO);
+    gl.readPixels(vx, gl.canvas.height - vy, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, this._pickPixel);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    const id = this._pickPixel[0] + (this._pickPixel[1] << 8) + (this._pickPixel[2] << 16);
+    return this._pickIdMap.get(id) || null;
   }
 
   private createShader(type: number, source: string): WebGLShader | null {
@@ -2963,7 +3051,89 @@ void main() {
       }
     }
 
+    this._renderPickingPass(serverNPCs, otherPlayers, serverPedestrians, parkedCars, playerMesh, deadBodies, vendingMachines, camX, camZ, pcx, pcz, farPlane ?? 500);
     gl.enable(gl.DEPTH_TEST);
+  }
+
+  // === DEBUG PICKING RENDER PASS (remove when done) ===
+  private _renderPickingPass(
+    serverNPCs: any[], otherPlayers: any[], serverPedestrians: any[], parkedCars: any[],
+    playerMesh: CityMesh | CityMesh[] | null, deadBodies: any[], vendingMachines: any[],
+    camX: number, camZ: number, pcx: number, pcz: number, farPlane: number
+  ) {
+    const gl = this.gl;
+    const w = gl.canvas.width, h = gl.canvas.height;
+    if (w < 1 || h < 1) return;
+    this._initPickResources(w, h);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._pickFBO);
+    gl.viewport(0, 0, w, h);
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE);
+    gl.disable(gl.BLEND);
+    gl.useProgram(this._pickProg);
+    mat4.multiply(this._pickPV, this.projMatrix, this.viewMatrix);
+    gl.uniformMatrix4fv(this._pickPvLoc, false, this._pickPV);
+    for (let dz = -2; dz <= 2; dz++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const chunk = this.getCityChunk(pcx + dx, pcz + dz);
+        if (!chunk) continue;
+        for (const bld of chunk.buildings) {
+          this._drawPickMesh(bld.model, bld.x, bld.y, bld.z, bld.yaw, bld.scale, bld.model[0]?.carName || 'building');
+        }
+        if (this.palmTreeMesh) for (const t of chunk.trees) this._drawPickMesh(this.palmTreeMesh, t.x, 0, t.z, t.yaw, [t.scale, t.scale, t.scale], 'palm tree');
+        if (this.benchMeshes.length > 0) for (const b of chunk.benches) this._drawPickMesh(this.benchMeshes[Math.abs((b.x * 100 + b.z) | 0) % this.benchMeshes.length], b.x, 0, b.z, b.yaw, [0.8, 0.8, 0.8], 'bench');
+        if (this.barrelMesh) for (const b of chunk.barrels) { const k = `${b.x},${b.z}`; if (!this.explodedBarrels.has(k)) this._drawPickMesh(this.barrelMesh, b.x, 0, b.z, b.yaw, [0.5, 0.5, 0.5], 'barrel'); }
+        if (this.chickenMesh) for (const c of chunk.chickens) this._drawPickMesh(this.chickenMesh, c.x, 0, c.z, c.yaw, [1.5, 1.5, 1.5], 'chicken');
+      }
+    }
+    for (const pc of parkedCars) {
+      const label = ((Array.isArray(pc.mesh) ? pc.mesh[0]?.carName : pc.mesh?.carName) || pc.type || 'car') + ' (parked)';
+      this._drawPickMesh(pc.mesh, pc.x, (pc as any)._expY ?? 0, pc.z, pc.yaw, [1, 1, 1], label);
+    }
+    for (const npc of serverNPCs) {
+      const label = (Array.isArray(npc.mesh) ? npc.mesh[0]?.carName : npc.mesh?.carName) || npc.type || 'npc';
+      const vy = (npc.type === 'helicopter' || npc.type === 'plane') ? (npc.y || 0) : 0;
+      this._drawPickMesh(npc.mesh, npc.x, vy, npc.z, npc.yaw, [1, 1, 1], label);
+    }
+    for (const ped of serverPedestrians) this._drawPickMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], 'pedestrian');
+    for (const p of otherPlayers) {
+      const label = 'player ' + (p.userId || '?');
+      if (p.isInCar) {
+        let m: CityMesh | CityMesh[];
+        const col: [number, number, number] = [p.carColorR ?? 1, p.carColorG ?? 1, p.carColorB ?? 1];
+        const vt = p.vehicleType || 'car';
+        if (vt === 'taxi') m = this.getTaxiMesh();
+        else if (vt === 'bus') m = this.busMesh || this.getNPCCarMesh(col, p.userId);
+        else if (vt === 'boat') m = this.getBoatMesh(p.userId);
+        else if (vt === 'helicopter') m = this.getHelicopterMesh(p.userId);
+        else if (vt === 'plane') m = this.getPlaneMesh(p.userId);
+        else if (vt === 'motorcycle') m = this.motorcycleMeshes.length > 0 ? this.motorcycleMeshes[0] : this.getNPCCarMesh(col, p.userId);
+        else if (vt === 'police') m = this.getPoliceCarMesh();
+        else m = this.carMeshes.length > 0 ? this.carMeshes[0] : this.getNPCCarMesh(col, p.userId);
+        this._drawPickMesh(m, p.posX, (vt === 'helicopter' || vt === 'plane') ? (p.posY || 0) : 0, p.posZ, p.yaw, [1, 1, 1], label);
+      } else {
+        this._drawPickMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], label);
+      }
+    }
+    if (this.hospitalMesh) this._drawPickMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15], 'hospital');
+    if (this.homeBaseMesh) this._drawPickMesh(this.homeBaseMesh, 120, 0, 40, 0, [10, 10, 10], 'home base');
+    if (this.vendingMachineMesh) for (const vm of vendingMachines) this._drawPickMesh(this.vendingMachineMesh, vm.x, 0, vm.z, vm.yaw, [1, 1, 1], 'vending machine');
+    if (playerMesh) this._drawPickMesh(playerMesh, 0, 0, 0, 0, [1, 1, 1], 'you');
+    for (const db of deadBodies) {
+      const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
+      this._drawPickMesh(db.mesh, db.x, 0.02, db.z, db.yaw, [1, 1, 1], db.type || 'body', isHuman ? -Math.PI / 2 : 0);
+    }
+    if (this.droppedWeapons) for (const dw of this.droppedWeapons) {
+      if (dw == null || dw.weaponType == null) continue;
+      this._drawPickMesh(this.getWeaponPickupMesh(dw.weaponType), dw.posX, 1.0, dw.posZ, 0, [0.2, 0.2, 0.2], 'weapon ' + dw.weaponType);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, w, h);
+    gl.enable(gl.BLEND);
+    gl.enable(gl.CULL_FACE);
+    gl.useProgram(this.program);
   }
 
   private getTracerMesh(): CityMesh {
