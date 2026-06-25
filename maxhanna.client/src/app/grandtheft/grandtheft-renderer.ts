@@ -430,15 +430,15 @@ export class GrandTheftRenderer {
     'airport_buildings'
   ];
   static CITY_BUILDING_NAMES = [
-    '2BuildingsModularFaces', 'abandonnedBuilding', 'bank', 'buildingRandom', 'domeStructure',
+    'abandonnedBuilding', 'buildingRandom', 'domeStructure',
     'ecds_old_building_04', 'ecds_old_building_05', 'ecds_old_building_06', 'ecds_old_building_07', 'ecds_old_building_08', 'ecds_old_building_09',
     'industrial_building_psx', 'low_polly_building', 'low_poly_apartment_building_2', 'low_poly_apartment_building_3',
     'low_poly_cinema', 'low_poly_city_hall', 'low_poly_gas_station', 'low_poly_hotel_1', 'low_poly_hotel_2',
     'low_poly_pharmacy', 'low_poly_police_station', 'low_poly_school', 'low_poly_shopping_center',
     'modern_building', 'panel_apartment_placeholder', 'psx_groceries_store', 'pyaterochka_3d', 'supermarket',
     'residential_complex_modern_apartment_building', 'ukraine_building', 'abandoned_building_gameready',
-    'building_no_6_form_tokyo_otemachi_building_pack', 'building_no_19_form_tokyo_otemachi_building_pack',
-    'city_building', 'japanese_building__cc0', 'low_poly_apartment_building_1', 'michaelsoft'
+    'building_no_6_form_tokyo_otemachi_building_pack', 'psx_japanese_warehouse',
+    'city_building', 'low_poly_apartment_building_1', 'michaelsoft'
   ];
   static SUBURB_BUILDING_NAMES = [
     'brooklynCornerhouse', 'brooklynStreetBuilding', 'cabin',
