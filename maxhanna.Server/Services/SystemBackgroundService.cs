@@ -20,7 +20,6 @@ namespace maxhanna.Server.Services
     private readonly KrakenService _krakenService;
     private readonly AiController _aiController;
     private readonly NewsService _newsService;
-    private readonly ProfitCalculationService _profitService;
     private readonly TradeIndicatorService _indicatorService;
     private readonly MiningApi _miningApiService = new MiningApi();
     private readonly Log _log;
@@ -34,7 +33,6 @@ namespace maxhanna.Server.Services
     private Timer _threeHourTimer;
     private Timer _sixHourTimer;
     private Timer _dailyTimer;
-    private Timer _fifteenMinuteTimer;
     private static bool _initialDelayApplied = false;
     private bool isCrawling = false;
     private bool lastWasCrypto = false;
@@ -64,7 +62,6 @@ namespace maxhanna.Server.Services
       _log = log;
       _krakenService = krakenService;
       _newsService = newsService;
-      _profitService = profitService;
       _indicatorService = indicatorService;
 
       _tenSecondTimer = new Timer(async _ => await Run10SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
@@ -200,8 +197,6 @@ namespace maxhanna.Server.Services
     private async Task RunSixHourTasks()
     {
       await FetchExchangeRates();
-      // await _profitService.CalculateWeeklyProfits();
-      // await _profitService.CalculateMonthlyProfits();
       await FetchAndStoreCryptoEvents();
       await FetchAndStoreFearGreedAsync();
       await FetchAndStoreGlobalMetricsAsync();
