@@ -1345,8 +1345,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private showVehicleBanner(type: string) {
-    if (this.playerVehicleMesh && this.playerVehicleMesh.length > 0 && this.playerVehicleMesh[0].carName) {
-      this.vehicleName = this.displayNameFromPath(this.playerVehicleMesh[0].carName);
+    const m = this.playerVehicleMesh;
+    const carName = m ? (Array.isArray(m) ? (m.length > 0 ? m[0].carName : undefined) : (m as CityMesh).carName) : undefined;
+    if (carName) {
+      this.vehicleName = this.displayNameFromPath(carName);
     } else {
       const nameMap: Record<string, string> = {
         taxi: 'Taxi', bus: 'Bus', bike: 'Motorcycle', motorcycle: 'Motorcycle',
