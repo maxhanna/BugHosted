@@ -363,8 +363,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       assign: (m: CityMesh[]) => void;
     }[] = [
         // Boats
-        { path: 'assets/grandtheft/animated_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
-        { path: 'assets/grandtheft/super-yacht02/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
+        { path: 'assets/grandtheft/star_wars_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
+        { path: 'assets/grandtheft/ultra-futuristic_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
 
         // Helicopters
         { path: 'assets/grandtheft/bell_uh-1_iroquois_huey/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m) },
