@@ -1,0 +1,8 @@
+Model Information:
+* title:	Chicken
+* source:	https://sketchfab.com/3d-models/chicken-454d2b298a2f4fff855ad625ff1721d7
+* author:	Rigardas.Kusleika (https://sketchfab.com/Rigardas.Kusleika)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

@@ -1,0 +1,337 @@
+{
+  "accessors": [
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 3313,
+      "max": [
+        0.9872310161590576,
+        0.9872310161590576,
+        0.9975767135620117
+      ],
+      "min": [
+        -0.9872304201126099,
+        -0.9872307181358337,
+        -1.5992705821990967
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 39756,
+      "componentType": 5126,
+      "count": 3313,
+      "max": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "min": [
+        -1.0,
+        -1.0,
+        -0.9999186396598816
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 3313,
+      "max": [
+        1.0000001192092896,
+        1.0000001192092896
+      ],
+      "min": [
+        0.0,
+        0.05390026420354843
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "componentType": 5125,
+      "count": 19008,
+      "type": "SCALAR"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 79512,
+      "componentType": 5126,
+      "count": 16679,
+      "max": [
+        6.697451591491699,
+        0.21428455412387848,
+        0.5640597343444824
+      ],
+      "min": [
+        -0.49269190430641174,
+        -20.333999633789063,
+        -6.936435699462891
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "byteOffset": 279660,
+      "componentType": 5126,
+      "count": 16679,
+      "max": [
+        0.9996450543403625,
+        0.9999415278434753,
+        0.9977916479110718
+      ],
+      "min": [
+        -0.9995644688606262,
+        -0.9998688697814941,
+        -0.997664749622345
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "byteOffset": 26504,
+      "componentType": 5126,
+      "count": 16679,
+      "max": [
+        1.0000001192092896,
+        1.0000001192092896
+      ],
+      "min": [
+        0.0,
+        0.0
+      ],
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 0,
+      "byteOffset": 76032,
+      "componentType": 5125,
+      "count": 92064,
+      "type": "SCALAR"
+    }
+  ],
+  "asset": {
+    "extras": {
+      "author": "sunfleck (https://sketchfab.com/sunfleck)",
+      "license": "SKETCHFAB Standard (https://sketchfab.com/licenses)",
+      "source": "https://sketchfab.com/3d-models/balloon-e17bc6b604864d5ba16a1f3d8d952540",
+      "title": "Balloon"
+    },
+    "generator": "Sketchfab-17.15.0",
+    "version": "2.0"
+  },
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 444288,
+      "name": "floatBufferViews",
+      "target": 34963
+    },
+    {
+      "buffer": 0,
+      "byteLength": 159936,
+      "byteOffset": 444288,
+      "byteStride": 8,
+      "name": "floatBufferViews",
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 479808,
+      "byteOffset": 604224,
+      "byteStride": 12,
+      "name": "floatBufferViews",
+      "target": 34962
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 1084032,
+      "uri": "scene.bin"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "name": "balloon",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.800016,
+          0.0137273,
+          0.0,
+          1.0
+        ],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 0.9507737372425112
+      }
+    },
+    {
+      "doubleSided": true,
+      "name": "string.001",
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.470689,
+          0.470689,
+          0.470689,
+          1.0
+        ],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 0.8947507399738601
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "balloon_balloon_0",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 1,
+            "POSITION": 0,
+            "TEXCOORD_0": 2
+          },
+          "indices": 3,
+          "material": 0,
+          "mode": 4
+        }
+      ]
+    },
+    {
+      "name": "string_string.001_0",
+      "primitives": [
+        {
+          "attributes": {
+            "NORMAL": 5,
+            "POSITION": 4,
+            "TEXCOORD_0": 6
+          },
+          "indices": 7,
+          "material": 1,
+          "mode": 4
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "children": [
+        1
+      ],
+      "matrix": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        2.220446049250313e-16,
+        -1.0,
+        0.0,
+        0.0,
+        1.0,
+        2.220446049250313e-16,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "name": "Sketchfab_model"
+    },
+    {
+      "children": [
+        2
+      ],
+      "matrix": [
+        0.009999999776482582,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.009999999776482582,
+        0.0,
+        0.0,
+        -0.009999999776482582,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "name": "2034def0d89949cea2dcdbd7257ef90b.fbx"
+    },
+    {
+      "children": [
+        3
+      ],
+      "name": "RootNode"
+    },
+    {
+      "children": [
+        4,
+        5
+      ],
+      "matrix": [
+        100.22789001464844,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        7.5669951773163544e-06,
+        -100.22789001464815,
+        0.0,
+        0.0,
+        100.22789001464815,
+        7.5669951773163544e-06,
+        0.0,
+        -287.0313720703125,
+        8.086057662963867,
+        231.85145568847656,
+        1.0
+      ],
+      "name": "balloon"
+    },
+    {
+      "mesh": 0,
+      "name": "balloon_balloon_0"
+    },
+    {
+      "children": [
+        6
+      ],
+      "matrix": [
+        0.12225045354887253,
+        0.01658939175375579,
+        -0.03497349489895261,
+        0.0,
+        0.031201998808782678,
+        0.026334232361055816,
+        0.12155855213956243,
+        0.0,
+        0.022908280932968067,
+        -0.1243978738737659,
+        0.02106917461875386,
+        0.0,
+        0.012963294982910156,
+        -0.001077413558959961,
+        -1.4989887475967407,
+        1.0
+      ],
+      "name": "string"
+    },
+    {
+      "mesh": 1,
+      "name": "string_string.001_0"
+    }
+  ],
+  "scene": 0,
+  "scenes": [
+    {
+      "name": "Sketchfab_Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ]
+}

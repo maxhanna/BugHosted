@@ -1,0 +1,8 @@
+Model Information:
+* title:	SM_Env_Tree_Big_02__3__PolygonMilitary_Mat_01_A_
+* source:	https://sketchfab.com/3d-models/sm-env-tree-big-02--3--polygonmilitary-mat-01-a-553602d60cca4e4eb1e6aa98d657495c
+* author:	gobrisa251 (https://sketchfab.com/gobrisa251)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

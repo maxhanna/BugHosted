@@ -1,0 +1,8 @@
+Model Information:
+* title:	Jessica Jones
+* source:	https://sketchfab.com/3d-models/jessica-jones-f263b3520fb04b47a7ee0034fe580045
+* author:	Marco.41 (https://sketchfab.com/Manuel.41)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

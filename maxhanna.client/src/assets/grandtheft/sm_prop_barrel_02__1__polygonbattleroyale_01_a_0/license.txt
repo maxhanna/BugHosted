@@ -1,0 +1,8 @@
+Model Information:
+* title:	SM_Prop_Barrel_02__1__PolygonBattleRoyale_01_A_0
+* source:	https://sketchfab.com/3d-models/sm-prop-barrel-02--1--polygonbattleroyale-01-a-0-350400922afc4c81ad78928cadf29f18
+* author:	gobrisa251 (https://sketchfab.com/gobrisa251)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

@@ -1,0 +1,8 @@
+Model Information:
+* title:	Balloon
+* source:	https://sketchfab.com/3d-models/balloon-e17bc6b604864d5ba16a1f3d8d952540
+* author:	sunfleck (https://sketchfab.com/sunfleck)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

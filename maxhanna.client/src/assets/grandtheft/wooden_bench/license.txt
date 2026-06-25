@@ -1,0 +1,8 @@
+Model Information:
+* title:	Wooden bench
+* source:	https://sketchfab.com/3d-models/wooden-bench-cbba078d0dba47d89023c677a05b4c4d
+* author:	BakaFoxAssets (https://sketchfab.com/BakaFoxAssets)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

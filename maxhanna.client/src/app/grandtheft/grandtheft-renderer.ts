@@ -45,6 +45,11 @@ export interface CityChunk {
   lamps: { x: number; z: number }[];
   hydrants: { x: number; z: number }[];
   buildings: BuildingPlacement[];
+  benches: { x: number; z: number; yaw: number }[];
+  barrels: { x: number; z: number; yaw: number }[];
+  chickens: { x: number; z: number; yaw: number }[];
+  trees: { x: number; z: number; yaw: number; scale: number }[];
+  supermarkets: { x: number; z: number; yaw: number }[];
 }
 
 const CHUNK_SIZE = 80;
@@ -401,9 +406,9 @@ export class GrandTheftRenderer {
     'Building6','Building18Tokyo','buildingRandom','domeStructure',
     'ecds_old_building_04','ecds_old_building_05','ecds_old_building_06','ecds_old_building_07','ecds_old_building_08','ecds_old_building_09',
     'industrial_building_psx','low_polly_building','low_poly_apartment_2','low_poly_apartment_building_2','low_poly_apartment_building_3',
-    'low_poly_cinema','low_poly_city_hall','low_poly_gas_station','low_poly_hotel_1','low_poly_hotel_2',
+    'low_poly_cinema','low_poly_city_hall','low_poly_gas_station','gas_station_5','low_poly_hotel_1','low_poly_hotel_2',
     'low_poly_pharmacy','low_poly_police_station','low_poly_school','low_poly_shopping_center',
-    'modern_building','panel_apartment_placeholder','psx_groceries_store','pyaterochka_3d',
+    'modern_building','panel_apartment_placeholder','psx_groceries_store','pyaterochka_3d','super_market_low_poly_for_free',
     'residential_complex_modern_apartment_building',    'ukraine_building',
     'michaelsoft'
   ];
@@ -416,6 +421,74 @@ export class GrandTheftRenderer {
   ];
   public trafficLightMesh: CityMesh[] | null = null;
   public hydrantMesh: CityMesh[] | null = null;
+  public benchMeshes: CityMesh[][] = [];
+  public barrelMesh: CityMesh[] | null = null;
+  public chickenMesh: CityMesh[] | null = null;
+  public palmTreeMesh: CityMesh[] | null = null;
+  public balloonMesh: CityMesh[] | null = null;
+  public explodedBarrels: Set<string> = new Set();
+  public explodedGasStations: Set<string> = new Set();
+  public supermarketLastPayout: Map<string, number> = new Map();
+
+  getNearbyBarrels(x: number, z: number, radius: number): { x: number; z: number }[] {
+    const result: { x: number; z: number }[] = [];
+    const pcx = Math.floor(x / CHUNK_SIZE);
+    const pcz = Math.floor(z / CHUNK_SIZE);
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const chunk = this.getCityChunk(pcx + dx, pcz + dz);
+        if (!chunk) continue;
+        for (const barrel of chunk.barrels) {
+          const key = `${barrel.x},${barrel.z}`;
+          if (this.explodedBarrels.has(key)) continue;
+          if (Math.hypot(barrel.x - x, barrel.z - z) < radius) {
+            result.push(barrel);
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  getNearbySupermarkets(x: number, z: number, radius: number): { x: number; z: number; yaw: number }[] {
+    const result: { x: number; z: number; yaw: number }[] = [];
+    const pcx = Math.floor(x / CHUNK_SIZE);
+    const pcz = Math.floor(z / CHUNK_SIZE);
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const chunk = this.getCityChunk(pcx + dx, pcz + dz);
+        if (!chunk) continue;
+        for (const sm of chunk.supermarkets) {
+          if (Math.hypot(sm.x - x, sm.z - z) < radius) {
+            result.push(sm);
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  getNearbyGasStations(x: number, z: number, radius: number): { x: number; z: number }[] {
+    const result: { x: number; z: number }[] = [];
+    const pcx = Math.floor(x / CHUNK_SIZE);
+    const pcz = Math.floor(z / CHUNK_SIZE);
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const chunk = this.getCityChunk(pcx + dx, pcz + dz);
+        if (!chunk) continue;
+        for (const bld of chunk.buildings) {
+          const key = `${bld.x},${bld.z}`;
+          if (this.explodedGasStations.has(key)) continue;
+          const isGas = bld.model && bld.model.length > 0 && bld.model[0].carName && bld.model[0].carName.includes('gas_station');
+          if (!isGas) continue;
+          if (Math.hypot(bld.x - x, bld.z - z) < radius) {
+            result.push({ x: bld.x, z: bld.z });
+          }
+        }
+      }
+    }
+    return result;
+  }
   public currentModelUrl: string | null = null;
   public droppedWeapons: any[] = [];
   // --- First-person weapon system ---
@@ -1491,6 +1564,11 @@ void main() {
     const indices: number[] = [];
     let idxOffset = 0;
     const buildings: BuildingPlacement[] = [];
+    const benches: { x: number; z: number; yaw: number }[] = [];
+    const barrels: { x: number; z: number; yaw: number }[] = [];
+    const chickens: { x: number; z: number; yaw: number }[] = [];
+    const trees: { x: number; z: number; yaw: number; scale: number }[] = [];
+    const supermarkets: { x: number; z: number; yaw: number }[] = [];
 
     const worldOriginX = cx * CHUNK_SIZE;
     const worldOriginZ = cz * CHUNK_SIZE;
@@ -1502,7 +1580,7 @@ void main() {
       this.addPlane(verts, indices, cx2, -2.5, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.0, 0.2, 0.5, 0.8, idxOffset);
       idxOffset += 4;
       const mesh = this.createMesh(verts, indices);
-      const chunk: CityChunk = { mesh, cx, cz, lamps: [], hydrants: [], buildings };
+      const chunk: CityChunk = { mesh, cx, cz, lamps: [], hydrants: [], buildings, benches: [], barrels: [], chickens: [], trees: [], supermarkets: [] };
       this.chunkCache.set(key, chunk);
       return chunk;
     }
@@ -1615,15 +1693,27 @@ void main() {
           this.addPlane(verts, indices, blockWorldX, 0.03, blockWorldZ, BLOCK_SIZE, BLOCK_SIZE, 0.82, 0.75, 0.55, 1.0, idxOffset);
           idxOffset += 4;
           const halfSW = SIDEWALK_SIZE / 2;
-          // Align palms in a row
+          // Align palms in a row (GLTF models if loaded, else box fallback)
           for (let i = 0; i < 4; i++) {
             const px = blockWorldX - halfSW + 5 + i * (SIDEWALK_SIZE / 4);
             const pz = blockWorldZ - halfSW + 5;
-            const ph = 2 + rng() * 3;
-            this.addBox(verts, indices, px, ph / 2, pz, 0.3, ph, 0.3, 0.3, 0.15, 0.05, 1.0, idxOffset);
-            idxOffset += 24;
-            this.addBox(verts, indices, px, ph + 0.3, pz, 1.5, 0.5, 1.5, 0.0, 0.5, 0.0, 1.0, idxOffset);
-            idxOffset += 24;
+            if (this.palmTreeMesh) {
+              trees.push({ x: px, z: pz, yaw: 0, scale: 0.8 + rng() * 0.4 });
+            } else {
+              const ph = 2 + rng() * 3;
+              this.addBox(verts, indices, px, ph / 2, pz, 0.3, ph, 0.3, 0.3, 0.15, 0.05, 1.0, idxOffset);
+              idxOffset += 24;
+              this.addBox(verts, indices, px, ph + 0.3, pz, 1.5, 0.5, 1.5, 0.0, 0.5, 0.0, 1.0, idxOffset);
+              idxOffset += 24;
+            }
+          }
+          // Scatter benches along beach
+          for (let bi = 0; bi < 3; bi++) {
+            if (rng() < 0.4) {
+              const bx = blockWorldX - halfSW + 4 + rng() * (SIDEWALK_SIZE - 8);
+              const bz = blockWorldZ + halfSW - 3;
+              benches.push({ x: bx, z: bz, yaw: Math.PI });
+            }
           }
           // Align stalls on the opposite side
           const stallX = blockWorldX + halfSW - 4;
@@ -1763,6 +1853,9 @@ void main() {
                 const scale = Math.min(w, d) / 20 * 5;
                 const cityMinY = this.getModelMinY(model);
                 buildings.push({ model, x: px, y: -cityMinY * scale + 0.15, z: pz, yaw, scale: [scale, scale, scale] });
+                if (model.length > 0 && model[0].carName && model[0].carName.includes('super_market')) {
+                  supermarkets.push({ x: px, z: pz, yaw });
+                }
               } else {
                 const r = 0.4 + rng() * 0.4;
                 const g = 0.4 + rng() * 0.4;
@@ -1835,7 +1928,49 @@ void main() {
       }
     }
 
-    const chunk: CityChunk = { mesh, cx, cz, lamps, hydrants, buildings };
+    // Add benches along sidewalks in city/suburb
+    if (!isMountain && !isAeroport && !isBridge) {
+      const halfSW = SIDEWALK_SIZE / 2;
+      for (let bi = 0; bi < 8; bi++) {
+        if (rng() < 0.35) {
+          const bx = worldOriginX + rng() * CHUNK_SIZE;
+          const bz = worldOriginZ + (rng() < 0.5 ? -halfSW + 2 : halfSW - 2);
+          benches.push({ x: bx, z: bz, yaw: bz < worldOriginZ ? Math.PI : 0 });
+        }
+      }
+    }
+    // Scatter barrels in city, suburb, and beach
+    if (!isMountain && !isAeroport && !isBridge) {
+      for (let bi = 0; bi < 5; bi++) {
+        if (rng() < 0.4) {
+          const bx = worldOriginX + 3 + rng() * (CHUNK_SIZE - 6);
+          const bz = worldOriginZ + 3 + rng() * (CHUNK_SIZE - 6);
+          barrels.push({ x: bx, z: bz, yaw: rng() * Math.PI * 2 });
+        }
+      }
+    }
+    // Chickens in suburb back yards
+    if (isSuburb) {
+      for (let ci = 0; ci < 3; ci++) {
+        if (rng() < 0.3) {
+          const cx2 = worldOriginX + 5 + rng() * (CHUNK_SIZE - 10);
+          const cz2 = worldOriginZ + 5 + rng() * (CHUNK_SIZE - 10);
+          chickens.push({ x: cx2, z: cz2, yaw: rng() * Math.PI * 2 });
+        }
+      }
+    }
+    // Scatter palm trees in city/suburb medians
+    if (!isMountain && !isBeach && !isAeroport && !isBridge && this.palmTreeMesh) {
+      for (let ti = 0; ti < 4; ti++) {
+        if (rng() < 0.3) {
+          const tx = worldOriginX + rng() * CHUNK_SIZE;
+          const tz = worldOriginZ + rng() * CHUNK_SIZE;
+          trees.push({ x: tx, z: tz, yaw: 0, scale: 0.6 + rng() * 0.4 });
+        }
+      }
+    }
+
+    const chunk: CityChunk = { mesh, cx, cz, lamps, hydrants, buildings, benches, barrels, chickens, trees, supermarkets };
     this.chunkCache.set(key, chunk);
     return chunk;
   }
@@ -2457,6 +2592,29 @@ void main() {
         if (this.hydrantMesh) {
           for (const hydrant of chunk.hydrants) {
             this.drawMesh(this.hydrantMesh, hydrant.x, 0, hydrant.z, 0, [1, 1, 1], [1, 0, 0, 1]);
+          }
+        }
+        if (this.palmTreeMesh) {
+          for (const tree of chunk.trees) {
+            this.drawMesh(this.palmTreeMesh, tree.x, 0, tree.z, tree.yaw, [tree.scale, tree.scale, tree.scale], [1, 1, 1, 1]);
+          }
+        }
+        if (this.benchMeshes.length > 0) {
+          for (const bench of chunk.benches) {
+            const bm = this.benchMeshes[Math.abs((bench.x * 100 + bench.z) | 0) % this.benchMeshes.length];
+            this.drawMesh(bm, bench.x, 0, bench.z, bench.yaw, [0.8, 0.8, 0.8], [1, 1, 1, 1]);
+          }
+        }
+        if (this.barrelMesh) {
+          for (const barrel of chunk.barrels) {
+            const key = `${barrel.x},${barrel.z}`;
+            if (this.explodedBarrels.has(key)) continue;
+            this.drawMesh(this.barrelMesh, barrel.x, 0, barrel.z, barrel.yaw, [0.5, 0.5, 0.5], [1, 1, 1, 1]);
+          }
+        }
+        if (this.chickenMesh) {
+          for (const chicken of chunk.chickens) {
+            this.drawMesh(this.chickenMesh, chicken.x, 0, chicken.z, chicken.yaw, [1.5, 1.5, 1.5], [1, 1, 1, 1]);
           }
         }
         for (const bld of chunk.buildings) {

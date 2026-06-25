@@ -1,0 +1,8 @@
+Model Information:
+* title:	Gas_station_5
+* source:	https://sketchfab.com/3d-models/gas-station-5-0ec6ea0b0f3d47e794653357308d6f9e
+* author:	sherif shawky (https://sketchfab.com/shawky.sherif1)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

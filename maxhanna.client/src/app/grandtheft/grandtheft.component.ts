@@ -336,6 +336,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.renderer.npcMeshes.push(npc);
       }
     });
+    this.renderer.loadGLTF("assets/grandtheft/jessica_jones/scene.gltf", false).then(npc => {
+      if (npc) { this.renderer.npcMeshes.push(npc); }
+    });
+    
     this.renderer.loadGLTF('assets/grandtheft/redneck/scene.gltf', false).then(npc => {
       if (npc) {
         for (const m of npc) m.needsFlip = false;
@@ -379,7 +383,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     });
     this.renderer.loadGLTF('assets/grandtheft/psxlow_poly_pickup/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/renault_4_cv/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/subaru_impreza/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/truck_toyota_corsa_b/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/vehicle_-_subaru_brz_rocket_bunny/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/1963_alpine_renault_a110_lp/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
@@ -404,12 +407,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/ps1_gt1-style_model_-_1992_emery_aventus/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/ps1_gt1-style_model_-_1994_kineto_rm-x/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/ps1_gt1-style_model_-_1997_dale_aristocrat/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/psx_bus/scene.gltf').then(car => {
-      if (car) {
-        const busOnly = car.filter(m => m.meshName && m.meshName.startsWith('Bus_'));
-        if (busOnly.length > 0) this.renderer.carMeshes.push(busOnly);
-      }
-    });
     this.renderer.loadGLTF('assets/grandtheft/animated_yacht/scene.gltf').then(b => { if (b) this.renderer.boatMeshes.push(b); });
     this.renderer.loadGLTF('assets/grandtheft/super-yacht02/scene.gltf').then(b => { if (b) this.renderer.boatMeshes.push(b); });
     this.renderer.loadGLTF('assets/grandtheft/bell_uh-1_iroquois_huey/scene.gltf').then(h => { if (h) this.renderer.helicopterMeshes.push(h); });
@@ -503,6 +500,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     Promise.all(buildingPromises).then(() => {
       this.renderer.clearChunkCache();
     });
+
+    this.renderer.loadGLTF('assets/grandtheft/wooden_bench/scene.gltf', false).then(m => { if (m) this.renderer.benchMeshes.push(m); });
+    this.renderer.loadGLTF('assets/grandtheft/park_bench_chair/scene.gltf', false).then(m => { if (m) this.renderer.benchMeshes.push(m); });
+    this.renderer.loadGLTF('assets/grandtheft/sm_prop_barrel_02__1__polygonbattleroyale_01_a_0/scene.gltf', false).then(m => { if (m) this.renderer.barrelMesh = m; });
+    this.renderer.loadGLTF('assets/grandtheft/chicken/scene.gltf', false).then(m => { if (m) this.renderer.chickenMesh = m; });
+    this.renderer.loadGLTF('assets/grandtheft/sm_env_tree_big_02__3__polygonmilitary_mat_01_a/scene.gltf', false).then(m => { if (m) this.renderer.palmTreeMesh = m; });
+    this.renderer.loadGLTF('assets/grandtheft/balloon/scene.gltf', false).then(m => { if (m) this.renderer.balloonMesh = m; });
 
     this.isLoaded = true;
 
@@ -1887,6 +1891,40 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     checkTargets(this.localPedestrians, false);
     checkTargets(this.serverNPCs, false);
     checkTargets(this.parkedCars, false);
+
+    // Check barrel hits
+    const barrels = this.renderer.getNearbyBarrels(ox, oz, maxRange);
+    for (const b of barrels) {
+      const vx = b.x - ox, vz = b.z - oz;
+      const proj = vx * dx + vz * dz;
+      if (proj < 0 || proj > maxRange) continue;
+      const closestX = ox + dx * proj, closestZ = oz + dz * proj;
+      if (Math.hypot(b.x - closestX, b.z - closestZ) < 0.8) {
+        const key = `${b.x},${b.z}`;
+        if (!this.renderer.explodedBarrels.has(key)) {
+          this.renderer.explodedBarrels.add(key);
+          this.spawnExplosion(b.x, 0.5, b.z);
+        }
+        return;
+      }
+    }
+
+    // Check gas station hits
+    const gasStations = this.renderer.getNearbyGasStations(ox, oz, maxRange);
+    for (const gs of gasStations) {
+      const vx = gs.x - ox, vz = gs.z - oz;
+      const proj = vx * dx + vz * dz;
+      if (proj < 0 || proj > maxRange) continue;
+      const closestX = ox + dx * proj, closestZ = oz + dz * proj;
+      if (Math.hypot(gs.x - closestX, gs.z - closestZ) < 2.0) {
+        const key = `${gs.x},${gs.z}`;
+        if (!this.renderer.explodedGasStations.has(key)) {
+          this.renderer.explodedGasStations.add(key);
+          this.spawnBigExplosion(gs.x, 0.5, gs.z);
+        }
+        return;
+      }
+    }
   }
 
   private spawnBlood(x: number, y: number, z: number, dirX: number = 0, dirY: number = 0, dirZ: number = 0) {
@@ -2051,6 +2089,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const dx = this.carX - GARAGE_INTERIOR_X;
     const dz = this.carZ - GARAGE_INTERIOR_Z;
     return dx * dx + dz * dz < 10 * 10;
+  }
+
+  private spawnBigExplosion(x: number, y: number, z: number) {
+    this.explosions.push({ x, y, z, age: 0, lifetime: 2.0 });
+    this.explosions.push({ x, y, z, age: 0, lifetime: 2.0 });
   }
 
   private spawnExplosion(x: number, y: number, z: number) {
@@ -2896,6 +2939,29 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carZ += this.carVz * dt;
     this.carY = CAR_HEIGHT;
     this.pushOutOfBuildings();
+    this.checkPropCollision();
+  }
+
+  private checkPropCollision() {
+    if (!this.isInCar) return;
+    const spd = Math.hypot(this.carVx, this.carVz);
+    if (spd < 3) return;
+    const barrels = this.renderer.getNearbyBarrels(this.carX, this.carZ, 2);
+    for (const b of barrels) {
+      const key = `${b.x},${b.z}`;
+      if (!this.renderer.explodedBarrels.has(key)) {
+        this.renderer.explodedBarrels.add(key);
+        this.spawnExplosion(b.x, 0.5, b.z);
+      }
+    }
+    const gasStations = this.renderer.getNearbyGasStations(this.carX, this.carZ, 4);
+    for (const gs of gasStations) {
+      const key = `${gs.x},${gs.z}`;
+      if (!this.renderer.explodedGasStations.has(key)) {
+        this.renderer.explodedGasStations.add(key);
+        this.spawnBigExplosion(gs.x, 0.5, gs.z);
+      }
+    }
   }
 
   private updateMotorcycle(dt: number) {
@@ -2954,6 +3020,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carZ += this.carVz * dt;
     this.carY = CAR_HEIGHT;
     this.pushOutOfBuildings();
+    this.checkPropCollision();
   }
 
   private updateBoat(dt: number) {
@@ -3218,6 +3285,28 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     this.lookTargetHealth = bestHealth;
     this.lookTargetName = bestName;
+
+    // Check supermarket robbery
+    if (this.currentWeapon > 0 && !this.isInCar) {
+      const sms = this.renderer.getNearbySupermarkets(ox, oz, maxDist);
+      for (const sm of sms) {
+        const vx = sm.x - ox, vz = sm.z - oz;
+        const proj = vx * dirX + vz * dirZ;
+        if (proj < 0 || proj > maxDist) continue;
+        const cx = ox + dirX * proj, cz = oz + dirZ * proj;
+        if (Math.hypot(sm.x - cx, sm.z - cz) < 4.0) {
+          const key = `${sm.x},${sm.z}`;
+          const now = Date.now();
+          const last = this.renderer.supermarketLastPayout.get(key) || 0;
+          if (now - last >= 600000) {
+            this.renderer.supermarketLastPayout.set(key, now);
+            const payout = 5000 + Math.floor(Math.random() * 5001);
+            this.money += payout;
+            this.moneyStacks.push({ x: sm.x, z: sm.z, amount: payout, yaw: 0, age: 0, lifetime: 5 });
+          }
+        }
+      }
+    }
   }
 
   private updateVehicleCollisions() {
