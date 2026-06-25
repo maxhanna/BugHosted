@@ -435,9 +435,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       'assets/grandtheft/suv/scene.gltf', 
       'assets/grandtheft/psxlow_poly_pickup/scene.gltf',
       'assets/grandtheft/renault_4_cv/scene.gltf',
-      'assets/grandtheft/truck_toyota_corsa_b/scene.gltf',
       'assets/grandtheft/vehicle_-_subaru_brz_rocket_bunny/scene.gltf',
-      'assets/grandtheft/1963_alpine_renault_a110_lp/scene.gltf',
       'assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf',
       'assets/grandtheft/1993_fso_polonez_mr93_lp/scene.gltf',
       'assets/grandtheft/ac_-_bmw_1m_free/scene.gltf', 
@@ -464,6 +462,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.renderer.carMeshes.push(car);
       }
     });
+
+    this.renderer.loadGLTF('assets/grandtheft/truck_toyota_corsa_b/scene.gltf').then(car => {
+      if (car) {
+        for (const m of car) m.renderScale = 3;
+        this.renderer.carMeshes.push(car);
+      }
+    }); 
+
 
     {
       const armsOut: { animations?: any; skeleton?: any } = {};
