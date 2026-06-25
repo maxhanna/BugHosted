@@ -1973,13 +1973,13 @@ void main() {
     // Force extra supermarkets in city and suburb chunks
     if ((isCity || isSuburb) && this.cityBuildingMeshes.length > 0) {
       const smModel = this.cityBuildingMeshes.find(m => m.length > 0 && m[0].carName && m[0].carName.includes('super_market'));
-      if (smModel && supermarkets.length < 2) {
+      if (smModel && supermarkets.length < 1 && rng() < 0.25) {
         const halfSW = SIDEWALK_SIZE / 2;
         const edges = [
           { dx: 0, dz: 1 }, { dx: 0, dz: -1 },
           { dx: 1, dz: 0 }, { dx: -1, dz: 0 }
         ];
-        for (let si = supermarkets.length; si < 2; si++) {
+        for (let si = supermarkets.length; si < 1; si++) {
           const edge = edges[Math.floor(rng() * edges.length)];
           const w = 8 + rng() * 10;
           const d = 8 + rng() * (SIDEWALK_SIZE * 0.2);
@@ -1993,7 +1993,7 @@ void main() {
             px = worldOriginX + edge.dx * (halfSW - d / 2 - 1);
             yaw = edge.dx > 0 ? -Math.PI / 2 : Math.PI / 2;
           }
-          const scale = Math.min(w, d) / 20 * 5;
+          const scale = Math.min(w, d) / 20 * 25;
           const cityMinY = this.getModelMinY(smModel);
           buildings.push({ model: smModel, x: px, y: -cityMinY * scale + 0.15, z: pz, yaw, scale: [scale, scale, scale] });
           supermarkets.push({ x: px, z: pz, yaw });
