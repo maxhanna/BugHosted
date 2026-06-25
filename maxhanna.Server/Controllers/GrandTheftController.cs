@@ -59,22 +59,47 @@ namespace maxhanna.Server.Controllers
 			if (cx >= 9 && cx <= 13 && cz == -5) return "aeroport";
 			if (cx >= 23 && cx <= 28 && cz == -7) return "aeroport";
 			if (cx >= 38 && cx <= 44 && cz == -10) return "aeroport";
-			if (cx >= -2 && cx <= 3 && cz >= -2 && cz <= 2) return cz >= 2 || cz <= -2 ? "beach" : "city";
+
+			// Deterministic parking-lot patch (must match client exactly)
+			bool IsParkingPatch()
+			{
+				uint h = (uint)((cx * 100003 + cz * 70001) & 0xFFFFFFFF);
+				return (h % 9u) == 0u;
+			}
+
+			if (cx >= -2 && cx <= 3 && cz >= -2 && cz <= 2)
+			{
+				if (cz >= 2 || cz <= -2) return "beach";
+				return IsParkingPatch() ? "parking_lot" : "city";
+			}
 			if (cx >= 4 && cx <= 5 && cz >= -1 && cz <= 1) return "bridge";
-			if (cx >= 6 && cx <= 15 && cz >= -5 && cz <= 5) return cz >= 4 || cz <= -4 ? "beach" : "city";
+			if (cx >= 6 && cx <= 15 && cz >= -5 && cz <= 5)
+			{
+				if (cz >= 4 || cz <= -4) return "beach";
+				return IsParkingPatch() ? "parking_lot" : "city";
+			}
 			if (cx >= 16 && cx <= 17 && cz >= -2 && cz <= 2) return "bridge";
-			if (cx >= 18 && cx <= 30 && cz >= -7 && cz <= 7) return cz >= 6 || cz <= -6 ? "beach" : "suburb";
+			if (cx >= 18 && cx <= 30 && cz >= -7 && cz <= 7)
+			{
+				if (cz >= 6 || cz <= -6) return "beach";
+				return IsParkingPatch() ? "parking_lot" : "suburb";
+			}
 			if (cx >= 31 && cx <= 32 && cz >= -3 && cz <= 3) return "bridge";
 			if (cx >= 33 && cx <= 50 && cz >= -10 && cz <= 10)
 			{
 				if (cz >= 8 || cz <= -8) return "beach";
-				if (cz >= -5 && cz <= 5) return "city";
-				return "suburb";
+				if (cz >= -5 && cz <= 5) return IsParkingPatch() ? "parking_lot" : "city";
+				return IsParkingPatch() ? "parking_lot" : "suburb";
 			}
 			if (cx >= 35 && cx <= 44 && cz >= 11 && cz <= 15) return "aeroport";
 			return "ocean";
 		}
 
+		public static bool IsBoulevard(int gridCoord)
+		{
+			int m = ((gridCoord % 4) + 4) % 4;
+			return m == 0;
+		}
 		public static readonly (int minCx, int maxCx, int minCz, int maxCz)[] AIRPORT_ZONES = new[]
 		{
 			(0, 2, -2, -2),
@@ -108,7 +133,9 @@ namespace maxhanna.Server.Controllers
 			if (cx == 1 && cz == 0) return true;
 
 			string biome = GetBiome(cx, cz);
-			if (biome == "mountain" || biome == "beach" || biome == "ocean" || biome == "bridge" || biome == "aeroport") return false;
+			if (biome == "mountain" || biome == "beach" || biome == "ocean"
+				|| biome == "bridge" || biome == "aeroport"
+				|| biome == "parking_lot") return false;          // ← NEW
 
 			float blockCenterX = cx * CHUNK_SIZE + CHUNK_SIZE / 2f;
 			float blockCenterZ = cz * CHUNK_SIZE + CHUNK_SIZE / 2f;
@@ -125,21 +152,23 @@ namespace maxhanna.Server.Controllers
 				{
 					var edge = EDGES[e];
 					int numHouses = 1 + (int)(RngNext(ref state) * 2);
-					float houseWidth = (SIDEWALK_SIZE - 8f) / numHouses;
+					// CHANGED: SIDEWALK_SIZE - 12 instead of -8 → 6u corner gap each end
+					float houseWidth = (SIDEWALK_SIZE - 12f) / numHouses;
 					for (int i = 0; i < numHouses; i++)
 					{
 						if (RngNext(ref state) >= 0.7f) continue;
 						float w = houseWidth;
-						float d = 8f + RngNext(ref state) * (SIDEWALK_SIZE * 0.3f);
+						float d = 7f + RngNext(ref state) * (SIDEWALK_SIZE * 0.22f);
 						float px, pz;
 						if (edge[0] == 0)
 						{
-							px = blockCenterX - halfSW + 4f + houseWidth / 2f + i * houseWidth;
+							// CHANGED: start at halfSW - 6 instead of halfSW - 4
+							px = blockCenterX - halfSW + 6f + houseWidth / 2f + i * houseWidth;
 							pz = blockCenterZ + edge[1] * (halfSW - d / 2f - 1f);
 						}
 						else
 						{
-							pz = blockCenterZ - halfSW + 4f + houseWidth / 2f + i * houseWidth;
+							pz = blockCenterZ - halfSW + 6f + houseWidth / 2f + i * houseWidth;
 							px = blockCenterX + edge[0] * (halfSW - d / 2f - 1f);
 						}
 						if (Math.Abs(x - px) < w / 2f + margin && Math.Abs(z - pz) < d / 2f + margin) return true;
@@ -152,21 +181,22 @@ namespace maxhanna.Server.Controllers
 				{
 					var edge = EDGES[e];
 					int numStores = 2 + (int)(RngNext(ref state) * 2);
-					float storeWidth = (SIDEWALK_SIZE - 4f) / numStores;
+					// CHANGED: SIDEWALK_SIZE - 8 instead of -4 → 4u corner gap each end
+					float storeWidth = (SIDEWALK_SIZE - 8f) / numStores;
 					for (int i = 0; i < numStores; i++)
 					{
-						if (RngNext(ref state) >= 0.8f) continue;
+						if (RngNext(ref state) >= 0.78f) continue;   // CHANGED: 0.78 instead of 0.80 (match client)
 						float w = storeWidth;
-						float d = 8f + RngNext(ref state) * (SIDEWALK_SIZE * 0.2f);
+						float d = 7f + RngNext(ref state) * (SIDEWALK_SIZE * 0.18f); // CHANGED: 0.18 not 0.20
 						float px, pz;
 						if (edge[0] == 0)
 						{
-							px = blockCenterX - halfSW + 2f + storeWidth / 2f + i * storeWidth;
+							px = blockCenterX - halfSW + 4f + storeWidth / 2f + i * storeWidth;
 							pz = blockCenterZ + edge[1] * (halfSW - d / 2f - 1f);
 						}
 						else
 						{
-							pz = blockCenterZ - halfSW + 2f + storeWidth / 2f + i * storeWidth;
+							pz = blockCenterZ - halfSW + 4f + storeWidth / 2f + i * storeWidth;
 							px = blockCenterX + edge[0] * (halfSW - d / 2f - 1f);
 						}
 						if (Math.Abs(x - px) < w / 2f + margin && Math.Abs(z - pz) < d / 2f + margin) return true;
@@ -174,14 +204,35 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 
-			float medianHalf = 1f + margin;
-			if (Math.Abs(x - (blockCenterX + CHUNK_SIZE / 2f)) < medianHalf && Math.Abs(z - blockCenterZ) < CHUNK_SIZE / 2f) return true;
-			if (Math.Abs(z - (blockCenterZ + CHUNK_SIZE / 2f)) < medianHalf && Math.Abs(x - blockCenterX) < CHUNK_SIZE / 2f) return true;
+			// Boulevard medians are obstacles (palms + benches placed there)
+			int blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
+			int gx0 = cx * blocksPerChunk;
+			int gz0 = cz * blocksPerChunk;
+			for (int g = 0; g < 2; g++)
+			{
+				if (IsBoulevard(gx0 + g))
+				{
+					float worldX = (gx0 + g) * GRID_PITCH;
+					if (Math.Abs(x - worldX) < 2f + margin && Math.Abs(z - blockCenterZ) < CHUNK_SIZE / 2f) return true;
+				}
+				if (IsBoulevard(gz0 + g))
+				{
+					float worldZ = (gz0 + g) * GRID_PITCH;
+					if (Math.Abs(z - worldZ) < 2f + margin && Math.Abs(x - blockCenterX) < CHUNK_SIZE / 2f) return true;
+				}
+			}
+
 			return false;
 		}
 
 		public static bool IsRoadAt(float x, float z)
 		{
+			int cx = (int)Math.Floor(x / CHUNK_SIZE);
+			int cz = (int)Math.Floor(z / CHUNK_SIZE);
+			string biome = GetBiome(cx, cz);
+			// Parking lots are fully drivable (no sidewalk grid)
+			if (biome == "parking_lot") return true;
+
 			float dx = x % GRID_PITCH;
 			if (dx < 0) dx += GRID_PITCH;
 			float distToGridX = Math.Min(dx, GRID_PITCH - dx);
@@ -1799,6 +1850,15 @@ namespace maxhanna.Server.Controllers
 				int gz = baseGz + rng.Next(-gridRange, gridRange + 1);
 				float cx = gx * 80f + 40f;
 				float cz = gz * 80f + 40f;
+				string biome = CityLayout.GetBiome(gx, gz);
+				if (biome == "ocean") continue;
+				// Parking lots: spawn peds walking through the lot
+				if (biome == "parking_lot")
+				{
+					x = gx * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 60f;
+					z = gz * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 60f;
+					return;
+				}
 				float sidewalkEdge = 18f;
 				int edge = rng.Next(4);
 				if (edge == 0) { x = cx; z = cz - sidewalkEdge; }
