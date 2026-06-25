@@ -3324,13 +3324,24 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     };
 
-    for (const v of this.serverNPCs) { check(v.x, 0.5, v.z, v.health, v.type === 'motorcycle' ? 'Motorcycle' : 'Car'); }
-    for (const p of this.parkedCars) { check(p.x, 0.5, p.z, p.health, p.type === 'motorcycle' ? 'Motorcycle' : 'Car'); }
+    const meshName = (mesh: any) => {
+      const arr = Array.isArray(mesh) ? mesh : [mesh];
+      return arr[0]?.carName || '';
+    };
+    for (const v of this.serverNPCs) {
+      const mn = meshName(v.mesh);
+      check(v.x, 0.5, v.z, v.health, mn || (v.type === 'motorcycle' ? 'Motorcycle' : 'Car'));
+    }
+    for (const p of this.parkedCars) {
+      const mn = meshName(p.mesh);
+      check(p.x, 0.5, p.z, p.health, mn ? mn + ' (parked)' : (p.type === 'motorcycle' ? 'Motorcycle' : 'Car'));
+    }
     for (const ped of this.serverPedestrians) { check(ped.x, 1.0, ped.z, ped.health, ped.type === 'cop' ? 'Police' : 'Pedestrian'); }
     for (const pl of this.otherPlayers) { check(pl.posX, pl.posY + 1.0, pl.posZ, pl.health, pl.username); }
 
     this.lookTargetHealth = bestHealth;
     this.lookTargetName = bestName;
+    if (bestName) this.hoverLabel = bestName;
 
     // Check supermarket robbery
     if (this.currentWeapon > 0 && !this.isInCar) {

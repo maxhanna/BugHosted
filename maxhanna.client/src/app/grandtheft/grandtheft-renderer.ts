@@ -3082,16 +3082,18 @@ precision highp float;out vec4 c;uniform vec3 uPC;void main(){c=vec4(uPC,1.0)}`;
     gl.useProgram(this._pickProg);
     mat4.multiply(this._pickPV, this.projMatrix, this.viewMatrix);
     gl.uniformMatrix4fv(this._pickPvLoc, false, this._pickPV);
-    // DEBUG: Draw test box right at camera to validate picking pipeline
-    const fwdX = Math.sin(camYaw), fwdZ = Math.cos(camYaw);
-    const cmTest = mat4.create();
-    mat4.translate(cmTest, cmTest, [camX + fwdX * 2, 0, camZ + fwdZ * 2]);
+    // Pick-test: draw a fullscreen quad-like marker right at camera to validate pipeline
+    // Place a box right in front of the camera
+    const dirX = Math.sin(0), dirZ = Math.cos(0); // using camYaw=0 for simplicity
+    const cm = mat4.create();
+    mat4.translate(cm, cm, [camX + dirX * 3, 0, camZ + dirZ * 3]);
+    mat4.scale(cm, cm, [1, 1, 1]);
     const testId = this._pickId('__test_marker__');
-    gl.uniformMatrix4fv(this._pickMLoc, false, cmTest);
+    gl.uniformMatrix4fv(this._pickMLoc, false, cm);
     gl.uniform3f(this._pickCLoc!, (testId & 0xFF) / 255, ((testId >> 8) & 0xFF) / 255, ((testId >> 16) & 0xFF) / 255);
-    const boxMesh = this.getBoxMesh(0.5, 0.5, 0.5);
-    gl.bindVertexArray(boxMesh.vao);
-    gl.drawElements(gl.TRIANGLES, boxMesh.indexCount, boxMesh.indexType || gl.UNSIGNED_SHORT, 0);
+    const box = this.getBoxMesh(1, 1, 1);
+    gl.bindVertexArray(box.vao);
+    gl.drawElements(gl.TRIANGLES, box.indexCount, box.indexType || gl.UNSIGNED_SHORT, 0);
     for (let dz = -2; dz <= 2; dz++) {
       for (let dx = -2; dx <= 2; dx++) {
         const chunk = this.getCityChunk(pcx + dx, pcz + dz);
