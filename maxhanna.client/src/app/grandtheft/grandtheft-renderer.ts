@@ -695,7 +695,7 @@ void main() {
       vec3 pL = lightVec / dist;
       float pDiff = max(dot(N, pL), 0.0);
 
-      pointLightContribution += pDiff * vec3(1.0, 0.85, 0.5) * atten * baseColor.rgb * 4.0;
+      pointLightContribution += pDiff * vec3(1.0, 0.85, 0.5) * atten * baseColor.rgb * 1.5;
 
       vec3 pR = reflect(-pL, N);
       float pSpec = pow(max(dot(pR, V), 0.0), 16.0);
@@ -714,7 +714,7 @@ void main() {
       float dist = length(lightVec);
       if(dist < 2.5) {
         float glow = 1.0 - (dist / 2.5);
-        color += vec3(1.0, 0.8, 0.4) * glow * glow * 3.0;
+        color += vec3(1.0, 0.8, 0.4) * glow * glow * 1.0;
       }
     }
   }
