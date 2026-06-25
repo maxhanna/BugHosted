@@ -78,24 +78,9 @@ namespace maxhanna.Server.Services
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-      // Start all timers but stagger the first run to avoid heavy startup spikes.
-      // Apply a one-time initial delay on first process start so the background
-      // work doesn't hit immediately after deployment. This is an in-process
-      // delay (resets if the process restarts).
       if (!_initialDelayApplied)
-      {
-        // Do initial smoke tests but catch/log errors so a single failing
-        // maintenance task doesn't bring down the whole host on startup.
-        // try
-        // {
-        //   await RunSmokeTests();
-        // }
-        // catch (Exception ex)
-        // {
-        //   _ = _log.Db("Error running smoke tests: " + ex.Message, null, "SYSTEM", true);
-        // }
+      { 
         _initialDelayApplied = true;
-        // Wait 5 minutes before scheduling timers for the first run.
         try
         {
           await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
