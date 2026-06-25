@@ -396,12 +396,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/vehicle_-_subaru_brz_rocket_bunny/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/1963_alpine_renault_a110_lp/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/1987_bmw_e34_lp/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/1993_fso_polonez_mr93_lp/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/ac_-_bmw_1m_free/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/bmw_m4_csl/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/bmw_vision_neue_klasse/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/bmw_x7_xdrive_50i/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/dodge_demon_hpe1200/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/ford_mustang_shelby_gt500kr/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/free_concept_car_037_-_public_domain_cc0/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
