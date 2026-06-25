@@ -31,7 +31,7 @@ const GARAGE_DOOR_OPEN_SPEED = 3;
 const VENDING_MACHINE_INTERVAL = 10;
 const VENDING_MACHINE_HEAL_DIST = 4;
 const VENDING_MACHINE_OFFSET = 12;
-const WEAPON_DAMAGES = [10, 15, 25, 8, 100];
+const WEAPON_DAMAGES = [10, 15, 25, 45, 100];
 const PLAYER_POLL_FAST_MS = 200;
 const PLAYER_POLL_SLOW_MS = 1000;
 const ENTER_CAR_DIST = 4;
@@ -404,7 +404,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/ps1_gt1-style_model_-_1992_emery_aventus/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/ps1_gt1-style_model_-_1994_kineto_rm-x/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/ps1_gt1-style_model_-_1997_dale_aristocrat/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/psx_bus/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/psx_bus/scene.gltf').then(car => {
+      if (car) {
+        const busOnly = car.filter(m => m.meshName && m.meshName.startsWith('Bus_'));
+        if (busOnly.length > 0) this.renderer.carMeshes.push(busOnly);
+      }
+    });
     this.renderer.loadGLTF('assets/grandtheft/animated_yacht/scene.gltf').then(b => { if (b) this.renderer.boatMeshes.push(b); });
     this.renderer.loadGLTF('assets/grandtheft/super-yacht02/scene.gltf').then(b => { if (b) this.renderer.boatMeshes.push(b); });
     this.renderer.loadGLTF('assets/grandtheft/bell_uh-1_iroquois_huey/scene.gltf').then(h => { if (h) this.renderer.helicopterMeshes.push(h); });

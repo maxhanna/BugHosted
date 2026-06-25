@@ -15,6 +15,7 @@
   jointWeights?: Float32Array;
   minY?: number;
   carName?: string;
+  meshName?: string;
 }
 export interface GltfAnimation {
   name: string;
@@ -3215,14 +3216,14 @@ void main() {
       }
 
       const meshes: CityMesh[] = [];
-      const primitiveData: { verts: number[]; indices: number[]; texture: WebGLTexture | null; restPos?: Float32Array; restNrm?: Float32Array; jointIdx?: Uint16Array; jointWgt?: Float32Array; vCount: number; isSkinned?: boolean }[] = [];
+      const primitiveData: { verts: number[]; indices: number[]; texture: WebGLTexture | null; restPos?: Float32Array; restNrm?: Float32Array; jointIdx?: Uint16Array; jointWgt?: Float32Array; vCount: number; isSkinned?: boolean; meshName?: string }[] = [];
 
       let globalMinX = Infinity, globalMaxX = -Infinity;
       let globalMinY = Infinity, globalMaxY = -Infinity;
       let globalMinZ = Infinity, globalMaxZ = -Infinity;
       const textureCache = new Map<number, WebGLTexture | null>();
 
-      const entries: { meshIndex: number; transform: Float32Array; nodeIndex: number }[] = [];
+      const entries: { meshIndex: number; transform: Float32Array; nodeIndex: number; nodeName?: string }[] = [];
       if (json.nodes && json.nodes.length > 0 && json.scenes) {
         const identity = mat4.identity(mat4.create());
         const traverse = (nodeIdx: number, parentWorld: Float32Array) => {
@@ -3655,7 +3656,7 @@ void main() {
             }
           }
 
-          primitiveData.push({ verts, indices, texture, restPos, restNrm, jointIdx, jointWgt, vCount, isSkinned });
+          primitiveData.push({ verts, indices, texture, restPos, restNrm, jointIdx, jointWgt, vCount, isSkinned, meshName: meshDef.name || '' });
         }
       }
 
@@ -3788,6 +3789,7 @@ void main() {
         }
 
         const mesh = this.createMesh(verts, indices, texture);
+        mesh.meshName = p.meshName || '';
         if (isSkinned && restPos && restNrm && jointIdx && jointWgt) {
           mesh.vertexCount = vCount;
           mesh.restPositions = restPos;
