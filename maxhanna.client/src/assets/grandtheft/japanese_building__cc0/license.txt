@@ -1,0 +1,8 @@
+Model Information:
+* title:	Japanese Building | CC0
+* source:	https://sketchfab.com/3d-models/japanese-building-cc0-4bde4dd51a3f4cacabc22324a7d0c62c
+* author:	Lit For 20 (https://sketchfab.com/LitFor20)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

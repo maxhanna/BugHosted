@@ -1,0 +1,11 @@
+Model Information:
+* title:	一戸建て + Ichijoushi (002)
+* source:	https://sketchfab.com/3d-models/ichijoushi-002-c1453a90f72b4e0d949965e17b111d6d
+* author:	MrdT (https://sketchfab.com/mrdt.club)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "一戸建て + Ichijoushi (002)" (https://sketchfab.com/3d-models/ichijoushi-002-c1453a90f72b4e0d949965e17b111d6d) by MrdT (https://sketchfab.com/mrdt.club) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

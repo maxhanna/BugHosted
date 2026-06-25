@@ -34,6 +34,7 @@ namespace maxhanna.Server.Services
     private Timer _threeHourTimer;
     private Timer _sixHourTimer;
     private Timer _dailyTimer;
+    private Timer _fifteenMinuteTimer;
     private static bool _initialDelayApplied = false;
     private bool isCrawling = false;
     private bool lastWasCrypto = false;

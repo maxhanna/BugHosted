@@ -16,6 +16,7 @@
   minY?: number;
   carName?: string;
   meshName?: string;
+  renderScale?: number;
 }
 export interface GltfAnimation {
   name: string;
@@ -50,6 +51,7 @@ export interface CityChunk {
   chickens: { x: number; z: number; yaw: number }[];
   trees: { x: number; z: number; yaw: number; scale: number }[];
   supermarkets: { x: number; z: number; yaw: number }[];
+  tatami: { x: number; z: number; yaw: number }[];
 }
 
 const CHUNK_SIZE = 80;
@@ -430,15 +432,17 @@ export class GrandTheftRenderer {
     'low_poly_cinema','low_poly_city_hall','low_poly_gas_station','low_poly_hotel_1','low_poly_hotel_2',
     'low_poly_pharmacy','low_poly_police_station','low_poly_school','low_poly_shopping_center',
     'modern_building','panel_apartment_placeholder','psx_groceries_store','pyaterochka_3d','supermarket',
-    'residential_complex_modern_apartment_building',    'ukraine_building',
-    'michaelsoft'
+    'residential_complex_modern_apartment_building', 'ukraine_building', 'abandoned_building_gameready',
+    'building_no_6_form_tokyo_otemachi_building_pack', 'building_no_19_form_tokyo_otemachi_building_pack', 
+    'city_building', 'japanese_building__cc0', 'low_poly_apartment_building_1', 'michaelsoft'
   ];
   static SUBURB_BUILDING_NAMES = [
     'brooklynCornerhouse','brooklynStreetBuilding','cabin',
     'hungry_jacks_restaurant_low_poly','japanese_storefront__blender',
     'low_poly_burger_restaurant','low_poly_cafe','low_poly_generic_restaurant','low_poly_generic_shop',
     'low_poly_house_2','low_poly_house_3','low_poly_house_4','low_poly_house_5',
-    'low_poly_pizza_restaurant','low_poly_wooden_cabine','residential_family_house'
+    'low_poly_pizza_restaurant', 'low_poly_wooden_cabine', 'residential_family_house', 'ichijoushi_002',
+    'low_poly_apartment_building_1', 'ichijoushi___001',
   ];
   public trafficLightMesh: CityMesh[] | null = null;
   public hydrantMesh: CityMesh[] | null = null;
@@ -446,6 +450,7 @@ export class GrandTheftRenderer {
   public barrelMesh: CityMesh[] | null = null;
   public chickenMesh: CityMesh[] | null = null;
   public palmTreeMesh: CityMesh[] | null = null;
+  public tatamiRoomMesh: CityMesh[] | null = null;
   public balloonMesh: CityMesh[] | null = null;
   public explodedBarrels: Set<string> = new Set();
   public explodedGasStations: Set<string> = new Set();
@@ -1591,6 +1596,7 @@ void main() {
     const chickens: { x: number; z: number; yaw: number }[] = [];
     const trees: { x: number; z: number; yaw: number; scale: number }[] = [];
     const supermarkets: { x: number; z: number; yaw: number }[] = [];
+    const tatami: { x: number; z: number; yaw: number }[] = [];
 
     const worldOriginX = cx * CHUNK_SIZE;
     const worldOriginZ = cz * CHUNK_SIZE;
@@ -1605,7 +1611,7 @@ void main() {
       this.addPlane(verts, indices, cx2, -2.2, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.05, 0.25, 0.45, 0.55, idxOffset); idxOffset += 4;
       this.addPlane(verts, indices, cx2, -1.9, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.15, 0.40, 0.60, 0.40, idxOffset); idxOffset += 4;
       const mesh = this.createMesh(verts, indices);
-      const chunk: CityChunk = { mesh, cx, cz, lamps: [], hydrants: [], buildings, benches: [], barrels: [], chickens: [], trees: [], supermarkets: [] };
+      const chunk: CityChunk = { mesh, cx, cz, lamps: [], hydrants: [], buildings, benches: [], barrels: [], chickens: [], trees: [], supermarkets: [], tatami: [] };
       this.chunkCache.set(key, chunk);
       return chunk;
     }
@@ -1788,6 +1794,16 @@ void main() {
           // A couple of benches (properly sparse — max 1 per beach block)
           if (rng() < 0.4) {
             benches.push({ x: blockWorldX, z: blockWorldZ + halfSW - 3, yaw: Math.PI });
+          }
+          // Tatami dressing rooms along the inland edge
+          if (this.tatamiRoomMesh) {
+            for (let i = 0; i < 2; i++) {
+              if (rng() < 0.5) {
+                const tx = blockWorldX - halfSW + 6 + i * (SIDEWALK_SIZE / 2.5) + rng() * 3;
+                const tz = blockWorldZ - halfSW + 3;
+                tatami.push({ x: tx, z: tz, yaw: 0 });
+              }
+            }
           }
           continue;
         }
@@ -2093,7 +2109,7 @@ void main() {
       }
     }
 
-    const chunk: CityChunk = { mesh, cx, cz, lamps, hydrants, buildings, benches, barrels, chickens, trees, supermarkets };
+    const chunk: CityChunk = { mesh, cx, cz, lamps, hydrants, buildings, benches, barrels, chickens, trees, supermarkets, tatami };
     this.chunkCache.set(key, chunk);
     return chunk;
   }
@@ -2470,6 +2486,11 @@ void main() {
       mat4.rotateY(this.modelMatrix, this.modelMatrix, Math.PI);
     }
 
+    const renderScale = meshList.reduce((max, m) => Math.max(max, m.renderScale ?? 1), 1);
+    if (renderScale !== 1) {
+      scale = [scale[0] * renderScale, scale[1] * renderScale, scale[2] * renderScale];
+    }
+
     mat4.scale(this.modelMatrix, this.modelMatrix, scale);
 
     if (isShadowPass) {
@@ -2728,6 +2749,11 @@ void main() {
           for (const bench of chunk.benches) {
             const bm = this.benchMeshes[Math.abs((bench.x * 100 + bench.z) | 0) % this.benchMeshes.length];
             this.drawMesh(bm, bench.x, 0, bench.z, bench.yaw, [0.8, 0.8, 0.8], [1, 1, 1, 1]);
+          }
+        }
+        if (this.tatamiRoomMesh) {
+          for (const t of chunk.tatami) {
+            this.drawMesh(this.tatamiRoomMesh, t.x, 0, t.z, t.yaw, [1, 1, 1], [0.9, 0.8, 0.6, 1]);
           }
         }
         if (this.barrelMesh) {
@@ -3723,12 +3749,12 @@ void main() {
           if (prim.material !== undefined && json.materials[prim.material]) {
             const mat = json.materials[prim.material];
             const matName = (mat.name || '').toLowerCase();
-            if (mat.alphaMode === 'BLEND' || matName.includes('cone') || matName.includes('beam') || matName.includes('volume')) {
+            if (mat.alphaMode === 'BLEND' || matName.includes('cone') || matName.includes('beam') || matName.includes('volume') || matName.includes('modular') || matName.includes('facad')) {
               skipMesh = true;
             }
           }
           const meshName = (meshDef.name || '').toLowerCase();
-          if (meshName.includes('cone') || meshName.includes('beam') || meshName.includes('volume')) {
+          if (meshName.includes('cone') || meshName.includes('beam') || meshName.includes('volume') || meshName.includes('modular') || meshName.includes('facad')) {
             skipMesh = true;
           }
           if (skipMesh) continue;

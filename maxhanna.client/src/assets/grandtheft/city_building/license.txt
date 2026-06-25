@@ -1,0 +1,8 @@
+Model Information:
+* title:	City Building
+* source:	https://sketchfab.com/3d-models/city-building-ba280f48e8c440eb8f902eae9b37a251
+* author:	mortalityrexotable (https://sketchfab.com/mortalityrexotable)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

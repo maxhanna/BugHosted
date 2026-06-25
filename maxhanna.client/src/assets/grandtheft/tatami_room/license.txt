@@ -1,0 +1,11 @@
+Model Information:
+* title:	Tatami Room
+* source:	https://sketchfab.com/3d-models/tatami-room-11c99bfa23ca451b9b2e6561c11b8123
+* author:	Geraldo Pratama Wahyu Teddy (https://sketchfab.com/juyo)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Tatami Room" (https://sketchfab.com/3d-models/tatami-room-11c99bfa23ca451b9b2e6561c11b8123) by Geraldo Pratama Wahyu Teddy (https://sketchfab.com/juyo) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

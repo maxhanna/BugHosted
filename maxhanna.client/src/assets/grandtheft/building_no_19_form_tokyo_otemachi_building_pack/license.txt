@@ -1,0 +1,8 @@
+Model Information:
+* title:	Building No 19 form Tokyo Otemachi Building Pack
+* source:	https://sketchfab.com/3d-models/building-no-19-form-tokyo-otemachi-building-pack-4ef7de8fa4f14f8b85bea14c8a23a248
+* author:	DrCG (https://sketchfab.com/drcg)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

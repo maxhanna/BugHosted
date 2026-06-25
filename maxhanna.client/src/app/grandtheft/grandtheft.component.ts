@@ -369,6 +369,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/lambo/scene.gltf').then(car => {
       if (car) this.renderer.carMeshes.push(car);
     });
+    this.renderer.loadGLTF('assets/grandtheft/2024_lamborghini_countach_lp5000_qv_lbworks/scene.gltf').then(car => {
+      if (car) this.renderer.carMeshes.push(car);
+    });
+    this.renderer.loadGLTF('assets/grandtheft/1993_mazda_rx-7/scene.gltf').then(car => {
+      if (car) this.renderer.carMeshes.push(car);
+    }); 
     this.renderer.loadGLTF('assets/grandtheft/mitsubishi/scene.gltf').then(car => {
       if (car) this.renderer.carMeshes.push(car);
     });
@@ -392,7 +398,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/1987_bmw_e34_lp/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/1993_fso_polonez_mr93_lp/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/2009_volkswagen_amarok_lp/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/ac_-_bmw_1m_free/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/bmw_m4_csl/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/bmw_vision_neue_klasse/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
@@ -403,11 +408,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/free_concept_car_040__-_public_domain_cc0/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/free_sci-fi_vehicle_031-02_-_public_domain_cc0/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/freightliner_century/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/kenworth_t2000/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
+    this.renderer.loadGLTF('assets/grandtheft/kenworth_t2000/scene.gltf').then(car => { if (car) { for (const m of car) m.renderScale = 4; this.renderer.carMeshes.push(car); } });
     this.renderer.loadGLTF('assets/grandtheft/lexus_is300200/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/ps1_gt1-style_model_-_1992_emery_aventus/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/ps1_gt1-style_model_-_1994_kineto_rm-x/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/ps1_gt1-style_model_-_1997_dale_aristocrat/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/animated_yacht/scene.gltf').then(b => { if (b) this.renderer.boatMeshes.push(b); });
     this.renderer.loadGLTF('assets/grandtheft/super-yacht02/scene.gltf').then(b => { if (b) this.renderer.boatMeshes.push(b); });
     this.renderer.loadGLTF('assets/grandtheft/bell_uh-1_iroquois_huey/scene.gltf').then(h => { if (h) this.renderer.helicopterMeshes.push(h); });
@@ -507,6 +511,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/chicken/scene.gltf', false).then(m => { if (m) this.renderer.chickenMesh = m; });
     this.renderer.loadGLTF('assets/grandtheft/sm_env_tree_big_02__3__polygonmilitary_mat_01_a/scene.gltf', false).then(m => { if (m) this.renderer.palmTreeMesh = m; });
     this.renderer.loadGLTF('assets/grandtheft/balloon/scene.gltf', false).then(m => { if (m) this.renderer.balloonMesh = m; });
+    this.renderer.loadGLTF('assets/grandtheft/tatami_room/scene.gltf', false).then(m => { if (m) this.renderer.tatamiRoomMesh = m; });
 
     this.isLoaded = true;
 

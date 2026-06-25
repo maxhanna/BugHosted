@@ -1,0 +1,8 @@
+Model Information:
+* title:	Building No 6 form Tokyo Otemachi Building Pack
+* source:	https://sketchfab.com/3d-models/building-no-6-form-tokyo-otemachi-building-pack-e8e34afb92ba480f91af6f67a0471015
+* author:	DrCG (https://sketchfab.com/drcg)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works
