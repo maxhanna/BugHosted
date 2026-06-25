@@ -333,22 +333,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/citylight/scene.gltf').then(lamps => {
       if (lamps) this.renderer.lampMesh = lamps;
     });
-    this.renderer.loadGLTF('assets/grandtheft/jillValentine/scene.gltf', false).then(npc => {
-      if (npc) {
-        for (const m of npc) m.needsFlip = false;
+    const npcConfigs: { path: string; needsFlip?: boolean }[] = [
+      { path: 'assets/grandtheft/jillValentine/scene.gltf', needsFlip: false },
+      { path: 'assets/grandtheft/jessica_jones/scene.gltf' },
+      { path: 'assets/grandtheft/redneck/scene.gltf', needsFlip: false },
+    ];
+    for (const cfg of npcConfigs) {
+      this.renderer.loadGLTF(cfg.path, false).then(npc => {
+        if (!npc) return;
+        if (cfg.needsFlip === false) {
+          for (const m of npc) m.needsFlip = false;
+        }
         this.renderer.npcMeshes.push(npc);
-      }
-    });
-    this.renderer.loadGLTF("assets/grandtheft/jessica_jones/scene.gltf", false).then(npc => {
-      if (npc) { this.renderer.npcMeshes.push(npc); }
-    });
-    
-    this.renderer.loadGLTF('assets/grandtheft/redneck/scene.gltf', false).then(npc => {
-      if (npc) {
-        for (const m of npc) m.needsFlip = false;
-        this.renderer.npcMeshes.push(npc);
-      }
-    });
+      });
+    }
+ 
     for (let ci = 1; ci <= 29; ci++) {
       if (ci === 27) continue;
       const ciStr = ci.toString();
@@ -356,103 +355,120 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (npc) this.renderer.npcMeshes.push(npc);
       });
     }
-    this.renderer.loadGLTF('assets/grandtheft/char27/scene.gltf', false).then(hydrant => {
-      if (hydrant) this.renderer.hydrantMesh = hydrant;
-    });
-    this.renderer.loadGLTF('assets/grandtheft/bus/scene.gltf').then(bus => {
-      if (bus) this.renderer.busMesh = bus;
-    });
-    this.renderer.loadGLTF('assets/grandtheft/policeMan/scene.gltf', false).then(cop => {
-      if (cop) this.renderer.copMesh = cop;
-    });
+    
+    // ── Special-purpose meshes ──
+    const specialMeshes: {
+      path: string;
+      storeSkeleton: boolean;
+      assign: (m: CityMesh[]) => void;
+    }[] = [
+        // Boats
+        { path: 'assets/grandtheft/animated_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
+        { path: 'assets/grandtheft/super-yacht02/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
 
-    this.renderer.loadGLTF('assets/grandtheft/lambo/scene.gltf').then(car => {
-      if (car) this.renderer.carMeshes.push(car);
-    });
-    this.renderer.loadGLTF('assets/grandtheft/2024_lamborghini_countach_lp5000_qv_lbworks/scene.gltf').then(car => {
-      if (car) this.renderer.carMeshes.push(car);
-    });
-    this.renderer.loadGLTF('assets/grandtheft/1993_mazda_rx-7/scene.gltf').then(car => {
-      if (car) this.renderer.carMeshes.push(car);
-    }); 
-    this.renderer.loadGLTF('assets/grandtheft/mitsubishi/scene.gltf').then(car => {
-      if (car) this.renderer.carMeshes.push(car);
-    });
-    this.renderer.loadGLTF('assets/grandtheft/hilux/scene.gltf').then(car => {
-      if (car) this.renderer.carMeshes.push(car);
-    });
-    this.renderer.loadGLTF('assets/grandtheft/jeep/scene.gltf').then(car => {
-      if (car) this.renderer.carMeshes.push(car);
-    });
-    this.renderer.loadGLTF('assets/grandtheft/monsterTruck/scene.gltf').then(car => {
-      if (car) this.renderer.carMeshes.push(car);
-    });
-    this.renderer.loadGLTF('assets/grandtheft/suv/scene.gltf').then(car => {
-      if (car) this.renderer.carMeshes.push(car);
-    });
-    this.renderer.loadGLTF('assets/grandtheft/psxlow_poly_pickup/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/renault_4_cv/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/truck_toyota_corsa_b/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/vehicle_-_subaru_brz_rocket_bunny/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/1963_alpine_renault_a110_lp/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/1993_fso_polonez_mr93_lp/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/ac_-_bmw_1m_free/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/bmw_m4_csl/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/bmw_vision_neue_klasse/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/dodge_demon_hpe1200/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/ford_mustang_shelby_gt500kr/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/free_concept_car_037_-_public_domain_cc0/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/free_concept_car_040__-_public_domain_cc0/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/free_sci-fi_vehicle_031-02_-_public_domain_cc0/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/freightliner_century/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/kenworth_t2000/scene.gltf').then(car => { if (car) { for (const m of car) m.renderScale = 4; this.renderer.carMeshes.push(car); } });
-    this.renderer.loadGLTF('assets/grandtheft/lexus_is300200/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/ps1_gt1-style_model_-_1992_emery_aventus/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/ps1_gt1-style_model_-_1994_kineto_rm-x/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/animated_yacht/scene.gltf').then(b => { if (b) this.renderer.boatMeshes.push(b); });
-    this.renderer.loadGLTF('assets/grandtheft/super-yacht02/scene.gltf').then(b => { if (b) this.renderer.boatMeshes.push(b); });
-    this.renderer.loadGLTF('assets/grandtheft/bell_uh-1_iroquois_huey/scene.gltf').then(h => { if (h) this.renderer.helicopterMeshes.push(h); });
-    this.renderer.loadGLTF('assets/grandtheft/bell_222_x/scene.gltf').then(h => { if (h) this.renderer.helicopterMeshes.push(h); });
-    this.renderer.loadGLTF('assets/grandtheft/bell_ch-146_griffon/scene.gltf').then(h => { if (h) this.renderer.helicopterMeshes.push(h); });
-    this.renderer.loadGLTF('assets/grandtheft/bell_206_jet_ranger/scene.gltf').then(h => { if (h) this.renderer.helicopterMeshes.push(h); });
-    this.renderer.loadGLTF('assets/grandtheft/cirrus_sr_22/scene.gltf').then(p => { if (p) this.renderer.planeMeshes.push(p); });
-    this.renderer.loadGLTF('assets/grandtheft/low_poly_11_ea18g_growler/scene.gltf').then(p => { if (p) this.renderer.planeMeshes.push(p); });
-    this.renderer.loadGLTF('assets/grandtheft/low_poly_11_usaf_f22a_raptor/scene.gltf').then(p => { if (p) this.renderer.planeMeshes.push(p); });
+        // Helicopters
+        { path: 'assets/grandtheft/bell_uh-1_iroquois_huey/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m) },
+        { path: 'assets/grandtheft/bell_222_x/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m) },
+        { path: 'assets/grandtheft/bell_ch-146_griffon/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m) },
+        { path: 'assets/grandtheft/bell_206_jet_ranger/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m) },
 
-    this.renderer.loadGLTF('assets/grandtheft/pizzaMoped/scene.gltf').then(moto => {
-      if (moto) this.renderer.motorcycleMeshes.push(moto);
-    });
-    this.renderer.loadGLTF('assets/grandtheft/crownVic/scene.gltf').then(police => {
-      if (police) this.renderer.policeCarMesh = police;
-    });
-    this.renderer.loadGLTF('assets/grandtheft/hospital/scene.gltf').then(hospital => {
-      if (hospital) this.renderer.hospitalMesh = hospital;
-    });
-    this.renderer.loadGLTF('assets/grandtheft/japaneseShop/scene.gltf').then(shop => {
-      if (shop) this.renderer.homeBaseMesh = shop;
-    });
-    this.renderer.loadGLTF('assets/grandtheft/vendingMachine/scene.gltf').then(vm => {
-      if (vm) this.renderer.vendingMachineMesh = vm;
-    });
-    this.renderer.loadGLTF('assets/grandtheft/taxi/scene.gltf').then(taxi => {
-      if (taxi) this.renderer.taxiMesh = taxi;
-    });
-    this.renderer.loadGLTF('assets/grandtheft/hooker/scene.gltf', false).then(hooker => {
-      if (hooker) {
-        for (const m of hooker) m.needsFlip = false;
-        this.renderer.hookerMesh = hooker;
+        // Planes
+        { path: 'assets/grandtheft/cirrus_sr_22/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m) },
+        { path: 'assets/grandtheft/low_poly_11_ea18g_growler/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m) },
+        { path: 'assets/grandtheft/low_poly_11_usaf_f22a_raptor/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m) },
+
+        // Motorcycles
+        { path: 'assets/grandtheft/pizzaMoped/scene.gltf', storeSkeleton: false, assign: m => this.renderer.motorcycleMeshes.push(m) },
+
+        // Police / Taxi
+        { path: 'assets/grandtheft/crownVic/scene.gltf', storeSkeleton: false, assign: m => this.renderer.policeCarMesh = m },
+        { path: 'assets/grandtheft/taxi/scene.gltf', storeSkeleton: false, assign: m => this.renderer.taxiMesh = m },
+
+        // Buildings / Props
+        { path: 'assets/grandtheft/hospital/scene.gltf', storeSkeleton: false, assign: m => this.renderer.hospitalMesh = m },
+        { path: 'assets/grandtheft/japaneseShop/scene.gltf', storeSkeleton: false, assign: m => this.renderer.homeBaseMesh = m },
+        { path: 'assets/grandtheft/vendingMachine/scene.gltf', storeSkeleton: false, assign: m => this.renderer.vendingMachineMesh = m },
+
+        // Hooker (special flip)
+        {
+          path: 'assets/grandtheft/hooker/scene.gltf',
+          storeSkeleton: false,
+          assign: m => {
+            for (const x of m) x.needsFlip = false;
+            this.renderer.hookerMesh = m;
+          }
+        },
+
+        // Weapons
+        { path: 'assets/grandtheft/rocket/scene.gltf', storeSkeleton: false, assign: m => this.renderer.rocketMesh = m },
+        { path: 'assets/grandtheft/colt/scene.gltf', storeSkeleton: false, assign: m => this.renderer.coltMesh = m },
+        { path: 'assets/grandtheft/money/scene.gltf', storeSkeleton: false, assign: m => this.renderer.moneyMesh = m },
+        { path: 'assets/grandtheft/rocket_launcher/scene.gltf', storeSkeleton: false, assign: m => this.renderer.rocketLauncherMesh = m },
+        { path: 'assets/grandtheft/m4a1_rifle/scene.gltf', storeSkeleton: false, assign: m => this.renderer.m4a1Mesh = m },
+        { path: 'assets/grandtheft/shotgun/scene.gltf', storeSkeleton: false, assign: m => this.renderer.shotgunMesh = m },
+
+        // Props
+        { path: 'assets/grandtheft/trafficLight/scene.gltf', storeSkeleton: false, assign: m => this.renderer.trafficLightMesh = m },
+        { path: 'assets/grandtheft/wooden_bench/scene.gltf', storeSkeleton: false, assign: m => this.renderer.benchMeshes.push(m) },
+        { path: 'assets/grandtheft/sm_prop_barrel_02__1__polygonbattleroyale_01_a_0/scene.gltf', storeSkeleton: false, assign: m => this.renderer.barrelMesh = m },
+        { path: 'assets/grandtheft/chicken/scene.gltf', storeSkeleton: false, assign: m => this.renderer.chickenMesh = m },
+        { path: 'assets/grandtheft/sm_env_tree_big_02__3__polygonmilitary_mat_01_a/scene.gltf', storeSkeleton: false, assign: m => this.renderer.palmTreeMesh = m },
+        { path: 'assets/grandtheft/balloon/scene.gltf', storeSkeleton: false, assign: m => this.renderer.balloonMesh = m },
+        { path: 'assets/grandtheft/tatami_room/scene.gltf', storeSkeleton: false, assign: m => this.renderer.tatamiRoomMesh = m },
+      ]; 
+    for (const cfg of specialMeshes) {
+      this.renderer.loadGLTF(cfg.path, cfg.storeSkeleton).then(mesh => {
+        if (mesh) cfg.assign(mesh);
+      });
+    }
+
+
+    // ── Car meshes ──
+    const carPaths = [
+      'assets/grandtheft/lambo/scene.gltf',
+      'assets/grandtheft/2024_lamborghini_countach_lp5000_qv_lbworks/scene.gltf',
+      'assets/grandtheft/1993_mazda_rx-7/scene.gltf',
+      'assets/grandtheft/mitsubishi/scene.gltf',
+      'assets/grandtheft/hilux/scene.gltf',
+      'assets/grandtheft/jeep/scene.gltf',
+      'assets/grandtheft/monsterTruck/scene.gltf',
+      'assets/grandtheft/suv/scene.gltf', 
+      'assets/grandtheft/psxlow_poly_pickup/scene.gltf',
+      'assets/grandtheft/renault_4_cv/scene.gltf',
+      'assets/grandtheft/truck_toyota_corsa_b/scene.gltf',
+      'assets/grandtheft/vehicle_-_subaru_brz_rocket_bunny/scene.gltf',
+      'assets/grandtheft/1963_alpine_renault_a110_lp/scene.gltf',
+      'assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf',
+      'assets/grandtheft/1993_fso_polonez_mr93_lp/scene.gltf',
+      'assets/grandtheft/ac_-_bmw_1m_free/scene.gltf',
+      'assets/grandtheft/bmw_m4_csl/scene.gltf',
+      'assets/grandtheft/bmw_vision_neue_klasse/scene.gltf',
+      'assets/grandtheft/dodge_demon_hpe1200/scene.gltf',
+      'assets/grandtheft/ford_mustang_shelby_gt500kr/scene.gltf',
+      'assets/grandtheft/free_concept_car_037_-_public_domain_cc0/scene.gltf',
+      'assets/grandtheft/free_concept_car_040__-_public_domain_cc0/scene.gltf',
+      'assets/grandtheft/free_sci-fi_vehicle_031-02_-_public_domain_cc0/scene.gltf',
+      'assets/grandtheft/freightliner_century/scene.gltf',
+      'assets/grandtheft/lexus_is300200/scene.gltf',
+      'assets/grandtheft/ps1_gt1-style_model_-_1992_emery_aventus/scene.gltf',
+      'assets/grandtheft/ps1_gt1-style_model_-_1994_kineto_rm-x/scene.gltf',
+    ];
+
+    // Load all normal cars
+    for (const path of carPaths) {
+      this.renderer.loadGLTF(path).then(car => {
+        if (car) this.renderer.carMeshes.push(car);
+      });
+    }
+
+    // Special-case Kenworth (scale 4)
+    this.renderer.loadGLTF('assets/grandtheft/kenworth_t2000/scene.gltf').then(car => {
+      if (car) {
+        for (const m of car) m.renderScale = 4;
+        this.renderer.carMeshes.push(car);
       }
     });
-    this.renderer.loadGLTF('assets/grandtheft/rocket/scene.gltf').then(rkt => {
-      if (rkt) this.renderer.rocketMesh = rkt;
-    });
-    this.renderer.loadGLTF('assets/grandtheft/colt/scene.gltf').then(colt => {
-      if (colt) this.renderer.coltMesh = colt;
-    });
-    this.renderer.loadGLTF('assets/grandtheft/money/scene.gltf', false).then(m => {
-      if (m) this.renderer.moneyMesh = m;
-    });
+
     {
       const armsOut: { animations?: any; skeleton?: any } = {};
       this.renderer.loadGLTF('assets/grandtheft/first_person_arms/scene.gltf', true, armsOut).then(arms => {
@@ -473,19 +489,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
       });
     }
-    this.renderer.loadGLTF('assets/grandtheft/rocket_launcher/scene.gltf').then(rk => {
-      if (rk) this.renderer.rocketLauncherMesh = rk;
-    });
-    this.renderer.loadGLTF('assets/grandtheft/m4a1_rifle/scene.gltf').then(m4 => {
-      if (m4) this.renderer.m4a1Mesh = m4;
-    });
-    this.renderer.loadGLTF('assets/grandtheft/shotgun/scene.gltf').then(sg => {
-      if (sg) this.renderer.shotgunMesh = sg;
-    });
-    this.renderer.loadGLTF('assets/grandtheft/trafficLight/scene.gltf').then(tl => {
-      if (tl) this.renderer.trafficLightMesh = tl;
-    });
+
     const buildingPromises: Promise<void>[] = [];
+    for (const name of GrandTheftRenderer.AIRPORT_BUILDING_NAMES) {
+      buildingPromises.push(
+        this.renderer.loadGLTF(`assets/grandtheft/airport_buildings/${name}/scene.gltf`, false).then(m => {
+          if (m) this.renderer.airportBuildingMeshes.push(m);
+        })
+      );
+    }
     for (const name of GrandTheftRenderer.CITY_BUILDING_NAMES) {
       buildingPromises.push(
         this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`, false).then(m => {
@@ -504,12 +516,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.renderer.clearChunkCache();
     });
 
-    this.renderer.loadGLTF('assets/grandtheft/wooden_bench/scene.gltf', false).then(m => { if (m) this.renderer.benchMeshes.push(m); });
-    this.renderer.loadGLTF('assets/grandtheft/sm_prop_barrel_02__1__polygonbattleroyale_01_a_0/scene.gltf', false).then(m => { if (m) this.renderer.barrelMesh = m; });
-    this.renderer.loadGLTF('assets/grandtheft/chicken/scene.gltf', false).then(m => { if (m) this.renderer.chickenMesh = m; });
-    this.renderer.loadGLTF('assets/grandtheft/sm_env_tree_big_02__3__polygonmilitary_mat_01_a/scene.gltf', false).then(m => { if (m) this.renderer.palmTreeMesh = m; });
-    this.renderer.loadGLTF('assets/grandtheft/balloon/scene.gltf', false).then(m => { if (m) this.renderer.balloonMesh = m; });
-    this.renderer.loadGLTF('assets/grandtheft/tatami_room/scene.gltf', false).then(m => { if (m) this.renderer.tatamiRoomMesh = m; });
 
     this.isLoaded = true;
 

@@ -424,23 +424,27 @@ export class GrandTheftRenderer {
   public m4a1Mesh: CityMesh[] | null = null;
   public shotgunMesh: CityMesh[] | null = null;
   public cityBuildingMeshes: CityMesh[][] = [];
+  public airportBuildingMeshes: CityMesh[][] = [];
   public suburbBuildingMeshes: CityMesh[][] = [];
+  static AIRPORT_BUILDING_NAMES: string[] = [
+    'airport_buildings'
+  ];
   static CITY_BUILDING_NAMES = [
-    '2BuildingsModularFaces','abandonnedBuilding','bank', 'buildingRandom','domeStructure',
-    'ecds_old_building_04','ecds_old_building_05','ecds_old_building_06','ecds_old_building_07','ecds_old_building_08','ecds_old_building_09',
-    'industrial_building_psx','low_polly_building','low_poly_apartment_building_2','low_poly_apartment_building_3',
-    'low_poly_cinema','low_poly_city_hall','low_poly_gas_station','low_poly_hotel_1','low_poly_hotel_2',
-    'low_poly_pharmacy','low_poly_police_station','low_poly_school','low_poly_shopping_center',
-    'modern_building','panel_apartment_placeholder','psx_groceries_store','pyaterochka_3d','supermarket',
+    '2BuildingsModularFaces', 'abandonnedBuilding', 'bank', 'buildingRandom', 'domeStructure',
+    'ecds_old_building_04', 'ecds_old_building_05', 'ecds_old_building_06', 'ecds_old_building_07', 'ecds_old_building_08', 'ecds_old_building_09',
+    'industrial_building_psx', 'low_polly_building', 'low_poly_apartment_building_2', 'low_poly_apartment_building_3',
+    'low_poly_cinema', 'low_poly_city_hall', 'low_poly_gas_station', 'low_poly_hotel_1', 'low_poly_hotel_2',
+    'low_poly_pharmacy', 'low_poly_police_station', 'low_poly_school', 'low_poly_shopping_center',
+    'modern_building', 'panel_apartment_placeholder', 'psx_groceries_store', 'pyaterochka_3d', 'supermarket',
     'residential_complex_modern_apartment_building', 'ukraine_building', 'abandoned_building_gameready',
-    'building_no_6_form_tokyo_otemachi_building_pack', 'building_no_19_form_tokyo_otemachi_building_pack', 
+    'building_no_6_form_tokyo_otemachi_building_pack', 'building_no_19_form_tokyo_otemachi_building_pack',
     'city_building', 'japanese_building__cc0', 'low_poly_apartment_building_1', 'michaelsoft'
   ];
   static SUBURB_BUILDING_NAMES = [
-    'brooklynCornerhouse','brooklynStreetBuilding','cabin',
-    'hungry_jacks_restaurant_low_poly','japanese_storefront__blender',
-    'low_poly_burger_restaurant','low_poly_cafe','low_poly_generic_restaurant','low_poly_generic_shop',
-    'low_poly_house_2','low_poly_house_3','low_poly_house_4','low_poly_house_5',
+    'brooklynCornerhouse', 'brooklynStreetBuilding', 'cabin',
+    'hungry_jacks_restaurant_low_poly', 'japanese_storefront__blender',
+    'low_poly_burger_restaurant', 'low_poly_cafe', 'low_poly_generic_restaurant', 'low_poly_generic_shop',
+    'low_poly_house_2', 'low_poly_house_3', 'low_poly_house_4', 'low_poly_house_5',
     'low_poly_pizza_restaurant', 'low_poly_wooden_cabine', 'residential_family_house', 'ichijoushi_002',
     'low_poly_apartment_building_1', 'ichijoushi___001',
   ];
@@ -1522,7 +1526,7 @@ void main() {
     }
 
     gl.bindVertexArray(null);
- 
+
     const originalVBO = new Float32Array(interleaved);
 
     return {
@@ -1531,7 +1535,7 @@ void main() {
       indexType: useUint32 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT,
       texture,
       minY: meshMinY,
-      originalVBO    
+      originalVBO
     };
   }
 
@@ -1631,7 +1635,7 @@ void main() {
     const isBridge = biome === 'bridge';
     const isAeroport = biome === 'aeroport';
     const isParkingLot = biome === 'parking_lot';
-    const isMountain = biome === 'mountain';  
+    const isMountain = biome === 'mountain';
 
     const seed = (cx * 100003 + cz * 70001) >>> 0;
     const rng = this.mulberry32(seed);
@@ -1809,20 +1813,59 @@ void main() {
         }
 
         // ── AEROPORT block: runway + terminal ──
+        // ── AEROPORT block: runway + terminal + parking ──
         if (isAeroport) {
           const isCentralColumn = bx === Math.floor(blocksPerChunk / 2);
           if (isCentralColumn) {
+            // Runway strip (narrow, centered — buildings go to the sides)
             this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ, 8, 0.2, GRID_PITCH, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
             // Centerline dashes
             for (let dz = -GRID_PITCH / 2 + 4; dz < GRID_PITCH / 2; dz += 8) {
               this.addBox(verts, indices, blockWorldX, 0.11, blockWorldZ + dz, 0.5, 0.05, 3, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
             }
           }
-          const isTerminalRow = by === 0 || by === blocksPerChunk - 1;
-          if (isTerminalRow && rng() < 0.35) {
-            const tx = blockWorldX - 10 + rng() * 20;
-            this.addBox(verts, indices, tx, 4, blockWorldZ, 14, 8, 10, 0.55, 0.55, 0.58, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, tx, 8.2, blockWorldZ, 15, 0.3, 11, 0.75, 0.75, 0.78, 1.0, idxOffset); idxOffset += 24;
+
+          const airportModels = this.airportBuildingMeshes;
+          if (airportModels.length > 0) {
+            // Place GLTF airport buildings on either side of the runway,
+            // offset in X so they don't cover the runway centerline.
+            for (const side of [-1, 1]) {
+              if (rng() < 0.5) continue; // ~50% chance per side per chunk
+              const model = airportModels[Math.floor(rng() * airportModels.length)];
+              const bScale = 3 + rng() * 2;
+              const bMinY = this.getModelMinY(model);
+              const buildingX = blockWorldX + side * 24; // well clear of the 8-wide runway
+              const buildingZ = blockWorldZ + (rng() - 0.5) * 16;
+              buildings.push({
+                model,
+                x: buildingX,
+                y: -bMinY * bScale + 0.15,
+                z: buildingZ,
+                yaw: side > 0 ? -Math.PI / 2 : Math.PI / 2,
+                scale: [bScale, bScale, bScale]
+              });
+
+              // Parking stalls in front of the building (between building and runway)
+              const parkingX = buildingX - side * 8;
+              const stallW = 3, stallD = 5;
+              for (let pi = 0; pi < 3; pi++) {
+                const stallZ = buildingZ - 7 + pi * (stallW + 0.5);
+                // Left stripe
+                this.addBox(verts, indices, parkingX - stallW / 2, 0.02, stallZ, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
+                // Right stripe
+                this.addBox(verts, indices, parkingX + stallW / 2, 0.02, stallZ, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
+                // Back stripe
+                this.addBox(verts, indices, parkingX, 0.02, stallZ - stallD / 2, stallW, 0.04, 0.15, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
+              }
+            }
+          } else {
+            // Fallback: original box terminals when no GLTF models loaded
+            const isTerminalRow = by === 0 || by === blocksPerChunk - 1;
+            if (isTerminalRow && rng() < 0.35) {
+              const tx = blockWorldX - 10 + rng() * 20;
+              this.addBox(verts, indices, tx, 4, blockWorldZ, 14, 8, 10, 0.55, 0.55, 0.58, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(verts, indices, tx, 8.2, blockWorldZ, 15, 0.3, 11, 0.75, 0.75, 0.78, 1.0, idxOffset); idxOffset += 24;
+            }
           }
           continue;
         }
@@ -2685,7 +2728,7 @@ void main() {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.clearColor(0, 0, 0, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); 
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     mat4.perspective(this.projMatrix, Math.PI / 4, aspect, 0.1, farPlane ?? 500.0);
     const dirX = Math.sin(camYaw) * Math.cos(camPitch);
