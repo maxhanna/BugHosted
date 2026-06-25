@@ -505,7 +505,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     });
 
     this.renderer.loadGLTF('assets/grandtheft/wooden_bench/scene.gltf', false).then(m => { if (m) this.renderer.benchMeshes.push(m); });
-    this.renderer.loadGLTF('assets/grandtheft/park_bench_chair/scene.gltf', false).then(m => { if (m) this.renderer.benchMeshes.push(m); });
     this.renderer.loadGLTF('assets/grandtheft/sm_prop_barrel_02__1__polygonbattleroyale_01_a_0/scene.gltf', false).then(m => { if (m) this.renderer.barrelMesh = m; });
     this.renderer.loadGLTF('assets/grandtheft/chicken/scene.gltf', false).then(m => { if (m) this.renderer.chickenMesh = m; });
     this.renderer.loadGLTF('assets/grandtheft/sm_env_tree_big_02__3__polygonmilitary_mat_01_a/scene.gltf', false).then(m => { if (m) this.renderer.palmTreeMesh = m; });

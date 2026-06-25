@@ -1,8 +1,0 @@
-Model Information:
-* title:	Park Bench Chair
-* source:	https://sketchfab.com/3d-models/park-bench-chair-66038d009f844442ae9949a59a645ac7
-* author:	Shayanxgamer (https://sketchfab.com/Shayanxgamer)
-
-Model License:
-* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
-* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works
