@@ -4026,7 +4026,7 @@ void main() {
           needsRotation = true;
         }
       }
-      const needsYFlip = url.includes('crownVic') || url.includes('maleNPC') || url.includes('taxi') || url.includes('hilux');
+      const needsYFlip = url.includes('crownVic') || url.includes('maleNPC') || url.includes('taxi') || url.includes('hilux') || url.includes('bmw_vision_neue_klasse');
       const needsY90 = url.includes('pizzaMoped');
       const needsYFlipMoped = url.includes('pizzaMoped');
 

@@ -441,10 +441,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       { path: 'assets/grandtheft/ps1_gt1-style_model_-_1992_emery_aventus/scene.gltf' },
 
       // Special scale overrides
-      { path: 'assets/grandtheft/kenworth_t2000/scene.gltf', scale: 4 },
-      { path: 'assets/grandtheft/truck_toyota_corsa_b/scene.gltf', scale: 3 },
-      { path: 'assets/grandtheft/monsterTruck/scene.gltf', scale: 3 },
-      { path: 'assets/grandtheft/jeep/scene.gltf', scale: 2 },
+      { path: 'assets/grandtheft/kenworth_t2000/scene.gltf', scale: 3 },
+      { path: 'assets/grandtheft/truck_toyota_corsa_b/scene.gltf', scale: 2 },
+      { path: 'assets/grandtheft/monsterTruck/scene.gltf', scale: 2.25 },
+      { path: 'assets/grandtheft/jeep/scene.gltf', scale: 1.5 },
     ];
     for (const cfg of carConfigs) {
       this.renderer.loadGLTF(cfg.path).then(car => {
