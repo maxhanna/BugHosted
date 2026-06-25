@@ -1868,8 +1868,6 @@ namespace maxhanna.Server.Controllers
 				if (edge < 2) x += (float)(rng.NextDouble() - 0.5) * 30f;
 				else z += (float)(rng.NextDouble() - 0.5) * 30f;
 
-				string biome = CityLayout.GetBiome(gx, gz);
-				if (biome == "ocean") continue;
 
 				if (minDist > 0f)
 				{
