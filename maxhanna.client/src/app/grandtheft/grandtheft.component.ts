@@ -422,73 +422,60 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       });
     }
 
-
     // ── Car meshes ──
-    const carPaths = [
-      'assets/grandtheft/lambo/scene.gltf',
-      'assets/grandtheft/2024_lamborghini_countach_lp5000_qv_lbworks/scene.gltf',
-      'assets/grandtheft/1993_mazda_rx-7/scene.gltf',
-      'assets/grandtheft/mitsubishi/scene.gltf',
-      'assets/grandtheft/hilux/scene.gltf',
-      'assets/grandtheft/jeep/scene.gltf',
-      'assets/grandtheft/monsterTruck/scene.gltf',
-      'assets/grandtheft/suv/scene.gltf', 
-      'assets/grandtheft/psxlow_poly_pickup/scene.gltf',
-      'assets/grandtheft/renault_4_cv/scene.gltf',
-      'assets/grandtheft/vehicle_-_subaru_brz_rocket_bunny/scene.gltf',
-      'assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf',
-      'assets/grandtheft/1993_fso_polonez_mr93_lp/scene.gltf',
-      'assets/grandtheft/ac_-_bmw_1m_free/scene.gltf', 
-      'assets/grandtheft/bmw_vision_neue_klasse/scene.gltf',
-      'assets/grandtheft/free_concept_car_040__-_public_domain_cc0/scene.gltf',
-      'assets/grandtheft/freightliner_century/scene.gltf',
-      'assets/grandtheft/lexus_is300200/scene.gltf',
-      'assets/grandtheft/ps1_gt1-style_model_-_1992_emery_aventus/scene.gltf',
-    ];
+    const carConfigs = [
+      { path: 'assets/grandtheft/lambo/scene.gltf' },
+      { path: 'assets/grandtheft/2024_lamborghini_countach_lp5000_qv_lbworks/scene.gltf' },
+      { path: 'assets/grandtheft/1993_mazda_rx-7/scene.gltf' },
+      { path: 'assets/grandtheft/mitsubishi/scene.gltf' },
+      { path: 'assets/grandtheft/hilux/scene.gltf' },
+      { path: 'assets/grandtheft/suv/scene.gltf' },
+      { path: 'assets/grandtheft/psxlow_poly_pickup/scene.gltf' },
+      { path: 'assets/grandtheft/renault_4_cv/scene.gltf' },
+      { path: 'assets/grandtheft/vehicle_-_subaru_brz_rocket_bunny/scene.gltf' },
+      { path: 'assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf' },
+      { path: 'assets/grandtheft/ac_-_bmw_1m_free/scene.gltf' },
+      { path: 'assets/grandtheft/bmw_vision_neue_klasse/scene.gltf' },
+      { path: 'assets/grandtheft/free_concept_car_040__-_public_domain_cc0/scene.gltf' },
+      { path: 'assets/grandtheft/freightliner_century/scene.gltf' },
+      { path: 'assets/grandtheft/lexus_is300200/scene.gltf' },
+      { path: 'assets/grandtheft/ps1_gt1-style_model_-_1992_emery_aventus/scene.gltf' },
 
-    // Load all normal cars
-    for (const path of carPaths) {
-      this.renderer.loadGLTF(path).then(car => {
-        if (car) this.renderer.carMeshes.push(car);
+      // Special scale overrides
+      { path: 'assets/grandtheft/kenworth_t2000/scene.gltf', scale: 4 },
+      { path: 'assets/grandtheft/truck_toyota_corsa_b/scene.gltf', scale: 3 },
+      { path: 'assets/grandtheft/monsterTruck/scene.gltf', scale: 3 },
+      { path: 'assets/grandtheft/jeep/scene.gltf', scale: 2 },
+    ];
+    for (const cfg of carConfigs) {
+      this.renderer.loadGLTF(cfg.path).then(car => {
+        if (!car) return;
+
+        if (cfg.scale) {
+          for (const m of car) m.renderScale = cfg.scale;
+        }
+
+        this.renderer.carMeshes.push(car);
       });
     }
-
-    // Special-case Kenworth (scale 4)
-    this.renderer.loadGLTF('assets/grandtheft/kenworth_t2000/scene.gltf').then(car => {
-      if (car) {
-        for (const m of car) m.renderScale = 4;
-        this.renderer.carMeshes.push(car);
-      }
-    });
-
-    this.renderer.loadGLTF('assets/grandtheft/truck_toyota_corsa_b/scene.gltf').then(car => {
-      if (car) {
-        for (const m of car) m.renderScale = 3;
-        this.renderer.carMeshes.push(car);
+ 
+    const armsOut: { animations?: any; skeleton?: any } = {};
+    this.renderer.loadGLTF('assets/grandtheft/first_person_arms/scene.gltf', true, armsOut).then(arms => {
+      if (arms) {
+        this.renderer.firstPersonArmsMesh = arms;
+        this.renderer.firstPersonArmsSkeleton = armsOut.skeleton ?? null;
+        this.renderer.firstPersonArmsAnimations = armsOut.animations ?? null;
       }
     }); 
-
-
-    {
-      const armsOut: { animations?: any; skeleton?: any } = {};
-      this.renderer.loadGLTF('assets/grandtheft/first_person_arms/scene.gltf', true, armsOut).then(arms => {
-        if (arms) {
-          this.renderer.firstPersonArmsMesh = arms;
-          this.renderer.firstPersonArmsSkeleton = armsOut.skeleton ?? null;
-          this.renderer.firstPersonArmsAnimations = armsOut.animations ?? null;
-        }
-      });
-    }
-    {
-      const m23Out: { animations?: any; skeleton?: any } = {};
-      this.renderer.loadGLTF('assets/grandtheft/first_person_mark23/scene.gltf', false, m23Out).then(m => {
-        if (m) {
-          this.renderer.mark23Mesh = m;
-          this.renderer.mark23Skeleton = m23Out.skeleton ?? null;
-          this.renderer.mark23Animations = m23Out.animations ?? null;
-        }
-      });
-    }
+    const m23Out: { animations?: any; skeleton?: any } = {};
+    this.renderer.loadGLTF('assets/grandtheft/first_person_mark23/scene.gltf', false, m23Out).then(m => {
+      if (m) {
+        this.renderer.mark23Mesh = m;
+        this.renderer.mark23Skeleton = m23Out.skeleton ?? null;
+        this.renderer.mark23Animations = m23Out.animations ?? null;
+      }
+    });
+    
 
     const buildingPromises: Promise<void>[] = [];
     for (const name of GrandTheftRenderer.AIRPORT_BUILDING_NAMES) {
