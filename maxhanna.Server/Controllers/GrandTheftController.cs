@@ -1283,7 +1283,20 @@ namespace maxhanna.Server.Controllers
 										float moveZ = (ddz2 / distToTarget2) * npc.Speed * SPEED_FACTOR_LOCAL;
 										float nextX = npc.X + moveX;
 										float nextZ = npc.Z + moveZ;
-										if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
+
+										// STRICT VALIDATION: Cars must stay on the road!
+										if (!CityLayout.IsBuildingAt(nextX, nextZ) && CityLayout.IsRoadAt(nextX, nextZ))
+										{
+											npc.X = nextX;
+											npc.Z = nextZ;
+										}
+										else
+										{
+											// Drifting off road or clipping a building — stop and repath
+											npc.Stopped = true;
+											npc.StopTimer = 0.5f;
+											npc.PathIndices = null;
+										}
 										npc.Yaw = (float)Math.Atan2(moveX, moveZ);
 									}
 								}
@@ -1794,12 +1807,12 @@ namespace maxhanna.Server.Controllers
 				if (rng.NextDouble() < 0.5) { x = gx * 80f; z = pz + (float)(rng.NextDouble() - 0.5) * 120f; }
 				else { x = px + (float)(rng.NextDouble() - 0.5) * 120f; z = gz * 80f; }
 
-				for (int b = 0; b < 5 && CityLayout.IsBuildingAt(x, z); b++)
-				{
-					x += (float)(rng.NextDouble() - 0.5) * 20f;
-					z += (float)(rng.NextDouble() - 0.5) * 20f;
-				}
-				if (CityLayout.IsBuildingAt(x, z)) continue;
+                for (int b = 0; b < 5 && (CityLayout.IsBuildingAt(x, z) || !CityLayout.IsRoadAt(x, z)); b++)
+                {
+                    x += (float)(rng.NextDouble() - 0.5) * 20f;
+                    z += (float)(rng.NextDouble() - 0.5) * 20f;
+                } 
+                if (CityLayout.IsBuildingAt(x, z) || !CityLayout.IsRoadAt(x, z)) continue;
 
 				int cx = (int)Math.Floor(x / 80f);
 				int cz = (int)Math.Floor(z / 80f);
@@ -1852,7 +1865,6 @@ namespace maxhanna.Server.Controllers
 				float cz = gz * 80f + 40f;
 				string biome = CityLayout.GetBiome(gx, gz);
 				if (biome == "ocean") continue;
-				// Parking lots: spawn peds walking through the lot
 				if (biome == "parking_lot")
 				{
 					x = gx * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 60f;
@@ -1867,7 +1879,18 @@ namespace maxhanna.Server.Controllers
 				else { x = cx + sidewalkEdge; z = cz; }
 				if (edge < 2) x += (float)(rng.NextDouble() - 0.5) * 30f;
 				else z += (float)(rng.NextDouble() - 0.5) * 30f;
+ 
 
+				// Parking lots: spawn peds walking through the lot
+				if (biome == "parking_lot")
+				{
+					x = gx * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 60f;
+					z = gz * 80f + 40f + (float)(rng.NextDouble() - 0.5) * 60f;
+					return;
+				}
+
+				// STRICT: Must not be a road and must not be a building
+				if (CityLayout.IsBuildingAt(x, z) || CityLayout.IsRoadAt(x, z)) continue;
 
 				if (minDist > 0f)
 				{
