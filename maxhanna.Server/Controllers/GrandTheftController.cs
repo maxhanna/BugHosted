@@ -613,9 +613,16 @@ namespace maxhanna.Server.Controllers
 					_shootingPlayers[req.UserId] = new PlayerShootState { DirX = (float)(Math.Sin(req.Yaw) * Math.Cos(req.Pitch)), DirY = (float)(-Math.Sin(req.Pitch)), DirZ = (float)(Math.Cos(req.Yaw) * Math.Cos(req.Pitch)), Weapon = req.Weapon, LastUpdated = DateTime.UtcNow };
 					SimulateDamage(req);
 				}
-				else { _shootingPlayers.TryRemove(req.UserId, out _); }
+				else if (_shootingPlayers.TryGetValue(req.UserId, out var ps))
+				{
+					// Keep the shooting flag visible for other players for 500ms
+					// after the shooter releases the button. This ensures a brief
+					// click is still visible even if the poll interval misses it.
+					ps.LastUpdated = DateTime.UtcNow;
+				}
 
-				var cutoff = DateTime.UtcNow.AddSeconds(-1);
+				// Clean up stale shooting entries (older than 500ms)
+				var cutoff = DateTime.UtcNow.AddMilliseconds(-500);
 				foreach (var kv in _shootingPlayers) if (kv.Value.LastUpdated < cutoff) _shootingPlayers.TryRemove(kv.Key, out _);
 
 				var chatMessages = new List<object>();

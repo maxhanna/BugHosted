@@ -14,6 +14,7 @@
   jointIndices?: Uint16Array;
   jointWeights?: Float32Array;
   minY?: number;
+  carName?: string;
 }
 export interface GltfAnimation {
   name: string;
@@ -3797,6 +3798,10 @@ void main() {
         if (indices.length > 0 && verts.length > 0) {
           meshes.push(mesh);
         }
+      }
+      if (meshes.length > 0) {
+        const rawName = url.replace('assets/grandtheft/', '').replace('/scene.gltf', '').replace('.glb', '');
+        for (const m of meshes) m.carName = rawName;
       }
       if (out) {
         out.animations = this.extractGltfAnimations(json, buffers);

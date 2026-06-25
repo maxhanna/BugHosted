@@ -286,6 +286,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   weaponNames = WEAPON_NAMES;
   isMobile = false;
   damageAlpha = 0;
+  vehicleName = '';
+  vehicleBannerTimer = 0;
   radioOn = false;
   radioSongs: string[] = [];
   radioIndex = -1;
@@ -973,6 +975,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               scale: 0.85,
             };
           }
+          this.showVehicleBanner(this.vehicleType);
           if (!this.radioOn && this.radioSongs.length) this.randomRadio();
 
           if (this.vehicleType === 'plane') { this.camDist = 12; this.camHeight = 5; }
@@ -1016,7 +1019,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (tryEnter(this.parkedCars, true)) return;
     if (this.tryCarjackPlayer(userId)) return;
   }
-
+  displayNameFromPath(path: string): string {
+    const name = path.replace('assets/grandtheft/', '').replace('/scene.gltf', '');
+    return name
+      .replace(/^[a-z]{2}_-_/, '')
+      .replace(/^[a-z]{2}_/, '')
+      .replace(/_-_/g, ' ')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase())
+      .replace(/ Ps1| Lp| Rm X| Hpe\d+/g, '')
+      .trim();
+  }
   private tryCarjackPlayer(userId: number): boolean {
     for (const op of this.otherPlayers) {
       if (!op.isInCar) continue;
@@ -1044,7 +1057,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
 
         this.camDist = 8; this.camHeight = 3;
-
+        this.showVehicleBanner('car');
         this.gtService.stealCar(-op.userId, userId);
 
         op.isInCar = false;
@@ -1329,6 +1342,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.radioOn = false;
     this.radioSongTitle = '';
     if (this.ytPlayer) try { this.ytPlayer.stopVideo(); } catch { }
+  }
+
+  private showVehicleBanner(type: string) {
+    if (this.playerVehicleMesh && this.playerVehicleMesh.length > 0 && this.playerVehicleMesh[0].carName) {
+      this.vehicleName = this.displayNameFromPath(this.playerVehicleMesh[0].carName);
+    } else {
+      const nameMap: Record<string, string> = {
+        taxi: 'Taxi', bus: 'Bus', bike: 'Motorcycle', motorcycle: 'Motorcycle',
+        police: 'Police Cruiser', cop: 'Police Car',
+        boat: 'Yacht', helicopter: 'Helicopter', plane: 'Airplane',
+        car: 'Sports Car', aeroplane: 'Airplane'
+      };
+      this.vehicleName = nameMap[type] || type;
+    }
+    this.vehicleBannerTimer = 3;
   }
 
   private startPolling() { this.pollMultiplayer(); }
@@ -2518,6 +2546,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateNPCInterpolation();
     this.updatePoliceSiren();
     this.updateTaxiMission(dt);
+
+    if (this.vehicleBannerTimer > 0) this.vehicleBannerTimer -= dt;
+    if (this.damageAlpha > 0) this.damageAlpha = Math.max(0, this.damageAlpha - dt * 0.5);
 
     for (const v of [...this.serverNPCs, ...this.parkedCars, ...this.trafficCars]) {
       if (v.health <= 0 && !this.deadNPCIds.has(v.id)) {
