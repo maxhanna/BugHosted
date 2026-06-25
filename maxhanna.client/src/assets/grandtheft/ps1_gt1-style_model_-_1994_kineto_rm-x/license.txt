@@ -1,8 +1,0 @@
-Model Information:
-* title:	PS1 GT1-Style Model - 1994 Kineto RM-X
-* source:	https://sketchfab.com/3d-models/ps1-gt1-style-model-1994-kineto-rm-x-395d43ee51cf44d791712ce5db8bca74
-* author:	Aike (https://sketchfab.com/anathlyst)
-
-Model License:
-* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
-* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

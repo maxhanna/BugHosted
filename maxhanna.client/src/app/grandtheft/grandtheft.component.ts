@@ -440,18 +440,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       'assets/grandtheft/1963_alpine_renault_a110_lp/scene.gltf',
       'assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf',
       'assets/grandtheft/1993_fso_polonez_mr93_lp/scene.gltf',
-      'assets/grandtheft/ac_-_bmw_1m_free/scene.gltf',
-      'assets/grandtheft/bmw_m4_csl/scene.gltf',
+      'assets/grandtheft/ac_-_bmw_1m_free/scene.gltf', 
       'assets/grandtheft/bmw_vision_neue_klasse/scene.gltf',
       'assets/grandtheft/dodge_demon_hpe1200/scene.gltf',
       'assets/grandtheft/ford_mustang_shelby_gt500kr/scene.gltf',
-      'assets/grandtheft/free_concept_car_037_-_public_domain_cc0/scene.gltf',
       'assets/grandtheft/free_concept_car_040__-_public_domain_cc0/scene.gltf',
-      'assets/grandtheft/free_sci-fi_vehicle_031-02_-_public_domain_cc0/scene.gltf',
       'assets/grandtheft/freightliner_century/scene.gltf',
       'assets/grandtheft/lexus_is300200/scene.gltf',
       'assets/grandtheft/ps1_gt1-style_model_-_1992_emery_aventus/scene.gltf',
-      'assets/grandtheft/ps1_gt1-style_model_-_1994_kineto_rm-x/scene.gltf',
     ];
 
     // Load all normal cars
