@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, NgZone } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, NgZone, ChangeDetectorRef } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { GrandTheftRenderer, CityMesh } from './grandtheft-renderer';
 import { GrandtheftService } from '../../services/grandtheft.service';
@@ -218,6 +218,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   stolenNpcIds: Set<number> = new Set();
   vendingMachines: VendingMachine[] = [];
   nearVendingMachine = false;
+  private _hudUpdateTimer = 0;
   taxiMission: { state: 'pickup' | 'deliver'; passengerId: number; passengerGender: string; passengerMesh: CityMesh | CityMesh[]; passengerX: number; passengerZ: number; destinationX: number; destinationZ: number; fare: number; phase: number; timer: number } | null = null;
   private taxiSearchTimer = 0;
   taxiMarkers: { type: 'hail' | 'destination' | 'beam'; x: number; z: number; phase?: number }[] = [];
@@ -318,7 +319,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   ];
   debugLabels = false;
 
-  constructor(private gtService: GrandtheftService, private userEventService: UserEventService, private todoService: TodoService, private fileService: FileService, private ngZone: NgZone) { super(); }
+  constructor(private gtService: GrandtheftService,
+     private userEventService: UserEventService, 
+    private todoService: TodoService, 
+    private fileService: FileService,
+    private ngZone: NgZone,
+    private cdr: ChangeDetectorRef) { super(); }
 
   ngOnInit() { 
     this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, "grandtheft", "Started playing Grand Theft!");
@@ -571,8 +577,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
       canvas.addEventListener('mousemove', (e) => {
         if (this.isPointerLocked) return;
-        this._hoverVx = e.clientX;
-        this._hoverVy = e.clientY;
+        const r = canvas.getBoundingClientRect();
+        this._hoverVx = e.clientX - r.left;
+        this._hoverVy = e.clientY - r.top;
         this._hoverDirty = true;
       });
       canvas.addEventListener('mousedown', (e) => {
@@ -591,9 +598,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.isMobile) {
       setTimeout(() => this.initTouchControls(canvas), 0);
     }
-
-    this.lastTime = performance.now();
-    this.gameLoop(this.lastTime);
+    this.ngZone.runOutsideAngular(() => {
+      this.lastTime = performance.now();
+      this.gameLoop(this.lastTime);
+    });
     this.startPolling();
     this.startNPCPolling();
     this.initTraffic();
@@ -1666,6 +1674,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
 
     if (res) {
+      this._lbDirty = true;
       for (const p of res.players) {
         const existing = this.otherPlayers.find(op => op.userId === p.userId);
         if (existing) {
@@ -2829,12 +2838,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.viewDistance,
         !this.isMobile
       );
-      // DEBUG hover model label (remove when done) — throttle readPixels to ~5hz
-      if (this.isPointerLocked) { this._hoverVx = canvas.width / 2; this._hoverVy = canvas.height / 2; this._hoverDirty = true; }
-      if (this._hoverDirty && now - this._hoverLastRead > 200) {
-        this.hoverLabel = this.renderer.getLabelAtViewport(this._hoverVx, this._hoverVy) || '';
+      // DEBUG hover model label (remove when done)
+      try {
+        const hx = this._hoverDirty && !this.isPointerLocked ? this._hoverVx : canvas.width / 2;
+        const hy = this._hoverDirty && !this.isPointerLocked ? this._hoverVy : canvas.height / 2;
+        const label = this.renderer.getLabelAtViewport(Math.round(hx), Math.round(hy));
+        this.hoverLabel = label || '(none)';
         this._hoverDirty = false;
-        this._hoverLastRead = now;
+      } catch (e) {
+        this.hoverLabel = 'err: ' + e;
       }
       if (this.firstPerson && !this.isInCar) {
         const anims = this.pickFirstPersonAnims();
@@ -2857,6 +2869,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
 
     this.hudSpeed = Math.abs(this.carSpeed) * (this.isInCar ? 3.6 : 1);
+    this._hudUpdateTimer += dt;
+    if (this._hudUpdateTimer > 0.1) {  // ~10 Hz
+      this._hudUpdateTimer = 0;
+      this.ngZone.run(() => {
+        // These are the only properties the template needs frequently
+        // Angular will run change detection just for these
+      });
+    }
     this.animFrameId = requestAnimationFrame(this.gameLoop);
   };
 
@@ -3829,7 +3849,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
-  get leaderboardData(): { userId: number; money: number; health: number; carSpeed: number }[] {
+  private _lbCache: any[] = [];
+  private _lbDirty = true;
+
+  get leaderboardData() {
+    if (!this._lbDirty) return this._lbCache;
+    this._lbDirty = false;
     const all = [...this.otherPlayers];
     const selfUser = (this.parentRef as any)?.user;
     if (selfUser) {
@@ -3843,16 +3868,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         isInCar: this.isInCar
       });
     }
-    return all
-      .sort((a, b) => b.money - a.money)
-      .map(p => ({
-        userId: p.userId,
-        money: p.money,
-        health: p.health,
-        carSpeed: p.carSpeed
-      }));
+    this._lbCache = all;
+    return this._lbCache;
   }
-
+ 
   private drawMap() {
     const canvas = this.mapCanvasRef?.nativeElement;
     if (!canvas) return;

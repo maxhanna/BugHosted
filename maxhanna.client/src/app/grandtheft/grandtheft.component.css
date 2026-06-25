@@ -871,15 +871,7 @@
 .gt-chat-popup-input button:active {
   opacity: 0.8;
 }
-
-/* Damage indicator - red flash overlay */
-#gt-damage-overlay {
-  position: absolute;
-  top: 0; left: 0; width: 100%; height: 100%;
-  background: red;
-  pointer-events: none;
-  z-index: 15;
-}
+ 
 /* Vehicle entry banner */
 #gt-hover-label {
   position: absolute;

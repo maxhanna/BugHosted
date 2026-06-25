@@ -429,6 +429,7 @@ export class GrandTheftRenderer {
   public explodedBarrels: Set<string> = new Set();
   public explodedGasStations: Set<string> = new Set();
   public supermarketLastPayout: Map<string, number> = new Map();
+  private _pickTimer = 0;
 
   getNearbyBarrels(x: number, z: number, radius: number): { x: number; z: number }[] {
     const result: { x: number; z: number }[] = [];
@@ -1199,8 +1200,8 @@ void main() {
         const safeVCount = Math.min(vCount, vboVertexCount);
         if (safeVCount === 0) continue;
 
-        const existing = new Float32Array(safeVCount * 12);
-        gl.getBufferSubData(gl.ARRAY_BUFFER, 0, existing);
+        const existing = new Float32Array(mesh.originalVBO!);  // always start from rest pose
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, existing);
 
         if (existing[9] === 0 && existing[6] === 0 && existing[7] === 0 && existing[8] === 0) {
           let allZero = true;
@@ -1390,6 +1391,8 @@ precision highp float;out vec4 c;uniform vec3 uPC;void main(){c=vec4(uPC,1.0)}`;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._pickFBO);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this._pickTex, 0);
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this._pickDepth);
+    const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+    if (status !== gl.FRAMEBUFFER_COMPLETE) console.warn('pick FBO incomplete:', status);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
   private _pickId(label: string): number {
@@ -1426,7 +1429,8 @@ precision highp float;out vec4 c;uniform vec3 uPC;void main(){c=vec4(uPC,1.0)}`;
     gl.readPixels(vx, gl.canvas.height - vy, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, this._pickPixel);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     const id = this._pickPixel[0] + (this._pickPixel[1] << 8) + (this._pickPixel[2] << 16);
-    return this._pickIdMap.get(id) || null;
+    const label = this._pickIdMap.get(id) || null;
+    return label;
   }
 
   private createShader(type: number, source: string): WebGLShader | null {
@@ -2578,8 +2582,8 @@ precision highp float;out vec4 c;uniform vec3 uPC;void main(){c=vec4(uPC,1.0)}`;
       gl.enable(gl.POLYGON_OFFSET_FILL);
       gl.polygonOffset(2.0, 2.0);
 
-      for (let dz = -2; dz <= 2; dz++) {
-        for (let dx = -2; dx <= 2; dx++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        for (let dx = -1; dx <= 1; dx++) {
           const chunk = this.getCityChunk(pcx + dx, pcz + dz);
           this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1], true);
           for (const bld of chunk.buildings) {
@@ -3050,8 +3054,11 @@ precision highp float;out vec4 c;uniform vec3 uPC;void main(){c=vec4(uPC,1.0)}`;
         );
       }
     }
-
-    this._renderPickingPass(serverNPCs, otherPlayers, serverPedestrians, parkedCars, playerMesh, deadBodies, vendingMachines, camX, camZ, pcx, pcz, farPlane ?? 500);
+    this._pickTimer += dt;
+    if (this._pickTimer > 0.5) {
+      this._pickTimer = 0;
+      this._renderPickingPass(serverNPCs, otherPlayers, serverPedestrians, parkedCars, playerMesh, deadBodies, vendingMachines, camX, camZ, pcx, pcz, farPlane ?? 500);
+    }
     gl.enable(gl.DEPTH_TEST);
   }
 
@@ -3075,6 +3082,16 @@ precision highp float;out vec4 c;uniform vec3 uPC;void main(){c=vec4(uPC,1.0)}`;
     gl.useProgram(this._pickProg);
     mat4.multiply(this._pickPV, this.projMatrix, this.viewMatrix);
     gl.uniformMatrix4fv(this._pickPvLoc, false, this._pickPV);
+    // DEBUG: Draw test box right at camera to validate picking pipeline
+    const fwdX = Math.sin(camYaw), fwdZ = Math.cos(camYaw);
+    const cmTest = mat4.create();
+    mat4.translate(cmTest, cmTest, [camX + fwdX * 2, 0, camZ + fwdZ * 2]);
+    const testId = this._pickId('__test_marker__');
+    gl.uniformMatrix4fv(this._pickMLoc, false, cmTest);
+    gl.uniform3f(this._pickCLoc!, (testId & 0xFF) / 255, ((testId >> 8) & 0xFF) / 255, ((testId >> 16) & 0xFF) / 255);
+    const boxMesh = this.getBoxMesh(0.5, 0.5, 0.5);
+    gl.bindVertexArray(boxMesh.vao);
+    gl.drawElements(gl.TRIANGLES, boxMesh.indexCount, boxMesh.indexType || gl.UNSIGNED_SHORT, 0);
     for (let dz = -2; dz <= 2; dz++) {
       for (let dx = -2; dx <= 2; dx++) {
         const chunk = this.getCityChunk(pcx + dx, pcz + dz);
@@ -3129,6 +3146,7 @@ precision highp float;out vec4 c;uniform vec3 uPC;void main(){c=vec4(uPC,1.0)}`;
       if (dw == null || dw.weaponType == null) continue;
       this._drawPickMesh(this.getWeaponPickupMesh(dw.weaponType), dw.posX, 1.0, dw.posZ, 0, [0.2, 0.2, 0.2], 'weapon ' + dw.weaponType);
     }
+    gl.finish();
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, w, h);
     gl.enable(gl.BLEND);
