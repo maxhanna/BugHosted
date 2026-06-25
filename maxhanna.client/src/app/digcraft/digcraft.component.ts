@@ -1296,10 +1296,13 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
 
     // Delegate chunk generation and rebuild work to ChunkLoader (handles prioritization, workers)
     // Skip during active teleport to avoid processing stale/new-data conflicts
+    // Throttle to every 3rd frame outside burst mode to reduce per-frame overhead
     if (!this._isTeleportingOrSwitching) {
       const camCX = Math.floor(this.camX / CHUNK_SIZE);
       const camCZ = Math.floor(this.camZ / CHUNK_SIZE);
-      this.chunkLoader.tick(camCX, camCZ, this._chunkBurstFramesLeft > 0);
+      if (this._chunkBurstFramesLeft > 0 || (this._frameCount % 3) === 0) {
+        this.chunkLoader.tick(camCX, camCZ, this._chunkBurstFramesLeft > 0);
+      }
       if (this._chunkBurstFramesLeft > 0) this._chunkBurstFramesLeft--;
     }
 
