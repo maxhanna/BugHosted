@@ -406,7 +406,7 @@ export class GrandTheftRenderer {
     'Building6','Building18Tokyo','buildingRandom','domeStructure',
     'ecds_old_building_04','ecds_old_building_05','ecds_old_building_06','ecds_old_building_07','ecds_old_building_08','ecds_old_building_09',
     'industrial_building_psx','low_polly_building','low_poly_apartment_2','low_poly_apartment_building_2','low_poly_apartment_building_3',
-    'low_poly_cinema','low_poly_city_hall','low_poly_gas_station','gas_station_5','low_poly_hotel_1','low_poly_hotel_2',
+    'low_poly_cinema','low_poly_city_hall','low_poly_gas_station','low_poly_hotel_1','low_poly_hotel_2',
     'low_poly_pharmacy','low_poly_police_station','low_poly_school','low_poly_shopping_center',
     'modern_building','panel_apartment_placeholder','psx_groceries_store','pyaterochka_3d','super_market_low_poly_for_free',
     'residential_complex_modern_apartment_building',    'ukraine_building',
@@ -1969,6 +1969,36 @@ void main() {
         }
       }
     }
+    // Force extra supermarkets in city and suburb chunks
+    if ((isCity || isSuburb) && this.cityBuildingMeshes.length > 0) {
+      const smModel = this.cityBuildingMeshes.find(m => m.length > 0 && m[0].carName && m[0].carName.includes('super_market'));
+      if (smModel && supermarkets.length < 2) {
+        const halfSW = SIDEWALK_SIZE / 2;
+        const edges = [
+          { dx: 0, dz: 1 }, { dx: 0, dz: -1 },
+          { dx: 1, dz: 0 }, { dx: -1, dz: 0 }
+        ];
+        for (let si = supermarkets.length; si < 2; si++) {
+          const edge = edges[Math.floor(rng() * edges.length)];
+          const w = 8 + rng() * 10;
+          const d = 8 + rng() * (SIDEWALK_SIZE * 0.2);
+          let px, pz, yaw;
+          if (edge.dx === 0) {
+            px = worldOriginX + 2 + rng() * (CHUNK_SIZE - 4);
+            pz = worldOriginZ + edge.dz * (halfSW - d / 2 - 1);
+            yaw = edge.dz > 0 ? Math.PI : 0;
+          } else {
+            pz = worldOriginZ + 2 + rng() * (CHUNK_SIZE - 4);
+            px = worldOriginX + edge.dx * (halfSW - d / 2 - 1);
+            yaw = edge.dx > 0 ? -Math.PI / 2 : Math.PI / 2;
+          }
+          const scale = Math.min(w, d) / 20 * 5;
+          const cityMinY = this.getModelMinY(smModel);
+          buildings.push({ model: smModel, x: px, y: -cityMinY * scale + 0.15, z: pz, yaw, scale: [scale, scale, scale] });
+          supermarkets.push({ x: px, z: pz, yaw });
+        }
+      }
+    }
 
     const chunk: CityChunk = { mesh, cx, cz, lamps, hydrants, buildings, benches, barrels, chickens, trees, supermarkets };
     this.chunkCache.set(key, chunk);
@@ -2681,7 +2711,9 @@ void main() {
     }
 
     for (const pc of parkedCars) {
-      const submergeY = getBiome(Math.floor(pc.x / 80), Math.floor(pc.z / 80)) === 'ocean' ? -1.5 : 0;
+      const biome = getBiome(Math.floor(pc.x / 80), Math.floor(pc.z / 80));
+      const isBoat = pc.type === 'boat';
+      const submergeY = biome === 'ocean' ? (isBoat ? 0 : -1.5) : 0;
       this.drawMesh(pc.mesh, pc.x, (pc as any)._expY ?? submergeY, pc.z, pc.yaw);
     }
 
