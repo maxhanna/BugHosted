@@ -408,7 +408,7 @@ export class GrandTheftRenderer {
     'industrial_building_psx','low_polly_building','low_poly_apartment_2','low_poly_apartment_building_2','low_poly_apartment_building_3',
     'low_poly_cinema','low_poly_city_hall','low_poly_gas_station','low_poly_hotel_1','low_poly_hotel_2',
     'low_poly_pharmacy','low_poly_police_station','low_poly_school','low_poly_shopping_center',
-    'modern_building','panel_apartment_placeholder','psx_groceries_store','pyaterochka_3d','super_market_low_poly_for_free',
+    'modern_building','panel_apartment_placeholder','psx_groceries_store','pyaterochka_3d','supermarket',
     'residential_complex_modern_apartment_building',    'ukraine_building',
     'michaelsoft'
   ];
@@ -1854,7 +1854,7 @@ void main() {
                 const scale = Math.min(w, d) / 20 * 5;
                 const cityMinY = this.getModelMinY(model);
                 buildings.push({ model, x: px, y: -cityMinY * scale + 0.15, z: pz, yaw, scale: [scale, scale, scale] });
-                if (model.length > 0 && model[0].carName && model[0].carName.includes('super_market')) {
+                if (model.length > 0 && model[0].carName && model[0].carName.includes('supermarket')) {
                   supermarkets.push({ x: px, z: pz, yaw });
                 }
               } else {
@@ -1972,7 +1972,7 @@ void main() {
     }
     // Force extra supermarkets in city and suburb chunks
     if ((isCity || isSuburb) && this.cityBuildingMeshes.length > 0) {
-      const smModel = this.cityBuildingMeshes.find(m => m.length > 0 && m[0].carName && m[0].carName.includes('super_market'));
+      const smModel = this.cityBuildingMeshes.find(m => m.length > 0 && m[0].carName && m[0].carName.includes('supermarket'));
       if (smModel && supermarkets.length < 1 && rng() < 0.25) {
         const halfSW = SIDEWALK_SIZE / 2;
         const edges = [
