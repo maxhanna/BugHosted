@@ -199,6 +199,11 @@
         (input)="viewDistance = $any($event.target).value; setViewDistance(viewDistance)" />
       <span class="gt-setting-value">{{ viewDistance }}m</span>
     </label>
+    <label class="gt-setting-row">
+      <span>Debug Labels</span>
+      <input type="checkbox" [value]="debugLabels" (change)="debugLabels = !debugLabels" />
+      <span class="gt-setting-value">{{ debugLabels ? 'On' : 'Off' }}</span>
+    </label>
   </div>
   <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>
 </div>
