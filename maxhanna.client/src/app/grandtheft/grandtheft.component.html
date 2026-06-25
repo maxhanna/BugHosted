@@ -21,7 +21,6 @@
     </div>
     <div id="gt-damage-overlay" *ngIf="damageAlpha > 0" [style.opacity]="damageAlpha"></div>
     <div id="gt-vehicle-banner" *ngIf="vehicleBannerTimer > 0">{{ vehicleName }}</div>
-    <div id="gt-hover-label" *ngIf="debugLabel">{{ hoverLabel }}</div>
 
     <div id="gt-passenger-prompt" *ngIf="showPassengerPrompt">
       Press E to pick up passenger
@@ -187,11 +186,6 @@
       <input type="range" min="100" max="1000" [value]="viewDistance"
         (input)="viewDistance = $any($event.target).value; setViewDistance(viewDistance)" />
       <span class="gt-setting-value">{{ viewDistance }}m</span>
-    </label>
-    <label class="gt-setting-row">
-      <span>Debug Labels</span>
-      <input type="checkbox" [value]="debugLabels" (change)="debugLabels = !debugLabels" />
-      <span class="gt-setting-value">{{ debugLabels ? 'On' : 'Off' }}</span>
     </label>
   </div>
   <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>

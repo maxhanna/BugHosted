@@ -147,7 +147,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private lastTime = 0;
   private keys: Set<string> = new Set();
 
-  debugLabel = false;
   carX = HOSPITAL_SPAWN_X; carY = CAR_HEIGHT; carZ = HOSPITAL_SPAWN_Z;
   carYaw = HOSPITAL_SPAWN_YAW;
   carVx = 0; carVz = 0; carVy = 0;
@@ -290,11 +289,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   damageAlpha = 0;
   vehicleName = '';
   vehicleBannerTimer = 0;
-  hoverLabel = '';
-  private _hoverVx = 0;
-  private _hoverVy = 0;
-  private _hoverDirty = false;
-  private _hoverLastRead = 0;
   radioOn = false;
   radioSongs: string[] = [];
   radioIndex = -1;
@@ -317,8 +311,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     [0.9, 0.7, 0.1], [0.6, 0.2, 0.6], [1.0, 0.5, 0.0],
     [0.1, 0.6, 0.6], [0.5, 0.3, 0.1],
   ];
-  debugLabels = false;
-
   constructor(private gtService: GrandtheftService,
      private userEventService: UserEventService, 
     private todoService: TodoService, 
@@ -328,7 +320,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   ngOnInit() { 
     this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, "grandtheft", "Started playing Grand Theft!");
-    this.debugLabel = (this.parentRef?.user?.id && this.parentRef.user.id === 1) ? true : false;
   }
 
   ngAfterViewInit() {
@@ -575,13 +566,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.camPitch = Math.max(-1.2, Math.min(0.8, this.camPitch));
       });
 
-      canvas.addEventListener('mousemove', (e) => {
-        if (this.isPointerLocked) return;
-        const r = canvas.getBoundingClientRect();
-        this._hoverVx = e.clientX - r.left;
-        this._hoverVy = e.clientY - r.top;
-        this._hoverDirty = true;
-      });
       canvas.addEventListener('mousedown', (e) => {
         if (e.button !== 0 || this.showWeaponWheel) return;
         this.unlockAudio();
@@ -2838,16 +2822,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.viewDistance,
         !this.isMobile
       );
-      // DEBUG hover model label (remove when done)
-      try {
-        const hx = this._hoverDirty && !this.isPointerLocked ? this._hoverVx : canvas.width / 2;
-        const hy = this._hoverDirty && !this.isPointerLocked ? this._hoverVy : canvas.height / 2;
-        const label = this.renderer.getLabelAtViewport(Math.round(hx), Math.round(hy));
-        this.hoverLabel = label || '(none)';
-        this._hoverDirty = false;
-      } catch (e) {
-        this.hoverLabel = 'err: ' + e;
-      }
       if (this.firstPerson && !this.isInCar) {
         const anims = this.pickFirstPersonAnims();
         this.renderer.renderFirstPersonWeapon(
@@ -3341,7 +3315,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     this.lookTargetHealth = bestHealth;
     this.lookTargetName = bestName;
-    if (bestName) this.hoverLabel = bestName;
 
     // Check supermarket robbery
     if (this.currentWeapon > 0 && !this.isInCar) {
