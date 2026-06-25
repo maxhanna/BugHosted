@@ -1,8 +1,0 @@
-Model Information:
-* title:	25th floor
-* source:	https://sketchfab.com/3d-models/25th-floor-206b318897f3402380abf935ffdc3837
-* author:	Mpmooi (https://sketchfab.com/mpmooi)
-
-Model License:
-* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
-* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

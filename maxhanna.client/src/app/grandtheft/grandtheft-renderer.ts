@@ -424,10 +424,9 @@ export class GrandTheftRenderer {
   public cityBuildingMeshes: CityMesh[][] = [];
   public suburbBuildingMeshes: CityMesh[][] = [];
   static CITY_BUILDING_NAMES = [
-    '2BuildingsModularFaces','8FloorBuilding','25thFloorBuilding','abandonnedBuilding','bank',
-    'Building6','Building18Tokyo','buildingRandom','domeStructure',
+    '2BuildingsModularFaces','abandonnedBuilding','bank', 'buildingRandom','domeStructure',
     'ecds_old_building_04','ecds_old_building_05','ecds_old_building_06','ecds_old_building_07','ecds_old_building_08','ecds_old_building_09',
-    'industrial_building_psx','low_polly_building','low_poly_apartment_2','low_poly_apartment_building_2','low_poly_apartment_building_3',
+    'industrial_building_psx','low_polly_building','low_poly_apartment_building_2','low_poly_apartment_building_3',
     'low_poly_cinema','low_poly_city_hall','low_poly_gas_station','low_poly_hotel_1','low_poly_hotel_2',
     'low_poly_pharmacy','low_poly_police_station','low_poly_school','low_poly_shopping_center',
     'modern_building','panel_apartment_placeholder','psx_groceries_store','pyaterochka_3d','supermarket',
@@ -2709,8 +2708,10 @@ void main() {
         this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1]);
 
         if (this.lampMesh) {
+          const lampModels = Array.isArray(this.lampMesh) ? this.lampMesh : [this.lampMesh];
           for (const lamp of chunk.lamps) {
-            this.drawMesh(this.lampMesh, lamp.x, 0, lamp.z, 0, [1, 1, 1], [0.25, 0.3, 0.22, 1]);
+            const mi = Math.abs(Math.floor(lamp.x * 7 + lamp.z * 13)) % lampModels.length;
+            this.drawMesh(lampModels[mi], lamp.x, 0, lamp.z, 0, [1, 1, 1], [0.25, 0.3, 0.22, 1]);
           }
         }
         if (this.hydrantMesh) {

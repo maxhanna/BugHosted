@@ -399,7 +399,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.loadGLTF('assets/grandtheft/bmw_x7_xdrive_50i/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/dodge_demon_hpe1200/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/ford_mustang_shelby_gt500kr/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
-    this.renderer.loadGLTF('assets/grandtheft/free_ai_based_conceptcar_049_public_domain_cc0/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/free_concept_car_037_-_public_domain_cc0/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/free_concept_car_040__-_public_domain_cc0/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
     this.renderer.loadGLTF('assets/grandtheft/free_sci-fi_vehicle_031-02_-_public_domain_cc0/scene.gltf').then(car => { if (car) this.renderer.carMeshes.push(car); });
