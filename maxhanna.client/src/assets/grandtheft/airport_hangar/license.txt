@@ -1,0 +1,8 @@
+Model Information:
+* title:	Airport Hangar
+* source:	https://sketchfab.com/3d-models/airport-hangar-639543b61c264ffeb923f9d3f5c758ee
+* author:	assetfactory (https://sketchfab.com/assetfactory)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

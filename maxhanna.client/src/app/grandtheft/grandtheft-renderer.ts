@@ -54,6 +54,7 @@ export interface CityChunk {
   tatami: { x: number; z: number; yaw: number }[];
   cabins: { x: number; z: number; yaw: number }[];
   lighthouses: { x: number; z: number; yaw: number }[];
+  tropicalShops: { x: number; z: number; yaw: number }[];
 }
 
 const CHUNK_SIZE = 80;
@@ -63,10 +64,10 @@ const SIDEWALK_SIZE = 55;
 const BIOME_RADIUS_MOUNTAIN = 30;
 export function getBiome(cx: number, cz: number): string {
   // Airports
-  if (cx >= 0 && cx <= 2 && cz === -2) return 'aeroport';
-  if (cx >= 9 && cx <= 13 && cz === -5) return 'aeroport';
-  if (cx >= 23 && cx <= 28 && cz === -7) return 'aeroport';
-  if (cx >= 38 && cx <= 44 && cz === -10) return 'aeroport';
+  if (cx >= 0 && cx <= 2 && cz >= -3 && cz <= -1) return 'aeroport';
+  if (cx >= 9 && cx <= 13 && cz >= -6 && cz <= -4) return 'aeroport';
+  if (cx >= 23 && cx <= 28 && cz >= -8 && cz <= -6) return 'aeroport';
+  if (cx >= 38 && cx <= 44 && cz >= -11 && cz <= -9) return 'aeroport';
 
   // Helper to deterministically carve parking-lot patches out of city/suburb
   const isParkingPatch = () => {
@@ -392,6 +393,11 @@ export class GrandTheftRenderer {
   private skyMoonDirLoc!: WebGLUniformLocation;
   private skyDayBlendLoc!: WebGLUniformLocation;
   private skyTimeLoc!: WebGLUniformLocation;
+  private skyDayTexLoc!: WebGLUniformLocation;
+  private skyNightTexLoc!: WebGLUniformLocation;
+  private skyCloudyTexture: WebGLTexture | null = null;
+  private skyStarryTexture: WebGLTexture | null = null;
+  private defaultTexture: WebGLTexture;
 
   viewMatrix = mat4.create();
   projMatrix = mat4.create();
@@ -427,6 +433,7 @@ export class GrandTheftRenderer {
   public shotgunMesh: CityMesh[] | null = null;
   public cityBuildingMeshes: CityMesh[][] = [];
   public airportBuildingMeshes: CityMesh[][] = [];
+  public airportHangarMesh: CityMesh[] | null = null;
   public suburbBuildingMeshes: CityMesh[][] = [];
   static AIRPORT_BUILDING_NAMES: string[] = [
     'airport_buildings'
@@ -446,6 +453,7 @@ export class GrandTheftRenderer {
     'korean_apartment', 'okraglak_round_office_building_poznan',
     'tome_convenience_store', 'psxprop_-_old_warehouse',
     'skyscraper', 'skyscraper', 'skyscraper', 'skyscraper',
+    'old_dairy_queen_building',
   ];
   static SUBURB_BUILDING_NAMES = [
     'brooklynCornerhouse', 'brooklynStreetBuilding', 'cabin',
@@ -458,6 +466,7 @@ export class GrandTheftRenderer {
     'apartament', 'two_story_resident_building', 'japanese_house_incomplete',
     'khrushchevka_two-story_building', 'fatboys_diner',
     'tome_convenience_store', 'psxprop_-_old_warehouse',
+    'old_dairy_queen_building', 'rusty_old_tropical_shop',
   ];
   public trafficLightMesh: CityMesh[] | null = null;
   public hydrantMesh: CityMesh[] | null = null;
@@ -467,6 +476,7 @@ export class GrandTheftRenderer {
   public palmTreeMesh: CityMesh[] | null = null;
   public cityTreeMesh: CityMesh[] | null = null;
   public cylindricalTowerMesh: CityMesh[] | null = null;
+  public tropicalShopMesh: CityMesh[] | null = null;
   public tatamiRoomMesh: CityMesh[] | null = null;
   public woodenCabineMesh: CityMesh[] | null = null;
   public balloonMesh: CityMesh[] | null = null;
@@ -614,6 +624,13 @@ export class GrandTheftRenderer {
     const gl = canvas.getContext('webgl2', { antialias: true });
     if (!gl) throw new Error('WebGL2 not supported');
     this.gl = gl;
+
+    const whiteTex = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, whiteTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, 1, 1, 0, gl.RGB, gl.UNSIGNED_BYTE, new Uint8Array([128, 150, 180]));
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    this.defaultTexture = whiteTex;
 
     const vs = `#version 300 es
 in vec3 aPos;
@@ -829,15 +846,23 @@ uniform vec3 uSunDir;
 uniform vec3 uMoonDir;
 uniform float uDayBlend;
 uniform float uTime;
+uniform sampler2D uDaySky;
+uniform sampler2D uNightSky;
 
-float hash(vec3 p) {
-    p = fract(p * 0.3183099 + .1);
-    p *= 17.0;
-    return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+vec2 dirToUV(vec3 dir) {
+    float u = 0.5 - atan(dir.z, dir.x) / 6.283185;
+    float v = acos(clamp(dir.y, -1.0, 1.0)) / 3.141592;
+    return vec2(u, v);
 }
 
 void main() {
     vec3 dir = normalize(vWorldDir);
+    vec2 uv = dirToUV(dir);
+    
+    vec3 dayTex = texture(uDaySky, uv).rgb;
+    vec3 nightTex = texture(uNightSky, uv).rgb;
+    vec3 texColor = mix(nightTex, dayTex, uDayBlend);
+    
     float h = dir.y;
     float t = max(0.0, min(1.0, h * 0.5 + 0.5));
     
@@ -848,7 +873,10 @@ void main() {
     
     vec3 zenithColor = mix(nightZenith, dayZenith, uDayBlend);
     vec3 horizonColor = mix(nightHorizon, dayHorizon, uDayBlend);
-    vec3 skyColor = mix(horizonColor, zenithColor, pow(t, 0.8));
+    vec3 gradColor = mix(horizonColor, zenithColor, pow(t, 0.8));
+    
+    float horizonFactor = pow(max(0.0, 1.0 - abs(dir.y)), 4.0);
+    vec3 skyColor = mix(texColor, gradColor, horizonFactor * 0.3);
     
     float sunDot = max(dot(dir, uSunDir), 0.0);
     vec3 sunColor = mix(vec3(1.0, 0.4, 0.1), vec3(1.0, 0.95, 0.8), uDayBlend);
@@ -861,19 +889,9 @@ void main() {
     float moonGlow = pow(moonDot, 32.0) * 0.3;
     skyColor += vec3(0.8, 0.85, 0.95) * (moonDisk * 1.5 + moonGlow * (1.0 - uDayBlend));
     
-    if (dir.y > 0.0) {
-        vec3 starDir = dir * 150.0;
-        float star = hash(floor(starDir));
-        float starBrightness = smoothstep(0.995, 1.0, star) * (1.0 - uDayBlend);
-        starBrightness *= 0.7 + 0.3 * sin(uTime * 5.0 + star * 100.0);
-        starBrightness *= smoothstep(0.0, 0.2, dir.y);
-        skyColor += vec3(starBrightness);
-    }
-    
-    float horizonGlow = pow(max(0.0, 1.0 - abs(dir.y)), 4.0);
     float sunInfluence = max(dot(dir, uSunDir), 0.0);
     vec3 hazeColor = mix(vec3(0.8, 0.4, 0.1), vec3(0.9, 0.7, 0.5), uDayBlend);
-    skyColor += hazeColor * horizonGlow * pow(sunInfluence, 2.0) * (uDayBlend * 0.5 + 0.5);
+    skyColor += hazeColor * horizonFactor * pow(sunInfluence, 2.0) * (uDayBlend * 0.5 + 0.5);
     
     FragColor = vec4(skyColor, 1.0);
 }`;
@@ -884,6 +902,11 @@ void main() {
     this.skyMoonDirLoc = gl.getUniformLocation(this.skyProgram, 'uMoonDir')!;
     this.skyDayBlendLoc = gl.getUniformLocation(this.skyProgram, 'uDayBlend')!;
     this.skyTimeLoc = gl.getUniformLocation(this.skyProgram, 'uTime')!;
+    this.skyDayTexLoc = gl.getUniformLocation(this.skyProgram, 'uDaySky')!;
+    this.skyNightTexLoc = gl.getUniformLocation(this.skyProgram, 'uNightSky')!;
+
+    this.loadTexture('assets/grandtheft/sky_cloudy.png').then(t => this.skyCloudyTexture = t);
+    this.loadTexture('assets/grandtheft/sky_starry.png').then(t => this.skyStarryTexture = t);
 
     const verts = new Float32Array([
       -1, -1, 1, 1, -1, 1, 1, 1, 1, -1, -1, 1, 1, 1, 1, -1, 1, 1,
@@ -915,6 +938,13 @@ void main() {
     gl.uniform3f(this.skyMoonDirLoc, this.moonDir[0], this.moonDir[1], this.moonDir[2]);
     gl.uniform1f(this.skyDayBlendLoc, this.dayBlend);
     gl.uniform1f(this.skyTimeLoc, performance.now() / 1000);
+
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, this.skyCloudyTexture || this.defaultTexture);
+    gl.uniform1i(this.skyDayTexLoc, 2);
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, this.skyStarryTexture || this.defaultTexture);
+    gl.uniform1i(this.skyNightTexLoc, 3);
 
     gl.bindVertexArray(this.skyVao);
     gl.drawArrays(gl.TRIANGLES, 0, 36);
@@ -1618,6 +1648,7 @@ void main() {
     const tatami: { x: number; z: number; yaw: number }[] = [];
     const cabins: { x: number; z: number; yaw: number }[] = [];
     const lighthouses: { x: number; z: number; yaw: number }[] = [];
+    const tropicalShops: { x: number; z: number; yaw: number }[] = [];
 
     const worldOriginX = cx * CHUNK_SIZE;
     const worldOriginZ = cz * CHUNK_SIZE;
@@ -1632,7 +1663,7 @@ void main() {
       this.addPlane(verts, indices, cx2, -2.2, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.05, 0.25, 0.45, 0.55, idxOffset); idxOffset += 4;
       this.addPlane(verts, indices, cx2, -1.9, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.15, 0.40, 0.60, 0.40, idxOffset); idxOffset += 4;
       const mesh = this.createMesh(verts, indices);
-      const chunk: CityChunk = { mesh, cx, cz, lamps: [], hydrants: [], buildings, benches: [], barrels: [], chickens: [], trees: [], supermarkets: [], tatami: [], cabins: [], lighthouses: [] };
+      const chunk: CityChunk = { mesh, cx, cz, lamps: [], hydrants: [], buildings, benches: [], barrels: [], chickens: [], trees: [], supermarkets: [], tatami: [], cabins: [], lighthouses: [], tropicalShops: [] };
       this.chunkCache.set(key, chunk);
       return chunk;
     }
@@ -1832,6 +1863,12 @@ void main() {
             const cz = blockWorldZ + halfSW - 5;
             cabins.push({ x: cx, z: cz, yaw: rng() > 0.5 ? 0 : Math.PI });
           }
+          // Tropical shop — rare on beaches
+          if (this.tropicalShopMesh && rng() < 0.15) {
+            const sx = blockWorldX + (rng() - 0.5) * 22;
+            const sz = blockWorldZ + halfSW - 4;
+            tropicalShops.push({ x: sx, z: sz, yaw: rng() > 0.5 ? 0 : Math.PI });
+          }
           // Lighthouse at a beach corner — extremely rare
           if (this.cylindricalTowerMesh && rng() < 0.03) {
             const corner = Math.floor(rng() * 4);
@@ -1879,6 +1916,22 @@ void main() {
                 this.addBox(verts, indices, parkingX - stallW / 2, 0.02, stallZ, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
                 this.addBox(verts, indices, parkingX + stallW / 2, 0.02, stallZ, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
                 this.addBox(verts, indices, parkingX, 0.02, stallZ - stallD / 2, stallW, 0.04, 0.15, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
+              }
+            }
+            // Hangar on the outer edge of the airport block
+            if (this.airportHangarMesh) {
+              for (const side of [-1, 1]) {
+                const hx = blockWorldX + side * 36;
+                const hz = blockWorldZ;
+                const hMinY = this.getModelMinY(this.airportHangarMesh);
+                buildings.push({
+                  model: this.airportHangarMesh,
+                  x: hx,
+                  y: -hMinY * 1 + 0.15,
+                  z: hz,
+                  yaw: side > 0 ? -Math.PI / 2 : Math.PI / 2,
+                  scale: [1, 1, 1]
+                });
               }
             }
           } else {
@@ -2176,7 +2229,7 @@ void main() {
       }
     }
 
-    const chunk: CityChunk = { mesh, cx, cz, lamps, hydrants, buildings, benches, barrels, chickens, trees, supermarkets, tatami, cabins, lighthouses };
+    const chunk: CityChunk = { mesh, cx, cz, lamps, hydrants, buildings, benches, barrels, chickens, trees, supermarkets, tatami, cabins, lighthouses, tropicalShops };
     this.chunkCache.set(key, chunk);
     return chunk;
   }
@@ -2834,6 +2887,11 @@ void main() {
         if (this.cylindricalTowerMesh) {
           for (const l of chunk.lighthouses) {
             this.drawMesh(this.cylindricalTowerMesh, l.x, 0, l.z, l.yaw, [1, 1, 1]);
+          }
+        }
+        if (this.tropicalShopMesh) {
+          for (const s of chunk.tropicalShops) {
+            this.drawMesh(this.tropicalShopMesh, s.x, 0, s.z, s.yaw, [1, 1, 1]);
           }
         }
         if (this.barrelMesh) {
