@@ -13,7 +13,7 @@ import { UserService } from '../../services/user.service';
 import { FileComment } from '../../services/datacontracts/file/file-comment';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
-import { RomService } from '../../services/rom.service'; 
+import { RomService } from '../../services/rom.service';
 import { FileAccessLog } from '../../services/datacontracts/file/file-access-log';
 import { FileNote } from '../../services/datacontracts/file/file-note';
 import { Core, CoreDescriptor } from '../emulator/emulator-types';
@@ -91,6 +91,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   fileViewers?: FileAccessLog[] | undefined;
   fileFavouriters?: number[] | undefined;
   optionsFile: FileEntry | undefined;
+  imagePreviewFile: FileEntry | undefined;
   favouritersFile: FileEntry | undefined;
   systemSelectFile: FileEntry | undefined;
   directory?: DirectoryResults;
@@ -129,12 +130,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   isSystemSelectPanelOpen: boolean = false;
   systemCandidates: Array<{ label: string; core?: string }> = [];
   selectedSystemCore: string | null = null;
-  isFirstLoad = true;  
+  isFirstLoad = true;
   isAddingToFavourites = false;
-  isAddingToMusicPlaylist = false; 
+  isAddingToMusicPlaylist = false;
   isRatingPanelOpen = false;
   pageLocked = false;
-  appending = false; 
+  appending = false;
   imageIndex: number = 0;
 
   private controllerIndex: number = -1;
@@ -164,7 +165,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     public fileService: FileService,
     private userService: UserService,
     private todoService: TodoService,
-    private romService: RomService, 
+    private romService: RomService,
     private route: ActivatedRoute,
     private changeDetectorRef: ChangeDetectorRef,
     private sanitizer: DomSanitizer) {
@@ -393,18 +394,18 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   ngOnDestroy() {
-     // Remove window scroll listener
-     window.removeEventListener('scroll', this.windowScrollHandler as EventListener);
-     // console.log('Window scroll event listener removed');
+    // Remove window scroll listener
+    window.removeEventListener('scroll', this.windowScrollHandler as EventListener);
+    // console.log('Window scroll event listener removed');
 
-     // Remove container scroll listener if fileContainer exists
-     if (this.fileContainer?.nativeElement) {
-        this.fileContainer.nativeElement.removeEventListener('scroll', this.containerScrollHandler as EventListener);
-        // console.log('fileContainer scroll event listener removed');
-     }
+    // Remove container scroll listener if fileContainer exists
+    if (this.fileContainer?.nativeElement) {
+      this.fileContainer.nativeElement.removeEventListener('scroll', this.containerScrollHandler as EventListener);
+      // console.log('fileContainer scroll event listener removed');
+    }
 
-     // Abort any pending getDirectory requests
-     this.getDirectoryAbortController?.abort();
+    // Abort any pending getDirectory requests
+    this.getDirectoryAbortController?.abort();
   }
 
   onWindowScroll() {
@@ -478,13 +479,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
     let fileTypes: string[] = [];
     const filterArr = this.fileTypeFilter.split(',').map(t => t.trim().toLowerCase()).filter(t => t);
-    if (this.allowedFileTypes && this.allowedFileTypes.length >0) {
-      if (filterArr.length >0) {
+    if (this.allowedFileTypes && this.allowedFileTypes.length > 0) {
+      if (filterArr.length > 0) {
         fileTypes = this.allowedFileTypes.filter(type => filterArr.includes(type));
       } else {
         fileTypes = this.allowedFileTypes;
       }
-    } else if (filterArr.length >0) {
+    } else if (filterArr.length > 0) {
       fileTypes = filterArr;
     } else {
       fileTypes = [];
@@ -493,7 +494,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     try {
       // Create new AbortController for this request
       this.getDirectoryAbortController = new AbortController();
-  
+
       const effectiveFileId = (fileId ?? this.fileIdFilter) as number | undefined;
 
       const isFileIdSearch = !!effectiveFileId;
@@ -509,7 +510,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       if (!sortToUse && /\broms?\b/.test(cur)) {
         sortToUse = 'Last Access';
         this.sortOption = sortToUse;
-      } 
+      }
 
       console.log("getting dir");
 
@@ -529,7 +530,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.forceSearchSameDirectory,
         includeRomMetadata,
         this.actualCoreFilter,
-        this.isDisplayingNSFW, 
+        this.isDisplayingNSFW,
         this.getDirectoryAbortController.signal,
       ).then(async res => {
         console.log("in the then");
@@ -539,7 +540,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           // Normalize and derive thumbnails for newly-appended items before merging
           const newItems = (res.data || []).filter((d: FileEntry) =>
             !this.directory?.data?.some((existingData) => existingData.id === d.id)
-          ); 
+          );
           this.directory.data = this.directory.data.concat(newItems);
           console.log("coincat");
           if (this.isInRomDirectory) {
@@ -548,13 +549,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
               if (this.directory.data[x].notes) { continue; }
               const fRes = await this.fileService.getFileEntryById(this.directory.data[x].id, this.parentRef?.user?.id, this.parentRef?.fileCache, true);
               if (fRes) {
-                this.directory.data[x] = fRes; 
-                this.normalizeRomMetadata(this.directory.data[x]); 
-                this.changeDetectorRef.detectChanges(); 
+                this.directory.data[x] = fRes;
+                this.normalizeRomMetadata(this.directory.data[x]);
+                this.changeDetectorRef.detectChanges();
               }
             }
           }
- 
+
           if (this.optionsFile) {
             const linked = this.directory.data.find(d => d.id === this.optionsFile?.id);
             if (linked) {
@@ -565,17 +566,17 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         } else if (res) {
           this.directory = res;
 
-          if (this.shouldShowRomMetadata() && this.directory?.data?.length) {   
+          if (this.shouldShowRomMetadata() && this.directory?.data?.length) {
             console.log("in rom dir, getting fe");
             for (let x = 0; x < this.directory.data.length; x++) {
               if (this.directory.data[x].notes) { continue; }
               const fRes = await this.fileService.getFileEntryById(this.directory.data[x].id, this.parentRef?.user?.id, this.parentRef?.fileCache, true);
               if (fRes) {
                 this.directory.data[x] = fRes;
-                this.normalizeRomMetadata(this.directory.data[x]); 
-                this.changeDetectorRef.detectChanges(); 
-              } 
-            } 
+                this.normalizeRomMetadata(this.directory.data[x]);
+                this.changeDetectorRef.detectChanges();
+              }
+            }
           }
 
           if (!isFileIdSearch && this.fileIdFilter == null) {
@@ -1106,11 +1107,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     return false;
   }
 
-   /** Get the URL to display for an image file in grid view */
+  /** Get the URL to display for an image file in grid view */
   getImageUrl(file: FileEntry): string {
     // For now return a placeholder - in a production environment this would fetch the actual image
     if (!file || !file.fileName) return '';
-    
+
     // This would normally call a thumbnail service
     return `/assets/images/file-type-image.png`;
   }
@@ -1134,15 +1135,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.shareUserListDiv.nativeElement.classList.toggle("open");
     this.closeOptionsPanel();
   }
-  shareFileInitiate(file: FileEntry) { 
+  shareFileInitiate(file: FileEntry) {
     this.selectedSharedFile = file;
     this.closeOptionsPanel();
-    setTimeout(() => { 
+    setTimeout(() => {
       this.parentRef?.showOverlay();
       this.showShareUserList = true;
     }, 100);
   }
- 
+
   shareFileCallback = () => {
     if (this.optionsFile) {
       this.shareFileInitiate(this.optionsFile);
@@ -1150,7 +1151,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   closeShareUserList(toggleOverlay = true) {
     this.showShareUserList = false;
-    this.selectedSharedFile = undefined; 
+    this.selectedSharedFile = undefined;
     if (toggleOverlay) {
       this.parentRef?.closeOverlay();
     }
@@ -1163,8 +1164,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.closeOptionsPanel();
       console.log('Options panel already open, closing it instead of opening a new one.');
       return;
-    } 
-    this.optionsFile = file; 
+    }
+    this.optionsFile = file;
     this.isOptionsPanelOpen = true;
     this.parentRef?.showOverlay();
     if ((!file.topics || file.topics.length === 0) && file.id) {
@@ -1186,14 +1187,14 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       console.error('Failed to load topics', e);
     }
   }
-  
+
   closeOptionsPanel(resetFile = true) {
     this.isOptionsPanelOpen = false;
     if (resetFile) {
       this.optionsFile = undefined;
-    }  
-    this.parentRef?.closeOverlay(); 
-  } 
+    }
+    this.parentRef?.closeOverlay();
+  }
 
   // Clear persisted system override for a file and update UI
   async clearSystemOverride(file?: FileEntry) {
@@ -1728,7 +1729,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     parent?.closeOverlay();
   }
 
-  onPageSizeChange(event: Event) { 
+  onPageSizeChange(event: Event) {
     const value = (event.target as HTMLSelectElement).value;
     this.maxResults = parseInt(value);
     // Save to user settings
@@ -1736,7 +1737,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (user?.id) {
       this.userService.updateUserSettings(user.id, [
         { settingName: 'page_size', value: value }
-      ]).catch(() => {});
+      ]).catch(() => { });
     }
   }
 
@@ -1957,7 +1958,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.displayAsTable = !this.displayAsTable;
     this.tableViewClickedEvent.emit(this.displayAsTable);
   }
-  
+
   forceSearchSameDirectoryToggled() {
     this.forceSearchSameDirectory = !this.forceSearchSameDirectory;
   }
@@ -1969,7 +1970,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (user && user.id) {
       this.userService.updateUserSettings(user.id, [
         { settingName: 'show_favourites_only', value: this.showFavouritesOnly }
-      ]).catch(() => {}); // Optionally handle error
+      ]).catch(() => { }); // Optionally handle error
     }
     this.goToFirstPage();
     setTimeout(() => {
@@ -2072,7 +2073,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   get currentUser(): User {
     return this.parentRef?.user ?? new User(0, "Anonymous");
   }
- 
+
   getSystemLabel(key: string): { label: string, title: string } {
     switch (key) {
       case 'n64':
@@ -2498,7 +2499,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.parentRef?.showOverlay();
     }, 10);
   }
-  
+
   onSystemSelectChange(ev: Event): void {
     const val = (ev.target as HTMLSelectElement).value;
     this.selectedSystemCore = val || null;
@@ -2520,7 +2521,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     } catch (e) {
       this.notifyUser('Failed to set system override.');
     } finally {
-      this.isSettingSystemOverride = false; 
+      this.isSettingSystemOverride = false;
     }
   }
 
@@ -2538,7 +2539,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     } catch (e) {
       this.notifyUser('Failed to set preferred core.');
     } finally {
-      this.isSettingSystemOverride = false; 
+      this.isSettingSystemOverride = false;
     }
   }
 
@@ -2556,11 +2557,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.systemSelectFile = undefined;
     this.parentRef?.closeOverlay();
   }
- 
+
   openImagePreview(url?: string, ev?: Event) {
     if (ev) ev.preventDefault();
     if (!url) return;
     if (this.isOptionsPanelOpen) {
+      this.imagePreviewFile = this.optionsFile;
       this.closeOptionsPanel();
     }
     setTimeout(() => {
@@ -2573,8 +2575,17 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   closeImagePreview() {
     this.isShowingImagePreview = false;
     this.imagePreviewUrl = null;
+    this.imagePreviewFile = undefined;
     this.imageIndex = 0;
     this.parentRef?.closeOverlay();
+  }
+  previousPreviewImage() {
+    if (!this.imagePreviewFile || !this.imagePreviewFile.romInlineThumbs) return;
+    this.imagePreviewUrl = this.imagePreviewFile.romInlineThumbs[--this.imageIndex];
+  }
+  nextPreviewImage() {
+    if (!this.imagePreviewFile || !this.imagePreviewFile.romInlineThumbs) return;
+    this.imagePreviewUrl = this.imagePreviewFile.romInlineThumbs[++this.imageIndex];
   }
   private startAppendingMode() {
     this.appending = true;

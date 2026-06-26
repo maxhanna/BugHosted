@@ -6,7 +6,6 @@
   indexCount: number;
   indexType?: number;
   texture?: WebGLTexture | null;
-  bounds?: { w: number; h: number; d: number };
   needsFlip?: boolean;
   vertexCount?: number;
   restPositions?: Float32Array;
@@ -14,6 +13,10 @@
   jointIndices?: Uint16Array;
   jointWeights?: Float32Array;
   minY?: number;
+  minX?: number;
+  maxX?: number;
+  minZ?: number;
+  maxZ?: number;
   carName?: string;
   meshName?: string;
   renderScale?: number;
@@ -474,7 +477,7 @@ export class GrandTheftRenderer {
     'apartament', 'two_story_resident_building', 'japanese_house_incomplete',
     'khrushchevka_two-story_building', 'fatboys_diner',
     'tome_convenience_store', 'psxprop_-_old_warehouse',
-    'old_dairy_queen_building', 'rusty_old_tropical_shop',
+    'old_dairy_queen_building',
   ];
   public trafficLightMesh: CityMesh[] | null = null;
   public hydrantMesh: CityMesh[] | null = null;
@@ -1572,11 +1575,19 @@ void main() {
     gl.vertexAttribPointer(uvLoc, 2, gl.FLOAT, false, stride, 40);
 
     gl.bindVertexArray(null);
-    // Compute lowest Y so GLTF models can be grounded
+    // Compute bounds so buildings can be used for collision
     let meshMinY = 0;
+    let meshMinX = Infinity, meshMaxX = -Infinity;
+    let meshMinZ = Infinity, meshMaxZ = -Infinity;
     for (let i = 0; i < vertexCount; i++) {
+      const x = interleaved[i * 12];
       const y = interleaved[i * 12 + 1];
+      const z = interleaved[i * 12 + 2];
       if (y < meshMinY) meshMinY = y;
+      if (x < meshMinX) meshMinX = x;
+      if (x > meshMaxX) meshMaxX = x;
+      if (z < meshMinZ) meshMinZ = z;
+      if (z > meshMaxZ) meshMaxZ = z;
     }
 
     gl.bindVertexArray(null);
@@ -1589,6 +1600,10 @@ void main() {
       indexType: useUint32 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT,
       texture,
       minY: meshMinY,
+      minX: meshMinX,
+      maxX: meshMaxX,
+      minZ: meshMinZ,
+      maxZ: meshMaxZ,
       originalVBO
     };
   }
@@ -2064,12 +2079,45 @@ void main() {
         if ((cx === 0 && cz === 0) || (cx === 1 && cz === 0)) continue;
 
         const halfSW = SIDEWALK_SIZE / 2;
-        // 4 edges, but SKIP the first/last slot on each edge so perpendicular edges
-        // can't corner-collide.
         const edges = [
           { dx: 0, dz: 1 }, { dx: 0, dz: -1 },
           { dx: 1, dz: 0 }, { dx: -1, dz: 0 }
         ];
+
+        // Track placed building footprints for overlap prevention
+        const placedAABBs: { minX: number; maxX: number; minZ: number; maxZ: number }[] = [];
+        const modelWorldAABB = (model: CityMesh | CityMesh[], px: number, pz: number, scale: [number, number, number], yaw: number): { minX: number; maxX: number; minZ: number; maxZ: number } | null => {
+          const arr = Array.isArray(model) ? model : [model];
+          let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+          for (const m of arr) {
+            if (m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined) return null;
+            const rs = m.renderScale ?? 1;
+            const sx = scale[0] * rs, sz = scale[2] * rs;
+            const hw = (m.maxX - m.minX) / 2 * sx;
+            const hd = (m.maxZ - m.minZ) / 2 * sz;
+            const rot = ((yaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+            const swap = Math.abs(rot - Math.PI / 2) < 0.01 || Math.abs(rot - Math.PI * 3 / 2) < 0.01;
+            const ehw = swap ? hd : hw;
+            const ehd = swap ? hw : hd;
+            minX = Math.min(minX, px - ehw); maxX = Math.max(maxX, px + ehw);
+            minZ = Math.min(minZ, pz - ehd); maxZ = Math.max(maxZ, pz + ehd);
+          }
+          return { minX, maxX, minZ, maxZ };
+        };
+        const overlapsExisting = (bb: { minX: number; maxX: number; minZ: number; maxZ: number }): boolean => {
+          const gap = 1.0;
+          for (const existing of placedAABBs) {
+            if (bb.minX - gap < existing.maxX && bb.maxX + gap > existing.minX &&
+                bb.minZ - gap < existing.maxZ && bb.maxZ + gap > existing.minZ) return true;
+          }
+          return false;
+        };
+        const tryPlace = (model: CityMesh | CityMesh[], px: number, pz: number, scale: [number, number, number], yaw: number): boolean => {
+          const bb = modelWorldAABB(model, px, pz, scale, yaw);
+          if (!bb || overlapsExisting(bb)) return false;
+          placedAABBs.push(bb);
+          return true;
+        };
 
         if (isSuburb) {
           // 1 in 4 suburb blocks gets a POI (storefront)
@@ -2079,7 +2127,11 @@ void main() {
               const model = poiModels[Math.floor(rng() * poiModels.length)];
               const poiScale = 5 + rng() * 2;
               const poiMinY = this.getModelMinY(model);
-              buildings.push({ model, x: blockWorldX, y: -poiMinY * poiScale + 0.15, z: blockWorldZ, yaw: Math.floor(rng() * 4) * Math.PI / 2, scale: [poiScale, poiScale, poiScale] });
+              const sc: [number, number, number] = [poiScale, poiScale, poiScale];
+              const pyaw = Math.floor(rng() * 4) * Math.PI / 2;
+              if (tryPlace(model, blockWorldX, blockWorldZ, sc, pyaw)) {
+                buildings.push({ model, x: blockWorldX, y: -poiMinY * poiScale + 0.15, z: blockWorldZ, yaw: pyaw, scale: sc });
+              }
             }
           }
 
@@ -2103,10 +2155,12 @@ void main() {
               const models = this.suburbBuildingMeshes;
               if (models.length > 0) {
                 const model = models[Math.floor(rng() * models.length)];
-                // FIX: use MAX dimension, not min — prevents elongated models from overflowing
-                const scale = Math.max(w, d) / 15 * 3.2;
+                const scVal = Math.max(w, d) / 15 * 3.2;
+                const sc: [number, number, number] = [scVal, scVal, scVal];
                 const subMinY = this.getModelMinY(model);
-                buildings.push({ model, x: px, y: -subMinY * scale + 0.15, z: pz, yaw, scale: [scale, scale, scale] });
+                if (tryPlace(model, px, pz, sc, yaw)) {
+                  buildings.push({ model, x: px, y: -subMinY * scVal + 0.15, z: pz, yaw, scale: sc });
+                }
               } else {
                 const r = 0.5 + rng() * 0.4, g = 0.4 + rng() * 0.3, b = 0.3 + rng() * 0.3;
                 const h = 5 + rng() * 7;
@@ -2153,12 +2207,16 @@ void main() {
               const models = this.cityBuildingMeshes;
               if (models.length > 0) {
                 const model = models[Math.floor(rng() * models.length)];
-                // FIX: scale from MAX dimension to prevent overflow on elongated models
-                const scale = Math.max(w, d) / 18 * 3.5;
+                let scVal = Math.max(w, d) / 18 * 3.5;
+                // Skyscrapers 10x taller and wider
+                if (model.length > 0 && model[0].carName && model[0].carName.includes('skyscraper')) scVal *= 10;
+                const sc: [number, number, number] = [scVal, scVal, scVal];
                 const cityMinY = this.getModelMinY(model);
-                buildings.push({ model, x: px, y: -cityMinY * scale + 0.15, z: pz, yaw, scale: [scale, scale, scale] });
-                if (model.length > 0 && model[0].carName && model[0].carName.includes('supermarket')) {
-                  supermarkets.push({ x: px, z: pz, yaw });
+                if (tryPlace(model, px, pz, sc, yaw)) {
+                  buildings.push({ model, x: px, y: -cityMinY * scVal + 0.15, z: pz, yaw, scale: sc });
+                  if (model.length > 0 && model[0].carName && model[0].carName.includes('supermarket')) {
+                    supermarkets.push({ x: px, z: pz, yaw });
+                  }
                 }
               } else {
                 const r = 0.4 + rng() * 0.4, g = 0.4 + rng() * 0.4, b = 0.4 + rng() * 0.4;

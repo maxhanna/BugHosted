@@ -386,7 +386,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       { path: 'assets/grandtheft/sm_env_tree_big_02__3__polygonmilitary_mat_01_a/scene.gltf', storeSkeleton: false, assign: m => this.renderer.palmTreeMesh = m },
       { path: 'assets/grandtheft/psx_tree_low_poly_no_black_background/scene.gltf', storeSkeleton: false, assign: m => this.renderer.cityTreeMesh = m, scale: 1.5 },
       { path: 'assets/grandtheft/cylindrical_tower/scene.gltf', storeSkeleton: false, assign: m => this.renderer.cylindricalTowerMesh = m, scale: 1.5 },
-      { path: 'assets/grandtheft/rusty_old_tropical_shop/scene.gltf', storeSkeleton: false, assign: m => this.renderer.tropicalShopMesh = m, scale: 1.2 },
       { path: 'assets/grandtheft/airport_hangar/scene.gltf', storeSkeleton: false, assign: m => this.renderer.airportHangarMesh = m, scale: 1.5 },
       { path: 'assets/grandtheft/fatboys_diner/scene.gltf', storeSkeleton: false, assign: m => this.renderer.ruralShopMesh = m, scale: 1.2 },
       { path: 'assets/grandtheft/balloon/scene.gltf', storeSkeleton: false, assign: m => this.renderer.balloonMesh = m },
@@ -2397,45 +2396,32 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private pushTrafficCarOutOfBuildings(car: { x: number; z: number }) {
     const cx = Math.floor(car.x / CHUNK_SIZE);
     const cz = Math.floor(car.z / CHUNK_SIZE);
-    const GRID_PITCH = 80, BLOCK_SIZE = 30, blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
+    const margin = 1.0;
 
     for (let dz = -1; dz <= 1; dz++) {
       for (let dx = -1; dx <= 1; dx++) {
         const chunkCX = cx + dx;
         const chunkCZ = cz + dz;
-        const seed = (chunkCX * 100003 + chunkCZ * 70001) >>> 0;
-        const m32 = (s: number) => { let seed2 = s | 0; return () => { seed2 = seed2 + 0x6D2B79F5 | 0; let t = Math.imul(seed2 ^ seed2 >>> 15, 1 | seed2); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; };
-        const rng = m32(seed);
         if (chunkCX === 0 && chunkCZ === 0) continue;
-        if (chunkCX === 1 && chunkCZ === 0) {
-          const blockCX = 1 * CHUNK_SIZE + CHUNK_SIZE / 2;
-          const blockCZ = 0 * CHUNK_SIZE + CHUNK_SIZE / 2;
-          const halfBlock = CHUNK_SIZE / 2 - 1;
-          const cdx = car.x - blockCX, cdz = car.z - blockCZ;
-          if (Math.abs(cdx) < halfBlock && Math.abs(cdz) < halfBlock) {
-            const overlapX = halfBlock - Math.abs(cdx);
-            const overlapZ = halfBlock - Math.abs(cdz);
-            if (overlapX < overlapZ) car.x += cdx > 0 ? overlapX : -overlapX;
-            else car.z += cdz > 0 ? overlapZ : -overlapZ;
-          }
-          continue;
-        }
-
-        for (let by = 0; by < blocksPerChunk; by++) {
-          for (let bx = 0; bx < blocksPerChunk; bx++) {
-            const gx = chunkCX * blocksPerChunk + bx;
-            const gz = chunkCZ * blocksPerChunk + by;
-            const blockCX = gx * GRID_PITCH + GRID_PITCH / 2;
-            const blockCZ = gz * GRID_PITCH + GRID_PITCH / 2;
-
-            if (rng() >= 0.75) continue;
-            const maxDim = BLOCK_SIZE + 6;
-            const hw = (14 + rng() * (maxDim - 14)) / 2 + 1;
-            const hd = (14 + rng() * (maxDim - 14)) / 2 + 1;
-            const cdx = car.x - blockCX, cdz = car.z - blockCZ;
-            if (Math.abs(cdx) < hw && Math.abs(cdz) < hd) {
-              const overlapX = hw - Math.abs(cdx);
-              const overlapZ = hd - Math.abs(cdz);
+        const chunk = this.renderer.getCityChunk(chunkCX, chunkCZ);
+        for (const bld of chunk.buildings) {
+          const models = Array.isArray(bld.model) ? bld.model : [bld.model];
+          for (const m of models) {
+            if (m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined) continue;
+            const rs = m.renderScale ?? 1;
+            const sx = (bld.scale?.[0] ?? 1) * rs;
+            const sz = (bld.scale?.[2] ?? 1) * rs;
+            const hw = (m.maxX - m.minX) / 2 * sx + margin;
+            const hd = (m.maxZ - m.minZ) / 2 * sz + margin;
+            const rot = ((bld.yaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+            const swap = Math.abs(rot - Math.PI / 2) < 0.01 || Math.abs(rot - Math.PI * 3 / 2) < 0.01;
+            const ehw = swap ? hd : hw;
+            const ehd = swap ? hw : hd;
+            const cdx = car.x - bld.x;
+            const cdz = car.z - bld.z;
+            if (Math.abs(cdx) < ehw && Math.abs(cdz) < ehd) {
+              const overlapX = ehw - Math.abs(cdx);
+              const overlapZ = ehd - Math.abs(cdz);
               if (overlapX < overlapZ) car.x += cdx > 0 ? overlapX : -overlapX;
               else car.z += cdz > 0 ? overlapZ : -overlapZ;
             }
@@ -2898,6 +2884,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carY = CAR_HEIGHT;
     this.carSpeed = Math.sqrt(this.carVx * this.carVx + this.carVz * this.carVz);
     this.pushOutOfBuildings();
+    if (!this.isInCar) this.pushPedestrianOutOfCars();
   }
 
   private updateCar(dt: number) {
@@ -3214,30 +3201,39 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
+  private pushPedestrianOutOfCars() {
+    const margin = 1.2;
+    for (const v of [...this.serverNPCs, ...this.parkedCars, ...this.trafficCars]) {
+      if (v.health <= 0) continue;
+      const dx = this.carX - v.x;
+      const dz = this.carZ - v.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      if (dist < margin && dist > 0.01) {
+        const overlap = margin - dist;
+        this.carX += (dx / dist) * overlap;
+        this.carZ += (dz / dist) * overlap;
+      }
+    }
+  }
   private checkBuildingsInChunk(chunkCX: number, chunkCZ: number, margin: number) {
-    const seed = (chunkCX * 100003 + chunkCZ * 70001) >>> 0;
-    const mulberry32 = (seed: number) => {
-      let s = seed | 0;
-      return () => { s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-    };
-    const rng = mulberry32(seed);
-    const GRID_PITCH = 80, BLOCK_SIZE = 30, blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
-
-    for (let by = 0; by < blocksPerChunk; by++) {
-      for (let bx = 0; bx < blocksPerChunk; bx++) {
-        const gx = chunkCX * (CHUNK_SIZE / GRID_PITCH) + bx;
-        const gz = chunkCZ * (CHUNK_SIZE / GRID_PITCH) + by;
-        const blockCX = gx * GRID_PITCH + GRID_PITCH / 2;
-        const blockCZ = gz * GRID_PITCH + GRID_PITCH / 2;
-
-        if (rng() >= 0.75) continue;
-        const maxDim = BLOCK_SIZE + 6;
-        const hw = (14 + rng() * (maxDim - 14)) / 2 + margin;
-        const hd = (14 + rng() * (maxDim - 14)) / 2 + margin;
-        const dx = this.carX - blockCX, dz = this.carZ - blockCZ;
-
-        if (Math.abs(dx) < hw && Math.abs(dz) < hd && this.carY < 15) {
-          const overlapX = hw - Math.abs(dx), overlapZ = hd - Math.abs(dz);
+    const chunk = this.renderer.getCityChunk(chunkCX, chunkCZ);
+    for (const bld of chunk.buildings) {
+      const models = Array.isArray(bld.model) ? bld.model : [bld.model];
+      for (const m of models) {
+        if (m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined) continue;
+        const rs = m.renderScale ?? 1;
+        const sx = (bld.scale?.[0] ?? 1) * rs;
+        const sz = (bld.scale?.[2] ?? 1) * rs;
+        const hw = (m.maxX - m.minX) / 2 * sx + margin;
+        const hd = (m.maxZ - m.minZ) / 2 * sz + margin;
+        const rot = ((bld.yaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+        const swap = Math.abs(rot - Math.PI / 2) < 0.01 || Math.abs(rot - Math.PI * 3 / 2) < 0.01;
+        const ehw = swap ? hd : hw;
+        const ehd = swap ? hw : hd;
+        const dx = this.carX - bld.x;
+        const dz = this.carZ - bld.z;
+        if (Math.abs(dx) < ehw && Math.abs(dz) < ehd && this.carY < 15) {
+          const overlapX = ehw - Math.abs(dx), overlapZ = ehd - Math.abs(dz);
           if (overlapX < overlapZ) { this.carX += dx > 0 ? overlapX : -overlapX; this.carVx *= -0.3; }
           else { this.carZ += dz > 0 ? overlapZ : -overlapZ; this.carVz *= -0.3; }
           this.carSpeed *= 0.5;
