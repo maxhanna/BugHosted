@@ -63,11 +63,13 @@ const BLOCK_SIZE = 30;
 const SIDEWALK_SIZE = 55;
 const BIOME_RADIUS_MOUNTAIN = 30;
 export function getBiome(cx: number, cz: number): string {
-  // Airports
-  if (cx >= 0 && cx <= 2 && cz >= -3 && cz <= -1) return 'aeroport';
-  if (cx >= 9 && cx <= 13 && cz >= -6 && cz <= -4) return 'aeroport';
-  if (cx >= 23 && cx <= 28 && cz >= -8 && cz <= -6) return 'aeroport';
-  if (cx >= 38 && cx <= 44 && cz >= -11 && cz <= -9) return 'aeroport';
+  // Airports (expanded — each has multiple rows for long runways + parking)
+  if (cx >= 0 && cx <= 3 && cz >= -5 && cz <= -1) return 'aeroport';
+  if (cx >= 8 && cx <= 15 && cz >= -8 && cz <= -4) return 'aeroport';
+  if (cx >= 22 && cx <= 30 && cz >= -11 && cz <= -6) return 'aeroport';
+  if (cx >= 36 && cx <= 46 && cz >= -14 && cz <= -9) return 'aeroport';
+  // Island 5 — major aeroport hub
+  if (cx >= 33 && cx <= 46 && cz >= 10 && cz <= 17) return 'aeroport';
 
   // Helper to deterministically carve parking-lot patches out of city/suburb
   const isParkingPatch = () => {
@@ -103,8 +105,6 @@ export function getBiome(cx: number, cz: number): string {
     if (cz >= -5 && cz <= 5) return isParkingPatch() ? 'parking_lot' : 'city';
     return isParkingPatch() ? 'parking_lot' : 'suburb';
   }
-  // Island 5 (Aeroport)
-  if (cx >= 35 && cx <= 44 && cz >= 11 && cz <= 15) return 'aeroport';
   return 'ocean';
 }
 
