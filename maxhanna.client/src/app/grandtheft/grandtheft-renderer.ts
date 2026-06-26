@@ -349,9 +349,6 @@ function quatPosScaleToMat4(q: number[], t: number[], s: number[], out: Float32A
   out[12] = t[0]; out[13] = t[1]; out[14] = t[2]; out[15] = 1;
 }
 
-const CACHE_BUST = 'v1';
-function bust(url: string): string { return url + '?_=' + CACHE_BUST; }
-
 // Deterministic integer hash for skin/mesh selection.
 // Used so that all clients pick the same skin for a given entity id,
 // regardless of when they receive the entity update from the server.
@@ -415,6 +412,7 @@ export class GrandTheftRenderer {
   private modelMatrix = mat4.create();
   private chunkCache = new Map<string, CityChunk>();
   private meshCache = new Map<string, CityMesh>();
+  private gltfCache = new Map<string, Promise<CityMesh[] | null>>();
 
   public playerMesh: CityMesh | CityMesh[] | null = null;
   public lampMesh: CityMesh | CityMesh[] | null = null;
@@ -3499,7 +3497,7 @@ void main() {
         resolve(tex);
       };
       img.onerror = () => { console.error('Failed to load texture:', url); resolve(null); };
-      img.src = (url.startsWith('blob:') || url.startsWith('data:')) ? url : bust(url);
+      img.src = (url.startsWith('blob:') || url.startsWith('data:')) ? url : url;
     });
   }
   // State for first-person animation playback
@@ -3686,9 +3684,20 @@ void main() {
     storeSkeleton: boolean = true,
     out?: { animations?: GltfAnimation[] | null; skeleton?: ReturnType<GrandTheftRenderer['extractGltfSkeleton']> }
   ): Promise<CityMesh[] | null> {
+    const cached = this.gltfCache.get(url);
+    if (cached) return cached;
+    const promise = this._loadGLTFImpl(url, storeSkeleton, out);
+    this.gltfCache.set(url, promise);
+    return promise;
+  }
+  private async _loadGLTFImpl(
+    url: string,
+    storeSkeleton: boolean,
+    out?: { animations?: GltfAnimation[] | null; skeleton?: ReturnType<GrandTheftRenderer['extractGltfSkeleton']> }
+  ): Promise<CityMesh[] | null> {
     try {
       const isGLB = url.endsWith('.glb');
-      const raw = await (await fetch(bust(url))).arrayBuffer();
+      const raw = await (await fetch(url)).arrayBuffer();
 
       let json: any;
       let binBuffer: ArrayBuffer | null = null;
@@ -3730,7 +3739,7 @@ void main() {
               for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
               buffers.push(bytes.buffer);
             } else {
-              const bufRes = await fetch(bust(base + buf.uri));
+              const bufRes = await fetch(base + buf.uri);
               buffers.push(await bufRes.arrayBuffer());
             }
           } else if (binBuffer) {
