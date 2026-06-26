@@ -33,6 +33,7 @@ namespace maxhanna.Server.Services
     private Timer _threeHourTimer;
     private Timer _sixHourTimer;
     private Timer _dailyTimer;
+    private Timer _fifteenMinuteTimer;
     private static bool _initialDelayApplied = false;
     private bool isCrawling = false;
     private bool lastWasCrypto = false;
@@ -47,31 +48,28 @@ namespace maxhanna.Server.Services
       { "Dogecoin", "Ɖ" }, { "XDG", "Ɖ" }, { "Solana", "◎" }, { "SOL", "◎" }
     };
     private readonly string _memeDirectory = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/";
-
-    public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, AiController aiController,
-      KrakenService krakenService, NewsService newsService, ProfitCalculationService profitService, TradeIndicatorService indicatorService,
-      RomEnrichmentService romEnrichmentService)
+    public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, AiController aiController, KrakenService krakenService, NewsService newsService, ProfitCalculationService profitService, TradeIndicatorService indicatorService, RomEnrichmentService romEnrichmentService)
     {
-      _config = config;
-      _romEnrichmentService = romEnrichmentService;
-      _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
-      _apiKey = config.GetValue<string>("CoinWatch:ApiKey")!;
-      _httpClient = new HttpClient();
-      _webCrawler = webCrawler;
-      _aiController = aiController;
-      _log = log;
-      _krakenService = krakenService;
-      _newsService = newsService;
-      _indicatorService = indicatorService;
-
-      _tenSecondTimer = new Timer(async _ => await Run10SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
-      _halfMinuteTimer = new Timer(async _ => await Run30SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
-      //_minuteTimer = new Timer(async _ => await RunOneMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
-      _fiveMinuteTimer = new Timer(async _ => await RunFiveMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
-      _hourlyTimer = new Timer(async _ => await RunHourlyTasks(), null, Timeout.Infinite, Timeout.Infinite);
-      _threeHourTimer = new Timer(async _ => await RunThreeHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
-      _sixHourTimer = new Timer(async _ => await RunSixHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
-      _dailyTimer = new Timer(async _ => await RunDailyTasks(), null, Timeout.Infinite, Timeout.Infinite);
+        _config = config;
+        _romEnrichmentService = romEnrichmentService;
+        _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
+        _apiKey = config.GetValue<string>("CoinWatch:ApiKey")!;
+        _httpClient = new HttpClient();
+        _webCrawler = webCrawler;
+        _aiController = aiController;
+        _log = log;
+        _krakenService = krakenService;
+        _newsService = newsService;
+        _indicatorService = indicatorService;
+        _tenSecondTimer = new Timer(async _ => await Run10SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
+        _halfMinuteTimer = new Timer(async _ => await Run30SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
+        //_minuteTimer = new Timer(async _ => await RunOneMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
+        _fiveMinuteTimer = new Timer(async _ => await RunFiveMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
+        _hourlyTimer = new Timer(async _ => await RunHourlyTasks(), null, Timeout.Infinite, Timeout.Infinite);
+        _threeHourTimer = new Timer(async _ => await RunThreeHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
+        _sixHourTimer = new Timer(async _ => await RunSixHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
+        _dailyTimer = new Timer(async _ => await RunDailyTasks(), null, Timeout.Infinite, Timeout.Infinite);
+        _fifteenMinuteTimer = new Timer(async _ => await GetUsersWithCalendarNotificationsEnabled(), null, Timeout.Infinite, Timeout.Infinite);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
