@@ -420,6 +420,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         { path: 'assets/grandtheft/cylindrical_tower/scene.gltf', storeSkeleton: false, assign: m => this.renderer.cylindricalTowerMesh = m, scale: 1.5 },
         { path: 'assets/grandtheft/rusty_old_tropical_shop/scene.gltf', storeSkeleton: false, assign: m => this.renderer.tropicalShopMesh = m, scale: 1.2 },
         { path: 'assets/grandtheft/airport_hangar/scene.gltf', storeSkeleton: false, assign: m => this.renderer.airportHangarMesh = m, scale: 1.5 },
+        { path: 'assets/grandtheft/fatboys_diner/scene.gltf', storeSkeleton: false, assign: m => this.renderer.ruralShopMesh = m, scale: 1.2 },
         { path: 'assets/grandtheft/balloon/scene.gltf', storeSkeleton: false, assign: m => this.renderer.balloonMesh = m },
         { path: 'assets/grandtheft/tatami_room/scene.gltf', storeSkeleton: false, assign: (m =>  this.renderer.tatamiRoomMesh = m), scale: 2 },
         { path: 'assets/grandtheft/low_poly_wooden_cabine/scene.gltf', storeSkeleton: false, assign: m => this.renderer.woodenCabineMesh = m, scale: 1.5 },
