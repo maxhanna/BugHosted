@@ -202,6 +202,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   _carSubmergeStart = 0;
   private _respawnTimer: any = null;
   isLoaded = false;
+  loadingAssets = 0;
+  totalAssets = 0;
   showMap = false;
   showWeaponWheel = false;
   showLeaderboard = false;
@@ -331,112 +333,70 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     this.renderer = new GrandTheftRenderer(canvas);
-    this.renderer.initPlayerModel('assets/grandtheft/franklin/scene.gltf', false);
-    this.renderer.loadGLTF('assets/grandtheft/citylight/scene.gltf').then(lamps => {
-      if (lamps) this.renderer.lampMesh = lamps;
-    });
-    const npcConfigs: { path: string; needsFlip?: boolean }[] = [
+
+    // ── Build asset task list ──
+    interface AssetTask { load: () => Promise<any>; }
+    const tasks: AssetTask[] = [];
+
+    tasks.push({ load: () => this.renderer.initPlayerModel('assets/grandtheft/franklin/scene.gltf', false).then(() => {}) });
+    tasks.push({ load: () => this.renderer.loadGLTF('assets/grandtheft/citylight/scene.gltf').then(lamps => { if (lamps) this.renderer.lampMesh = lamps; }) });
+
+    for (const cfg of [
       { path: 'assets/grandtheft/jillValentine/scene.gltf', needsFlip: false },
       { path: 'assets/grandtheft/jessica_jones/scene.gltf' },
       { path: 'assets/grandtheft/redneck/scene.gltf', needsFlip: false },
-    ];
-    for (const cfg of npcConfigs) {
-      this.renderer.loadGLTF(cfg.path, false).then(npc => {
-        if (!npc) return;
-        if (cfg.needsFlip === false) {
-          for (const m of npc) m.needsFlip = false;
-        }
-        this.renderer.npcMeshes.push(npc);
-      });
+    ]) {
+      tasks.push({ load: () => this.renderer.loadGLTF(cfg.path, false).then(npc => { if (npc) { if (cfg.needsFlip === false) for (const m of npc) m.needsFlip = false; this.renderer.npcMeshes.push(npc); } }) });
     }
- 
+
     for (let ci = 1; ci <= 29; ci++) {
       if (ci === 27) continue;
       const ciStr = ci.toString();
-      this.renderer.loadGLTF(`assets/grandtheft/char${ciStr}/scene.gltf`, false).then(npc => {
-        if (npc) this.renderer.npcMeshes.push(npc);
-      });
+      tasks.push({ load: () => this.renderer.loadGLTF(`assets/grandtheft/char${ciStr}/scene.gltf`, false).then(npc => { if (npc) this.renderer.npcMeshes.push(npc); }) });
     }
-    
-    // ── Special-purpose meshes ──
-    const specialMeshes: {
-      path: string;
-      storeSkeleton: boolean;
-      assign: (m: CityMesh[]) => void;
-      scale?: number;
-    }[] = [
-        // Boats
-        { path: 'assets/grandtheft/star_wars_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
-        { path: 'assets/grandtheft/ultra-futuristic_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
 
-        // Helicopters
-        { path: 'assets/grandtheft/bell_uh-1_iroquois_huey/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m) },
-        { path: 'assets/grandtheft/bell_222_x/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m) },
-        { path: 'assets/grandtheft/bell_ch-146_griffon/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m) },
-        { path: 'assets/grandtheft/bell_206_jet_ranger/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m) },
-
-        // Planes
-        { path: 'assets/grandtheft/cirrus_sr_22/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m) },
-        { path: 'assets/grandtheft/low_poly_11_ea18g_growler/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m) },
-        { path: 'assets/grandtheft/low_poly_11_usaf_f22a_raptor/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m) },
-
-        // Motorcycles
-        { path: 'assets/grandtheft/pizzaMoped/scene.gltf', storeSkeleton: false, assign: m => this.renderer.motorcycleMeshes.push(m) },
-
-        // Police / Taxi
-        { path: 'assets/grandtheft/crownVic/scene.gltf', storeSkeleton: false, assign: m => this.renderer.policeCarMesh = m },
-        { path: 'assets/grandtheft/taxi/scene.gltf', storeSkeleton: false, assign: m => this.renderer.taxiMesh = m },
-
-        // Buildings / Props
-        { path: 'assets/grandtheft/hospital/scene.gltf', storeSkeleton: false, assign: m => this.renderer.hospitalMesh = m },
-        { path: 'assets/grandtheft/japaneseShop/scene.gltf', storeSkeleton: false, assign: m => this.renderer.homeBaseMesh = m },
-        { path: 'assets/grandtheft/vendingMachine/scene.gltf', storeSkeleton: false, assign: m => this.renderer.vendingMachineMesh = m },
-
-        // Hooker (special flip)
-        {
-          path: 'assets/grandtheft/hooker/scene.gltf',
-          storeSkeleton: false,
-          assign: m => {
-            for (const x of m) x.needsFlip = false;
-            this.renderer.hookerMesh = m;
-          }
-        },
-
-        // Weapons
-        { path: 'assets/grandtheft/rocket/scene.gltf', storeSkeleton: false, assign: m => this.renderer.rocketMesh = m },
-        { path: 'assets/grandtheft/colt/scene.gltf', storeSkeleton: false, assign: m => this.renderer.coltMesh = m },
-        { path: 'assets/grandtheft/money/scene.gltf', storeSkeleton: false, assign: m => this.renderer.moneyMesh = m },
-        { path: 'assets/grandtheft/rocket_launcher/scene.gltf', storeSkeleton: false, assign: m => this.renderer.rocketLauncherMesh = m },
-        { path: 'assets/grandtheft/m4a1_rifle/scene.gltf', storeSkeleton: false, assign: m => this.renderer.m4a1Mesh = m },
-        { path: 'assets/grandtheft/shotgun/scene.gltf', storeSkeleton: false, assign: m => this.renderer.shotgunMesh = m },
-
-        // Props
-        { path: 'assets/grandtheft/trafficLight/scene.gltf', storeSkeleton: false, assign: m => this.renderer.trafficLightMesh = m },
-        { path: 'assets/grandtheft/wooden_bench/scene.gltf', storeSkeleton: false, assign: m => this.renderer.benchMeshes.push(m) },
-        { path: 'assets/grandtheft/sm_prop_barrel_02__1__polygonbattleroyale_01_a_0/scene.gltf', storeSkeleton: false, assign: m => this.renderer.barrelMesh = m },
-        { path: 'assets/grandtheft/chicken/scene.gltf', storeSkeleton: false, assign: m => this.renderer.chickenMesh = m },
-        { path: 'assets/grandtheft/sm_env_tree_big_02__3__polygonmilitary_mat_01_a/scene.gltf', storeSkeleton: false, assign: m => this.renderer.palmTreeMesh = m },
-        { path: 'assets/grandtheft/psx_tree_low_poly_no_black_background/scene.gltf', storeSkeleton: false, assign: m => this.renderer.cityTreeMesh = m, scale: 1.5 },
-        { path: 'assets/grandtheft/cylindrical_tower/scene.gltf', storeSkeleton: false, assign: m => this.renderer.cylindricalTowerMesh = m, scale: 1.5 },
-        { path: 'assets/grandtheft/rusty_old_tropical_shop/scene.gltf', storeSkeleton: false, assign: m => this.renderer.tropicalShopMesh = m, scale: 1.2 },
-        { path: 'assets/grandtheft/airport_hangar/scene.gltf', storeSkeleton: false, assign: m => this.renderer.airportHangarMesh = m, scale: 1.5 },
-        { path: 'assets/grandtheft/fatboys_diner/scene.gltf', storeSkeleton: false, assign: m => this.renderer.ruralShopMesh = m, scale: 1.2 },
-        { path: 'assets/grandtheft/balloon/scene.gltf', storeSkeleton: false, assign: m => this.renderer.balloonMesh = m },
-        { path: 'assets/grandtheft/tatami_room/scene.gltf', storeSkeleton: false, assign: (m =>  this.renderer.tatamiRoomMesh = m), scale: 2 },
-        { path: 'assets/grandtheft/low_poly_wooden_cabine/scene.gltf', storeSkeleton: false, assign: m => this.renderer.woodenCabineMesh = m, scale: 1.5 },
-      ]; 
+    const specialMeshes: { path: string; storeSkeleton: boolean; assign: (m: CityMesh[]) => void; scale?: number }[] = [
+      { path: 'assets/grandtheft/star_wars_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
+      { path: 'assets/grandtheft/ultra-futuristic_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
+      { path: 'assets/grandtheft/bell_uh-1_iroquois_huey/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m) },
+      { path: 'assets/grandtheft/bell_222_x/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m) },
+      { path: 'assets/grandtheft/bell_ch-146_griffon/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m) },
+      { path: 'assets/grandtheft/bell_206_jet_ranger/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m) },
+      { path: 'assets/grandtheft/cirrus_sr_22/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m) },
+      { path: 'assets/grandtheft/low_poly_11_ea18g_growler/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m) },
+      { path: 'assets/grandtheft/low_poly_11_usaf_f22a_raptor/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m) },
+      { path: 'assets/grandtheft/pizzaMoped/scene.gltf', storeSkeleton: false, assign: m => this.renderer.motorcycleMeshes.push(m) },
+      { path: 'assets/grandtheft/crownVic/scene.gltf', storeSkeleton: false, assign: m => this.renderer.policeCarMesh = m },
+      { path: 'assets/grandtheft/taxi/scene.gltf', storeSkeleton: false, assign: m => this.renderer.taxiMesh = m },
+      { path: 'assets/grandtheft/hospital/scene.gltf', storeSkeleton: false, assign: m => this.renderer.hospitalMesh = m },
+      { path: 'assets/grandtheft/japaneseShop/scene.gltf', storeSkeleton: false, assign: m => this.renderer.homeBaseMesh = m },
+      { path: 'assets/grandtheft/vendingMachine/scene.gltf', storeSkeleton: false, assign: m => this.renderer.vendingMachineMesh = m },
+      { path: 'assets/grandtheft/hooker/scene.gltf', storeSkeleton: false, assign: m => { for (const x of m) x.needsFlip = false; this.renderer.hookerMesh = m; } },
+      { path: 'assets/grandtheft/rocket/scene.gltf', storeSkeleton: false, assign: m => this.renderer.rocketMesh = m },
+      { path: 'assets/grandtheft/colt/scene.gltf', storeSkeleton: false, assign: m => this.renderer.coltMesh = m },
+      { path: 'assets/grandtheft/money/scene.gltf', storeSkeleton: false, assign: m => this.renderer.moneyMesh = m },
+      { path: 'assets/grandtheft/rocket_launcher/scene.gltf', storeSkeleton: false, assign: m => this.renderer.rocketLauncherMesh = m },
+      { path: 'assets/grandtheft/m4a1_rifle/scene.gltf', storeSkeleton: false, assign: m => this.renderer.m4a1Mesh = m },
+      { path: 'assets/grandtheft/shotgun/scene.gltf', storeSkeleton: false, assign: m => this.renderer.shotgunMesh = m },
+      { path: 'assets/grandtheft/trafficLight/scene.gltf', storeSkeleton: false, assign: m => this.renderer.trafficLightMesh = m },
+      { path: 'assets/grandtheft/wooden_bench/scene.gltf', storeSkeleton: false, assign: m => this.renderer.benchMeshes.push(m) },
+      { path: 'assets/grandtheft/sm_prop_barrel_02__1__polygonbattleroyale_01_a_0/scene.gltf', storeSkeleton: false, assign: m => this.renderer.barrelMesh = m },
+      { path: 'assets/grandtheft/chicken/scene.gltf', storeSkeleton: false, assign: m => this.renderer.chickenMesh = m },
+      { path: 'assets/grandtheft/sm_env_tree_big_02__3__polygonmilitary_mat_01_a/scene.gltf', storeSkeleton: false, assign: m => this.renderer.palmTreeMesh = m },
+      { path: 'assets/grandtheft/psx_tree_low_poly_no_black_background/scene.gltf', storeSkeleton: false, assign: m => this.renderer.cityTreeMesh = m, scale: 1.5 },
+      { path: 'assets/grandtheft/cylindrical_tower/scene.gltf', storeSkeleton: false, assign: m => this.renderer.cylindricalTowerMesh = m, scale: 1.5 },
+      { path: 'assets/grandtheft/rusty_old_tropical_shop/scene.gltf', storeSkeleton: false, assign: m => this.renderer.tropicalShopMesh = m, scale: 1.2 },
+      { path: 'assets/grandtheft/airport_hangar/scene.gltf', storeSkeleton: false, assign: m => this.renderer.airportHangarMesh = m, scale: 1.5 },
+      { path: 'assets/grandtheft/fatboys_diner/scene.gltf', storeSkeleton: false, assign: m => this.renderer.ruralShopMesh = m, scale: 1.2 },
+      { path: 'assets/grandtheft/balloon/scene.gltf', storeSkeleton: false, assign: m => this.renderer.balloonMesh = m },
+      { path: 'assets/grandtheft/tatami_room/scene.gltf', storeSkeleton: false, assign: (m => this.renderer.tatamiRoomMesh = m), scale: 2 },
+      { path: 'assets/grandtheft/low_poly_wooden_cabine/scene.gltf', storeSkeleton: false, assign: m => this.renderer.woodenCabineMesh = m, scale: 1.5 },
+    ];
     for (const cfg of specialMeshes) {
-      this.renderer.loadGLTF(cfg.path, cfg.storeSkeleton).then(mesh => {
-        if (mesh) {
-          cfg.assign(mesh);
-          if (cfg.scale) {
-            for (const m of mesh) m.renderScale = cfg.scale; 
-          }
-        }
-      });
+      const sc = cfg.scale;
+      tasks.push({ load: () => this.renderer.loadGLTF(cfg.path, cfg.storeSkeleton).then(mesh => { if (mesh) { cfg.assign(mesh); if (sc) for (const m of mesh) m.renderScale = sc; } }) });
     }
 
-    // ── Car meshes ──
     const carConfigs = [
       { path: 'assets/grandtheft/lambo/scene.gltf' },
       { path: 'assets/grandtheft/2024_lamborghini_countach_lp5000_qv_lbworks/scene.gltf' },
@@ -449,11 +409,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       { path: 'assets/grandtheft/vehicle_-_subaru_brz_rocket_bunny/scene.gltf' },
       { path: 'assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf' },
       { path: 'assets/grandtheft/ac_-_bmw_1m_free/scene.gltf' },
-      { path: 'assets/grandtheft/bmw_vision_neue_klasse/scene.gltf' }, 
+      { path: 'assets/grandtheft/bmw_vision_neue_klasse/scene.gltf' },
       { path: 'assets/grandtheft/lexus_is300200/scene.gltf' },
       { path: 'assets/grandtheft/ps1_gt1-style_model_-_1992_emery_aventus/scene.gltf' },
-
-      // Special scale overrides
       { path: 'assets/grandtheft/kenworth_t2000/scene.gltf', scale: 3 },
       { path: 'assets/grandtheft/truck_toyota_corsa_b/scene.gltf', scale: 2 },
       { path: 'assets/grandtheft/freightliner_century/scene.gltf', scale: 2 },
@@ -461,63 +419,47 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       { path: 'assets/grandtheft/jeep/scene.gltf', scale: 1.5 },
     ];
     for (const cfg of carConfigs) {
-      this.renderer.loadGLTF(cfg.path).then(car => {
-        if (!car) return;
-
-        if (cfg.scale) {
-          for (const m of car) m.renderScale = cfg.scale;
-        }
-
-        this.renderer.carMeshes.push(car);
-      });
+      const sc = cfg.scale;
+      tasks.push({ load: () => this.renderer.loadGLTF(cfg.path).then(car => { if (!car) return; if (sc) for (const m of car) m.renderScale = sc; this.renderer.carMeshes.push(car); }) });
     }
- 
-    const armsOut: { animations?: any; skeleton?: any } = {};
-    this.renderer.loadGLTF('assets/grandtheft/first_person_arms/scene.gltf', true, armsOut).then(arms => {
-      if (arms) {
-        this.renderer.firstPersonArmsMesh = arms;
-        this.renderer.firstPersonArmsSkeleton = armsOut.skeleton ?? null;
-        this.renderer.firstPersonArmsAnimations = armsOut.animations ?? null;
-      }
-    }); 
-    const m23Out: { animations?: any; skeleton?: any } = {};
-    this.renderer.loadGLTF('assets/grandtheft/first_person_mark23/scene.gltf', false, m23Out).then(m => {
-      if (m) {
-        this.renderer.mark23Mesh = m;
-        this.renderer.mark23Skeleton = m23Out.skeleton ?? null;
-        this.renderer.mark23Animations = m23Out.animations ?? null;
-      }
-    });
-    
 
-    const buildingPromises: Promise<void>[] = [];
+    const armsOut: { animations?: any; skeleton?: any } = {};
+    tasks.push({ load: () => this.renderer.loadGLTF('assets/grandtheft/first_person_arms/scene.gltf', true, armsOut).then(arms => { if (arms) { this.renderer.firstPersonArmsMesh = arms; this.renderer.firstPersonArmsSkeleton = armsOut.skeleton ?? null; this.renderer.firstPersonArmsAnimations = armsOut.animations ?? null; } }) });
+    const m23Out: { animations?: any; skeleton?: any } = {};
+    tasks.push({ load: () => this.renderer.loadGLTF('assets/grandtheft/first_person_mark23/scene.gltf', false, m23Out).then(m => { if (m) { this.renderer.mark23Mesh = m; this.renderer.mark23Skeleton = m23Out.skeleton ?? null; this.renderer.mark23Animations = m23Out.animations ?? null; } }) });
+
+    // Building assets — tracked separately for cache clearing
+    const buildingTasks: AssetTask[] = [];
     for (const name of GrandTheftRenderer.AIRPORT_BUILDING_NAMES) {
-      buildingPromises.push(
-        this.renderer.loadGLTF(`assets/grandtheft/airport_buildings/${name}/scene.gltf`, false).then(m => {
-          if (m) this.renderer.airportBuildingMeshes.push(m);
-        })
-      );
+      buildingTasks.push({ load: () => this.renderer.loadGLTF(`assets/grandtheft/airport_buildings/${name}/scene.gltf`, false).then(m => { if (m) this.renderer.airportBuildingMeshes.push(m); }) });
     }
     for (const name of GrandTheftRenderer.CITY_BUILDING_NAMES) {
-      buildingPromises.push(
-        this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`, false).then(m => {
-          if (m) this.renderer.cityBuildingMeshes.push(m);
-        })
-      );
+      buildingTasks.push({ load: () => this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`, false).then(m => { if (m) this.renderer.cityBuildingMeshes.push(m); }) });
     }
     for (const name of GrandTheftRenderer.SUBURB_BUILDING_NAMES) {
-      buildingPromises.push(
-        this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`, false).then(m => {
-          if (m) this.renderer.suburbBuildingMeshes.push(m);
-        })
-      );
+      buildingTasks.push({ load: () => this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`, false).then(m => { if (m) this.renderer.suburbBuildingMeshes.push(m); }) });
     }
-    Promise.all(buildingPromises).then(() => {
-      this.renderer.clearChunkCache();
-    });
+    const allTasks = [...tasks, ...buildingTasks];
+    this.totalAssets = allTasks.length;
+    this.loadingAssets = this.totalAssets;
 
-
-    this.isLoaded = true;
+    const BATCH_SIZE = this.isMobile ? 3 : 6;
+    let idx = 0;
+    const processNextBatch = () => {
+      const batch = allTasks.slice(idx, idx + BATCH_SIZE);
+      if (batch.length === 0) {
+        this.renderer.clearChunkCache();
+        this.isLoaded = true;
+        this.loadingAssets = 0;
+        return;
+      }
+      idx += batch.length;
+      Promise.all(batch.map(t => t.load().catch(() => {}))).then(() => {
+        this.loadingAssets = this.totalAssets - idx;
+        processNextBatch();
+      });
+    };
+    processNextBatch();
 
     if (!this.isMobile) {
       canvas.addEventListener('click', () => {

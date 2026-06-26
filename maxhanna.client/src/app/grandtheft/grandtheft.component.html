@@ -9,7 +9,12 @@
   </div>
 
   <div id="gt-container">
-    <canvas id="gt-canvas" #gtCanvas></canvas>
+    <canvas id="gt-canvas" #gtCanvas [class.hidden]="loadingAssets > 0"></canvas>
+    <div id="gt-loading" *ngIf="loadingAssets > 0">
+      <div class="gt-loading-spinner"></div>
+      <div class="gt-loading-text">Loading Grand Theft...</div>
+      <div class="gt-loading-progress">{{ totalAssets - loadingAssets }} / {{ totalAssets }}</div>
+    </div>
 
     <div id="gt-wanted" *ngIf="wantedLevel > 0">
       <span *ngFor="let star of [1,2,3,4,5]" [class.active]="star <= wantedLevel">★</span>
