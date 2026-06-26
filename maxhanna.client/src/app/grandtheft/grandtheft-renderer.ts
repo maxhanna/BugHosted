@@ -455,8 +455,7 @@ export class GrandTheftRenderer {
     'low_poly_pharmacy', 'low_poly_police_station', 'low_poly_school', 'low_poly_shopping_center',
     'modern_building', 'panel_apartment_placeholder', 'psx_groceries_store', 'pyaterochka_3d', 'supermarket',
     'residential_complex_modern_apartment_building', 'ukraine_building', 'abandoned_building_gameready',
-    'building_no_6_form_tokyo_otemachi_building_pack', 'psx_japanese_warehouse',
-    'city_building', 'low_poly_apartment_building_1', 'michaelsoft',
+    'psx_japanese_warehouse', 'city_building', 'low_poly_apartment_building_1', 'michaelsoft',
     'low_poly_building_edgewater_lofts',
     'fatboys_diner', 'brooklyn_street_building_low_poly', 'brooklyn_street_cornerhouse_low_poly',
     'korean_apartment', 'okraglak_round_office_building_poznan',
@@ -1899,66 +1898,106 @@ void main() {
           continue;
         }
 
-        // ── AEROPORT block: runway + terminal + parking ──
+        // ── AEROPORT block: runway + hangars + planes + helipads ──
         if (isAeroport) {
-          const isCentralColumn = bx === Math.floor(blocksPerChunk / 2);
-          if (isCentralColumn) {
-            // Runway strip (narrow, centered — buildings go to the sides)
-            this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ, 8, 0.2, GRID_PITCH, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
-            // Centerline dashes
-            for (let dz = -GRID_PITCH / 2 + 4; dz < GRID_PITCH / 2; dz += 8) {
-              this.addBox(verts, indices, blockWorldX, 0.11, blockWorldZ + dz, 0.5, 0.05, 3, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
-            }
+          // Runway strip (always down the center)
+          this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ, 8, 0.2, GRID_PITCH, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+          for (let dz = -GRID_PITCH / 2 + 4; dz < GRID_PITCH / 2; dz += 8) {
+            this.addBox(verts, indices, blockWorldX, 0.11, blockWorldZ + dz, 0.5, 0.05, 3, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
           }
 
-          const airportModels = this.airportBuildingMeshes;
-          if (airportModels.length > 0) {
-            for (const side of [-1, 1]) {
-              const model = airportModels[Math.floor(rng() * airportModels.length)];
-              const bScale = 3 + rng() * 2;
-              const bMinY = this.getModelMinY(model);
-              const buildingX = blockWorldX + side * 24;
-              const buildingZ = blockWorldZ + (rng() - 0.5) * 16;
-              buildings.push({
-                model,
-                x: buildingX,
-                y: -bMinY * bScale + 0.15,
-                z: buildingZ,
-                yaw: side > 0 ? -Math.PI / 2 : Math.PI / 2,
-                scale: [bScale, bScale, bScale]
-              });
+          // Deterministic chunk role — 2% terminal, 15% helipad, 83% hangar
+          const aRole = rng();
+          const hasTerminal = aRole < 0.02;
+          const hasHelipad = aRole >= 0.02 && aRole < 0.17;
+          const HS = 2.5; // hangar scale multiplier
 
-              // Parking stalls in front of the building (between building and runway)
-              const parkingX = buildingX - side * 8;
-              const stallW = 3, stallD = 5;
-              for (let pi = 0; pi < 5; pi++) {
-                const stallZ = buildingZ - 9 + pi * (stallW + 0.5);
-                this.addBox(verts, indices, parkingX - stallW / 2, 0.02, stallZ, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
-                this.addBox(verts, indices, parkingX + stallW / 2, 0.02, stallZ, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
-                this.addBox(verts, indices, parkingX, 0.02, stallZ - stallD / 2, stallW, 0.04, 0.15, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
+          if (hasTerminal && this.airportBuildingMeshes.length > 0) {
+            // Terminal building on one side
+            const term = this.airportBuildingMeshes[Math.floor(rng() * this.airportBuildingMeshes.length)];
+            const bMinY = this.getModelMinY(term);
+            const bx_ = blockWorldX - 24;
+            const bz_ = blockWorldZ + (rng() - 0.5) * 14;
+            buildings.push({ model: term, x: bx_, y: -bMinY * 3 + 0.15, z: bz_, yaw: Math.PI / 2, scale: [3, 3, 3] });
+            // Parking stalls with parked cars
+            for (let pi = 0; pi < 5; pi++) {
+              const sz = bz_ - 9 + pi * 3.5;
+              this.addBox(verts, indices, bx_ + 8, 0.02, sz, 0.15, 0.04, 5, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(verts, indices, bx_ + 12, 0.02, sz, 0.15, 0.04, 5, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
+              this.addBox(verts, indices, bx_ + 10, 0.02, sz - 2.5, 4, 0.04, 0.15, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
+              // Place a parked car in every other stall
+              if (pi % 2 === 0 && this.carMeshes.length > 0) {
+                buildings.push({ model: this.carMeshes[Math.floor(rng() * this.carMeshes.length)], x: bx_ + 10, y: 0.15, z: sz, yaw: 0, scale: [1, 1, 1] });
               }
             }
-            // Hangar on the outer edge of the airport block
+            // Big hangar opposite side
             if (this.airportHangarMesh) {
-              for (const side of [-1, 1]) {
-                const hx = blockWorldX + side * 36;
-                const hz = blockWorldZ;
-                const hMinY = this.getModelMinY(this.airportHangarMesh);
-                buildings.push({
-                  model: this.airportHangarMesh,
-                  x: hx,
-                  y: -hMinY * 1 + 0.15,
-                  z: hz,
-                  yaw: side > 0 ? -Math.PI / 2 : Math.PI / 2,
-                  scale: [1, 1, 1]
-                });
+              const hm = this.airportHangarMesh;
+              buildings.push({ model: hm, x: blockWorldX + 35, y: -this.getModelMinY(hm) * HS + 0.15, z: blockWorldZ, yaw: -Math.PI / 2, scale: [HS, HS, HS] });
+            }
+          } else if (hasHelipad) {
+            // ── Helipad with H marking ──
+            const padX = blockWorldX - 25;
+            const padZ = blockWorldZ;
+            this.addBox(verts, indices, padX, 0.05, padZ, 16, 0.1, 16, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
+            // Yellow border
+            this.addBox(verts, indices, padX - 8, 0.06, padZ, 0.3, 0.05, 16, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, padX + 8, 0.06, padZ, 0.3, 0.05, 16, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, padX, 0.06, padZ - 8, 16, 0.05, 0.3, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, padX, 0.06, padZ + 8, 16, 0.05, 0.3, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
+            // White H
+            const hw = 0.8, hh = 4;
+            this.addBox(verts, indices, padX - 2.5, 0.06, padZ, hw, 0.06, hh, 1, 1, 1, 0.9, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, padX + 2.5, 0.06, padZ, hw, 0.06, hh, 1, 1, 1, 0.9, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, padX, 0.06, padZ, hh * 0.6, 0.06, hw, 1, 1, 1, 0.9, idxOffset); idxOffset += 24;
+            // Helicopter on pad
+            if (this.helicopterMeshes.length > 0) {
+              const heli = this.helicopterMeshes[Math.floor(rng() * this.helicopterMeshes.length)];
+              buildings.push({ model: heli, x: padX, y: 0.15, z: padZ, yaw: rng() * Math.PI * 2, scale: [1, 1, 1] });
+            }
+            // Big hangar + plane on opposite side
+            if (this.airportHangarMesh) {
+              buildings.push({ model: this.airportHangarMesh, x: blockWorldX + 35, y: -this.getModelMinY(this.airportHangarMesh) * HS + 0.15, z: blockWorldZ, yaw: -Math.PI / 2, scale: [HS, HS, HS] });
+              if (this.planeMeshes.length > 0) {
+                buildings.push({ model: this.planeMeshes[Math.floor(rng() * this.planeMeshes.length)], x: blockWorldX + 35, y: 0.15, z: blockWorldZ + 18, yaw: Math.PI, scale: [1, 1, 1] });
               }
             }
           } else {
-            // Fallback when no GLTF airport models loaded
-            const tx = blockWorldX - 10 + rng() * 20;
-            this.addBox(verts, indices, tx, 4, blockWorldZ, 14, 8, 10, 0.55, 0.55, 0.58, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, tx, 8.2, blockWorldZ, 15, 0.3, 11, 0.75, 0.75, 0.78, 1.0, idxOffset); idxOffset += 24;
+            // ── Hangar row (default) — 2 big hangars per side with planes ──
+            for (const side of [-1, 1]) {
+              for (let hi = 0; hi < 2; hi++) {
+                if (this.airportHangarMesh) {
+                  const hz = blockWorldZ - 16 + hi * 30;
+                  const hx = blockWorldX + side * 35;
+                  buildings.push({
+                    model: this.airportHangarMesh,
+                    x: hx, y: -this.getModelMinY(this.airportHangarMesh) * HS + 0.15, z: hz,
+                    yaw: side > 0 ? -Math.PI / 2 : Math.PI / 2,
+                    scale: [HS, HS, HS]
+                  });
+                  // Plane in front of each hangar
+                  if (this.planeMeshes.length > 0) {
+                    const pz = hz + (side > 0 ? -14 : 14);
+                    buildings.push({
+                      model: this.planeMeshes[Math.floor(rng() * this.planeMeshes.length)],
+                      x: hx, y: 0.15, z: pz,
+                      yaw: side > 0 ? -Math.PI / 2 : Math.PI / 2,
+                      scale: [1, 1, 1]
+                    });
+                  }
+                }
+              }
+            }
+          }
+
+          // Retaining wall where aeroport meets ocean
+          for (const [ddx, ddz] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+            if (getBiome(cx + ddx, cz + ddz) !== 'ocean') continue;
+            const wallLen = ddx !== 0 ? 2 : GRID_PITCH;
+            const wallWid = ddz !== 0 ? 2 : GRID_PITCH;
+            const wx = ddx !== 0 ? blockWorldX + ddx * (GRID_PITCH / 2 - 1) : blockWorldX;
+            const wz = ddz !== 0 ? blockWorldZ + ddz * (GRID_PITCH / 2 - 1) : blockWorldZ;
+            this.addBox(verts, indices, wx, 1.25, wz, wallLen, 2.5, wallWid, 0.25, 0.25, 0.27, 1.0, idxOffset); idxOffset += 24;
           }
           continue;
         }

@@ -56,9 +56,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() displayTotal = true;
   @Input() showSpaceForNotifications = false;
   @Input() forceSearchSameDirectory: boolean = false;
+  imageIndex: number = 0;
   @Input() showHiddenFiles: boolean = false; // default: do not show hidden files unless user toggles or user setting enables it
   @Input() showTopics: boolean = true;
   @Input() captureNotifications: boolean = false;
+  imageIndex: number = 0;
   @Input() currentPage = this.defaultCurrentPage;
   @Input() massDeleteMode: boolean = false;
   @Input() disabled = false;
@@ -2569,11 +2571,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }, 50);
     this.changeDetectorRef.detectChanges();
   }
-
   closeImagePreview() {
     this.isShowingImagePreview = false;
     this.imagePreviewUrl = null;
-    this.parentRef?.closeOverlay();
+    this.imageIndex = 0;
   }
   private startAppendingMode() {
     this.appending = true;

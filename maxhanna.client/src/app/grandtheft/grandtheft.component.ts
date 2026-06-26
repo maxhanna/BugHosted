@@ -187,6 +187,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   localPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; targetX: number; targetZ: number; waitTimer: number }[] = [];
   private pedSpawnTimer = 0;
   private pedIdCounter = 20000;
+  airportLotCars: { x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; phase: number; dir: number; speed: number; p0: { x: number; z: number }; p1: { x: number; z: number } }[] = [];
   hudSpeed = 0;
   score = 0;
   private scoreTimer = 0;
@@ -542,6 +543,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.startPolling();
     this.startNPCPolling();
     this.initTraffic();
+    setTimeout(() => this.trySpawnAirportLotCars(), 2000);
   }
 
   private initTraffic() {
@@ -553,6 +555,46 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
+  private trySpawnAirportLotCars() {
+    if (this.renderer.carMeshes.length > 0) {
+      this.spawnAirportLotCars();
+    } else {
+      setTimeout(() => this.trySpawnAirportLotCars(), 1000);
+    }
+  }
+  private spawnAirportLotCars() {
+    if (this.renderer.carMeshes.length === 0) return;
+    const zones: { cx: number; cz: number }[] = [
+      { cx: 1, cz: -3 }, { cx: 11, cz: -6 }, { cx: 26, cz: -8 }, { cx: 41, cz: -12 }, { cx: 39, cz: 14 },
+    ];
+    let spawned = 0;
+    for (const z of zones) {
+      if (spawned >= 2) break;
+      const lotX = z.cx * 80 + 16;
+      const lotZ = z.cz * 80 + 40;
+      const color = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
+      this.airportLotCars.push({
+        x: lotX, z: lotZ + 20, yaw: 0,
+        mesh: this.renderer.getNPCCarMesh([color[0], color[1], color[2]], -(1000 + spawned)),
+        phase: 0, dir: 1, speed: 6 + Math.random() * 4,
+        p0: { x: lotX, z: lotZ + 20 },
+        p1: { x: lotX, z: lotZ - 5 },
+        hasDriver: false,
+      } as any);
+      spawned++;
+    }
+  }
+  private updateAirportLotCars(dt: number) {
+    for (const ac of this.airportLotCars) {
+      ac.phase += dt * ac.dir * (ac.speed / Math.hypot(ac.p1.x - ac.p0.x, ac.p1.z - ac.p0.z));
+      if (ac.phase >= 1) { ac.phase = 1; ac.dir = -1; }
+      if (ac.phase <= 0) { ac.phase = 0; ac.dir = 1; }
+      const t = ac.phase;
+      ac.x = ac.p0.x + (ac.p1.x - ac.p0.x) * t;
+      ac.z = ac.p0.z + (ac.p1.z - ac.p0.z) * t;
+      ac.yaw = ac.dir > 0 ? 0 : Math.PI;
+    }
+  }
   private spawnTrafficCar() {
     if (this.trafficNodes.length < 4 || this.trafficLanes.length === 0) return;
     const lane = this.trafficLanes[Math.floor(Math.random() * this.trafficLanes.length)];
@@ -2561,6 +2603,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateNPCInterpolation();
     this.updatePoliceSiren();
     this.updateTaxiMission(dt);
+    this.updateAirportLotCars(dt);
 
     if (this.vehicleBannerTimer > 0) this.vehicleBannerTimer -= dt;
     if (this.damageAlpha > 0) this.damageAlpha = Math.max(0, this.damageAlpha - dt * 0.5);
@@ -2603,13 +2646,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     if (this.isInCar && this.carHealth > 0 && this.vehicleType !== 'boat') {
       const ocx = Math.floor(this.carX / 80), ocz = Math.floor(this.carZ / 80);
-      const inOcean = !(ocx >= -2 && ocx <= 3 && ocz >= -2 && ocz <= 2) &&
+      // Land ranges include all biome zones (city, suburb, beach, aeroport, etc.)
+      const inOcean = !(ocx >= -2 && ocx <= 3 && ocz >= -5 && ocz <= 2) &&
         !(ocx >= 4 && ocx <= 5 && ocz >= -1 && ocz <= 1) &&
-        !(ocx >= 6 && ocx <= 15 && ocz >= -5 && ocz <= 5) &&
+        !(ocx >= 6 && ocx <= 15 && ocz >= -8 && ocz <= 5) &&
         !(ocx >= 16 && ocx <= 17 && ocz >= -2 && ocz <= 2) &&
-        !(ocx >= 18 && ocx <= 30 && ocz >= -7 && ocz <= 7) &&
+        !(ocx >= 18 && ocx <= 30 && ocz >= -11 && ocz <= 7) &&
         !(ocx >= 31 && ocx <= 32 && ocz >= -3 && ocz <= 3) &&
-        !(ocx >= 33 && ocx <= 50 && ocz >= -10 && ocz <= 10);
+        !(ocx >= 33 && ocx <= 50 && ocz >= -14 && ocz <= 17);
       if (inOcean) {
         if (!this._carSubmerged) { this._carSubmerged = true; this._carSubmergeStart = performance.now() / 1000; }
         const subElapsed = (performance.now() / 1000) - this._carSubmergeStart;
@@ -2710,7 +2754,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const camZ = targetZ - Math.cos(this.camYaw) * effectiveDist;
     const camY = targetY + effectiveHeight;
     const renderMesh = this.isInCar ? this.playerVehicleMesh : (this.firstPerson ? null : this.renderer.playerMesh);
-    const allNPCs = [...this.serverNPCs, ...this.trafficCars];
+    const allNPCs = [...this.serverNPCs, ...this.trafficCars, ...this.airportLotCars];
     const allPeds = [...this.serverPedestrians, ...this.localPedestrians];
     const rockOffset = this.getCarRockOffset();
     const carRoll = this.getCarRockRoll();
