@@ -291,6 +291,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   vehicleBannerTimer = 0;
   radioOn = false;
   radioSongs: string[] = [];
+  altUpPressed = false;
+  altDownPressed = false;
   radioIndex = -1;
   radioSongTitle = '';
   private ytPlayer: any = null;
@@ -525,7 +527,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     document.addEventListener('keydown', (e) => {
       this.keys.add(e.code);
-      if (e.code === 'Space') e.preventDefault();
+      if (e.code === 'Space') { e.preventDefault(); this.altUpPressed = true; }
+      if (e.code === 'ShiftLeft') this.altDownPressed = true;
       if (this.isChatOpen) {
         if (e.code === 'Enter') { this.sendChatMessage(); }
         if (e.code === 'Escape') { this.isChatOpen = false; this.chatInput = ''; }
@@ -547,7 +550,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
       if (e.code === 'Escape') this.showWeaponWheel = false;
     });
-    document.addEventListener('keyup', (e) => { this.keys.delete(e.code); });
+    document.addEventListener('keyup', (e) => {
+      this.keys.delete(e.code);
+      if (e.code === 'Space') this.altUpPressed = false;
+      if (e.code === 'ShiftLeft') this.altDownPressed = false;
+    });
 
     if (!this.isMobile) {
       document.addEventListener('mousemove', (e) => {
@@ -3076,20 +3083,22 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private updateHelicopter(dt: number) {
-    const maxSpeed = 35, climbRate = 10, yawSpeed = 2.0;
+    const maxSpeed = 35, climbRate = 12, yawSpeed = 2.0;
 
     this.carYaw = this.camYaw;
 
-    if (this.keys.has('KeyW')) this.carVy = Math.min(this.carVy + climbRate * dt, 8);
-    else if (this.keys.has('KeyS')) this.carVy = Math.max(this.carVy - climbRate * dt, -8);
+    if (this.altUpPressed) this.carVy = Math.min(this.carVy + climbRate * dt, 10);
+    else if (this.altDownPressed) this.carVy = Math.max(this.carVy - climbRate * dt, -10);
     else this.carVy *= 0.92;
 
-    const fwdTilt = Math.max(-1, Math.min(1, -this.camPitch * 0.8));
-    this.carPitch = -fwdTilt * 0.3;
+    let fwdInput = 0;
+    if (this.keys.has('KeyW')) fwdInput = 1;
+    if (this.keys.has('KeyS')) fwdInput = -1;
+    this.carPitch = -fwdInput * 0.25;
 
     const forwardX = Math.sin(this.carYaw), forwardZ = Math.cos(this.carYaw);
-    const targetVx = forwardX * fwdTilt * maxSpeed;
-    const targetVz = forwardZ * fwdTilt * maxSpeed;
+    const targetVx = forwardX * fwdInput * maxSpeed;
+    const targetVz = forwardZ * fwdInput * maxSpeed;
     this.carVx += (targetVx - this.carVx) * Math.min(1, 3 * dt);
     this.carVz += (targetVz - this.carVz) * Math.min(1, 3 * dt);
 
@@ -3115,49 +3124,49 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private updatePlane(dt: number) {
-    const accel = 20, maxSpeed = 70, stallSpeed = 8, turnSpeed = 1.2;
+    const maxSpeed = 70, minSpeed = 5, turnSpeed = 1.2;
+    const pitchSpeed = 1.8, rollSpeed = 1.8, altClimbRate = 15;
 
-    if (this.keys.has('KeyW')) this.carSpeed = Math.min(this.carSpeed + accel * dt, maxSpeed);
-    if (this.keys.has('KeyS')) this.carSpeed = Math.max(this.carSpeed - accel * dt, 0);
-
-    if (this.isMobile && this.joystickActive) {
-      if (this.joystickY > 0.1) this.carSpeed = Math.min(this.carSpeed + accel * this.joystickY * dt, maxSpeed);
-      else if (this.joystickY < -0.1) this.carSpeed = Math.max(this.carSpeed + accel * this.joystickY * dt, 0);
+    if (this.keys.has('KeyW')) this.carPitch = Math.max(-0.6, this.carPitch - pitchSpeed * dt);
+    if (this.keys.has('KeyS')) this.carPitch = Math.min(0.6, this.carPitch + pitchSpeed * dt);
+    if (!this.keys.has('KeyW') && !this.keys.has('KeyS') && !this.isPointerLocked) {
+      this.carPitch *= 0.95;
     }
-
-    if (this.keys.has('KeyA')) this.carRoll = Math.max(-0.8, this.carRoll - 1.5 * dt);
-    if (this.keys.has('KeyD')) this.carRoll = Math.min(0.8, this.carRoll + 1.5 * dt);
 
     if (this.isPointerLocked) {
       const pitchInput = -this.camPitch * 0.3;
-      this.carPitch = Math.max(-0.5, Math.min(0.5, this.carPitch + pitchInput));
+      this.carPitch = Math.max(-0.6, Math.min(0.6, this.carPitch + pitchInput));
     }
 
-    if (this.keys.has('Space')) this.carPitch = Math.max(-0.5, this.carPitch - 1.5 * dt);
-    else if (this.keys.has('ShiftLeft')) this.carPitch = Math.min(0.5, this.carPitch + 1.5 * dt);
-    else if (!this.isPointerLocked) this.carPitch *= 0.95;
-
-    const bankFactor = this.carRoll * 1.5;
-    this.carYaw += bankFactor * turnSpeed * dt * Math.min(1, this.carSpeed / 20);
-
+    if (this.keys.has('KeyA')) this.carRoll = Math.max(-0.8, this.carRoll - rollSpeed * dt);
+    if (this.keys.has('KeyD')) this.carRoll = Math.min(0.8, this.carRoll + rollSpeed * dt);
     if (!this.keys.has('KeyA') && !this.keys.has('KeyD')) {
       this.carRoll *= Math.max(0, 1 - 2.0 * dt);
     }
 
+    const bankFactor = this.carRoll * 1.5;
+    this.carYaw += bankFactor * turnSpeed * dt * Math.min(1, this.carSpeed / 20);
+
+    const sinPitch = Math.sin(this.carPitch);
+    const cosPitch = Math.cos(this.carPitch);
+
+    const targetSpeed = maxSpeed * (0.5 + 0.5 * cosPitch);
+    if (this.carSpeed < targetSpeed) this.carSpeed = Math.min(this.carSpeed + 12 * dt, targetSpeed);
+    else if (this.carSpeed > targetSpeed) this.carSpeed = Math.max(this.carSpeed - 8 * dt, targetSpeed);
+
     const liftFactor = 0.006;
     const speed = this.carSpeed;
-    const cosPitch = Math.cos(this.carPitch);
-    const sinPitch = Math.sin(this.carPitch);
     const lift = speed * speed * cosPitch * liftFactor;
     const dragForce = speed * 0.02;
-
     const gravity = -5;
-
     const thrustVy = speed * sinPitch * 0.3;
     this.carVy += (lift + thrustVy + gravity - this.carVy * 0.5) * dt;
     this.carSpeed -= dragForce * dt;
 
-    if (speed < stallSpeed && this.carPitch < -0.05) {
+    if (this.altUpPressed) this.carVy += altClimbRate * dt;
+    if (this.altDownPressed) this.carVy -= altClimbRate * dt;
+
+    if (speed < minSpeed && this.carPitch < -0.05) {
       this.carVy += (gravity * 1.5) * dt;
     }
 
@@ -3167,7 +3176,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carY += this.carVy * dt;
 
     if (this.carY < CAR_HEIGHT) {
-      if (this.carSpeed > stallSpeed && Math.abs(this.carPitch) > 0.3) {
+      if (this.carSpeed > minSpeed && Math.abs(this.carPitch) > 0.3) {
         this.carHealth -= 50 * dt;
       }
       this.carY = CAR_HEIGHT;

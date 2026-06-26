@@ -1812,7 +1812,6 @@ void main() {
           continue;
         }
 
-        // ── AEROPORT block: runway + terminal ──
         // ── AEROPORT block: runway + terminal + parking ──
         if (isAeroport) {
           const isCentralColumn = bx === Math.floor(blocksPerChunk / 2);
@@ -1827,14 +1826,11 @@ void main() {
 
           const airportModels = this.airportBuildingMeshes;
           if (airportModels.length > 0) {
-            // Place GLTF airport buildings on either side of the runway,
-            // offset in X so they don't cover the runway centerline.
             for (const side of [-1, 1]) {
-              if (rng() < 0.5) continue; // ~50% chance per side per chunk
               const model = airportModels[Math.floor(rng() * airportModels.length)];
               const bScale = 3 + rng() * 2;
               const bMinY = this.getModelMinY(model);
-              const buildingX = blockWorldX + side * 24; // well clear of the 8-wide runway
+              const buildingX = blockWorldX + side * 24;
               const buildingZ = blockWorldZ + (rng() - 0.5) * 16;
               buildings.push({
                 model,
@@ -1848,24 +1844,18 @@ void main() {
               // Parking stalls in front of the building (between building and runway)
               const parkingX = buildingX - side * 8;
               const stallW = 3, stallD = 5;
-              for (let pi = 0; pi < 3; pi++) {
-                const stallZ = buildingZ - 7 + pi * (stallW + 0.5);
-                // Left stripe
+              for (let pi = 0; pi < 5; pi++) {
+                const stallZ = buildingZ - 9 + pi * (stallW + 0.5);
                 this.addBox(verts, indices, parkingX - stallW / 2, 0.02, stallZ, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
-                // Right stripe
                 this.addBox(verts, indices, parkingX + stallW / 2, 0.02, stallZ, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
-                // Back stripe
                 this.addBox(verts, indices, parkingX, 0.02, stallZ - stallD / 2, stallW, 0.04, 0.15, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
               }
             }
           } else {
-            // Fallback: original box terminals when no GLTF models loaded
-            const isTerminalRow = by === 0 || by === blocksPerChunk - 1;
-            if (isTerminalRow && rng() < 0.35) {
-              const tx = blockWorldX - 10 + rng() * 20;
-              this.addBox(verts, indices, tx, 4, blockWorldZ, 14, 8, 10, 0.55, 0.55, 0.58, 1.0, idxOffset); idxOffset += 24;
-              this.addBox(verts, indices, tx, 8.2, blockWorldZ, 15, 0.3, 11, 0.75, 0.75, 0.78, 1.0, idxOffset); idxOffset += 24;
-            }
+            // Fallback when no GLTF airport models loaded
+            const tx = blockWorldX - 10 + rng() * 20;
+            this.addBox(verts, indices, tx, 4, blockWorldZ, 14, 8, 10, 0.55, 0.55, 0.58, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, tx, 8.2, blockWorldZ, 15, 0.3, 11, 0.75, 0.75, 0.78, 1.0, idxOffset); idxOffset += 24;
           }
           continue;
         }

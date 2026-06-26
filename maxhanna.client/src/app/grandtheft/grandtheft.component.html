@@ -62,6 +62,10 @@
       <div id="gt-controls-hint" *ngIf="!isMobile">
         WASD Move | Mouse Aim | Click Shoot | E Vehicle | V View | M Map | L Leaderboard
       </div>
+      <div id="gt-alt-buttons" *ngIf="isInCar && (vehicleType === 'helicopter' || vehicleType === 'plane')">
+        <button class="gt-alt-btn" (touchstart)="altUpPressed = true" (touchend)="altUpPressed = false" (mousedown)="altUpPressed = true" (mouseup)="altUpPressed = false" (mouseleave)="altUpPressed = false">▲</button>
+        <button class="gt-alt-btn" (touchstart)="altDownPressed = true" (touchend)="altDownPressed = false" (mousedown)="altDownPressed = true" (mouseup)="altDownPressed = false" (mouseleave)="altDownPressed = false">▼</button>
+      </div>
     </div>
 
     <div id="gt-map" *ngIf="showMap">
