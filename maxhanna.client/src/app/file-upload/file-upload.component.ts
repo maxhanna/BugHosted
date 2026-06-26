@@ -38,6 +38,7 @@ export class FileUploadComponent implements AfterViewInit {
   uploadFileList: Array<File> = [];
   uploadedFileList: FileEntry[] = [];
   duplicateFileNames: string[] = [];
+  maxFileAttachments: number = this.maxSelectedFiles;
   uploadProgress: { [key: string]: number } = {};
   uploadErrors: { [key: string]: string } = {};
   isUploading: boolean = false;
@@ -200,6 +201,10 @@ export class FileUploadComponent implements AfterViewInit {
     }
   }
 
+  isFileLimitReached(): boolean {
+    return this.uploadFileList.length >= this.maxFileAttachments;
+  }
+  
   private handleUploadedFile(event: any, filesArray: File[]) {
     const parsedFiles = (JSON.parse(event.body) as FileEntry[]);
     // API returns an array but we subscribe per original file; take first match for progress association

@@ -1,13 +1,14 @@
-<button type="submit"
-  class="uploadButton"
-  [class]="getOverallProgress() == 100 ? 'finalizingButton' : ''"
-  (click)="uploadSubmitClicked()"
-  title="Upload file(s)">
-  {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') : (uploadFileList.length > 0 ? '✅' : '⏫' + uploadButtonText)}}
+﻿<button type="submit" class="uploadButton" [class]="getOverallProgress() ==100 ? 'finalizingButton' : ''"
+  (click)="uploadSubmitClicked()" [disabled]="isFileLimitReached()" title="Upload file(s)">
+  {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') : (uploadFileList.length
+  > 0 ? '✅' : '⏫' + uploadButtonText)}}
 </button>
-<input #fileInput type="file" (change)="uploadInitiate()" [accept]="allowedFileTypes" style="visibility: hidden; position: absolute; width:1px;" multiple />
+<input #fileInput type="file" (change)="uploadInitiate()" [accept]="allowedFileTypes"
+  style="visibility: hidden; position: absolute; width:1px;" multiple />
 
-<div class="fileListContainer" #fileListContainer *ngIf="displayListContainer" [class]="displayListContainer ? 'open' : ''">
+<div class="fileListContainer" #fileListContainer *ngIf="displayListContainer"
+  [class]="displayListContainer ? 'open' : ''">
+  <div *ngIf="uploadFileList.length >= maxFileAttachments" class="errorBadge">Maximum file attachments reached</div>
 
   <div *ngIf="displayPrivatePublicOption && !getOverallProgress()">
     <span>Select file(s) visibility:</span>
@@ -20,14 +21,14 @@
     <span class="forceRegularFontColor">
       {{isUploading ? 'Uploading' : 'Upload'}}
     </span>
-    {{" "}}<span class="secondaryFontColor">{{uploadFileList.length}}</span> 
+    {{" "}}<span class="secondaryFontColor">{{uploadFileList.length}}</span>
     {{" "}}<span class="forceRegularFontColor">files to</span>
     {{" "}}<span class="thirdFontColor bold italics">
       {{currentDirectory && currentDirectory != '' ? currentDirectory : '/'}}
     </span>
     {{" "}}<span class="forceRegularFontColor">{{isUploading ? '...' : '?'}}</span>
   </div>
-  <div style="margin-top:35px; width: 100%;">  
+  <div style="margin-top:35px; width: 100%;">
     <div class="uploadFileActionWrapper" *ngIf="!isUploading">
       <div class="uploadFileActionDiv" *ngIf="displayOptionsAndTopicsButtons">
         <button (click)="displayFileUploadOptions = !displayFileUploadOptions" class="cursorPointer smallFont">
@@ -39,15 +40,10 @@
         <button (click)="displayFileUploadTopics = !displayFileUploadTopics" class="cursorPointer smallFont">
           Topics [{{displayFileUploadTopics ? '-' : '+'}}]
         </button>
-      </div> 
+      </div>
       <div *ngIf="displayFileUploadTopics">
-        <app-topics #topicComponent
-                    [isDropdown]="true"
-                    [user]="inputtedParentRef?.user"
-                    [parent]="inputtedParentRef"
-                    [attachedTopics]="undefined"
-                    [preventClosingOverlay]="true"
-                    (topicAdded)="onTopicAdded($event);">
+        <app-topics #topicComponent [isDropdown]="true" [user]="inputtedParentRef?.user" [parent]="inputtedParentRef"
+          [attachedTopics]="undefined" [preventClosingOverlay]="true" (topicAdded)="onTopicAdded($event);">
         </app-topics>
       </div>
     </div>
@@ -55,8 +51,8 @@
 
   <div class="fileListDiv">
     <div *ngFor="let file of uploadFileList; let i = index" class="fileUploadItem">
-      <div class="fileUploadLineDiv"> 
-        <span class="fileName" [class]="getFileNameClass(file)" 
+      <div class="fileUploadLineDiv">
+        <span class="fileName" [class]="getFileNameClass(file)"
           [style.marginLeft.px]="!uploadProgress[file.name] ? 15 : 0">
           {{file.name}}
         </span>
@@ -64,12 +60,14 @@
           <div class="progressBar" [style.width.%]="uploadProgress[file.name] || 0"></div>
         </div>
         <span class="progressText">
-          {{uploadErrors[file.name] ? '❌' : (uploadProgress[file.name] === 100 ? '✅' : (uploadProgress[file.name] || 0) + '%')}}
+          {{uploadErrors[file.name] ? '❌' : (uploadProgress[file.name] === 100 ? '✅' : (uploadProgress[file.name] || 0)
+          + '%')}}
         </span>
         <span *ngIf="uploadErrors[file.name]" class="errorBadge" [title]="uploadErrors[file.name]">
           FAILED
         </span>
-        <span *ngIf="uploadedFileList[i]?.isDuplicate" class="duplicateBadge" title="Duplicate file - existing file kept">
+        <span *ngIf="uploadedFileList[i]?.isDuplicate" class="duplicateBadge"
+          title="Duplicate file - existing file kept">
           DUPLICATE
         </span>
         <span *ngIf="(!uploadProgress[file.name] || uploadProgress[file.name] == 0)" class="removeFileButton"
@@ -77,20 +75,21 @@
       </div>
     </div>
   </div>
-  
+
   <div class="fileUploaderButtons">
-    <button type="submit" 
-      (click)="uploadSubmitClicked()" 
-      title="Upload file(s)" 
-      [style.top.px]="getOverallProgress() != 100 ? -8 : null"
-      style="position:relative;">
-      {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') : (uploadFileList.length > 0 ? '✅Upload' : '⏫' + uploadButtonText)}}
+    <button type="submit" (click)="uploadSubmitClicked()" title="Upload file(s)"
+      [style.top.px]="getOverallProgress() != 100 ? -8 : null" style="position:relative;">
+      {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') :
+      (uploadFileList.length > 0 ? '✅Upload' : '⏫' + uploadButtonText)}}
     </button>
-    <button *ngIf="displayListContainer && !isUploading" type="button" (click)="fileInput.click()" title="Add more files" style="margin-left:8px; margin-top: -15px;">
+    <button *ngIf="displayListContainer && !isUploading" type="button" (click)="fileInput.click()"
+      title="Add more files" style="margin-left:8px; margin-top: -15px;">
       ➕ Add more files
     </button>
-    <button type="submit" id="closeOverlay" *ngIf="!isUploading" 
-      (click)="preventDisplayClose ? null : cancelFileUpload()" title="Cancel upload" style="position:relative; top: -8px;">❌Cancel</button>
-    <button *ngIf="isUploading && getOverallProgress() == 100"  (click)="manualFinalizeClose()" title="Close this popup; upload will finish in background">Close</button>
+    <button type="submit" id="closeOverlay" *ngIf="!isUploading"
+      (click)="preventDisplayClose ? null : cancelFileUpload()" title="Cancel upload"
+      style="position:relative; top: -8px;">❌Cancel</button>
+    <button *ngIf="isUploading && getOverallProgress() == 100" (click)="manualFinalizeClose()"
+      title="Close this popup; upload will finish in background">Close</button>
   </div>
 </div>
