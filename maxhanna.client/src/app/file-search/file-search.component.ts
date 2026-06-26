@@ -56,11 +56,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() displayTotal = true;
   @Input() showSpaceForNotifications = false;
   @Input() forceSearchSameDirectory: boolean = false;
-  imageIndex: number = 0;
   @Input() showHiddenFiles: boolean = false; // default: do not show hidden files unless user toggles or user setting enables it
   @Input() showTopics: boolean = true;
   @Input() captureNotifications: boolean = false;
-  imageIndex: number = 0;
   @Input() currentPage = this.defaultCurrentPage;
   @Input() massDeleteMode: boolean = false;
   @Input() disabled = false;
@@ -137,6 +135,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   isRatingPanelOpen = false;
   pageLocked = false;
   appending = false; 
+  imageIndex: number = 0;
 
   private controllerIndex: number = -1;
   private getDirectoryAbortController: AbortController | null = null;
@@ -2575,6 +2574,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.isShowingImagePreview = false;
     this.imagePreviewUrl = null;
     this.imageIndex = 0;
+    this.parentRef?.closeOverlay();
   }
   private startAppendingMode() {
     this.appending = true;
