@@ -1,0 +1,8 @@
+Model Information:
+* title:	Okrąglak round office building Poznań
+* source:	https://sketchfab.com/3d-models/okraglak-round-office-building-poznan-b5e680bfb0364fd6923dab22a0f79960
+* author:	Robal (https://sketchfab.com/robaal)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

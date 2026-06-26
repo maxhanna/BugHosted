@@ -1,0 +1,8 @@
+Model Information:
+* title:	Skyscraper
+* source:	https://sketchfab.com/3d-models/skyscraper-8bd8625f9a93459d96bfb36bdf753de0
+* author:	assetfactory (https://sketchfab.com/assetfactory)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

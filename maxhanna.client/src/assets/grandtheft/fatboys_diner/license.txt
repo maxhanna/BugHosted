@@ -1,0 +1,8 @@
+Model Information:
+* title:	Fatboys Diner
+* source:	https://sketchfab.com/3d-models/fatboys-diner-b826c954232a4ca6a5d2f4abecf159e0
+* author:	Rhys L Thomas (https://sketchfab.com/rlthomasgames)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

@@ -37,7 +37,7 @@ const PLAYER_POLL_SLOW_MS = 1000;
 const ENTER_CAR_DIST = 4;
 const HOOKER_SECLUDED_RADIUS = 50;
 const HOOKER_HEAL_PER_SEC = 5;
-const HOOKER_MONEY_PER_SEC = 10;
+const HOOKER_MONEY_PER_SEC = 1;
 const HOOKER_MAX_MONEY = 80;
 
 interface DeadBody {
@@ -363,6 +363,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       path: string;
       storeSkeleton: boolean;
       assign: (m: CityMesh[]) => void;
+      scale?: number;
     }[] = [
         // Boats
         { path: 'assets/grandtheft/star_wars_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
@@ -415,12 +416,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         { path: 'assets/grandtheft/sm_prop_barrel_02__1__polygonbattleroyale_01_a_0/scene.gltf', storeSkeleton: false, assign: m => this.renderer.barrelMesh = m },
         { path: 'assets/grandtheft/chicken/scene.gltf', storeSkeleton: false, assign: m => this.renderer.chickenMesh = m },
         { path: 'assets/grandtheft/sm_env_tree_big_02__3__polygonmilitary_mat_01_a/scene.gltf', storeSkeleton: false, assign: m => this.renderer.palmTreeMesh = m },
+        { path: 'assets/grandtheft/psx_tree_low_poly_no_black_background/scene.gltf', storeSkeleton: false, assign: m => this.renderer.cityTreeMesh = m, scale: 1.5 },
+        { path: 'assets/grandtheft/cylindrical_tower/scene.gltf', storeSkeleton: false, assign: m => this.renderer.cylindricalTowerMesh = m, scale: 1.5 },
         { path: 'assets/grandtheft/balloon/scene.gltf', storeSkeleton: false, assign: m => this.renderer.balloonMesh = m },
-        { path: 'assets/grandtheft/tatami_room/scene.gltf', storeSkeleton: false, assign: m => this.renderer.tatamiRoomMesh = m },
+        { path: 'assets/grandtheft/tatami_room/scene.gltf', storeSkeleton: false, assign: (m =>  this.renderer.tatamiRoomMesh = m), scale: 2 },
+        { path: 'assets/grandtheft/low_poly_wooden_cabine/scene.gltf', storeSkeleton: false, assign: m => this.renderer.woodenCabineMesh = m, scale: 1.5 },
       ]; 
     for (const cfg of specialMeshes) {
       this.renderer.loadGLTF(cfg.path, cfg.storeSkeleton).then(mesh => {
-        if (mesh) cfg.assign(mesh);
+        if (mesh) {
+          cfg.assign(mesh);
+          if (cfg.scale) {
+            for (const m of mesh) m.renderScale = cfg.scale; 
+          }
+        }
       });
     }
 
@@ -438,13 +447,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       { path: 'assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf' },
       { path: 'assets/grandtheft/ac_-_bmw_1m_free/scene.gltf' },
       { path: 'assets/grandtheft/bmw_vision_neue_klasse/scene.gltf' }, 
-      { path: 'assets/grandtheft/freightliner_century/scene.gltf' },
       { path: 'assets/grandtheft/lexus_is300200/scene.gltf' },
       { path: 'assets/grandtheft/ps1_gt1-style_model_-_1992_emery_aventus/scene.gltf' },
 
       // Special scale overrides
       { path: 'assets/grandtheft/kenworth_t2000/scene.gltf', scale: 3 },
       { path: 'assets/grandtheft/truck_toyota_corsa_b/scene.gltf', scale: 2 },
+      { path: 'assets/grandtheft/freightliner_century/scene.gltf', scale: 2 },
       { path: 'assets/grandtheft/monsterTruck/scene.gltf', scale: 2.25 },
       { path: 'assets/grandtheft/jeep/scene.gltf', scale: 1.5 },
     ];
@@ -2664,11 +2673,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (subT >= 1.0 && !this._carOnFire) {
           this._carOnFire = true;
           this._carFireStarted = performance.now() / 1000;
+        }
+        if (this._carOnFire) {
           this._carFireX = this.carX;
           this._carFireZ = this.carZ;
           this._carFireYaw = this.carYaw;
-        }
-        if (this._carOnFire) {
           const fireElapsed = (performance.now() / 1000) - this._carFireStarted;
           if (fireElapsed >= 10.0) this.carHealth = 0;
         }
@@ -2681,11 +2690,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.isInCar && this.carHealth > 0 && !this._carSubmerged && this.carHealth <= 80 && !this._carOnFire) {
       this._carOnFire = true;
       this._carFireStarted = performance.now() / 1000;
+    }
+    if (this.isInCar && this._carOnFire && !this._carSubmerged) {
       this._carFireX = this.carX;
       this._carFireZ = this.carZ;
       this._carFireYaw = this.carYaw;
-    }
-    if (this.isInCar && this._carOnFire && !this._carSubmerged) {
       const fireElapsed = (performance.now() / 1000) - this._carFireStarted;
       if (fireElapsed >= 10.0) this.carHealth = 0;
     }
@@ -2759,6 +2768,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const allNPCs = [...this.serverNPCs, ...this.trafficCars];
     const allPeds = [...this.serverPedestrians, ...this.localPedestrians];
     const rockOffset = this.getCarRockOffset();
+    const carRoll = this.getCarRockRoll();
 
     if (this.pickupCooldown > 0) this.pickupCooldown -= dt;
     if (this.pickupCooldown <= 0 && this.droppedWeapons) {
@@ -2789,6 +2799,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     try {
       this.renderer.droppedWeapons = this.droppedWeapons || [];
+      this.renderer.carFireElapsed = this._carOnFire ? (performance.now() / 1000) - this._carFireStarted : 0;
       this.renderer.render(
         camX, camY, camZ, this.camYaw, this.camPitch, aspect,
         targetX, this.carY - CAR_HEIGHT + rockOffset, targetZ, this.carYaw,
@@ -2819,7 +2830,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this._carOnFire, this._carFireX, this._carFireZ, this._carFireYaw,
         this.trafficNodes,
         this.viewDistance,
-        !this.isMobile
+        !this.isMobile,
+        carRoll
       );
       if (this.firstPerson && !this.isInCar) {
         const anims = this.pickFirstPersonAnims();
@@ -3044,6 +3056,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   private updateBoat(dt: number) {
     const accel = 15, maxSpeed = 35, turnSpeed = 1.5;
+    const ocx = Math.floor(this.carX / 80), ocz = Math.floor(this.carZ / 80);
+    const inOcean = !(ocx >= -2 && ocx <= 3 && ocz >= -2 && ocz <= 2) &&
+      !(ocx >= 4 && ocx <= 5 && ocz >= -1 && ocz <= 1) &&
+      !(ocx >= 6 && ocx <= 15 && ocz >= -5 && ocz <= 5) &&
+      !(ocx >= 16 && ocx <= 17 && ocz >= -2 && ocz <= 2) &&
+      !(ocx >= 18 && ocx <= 30 && ocz >= -7 && ocz <= 7) &&
+      !(ocx >= 31 && ocx <= 32 && ocz >= -3 && ocz <= 3) &&
+      !(ocx >= 33 && ocx <= 50 && ocz >= -10 && ocz <= 10);
     let accelForce = 0;
     if (this.keys.has('KeyW')) accelForce = accel;
     if (this.keys.has('KeyS')) accelForce = -accel;
@@ -3055,17 +3075,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.carVx += forwardX * accelForce * dt;
       this.carVz += forwardZ * accelForce * dt;
     }
-    const onLand = this.carY <= CAR_HEIGHT + 0.1;
-    if (onLand) {
-      const spd = Math.hypot(this.carVx, this.carVz);
-      if (spd > 0.5) {
-        const glideFactor = Math.max(0, 1 - 2.0 * dt);
-        this.carVx *= glideFactor;
-        this.carVz *= glideFactor;
-      } else {
-        this.carVx = 0; this.carVz = 0;
-      }
-    } else {
+    if (inOcean) {
       let steer = 0;
       if (this.keys.has('KeyA')) steer = 1;
       if (this.keys.has('KeyD')) steer = -1;
@@ -3075,6 +3085,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const drag = 0.3;
       this.carVx *= Math.max(0, 1 - drag * dt);
       this.carVz *= Math.max(0, 1 - drag * dt);
+    } else {
+      const spd = Math.hypot(this.carVx, this.carVz);
+      if (spd > 0.5) {
+        const glideFactor = Math.max(0, 1 - 2.0 * dt);
+        this.carVx *= glideFactor;
+        this.carVz *= glideFactor;
+      } else {
+        this.carVx = 0; this.carVz = 0;
+      }
     }
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
@@ -3598,7 +3617,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.health = Math.min(100, this.health + HOOKER_HEAL_PER_SEC * dt);
     }
 
-    if (this.hookerMoneyDrained < HOOKER_MAX_MONEY && this.money > 0) {
+    if (this.money <= 0) {
+      this.passenger = null;
+      this.hookerMoneyDrained = 0;
+      return;
+    }
+    if (this.hookerMoneyDrained < HOOKER_MAX_MONEY) {
       const drain = Math.min(
         HOOKER_MONEY_PER_SEC * dt,
         HOOKER_MAX_MONEY - this.hookerMoneyDrained,
@@ -3610,8 +3634,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   getCarRockOffset(): number {
+    return 0;
+  }
+  getCarRockRoll(): number {
     if (!this.carRocking) return 0;
-    return Math.sin(this.carRockPhase) * 0.08;
+    const t = this.carRockPhase;
+    return (Math.sin(t * 1.5) + Math.sin(t * 3.7) * 0.4) * 0.25;
   }
 
   private updateNPCInterpolation() {

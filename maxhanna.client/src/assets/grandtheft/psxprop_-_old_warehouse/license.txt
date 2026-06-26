@@ -1,0 +1,8 @@
+Model Information:
+* title:	PSXprop - Old Warehouse
+* source:	https://sketchfab.com/3d-models/psxprop-old-warehouse-a7bb737a0bc1466c86666ef53dc28b1d
+* author:	Wardster (https://sketchfab.com/WardsterSAW)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

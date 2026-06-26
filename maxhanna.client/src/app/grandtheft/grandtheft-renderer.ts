@@ -52,6 +52,8 @@ export interface CityChunk {
   trees: { x: number; z: number; yaw: number; scale: number }[];
   supermarkets: { x: number; z: number; yaw: number }[];
   tatami: { x: number; z: number; yaw: number }[];
+  cabins: { x: number; z: number; yaw: number }[];
+  lighthouses: { x: number; z: number; yaw: number }[];
 }
 
 const CHUNK_SIZE = 80;
@@ -438,7 +440,12 @@ export class GrandTheftRenderer {
     'modern_building', 'panel_apartment_placeholder', 'psx_groceries_store', 'pyaterochka_3d', 'supermarket',
     'residential_complex_modern_apartment_building', 'ukraine_building', 'abandoned_building_gameready',
     'building_no_6_form_tokyo_otemachi_building_pack', 'psx_japanese_warehouse',
-    'city_building', 'low_poly_apartment_building_1', 'michaelsoft'
+    'city_building', 'low_poly_apartment_building_1', 'michaelsoft',
+    'low_poly_building_edgewater_lofts',
+    'fatboys_diner', 'brooklyn_street_building_low_poly', 'brooklyn_street_cornerhouse_low_poly',
+    'korean_apartment', 'okraglak_round_office_building_poznan',
+    'tome_convenience_store', 'psxprop_-_old_warehouse',
+    'skyscraper', 'skyscraper', 'skyscraper', 'skyscraper',
   ];
   static SUBURB_BUILDING_NAMES = [
     'brooklynCornerhouse', 'brooklynStreetBuilding', 'cabin',
@@ -447,6 +454,10 @@ export class GrandTheftRenderer {
     'low_poly_house_2', 'low_poly_house_3', 'low_poly_house_4', 'low_poly_house_5',
     'low_poly_pizza_restaurant', 'low_poly_wooden_cabine', 'residential_family_house', 'ichijoushi_002',
     'low_poly_apartment_building_1', 'ichijoushi___001',
+    'low_poly_house_1', 'low_poly_apartment_2',
+    'apartament', 'two_story_resident_building', 'japanese_house_incomplete',
+    'khrushchevka_two-story_building', 'fatboys_diner',
+    'tome_convenience_store', 'psxprop_-_old_warehouse',
   ];
   public trafficLightMesh: CityMesh[] | null = null;
   public hydrantMesh: CityMesh[] | null = null;
@@ -454,7 +465,10 @@ export class GrandTheftRenderer {
   public barrelMesh: CityMesh[] | null = null;
   public chickenMesh: CityMesh[] | null = null;
   public palmTreeMesh: CityMesh[] | null = null;
+  public cityTreeMesh: CityMesh[] | null = null;
+  public cylindricalTowerMesh: CityMesh[] | null = null;
   public tatamiRoomMesh: CityMesh[] | null = null;
+  public woodenCabineMesh: CityMesh[] | null = null;
   public balloonMesh: CityMesh[] | null = null;
   public explodedBarrels: Set<string> = new Set();
   public explodedGasStations: Set<string> = new Set();
@@ -522,6 +536,7 @@ export class GrandTheftRenderer {
   }
   public currentModelUrl: string | null = null;
   public droppedWeapons: any[] = [];
+  public carFireElapsed = 0;
   // --- First-person weapon system ---
   public firstPersonArmsMesh: CityMesh[] | null = null;
   public firstPersonArmsSkeleton: {
@@ -1601,6 +1616,8 @@ void main() {
     const trees: { x: number; z: number; yaw: number; scale: number }[] = [];
     const supermarkets: { x: number; z: number; yaw: number }[] = [];
     const tatami: { x: number; z: number; yaw: number }[] = [];
+    const cabins: { x: number; z: number; yaw: number }[] = [];
+    const lighthouses: { x: number; z: number; yaw: number }[] = [];
 
     const worldOriginX = cx * CHUNK_SIZE;
     const worldOriginZ = cz * CHUNK_SIZE;
@@ -1615,7 +1632,7 @@ void main() {
       this.addPlane(verts, indices, cx2, -2.2, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.05, 0.25, 0.45, 0.55, idxOffset); idxOffset += 4;
       this.addPlane(verts, indices, cx2, -1.9, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.15, 0.40, 0.60, 0.40, idxOffset); idxOffset += 4;
       const mesh = this.createMesh(verts, indices);
-      const chunk: CityChunk = { mesh, cx, cz, lamps: [], hydrants: [], buildings, benches: [], barrels: [], chickens: [], trees: [], supermarkets: [], tatami: [] };
+      const chunk: CityChunk = { mesh, cx, cz, lamps: [], hydrants: [], buildings, benches: [], barrels: [], chickens: [], trees: [], supermarkets: [], tatami: [], cabins: [], lighthouses: [] };
       this.chunkCache.set(key, chunk);
       return chunk;
     }
@@ -1809,6 +1826,19 @@ void main() {
               }
             }
           }
+          // Wooden cabin near the water edge
+          if (this.woodenCabineMesh && rng() < 0.4) {
+            const cx = blockWorldX + (rng() - 0.5) * 20;
+            const cz = blockWorldZ + halfSW - 5;
+            cabins.push({ x: cx, z: cz, yaw: rng() > 0.5 ? 0 : Math.PI });
+          }
+          // Lighthouse at a beach corner — extremely rare
+          if (this.cylindricalTowerMesh && rng() < 0.03) {
+            const corner = Math.floor(rng() * 4);
+            const cx = corner < 2 ? blockWorldX - halfSW + 2 : blockWorldX + halfSW - 2;
+            const cz = corner % 2 === 0 ? blockWorldZ - halfSW + 2 : blockWorldZ + halfSW - 2;
+            lighthouses.push({ x: cx, z: cz, yaw: corner * Math.PI / 2 });
+          }
           continue;
         }
 
@@ -1995,9 +2025,11 @@ void main() {
         const worldX = gridX * GRID_PITCH;
         // Wider, raised median with grass
         this.addBox(verts, indices, worldX, 0.15, worldOriginZ + CHUNK_SIZE / 2, 4, 0.3, CHUNK_SIZE - 4, 0.12, 0.30, 0.10, 1.0, idxOffset); idxOffset += 24;
-        // Palm trees along median — BIG, evenly spaced
+        // City trees along median — spaced out, replaced with fallback boxes if not loaded
         for (let z = worldOriginZ + 8; z < worldOriginZ + CHUNK_SIZE - 4; z += 16) {
-          if (this.palmTreeMesh) {
+          if (this.cityTreeMesh && Math.floor((z - worldOriginZ) / 16) % 3 === 0) {
+            trees.push({ x: worldX, z, yaw: 0, scale: 1.5 + rng() * 0.4 });
+          } else if (this.palmTreeMesh) {
             trees.push({ x: worldX, z, yaw: 0, scale: 2.4 + rng() * 0.6 });
           } else {
             this.addBox(verts, indices, worldX, 3, z, 0.4, 6, 0.4, 0.3, 0.18, 0.05, 1.0, idxOffset); idxOffset += 24;
@@ -2014,7 +2046,9 @@ void main() {
         const worldZ = gridZ * GRID_PITCH;
         this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.15, worldZ, CHUNK_SIZE - 4, 0.3, 4, 0.12, 0.30, 0.10, 1.0, idxOffset); idxOffset += 24;
         for (let x = worldOriginX + 8; x < worldOriginX + CHUNK_SIZE - 4; x += 16) {
-          if (this.palmTreeMesh) {
+          if (this.cityTreeMesh && Math.floor((x - worldOriginX) / 16) % 3 === 0) {
+            trees.push({ x, z: worldZ, yaw: 0, scale: 1.5 + rng() * 0.4 });
+          } else if (this.palmTreeMesh) {
             trees.push({ x, z: worldZ, yaw: 0, scale: 2.4 + rng() * 0.6 });
           } else {
             this.addBox(verts, indices, x, 3, worldZ, 0.4, 6, 0.4, 0.3, 0.18, 0.05, 1.0, idxOffset); idxOffset += 24;
@@ -2142,7 +2176,7 @@ void main() {
       }
     }
 
-    const chunk: CityChunk = { mesh, cx, cz, lamps, hydrants, buildings, benches, barrels, chickens, trees, supermarkets, tatami };
+    const chunk: CityChunk = { mesh, cx, cz, lamps, hydrants, buildings, benches, barrels, chickens, trees, supermarkets, tatami, cabins, lighthouses };
     this.chunkCache.set(key, chunk);
     return chunk;
   }
@@ -2501,10 +2535,12 @@ void main() {
     scale: [number, number, number] = [1, 1, 1],
     color: [number, number, number, number] = [1, 1, 1, 1],
     isShadowPass: boolean = false,
-    pitch: number = 0
+    pitch: number = 0,
+    roll: number = 0
   ) {
     mat4.identity(this.modelMatrix);
     mat4.translate(this.modelMatrix, this.modelMatrix, [x, y, z]);
+    if (roll) mat4.rotateZ(this.modelMatrix, this.modelMatrix, roll);
     if (pitch) mat4.rotateX(this.modelMatrix, this.modelMatrix, pitch);
     mat4.rotateY(this.modelMatrix, this.modelMatrix, yaw);
 
@@ -2604,7 +2640,8 @@ void main() {
     carFireX: number, carFireZ: number, carFireYaw: number,
     trafficNodes?: { x: number; z: number }[],
     farPlane?: number,
-    enableShadows: boolean = true
+    enableShadows: boolean = true,
+    carRoll: number = 0
   ) {
     const gl = this.gl;
     const now = performance.now();
@@ -2685,7 +2722,7 @@ void main() {
         }
       }
       if (playerMesh) {
-        this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], true);
+        this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], true, 0, carRoll);
       }
       for (const db of deadBodies) {
         const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
@@ -2787,6 +2824,16 @@ void main() {
         if (this.tatamiRoomMesh) {
           for (const t of chunk.tatami) {
             this.drawMesh(this.tatamiRoomMesh, t.x, 0, t.z, t.yaw, [1, 1, 1], [0.9, 0.8, 0.6, 1]);
+          }
+        }
+        if (this.woodenCabineMesh) {
+          for (const c of chunk.cabins) {
+            this.drawMesh(this.woodenCabineMesh, c.x, 0, c.z, c.yaw, [1, 1, 1]);
+          }
+        }
+        if (this.cylindricalTowerMesh) {
+          for (const l of chunk.lighthouses) {
+            this.drawMesh(this.cylindricalTowerMesh, l.x, 0, l.z, l.yaw, [1, 1, 1]);
           }
         }
         if (this.barrelMesh) {
@@ -2948,7 +2995,7 @@ void main() {
       }
     }
 
-    if (playerMesh) this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw);
+    if (playerMesh) this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], false, 0, carRoll);
 
     if (attachedMeshes && attachedMeshes.length > 0) {
       const sinY = Math.sin(carYaw), cosY = Math.cos(carYaw);
@@ -3097,8 +3144,11 @@ void main() {
       const sinYf = Math.sin(carFireYaw), cosYf = Math.cos(carFireYaw);
       const fx = carFireX + cosYf * 0.8;
       const fz = carFireZ + sinYf * 0.8;
+      const growth = 1 + Math.min(this.carFireElapsed / 10, 1) * 2;
+      const pulse = 1 + Math.sin(now / 200) * 0.25;
       const flicker = 0.85 + Math.sin(now / 100) * 0.15;
-      this.drawMesh(fireMesh, fx, 0.6, fz, 0, [fireScale * flicker, fireScale * flicker, fireScale * flicker], fireColor);
+      const s = fireScale * 2.5 * growth * pulse * flicker;
+      this.drawMesh(fireMesh, fx, 0.8, fz, 0, [s, s, s], fireColor);
     }
 
     gl.enable(gl.DEPTH_TEST);
@@ -3782,7 +3832,7 @@ void main() {
           if (prim.material !== undefined && json.materials[prim.material]) {
             const mat = json.materials[prim.material];
             const matName = (mat.name || '').toLowerCase();
-            if (mat.alphaMode === 'BLEND' || matName.includes('cone') || matName.includes('beam') || matName.includes('volume') || matName.includes('modular') || matName.includes('facad')) {
+            if ((mat.alphaMode === 'BLEND' && !mat.pbrMetallicRoughness?.baseColorTexture) || matName.includes('cone') || matName.includes('beam') || matName.includes('volume') || matName.includes('modular') || matName.includes('facad')) {
               skipMesh = true;
             }
           }

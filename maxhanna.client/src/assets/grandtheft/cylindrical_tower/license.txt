@@ -1,0 +1,8 @@
+Model Information:
+* title:	cylindrical tower
+* source:	https://sketchfab.com/3d-models/cylindrical-tower-c103144e66be4cff8699c8bb17ae7c76
+* author:	AhmedMahmoudmetwally100 (https://sketchfab.com/AhmedMahmoudmetwally100)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

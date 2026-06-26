@@ -1,0 +1,8 @@
+Model Information:
+* title:	Rusty Old Tropical Shop
+* source:	https://sketchfab.com/3d-models/rusty-old-tropical-shop-e925b04cdd8e4e51841a20b37bc9c056
+* author:	Pixel_Monster (https://sketchfab.com/ar.jethin)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

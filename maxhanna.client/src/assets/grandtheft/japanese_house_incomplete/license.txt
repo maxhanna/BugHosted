@@ -1,0 +1,8 @@
+Model Information:
+* title:	Japanese House Incomplete
+* source:	https://sketchfab.com/3d-models/japanese-house-incomplete-a6ff36b45def44cab312e5575eb1b66c
+* author:	abhayexe (https://sketchfab.com/abhayexe)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

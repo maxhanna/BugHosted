@@ -1,0 +1,8 @@
+Model Information:
+* title:	Korean Apartment
+* source:	https://sketchfab.com/3d-models/korean-apartment-9ffdde24d4ec492e9f9dce4d3ef1c9c2
+* author:	route_kahal (https://sketchfab.com/routekahal)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works
