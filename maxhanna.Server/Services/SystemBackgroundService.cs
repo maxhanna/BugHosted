@@ -2752,10 +2752,21 @@ namespace maxhanna.Server.Services
 
         _ = _log.Db($"Sending Calendar notification : {message} to userId: {userId}", Int32.Parse(userId), "SYSTEM", outputToConsole: true);
         await firebaseService.SendFirebaseNotification(int.Parse(userId), message);
+
+        await using var conn2 = new MySqlConnection(_connectionString);
+        await conn2.OpenAsync();
+        const string insertNotificationSql = @"INSERT INTO maxhanna.calendar_notifications_sent (user_id, calendar_text, calendar_date, notification_sent) VALUES (@userId, @calendarText, @calendarDate, UTC_TIMESTAMP())";
+        await using var insertCmd = new MySqlCommand(insertNotificationSql, conn2);
+        insertCmd.Parameters.AddWithValue("@userId", userId);
+        insertCmd.Parameters.AddWithValue("@calendarText", message);
+        insertCmd.Parameters.AddWithValue("@calendarDate", events[0].Date); 
+        insertCmd.ExecuteNonQuery();
       }
 
       return usersWithEvents;
     }
+ 
+ 
 
     /// <summary>
     /// Fetches ONE candidate filename from SQL, cleans it with FileNameCleaner,
