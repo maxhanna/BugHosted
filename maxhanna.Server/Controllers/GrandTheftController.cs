@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using maxhanna.Server.Controllers.DataContracts.Users;
+using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Collections.Concurrent;
 using System.Threading;
@@ -1814,12 +1815,12 @@ namespace maxhanna.Server.Controllers
 				if (rng.NextDouble() < 0.5) { x = gx * 80f; z = pz + (float)(rng.NextDouble() - 0.5) * 120f; }
 				else { x = px + (float)(rng.NextDouble() - 0.5) * 120f; z = gz * 80f; }
 
-                for (int b = 0; b < 5 && (CityLayout.IsBuildingAt(x, z) || !CityLayout.IsRoadAt(x, z)); b++)
-                {
-                    x += (float)(rng.NextDouble() - 0.5) * 20f;
-                    z += (float)(rng.NextDouble() - 0.5) * 20f;
-                } 
-                if (CityLayout.IsBuildingAt(x, z) || !CityLayout.IsRoadAt(x, z)) continue;
+				for (int b = 0; b < 5 && (CityLayout.IsBuildingAt(x, z) || !CityLayout.IsRoadAt(x, z)); b++)
+				{
+					x += (float)(rng.NextDouble() - 0.5) * 20f;
+					z += (float)(rng.NextDouble() - 0.5) * 20f;
+				}
+				if (CityLayout.IsBuildingAt(x, z) || !CityLayout.IsRoadAt(x, z)) continue;
 
 				int cx = (int)Math.Floor(x / 80f);
 				int cz = (int)Math.Floor(z / 80f);
@@ -1886,7 +1887,7 @@ namespace maxhanna.Server.Controllers
 				else { x = cx + sidewalkEdge; z = cz; }
 				if (edge < 2) x += (float)(rng.NextDouble() - 0.5) * 30f;
 				else z += (float)(rng.NextDouble() - 0.5) * 30f;
- 
+
 
 				// Parking lots: spawn peds walking through the lot
 				if (biome == "parking_lot")
@@ -2373,6 +2374,30 @@ namespace maxhanna.Server.Controllers
 				return Ok(new { ok = true });
 			}
 			catch (Exception ex) { return StatusCode(500, new { ok = false, error = ex.Message }); }
+		}
+
+		[HttpGet("activeplayers")]
+		public async Task<IActionResult> GetActivePlayers()
+		{
+			using var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			await connection.OpenAsync();
+
+			var sql = @"SELECT u.id AS userId,  MAX(gtps.last_seen) AS lastActivity
+ FROM maxhanna.users u
+ JOIN maxhanna.grandtheft_player_state gtps ON gtps.user_id = u.id
+ WHERE gtps.last_seen >= DATE_SUB(CURRENT_DATE(), IINTERVAL 5 MINUTE)
+ GROUP BY u.id";
+
+			using var command = new MySqlCommand(sql, connection);
+			using var reader = await command.ExecuteReaderAsync();
+
+			var activePlayers = new List<User>();
+			while (await reader.ReadAsync())
+			{
+				activePlayers.Add(new User(reader.GetInt32("userId")));
+			}
+
+			return Ok(activePlayers);
 		}
 	}
 
