@@ -1,6 +1,6 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, NgZone, ChangeDetectorRef } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { GrandTheftRenderer, CityMesh } from './grandtheft-renderer';
+import { GrandTheftRenderer, CityMesh, getBiome, getTerrainHeight } from './grandtheft-renderer';
 import { GrandtheftService } from '../../services/grandtheft.service';
 import { UserEventService } from '../../services/user-event.service';
 import { User } from '../../services/datacontracts/user/user';
@@ -408,7 +408,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       { path: 'assets/grandtheft/mitsubishi/scene.gltf' },
       { path: 'assets/grandtheft/hilux/scene.gltf' },
       { path: 'assets/grandtheft/suv/scene.gltf' },
-      { path: 'assets/grandtheft/psxlow_poly_pickup/scene.gltf' },
+      { path: 'assets/grandtheft/psxlow_poly_pickup/scene.gltf', yawOffset: -Math.PI / 2 },
       { path: 'assets/grandtheft/vehicle_-_subaru_brz_rocket_bunny/scene.gltf' },
       { path: 'assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf' },  
       { path: 'assets/grandtheft/kenworth_t2000/scene.gltf', scale: 3 },
@@ -419,7 +419,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     ];
     for (const cfg of carConfigs) {
       const sc = cfg.scale;
-      tasks.push({ load: () => this.renderer.loadGLTF(cfg.path).then(car => { if (!car) return; if (sc) for (const m of car) m.renderScale = sc; this.renderer.carMeshes.push(car); }) });
+      const yo = cfg.yawOffset;
+      tasks.push({ load: () => this.renderer.loadGLTF(cfg.path).then(car => { if (!car) return; if (sc) for (const m of car) m.renderScale = sc; if (yo) for (const m of car) m.yawOffset = yo; this.renderer.carMeshes.push(car); }) });
     }
 
     const armsOut: { animations?: any; skeleton?: any } = {};
@@ -2276,6 +2277,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
       }
 
+      let crossBlocked = false;
       if (nextNode && distToTarget < 10) {
         const ourDirX = nextNode.x - currNode.x;
         const ourDirZ = nextNode.z - currNode.z;
@@ -2296,16 +2298,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
                 const otherDx = odx / olen;
                 const otherDz = odz / olen;
                 const dot = Math.abs(ourDx * otherDx + ourDz * otherDz);
-                if (dot < 0.3) {
-                  car.state = 'stop';
-                  car.stopTimer = 0.5;
-                  car.nextYaw = car.yaw;
-                  break;
-                }
+                if (dot < 0.3) { crossBlocked = true; break; }
               }
             }
           }
-          if (car.state === 'stop') continue;
         }
       }
 
@@ -2364,14 +2360,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       //   continue;
       // }
 
+      let redLight = false;
       if (nextNode && distToTarget < intersectionRadius) {
         const isHDir = Math.abs(nextNode.x - currNode.x) > Math.abs(nextNode.z - currNode.z);
-        if ((isHDir && isRedForX) || (!isHDir && !isRedForX)) {
-          car.state = 'stop';
-          car.stopTimer = 0.5;
-          car.nextYaw = car.yaw;
-          continue;
-        }
+        if ((isHDir && isRedForX) || (!isHDir && !isRedForX)) redLight = true;
       }
 
       this.pushTrafficCarOutOfBuildings(car);
@@ -2392,7 +2384,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       let speedMult = 1.0;
       if (approachingTurn) speedMult *= 0.35;
       if (slowDown) speedMult *= 0.4;
-      if (blocked) speedMult = 0.0; // FIX: Smooth stop instead of hard stop
+      if (blocked) speedMult *= 0.0;
+      if (crossBlocked) speedMult *= 0.3;
+      if (redLight) speedMult *= 0.1;
 
       const tdx = targetX - car.x;
       const tdz = targetZ - car.z;
@@ -2650,13 +2644,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.isInCar && this.carHealth > 0 && this.vehicleType !== 'boat') {
       const ocx = Math.floor(this.carX / 80), ocz = Math.floor(this.carZ / 80);
       // Land ranges include all biome zones (city, suburb, beach, aeroport, etc.)
-      const inOcean = !(ocx >= -2 && ocx <= 3 && ocz >= -5 && ocz <= 2) &&
-        !(ocx >= 4 && ocx <= 5 && ocz >= -1 && ocz <= 1) &&
-        !(ocx >= 6 && ocx <= 15 && ocz >= -8 && ocz <= 5) &&
-        !(ocx >= 16 && ocx <= 17 && ocz >= -2 && ocz <= 2) &&
-        !(ocx >= 18 && ocx <= 30 && ocz >= -11 && ocz <= 7) &&
-        !(ocx >= 31 && ocx <= 32 && ocz >= -3 && ocz <= 3) &&
-        !(ocx >= 33 && ocx <= 50 && ocz >= -14 && ocz <= 17);
+      const inOcean = getBiome(ocx, ocz) === 'ocean';
       if (inOcean) {
         if (!this._carSubmerged) { this._carSubmerged = true; this._carSubmergeStart = performance.now() / 1000; }
         const subElapsed = (performance.now() / 1000) - this._carSubmergeStart;
@@ -2909,7 +2897,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
-    this.carY = CAR_HEIGHT;
+    this.carY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
     this.carSpeed = Math.sqrt(this.carVx * this.carVx + this.carVz * this.carVz);
     this.pushOutOfBuildings();
     if (!this.isInCar) this.pushPedestrianOutOfCars();
@@ -2972,7 +2960,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carSpeed = fwdSpeed;
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
-    this.carY = CAR_HEIGHT;
+    this.carY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
     this.pushOutOfBuildings();
     this.checkPropCollision();
   }
@@ -3053,7 +3041,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carSpeed = fwdSpeed;
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
-    this.carY = CAR_HEIGHT;
+    this.carY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
     this.pushOutOfBuildings();
     this.checkPropCollision();
   }
@@ -3061,13 +3049,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private updateBoat(dt: number) {
     const accel = 15, maxSpeed = 35, turnSpeed = 1.5;
     const ocx = Math.floor(this.carX / 80), ocz = Math.floor(this.carZ / 80);
-    const inOcean = !(ocx >= -2 && ocx <= 3 && ocz >= -2 && ocz <= 2) &&
-      !(ocx >= 4 && ocx <= 5 && ocz >= -1 && ocz <= 1) &&
-      !(ocx >= 6 && ocx <= 15 && ocz >= -5 && ocz <= 5) &&
-      !(ocx >= 16 && ocx <= 17 && ocz >= -2 && ocz <= 2) &&
-      !(ocx >= 18 && ocx <= 30 && ocz >= -7 && ocz <= 7) &&
-      !(ocx >= 31 && ocx <= 32 && ocz >= -3 && ocz <= 3) &&
-      !(ocx >= 33 && ocx <= 50 && ocz >= -10 && ocz <= 10);
+    const inOcean = getBiome(ocx, ocz) === 'ocean';
     let accelForce = 0;
     if (this.keys.has('KeyW')) accelForce = accel;
     if (this.keys.has('KeyS')) accelForce = -accel;
@@ -3143,7 +3125,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carY += this.carVy * dt;
     this.carSpeed = Math.hypot(this.carVx, this.carVz);
 
-    if (this.carY < CAR_HEIGHT) { this.carY = CAR_HEIGHT; this.carVy = Math.max(0, this.carVy); }
+    if (this.carY < CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ)) { this.carY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ); this.carVy = Math.max(0, this.carVy); }
   }
 
   private updatePlane(dt: number) {
@@ -3202,7 +3184,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (this.carSpeed > minSpeed && Math.abs(this.carPitch) > 0.3) {
         this.carHealth -= 50 * dt;
       }
-      this.carY = CAR_HEIGHT;
+      this.carY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
       this.carVy = Math.max(0, this.carVy);
       this.carPitch = 0;
       this.carRoll = 0;
@@ -3656,34 +3638,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private updateNPCInterpolation() {
-    const now = performance.now();
-    const POLL_INTERVAL = 1000;
-    const MAX_T = 2.0;
+    const lerpFactor = 0.15;
 
-    const interp = (npc: any) => {
-      if (npc.lastUpdate === undefined) return;
-      const elapsed = now - npc.lastUpdate;
-      const t = Math.min(MAX_T, elapsed / POLL_INTERVAL);
-      if (t <= 1) {
-        npc.x = npc.prevX + (npc.targetX - npc.prevX) * t;
-        npc.z = npc.prevZ + (npc.targetZ - npc.prevZ) * t;
-        if (npc.prevY !== undefined && npc.targetY !== undefined)
-          npc.y = npc.prevY + (npc.targetY - npc.prevY) * t;
-        let yawDiff = npc.targetYaw - npc.prevYaw;
-        while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
-        while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-        npc.yaw = npc.prevYaw + yawDiff * t;
-      } else {
-        const overshootSec = (elapsed - POLL_INTERVAL) / 1000;
-        const dist = (npc.speed || 0) * overshootSec;
-        npc.x = npc.targetX + Math.sin(npc.targetYaw) * dist;
-        npc.z = npc.targetZ + Math.cos(npc.targetYaw) * dist;
-        npc.yaw = npc.targetYaw;
-      }
-    };
+    for (const npc of this.serverNPCs) this.lerpNPC(npc, lerpFactor);
+    for (const ped of this.serverPedestrians) this.lerpNPC(ped, lerpFactor);
+  }
 
-    for (const npc of this.serverNPCs) interp(npc);
-    for (const ped of this.serverPedestrians) interp(ped);
+  private lerpNPC(npc: any, factor: number) {
+    if (npc.lastUpdate === undefined || npc.targetX === undefined) return;
+    npc.x += (npc.targetX - npc.x) * factor;
+    npc.z += (npc.targetZ - npc.z) * factor;
+    if (npc.targetY !== undefined) npc.y += (npc.targetY - npc.y) * factor;
+    let yawDiff = npc.targetYaw - npc.yaw;
+    while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+    while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+    npc.yaw += yawDiff * factor;
   }
 
   private updateTaxiMission(dt: number) {

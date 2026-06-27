@@ -20,6 +20,7 @@
   carName?: string;
   meshName?: string;
   renderScale?: number;
+  yawOffset?: number;
 }
 export interface GltfAnimation {
   name: string;
@@ -120,6 +121,16 @@ export function getBiome(cx: number, cz: number): string {
   if (cx >= -20 && cx <= -16 && cz >= -6 && cz <= 6) { return 'rural_hills'; }
   if (cx >= 71 && cx <= 80 && cz >= -8 && cz <= 8) { return 'rural_farm'; }
   return 'ocean';
+}
+
+/** Returns the ground Y offset for a given world position. Bridge=4, ocean=-2.5, land=0. */
+export function getTerrainHeight(x: number, z: number): number {
+  const cx = Math.floor(x / 80);
+  const cz = Math.floor(z / 80);
+  const biome = getBiome(cx, cz);
+  if (biome === 'bridge') return 4.0;
+  if (biome === 'ocean') return -2.5;
+  return 0.0;
 }
 
 /** A grid line is a "boulevard" every 4th line — wider median, palms, lights. */
@@ -1744,26 +1755,31 @@ void main() {
         }
       }
     } else if (isBridge) {
+      const BRIDGE_DECK_Y = 4.0;
+      // Water under bridge
+      const cx2 = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
+      const cz2 = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
+      this.addPlane(verts, indices, cx2, -2.5, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.0, 0.10, 0.30, 0.85, idxOffset); idxOffset += 4;
+      this.addPlane(verts, indices, cx2, -2.0, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.10, 0.30, 0.50, 0.55, idxOffset); idxOffset += 4;
       // Bridge deck
-      this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 4;
+      this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, BRIDGE_DECK_Y, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 4;
       // Two suspension towers (one per side, full height)
       for (const side of [-1, 1]) {
         const tz = worldOriginZ + CHUNK_SIZE / 2 + side * (CHUNK_SIZE / 2 - 6);
         for (const tx of [worldOriginX + 16, worldOriginX + CHUNK_SIZE - 16]) {
           // Tower legs (A-frame)
-          this.addBox(verts, indices, tx - 1.5, 12, tz - 2, 1, 24, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
-          this.addBox(verts, indices, tx + 1.5, 12, tz - 2, 1, 24, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
-          this.addBox(verts, indices, tx - 1.5, 12, tz + 2, 1, 24, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
-          this.addBox(verts, indices, tx + 1.5, 12, tz + 2, 1, 24, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(verts, indices, tx - 1.5, 16, tz - 2, 1, 28, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(verts, indices, tx + 1.5, 16, tz - 2, 1, 28, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(verts, indices, tx - 1.5, 16, tz + 2, 1, 28, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(verts, indices, tx + 1.5, 16, tz + 2, 1, 28, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
           // Cross-braces
-          for (let by = 4; by < 24; by += 6) {
+          for (let by = 6; by < 28; by += 7) {
             this.addBox(verts, indices, tx, by, tz - 2, 4, 0.6, 1, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
             this.addBox(verts, indices, tx, by, tz + 2, 4, 0.6, 1, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
           }
           // Suspension cables (thin boxes from tower top to deck midpoints)
           for (const sign of [-1, 1]) {
-            const cableLen = Math.hypot(20, 12);
-            this.addBox(verts, indices, tx + sign * 10, 6, tz, 20, 0.3, 0.3, 0.25, 0.25, 0.27, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, tx + sign * 10, 10, tz, 20, 0.3, 0.3, 0.25, 0.25, 0.27, 1.0, idxOffset); idxOffset += 24;
           }
         }
       }
@@ -1772,16 +1788,16 @@ void main() {
       for (const side of [-1, 1]) {
         const rz = worldOriginZ + CHUNK_SIZE / 2 + side * halfSW;
         // Top rail
-        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 1.2, rz, CHUNK_SIZE - 4, 0.2, 0.2, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
+        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, BRIDGE_DECK_Y + 1.2, rz, CHUNK_SIZE - 4, 0.2, 0.2, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
         // Mid rail
-        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.6, rz, CHUNK_SIZE - 4, 0.15, 0.15, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
+        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, BRIDGE_DECK_Y + 0.6, rz, CHUNK_SIZE - 4, 0.15, 0.15, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
         // Posts
         for (let px = worldOriginX + 4; px < worldOriginX + CHUNK_SIZE - 4; px += 6) {
-          this.addBox(verts, indices, px, 0.7, rz, 0.2, 1.4, 0.2, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(verts, indices, px, BRIDGE_DECK_Y + 0.7, rz, 0.2, 1.4, 0.2, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
         }
       }
       // Center divider
-      this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.2, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, 0.4, 0.4, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
+      this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, BRIDGE_DECK_Y + 0.2, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, 0.4, 0.4, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
     } else if (isAeroport) {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.22, 0.22, 0.24, 1.0, idxOffset); idxOffset += 4;
     } else if (isParkingLot) {
@@ -2762,6 +2778,9 @@ void main() {
     mat4.rotateY(this.modelMatrix, this.modelMatrix, yaw);
 
     const meshList = Array.isArray(mesh) ? mesh : [mesh];
+    const yo = meshList.reduce<number>((o, m) => o || (m.yawOffset ?? 0), 0);
+    if (yo) mat4.rotateY(this.modelMatrix, this.modelMatrix, yo);
+
     if (meshList.some(m => m.needsFlip)) {
       mat4.rotateX(this.modelMatrix, this.modelMatrix, Math.PI);
       mat4.rotateY(this.modelMatrix, this.modelMatrix, Math.PI);
@@ -3136,14 +3155,16 @@ void main() {
     for (const pc of parkedCars) {
       const biome = getBiome(Math.floor(pc.x / 80), Math.floor(pc.z / 80));
       const isBoat = pc.type === 'boat';
-      const submergeY = biome === 'ocean' ? (isBoat ? 0 : -1.5) : 0;
+      const submergeY = biome === 'ocean' ? (isBoat ? 0 : -1.5) : getTerrainHeight(pc.x, pc.z);
       this.drawMesh(pc.mesh, pc.x, (pc as any)._expY ?? submergeY, pc.z, pc.yaw);
     }
 
     for (const npc of serverNPCs) {
-      const submerged = getBiome(Math.floor(npc.x / 80), Math.floor(npc.z / 80)) === 'ocean';
+      const biome = getBiome(Math.floor(npc.x / 80), Math.floor(npc.z / 80));
+      const submerged = biome === 'ocean';
       const isAircraft = npc.type === 'helicopter' || npc.type === 'plane';
-      const expY = isAircraft ? (npc.y || 0) : (submerged ? -1.5 : (npc as any)._expY ?? 0);
+      const terrainY = submerged ? -1.5 : getTerrainHeight(npc.x, npc.z);
+      const expY = isAircraft ? (npc.y || 0) : (npc as any)._expY ?? terrainY;
       this.drawMesh(npc.mesh, npc.x, expY, npc.z, npc.yaw);
       if (npc.hasDriver !== false && npc.type !== 'cop') {
         const dMesh = this.getPedestrianMesh(npc.gender || 'male', npc.id);

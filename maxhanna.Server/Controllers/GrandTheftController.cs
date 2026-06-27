@@ -832,8 +832,8 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 
-						npc.X += sepX * 0.3f;
-						npc.Z += sepZ * 0.3f;
+						npc.X += sepX * 0.05f;
+						npc.Z += sepZ * 0.05f;
 
 						bool isAircraft = npc.Type == "helicopter" || npc.Type == "plane";
 						if (!isAircraft)
@@ -1221,62 +1221,54 @@ namespace maxhanna.Server.Controllers
 									if (side * side < 9f) { blocked = true; break; }
 								}
 
-								if (lightStop || blocked || npc.Stopped)
+								float speedMult = 1.0f;
+								if (lightStop) speedMult = 0.1f;
+								else if (blocked) speedMult = 0.4f;
+
+								npc.StopTimer = 0;
+								if (distToTarget2 < 2.5f)
 								{
-									npc.Stopped = true;
-									npc.StopTimer += 0.016f;
-									if (npc.StopTimer > 1.5f) { npc.Stopped = false; npc.StopTimer = 0; }
-								}
-								else
-								{
-									npc.StopTimer = 0f;
-									if (distToTarget2 < 2.5f)
+									npc.PathIdx++;
+									if (npc.PathIdx >= npc.PathIndices.Count)
 									{
-										npc.PathIdx++;
-										if (npc.PathIdx >= npc.PathIndices.Count)
-										{
-											int newEnd = rng.Next(nodes.Length);
-											npc.PathIndices = CityLayout.FindPathCached(graph, currIdx, newEnd);
-											npc.PathIdx = 0;
-											if (npc.PathIndices == null || npc.PathIndices.Count < 2)
-												npc.PathIndices = new List<int> { currIdx, (currIdx + 1) % nodes.Length };
-											var nn = nodes[npc.PathIndices[0]];
-											var nm = nodes[npc.PathIndices[1]];
-											var off2 = CityLayout.GetLaneOffset(nn.x, nn.z, nm.x, nm.z, true);
-											npc.LaneOffsetX = off2.ox;
-											npc.LaneOffsetZ = off2.oz;
-										}
-										else
-										{
-											var cn = nodes[npc.PathIndices[npc.PathIdx]];
-											var nn2 = nodes[npc.PathIndices[npc.PathIdx + 1 < npc.PathIndices.Count ? npc.PathIdx + 1 : npc.PathIdx]];
-											var off3 = CityLayout.GetLaneOffset(cn.x, cn.z, nn2.x, nn2.z, true);
-											npc.LaneOffsetX = off3.ox;
-											npc.LaneOffsetZ = off3.oz;
-										}
+										int newEnd = rng.Next(nodes.Length);
+										npc.PathIndices = CityLayout.FindPathCached(graph, currIdx, newEnd);
+										npc.PathIdx = 0;
+										if (npc.PathIndices == null || npc.PathIndices.Count < 2)
+											npc.PathIndices = new List<int> { currIdx, (currIdx + 1) % nodes.Length };
+										var nn = nodes[npc.PathIndices[0]];
+										var nm = nodes[npc.PathIndices[1]];
+										var off2 = CityLayout.GetLaneOffset(nn.x, nn.z, nm.x, nm.z, true);
+										npc.LaneOffsetX = off2.ox;
+										npc.LaneOffsetZ = off2.oz;
 									}
 									else
 									{
-										float moveX = (ddx2 / distToTarget2) * npc.Speed * SPEED_FACTOR_LOCAL;
-										float moveZ = (ddz2 / distToTarget2) * npc.Speed * SPEED_FACTOR_LOCAL;
-										float nextX = npc.X + moveX;
-										float nextZ = npc.Z + moveZ;
-
-										// STRICT VALIDATION: Cars must stay on the road!
-										if (!CityLayout.IsBuildingAt(nextX, nextZ) && CityLayout.IsRoadAt(nextX, nextZ))
-										{
-											npc.X = nextX;
-											npc.Z = nextZ;
-										}
-										else
-										{
-											// Drifting off road or clipping a building — stop and repath
-											npc.Stopped = true;
-											npc.StopTimer = 0.5f;
-											npc.PathIndices = null;
-										}
-										npc.Yaw = (float)Math.Atan2(moveX, moveZ);
+										var cn = nodes[npc.PathIndices[npc.PathIdx]];
+										var nn2 = nodes[npc.PathIndices[npc.PathIdx + 1 < npc.PathIndices.Count ? npc.PathIdx + 1 : npc.PathIdx]];
+										var off3 = CityLayout.GetLaneOffset(cn.x, cn.z, nn2.x, nn2.z, true);
+										npc.LaneOffsetX = off3.ox;
+										npc.LaneOffsetZ = off3.oz;
 									}
+								}
+								else
+								{
+									float moveX = (ddx2 / distToTarget2) * npc.Speed * SPEED_FACTOR_LOCAL * speedMult;
+									float moveZ = (ddz2 / distToTarget2) * npc.Speed * SPEED_FACTOR_LOCAL * speedMult;
+									float nextX = npc.X + moveX;
+									float nextZ = npc.Z + moveZ;
+
+									// STRICT VALIDATION: Cars must stay on the road!
+									if (!CityLayout.IsBuildingAt(nextX, nextZ) && CityLayout.IsRoadAt(nextX, nextZ))
+									{
+										npc.X = nextX;
+										npc.Z = nextZ;
+									}
+									else
+									{
+										npc.PathIndices = null;
+									}
+									npc.Yaw = (float)Math.Atan2(moveX, moveZ);
 								}
 							}
 						}
