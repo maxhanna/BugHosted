@@ -109,6 +109,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       case 'digcraft_levelup': return '⬆️';
       case 'trade_executed': return '₿';
       case 'trophy': return '🏆';
+      case 'reaction_added': return '😊';
       default: return '📌';
     }
   }
