@@ -1033,7 +1033,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (tryEnter(this.serverNPCs)) return;
     if (tryEnter(this.parkedCars, true)) return;
     // Check decorative aircraft in nearby chunks' buildings
-    if (!this.nearCar) {
+    {
       const cxa = Math.floor(this.carX / 80), cza = Math.floor(this.carZ / 80);
       for (let dza = -1; dza <= 1; dza++) {
         for (let dxa = -1; dxa <= 1; dxa++) {
@@ -3379,6 +3379,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     for (const ped of this.serverPedestrians) { check(ped.x, 1.0, ped.z, ped.health, ped.type === 'cop' ? 'Police' : 'Pedestrian'); }
     for (const pl of this.otherPlayers) { check(pl.posX, pl.posY + 1.0, pl.posZ, pl.health, pl.username); }
+    // Scan decorative aircraft for hover names
+    const cxchunk = Math.floor(ox / 80), czchunk = Math.floor(oz / 80);
+    for (let dzc = -1; dzc <= 1; dzc++) {
+      for (let dxc = -1; dxc <= 1; dxc++) {
+        const chunk = this.renderer.getCityChunk(cxchunk + dxc, czchunk + dzc);
+        if (!chunk) continue;
+        for (const da of chunk.decorativeAircraft) {
+          check(da.x, 0.5, da.z, 200, da.type === 'helicopter' ? 'Helicopter' : 'Plane');
+        }
+      }
+    }
 
     this.lookTargetHealth = bestHealth;
     this.lookTargetName = bestName;

@@ -485,7 +485,7 @@ export class GrandTheftRenderer {
     'industrial_building_psx', 'low_polly_building', 'low_poly_apartment_building_2', 'low_poly_apartment_building_3',
     'low_poly_cinema', 'low_poly_city_hall', 'low_poly_gas_station', 'low_poly_hotel_1', 'low_poly_hotel_2',
     'low_poly_pharmacy', 'low_poly_police_station', 'low_poly_school', 'low_poly_shopping_center',
-    'modern_building', 'panel_apartment_placeholder', 'psx_groceries_store', 'pyaterochka_3d', 'supermarket',
+    'panel_apartment_placeholder', 'psx_groceries_store', 'pyaterochka_3d', 'supermarket',
     'ukraine_building', 'abandoned_building_gameready',
     'psx_japanese_warehouse', 'city_building', 'low_poly_apartment_building_1', 
     'fatboys_diner', 'brooklyn_street_building_low_poly', 'brooklyn_street_cornerhouse_low_poly',
@@ -500,7 +500,7 @@ export class GrandTheftRenderer {
     'low_poly_pizza_restaurant', 'low_poly_wooden_cabine', 'residential_family_house', 'ichijoushi_002',
     'low_poly_apartment_building_1', 'ichijoushi___001',
     'low_poly_house_1', 'low_poly_apartment_2',
-    'apartament', 'two_story_resident_building',
+    'apartament',
     'fatboys_diner',
     'psxprop_-_old_warehouse',
   ];
