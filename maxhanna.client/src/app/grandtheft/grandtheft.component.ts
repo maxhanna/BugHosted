@@ -441,7 +441,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             if (name === 'buildingRandom') 
               for (const mm of m) mm.renderScale = 0.75; 
             if (name === 'abandoned_building_gameready') 
-              for (const mm of m) mm.renderScale = 3; 
+              for (const mm of m) mm.renderScale = 5; 
             this.renderer.cityBuildingMeshes.push(m); 
           } 
         }) 
@@ -3138,8 +3138,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private updateHelicopter(dt: number) {
-    const maxSpeed = 35, climbRate = 12, yawSpeed = 2.0;
+    const maxSpeed = 35, climbRate = 12, yawSpeed = 2.0, turnSpeed = 2.5;
 
+    if (this.keys.has('KeyA')) this.camYaw -= turnSpeed * dt;
+    if (this.keys.has('KeyD')) this.camYaw += turnSpeed * dt;
     this.carYaw = this.camYaw;
 
     if (this.altUpPressed) this.carVy = Math.min(this.carVy + climbRate * dt, 10);
@@ -3156,16 +3158,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const targetVz = forwardZ * fwdInput * maxSpeed;
     this.carVx += (targetVx - this.carVx) * Math.min(1, 3 * dt);
     this.carVz += (targetVz - this.carVz) * Math.min(1, 3 * dt);
-
-    const rightX = Math.cos(this.carYaw), rightZ = -Math.sin(this.carYaw);
-    let sideInput = 0;
-    if (this.keys.has('KeyA')) sideInput = 1;
-    if (this.keys.has('KeyD')) sideInput = -1;
-    if (sideInput !== 0) {
-      this.carVx += rightX * sideInput * 15 * dt;
-      this.carVz += rightZ * sideInput * 15 * dt;
-    }
-    this.carRoll = this.carRoll * 0.95 + sideInput * 0.2 * dt;
 
     if (this.keys.has('KeyQ')) this.camYaw -= yawSpeed * dt;
     if (this.keys.has('KeyE')) this.camYaw += yawSpeed * dt;

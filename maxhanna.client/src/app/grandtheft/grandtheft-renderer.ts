@@ -13,6 +13,7 @@
   jointIndices?: Uint16Array;
   jointWeights?: Float32Array;
   minY?: number;
+  maxY?: number;
   minX?: number;
   maxX?: number;
   minZ?: number;
@@ -1633,7 +1634,7 @@ void main() {
 
     gl.bindVertexArray(null);
     // Compute bounds so buildings can be used for collision
-    let meshMinY = 0;
+    let meshMinY = 0, meshMaxY = 0;
     let meshMinX = Infinity, meshMaxX = -Infinity;
     let meshMinZ = Infinity, meshMaxZ = -Infinity;
     for (let i = 0; i < vertexCount; i++) {
@@ -1641,6 +1642,7 @@ void main() {
       const y = interleaved[i * 12 + 1];
       const z = interleaved[i * 12 + 2];
       if (y < meshMinY) meshMinY = y;
+      if (y > meshMaxY) meshMaxY = y;
       if (x < meshMinX) meshMinX = x;
       if (x > meshMaxX) meshMaxX = x;
       if (z < meshMinZ) meshMinZ = z;
@@ -1657,6 +1659,7 @@ void main() {
       indexType: useUint32 ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT,
       texture,
       minY: meshMinY,
+      maxY: meshMaxY,
       minX: meshMinX,
       maxX: meshMaxX,
       minZ: meshMinZ,
@@ -3069,26 +3072,24 @@ void main() {
     mat4.lookAt(this.viewMatrix, [camX, camY, camZ], [camX + dirX, camY + dirY, camZ + dirZ], [0, 1, 0]);
 
     if (this.skyboxMesh) {
-      gl.useProgram(this.gltfSkyProgram);
-      gl.uniformMatrix4fv(this.gltfSkyProjLoc, false, this.projMatrix);
-      gl.uniformMatrix4fv(this.gltfSkyViewLoc, false, this.viewMatrix);
+      // Push camera slightly forward so no skybox vertex has view.z=0 → w=0 → GPU corruption
+      const fwdX = Math.sin(camYaw) * Math.cos(camPitch);
+      const fwdY = -Math.sin(camPitch);
+      const fwdZ = Math.cos(camYaw) * Math.cos(camPitch);
+      const skyView = new Float32Array(this.viewMatrix);
+      skyView[12] = fwdX * 0.01; skyView[13] = fwdY * 0.01; skyView[14] = fwdZ * 0.01;
+      gl.useProgram(this.program);
+      gl.uniformMatrix4fv(this.projLoc, false, this.projMatrix);
+      gl.uniformMatrix4fv(this.viewLoc, false, skyView);
+      gl.uniform3f(this.ambientColorLoc, 1.0, 1.0, 1.0);
+      gl.uniform3f(this.lightDirLoc, 0, 0, 0);
+      gl.uniform3f(this.lightColorLoc, 0, 0, 0);
+      gl.uniform1i(this.numPointLightsLoc, 0);
       gl.depthMask(false);
       gl.disable(gl.DEPTH_TEST);
       gl.disable(gl.CULL_FACE);
       gl.disable(gl.BLEND);
-      const skyModel = mat4.create();
-      mat4.identity(skyModel);
-      mat4.translate(skyModel, skyModel, [0, -1, 0]);
-      gl.uniformMatrix4fv(this.gltfSkyModelLoc, false, skyModel);
-      for (const m of this.skyboxMesh) {
-        if (m.texture) {
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, m.texture);
-          gl.uniform1i(this.gltfSkyTexLoc, 0);
-        }
-        gl.bindVertexArray(m.vao);
-        gl.drawElements(gl.TRIANGLES, m.indexCount, m.indexType || gl.UNSIGNED_SHORT, 0);
-      }
+      this.drawMesh(this.skyboxMesh, 0, -1, 0, 0, [1, 1, 1], [1, 1, 1, 1]);
       gl.enable(gl.BLEND);
       gl.enable(gl.CULL_FACE);
       gl.enable(gl.DEPTH_TEST);
