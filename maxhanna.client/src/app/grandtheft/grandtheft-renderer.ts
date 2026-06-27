@@ -123,12 +123,28 @@ export function getBiome(cx: number, cz: number): string {
   return 'ocean';
 }
 
-/** Returns the ground Y offset for a given world position. Bridge=4, ocean=-2.5, land=0. */
+const BRIDGE_RANGES: { startCx: number; endCx: number; startCz: number; endCz: number }[] = [
+  { startCx: 4, endCx: 5, startCz: -1, endCz: 1 },
+  { startCx: 16, endCx: 17, startCz: -2, endCz: 2 },
+  { startCx: 31, endCx: 32, startCz: -3, endCz: 3 },
+];
+const BRIDGE_DECK_Y = 4.0;
+
+/** Returns the ground Y offset for a given world position. Bridge ramps, ocean=-2.5, land=0. */
 export function getTerrainHeight(x: number, z: number): number {
   const cx = Math.floor(x / 80);
   const cz = Math.floor(z / 80);
   const biome = getBiome(cx, cz);
-  if (biome === 'bridge') return 4.0;
+  if (biome === 'bridge') {
+    for (const br of BRIDGE_RANGES) {
+      if (cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz) {
+        if (cx === br.startCx) return (x - br.startCx * 80) / 80 * BRIDGE_DECK_Y;
+        if (cx === br.endCx) return ((br.endCx + 1) * 80 - x) / 80 * BRIDGE_DECK_Y;
+        return BRIDGE_DECK_Y;
+      }
+    }
+    return BRIDGE_DECK_Y;
+  }
   if (biome === 'ocean') return -2.5;
   return 0.0;
 }
@@ -1755,7 +1771,6 @@ void main() {
         }
       }
     } else if (isBridge) {
-      const BRIDGE_DECK_Y = 4.0;
       // Water under bridge
       const cx2 = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
       const cz2 = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
@@ -1763,6 +1778,21 @@ void main() {
       this.addPlane(verts, indices, cx2, -2.0, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.10, 0.30, 0.50, 0.55, idxOffset); idxOffset += 4;
       // Bridge deck
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, BRIDGE_DECK_Y, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 4;
+      // Ramp fillers: stepped slope from Y=0 to BRIDGE_DECK_Y at the landward edge
+      for (const br of BRIDGE_RANGES) {
+        if (cx !== br.startCx && cx !== br.endCx) continue;
+        if (cz < br.startCz || cz > br.endCz) continue;
+        const numSteps = 8;
+        const stepH = BRIDGE_DECK_Y / numSteps;
+        const stepW = CHUNK_SIZE / numSteps;
+        const rampUp = cx === br.startCx;
+        for (let si = 0; si < numSteps; si++) {
+          const sx = worldOriginX + (rampUp ? si * stepW + stepW / 2 : CHUNK_SIZE - si * stepW - stepW / 2);
+          const sy = (0.5 + si) * stepH;
+          this.addBox(verts, indices, sx, sy, worldOriginZ + CHUNK_SIZE / 2, stepW, stepH * 1.1, CHUNK_SIZE, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
+        }
+        break;
+      }
       // Two suspension towers (one per side, full height)
       for (const side of [-1, 1]) {
         const tz = worldOriginZ + CHUNK_SIZE / 2 + side * (CHUNK_SIZE / 2 - 6);
@@ -1933,10 +1963,10 @@ void main() {
             this.addBox(verts, indices, blockWorldX, 0.11, blockWorldZ + dz, 0.5, 0.05, 3, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
           }
 
-          // Deterministic chunk role — 2% terminal, 15% helipad, 83% hangar
+          // Deterministic chunk role — 2% terminal, 30% helipad, 68% hangar
           const aRole = rng();
           const hasTerminal = aRole < 0.02;
-          const hasHelipad = aRole >= 0.02 && aRole < 0.17;
+          const hasHelipad = aRole >= 0.02 && aRole < 0.32;
           const HS = 2.5; // hangar scale multiplier
 
           if (hasTerminal && this.airportBuildingMeshes.length > 0) {
@@ -1990,28 +2020,26 @@ void main() {
               }
             }
           } else {
-            // ── Hangar row (default) — 2 big hangars per side with planes ──
+            // ── Hangar row (default) — 1 hangar per side with plane ──
             for (const side of [-1, 1]) {
-              for (let hi = 0; hi < 2; hi++) {
-                if (this.airportHangarMesh) {
-                  const hz = blockWorldZ - 16 + hi * 30;
-                  const hx = blockWorldX + side * 35;
+              if (this.airportHangarMesh) {
+                const hx = blockWorldX + side * 35;
+                const hz = blockWorldZ;
+                buildings.push({
+                  model: this.airportHangarMesh,
+                  x: hx, y: -this.getModelMinY(this.airportHangarMesh) * HS + 0.15, z: hz,
+                  yaw: side > 0 ? -Math.PI / 2 : Math.PI / 2,
+                  scale: [HS, HS, HS]
+                });
+                // Plane in front of each hangar
+                if (this.planeMeshes.length > 0) {
+                  const pz = hz + (side > 0 ? -14 : 14);
                   buildings.push({
-                    model: this.airportHangarMesh,
-                    x: hx, y: -this.getModelMinY(this.airportHangarMesh) * HS + 0.15, z: hz,
+                    model: this.planeMeshes[Math.floor(rng() * this.planeMeshes.length)],
+                    x: hx, y: 0.15, z: pz,
                     yaw: side > 0 ? -Math.PI / 2 : Math.PI / 2,
-                    scale: [HS, HS, HS]
+                    scale: [1, 1, 1]
                   });
-                  // Plane in front of each hangar
-                  if (this.planeMeshes.length > 0) {
-                    const pz = hz + (side > 0 ? -14 : 14);
-                    buildings.push({
-                      model: this.planeMeshes[Math.floor(rng() * this.planeMeshes.length)],
-                      x: hx, y: 0.15, z: pz,
-                      yaw: side > 0 ? -Math.PI / 2 : Math.PI / 2,
-                      scale: [1, 1, 1]
-                    });
-                  }
                 }
               }
             }

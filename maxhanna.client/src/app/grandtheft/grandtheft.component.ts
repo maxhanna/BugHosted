@@ -494,8 +494,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (e.code === 'KeyM') this.showMap = !this.showMap;
       if (e.code === 'KeyL') this.showLeaderboard = !this.showLeaderboard;
       if (this.isInCar && !this.isMobile) {
-        if (e.code === 'ArrowUp' || e.code === 'ArrowLeft') { e.preventDefault(); this.prevRadio(); }
-        if (e.code === 'ArrowDown' || e.code === 'ArrowRight') { e.preventDefault(); this.nextRadio(); }
+        if (e.code === 'ArrowUp') { e.preventDefault(); this.stopRadio(); }
+        if (e.code === 'ArrowDown') { e.preventDefault(); this.randomRadio(); }
+        if (e.code === 'ArrowLeft') { e.preventDefault(); this.prevRadio(); }
+        if (e.code === 'ArrowRight') { e.preventDefault(); this.nextRadio(); }
       }
       if (e.code === 'Tab' || e.code === 'KeyQ') {
         e.preventDefault();

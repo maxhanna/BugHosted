@@ -76,15 +76,13 @@
       </div>
 
       <div *ngFor="let plant of plants" class="plant-row" (click)="selectPlant(plant)">
-        <span class="plant-icon">🌿</span>
+        <span class="plant-icon" *ngIf="!plant.photos || plant.photos.length ===0">🌿</span>
+        <app-media-viewer class="plant-photo-preview" *ngIf="plant.photos && plant.photos.length >0" [file]="plant.photos[0]" [inputtedParentRef]="parentRef" [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"></app-media-viewer>
         <div class="plant-info">
           <span class="plant-name">{{ plant.name }}</span>
           <span class="plant-meta" *ngIf="plant.species || plant.location">
             {{ plant.species }}{{ plant.species && plant.location ? ' · ' : '' }}{{ plant.location }}
           </span>
-        </div>
-        <div class="plant-photo-preview" *ngIf="plant.photos && plant.photos.length > 0">
-          <app-media-viewer [file]="plant.photos[0]" [inputtedParentRef]="parentRef" [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"></app-media-viewer>
         </div>
         <span class="plant-photo-count">{{ plant.photoCount || 0 }} 📷</span>
         <span class="plant-watered" *ngIf="plant.lastWatered" [title]="'Last watered: ' + (plant.lastWatered | date:'y/MM/dd HH:mm')">

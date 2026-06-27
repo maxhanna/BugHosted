@@ -1541,7 +1541,7 @@ namespace maxhanna.Server.Controllers
 			}
 			int nearbyAircraft = 0;
 			foreach (var kv in npcs) if (kv.Value.Type == "helicopter" || kv.Value.Type == "plane") nearbyAircraft++;
-			while (nearAnyAeroport && nearbyAircraft < 6)
+			while (nearAnyAeroport && nearbyAircraft < 12)
 			{
 				long id = GetNextNpcId();
 				string acType = nearbyAircraft % 2 == 0 ? "helicopter" : "plane";
@@ -1620,7 +1620,7 @@ namespace maxhanna.Server.Controllers
 			{
 				int parkedAircraft = 0;
 				foreach (var kv in npcs) if ((kv.Value.Type == "helicopter" || kv.Value.Type == "plane") && kv.Value.IsParked) parkedAircraft++;
-				while (parkedAircraft < 8)
+				while (parkedAircraft < 25)
 				{
 					long id = GetNextNpcId();
 					string acType = parkedAircraft % 2 == 0 ? "helicopter" : "plane";
