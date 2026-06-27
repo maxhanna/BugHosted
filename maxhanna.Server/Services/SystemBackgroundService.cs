@@ -2748,6 +2748,8 @@ namespace maxhanna.Server.Services
             var events = userEntry.Value;
             var eventList = string.Join(", ", events.Select(e => $"{e.Type} at {e.Date:yyyy-MM-dd HH:mm} ({e.Note})"));
             var message = $"Upcoming events: {eventList}";
+
+            _ = _log.Db($"Sending Calendar notification : {message} to userId: {userId}", Int32.Parse(userId), "SYSTEM", outputToConsole: true);
             await firebaseService.SendFirebaseNotification(int.Parse(userId), message);
         }
 
