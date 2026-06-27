@@ -3051,7 +3051,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private updateBoat(dt: number) {
     const accel = 15, maxSpeed = 35, turnSpeed = 1.5;
     const ocx = Math.floor(this.carX / 80), ocz = Math.floor(this.carZ / 80);
-    const inOcean = getBiome(ocx, ocz) === 'ocean';
+    const biome = getBiome(ocx, ocz);
+    const onWater = biome === 'ocean' || biome === 'bridge';
     let accelForce = 0;
     if (this.keys.has('KeyW')) accelForce = accel;
     if (this.keys.has('KeyS')) accelForce = -accel;
@@ -3063,7 +3064,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.carVx += forwardX * accelForce * dt;
       this.carVz += forwardZ * accelForce * dt;
     }
-    if (inOcean) {
+    if (onWater) {
       let steer = 0;
       if (this.keys.has('KeyA')) steer = 1;
       if (this.keys.has('KeyD')) steer = -1;

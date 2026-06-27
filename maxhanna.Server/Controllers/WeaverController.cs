@@ -115,76 +115,88 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("heartbeat")]
 		public async Task<IActionResult> Heartbeat([FromBody] WeaverHeartbeatRequest req)
 		{
-			if (!await _semaphore.WaitAsync(0)) // non-blocking wait
-			{
-				return Conflict(new { Message = "Heartbeat is already running." });
-			}
-
 			try
 			{
-				if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
-					return Unauthorized(new { error = "Invalid token" });
+				if (!await _semaphore.WaitAsync(0))
+					return Conflict(new { Message = "Heartbeat is already running." });
 
-				// Capture the Weaver instance's IP address from the HTTP connection
-				var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "";
-				var weaverAddress = req.WeaverAddress ?? "";
-
-				string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-				using var conn = new MySqlConnection(cs);
-				await conn.OpenAsync();
-
-				// Check cache first
-				using (var checkConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				try
 				{
-					await checkConn.OpenAsync();
-					using var checkCmd = new MySqlCommand(
-						"SELECT 1 FROM maxhanna.weaver_heartbeat WHERE client_id = @ClientId AND last_heartbeat >= DATE_SUB(UTC_TIMESTAMP, INTERVAL 1 MINUTE)",
-						checkConn);
-					checkCmd.Parameters.AddWithValue("@ClientId", req.ClientId);
-					var cached = await checkCmd.ExecuteScalarAsync();
-					if (cached != null)
+					if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
+						return Unauthorized(new { error = "Invalid token" });
+
+					var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "";
+					var weaverAddress = req.WeaverAddress ?? "";
+
+					string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+					using var conn = new MySqlConnection(cs);
+					await conn.OpenAsync();
+
+					// Cache check
+					using (var checkConn = new MySqlConnection(cs))
 					{
-						return Ok(new { status = "ok" });
+						await checkConn.OpenAsync();
+						using var checkCmd = new MySqlCommand(
+							"SELECT 1 FROM maxhanna.weaver_heartbeat WHERE client_id = @ClientId AND last_heartbeat >= DATE_SUB(UTC_TIMESTAMP, INTERVAL 1 MINUTE)",
+							checkConn);
+						checkCmd.Parameters.AddWithValue("@ClientId", req.ClientId);
+						var cached = await checkCmd.ExecuteScalarAsync();
+						if (cached != null)
+							return Ok(new { status = "ok" });
 					}
+
+					var kanbanData = GzipDecompress(req.KanbanData ?? "");
+
+					string sql = @"
+                INSERT INTO maxhanna.weaver_heartbeat (user_id, client_id, status, last_heartbeat, kanban_data, weaver_address, remote_ip)
+                VALUES (@UserId, @ClientId, @Status, UTC_TIMESTAMP(), @KanbanData, @WeaverAddress, @RemoteIp)
+                ON DUPLICATE KEY UPDATE status = @Status, last_heartbeat = UTC_TIMESTAMP(), kanban_data = @KanbanData, weaver_address = @WeaverAddress, remote_ip = @RemoteIp";
+
+					using var cmd = new MySqlCommand(sql, conn);
+					cmd.CommandTimeout = 15;
+					cmd.Parameters.AddWithValue("@UserId", session.UserId);
+					cmd.Parameters.AddWithValue("@ClientId", req.ClientId ?? "");
+					cmd.Parameters.AddWithValue("@Status", req.Status ?? "online");
+					cmd.Parameters.AddWithValue("@KanbanData", kanbanData);
+					cmd.Parameters.AddWithValue("@WeaverAddress", weaverAddress);
+					cmd.Parameters.AddWithValue("@RemoteIp", remoteIp);
+					await cmd.ExecuteNonQueryAsync();
+
+					var settings = GzipDecompress(req.Settings ?? "");
+					if (!string.IsNullOrWhiteSpace(settings))
+					{
+						string settingsSql = @"
+                    INSERT INTO maxhanna.weaver_settings (user_id, settings_data, updated_at)
+                    VALUES (@UserId, @SettingsData, UTC_TIMESTAMP())
+                    ON DUPLICATE KEY UPDATE settings_data = @SettingsData, updated_at = UTC_TIMESTAMP()";
+
+						using var settingsCmd = new MySqlCommand(settingsSql, conn);
+						settingsCmd.Parameters.AddWithValue("@UserId", session.UserId);
+						settingsCmd.Parameters.AddWithValue("@SettingsData", settings);
+						await settingsCmd.ExecuteNonQueryAsync();
+					}
+
+					return Ok(new { status = "ok" });
 				}
-
-				var kanbanData = GzipDecompress(req.KanbanData ?? "");
-
-				string sql = @"
-				INSERT INTO maxhanna.weaver_heartbeat (user_id, client_id, status, last_heartbeat, kanban_data, weaver_address, remote_ip)
-				VALUES (@UserId, @ClientId, @Status, UTC_TIMESTAMP(), @KanbanData, @WeaverAddress, @RemoteIp)
-				ON DUPLICATE KEY UPDATE status = @Status, last_heartbeat = UTC_TIMESTAMP(), kanban_data = @KanbanData, weaver_address = @WeaverAddress, remote_ip = @RemoteIp";
-				using var cmd = new MySqlCommand(sql, conn);
-				cmd.CommandTimeout = 15;
-				cmd.Parameters.AddWithValue("@UserId", session.UserId);
-				cmd.Parameters.AddWithValue("@ClientId", req.ClientId ?? "");
-				cmd.Parameters.AddWithValue("@Status", req.Status ?? "online");
-				cmd.Parameters.AddWithValue("@KanbanData", kanbanData);
-				cmd.Parameters.AddWithValue("@WeaverAddress", weaverAddress);
-				cmd.Parameters.AddWithValue("@RemoteIp", remoteIp);
-				await cmd.ExecuteNonQueryAsync();
-
-				// Store settings if provided
-				var settings = GzipDecompress(req.Settings ?? "");
-				if (!string.IsNullOrWhiteSpace(settings))
+				finally
 				{
-					string settingsSql = @"
-					INSERT INTO maxhanna.weaver_settings (user_id, settings_data, updated_at)
-					VALUES (@UserId, @SettingsData, UTC_TIMESTAMP())
-					ON DUPLICATE KEY UPDATE settings_data = @SettingsData, updated_at = UTC_TIMESTAMP()";
-					using var settingsCmd = new MySqlCommand(settingsSql, conn);
-					settingsCmd.Parameters.AddWithValue("@UserId", session.UserId);
-					settingsCmd.Parameters.AddWithValue("@SettingsData", settings);
-					await settingsCmd.ExecuteNonQueryAsync();
+					_semaphore.Release();
 				}
-
-				return Ok(new { status = "ok" });
 			}
-			finally
-			{
-				_semaphore.Release();
+			catch (System.Net.Sockets.SocketException)
+			{ 
+				return Ok(new { status = "abort" });
+			}
+			catch (SemaphoreFullException)
+			{ 
+				return Ok(new { status = "abort" });
+			}
+			catch (OperationCanceledException)
+			{ 
+				return Ok(new { status = "abort" });
 			}
 		}
+
 
 		[HttpGet("commands/{id}")]
 		public async Task<IActionResult> GetCommandResult([FromRoute] int id, [FromQuery] string token)
