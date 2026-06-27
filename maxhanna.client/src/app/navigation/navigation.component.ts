@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+﻿import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { MiningService } from '../../services/mining.service';
 import { CalendarService } from '../../services/calendar.service';
 import { WeatherService } from '../../services/weather.service';
@@ -27,6 +27,7 @@ import { CrawlerService } from '../../services/crawler.service';
 import { NewsService } from '../../services/news.service';
 import { UserTheme } from '../../services/datacontracts/chat/chat-theme';
 import { DigcraftService } from '../../services/digcraft.service';
+import { GrandtheftService } from '../../services/grandtheft.service';
 
 @Component({
   selector: 'app-navigation',
@@ -43,6 +44,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   enderActivePlayers: number | null = null;
   enderUserRank: { rank?: number | null, score?: number | null, totalPlayers?: number | null } | null = null;
   private enderInterval: any;
+  grandtheftActivePlayers: number | null = null;
   digcraftActivePlayers: number | null = null;
   private digcraftInterval: any;
   bonesActivePlayers: number | null = null;
@@ -52,6 +54,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   nexusUserRank: { rank?: number | null, baseCount?: number | null, totalPlayers?: number | null } | null = null;
   private nexusInterval: any;
   metaActivePlayers: number | null = null;
+ private grandtheftInterval: any;
   metaUserRank: { rank?: number | null, level?: number | null, totalPlayers?: number | null } | null = null;
   private metaInterval: any;
   musicTodoCount: number | null = null;
@@ -82,6 +85,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   isLoadingCalendar = false;
   isLoadingEnder = false;
   isLoadingBones = false;
+  isLoadingGrandTheft = false;
   isLoadingDigcraft = false;
   isLoadingNexus = false;
   isLoadingEmulator = false;
@@ -137,6 +141,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private friendService: FriendService,
     private socialService: SocialService,
     private crawlerService: CrawlerService,
+    private grandTheftService: GrandtheftService,
     private digcraftService: DigcraftService,
     private newsService: NewsService) { }
 
@@ -178,6 +183,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingEnder = false;
     this.isLoadingBones = false;
     this.isLoadingMeta = false;
+    this.isLoadingGrandTheft = false;
     this.isLoadingNexus = false;
     this.isLoadingEmulator = false;
     this.isLoadingMusic = false;
@@ -202,7 +208,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       'notificationInfo', 'weatherInfo', 'cryptoHub', 'calendarInfo',
       'wordler', 'ender', 'bones', 'digcraft', 'nexus', 'meta',
       'music', 'todo', 'array', 'emulation', 'social', 'art',
-      'crawler', 'newsCount', 'theme'
+      'crawler', 'newsCount', 'theme', 'grandTheft'
     ];
 
     keysToReset.forEach(key => {
@@ -261,6 +267,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       Promise.resolve(this.getCrawlerInfo()),
       Promise.resolve(this.getThemeInfo()),
       Promise.resolve(this.getBonesPlayerInfo()),
+      Promise.resolve(this.getGrandTheftPlayerInfo()),
       Promise.resolve(this.getDigcraftPlayerInfo())
     ].map(p =>
       // Isolate failures so one error doesn't prevent others
@@ -298,6 +305,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.scheduleRecurring('ender', () => { if (this._parent.notificationsActive) this.getEnderPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('bones', () => { if (this._parent.notificationsActive) this.getBonesPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('digcraft', () => { if (this._parent.notificationsActive) this.getDigcraftPlayerInfo(); }, this.time60Secs);
+    this.scheduleRecurring('grandTheft', () => { if (this._parent.notificationsActive) this.getGrandTheftPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('nexus', () => { if (this._parent.notificationsActive) this.getNexusPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('meta', () => { if (this._parent.notificationsActive) this.getMetaPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('music', () => { if (this._parent.notificationsActive) this.getMusicInfo(); }, this.time60Mins);
@@ -888,6 +896,36 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.updateLastRunTimestamp('bones');
   }
 
+
+  private async getGrandTheftPlayerInfo() {
+    if (!this._parent.notificationsActive) {
+      clearInterval(this.grandtheftInterval);
+      return;
+    }
+    if (this._parent.lastRunTimestamps['grandTheft']
+      && Date.now() - this._parent.lastRunTimestamps['grandTheft'] < this.time60Secs) {
+      return;
+    }
+    this.isLoadingGrandTheft = true;
+    if (this._parent?.navigationItems) {
+      const grandTheftNav = this._parent.navigationItems.find(x => x.title === 'GrandTheft');
+      if (grandTheftNav && this.hasUserSelectedNavItem('GrandTheft')) {
+        try {
+          const res: any = await this.grandTheftService.getActivePlayers();
+          if (res) { 
+            this.grandtheftActivePlayers = (res as User[]).length;
+          }
+        } catch (e) {
+          this.grandtheftActivePlayers = null;
+          console.error('Error fetching Grand Theft player data:', e);
+        }
+        grandTheftNav.content = (this.grandtheftActivePlayers ?? 0).toString();
+      }
+    }
+    this.isLoadingGrandTheft = false;
+    this.updateLastRunTimestamp('grandTheft');
+  }
+
   private async getDigcraftPlayerInfo() {
     if (!this._parent.notificationsActive) {
       clearInterval(this.digcraftInterval);
@@ -1433,6 +1471,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingWordlerStreak = false;
     this.isLoadingCalendar = false;
     this.isLoadingBones = false;
+    this.isLoadingGrandTheft = false;
     this.isLoadingDigcraft = false;
     this.isLoadingEnder = false;
     this.isLoadingNexus = false;

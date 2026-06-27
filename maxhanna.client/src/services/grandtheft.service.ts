@@ -1,5 +1,6 @@
-import { Injectable } from '@angular/core';
+﻿import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { User } from './datacontracts/user/user';
 
 export interface GTNPCData {
   id: number;
@@ -147,6 +148,16 @@ export class GrandtheftService {
     }
   }
 
+  async getActivePlayers(): Promise<User[] | null> {
+    try {
+      const response = await this.http.get(`${this.baseUrl}/activeplayers`).toPromise();
+      return response ? response as User[] : null;
+    } catch (e) {
+      console.error('Error fetching active players', e);
+      return null;
+    }
+  }
+  
   async hit(attackerId: number, targetId: number, worldId: number, damage: number, attackerX: number = 0, attackerZ: number = 0): Promise<any> {
     try {
       return await this.http.post(`${this.baseUrl}/hit`, { attackerId, targetId, worldId, damage, attackerX, attackerZ }).toPromise();
