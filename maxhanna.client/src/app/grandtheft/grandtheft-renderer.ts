@@ -490,7 +490,7 @@ export class GrandTheftRenderer {
     'psx_japanese_warehouse', 'city_building', 'low_poly_apartment_building_1', 
     'fatboys_diner', 'brooklyn_street_building_low_poly', 'brooklyn_street_cornerhouse_low_poly',
     'okraglak_round_office_building_poznan',
-    'tome_convenience_store', 'psxprop_-_old_warehouse',
+    'psxprop_-_old_warehouse',
   ];
   static SUBURB_BUILDING_NAMES = [
     'brooklynCornerhouse', 'brooklynStreetBuilding', 'cabin',
@@ -502,7 +502,7 @@ export class GrandTheftRenderer {
     'low_poly_house_1', 'low_poly_apartment_2',
     'apartament', 'two_story_resident_building',
     'fatboys_diner',
-    'tome_convenience_store', 'psxprop_-_old_warehouse',
+    'psxprop_-_old_warehouse',
   ];
   public trafficLightMesh: CityMesh[] | null = null;
   public hydrantMesh: CityMesh[] | null = null;
@@ -3048,7 +3048,7 @@ void main() {
       gl.depthMask(false);
       gl.disable(gl.DEPTH_TEST);
       gl.disable(gl.CULL_FACE);
-      this.drawMesh(this.skyboxMesh, 0, 0, 0, 0, [0.000015, 0.000015, 0.000015], [1, 1, 1, 1]);
+      this.drawMesh(this.skyboxMesh, 0, -1, 0, 0, [1, 1, 1], [1, 1, 1, 1]);
       gl.enable(gl.CULL_FACE);
       gl.enable(gl.DEPTH_TEST);
       gl.depthMask(true);

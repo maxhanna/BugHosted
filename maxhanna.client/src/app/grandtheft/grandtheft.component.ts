@@ -435,7 +435,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       buildingTasks.push({ load: () => this.renderer.loadGLTF(`assets/grandtheft/airport_buildings/${name}/scene.gltf`, false).then(m => { if (m) this.renderer.airportBuildingMeshes.push(m); }) });
     }
     for (const name of GrandTheftRenderer.CITY_BUILDING_NAMES) {
-      buildingTasks.push({ load: () => this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`, false).then(m => { if (m) this.renderer.cityBuildingMeshes.push(m); }) });
+      buildingTasks.push({ load: () => this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`, false).then(m => { if (m) { if (name === 'buildingRandom') for (const mm of m) mm.renderScale = 0.75; this.renderer.cityBuildingMeshes.push(m); } }) });
     }
     for (const name of GrandTheftRenderer.SUBURB_BUILDING_NAMES) {
       buildingTasks.push({ load: () => this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`, false).then(m => { if (m) this.renderer.suburbBuildingMeshes.push(m); }) });
