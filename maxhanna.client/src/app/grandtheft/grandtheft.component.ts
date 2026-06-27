@@ -321,13 +321,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     [0.1, 0.6, 0.6], [0.5, 0.3, 0.1],
   ];
   constructor(private gtService: GrandtheftService,
-     private userEventService: UserEventService, 
-    private todoService: TodoService, 
+    private userEventService: UserEventService,
+    private todoService: TodoService,
     private fileService: FileService,
     private ngZone: NgZone,
     private cdr: ChangeDetectorRef) { super(); }
 
-  ngOnInit() { 
+  ngOnInit() {
     this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, "grandtheft", "Started playing Grand Theft!");
   }
 
@@ -343,7 +343,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     interface AssetTask { load: () => Promise<any>; }
     const tasks: AssetTask[] = [];
 
-    tasks.push({ load: () => this.renderer.initPlayerModel('assets/grandtheft/franklin/scene.gltf', false).then(() => {}) });
+    tasks.push({ load: () => this.renderer.initPlayerModel('assets/grandtheft/franklin/scene.gltf', false).then(() => { }) });
     tasks.push({ load: () => this.renderer.loadGLTF('assets/grandtheft/citylight/scene.gltf').then(lamps => { if (lamps) this.renderer.lampMesh = lamps; }) });
     tasks.push({ load: () => this.renderer.loadGLTF('assets/grandtheft/skybox_skydays_3/scene.gltf', false).then(m => { if (m) this.renderer.skyboxMesh = m; }) });
 
@@ -411,7 +411,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       { path: 'assets/grandtheft/suv/scene.gltf' },
       { path: 'assets/grandtheft/psxlow_poly_pickup/scene.gltf', yawOffset: -Math.PI / 2 },
       { path: 'assets/grandtheft/vehicle_-_subaru_brz_rocket_bunny/scene.gltf' },
-      { path: 'assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf' },  
+      { path: 'assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf' },
       { path: 'assets/grandtheft/kenworth_t2000/scene.gltf', scale: 3 },
       { path: 'assets/grandtheft/truck_toyota_corsa_b/scene.gltf', scale: 2 },
       { path: 'assets/grandtheft/freightliner_century/scene.gltf', scale: 2 },
@@ -435,16 +435,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       buildingTasks.push({ load: () => this.renderer.loadGLTF(`assets/grandtheft/airport_buildings/${name}/scene.gltf`, false).then(m => { if (m) this.renderer.airportBuildingMeshes.push(m); }) });
     }
     for (const name of GrandTheftRenderer.CITY_BUILDING_NAMES) {
-      buildingTasks.push({ 
+      buildingTasks.push({
         load: () => this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`, false).then(m => {
-           if (m) { 
-            if (name === 'buildingRandom') 
-              for (const mm of m) mm.renderScale = 0.75; 
-            if (name === 'abandoned_building_gameready') 
-              for (const mm of m) mm.renderScale = 5; 
-            this.renderer.cityBuildingMeshes.push(m); 
-          } 
-        }) 
+          if (m) {
+            if (name === 'buildingRandom') {
+              for (const mm of m) { mm.renderScale = 0.75; }
+            }
+            else if (name === "okraglak_round_office_building_poznan") {
+              for (const mm of m) { mm.renderScale = 3; }
+            }
+            else if (name === 'abandoned_building_gameready') {
+              for (const mm of m) { mm.renderScale = 5; }
+            }
+            this.renderer.cityBuildingMeshes.push(m);
+          }
+        })
       });
     }
     for (const name of GrandTheftRenderer.SUBURB_BUILDING_NAMES) {
@@ -465,7 +470,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         return;
       }
       idx += batch.length;
-      Promise.all(batch.map(t => t.load().catch(() => {}))).then(() => {
+      Promise.all(batch.map(t => t.load().catch(() => { }))).then(() => {
         this.loadingAssets = this.totalAssets - idx;
         processNextBatch();
       });
@@ -3931,7 +3936,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this._lbCache = all;
     return this._lbCache;
   }
- 
+
   private drawMap() {
     const canvas = this.mapCanvasRef?.nativeElement;
     if (!canvas) return;
