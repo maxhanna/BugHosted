@@ -426,6 +426,11 @@ export class GrandTheftRenderer {
   // Skybox
   private skyProgram!: WebGLProgram;
   private skyVao!: WebGLVertexArrayObject;
+  private gltfSkyProgram!: WebGLProgram;
+  private gltfSkyProjLoc!: WebGLUniformLocation;
+  private gltfSkyViewLoc!: WebGLUniformLocation;
+  private gltfSkyModelLoc!: WebGLUniformLocation;
+  private gltfSkyTexLoc!: WebGLUniformLocation;
   private skyProjLoc!: WebGLUniformLocation;
   private skyViewLoc!: WebGLUniformLocation;
   private skySunDirLoc!: WebGLUniformLocation;
@@ -960,6 +965,34 @@ void main() {
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 12, 0);
     gl.bindVertexArray(null);
+
+    const gVs = `#version 300 es
+in vec3 aPos;
+in vec3 aNormal;
+in vec4 aColor;
+in vec2 aUV;
+uniform mat4 uProj;
+uniform mat4 uView;
+uniform mat4 uModel;
+out vec2 vUV;
+void main() {
+  vec4 worldPos = uModel * vec4(aPos, 1.0);
+  gl_Position = (uProj * uView * worldPos).xyww;
+  vUV = aUV;
+}`;
+    const gFs = `#version 300 es
+precision highp float;
+in vec2 vUV;
+uniform sampler2D uTexture;
+out vec4 FragColor;
+void main() {
+  FragColor = texture(uTexture, vUV);
+}`;
+    this.gltfSkyProgram = this.createProgram(gVs, gFs);
+    this.gltfSkyProjLoc = gl.getUniformLocation(this.gltfSkyProgram, 'uProj')!;
+    this.gltfSkyViewLoc = gl.getUniformLocation(this.gltfSkyProgram, 'uView')!;
+    this.gltfSkyModelLoc = gl.getUniformLocation(this.gltfSkyProgram, 'uModel')!;
+    this.gltfSkyTexLoc = gl.getUniformLocation(this.gltfSkyProgram, 'uTexture')!;
   }
 
   private renderSkybox() {
@@ -3036,19 +3069,27 @@ void main() {
     mat4.lookAt(this.viewMatrix, [camX, camY, camZ], [camX + dirX, camY + dirY, camZ + dirZ], [0, 1, 0]);
 
     if (this.skyboxMesh) {
-      const skyView = new Float32Array(this.viewMatrix);
-      skyView[12] = 0; skyView[13] = 0; skyView[14] = 0;
-      gl.useProgram(this.program);
-      gl.uniformMatrix4fv(this.projLoc, false, this.projMatrix);
-      gl.uniformMatrix4fv(this.viewLoc, false, skyView);
-      gl.uniform3f(this.ambientColorLoc, 1.0, 1.0, 1.0);
-      gl.uniform3f(this.lightDirLoc, 0, 0, 0);
-      gl.uniform3f(this.lightColorLoc, 0, 0, 0);
-      gl.uniform1i(this.numPointLightsLoc, 0);
+      gl.useProgram(this.gltfSkyProgram);
+      gl.uniformMatrix4fv(this.gltfSkyProjLoc, false, this.projMatrix);
+      gl.uniformMatrix4fv(this.gltfSkyViewLoc, false, this.viewMatrix);
       gl.depthMask(false);
       gl.disable(gl.DEPTH_TEST);
       gl.disable(gl.CULL_FACE);
-      this.drawMesh(this.skyboxMesh, 0, -1, 0, 0, [1, 1, 1], [1, 1, 1, 1]);
+      gl.disable(gl.BLEND);
+      const skyModel = mat4.create();
+      mat4.identity(skyModel);
+      mat4.translate(skyModel, skyModel, [0, -1, 0]);
+      gl.uniformMatrix4fv(this.gltfSkyModelLoc, false, skyModel);
+      for (const m of this.skyboxMesh) {
+        if (m.texture) {
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, m.texture);
+          gl.uniform1i(this.gltfSkyTexLoc, 0);
+        }
+        gl.bindVertexArray(m.vao);
+        gl.drawElements(gl.TRIANGLES, m.indexCount, m.indexType || gl.UNSIGNED_SHORT, 0);
+      }
+      gl.enable(gl.BLEND);
       gl.enable(gl.CULL_FACE);
       gl.enable(gl.DEPTH_TEST);
       gl.depthMask(true);

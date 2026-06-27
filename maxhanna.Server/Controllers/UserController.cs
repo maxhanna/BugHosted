@@ -1357,7 +1357,7 @@ namespace maxhanna.Server.Controllers
     	SELECT u.id AS userId, u.username AS username, 'grandtheft' AS game, MAX(gtps.last_seen) AS lastActivity
     	FROM maxhanna.users u
     	JOIN maxhanna.grandtheft_player_state gtps ON gtps.user_id = u.id
-    	WHERE gtps.last_seen >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)
+    	WHERE gtps.last_seen >= DATE_SUB(CURRENT_DATE(), INTERVAL 5 MINUTE)
     	GROUP BY u.id
     ) t
     LEFT JOIN maxhanna.users u ON u.id = t.userId
