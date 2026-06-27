@@ -50,32 +50,32 @@ namespace maxhanna.Server.Services
     private readonly string _memeDirectory = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/";
     public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, AiController aiController, KrakenService krakenService, NewsService newsService, ProfitCalculationService profitService, TradeIndicatorService indicatorService, RomEnrichmentService romEnrichmentService)
     {
-        _config = config;
-        _romEnrichmentService = romEnrichmentService;
-        _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
-        _apiKey = config.GetValue<string>("CoinWatch:ApiKey")!;
-        _httpClient = new HttpClient();
-        _webCrawler = webCrawler;
-        _aiController = aiController;
-        _log = log;
-        _krakenService = krakenService;
-        _newsService = newsService;
-        _indicatorService = indicatorService;
-        _tenSecondTimer = new Timer(async _ => await Run10SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
-        _halfMinuteTimer = new Timer(async _ => await Run30SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
-        //_minuteTimer = new Timer(async _ => await RunOneMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
-        _fiveMinuteTimer = new Timer(async _ => await RunFiveMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
-        _hourlyTimer = new Timer(async _ => await RunHourlyTasks(), null, Timeout.Infinite, Timeout.Infinite);
-        _threeHourTimer = new Timer(async _ => await RunThreeHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
-        _sixHourTimer = new Timer(async _ => await RunSixHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
-        _dailyTimer = new Timer(async _ => await RunDailyTasks(), null, Timeout.Infinite, Timeout.Infinite);
-        _fifteenMinuteTimer = new Timer(async _ => await GetUsersWithCalendarNotificationsEnabled(), null, Timeout.Infinite, Timeout.Infinite);
+      _config = config;
+      _romEnrichmentService = romEnrichmentService;
+      _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
+      _apiKey = config.GetValue<string>("CoinWatch:ApiKey")!;
+      _httpClient = new HttpClient();
+      _webCrawler = webCrawler;
+      _aiController = aiController;
+      _log = log;
+      _krakenService = krakenService;
+      _newsService = newsService;
+      _indicatorService = indicatorService;
+      _tenSecondTimer = new Timer(async _ => await Run10SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
+      _halfMinuteTimer = new Timer(async _ => await Run30SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
+      //_minuteTimer = new Timer(async _ => await RunOneMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
+      _fiveMinuteTimer = new Timer(async _ => await RunFiveMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
+      _hourlyTimer = new Timer(async _ => await RunHourlyTasks(), null, Timeout.Infinite, Timeout.Infinite);
+      _threeHourTimer = new Timer(async _ => await RunThreeHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
+      _sixHourTimer = new Timer(async _ => await RunSixHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
+      _dailyTimer = new Timer(async _ => await RunDailyTasks(), null, Timeout.Infinite, Timeout.Infinite);
+      _fifteenMinuteTimer = new Timer(async _ => await GetUsersWithCalendarNotificationsEnabled(), null, Timeout.Infinite, Timeout.Infinite);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
       if (!_initialDelayApplied)
-      { 
+      {
         _initialDelayApplied = true;
         try
         {
@@ -2156,7 +2156,7 @@ namespace maxhanna.Server.Services
       }
     }
     private async Task CleanupOrphanedPhotos()
-    { 
+    {
       try
       {
         using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -2227,7 +2227,7 @@ namespace maxhanna.Server.Services
       catch (Exception ex)
       {
         _ = _log.Db($"PlantPhotoCleanupBackgroundService cleanup failed: {ex.Message}", null, "PLANTER", true);
-      } 
+      }
     }
 
     private async Task DeleteOldUserEvents()
@@ -2555,7 +2555,7 @@ namespace maxhanna.Server.Services
         const string deleteSql = @"DELETE FROM weaver_remote_command WHERE status = 'executed';";
         await using var cmd = new MySqlCommand(deleteSql, conn);
         int rowsAffected = await cmd.ExecuteNonQueryAsync();
-        
+
         if (rowsAffected > 0)
         {
           _ = _log.Db($"Deleted {rowsAffected} executed weaver remote commands.");
@@ -2712,10 +2712,11 @@ namespace maxhanna.Server.Services
     }
     private async Task<Dictionary<string, List<CalendarEntry>>> GetUsersWithCalendarNotificationsEnabled()
     {
-        var usersWithEvents = new Dictionary<string, List<CalendarEntry>>();
-        await using var conn = new MySqlConnection(_connectionString);
-        await conn.OpenAsync();
-        var sql = @"
+      Console.WriteLine("Sending Calendar Notifications...");
+      var usersWithEvents = new Dictionary<string, List<CalendarEntry>>();
+      await using var conn = new MySqlConnection(_connectionString);
+      await conn.OpenAsync();
+      var sql = @"
      SELECT u.user_id, u.calendar_notifications_enabled, ce.type, ce.date, ce.note
      FROM user_settings u
      INNER JOIN calendar ce ON u.user_id = ce.ownership
@@ -2724,36 +2725,36 @@ namespace maxhanna.Server.Services
      AND ce.date <= DATE_ADD(NOW(), INTERVAL 15 MINUTE) 
      ORDER BY ce.date ASC;
      ";
-        await using var cmd = new MySqlCommand(sql, conn);
-        await using var reader = await cmd.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
+      await using var cmd = new MySqlCommand(sql, conn);
+      await using var reader = await cmd.ExecuteReaderAsync();
+      while (await reader.ReadAsync())
+      {
+        var userId = reader.GetString("user_id");
+        var eventTitle = reader.GetString("type");
+        var eventDate = reader.GetDateTime("date");
+        var eventDescription = reader.GetString("note");
+        if (!usersWithEvents.ContainsKey(userId))
         {
-            var userId = reader.GetString("user_id");
-            var eventTitle = reader.GetString("type");
-            var eventDate = reader.GetDateTime("date");
-            var eventDescription = reader.GetString("note");
-            if (!usersWithEvents.ContainsKey(userId))
-            {
-                usersWithEvents[userId] = new List<CalendarEntry>();
-            }
-
-            usersWithEvents[userId].Add(new CalendarEntry(1, eventTitle, eventDescription, eventDate, userId));
+          usersWithEvents[userId] = new List<CalendarEntry>();
         }
 
-        // Collect all events per user and send Firebase notifications
-        var firebaseService = new FirebaseNotificationService(_log, _config);
-        foreach (var userEntry in usersWithEvents)
-        {
-            var userId = userEntry.Key;
-            var events = userEntry.Value;
-            var eventList = string.Join(", ", events.Select(e => $"{e.Type} at {e.Date:yyyy-MM-dd HH:mm} ({e.Note})"));
-            var message = $"Upcoming events: {eventList}";
+        usersWithEvents[userId].Add(new CalendarEntry(1, eventTitle, eventDescription, eventDate, userId));
+      }
 
-            _ = _log.Db($"Sending Calendar notification : {message} to userId: {userId}", Int32.Parse(userId), "SYSTEM", outputToConsole: true);
-            await firebaseService.SendFirebaseNotification(int.Parse(userId), message);
-        }
+      // Collect all events per user and send Firebase notifications
+      var firebaseService = new FirebaseNotificationService(_log, _config);
+      foreach (var userEntry in usersWithEvents)
+      {
+        var userId = userEntry.Key;
+        var events = userEntry.Value;
+        var eventList = string.Join(", ", events.Select(e => $"{e.Type} at {e.Date:yyyy-MM-dd HH:mm} ({e.Note})"));
+        var message = $"Upcoming events: {eventList}";
 
-        return usersWithEvents;
+        _ = _log.Db($"Sending Calendar notification : {message} to userId: {userId}", Int32.Parse(userId), "SYSTEM", outputToConsole: true);
+        await firebaseService.SendFirebaseNotification(int.Parse(userId), message);
+      }
+
+      return usersWithEvents;
     }
 
     /// <summary>
