@@ -941,7 +941,7 @@ void main() {
     this.skyDayTexLoc = gl.getUniformLocation(this.skyProgram, 'uDaySky')!;
     this.skyNightTexLoc = gl.getUniformLocation(this.skyProgram, 'uNightSky')!;
 
-    this.loadTexture('assets/grandtheft/sky_cloudy.png').then(t => this.skyCloudyTexture = t);
+    // this.loadTexture('assets/grandtheft/sky_cloudy.png').then(t => this.skyCloudyTexture = t);
     this.loadTexture('assets/grandtheft/sky_starry.png').then(t => this.skyStarryTexture = t);
 
     const verts = new Float32Array([
