@@ -59,6 +59,7 @@ export interface CityChunk {
   cabins: { x: number; z: number; yaw: number }[];
   lighthouses: { x: number; z: number; yaw: number }[];
   tropicalShops: { x: number; z: number; yaw: number }[];
+  decorativeAircraft: { x: number; z: number; yaw: number; type: string }[];
 }
 
 const CHUNK_SIZE = 80;
@@ -518,7 +519,6 @@ export class GrandTheftRenderer {
   public explodedBarrels: Set<string> = new Set();
   public explodedGasStations: Set<string> = new Set();
   public supermarketLastPayout: Map<string, number> = new Map();
-
 
   getNearbyBarrels(x: number, z: number, radius: number): { x: number; z: number }[] {
     const result: { x: number; z: number }[] = [];
@@ -1696,6 +1696,7 @@ void main() {
     const cabins: { x: number; z: number; yaw: number }[] = [];
     const lighthouses: { x: number; z: number; yaw: number }[] = [];
     const tropicalShops: { x: number; z: number; yaw: number }[] = [];
+    const decorativeAircraft: { x: number; z: number; yaw: number; type: string }[] = [];
 
     const worldOriginX = cx * CHUNK_SIZE;
     const worldOriginZ = cz * CHUNK_SIZE;
@@ -1710,7 +1711,7 @@ void main() {
       this.addPlane(verts, indices, cx2, -2.2, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.05, 0.25, 0.45, 0.55, idxOffset); idxOffset += 4;
       this.addPlane(verts, indices, cx2, -1.9, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.15, 0.40, 0.60, 0.40, idxOffset); idxOffset += 4;
       const mesh = this.createMesh(verts, indices);
-      const chunk: CityChunk = { mesh, cx, cz, lamps: [], hydrants: [], buildings, benches: [], barrels: [], chickens: [], trees: [], supermarkets: [], tatami: [], cabins: [], lighthouses: [], tropicalShops: [] };
+      const chunk: CityChunk = { mesh, cx, cz, lamps: [], hydrants: [], buildings, benches: [], barrels: [], chickens: [], trees: [], supermarkets: [], tatami: [], cabins: [], lighthouses: [], tropicalShops: [], decorativeAircraft: [] };
       this.chunkCache.set(key, chunk);
       return chunk;
     }
@@ -2010,13 +2011,16 @@ void main() {
             // Helicopter on pad
             if (this.helicopterMeshes.length > 0) {
               const heli = this.helicopterMeshes[Math.floor(rng() * this.helicopterMeshes.length)];
-              buildings.push({ model: heli, x: padX, y: 0.15, z: padZ, yaw: rng() * Math.PI * 2, scale: [1, 1, 1] });
+              const heliYaw = rng() * Math.PI * 2;
+              buildings.push({ model: heli, x: padX, y: 0.15, z: padZ, yaw: heliYaw, scale: [1, 1, 1] });
+              decorativeAircraft.push({ x: padX, z: padZ, yaw: heliYaw, type: 'helicopter' });
             }
             // Big hangar + plane on opposite side
             if (this.airportHangarMesh) {
               buildings.push({ model: this.airportHangarMesh, x: blockWorldX + 35, y: -this.getModelMinY(this.airportHangarMesh) * HS + 0.15, z: blockWorldZ, yaw: -Math.PI / 2, scale: [HS, HS, HS] });
               if (this.planeMeshes.length > 0) {
                 buildings.push({ model: this.planeMeshes[Math.floor(rng() * this.planeMeshes.length)], x: blockWorldX + 35, y: 0.15, z: blockWorldZ + 18, yaw: Math.PI, scale: [1, 1, 1] });
+                decorativeAircraft.push({ x: blockWorldX + 35, z: blockWorldZ + 18, yaw: Math.PI, type: 'plane' });
               }
             }
           } else {
@@ -2034,12 +2038,14 @@ void main() {
                 // Plane in front of each hangar
                 if (this.planeMeshes.length > 0) {
                   const pz = hz + (side > 0 ? -14 : 14);
+                  const planeYaw = side > 0 ? -Math.PI / 2 : Math.PI / 2;
                   buildings.push({
                     model: this.planeMeshes[Math.floor(rng() * this.planeMeshes.length)],
                     x: hx, y: 0.15, z: pz,
-                    yaw: side > 0 ? -Math.PI / 2 : Math.PI / 2,
+                    yaw: planeYaw,
                     scale: [1, 1, 1]
                   });
+                  decorativeAircraft.push({ x: hx, z: pz, yaw: planeYaw, type: 'plane' });
                 }
               }
             }
@@ -2437,7 +2443,7 @@ void main() {
       }
     }
 
-    const chunk: CityChunk = { mesh, cx, cz, lamps, hydrants, buildings, benches, barrels, chickens, trees, supermarkets, tatami, cabins, lighthouses, tropicalShops };
+    const chunk: CityChunk = { mesh, cx, cz, lamps, hydrants, buildings, benches, barrels, chickens, trees, supermarkets, tatami, cabins, lighthouses, tropicalShops, decorativeAircraft };
     this.chunkCache.set(key, chunk);
     return chunk;
   }

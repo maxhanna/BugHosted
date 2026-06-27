@@ -1031,6 +1031,42 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     if (tryEnter(this.serverNPCs)) return;
     if (tryEnter(this.parkedCars, true)) return;
+    // Check decorative aircraft in nearby chunks' buildings
+    if (!this.nearCar) {
+      const cxa = Math.floor(this.carX / 80), cza = Math.floor(this.carZ / 80);
+      for (let dza = -1; dza <= 1; dza++) {
+        for (let dxa = -1; dxa <= 1; dxa++) {
+          const chunk = this.renderer.getCityChunk(cxa + dxa, cza + dza);
+          for (const da of chunk.decorativeAircraft) {
+            const ddx = da.x - this.carX, ddz = da.z - this.carZ;
+            if (Math.sqrt(ddx * ddx + ddz * ddz) < ENTER_CAR_DIST) {
+              this.carX = da.x; this.carZ = da.z; this.carYaw = da.yaw;
+              this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+              this.isInCar = true;
+              this.vehicleType = da.type as 'car' | 'bus' | 'plane' | 'bike' | 'motorcycle' | 'taxi' | 'boat' | 'helicopter';
+              this.carHealth = 200;
+              this._carOnFire = false; this._carFireStarted = 0;
+              this._carFireX = 0; this._carFireZ = 0; this._carFireYaw = 0;
+              this._carSubmerged = false; this._carSubmergeStart = 0;
+              if (da.type === 'helicopter') {
+                this.playerVehicleMesh = this.renderer.getHelicopterMesh(0);
+              } else {
+                this.playerVehicleMesh = this.renderer.getPlaneMesh(0);
+              }
+              this.playerVehicleColor = [1, 1, 1];
+              if (this.renderer.playerMesh) {
+                this.driverInCarMesh = { mesh: this.renderer.playerMesh, offsetX: 0.3, offsetY: -0.3, offsetZ: 0.2, yaw: 0, scale: 0.85 };
+              }
+              this.showVehicleBanner(this.vehicleType);
+              if (!this.radioOn && this.radioSongs.length) this.randomRadio();
+              if (da.type === 'plane') { this.camDist = 12; this.camHeight = 5; }
+              else { this.camDist = 10; this.camHeight = 4; }
+              return;
+            }
+          }
+        }
+      }
+    }
     if (this.tryCarjackPlayer(userId)) return;
   }
   displayNameFromPath(path: string): string {
@@ -3291,6 +3327,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private checkNearCar() {
     if (this.isInCar) { this.nearCar = false; return; }
     this.nearCar = [...this.serverNPCs, ...this.parkedCars].some(v => v.health > 0 && Math.sqrt((v.x - this.carX) ** 2 + (v.z - this.carZ) ** 2) < ENTER_CAR_DIST);
+    if (!this.nearCar) {
+      const cxa = Math.floor(this.carX / 80), cza = Math.floor(this.carZ / 80);
+      for (let dza = -1; dza <= 1; dza++) {
+        for (let dxa = -1; dxa <= 1; dxa++) {
+          const chunk = this.renderer.getCityChunk(cxa + dxa, cza + dza);
+          if (chunk.decorativeAircraft.some(da => Math.hypot(da.x - this.carX, da.z - this.carZ) < ENTER_CAR_DIST)) {
+            this.nearCar = true;
+            return;
+          }
+        }
+      }
+    }
   }
 
   private findLookTarget() {
