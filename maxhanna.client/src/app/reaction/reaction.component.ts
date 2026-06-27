@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
+﻿import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
 import { ReactionService } from '../../services/reaction.service';
 import { User } from '../../services/datacontracts/user/user';
 import { Reaction } from '../../services/datacontracts/reactions/reaction';
@@ -9,6 +9,7 @@ import { Story } from '../../services/datacontracts/social/story';
 import { FileComment } from '../../services/datacontracts/file/file-comment';
 import { Message } from '../../services/datacontracts/chat/message';
 import { ChildComponent } from '../child.component';
+import { UserEventService } from '../../services/user-event.service';
 
 @Component({
   selector: 'app-reaction',
@@ -127,7 +128,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   @Input() showSpanBorder: boolean = false;
   @Input() currentReactions?: Reaction[] = [];
   @Input() coloredBg = true;
-  constructor(private reactionService: ReactionService, private notificationService: NotificationService) { super(); }
+  constructor(private reactionService: ReactionService, private notificationService: NotificationService, private userEventService: UserEventService) { super(); }
 
   ngOnInit() {
     if (!this.currentReactions || this.currentReactions.length === 0) {
@@ -156,14 +157,14 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   }
 
   async deleteReaction(reaction: Reaction) {
-    if (!reaction || !reaction.id) return; 
+    if (!reaction || !reaction.id) return;
     if (!confirm('Delete your reaction?')) return;
     const res: any = await this.reactionService.deleteReaction(reaction.id, this.user?.id ?? 0);
     if (res === true || res === 'true') {
       const newList = this.currentReactions?.filter(r => r.id !== reaction.id) ?? [];
       this.currentReactions = newList;
       this.filteredCurrentReactions = newList;
-    } else { 
+    } else {
       this.notificationService.createNotifications({ fromUserId: this.user?.id ?? 0, message: 'Could not delete reaction', toUserIds: [] });
     }
   }
@@ -183,7 +184,32 @@ export class ReactionComponent extends ChildComponent implements OnInit {
     tmpReaction.type = reaction;
     tmpReaction.timestamp = new Date();
 
-    await this.reactionService.addReaction(tmpReaction).then(res => {
+    await this.reactionService.addReaction(tmpReaction).then(async res => {
+      if (res) {
+        tmpReaction.id = parseInt(res);
+
+        const newList = [tmpReaction, ...(this.currentReactions ?? [])];
+        this.currentReactions = newList; 
+        this.getReactionsListDisplay();
+      }
+    });
+
+    // Insert user event after adding reaction
+    await this.userEventService.insertUserEvent((this.user?.id ?? 0), 'reaction_added', `${reaction} Reaction`,
+      this.userProfileId ?? this.storyId ?? this.fileId ?? this.commentId);
+
+    this.sendNotification();
+    this.showReactionChoices = false;
+    if (this.inputtedParentRef) {
+      if (this.showReactionChoices) {
+        this.inputtedParentRef.showOverlay();
+      } else {
+        this.inputtedParentRef.closeOverlay();
+      }
+    }
+    this.userReaction = reaction;
+
+    await this.reactionService.addReaction(tmpReaction).then(async res => {
       if (res) {
         tmpReaction.id = parseInt(res);
 
@@ -324,7 +350,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
       this.inputtedParentRef.closeOverlay();
     }
   }
-  
+
   replaceReactionType(type?: string) {
     //console.log("Replacing reaction type:", type);
     if (type) {
@@ -365,7 +391,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   }
   get reactionButtonTitle(): string {
     const acted = this.userHasReacted();
- 
+
     if (acted) {
       return `Change Reaction (${this.replaceReactionLabel(this.userReaction)})`;
     } else {
