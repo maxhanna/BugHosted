@@ -1651,7 +1651,30 @@ namespace maxhanna.Server.Controllers
 			var dw = BuildDroppedWeapons();
 			return Ok(new { cars, pedestrians, parkedCars, aircraft, deadBodies, droppedWeapons = dw });
 		}
+ 
 
+		[HttpGet("activeplayers")]
+		public async Task<IActionResult> GetActivePlayers()
+		{
+			using var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			await connection.OpenAsync();
+
+			var sql = @"SELECT gtps.user_id
+ FROM maxhanna.grandtheft_player_state gtps 
+ WHERE gtps.last_seen >= DATE_SUB(CURRENT_DATE(), IINTERVAL 5 MINUTE);";
+
+			using var command = new MySqlCommand(sql, connection);
+			using var reader = await command.ExecuteReaderAsync();
+
+			var activePlayers = new List<User>();
+			while (await reader.ReadAsync())
+			{
+				activePlayers.Add(new User(reader.GetInt32("userId")));
+			}
+
+			return Ok(activePlayers);
+		}
+		 
 		private List<object> BuildDroppedWeapons()
 		{
 			var now = DateTime.UtcNow;
@@ -2374,30 +2397,6 @@ namespace maxhanna.Server.Controllers
 				return Ok(new { ok = true });
 			}
 			catch (Exception ex) { return StatusCode(500, new { ok = false, error = ex.Message }); }
-		}
-
-		[HttpGet("activeplayers")]
-		public async Task<IActionResult> GetActivePlayers()
-		{
-			using var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-			await connection.OpenAsync();
-
-			var sql = @"SELECT u.id AS userId,  MAX(gtps.last_seen) AS lastActivity
- FROM maxhanna.users u
- JOIN maxhanna.grandtheft_player_state gtps ON gtps.user_id = u.id
- WHERE gtps.last_seen >= DATE_SUB(CURRENT_DATE(), IINTERVAL 5 MINUTE)
- GROUP BY u.id";
-
-			using var command = new MySqlCommand(sql, connection);
-			using var reader = await command.ExecuteReaderAsync();
-
-			var activePlayers = new List<User>();
-			while (await reader.ReadAsync())
-			{
-				activePlayers.Add(new User(reader.GetInt32("userId")));
-			}
-
-			return Ok(activePlayers);
 		}
 	}
 
