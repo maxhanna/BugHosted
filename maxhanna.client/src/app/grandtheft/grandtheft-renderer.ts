@@ -435,6 +435,7 @@ export class GrandTheftRenderer {
   private skyDayTexLoc!: WebGLUniformLocation;
   private skyNightTexLoc!: WebGLUniformLocation;
   private skyCloudyTexture: WebGLTexture | null = null;
+  public skyboxMesh: CityMesh[] | null = null;
   private skyStarryTexture: WebGLTexture | null = null;
   private defaultTexture: WebGLTexture;
 
@@ -480,12 +481,12 @@ export class GrandTheftRenderer {
   ];
   static CITY_BUILDING_NAMES = [
     'abandonnedBuilding', 'buildingRandom', 'domeStructure',
-    'ecds_old_building_04', 'ecds_old_building_05', 'ecds_old_building_06', 'ecds_old_building_07', 'ecds_old_building_08', 'ecds_old_building_09',
+    'ecds_old_building_04', 'ecds_old_building_05', 'ecds_old_building_06', 'ecds_old_building_07', 'ecds_old_building_08',
     'industrial_building_psx', 'low_polly_building', 'low_poly_apartment_building_2', 'low_poly_apartment_building_3',
     'low_poly_cinema', 'low_poly_city_hall', 'low_poly_gas_station', 'low_poly_hotel_1', 'low_poly_hotel_2',
     'low_poly_pharmacy', 'low_poly_police_station', 'low_poly_school', 'low_poly_shopping_center',
     'modern_building', 'panel_apartment_placeholder', 'psx_groceries_store', 'pyaterochka_3d', 'supermarket',
-    'residential_complex_modern_apartment_building', 'ukraine_building', 'abandoned_building_gameready',
+    'ukraine_building', 'abandoned_building_gameready',
     'psx_japanese_warehouse', 'city_building', 'low_poly_apartment_building_1', 
     'fatboys_diner', 'brooklyn_street_building_low_poly', 'brooklyn_street_cornerhouse_low_poly',
     'okraglak_round_office_building_poznan',
@@ -1779,18 +1780,19 @@ void main() {
       this.addPlane(verts, indices, cx2, -2.0, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.10, 0.30, 0.50, 0.55, idxOffset); idxOffset += 4;
       // Bridge deck
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, BRIDGE_DECK_Y, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 4;
-      // Ramp fillers: stepped slope from Y=0 to BRIDGE_DECK_Y at the landward edge
+      // Ramp fillers: smooth slope from Y=0 to BRIDGE_DECK_Y using thin overlapping slices
       for (const br of BRIDGE_RANGES) {
         if (cx !== br.startCx && cx !== br.endCx) continue;
         if (cz < br.startCz || cz > br.endCz) continue;
-        const numSteps = 8;
-        const stepH = BRIDGE_DECK_Y / numSteps;
-        const stepW = CHUNK_SIZE / numSteps;
+        const numSlices = 40;
+        const sliceH = BRIDGE_DECK_Y / numSlices;
+        const sliceW = CHUNK_SIZE / numSlices;
         const rampUp = cx === br.startCx;
-        for (let si = 0; si < numSteps; si++) {
-          const sx = worldOriginX + (rampUp ? si * stepW + stepW / 2 : CHUNK_SIZE - si * stepW - stepW / 2);
-          const sy = (0.5 + si) * stepH;
-          this.addBox(verts, indices, sx, sy, worldOriginZ + CHUNK_SIZE / 2, stepW, stepH * 1.1, CHUNK_SIZE, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
+        for (let si = 0; si < numSlices; si++) {
+          const sx = worldOriginX + (rampUp ? si * sliceW + sliceW / 2 : CHUNK_SIZE - si * sliceW - sliceW / 2);
+          const sy = (si + 0.5) * sliceH;
+          const sh = si === numSlices - 1 ? BRIDGE_DECK_Y - si * sliceH : sliceH * 1.01;
+          this.addBox(verts, indices, sx, sy, worldOriginZ + CHUNK_SIZE / 2, sliceW, sh, CHUNK_SIZE, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
         }
         break;
       }
@@ -3033,7 +3035,26 @@ void main() {
     const dirZ = Math.cos(camYaw) * Math.cos(camPitch);
     mat4.lookAt(this.viewMatrix, [camX, camY, camZ], [camX + dirX, camY + dirY, camZ + dirZ], [0, 1, 0]);
 
-    this.renderSkybox();
+    if (this.skyboxMesh) {
+      const skyView = new Float32Array(this.viewMatrix);
+      skyView[12] = 0; skyView[13] = 0; skyView[14] = 0;
+      gl.useProgram(this.program);
+      gl.uniformMatrix4fv(this.projLoc, false, this.projMatrix);
+      gl.uniformMatrix4fv(this.viewLoc, false, skyView);
+      gl.uniform3f(this.ambientColorLoc, 1.0, 1.0, 1.0);
+      gl.uniform3f(this.lightDirLoc, 0, 0, 0);
+      gl.uniform3f(this.lightColorLoc, 0, 0, 0);
+      gl.uniform1i(this.numPointLightsLoc, 0);
+      gl.depthMask(false);
+      gl.disable(gl.DEPTH_TEST);
+      gl.disable(gl.CULL_FACE);
+      this.drawMesh(this.skyboxMesh, 0, 0, 0, 0, [0.000015, 0.000015, 0.000015], [1, 1, 1, 1]);
+      gl.enable(gl.CULL_FACE);
+      gl.enable(gl.DEPTH_TEST);
+      gl.depthMask(true);
+    } else {
+      this.renderSkybox();
+    }
 
     gl.useProgram(this.program);
     gl.uniformMatrix4fv(this.projLoc, false, this.projMatrix);

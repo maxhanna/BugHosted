@@ -1,0 +1,8 @@
+Model Information:
+* title:	Skybox Skydays 3
+* source:	https://sketchfab.com/3d-models/skybox-skydays-3-ec111b6006a14bfb91dee33a4646e80b
+* author:	JABAMI Production (https://sketchfab.com/JabamiProduction)
+
+Model License:
+* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
+* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works
