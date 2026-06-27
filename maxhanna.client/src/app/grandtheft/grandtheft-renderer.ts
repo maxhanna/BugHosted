@@ -458,13 +458,10 @@ export class GrandTheftRenderer {
     'low_poly_pharmacy', 'low_poly_police_station', 'low_poly_school', 'low_poly_shopping_center',
     'modern_building', 'panel_apartment_placeholder', 'psx_groceries_store', 'pyaterochka_3d', 'supermarket',
     'residential_complex_modern_apartment_building', 'ukraine_building', 'abandoned_building_gameready',
-    'psx_japanese_warehouse', 'city_building', 'low_poly_apartment_building_1', 'michaelsoft',
-    'low_poly_building_edgewater_lofts',
+    'psx_japanese_warehouse', 'city_building', 'low_poly_apartment_building_1', 
     'fatboys_diner', 'brooklyn_street_building_low_poly', 'brooklyn_street_cornerhouse_low_poly',
-    'korean_apartment', 'okraglak_round_office_building_poznan',
+    'okraglak_round_office_building_poznan',
     'tome_convenience_store', 'psxprop_-_old_warehouse',
-    'skyscraper', 'skyscraper', 'skyscraper', 'skyscraper',
-    'old_dairy_queen_building',
   ];
   static SUBURB_BUILDING_NAMES = [
     'brooklynCornerhouse', 'brooklynStreetBuilding', 'cabin',
@@ -474,10 +471,9 @@ export class GrandTheftRenderer {
     'low_poly_pizza_restaurant', 'low_poly_wooden_cabine', 'residential_family_house', 'ichijoushi_002',
     'low_poly_apartment_building_1', 'ichijoushi___001',
     'low_poly_house_1', 'low_poly_apartment_2',
-    'apartament', 'two_story_resident_building', 'japanese_house_incomplete',
-    'khrushchevka_two-story_building', 'fatboys_diner',
+    'apartament', 'two_story_resident_building',
+    'fatboys_diner',
     'tome_convenience_store', 'psxprop_-_old_warehouse',
-    'old_dairy_queen_building',
   ];
   public trafficLightMesh: CityMesh[] | null = null;
   public hydrantMesh: CityMesh[] | null = null;
@@ -4303,7 +4299,7 @@ void main() {
           needsRotation = true;
         }
       }
-      const needsYFlip = url.includes('crownVic') || url.includes('maleNPC') || url.includes('taxi') || url.includes('hilux') || url.includes('bmw_vision_neue_klasse');
+      const needsYFlip = url.includes('crownVic') || url.includes('maleNPC') || url.includes('taxi') || url.includes('hilux');
       const needsY90 = url.includes('pizzaMoped');
       const needsYFlipMoped = url.includes('pizzaMoped');
 

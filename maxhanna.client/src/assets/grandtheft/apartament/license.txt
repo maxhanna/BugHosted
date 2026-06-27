@@ -1,8 +1,0 @@
-Model Information:
-* title:	apartament
-* source:	https://sketchfab.com/3d-models/apartament-ba6c97f4a810495899468662138b0075
-* author:	ura296121 (https://sketchfab.com/ura296121)
-
-Model License:
-* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
-* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

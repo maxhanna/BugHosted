@@ -1,8 +1,0 @@
-Model Information:
-* title:	Khrushchevka (two-story building)
-* source:	https://sketchfab.com/3d-models/khrushchevka-two-story-building-1f8b7825795e43ecbcfbe15f8fe754f0
-* author:	WeSVa (https://sketchfab.com/WSVideoCarta)
-
-Model License:
-* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
-* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

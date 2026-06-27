@@ -1,8 +1,0 @@
-Model Information:
-* title:	Kenworth T2000
-* source:	https://sketchfab.com/3d-models/kenworth-t2000-32425a0d004a4d15a63740895e985997
-* author:	Korolv (https://sketchfab.com/Korolv)
-
-Model License:
-* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
-* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

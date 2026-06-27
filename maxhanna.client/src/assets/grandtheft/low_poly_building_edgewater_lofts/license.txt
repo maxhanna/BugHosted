@@ -1,8 +1,0 @@
-Model Information:
-* title:	Low poly building (Edgewater Lofts)
-* source:	https://sketchfab.com/3d-models/low-poly-building-edgewater-lofts-0e85885e84384ca6a61d8a1babf371a1
-* author:	M17pro (https://sketchfab.com/m17pro)
-
-Model License:
-* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
-* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

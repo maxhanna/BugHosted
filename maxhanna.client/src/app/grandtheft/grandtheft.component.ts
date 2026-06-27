@@ -57,6 +57,10 @@ interface ParkedCar {
   type: string;
   health: number;
   isBurning?: boolean;
+  fireStarted?: number;
+  carFireX?: number; carFireZ?: number; carFireYaw?: number;
+  submerged?: boolean;
+  submergeStart?: number;
   mesh: CityMesh | CityMesh[];
   colorR: number; colorG: number; colorB: number;
 }
@@ -405,12 +409,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       { path: 'assets/grandtheft/hilux/scene.gltf' },
       { path: 'assets/grandtheft/suv/scene.gltf' },
       { path: 'assets/grandtheft/psxlow_poly_pickup/scene.gltf' },
-      { path: 'assets/grandtheft/renault_4_cv/scene.gltf' },
       { path: 'assets/grandtheft/vehicle_-_subaru_brz_rocket_bunny/scene.gltf' },
-      { path: 'assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf' },
-      { path: 'assets/grandtheft/ac_-_bmw_1m_free/scene.gltf' },
-      { path: 'assets/grandtheft/bmw_vision_neue_klasse/scene.gltf' },
-      { path: 'assets/grandtheft/lexus_is300200/scene.gltf' },
+      { path: 'assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf' }, 
       { path: 'assets/grandtheft/ps1_gt1-style_model_-_1992_emery_aventus/scene.gltf' },
       { path: 'assets/grandtheft/kenworth_t2000/scene.gltf', scale: 3 },
       { path: 'assets/grandtheft/truck_toyota_corsa_b/scene.gltf', scale: 2 },
@@ -969,6 +969,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.isInCar = true;
           this.vehicleType = v.type || 'car';
           this.carHealth = v.health;
+          this._carOnFire = false;
+          this._carFireStarted = 0;
+          this._carFireX = 0; this._carFireZ = 0; this._carFireYaw = 0;
+          this._carSubmerged = false;
+          this._carSubmergeStart = 0;
 
           this.playerVehicleMesh = v.mesh;
           this.playerVehicleColor = [v.colorR || 1, v.colorG || 1, v.colorB || 1];
@@ -1217,6 +1222,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         yaw: this.carYaw,
         type: this.vehicleType,
         health: this.carHealth,
+        isBurning: this._carOnFire || undefined,
+        fireStarted: this._carOnFire ? this._carFireStarted : undefined,
+        carFireX: this._carOnFire ? this._carFireX : undefined,
+        carFireZ: this._carOnFire ? this._carFireZ : undefined,
+        carFireYaw: this._carOnFire ? this._carFireYaw : undefined,
+        submerged: this._carSubmerged || undefined,
+        submergeStart: this._carSubmerged ? this._carSubmergeStart : undefined,
         mesh,
         colorR: color[0], colorG: color[1], colorB: color[2]
       });
@@ -1228,6 +1240,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
       });
     }
+
+    this._carOnFire = false;
+    this._carFireStarted = 0;
+    this._carFireX = 0; this._carFireZ = 0; this._carFireYaw = 0;
+    this._carSubmerged = false;
+    this._carSubmergeStart = 0;
 
     this.playerVehicleMesh = null;
     this.driverInCarMesh = null;
@@ -2682,6 +2700,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.exitCar();
       this.carHealth = 400;
       this.carY = CAR_HEIGHT;
+    }
+
+    for (let i = this.parkedCars.length - 1; i >= 0; i--) {
+      const pc = this.parkedCars[i];
+      if (!pc.isBurning) continue;
+      const now = performance.now() / 1000;
+      const elapsed = now - (pc.fireStarted ?? now);
+      if (elapsed >= 10.0) {
+        this.spawnExplosion(pc.x, 0.5, pc.z);
+        this.parkedCars.splice(i, 1);
+      }
     }
 
     if (this.health <= 0) {
