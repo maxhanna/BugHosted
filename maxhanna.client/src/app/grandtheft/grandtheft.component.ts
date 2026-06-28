@@ -412,7 +412,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       { path: 'assets/grandtheft/vehicle_-_subaru_brz_rocket_bunny/scene.gltf' },
       { path: 'assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf' },
       { path: 'assets/grandtheft/kenworth_t2000/scene.gltf', scale: 3 },
-      { path: 'assets/grandtheft/truck_toyota_corsa_b/scene.gltf', scale: 2 },
+      { path: 'assets/grandtheft/truck_toyota_corsa_b/scene.gltf', scale: 2, yawOffset: Math.PI },
       { path: 'assets/grandtheft/freightliner_century/scene.gltf', scale: 2 },
       { path: 'assets/grandtheft/monsterTruck/scene.gltf', scale: 2.25 },
       { path: 'assets/grandtheft/jeep/scene.gltf', scale: 1.5 },

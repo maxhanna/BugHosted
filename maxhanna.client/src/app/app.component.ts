@@ -49,6 +49,7 @@ import { UserEventsComponent } from './user-events/user-events.component';
 import { PlanterComponent } from './planter/planter.component';
 import { WeaverComponent } from './weaver/weaver.component';
 import { GrandTheftComponent } from './grandtheft/grandtheft.component';
+import { RecipeComponent } from './recipe/recipe.component';
 
 
 @Component({
@@ -78,6 +79,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     'MetaComponent',
     'UpdateUserSettingsComponent',
     'MediaViewerComponent',
+    'RecipeComponent',
   ];
   unflexedNavigationComponents: string[] = [
     'EmulatorComponent',
@@ -95,7 +97,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   showMainContent = true;
   isModalOpen = false;
   isModal = true;
-  isLeftPanelHidden = false;
+  isLeftPanelHidden = false; 
   leftPanelWidth = 0;
   leftPanelCollapsedWidth = 36;
   minLeftPanelWidth = 180;
@@ -357,6 +359,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     },
     {
       ownership: 0,
+      title: 'Recipe',
+      content: `Create and share your food recipes with others.`
+    },
+    {
+      ownership: 0,
       title: 'Emulator',
       content: `Our emulator emulates multiple game consoles directly in your browser! Featuring:
       <ul>
@@ -431,11 +438,12 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Bones": BonesComponent,
     "DigCraft": DigCraftComponent,
     "GrandTheft": GrandTheftComponent,
+    "Planter": PlanterComponent,
+    "Weaver": WeaverComponent,
+    "Recipe": RecipeComponent,
     "Notifications": NotificationsComponent,
     "UpdateUserSettings": UpdateUserSettingsComponent,
     "User-Events": UserEventsComponent,
-    "Planter": PlanterComponent,
-    "Weaver": WeaverComponent
   };
   userSelectedNavigationItems: Array<MenuItem> = [];
   constructor(private router: Router,

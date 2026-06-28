@@ -1,0 +1,47 @@
+﻿/* Add basic CSS styling for Recipe component */
+recipe-container {
+ padding: 20px;
+ background-color: #f9f9f9;
+ border-radius: 8px;
+ box-shadow: 02px4px rgba(0, 0, 0, 0.1);
+}
+
+recipe-header {
+ display: flex;
+ justify-content: space-between;
+ align-items: center;
+ margin-bottom: 20px;
+}
+
+recipe-title {
+ font-size: 24px;
+ font-weight: bold;
+ color: #333;
+}
+
+recipe-image {
+ width: 100%;
+ max-width: 400px;
+ height: auto;
+ border-radius: 8px;
+ margin-top: 10px;
+}
+
+recipe-ingredients, recipe-instructions {
+ margin-top: 20px;
+}
+
+recipe-ingredients h3, recipe-instructions h3 {
+ font-size: 20px;
+ color: #555;
+ margin-bottom: 10px;
+}
+
+recipe-ingredients ul, recipe-instructions ol {
+ padding-left: 20px;
+}
+
+recipe-ingredients li, recipe-instructions li {
+ margin-bottom: 5px;
+ color: #666;
+}

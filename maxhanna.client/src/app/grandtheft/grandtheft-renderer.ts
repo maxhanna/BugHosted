@@ -3073,42 +3073,10 @@ void main() {
     const dirZ = Math.cos(camYaw) * Math.cos(camPitch);
     mat4.lookAt(this.viewMatrix, [camX, camY, camZ], [camX + dirX, camY + dirY, camZ + dirZ], [0, 1, 0]);
 
-    // ── Skybox ───────────────────────────────────────────
-    // Render skybox FIRST, before clearing depth, so scene
-    // geometry overwrites it where solid surfaces exist.
-    if (this.skyboxMesh) {
-      gl.useProgram(this.gltfSkyProgram);
-      gl.uniformMatrix4fv(this.gltfSkyProjLoc, false, this.projMatrix);
-      const fwdX = Math.sin(camYaw) * Math.cos(camPitch);
-      const fwdY = -Math.sin(camPitch);
-      const fwdZ = Math.cos(camYaw) * Math.cos(camPitch);
-      const skyView = new Float32Array(this.viewMatrix);
-      skyView[12] = fwdX * 0.01; skyView[13] = fwdY * 0.01; skyView[14] = fwdZ * 0.01;
-      gl.uniformMatrix4fv(this.gltfSkyViewLoc, false, skyView);
-      gl.depthMask(false);
-      gl.disable(gl.DEPTH_TEST);
-      gl.disable(gl.CULL_FACE);
-      gl.disable(gl.BLEND);
-      const skyModel = mat4.create();
-      mat4.identity(skyModel);
-      mat4.translate(skyModel, skyModel, [0, -1, 0]);
-      gl.uniformMatrix4fv(this.gltfSkyModelLoc, false, skyModel);
-      for (const m of this.skyboxMesh) {
-        if (m.texture) {
-          gl.activeTexture(gl.TEXTURE0);
-          gl.bindTexture(gl.TEXTURE_2D, m.texture);
-          gl.uniform1i(this.gltfSkyTexLoc, 0);
-        }
-        gl.bindVertexArray(m.vao);
-        gl.drawElements(gl.TRIANGLES, m.indexCount, m.indexType || gl.UNSIGNED_SHORT, 0);
-      }
-      gl.enable(gl.BLEND);
-      gl.enable(gl.CULL_FACE);
-      gl.enable(gl.DEPTH_TEST);
-      gl.depthMask(true);
-    }
-    // Clear depth so the scene renders over the skybox where geometry exists
-    gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.BLEND);
+    gl.enable(gl.CULL_FACE);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthMask(true);
 
     gl.useProgram(this.program);
     gl.uniformMatrix4fv(this.projLoc, false, this.projMatrix);
@@ -3538,6 +3506,41 @@ void main() {
       }
     }
     gl.enable(gl.DEPTH_TEST);
+
+    // ── Skybox (post-scene) ──────────────────────────────
+    // Render AFTER the scene so it only fills pixels where
+    // depth is still 1.0 (no scene geometry).
+    if (this.skyboxMesh) {
+      gl.useProgram(this.gltfSkyProgram);
+      gl.uniformMatrix4fv(this.gltfSkyProjLoc, false, this.projMatrix);
+      const fwdX = Math.sin(camYaw) * Math.cos(camPitch);
+      const fwdY = -Math.sin(camPitch);
+      const fwdZ = Math.cos(camYaw) * Math.cos(camPitch);
+      const skyView = new Float32Array(this.viewMatrix);
+      skyView[12] = fwdX * 0.01; skyView[13] = fwdY * 0.01; skyView[14] = fwdZ * 0.01;
+      gl.uniformMatrix4fv(this.gltfSkyViewLoc, false, skyView);
+      gl.depthMask(false);
+      gl.depthFunc(gl.LEQUAL);
+      gl.disable(gl.CULL_FACE);
+      gl.disable(gl.BLEND);
+      const skyModel = mat4.create();
+      mat4.identity(skyModel);
+      mat4.translate(skyModel, skyModel, [0, -1, 0]);
+      gl.uniformMatrix4fv(this.gltfSkyModelLoc, false, skyModel);
+      for (const m of this.skyboxMesh) {
+        if (m.texture) {
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, m.texture);
+          gl.uniform1i(this.gltfSkyTexLoc, 0);
+        }
+        gl.bindVertexArray(m.vao);
+        gl.drawElements(gl.TRIANGLES, m.indexCount, m.indexType || gl.UNSIGNED_SHORT, 0);
+      }
+      gl.depthFunc(gl.LESS);
+      gl.enable(gl.CULL_FACE);
+      gl.enable(gl.BLEND);
+      gl.depthMask(true);
+    }
   }
 
 
