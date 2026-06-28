@@ -2765,10 +2765,10 @@ namespace maxhanna.Server.Services
       {
         var userId = userEntry.Key;
         var events = userEntry.Value;
-        var eventList = string.Join(", ", events.Select(e => $"{e.Type} at {e.Date:yyyy-MM-dd HH:mm} ({e.Note})"));
+        var eventList = string.Join(", ", events.Select(e => $"{e.Type} {e.Note} at {e.Date:yyyy-MM-dd HH:mm}"));
         var message = $"Upcoming events: {eventList}";
 
-        _ = _log.Db($"Sending Calendar notification : {message} to userId: {userId}", Int32.Parse(userId), "SYSTEM", outputToConsole: true);
+        //_ = _log.Db($"Sending Calendar notification : {message} to userId: {userId}", Int32.Parse(userId), "SYSTEM", outputToConsole: true);
         await firebaseService.SendFirebaseNotification(int.Parse(userId), message);
 
         await using var conn2 = new MySqlConnection(_connectionString);
