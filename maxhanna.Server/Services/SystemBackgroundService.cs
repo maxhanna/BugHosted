@@ -2748,7 +2748,7 @@ namespace maxhanna.Server.Services
       await using var reader = await cmd.ExecuteReaderAsync();
       while (await reader.ReadAsync())
       {
-        var userId = reader.GetString("user_id");
+        var userId = reader.GetInt32("user_id").ToString();
         var eventTitle = reader.GetString("type");
         var eventDate = reader.GetDateTime("date");
         var eventDescription = reader.GetString("note");
