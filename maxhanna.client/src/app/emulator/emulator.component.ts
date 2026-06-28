@@ -2090,125 +2090,134 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   /** Create or reuse a tiny stylesheet inside the vpad root. */
-  private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
-    let style = root.querySelector('style[data-vpad-overrides="min"]') as HTMLStyleElement | null;
-    if (style) return style;
+   private ensureVpadStyleSheet(root: HTMLElement): HTMLStyleElement {
+     let style = root.querySelector('style[data-vpad-overrides="min"]') as HTMLStyleElement | null;
+     if (style) return style;
 
-    style = document.createElement('style');
-    style.setAttribute('data-vpad-overrides', 'min');
+     style = document.createElement('style');
+     style.setAttribute('data-vpad-overrides', 'min');
 
-    // 🔧 Tweak these two knobs if you want slightly bigger/smaller pills later:
-    const PILL_W = this.system === 'genesis' ? 76 : 112;  // px
-    const PILL_H = 76;   // px
-    const FONT = 30;   // px
+     // 🔧 Tweak these two knobs if you want slightly bigger/smaller pills later:
+     const PILL_W = this.system === 'genesis' ? 76 : 112; // px
+     const PILL_H = 76; // px
+     const FONT = 30; // px
 
-    const SEGA = 72;   // px (Genesis round buttons: A/B/C/X/Y/Z)
-    const SEGA_FONT = 20;
+     const SEGA = 72; // px (Genesis round buttons: A/B/C/X/Y/Z)
+     const SEGA_FONT = 20;
 
-    const translateXA = this.system != 'genesis' ? -24 : 34;
-    const translateXB = this.system != 'genesis' ? -36 : -6;
+     const translateXA = this.system != 'genesis' ? -24 : 34;
+     const translateXB = this.system != 'genesis' ? -36 : -6;
 
-    const translateYA = this.system != 'genesis' ? 6 : 34;
-    const translateYB = this.system != 'genesis' ? 20 : 0;
+     const translateYA = this.system != 'genesis' ? 6 : 34;
+     const translateYB = this.system != 'genesis' ? 20 : 0;
 
-    style.textContent = `   
-.ejs_netplay_header input {
-  border: var(--main-border) !important;
-}
-.ejs_cheat_heading {
-  color: var(--main-font-color) !important;
-}
-.ejs_cheat_parent {
-  background-color: var(--component-background-color) !important;
-  color: var(--main-font-color) !important;
-}
-.ejs_button,
-.ejs_button_button,
-.ejs_control_set_button {
-  background-color: var(--component-background-color) !important;
-  color: var(--main-font-color) !important;
-}
+     // Mobile-specific adjustment for Sega A button
+     const mobileSegaAOffsetX = -5; // pixels left
+     const mobileSegaAOffsetY = -5; // pixels up
 
-.ejs_cheat_heading {
-  color: var(--main-font-color) !important;
-}
+     style.textContent = ` 
+     .ejs_netplay_header input {
+     border: var(--main-border) !important;
+   }
+     .ejs_cheat_heading {
+     color: var(--main-font-color) !important;
+   }
+     .ejs_cheat_parent {
+     background-color: var(--component-background-color) !important;
+     color: var(--main-font-color) !important;
+   }
+     .ejs_button,
+     .ejs_button_button,
+     .ejs_control_set_button {
+     background-color: var(--component-background-color) !important;
+     color: var(--main-font-color) !important;
+   }
 
-.ejs_cheat_parent {
-  background-color: var(--component-background-color) !important;
-  color: var(--main-font-color) !important;
-}
+     .ejs_cheat_heading {
+     color: var(--main-font-color) !important;
+   }
 
-.ejs_button_button {
-  border: var(--main-border) !important;
-}
-.max-dpad { 
-  transform: scale(1.30) !important; 
-  transform-origin: center left !important; 
-}
+     .ejs_cheat_parent {
+     background-color: var(--component-background-color) !important;
+     color: var(--main-font-color) !important;
+   }
 
-/* Big pill A/B — single source of truth for size + text */
-.max-pill {
-  width: ${PILL_W}px !important;
-  height: ${PILL_H}px !important;
-  line-height: ${PILL_H}px !important;
-  border-radius: ${PILL_H / 2}px !important; 
-  font-size: ${FONT}px !important;
-  font-weight: 700 !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
+     .ejs_button_button {
+     border: var(--main-border) !important;
+   }
+     .max-dpad { 
+     transform: scale(1.30) !important; 
+     transform-origin: center left !important; 
+   }
 
-/* Separate nudges so they sit nicely; adjust if you want more spacing */
-.max-pill.is-a { transform: translate(${translateXA}px, ${translateYA}px) !important; }  /* A: left & a hair up */
-.max-pill.is-b { transform: translate(${translateXB}px, ${translateYB}px) !important; }  /* B: more left & a bit down */
+     /* Big pill A/B — single source of truth for size + text */
+     .max-pill {
+     width: ${PILL_W}px !important;
+     height: ${PILL_H}px !important;
+     line-height: ${PILL_H}px !important;
+     border-radius: ${PILL_H /2}px !important; 
+     font-size: ${FONT}px !important;
+     font-weight:700 !important;
+     display: inline-flex !important;
+     align-items: center !important;
+     justify-content: center !important;
+   }
 
-.max-sega {
-  width: ${SEGA}px !important;
-  height: ${SEGA}px !important;
-  line-height: ${SEGA}px !important;
-  border-radius: 50% !important;
-  font-size: ${SEGA_FONT}px !important;
-  font-weight: 700 !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
+     /* Separate nudges so they sit nicely; adjust if you want more spacing */
+     .max-pill.is-a { transform: translate(${translateXA}px, ${translateYA}px) !important; } /* A: left & a hair up */
+     .max-pill.is-b { transform: translate(${translateXB}px, ${translateYB}px) !important; } /* B: more left & a bit down */
 
-/* Speed buttons: small rectangles */
-.max-rect {
-  width: auto !important;
-  height: auto !important;
-  min-width: 42px !important;
-  min-height: 20px !important;
-  padding: 3px 8px !important;
-  border-radius: 8px !important;
-  font-size: 10px !important;
-  line-height: 1.1 !important;
-}
+     .max-sega {
+     width: ${SEGA}px !important;
+     height: ${SEGA}px !important;
+     line-height: ${SEGA}px !important;
+     border-radius:50% !important;
+     font-size: ${SEGA_FONT}px !important;
+     font-weight:700 !important;
+     display: inline-flex !important;
+     align-items: center !important;
+     justify-content: center !important;
+   }
 
-/* Start/Select: drop slightly */
-.max-nudge-down { transform: translateY(35px) !important; }
+     /* Speed buttons: small rectangles */
+     .max-rect {
+     width: auto !important;
+     height: auto !important;
+     min-width:42px !important;
+     min-height:20px !important;
+     padding:3px8px !important;
+     border-radius:8px !important;
+     font-size:10px !important;
+     line-height:1.1 !important;
+   }
 
-/* If wrapper gets the class, keep first child consistent across skins */
-.max-pill > *, .max-rect > * { all: inherit; }
+     /* Start/Select: drop slightly */
+     .max-nudge-down { transform: translateY(35px) !important; }
 
-/* (Optional) Very narrow screens: make pills a touch smaller, keep nudges balanced */
-@media (max-width: 380px) {
-  .max-pill {
-    width: ${PILL_W - 8}px !important;
-    height: ${PILL_H - 6}px !important;
-    line-height: ${PILL_H - 6}px !important;
-    border-radius: ${(PILL_H - 6) / 2}px !important;
-    font-size: ${FONT - 2}px !important;
-  }
-  .max-pill.is-a { transform: translate(-30px,  6px) !important; }
-  .max-pill.is-b { transform: translate(-30px, 18px) !important; }
-}
-`;
-    root.appendChild(style);
-    return style;
-  }
+     /* If wrapper gets the class, keep first child consistent across skins */
+     .max-pill > *, .max-rect > * { all: inherit; }
+
+     /* (Optional) Very narrow screens: make pills a touch smaller, keep nudges balanced */
+     @media (max-width:380px) {
+     .max-pill {
+     width: ${PILL_W -8}px !important;
+     height: ${PILL_H -6}px !important;
+     line-height: ${PILL_H -6}px !important;
+     border-radius: ${(PILL_H -6) /2}px !important;
+     font-size: ${FONT -2}px !important;
+   }
+     .max-pill.is-a { transform: translate(-30px,6px) !important; }
+     .max-pill.is-b { transform: translate(-30px,18px) !important; }
+   }
+
+     /* Mobile-specific adjustment for Sega A button */
+     .max-sega.is-a {
+     transform: translate(${mobileSegaAOffsetX}px, ${mobileSegaAOffsetY}px) !important;
+   }
+     `;
+     root.appendChild(style);
+     return style;
+   }
 
   /** Find inner clickable node for a wrapper (works across common skins). */
   private findClickableInside(host: Element | null): HTMLElement | null {
