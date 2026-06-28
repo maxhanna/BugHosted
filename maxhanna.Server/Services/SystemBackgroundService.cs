@@ -198,23 +198,24 @@ namespace maxhanna.Server.Services
       await FetchAndStoreCryptoEvents();
       await FetchAndStoreFearGreedAsync();
       await FetchAndStoreGlobalMetricsAsync();
+      await DeleteHostAiRequests();
+      await DeleteOldCalendarNotifications();
     }
     private async Task RunThreeHourTasks()
     {
       await MoveInactiveEnderHeroes();
+      await DeleteOldSearchResults();
+      await DeleteOldTradeVolumesSixMonths();
     }
     private async Task RunDailyTasks()
     {
       await DeleteOldBattleReports();
       await DeleteOldGuests();
-      await DeleteOldSearchResults();
       await DeleteOldSearchQueries();
       await DeleteOldSentimentAnalysis();
       await DeleteOldGlobalMetrics();
       await DeleteNotificationRequests();
-      await DeleteHostAiRequests();
       await DeleteOldCoinValueEntries();
-      await DeleteOldTradeVolumesSixMonths();
       await DeleteOldNews();
       await DeleteOldNewsPins();
       await DeleteOldCoinMarketCaps();
@@ -535,9 +536,9 @@ namespace maxhanna.Server.Services
 				INSERT INTO crypto_fear_greed (timestamp_utc, value, classification, updated)
 				VALUES (@ts, @val, @class, UTC_TIMESTAMP())
 				ON DUPLICATE KEY UPDATE
-					value          = VALUES(value),
-					classification = VALUES(classification),
-					updated        = VALUES(updated);";
+					value          = VALUES (value),
+					classification = VALUES (classification),
+					updated        = VALUES (updated);";
 
       await using (var cmd = new MySqlCommand(upsertSql, conn))
       {
@@ -766,13 +767,13 @@ namespace maxhanna.Server.Services
 						(event_id, title, coin_symbol, coin_name, event_date, created_date, source, description, is_hot, proof_url, updated)
 						VALUES (@eventId, @title, @coinSymbol, @coinName, @eventDate, @createdDate, @source, @description, @isHot, @proofUrl, UTC_TIMESTAMP())
 						ON DUPLICATE KEY UPDATE 
-							title = VALUES(title),
-							event_date = VALUES(event_date),
-							created_date = VALUES(created_date),
-							source = VALUES(source),
-							description = VALUES(description),
-							is_hot = VALUES(is_hot),
-							proof_url = VALUES(proof_url);";
+							title = VALUES (title),
+							event_date = VALUES (event_date),
+							created_date = VALUES (created_date),
+							source = VALUES (source),
+							description = VALUES (description),
+							is_hot = VALUES (is_hot),
+							proof_url = VALUES (proof_url);";
 
           await using (var insertCmd = new MySqlCommand(insertSql, conn))
           {
@@ -908,7 +909,7 @@ namespace maxhanna.Server.Services
           await Task.Delay(1000).ConfigureAwait(false);
         }
 
-        //await _log.Db($"Completed execution of {tradeTaskDelegates.Count} trade tasks for users: {string.Join(", ", tradeTaskDelegates.Select(t => t.UserId))}", null, "TRADE", true);
+        //await _log.Db($"Completed execution of {tradeTaskDelegates.Count} trade tasks for users: {string.Join(", ", tradeTaskDelegates.Select (t => t.UserId))}", null, "TRADE", true);
       }
       catch (Exception ex)
       {
@@ -1672,10 +1673,10 @@ namespace maxhanna.Server.Services
             INSERT INTO latest_exchange_rate (target_currency, id, base_currency, rate, timestamp)
             VALUES (@l_target, @l_id, @l_base, @l_rate, UTC_TIMESTAMP(3))
             ON DUPLICATE KEY UPDATE
-                id            = VALUES(id),
-                base_currency = VALUES(base_currency),
-                rate          = VALUES(rate),
-                timestamp     = VALUES(timestamp);";
+                id            = VALUES (id),
+                base_currency = VALUES (base_currency),
+                rate          = VALUES (rate),
+                timestamp     = VALUES (timestamp);";
 
         await using var upsertLatestCmd = new MySqlCommand(upsertLatestSql, connection, (MySqlTransaction)tx);
         var lTarget = upsertLatestCmd.Parameters.Add("@l_target", MySqlDbType.VarChar, 10);
@@ -2250,6 +2251,23 @@ namespace maxhanna.Server.Services
         _ = _log.Db("DeleteOldUserEvents failure: " + ex.Message, null, "SYSTEM", true);
       }
     }
+    private async Task DeleteOldCalendarNotifications()
+    {
+        try
+        {
+            await using var conn = new MySqlConnection(_connectionString);
+            await conn.OpenAsync();
+            const string deleteSql = "DELETE FROM calendar_notifications_sent WHERE notification_sent < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY);";
+            await using (var cmd = new MySqlCommand(deleteSql, conn))
+            {
+                await cmd.ExecuteNonQueryAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            await _log.Db($"Error deleting old calendar notifications: {ex.Message}", null, "SYSTEM", outputToConsole: true);
+        }
+    }
 
     private async Task FetchAndStoreCoinValues()
     {
@@ -2338,11 +2356,11 @@ namespace maxhanna.Server.Services
             INSERT INTO latest_coin_value (name, id, symbol, value_cad, value_usd, `timestamp`)
             VALUES (@l_name, @l_id, @l_symbol, @l_cad, @l_usd, UTC_TIMESTAMP(3))
             ON DUPLICATE KEY UPDATE
-                id         = VALUES(id),
-                symbol     = VALUES(symbol),
-                value_cad  = VALUES(value_cad),
-                value_usd  = VALUES(value_usd),
-                `timestamp`= VALUES(`timestamp`);";
+                id         = VALUES (id),
+                symbol     = VALUES (symbol),
+                value_cad  = VALUES (value_cad),
+                value_usd  = VALUES (value_usd),
+                `timestamp`= VALUES (`timestamp`);";
         await using var upsertLatestCmd = new MySqlCommand(upsertLatestSql, conn, (MySqlTransaction)tx);
         var lName = upsertLatestCmd.Parameters.Add("@l_name", MySqlDbType.VarChar, 100);
         var lId = upsertLatestCmd.Parameters.Add("@l_id", MySqlDbType.Int32);
