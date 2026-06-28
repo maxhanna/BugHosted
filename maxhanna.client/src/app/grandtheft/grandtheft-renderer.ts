@@ -644,14 +644,13 @@ export class GrandTheftRenderer {
   public walkTime = 0;
   public punchTime = 0;
 
-  private timeOfDay = 0.3;
-  private lastFrameTime = 0;
-  private sunDir = [0, 1, 0];
+  // Static daytime (day/night cycle removed for performance)
+  private sunDir = [0.3, 0.8, 0.3];
   private moonDir = [0, -1, 0];
   private dayBlend = 1.0;
-  private lightColor = [1, 1, 1];
-  private ambientColor = [0.2, 0.2, 0.3];
-  private skyColor = [0.5, 0.6, 0.7];
+  private lightColor = [1.0, 0.98, 0.92];
+  private ambientColor = [0.3, 0.3, 0.35];
+  private skyColor = [0.7, 0.8, 0.9];
   private dayBlendLoc: WebGLUniformLocation | null = null;
 
   private shadowMapSize = 2048;
@@ -1799,8 +1798,8 @@ void main() {
           const slopeW = 8;
           for (let si = 0; si < slopeW; si++) {
             const t = si / slopeW;
-            const sx = ddx !== 0 ? cx * CHUNK_SIZE + (ddx > 0 ? CHUNK_SIZE - t * slopeW : t * slopeW) : cx2;
-            const sz = ddz !== 0 ? cz * CHUNK_SIZE + (ddz > 0 ? CHUNK_SIZE - t * slopeW : t * slopeW) : cz2;
+            const sx = ddx !== 0 ? cx * CHUNK_SIZE + (ddx > 0 ? CHUNK_SIZE + t * slopeW : -t * slopeW) : cx2;
+            const sz = ddz !== 0 ? cz * CHUNK_SIZE + (ddz > 0 ? CHUNK_SIZE + t * slopeW : -t * slopeW) : cz2;
             const sy = -t * 2.5;
             const w = ddx !== 0 ? slopeW * 0.6 : CHUNK_SIZE;
             const d = ddz !== 0 ? slopeW * 0.6 : CHUNK_SIZE;
@@ -2980,42 +2979,7 @@ void main() {
     }
   }
 
-  private updateSun(dt: number) {
-    this.timeOfDay = (this.timeOfDay + dt / 120.0) % 1.0;
-    const angle = this.timeOfDay * Math.PI * 2 - Math.PI / 2;
-    this.sunDir = [Math.cos(angle), Math.sin(angle), 0.3];
-    const len = Math.hypot(this.sunDir[0], this.sunDir[1], this.sunDir[2]);
-    this.sunDir = [this.sunDir[0] / len, this.sunDir[1] / len, this.sunDir[2] / len];
-    this.moonDir = [-this.sunDir[0], -this.sunDir[1], -this.sunDir[2]];
-
-    const sunHeight = this.sunDir[1];
-    let dayBlend = Math.max(0, Math.min(1, (sunHeight + 0.1) / 0.3));
-    this.dayBlend = dayBlend;
-
-    const nightSky = [0.05, 0.06, 0.1];
-    const daySky = [0.7, 0.8, 0.9];
-    this.skyColor = [
-      nightSky[0] + (daySky[0] - nightSky[0]) * dayBlend,
-      nightSky[1] + (daySky[1] - nightSky[1]) * dayBlend,
-      nightSky[2] + (daySky[2] - nightSky[2]) * dayBlend
-    ];
-
-    const nightLight = [0.3, 0.3, 0.4];
-    const dayLight = [1.0, 1.0, 0.95];
-    this.lightColor = [
-      nightLight[0] + (dayLight[0] - nightLight[0]) * dayBlend,
-      nightLight[1] + (dayLight[1] - nightLight[1]) * dayBlend,
-      nightLight[2] + (dayLight[2] - nightLight[2]) * dayBlend
-    ];
-
-    const nightAmb = [0.18, 0.18, 0.25];
-    const dayAmb = [0.3, 0.3, 0.35];
-    this.ambientColor = [
-      nightAmb[0] + (dayAmb[0] - nightAmb[0]) * dayBlend,
-      nightAmb[1] + (dayAmb[1] - nightAmb[1]) * dayBlend,
-      nightAmb[2] + (dayAmb[2] - nightAmb[2]) * dayBlend
-    ];
-  } render(
+  render(
     camX: number, camY: number, camZ: number, camYaw: number, camPitch: number, aspect: number,
     targetX: number, targetY: number, targetZ: number, carYaw: number,
     serverNPCs: any[], otherPlayers: any[], serverPedestrians: any[], parkedCars: any[],
@@ -3039,10 +3003,6 @@ void main() {
     const PICKUP_SCALE = 0.2;
     const PICKUP_SPIN_SPEED = 1.5;
     const pickupYaw = (now / 1000) * PICKUP_SPIN_SPEED;
-    const dt = (this.lastFrameTime === 0 ? 0 : (now - this.lastFrameTime) / 1000);
-    this.lastFrameTime = now;
-    this.updateSun(dt);
-
     // FIX: Declare these outside the shadow pass so the main pass can use them!
     const pcx = Math.floor(camX / CHUNK_SIZE);
     const pcz = Math.floor(camZ / CHUNK_SIZE);
