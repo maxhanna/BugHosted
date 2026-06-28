@@ -262,6 +262,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private garageCarMesh: CityMesh | CityMesh[] | null = null;
   private garagePollTimer = 0;
   private wasInGarage = false;
+  private garageExitedCar = false;
   private garageStoreCooldown = 0;
 
   private _lastVendingChunkX = 999;
@@ -372,6 +373,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       { path: 'assets/grandtheft/low_poly_11_usaf_f22a_raptor/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m) },
       { path: 'assets/grandtheft/pizzaMoped/scene.gltf', storeSkeleton: false, assign: m => this.renderer.motorcycleMeshes.push(m) },
       { path: 'assets/grandtheft/crownVic/scene.gltf', storeSkeleton: false, assign: m => this.renderer.policeCarMesh = m },
+      { path: 'assets/grandtheft/policeMan/scene.gltf', storeSkeleton: false, assign: m => this.renderer.copMesh = m },
       { path: 'assets/grandtheft/taxi/scene.gltf', storeSkeleton: false, assign: m => this.renderer.taxiMesh = m },
       { path: 'assets/grandtheft/hospital/scene.gltf', storeSkeleton: false, assign: m => this.renderer.hospitalMesh = m },
       { path: 'assets/grandtheft/japaneseShop/scene.gltf', storeSkeleton: false, assign: m => this.renderer.homeBaseMesh = m },
@@ -1311,11 +1313,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.garageStoreCooldown = 10;
         this.garageCar = null;
         this.garageCarMesh = null;
+        this.garageExitedCar = true;
         this.isInCar = false; this.vehicleType = 'car';
         this.carVx = 0; this.carVz = 0; this.carSpeed = 0; this.carY = CAR_HEIGHT;
         this.camDist = 4; this.camHeight = 2;
         this.carX = GARAGE_ENTRANCE_X;
         this.carZ = GARAGE_ENTRANCE_Z + 3;
+        this.stopRadio();
         return;
       }
     }
@@ -2077,6 +2081,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.garageDoorOpenness = Math.min(1, this.garageDoorOpenness + GARAGE_DOOR_OPEN_SPEED * dt);
     } else {
       this.garageDoorOpenness = Math.max(0, this.garageDoorOpenness - GARAGE_DOOR_OPEN_SPEED * dt);
+      this.garageExitedCar = false;
     }
 
     if (nearGarage && this.garageStoreCooldown <= 0) {
@@ -2100,15 +2105,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               } else if (this.garageCar.vehicleType === 'motorcycle') {
                 this.garageCarMesh = this.renderer.motorcycleMeshes.length > 0
                   ? this.renderer.motorcycleMeshes[0]
-                  : this.renderer.getNPCCarMesh(col, 0);
+                  : this.renderer.getNPCCarMesh(col, userId);
               } else if (this.garageCar.vehicleType === 'bus') {
-                this.garageCarMesh = this.renderer.busMesh || this.renderer.getNPCCarMesh(col, 0);
+                this.garageCarMesh = this.renderer.busMesh || this.renderer.getNPCCarMesh(col, userId);
               } else if (this.garageCar.vehicleType === 'police') {
                 this.garageCarMesh = this.renderer.getPoliceCarMesh();
+              } else if (this.garageCar.vehicleType === 'helicopter') {
+                this.garageCarMesh = this.renderer.getHelicopterMesh(userId);
+              } else if (this.garageCar.vehicleType === 'plane') {
+                this.garageCarMesh = this.renderer.getPlaneMesh(userId);
               } else {
-                this.garageCarMesh = this.renderer.carMeshes.length > 0
-                  ? this.renderer.carMeshes[0]
-                  : this.renderer.getNPCCarMesh(col, 0);
+                this.garageCarMesh = this.renderer.getNPCCarMesh(col, userId);
               }
             } else {
               this.garageCar = null;
@@ -2131,7 +2138,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
 
-    if (nearGarage && !this.isInCar && !this.isPassenger && this.garageCar && this.garageCarMesh && this.garageStoreCooldown <= 0) {
+    if (nearGarage && !this.isInCar && !this.isPassenger && !this.garageExitedCar && this.garageCar && this.garageCarMesh && this.garageStoreCooldown <= 0) {
       this.carX = GARAGE_INTERIOR_X;
       this.carZ = GARAGE_INTERIOR_Z;
       this.carYaw = this.garageCar.yaw;
@@ -3162,9 +3169,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private updateHelicopter(dt: number) {
     const maxSpeed = 35, climbRate = 12, yawSpeed = 2.0, turnSpeed = 2.5;
 
-    if (this.keys.has('KeyA')) this.camYaw -= turnSpeed * dt;
-    if (this.keys.has('KeyD')) this.camYaw += turnSpeed * dt;
-    this.carYaw = this.camYaw;
+    if (this.keys.has('KeyA')) this.carYaw -= turnSpeed * dt;
+    if (this.keys.has('KeyD')) this.carYaw += turnSpeed * dt;
 
     if (this.altUpPressed) this.carVy = Math.min(this.carVy + climbRate * dt, 10);
     else if (this.altDownPressed) this.carVy = Math.max(this.carVy - climbRate * dt, -10);
@@ -3181,8 +3187,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carVx += (targetVx - this.carVx) * Math.min(1, 3 * dt);
     this.carVz += (targetVz - this.carVz) * Math.min(1, 3 * dt);
 
-    if (this.keys.has('KeyQ')) this.camYaw -= yawSpeed * dt;
-    if (this.keys.has('KeyE')) this.camYaw += yawSpeed * dt;
+    if (this.keys.has('KeyQ')) this.carYaw -= yawSpeed * dt;
+    if (this.keys.has('KeyE')) this.carYaw += yawSpeed * dt;
 
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
@@ -3535,14 +3541,23 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private updateCamera(_dt: number) {
-    if (this.isInCar && !this.firstPerson && this.carSpeed < 0) {
+    if (this.isInCar && !this.firstPerson) {
       const timeSinceMouse = performance.now() - this.lastMouseMoveTime;
-      if (timeSinceMouse > 1500) {
-        const targetYaw = this.carYaw + Math.PI;
-        let yawDiff = targetYaw - this.camYaw;
-        while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
-        while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-        this.camYaw += yawDiff * 0.05;
+      if (this.vehicleType === 'helicopter') {
+        if (timeSinceMouse > 1500) {
+          let yawDiff = this.carYaw - this.camYaw;
+          while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+          while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+          this.camYaw += yawDiff * 0.05;
+        }
+      } else if (this.carSpeed < 0) {
+        if (timeSinceMouse > 1500) {
+          const targetYaw = this.carYaw + Math.PI;
+          let yawDiff = targetYaw - this.camYaw;
+          while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+          while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+          this.camYaw += yawDiff * 0.05;
+        }
       }
     }
   }

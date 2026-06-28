@@ -64,8 +64,11 @@
       <div id="gt-players" *ngIf="otherPlayers.length >0">
         {{ otherPlayers.length }} other player(s) nearby
       </div>
-      <div id="gt-controls-hint" *ngIf="!isMobile">
+      <div id="gt-controls-hint" *ngIf="!isMobile && !(isInCar && vehicleType === 'helicopter')">
         WASD Move | Mouse Aim | Click Shoot | E Vehicle | V View | M Map | L Leaderboard
+      </div>
+      <div id="gt-heli-hint" *ngIf="!isMobile && isInCar && vehicleType === 'helicopter'">
+        W/S Forward/Back | A/D Yaw | Space Up | Shift Down | Q/E Fine Yaw &nbsp;| Mouse Look
       </div>
       <div id="gt-alt-buttons" *ngIf="isInCar && (vehicleType === 'helicopter' || vehicleType === 'plane')">
         <button class="gt-alt-btn" (touchstart)="altUpPressed = true" (touchend)="altUpPressed = false" (mousedown)="altUpPressed = true" (mouseup)="altUpPressed = false" (mouseleave)="altUpPressed = false">▲</button>
