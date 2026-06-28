@@ -1715,7 +1715,7 @@ void main() {
       x + w / 2, y, z + d / 2, r, g, b, a,
       x - w / 2, y, z + d / 2, r, g, b, a
     );
-    indices.push(idxOffset, idxOffset + 1, idxOffset + 2, idxOffset, idxOffset + 2, idxOffset + 3);
+    indices.push(idxOffset, idxOffset + 2, idxOffset + 1, idxOffset, idxOffset + 3, idxOffset + 2);
   }
 
   getCityChunk(cx: number, cz: number): CityChunk {
