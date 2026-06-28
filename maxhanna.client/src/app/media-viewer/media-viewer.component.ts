@@ -1,4 +1,4 @@
-import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, OnChanges, SimpleChanges, Output, ViewChild, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+﻿import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, OnChanges, SimpleChanges, Output, ViewChild, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { FileService } from '../../services/file.service';
 import { AppComponent } from '../app.component';
@@ -112,7 +112,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.tryLoadFromCacheFastPath();
     }
     this.ensureCommentsLoaded();
-  }
+    this.ensureTopicsLoaded();
+    }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['fileId'] || changes['file'] || changes['fileSrc']) {
@@ -126,16 +127,28 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.ensureCommentsLoaded();
     }
   }
-
   private async ensureCommentsLoaded(): Promise<void> {
     const target = this.selectedFile ?? this.file;
-    if (!target || target.fileComments?.length) return;
+    if (!target || target.fileComments?.length || target.directory) return;
     const fid = this.fileId ?? target.id;
     if (!fid) return;
     try {
       const comments = await this.fileService.getComments(fid);
-      if (comments && comments.length > 0) {
+      if (comments && comments.length >0) {
         target.fileComments = comments;
+      }
+    } catch { }
+  }
+
+  private async ensureTopicsLoaded(): Promise<void> {
+    const target = this.selectedFile ?? this.file;
+    if (!target || target.topics?.length || target.directory) return;
+    const fid = this.fileId ?? target.id;
+    if (!fid) return;
+    try {
+      const topics = await this.fileService.getTopics(fid);
+      if (topics && topics.length >0) {
+        target.topics = topics;
       }
     } catch { }
   }

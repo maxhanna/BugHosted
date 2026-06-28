@@ -1173,19 +1173,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
 
-  private async loadFileTopics(file: FileEntry) {
-    try {
-      const res = await fetch('/File/GetFileTopics', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(file.id),
-      });
-      if (res.ok) {
-        file.topics = await res.json();
-      }
-    } catch (e) {
-      console.error('Failed to load topics', e);
-    }
+  private async loadFileTopics(file: FileEntry) { 
+    if (file.topics) return;
+    file.topics = await this.fileService.getTopics(file.id) ?? []; 
   }
 
   closeOptionsPanel(resetFile = true) {

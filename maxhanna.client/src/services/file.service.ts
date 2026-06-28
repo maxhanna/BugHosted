@@ -399,6 +399,22 @@ export class FileService {
       return isNaN(n) ? 0 : n;
     } catch (e) { return 0; }
   }
+
+  async getTopics(fileId?: number): Promise<Topic[] | null> {
+    try {
+      const res = await fetch('/file/getfiletopics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fileId),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      console.error('Failed to load topics', e);
+    } 
+    return null;
+  }
   async getFile(file: string, options?: { signal: AbortSignal }, user?: User) {
     try {
       const response = await fetch(`/file/getfile/${encodeURIComponent(file)}`, {
