@@ -2716,15 +2716,16 @@ namespace maxhanna.Server.Services
       var usersWithEvents = new Dictionary<string, List<CalendarEntry>>();
       await using var conn = new MySqlConnection(_connectionString);
       await conn.OpenAsync();
-      var sql = @"
-     SELECT u.user_id, u.calendar_notifications_enabled, ce.type, ce.date, ce.note
-     FROM user_settings u
-     INNER JOIN calendar ce ON u.user_id = ce.ownership
-     WHERE u.calendar_notifications_enabled = 1
-     AND ce.date >= NOW()
-     AND ce.date <= DATE_ADD(NOW(), INTERVAL 15 MINUTE) 
-     ORDER BY ce.date ASC;
-     ";
+      var sql = @"SELECT u.user_id, u.calendar_notifications_enabled, ce.type, ce.date, ce.note
+      FROM user_settings u
+      INNER JOIN calendar ce ON u.user_id = ce.ownership
+      LEFT JOIN calendar_notifications_sent cns ON u.user_id = cns.user_id AND cns.notification_sent > DATE_SUB(NOW(), INTERVAL 15 MINUTE)
+      WHERE u.calendar_notifications_enabled = 1
+      AND ce.date >= NOW()
+      AND ce.date <= DATE_ADD(NOW(), INTERVAL 15 MINUTE)
+      AND cns.user_id IS NULL
+      ORDER BY ce.date ASC;";
+
       await using var cmd = new MySqlCommand(sql, conn);
       await using var reader = await cmd.ExecuteReaderAsync();
       while (await reader.ReadAsync())
