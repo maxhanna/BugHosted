@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Collections.Concurrent;
 using System.IO.Compression;
@@ -111,19 +111,18 @@ namespace maxhanna.Server.Controllers
 
 			return Ok(new { token = weaverToken, user = new { id = userId, username } });
 		}
-
 		[HttpPost("heartbeat")]
 		public async Task<IActionResult> Heartbeat([FromBody] WeaverHeartbeatRequest req)
 		{
 			try
 			{
 				if (!await _semaphore.WaitAsync(0))
-					return Conflict(new { Message = "Heartbeat is already running." });
+				return Conflict(new { Message = "Heartbeat is already running." });
 
 				try
 				{
 					if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
-						return Unauthorized(new { error = "Invalid token" });
+					return Unauthorized(new { error = "Invalid token" });
 
 					var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "";
 					var weaverAddress = req.WeaverAddress ?? "";
@@ -142,7 +141,7 @@ namespace maxhanna.Server.Controllers
 						checkCmd.Parameters.AddWithValue("@ClientId", req.ClientId);
 						var cached = await checkCmd.ExecuteScalarAsync();
 						if (cached != null)
-							return Ok(new { status = "ok" });
+						return Ok(new { status = "ok" });
 					}
 
 					var kanbanData = GzipDecompress(req.KanbanData ?? "");
@@ -153,7 +152,7 @@ namespace maxhanna.Server.Controllers
                 ON DUPLICATE KEY UPDATE status = @Status, last_heartbeat = UTC_TIMESTAMP(), kanban_data = @KanbanData, weaver_address = @WeaverAddress, remote_ip = @RemoteIp";
 
 					using var cmd = new MySqlCommand(sql, conn);
-					cmd.CommandTimeout = 15;
+					cmd.CommandTimeout = 45;
 					cmd.Parameters.AddWithValue("@UserId", session.UserId);
 					cmd.Parameters.AddWithValue("@ClientId", req.ClientId ?? "");
 					cmd.Parameters.AddWithValue("@Status", req.Status ?? "online");
@@ -182,6 +181,10 @@ namespace maxhanna.Server.Controllers
 				{
 					_semaphore.Release();
 				}
+			}
+			catch (MySqlConnector.MySqlException ex) when (ex.Message.Contains("Command Timeout expired"))
+			{
+				return Ok(new { status = "abort" });
 			}
 			catch (System.Net.Sockets.SocketException)
 			{ 
