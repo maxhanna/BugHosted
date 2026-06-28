@@ -3030,12 +3030,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.spawnExplosion(b.x, 0.5, b.z);
       }
     }
-    const gasStations = this.renderer.getNearbyGasStations(this.carX, this.carZ, 4);
-    for (const gs of gasStations) {
-      const key = `${gs.x},${gs.z}`;
-      if (!this.renderer.explodedGasStations.has(key)) {
-        this.renderer.explodedGasStations.add(key);
-        this.spawnBigExplosion(gs.x, 0.5, gs.z);
+    if (spd >= 15) {
+      const gasStations = this.renderer.getNearbyGasStations(this.carX, this.carZ, 4);
+      for (const gs of gasStations) {
+        const key = `${gs.x},${gs.z}`;
+        if (!this.renderer.explodedGasStations.has(key)) {
+          this.renderer.explodedGasStations.add(key);
+          this.renderer.explodedGasStationTimers.set(key, performance.now());
+          this.spawnExplosion(gs.x, 0.5, gs.z);
+          this.carHealth = 0;
+        }
       }
     }
   }
@@ -3171,7 +3175,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carY += this.carVy * dt;
     this.carSpeed = Math.hypot(this.carVx, this.carVz);
 
-    if (this.carY < CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ)) { this.carY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ); this.carVy = Math.max(0, this.carVy); }
+    const heliRoofY = this.getBuildingRoofY(this.carX, this.carZ);
+    const heliFloorY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
+    const heliMinY = heliRoofY > heliFloorY ? heliRoofY : heliFloorY;
+    if (this.carY < heliMinY) { this.carY = heliMinY; this.carVy = Math.max(0, this.carVy); }
   }
 
   private updatePlane(dt: number) {
@@ -3226,11 +3233,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carZ += forwardZ * this.carSpeed * dt;
     this.carY += this.carVy * dt;
 
-    if (this.carY < CAR_HEIGHT) {
+    const planeRoofY = this.getBuildingRoofY(this.carX, this.carZ);
+    const planeFloorY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
+    const planeMinY = planeRoofY > planeFloorY ? planeRoofY : planeFloorY;
+    if (this.carY < planeMinY) {
       if (this.carSpeed > minSpeed && Math.abs(this.carPitch) > 0.3) {
         this.carHealth -= 50 * dt;
       }
-      this.carY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
+      this.carY = planeMinY;
       this.carVy = Math.max(0, this.carVy);
       this.carPitch = 0;
       this.carRoll = 0;
@@ -3296,6 +3306,35 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
       }
     }
+  }
+  private getBuildingRoofY(x: number, z: number): number {
+    const cx = Math.floor(x / CHUNK_SIZE), cz = Math.floor(z / CHUNK_SIZE);
+    let roofY = -Infinity;
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const chunk = this.renderer.getCityChunk(cx + dx, cz + dz);
+        for (const bld of chunk.buildings) {
+          const models = Array.isArray(bld.model) ? bld.model : [bld.model];
+          for (const m of models) {
+            if (m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined || m.minY === undefined || m.maxY === undefined) continue;
+            const rs = m.renderScale ?? 1;
+            const sx = (bld.scale?.[0] ?? 1) * rs;
+            const sz = (bld.scale?.[2] ?? 1) * rs;
+            const hw = (m.maxX - m.minX) / 2 * sx;
+            const hd = (m.maxZ - m.minZ) / 2 * sz;
+            const rot = ((bld.yaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+            const swap = Math.abs(rot - Math.PI / 2) < 0.01 || Math.abs(rot - Math.PI * 3 / 2) < 0.01;
+            const ehw = swap ? hd : hw, ehd = swap ? hw : hd;
+            const dx2 = x - bld.x, dz2 = z - bld.z;
+            if (Math.abs(dx2) < ehw && Math.abs(dz2) < ehd) {
+              const topY = bld.y + (m.maxY - m.minY) * (bld.scale?.[1] ?? 1) * rs;
+              if (topY > roofY) roofY = topY;
+            }
+          }
+        }
+      }
+    }
+    return roofY;
   }
 
   private updateVendingMachines() {
