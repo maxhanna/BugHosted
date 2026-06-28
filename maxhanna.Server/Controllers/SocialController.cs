@@ -296,7 +296,7 @@ namespace maxhanna.Server.Controllers
                 story = new Story
                 {
                   Id = storyId,
-                  User = new User(rdr.GetInt32("user_id"), null),
+                  User = new User(rdr.GetInt32("user_id")),
                   StoryText = rdr.GetString("story_text"),
                   Date = rdr.GetDateTime("date"),
                   City = rdr.GetBoolean("display_profile_location") ? (rdr.IsDBNull(rdr.GetOrdinal("city")) ? null : rdr.GetString("city")) : "Unknown",
