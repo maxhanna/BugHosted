@@ -2305,7 +2305,7 @@ namespace maxhanna.Server.Controllers
 					{
 						kv.Value.Health -= req.Damage;
 						hitAnything = true;
-						bool isVehicle = kv.Value.Type == "car" || kv.Value.Type == "bus" || kv.Value.Type == "taxi" || kv.Value.Type == "police" || kv.Value.Type == "bike" || kv.Value.Type == "motorcycle";
+						bool isVehicle = kv.Value.Type == "car" || kv.Value.Type == "bus" || kv.Value.Type == "taxi" || kv.Value.Type == "police" || kv.Value.Type == "bike" || kv.Value.Type == "motorcycle" || kv.Value.Type == "helicopter" || kv.Value.Type == "plane";
 						if (kv.Value.Health <= 0)
 						{
 							if (isVehicle) { kv.Value.Health = 1; }

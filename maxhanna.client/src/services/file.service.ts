@@ -202,7 +202,6 @@ export class FileService {
   getGenesisTitleKeywords(): string[] { return Array.from(this.genesisTitleKeywords); }
   getNdsTitleKeywords(): string[] { return Array.from(this.ndsTitleKeywords); }
   getDreamcastTitleKeywords(): string[] { return Array.from(this.dreamcastTitleKeywords); }
-
   async getDirectory(
     dir: string,
     visibility: string,
@@ -217,9 +216,9 @@ export class FileService {
     sortOption?: string,
     showFavouritesOnly?: boolean,
     forceSameDirectory?: boolean,
-    includeRomMetadata?: boolean,  
+    includeRomMetadata?: boolean,
     actualCore?: string[],
-    isNSFWAllowed?: boolean, 
+    isNSFWAllowed?: boolean,
     signal?: AbortSignal,
   ): Promise<DirectoryResults | null> {
     // Create a unique key for this request based on parameters
@@ -257,7 +256,7 @@ export class FileService {
       }
       if (isNSFWAllowed) {
         params.append('isNSFWAllowed', String(isNSFWAllowed));
-      } 
+      }
 
       try {
         const response = await fetch(`/file/getdirectory?${params.toString()}`, {
@@ -288,13 +287,25 @@ export class FileService {
         console.error('Error fetching directory:', error);
         return null;
       }
-    })().finally(() => {
+    })();
+
+    // Store the promise so subsequent calls can reuse it
+    this.directoryPromises[key] = promise;
+
+    // Once the promise resolves, remove it from the cache
+    promise.finally(() => {
       delete this.directoryPromises[key];
     });
 
-    this.directoryPromises[key] = promise;
-
     return promise;
+  }
+
+  async checkNames(directory: string, fileNames: string[]): Promise<{ [key: string]: boolean }> {
+    const response = await this.http.post<{ [key: string]: boolean }>(`/file/checknames`, {
+      directory,
+      fileNames
+    }).toPromise();
+    return response || {};
   }
 
   async updateFileData(userId: number, fileData: { FileId: number, GivenFileName: string, Description: string, LastUpdatedBy: User }) {
@@ -412,7 +423,7 @@ export class FileService {
       }
     } catch (e) {
       console.error('Failed to load topics', e);
-    } 
+    }
     return null;
   }
   async getFile(file: string, options?: { signal: AbortSignal }, user?: User) {
@@ -671,7 +682,7 @@ export class FileService {
     } catch (error) {
       return null;
     }
-  } 
+  }
 
   async notifyFollowersFileUploaded(userId: number, userName: string, fileId: number, fileCount?: number) {
     try {

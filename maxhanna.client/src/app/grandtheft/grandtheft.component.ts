@@ -2186,6 +2186,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       for (const t of list) {
         const tx = t.posX !== undefined ? t.posX : t.x;
         const tz = t.posZ !== undefined ? t.posZ : t.z;
+        const ty = (t.posY ?? t.y ?? 0.5);
+        const dy = Math.abs(ty - y);
+        if (dy > 8) continue;
         const dx = tx - x, dz = tz - z;
         const dist = Math.sqrt(dx * dx + dz * dz);
         const dmg = dmgAt(dist);
@@ -3482,6 +3485,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     for (const v of [...this.serverNPCs, ...this.parkedCars]) {
       if (v.health <= 0) continue;
+      const vy = (v as any).posY ?? (v as any).y ?? 0;
+      const dy = Math.abs(this.carY - vy);
+      if (dy > 3) continue;
       const dx = this.carX - v.x;
       const dz = this.carZ - v.z;
       const dist = Math.sqrt(dx * dx + dz * dz);
@@ -3569,6 +3575,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       let hit = false;
       if (r.y <= 0) hit = true;
       for (const npc of [...this.serverNPCs, ...this.parkedCars]) {
+        const ny = (npc as any).posY ?? (npc as any).y ?? 0;
+        if (Math.abs(ny - r.y) > 4) continue;
         if (Math.sqrt((npc.x - r.x) ** 2 + (npc.z - r.z) ** 2) < 2) { hit = true; break; }
       }
 
