@@ -493,14 +493,14 @@ export class GrandTheftRenderer {
     'low_poly_pharmacy', 'low_poly_police_station', 'low_poly_school', 'low_poly_shopping_center',
     'panel_apartment_placeholder', 'psx_groceries_store', 'pyaterochka_3d', 'supermarket',
     'ukraine_building', 'abandoned_building_gameready',
-    'psx_japanese_warehouse', 'city_building', 'low_poly_apartment_building_1', 
+    'psx_japanese_warehouse', 'low_poly_apartment_building_1', 
     'fatboys_diner', 'brooklyn_street_building_low_poly', 'brooklyn_street_cornerhouse_low_poly',
     'okraglak_round_office_building_poznan',
     'psxprop_-_old_warehouse',
   ];
   static SUBURB_BUILDING_NAMES = [
     'brooklynCornerhouse', 'brooklynStreetBuilding', 'cabin',
-    'hungry_jacks_restaurant_low_poly', 'japanese_storefront__blender',
+    'hungry_jacks_restaurant_low_poly',
     'low_poly_burger_restaurant', 'low_poly_cafe', 'low_poly_generic_restaurant', 'low_poly_generic_shop',
     'low_poly_house_2', 'low_poly_house_3', 'low_poly_house_4', 'low_poly_house_5',
     'low_poly_pizza_restaurant', 'low_poly_wooden_cabine', 'residential_family_house', 'ichijoushi_002',

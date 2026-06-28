@@ -1661,7 +1661,7 @@ namespace maxhanna.Server.Controllers
 
 			var sql = @"SELECT gtps.user_id
  FROM maxhanna.grandtheft_player_state gtps 
- WHERE gtps.last_seen >= DATE_SUB(CURRENT_DATE(), IINTERVAL 5 MINUTE);";
+ WHERE gtps.last_seen >= DATE_SUB(CURRENT_DATE(), INTERVAL 5 MINUTE);";
 
 			using var command = new MySqlCommand(sql, connection);
 			using var reader = await command.ExecuteReaderAsync();
