@@ -2344,13 +2344,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     { type: 'button', id: 'genA', text: 'A', location: 'right', left: -110, top: 80, input_value: 1, bold: true },
     ];
   }
-
   genesisSixRight(): VPadItem[] {
     return [
       // Lower row A/B/C
       { type: 'button', id: 'genC', text: 'C', location: 'right', left: 70, top: 5, input_value: 8, bold: true },
       { type: 'button', id: 'genB', text: 'B', location: 'right', left: 0, top: 35, input_value: 0, bold: true },
-      { type: 'button', id: 'genA', text: 'A', location: 'right', left: -115, top: 65, input_value: 1, bold: true },
+      { type: 'button', id: 'genA', text: 'A', location: 'right', left: -110, top: 55, input_value: 1, bold: true },
       // Upper row X/Y/Z (match your build’s scheme)
       { type: 'button', id: 'genX', text: 'X', location: 'right', left: -60, top: -10, input_value: 10, bold: true },
       { type: 'button', id: 'genY', text: 'Y', location: 'right', left: 0, top: -30, input_value: 9, bold: true },
