@@ -1998,6 +1998,37 @@ void main() {
 
         // ── AEROPORT block: runway + hangars + planes + helipads ──
         if (isAeroport) {
+          // Check if this chunk is a designated airport parking lot (NPC parking entry)
+          const isParkingChunk = GrandTheftRenderer.AIRPORT_ENTRY_ROADS.some(e => {
+            const minGz = Math.min(e.gzStart, e.gzEnd);
+            const maxGz = Math.max(e.gzStart, e.gzEnd);
+            return cx === e.gx && cz >= minGz && cz <= maxGz && cz === e.gzEnd;
+          });
+
+          if (isParkingChunk) {
+            // Parking lot — no runway/hangars, just stalls and parked cars
+            const rowSpacing = 6;
+            const stallW = 3, stallD = 5;
+            for (let row = 0; row < 5; row++) {
+              const rz = blockWorldZ - 14 + row * rowSpacing;
+              if (row === 2) continue;
+              for (let col = 0; col < 7; col++) {
+                const rx = blockWorldX - 9 + col * 3;
+                this.addBox(verts, indices, rx - stallW / 2, 0.02, rz, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
+                this.addBox(verts, indices, rx + stallW / 2, 0.02, rz, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
+                this.addBox(verts, indices, rx, 0.02, rz - stallD / 2, stallW, 0.04, 0.15, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
+                // Parked cars in every other stall
+                if ((col + row) % 2 === 0 && this.carMeshes.length > 0) {
+                  buildings.push({ model: this.carMeshes[Math.floor(rng() * this.carMeshes.length)], x: rx, y: 0.15, z: rz, yaw: 0, scale: [1, 1, 1] });
+                }
+              }
+            }
+            // Curbs around perimeter
+            this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ - 18, 38, 0.2, 0.6, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ + 18, 38, 0.2, 0.6, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
+            continue;
+          }
+
           // Runway strip (always down the center)
           this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ, 8, 0.2, GRID_PITCH, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
           for (let dz = -GRID_PITCH / 2 + 4; dz < GRID_PITCH / 2; dz += 8) {
@@ -2483,9 +2514,56 @@ void main() {
       }
     }
 
+    // Airport entry road visual — paint road surface + dashes in chunks the road passes through
+    for (const entry of GrandTheftRenderer.AIRPORT_ENTRY_ROADS) {
+      const minGz = Math.min(entry.gzStart, entry.gzEnd);
+      const maxGz = Math.max(entry.gzStart, entry.gzEnd);
+      if (cx !== entry.gx || cz < minGz || cz > maxGz) continue;
+      const roadX = entry.gx * GRID_PITCH;
+      const roadW = 10;
+      // Asphalt strip spanning the full chunk Z range
+      this.addBox(verts, indices, roadX, 0.05, worldOriginZ + CHUNK_SIZE / 2, roadW, 0.1, CHUNK_SIZE, 0.15, 0.15, 0.16, 1.0, idxOffset); idxOffset += 24;
+      // White dashed center line
+      for (let dz = -CHUNK_SIZE / 2 + 4; dz < CHUNK_SIZE / 2; dz += 10) {
+        this.addBox(verts, indices, roadX, 0.06, worldOriginZ + CHUNK_SIZE / 2 + dz, 0.4, 0.05, 4, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
+      }
+    }
+
     const chunk: CityChunk = { mesh, cx, cz, lamps, hydrants, buildings, benches, barrels, chickens, trees, supermarkets, tatami, cabins, lighthouses, tropicalShops, decorativeAircraft };
     this.chunkCache.set(key, chunk);
     return chunk;
+  }
+
+  static readonly AIRPORT_ENTRY_ROADS: { gx: number; gzStart: number; gzEnd: number }[] = [
+    { gx: 2, gzStart: -1, gzEnd: -3 },   // Zone 1 (cx 0-3, cz -5..-1)
+    { gx: 12, gzStart: -4, gzEnd: -6 },  // Zone 2 (cx 8-15, cz -8..-4)
+    { gx: 26, gzStart: -6, gzEnd: -9 },  // Zone 3 (cx 22-30, cz -11..-6)
+    { gx: 41, gzStart: -8, gzEnd: -12 }, // Zone 4 (cx 36-46, cz -14..-9)
+    { gx: 39, gzStart: 8, gzEnd: 13 },   // Zone 5 (cx 33-46, cz 10-17)
+  ];
+
+  private getAirportEntryNodesInRange(cx: number, cz: number, radius: number): { x: number; z: number; isParking: boolean }[] {
+    const blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
+    const startGx = Math.floor((cx * CHUNK_SIZE) / GRID_PITCH) - radius;
+    const startGz = Math.floor((cz * CHUNK_SIZE) / GRID_PITCH) - radius;
+    const endGx = Math.ceil((cx * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
+    const endGz = Math.ceil((cz * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
+    const result: { x: number; z: number; isParking: boolean }[] = [];
+    for (const entry of GrandTheftRenderer.AIRPORT_ENTRY_ROADS) {
+      if (entry.gx < startGx || entry.gx > endGx) continue;
+      const minGz = Math.min(entry.gzStart, entry.gzEnd);
+      const maxGz = Math.max(entry.gzStart, entry.gzEnd);
+      if (maxGz < startGz || minGz > endGz) continue;
+      const step = entry.gzStart <= entry.gzEnd ? 1 : -1;
+      let gz = entry.gzStart;
+      while (true) {
+        const isParking = gz === entry.gzEnd;
+        result.push({ x: entry.gx * GRID_PITCH, z: gz * GRID_PITCH, isParking });
+        if (gz === entry.gzEnd) break;
+        gz += step;
+      }
+    }
+    return result;
   }
 
   getRoadNodesInRadius(cx: number, cz: number, radius: number): { x: number; z: number }[] {
@@ -2497,10 +2575,13 @@ void main() {
     for (let gx = startGx; gx <= endGx; gx++) {
       for (let gz = startGz; gz <= endGz; gz++) {
         const biome = getBiome(Math.floor(gx / (CHUNK_SIZE / GRID_PITCH)), Math.floor(gz / (CHUNK_SIZE / GRID_PITCH)));
-        if (biome === 'mountain' || biome === 'beach' || biome === 'ocean') continue;
+        if (biome === 'mountain' || biome === 'beach' || biome === 'ocean' || biome === 'aeroport') continue;
         nodes.push({ x: gx * GRID_PITCH, z: gz * GRID_PITCH });
       }
     }
+    // Add airport entry/parking nodes
+    const airportNodes = this.getAirportEntryNodesInRange(cx, cz, radius);
+    for (const an of airportNodes) nodes.push({ x: an.x, z: an.z });
     return nodes;
   }
 

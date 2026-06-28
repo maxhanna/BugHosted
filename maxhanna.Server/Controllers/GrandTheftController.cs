@@ -28,6 +28,22 @@ namespace maxhanna.Server.Controllers
 		// Cache the result per (chunkX, chunkZ) so we only pay once.
 		private const int ROAD_RADIUS = 4;
 		private static readonly ConcurrentDictionary<(int cx, int cz), RoadGraph> _roadGraphCache = new();
+		private static HashSet<(float x, float z)>? _airportParkingPositions;
+		internal static HashSet<(float x, float z)> GetAirportParkingPositions()
+		{
+			if (_airportParkingPositions == null)
+			{
+				var set = new HashSet<(float, float)>();
+				foreach (var entry in AIRPORT_ENTRY_ROADS)
+				{
+					float wx = entry.gx * GRID_PITCH;
+					float wz = entry.gzEnd * GRID_PITCH;
+					set.Add((wx, wz));
+				}
+				_airportParkingPositions = set;
+			}
+			return _airportParkingPositions;
+		}
 
 		internal sealed class RoadGraph
 		{
@@ -106,6 +122,48 @@ namespace maxhanna.Server.Controllers
 			if (cx >= -20 && cx <= -16 && cz >= -6 && cz <= 6) return "rural_hills";
 			if (cx >= 71 && cx <= 80 && cz >= -8 && cz <= 8) return "rural_farm";
 			return "ocean";
+		}
+
+		// Airport entry roads: each entry has a grid-X, and a range of gz values.
+		// The node just before gzStart (outside the zone, toward the city) must
+		// already exist in the regular road grid so the entry road connects.
+		// The last node (gzEnd) is the parking spot.
+		private static readonly (int gx, int gzStart, int gzEnd)[] AIRPORT_ENTRY_ROADS = new[]
+		{
+			(2, -1, -3),   // Zone 1 (cx 0-3, cz -5..-1): city at gz=0
+			(12, -4, -6),  // Zone 2 (cx 8-15, cz -8..-4): city at gz=-3
+			(26, -6, -9),  // Zone 3 (cx 22-30, cz -11..-6): city at gz=-5
+			(41, -8, -12), // Zone 4 (cx 36-46, cz -14..-9): city at gz=-7
+			(39, 8, 13),   // Zone 5 (cx 33-46, cz 10-17): city at gz=7
+		};
+
+		public static List<(float worldX, float worldZ, bool isParking)> GetAirportEntryNodesInRange(int cx, int cz, int radius)
+		{
+			int blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
+			int startGx = (cx * blocksPerChunk) - radius;
+			int startGz = (cz * blocksPerChunk) - radius;
+			int endGx = (cx * blocksPerChunk + blocksPerChunk) + radius;
+			int endGz = (cz * blocksPerChunk + blocksPerChunk) + radius;
+
+			var result = new List<(float, float, bool)>();
+			foreach (var entry in AIRPORT_ENTRY_ROADS)
+			{
+				if (entry.gx < startGx || entry.gx > endGx) continue;
+				int minGz = Math.Min(entry.gzStart, entry.gzEnd);
+				int maxGz = Math.Max(entry.gzStart, entry.gzEnd);
+				if (maxGz < startGz || minGz > endGz) continue;
+
+				int step = entry.gzStart <= entry.gzEnd ? 1 : -1;
+				int gz = entry.gzStart;
+				while (true)
+				{
+					bool isParking = gz == entry.gzEnd;
+					result.Add((entry.gx * GRID_PITCH, gz * GRID_PITCH, isParking));
+					if (gz == entry.gzEnd) break;
+					gz += step;
+				}
+			}
+			return result;
 		}
 
 		public static bool IsBoulevard(int gridCoord)
@@ -285,7 +343,7 @@ namespace maxhanna.Server.Controllers
 					if (gx < 0) nc = (gx - blocksPerChunk + 1) / blocksPerChunk;
 					if (gz < 0) nz = (gz - blocksPerChunk + 1) / blocksPerChunk;
 					string biome = GetBiome(nc, nz);
-					if (biome == "mountain" || biome == "beach" || biome == "ocean" || biome == "rural_farm" || biome == "rural_hills") continue;
+					if (biome == "mountain" || biome == "beach" || biome == "ocean" || biome == "aeroport" || biome == "rural_farm" || biome == "rural_hills") continue;
 					nodes.Add((gx * GRID_PITCH, gz * GRID_PITCH));
 				}
 			}
@@ -317,6 +375,11 @@ namespace maxhanna.Server.Controllers
 			if (_roadGraphCache.TryGetValue(key, out var existing)) return existing;
 
 			var nodes = GetRoadNodes(cx, cz, ROAD_RADIUS);
+			// Merge airport entry/parking nodes
+			var airportNodes = GetAirportEntryNodesInRange(cx, cz, ROAD_RADIUS);
+			foreach (var an in airportNodes)
+				nodes.Add((an.worldX, an.worldZ));
+
 			int n = nodes.Count;
 			var adjLists = new List<int>[n];
 			for (int i = 0; i < n; i++) adjLists[i] = new List<int>(4);
@@ -1229,6 +1292,39 @@ namespace maxhanna.Server.Controllers
 								npc.StopTimer = 0;
 								if (distToTarget2 < 2.5f)
 								{
+									// Airport parking: if this is the last node and it's a parking spot, park + evict driver
+									if (npc.PathIdx + 1 >= npc.PathIndices.Count && CityLayout.GetAirportParkingPositions().Contains((currNode.x, currNode.z)))
+									{
+										npc.IsParked = true;
+										npc.HasDriver = false;
+										npc.Speed = 0;
+										npc.PathIndices = null;
+										// Evict driver as pedestrian
+										float driverAngle = (float)(rng.NextDouble() * Math.PI * 2);
+										float driverDist = 3f + (float)rng.NextDouble() * 2f;
+										float driverX = npc.X + (float)Math.Cos(driverAngle) * driverDist;
+										float driverZ = npc.Z + (float)Math.Sin(driverAngle) * driverDist;
+										GetRandomSidewalkPointNearPlayer(driverX, driverZ, out float driverTx, out float driverTz, rng, 0);
+										float driverYaw = (float)Math.Atan2(driverTx - driverX, driverTz - driverZ);
+										long driverId = GetNextNpcId();
+										npcs[driverId] = new NpcState
+										{
+											Id = driverId,
+											Type = "ped_" + npc.Gender,
+											Gender = npc.Gender,
+											X = driverX,
+											Z = driverZ,
+											TargetX = driverTx,
+											TargetZ = driverTz,
+											Yaw = driverYaw,
+											Speed = 2.0f,
+											Health = 100,
+											Cr = 0.4f,
+											Cg = 0.4f,
+											Cb = 0.4f
+										};
+										continue;
+									}
 									npc.PathIdx++;
 									if (npc.PathIdx >= npc.PathIndices.Count)
 									{

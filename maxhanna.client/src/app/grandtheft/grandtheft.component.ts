@@ -577,14 +577,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   private spawnAirportLotCars() {
     if (this.renderer.carMeshes.length === 0) return;
-    const zones: { cx: number; cz: number }[] = [
-      { cx: 1, cz: -3 }, { cx: 11, cz: -6 }, { cx: 26, cz: -8 }, { cx: 41, cz: -12 }, { cx: 39, cz: 14 },
+    const parkingLots: { gx: number; gz: number }[] = [
+      { gx: 2, gz: -3 }, { gx: 12, gz: -6 }, { gx: 26, gz: -9 }, { gx: 41, gz: -12 }, { gx: 39, gz: 13 },
     ];
     let spawned = 0;
-    for (const z of zones) {
+    for (const pl of parkingLots) {
       if (spawned >= 2) break;
-      const lotX = z.cx * 80 + 16;
-      const lotZ = z.cz * 80 + 40;
+      const lotX = pl.gx * 80;
+      const lotZ = pl.gz * 80;
       const color = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
       this.airportLotCars.push({
         x: lotX, z: lotZ + 20, yaw: 0,
@@ -2283,6 +2283,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
 
       if (!car.path || car.pathIdx >= car.path.length) {
+        // Airport parking: if at a parking node, remove car from traffic
+        if (this.isAtAirportParkingSpot(car.x, car.z)) {
+          this.trafficCars.splice(ci, 1);
+          continue;
+        }
         const fromIdx = this.closestNode(car.x, car.z);
         const toIdx = Math.floor(Math.random() * this.trafficNodes.length);
         const newPath = this.findPath(fromIdx, toIdx);
@@ -2607,6 +2612,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   private _lastTrafficChunkX = 0;
   private _lastTrafficChunkZ = 0;
+
+  private isAtAirportParkingSpot(x: number, z: number): boolean {
+    for (const entry of GrandTheftRenderer.AIRPORT_ENTRY_ROADS) {
+      const px = entry.gx * 80;
+      const pz = entry.gzEnd * 80;
+      if (Math.abs(x - px) < 5 && Math.abs(z - pz) < 5) return true;
+    }
+    return false;
+  }
 
   private closestNode(x: number, z: number): number {
     let bestIdx = 0, bestDist = Infinity;
