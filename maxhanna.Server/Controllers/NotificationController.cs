@@ -1214,15 +1214,15 @@ namespace maxhanna.Server.Controllers
 			// Remove any 0 recipients
 			request.ToUserIds = request.ToUserIds.Where(id => id > 0).ToArray();
 
-			_ = _log.Db($"Normalized IDs -> FileId:{request.FileId?.ToString() ?? "null"} StoryId:{request.StoryId?.ToString() ?? "null"} CommentId:{request.CommentId?.ToString() ?? "null"} ChatId:{request.ChatId?.ToString() ?? "null"} UserProfileId:{request.UserProfileId?.ToString() ?? "null"}", request.FromUserId, "NOTIFICATION");
+			//_ = _log.Db($"Normalized IDs -> FileId:{request.FileId?.ToString() ?? "null"} StoryId:{request.StoryId?.ToString() ?? "null"} CommentId:{request.CommentId?.ToString() ?? "null"} ChatId:{request.ChatId?.ToString() ?? "null"} UserProfileId:{request.UserProfileId?.ToString() ?? "null"}", request.FromUserId, "NOTIFICATION");
 		}
 
 		public async Task NotifyFollowersAsync(MySqlConnection conn, int ownerId, NotificationRequest request)
 		{
 			try
 			{
-				await _log.Db($"Notifying followers of user {ownerId} for action by {request.FromUserId}",
-							  request.FromUserId, "NOTIFICATION", true);
+				// await _log.Db($"Notifying followers of user {ownerId} for action by {request.FromUserId}",
+				// 			  request.FromUserId, "NOTIFICATION", true);
 
 				// 1. Get all followers (friends + pending friend requests)
 				string followersSql = @"
@@ -1301,8 +1301,8 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				await _log.Db($"Notified {validFollowers.Count} followers of user {ownerId}",
-							  request.FromUserId, "NOTIFICATION", true);
+				// await _log.Db($"Notified {validFollowers.Count} followers of user {ownerId}",
+				// 			  request.FromUserId, "NOTIFICATION", true);
 			}
 			catch (Exception ex)
 			{

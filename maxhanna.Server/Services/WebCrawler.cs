@@ -654,7 +654,7 @@ public class WebCrawler
   {
     if (string.IsNullOrWhiteSpace(domain))
     {
-      _ = _log.Db("Skipping save due to empty domain", null, "CRAWLER", true);
+     // _ = _log.Db("Skipping save due to empty domain", null, "CRAWLER", true);
       return;
     }
     if (metadata?.Description?.ToLower().Contains("bughosted") == true

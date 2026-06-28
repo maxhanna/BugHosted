@@ -330,7 +330,7 @@ namespace maxhanna.Server.Controllers
     [HttpPost("/User/CreateUser", Name = "CreateUser")]
     public async Task<IActionResult> CreateUser([FromBody] User user)
     {
-      _ = _log.Db("POST /User", user.Id, "USER", true);
+      _ = _log.Db("POST /User/CreateUser", user.Id, "USER", true);
       MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
       try
       {
