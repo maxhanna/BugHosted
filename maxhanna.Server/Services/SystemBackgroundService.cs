@@ -69,7 +69,6 @@ namespace maxhanna.Server.Services
       _threeHourTimer = new Timer(async _ => await RunThreeHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
       _sixHourTimer = new Timer(async _ => await RunSixHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
       _dailyTimer = new Timer(async _ => await RunDailyTasks(), null, Timeout.Infinite, Timeout.Infinite);
-      _fifteenMinuteTimer = new Timer(async _ => await GetUsersWithCalendarNotificationsEnabled(), null, Timeout.Infinite, Timeout.Infinite);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -133,6 +132,7 @@ namespace maxhanna.Server.Services
     // }
     private async Task RunFiveMinuteTasks()
     {
+      await SendCalendarNotifications();
       await _aiController.AnalyzeAndRenameFile();
       await CleanOneSluggyFileNameAsync();
       await FetchAndStoreTopMarketCaps();
@@ -2710,7 +2710,7 @@ namespace maxhanna.Server.Services
         _ = _log.Db("DeleteOldTradeVolumesSixMonths failure: " + ex.Message, null, "SYSTEM", true);
       }
     }
-    private async Task<Dictionary<string, List<CalendarEntry>>> GetUsersWithCalendarNotificationsEnabled()
+    private async Task<Dictionary<string, List<CalendarEntry>>> SendCalendarNotifications()
     {
       Console.WriteLine("Sending Calendar Notifications...");
       var usersWithEvents = new Dictionary<string, List<CalendarEntry>>();
