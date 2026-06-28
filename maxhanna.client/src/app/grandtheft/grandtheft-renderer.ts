@@ -74,13 +74,11 @@ export function getBiome(cx: number, cz: number): string {
   if (cx >= 8 && cx <= 15 && cz >= -8 && cz <= -4) return 'aeroport';
   if (cx >= 22 && cx <= 30 && cz >= -11 && cz <= -6) return 'aeroport';
   if (cx >= 36 && cx <= 46 && cz >= -14 && cz <= -9) return 'aeroport';
-  // Island 5 — major aeroport hub
   if (cx >= 33 && cx <= 46 && cz >= 10 && cz <= 17) return 'aeroport';
 
   // Helper to deterministically carve parking-lot patches out of city/suburb
   const isParkingPatch = () => {
     const h = ((Math.imul(cx, 100003) + Math.imul(cz, 70001)) >>> 0);
-    // ~1 in 9 chunks inside a city/suburb becomes a parking lot
     return (h % 9) === 0;
   };
 
@@ -89,8 +87,8 @@ export function getBiome(cx: number, cz: number): string {
     if (cz >= 2 || cz <= -2) return 'beach';
     return isParkingPatch() ? 'parking_lot' : 'city';
   }
+
   // Bridge 1→2
-  if (cx >= 4 && cx <= 5 && cz >= -1 && cz <= 1) return 'bridge';
   // Island 2 (Downtown)
   if (cx >= 6 && cx <= 15 && cz >= -5 && cz <= 5) {
     if (cz >= 4 || cz <= -4) return 'beach';
@@ -123,6 +121,15 @@ export function getBiome(cx: number, cz: number): string {
   if (cx >= -20 && cx <= -16 && cz >= -6 && cz <= 6) { return 'rural_hills'; }
   if (cx >= 71 && cx <= 80 && cz >= -8 && cz <= 8) { return 'rural_farm'; }
   return 'ocean';
+}
+
+export function isAeroportParkingChunk(cx: number, cz: number): boolean {
+  if (cx >= 0 && cx <= 3 && cz >= -3 && cz <= -1) return true;
+  if (cx >= 8 && cx <= 15 && cz >= -6 && cz <= -4) return true;
+  if (cx >= 22 && cx <= 30 && cz >= -9 && cz <= -6) return true;
+  if (cx >= 36 && cx <= 46 && cz >= -13 && cz <= -9) return true;
+  if (cx >= 33 && cx <= 46 && cz >= 10 && cz <= 15) return true;
+  return false;
 }
 
 const BRIDGE_RANGES: { startCx: number; endCx: number; startCz: number; endCz: number }[] = [
@@ -1994,14 +2001,9 @@ void main() {
 
         // ── AEROPORT block: runway + hangars + planes + helipads ──
         if (isAeroport) {
-          // Check if this chunk is a designated airport parking lot (NPC parking entry)
-          const isParkingChunk = GrandTheftRenderer.AIRPORT_ENTRY_ROADS.some(e => {
-            const minGz = Math.min(e.gzStart, e.gzEnd);
-            const maxGz = Math.max(e.gzStart, e.gzEnd);
-            return cx === e.gx && cz >= minGz && cz <= maxGz && cz === e.gzEnd;
-          });
+          const isParkingZone = isAeroportParkingChunk(cx, cz);
 
-          if (isParkingChunk) {
+          if (isParkingZone) {
             // Parking lot — no runway/hangars, just stalls and parked cars
             const rowSpacing = 6;
             const stallW = 3, stallD = 5;
@@ -2013,15 +2015,22 @@ void main() {
                 this.addBox(verts, indices, rx - stallW / 2, 0.02, rz, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
                 this.addBox(verts, indices, rx + stallW / 2, 0.02, rz, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
                 this.addBox(verts, indices, rx, 0.02, rz - stallD / 2, stallW, 0.04, 0.15, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
-                // Parked cars in every other stall
                 if ((col + row) % 2 === 0 && this.carMeshes.length > 0) {
                   buildings.push({ model: this.carMeshes[Math.floor(rng() * this.carMeshes.length)], x: rx, y: 0.15, z: rz, yaw: 0, scale: [1, 1, 1] });
                 }
               }
             }
-            // Curbs around perimeter
             this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ - 18, 38, 0.2, 0.6, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
             this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ + 18, 38, 0.2, 0.6, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
+
+            // Check next chunk in depth direction: if it's aeroport but NOT parking, add barrier wall
+            const dCz = (cx >= 33 && cx <= 46 && cz >= 10) ? 1 : -1;
+            const nextCz = cz + dCz;
+            const biomeNext = getBiome(cx, nextCz);
+            if (biomeNext === 'aeroport' && !isAeroportParkingChunk(cx, nextCz)) {
+              const wallZ = dCz > 0 ? blockWorldZ + GRID_PITCH / 2 : blockWorldZ - GRID_PITCH / 2;
+              this.addBox(verts, indices, blockWorldX, 1.5, wallZ, GRID_PITCH, 3, 0.4, 0.35, 0.35, 0.37, 1.0, idxOffset); idxOffset += 24;
+            }
             continue;
           }
 
@@ -2035,54 +2044,45 @@ void main() {
           const aRole = rng();
           const hasTerminal = aRole < 0.02;
           const hasHelipad = aRole >= 0.02 && aRole < 0.32;
-          const HS = 2.5; // hangar scale multiplier
+          const HS = 2.5;
 
           if (hasTerminal && this.airportBuildingMeshes.length > 0) {
-            // Terminal building on one side
             const term = this.airportBuildingMeshes[Math.floor(rng() * this.airportBuildingMeshes.length)];
             const bMinY = this.getModelMinY(term);
             const bx_ = blockWorldX - 24;
             const bz_ = blockWorldZ + (rng() - 0.5) * 14;
             buildings.push({ model: term, x: bx_, y: -bMinY * 3 + 0.15, z: bz_, yaw: Math.PI / 2, scale: [3, 3, 3] });
-            // Parking stalls with parked cars
             for (let pi = 0; pi < 5; pi++) {
               const sz = bz_ - 9 + pi * 3.5;
               this.addBox(verts, indices, bx_ + 8, 0.02, sz, 0.15, 0.04, 5, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
               this.addBox(verts, indices, bx_ + 12, 0.02, sz, 0.15, 0.04, 5, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
               this.addBox(verts, indices, bx_ + 10, 0.02, sz - 2.5, 4, 0.04, 0.15, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
-              // Place a parked car in every other stall
               if (pi % 2 === 0 && this.carMeshes.length > 0) {
                 buildings.push({ model: this.carMeshes[Math.floor(rng() * this.carMeshes.length)], x: bx_ + 10, y: 0.15, z: sz, yaw: 0, scale: [1, 1, 1] });
               }
             }
-            // Big hangar opposite side
             if (this.airportHangarMesh) {
               const hm = this.airportHangarMesh;
               buildings.push({ model: hm, x: blockWorldX + 35, y: -this.getModelMinY(hm) * HS + 0.15, z: blockWorldZ, yaw: -Math.PI / 2, scale: [HS, HS, HS] });
             }
           } else if (hasHelipad) {
-            // ── Helipad with H marking ──
             const padX = blockWorldX - 25;
             const padZ = blockWorldZ;
             this.addBox(verts, indices, padX, 0.05, padZ, 16, 0.1, 16, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
-            // Yellow border
             this.addBox(verts, indices, padX - 8, 0.06, padZ, 0.3, 0.05, 16, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
             this.addBox(verts, indices, padX + 8, 0.06, padZ, 0.3, 0.05, 16, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
             this.addBox(verts, indices, padX, 0.06, padZ - 8, 16, 0.05, 0.3, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
             this.addBox(verts, indices, padX, 0.06, padZ + 8, 16, 0.05, 0.3, 0.9, 0.8, 0.1, 1.0, idxOffset); idxOffset += 24;
-            // White H
             const hw = 0.8, hh = 4;
             this.addBox(verts, indices, padX - 2.5, 0.06, padZ, hw, 0.06, hh, 1, 1, 1, 0.9, idxOffset); idxOffset += 24;
             this.addBox(verts, indices, padX + 2.5, 0.06, padZ, hw, 0.06, hh, 1, 1, 1, 0.9, idxOffset); idxOffset += 24;
             this.addBox(verts, indices, padX, 0.06, padZ, hh * 0.6, 0.06, hw, 1, 1, 1, 0.9, idxOffset); idxOffset += 24;
-            // Helicopter on pad
             if (this.helicopterMeshes.length > 0) {
               const heli = this.helicopterMeshes[Math.floor(rng() * this.helicopterMeshes.length)];
               const heliYaw = rng() * Math.PI * 2;
               buildings.push({ model: heli, x: padX, y: 0.15, z: padZ, yaw: heliYaw, scale: [1, 1, 1] });
               decorativeAircraft.push({ x: padX, z: padZ, yaw: heliYaw, type: 'helicopter' });
             }
-            // Big hangar + plane on opposite side
             if (this.airportHangarMesh) {
               buildings.push({ model: this.airportHangarMesh, x: blockWorldX + 35, y: -this.getModelMinY(this.airportHangarMesh) * HS + 0.15, z: blockWorldZ, yaw: -Math.PI / 2, scale: [HS, HS, HS] });
               if (this.planeMeshes.length > 0) {
@@ -2091,7 +2091,6 @@ void main() {
               }
             }
           } else {
-            // ── Hangar row (default) — 1 hangar per side with plane ──
             for (const side of [-1, 1]) {
               if (this.airportHangarMesh) {
                 const hx = blockWorldX + side * 35;
@@ -2102,7 +2101,6 @@ void main() {
                   yaw: side > 0 ? -Math.PI / 2 : Math.PI / 2,
                   scale: [HS, HS, HS]
                 });
-                // Plane in front of each hangar
                 if (this.planeMeshes.length > 0) {
                   const pz = hz + (side > 0 ? -14 : 14);
                   const planeYaw = side > 0 ? -Math.PI / 2 : Math.PI / 2;

@@ -656,6 +656,7 @@ export class FileService {
       return null;
     }
   }
+
   async getFileEntryById(fileId: number, userId?: number, fileCache?: FileEntry[], includeRomMetadata?: boolean) {
     if (this.fileEntryPromises[fileId]) {
       return this.fileEntryPromises[fileId]!;
@@ -682,6 +683,26 @@ export class FileService {
     } catch (error) {
       return null;
     }
+  }
+
+
+  async getFileEntryByNameAndDirectory(filename: string, directory:string, fileCache?: FileEntry[], includeRomMetadata?: boolean, user?: User): Promise<FileEntry | null> { 
+    const tmpFile = fileCache?.filter(x => x.fileName === filename)[0];
+    if (tmpFile) { return tmpFile; }
+
+    try {
+      const res = await this.getDirectory(directory, "all", "all", user, undefined, 1, filename, undefined, undefined, true, undefined, undefined, true, includeRomMetadata);
+      if (res && res.data) {
+
+        if (fileCache) {
+          fileCache.push(res.data[0]);
+        }
+        return res.data[0];
+      } 
+    } catch (error) {
+      console.log(error);
+    }
+    return null;
   }
 
   async notifyFollowersFileUploaded(userId: number, userName: string, fileId: number, fileCount?: number) {
