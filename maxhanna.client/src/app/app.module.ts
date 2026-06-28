@@ -115,7 +115,7 @@ import { StarryBackgroundComponent } from './starry-background/starry-background
 import { PlanterComponent } from './planter/planter.component';
 import { WeaverComponent } from './weaver/weaver.component';
 import { MiniCalendarComponent } from './mini-calendar/mini-calendar.component';
-import { RecipeComponent } from './components/recipe/recipe.component';
+import { RecipeComponent } from './recipe/recipe.component';
 
 @NgModule({
   declarations: [
