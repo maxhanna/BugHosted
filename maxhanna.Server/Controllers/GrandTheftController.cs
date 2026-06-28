@@ -1669,7 +1669,7 @@ namespace maxhanna.Server.Controllers
 			var activePlayers = new List<User>();
 			while (await reader.ReadAsync())
 			{
-				activePlayers.Add(new User(reader.GetInt32("userId")));
+				activePlayers.Add(new User(reader.GetInt32("user_id")));
 			}
 
 			return Ok(activePlayers);
