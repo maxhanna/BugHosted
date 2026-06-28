@@ -505,10 +505,7 @@ export class GrandTheftRenderer {
     'low_poly_house_2', 'low_poly_house_3', 'low_poly_house_4', 'low_poly_house_5',
     'low_poly_pizza_restaurant', 'low_poly_wooden_cabine', 'residential_family_house', 'ichijoushi_002',
     'low_poly_apartment_building_1', 'ichijoushi___001',
-    'low_poly_house_1', 'low_poly_apartment_2',
-    'apartament',
-    'fatboys_diner',
-    'psxprop_-_old_warehouse',
+    'low_poly_house_1', 'low_poly_apartment_2', 'fatboys_diner', 'psxprop_-_old_warehouse',
   ];
   public trafficLightMesh: CityMesh[] | null = null;
   public hydrantMesh: CityMesh[] | null = null;
