@@ -25,6 +25,7 @@
       {{ lookTargetName }} {{ lookTargetHealth | number: '1.0-0' }}%
     </div>
     <div id="gt-damage-overlay" *ngIf="damageAlpha > 0" [style.opacity]="damageAlpha"></div>
+    <div id="gt-wasted" *ngIf="wastedTimer > 0">WASTED</div>
     <div id="gt-vehicle-banner" *ngIf="vehicleBannerTimer > 0">{{ vehicleName }}</div>
 
     <div id="gt-passenger-prompt" *ngIf="showPassengerPrompt">

@@ -721,6 +721,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     try { this.changeDetectorRef.detectChanges(); } catch { }
   }
 
+  refreshDirectory() {
+    this.debounceSearch();
+  }
+  
   debounceSearch() {
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {

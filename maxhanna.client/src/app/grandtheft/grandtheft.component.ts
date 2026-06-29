@@ -298,6 +298,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   damageAlpha = 0;
   vehicleName = '';
   vehicleBannerTimer = 0;
+  wastedTimer = 0;
   radioOn = false;
   radioSongs: string[] = [];
   altUpPressed = false;
@@ -2686,6 +2687,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateAirportLotCars(dt);
 
     if (this.vehicleBannerTimer > 0) this.vehicleBannerTimer -= dt;
+    if (this.wastedTimer > 0) this.wastedTimer -= dt;
     if (this.damageAlpha > 0) this.damageAlpha = Math.max(0, this.damageAlpha - dt * 0.5);
 
     for (const v of [...this.serverNPCs, ...this.parkedCars, ...this.trafficCars]) {
@@ -2786,6 +2788,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.health <= 0) {
       if (!this._wasDead) {
         this._wasDead = true;
+        this.wastedTimer = 3;
         this.dropMoneyAt(this.carX, this.carZ, this.money);
         this.money = 0;
       }
@@ -2804,6 +2807,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.camYaw = HOSPITAL_SPAWN_YAW;
           this.camPitch = 0.2;
           this._wasDead = false;
+          this.wastedTimer = 0;
           this._respawnTimer = null;
         }, 1500);
       }

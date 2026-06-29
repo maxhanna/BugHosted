@@ -56,6 +56,7 @@
   </div>
   <div *ngIf="!isLoading && isDirectoryEmpty">
     Empty.
+    <button (click)="refreshDirectory()" class="refreshButton">Refresh</button>
   </div>
   <!-- Main Data -->
   <div

@@ -859,6 +859,24 @@
   from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
   to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
+#gt-wasted {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #f00;
+  font-size: 72px;
+  font-weight: 900;
+  letter-spacing: 8px;
+  text-shadow: 0 0 20px rgba(255, 0, 0, 0.6), 0 0 40px rgba(255, 0, 0, 0.4);
+  z-index: 25;
+  pointer-events: none;
+  animation: gt-wasted-in 0.3s ease-out;
+}
+@keyframes gt-wasted-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
 /* Radio controls - bottom right */
 #gt-radio {
   position: absolute;
