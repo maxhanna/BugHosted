@@ -1421,8 +1421,8 @@ namespace maxhanna.Server.Services
           var nextUpdateTime = lastUpdateTime.Value.AddHours(24);
           var timeLeft = nextUpdateTime - DateTime.UtcNow;
 
-          await _log.Db($"Recent market cap data already exists. Next update in {timeLeft.Hours} hours and {timeLeft.Minutes} minutes.",
-                  null, "MCS", outputToConsole: true);
+          // await _log.Db($"Recent market cap data already exists. Next update in {timeLeft.Hours} hours and {timeLeft.Minutes} minutes.",
+          //         null, "MCS", outputToConsole: true);
           return;
         }
 
@@ -1523,7 +1523,7 @@ namespace maxhanna.Server.Services
             }
             else
             {
-              await _log.Db($"No historical data found for {coinNameSafe} ({coinId}), using current cap", null, "MCS", outputToConsole: true);
+          //    await _log.Db($"No historical data found for {coinNameSafe} ({coinId}), using current cap", null, "MCS", outputToConsole: true);
             }
 
             // Calculate 24h inflow change (now non-zero!)
@@ -1557,7 +1557,7 @@ namespace maxhanna.Server.Services
             }
           }
         }
-        await _log.Db($"Successfully stored {coins.Count} top market cap records", null, "MCS", outputToConsole: true);
+      //  await _log.Db($"Successfully stored {coins.Count} top market cap records", null, "MCS", outputToConsole: true);
       }
       catch (Exception ex)
       {
@@ -1578,7 +1578,7 @@ namespace maxhanna.Server.Services
         return typeId;
       }
 
-      _ = _log.Db($"Bot type '{botTypeName}' not found in meta_encounter_bot_type.", null);
+     // _ = _log.Db($"Bot type '{botTypeName}' not found in meta_encounter_bot_type.", null);
       return 0; // Fallback or throw an exception based on your requirements
     }
     private async Task<ExchangeRateData?> FetchExchangeRates()
@@ -1631,7 +1631,7 @@ namespace maxhanna.Server.Services
           var exists = await checkCmd.ExecuteScalarAsync();
           if (exists != null)
           {
-            _ = _log.Db("Exchange rates not added (latest table already updated within 6 hours).", null);
+        //    _ = _log.Db("Exchange rates not added (latest table already updated within 6 hours).", null);
             return;
           }
         }
@@ -1648,7 +1648,7 @@ namespace maxhanna.Server.Services
 
         if (exchangeData?.Rates == null || exchangeData.Rates.Count == 0)
         {
-          _ = _log.Db("No exchange rates found in the response.", null);
+        //  _ = _log.Db("No exchange rates found in the response.", null);
           return;
         }
 
@@ -1715,7 +1715,7 @@ namespace maxhanna.Server.Services
 
         await tx.CommitAsync();
 
-        _ = _log.Db("Exchange rates stored successfully (historical + latest).");
+     //   _ = _log.Db("Exchange rates stored successfully (historical + latest).");
       }
       catch (Exception ex)
       {
@@ -1740,7 +1740,7 @@ namespace maxhanna.Server.Services
           using (var deleteCmd = new MySqlCommand(deleteSql, conn))
           {
             int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-            _ = _log.Db($"Deleted {affectedRows} guest accounts older than 10 days.");
+         //   _ = _log.Db($"Deleted {affectedRows} guest accounts older than 10 days.");
           }
         }
       }
@@ -1771,7 +1771,7 @@ namespace maxhanna.Server.Services
           using (var deleteCmd = new MySqlCommand(deleteSql, conn))
           {
             int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-            _ = _log.Db($"Deleted {affectedRows} search results older than 30 days.", null);
+        //    _ = _log.Db($"Deleted {affectedRows} search results older than 30 days.", null);
           }
         }
       }
@@ -1795,7 +1795,7 @@ namespace maxhanna.Server.Services
           using (var deleteCmd = new MySqlCommand(deleteSql, conn))
           {
             int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-            _ = _log.Db($"Deleted {affectedRows} search queries older than 7 days.", null);
+     //       _ = _log.Db($"Deleted {affectedRows} search queries older than 7 days.", null);
           }
         }
       }
@@ -1830,7 +1830,7 @@ namespace maxhanna.Server.Services
         {
           affected = await cmd.ExecuteNonQueryAsync();
         }
-        _ = _log.Db($"Deleted {affected} old Ender scores (older than 3 days, excluding each user's top 20).", null, "ENDER_CLEANUP", true);
+    //    _ = _log.Db($"Deleted {affected} old Ender scores (older than 3 days, excluding each user's top 20).", null, "ENDER_CLEANUP", true);
       }
       catch (Exception ex)
       {
@@ -1852,7 +1852,7 @@ namespace maxhanna.Server.Services
           using (var deleteCmd = new MySqlCommand(deleteSql, conn))
           {
             int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-            _ = _log.Db($"Deleted {affectedRows} market sentiment analysis records older than 10 years.", null);
+    //        _ = _log.Db($"Deleted {affectedRows} market sentiment analysis records older than 10 years.", null);
           }
         }
       }
@@ -1885,14 +1885,14 @@ namespace maxhanna.Server.Services
         await using var cmd = new MySqlCommand(sql, conn);
         int rowsAffected = await cmd.ExecuteNonQueryAsync();
 
-        if (rowsAffected > 0)
-        {
-          _ = _log.Db($"Deleted {rowsAffected} crypto global metrics records older than 10 years.", null, componentName, true);
-        }
-        else
-        {
-          _ = _log.Db("No crypto global metrics records found older than 10 years.", null, componentName, true);
-        }
+        // if (rowsAffected > 0)
+        // {
+        //   _ = _log.Db($"Deleted {rowsAffected} crypto global metrics records older than 10 years.", null, componentName, true);
+        // }
+        // else
+        // {
+        //   _ = _log.Db("No crypto global metrics records found older than 10 years.", null, componentName, true);
+        // }
       }
       catch (MySqlException ex)
       {
@@ -2064,7 +2064,7 @@ namespace maxhanna.Server.Services
             }
           }
 
-          _ = _log.Db($"Trophies assigned successfully. Total trophies awarded: {trophiesAssigned}", null);
+    //      _ = _log.Db($"Trophies assigned successfully. Total trophies awarded: {trophiesAssigned}", null);
         }
       }
       catch (Exception ex)
@@ -2118,10 +2118,10 @@ namespace maxhanna.Server.Services
         string sql = @"DELETE FROM maxhanna.favourites WHERE creation_date < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR) AND COALESCE(access_count,0) < 3;";
         await using var cmd = new MySqlCommand(sql, conn);
         int deleted = Convert.ToInt32(await cmd.ExecuteNonQueryAsync());
-        if (deleted > 0)
-        {
-          _ = _log.Db($"CleanupOldFavourites removed {deleted} rows", null, "SYSTEM");
-        }
+        // if (deleted > 0)
+        // {
+        //   _ = _log.Db($"CleanupOldFavourites removed {deleted} rows", null, "SYSTEM");
+        // }
       }
       catch (Exception ex)
       {
@@ -2145,10 +2145,10 @@ namespace maxhanna.Server.Services
              OR (used_utc IS NOT NULL AND used_utc < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY));";
         await using var cmd = new MySqlCommand(sql, conn);
         int deleted = Convert.ToInt32(await cmd.ExecuteNonQueryAsync());
-        if (deleted > 0)
-        {
-          _ = _log.Db($"DeleteExpiredPasswordResetTokens removed {deleted} rows", null, "SYSTEM", outputToConsole: true);
-        }
+        // if (deleted > 0)
+        // {
+        //   _ = _log.Db($"DeleteExpiredPasswordResetTokens removed {deleted} rows", null, "SYSTEM", outputToConsole: true);
+        // }
       }
       catch (Exception ex)
       {
@@ -2222,7 +2222,7 @@ namespace maxhanna.Server.Services
           }
         }
 
-        _ = _log.Db($"PlantPhotoCleanupBackgroundService: deleted {orphanedPhotos.Count} orphaned photo(s)", null, "PLANTER", false);
+   //     _ = _log.Db($"PlantPhotoCleanupBackgroundService: deleted {orphanedPhotos.Count} orphaned photo(s)", null, "PLANTER", false);
       }
       catch (Exception ex)
       {
@@ -2240,10 +2240,10 @@ namespace maxhanna.Server.Services
           WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY);";
         await using var cmd = new MySqlCommand(sql, conn);
         int deleted = Convert.ToInt32(await cmd.ExecuteNonQueryAsync());
-        if (deleted > 0)
-        {
-          _ = _log.Db($"DeleteOldUserEvents removed {deleted} old event rows", null, "SYSTEM", outputToConsole: true);
-        }
+        // if (deleted > 0)
+        // {
+        //   _ = _log.Db($"DeleteOldUserEvents removed {deleted} old event rows", null, "SYSTEM", outputToConsole: true);
+        // }
       }
       catch (Exception ex)
       {
@@ -2414,7 +2414,7 @@ namespace maxhanna.Server.Services
 
         await tx.CommitAsync();
 
-        _ = _log.Db($"Coin values stored. Inserted(historical): {inserted}, Latest upserts: {upserts}, Skipped (fresh): {skippedFresh}.", null, "COINSVC", outputToConsole: true);
+      //  _ = _log.Db($"Coin values stored. Inserted(historical): {inserted}, Latest upserts: {upserts}, Skipped (fresh): {skippedFresh}.", null, "COINSVC", outputToConsole: true);
       }
       catch (Exception ex)
       {
@@ -2493,7 +2493,7 @@ namespace maxhanna.Server.Services
           try
           {
             int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
-            _ = _log.Db($"Deleted {rowsAffected} old coin value entries.");
+      //      _ = _log.Db($"Deleted {rowsAffected} old coin value entries.");
           }
           catch (Exception ex)
           {
@@ -2509,7 +2509,7 @@ namespace maxhanna.Server.Services
           try
           {
             int rowsAffected = await deleteOldCmd.ExecuteNonQueryAsync();
-            _ = _log.Db($"Deleted {rowsAffected} coin value entries older than 10 years.");
+       //     _ = _log.Db($"Deleted {rowsAffected} coin value entries older than 10 years.");
           }
           catch (Exception ex)
           {

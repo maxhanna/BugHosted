@@ -126,11 +126,11 @@ namespace maxhanna.Server.Controllers
 
 		public static bool IsAeroportParkingChunk(int cx, int cz)
 		{
-			if (cx >= 0 && cx <= 3 && cz >= -3 && cz <= -1) return true;
-			if (cx >= 8 && cx <= 15 && cz >= -6 && cz <= -4) return true;
-			if (cx >= 22 && cx <= 30 && cz >= -9 && cz <= -6) return true;
-			if (cx >= 36 && cx <= 46 && cz >= -13 && cz <= -9) return true;
-			if (cx >= 33 && cx <= 46 && cz >= 10 && cz <= 15) return true;
+			if (cx >= 0 && cx <= 3 && cz == -3) return true;
+			if (cx >= 8 && cx <= 15 && cz == -6) return true;
+			if (cx >= 22 && cx <= 30 && cz == -9) return true;
+			if (cx >= 36 && cx <= 46 && cz == -12) return true;
+			if (cx >= 33 && cx <= 46 && cz == 13) return true;
 			return false;
 		}
 

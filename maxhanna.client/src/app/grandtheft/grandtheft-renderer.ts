@@ -124,11 +124,11 @@ export function getBiome(cx: number, cz: number): string {
 }
 
 export function isAeroportParkingChunk(cx: number, cz: number): boolean {
-  if (cx >= 0 && cx <= 3 && cz >= -3 && cz <= -1) return true;
-  if (cx >= 8 && cx <= 15 && cz >= -6 && cz <= -4) return true;
-  if (cx >= 22 && cx <= 30 && cz >= -9 && cz <= -6) return true;
-  if (cx >= 36 && cx <= 46 && cz >= -13 && cz <= -9) return true;
-  if (cx >= 33 && cx <= 46 && cz >= 10 && cz <= 15) return true;
+  if (cx >= 0 && cx <= 3 && cz === -3) return true;
+  if (cx >= 8 && cx <= 15 && cz === -6) return true;
+  if (cx >= 22 && cx <= 30 && cz === -9) return true;
+  if (cx >= 36 && cx <= 46 && cz === -12) return true;
+  if (cx >= 33 && cx <= 46 && cz === 13) return true;
   return false;
 }
 
@@ -2049,13 +2049,19 @@ void main() {
             this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ - 18, 38, 0.2, 0.6, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
             this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ + 18, 38, 0.2, 0.6, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
 
-            // Check next chunk in depth direction: if it's aeroport but NOT parking, add barrier wall
+            // Check next chunk in depth direction: if it's aeroport but NOT parking, add barrier wall with entry gap
             const dCz = (cx >= 33 && cx <= 46 && cz >= 10) ? 1 : -1;
             const nextCz = cz + dCz;
             const biomeNext = getBiome(cx, nextCz);
             if (biomeNext === 'aeroport' && !isAeroportParkingChunk(cx, nextCz)) {
               const wallZ = dCz > 0 ? blockWorldZ + GRID_PITCH / 2 : blockWorldZ - GRID_PITCH / 2;
-              this.addBox(verts, indices, blockWorldX, 1.5, wallZ, GRID_PITCH, 3, 0.4, 0.35, 0.35, 0.37, 1.0, idxOffset); idxOffset += 24;
+              const entryGap = 8;
+              const halfSpan = GRID_PITCH / 2;
+              const segWidth = halfSpan - entryGap;
+              // Left wall segment
+              this.addBox(verts, indices, blockWorldX - entryGap - segWidth / 2, 1.5, wallZ, segWidth, 3, 0.4, 0.35, 0.35, 0.37, 1.0, idxOffset); idxOffset += 24;
+              // Right wall segment
+              this.addBox(verts, indices, blockWorldX + entryGap + segWidth / 2, 1.5, wallZ, segWidth, 3, 0.4, 0.35, 0.35, 0.37, 1.0, idxOffset); idxOffset += 24;
             }
             continue;
           }

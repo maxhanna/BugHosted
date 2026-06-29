@@ -233,7 +233,7 @@
      <details open>
       <summary class="kanbanSummary">📋Kanban</summary>
       <div *ngIf="!loading" class="kanban-board">
-        <div *ngIf="!kanbanCollapsed" style="display:flex; width: 100vw; width: 100dvw;">
+        <div *ngIf="!kanbanCollapsed" style="display:flex; flex-wrap: wrap; width: 100%;">
           <!-- TODO -->
           <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('todo')">
             <div class="kanban-col-header">

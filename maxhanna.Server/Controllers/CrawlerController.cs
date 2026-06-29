@@ -105,7 +105,7 @@ namespace maxhanna.Server.Controllers
         results = resultsTask.Result;
         totalResults = Convert.ToInt32(countTask.Result ?? 0);
 
-        _ = _log.Db($"Found {results.Count} results before merging quick scrape", null, "CRAWLERCTRL", true);
+       // _ = _log.Db($"Found {results.Count} results before merging quick scrape", null, "CRAWLERCTRL", true);
 
         // Collect whatever the quick scraper has produced so far (non-blocking).
         int scrapedResults = 0;
@@ -159,7 +159,7 @@ namespace maxhanna.Server.Controllers
         {
           try
           {
-            _ = _log.Db($"Scraping Wikipedia for: {request.Url!.Trim()}.", null, "CRAWLERCTRL", true);
+         //   _ = _log.Db($"Scraping Wikipedia for: {request.Url!.Trim()}.", null, "CRAWLERCTRL", true);
             // Link to the controller-level 30s token, but give Wikipedia a tight 3s budget
             using var wikiCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             wikiCts.CancelAfter(TimeSpan.FromSeconds(8));
@@ -188,7 +188,7 @@ namespace maxhanna.Server.Controllers
               wikiOnly = GetOrderedResultsForWeb(request, wikiOnly);
               wikiOnly = await AddFavouriteCountsAsync(wikiOnly, request.UserId);
               wikiOnly = await AddRatingDataAsync(wikiOnly);
-              _ = _log.Db($"Scraping Wikipedia found results. Including results in search.", null, "CRAWLERCTRL", true);
+             // _ = _log.Db($"Scraping Wikipedia found results. Including results in search.", null, "CRAWLERCTRL", true);
 
               return Ok(new { Results = wikiOnly, TotalResults = 1 });
             }
@@ -603,7 +603,7 @@ namespace maxhanna.Server.Controllers
     [HttpPost("/Crawler/IndexLinks", Name = "IndexLinks")]
     public async void IndexLinks([FromBody] string url)
     {
-      _ = _log.Db($"Indexing {url}", null, "CRAWLERCTRL", true);
+    //  _ = _log.Db($"Indexing {url}", null, "CRAWLERCTRL", true);
 
       try
       {
@@ -1233,7 +1233,7 @@ namespace maxhanna.Server.Controllers
       {
         try
         {
-          _ = _log.Db($"Wikipedia scrape queued for: {keyword}.", null, "CRAWLERCTRL", true);
+         // _ = _log.Db($"Wikipedia scrape queued for: {keyword}.", null, "CRAWLERCTRL", true);
           using var prefetchCts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
           var wiki = await TryFindWikipediaUrlAsync(keyword, prefetchCts.Token);
           if (!string.IsNullOrWhiteSpace(wiki?.Url))
