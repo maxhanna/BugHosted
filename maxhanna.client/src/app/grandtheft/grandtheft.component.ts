@@ -54,6 +54,7 @@ interface DeadBody {
 interface ParkedCar {
   id: number;
   x: number; z: number; yaw: number;
+  y?: number;
   type: string;
   health: number;
   isBurning?: boolean;
@@ -580,7 +581,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private spawnAirportLotCars() {
     if (this.renderer.carMeshes.length === 0) return;
     const parkingLots: { gx: number; gz: number }[] = [
-      { gx: 2, gz: -3 }, { gx: 12, gz: -6 }, { gx: 26, gz: -9 }, { gx: 41, gz: -12 }, { gx: 39, gz: 13 },
+      { gx: 2, gz: -3 }, { gx: 12, gz: -6 }, { gx: 26, gz: -8 }, { gx: 41, gz: -11 }, { gx: 39, gz: 16 },
     ];
     let spawned = 0;
     for (const pl of parkingLots) {
@@ -1055,6 +1056,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             const ddx = da.x - this.carX, ddz = da.z - this.carZ;
             if (Math.sqrt(ddx * ddx + ddz * ddz) < ENTER_CAR_DIST) {
               this.carX = da.x; this.carZ = da.z; this.carYaw = da.yaw;
+              this.camYaw = da.yaw;
               this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
               this.isInCar = true;
               this.vehicleType = da.type as 'car' | 'bus' | 'plane' | 'bike' | 'motorcycle' | 'taxi' | 'boat' | 'helicopter';
@@ -1062,11 +1064,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               this._carOnFire = false; this._carFireStarted = 0;
               this._carFireX = 0; this._carFireZ = 0; this._carFireYaw = 0;
               this._carSubmerged = false; this._carSubmergeStart = 0;
-              if (da.type === 'helicopter') {
-                this.playerVehicleMesh = this.renderer.getHelicopterMesh(0);
-              } else {
-                this.playerVehicleMesh = this.renderer.getPlaneMesh(0);
-              }
+              this.playerVehicleMesh = da.model || (da.type === 'helicopter' ? this.renderer.getHelicopterMesh(0) : this.renderer.getPlaneMesh(0));
+              chunk.buildings = chunk.buildings.filter(b => Math.abs(b.x - da.x) > 0.1 || Math.abs(b.z - da.z) > 0.1);
+              this.carY = da.type === 'helicopter' ? 5 : 3;
+              this.carRoll = 0; this.carPitch = 0; this.carVy = 0;
               this.playerVehicleColor = [1, 1, 1];
               if (this.renderer.playerMesh) {
                 this.driverInCarMesh = { mesh: this.renderer.playerMesh, offsetX: 0.3, offsetY: -0.3, offsetZ: 0.2, yaw: 0, scale: 0.85 };
@@ -1272,6 +1273,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         x: this.carX,
         z: this.carZ,
         yaw: this.carYaw,
+        y: this.carY,
         type: this.vehicleType,
         health: this.carHealth,
         isBurning: this._carOnFire || undefined,
@@ -1326,12 +1328,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.passenger) {
       this.dropPassenger(this.carX, this.carZ, this.carYaw);
     }
+    const origCarX = this.carX, origCarZ = this.carZ;
     this.carX += Math.sin(angle) * exitDist;
     this.carZ += Math.cos(angle) * exitDist;
     this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
     const exitTerrainY = getTerrainHeight(this.carX, this.carZ);
     const exitRoofY = this.getBuildingRoofY(this.carX, this.carZ);
-    this.carY = CAR_HEIGHT + (exitRoofY > exitTerrainY ? exitRoofY : exitTerrainY);
+    const carRoofY = this.getBuildingRoofY(origCarX, origCarZ);
+    const bestRoofY = exitRoofY > carRoofY ? exitRoofY : carRoofY;
+    this.carY = CAR_HEIGHT + (bestRoofY > exitTerrainY ? bestRoofY : exitTerrainY);
     this.isInCar = false; this.vehicleType = 'car';
     this.camDist = 4; this.camHeight = 2;
     this.taxiMission = null;
@@ -2718,7 +2723,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.serverPedestrians = this.serverPedestrians.filter(p => p.health > 0);
     this.parkedCars = this.parkedCars.filter(pc => pc.health > 0);
 
-    if (this.isInCar && this.carHealth > 0 && this.vehicleType !== 'boat') {
+    if (this.isInCar && this.carHealth > 0 && this.vehicleType !== 'boat' && this.vehicleType !== 'helicopter' && this.vehicleType !== 'plane') {
       const ocx = Math.floor(this.carX / 80), ocz = Math.floor(this.carZ / 80);
       // Land ranges include all biome zones (city, suburb, beach, aeroport, etc.)
       const inOcean = getBiome(ocx, ocz) === 'ocean';
@@ -3183,16 +3188,24 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private updateHelicopter(dt: number) {
     const maxSpeed = 35, climbRate = 12, yawSpeed = 2.0, turnSpeed = 2.5;
 
-    if (this.keys.has('KeyA')) this.carYaw -= turnSpeed * dt;
-    if (this.keys.has('KeyD')) this.carYaw += turnSpeed * dt;
+    if (this.isMobile && this.joystickActive) {
+      if (Math.abs(this.joystickX) > 0.1) this.carYaw += this.joystickX * turnSpeed * dt;
+    } else {
+      if (this.keys.has('KeyA')) this.carYaw -= turnSpeed * dt;
+      if (this.keys.has('KeyD')) this.carYaw += turnSpeed * dt;
+    }
 
     if (this.altUpPressed) this.carVy = Math.min(this.carVy + climbRate * dt, 10);
     else if (this.altDownPressed) this.carVy = Math.max(this.carVy - climbRate * dt, -10);
     else this.carVy *= 0.92;
 
     let fwdInput = 0;
-    if (this.keys.has('KeyW')) fwdInput = 1;
-    if (this.keys.has('KeyS')) fwdInput = -1;
+    if (this.isMobile && this.joystickActive) {
+      if (Math.abs(this.joystickY) > 0.1) fwdInput = this.joystickY;
+    } else {
+      if (this.keys.has('KeyW')) fwdInput = 1;
+      if (this.keys.has('KeyS')) fwdInput = -1;
+    }
     this.carPitch = -fwdInput * 0.25;
 
     const forwardX = Math.sin(this.carYaw), forwardZ = Math.cos(this.carYaw);
@@ -3219,21 +3232,22 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const maxSpeed = 70, minSpeed = 5, turnSpeed = 1.2;
     const pitchSpeed = 1.8, rollSpeed = 1.8, altClimbRate = 15;
 
-    if (this.keys.has('KeyW')) this.carPitch = Math.max(-0.6, this.carPitch - pitchSpeed * dt);
-    if (this.keys.has('KeyS')) this.carPitch = Math.min(0.6, this.carPitch + pitchSpeed * dt);
-    if (!this.keys.has('KeyW') && !this.keys.has('KeyS') && !this.isPointerLocked) {
-      this.carPitch *= 0.95;
-    }
-
-    if (this.isPointerLocked) {
-      const pitchInput = -this.camPitch * 0.3;
-      this.carPitch = Math.max(-0.6, Math.min(0.6, this.carPitch + pitchInput));
-    }
-
-    if (this.keys.has('KeyA')) this.carRoll = Math.max(-0.8, this.carRoll - rollSpeed * dt);
-    if (this.keys.has('KeyD')) this.carRoll = Math.min(0.8, this.carRoll + rollSpeed * dt);
-    if (!this.keys.has('KeyA') && !this.keys.has('KeyD')) {
-      this.carRoll *= Math.max(0, 1 - 2.0 * dt);
+    if (this.isMobile && this.joystickActive) {
+      if (Math.abs(this.joystickY) > 0.1) this.carPitch = Math.max(-0.6, Math.min(0.6, this.carPitch - this.joystickY * pitchSpeed * dt));
+      else if (!this.isPointerLocked) this.carPitch *= 0.95;
+      if (Math.abs(this.joystickX) > 0.1) this.carRoll = Math.max(-0.8, Math.min(0.8, this.carRoll + this.joystickX * rollSpeed * dt));
+      else this.carRoll *= Math.max(0, 1 - 2.0 * dt);
+    } else {
+      if (this.keys.has('KeyW')) this.carPitch = Math.max(-0.6, this.carPitch - pitchSpeed * dt);
+      if (this.keys.has('KeyS')) this.carPitch = Math.min(0.6, this.carPitch + pitchSpeed * dt);
+      if (!this.keys.has('KeyW') && !this.keys.has('KeyS') && !this.isPointerLocked) {
+        this.carPitch *= 0.95;
+      }
+      if (this.keys.has('KeyA')) this.carRoll = Math.max(-0.8, this.carRoll - rollSpeed * dt);
+      if (this.keys.has('KeyD')) this.carRoll = Math.min(0.8, this.carRoll + rollSpeed * dt);
+      if (!this.keys.has('KeyA') && !this.keys.has('KeyD')) {
+        this.carRoll *= Math.max(0, 1 - 2.0 * dt);
+      }
     }
 
     const bankFactor = this.carRoll * 1.5;

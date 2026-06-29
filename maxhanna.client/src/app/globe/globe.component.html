@@ -181,6 +181,16 @@
     </div>
 
     <div class="data-content" *ngIf="activeDataTab === 'general'">
+      <div class="search-container">
+        <input type="text" [(ngModel)]="searchCityQuery" placeholder="Search city/country..." class="search-input">
+        <button type="button" (click)="onCitySearch()" class="search-btn">Search</button>
+      </div>
+      <div class="search-results" *ngIf="searchResults.length >0">
+        <div class="search-result-item" *ngFor="let result of searchResults" (click)="onCitySearchSelect(result)">
+          {{ result.city }}, {{ result.country }}
+        </div>
+      </div> 
+
       <div class="pin-toggle-row">
         <label class="pin-toggle">
           <span class="pin-toggle-label">Show City Coords</span>

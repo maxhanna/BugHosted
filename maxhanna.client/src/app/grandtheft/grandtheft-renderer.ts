@@ -60,7 +60,7 @@ export interface CityChunk {
   cabins: { x: number; z: number; yaw: number }[];
   lighthouses: { x: number; z: number; yaw: number }[];
   tropicalShops: { x: number; z: number; yaw: number }[];
-  decorativeAircraft: { x: number; z: number; yaw: number; type: string }[];
+  decorativeAircraft: { x: number; z: number; yaw: number; type: string; model?: CityMesh | CityMesh[] }[];
 }
 
 const CHUNK_SIZE = 80;
@@ -70,11 +70,11 @@ const SIDEWALK_SIZE = 55;
 const BIOME_RADIUS_MOUNTAIN = 30;
 export function getBiome(cx: number, cz: number): string {
   // Airports (expanded — each has multiple rows for long runways + parking)
-  if (cx >= 0 && cx <= 3 && cz >= -5 && cz <= -1) return 'aeroport';
-  if (cx >= 8 && cx <= 15 && cz >= -8 && cz <= -4) return 'aeroport';
-  if (cx >= 22 && cx <= 30 && cz >= -11 && cz <= -6) return 'aeroport';
-  if (cx >= 36 && cx <= 46 && cz >= -14 && cz <= -9) return 'aeroport';
-  if (cx >= 33 && cx <= 46 && cz >= 10 && cz <= 17) return 'aeroport';
+  if (cx >= 0 && cx <= 3 && cz >= -3 && cz <= -1) return 'aeroport';
+  if (cx >= 8 && cx <= 15 && cz >= -6 && cz <= -4) return 'aeroport';
+  if (cx >= 22 && cx <= 30 && cz >= -8 && cz <= -6) return 'aeroport';
+  if (cx >= 36 && cx <= 46 && cz >= -11 && cz <= -9) return 'aeroport';
+  if (cx >= 33 && cx <= 46 && cz >= 12 && cz <= 16) return 'aeroport';
 
   // Helper to deterministically carve parking-lot patches out of city/suburb
   const isParkingPatch = () => {
@@ -126,9 +126,9 @@ export function getBiome(cx: number, cz: number): string {
 export function isAeroportParkingChunk(cx: number, cz: number): boolean {
   if (cx >= 0 && cx <= 3 && cz === -3) return true;
   if (cx >= 8 && cx <= 15 && cz === -6) return true;
-  if (cx >= 22 && cx <= 30 && cz === -9) return true;
-  if (cx >= 36 && cx <= 46 && cz === -12) return true;
-  if (cx >= 33 && cx <= 46 && cz === 13) return true;
+  if (cx >= 22 && cx <= 30 && cz === -8) return true;
+  if (cx >= 36 && cx <= 46 && cz === -11) return true;
+  if (cx >= 33 && cx <= 46 && cz === 16) return true;
   return false;
 }
 
@@ -1738,7 +1738,7 @@ void main() {
     const cabins: { x: number; z: number; yaw: number }[] = [];
     const lighthouses: { x: number; z: number; yaw: number }[] = [];
     const tropicalShops: { x: number; z: number; yaw: number }[] = [];
-    const decorativeAircraft: { x: number; z: number; yaw: number; type: string }[] = [];
+    const decorativeAircraft: { x: number; z: number; yaw: number; type: string; model?: CityMesh | CityMesh[] }[] = [];
 
     const worldOriginX = cx * CHUNK_SIZE;
     const worldOriginZ = cz * CHUNK_SIZE;
@@ -2113,13 +2113,14 @@ void main() {
               const heli = this.helicopterMeshes[Math.floor(rng() * this.helicopterMeshes.length)];
               const heliYaw = rng() * Math.PI * 2;
               buildings.push({ model: heli, x: padX, y: 0.15, z: padZ, yaw: heliYaw, scale: [1, 1, 1] });
-              decorativeAircraft.push({ x: padX, z: padZ, yaw: heliYaw, type: 'helicopter' });
+              decorativeAircraft.push({ x: padX, z: padZ, yaw: heliYaw, type: 'helicopter', model: heli });
             }
             if (this.airportHangarMesh) {
               buildings.push({ model: this.airportHangarMesh, x: blockWorldX + 35, y: -this.getModelMinY(this.airportHangarMesh) * HS + 0.15, z: blockWorldZ, yaw: -Math.PI / 2, scale: [HS, HS, HS] });
               if (this.planeMeshes.length > 0) {
-                buildings.push({ model: this.planeMeshes[Math.floor(rng() * this.planeMeshes.length)], x: blockWorldX + 35, y: 0.15, z: blockWorldZ + 18, yaw: Math.PI, scale: [1, 1, 1] });
-                decorativeAircraft.push({ x: blockWorldX + 35, z: blockWorldZ + 18, yaw: Math.PI, type: 'plane' });
+                const planeModel = this.planeMeshes[Math.floor(rng() * this.planeMeshes.length)];
+                buildings.push({ model: planeModel, x: blockWorldX + 35, y: 0.15, z: blockWorldZ + 18, yaw: Math.PI, scale: [1, 1, 1] });
+                decorativeAircraft.push({ x: blockWorldX + 35, z: blockWorldZ + 18, yaw: Math.PI, type: 'plane', model: planeModel });
               }
             }
           } else {
@@ -2136,13 +2137,14 @@ void main() {
                 if (this.planeMeshes.length > 0) {
                   const pz = hz + (side > 0 ? -14 : 14);
                   const planeYaw = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+                  const planeModel = this.planeMeshes[Math.floor(rng() * this.planeMeshes.length)];
                   buildings.push({
-                    model: this.planeMeshes[Math.floor(rng() * this.planeMeshes.length)],
+                    model: planeModel,
                     x: hx, y: 0.15, z: pz,
                     yaw: planeYaw,
                     scale: [1, 1, 1]
                   });
-                  decorativeAircraft.push({ x: hx, z: pz, yaw: planeYaw, type: 'plane' });
+                  decorativeAircraft.push({ x: hx, z: pz, yaw: planeYaw, type: 'plane', model: planeModel });
                 }
               }
             }
@@ -2560,11 +2562,11 @@ void main() {
   }
 
   static readonly AIRPORT_ENTRY_ROADS: { gx: number; gzStart: number; gzEnd: number }[] = [
-    { gx: 2, gzStart: -1, gzEnd: -3 },   // Zone 1 (cx 0-3, cz -5..-1)
-    { gx: 12, gzStart: -4, gzEnd: -6 },  // Zone 2 (cx 8-15, cz -8..-4)
-    { gx: 26, gzStart: -6, gzEnd: -9 },  // Zone 3 (cx 22-30, cz -11..-6)
-    { gx: 41, gzStart: -8, gzEnd: -12 }, // Zone 4 (cx 36-46, cz -14..-9)
-    { gx: 39, gzStart: 8, gzEnd: 13 },   // Zone 5 (cx 33-46, cz 10-17)
+    { gx: 2, gzStart: -1, gzEnd: -3 },   // Zone 1 (cx 0-3, cz -3..-1)
+    { gx: 12, gzStart: -4, gzEnd: -6 },  // Zone 2 (cx 8-15, cz -6..-4)
+    { gx: 26, gzStart: -7, gzEnd: -8 },  // Zone 3 (cx 22-30, cz -8..-6)
+    { gx: 41, gzStart: -7, gzEnd: -11 }, // Zone 4 (cx 36-46, cz -11..-9)
+    { gx: 39, gzStart: 7, gzEnd: 16 },   // Zone 5 (cx 33-46, cz 12-16)
   ];
 
   private getAirportEntryNodesInRange(cx: number, cz: number, radius: number): { x: number; z: number; isParking: boolean }[] {
@@ -3066,7 +3068,7 @@ void main() {
           }
         }
       }
-      for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, (pc as any)._expY ?? 0, pc.z, pc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+      for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, pc.y ?? (pc as any)._expY ?? 0, pc.z, pc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
       for (const npc of serverNPCs) {
         const vy = (npc.type === 'helicopter' || npc.type === 'plane') ? (npc.y || 0) : 0;
         this.drawMesh(npc.mesh, npc.x, vy, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
@@ -3320,7 +3322,7 @@ void main() {
       const biome = getBiome(Math.floor(pc.x / 80), Math.floor(pc.z / 80));
       const isBoat = pc.type === 'boat';
       const submergeY = biome === 'ocean' ? (isBoat ? 0 : -1.5) : getTerrainHeight(pc.x, pc.z);
-      this.drawMesh(pc.mesh, pc.x, (pc as any)._expY ?? submergeY, pc.z, pc.yaw);
+      this.drawMesh(pc.mesh, pc.x, pc.y ?? (pc as any)._expY ?? submergeY, pc.z, pc.yaw);
     }
 
     for (const npc of serverNPCs) {

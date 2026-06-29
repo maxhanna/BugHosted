@@ -72,11 +72,11 @@ namespace maxhanna.Server.Controllers
 
 		public static string GetBiome(int cx, int cz)
 		{
-			if (cx >= 0 && cx <= 3 && cz >= -5 && cz <= -1) return "aeroport";
-			if (cx >= 8 && cx <= 15 && cz >= -8 && cz <= -4) return "aeroport";
-			if (cx >= 22 && cx <= 30 && cz >= -11 && cz <= -6) return "aeroport";
-			if (cx >= 36 && cx <= 46 && cz >= -14 && cz <= -9) return "aeroport";
-			if (cx >= 33 && cx <= 46 && cz >= 10 && cz <= 17) return "aeroport";
+			if (cx >= 0 && cx <= 3 && cz >= -3 && cz <= -1) return "aeroport";
+			if (cx >= 8 && cx <= 15 && cz >= -6 && cz <= -4) return "aeroport";
+			if (cx >= 22 && cx <= 30 && cz >= -8 && cz <= -6) return "aeroport";
+			if (cx >= 36 && cx <= 46 && cz >= -11 && cz <= -9) return "aeroport";
+			if (cx >= 33 && cx <= 46 && cz >= 12 && cz <= 16) return "aeroport";
 
 			// Deterministic parking-lot patch (must match client exactly)
 			bool IsParkingPatch()
@@ -128,9 +128,9 @@ namespace maxhanna.Server.Controllers
 		{
 			if (cx >= 0 && cx <= 3 && cz == -3) return true;
 			if (cx >= 8 && cx <= 15 && cz == -6) return true;
-			if (cx >= 22 && cx <= 30 && cz == -9) return true;
-			if (cx >= 36 && cx <= 46 && cz == -12) return true;
-			if (cx >= 33 && cx <= 46 && cz == 13) return true;
+			if (cx >= 22 && cx <= 30 && cz == -8) return true;
+			if (cx >= 36 && cx <= 46 && cz == -11) return true;
+			if (cx >= 33 && cx <= 46 && cz == 16) return true;
 			return false;
 		}
 
@@ -140,11 +140,11 @@ namespace maxhanna.Server.Controllers
 		// The last node (gzEnd) is the parking spot.
 		private static readonly (int gx, int gzStart, int gzEnd)[] AIRPORT_ENTRY_ROADS = new[]
 		{
-			(2, -1, -3),   // Zone 1 (cx 0-3, cz -5..-1): city at gz=0
-			(12, -4, -6),  // Zone 2 (cx 8-15, cz -8..-4): city at gz=-3
-			(26, -6, -9),  // Zone 3 (cx 22-30, cz -11..-6): city at gz=-5
-			(41, -8, -12), // Zone 4 (cx 36-46, cz -14..-9): city at gz=-7
-			(39, 8, 13),   // Zone 5 (cx 33-46, cz 10-17): city at gz=7
+			(2, -1, -3),   // Zone 1 (cx 0-3, cz -3..-1): city at gz=0
+			(12, -4, -6),  // Zone 2 (cx 8-15, cz -6..-4): city at gz=-3
+			(26, -7, -8),  // Zone 3 (cx 22-30, cz -8..-6): city at gz=-7 (suburb)
+			(41, -7, -11), // Zone 4 (cx 36-46, cz -11..-9): city at gz=-7 (suburb)
+			(39, 7, 16),   // Zone 5 (cx 33-46, cz 12-16): city at gz=7 (suburb)
 		};
 
 		public static List<(float worldX, float worldZ, bool isParking)> GetAirportEntryNodesInRange(int cx, int cz, int radius)
@@ -183,11 +183,11 @@ namespace maxhanna.Server.Controllers
 		}
 		public static readonly (int minCx, int maxCx, int minCz, int maxCz)[] AIRPORT_ZONES = new[]
 		{
-			(0, 3, -5, -1),
-			(8, 15, -8, -4),
-			(22, 30, -11, -6),
-			(36, 46, -14, -9),
-			(33, 46, 10, 17)
+			(0, 3, -3, -1),
+			(8, 15, -6, -4),
+			(22, 30, -8, -6),
+			(36, 46, -11, -9),
+			(33, 46, 12, 16)
 		};
 
 		public static bool IsAeroportChunk(int cx, int cz)
