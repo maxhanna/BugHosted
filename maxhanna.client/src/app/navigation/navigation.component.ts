@@ -70,6 +70,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private time60Secs = 60 * 1000;
   private time20Mins = 20 * 60 * 1000;
   private time60Mins = 60 * 60 * 1000; 
+  private _abortController = new AbortController();
   private _gamepadPollActive = false;
   private _gamepadLastButtonStates: boolean[][] = [];
   private _gamepadPollingInterval?: any;
@@ -1270,6 +1271,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   minimizeNav() {
+    this._abortController.abort();
+    this._abortController = new AbortController();
     if (this.navbar) {
       this.navbar.nativeElement.classList.add('collapsed');
       this.navbarCollapsed = true;

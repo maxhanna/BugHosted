@@ -111,6 +111,7 @@ namespace maxhanna.Server.Controllers
 
 			return Ok(new { token = weaverToken, user = new { id = userId, username } });
 		}
+
 		[HttpPost("heartbeat")]
 		public async Task<IActionResult> Heartbeat([FromBody] WeaverHeartbeatRequest req)
 		{
@@ -136,20 +137,23 @@ namespace maxhanna.Server.Controllers
 					{
 						await checkConn.OpenAsync();
 						using var checkCmd = new MySqlCommand(
-							"SELECT 1 FROM maxhanna.weaver_heartbeat WHERE client_id = @ClientId AND last_heartbeat >= DATE_SUB(UTC_TIMESTAMP, INTERVAL 1 MINUTE)",
+							"SELECT 1 FROM maxhanna.weaver_heartbeat WHERE client_id = @ClientId AND last_heartbeat >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)",
 							checkConn);
 						checkCmd.Parameters.AddWithValue("@ClientId", req.ClientId);
 						var cached = await checkCmd.ExecuteScalarAsync();
 						if (cached != null)
-						return Ok(new { status = "ok" });
+						{ 
+							Console.WriteLine("Ignored heartbeat from " + remoteIp);
+							return Ok(new { status = "ok" });
+						}
 					}
 
 					var kanbanData = GzipDecompress(req.KanbanData ?? "");
 
 					string sql = @"
-                INSERT INTO maxhanna.weaver_heartbeat (user_id, client_id, status, last_heartbeat, kanban_data, weaver_address, remote_ip)
-                VALUES (@UserId, @ClientId, @Status, UTC_TIMESTAMP(), @KanbanData, @WeaverAddress, @RemoteIp)
-                ON DUPLICATE KEY UPDATE status = @Status, last_heartbeat = UTC_TIMESTAMP(), kanban_data = @KanbanData, weaver_address = @WeaverAddress, remote_ip = @RemoteIp";
+						INSERT INTO maxhanna.weaver_heartbeat (user_id, client_id, status, last_heartbeat, kanban_data, weaver_address, remote_ip)
+						VALUES (@UserId, @ClientId, @Status, UTC_TIMESTAMP(), @KanbanData, @WeaverAddress, @RemoteIp)
+						ON DUPLICATE KEY UPDATE status = @Status, last_heartbeat = UTC_TIMESTAMP(), kanban_data = @KanbanData, weaver_address = @WeaverAddress, remote_ip = @RemoteIp";
 
 					using var cmd = new MySqlCommand(sql, conn);
 					cmd.CommandTimeout = 45;
@@ -165,9 +169,9 @@ namespace maxhanna.Server.Controllers
 					if (!string.IsNullOrWhiteSpace(settings))
 					{
 						string settingsSql = @"
-                    INSERT INTO maxhanna.weaver_settings (user_id, settings_data, updated_at)
-                    VALUES (@UserId, @SettingsData, UTC_TIMESTAMP())
-                    ON DUPLICATE KEY UPDATE settings_data = @SettingsData, updated_at = UTC_TIMESTAMP()";
+							INSERT INTO maxhanna.weaver_settings (user_id, settings_data, updated_at)
+							VALUES (@UserId, @SettingsData, UTC_TIMESTAMP())
+							ON DUPLICATE KEY UPDATE settings_data = @SettingsData, updated_at = UTC_TIMESTAMP()";
 
 						using var settingsCmd = new MySqlCommand(settingsSql, conn);
 						settingsCmd.Parameters.AddWithValue("@UserId", session.UserId);
