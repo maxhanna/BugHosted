@@ -1,4 +1,5 @@
-﻿using maxhanna.Server.Controllers;
+﻿using maxhanna.Infrastructure;
+using maxhanna.Server.Controllers;
 
 namespace maxhanna.Server.Services
 {
@@ -10,10 +11,11 @@ namespace maxhanna.Server.Services
 		private Timer? _checkForNewUpgradesTimer;
 		private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
 		private static int checkEveryXSeconds = 30;
+		private readonly DbOperationQueue _dbQueue;
 
 
 
-		public NexusBuildingUpgradeBackgroundService(IConfiguration config, Log log)
+		public NexusBuildingUpgradeBackgroundService(IConfiguration config, Log log, DbOperationQueue queue)
 		{
 			_config = config;
 
@@ -21,6 +23,7 @@ namespace maxhanna.Server.Services
 			ConfigureServices(serviceCollection);
 			// _serviceProvider = serviceCollection.BuildServiceProvider();
 			_log = log;
+			_dbQueue = queue;
 		}
 
 
@@ -39,8 +42,11 @@ namespace maxhanna.Server.Services
 		{
 			_checkForNewUpgradesTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 			try
-			{
-				await LoadAndScheduleExistingUpgrades();
+			{ 
+				await _dbQueue.EnqueueAsync(async () =>
+				{
+					await LoadAndScheduleExistingUpgrades();
+				});
 			}
 			catch (Exception ex)
 			{
@@ -60,7 +66,11 @@ namespace maxhanna.Server.Services
 			try
 			{
 				var nexusController = new NexusController(_log, _config);
-				await nexusController.UpdateNexusBuildings();
+
+				await _dbQueue.EnqueueAsync(async () =>
+				{
+					await nexusController.UpdateNexusBuildings();
+				});
 			}
 			finally
 			{

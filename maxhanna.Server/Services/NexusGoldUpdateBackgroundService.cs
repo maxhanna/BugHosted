@@ -1,4 +1,5 @@
-﻿using maxhanna.Server.Controllers;
+﻿using maxhanna.Infrastructure;
+using maxhanna.Server.Controllers;
 
 namespace maxhanna.Server.Services
 {
@@ -13,12 +14,15 @@ namespace maxhanna.Server.Services
 
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 		private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
+		private readonly DbOperationQueue _dbQueue;
 
 
-		public NexusGoldUpdateBackgroundService(IConfiguration config, Log log)
+
+		public NexusGoldUpdateBackgroundService(IConfiguration config, Log log, DbOperationQueue queue)
 		{
 			_config = config; 
 			_log = log;
+			_dbQueue = queue;
 		}
 
 
@@ -31,8 +35,11 @@ namespace maxhanna.Server.Services
 		{
 			_checkForNewBaseUpdates?.Change(Timeout.Infinite, Timeout.Infinite);
 			try
-			{
-				await ProcessNexusGold();
+			{ 
+				await _dbQueue.EnqueueAsync(async () =>
+				{
+					await ProcessNexusGold();
+				});
 			}
 			catch (Exception ex)
 			{

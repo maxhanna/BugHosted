@@ -1,4 +1,5 @@
-﻿using maxhanna.Server.Controllers;
+﻿using maxhanna.Infrastructure;
+using maxhanna.Server.Controllers;
 using maxhanna.Server.Controllers.DataContracts.Nexus;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using MySqlConnector;
@@ -18,16 +19,18 @@ namespace maxhanna.Server.Services
 		private readonly Log _log;
 		private Timer? _checkForNewDefencesTimer;
 		private Timer _processDefenceQueueTimer;
+		private readonly DbOperationQueue _dbQueue;
 
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 		private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
 		private static int checkEveryXSeconds = 30;
 
-		public NexusDefenceBackgroundService(IConfiguration config, Log log)
+		public NexusDefenceBackgroundService(IConfiguration config, Log log, DbOperationQueue queue)
 		{
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			_config = config; 
 			_log = log;
+			_dbQueue = queue;
 			_processDefenceQueueTimer = new Timer(ProcessDefenceQueue, null, TimeSpan.Zero, TimeSpan.FromSeconds(1)); // Process queue every 1 second
 
 		}
@@ -58,7 +61,11 @@ namespace maxhanna.Server.Services
 				{
 					try
 					{
-						await ProcessDefence(defenceId);
+						await _dbQueue.EnqueueAsync(async () =>
+						{
+							await ProcessDefence(defenceId);
+						});
+						
 					}
 					finally
 					{
@@ -103,8 +110,11 @@ namespace maxhanna.Server.Services
 		protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 		{
 			try
-			{
-				await LoadAndScheduleExistingDefences();
+			{ 
+				await _dbQueue.EnqueueAsync(async () =>
+				{
+					await LoadAndScheduleExistingDefences();
+				});
 			}
 			catch (Exception ex)
 			{
@@ -124,8 +134,11 @@ namespace maxhanna.Server.Services
 		{
 			_checkForNewDefencesTimer?.Change(Timeout.Infinite, Timeout.Infinite); // Disable timer
 			try
-			{
-				await LoadAndScheduleExistingDefences();
+			{ 
+				await _dbQueue.EnqueueAsync(async () =>
+				{
+					await LoadAndScheduleExistingDefences();
+				});
 			}
 			catch (Exception ex)
 			{

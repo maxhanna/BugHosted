@@ -1,4 +1,5 @@
-﻿using maxhanna.Server.Controllers;
+﻿using maxhanna.Infrastructure;
+using maxhanna.Server.Controllers;
 using maxhanna.Server.Controllers.DataContracts.Nexus;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using MySqlConnector;
@@ -16,16 +17,17 @@ namespace maxhanna.Server.Services
 		private readonly string _connectionString; 
 		private readonly Log _log;
 		private Timer? _checkForNewAttacksTimer;
-		private static int checkDelaySecs = 40;
-
+		private static int checkDelaySecs = 40; 
+		private readonly DbOperationQueue _dbQueue;
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 		private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
 
-		public NexusAttackBackgroundService(IConfiguration config, Log log)
+		public NexusAttackBackgroundService(IConfiguration config, Log log, DbOperationQueue queue)
 		{
 			_config = config;
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? ""; 
 			_log = log;
+			_dbQueue = queue;
 			// Use a channel to queue attacks and a single reader to avoid overlapping timer callbacks.
 			// The channel reader is started in ExecuteAsync.
 		}
@@ -69,7 +71,10 @@ namespace maxhanna.Server.Services
 		{
 			try
 			{
-				await LoadAndScheduleExistingAttacks();
+				await _dbQueue.EnqueueAsync(async () =>
+				{
+					await LoadAndScheduleExistingAttacks(); 
+				});
 			}
 			catch (Exception ex)
 			{
@@ -97,8 +102,11 @@ namespace maxhanna.Server.Services
 							_ = Task.Run(async () =>
 							{
 								try
-								{
-									await ProcessAttack(attackId);
+								{ 
+									await _dbQueue.EnqueueAsync(async () =>
+									{
+										await ProcessAttack(attackId);
+									});
 								}
 								catch (Exception ex)
 								{
@@ -116,8 +124,11 @@ namespace maxhanna.Server.Services
 		{
 			_checkForNewAttacksTimer?.Change(Timeout.Infinite, Timeout.Infinite); // Disable timer
 			try
-			{
-				await LoadAndScheduleExistingAttacks();
+			{ 
+				await _dbQueue.EnqueueAsync(async () =>
+				{
+					await LoadAndScheduleExistingAttacks();
+				}); 
 			}
 			catch (Exception ex)
 			{

@@ -1,4 +1,5 @@
-﻿using maxhanna.Server.Controllers;
+﻿using maxhanna.Infrastructure;
+using maxhanna.Server.Controllers;
 using maxhanna.Server.Controllers.DataContracts.Nexus;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using MySqlConnector;
@@ -13,6 +14,7 @@ namespace maxhanna.Server.Services
 		private readonly ConcurrentQueue<int> _upgradeQueue = new ConcurrentQueue<int>();
 		private readonly IConfiguration _config;
 		private readonly string _connectionString;
+		private readonly DbOperationQueue _dbQueue;
 
 		private readonly Log _log; 
 		private Timer _checkForNewUnitUpgradesTimer;
@@ -20,11 +22,12 @@ namespace maxhanna.Server.Services
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1); // limit to 1 concurrent connection
 		private static readonly SemaphoreSlim _loadLock = new SemaphoreSlim(1, 1);
 
-		public NexusUnitUpgradeBackgroundService(IConfiguration config, Log log)
+		public NexusUnitUpgradeBackgroundService(IConfiguration config, Log log, DbOperationQueue queue)
 		{
 			_config = config;
 			_connectionString = config.GetValue<string>("ConnectionStrings:maxhanna") ?? ""; 
 			_log = log;
+			_dbQueue = queue;
 			_checkForNewUnitUpgradesTimer = new Timer(ProcessQueue, null, TimeSpan.Zero, TimeSpan.FromSeconds(TimedCheckEveryXSeconds));
 		}
 
@@ -66,7 +69,10 @@ namespace maxhanna.Server.Services
 			{
 				if (_upgradeQueue.TryDequeue(out int upgradeId))
 				{
-					await ProcessUnitUpgradeAsync(upgradeId);
+					await _dbQueue.EnqueueAsync(async () =>
+					{
+						await ProcessUnitUpgradeAsync(upgradeId); 
+					});
 				}
 			}
 			catch (Exception ex)
@@ -90,7 +96,10 @@ namespace maxhanna.Server.Services
 			_checkForNewUnitUpgradesTimer?.Change(Timeout.Infinite, Timeout.Infinite); // Disable timer
 			try
 			{
-				await LoadAndScheduleExistingUnitUpgrades(stoppingToken);
+				await _dbQueue.EnqueueAsync(async () =>
+				{
+					await LoadAndScheduleExistingUnitUpgrades(stoppingToken);
+				});
 			}
 			catch (Exception ex)
 			{
