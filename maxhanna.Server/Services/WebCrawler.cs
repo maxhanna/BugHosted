@@ -17,6 +17,12 @@ public class WebCrawler
   private readonly IConfiguration _config;
   private readonly DbOperationQueue _dbQueue;
   private const string Chars = "abcdefghijklmnopqrstuvwxyz123456789";
+  private static readonly string[] _trackingParams =
+    { "ved", "sig", "sa", "ei", "gs_gbg", "gs_l", "bvm", "biw", "bih",
+      "dpr", "sei", "uact", "source", "hl", "sca_esv", "tbo", "output",
+      "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+      "fbclid", "gclid", "ref", "ref_src", "_hsenc", "_hsmi", "mc_cid", "mc_eid" };
+  private static readonly HashSet<string> _blockedHosts = new(StringComparer.OrdinalIgnoreCase) { };
   public static readonly List<string> DomainSuffixes = new List<string>
   {
 		// Original Generic TLDs
@@ -161,6 +167,7 @@ public class WebCrawler
   private readonly ConcurrentDictionary<string, RobotsInfo> _robotsCache = new();
   private readonly ConcurrentDictionary<string, DateTime> _hostNextRequestTime = new();
   private readonly ConcurrentDictionary<string, int> _hostBackoffCount = new();
+  private readonly ConcurrentDictionary<string, int> _host403Count = new();
   private readonly TimeSpan _defaultPerHostDelay = TimeSpan.FromSeconds(2);
   private static SemaphoreSlim scrapeSemaphore = new SemaphoreSlim(1, 1);
   private readonly SemaphoreSlim _asyncScrapeSemaphore = new SemaphoreSlim(1, 1); // Semaphore to limit to one execution at a time per URL
@@ -174,7 +181,7 @@ public class WebCrawler
   private static bool isProcessing = false;
   private static bool isBackgroundScrapeRunning = false;
   private const int _maxRecursionLimit = 10;
-  private const int _maxSiteExceedance = 30;
+  private const int _maxSiteExceedance = 5;
   private readonly Log _log;
 
   public WebCrawler(IConfiguration config, Log log, DbOperationQueue queue)
@@ -974,6 +981,16 @@ public class WebCrawler
         {
           response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
           if (response.IsSuccessStatusCode) break;
+          if ((int)response.StatusCode == 403 || (int)response.StatusCode == 401)
+          {
+            _host403Count.AddOrUpdate(uri.Host, 1, (_, v) => v + 1);
+            if (_host403Count[uri.Host] >= 3)
+            {
+              _blockedHosts.Add(uri.Host);  // quarantine the host for this run
+              _ = _log.Db($"Auto-blocked host {uri.Host} after 3x 403", null, "CRAWLER", true);
+            }
+            return await MarkUrlAsFailed(url, (int)response.StatusCode);
+          }
           if ((int)response.StatusCode == 429 || (int)response.StatusCode == 503)
           {
             // increment backoff for host
@@ -1052,24 +1069,25 @@ public class WebCrawler
         }
       }
 
-      var linkNodes = htmlDocument.DocumentNode.SelectNodes("//a[@href]");
       int maxLinkNodeCount = _maxRecursionLimit;
+      var linkNodes = htmlDocument.DocumentNode.SelectNodes("//a[@href]");
+      int sameDomainCount = 0;
       if (linkNodes != null)
       {
         foreach (var linkNode in linkNodes)
         {
-          if (maxLinkNodeCount <= 0) { break; }
-          maxLinkNodeCount--;
+          if (maxLinkNodeCount <= 0) break;
           var href = linkNode.GetAttributeValue("href", "").Trim();
-          if (!IsValidDomain(href))
-          {
-            continue;
-          }
           var normalizedUrl = NormalizeUrl(href, url);
-          if (!string.IsNullOrEmpty(normalizedUrl))
+          if (!IsValidDomain(normalizedUrl)) continue;
+
+          // If it's the SAME host as the page we just scraped, count it
+          if (new Uri(normalizedUrl).Host.Equals(new Uri(url).Host, StringComparison.OrdinalIgnoreCase))
           {
-            _ = StartScrapingAsync(normalizedUrl);
+            if (++sameDomainCount > 3) continue; // cap same-domain recursion per page
           }
+          maxLinkNodeCount--;
+          _ = StartScrapingAsync(normalizedUrl);
         }
       }
     }
@@ -1208,6 +1226,12 @@ public class WebCrawler
     if (string.IsNullOrWhiteSpace(domain)) return false;
 
     string url = domain.ToLower().Trim();
+
+    if (Uri.TryCreate(url, UriKind.Absolute, out var u))
+    {
+      if (_blockedHosts.Contains(u.Host))
+        return false;
+    }
 
     try
     {
@@ -1392,7 +1416,11 @@ public class WebCrawler
       {
         if (delayedUrlsQueue.Count < 50000)
         {
-          delayedUrlsQueue.Enqueue(url);
+          var canon = CanonicalizeUrl(url);
+          if (_visitedUrls.Add(canon) && !urlsToScrapeQueue.Contains(canon))
+          {
+            delayedUrlsQueue.Enqueue(canon);
+          }
           //_ = _log.Db($"(Crawler:{delayedUrlsQueue.Count}#{urlsToScrapeQueue.Count})Delayed: {ShortenUrl(url)}", null, "CRAWLER", true);
 
           if (delayedUrlsQueue.Count == 1)
@@ -2017,7 +2045,7 @@ public class WebCrawler
           var val = parts[1].Trim();
           if (key == "user-agent")
           {
-            applies = val == "*" || val.ToLower().Contains("bughosted") == false; // keep basic
+            applies = val == "*";
           }
           else if (applies && key == "disallow")
           {
@@ -2041,6 +2069,20 @@ public class WebCrawler
     }
   }
 
+  private static string CanonicalizeUrl(string url)
+  {
+    if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return url;
+    var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+    foreach (var p in _trackingParams) query.Remove(p);
+    // sort remaining keys so order doesn't matter
+    var sorted = query.AllKeys.OrderBy(k => k)
+                    .Select(k => $"{k}={query[k]}")
+                    .Where(s => !string.IsNullOrEmpty(s));
+    var q = string.Join("&", sorted);
+    return $"{uri.Scheme}://{uri.IdnHost.ToLowerInvariant()}" +
+           $"{uri.AbsolutePath.ToLowerInvariant()}" +
+           (q.Length > 0 ? "?" + q : "");
+  }
   private bool IsPathDisallowed(RobotsInfo info, Uri uri)
   {
     if (info == null || info.IsEmpty) return false;
