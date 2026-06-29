@@ -137,7 +137,18 @@ namespace maxhanna.Server.Controllers
 					{
 						await checkConn.OpenAsync();
 						using var checkCmd = new MySqlCommand(
-							"SELECT 1 FROM maxhanna.weaver_heartbeat WHERE client_id = @ClientId AND last_heartbeat >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)",
+							@"SELECT EXISTS (
+								SELECT 1
+								FROM users u
+								LEFT JOIN maxhanna.weaver_heartbeat h
+								ON h.user_id = u.id
+								AND h.client_id = @ClientId
+								WHERE u.id = @ClientId
+								AND (
+									h.last_heartbeat >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)
+									OR u.last_seen < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)
+								)
+							) AS result;",
 							checkConn);
 						checkCmd.Parameters.AddWithValue("@ClientId", req.ClientId);
 						var cached = await checkCmd.ExecuteScalarAsync();
