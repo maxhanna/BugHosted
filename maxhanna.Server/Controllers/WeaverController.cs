@@ -9,7 +9,7 @@ using System.Text;
 // BughostedController creates entries; WeaverController.AckCommand completes them.
 public static class FsPendingRequests
 {
-    public static readonly ConcurrentDictionary<string, TaskCompletionSource<string>> Requests = new();
+	public static readonly ConcurrentDictionary<string, TaskCompletionSource<string>> Requests = new();
 }
 
 namespace maxhanna.Server.Controllers
@@ -118,12 +118,12 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				if (!await _semaphore.WaitAsync(0))
-				return Conflict(new { Message = "Heartbeat is already running." });
+					return Conflict(new { Message = "Heartbeat is already running." });
 
 				try
 				{
 					if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
-					return Unauthorized(new { error = "Invalid token" });
+						return Unauthorized(new { error = "Invalid token" });
 
 					var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "";
 					var weaverAddress = req.WeaverAddress ?? "";
@@ -142,7 +142,7 @@ namespace maxhanna.Server.Controllers
 						checkCmd.Parameters.AddWithValue("@ClientId", req.ClientId);
 						var cached = await checkCmd.ExecuteScalarAsync();
 						if (cached != null)
-						{ 
+						{
 							Console.WriteLine("Ignored heartbeat from " + remoteIp);
 							return Ok(new { status = "ok" });
 						}
@@ -191,15 +191,15 @@ namespace maxhanna.Server.Controllers
 				return Ok(new { status = "abort" });
 			}
 			catch (System.Net.Sockets.SocketException)
-			{ 
+			{
 				return Ok(new { status = "abort" });
 			}
 			catch (SemaphoreFullException)
-			{ 
+			{
 				return Ok(new { status = "abort" });
 			}
 			catch (OperationCanceledException)
-			{ 
+			{
 				return Ok(new { status = "abort" });
 			}
 		}
@@ -525,20 +525,23 @@ namespace maxhanna.Server.Controllers
 		[HttpGet("heartbeat/status")]
 		public async Task<IActionResult> GetHeartbeatStatus([FromQuery] string token, [FromQuery] int userId)
 		{
-			if (string.IsNullOrWhiteSpace(token) || !_sessions.TryGetValue(token, out var session))
-				return Unauthorized(new { error = "Invalid token" });
-
-			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-			using var conn = new MySqlConnection(cs);
-			await conn.OpenAsync();
-
-			string sql = "SELECT client_id, status, last_heartbeat, kanban_data, weaver_address, remote_ip FROM maxhanna.weaver_heartbeat WHERE user_id = @UserId ORDER BY last_heartbeat DESC LIMIT 1";
-			using var cmd = new MySqlCommand(sql, conn);
-			cmd.Parameters.AddWithValue("@UserId", userId > 0 ? userId : session.UserId);
-			using var reader = await cmd.ExecuteReaderAsync();
-
-			if (await reader.ReadAsync())
+			try
 			{
+				if (string.IsNullOrWhiteSpace(token) || !_sessions.TryGetValue(token, out var session))
+					return Unauthorized(new { error = "Invalid token" });
+
+				string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+				using var conn = new MySqlConnection(cs);
+				await conn.OpenAsync();
+
+				string sql = "SELECT client_id, status, last_heartbeat, kanban_data, weaver_address, remote_ip FROM maxhanna.weaver_heartbeat WHERE user_id = @UserId ORDER BY last_heartbeat DESC LIMIT 1";
+				using var cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@UserId", userId > 0 ? userId : session.UserId);
+
+				using var reader = await cmd.ExecuteReaderAsync();
+				if (!await reader.ReadAsync())
+					return NotFound(new { error = "No heartbeat data" });
+
 				var result = new Dictionary<string, object?>
 				{
 					["clientId"] = reader.GetString("client_id"),
@@ -550,7 +553,7 @@ namespace maxhanna.Server.Controllers
 				};
 				reader.Close();
 
-				// Also fetch settings
+				// --- Query 2: settings ---
 				string settingsSql = "SELECT settings_data, updated_at FROM maxhanna.weaver_settings WHERE user_id = @UserId";
 				using var settingsCmd = new MySqlCommand(settingsSql, conn);
 				settingsCmd.Parameters.AddWithValue("@UserId", userId > 0 ? userId : session.UserId);
@@ -562,7 +565,6 @@ namespace maxhanna.Server.Controllers
 				}
 				settingsReader.Close();
 
-				// Include recently fulfilled file requests (last 60s)
 				var fileRequests = new List<object>();
 				string frSql = @"
 					SELECT id, type, path, status, result, created_at
@@ -589,9 +591,19 @@ namespace maxhanna.Server.Controllers
 
 				return Ok(result);
 			}
-			return NotFound(new { error = "No heartbeat data" });
+			catch (OperationCanceledException)
+			{
+				return Ok(new { cancelled = true });
+			}
+			catch (System.Net.Sockets.SocketException)
+			{
+				return Ok(new { cancelled = true });
+			}
+			catch (IOException)
+			{
+				return Ok(new { cancelled = true });
+			}
 		}
-
 
 		[HttpGet("fileHints")]
 		public async Task<IActionResult> GetFileHints([FromQuery] string token)

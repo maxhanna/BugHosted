@@ -580,6 +580,8 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, ConcurrentDictionary<long, NpcState>> _worldNpcs = new();
 		private static readonly ConcurrentDictionary<int, List<ChatMessageEntry>> _worldChatMessages = new();
 		private class ChatMessageEntry { public int UserId { get; set; } public string Username { get; set; } = ""; public string Message { get; set; } = ""; public DateTime Timestamp { get; set; } }
+		private static readonly ConcurrentDictionary<int, string> _playerUsername = new();
+		private static readonly ConcurrentDictionary<int, bool> _playerDeathBroadcasted = new();
 
 		private static readonly ConcurrentDictionary<long, DroppedWeapon> _droppedWeapons = new();
 		private static long _nextDropId = 1000000;
@@ -604,6 +606,19 @@ namespace maxhanna.Server.Controllers
 
 		private static long _nextNpcId = 1;
 		private static long GetNextNpcId() => Interlocked.Increment(ref _nextNpcId);
+
+		private void BroadcastDeathMessage(int worldId, string killerName, string victimName, string cause)
+		{
+			var messages = _worldChatMessages.GetOrAdd(worldId, _ => new List<ChatMessageEntry>());
+			lock (messages)
+			{
+				string msg = $"{killerName} killed {victimName}{cause}";
+				messages.Add(new ChatMessageEntry { UserId = 0, Username = "SYSTEM", Message = msg, Timestamp = DateTime.UtcNow });
+				var pruneCutoff = DateTime.UtcNow.AddSeconds(-120);
+				messages.RemoveAll(m => m.Timestamp < pruneCutoff);
+				while (messages.Count > 100) messages.RemoveAt(0);
+			}
+		}
 
 		private class NpcState
 		{
@@ -758,6 +773,11 @@ namespace maxhanna.Server.Controllers
 				{
 					if (!_deadPlayerBodies.ContainsKey(req.UserId))
 					{
+						if (!_playerDeathBroadcasted.TryGetValue(req.UserId, out _))
+						{
+							string victimName = _playerUsername.GetOrAdd(req.UserId, $"Player{req.UserId}");
+							BroadcastDeathMessage(req.WorldId, "the police", victimName, "");
+						}
 						_deadPlayerBodies[req.UserId] = new DeadPlayerBody
 						{
 							UserId = req.UserId,
@@ -773,6 +793,7 @@ namespace maxhanna.Server.Controllers
 				else
 				{
 					_deadPlayerBodies.TryRemove(req.UserId, out _);
+					_playerDeathBroadcasted.TryRemove(req.UserId, out _);
 				}
 
 				if (!string.IsNullOrEmpty(req.ModelUrl)) _playerModelUrls[req.UserId] = req.ModelUrl!;
@@ -804,6 +825,7 @@ namespace maxhanna.Server.Controllers
 						var nameResult = await nameCmd.ExecuteScalarAsync();
 						if (nameResult != null) senderUsername = nameResult.ToString()!;
 					}
+					_playerUsername[req.UserId] = senderUsername;
 					var messages = _worldChatMessages.GetOrAdd(req.WorldId, _ => new List<ChatMessageEntry>());
 					lock (messages)
 					{
@@ -858,6 +880,7 @@ namespace maxhanna.Server.Controllers
 					while (await rdr.ReadAsync())
 					{
 						int otherUserId = rdr.GetInt32("user_id");
+						_playerUsername[otherUserId] = rdr.GetString("username");
 						players.Add(new
 						{
 							UserId = otherUserId,
@@ -2400,6 +2423,20 @@ namespace maxhanna.Server.Controllers
 					targetDied = true;
 					_playerX.TryGetValue(playerTargetId, out deathX);
 					_playerZ.TryGetValue(playerTargetId, out deathZ);
+
+					_playerDeathBroadcasted[playerTargetId] = true;
+					if (req.AttackerId <= 0)
+					{
+						string victimName = _playerUsername.GetOrAdd(playerTargetId, $"Player{playerTargetId}");
+						BroadcastDeathMessage(req.WorldId, "An NPC", victimName, " with a weapon");
+					}
+					else if (req.AttackerId != playerTargetId)
+					{
+						string victimName = _playerUsername.GetOrAdd(playerTargetId, $"Player{playerTargetId}");
+						string killerName = _playerUsername.GetOrAdd(req.AttackerId, $"Player{req.AttackerId}");
+						BroadcastDeathMessage(req.WorldId, killerName, victimName, " with a weapon");
+					}
+
 					for (int i = 1; i <= 4; i++) _homeBaseWeaponCollected[i] = false;
 					if (_playerWeapons.TryGetValue(playerTargetId, out var pw))
 					{
