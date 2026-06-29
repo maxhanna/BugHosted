@@ -174,7 +174,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _reloading = false;
   private _pistolDrawTimer = 0;
   private _chatClearTimer: any = null;
-
+  
   camYaw = 0; camPitch = 0.2;
   camDist = 4; camHeight = 2;
   firstPerson = false;
@@ -617,6 +617,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.health = 100;
       }
     }
+  }
+
+  toggleMap() {
+    this.showMap = !this.showMap;
   }
 
   toggleView() {
@@ -4184,7 +4188,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (e.code === 'Enter') { this.isChatOpen = true; this.chatInput = ''; e.preventDefault(); return; }
     if (e.code === 'KeyE') this.toggleCar();
     if (e.code === 'KeyV') this.toggleView();
-    if (e.code === 'KeyM') this.showMap = !this.showMap;
+    if (e.code === 'KeyM') this.toggleMap();
     if (e.code === 'KeyL') this.showLeaderboard = !this.showLeaderboard;
     if (this.isInCar && !this.isMobile) {
       if (e.code === 'ArrowUp') { e.preventDefault(); this.stopRadio(); }
