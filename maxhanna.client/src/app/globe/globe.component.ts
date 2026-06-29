@@ -150,6 +150,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('globeCanvas') private globeCanvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('detailCanvas') private detailCanvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('pinCanvas') private pinCanvasRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('editLatInput') private editLatInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('editLonInput') private editLonInput!: ElementRef<HTMLInputElement>;
 
   // ---- public state -------------------------------------------------------
   zoomSliderValue = 30;
@@ -1064,8 +1066,14 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     };
   }
   saveCoords() {
+    const lat = this.editLat;
+    const long = this.editLon;
     this.closeCoordsEditPopup();
-    this.rotateToLocation(this.editLat, this.editLon);
+    this.rotateToLocation(lat, long);
+  }
+  changeEditLatLon() { 
+    this.editLat = parseFloat(this.editLatInput.nativeElement.value);
+    this.editLon = parseFloat(this.editLonInput.nativeElement.value);
   }
   openCoordsEditPopup() {
     console.log("opening coords display");

@@ -230,484 +230,503 @@
       <div *ngIf="loading" class="loading-indicator">Loading dashboard…</div>
 
       <!-- KANBAN BOARD -->
-     <details open>
-      <summary class="kanbanSummary">📋Kanban</summary>
-      <div *ngIf="!loading" class="kanban-board">
-        <div *ngIf="!kanbanCollapsed" style="display:flex; flex-wrap: wrap; width: 100%;">
-          <!-- TODO -->
-          <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('todo')">
-            <div class="kanban-col-header">
-              <span>📋 To Do <span class="col-count">{{ filteredTodo.length }}</span></span>
-              <button (click)="toggleColumnCollapse('todo')" class="btn btn-xs btn-ghost">{{ collapsedColumns['todo'] ?
-                '▶' : '▼' }}</button>
-            </div>
-            <div class="kanban-col-body" *ngIf="!collapsedColumns['todo']">
-              <div *ngFor="let card of filteredTodo; trackBy: trackByCardId" class="kanban-card" draggable="true"
-                (dragstart)="onDragStart(card.id)">
-                <div class="card-meta">
-                  <span class="card-id">#{{ getCardId(card) }}</span>
-                  <span *ngIf="card.createdAt" class="card-time">{{ card.createdAt | date:'short' }}</span>
-                </div>
-                <div class="card-text">
-                  <textarea [value]="getCardText(card)" (input)="onTextChange(card, $event)" (focus)="onCardFocus(card.id)"
-                    (blur)="onCardBlur(); saveCardText(card)" rows="2" style="width:100%;"
-                    placeholder="Task description…"></textarea>
-                  <button *ngIf="voiceSupported" (click)="recordVoice(card)" class="btn btn-xs"
-                    [class.recording]="isRecording && recordingCardId === card.id" title="Voice input">🎤</button>
-                  <button (click)="copyCardText(card)" class="btn btn-xs" title="Copy text">📋</button>
-                </div>
-                <!-- Plan items (live, from _plan) -->
-                <div *ngIf="card._plan?.items?.length" class="card-plan" style="margin:6px 0;">
-                  <div class="plan-header" style="font-size:11px;font-weight:600;margin-bottom:4px;">
-                    📋 Plan{{ card._plan?.summary ? ': ' + card._plan?.summary : '' }}
-                    <span style="margin-left:4px;opacity:0.6;font-size:10px;">
-                      ({{ getPlanDoneCount(card._plan?.items) }}/{{ card._plan?.items?.length }})
-                    </span>
+      <details open>
+        <summary class="kanbanSummary">📋Kanban</summary>
+        <div *ngIf="!loading" class="kanban-board">
+          <div *ngIf="!kanbanCollapsed" style="display:flex; flex-wrap: wrap; width: 100%;">
+            <!-- TODO -->
+            <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('todo')">
+              <div class="kanban-col-header">
+                <span>📋 To Do <span class="col-count">{{ filteredTodo.length }}</span></span>
+                <button (click)="toggleColumnCollapse('todo')" class="btn btn-xs btn-ghost">{{ collapsedColumns['todo']
+                  ?
+                  '▶' : '▼' }}</button>
+              </div>
+              <div class="kanban-col-body" *ngIf="!collapsedColumns['todo']">
+                <div *ngFor="let card of filteredTodo; trackBy: trackByCardId" class="kanban-card" draggable="true"
+                  (dragstart)="onDragStart(card.id)" [id]="'card-'+card.id">
+                  <div class="card-meta">
+                    <span class="card-id">#{{ getCardId(card) }}</span>
+                    <span *ngIf="card.createdAt" class="card-time">{{ card.createdAt | date:'short' }}</span>
                   </div>
-                  <div class="plan-items-list" style="font-size:11px;">
-                    <div *ngFor="let item of card._plan?.items" class="plan-item-row"
-                      style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;" [class.plan-done]="item.done"
-                      [class.plan-pending]="!item.done">
-                      <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
-                      <div style="flex:1;min-width:0;">
-                        <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
-                        <span
-                          style="display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{
-                          item.change }}</span>
-                      </div>
+                  <div class="card-text">
+                    <textarea [value]="getCardText(card)" (input)="onTextChange(card, $event)"
+                      (focus)="onCardFocus(card.id)" (blur)="onCardBlur(); saveCardText(card)" rows="2"
+                      style="width:100%;" placeholder="Task description…"></textarea>
+                    <button *ngIf="voiceSupported" (click)="recordVoice(card)" class="btn btn-xs"
+                      [class.recording]="isRecording && recordingCardId === card.id" title="Voice input">🎤</button>
+                    <button (click)="copyCardText(card)" class="btn btn-xs" title="Copy text">📋</button>
+                  </div>
+                  <!-- Plan items (live, from _plan) -->
+                  <div *ngIf="card._plan?.items?.length" class="card-plan" style="margin:6px 0;">
+                    <div class="plan-header" style="font-size:11px;font-weight:600;margin-bottom:4px;">
+                      📋 Plan{{ card._plan?.summary ? ': ' + card._plan?.summary : '' }}
+                      <span style="margin-left:4px;opacity:0.6;font-size:10px;">
+                        ({{ getPlanDoneCount(card._plan?.items) }}/{{ card._plan?.items?.length }})
+                      </span>
                     </div>
-                  </div>
-                </div>
-                <div class="card-tags">
-                  <span *ngIf="card.ready" class="tag-ready">READY</span>
-                  <span *ngIf="card.priority" [class]="'priority-' + card.priority">{{ card.priority }}</span>
-                </div>
-                <div *ngIf="hasAttachments(card)" class="attachments">
-                  <div *ngFor="let f of getAttachedFiles(card)" class="attachment-item">📎 {{ f }}</div>
-                </div>
-                <div *ngIf="hasAgentAnalysis(card)" class="card-analysis">
-                  <details>
-                    <summary>📜 Previous Analysis</summary>
-                    <div class="analysis-summary">{{ card.agentAnalysis?.summary }}</div>
-                    <!-- Plan items from stored analysis -->
-                    <div *ngIf="card.agentAnalysis?.planItems?.length" class="plan-items-list" style="margin-top:6px;">
-                      <div *ngFor="let item of card.agentAnalysis.planItems" class="plan-item-row"
-                        style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;"
-                        [class.plan-done]="item.done" [class.plan-pending]="!item.done">
+                    <div class="plan-items-list" style="font-size:11px;">
+                      <div *ngFor="let item of card._plan?.items" class="plan-item-row"
+                        style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;" [class.plan-done]="item.done"
+                        [class.plan-pending]="!item.done">
                         <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
-                        <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
-                        <span style="flex:1;font-size:10px;">{{ item.change }}</span>
-                      </div>
-                    </div>
-                    <!-- Execution steps from stored analysis -->
-                    <div *ngIf="card.agentAnalysis?.steps?.length" style="margin-top:6px;">
-                      <div *ngFor="let s of card.agentAnalysis.steps" class="analysis-step"
-                        style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;">
-                        <span class="step-status" style="flex-shrink:0;">
-                          {{ s.status === 'error' ? '✕' : (s.status === 'running' ? '⏳' : (s.status === 'pending' ? '○'
-                          :
-                          '✓')) }}
-                        </span>
                         <div style="flex:1;min-width:0;">
-                          <span><strong>{{ s.type }}</strong> {{ s.description || s.path || s.command || '' }}</span>
-                          <div *ngIf="s.error" style="color:var(--error);font-size:10px;">{{ s.error }}</div>
-                          <pre *ngIf="s.output"
-                            style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
+                          <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
+                          <span
+                            style="display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{
+                            item.change }}</span>
                         </div>
                       </div>
                     </div>
-                  </details>
-                </div>
-                <div class="card-actions">
-                  <button (click)="toggleCardReady(card)" class="btn btn-xs" [class.btn-ready]="card.ready">{{
-                    card.ready
-                    ? '⏹ UnReady' : (agentActive ? '▶ Ready' : '▶ Run') }}</button>
-                  <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr" title="Pull Request">{{
-                    card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
-                  <button (click)="splitCard(card)" class="btn btn-xs btn-ghost" title="Split">✂ Split</button>
-                  <button (click)="openFilePicker(card)" class="btn btn-xs btn-ghost" title="Attach files">📎</button>
-                  <button (click)="openDeleteCardConfirm(card.id, 'todo')" class="btn btn-xs btn-ghost"
-                    title="Delete">✕</button>
-                </div>
-                <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
-                  <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
-                  <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}"
-                      target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
-                  <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{
-                    card.prStatus.error }}</span>
-                </div>
-                <div class="command-detail" *ngIf="selectedCommand && selectedCommand.cardId === card.id">
-                  <div class="command-detail-header">
-                    <span class="command-type">{{ selectedCommand.type }}</span>
-                    <span class="command-status">{{ selectedCommand.status }}</span>
                   </div>
-                  <div class="command-detail-content">
-                    <pre class="command-output">{{ selectedCommand.output }}</pre>
+                  <div class="card-tags">
+                    <span *ngIf="card.ready" class="tag-ready">READY</span>
+                    <span *ngIf="card.priority" [class]="'priority-' + card.priority">{{ card.priority }}</span>
+                  </div>
+                  <div *ngIf="hasAttachments(card)" class="attachments">
+                    <div *ngFor="let f of getAttachedFiles(card)" class="attachment-item">📎 {{ f }}</div>
+                  </div>
+                  <div *ngIf="hasAgentAnalysis(card)" class="card-analysis">
+                    <details>
+                      <summary>📜 Previous Analysis</summary>
+                      <div class="analysis-summary">{{ card.agentAnalysis?.summary }}</div>
+                      <!-- Plan items from stored analysis -->
+                      <div *ngIf="card.agentAnalysis?.planItems?.length" class="plan-items-list"
+                        style="margin-top:6px;">
+                        <div *ngFor="let item of card.agentAnalysis.planItems" class="plan-item-row"
+                          style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;"
+                          [class.plan-done]="item.done" [class.plan-pending]="!item.done">
+                          <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
+                          <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
+                          <span style="flex:1;font-size:10px;">{{ item.change }}</span>
+                        </div>
+                      </div>
+                      <!-- Execution steps from stored analysis -->
+                      <div *ngIf="card.agentAnalysis?.steps?.length" style="margin-top:6px;">
+                        <div *ngFor="let s of card.agentAnalysis.steps" class="analysis-step"
+                          style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;">
+                          <span class="step-status" style="flex-shrink:0;">
+                            {{ s.status === 'error' ? '✕' : (s.status === 'running' ? '⏳' : (s.status === 'pending' ?
+                            '○'
+                            :
+                            '✓')) }}
+                          </span>
+                          <div style="flex:1;min-width:0;">
+                            <span><strong>{{ s.type }}</strong> {{ s.description || s.path || s.command || '' }}</span>
+                            <div *ngIf="s.error" style="color:var(--error);font-size:10px;">{{ s.error }}</div>
+                            <pre *ngIf="s.output"
+                              style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                  <div class="card-actions">
+                    <button (click)="toggleCardReady(card)" class="btn btn-xs" [class.btn-ready]="card.ready">{{
+                      card.ready
+                      ? '⏹ UnReady' : (agentActive ? '▶ Ready' : '▶ Run') }}</button>
+                    <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr"
+                      title="Pull Request">{{
+                      card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
+                    <button (click)="splitCard(card)" class="btn btn-xs btn-ghost" title="Split">✂ Split</button>
+                    <button (click)="openFilePicker(card)" class="btn btn-xs btn-ghost" title="Attach files">📎</button>
+                    <button (click)="openDeleteCardConfirm(card.id, 'todo')" class="btn btn-xs btn-ghost"
+                      title="Delete">✕</button>
+                  </div>
+                  <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
+                    <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
+                    <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}"
+                        target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
+                    <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{
+                      card.prStatus.error }}</span>
+                  </div>
+                  <div class="command-detail" *ngIf="selectedCommand && selectedCommand.cardId === card.id">
+                    <div class="command-detail-header">
+                      <span class="command-type">{{ selectedCommand.type }}</span>
+                      <span class="command-status">{{ selectedCommand.status }}</span>
+                    </div>
+                    <div class="command-detail-content">
+                      <pre class="command-output">{{ selectedCommand.output }}</pre>
+                    </div>
                   </div>
                 </div>
+                <div *ngIf="filteredTodo.length === 0" class="col-empty">No cards</div>
               </div>
-              <div *ngIf="filteredTodo.length === 0" class="col-empty">No cards</div>
+            </div>
+
+            <!-- DOING -->
+            <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('doing')">
+              <div class="kanban-col-header">
+                <span>⚡ Doing <span class="col-count">{{ filteredDoing.length }}</span></span>
+                <button (click)="toggleColumnCollapse('doing')" class="btn btn-xs btn-ghost">{{
+                  collapsedColumns['doing']
+                  ?
+                  '▶' : '▼' }}</button>
+              </div>
+              <div class="kanban-col-body" *ngIf="!collapsedColumns['doing']">
+                <div *ngFor="let card of filteredDoing; trackBy: trackByCardId" class="kanban-card"
+                  [id]="'card-'+card.id" [class.active]="card.id === activeCardId" draggable="true"
+                  (dragstart)="onDragStart(card.id)">
+                  <div class="card-meta">
+                    <span class="card-id">#{{ getCardId(card) }}</span>
+                    <span *ngIf="card.createdAt" class="card-time">{{ card.createdAt | date:'short' }}</span>
+                  </div>
+                  <div class="card-text">{{ getCardText(card) }}</div>
+                  <!-- Plan items (live) -->
+                  <div *ngIf="card._plan?.items?.length" class="card-plan" style="margin:6px 0;">
+                    <div class="plan-header" style="font-size:11px;font-weight:600;margin-bottom:4px;">
+                      📋 Plan{{ card._plan?.summary ? ': ' + card._plan?.summary : '' }}
+                      <span style="margin-left:4px;opacity:0.6;font-size:10px;">
+                        ({{ getPlanDoneCount(card._plan?.items) }}/{{ card._plan?.items?.length }})
+                      </span>
+                    </div>
+                    <div class="plan-items-list" style="font-size:11px;">
+                      <div *ngFor="let item of card._plan?.items" class="plan-item-row"
+                        style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;" [class.plan-done]="item.done"
+                        [class.plan-pending]="!item.done">
+                        <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
+                        <div style="flex:1;min-width:0;">
+                          <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
+                          <span
+                            style="display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{
+                            item.change }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card-tags">
+                    <span *ngIf="card.priority" [class]="'priority-' + card.priority">{{ card.priority }}</span>
+                    <span *ngIf="activeCardId === card.id" class="tag-in-progress">In Progress</span>
+                  </div>
+                  <div *ngIf="hasAttachments(card)" class="attachments">
+                    <div *ngFor="let f of getAttachedFiles(card)" class="attachment-item">📎 {{ f }}</div>
+                  </div>
+                  <!-- Live agent output -->
+                  <div *ngIf="agentActive && activeCardId === card.id" class="card-analysis">
+                    <details>
+                      <summary>🤖 Running…</summary>
+                      <div *ngIf="agentPhase"><strong>Phase:</strong> {{ agentPhase }}</div>
+                      <div *ngIf="agentThinking" class="analysis-thinking">
+                        <details>
+                          <summary>🧠 Thinking</summary>
+                          <pre>{{ agentThinking }}</pre>
+                        </details>
+                      </div>
+                      <div *ngIf="agentSummary"><strong>Batch:</strong> {{ agentSummary }}</div>
+                    </details>
+                  </div>
+                  <!-- Stored analysis -->
+                  <div *ngIf="hasAgentAnalysis(card)" class="card-analysis">
+                    <details>
+                      <summary>🤖 AI Analysis</summary>
+                      <div class="analysis-summary">{{ card.agentAnalysis?.summary }}</div>
+                      <div *ngIf="card.agentAnalysis?.filesEdited?.length" class="analysis-files">
+                        <strong>Files:</strong>
+                        <span class="file-chip" *ngFor="let f of card.agentAnalysis.filesEdited">{{ f.path || f
+                          }}</span>
+                      </div>
+                      <!-- Plan items from stored analysis -->
+                      <div *ngIf="card.agentAnalysis?.planItems?.length" class="plan-items-list"
+                        style="margin-top:6px;">
+                        <div *ngFor="let item of card.agentAnalysis.planItems" class="plan-item-row"
+                          style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;"
+                          [class.plan-done]="item.done" [class.plan-pending]="!item.done">
+                          <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
+                          <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
+                          <span style="flex:1;font-size:10px;">{{ item.change }}</span>
+                        </div>
+                      </div>
+                      <!-- Execution steps from stored analysis -->
+                      <div *ngIf="card.agentAnalysis?.steps?.length" style="margin-top:6px;">
+                        <div *ngFor="let s of card.agentAnalysis.steps" class="analysis-step"
+                          style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;">
+                          <span class="step-status" style="flex-shrink:0;">
+                            {{ s.status === 'error' ? '✕' : (s.status === 'running' ? '⏳' : (s.status === 'pending' ?
+                            '○'
+                            :
+                            '✓')) }}
+                          </span>
+                          <div style="flex:1;min-width:0;">
+                            <span><strong>{{ s.type }}</strong> {{ s.description || s.path || s.command || '' }}</span>
+                            <div *ngIf="s.error" style="color:var(--error);font-size:10px;">{{ s.error }}</div>
+                            <pre *ngIf="s.output"
+                              style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                  <div class="card-actions">
+                    <button (click)="moveCard(card.id, 'done')" class="btn btn-xs btn-success"
+                      [disabled]="agentActive && activeCardId === card.id">✔ Done</button>
+                    <button (click)="stopAgent()" *ngIf="agentActive && activeCardId === card.id"
+                      class="btn btn-xs btn-danger">⏹ Stop</button>
+                    <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← Back</button>
+                    <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
+                    <button (click)="openDeleteCardConfirm(card.id, 'doing')" class="btn btn-xs btn-ghost"
+                      [disabled]="activeCardId === card.id">✕</button>
+                  </div>
+                  <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
+                    <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
+                    <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}"
+                        target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
+                    <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{
+                      card.prStatus.error }}</span>
+                  </div>
+                </div>
+                <div *ngIf="filteredDoing.length === 0" class="col-empty">No cards</div>
+              </div>
+            </div>
+
+            <!-- DONE -->
+            <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('done')">
+              <div class="kanban-col-header">
+                <span>✅ Done <span class="col-count">{{ filteredDone.length }}</span></span>
+                <button (click)="toggleColumnCollapse('done')" class="btn btn-xs btn-ghost">{{ collapsedColumns['todo']
+                  ?
+                  '▶' : '▼' }}</button>
+              </div>
+              <div class="kanban-col-body" *ngIf="!collapsedColumns['done']">
+                <div *ngFor="let card of filteredDone; trackBy: trackByCardId" class="kanban-card" draggable="true"
+                  (dragstart)="onDragStart(card.id)" [id]="'card-'+card.id">
+                  <div class="card-meta">
+                    <span class="card-id">#{{ getCardId(card) }}</span>
+                    <span *ngIf="card.createdAt" class="card-time">{{ card.createdAt | date:'short' }}</span>
+                  </div>
+                  <div class="card-text">{{ getCardText(card) }}</div>
+                  <!-- Plan items (live) -->
+                  <div *ngIf="card._plan?.items?.length" class="card-plan" style="margin:6px 0;">
+                    <div class="plan-header" style="font-size:11px;font-weight:600;margin-bottom:4px;">
+                      📋 Plan{{ card._plan?.summary ? ': ' + card._plan?.summary : '' }}
+                      <span style="margin-left:4px;opacity:0.6;font-size:10px;">
+                        ({{ getPlanDoneCount(card._plan?.items) }}/{{ card._plan?.items?.length }})
+                      </span>
+                    </div>
+                    <div class="plan-items-list" style="font-size:11px;">
+                      <div *ngFor="let item of card._plan?.items" class="plan-item-row"
+                        style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;" [class.plan-done]="item.done"
+                        [class.plan-pending]="!item.done">
+                        <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
+                        <div style="flex:1;min-width:0;">
+                          <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
+                          <span
+                            style="display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{
+                            item.change }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card-tags" *ngIf="card.priority">
+                    <span [class]="'priority-' + card.priority">{{ card.priority }}</span>
+                  </div>
+                  <div *ngIf="hasAttachments(card)" class="attachments">
+                    <div *ngFor="let f of getAttachedFiles(card)" class="attachment-item">📎 {{ f }}</div>
+                  </div>
+                  <div *ngIf="hasAgentAnalysis(card)" class="card-analysis">
+                    <details>
+                      <summary>🤖 AI Analysis</summary>
+                      <div class="analysis-summary">{{ card.agentAnalysis?.summary }}</div>
+                      <div *ngIf="card.agentAnalysis?.filesEdited?.length" class="analysis-files">
+                        <strong>Files:</strong>
+                        <span class="file-chip" *ngFor="let f of card.agentAnalysis.filesEdited">{{ f.path || f
+                          }}</span>
+                      </div>
+                      <div *ngIf="card.agentAnalysis?.thinking" class="analysis-thinking">
+                        <details>
+                          <summary>🧠 Reasoning</summary>
+                          <pre>{{ card.agentAnalysis.thinking }}</pre>
+                        </details>
+                      </div>
+                      <!-- Plan items from stored analysis -->
+                      <div *ngIf="card.agentAnalysis?.planItems?.length" class="plan-items-list"
+                        style="margin-top:6px;">
+                        <div *ngFor="let item of card.agentAnalysis.planItems" class="plan-item-row"
+                          style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;"
+                          [class.plan-done]="item.done" [class.plan-pending]="!item.done">
+                          <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
+                          <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
+                          <span style="flex:1;font-size:10px;">{{ item.change }}</span>
+                        </div>
+                      </div>
+                      <!-- Execution steps from stored analysis -->
+                      <div *ngIf="card.agentAnalysis?.steps?.length" style="margin-top:6px;">
+                        <div *ngFor="let s of card.agentAnalysis.steps" class="analysis-step"
+                          style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;">
+                          <span class="step-status" style="flex-shrink:0;">
+                            {{ s.status === 'error' ? '✕' : (s.status === 'running' ? '⏳' : (s.status === 'pending' ?
+                            '○'
+                            :
+                            '✓')) }}
+                          </span>
+                          <div style="flex:1;min-width:0;">
+                            <span><strong>{{ s.type }}</strong> {{ s.description || s.path || s.command || '' }}</span>
+                            <div *ngIf="s.error" style="color:var(--error);font-size:10px;">{{ s.error }}</div>
+                            <pre *ngIf="s.output"
+                              style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                  <div class="card-actions">
+                    <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← Reopen</button>
+                    <button (click)="archiveCard(card.id, 'done')" class="btn btn-xs btn-ghost">🗄 Archive</button>
+                    <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
+                    <button (click)="openDeleteCardConfirm(card.id, 'done')" class="btn btn-xs btn-ghost">✕</button>
+                  </div>
+                  <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
+                    <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
+                    <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}"
+                        target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
+                    <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">
+                      ⚠️ {{ card.prStatus.error }}</span>
+                  </div>
+                </div>
+                <div *ngIf="filteredDone.length === 0" class="col-empty">No cards</div>
+              </div>
+            </div>
+
+            <!-- SELF-IMPROVING -->
+            <div *ngIf="showSelfImproving" class="kanban-col" (dragover)="onDragOver($event)"
+              (drop)="onDrop('selfImproving')">
+              <div class="kanban-col-header">
+                <span>🤖 Self-Improving <span class="col-count">{{ filteredSelfImproving.length }}</span></span>
+                <button (click)="toggleColumnCollapse('selfImproving')" class="btn btn-xs btn-ghost">
+                  {{ collapsedColumns['selfImproving'] ? '▶' : '▼' }}</button>
+              </div>
+              <div class="kanban-col-body" *ngIf="!collapsedColumns['selfImproving']">
+                <div *ngFor="let card of filteredSelfImproving; trackBy: trackByCardId" class="kanban-card"
+                  draggable="true" (dragstart)="onDragStart(card.id)">
+                  <div class="card-meta">
+                    <span class="card-id">#{{ getCardId(card) }}</span>
+                    <span *ngIf="card.createdAt" class="card-time">{{ card.createdAt | date:'short' }}</span>
+                  </div>
+                  <div class="card-text">{{ getCardText(card) }}</div>
+                  <div *ngIf="card._plan?.items?.length" class="card-plan" style="margin:6px 0;">
+                    <div class="plan-header" style="font-size:11px;font-weight:600;margin-bottom:4px;">
+                      📋 Plan{{ card._plan?.summary ? ': ' + card._plan?.summary : '' }}
+                      <span style="margin-left:4px;opacity:0.6;font-size:10px;">
+                        ({{ getPlanDoneCount(card._plan?.items) }}/{{ card._plan?.items?.length }})
+                      </span>
+                    </div>
+                    <div class="plan-items-list" style="font-size:11px;">
+                      <div *ngFor="let item of card._plan?.items" class="plan-item-row"
+                        style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;" [class.plan-done]="item.done"
+                        [class.plan-pending]="!item.done">
+                        <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
+                        <div style="flex:1;min-width:0;">
+                          <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
+                          <span
+                            style="display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{
+                            item.change }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="card-tags" *ngIf="card.priority">
+                    <span [class]="'priority-' + card.priority">{{ card.priority }}</span>
+                  </div>
+                  <div *ngIf="hasAttachments(card)" class="attachments">
+                    <div *ngFor="let f of getAttachedFiles(card)" class="attachment-item">📎 {{ f }}</div>
+                  </div>
+                  <div *ngIf="hasAgentAnalysis(card)" class="card-analysis">
+                    <details>
+                      <summary>🤖 AI Analysis</summary>
+                      <div class="analysis-summary">{{ card.agentAnalysis?.summary }}</div>
+                      <div *ngIf="card.agentAnalysis?.planItems?.length" class="plan-items-list"
+                        style="margin-top:6px;">
+                        <div *ngFor="let item of card.agentAnalysis.planItems" class="plan-item-row"
+                          style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;"
+                          [class.plan-done]="item.done" [class.plan-pending]="!item.done">
+                          <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
+                          <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
+                          <span style="flex:1;font-size:10px;">{{ item.change }}</span>
+                        </div>
+                      </div>
+                      <div *ngIf="card.agentAnalysis?.steps?.length" style="margin-top:6px;">
+                        <div *ngFor="let s of card.agentAnalysis.steps" class="analysis-step"
+                          style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;">
+                          <span class="step-status" style="flex-shrink:0;">
+                            {{ s.status === 'error' ? '✕' : (s.status === 'running' ? '⏳' : (s.status === 'pending' ?
+                            '○'
+                            :
+                            '✓')) }}
+                          </span>
+                          <div style="flex:1;min-width:0;">
+                            <span><strong>{{ s.type }}</strong> {{ s.description || s.path || s.command || '' }}</span>
+                            <div *ngIf="s.error" style="color:var(--error);font-size:10px;">{{ s.error }}</div>
+                            <pre *ngIf="s.output"
+                              style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                  <div class="card-actions">
+                    <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← To Todo</button>
+                    <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr"
+                      title="Pull Request">{{
+                      card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
+                    <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
+                    <button (click)="openDeleteCardConfirm(card.id, 'selfImproving')"
+                      class="btn btn-xs btn-ghost">✕</button>
+                  </div>
+                  <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
+                    <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
+                    <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}"
+                        target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
+                    <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{
+                      card.prStatus.error }}</span>
+                  </div>
+                </div>
+                <div *ngIf="filteredSelfImproving.length === 0" class="col-empty">No self-improving cards</div>
+              </div>
             </div>
           </div>
-      
-          <!-- DOING -->
-          <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('doing')">
-            <div class="kanban-col-header">
-              <span>⚡ Doing <span class="col-count">{{ filteredDoing.length }}</span></span>
-              <button (click)="toggleColumnCollapse('doing')" class="btn btn-xs btn-ghost">{{ collapsedColumns['doing']
-                ?
-                '▶' : '▼' }}</button>
-            </div>
-            <div class="kanban-col-body" *ngIf="!collapsedColumns['doing']">
-              <div *ngFor="let card of filteredDoing; trackBy: trackByCardId" class="kanban-card"
-                [class.active]="card.id === activeCardId" draggable="true" (dragstart)="onDragStart(card.id)">
-                <div class="card-meta">
-                  <span class="card-id">#{{ getCardId(card) }}</span>
-                  <span *ngIf="card.createdAt" class="card-time">{{ card.createdAt | date:'short' }}</span>
-                </div>
-                <div class="card-text">{{ getCardText(card) }}</div>
-                <!-- Plan items (live) -->
-                <div *ngIf="card._plan?.items?.length" class="card-plan" style="margin:6px 0;">
-                  <div class="plan-header" style="font-size:11px;font-weight:600;margin-bottom:4px;">
-                    📋 Plan{{ card._plan?.summary ? ': ' + card._plan?.summary : '' }}
-                    <span style="margin-left:4px;opacity:0.6;font-size:10px;">
-                      ({{ getPlanDoneCount(card._plan?.items) }}/{{ card._plan?.items?.length }})
-                    </span>
-                  </div>
-                  <div class="plan-items-list" style="font-size:11px;">
-                    <div *ngFor="let item of card._plan?.items" class="plan-item-row"
-                      style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;" [class.plan-done]="item.done"
-                      [class.plan-pending]="!item.done">
-                      <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
-                      <div style="flex:1;min-width:0;">
-                        <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
-                        <span
-                          style="display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{
-                          item.change }}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="card-tags">
-                  <span *ngIf="card.priority" [class]="'priority-' + card.priority">{{ card.priority }}</span>
-                  <span *ngIf="activeCardId === card.id" class="tag-in-progress">In Progress</span>
-                </div>
-                <div *ngIf="hasAttachments(card)" class="attachments">
-                  <div *ngFor="let f of getAttachedFiles(card)" class="attachment-item">📎 {{ f }}</div>
-                </div>
-                <!-- Live agent output -->
-                <div *ngIf="agentActive && activeCardId === card.id" class="card-analysis">
-                  <details>
-                    <summary>🤖 Running…</summary>
-                    <div *ngIf="agentPhase"><strong>Phase:</strong> {{ agentPhase }}</div>
-                    <div *ngIf="agentThinking" class="analysis-thinking">
-                      <details>
-                        <summary>🧠 Thinking</summary>
-                        <pre>{{ agentThinking }}</pre>
-                      </details>
-                    </div>
-                    <div *ngIf="agentSummary"><strong>Batch:</strong> {{ agentSummary }}</div>
-                  </details>
-                </div>
-                <!-- Stored analysis -->
-                <div *ngIf="hasAgentAnalysis(card)" class="card-analysis">
-                  <details>
-                    <summary>🤖 AI Analysis</summary>
-                    <div class="analysis-summary">{{ card.agentAnalysis?.summary }}</div>
-                    <div *ngIf="card.agentAnalysis?.filesEdited?.length" class="analysis-files">
-                      <strong>Files:</strong>
-                      <span class="file-chip" *ngFor="let f of card.agentAnalysis.filesEdited">{{ f.path || f }}</span>
-                    </div>
-                    <!-- Plan items from stored analysis -->
-                    <div *ngIf="card.agentAnalysis?.planItems?.length" class="plan-items-list" style="margin-top:6px;">
-                      <div *ngFor="let item of card.agentAnalysis.planItems" class="plan-item-row"
-                        style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;"
-                        [class.plan-done]="item.done" [class.plan-pending]="!item.done">
-                        <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
-                        <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
-                        <span style="flex:1;font-size:10px;">{{ item.change }}</span>
-                      </div>
-                    </div>
-                    <!-- Execution steps from stored analysis -->
-                    <div *ngIf="card.agentAnalysis?.steps?.length" style="margin-top:6px;">
-                      <div *ngFor="let s of card.agentAnalysis.steps" class="analysis-step"
-                        style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;">
-                        <span class="step-status" style="flex-shrink:0;">
-                          {{ s.status === 'error' ? '✕' : (s.status === 'running' ? '⏳' : (s.status === 'pending' ? '○'
-                          :
-                          '✓')) }}
-                        </span>
-                        <div style="flex:1;min-width:0;">
-                          <span><strong>{{ s.type }}</strong> {{ s.description || s.path || s.command || '' }}</span>
-                          <div *ngIf="s.error" style="color:var(--error);font-size:10px;">{{ s.error }}</div>
-                          <pre *ngIf="s.output"
-                            style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
-                        </div>
-                      </div>
-                    </div>
-                  </details>
-                </div>
-                <div class="card-actions">
-                  <button (click)="moveCard(card.id, 'done')" class="btn btn-xs btn-success"
-                    [disabled]="agentActive && activeCardId === card.id">✔ Done</button>
-                  <button (click)="stopAgent()" *ngIf="agentActive && activeCardId === card.id"
-                    class="btn btn-xs btn-danger">⏹ Stop</button>
-                  <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← Back</button>
-                  <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
-                  <button (click)="openDeleteCardConfirm(card.id, 'doing')" class="btn btn-xs btn-ghost"
-                    [disabled]="activeCardId === card.id">✕</button>
-                </div>
-                <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
-                  <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
-                  <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}"
-                      target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
-                  <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{
-                    card.prStatus.error }}</span>
-                </div>
+
+          <!-- Archived -->
+          <div *ngIf="showArchived" class="kanban-board archived-board">
+            <div class="kanban-col">
+              <div class="kanban-col-header">
+                <span>🗄 Archived <span class="col-count">{{ filteredArchived.length }}</span></span>
+                <button (click)="showArchived = false" class="btn btn-xs btn-ghost">✕</button>
               </div>
-              <div *ngIf="filteredDoing.length === 0" class="col-empty">No cards</div>
-            </div>
-          </div>
-      
-          <!-- DONE -->
-          <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('done')">
-            <div class="kanban-col-header">
-              <span>✅ Done <span class="col-count">{{ filteredDone.length }}</span></span>
-              <button (click)="toggleColumnCollapse('done')" class="btn btn-xs btn-ghost">{{ collapsedColumns['todo'] ?
-                '▶' : '▼' }}</button>
-            </div>
-            <div class="kanban-col-body" *ngIf="!collapsedColumns['done']">
-              <div *ngFor="let card of filteredDone; trackBy: trackByCardId" class="kanban-card" draggable="true"
-                (dragstart)="onDragStart(card.id)">
-                <div class="card-meta">
-                  <span class="card-id">#{{ getCardId(card) }}</span>
-                  <span *ngIf="card.createdAt" class="card-time">{{ card.createdAt | date:'short' }}</span>
-                </div>
-                <div class="card-text">{{ getCardText(card) }}</div>
-                <!-- Plan items (live) -->
-                <div *ngIf="card._plan?.items?.length" class="card-plan" style="margin:6px 0;">
-                  <div class="plan-header" style="font-size:11px;font-weight:600;margin-bottom:4px;">
-                    📋 Plan{{ card._plan?.summary ? ': ' + card._plan?.summary : '' }}
-                    <span style="margin-left:4px;opacity:0.6;font-size:10px;">
-                      ({{ getPlanDoneCount(card._plan?.items) }}/{{ card._plan?.items?.length }})
-                    </span>
+              <div class="kanban-col-body" *ngIf="!collapsedColumns['archived']">
+                <div *ngFor="let card of filteredArchived; trackBy: trackByCardId" class="kanban-card archived">
+                  <div class="card-meta">
+                    <span class="card-id">#{{ getCardId(card) }}</span>
+                    <span *ngIf="card.createdAt" class="card-time">{{ card.createdAt | date:'short' }}</span>
                   </div>
-                  <div class="plan-items-list" style="font-size:11px;">
-                    <div *ngFor="let item of card._plan?.items" class="plan-item-row"
-                      style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;" [class.plan-done]="item.done"
-                      [class.plan-pending]="!item.done">
-                      <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
-                      <div style="flex:1;min-width:0;">
-                        <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
-                        <span
-                          style="display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{
-                          item.change }}</span>
-                      </div>
-                    </div>
+                  <div class="card-text">{{ getCardText(card) }}</div>
+                  <div *ngIf="hasAgentAnalysis(card)" class="card-analysis">
+                    <details>
+                      <summary>🤖 AI Analysis</summary>
+                      <div class="analysis-summary">{{ card.agentAnalysis?.summary }}</div>
+                    </details>
+                  </div>
+                  <div class="card-actions">
+                    <button (click)="unarchiveCard(card.id)" class="btn btn-xs">↩ Unarchive</button>
+                    <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr"
+                      title="Pull Request">{{
+                      card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
+                    <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
+                  </div>
+                  <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
+                    <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
+                    <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}"
+                        target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
+                    <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{
+                      card.prStatus.error }}</span>
                   </div>
                 </div>
-                <div class="card-tags" *ngIf="card.priority">
-                  <span [class]="'priority-' + card.priority">{{ card.priority }}</span>
-                </div>
-                <div *ngIf="hasAttachments(card)" class="attachments">
-                  <div *ngFor="let f of getAttachedFiles(card)" class="attachment-item">📎 {{ f }}</div>
-                </div>
-                <div *ngIf="hasAgentAnalysis(card)" class="card-analysis">
-                  <details>
-                    <summary>🤖 AI Analysis</summary>
-                    <div class="analysis-summary">{{ card.agentAnalysis?.summary }}</div>
-                    <div *ngIf="card.agentAnalysis?.filesEdited?.length" class="analysis-files">
-                      <strong>Files:</strong>
-                      <span class="file-chip" *ngFor="let f of card.agentAnalysis.filesEdited">{{ f.path || f }}</span>
-                    </div>
-                    <div *ngIf="card.agentAnalysis?.thinking" class="analysis-thinking">
-                      <details>
-                        <summary>🧠 Reasoning</summary>
-                        <pre>{{ card.agentAnalysis.thinking }}</pre>
-                      </details>
-                    </div>
-                    <!-- Plan items from stored analysis -->
-                    <div *ngIf="card.agentAnalysis?.planItems?.length" class="plan-items-list" style="margin-top:6px;">
-                      <div *ngFor="let item of card.agentAnalysis.planItems" class="plan-item-row"
-                        style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;"
-                        [class.plan-done]="item.done" [class.plan-pending]="!item.done">
-                        <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
-                        <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
-                        <span style="flex:1;font-size:10px;">{{ item.change }}</span>
-                      </div>
-                    </div>
-                    <!-- Execution steps from stored analysis -->
-                    <div *ngIf="card.agentAnalysis?.steps?.length" style="margin-top:6px;">
-                      <div *ngFor="let s of card.agentAnalysis.steps" class="analysis-step"
-                        style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;">
-                        <span class="step-status" style="flex-shrink:0;">
-                          {{ s.status === 'error' ? '✕' : (s.status === 'running' ? '⏳' : (s.status === 'pending' ? '○'
-                          :
-                          '✓')) }}
-                        </span>
-                        <div style="flex:1;min-width:0;">
-                          <span><strong>{{ s.type }}</strong> {{ s.description || s.path || s.command || '' }}</span>
-                          <div *ngIf="s.error" style="color:var(--error);font-size:10px;">{{ s.error }}</div>
-                          <pre *ngIf="s.output"
-                            style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
-                        </div>
-                      </div>
-                    </div>
-                  </details>
-                </div>
-                <div class="card-actions">
-                  <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← Reopen</button>
-                  <button (click)="archiveCard(card.id, 'done')" class="btn btn-xs btn-ghost">🗄 Archive</button>
-                  <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
-                  <button (click)="openDeleteCardConfirm(card.id, 'done')" class="btn btn-xs btn-ghost">✕</button>
-                </div>
-                <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
-                  <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
-                  <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}"
-                      target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
-                  <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">
-                    ⚠️ {{ card.prStatus.error }}</span>
-                </div>
+                <div *ngIf="filteredArchived.length === 0" class="col-empty">No archived cards</div>
               </div>
-              <div *ngIf="filteredDone.length === 0" class="col-empty">No cards</div>
-            </div>
-          </div>
-      
-          <!-- SELF-IMPROVING -->
-          <div *ngIf="showSelfImproving" class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('selfImproving')">
-            <div class="kanban-col-header">
-              <span>🤖 Self-Improving <span class="col-count">{{ filteredSelfImproving.length }}</span></span>
-              <button (click)="toggleColumnCollapse('selfImproving')" class="btn btn-xs btn-ghost">
-                {{ collapsedColumns['selfImproving'] ? '▶' : '▼' }}</button>
-            </div>
-            <div class="kanban-col-body" *ngIf="!collapsedColumns['selfImproving']">
-              <div *ngFor="let card of filteredSelfImproving; trackBy: trackByCardId" class="kanban-card" draggable="true"
-                (dragstart)="onDragStart(card.id)">
-                <div class="card-meta">
-                  <span class="card-id">#{{ getCardId(card) }}</span>
-                  <span *ngIf="card.createdAt" class="card-time">{{ card.createdAt | date:'short' }}</span>
-                </div>
-                <div class="card-text">{{ getCardText(card) }}</div>
-                <div *ngIf="card._plan?.items?.length" class="card-plan" style="margin:6px 0;">
-                  <div class="plan-header" style="font-size:11px;font-weight:600;margin-bottom:4px;">
-                    📋 Plan{{ card._plan?.summary ? ': ' + card._plan?.summary : '' }}
-                    <span style="margin-left:4px;opacity:0.6;font-size:10px;">
-                      ({{ getPlanDoneCount(card._plan?.items) }}/{{ card._plan?.items?.length }})
-                    </span>
-                  </div>
-                  <div class="plan-items-list" style="font-size:11px;">
-                    <div *ngFor="let item of card._plan?.items" class="plan-item-row"
-                      style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;" [class.plan-done]="item.done"
-                      [class.plan-pending]="!item.done">
-                      <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
-                      <div style="flex:1;min-width:0;">
-                        <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
-                        <span
-                          style="display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{
-                          item.change }}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="card-tags" *ngIf="card.priority">
-                  <span [class]="'priority-' + card.priority">{{ card.priority }}</span>
-                </div>
-                <div *ngIf="hasAttachments(card)" class="attachments">
-                  <div *ngFor="let f of getAttachedFiles(card)" class="attachment-item">📎 {{ f }}</div>
-                </div>
-                <div *ngIf="hasAgentAnalysis(card)" class="card-analysis">
-                  <details>
-                    <summary>🤖 AI Analysis</summary>
-                    <div class="analysis-summary">{{ card.agentAnalysis?.summary }}</div>
-                    <div *ngIf="card.agentAnalysis?.planItems?.length" class="plan-items-list" style="margin-top:6px;">
-                      <div *ngFor="let item of card.agentAnalysis.planItems" class="plan-item-row"
-                        style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;"
-                        [class.plan-done]="item.done" [class.plan-pending]="!item.done">
-                        <span style="flex-shrink:0;">{{ item.done ? '✅' : '⬜' }}</span>
-                        <span style="color:var(--accent);font-size:10px;">{{ item.file }}</span>
-                        <span style="flex:1;font-size:10px;">{{ item.change }}</span>
-                      </div>
-                    </div>
-                    <div *ngIf="card.agentAnalysis?.steps?.length" style="margin-top:6px;">
-                      <div *ngFor="let s of card.agentAnalysis.steps" class="analysis-step"
-                        style="display:flex;align-items:flex-start;gap:4px;padding:2px 0;font-size:11px;">
-                        <span class="step-status" style="flex-shrink:0;">
-                          {{ s.status === 'error' ? '✕' : (s.status === 'running' ? '⏳' : (s.status === 'pending' ? '○'
-                          :
-                          '✓')) }}
-                        </span>
-                        <div style="flex:1;min-width:0;">
-                          <span><strong>{{ s.type }}</strong> {{ s.description || s.path || s.command || '' }}</span>
-                          <div *ngIf="s.error" style="color:var(--error);font-size:10px;">{{ s.error }}</div>
-                          <pre *ngIf="s.output"
-                            style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
-                        </div>
-                      </div>
-                    </div>
-                  </details>
-                </div>
-                <div class="card-actions">
-                  <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← To Todo</button>
-                  <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr" title="Pull Request">{{
-                    card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
-                  <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
-                  <button (click)="openDeleteCardConfirm(card.id, 'selfImproving')" class="btn btn-xs btn-ghost">✕</button>
-                </div>
-                <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
-                  <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
-                  <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}"
-                      target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
-                  <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{
-                    card.prStatus.error }}</span>
-                </div>
-              </div>
-              <div *ngIf="filteredSelfImproving.length === 0" class="col-empty">No self-improving cards</div>
             </div>
           </div>
         </div>
-      
-        <!-- Archived -->
-        <div *ngIf="showArchived" class="kanban-board archived-board">
-          <div class="kanban-col">
-            <div class="kanban-col-header">
-              <span>🗄 Archived <span class="col-count">{{ filteredArchived.length }}</span></span>
-              <button (click)="showArchived = false" class="btn btn-xs btn-ghost">✕</button>
-            </div>
-            <div class="kanban-col-body" *ngIf="!collapsedColumns['archived']">
-              <div *ngFor="let card of filteredArchived; trackBy: trackByCardId" class="kanban-card archived">
-                <div class="card-meta">
-                  <span class="card-id">#{{ getCardId(card) }}</span>
-                  <span *ngIf="card.createdAt" class="card-time">{{ card.createdAt | date:'short' }}</span>
-                </div>
-                <div class="card-text">{{ getCardText(card) }}</div>
-                <div *ngIf="hasAgentAnalysis(card)" class="card-analysis">
-                  <details>
-                    <summary>🤖 AI Analysis</summary>
-                    <div class="analysis-summary">{{ card.agentAnalysis?.summary }}</div>
-                  </details>
-                </div>
-                <div class="card-actions">
-                  <button (click)="unarchiveCard(card.id)" class="btn btn-xs">↩ Unarchive</button>
-                  <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr" title="Pull Request">{{
-                    card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
-                  <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
-                </div>
-                <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
-                  <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
-                  <span *ngIf="card.prStatus.status === 'pr-created'">🔀 PR: <a href="{{ card.prStatus.prUrl }}"
-                      target="_blank">{{ card.prStatus.prUrl || 'Created' }}</a></span>
-                  <span *ngIf="card.prStatus.status === 'error'" title="{{ card.prStatus.error }}">⚠️ {{
-                    card.prStatus.error }}</span>
-                </div>
-              </div>
-              <div *ngIf="filteredArchived.length === 0" class="col-empty">No archived cards</div>
-            </div>
-          </div>
-        </div>
-      </div>
-     </details>
-         
-      
+      </details>
+
+
 
       <!-- Agent thinking panel -->
       <div *ngIf="agentActive && agentThinking" class="agent-thinking-panel">

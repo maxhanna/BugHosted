@@ -116,6 +116,7 @@ import { PlanterComponent } from './planter/planter.component';
 import { WeaverComponent } from './weaver/weaver.component';
 import { MiniCalendarComponent } from './mini-calendar/mini-calendar.component';
 import { RecipeComponent } from './recipe/recipe.component';
+import { CrawlerSearchResultsComponent } from './components/crawler-search-results/crawler-search-results.component';
 
 @NgModule({
   declarations: [
@@ -215,6 +216,7 @@ import { RecipeComponent } from './recipe/recipe.component';
     WeaverComponent,
     MiniCalendarComponent,
     RecipeComponent,
+    CrawlerSearchResultsComponent,
   ],
   bootstrap: [AppComponent],
   imports: [

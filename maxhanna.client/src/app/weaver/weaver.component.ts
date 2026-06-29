@@ -561,6 +561,13 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     if (result?.id) {
       this.cardCommandMap[card.id] = result.id;
     }
+    // Scroll to the newly added card
+    setTimeout(() => {
+      const cardElement = document.getElementById(`card-${card.id}`);
+      if (cardElement) {
+        cardElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }, 0);
   }
 
   // --- Card actions ---
