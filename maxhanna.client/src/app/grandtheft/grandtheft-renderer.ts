@@ -1890,6 +1890,19 @@ void main() {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, groundShade, groundShade, groundShade, 1.0, idxOffset); idxOffset += 4;
     }
 
+    // ── OCEAN BARRIER WALLS (where land chunks meet ocean along roads) ──
+    if (!isBeach && !isBridge && !isAeroport && !isRural && !isParkingLot && !isMountain) {
+      for (const [ddx, ddz] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+        if (getBiome(cx + ddx, cz + ddz) !== 'ocean') continue;
+        // Wall along the chunk edge where land meets ocean
+        const wallLen = ddx !== 0 ? 2 : CHUNK_SIZE;
+        const wallWid = ddz !== 0 ? 2 : CHUNK_SIZE;
+        const wx = ddx !== 0 ? (cx + 0.5 + ddx * 0.49) * CHUNK_SIZE : (cx + 0.5) * CHUNK_SIZE;
+        const wz = ddz !== 0 ? (cz + 0.5 + ddz * 0.49) * CHUNK_SIZE : (cz + 0.5) * CHUNK_SIZE;
+        this.addBox(verts, indices, wx, 1.25, wz, wallLen, 2.5, wallWid, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
+      }
+    }
+
     // ── PER-BLOCK DETAIL ───────────────────────────────────
     for (let by = 0; by < blocksPerChunk; by++) {
       for (let bx = 0; bx < blocksPerChunk; bx++) {
@@ -1924,7 +1937,20 @@ void main() {
         // Sidewalk slab (skip for beach/aeroport/bridge/rural)
         if (!isBeach && !isAeroport && !isBridge && !isRural) {
           const swShade = 0.38 + (rng() * 0.08);
-          this.addBox(verts, indices, blockWorldX, 0.05, blockWorldZ, SIDEWALK_SIZE, 0.1, SIDEWALK_SIZE, swShade, swShade, swShade, 1.0, idxOffset); idxOffset += 24;
+          const swHalf = SIDEWALK_SIZE / 2;
+          // Main walking surface
+          this.addBox(verts, indices, blockWorldX, 0.15, blockWorldZ, SIDEWALK_SIZE, 0.3, SIDEWALK_SIZE, swShade, swShade, swShade, 1.0, idxOffset); idxOffset += 24;
+          // Outer curb (road-facing edge)
+          const curbH = 0.1, curbW = 0.6;
+          const roadDist = GRID_PITCH / 2 - swHalf;
+          for (const side of [-1, 1]) {
+            const cz_ = blockWorldZ + side * swHalf;
+            this.addBox(verts, indices, blockWorldX, 0.35, cz_, SIDEWALK_SIZE, curbH, curbW, 0.5 + swShade * 0.3, 0.5 + swShade * 0.3, 0.5 + swShade * 0.3, 1.0, idxOffset); idxOffset += 24;
+          }
+          for (const side of [-1, 1]) {
+            const cx_ = blockWorldX + side * swHalf;
+            this.addBox(verts, indices, cx_, 0.35, blockWorldZ, curbW, curbH, SIDEWALK_SIZE, 0.5 + swShade * 0.3, 0.5 + swShade * 0.3, 0.5 + swShade * 0.3, 1.0, idxOffset); idxOffset += 24;
+          }
         }
 
         // ── BEACH block: palms, umbrellas, lifeguard tower ──
@@ -2179,7 +2205,6 @@ void main() {
           continue;
         }
 
-        // ── BRIDGE block: rails + divider already done at chunk level ──
         if (isBridge) continue;
 
         // ── CITY / SUBURB block ──
@@ -3214,7 +3239,8 @@ void main() {
               this.explodedGasStationTimers.delete(key);
             }
           }
-          this.drawMesh(bld.model, bld.x, bld.y, bld.z, bld.yaw, bld.scale, [1, 1, 1, 1]);
+          const isDome = bld.model && bld.model.length > 0 && bld.model[0].carName?.includes('domeStructure');
+          this.drawMesh(bld.model, bld.x, bld.y, bld.z, bld.yaw, bld.scale, isDome ? [0.25, 0.3, 0.22, 1] : [1, 1, 1, 1]);
         }
       }
     }

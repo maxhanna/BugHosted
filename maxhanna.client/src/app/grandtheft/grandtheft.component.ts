@@ -1328,7 +1328,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.carX += Math.sin(angle) * exitDist;
     this.carZ += Math.cos(angle) * exitDist;
-    this.carVx = 0; this.carVz = 0; this.carSpeed = 0; this.carY = CAR_HEIGHT;
+    this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+    const exitTerrainY = getTerrainHeight(this.carX, this.carZ);
+    const exitRoofY = this.getBuildingRoofY(this.carX, this.carZ);
+    this.carY = CAR_HEIGHT + (exitRoofY > exitTerrainY ? exitRoofY : exitTerrainY);
     this.isInCar = false; this.vehicleType = 'car';
     this.camDist = 4; this.camHeight = 2;
     this.taxiMission = null;
@@ -2862,6 +2865,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.punchTime = this.punchTimer;
     if (this.punchTimer > 0) this.punchTimer = Math.max(0, this.punchTimer - dt);
 
+    // Fix Y for on-foot other players so they stand on building roofs when applicable
+    for (const op of this.otherPlayers) {
+      if (!op.isInCar && !op.passengerOfUserId) {
+        const opTerrainY = getTerrainHeight(op.posX, op.posZ);
+        const opRoofY = this.getBuildingRoofY(op.posX, op.posZ);
+        op.posY = opRoofY > opTerrainY ? opRoofY : opTerrainY;
+      }
+    }
+
     try {
       this.renderer.droppedWeapons = this.droppedWeapons || [];
       this.renderer.carFireElapsed = this._carOnFire ? (performance.now() / 1000) - this._carFireStarted : 0;
@@ -2971,7 +2983,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
-    this.carY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
+    const footTerrainY = getTerrainHeight(this.carX, this.carZ);
+    const footRoofY = this.getBuildingRoofY(this.carX, this.carZ);
+    this.carY = CAR_HEIGHT + (footRoofY > footTerrainY ? footRoofY : footTerrainY);
     this.carSpeed = Math.sqrt(this.carVx * this.carVx + this.carVz * this.carVz);
     this.pushOutOfBuildings();
     if (!this.isInCar) this.pushPedestrianOutOfCars();

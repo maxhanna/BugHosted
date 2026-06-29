@@ -1188,7 +1188,10 @@ namespace maxhanna.Server.Controllers
 							float fmoveZ = (pdz / pDist) * fleeSpeed * SPEED_FACTOR_LOCAL;
 							float fnextX = npc.X + fmoveX;
 							float fnextZ = npc.Z + fmoveZ;
-							if (!CityLayout.IsBuildingAt(fnextX, fnextZ)) { npc.X = fnextX; npc.Z = fnextZ; }
+							int panicCX = (int)Math.Floor(fnextX / CityLayout.CHUNK_SIZE);
+							int panicCZ = (int)Math.Floor(fnextZ / CityLayout.CHUNK_SIZE);
+							string panicBiome = CityLayout.GetBiome(panicCX, panicCZ);
+							if (panicBiome != "ocean" && panicBiome != "beach" && !CityLayout.IsBuildingAt(fnextX, fnextZ)) { npc.X = fnextX; npc.Z = fnextZ; }
 							npc.Yaw = (float)Math.Atan2(fmoveX, fmoveZ);
 						}
 					}
@@ -1207,7 +1210,10 @@ namespace maxhanna.Server.Controllers
 							float moveZ = (tdz / distToTarget) * npc.Speed * SPEED_FACTOR_LOCAL;
 							float nextX = npc.X + moveX;
 							float nextZ = npc.Z + moveZ;
-							if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
+							int fallbackCX = (int)Math.Floor(nextX / CityLayout.CHUNK_SIZE);
+							int fallbackCZ = (int)Math.Floor(nextZ / CityLayout.CHUNK_SIZE);
+							string fallbackBiome = CityLayout.GetBiome(fallbackCX, fallbackCZ);
+							if (fallbackBiome != "ocean" && fallbackBiome != "beach" && !CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
 							npc.Yaw = (float)Math.Atan2(moveX, moveZ);
 						}
 						else
@@ -1367,8 +1373,12 @@ namespace maxhanna.Server.Controllers
 									float nextX = npc.X + moveX;
 									float nextZ = npc.Z + moveZ;
 
-									// STRICT VALIDATION: Cars must stay on the road!
-									if (!CityLayout.IsBuildingAt(nextX, nextZ) && CityLayout.IsRoadAt(nextX, nextZ))
+									// STRICT VALIDATION: Cars must stay on land roads!
+									int nextCX = (int)Math.Floor(nextX / CityLayout.CHUNK_SIZE);
+									int nextCZ = (int)Math.Floor(nextZ / CityLayout.CHUNK_SIZE);
+									string nextBiome = CityLayout.GetBiome(nextCX, nextCZ);
+									bool isOcean = nextBiome == "ocean" || nextBiome == "beach";
+									if (!isOcean && !CityLayout.IsBuildingAt(nextX, nextZ) && CityLayout.IsRoadAt(nextX, nextZ))
 									{
 										npc.X = nextX;
 										npc.Z = nextZ;
@@ -1517,7 +1527,10 @@ namespace maxhanna.Server.Controllers
 
 						float nextX = npc.X + moveX;
 						float nextZ = npc.Z + moveZ;
-						if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
+						int pedCX = (int)Math.Floor(nextX / CityLayout.CHUNK_SIZE);
+						int pedCZ = (int)Math.Floor(nextZ / CityLayout.CHUNK_SIZE);
+						string pedBiome = CityLayout.GetBiome(pedCX, pedCZ);
+						if (pedBiome != "ocean" && pedBiome != "beach" && !CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
 						npc.Yaw = (float)Math.Atan2(moveX, moveZ);
 					}
 				}

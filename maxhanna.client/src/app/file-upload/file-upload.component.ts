@@ -49,16 +49,19 @@ export class FileUploadComponent implements AfterViewInit {
   totalProgress? = 0;
   fileUploadTopics: Topic[] = [];
   preventDisplayClose = false;
+  compressMediaFiles = true;
 
   ngAfterViewInit() {
-    if (this.currentDirectory.toLowerCase().includes('art/')) {
-      this.displayFileUploadOptions = true;
-      setTimeout(() => {
+
+    setTimeout(() => {
+      if (this.currentDirectory.toLowerCase().includes('art/')) {
+        this.displayFileUploadOptions = true;
         if (this.compressCheckbox) {
+          this.compressMediaFiles = false;
           this.compressCheckbox.nativeElement.checked = false;
         }
-      }, 0);
-    }
+      }
+    }, 110);
   }
 
   async uploadInitiate() {
@@ -112,10 +115,10 @@ export class FileUploadComponent implements AfterViewInit {
         .entries(tmpDupFilenames)
         .filter(([_, isDup]) => isDup)
         .map(([name]) => name);
-        
+
       const duplicateNames = validFiles
-      .filter(f => currentNames.has(f.name))
-      .map(f => f.name);
+        .filter(f => currentNames.has(f.name))
+        .map(f => f.name);
       this.duplicateFileNames = [...trueDuplicateNames, ...this.duplicateFileNames, ...duplicateNames];
       // reset the file input so the same file can be selected again if desired
       try { this.fileInput.nativeElement.value = ''; } catch { }
@@ -124,7 +127,7 @@ export class FileUploadComponent implements AfterViewInit {
     //console.log("Upload initiated with files:", this.uploadFileList);
     this.cdr.detectChanges();
   }
-  
+
   cancelFileUpload() {
     this.uploadProgress = {};
     this.uploadErrors = {};
