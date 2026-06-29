@@ -1068,6 +1068,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.rotateToLocation(this.editLat, this.editLon);
   }
   openCoordsEditPopup() {
+    console.log("opening coords display");
     this.editLat = 0;
     this.editLon = 0;
     this.isCoordsEditPopupOpen = true;
