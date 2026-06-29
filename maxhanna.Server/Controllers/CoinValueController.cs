@@ -792,7 +792,7 @@ ORDER BY `timestamp` DESC, id DESC;";
         SELECT latest_price, previous_price, difference, updated_at
         FROM btc_current_velocity_cache
         WHERE id = 1;";
-      await using (var selectCmd = new MySqlCommand(selectCacheSql, conn) { CommandTimeout = 8 })
+      await using (var selectCmd = new MySqlCommand(selectCacheSql, conn) { CommandTimeout = 20 })
       await using (var reader = await selectCmd.ExecuteReaderAsync(ct))
       {
         decimal latestPrice = 0, previousPrice = 0, difference = 0;
@@ -821,7 +821,7 @@ ORDER BY `timestamp` DESC, id DESC;";
             FROM latest_coin_value
             WHERE name = 'Bitcoin'
             LIMIT 1;";
-        await using var latestCmd = new MySqlCommand(latestSql, conn) { CommandTimeout = 6 };
+        await using var latestCmd = new MySqlCommand(latestSql, conn) { CommandTimeout = 15 };
         var latestObj = await latestCmd.ExecuteScalarAsync(ct);
         if (latestObj != null && latestObj != DBNull.Value)
         {
@@ -836,7 +836,7 @@ ORDER BY `timestamp` DESC, id DESC;";
                 WHERE name = 'Bitcoin'
                 ORDER BY `timestamp` DESC, id DESC
                 LIMIT 1;";
-          await using var fbCmd = new MySqlCommand(fallbackLatestSql, conn) { CommandTimeout = 10 };
+          await using var fbCmd = new MySqlCommand(fallbackLatestSql, conn) { CommandTimeout = 15 };
           var fbObj = await fbCmd.ExecuteScalarAsync(ct);
           latest = (fbObj != null && fbObj != DBNull.Value) ? Convert.ToDecimal(fbObj) : 0m;
         }
@@ -852,7 +852,7 @@ ORDER BY `timestamp` DESC, id DESC;";
               AND `timestamp` <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY)
             ORDER BY `timestamp` DESC, id DESC
             LIMIT 1;";
-        await using var prevCmd = new MySqlCommand(prevSql, conn) { CommandTimeout = 10 };
+        await using var prevCmd = new MySqlCommand(prevSql, conn) { CommandTimeout = 15 };
         var prevObj = await prevCmd.ExecuteScalarAsync(ct);
         previous = (prevObj != null && prevObj != DBNull.Value) ? Convert.ToDecimal(prevObj) : 0m;
       }
@@ -866,7 +866,7 @@ ORDER BY `timestamp` DESC, id DESC;";
             previous_price = @previous, 
             updated_at = UTC_TIMESTAMP()
         WHERE id = 1;";
-      await using (var updateCmd = new MySqlCommand(updateSql, conn) { CommandTimeout = 6 })
+      await using (var updateCmd = new MySqlCommand(updateSql, conn) { CommandTimeout = 10 })
       {
         updateCmd.Parameters.Add("@latest", MySqlDbType.NewDecimal).Value = latest;
         updateCmd.Parameters.Add("@previous", MySqlDbType.NewDecimal).Value = previous;
