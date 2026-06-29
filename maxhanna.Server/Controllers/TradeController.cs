@@ -166,7 +166,7 @@ public class TradeController : ControllerBase
 	[HttpPost("/Trade/GetAllTradebotStatuses", Name = "GetAllTradebotStatuses")]
 	public async Task<IActionResult> GetAllTradebotStatuses([FromBody] int UserId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
 	{
-		_ = _log.Db($"Getting all tradebot statuses for user: {UserId}", UserId, "TRADE", true);
+		// _ = _log.Db($"Getting all tradebot statuses for user: {UserId}", UserId, "TRADE", true);
 
 		try
 		{
