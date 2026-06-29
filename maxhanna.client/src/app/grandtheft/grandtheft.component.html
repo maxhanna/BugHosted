@@ -71,10 +71,6 @@
       <div id="gt-heli-hint" *ngIf="!isMobile && isInCar && vehicleType === 'helicopter'">
         W/S Forward/Back | A/D Yaw | Space Up | Shift Down | Q/E Fine Yaw &nbsp;| Mouse Look
       </div>
-      <div id="gt-alt-buttons" *ngIf="isInCar && (vehicleType === 'helicopter' || vehicleType === 'plane')">
-        <button class="gt-alt-btn" (touchstart)="altUpPressed = true" (touchend)="altUpPressed = false" (mousedown)="altUpPressed = true" (mouseup)="altUpPressed = false" (mouseleave)="altUpPressed = false">▲</button>
-        <button class="gt-alt-btn" (touchstart)="altDownPressed = true" (touchend)="altDownPressed = false" (mousedown)="altDownPressed = true" (mouseup)="altDownPressed = false" (mouseleave)="altDownPressed = false">▼</button>
-      </div>
     </div>
 
     <div id="gt-map" *ngIf="showMap">
@@ -169,6 +165,14 @@
       <div class="gt-taxi-hint">Stop near the marker to pick up / drop off</div>
     </div>
 
+    <div id="gt-alt-buttons" *ngIf="isInCar && (vehicleType === 'helicopter' || vehicleType === 'plane')">
+      <button class="gt-alt-btn" (touchstart)="altUpPressed = true" (touchend)="altUpPressed = false"
+        (mousedown)="altUpPressed = true" (mouseup)="altUpPressed = false" (mouseleave)="altUpPressed = false">▲</button>
+      <button class="gt-alt-btn" (touchstart)="altDownPressed = true" (touchend)="altDownPressed = false"
+        (mousedown)="altDownPressed = true" (mouseup)="altDownPressed = false"
+        (mouseleave)="altDownPressed = false">▼</button>
+    </div>
+
     <!-- Radio controls -->
     <div id="gt-radio" *ngIf="isInCar && radioSongs.length > 0">
       <div id="gt-radio-info">
@@ -178,6 +182,7 @@
       <div id="gt-radio-buttons">
         <button *ngIf="isMobile" class="radio-btn" (click)="prevRadio()">◀</button>
         <button class="radio-btn random-btn" (click)="randomRadio()">RANDOM</button>
+        <button class="radio-btn stop-btn" (click)="randomRadio()">⏹</button>
         <button *ngIf="isMobile" class="radio-btn" (click)="nextRadio()">▶</button>
       </div>
       <div id="gt-radio-hint" *ngIf="!isMobile">↑↓ / ←→ to change</div>

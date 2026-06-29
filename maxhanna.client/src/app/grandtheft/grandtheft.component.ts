@@ -173,8 +173,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private passengerHostVelYaw = 0;
   private _reloading = false;
   private _pistolDrawTimer = 0;
-  private _chatClearTimer: any = null;
-  
+  private _chatClearTimer: any = null; 
+
   camYaw = 0; camPitch = 0.2;
   camDist = 4; camHeight = 2;
   firstPerson = false;
@@ -537,7 +537,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.stopAutoFire();
     if (this.policeSirenSound) { this.policeSirenSound.pause(); this.policeSirenSound = null; }
     this.renderer?.clearCache();
-    clearInterval(this._chatClearTimer);
+    clearTimeout(this._chatClearTimer);
     this.remove_me("GrandTheftComponent")
   }
 
@@ -1482,6 +1482,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           if (iter.value) this.knownChatTimestamps.delete(iter.value);
         }
         this.chatMessages.push(msg);
+        this._chatClearTimer = window.setTimeout(() => {
+          this.chatMessages = this.chatMessages.filter(x => x.timestamp != msg.timestamp);
+        }, 30000);
         if (this.chatMessages.length > 50) this.chatMessages.shift();
       }
     }
@@ -2949,8 +2952,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.isMobile && this.joystickActive) {
       if (Math.abs(this.joystickX) > 0.1) this.carYaw += this.joystickX * turnSpeed * dt;
     } else {
-      if (this.keys.has('KeyA')) this.carYaw -= turnSpeed * dt;
-      if (this.keys.has('KeyD')) this.carYaw += turnSpeed * dt;
+      if (this.keys.has('KeyA')) this.carYaw += turnSpeed * dt;
+      if (this.keys.has('KeyD')) this.carYaw -= turnSpeed * dt;
     }
 
     if (this.altUpPressed) this.carVy = Math.min(this.carVy + climbRate * dt, 10);

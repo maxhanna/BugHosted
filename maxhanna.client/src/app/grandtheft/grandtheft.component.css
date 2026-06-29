@@ -796,7 +796,7 @@
 }
 
 /* Mobile chat button */
-#gt-mobile-chat, #gt-mobile-weapon-wheel {  
+#gt-mobile-chat, #gt-mobile-weapon-wheel, #gt-mobile-map {  
   width: 60px;
   height: 40px;
   border-radius: 8px;
@@ -880,7 +880,7 @@
 /* Radio controls - bottom right */
 #gt-radio {
   position: absolute;
-  bottom: 160px;
+  top: 160px;
   right: 15px;
   z-index: 20;
   display: flex;
@@ -889,6 +889,7 @@
   gap: 4px;
   user-select: none;
   pointer-events: auto;
+  opacity: 0.5;
 }
 #gt-radio-info {
   display: flex;
@@ -932,13 +933,26 @@
 .radio-btn:active {
   background: rgba(255, 255, 255, 0.35);
 }
+
 .random-btn {
   background: rgba(255, 200, 50, 0.2);
   border-color: rgba(255, 200, 50, 0.4);
   font-weight: 600;
   letter-spacing: 1px;
 }
+
 .random-btn:hover {
+  background: rgba(255, 200, 50, 0.35);
+}
+
+.stop-btn {
+  background: rgba(255, 0, 0, 0.2);
+  border-color: rgba(255, 200, 50, 0.4);
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.stop-btn:hover {
   background: rgba(255, 200, 50, 0.35);
 }
 #gt-radio-hint {
@@ -1003,7 +1017,7 @@ canvas.hidden { display: none; }
 #gt-alt-buttons {
   position: absolute;
   right: 20px;
-  bottom: 150px;
+  top: 300px;
   display: flex;
   flex-direction: column;
   gap: 6px;
