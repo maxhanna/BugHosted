@@ -536,7 +536,7 @@ export class GrandTheftRenderer {
   ];
   static CITY_BUILDING_NAMES = [
     'abandonnedBuilding', 'buildingRandom', 'domeStructure',
-    'ecds_old_building_04', 'ecds_old_building_05', 'ecds_old_building_06', 'ecds_old_building_07', 'ecds_old_building_08',
+    'ecds_old_building_05', 'ecds_old_building_06', 'ecds_old_building_07', ' ',
     'low_polly_building', 'low_poly_apartment_building_2', 'low_poly_apartment_building_3',
     'low_poly_cinema', 'low_poly_city_hall', 'low_poly_gas_station', 'low_poly_hotel_1', 'low_poly_hotel_2',
     'low_poly_pharmacy', 'low_poly_police_station', 'low_poly_school', 'low_poly_shopping_center',
@@ -552,7 +552,7 @@ export class GrandTheftRenderer {
     'hungry_jacks_restaurant_low_poly',
     'low_poly_burger_restaurant', 'low_poly_cafe', 'low_poly_generic_restaurant', 'low_poly_generic_shop',
     'low_poly_house_2', 'low_poly_house_3', 'low_poly_house_4', 'low_poly_house_5',
-    'low_poly_pizza_restaurant', 'low_poly_wooden_cabine', 'residential_family_house', 'ichijoushi_002',
+    'low_poly_pizza_restaurant', 'low_poly_wooden_cabine', 'ichijoushi_002',
     'low_poly_apartment_building_1', 'low_poly_house_1', 'fatboys_diner', 'psxprop_-_old_warehouse',
   ];
   public trafficLightMesh: CityMesh[] | null = null;

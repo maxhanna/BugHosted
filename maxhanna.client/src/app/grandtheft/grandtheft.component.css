@@ -449,7 +449,7 @@
 
 #gt-taxi-hud {
   position: absolute;
-  top: 20px;
+  top: 60px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -880,7 +880,7 @@
 /* Radio controls - bottom right */
 #gt-radio {
   position: absolute;
-  top: 160px;
+  bottom: 160px;
   right: 15px;
   z-index: 20;
   display: flex;
