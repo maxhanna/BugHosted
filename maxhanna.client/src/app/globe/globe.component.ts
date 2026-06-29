@@ -172,13 +172,13 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   filteredTownCoords: Record<string, [number, number]> = {};
   filteredCountryCoords: Record<string, [number, number]> = {};
   @Input() set pings(value: GlobePing[] | null | undefined) {
-  this.customPings = Array.isArray(value) ? value : [];
+    this.customPings = Array.isArray(value) ? value : [];
   }
   @Input() arcs: Arc[] = [];
   @Input() inputtedParentRef: any;
   @Output() isLoadingEvent = new EventEmitter<boolean>();
   @Output() pingClicked = new EventEmitter<GlobePing>();
- 
+
 
   // ---- popup --------------------------------------------------------------
   isCoordsEditPopupOpen = false;
@@ -259,7 +259,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   isRefreshingFlights = false;
 
   // ---- coordinates display -------------------------------------------------
-  coordsDisplay = '0.00°, 0.00°'; 
+  coordsDisplay = '0.00°, 0.00°';
   // ---- tile / texture state -----------------------------------------------
   private readonly BASE_ZOOM = 2;
   private readonly TEX_SIZE = 4096;
@@ -308,7 +308,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     private tileCacheService: TileCacheService,
     private flightService: FlightService,
     private userService: UserService
-  ) {}
+  ) { }
 
   // =========================================================================
   // Lifecycle
@@ -523,7 +523,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     this.flightArcs = [];
     if (tracked?.originLat != null && tracked?.originLon != null &&
-        tracked?.destLat != null && tracked?.destLon != null) {
+      tracked?.destLat != null && tracked?.destLon != null) {
       this.flightArcs.push({
         from: { lat: tracked.originLat, lon: tracked.originLon },
         to: { lat: tracked.destLat, lon: tracked.destLon },
@@ -540,7 +540,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.selectedFlight = flight;
     this.flightArcs = [];
     if (flight.originLat != null && flight.originLon != null &&
-        flight.destLat != null && flight.destLon != null) {
+      flight.destLat != null && flight.destLon != null) {
       this.flightArcs.push({
         from: { lat: flight.originLat, lon: flight.originLon },
         to: { lat: flight.destLat, lon: flight.destLon },
@@ -1077,7 +1077,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.closeCoordsEditPopup();
     this.rotateToLocation(lat, long);
   }
-  changeEditLatLon() { 
+  changeEditLatLon() {
     this.editLat = parseFloat(this.editLatInput.nativeElement.value);
     this.editLon = parseFloat(this.editLonInput.nativeElement.value);
   }
@@ -1089,7 +1089,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.inputtedParentRef.openOverlay();
   }
   closeCoordsEditPopup(): void {
-    this.isCoordsEditPopupOpen = false; 
+    this.isCoordsEditPopupOpen = false;
     this.inputtedParentRef.closeOverlay();
   }
   private userToPing(userWithLoc: UserWithLocation): ResolvedGlobePing | null {
@@ -1170,7 +1170,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!this.userSearchTerm) {
       return this.usersWithLocations;
     }
-    
+
     const searchTerm = this.userSearchTerm.toLowerCase();
     return this.usersWithLocations.filter(user => {
       // Filter by user name or ID
@@ -1731,11 +1731,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       if (!proj) continue;
       const { x, y } = proj;
       const isActive = this.activePingId === ping.id;
-  
+
       const color = ping.source === 'story' ? pingTypeColors[0]
         : ping.source === 'news' ? pingTypeColors[1]
-        : ping.source === 'user' ? pingTypeColors[2]
-        : pingTypeColors[3];
+          : ping.source === 'user' ? pingTypeColors[2]
+            : pingTypeColors[3];
 
       // Determine if this is a city, country or town ping (special case)
       let pingColor = color;
@@ -1749,14 +1749,14 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
           pingColor = pingTypeColors[5];  // Country color
         }
       }
-      
+
       const flightData = ping.data as any;
       const isFlight = flightData?.type === 'flight';
       const isAirport = flightData?.type === 'airport';
 
       if (isFlight) {
         this.drawPlaneIcon(ctx, x, y, flightData?.heading, isActive, flightData?.isTracked);
-        
+
         // Show callsign on hover for flights
         if (this.hoveredPin?.id === ping.id) {
           ctx.font = 'bold 12px sans-serif';
@@ -1766,66 +1766,66 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
           ctx.strokeText(flightData?.callsign || ping.label, x + 8, y - 8);
           ctx.fillText(flightData?.callsign || ping.label, x + 8, y - 8);
         }
-      } else {  
-      const grad = ctx.createRadialGradient(x, y, 0, x, y, 10);
-      grad.addColorStop(0, `rgba(${pingColor}, ${isActive ? '1' : '0.9'})`);
-      grad.addColorStop(1, `rgba(${pingColor}, 0)`);
-      ctx.beginPath();
-      ctx.arc(x, y, isActive ? 14 : 10, 0, Math.PI * 2);
-      ctx.fillStyle = grad;
-      ctx.fill();
+      } else {
+        const grad = ctx.createRadialGradient(x, y, 0, x, y, 10);
+        grad.addColorStop(0, `rgba(${pingColor}, ${isActive ? '1' : '0.9'})`);
+        grad.addColorStop(1, `rgba(${pingColor}, 0)`);
+        ctx.beginPath();
+        ctx.arc(x, y, isActive ? 14 : 10, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
 
-  
-      ctx.beginPath();
-      ctx.arc(x, y, isActive ? 5 : 4, 0, Math.PI * 2);
-      // Update icon color to match ping type
-      ctx.fillStyle = ping.source === 'story' ? 'rgb(255, 68, 68)' 
-        : ping.source === 'news' ? 'rgb(255, 180, 50)' 
-        : ping.source === 'user' ? 'rgb(85, 136, 255)' 
-        : (ping.source === 'custom' && (ping.data as any)?.type === 'town') ? 'rgb(100, 200, 100)'
-        : (ping.source === 'custom' && ping.city) ? 'rgb(255, 100, 100)'
-        : (ping.source === 'custom' && ping.country) ? 'rgb(255, 200, 100)'
-        : 'rgb(74, 170, 255)';
-  
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.5;
 
-      const s = isActive ? 7 : 6;
-      switch (ping.source) {
-        case 'story':
-          this.drawStoryIcon(ctx, x, y, s);
-          break;
-        case 'news':
-          this.drawNewsIcon(ctx, x, y, s);
-          break;
-        case 'user':
-          this.drawUserIcon(ctx, x, y, s);
-          break;
-        default:
-          // For custom pings, consider town vs city vs country
-          if ((ping.data as any)?.type === 'town') {
-            this.drawTownIcon(ctx, x, y, s);
-          } else if (ping.city) {
-            this.drawCustomIcon(ctx, x, y, s);
-          } else if (ping.country) {
-            this.drawCustomIcon(ctx, x, y, s);
-          } else {
-            this.drawCustomIcon(ctx, x, y, s);
-          }
-          break;
-      }
+        ctx.beginPath();
+        ctx.arc(x, y, isActive ? 5 : 4, 0, Math.PI * 2);
+        // Update icon color to match ping type
+        ctx.fillStyle = ping.source === 'story' ? 'rgb(255, 68, 68)'
+          : ping.source === 'news' ? 'rgb(255, 180, 50)'
+            : ping.source === 'user' ? 'rgb(85, 136, 255)'
+              : (ping.source === 'custom' && (ping.data as any)?.type === 'town') ? 'rgb(100, 200, 100)'
+                : (ping.source === 'custom' && ping.city) ? 'rgb(255, 100, 100)'
+                  : (ping.source === 'custom' && ping.country) ? 'rgb(255, 200, 100)'
+                    : 'rgb(74, 170, 255)';
 
-      if (this.hoveredPin?.id === ping.id || isActive) {
-        ctx.font = 'bold 12px sans-serif';
-        ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-        ctx.lineWidth = 3;
-        ctx.strokeText(ping.label, x + 8, y - 8);
-        ctx.fillText(ping.label, x + 8, y - 8);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+
+        const s = isActive ? 7 : 6;
+        switch (ping.source) {
+          case 'story':
+            this.drawStoryIcon(ctx, x, y, s);
+            break;
+          case 'news':
+            this.drawNewsIcon(ctx, x, y, s);
+            break;
+          case 'user':
+            this.drawUserIcon(ctx, x, y, s);
+            break;
+          default:
+            // For custom pings, consider town vs city vs country
+            if ((ping.data as any)?.type === 'town') {
+              this.drawTownIcon(ctx, x, y, s);
+            } else if (ping.city) {
+              this.drawCustomIcon(ctx, x, y, s);
+            } else if (ping.country) {
+              this.drawCustomIcon(ctx, x, y, s);
+            } else {
+              this.drawCustomIcon(ctx, x, y, s);
+            }
+            break;
+        }
+
+        if (this.hoveredPin?.id === ping.id || isActive) {
+          ctx.font = 'bold 12px sans-serif';
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+          ctx.lineWidth = 3;
+          ctx.strokeText(ping.label, x + 8, y - 8);
+          ctx.fillText(ping.label, x + 8, y - 8);
+        }
       }
     }
   }
-}
 
   private drawPlaneIcon(ctx: CanvasRenderingContext2D, x: number, y: number, heading: number | undefined | null, isActive: boolean, isTracked: boolean = false): void {
     const size = isActive ? 8 : 6;
@@ -1849,25 +1849,25 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Draw a more realistic airplane shape
     ctx.beginPath();
-    
+
     // Fuselage
     ctx.moveTo(s * 1.2, 0);
     ctx.lineTo(s * 0.4, -s * 0.3);
     ctx.lineTo(s * 0.4, s * 0.3);
     ctx.closePath();
-    
+
     // Wings
     ctx.moveTo(s * 0.4, -s * 0.3);
     ctx.lineTo(-s * 0.2, -s * 0.8);
     ctx.lineTo(-s * 0.2, s * 0.8);
     ctx.lineTo(s * 0.4, s * 0.3);
-    
+
     // Tail
     ctx.moveTo(-s * 0.2, -s * 0.8);
     ctx.lineTo(-s * 0.6, -s * 0.4);
     ctx.lineTo(-s * 0.6, s * 0.4);
     ctx.lineTo(-s * 0.2, s * 0.8);
-    
+
     ctx.closePath();
 
     ctx.fillStyle = color;
@@ -1976,7 +1976,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     return {
       lat: Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI,
       lon: Math.atan2(y, x) * 180 / Math.PI,
-    }; 
+    };
   }
 
   private drawNewsIcon(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {
@@ -2110,7 +2110,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const gc = this.globeCanvasRef.nativeElement;
     let lastDist = 0;
     let isZooming = false; // Track if we're in zoom mode
-    
+
     // Prevent pull-to-refresh on mobile
     gc.addEventListener('touchstart', (e) => {
       // Check if the touch started on the globe canvas
@@ -2119,7 +2119,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         e.preventDefault();
       }
     }, { passive: false });
-    
+
     gc.addEventListener('touchstart', e => {
       if (e.touches.length === 1) {
         this.isDragging = true;
@@ -2131,7 +2131,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         isZooming = true; // Set zoom mode
       }
     }, { passive: true });
-    
+
     gc.addEventListener('touchmove', e => {
       if (e.touches.length === 1 && this.isDragging && !isZooming) {
         const dx = e.touches[0].clientX - this.lastX;
@@ -2148,26 +2148,26 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         this.syncSliderFromDist();
       }
     }, { passive: true });
-    
-    gc.addEventListener('touchend', (e) => { 
+
+    gc.addEventListener('touchend', (e) => {
       this.isDragging = false;
       isZooming = false; // Reset zoom state when touch ends
-      
+
       // Handle tap on a pin (if not a drag)
       if (!this.dragMoved && e.changedTouches.length > 0) {
         const touch = e.changedTouches[0];
         const rect = gc.getBoundingClientRect();
         const x = touch.clientX - rect.left;
         const y = touch.clientY - rect.top;
-        
+
         // Create a mock event object for pin click logic
         const mockEvent = {
           clientX: touch.clientX,
           clientY: touch.clientY,
-          preventDefault: () => {},
-          stopPropagation: () => {}
+          preventDefault: () => { },
+          stopPropagation: () => { }
         };
-        
+
         // Call the pin click handler directly (similar to onClick but for touch)
         this.handleClickOnPin(mockEvent as any);
       }
@@ -2177,7 +2177,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   // Handle pin clicks specifically for touch events
   private handleClickOnPin(e: any): void {
     if (this.dragMoved) return;
-    
+
     const ping = this.findPingAtEvent(e);
     if (!ping) {
       this.flightArcs = [];
@@ -2246,13 +2246,13 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private onMouseMove(e: MouseEvent): void {
-    if (!this.isDragging) { 
-      this.checkPinHover(e); 
+    if (!this.isDragging) {
+      this.checkPinHover(e);
       // Only position tooltip if we have a hover and it's a flight
       if (this.hoveredFlightCallsign) {
         this.positionTooltip(e);
       }
-      return; 
+      return;
     }
     const dx = e.clientX - this.lastX;
     const dy = e.clientY - this.lastY;
@@ -2265,10 +2265,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private positionTooltip(e: MouseEvent): void {
     if (!this.hoveredFlightCallsign) return;
-    
+
     const tooltip = document.querySelector('.flight-tooltip') as HTMLElement;
     if (!tooltip) return;
-    
+
     // Position the tooltip near the mouse cursor
     tooltip.style.left = (e.clientX + 10) + 'px';
     tooltip.style.top = (e.clientY - 10) + 'px';
@@ -2366,7 +2366,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   private checkPinHover(e: MouseEvent): void {
     const ping = this.findPingAtEvent(e);
     this.hoveredPin = ping ? { id: ping.id, label: ping.label, x: 0, y: 0 } : null;
-    
+
     // Set hovered flight callsign if hovering over a flight
     if (ping && ping.data && (ping.data as any).type === 'flight') {
       this.hoveredFlightCallsign = (ping.data as any).callsign || ping.label;
@@ -2447,7 +2447,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       const r = this.lookupCoords(CITY_COORDS, c);
       if (r) return r;
     }
-    
+
     // Try substring/prefix matching — effective for "Montreal" → "Montreal, Quebec - Canada"
     const nPart = this.normalizeName(part || tc);
     if (nPart) {
@@ -2466,12 +2466,12 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       const fuzzyMatch = this.fuzzyLookupCity(CITY_COORDS, tc);
       if (fuzzyMatch) return fuzzyMatch;
     }
-    
+
     // If country is provided, try to match with just the country name
     if (tco) {
       const countryMatch = this.lookupCoords(COUNTRY_COORDS, tco);
       if (countryMatch) {
-        const citiesWithCountry = Object.keys(CITY_COORDS).filter(cityKey => 
+        const citiesWithCountry = Object.keys(CITY_COORDS).filter(cityKey =>
           cityKey.includes(tco) || cityKey.includes(this.normalizeName(tco))
         );
         if (citiesWithCountry.length > 0) {
@@ -2489,11 +2489,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       }
     }
-    
+
     return undefined;
   }
 
-private lookupCoords(map: Record<string, [number, number]>, name?: string)
+  private lookupCoords(map: Record<string, [number, number]>, name?: string)
     : [number, number] | undefined {
     if (!name) return undefined;
     const t = name.trim();
@@ -2502,12 +2502,12 @@ private lookupCoords(map: Record<string, [number, number]>, name?: string)
     // Try exact match first, then fuzzy match
     const exactMatch = Object.entries(map).find(([k]) => this.normalizeName(k) === n)?.[1];
     if (exactMatch) return exactMatch;
-    
+
     // If no exact match, try fuzzy matching for city names
     if (map === CITY_COORDS) {
       return this.fuzzyLookupCity(map, t);
     }
-    
+
     return undefined;
   }
 
@@ -2515,10 +2515,10 @@ private lookupCoords(map: Record<string, [number, number]>, name?: string)
 
   private fuzzyLookupCity(map: Record<string, [number, number]>, name: string): [number, number] | undefined {
     const threshold = 0.4; // Lowered threshold — Levenshtein is harsh on prefix/substring matches
-    
+
     const normalizedSearch = this.normalizeName(name);
     const searchCityPart = normalizedSearch.split(',')[0]?.trim();
-    
+
     // First try substring/prefix matching (much more effective for partial matches)
     if (searchCityPart) {
       for (const [key, coords] of Object.entries(map)) {
@@ -2529,7 +2529,7 @@ private lookupCoords(map: Record<string, [number, number]>, name?: string)
         }
       }
     }
-    
+
     // Fallback to Levenshtein-based similarity
     const matches = Object.keys(map).map(cityKey => {
       const normalizedCity = this.normalizeName(cityKey);
@@ -2537,38 +2537,38 @@ private lookupCoords(map: Record<string, [number, number]>, name?: string)
       return { city: cityKey, similarity };
     }).filter(match => match.similarity >= threshold)
       .sort((a, b) => b.similarity - a.similarity);
-    
+
     if (matches.length > 0) {
       return map[matches[0].city];
     }
-    
+
     return undefined;
   }
-  
+
   private calculateSimilarity(s1: string, s2: string): number {
     // Using a simple Levenshtein distance ratio approach
     const longer = s1.length > s2.length ? s1 : s2;
     const shorter = s1.length > s2.length ? s2 : s1;
-    
+
     if (longer.length === 0) {
       return 1.0;
     }
-    
+
     const distance = this.levenshteinDistance(longer, shorter);
     return (longer.length - distance) / longer.length;
   }
-  
+
   private levenshteinDistance(s1: string, s2: string): number {
     // Simple implementation of Levenshtein distance algorithm
     if (s1.length < s2.length) {
       return this.levenshteinDistance(s2, s1);
     }
-    
+
     const row = Array(s2.length + 1).fill(0);
     for (let j = 0; j < row.length; j++) {
       row[j] = j;
     }
-    
+
     for (let i = 1; i <= s1.length; i++) {
       let prev = i - 1;
       for (let j = 0; j < s2.length; j++) {
@@ -2586,9 +2586,9 @@ private lookupCoords(map: Record<string, [number, number]>, name?: string)
         row[j + 1] = val;
       }
     }
-    
+
     return row[s2.length];
-  } 
+  }
 
   private normalizeName(s: string): string {
     return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -2615,7 +2615,7 @@ private lookupCoords(map: Record<string, [number, number]>, name?: string)
       if (countryMatch) return `${name}, ${countryMatch}`;
     }
     const canadianProvinces = ['Ontario', 'Quebec', 'British Columbia', 'Alberta', 'Manitoba', 'Saskatchewan', 'Nova Scotia', 'New Brunswick', 'Newfoundland and Labrador', 'Prince Edward Island', 'Northwest Territories', 'Yukon', 'Nunavut',
-      'on','qc','bc','ab','mb','sk','ns','nb','nl','pe','nt','yt','nu'];
+      'on', 'qc', 'bc', 'ab', 'mb', 'sk', 'ns', 'nb', 'nl', 'pe', 'nt', 'yt', 'nu'];
     for (let i = 1; i < parts.length; i++) {
       const p = parts[i];
       if (canadianProvinces.map(x => this.normalizeName(x)).includes(this.normalizeName(p))) return `${name}, Canada`;
