@@ -8,7 +8,7 @@ import { User } from './datacontracts/user/user';
 })
 export class CalendarService {
 
-  async getCalendarEntries(userId: number = 0, startDate: Date, endDate: Date) {
+  async getCalendarEntries(userId: number = 0, startDate: Date, endDate: Date, signal?: AbortSignal) {
     const params = new URLSearchParams({ startDate: startDate.toISOString(), endDate: endDate.toISOString() });
     try {
       const response = await fetch(`/calendar?` + params, {
@@ -17,6 +17,7 @@ export class CalendarService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(userId),
+        signal
       });
 
       return await this.handleResponse(response);

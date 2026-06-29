@@ -69,7 +69,7 @@ export class WordlerService {
   }
 
 
-  async getTodaysDayStreak(userId: number) {
+  async getTodaysDayStreak(userId: number, signal?: AbortSignal) {
     if (!userId) return;
     try {
       const response = await fetch(`/wordler/getcurrentstreak`, {
@@ -78,6 +78,7 @@ export class WordlerService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(userId),
+        signal
       });
 
       if (!response.ok) {

@@ -148,10 +148,11 @@ export class GrandtheftService {
     }
   }
 
-  async getActivePlayers(): Promise<User[] | null> {
+  async getActivePlayers(signal?: AbortSignal): Promise<User[] | null> {
     try {
-      const response = await this.http.get(`${this.baseUrl}/activeplayers`).toPromise();
-      return response ? response as User[] : null;
+      const response = await fetch(`${this.baseUrl}/activeplayers`, { signal });
+      if (!response.ok) return null;
+      return await response.json() as User[];
     } catch (e) {
       console.error('Error fetching active players', e);
       return null;

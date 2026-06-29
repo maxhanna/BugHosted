@@ -5,7 +5,7 @@ import { WeatherResponse } from './datacontracts/weather/weather-response';
   providedIn: 'root'
 })
 export class WeatherService { 
-  async getWeather(userId: number) {
+  async getWeather(userId: number, signal?: AbortSignal) {
     try {
       const res = await fetch('/weatherforecast', {
         method: 'POST',
@@ -13,6 +13,7 @@ export class WeatherService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(userId),
+        signal
       });
 
       if (!res.ok) {

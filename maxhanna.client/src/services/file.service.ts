@@ -400,10 +400,10 @@ export class FileService {
     } catch (e) { return 0; }
   }
 
-  async getNumberOfArt(userId?: number) {
+  async getNumberOfArt(userId?: number, signal?: AbortSignal) {
     try {
       const query = (userId !== undefined && userId !== null) ? `?userId=${encodeURIComponent(userId)}` : '';
-      const response = await fetch(`/file/getnumberofart${query}`, { method: 'GET' });
+      const response = await fetch(`/file/getnumberofart${query}`, { method: 'GET', signal });
       if (!response.ok) return 0;
       const txt = await response.text();
       const n = parseInt(txt);

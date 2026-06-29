@@ -56,7 +56,7 @@ export class TodoService {
       return null;
     }
   }
-  async getTodoCount(userId: number, type: string, search?: string) {
+  async getTodoCount(userId: number, type: string, search?: string, signal?: AbortSignal) {
     try {
       let params = new URLSearchParams({ type: type });
       if (search) {
@@ -65,7 +65,8 @@ export class TodoService {
       const response = await fetch('/todo/getcount?' + params, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userId)
+        body: JSON.stringify(userId),
+        signal
       });
       return await response.json();
     } catch (error) {

@@ -102,11 +102,11 @@ export class EnderService {
   async getTopScores(limit = 50) {
     return this.fetchData('/ender/topscores', limit);
   }
-  async getActivePlayers(minutes = 2) {
-    return this.fetchData('/ender/activeplayers', minutes);
+  async getActivePlayers(minutes = 2, signal?: AbortSignal) {
+    return this.fetchData('/ender/activeplayers', minutes, signal);
   }
-  async getUserRank(userId: number) {
-    return this.fetchData('/ender/getuserrank', userId);
+  async getUserRank(userId: number, signal?: AbortSignal) {
+    return this.fetchData('/ender/getuserrank', userId, signal);
   }
   async getTopScoresToday(limit = 50) {
     return this.fetchData('/ender/topscorestoday', limit);

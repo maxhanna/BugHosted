@@ -98,11 +98,12 @@ export class CrawlerService {
     }
   }
 
-  async indexCount(): Promise<string | null> {
+  async indexCount(signal?: AbortSignal): Promise<string | null> {
     try {
       const response = await fetch(`/crawler/indexcount`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal
       });
 
       if (!response.ok) return null;

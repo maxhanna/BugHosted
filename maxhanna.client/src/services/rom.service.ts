@@ -86,12 +86,13 @@ export class RomService {
     }
   }
 
-  async getActivePlayers(minutes: number = 2) {
+  async getActivePlayers(minutes: number = 2, signal?: AbortSignal) {
     try {
       const response = await fetch('/rom/activeplayers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(minutes)
+        body: JSON.stringify(minutes),
+        signal
       });
       if (!response.ok) return null;
       return await response.json(); // { count }

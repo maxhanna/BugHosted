@@ -42,8 +42,8 @@ export class DigcraftService {
     return res.json() as Promise<DCPlayer[]>;
   }
 
-  async getActivePlayers(minutes: number = 2) {
-    return this.post('/digcraft/activeplayers', minutes);
+  async getActivePlayers(minutes: number = 2, signal?: AbortSignal) {
+    return this.post('/digcraft/activeplayers', minutes, signal);
   }
 
   async getPendingInvites(userId: number): Promise<{ fromUserId: number; username: string; expiresAt: number }[] | null> {

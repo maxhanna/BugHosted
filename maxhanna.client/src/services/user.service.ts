@@ -711,7 +711,7 @@ export class UserService {
       return 'error';
     }
   }
-  async getTheme(userId: number): Promise<UserTheme | null> {
+  async getTheme(userId: number, signal?: AbortSignal): Promise<UserTheme | null> {
     try {
       const response = await fetch('/user/getusertheme/', {
         method: 'POST',
@@ -719,6 +719,7 @@ export class UserService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(userId),
+        signal
       });
 
       if (!response.ok) {

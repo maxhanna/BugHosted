@@ -127,7 +127,7 @@ export class CoinValueService {
   }
 
 
-  async getUserCurrency(userId: number) {
+  async getUserCurrency(userId: number, signal?: AbortSignal) {
     try {
       const response = await fetch(`/currencyvalue/getusercurrency`, {
         method: 'POST',
@@ -136,6 +136,7 @@ export class CoinValueService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(userId),
+        signal
       });
 
       return await response.text();
@@ -160,7 +161,7 @@ export class CoinValueService {
     }
   }
   // Get the latest coin values by name
-  async getLatestCoinValuesByName(name: string) {
+  async getLatestCoinValuesByName(name: string, signal?: AbortSignal) {
     const params = new HttpParams().set('name', name);
 
     try {
@@ -169,6 +170,7 @@ export class CoinValueService {
         headers: {
           'Content-Type': 'application/json',
         },
+        signal
       });
 
       return await response.json() as CoinValue;
@@ -178,7 +180,7 @@ export class CoinValueService {
   }
 
   // Get the latest coin values by name
-  async getLatestCurrencyValuesByName(name?: string) {
+  async getLatestCurrencyValuesByName(name?: string, signal?: AbortSignal) {
     if (!name) return;
     const params = new HttpParams().set('name', name);
 
@@ -188,6 +190,7 @@ export class CoinValueService {
         headers: {
           'Content-Type': 'application/json',
         },
+        signal
       });
 
       return await response.json() as ExchangeRate;
@@ -195,13 +198,14 @@ export class CoinValueService {
       return null;
     }
   }
-  async isBTCRising() {
+  async isBTCRising(signal?: AbortSignal) {
     try {
       const response = await fetch(`/coinvalue/isbtcrising`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        signal
       });
 
       return await response.json();

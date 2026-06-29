@@ -449,6 +449,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getNotificationInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (!this._parent || !this._parent.user || this.navbarCollapsed) {
       return;
     }
@@ -461,7 +463,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       // race the notification fetch against a timeout to detect slow or hung server
       const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timeout')), this.notificationTimeoutMs));
       const res = await Promise.race([
-        this.notificationService.getNotifications(this._parent.user.id ?? 0) as Promise<UserNotification[]>,
+        this.notificationService.getNotifications(this._parent.user.id ?? 0, sig) as Promise<UserNotification[]>,
         timeoutPromise
       ]) as UserNotification[];
 
@@ -489,7 +491,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
           const uid = this._parent.user?.id ?? 0;
           if (uid > 0) {
             try {
-              const activeFriendRes: any = await this.friendService.getActiveFriendCount(uid, 10);
+              const activeFriendRes: any = await this.friendService.getActiveFriendCount(uid, 10, sig);
               activeFriends = activeFriendRes?.count ?? 0;
             } catch { activeFriends = 0; }
           }
@@ -556,6 +558,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getThemeInfo(userId?: number) {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (!userId && this._parent.lastRunTimestamps['theme'] && Date.now() - this._parent.lastRunTimestamps['theme'] < this.time20Mins) {
       console.log('Theme info fetched recently, skipping fetch');
       return;
@@ -570,7 +574,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     this.isLoadingTheme = true;
     try {
-      const theme = await this.userService.getTheme(userId ?? this._parent?.user?.id ?? 0);
+      const theme = await this.userService.getTheme(userId ?? this._parent?.user?.id ?? 0, sig);
       if (theme) {
         this.applyThemeToCSS(theme);
       } else {
@@ -599,6 +603,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getCalendarInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (this._parent.lastRunTimestamps['calendarInfo']
       && Date.now() - this._parent.lastRunTimestamps['calendarInfo'] < this.time20Mins) {
         console.log('Calendar info fetched recently, skipping fetch');
@@ -619,7 +625,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       today.setHours(0, 0, 0, 0);
       const startDate = new Date(today);
       startDate.setDate(today.getDate() - 1);
-      const res = await this.calendarService.getCalendarEntries(this._parent.user?.id, startDate, new Date(today.getTime() + 86400000));
+      const res = await this.calendarService.getCalendarEntries(this._parent.user?.id, startDate, new Date(today.getTime() + 86400000), sig);
 
       const notificationCount = res?.filter((entry: CalendarEntry) => entry.date && this.isRelevantEvent(entry, today)).length ?? 0;
       const calNavItem = this._parent.navigationItems.find(x => x.title === "Calendar");
@@ -678,6 +684,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getCurrentWeatherInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (this._parent.lastRunTimestamps['weatherInfo']
       && Date.now() - this._parent.lastRunTimestamps['weatherInfo'] < this.time20Mins) {
       return;
@@ -687,7 +695,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     this.isLoadingWeather = true;
     try {
-      const res = await this.weatherService.getWeather(this._parent.user.id);
+      const res = await this.weatherService.getWeather(this._parent.user.id, sig);
       if (res?.current.condition.icon && res?.current.condition.icon.includes('weatherapi')) {
         const weatherNavItem = this._parent.navigationItems.find(x => x.title === "Weather");
         if (weatherNavItem) {
@@ -708,6 +716,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getCryptoHubInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (this._parent.lastRunTimestamps['cryptoHub']
       && (Date.now() - this._parent.lastRunTimestamps['cryptoHub'] < this.time20Mins)) {
       return;
@@ -725,7 +735,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     let latestCurrencyPriceRespectToCAD = 1;
 
     try {
-      const res1 = await this.miningService.getMiningRigInfo(userId) as Array<MiningRig>;
+      const res1 = await this.miningService.getMiningRigInfo(userId, sig) as Array<MiningRig>;
       res1?.forEach(x => {
         tmpLocalProfitability += x.localProfitability!;
       });
@@ -733,11 +743,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
       console.error('Error fetching mining data:', error);
     }
     try {
-      await this.coinValueService.isBTCRising().then(res => {
+      await this.coinValueService.isBTCRising(sig).then(res => {
         this.isBTCRising = (Boolean)(res);
       });
-      const userCurrency = await this.coinValueService.getUserCurrency(userId) ?? "CAD";
-      const ceRes = await this.coinValueService.getLatestCurrencyValuesByName(userCurrency) as ExchangeRate;
+      const userCurrency = await this.coinValueService.getUserCurrency(userId, sig) ?? "CAD";
+      const ceRes = await this.coinValueService.getLatestCurrencyValuesByName(userCurrency, sig) as ExchangeRate;
       if (ceRes) {
         latestCurrencyPriceRespectToCAD = ceRes.rate;
       } 
@@ -745,7 +755,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       console.error('Error fetching Crypto Hub data:', error); 
     }
     try {
-      const result = await this.coinValueService.getLatestCoinValuesByName("Bitcoin");
+      const result = await this.coinValueService.getLatestCoinValuesByName("Bitcoin", sig);
       if (result) {
         const btcToCADRate = result.valueCAD * latestCurrencyPriceRespectToCAD;
         if (nav) {
@@ -767,6 +777,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getEnderPlayerInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (this._parent.lastRunTimestamps['ender']
       && Date.now() - this._parent.lastRunTimestamps['ender'] < this.time60Secs) {
       return;
@@ -780,7 +792,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const enderNav = this._parent.navigationItems.find(x => x.title === 'Ender');
       if (enderNav && this.hasUserSelectedNavItem('Ender')) {
         try {
-          const res: any = await this.enderService.getActivePlayers(2);
+          const res: any = await this.enderService.getActivePlayers(2, sig);
           this.enderActivePlayers = res?.count ?? null;
         } catch (e) {
           this.enderActivePlayers = null;
@@ -789,7 +801,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         try {
           const userId = this._parent.user?.id ?? 0;
           if (userId) {
-            const rankRes: any = await this.enderService.getUserRank(userId);
+            const rankRes: any = await this.enderService.getUserRank(userId, sig);
             if (rankRes && rankRes.hasHero) {
               this.enderUserRank = { rank: rankRes.rank ?? null, score: rankRes.score ?? null, totalPlayers: rankRes.totalPlayers ?? null };
             } else {
@@ -810,6 +822,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getNexusPlayerInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (!this._parent.notificationsActive) {
       clearInterval(this.nexusInterval);
       return;
@@ -823,7 +837,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const nexusNav = this._parent.navigationItems.find(x => x.title === 'Bug-Wars');
       if (nexusNav && this.hasUserSelectedNavItem('Bug-Wars')) {
         try {
-          const res: any = await this.nexusService.getActivePlayers(2);
+          const res: any = await this.nexusService.getActivePlayers(2, sig);
           this.nexusActivePlayers = res?.count ?? null;
         } catch (e) {
           this.nexusActivePlayers = null;
@@ -832,7 +846,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         try {
           const userId = this._parent.user?.id ?? 0;
           if (userId) {
-            const rankRes: any = await this.nexusService.getUserRank(userId);
+            const rankRes: any = await this.nexusService.getUserRank(userId, sig);
             if (rankRes && rankRes.hasBase) {
               this.nexusUserRank = { rank: rankRes.rank ?? null, baseCount: rankRes.baseCount ?? null, totalPlayers: rankRes.totalPlayers ?? null };
             } else {
@@ -854,6 +868,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getBonesPlayerInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (!this._parent.notificationsActive) {
       clearInterval(this.bonesInterval);
       return;
@@ -867,7 +883,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const bonesNav = this._parent.navigationItems.find(x => x.title === 'Bones');
       if (bonesNav && this.hasUserSelectedNavItem('Bones')) {
         try {
-          const res: any = await this.bonesService.getActivePlayers(2);
+          const res: any = await this.bonesService.getActivePlayers(2, sig);
           this.bonesActivePlayers = res?.count ?? null;
         } catch (e) {
           this.bonesActivePlayers = null;
@@ -876,7 +892,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         try {
           const userId = this._parent.user?.id ?? 0;
           if (userId) {
-            const rankRes: any = await this.bonesService.getUserRank(userId);
+            const rankRes: any = await this.bonesService.getUserRank(userId, sig);
             if (rankRes && rankRes.hasHero) {
               this.bonesUserRank = { rank: rankRes.rank ?? null, level: rankRes.level ?? null, totalPlayers: rankRes.totalPlayers ?? null };
             } else {
@@ -899,6 +915,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
 
   private async getGrandTheftPlayerInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (!this._parent.notificationsActive) {
       clearInterval(this.grandtheftInterval);
       return;
@@ -912,7 +930,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const grandTheftNav = this._parent.navigationItems.find(x => x.title === 'GrandTheft');
       if (grandTheftNav && this.hasUserSelectedNavItem('GrandTheft')) {
         try {
-          const res: any = await this.grandTheftService.getActivePlayers();
+          const res: any = await this.grandTheftService.getActivePlayers(sig);
           if (res) { 
             this.grandtheftActivePlayers = (res as User[]).length;
           }
@@ -928,6 +946,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getDigcraftPlayerInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (!this._parent.notificationsActive) {
       clearInterval(this.digcraftInterval);
       return;
@@ -941,7 +961,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const digcraftNav = this._parent.navigationItems.find(x => x.title === 'DigCraft');
       if (digcraftNav && this.hasUserSelectedNavItem('DigCraft')) {
         try {
-          const res: any = await this.digcraftService.getActivePlayers(2);
+          const res: any = await this.digcraftService.getActivePlayers(2, sig);
           this.digcraftActivePlayers = res?.count ?? null;
         } catch (e) {
           this.digcraftActivePlayers = null;
@@ -958,6 +978,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getMetaPlayerInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (!this._parent.notificationsActive) {
       clearInterval(this.metaInterval);
       return;
@@ -971,7 +993,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const metaNav = this._parent.navigationItems.find(x => x.title === 'Meta-Bots');
       if (metaNav && this.hasUserSelectedNavItem('Meta-Bots')) {
         try {
-          const res: any = await this.metaService.getActivePlayers(2);
+          const res: any = await this.metaService.getActivePlayers(2, sig);
           this.metaActivePlayers = res?.count ?? null;
         } catch (e) {
           this.metaActivePlayers = null;
@@ -980,7 +1002,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         try {
           const userId = this._parent.user?.id ?? 0;
           if (userId) {
-            const rankRes: any = await this.metaService.getUserRank(userId);
+            const rankRes: any = await this.metaService.getUserRank(userId, sig);
             if (rankRes && rankRes.hasBot) {
               this.metaUserRank = { rank: rankRes.rank ?? null, level: rankRes.level ?? null, totalPlayers: rankRes.totalPlayers ?? null };
             } else {
@@ -1002,6 +1024,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getMusicInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (!this._parent.notificationsActive) return;
     if (this._parent.lastRunTimestamps['music']
       && Date.now() - this._parent.lastRunTimestamps['music'] < this.time60Mins) {
@@ -1012,7 +1036,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const musicNav = this._parent.navigationItems.find(x => x.title === 'Music');
       if (musicNav && this.hasUserSelectedNavItem('Music')) {
         try {
-          const res: any = await this.todoService.getTodoCount(this._parent?.user?.id ?? 0, 'Music');
+          const res: any = await this.todoService.getTodoCount(this._parent?.user?.id ?? 0, 'Music', undefined, sig);
           this.musicTodoCount = res?.count ?? 0;
         } catch (error) {
           this.musicTodoCount = null;
@@ -1026,6 +1050,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getTodoInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (!this._parent.notificationsActive) {
       console.log('Notifications not active, skipping todo fetch');
       return;
@@ -1044,7 +1070,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const todoNav = this._parent.navigationItems.find(x => x.title === 'Todo');
       if (todoNav && this.hasUserSelectedNavItem('Todo')) {
         try {
-          const res: any = await this.todoService.getTodoCount(this._parent.user.id, 'Todo');
+          const res: any = await this.todoService.getTodoCount(this._parent.user.id, 'Todo', undefined, sig);
           this.todoCount = res?.count ?? 0;
         } catch (error) {
           this.todoCount = null;
@@ -1060,6 +1086,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getArrayPlayerInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (!this._parent.notificationsActive) {
       clearInterval(this.arrayInterval);
       return;
@@ -1073,7 +1101,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const arrayNav = this._parent.navigationItems.find(x => x.title === 'Array');
       if (arrayNav && this.hasUserSelectedNavItem('Array')) {
         try {
-          const res: any = await this.arrayService.getActivePlayers(2);
+          const res: any = await this.arrayService.getActivePlayers(2, sig);
           this.arrayActivePlayers = res?.count ?? null;
         } catch (error) { 
           this.arrayActivePlayers = null; 
@@ -1082,7 +1110,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         try {
           const userId = this._parent.user?.id ?? 0;
           if (userId) {
-            const rankRes: any = await this.arrayService.getUserRank(userId);
+            const rankRes: any = await this.arrayService.getUserRank(userId, sig);
             if (rankRes && rankRes.hasHero) {
               this.arrayUserRank = { rank: rankRes.rank ?? null, level: rankRes.level ?? null, totalPlayers: rankRes.totalPlayers ?? null };
             } else {
@@ -1104,6 +1132,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getEmulatorPlayerInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (!this._parent.notificationsActive) return;
     if (this._parent.lastRunTimestamps['emulator']
       && Date.now() - this._parent.lastRunTimestamps['emulator'] < this.time60Secs) {
@@ -1114,7 +1144,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const emuNav = this._parent.navigationItems.find(x => x.title === 'Emulator');
       if (emuNav && this.hasUserSelectedNavItem('Emulator')) {
         try {
-          const res: any = await this.romService.getActivePlayers(2);
+          const res: any = await this.romService.getActivePlayers(2, sig);
           this.emulatorActivePlayers = res?.count ?? null;
         } catch (error) { 
           this.emulatorActivePlayers = null; 
@@ -1128,6 +1158,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getSocialInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (!this._parent.notificationsActive) return;
     if (this._parent.lastRunTimestamps['social']
       && Date.now() - this._parent.lastRunTimestamps['social'] < this.time60Mins) {
@@ -1138,7 +1170,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const socialNav = this._parent.navigationItems.find(x => x.title === 'Social');
       if (socialNav && this.hasUserSelectedNavItem('Social')) {
         try {
-          const res: any = await this.socialService.getTotalPosts();
+          const res: any = await this.socialService.getTotalPosts(sig);
           this.socialTotalPosts = res?.count ?? null;
         } catch (error) { 
           this.socialTotalPosts = null; 
@@ -1152,6 +1184,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getCrawlerInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (!this._parent.notificationsActive) return;
     if (this._parent.lastRunTimestamps['crawler']
       && Date.now() - this._parent.lastRunTimestamps['crawler'] < this.time60Mins) {
@@ -1162,7 +1196,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const crawlerNav = this._parent.navigationItems.find(x => x.title === 'Crawler');
       if (crawlerNav && this.hasUserSelectedNavItem('Crawler')) {
         try {
-          const res: any = await this.crawlerService.indexCount();
+          const res: any = await this.crawlerService.indexCount(sig);
           const parsed = parseInt(res, 10);
           this.crawlerIndexCount = !isNaN(parsed) ? parsed : null;
         } catch (error) { 
@@ -1177,6 +1211,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   private async getArtInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (!this._parent.notificationsActive) return;
     if (this._parent.lastRunTimestamps['art']
       && Date.now() - this._parent.lastRunTimestamps['art'] < this.time60Mins) {
@@ -1188,7 +1224,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         const artNav = this._parent.navigationItems.find(x => x.title === 'Art');
         if (artNav && this.hasUserSelectedNavItem('Art')) {
           try {
-            const res: any = await this.fileService.getNumberOfArt();
+            const res: any = await this.fileService.getNumberOfArt(undefined, sig);
             this.artTotalSubmissions = res ?? 0;
           } catch (error) {
             this.artTotalSubmissions = null;
@@ -1204,6 +1240,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   async getWordlerStreakInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (!this._parent.notificationsActive) return;
     if (this._parent.lastRunTimestamps['wordler']
       && Date.now() - this._parent.lastRunTimestamps['wordler'] < this.time60Mins) {
@@ -1214,7 +1252,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     this.isLoadingWordlerStreak = true;
     try {
-      const res = await this.wordlerService.getTodaysDayStreak(this._parent.user.id);
+      const res = await this.wordlerService.getTodaysDayStreak(this._parent.user.id, sig);
       if (res && res != "0") {
         const wordlerNav = this._parent.navigationItems.find(x => x.title == "Wordler");
         if (wordlerNav) {
@@ -1386,6 +1424,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
   }
   private async getNewsCountInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
     if (this._parent.lastRunTimestamps['newsCount']
       && Date.now() - this._parent.lastRunTimestamps['newsCount'] < this.time60Mins) {
       return;
@@ -1398,7 +1438,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       if (this._parent?.navigationItems) {
         const newsNav = this._parent.navigationItems.find(x => x.title === 'News');
         if (newsNav && this.hasUserSelectedNavItem('News')) {
-          const count = await this.newsService.getNewsCount();
+          const count = await this.newsService.getNewsCount(sig);
           newsNav.content = count && count > 0 ? this.shortenCount(count) : '';
         }
       }

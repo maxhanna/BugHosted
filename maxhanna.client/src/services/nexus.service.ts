@@ -20,14 +20,15 @@ export class NexusService {
   private readonly cacheTtlMs = 60 * 60 * 1000;      // 60-min sliding TTL
   private beginnerCache = new Map<number, BeginnerCacheEntry>();
 
-  private async fetchData(url: string, body?: any) {
+  private async fetchData(url: string, body?: any, signal?: AbortSignal) {
     try {
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: body ? JSON.stringify(body) : body
+        body: body ? JSON.stringify(body) : body,
+        signal
       });
 
       const res = await response;
@@ -170,11 +171,11 @@ export class NexusService {
   async getEpochRankings(): Promise<any> {
     return await this.fetchData('/nexus/getepochrankings');
   } 
-  async getActivePlayers(minutes = 2) {
-    return this.fetchData('/nexus/activeplayers', minutes);
+  async getActivePlayers(minutes = 2, signal?: AbortSignal) {
+    return this.fetchData('/nexus/activeplayers', minutes, signal);
   }
-  async getUserRank(userId: number) {
-    return this.fetchData('/nexus/getuserrank', userId);
+  async getUserRank(userId: number, signal?: AbortSignal) {
+    return this.fetchData('/nexus/getuserrank', userId, signal);
   }
 
   formatTimer(allSeconds?: number): string {

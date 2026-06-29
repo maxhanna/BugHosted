@@ -8,12 +8,13 @@ import { ArrayCharacterInventory } from './datacontracts/array/array-character-i
   providedIn: 'root'
 })
 export class ArrayService {
-  private async fetchData(url: string, body?: any) {
+  private async fetchData(url: string, body?: any, signal?: AbortSignal) {
     try {
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: body ? JSON.stringify(body) : body
+        body: body ? JSON.stringify(body) : body,
+        signal
       });
       if (!response.ok) return await response.text();
       const contentType = response.headers.get('Content-Type');
@@ -22,10 +23,11 @@ export class ArrayService {
     } catch { return null; }
   }
 
-  async getActivePlayers(minutes: number = 2) {
-    return this.fetchData('/array/activeplayers', minutes);
+  async getActivePlayers(minutes: number = 2, signal?: AbortSignal) {
+    return this.fetchData('/array/activeplayers', minutes, signal);
   }
-  async getUserRank(userId: number) {
+
+  async getUserRank(userId: number, signal?: AbortSignal) {
     return this.fetchData('/array/getuserrank', userId);
   }
   async getHero(userId?: number) {

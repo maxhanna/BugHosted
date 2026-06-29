@@ -24,14 +24,15 @@ export class MiningService {
       return null; 
     }
   }
-  async getMiningRigInfo(userId: number) {
+  async getMiningRigInfo(userId: number, signal?: AbortSignal) {
     try {
       const response = await fetch(`/mining`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(userId), 
+        body: JSON.stringify(userId),
+        signal
       });
 
       return await response.json();

@@ -241,11 +241,12 @@ export class SocialService {
     }
   }
 
-  async getTotalPosts() {
+  async getTotalPosts(signal?: AbortSignal) {
     try {
       const res = await fetch('/social/totalposts', {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        signal
       });
       if (!res.ok) {
         throw new Error('Failed to get total posts');

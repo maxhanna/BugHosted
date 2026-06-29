@@ -197,9 +197,9 @@ export class NewsService {
     }
   }
 
-  async getNewsCount(): Promise<number> {
+  async getNewsCount(signal?: AbortSignal): Promise<number> {
     try {
-      const res = await fetch('/news/count', { method: 'GET' });
+      const res = await fetch('/news/count', { method: 'GET', signal });
       if (!res.ok) return 0;
       const obj = await res.json();
       return obj?.count ?? 0;

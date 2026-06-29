@@ -13,30 +13,21 @@ import { MetaBotPart } from './datacontracts/meta/meta-bot-part';
 })
 export class MetaService {
 
-  private async fetchData(url: string, body?: any) {
+  private async fetchData(url: string, body?: any, signal?: AbortSignal) {
     try {
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: body ? JSON.stringify(body) : body
+        body: body ? JSON.stringify(body) : body,
+        signal
       });
-
-      const res = await response;
-      if (!res.ok) {
-        return await res.text();
-      }
-
+      if (!response.ok) return await response.text();
       const contentType = response.headers.get('Content-Type');
-      if (contentType && contentType.includes('application/json')) {
-        return await response.json();
-      } else {
-        return await response.text();
-      }
-    } catch (error) {
-      //console.error(error);
-    }
+      if (contentType && contentType.includes('application/json')) return await response.json();
+      return await response.text();
+    } catch { return null; }
   }
 
   async getHero(userId: number): Promise<MetaHero | undefined> {
@@ -85,11 +76,11 @@ export class MetaService {
     return this.fetchData('/meta/getherohighscores', count);
   }
 
-  async getActivePlayers(minutes: number = 2) {
-    return this.fetchData('/meta/activeplayers', minutes);
+  async getActivePlayers(minutes: number = 2, signal?: AbortSignal) {
+    return this.fetchData('/meta/activeplayers', minutes, signal);
   }
 
-  async getUserRank(userId: number) {
-    return this.fetchData('/meta/getuserrank', userId);
+  async getUserRank(userId: number, signal?: AbortSignal) {
+    return this.fetchData('/meta/getuserrank', userId, signal);
   }
 }

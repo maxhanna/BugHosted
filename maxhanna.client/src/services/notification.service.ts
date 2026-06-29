@@ -9,14 +9,15 @@ import { UserNotification } from './datacontracts/notification/user-notification
 })
 export class NotificationService {
 
-  private async fetchData(url: string, body: any) {
+  private async fetchData(url: string, body: any, signal?: AbortSignal) {
     try {
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        signal
       });
 
       const res = await response;
@@ -34,8 +35,8 @@ export class NotificationService {
       console.error(error);
     }
   }
-  async getNotifications(userId: number): Promise<UserNotification[]> {
-    return await this.fetchData('/notification', userId);
+  async getNotifications(userId: number, signal?: AbortSignal): Promise<UserNotification[]> {
+    return await this.fetchData('/notification', userId, signal);
   }
   async deleteNotifications(userId: number, notificationIds?: number[]): Promise<string> {
     return await this.fetchData('/notification/delete', { UserId: userId, NotificationIds: notificationIds });

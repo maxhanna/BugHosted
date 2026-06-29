@@ -125,7 +125,7 @@ export class FriendService {
   }
 
   // Returns { count: number } of active friends within the last N minutes (default 10)
-  async getActiveFriendCount(userId: number, minutes: number = 10) {
+  async getActiveFriendCount(userId: number, minutes: number = 10, signal?: AbortSignal) {
     if (!userId) return { count: 0 };
     try {
       const response = await fetch(`/friend/activecount`, {
@@ -133,7 +133,8 @@ export class FriendService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ UserId: userId, Minutes: minutes })
+        body: JSON.stringify({ UserId: userId, Minutes: minutes }),
+        signal
       });
       if (!response.ok) {
         return { count: 0 };
