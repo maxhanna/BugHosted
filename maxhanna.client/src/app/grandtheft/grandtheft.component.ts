@@ -2950,7 +2950,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const maxSpeed = 35, climbRate = 12, yawSpeed = 2.0, turnSpeed = 2.5;
 
     if (this.isMobile && this.joystickActive) {
-      if (Math.abs(this.joystickX) > 0.1) this.carYaw += this.joystickX * turnSpeed * dt;
+      if (Math.abs(this.joystickX) < 0.1) this.carYaw += this.joystickX * turnSpeed * dt;
     } else {
       if (this.keys.has('KeyA')) this.carYaw += turnSpeed * dt;
       if (this.keys.has('KeyD')) this.carYaw -= turnSpeed * dt;
