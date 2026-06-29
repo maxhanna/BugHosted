@@ -110,11 +110,11 @@
 
     <div id="gt-mobile-chat" *ngIf="isMobile" (touchstart)="onButtonTouch($event); isChatOpen = true; chatInput = ''"
       style="position: absolute; top:10px; left:calc(100% -80px);">CHAT</div>
-      <div id="gt-mobile-weapon-wheel" *ngIf="isMobile" (touchstart)="onButtonTouch($event); toggleWeaponWheel()"
-        style="position: absolute; top:60px; left:calc(100% -80px);">WEPS</div>
-        <div id="gt-mobile-map" *ngIf="isMobile" (touchstart)="onButtonTouch($event); toggleMap()"
-          style="position: absolute; top:110px; left:calc(100% -80px);">MAP</div>
-    <div id="gt-mobile" *ngIf="isMobile"> 
+    <div id="gt-mobile-weapon-wheel" *ngIf="isMobile" (touchstart)="onButtonTouch($event); toggleWeaponWheel()"
+      style="position: absolute; top:60px; left:calc(100% -80px);">WEPS</div>
+    <div id="gt-mobile-map" *ngIf="isMobile" (touchstart)="onButtonTouch($event); toggleMap()"
+      style="position: absolute; top:110px; left:calc(100% -80px);">MAP</div>
+    <div id="gt-mobile" *ngIf="isMobile">
       <div id="gt-joystick">
         <div id="gt-joystick-base">
           <div id="gt-joystick-thumb"></div>
@@ -167,7 +167,8 @@
 
     <div id="gt-alt-buttons" *ngIf="isInCar && (vehicleType === 'helicopter' || vehicleType === 'plane')">
       <button class="gt-alt-btn" (touchstart)="altUpPressed = true" (touchend)="altUpPressed = false"
-        (mousedown)="altUpPressed = true" (mouseup)="altUpPressed = false" (mouseleave)="altUpPressed = false">▲</button>
+        (mousedown)="altUpPressed = true" (mouseup)="altUpPressed = false"
+        (mouseleave)="altUpPressed = false">▲</button>
       <button class="gt-alt-btn" (touchstart)="altDownPressed = true" (touchend)="altDownPressed = false"
         (mousedown)="altDownPressed = true" (mouseup)="altDownPressed = false"
         (mouseleave)="altDownPressed = false">▼</button>
