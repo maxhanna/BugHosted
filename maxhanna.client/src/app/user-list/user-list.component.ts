@@ -1,5 +1,5 @@
-import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Injector, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
-import { UserService } from '../../services/user.service';
+﻿import { ChangeDetectorRef, Component, ElementRef, EventEmitter, Injector, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+import { ActiveGamer, UserService } from '../../services/user.service';
 import { ChatNotification } from '../../services/datacontracts/chat/chat-notification';
 import { ChatService } from '../../services/chat.service';
 import { ChildComponent } from '../child.component';
@@ -45,11 +45,10 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   selectedUsers: Array<User> = [];
   filterOption: string = 'all';
   friendSelected = false;
+  activeGamers: ActiveGamer[] = [];
 
-
-  constructor(private userService: UserService, private chatService: ChatService, 
-    private friendService: FriendService, private injector: Injector, private cdr: ChangeDetectorRef) 
-  {
+  constructor(private userService: UserService, private chatService: ChatService,
+    private friendService: FriendService, private injector: Injector, private cdr: ChangeDetectorRef) {
     super();
   }
   async ngOnInit() {
@@ -65,8 +64,11 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
     if (!this.searchOnly) {
       const chatNotifPromise = this.getChatNotifications();
       const usersPromise = this.getUsers();
+      const activeGamersPromise = this.userService.getActiveGamers().then(gamers => {
+        this.activeGamers = gamers;
+      });
       this.chatInfoInterval = setInterval(() => this.getChatNotifications(), 30 * 1000);
-      await Promise.all([chatNotifPromise, usersPromise]);
+      await Promise.all([chatNotifPromise, usersPromise, activeGamersPromise]);
       this.sortUsersByNotifications();
       if (!this.user) {
         if (this.parentRef) {
@@ -269,6 +271,10 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
       return false;
     }).length;
   }
+
+  isUsersActiveGame(user: User): string | undefined {
+    return this.activeGamers.filter(gamer => gamer.userId === user.id || gamer.user?.id == user.id)[0].game;
+  } 
 
   getOnlineUserCountFromMessageRows() {
     const parent = this.inputtedParentRef ?? this.parentRef;

@@ -1,4 +1,4 @@
-<!-- Search Popup -->
+﻿<!-- Search Popup -->
 <!-- <div class="{{searchOnly ? '' : 'popupPanel searchPopup'}}" *ngIf="isSearchPanelOpen"> -->
 <div class="popupPanelTitle" *ngIf="isSearchPanelOpen || openDirectlyToSearch">Search Users</div>
   <div class="searchDiv" [style.display]="searchOnly ? 'inline-flex' : 'flex'">
@@ -71,6 +71,7 @@
                     [preventOpenProfile]="true"
                     [preventExpandPicture]="true"></app-user-tag>   
     </span>
+    <span>{{isUsersActiveGame(user)}}</span>
     <span class="chatIcon" *ngIf="getChatNotificationsByUserId(user.id)">
       💬
       <span class="chatNotificationNumber">
