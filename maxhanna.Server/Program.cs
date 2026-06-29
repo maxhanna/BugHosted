@@ -2,6 +2,7 @@
 using FirebaseAdmin;
 using FirebaseAdmin.Auth;
 using Google.Apis.Auth.OAuth2;
+using maxhanna.Api.Extensions;
 using maxhanna.Server.Controllers;
 using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Http.Features;
@@ -33,6 +34,7 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddSignalR();
 
+builder.Services.AddDbOperationQueue();
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient<maxhanna.Server.Helpers.NewsHttpClient>();
 builder.Services.AddHostedService<SystemBackgroundService>();

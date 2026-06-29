@@ -1,4 +1,5 @@
-﻿using maxhanna.Server.Controllers;
+﻿using maxhanna.Infrastructure;
+using maxhanna.Server.Controllers;
 using maxhanna.Server.Controllers.DataContracts.Calendar;
 using maxhanna.Server.Controllers.DataContracts.Crypto;
 using maxhanna.Server.Controllers.DataContracts.Meta;
@@ -16,6 +17,7 @@ namespace maxhanna.Server.Services
     private readonly string _coinwatchUrl = "https://api.livecoinwatch.com/coins/list";
     private readonly string _connectionString;
     private readonly HttpClient _httpClient;
+    private readonly DbOperationQueue _dbQueue;
     private readonly WebCrawler _webCrawler;
     private readonly KrakenService _krakenService;
     private readonly AiController _aiController;
@@ -26,13 +28,19 @@ namespace maxhanna.Server.Services
     private readonly IConfiguration _config; // needed for apiKey 
     private readonly RomEnrichmentService _romEnrichmentService;
     private Timer _tenSecondTimer;
+    private int _isRunning10SecTasks = 0; // 0 = false, 1 = true
     private Timer _halfMinuteTimer;
-    // private Timer _minuteTimer;
+    private int _isRunning30SecTasks = 0;
     private Timer _fiveMinuteTimer;
+    private int _isRunningFiveMinuteTasks = 0;
     private Timer _hourlyTimer;
+    private int _isRunningHourlyTasks = 0;
     private Timer _threeHourTimer;
+    private int _isRunningThreeHourTasks = 0;
     private Timer _sixHourTimer;
-    private Timer _dailyTimer; 
+    private int _isRunningSixHourTasks = 0;
+    private Timer _dailyTimer;
+    private int _isRunningDailyTasks = 0;
     private static bool _initialDelayApplied = false;
     private bool isCrawling = false;
     private bool lastWasCrypto = false;
@@ -47,9 +55,12 @@ namespace maxhanna.Server.Services
       { "Dogecoin", "Ɖ" }, { "XDG", "Ɖ" }, { "Solana", "◎" }, { "SOL", "◎" }
     };
     private readonly string _memeDirectory = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/";
-    public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, AiController aiController, KrakenService krakenService, NewsService newsService, ProfitCalculationService profitService, TradeIndicatorService indicatorService, RomEnrichmentService romEnrichmentService)
+    public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, 
+    AiController aiController, KrakenService krakenService, NewsService newsService,
+    TradeIndicatorService indicatorService, RomEnrichmentService romEnrichmentService, DbOperationQueue queue)
     {
       _config = config;
+      _dbQueue = queue;
       _romEnrichmentService = romEnrichmentService;
       _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
       _apiKey = config.GetValue<string>("CoinWatch:ApiKey")!;
@@ -62,7 +73,6 @@ namespace maxhanna.Server.Services
       _indicatorService = indicatorService;
       _tenSecondTimer = new Timer(async _ => await Run10SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
       _halfMinuteTimer = new Timer(async _ => await Run30SecondTasks(), null, Timeout.Infinite, Timeout.Infinite);
-      //_minuteTimer = new Timer(async _ => await RunOneMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
       _fiveMinuteTimer = new Timer(async _ => await RunFiveMinuteTasks(), null, Timeout.Infinite, Timeout.Infinite);
       _hourlyTimer = new Timer(async _ => await RunHourlyTasks(), null, Timeout.Infinite, Timeout.Infinite);
       _threeHourTimer = new Timer(async _ => await RunThreeHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
@@ -81,7 +91,6 @@ namespace maxhanna.Server.Services
         }
         catch (OperationCanceledException) { /* shutting down */ }
       }
-      // Each timer keeps its periodic interval; the initial due time is randomized.
       var rnd = new Random((int)DateTime.UtcNow.Ticks & 0x0000FFFF);
 
       // Small randomized delays for first run (only) - compressed so first executions happen sooner
@@ -96,12 +105,10 @@ namespace maxhanna.Server.Services
 
       _tenSecondTimer.Change(tenSecDelay, TimeSpan.FromSeconds(10));
       _halfMinuteTimer.Change(halfMinDelay, TimeSpan.FromSeconds(30));
-      //  _minuteTimer.Change(minuteDelay, TimeSpan.FromMinutes(1));
       _fiveMinuteTimer.Change(fiveMinDelay, TimeSpan.FromMinutes(5));
       _hourlyTimer.Change(hourlyDelay, TimeSpan.FromHours(1));
       _threeHourTimer.Change(threeHourDelay, TimeSpan.FromHours(3));
       _sixHourTimer.Change(sixHourDelay, TimeSpan.FromHours(6));
-      // Daily timer remains scheduled to next midnight
       _dailyTimer.Change(CalculateNextDailyRun(), TimeSpan.FromHours(24));
 
       // Keep the service running until cancellation
@@ -110,121 +117,375 @@ namespace maxhanna.Server.Services
         await Task.Delay(1000, stoppingToken);
       }
     }
-
-    // private async Task RunSmokeTests()
-    // {
-    //   Console.WriteLine("Running initial smoke tests...");
-    //   //await RunDailyTasks();
-    // }
+ 
     private async Task Run10SecondTasks()
     {
-      await MakeCryptoTrade();
+      // 1. PREVENT OVERLAPPING EXECUTIONS
+      // If the previous 10-second task isn't done yet, skip this tick.
+      if (Interlocked.CompareExchange(ref _isRunning10SecTasks, 1, 0) != 0)
+      {
+        return;
+      }
+
+      try
+      { 
+        await _dbQueue.RunImmediateAsync(async () =>
+        {
+          await MakeCryptoTrade();
+        });
+      }
+      catch (Exception ex)
+      {
+        // 3. HANDLE SILENT EXCEPTIONS
+        // async void/Timer callbacks swallow exceptions. You must catch and log them,
+        // otherwise your background service will silently fail and stop working.
+        _ = _log.Db($"Error in Run10SecondTasks {ex.Message}", null, "SYSTEM", outputToConsole: true); // Adjust to your actual _log method
+      }
+      finally
+      {
+        // Reset the guard so the next timer tick can run
+        Interlocked.Exchange(ref _isRunning10SecTasks, 0);
+      }
     }
+
     private async Task Run30SecondTasks()
-    {
-      await SpawnEncounterMetabots();
-      await FetchWebsiteMetadata();
+    { 
+      if (Interlocked.CompareExchange(ref _isRunning30SecTasks, 1, 0) != 0)
+      {
+        return;
+      }
+
+      try
+      { 
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await SpawnEncounterMetabots();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await FetchWebsiteMetadata();
+        });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error in Run30SecondTasks {ex.Message}", null, "SYSTEM", outputToConsole: true); // Adjust to your actual _log method
+      }
+      finally
+      { 
+        Interlocked.Exchange(ref _isRunning30SecTasks, 0);
+      }
     }
-    // private async Task RunOneMinuteTasks()
-    // {
-    //   //await _aiController.AnalyzeAndRenameFile(); 
-    // }
+
+
     private async Task RunFiveMinuteTasks()
     {
-      await SendCalendarNotifications();
-      await _aiController.AnalyzeAndRenameFile();
-      await CleanOneSluggyFileNameAsync();
-      await FetchAndStoreTopMarketCaps();
-      await UpdateLastBTCWalletInfo();
-      await FetchAndStoreCoinValues();
-      _miningApiService.UpdateWalletInDB(_config, _log);
-      lastWasCrypto = !lastWasCrypto;
-      if (await _newsAndScrapeLock.WaitAsync(0))
+      if (Interlocked.CompareExchange(ref _isRunningFiveMinuteTasks, 1, 0) != 0)
       {
-        try
-        {
-          List<maxhanna.Server.Controllers.DataContracts.News.Article>? topHeadlines = await _newsService.GetAndSaveTopQuarterHourlyHeadlines(!lastWasCrypto ? "Cryptocurrency" : null);
-
-          if (!_indicatorService.IsUpdating)
-          {
-            await _indicatorService.UpdateIndicators();
-          }
-          else
-          {
-            _ = _log.Db("Skipping indicator update - already in progress", null, "TISVC", outputToConsole: true);
-          }
-
-          if (topHeadlines != null)
-          {
-            foreach (var article in topHeadlines)
-            {
-              if (article.Url == null) { continue; }
-              try
-              {
-                await _webCrawler.StartScrapingAsync(article.Url);
-              }
-              catch (Exception ex)
-              {
-                await _log.Db($"Scraping failed for {article.Url}: {ex.Message}", null, "CRAWLER", true);
-              }
-            }
-          }
-        }
-        finally
-        {
-          _newsAndScrapeLock.Release();
-        }
+        return;
       }
-      else
+
+      try
       {
-        _ = _log.Db("Skipping news/scrape cycle - previous invocation still in progress", null, "SYSTEM", true);
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await SendCalendarNotifications();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await _aiController.AnalyzeAndRenameFile();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await CleanOneSluggyFileNameAsync();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await FetchAndStoreTopMarketCaps();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await UpdateLastBTCWalletInfo();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await FetchAndStoreCoinValues();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          _miningApiService.UpdateWalletInDB(_config, _log);
+        });
+        
+        lastWasCrypto = !lastWasCrypto;
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await ScrapeNews();
+        }); 
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error in RunFiveMinuteTasks {ex.Message}", null, "SYSTEM", outputToConsole: true); // Adjust to your actual _log method
+      }
+      finally
+      { 
+        Interlocked.Exchange(ref _isRunningFiveMinuteTasks, 0);
       }
     }
+
 
     private async Task RunHourlyTasks()
     {
-      await AssignTrophies();
-      await _romEnrichmentService.RunAsync();
-      await _aiController.ProvideMarketAnalysis();
-      await CleanupOrphanedPhotos();
-      await _log.DeleteOldLogs();
-      await DeleteExpiredDigCraftDrops();
-      await DeleteExecutedWeaverCommands();
+      if (Interlocked.CompareExchange(ref _isRunningHourlyTasks, 1, 0) != 0)
+      {
+        return;
+      }
+
+      try
+      {
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await AssignTrophies();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await _romEnrichmentService.RunAsync();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await _aiController.ProvideMarketAnalysis();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await CleanupOrphanedPhotos();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await _log.DeleteOldLogs();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await DeleteExpiredDigCraftDrops();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await DeleteExecutedWeaverCommands();
+        });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error in RunHourlyTasks {ex.Message}", null, "SYSTEM", outputToConsole: true); // Adjust to your actual _log method
+      }
+      finally
+      {
+        // 4. RESET THE GUARD
+        Interlocked.Exchange(ref _isRunningHourlyTasks, 0);
+      }
     }
+
+
     private async Task RunSixHourTasks()
     {
-      await FetchExchangeRates();
-      await FetchAndStoreCryptoEvents();
-      await FetchAndStoreFearGreedAsync();
-      await FetchAndStoreGlobalMetricsAsync();
-      await DeleteHostAiRequests();
-      await DeleteOldCalendarNotifications();
+      if (Interlocked.CompareExchange(ref _isRunningSixHourTasks, 1, 0) != 0)
+      {
+        return;
+      }
+
+      try
+      {
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await FetchExchangeRates();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await FetchAndStoreCryptoEvents();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await FetchAndStoreFearGreedAsync();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await FetchAndStoreGlobalMetricsAsync();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await DeleteHostAiRequests();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await DeleteOldCalendarNotifications();
+        });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error in RunSixHourTasks {ex.Message}", null, "SYSTEM", outputToConsole: true); // Adjust to your actual _log method
+      }
+      finally
+      {
+        // 4. RESET THE GUARD
+        Interlocked.Exchange(ref _isRunningSixHourTasks, 0);
+      }
     }
+
+
+
     private async Task RunThreeHourTasks()
     {
-      await MoveInactiveEnderHeroes();
-      await DeleteOldSearchResults();
-      await DeleteOldTradeVolumesSixMonths();
-    }
+      if (Interlocked.CompareExchange(ref _isRunningThreeHourTasks, 1, 0) != 0)
+      {
+        return;
+      }
+
+      try
+      {
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await MoveInactiveEnderHeroes();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await DeleteOldSearchResults();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await DeleteOldTradeVolumesSixMonths();
+        });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error in RunThreeHourTasks {ex.Message}", null, "SYSTEM", outputToConsole: true); // Adjust to your actual _log method
+      }
+      finally
+      {
+        Interlocked.Exchange(ref _isRunningThreeHourTasks, 0);
+      }
+    }  
+
     private async Task RunDailyTasks()
     {
-      await DeleteOldBattleReports();
-      await DeleteOldGuests();
-      await DeleteOldSearchQueries();
-      await DeleteOldSentimentAnalysis();
-      await DeleteOldGlobalMetrics();
-      await DeleteNotificationRequests();
-      await DeleteOldCoinValueEntries();
-      await DeleteOldNews();
-      await DeleteOldNewsPins();
-      await DeleteOldCoinMarketCaps();
-      await DeleteOldEnderScores();
-      await _newsService.CreateDailyNewsStoryAsync();
-      await CleanupOldFavourites();
-      await DeleteExpiredPasswordResetTokens();
-      await DeleteOldUserEvents();
-      await _log.BackupDatabase();
-    }
+      if (Interlocked.CompareExchange(ref _isRunningDailyTasks, 1, 0) != 0)
+      {
+        return;
+      }
+
+      try
+      {
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await DeleteOldBattleReports();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await DeleteOldGuests();
+        });
+
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await DeleteOldSearchQueries();
+        });
+
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await DeleteOldSentimentAnalysis();
+        });
+
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await DeleteOldGlobalMetrics();
+        });
+
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await DeleteNotificationRequests();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await DeleteOldCoinValueEntries();
+        }); 
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await DeleteOldNews();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await DeleteOldNewsPins();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await DeleteOldCoinMarketCaps();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await DeleteOldEnderScores();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await _newsService.CreateDailyNewsStoryAsync();
+        });
+
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await CleanupOldFavourites();
+        });
+
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await DeleteExpiredPasswordResetTokens();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await DeleteOldUserEvents();
+        });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await _log.BackupDatabase();
+        });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error in RunDailyTasks {ex.Message}", null, "SYSTEM", outputToConsole: true); // Adjust to your actual _log method
+      }
+      finally
+      {
+        Interlocked.Exchange(ref _isRunningDailyTasks, 0);
+      }
+    }  
 
     private TimeSpan CalculateNextDailyRun()
     {
@@ -1400,7 +1661,7 @@ namespace maxhanna.Server.Services
 
     private async Task FetchAndStoreTopMarketCaps()
     {
-     // await _log.Db("Fetching top market caps from CoinMarketCap...", null, "MCS", outputToConsole: true);
+      // await _log.Db("Fetching top market caps from CoinMarketCap...", null, "MCS", outputToConsole: true);
 
       try
       {
@@ -1523,7 +1784,7 @@ namespace maxhanna.Server.Services
             }
             else
             {
-          //    await _log.Db($"No historical data found for {coinNameSafe} ({coinId}), using current cap", null, "MCS", outputToConsole: true);
+              //    await _log.Db($"No historical data found for {coinNameSafe} ({coinId}), using current cap", null, "MCS", outputToConsole: true);
             }
 
             // Calculate 24h inflow change (now non-zero!)
@@ -1557,7 +1818,7 @@ namespace maxhanna.Server.Services
             }
           }
         }
-      //  await _log.Db($"Successfully stored {coins.Count} top market cap records", null, "MCS", outputToConsole: true);
+        //  await _log.Db($"Successfully stored {coins.Count} top market cap records", null, "MCS", outputToConsole: true);
       }
       catch (Exception ex)
       {
@@ -1578,7 +1839,7 @@ namespace maxhanna.Server.Services
         return typeId;
       }
 
-     // _ = _log.Db($"Bot type '{botTypeName}' not found in meta_encounter_bot_type.", null);
+      // _ = _log.Db($"Bot type '{botTypeName}' not found in meta_encounter_bot_type.", null);
       return 0; // Fallback or throw an exception based on your requirements
     }
     private async Task<ExchangeRateData?> FetchExchangeRates()
@@ -1631,7 +1892,7 @@ namespace maxhanna.Server.Services
           var exists = await checkCmd.ExecuteScalarAsync();
           if (exists != null)
           {
-        //    _ = _log.Db("Exchange rates not added (latest table already updated within 6 hours).", null);
+            //    _ = _log.Db("Exchange rates not added (latest table already updated within 6 hours).", null);
             return;
           }
         }
@@ -1648,7 +1909,7 @@ namespace maxhanna.Server.Services
 
         if (exchangeData?.Rates == null || exchangeData.Rates.Count == 0)
         {
-        //  _ = _log.Db("No exchange rates found in the response.", null);
+          //  _ = _log.Db("No exchange rates found in the response.", null);
           return;
         }
 
@@ -1715,7 +1976,7 @@ namespace maxhanna.Server.Services
 
         await tx.CommitAsync();
 
-     //   _ = _log.Db("Exchange rates stored successfully (historical + latest).");
+        //   _ = _log.Db("Exchange rates stored successfully (historical + latest).");
       }
       catch (Exception ex)
       {
@@ -1740,7 +2001,7 @@ namespace maxhanna.Server.Services
           using (var deleteCmd = new MySqlCommand(deleteSql, conn))
           {
             int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-         //   _ = _log.Db($"Deleted {affectedRows} guest accounts older than 10 days.");
+            //   _ = _log.Db($"Deleted {affectedRows} guest accounts older than 10 days.");
           }
         }
       }
@@ -1771,7 +2032,7 @@ namespace maxhanna.Server.Services
           using (var deleteCmd = new MySqlCommand(deleteSql, conn))
           {
             int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-        //    _ = _log.Db($"Deleted {affectedRows} search results older than 30 days.", null);
+            //    _ = _log.Db($"Deleted {affectedRows} search results older than 30 days.", null);
           }
         }
       }
@@ -1795,7 +2056,7 @@ namespace maxhanna.Server.Services
           using (var deleteCmd = new MySqlCommand(deleteSql, conn))
           {
             int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-     //       _ = _log.Db($"Deleted {affectedRows} search queries older than 7 days.", null);
+            //       _ = _log.Db($"Deleted {affectedRows} search queries older than 7 days.", null);
           }
         }
       }
@@ -1830,7 +2091,7 @@ namespace maxhanna.Server.Services
         {
           affected = await cmd.ExecuteNonQueryAsync();
         }
-    //    _ = _log.Db($"Deleted {affected} old Ender scores (older than 3 days, excluding each user's top 20).", null, "ENDER_CLEANUP", true);
+        //    _ = _log.Db($"Deleted {affected} old Ender scores (older than 3 days, excluding each user's top 20).", null, "ENDER_CLEANUP", true);
       }
       catch (Exception ex)
       {
@@ -1852,7 +2113,7 @@ namespace maxhanna.Server.Services
           using (var deleteCmd = new MySqlCommand(deleteSql, conn))
           {
             int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-    //        _ = _log.Db($"Deleted {affectedRows} market sentiment analysis records older than 10 years.", null);
+            //        _ = _log.Db($"Deleted {affectedRows} market sentiment analysis records older than 10 years.", null);
           }
         }
       }
@@ -2064,7 +2325,7 @@ namespace maxhanna.Server.Services
             }
           }
 
-    //      _ = _log.Db($"Trophies assigned successfully. Total trophies awarded: {trophiesAssigned}", null);
+          //      _ = _log.Db($"Trophies assigned successfully. Total trophies awarded: {trophiesAssigned}", null);
         }
       }
       catch (Exception ex)
@@ -2222,7 +2483,7 @@ namespace maxhanna.Server.Services
           }
         }
 
-   //     _ = _log.Db($"PlantPhotoCleanupBackgroundService: deleted {orphanedPhotos.Count} orphaned photo(s)", null, "PLANTER", false);
+        //     _ = _log.Db($"PlantPhotoCleanupBackgroundService: deleted {orphanedPhotos.Count} orphaned photo(s)", null, "PLANTER", false);
       }
       catch (Exception ex)
       {
@@ -2252,20 +2513,20 @@ namespace maxhanna.Server.Services
     }
     private async Task DeleteOldCalendarNotifications()
     {
-        try
+      try
+      {
+        await using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
+        const string deleteSql = "DELETE FROM calendar_notifications_sent WHERE notification_sent < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY);";
+        await using (var cmd = new MySqlCommand(deleteSql, conn))
         {
-            await using var conn = new MySqlConnection(_connectionString);
-            await conn.OpenAsync();
-            const string deleteSql = "DELETE FROM calendar_notifications_sent WHERE notification_sent < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY);";
-            await using (var cmd = new MySqlCommand(deleteSql, conn))
-            {
-                await cmd.ExecuteNonQueryAsync();
-            }
+          await cmd.ExecuteNonQueryAsync();
         }
-        catch (Exception ex)
-        {
-            await _log.Db($"Error deleting old calendar notifications: {ex.Message}", null, "SYSTEM", outputToConsole: true);
-        }
+      }
+      catch (Exception ex)
+      {
+        await _log.Db($"Error deleting old calendar notifications: {ex.Message}", null, "SYSTEM", outputToConsole: true);
+      }
     }
 
     private async Task FetchAndStoreCoinValues()
@@ -2414,7 +2675,7 @@ namespace maxhanna.Server.Services
 
         await tx.CommitAsync();
 
-      //  _ = _log.Db($"Coin values stored. Inserted(historical): {inserted}, Latest upserts: {upserts}, Skipped (fresh): {skippedFresh}.", null, "COINSVC", outputToConsole: true);
+        //  _ = _log.Db($"Coin values stored. Inserted(historical): {inserted}, Latest upserts: {upserts}, Skipped (fresh): {skippedFresh}.", null, "COINSVC", outputToConsole: true);
       }
       catch (Exception ex)
       {
@@ -2422,7 +2683,49 @@ namespace maxhanna.Server.Services
       }
     }
 
+  private async Task ScrapeNews()
+    {
+      if (await _newsAndScrapeLock.WaitAsync(0))
+      {
+        try
+        {
+          List<maxhanna.Server.Controllers.DataContracts.News.Article>? topHeadlines = await _newsService.GetAndSaveTopQuarterHourlyHeadlines(!lastWasCrypto ? "Cryptocurrency" : null);
 
+          if (!_indicatorService.IsUpdating)
+          {
+            await _indicatorService.UpdateIndicators();
+          }
+          else
+          {
+            _ = _log.Db("Skipping indicator update - already in progress", null, "TISVC", outputToConsole: true);
+          }
+
+          if (topHeadlines != null)
+          {
+            foreach (var article in topHeadlines)
+            {
+              if (article.Url == null) { continue; }
+              try
+              {
+                await _webCrawler.StartScrapingAsync(article.Url);
+              }
+              catch (Exception ex)
+              {
+                await _log.Db($"Scraping failed for {article.Url}: {ex.Message}", null, "CRAWLER", true);
+              }
+            }
+          }
+        }
+        finally
+        {
+          _newsAndScrapeLock.Release();
+        }
+      }
+      else
+      {
+        _ = _log.Db("Skipping news/scrape cycle - previous invocation still in progress", null, "SYSTEM", true);
+      }
+    }
 
     private async Task<CoinResponse[]> FetchCoinData()
     {
@@ -2493,7 +2796,7 @@ namespace maxhanna.Server.Services
           try
           {
             int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
-      //      _ = _log.Db($"Deleted {rowsAffected} old coin value entries.");
+            //      _ = _log.Db($"Deleted {rowsAffected} old coin value entries.");
           }
           catch (Exception ex)
           {
@@ -2509,7 +2812,7 @@ namespace maxhanna.Server.Services
           try
           {
             int rowsAffected = await deleteOldCmd.ExecuteNonQueryAsync();
-       //     _ = _log.Db($"Deleted {rowsAffected} coin value entries older than 10 years.");
+            //     _ = _log.Db($"Deleted {rowsAffected} coin value entries older than 10 years.");
           }
           catch (Exception ex)
           {
@@ -2777,14 +3080,14 @@ namespace maxhanna.Server.Services
         await using var insertCmd = new MySqlCommand(insertNotificationSql, conn2);
         insertCmd.Parameters.AddWithValue("@userId", userId);
         insertCmd.Parameters.AddWithValue("@calendarText", message);
-        insertCmd.Parameters.AddWithValue("@calendarDate", events[0].Date); 
+        insertCmd.Parameters.AddWithValue("@calendarDate", events[0].Date);
         insertCmd.ExecuteNonQuery();
       }
 
       return usersWithEvents;
     }
- 
- 
+
+
 
     /// <summary>
     /// Fetches ONE candidate filename from SQL, cleans it with FileNameCleaner,

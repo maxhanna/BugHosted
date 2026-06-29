@@ -9,11 +9,13 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Collections.Concurrent;
 using System.Xml;
+using maxhanna.Infrastructure;
 
 public class WebCrawler
 {
   private readonly HttpClient _httpClient;
   private readonly IConfiguration _config;
+  private readonly DbOperationQueue _dbQueue;
   private const string Chars = "abcdefghijklmnopqrstuvwxyz123456789";
   public static readonly List<string> DomainSuffixes = new List<string>
   {
@@ -175,10 +177,11 @@ public class WebCrawler
   private const int _maxSiteExceedance = 30;
   private readonly Log _log;
 
-  public WebCrawler(IConfiguration config, Log log)
+  public WebCrawler(IConfiguration config, Log log, DbOperationQueue queue)
   {
     _config = config;
     _log = log;
+    _dbQueue = queue;
     _httpClient = new HttpClient(new HttpClientHandler
     {
       ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
@@ -303,7 +306,10 @@ public class WebCrawler
         {
           var tmpDomain = NormalizeUrl(domain);
           //Console.WriteLine("Background scraping : " + tmpDomain);
-          await StartScrapingAsync(tmpDomain);
+          await _dbQueue.EnqueueAsync(async () =>
+          {
+            await StartScrapingAsync(tmpDomain);
+          });
           await Task.Delay(TimeSpan.FromSeconds(7)); // Delay between domains
         }
         catch (Exception ex)
@@ -1491,12 +1497,18 @@ public class WebCrawler
             metaData = await ScrapeUrlData(url);
             if (metaData != null && !IsMetadataCompletelyEmpty(metaData))
             {
-              await SaveSearchResult(url, metaData);
-              await CrawlSitemap(url);
+              await _dbQueue.EnqueueAsync(async () =>
+              {
+                await SaveSearchResult(url, metaData);
+              }); 
+              await CrawlSitemap(url); 
             }
             else if (metaData != null && IsMetadataCompletelyEmpty(metaData) && !string.IsNullOrEmpty(metaData.Url))
             {
-              await MarkUrlAsFailed(metaData.Url);
+              await _dbQueue.EnqueueAsync(async () =>
+              {
+                await MarkUrlAsFailed(metaData.Url);
+              });
             }
 
             if (DateTime.Now - _lastRequestTime < _requestInterval)

@@ -165,7 +165,22 @@ export function isAeroportParkingChunk(cx: number, cz: number): boolean {
 const BRIDGE_RANGES = BRIDGES;
 const BRIDGE_DECK_Y = 4.0;
 
-/** Returns the ground Y offset for a given world position. Bridge ramps, ocean=-2.5, land=0. */
+const SIDEWALK_RAISE = 0.3;
+
+/** Sidewalk zone: inner 55×55 of each 80×80 block in applicable biomes. */
+function isOnSidewalk(x: number, z: number): boolean {
+  const cx = Math.floor(x / 80);
+  const cz = Math.floor(z / 80);
+  const biome = getBiome(cx, cz);
+  if (biome === 'beach' || biome === 'aeroport' || biome === 'bridge' || biome === 'rural_farm' || biome === 'rural_hills') return false;
+  const localX = ((x - cx * 80) + 80) % 80;
+  const localZ = ((z - cz * 80) + 80) % 80;
+  const halfRoad = (80 - 55) / 2; // 12.5 — road width on each side
+  return localX >= halfRoad && localX < 80 - halfRoad &&
+         localZ >= halfRoad && localZ < 80 - halfRoad;
+}
+
+/** Returns the ground Y offset for a given world position. Bridge ramps, ocean=-2.5, sidewalk=+0.3, land=0. */
 export function getTerrainHeight(x: number, z: number): number {
   const cx = Math.floor(x / 80);
   const cz = Math.floor(z / 80);
@@ -181,6 +196,7 @@ export function getTerrainHeight(x: number, z: number): number {
     return BRIDGE_DECK_Y;
   }
   if (biome === 'ocean') return -2.5;
+  if (isOnSidewalk(x, z)) return SIDEWALK_RAISE;
   return 0.0;
 }
 
