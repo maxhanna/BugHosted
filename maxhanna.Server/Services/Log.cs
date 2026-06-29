@@ -1,4 +1,5 @@
 ﻿using FirebaseAdmin.Messaging;
+using maxhanna.Infrastructure;
 using MySqlConnector;
 using System.Data;
 using System.Diagnostics;
@@ -8,21 +9,28 @@ using System.Text;
 public class Log
 {
   private readonly IConfiguration _config;
+  private readonly DbOperationQueue _dbQueue;
 
   private readonly AsyncDbLogger _asyncLogger;
 
-  public Log(IConfiguration config)
+  public Log(IConfiguration config, DbOperationQueue queue)
   {
     _config = config;
+    _dbQueue = queue;
     _asyncLogger = new AsyncDbLogger(config);
   }
 
-  public Task Db(string message, int? userId = null, string? type = "SYSTEM", bool outputToConsole = false)
+  public async Task Db(string message, int? userId = null, string? type = "SYSTEM", bool outputToConsole = false)
   {
-    _asyncLogger.TryEnqueue(message, type ?? "SYSTEM", userId);
+    await _dbQueue.EnqueueAsync(async () =>
+    {
+      _asyncLogger.TryEnqueue(message, type ?? "SYSTEM", userId); 
+    });
+
     if (outputToConsole)
       Console.WriteLine($"[{DateTime.Now:HH:mm}] {type}: {message}");
-    return Task.CompletedTask; // fire-and-forget to keep callers fast
+      
+    return; // fire-and-forget to keep callers fast
   }
 
 
