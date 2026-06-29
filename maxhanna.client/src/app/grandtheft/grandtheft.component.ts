@@ -2772,8 +2772,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.keys.has('KeyD')) steer = -1;
 
     if (this.isMobile && this.joystickActive) {
-      if (this.joystickY > 0.1) accelForce = 25 * this.joystickY;
-      else if (this.joystickY < -0.1) {
+      if (this.joystickY < 0.1) accelForce = 25 * this.joystickY;
+      else if (this.joystickY > -0.1) {
         if (this.carSpeed > 1) { accelForce = -45 * (-this.joystickY); }
         else { isReversing = true; accelForce = -15 * (-this.joystickY); }
       }
