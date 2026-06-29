@@ -408,14 +408,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     const carConfigs = [
       { path: 'assets/grandtheft/lambo/scene.gltf' },
-      { path: 'assets/grandtheft/2024_lamborghini_countach_lp5000_qv_lbworks/scene.gltf' }, 
+      { path: 'assets/grandtheft/2024_lamborghini_countach_lp5000_qv_lbworks/scene.gltf' },
       { path: 'assets/grandtheft/mitsubishi/scene.gltf' },
       { path: 'assets/grandtheft/hilux/scene.gltf' },
       { path: 'assets/grandtheft/suv/scene.gltf' },
       { path: 'assets/grandtheft/psxlow_poly_pickup/scene.gltf', yawOffset: Math.PI / 2 },
       { path: 'assets/grandtheft/vehicle_-_subaru_brz_rocket_bunny/scene.gltf' },
-      { path: 'assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf' }, 
-      { path: 'assets/grandtheft/truck_toyota_corsa_b/scene.gltf', scale: 2, yawOffset: Math.PI }, 
+      { path: 'assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf' },
+      { path: 'assets/grandtheft/truck_toyota_corsa_b/scene.gltf', scale: 2, yawOffset: Math.PI },
       { path: 'assets/grandtheft/monsterTruck/scene.gltf', scale: 2.25 },
       { path: 'assets/grandtheft/jeep/scene.gltf', scale: 1.5 },
     ];
@@ -564,135 +564,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     setTimeout(() => this.trySpawnAirportLotCars(), 2000);
   }
 
-  private initTraffic() {
-    this.trafficNodes = this.renderer.getRoadNodesInRadius(0, 0, 30);
-    this.trafficEdges = this.renderer.getRoadEdges(this.trafficNodes);
-    this.rebuildLanes();
-    for (let i = 0; i < 25; i++) {
-      this.spawnTrafficCar();
-    }
-  }
-
-  private trySpawnAirportLotCars() {
-    if (this.renderer.carMeshes.length > 0) {
-      this.spawnAirportLotCars();
-    } else {
-      setTimeout(() => this.trySpawnAirportLotCars(), 1000);
-    }
-  }
-  private spawnAirportLotCars() {
-    if (this.renderer.carMeshes.length === 0) return;
-    const parkingLots: { gx: number; gz: number }[] = [
-      { gx: 2, gz: -3 }, { gx: 12, gz: -6 }, { gx: 26, gz: -8 }, { gx: 41, gz: -11 }, { gx: 39, gz: 16 },
-    ];
-    let spawned = 0;
-    for (const pl of parkingLots) {
-      if (spawned >= 2) break;
-      const lotX = pl.gx * 80;
-      const lotZ = pl.gz * 80;
-      const color = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
-      this.airportLotCars.push({
-        x: lotX, z: lotZ + 20, yaw: 0,
-        mesh: this.renderer.getNPCCarMesh([color[0], color[1], color[2]], -(1000 + spawned)),
-        phase: 0, dir: 1, speed: 6 + Math.random() * 4,
-        p0: { x: lotX, z: lotZ + 20 },
-        p1: { x: lotX, z: lotZ - 5 },
-        hasDriver: false,
-      } as any);
-      spawned++;
-    }
-  }
-  private updateAirportLotCars(dt: number) {
-    for (const ac of this.airportLotCars) {
-      ac.phase += dt * ac.dir * (ac.speed / Math.hypot(ac.p1.x - ac.p0.x, ac.p1.z - ac.p0.z));
-      if (ac.phase >= 1) { ac.phase = 1; ac.dir = -1; }
-      if (ac.phase <= 0) { ac.phase = 0; ac.dir = 1; }
-      const t = ac.phase;
-      ac.x = ac.p0.x + (ac.p1.x - ac.p0.x) * t;
-      ac.z = ac.p0.z + (ac.p1.z - ac.p0.z) * t;
-      ac.yaw = ac.dir > 0 ? 0 : Math.PI;
-    }
-  }
-  private spawnTrafficCar() {
-    if (this.trafficNodes.length < 4 || this.trafficLanes.length === 0) return;
-    const lane = this.trafficLanes[Math.floor(Math.random() * this.trafficLanes.length)];
-    const endIdx = Math.floor(Math.random() * this.trafficNodes.length);
-    const path = this.findPath(lane.fromIdx, endIdx);
-    if (!path || path.length < 2) return;
-    const startNode = this.trafficNodes[path[0]];
-    const nextNode = this.trafficNodes[path[1]];
-    const yaw = Math.atan2(nextNode.x - startNode.x, nextNode.z - startNode.z);
-    const color = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
-    const trafficId = --this.trafficNodeIdCounter;
-    this.trafficCars.push({
-      id: trafficId,
-      x: startNode.x + lane.offsetX,
-      z: startNode.z + lane.offsetZ,
-      yaw,
-      type: 'traffic',
-      mesh: this.renderer.getNPCCarMesh([color[0], color[1], color[2]], trafficId),
-      health: 1000, colorR: color[0], colorG: color[1], colorB: color[2],
-      path, pathIdx: 0,
-      state: 'drive', stopTimer: 0, nextYaw: yaw,
-      laneOffsetX: lane.offsetX, laneOffsetZ: lane.offsetZ,
-      hasDriver: true,
-      gender: Math.random() < 0.5 ? 'male' : 'female',
-      passengerCount: Math.random() < 0.2 ? 1 : 0,
-    });
-  }
-
-  private findPath(fromIdx: number, toIdx: number): number[] | null {
-    const nodes = this.trafficNodes;
-    const edges = this.trafficEdges;
-    if (fromIdx === toIdx) return [fromIdx];
-    const openSet = new Set<number>([fromIdx]);
-    const cameFrom = new Map<number, number>();
-    const gScore = new Map<number, number>();
-    gScore.set(fromIdx, 0);
-    const fScore = new Map<number, number>();
-    const h = (i: number, j: number) => Math.hypot(nodes[i].x - nodes[j].x, nodes[i].z - nodes[j].z);
-    fScore.set(fromIdx, h(fromIdx, toIdx));
-    while (openSet.size > 0) {
-      let current = -1, bestF = Infinity;
-      for (const idx of openSet) {
-        const f = fScore.get(idx) ?? Infinity;
-        if (f < bestF) { bestF = f; current = idx; }
-      }
-      if (current === toIdx) {
-        const result: number[] = [];
-        let cur = current;
-        while (cur !== undefined) { result.unshift(cur); cur = cameFrom.get(cur)!; }
-        return result;
-      }
-      openSet.delete(current);
-      for (const [ei, ej] of edges) {
-        const neighbor = ei === current ? ej : (ej === current ? ei : -1);
-        if (neighbor < 0) continue;
-        const tentG = (gScore.get(current) ?? Infinity) + h(current, neighbor);
-        if (tentG < (gScore.get(neighbor) ?? Infinity)) {
-          cameFrom.set(neighbor, current);
-          gScore.set(neighbor, tentG);
-          fScore.set(neighbor, tentG + h(neighbor, toIdx));
-          openSet.add(neighbor);
-        }
-      }
-    }
-    return null;
-  }
-
-  private rebuildLanes() {
-    this.trafficLanes = [];
-    for (const edge of this.trafficEdges) {
-      const a = this.trafficNodes[edge[0]], b = this.trafficNodes[edge[1]];
-      const dx = b.x - a.x, dz = b.z - a.z;
-      const len = Math.hypot(dx, dz);
-      if (len === 0) continue;
-      const laneOffset = 4.0;
-      const perpX = dz / len * laneOffset, perpZ = -dx / len * laneOffset;
-      this.trafficLanes.push({ fromIdx: edge[0], toIdx: edge[1], offsetX: perpX, offsetZ: perpZ });
-      this.trafficLanes.push({ fromIdx: edge[1], toIdx: edge[0], offsetX: -perpX, offsetZ: -perpZ });
-    }
-  }
 
   ngOnDestroy() {
     this._destroyed = true;
@@ -3736,6 +3607,148 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (!siren.paused) { siren.pause(); siren.currentTime = 0; }
     }
   }
+
+
+  private initTraffic() {
+    this.trafficNodes = this.renderer.getRoadNodesInRadius(0, 0, 30);
+    this.trafficEdges = this.renderer.getRoadEdges(this.trafficNodes);
+    this.rebuildLanes();
+    for (let i = 0; i < 25; i++) {
+      this.spawnTrafficCar();
+    }
+  }
+
+  private trySpawnAirportLotCars() {
+    if (this.renderer.carMeshes.length > 0) {
+      this.spawnAirportLotCars();
+    } else {
+      setTimeout(() => this.trySpawnAirportLotCars(), 1000);
+    }
+  }
+  private spawnAirportLotCars() {
+    if (this.renderer.carMeshes.length === 0) return;
+    const parkingLots: { gx: number; gz: number }[] = [
+      { gx: 2, gz: -3 }, { gx: 12, gz: -6 }, { gx: 26, gz: -8 }, { gx: 41, gz: -11 }, { gx: 39, gz: 16 },
+    ];
+    let spawned = 0;
+    for (const pl of parkingLots) {
+      if (spawned >= 2) break;
+      const lotX = pl.gx * 80;
+      const lotZ = pl.gz * 80;
+      const color = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
+      this.airportLotCars.push({
+        x: lotX, z: lotZ + 20, yaw: 0,
+        mesh: this.renderer.getNPCCarMesh([color[0], color[1], color[2]], -(1000 + spawned)),
+        phase: 0, dir: 1, speed: 6 + Math.random() * 4,
+        p0: { x: lotX, z: lotZ + 20 },
+        p1: { x: lotX, z: lotZ - 5 },
+        hasDriver: false,
+      } as any);
+      spawned++;
+    }
+  }
+  private updateAirportLotCars(dt: number) {
+    for (const ac of this.airportLotCars) {
+      ac.phase += dt * ac.dir * (ac.speed / Math.hypot(ac.p1.x - ac.p0.x, ac.p1.z - ac.p0.z));
+      if (ac.phase >= 1) { ac.phase = 1; ac.dir = -1; }
+      if (ac.phase <= 0) { ac.phase = 0; ac.dir = 1; }
+      const t = ac.phase;
+      ac.x = ac.p0.x + (ac.p1.x - ac.p0.x) * t;
+      ac.z = ac.p0.z + (ac.p1.z - ac.p0.z) * t;
+      ac.yaw = ac.dir > 0 ? 0 : Math.PI;
+    }
+  }
+  private spawnTrafficCar() {
+    if (this.trafficNodes.length < 4 || this.trafficLanes.length === 0) return;
+    const lane = this.trafficLanes[Math.floor(Math.random() * this.trafficLanes.length)];
+    const endIdx = Math.floor(Math.random() * this.trafficNodes.length);
+    const path = this.findPath(lane.fromIdx, endIdx);
+    if (!path || path.length < 2) return;
+    const startNode = this.trafficNodes[path[0]];
+    const nextNode = this.trafficNodes[path[1]];
+    const yaw = Math.atan2(nextNode.x - startNode.x, nextNode.z - startNode.z);
+    const color = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
+    const trafficId = --this.trafficNodeIdCounter;
+    this.trafficCars.push({
+      id: trafficId,
+      x: startNode.x + lane.offsetX,
+      z: startNode.z + lane.offsetZ,
+      yaw,
+      type: 'traffic',
+      mesh: this.renderer.getNPCCarMesh([color[0], color[1], color[2]], trafficId),
+      health: 1000, colorR: color[0], colorG: color[1], colorB: color[2],
+      path, pathIdx: 0,
+      state: 'drive', stopTimer: 0, nextYaw: yaw,
+      laneOffsetX: lane.offsetX, laneOffsetZ: lane.offsetZ,
+      hasDriver: true,
+      gender: Math.random() < 0.5 ? 'male' : 'female',
+      passengerCount: Math.random() < 0.2 ? 1 : 0,
+    });
+  }
+
+  private findPath(fromIdx: number, toIdx: number): number[] | null {
+    const nodes = this.trafficNodes;
+    const edges = this.trafficEdges;
+    if (fromIdx === toIdx) return [fromIdx];
+    const openSet = new Set<number>([fromIdx]);
+    const cameFrom = new Map<number, number>();
+    const gScore = new Map<number, number>();
+    gScore.set(fromIdx, 0);
+    const fScore = new Map<number, number>();
+    const h = (i: number, j: number) => Math.hypot(nodes[i].x - nodes[j].x, nodes[i].z - nodes[j].z);
+    fScore.set(fromIdx, h(fromIdx, toIdx));
+    while (openSet.size > 0) {
+      let current = -1, bestF = Infinity;
+      for (const idx of openSet) {
+        const f = fScore.get(idx) ?? Infinity;
+        if (f < bestF) { bestF = f; current = idx; }
+      }
+      if (current === toIdx) {
+        const result: number[] = [];
+        let cur = current;
+        while (cur !== undefined) { result.unshift(cur); cur = cameFrom.get(cur)!; }
+        return result;
+      }
+      openSet.delete(current);
+      for (const [ei, ej] of edges) {
+        const neighbor = ei === current ? ej : (ej === current ? ei : -1);
+        if (neighbor < 0) continue;
+        const tentG = (gScore.get(current) ?? Infinity) + h(current, neighbor);
+        if (tentG < (gScore.get(neighbor) ?? Infinity)) {
+          cameFrom.set(neighbor, current);
+          gScore.set(neighbor, tentG);
+          fScore.set(neighbor, tentG + h(neighbor, toIdx));
+          openSet.add(neighbor);
+        }
+      }
+    }
+    return null;
+  }
+
+  private rebuildLanes() {
+    this.trafficLanes = [];
+    for (const edge of this.trafficEdges) {
+      const a = this.trafficNodes[edge[0]], b = this.trafficNodes[edge[1]];
+      const dx = b.x - a.x, dz = b.z - a.z;
+      const len = Math.hypot(dx, dz);
+      if (len === 0) continue;
+
+      // Check if this edge crosses a bridge — use wider lane offset for safety
+      const midX = (a.x + b.x) / 2;
+      const midZ = (a.z + b.z) / 2;
+      const midBiome = getBiome(Math.floor(midX / 80), Math.floor(midZ / 80));
+      const isBridgeEdge = midBiome === 'bridge';
+      const laneOffset = isBridgeEdge ? 5.0 : 4.0; // Slightly wider on bridges
+
+      const perpX = dz / len * laneOffset, perpZ = -dx / len * laneOffset;
+      // Forward lane (from → to)
+      this.trafficLanes.push({ fromIdx: edge[0], toIdx: edge[1], offsetX: perpX, offsetZ: perpZ });
+      // Reverse lane (to → from) — opposite side ensures one-directional flow
+      this.trafficLanes.push({ fromIdx: edge[1], toIdx: edge[0], offsetX: -perpX, offsetZ: -perpZ });
+    }
+  }
+
+
   private pickFirstPersonAnims(): { arms: string; mark23: string | null } {
     if (this.currentWeapon === 1) {
       if (this.isShooting) return { arms: 'finger_gun_fire', mark23: 'Shoot' };

@@ -84,11 +84,10 @@ namespace maxhanna.Server.Controllers
 
 		private static readonly (int startCx, int endCx, int startCz, int endCz)[] BRIDGES = new[]
 		{
-			(4, 5, -1, 1),     // Island 1 ↔ Island 2
-			(16, 17, -2, 2),   // Island 2 ↔ Island 3
-			(31, 32, -3, 3),   // Island 3 ↔ Island 4
-		};
-
+	(4, 5, 0, 0),     // Island 1 ↔ Island 2
+    (16, 17, 0, 0),   // Island 2 ↔ Island 3
+    (31, 32, 0, 0),   // Island 3 ↔ Island 4
+};
 		public static bool IsInAnyIsland(int cx, int cz)
 		{
 			foreach (var isl in ISLANDS)
@@ -340,8 +339,9 @@ namespace maxhanna.Server.Controllers
 			int cx = (int)Math.Floor(x / CHUNK_SIZE);
 			int cz = (int)Math.Floor(z / CHUNK_SIZE);
 			string biome = GetBiome(cx, cz);
-			// Parking lots and rural areas are fully drivable (no sidewalk grid)
-			if (biome == "parking_lot" || biome == "rural_farm" || biome == "rural_hills") return true;
+			// FIX: Bridge is fully drivable — without this, NPC movement validation
+			// fails and cars get stuck trying to cross bridges
+			if (biome == "parking_lot" || biome == "rural_farm" || biome == "rural_hills" || biome == "bridge") return true;
 
 			float dx = x % GRID_PITCH;
 			if (dx < 0) dx += GRID_PITCH;
@@ -1812,7 +1812,7 @@ namespace maxhanna.Server.Controllers
 			var dw = BuildDroppedWeapons();
 			return Ok(new { cars, pedestrians, parkedCars, aircraft, deadBodies, droppedWeapons = dw });
 		}
- 
+
 
 		[HttpGet("activeplayers")]
 		public async Task<IActionResult> GetActivePlayers()
@@ -1835,7 +1835,7 @@ namespace maxhanna.Server.Controllers
 
 			return Ok(activePlayers);
 		}
-		 
+
 		private List<object> BuildDroppedWeapons()
 		{
 			var now = DateTime.UtcNow;

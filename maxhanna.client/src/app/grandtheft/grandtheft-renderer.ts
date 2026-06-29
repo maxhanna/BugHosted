@@ -93,9 +93,9 @@ interface BridgeDef {
 }
 
 const BRIDGES: BridgeDef[] = [
-  { startCx: 4, endCx: 5, startCz: -1, endCz: 1 },     // Island 1 ↔ Island 2
-  { startCx: 16, endCx: 17, startCz: -2, endCz: 2 },   // Island 2 ↔ Island 3
-  { startCx: 31, endCx: 32, startCz: -3, endCz: 3 },   // Island 3 ↔ Island 4
+  { startCx: 4, endCx: 5, startCz: 0, endCz: 0 },     // Island 1 ↔ Island 2
+  { startCx: 16, endCx: 17, startCz: 0, endCz: 0 },   // Island 2 ↔ Island 3
+  { startCx: 31, endCx: 32, startCz: 0, endCz: 0 },   // Island 3 ↔ Island 4
 ];
 
 function isInAnyIsland(cx: number, cz: number): boolean {
@@ -177,7 +177,7 @@ function isOnSidewalk(x: number, z: number): boolean {
   const localZ = ((z - cz * 80) + 80) % 80;
   const halfRoad = (80 - 55) / 2; // 12.5 — road width on each side
   return localX >= halfRoad && localX < 80 - halfRoad &&
-         localZ >= halfRoad && localZ < 80 - halfRoad;
+    localZ >= halfRoad && localZ < 80 - halfRoad;
 }
 
 /** Returns the ground Y offset for a given world position. Bridge ramps, ocean=-2.5, sidewalk=+0.3, land=0. */
@@ -542,7 +542,7 @@ export class GrandTheftRenderer {
     'low_poly_pharmacy', 'low_poly_police_station', 'low_poly_school', 'low_poly_shopping_center',
     'panel_apartment_placeholder', 'psx_groceries_store', 'pyaterochka_3d', 'supermarket',
     'ukraine_building', 'abandoned_building_gameready',
-    'psx_japanese_warehouse', 'low_poly_apartment_building_1', 
+    'psx_japanese_warehouse', 'low_poly_apartment_building_1',
     'fatboys_diner', 'brooklyn_street_building_low_poly', 'brooklyn_street_cornerhouse_low_poly',
     'okraglak_round_office_building_poznan',
     'psxprop_-_old_warehouse',
@@ -1854,64 +1854,89 @@ void main() {
           break;
         }
       }
-    } else if (isBridge) {
+    }
+    else if (isBridge) {
       // Water under bridge
       const cx2 = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
       const cz2 = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
       this.addPlane(verts, indices, cx2, -2.5, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.0, 0.10, 0.30, 0.85, idxOffset); idxOffset += 4;
       this.addPlane(verts, indices, cx2, -2.0, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.10, 0.30, 0.50, 0.55, idxOffset); idxOffset += 4;
-      // Ramp fillers: smooth slope from Y=0 to BRIDGE_DECK_Y using thin overlapping slices
-      for (const br of BRIDGE_RANGES) {
-        if (cx !== br.startCx && cx !== br.endCx) continue;
-        if (cz < br.startCz || cz > br.endCz) continue;
-        const numSlices = 40;
-        const sliceH = BRIDGE_DECK_Y / numSlices;
+
+      // Find which bridge this chunk belongs to
+      const bridge = BRIDGE_RANGES.find(br => cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz);
+      if (bridge) {
+        const roadCenterZ = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
+        const roadW = 25;       // Match street road width (GRID_PITCH - SIDEWALK_SIZE)
+        const bridgeW = roadW + 10; // Road + walkway clearance
+        const isRampUp = cx === bridge.startCx;
+        const isRampDown = cx === bridge.endCx;
+
+        // Surface Y at any X position on this chunk
+        const surfaceYAt = (x: number) => {
+          if (isRampUp) return (x - bridge.startCx * 80) / 80 * BRIDGE_DECK_Y;
+          if (isRampDown) return ((bridge.endCx + 1) * 80 - x) / 80 * BRIDGE_DECK_Y;
+          return BRIDGE_DECK_Y;
+        };
+
+        // Build ramp/deck in slices so road surface and rails follow the slope
+        const numSlices = 20;
         const sliceW = CHUNK_SIZE / numSlices;
-        const rampUp = cx === br.startCx;
         for (let si = 0; si < numSlices; si++) {
-          const sx = worldOriginX + (rampUp ? si * sliceW + sliceW / 2 : CHUNK_SIZE - si * sliceW - sliceW / 2);
-          const sy = (si + 0.5) * sliceH;
-          const sh = si === numSlices - 1 ? BRIDGE_DECK_Y - si * sliceH : sliceH * 1.01;
-          this.addBox(verts, indices, sx, sy, worldOriginZ + CHUNK_SIZE / 2, sliceW, sh, CHUNK_SIZE, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
+          const sx = worldOriginX + (isRampDown ? CHUNK_SIZE - si * sliceW - sliceW / 2 : si * sliceW + sliceW / 2);
+          const surfY = surfaceYAt(sx);
+          const nextX = sx + (isRampDown ? -sliceW : sliceW);
+          const nextY = surfaceYAt(nextX);
+          const avgY = (surfY + nextY) / 2;
+          const pillarH = Math.max(surfY, nextY);
+
+          // Concrete support pillar/slab under road
+          this.addBox(verts, indices, sx, pillarH / 2, roadCenterZ, sliceW * 1.05, pillarH, bridgeW, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
+          // Asphalt road surface
+          this.addBox(verts, indices, sx, avgY + 0.08, roadCenterZ, sliceW * 1.1, 0.12, roadW, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+          // Dashed lane markings (center line) — one direction flow indicator
+          if (si % 2 === 0) {
+            this.addBox(verts, indices, sx, avgY + 0.15, roadCenterZ, sliceW * 0.7, 0.02, 0.3, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
+          }
+          // Center divider (enforces one-directional flow per side)
+          this.addBox(verts, indices, sx, avgY + 0.18, roadCenterZ, sliceW * 1.05, 0.3, 0.3, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
+
+          // Guard rails on both sides (follow ramp slope)
+          for (const side of [-1, 1]) {
+            const rz = roadCenterZ + side * (bridgeW / 2);
+            // Top rail
+            this.addBox(verts, indices, sx, avgY + 1.0, rz, sliceW * 1.05, 0.15, 0.15, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
+            // Mid rail
+            this.addBox(verts, indices, sx, avgY + 0.5, rz, sliceW * 1.05, 0.12, 0.12, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
+            // Posts every other slice
+            if (si % 2 === 0) {
+              this.addBox(verts, indices, sx, avgY + 0.6, rz, 0.18, 1.2, 0.18, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
+            }
+          }
         }
-        break;
-      }
-      // Two suspension towers (one per side, full height)
-      for (const side of [-1, 1]) {
-        const tz = worldOriginZ + CHUNK_SIZE / 2 + side * (CHUNK_SIZE / 2 - 6);
+
+        // Suspension towers — centered on road, at 1/4 and 3/4 of chunk X
         for (const tx of [worldOriginX + 16, worldOriginX + CHUNK_SIZE - 16]) {
-          // Tower legs (A-frame)
-          this.addBox(verts, indices, tx - 1.5, 16, tz - 2, 1, 28, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
-          this.addBox(verts, indices, tx + 1.5, 16, tz - 2, 1, 28, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
-          this.addBox(verts, indices, tx - 1.5, 16, tz + 2, 1, 28, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
-          this.addBox(verts, indices, tx + 1.5, 16, tz + 2, 1, 28, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
+          const tz = roadCenterZ;
+          const baseY = surfaceYAt(tx);
+          const towerH = 28;
+          // A-frame legs
+          this.addBox(verts, indices, tx - 1.5, baseY + towerH / 2, tz - 2, 1, towerH, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(verts, indices, tx + 1.5, baseY + towerH / 2, tz - 2, 1, towerH, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(verts, indices, tx - 1.5, baseY + towerH / 2, tz + 2, 1, towerH, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(verts, indices, tx + 1.5, baseY + towerH / 2, tz + 2, 1, towerH, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
           // Cross-braces
-          for (let by = 6; by < 28; by += 7) {
-            this.addBox(verts, indices, tx, by, tz - 2, 4, 0.6, 1, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, tx, by, tz + 2, 4, 0.6, 1, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
+          for (let by = 6; by < towerH; by += 7) {
+            this.addBox(verts, indices, tx, baseY + by, tz - 2, 4, 0.6, 1, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, tx, baseY + by, tz + 2, 4, 0.6, 1, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
           }
-          // Suspension cables (thin boxes from tower top to deck midpoints)
+          // Suspension cables
           for (const sign of [-1, 1]) {
-            this.addBox(verts, indices, tx + sign * 10, 10, tz, 20, 0.3, 0.3, 0.25, 0.25, 0.27, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, tx + sign * 8, baseY + 10, tz, 16, 0.3, 0.3, 0.25, 0.25, 0.27, 1.0, idxOffset); idxOffset += 24;
           }
         }
       }
-      // Guard rails with vertical posts
-      const halfSW = SIDEWALK_SIZE / 2;
-      for (const side of [-1, 1]) {
-        const rz = worldOriginZ + CHUNK_SIZE / 2 + side * halfSW;
-        // Top rail
-        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, BRIDGE_DECK_Y + 1.2, rz, CHUNK_SIZE - 4, 0.2, 0.2, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
-        // Mid rail
-        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, BRIDGE_DECK_Y + 0.6, rz, CHUNK_SIZE - 4, 0.15, 0.15, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
-        // Posts
-        for (let px = worldOriginX + 4; px < worldOriginX + CHUNK_SIZE - 4; px += 6) {
-          this.addBox(verts, indices, px, BRIDGE_DECK_Y + 0.7, rz, 0.2, 1.4, 0.2, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
-        }
-      }
-      // Center divider
-      this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, BRIDGE_DECK_Y + 0.2, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, 0.4, 0.4, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
-    } else if (isAeroport) {
+    }
+    else if (isAeroport) {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.22, 0.22, 0.24, 1.0, idxOffset); idxOffset += 4;
     } else if (isParkingLot) {
       // Asphalt
@@ -2291,7 +2316,7 @@ void main() {
           const gap = 1.0;
           for (const existing of placedAABBs) {
             if (bb.minX - gap < existing.maxX && bb.maxX + gap > existing.minX &&
-                bb.minZ - gap < existing.maxZ && bb.maxZ + gap > existing.minZ) return true;
+              bb.minZ - gap < existing.maxZ && bb.maxZ + gap > existing.minZ) return true;
           }
           return false;
         };
