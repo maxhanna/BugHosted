@@ -273,7 +273,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   isUsersActiveGame(user: User): string | undefined {
-    return this.activeGamers.filter(gamer => gamer.userId === user.id || gamer.user?.id == user.id)[0].game;
+    return this.activeGamers.filter(gamer => gamer.userId === user.id || gamer.user?.id == user.id)[0]?.game;
   } 
 
   getOnlineUserCountFromMessageRows() {
