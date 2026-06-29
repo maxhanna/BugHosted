@@ -1400,7 +1400,7 @@ namespace maxhanna.Server.Services
 
     private async Task FetchAndStoreTopMarketCaps()
     {
-      await _log.Db("Fetching top market caps from CoinMarketCap...", null, "MCS", outputToConsole: true);
+     // await _log.Db("Fetching top market caps from CoinMarketCap...", null, "MCS", outputToConsole: true);
 
       try
       {
