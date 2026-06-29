@@ -113,9 +113,11 @@
     </div>
 
     <div id="gt-mobile-chat" *ngIf="isMobile" (touchstart)="onButtonTouch($event); isChatOpen = true; chatInput = ''"
-      style="position: absolute; top:10px; left:calc(100% - 80px);">CHAT</div>
-    <div id="gt-mobile-weapon-wheel" *ngIf="isMobile" (touchstart)="onButtonTouch($event); toggleWeaponWheel()"
-      style="position: absolute; top:60px; left:calc(100% - 80px);">WEPS</div>
+      style="position: absolute; top:10px; left:calc(100% -80px);">CHAT</div>
+      <div id="gt-mobile-weapon-wheel" *ngIf="isMobile" (touchstart)="onButtonTouch($event); toggleWeaponWheel()"
+        style="position: absolute; top:60px; left:calc(100% -80px);">WEPS</div>
+        <div id="gt-mobile-map" *ngIf="isMobile" (touchstart)="onButtonTouch($event); toggleMap()"
+          style="position: absolute; top:110px; left:calc(100% -80px);">MAP</div>
     <div id="gt-mobile" *ngIf="isMobile"> 
       <div id="gt-joystick">
         <div id="gt-joystick-base">

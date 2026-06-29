@@ -884,7 +884,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
             if (parent) {
               parent.navigationComponent?.displayAppSelectionHelp(true);
             }
-            this.remove_me("User");
+            this.remove_me("UserComponent");
           }, 50);
         } else {
           parent?.showNotification(`${JSON.parse(resCreateUser!)["message"]}`);

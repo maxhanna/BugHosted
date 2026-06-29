@@ -167,13 +167,18 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   showCityCoords = false;
   showCountryCoords = false;
   showTownCoords = false;
+  searchQuery: string = '';
+  filteredCityCoords: Record<string, [number, number]> = {};
+  filteredTownCoords: Record<string, [number, number]> = {};
+  filteredCountryCoords: Record<string, [number, number]> = {};
   @Input() set pings(value: GlobePing[] | null | undefined) {
-    this.customPings = Array.isArray(value) ? value : [];
+  this.customPings = Array.isArray(value) ? value : [];
   }
   @Input() arcs: Arc[] = [];
   @Input() inputtedParentRef: any;
   @Output() isLoadingEvent = new EventEmitter<boolean>();
   @Output() pingClicked = new EventEmitter<GlobePing>();
+ 
 
   // ---- popup --------------------------------------------------------------
   isCoordsEditPopupOpen = false;
@@ -314,6 +319,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loadUsersWithLocations();
     this.loadFlights();
     this.loadAllFlights();
+    this.filterCoordinates();
   }
 
   ngAfterViewInit(): void {
@@ -2618,6 +2624,26 @@ private lookupCoords(map: Record<string, [number, number]>, name?: string)
     return `${name}${rest ? ', ' + rest : ''}`;
   }
 
+  filterCoordinates() {
+    if (!this.searchQuery) {
+      this.filteredCityCoords = CITY_COORDS;
+      this.filteredTownCoords = TOWN_COORDS;
+      this.filteredCountryCoords = COUNTRY_COORDS;
+      return;
+    }
+    const query = this.searchQuery.toLowerCase();
+    const filterCoords = (coords: Record<string, [number, number]>) => {
+      return Object.keys(coords)
+        .filter(key => key.toLowerCase().includes(query))
+        .reduce((obj, key) => {
+          obj[key] = coords[key];
+          return obj;
+        }, {} as Record<string, [number, number]>);
+    };
+    this.filteredCityCoords = filterCoords(CITY_COORDS);
+    this.filteredTownCoords = filterCoords(TOWN_COORDS);
+    this.filteredCountryCoords = filterCoords(COUNTRY_COORDS);
+  }
   formatLocationLabel(city?: string, country?: string): string {
     const c = city?.trim(), co = country?.trim();
     return (c && co) ? `${c}, ${co}` : c || co || 'Unknown location';

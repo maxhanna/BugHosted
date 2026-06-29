@@ -1,9 +1,8 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, NgZone, ChangeDetectorRef } from '@angular/core';
+﻿import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, NgZone, ChangeDetectorRef } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { GrandTheftRenderer, CityMesh, getBiome, getTerrainHeight } from './grandtheft-renderer';
 import { GrandtheftService } from '../../services/grandtheft.service';
 import { UserEventService } from '../../services/user-event.service';
-import { User } from '../../services/datacontracts/user/user';
 import { TodoService } from '../../services/todo.service';
 import { FileService } from '../../services/file.service';
 
@@ -174,6 +173,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private passengerHostVelYaw = 0;
   private _reloading = false;
   private _pistolDrawTimer = 0;
+  private _chatClearTimer: any = null;
 
   camYaw = 0; camPitch = 0.2;
   camDist = 4; camHeight = 2;
@@ -323,6 +323,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     [0.9, 0.7, 0.1], [0.6, 0.2, 0.6], [1.0, 0.5, 0.0],
     [0.1, 0.6, 0.6], [0.5, 0.3, 0.1],
   ];
+
   constructor(private gtService: GrandtheftService,
     private userEventService: UserEventService,
     private todoService: TodoService,
@@ -479,76 +480,22 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     processNextBatch();
 
     if (!this.isMobile) {
-      canvas.addEventListener('click', () => {
-        if (this.showWeaponWheel) return;
-        if (!this.isPointerLocked) canvas.requestPointerLock();
-      });
-      document.addEventListener('pointerlockchange', () => {
-        this.isPointerLocked = document.pointerLockElement === canvas;
-      });
+      canvas.addEventListener('click', this.onCanvasClick);
+      document.addEventListener('pointerlockchange', this.onPointerLockChange);
     }
 
-    window.addEventListener('resize', () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      this.renderer.resize(canvas.width, canvas.height);
-    });
+    window.addEventListener('resize', this.onResize);
 
     this.initRadio();
 
-    document.addEventListener('keydown', (e) => {
-      this.keys.add(e.code);
-      if (e.code === 'Space') { e.preventDefault(); this.altUpPressed = true; }
-      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.altDownPressed = true;
-      if (this.isChatOpen) {
-        if (e.code === 'Enter') { this.sendChatMessage(); }
-        if (e.code === 'Escape') { this.isChatOpen = false; this.chatInput = ''; }
-        return;
-      }
-      if (e.code === 'Enter') { this.isChatOpen = true; this.chatInput = ''; e.preventDefault(); return; }
-      if (e.code === 'KeyE') this.toggleCar();
-      if (e.code === 'KeyV') this.toggleView();
-      if (e.code === 'KeyM') this.showMap = !this.showMap;
-      if (e.code === 'KeyL') this.showLeaderboard = !this.showLeaderboard;
-      if (this.isInCar && !this.isMobile) {
-        if (e.code === 'ArrowUp') { e.preventDefault(); this.stopRadio(); }
-        if (e.code === 'ArrowDown') { e.preventDefault(); this.randomRadio(); }
-        if (e.code === 'ArrowLeft') { e.preventDefault(); this.prevRadio(); }
-        if (e.code === 'ArrowRight') { e.preventDefault(); this.nextRadio(); }
-      }
-      if (e.code === 'Tab' || e.code === 'KeyQ') {
-        e.preventDefault();
-        this.showWeaponWheel = !this.showWeaponWheel;
-        if (this.isPointerLocked) document.exitPointerLock();
-      }
-      if (e.code === 'Escape') this.showWeaponWheel = false;
-    });
-    document.addEventListener('keyup', (e) => {
-      this.keys.delete(e.code);
-      if (e.code === 'Space') this.altUpPressed = false;
-      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.altDownPressed = false;
-    });
+    document.addEventListener('keydown', this.onKeyDown);
+    document.addEventListener('keyup', this.onKeyUp);
 
-    if (!this.isMobile) {
-      document.addEventListener('mousemove', (e) => {
-        if (!this.isPointerLocked) return;
-        this.lastMouseMoveTime = performance.now();
-        this.camYaw -= e.movementX * 0.002;
-        this.camPitch += e.movementY * 0.002;
-        this.camPitch = Math.max(-1.2, Math.min(0.8, this.camPitch));
-      });
-
-      canvas.addEventListener('mousedown', (e) => {
-        if (e.button !== 0 || this.showWeaponWheel) return;
-        this.unlockAudio();
-        this.isShooting = true;
-        this.shoot();
-        this.startAutoFire();
-      });
-      canvas.addEventListener('mouseup', (e) => {
-        if (e.button === 0) { this.isShooting = false; this.stopAutoFire(); }
-      });
-      canvas.addEventListener('mouseleave', () => { this.isShooting = false; this.stopAutoFire(); });
+    if (!this.isMobile) { 
+      document.addEventListener('mousemove', this.onMouseMove);
+      canvas.addEventListener('mousedown', this.onMouseDown);
+      canvas.addEventListener('mouseup', this.onMouseUp);
+      canvas.addEventListener('mouseleave', this.onMouseLeave);
     }
 
     if (this.isMobile) {
@@ -568,11 +515,30 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   ngOnDestroy() {
     this._destroyed = true;
     cancelAnimationFrame(this.animFrameId);
+    const canvas = this.canvasRef.nativeElement; 
+    canvas.removeEventListener('click', this.onCanvasClick);
+    document.removeEventListener('pointerlockchange', this.onPointerLockChange);
+    window.removeEventListener('resize', this.onResize); 
+    document.removeEventListener('keydown', this.onKeyDown);
+    document.removeEventListener('keyup', this.onKeyUp); 
+    document.removeEventListener('mousemove', this.onMouseMove);
+    canvas.removeEventListener('mousedown', this.onMouseDown);
+    canvas.removeEventListener('mouseup', this.onMouseUp);
+    canvas.removeEventListener('mouseleave', this.onMouseLeave); 
+    canvas.removeEventListener('touchstart', this.onCanvasTouchStart);
+    canvas.removeEventListener('touchmove', this.onCanvasTouchMove);
+    canvas.removeEventListener('touchend', this.onCanvasTouchEnd); 
+    document.removeEventListener('touchstart', this.onDocTouchStart);
+    document.removeEventListener('touchmove', this.onDocTouchMove);
+    document.removeEventListener('touchend', this.onDocTouchEnd);
+    
     this.stopPolling();
     this.stopNPCPolling();
     this.stopAutoFire();
     if (this.policeSirenSound) { this.policeSirenSound.pause(); this.policeSirenSound = null; }
     this.renderer?.clearCache();
+    clearInterval(this._chatClearTimer);
+    this.remove_me("GrandTheftComponent")
   }
 
   selectNextWeapon() {
@@ -586,126 +552,38 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.showWeaponWheel = false;
   }
 
+  updateThumb = (x: number, y: number) => {
+    const dx = x - window.innerWidth / 4;
+    const dy = y - window.innerHeight * 0.7;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > 80) {
+      this.joystickX = dx / dist;
+      this.joystickY = dy / dist;
+    } else if (dist > 1) {
+      this.joystickX = dx / 80;
+      this.joystickY = dy / 80;
+    } else {
+      this.joystickX = 0;
+      this.joystickY = 0;
+    }
+    if (this.joystickThumbEl) {
+      const thumbOffset = Math.min(dist, 80);
+      const tx = dist > 1 ? (dx / dist) * thumbOffset : 0;
+      const ty = dist > 1 ? (dy / dist) * thumbOffset : 0;
+      this.joystickThumbEl.style.transform = `translate(-50%, -50%) translate(${tx}px, ${ty}px)`;
+    }
+  };
+
   private initTouchControls(canvas: HTMLCanvasElement) {
     this.joystickThumbEl = document.getElementById('gt-joystick-thumb');
 
-    const updateThumb = (x: number, y: number) => {
-      const dx = x - window.innerWidth / 4;
-      const dy = y - window.innerHeight * 0.7;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > 80) {
-        this.joystickX = dx / dist;
-        this.joystickY = dy / dist;
-      } else if (dist > 1) {
-        this.joystickX = dx / 80;
-        this.joystickY = dy / 80;
-      } else {
-        this.joystickX = 0;
-        this.joystickY = 0;
-      }
-      if (this.joystickThumbEl) {
-        const thumbOffset = Math.min(dist, 80);
-        const tx = dist > 1 ? (dx / dist) * thumbOffset : 0;
-        const ty = dist > 1 ? (dy / dist) * thumbOffset : 0;
-        this.joystickThumbEl.style.transform = `translate(-50%, -50%) translate(${tx}px, ${ty}px)`;
-      }
-    };
+    canvas.addEventListener('touchstart', this.onCanvasTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', this.onCanvasTouchMove, { passive: false });
+    canvas.addEventListener('touchend', this.onCanvasTouchEnd, { passive: false });
 
-    canvas.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const t = e.changedTouches[i];
-        if (t.clientX < window.innerWidth / 2 && this.joystickId === -1) {
-          this.joystickId = t.identifier; this.joystickActive = true;
-          updateThumb(t.clientX, t.clientY);
-        }
-        if (t.clientX >= window.innerWidth / 2 && this.touchCamId === -1) {
-          this.touchCamId = t.identifier; this.touchCamLastX = t.clientX; this.touchCamLastY = t.clientY;
-        }
-      }
-    }, { passive: false });
-
-    canvas.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const t = e.changedTouches[i];
-        if (t.identifier === this.joystickId) {
-          updateThumb(t.clientX, t.clientY);
-        }
-        if (t.identifier === this.touchCamId) {
-          this.lastMouseMoveTime = performance.now();
-          this.camYaw -= (t.clientX - this.touchCamLastX) * 0.005;
-          this.camPitch += (t.clientY - this.touchCamLastY) * 0.005;
-          this.camPitch = Math.max(-1.2, Math.min(0.8, this.camPitch));
-          this.touchCamLastX = t.clientX; this.touchCamLastY = t.clientY;
-        }
-      }
-    }, { passive: false });
-
-    canvas.addEventListener('touchend', (e) => {
-      e.preventDefault();
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const t = e.changedTouches[i];
-        if (t.identifier === this.joystickId) {
-          this.joystickId = -1; this.joystickActive = false; this.joystickX = 0; this.joystickY = 0;
-          if (this.joystickThumbEl) this.joystickThumbEl.style.transform = 'translate(-50%, -50%) translate(0px, 0px)';
-        }
-        if (t.identifier === this.touchCamId) { this.touchCamId = -1; }
-      }
-    }, { passive: false });
-
-    document.addEventListener('touchstart', (e) => {
-      const target = e.target as HTMLElement;
-      if (target && (target.id === 'gt-mobile-fire' || target.id === 'gt-mobile-car' || target.id === 'gt-mobile-view')) {
-        return;
-      }
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const t = e.changedTouches[i];
-        if (t.clientX < window.innerWidth / 2 && this.joystickId === -1) {
-          this.joystickId = t.identifier; this.joystickActive = true;
-          updateThumb(t.clientX, t.clientY);
-        }
-        if (t.clientX >= window.innerWidth / 2 && this.touchCamId === -1) {
-          this.touchCamId = t.identifier; this.touchCamLastX = t.clientX; this.touchCamLastY = t.clientY;
-        }
-      }
-    }, { passive: false });
-
-    document.addEventListener('touchmove', (e) => {
-      const target = e.target as HTMLElement;
-      if (target && (target.id === 'gt-mobile-fire' || target.id === 'gt-mobile-car' || target.id === 'gt-mobile-view')) {
-        return;
-      }
-      e.preventDefault();
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const t = e.changedTouches[i];
-        if (t.identifier === this.joystickId) {
-          updateThumb(t.clientX, t.clientY);
-        }
-        if (t.identifier === this.touchCamId) {
-          this.lastMouseMoveTime = performance.now();
-          this.camYaw -= (t.clientX - this.touchCamLastX) * 0.005;
-          this.camPitch += (t.clientY - this.touchCamLastY) * 0.005;
-          this.camPitch = Math.max(-1.2, Math.min(0.8, this.camPitch));
-          this.touchCamLastX = t.clientX; this.touchCamLastY = t.clientY;
-        }
-      }
-    }, { passive: false });
-
-    document.addEventListener('touchend', (e) => {
-      const target = e.target as HTMLElement;
-      if (target && (target.id === 'gt-mobile-fire' || target.id === 'gt-mobile-car' || target.id === 'gt-mobile-view')) {
-        return;
-      }
-      for (let i = 0; i < e.changedTouches.length; i++) {
-        const t = e.changedTouches[i];
-        if (t.identifier === this.joystickId) {
-          this.joystickId = -1; this.joystickActive = false; this.joystickX = 0; this.joystickY = 0;
-          if (this.joystickThumbEl) this.joystickThumbEl.style.transform = 'translate(-50%, -50%) translate(0px, 0px)';
-        }
-        if (t.identifier === this.touchCamId) { this.touchCamId = -1; }
-      }
-    }, { passive: false });
+    document.addEventListener('touchstart', this.onDocTouchStart, { passive: false });
+    document.addEventListener('touchmove', this.onDocTouchMove, { passive: false });
+    document.addEventListener('touchend', this.onDocTouchEnd, { passive: false });
   }
 
   mobileShoot() { this.unlockAudio(); this.isShooting = true; this.shoot(); this.startAutoFire(); }
@@ -4185,4 +4063,174 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   setViewDistance(dist: number) {
     this.viewDistance = dist;
   }
+
+
+  private onCanvasTouchStart = (e: TouchEvent) => {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (t.clientX < window.innerWidth / 2 && this.joystickId === -1) {
+        this.joystickId = t.identifier; this.joystickActive = true;
+        this.updateThumb(t.clientX, t.clientY);
+      }
+      if (t.clientX >= window.innerWidth / 2 && this.touchCamId === -1) {
+        this.touchCamId = t.identifier; this.touchCamLastX = t.clientX; this.touchCamLastY = t.clientY;
+      }
+    }
+  };
+  private onCanvasTouchMove = (e: TouchEvent) => {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (t.identifier === this.joystickId) {
+        this.updateThumb(t.clientX, t.clientY);
+      }
+      if (t.identifier === this.touchCamId) {
+        this.lastMouseMoveTime = performance.now();
+        this.camYaw -= (t.clientX - this.touchCamLastX) * 0.005;
+        this.camPitch += (t.clientY - this.touchCamLastY) * 0.005;
+        this.camPitch = Math.max(-1.2, Math.min(0.8, this.camPitch));
+        this.touchCamLastX = t.clientX; this.touchCamLastY = t.clientY;
+      }
+    }
+  };
+  private onCanvasTouchEnd = (e: TouchEvent) => {
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (t.identifier === this.joystickId) {
+        this.joystickId = -1; this.joystickActive = false; this.joystickX = 0; this.joystickY = 0;
+        if (this.joystickThumbEl) this.joystickThumbEl.style.transform = 'translate(-50%, -50%) translate(0px, 0px)';
+      }
+      if (t.identifier === this.touchCamId) { this.touchCamId = -1; }
+    }
+  };
+
+  private onDocTouchStart = (e: TouchEvent) => {
+    const target = e.target as HTMLElement;
+    if (target && (target.id === 'gt-mobile-fire' || target.id === 'gt-mobile-car' || target.id === 'gt-mobile-view')) {
+      return;
+    }
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (t.clientX < window.innerWidth / 2 && this.joystickId === -1) {
+        this.joystickId = t.identifier; this.joystickActive = true;
+        this.updateThumb(t.clientX, t.clientY);
+      }
+      if (t.clientX >= window.innerWidth / 2 && this.touchCamId === -1) {
+        this.touchCamId = t.identifier; this.touchCamLastX = t.clientX; this.touchCamLastY = t.clientY;
+      }
+    }
+  };
+  private onDocTouchMove = (e: TouchEvent) => {
+    const target = e.target as HTMLElement;
+    if (target && (target.id === 'gt-mobile-fire' || target.id === 'gt-mobile-car' || target.id === 'gt-mobile-view')) {
+      return;
+    }
+    e.preventDefault();
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (t.identifier === this.joystickId) {
+        this.updateThumb(t.clientX, t.clientY);
+      }
+      if (t.identifier === this.touchCamId) {
+        this.lastMouseMoveTime = performance.now();
+        this.camYaw -= (t.clientX - this.touchCamLastX) * 0.005;
+        this.camPitch += (t.clientY - this.touchCamLastY) * 0.005;
+        this.camPitch = Math.max(-1.2, Math.min(0.8, this.camPitch));
+        this.touchCamLastX = t.clientX; this.touchCamLastY = t.clientY;
+      }
+    }
+  };
+  private onDocTouchEnd = (e: TouchEvent) => {
+    const target = e.target as HTMLElement;
+    if (target && (target.id === 'gt-mobile-fire' || target.id === 'gt-mobile-car' || target.id === 'gt-mobile-view')) {
+      return;
+    }
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (t.identifier === this.joystickId) {
+        this.joystickId = -1; this.joystickActive = false; this.joystickX = 0; this.joystickY = 0;
+        if (this.joystickThumbEl) this.joystickThumbEl.style.transform = 'translate(-50%, -50%) translate(0px, 0px)';
+      }
+      if (t.identifier === this.touchCamId) { this.touchCamId = -1; }
+    }
+  };
+
+  private onCanvasClick = (e: MouseEvent) => {
+    if (this.showWeaponWheel) return;
+    if (!this.isPointerLocked) this.canvasRef.nativeElement.requestPointerLock();
+  };
+
+  private onPointerLockChange = () => {
+    this.isPointerLocked = document.pointerLockElement === this.canvasRef.nativeElement;
+  };
+
+  private onResize = () => {
+    this.canvasRef.nativeElement.width = window.innerWidth;
+    this.canvasRef.nativeElement.height = window.innerHeight;
+    this.renderer.resize(this.canvasRef.nativeElement.width, this.canvasRef.nativeElement.height);
+  };
+
+  private onKeyDown = (e: KeyboardEvent) => {
+    this.keys.add(e.code);
+    if (e.code === 'Space') { e.preventDefault(); this.altUpPressed = true; }
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.altDownPressed = true;
+    if (this.isChatOpen) {
+      if (e.code === 'Enter') { this.sendChatMessage(); }
+      if (e.code === 'Escape') { this.isChatOpen = false; this.chatInput = ''; }
+      return;
+    }
+    if (e.code === 'Enter') { this.isChatOpen = true; this.chatInput = ''; e.preventDefault(); return; }
+    if (e.code === 'KeyE') this.toggleCar();
+    if (e.code === 'KeyV') this.toggleView();
+    if (e.code === 'KeyM') this.showMap = !this.showMap;
+    if (e.code === 'KeyL') this.showLeaderboard = !this.showLeaderboard;
+    if (this.isInCar && !this.isMobile) {
+      if (e.code === 'ArrowUp') { e.preventDefault(); this.stopRadio(); }
+      if (e.code === 'ArrowDown') { e.preventDefault(); this.randomRadio(); }
+      if (e.code === 'ArrowLeft') { e.preventDefault(); this.prevRadio(); }
+      if (e.code === 'ArrowRight') { e.preventDefault(); this.nextRadio(); }
+    }
+    if (e.code === 'Tab' || e.code === 'KeyQ') {
+      e.preventDefault();
+      this.showWeaponWheel = !this.showWeaponWheel;
+      if (this.isPointerLocked) document.exitPointerLock();
+    }
+    if (e.code === 'Escape') this.showWeaponWheel = false;
+  };
+
+  private onKeyUp = (e: KeyboardEvent) => {
+    this.keys.delete(e.code);
+    if (e.code === 'Space') this.altUpPressed = false;
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.altDownPressed = false;
+  };
+
+  private onMouseMove = (e: MouseEvent) => {
+    if (!this.isPointerLocked) return;
+    this.lastMouseMoveTime = performance.now();
+    this.camYaw -= e.movementX * 0.002;
+    this.camPitch += e.movementY * 0.002;
+    this.camPitch = Math.max(-1.2, Math.min(0.8, this.camPitch));
+  };
+
+  private onMouseDown = (e: MouseEvent) => {
+    if (e.button !== 0 || this.showWeaponWheel) return;
+    this.unlockAudio();
+    this.isShooting = true;
+    this.shoot();
+    this.startAutoFire();
+  };
+
+  private onMouseUp = (e: MouseEvent) => {
+    if (e.button === 0) {
+      this.isShooting = false;
+      this.stopAutoFire();
+    }
+  };
+
+  private onMouseLeave = () => {
+    this.isShooting = false;
+    this.stopAutoFire();
+  };
 }
