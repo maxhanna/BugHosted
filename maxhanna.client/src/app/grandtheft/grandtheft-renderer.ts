@@ -68,59 +68,89 @@ const GRID_PITCH = 80;
 const BLOCK_SIZE = 30;
 const SIDEWALK_SIZE = 55;
 const BIOME_RADIUS_MOUNTAIN = 30;
+// ── Procedural Island Definitions ──
+// Each island has concentric rings: city → suburb → rural → ocean
+interface IslandDef {
+  cx: number; cz: number;
+  cityR: number;
+  suburbR: number;
+  ruralR: number;
+}
+
+const ISLANDS: IslandDef[] = [
+  { cx: 0, cz: 0, cityR: 2.5, suburbR: 3.5, ruralR: 4.5 },     // Island 1 (Home/Spawn)
+  { cx: 10, cz: 0, cityR: 5, suburbR: 7, ruralR: 9 },           // Island 2 (Downtown)
+  { cx: 24, cz: 0, cityR: 3, suburbR: 6, ruralR: 9 },           // Island 3 (Suburbs)
+  { cx: 41, cz: 0, cityR: 5, suburbR: 8, ruralR: 11 },          // Island 4 (Beach Resort)
+  { cx: -10, cz: 0, cityR: 0, suburbR: 0, ruralR: 6 },          // Rural West
+  { cx: 61, cz: 0, cityR: 0, suburbR: 0, ruralR: 10 },          // Rural East
+  { cx: -18, cz: 0, cityR: 0, suburbR: 0, ruralR: 5 },          // Rural Far West
+  { cx: 75, cz: 0, cityR: 0, suburbR: 0, ruralR: 7 },           // Rural Far East
+];
+
+interface BridgeDef {
+  startCx: number; endCx: number; startCz: number; endCz: number;
+}
+
+const BRIDGES: BridgeDef[] = [
+  { startCx: 4, endCx: 5, startCz: -1, endCz: 1 },     // Island 1 ↔ Island 2
+  { startCx: 16, endCx: 17, startCz: -2, endCz: 2 },   // Island 2 ↔ Island 3
+  { startCx: 31, endCx: 32, startCz: -3, endCz: 3 },   // Island 3 ↔ Island 4
+];
+
+function isInAnyIsland(cx: number, cz: number): boolean {
+  for (const isl of ISLANDS) {
+    const dx = cx - isl.cx, dz = cz - isl.cz;
+    if (dx * dx + dz * dz < isl.ruralR * isl.ruralR) return true;
+  }
+  return false;
+}
+
 export function getBiome(cx: number, cz: number): string {
-  // Airports (expanded — each has multiple rows for long runways + parking)
+  // Airports take priority (must stay in sync with server)
   if (cx >= 0 && cx <= 3 && cz >= -3 && cz <= -1) return 'aeroport';
   if (cx >= 8 && cx <= 15 && cz >= -6 && cz <= -4) return 'aeroport';
   if (cx >= 22 && cx <= 30 && cz >= -8 && cz <= -6) return 'aeroport';
   if (cx >= 36 && cx <= 46 && cz >= -11 && cz <= -9) return 'aeroport';
   if (cx >= 33 && cx <= 46 && cz >= 12 && cz <= 16) return 'aeroport';
 
-  // Helper to deterministically carve parking-lot patches out of city/suburb
+  // Bridges
+  for (const br of BRIDGES) {
+    if (cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz) return 'bridge';
+  }
+
+  // Parking-lot patch helper (deterministic, mirrors server)
   const isParkingPatch = () => {
     const h = ((Math.imul(cx, 100003) + Math.imul(cz, 70001)) >>> 0);
     return (h % 9) === 0;
   };
 
-  // Island 1 (Home/Spawn)
-  if (cx >= -2 && cx <= 3 && cz >= -2 && cz <= 2) {
-    if (cz >= 2 || cz <= -2) return 'beach';
-    return isParkingPatch() ? 'parking_lot' : 'city';
+  // Find nearest island within its rural radius
+  let bestIsl: IslandDef | null = null;
+  let bestDist = Infinity;
+  for (const isl of ISLANDS) {
+    const dx = cx - isl.cx, dz = cz - isl.cz;
+    const dist = Math.sqrt(dx * dx + dz * dz);
+    if (dist < isl.ruralR && dist < bestDist) { bestIsl = isl; bestDist = dist; }
   }
+  if (!bestIsl) return 'ocean';
 
-  // Bridge 1→2
-  // Island 2 (Downtown)
-  if (cx >= 6 && cx <= 15 && cz >= -5 && cz <= 5) {
-    if (cz >= 4 || cz <= -4) return 'beach';
+  const isl = bestIsl;
+  const dist = bestDist;
+
+  // Beach: land chunk at shoreline — at least one cardinal neighbor is ocean
+  if (!isInAnyIsland(cx + 1, cz) || !isInAnyIsland(cx - 1, cz) ||
+    !isInAnyIsland(cx, cz + 1) || !isInAnyIsland(cx, cz - 1)) return 'beach';
+
+  // Determine biome by distance ring
+  if (dist < isl.cityR) {
     return isParkingPatch() ? 'parking_lot' : 'city';
-  }
-  // Bridge 2→3
-  if (cx >= 16 && cx <= 17 && cz >= -2 && cz <= 2) return 'bridge';
-  // Island 3 (Suburbs)
-  if (cx >= 18 && cx <= 30 && cz >= -7 && cz <= 7) {
-    if (cz >= 6 || cz <= -6) return 'beach';
+  } else if (dist < isl.suburbR) {
     return isParkingPatch() ? 'parking_lot' : 'suburb';
-  }
-  // Bridge 3→4
-  if (cx >= 31 && cx <= 32 && cz >= -3 && cz <= 3) return 'bridge';
-  // Island 4 (Beach Resort)
-  if (cx >= 33 && cx <= 50 && cz >= -10 && cz <= 10) {
-    if (cz >= 8 || cz <= -8) return 'beach';
-    if (cz >= -5 && cz <= 5) return isParkingPatch() ? 'parking_lot' : 'city';
-    return isParkingPatch() ? 'parking_lot' : 'suburb';
-  }
-  // Rural areas (far from cities — rolling hills + farmland)
-  if (cx >= -15 && cx <= -4 && cz >= -12 && cz <= 12) {
+  } else {
     const hr = ((Math.imul(cx, 100003) + Math.imul(cz, 70001)) >>> 0);
     return (hr % 3 === 0) ? 'rural_farm' : 'rural_hills';
   }
-  if (cx >= 51 && cx <= 70 && cz >= -15 && cz <= 15) {
-    const hr = ((Math.imul(cx, 100003) + Math.imul(cz, 70001)) >>> 0);
-    return (hr % 3 === 0) ? 'rural_farm' : 'rural_hills';
-  }
-  if (cx >= -20 && cx <= -16 && cz >= -6 && cz <= 6) { return 'rural_hills'; }
-  if (cx >= 71 && cx <= 80 && cz >= -8 && cz <= 8) { return 'rural_farm'; }
-  return 'ocean';
 }
 
 export function isAeroportParkingChunk(cx: number, cz: number): boolean {
@@ -132,11 +162,7 @@ export function isAeroportParkingChunk(cx: number, cz: number): boolean {
   return false;
 }
 
-const BRIDGE_RANGES: { startCx: number; endCx: number; startCz: number; endCz: number }[] = [
-  { startCx: 4, endCx: 5, startCz: -1, endCz: 1 },
-  { startCx: 16, endCx: 17, startCz: -2, endCz: 2 },
-  { startCx: 31, endCx: 32, startCz: -3, endCz: 3 },
-];
+const BRIDGE_RANGES = BRIDGES;
 const BRIDGE_DECK_Y = 4.0;
 
 /** Returns the ground Y offset for a given world position. Bridge ramps, ocean=-2.5, land=0. */

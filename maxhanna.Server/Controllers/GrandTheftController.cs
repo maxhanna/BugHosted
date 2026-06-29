@@ -70,6 +70,36 @@ namespace maxhanna.Server.Controllers
 			return Mulberry32(ref state) / 4294967296f;
 		}
 
+		private static readonly (int cx, int cz, double cityR, double suburbR, double ruralR)[] ISLANDS = new[]
+		{
+			(0, 0, 2.5, 3.5, 4.5),     // Island 1 (Home/Spawn)
+			(10, 0, 5, 7, 9),           // Island 2 (Downtown)
+			(24, 0, 3, 6, 9),           // Island 3 (Suburbs)
+			(41, 0, 5, 8, 11),          // Island 4 (Beach Resort)
+			(-10, 0, 0, 0, 6),          // Rural West
+			(61, 0, 0, 0, 10),          // Rural East
+			(-18, 0, 0, 0, 5),          // Rural Far West
+			(75, 0, 0, 0, 7),           // Rural Far East
+		};
+
+		private static readonly (int startCx, int endCx, int startCz, int endCz)[] BRIDGES = new[]
+		{
+			(4, 5, -1, 1),     // Island 1 ↔ Island 2
+			(16, 17, -2, 2),   // Island 2 ↔ Island 3
+			(31, 32, -3, 3),   // Island 3 ↔ Island 4
+		};
+
+		public static bool IsInAnyIsland(int cx, int cz)
+		{
+			foreach (var isl in ISLANDS)
+			{
+				double dx = cx - isl.cx;
+				double dz = cz - isl.cz;
+				if (dx * dx + dz * dz < isl.ruralR * isl.ruralR) return true;
+			}
+			return false;
+		}
+
 		public static string GetBiome(int cx, int cz)
 		{
 			if (cx >= 0 && cx <= 3 && cz >= -3 && cz <= -1) return "aeroport";
@@ -78,50 +108,37 @@ namespace maxhanna.Server.Controllers
 			if (cx >= 36 && cx <= 46 && cz >= -11 && cz <= -9) return "aeroport";
 			if (cx >= 33 && cx <= 46 && cz >= 12 && cz <= 16) return "aeroport";
 
-			// Deterministic parking-lot patch (must match client exactly)
+			foreach (var br in BRIDGES)
+				if (cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz) return "bridge";
+
 			bool IsParkingPatch()
 			{
 				uint h = (uint)((cx * 100003 + cz * 70001) & 0xFFFFFFFF);
 				return (h % 9u) == 0u;
 			}
 
-			if (cx >= -2 && cx <= 3 && cz >= -2 && cz <= 2)
+			(int cx, int cz, double cityR, double suburbR, double ruralR)? bestIsl = null;
+			double bestDist = double.MaxValue;
+			foreach (var isl in ISLANDS)
 			{
-				if (cz >= 2 || cz <= -2) return "beach";
-				return IsParkingPatch() ? "parking_lot" : "city";
+				double dx = cx - isl.cx;
+				double dz = cz - isl.cz;
+				double dist = Math.Sqrt(dx * dx + dz * dz);
+				if (dist < isl.ruralR && dist < bestDist) { bestIsl = isl; bestDist = dist; }
 			}
-			if (cx >= 4 && cx <= 5 && cz >= -1 && cz <= 1) return "bridge";
-			if (cx >= 6 && cx <= 15 && cz >= -5 && cz <= 5)
-			{
-				if (cz >= 4 || cz <= -4) return "beach";
-				return IsParkingPatch() ? "parking_lot" : "city";
-			}
-			if (cx >= 16 && cx <= 17 && cz >= -2 && cz <= 2) return "bridge";
-			if (cx >= 18 && cx <= 30 && cz >= -7 && cz <= 7)
-			{
-				if (cz >= 6 || cz <= -6) return "beach";
-				return IsParkingPatch() ? "parking_lot" : "suburb";
-			}
-			if (cx >= 31 && cx <= 32 && cz >= -3 && cz <= 3) return "bridge";
-			if (cx >= 33 && cx <= 50 && cz >= -10 && cz <= 10)
-			{
-				if (cz >= 8 || cz <= -8) return "beach";
-				if (cz >= -5 && cz <= 5) return IsParkingPatch() ? "parking_lot" : "city";
-				return IsParkingPatch() ? "parking_lot" : "suburb";
-			}
-			if (cx >= -15 && cx <= -4 && cz >= -12 && cz <= 12)
-			{
-				uint hr = (uint)((cx * 100003 + cz * 70001) & 0xFFFFFFFF);
-				return (hr % 3u == 0u) ? "rural_farm" : "rural_hills";
-			}
-			if (cx >= 51 && cx <= 70 && cz >= -15 && cz <= 15)
-			{
-				uint hr = (uint)((cx * 100003 + cz * 70001) & 0xFFFFFFFF);
-				return (hr % 3u == 0u) ? "rural_farm" : "rural_hills";
-			}
-			if (cx >= -20 && cx <= -16 && cz >= -6 && cz <= 6) return "rural_hills";
-			if (cx >= 71 && cx <= 80 && cz >= -8 && cz <= 8) return "rural_farm";
-			return "ocean";
+			if (bestIsl == null) return "ocean";
+
+			var islV = bestIsl.Value;
+			double distV = bestDist;
+
+			if (!IsInAnyIsland(cx + 1, cz) || !IsInAnyIsland(cx - 1, cz) ||
+				!IsInAnyIsland(cx, cz + 1) || !IsInAnyIsland(cx, cz - 1)) return "beach";
+
+			if (distV < islV.cityR) return IsParkingPatch() ? "parking_lot" : "city";
+			if (distV < islV.suburbR) return IsParkingPatch() ? "parking_lot" : "suburb";
+
+			uint hr = (uint)((cx * 100003 + cz * 70001) & 0xFFFFFFFF);
+			return (hr % 3u == 0u) ? "rural_farm" : "rural_hills";
 		}
 
 		public static bool IsAeroportParkingChunk(int cx, int cz)
