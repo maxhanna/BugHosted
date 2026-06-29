@@ -24,8 +24,8 @@
   </div>
   <div class="zoom-controls">
     <label class="zoom-label">🔍</label>
-    <input #zoomSlider type="range" min="0" max="100" [value]="zoomSliderValue"
-           (input)="onZoomSlider($event)" class="zoom-slider" orient="vertical">
+    <input #zoomSlider type="range" min="0" max="100" [value]="zoomSliderValue" (input)="onZoomSlider($event)"
+      class="zoom-slider" orient="vertical">
     <label class="zoom-label">🌍</label>
   </div>
 
@@ -33,29 +33,30 @@
   <button class="data-toggle-btn-top" (click)="showDataPanel = !showDataPanel">
     📊 Data
   </button>
-  
+
   <!-- Tooltip for flight callsigns -->
   <div class="flight-tooltip" *ngIf="hoveredFlightCallsign">
     {{ hoveredFlightCallsign }}
   </div>
 
   <!-- Data Panel Overlay -->
-  <div class="data-panel-backdrop" *ngIf="showDataPanel || isCoordsEditPopupOpen" (click)="showDataPanel = false; isCoordsEditPopupOpen = false"></div>
+  <div class="data-panel-backdrop" *ngIf="showDataPanel || isCoordsEditPopupOpen"
+    (click)="showDataPanel = false; isCoordsEditPopupOpen = false"></div>
   <div class="popupPanel data-popup-panel" *ngIf="showDataPanel">
     <div class="popupPanelTitle">Data</div>
     <button class="close-btn" (click)="showDataPanel = false">×</button>
 
     <div class="data-tabs">
       <button type="button" class="tab-btn" [class.active]="activeDataTab === 'stories'"
-              (click)="activeDataTab = 'stories'">Stories</button>
+        (click)="activeDataTab = 'stories'">Stories</button>
       <button type="button" class="tab-btn" [class.active]="activeDataTab === 'news'"
-              (click)="activeDataTab = 'news'">News</button>
+        (click)="activeDataTab = 'news'">News</button>
       <button type="button" class="tab-btn" [class.active]="activeDataTab === 'flights'"
-              (click)="activeDataTab = 'flights'">Flights</button>
+        (click)="activeDataTab = 'flights'">Flights</button>
       <button type="button" class="tab-btn" [class.active]="activeDataTab === 'users'"
-              (click)="activeDataTab = 'users'">Users</button>
+        (click)="activeDataTab = 'users'">Users</button>
       <button type="button" class="tab-btn" [class.active]="activeDataTab === 'general'"
-              (click)="activeDataTab = 'general'">General</button>
+        (click)="activeDataTab = 'general'">General</button>
     </div>
 
     <div class="data-content" *ngIf="activeDataTab === 'stories'">
@@ -73,15 +74,19 @@
       </div>
       <div class="stories-filters">
         <label>Filter by date:</label>
-        <input type="range" min="0" max="100" [value]="dateFilterValue"
-               (input)="onDateFilter($event)" class="date-slider">
+        <input type="range" min="0" max="100" [value]="dateFilterValue" (input)="onDateFilter($event)"
+          class="date-slider">
         <span class="date-label">{{ dateFilterLabel }}</span>
       </div>
       <div class="stories-list">
-        <div class="story-item" *ngFor="let story of filteredStories" (click)="onStoryClick(story); showDataPanel = false">
-          <div class="story-user"><app-user-tag [user]="story.user" [inputtedParentRef]="inputtedParentRef" [preventOpenProfile]="true" [displayMiniTag]="true"></app-user-tag></div>
-          <div class="story-preview">{{ story.storyText | slice:0:50 }}{{ (story.storyText?.length || 0) > 50 ? '...' : '' }}</div>
-          <div class="story-meta">{{ story.date | date:'shortDate' }} · {{ story.city || story.country || 'Unknown location' }}</div>
+        <div class="story-item" *ngFor="let story of filteredStories"
+          (click)="onStoryClick(story); showDataPanel = false">
+          <div class="story-user"><app-user-tag [user]="story.user" [inputtedParentRef]="inputtedParentRef"
+              [preventOpenProfile]="true" [displayMiniTag]="true"></app-user-tag></div>
+          <div class="story-preview">{{ story.storyText | slice:0:50 }}{{ (story.storyText?.length || 0) > 50 ? '...' :
+            '' }}</div>
+          <div class="story-meta">{{ story.date | date:'shortDate' }} · {{ story.city || story.country || 'Unknown
+            location' }}</div>
         </div>
         <div class="no-stories" *ngIf="filteredStories.length === 0">
           No stories found for the selected date range.
@@ -99,12 +104,13 @@
       </div>
       <div class="news-filters">
         <label>Filter by date:</label>
-        <input type="range" min="0" max="100" [value]="newsDateFilterValue"
-               (input)="onNewsDateFilter($event)" class="news-date-slider">
+        <input type="range" min="0" max="100" [value]="newsDateFilterValue" (input)="onNewsDateFilter($event)"
+          class="news-date-slider">
         <span class="news-date-label">{{ newsDateFilterLabel }}</span>
       </div>
       <div class="news-list">
-        <div class="news-item" *ngFor="let pin of filteredNewsPins" (click)="onNewsPinClick(pin); showDataPanel = false">
+        <div class="news-item" *ngFor="let pin of filteredNewsPins"
+          (click)="onNewsPinClick(pin); showDataPanel = false">
           <div class="news-title">{{ pin.articleTitle }}</div>
           <div class="news-description">{{ pin.description || 'No description' }}</div>
           <div class="news-meta">{{ pin.label }} · {{ pin.createdAt?.toDateString() || 'No date' }}</div>
@@ -126,26 +132,31 @@
       <div class="flights-content">
         <div class="add-flight-form">
           <div class="form-title">Track Flight</div>
-          <input type="text" [(ngModel)]="newCallsign" placeholder="Callsign (e.g. LXJ269)" class="flight-input" (keyup.enter)="addFlight()">
+          <input type="text" [(ngModel)]="newCallsign" placeholder="Callsign (e.g. LXJ269)" class="flight-input"
+            (keyup.enter)="addFlight()">
           <button type="button" (click)="addFlight()" class="add-flight-btn">✈ Track Flight</button>
         </div>
         <div class="flight-controls">
           <button type="button" (click)="loadFlights()">Refresh Flights</button>
-          <button type="button" (click)="toggleFlightTracking()">{{ flightInterval ? 'Stop Tracking' : 'Start Tracking' }}</button>
+          <button type="button" (click)="toggleFlightTracking()">{{ flightInterval ? 'Stop Tracking' : 'Start Tracking'
+            }}</button>
         </div>
         <div class="flights-list">
           <div class="refreshing-message" *ngIf="isRefreshingFlights">
             Refreshing flight data...
           </div>
-          <div class="flight-item" *ngFor="let flight of trackedFlights" (click)="focusTrackedFlight(flight); showDataPanel = false">
+          <div class="flight-item" *ngFor="let flight of trackedFlights"
+            (click)="focusTrackedFlight(flight); showDataPanel = false">
             <div class="flight-info">
               <span class="flight-callsign">{{ flight.callsign }}</span>
-              <span class="flight-route" *ngIf="flight.origin && flight.destination">{{ flight.origin }} → {{ flight.destination }}</span>
+              <span class="flight-route" *ngIf="flight.origin && flight.destination">{{ flight.origin }} → {{
+                flight.destination }}</span>
               <span class="flight-altitude">{{ flight.altitude || 'N/A' }} ft</span>
               <span class="flight-heading">{{ flight.heading || 'N/A' }}°</span>
             </div>
             <div class="flight-actions">
-              <button type="button" class="flight-toggle" (click)="toggleFlight(flight.id)" [title]="flight.enabled ? 'Hide' : 'Show'">
+              <button type="button" class="flight-toggle" (click)="toggleFlight(flight.id)"
+                [title]="flight.enabled ? 'Hide' : 'Show'">
                 {{ flight.enabled ? '👁' : '👁‍🗨' }}
               </button>
               <button type="button" class="flight-remove" (click)="removeFlight(flight.id)">×</button>
@@ -167,11 +178,13 @@
         </label>
       </div>
       <div class="users-search">
-        <input type="text" (input)="onUserSearch($event)" placeholder="Search users by name or ID..." class="search-input">
+        <input type="text" (input)="onUserSearch($event)" placeholder="Search users by name or ID..."
+          class="search-input">
       </div>
       <div class="users-list">
         <div class="user-item" *ngFor="let user of filteredUsersWithLocations" (click)="onUserClick(user)">
-          <div class="user-name"><app-user-tag [user]="user.user" [inputtedParentRef]="inputtedParentRef" [preventOpenProfile]="true" [displayMiniTag]="true"></app-user-tag></div>
+          <div class="user-name"><app-user-tag [user]="user.user" [inputtedParentRef]="inputtedParentRef"
+              [preventOpenProfile]="true" [displayMiniTag]="true"></app-user-tag></div>
           <div class="user-location">{{ formatLocationLabel(user.city, user.country) }}</div>
         </div>
         <div class="no-users" *ngIf="filteredUsersWithLocations.length === 0">
@@ -181,16 +194,6 @@
     </div>
 
     <div class="data-content" *ngIf="activeDataTab === 'general'">
-      <div class="search-container">
-        <input type="text" [(ngModel)]="searchCityQuery" placeholder="Search city/country..." class="search-input">
-        <button type="button" (click)="onCitySearch()" class="search-btn">Search</button>
-      </div>
-      <div class="search-results" *ngIf="searchResults.length >0">
-        <div class="search-result-item" *ngFor="let result of searchResults" (click)="onCitySearchSelect(result)">
-          {{ result.city }}, {{ result.country }}
-        </div>
-      </div> 
-
       <div class="pin-toggle-row">
         <label class="pin-toggle">
           <span class="pin-toggle-label">Show City Coords</span>
@@ -201,7 +204,8 @@
       <div class="pin-toggle-row">
         <label class="pin-toggle">
           <span class="pin-toggle-label">Show Country Coords</span>
-          <input type="checkbox" [checked]="showCountryCoords" (change)="showCountryCoords = $any($event.target).checked">
+          <input type="checkbox" [checked]="showCountryCoords"
+            (change)="showCountryCoords = $any($event.target).checked">
           <span class="pin-toggle-slider"></span>
         </label>
       </div>
@@ -223,30 +227,46 @@
       <button class="close-btn" (click)="closeFlightDetail()">×</button>
     </div>
     <div class="flight-detail-body">
-      <div class="detail-group" *ngIf="selectedFlight.registration || selectedFlight.aircraftType || selectedFlight.owner || selectedFlight.hex">
+      <div class="detail-group"
+        *ngIf="selectedFlight.registration || selectedFlight.aircraftType || selectedFlight.owner || selectedFlight.hex">
         <div class="detail-group-title">Aircraft</div>
-        <div class="detail-row" *ngIf="selectedFlight.hex"><span class="detail-label">ICAO24:</span><span>{{ selectedFlight.hex }}</span></div>
-        <div class="detail-row" *ngIf="selectedFlight.registration"><span class="detail-label">Registration:</span><span>{{ selectedFlight.registration }}</span></div>
-        <div class="detail-row" *ngIf="selectedFlight.aircraftType"><span class="detail-label">Type:</span><span>{{ selectedFlight.aircraftType }}</span></div>
-        <div class="detail-row" *ngIf="selectedFlight.typeDescription"><span class="detail-label">Description:</span><span>{{ selectedFlight.typeDescription }}</span></div>
-        <div class="detail-row" *ngIf="selectedFlight.owner"><span class="detail-label">Operator:</span><span>{{ selectedFlight.owner }}</span></div>
+        <div class="detail-row" *ngIf="selectedFlight.hex"><span class="detail-label">ICAO24:</span><span>{{
+            selectedFlight.hex }}</span></div>
+        <div class="detail-row" *ngIf="selectedFlight.registration"><span
+            class="detail-label">Registration:</span><span>{{ selectedFlight.registration }}</span></div>
+        <div class="detail-row" *ngIf="selectedFlight.aircraftType"><span class="detail-label">Type:</span><span>{{
+            selectedFlight.aircraftType }}</span></div>
+        <div class="detail-row" *ngIf="selectedFlight.typeDescription"><span
+            class="detail-label">Description:</span><span>{{ selectedFlight.typeDescription }}</span></div>
+        <div class="detail-row" *ngIf="selectedFlight.owner"><span class="detail-label">Operator:</span><span>{{
+            selectedFlight.owner }}</span></div>
       </div>
       <div class="detail-group">
         <div class="detail-group-title">Position</div>
-        <div class="detail-row"><span class="detail-label">Latitude:</span><span>{{ selectedFlight.lat?.toFixed(4) || 'N/A' }}</span></div>
-        <div class="detail-row"><span class="detail-label">Longitude:</span><span>{{ selectedFlight.lon?.toFixed(4) || 'N/A' }}</span></div>
-        <div class="detail-row"><span class="detail-label">Altitude:</span><span>{{ selectedFlight.altitude != null ? selectedFlight.altitude + ' ft' : 'N/A' }}</span></div>
-        <div class="detail-row"><span class="detail-label">Heading:</span><span>{{ selectedFlight.heading != null ? selectedFlight.heading + '°' : 'N/A' }}</span></div>
-        <div class="detail-row"><span class="detail-label">Speed:</span><span>{{ selectedFlight.velocity ? (selectedFlight.velocity * 1.944).toFixed(1) + ' kt' : 'N/A' }}</span></div>
-        <div class="detail-row" *ngIf="selectedFlight.onGround != null"><span class="detail-label">On Ground:</span><span>{{ selectedFlight.onGround ? 'Yes' : 'No' }}</span></div>
+        <div class="detail-row"><span class="detail-label">Latitude:</span><span>{{ selectedFlight.lat?.toFixed(4) ||
+            'N/A' }}</span></div>
+        <div class="detail-row"><span class="detail-label">Longitude:</span><span>{{ selectedFlight.lon?.toFixed(4) ||
+            'N/A' }}</span></div>
+        <div class="detail-row"><span class="detail-label">Altitude:</span><span>{{ selectedFlight.altitude != null ?
+            selectedFlight.altitude + ' ft' : 'N/A' }}</span></div>
+        <div class="detail-row"><span class="detail-label">Heading:</span><span>{{ selectedFlight.heading != null ?
+            selectedFlight.heading + '°' : 'N/A' }}</span></div>
+        <div class="detail-row"><span class="detail-label">Speed:</span><span>{{ selectedFlight.velocity ?
+            (selectedFlight.velocity * 1.944).toFixed(1) + ' kt' : 'N/A' }}</span></div>
+        <div class="detail-row" *ngIf="selectedFlight.onGround != null"><span class="detail-label">On
+            Ground:</span><span>{{ selectedFlight.onGround ? 'Yes' : 'No' }}</span></div>
       </div>
       <div class="detail-group" *ngIf="selectedFlight.origin || selectedFlight.destination">
         <div class="detail-group-title">Route</div>
-        <div class="detail-row" *ngIf="selectedFlight.origin"><span class="detail-label">Origin:</span><span>{{ selectedFlight.origin }}</span></div>
-        <div class="detail-row" *ngIf="selectedFlight.destination"><span class="detail-label">Destination:</span><span>{{ selectedFlight.destination }}</span></div>
+        <div class="detail-row" *ngIf="selectedFlight.origin"><span class="detail-label">Origin:</span><span>{{
+            selectedFlight.origin }}</span></div>
+        <div class="detail-row" *ngIf="selectedFlight.destination"><span
+            class="detail-label">Destination:</span><span>{{ selectedFlight.destination }}</span></div>
       </div>
-      <div class="detail-row" *ngIf="selectedFlight.lastContact"><span class="detail-label">Last Contact:</span><span>{{ selectedFlight.lastContact * 1000 | date:'medium' }}</span></div>
-      <div class="detail-row" *ngIf="selectedFlight.lastUpdated"><span class="detail-label">Updated:</span><span>{{ selectedFlight.lastUpdated | date:'medium' }}</span></div>
+      <div class="detail-row" *ngIf="selectedFlight.lastContact"><span class="detail-label">Last Contact:</span><span>{{
+          selectedFlight.lastContact * 1000 | date:'medium' }}</span></div>
+      <div class="detail-row" *ngIf="selectedFlight.lastUpdated"><span class="detail-label">Updated:</span><span>{{
+          selectedFlight.lastUpdated | date:'medium' }}</span></div>
     </div>
   </div>
 
@@ -254,24 +274,29 @@
   <div class="news-popup-backdrop" *ngIf="showNewsPopup" (click)="closeNewsPopup()"></div>
   <div class="popupPanel news-popup-panel" *ngIf="showNewsPopup && selectedNewsPin">
     <div class="popupPanelTitle">{{ selectedNewsPin.articleTitle }}</div>
-    <img *ngIf="selectedNewsPin.urlToImage" [src]="selectedNewsPin.urlToImage" alt="Article image" class="news-popup-image">
+    <img *ngIf="selectedNewsPin.urlToImage" [src]="selectedNewsPin.urlToImage" alt="Article image"
+      class="news-popup-image">
     <p class="news-popup-description">{{ selectedNewsPin.description || 'No description available.' }}</p>
     <p class="news-popup-meta">Location: {{ selectedNewsPin.label }} ({{ selectedNewsPin.locationType }})</p>
-    <p class="news-popup-date" *ngIf="selectedNewsPin.createdAt">Published: {{ selectedNewsPin.createdAt | date:'mediumDate' }}</p>
-    <button type="button" class="news-popup-open-btn" (click)="openNewsArticleInNewTab()">Open Article in New Tab</button>
-    <button class="closeButton" (click)="closeNewsPopup()"></button> 
+    <p class="news-popup-date" *ngIf="selectedNewsPin.createdAt">Published: {{ selectedNewsPin.createdAt |
+      date:'mediumDate' }}</p>
+    <button type="button" class="news-popup-open-btn" (click)="openNewsArticleInNewTab()">Open Article in New
+      Tab</button>
+    <button class="closeButton" (click)="closeNewsPopup()"></button>
   </div>
 
   <!-- Story Post Popup -->
   <div class="story-popup-backdrop" *ngIf="showStoryPopup" (click)="closeStoryPopup()"></div>
   <div class="popupPanel story-popup-panel" *ngIf="showStoryPopup && selectedStory">
     <div class="popupPanelTitle">Story Post</div>
-    <app-user-tag [user]="selectedStory.user" [inputtedParentRef]="inputtedParentRef" [preventOpenProfile]="true"></app-user-tag>
+    <app-user-tag [user]="selectedStory.user" [inputtedParentRef]="inputtedParentRef"
+      [preventOpenProfile]="true"></app-user-tag>
     <p class="story-popup-text">{{ selectedStory.storyText }}</p>
-    <p class="story-popup-meta" *ngIf="selectedStory.city || selectedStory.country">Location: {{ formatLocationLabel(selectedStory.city, selectedStory.country) }}</p>
+    <p class="story-popup-meta" *ngIf="selectedStory.city || selectedStory.country">Location: {{
+      formatLocationLabel(selectedStory.city, selectedStory.country) }}</p>
     <p class="story-popup-date" *ngIf="selectedStory.date">{{ selectedStory.date | date:'mediumDate' }}</p>
     <button type="button" class="story-popup-open-btn" (click)="openStoryInSocial()">View in Social</button>
-    <button class="closeButton" (click)="closeStoryPopup()"></button> 
+    <button class="closeButton" (click)="closeStoryPopup()"></button>
   </div>
 
   <!-- Cluster Popup (multiple pings at same location) -->
@@ -287,7 +312,8 @@
         </div>
         <div class="accordion-content" *ngIf="accordionStates['news']">
           <div class="cluster-pings-list">
-            <div class="cluster-ping-item" *ngFor="let ping of getClusterPingsBySource('news')" (click)="onClusterPingClick(ping)">
+            <div class="cluster-ping-item" *ngFor="let ping of getClusterPingsBySource('news')"
+              (click)="onClusterPingClick(ping)">
               <span class="cluster-ping-icon news-icon">📰</span>
               <div class="cluster-ping-info">
                 <div class="cluster-ping-label">{{ ping.label }}</div>
@@ -297,7 +323,7 @@
           </div>
         </div>
       </div>
-      
+
       <!-- Users Accordion -->
       <div class="accordion-item" *ngIf="getClusterPingsBySource('user').length > 0">
         <div class="accordion-header" (click)="toggleAccordion('user')">
@@ -306,7 +332,8 @@
         </div>
         <div class="accordion-content" *ngIf="accordionStates['user']">
           <div class="cluster-pings-list">
-            <div class="cluster-ping-item" *ngFor="let ping of getClusterPingsBySource('user')" (click)="onClusterPingClick(ping)">
+            <div class="cluster-ping-item" *ngFor="let ping of getClusterPingsBySource('user')"
+              (click)="onClusterPingClick(ping)">
               <span class="cluster-ping-icon user-icon">👤</span>
               <div class="cluster-ping-info">
                 <div class="cluster-ping-label">{{ ping.label }}</div>
@@ -316,7 +343,7 @@
           </div>
         </div>
       </div>
-      
+
       <!-- Stories Accordion -->
       <div class="accordion-item" *ngIf="getClusterPingsBySource('story').length > 0">
         <div class="accordion-header" (click)="toggleAccordion('story')">
@@ -325,7 +352,8 @@
         </div>
         <div class="accordion-content" *ngIf="accordionStates['story']">
           <div class="cluster-pings-list">
-            <div class="cluster-ping-item" *ngFor="let ping of getClusterPingsBySource('story')" (click)="onClusterPingClick(ping)">
+            <div class="cluster-ping-item" *ngFor="let ping of getClusterPingsBySource('story')"
+              (click)="onClusterPingClick(ping)">
               <span class="cluster-ping-icon story-icon">📖</span>
               <div class="cluster-ping-info">
                 <div class="cluster-ping-label">{{ ping.label }}</div>
@@ -335,7 +363,7 @@
           </div>
         </div>
       </div>
-      
+
       <!-- Custom Pings Accordion -->
       <div class="accordion-item" *ngIf="getClusterPingsBySource('custom').length > 0">
         <div class="accordion-header" (click)="toggleAccordion('custom')">
@@ -344,7 +372,8 @@
         </div>
         <div class="accordion-content" *ngIf="accordionStates['custom']">
           <div class="cluster-pings-list">
-            <div class="cluster-ping-item" *ngFor="let ping of getClusterPingsBySource('custom')" (click)="onClusterPingClick(ping)">
+            <div class="cluster-ping-item" *ngFor="let ping of getClusterPingsBySource('custom')"
+              (click)="onClusterPingClick(ping)">
               <span class="cluster-ping-icon">📍</span>
               <div class="cluster-ping-info">
                 <div class="cluster-ping-label">{{ ping.label }}</div>
@@ -363,10 +392,13 @@
   <div class="popupPanel user-popup-panel" *ngIf="showUserPopup && selectedUser">
     <div class="popupPanelTitle">User Info</div>
     <div class="user-popup-content">
-      <app-user-tag [user]="selectedUser" [inputtedParentRef]="inputtedParentRef" [preventOpenProfile]="true"></app-user-tag>
+      <app-user-tag [user]="selectedUser" [inputtedParentRef]="inputtedParentRef"
+        [preventOpenProfile]="true"></app-user-tag>
       <div class="user-popup-details">
-        <div class="user-popup-row"><span class="user-popup-label">Username:</span><span>{{ selectedUser.username }}</span></div>
-        <div class="user-popup-row"><span class="user-popup-label">Location:</span><span>{{ formatLocationLabel(selectedUserPing?.city, selectedUserPing?.country) }}</span></div>
+        <div class="user-popup-row"><span class="user-popup-label">Username:</span><span>{{ selectedUser.username
+            }}</span></div>
+        <div class="user-popup-row"><span class="user-popup-label">Location:</span><span>{{
+            formatLocationLabel(selectedUserPing?.city, selectedUserPing?.country) }}</span></div>
       </div>
       <button type="button" class="user-popup-profile-btn" (click)="openUserProfile(selectedUser)">Open Profile</button>
     </div>
