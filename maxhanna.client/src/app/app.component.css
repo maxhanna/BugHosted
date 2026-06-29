@@ -53,7 +53,7 @@
   max-height: CALC(100vh - 60px);
   max-height: CALC(100dvh - 60px);
   overflow: hidden;
-  z-index: 10;
+  z-index: 200;
 }
 
 .notificationBubble {
