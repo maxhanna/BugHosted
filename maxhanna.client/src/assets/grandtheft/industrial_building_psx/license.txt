@@ -1,8 +1,0 @@
-Model Information:
-* title:	Industrial building PSX
-* source:	https://sketchfab.com/3d-models/industrial-building-psx-d0808ed1162241b48ef5b469d4301f3a
-* author:	gavrik1703 (https://sketchfab.com/gavrik1703)
-
-Model License:
-* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
-* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

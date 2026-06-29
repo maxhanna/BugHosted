@@ -537,7 +537,7 @@ export class GrandTheftRenderer {
   static CITY_BUILDING_NAMES = [
     'abandonnedBuilding', 'buildingRandom', 'domeStructure',
     'ecds_old_building_04', 'ecds_old_building_05', 'ecds_old_building_06', 'ecds_old_building_07', 'ecds_old_building_08',
-    'industrial_building_psx', 'low_polly_building', 'low_poly_apartment_building_2', 'low_poly_apartment_building_3',
+    'low_polly_building', 'low_poly_apartment_building_2', 'low_poly_apartment_building_3',
     'low_poly_cinema', 'low_poly_city_hall', 'low_poly_gas_station', 'low_poly_hotel_1', 'low_poly_hotel_2',
     'low_poly_pharmacy', 'low_poly_police_station', 'low_poly_school', 'low_poly_shopping_center',
     'panel_apartment_placeholder', 'psx_groceries_store', 'pyaterochka_3d', 'supermarket',
