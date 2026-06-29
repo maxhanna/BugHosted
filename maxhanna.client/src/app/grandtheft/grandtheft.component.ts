@@ -366,9 +366,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const specialMeshes: { path: string; storeSkeleton: boolean; assign: (m: CityMesh[]) => void; scale?: number; yawOffset?: number }[] = [
       { path: 'assets/grandtheft/star_wars_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
       { path: 'assets/grandtheft/ultra-futuristic_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
-      { path: 'assets/grandtheft/bell_222_x/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m), yawOffset: -Math.PI / 2 },
-      { path: 'assets/grandtheft/bell_ch-146_griffon/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m), yawOffset: -Math.PI / 2 },
-      { path: 'assets/grandtheft/bell_206_jet_ranger/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m), yawOffset: -Math.PI / 2 },
+      { path: 'assets/grandtheft/bell_222_x/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m), yawOffset: Math.PI / 2 },
+      { path: 'assets/grandtheft/bell_ch-146_griffon/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m), yawOffset: Math.PI / 2 },
+      { path: 'assets/grandtheft/bell_206_jet_ranger/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m), yawOffset: Math.PI / 2 },
       { path: 'assets/grandtheft/cirrus_sr_22/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m) },
       { path: 'assets/grandtheft/low_poly_11_ea18g_growler/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m) },
       { path: 'assets/grandtheft/low_poly_11_usaf_f22a_raptor/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m) },
@@ -411,7 +411,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       { path: 'assets/grandtheft/mitsubishi/scene.gltf' },
       { path: 'assets/grandtheft/hilux/scene.gltf' },
       { path: 'assets/grandtheft/suv/scene.gltf' },
-      { path: 'assets/grandtheft/psxlow_poly_pickup/scene.gltf', yawOffset: -Math.PI / 2 },
+      { path: 'assets/grandtheft/psxlow_poly_pickup/scene.gltf', yawOffset: Math.PI / 2 },
       { path: 'assets/grandtheft/vehicle_-_subaru_brz_rocket_bunny/scene.gltf' },
       { path: 'assets/grandtheft/1970_dodge_challenger_rt_lp/scene.gltf' }, 
       { path: 'assets/grandtheft/truck_toyota_corsa_b/scene.gltf', scale: 2, yawOffset: Math.PI }, 
@@ -498,7 +498,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     document.addEventListener('keydown', (e) => {
       this.keys.add(e.code);
       if (e.code === 'Space') { e.preventDefault(); this.altUpPressed = true; }
-      if (e.code === 'ShiftLeft') this.altDownPressed = true;
+      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.altDownPressed = true;
       if (this.isChatOpen) {
         if (e.code === 'Enter') { this.sendChatMessage(); }
         if (e.code === 'Escape') { this.isChatOpen = false; this.chatInput = ''; }
@@ -525,7 +525,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     document.addEventListener('keyup', (e) => {
       this.keys.delete(e.code);
       if (e.code === 'Space') this.altUpPressed = false;
-      if (e.code === 'ShiftLeft') this.altDownPressed = false;
+      if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.altDownPressed = false;
     });
 
     if (!this.isMobile) {

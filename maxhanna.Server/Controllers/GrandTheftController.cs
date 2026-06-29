@@ -700,8 +700,8 @@ namespace maxhanna.Server.Controllers
 
 				using (var cmd = new MySqlCommand(@"
                 INSERT INTO maxhanna.grandtheft_player_state (user_id, world_id, pos_x, pos_y, pos_z, yaw, pitch, car_yaw, car_speed, health, weapon, money, last_seen)
-                VALUES (@uid, @wid, @px, @py, @pz, @y, @p, @cy, @cs, @h, @w, @money, NOW())
-                ON DUPLICATE KEY UPDATE pos_x = @px, pos_y = @py, pos_z = @pz, yaw = @y, pitch = @p, car_yaw = @cy, car_speed = @cs, health = @h, weapon = @w, money = @money, last_seen = NOW()", conn))
+                VALUES (@uid, @wid, @px, @py, @pz, @y, @p, @cy, @cs, @h, @w, @money, UTC_DATE())
+                ON DUPLICATE KEY UPDATE pos_x = @px, pos_y = @py, pos_z = @pz, yaw = @y, pitch = @p, car_yaw = @cy, car_speed = @cs, health = @h, weapon = @w, money = @money, last_seen = UTC_DATE()", conn))
 				{
 					cmd.Parameters.AddWithValue("@uid", req.UserId);
 					cmd.Parameters.AddWithValue("@wid", req.WorldId);
@@ -849,7 +849,7 @@ namespace maxhanna.Server.Controllers
                 SELECT ps.user_id, ps.pos_x, ps.pos_y, ps.pos_z, ps.yaw, ps.pitch, ps.car_yaw, ps.car_speed, ps.health, ps.weapon, ps.money,
                 COALESCE(u.username, CONCAT('Player', ps.user_id)) as username
                 FROM maxhanna.grandtheft_player_state ps LEFT JOIN maxhanna.users u ON u.id = ps.user_id
-                WHERE ps.world_id = @wid2 AND ps.user_id != @uid2 AND ps.last_seen > DATE_SUB(NOW(), INTERVAL @timeout SECOND)", conn))
+                WHERE ps.world_id = @wid2 AND ps.user_id != @uid2 AND ps.last_seen > DATE_SUB(UTC_DATE(), INTERVAL @timeout SECOND)", conn))
 				{
 					selCmd.Parameters.AddWithValue("@wid2", req.WorldId);
 					selCmd.Parameters.AddWithValue("@uid2", req.UserId);
@@ -1799,7 +1799,7 @@ namespace maxhanna.Server.Controllers
 
 			var sql = @"SELECT gtps.user_id
  FROM maxhanna.grandtheft_player_state gtps 
- WHERE gtps.last_seen >= DATE_SUB(CURRENT_DATE(), INTERVAL 5 MINUTE);";
+ WHERE gtps.last_seen >= DATE_SUB(UTC_DATE(), INTERVAL 5 MINUTE);";
 
 			using var command = new MySqlCommand(sql, connection);
 			using var reader = await command.ExecuteReaderAsync();

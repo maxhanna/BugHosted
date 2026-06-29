@@ -537,8 +537,7 @@ export class GrandTheftRenderer {
     'low_poly_burger_restaurant', 'low_poly_cafe', 'low_poly_generic_restaurant', 'low_poly_generic_shop',
     'low_poly_house_2', 'low_poly_house_3', 'low_poly_house_4', 'low_poly_house_5',
     'low_poly_pizza_restaurant', 'low_poly_wooden_cabine', 'residential_family_house', 'ichijoushi_002',
-    'low_poly_apartment_building_1', 'ichijoushi___001',
-    'low_poly_house_1', 'low_poly_apartment_2', 'fatboys_diner', 'psxprop_-_old_warehouse',
+    'low_poly_apartment_building_1', 'low_poly_house_1', 'fatboys_diner', 'psxprop_-_old_warehouse',
   ];
   public trafficLightMesh: CityMesh[] | null = null;
   public hydrantMesh: CityMesh[] | null = null;
@@ -1845,8 +1844,6 @@ void main() {
       const cz2 = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
       this.addPlane(verts, indices, cx2, -2.5, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.0, 0.10, 0.30, 0.85, idxOffset); idxOffset += 4;
       this.addPlane(verts, indices, cx2, -2.0, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.10, 0.30, 0.50, 0.55, idxOffset); idxOffset += 4;
-      // Bridge deck
-      this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, BRIDGE_DECK_Y, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 4;
       // Ramp fillers: smooth slope from Y=0 to BRIDGE_DECK_Y using thin overlapping slices
       for (const br of BRIDGE_RANGES) {
         if (cx !== br.startCx && cx !== br.endCx) continue;
