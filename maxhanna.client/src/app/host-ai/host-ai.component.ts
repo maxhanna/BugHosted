@@ -1,4 +1,4 @@
-import { Component, ViewChild, ElementRef, OnDestroy, ChangeDetectorRef } from '@angular/core';
+﻿import { Component, ViewChild, ElementRef, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { AiService } from '../../services/ai.service';
 import { ChildComponent } from '../child.component';
 import { User } from '../../services/datacontracts/user/user';
@@ -26,7 +26,7 @@ export class HostAiComponent extends ChildComponent implements OnDestroy {
   chatMessages: AIMessage[] = [];
   hostName: string = "Host";
 
-  aiMode: 'general' | 'medical' = 'general';
+  aiMode: 'general' | 'medical' = 'medical';
   capturedImage: string | null = null;
   medicalChatHistory: { role: string; content: any }[] = [];
 
@@ -51,11 +51,7 @@ export class HostAiComponent extends ChildComponent implements OnDestroy {
   @ViewChild(SpeechRecognitionComponent) speechRecognitionComponent?: SpeechRecognitionComponent;
   @ViewChild(MediaSelectorComponent) fileSelector?: MediaSelectorComponent;
 
-  switchMode(mode: 'general' | 'medical') {
-    this.aiMode = mode;
-    this.hostName = mode === 'medical' ? 'Medical AI' : 'Host';
-    this.capturedImage = null;
-  }
+
 
   triggerCamera() {
     const input = document.createElement('input');
