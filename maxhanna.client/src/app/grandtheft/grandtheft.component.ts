@@ -3959,15 +3959,80 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     const scale = 0.5;
     const cx = 150, cy = 150;
+    const now = performance.now();
 
+    // Other players — red dots
     ctx.fillStyle = '#ff0000';
     for (const p of this.otherPlayers) {
       ctx.beginPath(); ctx.arc(cx + (p.posX - this.carX) * scale, cy + (p.posZ - this.carZ) * scale, 3, 0, Math.PI * 2); ctx.fill();
     }
 
+    // Police detection circles (draw under police icons)
+    if (this.wantedLevel > 0) {
+      const cops = [
+        ...this.serverNPCs.filter(n => n.type === 'police' || n.type === 'cop'),
+        ...this.serverPedestrians.filter(p => p.type === 'cop'),
+        ...this.parkedCars.filter(pc => pc.type === 'police')
+      ];
+      ctx.strokeStyle = 'rgba(255, 100, 100, 0.2)';
+      ctx.fillStyle = 'rgba(255, 50, 50, 0.06)';
+      ctx.lineWidth = 1;
+      for (const cop of cops) {
+        const mx = cx + (cop.x - this.carX) * scale;
+        const my = cy + (cop.z - this.carZ) * scale;
+        const r = 25 * scale; // 25-unit detection range scaled to map
+        if (mx > -r && mx < 300 + r && my > -r && my < 300 + r) {
+          ctx.beginPath(); ctx.arc(mx, my, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        }
+      }
+    }
+
+    // Police cars (type 'police') — blue shield
+    ctx.fillStyle = '#4488ff';
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    for (const npc of this.serverNPCs) {
+      if (npc.type !== 'police') continue;
+      const mx = cx + (npc.x - this.carX) * scale;
+      const my = cy + (npc.z - this.carZ) * scale;
+      ctx.beginPath();
+      ctx.moveTo(mx, my - 4); ctx.lineTo(mx + 3, my - 1);
+      ctx.lineTo(mx + 2, my + 3); ctx.lineTo(mx, my + 1);
+      ctx.lineTo(mx - 2, my + 3); ctx.lineTo(mx - 3, my - 1);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    // Parked police cars
+    for (const pc of this.parkedCars) {
+      if (pc.type !== 'police') continue;
+      const mx = cx + (pc.x - this.carX) * scale;
+      const my = cy + (pc.z - this.carZ) * scale;
+      ctx.beginPath();
+      ctx.moveTo(mx, my - 4); ctx.lineTo(mx + 3, my - 1);
+      ctx.lineTo(mx + 2, my + 3); ctx.lineTo(mx, my + 1);
+      ctx.lineTo(mx - 2, my + 3); ctx.lineTo(mx - 3, my - 1);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+
+    // Pedestrian cops (type 'cop') — blue dots
+    ctx.fillStyle = '#6699ff';
+    for (const npc of this.serverNPCs) {
+      if (npc.type !== 'cop') continue;
+      ctx.beginPath(); ctx.arc(cx + (npc.x - this.carX) * scale, cy + (npc.z - this.carZ) * scale, 2.5, 0, Math.PI * 2); ctx.fill();
+    }
+    for (const ped of this.serverPedestrians) {
+      if (ped.type !== 'cop') continue;
+      ctx.beginPath(); ctx.arc(cx + (ped.x - this.carX) * scale, cy + (ped.z - this.carZ) * scale, 2.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Regular NPCs — yellow dots
     ctx.fillStyle = '#ffff00';
-    for (const npc of [...this.serverNPCs, ...this.parkedCars]) {
+    for (const npc of this.serverNPCs) {
+      if (npc.type === 'police' || npc.type === 'cop') continue;
       ctx.beginPath(); ctx.arc(cx + (npc.x - this.carX) * scale, cy + (npc.z - this.carZ) * scale, 2, 0, Math.PI * 2); ctx.fill();
+    }
+    for (const pc of this.parkedCars) {
+      if (pc.type === 'police') continue;
+      ctx.beginPath(); ctx.arc(cx + (pc.x - this.carX) * scale, cy + (pc.z - this.carZ) * scale, 2, 0, Math.PI * 2); ctx.fill();
     }
 
     ctx.fillStyle = '#00ff00';

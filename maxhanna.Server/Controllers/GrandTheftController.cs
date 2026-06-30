@@ -564,7 +564,9 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, string> _playerModelUrls = new();
 		private static readonly ConcurrentDictionary<int, double> _lastDamageTime = new();
 		private static readonly ConcurrentDictionary<int, int> _playerWantedLevels = new();
-		private static readonly ConcurrentDictionary<int, DateTime> _lastWantedDecay = new();
+		private static readonly ConcurrentDictionary<int, DateTime> _lastUndetectedTime = new();
+		private const float COP_DETECTION_RANGE = 25f;
+		private const float COP_DETECTION_RANGE_SQ = COP_DETECTION_RANGE * COP_DETECTION_RANGE;
 		private static readonly ConcurrentDictionary<int, double> _lastPoliceDamageTime = new();
 		private static readonly ConcurrentDictionary<int, int> _playerMoney = new();
 		private static readonly ConcurrentDictionary<int, bool> _playerInCar = new();
@@ -848,23 +850,41 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				int wantedLevel = 0;
-				if (_playerWantedLevels.TryGetValue(req.UserId, out var w)) wantedLevel = w;
-				if (wantedLevel > 0)
+			int wantedLevel = 0;
+			if (_playerWantedLevels.TryGetValue(req.UserId, out var w)) wantedLevel = w;
+			if (wantedLevel > 0)
+			{
+				// Check if any cop is detecting the player
+				bool detected = false;
+				if (_worldNpcs.TryGetValue(req.WorldId, out var npcs))
 				{
-					if (_lastWantedDecay.TryGetValue(req.UserId, out var lastDecay))
+					float px = req.PosX, pz = req.PosZ;
+					foreach (var kv in npcs)
 					{
-						if ((DateTime.UtcNow - lastDecay).TotalSeconds > 20)
-						{
-							_playerWantedLevels[req.UserId] = Math.Max(0, wantedLevel - 1);
-							_lastWantedDecay[req.UserId] = DateTime.UtcNow;
-						}
-					}
-					else
-					{
-						_lastWantedDecay[req.UserId] = DateTime.UtcNow;
+						var npc = kv.Value;
+						if (npc.DeadAt != null || npc.Health <= 0) continue;
+						if (npc.TargetUserId != req.UserId) continue;
+						if ((npc.Type != "police" && npc.Type != "cop")) continue;
+						float dx = npc.X - px, dz = npc.Z - pz;
+						if (dx * dx + dz * dz < COP_DETECTION_RANGE_SQ) { detected = true; break; }
 					}
 				}
+				if (detected)
+				{
+					_lastUndetectedTime[req.UserId] = DateTime.UtcNow;
+				}
+				else if (_lastUndetectedTime.TryGetValue(req.UserId, out var last))
+				{
+					if ((DateTime.UtcNow - last).TotalSeconds >= 60)
+					{
+						_playerWantedLevels[req.UserId] = 0;
+					}
+				}
+				else
+				{
+					_lastUndetectedTime[req.UserId] = DateTime.UtcNow;
+				}
+			}
 
 				var players = new List<object>();
 				using (var selCmd = new MySqlCommand(@"
@@ -2473,7 +2493,7 @@ namespace maxhanna.Server.Controllers
 					_playerWantedLevels[req.AttackerId] = Math.Min(5, w + 1);
 				else
 					_playerWantedLevels[req.AttackerId] = 1;
-				_lastWantedDecay[req.AttackerId] = DateTime.UtcNow;
+				_lastUndetectedTime[req.AttackerId] = DateTime.UtcNow;
 			}
 
 			return Ok(new { ok = true, hit = hitAnything, targetHealth = targetHealthResult, targetDied = targetDied });
