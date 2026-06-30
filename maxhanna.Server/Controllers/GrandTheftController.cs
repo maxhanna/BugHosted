@@ -72,10 +72,10 @@ namespace maxhanna.Server.Controllers
 
 		private static readonly (int cx, int cz, double cityR, double suburbR, double ruralR)[] ISLANDS = new[]
 		{
-			(0, 0, 2.5, 3.5, 4.5),     // Island 1 (Home/Spawn)
-			(10, 0, 5, 7, 9),           // Island 2 (Downtown)
-			(24, 0, 3, 6, 9),           // Island 3 (Suburbs)
-			(41, 0, 5, 8, 11),          // Island 4 (Beach Resort)
+			(0, 0, 2.5, 3.5, 3.5),     // Island 1 (Home/Spawn)
+			(10, 0, 5, 7, 8),           // Island 2 (Downtown)
+			(24, 0, 3, 6, 8),           // Island 3 (Suburbs)
+			(41, 0, 5, 8, 10),          // Island 4 (Beach Resort)
 			(-10, 0, 0, 0, 6),          // Rural West
 			(61, 0, 0, 0, 10),          // Rural East
 			(-18, 0, 0, 0, 5),          // Rural Far West
@@ -106,6 +106,13 @@ namespace maxhanna.Server.Controllers
 			return false;
 		}
 
+		private static bool BridgeContains(int cx, int cz)
+		{
+			foreach (var br in BRIDGES)
+				if (cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz) return true;
+			return false;
+		}
+
 		public static string GetBiome(int cx, int cz)
 		{
 			if (cx >= 0 && cx <= 3 && cz >= -3 && cz <= -1) return "aeroport";
@@ -119,6 +126,9 @@ namespace maxhanna.Server.Controllers
 
 			foreach (var conn in BRIDGE_CONNECTORS)
 				if (cx == conn.cx && cz == conn.cz) return "bridge_connector";
+
+			// Water under bridges: chunks directly below bridge decks are ocean
+			if (BridgeContains(cx, cz + 1)) return "ocean";
 
 			bool IsParkingPatch()
 			{

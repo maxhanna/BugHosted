@@ -78,10 +78,10 @@ interface IslandDef {
 }
 
 const ISLANDS: IslandDef[] = [
-  { cx: 0, cz: 0, cityR: 2.5, suburbR: 3.5, ruralR: 4.5 },     // Island 1 (Home/Spawn)
-  { cx: 10, cz: 0, cityR: 5, suburbR: 7, ruralR: 9 },           // Island 2 (Downtown)
-  { cx: 24, cz: 0, cityR: 3, suburbR: 6, ruralR: 9 },           // Island 3 (Suburbs)
-  { cx: 41, cz: 0, cityR: 5, suburbR: 8, ruralR: 11 },          // Island 4 (Beach Resort)
+  { cx: 0, cz: 0, cityR: 2.5, suburbR: 3.5, ruralR: 3.5 },     // Island 1 (Home/Spawn)
+  { cx: 10, cz: 0, cityR: 5, suburbR: 7, ruralR: 8 },           // Island 2 (Downtown)
+  { cx: 24, cz: 0, cityR: 3, suburbR: 6, ruralR: 8 },           // Island 3 (Suburbs)
+  { cx: 41, cz: 0, cityR: 5, suburbR: 8, ruralR: 10 },          // Island 4 (Beach Resort)
   { cx: -10, cz: 0, cityR: 0, suburbR: 0, ruralR: 6 },          // Rural West
   { cx: 61, cz: 0, cityR: 0, suburbR: 0, ruralR: 10 },          // Rural East
   { cx: -18, cz: 0, cityR: 0, suburbR: 0, ruralR: 5 },          // Rural Far West
@@ -130,6 +130,9 @@ export function getBiome(cx: number, cz: number): string {
     if (cx === conn.cx && cz === conn.cz) return 'bridge_connector';
   }
 
+  // Water under bridges: chunks directly below bridge decks are ocean
+  if (isBridgeChunk(cx, cz + 1)) return 'ocean';
+
   // Parking-lot patch helper (deterministic, mirrors server)
   const isParkingPatch = () => {
     const h = ((Math.imul(cx, 100003) + Math.imul(cz, 70001)) >>> 0);
@@ -175,6 +178,13 @@ export function isAeroportParkingChunk(cx: number, cz: number): boolean {
   if (cx >= 22 && cx <= 30 && cz === -8) return true;
   if (cx >= 36 && cx <= 46 && cz === -11) return true;
   if (cx >= 33 && cx <= 46 && cz === 16) return true;
+  return false;
+}
+
+function isBridgeChunk(cx: number, cz: number): boolean {
+  for (const br of BRIDGES) {
+    if (cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz) return true;
+  }
   return false;
 }
 
@@ -1822,6 +1832,8 @@ void main() {
     const worldOriginX = cx * CHUNK_SIZE;
     const worldOriginZ = cz * CHUNK_SIZE;
     const biome = getBiome(cx, cz);
+    const seed = (cx * 100003 + cz * 70001) >>> 0;
+    const rng = this.mulberry32(seed);
 
     // ── OCEAN ──────────────────────────────────────────────
     if (biome === 'ocean') {
@@ -1831,6 +1843,16 @@ void main() {
       this.addPlane(verts, indices, cx2, -2.5, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.0, 0.10, 0.30, 0.85, idxOffset); idxOffset += 4;
       this.addPlane(verts, indices, cx2, -2.2, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.05, 0.25, 0.45, 0.55, idxOffset); idxOffset += 4;
       this.addPlane(verts, indices, cx2, -1.9, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.15, 0.40, 0.60, 0.40, idxOffset); idxOffset += 4;
+      // Marina boats under bridges
+      if (isBridgeChunk(cx, cz + 1) && this.boatMeshes.length > 0) {
+        for (let bi = 0; bi < 2; bi++) {
+          const boatModel = this.boatMeshes[Math.floor(rng() * this.boatMeshes.length)];
+          const bx = cx * CHUNK_SIZE + 10 + rng() * (CHUNK_SIZE - 20);
+          const bz = cz * CHUNK_SIZE + 5 + bi * 25;
+          buildings.push({ model: boatModel, x: bx, y: -1.5, z: bz, yaw: rng() * Math.PI * 2, scale: [1, 1, 1] });
+          decorativeAircraft.push({ x: bx, z: bz, yaw: 0, type: 'boat', model: boatModel });
+        }
+      }
       const mesh = this.createMesh(verts, indices);
       const chunk: CityChunk = { mesh, cx, cz, lamps: [], hydrants: [], buildings, benches: [], barrels: [], chickens: [], trees: [], supermarkets: [], tatami: [], cabins: [], lighthouses: [], tropicalShops: [], decorativeAircraft: [] };
       this.chunkCache.set(key, chunk);
@@ -1861,8 +1883,6 @@ void main() {
     const isRuralDesert = biome === 'rural_desert';
     const isRural = isRuralFarm || isRuralHills || isRuralMountain || isRuralLakes || isRuralDesert;
 
-    const seed = (cx * 100003 + cz * 70001) >>> 0;
-    const rng = this.mulberry32(seed);
     const blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
 
     // ── GROUND PLANE ───────────────────────────────────────
