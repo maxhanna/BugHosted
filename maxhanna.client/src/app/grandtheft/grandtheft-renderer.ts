@@ -1898,11 +1898,13 @@ void main() {
         // Layered water on the ocean side
         this.addPlane(verts, indices, cx2, -2.5, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.0, 0.10, 0.30, 0.85, idxOffset); idxOffset += 4;
         this.addPlane(verts, indices, cx2, -2.0, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.10, 0.30, 0.50, 0.55, idxOffset); idxOffset += 4;
-        // Smooth beach-to-water transition (gentle slope instead of 6-step staircase)
+        // Smooth beach-to-water transition — all ocean-adjacent sides
         const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+        const oceanSides: [number, number][] = [];
+        const slopeW = 8;
         for (const [ddx, ddz] of dirs) {
           if (getBiome(cx + ddx, cz + ddz) !== 'ocean') continue;
-          const slopeW = 8;
+          oceanSides.push([ddx, ddz]);
           for (let si = 0; si < slopeW; si++) {
             const t = si / slopeW;
             const sx = ddx !== 0 ? cx * CHUNK_SIZE + (ddx > 0 ? CHUNK_SIZE + t * slopeW : -t * slopeW) : cx2;
@@ -1913,7 +1915,25 @@ void main() {
             const shade = 0.65 - t * 0.20;
             this.addBox(verts, indices, sx, sy, sz, w, 0.3, d, shade, shade * 0.92, shade * 0.7, 1.0, idxOffset); idxOffset += 24;
           }
-          break;
+        }
+        // Corner rounding: diagonal boxes at L-shaped outer corners
+        for (let i = 0; i < oceanSides.length; i++) {
+          for (let j = i + 1; j < oceanSides.length; j++) {
+            const [dx1, dz1] = oceanSides[i];
+            const [dx2, dz2] = oceanSides[j];
+            if (dx1 * dx2 + dz1 * dz2 !== 0) continue;
+            const cornerX = cx * CHUNK_SIZE + (dx1 > 0 || dx2 > 0 ? CHUNK_SIZE : 0);
+            const cornerZ = cz * CHUNK_SIZE + (dz1 > 0 || dz2 > 0 ? CHUNK_SIZE : 0);
+            const csi = 6;
+            for (let si = 0; si < csi; si++) {
+              const t = (si + 0.5) / csi;
+              const bx = cornerX + (dx1 + dx2) * t * slopeW * 0.65;
+              const bz = cornerZ + (dz1 + dz2) * t * slopeW * 0.65;
+              const by = -t * 2.5;
+              const shade = 0.65 - t * 0.20;
+              this.addBox(verts, indices, bx, by, bz, 3.2, 0.3, 3.2, shade, shade * 0.92, shade * 0.7, 1.0, idxOffset); idxOffset += 24;
+            }
+          }
         }
       }
     }
