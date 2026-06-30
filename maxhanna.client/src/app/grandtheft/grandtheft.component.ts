@@ -487,20 +487,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const batch = allTasks.slice(idx, idx + BATCH_SIZE);
       if (batch.length === 0) {
         this.renderer.clearChunkCache();
-        this.renderer.clearGltfCache();
+        this.renderer.clearGltfCache(); // Clear memory!
         this.isLoaded = true;
-        this.loadingAssets = 0;
-        this.ngZone.runOutsideAngular(() => {
-          this.lastTime = performance.now();
-          this.gameLoop(this.lastTime);
-        });
+        this.loadingAssets = 0; 
         return;
       }
       idx += batch.length;
       Promise.all(batch.map(t => t.load().catch(() => { }))).then(() => {
         this.loadingAssets = this.totalAssets - idx;
-        if (this.isMobile) { setTimeout(() => processNextBatch(), 200); }
-        else { processNextBatch(); }
+        // Increase timeout to 150ms on mobile to let GC clean up the JSON buffers
+        if (this.isMobile) setTimeout(() => processNextBatch(), 150);
+        else processNextBatch();
       });
     };
     processNextBatch();
