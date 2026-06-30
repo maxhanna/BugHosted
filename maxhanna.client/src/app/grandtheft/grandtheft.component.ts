@@ -340,9 +340,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
     const canvas = this.canvasRef.nativeElement;
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    if (this.isMobile) {
+      canvas.width = Math.floor(window.innerWidth * 0.7);
+      canvas.height = Math.floor(window.innerHeight * 0.7);
+    } else {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
     this.renderer = new GrandTheftRenderer(canvas);
+    this.renderer.isMobile = this.isMobile;
+    if (this.isMobile) this.renderer.reduceShadowMap();
 
     // ── Build asset task list ──
     interface AssetTask { load: () => Promise<any>; }
@@ -360,7 +367,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       tasks.push({ load: () => this.renderer.loadGLTF(cfg.path, false).then(npc => { if (npc) { if (cfg.needsFlip === false) for (const m of npc) m.needsFlip = false; this.renderer.npcMeshes.push(npc); } }) });
     }
 
-    for (let ci = 1; ci <= 29; ci++) {
+    const maxChar = this.isMobile ? 15 : 29;
+    for (let ci = 1; ci <= maxChar; ci++) {
       if (ci === 27) continue;
       const ciStr = ci.toString();
       tasks.push({ load: () => this.renderer.loadGLTF(`assets/grandtheft/char${ciStr}/scene.gltf`, false).then(npc => { if (npc) this.renderer.npcMeshes.push(npc); }) });
@@ -461,7 +469,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.totalAssets = allTasks.length;
     this.loadingAssets = this.totalAssets;
 
-    const BATCH_SIZE = this.isMobile ? 3 : 6;
+    const BATCH_SIZE = this.isMobile ? 2 : 6;
     let idx = 0;
     const processNextBatch = () => {
       const batch = allTasks.slice(idx, idx + BATCH_SIZE);
@@ -474,7 +482,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       idx += batch.length;
       Promise.all(batch.map(t => t.load().catch(() => { }))).then(() => {
         this.loadingAssets = this.totalAssets - idx;
-        processNextBatch();
+        if (this.isMobile) setTimeout(() => processNextBatch(), 80);
+        else processNextBatch();
       });
     };
     processNextBatch();
@@ -4255,8 +4264,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   };
 
   private onResize = () => {
-    this.canvasRef.nativeElement.width = window.innerWidth;
-    this.canvasRef.nativeElement.height = window.innerHeight;
+    if (this.isMobile) {
+      this.canvasRef.nativeElement.width = Math.floor(window.innerWidth * 0.7);
+      this.canvasRef.nativeElement.height = Math.floor(window.innerHeight * 0.7);
+    } else {
+      this.canvasRef.nativeElement.width = window.innerWidth;
+      this.canvasRef.nativeElement.height = window.innerHeight;
+    }
     this.renderer.resize(this.canvasRef.nativeElement.width, this.canvasRef.nativeElement.height);
   };
 
