@@ -9,7 +9,7 @@ import { EncryptionService } from '../../services/encryption.service';
 import { NewsService } from '../../services/news.service';
 import { NewsPin } from '../../services/datacontracts/news/news-data';
 import { Story } from '../../services/datacontracts/social/story';
-import { TileCacheService } from '../services/tile-cache.service';
+import { TileCacheService } from '../../services/tile-cache.service';
 import { FlightService } from '../../services/flight.service';
 import { TrackedFlight } from '../../services/datacontracts/flight';
 import { UserService, UserWithLocation } from '../../services/user.service';
