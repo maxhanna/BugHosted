@@ -1229,6 +1229,9 @@ public class WebCrawler
 
     if (Uri.TryCreate(url, UriKind.Absolute, out var u))
     {
+      if (u.Host.Contains("google", StringComparison.OrdinalIgnoreCase))
+        return false;
+        
       if (_blockedHosts.Contains(u.Host))
         return false;
     }
