@@ -207,6 +207,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   _carSubmerged = false;
   _carSubmergeStart = 0;
   private _respawnTimer: any = null;
+  private _justRespawned = false;
   isLoaded = false;
   loadingAssets = 0;
   totalAssets = 0;
@@ -1580,7 +1581,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         for (const ped of this.serverPedestrians) checkShooter(ped);
         if (foundShooter) this.playWeaponSound(0);
       }
-      this.health = res.yourHealth;
+      // Ignore stale server health (0) right after local respawn to avoid re-death
+      if (!this._justRespawned || res.yourHealth > 0) {
+        this.health = res.yourHealth;
+      }
     }
 
     if (res && res.wantedLevel !== undefined) {
@@ -2547,6 +2551,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.wastedTimer = 3;
         this.dropMoneyAt(this.carX, this.carZ, this.money);
         this.money = 0;
+        this.currentWeapon = 0;
+        this.ownedWeapons = [true, false, false, false, false];
+        this.ammo = [0, 0, 0, 0, 0];
       }
       if (this._wasDead && !this._respawnTimer) {
         this._respawnTimer = setTimeout(() => {
@@ -2565,6 +2572,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this._wasDead = false;
           this.wastedTimer = 0;
           this._respawnTimer = null;
+          this._justRespawned = true;
+          setTimeout(() => { this._justRespawned = false; }, 3000);
         }, 1500);
       }
     } else {

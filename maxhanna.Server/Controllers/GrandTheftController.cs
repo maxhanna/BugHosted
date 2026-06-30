@@ -1035,9 +1035,21 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				bool evicted = _evictedPlayers.TryRemove(req.UserId, out _);
-				int yourHealth = req.Health;
-				if (_playerHealth.TryGetValue(req.UserId, out var serverHp)) yourHealth = serverHp;
+			bool evicted = _evictedPlayers.TryRemove(req.UserId, out _);
+			int yourHealth = req.Health;
+			if (_playerHealth.TryGetValue(req.UserId, out var serverHp))
+			{
+				if (serverHp <= 0 && req.Health > 0)
+				{
+					// Client has respawned — reset server health
+					_playerHealth[req.UserId] = req.Health;
+					yourHealth = req.Health;
+				}
+				else
+				{
+					yourHealth = serverHp;
+				}
+			}
 				if (!_playerWeapons.ContainsKey(req.UserId))
 					_playerWeapons[req.UserId] = new bool[5] { true, false, false, false, false };
 				if (!_playerAmmo.ContainsKey(req.UserId))

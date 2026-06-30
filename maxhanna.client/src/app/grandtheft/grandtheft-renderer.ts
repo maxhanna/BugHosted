@@ -1865,7 +1865,7 @@ void main() {
       // Find which bridge this chunk belongs to
       const bridge = BRIDGE_RANGES.find(br => cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz);
       if (bridge) {
-        const roadCenterZ = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
+        const roadCenterZ = cz * CHUNK_SIZE;
         const roadW = 25;       // Match street road width (GRID_PITCH - SIDEWALK_SIZE)
         const bridgeW = roadW + 10; // Road + walkway clearance
         const isRampUp = cx === bridge.startCx;
@@ -2113,19 +2113,43 @@ void main() {
             this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ - 18, 38, 0.2, 0.6, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
             this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ + 18, 38, 0.2, 0.6, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
 
-            // Check next chunk in depth direction: if it's aeroport but NOT parking, add barrier wall with entry gap
+            // Barrier wall at boundary with next aeroport chunk
             const dCz = (cx >= 33 && cx <= 46 && cz >= 10) ? 1 : -1;
             const nextCz = cz + dCz;
             const biomeNext = getBiome(cx, nextCz);
             if (biomeNext === 'aeroport' && !isAeroportParkingChunk(cx, nextCz)) {
               const wallZ = dCz > 0 ? blockWorldZ + GRID_PITCH / 2 : blockWorldZ - GRID_PITCH / 2;
-              const entryGap = 8;
-              const halfSpan = GRID_PITCH / 2;
-              const segWidth = halfSpan - entryGap;
-              // Left wall segment
-              this.addBox(verts, indices, blockWorldX - entryGap - segWidth / 2, 1.5, wallZ, segWidth, 3, 0.4, 0.35, 0.35, 0.37, 1.0, idxOffset); idxOffset += 24;
-              // Right wall segment
-              this.addBox(verts, indices, blockWorldX + entryGap + segWidth / 2, 1.5, wallZ, segWidth, 3, 0.4, 0.35, 0.35, 0.37, 1.0, idxOffset); idxOffset += 24;
+              const entryRoad = GrandTheftRenderer.AIRPORT_ENTRY_ROADS.find(e => e.gx === gx);
+              if (entryRoad) {
+                // Entry gate — align gap with the entry road position
+                const roadX = entryRoad.gx * GRID_PITCH;
+                const entryGap = 20;
+                const halfSpan = GRID_PITCH / 2;
+                const segWidth = halfSpan - entryGap / 2;
+                // Left wall segment
+                this.addBox(verts, indices, roadX - entryGap / 2 - segWidth / 2, 1.5, wallZ, segWidth, 3, 0.4, 0.35, 0.35, 0.37, 1.0, idxOffset); idxOffset += 24;
+                // Right wall segment
+                this.addBox(verts, indices, roadX + entryGap / 2 + segWidth / 2, 1.5, wallZ, segWidth, 3, 0.4, 0.35, 0.35, 0.37, 1.0, idxOffset); idxOffset += 24;
+                // Gate pillars
+                const pillarH = 6, pillarW = 1;
+                this.addBox(verts, indices, roadX - entryGap / 2 - pillarW / 2, pillarH / 2, wallZ, pillarW, pillarH, pillarW, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
+                this.addBox(verts, indices, roadX + entryGap / 2 + pillarW / 2, pillarH / 2, wallZ, pillarW, pillarH, pillarW, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
+                // Gate arch (top beam connecting pillars)
+                this.addBox(verts, indices, roadX, pillarH - 0.3, wallZ, entryGap + pillarW * 2, 0.6, 0.8, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
+                // Guard booths on each side
+                const boothW = 2, boothD = 2.5, boothH = 2.5;
+                this.addBox(verts, indices, roadX - entryGap / 2 - 2, 0.05, wallZ - 5, boothW, 0.1, boothD, 0.25, 0.25, 0.27, 1.0, idxOffset); idxOffset += 24;
+                this.addBox(verts, indices, roadX - entryGap / 2 - 2, boothH / 2, wallZ - 5, boothW, boothH, boothD, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
+                // Booth window strip
+                this.addBox(verts, indices, roadX - entryGap / 2 - 2, boothH * 0.55, wallZ - 5, boothW * 0.9, boothH * 0.35, boothD * 0.05, 0.6, 0.8, 1.0, 0.6, idxOffset); idxOffset += 24;
+                // Right booth
+                this.addBox(verts, indices, roadX + entryGap / 2 + 2, 0.05, wallZ - 5, boothW, 0.1, boothD, 0.25, 0.25, 0.27, 1.0, idxOffset); idxOffset += 24;
+                this.addBox(verts, indices, roadX + entryGap / 2 + 2, boothH / 2, wallZ - 5, boothW, boothH, boothD, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
+                this.addBox(verts, indices, roadX + entryGap / 2 + 2, boothH * 0.55, wallZ - 5, boothW * 0.9, boothH * 0.35, boothD * 0.05, 0.6, 0.8, 1.0, 0.6, idxOffset); idxOffset += 24;
+              } else {
+                // Solid wall — no entry road passes through this block
+                this.addBox(verts, indices, blockWorldX, 1.5, wallZ, GRID_PITCH, 3, 0.4, 0.35, 0.35, 0.37, 1.0, idxOffset); idxOffset += 24;
+              }
             }
             continue;
           }
@@ -2605,19 +2629,27 @@ void main() {
       }
     }
 
-    // Airport entry road visual — paint road surface + dashes in chunks the road passes through
+    // Airport entry road visual — wide dual-lane road with gate approach markings
     for (const entry of GrandTheftRenderer.AIRPORT_ENTRY_ROADS) {
       const minGz = Math.min(entry.gzStart, entry.gzEnd);
       const maxGz = Math.max(entry.gzStart, entry.gzEnd);
       if (cx !== entry.gx || cz < minGz || cz > maxGz) continue;
       const roadX = entry.gx * GRID_PITCH;
-      const roadW = 10;
-      // Asphalt strip spanning the full chunk Z range
+      const roadW = 20;
+      const halfW = roadW / 2;
+      // Asphalt strip
       this.addBox(verts, indices, roadX, 0.05, worldOriginZ + CHUNK_SIZE / 2, roadW, 0.1, CHUNK_SIZE, 0.15, 0.15, 0.16, 1.0, idxOffset); idxOffset += 24;
-      // White dashed center line
-      for (let dz = -CHUNK_SIZE / 2 + 4; dz < CHUNK_SIZE / 2; dz += 10) {
-        this.addBox(verts, indices, roadX, 0.06, worldOriginZ + CHUNK_SIZE / 2 + dz, 0.4, 0.05, 4, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
+      // White center divider (solid line — no crossing)
+      this.addBox(verts, indices, roadX, 0.06, worldOriginZ + CHUNK_SIZE / 2, 0.3, 0.05, CHUNK_SIZE - 2, 1, 1, 1, 0.9, idxOffset); idxOffset += 24;
+      // Dashed lane markings on each side of center
+      for (const side of [-4.5, 4.5]) {
+        for (let dz = -CHUNK_SIZE / 2 + 4; dz < CHUNK_SIZE / 2; dz += 10) {
+          this.addBox(verts, indices, roadX + side, 0.06, worldOriginZ + CHUNK_SIZE / 2 + dz, 0.3, 0.05, 4, 1, 1, 1, 0.7, idxOffset); idxOffset += 24;
+        }
       }
+      // Concrete curbs on both edges
+      this.addBox(verts, indices, roadX - halfW + 0.3, 0.3, worldOriginZ + CHUNK_SIZE / 2, 0.6, 0.6, CHUNK_SIZE, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
+      this.addBox(verts, indices, roadX + halfW - 0.3, 0.3, worldOriginZ + CHUNK_SIZE / 2, 0.6, 0.6, CHUNK_SIZE, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
     }
 
     const chunk: CityChunk = { mesh, cx, cz, lamps, hydrants, buildings, benches, barrels, chickens, trees, supermarkets, tatami, cabins, lighthouses, tropicalShops, decorativeAircraft };
