@@ -160,7 +160,12 @@ export function getBiome(cx: number, cz: number): string {
     return isParkingPatch() ? 'parking_lot' : 'suburb';
   } else {
     const hr = ((Math.imul(cx, 100003) + Math.imul(cz, 70001)) >>> 0);
-    return (hr % 3 === 0) ? 'rural_farm' : 'rural_hills';
+    const rv = hr % 5;
+    if (rv === 0) return 'rural_farm';
+    if (rv === 1) return 'rural_hills';
+    if (rv === 2) return 'rural_mountain';
+    if (rv === 3) return 'rural_lakes';
+    return 'rural_desert';
   }
 }
 
@@ -183,7 +188,7 @@ function isOnSidewalk(x: number, z: number): boolean {
   const cx = Math.floor(x / 80);
   const cz = Math.floor(z / 80);
   const biome = getBiome(cx, cz);
-  if (biome === 'beach' || biome === 'aeroport' || biome === 'bridge' || biome === 'bridge_connector' || biome === 'rural_farm' || biome === 'rural_hills') return false;
+  if (biome === 'beach' || biome === 'aeroport' || biome === 'bridge' || biome === 'bridge_connector' || biome === 'rural_farm' || biome === 'rural_hills' || biome === 'rural_mountain' || biome === 'rural_lakes' || biome === 'rural_desert') return false;
   const localX = ((x - cx * 80) + 80) % 80;
   const localZ = ((z - cz * 80) + 80) % 80;
   const halfRoad = (80 - 55) / 2; // 12.5 — road width on each side
@@ -1851,7 +1856,10 @@ void main() {
     const isMountain = biome === 'mountain';
     const isRuralFarm = biome === 'rural_farm';
     const isRuralHills = biome === 'rural_hills';
-    const isRural = isRuralFarm || isRuralHills;
+    const isRuralMountain = biome === 'rural_mountain';
+    const isRuralLakes = biome === 'rural_lakes';
+    const isRuralDesert = biome === 'rural_desert';
+    const isRural = isRuralFarm || isRuralHills || isRuralMountain || isRuralLakes || isRuralDesert;
 
     const seed = (cx * 100003 + cz * 70001) >>> 0;
     const rng = this.mulberry32(seed);
@@ -1990,12 +1998,20 @@ void main() {
       // Asphalt
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.10, 0.10, 0.11, 1.0, idxOffset); idxOffset += 4;
     } else if (isRural) {
-      // Rural ground — green grass with variation
+      // Rural ground — varies by sub-biome
       const gv = (rng() - 0.5) * 0.08;
-      const gr = isRuralFarm ? 0.25 + gv : 0.35 + gv;
-      const gg = isRuralFarm ? 0.55 + gv : 0.50 + gv;
-      const gb = isRuralFarm ? 0.12 + gv : 0.15 + gv;
+      let gr = 0.30, gg = 0.50, gb = 0.13;
+      if (isRuralFarm) { gr = 0.25 + gv; gg = 0.55 + gv; gb = 0.12 + gv; }
+      else if (isRuralHills) { gr = 0.35 + gv; gg = 0.50 + gv; gb = 0.15 + gv; }
+      else if (isRuralMountain) { gr = 0.30 + gv; gg = 0.32 + gv; gb = 0.20 + gv; }
+      else if (isRuralLakes) { gr = 0.20 + gv; gg = 0.45 + gv; gb = 0.18 + gv; }
+      else if (isRuralDesert) { gr = 0.72 + gv * 0.5; gg = 0.65 + gv * 0.5; gb = 0.35 + gv * 0.5; }
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, gr, gg, gb, 1.0, idxOffset); idxOffset += 4;
+      // Lakes get water planes
+      if (isRuralLakes) {
+        this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, -1.5, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE * 0.5, CHUNK_SIZE * 0.5, 0.05, 0.30, 0.55, 0.75, idxOffset); idxOffset += 4;
+        this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, -1.2, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE * 0.4, CHUNK_SIZE * 0.4, 0.10, 0.40, 0.60, 0.50, idxOffset); idxOffset += 4;
+      }
     } else {
       // City / Suburb ground (dark asphalt)
       const groundShade = isSuburb ? 0.12 : 0.08;
@@ -2300,51 +2316,101 @@ void main() {
 
         // ── RURAL block: scattered houses, cabins, trees, chickens ──
         if (isRural) {
-          const hasBuilding = rng() < 0.35;
-          if (hasBuilding) {
-            const useHouse = rng() < 0.6;
-            let model: CityMesh | CityMesh[];
-            if (useHouse && this.suburbBuildingMeshes.length > 0) {
-              model = this.suburbBuildingMeshes[Math.floor(rng() * this.suburbBuildingMeshes.length)];
-            } else if (this.woodenCabineMesh && rng() < 0.5) {
-              model = this.woodenCabineMesh;
-            } else if (this.ruralShopMesh) {
-              model = this.ruralShopMesh;
-            } else if (this.suburbBuildingMeshes.length > 0) {
-              model = this.suburbBuildingMeshes[Math.floor(rng() * this.suburbBuildingMeshes.length)];
-            } else { model = this.woodenCabineMesh ? this.woodenCabineMesh : []; }
-            if (Array.isArray(model) && model.length > 0) {
-              const bScale = useHouse ? 2.5 + rng() * 2 : 3 + rng() * 2;
-              const bx = blockWorldX + (rng() - 0.5) * 40;
-              const bz = blockWorldZ + (rng() - 0.5) * 40;
-              const bMinY = this.getModelMinY(model);
-              const bYaw = Math.floor(rng() * 4) * Math.PI / 2;
-              buildings.push({ model, x: bx, y: -bMinY * bScale + 0.15, z: bz, yaw: bYaw, scale: [bScale, bScale, bScale] });
-              // Chickens around every rural house
-              for (let ci = 0; ci < 3 + Math.floor(rng() * 4); ci++) {
-                chickens.push({ x: bx + (rng() - 0.5) * 12, z: bz + (rng() - 0.5) * 12, yaw: rng() * Math.PI * 2 });
+          // Mountains: rock formations, no buildings, sparse trees
+          if (isRuralMountain) {
+            for (let ri = 0; ri < 5 + Math.floor(rng() * 4); ri++) {
+              const rx = blockWorldX + (rng() - 0.5) * 50;
+              const rz = blockWorldZ + (rng() - 0.5) * 50;
+              const rh = 1.5 + rng() * 4;
+              const rw = 2 + rng() * 6;
+              const rd = 2 + rng() * 5;
+              this.addBox(verts, indices, rx, rh / 2, rz, rw, rh, rd, 0.30 + rng() * 0.08, 0.28 + rng() * 0.08, 0.22 + rng() * 0.08, 1.0, idxOffset); idxOffset += 24;
+            }
+            for (let ti = 0; ti < 2 + Math.floor(rng() * 3); ti++) {
+              if (this.cityTreeMesh) {
+                const tx = blockWorldX + (rng() - 0.5) * 50;
+                const tz = blockWorldZ + (rng() - 0.5) * 50;
+                trees.push({ x: tx, z: tz, yaw: rng() * 0.3, scale: 0.5 + rng() * 0.4 });
               }
             }
           }
-          // Scattered trees
-          for (let ti = 0; ti < 8 + Math.floor(rng() * 6); ti++) {
-            if (this.palmTreeMesh && rng() < 0.7) {
-              const tx = blockWorldX + (rng() - 0.5) * 60;
-              const tz = blockWorldZ + (rng() - 0.5) * 60;
-              trees.push({ x: tx, z: tz, yaw: rng() * 0.3, scale: 0.8 + rng() * 0.6 });
+          // Desert: sand, cacti, sparse buildings
+          else if (isRuralDesert) {
+            for (let ci = 0; ci < 4 + Math.floor(rng() * 4); ci++) {
+              const cx = blockWorldX + (rng() - 0.5) * 55;
+              const cz = blockWorldZ + (rng() - 0.5) * 55;
+              // Cactus-like columns
+              const ch = 2 + rng() * 3;
+              this.addBox(verts, indices, cx, ch / 2, cz, 0.3, ch, 0.3, 0.15, 0.40, 0.08, 1.0, idxOffset); idxOffset += 24;
+              if (rng() < 0.4) {
+                this.addBox(verts, indices, cx + (rng() - 0.5) * 1.5, ch + 0.3, cz + (rng() - 0.5) * 1.5, 0.3, 0.8, 0.3, 0.12, 0.35, 0.06, 1.0, idxOffset); idxOffset += 24;
+              }
+            }
+            if (rng() < 0.2 && this.ruralShopMesh) {
+              const bx = blockWorldX + (rng() - 0.5) * 40;
+              const bz = blockWorldZ + (rng() - 0.5) * 40;
+              const bMinY = this.getModelMinY(this.ruralShopMesh);
+              buildings.push({ model: this.ruralShopMesh, x: bx, y: -bMinY * 2.5 + 0.15, z: bz, yaw: Math.floor(rng() * 4) * Math.PI / 2, scale: [2.5, 2.5, 2.5] });
             }
           }
-          // Farm crop rows
-          if (isRuralFarm && rng() < 0.6) {
-            for (let ri = 0; ri < 4 + Math.floor(rng() * 4); ri++) {
-              const cx = blockWorldX + (rng() - 0.5) * 50;
-              const cz = blockWorldZ + (rng() - 0.5) * 50;
-              this.addBox(verts, indices, cx, 0.15, cz, 1.5 + rng() * 3, 0.3 + rng() * 0.2, 0.5, 0.6 + rng() * 0.3, 0.5 + rng() * 0.2, 0.1, 1.0, idxOffset); idxOffset += 24;
+          // Lakes: water in center, sparse trees, no buildings
+          else if (isRuralLakes) {
+            for (let ti = 0; ti < 3 + Math.floor(rng() * 4); ti++) {
+              if (this.palmTreeMesh) {
+                const tx = blockWorldX + (rng() - 0.5) * 40;
+                const tz = blockWorldZ + (rng() - 0.5) * 40;
+                if (Math.abs(tx - blockWorldX) < 15 && Math.abs(tz - blockWorldZ) < 15) continue;
+                trees.push({ x: tx, z: tz, yaw: rng() * 0.3, scale: 0.8 + rng() * 0.5 });
+              }
             }
           }
-          // Random free-range chickens (not near houses)
-          if (rng() < 0.4) {
-            chickens.push({ x: blockWorldX + (rng() - 0.5) * 50, z: blockWorldZ + (rng() - 0.5) * 50, yaw: rng() * Math.PI * 2 });
+          // Hills and Farm: existing behavior
+          else {
+            const hasBuilding = rng() < 0.35;
+            if (hasBuilding) {
+              const useHouse = rng() < 0.6;
+              let model: CityMesh | CityMesh[];
+              if (useHouse && this.suburbBuildingMeshes.length > 0) {
+                model = this.suburbBuildingMeshes[Math.floor(rng() * this.suburbBuildingMeshes.length)];
+              } else if (this.woodenCabineMesh && rng() < 0.5) {
+                model = this.woodenCabineMesh;
+              } else if (this.ruralShopMesh) {
+                model = this.ruralShopMesh;
+              } else if (this.suburbBuildingMeshes.length > 0) {
+                model = this.suburbBuildingMeshes[Math.floor(rng() * this.suburbBuildingMeshes.length)];
+              } else { model = this.woodenCabineMesh ? this.woodenCabineMesh : []; }
+              if (Array.isArray(model) && model.length > 0) {
+                const bScale = useHouse ? 2.5 + rng() * 2 : 3 + rng() * 2;
+                const bx = blockWorldX + (rng() - 0.5) * 40;
+                const bz = blockWorldZ + (rng() - 0.5) * 40;
+                const bMinY = this.getModelMinY(model);
+                const bYaw = Math.floor(rng() * 4) * Math.PI / 2;
+                buildings.push({ model, x: bx, y: -bMinY * bScale + 0.15, z: bz, yaw: bYaw, scale: [bScale, bScale, bScale] });
+                for (let ci = 0; ci < 3 + Math.floor(rng() * 4); ci++) {
+                  chickens.push({ x: bx + (rng() - 0.5) * 12, z: bz + (rng() - 0.5) * 12, yaw: rng() * Math.PI * 2 });
+                }
+              }
+            }
+            // Scattered trees
+            for (let ti = 0; ti < 8 + Math.floor(rng() * 6); ti++) {
+              if (this.palmTreeMesh && rng() < 0.7) {
+                const tx = blockWorldX + (rng() - 0.5) * 60;
+                const tz = blockWorldZ + (rng() - 0.5) * 60;
+                trees.push({ x: tx, z: tz, yaw: rng() * 0.3, scale: 0.8 + rng() * 0.6 });
+              }
+            }
+            // Farm crop rows
+            if (isRuralFarm && rng() < 0.6) {
+              for (let ri = 0; ri < 4 + Math.floor(rng() * 4); ri++) {
+                const cx = blockWorldX + (rng() - 0.5) * 50;
+                const cz = blockWorldZ + (rng() - 0.5) * 50;
+                this.addBox(verts, indices, cx, 0.15, cz, 1.5 + rng() * 3, 0.3 + rng() * 0.2, 0.5, 0.6 + rng() * 0.3, 0.5 + rng() * 0.2, 0.1, 1.0, idxOffset); idxOffset += 24;
+              }
+            }
+            // Random free-range chickens
+            if (rng() < 0.4) {
+              chickens.push({ x: blockWorldX + (rng() - 0.5) * 50, z: blockWorldZ + (rng() - 0.5) * 50, yaw: rng() * Math.PI * 2 });
+            }
           }
           continue;
         }

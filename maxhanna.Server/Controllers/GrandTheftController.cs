@@ -147,7 +147,12 @@ namespace maxhanna.Server.Controllers
 			if (distV < islV.suburbR) return IsParkingPatch() ? "parking_lot" : "suburb";
 
 			uint hr = (uint)((cx * 100003 + cz * 70001) & 0xFFFFFFFF);
-			return (hr % 3u == 0u) ? "rural_farm" : "rural_hills";
+			uint rv = hr % 5u;
+			if (rv == 0u) return "rural_farm";
+			if (rv == 1u) return "rural_hills";
+			if (rv == 2u) return "rural_mountain";
+			if (rv == 3u) return "rural_lakes";
+			return "rural_desert";
 		}
 
 		public static bool IsAeroportParkingChunk(int cx, int cz)
@@ -242,7 +247,8 @@ namespace maxhanna.Server.Controllers
 			string biome = GetBiome(cx, cz);
 			if (biome == "mountain" || biome == "beach" || biome == "ocean"
 				|| biome == "bridge" || biome == "bridge_connector"
-				|| biome == "parking_lot") return false;
+				|| biome == "parking_lot"
+				|| biome == "rural_mountain" || biome == "rural_lakes" || biome == "rural_desert") return false;
 			// Aeroport tarmac (non-parking) is treated as "building" so NPC traffic avoids runways/hangars
 			if (biome == "aeroport" && !IsAeroportParkingChunk(cx, cz)) return true;
 
@@ -351,7 +357,7 @@ namespace maxhanna.Server.Controllers
 			string biome = GetBiome(cx, cz);
 			// FIX: Bridge is fully drivable — without this, NPC movement validation
 			// fails and cars get stuck trying to cross bridges
-			if (biome == "parking_lot" || biome == "rural_farm" || biome == "rural_hills" || biome == "bridge" || biome == "bridge_connector") return true;
+			if (biome == "parking_lot" || biome == "rural_farm" || biome == "rural_hills" || biome == "rural_mountain" || biome == "rural_lakes" || biome == "rural_desert" || biome == "bridge" || biome == "bridge_connector") return true;
 
 			float dx = x % GRID_PITCH;
 			if (dx < 0) dx += GRID_PITCH;
@@ -382,7 +388,7 @@ namespace maxhanna.Server.Controllers
 					if (gx < 0) nc = (gx - blocksPerChunk + 1) / blocksPerChunk;
 					if (gz < 0) nz = (gz - blocksPerChunk + 1) / blocksPerChunk;
 					string biome = GetBiome(nc, nz);
-					if (biome == "mountain" || biome == "beach" || biome == "ocean" || biome == "aeroport" || biome == "rural_farm" || biome == "rural_hills") continue;
+					if (biome == "mountain" || biome == "beach" || biome == "ocean" || biome == "aeroport") continue;
 					nodes.Add((gx * GRID_PITCH, gz * GRID_PITCH));
 				}
 			}
