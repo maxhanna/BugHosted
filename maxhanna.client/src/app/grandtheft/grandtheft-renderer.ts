@@ -571,6 +571,7 @@ export class GrandTheftRenderer {
   public explodedBarrels: Set<string> = new Set();
   public explodedGasStations: Set<string> = new Set();
   public explodedGasStationTimers: Map<string, number> = new Map();
+  public deadChickens: Set<string> = new Set();
   static readonly GAS_STATION_COOLDOWN = 300000;
   public supermarketLastPayout: Map<string, number> = new Map();
 
@@ -587,6 +588,26 @@ export class GrandTheftRenderer {
           if (this.explodedBarrels.has(key)) continue;
           if (Math.hypot(barrel.x - x, barrel.z - z) < radius) {
             result.push(barrel);
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  getNearbyChickens(x: number, z: number, radius: number): { x: number; z: number }[] {
+    const result: { x: number; z: number }[] = [];
+    const pcx = Math.floor(x / CHUNK_SIZE);
+    const pcz = Math.floor(z / CHUNK_SIZE);
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const chunk = this.getCityChunk(pcx + dx, pcz + dz);
+        if (!chunk) continue;
+        for (const chicken of chunk.chickens) {
+          const key = `${chicken.x},${chicken.z}`;
+          if (this.deadChickens.has(key)) continue;
+          if (Math.hypot(chicken.x - x, chicken.z - z) < radius) {
+            result.push(chicken);
           }
         }
       }
@@ -3328,7 +3349,9 @@ void main() {
         }
         if (this.chickenMesh) {
           for (const chicken of chunk.chickens) {
-            this.drawMesh(this.chickenMesh, chicken.x, 0, chicken.z, chicken.yaw, [1.5, 1.5, 1.5], [1, 1, 1, 1]);
+            const key = `${chicken.x},${chicken.z}`;
+            if (this.deadChickens.has(key)) continue;
+            this.drawMesh(this.chickenMesh, chicken.x, 0, chicken.z, chicken.yaw, [0.3, 0.3, 0.3], [1, 1, 1, 1]);
           }
         }
         for (const bld of chunk.buildings) {
@@ -4568,6 +4591,9 @@ void main() {
                 }
                 if (!texInfo && mat.extensions && mat.extensions.KHR_materials_unlit) {
                   texInfo = mat.extensions.KHR_materials_unlit.baseColorTexture;
+                }
+                if (!texInfo && mat.extensions && mat.extensions.KHR_materials_pbrSpecularGlossiness) {
+                  texInfo = mat.extensions.KHR_materials_pbrSpecularGlossiness.diffuseTexture;
                 }
                 if (!texInfo && mat.emissiveTexture) {
                   texInfo = mat.emissiveTexture;

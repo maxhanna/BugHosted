@@ -850,41 +850,41 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-			int wantedLevel = 0;
-			if (_playerWantedLevels.TryGetValue(req.UserId, out var w)) wantedLevel = w;
-			if (wantedLevel > 0)
-			{
-				// Check if any cop is detecting the player
-				bool detected = false;
-				if (_worldNpcs.TryGetValue(req.WorldId, out var npcs))
+				int wantedLevel = 0;
+				if (_playerWantedLevels.TryGetValue(req.UserId, out var w)) wantedLevel = w;
+				if (wantedLevel > 0)
 				{
-					float px = req.PosX, pz = req.PosZ;
-					foreach (var kv in npcs)
+					// Check if any cop is detecting the player
+					bool detected = false;
+					if (_worldNpcs.TryGetValue(req.WorldId, out var npcs))
 					{
-						var npc = kv.Value;
-						if (npc.DeadAt != null || npc.Health <= 0) continue;
-						if (npc.TargetUserId != req.UserId) continue;
-						if ((npc.Type != "police" && npc.Type != "cop")) continue;
-						float dx = npc.X - px, dz = npc.Z - pz;
-						if (dx * dx + dz * dz < COP_DETECTION_RANGE_SQ) { detected = true; break; }
+						float px = req.PosX, pz = req.PosZ;
+						foreach (var kv in npcs)
+						{
+							var npc = kv.Value;
+							if (npc.DeadAt != null || npc.Health <= 0) continue;
+							if (npc.TargetUserId != req.UserId) continue;
+							if ((npc.Type != "police" && npc.Type != "cop")) continue;
+							float dx = npc.X - px, dz = npc.Z - pz;
+							if (dx * dx + dz * dz < COP_DETECTION_RANGE_SQ) { detected = true; break; }
+						}
+					}
+					if (detected)
+					{
+						_lastUndetectedTime[req.UserId] = DateTime.UtcNow;
+					}
+					else if (_lastUndetectedTime.TryGetValue(req.UserId, out var last))
+					{
+						if ((DateTime.UtcNow - last).TotalSeconds >= 60)
+						{
+							_playerWantedLevels[req.UserId] = 0;
+						}
+					}
+					else
+					{
+						_lastUndetectedTime[req.UserId] = DateTime.UtcNow;
 					}
 				}
-				if (detected)
-				{
-					_lastUndetectedTime[req.UserId] = DateTime.UtcNow;
-				}
-				else if (_lastUndetectedTime.TryGetValue(req.UserId, out var last))
-				{
-					if ((DateTime.UtcNow - last).TotalSeconds >= 60)
-					{
-						_playerWantedLevels[req.UserId] = 0;
-					}
-				}
-				else
-				{
-					_lastUndetectedTime[req.UserId] = DateTime.UtcNow;
-				}
-			}
 
 				var players = new List<object>();
 				using (var selCmd = new MySqlCommand(@"
@@ -1012,7 +1012,7 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 
-						if (npc.Type == "helicopter" || npc.Type == "plane")
+						if (!npc.IsParked && (npc.Type == "helicopter" || npc.Type == "plane"))
 						{
 							SimulateAircraft(npc, now, simRng);
 						}
@@ -1055,21 +1055,21 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-			bool evicted = _evictedPlayers.TryRemove(req.UserId, out _);
-			int yourHealth = req.Health;
-			if (_playerHealth.TryGetValue(req.UserId, out var serverHp))
-			{
-				if (serverHp <= 0 && req.Health > 0)
+				bool evicted = _evictedPlayers.TryRemove(req.UserId, out _);
+				int yourHealth = req.Health;
+				if (_playerHealth.TryGetValue(req.UserId, out var serverHp))
 				{
-					// Client has respawned — reset server health
-					_playerHealth[req.UserId] = req.Health;
-					yourHealth = req.Health;
+					if (serverHp <= 0 && req.Health > 0)
+					{
+						// Client has respawned — reset server health
+						_playerHealth[req.UserId] = req.Health;
+						yourHealth = req.Health;
+					}
+					else
+					{
+						yourHealth = serverHp;
+					}
 				}
-				else
-				{
-					yourHealth = serverHp;
-				}
-			}
 				if (!_playerWeapons.ContainsKey(req.UserId))
 					_playerWeapons[req.UserId] = new bool[5] { true, false, false, false, false };
 				if (!_playerAmmo.ContainsKey(req.UserId))
@@ -2131,6 +2131,7 @@ namespace maxhanna.Server.Controllers
 		private void SimulateAircraft(NpcState npc, DateTime now, Random rng)
 		{
 			if (npc.Type != "helicopter" && npc.Type != "plane") return;
+			if (npc.IsParked) return;
 			if (string.IsNullOrEmpty(npc.AircraftPhase)) npc.AircraftPhase = "flying";
 
 			float targetAlt = npc.Type == "helicopter" ? 25f + (float)(rng.NextDouble() * 10f) : 45f + (float)(rng.NextDouble() * 15f);

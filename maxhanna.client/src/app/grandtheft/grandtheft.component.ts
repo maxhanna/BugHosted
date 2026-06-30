@@ -369,9 +369,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const specialMeshes: { path: string; storeSkeleton: boolean; assign: (m: CityMesh[]) => void; scale?: number; yawOffset?: number }[] = [
       { path: 'assets/grandtheft/star_wars_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
       { path: 'assets/grandtheft/ultra-futuristic_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
-      { path: 'assets/grandtheft/bell_222_x/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m), yawOffset: Math.PI / 2 },
-      { path: 'assets/grandtheft/bell_ch-146_griffon/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m), yawOffset: Math.PI / 2 },
-      { path: 'assets/grandtheft/bell_206_jet_ranger/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m), yawOffset: Math.PI / 2 },
+      { path: 'assets/grandtheft/bell_222_x/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m), scale: 2, yawOffset: Math.PI / 2 },
+      { path: 'assets/grandtheft/bell_ch-146_griffon/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m), scale: 2, yawOffset: Math.PI / 2 },
+      { path: 'assets/grandtheft/bell_206_jet_ranger/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m), scale: 2, yawOffset: Math.PI / 2 },
       { path: 'assets/grandtheft/cirrus_sr_22/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m) },
       { path: 'assets/grandtheft/low_poly_11_ea18g_growler/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m) },
       { path: 'assets/grandtheft/low_poly_11_usaf_f22a_raptor/scene.gltf', storeSkeleton: false, assign: m => this.renderer.planeMeshes.push(m) },
@@ -1739,6 +1739,24 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     checkTargets(this.localPedestrians, false);
     checkTargets(this.serverNPCs, false);
     checkTargets(this.parkedCars, false);
+
+    // Check chicken hits
+    const chickens = this.renderer.getNearbyChickens(ox, oz, maxRange);
+    for (const c of chickens) {
+      const vx = c.x - ox, vz = c.z - oz;
+      const proj = vx * dx + vz * dz;
+      if (proj < 0 || proj > maxRange) continue;
+      const closestX = ox + dx * proj, closestZ = oz + dz * proj;
+      if (Math.hypot(c.x - closestX, c.z - closestZ) < 0.5) {
+        const key = `${c.x},${c.z}`;
+        if (!this.renderer.deadChickens.has(key)) {
+          this.renderer.deadChickens.add(key);
+          this.spawnBlood(c.x, 0.3, c.z, dx, 0, dz);
+          this.score += 5;
+        }
+        return;
+      }
+    }
 
     // Check barrel hits
     const barrels = this.renderer.getNearbyBarrels(ox, oz, maxRange);
