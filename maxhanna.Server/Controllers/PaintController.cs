@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc; 
-using maxhanna.Server.Services;
+﻿using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
 [Route("api/[controller]")]
