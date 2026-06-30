@@ -481,21 +481,26 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.totalAssets = allTasks.length;
     this.loadingAssets = this.totalAssets;
 
-    const BATCH_SIZE = this.isMobile ? 2 : 6;
+    const BATCH_SIZE = this.isMobile ? 1 : 6;
     let idx = 0;
     const processNextBatch = () => {
       const batch = allTasks.slice(idx, idx + BATCH_SIZE);
       if (batch.length === 0) {
         this.renderer.clearChunkCache();
+        this.renderer.clearGltfCache();
         this.isLoaded = true;
         this.loadingAssets = 0;
+        this.ngZone.runOutsideAngular(() => {
+          this.lastTime = performance.now();
+          this.gameLoop(this.lastTime);
+        });
         return;
       }
       idx += batch.length;
       Promise.all(batch.map(t => t.load().catch(() => { }))).then(() => {
         this.loadingAssets = this.totalAssets - idx;
-        if (this.isMobile) setTimeout(() => processNextBatch(), 80);
-        else processNextBatch();
+        if (this.isMobile) { setTimeout(() => processNextBatch(), 200); }
+        else { processNextBatch(); }
       });
     };
     processNextBatch();
@@ -522,10 +527,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.isMobile) {
       setTimeout(() => this.initTouchControls(canvas), 0);
     }
-    this.ngZone.runOutsideAngular(() => {
-      this.lastTime = performance.now();
-      this.gameLoop(this.lastTime);
-    });
+    if (!this.isMobile) {
+      this.ngZone.runOutsideAngular(() => {
+        this.lastTime = performance.now();
+        this.gameLoop(this.lastTime);
+      });
+    }
     this.startPolling();
     this.startNPCPolling();
     this.initTraffic();

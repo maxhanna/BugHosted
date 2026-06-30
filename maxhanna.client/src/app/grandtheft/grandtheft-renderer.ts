@@ -1,4 +1,6 @@
-﻿export interface CityMesh {
+﻿import { empty } from "rxjs";
+
+export interface CityMesh {
   originalVBO?: Float32Array;
   vao: WebGLVertexArrayObject;
   vbo: WebGLBuffer;
@@ -1634,7 +1636,7 @@ void main() {
       return ((t ^ t >>> 14) >>> 0) / 4294967296;
     }
   }
-  private createMesh(verts: number[], indices: number[], texture: WebGLTexture | null = null): CityMesh {
+  private createMesh(verts: number[], indices: number[], texture: WebGLTexture | null = null, storeOriginal: boolean = false): CityMesh {
     const gl = this.gl;
     const vao = gl.createVertexArray()!;
     const vbo = gl.createBuffer()!;
@@ -1749,7 +1751,7 @@ void main() {
 
     gl.bindVertexArray(null);
 
-    const originalVBO = new Float32Array(interleaved);
+    const originalVBO = storeOriginal ? new Float32Array(interleaved) : undefined;
 
     return {
       vao, vbo, ibo,
@@ -4153,17 +4155,8 @@ void main() {
       img.onerror = () => { console.error('Failed to load texture:', url); resolve(null); };
       img.src = (url.startsWith('blob:') || url.startsWith('data:')) ? url : url;
     });
-  }
-  // State for first-person animation playback
-  private _fpAnimTime = 0;
-  private _fpLoggedStatus = false;
-  private _fpCurrentAnim: { arms?: string; mark23?: string } = { arms: 'relax', mark23: 'Draw' };
-
-  /**
-   * Called by the component every frame (after render()) to draw first-person
-   * arms + Mark23 with the correct animation. The component picks the anim
-   * names based on game state (shoot, reload, idle, etc.).
-   */
+  }  
+ 
   renderFirstPersonWeapon(
     camX: number, camY: number, camZ: number,
     camYaw: number, camPitch: number,
@@ -4195,11 +4188,7 @@ void main() {
     gl.enable(gl.BLEND);
     gl.enable(gl.DEPTH_TEST);
   }
-  /**
- * Extract animation data from a parsed GLTF json + buffers.
- * Returns an array of GltfAnimation, one per entry in json.animations.
- * Mirrors the math used by the skin parser above.
- */
+  
   private extractGltfAnimations(json: any, buffers: ArrayBuffer[]): GltfAnimation[] | null {
     if (!json.animations || !json.accessors || !json.bufferViews) return null;
     const out: GltfAnimation[] = [];
@@ -4249,12 +4238,7 @@ void main() {
     }
     return out.length > 0 ? out : null;
   }
-
-  /**
-   * Separate skeleton-extraction for first-person models. Returns everything
-   * skinPlayerMesh needs without polluting the shared `skel*` fields used by
-   * the third-person player model.
-   */
+ 
   private extractGltfSkeleton(json: any, buffers: ArrayBuffer[]) {
     if (!json.skins || json.skins.length === 0) return null;
     const skin = json.skins[0];
@@ -4293,8 +4277,7 @@ void main() {
         quatPosScaleToMat4([q[0], q[1], q[2], q[3]], [t[0], t[1], t[2]], [s[0], s[1], s[2]], local);
       }
       for (let i = 0; i < 16; i++) boneLocalTf[b * 16 + i] = local[i];
-    }
-    // skinRootWorld = world transform of the parent of the skeleton root bone
+    } 
     let skeletonRootNodeIdx = -1;
     for (let b = 0; b < numBones; b++) {
       if (parents[b] < 0) { skeletonRootNodeIdx = jointNodes[b]; break; }
@@ -4333,6 +4316,7 @@ void main() {
       nodeNames,
     };
   }
+
   async loadGLTF(
     url: string,
     storeSkeleton: boolean = true,
@@ -4351,7 +4335,7 @@ void main() {
   ): Promise<CityMesh[] | null> {
     try {
       const isGLB = url.endsWith('.glb');
-      const raw = await (await fetch(url)).arrayBuffer();
+      let raw = await (await fetch(url)).arrayBuffer();
 
       let json: any;
       let binBuffer: ArrayBuffer | null = null;
@@ -4382,7 +4366,7 @@ void main() {
       if (!json) return null;
 
       const base = url.substring(0, url.lastIndexOf('/') + 1);
-      const buffers: ArrayBuffer[] = [];
+      let buffers: ArrayBuffer[] = [];
       if (json.buffers) {
         for (const buf of json.buffers) {
           if (buf.uri) {
@@ -4405,7 +4389,7 @@ void main() {
       }
 
       const meshes: CityMesh[] = [];
-      const primitiveData: { verts: number[]; indices: number[]; texture: WebGLTexture | null; restPos?: Float32Array; restNrm?: Float32Array; jointIdx?: Uint16Array; jointWgt?: Float32Array; vCount: number; isSkinned?: boolean; meshName?: string }[] = [];
+      let primitiveData: { verts: number[]; indices: number[]; texture: WebGLTexture | null; restPos?: Float32Array; restNrm?: Float32Array; jointIdx?: Uint16Array; jointWgt?: Float32Array; vCount: number; isSkinned?: boolean; meshName?: string }[] = [];
 
       let globalMinX = Infinity, globalMaxX = -Infinity;
       let globalMinY = Infinity, globalMaxY = -Infinity;
@@ -4449,7 +4433,6 @@ void main() {
       let nodeToBoneIdx: Map<number, number> | null = null;
       let skeletonRootNodeIdx = -1;
       let skinRootWorld: Float32Array | null = null;
-      // FIX: Move rootBoneWorld declaration here so it's in scope for the bounding box calculation later
       let rootBoneWorld: Float32Array | null = null;
 
       if (json.skins && json.skins.length > 0) {
@@ -4515,8 +4498,6 @@ void main() {
           for (let i = 0; i < 16; i++) boneLocalTf[b * 16 + i] = local[i];
         }
 
-        // FIX: skinRootWorld must be the world transform of the PARENT of the skeleton root bone,
-        // not the root bone itself. Otherwise, the root bone's local matrix is applied twice.
         if (skeletonRootNodeIdx >= 0) {
           const rootNode = json.nodes[skeletonRootNodeIdx];
           const rootParentIdx = rootNode.parent ?? -1;
@@ -4526,8 +4507,6 @@ void main() {
           skinRootWorld = mat4.identity(mat4.create());
         }
 
-        // FIX: Compute the root bone's world transform so we can compute the bounding box
-        // in the skeleton's world space, not the mesh node's local space.
         let rootBoneIdx = -1;
         for (let b = 0; b < numBones; b++) {
           if (parents[b] < 0) { rootBoneIdx = b; break; }
@@ -4591,23 +4570,6 @@ void main() {
         }
       }
 
-      const txPos = (m: Float32Array, x: number, y: number, z: number): [number, number, number] => {
-        const w = m[3] * x + m[7] * y + m[11] * z + m[15];
-        const invW = w !== 0 ? 1 / w : 1;
-        return [
-          (m[0] * x + m[4] * y + m[8] * z + m[12]) * invW,
-          (m[1] * x + m[5] * y + m[9] * z + m[13]) * invW,
-          (m[2] * x + m[6] * y + m[10] * z + m[14]) * invW,
-        ];
-      };
-      const txNrm = (m: Float32Array, x: number, y: number, z: number): [number, number, number] => {
-        const nx = m[0] * x + m[4] * y + m[8] * z;
-        const ny = m[1] * x + m[5] * y + m[9] * z;
-        const nz = m[2] * x + m[6] * y + m[10] * z;
-        const len = Math.hypot(nx, ny, nz);
-        return len > 0.00001 ? [nx / len, ny / len, nz / len] : [x, y, z];
-      };
-
       for (const entry of entries) {
         const meshDef = json.meshes[entry.meshIndex];
         if (!meshDef) continue;
@@ -4621,7 +4583,6 @@ void main() {
         const isSkinned = isSkinnedModel && entryNode && entryNode.skin !== undefined;
 
         for (const prim of meshDef.primitives || []) {
-
           let skipMesh = false;
           if (prim.material !== undefined && json.materials[prim.material]) {
             const mat = json.materials[prim.material];
@@ -4723,24 +4684,39 @@ void main() {
             const jiByteOff = (jiBufView.byteOffset || 0) + (jiAcc.byteOffset || 0);
             const jiStride = jiBufView.byteStride || 8;
             jointIdx = new Uint16Array(vCount * 4);
-            // FIX: Support all possible joint component types (UNSIGNED_SHORT, UNSIGNED_BYTE, UNSIGNED_INT)
+ 
             if (jiAcc.componentType === 5123) {
+              const jiView = new Uint16Array(jiBuf, 0, jiBuf.byteLength / 2);
+              const start = jiByteOff / 2;
+              const step = jiStride / 2;
               for (let i = 0; i < vCount; i++) {
-                const src = new Uint16Array(jiBuf, jiByteOff + i * jiStride, 4);
-                jointIdx[i * 4] = src[0]; jointIdx[i * 4 + 1] = src[1];
-                jointIdx[i * 4 + 2] = src[2]; jointIdx[i * 4 + 3] = src[3];
+                const offset = start + i * step;
+                jointIdx[i * 4] = jiView[offset];
+                jointIdx[i * 4 + 1] = jiView[offset + 1];
+                jointIdx[i * 4 + 2] = jiView[offset + 2];
+                jointIdx[i * 4 + 3] = jiView[offset + 3];
               }
             } else if (jiAcc.componentType === 5121) {
+              const jiView = new Uint8Array(jiBuf, 0, jiBuf.byteLength);
+              const start = jiByteOff;
+              const step = jiStride;
               for (let i = 0; i < vCount; i++) {
-                const src = new Uint8Array(jiBuf, jiByteOff + i * jiStride, 4);
-                jointIdx[i * 4] = src[0]; jointIdx[i * 4 + 1] = src[1];
-                jointIdx[i * 4 + 2] = src[2]; jointIdx[i * 4 + 3] = src[3];
+                const offset = start + i * step;
+                jointIdx[i * 4] = jiView[offset];
+                jointIdx[i * 4 + 1] = jiView[offset + 1];
+                jointIdx[i * 4 + 2] = jiView[offset + 2];
+                jointIdx[i * 4 + 3] = jiView[offset + 3];
               }
             } else if (jiAcc.componentType === 5125) {
+              const jiView = new Uint32Array(jiBuf, 0, jiBuf.byteLength / 4);
+              const start = jiByteOff / 4;
+              const step = jiStride / 4;
               for (let i = 0; i < vCount; i++) {
-                const src = new Uint32Array(jiBuf, jiByteOff + i * jiStride, 4);
-                jointIdx[i * 4] = src[0]; jointIdx[i * 4 + 1] = src[1];
-                jointIdx[i * 4 + 2] = src[2]; jointIdx[i * 4 + 3] = src[3];
+                const offset = start + i * step;
+                jointIdx[i * 4] = jiView[offset];
+                jointIdx[i * 4 + 1] = jiView[offset + 1];
+                jointIdx[i * 4 + 2] = jiView[offset + 2];
+                jointIdx[i * 4 + 3] = jiView[offset + 3];
               }
             }
             const wgtAcc = json.accessors[prim.attributes.WEIGHTS_0];
@@ -4749,26 +4725,31 @@ void main() {
             const wgtByteOff = (wgtBufView.byteOffset || 0) + (wgtAcc.byteOffset || 0);
             const wgtStride = wgtBufView.byteStride || 16;
             jointWgt = new Float32Array(vCount * 4);
+
+            // Optimized weight extraction
+            const wgtView = new Float32Array(wgtBuf, 0, wgtBuf.byteLength / 4);
+            const wgtStart = wgtByteOff / 4;
+            const wgtStep = wgtStride / 4;
             for (let i = 0; i < vCount; i++) {
-              const src = new Float32Array(wgtBuf, wgtByteOff + i * wgtStride, 4);
-              jointWgt[i * 4] = src[0]; jointWgt[i * 4 + 1] = src[1];
-              jointWgt[i * 4 + 2] = src[2]; jointWgt[i * 4 + 3] = src[3];
+              const offset = wgtStart + i * wgtStep;
+              jointWgt[i * 4] = wgtView[offset];
+              jointWgt[i * 4 + 1] = wgtView[offset + 1];
+              jointWgt[i * 4 + 2] = wgtView[offset + 2];
+              jointWgt[i * 4 + 3] = wgtView[offset + 3];
             }
           }
 
           for (let i = 0; i < vCount; i++) {
             const pi = (posOffset / 4) + i * posStride;
             let x = posData[pi], y = posData[pi + 1], z = posData[pi + 2];
-
-            // AFTER (FIXED):
-            // FIX: For skinned meshes, do NOT apply rootBoneWorld to the bounding box.
-            // skinPlayerMesh() produces positions in raw restPos space (bind-pose joint
-            // matrices are identity), so the center/scale must also be computed from
-            // raw restPos. Applying rootBoneWorld here creates a space mismatch that
-            // offsets every vertex by -rootBoneWorld_translation * scaleFactor,
-            // burying the model underground.
+ 
             if (!isSkinned && !identityTf) {
-              [x, y, z] = txPos(tf, x, y, z);
+              let w = tf[3] * x + tf[7] * y + tf[11] * z + tf[15];
+              let invW = w !== 0 ? 1 / w : 1;
+              let nx = (tf[0] * x + tf[4] * y + tf[8] * z + tf[12]) * invW;
+              let ny = (tf[1] * x + tf[5] * y + tf[9] * z + tf[13]) * invW;
+              let nz = (tf[2] * x + tf[6] * y + tf[10] * z + tf[14]) * invW;
+              x = nx; y = ny; z = nz;
             }
             verts.push(x, y, z);
 
@@ -4778,9 +4759,15 @@ void main() {
 
             if (normData) {
               const ni = (normOffset / 4) + i * normStride;
-              let nx = normData[ni], ny = normData[ni + 1], nz = normData[ni + 2];
+              let nx = normData[ni], ny = normData[ni + 1], nz = normData[ni + 2]; 
               if (!identityTf) {
-                [nx, ny, nz] = txNrm(tf, nx, ny, nz);
+                let tnx = tf[0] * nx + tf[4] * ny + tf[8] * nz;
+                let tny = tf[1] * nx + tf[5] * ny + tf[9] * nz;
+                let tnz = tf[2] * nx + tf[6] * ny + tf[10] * nz;
+                let len = Math.hypot(tnx, tny, tnz);
+                if (len > 0.00001) {
+                  nx = tnx / len; ny = tny / len; nz = tnz / len;
+                }
               }
               verts.push(nx, ny, nz);
             } else {
@@ -4863,7 +4850,7 @@ void main() {
           needsRotation = true;
         }
       }
-      const needsYFlip = url.includes("crownVic") || url.includes("maleNPC") 
+      const needsYFlip = url.includes("crownVic") || url.includes("maleNPC")
         || url.includes('taxi') || url.includes('hilux') || url.includes("toyota_corsa_b");
       const needsY90 = url.includes('pizzaMoped');
       const needsYFlipMoped = url.includes('pizzaMoped');
@@ -4981,7 +4968,7 @@ void main() {
           verts[i + 2] = (z - centerZ) * scaleFactor * extraScale[2];
         }
 
-        const mesh = this.createMesh(verts, indices, texture);
+        const mesh = this.createMesh(verts, indices, texture, isSkinned);
         mesh.meshName = p.meshName || '';
         if (isSkinned && restPos && restNrm && jointIdx && jointWgt) {
           mesh.vertexCount = vCount;
@@ -5002,6 +4989,13 @@ void main() {
         out.animations = this.extractGltfAnimations(json, buffers);
         out.skeleton = this.extractGltfSkeleton(json, buffers);
       }
+ 
+      json = null;
+      buffers = [];
+      raw = new ArrayBuffer;
+      binBuffer = null;
+      primitiveData = [];
+
       return meshes.length > 0 ? meshes : null;
     } catch (e) {
       console.error('Failed to load glTF', url, e);
@@ -5011,12 +5005,7 @@ void main() {
   clearChunkCache() {
     this.chunkCache.clear();
   }
-  /**
- * Returns the real weapon model for an item pickup based on weaponType.
- * 1=Pistol, 2=Rifle, 3=Shotgun, 4=Rocket Launcher.
- * Falls back to the procedural box pickup (getPickupMesh) when no GLTF
- * model is loaded yet (e.g. Shotgun, or models still downloading).
- */
+  
   getWeaponPickupMesh(weaponType: number): CityMesh | CityMesh[] {
     if (weaponType === 1 && this.coltMesh) return this.coltMesh;             // Pistol
     if (weaponType === 2 && this.m4a1Mesh) return this.m4a1Mesh;             // Rifle (M4A1)
@@ -5053,5 +5042,9 @@ void main() {
     this.addBox(verts, indices, 0.2, 0.05, 0, 0.2, 0.5, 0.2, col[0] * 0.7, col[1] * 0.7, col[2] * 0.7, 1.0, verts.length / 7);
 
     return this.createMesh(verts, indices);
+  }
+
+  clearGltfCache() {
+    this.gltfCache.clear();
   }
 }
