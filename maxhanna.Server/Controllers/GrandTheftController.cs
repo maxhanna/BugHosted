@@ -384,12 +384,18 @@ namespace maxhanna.Server.Controllers
 		public static List<(float x, float z)> GetRoadNodes(int cx, int cz, int radius)
 		{
 			var nodes = new List<(float x, float z)>();
+			var seen = new HashSet<(int, int)>();
+			void AddNode(int gx, int gz)
+			{
+				if (!seen.Add((gx, gz))) return;
+				nodes.Add((gx * GRID_PITCH, gz * GRID_PITCH));
+			}
 			int blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
 			int startGx = (cx * blocksPerChunk) - radius;
 			int startGz = (cz * blocksPerChunk) - radius;
 			int endGx = (cx * blocksPerChunk + blocksPerChunk) + radius;
 			int endGz = (cz * blocksPerChunk + blocksPerChunk) + radius;
-			bool IsRoadBiome(string b) => !(b == "mountain" || b == "beach" || b == "ocean" || b == "aeroport");
+			bool IsRoadBiome(string b) => !(b == "mountain" || b == "beach" || b == "ocean");
 			for (int gx = startGx; gx <= endGx; gx++)
 			{
 				for (int gz = startGz; gz <= endGz; gz++)
@@ -401,7 +407,7 @@ namespace maxhanna.Server.Controllers
 					string biome = GetBiome(nc, nz);
 					if (IsRoadBiome(biome))
 					{
-						nodes.Add((gx * GRID_PITCH, gz * GRID_PITCH));
+						AddNode(gx, gz);
 					}
 					else
 					{
@@ -411,13 +417,17 @@ namespace maxhanna.Server.Controllers
 						{
 							if (IsRoadBiome(GetBiome(nc + d[0], nz + d[1])))
 							{
-								nodes.Add((gx * GRID_PITCH, gz * GRID_PITCH));
+								AddNode(gx, gz);
 								break;
 							}
 						}
 					}
 				}
 			}
+			// Add airport entry/parking nodes (deduplicated via seen set)
+			var airportNodes = GetAirportEntryNodesInRange(cx, cz, radius);
+			foreach (var an in airportNodes)
+				AddNode((int)Math.Round(an.worldX / GRID_PITCH), (int)Math.Round(an.worldZ / GRID_PITCH));
 			return nodes;
 		}
 
@@ -446,10 +456,6 @@ namespace maxhanna.Server.Controllers
 			if (_roadGraphCache.TryGetValue(key, out var existing)) return existing;
 
 			var nodes = GetRoadNodes(cx, cz, ROAD_RADIUS);
-			// Merge airport entry/parking nodes
-			var airportNodes = GetAirportEntryNodesInRange(cx, cz, ROAD_RADIUS);
-			foreach (var an in airportNodes)
-				nodes.Add((an.worldX, an.worldZ));
 
 			int n = nodes.Count;
 			var adjLists = new List<int>[n];

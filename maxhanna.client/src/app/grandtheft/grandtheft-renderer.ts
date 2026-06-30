@@ -2904,13 +2904,20 @@ void main() {
 
   getRoadNodesInRadius(cx: number, cz: number, radius: number): { x: number; z: number }[] {
     const nodes: { x: number; z: number }[] = [];
+    const seen = new Set<string>();
+    const addNode = (gx: number, gz: number) => {
+      const key = gx + ',' + gz;
+      if (seen.has(key)) return;
+      seen.add(key);
+      nodes.push({ x: gx * GRID_PITCH, z: gz * GRID_PITCH });
+    };
     const blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
     const startGx = Math.floor((cx * CHUNK_SIZE) / GRID_PITCH) - radius;
     const startGz = Math.floor((cz * CHUNK_SIZE) / GRID_PITCH) - radius;
     const endGx = Math.ceil((cx * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
     const endGz = Math.ceil((cz * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
     const isRoadBiome = (b: string) => {
-      if (b === 'mountain' || b === 'beach' || b === 'ocean' || b === 'aeroport') return false;
+      if (b === 'mountain' || b === 'beach' || b === 'ocean') return false;
       return true;
     };
     for (let gx = startGx; gx <= endGx; gx++) {
@@ -2919,21 +2926,21 @@ void main() {
         const nz = Math.floor(gz / blocksPerChunk);
         const biome = getBiome(nc, nz);
         if (isRoadBiome(biome)) {
-          nodes.push({ x: gx * GRID_PITCH, z: gz * GRID_PITCH });
+          addNode(gx, gz);
         } else {
           // Boundary node: include if any neighbor chunk is road-enabled (ensures complete roads at biome edges)
           for (const [ndx, ndz] of [[1,0],[-1,0],[0,1],[0,-1]]) {
             if (isRoadBiome(getBiome(nc + ndx, nz + ndz))) {
-              nodes.push({ x: gx * GRID_PITCH, z: gz * GRID_PITCH });
+              addNode(gx, gz);
               break;
             }
           }
         }
       }
     }
-    // Add airport entry/parking nodes
+    // Add airport entry/parking nodes (deduplicated via seen set)
     const airportNodes = this.getAirportEntryNodesInRange(cx, cz, radius);
-    for (const an of airportNodes) nodes.push({ x: an.x, z: an.z });
+    for (const an of airportNodes) addNode(Math.round(an.x / GRID_PITCH), Math.round(an.z / GRID_PITCH));
     return nodes;
   }
 

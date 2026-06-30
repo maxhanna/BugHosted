@@ -453,6 +453,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             }
             else if (
               name === "ichijoushi_002"
+              || name === "pyaterochka_3d"
             ) {
               for (const mm of m) { mm.renderScale = 1.5; }
             }
@@ -461,7 +462,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               || name === "low_poly_shopping_center"
               || name === "low_poly_apartment_building_3"
               || name === "brooklyn_street_building_low_poly"
-              || name === "pyaterochka_3d"
               || name === "low_poly_apartment_building_2"
             ) {
               for (const mm of m) { mm.renderScale = 3; }
