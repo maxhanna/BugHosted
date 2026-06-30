@@ -118,6 +118,7 @@ import { MiniCalendarComponent } from './mini-calendar/mini-calendar.component';
 import { RecipeComponent } from './recipe/recipe.component';
 import { CrawlerSearchResultsComponent } from './components/crawler-search-results/crawler-search-results.component';
 import { ModeratorComponent } from './components/moderator/moderator.component';
+import { PaintComponent } from './components/paint/paint.component';
 
 @NgModule({
   declarations: [
@@ -219,6 +220,7 @@ import { ModeratorComponent } from './components/moderator/moderator.component';
     RecipeComponent,
     CrawlerSearchResultsComponent,
     ModeratorComponent,
+    PaintComponent,
   ],
   bootstrap: [AppComponent],
   imports: [
