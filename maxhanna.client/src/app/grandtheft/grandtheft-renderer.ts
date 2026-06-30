@@ -2063,7 +2063,7 @@ void main() {
     }
 
     // ── OCEAN BARRIER WALLS (where land chunks meet ocean along roads) ──
-    if (!isBeach && !isBridge && !isBridgeConnector && !isAeroport && !isRural && !isParkingLot && !isMountain) {
+    if (!isBeach && !isBridge && !isBridgeConnector && !isAeroport) {
       for (const [ddx, ddz] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
         if (getBiome(cx + ddx, cz + ddz) !== 'ocean') continue;
         // Wall along the chunk edge where land meets ocean
@@ -2360,21 +2360,30 @@ void main() {
 
         // ── RURAL block: scattered houses, cabins, trees, chickens ──
         if (isRural) {
-          // Mountains: rock formations, no buildings, sparse trees
+          // Mountains: gentle hills (wide, low boxes), clear corridor at road grid lines
           if (isRuralMountain) {
-            for (let ri = 0; ri < 5 + Math.floor(rng() * 4); ri++) {
-              const rx = blockWorldX + (rng() - 0.5) * 50;
-              const rz = blockWorldZ + (rng() - 0.5) * 50;
-              const rh = 1.5 + rng() * 4;
-              const rw = 2 + rng() * 6;
-              const rd = 2 + rng() * 5;
-              this.addBox(verts, indices, rx, rh / 2, rz, rw, rh, rd, 0.30 + rng() * 0.08, 0.28 + rng() * 0.08, 0.22 + rng() * 0.08, 1.0, idxOffset); idxOffset += 24;
+            const roadClear = 14;
+            for (let hi = 0; hi < 4 + Math.floor(rng() * 4); hi++) {
+              const hx = blockWorldX + (rng() - 0.5) * 55;
+              const hz = blockWorldZ + (rng() - 0.5) * 55;
+              // Keep clear of road grid lines (chunk boundaries at cx*80 / (cx+1)*80)
+              const distGX = Math.min(Math.abs(hx - cx * CHUNK_SIZE), Math.abs(hx - (cx + 1) * CHUNK_SIZE));
+              const distGZ = Math.min(Math.abs(hz - cz * CHUNK_SIZE), Math.abs(hz - (cz + 1) * CHUNK_SIZE));
+              if (distGX < roadClear || distGZ < roadClear) continue;
+              const hw = 6 + rng() * 12;
+              const hd = 6 + rng() * 12;
+              const hh = 0.6 + rng() * 1.2;
+              const shade = 0.28 + rng() * 0.08;
+              this.addBox(verts, indices, hx, hh / 2, hz, hw, hh, hd, shade, shade * 0.95, shade * 0.85, 1.0, idxOffset); idxOffset += 24;
             }
-            for (let ti = 0; ti < 2 + Math.floor(rng() * 3); ti++) {
+            for (let ti = 0; ti < 3 + Math.floor(rng() * 3); ti++) {
               if (this.cityTreeMesh) {
-                const tx = blockWorldX + (rng() - 0.5) * 50;
-                const tz = blockWorldZ + (rng() - 0.5) * 50;
-                trees.push({ x: tx, z: tz, yaw: rng() * 0.3, scale: 0.5 + rng() * 0.4 });
+                const tx = blockWorldX + (rng() - 0.5) * 55;
+                const tz = blockWorldZ + (rng() - 0.5) * 55;
+                const distGX = Math.min(Math.abs(tx - cx * CHUNK_SIZE), Math.abs(tx - (cx + 1) * CHUNK_SIZE));
+                const distGZ = Math.min(Math.abs(tz - cz * CHUNK_SIZE), Math.abs(tz - (cz + 1) * CHUNK_SIZE));
+                if (distGX < roadClear || distGZ < roadClear) continue;
+                trees.push({ x: tx, z: tz, yaw: rng() * 0.3, scale: 1.0 + rng() * 0.6 });
               }
             }
           }
@@ -2673,7 +2682,7 @@ void main() {
     }
 
     // ── ROAD LANE STRIPES (only on non-boulevards to keep boulevards clean) ──
-    if (!isMountain && !isBeach && !isAeroport && !isBridge && !isBridgeConnector && !isParkingLot) {
+    if (!isMountain && !isBeach && !isAeroport && !isBridge && !isBridgeConnector && !isParkingLot && !isRuralMountain) {
       const dashLen = 1.5, dashWid = 0.3, dashH = 0.02, dashSpacing = 4, dashOffset = 2;
       for (let ri = 0; ri < 2; ri++) {
         const roadZ = cz * CHUNK_SIZE + ri * GRID_PITCH;
@@ -2691,6 +2700,48 @@ void main() {
       }
     }
 
+    // ── MOUNTAIN ROAD: asphalt surface with guardrails, clear path through hills ──
+    if (isRuralMountain) {
+      const roadW = 14;
+      const roadHalf = roadW / 2;
+      // Asphalt road surface flush with terrain
+      for (const ri of [0, 1]) {
+        const roadZ = cz * CHUNK_SIZE + ri * GRID_PITCH;
+        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.02, roadZ, CHUNK_SIZE, 0.04, roadW, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+        // Dashed center line
+        for (let x = cx * CHUNK_SIZE + 2; x <= (cx + 1) * CHUNK_SIZE - 2; x += 4) {
+          this.addBox(verts, indices, x, 0.05, roadZ, 1.5, 0.02, 0.3, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
+        }
+        // Center divider
+        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.06, roadZ, CHUNK_SIZE, 0.12, 0.3, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
+        // Guardrails on both sides
+        for (const side of [-1, 1]) {
+          const rz = roadZ + side * (roadHalf + 0.5);
+          this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.5, rz, CHUNK_SIZE, 0.12, 0.12, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 1.0, rz, CHUNK_SIZE, 0.12, 0.12, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
+          for (let px = cx * CHUNK_SIZE + 6; px < (cx + 1) * CHUNK_SIZE; px += 14) {
+            this.addBox(verts, indices, px, 0.6, rz, 0.18, 1.2, 0.18, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
+          }
+        }
+      }
+      for (const ri of [0, 1]) {
+        const roadX = cx * CHUNK_SIZE + ri * GRID_PITCH;
+        this.addBox(verts, indices, roadX, 0.02, worldOriginZ + CHUNK_SIZE / 2, roadW, 0.04, CHUNK_SIZE, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+        for (let z = cz * CHUNK_SIZE + 2; z <= (cz + 1) * CHUNK_SIZE - 2; z += 4) {
+          this.addBox(verts, indices, roadX, 0.05, z, 0.3, 0.02, 1.5, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
+        }
+        this.addBox(verts, indices, roadX, 0.06, worldOriginZ + CHUNK_SIZE / 2, 0.3, 0.12, CHUNK_SIZE, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
+        for (const side of [-1, 1]) {
+          const rx = roadX + side * (roadHalf + 0.5);
+          this.addBox(verts, indices, rx, 0.5, worldOriginZ + CHUNK_SIZE / 2, 0.12, 0.12, CHUNK_SIZE, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(verts, indices, rx, 1.0, worldOriginZ + CHUNK_SIZE / 2, 0.12, 0.12, CHUNK_SIZE, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
+          for (let pz = cz * CHUNK_SIZE + 6; pz < (cz + 1) * CHUNK_SIZE; pz += 14) {
+            this.addBox(verts, indices, rx, 0.6, pz, 0.18, 1.2, 0.18, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
+          }
+        }
+      }
+    }
+
     // ── PARKING LOT LIGHTS ──
     if (isParkingLot) {
       // Already handled via lamps array below
@@ -2701,7 +2752,7 @@ void main() {
     // ── LAMPS + HYDRANTS ──
     const lamps: { x: number; z: number }[] = [];
     const hydrants: { x: number; z: number }[] = [];
-    if (!isMountain && !isBeach && !isAeroport && !isBridge && !isBridgeConnector) {
+    if (!isMountain && !isBeach && !isAeroport && !isBridge && !isBridgeConnector && !isRuralMountain) {
       const halfSidewalk = SIDEWALK_SIZE / 2;
       const sidewalkEdge = GRID_PITCH / 2 - halfSidewalk;
       for (let ly = 0; ly < 2; ly++) {
@@ -2853,15 +2904,31 @@ void main() {
 
   getRoadNodesInRadius(cx: number, cz: number, radius: number): { x: number; z: number }[] {
     const nodes: { x: number; z: number }[] = [];
+    const blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
     const startGx = Math.floor((cx * CHUNK_SIZE) / GRID_PITCH) - radius;
     const startGz = Math.floor((cz * CHUNK_SIZE) / GRID_PITCH) - radius;
     const endGx = Math.ceil((cx * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
     const endGz = Math.ceil((cz * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
+    const isRoadBiome = (b: string) => {
+      if (b === 'mountain' || b === 'beach' || b === 'ocean' || b === 'aeroport') return false;
+      return true;
+    };
     for (let gx = startGx; gx <= endGx; gx++) {
       for (let gz = startGz; gz <= endGz; gz++) {
-        const biome = getBiome(Math.floor(gx / (CHUNK_SIZE / GRID_PITCH)), Math.floor(gz / (CHUNK_SIZE / GRID_PITCH)));
-        if (biome === 'mountain' || biome === 'beach' || biome === 'ocean' || biome === 'aeroport') continue;
-        nodes.push({ x: gx * GRID_PITCH, z: gz * GRID_PITCH });
+        const nc = Math.floor(gx / blocksPerChunk);
+        const nz = Math.floor(gz / blocksPerChunk);
+        const biome = getBiome(nc, nz);
+        if (isRoadBiome(biome)) {
+          nodes.push({ x: gx * GRID_PITCH, z: gz * GRID_PITCH });
+        } else {
+          // Boundary node: include if any neighbor chunk is road-enabled (ensures complete roads at biome edges)
+          for (const [ndx, ndz] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+            if (isRoadBiome(getBiome(nc + ndx, nz + ndz))) {
+              nodes.push({ x: gx * GRID_PITCH, z: gz * GRID_PITCH });
+              break;
+            }
+          }
+        }
       }
     }
     // Add airport entry/parking nodes

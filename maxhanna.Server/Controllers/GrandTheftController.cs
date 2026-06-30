@@ -389,6 +389,7 @@ namespace maxhanna.Server.Controllers
 			int startGz = (cz * blocksPerChunk) - radius;
 			int endGx = (cx * blocksPerChunk + blocksPerChunk) + radius;
 			int endGz = (cz * blocksPerChunk + blocksPerChunk) + radius;
+			bool IsRoadBiome(string b) => !(b == "mountain" || b == "beach" || b == "ocean" || b == "aeroport");
 			for (int gx = startGx; gx <= endGx; gx++)
 			{
 				for (int gz = startGz; gz <= endGz; gz++)
@@ -398,8 +399,23 @@ namespace maxhanna.Server.Controllers
 					if (gx < 0) nc = (gx - blocksPerChunk + 1) / blocksPerChunk;
 					if (gz < 0) nz = (gz - blocksPerChunk + 1) / blocksPerChunk;
 					string biome = GetBiome(nc, nz);
-					if (biome == "mountain" || biome == "beach" || biome == "ocean" || biome == "aeroport") continue;
-					nodes.Add((gx * GRID_PITCH, gz * GRID_PITCH));
+					if (IsRoadBiome(biome))
+					{
+						nodes.Add((gx * GRID_PITCH, gz * GRID_PITCH));
+					}
+					else
+					{
+						// Boundary node: include if any neighbor chunk is road-enabled
+						int[][] dirs = new int[][] { new[] { 1, 0 }, new[] { -1, 0 }, new[] { 0, 1 }, new[] { 0, -1 } };
+						foreach (var d in dirs)
+						{
+							if (IsRoadBiome(GetBiome(nc + d[0], nz + d[1])))
+							{
+								nodes.Add((gx * GRID_PITCH, gz * GRID_PITCH));
+								break;
+							}
+						}
+					}
 				}
 			}
 			return nodes;

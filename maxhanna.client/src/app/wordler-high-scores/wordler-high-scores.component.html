@@ -42,7 +42,7 @@
                     <td>{{ m === 'best' && +group.key === 999 ? 'Best (All Time)' : difficultyLabel(+group.key) }}</td>
                     <td>
                       <app-user-tag [user]="s.user" [displayMiniTag]="true" [displayHoverPicture]="true"
-                        [inputtedParentRef]="inputtedParentRef"></app-user-tag>
+                        [inputtedParentRef]="inputtedParentRef" [openInNewTab]="true"></app-user-tag>
                     </td>
                     <td>{{ s.score }}</td>
                     <td>{{ s.time }}</td>
