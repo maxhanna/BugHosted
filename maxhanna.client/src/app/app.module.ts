@@ -117,6 +117,7 @@ import { WeaverComponent } from './weaver/weaver.component';
 import { MiniCalendarComponent } from './mini-calendar/mini-calendar.component';
 import { RecipeComponent } from './recipe/recipe.component';
 import { CrawlerSearchResultsComponent } from './components/crawler-search-results/crawler-search-results.component';
+import { ModeratorComponent } from './components/moderator/moderator.component';
 
 @NgModule({
   declarations: [
@@ -217,6 +218,7 @@ import { CrawlerSearchResultsComponent } from './components/crawler-search-resul
     MiniCalendarComponent,
     RecipeComponent,
     CrawlerSearchResultsComponent,
+    ModeratorComponent,
   ],
   bootstrap: [AppComponent],
   imports: [

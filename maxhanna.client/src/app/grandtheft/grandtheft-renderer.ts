@@ -98,6 +98,12 @@ const BRIDGES: BridgeDef[] = [
   { startCx: 31, endCx: 32, startCz: 0, endCz: 0 },   // Island 3 ↔ Island 4
 ];
 
+const BRIDGE_CONNECTORS: { cx: number; cz: number }[] = [];
+for (const br of BRIDGES) {
+  BRIDGE_CONNECTORS.push({ cx: br.startCx - 1, cz: br.startCz });
+  BRIDGE_CONNECTORS.push({ cx: br.endCx + 1, cz: br.endCz });
+}
+
 function isInAnyIsland(cx: number, cz: number): boolean {
   for (const isl of ISLANDS) {
     const dx = cx - isl.cx, dz = cz - isl.cz;
@@ -117,6 +123,11 @@ export function getBiome(cx: number, cz: number): string {
   // Bridges
   for (const br of BRIDGES) {
     if (cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz) return 'bridge';
+  }
+
+  // Bridge connectors — dedicated road cells at each end
+  for (const conn of BRIDGE_CONNECTORS) {
+    if (cx === conn.cx && cz === conn.cz) return 'bridge_connector';
   }
 
   // Parking-lot patch helper (deterministic, mirrors server)
@@ -172,7 +183,7 @@ function isOnSidewalk(x: number, z: number): boolean {
   const cx = Math.floor(x / 80);
   const cz = Math.floor(z / 80);
   const biome = getBiome(cx, cz);
-  if (biome === 'beach' || biome === 'aeroport' || biome === 'bridge' || biome === 'rural_farm' || biome === 'rural_hills') return false;
+  if (biome === 'beach' || biome === 'aeroport' || biome === 'bridge' || biome === 'bridge_connector' || biome === 'rural_farm' || biome === 'rural_hills') return false;
   const localX = ((x - cx * 80) + 80) % 80;
   const localZ = ((z - cz * 80) + 80) % 80;
   const halfRoad = (80 - 55) / 2; // 12.5 — road width on each side
@@ -185,6 +196,7 @@ export function getTerrainHeight(x: number, z: number): number {
   const cx = Math.floor(x / 80);
   const cz = Math.floor(z / 80);
   const biome = getBiome(cx, cz);
+  if (biome === 'bridge_connector') return 0.0;
   if (biome === 'bridge') {
     for (const br of BRIDGE_RANGES) {
       if (cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz) {
@@ -1833,6 +1845,7 @@ void main() {
     const isSuburb = biome === 'suburb';
     const isCity = biome === 'city';
     const isBridge = biome === 'bridge';
+    const isBridgeConnector = biome === 'bridge_connector';
     const isAeroport = biome === 'aeroport';
     const isParkingLot = biome === 'parking_lot';
     const isMountain = biome === 'mountain';
@@ -1957,6 +1970,20 @@ void main() {
         }
       }
     }
+    else if (isBridgeConnector) {
+      // Green ground
+      const gv = (rng() - 0.5) * 0.08;
+      this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.30 + gv, 0.52 + gv, 0.13 + gv, 1.0, idxOffset); idxOffset += 4;
+      // Road surface matching bridge road position and width
+      const roadCenterZ = cz * CHUNK_SIZE;
+      const roadW = 25;
+      this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.08, roadCenterZ, CHUNK_SIZE * 1.1, 0.12, roadW, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+      // Center lane markings
+      const dashLen = 1.5, dashWid = 0.3, dashH = 0.02, dashSpacing = 4, dashOffset = 2;
+      for (let x = cx * CHUNK_SIZE + dashOffset; x <= cx * CHUNK_SIZE + CHUNK_SIZE - dashOffset; x += dashSpacing) {
+        this.addBox(verts, indices, x, 0.14, roadCenterZ, dashLen, dashH, dashWid, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
+      }
+    }
     else if (isAeroport) {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.22, 0.22, 0.24, 1.0, idxOffset); idxOffset += 4;
     } else if (isParkingLot) {
@@ -1976,7 +2003,7 @@ void main() {
     }
 
     // ── OCEAN BARRIER WALLS (where land chunks meet ocean along roads) ──
-    if (!isBeach && !isBridge && !isAeroport && !isRural && !isParkingLot && !isMountain) {
+    if (!isBeach && !isBridge && !isBridgeConnector && !isAeroport && !isRural && !isParkingLot && !isMountain) {
       for (const [ddx, ddz] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
         if (getBiome(cx + ddx, cz + ddz) !== 'ocean') continue;
         // Wall along the chunk edge where land meets ocean
@@ -2019,8 +2046,8 @@ void main() {
           continue;
         }
 
-        // Sidewalk slab (skip for beach/aeroport/bridge/rural)
-        if (!isBeach && !isAeroport && !isBridge && !isRural) {
+        // Sidewalk slab (skip for beach/aeroport/bridge/bridge_connector/rural)
+        if (!isBeach && !isAeroport && !isBridge && !isBridgeConnector && !isRural) {
           const swShade = 0.38 + (rng() * 0.08);
           const swHalf = SIDEWALK_SIZE / 2;
           // Main walking surface
@@ -2322,7 +2349,7 @@ void main() {
           continue;
         }
 
-        if (isBridge) continue;
+        if (isBridge || isBridgeConnector) continue;
 
         // ── CITY / SUBURB block ──
         const grassG = isSuburb ? 0.42 : 0.10;
@@ -2491,7 +2518,7 @@ void main() {
     }
 
     // ── BOULEVARD MEDIAN + PALM TREES + LIGHTS ─────────────
-    if (!isBeach && !isAeroport && !isBridge && !isParkingLot) {
+    if (!isBeach && !isAeroport && !isBridge && !isBridgeConnector && !isParkingLot) {
       // Two grid lines cross this chunk: x = cx*80 + 0 and x = cx*80 + 80
       // (the chunk boundary lines). Test each for boulevard status.
       for (const gridX of [cx, cx + 1]) {
@@ -2536,7 +2563,7 @@ void main() {
     }
 
     // ── ROAD LANE STRIPES (only on non-boulevards to keep boulevards clean) ──
-    if (!isMountain && !isBeach && !isAeroport && !isBridge && !isParkingLot) {
+    if (!isMountain && !isBeach && !isAeroport && !isBridge && !isBridgeConnector && !isParkingLot) {
       const dashLen = 1.5, dashWid = 0.3, dashH = 0.02, dashSpacing = 4, dashOffset = 2;
       for (let ri = 0; ri < 2; ri++) {
         const roadZ = cz * CHUNK_SIZE + ri * GRID_PITCH;
@@ -2564,7 +2591,7 @@ void main() {
     // ── LAMPS + HYDRANTS ──
     const lamps: { x: number; z: number }[] = [];
     const hydrants: { x: number; z: number }[] = [];
-    if (!isMountain && !isBeach && !isAeroport && !isBridge) {
+    if (!isMountain && !isBeach && !isAeroport && !isBridge && !isBridgeConnector) {
       const halfSidewalk = SIDEWALK_SIZE / 2;
       const sidewalkEdge = GRID_PITCH / 2 - halfSidewalk;
       for (let ly = 0; ly < 2; ly++) {
@@ -2608,7 +2635,7 @@ void main() {
 
     // ── PROPS — strictly limited counts to kill lag ──
     // Barrels: max 2 per chunk
-    if (!isMountain && !isAeroport && !isBridge) {
+    if (!isMountain && !isAeroport && !isBridge && !isBridgeConnector) {
       const barrelCount = 1 + Math.floor(rng() * 2);
       for (let i = 0; i < barrelCount; i++) {
         barrels.push({ x: worldOriginX + 6 + rng() * (CHUNK_SIZE - 12), z: worldOriginZ + 6 + rng() * (CHUNK_SIZE - 12), yaw: rng() * Math.PI * 2 });

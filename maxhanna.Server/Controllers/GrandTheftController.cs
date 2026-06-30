@@ -88,6 +88,13 @@ namespace maxhanna.Server.Controllers
     (16, 17, 0, 0),   // Island 2 ↔ Island 3
     (31, 32, 0, 0),   // Island 3 ↔ Island 4
 };
+		private static readonly (int cx, int cz)[] BRIDGE_CONNECTORS = InitBridgeConnectors();
+		private static (int cx, int cz)[] InitBridgeConnectors()
+		{
+			var conn = new List<(int, int)>();
+			foreach (var br in BRIDGES) { conn.Add((br.startCx - 1, br.startCz)); conn.Add((br.endCx + 1, br.endCz)); }
+			return conn.ToArray();
+		}
 		public static bool IsInAnyIsland(int cx, int cz)
 		{
 			foreach (var isl in ISLANDS)
@@ -109,6 +116,9 @@ namespace maxhanna.Server.Controllers
 
 			foreach (var br in BRIDGES)
 				if (cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz) return "bridge";
+
+			foreach (var conn in BRIDGE_CONNECTORS)
+				if (cx == conn.cx && cz == conn.cz) return "bridge_connector";
 
 			bool IsParkingPatch()
 			{
@@ -231,7 +241,7 @@ namespace maxhanna.Server.Controllers
 
 			string biome = GetBiome(cx, cz);
 			if (biome == "mountain" || biome == "beach" || biome == "ocean"
-				|| biome == "bridge"
+				|| biome == "bridge" || biome == "bridge_connector"
 				|| biome == "parking_lot") return false;
 			// Aeroport tarmac (non-parking) is treated as "building" so NPC traffic avoids runways/hangars
 			if (biome == "aeroport" && !IsAeroportParkingChunk(cx, cz)) return true;
@@ -341,7 +351,7 @@ namespace maxhanna.Server.Controllers
 			string biome = GetBiome(cx, cz);
 			// FIX: Bridge is fully drivable — without this, NPC movement validation
 			// fails and cars get stuck trying to cross bridges
-			if (biome == "parking_lot" || biome == "rural_farm" || biome == "rural_hills" || biome == "bridge") return true;
+			if (biome == "parking_lot" || biome == "rural_farm" || biome == "rural_hills" || biome == "bridge" || biome == "bridge_connector") return true;
 
 			float dx = x % GRID_PITCH;
 			if (dx < 0) dx += GRID_PITCH;
