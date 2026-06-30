@@ -489,13 +489,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.renderer.clearChunkCache();
         this.renderer.clearGltfCache(); // Clear memory!
         this.isLoaded = true;
-        this.loadingAssets = 0; 
-        return;
+        this.loadingAssets = 0;
+        this.ngZone.runOutsideAngular(() => {
+          this.lastTime = performance.now();
+          this.gameLoop(this.lastTime);
+        });
+        return; 
       }
       idx += batch.length;
       Promise.all(batch.map(t => t.load().catch(() => { }))).then(() => {
         this.loadingAssets = this.totalAssets - idx;
-        // Increase timeout to 150ms on mobile to let GC clean up the JSON buffers
         if (this.isMobile) setTimeout(() => processNextBatch(), 150);
         else processNextBatch();
       });
@@ -2445,6 +2448,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private gameLoop = (now: number) => {
     const dt = Math.min((now - this.lastTime) / 1000, 0.05);
     this.lastTime = now;
+ 
+    if (!this.isLoaded) {
+      this._hudUpdateTimer += dt;
+      if (this._hudUpdateTimer > 0.1) {
+        this._hudUpdateTimer = 0;
+        this.ngZone.run(() => { });
+      }
+      this.animFrameId = requestAnimationFrame(this.gameLoop);
+      return;
+    }
+
 
     if (this.isPassenger) {
       this.updatePassengerFollow();
