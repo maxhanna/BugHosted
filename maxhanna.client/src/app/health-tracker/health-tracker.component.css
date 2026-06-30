@@ -1,0 +1,20 @@
+﻿.componentContainerFlexed {
+ display: flex;
+ flex-direction: column;
+ height: 100%;
+}
+
+.mainLayout {
+ flex: 1;
+}
+
+.componentContainerCentered {
+ display: flex;
+ justify-content: center;
+ align-items: center;
+ flex-direction: column;
+}
+
+.mainContentArea {
+ text-align: center;
+}

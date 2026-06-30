@@ -2,7 +2,7 @@
   <canvas #globeCanvas class="globe-canvas"></canvas>
   <canvas #detailCanvas class="detail-canvas"></canvas>
   <canvas #pinCanvas class="pin-canvas"></canvas>
-  <div class="coords-display" (pointerdown)="openCoordsEditPopup()">{{ coordsDisplay }}</div>
+  <div class="coords-display" (click)="openCoordsEditPopup()">{{ coordsDisplay }}</div>
 
   <div class="zoom-controls">
     <label class="zoom-label">🔍</label>

@@ -232,3 +232,27 @@ Accept: application/json
 POST {{maxhanna.Server_HostAddress}}/GrandTheft/
 Accept: application/json
 ###
+GET {{maxhanna.Server_HostAddress}}/Recipe/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/Recipe/
+Accept: application/json
+###
+GET {{maxhanna.Server_HostAddress}}/HealthTracker/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/HealthTracker/
+Accept: application/json
+###
+GET {{maxhanna.Server_HostAddress}}/Paint/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/Paint/
+Accept: application/json
+###
+GET {{maxhanna.Server_HostAddress}}/Moderator/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/Moderator/
+Accept: application/json
+###
