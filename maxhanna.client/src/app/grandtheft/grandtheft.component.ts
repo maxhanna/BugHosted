@@ -3052,18 +3052,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     } else if (this.altDownPressed) {
       this.carVy = Math.max(this.carVy - altClimbRate * dt, -10);
     } else {
-      const liftFactor = 0.006;
       const speed = this.carSpeed;
-      const lift = speed * speed * cosPitch * liftFactor;
+      const lift = speed * speed * cosPitch * 0.006;
       const dragForce = speed * 0.02;
-      const gravity = -5;
       const thrustVy = speed * sinPitch * 0.3;
-      this.carVy += (lift + thrustVy + gravity - this.carVy * 0.5) * dt;
+      this.carVy += (lift + thrustVy - 5 - this.carVy * 0.5) * dt;
       this.carSpeed -= dragForce * dt;
     }
 
-    if (speed < minSpeed && this.carPitch < -0.05) {
-      this.carVy += (gravity * 1.5) * dt;
+    if (this.carSpeed < minSpeed && this.carPitch < -0.05) {
+      this.carVy += (-5 * 1.5) * dt;
     }
 
     const forwardX = Math.sin(this.carYaw), forwardZ = Math.cos(this.carYaw);
