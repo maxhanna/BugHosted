@@ -2720,8 +2720,12 @@ void main() {
     }
 
     // ── PROPS — strictly limited counts to kill lag ──
-    // Barrels: max 2 per chunk
-    if (!isMountain && !isAeroport && !isBridge && !isBridgeConnector) {
+    // Barrels: max 2 per chunk, skip near bridge connectors to avoid blocking approach roads
+    const isBridgeConnectorAdjacent = () => {
+      for (const conn of BRIDGE_CONNECTORS) if (Math.abs(cx - conn.cx) <= 1 && cz === conn.cz) return true;
+      return false;
+    };
+    if (!isMountain && !isAeroport && !isBridge && !isBridgeConnector && !isBridgeConnectorAdjacent()) {
       const barrelCount = 1 + Math.floor(rng() * 2);
       for (let i = 0; i < barrelCount; i++) {
         barrels.push({ x: worldOriginX + 6 + rng() * (CHUNK_SIZE - 12), z: worldOriginZ + 6 + rng() * (CHUNK_SIZE - 12), yaw: rng() * Math.PI * 2 });
