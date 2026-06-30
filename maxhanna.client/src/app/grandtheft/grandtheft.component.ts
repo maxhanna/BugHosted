@@ -183,7 +183,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
-  trafficCars: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; path: number[]; pathIdx: number; state: 'drive' | 'stop'; stopTimer: number; nextYaw: number; laneOffsetX: number; laneOffsetZ: number; hasDriver?: boolean; gender?: string; passengerCount?: number }[] = [];
+  trafficCars: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; path: number[]; pathIdx: number; state: 'drive' | 'stop'; stopTimer: number; nextYaw: number; laneOffsetX: number; laneOffsetZ: number; hasDriver?: boolean; gender?: string; passengerCount?: number; speed: number }[] = [];
   private trafficNodes: { x: number; z: number }[] = [];
   private trafficEdges: [number, number][] = [];
   private trafficLanes: TrafficLane[] = [];
@@ -2157,60 +2157,52 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
       }
 
+      // Continuous car-following model: speed = clamp(distance_to_lead * gain, 0, max)
+      // This naturally prevents pileups — no binary stop/go, no speedMult = 0 instant-stop.
       const carFwdX = Math.sin(car.yaw);
       const carFwdZ = Math.cos(car.yaw);
-      let blocked = false;
-      let slowDown = false;
+      let leadDist = Infinity;
+      let leadSpeed = 12;
 
-      const checkObstacle = (ox: number, oz: number, closeR: number, farR: number) => {
+      const measureLead = (ox: number, oz: number, oSpeed?: number) => {
         const dx = ox - car.x;
         const dz = oz - car.z;
+        const ahead = dx * carFwdX + dz * carFwdZ;
+        if (ahead <= 0) return;
         const dist = Math.hypot(dx, dz);
-        if (dist > farR) return;
-        const dot = dx * carFwdX + dz * carFwdZ;
-        if (dot < 0) return;
-        if (dist < closeR) blocked = true;
-        else slowDown = true;
+        if (dist < leadDist) { leadDist = dist; leadSpeed = oSpeed ?? 0; }
       };
 
       for (const other of this.trafficCars) {
         if (other.id === car.id || other.health <= 0) continue;
-        checkObstacle(other.x, other.z, 4.0, 8.0);
+        measureLead(other.x, other.z, other.speed);
       }
       for (const npc of this.serverNPCs) {
         if (npc.health <= 0) continue;
-        checkObstacle(npc.x, npc.z, 4.0, 8.0);
+        measureLead(npc.x, npc.z, npc.speed);
       }
       for (const pc of this.parkedCars) {
         if (pc.health <= 0) continue;
-        checkObstacle(pc.x, pc.z, 4.0, 8.0);
+        measureLead(pc.x, pc.z);
       }
       const nearbyLamps = this.renderer.getLampsNear(car.x, car.z, 8);
-      for (const lamp of nearbyLamps) {
-        checkObstacle(lamp.x, lamp.z, 2, 5);
-      }
+      for (const lamp of nearbyLamps) measureLead(lamp.x, lamp.z);
       for (const ped of this.localPedestrians) {
         if (ped.health <= 0) continue;
-        checkObstacle(ped.x, ped.z, 3, 6);
+        measureLead(ped.x, ped.z);
       }
       for (const ped of this.serverPedestrians) {
         if (ped.health <= 0) continue;
-        checkObstacle(ped.x, ped.z, 3, 6);
+        measureLead(ped.x, ped.z);
       }
       for (const op of this.otherPlayers) {
         if (op.health <= 0) continue;
-        checkObstacle(op.posX, op.posZ, 3, 6);
+        measureLead(op.posX, op.posZ, 12);
       }
 
-      // FIX: Removed hard stop for blocked obstacles. 
-      // Instead of entering a 0.3s 'stop' state (which caused stop-and-go rubber banding),
-      // we just set speedMult to 0 so the car smoothly stops and resumes immediately.
-      // if (blocked) {
-      //   car.state = 'stop';
-      //   car.stopTimer = 0.3;
-      //   car.nextYaw = car.yaw;
-      //   continue;
-      // }
+      // Safe speed = proportional to available following distance, capped at lead car's speed
+      const followGain = 2.5;
+      const safeSpeed = leadDist < Infinity ? Math.min(leadDist * followGain, leadSpeed) : 12;
 
       let redLight = false;
       if (nextNode && distToTarget < intersectionRadius) {
@@ -2225,20 +2217,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (car.pathIdx < car.path.length) {
           const newTarget = this.trafficNodes[car.path[car.pathIdx]];
           car.yaw = Math.atan2(newTarget.x - currNode.x, newTarget.z - currNode.z);
-          // FIX: Snap car to the intersection center to prevent corner cutting,
-          // which previously caused cars to clip buildings and get pushed backwards.
-          car.x = currNode.x + laneOffX;
-          car.z = currNode.z + laneOffZ;
         }
         continue;
       }
 
-      let speedMult = 1.0;
-      if (approachingTurn) speedMult *= 0.35;
-      if (slowDown) speedMult *= 0.4;
-      if (blocked) speedMult *= 0.0;
-      if (crossBlocked) speedMult *= 0.3;
-      if (redLight) speedMult *= 0.1;
+      let targetSpeed = safeSpeed;
+      if (approachingTurn) targetSpeed = Math.min(targetSpeed, 4.5);
+      if (crossBlocked) targetSpeed = Math.min(targetSpeed, 3.0);
+      if (redLight) targetSpeed = Math.min(targetSpeed, 1.0);
 
       const tdx = targetX - car.x;
       const tdz = targetZ - car.z;
@@ -2248,9 +2234,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       while (yawDiff2 < -Math.PI) yawDiff2 += Math.PI * 2;
 
       car.yaw += yawDiff2 * Math.min(1, 8 * dt);
-      const speed = Math.min(distToTarget / dt, 12) * speedMult;
-      car.x += Math.sin(car.yaw) * speed * dt;
-      car.z += Math.cos(car.yaw) * speed * dt;
+      car.speed += (targetSpeed - car.speed) * Math.min(1, 5 * dt);
+      const maxSpeed = Math.min(distToTarget / dt, 12);
+      if (car.speed > maxSpeed) car.speed = maxSpeed;
+      if (car.speed < 0) car.speed = 0;
+      car.x += Math.sin(car.yaw) * car.speed * dt;
+      car.z += Math.cos(car.yaw) * car.speed * dt;
     }
 
     for (const npc of this.serverNPCs) this.pushTrafficCarOutOfBuildings(npc);
@@ -3592,7 +3581,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       path, pathIdx: 0,
       state: 'drive', stopTimer: 0, nextYaw: yaw,
       laneOffsetX: lane.offsetX, laneOffsetZ: lane.offsetZ,
-      hasDriver: true,
+      hasDriver: true, speed: 0,
       gender: Math.random() < 0.5 ? 'male' : 'female',
       passengerCount: Math.random() < 0.2 ? 1 : 0,
     });
