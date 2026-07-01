@@ -122,60 +122,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     this.monthForwardFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() + 2));
     this.refreshCalendar();
   }
-  getCurrentDate() {
-    return new Date();
-  }
-
-  getLunarPhase() {
-    const now = this.getCurrentDate();
-    const day = now.getDate();
-    const month = now.getMonth() + 1; // getMonth() returns0-11
-    const year = now.getFullYear();
-
-    // Calculate the Julian Day Number
-    let a = Math.floor((14 - month) / 12);
-    let y = year + 4800 - a;
-    let m = month + 12 * a - 3;
-
-    const jdn = day + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) - 32045;
-
-    // Calculate the phase of the moon
-    const daysSinceNewMoon = (jdn - 2451549.5) % 29.530588853;
-    const phase = daysSinceNewMoon / 29.530588853;
-
-    // Determine the lunar phase name
-    if (phase < 0.03 || phase >= 0.97) {
-      return 'New Moon';
-    } else if (phase < 0.22) {
-      return 'Waxing Crescent';
-    } else if (phase < 0.28) {
-      return 'First Quarter';
-    } else if (phase < 0.47) {
-      return 'Waxing Gibbous';
-    } else if (phase < 0.53) {
-      return 'Full Moon';
-    } else if (phase < 0.72) {
-      return 'Waning Gibbous';
-    } else if (phase < 0.78) {
-      return 'Last Quarter';
-    } else {
-      return 'Waning Crescent';
-    }
-  }
-  getLunarPhaseEmoji() {
-    const phase = this.getLunarPhase();
-    switch (phase) {
-      case 'New Moon': return '🌑';
-      case 'Waxing Crescent': return '🌒';
-      case 'First Quarter': return '🌓';
-      case 'Waxing Gibbous': return '🌔';
-      case 'Full Moon': return '🌕';
-      case 'Waning Gibbous': return '🌖';
-      case 'Last Quarter': return '🌗';
-      case 'Waning Crescent': return '🌘';
-      default: return '🌙';
-    }
-  }
+  
   compareDatesWithoutTime(date1?: Date, date2?: Date) {
     if (!date1 || !date2) return false;
     return date1.getDate() === date2.getDate() && date1.getMonth() === date2.getMonth() && date1.getFullYear() === date2.getFullYear()

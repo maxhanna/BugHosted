@@ -85,7 +85,8 @@
     </div>  
   </div>
 
-
+  <div class="lunarPhase">Current Lunar Phase: {{ getLunarPhase() }} {{ getLunarPhaseEmoji() }}</div> 
+  
   <div *ngIf="weather.current" class="currentWeatherStats optionsStatsWrapperDiv">
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader" title="Degrees in Celsius">Degrees °C:</div>

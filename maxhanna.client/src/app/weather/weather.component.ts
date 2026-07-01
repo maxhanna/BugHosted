@@ -1,13 +1,13 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
-import { ChildComponent } from '../child.component'; 
+import { ChildComponent } from '../child.component';
 import { WeatherService } from '../../services/weather.service';
 import { WeatherResponse } from '../../services/datacontracts/weather/weather-response';
 
 @Component({
-    selector: 'app-weather',
-    templateUrl: './weather.component.html',
-    styleUrl: './weather.component.css',
-    standalone: false
+  selector: 'app-weather',
+  templateUrl: './weather.component.html',
+  styleUrl: './weather.component.css',
+  standalone: false
 })
 export class WeatherComponent extends ChildComponent implements OnInit, OnDestroy {
   weather: WeatherResponse = new WeatherResponse();
@@ -15,7 +15,7 @@ export class WeatherComponent extends ChildComponent implements OnInit, OnDestro
   city?: string = undefined;
   country?: string = undefined;
   location?: string = undefined;
-  activeTab: 'now' | 'plus6' | 'plus12' = 'now'; 
+  activeTab: 'now' | 'plus6' | 'plus12' = 'now';
 
   private tabInterval: any;
   private userInteracted = false;
@@ -51,7 +51,7 @@ export class WeatherComponent extends ChildComponent implements OnInit, OnDestro
       this.weather = res;
       this.collapsedDays = res.forecast.forecastday.map((day: { date: any; }) => day.date);
       this.weather.forecast.forecastday.forEach(fDay => {
-        fDay.hour.forEach(hour => { 
+        fDay.hour.forEach(hour => {
           hour.feelslike_c = this.calculateFeelsLikeC(hour.temp_c, hour.wind_kph, hour.humidity);
           hour.feelslike_f = this.calculateFeelsLikeF(hour.temp_f, hour.wind_mph, hour.humidity);
         });
@@ -59,7 +59,7 @@ export class WeatherComponent extends ChildComponent implements OnInit, OnDestro
       this.weather.current.feelslike_c = this.calculateFeelsLikeC(this.weather.current.temp_c, this.weather.current.wind_kph, this.weather.current.humidity);
       this.weather.current.feelslike_f = this.calculateFeelsLikeF(this.weather.current.temp_f, this.weather.current.wind_mph, this.weather.current.humidity);
     }
-    
+
     this.stopLoading();
   }
   calculateFeelsLikeC(temp_c: number, wind_kph: number, humidity: number) {
@@ -69,9 +69,9 @@ export class WeatherComponent extends ChildComponent implements OnInit, OnDestro
     return parseInt((Ta + 0.33 * E - 0.7 * WS - 4).toFixed(2));
   }
   calculateFeelsLikeF(temp_f: number, wind_mph: number, humidity: number): number {
-    const Ta_C = (temp_f - 32) * (5 / 9);  
+    const Ta_C = (temp_f - 32) * (5 / 9);
     const WS = wind_mph;
-    const E = (humidity / 100) * (6.105 * Math.exp((17.27 * Ta_C) / (237.7 + Ta_C))); 
+    const E = (humidity / 100) * (6.105 * Math.exp((17.27 * Ta_C) / (237.7 + Ta_C)));
     const feelsLikeF = (Ta_C + 0.33 * E - 0.7 * WS - 4) * (9 / 5) + 32;
 
     return parseInt(feelsLikeF.toFixed(2));
@@ -104,8 +104,8 @@ export class WeatherComponent extends ChildComponent implements OnInit, OnDestro
         }
         countText++;
       }
-    } 
-    let numericAverage: number | string = countNumeric > 0 ? sum / countNumeric : 0; 
+    }
+    let numericAverage: number | string = countNumeric > 0 ? sum / countNumeric : 0;
     let maxTextCount = 0;
     let mostFrequentText: string | undefined = '';
     for (let text in textMap) {
@@ -113,10 +113,10 @@ export class WeatherComponent extends ChildComponent implements OnInit, OnDestro
         maxTextCount = textMap[text];
         mostFrequentText = text;
       }
-    } 
+    }
     if (countText > 0 && maxTextCount === countText) {
       return 'Mixed';
-    } 
+    }
     if (mostFrequentText) {
       return mostFrequentText;
     }
@@ -147,12 +147,12 @@ export class WeatherComponent extends ChildComponent implements OnInit, OnDestro
       showOnlyWeatherLocation: true,
       showOnlySelectableMenuItems: false,
       areSelectableMenuItemsExplained: false,
-      inputtedParentRef: this.parentRef, 
+      inputtedParentRef: this.parentRef,
       previousComponent: "Weather"
     });
   }
 
-  isCountryAmerica(country: string){
+  isCountryAmerica(country: string) {
     return country.toLowerCase().includes("united states") || country.toLowerCase().includes("america") || country.toLowerCase().includes("usa");
   }
   getFutureHours(hoursAhead: number): any[] {
@@ -217,5 +217,59 @@ export class WeatherComponent extends ChildComponent implements OnInit, OnDestro
     this.userInteracted = true;
     this.activeTab = tab;
     this.stopTabRotation();
+  }
+  getCurrentDate() {
+    return new Date();
+  }
+
+  getLunarPhase() {
+    const now = this.getCurrentDate();
+    const day = now.getDate();
+    const month = now.getMonth() + 1; // getMonth() returns0-11
+    const year = now.getFullYear();
+
+    // Calculate the Julian Day Number
+    let a = Math.floor((14 - month) / 12);
+    let y = year + 4800 - a;
+    let m = month + 12 * a - 3;
+
+    const jdn = day + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) - 32045;
+
+    // Calculate the phase of the moon
+    const daysSinceNewMoon = (jdn - 2451549.5) % 29.530588853;
+    const phase = daysSinceNewMoon / 29.530588853;
+
+    // Determine the lunar phase name
+    if (phase < 0.03 || phase >= 0.97) {
+      return 'New Moon';
+    } else if (phase < 0.22) {
+      return 'Waxing Crescent';
+    } else if (phase < 0.28) {
+      return 'First Quarter';
+    } else if (phase < 0.47) {
+      return 'Waxing Gibbous';
+    } else if (phase < 0.53) {
+      return 'Full Moon';
+    } else if (phase < 0.72) {
+      return 'Waning Gibbous';
+    } else if (phase < 0.78) {
+      return 'Last Quarter';
+    } else {
+      return 'Waning Crescent';
+    }
+  }
+  getLunarPhaseEmoji() {
+    const phase = this.getLunarPhase();
+    switch (phase) {
+      case 'New Moon': return '🌑';
+      case 'Waxing Crescent': return '🌒';
+      case 'First Quarter': return '🌓';
+      case 'Waxing Gibbous': return '🌔';
+      case 'Full Moon': return '🌕';
+      case 'Waning Gibbous': return '🌖';
+      case 'Last Quarter': return '🌗';
+      case 'Waning Crescent': return '🌘';
+      default: return '🌙';
+    }
   }
 }
