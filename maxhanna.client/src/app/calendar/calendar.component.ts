@@ -8,10 +8,10 @@ import { UserSettings } from '../../services/datacontracts/user/user-settings';
 
 
 @Component({
-    selector: 'app-calendar',
-    templateUrl: './calendar.component.html',
-    styleUrl: './calendar.component.css',
-    standalone: false
+  selector: 'app-calendar',
+  templateUrl: './calendar.component.html',
+  styleUrl: './calendar.component.css',
+  standalone: false
 })
 export class CalendarComponent extends ChildComponent implements OnInit {
   @ViewChild('monthBack') monthBack!: ElementRef<HTMLElement>;
@@ -77,12 +77,12 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   }
 
   async ngOnInit() {
-    this.now = new Date(new Date().getFullYear(), new Date().getMonth(),1);
+    this.now = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     await this.initilizeCalendarWithDate();
-    if (this.parentRef?.user?.id) { 
+    if (this.parentRef?.user?.id) {
       const userSettings = await this.userService.getUserSettings(this.parentRef?.user?.id) as UserSettings | undefined;
       if (userSettings) {
-        this.calendarNotificationsEnabled = userSettings.calendarNotificationsEnabled ?? false; 
+        this.calendarNotificationsEnabled = userSettings.calendarNotificationsEnabled ?? false;
       }
     }
   }
@@ -94,7 +94,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     this.currentDate = new Date();
     this.currentDate.setHours(0, 0, 0, 0);
     this.selectedYear = this.now.getFullYear();
-    this.selectedMonth = this.monthNames[this.now.getMonth()]; 
+    this.selectedMonth = this.monthNames[this.now.getMonth()];
 
     const tmpSelectedDate = this.calendarDays.find(x => {
       if (x.date)
@@ -124,6 +124,43 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   }
   getCurrentDate() {
     return new Date();
+  }
+
+  getLunarPhase() {
+    const now = this.getCurrentDate();
+    const day = now.getDate();
+    const month = now.getMonth() + 1; // getMonth() returns0-11
+    const year = now.getFullYear();
+
+    // Calculate the Julian Day Number
+    let a = Math.floor((14 - month) / 12);
+    let y = year + 4800 - a;
+    let m = month + 12 * a - 3;
+
+    const jdn = day + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) - 32045;
+
+    // Calculate the phase of the moon
+    const daysSinceNewMoon = (jdn - 2451549.5) % 29.530588853;
+    const phase = daysSinceNewMoon / 29.530588853;
+
+    // Determine the lunar phase name
+    if (phase < 0.03 || phase >= 0.97) {
+      return 'New Moon';
+    } else if (phase < 0.22) {
+      return 'Waxing Crescent';
+    } else if (phase < 0.28) {
+      return 'First Quarter';
+    } else if (phase < 0.47) {
+      return 'Waxing Gibbous';
+    } else if (phase < 0.53) {
+      return 'Full Moon';
+    } else if (phase < 0.72) {
+      return 'Waning Gibbous';
+    } else if (phase < 0.78) {
+      return 'Last Quarter';
+    } else {
+      return 'Waning Crescent';
+    }
   }
   compareDatesWithoutTime(date1?: Date, date2?: Date) {
     if (!date1 || !date2) return false;
@@ -205,7 +242,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
         const msg = this.formatError(error);
         console.error('Error updating calendar entry:', msg);
         this.parentRef?.showNotification('Failed to update calendar entry: ' + msg);
-      } finally { 
+      } finally {
         this.closeEditPopupCalendar();
       }
     }
@@ -247,16 +284,16 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     }
     const sameDayOfWeek = date1.getDay() === date2.getDay();
     if (!sameDayOfWeek) return false;
-    return true; 
+    return true;
   }
-  
+
   private isBiWeeklyEventOnSameDate = (type: string, date1: Date, date2: Date): boolean => {
     const t = type.toLowerCase();
     if (t !== "biweekly") {
       return false;
     }
     const sameDayOfWeek = date1.getDay() === date2.getDay();
-    if (!sameDayOfWeek) return false; 
+    if (!sameDayOfWeek) return false;
     // biweekly: difference in weeks between the two dates should be even
     const diffWeeks = Math.floor((date2.getTime() - date1.getTime()) / (7 * 24 * 60 * 60 * 1000));
     return diffWeeks % 2 === 0;
@@ -278,7 +315,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     if (t !== "bimonthly") return false;
     const sameDay = date1.getDate() === date2.getDate();
     const fallback = this.isLastDayFallback(date1, date2);
-    if (!sameDay && !fallback) return false;  
+    if (!sameDay && !fallback) return false;
     return true;
   }
 
@@ -372,11 +409,11 @@ export class CalendarComponent extends ChildComponent implements OnInit {
 
       this.startLoading();
       await this.calendarService.createCalendarEntries(this.parentRef?.user?.id, tmpCalendarEntry);
-      this.updateCalendarDaysWithNewEntry(tmpCalendarEntry); 
-      await this.refreshCalendar(); 
+      this.updateCalendarDaysWithNewEntry(tmpCalendarEntry);
+      await this.refreshCalendar();
       this.clearInputValues();
       this.stopLoading();
-     
+
     } catch (error) {
       const msg = this.formatError(error);
       console.error(msg);
@@ -426,47 +463,47 @@ export class CalendarComponent extends ChildComponent implements OnInit {
 
   convertSymbols(symbols: string[] | undefined): string {
     if (!symbols) return '';
-    
+
     // Process anniversary symbols to show years since creation
     const processedSymbols = symbols.map(symbol => {
       return this.eventSymbolMap[symbol] || symbol;
     }).join('');
-    
+
     return processedSymbols;
   }
-  
+
   getAnniversaryYears(date: Date | string): number {
     if (!date) return 0;
-    
+
     const eventDate = new Date(date);
     const currentDate = new Date();
-    
+
     // Handle invalid dates
     if (isNaN(eventDate.getTime())) return 0;
-    
+
     // Calculate difference in years
     let years = currentDate.getFullYear() - eventDate.getFullYear();
-    
+
     // Adjust if the birthday hasn't occurred this year yet
-    if (currentDate.getMonth() < eventDate.getMonth() || 
-        (currentDate.getMonth() === eventDate.getMonth() && currentDate.getDate() < eventDate.getDate())) {
+    if (currentDate.getMonth() < eventDate.getMonth() ||
+      (currentDate.getMonth() === eventDate.getMonth() && currentDate.getDate() < eventDate.getDate())) {
       years--;
     }
-    
+
     // Make sure we don't return negative years
     return Math.max(0, years);
   }
-  
+
   formatAnniversaryDisplay(entry: CalendarEntry): string {
     if (!entry || !entry.type || !entry.date) return entry.note || '';
-    
+
     const type = entry.type.toLowerCase();
-    
+
     if (type === 'anniversary') {
       const years = this.getAnniversaryYears(entry.date);
       return `${entry.note} (${years} year Anniversary)`;
     }
-    
+
     return entry.note || '';
   }
   getEventTypes(): string[] {
@@ -489,10 +526,10 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     }
   }
   async onMonthChange() {
-    this.selectedMonth = this.selectedMonthDropdown.nativeElement.value; 
+    this.selectedMonth = this.selectedMonthDropdown.nativeElement.value;
     const monthIndex = this.selectedMonth ? this.monthNames.indexOf(this.selectedMonth) : new Date().getMonth();
-    this.now = new Date((this.selectedYear ?? new Date().getFullYear()), monthIndex, 1); 
-    setTimeout(() => { 
+    this.now = new Date((this.selectedYear ?? new Date().getFullYear()), monthIndex, 1);
+    setTimeout(() => {
       const tmpNow = new Date(this.now);
       this.now = new Date(tmpNow.setMonth(tmpNow.getMonth()));
       this.monthBackFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() - 1));
@@ -503,7 +540,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   async onYearChange() {
     this.selectedYear = parseInt(this.selectedYearDropdown.nativeElement.value);
     const selectMonth = (this.selectedMonth ? this.monthNames.indexOf(this.selectedMonth) : new Date().getMonth());
-    this.now = new Date((this.selectedYear ?? new Date().getFullYear()), selectMonth, 1); 
+    this.now = new Date((this.selectedYear ?? new Date().getFullYear()), selectMonth, 1);
     const tmpNow = new Date(this.now);
     this.now = new Date(tmpNow.setMonth(tmpNow.getMonth() - 1));
     this.monthBackFromNow = new Date(tmpNow.setMonth(tmpNow.getMonth() - 1));
@@ -513,7 +550,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   async toggleCalendarNotifications() {
     this.calendarNotificationsEnabled = !this.calendarNotificationsEnabled;
     if (this.parentRef?.user?.id) {
-      await this.userService.updateUserSettings(this.parentRef.user.id, [{  settingName: "calendar_notifications_enabled" , value: this.calendarNotificationsEnabled }]);
+      await this.userService.updateUserSettings(this.parentRef.user.id, [{ settingName: "calendar_notifications_enabled", value: this.calendarNotificationsEnabled }]);
     }
   }
 }
