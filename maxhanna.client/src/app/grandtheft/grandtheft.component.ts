@@ -161,7 +161,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   carHealth = 400;
   isInCar = false;
-  vehicleType: 'car' | 'bus' | 'plane' | 'bike' | 'motorcycle' | 'taxi' | 'boat' | 'helicopter' = 'car';
+  vehicleType: 'car' | 'bus' | 'plane' | 'bike' | 'motorcycle' | 'taxi' | 'boat' | 'helicopter' | 'police' = 'car';
   isPassenger = false;
   passengerOfUserId = 0;
   private passengerHostLastX = 0;
@@ -198,6 +198,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private scoreTimer = 0;
   money = 1000;
   moneyStacks: { x: number; z: number; amount: number; yaw: number; age: number; lifetime: number }[] = [];
+  policeMode = false;
+  policeRound = 0;
+  policeModeThugCars: { id: number; x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; health: number; speed: number; colorR: number; colorG: number; colorB: number }[] = [];
+  policeModeThugPeds: { id: number; x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; health: number; shootTimer: number }[] = [];
+  policeModeSpawnTimer = 0;
+  policeModeSpawnsRemaining = 0;
+  policeModeRoundDelay = 0;
+  policeModeKills = 0;
   private _wasDead = false;
   _carOnFire = false;
   _carFireStarted = 0;
@@ -843,7 +851,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               this.camYaw = da.yaw;
               this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
               this.isInCar = true;
-              this.vehicleType = da.type as 'car' | 'bus' | 'plane' | 'bike' | 'motorcycle' | 'taxi' | 'boat' | 'helicopter';
+              this.vehicleType = da.type as 'car' | 'bus' | 'plane' | 'bike' | 'motorcycle' | 'taxi' | 'boat' | 'helicopter' | 'police';
               this.carHealth = 200;
               this._carOnFire = false; this._carFireStarted = 0;
               this._carFireX = 0; this._carFireZ = 0; this._carFireYaw = 0;
@@ -1765,7 +1773,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     checkTargets(this.serverPedestrians, false);
     checkTargets(this.localPedestrians, false);
+    checkTargets(this.policeModeThugPeds, false);
     checkTargets(this.serverNPCs, false);
+    checkTargets(this.policeModeThugCars, false);
     checkTargets(this.parkedCars, false);
 
     // Check chicken hits
@@ -2490,6 +2500,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateNPCInterpolation();
     this.updatePoliceSiren();
     this.updateTaxiMission(dt);
+    this.updatePoliceMode(dt);
     this.updateAirportLotCars(dt);
 
     if (this.vehicleBannerTimer > 0) this.vehicleBannerTimer -= dt;
@@ -2654,8 +2665,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const camZ = targetZ - Math.cos(this.camYaw) * effectiveDist;
     const camY = targetY + effectiveHeight;
     const renderMesh = this.isInCar ? this.playerVehicleMesh : (this.firstPerson ? null : this.renderer.playerMesh);
-    const allNPCs = [...this.serverNPCs, ...this.trafficCars, ...this.airportLotCars];
-    const allPeds = [...this.serverPedestrians, ...this.localPedestrians];
+    const allNPCs = [...this.serverNPCs, ...this.trafficCars, ...this.airportLotCars, ...this.policeModeThugCars];
+    const allPeds = [...this.serverPedestrians, ...this.localPedestrians, ...this.policeModeThugPeds];
     const rockOffset = this.getCarRockOffset();
     const carRoll = this.getCarRockRoll();
 
@@ -3973,6 +3984,179 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
+  private togglePoliceMode() {
+    if (this.policeMode) {
+      this.policeMode = false;
+      this.policeModeThugCars = [];
+      this.policeModeThugPeds = [];
+      this.policeModeSpawnsRemaining = 0;
+      this.policeRound = 0;
+    } else {
+      this.policeMode = true;
+      this.policeRound = 1;
+      this.policeModeKills = 0;
+      this.startPoliceRound();
+    }
+  }
+
+  private startPoliceRound() {
+    const baseThugs = this.policeRound + 2;
+    this.policeModeSpawnsRemaining = baseThugs;
+    this.policeModeKills = 0;
+    this.policeModeSpawnTimer = 0;
+  }
+
+  private spawnThug() {
+    const isCar = Math.random() < 0.5;
+    if (isCar) this.spawnThugCar();
+    else this.spawnThugPed();
+  }
+
+  private spawnThugCar() {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 40 + Math.random() * 60;
+    const x = this.carX + Math.sin(angle) * dist;
+    const z = this.carZ + Math.cos(angle) * dist;
+    const thugId = --this.pedIdCounter;
+    const color: [number, number, number] = [0.1 + Math.random() * 0.3, 0.1 + Math.random() * 0.3, 0.1 + Math.random() * 0.3];
+    this.policeModeThugCars.push({
+      id: thugId,
+      x, z,
+      yaw: Math.atan2(this.carX - x, this.carZ - z),
+      mesh: this.renderer.getNPCCarMesh(color, thugId),
+      health: 500,
+      speed: 10 + Math.random() * 10,
+      colorR: color[0], colorG: color[1], colorB: color[2],
+    });
+  }
+
+  private spawnThugPed() {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 30 + Math.random() * 50;
+    const x = this.carX + Math.sin(angle) * dist;
+    const z = this.carZ + Math.cos(angle) * dist;
+    const thugId = --this.pedIdCounter;
+    this.policeModeThugPeds.push({
+      id: thugId,
+      x, z,
+      yaw: Math.atan2(this.carX - x, this.carZ - z),
+      mesh: this.renderer.getPedestrianMesh('male', thugId),
+      health: 100,
+      shootTimer: 0.5 + Math.random() * 0.5,
+    });
+  }
+
+  private updatePoliceMode(dt: number) {
+    if (!this.policeMode) return;
+    if (!this.isInCar || this.vehicleType !== 'police') {
+      this.togglePoliceMode();
+      return;
+    }
+
+    if (this.policeModeSpawnsRemaining > 0) {
+      this.policeModeSpawnTimer += dt;
+      if (this.policeModeSpawnTimer >= 1.0) {
+        this.policeModeSpawnTimer = 0;
+        this.spawnThug();
+        this.policeModeSpawnsRemaining--;
+      }
+    }
+
+    for (const thug of this.policeModeThugPeds) {
+      const dx = this.carX - thug.x;
+      const dz = this.carZ - thug.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist > 2) {
+        const targetYaw = Math.atan2(dx, dz);
+        let yawDiff = targetYaw - thug.yaw;
+        while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+        while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+        thug.yaw += yawDiff * Math.min(1, 6 * dt);
+        const speed = 3.5;
+        thug.x += Math.sin(thug.yaw) * speed * dt;
+        thug.z += Math.cos(thug.yaw) * speed * dt;
+      }
+      thug.shootTimer -= dt;
+      if (thug.shootTimer <= 0 && dist < 40) {
+        thug.shootTimer = 0.12;
+        const targetY = this.carY + 1.0;
+        const tdx = this.carX - thug.x;
+        const tdz = this.carZ - thug.z;
+        const tdy = targetY - 1.0;
+        const td3 = Math.sqrt(tdx * tdx + tdy * tdy + tdz * tdz);
+        if (td3 > 0.01) {
+          this.tracers.push({ originX: thug.x, originY: 1.0, originZ: thug.z, dirX: tdx / td3, dirY: tdy / td3, dirZ: tdz / td3, age: 0, lifetime: 0.2 });
+          this.muzzleFlashes.push({ x: thug.x, y: 1.0, z: thug.z, dirX: tdx / td3, dirY: tdy / td3, dirZ: tdz / td3, weapon: 2, age: 0, lifetime: 0.08 });
+          this.damageAlpha = 0.4;
+          this.gtService.hit(0, this.getUserId(), 1, 8, thug.x, thug.z).then((res: any) => {
+            if (res && res.targetHealth !== undefined) this.health = res.targetHealth;
+          });
+          this.playWeaponSound(2);
+        }
+      }
+    }
+
+    for (const car of this.policeModeThugCars) {
+      const dx = this.carX - car.x;
+      const dz = this.carZ - car.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist > 3) {
+        const targetYaw = Math.atan2(dx, dz);
+        let yawDiff = targetYaw - car.yaw;
+        while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+        while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+        car.yaw += yawDiff * Math.min(1, 4 * dt);
+        const targetSpeed = Math.min(28, dist * 0.4);
+        car.speed += (targetSpeed - car.speed) * Math.min(1, 3 * dt);
+        car.x += Math.sin(car.yaw) * car.speed * dt;
+        car.z += Math.cos(car.yaw) * car.speed * dt;
+      } else {
+        car.speed *= 0.95;
+      }
+      const px = this.carX - car.x, pz = this.carZ - car.z;
+      if (Math.hypot(px, pz) < 2.5 && car.health > 0) {
+        this.carHealth -= 8 * dt;
+        this.spawnExplosion(car.x, 0.5, car.z);
+      }
+    }
+
+    for (let i = this.policeModeThugPeds.length - 1; i >= 0; i--) {
+      const thug = this.policeModeThugPeds[i];
+      if (thug.health <= 0) {
+        const payout = 5000 + Math.floor(Math.random() * 5001);
+        this.dropMoneyAt(thug.x, thug.z, payout);
+        this.money += payout;
+        this.moneyStacks.push({ x: thug.x, z: thug.z, amount: payout, yaw: 0, age: 0, lifetime: 5 });
+        this.deadBodies.push({ id: thug.id, x: thug.x, z: thug.z, yaw: thug.yaw, type: 'ped_male', gender: 'male', mesh: thug.mesh, deathTime: performance.now() / 1000, lifetime: 30 });
+        this.bloodPools.push({ x: thug.x, z: thug.z - 1.0, age: 0, lifetime: 30, maxRadius: 3, variant: Math.floor(Math.random() * 4) });
+        this.policeModeKills++;
+        this.policeModeThugPeds.splice(i, 1);
+      }
+    }
+    for (let i = this.policeModeThugCars.length - 1; i >= 0; i--) {
+      const car = this.policeModeThugCars[i];
+      if (car.health <= 0) {
+        this.spawnExplosion(car.x, 0.5, car.z);
+        const payout = 5000 + Math.floor(Math.random() * 5001);
+        this.dropMoneyAt(car.x, car.z, payout);
+        this.money += payout;
+        this.moneyStacks.push({ x: car.x, z: car.z, amount: payout, yaw: 0, age: 0, lifetime: 5 });
+        this.deadBodies.push({ id: car.id, x: car.x, z: car.z, yaw: car.yaw, type: 'car', mesh: car.mesh, deathTime: performance.now() / 1000, lifetime: 30 });
+        this.policeModeKills++;
+        this.policeModeThugCars.splice(i, 1);
+      }
+    }
+
+    if (this.policeModeSpawnsRemaining <= 0 && this.policeModeThugCars.length === 0 && this.policeModeThugPeds.length === 0) {
+      this.policeModeRoundDelay += dt;
+      if (this.policeModeRoundDelay >= 3) {
+        this.policeModeRoundDelay = 0;
+        this.policeRound++;
+        this.startPoliceRound();
+      }
+    }
+  }
+
   private _lbCache: any[] = [];
   private _lbDirty = true;
 
@@ -4316,6 +4500,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     if (e.code === 'Enter') { this.isChatOpen = true; this.chatInput = ''; e.preventDefault(); return; }
     if (e.code === 'KeyE') this.toggleCar();
+    if (e.code === 'KeyR' && this.isInCar && this.vehicleType === 'police') this.togglePoliceMode();
     if (e.code === 'KeyV') this.toggleView();
     if (e.code === 'KeyM') this.toggleMap();
     if (e.code === 'KeyL') this.showLeaderboard = !this.showLeaderboard;

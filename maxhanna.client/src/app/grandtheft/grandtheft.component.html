@@ -66,7 +66,7 @@
         {{ otherPlayers.length }} other player(s) nearby
       </div>
       <div id="gt-controls-hint" *ngIf="!isMobile && !(isInCar && vehicleType === 'helicopter')">
-        WASD: Move | Mouse: Aim | Click: Shoot | E: Enter Vehicle | V: Toggle View | M: Open Map | L: Open Leaderboard
+        WASD: Move | Mouse: Aim | Click: Shoot | E: Enter Vehicle | R: Police Mode | V: Toggle View | M: Open Map | L: Open Leaderboard
       </div>
       <div id="gt-heli-hint" *ngIf="!isMobile && isInCar && vehicleType === 'helicopter'">
         WASD: Move | Space: Up | Shift: Down | Mouse: Look
@@ -163,6 +163,23 @@
         {{ taxiMission.timer | number:'1.0-0' }}s
       </div>
       <div class="gt-taxi-hint">Stop near the marker to pick up / drop off</div>
+    </div>
+
+    <!-- Police mode HUD -->
+    <div id="gt-police-hud" *ngIf="policeMode">
+      <div class="gt-police-header">
+        <span class="gt-police-icon">POLICE</span>
+        <span class="gt-police-round">ROUND {{ policeRound }}</span>
+      </div>
+      <div class="gt-police-status">
+        <span *ngIf="policeModeSpawnsRemaining > 0 || policeModeThugCars.length > 0 || policeModeThugPeds.length > 0">
+          Thugs remaining: {{ policeModeThugCars.length + policeModeThugPeds.length + policeModeSpawnsRemaining }}
+        </span>
+        <span *ngIf="policeModeSpawnsRemaining <= 0 && policeModeThugCars.length === 0 && policeModeThugPeds.length === 0">
+          Round complete! Next round in {{ 3 - policeModeRoundDelay | number:'1.0-0' }}s
+        </span>
+      </div>
+      <div class="gt-police-kills">Killed: {{ policeModeKills }}</div>
     </div>
 
     <div id="gt-alt-buttons" *ngIf="isInCar && (vehicleType === 'helicopter' || vehicleType === 'plane')">

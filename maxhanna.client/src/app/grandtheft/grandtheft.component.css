@@ -894,6 +894,70 @@
   from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
   to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
+/* ---------------------------------------------------------------------------
+ * Police mode HUD
+ * ------------------------------------------------------------------------- */
+
+#gt-police-hud {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  z-index: 10;
+}
+
+.gt-police-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 18px;
+  background: linear-gradient(180deg, #1a1a2e 0%, #000 100%);
+  border: 2px solid #4488ff;
+  border-radius: 6px;
+  box-shadow: 0 0 18px rgba(68, 136, 255, 0.35);
+}
+
+.gt-police-icon {
+  color: #4488ff;
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: 4px;
+  text-shadow: 0 0 8px rgba(68, 136, 255, 0.6);
+}
+
+.gt-police-round {
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  text-shadow: 0 0 6px rgba(255, 200, 50, 0.6);
+}
+
+.gt-police-status {
+  padding: 5px 16px;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(68, 136, 255, 0.5);
+  border-radius: 4px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.gt-police-kills {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+  letter-spacing: 1px;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 2px 12px;
+  border-radius: 4px;
+}
+
 /* Radio controls - bottom right */
 #gt-radio {
   position: absolute;
