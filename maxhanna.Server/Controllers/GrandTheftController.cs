@@ -129,6 +129,7 @@ namespace maxhanna.Server.Controllers
 
 			// Water under bridges: chunks directly below bridge decks are ocean
 			if (BridgeContains(cx, cz + 1)) return "ocean";
+			if (BridgeContains(cx, cz - 1)) return "ocean";
 
 			bool IsParkingPatch()
 			{

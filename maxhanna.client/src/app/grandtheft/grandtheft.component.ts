@@ -375,7 +375,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
 
     const specialMeshes: { path: string; storeSkeleton: boolean; assign: (m: CityMesh[]) => void; scale?: number; yawOffset?: number }[] = [
-      { path: 'assets/grandtheft/star_wars_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
+      { path: 'assets/grandtheft/star_wars_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m), yawOffset: Math.PI },
       { path: 'assets/grandtheft/ultra-futuristic_luxury_yacht/scene.gltf', storeSkeleton: false, assign: m => this.renderer.boatMeshes.push(m) },
       { path: 'assets/grandtheft/bell_222_x/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m), scale: 2, yawOffset: Math.PI / 2 },
       { path: 'assets/grandtheft/bell_ch-146_griffon/scene.gltf', storeSkeleton: false, assign: m => this.renderer.helicopterMeshes.push(m), scale: 2, yawOffset: Math.PI / 2 },
@@ -452,8 +452,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               for (const mm of m) { mm.renderScale = 0.75; }
             }
             else if (
-              name === "ichijoushi_002"
-              || name === "pyaterochka_3d"
+              name === "ichijoushi_002" 
             ) {
               for (const mm of m) { mm.renderScale = 1.5; }
             }
@@ -1154,7 +1153,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
                 this.radioSongTitle = this.ytPlayer?.getVideoData?.()?.title || '';
               });
             }
-            if (e.data === 0) this.nextRadio();
+            if (e.data === 0 && this.radioOn) this.nextRadio();
           }
         }
       });

@@ -66,10 +66,10 @@
         {{ otherPlayers.length }} other player(s) nearby
       </div>
       <div id="gt-controls-hint" *ngIf="!isMobile && !(isInCar && vehicleType === 'helicopter')">
-        WASD Move | Mouse Aim | Click Shoot | E Vehicle | V View | M Map | L Leaderboard
+        WASD: Move | Mouse: Aim | Click: Shoot | E: Enter Vehicle | V: Toggle View | M: Open Map | L: Open Leaderboard
       </div>
       <div id="gt-heli-hint" *ngIf="!isMobile && isInCar && vehicleType === 'helicopter'">
-        W/S Forward/Back | A/D Yaw | Space Up | Shift Down | Q/E Fine Yaw &nbsp;| Mouse Look
+        WASD: Move | Space: Up | Shift: Down | Mouse: Look
       </div>
     </div>
 
@@ -185,8 +185,7 @@
         <button class="radio-btn random-btn" (click)="randomRadio()">RANDOM</button>
         <button class="radio-btn stop-btn" (click)="randomRadio()">⏹</button>
         <button *ngIf="isMobile" class="radio-btn" (click)="nextRadio()">▶</button>
-      </div>
-      <div id="gt-radio-hint" *ngIf="!isMobile">↑↓ / ←→ to change</div>
+      </div> 
     </div>
     <div id="gt-yt-player"></div>
   </div>

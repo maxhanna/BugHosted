@@ -134,6 +134,7 @@ export function getBiome(cx: number, cz: number): string {
 
   // Water under bridges: chunks directly below bridge decks are ocean
   if (isBridgeChunk(cx, cz + 1)) return 'ocean';
+  if (isBridgeChunk(cx, cz - 1)) return 'ocean';
 
   // Parking-lot patch helper (deterministic, mirrors server)
   const isParkingPatch = () => {
@@ -1850,7 +1851,7 @@ void main() {
       this.addPlane(verts, indices, cx2, -2.2, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.05, 0.25, 0.45, 0.55, idxOffset); idxOffset += 4;
       this.addPlane(verts, indices, cx2, -1.9, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.15, 0.40, 0.60, 0.40, idxOffset); idxOffset += 4;
       // Marina boats under bridges
-      if (isBridgeChunk(cx, cz + 1) && this.boatMeshes.length > 0) {
+      if ((isBridgeChunk(cx, cz + 1) || isBridgeChunk(cx, cz - 1)) && this.boatMeshes.length > 0) {
         for (let bi = 0; bi < 2; bi++) {
           const boatModel = this.boatMeshes[Math.floor(rng() * this.boatMeshes.length)];
           const bx = cx * CHUNK_SIZE + 10 + rng() * (CHUNK_SIZE - 20);
