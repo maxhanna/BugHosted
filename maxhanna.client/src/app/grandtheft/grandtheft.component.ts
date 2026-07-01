@@ -444,7 +444,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const name of GrandTheftRenderer.AIRPORT_BUILDING_NAMES) {
       buildingTasks.push({ load: () => this.renderer.loadGLTF(`assets/grandtheft/airport_buildings/${name}/scene.gltf`, false).then(m => { if (m) this.renderer.airportBuildingMeshes.push(m); }) });
     }
-    for (const name of GrandTheftRenderer.CITY_BUILDING_NAMES) {
+    const cityNames = this.isMobile ? GrandTheftRenderer.CITY_BUILDING_NAMES.slice(0, 8) : GrandTheftRenderer.CITY_BUILDING_NAMES;
+    for (const name of cityNames) {
       buildingTasks.push({
         load: () => this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`, false).then(m => {
           if (m) {
@@ -473,7 +474,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         })
       });
     }
-    for (const name of GrandTheftRenderer.SUBURB_BUILDING_NAMES) {
+    const suburbNames = this.isMobile ? GrandTheftRenderer.SUBURB_BUILDING_NAMES.slice(0, 8) : GrandTheftRenderer.SUBURB_BUILDING_NAMES;
+    for (const name of suburbNames) {
       buildingTasks.push({ load: () => this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`, false).then(m => { if (m) this.renderer.suburbBuildingMeshes.push(m); }) });
     }
     const allTasks = [...tasks, ...buildingTasks];

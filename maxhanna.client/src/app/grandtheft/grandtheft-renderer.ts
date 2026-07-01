@@ -4185,11 +4185,29 @@ getRoadNodesInRadius(cx: number, cz: number, radius: number): { x: number; z: nu
         const tex = this.gl.createTexture();
         this.gl.bindTexture(this.gl.TEXTURE_2D, tex);
         this.gl.pixelStorei(this.gl.UNPACK_FLIP_Y_WEBGL, false);
-        this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, img);
+        let source: TexImageSource = img;
         if (this.isMobile) {
+          const maxDim = 256;
+          let w = img.width, h = img.height;
+          if (w > maxDim || h > maxDim) {
+            const scale = Math.min(maxDim / w, maxDim / h);
+            w = Math.floor(w * scale);
+            h = Math.floor(h * scale);
+            const c = document.createElement('canvas');
+            c.width = w;
+            c.height = h;
+            const ctx = c.getContext('2d');
+            if (ctx) {
+              ctx.imageSmoothingEnabled = true;
+              ctx.drawImage(img, 0, 0, w, h);
+              source = c;
+            }
+          }
+          this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, source);
           this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
           this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
         } else {
+          this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, img);
           this.gl.generateMipmap(this.gl.TEXTURE_2D);
           this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR_MIPMAP_LINEAR);
           this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
