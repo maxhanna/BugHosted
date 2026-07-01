@@ -162,6 +162,20 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       return 'Waning Crescent';
     }
   }
+  getLunarPhaseEmoji() {
+    const phase = this.getLunarPhase();
+    switch (phase) {
+      case 'New Moon': return '🌑';
+      case 'Waxing Crescent': return '🌒';
+      case 'First Quarter': return '🌓';
+      case 'Waxing Gibbous': return '🌔';
+      case 'Full Moon': return '🌕';
+      case 'Waning Gibbous': return '🌖';
+      case 'Last Quarter': return '🌗';
+      case 'Waning Crescent': return '🌘';
+      default: return '🌙';
+    }
+  }
   compareDatesWithoutTime(date1?: Date, date2?: Date) {
     if (!date1 || !date2) return false;
     return date1.getDate() === date2.getDate() && date1.getMonth() === date2.getMonth() && date1.getFullYear() === date2.getFullYear()
