@@ -1,20 +1,100 @@
 ﻿.componentContainerFlexed {
- display: flex;
- flex-direction: column;
- height: 100%;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
 .mainLayout {
- flex: 1;
+    flex: 1;
 }
 
 .componentContainerCentered {
- display: flex;
- justify-content: center;
- align-items: center;
- flex-direction: column;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
 }
 
 .mainContentArea {
- text-align: center;
+    text-align: center;
+    margin: 20px;
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+
+.exercise-section,
+.food-section {
+    margin: 20px0;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background-color: #fff;
+}
+
+.exercise-section h2,
+.food-section h2 {
+    margin-top: 0;
+    color: #333;
+}
+
+.exercise-form,
+.food-form {
+    margin-bottom: 15px;
+}
+
+.exercise-form input,
+.food-form input {
+    padding: 8px;
+    margin-right: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.exercise-form button,
+.food-form button {
+    padding: 8px12px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.exercise-form button:hover,
+.food-form button:hover {
+    background-color: #0056b3;
+}
+
+.exercise-list,
+.food-list {
+    list-style-type: none;
+    padding: 0;
+}
+
+.exercise-list li,
+.food-list li {
+    margin: 5px0;
+    padding: 8px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.exercise-list button,
+.food-list button {
+    padding: 4px8px;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.exercise-list button:hover,
+.food-list button:hover {
+    background-color: #c82333;
 }

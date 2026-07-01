@@ -153,6 +153,11 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     });
     this.currentDate = new Date(selectedDate.date!);
   }
+
+  getCurrentDate() {
+    return new Date();
+  }
+  
   async editCalendarEntry(entry?: CalendarEntry) {
     if (!entry || !entry.id) return;
     this.hasEditedCalendarEntry = false;

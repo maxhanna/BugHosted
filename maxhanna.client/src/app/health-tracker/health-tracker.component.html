@@ -1,6 +1,31 @@
 ﻿<div class="componentContainerFlexed mainLayout">
- <div class="componentContainerCentered mainContentArea">
- <h1>Health Tracker</h1>
- <p>Welcome to the Health Tracker component.</p>
- </div>
+    <div class="componentContainerCentered mainContentArea">
+        <h1>Health Tracker</h1>
+        <div>
+            <h2>Exercises</h2>
+            <form (ngSubmit)="addExercise()" #exerciseForm="ngForm">
+                <input type="text" placeholder="Exercise name" ngModel name="exerciseName" required>
+                <button type="submit">Add Exercise</button>
+            </form>
+            <ul>
+                <li *ngFor="let exercise of exercises">
+                    {{ exercise }}
+                    <button (click)="removeExercise()">Remove</button>
+                </li>
+            </ul>
+        </div>
+        <div>
+            <h2>Food Intake</h2>
+            <form (ngSubmit)="addFoodItem()" #foodForm="ngForm">
+                <input type="text" placeholder="Food item" ngModel name="foodItem" required>
+                <button type="submit">Add Food</button>
+            </form>
+            <ul>
+                <li *ngFor="let food of foodItems">
+                    {{ food }}
+                    <button (click)="removeFoodItem()">Remove</button>
+                </li>
+            </ul>
+        </div>
+    </div>
 </div>
