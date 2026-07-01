@@ -1968,7 +1968,7 @@ void main() {
       const bridge = BRIDGE_RANGES.find(br => cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz);
       if (bridge) {
         const roadCenterZ = cz * CHUNK_SIZE;
-        const roadW = 25;       // Match street road width (GRID_PITCH - SIDEWALK_SIZE)
+        const roadW = ROAD_HALF_WIDTH * 2;       // Match street road width
         const bridgeW = roadW + 10; // Road + walkway clearance
         // Surface Y at any X position on this chunk — use same Hermite interpolation as connectors
         const surfaceYAt = (x: number) => bridgeYAt(x, bridge);
@@ -1976,6 +1976,7 @@ void main() {
         // Build ramp/deck in slices so road surface and rails follow the slope
         const numSlices = 20;
         const sliceW = CHUNK_SIZE / numSlices;
+        const overlap = 1.4;
         for (let si = 0; si < numSlices; si++) {
           const sx = worldOriginX + si * sliceW + sliceW / 2;
           const surfY = surfaceYAt(sx);
@@ -1984,24 +1985,28 @@ void main() {
           const avgY = (surfY + nextY) / 2;
           const pillarH = Math.max(surfY, nextY);
 
-          // Concrete support pillar/slab under road
-          this.addBox(verts, indices, sx, pillarH / 2, roadCenterZ, sliceW * 1.05, pillarH, bridgeW, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
+          // Pylons (stilts) — left, center, right — extend from water to deck
+          const pylonW = 2.5;
+          const waterY = -2.5;
+          for (const pz of [-bridgeW / 2 + 2, 0, bridgeW / 2 - 2]) {
+            this.addBox(verts, indices, sx, (pillarH - waterY) / 2 + waterY, roadCenterZ + pz, sliceW * overlap, pillarH - waterY, pylonW, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
+          }
           // Asphalt road surface
-          this.addBox(verts, indices, sx, avgY + 0.08, roadCenterZ, sliceW * 1.1, 0.12, roadW, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(verts, indices, sx, avgY + 0.08, roadCenterZ, sliceW * overlap, 0.12, roadW, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
           // Dashed lane markings (center line) — one direction flow indicator
           if (si % 2 === 0) {
             this.addBox(verts, indices, sx, avgY + 0.15, roadCenterZ, sliceW * 0.7, 0.02, 0.3, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
           }
           // Center divider (enforces one-directional flow per side)
-          this.addBox(verts, indices, sx, avgY + 0.18, roadCenterZ, sliceW * 1.05, 0.3, 0.3, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(verts, indices, sx, avgY + 0.18, roadCenterZ, sliceW * overlap, 0.3, 0.3, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
 
           // Guard rails on both sides (follow ramp slope)
           for (const side of [-1, 1]) {
             const rz = roadCenterZ + side * (bridgeW / 2);
             // Top rail
-            this.addBox(verts, indices, sx, avgY + 1.0, rz, sliceW * 1.05, 0.15, 0.15, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, sx, avgY + 1.0, rz, sliceW * overlap, 0.15, 0.15, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
             // Mid rail
-            this.addBox(verts, indices, sx, avgY + 0.5, rz, sliceW * 1.05, 0.12, 0.12, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, sx, avgY + 0.5, rz, sliceW * overlap, 0.12, 0.12, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
             // Posts every other slice
             if (si % 2 === 0) {
               this.addBox(verts, indices, sx, avgY + 0.6, rz, 0.18, 1.2, 0.18, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
@@ -2043,12 +2048,13 @@ void main() {
       );
       if (bridge) {
         const roadCenterZ = cz * CHUNK_SIZE;
-        const roadW = 25;
+        const roadW = ROAD_HALF_WIDTH * 2;
         const bridgeW = roadW + 10;
         const isRampUp = cx === bridge.startCx - 1;
 
         const numSlices = 20;
         const sliceW = CHUNK_SIZE / numSlices;
+        const overlap = 1.4;
         for (let si = 0; si < numSlices; si++) {
           const sx = worldOriginX + (isRampUp ? si * sliceW + sliceW / 2 : CHUNK_SIZE - si * sliceW - sliceW / 2);
           const surfY = bridgeYAt(sx, bridge);
@@ -2056,16 +2062,16 @@ void main() {
           const nextY = bridgeYAt(nextX, bridge);
           const avgY = (surfY + nextY) / 2;
 
-          this.addBox(verts, indices, sx, avgY + 0.08, roadCenterZ, sliceW * 1.1, 0.12, roadW, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(verts, indices, sx, avgY + 0.08, roadCenterZ, sliceW * overlap, 0.12, roadW, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
           if (si % 2 === 0) {
             this.addBox(verts, indices, sx, avgY + 0.15, roadCenterZ, sliceW * 0.7, 0.02, 0.3, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
           }
-          this.addBox(verts, indices, sx, avgY + 0.18, roadCenterZ, sliceW * 1.05, 0.3, 0.3, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
+          this.addBox(verts, indices, sx, avgY + 0.18, roadCenterZ, sliceW * overlap, 0.3, 0.3, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
 
           for (const side of [-1, 1]) {
             const rz = roadCenterZ + side * (bridgeW / 2);
-            this.addBox(verts, indices, sx, avgY + 1.0, rz, sliceW * 1.05, 0.15, 0.15, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, sx, avgY + 0.5, rz, sliceW * 1.05, 0.12, 0.12, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, sx, avgY + 1.0, rz, sliceW * overlap, 0.15, 0.15, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, sx, avgY + 0.5, rz, sliceW * overlap, 0.12, 0.12, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
           }
         }
       }

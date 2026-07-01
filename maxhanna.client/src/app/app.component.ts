@@ -230,6 +230,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     Currently only supports the NiceHash API for mining rigs.
     If you do not have any mining rigs set up, you can quickly get started using Nicehash.
     Follow this <a href='http://nicehash.com' target="_blank">Link</a> for more info!
+    <p>
+    Crypto Hub Tradebot uses the Kraken API. More instructions on how to use the bot can be found in the Crypto Hub itself.
   </div>`
     },
     {

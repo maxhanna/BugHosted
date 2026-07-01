@@ -6,6 +6,7 @@ import { PlanterService } from '../../services/planter.service';
 import { AppComponent } from '../app.component';
 import { FileService } from '../../services/file.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { UserEventService } from '../../services/user-event.service';
 
 @Component({
   selector: 'app-planter',
@@ -51,7 +52,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
   uploadingProgress = 0;
   private waterNotificationShown = false;
 
-  constructor(private planterService: PlanterService, private fileService: FileService) { super(); }
+  constructor(private planterService: PlanterService, private fileService: FileService, private userEventService: UserEventService) { super(); }
 
   async ngOnInit() {
     if (this.inputtedParentRef) { this.parentRef = this.inputtedParentRef; }
@@ -142,7 +143,6 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
       ? `${suggestion.name} (${suggestion.species})`
       : suggestion.name;
   }
-
   async addIdentifiedPlant() {
     if (!this.parentRef?.user?.id || !this.identificationPhotoFile?.id) return;
     const name = this.customPlantName.trim() || this.selectedSuggestion?.name?.trim() || 'Unknown Plant';
@@ -163,6 +163,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
       if (newPlant) {
         await this.selectPlant(newPlant);
       }
+      this.userEventService.insertUserEvent(this.parentRef.user.id, 'Plant Added', `Added ${name}`);
       this.parentRef?.showNotification(`Added ${name}!`);
     }
   }
@@ -176,6 +177,8 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
       undefined,
       this.newPlantLocation.trim() || undefined
     );
+    this.userEventService.insertUserEvent(this.parentRef.user.id, 'Plant Added', `Added ${this.newPlantName}`);
+
     if (plantId) {
       this.newPlantName = '';
       this.newPlantSpecies = '';
