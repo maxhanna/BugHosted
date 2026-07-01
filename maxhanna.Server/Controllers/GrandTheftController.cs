@@ -10,24 +10,20 @@ namespace maxhanna.Server.Controllers
 	{
 		public const int CHUNK_SIZE = 80;
 		public const int GRID_PITCH = 80;
-		public const int BLOCK_SIZE = 30; 
+		public const int BLOCK_SIZE = 30;
 		public const int SIDEWALK_SIZE = 48;  
 		public const float ROAD_HALF_WIDTH = 16.0f;  
-		public const float BRIDGE_DECK_Y = 9.0f; 
+		public const float BRIDGE_DECK_Y = 12.0f;  
 		public const int BIOME_RADIUS_CITY = 18;
 		public const int BIOME_RADIUS_MOUNTAIN = 30;
 		public const int BIOME_RADIUS_SUBURB = 50;
 		public const int BIOME_RADIUS_BEACH = 60;
-
-		// Reused edges array — avoids per-call allocation
+ 
 		private static readonly int[][] EDGES = new int[][]
 		{
 			new int[] { 0, 1 }, new int[] { 0, -1 }, new int[] { 1, 0 }, new int[] { -1, 0 }
 		};
-
-		// ── Road graph cache ──────────────────────────────────────────
-		// Building road nodes + adjacency is O(N²) via GetRoadEdges.
-		// Cache the result per (chunkX, chunkZ) so we only pay once.
+ 
 		private const int ROAD_RADIUS = 4;
 		private static readonly ConcurrentDictionary<(int cx, int cz), RoadGraph> _roadGraphCache = new();
 		private static HashSet<(float x, float z)>? _airportParkingPositions;
