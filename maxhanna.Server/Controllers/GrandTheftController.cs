@@ -10,8 +10,10 @@ namespace maxhanna.Server.Controllers
 	{
 		public const int CHUNK_SIZE = 80;
 		public const int GRID_PITCH = 80;
-		public const int BLOCK_SIZE = 30;
-		public const int SIDEWALK_SIZE = 55;
+		public const int BLOCK_SIZE = 30; 
+		public const int SIDEWALK_SIZE = 48;  
+		public const float ROAD_HALF_WIDTH = 16.0f;  
+		public const float BRIDGE_DECK_Y = 9.0f; 
 		public const int BIOME_RADIUS_CITY = 18;
 		public const int BIOME_RADIUS_MOUNTAIN = 30;
 		public const int BIOME_RADIUS_SUBURB = 50;
@@ -260,10 +262,9 @@ namespace maxhanna.Server.Controllers
 				|| biome == "bridge" || biome == "bridge_connector"
 				|| biome == "parking_lot"
 				|| biome == "rural_mountain" || biome == "rural_lakes" || biome == "rural_desert") return false;
-			// Aeroport tarmac (non-parking) is treated as "building" so NPC traffic avoids runways/hangars
+
 			if (biome == "aeroport" && !IsAeroportParkingChunk(cx, cz)) return true;
 
-			// Rural: sparse buildings at random positions
 			if (biome == "rural_farm" || biome == "rural_hills")
 			{
 				uint rstate = (uint)((cx * 100003 + cz * 70001) & 0xFFFFFFFF);
@@ -288,7 +289,6 @@ namespace maxhanna.Server.Controllers
 				{
 					var edge = EDGES[e];
 					int numHouses = 1 + (int)(RngNext(ref state) * 2);
-					// CHANGED: SIDEWALK_SIZE - 12 instead of -8 → 6u corner gap each end
 					float houseWidth = (SIDEWALK_SIZE - 12f) / numHouses;
 					for (int i = 0; i < numHouses; i++)
 					{
@@ -298,7 +298,6 @@ namespace maxhanna.Server.Controllers
 						float px, pz;
 						if (edge[0] == 0)
 						{
-							// CHANGED: start at halfSW - 6 instead of halfSW - 4
 							px = blockCenterX - halfSW + 6f + houseWidth / 2f + i * houseWidth;
 							pz = blockCenterZ + edge[1] * (halfSW - d / 2f - 1f);
 						}
@@ -317,13 +316,12 @@ namespace maxhanna.Server.Controllers
 				{
 					var edge = EDGES[e];
 					int numStores = 2 + (int)(RngNext(ref state) * 2);
-					// CHANGED: SIDEWALK_SIZE - 8 instead of -4 → 4u corner gap each end
 					float storeWidth = (SIDEWALK_SIZE - 8f) / numStores;
 					for (int i = 0; i < numStores; i++)
 					{
-						if (RngNext(ref state) >= 0.78f) continue;   // CHANGED: 0.78 instead of 0.80 (match client)
+						if (RngNext(ref state) >= 0.78f) continue;
 						float w = storeWidth;
-						float d = 7f + RngNext(ref state) * (SIDEWALK_SIZE * 0.18f); // CHANGED: 0.18 not 0.20
+						float d = 7f + RngNext(ref state) * (SIDEWALK_SIZE * 0.18f);
 						float px, pz;
 						if (edge[0] == 0)
 						{
@@ -340,7 +338,6 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 
-			// Boulevard medians are obstacles (palms + benches placed there)
 			int blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
 			int gx0 = cx * blocksPerChunk;
 			int gz0 = cz * blocksPerChunk;
@@ -349,12 +346,28 @@ namespace maxhanna.Server.Controllers
 				if (IsBoulevard(gx0 + g))
 				{
 					float worldX = (gx0 + g) * GRID_PITCH;
-					if (Math.Abs(x - worldX) < 2f + margin && Math.Abs(z - blockCenterZ) < CHUNK_SIZE / 2f) return true;
+					if (Math.Abs(x - worldX) < 2f + margin && Math.Abs(z - blockCenterZ) < CHUNK_SIZE / 2f)
+					{
+						float dxNode = x % GRID_PITCH; if (dxNode < 0) dxNode += GRID_PITCH;
+						float dzNode = z % GRID_PITCH; if (dzNode < 0) dzNode += GRID_PITCH;
+						float distToGridX = Math.Min(dxNode, GRID_PITCH - dxNode);
+						float distToGridZ = Math.Min(dzNode, GRID_PITCH - dzNode);
+						if (distToGridX < ROAD_HALF_WIDTH + margin || distToGridZ < ROAD_HALF_WIDTH + margin) continue;
+						return true;
+					}
 				}
 				if (IsBoulevard(gz0 + g))
 				{
 					float worldZ = (gz0 + g) * GRID_PITCH;
-					if (Math.Abs(z - worldZ) < 2f + margin && Math.Abs(x - blockCenterX) < CHUNK_SIZE / 2f) return true;
+					if (Math.Abs(z - worldZ) < 2f + margin && Math.Abs(x - blockCenterX) < CHUNK_SIZE / 2f)
+					{
+						float dxNode = x % GRID_PITCH; if (dxNode < 0) dxNode += GRID_PITCH;
+						float dzNode = z % GRID_PITCH; if (dzNode < 0) dzNode += GRID_PITCH;
+						float distToGridX = Math.Min(dxNode, GRID_PITCH - dxNode);
+						float distToGridZ = Math.Min(dzNode, GRID_PITCH - dzNode);
+						if (distToGridX < ROAD_HALF_WIDTH + margin || distToGridZ < ROAD_HALF_WIDTH + margin) continue;
+						return true;
+					}
 				}
 			}
 
@@ -366,8 +379,20 @@ namespace maxhanna.Server.Controllers
 			int cx = (int)Math.Floor(x / CHUNK_SIZE);
 			int cz = (int)Math.Floor(z / CHUNK_SIZE);
 			string biome = GetBiome(cx, cz);
-			// FIX: Bridge is fully drivable — without this, NPC movement validation
-			// fails and cars get stuck trying to cross bridges
+
+			if (biome == "aeroport")
+			{
+				int gx = (int)Math.Round(x / GRID_PITCH);
+				int gz = (int)Math.Round(z / GRID_PITCH);
+				foreach (var entry in AIRPORT_ENTRY_ROADS)
+				{
+					int minGz = Math.Min(entry.gzStart, entry.gzEnd);
+					int maxGz = Math.Max(entry.gzStart, entry.gzEnd);
+					if (entry.gx == gx && gz >= minGz && gz <= maxGz) return true;
+				}
+				return false;
+			}
+
 			if (biome == "parking_lot" || biome == "rural_farm" || biome == "rural_hills" || biome == "rural_mountain" || biome == "rural_lakes" || biome == "rural_desert" || biome == "bridge" || biome == "bridge_connector") return true;
 
 			float dx = x % GRID_PITCH;
@@ -376,10 +401,8 @@ namespace maxhanna.Server.Controllers
 			float dz = z % GRID_PITCH;
 			if (dz < 0) dz += GRID_PITCH;
 			float distToGridZ = Math.Min(dz, GRID_PITCH - dz);
-			float sidewalkHalf = SIDEWALK_SIZE / 2f;
-			float blockCenterOffset = GRID_PITCH / 2f;
-			float roadHalfWidth = blockCenterOffset - sidewalkHalf;
-			return distToGridX < roadHalfWidth || distToGridZ < roadHalfWidth;
+
+			return distToGridX < ROAD_HALF_WIDTH || distToGridZ < ROAD_HALF_WIDTH;
 		}
 
 		public static List<(float x, float z)> GetRoadNodes(int cx, int cz, int radius)
@@ -396,7 +419,7 @@ namespace maxhanna.Server.Controllers
 			int startGz = (cz * blocksPerChunk) - radius;
 			int endGx = (cx * blocksPerChunk + blocksPerChunk) + radius;
 			int endGz = (cz * blocksPerChunk + blocksPerChunk) + radius;
-			bool IsRoadBiome(string b) => !(b == "mountain" || b == "beach" || b == "ocean");
+
 			for (int gx = startGx; gx <= endGx; gx++)
 			{
 				for (int gz = startGz; gz <= endGz; gz++)
@@ -406,17 +429,32 @@ namespace maxhanna.Server.Controllers
 					if (gx < 0) nc = (gx - blocksPerChunk + 1) / blocksPerChunk;
 					if (gz < 0) nz = (gz - blocksPerChunk + 1) / blocksPerChunk;
 					string biome = GetBiome(nc, nz);
-					if (IsRoadBiome(biome))
+
+					bool isRoad = false;
+					if (biome == "ocean" || biome == "beach" || biome == "mountain") isRoad = false;
+					else if (biome == "aeroport")
+					{
+						foreach (var entry in AIRPORT_ENTRY_ROADS)
+						{
+							int minGz = Math.Min(entry.gzStart, entry.gzEnd);
+							int maxGz = Math.Max(entry.gzStart, entry.gzEnd);
+							if (entry.gx == gx && gz >= minGz && gz <= maxGz) { isRoad = true; break; }
+						}
+					}
+					else isRoad = true;
+
+					if (isRoad)
 					{
 						AddNode(gx, gz);
 					}
 					else
 					{
-						// Boundary node: include if any neighbor chunk is road-enabled
 						int[][] dirs = new int[][] { new[] { 1, 0 }, new[] { -1, 0 }, new[] { 0, 1 }, new[] { 0, -1 } };
 						foreach (var d in dirs)
 						{
-							if (IsRoadBiome(GetBiome(nc + d[0], nz + d[1])))
+							string nbBiome = GetBiome(nc + d[0], nz + d[1]);
+							bool nbIsRoad = !(nbBiome == "ocean" || nbBiome == "beach" || nbBiome == "mountain");
+							if (nbIsRoad)
 							{
 								AddNode(gx, gz);
 								break;
@@ -425,10 +463,6 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 			}
-			// Add airport entry/parking nodes (deduplicated via seen set)
-			var airportNodes = GetAirportEntryNodesInRange(cx, cz, radius);
-			foreach (var an in airportNodes)
-				AddNode((int)Math.Round(an.worldX / GRID_PITCH), (int)Math.Round(an.worldZ / GRID_PITCH));
 			return nodes;
 		}
 

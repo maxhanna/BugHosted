@@ -68,10 +68,10 @@ export interface CityChunk {
 const CHUNK_SIZE = 80;
 const GRID_PITCH = 80;
 const BLOCK_SIZE = 30;
-const SIDEWALK_SIZE = 55;
+const SIDEWALK_SIZE = 48;
+const ROAD_HALF_WIDTH = (GRID_PITCH - SIDEWALK_SIZE) / 2; // 16
 const BIOME_RADIUS_MOUNTAIN = 30;
-// ── Procedural Island Definitions ──
-// Each island has concentric rings: city → suburb → rural → ocean
+
 interface IslandDef {
   cx: number; cz: number;
   cityR: number;
@@ -192,7 +192,7 @@ function isBridgeChunk(cx: number, cz: number): boolean {
 }
 
 const BRIDGE_RANGES = BRIDGES;
-const BRIDGE_DECK_Y = 4.0;
+const BRIDGE_DECK_Y = 9.0;
 
 const SIDEWALK_RAISE = 0.3;
 
@@ -209,18 +209,38 @@ function isOnSidewalk(x: number, z: number): boolean {
     localZ >= halfRoad && localZ < 80 - halfRoad;
 }
 
-/** Returns the ground Y offset for a given world position. Bridge ramps, ocean=-2.5, sidewalk=+0.3, land=0. */
+function bridgeYAt(x: number, br: BridgeDef): number {
+  const startWX = br.startCx * 80;
+  const endWX = (br.endCx + 1) * 80;
+  const rampLen = 80;
+  const tIn = Math.max(0, Math.min(1, (x - startWX) / rampLen));
+  const tOut = Math.max(0, Math.min(1, (endWX - x) / rampLen));
+  const sIn = tIn * tIn * (3 - 2 * tIn);
+  const sOut = tOut * tOut * (3 - 2 * tOut);
+  return Math.min(sIn, sOut) * BRIDGE_DECK_Y;
+}
+
 export function getTerrainHeight(x: number, z: number): number {
   const cx = Math.floor(x / 80);
   const cz = Math.floor(z / 80);
   const biome = getBiome(cx, cz);
-  if (biome === 'bridge_connector') return 0.0;
+  if (biome === 'bridge_connector') {
+    const br = BRIDGES.find(b =>
+      (cx === b.startCx - 1 && cz === b.startCz) ||
+      (cx === b.endCx + 1 && cz === b.endCz)
+    );
+    if (!br) return 0.0;
+    const isLeft = cx === br.startCx - 1;
+    const localX = x - cx * 80;
+    const t = isLeft ? localX / 80 : (80 - localX) / 80;
+    if (t < 0.5) return 0.0;
+    const u = (t - 0.5) / 0.5;
+    return u * u * (3 - 2 * u) * BRIDGE_DECK_Y * 0.5;
+  }
   if (biome === 'bridge') {
     for (const br of BRIDGE_RANGES) {
       if (cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz) {
-        if (cx === br.startCx) return (x - br.startCx * 80) / 80 * BRIDGE_DECK_Y;
-        if (cx === br.endCx) return ((br.endCx + 1) * 80 - x) / 80 * BRIDGE_DECK_Y;
-        return BRIDGE_DECK_Y;
+        return bridgeYAt(x, br);
       }
     }
     return BRIDGE_DECK_Y;
@@ -229,7 +249,6 @@ export function getTerrainHeight(x: number, z: number): number {
   if (isOnSidewalk(x, z)) return SIDEWALK_RAISE;
   return 0.0;
 }
-
 /** A grid line is a "boulevard" every 4th line — wider median, palms, lights. */
 export function isBoulevard(gridCoord: number): boolean {
   return ((gridCoord % 4) + 4) % 4 === 0;
@@ -2041,6 +2060,16 @@ void main() {
     }
     else if (isAeroport) {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.22, 0.22, 0.24, 1.0, idxOffset); idxOffset += 4;
+
+      // Paint entry road flush with city roads
+      for (const entry of GrandTheftRenderer.AIRPORT_ENTRY_ROADS) {
+        const minGz = Math.min(entry.gzStart, entry.gzEnd);
+        const maxGz = Math.max(entry.gzStart, entry.gzEnd);
+        if (entry.gx === cx && cz >= minGz && cz <= maxGz) {
+          const roadX = entry.gx * GRID_PITCH;
+          this.addBox(verts, indices, roadX, 0.05, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2, 0.1, CHUNK_SIZE, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+        }
+      }
     } else if (isParkingLot) {
       // Asphalt
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.10, 0.10, 0.11, 1.0, idxOffset); idxOffset += 4;
@@ -2067,14 +2096,19 @@ void main() {
 
     // ── OCEAN BARRIER WALLS (where land chunks meet ocean along roads) ──
     if (!isBeach && !isBridge && !isBridgeConnector && !isAeroport) {
-      for (const [ddx, ddz] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+      const gap = ROAD_HALF_WIDTH + 1; // 17u gap for the road
+      const segLen = CHUNK_SIZE - (gap * 2); // Wall segment length
+
+      for (const [ddx, ddz] of [[0, 1], [0, -1], [1, 0], [-1, 0]] as const) {
         if (getBiome(cx + ddx, cz + ddz) !== 'ocean') continue;
-        // Wall along the chunk edge where land meets ocean
-        const wallLen = ddx !== 0 ? 2 : CHUNK_SIZE;
-        const wallWid = ddz !== 0 ? 2 : CHUNK_SIZE;
-        const wx = ddx !== 0 ? (cx + 0.5 + ddx * 0.49) * CHUNK_SIZE : (cx + 0.5) * CHUNK_SIZE;
-        const wz = ddz !== 0 ? (cz + 0.5 + ddz * 0.49) * CHUNK_SIZE : (cz + 0.5) * CHUNK_SIZE;
-        this.addBox(verts, indices, wx, 1.25, wz, wallLen, 2.5, wallWid, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
+
+        if (ddx !== 0) {
+          const wx = (cx + 0.5 + ddx * 0.49) * CHUNK_SIZE;
+          this.addBox(verts, indices, wx, 1.25, worldOriginZ + CHUNK_SIZE / 2, 2, 2.5, segLen, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
+        } else {
+          const wz = (cz + 0.5 + ddz * 0.49) * CHUNK_SIZE;
+          this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 1.25, wz, segLen, 2.5, 2, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
+        }
       }
     }
 
@@ -2640,16 +2674,20 @@ void main() {
     }
 
     // ── BOULEVARD MEDIAN + PALM TREES + LIGHTS ─────────────
+    const INTERSECTION_CLEAR_RADIUS = ROAD_HALF_WIDTH + 2;
+    const distanceToNearestGridNode = (x: number, z: number) => {
+      const nx = Math.round(x / 80) * 80;
+      const nz = Math.round(z / 80) * 80;
+      return Math.hypot(x - nx, z - nz);
+    };
+
     if (!isBeach && !isAeroport && !isBridge && !isBridgeConnector && !isParkingLot) {
-      // Two grid lines cross this chunk: x = cx*80 + 0 and x = cx*80 + 80
-      // (the chunk boundary lines). Test each for boulevard status.
       for (const gridX of [cx, cx + 1]) {
         if (!isBoulevard(gridX)) continue;
         const worldX = gridX * GRID_PITCH;
-        // Wider, raised median with grass
-        this.addBox(verts, indices, worldX, 0.15, worldOriginZ + CHUNK_SIZE / 2, 4, 0.3, CHUNK_SIZE - 4, 0.12, 0.30, 0.10, 1.0, idxOffset); idxOffset += 24;
-        // City trees along median — spaced out, replaced with fallback boxes if not loaded
+        this.addBox(verts, indices, worldX, 0.15, worldOriginZ + CHUNK_SIZE / 2, 6, 0.3, CHUNK_SIZE - 4, 0.12, 0.30, 0.10, 1.0, idxOffset); idxOffset += 24;
         for (let z = worldOriginZ + 8; z < worldOriginZ + CHUNK_SIZE - 4; z += 16) {
+          if (distanceToNearestGridNode(worldX, z) < INTERSECTION_CLEAR_RADIUS) continue;
           if (this.cityTreeMesh && Math.floor((z - worldOriginZ) / 16) % 3 === 0) {
             trees.push({ x: worldX, z, yaw: 0, scale: 1.5 + rng() * 0.4 });
           } else if (this.palmTreeMesh) {
@@ -2658,8 +2696,8 @@ void main() {
             this.addBox(verts, indices, worldX, 3, z, 0.4, 6, 0.4, 0.3, 0.18, 0.05, 1.0, idxOffset); idxOffset += 24;
             this.addBox(verts, indices, worldX, 6.2, z, 3, 0.7, 3, 0.1, 0.45, 0.05, 1.0, idxOffset); idxOffset += 24;
           }
-          // Bench beside every other palm
           if (Math.floor((z - worldOriginZ) / 16) % 2 === 0) {
+            if (distanceToNearestGridNode(worldX + 3, z) < INTERSECTION_CLEAR_RADIUS) continue;
             benches.push({ x: worldX + 3, z, yaw: Math.PI / 2 });
           }
         }
@@ -2667,8 +2705,9 @@ void main() {
       for (const gridZ of [cz, cz + 1]) {
         if (!isBoulevard(gridZ)) continue;
         const worldZ = gridZ * GRID_PITCH;
-        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.15, worldZ, CHUNK_SIZE - 4, 0.3, 4, 0.12, 0.30, 0.10, 1.0, idxOffset); idxOffset += 24;
+        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.15, worldZ, CHUNK_SIZE - 4, 0.3, 6, 0.12, 0.30, 0.10, 1.0, idxOffset); idxOffset += 24;
         for (let x = worldOriginX + 8; x < worldOriginX + CHUNK_SIZE - 4; x += 16) {
+          if (distanceToNearestGridNode(x, worldZ) < INTERSECTION_CLEAR_RADIUS) continue;
           if (this.cityTreeMesh && Math.floor((x - worldOriginX) / 16) % 3 === 0) {
             trees.push({ x, z: worldZ, yaw: 0, scale: 1.5 + rng() * 0.4 });
           } else if (this.palmTreeMesh) {
@@ -2678,6 +2717,7 @@ void main() {
             this.addBox(verts, indices, x, 6.2, worldZ, 3, 0.7, 3, 0.1, 0.45, 0.05, 1.0, idxOffset); idxOffset += 24;
           }
           if (Math.floor((x - worldOriginX) / 16) % 2 === 0) {
+            if (distanceToNearestGridNode(x, worldZ + 3) < INTERSECTION_CLEAR_RADIUS) continue;
             benches.push({ x, z: worldZ + 3, yaw: 0 });
           }
         }
@@ -2905,45 +2945,36 @@ void main() {
     return result;
   }
 
+  isRoadNode(gx: number, gz: number): boolean {
+    const cx = Math.floor(gx * GRID_PITCH / CHUNK_SIZE);
+    const cz = Math.floor(gz * GRID_PITCH / CHUNK_SIZE);
+    const b = getBiome(cx, cz);
+    if (b === 'ocean' || b === 'beach' || b === 'mountain') return false;
+    if (b === 'aeroport') {
+      return GrandTheftRenderer.AIRPORT_ENTRY_ROADS.some(e =>
+        e.gx === gx && gz >= Math.min(e.gzStart, e.gzEnd) && gz <= Math.max(e.gzStart, e.gzEnd));
+    }
+    return true;
+  }
+
   getRoadNodesInRadius(cx: number, cz: number, radius: number): { x: number; z: number }[] {
     const nodes: { x: number; z: number }[] = [];
     const seen = new Set<string>();
-    const addNode = (gx: number, gz: number) => {
-      const key = gx + ',' + gz;
-      if (seen.has(key)) return;
-      seen.add(key);
-      nodes.push({ x: gx * GRID_PITCH, z: gz * GRID_PITCH });
-    };
     const blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
     const startGx = Math.floor((cx * CHUNK_SIZE) / GRID_PITCH) - radius;
     const startGz = Math.floor((cz * CHUNK_SIZE) / GRID_PITCH) - radius;
     const endGx = Math.ceil((cx * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
     const endGz = Math.ceil((cz * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
-    const isRoadBiome = (b: string) => {
-      if (b === 'mountain' || b === 'beach' || b === 'ocean') return false;
-      return true;
-    };
+
     for (let gx = startGx; gx <= endGx; gx++) {
       for (let gz = startGz; gz <= endGz; gz++) {
-        const nc = Math.floor(gx / blocksPerChunk);
-        const nz = Math.floor(gz / blocksPerChunk);
-        const biome = getBiome(nc, nz);
-        if (isRoadBiome(biome)) {
-          addNode(gx, gz);
-        } else {
-          // Boundary node: include if any neighbor chunk is road-enabled (ensures complete roads at biome edges)
-          for (const [ndx, ndz] of [[1,0],[-1,0],[0,1],[0,-1]]) {
-            if (isRoadBiome(getBiome(nc + ndx, nz + ndz))) {
-              addNode(gx, gz);
-              break;
-            }
-          }
-        }
+        if (!this.isRoadNode(gx, gz)) continue;
+        const key = gx + ',' + gz;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        nodes.push({ x: gx * GRID_PITCH, z: gz * GRID_PITCH });
       }
     }
-    // Add airport entry/parking nodes (deduplicated via seen set)
-    const airportNodes = this.getAirportEntryNodesInRange(cx, cz, radius);
-    for (const an of airportNodes) addNode(Math.round(an.x / GRID_PITCH), Math.round(an.z / GRID_PITCH));
     return nodes;
   }
 
@@ -4156,8 +4187,8 @@ void main() {
       img.onerror = () => { console.error('Failed to load texture:', url); resolve(null); };
       img.src = (url.startsWith('blob:') || url.startsWith('data:')) ? url : url;
     });
-  }  
- 
+  }
+
   renderFirstPersonWeapon(
     camX: number, camY: number, camZ: number,
     camYaw: number, camPitch: number,
@@ -4189,7 +4220,7 @@ void main() {
     gl.enable(gl.BLEND);
     gl.enable(gl.DEPTH_TEST);
   }
-  
+
   private extractGltfAnimations(json: any, buffers: ArrayBuffer[]): GltfAnimation[] | null {
     if (!json.animations || !json.accessors || !json.bufferViews) return null;
     const out: GltfAnimation[] = [];
@@ -4239,7 +4270,7 @@ void main() {
     }
     return out.length > 0 ? out : null;
   }
- 
+
   private extractGltfSkeleton(json: any, buffers: ArrayBuffer[]) {
     if (!json.skins || json.skins.length === 0) return null;
     const skin = json.skins[0];
@@ -4278,7 +4309,7 @@ void main() {
         quatPosScaleToMat4([q[0], q[1], q[2], q[3]], [t[0], t[1], t[2]], [s[0], s[1], s[2]], local);
       }
       for (let i = 0; i < 16; i++) boneLocalTf[b * 16 + i] = local[i];
-    } 
+    }
     let skeletonRootNodeIdx = -1;
     for (let b = 0; b < numBones; b++) {
       if (parents[b] < 0) { skeletonRootNodeIdx = jointNodes[b]; break; }
@@ -4685,7 +4716,7 @@ void main() {
             const jiByteOff = (jiBufView.byteOffset || 0) + (jiAcc.byteOffset || 0);
             const jiStride = jiBufView.byteStride || 8;
             jointIdx = new Uint16Array(vCount * 4);
- 
+
             if (jiAcc.componentType === 5123) {
               const jiView = new Uint16Array(jiBuf, 0, jiBuf.byteLength / 2);
               const start = jiByteOff / 2;
@@ -4743,7 +4774,7 @@ void main() {
           for (let i = 0; i < vCount; i++) {
             const pi = (posOffset / 4) + i * posStride;
             let x = posData[pi], y = posData[pi + 1], z = posData[pi + 2];
- 
+
             if (!isSkinned && !identityTf) {
               let w = tf[3] * x + tf[7] * y + tf[11] * z + tf[15];
               let invW = w !== 0 ? 1 / w : 1;
@@ -4760,7 +4791,7 @@ void main() {
 
             if (normData) {
               const ni = (normOffset / 4) + i * normStride;
-              let nx = normData[ni], ny = normData[ni + 1], nz = normData[ni + 2]; 
+              let nx = normData[ni], ny = normData[ni + 1], nz = normData[ni + 2];
               if (!identityTf) {
                 let tnx = tf[0] * nx + tf[4] * ny + tf[8] * nz;
                 let tny = tf[1] * nx + tf[5] * ny + tf[9] * nz;
@@ -4990,7 +5021,7 @@ void main() {
         out.animations = this.extractGltfAnimations(json, buffers);
         out.skeleton = this.extractGltfSkeleton(json, buffers);
       }
- 
+
       json = null;
       buffers = [];
       raw = new ArrayBuffer;
@@ -5006,7 +5037,7 @@ void main() {
   clearChunkCache() {
     this.chunkCache.clear();
   }
-  
+
   getWeaponPickupMesh(weaponType: number): CityMesh | CityMesh[] {
     if (weaponType === 1 && this.coltMesh) return this.coltMesh;             // Pistol
     if (weaponType === 2 && this.m4a1Mesh) return this.m4a1Mesh;             // Rifle (M4A1)
