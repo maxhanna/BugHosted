@@ -1970,23 +1970,16 @@ void main() {
         const roadCenterZ = cz * CHUNK_SIZE;
         const roadW = 25;       // Match street road width (GRID_PITCH - SIDEWALK_SIZE)
         const bridgeW = roadW + 10; // Road + walkway clearance
-        const isRampUp = cx === bridge.startCx;
-        const isRampDown = cx === bridge.endCx;
-
-        // Surface Y at any X position on this chunk
-        const surfaceYAt = (x: number) => {
-          if (isRampUp) return (x - bridge.startCx * 80) / 80 * BRIDGE_DECK_Y;
-          if (isRampDown) return ((bridge.endCx + 1) * 80 - x) / 80 * BRIDGE_DECK_Y;
-          return BRIDGE_DECK_Y;
-        };
+        // Surface Y at any X position on this chunk — use same Hermite interpolation as connectors
+        const surfaceYAt = (x: number) => bridgeYAt(x, bridge);
 
         // Build ramp/deck in slices so road surface and rails follow the slope
         const numSlices = 20;
         const sliceW = CHUNK_SIZE / numSlices;
         for (let si = 0; si < numSlices; si++) {
-          const sx = worldOriginX + (isRampDown ? CHUNK_SIZE - si * sliceW - sliceW / 2 : si * sliceW + sliceW / 2);
+          const sx = worldOriginX + si * sliceW + sliceW / 2;
           const surfY = surfaceYAt(sx);
-          const nextX = sx + (isRampDown ? -sliceW : sliceW);
+          const nextX = sx + sliceW;
           const nextY = surfaceYAt(nextX);
           const avgY = (surfY + nextY) / 2;
           const pillarH = Math.max(surfY, nextY);
@@ -2775,14 +2768,14 @@ void main() {
         const roadZ = cz * CHUNK_SIZE + ri * GRID_PITCH;
         if (isBoulevard(cz * blocksPerChunk + ri)) continue;
         for (let x = cx * CHUNK_SIZE + dashOffset; x <= cx * CHUNK_SIZE + CHUNK_SIZE - dashOffset; x += dashSpacing) {
-          this.addBox(verts, indices, x, 0.04, roadZ, dashLen, dashH, dashWid, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
+          this.addBox(verts, indices, x, 0.09, roadZ, dashLen, dashH, dashWid, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
         }
       }
       for (let ri = 0; ri < 2; ri++) {
         const roadX = cx * CHUNK_SIZE + ri * GRID_PITCH;
         if (isBoulevard(cx * blocksPerChunk + ri)) continue;
         for (let z = cz * CHUNK_SIZE + dashOffset; z <= cz * CHUNK_SIZE + CHUNK_SIZE - dashOffset; z += dashSpacing) {
-          this.addBox(verts, indices, roadX, 0.04, z, dashWid, dashH, dashLen, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
+          this.addBox(verts, indices, roadX, 0.09, z, dashWid, dashH, dashLen, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
         }
       }
     }
