@@ -3,6 +3,10 @@
     src: url("../../assets/Minecraft.ttf");
 }
 @font-face {
+    font-family: pricedown;
+    src: url("../../assets/Pricedown.otf") format("opentype");
+}
+@font-face {
     font-family: fontRetroGaming;
     src: url("../../assets/metabots/retro-gaming.ttf")
 }

@@ -5,6 +5,7 @@ import { WordlerService } from '../../services/wordler.service';
 import { WordlerScore } from '../../services/datacontracts/wordler/wordler-score';
 import { WordlerGuess } from '../../services/datacontracts/wordler/wordler-guess';
 import { User } from '../../services/datacontracts/user/user';
+import { UserEventService } from '../../services/user-event.service';
 type DifficultyKey = "Easy Difficulty" | "Medium Difficulty" | "Hard Difficulty" | "Master Wordler";
 
 @Component({
@@ -52,7 +53,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   difficulties: DifficultyKey[] = ["Easy Difficulty", "Medium Difficulty", "Hard Difficulty", "Master Wordler"];
 
 
-  constructor(private wordlerService: WordlerService, private renderer: Renderer2, private cdr: ChangeDetectorRef) { super(); }
+  constructor(private wordlerService: WordlerService, private renderer: Renderer2, private cdr: ChangeDetectorRef, private userEventService: UserEventService) { super(); }
 
   async ngOnInit() {
     this.showExitGameButton = false;
@@ -339,11 +340,17 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     }
     this.stopLoading();
   }
-
   async winningScenario(guess: string) {
     this.startLoading();
     this.stopTimer();
-    alert(`Congratulations, the Wordler has been defeated on ${this.getDifficultyByValue(this.selectedDifficulty)}! Time Elapsed: ${this.elapsedTime}`);
+    const difficulty = this.getDifficultyByValue(this.selectedDifficulty);
+    const eventText = `Won Wordler on ${difficulty} with ${this.elapsedTime} seconds`;
+    this.userEventService.insertUserEvent(
+      this.parentRef?.user?.id ?? 0,
+      'wordler_win',
+      eventText,
+      this.scores.length > 0 ? this.scores[this.scores.length - 1].id : 0
+    );
     let tmpScore: WordlerScore = { score: this.currentAttempt, user: this.parentRef?.user ?? new User(0, "Anonymous"), time: this.elapsedTime, difficulty: this.selectedDifficulty };
     await this.wordlerService.addScore(tmpScore);
     this.disableAllInputs = true;

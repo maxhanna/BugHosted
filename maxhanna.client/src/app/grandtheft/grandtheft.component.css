@@ -1,4 +1,13 @@
-﻿#gt-container {
+﻿@font-face {
+  font-family: pricedown;
+  src: url("../../assets/Pricedown.otf") format("opentype");
+}
+
+.componentMain {
+  font-family: pricedown;
+}
+
+#gt-container {
   position: relative;
   width: 100vw;
   height: calc(100vh - 60px);
@@ -40,6 +49,7 @@
   right: 50%;
   transform: translateX(50%);
   z-index: 10;
+  font-family: pricedown;
   font-size: 28px;
   letter-spacing: 4px;
   color: rgba(255, 255, 255, 0.3);
@@ -865,6 +875,7 @@
   left: 50%;
   transform: translate(-50%, -50%);
   color: #f00;
+  font-family: pricedown;
   font-size: 72px;
   font-weight: 900;
   letter-spacing: 8px;

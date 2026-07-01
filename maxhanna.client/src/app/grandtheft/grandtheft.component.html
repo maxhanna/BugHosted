@@ -1,6 +1,6 @@
 ﻿<div class="componentMain">
   <app-title-bar [title]="'Grand Theft'" [hasMenu]="true" (menuClicked)="openMenuPanel()"
-    (closeClicked)="remove_me('GrandTheftComponent');">
+    (closeClicked)="remove_me('GrandTheftComponent');" [font]="'pricedown'">
   </app-title-bar>
 
   <div class="popupPanel" *ngIf="!parentRef?.user?.id">
