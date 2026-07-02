@@ -3431,30 +3431,30 @@ void main() {
         }
       }
       for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, pc.y ?? (pc as any)._expY ?? 0, pc.z, pc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-      // for (const npc of serverNPCs) {
-      //   const vy = (npc.type === 'helicopter' || npc.type === 'plane') ? (npc.y || 0) : 0;
-      //   this.drawMesh(npc.mesh, npc.x, vy, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-      // }
-      // for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-      // for (const p of otherPlayers) {
-      //   if (p.passengerOfUserId && p.passengerOfUserId > 0) continue;
-      //   if (p.isInCar) {
-      //     const vType = p.vehicleType || 'car';
-      //     let carMesh: CityMesh | CityMesh[];
-      //     const col: [number, number, number] = [p.carColorR ?? 1, p.carColorG ?? 1, p.carColorB ?? 1];
-      //     if (vType === 'taxi') carMesh = this.getTaxiMesh();
-      //     else if (vType === 'bus') carMesh = this.busMesh || this.getNPCCarMesh(col, p.userId);
-      //     else if (vType === 'boat') carMesh = this.getBoatMesh(p.userId);
-      //     else if (vType === 'helicopter') carMesh = this.getHelicopterMesh(p.userId);
-      //     else if (vType === 'plane') carMesh = this.getPlaneMesh(p.userId);
-      //     else if (vType === 'motorcycle') carMesh = this.motorcycleMeshes.length > 0 ? this.motorcycleMeshes[0] : this.getNPCCarMesh(col, p.userId);
-      //     else if (vType === 'police') carMesh = this.getPoliceCarMesh();
-      //     else carMesh = this.carMeshes.length > 0 ? this.carMeshes[0] : this.getNPCCarMesh(col, p.userId);
-      //     const vehicleY = (vType === 'helicopter' || vType === 'plane') ? (p.posY || 0) : 0;
-      //     this.drawMesh(carMesh, p.posX, vehicleY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-      //   }
-      //   this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-      // }
+      for (const npc of serverNPCs) {
+        const vy = (npc.type === 'helicopter' || npc.type === 'plane') ? (npc.y || 0) : 0;
+        this.drawMesh(npc.mesh, npc.x, vy, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+      }
+      for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+      for (const p of otherPlayers) {
+        if (p.passengerOfUserId && p.passengerOfUserId > 0) continue;
+        if (p.isInCar) {
+          const vType = p.vehicleType || 'car';
+          let carMesh: CityMesh | CityMesh[];
+          const col: [number, number, number] = [p.carColorR ?? 1, p.carColorG ?? 1, p.carColorB ?? 1];
+          if (vType === 'taxi') carMesh = this.getTaxiMesh();
+          else if (vType === 'bus') carMesh = this.busMesh || this.getNPCCarMesh(col, p.userId);
+          else if (vType === 'boat') carMesh = this.getBoatMesh(p.userId);
+          else if (vType === 'helicopter') carMesh = this.getHelicopterMesh(p.userId);
+          else if (vType === 'plane') carMesh = this.getPlaneMesh(p.userId);
+          else if (vType === 'motorcycle') carMesh = this.motorcycleMeshes.length > 0 ? this.motorcycleMeshes[0] : this.getNPCCarMesh(col, p.userId);
+          else if (vType === 'police') carMesh = this.getPoliceCarMesh();
+          else carMesh = this.carMeshes.length > 0 ? this.carMeshes[0] : this.getNPCCarMesh(col, p.userId);
+          const vehicleY = (vType === 'helicopter' || vType === 'plane') ? (p.posY || 0) : 0;
+          this.drawMesh(carMesh, p.posX, vehicleY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+        }
+        this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+      }
       if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15], [1, 1, 1, 1], true);
       if (this.homeBaseMesh) this.drawMesh(this.homeBaseMesh, 120, 0, 40, 0, [10, 10, 10], [1, 1, 1, 1], true);
       if (this.vendingMachineMesh) {
