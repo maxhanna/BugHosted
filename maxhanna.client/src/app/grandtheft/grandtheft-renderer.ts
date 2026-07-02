@@ -3430,12 +3430,12 @@ void main() {
           }
         }
       }
-      for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, pc.y ?? (pc as any)._expY ?? 0, pc.z, pc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-      for (const npc of serverNPCs) {
-        const vy = (npc.type === 'helicopter' || npc.type === 'plane') ? (npc.y || 0) : 0;
-        this.drawMesh(npc.mesh, npc.x, vy, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-      }
-      for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+      // for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, pc.y ?? (pc as any)._expY ?? 0, pc.z, pc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+      // for (const npc of serverNPCs) {
+      //   const vy = (npc.type === 'helicopter' || npc.type === 'plane') ? (npc.y || 0) : 0;
+      //   this.drawMesh(npc.mesh, npc.x, vy, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+      // }
+     // for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
       for (const p of otherPlayers) {
         if (p.passengerOfUserId && p.passengerOfUserId > 0) continue;
         if (p.isInCar) {
