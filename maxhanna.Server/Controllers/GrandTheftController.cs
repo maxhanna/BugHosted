@@ -1119,8 +1119,24 @@ namespace maxhanna.Server.Controllers
 								float dist = (float)Math.Sqrt(dx * dx + dz * dz);
 								if (dist > 0.5f)
 								{
-									npc.X += (dx / dist) * npc.Speed * 0.1f;
-									npc.Z += (dz / dist) * npc.Speed * 0.1f;
+									float moveX = (dx / dist) * npc.Speed * 0.1f;
+									float moveZ = (dz / dist) * npc.Speed * 0.1f;
+									float nextX = npc.X + moveX;
+									float nextZ = npc.Z + moveZ;
+									int simCX = (int)Math.Floor(nextX / CityLayout.CHUNK_SIZE);
+									int simCZ = (int)Math.Floor(nextZ / CityLayout.CHUNK_SIZE);
+									string simBiome = CityLayout.GetBiome(simCX, simCZ);
+									bool simIsOcean = simBiome == "ocean" || simBiome == "beach";
+									bool isSimVehicle = npc.Type == "car" || npc.Type == "bus" || npc.Type == "taxi" || npc.Type == "police" || npc.Type == "bike" || npc.Type == "motorcycle";
+
+									if (!simIsOcean && !CityLayout.IsBuildingAt(nextX, nextZ))
+									{
+										if (!isSimVehicle || CityLayout.IsRoadAt(nextX, nextZ))
+										{
+											npc.X = nextX;
+											npc.Z = nextZ;
+										}
+									}
 								}
 								else
 								{
@@ -1657,7 +1673,17 @@ namespace maxhanna.Server.Controllers
 							float moveZ = (tdz / distToTarget) * npc.Speed * 0.5f;
 							float nextX = npc.X + moveX;
 							float nextZ = npc.Z + moveZ;
-							if (!CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
+
+							int copCX = (int)Math.Floor(nextX / CityLayout.CHUNK_SIZE);
+							int copCZ = (int)Math.Floor(nextZ / CityLayout.CHUNK_SIZE);
+							string copBiome = CityLayout.GetBiome(copCX, copCZ);
+
+							// Strict validation: Cops cannot walk into water/beach or buildings
+							if (copBiome != "ocean" && copBiome != "beach" && !CityLayout.IsBuildingAt(nextX, nextZ))
+							{
+								npc.X = nextX;
+								npc.Z = nextZ;
+							}
 						}
 
 						npc.IsShootingAt = false;
