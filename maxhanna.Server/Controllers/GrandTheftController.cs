@@ -700,10 +700,10 @@ namespace maxhanna.Server.Controllers
 		private static long _nextNpcId = 1;
 		private static long GetNextNpcId() => Interlocked.Increment(ref _nextNpcId);
 
-		private void BroadcastDeathMessage(int playerId, int worldId, string killerName, string victimName, string cause)
+		private void BroadcastDeathMessage(int playerId, float posX, float posZ, float? carYaw, int worldId, string killerName, string victimName, string cause)
 		{
 			if (_playerDeathBroadcasted.TryGetValue(playerId, out bool alreadyBroadcasted) && alreadyBroadcasted) return;
-			
+
 			var messages = _worldChatMessages.GetOrAdd(worldId, _ => new List<ChatMessageEntry>());
 			_playerDeathBroadcasted[playerId] = true;
 			lock (messages)
@@ -714,6 +714,33 @@ namespace maxhanna.Server.Controllers
 				messages.RemoveAll(m => m.Timestamp < pruneCutoff);
 				while (messages.Count > 100) messages.RemoveAt(0);
 			}
+
+			_deadPlayerBodies[playerId] = new DeadPlayerBody
+			{
+				UserId = playerId,
+				PosX = posX,
+				PosZ = posZ,
+				Yaw = carYaw ?? 0,
+				DiedAt = DateTime.UtcNow
+			};
+
+			_playerWantedLevels[playerId] = 0;
+			_playerMoney[playerId] = 0;
+			for (int i = 1; i <= 4; i++) _homeBaseWeaponCollected[i] = false;
+			if (_playerWeapons.TryGetValue(playerId, out var pw))
+			{
+				var ammoArr = _playerAmmo.TryGetValue(playerId, out var pa) ? pa : new int[5];
+				for (int wi = 1; wi <= 4; wi++)
+				{
+					if (pw[wi])
+					{
+						var drop = new DroppedWeapon { Id = GetNextDropId(), PosX = posX, PosZ = posZ, WeaponType = wi, Ammo = ammoArr[wi], DroppedAt = DateTime.UtcNow };
+						_droppedWeapons[drop.Id] = drop;
+					}
+				}
+			}
+			_playerWeapons[playerId] = new bool[5] { true, false, false, false, false };
+			_playerAmmo[playerId] = new int[5];
 		}
 
 		private class NpcState
@@ -872,19 +899,9 @@ namespace maxhanna.Server.Controllers
 						if (!_playerDeathBroadcasted.TryGetValue(req.UserId, out _))
 						{
 							string victimName = _playerUsername.GetOrAdd(req.UserId, $"Player{req.UserId}");
-							BroadcastDeathMessage(req.UserId, req.WorldId, "the police", victimName, "");
+							BroadcastDeathMessage(req.UserId, req.PosX, req.PosZ, req.CarYaw, req.WorldId, "the police", victimName, "");
 						}
-						_deadPlayerBodies[req.UserId] = new DeadPlayerBody
-						{
-							UserId = req.UserId,
-							PosX = req.PosX,
-							PosZ = req.PosZ,
-							Yaw = req.CarYaw,
-							DiedAt = DateTime.UtcNow
-						};
 					}
-					_playerWantedLevels[req.UserId] = 0;
-					_playerMoney[req.UserId] = 0;
 				}
 				else
 				{
@@ -900,14 +917,10 @@ namespace maxhanna.Server.Controllers
 					SimulateDamage(req);
 				}
 				else if (_shootingPlayers.TryGetValue(req.UserId, out var ps))
-				{
-					// Keep the shooting flag visible for other players for 500ms
-					// after the shooter releases the button. This ensures a brief
-					// click is still visible even if the poll interval misses it.
+				{ 
 					ps.LastUpdated = DateTime.UtcNow;
 				}
-
-				// Clean up stale shooting entries (older than 500ms)
+ 
 				var cutoff = DateTime.UtcNow.AddMilliseconds(-500);
 				foreach (var kv in _shootingPlayers) if (kv.Value.LastUpdated < cutoff) _shootingPlayers.TryRemove(kv.Key, out _);
 
@@ -2554,30 +2567,14 @@ namespace maxhanna.Server.Controllers
 					if (req.AttackerId <= 0)
 					{
 						string victimName = _playerUsername.GetOrAdd(playerTargetId, $"Player{playerTargetId}");
-						BroadcastDeathMessage(playerTargetId, req.WorldId, "An NPC", victimName, " with a weapon");
+						BroadcastDeathMessage(playerTargetId, deathX, deathZ, null, req.WorldId, "An NPC", victimName, " with a weapon");
 					}
 					else if (req.AttackerId != playerTargetId)
 					{
 						string victimName = _playerUsername.GetOrAdd(playerTargetId, $"Player{playerTargetId}");
 						string killerName = _playerUsername.GetOrAdd(req.AttackerId, $"Player{req.AttackerId}");
-						BroadcastDeathMessage(playerTargetId, req.WorldId, killerName, victimName, " with a weapon");
-					}
-
-					for (int i = 1; i <= 4; i++) _homeBaseWeaponCollected[i] = false;
-					if (_playerWeapons.TryGetValue(playerTargetId, out var pw))
-					{
-						var ammoArr = _playerAmmo.TryGetValue(playerTargetId, out var pa) ? pa : new int[5];
-						for (int wi = 1; wi <= 4; wi++)
-						{
-							if (pw[wi])
-							{
-								var drop = new DroppedWeapon { Id = GetNextDropId(), PosX = deathX, PosZ = deathZ, WeaponType = wi, Ammo = ammoArr[wi], DroppedAt = DateTime.UtcNow };
-								_droppedWeapons[drop.Id] = drop;
-							}
-						}
-					}
-					_playerWeapons[playerTargetId] = new bool[5] { true, false, false, false, false };
-					_playerAmmo[playerTargetId] = new int[5];
+						BroadcastDeathMessage(playerTargetId, deathX, deathZ, null, req.WorldId, killerName, victimName, " with a weapon");
+					} 
 				}
 			}
 
