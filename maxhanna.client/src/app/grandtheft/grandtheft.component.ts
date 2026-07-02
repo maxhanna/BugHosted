@@ -62,7 +62,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   carPitch = 0;
   carRoll = 0;
 
-  carHealth = 400;
+  carHealth = 200;
   isInCar = false;
   vehicleType: 'car' | 'bus' | 'plane' | 'bike' | 'motorcycle' | 'taxi' | 'boat' | 'helicopter' | 'police' = 'car';
   isPassenger = false;
@@ -819,7 +819,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
         this.isInCar = true;
         this.vehicleType = 'car';
-        this.carHealth = 400;
+        this.carHealth = 200;
 
         const carMeshes = this.renderer.carMeshes;
         this.playerVehicleMesh = carMeshes.length > 0 ? carMeshes[0] : null;
@@ -1937,7 +1937,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
       this.isInCar = true;
       this.vehicleType = this.garageCar.vehicleType as any;
-      this.carHealth = 400;
+      this.carHealth = 200;
       this.playerVehicleMesh = this.garageCarMesh;
       this.playerVehicleColor = [this.garageCar.colorR, this.garageCar.colorG, this.garageCar.colorB];
       if (this.renderer.playerMesh) {
@@ -2545,7 +2545,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this._carFireStarted = 0;
       this._carSubmerged = false;
       this.exitCar();
-      this.carHealth = 400;
+      this.carHealth = 200;
       this.carY = CAR_HEIGHT;
     }
 
@@ -2573,7 +2573,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (this._wasDead && !this._respawnTimer) {
         this._respawnTimer = setTimeout(() => {
           this.health = 100;
-          this.carHealth = 400;
+          this.carHealth = 200;
           this.wantedLevel = 0;
           if (this.isInCar) this.exitCar();
           if (this.isPassenger) this.exitPassenger();

@@ -832,13 +832,15 @@ namespace maxhanna.Server.Controllers
 				await conn.OpenAsync();
 
 				bool respawnAtHome = false;
-				using (var checkCmd = new MySqlCommand("SELECT last_seen FROM maxhanna.grandtheft_player_state WHERE user_id = @uid", conn))
+				using (var checkCmd = new MySqlCommand("SELECT s.last_seen, u.username FROM maxhanna.grandtheft_player_state s JOIN maxhanna.users u ON s.user_id = u.id WHERE s.user_id = @uid", conn))
 				{
 					checkCmd.Parameters.AddWithValue("@uid", req.UserId);
 					using var rdr = await checkCmd.ExecuteReaderAsync();
 					if (await rdr.ReadAsync())
 					{
 						var lastSeen = rdr.GetDateTime("last_seen");
+						var userName = rdr.GetString("username");
+						_playerUsername[req.UserId] = userName;
 						var inactiveMinutes = (DateTime.UtcNow - lastSeen.ToUniversalTime()).TotalMinutes;
 						if (inactiveMinutes >= INACTIVITY_RESPAWN_MINUTES)
 						{
@@ -1807,8 +1809,8 @@ namespace maxhanna.Server.Controllers
 					TargetZ = z,
 					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
 					Speed = type == "bike" || type == "motorcycle" ? 6.0f : 4.0f,
-					Health = type == "bike" || type == "motorcycle" ? 200 : 400,
-					MaxHealth = type == "bike" || type == "motorcycle" ? 200 : 400,
+					Health = type == "bike" || type == "motorcycle" ? 100 : 200,
+					MaxHealth = type == "bike" || type == "motorcycle" ? 200 : 200,
 					Cr = type == "taxi" ? 1.0f : (float)rng.NextDouble(),
 					Cg = type == "taxi" ? 0.85f : (float)rng.NextDouble(),
 					Cb = type == "taxi" ? 0.1f : (float)rng.NextDouble(),
@@ -1863,8 +1865,8 @@ namespace maxhanna.Server.Controllers
 					TargetZ = z,
 					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
 					Speed = 15.0f,
-					Health = 400,
-					MaxHealth = 400,
+					Health = 200,
+					MaxHealth = 200,
 					Cr = 0.1f,
 					Cg = 0.1f,
 					Cb = 0.2f,
@@ -2068,8 +2070,8 @@ namespace maxhanna.Server.Controllers
 					TargetZ = z,
 					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
 					Speed = type == "bike" || type == "motorcycle" ? 6.0f : 4.0f,
-					Health = type == "bike" || type == "motorcycle" ? 200 : 400,
-					MaxHealth = type == "bike" || type == "motorcycle" ? 200 : 400,
+					Health = type == "bike" || type == "motorcycle" ? 100 : 200,
+					MaxHealth = type == "bike" || type == "motorcycle" ? 100 : 200,
 					Cr = type == "taxi" ? 1.0f : (float)rng.NextDouble(),
 					Cg = type == "taxi" ? 0.85f : (float)rng.NextDouble(),
 					Cb = type == "taxi" ? 0.1f : (float)rng.NextDouble(),
@@ -2523,8 +2525,8 @@ namespace maxhanna.Server.Controllers
 				X = req.PosX,
 				Z = req.PosZ,
 				Yaw = req.Yaw,
-				Health = 400,
-				MaxHealth = 400,
+				Health = 200,
+				MaxHealth = 200,
 				Cr = req.ColorR,
 				Cg = req.ColorG,
 				Cb = req.ColorB,
