@@ -53,6 +53,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private animFrameId = 0;
   private lastTime = 0;
   private keys: Set<string> = new Set();
+  private _lastHudSpeed = -1;
+  private _lastHealth = -1;
 
   carX = HOSPITAL_SPAWN_X; carY = CAR_HEIGHT; carZ = HOSPITAL_SPAWN_Z;
   carYaw = HOSPITAL_SPAWN_YAW;
@@ -254,6 +256,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     [0.9, 0.7, 0.1], [0.6, 0.2, 0.6], [1.0, 0.5, 0.0],
     [0.1, 0.6, 0.6], [0.5, 0.3, 0.1],
   ];
+  _lastPreGenX: number = 0;
+  _lastPreGenZ: number = 0;
 
   constructor(private gtService: GrandtheftService,
     private userEventService: UserEventService,
@@ -2692,6 +2696,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     try {
       this.renderer.droppedWeapons = this.droppedWeapons || [];
       this.renderer.carFireElapsed = this._carOnFire ? (performance.now() / 1000) - this._carFireStarted : 0;
+      const newChunkX = Math.floor(this.carX / CHUNK_SIZE);
+      const newChunkZ = Math.floor(this.carZ / CHUNK_SIZE);
+      if (newChunkX !== this._lastPreGenX || newChunkZ !== this._lastPreGenZ) {
+        this._lastPreGenX = newChunkX;
+        this._lastPreGenZ = newChunkZ;
+        // Pre-generate all nearby chunks (synchronous but happens once per chunk crossing)
+        for (let dz = -1; dz <= 1; dz++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            this.renderer.getCityChunk(newChunkX + dx, newChunkZ + dz);
+          }
+        }
+      }
       this.renderer.render(
         camX, camY, camZ, this.camYaw, this.camPitch, aspect,
         targetX, this.carY - CAR_HEIGHT + rockOffset, targetZ, this.carYaw,
@@ -2747,14 +2763,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
 
     this.hudSpeed = Math.abs(this.carSpeed) * (this.isInCar ? 3.6 : 1);
-    this._hudUpdateTimer += dt;
-    if (this._hudUpdateTimer > 0.1) {  // ~10 Hz
-      this._hudUpdateTimer = 0;
-      this.ngZone.run(() => {
-        // These are the only properties the template needs frequently
-        // Angular will run change detection just for these
-      });
-    }
+    // this._hudUpdateTimer += dt;
+    // if (this._hudUpdateTimer > 0.1) {  // ~10 Hz
+    //   this._hudUpdateTimer = 0;
+    //   this.ngZone.run(() => {
+    //     // These are the only properties the template needs frequently
+    //     // Angular will run change detection just for these
+    //   });
+    // }
+  // In gameLoop:
+  if(Math.abs(this.hudSpeed - this._lastHudSpeed) > 1 || this.health !== this._lastHealth) {
+  this._lastHudSpeed = this.hudSpeed;
+  this._lastHealth = this.health;
+  this.ngZone.run(() => { this.cdr.detectChanges(); });
+}
     this.animFrameId = requestAnimationFrame(this.gameLoop);
   };
 
