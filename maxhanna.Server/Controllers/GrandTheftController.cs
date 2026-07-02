@@ -918,7 +918,7 @@ namespace maxhanna.Server.Controllers
 						if (!_playerDeathBroadcasted.TryGetValue(req.UserId, out _))
 						{
 							string victimName = _playerUsername.GetOrAdd(req.UserId, $"Player{req.UserId}");
-							BroadcastDeathMessage(req.UserId, req.PosX, req.PosZ, req.CarYaw, req.WorldId, "the police", victimName, "");
+							BroadcastDeathMessage(req.UserId, req.PosX, req.PosZ, req.CarYaw, req.WorldId, "the world", victimName, "");
 						}
 					}
 				}

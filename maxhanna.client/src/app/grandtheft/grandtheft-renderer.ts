@@ -2005,29 +2005,32 @@ void main() {
       if (bridge) {
         const roadCenterZ = cz * CHUNK_SIZE;
         const roadW = ROAD_HALF_WIDTH * 2;
-        const bridgeW = roadW + 10;
-        const isRampUp = cx === bridge.startCx - 1;
+        const bridgeW = roadW + 10; 
 
-        const numSlices = 20;
-        const sliceW = CHUNK_SIZE / numSlices;
-        const overlap = 1.4;
-        for (let si = 0; si < numSlices; si++) {
-          const sx = worldOriginX + (isRampUp ? si * sliceW + sliceW / 2 : CHUNK_SIZE - si * sliceW - sliceW / 2);
-          const surfY = bridgeYAt(sx, bridge);
-          const nextX = sx + (isRampUp ? sliceW : -sliceW);
-          const nextY = bridgeYAt(nextX, bridge);
-          const avgY = (surfY + nextY) / 2;
+        const segments = 8; // Smooth curve approximation
+        const segW = CHUNK_SIZE / segments;
+        for (let s = 0; s < segments; s++) {
+          let x1 = worldOriginX + s * segW;
+          let x2 = worldOriginX + (s + 1) * segW;
+          const y1 = bridgeYAt(x1, bridge);
+          const y2 = bridgeYAt(x2, bridge);
 
-          this.addBox(verts, indices, sx, avgY + 0.08, roadCenterZ, sliceW * overlap, 0.12, roadW, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
-          if (si % 2 === 0) {
-            this.addBox(verts, indices, sx, avgY + 0.15, roadCenterZ, sliceW * 0.7, 0.02, 0.3, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
+          // Asphalt road surface
+          this.addRamp(verts, indices, x1, y1 + 0.08, x2, y2 + 0.08, roadCenterZ, roadW, 0.12, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+
+          // Dashed lane markings
+          if (s % 2 === 0) {
+            this.addRamp(verts, indices, x1, y1 + 0.15, x2, y2 + 0.15, roadCenterZ, 0.3, 0.02, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
           }
-          this.addBox(verts, indices, sx, avgY + 0.18, roadCenterZ, sliceW * overlap, 0.3, 0.3, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
 
+          // Center divider
+          this.addRamp(verts, indices, x1, y1 + 0.18, x2, y2 + 0.18, roadCenterZ, 0.3, 0.3, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
+
+          // Guard rails
           for (const side of [-1, 1]) {
             const rz = roadCenterZ + side * (bridgeW / 2);
-            this.addBox(verts, indices, sx, avgY + 1.0, rz, sliceW * overlap, 0.15, 0.15, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, sx, avgY + 0.5, rz, sliceW * overlap, 0.12, 0.12, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
+            this.addRamp(verts, indices, x1, y1 + 1.0, x2, y2 + 1.0, rz, 0.15, 0.15, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
+            this.addRamp(verts, indices, x1, y1 + 0.5, x2, y2 + 0.5, rz, 0.12, 0.12, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
           }
         }
       }
@@ -5070,6 +5073,72 @@ void main() {
       console.error('Failed to load glTF', url, e);
       return null;
     }
+  }
+  private addRamp(
+    verts: number[], indices: number[],
+    x1: number, y1: number, x2: number, y2: number,
+    z: number, width: number, thickness: number,
+    r: number, g: number, b: number, a: number, idxOffset: number
+  ) {
+    const z1 = z - width / 2;
+    const z2 = z + width / 2;
+    const y1b = y1 - thickness;
+    const y2b = y2 - thickness;
+
+    // 6 faces, 24 vertices total (same structure as addBox)
+    // Top
+    verts.push(
+      x1, y1, z1, r * 0.8, g * 0.8, b * 0.8, a,
+      x2, y2, z1, r * 0.8, g * 0.8, b * 0.8, a,
+      x2, y2, z2, r * 0.8, g * 0.8, b * 0.8, a,
+      x1, y1, z2, r * 0.8, g * 0.8, b * 0.8, a
+    );
+    indices.push(idxOffset, idxOffset + 1, idxOffset + 2, idxOffset, idxOffset + 2, idxOffset + 3);
+
+    // Bottom
+    verts.push(
+      x1, y1b, z1, r * 0.6, g * 0.6, b * 0.6, a,
+      x2, y2b, z1, r * 0.6, g * 0.6, b * 0.6, a,
+      x2, y2b, z2, r * 0.6, g * 0.6, b * 0.6, a,
+      x1, y1b, z2, r * 0.6, g * 0.6, b * 0.6, a
+    );
+    indices.push(idxOffset + 4, idxOffset + 6, idxOffset + 5, idxOffset + 4, idxOffset + 7, idxOffset + 6);
+
+    // Front (Z1)
+    verts.push(
+      x1, y1, z1, r * 0.7, g * 0.7, b * 0.7, a,
+      x2, y2, z1, r * 0.7, g * 0.7, b * 0.7, a,
+      x2, y2b, z1, r * 0.7, g * 0.7, b * 0.7, a,
+      x1, y1b, z1, r * 0.7, g * 0.7, b * 0.7, a
+    );
+    indices.push(idxOffset + 8, idxOffset + 11, idxOffset + 10, idxOffset + 8, idxOffset + 10, idxOffset + 9);
+
+    // Back (Z2)
+    verts.push(
+      x1, y1, z2, r * 0.7, g * 0.7, b * 0.7, a,
+      x2, y2, z2, r * 0.7, g * 0.7, b * 0.7, a,
+      x2, y2b, z2, r * 0.7, g * 0.7, b * 0.7, a,
+      x1, y1b, z2, r * 0.7, g * 0.7, b * 0.7, a
+    );
+    indices.push(idxOffset + 12, idxOffset + 14, idxOffset + 15, idxOffset + 12, idxOffset + 13, idxOffset + 14);
+
+    // Left (X1)
+    verts.push(
+      x1, y1, z1, r * 0.9, g * 0.9, b * 0.9, a,
+      x1, y1, z2, r * 0.9, g * 0.9, b * 0.9, a,
+      x1, y1b, z2, r * 0.9, g * 0.9, b * 0.9, a,
+      x1, y1b, z1, r * 0.9, g * 0.9, b * 0.9, a
+    );
+    indices.push(idxOffset + 16, idxOffset + 18, idxOffset + 19, idxOffset + 16, idxOffset + 17, idxOffset + 18);
+
+    // Right (X2)
+    verts.push(
+      x2, y2, z1, r * 0.9, g * 0.9, b * 0.9, a,
+      x2, y2, z2, r * 0.9, g * 0.9, b * 0.9, a,
+      x2, y2b, z2, r * 0.9, g * 0.9, b * 0.9, a,
+      x2, y2b, z1, r * 0.9, g * 0.9, b * 0.9, a
+    );
+    indices.push(idxOffset + 20, idxOffset + 23, idxOffset + 22, idxOffset + 20, idxOffset + 22, idxOffset + 21);
   }
   clearChunkCache() {
     this.chunkCache.clear();
