@@ -725,7 +725,7 @@ namespace maxhanna.Server.Controllers
 			_playerDeathBroadcasted[playerId] = true;
 			lock (messages)
 			{
-				string msg = $"{killerName} killed {victimName}{cause}";
+				string msg = $"{killerName} killed {victimName} {cause}";
 				messages.Add(new ChatMessageEntry { UserId = 0, Username = "SYSTEM", Message = msg, Timestamp = DateTime.UtcNow });
 				var pruneCutoff = DateTime.UtcNow.AddSeconds(-120);
 				messages.RemoveAll(m => m.Timestamp < pruneCutoff);
