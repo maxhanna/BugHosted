@@ -1070,6 +1070,9 @@
   #gt-radio {
     bottom: 460px;
   }
+  .radio-label {
+    font-size: 10px;
+  }
 }
 
 #gt-radio-info {
@@ -1082,7 +1085,7 @@
   border: 1px solid rgba(255, 255, 255, 0.15);
 }
 .radio-label {
-  font-size: 10px;
+  font-size: 28px;
   color: #888;
   letter-spacing: 2px;
 }

@@ -1710,7 +1710,7 @@ namespace maxhanna.Server.Controllers
 									}
 									if (_playerHealth[userId] <= 0)
 									{
-										BroadcastDeathMessage(userId, _playerX[userId], _playerZ[userId], null, 1, "police", _playerUsername[userId], "shot by police");
+										BroadcastDeathMessage(userId, _playerX[userId], _playerZ[userId], null, 1, "police", _playerUsername[userId], "");
 									}
 									_lastPoliceDamageTime[userId] = nowMs;
 								}

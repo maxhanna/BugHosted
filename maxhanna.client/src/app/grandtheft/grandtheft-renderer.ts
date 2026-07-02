@@ -2175,7 +2175,7 @@ void main() {
             const px = blockWorldX - halfSW + 5 + i * (SIDEWALK_SIZE / 4);
             const pz = blockWorldZ - halfSW + 5;
             if (this.palmTreeMesh) {
-              trees.push({ x: px, z: pz, yaw: rng() * 0.4 - 0.2, scale: 1.8 + rng() * 0.6 });
+              trees.push({ x: px, z: pz, yaw: rng() * 0.4 - 0.2, scale: 3 + rng() * 0.6 });
             } else {
               const ph = 5 + rng() * 3;
               this.addBox(verts, indices, px, ph / 2, pz, 0.4, ph, 0.4, 0.3, 0.18, 0.05, 1.0, idxOffset); idxOffset += 24;
