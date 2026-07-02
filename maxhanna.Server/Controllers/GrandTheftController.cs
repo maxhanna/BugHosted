@@ -1370,7 +1370,7 @@ namespace maxhanna.Server.Controllers
 							int panicCX = (int)Math.Floor(fnextX / CityLayout.CHUNK_SIZE);
 							int panicCZ = (int)Math.Floor(fnextZ / CityLayout.CHUNK_SIZE);
 							string panicBiome = CityLayout.GetBiome(panicCX, panicCZ);
-							if (panicBiome != "ocean" && panicBiome != "beach" && !CityLayout.IsBuildingAt(fnextX, fnextZ)) { npc.X = fnextX; npc.Z = fnextZ; }
+							if (panicBiome != "ocean" && panicBiome != "beach" && !CityLayout.IsBuildingAt(fnextX, fnextZ) && CityLayout.IsRoadAt(fnextX, fnextZ)) { npc.X = fnextX; npc.Z = fnextZ; }
 							npc.Yaw = (float)Math.Atan2(fmoveX, fmoveZ);
 						}
 					}
@@ -1392,7 +1392,7 @@ namespace maxhanna.Server.Controllers
 							int fallbackCX = (int)Math.Floor(nextX / CityLayout.CHUNK_SIZE);
 							int fallbackCZ = (int)Math.Floor(nextZ / CityLayout.CHUNK_SIZE);
 							string fallbackBiome = CityLayout.GetBiome(fallbackCX, fallbackCZ);
-							if (fallbackBiome != "ocean" && fallbackBiome != "beach" && !CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
+							if (fallbackBiome != "ocean" && fallbackBiome != "beach" && !CityLayout.IsBuildingAt(nextX, nextZ) && CityLayout.IsRoadAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
 							npc.Yaw = (float)Math.Atan2(moveX, moveZ);
 						}
 						else
@@ -1690,22 +1690,39 @@ namespace maxhanna.Server.Controllers
 						float moveZ = (tdz / distToTarget) * npc.Speed * 0.5f;
 
 						float sepX = 0f, sepZ = 0f;
-						foreach (var otherKv in npcs)
+						float minSep = npc.Type == "cop" ? 3.5f : 2.0f;
+						float minSepSq = minSep * minSep;
+
+						foreach (var otherNpc in npcs.Values)
 						{
-							if (otherKv.Key == kv.Key || otherKv.Value.DeadAt != null) continue;
-							float sdx = npc.X - otherKv.Value.X;
-							if (sdx > 2f || sdx < -2f) continue;
-							float sdz = npc.Z - otherKv.Value.Z;
-							if (sdz > 2f || sdz < -2f) continue;
+							if (otherNpc.Id == npc.Id || otherNpc.DeadAt.HasValue) continue;
+							float sdx = npc.X - otherNpc.X;
+							if (sdx > minSep || sdx < -minSep) continue;
+							float sdz = npc.Z - otherNpc.Z;
+							if (sdz > minSep || sdz < -minSep) continue;
 							float sDistSq = sdx * sdx + sdz * sdz;
-							if (sDistSq < 4f && sDistSq > 0.01f)
+							if (sDistSq < minSepSq && sDistSq > 0.01f)
 							{
 								float sDist = (float)Math.Sqrt(sDistSq);
-								float force = (2f - sDist) / 2f;
+								float force = (minSep - sDist) / minSep;
 								sepX += (sdx / sDist) * force;
 								sepZ += (sdz / sDist) * force;
 							}
 						}
+
+						// Enforce road structure for separation forces
+						float sepTargetX = npc.X + sepX * 0.05f;
+						float sepTargetZ = npc.Z + sepZ * 0.05f;
+						int sepCX = (int)Math.Floor(sepTargetX / CityLayout.CHUNK_SIZE);
+						int sepCZ = (int)Math.Floor(sepTargetZ / CityLayout.CHUNK_SIZE);
+						string sepBiome = CityLayout.GetBiome(sepCX, sepCZ);
+						bool sepIsOcean = sepBiome == "ocean" || sepBiome == "beach";
+						if (!sepIsOcean && !CityLayout.IsBuildingAt(sepTargetX, sepTargetZ) && CityLayout.IsRoadAt(sepTargetX, sepTargetZ))
+						{
+							npc.X = sepTargetX;
+							npc.Z = sepTargetZ;
+						}
+
 						moveX += sepX * 0.5f;
 						moveZ += sepZ * 0.5f;
 

@@ -1902,7 +1902,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private spawnBulletTrail(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, weapon: number = 1) {
-    // No trail for unarmed
     if (weapon === 0) return;
     const trailLength = 40;
     const numParticles = weapon === 4 ? 6 : weapon; // 1 for pistol, 2 for rifle, 3 for shotgun, 6 for rocket
@@ -2302,10 +2301,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (nextNode && distToTarget < intersectionRadius) {
         const isHDir = Math.abs(nextNode.x - currNode.x) > Math.abs(nextNode.z - currNode.z);
         if ((isHDir && isRedForX) || (!isHDir && !isRedForX)) redLight = true;
-      }
-
-      this.pushTrafficCarOutOfBuildings(car);
-
+      } 
+      
       if (distToTarget < 2) {
         car.pathIdx++;
         if (car.pathIdx < car.path.length) {
@@ -2336,46 +2333,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       car.z += Math.cos(car.yaw) * car.speed * dt;
     }
 
-    for (const npc of this.serverNPCs) this.pushTrafficCarOutOfBuildings(npc);
-  }
-
-  private pushTrafficCarOutOfBuildings(car: { x: number; z: number }) {
-    const cx = Math.floor(car.x / CHUNK_SIZE);
-    const cz = Math.floor(car.z / CHUNK_SIZE);
-    const margin = 1.0;
-
-    for (let dz = -1; dz <= 1; dz++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        const chunkCX = cx + dx;
-        const chunkCZ = cz + dz;
-        if (chunkCX === 0 && chunkCZ === 0) continue;
-        const chunk = this.renderer.getCityChunk(chunkCX, chunkCZ);
-        for (const bld of chunk.buildings) {
-          const models = Array.isArray(bld.model) ? bld.model : [bld.model];
-          for (const m of models) {
-            if (m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined) continue;
-            const rs = m.renderScale ?? 1;
-            const sx = (bld.scale?.[0] ?? 1) * rs;
-            const sz = (bld.scale?.[2] ?? 1) * rs;
-            const hw = (m.maxX - m.minX) / 2 * sx + margin;
-            const hd = (m.maxZ - m.minZ) / 2 * sz + margin;
-            const rot = ((bld.yaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-            const swap = Math.abs(rot - Math.PI / 2) < 0.01 || Math.abs(rot - Math.PI * 3 / 2) < 0.01;
-            const ehw = swap ? hd : hw;
-            const ehd = swap ? hw : hd;
-            const cdx = car.x - bld.x;
-            const cdz = car.z - bld.z;
-            if (Math.abs(cdx) < ehw && Math.abs(cdz) < ehd) {
-              const overlapX = ehw - Math.abs(cdx);
-              const overlapZ = ehd - Math.abs(cdz);
-              if (overlapX < overlapZ) car.x += cdx > 0 ? overlapX : -overlapX;
-              else car.z += cdz > 0 ? overlapZ : -overlapZ;
-            }
-          }
-        }
-      }
-    }
-  }
+  } 
 
   private updatePedestrians(dt: number) {
     this.pedSpawnTimer += dt;
