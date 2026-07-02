@@ -1674,11 +1674,15 @@ namespace maxhanna.Server.Controllers
 									var damageDealt = 5;
 									if (_playerHealth.TryGetValue(userId, out var hp))
 									{ 
-										_playerHealth[userId] = (hp - damageDealt) > 0 ? (hp - damageDealt) : 0;
+										_playerHealth[userId] = (hp - damageDealt) >= 0 ? (hp - damageDealt) : 0;
 									}
 									else
 									{
 										_playerHealth[userId] = Math.Max(0, 100 - damageDealt);
+									}
+									if (_playerHealth[userId] <= 0)
+									{
+										BroadcastDeathMessage(userId, _playerX[userId], _playerZ[userId], null, 1, "police", _playerUsername[userId], "shot by police");
 									}
 									_lastPoliceDamageTime[userId] = nowMs;
 								}
