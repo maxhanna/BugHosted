@@ -3399,6 +3399,7 @@ getRoadNodesInRadius(cx: number, cz: number, radius: number): { x: number; z: nu
     serverNPCs: any[], otherPlayers: any[], serverPedestrians: any[], parkedCars: any[],
     tracers: any[], muzzleFlashes: any[], rockets: any[], explosions: any[], bloodSplats: any[],
     bloodPools: any[],
+    bulletSmoke: any[],
     moneyStacks: any[],
     deadBodies: any[],
     vendingMachines: any[],
@@ -3811,6 +3812,14 @@ getRoadNodesInRadius(cx: number, cz: number, radius: number): { x: number; z: nu
       const sz = b.size * (1.0 - t * 0.3);
       const tint = 0.85 - t * 0.25;
       this.drawMesh(this.getBloodMesh(), b.x, b.y, b.z, 0, [sz, sz, sz], [tint, 0.0, 0.0, alpha]);
+    }
+
+    const smokeMesh = this.getSphereMesh(0.5);
+    for (const s of bulletSmoke) {
+      const t = s.age / s.lifetime;
+      const alpha = (1.0 - t) * 0.35;
+      const sz = s.size;
+      this.drawMesh(smokeMesh, s.x, s.y, s.z, 0, [sz, sz, sz], [0.7, 0.7, 0.75, alpha]);
     }
 
     gl.enable(gl.DEPTH_TEST);

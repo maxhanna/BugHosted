@@ -206,6 +206,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   policeModeSpawnsRemaining = 0;
   policeModeRoundDelay = 0;
   policeModeKills = 0;
+  private currentCarId = 0;
+  dealershipNPCs: { id: number; x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; lotGx: number; lotGz: number }[] = [];
+  dealershipMission: { npcX: number; npcZ: number; state: 'search' | 'return'; payout: number; targetCarId: number; targetCarMesh: CityMesh | CityMesh[] } | null = null;
+  dealershipMarkers: { type: 'hail' | 'destination' | 'beam'; x: number; z: number; phase?: number }[] = [];
+  dealershipTargetCar: { id: number; x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; type: string } | null = null;
+  nearDealerNPC = false;
   private _wasDead = false;
   _carOnFire = false;
   _carFireStarted = 0;
@@ -229,6 +235,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   explosions: Explosion[] = [];
   bloodSplats: BloodSplat[] = [];
   bloodPools: BloodPool[] = [];
+  bulletSmoke: { x: number; y: number; z: number; vx: number; vy: number; vz: number; size: number; age: number; lifetime: number }[] = [];
   deadBodies: DeadBody[] = [];
   deadNPCIds: Set<number> = new Set();
   stolenNpcIds: Set<number> = new Set();
@@ -824,6 +831,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             }
           });
           this.stolenNpcIds.add(v.id);
+          this.currentCarId = v.id;
 
           if (isParked) {
             this.parkedCars = this.parkedCars.filter(p => p.id !== v.id);
@@ -861,6 +869,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               this.carY = da.type === 'helicopter' ? 5 : 3;
               this.carRoll = 0; this.carPitch = 0; this.carVy = 0;
               this.playerVehicleColor = [1, 1, 1];
+              this.currentCarId = 0;
               if (this.renderer.playerMesh) {
                 this.driverInCarMesh = { mesh: this.renderer.playerMesh, offsetX: 0.3, offsetY: -0.3, offsetZ: 0.2, yaw: 0, scale: 0.85 };
               }
@@ -1130,6 +1139,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const bestRoofY = exitRoofY > carRoofY ? exitRoofY : carRoofY;
     this.carY = CAR_HEIGHT + (bestRoofY > exitTerrainY ? bestRoofY : exitTerrainY);
     this.isInCar = false; this.vehicleType = 'car';
+    this.currentCarId = 0;
     this.camDist = 4; this.camHeight = 2;
     this.taxiMission = null;
     this.taxiMarkers = [];
@@ -1610,6 +1620,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3,
               weapon: 0, age: 0, lifetime: 0.08
             });
+            this.spawnBulletSmoke(npc.x, 1.2, npc.z, dx / d3, dy / d3, dz / d3);
             foundShooter = true;
           }
         };
@@ -1692,11 +1703,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const tracerLifetime = this.currentWeapon === 2 ? 0.15 : 0.3;
       this.tracers.push({ originX, originY, originZ, dirX, dirY, dirZ, age: 0, lifetime: tracerLifetime });
       this.muzzleFlashes.push({ x: originX, y: originY, z: originZ, dirX, dirY, dirZ, weapon: this.currentWeapon, age: 0, lifetime: 0.08 });
+      this.spawnBulletSmoke(originX, originY, originZ, dirX, dirY, dirZ);
 
       if (this.currentWeapon === 3) {
         for (let i = 1; i < 8; i++) {
           const spread = 0.08;
           this.tracers.push({ originX, originY, originZ, dirX: dirX + (Math.random() - 0.5) * spread, dirY: dirY + (Math.random() - 0.5) * spread, dirZ: dirZ + (Math.random() - 0.5) * spread, age: 0, lifetime: 0.2 });
+          this.spawnBulletSmoke(originX, originY, originZ, dirX + (Math.random() - 0.5) * spread, dirY + (Math.random() - 0.5) * spread, dirZ + (Math.random() - 0.5) * spread);
         }
       }
       this.checkBulletHit(originX, originY, originZ, dirX, dirY, dirZ);
@@ -1864,6 +1877,22 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     if (y < 1.6) {
       this.bloodPools.push({ x, z, age: 0, lifetime: 30, maxRadius: 1.5, variant: Math.floor(Math.random() * 4) });
+    }
+  }
+
+  private spawnBulletSmoke(ox: number, oy: number, oz: number, dirX: number, dirY: number, dirZ: number) {
+    for (let i = 0; i < 5; i++) {
+      this.bulletSmoke.push({
+        x: ox + (Math.random() - 0.5) * 0.3,
+        y: oy + (Math.random() - 0.5) * 0.3,
+        z: oz + (Math.random() - 0.5) * 0.3,
+        vx: dirX * (0.5 + Math.random() * 2) + (Math.random() - 0.5) * 0.8,
+        vy: dirY * (0.5 + Math.random() * 2) + (Math.random() - 0.5) * 0.8,
+        vz: dirZ * (0.5 + Math.random() * 2) + (Math.random() - 0.5) * 0.8,
+        size: 0.2 + Math.random() * 0.3,
+        age: 0,
+        lifetime: 0.5 + Math.random() * 0.4,
+      });
     }
   }
 
@@ -2501,6 +2530,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updatePoliceSiren();
     this.updateTaxiMission(dt);
     this.updatePoliceMode(dt);
+    this.updateDealershipMission(dt);
     this.updateAirportLotCars(dt);
 
     if (this.vehicleBannerTimer > 0) this.vehicleBannerTimer -= dt;
@@ -2715,11 +2745,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         allNPCs, this.otherPlayers, allPeds, this.parkedCars,
         this.tracers, this.muzzleFlashes, this.rockets, this.explosions, this.bloodSplats,
         this.bloodPools,
+        this.bulletSmoke,
         this.moneyStacks,
         this.deadBodies,
         this.vendingMachines,
         renderMesh,
-        this.taxiMarkers,
+        [...this.taxiMarkers, ...this.dealershipMarkers],
         (() => {
           const attached: any[] = [];
           if (this.driverInCarMesh) attached.push(this.driverInCarMesh);
@@ -3459,6 +3490,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     this.explosions = this.explosions.filter(e => (e.age += dt) < e.lifetime);
     this.bloodPools = this.bloodPools.filter(bp => (bp.age += dt) < bp.lifetime);
+    for (const s of this.bulletSmoke) {
+      s.age += dt;
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      s.z += s.vz * dt;
+      s.vy -= 1.0 * dt;
+      s.size += 1.5 * dt;
+    }
+    this.bulletSmoke = this.bulletSmoke.filter(s => s.age < s.lifetime);
     const now = performance.now() / 1000;
     this.deadBodies = this.deadBodies.filter(db => (now - db.deathTime) < db.lifetime);
   }
@@ -3496,6 +3536,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           dirX: rdirX, dirY: rdirY, dirZ: rdirZ,
           weapon: p.weapon, age: 0, lifetime: 0.08
         });
+        this.spawnBulletSmoke(p.posX, originY, p.posZ, rdirX, rdirY, rdirZ);
         this.playWeaponSound(p.weapon);
       }
     }
@@ -3521,6 +3562,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3,
           weapon: 0, age: 0, lifetime: 0.08
         });
+        this.spawnBulletSmoke(npc.x, 1.2, npc.z, dx / d3, dy / d3, dz / d3);
       }
       this.playWeaponSound(0);
       npc.isShootingAt = false;
@@ -3579,8 +3621,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   private spawnAirportLotCars() {
     if (this.renderer.carMeshes.length === 0) return;
+    const dealerships: { gx: number; gz: number }[] = [
+      { gx: 12, gz: -6 }, { gx: 26, gz: -8 },
+    ];
     const parkingLots: { gx: number; gz: number }[] = [
-      { gx: 2, gz: -3 }, { gx: 12, gz: -6 }, { gx: 26, gz: -8 }, { gx: 41, gz: -11 }, { gx: 39, gz: 16 },
+      { gx: 2, gz: -3 }, { gx: 41, gz: -11 }, { gx: 39, gz: 16 },
     ];
     let spawned = 0;
     for (const pl of parkingLots) {
@@ -3597,6 +3642,34 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         hasDriver: false,
       } as any);
       spawned++;
+    }
+    for (const dl of dealerships) {
+      const lotX = dl.gx * 80;
+      const lotZ = dl.gz * 80;
+      const npcId = --this.pedIdCounter;
+      this.dealershipNPCs.push({
+        id: npcId,
+        x: lotX + 18,
+        z: lotZ + 25,
+        yaw: -Math.PI / 2,
+        mesh: this.renderer.getPedestrianMesh('male', npcId),
+        lotGx: dl.gx,
+        lotGz: dl.gz,
+      });
+      for (let di = 0; di < 3; di++) {
+        const color = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
+        const parkedId = --this.pedIdCounter;
+        this.parkedCars.push({
+          id: parkedId,
+          x: lotX + (di - 1) * 9,
+          z: lotZ + 18,
+          yaw: 0,
+          type: 'car',
+          health: 1000,
+          mesh: this.renderer.getNPCCarMesh([color[0], color[1], color[2]], parkedId),
+          colorR: color[0], colorG: color[1], colorB: color[2],
+        });
+      }
     }
   }
   private updateAirportLotCars(dt: number) {
@@ -4087,6 +4160,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (td3 > 0.01) {
           this.tracers.push({ originX: thug.x, originY: 1.0, originZ: thug.z, dirX: tdx / td3, dirY: tdy / td3, dirZ: tdz / td3, age: 0, lifetime: 0.2 });
           this.muzzleFlashes.push({ x: thug.x, y: 1.0, z: thug.z, dirX: tdx / td3, dirY: tdy / td3, dirZ: tdz / td3, weapon: 2, age: 0, lifetime: 0.08 });
+          this.spawnBulletSmoke(thug.x, 1.0, thug.z, tdx / td3, tdy / td3, tdz / td3);
           this.damageAlpha = 0.4;
           this.gtService.hit(0, this.getUserId(), 1, 8, thug.x, thug.z).then((res: any) => {
             if (res && res.targetHealth !== undefined) this.health = res.targetHealth;
@@ -4153,6 +4227,91 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.policeModeRoundDelay = 0;
         this.policeRound++;
         this.startPoliceRound();
+      }
+    }
+  }
+
+  private startDealershipMission() {
+    const npc = this.dealershipNPCs.find(n => {
+      const dx = n.x - this.carX, dz = n.z - this.carZ;
+      return Math.hypot(dx, dz) < 8;
+    });
+    if (!npc || this.isInCar) return;
+
+    const targetId = --this.pedIdCounter;
+    const color: [number, number, number] = [0.2 + Math.random() * 0.6, 0.2 + Math.random() * 0.6, 0.2 + Math.random() * 0.6];
+    const targetMesh = this.renderer.getNPCCarMesh(color, targetId);
+
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 80 + Math.random() * 120;
+    let tx = this.carX + Math.sin(angle) * dist;
+    let tz = this.carZ + Math.cos(angle) * dist;
+    const snapX = Math.round((tx - 40) / 80) * 80 + 40;
+    const snapZ = Math.round((tz - 40) / 80) * 80 + 40;
+    tx = snapX + (tx >= snapX ? 18 : -18);
+    tz = snapZ + (tz >= snapZ ? 18 : -18);
+
+    this.dealershipTargetCar = {
+      id: targetId, x: tx, z: tz, yaw: Math.random() * Math.PI * 2,
+      mesh: targetMesh, health: 1000, type: 'car',
+      colorR: color[0], colorG: color[1], colorB: color[2],
+    };
+    this.parkedCars.push(this.dealershipTargetCar);
+
+    const payout = 5000 + Math.floor(Math.random() * 5001);
+    this.dealershipMission = {
+      npcX: npc.x, npcZ: npc.z,
+      state: 'search',
+      payout,
+      targetCarId: targetId,
+      targetCarMesh: targetMesh,
+    };
+  }
+
+  private updateDealershipMission(dt: number) {
+    this.nearDealerNPC = false;
+    this.dealershipMarkers = [];
+
+    for (const npc of this.dealershipNPCs) {
+      const dx = npc.x - this.carX, dz = npc.z - this.carZ;
+      const dist = Math.hypot(dx, dz);
+      if (dist < 8 && !this.isInCar) {
+        this.nearDealerNPC = true;
+      }
+      this.dealershipMarkers.push({ type: 'hail', x: npc.x, z: npc.z, phase: npc.id });
+    }
+
+    if (!this.dealershipMission) return;
+
+    const m = this.dealershipMission;
+
+    if (m.state === 'search' && this.dealershipTargetCar && this.dealershipTargetCar.health <= 0) {
+      this.dealershipMission = null;
+      this.dealershipTargetCar = null;
+      this.parkedCars = this.parkedCars.filter(p => p.id !== m.targetCarId);
+      return;
+    }
+
+    if (m.state === 'search') {
+      if (this.dealershipTargetCar) {
+        this.dealershipMarkers.push({ type: 'destination', x: this.dealershipTargetCar.x, z: this.dealershipTargetCar.z });
+      }
+      if (this.currentCarId === m.targetCarId && this.isInCar) {
+        m.state = 'return';
+      }
+    }
+
+    if (m.state === 'return') {
+      this.dealershipMarkers.push({ type: 'beam', x: m.npcX, z: m.npcZ });
+      const dx = m.npcX - this.carX, dz = m.npcZ - this.carZ;
+      if (this.isInCar && this.currentCarId === m.targetCarId && Math.hypot(dx, dz) < 6) {
+        this.money += m.payout;
+        this.moneyStacks.push({ x: m.npcX, z: m.npcZ, amount: m.payout, yaw: 0, age: 0, lifetime: 5 });
+        this.dealershipMission = null;
+        this.dealershipTargetCar = null;
+        this.parkedCars = this.parkedCars.filter(p => p.id !== m.targetCarId);
+        this.currentCarId = 0;
+        this.exitCar();
       }
     }
   }
@@ -4511,9 +4670,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (e.code === 'ArrowRight') { e.preventDefault(); this.nextRadio(); }
     }
     if (e.code === 'Tab' || e.code === 'KeyQ') {
-      e.preventDefault();
-      this.showWeaponWheel = !this.showWeaponWheel;
-      if (this.isPointerLocked) document.exitPointerLock();
+      if (this.nearDealerNPC && this.dealershipMission === null) {
+        this.startDealershipMission();
+      } else {
+        e.preventDefault();
+        this.showWeaponWheel = !this.showWeaponWheel;
+        if (this.isPointerLocked) document.exitPointerLock();
+      }
     }
     if (e.code === 'Escape') this.showWeaponWheel = false;
   };
