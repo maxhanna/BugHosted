@@ -1998,11 +1998,17 @@ void main() {
           const avgY = (surfY + nextY) / 2;
           const pillarH = Math.max(surfY, nextY);
 
-          // Pylons (stilts) — left, center, right — extend from water to deck
-          const pylonW = 2.5;
-          const waterY = -2.5;
-          for (const pz of [-bridgeW / 2 + 2, 0, bridgeW / 2 - 2]) {
-            this.addBox(verts, indices, sx, (pillarH - waterY) / 2 + waterY, roadCenterZ + pz, sliceW * overlap, pillarH - waterY, pylonW, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
+          // Perpendicular support beams every 4 slices
+          if (si % 4 === 0) {
+            const waterY = -2.5;
+            const beamW = 1.5; // Thin in X (along the bridge)
+
+            // Pillars down to water
+            for (const pz of [-bridgeW / 2 + 4, 0, bridgeW / 2 - 4]) {
+              this.addBox(verts, indices, sx, (pillarH - waterY) / 2 + waterY, roadCenterZ + pz, beamW, pillarH - waterY, 2.0, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
+            }
+            // Perpendicular cross-beam under the deck
+            this.addBox(verts, indices, sx, pillarH - 1.0, roadCenterZ, beamW, 1.5, bridgeW, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
           }
           // Asphalt road surface
           this.addBox(verts, indices, sx, avgY + 0.08, roadCenterZ, sliceW * overlap, 0.12, roadW, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
