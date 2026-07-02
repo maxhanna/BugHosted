@@ -2302,7 +2302,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const isHDir = Math.abs(nextNode.x - currNode.x) > Math.abs(nextNode.z - currNode.z);
         if ((isHDir && isRedForX) || (!isHDir && !isRedForX)) redLight = true;
       } 
-      
+
       if (distToTarget < 2) {
         car.pathIdx++;
         if (car.pathIdx < car.path.length) {
@@ -2559,7 +2559,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     if (this.isInCar && this.carHealth > 0 && this.vehicleType !== 'boat' && this.vehicleType !== 'helicopter' && this.vehicleType !== 'plane') {
       const ocx = Math.floor(this.carX / 80), ocz = Math.floor(this.carZ / 80);
-      const inOcean = getBiome(ocx, ocz) === 'ocean' || getTerrainHeight(this.carX, this.carZ) <= -2.0;
+      // Use terrain height instead of biome so bridge chunks (cz = -1) don't count as ocean
+      const inOcean = getTerrainHeight(this.carX, this.carZ) <= -2.0;
       if (inOcean) {
         if (!this._carSubmerged) { this._carSubmerged = true; this._carSubmergeStart = performance.now() / 1000; }
         const subElapsed = (performance.now() / 1000) - this._carSubmergeStart;

@@ -370,8 +370,25 @@ namespace maxhanna.Server.Controllers
 			return false;
 		}
 
+		public static bool IsBridgeAtWorldPos(float x, float z)
+		{
+			foreach (var br in BRIDGES)
+			{
+				float roadCenterZ = br.startCz * GRID_PITCH;
+				float bridgeW = (ROAD_HALF_WIDTH * 2) + 10.0f;
+				if (Math.Abs(z - roadCenterZ) > bridgeW / 2) continue;
+				float rampStartX = (br.startCx - 1) * GRID_PITCH;
+				float rampEndX = (br.endCx + 2) * GRID_PITCH;
+				if (x >= rampStartX && x <= rampEndX) return true;
+			}
+			return false;
+		}
+
 		public static bool IsRoadAt(float x, float z)
 		{
+			// Check bridge deck first — bridges span chunks and may overlap ocean chunks
+			if (IsBridgeAtWorldPos(x, z)) return true;
+
 			int cx = (int)Math.Floor(x / CHUNK_SIZE);
 			int cz = (int)Math.Floor(z / CHUNK_SIZE);
 			string biome = GetBiome(cx, cz);
@@ -1556,7 +1573,7 @@ namespace maxhanna.Server.Controllers
 									int nextCX = (int)Math.Floor(nextX / CityLayout.CHUNK_SIZE);
 									int nextCZ = (int)Math.Floor(nextZ / CityLayout.CHUNK_SIZE);
 									string nextBiome = CityLayout.GetBiome(nextCX, nextCZ);
-									bool isOcean = nextBiome == "ocean" || nextBiome == "beach";
+									bool isOcean = (nextBiome == "ocean" || nextBiome == "beach") && !CityLayout.IsBridgeAtWorldPos(nextX, nextZ);
 									if (!isOcean && !CityLayout.IsBuildingAt(nextX, nextZ) && CityLayout.IsRoadAt(nextX, nextZ))
 									{
 										npc.X = nextX;
