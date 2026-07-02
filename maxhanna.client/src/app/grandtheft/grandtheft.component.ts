@@ -1704,9 +1704,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const tracerLifetime = this.currentWeapon === 2 ? 0.15 : 0.3;
       this.tracers.push({ originX, originY, originZ, dirX, dirY, dirZ, age: 0, lifetime: tracerLifetime });
       this.muzzleFlashes.push({ x: originX, y: originY, z: originZ, dirX, dirY, dirZ, weapon: this.currentWeapon, age: 0, lifetime: 0.08 });
-      this.spawnBulletSmoke(originX, originY, originZ, dirX, dirY, dirZ, this.currentWeapon);
-      this.spawnBulletTrail(originX, originY, originZ, dirX, dirY, dirZ, this.currentWeapon);
-
       if (this.currentWeapon === 3) {
         for (let i = 1; i < 8; i++) {
           const spread = 0.08;
@@ -1714,10 +1711,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           const sy = dirY + (Math.random() - 0.5) * spread;
           const sz = dirZ + (Math.random() - 0.5) * spread;
           this.tracers.push({ originX, originY, originZ, dirX: sx, dirY: sy, dirZ: sz, age: 0, lifetime: 0.2 });
-          this.spawnBulletSmoke(originX, originY, originZ, sx, sy, sz, this.currentWeapon);
-          this.spawnBulletTrail(originX, originY, originZ, sx, sy, sz, this.currentWeapon);
         }
       }
+      this.spawnBulletSmoke(originX, originY, originZ, dirX, dirY, dirZ, this.currentWeapon);
+      this.spawnBulletTrail(originX, originY, originZ, dirX, dirY, dirZ, this.currentWeapon);
       this.checkBulletHit(originX, originY, originZ, dirX, dirY, dirZ);
       this.playWeaponSound(this.currentWeapon);
     }
@@ -1887,7 +1884,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private spawnBulletSmoke(ox: number, oy: number, oz: number, dirX: number, dirY: number, dirZ: number, weapon: number = 1) {
-    // Rocket keeps full smoke; pistol/rifle/shotgun get barely any
+    if (weapon === 0) return;
     const count = weapon === 4 ? 5 : 1;
     for (let i = 0; i < count; i++) {
       this.bulletSmoke.push({
