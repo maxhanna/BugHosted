@@ -1905,10 +1905,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private spawnBulletTrail(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, weapon: number = 1) {
-    // No trail for rockets or unarmed
-    if (weapon === 4 || weapon === 0) return;
+    // No trail for unarmed
+    if (weapon === 0) return;
     const trailLength = 40;
-    const numParticles = weapon === 3 ? 3 : 6; // Shotgun: fewer per pellet
+    const numParticles = weapon === 4 ? 6 : weapon; // 1 for pistol, 2 for rifle, 3 for shotgun, 6 for rocket
     for (let i = 0; i < numParticles; i++) {
       const t = (i + 0.5) / numParticles;
       this.bulletSmoke.push({
