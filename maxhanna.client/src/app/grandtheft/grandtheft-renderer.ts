@@ -107,6 +107,19 @@ for (const br of BRIDGES) {
   BRIDGE_CONNECTORS.push({ cx: br.endCx + 1, cz: br.endCz });
 }
 
+function getBridgeAtWorldPos(x: number, z: number): BridgeDef | null {
+  const bridgeW = (ROAD_HALF_WIDTH * 2) + 10; // 42
+  for (const br of BRIDGE_RANGES) {
+    const roadCenterZ = br.startCz * 80;
+    if (Math.abs(z - roadCenterZ) > bridgeW / 2) continue;
+    const rampStartX = (br.startCx - 1) * 80;
+    const rampEndX = (br.endCx + 2) * 80;
+    if (x < rampStartX || x > rampEndX) continue;
+    return br;
+  }
+  return null;
+}
+
 function isInAnyIsland(cx: number, cz: number): boolean {
   for (const isl of ISLANDS) {
     const dx = cx - isl.cx, dz = cz - isl.cz;
@@ -228,36 +241,17 @@ function bridgeYAt(x: number, br: BridgeDef): number {
 }
 
 export function getTerrainHeight(x: number, z: number): number {
+  const bridgeHit = getBridgeAtWorldPos(x, z);
+  if (bridgeHit) {
+    return bridgeYAt(x, bridgeHit);
+  }
+
   const cx = Math.floor(x / 80);
   const cz = Math.floor(z / 80);
   const biome = getBiome(cx, cz);
 
-  if (biome === 'bridge') {
-    for (const br of BRIDGE_RANGES) {
-      if (cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz) {
-        // Only the bridge deck is drivable; off-deck is water
-        const bridgeW = (ROAD_HALF_WIDTH * 2) + 10; // 42
-        const roadCenterZ = br.startCz * 80;
-        if (Math.abs(z - roadCenterZ) > bridgeW / 2) {
-          return -2.5; // Water — cars fall in, boats/planes pass under
-        }
-        return bridgeYAt(x, br);
-      }
-    }
-  }
-  if (biome === 'bridge_connector') {
-    for (const br of BRIDGE_RANGES) {
-      if ((cx === br.startCx - 1 && cz === br.startCz) || (cx === br.endCx + 1 && cz === br.endCz)) {
-        // Only the ramp road is elevated; off-ramp is ground level
-        const bridgeW = (ROAD_HALF_WIDTH * 2) + 10;
-        const roadCenterZ = cz * 80;
-        if (Math.abs(z - roadCenterZ) > bridgeW / 2) {
-          return 0.0; // Ground
-        }
-        return bridgeYAt(x, br);
-      }
-    }
-  }
+  if (biome === 'bridge') return -2.5;       // off-deck: water
+  if (biome === 'bridge_connector') return 0.0; // off-ramp: ground
   if (biome === 'ocean') return -2.5;
   if (isOnSidewalk(x, z)) return SIDEWALK_RAISE;
   return 0.0;
@@ -2158,12 +2152,12 @@ void main() {
       for (const [ddx, ddz] of [[0, 1], [0, -1], [1, 0], [-1, 0]] as const) {
         if (getBiome(cx + ddx, cz + ddz) !== 'ocean') continue;
 
-        // Don't build barriers near bridges
         let isNearBridge = false;
         for (const br of BRIDGES) {
-          if (Math.abs(cx - br.startCx) <= 2 && cz === br.startCz) isNearBridge = true;
-          if (Math.abs(cx - br.endCx) <= 2 && cz === br.endCz) isNearBridge = true;
+          if (Math.abs(cx - br.startCx) <= 2 && Math.abs(cz - br.startCz) <= 2) isNearBridge = true;
+          if (Math.abs(cx - br.endCx) <= 2 && Math.abs(cz - br.endCz) <= 2) isNearBridge = true;
         }
+        
         if (isNearBridge) continue;
 
         if (ddx !== 0) {

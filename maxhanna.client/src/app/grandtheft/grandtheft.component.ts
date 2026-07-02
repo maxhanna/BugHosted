@@ -173,7 +173,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private passengerHostVelYaw = 0;
   private _reloading = false;
   private _pistolDrawTimer = 0;
-  private _chatClearTimer: any = null; 
+  private _chatClearTimer: any = null;
 
   camYaw = 0; camPitch = 0.2;
   camDist = 4; camHeight = 2;
@@ -468,7 +468,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               for (const mm of m) { mm.renderScale = 0.75; }
             }
             else if (
-              name === "ichijoushi_002" 
+              name === "ichijoushi_002"
             ) {
               for (const mm of m) { mm.renderScale = 1.5; }
             }
@@ -510,7 +510,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.lastTime = performance.now();
           this.gameLoop(this.lastTime);
         });
-        return; 
+        return;
       }
       idx += batch.length;
       Promise.all(batch.map(t => t.load().catch(() => { }))).then(() => {
@@ -533,7 +533,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     document.addEventListener('keydown', this.onKeyDown);
     document.addEventListener('keyup', this.onKeyUp);
 
-    if (!this.isMobile) { 
+    if (!this.isMobile) {
       document.addEventListener('mousemove', this.onMouseMove);
       canvas.addEventListener('mousedown', this.onMouseDown);
       canvas.addEventListener('mouseup', this.onMouseUp);
@@ -559,23 +559,23 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   ngOnDestroy() {
     this._destroyed = true;
     cancelAnimationFrame(this.animFrameId);
-    const canvas = this.canvasRef.nativeElement; 
+    const canvas = this.canvasRef.nativeElement;
     canvas.removeEventListener('click', this.onCanvasClick);
     document.removeEventListener('pointerlockchange', this.onPointerLockChange);
-    window.removeEventListener('resize', this.onResize); 
+    window.removeEventListener('resize', this.onResize);
     document.removeEventListener('keydown', this.onKeyDown);
-    document.removeEventListener('keyup', this.onKeyUp); 
+    document.removeEventListener('keyup', this.onKeyUp);
     document.removeEventListener('mousemove', this.onMouseMove);
     canvas.removeEventListener('mousedown', this.onMouseDown);
     canvas.removeEventListener('mouseup', this.onMouseUp);
-    canvas.removeEventListener('mouseleave', this.onMouseLeave); 
+    canvas.removeEventListener('mouseleave', this.onMouseLeave);
     canvas.removeEventListener('touchstart', this.onCanvasTouchStart);
     canvas.removeEventListener('touchmove', this.onCanvasTouchMove);
-    canvas.removeEventListener('touchend', this.onCanvasTouchEnd); 
+    canvas.removeEventListener('touchend', this.onCanvasTouchEnd);
     document.removeEventListener('touchstart', this.onDocTouchStart);
     document.removeEventListener('touchmove', this.onDocTouchMove);
     document.removeEventListener('touchend', this.onDocTouchEnd);
-    
+
     this.stopPolling();
     this.stopNPCPolling();
     this.stopAutoFire();
@@ -2517,7 +2517,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private gameLoop = (now: number) => {
     const dt = Math.min((now - this.lastTime) / 1000, 0.05);
     this.lastTime = now;
- 
+
     if (!this.isLoaded) {
       this._hudUpdateTimer += dt;
       if (this._hudUpdateTimer > 0.1) {
@@ -3032,7 +3032,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private updateBoat(dt: number) {
     const accel = 15, maxSpeed = 35, turnSpeed = 1.5;
     const ocx = Math.floor(this.carX / 80), ocz = Math.floor(this.carZ / 80);
-    const biome = getBiome(ocx, ocz); 
+    const biome = getBiome(ocx, ocz);
     const onWater = biome === 'ocean' || (biome === 'bridge' && getTerrainHeight(this.carX, this.carZ) <= -2.0);
     let accelForce = 0;
     if (this.keys.has('KeyW')) accelForce = accel;
@@ -4456,8 +4456,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       ctx.beginPath(); ctx.arc(cx + (pc.x - this.carX) * scale, cy + (pc.z - this.carZ) * scale, 2, 0, Math.PI * 2); ctx.fill();
     }
 
+    // Draw player as a green arrow showing movement direction
+    const pYaw = this.carYaw;
+    const fx = Math.sin(pYaw);
+    const fy = Math.cos(pYaw);
+    const rx = -fy;
+    const ry = fx;
+    const arrowSize = 7;
     ctx.fillStyle = '#00ff00';
-    ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx + fx * arrowSize, cy + fy * arrowSize); // Tip of the arrow
+    ctx.lineTo(cx - fx * arrowSize * 0.5 - rx * arrowSize * 0.5, cy - fy * arrowSize * 0.5 - ry * arrowSize * 0.5); // Back-left
+    ctx.lineTo(cx - fx * arrowSize * 0.5 + rx * arrowSize * 0.5, cy - fy * arrowSize * 0.5 + ry * arrowSize * 0.5); // Back-right
+    ctx.closePath();
+    ctx.fill();
 
     {
       const hbx = cx + (HOME_BASE_X - this.carX) * scale;
