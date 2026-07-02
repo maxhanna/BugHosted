@@ -376,6 +376,9 @@ namespace maxhanna.Server.Controllers
 			int cz = (int)Math.Floor(z / CHUNK_SIZE);
 			string biome = GetBiome(cx, cz);
 
+			// No roads in water/beach/mountain
+			if (biome == "ocean" || biome == "beach" || biome == "mountain") return false;
+
 			if (biome == "aeroport")
 			{
 				int gx = (int)Math.Round(x / GRID_PITCH);
@@ -389,7 +392,16 @@ namespace maxhanna.Server.Controllers
 				return false;
 			}
 
-			if (biome == "parking_lot" || biome == "rural_farm" || biome == "rural_hills" || biome == "rural_mountain" || biome == "rural_lakes" || biome == "rural_desert" || biome == "bridge" || biome == "bridge_connector") return true;
+			// Bridge and bridge_connector: only drivable on the bridge deck width
+			if (biome == "bridge" || biome == "bridge_connector")
+			{
+				float bridgeW = (ROAD_HALF_WIDTH * 2) + 10.0f; // 42 units
+				float roadCenterZ = cz * CHUNK_SIZE;
+				if (Math.Abs(z - roadCenterZ) > bridgeW / 2) return false;
+				return true;
+			}
+
+			if (biome == "parking_lot" || biome == "rural_farm" || biome == "rural_hills" || biome == "rural_mountain" || biome == "rural_lakes" || biome == "rural_desert") return true;
 
 			float dx = x % GRID_PITCH;
 			if (dx < 0) dx += GRID_PITCH;

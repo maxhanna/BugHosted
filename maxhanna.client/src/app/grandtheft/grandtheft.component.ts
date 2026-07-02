@@ -1620,7 +1620,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3,
               weapon: 0, age: 0, lifetime: 0.08
             });
-            this.spawnBulletSmoke(npc.x, 1.2, npc.z, dx / d3, dy / d3, dz / d3);
+            this.spawnBulletSmoke(npc.x, 1.2, npc.z, dx / d3, dy / d3, dz / d3, 1);
+            this.spawnBulletTrail(npc.x, 1.2, npc.z, dx / d3, dy / d3, dz / d3, 1);
             foundShooter = true;
           }
         };
@@ -1703,13 +1704,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const tracerLifetime = this.currentWeapon === 2 ? 0.15 : 0.3;
       this.tracers.push({ originX, originY, originZ, dirX, dirY, dirZ, age: 0, lifetime: tracerLifetime });
       this.muzzleFlashes.push({ x: originX, y: originY, z: originZ, dirX, dirY, dirZ, weapon: this.currentWeapon, age: 0, lifetime: 0.08 });
-      this.spawnBulletSmoke(originX, originY, originZ, dirX, dirY, dirZ);
+      this.spawnBulletSmoke(originX, originY, originZ, dirX, dirY, dirZ, this.currentWeapon);
+      this.spawnBulletTrail(originX, originY, originZ, dirX, dirY, dirZ, this.currentWeapon);
 
       if (this.currentWeapon === 3) {
         for (let i = 1; i < 8; i++) {
           const spread = 0.08;
-          this.tracers.push({ originX, originY, originZ, dirX: dirX + (Math.random() - 0.5) * spread, dirY: dirY + (Math.random() - 0.5) * spread, dirZ: dirZ + (Math.random() - 0.5) * spread, age: 0, lifetime: 0.2 });
-          this.spawnBulletSmoke(originX, originY, originZ, dirX + (Math.random() - 0.5) * spread, dirY + (Math.random() - 0.5) * spread, dirZ + (Math.random() - 0.5) * spread);
+          const sx = dirX + (Math.random() - 0.5) * spread;
+          const sy = dirY + (Math.random() - 0.5) * spread;
+          const sz = dirZ + (Math.random() - 0.5) * spread;
+          this.tracers.push({ originX, originY, originZ, dirX: sx, dirY: sy, dirZ: sz, age: 0, lifetime: 0.2 });
+          this.spawnBulletSmoke(originX, originY, originZ, sx, sy, sz, this.currentWeapon);
+          this.spawnBulletTrail(originX, originY, originZ, sx, sy, sz, this.currentWeapon);
         }
       }
       this.checkBulletHit(originX, originY, originZ, dirX, dirY, dirZ);
@@ -1880,8 +1886,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
-  private spawnBulletSmoke(ox: number, oy: number, oz: number, dirX: number, dirY: number, dirZ: number) {
-    for (let i = 0; i < 5; i++) {
+  private spawnBulletSmoke(ox: number, oy: number, oz: number, dirX: number, dirY: number, dirZ: number, weapon: number = 1) {
+    // Rocket keeps full smoke; pistol/rifle/shotgun get barely any
+    const count = weapon === 4 ? 5 : 1;
+    for (let i = 0; i < count; i++) {
       this.bulletSmoke.push({
         x: ox + (Math.random() - 0.5) * 0.3,
         y: oy + (Math.random() - 0.5) * 0.3,
@@ -1892,6 +1900,27 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         size: 0.2 + Math.random() * 0.3,
         age: 0,
         lifetime: 0.5 + Math.random() * 0.4,
+      });
+    }
+  }
+
+  private spawnBulletTrail(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, weapon: number = 1) {
+    // No trail for rockets or unarmed
+    if (weapon === 4 || weapon === 0) return;
+    const trailLength = 40;
+    const numParticles = weapon === 3 ? 3 : 6; // Shotgun: fewer per pellet
+    for (let i = 0; i < numParticles; i++) {
+      const t = (i + 0.5) / numParticles;
+      this.bulletSmoke.push({
+        x: ox + dx * trailLength * t + (Math.random() - 0.5) * 0.15,
+        y: oy + dy * trailLength * t + (Math.random() - 0.5) * 0.15,
+        z: oz + dz * trailLength * t + (Math.random() - 0.5) * 0.15,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: 0.2 + Math.random() * 0.3,
+        vz: (Math.random() - 0.5) * 0.3,
+        size: 0.1 + Math.random() * 0.15,
+        age: 0,
+        lifetime: 0.3 + Math.random() * 0.3,
       });
     }
   }
@@ -2575,8 +2604,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     if (this.isInCar && this.carHealth > 0 && this.vehicleType !== 'boat' && this.vehicleType !== 'helicopter' && this.vehicleType !== 'plane') {
       const ocx = Math.floor(this.carX / 80), ocz = Math.floor(this.carZ / 80);
-      // Land ranges include all biome zones (city, suburb, beach, aeroport, etc.)
-      const inOcean = getBiome(ocx, ocz) === 'ocean';
+      const inOcean = getBiome(ocx, ocz) === 'ocean' || getTerrainHeight(this.carX, this.carZ) <= -2.0;
       if (inOcean) {
         if (!this._carSubmerged) { this._carSubmerged = true; this._carSubmergeStart = performance.now() / 1000; }
         const subElapsed = (performance.now() / 1000) - this._carSubmergeStart;
@@ -3004,8 +3032,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private updateBoat(dt: number) {
     const accel = 15, maxSpeed = 35, turnSpeed = 1.5;
     const ocx = Math.floor(this.carX / 80), ocz = Math.floor(this.carZ / 80);
-    const biome = getBiome(ocx, ocz);
-    const onWater = biome === 'ocean' || biome === 'bridge';
+    const biome = getBiome(ocx, ocz); 
+    const onWater = biome === 'ocean' || (biome === 'bridge' && getTerrainHeight(this.carX, this.carZ) <= -2.0);
     let accelForce = 0;
     if (this.keys.has('KeyW')) accelForce = accel;
     if (this.keys.has('KeyS')) accelForce = -accel;
@@ -3536,7 +3564,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           dirX: rdirX, dirY: rdirY, dirZ: rdirZ,
           weapon: p.weapon, age: 0, lifetime: 0.08
         });
-        this.spawnBulletSmoke(p.posX, originY, p.posZ, rdirX, rdirY, rdirZ);
+        this.spawnBulletSmoke(p.posX, originY, p.posZ, rdirX, rdirY, rdirZ, p.weapon);
+        this.spawnBulletTrail(p.posX, originY, p.posZ, rdirX, rdirY, rdirZ, p.weapon);
         this.playWeaponSound(p.weapon);
       }
     }
@@ -3562,7 +3591,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3,
           weapon: 0, age: 0, lifetime: 0.08
         });
-        this.spawnBulletSmoke(npc.x, 1.2, npc.z, dx / d3, dy / d3, dz / d3);
+        this.spawnBulletSmoke(npc.x, 1.2, npc.z, dx / d3, dy / d3, dz / d3, 1);
+        this.spawnBulletTrail(npc.x, 1.2, npc.z, dx / d3, dy / d3, dz / d3, 1);
       }
       this.playWeaponSound(0);
       npc.isShootingAt = false;
@@ -4160,7 +4190,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (td3 > 0.01) {
           this.tracers.push({ originX: thug.x, originY: 1.0, originZ: thug.z, dirX: tdx / td3, dirY: tdy / td3, dirZ: tdz / td3, age: 0, lifetime: 0.2 });
           this.muzzleFlashes.push({ x: thug.x, y: 1.0, z: thug.z, dirX: tdx / td3, dirY: tdy / td3, dirZ: tdz / td3, weapon: 2, age: 0, lifetime: 0.08 });
-          this.spawnBulletSmoke(thug.x, 1.0, thug.z, tdx / td3, tdy / td3, tdz / td3);
+          this.spawnBulletSmoke(thug.x, 1.0, thug.z, tdx / td3, tdy / td3, tdz / td3, 2);
+          this.spawnBulletTrail(thug.x, 1.0, thug.z, tdx / td3, tdy / td3, tdz / td3, 2);
           this.damageAlpha = 0.4;
           this.gtService.hit(0, this.getUserId(), 1, 8, thug.x, thug.z).then((res: any) => {
             if (res && res.targetHealth !== undefined) this.health = res.targetHealth;

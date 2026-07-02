@@ -232,9 +232,28 @@ export function getTerrainHeight(x: number, z: number): number {
   const cz = Math.floor(z / 80);
   const biome = getBiome(cx, cz);
 
-  if (biome === 'bridge' || biome === 'bridge_connector') {
+  if (biome === 'bridge') {
     for (const br of BRIDGE_RANGES) {
-      if (cx >= br.startCx - 1 && cx <= br.endCx + 1 && cz >= br.startCz && cz <= br.endCz) {
+      if (cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz) {
+        // Only the bridge deck is drivable; off-deck is water
+        const bridgeW = (ROAD_HALF_WIDTH * 2) + 10; // 42
+        const roadCenterZ = br.startCz * 80;
+        if (Math.abs(z - roadCenterZ) > bridgeW / 2) {
+          return -2.5; // Water — cars fall in, boats/planes pass under
+        }
+        return bridgeYAt(x, br);
+      }
+    }
+  }
+  if (biome === 'bridge_connector') {
+    for (const br of BRIDGE_RANGES) {
+      if ((cx === br.startCx - 1 && cz === br.startCz) || (cx === br.endCx + 1 && cz === br.endCz)) {
+        // Only the ramp road is elevated; off-ramp is ground level
+        const bridgeW = (ROAD_HALF_WIDTH * 2) + 10;
+        const roadCenterZ = cz * 80;
+        if (Math.abs(z - roadCenterZ) > bridgeW / 2) {
+          return 0.0; // Ground
+        }
         return bridgeYAt(x, br);
       }
     }
