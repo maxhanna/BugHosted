@@ -300,6 +300,18 @@
   user-select: none;
 }
 
+@media only screen and (min-width : 667px) {
+  #gt-weapon-wheel {
+    width: 500px;
+    gap: 8px;
+  }
+  .weapon-slot {
+    width: 130px;
+    height: 130px;
+    font-size: xx-large;
+  }
+}
+
 .weapon-slot.active {
   border-color: #ff9800;
   color: #fff;
