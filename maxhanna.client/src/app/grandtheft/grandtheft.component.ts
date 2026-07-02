@@ -1611,8 +1611,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.punchTimer = 0.3;
       this.checkBulletHit(originX, originY, originZ, dirX, dirY, dirZ, 3);
     } else if (this.currentWeapon === 4) {
-      this.rockets.push({ x: originX, y: originY, z: originZ, vx: dirX * 40, vy: dirY * 40, vz: dirZ * 40, age: 0, lifetime: 3 });
-      this.playWeaponSound(4);
+      this.rockets.push({ x: originX, y: originY, z: originZ, vx: dirX * 40, vy: dirY * 40, vz: dirZ * 40, age: 0, lifetime: 3 }); 
     } else {
       const tracerLifetime = this.currentWeapon === 2 ? 0.15 : 0.3;
       this.tracers.push({ originX, originY, originZ, dirX, dirY, dirZ, age: 0, lifetime: tracerLifetime });
@@ -1625,12 +1624,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           const sz = dirZ + (Math.random() - 0.5) * spread;
           this.tracers.push({ originX, originY, originZ, dirX: sx, dirY: sy, dirZ: sz, age: 0, lifetime: 0.2 });
         }
-      }
-      this.spawnBulletSmoke(originX, originY, originZ, dirX, dirY, dirZ, this.currentWeapon);
-      this.spawnBulletTrail(originX, originY, originZ, dirX, dirY, dirZ, this.currentWeapon);
-      this.checkBulletHit(originX, originY, originZ, dirX, dirY, dirZ);
-      this.playWeaponSound(this.currentWeapon);
+      } 
     }
+    this.spawnBulletSmoke(originX, originY, originZ, dirX, dirY, dirZ, this.currentWeapon);
+    this.spawnBulletTrail(originX, originY, originZ, dirX, dirY, dirZ, this.currentWeapon);
+    this.checkBulletHit(originX, originY, originZ, dirX, dirY, dirZ, this.currentWeapon === 0 ? 3 : 50);
+    this.playWeaponSound(this.currentWeapon);
   }
 
   private unlockAudio() {
