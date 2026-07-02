@@ -394,7 +394,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             else if (
               name === "okraglak_round_office_building_poznan"
               || name === "low_poly_shopping_center"
-              || name === "low_poly_cinema"+
+              || name === "low_poly_cinema"
               || name === "low_poly_apartment_building_1"
               || name === "low_poly_apartment_building_3"
               || name === "brooklyn_street_building_low_poly"
