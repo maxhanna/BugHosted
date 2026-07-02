@@ -3701,39 +3701,39 @@ void main() {
       this.drawMesh(pc.mesh, pc.x, pc.y ?? (pc as any)._expY ?? submergeY, pc.z, pc.yaw);
     }
 
-    // for (const npc of serverNPCs) {
-    //   const biome = getBiome(Math.floor(npc.x / 80), Math.floor(npc.z / 80));
-    //   const submerged = biome === 'ocean';
-    //   const isAircraft = npc.type === 'helicopter' || npc.type === 'plane';
-    //   const terrainY = submerged ? -1.5 : getTerrainHeight(npc.x, npc.z);
-    //   const expY = isAircraft ? (npc.y || 0) : (npc as any)._expY ?? terrainY;
-    //   this.drawMesh(npc.mesh, npc.x, expY, npc.z, npc.yaw);
-    //   if (npc.hasDriver !== false && npc.type !== 'cop') {
-    //     const dMesh = this.getPedestrianMesh(npc.gender || 'male', npc.id);
-    //     const sinY = Math.sin(npc.yaw), cosY = Math.cos(npc.yaw);
-    //     const dOffX = 0.3, dOffZ = 0.2;
-    //     const dwx = npc.x + (dOffX * cosY + dOffZ * sinY);
-    //     const dwz = npc.z + (-dOffX * sinY + dOffZ * cosY);
-    //     this.drawMesh(dMesh, dwx, -0.3, dwz, npc.yaw, [0.85, 0.85, 0.85]);
-    //     if ((npc.passengerCount || 0) > 0) {
-    //       const pMesh = this.getPedestrianMesh('female', npc.id + 1);
-    //       const pOffX = -0.3, pOffZ = 0.2;
-    //       const pwx = npc.x + (pOffX * cosY + pOffZ * sinY);
-    //       const pwz = npc.z + (-pOffX * sinY + pOffZ * cosY);
-    //       this.drawMesh(pMesh, pwx, -0.3, pwz, npc.yaw, [0.7, 0.7, 0.7]);
-    //     }
-    //   }
-    //   if (npc.type === 'police') {
-    //     const isRed = (performance.now() / 300) % 2 < 1;
-    //     const lightColor: [number, number, number, number] = isRed ? [1, 0, 0, 1] : [0, 0, 1, 1];
-    //     this.drawMesh(this.getBoxMesh(0.8, 0.2, 0.4), npc.x, 1.2, npc.z, npc.yaw, [1, 1, 1], lightColor);
-    //   }
-    //   if (npc.state === 'stop') {
-    //     this.drawMesh(this.getBoxMesh(0.4, 0.2, 0.3), npc.x, 1.0, npc.z, npc.yaw, [1, 1, 1], [1, 0, 0, 1]);
-    //   }
-    // }
+    for (const npc of serverNPCs) {
+      const biome = getBiome(Math.floor(npc.x / 80), Math.floor(npc.z / 80));
+      const submerged = biome === 'ocean';
+      const isAircraft = npc.type === 'helicopter' || npc.type === 'plane';
+      const terrainY = submerged ? -1.5 : getTerrainHeight(npc.x, npc.z);
+      const expY = isAircraft ? (npc.y || 0) : (npc as any)._expY ?? terrainY;
+      this.drawMesh(npc.mesh, npc.x, expY, npc.z, npc.yaw);
+      if (npc.hasDriver !== false && npc.type !== 'cop') {
+        const dMesh = this.getPedestrianMesh(npc.gender || 'male', npc.id);
+        const sinY = Math.sin(npc.yaw), cosY = Math.cos(npc.yaw);
+        const dOffX = 0.3, dOffZ = 0.2;
+        const dwx = npc.x + (dOffX * cosY + dOffZ * sinY);
+        const dwz = npc.z + (-dOffX * sinY + dOffZ * cosY);
+        this.drawMesh(dMesh, dwx, -0.3, dwz, npc.yaw, [0.85, 0.85, 0.85]);
+        if ((npc.passengerCount || 0) > 0) {
+          const pMesh = this.getPedestrianMesh('female', npc.id + 1);
+          const pOffX = -0.3, pOffZ = 0.2;
+          const pwx = npc.x + (pOffX * cosY + pOffZ * sinY);
+          const pwz = npc.z + (-pOffX * sinY + pOffZ * cosY);
+          this.drawMesh(pMesh, pwx, -0.3, pwz, npc.yaw, [0.7, 0.7, 0.7]);
+        }
+      }
+      if (npc.type === 'police') {
+        const isRed = (performance.now() / 300) % 2 < 1;
+        const lightColor: [number, number, number, number] = isRed ? [1, 0, 0, 1] : [0, 0, 1, 1];
+        this.drawMesh(this.getBoxMesh(0.8, 0.2, 0.4), npc.x, 1.2, npc.z, npc.yaw, [1, 1, 1], lightColor);
+      }
+      if (npc.state === 'stop') {
+        this.drawMesh(this.getBoxMesh(0.4, 0.2, 0.3), npc.x, 1.0, npc.z, npc.yaw, [1, 1, 1], [1, 0, 0, 1]);
+      }
+    }
 
-    // for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw);
+    for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw);
     for (const p of otherPlayers) {
       if (p.passengerOfUserId && p.passengerOfUserId > 0) {
         const host = otherPlayers.find(h => h.userId === p.passengerOfUserId);
