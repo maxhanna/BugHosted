@@ -79,6 +79,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _chatClearTimer: any = null;
   private _trafficTimer = 0;
   private _pedTimer = 0; 
+  private _lookTargetTimer = 0;
+  private _collisionTimer = 0;
+  private _nearCarTimer = 0;
   camYaw = 0; 
   camPitch = 0.2;
   camDist = 4; 
@@ -2068,7 +2071,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.trafficSpawnTimer += dt;
     if (this.trafficSpawnTimer > 3) {
       this.trafficSpawnTimer = 0;
-      if (this.trafficCars.length < 35) this.spawnTrafficCar();
+      if (this.trafficCars.length < 15) this.spawnTrafficCar();
     }
 
     const lightPhase = Math.floor(performance.now() / 6000) % 2;
@@ -2315,7 +2318,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     const sidewalkNodes = this._cachedSidewalkNodes;
 
-    if (this.pedSpawnTimer > 0.5 && this.localPedestrians.length < 50 && sidewalkNodes.length > 0) {
+    if (this.pedSpawnTimer > 0.5 && this.localPedestrians.length < 25 && sidewalkNodes.length > 0) {
       this.pedSpawnTimer = 0;
       const srcNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
       const dstNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
@@ -2436,15 +2439,27 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateRemoteShooting(dt);
     this.updateCopShooting();
     this.updatePassenger(dt);
-    this.updateVendingMachines();
-    this.checkNearCar();
-    this.checkNearVendingMachine();
+
+    this._collisionTimer += dt;
+    if (this._collisionTimer >= 0.1) {
+      this._collisionTimer = 0;
+      this.checkNearCar();
+      this.checkNearVendingMachine();
+      this.checkNearOtherPlayerCar();
+      this.updateVendingMachines();
+    }
+    
     this.showPassengerPrompt = this.canPickupPassenger();
-    this.checkNearOtherPlayerCar();
     this.updateVehicleCollisions();
     this.updateExplosionJumps(dt);
     this.updateGarage(dt);
-    this.findLookTarget();
+
+    this._lookTargetTimer += dt;
+    if (this._lookTargetTimer >= 0.1) {  // 10 Hz instead of 60 Hz
+      this._lookTargetTimer = 0;
+      this.findLookTarget();
+    }
+
     this._trafficTimer += dt;
     if (this._trafficTimer >= 0.033) { // ~30 FPS
       this.updateTraffic(this._trafficTimer);

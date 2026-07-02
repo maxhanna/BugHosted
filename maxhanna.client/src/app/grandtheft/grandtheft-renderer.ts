@@ -3418,7 +3418,19 @@ void main() {
       for (let dz = -1; dz <= 1; dz++) {
         for (let dx = -1; dx <= 1; dx++) {
           const chunk = this.getCityChunk(pcx + dx, pcz + dz);
-          this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1], true);
+
+          // Simple distance-based cull — skip chunks behind camera
+          const chunkCenterX = (pcx + dx) * CHUNK_SIZE + CHUNK_SIZE / 2;
+          const chunkCenterZ = (pcz + dz) * CHUNK_SIZE + CHUNK_SIZE / 2;
+          const ddx = chunkCenterX - camX, ddz = chunkCenterZ - camZ;
+          const distSq = ddx * ddx + ddz * ddz;
+          if (distSq > 200 * 200) continue;  // beyond view distance
+
+          // Dot with camera forward to skip behind-camera chunks
+          const fwdX = Math.sin(camYaw), fwdZ = Math.cos(camYaw);
+          if (ddx * fwdX + ddz * fwdZ < -CHUNK_SIZE) continue; // behind camera
+
+          this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1]);
           for (const bld of chunk.buildings) {
             this.drawMesh(bld.model, bld.x, bld.y, bld.z, bld.yaw, bld.scale, [1, 1, 1, 1], true);
           }

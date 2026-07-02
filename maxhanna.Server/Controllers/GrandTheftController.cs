@@ -1820,7 +1820,7 @@ namespace maxhanna.Server.Controllers
 			foreach (var pid in expiredPlayers) _deadPlayerBodies.TryRemove(pid, out _);
 
 			// Spawn cars
-			while (nearbyCars < 20)
+			while (nearbyCars < 10)
 			{
 				long id = GetNextNpcId();
 				var type = new[] { "car", "bus", "bike", "motorcycle", "taxi" }[rng.Next(5)];
@@ -1848,7 +1848,7 @@ namespace maxhanna.Server.Controllers
 			}
 
 			// Spawn pedestrians
-			while (nearbyPeds < 40)
+			while (nearbyPeds < 20)
 			{
 				long id = GetNextNpcId();
 				var type = new[] { "ped_male", "ped_female" }[rng.Next(2)];
