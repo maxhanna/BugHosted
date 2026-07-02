@@ -700,9 +700,12 @@ namespace maxhanna.Server.Controllers
 		private static long _nextNpcId = 1;
 		private static long GetNextNpcId() => Interlocked.Increment(ref _nextNpcId);
 
-		private void BroadcastDeathMessage(int worldId, string killerName, string victimName, string cause)
+		private void BroadcastDeathMessage(int playerId, int worldId, string killerName, string victimName, string cause)
 		{
+			if (_playerDeathBroadcasted.TryGetValue(playerId, out bool alreadyBroadcasted) && alreadyBroadcasted) return;
+			
 			var messages = _worldChatMessages.GetOrAdd(worldId, _ => new List<ChatMessageEntry>());
+			_playerDeathBroadcasted[playerId] = true;
 			lock (messages)
 			{
 				string msg = $"{killerName} killed {victimName}{cause}";
@@ -869,7 +872,7 @@ namespace maxhanna.Server.Controllers
 						if (!_playerDeathBroadcasted.TryGetValue(req.UserId, out _))
 						{
 							string victimName = _playerUsername.GetOrAdd(req.UserId, $"Player{req.UserId}");
-							BroadcastDeathMessage(req.WorldId, "the police", victimName, "");
+							BroadcastDeathMessage(req.UserId, req.WorldId, "the police", victimName, "");
 						}
 						_deadPlayerBodies[req.UserId] = new DeadPlayerBody
 						{
@@ -2548,17 +2551,16 @@ namespace maxhanna.Server.Controllers
 					_playerX.TryGetValue(playerTargetId, out deathX);
 					_playerZ.TryGetValue(playerTargetId, out deathZ);
 
-					_playerDeathBroadcasted[playerTargetId] = true;
 					if (req.AttackerId <= 0)
 					{
 						string victimName = _playerUsername.GetOrAdd(playerTargetId, $"Player{playerTargetId}");
-						BroadcastDeathMessage(req.WorldId, "An NPC", victimName, " with a weapon");
+						BroadcastDeathMessage(playerTargetId, req.WorldId, "An NPC", victimName, " with a weapon");
 					}
 					else if (req.AttackerId != playerTargetId)
 					{
 						string victimName = _playerUsername.GetOrAdd(playerTargetId, $"Player{playerTargetId}");
 						string killerName = _playerUsername.GetOrAdd(req.AttackerId, $"Player{req.AttackerId}");
-						BroadcastDeathMessage(req.WorldId, killerName, victimName, " with a weapon");
+						BroadcastDeathMessage(playerTargetId, req.WorldId, killerName, victimName, " with a weapon");
 					}
 
 					for (int i = 1; i <= 4; i++) _homeBaseWeaponCollected[i] = false;
