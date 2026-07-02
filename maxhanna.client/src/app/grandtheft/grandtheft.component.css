@@ -1065,6 +1065,13 @@
   pointer-events: auto;
   opacity: 0.5;
 }
+
+@media only screen and (max-width : 667px) {
+  #gt-radio {
+    bottom: 460px;
+  }
+}
+
 #gt-radio-info {
   display: flex;
   flex-direction: column;
