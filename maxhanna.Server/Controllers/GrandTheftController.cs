@@ -1290,8 +1290,8 @@ namespace maxhanna.Server.Controllers
 									X = npc.X,
 									Z = npc.Z,
 									Yaw = npc.Yaw,
-									Health = 400,
-									MaxHealth = 400,
+									Health = 200,
+									MaxHealth = 200,
 									Cr = 0.1f,
 									Cg = 0.1f,
 									Cb = 0.2f,
@@ -1654,10 +1654,15 @@ namespace maxhanna.Server.Controllers
 								{
 									npc.LastShotTime = nowMs;
 									npc.IsShootingAt = true;
+									var damageDealt = 5;
 									if (_playerHealth.TryGetValue(userId, out var hp))
-										_playerHealth[userId] = Math.Max(0, hp - 5);
+									{ 
+										_playerHealth[userId] = (hp - damageDealt) > 0 ? (hp - damageDealt) : 0;
+									}
 									else
-										_playerHealth[userId] = Math.Max(0, 100 - 5);
+									{
+										_playerHealth[userId] = Math.Max(0, 100 - damageDealt);
+									}
 									_lastPoliceDamageTime[userId] = nowMs;
 								}
 							}
