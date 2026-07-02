@@ -1,0 +1,11 @@
+Model Information:
+* title:	building 1 low poly
+* source:	https://sketchfab.com/3d-models/building-1-low-poly-94b5438d79c24303b8610c858dd31289
+* author:	Mahreen (https://sketchfab.com/MahreenMahro)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "building 1 low poly" (https://sketchfab.com/3d-models/building-1-low-poly-94b5438d79c24303b8610c858dd31289) by Mahreen (https://sketchfab.com/MahreenMahro) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
