@@ -78,10 +78,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _pistolDrawTimer = 0;
   private _chatClearTimer: any = null;
   private _trafficTimer = 0;
-  private _pedTimer = 0;
-
-  camYaw = 0; camPitch = 0.2;
-  camDist = 4; camHeight = 2;
+  private _pedTimer = 0; 
+  camYaw = 0; 
+  camPitch = 0.2;
+  camDist = 4; 
+  camHeight = 2;
   firstPerson = false;
   private isPointerLocked = false;
   serverNPCs: { id: number; x: number; y: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean; isBurning?: boolean }[] = [];

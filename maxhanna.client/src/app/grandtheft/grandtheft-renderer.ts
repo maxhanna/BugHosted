@@ -3,10 +3,10 @@
 const CHUNK_SIZE = 80;
 const GRID_PITCH = 80;
 const BLOCK_SIZE = 30;
-const SIDEWALK_SIZE = 48;  
+const SIDEWALK_SIZE = 48;
 const ROAD_HALF_WIDTH = (GRID_PITCH - SIDEWALK_SIZE) / 2; // 16
 const BIOME_RADIUS_MOUNTAIN = 30;
-const BRIDGE_DECK_Y = 12.0;  
+const BRIDGE_DECK_Y = 12.0;
 
 interface IslandDef {
   cx: number; cz: number;
@@ -140,7 +140,7 @@ function isBridgeChunk(cx: number, cz: number): boolean {
   return false;
 }
 
-const BRIDGE_RANGES = BRIDGES; 
+const BRIDGE_RANGES = BRIDGES;
 
 const SIDEWALK_RAISE = 0.3;
 
@@ -191,7 +191,7 @@ export function getTerrainHeight(x: number, z: number): number {
   if (isOnSidewalk(x, z)) return SIDEWALK_RAISE;
   return 0.0;
 }
- 
+
 export function isBoulevard(gridCoord: number): boolean {
   return ((gridCoord % 4) + 4) % 4 === 0;
 }
@@ -491,7 +491,9 @@ export class GrandTheftRenderer {
   private chunkCache = new Map<string, CityChunk>();
   private meshCache = new Map<string, CityMesh>();
   private gltfCache = new Map<string, Promise<CityMesh[] | null>>();
-
+  private _scratchNormalMat = new Float32Array(9);
+  private _scratchTranslate: [number, number, number] = [0, 0, 0];
+  private _scratchScale: [number, number, number] = [1, 1, 1];
   public playerMesh: CityMesh | CityMesh[] | null = null;
   public lampMesh: CityMesh | CityMesh[] | null = null;
   public npcMesh: CityMesh | CityMesh[] | null = null;
@@ -2043,7 +2045,7 @@ void main() {
         }
       }
     }
-    else if(isParkingLot) {
+    else if (isParkingLot) {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.10, 0.10, 0.11, 1.0, idxOffset); idxOffset += 4;
       // Paint grid roads
       for (const gridX of [cx, cx + 1]) {
@@ -2054,7 +2056,7 @@ void main() {
         const worldZ = gridZ * GRID_PITCH;
         this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.04, worldZ, CHUNK_SIZE, 0.08, ROAD_HALF_WIDTH * 2, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
       }
-    }  
+    }
     else if (isRural) {
       // Rural ground — varies by sub-biome
       const gv = (rng() - 0.5) * 0.08;
@@ -2098,7 +2100,7 @@ void main() {
           if (Math.abs(cx - br.startCx) <= 2 && Math.abs(cz - br.startCz) <= 2) isNearBridge = true;
           if (Math.abs(cx - br.endCx) <= 2 && Math.abs(cz - br.endCz) <= 2) isNearBridge = true;
         }
-        
+
         if (isNearBridge) continue;
 
         if (ddx !== 0) {
@@ -2355,7 +2357,7 @@ void main() {
                 decorativeAircraft.push({ x: blockWorldX + 35, z: blockWorldZ + 18, yaw: Math.PI, type: 'plane', model: planeModel });
               }
             }
-          } else { 
+          } else {
             if (this.airportHangarMesh) {
               const hx = blockWorldX;
               const hz = blockWorldZ;
@@ -2663,7 +2665,7 @@ void main() {
       }
     }
 
-       // ── BOULEVARD MEDIAN + PALM TREES + LIGHTS ─────────────
+    // ── BOULEVARD MEDIAN + PALM TREES + LIGHTS ─────────────
     const INTERSECTION_CLEAR_RADIUS = ROAD_HALF_WIDTH + 2;
     const distanceToNearestGridNode = (x: number, z: number) => {
       const nx = Math.round(x / 80) * 80;
@@ -2678,7 +2680,7 @@ void main() {
         const gap = INTERSECTION_CLEAR_RADIUS;
         const segLen = CHUNK_SIZE - (gap * 2);
         this.addBox(verts, indices, worldX, 0.15, worldOriginZ + CHUNK_SIZE / 2, 6, 0.3, segLen, 0.12, 0.30, 0.10, 1.0, idxOffset); idxOffset += 24;
-        
+
         for (let z = worldOriginZ + gap; z < worldOriginZ + CHUNK_SIZE - gap; z += 16) {
           if (distanceToNearestGridNode(worldX, z) < gap) continue;
           if (this.cityTreeMesh && Math.floor((z - worldOriginZ) / 16) % 3 === 0) {
@@ -2702,7 +2704,7 @@ void main() {
         const gap = INTERSECTION_CLEAR_RADIUS;
         const segLen = CHUNK_SIZE - (gap * 2);
         this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.15, worldZ, segLen, 0.3, 6, 0.12, 0.30, 0.10, 1.0, idxOffset); idxOffset += 24;
-        
+
         for (let x = worldOriginX + gap; x < worldOriginX + CHUNK_SIZE - gap; x += 16) {
           if (distanceToNearestGridNode(x, worldZ) < gap) continue;
           if (this.cityTreeMesh && Math.floor((x - worldOriginX) / 16) % 3 === 0) {
@@ -2917,40 +2919,40 @@ void main() {
     { gx: 41, gzStart: -7, gzEnd: -11 }, // Zone 4 (cx 36-46, cz -11..-9)
     { gx: 39, gzStart: 7, gzEnd: 16 },   // Zone 5 (cx 33-46, cz 12-16)
   ];
- 
 
-isRoadNode(gx: number, gz: number): boolean {
-  const cx = Math.floor(gx * GRID_PITCH / CHUNK_SIZE);
-  const cz = Math.floor(gz * GRID_PITCH / CHUNK_SIZE);
-  const b = getBiome(cx, cz);
-  if (b === 'ocean' || b === 'beach' || b === 'mountain') return false;
-  if (b === 'aeroport') {
-    return GrandTheftRenderer.AIRPORT_ENTRY_ROADS.some(e =>
-      e.gx === gx && gz >= Math.min(e.gzStart, e.gzEnd) && gz <= Math.max(e.gzStart, e.gzEnd));
-  }
-  return true;
-}
 
-getRoadNodesInRadius(cx: number, cz: number, radius: number): { x: number; z: number } [] {
-  const nodes: { x: number; z: number }[] = [];
-  const seen = new Set<string>();
-  const blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
-  const startGx = Math.floor((cx * CHUNK_SIZE) / GRID_PITCH) - radius;
-  const startGz = Math.floor((cz * CHUNK_SIZE) / GRID_PITCH) - radius;
-  const endGx = Math.ceil((cx * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
-  const endGz = Math.ceil((cz * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
-
-  for (let gx = startGx; gx <= endGx; gx++) {
-    for (let gz = startGz; gz <= endGz; gz++) {
-      if (!this.isRoadNode(gx, gz)) continue;
-      const key = gx + ',' + gz;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      nodes.push({ x: gx * GRID_PITCH, z: gz * GRID_PITCH });
+  isRoadNode(gx: number, gz: number): boolean {
+    const cx = Math.floor(gx * GRID_PITCH / CHUNK_SIZE);
+    const cz = Math.floor(gz * GRID_PITCH / CHUNK_SIZE);
+    const b = getBiome(cx, cz);
+    if (b === 'ocean' || b === 'beach' || b === 'mountain') return false;
+    if (b === 'aeroport') {
+      return GrandTheftRenderer.AIRPORT_ENTRY_ROADS.some(e =>
+        e.gx === gx && gz >= Math.min(e.gzStart, e.gzEnd) && gz <= Math.max(e.gzStart, e.gzEnd));
     }
+    return true;
   }
-  return nodes;
-}
+
+  getRoadNodesInRadius(cx: number, cz: number, radius: number): { x: number; z: number }[] {
+    const nodes: { x: number; z: number }[] = [];
+    const seen = new Set<string>();
+    const blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
+    const startGx = Math.floor((cx * CHUNK_SIZE) / GRID_PITCH) - radius;
+    const startGz = Math.floor((cz * CHUNK_SIZE) / GRID_PITCH) - radius;
+    const endGx = Math.ceil((cx * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
+    const endGz = Math.ceil((cz * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
+
+    for (let gx = startGx; gx <= endGx; gx++) {
+      for (let gz = startGz; gz <= endGz; gz++) {
+        if (!this.isRoadNode(gx, gz)) continue;
+        const key = gx + ',' + gz;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        nodes.push({ x: gx * GRID_PITCH, z: gz * GRID_PITCH });
+      }
+    }
+    return nodes;
+  }
 
   getRoadEdges(nodes: { x: number; z: number }[]): [number, number][] {
     const edges: [number, number][] = [];
@@ -3293,55 +3295,74 @@ getRoadNodesInRadius(cx: number, cz: number, radius: number): { x: number; z: nu
     pitch: number = 0,
     roll: number = 0
   ) {
+    const meshes = Array.isArray(mesh) ? mesh : [mesh];  // check ONCE
+
+    // Build model matrix using scratch (no allocation)
     mat4.identity(this.modelMatrix);
-    mat4.translate(this.modelMatrix, this.modelMatrix, [x, y, z]);
+    this._scratchTranslate[0] = x; this._scratchTranslate[1] = y; this._scratchTranslate[2] = z;
+    mat4.translate(this.modelMatrix, this.modelMatrix, this._scratchTranslate);
     if (roll) mat4.rotateZ(this.modelMatrix, this.modelMatrix, roll);
     if (pitch) mat4.rotateX(this.modelMatrix, this.modelMatrix, pitch);
     mat4.rotateY(this.modelMatrix, this.modelMatrix, yaw);
 
-    const meshList = Array.isArray(mesh) ? mesh : [mesh];
-    const yo = meshList.reduce<number>((o, m) => o || (m.yawOffset ?? 0), 0);
-    if (yo) mat4.rotateY(this.modelMatrix, this.modelMatrix, yo);
+    // Pre-compute once instead of reduce()
+    let yo = 0;
+    let needsFlip = false;
+    let isMotorcycle = false;
+    let maxRenderScale = 1;
+    for (let i = 0; i < meshes.length; i++) {
+      const m = meshes[i];
+      if (!yo && m.yawOffset) yo = m.yawOffset;
+      if (!needsFlip && m.needsFlip) needsFlip = true;
+      if (!isMotorcycle && m.texture) {
+        // cache this as a boolean flag on the mesh at load time instead!
+        // For now, check a pre-computed flag:
+        isMotorcycle = (m as any)._isMotorcycle || false;
+      }
+      const rs = m.renderScale ?? 1;
+      if (rs > maxRenderScale) maxRenderScale = rs;
+    }
 
-    if (meshList.some(m => m.needsFlip)) {
+    if (yo) mat4.rotateY(this.modelMatrix, this.modelMatrix, yo);
+    if (needsFlip) {
       mat4.rotateX(this.modelMatrix, this.modelMatrix, Math.PI);
       mat4.rotateY(this.modelMatrix, this.modelMatrix, Math.PI);
-      mat4.translate(this.modelMatrix, this.modelMatrix, [0, -2, 0]);
+      mat4.translate(this.modelMatrix, this.modelMatrix, [0, -2, 0]); // rare, keep alloc
     }
+    if (isMotorcycle) mat4.rotateY(this.modelMatrix, this.modelMatrix, Math.PI);
 
-    if (meshList.some(m => m.texture?.toString().includes('motorcycle'))) {
-      mat4.rotateY(this.modelMatrix, this.modelMatrix, Math.PI);
+    if (maxRenderScale !== 1) {
+      this._scratchScale[0] = scale[0] * maxRenderScale;
+      this._scratchScale[1] = scale[1] * maxRenderScale;
+      this._scratchScale[2] = scale[2] * maxRenderScale;
+      mat4.scale(this.modelMatrix, this.modelMatrix, this._scratchScale);
+    } else {
+      mat4.scale(this.modelMatrix, this.modelMatrix, scale);
     }
-
-    const renderScale = meshList.reduce((max, m) => Math.max(max, m.renderScale ?? 1), 1);
-    if (renderScale !== 1) {
-      scale = [scale[0] * renderScale, scale[1] * renderScale, scale[2] * renderScale];
-    }
-
-    mat4.scale(this.modelMatrix, this.modelMatrix, scale);
 
     if (isShadowPass) {
       this.gl.uniformMatrix4fv(this.depthModelLoc, false, this.modelMatrix);
     } else {
       this.gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
       this.gl.uniform4f(this.colorLoc, color[0], color[1], color[2], color[3]);
-      if (this.normalMatrixLoc) {
-        const nm = this.computeNormalMatrix(new Float32Array(9), this.modelMatrix);
-        this.gl.uniformMatrix3fv(this.normalMatrixLoc, false, nm);
+      if (this.normalMatrixLoc) { 
+        this.computeNormalMatrix(this._scratchNormalMat, this.modelMatrix);
+        this.gl.uniformMatrix3fv(this.normalMatrixLoc, false, this._scratchNormalMat);
       }
     }
 
-    const meshes = Array.isArray(mesh) ? mesh : [mesh];
-    for (const m of meshes) {
-      if (!isShadowPass && m.texture) {
-        this.gl.uniform1i(this.useTextureLoc, 1);
-        this.gl.activeTexture(this.gl.TEXTURE0);
-        this.gl.bindTexture(this.gl.TEXTURE_2D, m.texture);
-        this.gl.uniform1i(this.textureLoc, 0);
-      } else if (!isShadowPass) {
-        this.gl.uniform1i(this.useTextureLoc, 0);
+    for (let i = 0; i < meshes.length; i++) {
+      const m = meshes[i];
+      if (!isShadowPass) {
+        if (m.texture) {
+          this.gl.uniform1i(this.useTextureLoc, 1);
+          this.gl.activeTexture(this.gl.TEXTURE0);
+          this.gl.bindTexture(this.gl.TEXTURE_2D, m.texture);
+          this.gl.uniform1i(this.textureLoc, 0);
+        } else {
+          this.gl.uniform1i(this.useTextureLoc, 0);
+        }
       }
-
       this.gl.bindVertexArray(m.vao);
       this.gl.drawElements(this.gl.TRIANGLES, m.indexCount, m.indexType || this.gl.UNSIGNED_SHORT, 0);
     }
@@ -3410,30 +3431,30 @@ getRoadNodesInRadius(cx: number, cz: number, radius: number): { x: number; z: nu
         }
       }
       for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, pc.y ?? (pc as any)._expY ?? 0, pc.z, pc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-      for (const npc of serverNPCs) {
-        const vy = (npc.type === 'helicopter' || npc.type === 'plane') ? (npc.y || 0) : 0;
-        this.drawMesh(npc.mesh, npc.x, vy, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-      }
-      for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-      for (const p of otherPlayers) {
-        if (p.passengerOfUserId && p.passengerOfUserId > 0) continue;
-        if (p.isInCar) {
-          const vType = p.vehicleType || 'car';
-          let carMesh: CityMesh | CityMesh[];
-          const col: [number, number, number] = [p.carColorR ?? 1, p.carColorG ?? 1, p.carColorB ?? 1];
-          if (vType === 'taxi') carMesh = this.getTaxiMesh();
-          else if (vType === 'bus') carMesh = this.busMesh || this.getNPCCarMesh(col, p.userId);
-          else if (vType === 'boat') carMesh = this.getBoatMesh(p.userId);
-          else if (vType === 'helicopter') carMesh = this.getHelicopterMesh(p.userId);
-          else if (vType === 'plane') carMesh = this.getPlaneMesh(p.userId);
-          else if (vType === 'motorcycle') carMesh = this.motorcycleMeshes.length > 0 ? this.motorcycleMeshes[0] : this.getNPCCarMesh(col, p.userId);
-          else if (vType === 'police') carMesh = this.getPoliceCarMesh();
-          else carMesh = this.carMeshes.length > 0 ? this.carMeshes[0] : this.getNPCCarMesh(col, p.userId);
-          const vehicleY = (vType === 'helicopter' || vType === 'plane') ? (p.posY || 0) : 0;
-          this.drawMesh(carMesh, p.posX, vehicleY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-        }
-        this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-      }
+      // for (const npc of serverNPCs) {
+      //   const vy = (npc.type === 'helicopter' || npc.type === 'plane') ? (npc.y || 0) : 0;
+      //   this.drawMesh(npc.mesh, npc.x, vy, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+      // }
+      // for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+      // for (const p of otherPlayers) {
+      //   if (p.passengerOfUserId && p.passengerOfUserId > 0) continue;
+      //   if (p.isInCar) {
+      //     const vType = p.vehicleType || 'car';
+      //     let carMesh: CityMesh | CityMesh[];
+      //     const col: [number, number, number] = [p.carColorR ?? 1, p.carColorG ?? 1, p.carColorB ?? 1];
+      //     if (vType === 'taxi') carMesh = this.getTaxiMesh();
+      //     else if (vType === 'bus') carMesh = this.busMesh || this.getNPCCarMesh(col, p.userId);
+      //     else if (vType === 'boat') carMesh = this.getBoatMesh(p.userId);
+      //     else if (vType === 'helicopter') carMesh = this.getHelicopterMesh(p.userId);
+      //     else if (vType === 'plane') carMesh = this.getPlaneMesh(p.userId);
+      //     else if (vType === 'motorcycle') carMesh = this.motorcycleMeshes.length > 0 ? this.motorcycleMeshes[0] : this.getNPCCarMesh(col, p.userId);
+      //     else if (vType === 'police') carMesh = this.getPoliceCarMesh();
+      //     else carMesh = this.carMeshes.length > 0 ? this.carMeshes[0] : this.getNPCCarMesh(col, p.userId);
+      //     const vehicleY = (vType === 'helicopter' || vType === 'plane') ? (p.posY || 0) : 0;
+      //     this.drawMesh(carMesh, p.posX, vehicleY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+      //   }
+      //   this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw, [1, 1, 1], [1, 1, 1, 1], true);
+      // }
       if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15], [1, 1, 1, 1], true);
       if (this.homeBaseMesh) this.drawMesh(this.homeBaseMesh, 120, 0, 40, 0, [10, 10, 10], [1, 1, 1, 1], true);
       if (this.vendingMachineMesh) {
@@ -3444,23 +3465,23 @@ getRoadNodesInRadius(cx: number, cz: number, radius: number): { x: number; z: nu
       if (playerMesh) {
         this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], true, 0, carRoll);
       }
-      for (const db of deadBodies) {
-        const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
-        const dbPitch = isHuman ? -Math.PI / 2 : 0;
-        this.drawMesh(db.mesh, db.x, 0.02, db.z, db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, 1], true, dbPitch);
-      }
+      // for (const db of deadBodies) {
+      //   const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
+      //   const dbPitch = isHuman ? -Math.PI / 2 : 0;
+      //   this.drawMesh(db.mesh, db.x, 0.02, db.z, db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, 1], true, dbPitch);
+      // }
 
-      for (const w of this.droppedWeapons) {
-        if (w == null || w.weaponType == null) continue;
-        this.drawMesh(
-          this.getWeaponPickupMesh(w.weaponType),
-          w.posX, 1.0, w.posZ,
-          pickupYaw,
-          [PICKUP_SCALE, PICKUP_SCALE, PICKUP_SCALE],
-          [1, 1, 1, 1],
-          true
-        );
-      }
+      // for (const w of this.droppedWeapons) {
+      //   if (w == null || w.weaponType == null) continue;
+      //   this.drawMesh(
+      //     this.getWeaponPickupMesh(w.weaponType),
+      //     w.posX, 1.0, w.posZ,
+      //     pickupYaw,
+      //     [PICKUP_SCALE, PICKUP_SCALE, PICKUP_SCALE],
+      //     [1, 1, 1, 1],
+      //     true
+      //   );
+      // }
 
       gl.disable(gl.POLYGON_OFFSET_FILL);
     } else {
@@ -3516,8 +3537,8 @@ getRoadNodesInRadius(cx: number, cz: number, radius: number): { x: number; z: nu
     gl.uniform1i(this.numPointLightsLoc, this.dayBlend < 0.5 ? numLights : 0);
     gl.uniform3fv(this.pointLightPosLoc, pointLightPositions);
 
-    for (let dz = -2; dz <= 2; dz++) {
-      for (let dx = -2; dx <= 2; dx++) {
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
         const chunk = this.getCityChunk(pcx + dx, pcz + dz);
         this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1]);
 
@@ -3668,39 +3689,39 @@ getRoadNodesInRadius(cx: number, cz: number, radius: number): { x: number; z: nu
       this.drawMesh(pc.mesh, pc.x, pc.y ?? (pc as any)._expY ?? submergeY, pc.z, pc.yaw);
     }
 
-    for (const npc of serverNPCs) {
-      const biome = getBiome(Math.floor(npc.x / 80), Math.floor(npc.z / 80));
-      const submerged = biome === 'ocean';
-      const isAircraft = npc.type === 'helicopter' || npc.type === 'plane';
-      const terrainY = submerged ? -1.5 : getTerrainHeight(npc.x, npc.z);
-      const expY = isAircraft ? (npc.y || 0) : (npc as any)._expY ?? terrainY;
-      this.drawMesh(npc.mesh, npc.x, expY, npc.z, npc.yaw);
-      if (npc.hasDriver !== false && npc.type !== 'cop') {
-        const dMesh = this.getPedestrianMesh(npc.gender || 'male', npc.id);
-        const sinY = Math.sin(npc.yaw), cosY = Math.cos(npc.yaw);
-        const dOffX = 0.3, dOffZ = 0.2;
-        const dwx = npc.x + (dOffX * cosY + dOffZ * sinY);
-        const dwz = npc.z + (-dOffX * sinY + dOffZ * cosY);
-        this.drawMesh(dMesh, dwx, -0.3, dwz, npc.yaw, [0.85, 0.85, 0.85]);
-        if ((npc.passengerCount || 0) > 0) {
-          const pMesh = this.getPedestrianMesh('female', npc.id + 1);
-          const pOffX = -0.3, pOffZ = 0.2;
-          const pwx = npc.x + (pOffX * cosY + pOffZ * sinY);
-          const pwz = npc.z + (-pOffX * sinY + pOffZ * cosY);
-          this.drawMesh(pMesh, pwx, -0.3, pwz, npc.yaw, [0.7, 0.7, 0.7]);
-        }
-      }
-      if (npc.type === 'police') {
-        const isRed = (performance.now() / 300) % 2 < 1;
-        const lightColor: [number, number, number, number] = isRed ? [1, 0, 0, 1] : [0, 0, 1, 1];
-        this.drawMesh(this.getBoxMesh(0.8, 0.2, 0.4), npc.x, 1.2, npc.z, npc.yaw, [1, 1, 1], lightColor);
-      }
-      if (npc.state === 'stop') {
-        this.drawMesh(this.getBoxMesh(0.4, 0.2, 0.3), npc.x, 1.0, npc.z, npc.yaw, [1, 1, 1], [1, 0, 0, 1]);
-      }
-    }
+    // for (const npc of serverNPCs) {
+    //   const biome = getBiome(Math.floor(npc.x / 80), Math.floor(npc.z / 80));
+    //   const submerged = biome === 'ocean';
+    //   const isAircraft = npc.type === 'helicopter' || npc.type === 'plane';
+    //   const terrainY = submerged ? -1.5 : getTerrainHeight(npc.x, npc.z);
+    //   const expY = isAircraft ? (npc.y || 0) : (npc as any)._expY ?? terrainY;
+    //   this.drawMesh(npc.mesh, npc.x, expY, npc.z, npc.yaw);
+    //   if (npc.hasDriver !== false && npc.type !== 'cop') {
+    //     const dMesh = this.getPedestrianMesh(npc.gender || 'male', npc.id);
+    //     const sinY = Math.sin(npc.yaw), cosY = Math.cos(npc.yaw);
+    //     const dOffX = 0.3, dOffZ = 0.2;
+    //     const dwx = npc.x + (dOffX * cosY + dOffZ * sinY);
+    //     const dwz = npc.z + (-dOffX * sinY + dOffZ * cosY);
+    //     this.drawMesh(dMesh, dwx, -0.3, dwz, npc.yaw, [0.85, 0.85, 0.85]);
+    //     if ((npc.passengerCount || 0) > 0) {
+    //       const pMesh = this.getPedestrianMesh('female', npc.id + 1);
+    //       const pOffX = -0.3, pOffZ = 0.2;
+    //       const pwx = npc.x + (pOffX * cosY + pOffZ * sinY);
+    //       const pwz = npc.z + (-pOffX * sinY + pOffZ * cosY);
+    //       this.drawMesh(pMesh, pwx, -0.3, pwz, npc.yaw, [0.7, 0.7, 0.7]);
+    //     }
+    //   }
+    //   if (npc.type === 'police') {
+    //     const isRed = (performance.now() / 300) % 2 < 1;
+    //     const lightColor: [number, number, number, number] = isRed ? [1, 0, 0, 1] : [0, 0, 1, 1];
+    //     this.drawMesh(this.getBoxMesh(0.8, 0.2, 0.4), npc.x, 1.2, npc.z, npc.yaw, [1, 1, 1], lightColor);
+    //   }
+    //   if (npc.state === 'stop') {
+    //     this.drawMesh(this.getBoxMesh(0.4, 0.2, 0.3), npc.x, 1.0, npc.z, npc.yaw, [1, 1, 1], [1, 0, 0, 1]);
+    //   }
+    // }
 
-    for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw);
+    // for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw);
     for (const p of otherPlayers) {
       if (p.passengerOfUserId && p.passengerOfUserId > 0) {
         const host = otherPlayers.find(h => h.userId === p.passengerOfUserId);
@@ -5017,6 +5038,9 @@ getRoadNodesInRadius(cx: number, cz: number, radius: number): { x: number; z: nu
       if (meshes.length > 0) {
         const rawName = url.replace('assets/grandtheft/', '').replace('/scene.gltf', '').replace('.glb', '');
         for (const m of meshes) m.carName = rawName;
+        if (rawName.includes('motorcycle') || rawName.includes('pizzaMoped')) {
+          for (const m of meshes) (m as any)._isMotorcycle = true;
+        }
       }
       if (out) {
         out.animations = this.extractGltfAnimations(json, buffers);
