@@ -1,7 +1,7 @@
 ﻿import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, NgZone, ChangeDetectorRef } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { GrandTheftRenderer, CityMesh, getBiome, getTerrainHeight } from './grandtheft-renderer';
-import { GrandtheftService } from '../../services/grandtheft.service';
+import { GrandTheftRenderer, getBiome, getTerrainHeight } from './grandtheft-renderer';
+import { BloodPool, BloodSplat, CityMesh, DeadBody, Explosion, GrandtheftService, MuzzleFlash, OtherPlayerState, ParkedCar, Rocket, Tracer, TrafficLane, VendingMachine } from '../../services/grandtheft.service';
 import { UserEventService } from '../../services/user-event.service';
 import { TodoService } from '../../services/todo.service';
 import { FileService } from '../../services/file.service';
@@ -38,103 +38,6 @@ const HOOKER_SECLUDED_RADIUS = 50;
 const HOOKER_HEAL_PER_SEC = 5;
 const HOOKER_MONEY_PER_SEC = 1;
 const HOOKER_MAX_MONEY = 80;
-
-interface DeadBody {
-  id: number;
-  x: number; z: number; yaw: number;
-  type: string;
-  gender?: string;
-  mesh: CityMesh | CityMesh[];
-  deathTime: number;
-  lifetime: number;
-  colorR?: number; colorG?: number; colorB?: number;
-}
-
-interface ParkedCar {
-  id: number;
-  x: number; z: number; yaw: number;
-  y?: number;
-  type: string;
-  health: number;
-  isBurning?: boolean;
-  fireStarted?: number;
-  carFireX?: number; carFireZ?: number; carFireYaw?: number;
-  submerged?: boolean;
-  submergeStart?: number;
-  mesh: CityMesh | CityMesh[];
-  colorR: number; colorG: number; colorB: number;
-}
-
-interface OtherPlayerState {
-  userId: number;
-  posX: number; posY: number; posZ: number;
-  yaw: number;
-  carSpeed: number;
-  health: number; weapon: number;
-  money: number;
-  username: string;
-  mesh: CityMesh | CityMesh[];
-  modelUrl?: string;
-  isShooting: boolean;
-  camYaw: number;
-  camPitch: number;
-  remoteShootTimer: number;
-  isInCar: boolean;
-  vehicleType?: string;
-  carColorR?: number;
-  carColorG?: number;
-  carColorB?: number;
-  passengerOfUserId?: number;
-}
-
-interface Tracer {
-  originX: number; originY: number; originZ: number;
-  dirX: number; dirY: number; dirZ: number;
-  age: number; lifetime: number;
-}
-
-interface MuzzleFlash {
-  x: number; y: number; z: number;
-  dirX: number; dirY: number; dirZ: number;
-  weapon: number;
-  age: number; lifetime: number;
-}
-
-interface Rocket {
-  x: number; y: number; z: number;
-  vx: number; vy: number; vz: number;
-  age: number; lifetime: number;
-}
-
-interface Explosion {
-  x: number; y: number; z: number;
-  age: number; lifetime: number;
-}
-
-interface BloodSplat {
-  x: number; y: number; z: number;
-  vx: number; vy: number; vz: number;
-  size: number;
-  age: number; lifetime: number;
-}
-
-interface BloodPool {
-  x: number; z: number;
-  age: number; lifetime: number; maxRadius: number;
-  variant?: number;
-}
-
-interface VendingMachine {
-  x: number; z: number;
-  yaw: number;
-}
-
-interface TrafficLane {
-  fromIdx: number;
-  toIdx: number;
-  offsetX: number;
-  offsetZ: number;
-}
 
 @Component({
   selector: 'app-grandtheft',
@@ -174,6 +77,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _reloading = false;
   private _pistolDrawTimer = 0;
   private _chatClearTimer: any = null;
+  private _trafficTimer = 0;
+  private _pedTimer = 0;
 
   camYaw = 0; camPitch = 0.2;
   camDist = 4; camHeight = 2;
@@ -222,6 +127,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   _carSubmergeStart = 0;
   private _respawnTimer: any = null;
   private _justRespawned = false;
+  private _lastTrafficChunkX = 0;
+  private _lastTrafficChunkZ = 0;
   isLoaded = false;
   loadingAssets = 0;
   totalAssets = 0;
@@ -281,7 +188,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private wasInGarage = false;
   private garageExitedCar = false;
   private garageStoreCooldown = 0;
-
+  private _cachedSidewalkNodes: { x: number; z: number }[] = [];
+  private _lastPedChunkX = 999;
+  private _lastPedChunkZ = 999;
   private _lastVendingChunkX = 999;
   private _lastVendingChunkZ = 999;
   lookTargetHealth: number | null = null;
@@ -309,6 +218,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _pollTimer: any = null;
   private _destroyed = false;
   private autoFireTimer: any = null;
+  private _allNPCs: any[] = [];
+  private _allPeds: any[] = [];
   weaponNames = WEAPON_NAMES;
   isMobile = false;
   damageAlpha = 0;
@@ -549,8 +460,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.gameLoop(this.lastTime);
       });
     }
-    this.startPolling();
-    this.startNPCPolling();
+    this.ngZone.runOutsideAngular(() => {
+      this.startPolling();
+      this.startNPCPolling();
+    });
     this.initTraffic();
     setTimeout(() => this.trySpawnAirportLotCars(), 2000);
   }
@@ -2137,6 +2050,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
+  private measureLead(car: any, ox: number, oz: number, oSpeed?: number) {
+    const dx = ox - car.x;
+    const dz = oz - car.z;
+    const carFwdX = Math.sin(car.yaw);
+    const carFwdZ = Math.cos(car.yaw);
+    let ahead = dx * carFwdX + dz * carFwdZ;
+    if (ahead <= 0) return;
+    const dist = Math.hypot(dx, dz);
+    if (dist < car.leadDist) {
+      car.leadDist = dist;
+      car.leadSpeed = oSpeed ?? 0;
+    }
+  }
+
   private updateTraffic(dt: number) {
     this.trafficSpawnTimer += dt;
     if (this.trafficSpawnTimer > 3) {
@@ -2257,40 +2184,35 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       let leadDist = Infinity;
       let leadSpeed = 12;
 
-      const measureLead = (ox: number, oz: number, oSpeed?: number) => {
-        const dx = ox - car.x;
-        const dz = oz - car.z;
-        const ahead = dx * carFwdX + dz * carFwdZ;
-        if (ahead <= 0) return;
-        const dist = Math.hypot(dx, dz);
-        if (dist < leadDist) { leadDist = dist; leadSpeed = oSpeed ?? 0; }
-      };
+
 
       for (const other of this.trafficCars) {
         if (other.id === car.id || other.health <= 0) continue;
-        measureLead(other.x, other.z, other.speed);
+        this.measureLead(car, other.x, other.z, other.speed);
       }
       for (const npc of this.serverNPCs) {
         if (npc.health <= 0) continue;
-        measureLead(npc.x, npc.z, npc.speed);
+        this.measureLead(car, npc.x, npc.z, npc.speed);
       }
       for (const pc of this.parkedCars) {
         if (pc.health <= 0) continue;
-        measureLead(pc.x, pc.z);
+        this.measureLead(car, pc.x, pc.z);
       }
       const nearbyLamps = this.renderer.getLampsNear(car.x, car.z, 8);
-      for (const lamp of nearbyLamps) measureLead(lamp.x, lamp.z);
+      for (const lamp of nearbyLamps) {
+        this.measureLead(car, lamp.x, lamp.z);
+      }
       for (const ped of this.localPedestrians) {
         if (ped.health <= 0) continue;
-        measureLead(ped.x, ped.z);
+        this.measureLead(car, ped.x, ped.z);
       }
       for (const ped of this.serverPedestrians) {
         if (ped.health <= 0) continue;
-        measureLead(ped.x, ped.z);
+        this.measureLead(car, ped.x, ped.z);
       }
       for (const op of this.otherPlayers) {
         if (op.health <= 0) continue;
-        measureLead(op.posX, op.posZ, 12);
+        this.measureLead(car, op.posX, op.posZ, 12);
       }
 
       // Safe speed = proportional to available following distance, capped at lead car's speed
@@ -2301,7 +2223,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (nextNode && distToTarget < intersectionRadius) {
         const isHDir = Math.abs(nextNode.x - currNode.x) > Math.abs(nextNode.z - currNode.z);
         if ((isHDir && isRedForX) || (!isHDir && !isRedForX)) redLight = true;
-      } 
+      }
 
       if (distToTarget < 2) {
         car.pathIdx++;
@@ -2333,53 +2255,70 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       car.z += Math.cos(car.yaw) * car.speed * dt;
     }
 
-  } 
+  }
 
   private updatePedestrians(dt: number) {
     this.pedSpawnTimer += dt;
 
-    const sidewalkNodes: { x: number; z: number }[] = [];
     const playerCX = Math.floor(this.carX / CHUNK_SIZE);
     const playerCZ = Math.floor(this.carZ / CHUNK_SIZE);
-    const viewRadius = 3;
-    const _GRID_PITCH = 80;
-    const _BLOCK_SIZE = 30;
-    for (let dz = -viewRadius; dz <= viewRadius; dz++) {
-      for (let dx = -viewRadius; dx <= viewRadius; dx++) {
-        const cx = playerCX + dx;
-        const cz = playerCZ + dz;
-        const blocksPerChunk = CHUNK_SIZE / _GRID_PITCH;
-        for (let by = 0; by < blocksPerChunk; by++) {
-          for (let bx = 0; bx < blocksPerChunk; bx++) {
-            const gx = cx * blocksPerChunk + bx;
-            const gz = cz * blocksPerChunk + by;
-            const bxCenter = gx * _GRID_PITCH + _GRID_PITCH / 2;
-            const bzCenter = gz * _GRID_PITCH + _GRID_PITCH / 2;
-            const halfSW = (_BLOCK_SIZE + 6) / 2;
-            const inset = 1;
-            sidewalkNodes.push(
-              { x: bxCenter - halfSW + inset, z: bzCenter - halfSW + inset },
-              { x: bxCenter + halfSW - inset, z: bzCenter - halfSW + inset },
-              { x: bxCenter + halfSW - inset, z: bzCenter + halfSW - inset },
-              { x: bxCenter - halfSW + inset, z: bzCenter + halfSW - inset },
-            );
+
+    // Only rebuild sidewalk nodes if the player has moved to a new chunk
+    if (playerCX !== this._lastPedChunkX || playerCZ !== this._lastPedChunkZ) {
+      this._lastPedChunkX = playerCX;
+      this._lastPedChunkZ = playerCZ;
+
+      this._cachedSidewalkNodes.length = 0; // Clear array without reallocating
+      const viewRadius = 3;
+      const _GRID_PITCH = 80;
+      const _BLOCK_SIZE = 30;
+      const blocksPerChunk = CHUNK_SIZE / _GRID_PITCH;
+
+      const HOME_CHUNK_MIN_X = 1 * CHUNK_SIZE;
+      const HOME_CHUNK_MAX_X = 1 * CHUNK_SIZE + CHUNK_SIZE;
+      const HOME_CHUNK_MIN_Z = 0 * CHUNK_SIZE;
+      const HOME_CHUNK_MAX_Z = 0 * CHUNK_SIZE + CHUNK_SIZE;
+
+      for (let dz = -viewRadius; dz <= viewRadius; dz++) {
+        for (let dx = -viewRadius; dx <= viewRadius; dx++) {
+          const cx = playerCX + dx;
+          const cz = playerCZ + dz;
+          for (let by = 0; by < blocksPerChunk; by++) {
+            for (let bx = 0; bx < blocksPerChunk; bx++) {
+              const gx = cx * blocksPerChunk + bx;
+              const gz = cz * blocksPerChunk + by;
+              const bxCenter = gx * _GRID_PITCH + _GRID_PITCH / 2;
+              const bzCenter = gz * _GRID_PITCH + _GRID_PITCH / 2;
+              const halfSW = (_BLOCK_SIZE + 6) / 2;
+              const inset = 1;
+
+              // Pre-calculate the 4 corner nodes for this block
+              const nodesToCheck = [
+                { x: bxCenter - halfSW + inset, z: bzCenter - halfSW + inset },
+                { x: bxCenter + halfSW - inset, z: bzCenter - halfSW + inset },
+                { x: bxCenter + halfSW - inset, z: bzCenter + halfSW - inset },
+                { x: bxCenter - halfSW + inset, z: bzCenter + halfSW - inset },
+              ];
+
+              // Inline the home-base filter check to avoid array allocations
+              for (const n of nodesToCheck) {
+                if (n.x < HOME_CHUNK_MIN_X || n.x >= HOME_CHUNK_MAX_X ||
+                  n.z < HOME_CHUNK_MIN_Z || n.z >= HOME_CHUNK_MAX_Z) {
+                  this._cachedSidewalkNodes.push(n);
+                }
+              }
+            }
           }
         }
       }
     }
 
-    const HOME_CHUNK_MIN_X = 1 * CHUNK_SIZE;
-    const HOME_CHUNK_MAX_X = 1 * CHUNK_SIZE + CHUNK_SIZE;
-    const HOME_CHUNK_MIN_Z = 0 * CHUNK_SIZE;
-    const HOME_CHUNK_MAX_Z = 0 * CHUNK_SIZE + CHUNK_SIZE;
-    const filteredNodes = sidewalkNodes.filter(
-      n => n.x < HOME_CHUNK_MIN_X || n.x >= HOME_CHUNK_MAX_X || n.z < HOME_CHUNK_MIN_Z || n.z >= HOME_CHUNK_MAX_Z
-    );
+    const sidewalkNodes = this._cachedSidewalkNodes;
 
-    if (this.pedSpawnTimer > 0.5 && this.localPedestrians.length < 50 && filteredNodes.length > 0) {
+    if (this.pedSpawnTimer > 0.5 && this.localPedestrians.length < 50 && sidewalkNodes.length > 0) {
       this.pedSpawnTimer = 0;
-      const srcNode = filteredNodes[Math.floor(Math.random() * filteredNodes.length)];
-      const dstNode = filteredNodes[Math.floor(Math.random() * filteredNodes.length)];
+      const srcNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
+      const dstNode = sidewalkNodes[Math.floor(Math.random() * sidewalkNodes.length)];
       const isHooker = Math.random() < 0.15;
       const gender = isHooker ? 'hooker' : (Math.random() < 0.5 ? 'male' : 'female');
       const type = isHooker ? 'hooker' : undefined;
@@ -2447,9 +2386,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       ped.z += Math.cos(ped.yaw) * speed * dt;
     }
   }
-
-  private _lastTrafficChunkX = 0;
-  private _lastTrafficChunkZ = 0;
+  
 
   private isAtAirportParkingSpot(x: number, z: number): boolean {
     for (const entry of GrandTheftRenderer.AIRPORT_ENTRY_ROADS) {
@@ -2508,8 +2445,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateExplosionJumps(dt);
     this.updateGarage(dt);
     this.findLookTarget();
-    this.updateTraffic(dt);
-    this.updatePedestrians(dt);
+    this._trafficTimer += dt;
+    if (this._trafficTimer >= 0.033) { // ~30 FPS
+      this.updateTraffic(this._trafficTimer);
+      this._trafficTimer = 0;
+    }
+    this._pedTimer += dt;
+    if (this._pedTimer >= 0.033) { // ~30 FPS
+      this.updatePedestrians(this._pedTimer);
+      this._pedTimer = 0;
+    }
     this.updateNPCInterpolation();
     this.updatePoliceSiren();
     this.updateTaxiMission(dt);
@@ -2679,8 +2624,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const camZ = targetZ - Math.cos(this.camYaw) * effectiveDist;
     const camY = targetY + effectiveHeight;
     const renderMesh = this.isInCar ? this.playerVehicleMesh : (this.firstPerson ? null : this.renderer.playerMesh);
-    const allNPCs = [...this.serverNPCs, ...this.trafficCars, ...this.airportLotCars, ...this.policeModeThugCars];
-    const allPeds = [...this.serverPedestrians, ...this.localPedestrians, ...this.policeModeThugPeds];
+    this._allNPCs.length = 0;
+    for (const n of this.serverNPCs) this._allNPCs.push(n);
+    for (const n of this.trafficCars) this._allNPCs.push(n);
+    for (const n of this.airportLotCars) this._allNPCs.push(n);
+    for (const n of this.policeModeThugCars) this._allNPCs.push(n);
+
+    this._allPeds.length = 0;
+    for (const p of this.serverPedestrians) this._allPeds.push(p);
+    for (const p of this.localPedestrians) this._allPeds.push(p);
+    for (const p of this.policeModeThugPeds) this._allPeds.push(p);
+
     const rockOffset = this.getCarRockOffset();
     const carRoll = this.getCarRockRoll();
 
@@ -2726,7 +2680,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.renderer.render(
         camX, camY, camZ, this.camYaw, this.camPitch, aspect,
         targetX, this.carY - CAR_HEIGHT + rockOffset, targetZ, this.carYaw,
-        allNPCs, this.otherPlayers, allPeds, this.parkedCars,
+        this._allNPCs, this.otherPlayers, this._allPeds, this.parkedCars,
         this.tracers, this.muzzleFlashes, this.rockets, this.explosions, this.bloodSplats,
         this.bloodPools,
         this.bulletSmoke,

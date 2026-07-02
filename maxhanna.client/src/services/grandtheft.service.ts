@@ -81,6 +81,166 @@ export interface GTUpdatePositionResponse {
   chatMessages?: { userId: number; username: string; message: string; timestamp: string }[];
 }
 
+export interface DeadBody {
+  id: number;
+  x: number; z: number; yaw: number;
+  type: string;
+  gender?: string;
+  mesh: CityMesh | CityMesh[];
+  deathTime: number;
+  lifetime: number;
+  colorR?: number; colorG?: number; colorB?: number;
+}
+
+export interface ParkedCar {
+  id: number;
+  x: number; z: number; yaw: number;
+  y?: number;
+  type: string;
+  health: number;
+  isBurning?: boolean;
+  fireStarted?: number;
+  carFireX?: number; carFireZ?: number; carFireYaw?: number;
+  submerged?: boolean;
+  submergeStart?: number;
+  mesh: CityMesh | CityMesh[];
+  colorR: number; colorG: number; colorB: number;
+}
+
+export interface OtherPlayerState {
+  userId: number;
+  posX: number; posY: number; posZ: number;
+  yaw: number;
+  carSpeed: number;
+  health: number; weapon: number;
+  money: number;
+  username: string;
+  mesh: CityMesh | CityMesh[];
+  modelUrl?: string;
+  isShooting: boolean;
+  camYaw: number;
+  camPitch: number;
+  remoteShootTimer: number;
+  isInCar: boolean;
+  vehicleType?: string;
+  carColorR?: number;
+  carColorG?: number;
+  carColorB?: number;
+  passengerOfUserId?: number;
+}
+export interface CityMesh {
+  originalVBO?: Float32Array;
+  vao: WebGLVertexArrayObject;
+  vbo: WebGLBuffer;
+  ibo: WebGLBuffer;
+  indexCount: number;
+  indexType?: number;
+  texture?: WebGLTexture | null;
+  needsFlip?: boolean;
+  vertexCount?: number;
+  restPositions?: Float32Array;
+  restNormals?: Float32Array;
+  jointIndices?: Uint16Array;
+  jointWeights?: Float32Array;
+  minY?: number;
+  maxY?: number;
+  minX?: number;
+  maxX?: number;
+  minZ?: number;
+  maxZ?: number;
+  carName?: string;
+  meshName?: string;
+  renderScale?: number;
+  yawOffset?: number;
+}
+export interface GltfAnimation {
+  name: string;
+  duration: number;                       // seconds (longest channel)
+  channels: {
+    nodeIndex: number;                    // GLTF node index
+    path: 'translation' | 'rotation' | 'scale' | 'weights';
+    sampler: {
+      input: Float32Array;                // keyframe times (seconds)
+      output: Float32Array;               // flat values (3 for translation, 4 for rotation, 3 for scale)
+      interpolation: 'LINEAR' | 'STEP' | 'CUBICSPLINE';
+    };
+  }[];
+}
+export interface BuildingPlacement {
+  model: CityMesh[];
+  x: number;
+  y: number;
+  z: number;
+  yaw: number;
+  scale: [number, number, number];
+}
+export interface CityChunk {
+  mesh: CityMesh;
+  cx: number;
+  cz: number;
+  lamps: { x: number; z: number }[];
+  hydrants: { x: number; z: number }[];
+  buildings: BuildingPlacement[];
+  benches: { x: number; z: number; yaw: number }[];
+  barrels: { x: number; z: number; yaw: number }[];
+  chickens: { x: number; z: number; yaw: number }[];
+  trees: { x: number; z: number; yaw: number; scale: number }[];
+  supermarkets: { x: number; z: number; yaw: number }[];
+  tatami: { x: number; z: number; yaw: number }[];
+  cabins: { x: number; z: number; yaw: number }[];
+  lighthouses: { x: number; z: number; yaw: number }[];
+  tropicalShops: { x: number; z: number; yaw: number }[];
+  decorativeAircraft: { x: number; z: number; yaw: number; type: string; model?: CityMesh | CityMesh[] }[];
+}
+export interface Tracer {
+  originX: number; originY: number; originZ: number;
+  dirX: number; dirY: number; dirZ: number;
+  age: number; lifetime: number;
+}
+
+export interface MuzzleFlash {
+  x: number; y: number; z: number;
+  dirX: number; dirY: number; dirZ: number;
+  weapon: number;
+  age: number; lifetime: number;
+}
+
+export interface Rocket {
+  x: number; y: number; z: number;
+  vx: number; vy: number; vz: number;
+  age: number; lifetime: number;
+}
+
+export interface Explosion {
+  x: number; y: number; z: number;
+  age: number; lifetime: number;
+}
+
+export interface BloodSplat {
+  x: number; y: number; z: number;
+  vx: number; vy: number; vz: number;
+  size: number;
+  age: number; lifetime: number;
+}
+
+export interface BloodPool {
+  x: number; z: number;
+  age: number; lifetime: number; maxRadius: number;
+  variant?: number;
+}
+
+export interface VendingMachine {
+  x: number; z: number;
+  yaw: number;
+}
+
+export interface TrafficLane {
+  fromIdx: number;
+  toIdx: number;
+  offsetX: number;
+  offsetZ: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
