@@ -224,9 +224,10 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   }
   async updateUserAbout() {
     const parent = this.inputtedParentRef ? this.inputtedParentRef : this.parentRef;
-    const user = parent?.user;
-
+    const user = parent?.user; 
     if (!user?.id) return;
+
+    this.startLoading();
     let about = new UserAbout();
     about.userId = user.id;
     about.description = this.updatedDescription.nativeElement.value != '' ? this.updatedDescription.nativeElement.value : undefined;
@@ -237,12 +238,13 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     about.currency = this.selectedCurrencyDropdown.nativeElement.value != '' ? this.selectedCurrencyDropdown.nativeElement.value : undefined;
     about.website = this.updatedWebsite && this.updatedWebsite.nativeElement.value != '' ? this.updatedWebsite.nativeElement.value : undefined;
     await this.userService.updateUserAbout(user.id, about).then(async res => {
+      this.stopLoading();
       if (res) {
         if (user && parent) {
           user.about = about;
           parent.resetUserCookie();
           this.ngOnInit();
-          this.parentRef?.showNotification(res);
+          this.parentRef?.showNotification(res); 
         }
       }
     });
@@ -251,6 +253,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
     if (this.isApiKeysToggled && user) {
+      this.startLoading();
       const krakenPrivateKey = this.krakenPrivateKey.nativeElement.value;
       const krakenApiKey = this.krakenApiKey.nativeElement.value;
       if (krakenPrivateKey && krakenApiKey) {
@@ -260,12 +263,14 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
         if (krakenApiKey.length < minValidLength) invalidFields.push('API Key');
 
         if (invalidFields.length > 0) {
+          this.stopLoading();
           return alert(`The following Kraken API fields are too short (minimum ${minValidLength} characters):\n\n${invalidFields.join('\n')}`);
         }
 
         try {
           parent?.getSessionToken().then(sessionToken => {
             this.tradeService.updateApiKey(user.id ?? 0, krakenApiKey, krakenPrivateKey, sessionToken).then(res => {
+              this.stopLoading();
               if (res) {
                 this.parentRef?.showNotification(res);
                 setTimeout(() => { this.ngOnInit(); }, 50);
@@ -273,10 +278,12 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
             });
           });
         } catch (error) {
+          this.stopLoading();
           console.log(error);
         }
       }
       else if ((krakenApiKey && !krakenPrivateKey) || (!krakenApiKey && krakenPrivateKey)) {
+        this.stopLoading();
         return alert("Incomplete Kraken API key entry. Fill in both API and Private Key values to save.");
       }
     }
@@ -284,6 +291,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   async updateNHAPIKeys() {
     const user = this.parentRef?.user;
     if (this.isApiKeysToggled && user?.id) {
+      this.startLoading();
       let keys = new NicehashApiKeys();
       keys.orgId = this.orgId.nativeElement.value;
       keys.apiKey = this.apiKey.nativeElement.value;
@@ -298,14 +306,17 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
         if (keys.apiKey.length < minValidLength) invalidFields.push('API Key');
 
         if (invalidFields.length > 0) {
+          this.stopLoading();
           return alert(`The following Nicehash API fields are too short (minimum ${minValidLength} characters):\n\n${invalidFields.join('\n')}`);
         }
         try {
           await this.miningService.updateNicehashApiInfo(user.id, keys);
+          this.stopLoading();
           this.parentRef?.showNotification("Nicehash API Keys updated successfully");
           setTimeout(() => { this.ngOnInit(); }, 50);
         } catch {
           this.parentRef?.showNotification("Error while updating Nicehash API Keys!");
+          this.stopLoading();
         }
       } else if ((!keys.orgId || !keys.apiKey || !keys.apiSecret) && (keys.orgId || keys.apiKey || keys.apiSecret)) {
         return alert("Incomplete Nicehash API key entry. Fill in All 3 API key, Org ID and API Secret values to save.");
@@ -331,10 +342,12 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
         }
         else {
           if (this.parentRef?.user?.id) {
+            this.startLoading();
             const locationData = await this.parentRef.getLocation();
             if (locationData) {
               const weatherLocation = await this.weatherService.getWeatherLocation(this.parentRef.user.id) as WeatherLocation;
               if (weatherLocation && (this.userService.isValidIpAddress(weatherLocation.location) || weatherLocation.location?.trim() === '')) {
+                this.stopLoading();
                 await this.weatherService.updateWeatherLocation(this.parentRef.user.id, locationData.ip, locationData.city, locationData.country);
               }
             }
@@ -344,6 +357,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
         this.parentRef?.showNotification("Weather location updated successfully");
       } catch {
         this.parentRef?.showNotification("Error while updating weather location!");
+        this.stopLoading();
       }
       this.ngOnInit();
     }
@@ -352,12 +366,14 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   async profileBackgroundSelected(files: FileEntry[]) {
     const targetParent = this.inputtedParentRef ?? this.parentRef;
     if (targetParent?.user?.id) {
+      this.startLoading();
       if (files && files.length > 0) {
         await this.userService.updateProfileBackgroundPicture(targetParent.user.id, files[0].id);
+        this.stopLoading();
         targetParent.user.profileBackgroundPictureFile = files[0];
       } else {
-        // empty selection -> clear profile background (server accepts fileId=0 to clear)
         await this.userService.updateProfileBackgroundPicture(targetParent.user.id, 0);
+        this.stopLoading();
         targetParent.user.profileBackgroundPictureFile = undefined as any;
       }
       targetParent.deleteCookie("user");
@@ -369,12 +385,15 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   async avatarSelected(files: FileEntry[]) {
     const targetParent = this.inputtedParentRef ?? this.parentRef;
     if (targetParent?.user?.id) {
+      this.startLoading();
       if (files && files.length > 0) {
         await this.userService.updateDisplayPicture(targetParent.user.id, files[0].id);
+        this.stopLoading();
         targetParent.user.displayPictureFile = files[0];
       } else {
         // empty selection -> clear display picture
         await this.userService.updateDisplayPicture(targetParent.user.id, 0);
+        this.stopLoading();
         targetParent.user.displayPictureFile = undefined as any;
       }
       targetParent.deleteCookie("user");
@@ -414,7 +433,9 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     if (parent.user?.id) {
       if (confirm("Are you sure you wish to delete your account? This will also delete all your saved data, chats, etc.")) { 
         try {
+          this.startLoading();
           const res = await this.userService.deleteUser(parent.user?.id ?? 0, sessionToken);
+          this.stopLoading();
           parent.showNotification(res["message"]);
           parent.deleteCookie("user");
           window.location.reload();
