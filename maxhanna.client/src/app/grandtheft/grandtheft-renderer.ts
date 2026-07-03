@@ -2170,10 +2170,10 @@ void main() {
 
     // ── ROAD EXTENSION at beach/rural boundaries ──
     // Beach and rural chunks don't draw grid roads, so they leave a
-    // missing-lane gap where they border city/suburb/parking_lot chunks.
+    // missing-lane gap where they border road-enabled or bridge chunks.
     if (isBeach || isRural) {
       const nb = (dx: number, dz: number) => getBiome(cx + dx, cz + dz);
-      const isRoad = (b: string) => b === 'city' || b === 'suburb' || b === 'parking_lot';
+      const isRoad = (b: string) => b === 'city' || b === 'suburb' || b === 'parking_lot' || b === 'bridge' || b === 'bridge_connector';
       if (isRoad(nb(-1, 0))) {
         this.addBox(verts, indices, cx * GRID_PITCH, 0.04, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2, 0.08, CHUNK_SIZE, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
       }

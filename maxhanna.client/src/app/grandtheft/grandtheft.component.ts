@@ -3727,14 +3727,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const len = Math.hypot(dx, dz);
       if (len === 0) continue;
 
-      // Check if this edge crosses a bridge — use wider lane offset for safety
-      const midX = (a.x + b.x) / 2;
-      const midZ = (a.z + b.z) / 2;
-      const midBiome = getBiome(Math.floor(midX / 80), Math.floor(midZ / 80));
-      const isBridgeEdge = midBiome === 'bridge';
-      const laneOffset = isBridgeEdge ? 5.0 : 4.0; // Slightly wider on bridges
-
-      const perpX = dz / len * laneOffset, perpZ = -dx / len * laneOffset;
+      // Lane offset from road centerline — consistent 4.0 everywhere
+      // so cars don't swerve when transitioning between biomes (especially bridges)
+      const perpX = dz / len * 4.0, perpZ = -dx / len * 4.0;
       // Forward lane (from → to)
       this.trafficLanes.push({ fromIdx: edge[0], toIdx: edge[1], offsetX: perpX, offsetZ: perpZ });
       // Reverse lane (to → from) — opposite side ensures one-directional flow
