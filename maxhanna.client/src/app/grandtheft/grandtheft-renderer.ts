@@ -2586,7 +2586,25 @@ void main() {
               const models = this.suburbBuildingMeshes;
               if (models.length > 0) {
                 const model = models[Math.floor(rng() * models.length)];
-                const scVal = Math.max(w, d) / 15 * 3.2;
+                let nativeMinX = 0, nativeMaxX = 1, nativeMinZ = 0, nativeMaxZ = 1;
+                { let mnX = Infinity, mxX = -Infinity, mnZ = Infinity, mxZ = -Infinity;
+                  for (const m of (Array.isArray(model) ? model : [model])) {
+                    const rs = m.renderScale ?? 1;
+                    if (m.minX !== undefined) mnX = Math.min(mnX, m.minX * rs); if (m.maxX !== undefined) mxX = Math.max(mxX, m.maxX * rs);
+                    if (m.minZ !== undefined) mnZ = Math.min(mnZ, m.minZ * rs); if (m.maxZ !== undefined) mxZ = Math.max(mxZ, m.maxZ * rs);
+                  }
+                  if (isFinite(mnX)) { nativeMinX = mnX; nativeMaxX = mxX; nativeMinZ = mnZ; nativeMaxZ = mxZ; } }
+                const nativeWidth = (edge.dx === 0) ? (nativeMaxX - nativeMinX) : (nativeMaxZ - nativeMinZ);
+                const nativeDepth = (edge.dx === 0) ? (nativeMaxZ - nativeMinZ) : (nativeMaxX - nativeMinX);
+                const scVal = nativeWidth > 0.01 ? w / nativeWidth : 1;
+                const actualDepth = nativeDepth * scVal;
+                if (edge.dx === 0) {
+                  px = blockWorldX - halfSW + 6 + houseWidth / 2 + i * houseWidth;
+                  pz = blockWorldZ + edge.dz * (halfSW - 1 - actualDepth / 2);
+                } else {
+                  pz = blockWorldZ - halfSW + 6 + houseWidth / 2 + i * houseWidth;
+                  px = blockWorldX + edge.dx * (halfSW - 1 - actualDepth / 2);
+                }
                 const sc: [number, number, number] = [scVal, scVal, scVal];
                 const subMinY = this.getModelMinY(model);
                 if (tryPlace(model, px, pz, sc, yaw)) {
@@ -2638,9 +2656,28 @@ void main() {
               const models = this.cityBuildingMeshes;
               if (models.length > 0) {
                 const model = models[Math.floor(rng() * models.length)];
-                let scVal = Math.max(w, d) / 18 * 3.5;
-                // Skyscrapers 10x taller and wider
+                // Scale model so its width fills the storefront, keeping front face flush with sidewalk edge
+                let nativeMinX = 0, nativeMaxX = 1, nativeMinZ = 0, nativeMaxZ = 1;
+                { let mnX = Infinity, mxX = -Infinity, mnZ = Infinity, mxZ = -Infinity;
+                  for (const m of (Array.isArray(model) ? model : [model])) {
+                    const rs = m.renderScale ?? 1;
+                    if (m.minX !== undefined) mnX = Math.min(mnX, m.minX * rs); if (m.maxX !== undefined) mxX = Math.max(mxX, m.maxX * rs);
+                    if (m.minZ !== undefined) mnZ = Math.min(mnZ, m.minZ * rs); if (m.maxZ !== undefined) mxZ = Math.max(mxZ, m.maxZ * rs);
+                  }
+                  if (isFinite(mnX)) { nativeMinX = mnX; nativeMaxX = mxX; nativeMinZ = mnZ; nativeMaxZ = mxZ; } }
+                const nativeWidth = (edge.dx === 0) ? (nativeMaxX - nativeMinX) : (nativeMaxZ - nativeMinZ);
+                const nativeDepth = (edge.dx === 0) ? (nativeMaxZ - nativeMinZ) : (nativeMaxX - nativeMinX);
+                let scVal = nativeWidth > 0.01 ? w / nativeWidth : 1;
                 if (model.length > 0 && model[0].carName && model[0].carName.includes('skyscraper')) scVal *= 10;
+                const actualDepth = nativeDepth * scVal;
+                // Reposition so front face is exactly at sidewalk edge (halfSW - 1)
+                if (edge.dx === 0) {
+                  px = blockWorldX - halfSW + 4 + storeWidth / 2 + i * storeWidth;
+                  pz = blockWorldZ + edge.dz * (halfSW - 1 - actualDepth / 2);
+                } else {
+                  pz = blockWorldZ - halfSW + 4 + storeWidth / 2 + i * storeWidth;
+                  px = blockWorldX + edge.dx * (halfSW - 1 - actualDepth / 2);
+                }
                 const sc: [number, number, number] = [scVal, scVal, scVal];
                 const cityMinY = this.getModelMinY(model);
                 if (tryPlace(model, px, pz, sc, yaw)) {

@@ -3830,21 +3830,22 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
 
   private updateNPCInterpolation() {
-    const lerpFactor = 0.15;
+    const now = performance.now();
 
-    for (const npc of this.serverNPCs) this.lerpNPC(npc, lerpFactor);
-    for (const ped of this.serverPedestrians) this.lerpNPC(ped, lerpFactor);
+    for (const npc of this.serverNPCs) this.lerpNPC(npc, now);
+    for (const ped of this.serverPedestrians) this.lerpNPC(ped, now);
   }
 
-  private lerpNPC(npc: any, factor: number) {
+  private lerpNPC(npc: any, now: number) {
     if (npc.lastUpdate === undefined || npc.targetX === undefined) return;
-    npc.x += (npc.targetX - npc.x) * factor;
-    npc.z += (npc.targetZ - npc.z) * factor;
-    if (npc.targetY !== undefined) npc.y += (npc.targetY - npc.y) * factor;
-    let yawDiff = npc.targetYaw - npc.yaw;
+    const t = Math.min(1, (now - npc.lastUpdate) / 1000);
+    npc.x = npc.prevX + (npc.targetX - npc.prevX) * t;
+    npc.z = npc.prevZ + (npc.targetZ - npc.prevZ) * t;
+    if (npc.targetY !== undefined) npc.y = npc.prevY + (npc.targetY - npc.prevY) * t;
+    let yawDiff = npc.targetYaw - npc.prevYaw;
     while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
     while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-    npc.yaw += yawDiff * factor;
+    npc.yaw = npc.prevYaw + yawDiff * t;
   }
 
   private updateTaxiMission(dt: number) {
