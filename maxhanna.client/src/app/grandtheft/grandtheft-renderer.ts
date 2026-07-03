@@ -207,6 +207,16 @@ function getBeachHeight(x: number, z: number): number {
   return -2.5 * (1 - t);
 }
 
+function isOnRoadGrid(x: number, z: number): boolean {
+  const roadHalf = ROAD_HALF_WIDTH;
+  const grid = GRID_PITCH;
+  const nearGrid = (v: number) => {
+    const frac = ((v % grid) + grid) % grid;
+    return frac <= roadHalf || frac >= grid - roadHalf;
+  };
+  return nearGrid(x) || nearGrid(z);
+}
+
 export function getTerrainHeight(x: number, z: number): number {
   const bridgeHit = getBridgeAtWorldPos(x, z);
   if (bridgeHit) {
@@ -220,6 +230,9 @@ export function getTerrainHeight(x: number, z: number): number {
   if (biome === 'bridge') return -2.5;       // off-deck: water
   if (biome === 'bridge_connector') return 0.0; // off-ramp: ground
   if (biome === 'ocean') return -2.5;
+  // Road surfaces are at y=0 on the grid lines — return 0 so players
+  // don't fall through when walking on road extensions in beach/rural areas
+  if ((biome === 'beach' || biome.startsWith('rural')) && isOnRoadGrid(x, z)) return 0.0;
   if (biome === 'beach') {
     const base = getBeachHeight(x, z);
     if (isOnSidewalk(x, z)) return base + SIDEWALK_RAISE;
