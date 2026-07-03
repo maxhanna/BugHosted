@@ -2175,7 +2175,7 @@ void main() {
             const px = blockWorldX - halfSW + 5 + i * (SIDEWALK_SIZE / 4);
             const pz = blockWorldZ - halfSW + 5;
             if (this.palmTreeMesh) {
-              trees.push({ x: px, z: pz, yaw: rng() * 0.4 - 0.2, scale: 3 + rng() * 0.6 });
+              trees.push({ x: px, z: pz, yaw: rng() * 0.4 - 0.2, scale: 9 + rng() * 1.8 });
             } else {
               const ph = 5 + rng() * 3;
               this.addBox(verts, indices, px, ph / 2, pz, 0.4, ph, 0.4, 0.3, 0.18, 0.05, 1.0, idxOffset); idxOffset += 24;
@@ -2415,7 +2415,7 @@ void main() {
                 const distGX = Math.min(Math.abs(tx - cx * CHUNK_SIZE), Math.abs(tx - (cx + 1) * CHUNK_SIZE));
                 const distGZ = Math.min(Math.abs(tz - cz * CHUNK_SIZE), Math.abs(tz - (cz + 1) * CHUNK_SIZE));
                 if (distGX < roadClear || distGZ < roadClear) continue;
-                trees.push({ x: tx, z: tz, yaw: rng() * 0.3, scale: 1.0 + rng() * 0.6 });
+                trees.push({ x: tx, z: tz, yaw: rng() * 0.3, scale: 3.0 + rng() * 1.8 });
               }
             }
           }
@@ -2445,7 +2445,7 @@ void main() {
                 const tx = blockWorldX + (rng() - 0.5) * 40;
                 const tz = blockWorldZ + (rng() - 0.5) * 40;
                 if (Math.abs(tx - blockWorldX) < 15 && Math.abs(tz - blockWorldZ) < 15) continue;
-                trees.push({ x: tx, z: tz, yaw: rng() * 0.3, scale: 0.8 + rng() * 0.5 });
+                trees.push({ x: tx, z: tz, yaw: rng() * 0.3, scale: 2.4 + rng() * 1.5 });
               }
             }
           }
@@ -2481,7 +2481,7 @@ void main() {
               if (this.palmTreeMesh && rng() < 0.7) {
                 const tx = blockWorldX + (rng() - 0.5) * 60;
                 const tz = blockWorldZ + (rng() - 0.5) * 60;
-                trees.push({ x: tx, z: tz, yaw: rng() * 0.3, scale: 0.8 + rng() * 0.6 });
+                trees.push({ x: tx, z: tz, yaw: rng() * 0.3, scale: 2.4 + rng() * 1.8 });
               }
             }
             // Farm crop rows
@@ -2687,9 +2687,9 @@ void main() {
         for (let z = worldOriginZ + gap; z < worldOriginZ + CHUNK_SIZE - gap; z += 16) {
           if (distanceToNearestGridNode(worldX, z) < gap) continue;
           if (this.cityTreeMesh && Math.floor((z - worldOriginZ) / 16) % 3 === 0) {
-            trees.push({ x: worldX, z, yaw: 0, scale: 1.5 + rng() * 0.4 });
+            trees.push({ x: worldX, z, yaw: 0, scale: 4.5 + rng() * 1.2 });
           } else if (this.palmTreeMesh) {
-            trees.push({ x: worldX, z, yaw: 0, scale: 2.4 + rng() * 0.6 });
+            trees.push({ x: worldX, z, yaw: 0, scale: 7.2 + rng() * 1.8 });
           } else {
             this.addBox(verts, indices, worldX, 3, z, 0.4, 6, 0.4, 0.3, 0.18, 0.05, 1.0, idxOffset); idxOffset += 24;
             this.addBox(verts, indices, worldX, 6.2, z, 3, 0.7, 3, 0.1, 0.45, 0.05, 1.0, idxOffset); idxOffset += 24;
@@ -2711,9 +2711,9 @@ void main() {
         for (let x = worldOriginX + gap; x < worldOriginX + CHUNK_SIZE - gap; x += 16) {
           if (distanceToNearestGridNode(x, worldZ) < gap) continue;
           if (this.cityTreeMesh && Math.floor((x - worldOriginX) / 16) % 3 === 0) {
-            trees.push({ x, z: worldZ, yaw: 0, scale: 1.5 + rng() * 0.4 });
+            trees.push({ x, z: worldZ, yaw: 0, scale: 4.5 + rng() * 1.2 });
           } else if (this.palmTreeMesh) {
-            trees.push({ x, z: worldZ, yaw: 0, scale: 2.4 + rng() * 0.6 });
+            trees.push({ x, z: worldZ, yaw: 0, scale: 7.2 + rng() * 1.8 });
           } else {
             this.addBox(verts, indices, x, 3, worldZ, 0.4, 6, 0.4, 0.3, 0.18, 0.05, 1.0, idxOffset); idxOffset += 24;
             this.addBox(verts, indices, x, 6.2, worldZ, 3, 0.7, 3, 0.1, 0.45, 0.05, 1.0, idxOffset); idxOffset += 24;

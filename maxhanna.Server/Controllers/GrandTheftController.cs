@@ -692,6 +692,15 @@ namespace maxhanna.Server.Controllers
 		private class ChatMessageEntry { public int UserId { get; set; } public string Username { get; set; } = ""; public string Message { get; set; } = ""; public DateTime Timestamp { get; set; } }
 		private static readonly ConcurrentDictionary<int, string> _playerUsername = new();
 		private static readonly ConcurrentDictionary<int, bool> _playerDeathBroadcasted = new();
+		private static readonly ConcurrentDictionary<int, DateTime> _lastSeen = new();
+		private static readonly ConcurrentDictionary<int, float> _playerPosY = new();
+		private static readonly ConcurrentDictionary<int, float> _playerYaw = new();
+		private static readonly ConcurrentDictionary<int, float> _playerPitch = new();
+		private static readonly ConcurrentDictionary<int, float> _playerCarYaw = new();
+		private static readonly ConcurrentDictionary<int, float> _playerCarSpeed = new();
+		private static readonly ConcurrentDictionary<int, int> _playerWorldId = new();
+		private static Timer? _persistTimer;
+		private static readonly object _persistLock = new();
 
 		private static readonly ConcurrentDictionary<long, DroppedWeapon> _droppedWeapons = new();
 		private static long _nextDropId = 1000000;
@@ -716,6 +725,104 @@ namespace maxhanna.Server.Controllers
 
 		private static long _nextNpcId = 1;
 		private static long GetNextNpcId() => Interlocked.Increment(ref _nextNpcId);
+
+		static GrandTheftController()
+		{
+			_persistTimer = new Timer(PersistAllToDb, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+		}
+
+		private static void PersistAllToDb(object? state)
+		{
+			if (!Monitor.TryEnter(_persistLock)) return;
+			try
+			{
+				var fiveMinAgo = DateTime.UtcNow.AddMinutes(-5);
+				bool anyActive = false;
+				foreach (var kv in _lastSeen) { if (kv.Value >= fiveMinAgo) { anyActive = true; break; } }
+				if (!anyActive) return;
+
+				var connStr = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
+					.GetValue<string>("ConnectionStrings:maxhanna");
+				if (string.IsNullOrEmpty(connStr)) return;
+				using var conn = new MySqlConnection(connStr);
+				conn.Open();
+				foreach (var uid in _playerX.Keys)
+				{
+					if (!_lastSeen.TryGetValue(uid, out var seen)) continue;
+					if ((DateTime.UtcNow - seen).TotalMinutes > 5) continue;
+					_playerPosY.TryGetValue(uid, out var py);
+					_playerYaw.TryGetValue(uid, out var y);
+					_playerPitch.TryGetValue(uid, out var p);
+					_playerCarYaw.TryGetValue(uid, out var cy);
+					_playerCarSpeed.TryGetValue(uid, out var cs);
+					_playerHealth.TryGetValue(uid, out var hp);
+					_playerMoney.TryGetValue(uid, out var money);
+					var wid = _playerWorldId.GetOrAdd(uid, 1);
+					_playerX.TryGetValue(uid, out var px);
+					_playerZ.TryGetValue(uid, out var pz);
+					_playerInCar.TryGetValue(uid, out var inCar);
+					int weapon = 0;
+					if (_playerWeapons.TryGetValue(uid, out var wp) && wp != null)
+						for (int i = 0; i < wp.Length; i++) if (wp[i]) { weapon = i; break; }
+
+					using var cmd = new MySqlCommand(@"
+						INSERT INTO maxhanna.grandtheft_player_state (user_id, world_id, pos_x, pos_y, pos_z, yaw, pitch, car_yaw, car_speed, health, weapon, money, last_seen)
+						VALUES (@uid, @wid, @px, @py, @pz, @y, @p, @cy, @cs, @h, @w, @money, UTC_TIMESTAMP())
+						ON DUPLICATE KEY UPDATE pos_x = @px, pos_y = @py, pos_z = @pz, yaw = @y, pitch = @p, car_yaw = @cy, car_speed = @cs, health = @h, weapon = @w, money = @money, last_seen = UTC_TIMESTAMP()", conn);
+					cmd.Parameters.AddWithValue("@uid", uid);
+					cmd.Parameters.AddWithValue("@wid", wid);
+					cmd.Parameters.AddWithValue("@px", px);
+					cmd.Parameters.AddWithValue("@py", py);
+					cmd.Parameters.AddWithValue("@pz", pz);
+					cmd.Parameters.AddWithValue("@y", y);
+					cmd.Parameters.AddWithValue("@p", p);
+					cmd.Parameters.AddWithValue("@cy", cy);
+					cmd.Parameters.AddWithValue("@cs", cs);
+					cmd.Parameters.AddWithValue("@h", hp > 0 ? hp : 100);
+					cmd.Parameters.AddWithValue("@w", weapon);
+					cmd.Parameters.AddWithValue("@money", money);
+					cmd.ExecuteNonQuery();
+				}
+			}
+			catch { }
+			finally { Monitor.Exit(_persistLock); }
+		}
+
+		private void EnsurePlayerLoaded(int userId)
+		{
+			if (_lastSeen.ContainsKey(userId)) return;
+			try
+			{
+				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+				conn.Open();
+				using var cmd = new MySqlCommand("SELECT s.user_id, s.world_id, s.pos_x, s.pos_y, s.pos_z, s.yaw, s.pitch, s.car_yaw, s.car_speed, s.health, s.weapon, s.money, s.last_seen, u.username FROM maxhanna.grandtheft_player_state s JOIN maxhanna.users u ON s.user_id = u.id WHERE s.user_id = @uid", conn);
+				cmd.Parameters.AddWithValue("@uid", userId);
+				using var rdr = cmd.ExecuteReader();
+				if (rdr.Read())
+				{
+					_lastSeen[userId] = rdr.GetDateTime("last_seen");
+					_playerX[userId] = rdr.GetFloat("pos_x");
+					_playerZ[userId] = rdr.GetFloat("pos_z");
+					_playerPosY[userId] = rdr.GetFloat("pos_y");
+					_playerYaw[userId] = rdr.GetFloat("yaw");
+					_playerPitch[userId] = rdr.GetFloat("pitch");
+					_playerCarYaw[userId] = rdr.GetFloat("car_yaw");
+					_playerCarSpeed[userId] = rdr.GetFloat("car_speed");
+					_playerHealth[userId] = rdr.GetInt32("health");
+					_playerMoney[userId] = rdr.GetInt32("money");
+					_playerWorldId[userId] = rdr.GetInt32("world_id");
+					_playerUsername[userId] = rdr.GetString("username");
+					int weapon = rdr.GetInt32("weapon");
+					if (!_playerWeapons.ContainsKey(userId))
+					{
+						var wp = new bool[5];
+						if (weapon >= 0 && weapon < 5) wp[weapon] = true;
+						_playerWeapons[userId] = wp;
+					}
+				}
+			}
+			catch { }
+		}
 
 		private void BroadcastDeathMessage(int playerId, float posX, float posZ, float? carYaw, int worldId, string killerName, string victimName, string cause)
 		{
@@ -828,55 +935,33 @@ namespace maxhanna.Server.Controllers
 			if (req.UserId <= 0) return BadRequest(new { ok = false });
 			try
 			{
-				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-				await conn.OpenAsync();
+				EnsurePlayerLoaded(req.UserId);
 
 				bool respawnAtHome = false;
-				using (var checkCmd = new MySqlCommand("SELECT s.last_seen, u.username FROM maxhanna.grandtheft_player_state s JOIN maxhanna.users u ON s.user_id = u.id WHERE s.user_id = @uid", conn))
+				if (_lastSeen.TryGetValue(req.UserId, out var lastSeenDt))
 				{
-					checkCmd.Parameters.AddWithValue("@uid", req.UserId);
-					using var rdr = await checkCmd.ExecuteReaderAsync();
-					if (await rdr.ReadAsync())
+					var inactiveMinutes = (DateTime.UtcNow - lastSeenDt.ToUniversalTime()).TotalMinutes;
+					if (inactiveMinutes >= INACTIVITY_RESPAWN_MINUTES)
 					{
-						var lastSeen = rdr.GetDateTime("last_seen");
-						var userName = rdr.GetString("username");
-						_playerUsername[req.UserId] = userName;
-						var inactiveMinutes = (DateTime.UtcNow - lastSeen.ToUniversalTime()).TotalMinutes;
-						if (inactiveMinutes >= INACTIVITY_RESPAWN_MINUTES)
-						{
-							respawnAtHome = true;
-							req.PosX = HOME_BASE_X;
-							req.PosZ = HOME_BASE_Z;
-							req.Yaw = HOME_BASE_YAW;
-							req.CarYaw = HOME_BASE_YAW;
-							req.CarSpeed = 0;
-							req.IsInCar = false;
-						}
+						respawnAtHome = true;
+						req.PosX = HOME_BASE_X;
+						req.PosZ = HOME_BASE_Z;
+						req.Yaw = HOME_BASE_YAW;
+						req.CarYaw = HOME_BASE_YAW;
+						req.CarSpeed = 0;
+						req.IsInCar = false;
 					}
-				}
-
-				using (var cmd = new MySqlCommand(@"
-                INSERT INTO maxhanna.grandtheft_player_state (user_id, world_id, pos_x, pos_y, pos_z, yaw, pitch, car_yaw, car_speed, health, weapon, money, last_seen)
-                VALUES (@uid, @wid, @px, @py, @pz, @y, @p, @cy, @cs, @h, @w, @money, UTC_TIMESTAMP())
-                ON DUPLICATE KEY UPDATE pos_x = @px, pos_y = @py, pos_z = @pz, yaw = @y, pitch = @p, car_yaw = @cy, car_speed = @cs, health = @h, weapon = @w, money = @money, last_seen = UTC_TIMESTAMP()", conn))
-				{
-					cmd.Parameters.AddWithValue("@uid", req.UserId);
-					cmd.Parameters.AddWithValue("@wid", req.WorldId);
-					cmd.Parameters.AddWithValue("@px", req.PosX);
-					cmd.Parameters.AddWithValue("@py", req.PosY);
-					cmd.Parameters.AddWithValue("@pz", req.PosZ);
-					cmd.Parameters.AddWithValue("@y", req.Yaw);
-					cmd.Parameters.AddWithValue("@p", req.Pitch);
-					cmd.Parameters.AddWithValue("@cy", req.CarYaw);
-					cmd.Parameters.AddWithValue("@cs", req.CarSpeed);
-					cmd.Parameters.AddWithValue("@h", req.Health);
-					cmd.Parameters.AddWithValue("@w", req.Weapon);
-					cmd.Parameters.AddWithValue("@money", req.Money);
-					await cmd.ExecuteNonQueryAsync();
 				}
 
 				_playerX[req.UserId] = req.PosX;
 				_playerZ[req.UserId] = req.PosZ;
+				_playerPosY[req.UserId] = req.PosY;
+				_playerYaw[req.UserId] = req.Yaw;
+				_playerPitch[req.UserId] = req.Pitch;
+				_playerCarYaw[req.UserId] = req.CarYaw;
+				_playerCarSpeed[req.UserId] = req.CarSpeed;
+				_playerWorldId[req.UserId] = req.WorldId;
+				_lastSeen[req.UserId] = DateTime.UtcNow;
 				_playerMoney[req.UserId] = Math.Max(0, req.Money);
 				int lastClientHp = _lastClientHealth.GetOrAdd(req.UserId, req.Health);
 
@@ -946,14 +1031,9 @@ namespace maxhanna.Server.Controllers
 				var chatMessages = new List<object>();
 				if (!string.IsNullOrEmpty(req.ChatMessage))
 				{
-					string senderUsername = $"Player{req.UserId}";
-					using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @uid", conn))
-					{
-						nameCmd.Parameters.AddWithValue("@uid", req.UserId);
-						var nameResult = await nameCmd.ExecuteScalarAsync();
-						if (nameResult != null) senderUsername = nameResult.ToString()!;
-					}
-					_playerUsername[req.UserId] = senderUsername;
+					if (!_playerUsername.ContainsKey(req.UserId))
+						_playerUsername[req.UserId] = $"Player{req.UserId}";
+					string senderUsername = _playerUsername[req.UserId];
 					var messages = _worldChatMessages.GetOrAdd(req.WorldId, _ => new List<ChatMessageEntry>());
 					lock (messages)
 					{
@@ -1013,43 +1093,46 @@ namespace maxhanna.Server.Controllers
 				}
 
 				var players = new List<object>();
-				using (var selCmd = new MySqlCommand(@"
-                SELECT ps.user_id, ps.pos_x, ps.pos_y, ps.pos_z, ps.yaw, ps.pitch, ps.car_yaw, ps.car_speed, ps.health, ps.weapon, ps.money,
-                COALESCE(u.username, CONCAT('Player', ps.user_id)) as username
-                FROM maxhanna.grandtheft_player_state ps LEFT JOIN maxhanna.users u ON u.id = ps.user_id
-                WHERE ps.world_id = @wid2 AND ps.user_id != @uid2 AND ps.last_seen > DATE_SUB(UTC_TIMESTAMP(), INTERVAL @timeout SECOND)", conn))
+				var cutoffTime = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
+				foreach (var kv in _lastSeen)
 				{
-					selCmd.Parameters.AddWithValue("@wid2", req.WorldId);
-					selCmd.Parameters.AddWithValue("@uid2", req.UserId);
-					selCmd.Parameters.AddWithValue("@timeout", INACTIVITY_TIMEOUT_SECONDS);
-					using var rdr = await selCmd.ExecuteReaderAsync();
-					while (await rdr.ReadAsync())
+					int otherUserId = kv.Key;
+					if (otherUserId == req.UserId) continue;
+					if (kv.Value < cutoffTime) continue;
+					if (_playerWorldId.TryGetValue(otherUserId, out var owid) && owid != req.WorldId) continue;
+					if (!_playerX.TryGetValue(otherUserId, out var ox)) continue;
+					if (!_playerZ.TryGetValue(otherUserId, out var oz)) continue;
+					if (!_playerUsername.TryGetValue(otherUserId, out var oName))
+						oName = $"Player{otherUserId}";
+					_playerPosY.TryGetValue(otherUserId, out var oy);
+					_playerYaw.TryGetValue(otherUserId, out var oYaw);
+					_playerPitch.TryGetValue(otherUserId, out var oPitch);
+					_playerCarYaw.TryGetValue(otherUserId, out var oCarYaw);
+					_playerCarSpeed.TryGetValue(otherUserId, out var oCarSpeed);
+					_playerHealth.TryGetValue(otherUserId, out var oHealth);
+					_playerMoney.TryGetValue(otherUserId, out var oMoney);
+					players.Add(new
 					{
-						int otherUserId = rdr.GetInt32("user_id");
-						_playerUsername[otherUserId] = rdr.GetString("username");
-						players.Add(new
-						{
-							UserId = otherUserId,
-							PosX = rdr.GetFloat("pos_x"),
-							PosY = rdr.GetFloat("pos_y"),
-							PosZ = rdr.GetFloat("pos_z"),
-							Yaw = rdr.GetFloat("yaw"),
-							Pitch = rdr.GetFloat("pitch"),
-							CarYaw = rdr.GetFloat("car_yaw"),
-							CarSpeed = rdr.GetFloat("car_speed"),
-							Health = rdr.GetInt32("health"),
-							Weapon = rdr.GetInt32("weapon"),
-							Money = rdr.GetInt32("money"),
-							Username = rdr.GetString("username"),
-							IsShooting = _shootingPlayers.ContainsKey(otherUserId),
-							IsInCar = _playerInCar.TryGetValue(otherUserId, out var inCar) && inCar,
-							VehicleType = _playerVehicleType.TryGetValue(otherUserId, out var vt) ? vt : "car",
-							CarColorR = _playerCarColorR.TryGetValue(otherUserId, out var cr) ? cr : 1f,
-							CarColorG = _playerCarColorG.TryGetValue(otherUserId, out var cg) ? cg : 1f,
-							CarColorB = _playerCarColorB.TryGetValue(otherUserId, out var cb) ? cb : 1f,
-							PassengerOfUserId = _playerPassengerOf.TryGetValue(otherUserId, out var pof) ? pof : 0
-						});
-					}
+						UserId = otherUserId,
+						PosX = ox,
+						PosY = oy,
+						PosZ = oz,
+						Yaw = oYaw,
+						Pitch = oPitch,
+						CarYaw = oCarYaw,
+						CarSpeed = oCarSpeed,
+						Health = oHealth,
+						Weapon = 0,
+						Money = oMoney,
+						Username = oName,
+						IsShooting = _shootingPlayers.ContainsKey(otherUserId),
+						IsInCar = _playerInCar.TryGetValue(otherUserId, out var inCar) && inCar,
+						VehicleType = _playerVehicleType.TryGetValue(otherUserId, out var vt) ? vt : "car",
+						CarColorR = _playerCarColorR.TryGetValue(otherUserId, out var cr) ? cr : 1f,
+						CarColorG = _playerCarColorG.TryGetValue(otherUserId, out var cg) ? cg : 1f,
+						CarColorB = _playerCarColorB.TryGetValue(otherUserId, out var cb) ? cb : 1f,
+						PassengerOfUserId = _playerPassengerOf.TryGetValue(otherUserId, out var pof) ? pof : 0
+					});
 				}
 
 				// ── NPC simulation ──────────────────────────────────────
@@ -2025,22 +2108,14 @@ namespace maxhanna.Server.Controllers
 
 
 		[HttpGet("activeplayers")]
-		public async Task<IActionResult> GetActivePlayers()
+		public IActionResult GetActivePlayers()
 		{
-			using var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-			await connection.OpenAsync();
-
-			var sql = @"SELECT gtps.user_id
- FROM maxhanna.grandtheft_player_state gtps 
- WHERE gtps.last_seen >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE);";
-
-			using var command = new MySqlCommand(sql, connection);
-			using var reader = await command.ExecuteReaderAsync();
-
+			var cutoff = DateTime.UtcNow.AddMinutes(-5);
 			var activePlayers = new List<User>();
-			while (await reader.ReadAsync())
+			foreach (var kv in _lastSeen)
 			{
-				activePlayers.Add(new User(reader.GetInt32("user_id")));
+				if (kv.Value >= cutoff)
+					activePlayers.Add(new User(kv.Key));
 			}
 
 			return Ok(activePlayers);
