@@ -99,6 +99,7 @@ export interface ParkedCar {
   type: string;
   health: number;
   isBurning?: boolean;
+  isSmoking?: boolean;
   fireStarted?: number;
   carFireX?: number; carFireZ?: number; carFireYaw?: number;
   submerged?: boolean;

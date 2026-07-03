@@ -2047,9 +2047,9 @@ void main() {
           // Center divider (enforces one-directional flow per side)
           this.addBox(verts, indices, sx, avgY + 0.18, roadCenterZ, sliceW * overlap, 0.3, 0.3, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
 
-          // Guard rails on both sides (follow ramp slope)
+          // Guard rails close to road edge on both sides (follow ramp slope)
           for (const side of [-1, 1]) {
-            const rz = roadCenterZ + side * (bridgeW / 2);
+            const rz = roadCenterZ + side * (roadW / 2 + 0.5);
             // Top rail
             this.addBox(verts, indices, sx, avgY + 1.0, rz, sliceW * overlap, 0.15, 0.15, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
             // Mid rail
@@ -2117,9 +2117,9 @@ void main() {
           // Center divider
           this.addRamp(verts, indices, x1, y1 + 0.18, x2, y2 + 0.18, roadCenterZ, 0.3, 0.3, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
 
-          // Guard rails
+          // Guard rails close to road edge
           for (const side of [-1, 1]) {
-            const rz = roadCenterZ + side * (bridgeW / 2);
+            const rz = roadCenterZ + side * (roadW / 2 + 0.5);
             this.addRamp(verts, indices, x1, y1 + 1.0, x2, y2 + 1.0, rz, 0.15, 0.15, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
             this.addRamp(verts, indices, x1, y1 + 0.5, x2, y2 + 0.5, rz, 0.12, 0.12, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
           }
@@ -3538,6 +3538,7 @@ void main() {
     tracers: any[], muzzleFlashes: any[], rockets: any[], explosions: any[], bloodSplats: any[],
     bloodPools: any[],
     bulletSmoke: any[],
+    carSmoke: any[],
     moneyStacks: any[],
     deadBodies: any[],
     vendingMachines: any[],
@@ -3971,6 +3972,12 @@ void main() {
       const alpha = (1.0 - t) * 0.35;
       const sz = s.size;
       this.drawMesh(smokeMesh, s.x, s.y, s.z, 0, [sz, sz, sz], [0.7, 0.7, 0.75, alpha]);
+    }
+    for (const s of carSmoke) {
+      const t = s.age / s.lifetime;
+      const alpha = (1.0 - t) * 0.45;
+      const sz = s.size;
+      this.drawMesh(smokeMesh, s.x, s.y, s.z, 0, [sz, sz, sz], [0.25, 0.25, 0.28, alpha]);
     }
 
     gl.enable(gl.DEPTH_TEST);

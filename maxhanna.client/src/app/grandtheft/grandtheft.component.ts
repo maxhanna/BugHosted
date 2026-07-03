@@ -133,6 +133,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   _carFireYaw = 0;
   _carSubmerged = false;
   _carSubmergeStart = 0;
+  _carSmoking = false;
+  _carSmokeTimer = 0;
+  _parkedSmokeTimers: { [id: number]: number } = {};
   private _respawnTimer: any = null;
   private _justRespawned = false;
   private _lastTrafficChunkX = 0;
@@ -151,6 +154,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   bloodSplats: BloodSplat[] = [];
   bloodPools: BloodPool[] = [];
   bulletSmoke: { x: number; y: number; z: number; vx: number; vy: number; vz: number; size: number; age: number; lifetime: number }[] = [];
+  carSmoke: { x: number; y: number; z: number; vx: number; vy: number; vz: number; size: number; age: number; lifetime: number }[] = [];
   deadBodies: DeadBody[] = [];
   deadNPCIds: Set<number> = new Set();
   stolenNpcIds: Set<number> = new Set();
@@ -715,6 +719,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this._carFireX = 0; this._carFireZ = 0; this._carFireYaw = 0;
           this._carSubmerged = false;
           this._carSubmergeStart = 0;
+          this._carSmoking = false;
+          this._carSmokeTimer = 0;
 
           this.playerVehicleMesh = v.mesh;
           this.playerVehicleColor = [v.colorR || 1, v.colorG || 1, v.colorB || 1];
@@ -789,6 +795,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               this._carOnFire = false; this._carFireStarted = 0;
               this._carFireX = 0; this._carFireZ = 0; this._carFireYaw = 0;
               this._carSubmerged = false; this._carSubmergeStart = 0;
+              this._carSmoking = false;
+              this._carSmokeTimer = 0;
               this.playerVehicleMesh = da.model || (da.type === 'helicopter' ? this.renderer.getHelicopterMesh(0) : this.renderer.getPlaneMesh(0));
               chunk.buildings = chunk.buildings.filter(b => Math.abs(b.x - da.x) > 0.1 || Math.abs(b.z - da.z) > 0.1);
               this.carY = da.type === 'helicopter' ? 5 : 3;
@@ -1003,6 +1011,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         type: this.vehicleType,
         health: this.carHealth,
         isBurning: this._carOnFire || undefined,
+        isSmoking: this._carSmoking || undefined,
         fireStarted: this._carOnFire ? this._carFireStarted : undefined,
         carFireX: this._carOnFire ? this._carFireX : undefined,
         carFireZ: this._carOnFire ? this._carFireZ : undefined,
@@ -1026,6 +1035,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this._carFireX = 0; this._carFireZ = 0; this._carFireYaw = 0;
     this._carSubmerged = false;
     this._carSubmergeStart = 0;
+    this._carSmoking = false;
+    this._carSmokeTimer = 0;
 
     this.playerVehicleMesh = null;
     this.driverInCarMesh = null;
@@ -2520,33 +2531,57 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const subElapsed = (performance.now() / 1000) - this._carSubmergeStart;
         const subT = Math.min(subElapsed / 2.0, 1.0);
         this.carY = CAR_HEIGHT - subT * 3.4;
-        if (subT >= 1.0 && !this._carOnFire) {
-          this._carOnFire = true;
-          this._carFireStarted = performance.now() / 1000;
+        if (subT >= 1.0) {
+          this.carHealth -= dt * 20;
         }
-        if (this._carOnFire) {
+        if (this._carOnFire || this._carSmoking) {
           this._carFireX = this.carX;
           this._carFireZ = this.carZ;
           this._carFireYaw = this.carYaw;
-          const fireElapsed = (performance.now() / 1000) - this._carFireStarted;
-          if (fireElapsed >= 10.0) this.carHealth = 0;
         }
       } else {
         if (this._carSubmerged) { this._carSubmerged = false; this.carY = CAR_HEIGHT; }
-        if (this.carHealth > 80) { this._carOnFire = false; this._carFireStarted = 0; }
+        if (this.carHealth > 30) { this._carSmoking = false; }
+        if (this.carHealth > 10) { this._carOnFire = false; this._carFireStarted = 0; }
       }
     }
 
-    if (this.isInCar && this.carHealth > 0 && !this._carSubmerged && this.carHealth <= 80 && !this._carOnFire) {
+    if (this.isInCar && this.carHealth > 0 && this.carHealth <= 30 && !this._carSmoking && !this._carOnFire) {
+      this._carSmoking = true;
+    }
+    if (this.isInCar && this.carHealth > 0 && !this._carSubmerged && this.carHealth <= 10 && !this._carOnFire) {
       this._carOnFire = true;
       this._carFireStarted = performance.now() / 1000;
     }
-    if (this.isInCar && this._carOnFire && !this._carSubmerged) {
+    if (this.isInCar && (this._carOnFire || this._carSmoking)) {
       this._carFireX = this.carX;
       this._carFireZ = this.carZ;
       this._carFireYaw = this.carYaw;
-      const fireElapsed = (performance.now() / 1000) - this._carFireStarted;
-      if (fireElapsed >= 10.0) this.carHealth = 0;
+      if (this._carOnFire) {
+        const fireElapsed = (performance.now() / 1000) - this._carFireStarted;
+        if (fireElapsed >= 10.0) this.carHealth = 0;
+      }
+    }
+
+    if (this.isInCar && this._carSmoking && !this._carOnFire) {
+      this._carSmokeTimer += dt;
+      if (this._carSmokeTimer > 0.15) {
+        this._carSmokeTimer = 0;
+        const sinY = Math.sin(this.carYaw), cosY = Math.cos(this.carYaw);
+        const sx = this.carX + cosY * 0.8;
+        const sz = this.carZ + sinY * 0.8;
+        this.carSmoke.push({
+          x: sx + (Math.random() - 0.5) * 0.6,
+          y: 0.6 + Math.random() * 0.4,
+          z: sz + (Math.random() - 0.5) * 0.6,
+          vx: (Math.random() - 0.5) * 0.5,
+          vy: 0.3 + Math.random() * 0.4,
+          vz: (Math.random() - 0.5) * 0.5,
+          size: 0.4 + Math.random() * 0.5,
+          age: 0,
+          lifetime: 2.0 + Math.random() * 1.5,
+        });
+      }
     }
 
     if (this.isInCar && this.carHealth <= 0) {
@@ -2561,12 +2596,33 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     for (let i = this.parkedCars.length - 1; i >= 0; i--) {
       const pc = this.parkedCars[i];
-      if (!pc.isBurning) continue;
       const now = performance.now() / 1000;
-      const elapsed = now - (pc.fireStarted ?? now);
-      if (elapsed >= 10.0) {
-        this.spawnExplosion(pc.x, 0.5, pc.z);
-        this.parkedCars.splice(i, 1);
+      if (pc.isBurning) {
+        const elapsed = now - (pc.fireStarted ?? now);
+        if (elapsed >= 10.0) {
+          this.spawnExplosion(pc.x, 0.5, pc.z);
+          this.parkedCars.splice(i, 1);
+          continue;
+        }
+      }
+      if (pc.isSmoking && !pc.isBurning) {
+        if ((this._parkedSmokeTimers?.[pc.id] ?? 0) < now - 0.15) {
+          (this._parkedSmokeTimers ??= {})[pc.id] = now;
+          const sinY = Math.sin(pc.yaw), cosY = Math.cos(pc.yaw);
+          const sx = pc.x + cosY * 0.8;
+          const sz = pc.z + sinY * 0.8;
+          this.carSmoke.push({
+            x: sx + (Math.random() - 0.5) * 0.6,
+            y: 0.6 + Math.random() * 0.4,
+            z: sz + (Math.random() - 0.5) * 0.6,
+            vx: (Math.random() - 0.5) * 0.5,
+            vy: 0.3 + Math.random() * 0.4,
+            vz: (Math.random() - 0.5) * 0.5,
+            size: 0.4 + Math.random() * 0.5,
+            age: 0,
+            lifetime: 2.0 + Math.random() * 1.5,
+          });
+        }
       }
     }
 
@@ -2707,6 +2763,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.tracers, this.muzzleFlashes, this.rockets, this.explosions, this.bloodSplats,
         this.bloodPools,
         this.bulletSmoke,
+        this.carSmoke,
         this.moneyStacks,
         this.deadBodies,
         this.vendingMachines,
@@ -3466,6 +3523,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       s.size += 1.5 * dt;
     }
     this.bulletSmoke = this.bulletSmoke.filter(s => s.age < s.lifetime);
+    for (const s of this.carSmoke) {
+      s.age += dt;
+      s.x += s.vx * dt;
+      s.y += s.vy * dt;
+      s.z += s.vz * dt;
+      s.vy -= 0.3 * dt;
+      s.size += 0.8 * dt;
+    }
+    this.carSmoke = this.carSmoke.filter(s => s.age < s.lifetime);
     const now = performance.now() / 1000;
     this.deadBodies = this.deadBodies.filter(db => (now - db.deathTime) < db.lifetime);
   }
