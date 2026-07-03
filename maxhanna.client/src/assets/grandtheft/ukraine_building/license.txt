@@ -1,8 +1,0 @@
-Model Information:
-* title:	ukraine Building
-* source:	https://sketchfab.com/3d-models/ukraine-building-894a2097d99b4560aacbdbaf69b5ee4c
-* author:	zshoniia (https://sketchfab.com/zshoniia)
-
-Model License:
-* license type:	SKETCHFAB Standard (https://sketchfab.com/licenses)
-* requirements:	Under basic restrictions, use worldwide, on all types of media, commercially or not, and in all types of derivative works

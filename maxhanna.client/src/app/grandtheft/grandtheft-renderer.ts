@@ -534,7 +534,7 @@ export class GrandTheftRenderer {
     'low_poly_cinema', 'low_poly_city_hall', 'low_poly_gas_station', 'low_poly_hotel_1', 'low_poly_hotel_2',
     'low_poly_pharmacy', 'low_poly_police_station', 'low_poly_school', 'low_poly_shopping_center',
     'panel_apartment_placeholder', 'psx_groceries_store', 'pyaterochka_3d', 'supermarket',
-    'ukraine_building', 'abandoned_building_gameready', 'building_1_low_poly',
+    'abandoned_building_gameready', 'building_1_low_poly',
     'psx_japanese_warehouse', 'low_poly_apartment_building_1',
     'fatboys_diner', 'brooklyn_street_building_low_poly', 'brooklyn_street_cornerhouse_low_poly',
     'okraglak_round_office_building_poznan',
