@@ -100,6 +100,7 @@ export interface ParkedCar {
   health: number;
   isBurning?: boolean;
   isSmoking?: boolean;
+  smokeStarted?: number;
   fireStarted?: number;
   carFireX?: number; carFireZ?: number; carFireYaw?: number;
   submerged?: boolean;

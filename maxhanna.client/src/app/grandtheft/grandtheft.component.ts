@@ -135,6 +135,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   _carSubmergeStart = 0;
   _carSmoking = false;
   _carSmokeTimer = 0;
+  _carSmokeStarted = 0;
   _parkedSmokeTimers: { [id: number]: number } = {};
   private _respawnTimer: any = null;
   private _justRespawned = false;
@@ -721,6 +722,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this._carSubmergeStart = 0;
           this._carSmoking = false;
           this._carSmokeTimer = 0;
+          this._carSmokeStarted = 0;
 
           this.playerVehicleMesh = v.mesh;
           this.playerVehicleColor = [v.colorR || 1, v.colorG || 1, v.colorB || 1];
@@ -797,6 +799,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               this._carSubmerged = false; this._carSubmergeStart = 0;
               this._carSmoking = false;
               this._carSmokeTimer = 0;
+              this._carSmokeStarted = 0;
               this.playerVehicleMesh = da.model || (da.type === 'helicopter' ? this.renderer.getHelicopterMesh(0) : this.renderer.getPlaneMesh(0));
               chunk.buildings = chunk.buildings.filter(b => Math.abs(b.x - da.x) > 0.1 || Math.abs(b.z - da.z) > 0.1);
               this.carY = da.type === 'helicopter' ? 5 : 3;
@@ -1012,6 +1015,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         health: this.carHealth,
         isBurning: this._carOnFire || undefined,
         isSmoking: this._carSmoking || undefined,
+        smokeStarted: this._carSmoking ? this._carSmokeStarted : undefined,
         fireStarted: this._carOnFire ? this._carFireStarted : undefined,
         carFireX: this._carOnFire ? this._carFireX : undefined,
         carFireZ: this._carOnFire ? this._carFireZ : undefined,
@@ -1037,6 +1041,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this._carSubmergeStart = 0;
     this._carSmoking = false;
     this._carSmokeTimer = 0;
+    this._carSmokeStarted = 0;
 
     this.playerVehicleMesh = null;
     this.driverInCarMesh = null;
@@ -2541,13 +2546,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
       } else {
         if (this._carSubmerged) { this._carSubmerged = false; this.carY = CAR_HEIGHT; }
-        if (this.carHealth > 30) { this._carSmoking = false; }
+        if (this.carHealth > 30) { this._carSmoking = false; this._carSmokeStarted = 0; }
         if (this.carHealth > 10) { this._carOnFire = false; this._carFireStarted = 0; }
       }
     }
 
     if (this.isInCar && this.carHealth > 0 && this.carHealth <= 30 && !this._carSmoking && !this._carOnFire) {
       this._carSmoking = true;
+      this._carSmokeStarted = performance.now() / 1000;
     }
     if (this.isInCar && this.carHealth > 0 && !this._carSubmerged && this.carHealth <= 10 && !this._carOnFire) {
       this._carOnFire = true;
@@ -2564,6 +2570,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
 
     if (this.isInCar && this._carSmoking && !this._carOnFire) {
+      if (this._carSmokeStarted > 0 && (performance.now() / 1000) - this._carSmokeStarted >= 10.0) {
+        this._carSmoking = false;
+        this._carSmokeStarted = 0;
+      }
       this._carSmokeTimer += dt;
       if (this._carSmokeTimer > 0.15) {
         this._carSmokeTimer = 0;
@@ -2606,6 +2616,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
       }
       if (pc.isSmoking && !pc.isBurning) {
+        if (pc.smokeStarted && now - pc.smokeStarted >= 10.0) {
+          pc.isSmoking = false;
+          continue;
+        }
         if ((this._parkedSmokeTimers?.[pc.id] ?? 0) < now - 0.15) {
           (this._parkedSmokeTimers ??= {})[pc.id] = now;
           const sinY = Math.sin(pc.yaw), cosY = Math.cos(pc.yaw);

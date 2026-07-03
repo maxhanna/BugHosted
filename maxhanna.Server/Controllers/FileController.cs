@@ -2677,7 +2677,7 @@ namespace maxhanna.Server.Controllers
                 Visibility = isPublic ? "Public" : "Private",
                 User = new User(userId),
                 IsFolder = false,
-                FileComments = new List<FileComment>(),
+                FileComments = null,
                 Date = DateTime.UtcNow,
                 LastAccess = DateTime.UtcNow,
                 SharedWith = string.Empty,
