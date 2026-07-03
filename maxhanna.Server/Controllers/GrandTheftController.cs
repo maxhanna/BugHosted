@@ -865,6 +865,8 @@ namespace maxhanna.Server.Controllers
 			}
 			_playerWeapons[playerId] = new bool[5] { true, false, false, false, false };
 			_playerAmmo[playerId] = new int[5];
+			_playerHealth[playerId] = 0;
+			
 		}
 
 		private class NpcState

@@ -56,7 +56,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _lastHudSpeed = -1;
   private _lastHealth = -1;
 
-  carX = HOSPITAL_SPAWN_X; carY = CAR_HEIGHT; carZ = HOSPITAL_SPAWN_Z;
+  carX = HOSPITAL_SPAWN_X; 
+  carY = CAR_HEIGHT; 
+  carZ = HOSPITAL_SPAWN_Z;
   carYaw = HOSPITAL_SPAWN_YAW;
   carVx = 0; carVz = 0; carVy = 0;
   carSpeed = 0;
@@ -1318,20 +1320,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
         if (existing) {
           existing.x = pc.posX; existing.z = pc.posZ; existing.yaw = pc.yaw; existing.health = health; existing.isBurning = pc.isBurning || false;
-          if (pc.type === 'police')
-            existing.mesh = this.renderer.getPoliceCarMesh();
-          else if (pc.type === 'taxi')
-            existing.mesh = this.renderer.getTaxiMesh();
-          else if (pc.type === 'motorcycle')
-            existing.mesh = this.renderer.getMotorcycleMesh([pc.colorR, pc.colorG, pc.colorB], pc.id);
-          else if (pc.type === 'bus' && this.renderer.busMesh)
-            existing.mesh = this.renderer.busMesh;
-          else if (pc.type === 'helicopter')
-            existing.mesh = this.renderer.getHelicopterMesh(pc.id);
-          else if (pc.type === 'plane')
-            existing.mesh = this.renderer.getPlaneMesh(pc.id);
-          else if (pc.type === 'boat')
-            existing.mesh = this.renderer.getBoatMesh(pc.id);
           return existing;
         }
         let parkedMesh: CityMesh | CityMesh[];
@@ -2603,7 +2591,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.carZ = HOSPITAL_SPAWN_Z;
           this.carY = CAR_HEIGHT;
           this.carYaw = HOSPITAL_SPAWN_YAW;
-          this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+          this.carVx = 0; 
+          this.carVz = 0; 
+          this.carSpeed = 0;
           this.camYaw = HOSPITAL_SPAWN_YAW;
           this.camPitch = 0.2;
           this._wasDead = false;
@@ -2906,8 +2896,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
     if (spd >= 15) {
-      const gasStations = this.renderer.getNearbyGasStations(this.carX, this.carZ, 4);
-      for (const gs of gasStations) {
+      const gs = this.renderer.getGasStationAtPoint(this.carX, this.carZ);
+      if (gs) {
         const key = `${gs.x},${gs.z}`;
         if (!this.renderer.explodedGasStations.has(key)) {
           this.renderer.explodedGasStations.add(key);
@@ -4212,6 +4202,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
+  private stopDealershipMission() {
+    this.dealershipMission = null;
+    if (this.dealershipTargetCar) {
+      this.parkedCars = this.parkedCars.filter(p => p.id !== this.dealershipTargetCar!.id);
+      this.dealershipTargetCar = null;
+    }
+  }
+
   private startDealershipMission() {
     const npc = this.dealershipNPCs.find(n => {
       const dx = n.x - this.carX, dz = n.z - this.carZ;
@@ -4474,6 +4472,69 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       ctx.textAlign = 'start';
       ctx.textBaseline = 'alphabetic';
     }
+
+    // Dealership NPCs — orange "D" markers
+    if (this.dealershipNPCs && this.dealershipNPCs.length > 0) {
+      for (const npc of this.dealershipNPCs) {
+        const mx = cx + (npc.x - this.carX) * scale;
+        const my = cy + (npc.z - this.carZ) * scale;
+        ctx.fillStyle = '#ff8800';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        const sz = 5;
+        ctx.beginPath(); ctx.arc(mx, my, sz, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 8px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('D', mx, my);
+      }
+    }
+
+    // Dealership active missions guidance
+    if (this.dealershipMission) {
+      const m = this.dealershipMission;
+      if (m.state === 'search' && this.dealershipTargetCar) {
+        const mx = cx + (this.dealershipTargetCar.x - this.carX) * scale;
+        const my = cy + (this.dealershipTargetCar.z - this.carZ) * scale;
+        ctx.strokeStyle = 'rgba(255, 136, 0, 0.7)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(mx, my); ctx.stroke();
+        ctx.setLineDash([]);
+        const pulse = 5 + Math.sin(performance.now() / 200) * 2;
+        ctx.strokeStyle = '#ff8800';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(mx, my, pulse, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = '#ff8800';
+        ctx.beginPath(); ctx.arc(mx, my, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('S', mx, my + 12);
+      }
+      if (m.state === 'return') {
+        const rx = cx + (m.npcX - this.carX) * scale;
+        const ry = cy + (m.npcZ - this.carZ) * scale;
+        ctx.strokeStyle = 'rgba(0, 255, 100, 0.7)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(rx, ry); ctx.stroke();
+        ctx.setLineDash([]);
+        const pulse = 5 + Math.sin(performance.now() / 200) * 2;
+        ctx.strokeStyle = '#00ff64';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(rx, ry, pulse, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = '#00ff64';
+        ctx.beginPath(); ctx.arc(rx, ry, 2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('R', rx, ry + 12);
+      }
+    }
   }
 
   private updateScore(dt: number) {
@@ -4662,8 +4723,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (e.code === 'ArrowLeft') { e.preventDefault(); this.prevRadio(); }
       if (e.code === 'ArrowRight') { e.preventDefault(); this.nextRadio(); }
     }
-    if (e.code === 'Tab' || e.code === 'KeyQ') {
-      if (this.nearDealerNPC && this.dealershipMission === null) {
+    if (e.code === 'Tab' || e.code === 'KeyR') {
+      if (e.code === 'KeyR' && this.dealershipMission != null) {
+        this.stopDealershipMission();
+      }
+      else if (this.nearDealerNPC && this.dealershipMission === null) {
         this.startDealershipMission();
       } else {
         e.preventDefault();

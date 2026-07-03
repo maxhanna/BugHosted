@@ -55,6 +55,19 @@ function getBridgeAtWorldPos(x: number, z: number): BridgeDef | null {
   return null;
 }
 
+function isNearBridgeRoad(x: number, z: number, margin: number): boolean {
+  const bridgeW = (ROAD_HALF_WIDTH * 2) + 10;
+  for (const br of BRIDGE_RANGES) {
+    const roadCenterZ = br.startCz * 80;
+    if (Math.abs(z - roadCenterZ) > bridgeW / 2 + margin) continue;
+    const rampStartX = (br.startCx - 1) * 80 - margin;
+    const rampEndX = (br.endCx + 2) * 80 + margin;
+    if (x < rampStartX || x > rampEndX) continue;
+    return true;
+  }
+  return false;
+}
+
 function isInAnyIsland(cx: number, cz: number): boolean {
   for (const isl of ISLANDS) {
     const dx = cx - isl.cx, dz = cz - isl.cz;
@@ -175,6 +188,25 @@ function bridgeYAt(x: number, br: BridgeDef): number {
   }
 }
 
+function getBeachHeight(x: number, z: number): number {
+  const cx = Math.floor(x / 80);
+  const cz = Math.floor(z / 80);
+  const CHUNK = 80;
+  let minDist = CHUNK;
+  const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  for (const [dx, dz] of dirs) {
+    if (getBiome(cx + dx, cz + dz) === 'ocean') {
+      const boundary = dx !== 0
+        ? (dx > 0 ? (cx + 1) * CHUNK : cx * CHUNK)
+        : (dz > 0 ? (cz + 1) * CHUNK : cz * CHUNK);
+      const dist = dx !== 0 ? Math.abs(x - boundary) : Math.abs(z - boundary);
+      if (dist < minDist) minDist = dist;
+    }
+  }
+  const t = Math.max(0, Math.min(1, minDist / CHUNK));
+  return -2.5 * (1 - t);
+}
+
 export function getTerrainHeight(x: number, z: number): number {
   const bridgeHit = getBridgeAtWorldPos(x, z);
   if (bridgeHit) {
@@ -188,6 +220,11 @@ export function getTerrainHeight(x: number, z: number): number {
   if (biome === 'bridge') return -2.5;       // off-deck: water
   if (biome === 'bridge_connector') return 0.0; // off-ramp: ground
   if (biome === 'ocean') return -2.5;
+  if (biome === 'beach') {
+    const base = getBeachHeight(x, z);
+    if (isOnSidewalk(x, z)) return base + SIDEWALK_RAISE;
+    return base;
+  }
   if (isOnSidewalk(x, z)) return SIDEWALK_RAISE;
   return 0.0;
 }
@@ -637,8 +674,8 @@ export class GrandTheftRenderer {
         for (const bld of chunk.buildings) {
           const key = `${bld.x},${bld.z}`;
           if (this.explodedGasStations.has(key)) continue;
-          const isGas = bld.model && bld.model.length > 0 && bld.model[0].carName && bld.model[0].carName.includes('gas_station');
-          if (!isGas) continue;
+          if (!bld.model || bld.model.length === 0) continue;
+          if (!bld.model[0].carName || !bld.model[0].carName.includes('gas_station')) continue;
           if (Math.hypot(bld.x - x, bld.z - z) < radius) {
             result.push({ x: bld.x, z: bld.z });
           }
@@ -646,6 +683,47 @@ export class GrandTheftRenderer {
       }
     }
     return result;
+  }
+
+  getGasStationAtPoint(x: number, z: number): { x: number; z: number } | null {
+    const pcx = Math.floor(x / CHUNK_SIZE);
+    const pcz = Math.floor(z / CHUNK_SIZE);
+    for (let dz = -1; dz <= 1; dz++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const chunk = this.getCityChunk(pcx + dx, pcz + dz);
+        if (!chunk) continue;
+        for (const bld of chunk.buildings) {
+          const key = `${bld.x},${bld.z}`;
+          if (this.explodedGasStations.has(key)) continue;
+          if (!bld.model || bld.model.length === 0) continue;
+          if (!bld.model[0].carName || !bld.model[0].carName.includes('gas_station')) continue;
+          // Compute world-space AABB of this gas station building
+          let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+          const meshes = Array.isArray(bld.model) ? bld.model : [bld.model];
+          for (const m of meshes) {
+            const rs = m.renderScale ?? 1;
+            const sx = bld.scale[0] * rs;
+            const sz = bld.scale[2] * rs;
+            const hw = (m.maxX !== undefined && m.minX !== undefined) ? (m.maxX - m.minX) / 2 * sx : 8;
+            const hd = (m.maxZ !== undefined && m.minZ !== undefined) ? (m.maxZ - m.minZ) / 2 * sz : 8;
+            const rot = bld.yaw;
+            const cos = Math.cos(rot), sin = Math.sin(rot);
+            for (const c of [{ x: -hw, z: -hd }, { x: hw, z: -hd }, { x: hw, z: hd }, { x: -hw, z: hd }]) {
+              const wx = bld.x + c.x * cos - c.z * sin;
+              const wz = bld.z + c.x * sin + c.z * cos;
+              if (wx < minX) minX = wx;
+              if (wx > maxX) maxX = wx;
+              if (wz < minZ) minZ = wz;
+              if (wz > maxZ) maxZ = wz;
+            }
+          }
+          if (x >= minX && x <= maxX && z >= minZ && z <= maxZ) {
+            return { x: bld.x, z: bld.z };
+          }
+        }
+      }
+    }
+    return null;
   }
   public currentModelUrl: string | null = null;
   public droppedWeapons: any[] = [];
@@ -2090,6 +2168,26 @@ void main() {
       }
     }
 
+    // ── ROAD EXTENSION at beach/rural boundaries ──
+    // Beach and rural chunks don't draw grid roads, so they leave a
+    // missing-lane gap where they border city/suburb/parking_lot chunks.
+    if (isBeach || isRural) {
+      const nb = (dx: number, dz: number) => getBiome(cx + dx, cz + dz);
+      const isRoad = (b: string) => b === 'city' || b === 'suburb' || b === 'parking_lot';
+      if (isRoad(nb(-1, 0))) {
+        this.addBox(verts, indices, cx * GRID_PITCH, 0.04, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2, 0.08, CHUNK_SIZE, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+      }
+      if (isRoad(nb(1, 0))) {
+        this.addBox(verts, indices, (cx + 1) * GRID_PITCH, 0.04, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2, 0.08, CHUNK_SIZE, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+      }
+      if (isRoad(nb(0, -1))) {
+        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.04, cz * GRID_PITCH, CHUNK_SIZE, 0.08, ROAD_HALF_WIDTH * 2, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+      }
+      if (isRoad(nb(0, 1))) {
+        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.04, (cz + 1) * GRID_PITCH, CHUNK_SIZE, 0.08, ROAD_HALF_WIDTH * 2, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+      }
+    }
+
     // ── OCEAN BARRIER WALLS (where land chunks meet ocean along roads) ──
     if (!isBeach && !isBridge && !isBridgeConnector && !isAeroport) {
       const gap = ROAD_HALF_WIDTH + 1; // 17u gap for the road
@@ -2170,10 +2268,21 @@ void main() {
         if (isBeach) {
           this.addPlane(verts, indices, blockWorldX, 0.03, blockWorldZ, BLOCK_SIZE, BLOCK_SIZE, 0.82, 0.75, 0.55, 1.0, idxOffset); idxOffset += 4;
           const halfSW = SIDEWALK_SIZE / 2;
-          // Palm row along the inland edge — bigger scale, properly aligned
+          // Palms scattered across the block, away from tatami
+          const tatamiPositions: { x: number; z: number }[] = [];
+          for (const t of tatami) tatamiPositions.push({ x: t.x, z: t.z });
           for (let i = 0; i < 4; i++) {
-            const px = blockWorldX - halfSW + 5 + i * (SIDEWALK_SIZE / 4);
-            const pz = blockWorldZ - halfSW + 5;
+            let px: number, pz: number, valid: boolean;
+            let attempts = 0;
+            do {
+              px = blockWorldX + (rng() - 0.5) * (SIDEWALK_SIZE - 10);
+              pz = blockWorldZ + (rng() - 0.5) * (SIDEWALK_SIZE - 10);
+              valid = true;
+              for (const tp of tatamiPositions) {
+                if (Math.hypot(px - tp.x, pz - tp.z) < 10) { valid = false; break; }
+              }
+              attempts++;
+            } while (!valid && attempts < 10);
             if (this.palmTreeMesh) {
               trees.push({ x: px, z: pz, yaw: rng() * 0.4 - 0.2, scale: 9 + rng() * 1.8 });
             } else {
@@ -2764,7 +2873,7 @@ void main() {
     }
 
     // ── ROAD LANE STRIPES (only on non-boulevards to keep boulevards clean) ──
-    if (!isMountain && !isBeach && !isAeroport && !isBridge && !isBridgeConnector && !isParkingLot && !isRuralMountain) {
+    if (!isMountain && !isBeach && !isAeroport && !isBridge && !isBridgeConnector && !isParkingLot && !isRural) {
       const dashLen = 1.5, dashWid = 0.3, dashH = 0.02, dashSpacing = 4, dashOffset = 2;
       for (let ri = 0; ri < 2; ri++) {
         const roadZ = cz * CHUNK_SIZE + ri * GRID_PITCH;
@@ -2898,6 +3007,7 @@ void main() {
       const smModel = this.cityBuildingMeshes.find(m => m.length > 0 && m[0].carName && m[0].carName.includes('supermarket'));
       if (smModel && supermarkets.length < 1 && rng() < 0.20) {
         const halfSW = SIDEWALK_SIZE / 2;
+        const setback = 8;
 
         // Re-declare edges here because the previous one is out of scope
         const edges = [
@@ -2910,11 +3020,11 @@ void main() {
         let px, pz, yaw;
         if (edge.dx === 0) {
           px = worldOriginX + 4 + rng() * (CHUNK_SIZE - 8);
-          pz = worldOriginZ + edge.dz * (halfSW - d / 2 - 1);
+          pz = worldOriginZ + edge.dz * (halfSW - setback - d / 2);
           yaw = edge.dz > 0 ? Math.PI : 0;
         } else {
           pz = worldOriginZ + 4 + rng() * (CHUNK_SIZE - 8);
-          px = worldOriginX + edge.dx * (halfSW - d / 2 - 1);
+          px = worldOriginX + edge.dx * (halfSW - setback - d / 2);
           yaw = edge.dx > 0 ? -Math.PI / 2 : Math.PI / 2;
         }
         const scale = Math.max(w, d) / 18 * 3.5;
@@ -3608,6 +3718,7 @@ void main() {
         }
         if (this.palmTreeMesh) {
           for (const tree of chunk.trees) {
+            if (isNearBridgeRoad(tree.x, tree.z, tree.scale * 2)) continue;
             this.drawMesh(this.palmTreeMesh, tree.x, 0, tree.z, tree.yaw, [tree.scale, tree.scale, tree.scale], [1, 1, 1, 1]);
           }
         }
@@ -3925,13 +4036,19 @@ void main() {
     }
 
     if (markers && markers.length > 0) {
+      const markerDistSq = 150 * 150;
+      const markerFadeDistSq = 100 * 100;
       gl.disable(gl.CULL_FACE);
       gl.enable(gl.DEPTH_TEST);
       gl.depthMask(false);
       for (const m of markers) {
         if (m.type === 'destination') {
+          const dx = m.x - camX, dz = m.z - camZ;
+          const dSq = dx * dx + dz * dz;
+          if (dSq > markerDistSq) continue;
+          const alpha = dSq > markerFadeDistSq ? 1 - (dSq - markerFadeDistSq) / (markerDistSq - markerFadeDistSq) : 1;
           const pulse = 1.0 + 0.15 * Math.sin(performance.now() / 250);
-          this.drawMesh(this.getDestinationMarkerMesh(), m.x, 0.02, m.z, 0, [pulse, 1, pulse], [1.0, 1.0, 1.0, 1.0]);
+          this.drawMesh(this.getDestinationMarkerMesh(), m.x, 0.02, m.z, 0, [pulse, 1, pulse], [1.0, 1.0, 1.0, alpha]);
         }
       }
       gl.depthMask(true);
@@ -3939,11 +4056,19 @@ void main() {
       gl.disable(gl.DEPTH_TEST);
       for (const m of markers) {
         if (m.type === 'hail') {
+          const dx = m.x - camX, dz = m.z - camZ;
+          const dSq = dx * dx + dz * dz;
+          if (dSq > markerDistSq) continue;
+          const alpha = dSq > markerFadeDistSq ? 1 - (dSq - markerFadeDistSq) / (markerDistSq - markerFadeDistSq) : 1;
           const bob = Math.sin(performance.now() / 300 + (m.phase || 0)) * 0.3;
-          this.drawMesh(this.getHailMarkerMesh(), m.x, 3.2 + bob, m.z, performance.now() / 600, [1.4, 1.4, 1.4], [1.0, 1.0, 1.0, 1.0]);
+          this.drawMesh(this.getHailMarkerMesh(), m.x, 3.2 + bob, m.z, performance.now() / 600, [1.4, 1.4, 1.4], [1.0, 1.0, 1.0, alpha]);
         } else if (m.type === 'beam') {
+          const dx = m.x - camX, dz = m.z - camZ;
+          const dSq = dx * dx + dz * dz;
+          if (dSq > markerDistSq) continue;
+          const alpha = dSq > markerFadeDistSq ? 1 - (dSq - markerFadeDistSq) / (markerDistSq - markerFadeDistSq) : 1;
           const pulse = 0.8 + 0.2 * Math.sin(performance.now() / 200);
-          this.drawMesh(this.getDestinationBeamMesh(), m.x, 0, m.z, 0, [1, 1, 1], [1.0, 1.0, 1.0, pulse]);
+          this.drawMesh(this.getDestinationBeamMesh(), m.x, 0, m.z, 0, [1, 1, 1], [1.0, 1.0, 1.0, pulse * alpha]);
         }
       }
       gl.enable(gl.DEPTH_TEST);

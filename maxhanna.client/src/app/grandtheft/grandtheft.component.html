@@ -79,7 +79,7 @@
 
     <div id="gt-weapon-wheel" *ngIf="showWeaponWheel">
       <div class="weapon-slot" *ngFor="let w of weaponNames; let i = index" [class.active]="currentWeapon === i"
-        [class.owned]="ownedWeapons[i]" [class.unowned]="!ownedWeapons[i]" (click)="ownedWeapons[i] && selectWeapon(i)">
+        [class.owned]="i === 0 || ownedWeapons[i]" [class.unowned]="i !== 0 && !ownedWeapons[i]" (click)="(i === 0 || (ownedWeapons[i] && ammo[i] > 0)) && selectWeapon(i)">
         {{ w }}<span *ngIf="i > 0 && ownedWeapons[i]" class="ammo-count"> ({{ ammo[i] }})</span>
       </div>
     </div>
