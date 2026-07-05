@@ -248,6 +248,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private ytPlayer: any = null;
   private ytApiReady: Promise<void> | null = null;
   private joystickActive = false;
+  get isJoystickActive(): boolean {
+    return this.joystickActive;
+  }
   private joystickId = -1;
   private joystickX = 0;
   private joystickY = 0;
@@ -526,24 +529,50 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.showWeaponWheel = false;
   }
 
+  private getJoystickCenter(): { x: number; y: number } {
+    const joystickBase = document.getElementById('gt-joystick-base');
+    if (joystickBase) {
+      const rect = joystickBase.getBoundingClientRect();
+      return {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2
+      };
+    }
+
+    return {
+      x: window.innerWidth / 4,
+      y: window.innerHeight * 0.7
+    };
+  }
+
+  private resetJoystick() {
+    this.joystickX = 0;
+    this.joystickY = 0;
+    if (this.joystickThumbEl) {
+      this.joystickThumbEl.style.transform = 'translate(-50%, -50%) translate(0px, 0px)';
+    }
+  }
+
   updateThumb = (x: number, y: number) => {
-    const dx = x - window.innerWidth / 4;
-    const dy = y - window.innerHeight * 0.7;
+    const center = this.getJoystickCenter();
+    const dx = x - center.x;
+    const dy = y - center.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
+    const deadZone = 8;
     if (dist > 80) {
       this.joystickX = dx / dist;
       this.joystickY = -dy / dist;
-    } else if (dist > 1) {
+    } else if (dist > deadZone) {
       this.joystickX = dx / 80;
       this.joystickY = -dy / 80;
     } else {
-      this.joystickX = 0;
-      this.joystickY = 0;
+      this.resetJoystick();
+      return;
     }
     if (this.joystickThumbEl) {
       const thumbOffset = Math.min(dist, 80);
-      const tx = dist > 1 ? (dx / dist) * thumbOffset : 0;
-      const ty = dist > 1 ? (dy / dist) * thumbOffset : 0;
+      const tx = (dx / dist) * thumbOffset;
+      const ty = (dy / dist) * thumbOffset;
       this.joystickThumbEl.style.transform = `translate(-50%, -50%) translate(${tx}px, ${ty}px)`;
     }
   };
@@ -4699,8 +4728,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
       if (t.identifier === this.joystickId) {
-        this.joystickId = -1; this.joystickActive = false; this.joystickX = 0; this.joystickY = 0;
-        if (this.joystickThumbEl) this.joystickThumbEl.style.transform = 'translate(-50%, -50%) translate(0px, 0px)';
+        this.joystickId = -1; this.joystickActive = false;
+        this.resetJoystick();
       }
       if (t.identifier === this.touchCamId) { this.touchCamId = -1; }
     }
@@ -4750,8 +4779,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
       if (t.identifier === this.joystickId) {
-        this.joystickId = -1; this.joystickActive = false; this.joystickX = 0; this.joystickY = 0;
-        if (this.joystickThumbEl) this.joystickThumbEl.style.transform = 'translate(-50%, -50%) translate(0px, 0px)';
+        this.joystickId = -1; this.joystickActive = false;
+        this.resetJoystick();
       }
       if (t.identifier === this.touchCamId) { this.touchCamId = -1; }
     }

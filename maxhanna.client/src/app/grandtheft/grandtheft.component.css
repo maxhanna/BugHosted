@@ -355,10 +355,16 @@
   transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: 100;
+  opacity: 0.16;
+  transition: opacity 0.18s ease;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
   /* FIX: Same reason as #gt-mobile — prevent scroll/zoom interference. */
   touch-action: none;
+}
+
+#gt-joystick.gt-joystick-active {
+  opacity: 1;
 }
 
 #gt-joystick-base {

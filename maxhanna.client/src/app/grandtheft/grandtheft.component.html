@@ -115,7 +115,7 @@
     <div id="gt-mobile-map" *ngIf="isMobile" (touchstart)="onButtonTouch($event); toggleMap()"
       style="position: absolute; top:110px; left:calc(100% -80px);">MAP</div>
     <div id="gt-mobile" *ngIf="isMobile">
-      <div id="gt-joystick">
+      <div id="gt-joystick" [class.gt-joystick-active]="isJoystickActive">
         <div id="gt-joystick-base">
           <div id="gt-joystick-thumb"></div>
         </div>
