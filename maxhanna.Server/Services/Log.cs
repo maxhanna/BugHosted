@@ -292,18 +292,20 @@ public class Log
 
       process.Start();
 
-      string output = await process.StandardOutput.ReadToEndAsync();
       string error = await process.StandardError.ReadToEndAsync();
+
+      using (var fileStream = new FileStream(backupPath, FileMode.Create, FileAccess.Write))
+      {
+        await process.StandardOutput.BaseStream.CopyToAsync(fileStream);
+      }
 
       await process.WaitForExitAsync();
 
-      if (process.ExitCode != 0 || string.IsNullOrWhiteSpace(output))
+      if (process.ExitCode != 0)
       {
         await Db("BackupDatabase ERROR: " + error, null, "SYSTEM", true);
         return false;
       }
-
-      await File.WriteAllTextAsync(backupPath, output);
       await Db($"Database backed up successfully to {backupPath}", null, "SYSTEM", true);
 
       // After backup, clean up old backups
