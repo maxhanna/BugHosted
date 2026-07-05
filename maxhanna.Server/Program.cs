@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using MySqlConnector; 
 
 var builder = WebApplication.CreateBuilder(args);
-
+builder.Logging.AddFilter("TileCacheController", LogLevel.None);
 // Don't stop the host on background service exceptions; handle them per-service.
 builder.Services.Configure<HostOptions>(o => o.BackgroundServiceExceptionBehavior = BackgroundServiceExceptionBehavior.Ignore);
 

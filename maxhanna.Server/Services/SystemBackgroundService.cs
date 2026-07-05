@@ -127,8 +127,7 @@ namespace maxhanna.Server.Services
       try { await _dbQueue.EnqueueAsync(async () => { await _log.DeleteOldLogs(); }); }
       catch (Exception ex) { _ = _log.Db($"Error in DeleteOldLogs: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-      try { await _dbQueue.EnqueueAsync(async () => { await _log.BackupDatabase(); }); }
-      catch (Exception ex) { _ = _log.Db($"Error in BackupDatabase: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
+      _ = Task.Run(async () => { try { await _log.BackupDatabase(); } catch (Exception ex) { _ = _log.Db($"Error in BackupDatabase: {ex.Message}", null, "SYSTEM", outputToConsole: true); } });
 
     }
     private async Task Run10SecondTasks()
@@ -472,8 +471,7 @@ namespace maxhanna.Server.Services
         try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldUserEvents(); }); }
         catch (Exception ex) { _ = _log.Db($"Error in DeleteOldUserEvents: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        try { await _dbQueue.EnqueueAsync(async () => { await _log.BackupDatabase(); }); }
-        catch (Exception ex) { _ = _log.Db($"Error in BackupDatabase: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
+        _ = Task.Run(async () => { try { await _log.BackupDatabase(); } catch (Exception ex) { _ = _log.Db($"Error in BackupDatabase: {ex.Message}", null, "SYSTEM", outputToConsole: true); } });
       }
       finally
       {
