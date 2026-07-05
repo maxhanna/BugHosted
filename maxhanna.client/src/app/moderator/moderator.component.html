@@ -6,12 +6,13 @@
   <div *ngIf="parentRef?.user && !isModerator" class="smallFont">Access denied. Only moderators can use this panel.
   </div>
 
-  <div *ngIf="parentRef?.user && isModerator"> 
+  <div *ngIf="parentRef?.user && isModerator">
     <button (click)="toggleUserList()" [disabled]="modActionLoading" *ngIf="!showUserList">Add Moderators</button>
 
     <div *ngIf="showUserList" class="userSearchDiv">
-      <app-user-list [selectionMode]="true" [inputtedParentRef]="parentRef" [openDirectlyToSearch]="true" [searchOnly]="true"
-        [displayOnlyFriends]="false" [displayRadioFilters]="true" (userSelectClickEvent)="onUsersSelected($event)">
+      <app-user-list [selectionMode]="true" [inputtedParentRef]="parentRef" [openDirectlyToSearch]="true"
+        [searchOnly]="true" [displayOnlyFriends]="false" [displayRadioFilters]="true"
+        (userSelectClickEvent)="onUsersSelected($event)">
       </app-user-list>
       <div *ngIf="selectedUsers.length > 0" style="margin-top: 10px;">
         <strong>{{ selectedUsers.length }} user(s) selected</strong>
@@ -23,29 +24,31 @@
 
     <h3>Current Moderators</h3>
     <div *ngIf="moderators.length === 0" class="smallFont">No moderators found.</div>
-    <table *ngIf="moderators.length > 0" class="contentTable">
-      <thead>
-        <tr>
-          <th (click)="sortTable($event)">ID</th>
-          <th (click)="sortTable($event)">Username</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let m of moderators">
-          <td>{{ m.id }}</td>
-          <td>
-            <app-user-tag [user]="m" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
-          </td>
-          <td>
-            <button *ngIf="m.id !== 1" (click)="removeModerator(m)" [disabled]="modActionLoading" style="color:red;">
-              Remove
-            </button>
-            <span *ngIf="m.id === 1" class="smallFont">(Owner)</span>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="currentModeratorTable">
+      <table *ngIf="moderators.length > 0" class="contentTable">
+        <thead>
+          <tr>
+            <th (click)="sortTable($event)">ID</th>
+            <th (click)="sortTable($event)">Username</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let m of moderators">
+            <td>{{ m.id }}</td>
+            <td>
+              <app-user-tag [user]="m" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+            </td>
+            <td>
+              <button *ngIf="m.id !== 1" (click)="removeModerator(m)" [disabled]="modActionLoading" style="color:red;">
+                Remove
+              </button>
+              <span *ngIf="m.id === 1" class="smallFont">(Owner)</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <h2 style="margin-top: 30px;">User Appeals</h2>
     <div *ngIf="loading" class="smallFont">Loading...</div>
