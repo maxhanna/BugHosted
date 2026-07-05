@@ -107,6 +107,7 @@ export class FileUploadComponent implements AfterViewInit {
       const uniqueFiles = Array.from(new Set(combined.map(f => f.name))).map(name => combined.find(f => f.name === name)!);
       this.uploadFileList = uniqueFiles.slice(0, this.maxSelectedFiles);
       // Pre-mark duplicates before upload
+      this.duplicateFileNames = [];
       await this.checkNames();
       // Track duplicate files
 
@@ -119,7 +120,7 @@ export class FileUploadComponent implements AfterViewInit {
       const duplicateNames = validFiles
         .filter(f => currentNames.has(f.name))
         .map(f => f.name);
-      this.duplicateFileNames = [...trueDuplicateNames, ...this.duplicateFileNames, ...duplicateNames];
+      this.duplicateFileNames = [...trueDuplicateNames, ...duplicateNames];
       // reset the file input so the same file can be selected again if desired
       try { this.fileInput.nativeElement.value = ''; } catch { }
       this.userUploadEvent.emit(this.uploadFileList);
@@ -170,7 +171,6 @@ export class FileUploadComponent implements AfterViewInit {
       return alert("No file to upload!");
     }
 
-    await this.checkNames();
     this.isUploading = true;
     this.displayFileUploadOptions = false;
     this.displayFileUploadTopics = false;

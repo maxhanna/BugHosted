@@ -448,6 +448,56 @@ namespace maxhanna.Server.Controllers
                 return null;
             }
         }
+        private IEnumerable<string> GetCandidateStoredFileNames(string fileName)
+        {
+            var candidateNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                Path.GetFileName(fileName)
+            };
+
+            var extension = Path.GetExtension(fileName);
+            var baseName = Path.GetFileNameWithoutExtension(fileName);
+
+            if (IsImageFileExtension(extension) || IsGifFileExtension(extension))
+            {
+                candidateNames.Add($"{baseName}.webp");
+            }
+            else if (IsVideoFileExtension(extension))
+            {
+                candidateNames.Add($"{baseName}.webm");
+            }
+            else if (IsAudioFileExtension(extension))
+            {
+                candidateNames.Add($"{baseName}.mp4");
+            }
+
+            return candidateNames;
+        }
+
+        private static bool IsImageFileExtension(string? extension)
+        {
+            var normalized = extension?.Trim().ToLowerInvariant();
+            return new[] { ".jpg", ".jpeg", ".png", ".bmp" }.Contains(normalized);
+        }
+
+        private static bool IsGifFileExtension(string? extension)
+        {
+            var normalized = extension?.Trim().ToLowerInvariant();
+            return normalized == ".gif";
+        }
+
+        private static bool IsVideoFileExtension(string? extension)
+        {
+            var normalized = extension?.Trim().ToLowerInvariant();
+            return new[] { ".mp4", ".avi", ".mov", ".wmv", ".flv", ".mkv" }.Contains(normalized);
+        }
+
+        private static bool IsAudioFileExtension(string? extension)
+        {
+            var normalized = extension?.Trim().ToLowerInvariant();
+            return new[] { ".mp3", ".wav", ".ogg", ".flac", ".aac", ".m4a", ".wma", ".opus" }.Contains(normalized);
+        }
+
         [HttpPost("/File/CheckNames/")]
         public async Task<Dictionary<string, bool>> CheckNames([FromBody] List<string> names, [FromQuery] string directory)
         {
@@ -473,15 +523,27 @@ namespace maxhanna.Server.Controllers
 
             using (var connection = new MySqlConnection(_connectionString))
             {
-                connection.Open();
+                await connection.OpenAsync();
                 foreach (var name in names)
                 {
-                    string sqlCommand = "SELECT EXISTS(SELECT 1 FROM maxhanna.file_uploads WHERE folder_path = @folderPath AND file_name = @fileName) AS exists;";
-                    var command = new MySqlCommand(sqlCommand, connection);
-                    command.Parameters.AddWithValue("@folderPath", directory);
-                    command.Parameters.AddWithValue("@fileName", name);
-                    var exists = await command.ExecuteScalarAsync();
-                    result[name] = Convert.ToBoolean(exists);
+                    var candidateNames = GetCandidateStoredFileNames(name).ToList();
+                    var exists = false;
+
+                    foreach (var candidateName in candidateNames)
+                    {
+                        var sqlCommand = "SELECT EXISTS(SELECT 1 FROM maxhanna.file_uploads WHERE folder_path = @folderPath AND file_name = @fileName) AS exists;";
+                        var command = new MySqlCommand(sqlCommand, connection);
+                        command.Parameters.AddWithValue("@folderPath", directory);
+                        command.Parameters.AddWithValue("@fileName", candidateName);
+                        var existsValue = await command.ExecuteScalarAsync();
+                        exists = Convert.ToBoolean(existsValue);
+                        if (exists)
+                        {
+                            break;
+                        }
+                    }
+
+                    result[name] = exists;
                 }
             }
             return result;
