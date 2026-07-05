@@ -85,6 +85,7 @@
 }
 
 .youtubeIframePopup {
+  min-width: 360px;
   overflow: hidden;
 }
 

@@ -154,7 +154,7 @@
 </div>
 
 <!-- YouTube Video Popup -->
-<div class="popupPanel" *ngIf="showYoutubePopup" style="width: min(90vw, 800px); height: min(80vh, 600px);">
+<div class="popupPanel" *ngIf="showYoutubePopup" style="min-width: 360px; width: min(90vw, 800px); height: min(80vh, 600px);">
   <div class="popupPanelTitle" style="display: flex; justify-content: space-between; align-items: center;">
     <span>YouTube Video</span>
     <span (click)="closeYoutubePopup()" class="cursorPointer" style="font-size: 20px; line-height: 1;">&times;</span>
