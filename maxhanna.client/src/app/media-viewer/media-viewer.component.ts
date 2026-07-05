@@ -462,6 +462,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     } finally {
       this.isLoading = false;
       if (this.canScroll) {
+        console.log("scrolling to fileIdName" + fileId);
         setTimeout(() => { document.getElementById('fileIdName' + fileId)?.scrollIntoView(); }, 100);
       }
     }
