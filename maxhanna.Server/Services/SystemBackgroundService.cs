@@ -139,10 +139,8 @@ namespace maxhanna.Server.Services
 
       try
       {
-        await _dbQueue.RunImmediateAsync(async () =>
-        {
-          await MakeCryptoTrade();
-        });
+        try { await _dbQueue.RunImmediateAsync(async () => { await MakeCryptoTrade(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in MakeCryptoTrade: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
       }
       catch (Exception ex)
       {
@@ -167,19 +165,11 @@ namespace maxhanna.Server.Services
 
       try
       {
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await SpawnEncounterMetabots();
-        });
+        try { await _dbQueue.EnqueueAsync(async () => { await SpawnEncounterMetabots(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in SpawnEncounterMetabots: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await FetchWebsiteMetadata();
-        });
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Error in Run30SecondTasks {ex.Message}", null, "SYSTEM", outputToConsole: true); // Adjust to your actual _log method
+        try { await _dbQueue.EnqueueAsync(async () => { await FetchWebsiteMetadata(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in FetchWebsiteMetadata: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
       }
       finally
       {
@@ -197,51 +187,79 @@ namespace maxhanna.Server.Services
 
       try
       {
-        await _dbQueue.EnqueueAsync(async () =>
+        try
         {
-          await SendCalendarNotifications();
-        });
+          await _dbQueue.EnqueueAsync(async () =>
+          {
+            await SendCalendarNotifications();
+          });
+        }
+        catch (Exception ex) { _ = _log.Db($"Error in SendCalendarNotifications: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
+        try
         {
-          await _aiController.AnalyzeAndRenameFile();
-        });
+          await _dbQueue.EnqueueAsync(async () =>
+          {
+            await _aiController.AnalyzeAndRenameFile();
+          });
+        }
+        catch (Exception ex) { _ = _log.Db($"Error in AnalyzeAndRenameFile: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
+        try
         {
-          await CleanOneSluggyFileNameAsync();
-        });
+          await _dbQueue.EnqueueAsync(async () =>
+          {
+            await CleanOneSluggyFileNameAsync();
+          });
+        }
+        catch (Exception ex) { _ = _log.Db($"Error in CleanOneSluggyFileNameAsync: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
+        try
         {
-          await FetchAndStoreTopMarketCaps();
-        });
+          await _dbQueue.EnqueueAsync(async () =>
+          {
+            await FetchAndStoreTopMarketCaps();
+          });
+        }
+        catch (Exception ex) { _ = _log.Db($"Error in FetchAndStoreTopMarketCaps: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
+        try
         {
-          await UpdateLastBTCWalletInfo();
-        });
+          await _dbQueue.EnqueueAsync(async () =>
+          {
+            await UpdateLastBTCWalletInfo();
+          });
+        }
+        catch (Exception ex) { _ = _log.Db($"Error in UpdateLastBTCWalletInfo: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
+        try
         {
-          await FetchAndStoreCoinValues();
-        });
+          await _dbQueue.EnqueueAsync(async () =>
+          {
+            await FetchAndStoreCoinValues();
+          });
+        }
+        catch (Exception ex) { _ = _log.Db($"Error in FetchAndStoreCoinValues: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
+        try
         {
-          _miningApiService.UpdateWalletInDB(_config, _log);
-        });
+          await _dbQueue.EnqueueAsync(async () =>
+          {
+            _miningApiService.UpdateWalletInDB(_config, _log);
+          });
+        }
+        catch (Exception ex) { _ = _log.Db($"Error in UpdateWalletInDB: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
         lastWasCrypto = !lastWasCrypto;
 
-        await _dbQueue.EnqueueAsync(async () =>
+        try
         {
-          await ScrapeNews();
-        });
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Error in RunFiveMinuteTasks {ex.Message}", null, "SYSTEM", outputToConsole: true); // Adjust to your actual _log method
+          await _dbQueue.EnqueueAsync(async () =>
+          {
+            await ScrapeNews();
+          });
+        }
+        catch (Exception ex) { _ = _log.Db($"Error in ScrapeNews: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
       }
       finally
       {
@@ -259,215 +277,84 @@ namespace maxhanna.Server.Services
 
       try
       {
-        await _dbQueue.EnqueueAsync(async () =>
+        try
         {
-          await AssignTrophies();
-        });
+          await _dbQueue.EnqueueAsync(async () =>
+          {
+            await AssignTrophies();
+          });
+        }
+        catch (Exception ex) { _ = _log.Db($"Error in AssignTrophies: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
+        try
         {
-          await _romEnrichmentService.RunAsync();
-        });
+          await _dbQueue.EnqueueAsync(async () =>
+          {
+            await _romEnrichmentService.RunAsync();
+          });
+        }
+        catch (Exception ex) { _ = _log.Db($"Error in RomEnrichmentService: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
+        try
         {
-          await _aiController.ProvideMarketAnalysis();
-        });
+          await _dbQueue.EnqueueAsync(async () =>
+          {
+            await _aiController.ProvideMarketAnalysis();
+          });
+        }
+        catch (Exception ex) { _ = _log.Db($"Error in ProvideMarketAnalysis: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
+        try
         {
-          await CleanupOrphanedPhotos();
-        });
+          await _dbQueue.EnqueueAsync(async () =>
+          {
+            await CleanupOrphanedPhotos();
+          });
+        }
+        catch (Exception ex) { _ = _log.Db($"Error in CleanupOrphanedPhotos: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
+        try
         {
-          await _log.DeleteOldLogs();
-        });
+          await _dbQueue.EnqueueAsync(async () =>
+          {
+            await _log.DeleteOldLogs();
+          });
+        }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldLogs: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
+        try
         {
-          await DeleteExpiredDigCraftDrops();
-        });
+          await _dbQueue.EnqueueAsync(async () =>
+          {
+            await DeleteExpiredDigCraftDrops();
+          });
+        }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteExpiredDigCraftDrops: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
+        try
         {
-          await DeleteExecutedWeaverCommands();
-        });
+          await _dbQueue.EnqueueAsync(async () =>
+          {
+            await DeleteExecutedWeaverCommands();
+          });
+        }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteExecutedWeaverCommands: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
+        try
         {
-          await SendWeeklyDigestEmail();
-        });
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Error in RunHourlyTasks {ex.Message}", null, "SYSTEM", outputToConsole: true); // Adjust to your actual _log method
+          await _dbQueue.EnqueueAsync(async () =>
+          {
+            await SendWeeklyDigestEmail();
+          });
+        }
+        catch (Exception ex) { _ = _log.Db($"Error in SendWeeklyDigestEmail: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
       }
       finally
       {
-        // 4. RESET THE GUARD
         Interlocked.Exchange(ref _isRunningHourlyTasks, 0);
       }
-    }
+    } 
 
-
-    private async Task SendWeeklyDigestEmail()
-    {
-      try
-      {
-        using var conn = new MySqlConnection(_connectionString);
-        await conn.OpenAsync();
-
-        using var pickCmd = new MySqlCommand(@"
-          SELECT u.id, ua.email
-          FROM users u
-          JOIN user_about ua ON ua.user_id = u.id
-          WHERE ua.email IS NOT NULL AND ua.email != ''
-            AND (SELECT COALESCE(us.weekly_digest_enabled, 1) FROM user_settings us WHERE us.user_id = u.id) = 1
-            AND u.id NOT IN (
-              SELECT user_id FROM weekly_email_sent
-              WHERE month_key = DATE_FORMAT(UTC_DATE(), '%Y-%m')
-            )
-          ORDER BY u.id ASC
-          LIMIT 1", conn);
-
-        int? userId = null;
-        string? email = null;
-        using (var reader = await pickCmd.ExecuteReaderAsync())
-        {
-          if (await reader.ReadAsync())
-          {
-            userId = reader.GetInt32("id");
-            email = reader.IsDBNull(reader.GetOrdinal("email")) ? null : reader.GetString(reader.GetOrdinal("email"));
-          }
-        }
-
-        if (userId == null || string.IsNullOrWhiteSpace(email))
-          return;
-
-        string notifCount = "0";
-        using (var notifCmd = new MySqlCommand(
-          "SELECT COUNT(*) FROM notifications WHERE user_id = @uid AND (is_read IS NULL OR is_read = 0)", conn))
-        {
-          notifCmd.Parameters.AddWithValue("@uid", userId.Value);
-          notifCount = (await notifCmd.ExecuteScalarAsync())?.ToString() ?? "0";
-        }
-
-        var storiesHtml = new StringBuilder();
-        using (var storyCmd = new MySqlCommand(@"
-          SELECT s.story_text, s.date, u.username
-          FROM stories s
-          JOIN users u ON u.id = s.user_id
-          WHERE s.user_id IN (SELECT friend_id FROM friends WHERE user_id = @uid)
-            AND s.date >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY)
-          ORDER BY s.date DESC
-          LIMIT 3", conn))
-        {
-          storyCmd.Parameters.AddWithValue("@uid", userId.Value);
-          using var rdr = await storyCmd.ExecuteReaderAsync();
-          while (await rdr.ReadAsync())
-          {
-            var text = rdr.IsDBNull(rdr.GetOrdinal("story_text")) ? "" : rdr.GetString("story_text");
-            var username = rdr.IsDBNull(rdr.GetOrdinal("username")) ? "someone" : rdr.GetString("username");
-            var date = rdr.GetDateTime("date").ToString("MMM dd");
-            var snippet = text.Length > 100 ? text[..100] + "..." : text;
-            storiesHtml.Append($"<li><b>{username}</b> ({date}): {snippet}</li>");
-          }
-        }
-
-        string memeHtml = "";
-        using (var memeCmd = new MySqlCommand(@"
-          SELECT f.id, COALESCE(f.given_file_name, f.file_name) AS name,
-            COALESCE(AVG(r.rating), 0) AS avg_rating,
-            COALESCE((SELECT COUNT(*) FROM reactions re WHERE re.file_id = f.id), 0) AS reaction_count,
-            COALESCE((SELECT COUNT(*) FROM comments c WHERE c.file_id = f.id), 0) AS comment_count
-          FROM file_uploads f
-          LEFT JOIN ratings r ON r.file_id = f.id
-          WHERE f.folder_path LIKE '%/Meme/%' AND f.is_folder = 0
-          GROUP BY f.id
-          ORDER BY avg_rating * reaction_count * comment_count DESC, avg_rating DESC, reaction_count DESC, comment_count DESC
-          LIMIT 1", conn))
-        {
-          using var rdr = await memeCmd.ExecuteReaderAsync();
-          if (await rdr.ReadAsync())
-          {
-            var memeName = rdr.IsDBNull(rdr.GetOrdinal("name")) ? "Meme" : rdr.GetString("name");
-            var rating = rdr.GetDouble("avg_rating").ToString("F1");
-            var reactions = rdr.GetInt32("reaction_count");
-            var comments = rdr.GetInt32("comment_count");
-            memeHtml = $"<b>{memeName}</b> (avg rating: {rating}/5, {reactions} reactions, {comments} comments)";
-          }
-        }
-
-        var songsHtml = new StringBuilder();
-        using (var songCmd = new MySqlCommand(@"
-          SELECT t.todo, t.date, COALESCE(u.username, 'Anonymous') AS username
-          FROM todos t
-          LEFT JOIN users u ON u.id = t.user_id
-          WHERE t.type = 'music'
-            AND t.date >= DATE_FORMAT(UTC_DATE(), '%Y-%m-01')
-          ORDER BY t.date DESC
-          LIMIT 5", conn))
-        {
-          using var rdr = await songCmd.ExecuteReaderAsync();
-          while (await rdr.ReadAsync())
-          {
-            var title = rdr.IsDBNull(rdr.GetOrdinal("todo")) ? "Untitled" : rdr.GetString("todo");
-            var username = rdr.IsDBNull(rdr.GetOrdinal("username")) ? "Anonymous" : rdr.GetString("username");
-            var date = rdr.GetDateTime("date").ToString("MMM dd");
-            songsHtml.Append($"<li><b>{title}</b> by {username} ({date})</li>");
-          }
-        }
-
-        var body = $@"
-<html>
-<body style='font-family:Arial,sans-serif;background:#f5f5f5;padding:20px'>
-<div style='max-width:600px;margin:auto;background:white;border-radius:8px;padding:24px'>
-<h2 style='color:#333'>Your BugHosted Weekly Digest</h2>
-<p style='color:#666'>Here's what you missed this week.</p>
-
-<table style='width:100%;border-collapse:collapse;margin:16px 0'>
-<tr><td style='padding:12px;background:#e8f4fd;border-radius:6px'>
-<b>Notifications</b>: {notifCount} unread
-</td></tr>
-</table>
-
-{(storiesHtml.Length > 0 ? $@"
-<h3>Stories from Friends</h3>
-<ul>{storiesHtml}</ul>" : "")}
-
-{(memeHtml.Length > 0 ? $@"
-<h3>Highest Rated Meme</h3>
-<p>{memeHtml}</p>" : "")}
-
-{(songsHtml.Length > 0 ? $@"
-<h3>Songs Added This Month</h3>
-<ul>{songsHtml}</ul>" : "")}
-
-<p style='color:#999;font-size:12px;margin-top:24px'>
-You're receiving this because you have an email on your BugHosted account.
-To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Digest option.
-</p>
-</div>
-</body>
-</html>";
-
-        var sent = await _emailService.SendHtmlEmailAsync(email, "BugHosted Weekly Digest", body);
-        if (sent)
-        {
-          using var insertCmd = new MySqlCommand(@"
-            INSERT INTO weekly_email_sent (user_id, sent_date, month_key)
-            VALUES (@uid, UTC_TIMESTAMP(), DATE_FORMAT(UTC_DATE(), '%Y-%m'))", conn);
-          insertCmd.Parameters.AddWithValue("@uid", userId.Value);
-          await insertCmd.ExecuteNonQueryAsync();
-          _ = _log.Db($"Weekly digest sent to user {userId} ({email})", userId.Value, "EMAIL");
-        }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Error in SendWeeklyDigestEmail: {ex.Message}", 0, "EMAIL", true);
-      }
-    }
 
     private async Task RunSixHourTasks()
     {
@@ -478,43 +365,26 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
 
       try
       {
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await FetchExchangeRates();
-        });
+        try { await _dbQueue.EnqueueAsync(async () => { await FetchExchangeRates(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in FetchExchangeRates: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await FetchAndStoreCryptoEvents();
-        });
+        try { await _dbQueue.EnqueueAsync(async () => { await FetchAndStoreCryptoEvents(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in FetchAndStoreCryptoEvents: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await FetchAndStoreFearGreedAsync();
-        });
+        try { await _dbQueue.EnqueueAsync(async () => { await FetchAndStoreFearGreedAsync(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in FetchAndStoreFearGreedAsync: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await FetchAndStoreGlobalMetricsAsync();
-        });
+        try { await _dbQueue.EnqueueAsync(async () => { await FetchAndStoreGlobalMetricsAsync(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in FetchAndStoreGlobalMetricsAsync: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await DeleteHostAiRequests();
-        });
+        try { await _dbQueue.EnqueueAsync(async () => { await DeleteHostAiRequests(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteHostAiRequests: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await DeleteOldCalendarNotifications();
-        });
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Error in RunSixHourTasks {ex.Message}", null, "SYSTEM", outputToConsole: true); // Adjust to your actual _log method
+        try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldCalendarNotifications(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldCalendarNotifications: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
       }
       finally
       {
-        // 4. RESET THE GUARD
         Interlocked.Exchange(ref _isRunningSixHourTasks, 0);
       }
     }
@@ -530,24 +400,14 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
 
       try
       {
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await MoveInactiveEnderHeroes();
-        });
+        try { await _dbQueue.EnqueueAsync(async () => { await MoveInactiveEnderHeroes(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in MoveInactiveEnderHeroes: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await DeleteOldSearchResults();
-        });
+        try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldSearchResults(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldSearchResults: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await DeleteOldTradeVolumesSixMonths();
-        });
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Error in RunThreeHourTasks {ex.Message}", null, "SYSTEM", outputToConsole: true); // Adjust to your actual _log method
+        try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldTradeVolumesSixMonths(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldTradeVolumesSixMonths: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
       }
       finally
       {
@@ -564,95 +424,53 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
 
       try
       {
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await DeleteOldBattleReports();
-        });
+        try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldBattleReports(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldBattleReports: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await DeleteOldGuests();
-        });
+        try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldGuests(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldGuests: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
+        try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldSearchQueries(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldSearchQueries: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await DeleteOldSearchQueries();
-        });
+        try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldSentimentAnalysis(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldSentimentAnalysis: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
+        try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldGlobalMetrics(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldGlobalMetrics: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await DeleteOldSentimentAnalysis();
-        });
+        try { await _dbQueue.EnqueueAsync(async () => { await DeleteNotificationRequests(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteNotificationRequests: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
+        try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldCoinValueEntries(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldCoinValueEntries: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await DeleteOldGlobalMetrics();
-        });
+        try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldNews(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldNews: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
+        try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldNewsPins(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldNewsPins: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await DeleteNotificationRequests();
-        });
+        try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldCoinMarketCaps(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldCoinMarketCaps: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await DeleteOldCoinValueEntries();
-        });
+        try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldEnderScores(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldEnderScores: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await DeleteOldNews();
-        });
+        try { await _dbQueue.EnqueueAsync(async () => { await _newsService.CreateDailyNewsStoryAsync(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in CreateDailyNewsStoryAsync: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await DeleteOldNewsPins();
-        });
+        try { await _dbQueue.EnqueueAsync(async () => { await CleanupOldFavourites(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in CleanupOldFavourites: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await DeleteOldCoinMarketCaps();
-        });
+        try { await _dbQueue.EnqueueAsync(async () => { await DeleteExpiredPasswordResetTokens(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteExpiredPasswordResetTokens: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await DeleteOldEnderScores();
-        });
+        try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldUserEvents(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldUserEvents: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await _newsService.CreateDailyNewsStoryAsync();
-        });
-
-
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await CleanupOldFavourites();
-        });
-
-
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await DeleteExpiredPasswordResetTokens();
-        });
-
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await DeleteOldUserEvents();
-        });
-
-        await _dbQueue.EnqueueAsync(async () =>
-        {
-          await _log.BackupDatabase();
-        });
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db($"Error in RunDailyTasks {ex.Message}", null, "SYSTEM", outputToConsole: true); // Adjust to your actual _log method
+        try { await _dbQueue.EnqueueAsync(async () => { await _log.BackupDatabase(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in BackupDatabase: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
       }
       finally
       {
@@ -1451,6 +1269,164 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
       }
 
       return null;
+    }
+
+    private async Task SendWeeklyDigestEmail()
+    {
+      try
+      {
+        using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
+
+        using var pickCmd = new MySqlCommand(@"
+          SELECT u.id, ua.email
+          FROM users u
+          JOIN user_about ua ON ua.user_id = u.id
+          WHERE ua.email IS NOT NULL AND ua.email != ''
+            AND (SELECT COALESCE(us.weekly_digest_enabled, 1) FROM user_settings us WHERE us.user_id = u.id) = 1
+            AND u.id NOT IN (
+              SELECT user_id FROM weekly_email_sent
+              WHERE month_key = DATE_FORMAT(UTC_DATE(), '%Y-%m')
+            )
+          ORDER BY u.id ASC
+          LIMIT 1", conn);
+
+        int? userId = null;
+        string? email = null;
+        using (var reader = await pickCmd.ExecuteReaderAsync())
+        {
+          if (await reader.ReadAsync())
+          {
+            userId = reader.GetInt32("id");
+            email = reader.IsDBNull(reader.GetOrdinal("email")) ? null : reader.GetString(reader.GetOrdinal("email"));
+          }
+        }
+
+        if (userId == null || string.IsNullOrWhiteSpace(email))
+          return;
+
+        string notifCount = "0";
+        using (var notifCmd = new MySqlCommand(
+          "SELECT COUNT(*) FROM notifications WHERE user_id = @uid AND (is_read IS NULL OR is_read = 0)", conn))
+        {
+          notifCmd.Parameters.AddWithValue("@uid", userId.Value);
+          notifCount = (await notifCmd.ExecuteScalarAsync())?.ToString() ?? "0";
+        }
+
+        var storiesHtml = new StringBuilder();
+        using (var storyCmd = new MySqlCommand(@"
+          SELECT s.story_text, s.date, u.username
+          FROM stories s
+          JOIN users u ON u.id = s.user_id
+          WHERE s.user_id IN (SELECT friend_id FROM friends WHERE user_id = @uid)
+            AND s.date >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY)
+          ORDER BY s.date DESC
+          LIMIT 3", conn))
+        {
+          storyCmd.Parameters.AddWithValue("@uid", userId.Value);
+          using var rdr = await storyCmd.ExecuteReaderAsync();
+          while (await rdr.ReadAsync())
+          {
+            var text = rdr.IsDBNull(rdr.GetOrdinal("story_text")) ? "" : rdr.GetString("story_text");
+            var username = rdr.IsDBNull(rdr.GetOrdinal("username")) ? "someone" : rdr.GetString("username");
+            var date = rdr.GetDateTime("date").ToString("MMM dd");
+            var snippet = text.Length > 100 ? text[..100] + "..." : text;
+            storiesHtml.Append($"<li><b>{username}</b> ({date}): {snippet}</li>");
+          }
+        }
+
+        string memeHtml = "";
+        using (var memeCmd = new MySqlCommand(@"
+          SELECT f.id, COALESCE(f.given_file_name, f.file_name) AS name,
+            COALESCE(AVG(r.rating), 0) AS avg_rating,
+            COALESCE((SELECT COUNT(*) FROM reactions re WHERE re.file_id = f.id), 0) AS reaction_count,
+            COALESCE((SELECT COUNT(*) FROM comments c WHERE c.file_id = f.id), 0) AS comment_count
+          FROM file_uploads f
+          LEFT JOIN ratings r ON r.file_id = f.id
+          WHERE f.folder_path LIKE '%/Meme/%' AND f.is_folder = 0
+          GROUP BY f.id
+          ORDER BY avg_rating * reaction_count * comment_count DESC, avg_rating DESC, reaction_count DESC, comment_count DESC
+          LIMIT 1", conn))
+        {
+          using var rdr = await memeCmd.ExecuteReaderAsync();
+          if (await rdr.ReadAsync())
+          {
+            var memeName = rdr.IsDBNull(rdr.GetOrdinal("name")) ? "Meme" : rdr.GetString("name");
+            var rating = rdr.GetDouble("avg_rating").ToString("F1");
+            var reactions = rdr.GetInt32("reaction_count");
+            var comments = rdr.GetInt32("comment_count");
+            memeHtml = $"<b>{memeName}</b> (avg rating: {rating}/5, {reactions} reactions, {comments} comments)";
+          }
+        }
+
+        var songsHtml = new StringBuilder();
+        using (var songCmd = new MySqlCommand(@"
+          SELECT t.todo, t.date, COALESCE(u.username, 'Anonymous') AS username
+          FROM todos t
+          LEFT JOIN users u ON u.id = t.user_id
+          WHERE t.type = 'music'
+            AND t.date >= DATE_FORMAT(UTC_DATE(), '%Y-%m-01')
+          ORDER BY t.date DESC
+          LIMIT 5", conn))
+        {
+          using var rdr = await songCmd.ExecuteReaderAsync();
+          while (await rdr.ReadAsync())
+          {
+            var title = rdr.IsDBNull(rdr.GetOrdinal("todo")) ? "Untitled" : rdr.GetString("todo");
+            var username = rdr.IsDBNull(rdr.GetOrdinal("username")) ? "Anonymous" : rdr.GetString("username");
+            var date = rdr.GetDateTime("date").ToString("MMM dd");
+            songsHtml.Append($"<li><b>{title}</b> by {username} ({date})</li>");
+          }
+        }
+
+        var body = $@"
+<html>
+<body style='font-family:Arial,sans-serif;background:#f5f5f5;padding:20px'>
+<div style='max-width:600px;margin:auto;background:white;border-radius:8px;padding:24px'>
+<h2 style='color:#333'>Your BugHosted Weekly Digest</h2>
+<p style='color:#666'>Here's what you missed this week.</p>
+
+<table style='width:100%;border-collapse:collapse;margin:16px 0'>
+<tr><td style='padding:12px;background:#e8f4fd;border-radius:6px'>
+<b>Notifications</b>: {notifCount} unread
+</td></tr>
+</table>
+
+{(storiesHtml.Length > 0 ? $@"
+<h3>Stories from Friends</h3>
+<ul>{storiesHtml}</ul>" : "")}
+
+{(memeHtml.Length > 0 ? $@"
+<h3>Highest Rated Meme</h3>
+<p>{memeHtml}</p>" : "")}
+
+{(songsHtml.Length > 0 ? $@"
+<h3>Songs Added This Month</h3>
+<ul>{songsHtml}</ul>" : "")}
+
+<p style='color:#999;font-size:12px;margin-top:24px'>
+You're receiving this because you have an email on your BugHosted account.
+To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Digest option.
+</p>
+</div>
+</body>
+</html>";
+
+        var sent = await _emailService.SendHtmlEmailAsync(email, "BugHosted Weekly Digest", body);
+        if (sent)
+        {
+          using var insertCmd = new MySqlCommand(@"
+            INSERT INTO weekly_email_sent (user_id, sent_date, month_key)
+            VALUES (@uid, UTC_TIMESTAMP(), DATE_FORMAT(UTC_DATE(), '%Y-%m'))", conn);
+          insertCmd.Parameters.AddWithValue("@uid", userId.Value);
+          await insertCmd.ExecuteNonQueryAsync();
+          _ = _log.Db($"Weekly digest sent to user {userId} ({email})", userId.Value, "EMAIL");
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error in SendWeeklyDigestEmail: {ex.Message}", 0, "EMAIL", true);
+      }
     }
     private async Task DeleteOldBattleReports()
     {
