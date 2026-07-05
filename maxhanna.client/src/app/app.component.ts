@@ -50,6 +50,8 @@ import { PlanterComponent } from './planter/planter.component';
 import { WeaverComponent } from './weaver/weaver.component';
 import { GrandTheftComponent } from './grandtheft/grandtheft.component';
 import { RecipeComponent } from './recipe/recipe.component';
+import { PaintComponent } from './paint/paint.component';
+import { ModeratorComponent } from './moderator/moderator.component';
 
 
 @Component({
@@ -80,6 +82,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     'UpdateUserSettingsComponent',
     'MediaViewerComponent',
     'RecipeComponent',
+    'PaintComponent',
   ];
   unflexedNavigationComponents: string[] = [
     'EmulatorComponent',
@@ -348,6 +351,16 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     },
     {
       ownership: 0,
+      title: 'Paint',
+      content: `Create and share your artwork with others.`
+    },
+    {
+      ownership: 0,
+      title: 'Moderator',
+      content: `Manage and moderate the site's content and user interactions.`
+    },
+    {
+      ownership: 0,
       title: 'Array',
       content: `The Array transports users down a seemingly infinite array.
   The further you go down the array, the more experience you gain.
@@ -405,6 +418,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   isSpeaking = false;
   isShowingPasswordResetResult = false;
   passwordResetResultMessage = '';
+  loginLockData: { isLocked: boolean; lockedAt: string; reason: string; hasPendingAppeal: boolean } | null = null;
   passwordResetResultSuccess = false;
   private securityTimeout: any = null;
   private componentMap: { [key: string]: any; } = {
@@ -446,6 +460,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Notifications": NotificationsComponent,
     "UpdateUserSettings": UpdateUserSettingsComponent,
     "User-Events": UserEventsComponent,
+    "Paint": PaintComponent,
+    "Moderator": ModeratorComponent,
   };
   userSelectedNavigationItems: Array<MenuItem> = [];
   constructor(private router: Router,
@@ -620,6 +636,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         else if (this.router.url.toLowerCase().includes('grandtheft')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('GrandTheft');
+        }
+        else if (this.router.url.toLowerCase().includes('paint')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Paint');
         }
         else if (this.router.url.toLowerCase().includes('user-events')) {
           this.checkAndClearRouterOutlet();
@@ -995,10 +1015,15 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   }
 
   async login(username: string, password: string, fromUserCreation?: boolean, fromPasswordReset?: boolean) {
-    const tmpUser = await this.userService.login(username, password) as User;
-    if (tmpUser && tmpUser.username) {
-      tmpUser.pass = undefined;
-      this.user = tmpUser;
+    const tmpUser = await this.userService.login(username, password) as User | { isLocked: boolean; lockedAt: string; reason: string; hasPendingAppeal: boolean };
+    if (tmpUser && 'isLocked' in tmpUser) {
+      this.loginLockData = tmpUser as { isLocked: boolean; lockedAt: string; reason: string; hasPendingAppeal: boolean };
+      return undefined;
+    }
+    const user = tmpUser as User | undefined;
+    if (user && user.username) {
+      user.pass = undefined;
+      this.user = user;
       setTimeout(() => {
         this?.navigationComponent?.getThemeInfo();
       }, 50);
@@ -1006,7 +1031,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.showNotification(`Welcome ${fromUserCreation ? 'to BugHosted' : 'back'} ${this.user?.username}.${fromPasswordReset ? ' Please set a new password.' : ''}`);
       this.getLocation();
       this.getSessionToken();
-      this.userSelectedNavigationItems = await this.userService.getUserMenu(tmpUser.id);
+      this.userSelectedNavigationItems = await this.userService.getUserMenu(user.id);
     }
     return this.user;
   }

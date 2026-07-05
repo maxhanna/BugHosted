@@ -656,6 +656,68 @@
   background: #1a5ed8;
 }
 
+/* ---- Wikipedia Popup ---- */
+.wikipedia-backdrop {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 999;
+}
+
+.wikipedia-popup-panel.popupPanel {
+  max-width: 500px;
+  width: 90vw;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.wikipedia-popup-image {
+  max-width: 100%;
+  max-height: 250px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.wikipedia-popup-description {
+  color: #ccc;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.wikipedia-popup-meta {
+  color: #888;
+  font-size: 12px;
+  margin: 0;
+}
+
+.wikipedia-popup-loading {
+  color: #aaa;
+  font-style: italic;
+}
+
+.wikipedia-popup-notfound {
+  color: #aaa;
+  font-size: 14px;
+}
+
+.wikipedia-popup-open-btn {
+  align-self: center;
+  padding: 10px 24px;
+  background: #2a6ef0;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.wikipedia-popup-open-btn:hover {
+  background: #1a5ed8;
+}
+
 /* ---- Story Post Popup ---- */
 .story-popup-backdrop {
   position: fixed;
@@ -968,4 +1030,82 @@
   color: #4af;
   font-style: italic;
   font-size: 14px;
+}
+
+/* Coordinate search */
+.coord-search-section {
+  margin-top: 12px;
+  border-top: 1px solid var(--border-color, #444);
+  padding-top: 12px;
+}
+
+.coord-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color, #555);
+  border-radius: 4px;
+  background: var(--input-bg, #2a2a2a);
+  color: var(--text-color, #e0e0e0);
+  font-size: 13px;
+}
+
+.coord-search-input:focus {
+  outline: none;
+  border-color: #4af;
+}
+
+.coord-search-results {
+  margin-top: 8px;
+  max-height: 35vh;
+  overflow-y: auto;
+}
+
+.coord-search-group {
+  margin-bottom: 8px;
+}
+
+.coord-search-header {
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: var(--text-secondary, #888);
+  padding: 4px 0 4px 4px;
+  border-bottom: 1px solid var(--border-color, #333);
+  margin-bottom: 2px;
+}
+
+.coord-search-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 8px;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 13px;
+}
+
+.coord-search-item:hover {
+  background: var(--hover-bg, rgba(74, 170, 255, 0.15));
+}
+
+.coord-search-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coord-search-coords {
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.coord-search-no-results {
+  padding: 10px;
+  text-align: center;
+  color: var(--text-secondary, #888);
+  font-size: 13px;
 }

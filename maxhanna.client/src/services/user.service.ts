@@ -64,7 +64,7 @@ export class UserService {
     }
   }
 
-  async login(username: string, password: string): Promise<User | undefined> {
+  async login(username: string, password: string): Promise<User | { isLocked: boolean; lockedAt: string; reason: string; hasPendingAppeal: boolean } | undefined> {
     try {
       const response = await fetch('/user', {
         method: 'POST',
@@ -73,6 +73,10 @@ export class UserService {
         },
         body: JSON.stringify({ username, password }),
       });
+
+      if (response.status === 423) {
+        return await response.json();
+      }
 
       return await response.json();
     } catch (error) {
@@ -938,6 +942,77 @@ export class UserService {
       return null;
     }
   }
+
+  async appeal(userId: number, appealText: string): Promise<string | null> {
+    try {
+      const response = await fetch('/user/appeal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ UserId: userId, AppealText: appealText }),
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data.message;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async getAppeals(adminUserId: number): Promise<any[]> {
+    try {
+      const response = await fetch('/user/getappeals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(adminUserId),
+      });
+      if (!response.ok) return [];
+      return await response.json();
+    } catch (error) {
+      return [];
+    }
+  }
+
+  async resolveAppeal(appealId: number, adminUserId: number, resolution: string): Promise<string | null> {
+    try {
+      const response = await fetch('/user/resolveappeal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ AppealId: appealId, AdminUserId: adminUserId, Resolution: resolution }),
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data.message;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async setRole(targetUserId: number, role: string, callerUserId: number, remove: boolean = false): Promise<boolean> {
+    try {
+      const response = await fetch('/user/setrole', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ TargetUserId: targetUserId, Role: role, CallerUserId: callerUserId, Remove: remove }),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async getModerators(callerUserId: number): Promise<User[]> {
+    try {
+      const response = await fetch('/user/getmoderators', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(callerUserId),
+      });
+      if (!response.ok) return [];
+      return await response.json() as User[];
+    } catch {
+      return [];
+    }
+  }
 }
 export type UserSettingName =
   | "nsfw_enabled"
@@ -960,4 +1035,5 @@ export type UserSettingName =
   | "digcraft_fov_distance"
   | "page_size"
   | "calendar_notifications_enabled"
-  | "digcraft_view_distance";
+  | "digcraft_view_distance"
+  | "weekly_digest_enabled";

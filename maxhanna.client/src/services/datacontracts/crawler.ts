@@ -25,11 +25,17 @@ export type NormalizedMetaData = MetaData & {
 };
 
 export interface CrawlerSearchResponse {
-  // server returns PascalCase but many components expect lowercase; include both
-  Results: MetaData[];
+  // server now returns lightweight results (id, url, title)
+  Results: LightweightSearchResult[];
   TotalResults: number;
-  results: NormalizedMetaData[];
+  results: LightweightSearchResult[];
   totalResults: number;
+}
+
+export interface LightweightSearchResult {
+  id?: number;
+  url?: string;
+  title?: string;
 }
 
 export interface StorageStats {

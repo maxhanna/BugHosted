@@ -46,6 +46,7 @@ const routes: Routes = [
   { path: 'Music/:shareToken', component: AppComponent },
   { path: 'Music', component: AppComponent },
   { path: 'GrandTheft', component: AppComponent }, 
+  { path: 'Paint', component: AppComponent },
   { path: 'ResetPassword/:token/:username', component: AppComponent },
 ];
 

@@ -148,14 +148,18 @@ namespace maxhanna.Server.Controllers
             await PersistScrapedResults(results, connectionString!);
         }
 
-        // Post-process
+        // Post-process - return lightweight results (no enrichment queries)
         var allResults = GetOrderedResultsForWeb(request, results);
-        allResults = await AddFavouriteCountsAsync(allResults, request.UserId);
-        allResults = await AddRatingDataAsync(allResults);
+        var lightResults = allResults?.Select(r => new LightweightSearchResult
+        {
+          Id = r.Id,
+          Url = r.Url,
+          Title = r.Title
+        }).ToList() ?? new List<LightweightSearchResult>();
 
         // 🔎 Wikipedia fallback: only if NO URL was found AND the query is a keyword.
         // "No URL found" here means no results from DB + quick scrape.
-        if ((allResults == null || allResults.Count == 0) && IsKeywordQuery(request.Url))
+        if ((lightResults == null || lightResults.Count == 0) && IsKeywordQuery(request.Url))
         {
           try
           {
@@ -167,11 +171,10 @@ namespace maxhanna.Server.Controllers
             var wiki = await TryFindWikipediaUrlAsync(request.Url!.Trim(), wikiCts.Token);
             if (wiki != null)
             {
-              var wikiOnly = new List<Metadata> { wiki };
+              var wikiLight = new List<LightweightSearchResult> { new LightweightSearchResult { Id = wiki.Id, Url = wiki.Url, Title = wiki.Title } };
               if (wiki.Url != null)
               {
                 await _webCrawler.SaveSearchResult(wiki.Url, wiki);
-                // Retrieve the database-assigned ID so the result can be rated
                 using (var idConn = new MySqlConnection(connectionString))
                 {
                   await idConn.OpenAsync();
@@ -180,17 +183,12 @@ namespace maxhanna.Server.Controllers
                     idCmd.Parameters.AddWithValue("@url", wiki.Url);
                     var idResult = await idCmd.ExecuteScalarAsync();
                     if (idResult != null)
-                      wiki.Id = Convert.ToInt32(idResult);
+                      wikiLight[0].Id = Convert.ToInt32(idResult);
                   }
                 }
               }
-              // Keep your normalization pipeline consistent
-              wikiOnly = GetOrderedResultsForWeb(request, wikiOnly);
-              wikiOnly = await AddFavouriteCountsAsync(wikiOnly, request.UserId);
-              wikiOnly = await AddRatingDataAsync(wikiOnly);
-             // _ = _log.Db($"Scraping Wikipedia found results. Including results in search.", null, "CRAWLERCTRL", true);
 
-              return Ok(new { Results = wikiOnly, TotalResults = 1 });
+              return Ok(new { Results = wikiLight, TotalResults = 1 });
             }
           }
           catch (Exception e)
@@ -198,11 +196,9 @@ namespace maxhanna.Server.Controllers
             _ = _log.Db($"Failed to scrape Wikipedia for keyword: {e.Message}", null, "CRAWLERCTRL", true);
           }
         }
-        else if (allResults != null && allResults.Count > 0)
+        else if (lightResults != null && lightResults.Count > 0)
         {
-          // If this is a keyword query, prefetch Wikipedia in the background even if we already have results.
-          // Skip if a Wikipedia URL already exists in these results.
-          bool hasWikipedia = allResults.Any(r =>
+          bool hasWikipedia = lightResults.Any(r =>
             r.Url?.Contains("wikipedia.org/wiki/", StringComparison.OrdinalIgnoreCase) == true);
 
           if (IsKeywordQuery(request.Url) && !hasWikipedia && !searchAll)
@@ -211,7 +207,7 @@ namespace maxhanna.Server.Controllers
           }
         }
 
-        return Ok(new { Results = allResults, TotalResults = totalResults + scrapedResults });
+        return Ok(new { Results = lightResults, TotalResults = totalResults + scrapedResults });
 
       }
       catch (OperationCanceledException oce)
@@ -241,7 +237,8 @@ namespace maxhanna.Server.Controllers
         if (results.Count > 0)
         {
           results = GetOrderedResultsForWeb(request, results);
-          return Ok(new { Results = results, TotalResults = totalResults });
+          var fallback = results.Select(r => new LightweightSearchResult { Id = r.Id, Url = r.Url, Title = r.Title }).ToList();
+          return Ok(new { Results = fallback, TotalResults = totalResults });
         }
         else
         {
@@ -1258,5 +1255,85 @@ namespace maxhanna.Server.Controllers
       return sb.ToString();
     }
 
+    [HttpPost("/Crawler/GetDetail", Name = "GetDetail")]
+    public async Task<IActionResult> GetDetail([FromBody] GetDetailRequest request)
+    {
+      if (request.SearchId <= 0) return BadRequest("Invalid search ID.");
+      try
+      {
+        var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+        Metadata? md = null;
+        using (var conn = new MySqlConnection(connStr))
+        {
+          await conn.OpenAsync();
+          var sql = @"SELECT id, url, title, description, image_url, author, keywords, response_code
+                      FROM search_results WHERE id = @id LIMIT 1;";
+          using var cmd = new MySqlCommand(sql, conn);
+          cmd.Parameters.AddWithValue("@id", request.SearchId);
+          using var reader = await cmd.ExecuteReaderAsync();
+          if (await reader.ReadAsync())
+          {
+            md = new Metadata
+            {
+              Id = reader.IsDBNull("id") ? null : reader.GetInt32("id"),
+              Url = reader.IsDBNull("url") ? null : reader.GetString("url"),
+              Title = reader.IsDBNull("title") ? null : reader.GetString("title"),
+              Description = reader.IsDBNull("description") ? null : reader.GetString("description"),
+              ImageUrl = reader.IsDBNull("image_url") ? null : reader.GetString("image_url"),
+              Author = reader.IsDBNull("author") ? null : reader.GetString("author"),
+              Keywords = reader.IsDBNull("keywords") ? null : reader.GetString("keywords"),
+              HttpStatus = reader.IsDBNull("response_code") ? null : reader.GetInt32("response_code"),
+            };
+          }
+        }
+        if (md == null) return NotFound("Search result not found.");
+
+        var enriched = await AddFavouriteCountsAsync(new List<Metadata> { md }, request.UserId);
+        enriched = await AddRatingDataAsync(enriched);
+
+        return Ok(enriched?.FirstOrDefault());
+      }
+      catch (Exception ex)
+      {
+        await _log.Db($"Error in GetDetail: {ex.Message}", request.UserId, "CRAWLER", true);
+        return StatusCode(500, "Error loading detail.");
+      }
+    }
+
+    [HttpPost("/Crawler/WikipediaLookup", Name = "WikipediaLookup")]
+    public async Task<IActionResult> WikipediaLookup([FromBody] WikipediaLookupRequest request)
+    {
+      if (string.IsNullOrWhiteSpace(request.Keyword)) return BadRequest("Keyword is required.");
+      try
+      {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var result = await TryFindWikipediaUrlAsync(request.Keyword, cts.Token);
+        if (result == null) return NotFound("No Wikipedia entry found.");
+        return Ok(result);
+      }
+      catch (Exception ex)
+      {
+        await _log.Db($"Error in WikipediaLookup: {ex.Message}", null, "CRAWLER", true);
+        return StatusCode(500, "Error looking up Wikipedia.");
+      }
+    }
+  }
+
+  public class LightweightSearchResult
+  {
+    public int? Id { get; set; }
+    public string? Url { get; set; }
+    public string? Title { get; set; }
+  }
+
+  public class GetDetailRequest
+  {
+    public int SearchId { get; set; }
+    public int? UserId { get; set; }
+  }
+
+  public class WikipediaLookupRequest
+  {
+    public string Keyword { get; set; } = "";
   }
 }

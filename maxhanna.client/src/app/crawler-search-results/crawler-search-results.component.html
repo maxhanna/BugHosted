@@ -1,0 +1,43 @@
+<div #observerTarget class="crawlerResultContainer">
+  <div *ngIf="!loaded && !loadingDetail" class="resultPlaceholder">
+    <div class="placeholderTitle">{{ result.title || 'Loading...' }}</div>
+    <div class="placeholderUrl">{{ result.url }}</div>
+  </div>
+  <div *ngIf="loadingDetail" class="resultLoading">
+    <app-loading-spinner [icon]="'🕸️'"></app-loading-spinner>
+  </div>
+  <div *ngIf="loaded && detail" class="resultDetail">
+    <div class="groupLinkDataWrapperDiv">
+      <div *ngIf="detail.title" class="descriptionDiv titleClass cursorPointer linkTextDecoration">
+        <a class="pageTitleLink" (click)="visit(detail.url)" [attr.href]="!onlySearch ? detail.url : null"
+          [attr.target]="!onlySearch ? '_blank' : null">{{ detail.title }}</a>
+      </div>
+      <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
+        <a (click)="visit(detail.url)" [attr.href]="!onlySearch ? detail.url : null"
+          [attr.target]="!onlySearch ? '_blank' : null">{{ detail.url }}</a>
+        <button (click)="addFavourite()" title="Toggle Favourite" *ngIf="!onlySearch" class="favouriteToggleButton">
+          <span *ngIf="detail.isUserFavourite">💖</span>
+          <span *ngIf="!detail.isUserFavourite">🤍</span>
+          <span class="smallFont" *ngIf="detail.favouriteCount">[{{detail.favouriteCount}}]</span>
+        </button>
+      </div>
+      <div class="descriptionDiv authorClass">
+        <app-rating-stars [rating]="{ value: detail.averageRating ?? 0, user: currentUser }"
+          [inputtedParentRef]="parent" [componentType]="'search'" [ratingFile]="detail">
+        </app-rating-stars>
+      </div>
+      <div *ngIf="detail.description && !onlySearch" class="descriptionDiv descriptClass">{{ detail.description }}</div>
+      <div *ngIf="detail.author && !onlySearch" class="descriptionDiv authorClass">{{ detail.author }}</div>
+      <div *ngIf="detail.httpStatus" class="descriptionDiv authorClass">
+        {{ detail.httpStatus }} {{ getHttpStatusMeaning(detail.httpStatus) }}
+      </div>
+      <div *ngIf="detail.keywords" class="descriptionDiv keywordsClass">{{ detail.keywords }}</div>
+    </div>
+    <div class="imageUrlPictureDiv" *ngIf="detail.imageUrl">
+      <a (click)="visit(detail.url)" [attr.href]="!onlySearch ? detail.url : null"
+        [attr.target]="!onlySearch ? '_blank' : null">
+        <img [src]="detail.imageUrl" loading="lazy" (error)="detail.imageUrl = ''" />
+      </a>
+    </div>
+  </div>
+</div>

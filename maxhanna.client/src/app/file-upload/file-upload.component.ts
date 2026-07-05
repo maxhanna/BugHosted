@@ -295,11 +295,15 @@ export class FileUploadComponent implements AfterViewInit {
   }
   getFileNameClass(file: File): string | undefined {
     let classes = undefined;
-    const upFile = this.uploadedFileList.find(f => f.fileName === file.name);
-    if (upFile?.isDuplicate) {
+    if (this.duplicatesFound[file.name]) {
       classes = "warnText";
-    } else if (!upFile?.isDuplicate && this.uploadErrors[file.name]) {
-      classes = "redText";
+    } else {
+      const upFile = this.uploadedFileList.find(f => f.fileName === file.name);
+      if (upFile?.isDuplicate) {
+        classes = "warnText";
+      } else if (!upFile?.isDuplicate && this.uploadErrors[file.name]) {
+        classes = "redText";
+      }
     }
     return classes;
   }

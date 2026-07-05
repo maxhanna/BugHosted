@@ -24,5 +24,6 @@
         public bool CalendarNotificationsEnabled { get; set; } = true;
         public bool DisplayProfileLocation { get; set; }
         public int? PageSize { get; set; }
+        public bool WeeklyDigestEnabled { get; set; } = true;
     }
 }

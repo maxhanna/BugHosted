@@ -123,13 +123,13 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
       }
 
       if (modes.includes('today')) {
-        const today = new Date();
-        const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-        const end = start + 24 * 60 * 60 * 1000;
+        const now = new Date();
+        const utcStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+        const utcEnd = utcStart + 24 * 60 * 60 * 1000;
         const todays = (allScores || []).filter(s => {
           if (!s.submitted) return false;
           const t = new Date(s.submitted).getTime();
-          return t >= start && t < end;
+          return t >= utcStart && t < utcEnd;
         });
         this.groupedByMode.today = this.groupScores(todays);
       }

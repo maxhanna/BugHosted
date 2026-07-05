@@ -13,6 +13,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Users
 		public FileEntry? DisplayPictureFile { get; set; }
 		public FileEntry? ProfileBackgroundPictureFile { get; set; }
 		public UserAbout? About { get; set; }
+		public string? Role { get; set; }
 		public User() { }
 		public User(int id, string username, string? pass, FileEntry? displayPictureFile, FileEntry? profileBackgroundPictureFile,
 		 UserAbout? about, DateTime? created, DateTime? lastSeen)

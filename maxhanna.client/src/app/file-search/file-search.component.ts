@@ -127,6 +127,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   isShowingFileNotes = false;
   fileNotes: FileNote[] = [];
   notesFile: FileEntry | undefined;
+  isCommentsPopupOpen = false;
+  fileCommentsPopup: FileComment[] = [];
+  commentsPopupFile: FileEntry | undefined;
   isSystemSelectPanelOpen: boolean = false;
   systemCandidates: Array<{ label: string; core?: string }> = [];
   selectedSystemCore: string | null = null;
@@ -735,7 +738,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   private async loadFileByIdOnce(id: number) {
     this.fileId = id;
     this.fileIdFilter = id;
+    const savedSort = this.sortOption;
+    this.sortOption = 'Id Match';
     await this.getDirectory(undefined, id);
+    this.sortOption = savedSort;
   }
 
   getFileExtension(filename: string) {
@@ -1763,6 +1769,39 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.isShowingFileNotes = false;
     this.notesFile = undefined;
     this.fileNotes = [];
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
+  }
+
+  async showFileCommentsPopup(file?: FileEntry) {
+    if (!file || !file.id) return;
+    if (this.isCommentsPopupOpen) {
+      this.closeFileCommentsPopup();
+      return;
+    }
+    if (this.isOptionsPanelOpen) {
+      this.closeOptionsPanel(false);
+    }
+    this.commentsPopupFile = file;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    try {
+      const comments = await this.fileService.getComments(file.id);
+      this.fileCommentsPopup = Array.isArray(comments) ? comments : [];
+      setTimeout(() => {
+        parent?.showOverlay();
+        this.isCommentsPopupOpen = true;
+        this.changeDetectorRef.detectChanges();
+      }, 100);
+    } catch (ex) {
+      console.error(ex);
+      this.notifyUser('Failed to fetch comments');
+    }
+  }
+
+  closeFileCommentsPopup() {
+    this.isCommentsPopupOpen = false;
+    this.commentsPopupFile = undefined;
+    this.fileCommentsPopup = [];
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
   }

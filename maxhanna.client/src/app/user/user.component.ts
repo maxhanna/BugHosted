@@ -90,6 +90,8 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   playListCount = 0;
   playListFirstFetch = true;
   justLoggedIn = false;
+  appealText = '';
+  loginLockInfo: { isLocked: boolean; lockedAt: string; reason: string; hasPendingAppeal: boolean } | null = null;
   songPlaylist: Todo[] = [];
   trophies?: Trophy[] = undefined;
   numberOfNexusBases: number = 0;
@@ -917,7 +919,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       tmpUserName = guest;
     }
     try {
-      const tmpUser = await this.parentRef?.login(tmpUserName, this.loginPassword.nativeElement.value, fromUserCreation) as User;
+      const tmpUser = await this.parentRef?.login(tmpUserName, this.loginPassword.nativeElement.value, fromUserCreation);
       if (tmpUser && tmpUser.username) {
         this.resetNavigationAppSelectionHelp();
         if (this.loginOnly) {
@@ -929,6 +931,9 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
         }
         this.latestSocialStoryId = undefined;
         success = true;
+      } else if (this.parentRef?.loginLockData) {
+        this.loginLockInfo = this.parentRef.loginLockData;
+        this.parentRef.loginLockData = null;
       } else {
         this.parentRef?.showNotification("Access denied");
       }
@@ -939,6 +944,28 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
         this.justLoggedIn = true;
         this.ngOnInit();
       }
+      this.stopLoading();
+    }
+  }
+
+  async submitAppeal() {
+    if (!this.loginLockInfo || !this.appealText?.trim()) return;
+    this.startLoading();
+    try {
+      const username = this.loginUsername?.nativeElement?.value?.trim();
+      if (!username) { this.parentRef?.showNotification('Enter your username first'); return; }
+      const user = await this.userService.getUserByUsername(username);
+      if (!user?.id) { this.parentRef?.showNotification('User not found'); return; }
+      const res = await this.userService.appeal(user.id, this.appealText.trim());
+      if (res) {
+        this.parentRef?.showNotification(res);
+        this.loginLockInfo = null;
+      } else {
+        this.parentRef?.showNotification('Failed to submit appeal.');
+      }
+    } catch {
+      this.parentRef?.showNotification('Error submitting appeal.');
+    } finally {
       this.stopLoading();
     }
   }

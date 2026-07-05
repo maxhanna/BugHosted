@@ -14,9 +14,13 @@ export interface UserEventPreference {
 export class UserEventService {
   constructor() { }
 
-  async getUserEvents(limit: number = 50, offset: number = 0): Promise<{ events: UserEvent[], totalCount: number }> {
+  async getUserEvents(limit: number = 50, offset: number = 0, eventTypes?: string[]): Promise<{ events: UserEvent[], totalCount: number }> {
     try {
-      const response = await fetch(`/userevent?limit=${limit}&offset=${offset}`, {
+      let url = `/userevent?limit=${limit}&offset=${offset}`;
+      if (eventTypes && eventTypes.length > 0) {
+        url += `&eventTypes=${encodeURIComponent(eventTypes.join(','))}`;
+      }
+      const response = await fetch(url, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
       });

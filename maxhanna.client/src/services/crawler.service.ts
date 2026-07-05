@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { MetaData } from './datacontracts/social/story';
-import { CrawlerSearchRequest, CrawlerSearchResponse, NormalizedMetaData, StorageStats } from './datacontracts/crawler';
+import { CrawlerSearchRequest, CrawlerSearchResponse, LightweightSearchResult, NormalizedMetaData, StorageStats } from './datacontracts/crawler';
 import { YoutubeVideo } from './datacontracts/youtube';
 import { User } from './datacontracts/user/user';
 
@@ -51,24 +51,9 @@ export class CrawlerService {
       }
 
       const json = (await response.json()) as CrawlerSearchResponse;
-      const rawResults: MetaData[] = json.Results ?? json.results ?? [];
-      const normalizedResults: NormalizedMetaData[] = (rawResults ?? []).map(r => ({
-        id: r.id ?? undefined,
-        url: r.url ?? '',
-        title: r.title ?? '',
-        description: r.description ?? '',
-        author: r.author ?? '',
-        keywords: r.keywords ?? '',
-        imageUrl: r.imageUrl ?? '',
-        httpStatus: r.httpStatus ?? undefined,
-        favouriteCount: r.favouriteCount ?? undefined,
-        isUserFavourite: (r as any).isUserFavourite ?? false,
-        averageRating: r.averageRating ?? undefined,
-        ratingCount: r.ratingCount ?? undefined
-      }));
-
+      const rawResults: LightweightSearchResult[] = json.Results ?? json.results ?? [];
       json.Results = rawResults;
-      json.results = normalizedResults;
+      json.results = rawResults;
       json.TotalResults = json.TotalResults ?? json.totalResults ?? 0;
       json.totalResults = json.totalResults ?? json.TotalResults;
       return json;
@@ -157,4 +142,31 @@ export class CrawlerService {
     }
   }
 
+  async getDetail(searchId: number, userId?: number): Promise<NormalizedMetaData | null> {
+    try {
+      const res = await fetch(`/crawler/getdetail`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ searchId, userId })
+      });
+      if (!res.ok) return null;
+      const json = await res.json();
+      return {
+        id: json.id ?? undefined,
+        url: json.url ?? '',
+        title: json.title ?? '',
+        description: json.description ?? '',
+        author: json.author ?? '',
+        keywords: json.keywords ?? '',
+        imageUrl: json.imageUrl ?? '',
+        httpStatus: json.httpStatus ?? undefined,
+        favouriteCount: json.favouriteCount ?? undefined,
+        isUserFavourite: json.isUserFavourite ?? false,
+        averageRating: json.averageRating ?? undefined,
+        ratingCount: json.ratingCount ?? undefined
+      };
+    } catch {
+      return null;
+    }
+  }
 }

@@ -1,0 +1,112 @@
+.crawlerResultContainer {
+  width: 100%;
+}
+
+.resultPlaceholder {
+  padding: 8px 0;
+  opacity: 0.6;
+}
+
+.placeholderTitle {
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.placeholderUrl {
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.resultLoading {
+  padding: 12px;
+  text-align: center;
+}
+
+.resultDetail {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.groupLinkDataWrapperDiv {
+  flex: 1;
+  min-width: 0;
+}
+
+.titleClass {
+  margin-bottom: 4px;
+}
+
+.pageTitleLink {
+  color: var(--link-color, #4a9eff);
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.pageTitleLink:hover {
+  text-decoration: underline;
+}
+
+.metadataTitleLinkFavouriteWrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.metadataTitleLinkFavouriteWrapper a {
+  color: var(--text-color, #e0e0e0);
+  text-decoration: none;
+}
+
+.metadataTitleLinkFavouriteWrapper a:hover {
+  text-decoration: underline;
+}
+
+.favouriteToggleButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.descriptionDiv {
+  margin-bottom: 4px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.descriptClass {
+  color: var(--text-secondary, #aaa);
+}
+
+.authorClass {
+  color: var(--text-secondary, #aaa);
+  font-size: 12px;
+}
+
+.keywordsClass {
+  font-size: 12px;
+  color: var(--text-secondary, #aaa);
+  cursor: pointer;
+}
+
+.imageUrlPictureDiv {
+  flex-shrink: 0;
+  width: 120px;
+}
+
+.imageUrlPictureDiv img {
+  width: 120px;
+  height: auto;
+  border-radius: 4px;
+  max-height: 90px;
+  object-fit: cover;
+}

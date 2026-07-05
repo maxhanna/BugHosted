@@ -176,8 +176,8 @@ export class FavouritesComponent extends ChildComponent implements OnInit, After
           }
 
           cRes = cRes as CrawlerSearchResponse;
-          if (cRes && cRes.results && cRes.results.length > 0 && (!exactMatch ? cRes.results[0].url.includes(tmpLinkUrl) : true)) {
-            targetData = cRes.results[0];
+          if (cRes && cRes.results && cRes.results.length > 0 && (!exactMatch ? cRes.results[0].url?.includes(tmpLinkUrl) : true)) {
+            targetData = cRes.results[0] as any;
           }
         }
 
@@ -372,20 +372,16 @@ export class FavouritesComponent extends ChildComponent implements OnInit, After
     this.isMenuPanelOpen = false;
     this.parentRef?.closeOverlay();
   }
-  urlSelectedEvent(meta: MetaData) {
+  urlSelectedEvent(url: string) {
     setTimeout(() => {
-      this.linkInput.nativeElement.value = meta.url ?? "";
+      this.linkInput.nativeElement.value = url ?? "";
     }, 500);
     if (this.isSearchingEditUrl) {
-      this.editingUrlInput.nativeElement.value = meta.url ?? "";
-      this.editingImageUrlInput.nativeElement.value = meta.imageUrl ?? this.editingImageUrlInput.nativeElement.value ?? "";
-      // autopopulate the editing title when selecting from crawler
-      try { this.editingNameInput.nativeElement.value = meta.title ?? this.editingNameInput.nativeElement.value ?? ""; } catch { }
+      this.editingUrlInput.nativeElement.value = url ?? "";
       this.isSearchingEditUrl = false;
     }
     else if (this.isSearchingUrl) {
-      // store selected metadata so addLink can reuse it
-      this.selectedMeta = meta;
+      this.selectedMeta = { url, title: url, description: '', imageUrl: '', httpStatus: 0 };
       this.closeSearchPopup();
     }
   }

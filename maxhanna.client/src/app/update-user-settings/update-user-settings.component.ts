@@ -59,6 +59,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   showAddBlockedUserPopup = false;
   cachedSecurityQuestions?: Array<{ question: string; answer?: string }> = undefined;
   displayProfileLocation = true;
+  userSettings: UserSettings | null = null;
   app?: any;
   messaging?: any;
 
@@ -88,6 +89,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   @ViewChild('isEmailPublicNo') isEmailPublicNo!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedPhone') updatedPhone!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedBirthday') updatedBirthday!: ElementRef<HTMLInputElement>;
+  @ViewChild('weeklyDigestCheckbox') weeklyDigestCheckbox!: ElementRef<HTMLInputElement>;
   @ViewChild('updatedDescription') updatedDescription!: ElementRef<HTMLInputElement>;
   @ViewChild('selectedCurrencyDropdown') selectedCurrencyDropdown!: ElementRef<HTMLSelectElement>;
 
@@ -121,6 +123,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     if (user?.id) {
       this.userService.getUserSettings(user.id).then(res => {
         if (res) {
+          this.userSettings = res;
           this.isDisplayingNSFW = res.nsfwEnabled ?? false;
           this.displayProfileLocation = res.displayProfileLocation ?? true;
           if (this.displayProfileLocationCheckmark?.nativeElement) {
@@ -248,6 +251,9 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
         }
       }
     });
+    await this.userService.updateUserSettings(user.id, [
+      { settingName: 'weekly_digest_enabled', value: this.weeklyDigestCheckbox.nativeElement.checked }
+    ]);
   }
   async updateKrakenAPIKeys() {
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -422,7 +428,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     } catch (error) {
       parent.showNotification(`Error updating user ${parent.user?.username}. Error: ${JSON.stringify(error)}`);
     }
-    parent.user = await this.userService.login(username, password);
+    parent.user = (await this.userService.login(username, password)) as any;
     this.stopLoading();
   }
 

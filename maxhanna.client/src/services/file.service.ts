@@ -301,10 +301,7 @@ export class FileService {
   }
 
   async checkNames(directory: string, fileNames: string[]): Promise<{ [key: string]: boolean }> {
-    const response = await this.http.post<{ [key: string]: boolean }>(`/file/checknames`, {
-      directory,
-      fileNames
-    }).toPromise();
+    const response = await this.http.post<{ [key: string]: boolean }>(`/file/checknames?directory=${encodeURIComponent(directory)}`, fileNames).toPromise();
     return response || {};
   }
 

@@ -1,0 +1,86 @@
+﻿<h1>Moderator Panel</h1>
+
+<div *ngIf="!parentRef?.user" class="smallFont">You must be logged in to access this panel.</div>
+
+<div *ngIf="parentRef?.user && !isModerator" class="smallFont">Access denied. Only moderators can use this panel.</div>
+
+<div *ngIf="parentRef?.user && isModerator">
+  <h2>Moderator Management</h2>
+  <button (click)="toggleUserList()" [disabled]="modActionLoading">
+    {{ showUserList ? 'Cancel' : 'Add Moderators' }}
+  </button>
+
+  <div *ngIf="showUserList">
+    <app-user-list
+      [selectionMode]="true"
+      [inputtedParentRef]="parentRef"
+      [openDirectlyToSearch]="true"
+      [displayOnlyFriends]="false"
+      [displayRadioFilters]="true"
+      (userSelectClickEvent)="onUsersSelected($event)">
+    </app-user-list>
+    <div *ngIf="selectedUsers.length > 0" style="margin-top: 10px;">
+      <strong>{{ selectedUsers.length }} user(s) selected</strong>
+      <button (click)="addModerators()" [disabled]="modActionLoading" style="margin-left: 10px;">
+        {{ modActionLoading ? 'Saving...' : 'Designate as Moderator' }}
+      </button>
+    </div>
+  </div>
+
+  <h3>Current Moderators</h3>
+  <div *ngIf="moderators.length === 0" class="smallFont">No moderators found.</div>
+  <table *ngIf="moderators.length > 0" class="contentTable">
+    <thead>
+      <tr>
+        <th (click)="sortTable($event)">ID</th>
+        <th (click)="sortTable($event)">Username</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let m of moderators">
+        <td>{{ m.id }}</td>
+        <td>
+          <app-user-tag [user]="m" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+        </td>
+        <td>
+          <button *ngIf="m.id !== 1" (click)="removeModerator(m)" [disabled]="modActionLoading" style="color:red;">
+            Remove
+          </button>
+          <span *ngIf="m.id === 1" class="smallFont">(Owner)</span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2 style="margin-top: 30px;">User Appeals</h2>
+  <div *ngIf="loading" class="smallFont">Loading...</div>
+  <div *ngIf="!loading && appeals.length === 0" class="smallFont">No pending appeals.</div>
+  <table *ngIf="!loading && appeals.length > 0" class="contentTable">
+    <thead>
+      <tr>
+        <th (click)="sortTable($event)">ID</th>
+        <th (click)="sortTable($event)">User</th>
+        <th (click)="sortTable($event)">Appeal Text</th>
+        <th (click)="sortTable($event)">Created</th>
+        <th (click)="sortTable($event)">Status</th>
+        <th (click)="sortTable($event)">Resolved</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let a of appeals">
+        <td>{{ a.id }}</td>
+        <td>{{ a.username || 'User #' + a.userId }}</td>
+        <td>{{ a.appealText }}</td>
+        <td>{{ a.createdAt | date:'y/MM/d HH:mm' }}</td>
+        <td>{{ a.resolution || 'Pending' }}</td>
+        <td>{{ a.resolvedAt ? (a.resolvedAt | date:'y/MM/d HH:mm') : '-' }}</td>
+        <td>
+          <button *ngIf="!a.resolution" (click)="approveAppeal(a.id)" [disabled]="loading">Approve</button>
+          <button *ngIf="!a.resolution" (click)="denyAppeal(a.id)" [disabled]="loading" style="margin-left:5px;">Deny</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>

@@ -27,6 +27,7 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   @Input() displayRadioFilters: boolean = false;
   @Input() contactsOnly: boolean = false;
   @Input() openDirectlyToSearch: boolean = false;
+  @Input() selectionMode: boolean = false;
   @Output() userClickEvent = new EventEmitter<User | undefined>();
   @Output() userSelectClickEvent = new EventEmitter<User[] | undefined>();
   @Output() groupChatEvent = new EventEmitter<User[] | undefined>();
@@ -146,6 +147,16 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   closeOverlayOnClick(user?: User) {
+    if (this.selectionMode && user) {
+      const idx = this.selectedUsers.findIndex(u => u.id === user.id);
+      if (idx >= 0) {
+        this.selectedUsers.splice(idx, 1);
+      } else {
+        this.selectedUsers.push(user);
+      }
+      this.userSelectClickEvent.emit([...this.selectedUsers]);
+      return;
+    }
     this.userClickEvent.emit(user);
     this.openChat(user);
     this.parentRef?.closeOverlay();

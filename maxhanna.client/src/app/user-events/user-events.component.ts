@@ -36,13 +36,11 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
     }
+    await this.loadEventToggles();
     await this.loadEvents();
     this.pollingInterval = setInterval(async () => {
       await this.loadEvents();
     }, 30000);
-    
-    // Load event type toggles
-    await this.loadEventToggles();
   }
   ngAfterViewInit() { }
   ngOnDestroy(): void {
@@ -55,11 +53,16 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     this.ngOnDestroy();
   }
 
+  private getEnabledEventTypes(): string[] {
+    return this.eventTypes.filter(et => this.eventToggles[et] !== false);
+  }
+
   async loadEvents() {
     this.loadError = null;
     this.loading = true;
     try {
-      const result = await this.userEventService.getUserEvents(this.pageSize);
+      const enabledTypes = this.getEnabledEventTypes();
+      const result = await this.userEventService.getUserEvents(this.pageSize, 0, enabledTypes);
       this.events = result.events;
       this.totalEvents = result.totalCount;
       this.hasMoreEvents = this.events.length < this.totalEvents;
@@ -77,7 +80,8 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     this.loading = true;
     try {
       const offset = this.events.length;
-      const result = await this.userEventService.getUserEvents(this.pageSize, offset);
+      const enabledTypes = this.getEnabledEventTypes();
+      const result = await this.userEventService.getUserEvents(this.pageSize, offset, enabledTypes);
       this.events = [...this.events, ...result.events];
       this.totalEvents = result.totalCount;
       this.hasMoreEvents = this.events.length < this.totalEvents;
@@ -200,21 +204,14 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     }
     
     try {
-      // Get all unique event types from the events we have loaded
-      const uniqueEventTypes = new Set<string>();
-      this.events.forEach(event => {
-        uniqueEventTypes.add(event.eventType);
-      });
+      const allEventTypes = await this.userEventService.getAllEventTypes();
+      this.eventTypes = allEventTypes && allEventTypes.length > 0 ? allEventTypes.sort() : [];
       
-      this.eventTypes = Array.from(uniqueEventTypes);
-      
-      // Set user-friendly descriptions for event types
       this.eventTypeDescriptions = {};
       this.eventTypes.forEach(eventType => {
         this.eventTypeDescriptions[eventType] = this.getEventTypeDescription(eventType);
       });
       
-      // Load toggles for each event type from the new user_event_preferences table
       const eventToggles = await this.userEventService.getUserEventPreferences(this.parentRef.user.id);
       if (eventToggles) {
         for (const eventType of this.eventTypes) {
@@ -222,14 +219,12 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
           this.eventToggles[eventType] = toggle ? toggle.isEnabled : true;
         }
       } else {
-        // Default all toggles to true if no settings exist
         this.eventTypes.forEach(eventType => {
           this.eventToggles[eventType] = true;
         });
       }
     } catch (error) {
       console.error('Failed to load event toggles:', error);
-      // Default all toggles to true on error
       this.eventTypes.forEach(eventType => {
         this.eventToggles[eventType] = true;
       });
@@ -244,7 +239,6 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     }
     
     try {
-      // Get all current toggles to save them all together
       const preferences = this.eventTypes.map(et => ({
         userId: this.parentRef?.user?.id ?? 0,
         eventType: et,
@@ -255,6 +249,8 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     } catch (error) {
       console.error('Failed to save event toggle:', error);
     }
+    
+    await this.loadEvents();
   }
 
   getEventTypeDescription(eventType: string): string {
@@ -282,7 +278,4 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     return descriptions[eventType] || eventType;
   }
 
-  isEventVisible(event: UserEvent): boolean {
-    return this.eventToggles[event.eventType] !== false;
-  }
 }

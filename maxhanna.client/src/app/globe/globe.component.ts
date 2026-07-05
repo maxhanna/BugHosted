@@ -3,6 +3,8 @@
   ElementRef, ViewChild, HostListener, NgZone,
   EventEmitter, Input, Output
 } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { SocialService } from '../../services/social.service';
 import { EncryptionService } from '../../services/encryption.service';
@@ -249,11 +251,15 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   showUserPopup = false;
   selectedUser: User | null = null;
   selectedUserPing: ResolvedGlobePing | null = null;
+  showWikipediaPopup = false;
+  selectedWikipediaData: any = null;
+  wikipediaLoading = false;
   flightArcs: Arc[] = [];
   accordionStates: { [key: string]: boolean } = {
     news: false,
     user: false,
     story: false,
+    coord: false,
     custom: false
   };
   isRefreshingFlights = false;
@@ -307,7 +313,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     private encryptionService: EncryptionService,
     private tileCacheService: TileCacheService,
     private flightService: FlightService,
-    private userService: UserService
+    private userService: UserService,
+    private httpClient: HttpClient
   ) { }
 
   // =========================================================================
@@ -621,6 +628,14 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.showClusterPopup = false;
       return;
     }
+    if (ping.source === 'custom') {
+      const pingData = ping.data as any;
+      if (pingData && ['city', 'town', 'country'].includes(pingData.type)) {
+        this.fetchWikipedia(pingData.name, ping);
+        this.showClusterPopup = false;
+        return;
+      }
+    }
     this.focusPing(ping);
     this.closeClusterPopup();
   }
@@ -636,9 +651,45 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  async fetchWikipedia(keyword: string, ping?: ResolvedGlobePing): Promise<void> {
+    this.wikipediaLoading = true;
+    try {
+      const result: any = await firstValueFrom(
+        this.httpClient.post('/Crawler/WikipediaLookup', { keyword })
+      );
+      this.selectedWikipediaData = result;
+      this.showWikipediaPopup = true;
+      if (ping) this.focusPing(ping);
+    } catch {
+      this.selectedWikipediaData = null;
+      this.showWikipediaPopup = true;
+    } finally {
+      this.wikipediaLoading = false;
+    }
+  }
+
+  closeWikipediaPopup(): void {
+    this.showWikipediaPopup = false;
+    this.selectedWikipediaData = null;
+  }
+
+  openWikipediaInNewTab(): void {
+    if (this.selectedWikipediaData?.url) {
+      window.open(this.selectedWikipediaData.url, '_blank');
+    }
+  }
+
   // Get pings by source type for accordion
   getClusterPingsBySource(source: string): ResolvedGlobePing[] {
     return this.selectedClusterPings.filter(ping => ping.source === source);
+  }
+
+  getClusterCoordPings(): ResolvedGlobePing[] {
+    return this.selectedClusterPings.filter(ping => {
+      if (ping.source !== 'custom') return false;
+      const d = ping.data as any;
+      return d && ['city', 'town', 'country'].includes(d.type);
+    });
   }
 
   // Toggle accordion for a specific source
@@ -1147,7 +1198,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     };
   }
 
-  private rotateToLocation(lat: number, lon: number): void {
+  rotateToLocation(lat: number, lon: number): void {
     const latR = lat * Math.PI / 180;
     const lonR = lon * Math.PI / 180;
     const px = Math.cos(latR) * Math.sin(lonR);
@@ -2223,6 +2274,12 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.onFlightClick(ping);
       return;
     }
+
+    if (ping.source === 'custom' && pingData && ['city', 'town', 'country'].includes(pingData.type)) {
+      this.fetchWikipedia(pingData.name, ping);
+      return;
+    }
+
     this.focusPing(ping);
     this.pingClicked.emit({
       id: ping.id,
@@ -2327,6 +2384,12 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.onFlightClick(ping);
       return;
     }
+
+    if (ping.source === 'custom' && pingData && ['city', 'town', 'country'].includes(pingData.type)) {
+      this.fetchWikipedia(pingData.name, ping);
+      return;
+    }
+
     this.focusPing(ping);
     this.pingClicked.emit({
       id: ping.id,
@@ -2648,6 +2711,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const c = city?.trim(), co = country?.trim();
     return (c && co) ? `${c}, ${co}` : c || co || 'Unknown location';
   }
+
+  keepOriginalOrder = () => 0;
 
   // =========================================================================
   // Matrix helpers (row-major 3×3)

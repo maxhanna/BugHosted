@@ -1,0 +1,289 @@
+.paintContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  user-select: none;
+  background: var(--bg-color, #1e1e1e);
+  color: var(--text-color, #e0e0e0);
+}
+
+.paintToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--panel-bg, #2d2d2d);
+  border-bottom: 1px solid var(--border-color, #444);
+  align-items: center;
+}
+
+.toolGroup {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6px;
+  border-right: 1px solid var(--border-color, #444);
+}
+
+.toolGroup:last-child {
+  border-right: none;
+}
+
+.toolBtn {
+  padding: 4px 8px;
+  border: 1px solid var(--border-color, #555);
+  border-radius: 3px;
+  background: var(--btn-bg, #3a3a3a);
+  color: var(--text-color, #e0e0e0);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.toolBtn:hover {
+  background: var(--btn-hover, #505050);
+}
+
+.toolBtn.active {
+  background: var(--accent-color, #4a9eff);
+  border-color: var(--accent-color, #4a9eff);
+  color: #fff;
+}
+
+.toolLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.colorLabel {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border-color, #555);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.colorPickerHidden {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.colorSwatch {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border-color, #555);
+  border-radius: 2px;
+  cursor: pointer;
+  display: inline-block;
+}
+
+.colorSwatch:hover {
+  transform: scale(1.2);
+}
+
+.sizeSelect {
+  background: var(--input-bg, #3a3a3a);
+  color: var(--text-color, #e0e0e0);
+  border: 1px solid var(--border-color, #555);
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-size: 12px;
+}
+
+.sizeInput {
+  width: 50px;
+  background: var(--input-bg, #3a3a3a);
+  color: var(--text-color, #e0e0e0);
+  border: 1px solid var(--border-color, #555);
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-size: 12px;
+}
+
+.canvasWrapper {
+  flex: 1;
+  display: flex;
+  overflow: auto;
+  position: relative;
+}
+
+.canvasArea {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 20px;
+  position: relative;
+  min-width: 0;
+}
+
+.canvasStage {
+  position: relative;
+  display: inline-block;
+}
+
+.paintCanvas {
+  border: 1px solid var(--border-color, #555);
+  cursor: crosshair;
+  display: block;
+  image-rendering: pixelated;
+  max-width: 100%;
+  max-height: calc(100vh - 140px);
+  object-fit: contain;
+}
+
+.overlayCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+
+.colorPalette {
+  width: 200px;
+  min-width: 200px;
+  padding: 10px;
+  background: var(--panel-bg, #2d2d2d);
+  border-left: 1px solid var(--border-color, #444);
+  overflow-y: auto;
+}
+
+.paletteTitle {
+  font-weight: bold;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.paletteGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.paletteCell {
+  aspect-ratio: 1;
+  border: 1px solid var(--border-color, #555);
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.paletteCell:hover {
+  transform: scale(1.15);
+  z-index: 1;
+}
+
+.paletteCell.active {
+  border: 2px solid #fff;
+}
+
+.paletteCustom {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.colorPickerFull {
+  width: 100%;
+  height: 30px;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.paintStatus {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 4px 10px;
+  font-size: 12px;
+  background: var(--panel-bg, #2d2d2d);
+  border-top: 1px solid var(--border-color, #444);
+  align-items: center;
+}
+
+.statusRight {
+  margin-left: auto;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.fileNameInput {
+  width: 150px;
+  background: var(--input-bg, #3a3a3a);
+  color: var(--text-color, #e0e0e0);
+  border: 1px solid var(--border-color, #555);
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+
+.textDialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.textDialogContent {
+  background: var(--panel-bg, #2d2d2d);
+  border: 1px solid var(--border-color, #555);
+  border-radius: 8px;
+  padding: 20px;
+  min-width: 300px;
+}
+
+.dialogTitle {
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.textInputArea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--input-bg, #3a3a3a);
+  color: var(--text-color, #e0e0e0);
+  border: 1px solid var(--border-color, #555);
+  border-radius: 3px;
+  padding: 6px;
+  font-size: 14px;
+  resize: vertical;
+  margin-bottom: 10px;
+}
+
+.dialogButtons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.dialogButtons button {
+  padding: 6px 16px;
+  border: 1px solid var(--border-color, #555);
+  border-radius: 3px;
+  background: var(--btn-bg, #3a3a3a);
+  color: var(--text-color, #e0e0e0);
+  cursor: pointer;
+}
+
+.dialogButtons button:hover {
+  background: var(--btn-hover, #505050);
+}
+
+.dialogButtons button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

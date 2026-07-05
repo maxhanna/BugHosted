@@ -21,4 +21,5 @@ export class UserSettings {
   digcraftViewDistance?: number;
   pageSize?: number;
   calendarNotificationsEnabled?: boolean;
+  weeklyDigestEnabled?: boolean;
 }

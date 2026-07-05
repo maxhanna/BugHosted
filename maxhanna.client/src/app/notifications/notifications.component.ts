@@ -224,10 +224,16 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
           const inst: any = existing;
           inst.fileId = notification.fileId;
           inst.commentId = notification.commentId;
+          const savedSort = inst.sortOption;
+          inst.sortOption = 'Id Match';
           if (typeof inst.getDirectory === 'function') {
-            inst.getDirectory(undefined, notification.fileId);
+            inst.getDirectory(undefined, notification.fileId).then(() => {
+              inst.sortOption = savedSort;
+            });
           } else if (typeof inst.fileSearchComponent?.getDirectory === 'function') {
-            inst.fileSearchComponent.getDirectory(undefined, notification.fileId);
+            inst.fileSearchComponent.getDirectory(undefined, notification.fileId).then(() => {
+              inst.sortOption = savedSort;
+            });
           }
           this.showNotifications = false;
           this.parentRef?.closeOverlay();

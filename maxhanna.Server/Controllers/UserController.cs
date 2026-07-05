@@ -28,7 +28,8 @@ namespace maxhanna.Server.Controllers
         "digcraft_view_distance",
         "display_profile_location",
         "calendar_notifications_enabled",
-        "page_size"
+        "page_size",
+        "weekly_digest_enabled"
     };
 
     public UserController(IHttpClientFactory httpClientFactory, Log log, IConfiguration config, maxhanna.Server.Services.EmailService emailService)
@@ -1523,6 +1524,48 @@ namespace maxhanna.Server.Controllers
         {
           await conn.OpenAsync();
 
+          // Create tables if not exist
+          string createTablesSql = @"
+            CREATE TABLE IF NOT EXISTS maxhanna.user_unknown_ip_attempt (
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              user_id INT NOT NULL,
+              ip_address VARCHAR(45) NOT NULL,
+              attempted_at DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
+              INDEX idx_user_id (user_id)
+            );
+            CREATE TABLE IF NOT EXISTS maxhanna.user_account_lock (
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              user_id INT NOT NULL,
+              locked_at DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
+              locked_by_ip VARCHAR(45) NOT NULL,
+              reason VARCHAR(255) NOT NULL,
+              unlocked_at DATETIME NULL,
+              unlocked_by INT NULL,
+              INDEX idx_user_id (user_id),
+              INDEX idx_unlocked (unlocked_at)
+            );
+            CREATE TABLE IF NOT EXISTS maxhanna.user_appeal (
+              id INT AUTO_INCREMENT PRIMARY KEY,
+              user_id INT NOT NULL,
+              appeal_text TEXT NOT NULL,
+              created_at DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
+              resolved_at DATETIME NULL,
+              resolved_by INT NULL,
+              resolution VARCHAR(50) NULL,
+              INDEX idx_user_id (user_id),
+              INDEX idx_resolved (resolved_at)
+            );
+            CREATE TABLE IF NOT EXISTS maxhanna.user_roles (
+              user_id INT PRIMARY KEY,
+              role VARCHAR(50) NOT NULL DEFAULT 'moderator',
+              assigned_by INT NULL,
+              assigned_at DATETIME NOT NULL DEFAULT UTC_TIMESTAMP()
+            );";
+          using (var createCmd = new MySqlCommand(createTablesSql, conn))
+          {
+            await createCmd.ExecuteNonQueryAsync();
+          }
+
           // Step 1: Retrieve stored hash and salt for the given username
           string selectSql = @"
                 SELECT id, pass, salt FROM maxhanna.users 
@@ -1541,7 +1584,51 @@ namespace maxhanna.Server.Controllers
 
               int userId = reader.GetInt32("id");
               string storedHash = reader.GetString("pass");
-              string storedSalt = reader.IsDBNull(2) ? GenerateSalt() : reader.GetString("salt"); // Handle missing salt
+              string storedSalt = reader.IsDBNull(2) ? GenerateSalt() : reader.GetString("salt");
+
+              reader.Close();
+
+              string ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+              // Check if account is locked
+              string lockCheckSql = "SELECT id, locked_at, reason FROM maxhanna.user_account_lock WHERE user_id = @UserId AND unlocked_at IS NULL ORDER BY id DESC LIMIT 1;";
+              int? lockId = null;
+              DateTime? lockedAt = null;
+              string? lockReason = null;
+              using (var lockCmd = new MySqlCommand(lockCheckSql, conn))
+              {
+                lockCmd.Parameters.AddWithValue("@UserId", userId);
+                using (var lockReader = await lockCmd.ExecuteReaderAsync())
+                {
+                  if (await lockReader.ReadAsync())
+                  {
+                    lockId = lockReader.GetInt32("id");
+                    lockedAt = lockReader.GetDateTime("locked_at");
+                    lockReason = lockReader.IsDBNull(lockReader.GetOrdinal("reason")) ? null : lockReader.GetString("reason");
+                  }
+                }
+              }
+
+              if (lockId.HasValue)
+              {
+                // Check if there's a pending appeal
+                string appealCheckSql = "SELECT COUNT(*) FROM maxhanna.user_appeal WHERE user_id = @UserId AND resolved_at IS NULL;";
+                bool hasPendingAppeal = false;
+                using (var appealCmd = new MySqlCommand(appealCheckSql, conn))
+                {
+                  appealCmd.Parameters.AddWithValue("@UserId", userId);
+                  var count = await appealCmd.ExecuteScalarAsync();
+                  hasPendingAppeal = Convert.ToInt32(count) > 0;
+                }
+
+                return StatusCode(423, new
+                {
+                  isLocked = true,
+                  lockedAt = lockedAt,
+                  reason = lockReason ?? "Account locked due to suspicious activity",
+                  hasPendingAppeal = hasPendingAppeal
+                });
+              }
 
               // Step 2: Hash the input password with the stored salt
               string inputHashedPassword = HashPassword(password ?? "", storedSalt);
@@ -1549,11 +1636,70 @@ namespace maxhanna.Server.Controllers
               // Step 3: Compare the hashed input password with the stored hash
               if (!storedHash.Equals(inputHashedPassword, StringComparison.Ordinal))
               {
+                // Check if this IP is known for this user
+                string knownIpSql = "SELECT COUNT(*) FROM maxhanna.user_ip_log WHERE user_id = @UserId AND ip_address = @IpAddress;";
+                bool isKnownIp = false;
+                using (var knownIpCmd = new MySqlCommand(knownIpSql, conn))
+                {
+                  knownIpCmd.Parameters.AddWithValue("@UserId", userId);
+                  knownIpCmd.Parameters.AddWithValue("@IpAddress", ipAddress);
+                  var count = await knownIpCmd.ExecuteScalarAsync();
+                  isKnownIp = Convert.ToInt32(count) > 0;
+                }
+
+                if (!isKnownIp)
+                {
+                  // Log this unknown-IP attempt
+                  string insertAttemptSql = "INSERT INTO maxhanna.user_unknown_ip_attempt (user_id, ip_address, attempted_at) VALUES (@UserId, @IpAddress, UTC_TIMESTAMP());";
+                  using (var attemptCmd = new MySqlCommand(insertAttemptSql, conn))
+                  {
+                    attemptCmd.Parameters.AddWithValue("@UserId", userId);
+                    attemptCmd.Parameters.AddWithValue("@IpAddress", ipAddress);
+                    await attemptCmd.ExecuteNonQueryAsync();
+                  }
+
+                  // Count total unknown-IP attempts for this user
+                  string countAttemptsSql = "SELECT COUNT(*) FROM maxhanna.user_unknown_ip_attempt WHERE user_id = @UserId;";
+                  int attemptCount = 0;
+                  using (var countCmd = new MySqlCommand(countAttemptsSql, conn))
+                  {
+                    countCmd.Parameters.AddWithValue("@UserId", userId);
+                    var count = await countCmd.ExecuteScalarAsync();
+                    attemptCount = Convert.ToInt32(count);
+                  }
+
+                  if (attemptCount >= 3)
+                  {
+                    // Lock the account
+                    string lockSql = "INSERT INTO maxhanna.user_account_lock (user_id, locked_at, locked_by_ip, reason) VALUES (@UserId, UTC_TIMESTAMP(), @IpAddress, 'Account locked due to multiple failed login attempts from unknown IP addresses.');";
+                    using (var lockCmd = new MySqlCommand(lockSql, conn))
+                    {
+                      lockCmd.Parameters.AddWithValue("@UserId", userId);
+                      lockCmd.Parameters.AddWithValue("@IpAddress", ipAddress);
+                      await lockCmd.ExecuteNonQueryAsync();
+                    }
+                  }
+                }
+
                 return Unauthorized("Invalid username or password.");
               }
 
-              // Close the reader before executing the next query
-              reader.Close();
+              // Log IP address on successful login
+              string insertIpSql = "INSERT INTO maxhanna.user_ip_log (user_id, ip_address, created_at) VALUES (@UserId, @IpAddress, UTC_TIMESTAMP());";
+              using (var insertCmd = new MySqlCommand(insertIpSql, conn))
+              {
+                insertCmd.Parameters.AddWithValue("@UserId", userId);
+                insertCmd.Parameters.AddWithValue("@IpAddress", ipAddress);
+                await insertCmd.ExecuteNonQueryAsync();
+              }
+
+              // Clear any unknown-IP attempt records on successful login from known IP
+              string clearAttemptsSql = "DELETE FROM maxhanna.user_unknown_ip_attempt WHERE user_id = @UserId;";
+              using (var clearCmd = new MySqlCommand(clearAttemptsSql, conn))
+              {
+                clearCmd.Parameters.AddWithValue("@UserId", userId);
+                await clearCmd.ExecuteNonQueryAsync();
+              }
 
               // Step 4: Update last_seen and fetch user details
               string sql = @"
@@ -1573,7 +1719,8 @@ namespace maxhanna.Server.Controllers
                             ua.birthday,
                             ua.currency,
                             ua.is_email_public,
-                            ua.website as about_website
+                            ua.website as about_website,
+                            ur.role
                         FROM 
                             maxhanna.users u
                         LEFT JOIN  
@@ -1582,6 +1729,8 @@ namespace maxhanna.Server.Controllers
                             maxhanna.user_about ua ON ua.user_id = u.id 
                         LEFT JOIN  
                             maxhanna.file_uploads dpf ON dpf.id = dp.file_id 
+                        LEFT JOIN
+                            maxhanna.user_roles ur ON ur.user_id = u.id
                         WHERE
                             u.id = @UserId;
                     ";
@@ -1616,17 +1765,19 @@ namespace maxhanna.Server.Controllers
                       Website = dataReader.IsDBNull(dataReader.GetOrdinal("about_website")) ? null : dataReader.GetString("about_website")
                     };
 
-                    return Ok(new User
+                    var user = new User
                     (
                         Convert.ToInt32(dataReader["id"]),
                         dataReader["username"].ToString()!,
-                        null, // Password should never be returned
+                        null,
                         displayPic.Id != 0 ? displayPic : null,
                         profileBackgroundPicture.Id != 0 ? profileBackgroundPicture : null,
                         tmpAbout,
                         (DateTime)dataReader["created"],
                         (DateTime)dataReader["last_seen"]
-                    ));
+                    );
+                    user.Role = dataReader.IsDBNull(dataReader.GetOrdinal("role")) ? null : dataReader.GetString("role");
+                    return Ok(user);
                   }
                 }
               }
@@ -1639,6 +1790,255 @@ namespace maxhanna.Server.Controllers
         {
           _ = _log.Db("An error occurred while processing the Login request. " + ex.Message, null, "USER", true);
           return StatusCode(500, "An error occurred while processing the request.");
+        }
+      }
+    }
+
+    [HttpPost("/User/Appeal", Name = "Appeal")]
+    public async Task<IActionResult> Appeal([FromBody] AppealRequest request)
+    {
+      if (request == null || request.UserId <= 0 || string.IsNullOrWhiteSpace(request.AppealText))
+        return BadRequest("Invalid appeal request.");
+
+      string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      using (MySqlConnection conn = new MySqlConnection(connectionString))
+      {
+        try
+        {
+          await conn.OpenAsync();
+          string sql = "INSERT INTO maxhanna.user_appeal (user_id, appeal_text, created_at) VALUES (@UserId, @AppealText, UTC_TIMESTAMP());";
+          using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+          {
+            cmd.Parameters.AddWithValue("@UserId", request.UserId);
+            cmd.Parameters.AddWithValue("@AppealText", request.AppealText.Trim());
+            await cmd.ExecuteNonQueryAsync();
+          }
+          return Ok(new { message = "Appeal submitted successfully." });
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db("Error submitting appeal: " + ex.Message, request.UserId, "USER", true);
+          return StatusCode(500, "Failed to submit appeal.");
+        }
+      }
+    }
+
+    private async Task<bool> IsModeratorAsync(int userId)
+    {
+      if (userId == 1) return true;
+      try
+      {
+        string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        string sql = "SELECT COUNT(*) FROM maxhanna.user_roles WHERE user_id = @UserId AND role = 'moderator';";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@UserId", userId);
+        var count = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+        return count > 0;
+      }
+      catch { return false; }
+    }
+
+    [HttpPost("/User/SetRole", Name = "SetRole")]
+    public async Task<IActionResult> SetRole([FromBody] SetRoleRequest request)
+    {
+      if (request.CallerUserId != 1 && !await IsModeratorAsync(request.CallerUserId))
+        return Unauthorized("Only moderators can change roles.");
+
+      if (string.IsNullOrWhiteSpace(request.Role) || request.TargetUserId <= 0)
+        return BadRequest("Invalid request.");
+
+      if (request.TargetUserId == 1 && request.Remove)
+        return BadRequest("Cannot remove moderator status from the owner.");
+
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+
+        string createSql = "CREATE TABLE IF NOT EXISTS maxhanna.user_roles (user_id INT PRIMARY KEY, role VARCHAR(50) NOT NULL DEFAULT 'moderator', assigned_by INT NULL, assigned_at DATETIME NOT NULL DEFAULT UTC_TIMESTAMP());";
+        using (var createCmd = new MySqlCommand(createSql, conn)) { await createCmd.ExecuteNonQueryAsync(); }
+
+        if (request.Remove)
+        {
+          string deleteSql = "DELETE FROM maxhanna.user_roles WHERE user_id = @UserId AND role = @Role;";
+          using var delCmd = new MySqlCommand(deleteSql, conn);
+          delCmd.Parameters.AddWithValue("@UserId", request.TargetUserId);
+          delCmd.Parameters.AddWithValue("@Role", request.Role);
+          await delCmd.ExecuteNonQueryAsync();
+        }
+        else
+        {
+          string upsertSql = "REPLACE INTO maxhanna.user_roles (user_id, role, assigned_by, assigned_at) VALUES (@UserId, @Role, @AssignedBy, UTC_TIMESTAMP());";
+          using var upsCmd = new MySqlCommand(upsertSql, conn);
+          upsCmd.Parameters.AddWithValue("@UserId", request.TargetUserId);
+          upsCmd.Parameters.AddWithValue("@Role", request.Role);
+          upsCmd.Parameters.AddWithValue("@AssignedBy", request.CallerUserId);
+          await upsCmd.ExecuteNonQueryAsync();
+        }
+
+        return Ok(new { message = request.Remove ? "Role removed." : "Role assigned." });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in SetRole: " + ex.Message, request.CallerUserId, "USER", true);
+        return StatusCode(500, "Failed to set role.");
+      }
+    }
+
+    [HttpPost("/User/GetModerators", Name = "GetModerators")]
+    public async Task<IActionResult> GetModerators([FromBody] int callerUserId)
+    {
+      if (callerUserId != 1 && !await IsModeratorAsync(callerUserId))
+        return Unauthorized("Only moderators can view moderators.");
+
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        string sql = @"
+          SELECT u.id, u.username, u.last_seen, ur.role, ur.assigned_at, ur.assigned_by,
+            udp.file_id as display_file_id
+          FROM maxhanna.user_roles ur
+          JOIN maxhanna.users u ON u.id = ur.user_id
+          LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
+          ORDER BY ur.assigned_at ASC;";
+        using var cmd = new MySqlCommand(sql, conn);
+        using var reader = await cmd.ExecuteReaderAsync();
+        var moderators = new List<User>();
+        while (await reader.ReadAsync())
+        {
+          var m = new User(
+            reader.GetInt32("id"),
+            reader.GetString("username"),
+            reader.IsDBNull(reader.GetOrdinal("display_file_id")) ? null : new FileEntry(reader.GetInt32("display_file_id"))
+          );
+          m.LastSeen = reader.IsDBNull(reader.GetOrdinal("last_seen")) ? null : reader.GetDateTime("last_seen");
+          m.Role = reader.GetString("role");
+          moderators.Add(m);
+        }
+        return Ok(moderators);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in GetModerators: " + ex.Message, callerUserId, "USER", true);
+        return StatusCode(500, "Failed to get moderators.");
+      }
+    }
+
+    [HttpPost("/User/GetAppeals", Name = "GetAppeals")]
+    public async Task<IActionResult> GetAppeals([FromBody] int adminUserId)
+    {
+      if (adminUserId != 1 && !await IsModeratorAsync(adminUserId)) return Unauthorized("Only moderators can view appeals.");
+
+      string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      using (MySqlConnection conn = new MySqlConnection(connectionString))
+      {
+        try
+        {
+          await conn.OpenAsync();
+          string sql = @"
+            SELECT a.id, a.user_id, a.appeal_text, a.created_at, a.resolved_at, a.resolved_by, a.resolution, u.username
+            FROM maxhanna.user_appeal a
+            LEFT JOIN maxhanna.users u ON u.id = a.user_id
+            ORDER BY a.resolved_at IS NULL DESC, a.created_at DESC;";
+          using (MySqlCommand cmd = new MySqlCommand(sql, conn))
+          {
+            using (var reader = await cmd.ExecuteReaderAsync())
+            {
+              var appeals = new List<object>();
+              while (await reader.ReadAsync())
+              {
+                appeals.Add(new
+                {
+                  id = reader.GetInt32("id"),
+                  userId = reader.GetInt32("user_id"),
+                  username = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username"),
+                  appealText = reader.GetString("appeal_text"),
+                  createdAt = reader.GetDateTime("created_at"),
+                  resolvedAt = reader.IsDBNull(reader.GetOrdinal("resolved_at")) ? null : (DateTime?)reader.GetDateTime("resolved_at"),
+                  resolvedBy = reader.IsDBNull(reader.GetOrdinal("resolved_by")) ? null : (int?)reader.GetInt32("resolved_by"),
+                  resolution = reader.IsDBNull(reader.GetOrdinal("resolution")) ? null : reader.GetString("resolution")
+                });
+              }
+              return Ok(appeals);
+            }
+          }
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db("Error fetching appeals: " + ex.Message, adminUserId, "USER", true);
+          return StatusCode(500, "Failed to fetch appeals.");
+        }
+      }
+    }
+
+    [HttpPost("/User/ResolveAppeal", Name = "ResolveAppeal")]
+    public async Task<IActionResult> ResolveAppeal([FromBody] ResolveAppealRequest request)
+    {
+      if (request == null || request.AppealId <= 0 || request.AdminUserId <= 0)
+        return BadRequest("Invalid request.");
+      if (request.AdminUserId != 1 && !await IsModeratorAsync(request.AdminUserId)) return Unauthorized("Only moderators can resolve appeals.");
+
+      string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      using (MySqlConnection conn = new MySqlConnection(connectionString))
+      {
+        try
+        {
+          await conn.OpenAsync();
+
+          // Resolve the appeal
+          string resolveSql = "UPDATE maxhanna.user_appeal SET resolved_at = UTC_TIMESTAMP(), resolved_by = @AdminUserId, resolution = @Resolution WHERE id = @AppealId;";
+          using (MySqlCommand cmd = new MySqlCommand(resolveSql, conn))
+          {
+            cmd.Parameters.AddWithValue("@AppealId", request.AppealId);
+            cmd.Parameters.AddWithValue("@AdminUserId", request.AdminUserId);
+            cmd.Parameters.AddWithValue("@Resolution", request.Resolution ?? "denied");
+            await cmd.ExecuteNonQueryAsync();
+          }
+
+          // If resolution is 'approved', unlock the account
+          if (request.Resolution == "approved")
+          {
+            // Get the user_id for this appeal
+            string getUserIdSql = "SELECT user_id FROM maxhanna.user_appeal WHERE id = @AppealId;";
+            int userId = 0;
+            using (var getCmd = new MySqlCommand(getUserIdSql, conn))
+            {
+              getCmd.Parameters.AddWithValue("@AppealId", request.AppealId);
+              var result = await getCmd.ExecuteScalarAsync();
+              if (result != null) userId = Convert.ToInt32(result);
+            }
+
+            if (userId > 0)
+            {
+              string unlockSql = "UPDATE maxhanna.user_account_lock SET unlocked_at = UTC_TIMESTAMP(), unlocked_by = @AdminUserId WHERE user_id = @UserId AND unlocked_at IS NULL;";
+              using (var unlockCmd = new MySqlCommand(unlockSql, conn))
+              {
+                unlockCmd.Parameters.AddWithValue("@UserId", userId);
+                unlockCmd.Parameters.AddWithValue("@AdminUserId", request.AdminUserId);
+                await unlockCmd.ExecuteNonQueryAsync();
+              }
+
+              // Clear unknown-IP attempt records
+              string clearSql = "DELETE FROM maxhanna.user_unknown_ip_attempt WHERE user_id = @UserId;";
+              using (var clearCmd = new MySqlCommand(clearSql, conn))
+              {
+                clearCmd.Parameters.AddWithValue("@UserId", userId);
+                await clearCmd.ExecuteNonQueryAsync();
+              }
+            }
+          }
+
+          return Ok(new { message = "Appeal resolved." });
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db("Error resolving appeal: " + ex.Message, request.AdminUserId, "USER", true);
+          return StatusCode(500, "Failed to resolve appeal.");
         }
       }
     }
@@ -1932,7 +2332,8 @@ namespace maxhanna.Server.Controllers
      digcraft_fov_distance,
      digcraft_view_distance,
      IFNULL(display_profile_location,1) AS display_profile_location,
-     IFNULL(calendar_notifications_enabled,0) AS calendar_notifications_enabled
+     IFNULL(calendar_notifications_enabled,0) AS calendar_notifications_enabled,
+     IFNULL(weekly_digest_enabled,1) AS weekly_digest_enabled
      FROM maxhanna.user_settings 
      WHERE user_id = @userId;";
           MySqlCommand selectCmd = new MySqlCommand(selectSql, conn);
@@ -1966,6 +2367,7 @@ namespace maxhanna.Server.Controllers
               userSettings.DisplayProfileLocation = !reader.IsDBNull(reader.GetOrdinal("display_profile_location")) && reader.GetInt32("display_profile_location") == 1;
               userSettings.CalendarNotificationsEnabled = !reader.IsDBNull(reader.GetOrdinal("calendar_notifications_enabled")) && reader.GetInt32("calendar_notifications_enabled") == 1;
               userSettings.PageSize = reader.IsDBNull(reader.GetOrdinal("page_size")) ? null : reader.GetInt32("page_size");
+              userSettings.WeeklyDigestEnabled = !reader.IsDBNull(reader.GetOrdinal("weekly_digest_enabled")) && reader.GetInt32("weekly_digest_enabled") == 1;
             }
           }
 
@@ -3265,4 +3667,25 @@ public class FetchUserSettingsRequest
 {
   public int UserId { get; set; }
   public List<string> Keys { get; set; } = new();
+}
+
+public class AppealRequest
+{
+  public int UserId { get; set; }
+  public string AppealText { get; set; } = "";
+}
+
+public class ResolveAppealRequest
+{
+  public int AppealId { get; set; }
+  public int AdminUserId { get; set; }
+  public string Resolution { get; set; } = "denied";
+}
+
+public class SetRoleRequest
+{
+  public int TargetUserId { get; set; }
+  public string Role { get; set; } = "moderator";
+  public int CallerUserId { get; set; }
+  public bool Remove { get; set; }
 }

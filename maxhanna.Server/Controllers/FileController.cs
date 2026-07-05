@@ -293,7 +293,8 @@ namespace maxhanna.Server.Controllers
                 List<string> normalizedActualCores = GetNormalizedTypes(actualCore, Cores);
                 string combinedTypeCoreCondition = BuildFileTypeAndCoreCondition(normalizedFileTypes, normalizedActualCores, Cores);
                 bool nsfwAllowed = isNSFWAllowed ?? false;
-                string fileIdCondition = fileId.HasValue ? " AND f.id = @fileId" : "";
+                bool isIdMatch = sortOption == "Id Match";
+                string fileIdCondition = fileId.HasValue && !isIdMatch ? " AND f.id = @fileId" : "";
                 bool isRomSearch = !(actualCore?.Count > 0) || includeRomMetadata;
                 string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
                 string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
@@ -301,7 +302,7 @@ namespace maxhanna.Server.Controllers
                 string favouritesCondition = showFavouritesOnly
                   ? " AND f.id IN (SELECT file_id FROM file_favourites WHERE user_id = @userId) "
                   : "";
-                string orderBy = GetOrderBy(search, sortOption, isRomSearch);
+                string orderBy = GetOrderBy(search, sortOption, isRomSearch, fileId);
                 int offset = (page - 1) * pageSize;
                 //Console.WriteLine($"DEBUG GetDirectory: combinedTypeCoreCondition: {combinedTypeCoreCondition}, showHidden: {showHidden}, showFavouritesOnly: {showFavouritesOnly}, sortOption: {sortOption}, includeRomMetadata: {includeRomMetadata}, fileId: {(fileId.HasValue ? fileId.Value.ToString() : "null")}");
 
@@ -318,7 +319,7 @@ namespace maxhanna.Server.Controllers
               LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
               LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
               WHERE 1=1 
-                {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
+                {((fileId.HasValue && !isIdMatch || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
                 AND (
                   f.is_public = 1
                   OR f.user_id = @userId
@@ -341,13 +342,13 @@ namespace maxhanna.Server.Controllers
                     {
                         countCmd.Parameters.Add(p);
                     }
-                    if (fileId.HasValue)
+                    if (fileId.HasValue && !isIdMatch)
                     {
                         countCmd.Parameters.AddWithValue("@fileId", fileId.Value);
                     }
                     totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
 
-                    if (fileId.HasValue)
+                    if (fileId.HasValue && !isIdMatch)
                     {
                         page = 1;
                         offset = 0;
@@ -373,7 +374,7 @@ namespace maxhanna.Server.Controllers
             LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
             LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
             WHERE 1=1
-              {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
+              {((fileId.HasValue && !isIdMatch || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
               AND (f.is_public = 1 OR f.user_id = @userId OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON)))
               {searchCondition}
               {combinedTypeCoreCondition}
@@ -535,7 +536,7 @@ namespace maxhanna.Server.Controllers
             return normalized.ToList();
         }
 
-        private static string GetOrderBy(string? search, string sortOption, bool isRomSearch)
+        private static string GetOrderBy(string? search, string sortOption, bool isRomSearch, int? fileId = null)
         {
             string orderBy = "";
             switch (sortOption)
@@ -575,6 +576,11 @@ namespace maxhanna.Server.Controllers
                     break;
                 case "Z-A":
                     orderBy = "ORDER BY given_file_name DESC, file_name DESC";
+                    break;
+                case "Id Match":
+                    orderBy = fileId.HasValue
+                        ? "ORDER BY f.id = @fileId DESC, f.upload_date DESC"
+                        : "ORDER BY f.upload_date DESC";
                     break;
             }
             if (!string.IsNullOrWhiteSpace(search))
@@ -3396,7 +3402,8 @@ namespace maxhanna.Server.Controllers
                 List<string> normalizedActualCores = GetNormalizedTypes(actualCore, Cores);
                 string combinedTypeCoreCondition = BuildFileTypeAndCoreCondition(normalizedFileTypes, normalizedActualCores, Cores);
                 bool nsfwAllowed = isNSFWAllowed ?? false;
-                string fileIdCondition = fileId.HasValue ? " AND f.id = @fileId" : "";
+                bool isIdMatch = sortOption == "Id Match";
+                string fileIdCondition = fileId.HasValue && !isIdMatch ? " AND f.id = @fileId" : "";
                 bool isRomSearch = !(actualCore?.Count > 0) || includeRomMetadata;
                 string visibilityCondition = string.IsNullOrEmpty(visibility) || visibility.ToLower() == "all" ? "" : visibility.ToLower() == "public" ? " AND f.is_public = 1 " : " AND f.is_public = 0 ";
                 string ownershipCondition = string.IsNullOrEmpty(ownership) || ownership.ToLower() == "all" ? "" : ownership.ToLower() == "others" ? " AND f.user_id != @userId " : " AND f.user_id = @userId ";
@@ -3404,7 +3411,7 @@ namespace maxhanna.Server.Controllers
                 string favouritesCondition = showFavouritesOnly
                   ? " AND f.id IN (SELECT file_id FROM file_favourites WHERE user_id = @userId) "
                   : "";
-                string orderBy = GetOrderBy(search, sortOption, isRomSearch);
+                string orderBy = GetOrderBy(search, sortOption, isRomSearch, fileId);
                 int offset = (page - 1) * pageSize;
                 //Console.WriteLine($"DEBUG GetDirectory: combinedTypeCoreCondition: {combinedTypeCoreCondition}, showHidden: {showHidden}, showFavouritesOnly: {showFavouritesOnly}, sortOption: {sortOption}, includeRomMetadata: {includeRomMetadata}, fileId: {(fileId.HasValue ? fileId.Value.ToString() : "null")}");
 
@@ -3421,7 +3428,7 @@ namespace maxhanna.Server.Controllers
               LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
               LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
               WHERE 1=1 
-                {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
+                {((fileId.HasValue && !isIdMatch || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
                 AND (
                   f.is_public = 1
                   OR f.user_id = @userId
@@ -3444,13 +3451,13 @@ namespace maxhanna.Server.Controllers
                     {
                         countCmd.Parameters.Add(p);
                     }
-                    if (fileId.HasValue)
+                    if (fileId.HasValue && !isIdMatch)
                     {
                         countCmd.Parameters.AddWithValue("@fileId", fileId.Value);
                     }
                     totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
 
-                    if (fileId.HasValue)
+                    if (fileId.HasValue && !isIdMatch)
                     {
                         page = 1;
                         offset = 0;
@@ -3507,7 +3514,7 @@ namespace maxhanna.Server.Controllers
             LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
             LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
             WHERE 1=1
-              {((fileId.HasValue || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
+              {((fileId.HasValue && !isIdMatch || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
               AND (f.is_public = 1 OR f.user_id = @userId OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON)))
               {searchCondition}
               {combinedTypeCoreCondition}

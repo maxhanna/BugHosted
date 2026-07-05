@@ -27,6 +27,7 @@ namespace maxhanna.Server.Services
     private readonly Log _log;
     private readonly IConfiguration _config; // needed for apiKey 
     private readonly RomEnrichmentService _romEnrichmentService;
+    private readonly EmailService _emailService;
     private Timer _tenSecondTimer;
     private int _isRunning10SecTasks = 0; // 0 = false, 1 = true
     private Timer _halfMinuteTimer;
@@ -57,11 +58,12 @@ namespace maxhanna.Server.Services
     private readonly string _memeDirectory = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/";
     public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, 
     AiController aiController, KrakenService krakenService, NewsService newsService,
-    TradeIndicatorService indicatorService, RomEnrichmentService romEnrichmentService, DbOperationQueue queue)
+    TradeIndicatorService indicatorService, RomEnrichmentService romEnrichmentService, DbOperationQueue queue, EmailService emailService)
     {
       _config = config;
       _dbQueue = queue;
       _romEnrichmentService = romEnrichmentService;
+      _emailService = emailService;
       _connectionString = config.GetValue<string>("ConnectionStrings:maxhanna")!;
       _apiKey = config.GetValue<string>("CoinWatch:ApiKey")!;
       _httpClient = new HttpClient();
@@ -283,6 +285,11 @@ namespace maxhanna.Server.Services
         {
           await DeleteExecutedWeaverCommands();
         });
+
+        await _dbQueue.EnqueueAsync(async () =>
+        {
+          await SendWeeklyDigestEmail();
+        });
       }
       catch (Exception ex)
       {
@@ -295,6 +302,164 @@ namespace maxhanna.Server.Services
       }
     }
 
+
+    private async Task SendWeeklyDigestEmail()
+    {
+      try
+      {
+        using var conn = new MySqlConnection(_connectionString);
+        await conn.OpenAsync();
+
+        using var pickCmd = new MySqlCommand(@"
+          SELECT u.id, ua.email
+          FROM users u
+          JOIN user_about ua ON ua.user_id = u.id
+          WHERE ua.email IS NOT NULL AND ua.email != ''
+            AND (SELECT COALESCE(us.weekly_digest_enabled, 1) FROM user_settings us WHERE us.user_id = u.id) = 1
+            AND u.id NOT IN (
+              SELECT user_id FROM weekly_email_sent
+              WHERE month_key = DATE_FORMAT(UTC_DATE(), '%Y-%m')
+            )
+          ORDER BY u.id ASC
+          LIMIT 1", conn);
+
+        int? userId = null;
+        string? email = null;
+        using (var reader = await pickCmd.ExecuteReaderAsync())
+        {
+          if (await reader.ReadAsync())
+          {
+            userId = reader.GetInt32("id");
+            email = reader.IsDBNull(reader.GetOrdinal("email")) ? null : reader.GetString(reader.GetOrdinal("email"));
+          }
+        }
+
+        if (userId == null || string.IsNullOrWhiteSpace(email))
+          return;
+
+        string notifCount = "0";
+        using (var notifCmd = new MySqlCommand(
+          "SELECT COUNT(*) FROM notifications WHERE user_id = @uid AND (is_read IS NULL OR is_read = 0)", conn))
+        {
+          notifCmd.Parameters.AddWithValue("@uid", userId.Value);
+          notifCount = (await notifCmd.ExecuteScalarAsync())?.ToString() ?? "0";
+        }
+
+        var storiesHtml = new StringBuilder();
+        using (var storyCmd = new MySqlCommand(@"
+          SELECT s.story_text, s.date, u.username
+          FROM stories s
+          JOIN users u ON u.id = s.user_id
+          WHERE s.user_id IN (SELECT friend_id FROM friends WHERE user_id = @uid)
+            AND s.date >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 DAY)
+          ORDER BY s.date DESC
+          LIMIT 3", conn))
+        {
+          storyCmd.Parameters.AddWithValue("@uid", userId.Value);
+          using var rdr = await storyCmd.ExecuteReaderAsync();
+          while (await rdr.ReadAsync())
+          {
+            var text = rdr.IsDBNull(rdr.GetOrdinal("story_text")) ? "" : rdr.GetString("story_text");
+            var username = rdr.IsDBNull(rdr.GetOrdinal("username")) ? "someone" : rdr.GetString("username");
+            var date = rdr.GetDateTime("date").ToString("MMM dd");
+            var snippet = text.Length > 100 ? text[..100] + "..." : text;
+            storiesHtml.Append($"<li><b>{username}</b> ({date}): {snippet}</li>");
+          }
+        }
+
+        string memeHtml = "";
+        using (var memeCmd = new MySqlCommand(@"
+          SELECT f.id, COALESCE(f.given_file_name, f.file_name) AS name,
+            COALESCE(AVG(r.rating), 0) AS avg_rating,
+            COALESCE((SELECT COUNT(*) FROM reactions re WHERE re.file_id = f.id), 0) AS reaction_count,
+            COALESCE((SELECT COUNT(*) FROM comments c WHERE c.file_id = f.id), 0) AS comment_count
+          FROM file_uploads f
+          LEFT JOIN ratings r ON r.file_id = f.id
+          WHERE f.folder_path LIKE '%/Meme/%' AND f.is_folder = 0
+          GROUP BY f.id
+          ORDER BY avg_rating * reaction_count * comment_count DESC, avg_rating DESC, reaction_count DESC, comment_count DESC
+          LIMIT 1", conn))
+        {
+          using var rdr = await memeCmd.ExecuteReaderAsync();
+          if (await rdr.ReadAsync())
+          {
+            var memeName = rdr.IsDBNull(rdr.GetOrdinal("name")) ? "Meme" : rdr.GetString("name");
+            var rating = rdr.GetDouble("avg_rating").ToString("F1");
+            var reactions = rdr.GetInt32("reaction_count");
+            var comments = rdr.GetInt32("comment_count");
+            memeHtml = $"<b>{memeName}</b> (avg rating: {rating}/5, {reactions} reactions, {comments} comments)";
+          }
+        }
+
+        var songsHtml = new StringBuilder();
+        using (var songCmd = new MySqlCommand(@"
+          SELECT t.todo, t.date, COALESCE(u.username, 'Anonymous') AS username
+          FROM todos t
+          LEFT JOIN users u ON u.id = t.user_id
+          WHERE t.type = 'music'
+            AND t.date >= DATE_FORMAT(UTC_DATE(), '%Y-%m-01')
+          ORDER BY t.date DESC
+          LIMIT 5", conn))
+        {
+          using var rdr = await songCmd.ExecuteReaderAsync();
+          while (await rdr.ReadAsync())
+          {
+            var title = rdr.IsDBNull(rdr.GetOrdinal("todo")) ? "Untitled" : rdr.GetString("todo");
+            var username = rdr.IsDBNull(rdr.GetOrdinal("username")) ? "Anonymous" : rdr.GetString("username");
+            var date = rdr.GetDateTime("date").ToString("MMM dd");
+            songsHtml.Append($"<li><b>{title}</b> by {username} ({date})</li>");
+          }
+        }
+
+        var body = $@"
+<html>
+<body style='font-family:Arial,sans-serif;background:#f5f5f5;padding:20px'>
+<div style='max-width:600px;margin:auto;background:white;border-radius:8px;padding:24px'>
+<h2 style='color:#333'>Your BugHosted Weekly Digest</h2>
+<p style='color:#666'>Here's what you missed this week.</p>
+
+<table style='width:100%;border-collapse:collapse;margin:16px 0'>
+<tr><td style='padding:12px;background:#e8f4fd;border-radius:6px'>
+<b>Notifications</b>: {notifCount} unread
+</td></tr>
+</table>
+
+{(storiesHtml.Length > 0 ? $@"
+<h3>Stories from Friends</h3>
+<ul>{storiesHtml}</ul>" : "")}
+
+{(memeHtml.Length > 0 ? $@"
+<h3>Highest Rated Meme</h3>
+<p>{memeHtml}</p>" : "")}
+
+{(songsHtml.Length > 0 ? $@"
+<h3>Songs Added This Month</h3>
+<ul>{songsHtml}</ul>" : "")}
+
+<p style='color:#999;font-size:12px;margin-top:24px'>
+You're receiving this because you have an email on your BugHosted account.
+To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Digest option.
+</p>
+</div>
+</body>
+</html>";
+
+        var sent = await _emailService.SendHtmlEmailAsync(email, "BugHosted Weekly Digest", body);
+        if (sent)
+        {
+          using var insertCmd = new MySqlCommand(@"
+            INSERT INTO weekly_email_sent (user_id, sent_date, month_key)
+            VALUES (@uid, UTC_TIMESTAMP(), DATE_FORMAT(UTC_DATE(), '%Y-%m'))", conn);
+          insertCmd.Parameters.AddWithValue("@uid", userId.Value);
+          await insertCmd.ExecuteNonQueryAsync();
+          _ = _log.Db($"Weekly digest sent to user {userId} ({email})", userId.Value, "EMAIL");
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error in SendWeeklyDigestEmail: {ex.Message}", 0, "EMAIL", true);
+      }
+    }
 
     private async Task RunSixHourTasks()
     {

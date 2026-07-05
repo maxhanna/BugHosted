@@ -196,6 +196,13 @@
         <div><input type="text" #updatedEmail [value]="parentRef?.user?.about?.email ?? ''" maxlength="100" /></div>
       </div>
       <div class="sectionDescriptionSection">
+        <div>Weekly Email Digest:</div>
+        <div>
+          <input type="checkbox" #weeklyDigestCheckbox [checked]="userSettings?.weeklyDigestEnabled !== false" />
+          <span class="xSmallFont">Receive a weekly email with notifications, stories from friends, top memes, and new songs</span>
+        </div>
+      </div>
+      <div class="sectionDescriptionSection">
         <div>Website:</div>
         <div><input type="url" placeholder="https://example.com" #updatedWebsite
             [value]="parentRef?.user?.about?.website ?? ''" maxlength="200" /></div>

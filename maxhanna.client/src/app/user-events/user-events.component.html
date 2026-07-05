@@ -8,7 +8,7 @@
   <div class="user-events-component">
     <div class="userEventsTitle popupPanelTitle" *ngIf="!showTitleBar && (loading || events?.length)">Recent Activity:</div> 
     <div *ngIf="events && events.length > 0">
-      <div *ngFor="let e of events" class="eventRow" [class.clickable-event]="isClickableEvent(e.eventType)" [class.non-clickable-event]="!isClickableEvent(e.eventType)" [class.hidden-event]="!isEventVisible(e)" (click)="isClickableEvent(e.eventType) ? viewEvent(e) : null">
+      <div *ngFor="let e of events" class="eventRow" [class.clickable-event]="isClickableEvent(e.eventType)" [class.non-clickable-event]="!isClickableEvent(e.eventType)" (click)="isClickableEvent(e.eventType) ? viewEvent(e) : null">
         <span class="eventIcon">{{ getEventIcon(e.eventType) }}</span>
         <span class="eventText">
           <app-user-tag [userId]="e.userId" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag> 

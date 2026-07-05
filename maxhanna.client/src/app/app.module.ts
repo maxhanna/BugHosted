@@ -116,9 +116,9 @@ import { PlanterComponent } from './planter/planter.component';
 import { WeaverComponent } from './weaver/weaver.component';
 import { MiniCalendarComponent } from './mini-calendar/mini-calendar.component';
 import { RecipeComponent } from './recipe/recipe.component';
-import { CrawlerSearchResultsComponent } from './components/crawler-search-results/crawler-search-results.component';
-import { ModeratorComponent } from './components/moderator/moderator.component';
-import { PaintComponent } from './components/paint/paint.component';
+import { CrawlerSearchResultsComponent } from './crawler-search-results/crawler-search-results.component';
+import { ModeratorComponent } from './moderator/moderator.component';
+import { PaintComponent } from './paint/paint.component';
 
 @NgModule({
   declarations: [

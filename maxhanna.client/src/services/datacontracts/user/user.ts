@@ -10,7 +10,8 @@ export class User {
   about: UserAbout | undefined;
   created: Date | undefined;
   lastSeen: Date | undefined;  
-  constructor(id?: number, username?: string, password?: string, displayPictureFile?: FileEntry, profileBackgroundPictureFile?: FileEntry, about?: UserAbout, created?: Date, lastSeen?: Date) {
+  role: string | undefined;
+  constructor(id?: number, username?: string, password?: string, displayPictureFile?: FileEntry, profileBackgroundPictureFile?: FileEntry, about?: UserAbout, created?: Date, lastSeen?: Date, role?: string) {
     this.id = id;
     this.username = username;
     this.pass = password;
@@ -19,5 +20,6 @@ export class User {
     this.about = about;
     this.created = created;
     this.lastSeen = lastSeen;
+    this.role = role;
   }
 }

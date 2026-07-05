@@ -566,6 +566,12 @@
         {{optionsFile?.favouriteCount}}
       </div>
     </div>
+    <div *ngIf="!optionsFile?.isFolder && (optionsFile?.commentsCount ?? optionsFile?.fileComments?.length)" class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Comments:</div>
+      <div class="optionsStatsDescription cursorPointerUnderlined linkFontColor" (click)="showFileCommentsPopup(optionsFile)">
+        🗨️ {{optionsFile?.commentsCount ?? optionsFile?.fileComments?.length}}
+      </div>
+    </div>
     <div *ngIf="displayRatings" class="optionsStatsDiv">
       <div class="optionsStatsHeader">Rating:</div>
       <div class="optionsStatsDescription">
@@ -709,6 +715,30 @@
   </div>
   <button title="Close the options panel" id="closeOverlay" (click)="closeOptionsPanel()" class="closeButton"
     style="margin-top: 8px;">Close</button>
+</div>
+
+<!-- Comments Popup -->
+<div class="popupPanel" *ngIf="isCommentsPopupOpen && commentsPopupFile">
+  <div class="popupPanelTitle">
+    🗨️ Comments for {{ commentsPopupFile.givenFileName ?? commentsPopupFile.fileName }}
+  </div>
+  <div style="max-height:50vh; overflow:auto; width:100%;">
+    <div *ngIf="fileCommentsPopup.length === 0" style="padding:12px; text-align:center; opacity:0.7;">
+      No comments yet.
+    </div>
+    <app-comments
+      *ngIf="fileCommentsPopup.length > 0"
+      [inputtedParentRef]="parentRef"
+      [type]="'File'"
+      [commentList]="fileCommentsPopup"
+      [component_id]="commentsPopupFile.id"
+      [fileId]="commentsPopupFile.id"
+      [showComments]="true"
+      [showCommentsHeader]="false"
+      (commentAddedEvent)="closeFileCommentsPopup()">
+    </app-comments>
+  </div>
+  <button id="closeOverlay" (click)="closeFileCommentsPopup()" class="closeButton" style="margin-top:8px;">Close</button>
 </div>
 
 <!-- Search Popup -->

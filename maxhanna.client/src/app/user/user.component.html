@@ -203,6 +203,20 @@
                   (click)="sendPasswordResetEmail()" [disabled]="isLoading" />
               </div>
             </form>
+            <div *ngIf="loginLockInfo" class="lockWarning">
+              <div class="popupPanelTitle" style="color:red;">🔒 Account Locked</div>
+              <p>{{ loginLockInfo.reason }}</p>
+              <p class="smallFont">Locked: {{ loginLockInfo.lockedAt | date:'y/MM/d HH:mm' }}</p>
+              <div *ngIf="!loginLockInfo.hasPendingAppeal">
+                <p>If you believe this was a mistake, submit an appeal:</p>
+                <textarea #appealInput [(ngModel)]="appealText" rows="3" style="width:100%; box-sizing:border-box;"
+                  placeholder="Explain why you think this lock was in error..."></textarea>
+                <button (click)="submitAppeal()" [disabled]="isLoading || !appealText.trim()">📨 Submit Appeal</button>
+              </div>
+              <div *ngIf="loginLockInfo.hasPendingAppeal">
+                <p>You already have a pending appeal. An admin will review it shortly.</p>
+              </div>
+            </div>
           </div>
           <div *ngIf="showSecurityQuestionsPanel" class="securityQuestionsPanel" style="margin-top:10px;">
             <div class="popupPanelTitle">Answer Security Questions</div>

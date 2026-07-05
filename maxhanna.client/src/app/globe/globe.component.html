@@ -199,6 +199,40 @@
           <span class="pin-toggle-slider"></span>
         </label>
       </div>
+      <div class="coord-search-section">
+        <input type="text" class="coord-search-input" placeholder="Search cities, towns, countries..."
+          [(ngModel)]="searchQuery" (input)="filterCoordinates()" />
+        <div class="coord-search-results" *ngIf="searchQuery">
+          <div class="coord-search-group" *ngIf="filteredCountryCoords | keyvalue: keepOriginalOrder as countries">
+            <div class="coord-search-header" *ngIf="countries.length">Countries</div>
+            <div *ngFor="let entry of countries" class="coord-search-item"
+              (click)="rotateToLocation(entry.value[0], entry.value[1]); searchQuery = ''; filterCoordinates();">
+              <span class="coord-search-label">📍 {{ entry.key }}</span>
+              <span class="coord-search-coords">{{ entry.value[0] | number:'1.2-2' }}, {{ entry.value[1] | number:'1.2-2' }}</span>
+            </div>
+          </div>
+          <div class="coord-search-group" *ngIf="filteredCityCoords | keyvalue: keepOriginalOrder as cities">
+            <div class="coord-search-header" *ngIf="cities.length">Cities</div>
+            <div *ngFor="let entry of cities" class="coord-search-item"
+              (click)="rotateToLocation(entry.value[0], entry.value[1]); searchQuery = ''; filterCoordinates();">
+              <span class="coord-search-label">🏙️ {{ entry.key }}</span>
+              <span class="coord-search-coords">{{ entry.value[0] | number:'1.2-2' }}, {{ entry.value[1] | number:'1.2-2' }}</span>
+            </div>
+          </div>
+          <div class="coord-search-group" *ngIf="filteredTownCoords | keyvalue: keepOriginalOrder as towns">
+            <div class="coord-search-header" *ngIf="towns.length">Towns</div>
+            <div *ngFor="let entry of towns" class="coord-search-item"
+              (click)="rotateToLocation(entry.value[0], entry.value[1]); searchQuery = ''; filterCoordinates();">
+              <span class="coord-search-label">🏘️ {{ entry.key }}</span>
+              <span class="coord-search-coords">{{ entry.value[0] | number:'1.2-2' }}, {{ entry.value[1] | number:'1.2-2' }}</span>
+            </div>
+          </div>
+          <div class="coord-search-no-results"
+            *ngIf="(filteredCountryCoords | keyvalue).length === 0 && (filteredCityCoords | keyvalue).length === 0 && (filteredTownCoords | keyvalue).length === 0">
+            No locations found.
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -266,6 +300,34 @@
     <button type="button" class="news-popup-open-btn" (click)="openNewsArticleInNewTab()">Open Article in New
       Tab</button>
     <button class="closeButton" (click)="closeNewsPopup()"></button>
+  </div>
+
+  <!-- Wikipedia Popup -->
+  <div class="wikipedia-backdrop" *ngIf="showWikipediaPopup" (click)="closeWikipediaPopup()"></div>
+  <div class="popupPanel wikipedia-popup-panel" *ngIf="showWikipediaPopup">
+    <div class="popupPanelTitle" *ngIf="selectedWikipediaData">
+      {{ selectedWikipediaData.title || 'Wikipedia' }}
+    </div>
+    <div class="popupPanelTitle" *ngIf="!selectedWikipediaData">
+      No Wikipedia Article Found
+    </div>
+    <img *ngIf="selectedWikipediaData?.imageUrl" [src]="selectedWikipediaData.imageUrl" alt="Wikipedia image"
+      class="wikipedia-popup-image">
+    <p class="wikipedia-popup-loading" *ngIf="wikipediaLoading">Loading...</p>
+    <p class="wikipedia-popup-description" *ngIf="selectedWikipediaData?.description">
+      {{ selectedWikipediaData.description }}
+    </p>
+    <p class="wikipedia-popup-meta" *ngIf="selectedWikipediaData?.author">
+      Author: {{ selectedWikipediaData.author }}
+    </p>
+    <p class="wikipedia-popup-notfound" *ngIf="!selectedWikipediaData && !wikipediaLoading">
+      No Wikipedia article was found for this location.
+    </p>
+    <button type="button" class="wikipedia-popup-open-btn"
+      *ngIf="selectedWikipediaData?.url" (click)="openWikipediaInNewTab()">
+      Open Article in New Tab
+    </button>
+    <button class="closeButton" (click)="closeWikipediaPopup()"></button>
   </div>
 
   <!-- Story Post Popup -->
@@ -341,6 +403,26 @@
               <div class="cluster-ping-info">
                 <div class="cluster-ping-label">{{ ping.label }}</div>
                 <div class="cluster-ping-source">Story</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coord Pings (Wikipedia) Accordion -->
+      <div class="accordion-item" *ngIf="getClusterCoordPings().length > 0">
+        <div class="accordion-header" (click)="toggleAccordion('coord')">
+          <span class="accordion-title"> Wikipedia / Locations ({{ getClusterCoordPings().length }})</span>
+          <span class="accordion-toggle">{{ accordionStates['coord'] ? '−' : '+' }}</span>
+        </div>
+        <div class="accordion-content" *ngIf="accordionStates['coord']">
+          <div class="cluster-pings-list">
+            <div class="cluster-ping-item" *ngFor="let ping of getClusterCoordPings()"
+              (click)="onClusterPingClick(ping)">
+              <span class="cluster-ping-icon"></span>
+              <div class="cluster-ping-info">
+                <div class="cluster-ping-label">{{ ping.label }}</div>
+                <div class="cluster-ping-source">Location / Wikipedia</div>
               </div>
             </div>
           </div>

@@ -250,12 +250,12 @@ export class TopComponent extends ChildComponent implements OnInit {
     }
   }
 
-  urlSelectedEvent(meta: MetaData) {
+  urlSelectedEvent(url: string) {
     if (this.isSearchingUrlForEdit) {
-      this.urlEditInput.nativeElement.value = meta.url ?? "";
+      this.urlEditInput.nativeElement.value = url ?? "";
       this.isSearchingUrlForEdit = false;
     } else {
-      this.urlInput.nativeElement.value = meta.url ?? "";
+      this.urlInput.nativeElement.value = url ?? "";
       this.isSearchingUrl = false;
       this.parentRef?.closeOverlay();
     }
