@@ -235,6 +235,8 @@ public class Log
 
   public async Task<bool> BackupDatabase()
   {
+    await Db($"Saving DB Backup.", null, "SYSTEM", true);
+
     try
     {
       string backupFolder = @"H:\Bughosted MYSQL backup";
