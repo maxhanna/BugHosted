@@ -60,8 +60,8 @@
     <div class="canvasWrapper" [class.showPalette]="showColorPicker">
       <div class="canvasArea">
         <div class="canvasStage">
-          <canvas #paintCanvas class="paintCanvas" (pointerdown)="onMouseDown($event)" (pointermove)="onMouseMove($event)"
-            (pointerup)="onMouseUp($event)" (pointerleave)="onMouseLeave()"
+          <canvas #paintCanvas class="paintCanvas" (pointerdown)="onPointerDown($event)" (pointermove)="onPointerMove($event)"
+            (pointerup)="onPointerUp($event)" (pointerleave)="onPointerLeave($event)"
             (contextmenu)="$event.preventDefault()"></canvas>
           <canvas #overlayCanvas class="overlayCanvas"></canvas>
         </div>

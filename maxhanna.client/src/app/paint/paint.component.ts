@@ -90,12 +90,21 @@ export class PaintComponent extends ChildComponent {
     this.saveState();
   }
 
-  private getPos(e: MouseEvent | Touch): { x: number; y: number } {
-    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-    return { x: (e.clientX - rect.left) / this.zoom, y: (e.clientY - rect.top) / this.zoom };
+  private getPos(e: PointerEvent): { x: number; y: number } {
+    const canvas = this.canvasRef.nativeElement;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (e.clientX - rect.left) * scaleX / this.zoom,
+      y: (e.clientY - rect.top) * scaleY / this.zoom
+    };
   }
 
-  onMouseDown(e: MouseEvent) {
+  onPointerDown(e: PointerEvent) {
+    const canvas = this.canvasRef.nativeElement;
+    canvas.setPointerCapture(e.pointerId);
+
     const pos = this.getPos(e);
     this.startX = pos.x;
     this.startY = pos.y;
@@ -118,7 +127,7 @@ export class PaintComponent extends ChildComponent {
     }
   }
 
-  onMouseMove(e: MouseEvent) {
+  onPointerMove(e: PointerEvent) {
     const pos = this.getPos(e);
     this.cursorX = Math.round(pos.x);
     this.cursorY = Math.round(pos.y);
@@ -153,7 +162,7 @@ export class PaintComponent extends ChildComponent {
     }
   }
 
-  onMouseUp(e: MouseEvent) {
+  onPointerUp(e: PointerEvent) {
     if (!this.isDrawing) return;
     this.isDrawing = false;
 
@@ -180,12 +189,13 @@ export class PaintComponent extends ChildComponent {
     }
   }
 
-  onMouseLeave() {
+  onPointerLeave(e: PointerEvent) {
     this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
     if (this.isDrawing) {
       this.isDrawing = false;
       this.saveState();
     }
+    try { this.canvasRef.nativeElement.releasePointerCapture(e.pointerId); } catch { }
   }
 
   private drawShapePreview(tool: string, pos: { x: number; y: number }) {
