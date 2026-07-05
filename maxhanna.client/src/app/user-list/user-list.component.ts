@@ -271,6 +271,9 @@ export class UserListComponent extends ChildComponent implements OnInit, OnDestr
       index === self.findIndex(u => u.id === user.id)
     );
   }
+  isUserChecked(user: User): boolean {
+    return this.selectedUsers.some(u => u.id === user.id);
+  }
   getOnlineUserCount() {
     const parent = this.inputtedParentRef ?? this.parentRef;
     return this.users.filter(user => {

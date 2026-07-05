@@ -63,7 +63,8 @@ export class ModeratorComponent extends ChildComponent {
     await this.loadAppeals();
   }
 
-  onUsersSelected(users: User[]) {
+  onUsersSelected(users?: User[]) {
+    if (!users) return;
     this.selectedUsers = users;
   }
 

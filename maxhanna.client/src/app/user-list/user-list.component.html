@@ -29,7 +29,7 @@
     Result(s): {{ usersSearched.length }}
   </div>
   <div *ngFor="let user of usersSearched" class="userList" (click)="closeOverlayOnClick(user);">
-    <span class="selection-check" *ngIf="selectionMode">{{ selectedUsers.some(u => u.id === user.id) ? '☑' : '☐' }}</span>
+    <span class="selection-check" *ngIf="selectionMode">{{ isUserChecked(user) ? '☑' : '☐' }}</span>
     <span class="user">
       <app-user-tag [user]="user" 
         [inputtedParentRef]="parentRef" 
@@ -57,7 +57,7 @@
     {{ isFriendsChecked ? 'Friends' : 'Users' }} <span class="smallFont thirdFontColor">({{ getOnlineUserCount() }} online)</span>
   </div>
   <div *ngFor="let user of users" class="userList" (click)="closeOverlayOnClick(user);">
-    <span class="selection-check" *ngIf="selectionMode">{{ selectedUsers.some(u => u.id === user.id) ? '☑' : '☐' }}</span>
+    <span class="selection-check" *ngIf="selectionMode">{{ isUserChecked(user) ? '☑' : '☐' }}</span>
     <span class="user"> 
       <span 
         *ngIf="parentRef?.isUserOnline(user.lastSeen | timeSince:'minute':true)" 
