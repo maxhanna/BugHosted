@@ -652,14 +652,13 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   async fetchWikipedia(keyword: string, ping?: ResolvedGlobePing): Promise<void> {
     this.wikipediaLoading = true;
+    this.showWikipediaPopup = true;
     try {
       const result = await this.crawlerService.wikipediaLookup(keyword);
       this.selectedWikipediaData = result;
-      this.showWikipediaPopup = true;
       if (ping) this.focusPing(ping);
     } catch {
       this.selectedWikipediaData = null;
-      this.showWikipediaPopup = true;
     } finally {
       this.wikipediaLoading = false;
     }

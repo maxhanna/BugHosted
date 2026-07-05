@@ -202,6 +202,7 @@ export class FileService {
   getGenesisTitleKeywords(): string[] { return Array.from(this.genesisTitleKeywords); }
   getNdsTitleKeywords(): string[] { return Array.from(this.ndsTitleKeywords); }
   getDreamcastTitleKeywords(): string[] { return Array.from(this.dreamcastTitleKeywords); }
+  
   async getDirectory(
     dir: string,
     visibility: string,

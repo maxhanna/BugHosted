@@ -238,7 +238,7 @@ namespace maxhanna.Server.Controllers
             _baseTarget = Path.GetFullPath(configPath).Replace("\\", "/");
             if (!_baseTarget.EndsWith("/")) _baseTarget += "/";
             try { Directory.CreateDirectory(_baseTarget); } catch { }
-           //_ = _log.Db($"FileController initialized. Upload target: {_baseTarget}", null, "FILE", true);
+            //_ = _log.Db($"FileController initialized. Upload target: {_baseTarget}", null, "FILE", true);
 
             var ffmpegPath = config.GetValue<string>("FileUploads:FFmpegPath") ?? "E:\\ffmpeg-latest-win64-static\\bin";
             if (Directory.Exists(ffmpegPath))

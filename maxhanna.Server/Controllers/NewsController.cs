@@ -371,7 +371,7 @@ namespace maxhanna.Server.Controllers
       }
       catch (Exception ex)
       {
-        await _log.Db($"NewsController.GetArticlesByCoin failed: {ex.Message}", null, "API", true);
+        await _log.Db($"NewsController.GetArticlesByCoin failed: {ex.Message}", null, "NEWSCONTROLLER", true);
         return StatusCode(500);
       }
     }
@@ -435,7 +435,7 @@ namespace maxhanna.Server.Controllers
       }
       catch (Exception ex)
       {
-        await _log.Db($"NewsController.GetCoinCounts failed: {ex.Message}", null, "API", true);
+        await _log.Db($"NewsController.GetCoinCounts failed: {ex.Message}", null, "NEWSCONTROLLER", true);
         return StatusCode(500);
       }
     }
@@ -477,7 +477,7 @@ namespace maxhanna.Server.Controllers
       }
       catch (Exception ex)
       {
-        await _log.Db($"NewsController.GetNewsPins failed: {ex.Message}", null, "API", true);
+        await _log.Db($"NewsController.GetNewsPins failed: {ex.Message}", null, "NEWSCONTROLLER", true);
         return Ok(new List<object>());
       }
     }
@@ -492,7 +492,7 @@ namespace maxhanna.Server.Controllers
       }
       catch (Exception ex)
       {
-        await _log.Db($"NewsController.GetNewsCount failed: {ex.Message}", null, "API", true);
+        await _log.Db($"NewsController.GetNewsCount failed: {ex.Message}", null, "NEWSCONTROLLER", true);
         return Ok(new { count = 0 });
       }
     }

@@ -308,6 +308,9 @@
     <div class="popupPanelTitle" *ngIf="selectedWikipediaData">
       {{ selectedWikipediaData.title || 'Wikipedia' }}
     </div>
+    <div *ngIf="wikipediaLoading">
+      <app-loading-spinner></app-loading-spinner> Loading Wikipedia Article...
+    </div>
     <div class="popupPanelTitle" *ngIf="!selectedWikipediaData">
       No Wikipedia Article Found
     </div>
@@ -325,7 +328,7 @@
     </p>
     <button type="button" class="wikipedia-popup-open-btn"
       *ngIf="selectedWikipediaData?.url" (click)="openWikipediaInNewTab()">
-      Open Article in New Tab
+      Open Wikipedia Article
     </button>
     <button class="closeButton" (click)="closeWikipediaPopup()"></button>
   </div>
