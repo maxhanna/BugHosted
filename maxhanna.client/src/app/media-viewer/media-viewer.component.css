@@ -51,6 +51,11 @@
   max-width: 100%;
   height: auto;
   cursor: default;
+  touch-action: pan-y;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  pointer-events: auto;
 }
 
 .mediaContainerWrapperDiv {
@@ -60,6 +65,8 @@
   align-items: center;
   align-content: center;
   width: 100%;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 
 .mediaContainerDiv {
