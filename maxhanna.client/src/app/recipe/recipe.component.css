@@ -1,47 +1,218 @@
-﻿/* Add basic CSS styling for Recipe component */
-recipe-container {
- padding: 20px;
- background-color: #f9f9f9;
- border-radius: 8px;
- box-shadow: 02px4px rgba(0, 0, 0, 0.1);
+﻿:host {
+  display: block;
 }
 
-recipe-header {
- display: flex;
- justify-content: space-between;
- align-items: center;
- margin-bottom: 20px;
+.recipe-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
 }
 
-recipe-title {
- font-size: 24px;
- font-weight: bold;
- color: #333;
+.recipe-hero,
+.composer-card,
+.recipe-card {
+  background: linear-gradient(145deg, rgba(255,255,255,0.92), rgba(248,244,235,0.9));
+  border: 1px solid rgba(255,255,255,0.7);
+  border-radius: 20px;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.08);
 }
 
-recipe-image {
- width: 100%;
- max-width: 400px;
- height: auto;
- border-radius: 8px;
- margin-top: 10px;
+.recipe-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px;
+  gap: 16px;
 }
 
-recipe-ingredients, recipe-instructions {
- margin-top: 20px;
+.eyebrow {
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 0.8rem;
+  color: #b06d2f;
+  font-weight: 700;
 }
 
-recipe-ingredients h3, recipe-instructions h3 {
- font-size: 20px;
- color: #555;
- margin-bottom: 10px;
+.recipe-hero h2 {
+  margin: 0 0 8px;
+  font-size: 1.7rem;
 }
 
-recipe-ingredients ul, recipe-instructions ol {
- padding-left: 20px;
+.hero-copy {
+  margin: 0;
+  color: #5f4f3c;
+  max-width: 650px;
 }
 
-recipe-ingredients li, recipe-instructions li {
- margin-bottom: 5px;
- color: #666;
+.primary-btn,
+.ghost-btn {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.primary-btn:hover,
+.ghost-btn:hover {
+  transform: translateY(-1px);
+}
+
+.primary-btn {
+  background: linear-gradient(135deg, #ff8a3d, #ff5e3a);
+  color: white;
+  box-shadow: 0 8px 20px rgba(255,94,58,0.3);
+}
+
+.ghost-btn {
+  background: rgba(255,255,255,0.9);
+  color: #6b4f3b;
+}
+
+.recipe-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(255,255,255,0.65);
+  padding: 12px 16px;
+  border-radius: 16px;
+}
+
+.search-input,
+.composer-card input,
+.composer-card textarea {
+  width: 100%;
+  border: 1px solid #e2d6c5;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font: inherit;
+  background: white;
+}
+
+.toolbar-meta {
+  display: flex;
+  gap: 12px;
+  color: #7a6554;
+  font-size: 0.9rem;
+}
+
+.composer-card {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.composer-header,
+.field-title-row,
+.recipe-title-row,
+.recipe-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inline-stack {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 600;
+  color: #5c4638;
+}
+
+.submit-btn {
+  align-self: flex-start;
+}
+
+.recipe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.recipe-card {
+  overflow: hidden;
+}
+
+.recipe-card img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+}
+
+.recipe-card-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recipe-card h3 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.pill {
+  background: #fff2e8;
+  color: #b35a24;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+}
+
+.recipe-description,
+.recipe-section li,
+.recipe-footer {
+  color: #6f5a48;
+}
+
+.recipe-section h4 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+}
+
+.recipe-section ul,
+.recipe-section ol {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 24px;
+  color: #846b55;
+  background: rgba(255,255,255,0.7);
+  border-radius: 16px;
+}
+
+@media (max-width: 760px) {
+  .recipe-hero,
+  .recipe-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .inline-stack {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }

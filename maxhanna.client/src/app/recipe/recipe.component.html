@@ -1,4 +1,123 @@
-﻿<div class="recipe-container">
- <h2>Recipe Component</h2>
- <p>This is a placeholder for the Recipe component.</p>
+﻿<div class="recipe-shell">
+  <div class="recipe-hero">
+    <div>
+      <p class="eyebrow">Community cookbook</p>
+      <h2>Discover, share, and save recipes</h2>
+      <p class="hero-copy">Upload mouth-watering photos, add ingredients, and let others search by flavor, meal type, or name.</p>
+    </div>
+    <button class="primary-btn" (click)="openCreateForm()">+ Add a recipe</button>
+  </div>
+
+  <div class="recipe-toolbar">
+    <input
+      class="search-input"
+      type="text"
+      [(ngModel)]="searchTerm"
+      (ngModelChange)="applyFilters()"
+      placeholder="Search recipes by name, ingredient, or tag"
+    />
+    <div class="toolbar-meta">
+      <span>{{ filteredRecipes.length }} recipes</span>
+      <span *ngIf="!isLoading">Fresh picks</span>
+    </div>
+  </div>
+
+  <div *ngIf="isCreating" class="composer-card">
+    <div class="composer-header">
+      <h3>Share a new recipe</h3>
+      <button class="ghost-btn" (click)="cancelCreate()">Cancel</button>
+    </div>
+
+    <label>
+      <span>Recipe name</span>
+      <input type="text" [(ngModel)]="form.name" placeholder="e.g. Lemon Herb Pasta" />
+    </label>
+
+    <label>
+      <span>Description</span>
+      <textarea rows="3" [(ngModel)]="form.description" placeholder="Tell people why this recipe is special"></textarea>
+    </label>
+
+    <div class="field-block">
+      <div class="field-title-row">
+        <span>Ingredients</span>
+        <button class="ghost-btn" type="button" (click)="addIngredient()">+ Add</button>
+      </div>
+      <div class="inline-stack" *ngFor="let ingredient of form.ingredients; let i = index">
+        <input type="text" [(ngModel)]="form.ingredients[i]" placeholder="Ingredient" />
+        <button class="ghost-btn" type="button" (click)="removeIngredient(i)" *ngIf="form.ingredients.length > 1">Remove</button>
+      </div>
+    </div>
+
+    <div class="field-block">
+      <div class="field-title-row">
+        <span>Instructions</span>
+        <button class="ghost-btn" type="button" (click)="addInstruction()">+ Add</button>
+      </div>
+      <div class="inline-stack" *ngFor="let instruction of form.instructions; let i = index">
+        <textarea rows="2" [(ngModel)]="form.instructions[i]" placeholder="Step {{ i + 1 }}"></textarea>
+        <button class="ghost-btn" type="button" (click)="removeInstruction(i)" *ngIf="form.instructions.length > 1">Remove</button>
+      </div>
+    </div>
+
+    <div class="field-block">
+      <div class="field-title-row">
+        <span>Tags</span>
+        <button class="ghost-btn" type="button" (click)="addTag()">+ Add</button>
+      </div>
+      <div class="inline-stack" *ngFor="let tag of form.tags; let i = index">
+        <input type="text" [(ngModel)]="form.tags[i]" placeholder="Dinner, quick, vegan" />
+        <button class="ghost-btn" type="button" (click)="removeTag(i)" *ngIf="form.tags.length > 1">Remove</button>
+      </div>
+    </div>
+
+    <div class="field-block">
+      <span>Photos</span>
+      <app-media-selector
+        #mediaSelector
+        [inputtedParentRef]="parentRef"
+        [maxSelectedFiles]="4"
+        [selectedFiles]="selectedFiles"
+        (selectFileEvent)="onMediaSelection($event)">
+      </app-media-selector>
+    </div>
+
+    <button class="primary-btn submit-btn" (click)="submitRecipe()">Save recipe</button>
+  </div>
+
+  <div *ngIf="isLoading && recipes.length === 0" class="empty-state">Loading recipes…</div>
+
+  <div *ngIf="!isLoading && filteredRecipes.length === 0" class="empty-state">No recipes match that search yet. Try a different ingredient or name.</div>
+
+  <div class="recipe-grid" *ngIf="filteredRecipes.length > 0">
+    <article class="recipe-card" *ngFor="let recipe of filteredRecipes; trackBy: trackByRecipeId">
+      <img [src]="getImageUrl(recipe.imageFileIds[0])" [alt]="recipe.name" />
+      <div class="recipe-card-body">
+        <div class="recipe-title-row">
+          <h3>{{ recipe.name }}</h3>
+          <span class="pill" *ngIf="recipe.tags?.length">{{ recipe.tags[0] }}</span>
+        </div>
+        <p class="recipe-description">{{ recipe.description }}</p>
+
+        <div class="recipe-section">
+          <h4>Ingredients</h4>
+          <ul>
+            <li *ngFor="let ingredient of recipe.ingredients">{{ ingredient }}</li>
+          </ul>
+        </div>
+
+        <div class="recipe-section">
+          <h4>How to make it</h4>
+          <ol>
+            <li *ngFor="let step of recipe.instructions">{{ step }}</li>
+          </ol>
+        </div>
+
+        <div class="recipe-footer">
+          <span>By {{ recipe.createdBy || 'a community cook' }}</span>
+          <span>{{ recipe.createdAt | date:'mediumDate' }}</span>
+        </div>
+      </div>
+    </article>
+  </div>
 </div>
