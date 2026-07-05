@@ -56,8 +56,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _lastHudSpeed = -1;
   private _lastHealth = -1;
 
-  carX = HOSPITAL_SPAWN_X; 
-  carY = CAR_HEIGHT; 
+  carX = HOSPITAL_SPAWN_X;
+  carY = CAR_HEIGHT;
   carZ = HOSPITAL_SPAWN_Z;
   carYaw = HOSPITAL_SPAWN_YAW;
   carVx = 0; carVz = 0; carVy = 0;
@@ -82,13 +82,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _pistolDrawTimer = 0;
   private _chatClearTimer: any = null;
   private _trafficTimer = 0;
-  private _pedTimer = 0; 
+  private _pedTimer = 0;
   private _lookTargetTimer = 0;
   private _collisionTimer = 0;
   private _nearCarTimer = 0;
-  camYaw = 0; 
+  camYaw = 0;
   camPitch = 0.2;
-  camDist = 4; 
+  camDist = 4;
   camHeight = 2;
   firstPerson = false;
   private isPointerLocked = false;
@@ -1625,7 +1625,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.punchTimer = 0.3;
       this.checkBulletHit(originX, originY, originZ, dirX, dirY, dirZ, 3);
     } else if (this.currentWeapon === 4) {
-      this.rockets.push({ x: originX, y: originY, z: originZ, vx: dirX * 40, vy: dirY * 40, vz: dirZ * 40, age: 0, lifetime: 3 }); 
+      this.rockets.push({ x: originX, y: originY, z: originZ, vx: dirX * 40, vy: dirY * 40, vz: dirZ * 40, age: 0, lifetime: 3 });
     } else {
       const tracerLifetime = this.currentWeapon === 2 ? 0.15 : 0.3;
       this.tracers.push({ originX, originY, originZ, dirX, dirY, dirZ, age: 0, lifetime: tracerLifetime });
@@ -1638,7 +1638,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           const sz = dirZ + (Math.random() - 0.5) * spread;
           this.tracers.push({ originX, originY, originZ, dirX: sx, dirY: sy, dirZ: sz, age: 0, lifetime: 0.2 });
         }
-      } 
+      }
     }
     this.spawnBulletSmoke(originX, originY, originZ, dirX, dirY, dirZ, this.currentWeapon);
     this.spawnBulletTrail(originX, originY, originZ, dirX, dirY, dirZ, this.currentWeapon);
@@ -2399,7 +2399,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       ped.z += Math.cos(ped.yaw) * speed * dt;
     }
   }
-  
+
 
   private isAtAirportParkingSpot(x: number, z: number): boolean {
     for (const entry of GrandTheftRenderer.AIRPORT_ENTRY_ROADS) {
@@ -2458,7 +2458,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.checkNearOtherPlayerCar();
       this.updateVendingMachines();
     }
-    
+
     this.showPassengerPrompt = this.canPickupPassenger();
     this.updateVehicleCollisions();
     this.updateExplosionJumps(dt);
@@ -2661,8 +2661,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.carZ = HOSPITAL_SPAWN_Z;
           this.carY = CAR_HEIGHT;
           this.carYaw = HOSPITAL_SPAWN_YAW;
-          this.carVx = 0; 
-          this.carVz = 0; 
+          this.carVx = 0;
+          this.carVz = 0;
           this.carSpeed = 0;
           this.camYaw = HOSPITAL_SPAWN_YAW;
           this.camPitch = 0.2;
@@ -2834,12 +2834,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     //     // Angular will run change detection just for these
     //   });
     // }
-  // In gameLoop:
-  if(Math.abs(this.hudSpeed - this._lastHudSpeed) > 1 || this.health !== this._lastHealth) {
-  this._lastHudSpeed = this.hudSpeed;
-  this._lastHealth = this.health;
-  this.ngZone.run(() => { this.cdr.detectChanges(); });
-}
+    // In gameLoop:
+    if (Math.abs(this.hudSpeed - this._lastHudSpeed) > 1 || this.health !== this._lastHealth) {
+      this._lastHudSpeed = this.hudSpeed;
+      this._lastHealth = this.health;
+      this.ngZone.run(() => { this.cdr.detectChanges(); });
+    }
     this.animFrameId = requestAnimationFrame(this.gameLoop);
   };
 
@@ -4810,7 +4810,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (this.isPointerLocked) document.exitPointerLock();
       }
     }
-    if (e.code === 'Escape') this.showWeaponWheel = false;
+    if (e.code === 'Escape') {
+      this.showWeaponWheel = false;
+      this.showLeaderboard = false;
+    }
   };
 
   private onKeyUp = (e: KeyboardEvent) => {

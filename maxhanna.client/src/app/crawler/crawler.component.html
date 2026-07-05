@@ -81,7 +81,7 @@
         </div>
         <div *ngFor="let result of group.links; let i = index"
           [class]="(group.showSubdomains || i === 0) ? 'groupLinkWrapperDiv' : ''">
-          <app-crawler-search-results *ngIf="group.showSubdomains || i === 0"
+          <app-crawler-search-results *ngIf="group.showSubdomains || i === 0" style="width:100%"
             [result]="result" [inputtedParentRef]="inputtedParentRef ?? parentRef"
             [onlySearch]="onlySearch" (urlSelectedEvent)="visitExternalLink($event)">
           </app-crawler-search-results>

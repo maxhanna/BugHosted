@@ -15,6 +15,10 @@ namespace maxhanna.Server.Controllers.DataContracts.Crypto
         [JsonProperty("description")] public string? Description { get; set; }
         [JsonProperty("is_hot")] public bool IsHot { get; set; }
         [JsonProperty("proof")] public string? Proof { get; set; }
+        [JsonProperty("isEstimated")] public bool IsEstimated { get; set; }
+        [JsonProperty("displayedDate")] public string? DisplayedDate { get; set; }
+        [JsonProperty("can_occur_before")] public bool CanOccurBefore { get; set; }
+        [JsonProperty("confidence")] public int? Confidence { get; set; }
 
         public string? TitleText => Title?.English;
     }

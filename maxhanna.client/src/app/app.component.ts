@@ -160,6 +160,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🕸️", title: "Crawler", content: undefined },
     { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
     { ownership: 0, icon: "👤", title: "User", content: undefined },
+    { ownership: 0, icon: "🖍️", title: "Paint", content: undefined },
+    { ownership: 0, icon: "👁️", title: "Moderator", content: undefined },
     { ownership: 0, icon: "📡", title: "SigInt", content: undefined }, 
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
     { ownership: 0, icon: "📜", title: "User-Events", content: undefined },
@@ -694,7 +696,15 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       const userSettingsComponent = this.userSelectedNavigationItems.splice(userSettingsComponentIndex,1)[0];
       this.userSelectedNavigationItems.push(userSettingsComponent);
     }
- 
+
+    // Add Moderator panel for moderators
+    if (this.user && (this.user.id === 1 || this.user.role === 'moderator')) {
+      if (!this.userSelectedNavigationItems.some(item => item.title === 'Moderator')) {
+        const modItem = this.navigationItems.find(item => item.title === 'Moderator');
+        if (modItem) this.userSelectedNavigationItems.push(modItem);
+      }
+    }
+
     this.isNavigationInitialized = true;
   }
   checkAndClearRouterOutlet() {

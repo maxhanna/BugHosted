@@ -123,31 +123,33 @@ export class PaintComponent extends ChildComponent {
     this.cursorX = Math.round(pos.x);
     this.cursorY = Math.round(pos.y);
 
-    if (!this.isDrawing) return;
-
     this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
 
-    if (this.currentTool === 'pencil' || this.currentTool === 'brush' || this.currentTool === 'eraser') {
-      this.ctx.beginPath();
-      this.ctx.moveTo(this.lastX, this.lastY);
-      this.ctx.lineTo(pos.x, pos.y);
-      this.ctx.strokeStyle = this.currentTool === 'eraser' ? '#ffffff' : this.currentColor;
-      this.ctx.lineWidth = this.currentTool === 'pencil' ? 1 : this.brushSize;
-      this.ctx.lineCap = 'round';
-      this.ctx.lineJoin = 'round';
-      this.ctx.stroke();
-      this.lastX = pos.x;
-      this.lastY = pos.y;
-    } else if (this.currentTool === 'line') {
-      this.drawShapePreview('line', pos);
-    } else if (this.currentTool === 'rect') {
-      this.drawShapePreview('rect', pos);
-    } else if (this.currentTool === 'filledRect') {
-      this.drawShapePreview('filledRect', pos);
-    } else if (this.currentTool === 'circle') {
-      this.drawShapePreview('circle', pos);
-    } else if (this.currentTool === 'filledCircle') {
-      this.drawShapePreview('filledCircle', pos);
+    if (this.isDrawing) {
+      if (this.currentTool === 'pencil' || this.currentTool === 'brush' || this.currentTool === 'eraser') {
+        this.ctx.beginPath();
+        this.ctx.moveTo(this.lastX, this.lastY);
+        this.ctx.lineTo(pos.x, pos.y);
+        this.ctx.strokeStyle = this.currentTool === 'eraser' ? '#ffffff' : this.currentColor;
+        this.ctx.lineWidth = this.currentTool === 'pencil' ? 1 : this.brushSize;
+        this.ctx.lineCap = 'round';
+        this.ctx.lineJoin = 'round';
+        this.ctx.stroke();
+        this.lastX = pos.x;
+        this.lastY = pos.y;
+      } else if (this.currentTool === 'line') {
+        this.drawShapePreview('line', pos);
+      } else if (this.currentTool === 'rect') {
+        this.drawShapePreview('rect', pos);
+      } else if (this.currentTool === 'filledRect') {
+        this.drawShapePreview('filledRect', pos);
+      } else if (this.currentTool === 'circle') {
+        this.drawShapePreview('circle', pos);
+      } else if (this.currentTool === 'filledCircle') {
+        this.drawShapePreview('filledCircle', pos);
+      }
+    } else {
+      this.drawCursorPreview(pos);
     }
   }
 
@@ -179,9 +181,9 @@ export class PaintComponent extends ChildComponent {
   }
 
   onMouseLeave() {
+    this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
     if (this.isDrawing) {
       this.isDrawing = false;
-      this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
       this.saveState();
     }
   }
@@ -213,6 +215,51 @@ export class PaintComponent extends ChildComponent {
         this.overlayCtx.fill();
       }
       this.overlayCtx.stroke();
+    }
+  }
+
+  private drawCursorPreview(pos: { x: number; y: number }) {
+    const r = this.brushSize / 2;
+    const cx = Math.round(pos.x);
+    const cy = Math.round(pos.y);
+
+    let invColor = '#000000';
+    try {
+      const imgData = this.ctx.getImageData(cx, cy, 1, 1);
+      const lum = 0.299 * imgData.data[0] + 0.587 * imgData.data[1] + 0.114 * imgData.data[2];
+      invColor = lum > 128 ? '#000000' : '#ffffff';
+    } catch { }
+
+    const ctx = this.overlayCtx;
+
+    if (this.currentTool === 'pencil' || this.currentTool === 'brush' || this.currentTool === 'eraser' || this.currentTool === 'fill') {
+      const radius = this.currentTool === 'pencil' ? 4 : r;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius + 2, 0, Math.PI * 2);
+      ctx.strokeStyle = invColor === '#ffffff' ? '#000000' : '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = invColor;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    } else {
+      const crossLen = 8;
+      ctx.strokeStyle = invColor === '#ffffff' ? '#000000' : '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(cx - crossLen, cy); ctx.lineTo(cx + crossLen, cy);
+      ctx.moveTo(cx, cy - crossLen); ctx.lineTo(cx, cy + crossLen);
+      ctx.stroke();
+
+      ctx.strokeStyle = invColor;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx - crossLen, cy); ctx.lineTo(cx + crossLen, cy);
+      ctx.moveTo(cx, cy - crossLen); ctx.lineTo(cx, cy + crossLen);
+      ctx.stroke();
     }
   }
 
@@ -369,7 +416,7 @@ export class PaintComponent extends ChildComponent {
         width: this.canvasWidth,
         height: this.canvasHeight
       };
-      const res: any = await firstValueFrom(this.http.post('/Paint/Save', body));
+      const res: any = await firstValueFrom(this.http.post('/paint/save', body));
       this.currentFileId = res.fileId;
       this.fileName = res.fileName;
       this.parentRef?.showNotification('Painting saved!');
@@ -385,7 +432,7 @@ export class PaintComponent extends ChildComponent {
     this.startLoading();
     try {
       const body = { fileId: fileId ?? this.currentFileId };
-      const res: any = await firstValueFrom(this.http.post('/Paint/Load', body));
+      const res: any = await firstValueFrom(this.http.post('/paint/load', body));
       const img = new Image();
       img.onload = () => {
         this.ctx.drawImage(img, 0, 0);

@@ -56,7 +56,7 @@ namespace maxhanna.Server.Services
       { "Dogecoin", "Ɖ" }, { "XDG", "Ɖ" }, { "Solana", "◎" }, { "SOL", "◎" }
     };
     private readonly string _memeDirectory = "E:/Dev/maxhanna/maxhanna.client/src/assets/Uploads/Meme/";
-    public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler, 
+    public SystemBackgroundService(Log log, IConfiguration config, WebCrawler webCrawler,
     AiController aiController, KrakenService krakenService, NewsService newsService,
     TradeIndicatorService indicatorService, RomEnrichmentService romEnrichmentService, DbOperationQueue queue, EmailService emailService)
     {
@@ -80,6 +80,7 @@ namespace maxhanna.Server.Services
       _threeHourTimer = new Timer(async _ => await RunThreeHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
       _sixHourTimer = new Timer(async _ => await RunSixHourTasks(), null, Timeout.Infinite, Timeout.Infinite);
       _dailyTimer = new Timer(async _ => await RunDailyTasks(), null, Timeout.Infinite, Timeout.Infinite);
+      _ = RunSmokeTest();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -119,7 +120,14 @@ namespace maxhanna.Server.Services
         await Task.Delay(1000, stoppingToken);
       }
     }
- 
+    private async Task RunSmokeTest()
+    {
+      Console.WriteLine("Running initial smoke tests (if any) ..."); 
+      await _dbQueue.EnqueueAsync(async () =>
+      {
+        await _log.DeleteOldLogs();
+      });
+    }
     private async Task Run10SecondTasks()
     {
       // 1. PREVENT OVERLAPPING EXECUTIONS
@@ -130,7 +138,7 @@ namespace maxhanna.Server.Services
       }
 
       try
-      { 
+      {
         await _dbQueue.RunImmediateAsync(async () =>
         {
           await MakeCryptoTrade();
@@ -151,14 +159,14 @@ namespace maxhanna.Server.Services
     }
 
     private async Task Run30SecondTasks()
-    { 
+    {
       if (Interlocked.CompareExchange(ref _isRunning30SecTasks, 1, 0) != 0)
       {
         return;
       }
 
       try
-      { 
+      {
         await _dbQueue.EnqueueAsync(async () =>
         {
           await SpawnEncounterMetabots();
@@ -174,7 +182,7 @@ namespace maxhanna.Server.Services
         _ = _log.Db($"Error in Run30SecondTasks {ex.Message}", null, "SYSTEM", outputToConsole: true); // Adjust to your actual _log method
       }
       finally
-      { 
+      {
         Interlocked.Exchange(ref _isRunning30SecTasks, 0);
       }
     }
@@ -223,20 +231,20 @@ namespace maxhanna.Server.Services
         {
           _miningApiService.UpdateWalletInDB(_config, _log);
         });
-        
+
         lastWasCrypto = !lastWasCrypto;
 
         await _dbQueue.EnqueueAsync(async () =>
         {
           await ScrapeNews();
-        }); 
+        });
       }
       catch (Exception ex)
       {
         _ = _log.Db($"Error in RunFiveMinuteTasks {ex.Message}", null, "SYSTEM", outputToConsole: true); // Adjust to your actual _log method
       }
       finally
-      { 
+      {
         Interlocked.Exchange(ref _isRunningFiveMinuteTasks, 0);
       }
     }
@@ -545,7 +553,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
       {
         Interlocked.Exchange(ref _isRunningThreeHourTasks, 0);
       }
-    }  
+    }
 
     private async Task RunDailyTasks()
     {
@@ -593,7 +601,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
         await _dbQueue.EnqueueAsync(async () =>
         {
           await DeleteOldCoinValueEntries();
-        }); 
+        });
 
         await _dbQueue.EnqueueAsync(async () =>
         {
@@ -650,7 +658,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
       {
         Interlocked.Exchange(ref _isRunningDailyTasks, 0);
       }
-    }  
+    }
 
     private TimeSpan CalculateNextDailyRun()
     {
@@ -1152,7 +1160,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
         var request = new HttpRequestMessage
         {
           Method = HttpMethod.Get,
-          RequestUri = new Uri("https://developers.coinmarketcal.com/v1/events?max=100"),
+          RequestUri = new Uri("https://api.coinmarketcal.com/v2/events?limit=100"),
           Headers =
           {
             { "Accept", "application/json" },
@@ -1164,10 +1172,9 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
         response.EnsureSuccessStatusCode();
 
         var responseBody = await response.Content.ReadAsStringAsync();
-        //Console.WriteLine("Received response: " + responseBody);
         var eventsResponse = JsonConvert.DeserializeObject<CoinMarketCalResponse>(responseBody);
 
-        if (eventsResponse?.Body == null || eventsResponse.Body.Count == 0)
+        if (eventsResponse?.Data == null || eventsResponse.Data.Count == 0)
         {
           await _log.Db("No events found in CoinMarketCal response", null, "CCS", outputToConsole: true);
           return;
@@ -1176,17 +1183,14 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
         await using var conn = new MySqlConnection(_connectionString);
         await conn.OpenAsync();
 
-        // Delete events older than 10 years
         var deleteOldSql = "DELETE FROM crypto_calendar_events WHERE event_date < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR);";
         await using (var deleteCmd = new MySqlCommand(deleteOldSql, conn))
         {
           await deleteCmd.ExecuteNonQueryAsync();
         }
 
-        foreach (var eventItem in eventsResponse.Body)
+        foreach (var eventItem in eventsResponse.Data)
         {
-          //Console.WriteLine($"Processing event: ID={eventItem?.Id}, Title={eventItem?.TitleText}, DateEvent={eventItem?.DateEvent}");
-
           var insertSql = @"
 						INSERT INTO crypto_calendar_events 
 						(event_id, title, coin_symbol, coin_name, event_date, created_date, source, description, is_hot, proof_url, updated)
@@ -1217,7 +1221,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
           }
         }
 
-        await _log.Db($"Successfully stored {eventsResponse.Body.Count} crypto events", null, "CCS", outputToConsole: true);
+        await _log.Db($"Successfully stored {eventsResponse.Data.Count} crypto events from CoinMarketCal v2 API", null, "CCS", outputToConsole: true);
       }
       catch (Exception ex)
       {
@@ -2848,7 +2852,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
       }
     }
 
-  private async Task ScrapeNews()
+    private async Task ScrapeNews()
     {
       if (await _newsAndScrapeLock.WaitAsync(0))
       {

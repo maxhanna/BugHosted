@@ -80,7 +80,7 @@ namespace maxhanna.Server.Controllers
                             using (var countConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                             {
                                 await countConn.OpenAsync();
-                                string countSql = $@"SELECT COUNT(*) FROM maxhanna.user_events WHERE created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 DAY) {eventTypeFilter};";
+                                string countSql = $@"SELECT COUNT(*) FROM maxhanna.user_events ue WHERE ue.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 DAY) {eventTypeFilter};";
                                 using (var countCmd = new MySqlCommand(countSql, countConn))
                                 {
                                     int totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());

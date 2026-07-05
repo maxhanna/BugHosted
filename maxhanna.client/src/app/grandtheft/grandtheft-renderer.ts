@@ -227,16 +227,22 @@ export function getTerrainHeight(x: number, z: number): number {
   const cz = Math.floor(z / 80);
   const biome = getBiome(cx, cz);
 
-  if (biome === 'bridge') return -2.5;       // off-deck: water
-  if (biome === 'bridge_connector') return 0.0; // off-ramp: ground
-  if (biome === 'ocean') return -2.5;
+  if (biome === 'bridge') {
+    if (isOnRoadGrid(x, z)) return 0.0;  // road grid through bridge chunk
+    return -2.5;       // off-deck: water
+  }
+  if (biome === 'bridge_connector') return 0.0;
+  if (biome === 'ocean') {
+    if (isOnRoadGrid(x, z)) return 0.0;  // road surfaces through ocean barrier gaps
+    return -2.5;
+  }
   // Road surfaces are at y=0 on the grid lines — return 0 so players
   // don't fall through when walking on road extensions in beach/rural areas
   if ((biome === 'beach' || biome.startsWith('rural')) && isOnRoadGrid(x, z)) return 0.0;
   if (biome === 'beach') {
     const base = getBeachHeight(x, z);
-    if (isOnSidewalk(x, z)) return base + SIDEWALK_RAISE;
-    return base;
+    if (isOnSidewalk(x, z)) return Math.max(base + SIDEWALK_RAISE, 0);
+    return Math.max(base, 0);  // clamp to 0 — visual sand plane is always at y=0
   }
   if (isOnSidewalk(x, z)) return SIDEWALK_RAISE;
   return 0.0;
@@ -3019,6 +3025,8 @@ void main() {
     if ((isCity || isSuburb) && this.cityBuildingMeshes.length > 0) {
       const smModel = this.cityBuildingMeshes.find(m => m.length > 0 && m[0].carName && m[0].carName.includes('supermarket'));
       if (smModel && supermarkets.length < 1 && rng() < 0.20) {
+        const blockWorldX = worldOriginX + 40;
+        const blockWorldZ = worldOriginZ + 40;
         const halfSW = SIDEWALK_SIZE / 2;
         const setback = 8;
 
@@ -3032,12 +3040,12 @@ void main() {
         const d = 8 + rng() * (SIDEWALK_SIZE * 0.18);
         let px, pz, yaw;
         if (edge.dx === 0) {
-          px = worldOriginX + 4 + rng() * (CHUNK_SIZE - 8);
-          pz = worldOriginZ + edge.dz * (halfSW - setback - d / 2);
+          px = blockWorldX - halfSW + 4 + rng() * (SIDEWALK_SIZE - 8);
+          pz = blockWorldZ + edge.dz * (halfSW - setback - d / 2);
           yaw = edge.dz > 0 ? Math.PI : 0;
         } else {
-          pz = worldOriginZ + 4 + rng() * (CHUNK_SIZE - 8);
-          px = worldOriginX + edge.dx * (halfSW - setback - d / 2);
+          pz = blockWorldZ - halfSW + 4 + rng() * (SIDEWALK_SIZE - 8);
+          px = blockWorldX + edge.dx * (halfSW - setback - d / 2);
           yaw = edge.dx > 0 ? -Math.PI / 2 : Math.PI / 2;
         }
         const scale = Math.max(w, d) / 18 * 3.5;

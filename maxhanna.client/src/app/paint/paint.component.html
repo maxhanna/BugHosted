@@ -1,98 +1,102 @@
-<div class="paintContainer">
-  <div class="paintToolbar">
-    <div class="toolGroup">
-      <button *ngFor="let t of tools" class="toolBtn" [class.active]="currentTool === t.id"
-        (click)="currentTool = t.id" [title]="t.title">{{ t.label }}</button>
-    </div>
-    <div class="toolGroup">
-      <button class="toolBtn" (click)="undo()" title="Undo (Ctrl+Z)">↩️</button>
-      <button class="toolBtn" (click)="redo()" title="Redo (Ctrl+Y)">↪️</button>
-      <button class="toolBtn" (click)="clearCanvas()" title="Clear">🗑️</button>
-    </div>
-    <div class="toolGroup">
-      <button class="toolBtn" (click)="newCanvas()" title="New Canvas">🆕</button>
-      <button class="toolBtn" (click)="fileInput.click()" title="Open Image">📂</button>
-      <input #fileInput type="file" accept="image/*" (change)="loadImageFromFile($event)" style="display:none" />
-      <button class="toolBtn" (click)="savePainting()" title="Save">💾</button>
-      <button class="toolBtn" (click)="loadPaintingByFileId()" title="Load by ID">📥</button>
-      <button class="toolBtn" (click)="downloadPainting()" title="Download">📤</button>
-    </div>
-    <div class="toolGroup">
-      <label class="toolLabel">
-        Size:
-        <select [(ngModel)]="brushSize" class="sizeSelect">
-          <option *ngFor="let s of brushSizes" [value]="s">{{ s }}px</option>
-        </select>
-      </label>
-    </div>
-    <div class="toolGroup" *ngIf="currentTool === 'text'">
-      <label class="toolLabel">
-        Font:
-        <select [(ngModel)]="fontFamily" class="sizeSelect">
-          <option value="Arial">Arial</option>
-          <option value="Courier New">Courier New</option>
-          <option value="Georgia">Georgia</option>
-          <option value="Times New Roman">Times New Roman</option>
-          <option value="Verdana">Verdana</option>
-        </select>
-      </label>
-      <label class="toolLabel">
-        Size:
-        <input type="number" [(ngModel)]="fontSize" class="sizeInput" min="8" max="200" />
-      </label>
-    </div>
-    <div class="toolGroup">
-      <label class="toolLabel colorLabel" [style.background]="currentColor">
-        <input type="color" [value]="currentColor" (input)="onColorChange($any($event.target).value)"
-          class="colorPickerHidden" #colorInput />
-      </label>
-      <span *ngFor="let c of recentColors" class="colorSwatch" [style.background]="c"
-        (click)="onColorChange(c)"></span>
-    </div>
-    <div class="toolGroup">
-      <label class="toolLabel">
-        <input type="checkbox" [(ngModel)]="showColorPicker" /> Palette
-      </label>
-    </div>
-  </div>
-  <div class="canvasWrapper" [class.showPalette]="showColorPicker">
-    <div class="canvasArea">
-      <div class="canvasStage">
-        <canvas #paintCanvas class="paintCanvas"
-          (mousedown)="onMouseDown($event)" (mousemove)="onMouseMove($event)" (mouseup)="onMouseUp($event)"
-          (mouseleave)="onMouseLeave()" (contextmenu)="$event.preventDefault()"></canvas>
-        <canvas #overlayCanvas class="overlayCanvas"></canvas>
+<div class="componentMain">
+  <app-title-bar [title]="'Paint'"></app-title-bar>
+  <div class="paintContainer">
+    <div class="paintToolbar">
+      <div class="toolGroup">
+        <button *ngFor="let t of tools" class="toolBtn" [class.active]="currentTool === t.id"
+          (click)="currentTool = t.id" [title]="t.title">{{ t.label }}</button>
+      </div>
+      <div class="toolGroup">
+        <button class="toolBtn" (click)="undo()" title="Undo (Ctrl+Z)">↩️</button>
+        <button class="toolBtn" (click)="redo()" title="Redo (Ctrl+Y)">↪️</button>
+        <button class="toolBtn" (click)="clearCanvas()" title="Clear">🗑️</button>
+      </div>
+      <div class="toolGroup">
+        <button class="toolBtn" (click)="newCanvas()" title="New Canvas">🆕</button>
+        <button class="toolBtn" (click)="fileInput.click()" title="Open Image">📂</button>
+        <input #fileInput type="file" accept="image/*" (change)="loadImageFromFile($event)" style="display:none" />
+        <button class="toolBtn" (click)="savePainting()" title="Save">💾</button>
+        <button class="toolBtn" (click)="loadPaintingByFileId()" title="Load by ID">📥</button>
+        <button class="toolBtn" (click)="downloadPainting()" title="Download">📤</button>
+      </div>
+      <div class="toolGroup">
+        <label class="toolLabel">
+          Size:
+          <select [(ngModel)]="brushSize" class="sizeSelect">
+            <option *ngFor="let s of brushSizes" [value]="s">{{ s }}px</option>
+          </select>
+        </label>
+      </div>
+      <div class="toolGroup" *ngIf="currentTool === 'text'">
+        <label class="toolLabel">
+          Font:
+          <select [(ngModel)]="fontFamily" class="sizeSelect">
+            <option value="Arial">Arial</option>
+            <option value="Courier New">Courier New</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="Verdana">Verdana</option>
+          </select>
+        </label>
+        <label class="toolLabel">
+          Size:
+          <input type="number" [(ngModel)]="fontSize" class="sizeInput" min="8" max="200" />
+        </label>
+      </div>
+      <div class="toolGroup">
+        <label class="toolLabel colorLabel" [style.background]="currentColor">
+          <input type="color" [value]="currentColor" (input)="onColorChange($any($event.target).value)"
+            class="colorPickerHidden" #colorInput />
+        </label>
+        <span *ngFor="let c of recentColors" class="colorSwatch" [style.background]="c"
+          (click)="onColorChange(c)"></span>
+      </div>
+      <div class="toolGroup">
+        <label class="toolLabel">
+          <input type="checkbox" [(ngModel)]="showColorPicker" /> Palette
+        </label>
       </div>
     </div>
-    <div class="colorPalette" *ngIf="showColorPicker">
-      <div class="paletteTitle">Colors</div>
-      <div class="paletteGrid">
-        <div *ngFor="let c of presetColors" class="paletteCell" [style.background]="c"
-          (click)="onColorChange(c)" [class.active]="currentColor === c"></div>
+    <div class="canvasWrapper" [class.showPalette]="showColorPicker">
+      <div class="canvasArea">
+        <div class="canvasStage">
+          <canvas #paintCanvas class="paintCanvas" (mousedown)="onMouseDown($event)" (mousemove)="onMouseMove($event)"
+            (mouseup)="onMouseUp($event)" (mouseleave)="onMouseLeave()"
+            (contextmenu)="$event.preventDefault()"></canvas>
+          <canvas #overlayCanvas class="overlayCanvas"></canvas>
+        </div>
       </div>
-      <div class="paletteCustom">
-        <input type="color" [value]="currentColor" (input)="onColorChange($any($event.target).value)" class="colorPickerFull" />
+      <div class="colorPalette" *ngIf="showColorPicker">
+        <div class="paletteTitle">Colors</div>
+        <div class="paletteGrid">
+          <div *ngFor="let c of presetColors" class="paletteCell" [style.background]="c" (click)="onColorChange(c)"
+            [class.active]="currentColor === c"></div>
+        </div>
+        <div class="paletteCustom">
+          <input type="color" [value]="currentColor" (input)="onColorChange($any($event.target).value)"
+            class="colorPickerFull" />
+        </div>
       </div>
     </div>
-  </div>
-  <div class="paintStatus">
-    <span>Tool: {{ currentTool }}</span>
-    <span>X: {{ cursorX }} Y: {{ cursorY }}</span>
-    <span>Size: {{ canvasWidth }}×{{ canvasHeight }}</span>
-    <span *ngIf="currentFileId">File #{{ currentFileId }}</span>
-    <span class="statusRight">
-      <label>
-        Visibility:
-        <select [(ngModel)]="visibility" class="sizeSelect">
-          <option value="Public">Public</option>
-          <option value="Private">Private</option>
-        </select>
-      </label>
-      <label>
-        File name:
-        <input type="text" [(ngModel)]="fileName" class="fileNameInput" placeholder="painting.png" />
-      </label>
-    </span>
+    <div class="paintStatus">
+      <span>Tool: {{ currentTool }}</span>
+      <span>X: {{ cursorX }} Y: {{ cursorY }}</span>
+      <span>Size: {{ canvasWidth }}×{{ canvasHeight }}</span>
+      <span *ngIf="currentFileId">File #{{ currentFileId }}</span>
+      <span class="statusRight">
+        <label>
+          Visibility:
+          <select [(ngModel)]="visibility" class="sizeSelect">
+            <option value="Public">Public</option>
+            <option value="Private">Private</option>
+          </select>
+        </label>
+        <label>
+          File name:
+          <input type="text" [(ngModel)]="fileName" class="fileNameInput" placeholder="painting.png" />
+        </label>
+      </span>
+    </div>
   </div>
 </div>
 
