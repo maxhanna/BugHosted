@@ -55,7 +55,7 @@
     <div *ngIf="youtubeResults?.length" class="metadataSearchWrapper" [style.opacity]="isSearchingYoutube ? 0.5 : 1"  [style.max-Height]="onlySearch ? '30vh' : ''">
       <div class="metadataSearchDiv gradientBackground">
         <div class="groupDomainTitle">YouTube Results</div>
-        <div *ngFor="let video of paginatedYoutubeResults" class="groupLinkWrapperDiv">
+        <div *ngFor="let video of youtubeResults.slice(0, youtubeDisplayLimit)" class="groupLinkWrapperDiv">
           <div class="groupLinkDataWrapperDiv">
             <div class="descriptionDiv titleClass cursorPointer linkTextDecoration">
               <a class="pageTitleLink" [attr.href]="video.url" target="_blank"
@@ -75,12 +75,23 @@
             </a>
           </div>
         </div>
-        <div style="text-align: center; margin-top:10px;" *ngIf="youtubeTotalPages >1">
-          <button (click)="onYoutubePageChange(youtubeCurrentPage -1)"
-            [disabled]="youtubeCurrentPage <=1">Previous</button>
-          <span>Page {{ youtubeCurrentPage }} of {{ youtubeTotalPages }}</span>
-          <button (click)="onYoutubePageChange(youtubeCurrentPage +1)"
-            [disabled]="youtubeCurrentPage >= youtubeTotalPages">Next</button>
+        <div style="text-align: center; margin-top:10px;" *ngIf="youtubeResults.length > youtubeDisplayLimit">
+          <button (click)="showMoreYoutube()">Display more YouTube results ({{ youtubeResults.length - youtubeDisplayLimit }} more)</button>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="socialResults?.length" class="metadataSearchWrapper" [style.max-Height]="onlySearch ? '30vh' : ''">
+      <div class="metadataSearchDiv gradientBackground">
+        <div class="groupDomainTitle">Reddit, X, Facebook Results</div>
+        <div *ngFor="let result of socialResults.slice(0, socialDisplayLimit)" class="groupLinkWrapperDiv">
+          <app-crawler-search-results style="width:100%" [result]="result"
+            [inputtedParentRef]="inputtedParentRef ?? parentRef" [onlySearch]="onlySearch"
+            (urlSelectedEvent)="visitExternalLink($event)">
+          </app-crawler-search-results>
+        </div>
+        <div style="text-align: center; margin-top:10px;" *ngIf="socialResults.length > socialDisplayLimit">
+          <button (click)="showMoreSocial()">Display more Reddit, X, Facebook results ({{ socialResults.length - socialDisplayLimit }} more)</button>
         </div>
       </div>
     </div>
@@ -103,7 +114,7 @@
         </span>
       </div>
       <div style="text-align:center">
-        <button *ngIf="totalPages > 1 && currentPage < totalPages" (click)="onPageChange()">Load More Results</button>
+        <button *ngIf="totalPages > 1 && currentPage < totalPages" (click)="onPageChange()">Display More Web Results</button>
       </div>
     </div>
     <div *ngIf="searchResults?.length == 0 && !error && !isLoading" class="smallFont nbDiv">

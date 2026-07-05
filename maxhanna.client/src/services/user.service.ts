@@ -958,6 +958,19 @@ export class UserService {
     }
   }
 
+  async banUser(tgtUserId: number, userId: number, reason: string, sessionToken: string): Promise<boolean> {
+    try {
+      const response = await fetch('/user/ban', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify({ UserId: userId, Reason: reason, TargetUserId: tgtUserId }),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
   async getAppeals(adminUserId: number, sessionToken: string): Promise<any[]> {
     try {
       const response = await fetch('/user/getappeals', {

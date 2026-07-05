@@ -507,6 +507,12 @@
                 <button (click)="copyLink()">📋Share</button>
               </div>
             </div>
+            <div *ngIf="canBanUser(user)" class="optionsStatsDiv" style="margin-top: 12px; border-top: 1px solid var(--border-color, #555); padding-top: 12px;">
+              <div class="optionsStatsHeader" style="color: #ff4444;">Moderator Actions</div>
+              <div class="optionsStatsDescription">
+                <button (click)="banUser(user)" style="background: #cc0000; color: white; border: none; padding: 6px 16px; border-radius: 3px; cursor: pointer;">Ban User</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -1146,7 +1146,7 @@ namespace maxhanna.Server.Controllers
             END,
             longest_streak = CASE
               WHEN last_seen_date = UTC_DATE() THEN longest_streak
-              WHEN DATEDIFF(UTC_DATE(), last_seen_date) = 1 THEN GREATEST(longest_streak, current_streak + 1)
+              WHEN DATEDIFF(UTC_DATE(), last_seen_date) = 1 THEN GREATEST(longest_streak, current_streak)
               ELSE GREATEST(longest_streak, 1)
             END,
             last_seen_date = UTC_DATE(),
@@ -1522,7 +1522,7 @@ namespace maxhanna.Server.Controllers
       {
         try
         {
-          await conn.OpenAsync(); 
+          await conn.OpenAsync();
 
           // Step 1: Retrieve stored hash and salt for the given username
           string selectSql = @"
@@ -1819,7 +1819,7 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
- 
+
         if (request.Remove)
         {
           string deleteSql = "DELETE FROM maxhanna.user_roles WHERE user_id = @UserId AND role = @Role;";
@@ -1862,7 +1862,7 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
- 
+
         string sql = @"
           SELECT u.id, u.username, u.last_seen, ur.role, ur.assigned_at, ur.assigned_by,
             udp.file_id as display_file_id
@@ -1893,6 +1893,41 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+
+    [HttpPost("/User/BanUser", Name = "BanUser")]
+    public async Task<IActionResult> BanUser(
+      [FromBody] BanUserRequest req,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (!await _log.ValidateUserLoggedIn(req.UserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+
+
+      string lockSql = "INSERT INTO maxhanna.user_account_lock (user_id, locked_at, locked_by_ip, reason) VALUES (@UserId, UTC_TIMESTAMP(), (SELECT location FROM maxhanna.user_ip_address WHERE user_id = @ModUserId LIMIT 1), 'Account locked.' + @Reason);";
+
+      string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      using (MySqlConnection conn = new MySqlConnection(connectionString))
+      {
+        try
+        {
+          await conn.OpenAsync();
+          using (var lockCmd = new MySqlCommand(lockSql, conn))
+          {
+            lockCmd.Parameters.AddWithValue("@UserId", req.TargetUserId);
+            lockCmd.Parameters.AddWithValue("@ModUserId", req.UserId);
+            lockCmd.Parameters.AddWithValue("@Reason", req.Reason ?? "No reason provided.");
+            await lockCmd.ExecuteNonQueryAsync();
+          }
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db("Error banning user: " + ex.Message, req.UserId, "USER", true);
+          return StatusCode(500, "Failed to ban user.");
+        }
+
+        return Ok();
+      }
+    }
+
     [HttpPost("/User/GetAppeals", Name = "GetAppeals")]
     public async Task<IActionResult> GetAppeals(
       [FromBody] int adminUserId,
@@ -1908,7 +1943,7 @@ namespace maxhanna.Server.Controllers
         try
         {
           await conn.OpenAsync();
- 
+
           string sql = @"
             SELECT a.id, a.user_id, a.appeal_text, a.created_at, a.resolved_at, a.resolved_by, a.resolution, u.username
             FROM maxhanna.user_appeal a
@@ -3661,4 +3696,10 @@ public class SetRoleRequest
   public string Role { get; set; } = "moderator";
   public int CallerUserId { get; set; }
   public bool Remove { get; set; }
+}
+public class BanUserRequest
+{
+  public int TargetUserId { get; set; }
+  public int UserId { get; set; }
+  public string Reason { get; set; } = "No reason provided.";
 }

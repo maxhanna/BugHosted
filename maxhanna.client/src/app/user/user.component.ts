@@ -1373,6 +1373,43 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       this.isTrophyExpanded = true;
     }, 50);
   }
+  canBanUser(tgt: User): boolean {
+    if (tgt.id === this.parentRef?.user?.id) {
+      return false;
+    }
+    if (tgt.role === "admin" || tgt.id === 1) {
+      return false;
+    }
+    const user = this.parentRef?.user;
+    const sessionToken = this.parentRef?.getSessionToken();
+    if (user?.role === "admin" || user?.role === "moderator") {
+      return true;
+    }
+    return false;
+  }
+
+  async banUser(tgt: User, reason: string): Promise<boolean> {
+    if (tgt.id === this.parentRef?.user?.id) {
+      return false;
+    }
+    if (tgt.role === "admin" || tgt.id === 1) {
+      return false;
+    }
+    const user = this.parentRef?.user;
+    const sessionToken = await this.parentRef?.getSessionToken();
+    if (user?.role === "admin" || user?.role === "moderator") {
+      this.startLoading();
+      this.cdr.detectChanges();
+      await this.userService.banUser(tgt.id ?? 0, this.parentRef?.user?.id ?? 0, reason, sessionToken ?? "").then((res: any) => {
+        if (res) {
+          this.parentRef?.showNotification(res);
+          this.ngOnInit();
+        }
+        this.stopLoading();
+      });
+    }
+    return false;
+  }
   get componentMainClass(): string {
     if (this.loginOnly) {
       return "";

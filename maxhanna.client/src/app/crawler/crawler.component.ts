@@ -26,10 +26,6 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   currentPage: number = 1;
   totalResults: number = 0;
   totalPages: number = 0;
-  youtubeCurrentPage: number = 1;
-  youtubeTotalPages: number = 0;
-  youtubePageSize: number = 10;
-  paginatedYoutubeResults: YoutubeVideo[] = [];
   showYoutubePopup: boolean = false;
   currentYoutubeVideoUrl: string = '';
   sanitizedYoutubeUrl: any = '';
@@ -41,6 +37,10 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   isKeywordsDisabled: boolean = false;
   youtubeResults: YoutubeVideo[] = [];
   isSearchingYoutube = false;
+  youtubeDisplayLimit = 10;
+  socialResults: LightweightSearchResult[] = [];
+  socialDisplayLimit = 10;
+  private socialDomains = ['reddit.com', 'www.reddit.com', 'twitter.com', 'www.twitter.com', 'x.com', 'www.x.com', 'facebook.com', 'www.facebook.com'];
 
   @ViewChild('pageSizeDropdown') pageSizeDropdown!: ElementRef<HTMLSelectElement>;
   @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
@@ -172,8 +172,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     this.crawlerService.searchYoutube(this.keywordsInput.nativeElement.value.trim()).then(response => {
       this.youtubeResults = response ?? [];
       this.isSearchingYoutube = false;
-      this.youtubeCurrentPage = 1;
-      this.filterYoutubeResults();
+      this.youtubeDisplayLimit = 10;
     });
     await this.doSearch(keywords, false, skipScrape);
   }
@@ -218,6 +217,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
         this.totalPages = Math.ceil(this.totalResults / this.pageSize);
         this.searchResults = r.results ?? [];
         this.groupedResults = this.getGroupedResults(this.searchResults);
+        this.filterSocialResults();
         this.sortResults();
       } else {
         this.error = isExact ? "No data from given URL." : "No results for those keywords.";
@@ -252,6 +252,21 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       await parent?.addFavourite(url, '', '');
       if (parent) parent.closeOverlay();
     } catch (e) { }
+  }
+
+  private filterSocialResults() {
+    this.socialResults = [];
+    this.socialDisplayLimit = 10;
+    const socialSet = new Set(this.socialDomains);
+    const webOnly: typeof this.groupedResults = [];
+    for (const group of this.groupedResults ?? []) {
+      if (socialSet.has(group.domain)) {
+        for (const link of group.links) this.socialResults.push(link);
+      } else {
+        webOnly.push(group);
+      }
+    }
+    this.groupedResults = webOnly;
   }
 
   private getGroupedResults(results: LightweightSearchResult[]) {
@@ -304,16 +319,12 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     this.closeMenuPanel();
   }
 
-  onYoutubePageChange(page: number) {
-    this.youtubeCurrentPage = page;
-    this.filterYoutubeResults();
+  showMoreYoutube() {
+    this.youtubeDisplayLimit += 10;
   }
 
-  filterYoutubeResults() {
-    const startIndex = (this.youtubeCurrentPage - 1) * this.youtubePageSize;
-    const endIndex = startIndex + this.youtubePageSize;
-    this.paginatedYoutubeResults = this.youtubeResults.slice(startIndex, endIndex);
-    this.youtubeTotalPages = Math.ceil(this.youtubeResults.length / this.youtubePageSize);
+  showMoreSocial() {
+    this.socialDisplayLimit += 10;
   }
 
   onPageChange(page?: number) {
