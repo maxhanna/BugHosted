@@ -112,6 +112,20 @@ export class CrawlerService {
     }
   }
 
+  async wikipediaLookup(keyword: string): Promise<MetaData | null> {
+    try {
+      const response = await fetch(`/crawler/wikipedialookup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword })
+      });
+      if (!response.ok) return null;
+      return (await response.json()) as MetaData;
+    } catch {
+      return null;
+    }
+  }
+
   async searchYoutube(keyword: string): Promise<YoutubeVideo[] | null> {
     try {
       const response = await fetch(`/crawler/searchyoutube?keyword=${encodeURIComponent(keyword)}`, {

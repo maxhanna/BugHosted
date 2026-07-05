@@ -1,5 +1,5 @@
 <div class="componentMain">
-  <app-title-bar [title]="'Paint'"></app-title-bar>
+  <app-title-bar [title]="'Paint'" (closeClicked)="remove_me('PaintComponent')"></app-title-bar>
   <div class="paintContainer">
     <div class="paintToolbar">
       <div class="toolGroup">
@@ -60,8 +60,8 @@
     <div class="canvasWrapper" [class.showPalette]="showColorPicker">
       <div class="canvasArea">
         <div class="canvasStage">
-          <canvas #paintCanvas class="paintCanvas" (mousedown)="onMouseDown($event)" (mousemove)="onMouseMove($event)"
-            (mouseup)="onMouseUp($event)" (mouseleave)="onMouseLeave()"
+          <canvas #paintCanvas class="paintCanvas" (pointerdown)="onMouseDown($event)" (pointermove)="onMouseMove($event)"
+            (pointerup)="onMouseUp($event)" (pointerleave)="onMouseLeave()"
             (contextmenu)="$event.preventDefault()"></canvas>
           <canvas #overlayCanvas class="overlayCanvas"></canvas>
         </div>

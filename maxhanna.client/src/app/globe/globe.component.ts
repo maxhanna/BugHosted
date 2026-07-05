@@ -3,11 +3,10 @@
   ElementRef, ViewChild, HostListener, NgZone,
   EventEmitter, Input, Output
 } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { SocialService } from '../../services/social.service';
 import { EncryptionService } from '../../services/encryption.service';
+import { CrawlerService } from '../../services/crawler.service';
 import { NewsService } from '../../services/news.service';
 import { NewsPin } from '../../services/datacontracts/news/news-data';
 import { Story } from '../../services/datacontracts/social/story';
@@ -314,7 +313,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     private tileCacheService: TileCacheService,
     private flightService: FlightService,
     private userService: UserService,
-    private httpClient: HttpClient
+    private crawlerService: CrawlerService
   ) { }
 
   // =========================================================================
@@ -654,9 +653,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   async fetchWikipedia(keyword: string, ping?: ResolvedGlobePing): Promise<void> {
     this.wikipediaLoading = true;
     try {
-      const result: any = await firstValueFrom(
-        this.httpClient.post('/Crawler/WikipediaLookup', { keyword })
-      );
+      const result = await this.crawlerService.wikipediaLookup(keyword);
       this.selectedWikipediaData = result;
       this.showWikipediaPopup = true;
       if (ping) this.focusPing(ping);

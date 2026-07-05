@@ -1,5 +1,5 @@
 ﻿<div class="componentMain">
-  <app-title-bar [title]="'Paint'"></app-title-bar>
+  <app-title-bar [title]="'Moderator'" (closeClicked)="remove_me('ModeratorComponent')"></app-title-bar>
   <h1>Moderator Panel</h1>
 
   <div *ngIf="!parentRef?.user" class="smallFont">You must be logged in to access this panel.</div>
