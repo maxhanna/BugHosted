@@ -6267,7 +6267,7 @@ var mobSpeed = t switch
                             // ── NETHER STALAGMITE (grows up from floor) ──────────────────────────
                             // Also handles world-seeded stalagmites: if no marker but GetBaseBlockId says stalagmite
                             var baseBlockId2 = GetBaseBlockId(worldSeed, sx, sy, sz);
-                            _ = _log.Db($"[STALAGMITE] plantedBlockId={plantedBlockId}, GetBaseBlockId={baseBlockId2}", null, "DIGCRAFT", true);
+                            //_ = _log.Db($"[STALAGMITE] plantedBlockId={plantedBlockId}, GetBaseBlockId={baseBlockId2}", null, "DIGCRAFT", true);
                             if (plantedBlockId == BlockIds.NETHER_STALAGMITE ||
                                 (plantedBlockId == 0 && baseBlockId2 == BlockIds.NETHER_STALAGMITE))
                             {

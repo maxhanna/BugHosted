@@ -531,10 +531,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const dy = y - window.innerHeight * 0.7;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist > 80) {
-      this.joystickX = -dx / dist;
+      this.joystickX = dx / dist;
       this.joystickY = -dy / dist;
     } else if (dist > 1) {
-      this.joystickX = -dx / 80;
+      this.joystickX = dx / 80;
       this.joystickY = -dy / 80;
     } else {
       this.joystickX = 0;

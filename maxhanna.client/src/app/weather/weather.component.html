@@ -1,4 +1,4 @@
-<div class="componentMain">
+﻿<div class="componentMain">
   <div class="closeButton" (click)="remove_me('WeatherComponent');"></div>
   <div class="refreshButton" (click)="ngOnInit();"></div>
   <div class="componentTitle">Weather</div>
@@ -82,12 +82,14 @@
           </div>
         </div>
       </div>
-    </div>  
+    </div>
   </div>
 
-  <div class="lunarPhase">Current Lunar Phase: {{ getLunarPhase() }} {{ getLunarPhaseEmoji() }}</div> 
-  
   <div *ngIf="weather.current" class="currentWeatherStats optionsStatsWrapperDiv">
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader" title="Current Lunar Phase">Lunar Phase:</div>
+      <div class="optionsStatsDescription" title="Current Lunar Phase">{{ getLunarPhase() }} {{ getLunarPhaseEmoji() }}</div>
+    </div>
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader" title="Degrees in Celsius">Degrees °C:</div>
       <div class="optionsStatsDescription secondaryFontColor" title="Temperature and 'Feels Like' (in Celsius)">{{
