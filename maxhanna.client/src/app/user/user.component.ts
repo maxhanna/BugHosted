@@ -143,6 +143,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   loginUsernameHasEmail: boolean = false;
   emailCheckDebounce: any = null;
   displayUserLocation: boolean = true;
+  banReason = "";
 
   constructor(private userService: UserService,
     private nexusService: NexusService,
@@ -1373,7 +1374,8 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       this.isTrophyExpanded = true;
     }, 50);
   }
-  canBanUser(tgt: User): boolean {
+  canBanUser(tgt?: User): boolean {
+    if (!tgt) return false;
     if (tgt.id === this.parentRef?.user?.id) {
       return false;
     }
@@ -1388,7 +1390,8 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     return false;
   }
 
-  async banUser(tgt: User, reason: string): Promise<boolean> {
+  async banUser(tgt?: User): Promise<boolean> {
+    if (!tgt) return false;
     if (tgt.id === this.parentRef?.user?.id) {
       return false;
     }
@@ -1400,7 +1403,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
     if (user?.role === "admin" || user?.role === "moderator") {
       this.startLoading();
       this.cdr.detectChanges();
-      await this.userService.banUser(tgt.id ?? 0, this.parentRef?.user?.id ?? 0, reason, sessionToken ?? "").then((res: any) => {
+      await this.userService.banUser(tgt.id ?? 0, this.parentRef?.user?.id ?? 0, this.banReason, sessionToken ?? "").then((res: any) => {
         if (res) {
           this.parentRef?.showNotification(res);
           this.ngOnInit();
