@@ -5,6 +5,8 @@
   justify-content: flex-start;
   flex-direction: column;
   flex-wrap: nowrap;
+  overflow-anchor: none;
+  overscroll-behavior-y: contain;
 }
 
 .commentHeaderSmallExpander {
@@ -112,6 +114,22 @@
   max-width: 225px;
   max-height: 525px;
   margin-bottom: 10px;
+  overflow: visible;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.commentMediaFile app-media-viewer,
+.commentMediaFile img,
+.commentMediaFile video,
+.commentMediaFile audio {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .highlightedCommentCounter {
@@ -126,6 +144,9 @@
 
 .commentContent {
   word-break: break-word;
+  overflow-anchor: none;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 .commentContentAndAvatarContainerDiv {
