@@ -1548,44 +1548,47 @@ namespace maxhanna.Server.Controllers
 
               string ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
-              // Check if account is locked
-              string lockCheckSql = "SELECT id, locked_at, reason FROM maxhanna.user_account_lock WHERE user_id = @UserId AND unlocked_at IS NULL ORDER BY id DESC LIMIT 1;";
-              int? lockId = null;
-              DateTime? lockedAt = null;
-              string? lockReason = null;
-              using (var lockCmd = new MySqlCommand(lockCheckSql, conn))
-              {
-                lockCmd.Parameters.AddWithValue("@UserId", userId);
-                using (var lockReader = await lockCmd.ExecuteReaderAsync())
+              if (userId != 1) {
+
+                // Check if account is locked
+                string lockCheckSql = "SELECT id, locked_at, reason FROM maxhanna.user_account_lock WHERE user_id = @UserId AND unlocked_at IS NULL ORDER BY id DESC LIMIT 1;";
+                int? lockId = null;
+                DateTime? lockedAt = null;
+                string? lockReason = null;
+                using (var lockCmd = new MySqlCommand(lockCheckSql, conn))
                 {
-                  if (await lockReader.ReadAsync())
+                  lockCmd.Parameters.AddWithValue("@UserId", userId);
+                  using (var lockReader = await lockCmd.ExecuteReaderAsync())
                   {
-                    lockId = lockReader.GetInt32("id");
-                    lockedAt = lockReader.GetDateTime("locked_at");
-                    lockReason = lockReader.IsDBNull(lockReader.GetOrdinal("reason")) ? null : lockReader.GetString("reason");
+                    if (await lockReader.ReadAsync())
+                    {
+                      lockId = lockReader.GetInt32("id");
+                      lockedAt = lockReader.GetDateTime("locked_at");
+                      lockReason = lockReader.IsDBNull(lockReader.GetOrdinal("reason")) ? null : lockReader.GetString("reason");
+                    }
                   }
                 }
-              }
 
-              if (lockId.HasValue)
-              {
-                // Check if there's a pending appeal
-                string appealCheckSql = "SELECT COUNT(*) FROM maxhanna.user_appeal WHERE user_id = @UserId AND resolved_at IS NULL;";
-                bool hasPendingAppeal = false;
-                using (var appealCmd = new MySqlCommand(appealCheckSql, conn))
+                if (lockId.HasValue)
                 {
-                  appealCmd.Parameters.AddWithValue("@UserId", userId);
-                  var count = await appealCmd.ExecuteScalarAsync();
-                  hasPendingAppeal = Convert.ToInt32(count) > 0;
+                  // Check if there's a pending appeal
+                  string appealCheckSql = "SELECT COUNT(*) FROM maxhanna.user_appeal WHERE user_id = @UserId AND resolved_at IS NULL;";
+                  bool hasPendingAppeal = false;
+                  using (var appealCmd = new MySqlCommand(appealCheckSql, conn))
+                  {
+                    appealCmd.Parameters.AddWithValue("@UserId", userId);
+                    var count = await appealCmd.ExecuteScalarAsync();
+                    hasPendingAppeal = Convert.ToInt32(count) > 0;
+                  }
+
+                  return StatusCode(423, new
+                  {
+                    isLocked = true,
+                    lockedAt = lockedAt,
+                    reason = lockReason ?? "Account locked due to suspicious activity",
+                    hasPendingAppeal = hasPendingAppeal
+                  });
                 }
-
-                return StatusCode(423, new
-                {
-                  isLocked = true,
-                  lockedAt = lockedAt,
-                  reason = lockReason ?? "Account locked due to suspicious activity",
-                  hasPendingAppeal = hasPendingAppeal
-                });
               }
 
               // Step 2: Hash the input password with the stored salt
@@ -1616,25 +1619,27 @@ namespace maxhanna.Server.Controllers
                     await attemptCmd.ExecuteNonQueryAsync();
                   }
 
-                  // Count total unknown-IP attempts for this user
-                  string countAttemptsSql = "SELECT COUNT(*) FROM maxhanna.user_unknown_ip_attempt WHERE user_id = @UserId;";
-                  int attemptCount = 0;
-                  using (var countCmd = new MySqlCommand(countAttemptsSql, conn))
-                  {
-                    countCmd.Parameters.AddWithValue("@UserId", userId);
-                    var count = await countCmd.ExecuteScalarAsync();
-                    attemptCount = Convert.ToInt32(count);
-                  }
-
-                  if (attemptCount >= 3)
-                  {
-                    // Lock the account
-                    string lockSql = "INSERT INTO maxhanna.user_account_lock (user_id, locked_at, locked_by_ip, reason) VALUES (@UserId, UTC_TIMESTAMP(), @IpAddress, 'Account locked due to multiple failed login attempts from unknown IP addresses.');";
-                    using (var lockCmd = new MySqlCommand(lockSql, conn))
+                  if (userId != 1) { 
+                    // Count total unknown-IP attempts for this user
+                    string countAttemptsSql = "SELECT COUNT(*) FROM maxhanna.user_unknown_ip_attempt WHERE user_id = @UserId;";
+                    int attemptCount = 0;
+                    using (var countCmd = new MySqlCommand(countAttemptsSql, conn))
                     {
-                      lockCmd.Parameters.AddWithValue("@UserId", userId);
-                      lockCmd.Parameters.AddWithValue("@IpAddress", ipAddress);
-                      await lockCmd.ExecuteNonQueryAsync();
+                      countCmd.Parameters.AddWithValue("@UserId", userId);
+                      var count = await countCmd.ExecuteScalarAsync();
+                      attemptCount = Convert.ToInt32(count);
+                    }
+
+                    if (attemptCount >= 3)
+                    {
+                      // Lock the account
+                      string lockSql = "INSERT INTO maxhanna.user_account_lock (user_id, locked_at, locked_by_ip, reason) VALUES (@UserId, UTC_TIMESTAMP(), @IpAddress, 'Account locked due to multiple failed login attempts from unknown IP addresses.');";
+                      using (var lockCmd = new MySqlCommand(lockSql, conn))
+                      {
+                        lockCmd.Parameters.AddWithValue("@UserId", userId);
+                        lockCmd.Parameters.AddWithValue("@IpAddress", ipAddress);
+                        await lockCmd.ExecuteNonQueryAsync();
+                      }
                     }
                   }
                 }
