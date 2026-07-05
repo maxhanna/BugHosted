@@ -68,8 +68,8 @@ public class PaintController : ControllerBase
 
         var vis = request.Visibility ?? "Public";
         var cmd = new MySqlCommand(@"
-          INSERT INTO maxhanna.file_uploads (user_id, file_name, given_file_name, upload_date, folder_path, is_public, is_folder, file_size, file_type, width, height, last_updated, last_updated_by_user_id)
-          VALUES (@uid, @fn, @gfn, UTC_TIMESTAMP(), @fp, @pub, 0, @fs, @ft, @w, @h, UTC_TIMESTAMP(), @uid);
+          INSERT INTO maxhanna.file_uploads (user_id, file_name, given_file_name, upload_date, folder_path, is_public, is_folder, file_size, width, height, last_updated, last_updated_by_user_id)
+          VALUES (@uid, @fn, @gfn, UTC_TIMESTAMP(), @fp, @pub, 0, @fs, @w, @h, UTC_TIMESTAMP(), @uid);
           SELECT LAST_INSERT_ID();", conn);
 
         cmd.Parameters.AddWithValue("@uid", request.UserId);
@@ -77,8 +77,7 @@ public class PaintController : ControllerBase
         cmd.Parameters.AddWithValue("@gfn", givenFileName);
         cmd.Parameters.AddWithValue("@fp", uploadDir);
         cmd.Parameters.AddWithValue("@pub", vis == "Public" ? 1 : 0);
-        cmd.Parameters.AddWithValue("@fs", (int)fileSize);
-        cmd.Parameters.AddWithValue("@ft", ext);
+        cmd.Parameters.AddWithValue("@fs", (int)fileSize); 
         cmd.Parameters.AddWithValue("@w", request.Width ?? 0);
         cmd.Parameters.AddWithValue("@h", request.Height ?? 0);
 
