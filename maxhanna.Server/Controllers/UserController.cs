@@ -1799,8 +1799,12 @@ namespace maxhanna.Server.Controllers
     }
 
     [HttpPost("/User/SetRole", Name = "SetRole")]
-    public async Task<IActionResult> SetRole([FromBody] SetRoleRequest request)
+    public async Task<IActionResult> SetRole(
+      [FromBody] SetRoleRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
     {
+      if (!await _log.ValidateUserLoggedIn(request.CallerUserId, encryptedUserIdHeader))
+        return StatusCode(500, "Access Denied.");
       if (request.CallerUserId != 1 && !await IsModeratorAsync(request.CallerUserId))
         return Unauthorized("Only moderators can change roles.");
 
@@ -1844,8 +1848,12 @@ namespace maxhanna.Server.Controllers
     }
 
     [HttpPost("/User/GetModerators", Name = "GetModerators")]
-    public async Task<IActionResult> GetModerators([FromBody] int callerUserId)
+    public async Task<IActionResult> GetModerators(
+      [FromBody] int callerUserId,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
     {
+      if (!await _log.ValidateUserLoggedIn(callerUserId, encryptedUserIdHeader))
+        return StatusCode(500, "Access Denied.");
       if (callerUserId != 1 && !await IsModeratorAsync(callerUserId))
         return Unauthorized("Only moderators can view moderators.");
 
@@ -1886,8 +1894,12 @@ namespace maxhanna.Server.Controllers
     }
 
     [HttpPost("/User/GetAppeals", Name = "GetAppeals")]
-    public async Task<IActionResult> GetAppeals([FromBody] int adminUserId)
+    public async Task<IActionResult> GetAppeals(
+      [FromBody] int adminUserId,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
     {
+      if (!await _log.ValidateUserLoggedIn(adminUserId, encryptedUserIdHeader))
+        return StatusCode(500, "Access Denied.");
       if (adminUserId != 1 && !await IsModeratorAsync(adminUserId)) return Unauthorized("Only moderators can view appeals.");
 
       string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
@@ -1934,10 +1946,14 @@ namespace maxhanna.Server.Controllers
     }
 
     [HttpPost("/User/ResolveAppeal", Name = "ResolveAppeal")]
-    public async Task<IActionResult> ResolveAppeal([FromBody] ResolveAppealRequest request)
+    public async Task<IActionResult> ResolveAppeal(
+      [FromBody] ResolveAppealRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
     {
       if (request == null || request.AppealId <= 0 || request.AdminUserId <= 0)
         return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(request.AdminUserId, encryptedUserIdHeader))
+        return StatusCode(500, "Access Denied.");
       if (request.AdminUserId != 1 && !await IsModeratorAsync(request.AdminUserId)) return Unauthorized("Only moderators can resolve appeals.");
 
       string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";

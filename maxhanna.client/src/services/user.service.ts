@@ -958,11 +958,11 @@ export class UserService {
     }
   }
 
-  async getAppeals(adminUserId: number): Promise<any[]> {
+  async getAppeals(adminUserId: number, sessionToken: string): Promise<any[]> {
     try {
       const response = await fetch('/user/getappeals', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
         body: JSON.stringify(adminUserId),
       });
       if (!response.ok) return [];
@@ -972,11 +972,11 @@ export class UserService {
     }
   }
 
-  async resolveAppeal(appealId: number, adminUserId: number, resolution: string): Promise<string | null> {
+  async resolveAppeal(appealId: number, adminUserId: number, resolution: string, sessionToken: string): Promise<string | null> {
     try {
       const response = await fetch('/user/resolveappeal', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
         body: JSON.stringify({ AppealId: appealId, AdminUserId: adminUserId, Resolution: resolution }),
       });
       if (!response.ok) return null;
@@ -987,11 +987,11 @@ export class UserService {
     }
   }
 
-  async setRole(targetUserId: number, role: string, callerUserId: number, remove: boolean = false): Promise<boolean> {
+  async setRole(targetUserId: number, role: string, callerUserId: number, remove: boolean = false, sessionToken: string): Promise<boolean> {
     try {
       const response = await fetch('/user/setrole', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
         body: JSON.stringify({ TargetUserId: targetUserId, Role: role, CallerUserId: callerUserId, Remove: remove }),
       });
       return response.ok;
@@ -1000,11 +1000,11 @@ export class UserService {
     }
   }
 
-  async getModerators(callerUserId: number): Promise<User[]> {
+  async getModerators(callerUserId: number, sessionToken: string): Promise<User[]> {
     try {
       const response = await fetch('/user/getmoderators', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
         body: JSON.stringify(callerUserId),
       });
       if (!response.ok) return [];
