@@ -122,11 +122,14 @@ namespace maxhanna.Server.Services
     }
     private async Task RunSmokeTest()
     {
-      Console.WriteLine("Running initial smoke tests (if any) ..."); 
-      await _dbQueue.EnqueueAsync(async () =>
-      {
-        await _log.DeleteOldLogs();
-      });
+      Console.WriteLine("Running initial smoke tests (if any) ...");  
+
+      try { await _dbQueue.EnqueueAsync(async () => { await _log.DeleteOldLogs(); }); }
+      catch (Exception ex) { _ = _log.Db($"Error in DeleteOldLogs: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
+
+      try { await _dbQueue.EnqueueAsync(async () => { await _log.BackupDatabase(); }); }
+      catch (Exception ex) { _ = _log.Db($"Error in BackupDatabase: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
+      
     }
     private async Task Run10SecondTasks()
     {
