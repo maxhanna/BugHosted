@@ -325,7 +325,7 @@ public class Log
         .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
       var schemaArgs = $"-h {host} -u {user} -p{password} --no-data --single-transaction --quick --skip-lock-tables --routines --events {database}";
-      var tableArgsBase = $"-h {host} -u {user} -p{password} --single-transaction --quick --skip-lock-tables --no-autocommit --extended-insert --hex-blob --order-by-primary {database}";
+      var tableArgsBase = $"-h {host} -u {user} -p{password} --single-transaction --quick --skip-lock-tables --no-autocommit --extended-insert --hex-blob {database}";
 
       // Always re-dump schema so new tables are captured even when resuming
       string schemaFile = Path.Combine(inprogressDir, "00_schema.sql.gz");
