@@ -1,19 +1,15 @@
 ﻿<div class="componentMain">
   <app-title-bar [title]="'Moderator'" (closeClicked)="remove_me('ModeratorComponent')"></app-title-bar>
-  <h1>Moderator Panel</h1>
 
   <div *ngIf="!parentRef?.user" class="smallFont">You must be logged in to access this panel.</div>
 
   <div *ngIf="parentRef?.user && !isModerator" class="smallFont">Access denied. Only moderators can use this panel.
   </div>
 
-  <div *ngIf="parentRef?.user && isModerator">
-    <h2>Moderator Management</h2>
-    <button (click)="toggleUserList()" [disabled]="modActionLoading">
-      {{ showUserList ? 'Cancel' : 'Add Moderators' }}
-    </button>
+  <div *ngIf="parentRef?.user && isModerator"> 
+    <button (click)="toggleUserList()" [disabled]="modActionLoading" *ngIf="!showUserList">Add Moderators</button>
 
-    <div *ngIf="showUserList">
+    <div *ngIf="showUserList" class="userSearchDiv">
       <app-user-list [selectionMode]="true" [inputtedParentRef]="parentRef" [openDirectlyToSearch]="true"
         [displayOnlyFriends]="false" [displayRadioFilters]="true" (userSelectClickEvent)="onUsersSelected($event)">
       </app-user-list>

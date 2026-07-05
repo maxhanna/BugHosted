@@ -3,3 +3,14 @@
   font-size: 18px;
   cursor: pointer;
 }
+
+.userSearchDiv {
+  margin-top: 10px;
+  max-height: 30vh;
+  overflow: auto;
+  max-width: 50%;
+  margin-left: auto;
+  margin-right: auto;
+  background: var(--gradient-background);
+  padding: 10px;
+}
