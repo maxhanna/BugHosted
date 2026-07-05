@@ -1642,8 +1642,8 @@ namespace maxhanna.Server.Controllers
                 return Unauthorized("Invalid username or password.");
               }
 
-              // Log IP address on successful login
-              string insertIpSql = "INSERT INTO maxhanna.user_ip_log (user_id, ip_address, created_at) VALUES (@UserId, @IpAddress, UTC_TIMESTAMP());";
+              // Log IP address on successful login (once per user+ip pair)
+              string insertIpSql = "INSERT IGNORE INTO maxhanna.user_ip_log (user_id, ip_address, created_at) VALUES (@UserId, @IpAddress, UTC_TIMESTAMP());";
               using (var insertCmd = new MySqlCommand(insertIpSql, conn))
               {
                 insertCmd.Parameters.AddWithValue("@UserId", userId);
