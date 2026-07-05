@@ -1356,6 +1356,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           && (element.classList.contains('messageContainer') || element.classList.contains('commentContent')))
         || elementTimestamp === timestamp) {
         foundMatch = true;
+        console.log("scrolling to quote");
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
         break;
       }
