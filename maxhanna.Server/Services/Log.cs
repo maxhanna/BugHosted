@@ -22,13 +22,15 @@ public class Log
 
   public async Task Db(string message, int? userId = null, string? type = "SYSTEM", bool outputToConsole = false)
   {
+    if (outputToConsole)
+    {
+      Console.WriteLine($"[{DateTime.Now:HH:mm}] {type}: {message}");
+    }
+
     await _dbQueue.EnqueueAsync(async () =>
     {
       _asyncLogger.TryEnqueue(message, type ?? "SYSTEM", userId); 
-    });
-
-    if (outputToConsole)
-      Console.WriteLine($"[{DateTime.Now:HH:mm}] {type}: {message}");
+    }); 
       
     return; // fire-and-forget to keep callers fast
   }
