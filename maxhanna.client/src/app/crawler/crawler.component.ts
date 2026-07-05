@@ -152,6 +152,8 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     this.crawlerService.searchYoutube(this.keywordsInput.nativeElement.value.trim()).then(response => {
       this.youtubeResults = response ?? [];
       this.isSearchingYoutube = false;
+      this.youtubeCurrentPage = 1;
+      this.filterYoutubeResults();
     });
     await this.doSearch(keywords, false, skipScrape);
   }
@@ -291,6 +293,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     const startIndex = (this.youtubeCurrentPage - 1) * this.youtubePageSize;
     const endIndex = startIndex + this.youtubePageSize;
     this.paginatedYoutubeResults = this.youtubeResults.slice(startIndex, endIndex);
+    this.youtubeTotalPages = Math.ceil(this.youtubeResults.length / this.youtubePageSize);
   }
 
   onPageChange(page?: number) {

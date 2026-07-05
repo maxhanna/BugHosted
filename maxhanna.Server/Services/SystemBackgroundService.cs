@@ -124,10 +124,10 @@ namespace maxhanna.Server.Services
     {
       Console.WriteLine("Running initial smoke tests (if any) ...");  
       
-      try { await _dbQueue.EnqueueAsync(async () => { Console.WriteLine("Deleting old logs..."); await _log.DeleteOldLogs(); }); }
+      try { await _dbQueue.EnqueueAsync(async () => { await _log.DeleteOldLogs(); }); }
       catch (Exception ex) { _ = _log.Db($"Error in DeleteOldLogs: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-      try { await _dbQueue.EnqueueAsync(async () => { Console.WriteLine("Backing up database..."); await _log.BackupDatabase(); }); }
+      try { await _dbQueue.EnqueueAsync(async () => { await _log.BackupDatabase(); }); }
       catch (Exception ex) { _ = _log.Db($"Error in BackupDatabase: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
     }
@@ -427,6 +427,9 @@ namespace maxhanna.Server.Services
 
       try
       {
+        try { await _dbQueue.EnqueueAsync(async () => { await _newsService.CreateDailyNewsStoryAsync(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in CreateDailyNewsStoryAsync: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
+
         try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldBattleReports(); }); }
         catch (Exception ex) { _ = _log.Db($"Error in DeleteOldBattleReports: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
@@ -458,13 +461,10 @@ namespace maxhanna.Server.Services
         catch (Exception ex) { _ = _log.Db($"Error in DeleteOldCoinMarketCaps: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
         try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldEnderScores(); }); }
-        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldEnderScores: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldEnderScores: {ex.Message}", null, "SYSTEM", outputToConsole: true); } 
 
-        try { await _dbQueue.EnqueueAsync(async () => { await _newsService.CreateDailyNewsStoryAsync(); }); }
-        catch (Exception ex) { _ = _log.Db($"Error in CreateDailyNewsStoryAsync: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
-
-        try { await _dbQueue.EnqueueAsync(async () => { await CleanupOldFavourites(); }); }
-        catch (Exception ex) { _ = _log.Db($"Error in CleanupOldFavourites: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
+        try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldFavourites(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldFavourites: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
         try { await _dbQueue.EnqueueAsync(async () => { await DeleteExpiredPasswordResetTokens(); }); }
         catch (Exception ex) { _ = _log.Db($"Error in DeleteExpiredPasswordResetTokens: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
@@ -2518,7 +2518,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
     }
 
 
-    private async Task CleanupOldFavourites()
+    private async Task DeleteOldFavourites()
     {
       try
       {
@@ -2526,11 +2526,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
         await conn.OpenAsync();
         string sql = @"DELETE FROM maxhanna.favourites WHERE creation_date < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR) AND COALESCE(access_count,0) < 3;";
         await using var cmd = new MySqlCommand(sql, conn);
-        int deleted = Convert.ToInt32(await cmd.ExecuteNonQueryAsync());
-        // if (deleted > 0)
-        // {
-        //   _ = _log.Db($"CleanupOldFavourites removed {deleted} rows", null, "SYSTEM");
-        // }
+        int deleted = Convert.ToInt32(await cmd.ExecuteNonQueryAsync()); 
       }
       catch (Exception ex)
       {
