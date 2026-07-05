@@ -10,7 +10,7 @@
     <button (click)="toggleUserList()" [disabled]="modActionLoading" *ngIf="!showUserList">Add Moderators</button>
 
     <div *ngIf="showUserList" class="userSearchDiv">
-      <app-user-list [selectionMode]="true" [inputtedParentRef]="parentRef" [openDirectlyToSearch]="true"
+      <app-user-list [selectionMode]="true" [inputtedParentRef]="parentRef" [openDirectlyToSearch]="true" [searchOnly]="true"
         [displayOnlyFriends]="false" [displayRadioFilters]="true" (userSelectClickEvent)="onUsersSelected($event)">
       </app-user-list>
       <div *ngIf="selectedUsers.length > 0" style="margin-top: 10px;">
