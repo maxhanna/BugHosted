@@ -246,11 +246,10 @@ public class Log
       string backupFolder = @"H:\Bughosted MYSQL backup";
       Directory.CreateDirectory(backupFolder);
 
-      // Check for most recent backup
+      // Check most recent completed backup
       var existingBackups = Directory.GetFiles(backupFolder, "backup_*.sql.gz")
         .Select(file =>
         {
-          // Strip both .gz and .sql: backup_2024-01-01_12-00-00.sql.gz → backup_2024-01-01_12-00-00
           string nameNoExt = Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(file));
           string datePart = nameNoExt.Replace("backup_", "");
           if (DateTime.TryParseExact(datePart, "yyyy-MM-dd_HH-mm-ss", null, System.Globalization.DateTimeStyles.None, out var parsedDate))
@@ -273,19 +272,30 @@ public class Log
       string? password = _config?.GetValue<string>("MySQL:Password");
       string? database = _config?.GetValue<string>("MySQL:Database");
 
-      string timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd_HH-mm-ss");
-
-      // ── Phase 1: table-by-table compressed dump ─────────────────────────────────
-      // Each table is dumped to its own .sql.gz file. This avoids long table locks,
-      // makes progress visible immediately, and if it crashes partial work is saved.
-
       string mysqldumpPath = @"E:\MySQL\MySQL Server 8.3\bin\mysqldump.exe";
-      var schemaArgs = $"-h {host} -u {user} -p{password} --no-data --single-transaction --quick --skip-lock-tables --routines --events {database}";
-      var tableArgsBase = $"-h {host} -u {user} -p{password} --single-transaction --quick --skip-lock-tables --no-autocommit --extended-insert --hex-blob --order-by-primary {database}";
 
-      // Get table list
+      // ── Phase 1: table-by-table compressed dump into inprogress dir ──────────────
+      // Uses a fixed directory + manifest so if cancelled and restarted, already-dumped
+      // tables are skipped.
+
+      string inprogressDir = Path.Combine(backupFolder, "backup_inprogress");
+      string manifestPath = Path.Combine(inprogressDir, "manifest.txt");
+      Directory.CreateDirectory(inprogressDir);
+
+      // Read completed set from manifest
+      var completed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+      if (File.Exists(manifestPath))
+      {
+        foreach (var line in await File.ReadAllLinesAsync(manifestPath))
+        {
+          var t = line.Trim();
+          if (t.Length > 0) completed.Add(t);
+        }
+      }
+
+      // Get current table list from DB
       var tables = new List<string>();
-      using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+      using (var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna")))
       {
         await conn.OpenAsync();
         using var cmd = new MySqlCommand("SHOW FULL TABLES WHERE Table_Type = 'BASE TABLE'", conn);
@@ -294,46 +304,88 @@ public class Log
           tables.Add(r.GetString(0));
       }
 
-      string backupDir = Path.Combine(backupFolder, $"backup_{timestamp}");
-      Directory.CreateDirectory(backupDir);
+      var schemaArgs = $"-h {host} -u {user} -p{password} --no-data --single-transaction --quick --skip-lock-tables --routines --events {database}";
+      var tableArgsBase = $"-h {host} -u {user} -p{password} --single-transaction --quick --skip-lock-tables --no-autocommit --extended-insert --hex-blob --order-by-primary {database}";
 
-      // Dump schema (no data) first so we have the structure even if data dump is interrupted
-      string schemaFile = Path.Combine(backupDir, "00_schema.sql.gz");
+      // Always re-dump schema so new tables are captured even when resuming
+      string schemaFile = Path.Combine(inprogressDir, "00_schema.sql.gz");
+      try { if (File.Exists(schemaFile)) File.Delete(schemaFile); } catch { }
       await Db($"Dumping database schema ({tables.Count} tables)...", null, "BACKUP", true);
-      await DumpTable(mysqldumpPath, schemaArgs, schemaFile);
-      await Db($"Schema dumped.", null, "BACKUP", true);
+      if (await DumpTable(mysqldumpPath, schemaArgs, schemaFile))
+      {
+        if (!completed.Contains("00_schema"))
+          await File.AppendAllTextAsync(manifestPath, "00_schema" + Environment.NewLine);
+        completed.Add("00_schema");
+        await Db($"Schema dumped.", null, "BACKUP", true);
+      }
 
       int total = tables.Count;
-      int done = 0;
+      int done = completed.Count(tables.Contains);
       long totalBytes = 0;
+
+      // Count bytes from already-dumped table files
+      foreach (var t in completed)
+      {
+        if (t == "00_schema") continue;
+        string fp = Path.Combine(inprogressDir, $"{t}.sql.gz");
+        if (File.Exists(fp)) totalBytes += new FileInfo(fp).Length;
+      }
+
+      var swTotal = System.Diagnostics.Stopwatch.StartNew();
+
       foreach (var table in tables)
       {
-        done++;
-        string outFile = Path.Combine(backupDir, $"{table}.sql.gz");
+        if (completed.Contains(table))
+        {
+          done++;
+          continue;
+        }
+
+        string outFile = Path.Combine(inprogressDir, $"{table}.sql.gz");
         string args = $"{tableArgsBase} {table}";
 
-        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var swTable = System.Diagnostics.Stopwatch.StartNew();
         bool ok = await DumpTable(mysqldumpPath, args, outFile);
-        sw.Stop();
+        swTable.Stop();
 
-        var fi = new FileInfo(outFile);
-        long mb = fi.Length / (1024 * 1024);
-        totalBytes += fi.Length;
-        string status = ok ? "OK" : "FAIL";
-        await Db($"[{done}/{total}] {table} — {mb} MB compressed in {sw.Elapsed.TotalSeconds:F1}s ({status})", null, "BACKUP", true);
+        done++;
+
+        if (ok)
+        {
+          await File.AppendAllTextAsync(manifestPath, table + Environment.NewLine);
+          completed.Add(table);
+          var fi = new FileInfo(outFile);
+          long mb = fi.Length / (1024 * 1024);
+          totalBytes += fi.Length;
+          await Db($"[{done}/{total}] {table} — {mb} MB compressed in {swTable.Elapsed.TotalSeconds:F1}s", null, "BACKUP", true);
+        }
+        else
+        {
+          await Db($"[{done}/{total}] {table} — FAILED (will retry next run)", null, "BACKUP", true);
+        }
+      }
+
+      swTotal.Stop();
+
+      // Check if all tables completed
+      bool allDone = tables.All(t => completed.Contains(t));
+      if (!allDone)
+      {
+        await Db($"Backup incomplete: {completed.Count(tables.Contains)}/{total} tables done. Will resume next run.", null, "BACKUP", true);
+        return false;
       }
 
       long totalMb = totalBytes / (1024 * 1024);
-      await Db($"Database backup complete: {done}/{total} tables, {totalMb} MB total in {backupDir}", null, "BACKUP", true);
+      await Db($"All {total} tables dumped ({totalMb} MB compressed, {swTotal.Elapsed.TotalMinutes:F1} min). Combining...", null, "BACKUP", true);
 
-      // ── Phase 2: create single-file combined backup for easy restore ────────────
-      // Concatenate all .sql.gz files + schema into one archive
+      // ── Phase 2: create single-file combined backup ─────────────────────────
+      string timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd_HH-mm-ss");
       string combinedPath = Path.Combine(backupFolder, $"backup_{timestamp}.sql.gz");
       using (var combinedStream = new FileStream(combinedPath, FileMode.Create, FileAccess.Write))
       {
         foreach (var table in tables.Prepend("00_schema"))
         {
-          string partPath = Path.Combine(backupDir, $"{table}.sql.gz");
+          string partPath = Path.Combine(inprogressDir, $"{table}.sql.gz");
           if (File.Exists(partPath))
           {
             using var partStream = new FileStream(partPath, FileMode.Open, FileAccess.Read);
@@ -342,13 +394,14 @@ public class Log
         }
       }
 
-      // Remove individual table files after combining
-      Directory.Delete(backupDir, recursive: true);
+      // Remove inprogress directory
+      Directory.Delete(inprogressDir, recursive: true);
+
+      await Db($"Database backup complete: {combinedPath} ({totalMb} MB)", null, "BACKUP", true);
 
       // Clean up backups older than 10 days
       foreach (var file in Directory.GetFiles(backupFolder, "backup_*.sql.gz"))
       {
-        // Strip both .gz and .sql extensions: backup_2024-01-01_12-00-00.sql.gz → backup_2024-01-01_12-00-00
         string nameNoExt = Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(file));
         string datePart = nameNoExt.Replace("backup_", "");
         if (DateTime.TryParseExact(datePart, "yyyy-MM-dd_HH-mm-ss", null, System.Globalization.DateTimeStyles.None, out var fileDate))
@@ -361,7 +414,7 @@ public class Log
         }
       }
 
-      // Clean up any old .sql files from the old format
+      // Clean up old-format .sql files
       foreach (var file in Directory.GetFiles(backupFolder, "backup_*.sql"))
       {
         File.Delete(file);
