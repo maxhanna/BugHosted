@@ -8077,9 +8077,10 @@ var mobSpeed = t switch
                        COALESCE(p.body_yaw, 0) as body_yaw, p.health, p.hunger, p.level, p.exp,
                        p.color, p.face, COALESCE(p.is_attacking, 0) as is_attacking,
                        COALESCE(p.is_defending, 0) as is_defending, p.last_seen,
-                       COALESCE(p.left_hand, 0) as left_hand,
+                       COALESCE(e.left_hand, 0) as left_hand,
                        COALESCE(u.username, 'Anon') as username
                 FROM maxhanna.digcraft_players p
+                LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = p.id
                 JOIN maxhanna.users u ON u.id = p.user_id
                 WHERE p.user_id = @uid AND p.world_id = @wid", conn);
             cmd.Parameters.AddWithValue("@uid", userId);
