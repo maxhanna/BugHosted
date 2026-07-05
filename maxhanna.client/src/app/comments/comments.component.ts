@@ -35,6 +35,8 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   hasDeeplinkChanged = false;
   _remainingPath: number[] | undefined;
   private _scrollAttemptCount = 0;
+  private scrollDebugListenersAttached = false;
+  private scrollDebugHandlers: Array<{ target: EventTarget; type: string; listener: EventListenerOrEventListenerObject; options?: boolean | AddEventListenerOptions }> = [];
 
   @ViewChild('addCommentInput') addCommentInput!: ElementRef<HTMLInputElement>;
   @ViewChild('subCommentComponent') subCommentComponent!: CommentsComponent;
@@ -127,6 +129,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
 
   ngAfterViewInit(): void {
     this.scheduleCommentPollRender();
+    this.attachScrollDebugListeners();
     if (this.depth === 0) {
       this.tryScrollToRequestedComment();
     }
@@ -153,12 +156,84 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   }
 
   ngOnDestroy(): void {
+    this.detachScrollDebugListeners();
     try {
       this.closedComments.clear();
     } catch { }
   }
 
- 
+  private attachScrollDebugListeners() {
+    if (this.scrollDebugListenersAttached) {
+      return;
+    }
+
+    const log = (...args: any[]) => console.log('[comments-scroll-debug]', ...args);
+    const logScroll = (event: Event, source: string) => {
+      const target = event.target as HTMLElement | null;
+      log(source, {
+        target: this.describeTarget(target),
+        scrollTop: target?.scrollTop ?? window.scrollY,
+        scrollHeight: target?.scrollHeight ?? document.documentElement.scrollHeight,
+        clientHeight: target?.clientHeight ?? window.innerHeight,
+      });
+    };
+
+    const onWindowScroll = (event: Event) => logScroll(event, 'window-scroll');
+    const onWheel = (event: Event) => {
+      const wheelEvent = event as WheelEvent;
+      log('wheel', {
+        target: this.describeTarget(wheelEvent.target as HTMLElement | null),
+        deltaY: wheelEvent.deltaY,
+        deltaX: wheelEvent.deltaX,
+        ctrlKey: wheelEvent.ctrlKey,
+      });
+    };
+    const onTouchMove = (event: Event) => {
+      const touchEvent = event as TouchEvent;
+      log('touchmove', {
+        target: this.describeTarget(touchEvent.target as HTMLElement | null),
+        touches: touchEvent.touches.length,
+        clientY: touchEvent.touches[0]?.clientY,
+        clientX: touchEvent.touches[0]?.clientX,
+      });
+    };
+
+    this.addScrollDebugListener(window, 'scroll', onWindowScroll);
+    this.addScrollDebugListener(window, 'wheel', onWheel, { passive: true });
+    this.addScrollDebugListener(window, 'touchmove', onTouchMove, { passive: true });
+
+    if (this.rootCommentsSection?.nativeElement) {
+      const root = this.rootCommentsSection.nativeElement;
+      this.addScrollDebugListener(root, 'scroll', (event) => logScroll(event, 'comments-scroll'), { passive: true });
+      this.addScrollDebugListener(root, 'wheel', onWheel, { passive: true });
+      this.addScrollDebugListener(root, 'touchmove', onTouchMove, { passive: true });
+    }
+
+    this.scrollDebugListenersAttached = true;
+  }
+
+  private addScrollDebugListener(target: EventTarget, type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) {
+    target.addEventListener(type, listener as EventListener, options);
+    this.scrollDebugHandlers.push({ target, type, listener, options });
+  }
+
+  private detachScrollDebugListeners() {
+    for (const handler of this.scrollDebugHandlers) {
+      handler.target.removeEventListener(handler.type, handler.listener as EventListener);
+    }
+    this.scrollDebugHandlers = [];
+    this.scrollDebugListenersAttached = false;
+  }
+
+  private describeTarget(target: HTMLElement | null): string {
+    if (!target) {
+      return 'none';
+    }
+    const id = target.id ? `#${target.id}` : '';
+    const classes = target.className ? `.${String(target.className).split(' ')[0]}` : '';
+    return `${target.tagName.toLowerCase()}${id}${classes}`;
+  }
+
 
   private findCommentPath(targetId: number, list: FileComment[]): FileComment[] | null {
     for (const c of list) {
