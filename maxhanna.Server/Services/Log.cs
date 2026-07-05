@@ -274,24 +274,11 @@ public class Log
 
       string mysqldumpPath = @"E:\MySQL\MySQL Server 8.3\bin\mysqldump.exe";
 
-      // ── Phase 1: table-by-table compressed dump into inprogress dir ──────────────
-      // Uses a fixed directory + manifest so if cancelled and restarted, already-dumped
-      // tables are skipped.
+      // ── Phase 1: build manifest of ALL tables upfront, then dump one by one ─────
 
       string inprogressDir = Path.Combine(backupFolder, "backup_inprogress");
       string manifestPath = Path.Combine(inprogressDir, "manifest.txt");
       Directory.CreateDirectory(inprogressDir);
-
-      // Read completed set from manifest
-      var completed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-      if (File.Exists(manifestPath))
-      {
-        foreach (var line in await File.ReadAllLinesAsync(manifestPath))
-        {
-          var t = line.Trim();
-          if (t.Length > 0) completed.Add(t);
-        }
-      }
 
       // Get current table list from DB
       var tables = new List<string>();
@@ -304,6 +291,39 @@ public class Log
           tables.Add(r.GetString(0));
       }
 
+      // Build manifest: ALL tables are listed from the start; completed ones have " -- done"
+      var manifestLines = new List<string>();
+      if (File.Exists(manifestPath))
+        manifestLines = (await File.ReadAllLinesAsync(manifestPath)).ToList();
+
+      // Add any tables not yet in manifest (new tables added after a partial backup)
+      bool manifestChanged = false;
+      foreach (var t in tables)
+      {
+        if (!manifestLines.Any(line => line.TrimEnd().Equals(t, StringComparison.OrdinalIgnoreCase) ||
+                                       line.TrimEnd().StartsWith(t + " -- done", StringComparison.OrdinalIgnoreCase)))
+        {
+          manifestLines.Add(t);
+          manifestChanged = true;
+        }
+      }
+
+      // Ensure 00_schema is first
+      if (!manifestLines.Any(line => line.TrimEnd() == "00_schema" || line.TrimEnd().StartsWith("00_schema -- done")))
+      {
+        manifestLines.Insert(0, "00_schema");
+        manifestChanged = true;
+      }
+
+      if (manifestChanged)
+        await File.WriteAllLinesAsync(manifestPath, manifestLines);
+
+      // Read the set of completed tables from manifest
+      HashSet<string> completed = manifestLines
+        .Where(line => line.TrimEnd().EndsWith(" -- done"))
+        .Select(line => line.TrimEnd()[..^7].Trim())
+        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
       var schemaArgs = $"-h {host} -u {user} -p{password} --no-data --single-transaction --quick --skip-lock-tables --routines --events {database}";
       var tableArgsBase = $"-h {host} -u {user} -p{password} --single-transaction --quick --skip-lock-tables --no-autocommit --extended-insert --hex-blob --order-by-primary {database}";
 
@@ -313,17 +333,16 @@ public class Log
       await Db($"Dumping database schema ({tables.Count} tables)...", null, "BACKUP", true);
       if (await DumpTable(mysqldumpPath, schemaArgs, schemaFile))
       {
-        if (!completed.Contains("00_schema"))
-          await File.AppendAllTextAsync(manifestPath, "00_schema" + Environment.NewLine);
+        MarkManifestDone(manifestLines, "00_schema");
         completed.Add("00_schema");
+        await File.WriteAllLinesAsync(manifestPath, manifestLines);
         await Db($"Schema dumped.", null, "BACKUP", true);
       }
 
       int total = tables.Count;
-      int done = completed.Count(tables.Contains);
+      int done = completed.Count(t => tables.Contains(t));
       long totalBytes = 0;
 
-      // Count bytes from already-dumped table files
       foreach (var t in completed)
       {
         if (t == "00_schema") continue;
@@ -333,13 +352,11 @@ public class Log
 
       var swTotal = System.Diagnostics.Stopwatch.StartNew();
 
+      // Walk tables in declared order; skip any already marked "-- done"
       foreach (var table in tables)
       {
         if (completed.Contains(table))
-        {
-          done++;
           continue;
-        }
 
         string outFile = Path.Combine(inprogressDir, $"{table}.sql.gz");
         string args = $"{tableArgsBase} {table}";
@@ -348,12 +365,12 @@ public class Log
         bool ok = await DumpTable(mysqldumpPath, args, outFile);
         swTable.Stop();
 
-        done++;
-
         if (ok)
         {
-          await File.AppendAllTextAsync(manifestPath, table + Environment.NewLine);
+          MarkManifestDone(manifestLines, table);
           completed.Add(table);
+          await File.WriteAllLinesAsync(manifestPath, manifestLines);
+          done++;
           var fi = new FileInfo(outFile);
           long mb = fi.Length / (1024 * 1024);
           totalBytes += fi.Length;
@@ -361,17 +378,16 @@ public class Log
         }
         else
         {
+          done++;
           await Db($"[{done}/{total}] {table} — FAILED (will retry next run)", null, "BACKUP", true);
         }
       }
 
       swTotal.Stop();
 
-      // Check if all tables completed
-      bool allDone = tables.All(t => completed.Contains(t));
-      if (!allDone)
+      if (!tables.All(t => completed.Contains(t)))
       {
-        await Db($"Backup incomplete: {completed.Count(tables.Contains)}/{total} tables done. Will resume next run.", null, "BACKUP", true);
+        await Db($"Backup incomplete: {done}/{total} tables done. Will resume next run.", null, "BACKUP", true);
         return false;
       }
 
@@ -429,9 +445,28 @@ public class Log
     }
   }
 
-  /// <summary>Dump a single table (or schema) via mysqldump with concurrent stdout/stderr reading to avoid deadlock.</summary>
+  /// <summary>Mark a table as "-- done" in the in-memory manifest list.</summary>
+  private static void MarkManifestDone(List<string> manifestLines, string table)
+  {
+    for (int i = 0; i < manifestLines.Count; i++)
+    {
+      var trimmed = manifestLines[i].TrimEnd();
+      if (trimmed == table || trimmed.StartsWith(table + " -- done", StringComparison.OrdinalIgnoreCase))
+      {
+        manifestLines[i] = $"{table} -- done";
+        return;
+      }
+    }
+    // If not found (shouldn't happen), append
+    manifestLines.Add($"{table} -- done");
+  }
+
+  /// <summary>Dump a single table via mysqldump with timeout. Returns false if it times out or fails.</summary>
   private async Task<bool> DumpTable(string mysqldumpPath, string arguments, string outputPath)
   {
+    // Per-table timeout: 30 minutes. mysqldump should never take this long for a single table.
+    using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(30));
+
     using var process = new Process
     {
       StartInfo = new ProcessStartInfo
@@ -447,23 +482,36 @@ public class Log
 
     process.Start();
 
-    // Read stdout and stderr CONCURRENTLY to prevent pipe buffer deadlock
     var stderrTask = process.StandardError.ReadToEndAsync();
     string? tmpPath = outputPath + ".tmp";
+
     try
     {
       using var fileStream = new FileStream(tmpPath, FileMode.Create, FileAccess.Write);
       using var gzipStream = new System.IO.Compression.GZipStream(fileStream, System.IO.Compression.CompressionLevel.Fastest);
-      await process.StandardOutput.BaseStream.CopyToAsync(gzipStream);
+
+      // Register the process kill on cancellation
+      await using (cts.Token.Register(() => { try { process.Kill(entireProcessTree: true); } catch { } }))
+      {
+        await process.StandardOutput.BaseStream.CopyToAsync(gzipStream, cts.Token);
+      }
+
+      await process.WaitForExitAsync(cts.Token);
+    }
+    catch (OperationCanceledException)
+    {
+      await Db($"BackupDatabase TIMEOUT: mysqldump killed for {arguments}", null, "BACKUP", true);
+      try { File.Delete(tmpPath); } catch { }
+      return false;
     }
     catch
     {
+      try { process.Kill(entireProcessTree: true); } catch { }
       await process.WaitForExitAsync();
       try { File.Delete(tmpPath); } catch { }
       throw;
     }
 
-    await process.WaitForExitAsync();
     string stderr = await stderrTask;
 
     if (process.ExitCode != 0)
@@ -473,7 +521,6 @@ public class Log
       return false;
     }
 
-    // Atomically rename .tmp → final name so partial files are obvious
     if (File.Exists(outputPath)) File.Delete(outputPath);
     File.Move(tmpPath, outputPath);
     return true;

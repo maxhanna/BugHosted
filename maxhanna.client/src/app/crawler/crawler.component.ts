@@ -30,6 +30,9 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   youtubeTotalPages: number = 0;
   youtubePageSize: number = 10;
   paginatedYoutubeResults: YoutubeVideo[] = [];
+  showYoutubePopup: boolean = false;
+  currentYoutubeVideoUrl: string = '';
+  sanitizedYoutubeUrl: any = '';
   pageSizes: number[] = [50, 100, 150, 300];
   pageSize: number = this.pageSizes[0];
   isFavouritedByPanelOpen: boolean = false;
@@ -115,6 +118,23 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       this.urlSelectedEvent.emit(url);
     }
     this.parentRef?.indexLink(url);
+  }
+
+  openYoutubePopup(event: MouseEvent, url: string) {
+    if (event.button === 1) return;
+    event.preventDefault();
+    const match = url.match(/(?:v=|youtu\.be\/|\/embed\/)([a-zA-Z0-9_-]{11})/);
+    this.currentYoutubeVideoUrl = match
+      ? `https://www.youtube.com/embed/${match[1]}?autoplay=1`
+      : url;
+    this.sanitizedYoutubeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.currentYoutubeVideoUrl);
+    this.showYoutubePopup = true;
+  }
+
+  closeYoutubePopup() {
+    this.showYoutubePopup = false;
+    this.currentYoutubeVideoUrl = '';
+    this.sanitizedYoutubeUrl = '';
   }
 
   openFavouritedByPanel(url?: string) {

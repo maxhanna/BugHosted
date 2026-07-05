@@ -53,15 +53,17 @@
           <div class="groupLinkDataWrapperDiv">
             <div class="descriptionDiv titleClass cursorPointer linkTextDecoration">
               <a class="pageTitleLink" [attr.href]="video.url" target="_blank"
-                (click)="parentRef?.visitExternalLink(video.url)">{{ video.title }}</a>
+                (click)="openYoutubePopup($event, video.url)">{{ video.title }}</a>
             </div>
             <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
-              <a [attr.href]="video.url" (click)="parentRef?.visitExternalLink(video.url)" target="_blank">{{ video.url }}</a>
+              <a [attr.href]="video.url" target="_blank"
+                (click)="openYoutubePopup($event, video.url)">{{ video.url }}</a>
             </div>
             <div *ngIf="video.description" class="descriptionDiv descriptClass">{{ video.description }}</div>
             </div>
             <div class="imageUrlPictureDiv">
-              <a [attr.href]="video.url" target="_blank" [title]="video.title" (click)="parentRef?.visitExternalLink(video.url)">
+              <a [attr.href]="video.url" target="_blank" [title]="video.title"
+                (click)="openYoutubePopup($event, video.url)">
                 <img [src]="video.thumbnailUrl" [attr.loading]="'lazy'" [title]="video.title"
                 (error)="video.thumbnailUrl = ''" />
               </a>
@@ -139,6 +141,22 @@
   </div>
   <div class="smallFont">Note: You can index your website by searching for it.</div>
   <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
+</div>
+
+<!-- YouTube Video Popup -->
+<div class="popupPanel" *ngIf="showYoutubePopup" style="width: min(90vw, 800px); height: min(80vh, 600px);">
+  <div class="popupPanelTitle" style="display: flex; justify-content: space-between; align-items: center;">
+    <span>YouTube Video</span>
+    <span (click)="closeYoutubePopup()" class="cursorPointer" style="font-size: 20px; line-height: 1;">&times;</span>
+  </div>
+  <div style="padding: 10px; height: calc(100% - 50px);">
+    <iframe
+      [src]="sanitizedYoutubeUrl"
+      style="width: 100%; height: 100%; border: none;"
+      allowfullscreen>
+    </iframe>
+  </div>
+  <button (click)="closeYoutubePopup()" class="closeButton">Close</button>
 </div>
 
 <!-- Favourited By Popup -->
