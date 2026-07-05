@@ -8,7 +8,8 @@
     <div *ngIf="!searchResults.length && !onMobile() && !onlySearch">Total indexes: {{indexCount}}</div>
     <div *ngIf="searchResults?.length && !onMobile() && !onlySearch">Search results: {{totalResults}}</div>
   </div>
-  <div class="crawler-container" [style.opacity]="isLoading ? 0.5 : 1" [style.position]="onlySearch ? 'relative' : ''"
+
+  <div class="crawler-container" [style.position]="onlySearch ? 'relative' : ''"
     [style.top]="onlySearch ? '-35px' : ''">
     <div style="text-align: center;">
       <div [class]="!onlySearch ? 'crawlerInputs' : ''" *ngIf="totalPages > 1" style="margin-bottom:10px">
@@ -22,13 +23,15 @@
             <input #urlInput type="text" placeholder="e.g. https://www.example.com/path" (keydown.enter)="searchUrl()"
               (input)="onUrlInput()" [disabled]="isUrlDisabled" />
             <button (click)="searchUrl()"
-              [disabled]="isLoading || !(urlInput?.value && urlInput.value.trim())">🔍{{!onMobile() ? 'Crawl' : ''}}</button>
+              [disabled]="isLoading || !(urlInput?.value && urlInput.value.trim())">🔍{{!onMobile() ? 'Crawl' :
+              ''}}</button>
           </div>
           <div>
             <input #keywordsInput type="text" placeholder="keywords (search title/description/url)"
               (keydown.enter)="searchKeywords()" (input)="onKeywordsInput()" [disabled]="isKeywordsDisabled" />
             <button (click)="searchKeywords()"
-              [disabled]="isLoading || !(keywordsInput?.value && keywordsInput.value.trim())">🔎{{!onMobile() ? 'Keywords' : ''}}</button>
+              [disabled]="isLoading || !(keywordsInput?.value && keywordsInput.value.trim())">🔎{{!onMobile() ?
+              'Keywords' : ''}}</button>
           </div>
         </div>
         <button (click)="addWithoutSearch()" [disabled]="isLoading || !(urlInput?.value && urlInput.value.trim())"
@@ -40,13 +43,16 @@
         restrict results to a single domain.</div>
     </div>
 
-    <div *ngIf="isLoading" class="loadingNotificationDiv"><app-loading-spinner [icon]="'🕸️'"></app-loading-spinner></div>
+    <div *ngIf="isLoading" class="loadingNotificationDiv">
+      <app-loading-spinner [icon]="'🕸️'"></app-loading-spinner>
+    </div>
     <div *ngIf="isSearchingYoutube" class="loadingNotificationDiv">
       <app-loading-spinner [icon]="'▶️'"></app-loading-spinner>
     </div>
 
     <div *ngIf="error" class="error-message">{{ error }}</div>
-    <div *ngIf="youtubeResults?.length" class="metadataSearchWrapper" [style.max-Height]="onlySearch ? '30vh' : ''">
+
+    <div *ngIf="youtubeResults?.length" class="metadataSearchWrapper" [style.opacity]="isSearchingYoutube ? 0.5 : 1"  [style.max-Height]="onlySearch ? '30vh' : ''">
       <div class="metadataSearchDiv gradientBackground">
         <div class="groupDomainTitle">YouTube Results</div>
         <div *ngFor="let video of paginatedYoutubeResults" class="groupLinkWrapperDiv">
@@ -56,36 +62,40 @@
                 (click)="openYoutubePopup($event, video.url)">{{ video.title }}</a>
             </div>
             <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
-              <a [attr.href]="video.url" target="_blank"
-                (click)="openYoutubePopup($event, video.url)">{{ video.url }}</a>
+              <a [attr.href]="video.url" target="_blank" (click)="openYoutubePopup($event, video.url)">{{ video.url
+                }}</a>
             </div>
             <div *ngIf="video.description" class="descriptionDiv descriptClass">{{ video.description }}</div>
-            </div>
-            <div class="imageUrlPictureDiv">
-              <a [attr.href]="video.url" target="_blank" [title]="video.title"
-                (click)="openYoutubePopup($event, video.url)">
-                <img [src]="video.thumbnailUrl" [attr.loading]="'lazy'" [title]="video.title"
-                (error)="video.thumbnailUrl = ''" />
-              </a>
-            </div>
           </div>
-          <div style="text-align: center; margin-top:10px;" *ngIf="youtubeTotalPages >1">
-            <button (click)="onYoutubePageChange(youtubeCurrentPage -1)" [disabled]="youtubeCurrentPage <=1">Previous</button>
-            <span>Page {{ youtubeCurrentPage }} of {{ youtubeTotalPages }}</span>
-            <button (click)="onYoutubePageChange(youtubeCurrentPage +1)" [disabled]="youtubeCurrentPage >= youtubeTotalPages">Next</button>
+          <div class="imageUrlPictureDiv">
+            <a [attr.href]="video.url" target="_blank" [title]="video.title"
+              (click)="openYoutubePopup($event, video.url)">
+              <img [src]="video.thumbnailUrl" [attr.loading]="'lazy'" [title]="video.title"
+                (error)="video.thumbnailUrl = ''" />
+            </a>
           </div>
         </div>
+        <div style="text-align: center; margin-top:10px;" *ngIf="youtubeTotalPages >1">
+          <button (click)="onYoutubePageChange(youtubeCurrentPage -1)"
+            [disabled]="youtubeCurrentPage <=1">Previous</button>
+          <span>Page {{ youtubeCurrentPage }} of {{ youtubeTotalPages }}</span>
+          <button (click)="onYoutubePageChange(youtubeCurrentPage +1)"
+            [disabled]="youtubeCurrentPage >= youtubeTotalPages">Next</button>
+        </div>
       </div>
-    <div class="metadataSearchWrapper" [style.max-Height]="onlySearch ? '30vh' : ''">
+    </div>
+
+    <div class="metadataSearchWrapper" [style.opacity]="isLoading ? 0.5 : 1"
+      [style.max-Height]="onlySearch ? '30vh' : ''">
       <div *ngFor="let group of groupedResults" class="metadataSearchDiv gradientBackground">
         <div class="groupDomainTitle">
           {{ group.domain }}
         </div>
         <div *ngFor="let result of group.links; let i = index"
           [class]="(group.showSubdomains || i === 0) ? 'groupLinkWrapperDiv' : ''">
-          <app-crawler-search-results *ngIf="group.showSubdomains || i === 0" style="width:100%"
-            [result]="result" [inputtedParentRef]="inputtedParentRef ?? parentRef"
-            [onlySearch]="onlySearch" (urlSelectedEvent)="visitExternalLink($event)">
+          <app-crawler-search-results *ngIf="group.showSubdomains || i === 0" style="width:100%" [result]="result"
+            [inputtedParentRef]="inputtedParentRef ?? parentRef" [onlySearch]="onlySearch"
+            (urlSelectedEvent)="visitExternalLink($event)">
           </app-crawler-search-results>
         </div>
         <span (click)="toggleSubdomains(group)" class="expandButton" *ngIf="group.links.length > 1">
@@ -150,10 +160,7 @@
     <span (click)="closeYoutubePopup()" class="cursorPointer" style="font-size: 20px; line-height: 1;">&times;</span>
   </div>
   <div style="padding: 10px; height: calc(100% - 50px);">
-    <iframe
-      [src]="sanitizedYoutubeUrl"
-      style="width: 100%; height: 100%; border: none;"
-      allowfullscreen>
+    <iframe [src]="sanitizedYoutubeUrl" style="width: 100%; height: 100%; border: none;" allowfullscreen>
     </iframe>
   </div>
   <button (click)="closeYoutubePopup()" class="closeButton">Close</button>
