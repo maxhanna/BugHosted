@@ -1522,48 +1522,7 @@ namespace maxhanna.Server.Controllers
       {
         try
         {
-          await conn.OpenAsync();
-
-          string createTablesSql = @"
-            CREATE TABLE IF NOT EXISTS maxhanna.user_unknown_ip_attempt (
-              id INT AUTO_INCREMENT PRIMARY KEY,
-              user_id INT NOT NULL,
-              ip_address VARCHAR(45) NOT NULL,
-              attempted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-              INDEX idx_user_id (user_id)
-            );
-            CREATE TABLE IF NOT EXISTS maxhanna.user_account_lock (
-              id INT AUTO_INCREMENT PRIMARY KEY,
-              user_id INT NOT NULL,
-              locked_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-              locked_by_ip VARCHAR(45) NOT NULL,
-              reason VARCHAR(255) NOT NULL,
-              unlocked_at DATETIME NULL,
-              unlocked_by INT NULL,
-              INDEX idx_user_id (user_id),
-              INDEX idx_unlocked (unlocked_at)
-            );
-            CREATE TABLE IF NOT EXISTS maxhanna.user_appeal (
-              id INT AUTO_INCREMENT PRIMARY KEY,
-              user_id INT NOT NULL,
-              appeal_text TEXT NOT NULL,
-              created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-              resolved_at DATETIME NULL,
-              resolved_by INT NULL,
-              resolution VARCHAR(50) NULL,
-              INDEX idx_user_id (user_id),
-              INDEX idx_resolved (resolved_at)
-            );
-            CREATE TABLE IF NOT EXISTS maxhanna.user_roles (
-              user_id INT PRIMARY KEY,
-              role VARCHAR(50) NOT NULL DEFAULT 'moderator',
-              assigned_by INT NULL,
-              assigned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );";
-          using (var createCmd = new MySqlCommand(createTablesSql, conn))
-          {
-            await createCmd.ExecuteNonQueryAsync();
-          }
+          await conn.OpenAsync(); 
 
           // Step 1: Retrieve stored hash and salt for the given username
           string selectSql = @"
@@ -1856,10 +1815,7 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
-
-        string createSql = "CREATE TABLE IF NOT EXISTS maxhanna.user_roles (user_id INT PRIMARY KEY, role VARCHAR(50) NOT NULL DEFAULT 'moderator', assigned_by INT NULL, assigned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP);";
-        using (var createCmd = new MySqlCommand(createSql, conn)) { await createCmd.ExecuteNonQueryAsync(); }
-
+ 
         if (request.Remove)
         {
           string deleteSql = "DELETE FROM maxhanna.user_roles WHERE user_id = @UserId AND role = @Role;";
@@ -1898,8 +1854,7 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
-        string createSql = "CREATE TABLE IF NOT EXISTS maxhanna.user_roles (user_id INT PRIMARY KEY, role VARCHAR(50) NOT NULL DEFAULT 'moderator', assigned_by INT NULL, assigned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP);";
-        using (var createCmd = new MySqlCommand(createSql, conn)) { await createCmd.ExecuteNonQueryAsync(); }
+ 
         string sql = @"
           SELECT u.id, u.username, u.last_seen, ur.role, ur.assigned_at, ur.assigned_by,
             udp.file_id as display_file_id
@@ -1941,19 +1896,7 @@ namespace maxhanna.Server.Controllers
         try
         {
           await conn.OpenAsync();
-          string createSql = @"
-            CREATE TABLE IF NOT EXISTS maxhanna.user_appeal (
-              id INT AUTO_INCREMENT PRIMARY KEY,
-              user_id INT NOT NULL,
-              appeal_text TEXT NOT NULL,
-              created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-              resolved_at DATETIME NULL,
-              resolved_by INT NULL,
-              resolution VARCHAR(50) NULL,
-              INDEX idx_user_id (user_id),
-              INDEX idx_resolved (resolved_at)
-            );";
-          using (var createCmd = new MySqlCommand(createSql, conn)) { await createCmd.ExecuteNonQueryAsync(); }
+ 
           string sql = @"
             SELECT a.id, a.user_id, a.appeal_text, a.created_at, a.resolved_at, a.resolved_by, a.resolution, u.username
             FROM maxhanna.user_appeal a

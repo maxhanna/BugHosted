@@ -37,7 +37,7 @@ export class ModeratorComponent extends ChildComponent {
     if (!userId) return;
     this.moderators = await this.userService.getModerators(userId);
     if (!this.moderators.some(m => m.id === 1)) {
-      this.moderators.unshift(new User(1, 'Admin #1', undefined));
+      this.moderators.unshift(new User(1, 'Max'));
     }
   }
 

@@ -683,70 +683,28 @@ namespace maxhanna.Server.Controllers
         private static bool _fluidLoopStarted = false;
         private static CancellationTokenSource _fluidLoopCts = new();
 
-        private class Bonfire
+        // In-memory player state
+        private static readonly ConcurrentDictionary<int, DigCraftPlayerMemoryState> _players = new();
+        private static Timer? _persistTimer;
+        private static readonly object _persistLock = new();
+
+        // In-memory block changes
+        private record struct BlockMemoryEntry(int BlockId, int WaterLevel, bool FluidIsSource, int BlockData, int ChangedBy, DateTime ChangedAt, DateTime? PlantedAt);
+        private static readonly ConcurrentDictionary<(int WorldId, int ChunkX, int ChunkZ), ConcurrentDictionary<(int LocalX, int LocalY, int LocalZ), BlockMemoryEntry>> _blockChanges = new();
+        private static Timer? _blockPersistTimer;
+        private static readonly object _blockPersistLock = new();
+
+        // In-memory chat (no persistence)
+        private class ChatEntry
         {
-            public int Id;
             public int UserId;
-            public int X;
-            public int Y;
-            public int Z;
-            public string Nickname = string.Empty;
-            public DateTime CreatedAt = DateTime.UtcNow;
+            public string Username = "";
+            public string Message = "";
+            public DateTime CreatedAt;
         }
-
-        internal class ChestItem
-        {
-            public int ItemId;
-            public int Quantity;
-        }
-
-        private class Chest
-        {
-            public int Id;
-            public int UserId;
-            public int WorldId;
-            public int X;
-            public int Y;
-            public int Z;
-            public string Nickname = string.Empty;
-            public List<ChestItem> Items = new();
-            public DateTime CreatedAt = DateTime.UtcNow;
-        }
-
-        private List<ChestItem> GenerateSunkenChestLoot(int worldSeed)
-        {
-            var loot = new List<ChestItem>();
-            var rng = new Random(worldSeed);
-
-            // Guaranteed: 1-3 gold ingots
-            loot.Add(new ChestItem { ItemId = ItemIds.GOLD_INGOT, Quantity = rng.Next(1, 4) });
-
-            // 1-2 diamonds (uncommon)
-            if (rng.NextDouble() < 0.6) loot.Add(new ChestItem { ItemId = ItemIds.DIAMOND, Quantity = rng.Next(1, 3) });
-
-            // 2-5 iron ingots
-            loot.Add(new ChestItem { ItemId = ItemIds.IRON_INGOT, Quantity = rng.Next(2, 6) });
-
-            // Chance-based: copper ingots
-            if (rng.NextDouble() < 0.7) loot.Add(new ChestItem { ItemId = ItemIds.COPPER_INGOT, Quantity = rng.Next(2, 5) });
-
-            // Chance-based: 1-4 emeralds
-            if (rng.NextDouble() < 0.4) loot.Add(new ChestItem { ItemId = ItemIds.DIAMOND_PICKAXE, Quantity = rng.Next(1, 5) });
-
-            // Chance-based: ancient debris scrap
-            if (rng.NextDouble() < 0.25) loot.Add(new ChestItem { ItemId = ItemIds.NETHERITE_INGOT, Quantity = 1 });
-
-            // Always some coal
-            loot.Add(new ChestItem { ItemId = ItemIds.COAL, Quantity = rng.Next(3, 8) });
-
-            // Chance: 1-2 quartz
-            if (rng.NextDouble() < 0.5) loot.Add(new ChestItem { ItemId = ItemIds.QUARTZ, Quantity = rng.Next(1, 3) });
-
-            // Rare: enchanted book (bow)
-            if (rng.NextDouble() < 0.15) loot.Add(new ChestItem { ItemId = ItemIds.BOW, Quantity = 1 });
-
-            return loot;
-        }
+        private static readonly ConcurrentDictionary<int, ConcurrentQueue<ChatEntry>> _worldChats = new();
+        private static readonly TimeSpan CHAT_TTL = TimeSpan.FromSeconds(30);
+ 
 
         public DigCraftController(Log log, IConfiguration config)
         {
@@ -775,6 +733,20 @@ namespace maxhanna.Server.Controllers
                 _fluidLoopStarted = true;
                 _fluidLoopCts = new CancellationTokenSource();
                 _ = Task.Run(() => FluidSimulationLoopAsync(_fluidLoopCts.Token));
+            }
+
+            if (_persistTimer == null)
+            {
+                _persistTimer = new Timer(PersistAllToDb, null,
+                    TimeSpan.FromSeconds(30),
+                    TimeSpan.FromSeconds(30));
+            }
+
+            if (_blockPersistTimer == null)
+            {
+                _blockPersistTimer = new Timer(PersistBlockChangesToDb, null,
+                    TimeSpan.FromSeconds(15),
+                    TimeSpan.FromSeconds(15));
             }
         }
 
@@ -1883,22 +1855,17 @@ namespace maxhanna.Server.Controllers
                         if (!_worldMobs.TryGetValue(wid, out var mobs)) continue;
                         try
                         {
-                            // Load online players for this world (also read health/hunger for regen)
+                            // Load online players for this world from in-memory state
                             var players = new List<(int userId, float x, float y, float z)>();
                             var playerStats = new Dictionary<int, (int health, int hunger)>();
-                            await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                            var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
+                            foreach (var kvp in _players)
                             {
-                                await conn.OpenAsync();
-                                var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
-                                using var cmd = new MySqlCommand(@"SELECT user_id, pos_x, pos_y, pos_z, health, hunger FROM maxhanna.digcraft_players WHERE world_id=@wid AND last_seen >= @cutoff", conn);
-                                cmd.Parameters.AddWithValue("@wid", wid);
-                                cmd.Parameters.AddWithValue("@cutoff", cutoff);
-                                using var r = await cmd.ExecuteReaderAsync();
-                                while (await r.ReadAsync())
+                                var p = kvp.Value;
+                                if (p.IsLoaded && p.WorldId == wid && p.LastSeen >= cutoff)
                                 {
-                                    var uid = r.GetInt32("user_id");
-                                    players.Add((uid, r.GetFloat("pos_x"), r.GetFloat("pos_y"), r.GetFloat("pos_z")));
-                                    playerStats[uid] = (r.GetInt32("health"), r.GetInt32("hunger"));
+                                    players.Add((p.UserId, p.PosX, p.PosY, p.PosZ));
+                                    playerStats[p.UserId] = (p.Health, p.Hunger);
                                 }
                             }
 
@@ -2815,19 +2782,11 @@ var mobSpeed = t switch
                                 {
                                     if (!_lastHealthRegenAt.TryGetValue(p.userId, out var last) || (DateTime.UtcNow - last).TotalMilliseconds >= regenIntervalMs)
                                     {
-                                        try
+                                        if (_players.TryGetValue(p.userId, out var playerState) && playerState.WorldId == wid)
                                         {
-                                            await using var conn2 = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                                            await conn2.OpenAsync();
-                                            using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET health = LEAST(20, health + 1) WHERE user_id=@uid AND world_id=@wid", conn2);
-                                            updCmd.Parameters.AddWithValue("@uid", p.userId);
-                                            updCmd.Parameters.AddWithValue("@wid", wid);
-                                            await updCmd.ExecuteNonQueryAsync();
+                                            playerState.Health = Math.Min(20, playerState.Health + 1);
+                                            playerState.IsDirty = true;
                                             _lastHealthRegenAt[p.userId] = DateTime.UtcNow;
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            _ = _log.Db("HealthRegen error: " + ex.Message, p.userId, "DIGCRAFT", true);
                                         }
                                     }
                                 }
@@ -3614,105 +3573,6 @@ var mobSpeed = t switch
         };
 
 
-
-        private async Task ApplyMobDamageToPlayerAsync(int userId, int worldId, int damage)
-        {
-            try
-            {
-                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
-
-                // Read equipment + durability
-                int helmet = 0, chest = 0, legs = 0, boots = 0;
-                int helmetDur = -1, chestDur = -1, legsDur = -1, bootsDur = -1;
-                int playerId = 0;
-                using (var eCmd = new MySqlCommand(@"
-                    SELECT p.id, e.helmet, e.chest, e.legs, e.boots,
-                           COALESCE(e.helmet_dur,-1) AS helmet_dur,
-                           COALESCE(e.chest_dur,-1)  AS chest_dur,
-                           COALESCE(e.legs_dur,-1)   AS legs_dur,
-                           COALESCE(e.boots_dur,-1)  AS boots_dur
-                    FROM maxhanna.digcraft_equipment e
-                    JOIN maxhanna.digcraft_players p ON e.player_id = p.id
-                    WHERE p.user_id=@uid AND p.world_id=@wid", conn))
-                {
-                    eCmd.Parameters.AddWithValue("@uid", userId);
-                    eCmd.Parameters.AddWithValue("@wid", worldId);
-                    using var er = await eCmd.ExecuteReaderAsync();
-                    if (await er.ReadAsync())
-                    {
-                        playerId = er.GetInt32("id");
-                        helmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet");
-                        chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest");
-                        legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs");
-                        boots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots");
-                        helmetDur = er.IsDBNull(er.GetOrdinal("helmet_dur")) ? -1 : er.GetInt32("helmet_dur");
-                        chestDur = er.IsDBNull(er.GetOrdinal("chest_dur")) ? -1 : er.GetInt32("chest_dur");
-                        legsDur = er.IsDBNull(er.GetOrdinal("legs_dur")) ? -1 : er.GetInt32("legs_dur");
-                        bootsDur = er.IsDBNull(er.GetOrdinal("boots_dur")) ? -1 : er.GetInt32("boots_dur");
-                    }
-                }
-
-                // Initialise durability from max if not yet set
-                if (helmet > 0 && helmetDur < 0) helmetDur = ItemMaxDurability(helmet);
-                if (chest > 0 && chestDur < 0) chestDur = ItemMaxDurability(chest);
-                if (legs > 0 && legsDur < 0) legsDur = ItemMaxDurability(legs);
-                if (boots > 0 && bootsDur < 0) bootsDur = ItemMaxDurability(boots);
-
-                var armorPoints = ArmorPointsForItem(helmet) + ArmorPointsForItem(chest)
-                                + ArmorPointsForItem(legs) + ArmorPointsForItem(boots);
-                var reduction = Math.Min(0.8f, armorPoints * 0.04f);
-                var reducedDamage = (int)Math.Max(1, Math.Floor(damage * (1.0f - reduction)));
-
-                // Apply health damage
-                using var updCmd = new MySqlCommand(
-                    "UPDATE maxhanna.digcraft_players SET health = GREATEST(0, health - @damage) WHERE user_id=@uid AND world_id=@wid", conn);
-                updCmd.Parameters.AddWithValue("@damage", reducedDamage);
-                updCmd.Parameters.AddWithValue("@uid", userId);
-                updCmd.Parameters.AddWithValue("@wid", worldId);
-                await updCmd.ExecuteNonQueryAsync();
-
-                // Reduce durability of each worn armor piece by 1 per hit
-                if (playerId > 0 && armorPoints > 0)
-                {
-                    if (helmet > 0) helmetDur--;
-                    if (chest > 0) chestDur--;
-                    if (legs > 0) legsDur--;
-                    if (boots > 0) bootsDur--;
-
-                    // Break items at 0
-                    if (helmet > 0 && helmetDur <= 0) { helmet = 0; helmetDur = 0; }
-                    if (chest > 0 && chestDur <= 0) { chest = 0; chestDur = 0; }
-                    if (legs > 0 && legsDur <= 0) { legs = 0; legsDur = 0; }
-                    if (boots > 0 && bootsDur <= 0) { boots = 0; bootsDur = 0; }
-
-                    using var durCmd = new MySqlCommand(@"
-                        INSERT INTO maxhanna.digcraft_equipment
-                            (player_id, helmet, chest, legs, boots, helmet_dur, chest_dur, legs_dur, boots_dur)
-                        VALUES (@pid, @h, @c, @l, @b, @hd, @cd, @ld, @bd)
-                        ON DUPLICATE KEY UPDATE
-                            helmet=VALUES(helmet), chest=VALUES(chest),
-                            legs=VALUES(legs),     boots=VALUES(boots),
-                            helmet_dur=VALUES(helmet_dur), chest_dur=VALUES(chest_dur),
-                            legs_dur=VALUES(legs_dur),     boots_dur=VALUES(boots_dur)", conn);
-                    durCmd.Parameters.AddWithValue("@pid", playerId);
-                    durCmd.Parameters.AddWithValue("@h", helmet);
-                    durCmd.Parameters.AddWithValue("@c", chest);
-                    durCmd.Parameters.AddWithValue("@l", legs);
-                    durCmd.Parameters.AddWithValue("@b", boots);
-                    durCmd.Parameters.AddWithValue("@hd", helmetDur);
-                    durCmd.Parameters.AddWithValue("@cd", chestDur);
-                    durCmd.Parameters.AddWithValue("@ld", legsDur);
-                    durCmd.Parameters.AddWithValue("@bd", bootsDur);
-                    await durCmd.ExecuteNonQueryAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                _ = _log.Db("ApplyMobDamageToPlayerAsync error: " + ex.Message, userId, "DIGCRAFT", true);
-            }
-        }
-
         /// <summary>Respawn the player at world spawn, clear inventory and equipment.</summary>
         [HttpPost("Respawn")]
         public async Task<IActionResult> Respawn([FromBody] DataContracts.DigCraft.RespawnRequest req)
@@ -4225,48 +4085,34 @@ var mobSpeed = t switch
             if (req.UserId <= 0) return BadRequest("Invalid userId");
             try
             {
-                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
+                var p = await EnsurePlayerLoaded(req.UserId, req.WorldId);
+                p.PosX = req.PosX;
+                p.PosY = req.PosY;
+                p.PosZ = req.PosZ;
+                p.Yaw = req.Yaw;
+                p.Pitch = req.Pitch;
+                p.BodyYaw = req.BodyYaw;
+                p.LastSeen = DateTime.UtcNow;
+                p.IsDirty = true;
 
-                // Update caller position and last_seen only (lightweight)
-                using var uCmd = new MySqlCommand(@"
-                    UPDATE maxhanna.digcraft_players
-                    SET pos_x=@px, pos_y=@py, pos_z=@pz, yaw=@yaw, pitch=@pitch, body_yaw=@bodyYaw, last_seen=UTC_TIMESTAMP()
-                    WHERE user_id=@uid AND world_id=@wid", conn);
-                uCmd.Parameters.AddWithValue("@px", req.PosX);
-                uCmd.Parameters.AddWithValue("@py", req.PosY);
-                uCmd.Parameters.AddWithValue("@pz", req.PosZ);
-                uCmd.Parameters.AddWithValue("@yaw", req.Yaw);
-                uCmd.Parameters.AddWithValue("@pitch", req.Pitch);
-                uCmd.Parameters.AddWithValue("@bodyYaw", req.BodyYaw);
-                uCmd.Parameters.AddWithValue("@uid", req.UserId);
-                uCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                await uCmd.ExecuteNonQueryAsync();
-
-                // Return only other players' positions (lightweight - no equipment, health, etc)
                 var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
-                using var cmd = new MySqlCommand(@"
-                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw
-                    FROM maxhanna.digcraft_players p
-                    WHERE p.world_id=@wid AND p.last_seen >= @cutoff AND p.user_id != @excludeUid", conn);
-                cmd.Parameters.AddWithValue("@wid", req.WorldId);
-                cmd.Parameters.AddWithValue("@cutoff", cutoff);
-                cmd.Parameters.AddWithValue("@excludeUid", req.UserId);
-
                 var others = new List<object>();
-                using var r = await cmd.ExecuteReaderAsync();
-                while (await r.ReadAsync())
+                foreach (var kvp in _players)
                 {
-                    others.Add(new
+                    var op = kvp.Value;
+                    if (op.IsLoaded && op.WorldId == req.WorldId && op.UserId != req.UserId && op.LastSeen >= cutoff)
                     {
-                        userId = r.GetInt32("user_id"),
-                        posX = r.GetFloat("pos_x"),
-                        posY = r.GetFloat("pos_y"),
-                        posZ = r.GetFloat("pos_z"),
-                        yaw = r.GetFloat("yaw"),
-                        pitch = r.GetFloat("pitch"),
-                        bodyYaw = r.IsDBNull(r.GetOrdinal("body_yaw")) ? r.GetFloat("yaw") : r.GetFloat("body_yaw")
-                    });
+                        others.Add(new
+                        {
+                            userId = op.UserId,
+                            posX = op.PosX,
+                            posY = op.PosY,
+                            posZ = op.PosZ,
+                            yaw = op.Yaw,
+                            pitch = op.Pitch,
+                            bodyYaw = op.BodyYaw
+                        });
+                    }
                 }
                 return Ok(new { others });
             }
@@ -4284,110 +4130,83 @@ var mobSpeed = t switch
             if (req.UserId <= 0) return BadRequest("Invalid userId");
             try
             {
-                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
-
-                // Update caller position and last_seen, also is_attacking and is_defending flags
-                using (var uCmd = new MySqlCommand(@"
-                    UPDATE maxhanna.digcraft_players
-                    SET pos_x=@px, pos_y=@py, pos_z=@pz, yaw=@yaw, pitch=@pitch, body_yaw=@bodyYaw,
-                        is_attacking=@isAttacking,
-                        is_defending=@isDefending,
-                        last_seen=UTC_TIMESTAMP()
-                    WHERE user_id=@uid AND world_id=@wid", conn))
-                {
-                    uCmd.Parameters.AddWithValue("@px", req.PosX);
-                    uCmd.Parameters.AddWithValue("@py", req.PosY);
-                    uCmd.Parameters.AddWithValue("@pz", req.PosZ);
-                    uCmd.Parameters.AddWithValue("@yaw", req.Yaw);
-                    uCmd.Parameters.AddWithValue("@pitch", req.Pitch);
-                    uCmd.Parameters.AddWithValue("@bodyYaw", req.BodyYaw);
-                    uCmd.Parameters.AddWithValue("@isAttacking", req.IsAttacking);
-                    uCmd.Parameters.AddWithValue("@isDefending", req.IsDefending);
-                    uCmd.Parameters.AddWithValue("@uid", req.UserId);
-                    uCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                    await uCmd.ExecuteNonQueryAsync();
-                }
+                var p = await EnsurePlayerLoaded(req.UserId, req.WorldId);
+                p.PosX = req.PosX;
+                p.PosY = req.PosY;
+                p.PosZ = req.PosZ;
+                p.Yaw = req.Yaw;
+                p.Pitch = req.Pitch;
+                p.BodyYaw = req.BodyYaw;
+                p.IsAttacking = req.IsAttacking;
+                p.IsDefending = req.IsDefending;
+                p.LastSeen = DateTime.UtcNow;
+                p.IsDirty = true;
 
                 // Handle knockback: if attacker is attacking, push nearby targets
                 if (req.IsAttacking)
                 {
                     const float knockbackRange = 1.5f;
                     const float knockbackStrength = 0.5f;
-
-                    // Find nearby players to push
-                    using var knockCmd = new MySqlCommand(@"
-                        UPDATE maxhanna.digcraft_players p
-                        JOIN maxhanna.users u ON u.id = p.user_id
-                        SET p.pos_x = p.pos_x + @dx, p.pos_z = p.pos_z + @dz
-                        WHERE p.world_id = @wid AND p.user_id != @attackerId
-                          AND SQRT(POW(p.pos_x - @attackerX, 2) + POW(p.pos_z - @attackerZ, 2)) < @range
-                          AND p.last_seen >= @cutoff", conn);
-                    knockCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                    knockCmd.Parameters.AddWithValue("@attackerId", req.UserId);
-                    knockCmd.Parameters.AddWithValue("@attackerX", req.PosX);
-                    knockCmd.Parameters.AddWithValue("@attackerZ", req.PosZ);
-                    knockCmd.Parameters.AddWithValue("@range", knockbackRange);
-                    knockCmd.Parameters.AddWithValue("@dx", (float)Math.Cos(req.Yaw) * knockbackStrength);
-                    knockCmd.Parameters.AddWithValue("@dz", (float)Math.Sin(req.Yaw) * knockbackStrength);
-                    knockCmd.Parameters.AddWithValue("@cutoff", DateTime.UtcNow.AddSeconds(-5));
-                    await knockCmd.ExecuteNonQueryAsync();
+                    var kdCutoff = DateTime.UtcNow.AddSeconds(-5);
+                    float dx = (float)Math.Cos(req.Yaw) * knockbackStrength;
+                    float dz = (float)Math.Sin(req.Yaw) * knockbackStrength;
+                    foreach (var kvp in _players)
+                    {
+                        var target = kvp.Value;
+                        if (!target.IsLoaded || target.WorldId != req.WorldId || target.UserId == req.UserId || target.LastSeen < kdCutoff)
+                            continue;
+                        var distSq = Math.Pow(target.PosX - req.PosX, 2) + Math.Pow(target.PosZ - req.PosZ, 2);
+                        if (Math.Sqrt(distSq) < knockbackRange)
+                        {
+                            target.PosX += dx;
+                            target.PosZ += dz;
+                            target.IsDirty = true;
+                        }
+                    }
                 }
 
                 // Return players seen within cutoff
                 var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
-                using var cmd = new MySqlCommand(@"
-                      SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.hunger, p.color, p.level, p.exp, p.face, u.username,
-                          IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
-                          IFNULL(e.weapon, 0) AS weapon, p.is_attacking, p.is_defending, IFNULL(e.left_hand, 0) AS left_hand,
-                          IFNULL(e.helmet_dye, 0) AS helmet_dye, IFNULL(e.chest_dye, 0) AS chest_dye, IFNULL(e.legs_dye, 0) AS legs_dye, IFNULL(e.boots_dye, 0) AS boots_dye,
-                          IFNULL(e.helmet_dur, -1) AS helmet_dur, IFNULL(e.chest_dur, -1) AS chest_dur, IFNULL(e.legs_dur, -1) AS legs_dur, IFNULL(e.boots_dur, -1) AS boots_dur, IFNULL(e.weapon_dur, -1) AS weapon_dur, IFNULL(e.left_hand_dur, -1) AS left_hand_dur
-                      FROM maxhanna.digcraft_players p
-                      LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = p.id
-                      JOIN maxhanna.users u ON u.id = p.user_id
-                      WHERE p.world_id=@wid AND p.last_seen >= @cutoff", conn);
-                cmd.Parameters.AddWithValue("@wid", req.WorldId);
-                cmd.Parameters.AddWithValue("@cutoff", cutoff);
-
                 var players = new List<object>();
-                using var r = await cmd.ExecuteReaderAsync();
-                while (await r.ReadAsync())
+                foreach (var kvp in _players)
                 {
+                    var op = kvp.Value;
+                    if (!op.IsLoaded || op.WorldId != req.WorldId || op.LastSeen < cutoff) continue;
                     players.Add(new
                     {
-                        userId = r.GetInt32("user_id"),
-                        posX = r.GetFloat("pos_x"),
-                        posY = r.GetFloat("pos_y"),
-                        posZ = r.GetFloat("pos_z"),
-                        yaw = r.GetFloat("yaw"),
-                        pitch = r.GetFloat("pitch"),
-                        bodyYaw = r.IsDBNull(r.GetOrdinal("body_yaw")) ? r.GetFloat("yaw") : r.GetFloat("body_yaw"),
-                        health = r.GetInt32("health"),
-                        hunger = r.GetInt32("hunger"),
+                        userId = op.UserId,
+                        posX = op.PosX,
+                        posY = op.PosY,
+                        posZ = op.PosZ,
+                        yaw = op.Yaw,
+                        pitch = op.Pitch,
+                        bodyYaw = op.BodyYaw,
+                        health = op.Health,
+                        hunger = op.Hunger,
                         maxHealth = 20,
-                        color = r.IsDBNull(r.GetOrdinal("color")) ? "#ffffff" : r.GetString("color"),
-                        username = r.IsDBNull(r.GetOrdinal("username")) ? "Anon" : r.GetString("username"),
-                        level = r.IsDBNull(r.GetOrdinal("level")) ? 1 : r.GetInt32("level"),
-                        exp = r.IsDBNull(r.GetOrdinal("exp")) ? 0 : r.GetInt32("exp"),
-                        face = r.IsDBNull(r.GetOrdinal("face")) ? "default" : r.GetString("face"),
-                        helmet = r.IsDBNull(r.GetOrdinal("helmet")) ? 0 : r.GetInt32("helmet"),
-                        chest = r.IsDBNull(r.GetOrdinal("chest")) ? 0 : r.GetInt32("chest"),
-                        legs = r.IsDBNull(r.GetOrdinal("legs")) ? 0 : r.GetInt32("legs"),
-                        boots = r.IsDBNull(r.GetOrdinal("boots")) ? 0 : r.GetInt32("boots"),
-                        helmetDye = r.IsDBNull(r.GetOrdinal("helmet_dye")) ? 0 : r.GetInt32("helmet_dye"),
-                        chestDye = r.IsDBNull(r.GetOrdinal("chest_dye")) ? 0 : r.GetInt32("chest_dye"),
-                        legsDye = r.IsDBNull(r.GetOrdinal("legs_dye")) ? 0 : r.GetInt32("legs_dye"),
-                        bootsDye = r.IsDBNull(r.GetOrdinal("boots_dye")) ? 0 : r.GetInt32("boots_dye"),
-                        weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon"),
-                        isAttacking = r.IsDBNull(r.GetOrdinal("is_attacking")) ? false : r.GetBoolean("is_attacking"),
-                        isDefending = r.IsDBNull(r.GetOrdinal("is_defending")) ? false : r.GetBoolean("is_defending"),
-                        leftHand = r.IsDBNull(r.GetOrdinal("left_hand")) ? 0 : r.GetInt32("left_hand"),
-                        helmetDur = r.IsDBNull(r.GetOrdinal("helmet_dur")) ? -1 : r.GetInt32("helmet_dur"),
-                        chestDur = r.IsDBNull(r.GetOrdinal("chest_dur")) ? -1 : r.GetInt32("chest_dur"),
-                        legsDur = r.IsDBNull(r.GetOrdinal("legs_dur")) ? -1 : r.GetInt32("legs_dur"),
-                        bootsDur = r.IsDBNull(r.GetOrdinal("boots_dur")) ? -1 : r.GetInt32("boots_dur"),
-                        weaponDur = r.IsDBNull(r.GetOrdinal("weapon_dur")) ? -1 : r.GetInt32("weapon_dur"),
-                        leftHandDur = r.IsDBNull(r.GetOrdinal("left_hand_dur")) ? -1 : r.GetInt32("left_hand_dur")
+                        color = op.Color ?? "#ffffff",
+                        username = op.Username,
+                        level = op.Level,
+                        exp = op.Exp,
+                        face = op.Face,
+                        helmet = op.Equipment?.Helmet ?? 0,
+                        chest = op.Equipment?.Chest ?? 0,
+                        legs = op.Equipment?.Legs ?? 0,
+                        boots = op.Equipment?.Boots ?? 0,
+                        helmetDye = op.Equipment?.HelmetDye ?? 0,
+                        chestDye = op.Equipment?.ChestDye ?? 0,
+                        legsDye = op.Equipment?.LegsDye ?? 0,
+                        bootsDye = op.Equipment?.BootsDye ?? 0,
+                        weapon = op.Equipment?.Weapon ?? 0,
+                        isAttacking = op.IsAttacking,
+                        isDefending = op.IsDefending,
+                        leftHand = op.Equipment?.LeftHand ?? 0,
+                        helmetDur = op.Equipment?.HelmetDur ?? -1,
+                        chestDur = op.Equipment?.ChestDur ?? -1,
+                        legsDur = op.Equipment?.LegsDur ?? -1,
+                        bootsDur = op.Equipment?.BootsDur ?? -1,
+                        weaponDur = op.Equipment?.WeaponDur ?? -1,
+                        leftHandDur = op.Equipment?.LeftHandDur ?? -1
                     });
                 }
 
@@ -4406,52 +4225,40 @@ var mobSpeed = t switch
         {
             try
             {
-                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
-
                 var cutoff = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
-                using var cmd = new MySqlCommand(@"
-                    SELECT p.user_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch, p.body_yaw, p.health, p.color, p.level, p.exp, p.face, u.username,
-                        IFNULL(e.helmet, 0) AS helmet, IFNULL(e.chest, 0) AS chest, IFNULL(e.legs, 0) AS legs, IFNULL(e.boots, 0) AS boots,
-                        IFNULL(e.weapon, 0) AS weapon, IFNULL(e.left_hand, 0) AS left_hand, IFNULL(e.weapon_dur, -1) AS weapon_dur, IFNULL(e.left_hand_dur, -1) AS left_hand_dur, IFNULL(e.helmet_dur, -1) AS helmet_dur, IFNULL(e.chest_dur, -1) AS chest_dur, IFNULL(e.legs_dur, -1) AS legs_dur, IFNULL(e.boots_dur, -1) AS boots_dur
-                    FROM maxhanna.digcraft_players p
-                    LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = p.id
-                    JOIN maxhanna.users u ON u.id = p.user_id
-                    WHERE p.world_id=@wid AND p.last_seen >= @cutoff", conn);
-                cmd.Parameters.AddWithValue("@wid", worldId);
-                cmd.Parameters.AddWithValue("@cutoff", cutoff);
-
                 var players = new List<object>();
-                using var r = await cmd.ExecuteReaderAsync();
-                while (await r.ReadAsync())
+                foreach (var kvp in _players)
                 {
+                    var p = kvp.Value;
+                    if (!p.IsLoaded || p.WorldId != worldId || p.LastSeen < cutoff) continue;
                     players.Add(new
                     {
-                        userId = r.GetInt32("user_id"),
-                        posX = r.GetFloat("pos_x"),
-                        posY = r.GetFloat("pos_y"),
-                        posZ = r.GetFloat("pos_z"),
-                        yaw = r.GetFloat("yaw"),
-                        pitch = r.GetFloat("pitch"),
-                        bodyYaw = r.IsDBNull(r.GetOrdinal("body_yaw")) ? r.GetFloat("yaw") : r.GetFloat("body_yaw"),
-                        health = r.GetInt32("health"),
+                        userId = p.UserId,
+                        posX = p.PosX,
+                        posY = p.PosY,
+                        posZ = p.PosZ,
+                        yaw = p.Yaw,
+                        pitch = p.Pitch,
+                        bodyYaw = p.BodyYaw,
+                        health = p.Health,
                         maxHealth = 20,
-                        color = r.IsDBNull(r.GetOrdinal("color")) ? "#ffffff" : r.GetString("color"),
-                        username = r.IsDBNull(r.GetOrdinal("username")) ? "Anon" : r.GetString("username"),
-                        level = r.IsDBNull(r.GetOrdinal("level")) ? 1 : r.GetInt32("level"),
-                        exp = r.IsDBNull(r.GetOrdinal("exp")) ? 0 : r.GetInt32("exp"),
-                        helmet = r.IsDBNull(r.GetOrdinal("helmet")) ? 0 : r.GetInt32("helmet"),
-                        chest = r.IsDBNull(r.GetOrdinal("chest")) ? 0 : r.GetInt32("chest"),
-                        legs = r.IsDBNull(r.GetOrdinal("legs")) ? 0 : r.GetInt32("legs"),
-                        boots = r.IsDBNull(r.GetOrdinal("boots")) ? 0 : r.GetInt32("boots"),
-                        weapon = r.IsDBNull(r.GetOrdinal("weapon")) ? 0 : r.GetInt32("weapon"),
-                        leftHand = r.IsDBNull(r.GetOrdinal("left_hand")) ? 0 : r.GetInt32("left_hand"),
-                        weaponDur = r.IsDBNull(r.GetOrdinal("weapon_dur")) ? -1 : r.GetInt32("weapon_dur"),
-                        leftHandDur = r.IsDBNull(r.GetOrdinal("left_hand_dur")) ? -1 : r.GetInt32("left_hand_dur"),
-                        helmetDur = r.IsDBNull(r.GetOrdinal("helmet_dur")) ? -1 : r.GetInt32("helmet_dur"),
-                        chestDur = r.IsDBNull(r.GetOrdinal("chest_dur")) ? -1 : r.GetInt32("chest_dur"),
-                        legsDur = r.IsDBNull(r.GetOrdinal("legs_dur")) ? -1 : r.GetInt32("legs_dur"),
-                        bootsDur = r.IsDBNull(r.GetOrdinal("boots_dur")) ? -1 : r.GetInt32("boots_dur")
+                        color = p.Color ?? "#ffffff",
+                        username = p.Username,
+                        level = p.Level,
+                        exp = p.Exp,
+                        face = p.Face,
+                        helmet = p.Equipment?.Helmet ?? 0,
+                        chest = p.Equipment?.Chest ?? 0,
+                        legs = p.Equipment?.Legs ?? 0,
+                        boots = p.Equipment?.Boots ?? 0,
+                        weapon = p.Equipment?.Weapon ?? 0,
+                        leftHand = p.Equipment?.LeftHand ?? 0,
+                        weaponDur = p.Equipment?.WeaponDur ?? -1,
+                        leftHandDur = p.Equipment?.LeftHandDur ?? -1,
+                        helmetDur = p.Equipment?.HelmetDur ?? -1,
+                        chestDur = p.Equipment?.ChestDur ?? -1,
+                        legsDur = p.Equipment?.LegsDur ?? -1,
+                        bootsDur = p.Equipment?.BootsDur ?? -1
                     });
                 }
                 return Ok(players);
@@ -4516,107 +4323,51 @@ var mobSpeed = t switch
             if (req == null || req.AttackerUserId <= 0 || req.TargetUserId <= 0) return BadRequest("Invalid request");
             try
             {
-                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
+                var attacker = await EnsurePlayerLoaded(req.AttackerUserId, req.WorldId);
+                var target = await EnsurePlayerLoaded(req.TargetUserId, req.WorldId);
 
-                // Load attacker and target positions / ids
-                using var cmd = new MySqlCommand(@"
-                        SELECT p.id, p.user_id, p.pos_x, p.pos_y, p.pos_z, p.health
-                        FROM maxhanna.digcraft_players p
-                        WHERE p.world_id=@wid AND p.user_id IN (@att, @tgt)", conn);
-                cmd.Parameters.AddWithValue("@wid", req.WorldId);
-                cmd.Parameters.AddWithValue("@att", req.AttackerUserId);
-                cmd.Parameters.AddWithValue("@tgt", req.TargetUserId);
+                float attX = attacker.PosX, attY = attacker.PosY, attZ = attacker.PosZ;
+                float tgtX = target.PosX, tgtY = target.PosY, tgtZ = target.PosZ;
 
-                int attackerDbId = 0, targetDbId = 0;
-                float attX = 0, attY = 0, attZ = 0;
-                float tgtX = 0, tgtY = 0, tgtZ = 0;
-                using var r = await cmd.ExecuteReaderAsync();
-                while (await r.ReadAsync())
-                {
-                    var uid = r.GetInt32("user_id");
-                    if (uid == req.AttackerUserId)
-                    {
-                        attackerDbId = r.GetInt32("id");
-                        attX = r.GetFloat("pos_x"); attY = r.GetFloat("pos_y"); attZ = r.GetFloat("pos_z");
-                    }
-                    else if (uid == req.TargetUserId)
-                    {
-                        targetDbId = r.GetInt32("id");
-                        tgtX = r.GetFloat("pos_x"); tgtY = r.GetFloat("pos_y"); tgtZ = r.GetFloat("pos_z");
-                    }
-                }
-                r.Close(); // Ensure reader is closed before next command
-                if (attackerDbId == 0 || targetDbId == 0) return BadRequest("Player(s) not found");
-
-                // Use client-provided position if available, otherwise use database
                 if (req.PosX != 0 || req.PosY != 0 || req.PosZ != 0)
                 {
                     attX = req.PosX; attY = req.PosY; attZ = req.PosZ;
                 }
 
-                // Range check
                 var dx = attX - tgtX; var dy = attY - tgtY; var dz = attZ - tgtZ;
                 var distSq = dx * dx + dy * dy + dz * dz;
                 var maxRange = req.WeaponId == ItemIds.BOW ? 18f : PLAYER_ATTACK_MAX_RANGE;
                 if (distSq > maxRange * maxRange) return BadRequest("Target out of range");
 
-                // Cooldown check (in-memory)
                 if (_lastAttackAt.TryGetValue(req.AttackerUserId, out var last) && (DateTime.UtcNow - last).TotalMilliseconds < 450)
                 {
                     return BadRequest("Attack too soon");
                 }
                 _lastAttackAt[req.AttackerUserId] = DateTime.UtcNow;
 
-                // Check if attacker and target are in the same party (no friendly fire)
-                using (var partyCheck = new MySqlCommand(@"
+                // Party check (still needs SQL)
+                await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                {
+                    await conn.OpenAsync();
+                    using var partyCheck = new MySqlCommand(@"
                         SELECT 1 FROM maxhanna.digcraft_party_members a
                         JOIN maxhanna.digcraft_party_members b ON a.party_id = b.party_id
-                        WHERE a.user_id = @att AND b.user_id = @tgt", conn))
-                {
+                        WHERE a.user_id = @att AND b.user_id = @tgt", conn);
                     partyCheck.Parameters.AddWithValue("@att", req.AttackerUserId);
                     partyCheck.Parameters.AddWithValue("@tgt", req.TargetUserId);
                     var inParty = await partyCheck.ExecuteScalarAsync();
                     if (inParty != null && inParty != DBNull.Value) return BadRequest("Cannot attack party member");
                 }
 
-                // Determine weapon (prefer supplied weaponId, otherwise read equipment)
                 int weaponId = req.WeaponId;
-                if (weaponId <= 0)
-                {
-                    using var eqCmd = new MySqlCommand("SELECT weapon FROM maxhanna.digcraft_equipment WHERE player_id=@pid", conn);
-                    eqCmd.Parameters.AddWithValue("@pid", attackerDbId);
-                    var obj = await eqCmd.ExecuteScalarAsync();
-                    if (obj != null) weaponId = Convert.ToInt32(obj);
-                }
+                if (weaponId <= 0) weaponId = attacker.Equipment?.Weapon ?? 0;
 
-                // Simple damage mapping: any weapon >0 is stronger, bare-hand is weaker
                 int damage = weaponId > 0 ? 6 : 2;
 
-                int tgtHelmet = 0, tgtChest = 0, tgtLegs = 0, tgtBoots = 0;
-                int tgtHelmetDur = -1, tgtChestDur = -1, tgtLegsDur = -1, tgtBootsDur = -1;
-                using (var eCmd = new MySqlCommand(@"
-                    SELECT helmet, chest, legs, boots,
-                           COALESCE(helmet_dur,-1) AS helmet_dur,
-                           COALESCE(chest_dur,-1)  AS chest_dur,
-                           COALESCE(legs_dur,-1)   AS legs_dur,
-                           COALESCE(boots_dur,-1)  AS boots_dur
-                    FROM maxhanna.digcraft_equipment WHERE player_id=@pid", conn))
-                {
-                    eCmd.Parameters.AddWithValue("@pid", targetDbId);
-                    using var er = await eCmd.ExecuteReaderAsync();
-                    if (await er.ReadAsync())
-                    {
-                        tgtHelmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet");
-                        tgtChest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest");
-                        tgtLegs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs");
-                        tgtBoots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots");
-                        tgtHelmetDur = er.IsDBNull(er.GetOrdinal("helmet_dur")) ? -1 : er.GetInt32("helmet_dur");
-                        tgtChestDur = er.IsDBNull(er.GetOrdinal("chest_dur")) ? -1 : er.GetInt32("chest_dur");
-                        tgtLegsDur = er.IsDBNull(er.GetOrdinal("legs_dur")) ? -1 : er.GetInt32("legs_dur");
-                        tgtBootsDur = er.IsDBNull(er.GetOrdinal("boots_dur")) ? -1 : er.GetInt32("boots_dur");
-                    }
-                }
+                var tgtEq = target.Equipment;
+                int tgtHelmet = tgtEq?.Helmet ?? 0, tgtChest = tgtEq?.Chest ?? 0, tgtLegs = tgtEq?.Legs ?? 0, tgtBoots = tgtEq?.Boots ?? 0;
+                int tgtHelmetDur = tgtEq?.HelmetDur ?? -1, tgtChestDur = tgtEq?.ChestDur ?? -1, tgtLegsDur = tgtEq?.LegsDur ?? -1, tgtBootsDur = tgtEq?.BootsDur ?? -1;
+
                 if (tgtHelmet > 0 && tgtHelmetDur < 0) tgtHelmetDur = ItemMaxDurability(tgtHelmet);
                 if (tgtChest > 0 && tgtChestDur < 0) tgtChestDur = ItemMaxDurability(tgtChest);
                 if (tgtLegs > 0 && tgtLegsDur < 0) tgtLegsDur = ItemMaxDurability(tgtLegs);
@@ -4627,7 +4378,7 @@ var mobSpeed = t switch
                 var reduction = Math.Min(0.8f, armorPts * 0.04f);
                 int finalDamage = (int)Math.Max(1, Math.Floor(damage * (1.0f - reduction)));
 
-                // Reduce armor durability on hit
+                // Reduce armor durability in memory
                 if (armorPts > 0)
                 {
                     if (tgtHelmet > 0) tgtHelmetDur--;
@@ -4638,67 +4389,47 @@ var mobSpeed = t switch
                     if (tgtChest > 0 && tgtChestDur <= 0) { tgtChest = 0; tgtChestDur = 0; }
                     if (tgtLegs > 0 && tgtLegsDur <= 0) { tgtLegs = 0; tgtLegsDur = 0; }
                     if (tgtBoots > 0 && tgtBootsDur <= 0) { tgtBoots = 0; tgtBootsDur = 0; }
-                    using var durCmd = new MySqlCommand(@"
-                        INSERT INTO maxhanna.digcraft_equipment
-                            (player_id, helmet, chest, legs, boots, helmet_dur, chest_dur, legs_dur, boots_dur)
-                        VALUES (@pid, @h, @c, @l, @b, @hd, @cd, @ld, @bd)
-                        ON DUPLICATE KEY UPDATE
-                            helmet=VALUES(helmet), chest=VALUES(chest),
-                            legs=VALUES(legs),     boots=VALUES(boots),
-                            helmet_dur=VALUES(helmet_dur), chest_dur=VALUES(chest_dur),
-                            legs_dur=VALUES(legs_dur),     boots_dur=VALUES(boots_dur)", conn);
-                    durCmd.Parameters.AddWithValue("@pid", targetDbId);
-                    durCmd.Parameters.AddWithValue("@h", tgtHelmet);
-                    durCmd.Parameters.AddWithValue("@c", tgtChest);
-                    durCmd.Parameters.AddWithValue("@l", tgtLegs);
-                    durCmd.Parameters.AddWithValue("@b", tgtBoots);
-                    durCmd.Parameters.AddWithValue("@hd", tgtHelmetDur);
-                    durCmd.Parameters.AddWithValue("@cd", tgtChestDur);
-                    durCmd.Parameters.AddWithValue("@ld", tgtLegsDur);
-                    durCmd.Parameters.AddWithValue("@bd", tgtBootsDur);
-                    await durCmd.ExecuteNonQueryAsync();
+                    target.Equipment = new DigCraftEquipment
+                    {
+                        Helmet = tgtHelmet, Chest = tgtChest, Legs = tgtLegs, Boots = tgtBoots,
+                        HelmetDur = tgtHelmetDur, ChestDur = tgtChestDur, LegsDur = tgtLegsDur, BootsDur = tgtBootsDur,
+                        Weapon = tgtEq?.Weapon ?? 0, LeftHand = tgtEq?.LeftHand ?? 0,
+                        WeaponDur = tgtEq?.WeaponDur ?? -1, LeftHandDur = tgtEq?.LeftHandDur ?? -1,
+                        HelmetDye = tgtEq?.HelmetDye ?? 0, ChestDye = tgtEq?.ChestDye ?? 0,
+                        LegsDye = tgtEq?.LegsDye ?? 0, BootsDye = tgtEq?.BootsDye ?? 0
+                    };
                 }
 
-                // Apply damage
-                using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET health = GREATEST(0, health - @damage) WHERE id=@pid", conn);
-                updCmd.Parameters.AddWithValue("@damage", finalDamage);
-                updCmd.Parameters.AddWithValue("@pid", targetDbId);
-                await updCmd.ExecuteNonQueryAsync();
+                // Apply damage in memory
+                target.Health = Math.Max(0, target.Health - finalDamage);
+                target.IsDirty = true;
 
-                // Grant EXP to attacker if target is killed (health <= 0)
-                using var hCmd = new MySqlCommand("SELECT health FROM maxhanna.digcraft_players WHERE id=@pid", conn);
-                hCmd.Parameters.AddWithValue("@pid", targetDbId);
-                var hObj = await hCmd.ExecuteScalarAsync();
-                int newHealth = hObj != null ? Convert.ToInt32(hObj) : 0;
+                int newHealth = target.Health;
 
                 if (newHealth <= 0)
                 {
-                    // Reset victim's exp/level on death
-                    using var resetExpCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET level = 1, exp = 0 WHERE id=@pid", conn);
-                    resetExpCmd.Parameters.AddWithValue("@pid", targetDbId);
-                    await resetExpCmd.ExecuteNonQueryAsync();
+                    target.Level = 1;
+                    target.Exp = 0;
 
-                    // Grant EXP to attacker
-                    await GrantExpToPlayerAsync(req.AttackerUserId, req.WorldId, 25);
-
-                    await UserEventController.InsertUserEventWithConnection(
-                        req.AttackerUserId, "digcraft_kill",
-                        $"Killed a player in DigCraft!",
-                        targetDbId, "digcraft_player", conn);
-
-                    // Get the victim's username for the death event
-                    string? victimUsername = null;
-                    using (var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @uid LIMIT 1", conn))
+                    // Still needs SQL for user events and exp grant
+                    await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                     {
-                        nameCmd.Parameters.AddWithValue("@uid", req.TargetUserId);
-                        var result = await nameCmd.ExecuteScalarAsync();
-                        victimUsername = result?.ToString();
-                    }
+                        await conn.OpenAsync();
 
-                    await UserEventController.InsertUserEventWithConnection(
-                        req.TargetUserId, "digcraft_death",
-                        $"Killed by {victimUsername ?? "a player"} in DigCraft!",
-                        req.AttackerUserId, "digcraft_player", conn);
+                        // Grant EXP to attacker
+                        await GrantExpToPlayerAsync(req.AttackerUserId, req.WorldId, 25);
+
+                        await UserEventController.InsertUserEventWithConnection(
+                            req.AttackerUserId, "digcraft_kill",
+                            $"Killed a player in DigCraft!",
+                            req.TargetUserId, "digcraft_player", conn);
+
+                        string? victimUsername = target.Username;
+                        await UserEventController.InsertUserEventWithConnection(
+                            req.TargetUserId, "digcraft_death",
+                            $"Killed by {victimUsername ?? "a player"} in DigCraft!",
+                            req.AttackerUserId, "digcraft_player", conn);
+                    }
                 }
 
                 return Ok(new { ok = true, damage = finalDamage, targetUserId = req.TargetUserId, health = newHealth });
@@ -4717,82 +4448,56 @@ var mobSpeed = t switch
             if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
             try
             {
-                // Make fall damage less severe: small increase to safe distance
-                // and reduce the multiplier so drops cause less damage overall.
-                const float safeDistance = 3.5f; // up to this distance is safe (was 3.0)
+                const float safeDistance = 3.5f;
                 if (req.FallDistance <= safeDistance) return Ok(new { ok = true, damage = 0 });
 
-                // Reduce multiplier from 2.0 -> 1.0 to halve damage taken from falls
                 var damage = (int)Math.Floor((req.FallDistance - safeDistance) * 1.0f);
                 if (damage <= 0) return Ok(new { ok = true, damage = 0 });
 
-                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
-
-                // No fall damage when landing in water (validate feet block against generated + stored world)
-                int worldSeed = 42;
-                using (var wCmd = new MySqlCommand("SELECT seed FROM maxhanna.digcraft_worlds WHERE id=@wid", conn))
+                // Water landing check (still needs SQL for world seed + block lookup)
+                await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
-                    wCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                    var seedObj = wCmd.ExecuteScalar();
-                    if (seedObj != null && seedObj != DBNull.Value) worldSeed = Convert.ToInt32(seedObj);
-                }
-                var footY = (int)Math.Floor(req.PosY - 1.62f);
-                var bx = (int)Math.Floor(req.PosX);
-                var bz = (int)Math.Floor(req.PosZ);
-                if (footY >= 0 && footY < WORLD_HEIGHT && GetBlockAt(conn, req.WorldId, bx, footY, bz, worldSeed) == BlockIds.WATER)
-                    return Ok(new { ok = true, damage = 0 });
-
-                // Read equipped armor for this player (if any) so we can reduce fall damage.
-                int helmet = 0, chest = 0, legs = 0, boots = 0;
-                using (var eCmd = new MySqlCommand(@"
-                        SELECT e.helmet, e.chest, e.legs, e.boots
-                        FROM maxhanna.digcraft_equipment e
-                        JOIN maxhanna.digcraft_players p ON e.player_id = p.id
-                        WHERE p.user_id=@uid AND p.world_id=@wid", conn))
-                {
-                    eCmd.Parameters.AddWithValue("@uid", req.UserId);
-                    eCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                    using var er = await eCmd.ExecuteReaderAsync();
-                    if (await er.ReadAsync())
+                    await conn.OpenAsync();
+                    int worldSeed = 42;
+                    using (var wCmd = new MySqlCommand("SELECT seed FROM maxhanna.digcraft_worlds WHERE id=@wid", conn))
                     {
-                        helmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet");
-                        chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest");
-                        legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs");
-                        boots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots");
+                        wCmd.Parameters.AddWithValue("@wid", req.WorldId);
+                        var seedObj = wCmd.ExecuteScalar();
+                        if (seedObj != null && seedObj != DBNull.Value) worldSeed = Convert.ToInt32(seedObj);
                     }
+                    var footY = (int)Math.Floor(req.PosY - 1.62f);
+                    var bx = (int)Math.Floor(req.PosX);
+                    var bz = (int)Math.Floor(req.PosZ);
+                    if (footY >= 0 && footY < WORLD_HEIGHT && GetBlockAt(conn, req.WorldId, bx, footY, bz, worldSeed) == BlockIds.WATER)
+                        return Ok(new { ok = true, damage = 0 });
                 }
+
+                var state = await EnsurePlayerLoaded(req.UserId, req.WorldId);
+                var eq = state.Equipment;
+                int helmet = eq?.Helmet ?? 0, chest = eq?.Chest ?? 0, legs = eq?.Legs ?? 0, boots = eq?.Boots ?? 0;
 
                 var armorPoints = ArmorPointsForItem(helmet) + ArmorPointsForItem(chest) + ArmorPointsForItem(legs) + ArmorPointsForItem(boots);
-
-                // Convert armor points into a damage reduction fraction (4% per point, capped at 80%).
                 var reduction = Math.Min(0.8f, armorPoints * 0.04f);
                 var reducedDamage = (int)Math.Floor(damage * (1.0f - reduction));
                 if (reducedDamage < 0) reducedDamage = 0;
 
-                using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET health = GREATEST(0, health - @damage) WHERE user_id=@uid AND world_id=@wid", conn);
-                updCmd.Parameters.AddWithValue("@damage", reducedDamage);
-                updCmd.Parameters.AddWithValue("@uid", req.UserId);
-                updCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                await updCmd.ExecuteNonQueryAsync();
-
-                using var hCmd = new MySqlCommand("SELECT health FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn);
-                hCmd.Parameters.AddWithValue("@uid", req.UserId);
-                hCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                var hObj = await hCmd.ExecuteScalarAsync();
-                int newHealth = hObj != null ? Convert.ToInt32(hObj) : 0;
+                state.Health = Math.Max(0, state.Health - reducedDamage);
+                state.IsDirty = true;
+                int newHealth = state.Health;
 
                 if (newHealth <= 0)
                 {
-                    using var resetExpCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET level = 1, exp = 0 WHERE user_id=@uid AND world_id=@wid", conn);
-                    resetExpCmd.Parameters.AddWithValue("@uid", req.UserId);
-                    resetExpCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                    await resetExpCmd.ExecuteNonQueryAsync();
+                    state.Level = 1;
+                    state.Exp = 0;
 
-                    await UserEventController.InsertUserEventWithConnection(
-                    req.UserId, "digcraft_death",
-                    $"Died from fall damage in DigCraft!",
-                        null, null, conn);
+                    await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                    {
+                        await conn.OpenAsync();
+                        await UserEventController.InsertUserEventWithConnection(
+                            req.UserId, "digcraft_death",
+                            $"Died from fall damage in DigCraft!",
+                            null, null, conn);
+                    }
                 }
 
                 return Ok(new { ok = true, damage = reducedDamage, health = newHealth });
@@ -4811,48 +4516,26 @@ var mobSpeed = t switch
             if (req == null || req.UserId <= 0) return BadRequest("Invalid request");
             try
             {
-                // Validate that the mob actually exists on the server and is in range
                 EnsureWorldMobsInitialized(req.WorldId);
                 if (!_worldMobs.TryGetValue(req.WorldId, out var mobs)) return BadRequest("World not found");
 
-                // Get player's current position from database first
-                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
+                var state = await EnsurePlayerLoaded(req.UserId, req.WorldId);
 
-                float playerX = 0, playerY = 0, playerZ = 0;
-                bool isDefending = false;
-                int leftHand = 0;
-                using (var pCmd = new MySqlCommand(@"
-                    SELECT pos_x, pos_y, pos_z, is_defending, left_hand 
-                    FROM maxhanna.digcraft_players as dp 
-                    LEFT JOIN maxhanna.digcraft_equipment e ON e.player_id = dp.id
-                    WHERE user_id=@uid AND world_id=@wid", conn))
-                {
-                    pCmd.Parameters.AddWithValue("@uid", req.UserId);
-                    pCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                    using var pr = await pCmd.ExecuteReaderAsync();
-                    if (!await pr.ReadAsync()) return BadRequest("Player not found");
-                    playerX = pr.GetFloat("pos_x");
-                    playerY = pr.GetFloat("pos_y");
-                    playerZ = pr.GetFloat("pos_z");
-                    isDefending = pr.IsDBNull(pr.GetOrdinal("is_defending")) ? false : pr.GetBoolean("is_defending");
-                    leftHand = pr.IsDBNull(pr.GetOrdinal("left_hand")) ? 0 : pr.GetInt32("left_hand");
-                }
+                float playerX = state.PosX, playerY = state.PosY, playerZ = state.PosZ;
+                bool isDefending = state.IsDefending;
+                int leftHand = state.Equipment?.LeftHand ?? 0;
 
-                // Find mob by type that's close to player (within 3 blocks)
+                // Find mob by type within range
                 ServerMob? mob = null;
                 const float maxAttackRange = 3.0f;
                 foreach (var m in mobs.Values)
                 {
                     if (!m.Type.Equals(req.MobType, StringComparison.OrdinalIgnoreCase)) continue;
-                    if (m.DiedAtMs > 0) continue; // Skip dead mobs
-
+                    if (m.DiedAtMs > 0) continue;
                     var dx = m.PosX - playerX;
                     var dy = m.PosY - playerY;
                     var dz = m.PosZ - playerZ;
-                    var distSq = dx * dx + dy * dy + dz * dz;
-
-                    if (distSq <= maxAttackRange * maxAttackRange)
+                    if (dx * dx + dy * dy + dz * dz <= maxAttackRange * maxAttackRange)
                     {
                         mob = m;
                         break;
@@ -4860,63 +4543,35 @@ var mobSpeed = t switch
                 }
                 if (mob == null) return BadRequest("No mob of that type is close enough to attack you");
 
-                bool blocked = isDefending && leftHand == ItemIds.SHIELD; // SHIELD
+                bool blocked = isDefending && leftHand == ItemIds.SHIELD;
                 if (blocked)
-                {
-                    Console.WriteLine($"MobAttack: Player {req.UserId} blocked attack with shield!");
                     return Ok(new { ok = true, damage = 0, mobId = mob.Id, health = -1, dead = false, blocked = true });
-                }
 
-                // Read equipped armor for this player (if any) so we can reduce mob damage.
-                int helmet = 0, chest = 0, legs = 0, boots = 0;
-                using (var eCmd = new MySqlCommand(@"
-                                SELECT e.helmet, e.chest, e.legs, e.boots
-                                FROM maxhanna.digcraft_equipment e
-                                JOIN maxhanna.digcraft_players p ON e.player_id = p.id
-                                WHERE p.user_id=@uid AND p.world_id=@wid", conn))
-                {
-                    eCmd.Parameters.AddWithValue("@uid", req.UserId);
-                    eCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                    using var er = await eCmd.ExecuteReaderAsync();
-                    if (await er.ReadAsync())
-                    {
-                        helmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet");
-                        chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest");
-                        legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs");
-                        boots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots");
-                    }
-                }
+                var eq = state.Equipment;
+                int helmet = eq?.Helmet ?? 0, chest = eq?.Chest ?? 0, legs = eq?.Legs ?? 0, boots = eq?.Boots ?? 0;
 
                 var armorPoints = ArmorPointsForItem(helmet) + ArmorPointsForItem(chest) + ArmorPointsForItem(legs) + ArmorPointsForItem(boots);
-
-                // Convert armor points into a damage reduction fraction (4% per point, capped at 80%).
                 var reduction = Math.Min(0.8f, armorPoints * 0.04f);
                 var reducedDamage = (int)Math.Floor(req.Damage * (1.0f - reduction));
                 if (reducedDamage < 0) reducedDamage = 0;
 
-                using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET health = GREATEST(0, health - @damage) WHERE user_id=@uid AND world_id=@wid", conn);
-                updCmd.Parameters.AddWithValue("@damage", reducedDamage);
-                updCmd.Parameters.AddWithValue("@uid", req.UserId);
-                updCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                await updCmd.ExecuteNonQueryAsync();
-
-                using var hCmd = new MySqlCommand("SELECT health FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn);
-                hCmd.Parameters.AddWithValue("@uid", req.UserId);
-                hCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                var hObj = await hCmd.ExecuteScalarAsync();
-                int newHealth = hObj != null ? Convert.ToInt32(hObj) : 0;
+                state.Health = Math.Max(0, state.Health - reducedDamage);
+                state.IsDirty = true;
+                int newHealth = state.Health;
 
                 if (newHealth <= 0)
                 {
-                    using var resetExpCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET level = 1, exp = 0 WHERE user_id=@uid AND world_id=@wid", conn);
-                    resetExpCmd.Parameters.AddWithValue("@uid", req.UserId);
-                    resetExpCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                    await resetExpCmd.ExecuteNonQueryAsync();
+                    state.Level = 1;
+                    state.Exp = 0;
 
-                    await UserEventController.InsertUserEventWithConnection(
-                    req.UserId, "digcraft_death",
-                    $"Killed by {req.MobType} in DigCraft!",
-                        null, null, conn);
+                    await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                    {
+                        await conn.OpenAsync();
+                        await UserEventController.InsertUserEventWithConnection(
+                            req.UserId, "digcraft_death",
+                            $"Killed by {req.MobType} in DigCraft!",
+                            null, null, conn);
+                    }
                 }
 
                 return Ok(new { ok = true, damage = reducedDamage, health = newHealth });
@@ -5094,66 +4749,28 @@ var mobSpeed = t switch
         {
             if (itemId <= 0 || quantity <= 0) return;
 
-            await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-            await conn.OpenAsync();
-
-            int playerId = 0;
-            using (var playerCmd = new MySqlCommand("SELECT id FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn))
-            {
-                playerCmd.Parameters.AddWithValue("@uid", userId);
-                playerCmd.Parameters.AddWithValue("@wid", worldId);
-                var result = await playerCmd.ExecuteScalarAsync();
-                if (result != null) playerId = Convert.ToInt32(result);
-            }
-            if (playerId <= 0) return;
+            var state = await EnsurePlayerLoaded(userId, worldId);
+            var inv = state.Inventory;
 
             while (quantity > 0)
             {
-                int? stackSlot = null;
-                int stackQuantity = 0;
-                using (var stackCmd = new MySqlCommand(@"
-                    SELECT slot, quantity
-                    FROM maxhanna.digcraft_inventory
-                    WHERE player_id=@pid AND item_id=@iid AND quantity < 64
-                    ORDER BY slot
-                    LIMIT 1", conn))
-                {
-                    stackCmd.Parameters.AddWithValue("@pid", playerId);
-                    stackCmd.Parameters.AddWithValue("@iid", itemId);
-                    using var reader = await stackCmd.ExecuteReaderAsync();
-                    if (await reader.ReadAsync())
-                    {
-                        stackSlot = reader.GetInt32("slot");
-                        stackQuantity = reader.GetInt32("quantity");
-                    }
-                }
+                // Find existing partial stack
+                var stackEntry = inv.Values
+                    .Where(s => s.ItemId == itemId && s.Quantity < 64)
+                    .OrderBy(s => s.Slot)
+                    .FirstOrDefault();
 
-                if (stackSlot.HasValue)
+                if (stackEntry != null)
                 {
-                    var canAdd = Math.Min(quantity, 64 - stackQuantity);
-                    using var updateCmd = new MySqlCommand(@"
-                        UPDATE maxhanna.digcraft_inventory
-                        SET quantity = quantity + @qty
-                        WHERE player_id=@pid AND slot=@slot", conn);
-                    updateCmd.Parameters.AddWithValue("@qty", canAdd);
-                    updateCmd.Parameters.AddWithValue("@pid", playerId);
-                    updateCmd.Parameters.AddWithValue("@slot", stackSlot.Value);
-                    await updateCmd.ExecuteNonQueryAsync();
+                    var canAdd = Math.Min(quantity, 64 - stackEntry.Quantity);
+                    stackEntry.Quantity += canAdd;
                     quantity -= canAdd;
+                    state.IsDirty = true;
                     continue;
                 }
 
-                var usedSlots = new HashSet<int>();
-                using (var usedCmd = new MySqlCommand("SELECT slot FROM maxhanna.digcraft_inventory WHERE player_id=@pid", conn))
-                {
-                    usedCmd.Parameters.AddWithValue("@pid", playerId);
-                    using var reader = await usedCmd.ExecuteReaderAsync();
-                    while (await reader.ReadAsync())
-                    {
-                        usedSlots.Add(reader.GetInt32("slot"));
-                    }
-                }
-
+                // Find first empty slot
+                var usedSlots = new HashSet<int>(inv.Keys);
                 int emptySlot = -1;
                 for (int slot = 0; slot < 36; slot++)
                 {
@@ -5166,46 +4783,25 @@ var mobSpeed = t switch
                 if (emptySlot < 0) return;
 
                 var stackSize = Math.Min(quantity, 64);
-                using var insertCmd = new MySqlCommand(@"
-                    INSERT INTO maxhanna.digcraft_inventory (player_id, slot, item_id, quantity)
-                    VALUES (@pid, @slot, @iid, @qty)", conn);
-                insertCmd.Parameters.AddWithValue("@pid", playerId);
-                insertCmd.Parameters.AddWithValue("@slot", emptySlot);
-                insertCmd.Parameters.AddWithValue("@iid", itemId);
-                insertCmd.Parameters.AddWithValue("@qty", stackSize);
-                await insertCmd.ExecuteNonQueryAsync();
+                inv[emptySlot] = new DigCraftInventorySlot
+                {
+                    Slot = emptySlot,
+                    ItemId = itemId,
+                    Quantity = stackSize
+                };
                 quantity -= stackSize;
+                state.IsDirty = true;
             }
         }
 
-        private async Task GrantExpToPlayerAsync(int userId, int worldId, int expAmount, MySqlTransaction? tx = null)
+        private async Task GrantExpToPlayerAsync(int userId, int worldId, int expAmount)
         {
             try
             {
-                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
-
-                using var expCmd = new MySqlCommand(@"
-                    UPDATE maxhanna.digcraft_players 
-                    SET exp = COALESCE(exp, 0) + @exp 
-                    WHERE user_id=@uid AND world_id=@wid", conn, tx);
-                expCmd.Parameters.AddWithValue("@exp", expAmount);
-                expCmd.Parameters.AddWithValue("@uid", userId);
-                expCmd.Parameters.AddWithValue("@wid", worldId);
-                var rowsAffected = await expCmd.ExecuteNonQueryAsync();
-
-                // Verify the update worked
-                using var selCmd = new MySqlCommand("SELECT level, exp FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn, tx);
-                selCmd.Parameters.AddWithValue("@uid", userId);
-                selCmd.Parameters.AddWithValue("@wid", worldId);
-                using var rdr = await selCmd.ExecuteReaderAsync();
-                if (await rdr.ReadAsync())
-                {
-                    var lvl = rdr.GetInt32("level");
-                    var xp = rdr.GetInt32("exp");
-                }
-
-                await CheckLevelUpAsync(userId, worldId, tx);
+                var state = await EnsurePlayerLoaded(userId, worldId);
+                state.Exp += expAmount;
+                state.IsDirty = true;
+                await CheckLevelUpAsync(userId, worldId, state);
             }
             catch (Exception ex)
             {
@@ -5213,21 +4809,13 @@ var mobSpeed = t switch
             }
         }
 
-        private async Task CheckLevelUpAsync(int userId, int worldId, MySqlTransaction? tx = null)
+        private async Task CheckLevelUpAsync(int userId, int worldId, DigCraftPlayerMemoryState? state = null)
         {
             try
             {
-                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
-
-                using var selCmd = new MySqlCommand("SELECT level, exp FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn, tx);
-                selCmd.Parameters.AddWithValue("@uid", userId);
-                selCmd.Parameters.AddWithValue("@wid", worldId);
-                var reader = await selCmd.ExecuteReaderAsync();
-                if (!await reader.ReadAsync()) return;
-                int level = reader.GetInt32("level");
-                int exp = reader.GetInt32("exp");
-                await reader.CloseAsync();
+                state ??= await EnsurePlayerLoaded(userId, worldId);
+                int level = state.Level;
+                int exp = state.Exp;
 
                 int expToLevel = GetExpForLevel(level + 1);
                 int originalLevel = level;
@@ -5240,20 +4828,20 @@ var mobSpeed = t switch
                 }
                 if (level > originalLevel)
                 {
+                    state.Level = level;
+                    state.Exp = exp;
+                    state.IsDirty = true;
                     try
                     {
-                        string eventText = $"reached level {level} in DigCraft!";
-                        await UserEventController.InsertUserEventWithConnection(userId, "digcraft_levelup", eventText, level, "digcraft_level", conn, tx);
+                        await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                        {
+                            await conn.OpenAsync();
+                            string eventText = $"reached level {level} in DigCraft!";
+                            await UserEventController.InsertUserEventWithConnection(userId, "digcraft_levelup", eventText, level, "digcraft_level", conn);
+                        }
                     }
                     catch { }
                 }
-
-                using var updCmd = new MySqlCommand("UPDATE maxhanna.digcraft_players SET level = @level, exp = @exp WHERE user_id=@uid AND world_id=@wid", conn, tx);
-                updCmd.Parameters.AddWithValue("@level", level);
-                updCmd.Parameters.AddWithValue("@exp", exp);
-                updCmd.Parameters.AddWithValue("@uid", userId);
-                updCmd.Parameters.AddWithValue("@wid", worldId);
-                await updCmd.ExecuteNonQueryAsync();
             }
             catch (Exception ex)
             {
@@ -5297,37 +4885,28 @@ var mobSpeed = t switch
 
         /// <summary>Get block changes for a chunk (delta from procedural generation).</summary>
         [HttpPost("GetChunkChanges")]
-        public async Task<IActionResult> GetChunkChanges([FromBody] GetChunkRequest req)
+        public IActionResult GetChunkChanges([FromBody] GetChunkRequest req)
         {
             try
             {
-                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
-
-                using var cmd = new MySqlCommand(@"
-                    SELECT local_x, local_y, local_z, block_id, water_level, COALESCE(fluid_is_source, 0) AS fluid_is_source, COALESCE(block_data, 0) AS block_data
-                    FROM maxhanna.digcraft_block_changes
-                    WHERE world_id=@wid AND chunk_x=@cx AND chunk_z=@cz", conn);
-                cmd.Parameters.AddWithValue("@wid", req.WorldId);
-                cmd.Parameters.AddWithValue("@cx", req.ChunkX);
-                cmd.Parameters.AddWithValue("@cz", req.ChunkZ);
-
                 var changes = new List<DigCraftBlockChange>();
-                using var r = await cmd.ExecuteReaderAsync();
-                while (await r.ReadAsync())
+                if (_blockChanges.TryGetValue((req.WorldId, req.ChunkX, req.ChunkZ), out var chunkBlocks))
                 {
-                    changes.Add(new DigCraftBlockChange
+                    foreach (var kvp in chunkBlocks)
                     {
-                        ChunkX = req.ChunkX,
-                        ChunkZ = req.ChunkZ,
-                        LocalX = r.GetInt32("local_x"),
-                        LocalY = r.GetInt32("local_y"),
-                        LocalZ = r.GetInt32("local_z"),
-                        BlockId = r.GetInt32("block_id"),
-                        WaterLevel = r.GetInt32("water_level"),
-                        FluidIsSource = r.GetInt32("fluid_is_source") > 0,
-                        BlockData = r.GetInt32("block_data")
-                    });
+                        var (lx, ly, lz) = kvp.Key;
+                        var e = kvp.Value;
+                        changes.Add(new DigCraftBlockChange
+                        {
+                            ChunkX = req.ChunkX,
+                            ChunkZ = req.ChunkZ,
+                            LocalX = lx, LocalY = ly, LocalZ = lz,
+                            BlockId = e.BlockId,
+                            WaterLevel = e.WaterLevel,
+                            FluidIsSource = e.FluidIsSource,
+                            BlockData = e.BlockData
+                        });
+                    }
                 }
                 return Ok(changes);
             }
@@ -5348,232 +4927,119 @@ var mobSpeed = t switch
 
             try
             {
-                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
-
-                var hasShrub = req.Items.Any(it => it.BlockId == BlockIds.SHRUB);
-                // fetch world seed for base lookup when determining decay markers
+                // Fetch world seed (still needs SQL — lightweight, once per request)
                 int worldSeed = 42;
-                using (var seedCmd = new MySqlCommand("SELECT seed FROM maxhanna.digcraft_worlds WHERE id = @wid", conn))
+                await using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
+                    await conn.OpenAsync();
+                    using var seedCmd = new MySqlCommand("SELECT seed FROM maxhanna.digcraft_worlds WHERE id = @wid", conn);
                     seedCmd.CommandTimeout = 30;
                     seedCmd.Parameters.AddWithValue("@wid", req.WorldId);
                     var seedResult = await seedCmd.ExecuteScalarAsync();
                     worldSeed = (seedResult == null || seedResult == DBNull.Value) ? 42 : Convert.ToInt32(seedResult);
                 }
 
-                string sql;
-                if (hasShrub)
+                // Memory-first block lookup: check _blockChanges, fall back to GetBaseBlockId
+                int GetBlockExact(int cx, int cz, int lx, int ly, int lz)
                 {
-                    sql = @"
-                        INSERT INTO maxhanna.digcraft_block_changes
-                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, planted_at, water_level, fluid_is_source, block_data)
-                        VALUES (@wid, @cx, @cz, @lx, @ly, @lz, CASE WHEN @decay = 1 THEN @prevBid ELSE @bid END, @uid, UTC_TIMESTAMP(), 
-                            CASE WHEN @bid = @shrubId OR @decay = 1 THEN UTC_TIMESTAMP() ELSE NULL END, @waterLevel, @fluidIsSource, @blockData)
-                        ON DUPLICATE KEY UPDATE block_id=CASE WHEN @decay = 1 THEN @prevBid ELSE VALUES(block_id) END, changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), 
-                            planted_at=CASE WHEN VALUES(block_id) = @shrubId OR @decay = 1 THEN UTC_TIMESTAMP() ELSE planted_at END, water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source), block_data=VALUES(block_data);";
+                    if (_blockChanges.TryGetValue((req.WorldId, cx, cz), out var chunkBlocks) &&
+                        chunkBlocks.TryGetValue((lx, ly, lz), out var entry))
+                        return entry.BlockId;
+                    int wx = cx * CHUNK_SIZE + lx;
+                    int wz = cz * CHUNK_SIZE + lz;
+                    return GetBaseBlockId(worldSeed, wx, ly, wz);
                 }
-                else
+
+                int GetPrevBlockId(DataContracts.DigCraft.PlaceBlockItem it)
                 {
-                    sql = @"
-                        INSERT INTO maxhanna.digcraft_block_changes
-                            (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, planted_at, water_level, fluid_is_source, block_data)
-                        VALUES (@wid, @cx, @cz, @lx, @ly, @lz, CASE WHEN @decay = 1 THEN @prevBid ELSE @bid END, @uid, UTC_TIMESTAMP(), CASE WHEN @decay = 1 THEN UTC_TIMESTAMP() ELSE NULL END, @waterLevel, @fluidIsSource, @blockData)
-                        ON DUPLICATE KEY UPDATE block_id=CASE WHEN @decay = 1 THEN @prevBid ELSE VALUES(block_id) END, changed_by=VALUES(changed_by), changed_at=UTC_TIMESTAMP(), planted_at=CASE WHEN @decay = 1 THEN UTC_TIMESTAMP() ELSE planted_at END, water_level=VALUES(water_level), fluid_is_source=VALUES(fluid_is_source), block_data=VALUES(block_data);";
+                    return it.PreviousBlockId ?? GetBlockExact(it.ChunkX, it.ChunkZ, it.LocalX, it.LocalY, it.LocalZ);
+                }
+
+                void SetBlock(int cx, int cz, int lx, int ly, int lz, int bid, int waterLevel, bool fluidIsSource, int blockData, DateTime? plantedAt)
+                {
+                    var chunkKey = (req.WorldId, cx, cz);
+                    var blockKey = (lx, ly, lz);
+                    var chunk = _blockChanges.GetOrAdd(chunkKey, _ => new ConcurrentDictionary<(int, int, int), BlockMemoryEntry>());
+                    chunk[blockKey] = new BlockMemoryEntry(bid, waterLevel, fluidIsSource, blockData, req.UserId, DateTime.UtcNow, plantedAt);
                 }
 
                 var randItem = req.Items[0];
-                int randItemLocalY = randItem.LocalY;
-                bool sortDescend = false;
-                int randChunkX = randItem.ChunkX;
-                int randChunkZ = randItem.ChunkZ;
-                int randLocalX = randItem.LocalX;
-                int randLocalY = randItem.LocalY;
-                int randLocalZ = randItem.LocalZ;
-                int prevRandBlockId = await GetExactBlockAtAsync(conn, req.WorldId, randChunkX, randChunkZ, randLocalX, randLocalY, randLocalZ, worldSeed);
-                if (prevRandBlockId == BlockIds.NETHER_STALACTITE)
-                {
-                    sortDescend = true;
-                }
-                //  Console.WriteLine("PlaceBlocks: executing batch with " + req.Items.Count + " items, sortDescend=" + sortDescend + ", sample item: " + $"worldId={req.WorldId}, chunkX={randItem.ChunkX}, chunkZ={randItem.ChunkZ}, localX={randItem.LocalX}, localY={randItem.LocalY}, localZ={randItem.LocalZ}, blockId={randItem.BlockId}, prevBlockId={prevRandBlockId}");
-                int totalRows = 0;
-                if (sortDescend)
-                {
-                    req.Items = req.Items.OrderByDescending(it => it.LocalY).ToList();
-                }
-                else
-                {
-                    req.Items = req.Items.OrderBy(it => it.LocalY).ToList();
-                }
+                bool sortDescend = GetPrevBlockId(randItem) == BlockIds.NETHER_STALACTITE;
 
+                if (sortDescend)
+                    req.Items = req.Items.OrderByDescending(it => it.LocalY).ToList();
+                else
+                    req.Items = req.Items.OrderBy(it => it.LocalY).ToList();
+
+                int totalRows = 0;
                 foreach (var it in req.Items)
                 {
-                    //  Console.WriteLine("Checking regeneration for block change: " + $"worldId={req.WorldId}, chunkX={it.ChunkX}, chunkZ={it.ChunkZ}, localX={it.LocalX}, localY={it.LocalY}, localZ={it.LocalZ}, blockId={it.BlockId}");
-                    using var cmd = new MySqlCommand(sql, conn);
-                    cmd.CommandTimeout = 60;
-                    // Prepare parameters
-                    cmd.Parameters.AddWithValue("@wid", req.WorldId);
-                    cmd.Parameters.Add("@cx", MySqlDbType.Int32);
-                    cmd.Parameters.Add("@cz", MySqlDbType.Int32);
-                    cmd.Parameters.Add("@lx", MySqlDbType.Int32);
-                    cmd.Parameters.Add("@ly", MySqlDbType.Int32);
-                    cmd.Parameters.Add("@lz", MySqlDbType.Int32);
-                    cmd.Parameters.Add("@bid", MySqlDbType.Int32);
-                    cmd.Parameters.Add("@prevBid", MySqlDbType.Int32);
-                    cmd.Parameters.Add("@waterLevel", MySqlDbType.Int32);
-                    cmd.Parameters.Add("@fluidIsSource", MySqlDbType.Int32);
-                    cmd.Parameters.AddWithValue("@uid", req.UserId);
-                    cmd.Parameters.AddWithValue("@shrubId", BlockIds.SHRUB);
-                    cmd.Parameters.Add("@decay", MySqlDbType.Int32);
-                    // compute decay marker: if player is removing a regenerating block (dripstone/tree)
                     int decay = 0;
                     int writeLocalY = it.LocalY;
                     int prevBlockId = 0;
-                    int chunkX = it.ChunkX;
-                    int chunkZ = it.ChunkZ;
-                    int localX = it.LocalX;
-                    int localY = it.LocalY;
-                    int localZ = it.LocalZ;
 
                     if (it.BlockId == BlockIds.AIR)
                     {
-                        prevBlockId = it.PreviousBlockId ?? 0;
-
+                        prevBlockId = GetPrevBlockId(it);
                         bool isRegen = REGENERATIVE_BLOCKS.Contains(prevBlockId);
 
                         if (isRegen)
                         {
-                            if (prevBlockId == BlockIds.NETHER_STALACTITE) //if any were destroyed who's top is not also a stalactite, then we don't regen
+                            if (prevBlockId == BlockIds.NETHER_STALACTITE)
                             {
                                 if (req.Items.Any(item =>
-                                    item.ChunkX == it.ChunkX &&
-                                    item.ChunkZ == it.ChunkZ &&
-                                    item.LocalX == it.LocalX &&
-                                    item.LocalZ == it.LocalZ &&
-                                    (item.AboveBlockId ?? 0) != prevBlockId)
-                                )
+                                    item.ChunkX == it.ChunkX && item.ChunkZ == it.ChunkZ &&
+                                    item.LocalX == it.LocalX && item.LocalZ == it.LocalZ &&
+                                    (item.AboveBlockId ?? 0) != prevBlockId))
                                 {
-                                    isRegen = false;
-                                    decay = 0;
+                                    isRegen = false; decay = 0;
                                 }
-                                else
-                                {
-                                    decay = 1;
-                                    writeLocalY = localY;
-                                }
+                                else { decay = 1; writeLocalY = it.LocalY; }
                             }
                             else if (LEAF_BLOCKIDS.Contains(prevBlockId))
                             {
-                                // Leaves only regenerate if touching wood on left or right
-                                int[] affectedBlockIds = LEAF_BLOCKIDS.ToArray();
-                                affectedBlockIds.Append(BlockIds.WOOD);
-                                bool hasWoodLeft = affectedBlockIds.Contains(it.LeftBlockId ?? 0);
-                                bool hasWoodRight = affectedBlockIds.Contains(it.RightBlockId ?? 0);
-                                if (hasWoodLeft || hasWoodRight)
-                                {
-                                    decay = 1;
-                                    writeLocalY = localY;
-                                }
-                                else
-                                {
-                                    isRegen = false;
-                                }
+                                bool hasWoodLeft = LEAF_BLOCKIDS.Concat(new[] { BlockIds.WOOD }).Contains(it.LeftBlockId ?? 0);
+                                bool hasWoodRight = LEAF_BLOCKIDS.Concat(new[] { BlockIds.WOOD }).Contains(it.RightBlockId ?? 0);
+                                if (hasWoodLeft || hasWoodRight) { decay = 1; writeLocalY = it.LocalY; }
+                                else isRegen = false;
                             }
                             else
-                            { //Only regen if base block is not also being removed in this batch (e.g. for trees, if the base log is also being removed, then the rest won't regen)
+                            {
                                 if (req.Items.Any(item =>
-                                     item.ChunkX == it.ChunkX &&
-                                     item.ChunkZ == it.ChunkZ &&
-                                     item.LocalX == it.LocalX &&
-                                     item.LocalZ == it.LocalZ &&
-                                     item.PreviousBlockId == prevBlockId &&
-                                     (item.BelowBlockId ?? 0) != prevBlockId)
-                                 )
+                                    item.ChunkX == it.ChunkX && item.ChunkZ == it.ChunkZ &&
+                                    item.LocalX == it.LocalX && item.LocalZ == it.LocalZ &&
+                                    item.PreviousBlockId == prevBlockId &&
+                                    (item.BelowBlockId ?? 0) != prevBlockId))
                                 {
                                     isRegen = false;
                                 }
-                                else
-                                {
-                                    decay = 1;
-                                    writeLocalY = localY;
-                                }
+                                else { decay = 1; writeLocalY = it.LocalY; }
                             }
                         }
-                        //  Console.WriteLine($"[ARE WE REGENERATING?] PlaceBlocks: prevBlockId={prevBlockId}, isRegenCandidate={decay == 1 && isRegen}, comparedTo={comparedTo}"); 
                     }
 
-                    // Then set the parameters:
-                    cmd.Parameters["@cx"].Value = it.ChunkX;
-                    cmd.Parameters["@cz"].Value = it.ChunkZ;
-                    cmd.Parameters["@lx"].Value = it.LocalX;
-                    cmd.Parameters["@ly"].Value = writeLocalY;   // = it.LocalY (no anchor remapping)
-                    cmd.Parameters["@lz"].Value = it.LocalZ;
-                    cmd.Parameters["@bid"].Value = it.BlockId;
-                    cmd.Parameters["@prevBid"].Value = prevBlockId;           // original block id (e.g. STALACTITE)
-                    cmd.Parameters["@decay"].Value = decay;
-                    cmd.Parameters["@waterLevel"].Value =
-                        it.WaterLevel ?? ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 8 : 0);
-                    // Bucket placements are always source blocks — the simulation handles spreading.
-                    // Non-fluid blocks always get fluid_is_source=0.
-                    cmd.Parameters["@fluidIsSource"].Value =
-                        (it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 1 : 0;
-                    cmd.Parameters.Add("@blockData", MySqlDbType.Int32).Value = it.BlockData ?? 0;
+                    int finalBlockId = decay == 1 ? prevBlockId : it.BlockId;
+                    int waterLevel = it.WaterLevel ?? ((it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA) ? 8 : 0);
+                    bool fluidIsSource = it.BlockId == BlockIds.WATER || it.BlockId == BlockIds.LAVA;
+                    int blockData = it.BlockData ?? 0;
+                    DateTime? plantedAt = (it.BlockId == BlockIds.SHRUB || decay == 1) ? DateTime.UtcNow : null;
 
-                    try
-                    {
-                        //   Console.WriteLine("Executing query...");
-                        await cmd.ExecuteNonQueryAsync();
-                        totalRows++;
-                    }
-                    catch (Exception ex)
-                    {
-                        _ = _log.Db($"PlaceBlocks: ExecuteNonQuery exception for user={req.UserId}: {ex.Message}", req.UserId, "DIGCRAFT", true);
-                    }
-
+                    SetBlock(it.ChunkX, it.ChunkZ, it.LocalX, writeLocalY, it.LocalZ, finalBlockId, waterLevel, fluidIsSource, blockData, plantedAt);
+                    totalRows++;
                 }
-                //   Console.WriteLine($"PlaceBlockBatch: total rows affected={totalRows} for userId={req.UserId}. Granting EXP...");
+
                 await GrantExpToPlayerAsync(req.UserId, req.WorldId, totalRows);
 
-                // Return authoritative equipment for this player so client can compare pre/post durabilities
-                var equipment = new { helmet = 0, chest = 0, legs = 0, boots = 0, weapon = 0, helmetDur = -1, chestDur = -1, legsDur = -1, bootsDur = -1, weaponDur = -1, leftHand = 0, leftHandDur = -1 };
-                try
+                // Return equipment from in-memory state
+                var p = await EnsurePlayerLoaded(req.UserId, req.WorldId);
+                var eq = p.Equipment;
+                var equipment = new
                 {
-                    using (var eqCmd = new MySqlCommand(@"
-                    SELECT IFNULL(e.helmet,0) AS helmet, IFNULL(e.chest,0) AS chest, IFNULL(e.legs,0) AS legs, IFNULL(e.boots,0) AS boots,
-                           IFNULL(e.weapon,0) AS weapon, COALESCE(e.helmet_dur,-1) AS helmet_dur, COALESCE(e.chest_dur,-1) AS chest_dur, COALESCE(e.legs_dur,-1) AS legs_dur, COALESCE(e.boots_dur,-1) AS boots_dur, IFNULL(e.left_hand,0) AS left_hand
-                    FROM maxhanna.digcraft_equipment e
-                    JOIN maxhanna.digcraft_players p ON p.id = e.player_id
-                    WHERE p.user_id=@uid AND p.world_id=@wid", conn))
-                    {
-                        eqCmd.Parameters.AddWithValue("@uid", req.UserId);
-                        eqCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                        using var er = await eqCmd.ExecuteReaderAsync();
-                        if (await er.ReadAsync())
-                        {
-                            equipment = new
-                            {
-                                helmet = er.IsDBNull(er.GetOrdinal("helmet")) ? 0 : er.GetInt32("helmet"),
-                                chest = er.IsDBNull(er.GetOrdinal("chest")) ? 0 : er.GetInt32("chest"),
-                                legs = er.IsDBNull(er.GetOrdinal("legs")) ? 0 : er.GetInt32("legs"),
-                                boots = er.IsDBNull(er.GetOrdinal("boots")) ? 0 : er.GetInt32("boots"),
-                                weapon = er.IsDBNull(er.GetOrdinal("weapon")) ? 0 : er.GetInt32("weapon"),
-                                helmetDur = er.IsDBNull(er.GetOrdinal("helmet_dur")) ? -1 : er.GetInt32("helmet_dur"),
-                                chestDur = er.IsDBNull(er.GetOrdinal("chest_dur")) ? -1 : er.GetInt32("chest_dur"),
-                                legsDur = er.IsDBNull(er.GetOrdinal("legs_dur")) ? -1 : er.GetInt32("legs_dur"),
-                                bootsDur = er.IsDBNull(er.GetOrdinal("boots_dur")) ? -1 : er.GetInt32("boots_dur"),
-                                weaponDur = -1,
-                                leftHand = er.IsDBNull(er.GetOrdinal("left_hand")) ? 0 : er.GetInt32("left_hand"),
-                                leftHandDur = -1
-                            };
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _ = _log.Db($"PlaceBlocks: equipment query failed for user={req.UserId}: {ex.Message}", req.UserId, "DIGCRAFT", true);
-                    _ = _log.Db(ex.ToString(), req.UserId, "DIGCRAFT", true);
-                    throw;
-                }
+                    helmet = eq?.Helmet ?? 0, chest = eq?.Chest ?? 0, legs = eq?.Legs ?? 0, boots = eq?.Boots ?? 0,
+                    weapon = eq?.Weapon ?? 0, helmetDur = eq?.HelmetDur ?? -1, chestDur = eq?.ChestDur ?? -1,
+                    legsDur = eq?.LegsDur ?? -1, bootsDur = eq?.BootsDur ?? -1, weaponDur = eq?.WeaponDur ?? -1,
+                    leftHand = eq?.LeftHand ?? 0, leftHandDur = eq?.LeftHandDur ?? -1
+                };
 
                 return Ok(new { ok = true, count = req.Items.Count, equipment });
             }
@@ -5584,22 +5050,27 @@ var mobSpeed = t switch
             }
         }
 
-        /// <summary>Post a chat message to the world.</summary>
+        /// <summary>Post a chat message to the world (in-memory only, no DB).</summary>
         [HttpPost("Chat")]
         public async Task<IActionResult> PostChat([FromBody] DataContracts.DigCraft.ChatRequest req)
         {
             if (req.UserId <= 0 || string.IsNullOrWhiteSpace(req.Message)) return BadRequest("Invalid chat request");
             try
             {
-                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
-                using var cmd = new MySqlCommand(@"
-                    INSERT INTO maxhanna.digcraft_chat_messages (world_id, user_id, message, created_at)
-                    VALUES (@wid, @uid, @msg, UTC_TIMESTAMP());", conn);
-                cmd.Parameters.AddWithValue("@wid", req.WorldId);
-                cmd.Parameters.AddWithValue("@uid", req.UserId);
-                cmd.Parameters.AddWithValue("@msg", req.Message);
-                await cmd.ExecuteNonQueryAsync();
+                var queue = _worldChats.GetOrAdd(req.WorldId, _ => new ConcurrentQueue<ChatEntry>());
+                var state = await EnsurePlayerLoaded(req.UserId, req.WorldId);
+                queue.Enqueue(new ChatEntry
+                {
+                    UserId = req.UserId,
+                    Username = state.Username,
+                    Message = req.Message,
+                    CreatedAt = DateTime.UtcNow
+                });
+
+                // Trim old messages
+                var cutoff = DateTime.UtcNow - CHAT_TTL;
+                while (queue.TryPeek(out var oldest) && oldest.CreatedAt < cutoff)
+                    queue.TryDequeue(out _);
 
                 return Ok(new { ok = true });
             }
@@ -5610,36 +5081,27 @@ var mobSpeed = t switch
             }
         }
 
-        /// <summary>Get recent chat messages for the world.</summary>
+        /// <summary>Get recent chat messages for the world (from in-memory queue).</summary>
         [HttpGet("Chats/{worldId}")]
-        public async Task<IActionResult> GetChats(int worldId)
+        public IActionResult GetChats(int worldId)
         {
             try
             {
-                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
-
-                var cutoff = DateTime.UtcNow.AddSeconds(-30);
-                using var cmd = new MySqlCommand(@"
-                    SELECT c.user_id, c.message, c.created_at, u.username
-                    FROM maxhanna.digcraft_chat_messages c
-                    JOIN maxhanna.users u ON u.id = c.user_id
-                    WHERE c.world_id=@wid AND c.created_at >= @cutoff
-                    ORDER BY c.created_at ASC", conn);
-                cmd.Parameters.AddWithValue("@wid", worldId);
-                cmd.Parameters.AddWithValue("@cutoff", cutoff);
-
+                var cutoff = DateTime.UtcNow - CHAT_TTL;
                 var messages = new List<object>();
-                using var r = await cmd.ExecuteReaderAsync();
-                while (await r.ReadAsync())
+                if (_worldChats.TryGetValue(worldId, out var queue))
                 {
-                    messages.Add(new
+                    foreach (var entry in queue)
                     {
-                        userId = r.GetInt32("user_id"),
-                        message = r.GetString("message"),
-                        createdAt = r.GetDateTime("created_at"),
-                        username = r.IsDBNull(r.GetOrdinal("username")) ? "Anon" : r.GetString("username")
-                    });
+                        if (entry.CreatedAt < cutoff) continue;
+                        messages.Add(new
+                        {
+                            userId = entry.UserId,
+                            message = entry.Message,
+                            createdAt = entry.CreatedAt,
+                            username = entry.Username
+                        });
+                    }
                 }
                 return Ok(messages);
             }
@@ -5650,85 +5112,49 @@ var mobSpeed = t switch
             }
         }
 
-        /// <summary>Save inventory.</summary>
+        /// <summary>Save inventory (in-memory state, flushed by persist timer).</summary>
         [HttpPost("SaveInventory")]
         public async Task<IActionResult> SaveInventory([FromBody] SaveInventoryRequest req)
         {
             if (req.UserId <= 0) return BadRequest("Invalid userId");
             try
             {
-                await using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-                await conn.OpenAsync();
-
-                // Get player id
-                int playerId = 0;
-                using (var pCmd = new MySqlCommand(
-                    "SELECT id FROM maxhanna.digcraft_players WHERE user_id=@uid AND world_id=@wid", conn))
-                {
-                    pCmd.Parameters.AddWithValue("@uid", req.UserId);
-                    pCmd.Parameters.AddWithValue("@wid", req.WorldId);
-                    var obj = await pCmd.ExecuteScalarAsync();
-                    if (obj != null) playerId = Convert.ToInt32(obj);
-                }
-                if (playerId <= 0) return BadRequest("Player not found");
+                var state = await EnsurePlayerLoaded(req.UserId, req.WorldId);
 
                 if (req.Hunger.HasValue)
-                {
-                    using var hungerCmd = new MySqlCommand(
-                        "UPDATE maxhanna.digcraft_players SET hunger=@hunger WHERE id=@pid", conn);
-                    hungerCmd.Parameters.AddWithValue("@hunger", Math.Clamp(req.Hunger.Value, 0, 20));
-                    hungerCmd.Parameters.AddWithValue("@pid", playerId);
-                    await hungerCmd.ExecuteNonQueryAsync();
-                }
+                    state.Hunger = Math.Clamp(req.Hunger.Value, 0, 20);
 
-                // Clear existing then insert
-                using var tx = await conn.BeginTransactionAsync();
-                using (var delCmd = new MySqlCommand(
-                    "DELETE FROM maxhanna.digcraft_inventory WHERE player_id=@pid", conn, tx))
-                {
-                    delCmd.Parameters.AddWithValue("@pid", playerId);
-                    await delCmd.ExecuteNonQueryAsync();
-                }
+                // Replace inventory with client's current state
+                state.Inventory.Clear();
                 foreach (var slot in req.Slots)
                 {
                     if (slot.ItemId <= 0 || slot.Quantity <= 0) continue;
-                    using var iCmd = new MySqlCommand(@"
-                        INSERT INTO maxhanna.digcraft_inventory (player_id, slot, item_id, quantity, durability)
-                        VALUES (@pid, @slot, @iid, @qty, @durability)", conn, tx);
-                    iCmd.Parameters.AddWithValue("@pid", playerId);
-                    iCmd.Parameters.AddWithValue("@slot", slot.Slot);
-                    iCmd.Parameters.AddWithValue("@iid", slot.ItemId);
-                    iCmd.Parameters.AddWithValue("@qty", slot.Quantity);
-                    iCmd.Parameters.AddWithValue("@durability", slot.Durability.HasValue ? slot.Durability.Value : (object)DBNull.Value);
-                    await iCmd.ExecuteNonQueryAsync();
+                    state.Inventory[slot.Slot] = new DigCraftInventorySlot
+                    {
+                        Slot = slot.Slot,
+                        ItemId = slot.ItemId,
+                        Quantity = slot.Quantity,
+                        Durability = slot.Durability
+                    };
                 }
-                await tx.CommitAsync();
 
-                // Persist equipment if provided
+                // Replace equipment if provided
                 if (req.Equipment != null)
                 {
-                    const string upsertEq = @"
-                        INSERT INTO maxhanna.digcraft_equipment (player_id, helmet, chest, legs, boots, weapon, left_hand, helmet_dur, chest_dur, legs_dur, boots_dur, weapon_dur, left_hand_dur)
-                        VALUES (@pid, @helmet, @chest, @legs, @boots, @weapon, @leftHand, @helmetDur, @chestDur, @legsDur, @bootsDur, @weaponDur, @leftHandDur)
-                        ON DUPLICATE KEY UPDATE helmet=VALUES(helmet), chest=VALUES(chest), legs=VALUES(legs), boots=VALUES(boots), weapon=VALUES(weapon), left_hand=VALUES(left_hand),
-                            helmet_dur=VALUES(helmet_dur), chest_dur=VALUES(chest_dur), legs_dur=VALUES(legs_dur), boots_dur=VALUES(boots_dur), weapon_dur=VALUES(weapon_dur), left_hand_dur=VALUES(left_hand_dur);";
-                    using var eqCmd = new MySqlCommand(upsertEq, conn);
-                    eqCmd.Parameters.AddWithValue("@pid", playerId);
-                    eqCmd.Parameters.AddWithValue("@helmet", req.Equipment.Helmet);
-                    eqCmd.Parameters.AddWithValue("@chest", req.Equipment.Chest);
-                    eqCmd.Parameters.AddWithValue("@legs", req.Equipment.Legs);
-                    eqCmd.Parameters.AddWithValue("@boots", req.Equipment.Boots);
-                    eqCmd.Parameters.AddWithValue("@weapon", req.Equipment.Weapon);
-                    eqCmd.Parameters.AddWithValue("@leftHand", req.Equipment.LeftHand);
-                    eqCmd.Parameters.AddWithValue("@helmetDur", req.Equipment.HelmetDur);
-                    eqCmd.Parameters.AddWithValue("@chestDur", req.Equipment.ChestDur);
-                    eqCmd.Parameters.AddWithValue("@legsDur", req.Equipment.LegsDur);
-                    eqCmd.Parameters.AddWithValue("@bootsDur", req.Equipment.BootsDur);
-                    eqCmd.Parameters.AddWithValue("@weaponDur", req.Equipment.WeaponDur);
-                    eqCmd.Parameters.AddWithValue("@leftHandDur", req.Equipment.LeftHandDur);
-                    await eqCmd.ExecuteNonQueryAsync();
+                    state.Equipment = new DigCraftEquipment
+                    {
+                        Helmet = req.Equipment.Helmet, Chest = req.Equipment.Chest,
+                        Legs = req.Equipment.Legs, Boots = req.Equipment.Boots,
+                        Weapon = req.Equipment.Weapon, LeftHand = req.Equipment.LeftHand,
+                        HelmetDur = req.Equipment.HelmetDur, ChestDur = req.Equipment.ChestDur,
+                        LegsDur = req.Equipment.LegsDur, BootsDur = req.Equipment.BootsDur,
+                        WeaponDur = req.Equipment.WeaponDur, LeftHandDur = req.Equipment.LeftHandDur,
+                        HelmetDye = req.Equipment.HelmetDye, ChestDye = req.Equipment.ChestDye,
+                        LegsDye = req.Equipment.LegsDye, BootsDye = req.Equipment.BootsDye
+                    };
                 }
 
+                state.IsDirty = true;
                 return Ok(new { ok = true });
             }
             catch (Exception ex)
@@ -8636,6 +8062,405 @@ var mobSpeed = t switch
                 return StatusCode(500, "Internal error");
             }
         }
+
+
+        private async Task<DigCraftPlayerMemoryState> EnsurePlayerLoaded(int userId, int worldId)
+        {
+            if (_players.TryGetValue(userId, out var existing) && existing.IsLoaded && existing.WorldId == worldId)
+                return existing;
+
+            var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+            using var conn = new MySqlConnection(connStr);
+            await conn.OpenAsync();
+            using var cmd = new MySqlCommand(@"
+                SELECT p.id, p.user_id, p.world_id, p.pos_x, p.pos_y, p.pos_z, p.yaw, p.pitch,
+                       COALESCE(p.body_yaw, 0) as body_yaw, p.health, p.hunger, p.level, p.exp,
+                       p.color, p.face, COALESCE(p.is_attacking, 0) as is_attacking,
+                       COALESCE(p.is_defending, 0) as is_defending, p.last_seen,
+                       COALESCE(p.left_hand, 0) as left_hand,
+                       COALESCE(u.username, 'Anon') as username
+                FROM maxhanna.digcraft_players p
+                JOIN maxhanna.users u ON u.id = p.user_id
+                WHERE p.user_id = @uid AND p.world_id = @wid", conn);
+            cmd.Parameters.AddWithValue("@uid", userId);
+            cmd.Parameters.AddWithValue("@wid", worldId);
+            using var reader = await cmd.ExecuteReaderAsync();
+            var state = new DigCraftPlayerMemoryState
+            {
+                UserId = userId,
+                WorldId = worldId,
+                IsLoaded = true,
+                IsDirty = false
+            };
+            if (await reader.ReadAsync())
+            {
+                state.PosX = reader.GetFloat("pos_x");
+                state.PosY = reader.GetFloat("pos_y");
+                state.PosZ = reader.GetFloat("pos_z");
+                state.Yaw = reader.GetFloat("yaw");
+                state.Pitch = reader.GetFloat("pitch");
+                state.BodyYaw = reader.GetFloat("body_yaw");
+                state.Health = reader.GetInt32("health");
+                state.Hunger = reader.GetInt32("hunger");
+                state.Level = reader.GetInt32("level");
+                state.Exp = reader.GetInt32("exp");
+                state.Color = reader.IsDBNull(reader.GetOrdinal("color")) ? null : reader.GetString("color");
+                state.Face = reader.GetString("face");
+                state.LeftHand = reader.GetInt32("left_hand");
+                state.IsAttacking = reader.GetBoolean("is_attacking");
+                state.IsDefending = reader.GetBoolean("is_defending");
+                state.LastSeen = reader.GetDateTime("last_seen");
+                state.Username = reader.GetString("username");
+            }
+            reader.Close();
+            _players[userId] = state;
+
+            // Load inventory
+            state.Inventory.Clear();
+            using var invCmd = new MySqlCommand(
+                "SELECT slot, item_id, quantity, durability FROM maxhanna.digcraft_inventory WHERE player_id = (SELECT id FROM maxhanna.digcraft_players WHERE user_id = @uid AND world_id = @wid)", conn);
+            invCmd.Parameters.AddWithValue("@uid", userId);
+            invCmd.Parameters.AddWithValue("@wid", worldId);
+            using var invReader = await invCmd.ExecuteReaderAsync();
+            while (await invReader.ReadAsync())
+            {
+                state.Inventory[invReader.GetInt32("slot")] = new DigCraftInventorySlot
+                {
+                    Slot = invReader.GetInt32("slot"),
+                    ItemId = invReader.GetInt32("item_id"),
+                    Quantity = invReader.GetInt32("quantity"),
+                    Durability = invReader.IsDBNull(invReader.GetOrdinal("durability")) ? null : invReader.GetInt32("durability")
+                };
+            }
+            invReader.Close();
+
+            // Load equipment
+            using var eqCmd = new MySqlCommand(
+                "SELECT helmet, chest, legs, boots, weapon, left_hand, helmet_dur, chest_dur, legs_dur, boots_dur, weapon_dur, left_hand_dur, helmet_dye, chest_dye, legs_dye, boots_dye FROM maxhanna.digcraft_equipment WHERE player_id = (SELECT id FROM maxhanna.digcraft_players WHERE user_id = @uid AND world_id = @wid)", conn);
+            eqCmd.Parameters.AddWithValue("@uid", userId);
+            eqCmd.Parameters.AddWithValue("@wid", worldId);
+            using var eqReader = await eqCmd.ExecuteReaderAsync();
+            if (await eqReader.ReadAsync())
+            {
+                state.Equipment = new DigCraftEquipment
+                {
+                    Helmet = eqReader.GetInt32("helmet"),
+                    Chest = eqReader.GetInt32("chest"),
+                    Legs = eqReader.GetInt32("legs"),
+                    Boots = eqReader.GetInt32("boots"),
+                    Weapon = eqReader.GetInt32("weapon"),
+                    LeftHand = eqReader.GetInt32("left_hand"),
+                    HelmetDur = eqReader.IsDBNull(eqReader.GetOrdinal("helmet_dur")) ? -1 : eqReader.GetInt32("helmet_dur"),
+                    ChestDur = eqReader.IsDBNull(eqReader.GetOrdinal("chest_dur")) ? -1 : eqReader.GetInt32("chest_dur"),
+                    LegsDur = eqReader.IsDBNull(eqReader.GetOrdinal("legs_dur")) ? -1 : eqReader.GetInt32("legs_dur"),
+                    BootsDur = eqReader.IsDBNull(eqReader.GetOrdinal("boots_dur")) ? -1 : eqReader.GetInt32("boots_dur"),
+                    WeaponDur = eqReader.IsDBNull(eqReader.GetOrdinal("weapon_dur")) ? -1 : eqReader.GetInt32("weapon_dur"),
+                    LeftHandDur = eqReader.IsDBNull(eqReader.GetOrdinal("left_hand_dur")) ? -1 : eqReader.GetInt32("left_hand_dur"),
+                    HelmetDye = eqReader.IsDBNull(eqReader.GetOrdinal("helmet_dye")) ? 0 : eqReader.GetInt32("helmet_dye"),
+                    ChestDye = eqReader.IsDBNull(eqReader.GetOrdinal("chest_dye")) ? 0 : eqReader.GetInt32("chest_dye"),
+                    LegsDye = eqReader.IsDBNull(eqReader.GetOrdinal("legs_dye")) ? 0 : eqReader.GetInt32("legs_dye"),
+                    BootsDye = eqReader.IsDBNull(eqReader.GetOrdinal("boots_dye")) ? 0 : eqReader.GetInt32("boots_dye")
+                };
+            }
+            return state;
+        }
+
+        private static void PersistAllToDb(object? state)
+        {
+            if (!Monitor.TryEnter(_persistLock, TimeSpan.FromMilliseconds(100)))
+                return;
+            try
+            {
+                var cutoff = DateTime.UtcNow.AddMinutes(-5);
+                var active = _players.Values.Where(p => p.IsLoaded && p.LastSeen >= cutoff && p.IsDirty).ToList();
+                if (active.Count == 0)
+                    return;
+
+                var connStr = new ConfigurationBuilder()
+                    .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
+                    .AddJsonFile("appsettings.json")
+                    .Build()
+                    .GetValue<string>("ConnectionStrings:maxhanna");
+                if (string.IsNullOrEmpty(connStr))
+                    return;
+
+                using var conn = new MySqlConnection(connStr);
+                conn.Open();
+                foreach (var p in active)
+                {
+                    using var tx = conn.BeginTransaction();
+                    try
+                    {
+                        using var updCmd = new MySqlCommand(@"
+                            UPDATE maxhanna.digcraft_players SET
+                                pos_x = @px, pos_y = @py, pos_z = @pz,
+                                yaw = @yaw, pitch = @pitch, body_yaw = @by,
+                                health = @hp, hunger = @hunger, level = @lvl, exp = @exp,
+                                color = @color, face = @face,
+                                is_attacking = @att, is_defending = @def,
+                                left_hand = @lh, last_seen = @seen
+                            WHERE user_id = @uid AND world_id = @wid", conn, tx);
+                        updCmd.Parameters.AddWithValue("@uid", p.UserId);
+                        updCmd.Parameters.AddWithValue("@wid", p.WorldId);
+                        updCmd.Parameters.AddWithValue("@px", p.PosX);
+                        updCmd.Parameters.AddWithValue("@py", p.PosY);
+                        updCmd.Parameters.AddWithValue("@pz", p.PosZ);
+                        updCmd.Parameters.AddWithValue("@yaw", p.Yaw);
+                        updCmd.Parameters.AddWithValue("@pitch", p.Pitch);
+                        updCmd.Parameters.AddWithValue("@by", p.BodyYaw);
+                        updCmd.Parameters.AddWithValue("@hp", p.Health);
+                        updCmd.Parameters.AddWithValue("@hunger", p.Hunger);
+                        updCmd.Parameters.AddWithValue("@lvl", p.Level);
+                        updCmd.Parameters.AddWithValue("@exp", p.Exp);
+                        updCmd.Parameters.AddWithValue("@color", (object?)p.Color ?? DBNull.Value);
+                        updCmd.Parameters.AddWithValue("@face", p.Face);
+                        updCmd.Parameters.AddWithValue("@att", p.IsAttacking);
+                        updCmd.Parameters.AddWithValue("@def", p.IsDefending);
+                        updCmd.Parameters.AddWithValue("@lh", p.LeftHand);
+                        updCmd.Parameters.AddWithValue("@seen", p.LastSeen);
+                        updCmd.ExecuteNonQuery();
+
+                        // Persist inventory
+                        using var delInvCmd = new MySqlCommand(
+                            "DELETE FROM maxhanna.digcraft_inventory WHERE player_id = (SELECT id FROM maxhanna.digcraft_players WHERE user_id = @uid AND world_id = @wid)", conn, tx);
+                        delInvCmd.Parameters.AddWithValue("@uid", p.UserId);
+                        delInvCmd.Parameters.AddWithValue("@wid", p.WorldId);
+                        delInvCmd.ExecuteNonQuery();
+
+                        foreach (var slot in p.Inventory.Values)
+                        {
+                            using var insCmd = new MySqlCommand(@"
+                                INSERT INTO maxhanna.digcraft_inventory (player_id, slot, item_id, quantity, durability)
+                                VALUES ((SELECT id FROM maxhanna.digcraft_players WHERE user_id = @uid AND world_id = @wid), @slot, @iid, @qty, @dur)", conn, tx);
+                            insCmd.Parameters.AddWithValue("@uid", p.UserId);
+                            insCmd.Parameters.AddWithValue("@wid", p.WorldId);
+                            insCmd.Parameters.AddWithValue("@slot", slot.Slot);
+                            insCmd.Parameters.AddWithValue("@iid", slot.ItemId);
+                            insCmd.Parameters.AddWithValue("@qty", slot.Quantity);
+                            insCmd.Parameters.AddWithValue("@dur", (object?)slot.Durability ?? DBNull.Value);
+                            insCmd.ExecuteNonQuery();
+                        }
+
+                        // Persist equipment
+                        if (p.Equipment != null)
+                        {
+                            using var eqCmd = new MySqlCommand(@"
+                                UPDATE maxhanna.digcraft_equipment SET
+                                    helmet = @helm, chest = @chest, legs = @legs, boots = @boots,
+                                    weapon = @weap, left_hand = @lh,
+                                    helmet_dur = @hd, chest_dur = @cd, legs_dur = @ld, boots_dur = @bd,
+                                    weapon_dur = @wd, left_hand_dur = @lhd
+                                WHERE player_id = (SELECT id FROM maxhanna.digcraft_players WHERE user_id = @uid AND world_id = @wid)", conn, tx);
+                            eqCmd.Parameters.AddWithValue("@uid", p.UserId);
+                            eqCmd.Parameters.AddWithValue("@wid", p.WorldId);
+                            eqCmd.Parameters.AddWithValue("@helm", p.Equipment.Helmet);
+                            eqCmd.Parameters.AddWithValue("@chest", p.Equipment.Chest);
+                            eqCmd.Parameters.AddWithValue("@legs", p.Equipment.Legs);
+                            eqCmd.Parameters.AddWithValue("@boots", p.Equipment.Boots);
+                            eqCmd.Parameters.AddWithValue("@weap", p.Equipment.Weapon);
+                            eqCmd.Parameters.AddWithValue("@lh", p.Equipment.LeftHand);
+                            eqCmd.Parameters.AddWithValue("@hd", p.Equipment.HelmetDur);
+                            eqCmd.Parameters.AddWithValue("@cd", p.Equipment.ChestDur);
+                            eqCmd.Parameters.AddWithValue("@ld", p.Equipment.LegsDur);
+                            eqCmd.Parameters.AddWithValue("@bd", p.Equipment.BootsDur);
+                            eqCmd.Parameters.AddWithValue("@wd", p.Equipment.WeaponDur);
+                            eqCmd.Parameters.AddWithValue("@lhd", p.Equipment.LeftHandDur);
+                            eqCmd.ExecuteNonQuery();
+                        }
+
+                        tx.Commit();
+                        p.IsDirty = false;
+                    }
+                    catch
+                    {
+                        tx.Rollback();
+                    }
+                }
+            }
+            catch { }
+            finally
+            {
+                Monitor.Exit(_persistLock);
+            }
+        }
+        
+        private static void PersistBlockChangesToDb(object? state)
+        {
+            if (!Monitor.TryEnter(_blockPersistLock, TimeSpan.FromMilliseconds(100)))
+                return;
+            try
+            {
+                var connStr = new ConfigurationBuilder()
+                    .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
+                    .AddJsonFile("appsettings.json")
+                    .Build()
+                    .GetValue<string>("ConnectionStrings:maxhanna");
+                if (string.IsNullOrEmpty(connStr)) return;
+
+                using var conn = new MySqlConnection(connStr);
+                conn.Open();
+
+                // Collect all dirty chunk keys (iterate snapshot)
+                var dirtyKeys = _blockChanges.Keys.ToList();
+                foreach (var key in dirtyKeys)
+                {
+                    if (!_blockChanges.TryGetValue(key, out var chunkBlocks) || chunkBlocks.Count == 0)
+                        continue;
+
+                    var (worldId, chunkX, chunkZ) = key;
+                    using var tx = conn.BeginTransaction();
+                    try
+                    {
+                        // Delete all existing changes for this chunk, then re-insert
+                        using var delCmd = new MySqlCommand(
+                            "DELETE FROM maxhanna.digcraft_block_changes WHERE world_id=@wid AND chunk_x=@cx AND chunk_z=@cz", conn, tx);
+                        delCmd.Parameters.AddWithValue("@wid", worldId);
+                        delCmd.Parameters.AddWithValue("@cx", chunkX);
+                        delCmd.Parameters.AddWithValue("@cz", chunkZ);
+                        delCmd.ExecuteNonQuery();
+
+                        const string insertSql = @"
+                            INSERT INTO maxhanna.digcraft_block_changes
+                                (world_id, chunk_x, chunk_z, local_x, local_y, local_z, block_id, changed_by, changed_at, planted_at, water_level, fluid_is_source, block_data)
+                            VALUES (@wid, @cx, @cz, @lx, @ly, @lz, @bid, @uid, @cat, @pat, @wl, @fis, @bd)";
+
+                        foreach (var kvp in chunkBlocks)
+                        {
+                            var (lx, ly, lz) = kvp.Key;
+                            var e = kvp.Value;
+                            using var insCmd = new MySqlCommand(insertSql, conn, tx);
+                            insCmd.Parameters.AddWithValue("@wid", worldId);
+                            insCmd.Parameters.AddWithValue("@cx", chunkX);
+                            insCmd.Parameters.AddWithValue("@cz", chunkZ);
+                            insCmd.Parameters.AddWithValue("@lx", lx);
+                            insCmd.Parameters.AddWithValue("@ly", ly);
+                            insCmd.Parameters.AddWithValue("@lz", lz);
+                            insCmd.Parameters.AddWithValue("@bid", e.BlockId);
+                            insCmd.Parameters.AddWithValue("@uid", e.ChangedBy);
+                            insCmd.Parameters.AddWithValue("@cat", e.ChangedAt);
+                            insCmd.Parameters.AddWithValue("@pat", (object?)e.PlantedAt ?? DBNull.Value);
+                            insCmd.Parameters.AddWithValue("@wl", e.WaterLevel);
+                            insCmd.Parameters.AddWithValue("@fis", e.FluidIsSource);
+                            insCmd.Parameters.AddWithValue("@bd", e.BlockData);
+                            insCmd.ExecuteNonQuery();
+                        }
+
+                        tx.Commit();
+                    }
+                    catch
+                    {
+                        tx.Rollback();
+                    }
+                }
+            }
+            catch { }
+            finally
+            {
+                Monitor.Exit(_blockPersistLock);
+            }
+        }
+
+        private List<ChestItem> GenerateSunkenChestLoot(int worldSeed)
+        {
+            var loot = new List<ChestItem>();
+            var rng = new Random(worldSeed);
+
+            // Guaranteed: 1-3 gold ingots
+            loot.Add(new ChestItem { ItemId = ItemIds.GOLD_INGOT, Quantity = rng.Next(1, 4) });
+
+            // 1-2 diamonds (uncommon)
+            if (rng.NextDouble() < 0.6) loot.Add(new ChestItem { ItemId = ItemIds.DIAMOND, Quantity = rng.Next(1, 3) });
+
+            // 2-5 iron ingots
+            loot.Add(new ChestItem { ItemId = ItemIds.IRON_INGOT, Quantity = rng.Next(2, 6) });
+
+            // Chance-based: copper ingots
+            if (rng.NextDouble() < 0.7) loot.Add(new ChestItem { ItemId = ItemIds.COPPER_INGOT, Quantity = rng.Next(2, 5) });
+
+            // Chance-based: 1-4 emeralds
+            if (rng.NextDouble() < 0.4) loot.Add(new ChestItem { ItemId = ItemIds.DIAMOND_PICKAXE, Quantity = rng.Next(1, 5) });
+
+            // Chance-based: ancient debris scrap
+            if (rng.NextDouble() < 0.25) loot.Add(new ChestItem { ItemId = ItemIds.NETHERITE_INGOT, Quantity = 1 });
+
+            // Always some coal
+            loot.Add(new ChestItem { ItemId = ItemIds.COAL, Quantity = rng.Next(3, 8) });
+
+            // Chance: 1-2 quartz
+            if (rng.NextDouble() < 0.5) loot.Add(new ChestItem { ItemId = ItemIds.QUARTZ, Quantity = rng.Next(1, 3) });
+
+            // Rare: enchanted book (bow)
+            if (rng.NextDouble() < 0.15) loot.Add(new ChestItem { ItemId = ItemIds.BOW, Quantity = 1 });
+
+            return loot;
+        }
+
+        private async Task ApplyMobDamageToPlayerAsync(int userId, int worldId, int damage)
+        {
+            try
+            {
+                var state = await EnsurePlayerLoaded(userId, worldId);
+                var eq = state.Equipment;
+
+                int helmet = eq?.Helmet ?? 0, chest = eq?.Chest ?? 0, legs = eq?.Legs ?? 0, boots = eq?.Boots ?? 0;
+                int helmetDur = eq?.HelmetDur ?? -1, chestDur = eq?.ChestDur ?? -1, legsDur = eq?.LegsDur ?? -1, bootsDur = eq?.BootsDur ?? -1;
+
+                // Initialise durability from max if not yet set
+                if (helmet > 0 && helmetDur < 0) helmetDur = ItemMaxDurability(helmet);
+                if (chest > 0 && chestDur < 0) chestDur = ItemMaxDurability(chest);
+                if (legs > 0 && legsDur < 0) legsDur = ItemMaxDurability(legs);
+                if (boots > 0 && bootsDur < 0) bootsDur = ItemMaxDurability(boots);
+
+                var armorPoints = ArmorPointsForItem(helmet) + ArmorPointsForItem(chest)
+                                + ArmorPointsForItem(legs) + ArmorPointsForItem(boots);
+                var reduction = Math.Min(0.8f, armorPoints * 0.04f);
+                var reducedDamage = (int)Math.Max(1, Math.Floor(damage * (1.0f - reduction)));
+
+                // Apply health damage in memory
+                state.Health = Math.Max(0, state.Health - reducedDamage);
+
+                // Reduce durability of each worn armor piece by 1 per hit
+                if (armorPoints > 0)
+                {
+                    if (helmet > 0) helmetDur--;
+                    if (chest > 0) chestDur--;
+                    if (legs > 0) legsDur--;
+                    if (boots > 0) bootsDur--;
+
+                    if (helmet > 0 && helmetDur <= 0) { helmet = 0; helmetDur = 0; }
+                    if (chest > 0 && chestDur <= 0) { chest = 0; chestDur = 0; }
+                    if (legs > 0 && legsDur <= 0) { legs = 0; legsDur = 0; }
+                    if (boots > 0 && bootsDur <= 0) { boots = 0; bootsDur = 0; }
+
+                    state.Equipment = new DigCraftEquipment
+                    {
+                        Helmet = helmet,
+                        Chest = chest,
+                        Legs = legs,
+                        Boots = boots,
+                        HelmetDur = helmetDur,
+                        ChestDur = chestDur,
+                        LegsDur = legsDur,
+                        BootsDur = bootsDur,
+                        Weapon = eq?.Weapon ?? 0,
+                        LeftHand = eq?.LeftHand ?? 0,
+                        WeaponDur = eq?.WeaponDur ?? -1,
+                        LeftHandDur = eq?.LeftHandDur ?? -1,
+                        HelmetDye = eq?.HelmetDye ?? 0,
+                        ChestDye = eq?.ChestDye ?? 0,
+                        LegsDye = eq?.LegsDye ?? 0,
+                        BootsDye = eq?.BootsDye ?? 0
+                    };
+                }
+
+                state.IsDirty = true;
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("ApplyMobDamageToPlayerAsync error: " + ex.Message, userId, "DIGCRAFT", true);
+            }
+        }
+
     }
 
     // Request classes for bonfire endpoints
@@ -8719,5 +8544,34 @@ var mobSpeed = t switch
         public int UserId { get; set; }
         public int WorldId { get; set; }
         public List<int> BonfireIds { get; set; } = new();
+    }
+    public class Bonfire
+    {
+        public int Id;
+        public int UserId;
+        public int X;
+        public int Y;
+        public int Z;
+        public string Nickname = string.Empty;
+        public DateTime CreatedAt = DateTime.UtcNow;
+    }
+
+    public class ChestItem
+    {
+        public int ItemId;
+        public int Quantity;
+    }
+
+    public class Chest
+    {
+        public int Id;
+        public int UserId;
+        public int WorldId;
+        public int X;
+        public int Y;
+        public int Z;
+        public string Nickname = string.Empty;
+        public List<ChestItem> Items = new();
+        public DateTime CreatedAt = DateTime.UtcNow;
     }
 }

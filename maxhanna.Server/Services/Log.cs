@@ -4,6 +4,8 @@ using MySqlConnector;
 using System.Data;
 using System.Diagnostics;
 using System.Diagnostics.Tracing;
+using System.IO.Compression;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 public class Log
@@ -237,99 +239,191 @@ public class Log
 
   public async Task<bool> BackupDatabase()
   {
-    await Db($"Saving DB Backup.", null, "SYSTEM", true);
+    await Db($"Saving DB Backup.", null, "BACKUP", true);
 
     try
     {
       string backupFolder = @"H:\Bughosted MYSQL backup";
-      Directory.CreateDirectory(backupFolder); // Ensure the folder exists
+      Directory.CreateDirectory(backupFolder);
 
-      // Check for the most recent backup
-      var existingBackups = Directory.GetFiles(backupFolder, "backup_*.sql");
-      var latestBackup = existingBackups
+      // Check for most recent backup
+      var existingBackups = Directory.GetFiles(backupFolder, "backup_*.sql.gz")
         .Select(file =>
         {
-          string fileName = Path.GetFileNameWithoutExtension(file);
-          string datePart = fileName.Replace("backup_", "");
+          // Strip both .gz and .sql: backup_2024-01-01_12-00-00.sql.gz → backup_2024-01-01_12-00-00
+          string nameNoExt = Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(file));
+          string datePart = nameNoExt.Replace("backup_", "");
           if (DateTime.TryParseExact(datePart, "yyyy-MM-dd_HH-mm-ss", null, System.Globalization.DateTimeStyles.None, out var parsedDate))
             return parsedDate;
           return DateTime.MinValue;
         })
+        .Where(d => d != DateTime.MinValue)
         .OrderByDescending(d => d)
-        .FirstOrDefault();
+        .ToList();
 
-      // Skip if most recent backup is under 10 days old
-      if ((DateTime.UtcNow - latestBackup).TotalDays < 10)
+      var latestDate = existingBackups.FirstOrDefault();
+      if (latestDate != DateTime.MinValue && (DateTime.UtcNow - latestDate).TotalDays < 10)
       {
-        await Db($"Skipped database backup: last backup is less than 10 days old ({GetTimeSince(latestBackup, true)}).", null, "SYSTEM", true);
+        await Db($"Skipped database backup: last backup is less than 10 days old ({GetTimeSince(latestDate, true)}).", null, "BACKUP", true);
         return false;
       }
-
-      // Perform backup
-      string fileName = $"backup_{DateTime.UtcNow:yyyy-MM-dd_HH-mm-ss}.sql";
-      string backupPath = Path.Combine(backupFolder, fileName);
 
       string? host = _config?.GetValue<string>("MySQL:Host");
       string? user = _config?.GetValue<string>("MySQL:User");
       string? password = _config?.GetValue<string>("MySQL:Password");
       string? database = _config?.GetValue<string>("MySQL:Database");
 
+      string timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd_HH-mm-ss");
+
+      // ── Phase 1: table-by-table compressed dump ─────────────────────────────────
+      // Each table is dumped to its own .sql.gz file. This avoids long table locks,
+      // makes progress visible immediately, and if it crashes partial work is saved.
+
       string mysqldumpPath = @"E:\MySQL\MySQL Server 8.3\bin\mysqldump.exe";
-      string arguments = $"-h {host} -u {user} -p{password} {database}";
+      var schemaArgs = $"-h {host} -u {user} -p{password} --no-data --single-transaction --quick --skip-lock-tables --routines --events {database}";
+      var tableArgsBase = $"-h {host} -u {user} -p{password} --single-transaction --quick --skip-lock-tables --no-autocommit --extended-insert --hex-blob --order-by-primary {database}";
 
-      using var process = new Process
+      // Get table list
+      var tables = new List<string>();
+      using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
       {
-        StartInfo = new ProcessStartInfo
+        await conn.OpenAsync();
+        using var cmd = new MySqlCommand("SHOW FULL TABLES WHERE Table_Type = 'BASE TABLE'", conn);
+        using var r = await cmd.ExecuteReaderAsync();
+        while (await r.ReadAsync())
+          tables.Add(r.GetString(0));
+      }
+
+      string backupDir = Path.Combine(backupFolder, $"backup_{timestamp}");
+      Directory.CreateDirectory(backupDir);
+
+      // Dump schema (no data) first so we have the structure even if data dump is interrupted
+      string schemaFile = Path.Combine(backupDir, "00_schema.sql.gz");
+      await Db($"Dumping database schema ({tables.Count} tables)...", null, "BACKUP", true);
+      await DumpTable(mysqldumpPath, schemaArgs, schemaFile);
+      await Db($"Schema dumped.", null, "BACKUP", true);
+
+      int total = tables.Count;
+      int done = 0;
+      long totalBytes = 0;
+      foreach (var table in tables)
+      {
+        done++;
+        string outFile = Path.Combine(backupDir, $"{table}.sql.gz");
+        string args = $"{tableArgsBase} {table}";
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        bool ok = await DumpTable(mysqldumpPath, args, outFile);
+        sw.Stop();
+
+        var fi = new FileInfo(outFile);
+        long mb = fi.Length / (1024 * 1024);
+        totalBytes += fi.Length;
+        string status = ok ? "OK" : "FAIL";
+        await Db($"[{done}/{total}] {table} — {mb} MB compressed in {sw.Elapsed.TotalSeconds:F1}s ({status})", null, "BACKUP", true);
+      }
+
+      long totalMb = totalBytes / (1024 * 1024);
+      await Db($"Database backup complete: {done}/{total} tables, {totalMb} MB total in {backupDir}", null, "BACKUP", true);
+
+      // ── Phase 2: create single-file combined backup for easy restore ────────────
+      // Concatenate all .sql.gz files + schema into one archive
+      string combinedPath = Path.Combine(backupFolder, $"backup_{timestamp}.sql.gz");
+      using (var combinedStream = new FileStream(combinedPath, FileMode.Create, FileAccess.Write))
+      {
+        foreach (var table in tables.Prepend("00_schema"))
         {
-          FileName = mysqldumpPath,
-          Arguments = arguments,
-          RedirectStandardOutput = true,
-          RedirectStandardError = true,
-          UseShellExecute = false,
-          CreateNoWindow = true
+          string partPath = Path.Combine(backupDir, $"{table}.sql.gz");
+          if (File.Exists(partPath))
+          {
+            using var partStream = new FileStream(partPath, FileMode.Open, FileAccess.Read);
+            await partStream.CopyToAsync(combinedStream);
+          }
         }
-      };
-
-      process.Start();
-
-      string error = await process.StandardError.ReadToEndAsync();
-
-      using (var fileStream = new FileStream(backupPath, FileMode.Create, FileAccess.Write))
-      {
-        await process.StandardOutput.BaseStream.CopyToAsync(fileStream);
       }
 
-      await process.WaitForExitAsync();
+      // Remove individual table files after combining
+      Directory.Delete(backupDir, recursive: true);
 
-      if (process.ExitCode != 0)
+      // Clean up backups older than 10 days
+      foreach (var file in Directory.GetFiles(backupFolder, "backup_*.sql.gz"))
       {
-        await Db("BackupDatabase ERROR: " + error, null, "SYSTEM", true);
-        return false;
-      }
-      await Db($"Database backed up successfully to {backupPath}", null, "SYSTEM", true);
-
-      // After backup, clean up old backups
-      foreach (var file in existingBackups)
-      {
-        string name = Path.GetFileNameWithoutExtension(file);
-        string datePart = name.Replace("backup_", "");
+        // Strip both .gz and .sql extensions: backup_2024-01-01_12-00-00.sql.gz → backup_2024-01-01_12-00-00
+        string nameNoExt = Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(file));
+        string datePart = nameNoExt.Replace("backup_", "");
         if (DateTime.TryParseExact(datePart, "yyyy-MM-dd_HH-mm-ss", null, System.Globalization.DateTimeStyles.None, out var fileDate))
         {
           if ((DateTime.UtcNow - fileDate).TotalDays > 10)
           {
             File.Delete(file);
-            await Db($"Deleted old backup: {file}", null, "SYSTEM", true);
+            await Db($"Deleted old backup: {file}", null, "BACKUP", true);
           }
         }
+      }
+
+      // Clean up any old .sql files from the old format
+      foreach (var file in Directory.GetFiles(backupFolder, "backup_*.sql"))
+      {
+        File.Delete(file);
       }
 
       return true;
     }
     catch (Exception ex)
     {
-      await Db("BackupDatabase Exception: " + ex.Message, null, "SYSTEM", true);
+      await Db("BackupDatabase Exception: " + ex.Message, null, "BACKUP", true);
       return false;
     }
+  }
+
+  /// <summary>Dump a single table (or schema) via mysqldump with concurrent stdout/stderr reading to avoid deadlock.</summary>
+  private async Task<bool> DumpTable(string mysqldumpPath, string arguments, string outputPath)
+  {
+    using var process = new Process
+    {
+      StartInfo = new ProcessStartInfo
+      {
+        FileName = mysqldumpPath,
+        Arguments = arguments,
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        UseShellExecute = false,
+        CreateNoWindow = true
+      }
+    };
+
+    process.Start();
+
+    // Read stdout and stderr CONCURRENTLY to prevent pipe buffer deadlock
+    var stderrTask = process.StandardError.ReadToEndAsync();
+    string? tmpPath = outputPath + ".tmp";
+    try
+    {
+      using var fileStream = new FileStream(tmpPath, FileMode.Create, FileAccess.Write);
+      using var gzipStream = new System.IO.Compression.GZipStream(fileStream, System.IO.Compression.CompressionLevel.Fastest);
+      await process.StandardOutput.BaseStream.CopyToAsync(gzipStream);
+    }
+    catch
+    {
+      await process.WaitForExitAsync();
+      try { File.Delete(tmpPath); } catch { }
+      throw;
+    }
+
+    await process.WaitForExitAsync();
+    string stderr = await stderrTask;
+
+    if (process.ExitCode != 0)
+    {
+      await Db($"BackupDatabase ERROR (exit {process.ExitCode}): {stderr}", null, "BACKUP", true);
+      try { File.Delete(tmpPath); } catch { }
+      return false;
+    }
+
+    // Atomically rename .tmp → final name so partial files are obvious
+    if (File.Exists(outputPath)) File.Delete(outputPath);
+    File.Move(tmpPath, outputPath);
+    return true;
   }
 
   public static int DecryptUserId(string base64Input)

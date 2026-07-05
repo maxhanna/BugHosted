@@ -155,6 +155,14 @@ namespace maxhanna.Server.Controllers.DataContracts.DigCraft
         public int LeftHand { get; set; } = 0;
         [JsonPropertyName("leftHandDur")]
         public int LeftHandDur { get; set; } = -1;
+        [JsonPropertyName("helmetDye")]
+        public int HelmetDye { get; set; } = 0;
+        [JsonPropertyName("chestDye")]
+        public int ChestDye { get; set; } = 0;
+        [JsonPropertyName("legsDye")]
+        public int LegsDye { get; set; } = 0;
+        [JsonPropertyName("bootsDye")]
+        public int BootsDye { get; set; } = 0;
     }
 
     public class CraftItemRequest
