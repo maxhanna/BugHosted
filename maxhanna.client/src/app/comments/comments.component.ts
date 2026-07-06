@@ -366,6 +366,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   }
 
   private scrollRootSectionToBottom() {
+    console.log("FIRED scrollRootSectionToBottom");
     if (!this.rootCommentsSection) return;
     try {
       const div = this.rootCommentsSection.nativeElement;
