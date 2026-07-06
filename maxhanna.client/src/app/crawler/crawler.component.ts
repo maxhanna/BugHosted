@@ -37,9 +37,10 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   isKeywordsDisabled: boolean = false;
   youtubeResults: YoutubeVideo[] = [];
   isSearchingYoutube = false;
-  youtubeDisplayLimit = 10;
+  youtubeDisplayLimit = 1;
+  youtubeExpanded = false;
   socialResults: LightweightSearchResult[] = [];
-  socialDisplayLimit = 10;
+  socialDisplayLimit = 1;
   private socialDomains = ['reddit.com', 'www.reddit.com', 'twitter.com', 'www.twitter.com', 'x.com', 'www.x.com', 'facebook.com', 'www.facebook.com'];
 
   @ViewChild('pageSizeDropdown') pageSizeDropdown!: ElementRef<HTMLSelectElement>;
@@ -172,7 +173,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     this.crawlerService.searchYoutube(this.keywordsInput.nativeElement.value.trim()).then(response => {
       this.youtubeResults = response ?? [];
       this.isSearchingYoutube = false;
-      this.youtubeDisplayLimit = 10;
+      this.youtubeDisplayLimit = 1;
     });
     await this.doSearch(keywords, false, skipScrape);
   }
@@ -256,7 +257,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
 
   private filterSocialResults() {
     this.socialResults = [];
-    this.socialDisplayLimit = 10;
+    this.socialDisplayLimit = 1;
     const socialSet = new Set(this.socialDomains);
     const webOnly: typeof this.groupedResults = [];
     for (const group of this.groupedResults ?? []) {
@@ -320,7 +321,8 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   showMoreYoutube() {
-    this.youtubeDisplayLimit += 10;
+      this.youtubeExpanded = !this.youtubeExpanded;
+      this.youtubeDisplayLimit = this.youtubeExpanded ? this.youtubeResults.length : 1;
   }
 
   showMoreSocial() {

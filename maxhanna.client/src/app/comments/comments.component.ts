@@ -35,7 +35,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   hasDeeplinkChanged = false;
   _remainingPath: number[] | undefined;
   private _scrollAttemptCount = 0;
-  private _scrollCompleted = false;
+  private _lastHandledScrollId: number | undefined = undefined;
   private scrollDebugListenersAttached = false;
   private scrollDebugHandlers: Array<{ target: EventTarget; type: string; listener: EventListenerOrEventListenerObject; options?: boolean | AddEventListenerOptions }> = [];
 
@@ -131,14 +131,15 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   ngAfterViewInit(): void {
     this.scheduleCommentPollRender();
     this.attachScrollDebugListeners();
-    if (this.depth === 0 && !this._scrollCompleted) {
+    if (this.depth === 0 && this.scrollToCommentId !== undefined && this.scrollToCommentId !== this._lastHandledScrollId) {
       this.tryScrollToRequestedComment();
     }
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['scrollToCommentId'] && !changes['scrollToCommentId'].firstChange) {
-      if (!this._scrollCompleted) {
+      const newId = changes['scrollToCommentId'].currentValue;
+      if (newId !== undefined && newId !== this._lastHandledScrollId) {
         setTimeout(() => this.tryScrollToRequestedComment(), 100);
       }
     }
@@ -250,6 +251,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   }
   private tryScrollToRequestedComment() {
     if (!this.scrollToCommentId) return;
+    if (this.scrollToCommentId === this._lastHandledScrollId) return;
     if (!this.deepLinkPath || !this.deepLinkPath.length) {
       const path = this.findCommentPath(this.scrollToCommentId, this.commentList);
       if (!path) {
@@ -280,7 +282,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           }
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
           if (this.depth === 0) {
-            this._scrollCompleted = true;
+            this._lastHandledScrollId = this.scrollToCommentId;
           } else {
             setTimeout(() => {
               if (targetId) {
