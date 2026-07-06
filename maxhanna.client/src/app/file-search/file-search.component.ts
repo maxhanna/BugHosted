@@ -437,6 +437,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   scrollToFile(fileId: number) {
+    console.log("FIRED scrollToFile");
     setTimeout(() => {
       const element = document.getElementById('fileIdName' + fileId);
       if (element) {
@@ -1506,6 +1507,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
   scrollToTop() {
+    console.log("FIRED SCROLLTOTOP");
     if (this.appending) {
       return;
     }
@@ -1605,6 +1607,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   private updateControllerHover(noScroll?: boolean): void {
+    console.log("FIRED updateControllerHover");
     const els = this.getFileElements();
     els.forEach(el => el.classList.remove('controller-hover'));
 

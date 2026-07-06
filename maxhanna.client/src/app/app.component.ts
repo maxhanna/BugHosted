@@ -1335,6 +1335,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
 
   scrollToQuote() {
+    console.log("FIRED scrollToQuote");
     let timestamp = (document.getElementById("scrollToQuoteDateInput") as HTMLInputElement).value;
     let message = (document.getElementById("scrollToQuoteMessageInput") as HTMLInputElement).value;
     if (!timestamp || !message) {

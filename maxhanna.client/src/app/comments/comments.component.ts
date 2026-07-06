@@ -270,6 +270,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   }
 
   private processDeepLinkPath() {
+    console.log("FIRED processDeepLinkPath");
     if (!this._remainingPath || !this._remainingPath.length) return;
     const targetId = this._remainingPath[this._remainingPath.length - 1];
     const domId = 'commentText' + targetId;
@@ -334,6 +335,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   }
 
   private scrollLastCommentIntoViewDelayed() {
+    console.log("FIRED scrollLastCommentIntoViewDelayed");
     setTimeout(() => {
       try {
         let lastId: number | undefined;
