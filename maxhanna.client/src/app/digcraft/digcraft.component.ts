@@ -4209,8 +4209,10 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
     if (!chunk) return;
     try {
       this.renderer.setWatchBlocks(this.watchBlocks);
-      // Always route through the worker — never use the renderer's sync path
-      // which renders everything as plain cubes (missing stalactites, bamboo, etc.)
+      if (this.onMobile() && _forceSync) {
+        this.renderer.buildChunkMesh(chunk, (wx, wy, wz) => this.getWorldBlock(wx, wy, wz));
+        return;
+      }
       if (_forceSync) this.chunkLoader.rebuildNow(cx, cz);
       else this.chunkLoader.markRebuild(cx, cz);
     } catch (e) {
@@ -4609,14 +4611,11 @@ export class DigCraftComponent extends ChildComponent implements OnInit, OnDestr
       this.spawnCrumblingBlocks(wx, wy, wz, blockId);
     } else {
       this.setWorldBlockHealth(wx, wy, wz, remaining);
-      // Skip full chunk rebuild on mobile for intermediate damage ticks.
-      // On mobile (2 workers), these queue behind other chunk work causing
-      // a visible delay. The final break rebuild still runs on both platforms.
-      if (!this.onMobile()) {
-        const cx = Math.floor(wx / CHUNK_SIZE);
-        const cz = Math.floor(wz / CHUNK_SIZE);
-        this.rebuildSingleChunkMesh(cx, cz, true);
-      }
+      // Rebuild on both platforms — mobile uses the synchronous renderer path
+      // (added in rebuildSingleChunkMesh) which avoids worker-pool queuing.
+      const cx = Math.floor(wx / CHUNK_SIZE);
+      const cz = Math.floor(wz / CHUNK_SIZE);
+      this.rebuildSingleChunkMesh(cx, cz, true);
     }
   }
 

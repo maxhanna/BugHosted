@@ -248,9 +248,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private ytPlayer: any = null;
   private ytApiReady: Promise<void> | null = null;
   private joystickActive = false;
-  get isJoystickActive(): boolean {
-    return this.joystickActive;
-  }
   private joystickId = -1;
   private joystickX = 0;
   private joystickY = 0;
@@ -2876,7 +2873,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     let moveX = 0, moveZ = 0;
 
     if (this.isMobile && this.joystickActive) {
-      moveX += this.joystickX; moveZ += this.joystickY;
+      moveX -= this.joystickX; 
+      moveZ += this.joystickY;
     } else {
       if (this.keys.has('KeyW')) moveZ += 1;
       if (this.keys.has('KeyS')) moveZ -= 1;
@@ -4728,7 +4726,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
       if (t.identifier === this.joystickId) {
-        this.joystickId = -1; this.joystickActive = false;
+        this.joystickId = -1; 
+        this.joystickActive = false;
         this.resetJoystick();
       }
       if (t.identifier === this.touchCamId) { this.touchCamId = -1; }
@@ -4779,12 +4778,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
       if (t.identifier === this.joystickId) {
-        this.joystickId = -1; this.joystickActive = false;
+        this.joystickId = -1;
+        this.joystickActive = false;
         this.resetJoystick();
       }
       if (t.identifier === this.touchCamId) { this.touchCamId = -1; }
     }
   };
+
+  get isJoystickActive(): boolean {
+    return this.joystickActive;
+  }
 
   private onCanvasClick = (e: MouseEvent) => {
     if (this.showWeaponWheel) return;

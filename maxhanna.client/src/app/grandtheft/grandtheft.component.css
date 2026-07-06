@@ -340,10 +340,7 @@
   z-index: 20;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
-  /* FIX: Prevent browser scroll/zoom gestures from stealing touches
-     that land on this overlay. Without this, the browser may
-     interpret a touch-drag as a page scroll and coalesce/suppress
-     the touchmove events the canvas needs for the joystick. */
+
   touch-action: none;
 }
 
@@ -355,11 +352,10 @@
   transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: 100;
-  opacity: 0.16;
+  opacity: 0.06;
   transition: opacity 0.18s ease;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
-  /* FIX: Same reason as #gt-mobile — prevent scroll/zoom interference. */
   touch-action: none;
 }
 
@@ -477,9 +473,6 @@
   transform: scale(0.95);
 }
 
-/* ---------------------------------------------------------------------------
- * Taxi mission HUD
- * ------------------------------------------------------------------------- */
 
 #gt-taxi-hud {
   position: absolute;
@@ -578,9 +571,6 @@
   letter-spacing: 1px;
 }
 
-/* ---------------------------------------------------------------------------
- * Leaderboard
- * ------------------------------------------------------------------------- */
 
 #gt-leaderboard {
   position: absolute;
@@ -664,14 +654,6 @@
   margin-top: 6px;
 }
 
-/* ---------------------------------------------------------------------------
- * NEW: Passenger pickup prompt
- * Shows when the player is driving slowly near a hooker NPC. Mirrors the
- * style of #gt-vending-prompt (pink instead of green to distinguish the
- * passenger pickup from the vending machine heal). Reuses the existing
- * gt-pulse keyframe so the prompt blinks in sync with the vending prompt.
- * ------------------------------------------------------------------------- */
-
 #gt-passenger-prompt {
   position: absolute;
   bottom: 220px;
@@ -692,8 +674,6 @@
   white-space: nowrap;
 }
 
-/* Steal car prompt — red, shown when on the driver side of another
-   player's car. */
 #gt-steal-car-prompt {
   position: absolute;
   bottom: 220px;
@@ -829,7 +809,6 @@
   color: rgba(255, 255, 255, 0.4);
 }
 
-/* Mobile chat button */
 #gt-mobile-chat, #gt-mobile-weapon-wheel, #gt-mobile-map {  
   width: 60px;
   height: 40px;
@@ -855,7 +834,6 @@
 }
  
  
-/* Vehicle entry banner */
 #gt-hover-label {
   position: absolute;
   top: 10px;
@@ -992,10 +970,6 @@
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   white-space: nowrap;
 }
-
-/* ---------------------------------------------------------------------------
- * Police mode HUD
- * ------------------------------------------------------------------------- */
 
 #gt-police-hud {
   position: absolute;
