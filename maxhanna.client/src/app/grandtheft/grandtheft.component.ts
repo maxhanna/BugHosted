@@ -185,6 +185,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   showPassengerPrompt = false;
   showStealCarPrompt = false;
   showEnterPassengerPrompt = false;
+  showPolicePrompt = false;
 
   isChatOpen = false;
   chatInput = '';
@@ -2486,6 +2487,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
 
     this.showPassengerPrompt = this.canPickupPassenger();
+    this.showPolicePrompt = this.isMobile && this.isInCar && this.vehicleType === 'police' && !this.policeMode;
     this.updateVehicleCollisions();
     this.updateExplosionJumps(dt);
     this.updateGarage(dt);
@@ -4129,7 +4131,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
-  private togglePoliceMode() {
+  togglePoliceMode() {
     if (this.policeMode) {
       this.policeMode = false;
       this.policeModeThugCars = [];
@@ -4312,7 +4314,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
-  private startDealershipMission() {
+  startDealershipMission() {
     const npc = this.dealershipNPCs.find(n => {
       const dx = n.x - this.carX, dz = n.z - this.carZ;
       return Math.hypot(dx, dz) < 8;

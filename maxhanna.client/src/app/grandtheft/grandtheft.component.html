@@ -28,17 +28,17 @@
     <div id="gt-wasted" *ngIf="wastedTimer > 0">WASTED</div>
     <div id="gt-vehicle-banner" *ngIf="vehicleBannerTimer > 0">{{ vehicleName }}</div>
 
-    <div id="gt-passenger-prompt" *ngIf="showPassengerPrompt">
-      Press E to pick up passenger
+    <div id="gt-passenger-prompt" *ngIf="showPassengerPrompt" [style.pointer-events]="isMobile ? 'auto' : null" (click)="toggleCar()" (touchend)="$event.preventDefault(); toggleCar()">
+      {{ isMobile ? 'Tap to pick up passenger' : 'Press E to pick up passenger' }}
     </div>
-
-
-    <div id="gt-steal-car-prompt" *ngIf="showStealCarPrompt">
-      Press E to steal car
+    
+    
+    <div id="gt-steal-car-prompt" *ngIf="showStealCarPrompt" [style.pointer-events]="isMobile ? 'auto' : null" (click)="toggleCar()" (touchend)="$event.preventDefault(); toggleCar()">
+      {{ isMobile ? 'Tap to steal car' : 'Press E to steal car' }}
     </div>
-
-    <div id="gt-enter-passenger-prompt" *ngIf="showEnterPassengerPrompt">
-      Press E to enter as passenger
+    
+    <div id="gt-enter-passenger-prompt" *ngIf="showEnterPassengerPrompt" [style.pointer-events]="isMobile ? 'auto' : null" (click)="toggleCar()" (touchend)="$event.preventDefault(); toggleCar()">
+      {{ isMobile ? 'Tap to enter as passenger' : 'Press E to enter as passenger' }}
     </div>
 
     <div id="gt-hud">
@@ -178,8 +178,11 @@
         Return to the dealership (green beam) with the stolen car
       </div>
     </div>
-    <div id="gt-dealer-prompt" *ngIf="nearDealerNPC && !dealershipMission">
-      Press Q to start car theft mission
+    <div id="gt-dealer-prompt" *ngIf="nearDealerNPC && !dealershipMission" [style.pointer-events]="isMobile ? 'auto' : null" (click)="startDealershipMission()" (touchend)="$event.preventDefault(); startDealershipMission()">
+      {{ isMobile ? 'Tap to start car theft mission' : 'Press Q to start car theft mission' }}
+    </div>
+    <div id="gt-police-prompt" *ngIf="showPolicePrompt" [style.pointer-events]="isMobile ? 'auto' : null" (click)="togglePoliceMode()" (touchend)="$event.preventDefault(); togglePoliceMode()">
+      {{ isMobile ? 'Tap to start police missions' : 'Press R to start police missions' }}
     </div>
 
     <!-- Police mode HUD -->

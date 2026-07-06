@@ -35,6 +35,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   hasDeeplinkChanged = false;
   _remainingPath: number[] | undefined;
   private _scrollAttemptCount = 0;
+  private _scrollCompleted = false;
   private scrollDebugListenersAttached = false;
   private scrollDebugHandlers: Array<{ target: EventTarget; type: string; listener: EventListenerOrEventListenerObject; options?: boolean | AddEventListenerOptions }> = [];
 
@@ -130,14 +131,16 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   ngAfterViewInit(): void {
     this.scheduleCommentPollRender();
     this.attachScrollDebugListeners();
-    if (this.depth === 0) {
+    if (this.depth === 0 && !this._scrollCompleted) {
       this.tryScrollToRequestedComment();
     }
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['scrollToCommentId'] && !changes['scrollToCommentId'].firstChange) {
-      setTimeout(() => this.tryScrollToRequestedComment(), 100);
+      if (!this._scrollCompleted) {
+        setTimeout(() => this.tryScrollToRequestedComment(), 100);
+      }
     }
     if (!this.hasDeeplinkChanged && changes['deepLinkPath'] && this.deepLinkPath && this.deepLinkPath.length) {
       this.hasDeeplinkChanged = true;
@@ -277,7 +280,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
           }
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
           if (this.depth === 0) {
-            this.scrollToCommentId = undefined;
+            this._scrollCompleted = true;
           } else {
             setTimeout(() => {
               if (targetId) {

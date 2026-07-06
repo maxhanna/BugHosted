@@ -971,6 +971,26 @@
   white-space: nowrap;
 }
 
+#gt-police-prompt {
+  position: absolute;
+  bottom: 180px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  color: #4488ff;
+  font-size: 14px;
+  font-weight: bold;
+  background: rgba(0, 40, 80, 0.7);
+  border: 1px solid rgba(68, 136, 255, 0.7);
+  border-radius: 6px;
+  padding: 6px 16px;
+  text-shadow: 0 0 8px rgba(68, 136, 255, 0.6);
+  animation: gt-pulse 1.5s ease-in-out infinite;
+  pointer-events: none;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  white-space: nowrap;
+}
+
 #gt-police-hud {
   position: absolute;
   top: 60px;
