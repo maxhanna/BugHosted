@@ -52,7 +52,8 @@
 
     <div *ngIf="error" class="error-message">{{ error }}</div>
 
-    <div *ngIf="youtubeResults?.length" class="metadataSearchWrapper" [style.opacity]="isSearchingYoutube ?0.5 :1" [style.max-Height]="onlySearch ? '30vh' : ''">
+    <div *ngIf="youtubeResults?.length" class="metadataSearchWrapper" [style.opacity]="isSearchingYoutube ? 0.5 :1"
+      [style.max-Height]="onlySearch ? '30vh' : ''">
       <div class="metadataSearchDiv gradientBackground">
         <div class="groupDomainTitle">YouTube Results</div>
         <div *ngFor="let video of youtubeResults.slice(0, youtubeDisplayLimit)" class="groupLinkWrapperDiv">
@@ -60,26 +61,27 @@
             <div class="descriptionDiv titleClass cursorPointer linkTextDecoration">
               <a class="pageTitleLink" [attr.href]="video.url" target="_blank"
                 (click)="openYoutubePopup($event, video.url)">{{ video.title }}</a>
-              </div>
-              <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
-                <a [attr.href]="video.url" target="_blank" (click)="openYoutubePopup($event, video.url)">{{ video.url
-                  }}</a>
-                </div>
-                <div *ngIf="video.description" class="descriptionDiv descriptClass">{{ video.description }}</div>
-              </div>
-              <div class="imageUrlPictureDiv">
-                <a [attr.href]="video.url" target="_blank" [title]="video.title"
-                  (click)="openYoutubePopup($event, video.url)">
-                  <img [src]="video.thumbnailUrl" [attr.loading]="'lazy'" [title]="video.title"
-                  (error)="video.thumbnailUrl = ''" />
-                </a>
-              </div>
             </div>
-            <div style="text-align: center; margin-top:10px;" *ngIf="youtubeResults.length >1">
-              <button (click)="showMoreYoutube()">Display more YouTube results ({{ youtubeResults.length -1 }} more)</button>
+            <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
+              <a [attr.href]="video.url" target="_blank" (click)="openYoutubePopup($event, video.url)">{{ video.url
+                }}</a>
             </div>
+            <div *ngIf="video.description" class="descriptionDiv descriptClass">{{ video.description }}</div>
+          </div>
+          <div class="imageUrlPictureDiv">
+            <a [attr.href]="video.url" target="_blank" [title]="video.title"
+              (click)="openYoutubePopup($event, video.url)">
+              <img [src]="video.thumbnailUrl" [attr.loading]="'lazy'" [title]="video.title"
+                (error)="video.thumbnailUrl = ''" />
+            </a>
           </div>
         </div>
+        <div style="text-align: center; margin-top:10px;" *ngIf="youtubeResults.length >1">
+          <button (click)="showMoreYoutube()">Display more YouTube results ({{ youtubeResults.length -1 }}
+            more)</button>
+        </div>
+      </div>
+    </div>
 
     <div *ngIf="socialResults?.length" class="metadataSearchWrapper" [style.max-Height]="onlySearch ? '30vh' : ''">
       <div class="metadataSearchDiv gradientBackground">
@@ -91,7 +93,8 @@
           </app-crawler-search-results>
         </div>
         <div style="text-align: center; margin-top:10px;" *ngIf="socialResults.length > socialDisplayLimit">
-          <button (click)="showMoreSocial()">Display more Reddit, X, Facebook results ({{ socialResults.length - socialDisplayLimit }} more)</button>
+          <button (click)="showMoreSocial()">Display more Reddit, X, Facebook results ({{ socialResults.length -
+            socialDisplayLimit }} more)</button>
         </div>
       </div>
     </div>
@@ -114,7 +117,8 @@
         </span>
       </div>
       <div style="text-align:center">
-        <button *ngIf="totalPages > 1 && currentPage < totalPages" (click)="onPageChange()">Display More Web Results</button>
+        <button *ngIf="totalPages > 1 && currentPage < totalPages" (click)="onPageChange()">Display More Web
+          Results</button>
       </div>
     </div>
     <div *ngIf="searchResults?.length == 0 && !error && !isLoading" class="smallFont nbDiv">
@@ -165,7 +169,8 @@
 </div>
 
 <!-- YouTube Video Popup -->
-<div class="popupPanel" *ngIf="showYoutubePopup" style="min-width: 360px; width: min(90vw, 800px); height: min(80vh, 600px);">
+<div class="popupPanel" *ngIf="showYoutubePopup"
+  style="min-width: 360px; width: min(90vw, 800px); height: min(80vh, 600px);">
   <div class="popupPanelTitle" style="display: flex; justify-content: space-between; align-items: center;">
     <span>YouTube Video</span>
     <span (click)="closeYoutubePopup()" class="cursorPointer" style="font-size: 20px; line-height: 1;">&times;</span>
