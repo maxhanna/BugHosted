@@ -5,8 +5,12 @@
   </app-title-bar>
 
   <div class="xxSmallFont nbDiv" [style.margin-Top]="onlySearch ? '-20px' : ''">
-    <div *ngIf="!searchResults.length && !onMobile() && !onlySearch">Total indexes: {{indexCount}}</div>
-    <div *ngIf="searchResults?.length && !onMobile() && !onlySearch">Search results: {{totalResults}}</div>
+    <div *ngIf="!searchResults.length && !onMobile() && !onlySearch">Total indexes: {{indexCount}} ({{youtubeResults.length}} YouTube results)</div>
+    <div *ngIf="searchResults?.length && !onMobile() && !onlySearch">Search results: {{totalResults}} ({{youtubeResults.length}} YouTube results)</div>
+  </div>
+
+  <div *ngIf="(onMobile() || onlySearch) && searchResults?.length"
+    class="xxSmallFont">Search results: {{ totalResults }} ({{ youtubeResults.length }} YouTube results)
   </div>
 
   <div class="crawler-container" [style.position]="onlySearch ? 'relative' : ''"
@@ -130,9 +134,9 @@
         restrict results to a single domain.</div>
     </div>
   </div>
-  <div *ngIf="!searchResults.length && (onMobile() || onlySearch)" class="xxSmallFont">Total indexes: {{indexCount}}
+  <div *ngIf="!searchResults.length && (onMobile() || onlySearch)" class="xxSmallFont">Total indexes: {{indexCount}} ({{youtubeResults.length}} YouTube results)
   </div>
-  <div *ngIf="searchResults?.length && (onMobile() || onlySearch)" class="xxSmallFont">Search results: {{totalResults}}
+  <div *ngIf="searchResults?.length && (onMobile() || onlySearch)" class="xxSmallFont">Search results: {{totalResults}} ({{youtubeResults.length}} YouTube results)
   </div>
 </div>
 
