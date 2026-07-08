@@ -815,18 +815,18 @@ namespace maxhanna.Server.Controllers
 		public List<object>? Hints { get; set; }
 	}
 
-	class BenchmarkDataDTO
+	public class BenchmarkDataDTO
 	{
-	    public string? Date { get; set; }
-	    public string? Benchmark { get; set; }
-	    public string? Steps { get; set; }
-	    public string? Score { get; set; }
-	    public string? Status { get; set; }
-	    public string? Duration { get; set; }
-	    public string? Model { get; set; }
-	    public string? OS { get; set; }
-	    public string? CPU { get; set; }
-	    public string? RAM { get; set; }
-	    public string? GPU { get; set; }
+		public string? Date { get; set; }
+		public string? Benchmark { get; set; }
+		public string? Steps { get; set; }
+		public string? Score { get; set; }
+		public string? Status { get; set; }
+		public string? Duration { get; set; }
+		public string? Model { get; set; }
+		public string? OS { get; set; }
+		public string? CPU { get; set; }
+		public string? RAM { get; set; }
+		public string? GPU { get; set; }
 	}
 }
