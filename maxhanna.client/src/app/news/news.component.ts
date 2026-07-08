@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+﻿import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { NewsService } from '../../services/news.service';
 import { Article, ArticlesResult, Statuses } from '../../services/datacontracts/news/news-data';
@@ -19,6 +19,17 @@ export class NewsComponent extends ChildComponent implements OnInit {
   pageSize: number = 10; // Number of articles per page
   totalPages: number = 1;
   totalResults: number = 0;
+  isMenuPanelOpen: boolean = false;
+
+  showMenuPanel() {
+    this.isMenuPanelOpen = true;
+    this.parentRef?.showOverlay();
+  }
+
+  closeMenuPanel() {
+    this.isMenuPanelOpen = false;
+    this.parentRef?.closeOverlay();
+  }
 
   @ViewChild('searchKeywords') searchKeywords!: ElementRef<HTMLInputElement>;
   @ViewChild('defaultSearchInput') defaultSearchInput!: ElementRef<HTMLInputElement>;

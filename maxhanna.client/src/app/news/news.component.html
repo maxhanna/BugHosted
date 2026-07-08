@@ -1,6 +1,14 @@
-<div class="componentMain">
-  <app-title-bar [title]="'News'" (closeClicked)="remove_me('NewsComponent');">
+﻿<div class="componentMain">
+  <app-title-bar [title]="'News'" (closeClicked)="remove_me('NewsComponent');" (menuClicked)="showMenuPanel()">
   </app-title-bar>
+
+  <div *ngIf="isMenuPanelOpen" class="popupPanel overlayPopupPanel newsFilteringOptionsDiv">
+    <span class="popupPanelTitle"></span> <!-- Empty title as placeholder -->
+    <button class="closeButton popupPanelCloseButton" type="button" (click)="closeMenuPanel()">×</button>
+
+    <!-- Filter options would go here in a real implementation -->
+
+  </div>
 
   <div class="topSearchDiv defaultSearchTopDiv">
     <table>
