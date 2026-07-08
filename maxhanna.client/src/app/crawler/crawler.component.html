@@ -78,7 +78,7 @@
         </div>
         <div style="text-align: center; margin-top:10px;" *ngIf="youtubeResults.length >1">
           <button (click)="showMoreYoutube()">
-            Display {{ youtubeDisplayLimit > 1 ? "less" : "more" }} YouTube results {{ youtubeDisplayLimit > 1 ? ("(" + (youtubeResults.length - 1) + ")") : ""}} 
+            Display {{ youtubeDisplayLimit > 1 ? "less" : "more" }} YouTube results {{ youtubeDisplayLimit === 1 ? ("(" + (youtubeResults.length - 1) + ")") : ""}} 
           </button>
         </div>
       </div>
