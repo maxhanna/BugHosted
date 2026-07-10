@@ -955,100 +955,119 @@ namespace maxhanna.Server.Controllers
           Timeout = TimeSpan.FromSeconds(60)
         };
 
-        // A highly descriptive User-Agent is crucial for Reddit's public API.
-        // Replace "your_email@example.com" or "/u/your_reddit_username" with your actual info! 
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("CSharpRedditScraper/1.0 (contact: saintminion@hotmail.com)");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+        http.DefaultRequestHeaders.Accept.ParseAdd("application/json, text/plain, */*");
+        http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
+        http.DefaultRequestHeaders.Referrer = new Uri("https://www.reddit.com/");
+        http.DefaultRequestHeaders.Add("X-Requested-With", "XMLHttpRequest");
 
-        // Construct the .json URL for the search
-        string url = $"https://www.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}&sort=relevance&type=link&limit={limit}&t=year";
-
-        _ = _log.Db($"[Reddit Debug] Requesting URL: {url}", null, "CRAWLERCTRL", true);
-
-        using var resp = await http.GetAsync(url, ct);
-        _ = _log.Db($"[Reddit Debug] HTTP Status: {resp.StatusCode} ({(int)resp.StatusCode})", null, "CRAWLERCTRL", true);
-
-        if (!resp.IsSuccessStatusCode)
+        var candidateUrls = new[]
         {
-          var errorContent = await resp.Content.ReadAsStringAsync(ct);
-          _ = _log.Db($"[Reddit Debug] Error Response Content: {errorContent.Substring(0, Math.Min(errorContent.Length, 500))}", null, "CRAWLERCTRL", true);
-          return results;
-        }
+          $"https://www.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}&sort=relevance&type=link&limit={limit}&t=year",
+          $"https://old.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}&sort=relevance&type=link&limit={limit}&t=year"
+        };
 
-        var json = await resp.Content.ReadAsStringAsync(ct);
-
-        // Prevent JSON parsing errors if an HTML error page is returned
-        if (json.TrimStart().StartsWith("<"))
+        foreach (var url in candidateUrls)
         {
-          _ = _log.Db("[Reddit Debug] Returned HTML instead of JSON.", null, "CRAWLERCTRL", true);
-          return results;
-        }
+          _ = _log.Db($"[Reddit Debug] Requesting URL: {url}", null, "CRAWLERCTRL", true);
 
-        using var doc = System.Text.Json.JsonDocument.Parse(json);
+          using var resp = await http.GetAsync(url, ct);
+          _ = _log.Db($"[Reddit Debug] HTTP Status: {resp.StatusCode} ({(int)resp.StatusCode})", null, "CRAWLERCTRL", true);
 
-        if (!doc.RootElement.TryGetProperty("data", out var data) ||
-            !data.TryGetProperty("children", out var children) ||
-            children.ValueKind != System.Text.Json.JsonValueKind.Array)
-        {
-          _ = _log.Db("[Reddit Debug] JSON structure unexpected.", null, "CRAWLERCTRL", true);
-          return results;
-        }
-
-        _ = _log.Db($"[Reddit Debug] Found {children.GetArrayLength()} raw posts. Processing...", null, "CRAWLERCTRL", true);
-
-        foreach (var child in children.EnumerateArray())
-        {
-          if (!child.TryGetProperty("data", out var post)) continue;
-
-          string? title = post.TryGetProperty("title", out var t) ? t.GetString() : null;
-          string? permalink = post.TryGetProperty("permalink", out var p) ? p.GetString() : null;
-          string? externalUrl = post.TryGetProperty("url", out var u) ? u.GetString() : null;
-          string? author = post.TryGetProperty("author", out var a) ? a.GetString() : null;
-          string? subreddit = post.TryGetProperty("subreddit", out var sr) ? sr.GetString() : null;
-          string? thumbnail = post.TryGetProperty("thumbnail", out var th) ? th.GetString() : null;
-          string? selftext = post.TryGetProperty("selftext", out var st) ? st.GetString() : null;
-
-          int score = post.TryGetProperty("score", out var sc) ? sc.GetInt32() : 0;
-          int numComments = post.TryGetProperty("num_comments", out var nc) ? nc.GetInt32() : 0;
-
-          string redditUrlFinal = !string.IsNullOrWhiteSpace(permalink)
-              ? $"https://www.reddit.com{permalink}"
-              : externalUrl ?? "";
-
-          if (string.IsNullOrWhiteSpace(redditUrlFinal)) continue;
-
-          var descriptionParts = new List<string>();
-          if (!string.IsNullOrWhiteSpace(subreddit))
-            descriptionParts.Add($"r/{subreddit}");
-          descriptionParts.Add($"{score} points");
-          descriptionParts.Add($"{numComments} comments");
-
-          if (!string.IsNullOrWhiteSpace(selftext))
+          if ((int)resp.StatusCode == 403 || (int)resp.StatusCode == 429 || (int)resp.StatusCode == 503)
           {
-            var truncated = selftext.Length > 300
-                ? selftext.Substring(0, 300) + "..."
-                : selftext;
-            descriptionParts.Add(truncated);
+            var errorContent = await resp.Content.ReadAsStringAsync(ct);
+            var snippet = errorContent.Length > 500 ? errorContent.Substring(0, 500) : errorContent;
+            _ = _log.Db($"[Reddit Debug] Reddit rejected the request ({(int)resp.StatusCode}): {snippet}", null, "CRAWLERCTRL", true);
+            continue;
           }
 
-          string? imageUrl = null;
-          if (!string.IsNullOrWhiteSpace(thumbnail) &&
-              (thumbnail.StartsWith("http://") || thumbnail.StartsWith("https://")))
+          if (!resp.IsSuccessStatusCode)
           {
-            imageUrl = thumbnail;
+            var errorContent = await resp.Content.ReadAsStringAsync(ct);
+            var snippet = errorContent.Length > 500 ? errorContent.Substring(0, 500) : errorContent;
+            _ = _log.Db($"[Reddit Debug] Error Response Content: {snippet}", null, "CRAWLERCTRL", true);
+            return results;
           }
 
-          results.Add(new Metadata
-          {
-            Url = redditUrlFinal,
-            Title = title,
-            Description = string.Join(" | ", descriptionParts),
-            ImageUrl = imageUrl,
-            Author = !string.IsNullOrWhiteSpace(author) ? $"u/{author}" : "Reddit",
-            Keywords = keyword
-          });
-        }
+          var json = await resp.Content.ReadAsStringAsync(ct);
 
-        _ = _log.Db($"[Reddit Debug] Successfully parsed {results.Count} results.", null, "CRAWLERCTRL", true);
+          if (json.TrimStart().StartsWith("<"))
+          {
+            _ = _log.Db("[Reddit Debug] Returned HTML instead of JSON.", null, "CRAWLERCTRL", true);
+            return results;
+          }
+
+          using var doc = System.Text.Json.JsonDocument.Parse(json);
+
+          if (!doc.RootElement.TryGetProperty("data", out var data) ||
+              !data.TryGetProperty("children", out var children) ||
+              children.ValueKind != System.Text.Json.JsonValueKind.Array)
+          {
+            _ = _log.Db("[Reddit Debug] JSON structure unexpected.", null, "CRAWLERCTRL", true);
+            return results;
+          }
+
+          _ = _log.Db($"[Reddit Debug] Found {children.GetArrayLength()} raw posts. Processing...", null, "CRAWLERCTRL", true);
+
+          foreach (var child in children.EnumerateArray())
+          {
+            if (!child.TryGetProperty("data", out var post)) continue;
+
+            string? title = post.TryGetProperty("title", out var t) ? t.GetString() : null;
+            string? permalink = post.TryGetProperty("permalink", out var p) ? p.GetString() : null;
+            string? externalUrl = post.TryGetProperty("url", out var u) ? u.GetString() : null;
+            string? author = post.TryGetProperty("author", out var a) ? a.GetString() : null;
+            string? subreddit = post.TryGetProperty("subreddit", out var sr) ? sr.GetString() : null;
+            string? thumbnail = post.TryGetProperty("thumbnail", out var th) ? th.GetString() : null;
+            string? selftext = post.TryGetProperty("selftext", out var st) ? st.GetString() : null;
+
+            int score = post.TryGetProperty("score", out var sc) ? sc.GetInt32() : 0;
+            int numComments = post.TryGetProperty("num_comments", out var nc) ? nc.GetInt32() : 0;
+
+            string redditUrlFinal = !string.IsNullOrWhiteSpace(permalink)
+                ? $"https://www.reddit.com{permalink}"
+                : externalUrl ?? "";
+
+            if (string.IsNullOrWhiteSpace(redditUrlFinal)) continue;
+
+            var descriptionParts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(subreddit))
+              descriptionParts.Add($"r/{subreddit}");
+            descriptionParts.Add($"{score} points");
+            descriptionParts.Add($"{numComments} comments");
+
+            if (!string.IsNullOrWhiteSpace(selftext))
+            {
+              var truncated = selftext.Length > 300
+                  ? selftext.Substring(0, 300) + "..."
+                  : selftext;
+              descriptionParts.Add(truncated);
+            }
+
+            string? imageUrl = null;
+            if (!string.IsNullOrWhiteSpace(thumbnail) &&
+                (thumbnail.StartsWith("http://") || thumbnail.StartsWith("https://")))
+            {
+              imageUrl = thumbnail;
+            }
+
+            results.Add(new Metadata
+            {
+              Url = redditUrlFinal,
+              Title = title,
+              Description = string.Join(" | ", descriptionParts),
+              ImageUrl = imageUrl,
+              Author = !string.IsNullOrWhiteSpace(author) ? $"u/{author}" : "Reddit",
+              Keywords = keyword
+            });
+          }
+
+          if (results.Count > 0)
+            return results;
+
+          _ = _log.Db($"[Reddit Debug] Successfully parsed {results.Count} results.", null, "CRAWLERCTRL", true);
+        }
       }
       catch (Exception ex)
       {
