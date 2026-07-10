@@ -12,22 +12,32 @@ namespace maxhanna.Infrastructure
     {
         // Count=1 means: at most one queued operation runs at any given time.
         private readonly SemaphoreSlim _gate = new(1, 1);
+        private readonly AsyncLocal<bool> _isInGate = new();
 
         /// <summary>
         /// Enqueue a background/housekeeping operation. Only one such
         /// operation runs at a time; others wait their turn.
+        /// Reentrant-safe: if the current call is already inside the gate,
+        /// the operation runs immediately without waiting.
         /// </summary>
         public async Task EnqueueAsync(
             Func<Task> operation,
             CancellationToken ct = default)
         {
+            if (_isInGate.Value)
+            {
+                await operation().ConfigureAwait(false);
+                return;
+            }
             await _gate.WaitAsync(ct).ConfigureAwait(false);
+            _isInGate.Value = true;
             try
             {
                 await operation().ConfigureAwait(false);
             }
             finally
             {
+                _isInGate.Value = false;
                 _gate.Release();
             }
         }
@@ -37,13 +47,19 @@ namespace maxhanna.Infrastructure
             Func<Task<T>> operation,
             CancellationToken ct = default)
         {
+            if (_isInGate.Value)
+            {
+                return await operation().ConfigureAwait(false);
+            }
             await _gate.WaitAsync(ct).ConfigureAwait(false);
+            _isInGate.Value = true;
             try
             {
                 return await operation().ConfigureAwait(false);
             }
             finally
             {
+                _isInGate.Value = false;
                 _gate.Release();
             }
         }

@@ -129,9 +129,8 @@ namespace maxhanna.Server.Services
       catch (Exception ex) { _ = _log.Db($"Error in DeleteOldLogs: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
       _ = Task.Run(async () => { try { await _log.BackupDatabase(); } catch (Exception ex) { _ = _log.Db($"Error in BackupDatabase: {ex.Message}", null, "SYSTEM", outputToConsole: true); } });
-
-      try { await _dbQueue.EnqueueAsync(async () => { await RunFiveMinuteTasks(); }); }
-      catch (Exception ex) { _ = _log.Db($"Error in RunFiveMinuteTasks: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
+      
+      await RunFiveMinuteTasks();
     }
     private async Task Run10SecondTasks()
     {
