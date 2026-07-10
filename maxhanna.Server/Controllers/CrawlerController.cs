@@ -945,37 +945,41 @@ namespace maxhanna.Server.Controllers
         }
       });
     }
-    
     private async Task<List<Metadata>> TryFindRedditUrlsAsync(string keyword, CancellationToken ct, int limit = 5)
     {
       var results = new List<Metadata>();
       try
       {
-        using var handler = new HttpClientHandler
+        using var http = new HttpClient
         {
-          AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
+          // Apify actors can take 10-20 seconds to spin up, so we give it a generous timeout
+          Timeout = TimeSpan.FromSeconds(45)
         };
 
-        using var http = new HttpClient(handler)
+        // Your Apify API Key
+        string apifyApiKey = _config.GetValue<string>("Reddit:ApiKey") ?? "";
+
+        // The original Reddit JSON URL we want to fetch
+        string redditUrl = $"https://www.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}&sort=relevance&type=link&limit={limit}&t=year";
+
+        // Apify's API endpoint to run the Cheerio Scraper synchronously and get the dataset items
+        string apifyUrl = $"https://api.apify.com/v2/acts/apify~cheerio-scraper/run-sync-get-dataset-items?token={apifyApiKey}&timeout=60";
+
+        // Configure the scraper input to fetch the URL using Apify's proxies
+        var payload = new
         {
-          Timeout = TimeSpan.FromSeconds(6)
+          startUrls = new[] { new { url = redditUrl } },
+          pageFunction = "async function pageFunction(context) { return { url: context.request.url, body: context.html }; }",
+          proxyConfiguration = new { useApifyProxy = true }
         };
 
-        // Spoof standard browser headers (using ParseAdd for complex strings)
-        http.DefaultRequestHeaders.UserAgent.ParseAdd(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36");
-        http.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
-        http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
-        http.DefaultRequestHeaders.AcceptEncoding.ParseAdd("gzip, deflate");
+        var jsonPayload = System.Text.Json.JsonSerializer.Serialize(payload);
+        var content = new StringContent(jsonPayload, System.Text.Encoding.UTF8, "application/json");
 
-        // Use OLD REDDIT to bypass the WAF on www.reddit.com
-        string url =
-            $"https://old.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}" +
-            $"&sort=relevance&type=link&limit={limit}&t=year";
+        _ = _log.Db($"[Reddit Debug] Requesting URL via Apify Cheerio Scraper...", null, "CRAWLERCTRL", true);
 
-        _ = _log.Db($"[Reddit Debug] Requesting URL: {url}", null, "CRAWLERCTRL", true);
-
-        using var resp = await http.GetAsync(url, ct);
+        // Send the POST request to Apify
+        using var resp = await http.PostAsync(apifyUrl, content, ct);
         _ = _log.Db($"[Reddit Debug] HTTP Status: {resp.StatusCode} ({(int)resp.StatusCode})", null, "CRAWLERCTRL", true);
 
         if (!resp.IsSuccessStatusCode)
@@ -985,12 +989,32 @@ namespace maxhanna.Server.Controllers
           return results;
         }
 
-        var json = await resp.Content.ReadAsStringAsync(ct);
+        var apifyResponseJson = await resp.Content.ReadAsStringAsync(ct);
 
-        // Prevent JSON parsing errors if Reddit sends an HTML error page
+        // Apify returns a JSON array of the results from the pageFunction 
+        // e.g., [ { "url": "...", "body": "{\"kind\": \"Listing\", ... }" } ]
+        using var apifyDoc = System.Text.Json.JsonDocument.Parse(apifyResponseJson);
+
+        if (apifyDoc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array || apifyDoc.RootElement.GetArrayLength() == 0)
+        {
+          _ = _log.Db("[Reddit Debug] Apify returned no dataset items.", null, "CRAWLERCTRL", true);
+          return results;
+        }
+
+        // Extract the "body" string which contains the actual Reddit JSON
+        var firstItem = apifyDoc.RootElement[0];
+        if (!firstItem.TryGetProperty("body", out var bodyProp) || bodyProp.ValueKind != System.Text.Json.JsonValueKind.String)
+        {
+          _ = _log.Db("[Reddit Debug] Apify dataset item missing 'body' property.", null, "CRAWLERCTRL", true);
+          return results;
+        }
+
+        string json = bodyProp.GetString() ?? "";
+
+        // Prevent JSON parsing errors if an HTML error page was returned
         if (json.TrimStart().StartsWith("<"))
         {
-          _ = _log.Db("[Reddit Debug] Returned HTML instead of JSON.", null, "CRAWLERCTRL", true);
+          _ = _log.Db("[Reddit Debug] Returned HTML instead of JSON (Apify proxy might be blocked).", null, "CRAWLERCTRL", true);
           return results;
         }
 
@@ -1021,11 +1045,11 @@ namespace maxhanna.Server.Controllers
           int score = post.TryGetProperty("score", out var sc) ? sc.GetInt32() : 0;
           int numComments = post.TryGetProperty("num_comments", out var nc) ? nc.GetInt32() : 0;
 
-          string redditUrl = !string.IsNullOrWhiteSpace(permalink)
+          string redditUrlFinal = !string.IsNullOrWhiteSpace(permalink)
               ? $"https://www.reddit.com{permalink}"
               : externalUrl ?? "";
 
-          if (string.IsNullOrWhiteSpace(redditUrl)) continue;
+          if (string.IsNullOrWhiteSpace(redditUrlFinal)) continue;
 
           var descriptionParts = new List<string>();
           if (!string.IsNullOrWhiteSpace(subreddit))
@@ -1050,7 +1074,7 @@ namespace maxhanna.Server.Controllers
 
           results.Add(new Metadata
           {
-            Url = redditUrl,
+            Url = redditUrlFinal,
             Title = title,
             Description = string.Join(" | ", descriptionParts),
             ImageUrl = imageUrl,
