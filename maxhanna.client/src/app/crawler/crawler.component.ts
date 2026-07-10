@@ -166,14 +166,17 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
 
   async searchKeywords(skipScrape?: boolean) {
     const keywords = this.keywordsInput.nativeElement.value; 
-
+    console.log("searching keywords", keywords);
     if (keywords) {
+      console.log('searching youtube');
       this.isSearchingYoutube = true;
       this.crawlerService.searchYoutube(this.keywordsInput.nativeElement.value.trim()).then(response => {
         this.youtubeResults = response ?? [];
         this.isSearchingYoutube = false;
         this.youtubeDisplayLimit = 1;
       });
+
+      console.log('searching reddit');
       this.isSearchingReddit = true;
       this.crawlerService.searchReddit(this.keywordsInput.nativeElement.value.trim()).then(response => {
         this.redditResults = response ?? [];

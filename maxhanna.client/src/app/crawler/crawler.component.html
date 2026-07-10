@@ -32,7 +32,7 @@
           </div> -->
           <div>
             <input #keywordsInput type="text" 
-              placeholder="keywords (search title/description/url)"
+              placeholder="Search Title/Description/URL"
               (keydown.enter)="searchKeywords()" />
             <button (click)="searchKeywords()"
               [disabled]="isLoading || !(keywordsInput?.value && keywordsInput.value.trim())">
@@ -57,7 +57,7 @@
 
     <div *ngIf="error" class="error-message">{{ error }}</div>
 
-    <div *ngIf="youtubeResults?.length" class="metadataSearchWrapper" [style.opacity]="isSearchingYoutube ? 0.5 :1"
+    <div *ngIf="youtubeResults?.length" class="metadataSearchWrapper" [style.opacity]="isSearchingYoutube ? 0.5 : 1"
       [style.max-Height]="onlySearch ? '30vh' : ''">
       <div class="metadataSearchDiv gradientBackground">
         <div class="groupDomainTitle">YouTube Results</div>
