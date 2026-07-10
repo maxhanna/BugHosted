@@ -956,8 +956,8 @@ namespace maxhanna.Server.Controllers
         };
 
         // A highly descriptive User-Agent is crucial for Reddit's public API.
-        // Replace "your_email@example.com" or "/u/your_reddit_username" with your actual info!
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("maxhanna-crawler/1.0 (by /u/666Sayonara)");
+        // Replace "your_email@example.com" or "/u/your_reddit_username" with your actual info! 
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("CSharpRedditScraper/1.0 (contact: saintminion@hotmail.com)");
 
         // Construct the .json URL for the search
         string url = $"https://www.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}&sort=relevance&type=link&limit={limit}&t=year";
