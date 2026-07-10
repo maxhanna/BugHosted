@@ -950,16 +950,25 @@ namespace maxhanna.Server.Controllers
       var results = new List<Metadata>();
       try
       {
-        using var http = new HttpClient
+        // Use AutomaticDecompression since we are requesting gzip
+        using var handler = new HttpClientHandler
         {
-          Timeout = TimeSpan.FromSeconds(6)
+          AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
         };
 
-        // A descriptive User-Agent is required by Reddit for their public API
-        http.DefaultRequestHeaders.UserAgent.ParseAdd(
-            "maxhanna-crawler/1.0 (+https://bughosted.com; max@maxhanna.com)");
+        using var http = new HttpClient(handler)
+        {
+          Timeout = TimeSpan.FromSeconds(60)
+        };
 
-        // Use the PUBLIC Reddit JSON API (no OAuth token required)
+        // Spoof standard browser headers to bypass Reddit's WAF / 403 Forbidden block
+        http.DefaultRequestHeaders.UserAgent.ParseAdd(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36");
+        http.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+        http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
+        http.DefaultRequestHeaders.AcceptEncoding.ParseAdd("gzip, deflate");
+
+        // Use the PUBLIC Reddit JSON API 
         string url =
             $"https://www.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}" +
             $"&sort=relevance&type=link&limit={limit}&t=year";
@@ -967,13 +976,11 @@ namespace maxhanna.Server.Controllers
         _ = _log.Db($"[Reddit Debug] Requesting URL: {url}", null, "CRAWLERCTRL", true);
 
         using var resp = await http.GetAsync(url, ct);
-
         _ = _log.Db($"[Reddit Debug] HTTP Status: {resp.StatusCode} ({(int)resp.StatusCode})", null, "CRAWLERCTRL", true);
 
         if (!resp.IsSuccessStatusCode)
         {
           var errorContent = await resp.Content.ReadAsStringAsync(ct);
-          // Log the first 500 chars of the error to see what Reddit said
           _ = _log.Db($"[Reddit Debug] Error Response Content: {errorContent.Substring(0, Math.Min(errorContent.Length, 500))}", null, "CRAWLERCTRL", true);
           return results;
         }
@@ -983,11 +990,9 @@ namespace maxhanna.Server.Controllers
         // Prevent JSON parsing errors if Reddit sends an HTML error page
         if (json.TrimStart().StartsWith("<"))
         {
-          _ = _log.Db("[Reddit Debug] Returned HTML instead of JSON. Likely rate limited or blocked.", null, "CRAWLERCTRL", true);
+          _ = _log.Db("[Reddit Debug] Returned HTML instead of JSON.", null, "CRAWLERCTRL", true);
           return results;
         }
-
-        _ = _log.Db($"[Reddit Debug] JSON received successfully (Length: {json.Length}). Parsing...", null, "CRAWLERCTRL", true);
 
         using var doc = System.Text.Json.JsonDocument.Parse(json);
 
@@ -995,7 +1000,7 @@ namespace maxhanna.Server.Controllers
             !data.TryGetProperty("children", out var children) ||
             children.ValueKind != System.Text.Json.JsonValueKind.Array)
         {
-          _ = _log.Db("[Reddit Debug] JSON structure unexpected (missing data.children array).", null, "CRAWLERCTRL", true);
+          _ = _log.Db("[Reddit Debug] JSON structure unexpected.", null, "CRAWLERCTRL", true);
           return results;
         }
 
@@ -1063,7 +1068,7 @@ namespace maxhanna.Server.Controllers
 
       return results;
     }
-    
+
     private async Task<LightweightSearchResult> SaveAndGetLightweightResultAsync(Metadata meta, string connectionString)
     {
       var light = new LightweightSearchResult { Id = meta.Id, Url = meta.Url, Title = meta.Title };
