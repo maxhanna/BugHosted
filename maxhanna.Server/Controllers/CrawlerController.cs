@@ -945,6 +945,7 @@ namespace maxhanna.Server.Controllers
         }
       });
     }
+
     private async Task<List<Metadata>> TryFindRedditUrlsAsync(string keyword, CancellationToken ct, int limit = 5)
     {
       var results = new List<Metadata>();
@@ -960,11 +961,8 @@ namespace maxhanna.Server.Controllers
         }
 
         // 2. Route the request through Apify's Residential Proxy Network
-        // Username "auto" tells Apify to pick a random residential IP.
-        var proxy = new System.Net.WebProxy("http://proxy.apify.com:8000")
-        {
-          Credentials = new System.Net.NetworkCredential("auto", apifyApiKey)
-        };
+        // Embedding credentials directly in the URL fixes the 407 authentication error in .NET
+        var proxy = new System.Net.WebProxy($"http://auto:{apifyApiKey}@proxy.apify.com:8000");
 
         using var handler = new HttpClientHandler
         {
