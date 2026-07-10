@@ -961,8 +961,14 @@ namespace maxhanna.Server.Controllers
         }
 
         // 2. Route the request through Apify's Residential Proxy Network
-        // Embedding credentials directly in the URL fixes the 407 authentication error in .NET
-        var proxy = new System.Net.WebProxy($"http://auto:{apifyApiKey}@proxy.apify.com:8000");
+        var proxyUri = new Uri("http://proxy.apify.com:8000");
+        var proxy = new System.Net.WebProxy(proxyUri);
+
+        // Use CredentialCache to force preemptive Basic authentication
+        // This fixes the 407 error in .NET HttpClient
+        var credentialCache = new System.Net.CredentialCache();
+        credentialCache.Add(proxyUri, "Basic", new System.Net.NetworkCredential("auto", apifyApiKey));
+        proxy.Credentials = credentialCache;
 
         using var handler = new HttpClientHandler
         {
@@ -973,7 +979,7 @@ namespace maxhanna.Server.Controllers
 
         using var http = new HttpClient(handler)
         {
-          Timeout = TimeSpan.FromSeconds(10)
+          Timeout = TimeSpan.FromSeconds(15)
         };
 
         // 3. Spoof standard browser headers
@@ -1080,7 +1086,6 @@ namespace maxhanna.Server.Controllers
 
       return results;
     }
-
     private async Task<LightweightSearchResult> SaveAndGetLightweightResultAsync(Metadata meta, string connectionString)
     {
       var light = new LightweightSearchResult { Id = meta.Id, Url = meta.Url, Title = meta.Title };
