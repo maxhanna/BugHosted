@@ -974,7 +974,7 @@ namespace maxhanna.Server.Controllers
         if (!string.IsNullOrWhiteSpace(apiKey) && provider.Equals("serpapi", StringComparison.OrdinalIgnoreCase))
         {
           using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-          string url = $"https://serpapi.com/search.json?q={Uri.EscapeDataString(keyword)}&engine=reddit&api_key={Uri.EscapeDataString(apiKey)}";
+          string url = $"https://serpapi.com/search.json?engine=google&q={Uri.EscapeDataString(keyword)}&api_key={Uri.EscapeDataString(apiKey)}&google_domain=google.com&hl=en&gl=us";
 
           _ = _log.Db($"[Search Debug] Using SerpAPI for keyword '{keyword}'", null, "CRAWLERCTRL", true);
           using var resp = await http.GetAsync(url, ct);
@@ -982,9 +982,30 @@ namespace maxhanna.Server.Controllers
           {
             var json = await resp.Content.ReadAsStringAsync(ct);
             using var doc = System.Text.Json.JsonDocument.Parse(json);
-            if (doc.RootElement.TryGetProperty("reddit_results", out var items) && items.ValueKind == System.Text.Json.JsonValueKind.Array)
+            if (doc.RootElement.TryGetProperty("organic_results", out var items) && items.ValueKind == System.Text.Json.JsonValueKind.Array)
             {
               foreach (var item in items.EnumerateArray().Take(limit))
+              {
+                string? urlValue = item.TryGetProperty("link", out var u) ? u.GetString() : null;
+                string? title = item.TryGetProperty("title", out var t) ? t.GetString() : null;
+                string? snippet = item.TryGetProperty("snippet", out var s) ? s.GetString() : null;
+
+                if (!string.IsNullOrWhiteSpace(urlValue))
+                {
+                  results.Add(new Metadata
+                  {
+                    Url = urlValue,
+                    Title = title ?? "SerpAPI result",
+                    Description = snippet ?? "SerpAPI result",
+                    Author = "Search",
+                    Keywords = keyword
+                  });
+                }
+              }
+            }
+            else if (doc.RootElement.TryGetProperty("reddit_results", out var redditItems) && redditItems.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+              foreach (var item in redditItems.EnumerateArray().Take(limit))
               {
                 string? urlValue = item.TryGetProperty("url", out var u) ? u.GetString() : null;
                 string? title = item.TryGetProperty("title", out var t) ? t.GetString() : null;
