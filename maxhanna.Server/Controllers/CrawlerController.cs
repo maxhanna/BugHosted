@@ -1501,13 +1501,15 @@ namespace maxhanna.Server.Controllers
       {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var results = await TryFindRedditUrlsAsync(request.Keyword, cts.Token, 5);
-        if (results == null || results.Count == 0) return NotFound("No Reddit posts found.");
+        if (results == null || results.Count == 0)
+          return StatusCode(503, "Reddit search is currently unavailable from this server.");
+
         return Ok(results);
       }
       catch (Exception ex)
       {
         await _log.Db($"Error in RedditLookup: {ex.Message}", null, "CRAWLER", true);
-        return StatusCode(500, "Error looking up Reddit.");
+        return StatusCode(503, "Reddit search is currently unavailable from this server.");
       }
     }
 
