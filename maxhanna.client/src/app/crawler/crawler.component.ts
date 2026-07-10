@@ -180,6 +180,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       this.isSearchingYoutube = false;
       this.youtubeDisplayLimit = 1;
     });
+    this.isSearchingReddit = true;
     this.crawlerService.searchReddit(this.keywordsInput.nativeElement.value.trim()).then(response => {
       this.redditResults = response ?? [];
       this.isSearchingReddit = false;
