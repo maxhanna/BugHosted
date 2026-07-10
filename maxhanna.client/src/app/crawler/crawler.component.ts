@@ -49,7 +49,6 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   private socialDomains = ['reddit.com', 'www.reddit.com', 'twitter.com', 'www.twitter.com', 'x.com', 'www.x.com', 'facebook.com', 'www.facebook.com'];
 
   @ViewChild('pageSizeDropdown') pageSizeDropdown!: ElementRef<HTMLSelectElement>;
-  @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
   @ViewChild('keywordsInput') keywordsInput!: ElementRef<HTMLInputElement>;
   @Input() url: string = '';
   @Input() onlySearch: boolean = false;
@@ -69,20 +68,20 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     }
     setTimeout(() => {
       if (this.url) {
-        this.urlInput.nativeElement.value = this.url;
+        this.keywordsInput.nativeElement.value = this.url;
         this.url = "";
         this.searchUrl();
       }
       try {
-        const u = this.urlInput?.nativeElement?.value?.trim();
+        const u = this.keywordsInput?.nativeElement?.value?.trim();
         const k = this.keywordsInput?.nativeElement?.value?.trim();
         this.isKeywordsDisabled = !!(u && u.length > 0);
         this.isUrlDisabled = !!(k && k.length > 0);
       } catch (e) { }
-      this.urlInput.nativeElement.focus();
+      this.keywordsInput.nativeElement.focus();
     }, 1);
     this.indexUpdateTimer = setInterval(() => {
-      if (this.urlInput.nativeElement.value.trim() == '') {
+      if (this.keywordsInput.nativeElement.value.trim() == '') {
         this.crawlerService.indexCount().then(res => { if (res) { this.indexCount = parseInt(res); } });
       }
     }, 60000);
@@ -92,15 +91,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer");
     clearInterval(this.indexUpdateTimer);
     this.stopLoading();
-  }
- 
-  onUrlInput() {
-    try {
-      const val = this.urlInput?.nativeElement?.value ?? '';
-      this.isKeywordsDisabled = !!(val && val.trim().length > 0);
-      if (!this.isKeywordsDisabled) this.isUrlDisabled = false;
-    } catch (e) { }
-  }
+  } 
 
   // onKeywordsInput() {
   //   try {
@@ -154,7 +145,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   async searchUrl(skipScrape?: boolean) {
-    const raw = this.urlInput.nativeElement.value?.trim();
+    const raw = this.keywordsInput.nativeElement.value?.trim();
     if (!raw) return;
     if (raw.startsWith('site:')) { await this.doSearch(raw, false, skipScrape); return; }
     if (raw === '*') { await this.doSearch(raw, false, skipScrape); return; }
@@ -258,7 +249,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   async addWithoutSearch() {
-    const url = this.urlInput?.nativeElement?.value?.trim();
+    const url = this.keywordsInput?.nativeElement?.value?.trim();
     if (!url) return;
     if (this.onlySearch) {
       this.urlSelectedEvent.emit(url);
@@ -384,7 +375,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   seeNew() {
-    this.urlInput.nativeElement.value = '*';
+    this.keywordsInput.nativeElement.value = '*';
     this.searchUrl(true);
   }
 
