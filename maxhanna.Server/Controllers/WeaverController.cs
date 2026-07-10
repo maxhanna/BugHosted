@@ -219,7 +219,7 @@ namespace maxhanna.Server.Controllers
 		[HttpGet("commands/{id}")]
 		public async Task<IActionResult> GetCommandResult([FromRoute] int id, [FromQuery] string token)
 		{
-			if (string.IsNullOrWhiteSpace(token) || !_sessions.TryGetValue(token, out var session))
+			if(string.IsNullOrWhiteSpace(token) || !_sessions.TryGetValue(token, out var session))
 				return Unauthorized(new { error = "Invalid token" });
 
 			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
@@ -265,7 +265,7 @@ namespace maxhanna.Server.Controllers
 			using var reader = await cmd.ExecuteReaderAsync();
 
 			var commands = new List<object>();
-			while (await reader.ReadAsync())
+			while(await reader.ReadAsync())
 			{
 				commands.Add(new
 				{
@@ -644,7 +644,7 @@ namespace maxhanna.Server.Controllers
 		public async Task<IActionResult> AddBenchmark([FromBody] BenchmarkDataDTO benchmark)
 		{
 
-			if (string.IsNullOrWhiteSpace(benchmark.Token) || !_sessions.TryGetValue(benchmark.Token, out var session))
+			if(string.IsNullOrWhiteSpace(benchmark.Token) || !_sessions.TryGetValue(benchmark.Token, out var session))
 				return Unauthorized(new { error = "Invalid token" });
 
 			int userId = session.UserId;
@@ -675,11 +675,56 @@ namespace maxhanna.Server.Controllers
 				await cmd.ExecuteNonQueryAsync();
 				return Ok(new { message = "Benchmark added successfully" });
 			}
-			catch (Exception ex)
+			catch(Exception ex)
 			{
 				Console.WriteLine($"Error adding benchmark: {ex.Message}");
 				return StatusCode(500, new { error = "Failed to add benchmark" });
 			}
+		}
+		
+		[HttpGet("benchmarks")]
+			public async Task<IActionResult> GetBenchmarks(string token)
+		{
+		    if (string.IsNullOrWhiteSpace(token) || !_sessions.TryGetValue(token, out var session))
+		    return Unauthorized(new { error = "Invalid token" });
+
+		    int userId = session.UserId;
+
+		    string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+		    using var conn = new MySqlConnection(cs);
+		    await conn.OpenAsync();
+
+		    string sql = @"
+		    SELECT id, date, benchmark_name, steps, score, status, duration, model, os, cpu, ram, gpu
+		    FROM maxhanna.benchmark_data
+		    WHERE user_id = @UserId
+		    ORDER BY date DESC
+		    ";
+		    using var cmd = new MySqlCommand(sql, conn);
+		    cmd.Parameters.AddWithValue("@UserId", userId);
+		    using var reader = await cmd.ExecuteReaderAsync();
+
+		    var benchmarks = new List<object>();
+		    while (await reader.ReadAsync())
+		    {
+		        benchmarks.Add(new
+		        {
+		            id = reader.GetInt32("id"),
+		            date = reader.GetDateTime("date").ToString("yyyy-MM-dd HH:mm:ss"),
+		            benchmarkName = reader.GetString("benchmark_name"),
+		            steps = reader.IsDBNull(reader.GetOrdinal("steps")) ? 0 : reader.GetInt32("steps"),
+		            score = reader.IsDBNull(reader.GetOrdinal("score")) ? 0.0f : reader.GetFloat("score"),
+		            status = reader.GetString("status"),
+		            duration = reader.IsDBNull(reader.GetOrdinal("duration")) ? "" : reader.GetString("duration"),
+		            model = reader.IsDBNull(reader.GetOrdinal("model")) ? "" : reader.GetString("model"),
+		            os = reader.IsDBNull(reader.GetOrdinal("os")) ? "" : reader.GetString("os"),
+		            cpu = reader.IsDBNull(reader.GetOrdinal("cpu")) ? "" : reader.GetString("cpu"),
+		            ram = reader.IsDBNull(reader.GetOrdinal("ram")) ? "" : reader.GetString("ram"),
+		            gpu = reader.IsDBNull(reader.GetOrdinal("gpu")) ? "" : reader.GetString("gpu")
+		        });
+		    }
+
+		    return Ok(benchmarks);
 		}
 
 		[HttpPost("fileHints")]
