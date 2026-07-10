@@ -952,7 +952,7 @@ namespace maxhanna.Server.Controllers
       {
         using var http = new HttpClient
         {
-          Timeout = TimeSpan.FromSeconds(10)
+          Timeout = TimeSpan.FromSeconds(60)
         };
 
         // A highly descriptive User-Agent is crucial for Reddit's public API.
