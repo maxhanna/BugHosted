@@ -147,7 +147,7 @@ export class CrawlerService {
   async searchReddit(keyword: string): Promise<MetaData[] | null> {
     try {
       const response = await fetch(`/crawler/redditlookup`, {
-        method: 'GET',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ keyword })
       });
