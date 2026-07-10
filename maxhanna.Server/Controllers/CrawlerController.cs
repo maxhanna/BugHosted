@@ -1031,7 +1031,13 @@ namespace maxhanna.Server.Controllers
           }
 
           if (results.Count > 0)
+          {
+            foreach (var result in results.Where(r => !string.IsNullOrWhiteSpace(r.Url)))
+            {
+              _ = _webCrawler.StartScrapingAsync(result.Url!);
+            }
             return results;
+          }
         }
 
         if (!string.IsNullOrWhiteSpace(apiKey) && provider.Equals("brave", StringComparison.OrdinalIgnoreCase))
@@ -1075,7 +1081,13 @@ namespace maxhanna.Server.Controllers
           }
 
           if (results.Count > 0)
+          {
+            foreach (var result in results.Where(r => !string.IsNullOrWhiteSpace(r.Url)))
+            {
+              _ = _webCrawler.StartScrapingAsync(result.Url!);
+            }
             return results;
+          }
         }
 
         _ = _log.Db("[Search Debug] No configured search API available; skipping external search fallback.", null, "CRAWLERCTRL", true);
