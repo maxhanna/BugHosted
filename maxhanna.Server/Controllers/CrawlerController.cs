@@ -950,101 +950,81 @@ namespace maxhanna.Server.Controllers
       var results = new List<Metadata>();
       try
       {
-        // 1. Retrieve the Apify API key from configuration
+        // 1. Apify token
         string apifyApiKey = _config.GetValue<string>("Reddit:ApiKey") ?? "";
 
-        if (string.IsNullOrWhiteSpace(apifyApiKey))
+        // 2. We use the run-sync-get-dataset-items endpoint. 
+        // This forces the API to wait for the actor to finish and return the actual scraped data.
+        string apifyUrl = $"https://api.apify.com/v2/acts/trudax~reddit-scraper/run-sync-get-dataset-items?token={apifyApiKey}&timeout=120";
+
+        // 3. Construct the Reddit search URL
+        string redditSearchUrl = $"https://www.reddit.com/search/?q={Uri.EscapeDataString(keyword)}&sort=relevance&t=year";
+
+        // 4. Build the Apify Actor payload exactly as requested
+        var payload = new
         {
-          _ = _log.Db("[Reddit Debug] Missing Apify API key in configuration (Reddit:ApiKey).", null, "CRAWLERCTRL", true);
-          return results;
-        }
-
-        // 2. Route the request through Apify's Residential Proxy Network
-        var proxyUri = new Uri("http://proxy.apify.com:8000");
-        var proxy = new System.Net.WebProxy(proxyUri);
-
-        // Use CredentialCache to force preemptive Basic authentication
-        // This fixes the 407 error in .NET HttpClient
-        var credentialCache = new System.Net.CredentialCache();
-
-        // Use your specific Apify username: "nutritious_boulevard"
-        credentialCache.Add(proxyUri, "Basic", new System.Net.NetworkCredential("nutritious_boulevard", apifyApiKey));
-        proxy.Credentials = credentialCache;
-
-        using var handler = new HttpClientHandler
-        {
-          Proxy = proxy,
-          UseDefaultCredentials = false,
-          AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
+          startUrls = new[] { new { url = redditSearchUrl } },
+          maxItems = limit,
+          maxPostCount = limit,
+          maxComments = 0, // We don't need comments for search results
+          maxCommunitiesCount = 0,
+          maxUserCount = 0,
+          scrollTimeout = 40,
+          proxy = new
+          {
+            useApifyProxy = true,
+            apifyProxyGroups = new[] { "RESIDENTIAL" }
+          }
         };
 
-        using var http = new HttpClient(handler)
-        {
-          Timeout = TimeSpan.FromSeconds(15)
-        };
+        var jsonPayload = System.Text.Json.JsonSerializer.Serialize(payload);
+        var content = new StringContent(jsonPayload, System.Text.Encoding.UTF8, "application/json");
 
-        // 3. Spoof standard browser headers
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36");
-        http.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-        http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
-        http.DefaultRequestHeaders.AcceptEncoding.ParseAdd("gzip, deflate");
+        // 5. Send the request to Apify (Timeout set to 120s to allow Apify to spin up and scrape)
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
 
-        // 4. Hit the public Reddit JSON endpoint directly (through the proxy)
-        string url = $"https://www.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}&sort=relevance&type=link&limit={limit}&t=year";
+        _ = _log.Db($"[Reddit Debug] Starting Apify Actor for keyword: {keyword}...", null, "CRAWLERCTRL", true);
 
-        _ = _log.Db($"[Reddit Debug] Requesting URL via Apify Proxy: {url}", null, "CRAWLERCTRL", true);
-
-        using var resp = await http.GetAsync(url, ct);
+        using var resp = await http.PostAsync(apifyUrl, content, ct);
         _ = _log.Db($"[Reddit Debug] HTTP Status: {resp.StatusCode} ({(int)resp.StatusCode})", null, "CRAWLERCTRL", true);
 
         if (!resp.IsSuccessStatusCode)
         {
           var errorContent = await resp.Content.ReadAsStringAsync(ct);
-          _ = _log.Db($"[Reddit Debug] Error Response Content: {errorContent.Substring(0, Math.Min(errorContent.Length, 500))}", null, "CRAWLERCTRL", true);
+          _ = _log.Db($"[Reddit Debug] Error: {errorContent.Substring(0, Math.Min(errorContent.Length, 500))}", null, "CRAWLERCTRL", true);
           return results;
         }
 
         var json = await resp.Content.ReadAsStringAsync(ct);
 
-        // Prevent JSON parsing errors if an HTML error page is returned
-        if (json.TrimStart().StartsWith("<"))
-        {
-          _ = _log.Db("[Reddit Debug] Returned HTML instead of JSON.", null, "CRAWLERCTRL", true);
-          return results;
-        }
-
+        // Apify returns a JSON array of scraped posts
         using var doc = System.Text.Json.JsonDocument.Parse(json);
-
-        if (!doc.RootElement.TryGetProperty("data", out var data) ||
-            !data.TryGetProperty("children", out var children) ||
-            children.ValueKind != System.Text.Json.JsonValueKind.Array)
+        if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Array || doc.RootElement.GetArrayLength() == 0)
         {
-          _ = _log.Db("[Reddit Debug] JSON structure unexpected.", null, "CRAWLERCTRL", true);
+          _ = _log.Db("[Reddit Debug] Apify returned an empty array.", null, "CRAWLERCTRL", true);
           return results;
         }
 
-        _ = _log.Db($"[Reddit Debug] Found {children.GetArrayLength()} raw posts. Processing...", null, "CRAWLERCTRL", true);
+        _ = _log.Db($"[Reddit Debug] Found {doc.RootElement.GetArrayLength()} raw posts. Processing...", null, "CRAWLERCTRL", true);
 
-        foreach (var child in children.EnumerateArray())
+        // 6. Parse the Apify dataset
+        foreach (var item in doc.RootElement.EnumerateArray())
         {
-          if (!child.TryGetProperty("data", out var post)) continue;
+          // The trudax Reddit scraper outputs these fields
+          string? title = item.TryGetProperty("title", out var t) ? t.GetString() : null;
+          string? url = item.TryGetProperty("url", out var u) ? u.GetString() :
+                        (item.TryGetProperty("permalink", out var p) ? $"https://www.reddit.com{p.GetString()}" : null);
+          string? author = item.TryGetProperty("username", out var un) ? un.GetString() :
+                           (item.TryGetProperty("author", out var a) ? a.GetString() : null);
+          string? subreddit = item.TryGetProperty("subreddit", out var sr) ? sr.GetString() : null;
+          string? selftext = item.TryGetProperty("text", out var st) ? st.GetString() :
+                             (item.TryGetProperty("selftext", out var st2) ? st2.GetString() : null);
 
-          string? title = post.TryGetProperty("title", out var t) ? t.GetString() : null;
-          string? permalink = post.TryGetProperty("permalink", out var p) ? p.GetString() : null;
-          string? externalUrl = post.TryGetProperty("url", out var u) ? u.GetString() : null;
-          string? author = post.TryGetProperty("author", out var a) ? a.GetString() : null;
-          string? subreddit = post.TryGetProperty("subreddit", out var sr) ? sr.GetString() : null;
-          string? thumbnail = post.TryGetProperty("thumbnail", out var th) ? th.GetString() : null;
-          string? selftext = post.TryGetProperty("selftext", out var st) ? st.GetString() : null;
+          int score = item.TryGetProperty("score", out var sc) ? sc.GetInt32() : 0;
+          int numComments = item.TryGetProperty("numberOfComments", out var nc) ? nc.GetInt32() :
+                            (item.TryGetProperty("numComments", out var nc2) ? nc2.GetInt32() : 0);
 
-          int score = post.TryGetProperty("score", out var sc) ? sc.GetInt32() : 0;
-          int numComments = post.TryGetProperty("num_comments", out var nc) ? nc.GetInt32() : 0;
-
-          string redditUrlFinal = !string.IsNullOrWhiteSpace(permalink)
-              ? $"https://www.reddit.com{permalink}"
-              : externalUrl ?? "";
-
-          if (string.IsNullOrWhiteSpace(redditUrlFinal)) continue;
+          if (string.IsNullOrWhiteSpace(url)) continue;
 
           var descriptionParts = new List<string>();
           if (!string.IsNullOrWhiteSpace(subreddit))
@@ -1054,25 +1034,16 @@ namespace maxhanna.Server.Controllers
 
           if (!string.IsNullOrWhiteSpace(selftext))
           {
-            var truncated = selftext.Length > 300
-                ? selftext.Substring(0, 300) + "..."
-                : selftext;
+            var truncated = selftext.Length > 300 ? selftext.Substring(0, 300) + "..." : selftext;
             descriptionParts.Add(truncated);
-          }
-
-          string? imageUrl = null;
-          if (!string.IsNullOrWhiteSpace(thumbnail) &&
-              (thumbnail.StartsWith("http://") || thumbnail.StartsWith("https://")))
-          {
-            imageUrl = thumbnail;
           }
 
           results.Add(new Metadata
           {
-            Url = redditUrlFinal,
+            Url = url,
             Title = title,
             Description = string.Join(" | ", descriptionParts),
-            ImageUrl = imageUrl,
+            ImageUrl = null, // The actor doesn't reliably output thumbnails in search
             Author = !string.IsNullOrWhiteSpace(author) ? $"u/{author}" : "Reddit",
             Keywords = keyword
           });
