@@ -950,7 +950,6 @@ namespace maxhanna.Server.Controllers
       var results = new List<Metadata>();
       try
       {
-        // Use AutomaticDecompression since we are requesting gzip
         using var handler = new HttpClientHandler
         {
           AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
@@ -958,19 +957,19 @@ namespace maxhanna.Server.Controllers
 
         using var http = new HttpClient(handler)
         {
-          Timeout = TimeSpan.FromSeconds(60)
+          Timeout = TimeSpan.FromSeconds(6)
         };
 
-        // Spoof standard browser headers to bypass Reddit's WAF / 403 Forbidden block
+        // Spoof standard browser headers
         http.DefaultRequestHeaders.UserAgent.ParseAdd(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36");
-        http.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+        http.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("text/html,application/xhtml+xml,application/xml;q=0.9"));
         http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
         http.DefaultRequestHeaders.AcceptEncoding.ParseAdd("gzip, deflate");
 
-        // Use the PUBLIC Reddit JSON API 
+        // Use OLD REDDIT to bypass the WAF on www.reddit.com
         string url =
-            $"https://www.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}" +
+            $"https://old.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}" +
             $"&sort=relevance&type=link&limit={limit}&t=year";
 
         _ = _log.Db($"[Reddit Debug] Requesting URL: {url}", null, "CRAWLERCTRL", true);
@@ -1068,7 +1067,7 @@ namespace maxhanna.Server.Controllers
 
       return results;
     }
-
+    
     private async Task<LightweightSearchResult> SaveAndGetLightweightResultAsync(Metadata meta, string connectionString)
     {
       var light = new LightweightSearchResult { Id = meta.Id, Url = meta.Url, Title = meta.Title };
