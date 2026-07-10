@@ -960,10 +960,12 @@ namespace maxhanna.Server.Controllers
             $"https://www.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}&sort=relevance&limit={limit}&type=link&t=year";
 
         using var resp = await http.GetAsync(searchUrl, ct);
+        Console.WriteLine($"REDDIT RESPONSE: ", resp);
         if (!resp.IsSuccessStatusCode) return results;
 
         var json = await resp.Content.ReadAsStringAsync(ct);
         using var doc = System.Text.Json.JsonDocument.Parse(json);
+        Console.WriteLine($"REDDIT RESPONSE DOC: ", doc);
 
         if (!(doc.RootElement.TryGetProperty("data", out var data) &&
               data.TryGetProperty("children", out var children) &&
