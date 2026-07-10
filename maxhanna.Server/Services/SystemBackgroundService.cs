@@ -130,7 +130,7 @@ namespace maxhanna.Server.Services
 
       _ = Task.Run(async () => { try { await _log.BackupDatabase(); } catch (Exception ex) { _ = _log.Db($"Error in BackupDatabase: {ex.Message}", null, "SYSTEM", outputToConsole: true); } });
       
-      await RunFiveMinuteTasks();
+      await RunDailyTasks();
     }
     private async Task Run10SecondTasks()
     {
