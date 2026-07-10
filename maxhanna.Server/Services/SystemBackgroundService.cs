@@ -127,6 +127,8 @@ namespace maxhanna.Server.Services
 
       try { await _dbQueue.EnqueueAsync(async () => { await _log.DeleteOldLogs(); }); }
       catch (Exception ex) { _ = _log.Db($"Error in DeleteOldLogs: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
+    
+      await RunSixHourTasks();
     }
     private async Task Run10SecondTasks()
     {
