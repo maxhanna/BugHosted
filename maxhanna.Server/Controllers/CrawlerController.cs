@@ -159,51 +159,68 @@ namespace maxhanna.Server.Controllers
 
         // 🔎 Wikipedia fallback: only if NO URL was found AND the query is a keyword.
         // "No URL found" here means no results from DB + quick scrape.
+        // 🔎 Wikipedia + Reddit fallback: only if NO URL was found AND the query is a keyword.
         if ((lightResults == null || lightResults.Count == 0) && IsKeywordQuery(request.Url))
         {
+          var fallbackResults = new List<LightweightSearchResult>();
+
+          // Run Wikipedia and Reddit lookups in parallel for speed
+          using var fallbackCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+          fallbackCts.CancelAfter(TimeSpan.FromSeconds(8));
+
+          var wikiTask = TryFindWikipediaUrlAsync(request.Url!.Trim(), fallbackCts.Token);
+          var redditTask = TryFindRedditUrlsAsync(request.Url!.Trim(), fallbackCts.Token, 5);
+
+          await Task.WhenAll(wikiTask, redditTask);
+
+          // Process Wikipedia result
           try
           {
-         //   _ = _log.Db($"Scraping Wikipedia for: {request.Url!.Trim()}.", null, "CRAWLERCTRL", true);
-            // Link to the controller-level 30s token, but give Wikipedia a tight 3s budget
-            using var wikiCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            wikiCts.CancelAfter(TimeSpan.FromSeconds(8));
-
-            var wiki = await TryFindWikipediaUrlAsync(request.Url!.Trim(), wikiCts.Token);
+            var wiki = wikiTask.Result;
             if (wiki != null)
             {
-              var wikiLight = new List<LightweightSearchResult> { new LightweightSearchResult { Id = wiki.Id, Url = wiki.Url, Title = wiki.Title } };
-              if (wiki.Url != null)
-              {
-                await _webCrawler.SaveSearchResult(wiki.Url, wiki);
-                using (var idConn = new MySqlConnection(connectionString))
-                {
-                  await idConn.OpenAsync();
-                  using (var idCmd = new MySqlCommand("SELECT id FROM search_results WHERE url = @url LIMIT 1", idConn))
-                  {
-                    idCmd.Parameters.AddWithValue("@url", wiki.Url);
-                    var idResult = await idCmd.ExecuteScalarAsync();
-                    if (idResult != null)
-                      wikiLight[0].Id = Convert.ToInt32(idResult);
-                  }
-                }
-              }
-
-              return Ok(new { Results = wikiLight, TotalResults = 1 });
+              fallbackResults.Add(
+                  await SaveAndGetLightweightResultAsync(wiki, connectionString!));
             }
           }
           catch (Exception e)
           {
             _ = _log.Db($"Failed to scrape Wikipedia for keyword: {e.Message}", null, "CRAWLERCTRL", true);
           }
+
+          // Process Reddit results
+          try
+          {
+            var redditResults = redditTask.Result;
+            foreach (var reddit in redditResults)
+            {
+              fallbackResults.Add(
+                  await SaveAndGetLightweightResultAsync(reddit, connectionString!));
+            }
+          }
+          catch (Exception e)
+          {
+            _ = _log.Db($"Failed to scrape Reddit for keyword: {e.Message}", null, "CRAWLERCTRL", true);
+          }
+
+          if (fallbackResults.Count > 0)
+          {
+            return Ok(new { Results = fallbackResults, TotalResults = fallbackResults.Count });
+          }
         }
         else if (lightResults != null && lightResults.Count > 0)
         {
           bool hasWikipedia = lightResults.Any(r =>
             r.Url?.Contains("wikipedia.org/wiki/", StringComparison.OrdinalIgnoreCase) == true);
+          bool hasReddit = lightResults.Any(r =>
+            r.Url?.Contains("reddit.com/r/", StringComparison.OrdinalIgnoreCase) == true);
 
-          if (IsKeywordQuery(request.Url) && !hasWikipedia && !searchAll)
+          if (IsKeywordQuery(request.Url) && !searchAll)
           {
-            _ = ScrapeWikipediaAsync(request.Url!.Trim());
+            if (!hasWikipedia)
+              _ = ScrapeWikipediaAsync(request.Url!.Trim());
+            if (!hasReddit)
+              _ = ScrapeRedditAsync(request.Url!.Trim());
           }
         }
 
@@ -903,7 +920,139 @@ namespace maxhanna.Server.Controllers
 
       return searchResults;
     }
+    private Task ScrapeRedditAsync(string keyword)
+    {
+      return Task.Run(async () =>
+      {
+        try
+        {
+          using var prefetchCts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+          var redditResults = await TryFindRedditUrlsAsync(keyword, prefetchCts.Token, 3);
+          foreach (var reddit in redditResults)
+          {
+            if (!string.IsNullOrWhiteSpace(reddit?.Url))
+            {
+              await _webCrawler.StartScrapingAsync(reddit.Url);
+            }
+          }
+        }
+        catch (Exception ex)
+        {
+          _ = _log.Db($"Reddit scrape failed for '{keyword}': {ex.Message}", null, "CRAWLERCTRL", true);
+        }
+      });
+    }
+    private async Task<List<Metadata>> TryFindRedditUrlsAsync(string keyword, CancellationToken ct, int limit = 5)
+    {
+      var results = new List<Metadata>();
+      try
+      {
+        using var http = new HttpClient
+        {
+          Timeout = TimeSpan.FromSeconds(6)
+        };
 
+        http.DefaultRequestHeaders.UserAgent.ParseAdd(
+            "maxhanna-crawler/1.0 (+https://bughosted.com; max@maxhanna.com)");
+
+        // Reddit public JSON search — sort by relevance, links only, past year
+        string searchUrl =
+            $"https://www.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}&sort=relevance&limit={limit}&type=link&t=year";
+
+        using var resp = await http.GetAsync(searchUrl, ct);
+        if (!resp.IsSuccessStatusCode) return results;
+
+        var json = await resp.Content.ReadAsStringAsync(ct);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+
+        if (!(doc.RootElement.TryGetProperty("data", out var data) &&
+              data.TryGetProperty("children", out var children) &&
+              children.ValueKind == System.Text.Json.JsonValueKind.Array))
+        {
+          return results;
+        }
+
+        foreach (var child in children.EnumerateArray())
+        {
+          if (!child.TryGetProperty("data", out var postData)) continue;
+
+          string? title = postData.TryGetProperty("title", out var t) ? t.GetString() : null;
+          string? selftext = postData.TryGetProperty("selftext", out var st) ? st.GetString() : null;
+          string? permalink = postData.TryGetProperty("permalink", out var p) ? p.GetString() : null;
+          string? externalUrl = postData.TryGetProperty("url", out var u) ? u.GetString() : null;
+          string? author = postData.TryGetProperty("author", out var a) ? a.GetString() : null;
+          string? subreddit = postData.TryGetProperty("subreddit", out var sr) ? sr.GetString() : null;
+          string? thumbnail = postData.TryGetProperty("thumbnail", out var th) ? th.GetString() : null;
+          int score = postData.TryGetProperty("score", out var sc) ? sc.GetInt32() : 0;
+          int numComments = postData.TryGetProperty("num_comments", out var nc) ? nc.GetInt32() : 0;
+
+          // Build the canonical Reddit URL from the permalink
+          string redditUrl = !string.IsNullOrWhiteSpace(permalink)
+              ? $"https://www.reddit.com{permalink}"
+              : externalUrl ?? "";
+
+          if (string.IsNullOrWhiteSpace(redditUrl)) continue;
+
+          // Build a rich description
+          var descriptionParts = new List<string>();
+          if (!string.IsNullOrWhiteSpace(subreddit))
+            descriptionParts.Add($"r/{subreddit}");
+          descriptionParts.Add($"{score} points");
+          descriptionParts.Add($"{numComments} comments");
+          if (!string.IsNullOrWhiteSpace(selftext))
+          {
+            var truncated = selftext.Length > 300
+                ? selftext.Substring(0, 300) + "..."
+                : selftext;
+            descriptionParts.Add(truncated);
+          }
+
+          // Only use thumbnail if it's a real image URL (Reddit sometimes
+          // returns "self" or "default" as the thumbnail value)
+          string? imageUrl = null;
+          if (!string.IsNullOrWhiteSpace(thumbnail) &&
+              (thumbnail.StartsWith("http://") || thumbnail.StartsWith("https://")))
+          {
+            imageUrl = thumbnail;
+          }
+
+          results.Add(new Metadata
+          {
+            Url = redditUrl,
+            Title = title,
+            Description = string.Join(" | ", descriptionParts),
+            ImageUrl = imageUrl,
+            Author = !string.IsNullOrWhiteSpace(author) ? $"u/{author}" : "Reddit",
+            Keywords = keyword
+          });
+        }
+      }
+      catch
+      {
+        // best effort — return whatever we have
+      }
+      return results;
+    }
+    private async Task<LightweightSearchResult> SaveAndGetLightweightResultAsync(Metadata meta, string connectionString)
+    {
+      var light = new LightweightSearchResult { Id = meta.Id, Url = meta.Url, Title = meta.Title };
+      if (!string.IsNullOrWhiteSpace(meta.Url))
+      {
+        await _webCrawler.SaveSearchResult(meta.Url, meta);
+        using (var idConn = new MySqlConnection(connectionString))
+        {
+          await idConn.OpenAsync();
+          using (var idCmd = new MySqlCommand("SELECT id FROM search_results WHERE url = @url LIMIT 1", idConn))
+          {
+            idCmd.Parameters.AddWithValue("@url", meta.Url);
+            var idResult = await idCmd.ExecuteScalarAsync();
+            if (idResult != null)
+              light.Id = Convert.ToInt32(idResult);
+          }
+        }
+      }
+      return light;
+    }
     private async Task PersistScrapedResults(List<Metadata> results, string connectionString)
     {
       foreach (var r in results.Where(x => !x.Id.HasValue && !string.IsNullOrWhiteSpace(x.Url)))
@@ -1300,6 +1449,24 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+    [HttpPost("/Crawler/RedditLookup", Name = "RedditLookup")]
+    public async Task<IActionResult> RedditLookup([FromBody] RedditLookupRequest request)
+    {
+      if (string.IsNullOrWhiteSpace(request.Keyword)) return BadRequest("Keyword is required.");
+      try
+      {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var results = await TryFindRedditUrlsAsync(request.Keyword, cts.Token, 5);
+        if (results == null || results.Count == 0) return NotFound("No Reddit posts found.");
+        return Ok(results);
+      }
+      catch (Exception ex)
+      {
+        await _log.Db($"Error in RedditLookup: {ex.Message}", null, "CRAWLER", true);
+        return StatusCode(500, "Error looking up Reddit.");
+      }
+    }
+
     [HttpPost("/Crawler/WikipediaLookup", Name = "WikipediaLookup")]
     public async Task<IActionResult> WikipediaLookup([FromBody] WikipediaLookupRequest request)
     {
@@ -1333,6 +1500,10 @@ namespace maxhanna.Server.Controllers
   }
 
   public class WikipediaLookupRequest
+  {
+    public string Keyword { get; set; } = "";
+  }
+  public class RedditLookupRequest
   {
     public string Keyword { get; set; } = "";
   }
