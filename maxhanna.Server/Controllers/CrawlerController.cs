@@ -948,7 +948,6 @@ namespace maxhanna.Server.Controllers
     private async Task<List<Metadata>> TryFindRedditUrlsAsync(string keyword, CancellationToken ct, int limit = 5)
     {
       var results = new List<Metadata>();
-
       try
       {
         using var http = new HttpClient
@@ -965,18 +964,30 @@ namespace maxhanna.Server.Controllers
             $"https://www.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}" +
             $"&sort=relevance&type=link&limit={limit}&t=year";
 
+        _ = _log.Db($"[Reddit Debug] Requesting URL: {url}", null, "CRAWLERCTRL", true);
+
         using var resp = await http.GetAsync(url, ct);
+
+        _ = _log.Db($"[Reddit Debug] HTTP Status: {resp.StatusCode} ({(int)resp.StatusCode})", null, "CRAWLERCTRL", true);
+
         if (!resp.IsSuccessStatusCode)
+        {
+          var errorContent = await resp.Content.ReadAsStringAsync(ct);
+          // Log the first 500 chars of the error to see what Reddit said
+          _ = _log.Db($"[Reddit Debug] Error Response Content: {errorContent.Substring(0, Math.Min(errorContent.Length, 500))}", null, "CRAWLERCTRL", true);
           return results;
+        }
 
         var json = await resp.Content.ReadAsStringAsync(ct);
 
         // Prevent JSON parsing errors if Reddit sends an HTML error page
         if (json.TrimStart().StartsWith("<"))
         {
-          _ = _log.Db("Reddit returned HTML instead of JSON. Likely rate limited.", null, "CRAWLERCTRL", true);
+          _ = _log.Db("[Reddit Debug] Returned HTML instead of JSON. Likely rate limited or blocked.", null, "CRAWLERCTRL", true);
           return results;
         }
+
+        _ = _log.Db($"[Reddit Debug] JSON received successfully (Length: {json.Length}). Parsing...", null, "CRAWLERCTRL", true);
 
         using var doc = System.Text.Json.JsonDocument.Parse(json);
 
@@ -984,8 +995,11 @@ namespace maxhanna.Server.Controllers
             !data.TryGetProperty("children", out var children) ||
             children.ValueKind != System.Text.Json.JsonValueKind.Array)
         {
+          _ = _log.Db("[Reddit Debug] JSON structure unexpected (missing data.children array).", null, "CRAWLERCTRL", true);
           return results;
         }
+
+        _ = _log.Db($"[Reddit Debug] Found {children.GetArrayLength()} raw posts. Processing...", null, "CRAWLERCTRL", true);
 
         foreach (var child in children.EnumerateArray())
         {
@@ -1039,15 +1053,17 @@ namespace maxhanna.Server.Controllers
             Keywords = keyword
           });
         }
+
+        _ = _log.Db($"[Reddit Debug] Successfully parsed {results.Count} results.", null, "CRAWLERCTRL", true);
       }
       catch (Exception ex)
       {
-        _ = _log.Db($"Reddit search error: {ex.Message}", null, "CRAWLERCTRL", true);
+        _ = _log.Db($"[Reddit Debug] Exception: {ex.Message}", null, "CRAWLERCTRL", true);
       }
 
       return results;
     }
-
+    
     private async Task<LightweightSearchResult> SaveAndGetLightweightResultAsync(Metadata meta, string connectionString)
     {
       var light = new LightweightSearchResult { Id = meta.Id, Url = meta.Url, Title = meta.Title };
