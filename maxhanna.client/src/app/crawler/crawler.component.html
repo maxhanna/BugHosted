@@ -23,19 +23,21 @@
       </div>
       <div [class]="!onlySearch ? 'crawlerInputs' : 'searchOnlyCrawlerInputs'">
         <div style="display:flex; flex-direction: column; gap: 8px; align-items: center;">
-          <div>
+          <!-- <div>
             <input #urlInput type="text" placeholder="e.g. https://www.example.com/path" (keydown.enter)="searchUrl()"
               (input)="onUrlInput()" [disabled]="isUrlDisabled" />
-            <button (click)="searchUrl()"
-              [disabled]="isLoading || !(urlInput?.value && urlInput.value.trim())">🔍{{!onMobile() ? 'Crawl' :
-              ''}}</button>
-          </div>
+            <button (click)="searchUrl()" [disabled]="isLoading || !(urlInput?.value && urlInput.value.trim())">
+              🔍{{!onMobile() ? 'Crawl' : ''}}
+            </button>
+          </div> -->
           <div>
-            <input #keywordsInput type="text" placeholder="keywords (search title/description/url)"
-              (keydown.enter)="searchKeywords()" (input)="onKeywordsInput()" [disabled]="isKeywordsDisabled" />
+            <input #keywordsInput type="text" 
+              placeholder="keywords (search title/description/url)"
+              (keydown.enter)="searchKeywords()" />
             <button (click)="searchKeywords()"
-              [disabled]="isLoading || !(keywordsInput?.value && keywordsInput.value.trim())">🔎{{!onMobile() ?
-              'Keywords' : ''}}</button>
+              [disabled]="isLoading || !(keywordsInput?.value && keywordsInput.value.trim())">
+              🔎{{!onMobile() ? 'Crawl' : ''}}
+            </button>
           </div>
         </div>
         <button (click)="addWithoutSearch()" [disabled]="isLoading || !(urlInput?.value && urlInput.value.trim())"
@@ -146,16 +148,13 @@
         </span>
       </div>
       <div style="text-align:center">
-        <button *ngIf="totalPages > 1 && currentPage < totalPages" (click)="onPageChange()">Display More Web
-          Results</button>
+        <button *ngIf="totalPages > 1 && currentPage < totalPages" (click)="onPageChange()">
+          Display More Web Results
+        </button>
       </div>
     </div>
     <div *ngIf="searchResults?.length == 0 && !error && !isLoading" class="smallFont nbDiv">
       <div *ngIf="!onlySearch" (click)="seeNew()" class="cursorPointer linkTextDecoration">See the latest indexes.</div>
-      <div *ngIf="onlySearch" class="siteHelperTip smallFont xxSmallFont" style="margin: 20px 20px;">Tip: use <span
-          (click)="fillSiteExample()" class="cursorPointer linkFontColor linkTextDecoration">"site:domain.com
-          keywords"</span> to
-        restrict results to a single domain.</div>
     </div>
   </div>
   <div *ngIf="!searchResults.length && (onMobile() || onlySearch)" class="xxSmallFont">Total indexes: {{indexCount}} ({{youtubeResults.length}} YouTube results)

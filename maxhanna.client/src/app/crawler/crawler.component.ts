@@ -110,13 +110,13 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     } catch (e) { }
   }
 
-  onKeywordsInput() {
-    try {
-      const val = this.keywordsInput?.nativeElement?.value ?? '';
-      this.isUrlDisabled = !!(val && val.trim().length > 0);
-      if (!this.isUrlDisabled) this.isKeywordsDisabled = false;
-    } catch (e) { }
-  }
+  // onKeywordsInput() {
+  //   try {
+  //     const val = this.keywordsInput?.nativeElement?.value ?? '';
+  //     this.isUrlDisabled = !!(val && val.trim().length > 0);
+  //     if (!this.isUrlDisabled) this.isKeywordsDisabled = false;
+  //   } catch (e) { }
+  // }
 
   visitExternalLink(url?: string) {
     if (!url) return;
@@ -173,20 +173,31 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   async searchKeywords(skipScrape?: boolean) {
-    const keywords = this.keywordsInput.nativeElement.value;
-    this.isSearchingYoutube = true;
-    this.crawlerService.searchYoutube(this.keywordsInput.nativeElement.value.trim()).then(response => {
-      this.youtubeResults = response ?? [];
-      this.isSearchingYoutube = false;
-      this.youtubeDisplayLimit = 1;
-    });
-    this.isSearchingReddit = true;
-    this.crawlerService.searchReddit(this.keywordsInput.nativeElement.value.trim()).then(response => {
-      this.redditResults = response ?? [];
-      this.isSearchingReddit = false;
-      this.redditDisplayLimit = 1;
-    });
-    await this.doSearch(keywords, false, skipScrape);
+    const keywords = this.keywordsInput.nativeElement.value; 
+    
+    if (keywords) {
+      this.isSearchingYoutube = true;
+      this.crawlerService.searchYoutube(this.keywordsInput.nativeElement.value.trim()).then(response => {
+        this.youtubeResults = response ?? [];
+        this.isSearchingYoutube = false;
+        this.youtubeDisplayLimit = 1;
+      });
+      this.isSearchingReddit = true;
+      this.crawlerService.searchReddit(this.keywordsInput.nativeElement.value.trim()).then(response => {
+        this.redditResults = response ?? [];
+        this.isSearchingReddit = false;
+        this.redditDisplayLimit = 1;
+      });
+    } else {
+      this.youtubeResults = [];
+      this.redditResults = [];
+    }
+
+    if (keywords.split(' ').length > 0 || !keywords.includes('.') || !keywords.includes('http')) { 
+      await this.doSearch(keywords, false, skipScrape);
+    } else {
+      this.searchUrl(skipScrape);
+    }
   }
 
   private isValidUrl(url: string): boolean {
