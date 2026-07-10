@@ -945,6 +945,7 @@ namespace maxhanna.Server.Controllers
         }
       });
     }
+    
     private async Task<List<Metadata>> TryFindRedditUrlsAsync(string keyword, CancellationToken ct, int limit = 5)
     {
       var results = new List<Metadata>();
@@ -960,10 +961,10 @@ namespace maxhanna.Server.Controllers
           Timeout = TimeSpan.FromSeconds(6)
         };
 
-        // Spoof standard browser headers
+        // Spoof standard browser headers (using ParseAdd for complex strings)
         http.DefaultRequestHeaders.UserAgent.ParseAdd(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36");
-        http.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("text/html,application/xhtml+xml,application/xml;q=0.9"));
+        http.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
         http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
         http.DefaultRequestHeaders.AcceptEncoding.ParseAdd("gzip, deflate");
 
@@ -1067,7 +1068,7 @@ namespace maxhanna.Server.Controllers
 
       return results;
     }
-    
+
     private async Task<LightweightSearchResult> SaveAndGetLightweightResultAsync(Metadata meta, string connectionString)
     {
       var light = new LightweightSearchResult { Id = meta.Id, Url = meta.Url, Title = meta.Title };
