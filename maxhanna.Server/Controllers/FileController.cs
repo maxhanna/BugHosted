@@ -531,7 +531,7 @@ namespace maxhanna.Server.Controllers
 
                     foreach (var candidateName in candidateNames)
                     {
-                        var sqlCommand = "SELECT EXISTS(SELECT 1 FROM maxhanna.file_uploads WHERE folder_path = @folderPath AND file_name = @fileName) AS exists;";
+                        var sqlCommand = "SELECT 1 as exists FROM maxhanna.file_uploads WHERE folder_path = @folderPath AND file_name = @fileName;";
                         var command = new MySqlCommand(sqlCommand, connection);
                         command.Parameters.AddWithValue("@folderPath", directory);
                         command.Parameters.AddWithValue("@fileName", candidateName);
