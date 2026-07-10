@@ -14,6 +14,9 @@ namespace maxhanna.Server.Controllers
     private readonly Log _log;
     private readonly IConfiguration _config;
     private readonly WebCrawler _webCrawler;
+    private string? _redditToken;
+    private DateTime _redditTokenExpiry;
+
     private static readonly HashSet<string> Stopwords = new(StringComparer.OrdinalIgnoreCase)
     {
       // Very common English stopwords; add more as needed or localize.
@@ -945,62 +948,71 @@ namespace maxhanna.Server.Controllers
     private async Task<List<Metadata>> TryFindRedditUrlsAsync(string keyword, CancellationToken ct, int limit = 5)
     {
       var results = new List<Metadata>();
+
       try
       {
+        string token = await GetRedditTokenAsync();
+
         using var http = new HttpClient
         {
-          Timeout = TimeSpan.FromSeconds(6)
+          Timeout = TimeSpan.FromSeconds(15)
         };
 
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (compatible; maxhanna-crawler/1.0; +https://bughosted.com)");
+        http.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
-        // Reddit public JSON search — sort by relevance, links only, past year
-        string searchUrl =
-            $"https://www.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}&sort=relevance&limit={limit}&type=link&t=year";
+        http.DefaultRequestHeaders.UserAgent.ParseAdd(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+            "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36");
 
-        using var resp = await http.GetAsync(searchUrl, ct);
+        string url =
+            $"https://oauth.reddit.com/search?q={Uri.EscapeDataString(keyword)}" +
+            $"&sort=relevance&type=link&limit={limit}";
+
+        using var resp = await http.GetAsync(url, ct);
+
         Console.WriteLine($"REDDIT RESPONSE: {resp.StatusCode}");
-        Console.WriteLine($"REDDIT RESPONSE: {resp}");
-        if (!resp.IsSuccessStatusCode) return results;
+
+        if (!resp.IsSuccessStatusCode)
+          return results;
 
         var json = await resp.Content.ReadAsStringAsync(ct);
         using var doc = System.Text.Json.JsonDocument.Parse(json);
-        Console.WriteLine($"REDDIT RESPONSE DOC: {doc.RootElement}");
-        
-        if (!(doc.RootElement.TryGetProperty("data", out var data) &&
-              data.TryGetProperty("children", out var children) &&
-              children.ValueKind == System.Text.Json.JsonValueKind.Array))
+
+        if (!doc.RootElement.TryGetProperty("data", out var data) ||
+            !data.TryGetProperty("children", out var children) ||
+            children.ValueKind != System.Text.Json.JsonValueKind.Array)
         {
           return results;
         }
 
         foreach (var child in children.EnumerateArray())
         {
-          if (!child.TryGetProperty("data", out var postData)) continue;
+          if (!child.TryGetProperty("data", out var post)) continue;
 
-          string? title = postData.TryGetProperty("title", out var t) ? t.GetString() : null;
-          string? selftext = postData.TryGetProperty("selftext", out var st) ? st.GetString() : null;
-          string? permalink = postData.TryGetProperty("permalink", out var p) ? p.GetString() : null;
-          string? externalUrl = postData.TryGetProperty("url", out var u) ? u.GetString() : null;
-          string? author = postData.TryGetProperty("author", out var a) ? a.GetString() : null;
-          string? subreddit = postData.TryGetProperty("subreddit", out var sr) ? sr.GetString() : null;
-          string? thumbnail = postData.TryGetProperty("thumbnail", out var th) ? th.GetString() : null;
-          int score = postData.TryGetProperty("score", out var sc) ? sc.GetInt32() : 0;
-          int numComments = postData.TryGetProperty("num_comments", out var nc) ? nc.GetInt32() : 0;
+          string? title = post.TryGetProperty("title", out var t) ? t.GetString() : null;
+          string? permalink = post.TryGetProperty("permalink", out var p) ? p.GetString() : null;
+          string? externalUrl = post.TryGetProperty("url", out var u) ? u.GetString() : null;
+          string? author = post.TryGetProperty("author", out var a) ? a.GetString() : null;
+          string? subreddit = post.TryGetProperty("subreddit", out var sr) ? sr.GetString() : null;
+          string? thumbnail = post.TryGetProperty("thumbnail", out var th) ? th.GetString() : null;
+          string? selftext = post.TryGetProperty("selftext", out var st) ? st.GetString() : null;
 
-          // Build the canonical Reddit URL from the permalink
+          int score = post.TryGetProperty("score", out var sc) ? sc.GetInt32() : 0;
+          int numComments = post.TryGetProperty("num_comments", out var nc) ? nc.GetInt32() : 0;
+
           string redditUrl = !string.IsNullOrWhiteSpace(permalink)
               ? $"https://www.reddit.com{permalink}"
               : externalUrl ?? "";
 
           if (string.IsNullOrWhiteSpace(redditUrl)) continue;
 
-          // Build a rich description
           var descriptionParts = new List<string>();
           if (!string.IsNullOrWhiteSpace(subreddit))
             descriptionParts.Add($"r/{subreddit}");
           descriptionParts.Add($"{score} points");
           descriptionParts.Add($"{numComments} comments");
+
           if (!string.IsNullOrWhiteSpace(selftext))
           {
             var truncated = selftext.Length > 300
@@ -1009,8 +1021,6 @@ namespace maxhanna.Server.Controllers
             descriptionParts.Add(truncated);
           }
 
-          // Only use thumbnail if it's a real image URL (Reddit sometimes
-          // returns "self" or "default" as the thumbnail value)
           string? imageUrl = null;
           if (!string.IsNullOrWhiteSpace(thumbnail) &&
               (thumbnail.StartsWith("http://") || thumbnail.StartsWith("https://")))
@@ -1029,12 +1039,14 @@ namespace maxhanna.Server.Controllers
           });
         }
       }
-      catch
+      catch (Exception ex)
       {
-        // best effort — return whatever we have
+        Console.WriteLine($"Reddit search error: {ex.Message}");
       }
+
       return results;
     }
+
     private async Task<LightweightSearchResult> SaveAndGetLightweightResultAsync(Metadata meta, string connectionString)
     {
       var light = new LightweightSearchResult { Id = meta.Id, Url = meta.Url, Title = meta.Title };
@@ -1486,6 +1498,42 @@ namespace maxhanna.Server.Controllers
         return StatusCode(500, "Error looking up Wikipedia.");
       }
     }
+    private async Task<string> GetRedditTokenAsync()
+    {
+      if (_redditToken != null && DateTime.UtcNow < _redditTokenExpiry)
+        return _redditToken;
+
+      using var http = new HttpClient();
+
+      var clientId = "YOUR_CLIENT_ID";
+      var clientSecret = "YOUR_CLIENT_SECRET";
+
+      var authBytes = System.Text.Encoding.ASCII.GetBytes($"{clientId}:{clientSecret}");
+      var authHeader = Convert.ToBase64String(authBytes);
+
+      var req = new HttpRequestMessage(HttpMethod.Post,
+          "https://www.reddit.com/api/v1/access_token");
+
+      req.Headers.Authorization =
+          new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", authHeader);
+
+      req.Content = new FormUrlEncodedContent(new Dictionary<string, string>
+      {
+        ["grant_type"] = "client_credentials"
+      });
+
+      var resp = await http.SendAsync(req);
+      var json = await resp.Content.ReadAsStringAsync();
+
+      var doc = System.Text.Json.JsonDocument.Parse(json);
+      _redditToken = doc.RootElement.GetProperty("access_token").GetString();
+      int expiresIn = doc.RootElement.GetProperty("expires_in").GetInt32();
+
+      _redditTokenExpiry = DateTime.UtcNow.AddSeconds(expiresIn - 30);
+
+      return _redditToken!;
+    }
+
   }
 
   public class LightweightSearchResult
