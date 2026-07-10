@@ -6,6 +6,7 @@ import { DomSanitizer } from '@angular/platform-browser';
 import { AppComponent } from '../app.component';
 import { User } from '../../services/datacontracts/user/user';
 import { YoutubeVideo } from '../../services/datacontracts/youtube';
+import { MetaData } from '../../services/datacontracts/social/story';
 
 @Component({
   selector: 'app-crawler',
@@ -36,11 +37,15 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   isUrlDisabled: boolean = false;
   isKeywordsDisabled: boolean = false;
   youtubeResults: YoutubeVideo[] = [];
+  redditResults: MetaData[] = [];
   isSearchingYoutube = false;
   youtubeDisplayLimit = 1;
   youtubeExpanded = false;
+  redditExpanded = false;
+  isSearchingReddit = false;
   socialResults: LightweightSearchResult[] = [];
   socialDisplayLimit = 1;
+  redditDisplayLimit = 1;
   private socialDomains = ['reddit.com', 'www.reddit.com', 'twitter.com', 'www.twitter.com', 'x.com', 'www.x.com', 'facebook.com', 'www.facebook.com'];
 
   @ViewChild('pageSizeDropdown') pageSizeDropdown!: ElementRef<HTMLSelectElement>;
@@ -174,6 +179,11 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       this.youtubeResults = response ?? [];
       this.isSearchingYoutube = false;
       this.youtubeDisplayLimit = 1;
+    });
+    this.crawlerService.searchReddit(this.keywordsInput.nativeElement.value.trim()).then(response => {
+      this.redditResults = response ?? [];
+      this.isSearchingReddit = false;
+      this.redditDisplayLimit = 1;
     });
     await this.doSearch(keywords, false, skipScrape);
   }
@@ -321,8 +331,13 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   showMoreYoutube() {
-      this.youtubeExpanded = !this.youtubeExpanded;
-      this.youtubeDisplayLimit = this.youtubeExpanded ? this.youtubeResults.length : 1;
+    this.youtubeExpanded = !this.youtubeExpanded;
+    this.youtubeDisplayLimit = this.youtubeExpanded ? this.youtubeResults.length : 1;
+  }
+
+  showMoreReddit() {
+    this.redditExpanded = !this.redditExpanded;
+    this.redditDisplayLimit = this.redditExpanded ? this.redditResults.length : 1;
   }
 
   showMoreSocial() {

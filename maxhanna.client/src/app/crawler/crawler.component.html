@@ -48,10 +48,13 @@
     </div>
 
     <div *ngIf="isLoading" class="loadingNotificationDiv">
-      <app-loading-spinner [icon]="'🕸️'"></app-loading-spinner>
+      <app-loading-spinner [icon]="'🕸️'">Crawling the Web</app-loading-spinner>
     </div>
     <div *ngIf="isSearchingYoutube" class="loadingNotificationDiv">
-      <app-loading-spinner [icon]="'▶️'"></app-loading-spinner>
+      <app-loading-spinner [icon]="'▶️'">Crawling Youtube</app-loading-spinner>
+    </div>
+    <div *ngIf="isSearchingReddit" class="loadingNotificationDiv">
+      <app-loading-spinner [icon]="'🤖'">Crawling Reddit</app-loading-spinner>
     </div>
 
     <div *ngIf="error" class="error-message">{{ error }}</div>
@@ -73,8 +76,7 @@
             <div *ngIf="video.description" class="descriptionDiv descriptClass">{{ video.description }}</div>
           </div>
           <div class="imageUrlPictureDiv">
-            <a [attr.href]="video.url" target="_blank" [title]="video.title"
-              (click)="openYoutubePopup($event, video.url)">
+            <a [attr.href]="video.url" target="_blank" [title]="video.title" (click)="openYoutubePopup($event, video.url)">
               <img [src]="video.thumbnailUrl" [attr.loading]="'lazy'" [title]="video.title"
                 (error)="video.thumbnailUrl = ''" />
             </a>
@@ -82,7 +84,29 @@
         </div>
         <div style="text-align: center; margin-top:10px;" *ngIf="youtubeResults.length >1">
           <button (click)="showMoreYoutube()">
-            Display {{ youtubeDisplayLimit > 1 ? "less" : "more" }} YouTube results {{ youtubeDisplayLimit === 1 ? ("(" + (youtubeResults.length - 1) + ")") : ""}} 
+            Display {{ youtubeDisplayLimit > 1 ? "less" : "more" }} YouTube results {{ youtubeDisplayLimit === 1 ? ("(" +
+            (youtubeResults.length - 1) + ")") : ""}}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="redditResults?.length" class="metadataSearchWrapper" [style.opacity]="isSearchingReddit ? 0.5 :1"
+      [style.max-Height]="onlySearch ? '30vh' : ''">
+      <div class="metadataSearchDiv gradientBackground">
+        <div class="groupDomainTitle">Reddit Results</div>
+        <div *ngFor="let res of redditResults.slice(0, redditDisplayLimit)" class="groupLinkWrapperDiv">
+          <div class="groupLinkDataWrapperDiv">
+            <div class="descriptionDiv titleClass cursorPointer linkTextDecoration">
+              <a class="pageTitleLink" [attr.href]="res.url" target="_blank" (click)="visitExternalLink($event, res.url)">{{ res.title }}</a>
+            </div> 
+            <div *ngIf="res.description" class="descriptionDiv descriptClass">{{ res.description }}</div>
+          </div> 
+        </div>
+        <div style="text-align: center; margin-top:10px;" *ngIf="youtubeResults.length >1">
+          <button (click)="showMoreYoutube()">
+            Display {{ redditDisplayLimit > 1 ? "less" : "more" }} Reddit results 
+            {{ redditDisplayLimit === 1 ? ("(" + (redditResults.length - 1) + ")") : ""}}
           </button>
         </div>
       </div>

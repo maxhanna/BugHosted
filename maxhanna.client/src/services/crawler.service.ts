@@ -3,6 +3,7 @@ import { MetaData } from './datacontracts/social/story';
 import { CrawlerSearchRequest, CrawlerSearchResponse, LightweightSearchResult, NormalizedMetaData, StorageStats } from './datacontracts/crawler';
 import { YoutubeVideo } from './datacontracts/youtube';
 import { User } from './datacontracts/user/user';
+import { Meta } from '@angular/platform-browser';
 
 @Injectable({
   providedIn: 'root'
@@ -138,6 +139,24 @@ export class CrawlerService {
       return json;
     } catch (error) {
       console.error('YouTube search failed', error);
+      return null;
+    }
+  }
+
+
+  async searchReddit(keyword: string): Promise<MetaData[] | null> {
+    try {
+      const response = await fetch(`/crawler/redditlookup`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword })
+      });
+
+      if (!response.ok) return null;
+      const json = (await response.json()) as MetaData[];
+      return json;
+    } catch (error) {
+      console.error('Reddit search failed', error);
       return null;
     }
   }
