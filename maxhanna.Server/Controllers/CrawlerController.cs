@@ -945,84 +945,123 @@ namespace maxhanna.Server.Controllers
         }
       });
     }
+    private string? GetConfiguredSearchApiKey()
+    {
+      return _config["Search:ApiKey"]
+          ?? _config["SearchApiKey"]
+          ?? Environment.GetEnvironmentVariable("Search__ApiKey")
+          ?? Environment.GetEnvironmentVariable("Search_ApiKey");
+    }
+
+    private string GetConfiguredSearchProvider()
+    {
+      var provider = _config["Search:Provider"]
+          ?? _config["SearchProvider"]
+          ?? Environment.GetEnvironmentVariable("Search__Provider")
+          ?? Environment.GetEnvironmentVariable("Search_Provider");
+
+      return string.IsNullOrWhiteSpace(provider) ? "serpapi" : provider.Trim().ToLowerInvariant();
+    }
+
     private async Task<List<Metadata>> TryFindRedditUrlsAsync(string keyword, CancellationToken ct, int limit = 5)
     {
       var results = new List<Metadata>();
       try
       {
-        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36");
-        http.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+        var apiKey = GetConfiguredSearchApiKey();
+        var provider = GetConfiguredSearchProvider();
 
-        // Search DuckDuckGo Lite for X.com posts
-        string url = $"https://lite.duckduckgo.com/lite/?q={Uri.EscapeDataString($"site:x.com {keyword}")}";
-
-        _ = _log.Db($"[X Debug] Requesting DDG Search: {url}", null, "CRAWLERCTRL", true);
-
-        using var resp = await http.GetAsync(url, ct);
-        _ = _log.Db($"[X Debug] HTTP Status: {resp.StatusCode} ({(int)resp.StatusCode})", null, "CRAWLERCTRL", true);
-
-        if (!resp.IsSuccessStatusCode) return results;
-
-        var html = await resp.Content.ReadAsStringAsync(ct);
-
-        // Parse DDG Lite HTML with Regex
-        var linkPattern = new System.Text.RegularExpressions.Regex(
-            @"<a[^>]+class=""result-link""[^>]+href=""(?<url>.*?)""[^>]*>(?<title>.*?)</a>",
-            System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-        var snippetPattern = new System.Text.RegularExpressions.Regex(
-            @"<td[^>]+class=""result-snippet""[^>]*>(?<desc>.*?)</td>",
-            System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.Singleline);
-
-        var links = linkPattern.Matches(html);
-        var snippets = snippetPattern.Matches(html);
-
-        int count = 0;
-        foreach (System.Text.RegularExpressions.Match match in links)
+        if (!string.IsNullOrWhiteSpace(apiKey) && provider.Equals("serpapi", StringComparison.OrdinalIgnoreCase))
         {
-          if (count >= limit) break;
+          using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+          string url = $"https://serpapi.com/search.json?q={Uri.EscapeDataString(keyword)}&engine=reddit&api_key={Uri.EscapeDataString(apiKey)}";
 
-          string? xUrl = System.Net.WebUtility.HtmlDecode(match.Groups["url"].Value);
-
-          // DDG sometimes wraps URLs in a redirect
-          if (xUrl.Contains("uddg="))
+          _ = _log.Db($"[Search Debug] Using SerpAPI for keyword '{keyword}'", null, "CRAWLERCTRL", true);
+          using var resp = await http.GetAsync(url, ct);
+          if (resp.IsSuccessStatusCode)
           {
-            var uddgMatch = System.Text.RegularExpressions.Regex.Match(xUrl, "uddg=(.*?)(&|$)");
-            if (uddgMatch.Success)
+            var json = await resp.Content.ReadAsStringAsync(ct);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("reddit_results", out var items) && items.ValueKind == System.Text.Json.JsonValueKind.Array)
             {
-              xUrl = System.Uri.UnescapeDataString(uddgMatch.Groups[1].Value);
+              foreach (var item in items.EnumerateArray().Take(limit))
+              {
+                string? urlValue = item.TryGetProperty("url", out var u) ? u.GetString() : null;
+                string? title = item.TryGetProperty("title", out var t) ? t.GetString() : null;
+                string? snippet = item.TryGetProperty("snippet", out var s) ? s.GetString() : null;
+
+                if (!string.IsNullOrWhiteSpace(urlValue))
+                {
+                  results.Add(new Metadata
+                  {
+                    Url = urlValue,
+                    Title = title ?? "Reddit result",
+                    Description = snippet ?? "Reddit result",
+                    Author = "Reddit",
+                    Keywords = keyword
+                  });
+                }
+              }
             }
           }
-
-          string? title = System.Net.WebUtility.HtmlDecode(match.Groups["title"].Value);
-          string? desc = count < snippets.Count ? System.Net.WebUtility.HtmlDecode(snippets[count].Groups["desc"].Value) : null;
-
-          // Clean up description (remove HTML tags)
-          if (!string.IsNullOrEmpty(desc))
+          else
           {
-            desc = System.Text.RegularExpressions.Regex.Replace(desc, "<.*?>", string.Empty);
+            _ = _log.Db($"[Search Debug] SerpAPI lookup failed with {(int)resp.StatusCode}", null, "CRAWLERCTRL", true);
           }
 
-          if (!string.IsNullOrWhiteSpace(xUrl) && xUrl.Contains("x.com"))
-          {
-            results.Add(new Metadata
-            {
-              Url = xUrl,
-              Title = string.IsNullOrWhiteSpace(title) ? "X Post" : title,
-              Description = desc ?? "View post on X",
-              Author = "X",
-              Keywords = keyword
-            });
-            count++;
-          }
+          if (results.Count > 0)
+            return results;
         }
 
-        _ = _log.Db($"[X Debug] Successfully parsed {results.Count} results.", null, "CRAWLERCTRL", true);
+        if (!string.IsNullOrWhiteSpace(apiKey) && provider.Equals("brave", StringComparison.OrdinalIgnoreCase))
+        {
+          using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+          string url = $"https://api.search.brave.com/res/v1/web/search?q={Uri.EscapeDataString(keyword)}";
+          http.DefaultRequestHeaders.Add("X-Subscription-Token", apiKey);
+          _ = _log.Db($"[Search Debug] Using Brave Search for keyword '{keyword}'", null, "CRAWLERCTRL", true);
+          using var resp = await http.GetAsync(url, ct);
+          if (resp.IsSuccessStatusCode)
+          {
+            var json = await resp.Content.ReadAsStringAsync(ct);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("web", out var web) &&
+                web.TryGetProperty("results", out var resultsEl) &&
+                resultsEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+              foreach (var item in resultsEl.EnumerateArray().Take(limit))
+              {
+                string? urlValue = item.TryGetProperty("url", out var u) ? u.GetString() : null;
+                string? title = item.TryGetProperty("title", out var t) ? t.GetString() : null;
+                string? snippet = item.TryGetProperty("description", out var d) ? d.GetString() : null;
+
+                if (!string.IsNullOrWhiteSpace(urlValue))
+                {
+                  results.Add(new Metadata
+                  {
+                    Url = urlValue,
+                    Title = title ?? "Search result",
+                    Description = snippet ?? "Search result",
+                    Author = "Search",
+                    Keywords = keyword
+                  });
+                }
+              }
+            }
+          }
+          else
+          {
+            _ = _log.Db($"[Search Debug] Brave Search failed with {(int)resp.StatusCode}", null, "CRAWLERCTRL", true);
+          }
+
+          if (results.Count > 0)
+            return results;
+        }
+
+        _ = _log.Db("[Search Debug] No configured search API available; skipping external search fallback.", null, "CRAWLERCTRL", true);
       }
       catch (Exception ex)
       {
-        _ = _log.Db($"[X Debug] Exception: {ex.Message}", null, "CRAWLERCTRL", true);
+        _ = _log.Db($"[Search Debug] Exception: {ex.Message}", null, "CRAWLERCTRL", true);
       }
       return results;
     }
