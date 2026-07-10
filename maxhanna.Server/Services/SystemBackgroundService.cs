@@ -990,7 +990,10 @@ namespace maxhanna.Server.Services
         }
 
         using var httpClient = new HttpClient();
-        var request = new HttpRequestMessage
+
+
+        // Step 1: fetch list of events to get IDs
+        var listRequest = new HttpRequestMessage
         {
           Method = HttpMethod.Get,
           RequestUri = new Uri("https://api.coinmarketcal.com/v2/events?limit=100"),
@@ -1001,17 +1004,19 @@ namespace maxhanna.Server.Services
           },
         };
 
-        using var response = await httpClient.SendAsync(request);
-        response.EnsureSuccessStatusCode();
+        using var listResponse = await httpClient.SendAsync(listRequest);
+        listResponse.EnsureSuccessStatusCode();
 
-        var responseBody = await response.Content.ReadAsStringAsync();
-        var eventsResponse = JsonConvert.DeserializeObject<CoinMarketCalResponse>(responseBody);
+        var listBody = await listResponse.Content.ReadAsStringAsync();
+        var eventsResponse = JsonConvert.DeserializeObject<CoinMarketCalResponse>(listBody);
 
         if (eventsResponse?.Data == null || eventsResponse.Data.Count == 0)
         {
           await _log.Db("No events found in CoinMarketCal response", null, "CCS", outputToConsole: true);
           return;
         }
+
+        await _log.Db($"Fetched {eventsResponse.Data.Count} events from list. Fetching details...", null, "CCS", outputToConsole: true);
 
         await using var conn = new MySqlConnection(_connectionString);
         await conn.OpenAsync();
@@ -1022,39 +1027,103 @@ namespace maxhanna.Server.Services
           await deleteCmd.ExecuteNonQueryAsync();
         }
 
-        foreach (var eventItem in eventsResponse.Data)
+        var storedCount = 0;
+        foreach (var listItem in eventsResponse.Data)
         {
-          var insertSql = @"
-						INSERT INTO crypto_calendar_events 
-						(event_id, title, coin_symbol, coin_name, event_date, created_date, source, description, is_hot, proof_url, updated)
-						VALUES (@eventId, @title, @coinSymbol, @coinName, @eventDate, @createdDate, @source, @description, @isHot, @proofUrl, UTC_TIMESTAMP())
-						ON DUPLICATE KEY UPDATE 
-							title = VALUES (title),
-							event_date = VALUES (event_date),
-							created_date = VALUES (created_date),
-							source = VALUES (source),
-							description = VALUES (description),
-							is_hot = VALUES (is_hot),
-							proof_url = VALUES (proof_url);";
+          var eventId = listItem?.Id;
+          if (string.IsNullOrEmpty(eventId)) continue;
 
-          await using (var insertCmd = new MySqlCommand(insertSql, conn))
+          try
           {
-            insertCmd.Parameters.AddWithValue("@eventId", eventItem?.Id);
-            insertCmd.Parameters.AddWithValue("@title", eventItem?.TitleText);
-            insertCmd.Parameters.AddWithValue("@coinSymbol", eventItem?.Coins?[0].Symbol);
-            insertCmd.Parameters.AddWithValue("@coinName", eventItem?.Coins?[0].Name);
-            insertCmd.Parameters.AddWithValue("@eventDate", eventItem?.DateEvent);
-            insertCmd.Parameters.AddWithValue("@createdDate", eventItem?.CreatedDate);
-            insertCmd.Parameters.AddWithValue("@source", eventItem?.Source);
-            insertCmd.Parameters.AddWithValue("@description", eventItem?.Description);
-            insertCmd.Parameters.AddWithValue("@isHot", eventItem?.IsHot);
-            insertCmd.Parameters.AddWithValue("@proofUrl", eventItem?.Proof);
+            // Step 2: fetch detail for each event
+            var detailRequest = new HttpRequestMessage
+            {
+              Method = HttpMethod.Get,
+              RequestUri = new Uri($"https://api.coinmarketcal.com/v2/events/{eventId}"),
+              Headers =
+              {
+                { "Accept", "application/json" },
+                { "x-api-key", apiKey },
+              },
+            };
 
-            await insertCmd.ExecuteNonQueryAsync();
+            using var detailResponse = await httpClient.SendAsync(detailRequest);
+            detailResponse.EnsureSuccessStatusCode();
+
+            var detailBody = await detailResponse.Content.ReadAsStringAsync();
+            var eventItem = JsonConvert.DeserializeObject<CryptoEvent>(detailBody);
+            if (eventItem == null) continue;
+
+            var categoriesStr = eventItem.Categories != null ? string.Join(",", eventItem.Categories) : null;
+            DateTime? dateEnd = null;
+            if (DateTime.TryParse(eventItem.DateEnd, out var parsedEnd)) dateEnd = parsedEnd;
+
+            var insertSql = @"
+							INSERT INTO crypto_calendar_events 
+							(event_id, slug, title, coin_symbol, coin_name, event_date, date_end, date_type, is_estimated,
+							 created_date, source, description, is_hot, impact, impact_summary, proof_url, snapshot_url,
+							 last_verified_at, updated_at, categories, updated)
+							VALUES (@eventId, @slug, @title, @coinSymbol, @coinName, @eventDate, @dateEnd, @dateType, @isEstimated,
+							 @createdDate, @source, @description, @isHot, @impact, @impactSummary, @proofUrl, @snapshotUrl,
+							 @lastVerifiedAt, @updatedAt, @categories, UTC_TIMESTAMP())
+							ON DUPLICATE KEY UPDATE 
+								slug = VALUES (slug),
+								title = VALUES (title),
+								coin_symbol = VALUES (coin_symbol),
+								coin_name = VALUES (coin_name),
+								event_date = VALUES (event_date),
+								date_end = VALUES (date_end),
+								date_type = VALUES (date_type),
+								is_estimated = VALUES (is_estimated),
+								created_date = VALUES (created_date),
+								source = VALUES (source),
+								description = VALUES (description),
+								is_hot = VALUES (is_hot),
+								impact = VALUES (impact),
+								impact_summary = VALUES (impact_summary),
+								proof_url = VALUES (proof_url),
+								snapshot_url = VALUES (snapshot_url),
+								last_verified_at = VALUES (last_verified_at),
+								updated_at = VALUES (updated_at),
+								categories = VALUES (categories);";
+
+            await using (var insertCmd = new MySqlCommand(insertSql, conn))
+            {
+              insertCmd.Parameters.AddWithValue("@eventId", eventItem.Id);
+              insertCmd.Parameters.AddWithValue("@slug", eventItem.Slug);
+              insertCmd.Parameters.AddWithValue("@title", eventItem.TitleText);
+              insertCmd.Parameters.AddWithValue("@coinSymbol", eventItem.Coins?[0]?.Symbol);
+              insertCmd.Parameters.AddWithValue("@coinName", eventItem.Coins?[0]?.Name);
+              insertCmd.Parameters.AddWithValue("@eventDate", eventItem.Date ?? (object)DBNull.Value);
+              insertCmd.Parameters.AddWithValue("@dateEnd", dateEnd ?? (object)DBNull.Value);
+              insertCmd.Parameters.AddWithValue("@dateType", eventItem.DateType);
+              insertCmd.Parameters.AddWithValue("@isEstimated", eventItem.IsEstimated);
+              insertCmd.Parameters.AddWithValue("@createdDate", eventItem.CreatedAt ?? (object)DBNull.Value);
+              insertCmd.Parameters.AddWithValue("@source", eventItem.SourceUrl);
+              insertCmd.Parameters.AddWithValue("@description", eventItem.Description);
+              insertCmd.Parameters.AddWithValue("@isHot", false);
+              insertCmd.Parameters.AddWithValue("@impact", eventItem.Impact ?? (object)DBNull.Value);
+              insertCmd.Parameters.AddWithValue("@impactSummary", eventItem.ImpactSummary);
+              insertCmd.Parameters.AddWithValue("@proofUrl", eventItem.SourceUrl);
+              insertCmd.Parameters.AddWithValue("@snapshotUrl", eventItem.SnapshotUrl);
+              insertCmd.Parameters.AddWithValue("@lastVerifiedAt", eventItem.LastVerifiedAt ?? (object)DBNull.Value);
+              insertCmd.Parameters.AddWithValue("@updatedAt", eventItem.UpdatedAt ?? (object)DBNull.Value);
+              insertCmd.Parameters.AddWithValue("@categories", categoriesStr);
+
+              await insertCmd.ExecuteNonQueryAsync();
+              storedCount++;
+            }
+
+            // small delay to avoid rate limiting
+            await Task.Delay(200);
+          }
+          catch (Exception ex)
+          {
+            await _log.Db($"Error fetching/storing event {eventId}: {ex.Message}", null, "CCS", outputToConsole: true);
           }
         }
 
-        await _log.Db($"Successfully stored {eventsResponse.Data.Count} crypto events from CoinMarketCal v2 API", null, "CCS", outputToConsole: true);
+        await _log.Db($"Successfully stored {storedCount} crypto events from CoinMarketCal v2 API", null, "CCS", outputToConsole: true);
       }
       catch (Exception ex)
       {
@@ -3118,7 +3187,43 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
 
         // -------------------- Phase B: thin ONE month (two months ago) --------------------
         // Keep earliest row per (pair, hour) in slice; delete the rest, but only rows 1–6 months old.
-        while (true)
+
+        // Pre-check: skip if the month slice is already thinned (no duplicate hours per pair).
+        var dupCheckSql = @"
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM trade_market_volumes
+                        WHERE timestamp >= @sliceStart AND timestamp < @sliceEnd
+                          AND timestamp <  DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MONTH)
+                          AND timestamp >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 6 MONTH)
+                        GROUP BY pair, FLOOR(UNIX_TIMESTAMP(timestamp) / 3600)
+                        HAVING COUNT(*) > 1
+                        LIMIT 1
+                    ) AS has_duplicates;";
+
+        await using var dupCmd = new MySqlCommand(dupCheckSql, conn) { CommandTimeout = 60 };
+        dupCmd.Parameters.AddWithValue("@sliceStart", sliceStart);
+        dupCmd.Parameters.AddWithValue("@sliceEnd", sliceEnd);
+
+        var hasDups = false;
+        try
+        {
+          var result = await dupCmd.ExecuteScalarAsync(ct);
+          hasDups = result is not DBNull and not null && Convert.ToInt32(result) == 1;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+          await _log.Db($"Phase B pre-check failed ({sliceStart:yyyy-MM}): {ex.Message}", null, "SYSTEM", true);
+        }
+
+        if (!hasDups)
+        {
+          await _log.Db($"Phase B ({sliceStart:yyyy-MM}): already thinned, skipping.", null, "SYSTEM", true);
+        }
+        else
+        {
+          while (true)
         {
           if (ct.IsCancellationRequested) break;
 
@@ -3183,6 +3288,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
           }
           break;
         }
+        } // end else (Phase B)
       }
       catch (OperationCanceledException)
       {

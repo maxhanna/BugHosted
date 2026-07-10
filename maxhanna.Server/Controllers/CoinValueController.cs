@@ -1052,18 +1052,28 @@ LIMIT 1;";
         var query = @"
 					SELECT 
 						event_id,
+						slug,
 						title,
 						coin_symbol,
 						coin_name,
 						event_date,
+						date_end,
+						date_type,
+						is_estimated,
 						created_date,
 						source,
 						description,
 						is_hot,
-						proof_url
+						impact,
+						impact_summary,
+						proof_url,
+						snapshot_url,
+						last_verified_at,
+						updated_at,
+						categories
 					FROM crypto_calendar_events
 					WHERE event_date >= UTC_DATE() 
-  					AND event_date <  DATE_ADD(UTC_DATE(), INTERVAL @DaysAhead + 1 DAY);
+   					AND event_date <  DATE_ADD(UTC_DATE(), INTERVAL @DaysAhead + 1 DAY);
 				";
 
         // Add coin filter if specified
@@ -1093,15 +1103,25 @@ LIMIT 1;";
               events.Add(new CryptoCalendarEventResponse
               {
                 EventId = reader.GetString("event_id"),
+                Slug = reader.IsDBNull(reader.GetOrdinal("slug")) ? null : reader.GetString("slug"),
                 Title = reader.GetString("title"),
                 CoinSymbol = reader.GetString("coin_symbol"),
                 CoinName = reader.GetString("coin_name"),
-                EventDate = reader.GetDateTime("event_date"),
-                CreatedDate = reader.GetDateTime("created_date"),
+                EventDate = reader.IsDBNull(reader.GetOrdinal("event_date")) ? null : reader.GetDateTime("event_date"),
+                DateEnd = reader.IsDBNull(reader.GetOrdinal("date_end")) ? null : reader.GetDateTime("date_end"),
+                DateType = reader.IsDBNull(reader.GetOrdinal("date_type")) ? null : reader.GetString("date_type"),
+                IsEstimated = reader.GetBoolean("is_estimated"),
+                CreatedDate = reader.IsDBNull(reader.GetOrdinal("created_date")) ? null : reader.GetDateTime("created_date"),
                 Source = reader.IsDBNull(reader.GetOrdinal("source")) ? null : reader.GetString("source"),
                 Description = reader.IsDBNull(reader.GetOrdinal("description")) ? null : reader.GetString("description"),
                 IsHot = reader.GetBoolean("is_hot"),
-                ProofUrl = reader.IsDBNull(reader.GetOrdinal("proof_url")) ? null : reader.GetString("proof_url")
+                Impact = reader.IsDBNull(reader.GetOrdinal("impact")) ? null : (double?)reader.GetDecimal("impact"),
+                ImpactSummary = reader.IsDBNull(reader.GetOrdinal("impact_summary")) ? null : reader.GetString("impact_summary"),
+                ProofUrl = reader.IsDBNull(reader.GetOrdinal("proof_url")) ? null : reader.GetString("proof_url"),
+                SnapshotUrl = reader.IsDBNull(reader.GetOrdinal("snapshot_url")) ? null : reader.GetString("snapshot_url"),
+                LastVerifiedAt = reader.IsDBNull(reader.GetOrdinal("last_verified_at")) ? null : reader.GetDateTime("last_verified_at"),
+                UpdatedAt = reader.IsDBNull(reader.GetOrdinal("updated_at")) ? null : reader.GetDateTime("updated_at"),
+                Categories = reader.IsDBNull(reader.GetOrdinal("categories")) ? null : reader.GetString("categories")
               });
             }
           }
