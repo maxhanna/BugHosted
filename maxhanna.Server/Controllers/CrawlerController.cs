@@ -966,7 +966,7 @@ namespace maxhanna.Server.Controllers
             "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36");
 
         string url =
-            $"https://oauth.reddit.com/search?q={Uri.EscapeDataString(keyword)}" +
+            $"https://oauth.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}" +
             $"&sort=relevance&type=link&limit={limit}";
 
         using var resp = await http.GetAsync(url, ct);
@@ -977,6 +977,13 @@ namespace maxhanna.Server.Controllers
           return results;
 
         var json = await resp.Content.ReadAsStringAsync(ct);
+
+        if (json.TrimStart().StartsWith("<"))
+        {
+          Console.WriteLine("Reddit returned HTML instead of JSON.");
+          return results;
+        }
+
         using var doc = System.Text.Json.JsonDocument.Parse(json);
 
         if (!doc.RootElement.TryGetProperty("data", out var data) ||
@@ -1507,6 +1514,8 @@ namespace maxhanna.Server.Controllers
 
       var clientId = "YOUR_CLIENT_ID";
       var clientSecret = "YOUR_CLIENT_SECRET";
+      var username = "YOUR_REDDIT_USERNAME";
+      var password = "YOUR_REDDIT_PASSWORD";
 
       var authBytes = System.Text.Encoding.ASCII.GetBytes($"{clientId}:{clientSecret}");
       var authHeader = Convert.ToBase64String(authBytes);
@@ -1519,7 +1528,9 @@ namespace maxhanna.Server.Controllers
 
       req.Content = new FormUrlEncodedContent(new Dictionary<string, string>
       {
-        ["grant_type"] = "client_credentials"
+        ["grant_type"] = "password",
+        ["username"] = username,
+        ["password"] = password
       });
 
       var resp = await http.SendAsync(req);
@@ -1532,8 +1543,7 @@ namespace maxhanna.Server.Controllers
       _redditTokenExpiry = DateTime.UtcNow.AddSeconds(expiresIn - 30);
 
       return _redditToken!;
-    }
-
+    }  
   }
 
   public class LightweightSearchResult
