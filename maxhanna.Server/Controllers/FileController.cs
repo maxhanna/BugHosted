@@ -531,12 +531,14 @@ namespace maxhanna.Server.Controllers
 
                     foreach (var candidateName in candidateNames)
                     {
-                        var sqlCommand = "SELECT 1 as exists FROM maxhanna.file_uploads WHERE folder_path = @folderPath AND file_name = @fileName;";
-                        var command = new MySqlCommand(sqlCommand, connection);
-                        command.Parameters.AddWithValue("@folderPath", directory);
-                        command.Parameters.AddWithValue("@fileName", candidateName);
-                        var existsValue = await command.ExecuteScalarAsync();
-                        exists = Convert.ToBoolean(existsValue);
+                        var sql = "SELECT 1 FROM maxhanna.file_uploads WHERE folder_path = @folderPath AND file_name = @fileName LIMIT 1";
+                        using var cmd = new MySqlCommand(sql, connection);
+
+                        cmd.Parameters.AddWithValue("@folderPath", directory);
+                        cmd.Parameters.AddWithValue("@fileName", candidateName);
+
+                        using var reader = await cmd.ExecuteReaderAsync();
+                        exists = reader.HasRows;
                         if (exists)
                         {
                             break;
