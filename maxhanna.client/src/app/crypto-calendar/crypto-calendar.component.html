@@ -26,13 +26,17 @@
             <div>
                 <a *ngIf="event.source" (click)="inputtedParentRef?.visitExternalLink(event.source)" target="_blank"
                     class="cursorPointer">
-                    {{ event.title }} ({{ event.coinSymbol }})
+                    {{ event.title }}
                 </a>
-                <div>{{ event.coinName }}</div>
+                <span class="xxSmallFont" *ngIf="event.isEstimated"> (estimated)</span>
+                <div class="xxSmallFont">{{ event.coinSymbol }} — {{ event.coinName }}</div>
+                <div class="xxSmallFont" *ngIf="event.categories">{{ event.categories }}</div>
+                <div class="xxSmallFont" *ngIf="event.impact != null">Impact: {{ event.impact }}/10</div>
+                <div class="smallFont" *ngIf="event.impactSummary">{{ event.impactSummary }}</div>
             </div>
             <div class="optionsStatsDescription">
-                <a [href]="event.proofUrl" target="_blank"><img *ngIf="event.proofUrl" [src]="event.proofUrl" width="120"
-                        alt="Proof" /></a>
+                <a *ngIf="event.snapshotUrl" [href]="event.source" target="_blank"><img [src]="event.snapshotUrl" width="120"
+                        alt="Snapshot" /></a>
             </div>
         </div>  
     </div> 

@@ -4,15 +4,25 @@ import { AppComponent } from '../app.component';
 
 interface CryptoEvent {
   eventId: string;
+  slug?: string;
   title: string;
   coinSymbol: string;
   coinName: string;
   eventDate: string;
+  dateEnd?: string;
+  dateType?: string;
+  isEstimated: boolean;
   createdDate: string;
   source?: string;
   description?: string;
   isHot: boolean;
+  impact?: number;
+  impactSummary?: string;
   proofUrl?: string;
+  snapshotUrl?: string;
+  lastVerifiedAt?: string;
+  updatedAt?: string;
+  categories?: string;
 }
 
 @Component({
