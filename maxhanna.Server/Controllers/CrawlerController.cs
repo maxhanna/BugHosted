@@ -950,130 +950,80 @@ namespace maxhanna.Server.Controllers
       var results = new List<Metadata>();
       try
       {
-        using var http = new HttpClient
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36");
+        http.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+
+        // Search DuckDuckGo Lite for X.com posts
+        string url = $"https://lite.duckduckgo.com/lite/?q={Uri.EscapeDataString($"site:x.com {keyword}")}";
+
+        _ = _log.Db($"[X Debug] Requesting DDG Search: {url}", null, "CRAWLERCTRL", true);
+
+        using var resp = await http.GetAsync(url, ct);
+        _ = _log.Db($"[X Debug] HTTP Status: {resp.StatusCode} ({(int)resp.StatusCode})", null, "CRAWLERCTRL", true);
+
+        if (!resp.IsSuccessStatusCode) return results;
+
+        var html = await resp.Content.ReadAsStringAsync(ct);
+
+        // Parse DDG Lite HTML with Regex
+        var linkPattern = new System.Text.RegularExpressions.Regex(
+            @"<a[^>]+class=""result-link""[^>]+href=""(?<url>.*?)""[^>]*>(?<title>.*?)</a>",
+            System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        var snippetPattern = new System.Text.RegularExpressions.Regex(
+            @"<td[^>]+class=""result-snippet""[^>]*>(?<desc>.*?)</td>",
+            System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.Singleline);
+
+        var links = linkPattern.Matches(html);
+        var snippets = snippetPattern.Matches(html);
+
+        int count = 0;
+        foreach (System.Text.RegularExpressions.Match match in links)
         {
-          Timeout = TimeSpan.FromSeconds(60)
-        };
+          if (count >= limit) break;
 
-        http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
-        http.DefaultRequestHeaders.Accept.ParseAdd("application/json, text/plain, */*");
-        http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
-        http.DefaultRequestHeaders.Referrer = new Uri("https://www.reddit.com/");
-        http.DefaultRequestHeaders.Add("X-Requested-With", "XMLHttpRequest");
+          string? xUrl = System.Net.WebUtility.HtmlDecode(match.Groups["url"].Value);
 
-        var candidateUrls = new[]
-        {
-          $"https://www.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}&sort=relevance&type=link&limit={limit}&t=year",
-          $"https://old.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}&sort=relevance&type=link&limit={limit}&t=year"
-        };
-
-        foreach (var url in candidateUrls)
-        {
-          _ = _log.Db($"[Reddit Debug] Requesting URL: {url}", null, "CRAWLERCTRL", true);
-
-          using var resp = await http.GetAsync(url, ct);
-          _ = _log.Db($"[Reddit Debug] HTTP Status: {resp.StatusCode} ({(int)resp.StatusCode})", null, "CRAWLERCTRL", true);
-
-          if ((int)resp.StatusCode == 403 || (int)resp.StatusCode == 429 || (int)resp.StatusCode == 503)
+          // DDG sometimes wraps URLs in a redirect
+          if (xUrl.Contains("uddg="))
           {
-            var errorContent = await resp.Content.ReadAsStringAsync(ct);
-            var snippet = errorContent.Length > 500 ? errorContent.Substring(0, 500) : errorContent;
-            _ = _log.Db($"[Reddit Debug] Reddit rejected the request ({(int)resp.StatusCode}): {snippet}", null, "CRAWLERCTRL", true);
-            continue;
-          }
-
-          if (!resp.IsSuccessStatusCode)
-          {
-            var errorContent = await resp.Content.ReadAsStringAsync(ct);
-            var snippet = errorContent.Length > 500 ? errorContent.Substring(0, 500) : errorContent;
-            _ = _log.Db($"[Reddit Debug] Error Response Content: {snippet}", null, "CRAWLERCTRL", true);
-            return results;
-          }
-
-          var json = await resp.Content.ReadAsStringAsync(ct);
-
-          if (json.TrimStart().StartsWith("<"))
-          {
-            _ = _log.Db("[Reddit Debug] Returned HTML instead of JSON.", null, "CRAWLERCTRL", true);
-            return results;
-          }
-
-          using var doc = System.Text.Json.JsonDocument.Parse(json);
-
-          if (!doc.RootElement.TryGetProperty("data", out var data) ||
-              !data.TryGetProperty("children", out var children) ||
-              children.ValueKind != System.Text.Json.JsonValueKind.Array)
-          {
-            _ = _log.Db("[Reddit Debug] JSON structure unexpected.", null, "CRAWLERCTRL", true);
-            return results;
-          }
-
-          _ = _log.Db($"[Reddit Debug] Found {children.GetArrayLength()} raw posts. Processing...", null, "CRAWLERCTRL", true);
-
-          foreach (var child in children.EnumerateArray())
-          {
-            if (!child.TryGetProperty("data", out var post)) continue;
-
-            string? title = post.TryGetProperty("title", out var t) ? t.GetString() : null;
-            string? permalink = post.TryGetProperty("permalink", out var p) ? p.GetString() : null;
-            string? externalUrl = post.TryGetProperty("url", out var u) ? u.GetString() : null;
-            string? author = post.TryGetProperty("author", out var a) ? a.GetString() : null;
-            string? subreddit = post.TryGetProperty("subreddit", out var sr) ? sr.GetString() : null;
-            string? thumbnail = post.TryGetProperty("thumbnail", out var th) ? th.GetString() : null;
-            string? selftext = post.TryGetProperty("selftext", out var st) ? st.GetString() : null;
-
-            int score = post.TryGetProperty("score", out var sc) ? sc.GetInt32() : 0;
-            int numComments = post.TryGetProperty("num_comments", out var nc) ? nc.GetInt32() : 0;
-
-            string redditUrlFinal = !string.IsNullOrWhiteSpace(permalink)
-                ? $"https://www.reddit.com{permalink}"
-                : externalUrl ?? "";
-
-            if (string.IsNullOrWhiteSpace(redditUrlFinal)) continue;
-
-            var descriptionParts = new List<string>();
-            if (!string.IsNullOrWhiteSpace(subreddit))
-              descriptionParts.Add($"r/{subreddit}");
-            descriptionParts.Add($"{score} points");
-            descriptionParts.Add($"{numComments} comments");
-
-            if (!string.IsNullOrWhiteSpace(selftext))
+            var uddgMatch = System.Text.RegularExpressions.Regex.Match(xUrl, "uddg=(.*?)(&|$)");
+            if (uddgMatch.Success)
             {
-              var truncated = selftext.Length > 300
-                  ? selftext.Substring(0, 300) + "..."
-                  : selftext;
-              descriptionParts.Add(truncated);
+              xUrl = System.Uri.UnescapeDataString(uddgMatch.Groups[1].Value);
             }
+          }
 
-            string? imageUrl = null;
-            if (!string.IsNullOrWhiteSpace(thumbnail) &&
-                (thumbnail.StartsWith("http://") || thumbnail.StartsWith("https://")))
-            {
-              imageUrl = thumbnail;
-            }
+          string? title = System.Net.WebUtility.HtmlDecode(match.Groups["title"].Value);
+          string? desc = count < snippets.Count ? System.Net.WebUtility.HtmlDecode(snippets[count].Groups["desc"].Value) : null;
 
+          // Clean up description (remove HTML tags)
+          if (!string.IsNullOrEmpty(desc))
+          {
+            desc = System.Text.RegularExpressions.Regex.Replace(desc, "<.*?>", string.Empty);
+          }
+
+          if (!string.IsNullOrWhiteSpace(xUrl) && xUrl.Contains("x.com"))
+          {
             results.Add(new Metadata
             {
-              Url = redditUrlFinal,
-              Title = title,
-              Description = string.Join(" | ", descriptionParts),
-              ImageUrl = imageUrl,
-              Author = !string.IsNullOrWhiteSpace(author) ? $"u/{author}" : "Reddit",
+              Url = xUrl,
+              Title = string.IsNullOrWhiteSpace(title) ? "X Post" : title,
+              Description = desc ?? "View post on X",
+              Author = "X",
               Keywords = keyword
             });
+            count++;
           }
-
-          if (results.Count > 0)
-            return results;
-
-          _ = _log.Db($"[Reddit Debug] Successfully parsed {results.Count} results.", null, "CRAWLERCTRL", true);
         }
+
+        _ = _log.Db($"[X Debug] Successfully parsed {results.Count} results.", null, "CRAWLERCTRL", true);
       }
       catch (Exception ex)
       {
-        _ = _log.Db($"[Reddit Debug] Exception: {ex.Message}", null, "CRAWLERCTRL", true);
+        _ = _log.Db($"[X Debug] Exception: {ex.Message}", null, "CRAWLERCTRL", true);
       }
-
       return results;
     }
 
