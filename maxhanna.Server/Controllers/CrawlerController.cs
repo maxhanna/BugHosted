@@ -108,7 +108,7 @@ namespace maxhanna.Server.Controllers
         results = resultsTask.Result;
         totalResults = Convert.ToInt32(countTask.Result ?? 0);
 
-       // _ = _log.Db($"Found {results.Count} results before merging quick scrape", null, "CRAWLERCTRL", true);
+        // _ = _log.Db($"Found {results.Count} results before merging quick scrape", null, "CRAWLERCTRL", true);
 
         // Collect whatever the quick scraper has produced so far (non-blocking).
         int scrapedResults = 0;
@@ -148,7 +148,7 @@ namespace maxhanna.Server.Controllers
         // Persist any scraped results that don't have database IDs so they can be rated
         if (results.Any(r => !r.Id.HasValue))
         {
-            await PersistScrapedResults(results, connectionString!);
+          await PersistScrapedResults(results, connectionString!);
         }
 
         // Post-process - return lightweight results (no enrichment queries)
@@ -272,7 +272,7 @@ namespace maxhanna.Server.Controllers
           return StatusCode(pd.Status.Value, pd);
         }
       }
-    } 
+    }
 
     private void BuildUnionSql(
         CrawlerRequest request,
@@ -620,7 +620,7 @@ namespace maxhanna.Server.Controllers
     [HttpPost("/Crawler/IndexLinks", Name = "IndexLinks")]
     public async void IndexLinks([FromBody] string url)
     {
-    //  _ = _log.Db($"Indexing {url}", null, "CRAWLERCTRL", true);
+      //  _ = _log.Db($"Indexing {url}", null, "CRAWLERCTRL", true);
 
       try
       {
@@ -688,7 +688,7 @@ namespace maxhanna.Server.Controllers
       {
         if (!String.IsNullOrEmpty(searchResults[x].Url))
         {
-           IndexLinks(searchResults[x].Url);
+          IndexLinks(searchResults[x].Url);
         }
       }
       return Ok(searchResults);
@@ -951,36 +951,30 @@ namespace maxhanna.Server.Controllers
 
       try
       {
-        string token = await GetRedditTokenAsync();
-
         using var http = new HttpClient
         {
-          Timeout = TimeSpan.FromSeconds(15)
+          Timeout = TimeSpan.FromSeconds(6)
         };
 
-        http.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-
+        // A descriptive User-Agent is required by Reddit for their public API
         http.DefaultRequestHeaders.UserAgent.ParseAdd(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-            "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36");
+            "maxhanna-crawler/1.0 (+https://bughosted.com; max@maxhanna.com)");
 
+        // Use the PUBLIC Reddit JSON API (no OAuth token required)
         string url =
-            $"https://oauth.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}" +
-            $"&sort=relevance&type=link&limit={limit}";
+            $"https://www.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}" +
+            $"&sort=relevance&type=link&limit={limit}&t=year";
 
         using var resp = await http.GetAsync(url, ct);
-
-        Console.WriteLine($"REDDIT RESPONSE: {resp.StatusCode}");
-
         if (!resp.IsSuccessStatusCode)
           return results;
 
         var json = await resp.Content.ReadAsStringAsync(ct);
 
+        // Prevent JSON parsing errors if Reddit sends an HTML error page
         if (json.TrimStart().StartsWith("<"))
         {
-          Console.WriteLine("Reddit returned HTML instead of JSON.");
+          _ = _log.Db("Reddit returned HTML instead of JSON. Likely rate limited.", null, "CRAWLERCTRL", true);
           return results;
         }
 
@@ -1048,7 +1042,7 @@ namespace maxhanna.Server.Controllers
       }
       catch (Exception ex)
       {
-        Console.WriteLine($"Reddit search error: {ex.Message}");
+        _ = _log.Db($"Reddit search error: {ex.Message}", null, "CRAWLERCTRL", true);
       }
 
       return results;
@@ -1372,8 +1366,8 @@ namespace maxhanna.Server.Controllers
                          .Replace(")", "")
                          .Replace("*", "");
       return cleaned;
-    } 
-    
+    }
+
     // Heuristic: treat input as keyword if it doesn’t look like a URL/domain.
     private static bool IsKeywordQuery(string? input)
     {
@@ -1400,7 +1394,7 @@ namespace maxhanna.Server.Controllers
       {
         try
         {
-         // _ = _log.Db($"Wikipedia scrape queued for: {keyword}.", null, "CRAWLERCTRL", true);
+          // _ = _log.Db($"Wikipedia scrape queued for: {keyword}.", null, "CRAWLERCTRL", true);
           using var prefetchCts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
           var wiki = await TryFindWikipediaUrlAsync(keyword, prefetchCts.Token);
           if (!string.IsNullOrWhiteSpace(wiki?.Url))
@@ -1505,45 +1499,6 @@ namespace maxhanna.Server.Controllers
         return StatusCode(500, "Error looking up Wikipedia.");
       }
     }
-    private async Task<string> GetRedditTokenAsync()
-    {
-      if (_redditToken != null && DateTime.UtcNow < _redditTokenExpiry)
-        return _redditToken;
-
-      using var http = new HttpClient();
-
-      var clientId = "YOUR_CLIENT_ID";
-      var clientSecret = "YOUR_CLIENT_SECRET";
-      var username = "YOUR_REDDIT_USERNAME";
-      var password = "YOUR_REDDIT_PASSWORD";
-
-      var authBytes = System.Text.Encoding.ASCII.GetBytes($"{clientId}:{clientSecret}");
-      var authHeader = Convert.ToBase64String(authBytes);
-
-      var req = new HttpRequestMessage(HttpMethod.Post,
-          "https://www.reddit.com/api/v1/access_token");
-
-      req.Headers.Authorization =
-          new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", authHeader);
-
-      req.Content = new FormUrlEncodedContent(new Dictionary<string, string>
-      {
-        ["grant_type"] = "password",
-        ["username"] = username,
-        ["password"] = password
-      });
-
-      var resp = await http.SendAsync(req);
-      var json = await resp.Content.ReadAsStringAsync();
-
-      var doc = System.Text.Json.JsonDocument.Parse(json);
-      _redditToken = doc.RootElement.GetProperty("access_token").GetString();
-      int expiresIn = doc.RootElement.GetProperty("expires_in").GetInt32();
-
-      _redditTokenExpiry = DateTime.UtcNow.AddSeconds(expiresIn - 30);
-
-      return _redditToken!;
-    }  
   }
 
   public class LightweightSearchResult
