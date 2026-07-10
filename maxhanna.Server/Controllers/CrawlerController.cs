@@ -952,21 +952,21 @@ namespace maxhanna.Server.Controllers
           Timeout = TimeSpan.FromSeconds(6)
         };
 
-        http.DefaultRequestHeaders.UserAgent.ParseAdd(
-            "maxhanna-crawler/1.0 (+https://bughosted.com; max@maxhanna.com)");
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (compatible; maxhanna-crawler/1.0; +https://bughosted.com)");
 
         // Reddit public JSON search — sort by relevance, links only, past year
         string searchUrl =
             $"https://www.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}&sort=relevance&limit={limit}&type=link&t=year";
 
         using var resp = await http.GetAsync(searchUrl, ct);
-        Console.WriteLine($"REDDIT RESPONSE: ", resp);
+        Console.WriteLine($"REDDIT RESPONSE: {resp.StatusCode}");
+        Console.WriteLine($"REDDIT RESPONSE: {resp}");
         if (!resp.IsSuccessStatusCode) return results;
 
         var json = await resp.Content.ReadAsStringAsync(ct);
         using var doc = System.Text.Json.JsonDocument.Parse(json);
-        Console.WriteLine($"REDDIT RESPONSE DOC: ", doc);
-
+        Console.WriteLine($"REDDIT RESPONSE DOC: {doc.RootElement}");
+        
         if (!(doc.RootElement.TryGetProperty("data", out var data) &&
               data.TryGetProperty("children", out var children) &&
               children.ValueKind == System.Text.Json.JsonValueKind.Array))
