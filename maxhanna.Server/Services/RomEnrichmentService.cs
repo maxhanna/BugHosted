@@ -705,287 +705,269 @@ ORDER BY
 LIMIT @lim;";
 
       int totalProcessed = 0;
-      bool phase1Done = false;
 
-      while (true)
+      var roms = new List<(int id, string fileName, string? givenFileName)>();
+
+      // Open a fresh connection to get one batch.
+      await using (var conn = new MySqlConnection(_connectionString))
       {
-        ct.ThrowIfCancellationRequested();
+        await conn.OpenAsync(ct);
 
-        var roms = new List<(int id, string fileName, string? givenFileName)>();
-
-        // Open a fresh connection per batch to avoid holding one for the entire run.
-        await using (var conn = new MySqlConnection(_connectionString))
+        // Phase 1 — unenriched files (up to batchSize)
+        await using (var cmd = new MySqlCommand(pickNewSql, conn))
         {
-          await conn.OpenAsync(ct);
-
-          if (!phase1Done)
+          cmd.Parameters.AddWithValue("@FolderPath", romRoot);
+          cmd.Parameters.AddWithValue("@lim", batchSize);
+          await using var r = await cmd.ExecuteReaderAsync(ct);
+          while (await r.ReadAsync(ct))
           {
-            // Phase 1 — unenriched files
-            await using (var cmd = new MySqlCommand(pickNewSql, conn))
-            {
-              cmd.Parameters.AddWithValue("@FolderPath", romRoot);
-              cmd.Parameters.AddWithValue("@lim", batchSize);
-              await using var r = await cmd.ExecuteReaderAsync(ct);
-              while (await r.ReadAsync(ct))
-              {
-                var id = r.GetInt32("id");
-                var fn = r.IsDBNull(r.GetOrdinal("file_name")) ? string.Empty : r.GetString("file_name");
-                var given = r.IsDBNull(r.GetOrdinal("given_file_name")) ? null : r.GetString("given_file_name");
-                roms.Add((id, fn, given));
-              }
-            }
+            var id = r.GetInt32("id");
+            var fn = r.IsDBNull(r.GetOrdinal("file_name")) ? string.Empty : r.GetString("file_name");
+            var given = r.IsDBNull(r.GetOrdinal("given_file_name")) ? null : r.GetString("given_file_name");
+            roms.Add((id, fn, given));
+          }
+        }
 
-            if (roms.Count == 0)
-              phase1Done = true; // move to Phase 2 in next iteration
+        if (roms.Count == 0)
+        {
+          // Phase 2 — redo errored / reset-voted / stale (up to batchSize)
+          await using (var cmd2 = new MySqlCommand(pickRedoSql, conn))
+          {
+            cmd2.Parameters.AddWithValue("@lim", batchSize);
+            await using var rr = await cmd2.ExecuteReaderAsync(ct);
+            while (await rr.ReadAsync(ct))
+            {
+              var id = rr.GetInt32("file_id");
+              var fn = rr.IsDBNull(rr.GetOrdinal("file_name")) ? string.Empty : rr.GetString("file_name");
+              var given = rr.IsDBNull(rr.GetOrdinal("given_file_name")) ? null : rr.GetString("given_file_name");
+              roms.Add((id, fn, given));
+            }
           }
 
-          if (phase1Done && roms.Count == 0)
+          if (roms.Count > 0)
           {
-            // Phase 2 — redo errored / reset-voted / stale
-            var redoIds = new List<(int id, string fileName, string? givenFileName)>();
-            await using (var cmd2 = new MySqlCommand(pickRedoSql, conn))
-            {
-              cmd2.Parameters.AddWithValue("@lim", batchSize);
-              await using var rr = await cmd2.ExecuteReaderAsync(ct);
-              while (await rr.ReadAsync(ct))
-              {
-                var id = rr.GetInt32("file_id");
-                var fn = rr.IsDBNull(rr.GetOrdinal("file_name")) ? string.Empty : rr.GetString("file_name");
-                var given = rr.IsDBNull(rr.GetOrdinal("given_file_name")) ? null : rr.GetString("given_file_name");
-                redoIds.Add((id, fn, given));
-              }
-            }
-
-            if (redoIds.Count == 0)
-              break; // nothing left in either phase
-
             // Delete old enrichment rows so they get a fresh upsert
-            var idsCsv = string.Join(',', redoIds.Select(x => x.id));
+            var idsCsv = string.Join(',', roms.Select(x => x.id));
             await using (var del = new MySqlCommand(
               $"DELETE FROM maxhanna.rom_igdb_enrichment WHERE file_id IN ({idsCsv});", conn))
               await del.ExecuteNonQueryAsync(ct);
-            // carry through given_file_name for redo candidates
-            roms.AddRange(redoIds.Select(x => (x.id, x.fileName, x.givenFileName)));
           }
-        } // connection returned to pool
+        }
+      } // connection returned to pool
 
-        foreach (var (fileId, romFileName, romGivenFileName) in roms)
+      foreach (var (fileId, romFileName, romGivenFileName) in roms)
+      {
+        ct.ThrowIfCancellationRequested();
+        // Prefer tags extracted from given file name if present, otherwise from stored file name
+        var tags = ExtractTags(romGivenFileName ?? romFileName);
+
+        var titleGuess = CleanTitle(romFileName);
+        string? givenTitleGuess = string.IsNullOrWhiteSpace(romGivenFileName) ? null : CleanTitle(romGivenFileName!);
+        _ = _log.Db($"Cleaning title from filename: {romFileName} to {titleGuess}{(givenTitleGuess != null ? ('/' + givenTitleGuess) : "")}", null, "IGDB", outputToConsole: true);
+
+        // Prioritize given file name for IGDB search; fall back to stored file name.
+        var primaryTitle = givenTitleGuess ?? titleGuess;
+        var secondaryTitle = givenTitleGuess != null
+          && !string.Equals(givenTitleGuess, titleGuess, StringComparison.OrdinalIgnoreCase)
+          ? titleGuess : null;
+
+        // Open a short-lived connection for each file's upsert so we don't hold a
+        // connection across the IGDB HTTP round-trips.
+        try
         {
-          ct.ThrowIfCancellationRequested();
-          // Prefer tags extracted from given file name if present, otherwise from stored file name
-          var tags = ExtractTags(romGivenFileName ?? romFileName);
+          var (arr, respJson, excludedVersions, usedSearch) = await QueryIgdbWithFallbackAsync(token, clientId, primaryTitle);
 
-          var titleGuess = CleanTitle(romFileName);
-          string? givenTitleGuess = string.IsNullOrWhiteSpace(romGivenFileName) ? null : CleanTitle(romGivenFileName!);
-          _ = _log.Db($"Cleaning title from filename: {romFileName} to {titleGuess}{(givenTitleGuess != null ? ('/' + givenTitleGuess) : "")}", null, "IGDB", outputToConsole: true);
-
-          // Prioritize given file name for IGDB search; fall back to stored file name.
-          var primaryTitle = givenTitleGuess ?? titleGuess;
-          var secondaryTitle = givenTitleGuess != null
-            && !string.Equals(givenTitleGuess, titleGuess, StringComparison.OrdinalIgnoreCase)
-            ? titleGuess : null;
-
-          // Open a short-lived connection for each file's upsert so we don't hold a
-          // connection across the IGDB HTTP round-trips.
-          try
+          if (!string.IsNullOrWhiteSpace(secondaryTitle))
           {
-            var (arr, respJson, excludedVersions, usedSearch) = await QueryIgdbWithFallbackAsync(token, clientId, primaryTitle);
-
-            if (!string.IsNullOrWhiteSpace(secondaryTitle))
+            try
             {
-              try
+              var (arr2, respJson2, excluded2, usedSearch2) = await QueryIgdbWithFallbackAsync(token, clientId, secondaryTitle);
+              // merge arr2 into arr, avoiding duplicate game ids
+              var ids = new HashSet<int>(arr.OfType<Newtonsoft.Json.Linq.JObject>().Select(o => o.Value<int>("id")));
+              foreach (var tok in arr2.OfType<Newtonsoft.Json.Linq.JObject>())
               {
-                var (arr2, respJson2, excluded2, usedSearch2) = await QueryIgdbWithFallbackAsync(token, clientId, secondaryTitle);
-                // merge arr2 into arr, avoiding duplicate game ids
-                var ids = new HashSet<int>(arr.OfType<Newtonsoft.Json.Linq.JObject>().Select(o => o.Value<int>("id")));
-                foreach (var tok in arr2.OfType<Newtonsoft.Json.Linq.JObject>())
+                var id = tok.Value<int>("id");
+                if (!ids.Contains(id))
                 {
-                  var id = tok.Value<int>("id");
-                  if (!ids.Contains(id))
-                  {
-                    arr.Add(tok);
-                    ids.Add(id);
-                  }
+                  arr.Add(tok);
+                  ids.Add(id);
                 }
-                // concatenate raw JSON for debugging/storage
-                respJson = respJson == "[]" ? respJson2 : (respJson + "\n" + respJson2);
-                excludedVersions = excludedVersions && excluded2;
               }
-              catch (Exception ex)
-              {
-                _ = _log.Db($"IGDB query for secondary title failed: {ex.Message}", null, "IGDB", outputToConsole: true);
-              }
+              // concatenate raw JSON for debugging/storage
+              respJson = respJson == "[]" ? respJson2 : (respJson + "\n" + respJson2);
+              excludedVersions = excludedVersions && excluded2;
             }
-
-            if (arr.Count == 0)
+            catch (Exception ex)
             {
-              await using (var upsertConn = new MySqlConnection(_connectionString))
-              {
-                await upsertConn.OpenAsync(ct);
-                await UpsertEnrichmentAsync(
-                  upsertConn, fileId, romFileName, primaryTitle,
-                  null, null, 0, "NOT_FOUND", $"No results for '{primaryTitle}'{(secondaryTitle != null ? $" or '{secondaryTitle}'" : "")} (tried variants).",
-                  null, null, null, null,
-                  null, null,
-                  null, null, null, null,
-                  0, respJson
-                );
-              }
-              continue;
+              _ = _log.Db($"IGDB query for secondary title failed: {ex.Message}", null, "IGDB", outputToConsole: true);
             }
+          }
 
-            var fileExt = Path.GetExtension(romFileName)?.TrimStart('.')?.ToLowerInvariant() ?? string.Empty;
-            var platformIds = InferPlatformIds(fileExt, tags);
-            var platformWhere = (platformIds != null && platformIds.Length > 0)
-              ? $" & platforms = ({string.Join(",", platformIds)})"
-              : "";
-
-            // If the initial results are empty we'd do more focused queries, but we already have some candidates.
-            var platformKws = InferPlatformKeywords(fileExt, tags);
-
-            var candidates = arr.OfType<Newtonsoft.Json.Linq.JObject>().ToList();
-
-            // Prefer platform matches if we can infer platform AND any candidate matches.
-            List<Newtonsoft.Json.Linq.JObject> preferred = candidates;
-            bool anyPlatformMatch = false;
-
-            if (platformKws != null && platformKws.Length > 0)
-            {
-              var matching = candidates.Where(c => CandidateMatchesPlatform(c, platformKws)).ToList();
-              if (matching.Count > 0)
-              {
-                preferred = matching;
-                anyPlatformMatch = true;
-              }
-            }
-
-            var best = preferred
-              .OrderByDescending(g => ScoreCandidateImproved(g, primaryTitle, platformKws))
-              .First();
-
-            var bestScore = ScoreCandidateImproved(best, primaryTitle, platformKws);
-
-            // Determine status
-            string status;
-            string? statusError = null;
-
-            if (platformKws != null && platformKws.Length > 0)
-            {
-              bool bestMatches = CandidateMatchesPlatform(best, platformKws);
-
-              if (bestMatches)
-              {
-                status = excludedVersions ? "OK" : "OK_INCLUDED_VERSIONS";
-                if (!excludedVersions)
-                  statusError = $"Matched only when including versions/editions. SearchUsed='{usedSearch}'.";
-              }
-              else if (!anyPlatformMatch)
-              {
-                status = "PLATFORM_MISMATCH_FALLBACK";
-                statusError = $"No candidates matched inferred platform (ext='{fileExt}', tags='{string.Join(",", tags)}'). SearchUsed='{usedSearch}'. Stored best overall match.";
-              }
-              else
-              {
-                status = excludedVersions ? "OK" : "OK_INCLUDED_VERSIONS";
-              }
-            }
-            else
-            {
-              status = excludedVersions ? "OK_NO_PLATFORM_HINT" : "OK_INCLUDED_VERSIONS_NO_PLATFORM_HINT";
-              if (!excludedVersions)
-                statusError = $"Matched only when including versions/editions. SearchUsed='{usedSearch}'.";
-            }
-
-            int igdbId = best.Value<int>("id");
-            string igdbName = best.Value<string>("name") ?? primaryTitle;
-
-            string? summary = best.Value<string>("summary");
-            long? firstRelease = best.Value<long?>("first_release_date");
-            decimal? rating = best.Value<decimal?>("total_rating");
-            int? ratingCount = best.Value<int?>("total_rating_count");
-
-            Newtonsoft.Json.Linq.JArray? platforms = null;
-            var pNames = best.SelectTokens("platforms[*].name").Select(x => x.ToString()).Distinct().ToList();
-            if (pNames.Count > 0) platforms = new Newtonsoft.Json.Linq.JArray(pNames);
-
-            Newtonsoft.Json.Linq.JArray? genres = null;
-            var gNames = best.SelectTokens("genres[*].name").Select(x => x.ToString()).Distinct().ToList();
-            if (gNames.Count > 0) genres = new Newtonsoft.Json.Linq.JArray(gNames);
-
-            string? coverUrl = null;
-            var coverId = best.SelectToken("cover.image_id")?.ToString();
-            if (!string.IsNullOrWhiteSpace(coverId))
-              coverUrl = IgdbImageUrl(coverId!, "t_cover_big");
-
-            Newtonsoft.Json.Linq.JArray? screenshots = null;
-            var ss = best.SelectTokens("screenshots[*].image_id")
-              .Select(x => x.ToString())
-              .Where(s => !string.IsNullOrWhiteSpace(s))
-              .Take(10)
-              .ToList();
-            if (ss.Count > 0) screenshots = new Newtonsoft.Json.Linq.JArray(ss.Select(id => IgdbImageUrl(id, "t_1080p")));
-
-            Newtonsoft.Json.Linq.JArray? artworks = null;
-            var aw = best.SelectTokens("artworks[*].image_id")
-              .Select(x => x.ToString())
-              .Where(s => !string.IsNullOrWhiteSpace(s))
-              .Take(6)
-              .ToList();
-            if (aw.Count > 0) artworks = new Newtonsoft.Json.Linq.JArray(aw.Select(id => IgdbImageUrl(id, "t_1080p")));
-
-            Newtonsoft.Json.Linq.JArray? videos = null;
-            var vids = best.SelectTokens("videos[*].video_id")
-              .Select(x => x.ToString())
-              .Where(s => !string.IsNullOrWhiteSpace(s))
-              .Take(3)
-              .ToList();
-            if (vids.Count > 0) videos = new Newtonsoft.Json.Linq.JArray(vids.Select(v => $"https://www.youtube.com/watch?v={v}"));
-
-            string rawToStore =
-              status.StartsWith("OK", StringComparison.OrdinalIgnoreCase) && !status.Contains("INCLUDED_VERSIONS", StringComparison.OrdinalIgnoreCase)
-                ? best.ToString(Newtonsoft.Json.Formatting.None)
-                : arr.ToString(Newtonsoft.Json.Formatting.None);
-
+          if (arr.Count == 0)
+          {
             await using (var upsertConn = new MySqlConnection(_connectionString))
             {
               await upsertConn.OpenAsync(ct);
               await UpsertEnrichmentAsync(
                 upsertConn, fileId, romFileName, primaryTitle,
-                igdbId, igdbName, bestScore, status, statusError,
-                summary, firstRelease, rating, ratingCount,
-                platforms, genres,
-                coverUrl, screenshots, artworks, videos,
-                0, rawToStore
+                null, null, 0, "NOT_FOUND", $"No results for '{primaryTitle}'{(secondaryTitle != null ? $" or '{secondaryTitle}'" : "")} (tried variants).",
+                null, null, null, null,
+                null, null,
+                null, null, null, null,
+                0, respJson
               );
             }
-
-            totalProcessed++;
+            continue;
           }
-          catch (Exception ex)
+
+          var fileExt = Path.GetExtension(romFileName)?.TrimStart('.')?.ToLowerInvariant() ?? string.Empty;
+          var platformIds = InferPlatformIds(fileExt, tags);
+          var platformWhere = (platformIds != null && platformIds.Length > 0)
+            ? $" & platforms = ({string.Join(",", platformIds)})"
+            : "";
+
+          // If the initial results are empty we'd do more focused queries, but we already have some candidates.
+          var platformKws = InferPlatformKeywords(fileExt, tags);
+
+          var candidates = arr.OfType<Newtonsoft.Json.Linq.JObject>().ToList();
+
+          // Prefer platform matches if we can infer platform AND any candidate matches.
+          List<Newtonsoft.Json.Linq.JObject> preferred = candidates;
+          bool anyPlatformMatch = false;
+
+          if (platformKws != null && platformKws.Length > 0)
           {
-            try
+            var matching = candidates.Where(c => CandidateMatchesPlatform(c, platformKws)).ToList();
+            if (matching.Count > 0)
             {
-              await using (var errConn = new MySqlConnection(_connectionString))
-              {
-                await errConn.OpenAsync(ct);
-                await UpsertEnrichmentAsync(
-                  errConn, fileId, romFileName, primaryTitle,
-                  null, null, 0, "ERROR", ex.Message,
-                  null, null, null, null,
-                  null, null,
-                  null, null, null, null,
-                  0, null
-                );
-              }
+              preferred = matching;
+              anyPlatformMatch = true;
             }
-            catch { /* swallow — don't let a logging failure kill the batch */ }
-
-            await Task.Delay(500, ct);
           }
-        }
 
-        // polite pause between batches (DB + IGDB)
-        await Task.Delay(250, ct);
+          var best = preferred
+            .OrderByDescending(g => ScoreCandidateImproved(g, primaryTitle, platformKws))
+            .First();
+
+          var bestScore = ScoreCandidateImproved(best, primaryTitle, platformKws);
+
+          // Determine status
+          string status;
+          string? statusError = null;
+
+          if (platformKws != null && platformKws.Length > 0)
+          {
+            bool bestMatches = CandidateMatchesPlatform(best, platformKws);
+
+            if (bestMatches)
+            {
+              status = excludedVersions ? "OK" : "OK_INCLUDED_VERSIONS";
+              if (!excludedVersions)
+                statusError = $"Matched only when including versions/editions. SearchUsed='{usedSearch}'.";
+            }
+            else if (!anyPlatformMatch)
+            {
+              status = "PLATFORM_MISMATCH_FALLBACK";
+              statusError = $"No candidates matched inferred platform (ext='{fileExt}', tags='{string.Join(",", tags)}'). SearchUsed='{usedSearch}'. Stored best overall match.";
+            }
+            else
+            {
+              status = excludedVersions ? "OK" : "OK_INCLUDED_VERSIONS";
+            }
+          }
+          else
+          {
+            status = excludedVersions ? "OK_NO_PLATFORM_HINT" : "OK_INCLUDED_VERSIONS_NO_PLATFORM_HINT";
+            if (!excludedVersions)
+              statusError = $"Matched only when including versions/editions. SearchUsed='{usedSearch}'.";
+          }
+
+          int igdbId = best.Value<int>("id");
+          string igdbName = best.Value<string>("name") ?? primaryTitle;
+
+          string? summary = best.Value<string>("summary");
+          long? firstRelease = best.Value<long?>("first_release_date");
+          decimal? rating = best.Value<decimal?>("total_rating");
+          int? ratingCount = best.Value<int?>("total_rating_count");
+
+          Newtonsoft.Json.Linq.JArray? platforms = null;
+          var pNames = best.SelectTokens("platforms[*].name").Select(x => x.ToString()).Distinct().ToList();
+          if (pNames.Count > 0) platforms = new Newtonsoft.Json.Linq.JArray(pNames);
+
+          Newtonsoft.Json.Linq.JArray? genres = null;
+          var gNames = best.SelectTokens("genres[*].name").Select(x => x.ToString()).Distinct().ToList();
+          if (gNames.Count > 0) genres = new Newtonsoft.Json.Linq.JArray(gNames);
+
+          string? coverUrl = null;
+          var coverId = best.SelectToken("cover.image_id")?.ToString();
+          if (!string.IsNullOrWhiteSpace(coverId))
+            coverUrl = IgdbImageUrl(coverId!, "t_cover_big");
+
+          Newtonsoft.Json.Linq.JArray? screenshots = null;
+          var ss = best.SelectTokens("screenshots[*].image_id")
+            .Select(x => x.ToString())
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Take(10)
+            .ToList();
+          if (ss.Count > 0) screenshots = new Newtonsoft.Json.Linq.JArray(ss.Select(id => IgdbImageUrl(id, "t_1080p")));
+
+          Newtonsoft.Json.Linq.JArray? artworks = null;
+          var aw = best.SelectTokens("artworks[*].image_id")
+            .Select(x => x.ToString())
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Take(6)
+            .ToList();
+          if (aw.Count > 0) artworks = new Newtonsoft.Json.Linq.JArray(aw.Select(id => IgdbImageUrl(id, "t_1080p")));
+
+          Newtonsoft.Json.Linq.JArray? videos = null;
+          var vids = best.SelectTokens("videos[*].video_id")
+            .Select(x => x.ToString())
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Take(3)
+            .ToList();
+          if (vids.Count > 0) videos = new Newtonsoft.Json.Linq.JArray(vids.Select(v => $"https://www.youtube.com/watch?v={v}"));
+
+          string rawToStore =
+            status.StartsWith("OK", StringComparison.OrdinalIgnoreCase) && !status.Contains("INCLUDED_VERSIONS", StringComparison.OrdinalIgnoreCase)
+              ? best.ToString(Newtonsoft.Json.Formatting.None)
+              : arr.ToString(Newtonsoft.Json.Formatting.None);
+
+          await using (var upsertConn = new MySqlConnection(_connectionString))
+          {
+            await upsertConn.OpenAsync(ct);
+            await UpsertEnrichmentAsync(
+              upsertConn, fileId, romFileName, primaryTitle,
+              igdbId, igdbName, bestScore, status, statusError,
+              summary, firstRelease, rating, ratingCount,
+              platforms, genres,
+              coverUrl, screenshots, artworks, videos,
+              0, rawToStore
+            );
+          }
+
+          totalProcessed++;
+        }
+        catch (Exception ex)
+        {
+          try
+          {
+            await using (var errConn = new MySqlConnection(_connectionString))
+            {
+              await errConn.OpenAsync(ct);
+              await UpsertEnrichmentAsync(
+                errConn, fileId, romFileName, primaryTitle,
+                null, null, 0, "ERROR", ex.Message,
+                null, null, null, null,
+                null, null,
+                null, null, null, null,
+                0, null
+              );
+            }
+          }
+          catch { /* swallow — don't let a logging failure kill the batch */ }
+
+          await Task.Delay(500, ct);
+        }
       }
 
       await _log.Db($"IGDB enrich: processed {totalProcessed} ROM(s) this run.", null, "IGDB", outputToConsole: true);
