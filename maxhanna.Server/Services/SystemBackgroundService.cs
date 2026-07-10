@@ -1446,7 +1446,7 @@ namespace maxhanna.Server.Services
         var songsHtml = new StringBuilder();
         using (var songCmd = new MySqlCommand(@"
           SELECT t.todo, t.date, COALESCE(u.username, 'Anonymous') AS username
-          FROM todos t
+          FROM todo t
           LEFT JOIN users u ON u.id = t.user_id
           WHERE t.type = 'music'
             AND t.date >= DATE_FORMAT(UTC_DATE(), '%Y-%m-01')
