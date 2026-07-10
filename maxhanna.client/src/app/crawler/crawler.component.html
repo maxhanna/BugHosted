@@ -87,29 +87,7 @@
           </button>
         </div>
       </div>
-    </div>
-
-    <div *ngIf="redditResults?.length" class="metadataSearchWrapper" [style.opacity]="isSearchingReddit ? 0.5 :1"
-      [style.max-Height]="onlySearch ? '30vh' : ''">
-      <div class="metadataSearchDiv gradientBackground">
-        <div class="groupDomainTitle">Reddit Results</div>
-        <div *ngFor="let res of redditResults.slice(0, redditDisplayLimit)" class="groupLinkWrapperDiv">
-          <div class="groupLinkDataWrapperDiv">
-            <div class="descriptionDiv titleClass cursorPointer linkTextDecoration">
-              <a class="pageTitleLink" [attr.href]="res.url" target="_blank" (click)="visitExternalLink(res.url)">{{
-                res.title }}</a>
-            </div>
-            <div *ngIf="res.description" class="descriptionDiv descriptClass">{{ res.description }}</div>
-          </div>
-        </div>
-        <div style="text-align: center; margin-top:10px;" *ngIf="redditResults.length >1">
-          <button (click)="showMoreReddit()">
-            Display {{ redditDisplayLimit > 1 ? "less" : "more" }} Reddit results
-            {{ redditDisplayLimit === 1 ? ("(" + (redditResults.length - 1) + ")") : ""}}
-          </button>
-        </div>
-      </div>
-    </div>
+    </div> 
 
     <div *ngIf="socialResults?.length" class="metadataSearchWrapper" [style.max-Height]="onlySearch ? '30vh' : ''">
       <div class="metadataSearchDiv gradientBackground">

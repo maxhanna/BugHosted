@@ -79,16 +79,12 @@ namespace maxhanna.Server.Controllers
         // Build UNION-based SQL that lets MySQL pick the best index per branch
         BuildUnionSql(request, searchAll, siteOnly, siteDomain, siteKeywords,
                       out string resultsSql, out string countSql);
-
-        // Build paramizer once so we reuse consistent params in both commands
+ 
         Action<MySqlCommand> paramizer = (cmd) =>
         {
           AddParametersToCrawlerQuery(request, pageSize, offset, searchAll, cmd, siteDomain, siteKeywords);
         };
-
-        // 🔁 Kick off quick scrape in parallel (best effort).
-        // Use a shared collector so we can include whatever has been scraped so far
-        // when database results are ready, and let the scraping continue asynchronously.
+ 
         Task<List<Metadata>> quickScrapeTask = Task.FromResult(new List<Metadata>());
         var sharedScraped = new System.Collections.Concurrent.ConcurrentBag<Metadata>();
         bool shouldScrape = (request.SkipScrape != true) && (request.Url?.Trim() != "*");
@@ -144,14 +140,12 @@ namespace maxhanna.Server.Controllers
             // Optionally persist final scraped results if needed
           }, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.RunContinuationsAsynchronously);
         }
-
-        // Persist any scraped results that don't have database IDs so they can be rated
+ 
         if (results.Any(r => !r.Id.HasValue))
         {
           await PersistScrapedResults(results, connectionString!);
         }
-
-        // Post-process - return lightweight results (no enrichment queries)
+ 
         var allResults = GetOrderedResultsForWeb(request, results);
         var lightResults = allResults?.Select(r => new LightweightSearchResult
         {
@@ -160,9 +154,7 @@ namespace maxhanna.Server.Controllers
           Title = r.Title
         }).ToList() ?? new List<LightweightSearchResult>();
 
-        // 🔎 Wikipedia fallback: only if NO URL was found AND the query is a keyword.
-        // "No URL found" here means no results from DB + quick scrape.
-        // 🔎 Wikipedia + Reddit fallback: only if NO URL was found AND the query is a keyword.
+      
         if ((lightResults == null || lightResults.Count == 0) && IsKeywordQuery(request.Url))
         {
           var fallbackResults = new List<LightweightSearchResult>();
@@ -171,10 +163,9 @@ namespace maxhanna.Server.Controllers
           using var fallbackCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
           fallbackCts.CancelAfter(TimeSpan.FromSeconds(8));
 
-          var wikiTask = TryFindWikipediaUrlAsync(request.Url!.Trim(), fallbackCts.Token);
-          var redditTask = TryFindRedditUrlsAsync(request.Url!.Trim(), fallbackCts.Token, 5);
+          var wikiTask = TryFindWikipediaUrlAsync(request.Url!.Trim(), fallbackCts.Token); 
 
-          await Task.WhenAll(wikiTask, redditTask);
+          await Task.WhenAll(wikiTask);
 
           // Process Wikipedia result
           try
@@ -189,22 +180,7 @@ namespace maxhanna.Server.Controllers
           catch (Exception e)
           {
             _ = _log.Db($"Failed to scrape Wikipedia for keyword: {e.Message}", null, "CRAWLERCTRL", true);
-          }
-
-          // Process Reddit results
-          try
-          {
-            var redditResults = redditTask.Result;
-            foreach (var reddit in redditResults)
-            {
-              fallbackResults.Add(
-                  await SaveAndGetLightweightResultAsync(reddit, connectionString!));
-            }
-          }
-          catch (Exception e)
-          {
-            _ = _log.Db($"Failed to scrape Reddit for keyword: {e.Message}", null, "CRAWLERCTRL", true);
-          }
+          } 
 
           if (fallbackResults.Count > 0)
           {
@@ -214,16 +190,12 @@ namespace maxhanna.Server.Controllers
         else if (lightResults != null && lightResults.Count > 0)
         {
           bool hasWikipedia = lightResults.Any(r =>
-            r.Url?.Contains("wikipedia.org/wiki/", StringComparison.OrdinalIgnoreCase) == true);
-          bool hasReddit = lightResults.Any(r =>
-            r.Url?.Contains("reddit.com/r/", StringComparison.OrdinalIgnoreCase) == true);
+            r.Url?.Contains("wikipedia.org/wiki/", StringComparison.OrdinalIgnoreCase) == true); 
 
           if (IsKeywordQuery(request.Url) && !searchAll)
           {
             if (!hasWikipedia)
-              _ = ScrapeWikipediaAsync(request.Url!.Trim());
-            if (!hasReddit)
-              _ = ScrapeRedditAsync(request.Url!.Trim());
+              _ = ScrapeWikipediaAsync(request.Url!.Trim()); 
           }
         }
 
@@ -923,43 +895,14 @@ namespace maxhanna.Server.Controllers
 
       return searchResults;
     }
-    private Task ScrapeRedditAsync(string keyword)
-    {
-      return Task.Run(async () =>
-      {
-        try
-        {
-          using var prefetchCts = new CancellationTokenSource(TimeSpan.FromSeconds(12));
-          var redditResults = await TryFindRedditUrlsAsync(keyword, prefetchCts.Token, 3);
-          foreach (var reddit in redditResults)
-          {
-            if (!string.IsNullOrWhiteSpace(reddit?.Url))
-            {
-              await _webCrawler.StartScrapingAsync(reddit.Url);
-            }
-          }
-        }
-        catch (Exception ex)
-        {
-          _ = _log.Db($"Reddit scrape failed for '{keyword}': {ex.Message}", null, "CRAWLERCTRL", true);
-        }
-      });
-    }
     private string? GetConfiguredSearchApiKey()
     {
-      return _config["Search:ApiKey"]
-          ?? _config["SearchApiKey"]
-          ?? Environment.GetEnvironmentVariable("Search__ApiKey")
-          ?? Environment.GetEnvironmentVariable("Search_ApiKey");
+      return _config["Search:ApiKey"];
     }
 
     private string GetConfiguredSearchProvider()
     {
-      var provider = _config["Search:Provider"]
-          ?? _config["SearchProvider"]
-          ?? Environment.GetEnvironmentVariable("Search__Provider")
-          ?? Environment.GetEnvironmentVariable("Search_Provider");
-
+      var provider = _config["Search:Provider"]; 
       return string.IsNullOrWhiteSpace(provider) ? "serpapi" : provider.Trim().ToLowerInvariant();
     }
 
@@ -974,15 +917,24 @@ namespace maxhanna.Server.Controllers
         if (!string.IsNullOrWhiteSpace(apiKey) && provider.Equals("serpapi", StringComparison.OrdinalIgnoreCase))
         {
           using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-          string url = $"https://serpapi.com/search.json?engine=google&q={Uri.EscapeDataString(keyword)}&api_key={Uri.EscapeDataString(apiKey)}&google_domain=google.com&hl=en&gl=us";
 
-          _ = _log.Db($"[Search Debug] Using SerpAPI for keyword '{keyword}'", null, "CRAWLERCTRL", true);
+          // 🔎 Restrict Google to Reddit via site: operator + include_domains
+          string redditQuery = $"site:reddit.com {keyword}";
+          string url = $"https://serpapi.com/search.json?engine=google"
+                     + $"&q={Uri.EscapeDataString(redditQuery)}"
+                     + $"&include_domains=reddit.com"
+                     + $"&api_key={Uri.EscapeDataString(apiKey)}"
+                     + $"&google_domain=google.com&hl=en&gl=us";
+
+          _ = _log.Db($"[Search Debug] Using SerpAPI (Reddit-only) for keyword '{keyword}'", null, "CRAWLERCTRL", true);
           using var resp = await http.GetAsync(url, ct);
           if (resp.IsSuccessStatusCode)
           {
             var json = await resp.Content.ReadAsStringAsync(ct);
             using var doc = System.Text.Json.JsonDocument.Parse(json);
-            if (doc.RootElement.TryGetProperty("organic_results", out var items) && items.ValueKind == System.Text.Json.JsonValueKind.Array)
+
+            if (doc.RootElement.TryGetProperty("organic_results", out var items)
+                && items.ValueKind == System.Text.Json.JsonValueKind.Array)
             {
               foreach (var item in items.EnumerateArray().Take(limit))
               {
@@ -990,94 +942,24 @@ namespace maxhanna.Server.Controllers
                 string? title = item.TryGetProperty("title", out var t) ? t.GetString() : null;
                 string? snippet = item.TryGetProperty("snippet", out var s) ? s.GetString() : null;
 
-                if (!string.IsNullOrWhiteSpace(urlValue))
-                {
-                  results.Add(new Metadata
-                  {
-                    Url = urlValue,
-                    Title = title ?? "SerpAPI result",
-                    Description = snippet ?? "SerpAPI result",
-                    Author = "Search",
-                    Keywords = keyword
-                  });
-                }
-              }
-            }
-            else if (doc.RootElement.TryGetProperty("reddit_results", out var redditItems) && redditItems.ValueKind == System.Text.Json.JsonValueKind.Array)
-            {
-              foreach (var item in redditItems.EnumerateArray().Take(limit))
-              {
-                string? urlValue = item.TryGetProperty("url", out var u) ? u.GetString() : null;
-                string? title = item.TryGetProperty("title", out var t) ? t.GetString() : null;
-                string? snippet = item.TryGetProperty("snippet", out var s) ? s.GetString() : null;
+                if (string.IsNullOrWhiteSpace(urlValue)) continue;
+                if (!urlValue.Contains("reddit.com", StringComparison.OrdinalIgnoreCase))
+                  continue; // defensive filter
 
-                if (!string.IsNullOrWhiteSpace(urlValue))
+                results.Add(new Metadata
                 {
-                  results.Add(new Metadata
-                  {
-                    Url = urlValue,
-                    Title = title ?? "Reddit result",
-                    Description = snippet ?? "Reddit result",
-                    Author = "Reddit",
-                    Keywords = keyword
-                  });
-                }
+                  Url = urlValue,
+                  Title = title ?? "Reddit result",
+                  Description = snippet ?? "Reddit result",
+                  Author = "Reddit",
+                  Keywords = keyword
+                });
               }
             }
           }
           else
           {
             _ = _log.Db($"[Search Debug] SerpAPI lookup failed with {(int)resp.StatusCode}", null, "CRAWLERCTRL", true);
-          }
-
-          if (results.Count > 0)
-          {
-            foreach (var result in results.Where(r => !string.IsNullOrWhiteSpace(r.Url)))
-            {
-              _ = _webCrawler.StartScrapingAsync(result.Url!);
-            }
-            return results;
-          }
-        }
-
-        if (!string.IsNullOrWhiteSpace(apiKey) && provider.Equals("brave", StringComparison.OrdinalIgnoreCase))
-        {
-          using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
-          string url = $"https://api.search.brave.com/res/v1/web/search?q={Uri.EscapeDataString(keyword)}";
-          http.DefaultRequestHeaders.Add("X-Subscription-Token", apiKey);
-          _ = _log.Db($"[Search Debug] Using Brave Search for keyword '{keyword}'", null, "CRAWLERCTRL", true);
-          using var resp = await http.GetAsync(url, ct);
-          if (resp.IsSuccessStatusCode)
-          {
-            var json = await resp.Content.ReadAsStringAsync(ct);
-            using var doc = System.Text.Json.JsonDocument.Parse(json);
-            if (doc.RootElement.TryGetProperty("web", out var web) &&
-                web.TryGetProperty("results", out var resultsEl) &&
-                resultsEl.ValueKind == System.Text.Json.JsonValueKind.Array)
-            {
-              foreach (var item in resultsEl.EnumerateArray().Take(limit))
-              {
-                string? urlValue = item.TryGetProperty("url", out var u) ? u.GetString() : null;
-                string? title = item.TryGetProperty("title", out var t) ? t.GetString() : null;
-                string? snippet = item.TryGetProperty("description", out var d) ? d.GetString() : null;
-
-                if (!string.IsNullOrWhiteSpace(urlValue))
-                {
-                  results.Add(new Metadata
-                  {
-                    Url = urlValue,
-                    Title = title ?? "Search result",
-                    Description = snippet ?? "Search result",
-                    Author = "Search",
-                    Keywords = keyword
-                  });
-                }
-              }
-            }
-          }
-          else
-          {
-            _ = _log.Db($"[Search Debug] Brave Search failed with {(int)resp.StatusCode}", null, "CRAWLERCTRL", true);
           }
 
           if (results.Count > 0)
@@ -1521,7 +1403,7 @@ namespace maxhanna.Server.Controllers
       if (string.IsNullOrWhiteSpace(request.Keyword)) return BadRequest("Keyword is required.");
       try
       {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         var results = await TryFindRedditUrlsAsync(request.Keyword, cts.Token, 5);
         if (results == null || results.Count == 0)
           return StatusCode(503, "Reddit search is currently unavailable from this server.");

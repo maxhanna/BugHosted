@@ -173,6 +173,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
         this.redditResults = response ?? [];
         this.isSearchingReddit = false;
         this.redditDisplayLimit = 1;
+        this.mergeSocialResultsFromReddit();
       });
     } else {
       this.youtubeResults = [];
@@ -227,6 +228,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
         this.searchResults = r.results ?? [];
         this.groupedResults = this.getGroupedResults(this.searchResults);
         this.filterSocialResults();
+        this.mergeSocialResultsFromReddit();
         this.sortResults();
       } else {
         this.error = isExact ? "No data from given URL." : "No results for those keywords.";
@@ -276,6 +278,47 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       }
     }
     this.groupedResults = webOnly;
+    this.mergeSocialResultsFromReddit();
+  }
+
+  private mergeSocialResultsFromReddit() {
+    const seen = new Set<string>();
+    const combined: LightweightSearchResult[] = [];
+    const addResult = (result?: LightweightSearchResult | null) => {
+      if (!result?.url) return;
+      const normalized = result.url.trim();
+      if (!normalized || seen.has(normalized)) return;
+      seen.add(normalized);
+      combined.push({ ...result, url: normalized });
+    };
+
+    for (const result of this.socialResults) {
+      addResult(result);
+    }
+
+    for (const reddit of this.redditResults ?? []) {
+      if (!reddit?.url) continue;
+      const hostname = this.getHostname(reddit.url);
+      if (!hostname || !this.socialDomains.some(domain => hostname === domain || hostname.endsWith(`.${domain}`))) {
+        continue;
+      }
+      addResult({
+        id: reddit.id,
+        url: reddit.url,
+        title: reddit.title ?? reddit.url
+      });
+    }
+
+    this.socialResults = combined;
+    this.socialDisplayLimit = Math.max(1, Math.min(this.socialDisplayLimit || 1, this.socialResults.length || 1));
+  }
+
+  private getHostname(url: string): string | null {
+    try {
+      return new URL(url).hostname.toLowerCase();
+    } catch {
+      return null;
+    }
   }
 
   private getGroupedResults(results: LightweightSearchResult[]) {
