@@ -640,6 +640,48 @@ namespace maxhanna.Server.Controllers
 			return Ok(new List<object>());
 		}
 
+		[HttpPost("addbenchmark")]
+		public async Task<IActionResult> AddBenchmark([FromBody] BenchmarkDataDTO benchmark)
+		{
+
+			if (string.IsNullOrWhiteSpace(benchmark.Token) || !_sessions.TryGetValue(benchmark.Token, out var session))
+				return Unauthorized(new { error = "Invalid token" });
+
+			int userId = session.UserId;
+
+			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			using var conn = new MySqlConnection(cs);
+			await conn.OpenAsync();
+
+			string sql = @"
+		     INSERT INTO maxhanna.benchmark_data(user_id, date, benchmark_name, steps, score, status, duration, model, os, cpu, ram, gpu)
+		     VALUES(@UserId, @Date, @BenchmarkName, @Steps, @Score, @Status, @Duration, @Model, @Os, @Cpu, @Ram, @Gpu)";
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.Parameters.AddWithValue("@UserId", userId);
+			cmd.Parameters.AddWithValue("@Date", benchmark.Date);
+			cmd.Parameters.AddWithValue("@BenchmarkName", benchmark.Benchmark);
+			cmd.Parameters.AddWithValue("@Steps", benchmark.Steps);
+			cmd.Parameters.AddWithValue("@Score", benchmark.Score);
+			cmd.Parameters.AddWithValue("@Status", benchmark.Status);
+			cmd.Parameters.AddWithValue("@Duration", benchmark.Duration);
+			cmd.Parameters.AddWithValue("@Model", benchmark.Model);
+			cmd.Parameters.AddWithValue("@Os", benchmark.OS ?? "");
+			cmd.Parameters.AddWithValue("@Cpu", benchmark.CPU ?? "");
+			cmd.Parameters.AddWithValue("@Ram", benchmark.RAM ?? "");
+			cmd.Parameters.AddWithValue("@Gpu", benchmark.GPU ?? "");
+
+			try
+			{
+				await cmd.ExecuteNonQueryAsync();
+				return Ok(new { message = "Benchmark added successfully" });
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Error adding benchmark: {ex.Message}");
+				return StatusCode(500, new { error = "Failed to add benchmark" });
+			}
+		}
+
 		[HttpPost("fileHints")]
 		public async Task<IActionResult> SaveFileHints([FromBody] WeaverFileHintsRequest req)
 		{
@@ -817,6 +859,7 @@ namespace maxhanna.Server.Controllers
 
 	public class BenchmarkDataDTO
 	{
+		public string? Token { get; set; }
 		public string? Date { get; set; }
 		public string? Benchmark { get; set; }
 		public string? Steps { get; set; }
