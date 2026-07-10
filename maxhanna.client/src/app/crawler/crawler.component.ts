@@ -93,15 +93,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     clearInterval(this.indexUpdateTimer);
     this.stopLoading();
   }
-
-  fillSiteExample() {
-    try {
-      this.keywordsInput.nativeElement.value = 'site:www.example.com keywords';
-      this.onKeywordsInput();
-      this.keywordsInput.nativeElement.focus();
-    } catch (e) { }
-  }
-
+ 
   onUrlInput() {
     try {
       const val = this.urlInput?.nativeElement?.value ?? '';
@@ -174,7 +166,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
 
   async searchKeywords(skipScrape?: boolean) {
     const keywords = this.keywordsInput.nativeElement.value; 
-    
+
     if (keywords) {
       this.isSearchingYoutube = true;
       this.crawlerService.searchYoutube(this.keywordsInput.nativeElement.value.trim()).then(response => {

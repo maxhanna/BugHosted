@@ -42,11 +42,7 @@
         </div>
         <button (click)="addWithoutSearch()" [disabled]="isLoading || !(urlInput?.value && urlInput.value.trim())"
           *ngIf="onlySearch" title="Add without searching">＋</button>
-      </div>
-      <div *ngIf="!hasSearched && !onlySearch" class="siteHelperTip smallFont">Tip: use <span
-          (click)="fillSiteExample()" class="cursorPointer linkFontColor linkTextDecoration">"site:domain.com
-          keywords"</span> to
-        restrict results to a single domain.</div>
+      </div> 
     </div>
 
     <div *ngIf="isLoading" class="loadingNotificationDiv">
@@ -172,10 +168,7 @@
       <option *ngFor="let size of pageSizes" [value]="size" [selected]="size === pageSize">{{ size }}</option>
     </select>
   </div>
-  <div *ngIf="!onlySearch" class="siteHelperTip smallFont" style="margin: 12px 20px;">Tip: use <span
-      (click)="fillSiteExample()" class="cursorPointer linkFontColor linkTextDecoration">"site:domain.com
-      keywords"</span> to
-    restrict results to a single domain.</div>
+ 
   <div class="popupPanelTitle">Database Nerd Stats:</div>
   <div *ngIf="isLoading" class="optionsStatsWrapperDiv">
     <div class="optionsStatsDiv">
