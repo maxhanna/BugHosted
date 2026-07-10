@@ -244,8 +244,9 @@ public class Log
     try
     {
       string backupFolder = @"H:\Bughosted MYSQL backup";
-      Directory.CreateDirectory(backupFolder);
+      var dir = Directory.CreateDirectory(backupFolder);
 
+      await Db($"Found directory: {dir.FullName}", null, "BACKUP", true);
       // Check most recent completed backup
       var existingBackups = Directory.GetFiles(backupFolder, "backup_*.sql.gz")
         .Select(file =>
@@ -261,6 +262,8 @@ public class Log
         .ToList();
 
       var latestDate = existingBackups.FirstOrDefault();
+      await Db($"Latest Backup: {latestDate}", null, "BACKUP", true);
+
       if (latestDate != DateTime.MinValue && (DateTime.UtcNow - latestDate).TotalDays < 10)
       {
         await Db($"Skipped database backup: last backup is less than 10 days old ({GetTimeSince(latestDate, true)}).", null, "BACKUP", true);
