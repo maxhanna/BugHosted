@@ -945,55 +945,29 @@ namespace maxhanna.Server.Controllers
         }
       });
     }
-
     private async Task<List<Metadata>> TryFindRedditUrlsAsync(string keyword, CancellationToken ct, int limit = 5)
     {
       var results = new List<Metadata>();
       try
       {
-        // 1. Retrieve the Apify API key from configuration
-        string apifyApiKey = _config.GetValue<string>("Reddit:ApiKey") ?? "";
-
-        if (string.IsNullOrWhiteSpace(apifyApiKey))
+        using var http = new HttpClient
         {
-          _ = _log.Db("[Reddit Debug] Missing Apify API key in configuration (Reddit:ApiKey).", null, "CRAWLERCTRL", true);
-          return results;
-        }
-
-        // 2. Route the request through Apify's Residential Proxy Network
-        var proxyUri = new Uri("http://proxy.apify.com:8000");
-        var proxy = new System.Net.WebProxy(proxyUri);
-
-        // Use CredentialCache to force preemptive Basic authentication
-        // This fixes the 407 error in .NET HttpClient
-        var credentialCache = new System.Net.CredentialCache();
-        credentialCache.Add(proxyUri, "Basic", new System.Net.NetworkCredential("auto", apifyApiKey));
-        proxy.Credentials = credentialCache;
-
-        using var handler = new HttpClientHandler
-        {
-          Proxy = proxy,
-          UseDefaultCredentials = false,
-          AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
+          Timeout = TimeSpan.FromSeconds(10)
         };
 
-        using var http = new HttpClient(handler)
-        {
-          Timeout = TimeSpan.FromSeconds(15)
-        };
-
-        // 3. Spoof standard browser headers
+        // Spoof a standard browser User-Agent
         http.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36");
-        http.DefaultRequestHeaders.Accept.ParseAdd("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-        http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.9");
-        http.DefaultRequestHeaders.AcceptEncoding.ParseAdd("gzip, deflate");
 
-        // 4. Hit the public Reddit JSON endpoint directly (through the proxy)
-        string url = $"https://www.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}&sort=relevance&type=link&limit={limit}&t=year";
+        // 1. The original Reddit JSON URL we want
+        string redditUrl = $"https://www.reddit.com/search.json?q={Uri.EscapeDataString(keyword)}&sort=relevance&type=link&limit={limit}&t=year";
 
-        _ = _log.Db($"[Reddit Debug] Requesting URL via Apify Proxy: {url}", null, "CRAWLERCTRL", true);
+        // 2. Route it through AllOrigins (a free proxy API). 
+        // This bypasses Reddit's 403 WAF and avoids .NET's 407 proxy auth bugs entirely.
+        string proxyUrl = $"https://api.allorigins.win/raw?url={Uri.EscapeDataString(redditUrl)}";
 
-        using var resp = await http.GetAsync(url, ct);
+        _ = _log.Db($"[Reddit Debug] Requesting URL via AllOrigins Proxy...", null, "CRAWLERCTRL", true);
+
+        using var resp = await http.GetAsync(proxyUrl, ct);
         _ = _log.Db($"[Reddit Debug] HTTP Status: {resp.StatusCode} ({(int)resp.StatusCode})", null, "CRAWLERCTRL", true);
 
         if (!resp.IsSuccessStatusCode)
@@ -1086,6 +1060,7 @@ namespace maxhanna.Server.Controllers
 
       return results;
     }
+
     private async Task<LightweightSearchResult> SaveAndGetLightweightResultAsync(Metadata meta, string connectionString)
     {
       var light = new LightweightSearchResult { Id = meta.Id, Url = meta.Url, Title = meta.Title };
