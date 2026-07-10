@@ -336,7 +336,7 @@
         </div>
         <div *ngIf="story && story.id && (story.storyText || isEditing.includes(story.id) || story.storyFiles)"
           class="storyContainerWrapperContainerDiv" [style.opacity]="isLoading ? '20%' : ''">
-          <div *ngIf="story && story.id && (story.storyText || isEditing.includes(story.id))"
+          <div *ngIf="story && story.id && (story.storyText || isEditing.includes(story.id)) || story.storyFiles"
             [class]="'storyTextContainer' + (!isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id) ? ' collapsed': '')"
             [id]="'storyTextContainer'+story.id" (click)="toggleCollapse('storyTextContainer'+story.id)">
             <div class="storyContentDiv">
