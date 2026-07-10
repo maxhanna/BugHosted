@@ -3,6 +3,7 @@ using maxhanna.Server.Controllers;
 using maxhanna.Server.Controllers.DataContracts.Calendar;
 using maxhanna.Server.Controllers.DataContracts.Crypto;
 using maxhanna.Server.Controllers.DataContracts.Meta;
+using maxhanna.Server.Controllers.DataContracts.News;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.Helpers;
 using MySqlConnector;
@@ -122,12 +123,15 @@ namespace maxhanna.Server.Services
     }
     private async Task RunSmokeTest()
     {
-      Console.WriteLine("Running initial smoke tests (if any) ...");  
-      
+      Console.WriteLine("Running initial smoke tests (if any) ...");
+
       try { await _dbQueue.EnqueueAsync(async () => { await _log.DeleteOldLogs(); }); }
       catch (Exception ex) { _ = _log.Db($"Error in DeleteOldLogs: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
       _ = Task.Run(async () => { try { await _log.BackupDatabase(); } catch (Exception ex) { _ = _log.Db($"Error in BackupDatabase: {ex.Message}", null, "SYSTEM", outputToConsole: true); } });
+
+      try { await _dbQueue.EnqueueAsync(async () => { await RunFiveMinuteTasks(); }); }
+      catch (Exception ex) { _ = _log.Db($"Error in RunFiveMinuteTasks: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
     }
     private async Task Run10SecondTasks()
     {
@@ -219,7 +223,14 @@ namespace maxhanna.Server.Services
         {
           await _dbQueue.EnqueueAsync(async () =>
           {
-            await FetchAndStoreTopMarketCaps();
+            try
+            {
+              await FetchAndStoreTopMarketCaps();
+            }
+            catch (Exception e)
+            {
+              _ = _log.Db($"Failure fetching and storying coin values {e.Message}", null, "SYSTEM", outputToConsole: true);
+            }
           });
         }
         catch (Exception ex) { _ = _log.Db($"Error in FetchAndStoreTopMarketCaps: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
@@ -237,7 +248,14 @@ namespace maxhanna.Server.Services
         {
           await _dbQueue.EnqueueAsync(async () =>
           {
-            await FetchAndStoreCoinValues();
+            try
+            {
+              await FetchAndStoreCoinValues();
+            }
+            catch (Exception e)
+            {
+              _ = _log.Db($"Failure fetching and storying coin values {e.Message}", null, "SYSTEM", outputToConsole: true);
+            }
           });
         }
         catch (Exception ex) { _ = _log.Db($"Error in FetchAndStoreCoinValues: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
@@ -2834,7 +2852,14 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
 
           if (!_indicatorService.IsUpdating)
           {
-            await _indicatorService.UpdateIndicators();
+            try
+            { 
+              await _indicatorService.UpdateIndicators();
+            } 
+            catch (Exception e)
+            {
+              _ = _log.Db($"Indicator Service failed {e.Message}", null, "SYSTEM", outputToConsole: true);
+            }
           }
           else
           {
