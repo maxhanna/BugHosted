@@ -57,60 +57,58 @@
 
     <div *ngIf="error" class="error-message">{{ error }}</div>
 
-    <div *ngIf="youtubeResults?.length" class="metadataSearchWrapper" [style.opacity]="isSearchingYoutube ? 0.5 : 1"
+    <div class="metadataSearchWrapper" [style.opacity]="(isLoading && isSearchingYoutube && isSearchingReddit) ? 0.5 : 1"
       [style.max-Height]="onlySearch ? '30vh' : ''">
-      <div class="metadataSearchDiv gradientBackground">
-        <div class="groupDomainTitle">YouTube Results</div>
-        <div *ngFor="let video of youtubeResults.slice(0, youtubeDisplayLimit)" class="groupLinkWrapperDiv">
-          <div class="groupLinkDataWrapperDiv">
-            <div class="descriptionDiv titleClass cursorPointer linkTextDecoration">
-              <a class="pageTitleLink" [attr.href]="video.url" target="_blank"
-                (click)="openYoutubePopup($event, video.url)">{{ video.title }}</a>
+
+      <div *ngIf="youtubeResults?.length" class="metadataSearchWrapper" [style.opacity]="isSearchingYoutube ? 0.5 : 1"
+        [style.max-Height]="onlySearch ? '30vh' : ''">
+        <div class="metadataSearchDiv gradientBackground">
+          <div class="groupDomainTitle">YouTube Results</div>
+          <div *ngFor="let video of youtubeResults.slice(0, youtubeDisplayLimit)" class="groupLinkWrapperDiv">
+            <div class="groupLinkDataWrapperDiv">
+              <div class="descriptionDiv titleClass cursorPointer linkTextDecoration">
+                <a class="pageTitleLink" [attr.href]="video.url" target="_blank"
+                  (click)="openYoutubePopup($event, video.url)">{{ video.title }}</a>
+              </div>
+              <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
+                <a [attr.href]="video.url" target="_blank" (click)="openYoutubePopup($event, video.url)">{{ video.url
+                  }}</a>
+              </div>
+              <div *ngIf="video.description" class="descriptionDiv descriptClass">{{ video.description }}</div>
             </div>
-            <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
-              <a [attr.href]="video.url" target="_blank" (click)="openYoutubePopup($event, video.url)">{{ video.url
-                }}</a>
+            <div class="imageUrlPictureDiv">
+              <a [attr.href]="video.url" target="_blank" [title]="video.title" (click)="openYoutubePopup($event, video.url)">
+                <img [src]="video.thumbnailUrl" [attr.loading]="'lazy'" [title]="video.title"
+                  (error)="video.thumbnailUrl = ''" />
+              </a>
             </div>
-            <div *ngIf="video.description" class="descriptionDiv descriptClass">{{ video.description }}</div>
           </div>
-          <div class="imageUrlPictureDiv">
-            <a [attr.href]="video.url" target="_blank" [title]="video.title" (click)="openYoutubePopup($event, video.url)">
-              <img [src]="video.thumbnailUrl" [attr.loading]="'lazy'" [title]="video.title"
-                (error)="video.thumbnailUrl = ''" />
-            </a>
+          <div style="text-align: center; margin-top:10px;" *ngIf="youtubeResults.length >1">
+            <button (click)="showMoreYoutube()">
+              Display {{ youtubeDisplayLimit > 1 ? "less" : "more" }} YouTube results {{ youtubeDisplayLimit === 1 ? ("(" +
+              (youtubeResults.length - 1) + ")") : ""}}
+            </button>
           </div>
-        </div>
-        <div style="text-align: center; margin-top:10px;" *ngIf="youtubeResults.length >1">
-          <button (click)="showMoreYoutube()">
-            Display {{ youtubeDisplayLimit > 1 ? "less" : "more" }} YouTube results {{ youtubeDisplayLimit === 1 ? ("(" +
-            (youtubeResults.length - 1) + ")") : ""}}
-          </button>
         </div>
       </div>
-    </div> 
+      
+      <div *ngIf="socialResults?.length" class="metadataSearchWrapper" [style.max-Height]="onlySearch ? '30vh' : ''">
+        <div class="metadataSearchDiv gradientBackground">
+          <div class="groupDomainTitle">Reddit, X, Facebook Results</div>
+          <div *ngFor="let result of socialResults.slice(0, socialDisplayLimit)" class="groupLinkWrapperDiv">
+            <app-crawler-search-results style="width:100%" [result]="result"
+              [inputtedParentRef]="inputtedParentRef ?? parentRef" [onlySearch]="onlySearch" [hideStatus]="true"
+              (urlSelectedEvent)="visitExternalLink($event)">
+            </app-crawler-search-results>
+          </div>
+          <div style="text-align: center; margin-top:10px;" *ngIf="socialResults.length > socialDisplayLimit">
+            <button (click)="showMoreSocial()">
+              Display more Reddit, X, Facebook results ({{ socialResults.length - socialDisplayLimit }} more)
+            </button>
+          </div>
+        </div>
+      </div>
 
-    <div *ngIf="socialResults?.length" class="metadataSearchWrapper" [style.max-Height]="onlySearch ? '30vh' : ''">
-      <div class="metadataSearchDiv gradientBackground">
-        <div class="groupDomainTitle">Reddit, X, Facebook Results</div>
-        <div *ngFor="let result of socialResults.slice(0, socialDisplayLimit)" class="groupLinkWrapperDiv">
-          <app-crawler-search-results style="width:100%" [result]="result"
-            [inputtedParentRef]="inputtedParentRef ?? parentRef" 
-            [onlySearch]="onlySearch"
-            [hideStatus]="true"
-            (urlSelectedEvent)="visitExternalLink($event)">
-          </app-crawler-search-results>
-        </div>
-        <div style="text-align: center; margin-top:10px;" *ngIf="socialResults.length > socialDisplayLimit">
-          <button(click)="showMoreSocial()">Display more Reddit, X, Facebook results({{ socialResults.length -
-            socialDisplayLimit }} more)</button>
-        <button (click)="showMoreSocial()">Display more Reddit, X, Facebook results ({{ socialResults.length -
-        socialDisplayLimit }} more)</button>
-        </div>
-        </div>
-    </div>
-
-    <div class="metadataSearchWrapper" [style.opacity]="isLoading ? 0.5 : 1"
-      [style.max-Height]="onlySearch ? '30vh' : ''">
       <div *ngFor="let group of groupedResults" class="metadataSearchDiv gradientBackground">
         <div class="groupDomainTitle">
           {{ group.domain }}
