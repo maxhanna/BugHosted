@@ -1898,15 +1898,17 @@ public class WebCrawler
     string domain = GetDomain(url);
     int _exceedanceCount = _maxSiteExceedance;
     int count = 0;
-    int delayedUrlsCount = delayedUrlsQueue.Where(x => GetDomain(x) == domain).Count();
-    foreach (string item in delayedUrlsQueue.Concat(urlsToScrapeQueue))
+    List<string> urlsToCheck = delayedUrlsQueue.Concat(urlsToScrapeQueue).ToList();
+    foreach (string item in urlsToCheck)
     {
       if (count >= _maxSiteExceedance) break;
       if (GetDomain(item) == domain) count++;
     }
+ 
     if (count >= _exceedanceCount)
     {
       RemoveDomainFromLists(domain);
+      _blockedHosts.Add(GetHost(url));
       return true;
     }
     return false;
@@ -1918,6 +1920,7 @@ public class WebCrawler
 
     var tempQueue2 = new List<string>(urlsToScrapeQueue.Where(url => GetDomain(url) != domain));
     urlsToScrapeQueue = tempQueue2;
+    
     _ = _log.Db($"Crawler: Domain {domain} exceeded {_maxSiteExceedance} occurrences, removed from all lists.", null, "CRAWLER", true);
   }
   public int CalculateRelevanceScore(Metadata result, string searchTerm)
@@ -2019,6 +2022,13 @@ public class WebCrawler
     Uri uri = new Uri(url);
     string domain = uri.Scheme + "://" + uri.Host; // This gives you "http://google.com"
     return domain;
+  }
+
+  private string GetHost(string url)
+  {
+    Uri uri = new Uri(url);
+    string host = uri.Host; // This gives you "google.com"
+    return host;
   }
 
   private async Task<RobotsInfo> FetchRobotsForHost(string host)
