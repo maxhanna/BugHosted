@@ -28,7 +28,7 @@
       </div>
       <div *ngIf="detail.description && !onlySearch" class="descriptionDiv descriptClass">{{ detail.description }}</div>
       <div *ngIf="detail.author && !onlySearch" class="descriptionDiv authorClass">{{ detail.author }}</div>
-      <div *ngIf="detail.httpStatus" class="descriptionDiv authorClass">
+      <div *ngIf="detail.httpStatus && !hideStatus" class="descriptionDiv authorClass">
         {{ detail.httpStatus }} {{ getHttpStatusMeaning(detail.httpStatus) }}
       </div>
       <div *ngIf="detail.keywords" class="descriptionDiv keywordsClass">{{ detail.keywords }}</div>

@@ -94,15 +94,19 @@
         <div class="groupDomainTitle">Reddit, X, Facebook Results</div>
         <div *ngFor="let result of socialResults.slice(0, socialDisplayLimit)" class="groupLinkWrapperDiv">
           <app-crawler-search-results style="width:100%" [result]="result"
-            [inputtedParentRef]="inputtedParentRef ?? parentRef" [onlySearch]="onlySearch"
+            [inputtedParentRef]="inputtedParentRef ?? parentRef" 
+            [onlySearch]="onlySearch"
+            [hideStatus]="true"
             (urlSelectedEvent)="visitExternalLink($event)">
           </app-crawler-search-results>
         </div>
         <div style="text-align: center; margin-top:10px;" *ngIf="socialResults.length > socialDisplayLimit">
-          <button (click)="showMoreSocial()">Display more Reddit, X, Facebook results ({{ socialResults.length -
+          <button(click)="showMoreSocial()">Display more Reddit, X, Facebook results({{ socialResults.length -
             socialDisplayLimit }} more)</button>
+        <button (click)="showMoreSocial()">Display more Reddit, X, Facebook results ({{ socialResults.length -
+        socialDisplayLimit }} more)</button>
         </div>
-      </div>
+        </div>
     </div>
 
     <div class="metadataSearchWrapper" [style.opacity]="isLoading ? 0.5 : 1"

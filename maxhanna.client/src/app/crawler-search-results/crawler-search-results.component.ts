@@ -17,6 +17,7 @@ export class CrawlerSearchResultsComponent extends ChildComponent {
   @Input() result!: LightweightSearchResult;
   @Input() inputtedParentRef?: AppComponent;
   @Input() onlySearch: boolean = false;
+  @Input() hideStatus: boolean = false;
   @Output() urlSelectedEvent = new EventEmitter<string>();
 
   @ViewChild('observerTarget', { static: true }) observerTarget!: ElementRef;
