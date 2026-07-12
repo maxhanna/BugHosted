@@ -985,9 +985,10 @@ public class NewsService
       }
 
       // Create the story text
+      string fileName = !string.IsNullOrEmpty(topMeme.GivenFileName) ? topMeme.GivenFileName : topMeme.FileName ?? "Unknown";
       var storyText = $@"📢 [b]Top Daily Meme![/b]
-<a href='https://bughosted.com/Memes/{topMeme.Id}'>https://bughosted.com/Memes/{topMeme.Id}</a>
-Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based on highest number of comments and reactions.</small>";
+      <a href='https://bughosted.com/Memes/{topMeme.Id}'>https://bughosted.com/Memes/{topMeme.Id}</a>
+      Posted by user @{topMeme.Username}<br><small>Daily top memes are selected based on highest number of comments and reactions.</small><br>File: {fileName}";
 
       // Insert the story
       await InsertMemeStoryAsync(conn, transaction, storyText, topMeme.Id, memeServiceAccountNo);
