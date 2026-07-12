@@ -18,6 +18,7 @@ export class CrawlerSearchResultsComponent extends ChildComponent {
   @Input() inputtedParentRef?: AppComponent;
   @Input() onlySearch: boolean = false;
   @Input() hideStatus: boolean = false;
+  @Input() displaySocialResults: boolean = false;
   @Output() urlSelectedEvent = new EventEmitter<string>();
 
   @ViewChild('observerTarget', { static: true }) observerTarget!: ElementRef;

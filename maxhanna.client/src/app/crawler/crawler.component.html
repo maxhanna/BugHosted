@@ -101,6 +101,7 @@
           <div *ngFor="let result of socialResults.slice(0, socialDisplayLimit)" class="groupLinkWrapperDiv">
             <app-crawler-search-results style="width:100%" [result]="result"
               [inputtedParentRef]="inputtedParentRef ?? parentRef" [onlySearch]="onlySearch" [hideStatus]="true"
+              [displaySocialResults]="true"
               (urlSelectedEvent)="visitExternalLink($event)">
             </app-crawler-search-results>
           </div>
