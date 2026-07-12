@@ -127,8 +127,6 @@ namespace maxhanna.Server.Services
 
       try { await _dbQueue.EnqueueAsync(async () => { await _log.DeleteOldLogs(); }); }
       catch (Exception ex) { _ = _log.Db($"Error in DeleteOldLogs: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
-    
-      await RunSixHourTasks();
     }
     private async Task Run10SecondTasks()
     {
@@ -306,15 +304,6 @@ namespace maxhanna.Server.Services
         {
           await _dbQueue.EnqueueAsync(async () =>
           {
-            await _romEnrichmentService.RunAsync();
-          });
-        }
-        catch (Exception ex) { _ = _log.Db($"Error in RomEnrichmentService: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
-
-        try
-        {
-          await _dbQueue.EnqueueAsync(async () =>
-          {
             await _aiController.ProvideMarketAnalysis();
           });
         }
@@ -369,7 +358,7 @@ namespace maxhanna.Server.Services
       {
         Interlocked.Exchange(ref _isRunningHourlyTasks, 0);
       }
-    } 
+    }
 
 
     private async Task RunSixHourTasks()
@@ -424,6 +413,9 @@ namespace maxhanna.Server.Services
 
         try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldTradeVolumesSixMonths(); }); }
         catch (Exception ex) { _ = _log.Db($"Error in DeleteOldTradeVolumesSixMonths: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
+
+        try { await _dbQueue.EnqueueAsync(async () => { await _romEnrichmentService.RunAsync(); }); }
+        catch (Exception ex) { _ = _log.Db($"Error in RomEnrichmentService: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
       }
       finally
       {
@@ -474,7 +466,7 @@ namespace maxhanna.Server.Services
         catch (Exception ex) { _ = _log.Db($"Error in DeleteOldCoinMarketCaps: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
         try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldEnderScores(); }); }
-        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldEnderScores: {ex.Message}", null, "SYSTEM", outputToConsole: true); } 
+        catch (Exception ex) { _ = _log.Db($"Error in DeleteOldEnderScores: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
         try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldFavourites(); }); }
         catch (Exception ex) { _ = _log.Db($"Error in DeleteOldFavourites: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
@@ -2607,7 +2599,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
         await conn.OpenAsync();
         string sql = @"DELETE FROM maxhanna.favourites WHERE creation_date < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR) AND COALESCE(access_count,0) < 3;";
         await using var cmd = new MySqlCommand(sql, conn);
-        int deleted = Convert.ToInt32(await cmd.ExecuteNonQueryAsync()); 
+        int deleted = Convert.ToInt32(await cmd.ExecuteNonQueryAsync());
       }
       catch (Exception ex)
       {
@@ -2919,9 +2911,9 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
           if (!_indicatorService.IsUpdating)
           {
             try
-            { 
+            {
               await _indicatorService.UpdateIndicators();
-            } 
+            }
             catch (Exception e)
             {
               _ = _log.Db($"Indicator Service failed {e.Message}", null, "SYSTEM", outputToConsole: true);
@@ -3224,10 +3216,10 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
         else
         {
           while (true)
-        {
-          if (ct.IsCancellationRequested) break;
+          {
+            if (ct.IsCancellationRequested) break;
 
-          var thinOneMonth = @"
+            var thinOneMonth = @"
                     DELETE FROM trade_market_volumes
                     WHERE id IN (
                         SELECT id
@@ -3263,31 +3255,31 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
                         ) ids
                     );";
 
-          await using var cmdB = new MySqlCommand(thinOneMonth, conn) { CommandTimeout = 180 };
-          cmdB.Parameters.AddWithValue("@sliceStart", sliceStart);
-          cmdB.Parameters.AddWithValue("@sliceEnd", sliceEnd);
-          cmdB.Parameters.AddWithValue("@lim", batchSize);
+            await using var cmdB = new MySqlCommand(thinOneMonth, conn) { CommandTimeout = 180 };
+            cmdB.Parameters.AddWithValue("@sliceStart", sliceStart);
+            cmdB.Parameters.AddWithValue("@sliceEnd", sliceEnd);
+            cmdB.Parameters.AddWithValue("@lim", batchSize);
 
-          var affectedB = 0;
-          try
-          {
-            affectedB = await cmdB.ExecuteNonQueryAsync(ct);
-          }
-          catch (OperationCanceledException) { throw; }
-          catch (Exception ex)
-          {
-            await _log.Db($"Phase B query failed ({sliceStart:yyyy-MM}): {ex.Message}", null, "SYSTEM", true);
+            var affectedB = 0;
+            try
+            {
+              affectedB = await cmdB.ExecuteNonQueryAsync(ct);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+              await _log.Db($"Phase B query failed ({sliceStart:yyyy-MM}): {ex.Message}", null, "SYSTEM", true);
+              break;
+            }
+
+            if (affectedB > 0)
+            {
+              await _log.Db($"Phase B ({sliceStart:yyyy-MM}): thinned {affectedB} rows (kept 1 per hour per pair).",
+                  null, "SYSTEM", true);
+              continue; // repeat for the same month until 0 rows deleted
+            }
             break;
           }
-
-          if (affectedB > 0)
-          {
-            await _log.Db($"Phase B ({sliceStart:yyyy-MM}): thinned {affectedB} rows (kept 1 per hour per pair).",
-                null, "SYSTEM", true);
-            continue; // repeat for the same month until 0 rows deleted
-          }
-          break;
-        }
         } // end else (Phase B)
       }
       catch (OperationCanceledException)
