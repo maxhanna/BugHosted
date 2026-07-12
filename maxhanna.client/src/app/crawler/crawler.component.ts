@@ -38,6 +38,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   isKeywordsDisabled: boolean = false;
   youtubeResults: YoutubeVideo[] = [];
   redditResults: MetaData[] = [];
+  xResults: MetaData[] = [];
   isSearchingYoutube = false;
   youtubeDisplayLimit = 1;
   youtubeExpanded = false;
@@ -46,6 +47,8 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   socialResults: LightweightSearchResult[] = [];
   socialDisplayLimit = 1;
   redditDisplayLimit = 1;
+  isSearchingX: boolean = false;
+  xDisplayLimit: number = 1;
   private socialDomains = ['reddit.com', 'www.reddit.com', 'twitter.com', 'www.twitter.com', 'x.com', 'www.x.com', 'facebook.com', 'www.facebook.com'];
 
   @ViewChild('pageSizeDropdown') pageSizeDropdown!: ElementRef<HTMLSelectElement>;
@@ -173,11 +176,21 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
         this.redditResults = response ?? [];
         this.isSearchingReddit = false;
         this.redditDisplayLimit = 1;
-        this.mergeSocialResultsFromReddit();
+        this.mergeSocialResults();
+      });
+
+      console.log('searching X');
+      this.isSearchingX = true;
+      this.crawlerService.searchX(this.keywordsInput.nativeElement.value.trim()).then(response => {
+        this.xResults = response ?? [];
+        this.isSearchingX = false;
+        this.xDisplayLimit = 1;
+        this.mergeSocialResults();
       });
     } else {
       this.youtubeResults = [];
       this.redditResults = [];
+      this.xResults = [];
     }
 
     if (keywords.split(' ').length > 0 || !keywords.includes('.') || !keywords.includes('http')) { 
@@ -228,7 +241,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
         this.searchResults = r.results ?? [];
         this.groupedResults = this.getGroupedResults(this.searchResults);
         this.filterSocialResults();
-        this.mergeSocialResultsFromReddit();
+        this.mergeSocialResults();
         this.sortResults();
       } else {
         this.error = isExact ? "No data from given URL." : "No results for those keywords.";
@@ -278,10 +291,10 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       }
     }
     this.groupedResults = webOnly;
-    this.mergeSocialResultsFromReddit();
+    this.mergeSocialResults();
   }
 
-  private mergeSocialResultsFromReddit() {
+  private mergeSocialResults() {
     const seen = new Set<string>();
     const combined: LightweightSearchResult[] = [];
     const addResult = (result?: LightweightSearchResult | null) => {
@@ -306,6 +319,19 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
         id: reddit.id,
         url: reddit.url,
         title: reddit.title ?? reddit.url
+      });
+    }
+
+    for (const x of this.xResults ?? []) {
+      if (!x?.url) continue;
+      const hostname = this.getHostname(x.url);
+      if (!hostname || !this.socialDomains.some(domain => hostname === domain || hostname.endsWith(`.${domain}`))) {
+        continue;
+      }
+      addResult({
+        id: x.id,
+        url: x.url,
+        title: x.title ?? x.url
       });
     }
 

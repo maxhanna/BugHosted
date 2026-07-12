@@ -54,6 +54,9 @@
     <div *ngIf="isSearchingReddit" class="loadingNotificationDiv">
       <app-loading-spinner [icon]="'🤖'">Crawling Reddit</app-loading-spinner>
     </div>
+    <div *ngIf="isSearchingX" class="loadingNotificationDiv">
+      <app-loading-spinner [icon]="'🐦'">Crawling X</app-loading-spinner>
+    </div>
 
     <div *ngIf="error" class="error-message">{{ error }}</div>
 

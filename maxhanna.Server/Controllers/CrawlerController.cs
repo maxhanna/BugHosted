@@ -981,6 +981,82 @@ namespace maxhanna.Server.Controllers
       return results;
     }
 
+
+    private async Task<List<Metadata>> TryFindXUrlsAsync(string keyword, CancellationToken ct, int limit = 5)
+    {
+      var results = new List<Metadata>();
+      try
+      {
+        var apiKey = GetConfiguredSearchApiKey();
+        var provider = GetConfiguredSearchProvider();
+
+        if (!string.IsNullOrWhiteSpace(apiKey) && provider.Equals("serpapi", StringComparison.OrdinalIgnoreCase))
+        {
+          using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+
+          // 🔎 Restrict Google to Reddit via site: operator + include_domains
+          string xQuery = $"site:x.com {keyword}";
+          string url = $"https://serpapi.com/search.json?engine=google"
+                     + $"&q={Uri.EscapeDataString(xQuery)}"
+                     + $"&include_domains=x.com"
+                     + $"&api_key={Uri.EscapeDataString(apiKey)}"
+                     + $"&google_domain=google.com&hl=en&gl=us";
+
+          _ = _log.Db($"[Search Debug] Using SerpAPI (X-only) for keyword '{keyword}'", null, "CRAWLERCTRL", true);
+          using var resp = await http.GetAsync(url, ct);
+          if (resp.IsSuccessStatusCode)
+          {
+            var json = await resp.Content.ReadAsStringAsync(ct);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+
+            if (doc.RootElement.TryGetProperty("organic_results", out var items)
+                && items.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+              foreach (var item in items.EnumerateArray().Take(limit))
+              {
+                string? urlValue = item.TryGetProperty("link", out var u) ? u.GetString() : null;
+                string? title = item.TryGetProperty("title", out var t) ? t.GetString() : null;
+                string? snippet = item.TryGetProperty("snippet", out var s) ? s.GetString() : null;
+
+                if (string.IsNullOrWhiteSpace(urlValue)) continue;
+                if (!urlValue.Contains("x.com", StringComparison.OrdinalIgnoreCase))
+                  continue; // defensive filter
+
+                results.Add(new Metadata
+                {
+                  Url = urlValue,
+                  Title = title ?? "X result",
+                  Description = snippet ?? "X result",
+                  Author = "X",
+                  Keywords = keyword
+                });
+              }
+            }
+          }
+          else
+          {
+            _ = _log.Db($"[Search Debug] SerpAPI lookup failed with {(int)resp.StatusCode}", null, "CRAWLERCTRL", true);
+          }
+
+          if (results.Count > 0)
+          {
+            foreach (var result in results.Where(r => !string.IsNullOrWhiteSpace(r.Url)))
+            {
+              _ = _webCrawler.StartScrapingAsync(result.Url!);
+            }
+            return results;
+          }
+        }
+
+        _ = _log.Db("[Search Debug] No configured search API available; skipping external search fallback.", null, "CRAWLERCTRL", true);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"[Search Debug] Exception: {ex.Message}", null, "CRAWLERCTRL", true);
+      }
+      return results;
+    }
+
     private async Task<LightweightSearchResult> SaveAndGetLightweightResultAsync(Metadata meta, string connectionString)
     {
       var light = new LightweightSearchResult { Id = meta.Id, Url = meta.Url, Title = meta.Title };
@@ -1414,6 +1490,27 @@ namespace maxhanna.Server.Controllers
       {
         await _log.Db($"Error in RedditLookup: {ex.Message}", null, "CRAWLER", true);
         return StatusCode(503, "Reddit search is currently unavailable from this server.");
+      }
+    }
+
+
+    [HttpPost("/Crawler/XLookup", Name = "XLookup")]
+    public async Task<IActionResult> XLookup([FromBody]RedditLookupRequest request)
+    {
+      if (string.IsNullOrWhiteSpace(request.Keyword)) return BadRequest("Keyword is required.");
+      try
+      {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var results = await TryFindXUrlsAsync(request.Keyword, cts.Token, 5);
+        if (results == null || results.Count == 0)
+          return StatusCode(503, "X search is currently unavailable from this server.");
+
+        return Ok(results);
+      }
+      catch (Exception ex)
+      {
+        await _log.Db($"Error in XLookup: {ex.Message}", null, "CRAWLER", true);
+        return StatusCode(503, "X search is currently unavailable from this server.");
       }
     }
 
