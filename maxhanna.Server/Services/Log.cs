@@ -181,7 +181,8 @@ public class Log
         _ = Db($"ValidateUserLoggedIn ACCESS DENIED userId:{userId}. User seen > 60 minutes.{(!string.IsNullOrEmpty(callingMethodName) ? " Calling method: " + callingMethodName : "")}", userId, "SYSTEM", true);
         return false;
       }
-      int decryptedUserId = DecryptUserId(encryptedUserId);
+      string ki = _config.GetValue<string>("Encryption:Key") ?? ""; 
+      int decryptedUserId = DecryptUserId(encryptedUserId, ki);
       if (decryptedUserId != userId)
       {
         _ = Db($"ValidateUserLoggedIn ACCESS DENIED userId:{userId}. Decryption key mismatch.{(!string.IsNullOrEmpty(callingMethodName) ? " Calling method: " + callingMethodName : "")}", userId, "SYSTEM", true);
@@ -529,10 +530,10 @@ public class Log
     return true;
   }
 
-  public static int DecryptUserId(string base64Input)
+  public static int DecryptUserId(string base64Input, string ki)
   {
-    byte[] combinedData = Convert.FromBase64String(base64Input);
-    byte[] key = Encoding.UTF8.GetBytes("BHSN123!@#33@!".PadRight(32, '_'));
+    byte[] combinedData = Convert.FromBase64String(base64Input); 
+    byte[] key = Encoding.UTF8.GetBytes(ki.PadRight(32, '_'));
     byte[] iv = combinedData.Take(12).ToArray(); // AES-GCM IV is 12 bytes
     byte[] ciphertext = combinedData.Skip(12).ToArray();
 

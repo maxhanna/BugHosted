@@ -85,7 +85,8 @@ namespace maxhanna.Server.Controllers
 				return Unauthorized(new { error = "No session token" });
 
 			int userId;
-			try { userId = Log.DecryptUserId(token); }
+			string ki = _config.GetValue<string>("Encryption:Key") ?? "";
+			try { userId = Log.DecryptUserId(token, ki); }
 			catch { return Unauthorized(new { error = "Invalid session token" }); }
 
 			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
