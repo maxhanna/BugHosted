@@ -975,7 +975,7 @@ public class NewsService
       }
 
       // Get today's most popular meme
-      var topMeme = await GetMostPopularMemeTodayAsync(conn, transaction);
+      MemeInfo? topMeme = await GetMostPopularMemeTodayAsync(conn, transaction);
 
       if (topMeme == null)
       {
