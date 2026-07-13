@@ -23,13 +23,6 @@
       </div>
       <div [class]="!onlySearch ? 'crawlerInputs' : 'searchOnlyCrawlerInputs'">
         <div style="display:flex; flex-direction: column; gap: 8px; align-items: center;">
-          <!-- <div>
-            <input #urlInput type="text" placeholder="e.g. https://www.example.com/path" (keydown.enter)="searchUrl()"
-              (input)="onUrlInput()" [disabled]="isUrlDisabled" />
-            <button (click)="searchUrl()" [disabled]="isLoading || !(urlInput?.value && urlInput.value.trim())">
-              🔍{{!onMobile() ? 'Crawl' : ''}}
-            </button>
-          </div> -->
           <div>
             <input #keywordsInput type="text" 
               placeholder="Search Title/Description/URL"
