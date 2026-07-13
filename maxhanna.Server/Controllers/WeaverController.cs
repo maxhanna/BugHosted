@@ -655,7 +655,7 @@ namespace maxhanna.Server.Controllers
 			await conn.OpenAsync();
 
 			string sql = @"
-		     INSERT INTO maxhanna.benchmark_data(user_id, date, benchmark_name, steps, score, status, duration, model, os, cpu, ram, gpu)
+		     INSERT INTO maxhanna.weaver_benchmark_data(user_id, date, benchmark_name, steps, score, status, duration, model, os, cpu, ram, gpu)
 		     VALUES(@UserId, @Date, @BenchmarkName, @Steps, @Score, @Status, @Duration, @Model, @Os, @Cpu, @Ram, @Gpu)";
 			using var cmd = new MySqlCommand(sql, conn);
 			cmd.Parameters.AddWithValue("@UserId", userId);
@@ -697,7 +697,7 @@ namespace maxhanna.Server.Controllers
 
 		    string sql = @"
 		    SELECT id, date, benchmark_name, steps, score, status, duration, model, os, cpu, ram, gpu
-		    FROM maxhanna.benchmark_data
+		    FROM maxhanna.weaver_benchmark_data
 		    WHERE user_id = @UserId
 		    ORDER BY date DESC
 		    ";
