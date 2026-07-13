@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+﻿import { Injectable } from '@angular/core';
 import { MetaData } from './datacontracts/social/story';
 import { CrawlerSearchRequest, CrawlerSearchResponse, LightweightSearchResult, NormalizedMetaData, StorageStats } from './datacontracts/crawler';
 import { YoutubeVideo } from './datacontracts/youtube';
@@ -9,7 +9,7 @@ import { Meta } from '@angular/platform-browser';
   providedIn: 'root'
 })
 export class CrawlerService {
-  
+
   async searchUrl(
     url: string,
     currentPage = 1,
@@ -28,7 +28,7 @@ export class CrawlerService {
     };
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2*60*1000); // 2m client timeout
+    const timeout = setTimeout(() => controller.abort(), 2 * 60 * 1000); // 2m client timeout
 
     try {
       const response = await fetch(`/crawler/searchurl`, {
