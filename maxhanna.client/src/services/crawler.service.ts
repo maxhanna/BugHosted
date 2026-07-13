@@ -178,6 +178,23 @@ export class CrawlerService {
     }
   }
 
+  async searchIMDb(keyword: string): Promise<MetaData[] | null> {
+    try {
+      const response = await fetch(`/crawler/imdblookup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword })
+      });
+
+      if (!response.ok) return null;
+      const json = (await response.json()) as MetaData[];
+      return json;
+    } catch (error) {
+      console.error('IMDB search failed', error);
+      return null;
+    }
+  }
+
   async getFavouritedByUrl(url: string): Promise<User[] | null> {
     try {
       const response = await fetch(`/crawler/getfavouritedbyurl`, {
