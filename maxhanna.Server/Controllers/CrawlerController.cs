@@ -980,6 +980,79 @@ namespace maxhanna.Server.Controllers
       }
       return results;
     }
+    private async Task<List<Metadata>> TryFindImdbUrlsAsync(string keyword, CancellationToken ct, int limit = 5)
+    {
+        var results = new List<Metadata>();
+        try
+        {
+            var apiKey = GetConfiguredSearchApiKey();
+            var provider = GetConfiguredSearchProvider();
+
+            if (!string.IsNullOrWhiteSpace(apiKey) && provider.Equals("serpapi", StringComparison.OrdinalIgnoreCase))
+            {
+                using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(1) };
+
+                // 🔎 Restrict Google to IMDB via site: operator + include_domains
+                string imdbQuery = $"site:imdb.com {keyword}";
+                string url = $"https://serpapi.com/search.json?engine=google"
+                + $"&q={Uri.EscapeDataString(imdbQuery)}"
+                + $"&include_domains=imdb.com"
+                + $"&api_key={Uri.EscapeDataString(apiKey)}"
+                + $"&google_domain=google.com&hl=en&gl=us";
+
+                _ = _log.Db($"[IMDb Search Debug] Using SerpAPI (IMDb-only) for keyword '{keyword}'", null, "CRAWLERCTRL", true);
+                using var resp = await http.GetAsync(url, ct);
+                if (resp.IsSuccessStatusCode)
+                {
+                    var json = await resp.Content.ReadAsStringAsync(ct);
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+
+                    if (doc.RootElement.TryGetProperty("organic_results", out var items)
+                    && items.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    {
+                        foreach (var item in items.EnumerateArray().Take(limit))
+                        {
+                            string? urlValue = item.TryGetProperty("link", out var u) ? u.GetString() : null;
+                            string? title = item.TryGetProperty("title", out var t) ? t.GetString() : null;
+                            string? snippet = item.TryGetProperty("snippet", out var s) ? s.GetString() : null;
+
+                            if (string.IsNullOrWhiteSpace(urlValue)) continue;
+                            if (!urlValue.Contains("imdb.com", StringComparison.OrdinalIgnoreCase))
+                            continue; // defensive filter
+
+                            results.Add(new Metadata
+                            {
+                                Url = urlValue,
+                                Title = title ?? "IMDb result",
+                                Description = snippet ?? "IMDb result",
+                                Author = "IMDB",
+                                Keywords = keyword
+                            });
+                        }
+                    }
+                }
+                else
+                {
+                    _ = _log.Db($"[Search Debug] SerpAPI lookup failed with {(int)resp.StatusCode}", null, "CRAWLERCTRL", true);
+                }
+
+                if (results.Count >0)
+                {
+                    foreach (var result in results.Where(r => !string.IsNullOrWhiteSpace(r.Url)))
+                    {
+                        _ = _webCrawler.StartScrapingAsync(result.Url!);
+                    }
+                    return results;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _ = _log.Db($"TryFindImdbUrlsAsync error: {ex.Message}", null, "CRAWLERCTRL", false);
+        }
+        // Fallback to direct IMDB search via web scraping or other methods here.
+        return new List<Metadata>();
+    }
 
 
     private async Task<List<Metadata>> TryFindXUrlsAsync(string keyword, CancellationToken ct, int limit = 5)
@@ -1491,6 +1564,25 @@ namespace maxhanna.Server.Controllers
         await _log.Db($"Error in RedditLookup: {ex.Message}", null, "CRAWLER", true);
         return StatusCode(503, "Reddit search is currently unavailable from this server.");
       }
+    }
+    [HttpPost("/Crawler/IMDbLookup", Name = "IMDbLookup")]
+    public async Task<IActionResult> IMDbLookup([FromBody] RedditLookupRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Keyword)) return BadRequest("Keyword is required.");
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(1));
+            var results = await TryFindImdbUrlsAsync(request.Keyword, cts.Token, 5);
+            if (results == null || results.Count == 0)
+            return NotFound("No IMDB entries found.");
+ 
+            return Ok(results);
+        }
+        catch (Exception ex)
+        {
+            await _log.Db($"Error in IMDbLookup: {ex.Message}", null, "CRAWLER", true);
+            return StatusCode(503, "IMDB search is currently unavailable from this server.");
+        }
     }
 
 
