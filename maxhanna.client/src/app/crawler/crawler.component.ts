@@ -49,6 +49,9 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   redditDisplayLimit = 1;
   isSearchingX: boolean = false;
   xDisplayLimit: number = 1;
+  isSearchingIMDB: boolean = false
+  imdbResults: MetaData[] = [];
+  imdbDisplayLimit: number = 1;
   private socialDomains = ['reddit.com', 'www.reddit.com', 'twitter.com', 'www.twitter.com', 'x.com', 'www.x.com', 'facebook.com', 'www.facebook.com'];
 
   @ViewChild('pageSizeDropdown') pageSizeDropdown!: ElementRef<HTMLSelectElement>;
@@ -94,7 +97,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer");
     clearInterval(this.indexUpdateTimer);
     this.stopLoading();
-  } 
+  }
 
   // onKeywordsInput() {
   //   try {
@@ -137,7 +140,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     }).finally(() => {
       this.stopLoading();
       const parent = this.inputtedParentRef ?? this.parentRef;
-      parent?.showOverlay(); 
+      parent?.showOverlay();
       this.isFavouritedByPanelOpen = true;
     });
   }
@@ -159,7 +162,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   async searchKeywords(skipScrape?: boolean) {
-    const keywords = this.keywordsInput.nativeElement.value; 
+    const keywords = this.keywordsInput.nativeElement.value;
     console.log("searching keywords", keywords);
     if (keywords) {
       console.log('searching youtube');
@@ -187,13 +190,22 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
         this.xDisplayLimit = 1;
         this.mergeSocialResults();
       });
+
+      console.log('searching IMDB');
+      this.isSearchingIMDB = true;
+      this.crawlerService.searchIMDb(this.keywordsInput.nativeElement.value.trim()).then(response => {
+        this.imdbResults = response ?? [];
+        this.isSearchingIMDB = false;
+        this.imdbDisplayLimit = 1;
+        this.mergeSocialResults();
+      });
     } else {
       this.youtubeResults = [];
       this.redditResults = [];
       this.xResults = [];
     }
 
-    if (keywords.split(' ').length > 0 || !keywords.includes('.') || !keywords.includes('http')) { 
+    if (keywords.split(' ').length > 0 || !keywords.includes('.') || !keywords.includes('http')) {
       await this.doSearch(keywords, false, skipScrape);
     } else {
       this.searchUrl(skipScrape);
