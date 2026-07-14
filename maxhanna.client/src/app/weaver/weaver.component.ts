@@ -219,7 +219,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   async loadData() {
     if (!this.token) return;
     try {
-      const hb = await this.weaverService.getHeartbeatStatus(this.token, 0);
+      const hb = await this.weaverService.getHeartbeatStatus(this.token, this.parentRef?.user?.id ?? 0);
       this.lastHeartbeat = hb.lastHeartbeat;
       this.clientId = hb.clientId;
       this.weaverService.clientId = hb.clientId;
