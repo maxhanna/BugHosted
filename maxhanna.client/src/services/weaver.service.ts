@@ -70,7 +70,7 @@ export interface IdeTab {
 export interface BenchmarkEntry {
   id: number;
   date: string;
-  benchmarkName: string;
+  benchmark: string;
   steps: number;
   score: number;
   status: string;
