@@ -708,7 +708,6 @@ namespace maxhanna.Server.Controllers
 		    string sql = @"
 		    SELECT id, date, benchmark_name, steps, score, status, duration, model, os, cpu, ram, gpu
 		    FROM maxhanna.weaver_benchmark_data
-		    WHERE user_id = @UserId
 		    ORDER BY date DESC
 		    ";
 		    using var cmd = new MySqlCommand(sql, conn);
