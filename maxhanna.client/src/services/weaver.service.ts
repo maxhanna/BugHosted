@@ -102,6 +102,8 @@ export interface KanbanPayload {
 
 @Injectable({ providedIn: 'root' })
 export class WeaverService {
+  clientId = '';
+
   async autoLogin(): Promise<string | null> {
     try {
       const res = await fetch('/weaver/auto-login', { method: 'POST' });
@@ -133,7 +135,9 @@ export class WeaverService {
   }
 
   async getCommands(token: string): Promise<WeaverRemoteCommand[]> {
-    const res = await fetch(`/weaver/commands?token=${encodeURIComponent(token)}`);
+    let url = `/weaver/commands?token=${encodeURIComponent(token)}`;
+    if (this.clientId) url += `&clientId=${encodeURIComponent(this.clientId)}`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error('Failed to fetch commands');
     return res.json();
   }
@@ -151,7 +155,7 @@ export class WeaverService {
     const res = await fetch('/weaver/commands/add', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ Token: token, Command: command, Params: params ? JSON.stringify(params) : '' }),
+      body: JSON.stringify({ Token: token, ClientId: this.clientId || '', Command: command, Params: params ? JSON.stringify(params) : '' }),
     });
     if (!res.ok) return null;
     return res.json();

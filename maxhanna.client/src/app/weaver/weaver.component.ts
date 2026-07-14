@@ -222,6 +222,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
       const hb = await this.weaverService.getHeartbeatStatus(this.token, 0);
       this.lastHeartbeat = hb.lastHeartbeat;
       this.clientId = hb.clientId;
+      this.weaverService.clientId = hb.clientId;
       // Calculate next sync time (10 seconds after last heartbeat)
       if (this.lastHeartbeat) {
         const lastHeartbeatDate = new Date(this.lastHeartbeat);
