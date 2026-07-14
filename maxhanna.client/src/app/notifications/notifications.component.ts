@@ -225,7 +225,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
           inst.fileId = notification.fileId;
           inst.commentId = notification.commentId;
           const savedSort = inst.sortOption;
-          inst.sortOption = 'Id Match';
+          inst.sortOption = '';
           if (typeof inst.getDirectory === 'function') {
             inst.getDirectory(undefined, notification.fileId).then(() => {
               inst.sortOption = savedSort;
