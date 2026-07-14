@@ -302,7 +302,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       return this.goToStoryId(notification);
     }
     if (notification.fileId) {
-  return this.goToFileId(notification); // commentId already forwarded in goToFileId
+      return this.goToFileId(notification); 
     }
 
     alert("No parent component");

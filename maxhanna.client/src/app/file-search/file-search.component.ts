@@ -740,7 +740,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.fileId = id;
     this.fileIdFilter = id;
     const savedSort = this.sortOption;
-    this.sortOption = 'Id Match';
+    this.sortOption = '';
     await this.getDirectory(undefined, id);
     this.sortOption = savedSort;
   }
