@@ -95,8 +95,8 @@
 .notificationsListContainer {
   overflow-y: auto;
   overflow-x: hidden;
-  height: CALC(100vh - 230px);
-  height: CALC(100dvh - 230px);
+  height: CALC(100vh - 270px);
+  height: CALC(100dvh - 270px);
   display: flex;
   flex-direction: column;
   align-items: center;
