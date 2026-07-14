@@ -14,9 +14,6 @@ namespace maxhanna.Server.Controllers
     private readonly Log _log;
     private readonly IConfiguration _config;
     private readonly WebCrawler _webCrawler;
-    private string? _redditToken;
-    private DateTime _redditTokenExpiry;
-
     private static readonly HashSet<string> Stopwords = new(StringComparer.OrdinalIgnoreCase)
     {
       // Very common English stopwords; add more as needed or localize.
@@ -79,12 +76,12 @@ namespace maxhanna.Server.Controllers
         // Build UNION-based SQL that lets MySQL pick the best index per branch
         BuildUnionSql(request, searchAll, siteOnly, siteDomain, siteKeywords,
                       out string resultsSql, out string countSql);
- 
+
         Action<MySqlCommand> paramizer = (cmd) =>
         {
           AddParametersToCrawlerQuery(request, pageSize, offset, searchAll, cmd, siteDomain, siteKeywords);
         };
- 
+
         Task<List<Metadata>> quickScrapeTask = Task.FromResult(new List<Metadata>());
         var sharedScraped = new System.Collections.Concurrent.ConcurrentBag<Metadata>();
         bool shouldScrape = (request.SkipScrape != true) && (request.Url?.Trim() != "*");
@@ -140,12 +137,12 @@ namespace maxhanna.Server.Controllers
             // Optionally persist final scraped results if needed
           }, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.RunContinuationsAsynchronously);
         }
- 
+
         if (results.Any(r => !r.Id.HasValue))
         {
           await PersistScrapedResults(results, connectionString!);
         }
- 
+
         var allResults = GetOrderedResultsForWeb(request, results);
         var lightResults = allResults?.Select(r => new LightweightSearchResult
         {
@@ -154,7 +151,7 @@ namespace maxhanna.Server.Controllers
           Title = r.Title
         }).ToList() ?? new List<LightweightSearchResult>();
 
-      
+
         if ((lightResults == null || lightResults.Count == 0) && IsKeywordQuery(request.Url))
         {
           var fallbackResults = new List<LightweightSearchResult>();
@@ -163,7 +160,7 @@ namespace maxhanna.Server.Controllers
           using var fallbackCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
           fallbackCts.CancelAfter(TimeSpan.FromSeconds(8));
 
-          var wikiTask = TryFindWikipediaUrlAsync(request.Url!.Trim(), fallbackCts.Token); 
+          var wikiTask = TryFindWikipediaUrlAsync(request.Url!.Trim(), fallbackCts.Token);
 
           await Task.WhenAll(wikiTask);
 
@@ -180,7 +177,7 @@ namespace maxhanna.Server.Controllers
           catch (Exception e)
           {
             _ = _log.Db($"Failed to scrape Wikipedia for keyword: {e.Message}", null, "CRAWLERCTRL", true);
-          } 
+          }
 
           if (fallbackResults.Count > 0)
           {
@@ -190,12 +187,12 @@ namespace maxhanna.Server.Controllers
         else if (lightResults != null && lightResults.Count > 0)
         {
           bool hasWikipedia = lightResults.Any(r =>
-            r.Url?.Contains("wikipedia.org/wiki/", StringComparison.OrdinalIgnoreCase) == true); 
+            r.Url?.Contains("wikipedia.org/wiki/", StringComparison.OrdinalIgnoreCase) == true);
 
           if (IsKeywordQuery(request.Url) && !searchAll)
           {
             if (!hasWikipedia)
-              _ = ScrapeWikipediaAsync(request.Url!.Trim()); 
+              _ = ScrapeWikipediaAsync(request.Url!.Trim());
           }
         }
 
@@ -902,7 +899,7 @@ namespace maxhanna.Server.Controllers
 
     private string GetConfiguredSearchProvider()
     {
-      var provider = _config["Search:Provider"]; 
+      var provider = _config["Search:Provider"];
       return string.IsNullOrWhiteSpace(provider) ? "serpapi" : provider.Trim().ToLowerInvariant();
     }
 
@@ -982,76 +979,76 @@ namespace maxhanna.Server.Controllers
     }
     private async Task<List<Metadata>> TryFindImdbUrlsAsync(string keyword, CancellationToken ct, int limit = 5)
     {
-        var results = new List<Metadata>();
-        try
-        {
-            var apiKey = GetConfiguredSearchApiKey();
-            var provider = GetConfiguredSearchProvider();
+      var results = new List<Metadata>();
+      try
+      {
+        var apiKey = GetConfiguredSearchApiKey();
+        var provider = GetConfiguredSearchProvider();
 
-            if (!string.IsNullOrWhiteSpace(apiKey) && provider.Equals("serpapi", StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(apiKey) && provider.Equals("serpapi", StringComparison.OrdinalIgnoreCase))
+        {
+          using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(1) };
+
+          // 🔎 Restrict Google to IMDB via site: operator + include_domains
+          string imdbQuery = $"site:imdb.com {keyword}";
+          string url = $"https://serpapi.com/search.json?engine=google"
+          + $"&q={Uri.EscapeDataString(imdbQuery)}"
+          + $"&include_domains=imdb.com"
+          + $"&api_key={Uri.EscapeDataString(apiKey)}"
+          + $"&google_domain=google.com&hl=en&gl=us";
+
+          _ = _log.Db($"[IMDb Search Debug] Using SerpAPI (IMDb-only) for keyword '{keyword}'", null, "CRAWLERCTRL", true);
+          using var resp = await http.GetAsync(url, ct);
+          if (resp.IsSuccessStatusCode)
+          {
+            var json = await resp.Content.ReadAsStringAsync(ct);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+
+            if (doc.RootElement.TryGetProperty("organic_results", out var items)
+            && items.ValueKind == System.Text.Json.JsonValueKind.Array)
             {
-                using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(1) };
+              foreach (var item in items.EnumerateArray().Take(limit))
+              {
+                string? urlValue = item.TryGetProperty("link", out var u) ? u.GetString() : null;
+                string? title = item.TryGetProperty("title", out var t) ? t.GetString() : null;
+                string? snippet = item.TryGetProperty("snippet", out var s) ? s.GetString() : null;
 
-                // 🔎 Restrict Google to IMDB via site: operator + include_domains
-                string imdbQuery = $"site:imdb.com {keyword}";
-                string url = $"https://serpapi.com/search.json?engine=google"
-                + $"&q={Uri.EscapeDataString(imdbQuery)}"
-                + $"&include_domains=imdb.com"
-                + $"&api_key={Uri.EscapeDataString(apiKey)}"
-                + $"&google_domain=google.com&hl=en&gl=us";
+                if (string.IsNullOrWhiteSpace(urlValue)) continue;
+                if (!urlValue.Contains("imdb.com", StringComparison.OrdinalIgnoreCase))
+                  continue;  
 
-                _ = _log.Db($"[IMDb Search Debug] Using SerpAPI (IMDb-only) for keyword '{keyword}'", null, "CRAWLERCTRL", true);
-                using var resp = await http.GetAsync(url, ct);
-                if (resp.IsSuccessStatusCode)
+                results.Add(new Metadata
                 {
-                    var json = await resp.Content.ReadAsStringAsync(ct);
-                    using var doc = System.Text.Json.JsonDocument.Parse(json);
-
-                    if (doc.RootElement.TryGetProperty("organic_results", out var items)
-                    && items.ValueKind == System.Text.Json.JsonValueKind.Array)
-                    {
-                        foreach (var item in items.EnumerateArray().Take(limit))
-                        {
-                            string? urlValue = item.TryGetProperty("link", out var u) ? u.GetString() : null;
-                            string? title = item.TryGetProperty("title", out var t) ? t.GetString() : null;
-                            string? snippet = item.TryGetProperty("snippet", out var s) ? s.GetString() : null;
-
-                            if (string.IsNullOrWhiteSpace(urlValue)) continue;
-                            if (!urlValue.Contains("imdb.com", StringComparison.OrdinalIgnoreCase))
-                            continue; // defensive filter
-
-                            results.Add(new Metadata
-                            {
-                                Url = urlValue,
-                                Title = title ?? "IMDb result",
-                                Description = snippet ?? "IMDb result",
-                                Author = "IMDB",
-                                Keywords = keyword
-                            });
-                        }
-                    }
-                }
-                else
-                {
-                    _ = _log.Db($"[Search Debug] SerpAPI lookup failed with {(int)resp.StatusCode}", null, "CRAWLERCTRL", true);
-                }
-
-                if (results.Count >0)
-                {
-                    foreach (var result in results.Where(r => !string.IsNullOrWhiteSpace(r.Url)))
-                    {
-                        _ = _webCrawler.StartScrapingAsync(result.Url!);
-                    }
-                    return results;
-                }
+                  Url = urlValue,
+                  Title = title ?? "IMDb result",
+                  Description = snippet ?? "IMDb result",
+                  Author = "IMDB",
+                  Keywords = keyword
+                });
+              }
             }
+          }
+          else
+          {
+            _ = _log.Db($"[Search Debug] SerpAPI lookup failed with {(int)resp.StatusCode}", null, "CRAWLERCTRL", true);
+          }
+
+          if (results.Count > 0)
+          {
+            foreach (var result in results.Where(r => !string.IsNullOrWhiteSpace(r.Url)))
+            {
+              _ = _webCrawler.StartScrapingAsync(result.Url!);
+            }
+            return results;
+          }
         }
-        catch (Exception ex)
-        {
-            _ = _log.Db($"TryFindImdbUrlsAsync error: {ex.Message}", null, "CRAWLERCTRL", false);
-        }
-        // Fallback to direct IMDB search via web scraping or other methods here.
-        return new List<Metadata>();
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"TryFindImdbUrlsAsync error: {ex.Message}", null, "CRAWLERCTRL", false);
+      }
+      // Fallback to direct IMDB search via web scraping or other methods here.
+      return new List<Metadata>();
     }
 
 
@@ -1568,26 +1565,26 @@ namespace maxhanna.Server.Controllers
     [HttpPost("/Crawler/IMDbLookup", Name = "IMDbLookup")]
     public async Task<IActionResult> IMDbLookup([FromBody] RedditLookupRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Keyword)) return BadRequest("Keyword is required.");
-        try
-        {
-            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(1));
-            var results = await TryFindImdbUrlsAsync(request.Keyword, cts.Token, 5);
-            if (results == null || results.Count == 0)
-            return NotFound("No IMDB entries found.");
- 
-            return Ok(results);
-        }
-        catch (Exception ex)
-        {
-            await _log.Db($"Error in IMDbLookup: {ex.Message}", null, "CRAWLER", true);
-            return StatusCode(503, "IMDB search is currently unavailable from this server.");
-        }
+      if (string.IsNullOrWhiteSpace(request.Keyword)) return BadRequest("Keyword is required.");
+      try
+      {
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(1));
+        var results = await TryFindImdbUrlsAsync(request.Keyword, cts.Token, 5);
+        if (results == null || results.Count == 0)
+          return NotFound("No IMDB entries found.");
+
+        return Ok(results);
+      }
+      catch (Exception ex)
+      {
+        await _log.Db($"Error in IMDbLookup: {ex.Message}", null, "CRAWLER", true);
+        return StatusCode(503, "IMDB search is currently unavailable from this server.");
+      }
     }
 
 
     [HttpPost("/Crawler/XLookup", Name = "XLookup")]
-    public async Task<IActionResult> XLookup([FromBody]RedditLookupRequest request)
+    public async Task<IActionResult> XLookup([FromBody] RedditLookupRequest request)
     {
       if (string.IsNullOrWhiteSpace(request.Keyword)) return BadRequest("Keyword is required.");
       try
