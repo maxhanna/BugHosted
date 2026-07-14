@@ -1128,6 +1128,16 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     } catch { }
   }
 
+  formatLogDetail(detail: any): string {
+    if (!detail) return '';
+    if (typeof detail === 'string') return detail;
+    try {
+      return JSON.stringify(detail, null, 2);
+    } catch {
+      return String(detail);
+    }
+  }
+
   fileHintsByProject(projectPath: string): any[] {
     const entry = this.fileHints.find(fh => fh.projectPath === projectPath);
     return entry?.hints || [];

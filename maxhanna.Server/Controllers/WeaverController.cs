@@ -699,8 +699,6 @@ namespace maxhanna.Server.Controllers
 			if (string.IsNullOrWhiteSpace(token) || !_sessions.TryGetValue(token, out var session))
 				return Unauthorized(new { error = "Invalid token" });
 
-			int userId = session.UserId;
-
 			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 			using var conn = new MySqlConnection(cs);
 			await conn.OpenAsync();
@@ -711,7 +709,6 @@ namespace maxhanna.Server.Controllers
 		    ORDER BY date DESC
 		    ";
 			using var cmd = new MySqlCommand(sql, conn);
-			cmd.Parameters.AddWithValue("@UserId", userId);
 			using var reader = await cmd.ExecuteReaderAsync();
 
 			var benchmarks = new List<object>();

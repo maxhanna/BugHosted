@@ -1464,6 +1464,84 @@
   }
 }
 
+/* ===== AGENT LOG ===== */
+.analysis-log {
+  margin-top: 4px;
+}
+
+.analysis-log details {
+  font-size: 12px;
+}
+
+.analysis-log summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 2px 0;
+}
+
+.log-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.log-entry {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  background: #0a0a0a;
+}
+
+.log-entry summary {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 2px 0;
+}
+
+.log-ts {
+  font-family: monospace;
+  font-size: 10px;
+  color: #666;
+  white-space: nowrap;
+}
+
+.log-msg {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.log-entry-body {
+  margin-top: 2px;
+  padding-top: 2px;
+  border-top: 1px solid var(--border);
+}
+
+.log-detail-raw {
+  font-size: 10px;
+  color: #aaa;
+  background: #050505;
+  padding: 4px 6px;
+  border-radius: 4px;
+  max-height: 120px;
+  overflow: auto;
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+.log-entry.log-warn summary { color: var(--warn); }
+.log-entry.log-error summary { color: var(--error); }
+.log-entry.log-success summary { color: var(--success); }
+.log-entry.log-phase summary { color: #64b5f6; }
+.log-entry.log-step summary { color: #ce93d8; }
+.log-entry.log-think summary { color: #81c784; }
+
 /* ===== FILE PICKER ===== */
 /* ===== BENCHMARKS ===== */
 .benchmarks-section {

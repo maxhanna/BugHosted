@@ -290,6 +290,12 @@
                     <details>
                       <summary>📜 Previous Analysis</summary>
                       <div class="analysis-summary">{{ card.agentAnalysis?.summary }}</div>
+                      <div *ngIf="card.agentAnalysis?.thinking" class="analysis-thinking">
+                        <details>
+                          <summary>🧠 Reasoning</summary>
+                          <pre>{{ card.agentAnalysis.thinking }}</pre>
+                        </details>
+                      </div>
                       <!-- Plan items from stored analysis -->
                       <div *ngIf="card.agentAnalysis?.planItems?.length" class="plan-items-list"
                         style="margin-top:6px;">
@@ -318,6 +324,22 @@
                               style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
                           </div>
                         </div>
+                      </div>
+                    </details>
+                  </div>
+                  <div *ngIf="card.agentLog?.length" class="card-analysis analysis-log">
+                    <details>
+                      <summary>📋 Log ({{ card.agentLog?.length ?? 0 }})</summary>
+                      <div class="log-entries">
+                        <details class="log-entry" *ngFor="let e of card.agentLog" [ngClass]="e.level">
+                          <summary>
+                            <span class="log-ts">{{ e.ts }}</span>
+                            <span class="log-msg">{{ e.message }}</span>
+                          </summary>
+                          <div *ngIf="e.detail" class="log-entry-body">
+                            <pre class="log-detail-raw">{{ formatLogDetail(e.detail) }}</pre>
+                          </div>
+                        </details>
                       </div>
                     </details>
                   </div>
@@ -420,6 +442,12 @@
                     <details>
                       <summary>🤖 AI Analysis</summary>
                       <div class="analysis-summary">{{ card.agentAnalysis?.summary }}</div>
+                      <div *ngIf="card.agentAnalysis?.thinking" class="analysis-thinking">
+                        <details>
+                          <summary>🧠 Reasoning</summary>
+                          <pre>{{ card.agentAnalysis.thinking }}</pre>
+                        </details>
+                      </div>
                       <div *ngIf="card.agentAnalysis?.filesEdited?.length" class="analysis-files">
                         <strong>Files:</strong>
                         <span class="file-chip" *ngFor="let f of card.agentAnalysis.filesEdited">{{ f.path || f
@@ -453,6 +481,22 @@
                               style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
                           </div>
                         </div>
+                      </div>
+                    </details>
+                  </div>
+                  <div *ngIf="card.agentLog?.length" class="card-analysis analysis-log">
+                    <details>
+                      <summary>📋 Log ({{ card.agentLog?.length ?? 0 }})</summary>
+                      <div class="log-entries">
+                        <details class="log-entry" *ngFor="let e of card.agentLog" [ngClass]="e.level">
+                          <summary>
+                            <span class="log-ts">{{ e.ts }}</span>
+                            <span class="log-msg">{{ e.message }}</span>
+                          </summary>
+                          <div *ngIf="e.detail" class="log-entry-body">
+                            <pre class="log-detail-raw">{{ formatLogDetail(e.detail) }}</pre>
+                          </div>
+                        </details>
                       </div>
                     </details>
                   </div>
@@ -568,6 +612,22 @@
                       </div>
                     </details>
                   </div>
+                  <div *ngIf="card.agentLog?.length" class="card-analysis analysis-log">
+                    <details>
+                      <summary>📋 Log ({{ card.agentLog?.length ?? 0 }})</summary>
+                      <div class="log-entries">
+                        <details class="log-entry" *ngFor="let e of card.agentLog" [ngClass]="e.level">
+                          <summary>
+                            <span class="log-ts">{{ e.ts }}</span>
+                            <span class="log-msg">{{ e.message }}</span>
+                          </summary>
+                          <div *ngIf="e.detail" class="log-entry-body">
+                            <pre class="log-detail-raw">{{ formatLogDetail(e.detail) }}</pre>
+                          </div>
+                        </details>
+                      </div>
+                    </details>
+                  </div>
                   <div class="card-actions">
                     <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← Reopen</button>
                     <button (click)="archiveCard(card.id, 'done')" class="btn btn-xs btn-ghost">🗄 Archive</button>
@@ -633,6 +693,12 @@
                     <details>
                       <summary>🤖 AI Analysis</summary>
                       <div class="analysis-summary">{{ card.agentAnalysis?.summary }}</div>
+                      <div *ngIf="card.agentAnalysis?.thinking" class="analysis-thinking">
+                        <details>
+                          <summary>🧠 Reasoning</summary>
+                          <pre>{{ card.agentAnalysis.thinking }}</pre>
+                        </details>
+                      </div>
                       <div *ngIf="card.agentAnalysis?.planItems?.length" class="plan-items-list"
                         style="margin-top:6px;">
                         <div *ngFor="let item of card.agentAnalysis.planItems" class="plan-item-row"
@@ -659,6 +725,22 @@
                               style="font-size:9px;margin:2px 0;max-height:80px;overflow:auto;white-space:pre-wrap;">{{ s.output }}</pre>
                           </div>
                         </div>
+                      </div>
+                    </details>
+                  </div>
+                  <div *ngIf="card.agentLog?.length" class="card-analysis analysis-log">
+                    <details>
+                      <summary>📋 Log ({{ card.agentLog?.length ?? 0 }})</summary>
+                      <div class="log-entries">
+                        <details class="log-entry" *ngFor="let e of card.agentLog" [ngClass]="e.level">
+                          <summary>
+                            <span class="log-ts">{{ e.ts }}</span>
+                            <span class="log-msg">{{ e.message }}</span>
+                          </summary>
+                          <div *ngIf="e.detail" class="log-entry-body">
+                            <pre class="log-detail-raw">{{ formatLogDetail(e.detail) }}</pre>
+                          </div>
+                        </details>
                       </div>
                     </details>
                   </div>
@@ -702,6 +784,28 @@
                     <details>
                       <summary>🤖 AI Analysis</summary>
                       <div class="analysis-summary">{{ card.agentAnalysis?.summary }}</div>
+                      <div *ngIf="card.agentAnalysis?.thinking" class="analysis-thinking">
+                        <details>
+                          <summary>🧠 Reasoning</summary>
+                          <pre>{{ card.agentAnalysis.thinking }}</pre>
+                        </details>
+                      </div>
+                    </details>
+                  </div>
+                  <div *ngIf="card.agentLog?.length" class="card-analysis analysis-log">
+                    <details>
+                      <summary>📋 Log ({{ card.agentLog?.length ?? 0 }})</summary>
+                      <div class="log-entries">
+                        <details class="log-entry" *ngFor="let e of card.agentLog" [ngClass]="e.level">
+                          <summary>
+                            <span class="log-ts">{{ e.ts }}</span>
+                            <span class="log-msg">{{ e.message }}</span>
+                          </summary>
+                          <div *ngIf="e.detail" class="log-entry-body">
+                            <pre class="log-detail-raw">{{ formatLogDetail(e.detail) }}</pre>
+                          </div>
+                        </details>
+                      </div>
                     </details>
                   </div>
                   <div class="card-actions">
