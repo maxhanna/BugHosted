@@ -259,21 +259,9 @@ namespace maxhanna.Server.Controllers
 			using var conn = new MySqlConnection(cs);
 			await conn.OpenAsync();
 
-			string sql;
-			if (!string.IsNullOrWhiteSpace(clientId))
-			{
-				sql = "SELECT id, command, params, created_at FROM maxhanna.weaver_remote_command WHERE user_id = @UserId AND client_id = @ClientId AND status = 'pending' ORDER BY id ASC";
-			}
-			else
-			{
-				sql = "SELECT id, command, params, created_at FROM maxhanna.weaver_remote_command WHERE user_id = @UserId AND status = 'pending' ORDER BY id ASC";
-			}
+			string sql = "SELECT id, command, params, created_at FROM maxhanna.weaver_remote_command WHERE user_id = @UserId AND status = 'pending' ORDER BY id ASC";
 			using var cmd = new MySqlCommand(sql, conn);
 			cmd.Parameters.AddWithValue("@UserId", session.UserId);
-			if (!string.IsNullOrWhiteSpace(clientId))
-			{
-				cmd.Parameters.AddWithValue("@ClientId", clientId);
-			}
 			using var reader = await cmd.ExecuteReaderAsync();
 
 			var commands = new List<object>();
@@ -332,10 +320,9 @@ namespace maxhanna.Server.Controllers
 			using var conn = new MySqlConnection(cs);
 			await conn.OpenAsync();
 
-			string sql = "INSERT INTO maxhanna.weaver_remote_command (user_id, client_id, command, params, status, created_at) VALUES (@UserId, @ClientId, @Command, @Params, 'pending', UTC_TIMESTAMP())";
+			string sql = "INSERT INTO maxhanna.weaver_remote_command (user_id, command, params, status, created_at) VALUES (@UserId, @Command, @Params, 'pending', UTC_TIMESTAMP())";
 			using var cmd = new MySqlCommand(sql, conn);
 			cmd.Parameters.AddWithValue("@UserId", session.UserId);
-			cmd.Parameters.AddWithValue("@ClientId", req.ClientId ?? "");
 			cmd.Parameters.AddWithValue("@Command", req.Command);
 			cmd.Parameters.AddWithValue("@Params", req.Params ?? "");
 			await cmd.ExecuteNonQueryAsync();
