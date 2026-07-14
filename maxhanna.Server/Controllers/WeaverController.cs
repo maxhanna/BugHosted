@@ -155,7 +155,6 @@ namespace maxhanna.Server.Controllers
 						var cached = await checkCmd.ExecuteScalarAsync();
 						if (cached != null)
 						{
-							Console.WriteLine("Ignored heartbeat from " + remoteIp);
 							return Ok(new { status = "ok" });
 						}
 					}
