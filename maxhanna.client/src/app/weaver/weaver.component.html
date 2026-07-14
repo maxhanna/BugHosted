@@ -876,6 +876,32 @@
           <div *ngIf="commands.length === 0" class="col-empty">No pending commands</div>
         </details>
       </div>
+
+      <!-- Benchmarks section -->
+      <div class="benchmarks-section">
+        <details>
+          <summary>📊 Benchmarks ({{ benchmarks.length }})</summary>
+          <div *ngIf="benchmarks.length === 0" class="col-empty">No benchmarks yet</div>
+          <div *ngFor="let b of benchmarks" class="benchmark-item">
+            <div class="benchmark-header">
+              <span class="benchmark-name">{{ b.benchmarkName }}</span>
+              <span class="benchmark-date">{{ b.date }}</span>
+            </div>
+            <div class="benchmark-details">
+              <span *ngIf="b.status" class="benchmark-badge" [class.benchmark-pass]="b.status === 'pass'" [class.benchmark-fail]="b.status === 'fail'">{{ b.status }}</span>
+              <span *ngIf="b.score > 0">Score: {{ b.score }}</span>
+              <span *ngIf="b.duration">Duration: {{ b.duration }}</span>
+              <span *ngIf="b.model">Model: {{ b.model }}</span>
+            </div>
+            <div class="benchmark-specs" *ngIf="b.os || b.cpu || b.ram || b.gpu">
+              <span *ngIf="b.os">{{ b.os }}</span>
+              <span *ngIf="b.cpu">{{ b.cpu }}</span>
+              <span *ngIf="b.ram">{{ b.ram }}</span>
+              <span *ngIf="b.gpu">{{ b.gpu }}</span>
+            </div>
+          </div>
+        </details>
+      </div>
     </div>
   </div>
 

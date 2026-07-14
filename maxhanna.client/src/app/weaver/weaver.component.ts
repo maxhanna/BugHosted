@@ -1,5 +1,5 @@
 ﻿import { Component, Input, OnDestroy, OnInit } from '@angular/core';
-import { WeaverService, WeaverCard, WeaverProject, KanbanPayload, IdeFileEntry, IdeTab, EditorState } from '../../services/weaver.service';
+import { WeaverService, WeaverCard, WeaverProject, KanbanPayload, IdeFileEntry, IdeTab, EditorState, BenchmarkEntry } from '../../services/weaver.service';
 import { AppComponent } from '../app.component';
 import { ChildComponent } from '../child.component';
 
@@ -71,6 +71,9 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   fileHints: any[] = [];
   fileHintsDirty = false;
   fileHintsLoading = false;
+
+  benchmarks: BenchmarkEntry[] = [];
+  benchmarkPanelOpen = false;
 
   // --- IDE state ---
   ideSidebarOpen = false;
@@ -407,6 +410,8 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
         this.settingsRaw = null;
         this.settingsUpdatedAt = '';
       }
+      // Load benchmarks
+      this.loadBenchmarks();
       // Clean up cardCommandMap for commands no longer pending
       for (const cardId in this.cardCommandMap) {
         const cmdId = this.cardCommandMap[cardId];
@@ -1114,6 +1119,13 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
       this.fileHints = this.projects.map(p => ({ projectPath: p.path, hints: [] }));
     }
     this.fileHintsLoading = false;
+  }
+
+  async loadBenchmarks() {
+    if (!this.token) return;
+    try {
+      this.benchmarks = await this.weaverService.getBenchmarks(this.token);
+    } catch { }
   }
 
   fileHintsByProject(projectPath: string): any[] {

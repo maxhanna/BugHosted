@@ -67,6 +67,21 @@ export interface IdeTab {
   loading: boolean;
 }
 
+export interface BenchmarkEntry {
+  id: number;
+  date: string;
+  benchmarkName: string;
+  steps: number;
+  score: number;
+  status: string;
+  duration: string;
+  model: string;
+  os: string;
+  cpu: string;
+  ram: string;
+  gpu: string;
+}
+
 export interface EditorState {
   currentFile: string | null;
   openFiles: string[];
@@ -224,5 +239,24 @@ export class WeaverService {
       });
       return res.ok;
     } catch { return false; }
+  }
+
+  async getBenchmarks(token: string): Promise<BenchmarkEntry[]> {
+    const res = await fetch(`/weaver/benchmarks?token=${encodeURIComponent(token)}`);
+    if (!res.ok) throw new Error('Failed to fetch benchmarks');
+    return res.json();
+  }
+
+  async addBenchmark(token: string, benchmark: any): Promise<{ message: string }> {
+    const res = await fetch('/weaver/addbenchmark', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ Token: token, ...benchmark }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to add benchmark');
+    }
+    return res.json();
   }
 }

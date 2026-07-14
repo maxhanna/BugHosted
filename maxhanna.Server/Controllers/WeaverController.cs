@@ -654,6 +654,17 @@ namespace maxhanna.Server.Controllers
 			using var conn = new MySqlConnection(cs);
 			await conn.OpenAsync();
 
+			string checkSql = @"
+				SELECT COUNT(1) FROM maxhanna.weaver_benchmark_data
+				WHERE user_id = @UserId AND benchmark_name = @BenchmarkName AND duration = @Duration";
+			using var checkCmd = new MySqlCommand(checkSql, conn);
+			checkCmd.Parameters.AddWithValue("@UserId", userId);
+			checkCmd.Parameters.AddWithValue("@BenchmarkName", benchmark.Benchmark);
+			checkCmd.Parameters.AddWithValue("@Duration", benchmark.Duration ?? "");
+			var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
+			if (count > 0)
+				return Conflict(new { error = "Benchmark data already exists" });
+
 			string sql = @"
 		     INSERT INTO maxhanna.weaver_benchmark_data(user_id, date, benchmark_name, steps, score, status, duration, model, os, cpu, ram, gpu)
 		     VALUES(@UserId, UTC_TIMESTAMP(), @BenchmarkName, @Steps, @Score, @Status, @Duration, @Model, @Os, @Cpu, @Ram, @Gpu)";
