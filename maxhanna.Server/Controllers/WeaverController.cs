@@ -722,7 +722,7 @@ namespace maxhanna.Server.Controllers
 		            id = reader.GetInt32("id"),
 		            date = reader.GetDateTime("date").ToString("yyyy-MM-dd HH:mm:ss"),
 		            benchmarkName = reader.GetString("benchmark_name"),
-		            steps = reader.IsDBNull(reader.GetOrdinal("steps")) ? 0 : reader.GetInt32("steps"),
+		            steps = reader.IsDBNull(reader.GetOrdinal("steps")) ? "0" : reader.GetString("steps"),
 		            score = reader.IsDBNull(reader.GetOrdinal("score")) ? 0.0f : reader.GetFloat("score"),
 		            status = reader.GetString("status"),
 		            duration = reader.IsDBNull(reader.GetOrdinal("duration")) ? "" : reader.GetString("duration"),
