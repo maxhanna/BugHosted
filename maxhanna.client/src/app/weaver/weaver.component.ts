@@ -366,7 +366,9 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
               this.remoteEditorState = es;
             } catch { }
           }
-        } catch { }
+        } catch (e) {
+          console.error('Failed to parse kanbanData:', e);
+        }
       }
       // Process fulfilled file requests delivered via heartbeat
       if (hb.fileRequests && Array.isArray(hb.fileRequests)) {

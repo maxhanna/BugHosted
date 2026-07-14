@@ -133,28 +133,25 @@ namespace maxhanna.Server.Controllers
 					using var conn = new MySqlConnection(cs);
 					await conn.OpenAsync();
 
-					// Cache check
+					// Cache check: skip INSERT if this user+client has sent a heartbeat in the last 5 minutes
 					using (var checkConn = new MySqlConnection(cs))
 					{
 						await checkConn.OpenAsync();
 						using var checkCmd = new MySqlCommand(
 							@"SELECT EXISTS (
 								SELECT 1
-								FROM users u
-								LEFT JOIN maxhanna.weaver_heartbeat h
-								ON h.user_id = u.id
+								FROM maxhanna.weaver_heartbeat h
+								WHERE h.user_id = @UserId
 								AND h.client_id = @ClientId
-								WHERE u.id = @ClientId
-								AND (
-									h.last_heartbeat >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)
-									OR u.last_seen < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)
-								)
+								AND h.last_heartbeat >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)
 							) AS result;",
 							checkConn);
-						checkCmd.Parameters.AddWithValue("@ClientId", req.ClientId);
+						checkCmd.Parameters.AddWithValue("@UserId", session.UserId);
+						checkCmd.Parameters.AddWithValue("@ClientId", req.ClientId ?? "");
 						var cached = await checkCmd.ExecuteScalarAsync();
-						if (cached != null)
+						if (cached is long l && l == 1)
 						{
+							Console.WriteLine("Ignored heartbeat from " + remoteIp);
 							return Ok(new { status = "ok" });
 						}
 					}
