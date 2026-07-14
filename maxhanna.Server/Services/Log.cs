@@ -218,12 +218,13 @@ public class Log
         var affected = await cmd.ExecuteNonQueryAsync(ct);
         totalDeleted += affected;
         Console.WriteLine($"Deleted {affected} old log(s) in this batch. Total deleted so far: {totalDeleted}.");
-        if (affected == 0)
+        
+        if (affected < batchSize)
         {
-          Console.WriteLine("No more logs to delete. Exiting deletion loop.");
-          break; // finished this slice
+          Console.WriteLine("No more logs to delete.");
+          break;  
         }
-        // small pause to reduce lock contention (optional)
+
         await Task.Delay(50, ct);
       }
 

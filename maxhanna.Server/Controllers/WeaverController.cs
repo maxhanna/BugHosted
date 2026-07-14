@@ -723,7 +723,7 @@ namespace maxhanna.Server.Controllers
 				bench.Steps = reader.IsDBNull(reader.GetOrdinal("steps")) ? "0" : reader.GetString("steps");
 				bench.Score = reader.IsDBNull(reader.GetOrdinal("score")) ? 0.0f : reader.GetFloat("score");
 				bench.Status = reader.GetString("status");
-				bench.Duration = reader.IsDBNull(reader.GetOrdinal("duration")) ? "" : reader.GetString("duration");
+				bench.Duration = reader.IsDBNull(reader.GetOrdinal("duration")) ? "" : reader.GetInt32("duration").ToString();
 				bench.Model = reader.IsDBNull(reader.GetOrdinal("model")) ? "" : reader.GetString("model");
 				bench.OS = reader.IsDBNull(reader.GetOrdinal("os")) ? "" : reader.GetString("os");
 				bench.CPU = reader.IsDBNull(reader.GetOrdinal("cpu")) ? "" : reader.GetString("cpu");
