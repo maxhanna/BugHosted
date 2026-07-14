@@ -203,8 +203,7 @@
           <div class="dash-header-left">
             <span class="dash-subtitle">Connection Status:</span>
             <span class="status-dot" [class.online]="isOnline()" [class.offline]="!isOnline()"
-              title="Connection status"></span>
-            <span class="client-id" *ngIf="clientId">{{ clientId.slice(0,8) }}…</span>
+              title="Connection status: {{ isOnline() ? 'Online' : 'Offline' }}"></span> 
           </div>
           <input [value]="searchFilter" (input)="onSearchFilterChange($event)" placeholder="Search cards…"
             class="weaver-input weaver-input-sm" />

@@ -1622,7 +1622,7 @@
   gap: 6px;
   flex-wrap: wrap;
   font-size: 11px;
-  color: #666;
+  color: var(--brand-primary);
   font-family: monospace;
   margin-top: 2px;
 }
