@@ -5,12 +5,14 @@
   </app-title-bar>
 
   <div class="xxSmallFont nbDiv" [style.margin-Top]="onlySearch ? '-20px' : ''">
-    <div *ngIf="!searchResults.length && !onMobile() && !onlySearch">Total indexes: {{indexCount}} ({{youtubeResults.length}} YouTube results)</div>
-    <div *ngIf="searchResults?.length && !onMobile() && !onlySearch">Search results: {{totalResults}} ({{youtubeResults.length}} YouTube results)</div>
+    <div *ngIf="!searchResults.length && !onMobile() && !onlySearch">Total indexes: {{indexCount}}
+      ({{youtubeResults.length}} YouTube results)</div>
+    <div *ngIf="searchResults?.length && !onMobile() && !onlySearch">Search results: {{totalResults}}
+      ({{youtubeResults.length}} YouTube results)</div>
   </div>
 
-  <div *ngIf="(onMobile() || onlySearch) && searchResults?.length"
-    class="xxSmallFont">Search results: {{ totalResults }} ({{ youtubeResults.length }} YouTube results)
+  <div *ngIf="(onMobile() || onlySearch) && searchResults?.length" class="xxSmallFont">Search results: {{ totalResults
+    }} ({{ youtubeResults.length }} YouTube results)
   </div>
 
   <div class="crawler-container" [style.position]="onlySearch ? 'relative' : ''"
@@ -24,8 +26,7 @@
       <div [class]="!onlySearch ? 'crawlerInputs' : 'searchOnlyCrawlerInputs'">
         <div style="display:flex; flex-direction: column; gap: 8px; align-items: center;">
           <div>
-            <input #keywordsInput type="text" 
-              placeholder="Search Title/Description/URL"
+            <input #keywordsInput type="text" placeholder="Search Title/Description/URL"
               (keydown.enter)="searchKeywords()" />
             <button (click)="searchKeywords()"
               [disabled]="isLoading || !(keywordsInput?.value && keywordsInput.value.trim())">
@@ -33,9 +34,10 @@
             </button>
           </div>
         </div>
-        <button (click)="addWithoutSearch()" [disabled]="isLoading || !(keywordsInput?.value && keywordsInput.value.trim())"
-          *ngIf="onlySearch" title="Add without searching">＋</button>
-      </div> 
+        <button (click)="addWithoutSearch()"
+          [disabled]="isLoading || !(keywordsInput?.value && keywordsInput.value.trim())" *ngIf="onlySearch"
+          title="Add without searching">＋</button>
+      </div>
     </div>
 
     <div *ngIf="isLoading" class="loadingNotificationDiv">
@@ -53,7 +55,8 @@
 
     <div *ngIf="error" class="error-message">{{ error }}</div>
 
-    <div class="metadataSearchWrapper" [style.opacity]="(isLoading && isSearchingYoutube && isSearchingReddit) ? 0.5 : 1"
+    <div class="metadataSearchWrapper"
+      [style.opacity]="(isLoading && isSearchingYoutube && isSearchingReddit) ? 0.5 : 1"
       [style.max-Height]="onlySearch ? '30vh' : ''">
 
       <div *ngIf="youtubeResults?.length" class="metadataSearchWrapper" [style.opacity]="isSearchingYoutube ? 0.5 : 1"
@@ -73,7 +76,8 @@
               <div *ngIf="video.description" class="descriptionDiv descriptClass">{{ video.description }}</div>
             </div>
             <div class="imageUrlPictureDiv">
-              <a [attr.href]="video.url" target="_blank" [title]="video.title" (click)="openYoutubePopup($event, video.url)">
+              <a [attr.href]="video.url" target="_blank" [title]="video.title"
+                (click)="openYoutubePopup($event, video.url)">
                 <img [src]="video.thumbnailUrl" [attr.loading]="'lazy'" [title]="video.title"
                   (error)="video.thumbnailUrl = ''" />
               </a>
@@ -81,21 +85,40 @@
           </div>
           <div style="text-align: center; margin-top:10px;" *ngIf="youtubeResults.length >1">
             <button (click)="showMoreYoutube()">
-              Display {{ youtubeDisplayLimit > 1 ? "less" : "more" }} YouTube results {{ youtubeDisplayLimit === 1 ? ("(" +
+              Display {{ youtubeDisplayLimit > 1 ? "less" : "more" }} YouTube results {{ youtubeDisplayLimit === 1 ?
+              ("(" +
               (youtubeResults.length - 1) + ")") : ""}}
             </button>
           </div>
         </div>
       </div>
-      
+
+      <div *ngIf="imdbResults.length" class="metadataSearchWrapper" [style.opacity]="isSearchingImdb ?0.5 :1"
+        [style.max-Height]="onlySearch ? '30vh' : ''">
+        <div class="metadataSearchDiv gradientBackground">
+          <div class="groupDomainTitle">IMDB Results</div>
+          <div *ngFor="let result of imdbResults.slice(0, imdbDisplayLimit)" class="groupLinkWrapperDiv">
+            <app-crawler-search-results style="width:100%" [result]="result"
+              [inputtedParentRef]="inputtedParentRef ?? parentRef" [onlySearch]="onlySearch" [hideStatus]="true"
+              [displaySocialResults]="false" (urlSelectedEvent)="visitExternalLink($event)">
+            </app-crawler-search-results>
+          </div>
+          <div style="text-align: center; margin-top:10px;" *ngIf="imdbResults.length > imdbDisplayLimit">
+            <button (click)="showMoreImdb()">
+              Display {{ imdbDisplayLimit >1 ? "less" : "more" }} IMDB results {{ imdbDisplayLimit === 1 ? ("(" +
+              (imdbResults.length -1) + ")") : ""}}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div *ngIf="socialResults?.length" class="metadataSearchWrapper" [style.max-Height]="onlySearch ? '30vh' : ''">
         <div class="metadataSearchDiv gradientBackground">
           <div class="groupDomainTitle">Reddit, X, Facebook Results</div>
           <div *ngFor="let result of socialResults.slice(0, socialDisplayLimit)" class="groupLinkWrapperDiv">
             <app-crawler-search-results style="width:100%" [result]="result"
               [inputtedParentRef]="inputtedParentRef ?? parentRef" [onlySearch]="onlySearch" [hideStatus]="true"
-              [displaySocialResults]="true"
-              (urlSelectedEvent)="visitExternalLink($event)">
+              [displaySocialResults]="true" (urlSelectedEvent)="visitExternalLink($event)">
             </app-crawler-search-results>
           </div>
           <div style="text-align: center; margin-top:10px;" *ngIf="socialResults.length > socialDisplayLimit">
@@ -131,9 +154,11 @@
       <div *ngIf="!onlySearch" (click)="seeNew()" class="cursorPointer linkTextDecoration">See the latest indexes.</div>
     </div>
   </div>
-  <div *ngIf="!searchResults.length && (onMobile() || onlySearch)" class="xxSmallFont">Total indexes: {{indexCount}} ({{youtubeResults.length}} YouTube results)
+  <div *ngIf="!searchResults.length && (onMobile() || onlySearch)" class="xxSmallFont">Total indexes: {{indexCount}}
+    ({{youtubeResults.length}} YouTube results)
   </div>
-  <div *ngIf="searchResults?.length && (onMobile() || onlySearch)" class="xxSmallFont">Search results: {{totalResults}} ({{youtubeResults.length}} YouTube results)
+  <div *ngIf="searchResults?.length && (onMobile() || onlySearch)" class="xxSmallFont">Search results: {{totalResults}}
+    ({{youtubeResults.length}} YouTube results)
   </div>
 </div>
 
@@ -146,7 +171,7 @@
       <option *ngFor="let size of pageSizes" [value]="size" [selected]="size === pageSize">{{ size }}</option>
     </select>
   </div>
- 
+
   <div class="popupPanelTitle">Database Nerd Stats:</div>
   <div *ngIf="isLoading" class="optionsStatsWrapperDiv">
     <div class="optionsStatsDiv">

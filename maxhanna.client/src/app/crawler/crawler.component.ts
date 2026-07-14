@@ -49,7 +49,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   redditDisplayLimit = 1;
   isSearchingX: boolean = false;
   xDisplayLimit: number = 1;
-  isSearchingIMDB: boolean = false
+  isSearchingImdb: boolean = false
   imdbResults: MetaData[] = [];
   imdbDisplayLimit: number = 1;
   private socialDomains = ['reddit.com', 'www.reddit.com', 'twitter.com', 'www.twitter.com', 'x.com', 'www.x.com', 'facebook.com', 'www.facebook.com'];
@@ -421,6 +421,13 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
 
   showMoreSocial() {
     this.socialDisplayLimit += 10;
+  }
+  showMoreImdb() {
+      if (this.imdbDisplayLimit >1) {
+          this.imdbDisplayLimit = 1;
+    } else {
+          this.imdbDisplayLimit = Math.min(this.imdbResults.length, this.imdbDisplayLimit +5);
+    }
   }
 
   onPageChange(page?: number) {
