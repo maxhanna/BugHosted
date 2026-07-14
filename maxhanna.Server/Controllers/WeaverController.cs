@@ -656,10 +656,9 @@ namespace maxhanna.Server.Controllers
 
 			string sql = @"
 		     INSERT INTO maxhanna.weaver_benchmark_data(user_id, date, benchmark_name, steps, score, status, duration, model, os, cpu, ram, gpu)
-		     VALUES(@UserId, @Date, @BenchmarkName, @Steps, @Score, @Status, @Duration, @Model, @Os, @Cpu, @Ram, @Gpu)";
+		     VALUES(@UserId, UTC_TIMESTAMP(), @BenchmarkName, @Steps, @Score, @Status, @Duration, @Model, @Os, @Cpu, @Ram, @Gpu)";
 			using var cmd = new MySqlCommand(sql, conn);
-			cmd.Parameters.AddWithValue("@UserId", userId);
-			cmd.Parameters.AddWithValue("@Date", benchmark.Date);
+			cmd.Parameters.AddWithValue("@UserId", userId); 
 			cmd.Parameters.AddWithValue("@BenchmarkName", benchmark.Benchmark);
 			cmd.Parameters.AddWithValue("@Steps", benchmark.Steps);
 			cmd.Parameters.AddWithValue("@Score", benchmark.Score);
