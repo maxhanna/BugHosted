@@ -256,3 +256,31 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.savedSearchSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+}
+
+.savedSearchSection label {
+  font-weight: bold;
+}
+
+.savedSearchSection input {
+  width: 100%;
+  padding: 6px;
+  box-sizing: border-box;
+}
+
+.savedSearchButtons {
+  display: flex;
+  gap: 10px;
+}
+
+.savedSearchButtons button {
+  flex: 1;
+  padding: 6px 12px;
+  cursor: pointer;
+}

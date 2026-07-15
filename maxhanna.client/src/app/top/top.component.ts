@@ -6,6 +6,7 @@ import { MetaData } from '../../services/datacontracts/social/story';
 import { TopicService } from '../../services/topic.service';
 import { TopicsComponent } from '../topics/topics.component';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
 
 @Component({
   selector: 'app-top',
@@ -346,5 +347,12 @@ export class TopComponent extends ChildComponent implements OnInit {
   }
   onUrlInputChange(event: Event) {
     this.cd.detectChanges();
+  }
+  getEditingFile(entryFile: any) {
+    var fileId = entryFile?.fileId;
+    if (fileId) {
+      return new FileEntry(fileId);
+    }
+    return null;
   }
 }

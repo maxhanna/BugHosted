@@ -3,10 +3,17 @@
   </app-title-bar>
 
   <div *ngIf="isMenuPanelOpen" class="popupPanel overlayPopupPanel newsFilteringOptionsDiv">
-    <span class="popupPanelTitle"></span> <!-- Empty title as placeholder -->
+    <span class="popupPanelTitle">Menu</span>
     <button class="closeButton popupPanelCloseButton" type="button" (click)="closeMenuPanel()">×</button>
 
-    <!-- Filter options would go here in a real implementation -->
+    <div class="savedSearchSection">
+      <label>Saved Keywords</label>
+      <input type="text" [value]="defaultSearch" placeholder="Comma-separated keywords" #defaultSearchInput />
+      <div class="savedSearchButtons">
+        <button (click)="saveDefaultSearch()">💾 Save</button>
+        <button (click)="reloadSavedSearch()">🔄 Reload</button>
+      </div>
+    </div>
 
   </div>
 
@@ -18,14 +25,6 @@
         </td>
         <td>
           <button (click)="searchByKeyword()">🔍Keywords</button>
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <input type="text" [value]="defaultSearch" placeholder="Saved search (comma sep.)" #defaultSearchInput />
-        </td>
-        <td>
-          <button (click)="saveDefaultSearch()">💾Saved</button>
         </td>
       </tr>
     </table>

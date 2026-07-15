@@ -162,6 +162,13 @@ export class NewsComponent extends ChildComponent implements OnInit {
       return authors.join(', ');
     }
   } 
+  reloadSavedSearch() {
+    const savedValue = this.defaultSearchInput.nativeElement.value;
+    this.searchKeywords.nativeElement.value = savedValue;
+    this.searchByKeyword();
+    this.closeMenuPanel();
+  }
+
   saveDefaultSearch() {
     const text = this.defaultSearchInput.nativeElement.value;
     if (this.parentRef?.user?.id) {
