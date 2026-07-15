@@ -34,7 +34,7 @@
       <app-user-tag [user]="user" 
         [inputtedParentRef]="parentRef" 
         [displayMiniTag]="true"
-        [displayHoverPicture]="true"
+        [displayHoverPicture]="!searchOnly"
         [preventOpenProfile]="true" 
         [preventExpandPicture]="true"></app-user-tag>
       <span
@@ -69,7 +69,7 @@
       <app-user-tag [user]="user"
                     [inputtedParentRef]="inputtedParentRef ?? parentRef"
                     [displayMiniTag]="true"
-                    [displayHoverPicture]="true"
+                    [displayHoverPicture]="!searchOnly"
                     [preventOpenProfile]="true"
                     [preventExpandPicture]="true"></app-user-tag>   
     </span>
@@ -98,7 +98,7 @@
             <app-user-tag [user]="user"
                           [inputtedParentRef]="inputtedParentRef ?? parentRef"
                           [displayMiniTag]="true"
-                          [displayHoverPicture]="true"
+                          [displayHoverPicture]="!searchOnly"
                           [preventOpenProfile]="true"
                           [preventExpandPicture]="true"
                           [displayOnlyAvatar]="true"></app-user-tag>
