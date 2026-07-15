@@ -287,7 +287,9 @@ namespace maxhanna.Server.Controllers
 				cmd.Parameters.AddWithValue("@Owner", note.userId);
 				if (await cmd.ExecuteNonQueryAsync() > 0)
 				{
-					return Ok();
+					cmd.CommandText = "SELECT LAST_INSERT_ID();";
+					var newId = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+					return Ok(newId);
 				}
 				else
 				{

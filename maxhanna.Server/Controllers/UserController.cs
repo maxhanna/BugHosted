@@ -4,6 +4,7 @@ using maxhanna.Server.Controllers.DataContracts.Weather;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
+using System.Collections.Concurrent;
 using System.Data;
 using System.Security.Cryptography;
 using System.Text;
@@ -31,6 +32,14 @@ namespace maxhanna.Server.Controllers
         "page_size",
         "weekly_digest_enabled"
     };
+
+    private static readonly ConcurrentDictionary<int, LoginPinState> _loginPinStates = new();
+
+    private class LoginPinState
+    {
+        public int FailedAttempts { get; set; }
+        public string? RequiredPin { get; set; }
+    }
 
     public UserController(IHttpClientFactory httpClientFactory, Log log, IConfiguration config, maxhanna.Server.Services.EmailService emailService)
     {
@@ -934,6 +943,11 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+    private static string GenerateLoginPin()
+    {
+      return Random.Shared.Next(100000, 999999).ToString();
+    }
+
 
     [HttpPatch(Name = "UpdateUser")]
     public async Task<IActionResult> UpdateUser([FromBody] User user, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
@@ -1518,6 +1532,7 @@ namespace maxhanna.Server.Controllers
       string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
       body.TryGetValue("username", out var username);
       body.TryGetValue("password", out var password);
+      body.TryGetValue("pin", out var pin);
       using (MySqlConnection conn = new MySqlConnection(connectionString))
       {
         try
@@ -1591,12 +1606,36 @@ namespace maxhanna.Server.Controllers
                 }
               }
 
-              // Step 2: Hash the input password with the stored salt
+              // Step 2: Check PIN state - after 2 wrong attempts, require a PIN
+              var pinState = _loginPinStates.GetOrAdd(userId, _ => new LoginPinState());
+              if (pinState.FailedAttempts >= 2)
+              {
+                var storedPinHash = HashPassword(pinState.RequiredPin ?? "", storedSalt);
+                var inputPinHash = HashPassword(pin ?? "", storedSalt);
+                if (string.IsNullOrEmpty(pin) || !storedPinHash.Equals(inputPinHash, StringComparison.Ordinal))
+                {
+                  var newPin = GenerateLoginPin();
+                  pinState.RequiredPin = newPin;
+                  pinState.FailedAttempts++;
+                  return StatusCode(428, new { requirePin = true, pin = newPin });
+                }
+              }
+
+              // Step 3: Hash the input password with the stored salt
               string inputHashedPassword = HashPassword(password ?? "", storedSalt);
 
-              // Step 3: Compare the hashed input password with the stored hash
+              // Step 4: Compare the hashed input password with the stored hash
               if (!storedHash.Equals(inputHashedPassword, StringComparison.Ordinal))
               {
+                pinState.FailedAttempts++;
+
+                if (pinState.FailedAttempts >= 2)
+                {
+                  var newPin = GenerateLoginPin();
+                  pinState.RequiredPin = newPin;
+                  return StatusCode(428, new { requirePin = true, pin = newPin });
+                }
+
                 // Check if this IP is known for this user
                 string knownIpSql = "SELECT COUNT(*) FROM maxhanna.user_ip_log WHERE user_id = @UserId AND ip_address = @IpAddress;";
                 bool isKnownIp = false;
@@ -1646,6 +1685,9 @@ namespace maxhanna.Server.Controllers
 
                 return Unauthorized("Invalid username or password.");
               }
+
+              // Successful login - clear PIN state
+              _loginPinStates.TryRemove(userId, out _);
 
               // Log IP address on successful login (once per user+ip pair)
               string insertIpSql = "INSERT IGNORE INTO maxhanna.user_ip_log (user_id, ip_address, created_at) VALUES (@UserId, @IpAddress, UTC_TIMESTAMP());";

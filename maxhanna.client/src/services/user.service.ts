@@ -64,17 +64,23 @@ export class UserService {
     }
   }
 
-  async login(username: string, password: string): Promise<User | { isLocked: boolean; lockedAt: string; reason: string; hasPendingAppeal: boolean } | undefined> {
+  async login(username: string, password: string, pin?: string): Promise<User | { isLocked: boolean; lockedAt: string; reason: string; hasPendingAppeal: boolean } | { requirePin: true; pin: string } | undefined> {
     try {
+      const body: any = { username, password };
+      if (pin) { body.pin = pin; }
       const response = await fetch('/user', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify(body),
       });
 
       if (response.status === 423) {
+        return await response.json();
+      }
+
+      if (response.status === 428) {
         return await response.json();
       }
 

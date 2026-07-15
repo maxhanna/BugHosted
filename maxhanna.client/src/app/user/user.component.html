@@ -193,6 +193,11 @@
                 (input)="onLoginUsernameInput($event)" (keydown.enter)="login()" [disabled]="isLoading" />
               <input type="password" id="passwordInput" name="password" placeholder="Password" #loginPassword
                 (keydown.enter)="login()" [disabled]="isLoading" />
+              <div *ngIf="loginPinRequired" class="pinSection">
+                <div class="pinDisplay">PIN: <strong>{{ loginServerPin }}</strong></div>
+                <input type="text" id="loginPinInput" name="pin" placeholder="Retype PIN" #loginPin
+                  [(ngModel)]="loginPinValue" (keydown.enter)="login()" [disabled]="isLoading" />
+              </div>
               <div>
                 <input type="submit" value="🔑 Login" [disabled]="isLoading" />
                 <input type="button" value="👤➕ Create User" (click)="createUser()" [disabled]="isLoading" />

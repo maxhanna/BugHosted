@@ -52,6 +52,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
 
   @ViewChild('loginUsername') loginUsername!: ElementRef<HTMLInputElement>;
   @ViewChild('loginPassword') loginPassword!: ElementRef<HTMLInputElement>;
+  @ViewChild('loginPin') loginPin!: ElementRef<HTMLInputElement>;
   @ViewChild('profileControls') profileControls!: ElementRef<HTMLSelectElement>;
   @ViewChild(SocialComponent) socialComponent!: SocialComponent;
   @ViewChild(MediaSelectorComponent) displayPictureSelector!: MediaSelectorComponent;
@@ -92,6 +93,9 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   justLoggedIn = false;
   appealText = '';
   loginLockInfo: { isLocked: boolean; lockedAt: string; reason: string; hasPendingAppeal: boolean } | null = null;
+  loginPinRequired = false;
+  loginPinValue = '';
+  loginServerPin = '';
   songPlaylist: Todo[] = [];
   trophies?: Trophy[] = undefined;
   numberOfNexusBases: number = 0;
@@ -920,7 +924,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
       tmpUserName = guest;
     }
     try {
-      const tmpUser = await this.parentRef?.login(tmpUserName, this.loginPassword.nativeElement.value, fromUserCreation);
+      const tmpUser = await this.parentRef?.login(tmpUserName, this.loginPassword.nativeElement.value, fromUserCreation, undefined, this.loginPinValue || undefined);
       if (tmpUser && tmpUser.username) {
         this.resetNavigationAppSelectionHelp();
         if (this.loginOnly) {
@@ -931,7 +935,15 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
           });
         }
         this.latestSocialStoryId = undefined;
+        this.loginPinRequired = false;
+        this.loginPinValue = '';
+        this.loginServerPin = '';
         success = true;
+      } else if (this.parentRef?.loginPinData) {
+        this.loginPinRequired = true;
+        this.loginServerPin = this.parentRef.loginPinData.pin;
+        this.parentRef.loginPinData = null;
+        this.parentRef?.showNotification('PIN required. Enter the code shown below with your password.');
       } else if (this.parentRef?.loginLockData) {
         this.loginLockInfo = this.parentRef.loginLockData;
         this.parentRef.loginLockData = null;

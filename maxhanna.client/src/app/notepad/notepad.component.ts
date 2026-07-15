@@ -194,7 +194,10 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
         await this.notepadService.updateNote(this.parentRef.user.id, text, parseInt(this.noteId.nativeElement.value));
       } else {
         if (this.parentRef?.user?.id) {
-          await this.notepadService.addNote(this.parentRef.user.id, text); 
+          const newNoteId = await this.notepadService.addNote(this.parentRef.user.id, text);
+          if (newNoteId) {
+            this.noteId.nativeElement.value = newNoteId + "";
+          }
         }
       }
     } catch (e) {

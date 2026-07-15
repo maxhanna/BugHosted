@@ -100,7 +100,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   showMainContent = true;
   isModalOpen = false;
   isModal = true;
-  isLeftPanelHidden = false; 
+  isLeftPanelHidden = false;
   leftPanelWidth = 0;
   leftPanelCollapsedWidth = 36;
   minLeftPanelWidth = 180;
@@ -162,14 +162,14 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "🖍️", title: "Paint", content: undefined },
     { ownership: 0, icon: "👁️", title: "Moderator", content: undefined },
-    { ownership: 0, icon: "📡", title: "SigInt", content: undefined }, 
+    { ownership: 0, icon: "📡", title: "SigInt", content: undefined },
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
     { ownership: 0, icon: "📜", title: "User-Events", content: undefined },
     { ownership: 0, icon: "🌱", title: "Planter", content: undefined },
     { ownership: 0, icon: "🕷️", title: "Weaver", content: undefined },
     { ownership: 0, icon: "🚔", title: "GrandTheft", content: undefined },
     { ownership: 0, icon: "ℹ️", title: "Help", content: undefined },
-  ]; 
+  ];
   componentTitles: { [key: string]: string } = {
     'Notification': 'Notifications',
     'Crypto-Hub': 'Crypto Hub',
@@ -300,7 +300,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       ownership: 0,
       title: 'SigInt',
       content: `Signals Intelligence Across the globe. View intercepted signals from around the world.`
-    }, 
+    },
     {
       ownership: 0,
       title: 'Mastermind',
@@ -421,6 +421,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   isShowingPasswordResetResult = false;
   passwordResetResultMessage = '';
   loginLockData: { isLocked: boolean; lockedAt: string; reason: string; hasPendingAppeal: boolean } | null = null;
+  loginPinData: { pin: string } | null = null;
   passwordResetResultSuccess = false;
   private securityTimeout: any = null;
   private componentMap: { [key: string]: any; } = {
@@ -664,21 +665,21 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   async getSelectedMenuItems() {
     if (!this.user) {
       const guestTitles = [
-      "Social",
-      "Meme",
-      "Chat",
-      "Wordler",
-      "Emulator",
-      "Files",
-      "Crypto-Hub",
-      "Favourites",
-      "Crawler",
-      "HostAi",
-      "User",
-      "Help",
+        "Social",
+        "Meme",
+        "Chat",
+        "Wordler",
+        "Emulator",
+        "Files",
+        "Crypto-Hub",
+        "Favourites",
+        "Crawler",
+        "HostAi",
+        "User",
+        "Help",
       ];
       this.userSelectedNavigationItems = this.navigationItems.filter(item =>
-      guestTitles.includes(item.title)
+        guestTitles.includes(item.title)
       );
     } else {
       this.userSelectedNavigationItems = await this.userService.getUserMenu(this.user.id);
@@ -686,14 +687,14 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     // Ensure UserComponent and UserSettingsComponent always appear last
     const userComponentIndex = this.userSelectedNavigationItems.findIndex(item => item.title === 'User');
     const userSettingsComponentIndex = this.userSelectedNavigationItems.findIndex(item => item.title === 'UpdateUserSettings');
- 
+
     if (userComponentIndex !== -1) {
-      const userComponent = this.userSelectedNavigationItems.splice(userComponentIndex,1)[0];
+      const userComponent = this.userSelectedNavigationItems.splice(userComponentIndex, 1)[0];
       this.userSelectedNavigationItems.push(userComponent);
     }
- 
+
     if (userSettingsComponentIndex !== -1) {
-      const userSettingsComponent = this.userSelectedNavigationItems.splice(userSettingsComponentIndex,1)[0];
+      const userSettingsComponent = this.userSelectedNavigationItems.splice(userSettingsComponentIndex, 1)[0];
       this.userSelectedNavigationItems.push(userSettingsComponent);
     }
 
@@ -1024,10 +1025,14 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     }
   }
 
-  async login(username: string, password: string, fromUserCreation?: boolean, fromPasswordReset?: boolean) {
-    const tmpUser = await this.userService.login(username, password) as User | { isLocked: boolean; lockedAt: string; reason: string; hasPendingAppeal: boolean };
+  async login(username: string, password: string, fromUserCreation?: boolean, fromPasswordReset?: boolean, pin?: string) {
+    const tmpUser = await this.userService.login(username, password, pin) as User | { isLocked: boolean; lockedAt: string; reason: string; hasPendingAppeal: boolean } | { requirePin: true; pin: string };
     if (tmpUser && 'isLocked' in tmpUser) {
       this.loginLockData = tmpUser as { isLocked: boolean; lockedAt: string; reason: string; hasPendingAppeal: boolean };
+      return undefined;
+    }
+    if (tmpUser && 'requirePin' in tmpUser) {
+      this.loginPinData = tmpUser as { pin: string };
       return undefined;
     }
     const user = tmpUser as User | undefined;
@@ -1038,7 +1043,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         this?.navigationComponent?.getThemeInfo();
       }, 50);
       this.resetUserCookie();
-      this.showNotification(`Welcome ${fromUserCreation ? 'to BugHosted' : 'back'} ${this.user?.username}.${fromPasswordReset ? ' Please set a new password.' : ''}`);
+      this.showNotification(`${fromUserCreation ? ('Welcome to BugHosted ' + this.user?.username) : this.getTimedGreetingMessage(this.user?.username || '')}.${fromPasswordReset ? ' Please set a new password.' : ''}`);
       this.getLocation();
       this.getSessionToken();
       this.userSelectedNavigationItems = await this.userService.getUserMenu(user.id);
@@ -1059,6 +1064,22 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.notifications.push(text);
       setTimeout(() => { this.notifications.shift(); }, 8000);
     }
+  }
+  getTimedGreetingMessage(username: string): string {
+    const hour = new Date().getHours();
+    let greeting = '';
+
+    if (hour >= 5 && hour < 12) {
+      greeting = `Stay for a while, grab a coffee ${username}`; 
+    } else if (hour >= 12 && hour < 17) {
+      greeting = `${username}, time to shine!`;
+    } else if (hour >= 17 && hour < 21) {
+      greeting = `Evening vibes only, ${username}!`;
+    } else {
+      greeting = `Night owl alert - welcome back ${username}!`;
+    }
+
+    return greeting;
   }
   cleanStoryText(text: string) {
     return text?.replace(/\[\/?[^]\]/g, '')?.replace(/https?:\/\/[^\s]+/g, '');
@@ -1191,7 +1212,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
     text = this.replaceEmojisInMessage(text);
 
-    // Step 6: Replace ||component:<component-name>|| with a clickable span
+    // Step 6: Replace || component:<component-name>|| with a clickable span
     text = text.replace(/\|\|component:([\w-]+)\|\|/g, (match, componentName) => {
       return `<span onClick="document.getElementById('componentCreateName').value='${componentName}';document.getElementById('componentCreateClickButton').click()" class="linkedComponent">${this.componentTitles[componentName] ?? componentName}${this.getIconByTitle(componentName)}</span>`;
     });
@@ -1303,7 +1324,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     const escapedKeys = Object.keys(this.emojiMap).map(key => key.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'));
     const emojiRegex = new RegExp(escapedKeys.join("|"), "g");
 
-    // Mask component tokens (e.g., ||component:DigCraft||) so emojis inside them are not replaced.
+    // Mask component tokens (e.g., || component:DigCraft||) so emojis inside them are not replaced.
     const componentRegex = /\|\|component:([\w-]+)\|\|/g;
     const placeholders: string[] = [];
     const placeholderPrefix = '__COMPONENT_PLACEHOLDER_';

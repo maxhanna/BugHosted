@@ -444,19 +444,29 @@ namespace maxhanna.Server.Controllers
                 }
 
                 string plantName = "";
+                string? plantSpecies = null;
+                string? plantLocation = null;
+                string? plantNotes = null;
+                int? suggestedWaterHours = null;
+                DateTime? lastWatered = null;
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
                     await conn.OpenAsync();
-                    using var cmd = new MySqlCommand("SELECT name, species FROM maxhanna.user_plants WHERE id = @PlantId", conn);
+                    using var cmd = new MySqlCommand("SELECT name, species, location, notes, suggested_water_hours, last_watered FROM maxhanna.user_plants WHERE id = @PlantId", conn);
                     cmd.Parameters.AddWithValue("@PlantId", request.PlantId);
                     using var rdr = await cmd.ExecuteReaderAsync();
                     if (await rdr.ReadAsync())
                     {
                         plantName = rdr.GetString("name");
+                        plantSpecies = rdr.IsDBNull(rdr.GetOrdinal("species")) ? null : rdr.GetString("species");
+                        plantLocation = rdr.IsDBNull(rdr.GetOrdinal("location")) ? null : rdr.GetString("location");
+                        plantNotes = rdr.IsDBNull(rdr.GetOrdinal("notes")) ? null : rdr.GetString("notes");
+                        suggestedWaterHours = rdr.IsDBNull(rdr.GetOrdinal("suggested_water_hours")) ? null : rdr.GetInt32("suggested_water_hours");
+                        lastWatered = rdr.IsDBNull(rdr.GetOrdinal("last_watered")) ? null : rdr.GetDateTime("last_watered");
                     }
                 }
 
-                string systemPrompt = GetAnalysisSystemPrompt(request.AnalysisType, plantName);
+                string systemPrompt = GetAnalysisSystemPrompt(request.AnalysisType, plantName, plantSpecies, plantLocation, plantNotes, suggestedWaterHours, lastWatered);
 
                 var response = await _ai.SendVisionToAI(systemPrompt, request.PhotoFileId);
 
@@ -555,21 +565,35 @@ namespace maxhanna.Server.Controllers
             {
                 string plantName = "";
                 string? plantSpecies = null;
+                string? plantLocation = null;
+                string? plantNotes = null;
+                int? suggestedWaterHours = null;
+                DateTime? lastWatered = null;
                 using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
                     await conn.OpenAsync();
-                    using var cmd = new MySqlCommand("SELECT name, species FROM maxhanna.user_plants WHERE id = @PlantId", conn);
+                    using var cmd = new MySqlCommand("SELECT name, species, location, notes, suggested_water_hours, last_watered FROM maxhanna.user_plants WHERE id = @PlantId", conn);
                     cmd.Parameters.AddWithValue("@PlantId", request.PlantId);
                     using var rdr = await cmd.ExecuteReaderAsync();
                     if (await rdr.ReadAsync())
                     {
                         plantName = rdr.GetString("name");
                         plantSpecies = rdr.IsDBNull(rdr.GetOrdinal("species")) ? null : rdr.GetString("species");
+                        plantLocation = rdr.IsDBNull(rdr.GetOrdinal("location")) ? null : rdr.GetString("location");
+                        plantNotes = rdr.IsDBNull(rdr.GetOrdinal("notes")) ? null : rdr.GetString("notes");
+                        suggestedWaterHours = rdr.IsDBNull(rdr.GetOrdinal("suggested_water_hours")) ? null : rdr.GetInt32("suggested_water_hours");
+                        lastWatered = rdr.IsDBNull(rdr.GetOrdinal("last_watered")) ? null : rdr.GetDateTime("last_watered");
                     }
                 }
 
-                string systemPrompt = $"You are a knowledgeable plant expert assistant. The user is asking about their plant named \"{plantName}\"" +
-                    $"{(plantSpecies != null ? $" (species: {plantSpecies})" : "")}. " +
+                string plantContext = $"Plant: \"{plantName}\"";
+                if (!string.IsNullOrEmpty(plantSpecies)) plantContext += $"\nSpecies: {plantSpecies}";
+                if (!string.IsNullOrEmpty(plantLocation)) plantContext += $"\nLocation: {plantLocation}";
+                if (!string.IsNullOrEmpty(plantNotes)) plantContext += $"\nOwner's notes: {plantNotes}";
+                if (suggestedWaterHours.HasValue) plantContext += $"\nWatering interval: every {suggestedWaterHours.Value} hours";
+                if (lastWatered.HasValue) plantContext += $"\nLast watered: {lastWatered.Value:yyyy-MM-dd HH:mm} UTC";
+
+                string systemPrompt = $"You are a knowledgeable plant expert assistant. The user is asking about their plant.\n\n{plantContext}\n\n" +
                     "Answer their question helpfully and accurately based on plant care knowledge." +
                     (request.PhotoFileId.HasValue ? " Use the provided photo to inform your response." : "");
 
@@ -590,17 +614,24 @@ namespace maxhanna.Server.Controllers
             }
         }
 
-        private string GetAnalysisSystemPrompt(string analysisType, string plantName)
+        private string GetAnalysisSystemPrompt(string analysisType, string plantName, string? plantSpecies = null, string? plantLocation = null, string? plantNotes = null, int? suggestedWaterHours = null, DateTime? lastWatered = null)
         {
+            string plantInfo = $"Plant: \"{plantName}\"";
+            if (!string.IsNullOrEmpty(plantSpecies)) plantInfo += $"\nSpecies: {plantSpecies}";
+            if (!string.IsNullOrEmpty(plantLocation)) plantInfo += $"\nLocation: {plantLocation}";
+            if (!string.IsNullOrEmpty(plantNotes)) plantInfo += $"\nOwner's notes: {plantNotes}";
+            if (suggestedWaterHours.HasValue) plantInfo += $"\nWatering interval: every {suggestedWaterHours.Value} hours";
+            if (lastWatered.HasValue) plantInfo += $"\nLast watered: {lastWatered.Value:yyyy-MM-dd HH:mm} UTC";
+
             switch (analysisType.ToLower())
             {
                 case "general":
-                    return $"You are a botanist analyzing a photo of a plant named \"{plantName}\". " +
+                    return $"You are a botanist analyzing a photo of a plant. Here is the context:\n\n{plantInfo}\n\n" +
                         "Describe the plant in detail: identify its likely species or family, describe its visible characteristics " +
                         "(leaf shape, color, growth habit, size), and share interesting facts about where it originates from " +
                         "and its typical environment. If the species cannot be determined with certainty, suggest possibilities.";
                 case "health":
-                    return $"You are a plant health specialist analyzing a photo of \"{plantName}\". " +
+                    return $"You are a plant health specialist analyzing a photo of a plant. Here is the context:\n\n{plantInfo}\n\n" +
                         "Assess the plant's overall health based on visible signs. Look for: " +
                         "- Leaf color (yellowing, browning, spots, wilting) " +
                         "- Signs of pests or disease " +
@@ -609,7 +640,7 @@ namespace maxhanna.Server.Controllers
                         "- Overall vigor and growth " +
                         "Provide a health assessment with specific observations.";
                 case "recommendations":
-                    return $"You are a master gardener giving care advice for a plant named \"{plantName}\". " +
+                    return $"You are a master gardener giving care advice for a plant. Here is the context:\n\n{plantInfo}\n\n" +
                         "Based on the visible condition of the plant in the photo, provide specific recommendations including: " +
                         "- Watering schedule and technique " +
                         "- Optimal sunlight and placement " +
@@ -618,7 +649,8 @@ namespace maxhanna.Server.Controllers
                         "- Any treatments for visible issues " +
                         "Be practical and actionable.";
                 default:
-                    return $"Analyze this plant photo and provide useful information about \"{plantName}\".";
+                    return $"You are a botanist analyzing a plant photo. Here is the context:\n\n{plantInfo}\n\n" +
+                        "Analyze this plant photo and provide useful information.";
             }
         }
 
