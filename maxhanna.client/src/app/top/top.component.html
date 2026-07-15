@@ -159,7 +159,7 @@
     <div class="picture-input-container">
       <span>Picture (Optional):</span>
       <span>
-        <app-media-selector [inputtedParentRef]="parentRef" [uploadButtonText]="'Select'" [selectedFiles]="[getEditingFile(editingEntry)]"
+        <app-media-selector [inputtedParentRef]="parentRef" [uploadButtonText]="'Select'" [selectedFiles]="getEditingFile(editingEntry)"
           [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
           [user]="parentRef?.user" [maxSelectedFiles]="1" #editFileSelector></app-media-selector>
       </span>

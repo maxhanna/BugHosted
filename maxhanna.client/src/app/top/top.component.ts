@@ -351,7 +351,7 @@ export class TopComponent extends ChildComponent implements OnInit {
   getEditingFile(entryFile: any) {
     var fileId = entryFile?.fileId;
     if (fileId) {
-      return new FileEntry(fileId);
+      return [new FileEntry(fileId)];
     }
     return [];
   }
