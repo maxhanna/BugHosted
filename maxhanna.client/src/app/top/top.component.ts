@@ -353,6 +353,6 @@ export class TopComponent extends ChildComponent implements OnInit {
     if (fileId) {
       return new FileEntry(fileId);
     }
-    return null;
+    return [];
   }
 }
