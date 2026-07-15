@@ -43,6 +43,7 @@ export class FileUploadComponent implements AfterViewInit {
   uploadProgress: { [key: string]: number } = {};
   uploadErrors: { [key: string]: string } = {};
   isUploading: boolean = false;
+  nonDupUploadedCount = 0;
   displayListContainer = false;
   displayFileUploadOptions = false;
   displayFileUploadTopics = false;
@@ -150,6 +151,10 @@ export class FileUploadComponent implements AfterViewInit {
     if (this.getOverallProgress() > 0) {
       return;
     }
+    if (this.areAllFilesDuplicates()) {
+      this.userNotificationEvent.emit('All files are duplicates. No files to upload.');
+      return;
+    }
     if (this.uploadFileList.length > 0) {
       this.upload();
     } else {
@@ -171,6 +176,7 @@ export class FileUploadComponent implements AfterViewInit {
       return alert("No file to upload!");
     }
 
+    this.nonDupUploadedCount = 0;
     this.isUploading = true;
     this.displayFileUploadOptions = false;
     this.displayFileUploadTopics = false;
@@ -179,46 +185,60 @@ export class FileUploadComponent implements AfterViewInit {
     if (this.inputtedParentRef) {
       this.inputtedParentRef.preventShowSecurityPopup = true;
     }
-    const filesArray = Array.from(files);
+
+    // Process duplicates first so their FileEntries are ready before upload completes
+    for (const dupFile of files.filter(f => this.duplicatesFound[f.name])) {
+      this.duplicateFileNames.push(dupFile.name);
+      try {
+        const isRomFolder = this.currentDirectory.toLowerCase().includes("rom/");
+        const tmpFileEntry = await this.fileService.getFileEntryByNameAndDirectory(
+          dupFile.name,
+          this.currentDirectory.replace(/\\/g, "/"),
+          this.inputtedParentRef?.fileCache,
+          isRomFolder
+        );
+        if (tmpFileEntry) {
+          this.uploadedFileList.push(tmpFileEntry);
+        }
+      } catch { }
+    }
+
+    const nonDupFiles = files.filter(f => !this.duplicatesFound[f.name]);
+    const filesArray = Array.from(nonDupFiles);
+
+    if (filesArray.length === 0) {
+      this.lastFileUploadedCheck(filesArray, this.uploadedFileList.length);
+      return;
+    }
 
     const isPublic = (this.displayPrivatePublicOption ? this.folderVisibility?.nativeElement.value : true) as boolean;
 
     const directoryInput = (this.currentDirectory || '').replace(/\/+$/, '');
 
     try {
-      filesArray.forEach((file, index) => {
-        if (!this.duplicatesFound[file.name]) {
-          const formData = new FormData();
-          formData.append('files', file);
-          const compress = (!this.disableFileCompression && this.compressCheckbox?.nativeElement?.checked) ?? true;
-          const uploadReq = this.fileService.uploadFileWithProgress(formData, directoryInput || undefined, isPublic, this.user?.id, compress);
-          if (uploadReq) {
-            uploadReq.subscribe({
-              next: async (event) => {
-                if (event.type === HttpEventType.UploadProgress) {
-                  this.uploadProgress[file.name] = Math.round(100 * (event.loaded / event.total!));
-                }
-                else if (event.type === HttpEventType.Response) {
-                  this.handleUploadedFile(event, filesArray);
-                }
-              },
-              error: (error) => {
-                console.error(`Error uploading ${file.name}:`, error);
-                const msg = error?.error?.message || error?.message || 'Upload failed';
-                this.uploadErrors[file.name] = msg;
-                this.uploadProgress[file.name] = -1;
-                this.lastFileUploadedCheck(filesArray, this.uploadedFileList.length);
+      filesArray.forEach((file) => {
+        const formData = new FormData();
+        formData.append('files', file);
+        const compress = (!this.disableFileCompression && this.compressCheckbox?.nativeElement?.checked) ?? true;
+        const uploadReq = this.fileService.uploadFileWithProgress(formData, directoryInput || undefined, isPublic, this.user?.id, compress);
+        if (uploadReq) {
+          uploadReq.subscribe({
+            next: async (event) => {
+              if (event.type === HttpEventType.UploadProgress) {
+                this.uploadProgress[file.name] = Math.round(100 * (event.loaded / event.total!));
               }
-            });
-          }
-        } else {
-          const isRomFolder = this.currentDirectory.toLowerCase().includes("rom/");
-          this.fileService.getFileEntryByNameAndDirectory(file.name, this.currentDirectory.replace(/\\/g, "/"), this.inputtedParentRef?.fileCache, isRomFolder).then(tmpFileEntry => {
-            if (tmpFileEntry) {
-              this.uploadedFileList.push(tmpFileEntry);
+              else if (event.type === HttpEventType.Response) {
+                this.handleUploadedFile(event, filesArray);
+              }
+            },
+            error: (error) => {
+              console.error(`Error uploading ${file.name}:`, error);
+              const msg = error?.error?.message || error?.message || 'Upload failed';
+              this.uploadErrors[file.name] = msg;
+              this.uploadProgress[file.name] = -1;
+              this.lastFileUploadedCheck(filesArray, this.uploadedFileList.length);
             }
           });
-          this.duplicateFileNames.push(file.name);
         }
       });
     } catch (ex) {
@@ -240,6 +260,9 @@ export class FileUploadComponent implements AfterViewInit {
   isFileLimitReached(): boolean {
     return this.uploadFileList.length >= this.maxFileAttachments;
   }
+  areAllFilesDuplicates(): boolean {
+    return this.uploadFileList.length > 0 && this.uploadFileList.every(f => this.duplicatesFound[f.name]);
+  }
 
   private handleUploadedFile(event: any, filesArray: File[]) {
     const parsedFiles = (JSON.parse(event.body) as FileEntry[]);
@@ -247,6 +270,7 @@ export class FileUploadComponent implements AfterViewInit {
     if (parsedFiles && parsedFiles.length > 0) {
       const first = parsedFiles[0];
       this.uploadedFileList.push(first);
+      this.nonDupUploadedCount++;
       if (first.isDuplicate) {
         this.duplicateFileNames.push(first.fileName || first.givenFileName || '');
       }
@@ -261,7 +285,7 @@ export class FileUploadComponent implements AfterViewInit {
 
   private lastFileUploadedCheck(filesArray: File[], index: number) {
     const failedCount = Object.keys(this.uploadErrors).length;
-    if (filesArray.length == index + failedCount) {
+    if (filesArray.length == this.nonDupUploadedCount + failedCount) {
       if (this.fileUploadTopics.length > 0) {
         this.uploadedFileList.forEach(x => {
           x.topics = this.fileUploadTopics;
@@ -309,7 +333,9 @@ export class FileUploadComponent implements AfterViewInit {
   }
   getOverallProgress(): number {
     if (this.uploadFileList.length === 0) return 0;
-    const activeFiles = this.uploadFileList.filter(f => !this.uploadErrors[f.name]);
+    const filesToUpload = this.uploadFileList.filter(f => !this.duplicatesFound[f.name]);
+    if (filesToUpload.length === 0) return 0;
+    const activeFiles = filesToUpload.filter(f => !this.uploadErrors[f.name]);
     if (activeFiles.length === 0) return 100; // all failed → treat as "done"
     this.totalProgress = activeFiles.reduce((sum, f) => sum + (this.uploadProgress[f.name] || 0), 0);
     return this.totalProgress = Math.round(this.totalProgress / activeFiles.length);

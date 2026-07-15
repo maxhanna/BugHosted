@@ -1,5 +1,5 @@
 ﻿<button type="submit" class="uploadButton" [class]="getOverallProgress() ==100 ? 'finalizingButton' : ''"
-  (click)="uploadSubmitClicked()" [disabled]="isFileLimitReached()" title="Upload file(s)">
+  (click)="uploadSubmitClicked()" [disabled]="isFileLimitReached() || areAllFilesDuplicates()" title="Upload file(s)">
   {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') : (uploadFileList.length
   > 0 ? '✅' : '⏫' + uploadButtonText)}}
 </button>
@@ -78,7 +78,7 @@
 
   <div class="fileUploaderButtons">
     <button type="submit" (click)="uploadSubmitClicked()" title="Upload file(s)"
-      [style.top.px]="getOverallProgress() != 100 ? -8 : null" style="position:relative;">
+      [disabled]="areAllFilesDuplicates()" [style.top.px]="getOverallProgress() != 100 ? -8 : null" style="position:relative;">
       {{isUploading ? (getOverallProgress() == 100 ? 'Finalizing...' : getOverallProgress() + '%') :
       (uploadFileList.length > 0 ? '✅Upload' : '⏫' + uploadButtonText)}}
     </button>
