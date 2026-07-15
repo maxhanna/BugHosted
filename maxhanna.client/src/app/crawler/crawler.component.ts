@@ -192,10 +192,10 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       });
 
       console.log('searching IMDB');
-      this.isSearchingIMDB = true;
+      this.isSearchingImdb = true;
       this.crawlerService.searchIMDb(this.keywordsInput.nativeElement.value.trim()).then(response => {
         this.imdbResults = response ?? [];
-        this.isSearchingIMDB = false;
+        this.isSearchingImdb = false;
         this.imdbDisplayLimit = 1;
         this.mergeSocialResults();
       });
