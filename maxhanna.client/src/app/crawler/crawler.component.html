@@ -7,8 +7,6 @@
   <div class="xxSmallFont nbDiv" [style.margin-Top]="onlySearch ? '-20px' : ''">
     <div *ngIf="!searchResults.length && !onMobile() && !onlySearch">Total indexes: {{indexCount}}
       ({{youtubeResults.length}} YouTube results)</div>
-    <div *ngIf="searchResults?.length && !onMobile() && !onlySearch">Search results: {{totalResults}}
-      ({{youtubeResults.length}} YouTube results)</div>
   </div>
 
   <div *ngIf="(onMobile() || onlySearch) && searchResults?.length" class="xxSmallFont">Search results: {{ totalResults
