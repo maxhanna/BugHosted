@@ -5,12 +5,21 @@
   </app-title-bar>
 
   <div class="xxSmallFont nbDiv" [style.margin-Top]="onlySearch ? '-20px' : ''">
-    <div *ngIf="!searchResults.length && !onMobile() && !onlySearch">Total indexes: {{indexCount}}
-      ({{youtubeResults.length}} YouTube results)</div>
+    <div *ngIf="!searchResults.length && !onMobile() && !onlySearch">
+      Total indexes: {{indexCount}}{{" "}}
+      ({{youtubeResults.length}} YouTube results){{" "}}
+      ({{redditResults.length || 0 }} Reddit results){{" "}}
+      ({{xResults.length || 0 }} X results){{" "}}
+      ({{imdbResults.length || 0 }} IMDB results)
+    </div>
   </div>
 
-  <div *ngIf="(onMobile() || onlySearch) && searchResults?.length" class="xxSmallFont">Search results: {{ totalResults
-    }} ({{ youtubeResults.length }} YouTube results)
+  <div class="xxSmallFont">
+    Search results: {{ totalResults }}{{" "}}
+      ({{ youtubeResults.length }} YouTube results){{" "}}
+      ({{redditResults.length || 0 }} Reddit results){{" "}}
+      ({{xResults.length || 0 }} X results){{" "}}
+      ({{imdbResults.length || 0 }} IMDB results)
   </div>
 
   <div class="crawler-container" [style.position]="onlySearch ? 'relative' : ''"
@@ -152,11 +161,14 @@
       <div *ngIf="!onlySearch" (click)="seeNew()" class="cursorPointer linkTextDecoration">See the latest indexes.</div>
     </div>
   </div>
-  <div *ngIf="!searchResults.length && (onMobile() || onlySearch)" class="xxSmallFont">Total indexes: {{indexCount}}
-    ({{youtubeResults.length}} YouTube results)
-  </div>
-  <div *ngIf="searchResults?.length && (onMobile() || onlySearch)" class="xxSmallFont">Search results: {{totalResults}}
-    ({{youtubeResults.length}} YouTube results)
+  <div *ngIf="!searchResults.length" class="xxSmallFont">Total indexes: {{indexCount}}</div>
+  <div *ngIf="searchResults?.length" class="xxSmallFont">
+    Total indexes: {{ indexCount }}{{" "}}
+    Search results: {{ totalResults }}{{" "}}
+      ({{ youtubeResults.length }} YouTube results){{" "}}
+      ({{ redditResults.length || 0 }} Reddit results){{" "}}
+      ({{ xResults.length || 0 }} X results){{" "}}
+      ({{ imdbResults.length || 0 }} IMDB results)
   </div>
 </div>
 
