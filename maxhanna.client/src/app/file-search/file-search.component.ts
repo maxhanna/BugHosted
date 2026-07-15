@@ -241,34 +241,31 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   ngAfterViewInit() {
     // Attach window scroll listener
     window.addEventListener('scroll', this.windowScrollHandler as EventListener);
-    // console.log('Window scroll event listener registered');
 
     // Attach container scroll listener if fileContainer exists
     if (this.fileContainer?.nativeElement) {
       this.fileContainer.nativeElement.addEventListener('scroll', this.containerScrollHandler as EventListener);
-      // console.log('fileContainer scroll event listener registered');
     } else {
       console.error('fileContainer is not defined');
     }
+    this.adjustMaxHeightOnce();
     this.updateDisplayRomMetadataDesktop();
   }
 
-  ngAfterViewChecked() {
-    if (this.directoryDisplayDivRef?.nativeElement) {
-      const el = this.directoryDisplayDivRef.nativeElement;
-      const computed = window.getComputedStyle(el);
-      let maxHeight = computed.getPropertyValue('max-height');
-      // Only handle px values
-      if (maxHeight && maxHeight.endsWith('px')) {
-        let px = parseFloat(maxHeight);
-        if (!isNaN(px)) {
-          if (this.showUpFolderRow && this.canChangeDirectory && !this.fileSearchMode) {
-            // Add 50px if not already added
-            if (!el.dataset['maxHeightAdjusted'] || el.dataset['maxHeightAdjusted'] !== 'added') {
-              el.style.setProperty('max-height', (px - 50) + 'px', 'important');
-              el.dataset['maxHeightAdjusted'] = 'added';
-            }
-          }
+  private _maxHeightAdjusted = false;
+
+  private adjustMaxHeightOnce() {
+    if (this._maxHeightAdjusted) return;
+    const el = this.directoryDisplayDivRef?.nativeElement;
+    if (!el) return;
+    const computed = window.getComputedStyle(el);
+    let maxHeight = computed.getPropertyValue('max-height');
+    if (maxHeight && maxHeight.endsWith('px')) {
+      let px = parseFloat(maxHeight);
+      if (!isNaN(px)) {
+        if (this.showUpFolderRow && this.canChangeDirectory && !this.fileSearchMode) {
+          el.style.setProperty('max-height', (px - 50) + 'px', 'important');
+          this._maxHeightAdjusted = true;
         }
       }
     }
@@ -1506,8 +1503,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         break;
     }
   }
+  private get scrollBehavior(): ScrollBehavior {
+    return this.onMobile() ? 'auto' : 'smooth';
+  }
+
   scrollToTop() {
-    console.log("FIRED SCROLLTOTOP");
     if (this.appending) {
       return;
     }
@@ -1517,6 +1517,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         '#fileContainer',
         '.inPopupComponent'
       ];
+
+      const behavior = this.scrollBehavior;
 
       // Helper: find nearest ancestor that is scrollable
       const getScrollParent = (node: Node | null): HTMLElement | null => {
@@ -1541,14 +1543,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         const style = getComputedStyle(el);
         const isScrollable = (style.overflowY === 'auto' || style.overflowY === 'scroll' || el.scrollHeight > el.clientHeight);
         if (isScrollable) {
-          try { el.scrollTo({ top: 0, behavior: 'smooth' }); } catch { el.scrollTop = 0; }
+          try { el.scrollTo({ top: 0, behavior }); } catch { el.scrollTop = 0; }
         } else {
           const parent = getScrollParent(el.parentNode);
           if (parent) {
-            try { parent.scrollTo({ top: 0, behavior: 'smooth' }); } catch { parent.scrollTop = 0; }
+            try { parent.scrollTo({ top: 0, behavior }); } catch { parent.scrollTop = 0; }
           } else {
-            // Fallback to scrolling element into view
-            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            el.scrollIntoView({ behavior, block: 'start' });
           }
         }
         return;

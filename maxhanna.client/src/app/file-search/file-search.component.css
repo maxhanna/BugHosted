@@ -665,7 +665,6 @@
 
 #fileTable {
   /* max-height: CALC(100dvh - 130px); */
-  overflow: auto;
   flex: 1 1 auto;
   background: var(--component-background-color);
 }
