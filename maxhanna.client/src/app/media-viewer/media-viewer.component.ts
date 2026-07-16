@@ -96,11 +96,12 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     this.debugLog('ngOnInit start', { isLoadedFromURL: this.isLoadedFromURL, autoload: this.autoload, fileId: this.fileId, hasFileObj: !!this.file, fileSrc: this.fileSrc });
 
     //load this.file
-    if (this.file) {
+    if (this.file && !this.file.fileName) {
       const tgt: FileEntry | undefined = this.parentRef?.fileCache.filter(x => x.id === this.file?.id)[0];
       if (tgt) {
         console.log("found file in cache for file.id=" + this.file.id);
-        this.selectedFile = this.file;
+        this.selectedFile = tgt;
+        this.file = tgt;
       } else {
         if (!this.selectedFile?.fileName) {
           console.log("fetching file entry by id for file.id=" + this.file.id);
