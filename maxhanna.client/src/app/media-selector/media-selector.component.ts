@@ -175,8 +175,8 @@ export class MediaSelectorComponent {
     let tgt = this.selectedFiles.filter(x => x.id === file.id)[0];
     if (!tgt) {
       this.selectedFiles.push(file);
-    } else if (!tgt.fileName) {
-      tgt = file;
+    } else if (!tgt.fileName && file.fileName) {
+      Object.assign(tgt, file);
     }
   }
 }
