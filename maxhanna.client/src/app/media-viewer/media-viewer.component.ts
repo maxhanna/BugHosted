@@ -99,14 +99,18 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (this.file) {
       const tgt: FileEntry | undefined = this.parentRef?.fileCache.filter(x => x.id === this.file?.id)[0];
       if (tgt) {
+        console.log("found file in cache for file.id=" + this.file.id);
         this.selectedFile = this.file;
       } else {
         if (!this.selectedFile?.fileName) {
+          console.log("fetching file entry by id for file.id=" + this.file.id);
           const res = await this.fileService.getFileEntryById(this.file.id, this.parentRef?.user?.id ?? 0, this.parentRef?.fileCache);
           if (res) {
+            console.log("fetched file entry by id for file.id=" + this.file.id, res);
             this.selectedFile = res;
           }
         } else {
+          console.log("using existing file for file.id=" + this.file.id, this.file);
           this.selectedFile = this.file;
           this.parentRef?.fileCache.push(this.file);
         }

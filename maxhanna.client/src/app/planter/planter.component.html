@@ -77,7 +77,7 @@
 
       <div *ngFor="let plant of plants" class="plant-row" (click)="selectPlant(plant)">
         <span class="plant-icon" *ngIf="!plant.photos || plant.photos.length ===0">🌿</span>
-        <app-media-viewer class="plant-photo-preview" *ngIf="plant.photos && plant.photos.length >0" [file]="plant.photos[0]" [inputtedParentRef]="parentRef" [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"></app-media-viewer>
+        <app-media-viewer class="plant-photo-preview" *ngIf="plant.photos && plant.photos.length > 0" [file]="plant.photos[0]" [inputtedParentRef]="parentRef" [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"></app-media-viewer>
         <div class="plant-info">
           <span class="plant-name">{{ plant.name }}</span>
           <span class="plant-meta" *ngIf="plant.species || plant.location">
