@@ -454,6 +454,10 @@
   border-radius: 6px;
 }
 
+.trending-searches {
+  margin-top: 10px;
+}
+
 .trending-list {
   text-align: center;
 }
