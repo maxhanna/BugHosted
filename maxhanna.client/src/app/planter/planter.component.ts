@@ -42,6 +42,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
 
   analysisResult = '';
   analysisType = '';
+  originalAnalysisType = '';
   isAnalyzing = false;
 
   chatInput = '';
@@ -195,6 +196,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
     this.editLocation = plant.location || '';
     this.analysisResult = '';
     this.analysisType = '';
+    this.originalAnalysisType = '';
     this.chatMessages = [];
     this.chatInput = '';
     this.selectedPhotoForAnalysis = null;
@@ -333,11 +335,12 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
     return '';
   }
 
-  async analyzePlant(photo: FileEntry, type: string) {
+  async analyzePlant(photo: FileEntry, type: string, regenerate?: boolean) {
     if (!this.parentRef?.user?.id || !this.selectedPlant) return;
     this.isAnalyzing = true;
     this.analysisResult = '';
     this.analysisType = type;
+    this.originalAnalysisType = type;
     this.selectedPhotoForAnalysis = photo;
 
     const typeLabels: { [key: string]: string } = {
@@ -351,7 +354,8 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
       this.parentRef.user.id,
       this.selectedPlant.id,
       photo.id,
-      type
+      type,
+      regenerate
     );
     if (result) {
       this.analysisResult = this.parseMessage(result);

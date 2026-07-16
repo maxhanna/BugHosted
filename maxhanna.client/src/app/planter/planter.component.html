@@ -168,7 +168,10 @@
       <!-- Analysis Result -->
       <div *ngIf="isAnalyzing" class="analysis-loading">Analyzing plant image...</div>
       <div *ngIf="analysisResult && !isAnalyzing" class="analysis-result">
-        <h3>📊 {{ analysisType }}</h3>
+        <div class="analysis-header">
+          <h3>📊 {{ analysisType }}</h3>
+          <button (click)="analyzePlant(selectedPhotoForAnalysis!, originalAnalysisType, true)" class="regenerate-btn">🔄 Regenerate</button>
+        </div>
         <div [innerHTML]="analysisResult"></div>
       </div>
 

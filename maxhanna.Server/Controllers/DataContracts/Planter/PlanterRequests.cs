@@ -28,6 +28,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Planter
         public int PlantId { get; set; }
         public int PhotoFileId { get; set; }
         public string? AnalysisType { get; set; }
+        public bool Regenerate { get; set; }
     }
 
     public class PlantChatRequest

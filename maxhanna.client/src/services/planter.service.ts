@@ -151,12 +151,12 @@ export class PlanterService {
     }
   }
 
-  async analyzePlant(userId: number, plantId: number, photoFileId: number, analysisType: string): Promise<string | null> {
+  async analyzePlant(userId: number, plantId: number, photoFileId: number, analysisType: string, regenerate?: boolean): Promise<string | null> {
     try {
       const response = await fetch('/planter/analyzeplant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, plantId, photoFileId, analysisType }),
+        body: JSON.stringify({ userId, plantId, photoFileId, analysisType, regenerate }),
       });
       if (!response.ok) return null;
       const result = await response.json();

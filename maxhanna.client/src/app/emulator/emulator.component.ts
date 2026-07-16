@@ -2816,11 +2816,34 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   performReset(): void {
-    // perform the reset using the selected save option
-    const skipLoadingSave = !this.skipLoadingSave;
+    const skipSave = this.skipLoadingSave;
     this.isResetModalOpen = false;
     this.parentRef?.closeOverlay();
-    this.fullReloadToEmulator(this.getReloadParamsSkipLoadingSaveFile(skipLoadingSave));
+
+    const emu = this.emulatorInstance || (window as any).EJS || (window as any).EJS_emulator;
+    if (emu?.gameManager?.restart) {
+      if (!skipSave) {
+        this.status = 'Saving state before reset…';
+        this.callEjsSave().then(() => {
+          this.status = 'Resetting…';
+          emu.gameManager.restart();
+          setTimeout(async () => {
+            const blob = await this.loadSaveStateFromDB(this.romName ?? '');
+            if (blob) {
+              this.status = 'Restoring saved state…';
+              await this.applySaveStateIfAvailable(blob);
+            }
+            this.status = 'Running';
+          }, 3000);
+        });
+      } else {
+        this.status = 'Resetting…';
+        emu.gameManager.restart();
+        setTimeout(() => { this.status = 'Running'; }, 1000);
+      }
+    } else {
+      this.fullReloadToEmulator(this.getReloadParamsSkipLoadingSaveFile(skipSave));
+    }
   }
 
   cancelReset(): void {

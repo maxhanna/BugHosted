@@ -426,20 +426,23 @@ namespace maxhanna.Server.Controllers
 
             try
             {  
-                // Check cache first
-                using (var checkConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+                // Check cache first (unless regenerating)
+                if (!request.Regenerate)
                 {
-                    await checkConn.OpenAsync();
-                    using var checkCmd = new MySqlCommand(
-                        "SELECT result FROM maxhanna.plant_analysis_cache WHERE plant_id = @PlantId AND file_id = @FileId AND analysis_type = @AnalysisType",
-                        checkConn);
-                    checkCmd.Parameters.AddWithValue("@PlantId", request.PlantId);
-                    checkCmd.Parameters.AddWithValue("@FileId", request.PhotoFileId);
-                    checkCmd.Parameters.AddWithValue("@AnalysisType", request.AnalysisType);
-                    var cached = await checkCmd.ExecuteScalarAsync();
-                    if (cached != null)
+                    using (var checkConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                     {
-                        return Ok(new { Reply = cached.ToString() });
+                        await checkConn.OpenAsync();
+                        using var checkCmd = new MySqlCommand(
+                            "SELECT result FROM maxhanna.plant_analysis_cache WHERE plant_id = @PlantId AND file_id = @FileId AND analysis_type = @AnalysisType",
+                            checkConn);
+                        checkCmd.Parameters.AddWithValue("@PlantId", request.PlantId);
+                        checkCmd.Parameters.AddWithValue("@FileId", request.PhotoFileId);
+                        checkCmd.Parameters.AddWithValue("@AnalysisType", request.AnalysisType);
+                        var cached = await checkCmd.ExecuteScalarAsync();
+                        if (cached != null)
+                        {
+                            return Ok(new { Reply = cached.ToString() });
+                        }
                     }
                 }
 
