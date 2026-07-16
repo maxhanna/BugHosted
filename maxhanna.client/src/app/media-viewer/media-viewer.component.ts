@@ -93,26 +93,35 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
     }
-    if (this.file) {
-      this.selectedFile = this.file;
-      if (!this.parentRef?.fileCache.find(x => x.id === this.file?.id)) {
-        this.parentRef?.fileCache.push(this.file);
-      }
-    }
     this.debugLog('ngOnInit start', { isLoadedFromURL: this.isLoadedFromURL, autoload: this.autoload, fileId: this.fileId, hasFileObj: !!this.file, fileSrc: this.fileSrc });
-    if (this.isLoadedFromURL) {
-      const componentContainers = document.getElementsByClassName("componentContainer");
-      for (let i = 0; i < componentContainers.length; i++) {
-        (componentContainers[i] as HTMLDivElement).style.backgroundColor = "var(--component-background-color)";
+
+    //load this.file
+    if (this.file) {
+      const tgt: FileEntry | undefined = this.parentRef?.fileCache.filter(x => x.id === this.file?.id)[0];
+      if (tgt) {
+        this.selectedFile = this.file;
+      } else {
+        if (!this.selectedFile?.fileName) {
+          const res = await this.fileService.getFileEntryById(this.file.id, this.parentRef?.user?.id ?? 0, this.parentRef?.fileCache);
+          if (res) {
+            this.selectedFile = res;
+          }
+        } else {
+          this.selectedFile = this.file;
+          this.parentRef?.fileCache.push(this.file);
+        }
       }
-      this.showMediaInformation = true;
-    }
+    }  
+
+    this.changeBackgroundIfLoadedFromURL();
+
     if (this.forceInviewLoad) {
       this.debugLog("forcing load");
       await this.fetchFileSrc().then(() => this.applyPageTitleIfNeeded());
     } else {
       this.tryLoadFromCacheFastPath();
     }
+
     if (this.showCommentSection) {
       this.ensureCommentsLoaded();
     }
@@ -120,7 +129,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.ensureTopicsLoaded();
     }
     this.attachMediaDebugListeners();
-    }
+  }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['fileId'] || changes['file'] || changes['fileSrc']) {
@@ -136,6 +145,18 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       }
     }
   }
+
+
+  private changeBackgroundIfLoadedFromURL() {
+    if (this.isLoadedFromURL) {
+      const componentContainers = document.getElementsByClassName("componentContainer");
+      for (let i = 0; i < componentContainers.length; i++) {
+        (componentContainers[i] as HTMLDivElement).style.backgroundColor = "var(--component-background-color)";
+      }
+      this.showMediaInformation = true;
+    }
+  }
+
   private async ensureCommentsLoaded(): Promise<void> {
     const target = this.selectedFile ?? this.file;
     if (!target || target.fileComments?.length) return;
@@ -143,7 +164,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (!fid) return;
     try {
       const comments = await this.fileService.getComments(fid);
-      if (comments && comments.length >0) {
+      if (comments && comments.length > 0) {
         target.fileComments = comments;
       }
     } catch { }
@@ -156,7 +177,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (!fid) return;
     try {
       const topics = await this.fileService.getTopics(fid);
-      if (topics && topics.length >0) {
+      if (topics && topics.length > 0) {
         target.topics = topics;
       }
     } catch { }
@@ -396,8 +417,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       // For video/audio elements, we need to load() after changing src
       if (mediaElement instanceof HTMLVideoElement || mediaElement instanceof HTMLAudioElement) {
         mediaElement.src = this.selectedFileSrc;
-        mediaElement.load(); 
-        
+        mediaElement.load();
+
 
         // Reapply autoplay settings if needed
         if (this.autoplay && mediaElement instanceof HTMLVideoElement) {
@@ -664,7 +685,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
       this.emittedNotification.emit(`Downloading ${file.fileName}`);
 
       this.abortFileRequestController = new AbortController();
-      
+
       const response = await this.fileService.getFile(target, { signal: this.abortFileRequestController.signal }, this.parentRef?.user);
       const blob = new Blob([(response?.blob)!], { type: 'application/octet-stream' });
 
@@ -897,54 +918,40 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
 
   stopAllMedia() {
-    // Stop the known ViewChild elements first (if any)
     this.stopMedia(this.mediaContainer?.nativeElement);
     this.stopMedia(this.fullscreenVideo?.nativeElement);
     this.stopMedia(this.fullscreenAudio?.nativeElement);
 
-    // Now sweep all media elements in this component subtree
     const root: Document | HTMLElement = this.mediaRoot?.nativeElement ?? document;
     const mediaNodes = root.querySelectorAll<HTMLMediaElement>('video, audio');
 
-    mediaNodes.forEach(el => this.hardStopMedia(el));
-
-    // If your fullscreen overlay is visible and using the overlay refs,
-    // also clear their srcs explicitly:
+    mediaNodes.forEach(el => this.hardStopMedia(el)); 
     this.clearOverlaySrcs();
   }
 
   private hardStopMedia(el: HTMLMediaElement) {
-    try {
-      // 1) Pause and silence
+    try { 
       el.pause();
       el.muted = true;
       (el as any).volume = 0; // Just in case muted flag flips later
-
-      // 2) Reset playback & disable autoplay/loop
+ 
       el.autoplay = false;
       el.loop = false;
       try { el.currentTime = 0; } catch { }
-
-      // 3) Exit Picture-in-Picture if this element is in PiP
+ 
       const pipDoc = document as any;
       if (pipDoc.pictureInPictureElement === el) {
         pipDoc.exitPictureInPicture?.().catch(() => { });
       }
-
-      // 4) Capture the src to revoke if it's a blob/object URL
+ 
       const prevSrc = el.currentSrc || el.src;
       const isBlobUrl = !!prevSrc && prevSrc.startsWith('blob:');
-
-      // 5) Detach all sources to force the UA to drop decoders/network
-      //    (removeAttribute + load() is more reliable than setting src='')
+ 
       el.removeAttribute('src');
-      el.querySelectorAll('source').forEach(s => s.remove());
-      // Force the media element to forget buffers and stop network requests
+      el.querySelectorAll('source').forEach(s => s.remove()); 
       el.load();
-
-      // 6) If it was a blob URL we created earlier, revoke it
-      if (isBlobUrl) {
-        // Use a microtask timeout to let the load() settle first
+ 
+      if (isBlobUrl) { 
         setTimeout(() => {
           try { URL.revokeObjectURL(prevSrc); } catch { }
         }, 0);
@@ -981,11 +988,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (!media || media == null) return;
     try {
       media.pause();           // Pause playback
-      media.currentTime = 0;   // Rewind to start
-      // If it's looping, resetting currentTime is enough to 'stop'
-      // Optionally clear src to fully stop buffering:
-      // media.src = '';
-      // media.load(); // reinitialize without source
+      media.currentTime = 0;   // Rewind to start 
     } catch (e) {
       this.debugLog('Failed to stop media:', e);
     }
