@@ -755,7 +755,7 @@
       <span class="search-results-count" (click)="popupSearch.focus()">{{ directory?.totalCount || 0 }} results</span>
     </div>
     <div *ngIf="loadingSearch" style="text-align: center; width:100%; margin-bottom: 10px">Loading...</div>
-    <div class="search-tips gradientBackground">
+    <div class="search-tips">
       <p class="tip-text">
         <i class="icon-info"></i>
         <strong>Search tips:</strong> Use quotes <code>"</code> for exact matches.
@@ -769,7 +769,7 @@
       </div>
     </div>
 
-    <div class="search-tips gradientBackground" style="margin-top:20px">
+    <div class="search-tips" style="margin-top:20px">
       <span class="pageSizeInputContainer">
         <label for="pageSizeSelect">Page Size:</label>
         <select id="pageSizeSelect" (change)="onPageSizeChange($event)" [value]="maxResults">
@@ -783,7 +783,7 @@
       </span>
     </div>
 
-    <div class="search-filters search-tips gradientBackground">
+    <div class="search-filters search-tips">
       <div class="filter-group" style="margin-top:15px">
         <label for="sort-select" class="filter-label">Sort by:</label>
         <select id="sort-select" class="filter-select" (change)="setSortOption($event)">
@@ -804,7 +804,7 @@
         </select>
       </div>
 
-      <div class="filter-group search-tips gradientBackground">
+      <div class="filter-group search-tips">
         <label for="filetype-input" class="filter-label" [class.xxSmallFont]="onMobile()">Filetype:</label>
         <div class="fInputFlexDiv">
           <input id="filetype-input" class="filter-input" type="text" [value]="fileTypeFilter" #fileTypeFilterInput
@@ -813,7 +813,7 @@
         </div>
       </div>
 
-      <div class="filter-group search-tips gradientBackground">
+      <div class="filter-group search-tips">
         <label for="fileid-input" class="filter-label" [class.xxSmallFont]="onMobile()">File ID:</label>
         <div class="fInputFlexDiv">
           <input id="fileid-input" class="filter-input" type="number" [value]="fileIdFilter ?? ''"
@@ -828,7 +828,7 @@
 
     </div>
 
-    <div *ngIf="isInRomDirectory" class="spaceAroundFlex spaceAroundSystemFilters search-tips gradientBackground">
+    <div *ngIf="isInRomDirectory" class="spaceAroundFlex spaceAroundSystemFilters search-tips">
       <span style="width:100%">Filter by system:</span>
       <div class="systemFilters">
         <button *ngFor="let s of getSupportedRomSystems()" class="toggle-switch-small" [title]="getSystemLabel(s).title"
@@ -840,7 +840,7 @@
       </div>
     </div>
 
-    <div class="optionsStatsDiv search-tips gradientBackground">
+    <div class="optionsStatsDiv search-tips">
       <div class="optionsStatsHeader">
         Search same directory only?
       </div>
@@ -851,7 +851,7 @@
       </div>
     </div>
     
-    <div class="optionsStatsDiv search-tips gradientBackground" *ngIf="userIsLoggedIn()">
+    <div class="optionsStatsDiv search-tips" *ngIf="userIsLoggedIn()">
       <div class="optionsStatsHeader">
         Show favourites only?
       </div>
@@ -863,7 +863,7 @@
     </div>
 
 
-    <div class="optionsStatsDiv search-tips gradientBackground" *ngIf="displayPicturesOnlyToggler">
+    <div class="optionsStatsDiv search-tips" *ngIf="displayPicturesOnlyToggler">
       <div class="optionsStatsHeader">
         Show pictures only?
       </div>
@@ -874,7 +874,7 @@
       </div>
     </div>
 
-    <div class="optionsStatsDiv search-tips gradientBackground" *ngIf="displayVideosOnlyToggler">
+    <div class="optionsStatsDiv search-tips" *ngIf="displayVideosOnlyToggler">
       <div class="optionsStatsHeader">
         Show videos only?
       </div>
@@ -885,7 +885,7 @@
       </div>
     </div>
 
-    <div class="optionsStatsDiv search-tips gradientBackground" *ngIf="displayHiddenFilesToggler && userIsLoggedIn()">
+    <div class="optionsStatsDiv search-tips" *ngIf="displayHiddenFilesToggler && userIsLoggedIn()">
       <div class="optionsStatsHeader">
         Show hidden files?
       </div>
@@ -896,7 +896,7 @@
       </div>
     </div>
 
-    <div class="optionsStatsDiv search-tips gradientBackground" *ngIf="displayNSFWToggler && userIsLoggedIn()">
+    <div class="optionsStatsDiv search-tips" *ngIf="displayNSFWToggler && userIsLoggedIn()">
       <div class="optionsStatsHeader">
         Show NSFW?
       </div>
@@ -907,7 +907,7 @@
       </div>
     </div>
 
-    <div class="optionsStatsDiv search-tips gradientBackground" *ngIf="userIsLoggedIn()">
+    <div class="optionsStatsDiv search-tips" *ngIf="userIsLoggedIn()">
       <div class="optionsStatsHeader">
         Display results as:
       </div>
@@ -918,7 +918,7 @@
       </div>
     </div>
 
-    <div class="optionsStatsDiv search-tips gradientBackground" *ngIf="displayPrivatePublicOption && showData">
+    <div class="optionsStatsDiv search-tips" *ngIf="displayPrivatePublicOption && showData">
       <div class="optionsStatsHeader">
         Visibility:
       </div>
@@ -933,7 +933,7 @@
       </div>
     </div>
 
-    <div class="optionsStatsDiv search-tips gradientBackground" *ngIf="displayPrivatePublicOption && showData">
+    <div class="optionsStatsDiv search-tips" *ngIf="displayPrivatePublicOption && showData">
       <div class="optionsStatsHeader">
         Ownership:
       </div>
