@@ -171,10 +171,11 @@ export class MediaSelectorComponent {
     }
   }
   fileEntryFoundEvent(file: FileEntry) {
+    console.log("fileEntryFoundEvent for file.id=" + file.id, file);
     let tgt = this.selectedFiles.filter(x => x.id === file.id)[0];
     if (!tgt) {
       this.selectedFiles.push(file);
-    } else {
+    } else if (!tgt.fileName) {
       tgt = file;
     }
   }
