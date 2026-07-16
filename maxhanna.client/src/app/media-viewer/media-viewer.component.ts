@@ -51,6 +51,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Output() topicClickedEvent = new EventEmitter<Topic[]>();
   @Output() mediaEndedEvent = new EventEmitter<void>();
   @Output() finishedLoadingEvent = new EventEmitter<void>();
+  @Output() fileEntryFoundEvent = new EventEmitter<FileEntry>();
 
   @ViewChild('mediaContainer', { static: false }) mediaContainer?: ElementRef;
   @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay?: ElementRef;
@@ -99,9 +100,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (this.file && !this.file.fileName) {
       const tgt: FileEntry | undefined = this.parentRef?.fileCache.filter(x => x.id === this.file?.id)[0];
       if (tgt) {
-        console.log("found file in cache for file.id=" + this.file.id);
+        console.log("found file in cache for file.id=" + this.file.id, tgt);
         this.selectedFile = tgt;
         this.file = tgt;
+        this.fileEntryFoundEvent.emit(tgt);
       } else {
         if (!this.selectedFile?.fileName) {
           console.log("fetching file entry by id for file.id=" + this.file.id);
@@ -109,11 +111,13 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
           if (res) {
             console.log("fetched file entry by id for file.id=" + this.file.id, res);
             this.selectedFile = res;
+            this.fileEntryFoundEvent.emit(res);
           }
         } else {
           console.log("using existing file for file.id=" + this.file.id, this.file);
           this.selectedFile = this.file;
           this.parentRef?.fileCache.push(this.file);
+          this.fileEntryFoundEvent.emit(this.file);
         }
       }
     }  

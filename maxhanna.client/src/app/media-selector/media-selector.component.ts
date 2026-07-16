@@ -170,4 +170,12 @@ export class MediaSelectorComponent {
       }, 100);
     }
   }
+  fileEntryFoundEvent(file: FileEntry) {
+    let tgt = this.selectedFiles.filter(x => x.id === file.id)[0];
+    if (!tgt) {
+      this.selectedFiles.push(file);
+    } else {
+      tgt = file;
+    }
+  }
 }

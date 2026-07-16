@@ -39,6 +39,7 @@
               [displayExpander]="false"
               [autoplay]="true" 
               [displayLoading]="true"
+              (fileEntryFoundEvent)="fileEntryFoundEvent($event)"
               (expandClickedEvent)="removeFile(file)">
             </app-media-viewer>
             
