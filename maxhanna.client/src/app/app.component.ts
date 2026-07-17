@@ -1069,22 +1069,20 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     const hour = new Date().getHours();
     let greeting = '';
 
-    if (hour >= 5 && hour < 12) {
-      greeting = `Stay for a while, grab a coffee ${username}`;
-    } else if (hour >= 12 && hour < 17) {
-      greeting = `${username}, time to shine!`;
-    } else if (hour >= 17 && hour < 21) {
-      greeting = `Evening vibes only, ${username}!`;
-    } else if (hour >= 21 || hour < 4) {
-      greeting = `Midnight madness in progress, ${username}. Stay curious.`;
-    } else if (hour >= 4 && hour < 10) {
+    if (hour === 6) {
+      greeting = `Early bird special, ${username}! Perfect start to your day!`;
+    } else if (hour >= 5 && hour < 10) {
       greeting = `Rise and shine, ${username}! Morning energy!`;
-    } else if (hour >= 10 && hour < 13) {
+    } else if (hour >= 10 && hour < 12) {
+      greeting = `Morning energy, ${username}! Starting strong!`;
+    } else if (hour >= 12 && hour < 14) {
       greeting = `Lunch break time, ${username} - enjoy your meal!`;
-    } else if (hour >= 13 && hour < 17) {
+    } else if (hour >= 14 && hour < 18) {
       greeting = `Afternoon drive, ${username}! Keep it going!`;
-    } else {
-      greeting = `Good afternoon, ${username}, keep up the great work!`;
+    } else if (hour >= 18 && hour <= 21) {
+      greeting = `Evening vibes only, ${username}!`;
+    } else if (hour > 21 || hour < 4) {
+      greeting = `Midnight madness in progress, ${username}. Stay curious.`;
     }
 
     return greeting;
