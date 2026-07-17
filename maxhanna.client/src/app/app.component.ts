@@ -1075,10 +1075,16 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       greeting = `${username}, time to shine!`;
     } else if (hour >= 17 && hour < 21) {
       greeting = `Evening vibes only, ${username}!`;
-    } else if (hour >= 21 || hour < 5) {
+    } else if (hour >= 21 || hour < 4) {
       greeting = `Midnight madness in progress, ${username}. Stay curious.`;
+    } else if (hour >= 4 && hour < 10) {
+      greeting = `Rise and shine, ${username}! Morning energy!`;
+    } else if (hour >= 10 && hour < 13) {
+      greeting = `Lunch break time, ${username} - enjoy your meal!`;
+    } else if (hour >= 13 && hour < 17) {
+      greeting = `Afternoon drive, ${username}! Keep it going!`;
     } else {
-      greeting = `Good morning sunshine, ${username}`;
+      greeting = `Good afternoon, ${username}, keep up the great work!`;
     }
 
     return greeting;
