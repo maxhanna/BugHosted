@@ -139,69 +139,67 @@ async function runBuildIfNeeded() {
         buildCompleted = true;
         writeLog('[Build] Build complete detected (Output location printed)');
 
-        const killDelayMs = parseInt(process.env.FRONTEND_BUILD_KILL_DELAY_MS || '5000', 10);
-        const flushTimeoutMs = parseInt(process.env.FRONTEND_BUILD_FLUSH_TIMEOUT_MS || '60000', 10);
+        const flushTimeoutMs = parseInt(process.env.FRONTEND_BUILD_FLUSH_TIMEOUT_MS || '30000', 10);
         const checkIntervalMs = parseInt(process.env.FRONTEND_BUILD_CHECK_INTERVAL_MS || '1000', 10);
 
-        writeLog(`[Build] Will attempt to detect index.html for up to ${flushTimeoutMs}ms, killing build after ${killDelayMs}ms`);
-
-        setTimeout(() => {
-          writeLog('[Build] Attempting to kill build process...');
-          try {
-            killRequested = true;
-            const killResult = child.kill('SIGTERM');
-            writeLog('[Build] Kill signal sent (SIGTERM). Result:', killResult, 'child.killed:', child.killed);
-            if (!killResult) {
-              writeLog('[Build] Kill signal did not report success (process may have already exited)');
-            }
-          } catch (e) {
-            writeLog('[Build] Could not kill child, but proceeding anyway:', e && e.message ? e.message : e);
-          }
-        }, killDelayMs);
+        writeLog(`[Build] Waiting for index.html (up to ${flushTimeoutMs}ms), process will be killed after timeout`);
 
         const start = Date.now();
+
+        // Poll for index.html — check both browser/ and dist root
         const retryHandle = setInterval(() => {
-          try {
-            if (fs.existsSync(browserIndex)) {
+          const checkPaths = [browserIndex, path.join(distRoot, 'index.html')];
+          for (const p of checkPaths) {
+            if (fs.existsSync(p)) {
               if (!hasResolved) {
                 hasResolved = true;
-                indexPath = browserIndex;
+                indexPath = p;
                 writeLog('[Build] index.html found, resolving');
                 clearInterval(retryHandle);
                 resolve(true);
               }
               return;
             }
+          }
 
-            const elapsed = Date.now() - start;
-            if (elapsed % 5000 < checkIntervalMs) {
-              try {
-                const distContents = fs.readdirSync(distRoot);
-                writeLog('[Build] Dist folder contents (retry):', distContents);
-                const browserPath = path.join(distRoot, 'browser');
-                if (fs.existsSync(browserPath)) {
-                  const browserContents = fs.readdirSync(browserPath);
-                  writeLog('[Build] Browser folder contents (retry):', browserContents);
-                }
-              } catch (e) {
-                writeLog('[Build] Error listing dist during retry:', e && e.message ? e.message : e);
-              }
-            } else {
-              writeLog('[Build] Time Elapsed:', elapsed, 'ms');
-            }
+          const elapsed = Date.now() - start;
+          if (elapsed % 5000 < checkIntervalMs) {
+            writeLog('[Build] Time Elapsed:', elapsed, 'ms');
+          }
 
-            if (elapsed >= flushTimeoutMs) {
-              clearInterval(retryHandle);
-              if (!hasResolved) {
-                hasResolved = true;
-                writeLog('[Build] index.html not found after retry timeout, proceeding anyway - prod-server will handle fallback');
-                resolve(true);
-              }
+          if (elapsed >= flushTimeoutMs) {
+            clearInterval(retryHandle);
+            if (!hasResolved) {
+              hasResolved = true;
+              writeLog('[Build] index.html not found after timeout, killing build and proceeding');
+              try { child.kill('SIGTERM'); } catch { }
+              resolve(true);
             }
-          } catch (e) {
-            writeLog('[Build] Error during retry check:', e && e.message ? e.message : e);
           }
         }, checkIntervalMs);
+
+        // Also listen for process exit — the file might appear right after
+        child.on('close', (code, signal) => {
+          writeLog('[Build] Process closed with code:', code, 'signal:', signal);
+          // Check one final time
+          const checkPaths = [browserIndex, path.join(distRoot, 'index.html')];
+          for (const p of checkPaths) {
+            if (fs.existsSync(p) && !hasResolved) {
+              hasResolved = true;
+              indexPath = p;
+              writeLog('[Build] index.html found after process exit, resolving');
+              clearInterval(retryHandle);
+              resolve(true);
+            }
+          }
+          // If index.html still not found but process exited, proceed anyway
+          if (!hasResolved) {
+            hasResolved = true;
+            writeLog('[Build] Process exited, proceeding (prod-server will handle fallback)');
+            clearInterval(retryHandle);
+            resolve(true);
+          }
+        });
       }
     });
 
