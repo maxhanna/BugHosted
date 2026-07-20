@@ -149,6 +149,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   private _savedDirectoryBeforeFileIdSearch: string | null = null;
   private windowScrollHandler: Function;
   private containerScrollHandler: Function;
+  private scrollWatchInterval: any;
 
   @ViewChild('search') search!: ElementRef<HTMLInputElement>;
   @ViewChild('popupSearch') popupSearch!: ElementRef<HTMLInputElement>;
@@ -204,7 +205,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.allowedFileTypes = this.allowedFileTypes.map(type => type.toLowerCase());
     if (this.fileId && this.fileId != null) {
       this.fileIdFilter = this.fileId;
-      console.log('[FileSearch] ngOnInit: using @Input fileId', this.fileId);
       await this.loadFileByIdOnce(this.fileId);
       this.replacePageTitleAndDescription();
       return;
@@ -215,7 +215,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (routeFileId) {
       this.fileId = routeFileId;
       this.fileIdFilter = this.fileId;
-      console.log('[FileSearch] ngOnInit: using route snapshot fileId', this.fileId);
       await this.loadFileByIdOnce(this.fileId);
       this.replacePageTitleAndDescription();
       return;
@@ -223,11 +222,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
     this.route.paramMap.subscribe(async (params: any) => {
       const paramFileId = +params.get('fileId');
-      //console.log('[FileSearch] route.paramMap event', paramFileId);
       if (paramFileId && paramFileId != null) {
         this.fileId = paramFileId;
         this.fileIdFilter = this.fileId;
-        console.log('[FileSearch] paramMap handler: invoking getDirectory for fileId', this.fileId);
         await this.loadFileByIdOnce(this.fileId);
         this.replacePageTitleAndDescription();
         return;
@@ -249,16 +246,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       const dir = this.directoryDisplayDivRef?.nativeElement;
       if (dir) {
         let lastTop = dir.scrollTop;
-        setInterval(() => {
+        this.scrollWatchInterval = setInterval(() => {
           if (dir.scrollTop !== lastTop) {
-            console.log('[scroll-watch] directoryDisplayDiv scrollTop changed', { from: lastTop, to: dir.scrollTop, diff: dir.scrollTop - lastTop });
             lastTop = dir.scrollTop;
           }
         }, 100);
-
-        dir.addEventListener('scroll', () => {
-          console.log('[scroll-watch] scroll EVENT on directoryDisplayDiv', { scrollTop: dir.scrollTop });
-        }, { passive: true });
       }
     }, 1000);
 
@@ -408,52 +400,46 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   ngOnDestroy() {
-    // Remove window scroll listener
     window.removeEventListener('scroll', this.windowScrollHandler as EventListener);
-    // console.log('Window scroll event listener removed');
 
-    // Remove container scroll listener if fileContainer exists
     if (this.fileContainer?.nativeElement) {
       this.fileContainer.nativeElement.removeEventListener('scroll', this.containerScrollHandler as EventListener);
-      // console.log('fileContainer scroll event listener removed');
     }
 
-    // Abort any pending getDirectory requests
+    if (this.scrollWatchInterval) {
+      clearInterval(this.scrollWatchInterval);
+      this.scrollWatchInterval = null;
+    }
+
     this.getDirectoryAbortController?.abort();
   }
 
   onWindowScroll() {
-    // console.log('Window scroll event triggered');
     const threshold = 100;
     const atBottom =
       window.innerHeight + window.scrollY >=
       document.documentElement.scrollHeight - threshold;
 
     if (atBottom && !this.isLoading && this.currentPage < this.totalPages) {
-      console.log('Reached bottom of page, loading next page...');
       this.appendNextPage();
     }
   }
 
   onContainerScroll() {
-    // console.log('fileContainer scroll event triggered');
     const element = this.fileContainer.nativeElement;
     const threshold = 100;
     const atBottom = element.scrollHeight - element.scrollTop <= element.clientHeight + threshold;
 
     if (atBottom && !this.isLoading && this.currentPage < this.totalPages) {
-      console.log('Reached bottom of fileContainer, loading next page...');
       this.appendNextPage();
     }
   }
 
   scrollToFile(fileId: number) {
-    console.log("FIRED scrollToFile");
     setTimeout(() => {
       const element = document.getElementById('fileIdName' + fileId);
       if (element) {
         element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        //element.click();
       }
     }, 1000);
   }
@@ -486,7 +472,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
   async getDirectory(file?: string, fileId?: number, append?: boolean) {
     if (this.isLoading || this.pageLocked) return;
-    // console.log('[FileSearch] getDirectory called', { fileArg: file, fileIdArg: fileId, append, isLoading: this.isLoading, currentDirectory: this.currentDirectory });
     this.startLoading();
     this.pageLocked = true;
     if (!append) {
@@ -507,7 +492,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
     this.showData = true;
     try {
-      // Create new AbortController for this request
       this.getDirectoryAbortController = new AbortController();
 
       const effectiveFileId = (fileId ?? this.fileIdFilter) as number | undefined;
@@ -519,7 +503,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
 
       const includeRomMetadata = this.shouldShowRomMetadata();
 
-      // Default to Last Access (recent first) for ROM folders when no other sort option provided
       let sortToUse = this.sortOption && this.sortOption.trim() !== '' ? this.sortOption : '';
       const cur = (this.currentDirectory ?? '').toLowerCase();
       if (!sortToUse && /\broms?\b/.test(cur)) {
@@ -527,7 +510,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.sortOption = sortToUse;
       }
 
-      console.log("getting dir");
 
       await this.fileService.getDirectory(
         this.currentDirectory,
@@ -548,18 +530,14 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         this.isDisplayingNSFW,
         this.getDirectoryAbortController.signal,
       ).then(async res => {
-        console.log("in the then");
         const noData = !res;
         if (res && append && this.directory && this.directory.data) {
           this.startAppendingMode();
-          // Normalize and derive thumbnails for newly-appended items before merging
           const newItems = (res.data || []).filter((d: FileEntry) =>
             !this.directory?.data?.some((existingData) => existingData.id === d.id)
           );
           this.directory.data = this.directory.data.concat(newItems);
-          console.log("coincat");
           if (this.isInRomDirectory) {
-            console.log("in rom dir, getting fe");
             for (let x = 0; x < this.directory.data.length; x++) {
               if (this.directory.data[x].notes) { continue; }
               const fRes = await this.fileService.getFileEntryById(this.directory.data[x].id, this.parentRef?.user?.id, this.parentRef?.fileCache, true);
@@ -582,7 +560,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           this.directory = res;
 
           if (this.shouldShowRomMetadata() && this.directory?.data?.length) {
-            console.log("in rom dir, getting fe");
             for (let x = 0; x < this.directory.data.length; x++) {
               if (this.directory.data[x].notes) { continue; }
               const fRes = await this.fileService.getFileEntryById(this.directory.data[x].id, this.parentRef?.user?.id, this.parentRef?.fileCache, true);
@@ -799,8 +776,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   async appendNextPage() {
     if (this.pageLocked) { return; }
     if (this.currentPage < this.totalPages) {
-      // Infinite scroll: do NOT scroll to top when appending next page
-      console.log("Appending next page...");
       this.currentPage++;
       await this.getDirectory(undefined, undefined, true);
     }
@@ -872,7 +847,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (!this.isEditing.length) return;
     const text = (event.target as HTMLInputElement).value;
     if (event.key === 'Enter') {
-      console.log(event);
       event.preventDefault();
       await this.editFile(fileId, text);
       this.isEditing = [];
@@ -1621,8 +1595,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     ) as HTMLElement[];
   }
 
-  private updateControllerHover(noScroll?: boolean): void {
-    console.log("FIRED updateControllerHover");
+  private updateControllerHover(noScroll?: boolean): void { 
     const els = this.getFileElements();
     els.forEach(el => el.classList.remove('controller-hover'));
 
@@ -1696,8 +1669,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.loadingSearch = false;
     }, 500);
   }
-  changeSearchTermsFromSearchInput() {
-    console.log("this.currentPage:", this.currentPage);
+  changeSearchTermsFromSearchInput() { 
     this.currentPage = 1;
     this.scrollToTop();
     clearTimeout(this.debounceTimer);
@@ -2332,7 +2304,6 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (!file) return '';
     if (file.isFolder) return ''; // folders already show 📁 elsewhere
 
-    // If this looks like a ROM, delegate to existing system icon logic
     const dir = this.getDirectoryName(file);
     if (dir === 'Roms/' || file.romMetadata) {
       return this.getSystemEmoji('file.' + (file.fileType ?? ''), undefined, file.romMetadata?.actualSystem);

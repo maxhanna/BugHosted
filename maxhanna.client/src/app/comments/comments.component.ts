@@ -113,7 +113,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     return cleaned.length > 140 ? cleaned.slice(0, 140) + '...' : cleaned;
   }
 
-  ngOnInit() { 
+  ngOnInit() {
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
     }
@@ -388,7 +388,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   get currentUser(): User {
     return this.parentRef?.user ?? new User(0, "Anonymous");
   }
-  async deleteCommentAsync(comment: FileComment) { 
+  async deleteCommentAsync(comment: FileComment) {
     if (!this.currentUser?.id) { return alert("You must be logged in to delete a comment!"); }
     this.parentRef?.updateLastSeen();
     const res = await this.commentService.deleteComment(this.currentUser.id, comment.id);
@@ -428,7 +428,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     let message = (document.getElementById('commentTextTextarea' + comment.id) as HTMLTextAreaElement).value.trim();
     message = this.encryptionService.encryptContent(message, comment.user.id + "");
     this.editingComments = this.editingComments.filter(x => x != comment.id);
-    
+
     if (message && this.parentRef?.user) {
       this.parentRef.updateLastSeen();
       this.commentService.editComment(this.parentRef.user.id ?? 0, comment.id, message).then(res => {
@@ -444,7 +444,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
 
   // Handler for contentUpdated emitted by app-text-input when editing
   async onCommentUpdated(event: { results: any, content: any, originalContent: string }, comment: FileComment) {
-    try { 
+    try {
       if (!this.currentUser?.id) return alert('You must be logged in to edit comments');
       // encrypt content is already handled in text-input; event.content.commentText is plaintext
       const encrypted = this.encryptionService.encryptContent(event.originalContent || event.content.commentText, comment.user.id + "");
@@ -460,7 +460,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     }
   }
 
-  getTextForDOM(text: string, component_id: any) { 
+  getTextForDOM(text: string, component_id: any) {
     if (!this.parentRef) return "Error fetching parent component.";
 
     let componentIdStr: string;
@@ -488,14 +488,14 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       return;
     }
     this.isOptionsPanelOpen = true;
-    this.optionsComment = comment; 
+    this.optionsComment = comment;
     this.parentRef?.showOverlay();
   }
 
   closeOptionsPanel() {
     this.isOptionsPanelOpen = false;
-    this.optionsComment = undefined; 
-    this.parentRef?.closeOverlay(); 
+    this.optionsComment = undefined;
+    this.parentRef?.closeOverlay();
   }
 
   showSubComments(commentId: number) {
@@ -520,7 +520,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     }
   }
 
-  quote(comment: FileComment) { 
+  quote(comment: FileComment) {
     this.parentRef?.closeOverlay();
     const commentText = comment.commentText?.trim();
     const message = `[Quoting {${comment.user.username}|${comment.user.id}|${comment.date}}: ${commentText}] \n`;
@@ -607,7 +607,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
 
   updateCommentPollsInDOM() {
     const polls = this.collectAllCommentPolls();
-    if (!polls.length) return; 
+    if (!polls.length) return;
     const currentUserId = this.currentUser?.id ?? 0;
     const currentUserName = this.currentUser?.username?.toLowerCase() ?? '';
     const grouped = new Map<string, Poll[]>();
@@ -789,7 +789,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   }
   async copyAllText(comment: FileComment) {
     this.closeOptionsPanel();
-    
+
     try {
       const text = comment.commentText;
       await navigator.clipboard.writeText(text ?? "");

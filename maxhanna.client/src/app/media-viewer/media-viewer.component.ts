@@ -87,9 +87,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   isVideoBuffering = false;
   isMediaInformationToggled = false;
   private hasTriedInitialCachedLoad = false;
-  private mediaDebugListenersAttached = false;
-  private mediaDebugHandlers: Array<{ target: EventTarget; type: string; listener: EventListenerOrEventListenerObject; options?: boolean | AddEventListenerOptions }> = [];
-
   private _fileEntryFoundEmitted = false;
 
   async ngOnInit() {
@@ -130,7 +127,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
           }
         }
       }
-    }  
+    }
 
     this.changeBackgroundIfLoadedFromURL();
 
@@ -147,7 +144,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (this.showTopics) {
       this.ensureTopicsLoaded();
     }
-    this.attachMediaDebugListeners();
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -203,7 +199,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
 
   ngOnDestroy() {
-    this.detachMediaDebugListeners();
     try { this.stopAllMedia(); } catch { }
     try {
       if (this.abortFileRequestController) {
@@ -212,58 +207,6 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     } catch (e) { }
     window.removeEventListener('popstate', this.handleBackButton);
     window.removeEventListener('keydown', this.handleEscapeKey);
-  }
-
-  private attachMediaDebugListeners() {
-    if (this.mediaDebugListenersAttached || !this.mediaRoot?.nativeElement) {
-      return;
-    }
-
-    const root = this.mediaRoot.nativeElement;
-    const log = (...args: any[]) => console.log('[media-viewer-scroll-debug]', ...args);
-    const describeTarget = (target: EventTarget | null) => {
-      const element = target as HTMLElement | null;
-      if (!element) {
-        return 'none';
-      }
-      const id = element.id ? `#${element.id}` : '';
-      const classes = element.className ? `.${String(element.className).split(' ')[0]}` : '';
-      return `${element.tagName.toLowerCase()}${id}${classes}`;
-    };
-
-    const logTouch = (eventName: string, event: Event) => {
-      const touchEvent = event as TouchEvent;
-      log(eventName, {
-        target: describeTarget(event.target),
-        touches: touchEvent.touches?.length ?? 0,
-        clientY: touchEvent.touches?.[0]?.clientY,
-        clientX: touchEvent.touches?.[0]?.clientX,
-      });
-    };
-
-    this.addMediaDebugListener(root, 'touchstart', (event) => logTouch('touchstart', event), { passive: true });
-    this.addMediaDebugListener(root, 'touchmove', (event) => logTouch('touchmove', event), { passive: true });
-    this.addMediaDebugListener(root, 'touchend', (event) => logTouch('touchend', event), { passive: true });
-    this.addMediaDebugListener(root, 'wheel', (event) => log('wheel', {
-      target: describeTarget(event.target),
-      deltaY: (event as WheelEvent).deltaY,
-      deltaX: (event as WheelEvent).deltaX,
-    }), { passive: true });
-
-    this.mediaDebugListenersAttached = true;
-  }
-
-  private addMediaDebugListener(target: EventTarget, type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) {
-    target.addEventListener(type, listener as EventListener, options);
-    this.mediaDebugHandlers.push({ target, type, listener, options });
-  }
-
-  private detachMediaDebugListeners() {
-    for (const handler of this.mediaDebugHandlers) {
-      handler.target.removeEventListener(handler.type, handler.listener as EventListener);
-    }
-    this.mediaDebugHandlers = [];
-    this.mediaDebugListenersAttached = false;
   }
 
   onInView(isInView: boolean) {
@@ -944,33 +887,33 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     const root: Document | HTMLElement = this.mediaRoot?.nativeElement ?? document;
     const mediaNodes = root.querySelectorAll<HTMLMediaElement>('video, audio');
 
-    mediaNodes.forEach(el => this.hardStopMedia(el)); 
+    mediaNodes.forEach(el => this.hardStopMedia(el));
     this.clearOverlaySrcs();
   }
 
   private hardStopMedia(el: HTMLMediaElement) {
-    try { 
+    try {
       el.pause();
       el.muted = true;
       (el as any).volume = 0; // Just in case muted flag flips later
- 
+
       el.autoplay = false;
       el.loop = false;
       try { el.currentTime = 0; } catch { }
- 
+
       const pipDoc = document as any;
       if (pipDoc.pictureInPictureElement === el) {
         pipDoc.exitPictureInPicture?.().catch(() => { });
       }
- 
+
       const prevSrc = el.currentSrc || el.src;
       const isBlobUrl = !!prevSrc && prevSrc.startsWith('blob:');
- 
+
       el.removeAttribute('src');
-      el.querySelectorAll('source').forEach(s => s.remove()); 
+      el.querySelectorAll('source').forEach(s => s.remove());
       el.load();
- 
-      if (isBlobUrl) { 
+
+      if (isBlobUrl) {
         setTimeout(() => {
           try { URL.revokeObjectURL(prevSrc); } catch { }
         }, 0);
