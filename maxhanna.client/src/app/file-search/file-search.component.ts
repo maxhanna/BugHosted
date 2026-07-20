@@ -239,15 +239,29 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   ngAfterViewInit() {
-    // Attach window scroll listener
     window.addEventListener('scroll', this.windowScrollHandler as EventListener);
 
-    // Attach container scroll listener if fileContainer exists
     if (this.fileContainer?.nativeElement) {
       this.fileContainer.nativeElement.addEventListener('scroll', this.containerScrollHandler as EventListener);
-    } else {
-      console.error('fileContainer is not defined');
     }
+
+    setTimeout(() => {
+      const dir = this.directoryDisplayDivRef?.nativeElement;
+      if (dir) {
+        let lastTop = dir.scrollTop;
+        setInterval(() => {
+          if (dir.scrollTop !== lastTop) {
+            console.log('[scroll-watch] directoryDisplayDiv scrollTop changed', { from: lastTop, to: dir.scrollTop, diff: dir.scrollTop - lastTop });
+            lastTop = dir.scrollTop;
+          }
+        }, 100);
+
+        dir.addEventListener('scroll', () => {
+          console.log('[scroll-watch] scroll EVENT on directoryDisplayDiv', { scrollTop: dir.scrollTop });
+        }, { passive: true });
+      }
+    }, 1000);
+
     this.adjustMaxHeightOnce();
     this.updateDisplayRomMetadataDesktop();
   }
