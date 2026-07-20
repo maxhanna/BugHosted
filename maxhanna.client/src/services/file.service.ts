@@ -14,7 +14,7 @@ import { DirectoryResults } from './datacontracts/file/directory-results';
 })
 export class FileService {
   private directoryPromises: { [key: string]: Promise<DirectoryResults | null> | undefined } = {};
-  private fileEntryPromises: { [key: number]: Promise<Response> | undefined } = {};
+  private fileEntryPromises: { [key: number]: Promise<FileEntry> | undefined } = {};
   constructor(private http: HttpClient) { }
 
   videoFileExtensions = [
@@ -656,15 +656,16 @@ export class FileService {
   }
 
   async getFileEntryById(fileId: number, userId?: number, fileCache?: FileEntry[], includeRomMetadata?: boolean) {
-    if (this.fileEntryPromises[fileId]) {
-      return this.fileEntryPromises[fileId]!;
-    }
     const tmpFile = fileCache?.filter(x => x.id === fileId)[0];
     if (tmpFile) { return tmpFile; }
 
+    if (this.fileEntryPromises[fileId]) {
+      return this.fileEntryPromises[fileId]!;
+    }
+
     try {
       const query = userId ? `?userId=${encodeURIComponent(userId)}` : '';
-      this.fileEntryPromises[fileId] = fetch(`/file/getfileentrybyid${query}`, {
+      const fetchPromise = fetch(`/file/getfileentrybyid${query}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -672,12 +673,21 @@ export class FileService {
         body: JSON.stringify({ fileId, includeRomMetadata }),
       });
 
-      const tmpFileEntry = await (await this.fileEntryPromises[fileId]).json();
-      if (fileCache) {
+      this.fileEntryPromises[fileId] = fetchPromise.then(async (res) => {
+        const data = await res.json();
+        delete this.fileEntryPromises[fileId];
+        return data;
+      }).catch((err) => {
+        delete this.fileEntryPromises[fileId];
+        throw err;
+      });
+
+      const tmpFileEntry = await this.fileEntryPromises[fileId]!;
+      if (fileCache && tmpFileEntry) {
         fileCache.push(tmpFileEntry);
       }
 
-      return await tmpFileEntry;
+      return tmpFileEntry;
     } catch (error) {
       return null;
     }

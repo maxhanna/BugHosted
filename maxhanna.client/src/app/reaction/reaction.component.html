@@ -1,8 +1,8 @@
 <div class="reactionsContainer" id="reactionsContainer">
   <div class="addReactionDiv cursorPointer reactionsDisplaySpan" (click)="showReactionsOnClick()"
     *ngIf="currentReactions && currentReactions.length > 0 && (!userHasReacted() || currentReactions.length > 1)">
-    <span *ngFor="let reaction of reactionsDisplay"
-      [title]="reaction.type?.replaceAll('_', ' ')">{{replaceReactionType(reaction.type)}}</span>
+    <span *ngFor="let reaction of reactionsDisplay" class="reactionWithCount"
+      [title]="reaction.type?.replaceAll('_', ' ')">{{replaceReactionType(reaction.type)}}<span class="reactionCount">{{getReactionCount(reaction.type)}}</span></span>
   </div>
 
   <button class="addReactionButton {{coloredBg ? 'coloredBgButton' : ''}}" (click)="reactionButtonOnClick($event)"

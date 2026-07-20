@@ -351,6 +351,10 @@ export class ReactionComponent extends ChildComponent implements OnInit {
     }
   }
 
+  getReactionCount(type?: string) {
+    if (!type || !this.currentReactions) return 0;
+    return this.currentReactions.filter(r => r.type === type).length;
+  }
   replaceReactionType(type?: string) {
     //console.log("Replacing reaction type:", type);
     if (type) {
