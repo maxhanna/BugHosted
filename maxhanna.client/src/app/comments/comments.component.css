@@ -7,6 +7,9 @@
   flex-wrap: nowrap;
   overflow-anchor: none;
   overscroll-behavior-y: contain;
+  max-height: 60vh;
+  max-height: 60dvh;
+  overflow-y: auto;
 }
 
 .commentHeaderSmallExpander {
