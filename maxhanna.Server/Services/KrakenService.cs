@@ -1619,13 +1619,9 @@ public class KrakenService
     {
       _userLastCheckTimes.AddOrUpdate(userId, DateTime.UtcNow, (id, oldTime) => DateTime.UtcNow);
 
-      // 1. Get all trades from Kraken for both XBTUSDC and USDCXBT pairs
-      var krakenTradesBuySide = await GetUserTradesFromKraken(userId, keys, $"{tmpCoin}USDC");
-      if (krakenTradesBuySide == null || krakenTradesBuySide.Count == 0) return null;
-      var krakenTradesSellSide = await GetUserTradesFromKraken(userId, keys, $"USDC{tmpCoin}");
-
-      // Combine both sets of trades
-      var allKrakenTrades = krakenTradesBuySide.Concat(krakenTradesSellSide).ToList();
+      // 1. Get all trades from Kraken (pair filtering is not supported by TradesHistory endpoint)
+      var allKrakenTrades = await GetUserTradesFromKraken(userId, keys);
+      if (allKrakenTrades == null || allKrakenTrades.Count == 0) return null;
       var today = DateTime.UtcNow.Date;
       var yesterday = today.AddDays(-1);
       allKrakenTrades = allKrakenTrades.Where(x =>
@@ -1705,12 +1701,11 @@ public class KrakenService
       return false;
     }
   }
-  private async Task<List<KrakenTrade>> GetUserTradesFromKraken(int userId, UserKrakenApiKey keys, string pair)
+  private async Task<List<KrakenTrade>> GetUserTradesFromKraken(int userId, UserKrakenApiKey keys)
   {
     var parameters = new Dictionary<string, string>
     {
       ["type"] = "all",
-      ["pair"] = pair,
       ["trades"] = "true"
     };
 
