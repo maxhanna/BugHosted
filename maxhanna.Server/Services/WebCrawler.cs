@@ -1718,9 +1718,9 @@ public class WebCrawler
               await bgConn.OpenAsync().ConfigureAwait(false);
               const string upsertRefreshSql = @"
                     INSERT INTO search_results_count_cache (id, last_count, last_counted_at)
-                    VALUES (1, (SELECT COUNT(*) FROM search_results), UTC_TIMESTAMP())
+                    VALUES (1, (SELECT TABLE_ROWS FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'search_results'), UTC_TIMESTAMP())
                     ON DUPLICATE KEY UPDATE
-                      last_count      = (SELECT COUNT(*) FROM search_results),
+                      last_count      = (SELECT TABLE_ROWS FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'search_results'),
                       last_counted_at = UTC_TIMESTAMP();
                 ";
               await using var upCmd = new MySqlCommand(upsertRefreshSql, bgConn) { CommandTimeout = 30 };
@@ -1743,9 +1743,9 @@ public class WebCrawler
       // 4) If we have no cached value (or cachedCount == 0), do the synchronous upsert/read
       const string upsertRefreshSqlSync = @"
             INSERT INTO search_results_count_cache (id, last_count, last_counted_at)
-            VALUES (1, (SELECT COUNT(*) FROM search_results), UTC_TIMESTAMP())
+            VALUES (1, (SELECT TABLE_ROWS FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'search_results'), UTC_TIMESTAMP())
             ON DUPLICATE KEY UPDATE
-              last_count      = (SELECT COUNT(*) FROM search_results),
+              last_count      = (SELECT TABLE_ROWS FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'search_results'),
               last_counted_at = UTC_TIMESTAMP();
         ";
       await using (var upCmd = new MySqlCommand(upsertRefreshSqlSync, conn)
