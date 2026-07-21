@@ -9,9 +9,7 @@
       <div class="toolGroup">
         <button class="toolBtn" (click)="undo()" title="Undo (Ctrl+Z)">↩️</button>
         <button class="toolBtn" (click)="redo()" title="Redo (Ctrl+Y)">↪️</button>
-        <button class="toolBtn" (click)="clearCanvas()" title="Clear">🗑️</button>
-      </div>
-      <div class="toolGroup">
+        <button class="toolBtn" (click)="clearCanvas()" title="Clear">🗑️</button> 
         <button class="toolBtn" (click)="newCanvas()" title="New Canvas">🆕</button>
         <button class="toolBtn" (click)="fileInput.click()" title="Open Image">📂</button>
         <input #fileInput type="file" accept="image/*" (change)="loadImageFromFile($event)" style="display:none" />
