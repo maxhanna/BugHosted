@@ -74,12 +74,12 @@
       {{selectedDate!.date!.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year:
       'numeric' }) }}
     </div>
-    <table style="width:100%;" *ngIf="selectedCalendarEntries!.length > 0">
-      <tr *ngFor="let cal of selectedCalendarEntries" id="calNo{{cal.id}}"
+    <div style="width:100%;" *ngIf="selectedCalendarEntries!.length > 0">
+      <div *ngFor="let cal of selectedCalendarEntries" id="calNo{{cal.id}}"
         [class]="isEditingEntry.includes(cal) ? 'popupPanel' : ''"
         (click)="isEditingEntry.includes(cal) ? '' : editCalendarEntry(cal)">
-        <td style="width:70px;">{{cal.date | date:'shortTime'}}</td>
-        <td>
+        <div>{{cal.date | date:'shortTime'}}</div>
+        <div>
           <div *ngIf="!isEditingEntry.includes(cal)">{{ cal.type !== "Milestone" && cal.type !== "Anniversary" ?
             cal.note : (cal.type === "Anniversary" ? formatAnniversaryDisplay(cal) : (cal.date ? '(' +
             cal.date.toString().substring(0, cal.date.toString().indexOf('-')) + ') ' + cal.note : cal.note)) }}</div>
@@ -94,15 +94,15 @@
                 <option *ngFor="let t of getEventTypes()" [selected]="t === cal.type">{{t}}</option>
               </select></div>
           </div>
-        </td>
-        <td style="width:35px; display:flex; gap: 5px;">
+        </div>
+        <div style="width:35px; display:flex; gap: 5px;">
           <button *ngIf="isEditingEntry.includes(cal)" (click)="closeEditPopupCalendar(); $event.preventDefault();"
             id="closeOverlay">💾Update</button>
           <button *ngIf="isEditingEntry.includes(cal)"
             (click)="deleteCalendarEntry(cal!); $event.preventDefault();">❌Delete</button>
-        </td>
-      </tr>
-    </table>
+        </div>
+      </div>
+    </div>
     <div *ngIf="selectedCalendarEntries!.length == 0">No entries</div>
     <fieldset class="saveEntryFieldset">
       <legend>New calendar entry</legend>
