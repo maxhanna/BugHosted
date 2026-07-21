@@ -3636,7 +3636,10 @@ ON DUPLICATE KEY UPDATE
         var errorMessages = responseObject["error"] is JArray errorArray
           ? string.Join(", ", errorArray.ToObject<List<string>>() ?? new List<string>())
           : string.Empty;
-        _ = _log.Db($"Kraken API error: {errorMessages}. Url: {urlPath}. User: {userId}", userId, "TRADE", viewErrorDebugLogs);
+
+        var prettyPost = JsonConvert.SerializeObject(postData, Formatting.Indented);
+
+        _ = _log.Db($"Kraken API error: {errorMessages}. Url: {urlPath}. Data: {prettyPost}. User: {userId}", userId, "TRADE", viewErrorDebugLogs);
         await SetCooldown(userId, errorMessages);
         return null;
       }
