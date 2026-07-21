@@ -3624,7 +3624,8 @@ ON DUPLICATE KEY UPDATE
 
       if (!response.IsSuccessStatusCode)
       {
-        _ = _log.Db("Failed to make API request: " + responseContent, userId, "TRADE", viewErrorDebugLogs);
+        var prettyPost = JsonConvert.SerializeObject(postData, Formatting.Indented);
+        _ = _log.Db($"Failed to make API request: ${responseContent} === Post Data: ${prettyPost}", userId, "TRADE", viewErrorDebugLogs);
       }
 
       Dictionary<string, object>? responseObject = JsonConvert.DeserializeObject<Dictionary<string, object>>(responseContent);
