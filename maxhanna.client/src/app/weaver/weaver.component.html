@@ -203,7 +203,7 @@
           <div class="dash-header-left">
             <span class="dash-subtitle">Connection Status:</span>
             <span class="status-dot" [class.online]="isOnline()" [class.offline]="!isOnline()"
-              title="Connection status: {{ isOnline() ? 'Online' : 'Offline' }}"></span> 
+              title="Connection status: {{ isOnline() ? 'Online' : 'Offline' }}"></span>
           </div>
           <input [value]="searchFilter" (input)="onSearchFilterChange($event)" placeholder="Search cards…"
             class="weaver-input weaver-input-sm" />
@@ -991,7 +991,8 @@
               <span class="benchmark-date">{{ b.date }}</span>
             </div>
             <div class="benchmark-details">
-              <span *ngIf="b.status" class="benchmark-badge" [class.benchmark-pass]="b.status === 'pass'" [class.benchmark-fail]="b.status === 'fail'">{{ b.status }}</span>
+              <span *ngIf="b.status" class="benchmark-badge" [class.benchmark-pass]="b.status === 'pass'"
+                [class.benchmark-fail]="b.status === 'fail'">{{ b.status }}</span>
               <span *ngIf="b.score > 0">Score: {{ b.score }}</span>
               <span *ngIf="b.duration">Duration: {{ b.duration }}</span>
               <span *ngIf="b.model">Model: {{ b.model }}</span>
@@ -1085,14 +1086,27 @@
   </ng-template>
 
   <!-- Weaver Menu Popup -->
-  <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
+  <div class="popupPanel" style="overflow: auto" *ngIf="isMenuPanelOpen">
     <div class="popupPanelTitle">Weaver</div>
-    <div style="gap: 10px; padding: 10px; display: flex;">
-      <button (click)="doLogout()" class="btn btn-ghost" style="width:100%;">Logout</button>
-      <button (click)="openSettingsPanel()" class="btn btn-ghost" [disabled]="!settingsData">Settings</button>
+    <div style="gap: 10px; padding: 10px; display: flex">
+      <button (click)="doLogout()" class="btn btn-ghost" style="width: 100%">
+        Logout
+      </button>
+      <button (click)="openSettingsPanel()" class="btn btn-ghost" [disabled]="!settingsData">
+        Settings
+      </button>
     </div>
+    <hr style="
+      margin: 8px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: none;
+    " />
+    <a href="https://bughosted.com/assets/Weaver.exe" target="_blank" class="menu-link">Download Weaver</a><br />
+    <a href="https://github.com/maxhanna/Weaver" target="_blank" class="menu-link">GitHub Repository</a><br />
+    <a href="https://discord.com/invite/YQWkD6ZQDx" target="_blank" class="menu-link">Discord Server</a><br />
     <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()"></button>
   </div>
+
 
   <!-- Settings Popup Panel -->
   <div class="popupPanel settings-popup-panel" style="overflow: auto;" *ngIf="settingsPanelOpen">
