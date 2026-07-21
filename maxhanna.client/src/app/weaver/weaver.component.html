@@ -280,7 +280,6 @@
                   </div>
                   <div class="card-tags">
                     <span *ngIf="card.ready" class="tag-ready">READY</span>
-                    <span *ngIf="card.priority" [class]="'priority-' + card.priority">{{ card.priority }}</span>
                   </div>
                   <div *ngIf="hasAttachments(card)" class="attachments">
                     <div *ngFor="let f of getAttachedFiles(card)" class="attachment-item">📎 {{ f }}</div>
@@ -416,7 +415,6 @@
                     </div>
                   </div>
                   <div class="card-tags">
-                    <span *ngIf="card.priority" [class]="'priority-' + card.priority">{{ card.priority }}</span>
                     <span *ngIf="activeCardId === card.id" class="tag-in-progress">In Progress</span>
                   </div>
                   <div *ngIf="hasAttachments(card)" class="attachments">
