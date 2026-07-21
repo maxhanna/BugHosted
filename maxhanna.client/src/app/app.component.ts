@@ -196,7 +196,7 @@ export class AppComponent implements OnInit, AfterViewInit {
       ownership: 0,
       title: 'News',
       content: `Get the latest news on any subject from multiple different sources (from both main and non-mainstream
-  news).`
+      news).`
     },
     {
       ownership: 0,
