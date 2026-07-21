@@ -84,3 +84,7 @@ thead {
 .menuPanelOptionsDiv {
   margin-top: 35px;
 }
+
+.calendarActionButtons button {
+  white-space: nowrap;
+}

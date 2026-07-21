@@ -169,7 +169,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🌱", title: "Planter", content: undefined },
     { ownership: 0, icon: "🕷️", title: "Weaver", content: undefined },
     { ownership: 0, icon: "🚔", title: "GrandTheft", content: undefined },
-    { ownership: 0, icon: "ℹ️", title: "Help", content: undefined },
+    { ownership: 0, icon: "🍳", title: "Recipe", content: undefined },
+    { ownership: 0, icon: "ℹ️", title: "Help", content: undefined }
   ];
   componentTitles: { [key: string]: string } = {
     'Notification': 'Notifications',
@@ -690,9 +691,14 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     } else {
       this.userSelectedNavigationItems = await this.userService.getUserMenu(this.user.id);
     }
-    // Ensure UserComponent and UserSettingsComponent always appear last
+    const helpComponentIndex = this.userSelectedNavigationItems.findIndex(item => item.title === 'Help');
     const userComponentIndex = this.userSelectedNavigationItems.findIndex(item => item.title === 'User');
     const userSettingsComponentIndex = this.userSelectedNavigationItems.findIndex(item => item.title === 'UpdateUserSettings');
+
+    if (helpComponentIndex !== -1) {
+      const helpComponent = this.userSelectedNavigationItems.splice(helpComponentIndex, 1)[0];
+      this.userSelectedNavigationItems.push(helpComponent);
+    }
 
     if (userComponentIndex !== -1) {
       const userComponent = this.userSelectedNavigationItems.splice(userComponentIndex, 1)[0];
