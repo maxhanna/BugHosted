@@ -535,10 +535,11 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     const text = this.getCardText(card);
     const cmdId = this.cardCommandMap[card.id];
     if (cmdId && this.commands.some(c => c.id === cmdId)) {
-      await this.weaverService.updateCommandParams(this.token, cmdId, { cardId: card.id, text, project: card.filePath || this.selectedProjectPath });
-    } else {
-      await this.weaverService.addCommand(this.token, 'changeCardText', { cardId: card.id, text });
+      const ok = await this.weaverService.updateCommandParams(this.token, cmdId, { cardId: card.id, text, project: card.filePath || this.selectedProjectPath });
+      if (ok) return; // addCard still pending — params updated inline
     }
+    // addCard already processed or update failed — send a dedicated changeCardText command
+    await this.weaverService.addCommand(this.token, 'changeCardText', { cardId: card.id, text });
   }
 
   // --- Add card: local + remote ---
