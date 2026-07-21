@@ -83,6 +83,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     'MediaViewerComponent',
     'RecipeComponent',
     'PaintComponent',
+    'RecipeComponent',
   ];
   unflexedNavigationComponents: string[] = [
     'EmulatorComponent',
@@ -204,9 +205,14 @@ export class AppComponent implements OnInit, AfterViewInit {
     },
     {
       ownership: 0,
+      title: 'Recipe',
+      content: `Manage and view recipes with ingredients and instructions.`
+    },
+    {
+      ownership: 0,
       title: 'Weather',
       content: `Get up to date weather information based on a location you supply or the automatically found location
-  based on your IP-Address!`
+      based on your IP-Address!`
     },
     {
       ownership: 0,
