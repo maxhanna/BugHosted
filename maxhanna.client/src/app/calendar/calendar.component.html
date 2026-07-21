@@ -86,8 +86,10 @@
           <div *ngIf="isEditingEntry.includes(cal)">
             Time: <input id="calendarEditingTime" type="time" [value]="(cal.date | date:'HH:mm')"
               (input)="hasEditedCalendarEntry = true" />
-            <div>Note: <input id="calendarEditingNote" type="text" [value]="cal.note"
-                (input)="hasEditedCalendarEntry = true" /></div>
+            <div>Note:
+              <textarea id="calendarEditingNote" rows="4" cols="50" [value]="cal.note"
+                (input)="hasEditedCalendarEntry = true"></textarea>
+            </div>
             <div>Type: <select id="calendarEditingType" (change)="hasEditedCalendarEntry = true">
                 <option *ngFor="let t of getEventTypes()" [selected]="t === cal.type">{{t}}</option>
               </select></div>
