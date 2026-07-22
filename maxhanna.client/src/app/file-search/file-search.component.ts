@@ -2608,6 +2608,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   nextPreviewImage() {
     if (!this.imagePreviewFile || !this.imagePreviewFile.romInlineThumbs) return;
+    console.log('next preview image: ', this.imagePreviewFile.romInlineThumbs);
     this.imagePreviewUrl = this.imagePreviewFile.romInlineThumbs[++this.imageIndex];
     this.changeDetectorRef.detectChanges();
   }
