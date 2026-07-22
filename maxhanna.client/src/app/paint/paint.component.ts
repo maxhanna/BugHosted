@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild } from '@angular/core';
+﻿import { Component, ElementRef, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
@@ -468,6 +468,48 @@ export class PaintComponent extends ChildComponent {
     link.download = this.fileName || 'painting.png';
     link.href = this.canvasRef.nativeElement.toDataURL('image/png');
     link.click();
+  }
+  async cropImage() {
+      if (!this.parentRef) return;
+
+      try {
+          const confirmed = confirm('Are you sure you want to crop the image?');
+          if (!confirmed) return;
+
+          // Get current canvas data as base64 string
+          const imageDataUrl = this.canvasRef.nativeElement.toDataURL('image/png');
+ 
+          // Create a temporary offscreen canvas for cropping operations
+          const tempCanvas = document.createElement('canvas');
+          const tempCtx = tempCanvas.getContext('2d')!;
+          const img = new Image();
+          img.onload = () => {
+              // Set dimensions based on original size (for simplicity)
+              tempCanvas.width = Math.min(img.naturalWidth, this.canvasWidth);
+              tempCanvas.height = Math.min(img.naturalHeight, this.canvasHeight);
+ 
+              // Draw cropped portion of the image onto our temp canvas
+              tempCtx.drawImage(
+                  img,
+                  0, 0, tempCanvas.width, tempCanvas.height,
+                  0, 0, tempCanvas.width, tempCanvas.height
+              );
+ 
+              // Update main canvas with cropped content and save state
+              this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+              this.ctx.fillStyle = '#ffffff';
+              this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+              this.ctx.globalCompositeOperation = 'source-over';
+              this.ctx.drawImage(tempCanvas, 0, 0);
+              this.saveState();
+
+              this.parentRef?.showNotification('Image has been cropped successfully.');
+          };
+          img.src = imageDataUrl;
+    } catch (ex) {
+          console.error(ex);
+          this.parentRef?.showNotification('Error during cropping operation.');
+    }
   }
 
   newCanvas() {

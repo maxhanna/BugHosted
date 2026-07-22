@@ -1,4 +1,4 @@
-<div class="componentMain">
+﻿<div class="componentMain">
   <app-title-bar [title]="'Paint'" (closeClicked)="remove_me('PaintComponent')"></app-title-bar>
   <div class="paintContainer">
     <div class="paintToolbar">
@@ -9,13 +9,14 @@
       <div class="toolGroup">
         <button class="toolBtn" (click)="undo()" title="Undo (Ctrl+Z)">↩️</button>
         <button class="toolBtn" (click)="redo()" title="Redo (Ctrl+Y)">↪️</button>
-        <button class="toolBtn" (click)="clearCanvas()" title="Clear">🗑️</button> 
+        <button class="toolBtn" (click)="clearCanvas()" title="Clear">🗑️</button>
         <button class="toolBtn" (click)="newCanvas()" title="New Canvas">🆕</button>
         <button class="toolBtn" (click)="fileInput.click()" title="Open Image">📂</button>
         <input #fileInput type="file" accept="image/*" (change)="loadImageFromFile($event)" style="display:none" />
         <button class="toolBtn" (click)="savePainting()" title="Save">💾</button>
         <button class="toolBtn" (click)="loadPaintingByFileId()" title="Load by ID">📥</button>
         <button class="toolBtn" (click)="downloadPainting()" title="Download">📤</button>
+        <button class="toolBtn" (click)="cropImage()" title="Crop Image">✂️</button>
       </div>
       <div class="toolGroup">
         <label class="toolLabel">
@@ -58,9 +59,9 @@
     <div class="canvasWrapper" [class.showPalette]="showColorPicker">
       <div class="canvasArea">
         <div class="canvasStage">
-          <canvas #paintCanvas class="paintCanvas" (pointerdown)="onPointerDown($event)" (pointermove)="onPointerMove($event)"
-            (pointerup)="onPointerUp($event)" (pointerleave)="onPointerLeave($event)"
-            (contextmenu)="$event.preventDefault()"></canvas>
+          <canvas #paintCanvas class="paintCanvas" (pointerdown)="onPointerDown($event)"
+            (pointermove)="onPointerMove($event)" (pointerup)="onPointerUp($event)"
+            (pointerleave)="onPointerLeave($event)" (contextmenu)="$event.preventDefault()"></canvas>
           <canvas #overlayCanvas class="overlayCanvas"></canvas>
         </div>
       </div>
