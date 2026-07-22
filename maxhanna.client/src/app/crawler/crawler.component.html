@@ -122,7 +122,7 @@
             </div>
           </div>
         </div>
-        <div style="text-align: center; margin-top:10px;" *ngIf="imdbResults.length > imdbDisplayLimit">
+        <div style="text-align: center; margin-top:10px;" *ngIf="imdbResults.length">
           <button (click)="showMoreImdb()">
             Display {{ imdbDisplayLimit >1 ? "less" : "more" }} IMDB results {{ imdbDisplayLimit === 1 ? ("(" +
             (imdbResults.length -1) + ")") : ""}}
