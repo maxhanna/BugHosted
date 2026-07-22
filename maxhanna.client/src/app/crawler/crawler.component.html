@@ -90,13 +90,13 @@
               </a>
             </div>
           </div>
-          <div style="text-align: center; margin-top:10px;" *ngIf="youtubeResults.length >1">
-            <button (click)="showMoreYoutube()">
-              Display {{ youtubeDisplayLimit > 1 ? "less" : "more" }} YouTube results {{ youtubeDisplayLimit === 1 ?
-              ("(" +
-              (youtubeResults.length - 1) + ")") : ""}}
-            </button>
-          </div>
+        </div>
+        <div style="text-align: center; margin-top:10px;" *ngIf="youtubeResults.length >1">
+          <button (click)="showMoreYoutube()">
+            Display {{ youtubeDisplayLimit > 1 ? "less" : "more" }} YouTube results {{ youtubeDisplayLimit === 1 ?
+            ("(" +
+            (youtubeResults.length - 1) + ")") : ""}}
+          </button>
         </div>
       </div>
 
@@ -140,11 +140,11 @@
             [displaySocialResults]="true" (urlSelectedEvent)="visitExternalLink($event)">
           </app-crawler-search-results>
         </div>
-        <div style="text-align: center; margin-top:10px;" *ngIf="socialResults.length > socialDisplayLimit">
-          <button (click)="showMoreSocial()">
-            Display more Reddit, X, Facebook results ({{ socialResults.length - socialDisplayLimit }} more)
-          </button>
-        </div>
+      </div>
+      <div style="text-align: center; margin-top:10px;" *ngIf="socialResults.length > socialDisplayLimit">
+        <button (click)="showMoreSocial()">
+          Display more Reddit, X, Facebook results ({{ socialResults.length - socialDisplayLimit }} more)
+        </button>
       </div>
     </div>
 

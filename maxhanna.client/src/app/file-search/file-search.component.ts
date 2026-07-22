@@ -2604,10 +2604,12 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   previousPreviewImage() {
     if (!this.imagePreviewFile || !this.imagePreviewFile.romInlineThumbs) return;
     this.imagePreviewUrl = this.imagePreviewFile.romInlineThumbs[--this.imageIndex];
+    this.changeDetectorRef.detectChanges();
   }
   nextPreviewImage() {
     if (!this.imagePreviewFile || !this.imagePreviewFile.romInlineThumbs) return;
     this.imagePreviewUrl = this.imagePreviewFile.romInlineThumbs[++this.imageIndex];
+    this.changeDetectorRef.detectChanges();
   }
   private startAppendingMode() {
     this.appending = true;
