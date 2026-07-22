@@ -423,6 +423,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   isShowingUserTagPopup = false;
   isShowingSecurityPopup = false;
   preventShowSecurityPopup = false;
+  isUploadingFile = false;
   popupUserTagUser?: User;
   isSpeaking = false;
   isShowingPasswordResetResult = false;
@@ -1555,7 +1556,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       clearTimeout(this.securityTimeout);
     }
     this.securityTimeout = setTimeout(() => {
-      if (!this.preventShowSecurityPopup) {
+      if (!this.preventShowSecurityPopup && !this.isUploadingFile) {
         this.isShowingSecurityPopup = true;
         this.showOverlay();
       }
@@ -1567,7 +1568,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   }
   async updateLastSeen(user?: User) {
     const tmpUser = user ?? this.user;
-    if (tmpUser?.id) {
+    if (tmpUser?.id && !this.isUploadingFile) {
       const now = Date.now();
       // If we've updated less than 10s ago, skip the server call
       if (this.lastLastSeenUpdate && (now - this.lastLastSeenUpdate) < 10000) {

@@ -181,9 +181,9 @@ export class FileUploadComponent implements AfterViewInit {
     this.displayFileUploadOptions = false;
     this.displayFileUploadTopics = false;
 
-    this.inputtedParentRef?.updateLastSeen();
     if (this.inputtedParentRef) {
       this.inputtedParentRef.preventShowSecurityPopup = true;
+      this.inputtedParentRef.isUploadingFile = true;
     }
 
     // Process duplicates first so their FileEntries are ready before upload completes
@@ -313,6 +313,7 @@ export class FileUploadComponent implements AfterViewInit {
       this.duplicateFileNames = [];
       if (this.inputtedParentRef) {
         this.inputtedParentRef.preventShowSecurityPopup = false;
+        this.inputtedParentRef.isUploadingFile = false;
         this.inputtedParentRef.closeOverlay();
       }
     }

@@ -454,6 +454,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!this._parent || !this._parent.user || this.navbarCollapsed) {
       return;
     }
+    if (this._parent.isUploadingFile) {
+      return;
+    }
     if (this._parent.lastRunTimestamps['notificationInfo']
       && Date.now() - this._parent.lastRunTimestamps['notificationInfo'] < this.time20Secs) {
       return;
@@ -529,10 +532,14 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.notificationsServerDown = true;
     this.preventFetchNotifs = true;
     // show server down message in UI and as a transient notification
-    try { this._parent.showNotification('Server down'); } catch (e) { }
+    if (!this._parent.isUploadingFile && !this._parent.preventShowSecurityPopup) { 
+      this._parent.showNotification('Server down');
+    }
 
     // start periodic check to see when server is back up
-    if (this.notificationServerCheckInterval) clearInterval(this.notificationServerCheckInterval);
+    if (this.notificationServerCheckInterval) {
+      clearInterval(this.notificationServerCheckInterval);
+    }
     this.notificationServerCheckInterval = setInterval(async () => {
       try {
         const up = await this._parent?.isServerUp();
