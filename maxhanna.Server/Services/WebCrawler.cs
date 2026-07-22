@@ -1,4 +1,4 @@
-using HtmlAgilityPack;
+﻿using HtmlAgilityPack;
 using maxhanna.Server.Controllers.DataContracts.Metadata;
 using MySqlConnector;
 using System;
@@ -10,7 +10,6 @@ using System.Text.RegularExpressions;
 using System.Collections.Concurrent;
 using System.Xml;
 using maxhanna.Infrastructure;
-
 public class WebCrawler
 {
   private readonly HttpClient _httpClient;
@@ -22,15 +21,13 @@ public class WebCrawler
       "dpr", "sei", "uact", "source", "hl", "sca_esv", "tbo", "output",
       "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
       "fbclid", "gclid", "ref", "ref_src", "_hsenc", "_hsmi", "mc_cid", "mc_eid" };
-  private static readonly HashSet<string> _blockedHosts = new(StringComparer.OrdinalIgnoreCase) { };
+  private static readonly HashSet<string> _blockedHosts = new(StringComparer.OrdinalIgnoreCase) { "wikipedia.org", "en.wikipedia.org", "fr.wikipedia.org", "de.wikipedia.org", "ja.wikipedia.org", "zh.wikipedia.org", "ru.wikipedia.org", "es.wikipedia.org", "it.wikipedia.org", "pt.wikipedia.org", "pl.wikipedia.org", "nl.wikipedia.org", "sv.wikipedia.org", "da.wikipedia.org", "no.wikipedia.org", "fi.wikipedia.org", "ko.wikipedia.org", "ar.wikipedia.org", "he.wikipedia.org", "tr wikipedia.org", "uk Wikipedia.org", "ca.wiki.pedia.org", "eu.wikimedia.org", "meta.wikimedia.org", "commons.wikimedia.org", "wikidata.org", "wikiquote.org", "Wikibooks.org", "wikiversity.org", "wiktionary.org", "mediawiki.org", "outreach wikimedia org", "foundation wiki media org", "incubator Wikimedia Org", "species Wikispecies Org", "test Wiki Test Org", "tools wmflabs org", "upload wikimedia org", "download wikimedia org", "secure.wikimedia.org", "stats.wikimedia.org", "analytics.wikimedia.org", "api.wikimedia.org" };
   public static readonly List<string> DomainSuffixes = new List<string>
   {
 		// Original Generic TLDs
 		"com", "net", "org", "gov", "edu", "mil", "int", 
-		
 		// Common Generic TLDs
 		"biz", "info", "name", "pro", "aero", "coop", "museum", 
-		
 		// New Generic TLDs (2012+)
 		"xyz", "online", "site", "tech", "store", "shop", "blog", "app", "dev", "io",
     "ai", "game", "games", "play", "fun", "cloud", "host", "space", "website",
@@ -128,7 +125,6 @@ public class WebCrawler
     "foton", "jac", "haval", "greatwall", "chery", "geely", "byd", "changan",
     "dongfeng", "saic", "gac", "baic", "brilliance", "jac", "jmc", "zotye",
     "lifan", "haima", "qoros", "lynk", "polestar",
-
 		// Country Code TLDs (ccTLDs)
 		"ac", "ad", "ae", "af", "ag", "ai", "al", "am", "ao", "aq", "ar", "as", "at", "au", "aw", "ax", "az",
     "ba", "bb", "bd", "be", "bf", "bg", "bh", "bi", "bj", "bm", "bn", "bo", "bq", "br", "bs", "bt", "bv", "bw", "by", "bz",
@@ -158,9 +154,8 @@ public class WebCrawler
   };
   private static readonly string[] _commonFaviconPaths = new[]
   {
-    "/favicon.ico", "/favicon.png", 
+    "/favicon.ico", "/favicon.png",
   };
-
   private readonly TimeSpan _requestInterval = TimeSpan.FromSeconds(7);
   private DateTime _lastRequestTime = DateTime.MinValue;
   // Per-host politeness and robots
@@ -173,7 +168,6 @@ public class WebCrawler
   private readonly SemaphoreSlim _asyncScrapeSemaphore = new SemaphoreSlim(1, 1); // Semaphore to limit to one execution at a time per URL
   // Prevent concurrent background refreshes of the count cache
   private static readonly SemaphoreSlim _countRefreshSemaphore = new SemaphoreSlim(1, 1);
-
   private static readonly Random _random = new Random();
   private List<string> urlsToScrapeQueue = new List<string>();
   private HashSet<string> _visitedUrls = new HashSet<string>();
@@ -183,7 +177,6 @@ public class WebCrawler
   private const int _maxRecursionLimit = 10;
   private const int _maxSiteExceedance = 5;
   private readonly Log _log;
-
   public WebCrawler(IConfiguration config, Log log, DbOperationQueue queue)
   {
     _config = config;
@@ -200,7 +193,6 @@ public class WebCrawler
     _httpClient.DefaultRequestHeaders.AcceptLanguage.ParseAdd("en-US,en;q=0.5");
     _httpClient.DefaultRequestHeaders.Connection.ParseAdd("keep-alive");
   }
-
   // Header rotation helpers — rotate headers per-request so target servers see varying agents
   private static readonly List<string> _userAgents = new()
   {
@@ -210,26 +202,22 @@ public class WebCrawler
     "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1",
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gecko/20100101 Firefox/116.0"
   };
-
   private static readonly List<string> _accepts = new()
   {
     "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
     "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "text/html,application/xml;q=0.9,*/*;q=0.8"
   };
-
   private static readonly List<string> _acceptLanguages = new()
   {
     "en-US,en;q=0.9",
     "en-GB,en;q=0.9",
     "en-US,en;q=0.8,es;q=0.6"
   };
-
   private string GenerateRandomIp()
   {
     return string.Join('.', Enumerable.Range(0, 4).Select(_ => _random.Next(1, 255)));
   }
-
   private Dictionary<string, string> GenerateRotatedHeaders(string url)
   {
     var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -243,14 +231,13 @@ public class WebCrawler
       var uri = new Uri(url);
       headers["Referer"] = uri.Scheme + "://" + uri.Host + "/";
     }
-    catch { /* ignore */ }
+    catch { }
     // Spoof X-Forwarded-For with a random IPv4
     headers["X-Forwarded-For"] = GenerateRandomIp();
     // Connection hints
     headers["Connection"] = "keep-alive";
     return headers;
   }
-
   private HttpRequestMessage BuildGetRequestWithRotatedHeaders(string url)
   {
     var req = new HttpRequestMessage(HttpMethod.Get, url);
@@ -280,11 +267,10 @@ public class WebCrawler
           req.Headers.TryAddWithoutValidation(kv.Key, kv.Value);
         }
       }
-      catch { /* best-effort — ignore malformed header values */ }
+      catch { }
     }
     return req;
   }
-
   public async Task StartBackgroundScrape()
   {
     // Ensure only one scrape operation runs at a time 
@@ -306,7 +292,6 @@ public class WebCrawler
       {
         nextDomains = await GenerateNextUrl();
       }
-
       foreach (string domain in nextDomains)
       {
         try
@@ -325,7 +310,6 @@ public class WebCrawler
           // Continue with next domain even if one fails
         }
       }
-
       await ScrapeUrlsSequentially();
     }
     catch (HttpRequestException ex)
@@ -341,7 +325,6 @@ public class WebCrawler
       isBackgroundScrapeRunning = false;
     }
   }
-
   private async Task<List<string>> GenerateRandomUrls()
   {
     List<string> nextDomains = new List<string>();
@@ -368,7 +351,6 @@ public class WebCrawler
     }
     return nextDomains;
   }
-
   private async Task<string?> GenerateRandomWord()
   {
     string sql = @"
@@ -383,7 +365,6 @@ public class WebCrawler
         await connection.OpenAsync();
         using (var command = new MySqlCommand(sql, connection))
         {
-
           var result = await command.ExecuteScalarAsync();
           return result?.ToString();
         }
@@ -395,7 +376,6 @@ public class WebCrawler
       return string.Empty;
     }
   }
-
   private async Task<List<string>> GenerateNextUrl()
   {
     try
@@ -403,10 +383,8 @@ public class WebCrawler
       string? lastDomain = await LoadLastGeneratedDomain(1, true);
       string nextDomain = string.IsNullOrEmpty(lastDomain) ? "a.com" : GetNextDomain(lastDomain);
       nextDomain = nextDomain.ToLower().Replace("http://", "").Replace("https://", "");
-
       string httpVersion = "http://" + nextDomain;
       string httpsVersion = "https://" + nextDomain;
-
       return new List<string> { httpsVersion, httpVersion };
     }
     catch (Exception ex)
@@ -415,25 +393,21 @@ public class WebCrawler
       return new List<string>();
     }
   }
-
   private string GetNextDomain(string lastDomain)
   {
     try
     {
       // Remove protocol (http:// or https://)
       lastDomain = lastDomain.ToLower().Replace("http://", "").Replace("https://", "");
-
       // Remove everything after the first "/"
       int slashIndex = lastDomain.IndexOf('/');
       if (slashIndex != -1)
       {
         lastDomain = lastDomain.Substring(0, slashIndex);
       }
-
       // Extract name and suffix
       string namePart;
       string suffix;
-
       if (lastDomain.Contains('.'))
       {
         namePart = lastDomain.Substring(0, lastDomain.IndexOf('.'));
@@ -444,25 +418,20 @@ public class WebCrawler
         namePart = lastDomain;
         suffix = "com"; // Default if no dot found
       }
-
       // Remove non-alphanumeric characters from namePart
       namePart = Regex.Replace(namePart, "[^a-zA-Z0-9]", "");
-
       // Validate suffix against known TLDs
       if (!DomainSuffixes.Contains(suffix))
       {
         suffix = "com"; // Default to .com if suffix is not valid
       }
-
       // Ensure namePart is not empty
       if (string.IsNullOrEmpty(namePart))
       {
         namePart = "example"; // Default name part if missing
       }
-
       // Trim excessive continuous characters (max 3 in a row)
       namePart = TrimExcessiveRepeats(namePart);
-
       // Generate next domain name
       return IncrementNamePart(namePart) + "." + suffix;
     }
@@ -471,8 +440,6 @@ public class WebCrawler
       return "example.com"; // Always return a valid domain
     }
   }
-
-
   private string TrimExcessiveRepeats(string namePart)
   {
     try
@@ -481,7 +448,6 @@ public class WebCrawler
       StringBuilder result = new StringBuilder();
       char lastChar = '\0';
       int repeatCount = 0;
-
       foreach (char c in namePart)
       {
         if (c == lastChar)
@@ -496,11 +462,9 @@ public class WebCrawler
         {
           repeatCount = 1;  // Reset repeat count for different character
         }
-
         result.Append(c);
         lastChar = c;
       }
-
       return result.ToString();
     }
     catch (Exception ex)
@@ -509,14 +473,12 @@ public class WebCrawler
       return namePart;
     }
   }
-
   private string IncrementNamePart(string namePart)
   {
     try
     {
       string baseName = namePart;
       string numericSuffix = "";
-
       // Find numeric suffix (if any)
       var match = Regex.Match(namePart, @"(\d+)$");
       if (match.Success)
@@ -524,7 +486,6 @@ public class WebCrawler
         baseName = namePart.Substring(0, namePart.Length - match.Value.Length);
         numericSuffix = match.Value;
       }
-
       // If there is a numeric suffix, increment it
       if (!string.IsNullOrEmpty(numericSuffix))
       {
@@ -544,18 +505,15 @@ public class WebCrawler
       return namePart;
     }
   }
-
   private string IncrementAlphabetically(string baseName)
   {
     try
     {
       StringBuilder newName = new StringBuilder(baseName);
       int i = newName.Length - 1;
-
       while (i >= 0)
       {
         int index = Chars.IndexOf(newName[i]);
-
         if (index < Chars.Length - 1)
         {
           newName[i] = Chars[index + 1];  // Increment character
@@ -567,7 +525,6 @@ public class WebCrawler
           i--;
         }
       }
-
       // If all characters wrapped, add a new letter
       newName.Append(Chars[0]);
       return newName.ToString();
@@ -577,7 +534,6 @@ public class WebCrawler
       _ = _log.Db("Exception (IncrementAlphabetically): " + ex.Message, null, "CRAWLER", true);
       return baseName;
     }
-
   }
   private async Task<string?> LoadLastGeneratedDomain(int index = 1, bool randomize = false)
   {
@@ -587,7 +543,6 @@ public class WebCrawler
       using (var connection = new MySqlConnection(connectionString))
       {
         await connection.OpenAsync();
-
         string query;
         if (randomize)
         {
@@ -616,14 +571,12 @@ public class WebCrawler
         {
           query = "SELECT url FROM search_results ORDER BY id DESC LIMIT 1 OFFSET @Index;";
         }
-
         using (var command = new MySqlCommand(query, connection))
         {
           if (!randomize)
           {
             command.Parameters.AddWithValue("@Index", index - 1);
           }
-
           var result = await command.ExecuteScalarAsync();
           return result?.ToString();
         }
@@ -648,26 +601,21 @@ public class WebCrawler
             WHERE url_hash = @UrlHash 
             AND last_crawled >= UTC_TIMESTAMP() - INTERVAL 5 DAY 
             LIMIT 1;";
-
       using (var command = new MySqlCommand(query, connection))
       {
         command.Parameters.AddWithValue("@UrlHash", urlHash);
         //_ = _log.Db($"Crwler: checking if {url} was crawled: " + urlHash, null, "CRAWLER", true);
         var result = await command.ExecuteScalarAsync();
-
         if (result == null || result == DBNull.Value)
           return null;
-
         return result.ToString();
       }
     }
   }
-
   public async Task SaveSearchResult(string? domain, Metadata metadata)
   {
     if (string.IsNullOrWhiteSpace(domain))
     {
-     // _ = _log.Db("Skipping save due to empty domain", null, "CRAWLER", true);
       return;
     }
     if (metadata?.Description?.ToLower().Contains("bughosted") == true
@@ -676,19 +624,13 @@ public class WebCrawler
       _ = _log.Db($"Skipping save for {domain} due to bughosted in title/description", null, "CRAWLER", true);
       return;
     }
-    
     try
     {
       var cs = _config.GetValue<string>("ConnectionStrings:maxhanna");
       await using var connection = new MySqlConnection(cs);
       await connection.OpenAsync().ConfigureAwait(false);
-
       await using var tx = await connection.BeginTransactionAsync().ConfigureAwait(false);
-
-      // Normalize URL (unique key on url/url_hash will enforce uniqueness) 
       var url = NormalizeUrlForStorage(domain);
-
-      // 1) Try INSERT (new row path)
       const string insertSql = @"
             INSERT INTO search_results
                 (url, title, description, author, keywords, image_url, found_date, last_crawled, failed, response_code)
@@ -696,9 +638,7 @@ public class WebCrawler
                 (@url, @title, @description, @author,
                  @keywords, @imageUrl, UTC_TIMESTAMP(), UTC_TIMESTAMP(), FALSE, NULL);
         ";
-
       var insertedNewRow = false;
-
       try
       {
         await using var insertCmd = new MySqlCommand(insertSql, connection, (MySqlTransaction)tx);
@@ -708,13 +648,11 @@ public class WebCrawler
         insertCmd.Parameters.AddWithValue("@author", (object?)metadata?.Author ?? DBNull.Value);
         insertCmd.Parameters.AddWithValue("@keywords", (object?)metadata?.Keywords ?? DBNull.Value);
         insertCmd.Parameters.AddWithValue("@imageUrl", (object?)metadata?.ImageUrl ?? DBNull.Value);
-
         await insertCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
         insertedNewRow = true; // Insert succeeded → brand new row
       }
       catch (MySqlException mex) when (mex.Number == 1062)
       {
-        // 2) Duplicate → UPDATE existing row (do not increment counter in this branch)
         const string updateSql = @"
                 UPDATE search_results
                 SET title        = @title,
@@ -736,11 +674,8 @@ public class WebCrawler
         updateCmd.Parameters.AddWithValue("@author", (object?)metadata?.Author ?? DBNull.Value);
         updateCmd.Parameters.AddWithValue("@keywords", (object?)metadata?.Keywords ?? DBNull.Value);
         updateCmd.Parameters.AddWithValue("@imageUrl", (object?)metadata?.ImageUrl ?? DBNull.Value);
-
         await updateCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
       }
-
-      // 3) If a new row was inserted, increment the cached count
       if (insertedNewRow)
       {
         const string bumpCacheSql = @"
@@ -752,7 +687,6 @@ public class WebCrawler
         await using var bumpCmd = new MySqlCommand(bumpCacheSql, connection, (MySqlTransaction)tx);
         await bumpCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
       }
-
       await tx.CommitAsync().ConfigureAwait(false);
     }
     catch (Exception ex)
@@ -760,21 +694,16 @@ public class WebCrawler
       _ = _log.Db("Exception (SaveSearchResult): " + ex.Message, null, "CRAWLER", true);
     }
   }
-
-
   public async Task<Metadata?> MarkUrlAsFailed(string url, int? responseCode = null)
   {
     try
     {
       var cs = _config.GetValue<string>("ConnectionStrings:maxhanna");
       if (string.IsNullOrWhiteSpace(cs)) return null;
-
       // Normalize URL once  
       var normUrl = NormalizeUrlForStorage(url);
-
       await using var connection = new MySqlConnection(cs);
       await connection.OpenAsync().ConfigureAwait(false);
-
       // 1) If the URL exists with metadata and not failed, return it (do NOT mark as failed)
       const string checkSql = @"
             SELECT url, title, description, author, keywords, image_url, response_code
@@ -788,12 +717,10 @@ public class WebCrawler
                    OR author IS NOT NULL)
             LIMIT 1;
         ";
-
       await using (var checkCmd = new MySqlCommand(checkSql, connection)
       { CommandTimeout = 5 })
       {
         checkCmd.Parameters.AddWithValue("@url", normUrl);
-
         await using var reader = await checkCmd.ExecuteReaderAsync(System.Data.CommandBehavior.SingleRow)
                                                .ConfigureAwait(false);
         if (await reader.ReadAsync().ConfigureAwait(false))
@@ -811,11 +738,9 @@ public class WebCrawler
           };
         }
       }
-
       // 2) Otherwise, either insert a new failed row OR update an existing one that has no metadata.
       await using var tx = await connection.BeginTransactionAsync().ConfigureAwait(false);
       var insertedNewRow = false;
-
       // 2a) Try INSERT (new URL path): this is the only case where we bump the counter.
       const string insertSql = @"
             INSERT INTO search_results
@@ -823,14 +748,12 @@ public class WebCrawler
             VALUES
                 (@url, NULL, NULL, NULL, NULL, NULL, TRUE, @responseCode, UTC_TIMESTAMP(), UTC_TIMESTAMP());
         ";
-
       try
       {
         await using var insertCmd = new MySqlCommand(insertSql, connection, (MySqlTransaction)tx)
         { CommandTimeout = 10 };
         insertCmd.Parameters.AddWithValue("@url", normUrl);
         insertCmd.Parameters.AddWithValue("@responseCode", (object?)responseCode ?? DBNull.Value);
-
         await insertCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
         insertedNewRow = true;
       }
@@ -855,14 +778,12 @@ public class WebCrawler
                 WHERE url = @url
                 LIMIT 1;
             ";
-
         await using var updateCmd = new MySqlCommand(updateSql, connection, (MySqlTransaction)tx)
         { CommandTimeout = 10 };
         updateCmd.Parameters.AddWithValue("@url", normUrl);
         updateCmd.Parameters.AddWithValue("@responseCode", (object?)responseCode ?? DBNull.Value);
         await updateCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
       }
-
       // 3) If we inserted a brand-new row, bump the cached total count
       if (insertedNewRow)
       {
@@ -876,7 +797,6 @@ public class WebCrawler
         { CommandTimeout = 5 };
         await bumpCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
       }
-
       await tx.CommitAsync().ConfigureAwait(false);
       return null; // No metadata to return
     }
@@ -886,7 +806,6 @@ public class WebCrawler
       return null;
     }
   }
-
   private string NormalizeUrl(string? url, string? baseDomain = null)
   {
     if (url == null) return string.Empty;
@@ -896,16 +815,13 @@ public class WebCrawler
       if (Uri.TryCreate(url, UriKind.Absolute, out Uri? absoluteUri))
       {
         string fixedHost = absoluteUri.Host.StartsWith("ww.") ? absoluteUri.Host.Replace("ww.", "www.") : absoluteUri.Host;
-
         // Rebuild the full URL with fixed host
         string fixedUrl = absoluteUri.Scheme + "://" + fixedHost + absoluteUri.PathAndQuery;
-
         // Ensure scheme
         if (!fixedUrl.StartsWith("http://") && !fixedUrl.StartsWith("https://"))
         {
           fixedUrl = "http://" + fixedUrl;
         }
-
         return fixedUrl;
       }
       // If it's a relative URL and we have a base domain to work with
@@ -915,10 +831,8 @@ public class WebCrawler
         {
           baseDomain = "https://" + baseDomain;
         }
-
         Uri baseUri = new Uri(baseDomain);
         Uri fullUri = new Uri(baseUri, url);
-
         return fullUri.ToString();
       }
     }
@@ -926,14 +840,11 @@ public class WebCrawler
     {
       _ = _log.Db("Exception (NormalizeUrl): " + ex.Message, null, "CRAWLER", true);
     }
-
     return string.Empty;
   }
-
   public async Task<Metadata?> ScrapeUrlData(string url)
   {
     var metadata = new Metadata();
-
     try
     {
       url = NormalizeUrl(url);
@@ -951,14 +862,12 @@ public class WebCrawler
         _ = _log.Db($"Robots disallow for URL: {ShortenUrl(url)}", null, "CRAWLER", true);
         return await MarkUrlAsFailed(url, 403);
       }
-
       // Enforce per-host next request time
       if (_hostNextRequestTime.TryGetValue(hostKey, out var nextT) && DateTime.UtcNow < nextT)
       {
         var wait = nextT - DateTime.UtcNow;
         await Task.Delay(wait);
       }
-
       // HEAD-first cheap existence probe
       bool exists = await HeadExists(url);
       if (!exists)
@@ -1035,7 +944,6 @@ public class WebCrawler
         //_ = _log.Db($"ScrapeUrlData: Invalid response code {response.StatusCode} for URL: {ShortenUrl(url)}", null, "CRAWLER", true);
         return await MarkUrlAsFailed(url, (int)response.StatusCode);
       }
-
       const int maxHtmlLength = 400_000;
       string html = await ReadHtmlWithLimit(response);
       html = html.Length > maxHtmlLength ? html.Substring(0, maxHtmlLength) : html;
@@ -1045,13 +953,11 @@ public class WebCrawler
       {
         html = html.Substring(0, html.IndexOf("</head>", StringComparison.OrdinalIgnoreCase) + 7);
       }
-
       // Reset host backoff on success
       _hostBackoffCount.AddOrUpdate(hostKey, 0, (_, v) => 0);
       // honor robots crawl-delay if provided, else default per-host delay
       var delay = robots.CrawlDelay > TimeSpan.Zero ? robots.CrawlDelay : _defaultPerHostDelay;
       _hostNextRequestTime[hostKey] = DateTime.UtcNow.Add(delay + TimeSpan.FromMilliseconds(_random.Next(0, 1000)));
-
       var htmlDocument = new HtmlDocument
       {
         OptionMaxNestedChildNodes = 100
@@ -1068,7 +974,6 @@ public class WebCrawler
           metadata.ImageUrl = iconUrl;
         }
       }
-
       int maxLinkNodeCount = _maxRecursionLimit;
       var linkNodes = htmlDocument.DocumentNode.SelectNodes("//a[@href]");
       int sameDomainCount = 0;
@@ -1080,7 +985,6 @@ public class WebCrawler
           var href = linkNode.GetAttributeValue("href", "").Trim();
           var normalizedUrl = NormalizeUrl(href, url);
           if (!IsValidDomain(normalizedUrl)) continue;
-
           // If it's the SAME host as the page we just scraped, count it
           if (new Uri(normalizedUrl).Host.Equals(new Uri(url).Host, StringComparison.OrdinalIgnoreCase))
           {
@@ -1128,7 +1032,6 @@ public class WebCrawler
       _ = _log.Db($"ScrapeUrlData Exception on URL {ShortenUrl(url)} : " + ex.Message, null, "CRAWLER", false);
       return await MarkUrlAsFailed(url);
     }
-
     if (IsMetadataCompletelyEmpty(metadata))
     {
       if (!string.IsNullOrEmpty(metadata.Url?.Trim()))
@@ -1136,14 +1039,12 @@ public class WebCrawler
         return await MarkUrlAsFailed(url);
       }
       //_ = _log.Db($"ScrapeUrlData IsMetadataCompletelyEmpty on URL {ShortenUrl(url)}", null, "CRAWLER", true);
-
       return null;
     }
     else
     {
       return metadata;
     }
-
   }
   public bool IsMetadataCompletelyEmpty(Metadata metadata)
   {
@@ -1161,28 +1062,24 @@ public class WebCrawler
     {
       metadata.Title = titleNode.InnerText.Trim();
     }
-
     // Extract description from <meta name="description">
     var metaDescriptionNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='description']");
     if (metaDescriptionNode != null)
     {
       metadata.Description = metaDescriptionNode.GetAttributeValue("content", "").Trim();
     }
-
     // Extract Open Graph (OG) description
     var ogDescriptionNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:description']");
     if (ogDescriptionNode != null && metadata.Description == null)
     {
       metadata.Description = ogDescriptionNode.GetAttributeValue("content", "").Trim();
     }
-
     // Extract Open Graph (OG) title
     var ogTitleNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:title']");
     if (ogTitleNode != null && !string.IsNullOrEmpty(ogTitleNode.GetAttributeValue("content", "")))
     {
       metadata.Title = ogTitleNode.GetAttributeValue("content", "").Trim();
     }
-
     // Extract keywords
     var metaKeywordsNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='keywords']");
     if (metaKeywordsNode != null)
@@ -1192,17 +1089,14 @@ public class WebCrawler
     Uri baseUri = new Uri(url);
     string? faviconUrl = htmlDocument.DocumentNode.SelectSingleNode("//link[@rel='icon' or @rel='shortcut icon']")?
       .GetAttributeValue("href", "").Trim();
-
     string? ogImageUrl = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:image']")
         ?.GetAttributeValue("content", "").Trim();
-
     string? imageUrl = !string.IsNullOrEmpty(faviconUrl) ? faviconUrl : ogImageUrl;
     if (!string.IsNullOrEmpty(imageUrl) && !imageUrl.StartsWith("http"))
     {
       imageUrl = new Uri(baseUri, imageUrl).ToString();
     }
     metadata.ImageUrl = imageUrl;
-
     // Extract OG URL
     var ogUrlNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@property='og:url']");
     if (ogUrlNode != null)
@@ -1213,7 +1107,6 @@ public class WebCrawler
     {
       metadata.Url = url; // Fallback to the input URL if OG URL is not available
     }
-
     // Extract Author
     var metaAuthorNode = htmlDocument.DocumentNode.SelectSingleNode("//meta[@name='author']");
     if (metaAuthorNode != null)
@@ -1224,18 +1117,14 @@ public class WebCrawler
   public bool IsValidDomain(string domain)
   {
     if (string.IsNullOrWhiteSpace(domain)) return false;
-
     string url = domain.ToLower().Trim();
-
     if (Uri.TryCreate(url, UriKind.Absolute, out var u))
     {
       if (u.Host.Contains("google", StringComparison.OrdinalIgnoreCase))
         return false;
-        
       if (_blockedHosts.Contains(u.Host))
         return false;
     }
-
     try
     {
       if (url.StartsWith("javascript:") || url.StartsWith("tel:") || url.StartsWith("mailto:"))
@@ -1243,40 +1132,33 @@ public class WebCrawler
         //	LogInvalid("Invalid scheme (javascript, tel, mailto): " + domain);
         return false;
       }
-
       if (url.Contains(".."))
       {
         //	LogInvalid("Invalid domain: contains double dots: " + domain);
         return false;
       }
-
       if (!url.StartsWith("http://") && !url.StartsWith("https://"))
       {
         //LogInvalid("Invalid URL: must start with http:// or https://: " + domain);
         return false;
       }
-
       if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
       {
         //LogInvalid("Invalid URL format: " + domain);
         return false;
       }
-
       if (uri.HostNameType != UriHostNameType.Dns)
       {
         //LogInvalid("Invalid HostNameType (not DNS): " + domain);
         return false;
       }
-
       string host = uri.Host;
-
       // Check for allowed domain characters
       if (!Regex.IsMatch(host, @"^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"))
       {
         //	LogInvalid("Invalid characters in domain: " + host);
         return false;
       }
-
       // Optional: prevent suspicious repetition like "abc.com.com"
       var parts = host.Split('.');
       if (parts.Length >= 3 && parts[^1] == parts[^2])
@@ -1284,7 +1166,6 @@ public class WebCrawler
         //	LogInvalid("Suspicious repeated TLD: " + host);
         return false;
       }
-
       // Optional: prevent localhost or IPs
       if (host == "localhost" || IPAddress.TryParse(host, out _))
       {
@@ -1297,14 +1178,12 @@ public class WebCrawler
         //LogInvalid("Invalid characters in domain: " + host);
         return false;
       }
-
       // Validate the domain suffix
       if (!HasValidSuffix(host))
       {
         //LogInvalid("Invalid domain suffix: " + host);
         return false;
       }
-
       return true;
     }
     catch (Exception ex)
@@ -1317,7 +1196,6 @@ public class WebCrawler
   {
     // Split host by '.' and compare last part(s) against the list
     var parts = host.ToLower().Split('.');
-
     for (int i = 1; i <= 2 && i <= parts.Length; i++)
     {
       string suffix = string.Join(".", parts.Skip(parts.Length - i));
@@ -1328,12 +1206,10 @@ public class WebCrawler
     }
     return false;
   }
-
   private void LogInvalid(string message)
   {
     _ = _log.Db(message, null, "CRAWLER", true);
   }
-
   public async Task<string?> FindSitemapUrl(string domain)
   {
     try
@@ -1351,10 +1227,8 @@ public class WebCrawler
     {
       _ = _log.Db("Exception (FindSitemapUrl) : " + ex.Message, null, "CRAWLER", true);
     }
-
     return null;
   }
-
   private async Task<bool> UrlExists(string url)
   {
     try
@@ -1374,7 +1248,6 @@ public class WebCrawler
       return false;
     }
   }
-
   public async Task CrawlSitemap(string domain)
   {
     int sitemapLimit = _maxRecursionLimit;
@@ -1382,7 +1255,6 @@ public class WebCrawler
     {
       string? sitemapUrl = await FindSitemapUrl(domain);
       if (string.IsNullOrEmpty(sitemapUrl)) { return; }
-
       string sitemapIndexXml = await GetSitemapXml(sitemapUrl);
       // Extract individual sitemap URLs from the sitemap index
       var sitemapUrls = ExtractUrlsFromSitemap(sitemapIndexXml, sitemapLimit);
@@ -1411,7 +1283,6 @@ public class WebCrawler
     {
       return false;
     }
-
     await _asyncScrapeSemaphore.WaitAsync();
     try
     {
@@ -1425,7 +1296,6 @@ public class WebCrawler
             delayedUrlsQueue.Enqueue(canon);
           }
           //_ = _log.Db($"(Crawler:{delayedUrlsQueue.Count}#{urlsToScrapeQueue.Count})Delayed: {ShortenUrl(url)}", null, "CRAWLER", true);
-
           if (delayedUrlsQueue.Count == 1)
           {
             await ProcessDelayedUrlsQueueAsync();
@@ -1443,7 +1313,6 @@ public class WebCrawler
     }
     return true;
   }
-
   private async Task ProcessDelayedUrlsQueueAsync()
   {
     try
@@ -1451,12 +1320,10 @@ public class WebCrawler
       if (isProcessing)
         return;
       isProcessing = true;
-
       while (delayedUrlsQueue.Count > 0)
       {
         string urlToProcess = delayedUrlsQueue.Dequeue();
         await Task.Delay(5000);
-
         string? existingUrl = await GetFreshCrawledDomains(urlToProcess);
         if (string.IsNullOrEmpty(existingUrl) && IsValidDomain(urlToProcess))
         {
@@ -1486,10 +1353,8 @@ public class WebCrawler
       // Send a GET request to the sitemap URL
       var sitemapRequest = BuildGetRequestWithRotatedHeaders(sitemapUrl);
       HttpResponseMessage response = await _httpClient.SendAsync(sitemapRequest, HttpCompletionOption.ResponseHeadersRead);
-
       // Ensure successful response
       response.EnsureSuccessStatusCode();
-
       // Read the response content as a string
       string xmlContent = await ReadHtmlWithLimit(response, maxBufferSize);
       return xmlContent;
@@ -1504,8 +1369,6 @@ public class WebCrawler
       return string.Empty;
     }
   }
-
-
   private async Task ScrapeUrlsSequentially()
   {
     try
@@ -1513,7 +1376,6 @@ public class WebCrawler
       if (scrapeSemaphore.CurrentCount > 0)
       {
         await scrapeSemaphore.WaitAsync();
-
         while (urlsToScrapeQueue.Any())
         {
           string? url = GetRandomUrlFromList(urlsToScrapeQueue);
@@ -1522,17 +1384,16 @@ public class WebCrawler
           {
             _lastRequestTime = DateTime.Now;
             Metadata? metaData = null;
-           // _ = _log.Db($"({delayedUrlsQueue.Count()}#{urlsToScrapeQueue.Count()}) Scraping: " + $"{ShortenUrl(url)}", null, "CRAWLER", true);
+            // _ = _log.Db($"({delayedUrlsQueue.Count()}#{urlsToScrapeQueue.Count()}) Scraping: " + $"{ShortenUrl(url)}", null, "CRAWLER", true);
             Console.WriteLine($"({delayedUrlsQueue.Count()}#{urlsToScrapeQueue.Count()}) Scraping: " + $"{ShortenUrl(url)}");
-            
             metaData = await ScrapeUrlData(url);
             if (metaData != null && !IsMetadataCompletelyEmpty(metaData))
             {
               await _dbQueue.EnqueueAsync(async () =>
               {
                 await SaveSearchResult(url, metaData);
-              }); 
-              await CrawlSitemap(url); 
+              });
+              await CrawlSitemap(url);
             }
             else if (metaData != null && IsMetadataCompletelyEmpty(metaData) && !string.IsNullOrEmpty(metaData.Url))
             {
@@ -1541,7 +1402,6 @@ public class WebCrawler
                 await MarkUrlAsFailed(metaData.Url);
               });
             }
-
             if (DateTime.Now - _lastRequestTime < _requestInterval)
             {
               await Task.Delay(_requestInterval - (DateTime.Now - _lastRequestTime));
@@ -1574,24 +1434,20 @@ public class WebCrawler
   public List<string> ExtractUrlsFromSitemap(string sitemapIndexXml, int maxUrlCount)
   {
     var sitemapUrls = new List<string>();
-
     try
     {
       if (string.IsNullOrWhiteSpace(sitemapIndexXml))
       {
         return sitemapUrls;
       }
-
       // Check if the content is XML (i.e., if it has <sitemapindex> tag)
       if (sitemapIndexXml.Contains("<sitemapindex"))
       {
         // Handle XML-based sitemap index
         var xmlDoc = new XmlDocument();
         xmlDoc.LoadXml(sitemapIndexXml);
-
         // Search for all <loc> tags inside <sitemap> tags
         XmlNodeList locNodes = xmlDoc.GetElementsByTagName("loc");
-
         foreach (XmlNode locNode in locNodes)
         {
           if (maxUrlCount <= 0) { return sitemapUrls; }
@@ -1622,7 +1478,6 @@ public class WebCrawler
     {
       _ = _log.Db($"Exception (ExtractUrlsFromSitemap): {ex.Message}", null, "CRAWLER", true);
     }
-
     return sitemapUrls;
   }
   private readonly object _urlLock = new object();
@@ -1664,17 +1519,14 @@ public class WebCrawler
     }
     return "";
   }
-
   public async Task<int> GetIndexCount(CancellationToken ct = default)
   {
     var cs = _config.GetValue<string>("ConnectionStrings:maxhanna");
     if (string.IsNullOrWhiteSpace(cs)) return 0;
-
     try
     {
       await using var conn = new MySqlConnection(cs);
       await conn.OpenAsync(ct).ConfigureAwait(false);
-
       // 1) Read cache first
       const string readSql = @"
             SELECT last_count, last_counted_at
@@ -1683,7 +1535,6 @@ public class WebCrawler
             LIMIT 1;";
       long cachedCount = 0;
       DateTime? lastCountedAt = null;
-
       await using (var readCmd = new MySqlCommand(readSql, conn)
       { CommandTimeout = 5 })
       {
@@ -1695,13 +1546,11 @@ public class WebCrawler
           lastCountedAt = reader.IsDBNull(1) ? (DateTime?)null : reader.GetDateTime(1);
         }
       }
-
       // 2) If cache exists and is fresh (< 30 minutes), return it
       if (lastCountedAt.HasValue && lastCountedAt.Value >= DateTime.UtcNow.AddMinutes(-30))
       {
         return (int)Math.Min(cachedCount, int.MaxValue);
       }
-
       // 3) If cache is stale but has a value, return the cached value immediately
       //    and trigger a background refresh to recompute the COUNT(*) asynchronously.
       if (cachedCount > 0)
@@ -1736,10 +1585,8 @@ public class WebCrawler
             _countRefreshSemaphore.Release();
           }
         });
-
         return (int)Math.Min(cachedCount, int.MaxValue);
       }
-
       // 4) If we have no cached value (or cachedCount == 0), do the synchronous upsert/read
       const string upsertRefreshSqlSync = @"
             INSERT INTO search_results_count_cache (id, last_count, last_counted_at)
@@ -1753,7 +1600,6 @@ public class WebCrawler
       {
         await upCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
       }
-
       // Re-read and return
       await using (var readCmd2 = new MySqlCommand(readSql, conn)
       { CommandTimeout = 5 })
@@ -1766,7 +1612,6 @@ public class WebCrawler
           return (int)Math.Min(lastCount, int.MaxValue);
         }
       }
-
       return 0;
     }
     catch (Exception ex)
@@ -1775,12 +1620,10 @@ public class WebCrawler
       return 0;
     }
   }
-
   public void ClearVisitedUrls()
   {
     try
     {
-
       if (_visitedUrls.Count >= 10000)
       {
         _visitedUrls = new HashSet<string>(_visitedUrls.Take(5000).ToList());
@@ -1805,22 +1648,18 @@ public class WebCrawler
     WHERE table_schema = 'maxhanna' 
     AND id = 1
     GROUP BY last_count, last_counted_at";
-
     try
     {
       using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
       await conn.OpenAsync();
-
       // Try to get cached information first to avoid expensive computations
       using var cacheCmd = new MySqlCommand(cacheCheckSql, conn);
       using var cacheReader = await cacheCmd.ExecuteReaderAsync();
-      
       if (await cacheReader.ReadAsync())
       {
         // If we found cached data, return it directly
         var totalRows = cacheReader.IsDBNull("last_count") ? 0 : cacheReader.GetInt32("last_count");
         var totalSize = cacheReader.IsDBNull("total_size_mb") ? 0 : cacheReader.GetDecimal("total_size_mb");
-        
         // Return essential information with minimal calculation
         var stats = new
         {
@@ -1834,7 +1673,6 @@ public class WebCrawler
           ProjectedMonthlyUsageMB = 0,
           TotalDatabaseSizeMB = totalSize
         };
-        
         return stats;
       }
     }
@@ -1842,7 +1680,6 @@ public class WebCrawler
     {
       _ = _log.Db($"Crawler Exception (GetStorageStats - cache): " + ex.Message, null, "CRAWLER", true);
     }
-
     // If caching fails or is not applicable, use a minimal query approach for basic stats
     string sql = @"
     SELECT 
@@ -1857,20 +1694,17 @@ public class WebCrawler
       WHERE table_schema = 'maxhanna'
     ) AS db_sizes
     LIMIT 1";
-
     try
     {
       using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
       await conn.OpenAsync();
-
       using var cmd = new MySqlCommand(sql, conn);
       using var rdr = await cmd.ExecuteReaderAsync();
-
       if (await rdr.ReadAsync())
       {
         var stats = new
         {
-          AvgRowSizeBytes = 0, 
+          AvgRowSizeBytes = 0,
           AvgRowSizeMB = 0,
           TotalRows = rdr.IsDBNull("total_rows") ? 0 : rdr.GetInt32("total_rows"),
           EarliestDate = DateTime.MinValue,
@@ -1880,7 +1714,6 @@ public class WebCrawler
           ProjectedMonthlyUsageMB = 0,
           TotalDatabaseSizeMB = rdr.IsDBNull("total_size_mb") ? 0 : rdr.GetDecimal("total_size_mb")
         };
-
         return stats;
       }
     }
@@ -1888,11 +1721,8 @@ public class WebCrawler
     {
       _ = _log.Db($"Crawler Exception (GetStorageStats): " + ex.Message, null, "CRAWLER", true);
     }
-
     return null;
   }
-
-
   private bool EndExceedence(string url)
   {
     string domain = GetDomain(url);
@@ -1904,7 +1734,6 @@ public class WebCrawler
       if (count >= _maxSiteExceedance) break;
       if (GetDomain(item) == domain) count++;
     }
- 
     if (count >= _exceedanceCount)
     {
       RemoveDomainFromLists(domain);
@@ -1917,10 +1746,8 @@ public class WebCrawler
   {
     var tempQueue = new Queue<string>(delayedUrlsQueue.Where(url => GetDomain(url) != domain));
     delayedUrlsQueue = tempQueue;
-
     var tempQueue2 = new List<string>(urlsToScrapeQueue.Where(url => GetDomain(url) != domain));
     urlsToScrapeQueue = tempQueue2;
-    
     _ = _log.Db($"Crawler: Domain {domain} exceeded {_maxSiteExceedance} occurrences, removed from all lists.", null, "CRAWLER", true);
   }
   public int CalculateRelevanceScore(Metadata result, string searchTerm)
@@ -1934,7 +1761,6 @@ public class WebCrawler
       string searchWithoutProtocol = search.StartsWith("http://") || search.StartsWith("https://")
        ? search.Substring(search.IndexOf("//") + 2).ToLower()
        : search.ToLower();
-
       if (urlWithoutProtocol.Equals(searchWithoutProtocol, StringComparison.OrdinalIgnoreCase))
       {
         score += 500; // Exact match gets top priority
@@ -1947,13 +1773,11 @@ public class WebCrawler
       {
         score += url.AbsolutePath == "/" ? 250 : 150; // Top-level domain gets more points
       }
-
       // Penalize based on path segments (optional: adjust the penalty amount)
       var pathSegments = url.AbsolutePath.Split('/').Where(segment => !string.IsNullOrEmpty(segment)).ToList();
       int segmentPenalty = pathSegments.Count > 1 ? (pathSegments.Count - 1) * 5 : 0;
       score -= segmentPenalty;
     }
-
     // Add points for other matches in URL, title, description, etc.
     if (result.Url?.ToLower().Contains(search) == true) score += 75;
     if (result.Title?.ToLower().Contains(search) == true) score += 50;
@@ -1961,83 +1785,66 @@ public class WebCrawler
     if (result.Author?.ToLower().Contains(search) == true) score += 20;
     if (result.Keywords?.ToLower().Contains(search) == true) score += 20;
     if (result.ImageUrl?.ToLower().Contains(search) == true) score += 5;
-
     return score;
   }
-
   private async Task<string> ReadHtmlWithLimit(HttpResponseMessage response, int maxBytes = 400_000)
   {
     using var stream = await response.Content.ReadAsStreamAsync();
     using var reader = new StreamReader(stream);
-
     var builder = new StringBuilder();
     char[] buffer = new char[4096];
     int totalRead = 0;
-
     while (!reader.EndOfStream && totalRead < maxBytes)
     {
       int toRead = Math.Min(buffer.Length, maxBytes - totalRead);
       int read = await reader.ReadAsync(buffer, 0, toRead);
       if (read == 0) break;
-
       builder.Append(buffer, 0, read);
       totalRead += read;
     }
-
     return builder.ToString();
   }
-
   public string[] ExtractUrls(string? text)
   {
     if (string.IsNullOrEmpty(text))
     {
       return Array.Empty<string>(); // Return an empty array if the text is null or empty
     }
-
     // Regular expression to match URLs both inside href="" and standalone links
     string urlPattern = @"(?:href=[""'](https?:\/\/[^\s""']+)[""']|(?<!href=[""'])(https?:\/\/[^\s<]+))";
-
     // Match URLs in the text
     var matches = System.Text.RegularExpressions.Regex.Matches(text, urlPattern);
-
     // Convert the MatchCollection to a string array, filtering out empty matches
     return matches.Cast<Match>()
                   .Select(m => m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value)
                   .Where(url => !string.IsNullOrEmpty(url))
                   .ToArray();
   }
-
   public string ShortenUrl(string url, int maxLength = 50)
   {
     if (url.Length <= maxLength) return url;
-
     int firstPartLength = maxLength / 2 - 3;  // Adjust to leave room for "..."
     int lastPartLength = maxLength - firstPartLength - 3;
-
     return url.Substring(0, firstPartLength) + "..." + url[^lastPartLength..];
   }
-
   private string GetDomain(string url)
   {
     Uri uri = new Uri(url);
     string domain = uri.Scheme + "://" + uri.Host; // This gives you "http://google.com"
     return domain;
   }
-
   private string GetHost(string url)
   {
     Uri uri = new Uri(url);
     string host = uri.Host; // This gives you "google.com"
     return host;
   }
-
   private async Task<RobotsInfo> FetchRobotsForHost(string host)
   {
     try
     {
       if (_robotsCache.TryGetValue(host, out var cached) && (DateTime.UtcNow - cached.FetchedAt) < TimeSpan.FromHours(6))
         return cached;
-
       var robotsUrl = (host.StartsWith("http") ? host : "https://" + host).TrimEnd('/') + "/robots.txt";
       var req = BuildGetRequestWithRotatedHeaders(robotsUrl);
       var resp = await _httpClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
@@ -2081,7 +1888,6 @@ public class WebCrawler
       return empty;
     }
   }
-
   private static string CanonicalizeUrl(string url)
   {
     if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return url;
@@ -2106,17 +1912,13 @@ public class WebCrawler
     }
     return false;
   }
-
-
   // Add this helper in your class (private static is fine)
   private static string NormalizeUrlForStorage(string? input)
   {
     if (string.IsNullOrWhiteSpace(input))
       return string.Empty;
-
     // Keep original text as much as possible to preserve path casing/encoding
     string raw = input.Trim();
-
     // Ensure we have a scheme for proper parsing
     bool addedScheme = false;
     if (!raw.Contains("://", StringComparison.Ordinal))
@@ -2124,7 +1926,6 @@ public class WebCrawler
       raw = "https://" + raw;
       addedScheme = true;
     }
-
     // Try to parse with Uri to reliably extract host/port
     if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri))
     {
@@ -2135,45 +1936,35 @@ public class WebCrawler
       {
         string tmpSchemeLower = raw.Substring(0, schemeSep).ToLowerInvariant();
         string afterScheme = raw.Substring(schemeSep + 3);
-
         // authority = up to first '/' (or end)
         int slashIdx = afterScheme.IndexOf('/');
         string authority = slashIdx >= 0 ? afterScheme.Substring(0, slashIdx) : afterScheme;
         string remainder = slashIdx >= 0 ? afterScheme.Substring(slashIdx) : string.Empty;
-
         // Lowercase just the authority (best effort; may include port)
         string authorityLower = authority.ToLowerInvariant();
         return $"{tmpSchemeLower}://{authorityLower}{remainder}";
       }
-
       // No scheme sep: nothing better we can do; just return input trimmed
       return input.Trim();
     }
-
     // We now have a parsed URI. We want: lowercase scheme + lowercase host (+ port if non-default),
     // and preserve the exact original remainder (path/query/fragment) casing/encoding.
-
     string schemeLower = uri.Scheme.ToLowerInvariant();
-
     // Use IdnHost for internationalized domains (punycode), then lowercase it
     string hostLower = uri.IdnHost.ToLowerInvariant();
-
     string portPart = string.Empty;
     if (!uri.IsDefaultPort && uri.Port > 0)
     {
       portPart = ":" + uri.Port.ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
-
     // Extract the original remainder (path + query + fragment) from the original string
     // Raw string may have been prefixed with https:// if we added scheme above.
     string original = input.Trim();
     string originalWithScheme = addedScheme ? ("https://" + original) : original;
-
     // Find the start of the "after authority" segment in the originalWithScheme
     // Format: scheme://authority/remainder
     int schemeIdx = originalWithScheme.IndexOf("://", StringComparison.Ordinal);
     string remainderPart = string.Empty;
-
     if (schemeIdx >= 0)
     {
       int afterSchemeIdx = schemeIdx + 3;
@@ -2197,7 +1988,6 @@ public class WebCrawler
     remainderPart = remainderPart.TrimEnd().TrimEnd('/');
     return $"{schemeLower}://{hostLower}{portPart}{remainderPart}";
   }
-
   private async Task<bool> HeadExists(string url)
   {
     try
@@ -2211,7 +2001,6 @@ public class WebCrawler
     }
     catch { return false; }
   }
-
   /// <summary>
   /// Resolve a site's favicon using (in order): <link> tags, manifest icons, browserconfig tiles, and common root paths.
   /// Returns an absolute URL or null.
@@ -2227,7 +2016,6 @@ public class WebCrawler
       if (abs != null && await UrlExistsLightweight(abs, ct))
         return abs;
     }
-
     // 2) Try common root paths
     foreach (var path in _commonFaviconPaths)
     {
@@ -2236,10 +2024,8 @@ public class WebCrawler
       if (await UrlExistsLightweight(probe, ct))
         return probe;
     }
-
     return null;
   }
-
   private static IEnumerable<string> ExtractIconHrefCandidates(HtmlDocument doc)
   {
     // We gather a broad set of rel values commonly used for icons
@@ -2247,12 +2033,10 @@ public class WebCrawler
     var xPath = "//link[@rel]";
     var relNodes = doc.DocumentNode.SelectNodes(xPath);
     if (relNodes == null) yield break;
-
     foreach (var n in relNodes)
     {
       var rel = (n.GetAttributeValue("rel", "") ?? "").ToLowerInvariant();
       if (string.IsNullOrEmpty(rel)) continue;
-
       // Accept a family of rel values that often indicate site icons
       if (rel.Contains("icon")                      // covers 'icon', 'shortcut icon', 'mask-icon', etc.
           || rel.Contains("apple-touch-icon")       // iOS/Safari
@@ -2264,7 +2048,6 @@ public class WebCrawler
       }
     }
   }
-
   private static string? MakeAbsoluteUrl(Uri baseUri, string href)
   {
     try
@@ -2276,7 +2059,6 @@ public class WebCrawler
     }
     catch { return null; }
   }
-
   /// <summary>
   /// Lightweight existence probe: HEAD first; if HEAD blocked, fallback to GET with small cap.
   /// </summary>
@@ -2288,7 +2070,6 @@ public class WebCrawler
       var req = new HttpRequestMessage(HttpMethod.Head, url);
       var hdrs = GenerateRotatedHeaders(url);
       foreach (var kv in hdrs) req.Headers.TryAddWithoutValidation(kv.Key, kv.Value);
-
       using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
       cts.CancelAfter(TimeSpan.FromSeconds(5));
       using var resp = await _httpClient.SendAsync(req, cts.Token);
@@ -2305,7 +2086,6 @@ public class WebCrawler
     {
       // fallback to GET
     }
-
     try
     {
       var req = BuildGetRequestWithRotatedHeaders(url);
@@ -2316,9 +2096,7 @@ public class WebCrawler
     }
     catch { return false; }
   }
-
 }
-
 class RobotsInfo
 {
   public DateTime FetchedAt { get; set; }
@@ -2326,30 +2104,3 @@ class RobotsInfo
   public HashSet<string> DisallowedPaths { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
   public bool IsEmpty => DisallowedPaths.Count == 0 && CrawlDelay == TimeSpan.Zero;
 }
-
-//	case 200:
-//	return 'OK: The request has succeeded.';
-//case 301:
-//	return 'Moved Permanently: The requested resource has been permanently moved to a new location.';
-//case 302:
-//	return 'Found: The requested resource is temporarily available at a different URL.';
-//case 400:
-//	return 'Bad Request: The server could not understand the request due to invalid syntax.';
-//case 401:
-//	return 'Unauthorized: Authentication is required to access this resource.';
-//case 403:
-//	return 'Forbidden: You do not have permission to access this resource.';
-//case 404:
-//	return 'Not Found: The requested resource could not be found.';
-//case 405:
-//	return 'Method Not Allowed: The HTTP method used is not supported for the requested resource.';
-//case 500:
-//	return 'Internal Server Error: The server encountered an unexpected condition.';
-//case 502:
-//	return 'Bad Gateway: Invalid response from an upstream server.';
-//case 503:
-//	return 'Service Unavailable: The server is temporarily unavailable due to overload or maintenance.';
-//case 504:
-//	return 'Gateway Timeout: The server did not receive a timely response from an upstream server.';
-//default:
-//	return 'Unknown status code.';
