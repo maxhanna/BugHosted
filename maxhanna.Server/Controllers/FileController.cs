@@ -313,26 +313,26 @@ namespace maxhanna.Server.Controllers
                     (string searchCondition, List<MySqlParameter> baseSearchParams) = await GetWhereCondition(search, user, fileId, nsfwAllowed, forceSameDirectory, directory);
                     var countParams = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
                     string countCommandSql = $@"
-              SELECT COUNT(*)
-              FROM maxhanna.file_uploads f     
-              {(includeRomMetadata || (actualCore?.Count > 0) ? @" 
-              LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
-              LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
-              WHERE 1=1 
-                {((fileId.HasValue && !isIdMatch || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
-                AND (
-                  f.is_public = 1
-                  OR f.user_id = @userId
-                  OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON))
-                )
-                {searchCondition}
-                {combinedTypeCoreCondition}
-                {visibilityCondition}
-                {ownershipCondition}
-                {hiddenCondition}
-                {favouritesCondition}
-                {fileIdCondition}
-            ";
+                        SELECT COUNT(*)
+                        FROM maxhanna.file_uploads f     
+                        {(actualCore?.Count > 0 ? @" 
+                        LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
+                        LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
+                        WHERE 1=1 
+                            {((fileId.HasValue && !isIdMatch || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
+                            AND (
+                            f.is_public = 1
+                            OR f.user_id = @userId
+                            OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON))
+                            )
+                            {searchCondition}
+                            {combinedTypeCoreCondition}
+                            {visibilityCondition}
+                            {ownershipCondition}
+                            {hiddenCondition}
+                            {favouritesCondition}
+                            {fileIdCondition}
+                        ";
                     //Console.WriteLine($"Count SQL: {countCommandSql}");
                     var countCmd = new MySqlCommand(countCommandSql, connection);
 
@@ -356,36 +356,35 @@ namespace maxhanna.Server.Controllers
                     }
                     var extraParameters = baseSearchParams.Select(p => (MySqlParameter)p.Clone()).ToList();
                     string sqlCommand = $@" 
-            SELECT
-              f.id AS fileId,
-              f.file_name AS FileName,
-              f.given_file_name AS GivenFileName,
-              f.is_folder AS IsFolder,
-              f.is_public AS IsPublic,
-              f.file_size AS FileSize,
-              f.file_type AS FileType,
-              f.upload_date AS Date,
-              f.last_access AS LastAccess,
-              f.access_count AS AccessCount,
-              f.user_id AS UserId
-              {(orderBy.Contains("comment_count") ? ", (SELECT COUNT(*) FROM comments c WHERE c.file_id = f.id) AS comment_count " : "")}
-            FROM maxhanna.file_uploads f  
-            {(includeRomMetadata || (actualCore?.Count > 0) ? @" 
-            LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
-            LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
-            WHERE 1=1
-              {((fileId.HasValue && !isIdMatch || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
-              AND (f.is_public = 1 OR f.user_id = @userId OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON)))
-              {searchCondition}
-              {combinedTypeCoreCondition}
-              {visibilityCondition}
-              {ownershipCondition}
-              {hiddenCondition}
-              {favouritesCondition}
-              {fileIdCondition} 
-            {orderBy}
-
-            LIMIT @pageSize OFFSET @offset;";
+                        SELECT
+                            f.id AS fileId,
+                            f.file_name AS FileName,
+                            f.given_file_name AS GivenFileName,
+                            f.is_folder AS IsFolder,
+                            f.is_public AS IsPublic,
+                            f.file_size AS FileSize,
+                            f.file_type AS FileType,
+                            f.upload_date AS Date,
+                            f.last_access AS LastAccess,
+                            f.access_count AS AccessCount,
+                            f.user_id AS UserId
+                            {(orderBy.Contains("comment_count") ? ", (SELECT COUNT(*) FROM comments c WHERE c.file_id = f.id) AS comment_count " : "")}
+                        FROM maxhanna.file_uploads f  
+                            {(actualCore?.Count > 0 ? @" 
+                            LEFT JOIN maxhanna.rom_igdb_enrichment rigdb ON rigdb.file_id = f.id 
+                            LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
+                        WHERE 1=1
+                            {((fileId.HasValue && !isIdMatch || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
+                            AND (f.is_public = 1 OR f.user_id = @userId OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON)))
+                            {searchCondition}
+                            {combinedTypeCoreCondition}
+                            {visibilityCondition}
+                            {ownershipCondition}
+                            {hiddenCondition}
+                            {favouritesCondition}
+                            {fileIdCondition} 
+                            {orderBy} 
+                        LIMIT @pageSize OFFSET @offset;";
                     //Console.WriteLine($"fileId {fileId}, offset {offset}, pageSize {pageSize}, page {page}, folder path {directory}. command: " + sqlCommand);
                     var command = new MySqlCommand(sqlCommand, connection);
 
