@@ -1083,7 +1083,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
     if (hour === 6) {
       greeting = `Early bird special, ${username}! Perfect start to your day!`;
-    } else if (hour >= 5 && hour < 10) {
+    } else if (hour === 7) {
+      greeting = `Hop to it, ${username}! You've got a great start today.`;
+    } else if (hour === 8) {
+      greeting = `Coffee is brewing, ${username} - ready to conquer the day?`;
+    } else if (hour === 9) {
       greeting = `Rise and shine, ${username}! Morning energy!`;
     } else if (hour >= 10 && hour < 12) {
       greeting = `Morning energy, ${username}! Starting strong!`;
@@ -1093,7 +1097,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       greeting = `Afternoon drive, ${username}! Keep it going!`;
     } else if (hour >= 18 && hour <= 21) {
       greeting = `Evening vibes only, ${username}!`;
-    } else if (hour > 21 || hour < 4) {
+    } else if (hour > 21 || hour < 6) {
       greeting = `Midnight madness in progress, ${username}. Stay curious.`;
     }
 
