@@ -88,3 +88,8 @@ thead {
 .calendarActionButtons button {
   white-space: nowrap;
 }
+
+.calEntry {
+  display: flex;
+  justify-content: space-around;
+}
