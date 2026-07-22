@@ -116,8 +116,8 @@
             </div>
             <div class="imageUrlPictureDiv">
               <a [attr.href]="result.url" target="_blank" [title]="result.title">
-                <img [src]="result.thumbnailUrl || 'https://placehold.co/128x72?text=No+Image' " [attr.loading]="lazy"
-                  [title]="result.title" (error)="result.thumbnailUrl = ''" />
+                <img [src]="result.imageUrl || 'https://placehold.co/128x72?text=No+Image' " [attr.loading]="lazy"
+                  [title]="result.title" (error)="result.imageUrl = ''" />
               </a>
             </div>
           </div>
@@ -181,7 +181,6 @@
   ({{ redditResults.length || 0 }} Reddit results){{" "}}
   ({{ xResults.length || 0 }} X results){{" "}}
   ({{ imdbResults.length || 0 }} IMDB results)
-</div>
 </div>
 
 <!-- Menu Popup -->
