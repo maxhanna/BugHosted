@@ -16,10 +16,10 @@
 
   <div class="xxSmallFont">
     Search results: {{ totalResults }}{{" "}}
-      ({{ youtubeResults.length }} YouTube results){{" "}}
-      ({{redditResults.length || 0 }} Reddit results){{" "}}
-      ({{xResults.length || 0 }} X results){{" "}}
-      ({{imdbResults.length || 0 }} IMDB results)
+    ({{ youtubeResults.length }} YouTube results){{" "}}
+    ({{redditResults.length || 0 }} Reddit results){{" "}}
+    ({{xResults.length || 0 }} X results){{" "}}
+    ({{imdbResults.length || 0 }} IMDB results)
   </div>
 
   <div class="crawler-container" [style.position]="onlySearch ? 'relative' : ''"
@@ -105,71 +105,83 @@
         <div class="metadataSearchDiv gradientBackground">
           <div class="groupDomainTitle">IMDB Results</div>
           <div *ngFor="let result of imdbResults.slice(0, imdbDisplayLimit)" class="groupLinkWrapperDiv">
-            <app-crawler-search-results style="width:100%" [result]="result"
-              [inputtedParentRef]="inputtedParentRef ?? parentRef" [onlySearch]="onlySearch" [hideStatus]="true"
-              [displaySocialResults]="false" (urlSelectedEvent)="visitExternalLink($event)">
-            </app-crawler-search-results>
+            <div class="groupLinkDataWrapperDiv">
+              <div class="descriptionDiv titleClass cursorPointer linkTextDecoration">
+                <a class="pageTitleLink" [attr.href]="result.url" target="_blank">{{ result.title }}</a>
+              </div>
+              <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
+                <a [attr.href]="result.url" target="_blank">{{ result.url }}</a>
+              </div>
+              <div *ngIf="result.description" class="descriptionDiv descriptClass">{{ result.description }}</div>
+            </div>
+            <div class="imageUrlPictureDiv">
+              <a [attr.href]="result.url" target="_blank" [title]="result.title">
+                <img [src]="result.thumbnailUrl || 'https://placehold.co/128x72?text=No+Image' " [attr.loading]="lazy"
+                  [title]="result.title" (error)="result.thumbnailUrl = ''" />
+              </a>
+            </div>
           </div>
-          <div style="text-align: center; margin-top:10px;" *ngIf="imdbResults.length > imdbDisplayLimit">
-            <button (click)="showMoreImdb()">
-              Display {{ imdbDisplayLimit >1 ? "less" : "more" }} IMDB results {{ imdbDisplayLimit === 1 ? ("(" +
-              (imdbResults.length -1) + ")") : ""}}
-            </button>
-          </div>
+        </div>
+        <div style="text-align: center; margin-top:10px;" *ngIf="imdbResults.length > imdbDisplayLimit">
+          <button (click)="showMoreImdb()">
+            Display {{ imdbDisplayLimit >1 ? "less" : "more" }} IMDB results {{ imdbDisplayLimit === 1 ? ("(" +
+            (imdbResults.length -1) + ")") : ""}}
+          </button>
         </div>
       </div>
+    </div>
 
-      <div *ngIf="socialResults?.length" class="metadataSearchWrapper" [style.max-Height]="onlySearch ? '30vh' : ''">
-        <div class="metadataSearchDiv gradientBackground">
-          <div class="groupDomainTitle">Reddit, X, Facebook Results</div>
-          <div *ngFor="let result of socialResults.slice(0, socialDisplayLimit)" class="groupLinkWrapperDiv">
-            <app-crawler-search-results style="width:100%" [result]="result"
-              [inputtedParentRef]="inputtedParentRef ?? parentRef" [onlySearch]="onlySearch" [hideStatus]="true"
-              [displaySocialResults]="true" (urlSelectedEvent)="visitExternalLink($event)">
-            </app-crawler-search-results>
-          </div>
-          <div style="text-align: center; margin-top:10px;" *ngIf="socialResults.length > socialDisplayLimit">
-            <button (click)="showMoreSocial()">
-              Display more Reddit, X, Facebook results ({{ socialResults.length - socialDisplayLimit }} more)
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div *ngFor="let group of groupedResults" class="metadataSearchDiv gradientBackground">
-        <div class="groupDomainTitle">
-          {{ group.domain }}
-        </div>
-        <div *ngFor="let result of group.links; let i = index"
-          [class]="(group.showSubdomains || i === 0) ? 'groupLinkWrapperDiv' : ''">
-          <app-crawler-search-results *ngIf="group.showSubdomains || i === 0" style="width:100%" [result]="result"
-            [inputtedParentRef]="inputtedParentRef ?? parentRef" [onlySearch]="onlySearch"
-            (urlSelectedEvent)="visitExternalLink($event)">
+    <div *ngIf="socialResults?.length" class="metadataSearchWrapper" [style.max-Height]="onlySearch ? '30vh' : ''">
+      <div class="metadataSearchDiv gradientBackground">
+        <div class="groupDomainTitle">Reddit, X, Facebook Results</div>
+        <div *ngFor="let result of socialResults.slice(0, socialDisplayLimit)" class="groupLinkWrapperDiv">
+          <app-crawler-search-results style="width:100%" [result]="result"
+            [inputtedParentRef]="inputtedParentRef ?? parentRef" [onlySearch]="onlySearch" [hideStatus]="true"
+            [displaySocialResults]="true" (urlSelectedEvent)="visitExternalLink($event)">
           </app-crawler-search-results>
         </div>
-        <span (click)="toggleSubdomains(group)" class="expandButton" *ngIf="group.links.length > 1">
-          <button>{{ group.showSubdomains ? 'Collapse' : 'Expand' }}</button>
-        </span>
-      </div>
-      <div style="text-align:center">
-        <button *ngIf="totalPages > 1 && currentPage < totalPages" (click)="onPageChange()">
-          Display More Web Results
-        </button>
+        <div style="text-align: center; margin-top:10px;" *ngIf="socialResults.length > socialDisplayLimit">
+          <button (click)="showMoreSocial()">
+            Display more Reddit, X, Facebook results ({{ socialResults.length - socialDisplayLimit }} more)
+          </button>
+        </div>
       </div>
     </div>
-    <div *ngIf="searchResults?.length == 0 && !error && !isLoading" class="smallFont nbDiv">
-      <div *ngIf="!onlySearch" (click)="seeNew()" class="cursorPointer linkTextDecoration">See the latest indexes.</div>
+
+    <div *ngFor="let group of groupedResults" class="metadataSearchDiv gradientBackground">
+      <div class="groupDomainTitle">
+        {{ group.domain }}
+      </div>
+      <div *ngFor="let result of group.links; let i = index"
+        [class]="(group.showSubdomains || i === 0) ? 'groupLinkWrapperDiv' : ''">
+        <app-crawler-search-results *ngIf="group.showSubdomains || i === 0" style="width:100%" [result]="result"
+          [inputtedParentRef]="inputtedParentRef ?? parentRef" [onlySearch]="onlySearch"
+          (urlSelectedEvent)="visitExternalLink($event)">
+        </app-crawler-search-results>
+      </div>
+      <span (click)="toggleSubdomains(group)" class="expandButton" *ngIf="group.links.length > 1">
+        <button>{{ group.showSubdomains ? 'Collapse' : 'Expand' }}</button>
+      </span>
+    </div>
+    <div style="text-align:center">
+      <button *ngIf="totalPages > 1 && currentPage < totalPages" (click)="onPageChange()">
+        Display More Web Results
+      </button>
     </div>
   </div>
-  <div *ngIf="!searchResults.length" class="xxSmallFont">Total indexes: {{indexCount}}</div>
-  <div *ngIf="searchResults?.length" class="xxSmallFont">
-    Total indexes: {{ indexCount }}{{" "}}
-    Search results: {{ totalResults }}{{" "}}
-      ({{ youtubeResults.length }} YouTube results){{" "}}
-      ({{ redditResults.length || 0 }} Reddit results){{" "}}
-      ({{ xResults.length || 0 }} X results){{" "}}
-      ({{ imdbResults.length || 0 }} IMDB results)
+  <div *ngIf="searchResults?.length == 0 && !error && !isLoading" class="smallFont nbDiv">
+    <div *ngIf="!onlySearch" (click)="seeNew()" class="cursorPointer linkTextDecoration">See the latest indexes.</div>
   </div>
+</div>
+<div *ngIf="!searchResults.length" class="xxSmallFont">Total indexes: {{indexCount}}</div>
+<div *ngIf="searchResults?.length" class="xxSmallFont">
+  Total indexes: {{ indexCount }}{{" "}}
+  Search results: {{ totalResults }}{{" "}}
+  ({{ youtubeResults.length }} YouTube results){{" "}}
+  ({{ redditResults.length || 0 }} Reddit results){{" "}}
+  ({{ xResults.length || 0 }} X results){{" "}}
+  ({{ imdbResults.length || 0 }} IMDB results)
+</div>
 </div>
 
 <!-- Menu Popup -->
