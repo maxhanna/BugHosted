@@ -209,15 +209,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
       }
     });
   }
-
-  getImageUrl(fileId?: number): string {
-    if (!fileId) {
-      return 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=900&q=80';
-    }
-
-    return `/file/getfilebyid/${fileId}`;
-  }
-
+ 
   trackByRecipeId(index: number, recipe: Recipe): number {
     return recipe.id ?? index;
   }

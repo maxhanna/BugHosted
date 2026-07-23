@@ -97,7 +97,8 @@
 
     <div class="recipe-grid" *ngIf="filteredRecipes.length > 0">
       <article class="recipe-card" *ngFor="let recipe of filteredRecipes; trackBy: trackByRecipeId">
-        <img [src]="getImageUrl(recipe.imageFileIds[0])" [alt]="recipe.name" />
+        <app-media-viewer *ngIf="getImageUrl(recipe.imageFileIds[0])" [fileId]="getImageUrl(recipe.imageFileIds[0])" [displayExpander]="false" [displayExtraInfo]="false"
+          [showCommentSection]="false" [inputtedParentRef]="parentRef"></app-media-viewer>
         <div class="recipe-card-body">
           <div class="recipe-title-row">
             <h3>{{ recipe.name }}</h3>
