@@ -64,12 +64,9 @@
       <div class="field-block">
         <div class="field-title-row">
           <span>Tags</span>
-          <button class="ghost-btn" type="button" (click)="addTag()">+ Add</button>
         </div>
-        <div class="inline-stack" *ngFor="let tag of form.tags; let i = index; trackBy: trackByIndex">
-          <input type="text" [(ngModel)]="form.tags[i]" placeholder="Dinner, quick, vegan" />
-          <button class="ghost-btn" type="button" (click)="removeTag(i)" *ngIf="form.tags.length > 1">Remove</button>
-        </div>
+        <app-topics [isDropdown]="true" [user]="parentRef?.user" [parent]="parentRef"
+          [attachedTopics]="selectedTopics" (topicAdded)="onTopicsChanged($event)"></app-topics>
       </div>
 
       <div class="field-block">

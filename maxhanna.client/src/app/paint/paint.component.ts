@@ -77,7 +77,7 @@ export class PaintComponent extends ChildComponent {
   tools = [
     { id: 'pencil', label: '✏️', title: 'Pencil' },
     { id: 'brush', label: '🖌️', title: 'Brush' },
-    { id: 'eraser', label: '🧹', title: 'Eraser' },
+    { id: 'eraser', label: '🧽', title: 'Eraser' },
     { id: 'line', label: '📏', title: 'Line' },
     { id: 'rect', label: '▭', title: 'Rectangle' },
     { id: 'filledRect', label: '▬', title: 'Filled Rect' },
@@ -434,6 +434,15 @@ export class PaintComponent extends ChildComponent {
     if (!fill) return;
     if (targetR === fill.r && targetG === fill.g && targetB === fill.b && targetA === 255) return;
 
+    let minX = 0, maxX = w, minY = 0, maxY = h;
+    if (this.isSelectionActive) {
+      minX = Math.max(0, Math.floor(Math.min(this.selectionStartX, this.selectionEndX)));
+      maxX = Math.min(w, Math.ceil(Math.max(this.selectionStartX, this.selectionEndX)));
+      minY = Math.max(0, Math.floor(Math.min(this.selectionStartY, this.selectionEndY)));
+      maxY = Math.min(h, Math.ceil(Math.max(this.selectionStartY, this.selectionEndY)));
+      if (startX < minX || startX >= maxX || startY < minY || startY >= maxY) return;
+    }
+
     const visited = new Uint8Array(w * h);
     const stack: number[] = [startX, startY];
 
@@ -452,10 +461,10 @@ export class PaintComponent extends ChildComponent {
       data[pi4 + 2] = fill.b;
       data[pi4 + 3] = 255;
 
-      if (cx > 0) { stack.push(cx - 1, cy); }
-      if (cx < w - 1) { stack.push(cx + 1, cy); }
-      if (cy > 0) { stack.push(cx, cy - 1); }
-      if (cy < h - 1) { stack.push(cx, cy + 1); }
+      if (cx > minX) { stack.push(cx - 1, cy); }
+      if (cx < maxX - 1) { stack.push(cx + 1, cy); }
+      if (cy > minY) { stack.push(cx, cy - 1); }
+      if (cy < maxY - 1) { stack.push(cx, cy + 1); }
     }
 
     this.ctx.putImageData(imageData, 0, 0);
@@ -591,10 +600,16 @@ export class PaintComponent extends ChildComponent {
   async cropImage() {
     if (!this.parentRef) return;
 
-    try {
-      const confirmed = confirm('Are you sure you want to crop the image?');
-      if (!confirmed) return;
+    const confirmed = confirm('Are you sure you want to crop the image?');
+    if (!confirmed) return;
 
+    // Capture selection coordinates before finally block resets them
+    const selX1 = this.selectionStartX;
+    const selY1 = this.selectionStartY;
+    const selX2 = this.selectionEndX;
+    const selY2 = this.selectionEndY;
+
+    try {
       // Get current canvas data as base64 string
       const imageDataUrl = this.canvasRef.nativeElement.toDataURL('image/png');
 
@@ -604,10 +619,10 @@ export class PaintComponent extends ChildComponent {
       const img = new Image();
       img.onload = () => {
         // Calculate selection boundaries with proper clamping
-        let startX = Math.min(this.selectionStartX, this.selectionEndX);
-        let endX = Math.max(this.selectionStartX, this.selectionEndX);
-        let startY = Math.min(this.selectionStartY, this.selectionEndY);
-        let endY = Math.max(this.selectionStartY, this.selectionEndY);
+        let startX = Math.min(selX1, selX2);
+        let endX = Math.max(selX1, selX2);
+        let startY = Math.min(selY1, selY2);
+        let endY = Math.max(selY1, selY2);
 
         // Clamp coordinates within bounds of original canvas size (for safety)
         startX = Math.max(0, Math.min(startX, this.canvasWidth));

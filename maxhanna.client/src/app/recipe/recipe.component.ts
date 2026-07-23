@@ -4,6 +4,7 @@ import { MediaSelectorComponent } from '../media-selector/media-selector.compone
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { FileService } from '../../services/file.service';
 import { RecipePayload, RecipeService, Recipe } from '../../services/recipe.service';
+import { Topic } from '../../services/datacontracts/topics/topic';
 
 @Component({
   selector: 'app-recipe',
@@ -22,6 +23,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   editingRecipeId: number | null = null;
   override isLoading = false;
   selectedFiles: FileEntry[] = [];
+  selectedTopics: Topic[] = [];
 
   form: RecipePayload = {
     userId: 0,
@@ -91,6 +93,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
       externalLinks: []
     };
     this.selectedFiles = [];
+    this.selectedTopics = [];
   }
 
   cancelCreate(): void {
@@ -108,6 +111,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
       externalLinks: []
     };
     this.selectedFiles = [];
+    this.selectedTopics = [];
   }
 
   canEdit(recipe: Recipe): boolean {
@@ -129,6 +133,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
       externalLinks: [...(recipe.externalLinks || [])]
     };
     this.selectedFiles = [];
+    this.selectedTopics = (recipe.tags || []).map((t, i) => new Topic(i, t));
   }
 
   addIngredient(): void {
@@ -147,12 +152,9 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     this.form.instructions.splice(index, 1);
   }
 
-  addTag(): void {
-    this.form.tags.push('');
-  }
-
-  removeTag(index: number): void {
-    this.form.tags.splice(index, 1);
+  onTopicsChanged(topics: Topic[]): void {
+    this.selectedTopics = topics;
+    this.form.tags = topics.map(t => t.topicText);
   }
 
   addLink(): void {
@@ -182,7 +184,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
       userId: this.parentRef?.user?.id || 0,
       ingredients: this.form.ingredients.map(value => value.trim()).filter(Boolean),
       instructions: this.form.instructions.map(value => value.trim()).filter(Boolean),
-      tags: this.form.tags.map(value => value.trim()).filter(Boolean),
+      tags: this.selectedTopics.map(t => t.topicText).filter(Boolean),
       imageFileIds: this.form.imageFileIds,
       externalLinks: this.form.externalLinks.map(value => value.trim()).filter(Boolean),
       createdBy: this.parentRef?.user?.username ?? "Anonymous"

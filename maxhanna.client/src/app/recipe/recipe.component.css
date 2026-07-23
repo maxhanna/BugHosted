@@ -61,8 +61,6 @@
 }
 
 .primary-btn {
-  background: linear-gradient(135deg, #ff8a3d, #ff5e3a);
-  color: white;
   box-shadow: 0 8px 20px rgba(255, 94, 58, 0.3);
 }
 
@@ -214,13 +212,12 @@ label {
 .empty-state {
   text-align: center;
   padding: 24px;
-  color: #846b55;
-  background: rgba(255, 255, 255, 0.7);
+  color: var(--secondary-font-color);
+  background: var(--gradient-background);
   border-radius: 16px;
 }
 
-@media (max-width: 760px) {
-
+@media (max-width: 760px) { 
   .recipe-hero,
   .recipe-toolbar {
     flex-direction: column;
