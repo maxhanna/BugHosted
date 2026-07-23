@@ -12,10 +12,10 @@
 .recipe-hero,
 .composer-card,
 .recipe-card {
-  background: linear-gradient(145deg, rgba(255,255,255,0.92), rgba(248,244,235,0.9));
-  border: 1px solid rgba(255,255,255,0.7);
+  background: var(--gradient-background);
+  border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 20px;
-  box-shadow: 0 12px 36px rgba(0,0,0,0.08);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.08);
 }
 
 .recipe-hero {
@@ -31,7 +31,7 @@
   text-transform: uppercase;
   letter-spacing: 0.2em;
   font-size: 0.8rem;
-  color: #b06d2f;
+  color: var(--third-font-color);
   font-weight: 700;
 }
 
@@ -42,7 +42,7 @@
 
 .hero-copy {
   margin: 0;
-  color: #5f4f3c;
+  color: var(--secondary-font-color);
   max-width: 650px;
 }
 
@@ -63,11 +63,11 @@
 .primary-btn {
   background: linear-gradient(135deg, #ff8a3d, #ff5e3a);
   color: white;
-  box-shadow: 0 8px 20px rgba(255,94,58,0.3);
+  box-shadow: 0 8px 20px rgba(255, 94, 58, 0.3);
 }
 
 .ghost-btn {
-  background: rgba(255,255,255,0.9);
+  background: rgba(255, 255, 255, 0.9);
   color: #6b4f3b;
 }
 
@@ -76,7 +76,6 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: rgba(255,255,255,0.65);
   padding: 12px 16px;
   border-radius: 16px;
 }
@@ -95,7 +94,6 @@
 .toolbar-meta {
   display: flex;
   gap: 12px;
-  color: #7a6554;
   font-size: 0.9rem;
 }
 
@@ -114,6 +112,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 8px;
+  color: var(--third-font-color);
 }
 
 .field-block {
@@ -133,7 +132,7 @@ label {
   flex-direction: column;
   gap: 6px;
   font-weight: 600;
-  color: #5c4638;
+  color: var(--third-font-color);
 }
 
 .submit-btn {
@@ -192,15 +191,15 @@ label {
 }
 
 .recipe-links a {
-  color: #b06d2f;
-  text-decoration: underline;
   cursor: pointer;
   word-break: break-all;
 }
 
 .recipe-section h4 {
   margin: 0 0 6px;
-  font-size: 0.95rem;
+  font-size: large;
+  color: var(--third-font-color);
+  font-weight: bold;
 }
 
 .recipe-section ul,
@@ -216,11 +215,12 @@ label {
   text-align: center;
   padding: 24px;
   color: #846b55;
-  background: rgba(255,255,255,0.7);
+  background: rgba(255, 255, 255, 0.7);
   border-radius: 16px;
 }
 
 @media (max-width: 760px) {
+
   .recipe-hero,
   .recipe-toolbar {
     flex-direction: column;

@@ -182,4 +182,8 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   trackByRecipeId(index: number, recipe: Recipe): number {
     return recipe.id ?? index;
   }
+
+  trackByIndex(index: number): number {
+    return index;
+  }
 }

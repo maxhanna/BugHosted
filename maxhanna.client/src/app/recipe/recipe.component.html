@@ -42,7 +42,7 @@
           <span>Ingredients</span>
           <button class="ghost-btn" type="button" (click)="addIngredient()">+ Add</button>
         </div>
-        <div class="inline-stack" *ngFor="let ingredient of form.ingredients; let i = index">
+        <div class="inline-stack" *ngFor="let ingredient of form.ingredients; let i = index; trackBy: trackByIndex">
           <input type="text" [(ngModel)]="form.ingredients[i]" placeholder="Ingredient" />
           <button class="ghost-btn" type="button" (click)="removeIngredient(i)"
             *ngIf="form.ingredients.length > 1">Remove</button>
@@ -54,7 +54,7 @@
           <span>Instructions</span>
           <button class="ghost-btn" type="button" (click)="addInstruction()">+ Add</button>
         </div>
-        <div class="inline-stack" *ngFor="let instruction of form.instructions; let i = index">
+        <div class="inline-stack" *ngFor="let instruction of form.instructions; let i = index; trackBy: trackByIndex">
           <textarea rows="2" [(ngModel)]="form.instructions[i]" placeholder="Step {{ i + 1 }}"></textarea>
           <button class="ghost-btn" type="button" (click)="removeInstruction(i)"
             *ngIf="form.instructions.length > 1">Remove</button>
@@ -66,7 +66,7 @@
           <span>Tags</span>
           <button class="ghost-btn" type="button" (click)="addTag()">+ Add</button>
         </div>
-        <div class="inline-stack" *ngFor="let tag of form.tags; let i = index">
+        <div class="inline-stack" *ngFor="let tag of form.tags; let i = index; trackBy: trackByIndex">
           <input type="text" [(ngModel)]="form.tags[i]" placeholder="Dinner, quick, vegan" />
           <button class="ghost-btn" type="button" (click)="removeTag(i)" *ngIf="form.tags.length > 1">Remove</button>
         </div>
@@ -77,7 +77,7 @@
           <span>External Links</span>
           <button class="ghost-btn" type="button" (click)="addLink()">+ Add</button>
         </div>
-        <div class="inline-stack" *ngFor="let link of form.externalLinks; let i = index">
+        <div class="inline-stack" *ngFor="let link of form.externalLinks; let i = index; trackBy: trackByIndex">
           <input type="url" [(ngModel)]="form.externalLinks[i]" placeholder="https://youtube.com/watch?v=..." />
           <button class="ghost-btn" type="button" (click)="removeLink(i)">Remove</button>
         </div>
