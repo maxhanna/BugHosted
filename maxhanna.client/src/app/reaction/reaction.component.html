@@ -22,14 +22,14 @@
 
 <div *ngIf="showReactionChoices" class="popupPanel" id="reactionChoicesDiv">
   <div class="popupPanelTitle">
-    Reaction Choices
+    Reaction Choices <app-loading-spinner *ngIf="reactionLoading"></app-loading-spinner>
   </div> 
   <div class="searchInputDiv">
     <input #reactionFilter placeholder="Filter/Search" (input)="searchForReaction()" />
     <button (click)="searchForReaction()" class="reactionSearchButton">🔍 Search</button>
   </div>
 
-  <div class="reactionChoices gradientBackground">
+  <div class="reactionChoices gradientBackground" [style.opacity]="reactionLoading ? '20%' : ''">
     <div class="reactionChoice" *ngFor="let reaction of filteredReactions" (click)="selectReaction(reaction.type)"
       [title]="reaction.label">
       {{reaction.emoji}}

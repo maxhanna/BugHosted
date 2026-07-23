@@ -173,7 +173,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   async selectReaction(reaction: string) {
     if (this.reactionLoading) return;
     if (this.userHasReacted() && this.currentReactions && this.currentReactions.some(x => x.user?.id == this.inputtedParentRef?.user?.id && x.type && x.type == reaction)) {
-      this.showReactionChoices = false;
+      this.parentRef?.showNotification("Cannot react the same way twice.");
       return;
     }
     this.reactionLoading = true;
@@ -193,8 +193,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
       const newList = [tmpReaction, ...(this.currentReactions ?? [])];
       this.currentReactions = newList;
       this.getReactionsListDisplay();
-    }
-
+    } 
     await this.userEventService.insertUserEvent((this.user?.id ?? 0), 'reaction_added', `${reaction} Reaction`,
       this.userProfileId ?? this.storyId ?? this.fileId ?? this.commentId);
 
