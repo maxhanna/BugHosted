@@ -55,7 +55,17 @@ export class PaintComponent extends ChildComponent {
   private selectionEndX: number = 0;
   private selectionEndY: number = 0;
 
-  private isSelectionActive: boolean = false;
+  isSelectionActive: boolean = false;
+
+  showMenuPanel = false;
+
+  private resizeX = 0;
+  private resizeY = 0;
+  private isResizing = false;
+  private resizeStartW = 0;
+  private resizeStartH = 0;
+  canvasMinW = 100;
+  canvasMinH = 100;
 
   brushSizes = [1, 2, 5, 10, 20, 30];
   presetColors = [
@@ -618,10 +628,18 @@ export class PaintComponent extends ChildComponent {
           0, 0, tempCanvas.width, tempCanvas.height
         );
 
-        // Update main canvas with cropped content and save state
+        // Resize main canvas to cropped dimensions
+        this.canvasWidth = tempCanvas.width;
+        this.canvasHeight = tempCanvas.height;
+        const canvas = this.canvasRef.nativeElement;
+        canvas.width = this.canvasWidth;
+        canvas.height = this.canvasHeight;
+        const overlay = this.overlayRef.nativeElement;
+        overlay.width = this.canvasWidth;
+        overlay.height = this.canvasHeight;
+        this.ctx = canvas.getContext('2d')!;
+        this.overlayCtx = overlay.getContext('2d')!;
         this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
-        this.ctx.fillStyle = '#ffffff';
-        this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
         this.ctx.globalCompositeOperation = 'source-over';
         this.ctx.drawImage(tempCanvas, 0, 0);
         this.saveState();
@@ -638,6 +656,59 @@ export class PaintComponent extends ChildComponent {
       this.selectionStartX = 0; this.selectionEndX = 0;
       this.selectionStartY = 0; this.selectionEndY = 0;
     }
+  }
+
+  toggleMenuPanel() {
+    this.showMenuPanel = !this.showMenuPanel;
+  }
+
+  applySize(w: string, h: string) {
+    const nw = parseInt(w, 10);
+    const nh = parseInt(h, 10);
+    if (isNaN(nw) || isNaN(nh) || nw < this.canvasMinW || nh < this.canvasMinH) return;
+    this.canvasWidth = nw;
+    this.canvasHeight = nh;
+    const canvas = this.canvasRef.nativeElement;
+    canvas.width = nw;
+    canvas.height = nh;
+    const overlay = this.overlayRef.nativeElement;
+    overlay.width = nw;
+    overlay.height = nh;
+    this.ctx = canvas.getContext('2d')!;
+    this.overlayCtx = overlay.getContext('2d')!;
+    this.clearSelection();
+    this.saveState();
+  }
+
+  startResize(e: PointerEvent) {
+    this.isResizing = true;
+    this.resizeX = e.clientX;
+    this.resizeY = e.clientY;
+    this.resizeStartW = this.canvasWidth;
+    this.resizeStartH = this.canvasHeight;
+  }
+
+  @HostListener('document:pointermove', ['$event'])
+  onResizePointerMove(e: PointerEvent) {
+    if (!this.isResizing) return;
+    const dx = e.clientX - this.resizeX;
+    const dy = e.clientY - this.resizeY;
+    this.canvasWidth = Math.max(this.canvasMinW, this.resizeStartW + dx);
+    this.canvasHeight = Math.max(this.canvasMinH, this.resizeStartH + dy);
+    const canvas = this.canvasRef.nativeElement;
+    canvas.width = this.canvasWidth;
+    canvas.height = this.canvasHeight;
+    const overlay = this.overlayRef.nativeElement;
+    overlay.width = this.canvasWidth;
+    overlay.height = this.canvasHeight;
+    this.restoreOverlay();
+  }
+
+  @HostListener('document:pointerup', ['$event'])
+  onResizePointerUp(e: PointerEvent) {
+    if (!this.isResizing) return;
+    this.isResizing = false;
+    this.saveState();
   }
 
   newCanvas() {
