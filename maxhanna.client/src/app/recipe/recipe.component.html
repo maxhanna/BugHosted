@@ -22,7 +22,7 @@
 
     <div *ngIf="isCreating" class="composer-card">
       <div class="composer-header">
-        <h3>Share a new recipe</h3>
+        <h3>{{ editingRecipeId ? 'Edit recipe' : 'Share a new recipe' }}</h3>
         <button class="ghost-btn" (click)="cancelCreate()">Cancel</button>
       </div>
 
@@ -90,7 +90,7 @@
         </app-media-selector>
       </div>
 
-      <button class="primary-btn submit-btn" (click)="submitRecipe()">Save recipe</button>
+      <button class="primary-btn submit-btn" (click)="submitRecipe()">{{ editingRecipeId ? 'Update recipe' : 'Save recipe' }}</button>
     </div>
 
     <div *ngIf="isLoading && recipes.length === 0" class="empty-state">Loading recipes…</div>
@@ -134,6 +134,7 @@
           <div class="recipe-footer">
             <span>By {{ recipe.createdBy || 'a community cook' }}</span>
             <span>{{ recipe.createdAt | date:'mediumDate' }}</span>
+            <button class="ghost-btn" *ngIf="canEdit(recipe)" (click)="editRecipe(recipe)">Edit</button>
           </div>
         </div>
       </article>

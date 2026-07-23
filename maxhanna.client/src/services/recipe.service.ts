@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 
 export interface Recipe {
   id: number;
+  userId: number;
   name: string;
   description: string;
   ingredients: string[];
@@ -16,6 +17,7 @@ export interface Recipe {
 }
 
 export interface RecipePayload {
+  userId: number;
   name: string;
   description: string;
   ingredients: string[];
@@ -23,6 +25,7 @@ export interface RecipePayload {
   tags: string[];
   imageFileIds: number[];
   externalLinks: string[];
+  createdBy: string;
 }
 
 @Injectable({
@@ -42,5 +45,9 @@ export class RecipeService {
 
   createRecipe(payload: RecipePayload): Observable<Recipe> {
     return this.http.post<Recipe>('/recipe', payload);
+  }
+
+  updateRecipe(id: number, payload: RecipePayload): Observable<Recipe> {
+    return this.http.put<Recipe>(`/recipe/${id}`, payload);
   }
 }

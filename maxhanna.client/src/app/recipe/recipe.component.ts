@@ -19,12 +19,15 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   filteredRecipes: Recipe[] = [];
   searchTerm = '';
   isCreating = false;
+  editingRecipeId: number | null = null;
   override isLoading = false;
   selectedFiles: FileEntry[] = [];
 
   form: RecipePayload = {
+    userId: 0,
     name: '',
     description: '',
+    createdBy: '',
     ingredients: [''],
     instructions: [''],
     tags: [],
@@ -75,9 +78,12 @@ export class RecipeComponent extends ChildComponent implements OnInit {
 
   openCreateForm(): void {
     this.isCreating = true;
+    this.editingRecipeId = null;
     this.form = {
+      userId: 0,
       name: '',
       description: '',
+      createdBy: '',
       ingredients: [''],
       instructions: [''],
       tags: [],
@@ -89,14 +95,38 @@ export class RecipeComponent extends ChildComponent implements OnInit {
 
   cancelCreate(): void {
     this.isCreating = false;
+    this.editingRecipeId = null;
     this.form = {
+      userId: 0,
       name: '',
       description: '',
+      createdBy: '',
       ingredients: [''],
       instructions: [''],
       tags: [],
       imageFileIds: [],
       externalLinks: []
+    };
+    this.selectedFiles = [];
+  }
+
+  canEdit(recipe: Recipe): boolean {
+    return !!this.parentRef?.user?.id && recipe.userId === this.parentRef.user.id;
+  }
+
+  editRecipe(recipe: Recipe): void {
+    this.isCreating = true;
+    this.editingRecipeId = recipe.id;
+    this.form = {
+      userId: recipe.userId,
+      name: recipe.name,
+      description: recipe.description,
+      createdBy: recipe.createdBy,
+      ingredients: [...recipe.ingredients],
+      instructions: [...recipe.instructions],
+      tags: [...recipe.tags],
+      imageFileIds: [...(recipe.imageFileIds || [])],
+      externalLinks: [...(recipe.externalLinks || [])]
     };
     this.selectedFiles = [];
   }
@@ -149,18 +179,25 @@ export class RecipeComponent extends ChildComponent implements OnInit {
 
     const payload: RecipePayload = {
       ...this.form,
+      userId: this.parentRef?.user?.id || 0,
       ingredients: this.form.ingredients.map(value => value.trim()).filter(Boolean),
       instructions: this.form.instructions.map(value => value.trim()).filter(Boolean),
       tags: this.form.tags.map(value => value.trim()).filter(Boolean),
       imageFileIds: this.form.imageFileIds,
-      externalLinks: this.form.externalLinks.map(value => value.trim()).filter(Boolean)
+      externalLinks: this.form.externalLinks.map(value => value.trim()).filter(Boolean),
+      createdBy: this.parentRef?.user?.username ?? "Anonymous"
     };
 
     this.isLoading = true;
-    this.recipeService.createRecipe(payload).subscribe({
+    const request$ = this.editingRecipeId
+      ? this.recipeService.updateRecipe(this.editingRecipeId, payload)
+      : this.recipeService.createRecipe(payload);
+
+    request$.subscribe({
       next: () => {
         this.isLoading = false;
         this.isCreating = false;
+        this.editingRecipeId = null;
         this.loadRecipes();
         this.cancelCreate();
       },
