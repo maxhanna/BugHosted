@@ -4,8 +4,9 @@
     <div class="paintToolbar">
       <div class="toolGroup">
         <button *ngFor="let t of tools" class="toolBtn" [class.active]="currentTool === t.id"
-          (click)="currentTool = t.id" [title]="t.title">{{ t.label }}</button> 
+          (click)="currentTool = t.id" [title]="t.title">{{ t.label }}</button>
         <button class="toolBtn" (click)="cropImage()" title="Crop Image">✂️</button>
+        <button class="toolBtn" (click)="selectArea()" title="Select Area">⬜</button>
         <button class="toolBtn" (click)="undo()" title="Undo (Ctrl+Z)">↩️</button>
         <button class="toolBtn" (click)="redo()" title="Redo (Ctrl+Y)">↪️</button>
         <button class="toolBtn" (click)="clearCanvas()" title="Clear">🗑️</button>

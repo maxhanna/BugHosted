@@ -50,6 +50,13 @@ export class PaintComponent extends ChildComponent {
   cursorY = 0;
   zoom = 1;
 
+  private selectionStartX: number = 0;
+  private selectionStartY: number = 0;
+  private selectionEndX: number = 0;
+  private selectionEndY: number = 0;
+
+  private isSelectionActive: boolean = false;
+
   brushSizes = [1, 2, 5, 10, 20, 30];
   presetColors = [
     '#000000', '#ffffff', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff',
@@ -105,6 +112,16 @@ export class PaintComponent extends ChildComponent {
     const canvas = this.canvasRef.nativeElement;
     canvas.setPointerCapture(e.pointerId);
 
+    if (this.currentTool === 'select') {
+      const pos = this.getPos(e);
+      this.selectionStartX = pos.x;
+      this.selectionStartY = pos.y;
+      this.selectionEndX = pos.x;
+      this.selectionEndY = pos.y;
+      this.isSelectionActive = true;
+      return;
+    }
+
     const pos = this.getPos(e);
     this.startX = pos.x;
     this.startY = pos.y;
@@ -131,6 +148,11 @@ export class PaintComponent extends ChildComponent {
     const pos = this.getPos(e);
     this.cursorX = Math.round(pos.x);
     this.cursorY = Math.round(pos.y);
+
+    if (this.currentTool === 'select' && this.isSelectionActive) {
+      this.selectionEndX = pos.x;
+      this.selectionEndY = pos.y;
+    }
 
     this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
 
@@ -469,46 +491,75 @@ export class PaintComponent extends ChildComponent {
     link.href = this.canvasRef.nativeElement.toDataURL('image/png');
     link.click();
   }
+  selectArea() {
+    this.currentTool = 'select';
+    this.parentRef?.showNotification('Select area by dragging on image');
+    // Initialize selection state variables
+    this.isSelectionActive = false;
+    this.selectionStartX = 0;
+    this.selectionStartY = 0;
+    this.selectionEndX = 0;
+    this.selectionEndY = 0;
+  }
   async cropImage() {
-      if (!this.parentRef) return;
+    if (!this.parentRef) return;
 
-      try {
-          const confirmed = confirm('Are you sure you want to crop the image?');
-          if (!confirmed) return;
+    try {
+      const confirmed = confirm('Are you sure you want to crop the image?');
+      if (!confirmed) return;
 
-          // Get current canvas data as base64 string
-          const imageDataUrl = this.canvasRef.nativeElement.toDataURL('image/png');
- 
-          // Create a temporary offscreen canvas for cropping operations
-          const tempCanvas = document.createElement('canvas');
-          const tempCtx = tempCanvas.getContext('2d')!;
-          const img = new Image();
-          img.onload = () => {
-              // Set dimensions based on original size (for simplicity)
-              tempCanvas.width = Math.min(img.naturalWidth, this.canvasWidth);
-              tempCanvas.height = Math.min(img.naturalHeight, this.canvasHeight);
- 
-              // Draw cropped portion of the image onto our temp canvas
-              tempCtx.drawImage(
-                  img,
-                  0, 0, tempCanvas.width, tempCanvas.height,
-                  0, 0, tempCanvas.width, tempCanvas.height
-              );
- 
-              // Update main canvas with cropped content and save state
-              this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
-              this.ctx.fillStyle = '#ffffff';
-              this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
-              this.ctx.globalCompositeOperation = 'source-over';
-              this.ctx.drawImage(tempCanvas, 0, 0);
-              this.saveState();
+      // Get current canvas data as base64 string
+      const imageDataUrl = this.canvasRef.nativeElement.toDataURL('image/png');
 
-              this.parentRef?.showNotification('Image has been cropped successfully.');
-          };
-          img.src = imageDataUrl;
+      // Create a temporary offscreen canvas for cropping operations
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d')!;
+      const img = new Image();
+      img.onload = () => {
+        // Calculate selection boundaries with proper clamping
+        let startX = Math.min(this.selectionStartX, this.selectionEndX);
+        let endX = Math.max(this.selectionStartX, this.selectionEndX);
+        let startY = Math.min(this.selectionStartY, this.selectionEndY);
+        let endY = Math.max(this.selectionStartY, this.selectionEndY);
+
+        // Clamp coordinates within bounds of original canvas size (for safety)
+        startX = Math.max(0, Math.min(startX, this.canvasWidth));
+        endX = Math.max(0, Math.min(endX, this.canvasWidth));
+        startY = Math.max(0, Math.min(startY, this.canvasHeight));
+        endY = Math.max(0, Math.min(endY, this.canvasHeight));
+
+        // Set dimensions based on selected area
+        tempCanvas.width = endX - startX;
+        tempCanvas.height = endY - startY;
+
+        if (tempCanvas.width <= 0 || tempCanvas.height <= 0) return; /* Invalid crop */
+
+        // Draw cropped portion onto our temporary canvas using the calculated boundaries
+        tempCtx.drawImage(
+          img,
+          startX, startY, tempCanvas.width, tempCanvas.height,
+          0, 0, tempCanvas.width, tempCanvas.height
+        );
+
+        // Update main canvas with cropped content and save state
+        this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+        this.ctx.globalCompositeOperation = 'source-over';
+        this.ctx.drawImage(tempCanvas, 0, 0);
+        this.saveState();
+
+        this.parentRef?.showNotification('Image has been cropped successfully.');
+      };
+      img.src = imageDataUrl;
     } catch (ex) {
-          console.error(ex);
-          this.parentRef?.showNotification('Error during cropping operation.');
+      console.error(ex);
+      this.parentRef?.showNotification('Error during cropping operation.');
+    } finally {
+      /* Reset selection after crop */
+      this.isSelectionActive = false;
+      this.selectionStartX = 0; this.selectionEndX = 0;
+      this.selectionStartY = 0; this.selectionEndY = 0;
     }
   }
 
