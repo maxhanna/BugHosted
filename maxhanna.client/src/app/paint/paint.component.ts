@@ -1,4 +1,4 @@
-﻿import { Component, ElementRef, ViewChild } from '@angular/core';
+﻿import { Component, ElementRef, HostListener, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
@@ -81,6 +81,17 @@ export class PaintComponent extends ChildComponent {
 
   constructor(private http: HttpClient) { super(); }
 
+  @HostListener('document:keydown', ['$event'])
+  handleKeyboard(e: KeyboardEvent) {
+    if (e.ctrlKey && e.key === 'z') {
+      e.preventDefault();
+      this.undo();
+    } else if (e.ctrlKey && e.key === 'y') {
+      e.preventDefault();
+      this.redo();
+    }
+  }
+
   ngAfterViewInit() {
     const canvas = this.canvasRef.nativeElement;
     canvas.width = this.canvasWidth;
@@ -114,12 +125,21 @@ export class PaintComponent extends ChildComponent {
 
     if (this.currentTool === 'select') {
       const pos = this.getPos(e);
+      if (this.isSelectionActive) {
+        this.clearSelection();
+        return;
+      }
       this.selectionStartX = pos.x;
       this.selectionStartY = pos.y;
       this.selectionEndX = pos.x;
       this.selectionEndY = pos.y;
       this.isSelectionActive = true;
+      this.isDrawing = true;
       return;
+    }
+
+    if (this.isSelectionActive) {
+      this.clearSelection();
     }
 
     const pos = this.getPos(e);
@@ -149,9 +169,12 @@ export class PaintComponent extends ChildComponent {
     this.cursorX = Math.round(pos.x);
     this.cursorY = Math.round(pos.y);
 
-    if (this.currentTool === 'select' && this.isSelectionActive) {
+    if (this.currentTool === 'select' && this.isDrawing) {
       this.selectionEndX = pos.x;
       this.selectionEndY = pos.y;
+      this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+      this.drawSelectionRect(this.overlayCtx, this.selectionStartX, this.selectionStartY, pos.x, pos.y);
+      return;
     }
 
     this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
@@ -180,11 +203,31 @@ export class PaintComponent extends ChildComponent {
         this.drawShapePreview('filledCircle', pos);
       }
     } else {
+      this.restoreOverlay();
       this.drawCursorPreview(pos);
     }
   }
 
   onPointerUp(e: PointerEvent) {
+    if (this.currentTool === 'select') {
+      this.isDrawing = false;
+      if (this.isSelectionActive) {
+        this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+        const x1 = Math.min(this.selectionStartX, this.selectionEndX);
+        const y1 = Math.min(this.selectionStartY, this.selectionEndY);
+        const x2 = Math.max(this.selectionStartX, this.selectionEndX);
+        const y2 = Math.max(this.selectionStartY, this.selectionEndY);
+        if (Math.abs(x2 - x1) > 2 && Math.abs(y2 - y1) > 2) {
+          this.selectionStartX = x1; this.selectionStartY = y1;
+          this.selectionEndX = x2; this.selectionEndY = y2;
+          this.drawSelectionRect(this.overlayCtx, x1, y1, x2, y2);
+        } else {
+          this.isSelectionActive = false;
+        }
+      }
+      return;
+    }
+
     if (!this.isDrawing) return;
     this.isDrawing = false;
 
@@ -217,7 +260,14 @@ export class PaintComponent extends ChildComponent {
       this.isDrawing = false;
       this.saveState();
     }
+    this.restoreOverlay();
     try { this.canvasRef.nativeElement.releasePointerCapture(e.pointerId); } catch { }
+  }
+
+  private restoreOverlay() {
+    if (this.isSelectionActive && this.selectionStartX !== this.selectionEndX && this.selectionStartY !== this.selectionEndY) {
+      this.drawSelectionRect(this.overlayCtx, this.selectionStartX, this.selectionStartY, this.selectionEndX, this.selectionEndY);
+    }
   }
 
   private drawShapePreview(tool: string, pos: { x: number; y: number }) {
@@ -293,6 +343,33 @@ export class PaintComponent extends ChildComponent {
       ctx.moveTo(cx, cy - crossLen); ctx.lineTo(cx, cy + crossLen);
       ctx.stroke();
     }
+  }
+
+  private drawSelectionRect(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number) {
+    const left = Math.min(x1, x2);
+    const top = Math.min(y1, y2);
+    const w = Math.abs(x2 - x1);
+    const h = Math.abs(y2 - y1);
+    ctx.save();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.strokeRect(left, top, w, h);
+    ctx.setLineDash([]);
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.strokeRect(left - 1, top - 1, w + 2, h + 2);
+    ctx.restore();
+  }
+
+  private clearSelection() {
+    this.isSelectionActive = false;
+    this.overlayCtx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+    this.selectionStartX = 0;
+    this.selectionStartY = 0;
+    this.selectionEndX = 0;
+    this.selectionEndY = 0;
   }
 
   private drawLine(x1: number, y1: number, x2: number, y2: number) {
@@ -492,14 +569,14 @@ export class PaintComponent extends ChildComponent {
     link.click();
   }
   selectArea() {
+    if (this.currentTool === 'select') {
+      this.clearSelection();
+      this.currentTool = '';
+      return;
+    }
+    this.clearSelection();
     this.currentTool = 'select';
     this.parentRef?.showNotification('Select area by dragging on image');
-    // Initialize selection state variables
-    this.isSelectionActive = false;
-    this.selectionStartX = 0;
-    this.selectionStartY = 0;
-    this.selectionEndX = 0;
-    this.selectionEndY = 0;
   }
   async cropImage() {
     if (!this.parentRef) return;
