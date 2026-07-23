@@ -1,5 +1,5 @@
 ﻿<div class="componentMain">
-  <app-title-bar [title]="'Recipe'"></app-title-bar>
+  <app-title-bar [title]="'Recipe'" (closeClicked)="remove_me('RecipeComponent')"></app-title-bar>
   <div class="recipe-shell">
     <div class="recipe-hero">
       <div>
@@ -73,6 +73,17 @@
       </div>
 
       <div class="field-block">
+        <div class="field-title-row">
+          <span>External Links</span>
+          <button class="ghost-btn" type="button" (click)="addLink()">+ Add</button>
+        </div>
+        <div class="inline-stack" *ngFor="let link of form.externalLinks; let i = index">
+          <input type="url" [(ngModel)]="form.externalLinks[i]" placeholder="https://youtube.com/watch?v=..." />
+          <button class="ghost-btn" type="button" (click)="removeLink(i)">Remove</button>
+        </div>
+      </div>
+
+      <div class="field-block">
         <span>Photos</span>
         <app-media-selector #mediaSelector [inputtedParentRef]="parentRef" [maxSelectedFiles]="4"
           [selectedFiles]="selectedFiles" (selectFileEvent)="onMediaSelection($event)">
@@ -109,6 +120,15 @@
             <ol>
               <li *ngFor="let step of recipe.instructions">{{ step }}</li>
             </ol>
+          </div>
+
+          <div class="recipe-section" *ngIf="recipe.externalLinks?.length">
+            <h4>Links</h4>
+            <ul class="recipe-links">
+              <li *ngFor="let link of recipe.externalLinks">
+                <a (click)="visitLink(link)">{{ link }}</a>
+              </li>
+            </ul>
           </div>
 
           <div class="recipe-footer">

@@ -10,6 +10,7 @@ export interface Recipe {
   instructions: string[];
   tags: string[];
   imageFileIds: number[];
+  externalLinks: string[];
   createdBy: string;
   createdAt: string;
 }
@@ -21,6 +22,7 @@ export interface RecipePayload {
   instructions: string[];
   tags: string[];
   imageFileIds: number[];
+  externalLinks: string[];
 }
 
 @Injectable({

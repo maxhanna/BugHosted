@@ -60,40 +60,6 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     await this.loadScoreData();
   }
 
-  private async loadScoreData() {
-    await this.getHighScores();
-    await this.loadWinStreakData();
-  }
-
-  private async loadWinStreakData() {
-    if (this.parentRef?.user?.id) {
-      try {
-        const wsRes = await this.wordlerService.getBestConsecutiveDayStreak(this.parentRef.user.id);
-        if (wsRes) {
-          this.wordlerBestStreak = parseInt(wsRes);
-        }
-
-        const wsRes3 = await this.wordlerService.getBestConsecutiveDayStreakOverall();
-        if (wsRes3) {
-          this.wordlerBestStreakOverall = wsRes3;
-        }
-
-        const wsRes2 = await this.wordlerService.getTodaysDayStreak(this.parentRef.user.id);
-        if (wsRes2) {
-          this.wordlerStreak = parseInt(wsRes2);
-        }
-      } catch (e) { }
-    }
-  }
-
-  copyLink() {
-    const link = `https://bughosted.com/Wordler`;
-    navigator.clipboard.writeText(link).then(() => {
-      this.parentRef?.showNotification('Link copied to clipboard!');
-    }).catch(err => {
-      this.parentRef?.showNotification('Failed to copy link!');
-    });
-  }
   getDifficultyByValue(value: number): DifficultyKey | undefined {
     return Object.keys(this.difficultyMapping).find(key => this.difficultyMapping[key as DifficultyKey] === value) as DifficultyKey | undefined;
   }
@@ -413,7 +379,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     });
 
     guessArray.forEach((letter, index) => {
-      if (wordArray.includes(letter)) {
+      if (wordArray.includes(letter) && letter !== wordArray[index]) {
         const button = document.getElementById(letter.toLowerCase() + "Button");
         const input = document.getElementById("attemptDiv" + attemptIndex)?.getElementsByTagName("input")[index];
 
@@ -498,5 +464,39 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       this.parentRef.closeOverlay();
     }
   }
-  // Top-scores rendering is delegated to the WordlerHighScores component
+
+  private async loadScoreData() {
+    await this.getHighScores();
+    await this.loadWinStreakData();
+  }
+
+  private async loadWinStreakData() {
+    if (this.parentRef?.user?.id) {
+      try {
+        const wsRes = await this.wordlerService.getBestConsecutiveDayStreak(this.parentRef.user.id);
+        if (wsRes) {
+          this.wordlerBestStreak = parseInt(wsRes);
+        }
+
+        const wsRes3 = await this.wordlerService.getBestConsecutiveDayStreakOverall();
+        if (wsRes3) {
+          this.wordlerBestStreakOverall = wsRes3;
+        }
+
+        const wsRes2 = await this.wordlerService.getTodaysDayStreak(this.parentRef.user.id);
+        if (wsRes2) {
+          this.wordlerStreak = parseInt(wsRes2);
+        }
+      } catch (e) { }
+    }
+  }
+
+  copyLink() {
+    const link = `https://bughosted.com/Wordler`;
+    navigator.clipboard.writeText(link).then(() => {
+      this.parentRef?.showNotification('Link copied to clipboard!');
+    }).catch(err => {
+      this.parentRef?.showNotification('Failed to copy link!');
+    });
+  }
 }

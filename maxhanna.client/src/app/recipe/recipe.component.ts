@@ -28,7 +28,8 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     ingredients: [''],
     instructions: [''],
     tags: [],
-    imageFileIds: []
+    imageFileIds: [],
+    externalLinks: []
   };
 
   constructor(private recipeService: RecipeService, private fileService: FileService) {
@@ -80,7 +81,8 @@ export class RecipeComponent extends ChildComponent implements OnInit {
       ingredients: [''],
       instructions: [''],
       tags: [],
-      imageFileIds: []
+      imageFileIds: [],
+      externalLinks: []
     };
     this.selectedFiles = [];
   }
@@ -93,7 +95,8 @@ export class RecipeComponent extends ChildComponent implements OnInit {
       ingredients: [''],
       instructions: [''],
       tags: [],
-      imageFileIds: []
+      imageFileIds: [],
+      externalLinks: []
     };
     this.selectedFiles = [];
   }
@@ -122,6 +125,18 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     this.form.tags.splice(index, 1);
   }
 
+  addLink(): void {
+    this.form.externalLinks.push('');
+  }
+
+  removeLink(index: number): void {
+    this.form.externalLinks.splice(index, 1);
+  }
+
+  visitLink(url: string): void {
+    this.parentRef?.visitExternalLink(url);
+  }
+
   onMediaSelection(files: FileEntry[]): void {
     this.selectedFiles = files;
     this.form.imageFileIds = files.map(file => file.id).filter(Boolean);
@@ -137,7 +152,8 @@ export class RecipeComponent extends ChildComponent implements OnInit {
       ingredients: this.form.ingredients.map(value => value.trim()).filter(Boolean),
       instructions: this.form.instructions.map(value => value.trim()).filter(Boolean),
       tags: this.form.tags.map(value => value.trim()).filter(Boolean),
-      imageFileIds: this.form.imageFileIds
+      imageFileIds: this.form.imageFileIds,
+      externalLinks: this.form.externalLinks.map(value => value.trim()).filter(Boolean)
     };
 
     this.isLoading = true;

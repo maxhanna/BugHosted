@@ -11,6 +11,7 @@ public class RecipeDto
     public List<string> Instructions { get; set; } = new();
     public List<string> Tags { get; set; } = new();
     public List<int> ImageFileIds { get; set; } = new();
+    public List<string> ExternalLinks { get; set; } = new();
     public string CreatedBy { get; set; } = "Community cook";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
@@ -23,6 +24,7 @@ public class RecipeCreateRequest
     public List<string> Instructions { get; set; } = new();
     public List<string> Tags { get; set; } = new();
     public List<int> ImageFileIds { get; set; } = new();
+    public List<string> ExternalLinks { get; set; } = new();
 }
 
 [ApiController]
@@ -39,12 +41,10 @@ public class RecipeController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<RecipeDto>>> Get([FromQuery] string? search)
     {
-        await EnsureSchemaAsync();
-
         await using var connection = new MySqlConnection(_connectionString);
         await connection.OpenAsync();
 
-        var query = "SELECT id, name, description, ingredients, instructions, tags, image_file_ids, created_by, created_at FROM recipes";
+        var query = "SELECT id, name, description, ingredients, instructions, tags, image_file_ids, external_links, created_by, created_at FROM recipes";
         var parameters = new List<MySqlParameter>();
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -75,6 +75,7 @@ public class RecipeController : ControllerBase
                 Instructions = ParseList(reader, "instructions"),
                 Tags = ParseList(reader, "tags"),
                 ImageFileIds = ParseIntList(reader, "image_file_ids"),
+                ExternalLinks = ParseList(reader, "external_links"),
                 CreatedBy = reader.IsDBNull(reader.GetOrdinal("created_by")) ? "Community cook" : reader.GetString(reader.GetOrdinal("created_by")),
                 CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at"))
             });
@@ -86,8 +87,6 @@ public class RecipeController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<RecipeDto>> Create([FromBody] RecipeCreateRequest request)
     {
-        await EnsureSchemaAsync();
-
         if (string.IsNullOrWhiteSpace(request.Name))
         {
             return BadRequest("Recipe name is required.");
@@ -101,6 +100,7 @@ public class RecipeController : ControllerBase
             Instructions = request.Instructions.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).ToList(),
             Tags = request.Tags.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).ToList(),
             ImageFileIds = request.ImageFileIds.Where(x => x > 0).ToList(),
+            ExternalLinks = request.ExternalLinks.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()).ToList(),
             CreatedAt = DateTime.UtcNow
         };
 
@@ -108,8 +108,8 @@ public class RecipeController : ControllerBase
         await connection.OpenAsync();
 
         const string query = @"
-            INSERT INTO recipes (name, description, ingredients, instructions, tags, image_file_ids, created_by, created_at)
-            VALUES (@name, @description, @ingredients, @instructions, @tags, @imageFileIds, @createdBy, @createdAt);
+            INSERT INTO recipes (name, description, ingredients, instructions, tags, image_file_ids, external_links, created_by, created_at)
+            VALUES (@name, @description, @ingredients, @instructions, @tags, @imageFileIds, @externalLinks, @createdBy, @createdAt);
             SELECT LAST_INSERT_ID();";
 
         await using var command = new MySqlCommand(query, connection);
@@ -119,6 +119,7 @@ public class RecipeController : ControllerBase
         command.Parameters.AddWithValue("@instructions", SerializeList(recipe.Instructions));
         command.Parameters.AddWithValue("@tags", SerializeList(recipe.Tags));
         command.Parameters.AddWithValue("@imageFileIds", SerializeList(recipe.ImageFileIds.Select(x => x.ToString()).ToList()));
+        command.Parameters.AddWithValue("@externalLinks", SerializeList(recipe.ExternalLinks));
         command.Parameters.AddWithValue("@createdBy", recipe.CreatedBy);
         command.Parameters.AddWithValue("@createdAt", recipe.CreatedAt);
 
@@ -128,16 +129,6 @@ public class RecipeController : ControllerBase
         return Ok(recipe);
     }
 
-    private async Task EnsureSchemaAsync()
-    {
-        await using var connection = new MySqlConnection(_connectionString);
-        await connection.OpenAsync();
-
-        await using var command = new MySqlCommand(
-            "CREATE TABLE IF NOT EXISTS recipes (id INT NOT NULL AUTO_INCREMENT, name VARCHAR(255) NOT NULL, description TEXT NULL, ingredients TEXT NULL, instructions TEXT NULL, tags TEXT NULL, image_file_ids TEXT NULL, created_by VARCHAR(255) NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
-            connection);
-        await command.ExecuteNonQueryAsync();
-    }
 
     private static List<string> ParseList(MySqlDataReader reader, string columnName)
     {

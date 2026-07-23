@@ -25,6 +25,7 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   reactionCount = 0;
   showReactionChoices = false;
   showReactions = false;
+  reactionLoading = false;
   userReaction = '';
   reactionId = Math.random() * 10000000000000;
   reactions = [
@@ -170,10 +171,12 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   }
 
   async selectReaction(reaction: string) {
+    if (this.reactionLoading) return;
     if (this.userHasReacted() && this.currentReactions && this.currentReactions.some(x => x.user?.id == this.inputtedParentRef?.user?.id && x.type && x.type == reaction)) {
       this.showReactionChoices = false;
       return;
     }
+    this.reactionLoading = true;
     let tmpReaction = new Reaction();
     tmpReaction.messageId = this.messageId;
     tmpReaction.storyId = this.storyId;
@@ -184,57 +187,24 @@ export class ReactionComponent extends ChildComponent implements OnInit {
     tmpReaction.type = reaction;
     tmpReaction.timestamp = new Date();
 
-    await this.reactionService.addReaction(tmpReaction).then(async res => {
-      if (res) {
-        tmpReaction.id = parseInt(res);
+    const res = await this.reactionService.addReaction(tmpReaction);
+    if (res) {
+      tmpReaction.id = parseInt(res);
+      const newList = [tmpReaction, ...(this.currentReactions ?? [])];
+      this.currentReactions = newList;
+      this.getReactionsListDisplay();
+    }
 
-        const newList = [tmpReaction, ...(this.currentReactions ?? [])];
-        this.currentReactions = newList; 
-        this.getReactionsListDisplay();
-      }
-    });
-
-    // Insert user event after adding reaction
     await this.userEventService.insertUserEvent((this.user?.id ?? 0), 'reaction_added', `${reaction} Reaction`,
       this.userProfileId ?? this.storyId ?? this.fileId ?? this.commentId);
 
     this.sendNotification();
     this.showReactionChoices = false;
     if (this.inputtedParentRef) {
-      if (this.showReactionChoices) {
-        this.inputtedParentRef.showOverlay();
-      } else {
-        this.inputtedParentRef.closeOverlay();
-      }
+      this.inputtedParentRef.closeOverlay();
     }
     this.userReaction = reaction;
-
-    await this.reactionService.addReaction(tmpReaction).then(async res => {
-      if (res) {
-        tmpReaction.id = parseInt(res);
-
-        const newList = [tmpReaction, ...(this.currentReactions ?? [])];
-        this.currentReactions = newList;
-        // // If a parent component object was provided, assign its reactions to the new array
-        // try {
-        //   if (this.component && (this.commentId || this.fileId || this.storyId || this.messageId)) {
-        //     (this.component as any).reactions = newList;
-        //   }
-        // } catch { }
-        this.getReactionsListDisplay();
-      }
-    });
-
-    this.sendNotification();
-    this.showReactionChoices = false;
-    if (this.inputtedParentRef) {
-      if (this.showReactionChoices) {
-        this.inputtedParentRef.showOverlay();
-      } else {
-        this.inputtedParentRef.closeOverlay();
-      }
-    }
-    this.userReaction = reaction;
+    this.reactionLoading = false;
   }
   private sendNotification() {
     const fromUser = this.user ?? new User(0, "Anonymous");
