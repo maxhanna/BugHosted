@@ -2583,8 +2583,16 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   openImagePreview(url?: string, ev?: Event) {
     if (ev) ev.preventDefault();
     if (!url) return;
-    if (this.isOptionsPanelOpen) {
-      this.imagePreviewFile = this.optionsFile;
+    if (this.isOptionsPanelOpen && this.optionsFile) {
+      const md = this.optionsFile.romMetadata as any;
+      const allImgs: string[] = [];
+      if (md?.coverUrl) allImgs.push(md.coverUrl);
+      const ss = this.safeJsonArray(md?.screenshotsJson);
+      const aw = this.safeJsonArray(md?.artworksJson);
+      allImgs.push(...ss, ...aw);
+      this.imagePreviewFile = { ...this.optionsFile, romInlineThumbs: allImgs };
+      this.imageIndex = allImgs.indexOf(url);
+      if (this.imageIndex === -1) this.imageIndex = 0;
       this.closeOptionsPanel();
     }
     setTimeout(() => {
