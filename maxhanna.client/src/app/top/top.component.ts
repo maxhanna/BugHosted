@@ -45,9 +45,9 @@ export class TopComponent extends ChildComponent implements OnInit {
     super();
   }
 
-  async ngOnInit() { 
+  async ngOnInit() {
     this.startLoading();
-    const topicsFromUrl = this.getTopicsFromUrl(); 
+    const topicsFromUrl = this.getTopicsFromUrl();
     if (topicsFromUrl.length > 0) {
       setTimeout(async () => {
         await this.processUrlTopics(topicsFromUrl);
@@ -59,7 +59,7 @@ export class TopComponent extends ChildComponent implements OnInit {
       if (res) {
         this.topCategories = res;
       }
-    }); 
+    });
     this.stopLoading();
   }
 
@@ -109,19 +109,22 @@ export class TopComponent extends ChildComponent implements OnInit {
     this.loadTopEntries();
   }
 
-  async loadTopEntries() {
+  async loadTopEntries(scrollAfter = true) {
     this.startLoading();
     this.errorMessage = null;
 
     await this.topService.getTop(this.topicInputted).then(
       (res) => {
         this.topEntries = res || [];
-        setTimeout(() => {
-          document.getElementsByClassName("componentMain")[0].scrollTo({
-            top: 0,
-            behavior: 'smooth'
-          });
-        }, 50);
+        if (scrollAfter) {
+          setTimeout(() => {
+            document.getElementsByClassName("componentMain")[0].scrollTo({
+              top: 0,
+              behavior: 'smooth'
+            });
+          }, 50);
+        }
+
         this.stopLoading();
       },
       (err) => {
@@ -133,7 +136,7 @@ export class TopComponent extends ChildComponent implements OnInit {
   }
 
   async onTopicAdded(topics: Topic[]) {
-    this.topicInputted = topics;  
+    this.topicInputted = topics;
     console.log(topics, this.topicInputted);
     setTimeout(async () => { await this.loadTopEntries(); }, 50);
   }
@@ -171,7 +174,7 @@ export class TopComponent extends ChildComponent implements OnInit {
     await this.topService.vote(entry.id, this.parentRef?.user?.id ?? 0, true).then(async res => {
       if (res.success) {
         this.parentRef?.showNotification("Voted successfully");
-        await this.loadTopEntries();
+        await this.loadTopEntries(false);
       } else {
         this.parentRef?.showNotification("Error, please try again");
       }
@@ -183,7 +186,7 @@ export class TopComponent extends ChildComponent implements OnInit {
     await this.topService.vote(entry.id, this.parentRef?.user?.id ?? 0, false).then(async res => {
       if (res.success) {
         this.parentRef?.showNotification("Voted successfully");
-        await this.loadTopEntries();
+        await this.loadTopEntries(false);
       } else {
         this.parentRef?.showNotification("Error, please try again");
       }
@@ -214,7 +217,7 @@ export class TopComponent extends ChildComponent implements OnInit {
         this.parentRef?.showNotification(res.message);
       }
       if (res.success) {
-        await this.loadTopEntries();
+        await this.loadTopEntries(false);
         this.closeEditPanel();
         this.editFileSelector.removeAllFiles();
         this.titleEditInput.nativeElement.value = '';
@@ -233,7 +236,7 @@ export class TopComponent extends ChildComponent implements OnInit {
         this.parentRef?.showNotification(res.message);
       }
       if (res.success) {
-        await this.loadTopEntries();
+        await this.loadTopEntries(false);
         this.closeEditPanel();
       }
     });

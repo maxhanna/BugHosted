@@ -52,6 +52,7 @@ import { GrandTheftComponent } from './grandtheft/grandtheft.component';
 import { RecipeComponent } from './recipe/recipe.component';
 import { PaintComponent } from './paint/paint.component';
 import { ModeratorComponent } from './moderator/moderator.component';
+import { UserEventService } from '../services/user-event.service';
 
 
 @Component({
@@ -481,6 +482,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     private favouriteService: FavouriteService,
     private fileService: FileService,
     private pollService: PollService,
+    private userEventService: UserEventService,
     private meta: Meta,
     private title: Title,
     private changeDetectorRef: ChangeDetectorRef,
@@ -1502,9 +1504,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     if (!forceNewTab && this.isYoutubeUrl(url)) {
       const videoId = this.getYouTubeVideoId(url);
       if (videoId) {
+        this.userEventService.insertUserEvent(this.user?.id ?? 0, "youtube", `Watched ${url}`); 
         this.playYoutubeVideo(videoId);
       }
     } else {
+      this.userEventService.insertUserEvent(this.user?.id ?? 0, "link", `Visited ${url}`); 
       window.open(url, '_blank');
     }
 

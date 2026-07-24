@@ -1,4 +1,4 @@
-﻿import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
+﻿import { ChangeDetectionStrategy, Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
 import { ReactionService } from '../../services/reaction.service';
 import { User } from '../../services/datacontracts/user/user';
 import { Reaction } from '../../services/datacontracts/reactions/reaction';
@@ -129,7 +129,11 @@ export class ReactionComponent extends ChildComponent implements OnInit {
   @Input() showSpanBorder: boolean = false;
   @Input() currentReactions?: Reaction[] = [];
   @Input() coloredBg = true;
-  constructor(private reactionService: ReactionService, private notificationService: NotificationService, private userEventService: UserEventService) { super(); }
+  constructor(private reactionService: ReactionService, 
+    private notificationService: NotificationService, 
+    private userEventService: UserEventService) {
+    super(); 
+  }
 
   ngOnInit() {
     if (!this.currentReactions || this.currentReactions.length === 0) {

@@ -2367,25 +2367,25 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   n64Layout(): VPadItem[] {
     return [
       // D-Pad as individual buttons at top left
-      { type: 'button', id: 'n64Du', text: '↑', location: 'left', left: 30, top: 20, input_value: 4, bold: true, fontSize: 12 },
-      { type: 'button', id: 'n64Dd', text: '↓', location: 'left', left: 30, top: 38, input_value: 5, bold: true, fontSize: 12 },
-      { type: 'button', id: 'n64Dl', text: '←', location: 'left', left: 12, top: 29, input_value: 6, bold: true, fontSize: 12 },
-      { type: 'button', id: 'n64Dr', text: '→', location: 'left', left: 48, top: 29, input_value: 7, bold: true, fontSize: 12 },
+      { type: 'button', id: 'n64Du', text: '↑', location: 'left', left: 100, top: -50, input_value: 4, bold: true, fontSize: 12 },
+      { type: 'button', id: 'n64Dd', text: '↓', location: 'left', left: 100, top: 45, input_value: 5, bold: true, fontSize: 12 },
+      { type: 'button', id: 'n64Dl', text: '←', location: 'left', left: 55, top: 0, input_value: 6, bold: true, fontSize: 12 },
+      { type: 'button', id: 'n64Dr', text: '→', location: 'left', left: 140, top: 9, input_value: 7, bold: true, fontSize: 12 },
       // Analog stick below D-Pad (zone = virtual joystick)
-      { type: 'zone', location: 'left', left: '5%', top: '58%', joystickInput: true, color: 'blue', inputValues: [19, 18, 17, 16] },
+      { type: 'zone', location: 'left', left: '45%', top: '100%', joystickInput: true, color: 'grey', inputValues: [19, 18, 17, 16] },
       // L shoulder at bottom-left
-      { type: 'button', id: 'n64L', text: 'L', location: 'left', left: 30, top: 88, input_value: 10, bold: true, block: true },
+      { type: 'button', id: 'n64L', text: 'L', location: 'left', left: 0, top: -60, input_value: 10, bold: true, block: true },
       // C buttons diamond at top right
-      { type: 'button', id: 'n64Cu', text: 'C↑', location: 'right', left: -18, top: 18, input_value: 12, bold: true, fontSize: 13 },
-      { type: 'button', id: 'n64Cl', text: 'C←', location: 'right', left: -60, top: 32, input_value: 14, bold: true, fontSize: 13 },
-      { type: 'button', id: 'n64Cr', text: 'C→', location: 'right', left: 24, top: 32, input_value: 15, bold: true, fontSize: 13 },
-      { type: 'button', id: 'n64Cd', text: 'C↓', location: 'right', left: -18, top: 46, input_value: 13, bold: true, fontSize: 13 },
+      { type: 'button', id: 'n64Cu', text: 'C↑', location: 'right', left: -90, top: -50, input_value: 12, bold: true, fontSize: 13 },
+      { type: 'button', id: 'n64Cl', text: 'C←', location: 'right', left: -130, top: 0, input_value: 14, bold: true, fontSize: 13 },
+      { type: 'button', id: 'n64Cr', text: 'C→', location: 'right', left: -50, top: 0, input_value: 15, bold: true, fontSize: 13 },
+      { type: 'button', id: 'n64Cd', text: 'C↓', location: 'right', left: -90, top: 46, input_value: 13, bold: true, fontSize: 13 },
       // A, B, Z below C buttons
       { type: 'button', id: 'n64A', text: 'A', location: 'right', left: -18, top: 65, input_value: 0, bold: true, fontSize: 16 },
-      { type: 'button', id: 'n64B', text: 'B', location: 'right', left: -55, top: 75, input_value: 1, bold: true, fontSize: 16 },
-      { type: 'button', id: 'n64Z', text: 'Z', location: 'right', left: 19, top: 75, input_value: 2, bold: true, fontSize: 16 },
+      { type: 'button', id: 'n64B', text: 'B', location: 'right', left: -85, top: 115, input_value: 1, bold: true, fontSize: 16 },
+      { type: 'button', id: 'n64Z', text: 'Z', location: 'right', left: 19, top: 165, input_value: 2, bold: true, fontSize: 16 },
       // R shoulder at bottom-right
-      { type: 'button', id: 'n64R', text: 'R', location: 'right', left: -18, top: 88, input_value: 11, bold: true, block: true },
+      { type: 'button', id: 'n64R', text: 'R', location: 'right', right: 0, top: -50, input_value: 11, bold: true, block: true },
       // Start at bottom center
       { type: 'button', id: 'n64Start', text: 'Start', location: 'center', left: 0, top: 93, fontSize: 14, block: true, input_value: 3 },
     ];
