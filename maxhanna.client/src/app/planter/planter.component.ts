@@ -15,40 +15,34 @@ import { UserEventService } from '../../services/user-event.service';
   standalone: false
 })
 export class PlanterComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
+  @Input() inputtedParentRef?: AppComponent;
+  @Input() showTitleBar = true;
+  @Output() hasData = new EventEmitter<boolean>();
   plants: UserPlant[] = [];
   selectedPlant: UserPlant | null = null;
   photos: FileEntry[] = [];
   loading = false;
-  @Input() inputtedParentRef?: AppComponent;
-  @Input() showTitleBar = true;
-  @Output() hasData = new EventEmitter<boolean>();
   isMenuPanelOpen = false;
-
   identificationPhotoFile: FileEntry | null = null;
   identificationResult: PlantIdentificationResult | null = null;
   isIdentifying = false;
   identifyUploadProgress = 0;
   selectedSuggestion: PlantSuggestion | null = null;
   customPlantName = '';
-
   newPlantName = '';
   newPlantSpecies = '';
   newPlantLocation = '';
-
   editName = '';
   editSpecies = '';
   editNotes = '';
   editLocation = '';
-
   analysisResult = '';
   analysisType = '';
   originalAnalysisType = '';
   isAnalyzing = false;
-
   chatInput = '';
   chatMessages: { role: string; text: string }[] = [];
   isChatting = false;
-
   selectedPhotoForAnalysis: FileEntry | null = null;
   uploadingProgress = 0;
   private waterNotificationShown = false;
@@ -67,7 +61,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
 
   async loadPlants() {
     if (!this.parentRef?.user?.id) return;
-    this.loading = true;
+    this.isLoading = true;
     try {
       this.plants = await this.planterService.getPlants(this.parentRef.user.id);
       console.log("received plant data", this.plants);
@@ -76,7 +70,7 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
       console.error('Failed to load plants', e);
       this.plants = [];
     } finally {
-      this.loading = false;
+      this.isLoading = false;
     }
   }
 

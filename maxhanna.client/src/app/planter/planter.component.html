@@ -1,7 +1,7 @@
 ﻿<div [class.componentMain]="showTitleBar">
   <app-title-bar *ngIf="showTitleBar" [title]="'Planter'" (closeClicked)="safeDestroy();" (menuClicked)="showMenuPanel()"></app-title-bar>
   <div class="planter-component">
-    <div *ngIf="loading" class="loading">Loading...</div>
+    <div *ngIf="isLoading" class="loading">Loading...</div>
 
     <!-- Identify Plant Section (always visible) -->
     <div class="identify-section" *ngIf="!selectedPlant">
@@ -66,7 +66,7 @@
     </div>
 
     <!-- Plant List -->
-    <div *ngIf="!selectedPlant && !loading">
+    <div *ngIf="!selectedPlant && !isLoading">
       <div class="list-header" *ngIf="plants.length > 0">
         <span>My Plants ({{ plants.length }})</span>
       </div>
