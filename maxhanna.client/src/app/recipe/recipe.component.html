@@ -20,7 +20,7 @@
       </div>
     </div>
 
-    <div *ngIf="isCreating" class="composer-card">
+    <div *ngIf="isCreating" class="composer-card popupPanel">
       <div class="composer-header">
         <h3>{{ editingRecipeId ? 'Edit recipe' : 'Share a new recipe' }}</h3>
         <button class="ghost-btn" (click)="cancelCreate()">Cancel</button>
