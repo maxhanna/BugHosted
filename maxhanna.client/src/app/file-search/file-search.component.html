@@ -597,7 +597,7 @@
         {{optionsFile?.width}}x{{optionsFile?.height}} px
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="optionsFile?.directory">
+    <div class="optionsStatsDiv">
       <div class="optionsStatsHeader">
         Directory:
       </div>
@@ -605,15 +605,14 @@
         {{getDirectoryName(optionsFile)}}
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="optionsFile?.directory && !optionsFile?.isFolder">
+    <div class="optionsStatsDiv" *ngIf="!optionsFile?.isFolder">
       <div class="optionsStatsHeader">
         Direct Link:
       </div>
       <div class="optionsStatsDescription">
         <a href="https://bughosted.com/assets/Uploads/{{getDirectoryName(optionsFile) != '.' ? getDirectoryName(optionsFile) : ''}}{{optionsFile?.fileName}}"
           target="_blank">
-          https://bughosted.com/assets/Uploads/{{getDirectoryName(optionsFile) != '.' ? getDirectoryName(optionsFile) :
-          ''}}{{optionsFile?.fileName}}
+          https://bughosted.com/assets/Uploads/{{getDirectoryName(optionsFile) != '.' ? getDirectoryName(optionsFile) : ''}}{{optionsFile?.fileName}}
         </a>
       </div>
     </div>
