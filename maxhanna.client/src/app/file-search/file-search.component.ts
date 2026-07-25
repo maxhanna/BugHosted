@@ -2610,13 +2610,14 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     this.parentRef?.closeOverlay();
   }
   previousPreviewImage() {
+    console.log('previousPreviewImage : ', this.imagePreviewFile?.romInlineThumbs);
     if (!this.imagePreviewFile || !this.imagePreviewFile.romInlineThumbs) return;
     this.imagePreviewUrl = this.imagePreviewFile.romInlineThumbs[--this.imageIndex];
     this.changeDetectorRef.detectChanges();
   }
   nextPreviewImage() {
+    console.log('next preview image: ', this.imagePreviewFile?.romInlineThumbs);
     if (!this.imagePreviewFile || !this.imagePreviewFile.romInlineThumbs) return;
-    console.log('next preview image: ', this.imagePreviewFile.romInlineThumbs);
     this.imagePreviewUrl = this.imagePreviewFile.romInlineThumbs[++this.imageIndex];
     this.changeDetectorRef.detectChanges();
   }
