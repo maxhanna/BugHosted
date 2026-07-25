@@ -51,7 +51,15 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
 
   async ngOnInit() {
     if (this.inputtedParentRef) { this.parentRef = this.inputtedParentRef; }
+ 
     await this.loadPlants();
+  }
+  async onLoginClick() {
+      if (!this.parentRef) return;
+      this.parentRef.showOverlay(); 
+  }
+  hideLoginPopup() { 
+      this.parentRef?.closeOverlay();
   }
   ngAfterViewInit() { }
   ngOnDestroy(): void {

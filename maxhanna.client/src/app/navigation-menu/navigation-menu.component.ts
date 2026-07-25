@@ -35,7 +35,13 @@ export class NavigationMenuComponent {
   }
 
   get filteredNavItems() {
-    return (this._parent?.navigationItems ?? []).filter((item: any) => item?.title !== 'Help');
+    const term = (this._parent?.navSearchTerm ?? '').toLowerCase().trim();
+    return (this._parent?.navigationItems ?? []).filter((item: any) => {
+      if (item?.title === 'Help') return false;
+      if (!term) return true;
+      const title = this.getItemTitle(item?.title).toLowerCase();
+      return title.includes(term);
+    });
   }
 
   getItemTitle(title?: string): string{

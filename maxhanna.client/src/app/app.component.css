@@ -161,9 +161,26 @@
 
 .leftPanelHeader {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
   padding: 6px 8px;
   max-height: 30px;
+}
+
+.navSearchInput {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  padding: 2px 4px;
+  background: var(--input-bg, #3a3a3a);
+  color: var(--text-color, #e0e0e0);
+  border: 1px solid var(--border-color, #555);
+  border-radius: 3px;
+  outline: none;
+}
+
+.navSearchInput::placeholder {
+  color: var(--text-muted, #888);
 }
 
 .leftPanel {

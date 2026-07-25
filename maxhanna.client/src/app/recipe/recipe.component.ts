@@ -15,9 +15,9 @@ import { Topic } from '../../services/datacontracts/topics/topic';
 export class RecipeComponent extends ChildComponent implements OnInit {
   @Input() parentComponent: any;
   @ViewChild('mediaSelector') mediaSelector?: MediaSelectorComponent;
-
   recipes: Recipe[] = [];
   filteredRecipes: Recipe[] = [];
+  expandedRecipes = new Map<number, boolean>();
   searchTerm = '';
   isCreating = false;
   editingRecipeId: number | null = null;
@@ -217,4 +217,9 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   trackByIndex(index: number): number {
     return index;
   }
+
+  toggleRecipeDetails(recipeId: number): void {
+      const isExpanded = this.expandedRecipes.get(recipeId);
+      this.expandedRecipes.set(recipeId, !isExpanded);
+  } 
 }

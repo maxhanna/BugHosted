@@ -1,5 +1,15 @@
 ﻿<div [class.componentMain]="showTitleBar">
   <app-title-bar *ngIf="showTitleBar" [title]="'Planter'" (closeClicked)="safeDestroy();" (menuClicked)="showMenuPanel()"></app-title-bar>
+  <div class="popupPanel" *ngIf="!parentRef?.user?.id || parentRef?.user?.id === 0">
+    <div class="popupPanelHeader">
+      <span class="popupPanelTitle">Please Log In</span>
+    </div>
+    <div class="popupPanelContent">
+      <p>You need to log in to access this feature.</p>
+      <button class="login-btn" (click)="onLoginClick()">Log In</button>
+    </div>
+    <button class="closeButton" id="closeOverlay" (click)="hideLoginPopup()"></button>
+  </div>
   <div class="planter-component">
     <div *ngIf="isLoading" class="loading">Loading...</div>
 

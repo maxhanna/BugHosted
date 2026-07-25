@@ -65,8 +65,8 @@
         <div class="field-title-row">
           <span>Tags</span>
         </div>
-        <app-topics [isDropdown]="true" [user]="parentRef?.user" [parent]="parentRef"
-          [attachedTopics]="selectedTopics" (topicAdded)="onTopicsChanged($event)"></app-topics>
+        <app-topics [isDropdown]="true" [user]="parentRef?.user" [parent]="parentRef" [attachedTopics]="selectedTopics"
+          (topicAdded)="onTopicsChanged($event)"></app-topics>
       </div>
 
       <div class="field-block">
@@ -87,7 +87,8 @@
         </app-media-selector>
       </div>
 
-      <button class="primary-btn submit-btn" (click)="submitRecipe()">{{ editingRecipeId ? 'Update recipe' : 'Save recipe' }}</button>
+      <button class="primary-btn submit-btn" (click)="submitRecipe()">{{ editingRecipeId ? 'Update recipe' : 'Save
+        recipe' }}</button>
     </div>
 
     <div *ngIf="isLoading && recipes.length === 0" class="empty-state">Loading recipes…</div>
@@ -97,8 +98,8 @@
 
     <div class="recipe-grid" *ngIf="filteredRecipes.length > 0">
       <article class="recipe-card" *ngFor="let recipe of filteredRecipes; trackBy: trackByRecipeId">
-        <app-media-viewer *ngIf="recipe.imageFileIds[0]" [fileId]="recipe.imageFileIds[0]" [displayExpander]="false" [displayExtraInfo]="false"
-          [showCommentSection]="false" [inputtedParentRef]="parentRef"></app-media-viewer>
+        <app-media-viewer *ngIf="recipe.imageFileIds[0]" [fileId]="recipe.imageFileIds[0]" [displayExpander]="false"
+          [displayExtraInfo]="false" [showCommentSection]="false" [inputtedParentRef]="parentRef"></app-media-viewer>
         <div class="recipe-card-body">
           <div class="recipe-title-row">
             <h3>{{ recipe.name }}</h3>
@@ -106,14 +107,17 @@
           </div>
           <p class="recipe-description">{{ recipe.description }}</p>
 
-          <div class="recipe-section">
+          <button class="ghost-btn" (click)="toggleRecipeDetails(recipe.id)">{{ expandedRecipes.has(recipe.id) &&
+            expandedRecipes.get(recipe.id) ? 'Collapse' : 'Expand' }}</button>
+
+          <div class="recipe-section" *ngIf="expandedRecipes.has(recipe.id)">
             <h4>Ingredients</h4>
             <ul>
               <li *ngFor="let ingredient of recipe.ingredients">{{ ingredient }}</li>
             </ul>
           </div>
 
-          <div class="recipe-section">
+          <div class="recipe-section" *ngIf="expandedRecipes.has(recipe.id)">
             <h4>How to make it</h4>
             <ol>
               <li *ngFor="let step of recipe.instructions">{{ step }}</li>

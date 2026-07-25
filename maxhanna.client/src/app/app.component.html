@@ -25,6 +25,7 @@
           class="leftPanelCollapseBtn" 
           (click)="isLeftPanelHidden = !isLeftPanelHidden" 
           title="Toggle navigation">{{ isLeftPanelHidden ? '>>>' : '<<<' }}</button>
+        <input *ngIf="!isLeftPanelHidden" class="navSearchInput" type="text" [(ngModel)]="navSearchTerm" placeholder="Search..." />
       </div>
       <app-navigation-menu [collapsed]="isLeftPanelHidden"></app-navigation-menu>
     </div>

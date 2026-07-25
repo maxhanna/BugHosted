@@ -132,6 +132,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   private _isResizingLeftPanel = false;
   private _resizeStartX = 0;
   private _resizeStartWidth = 0;
+  navSearchTerm: string = '';
   navigationItems: MenuItem[] = [
     { ownership: 0, icon: "🌍", title: "Social", content: undefined },
     { ownership: 0, icon: "🤣", title: "Meme", content: undefined },
