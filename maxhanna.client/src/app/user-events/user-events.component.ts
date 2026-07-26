@@ -293,37 +293,12 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       'favourite_add': 'Favourites Added',
       'digcraft_levelup': 'DigCraft Level-ups',
       'trade_executed': 'Trade Executions',
-      'trophy': 'Trophies Earned'
-    };
-
-    return descriptions[eventType] || eventType;
-  }
-
-  getEventTypeDescription(eventType: string): string {
-      const descriptions: { [key: string]: string } = {
-      'file_upload': 'File Uploads',
-      'story_post': 'Story Posts',
-      'comment': 'Comments',
-      'bones_kill': 'Bones Kills',
-      'bones_death': 'Bones Deaths',
-      'ender_kill': 'Ender Kills',
-      'ender_death': 'Ender Deaths',
-      'digcraft_play': 'DigCraft Play',
-      'digcraft_death': 'DigCraft Deaths',
-      'digcraft_kill': 'DigCraft Kills',
-      'emulator_play': 'Emulator Play',
-      'nexus_play': 'Nexus Play',
-      'meta_encounter': 'Meta Encounters',
-      'daily_meme': 'Daily Memes',
-      'favourite_add': 'Favourites Added',
-      'digcraft_levelup': 'DigCraft Level-ups',
-      'trade_executed': 'Trade Executions',
       'trophy': 'Trophies Earned',
       'wordler_win': 'Wordler Wins',
       'flighttracking': 'Flight Tracking Events'
     };
 
-      return descriptions[eventType] || eventType;
+    return descriptions[eventType] || eventType;
   }
 
 }
