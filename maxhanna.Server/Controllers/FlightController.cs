@@ -276,7 +276,95 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
-		[HttpDelete("tracked")]
+		private static readonly Dictionary<string, string> IataToIcao = new(StringComparer.OrdinalIgnoreCase)
+	{
+		["AC"] = "ACA",   // Air Canada
+		["WS"] = "WJA",   // WestJet
+		["AA"] = "AAL",   // American Airlines
+		["DL"] = "DAL",   // Delta
+		["UA"] = "UAL",   // United
+		["WN"] = "SWA",   // Southwest
+		["AS"] = "ASA",   // Alaska Airlines
+		["B6"] = "JBU",   // JetBlue
+		["NK"] = "NKS",   // Spirit
+		["F9"] = "FFT",   // Frontier
+		["SY"] = "SCX",   // Sun Country
+		["HA"] = "HAL",   // Hawaiian
+		["LH"] = "DLH",   // Lufthansa
+		["BA"] = "BAW",   // British Airways
+		["AF"] = "AFR",   // Air France
+		["KL"] = "KLM",   // KLM
+		["TK"] = "THY",   // Turkish Airlines
+		["EK"] = "UAE",   // Emirates
+		["QR"] = "QTR",   // Qatar Airways
+		["EY"] = "ETD",   // Etihad
+		["SQ"] = "SIA",   // Singapore Airlines
+		["CX"] = "CPA",   // Cathay Pacific
+		["JL"] = "JAL",   // Japan Airlines
+		["NH"] = "ANA",   // All Nippon
+		["QF"] = "QFA",   // Qantas
+		["NZ"] = "ANZ",   // Air New Zealand
+		["VS"] = "VIR",   // Virgin Atlantic
+		["DY"] = "NAX",   // Norwegian
+		["FR"] = "RYR",   // Ryanair
+		["U2"] = "EZY",   // EasyJet
+	};
+
+	[HttpGet("lookup")]
+	public async Task<IActionResult> LookupFlight([FromQuery] string query)
+	{
+		if (string.IsNullOrWhiteSpace(query))
+			return Ok(new { found = false, callsign = (string?)null });
+
+		var raw = query.Trim().ToUpperInvariant();
+		var candidates = new List<string> { raw };
+
+		// Try stripping common suffixes like numbers to find the IATA prefix
+		var letters = new string(raw.TakeWhile(char.IsLetter).ToArray());
+		if (letters.Length >= 2 && letters.Length < raw.Length)
+		{
+			if (IataToIcao.TryGetValue(letters, out var icao))
+			{
+				var numberPart = raw[letters.Length..];
+				candidates.Add(icao + numberPart);
+			}
+		}
+
+		// Also try the raw input as an ICAO code if it looks like one (3 letters + digits)
+		if (letters.Length == 2 && raw.Length > 2)
+		{
+			var numberPart = raw[letters.Length..];
+			// Some airlines use 3-letter ICAO directly
+			foreach (var kv in IataToIcao)
+			{
+				if (kv.Value.Equals(letters, StringComparison.OrdinalIgnoreCase))
+				{
+					candidates.Add(letters + numberPart);
+					break;
+				}
+			}
+		}
+
+		candidates = candidates.Distinct().ToList();
+
+		var states = await FetchFromAirplanesLive(candidates);
+
+		foreach (var cs in candidates)
+		{
+			var match = states.FirstOrDefault(s => s.Count > 1 && s[1] is string scs &&
+				scs.Trim().Equals(cs, StringComparison.OrdinalIgnoreCase));
+			if (match != null)
+			{
+				return Ok(new { found = true, callsign = cs,
+					lat = match.Count > 6 ? match[6] : null,
+					lon = match.Count > 5 ? match[5] : null });
+			}
+		}
+
+		return Ok(new { found = false, callsign = (string?)null });
+	}
+
+	[HttpDelete("tracked")]
 		public async Task<IActionResult> DeleteTrackedFlight([FromQuery] int id, [FromQuery] int userId)
 		{
 			try

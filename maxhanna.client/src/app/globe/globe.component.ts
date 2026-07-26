@@ -419,6 +419,18 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    // Try converting commercial flight number to ADS-B callsign via backend lookup
+    let resolvedCs = cs;
+    try {
+      const res = await fetch(`/flight/lookup?query=${encodeURIComponent(cs)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.found && data.callsign) {
+          resolvedCs = data.callsign;
+        }
+      }
+    } catch {}
+
     let lat: number | undefined;
     let lon: number | undefined;
     let altitude: number | undefined;
@@ -427,7 +439,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     for (const state of this.allFlightStates) {
       const scs = state[1]?.trim().toUpperCase();
-      if (scs === cs) {
+      if (scs === resolvedCs) {
         lat = state[6];
         lon = state[5];
         altitude = state[7];
@@ -439,7 +451,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const flight: TrackedFlight = {
       id: `flight_${Date.now()}`,
-      callsign: cs,
+      callsign: resolvedCs,
       label: cs,
       lat,
       lon,
@@ -449,7 +461,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       enabled: true,
     };
 
-    const dbId = await this.flightService.addTrackedFlight(this.userId, cs);
+    const dbId = await this.flightService.addTrackedFlight(this.userId, resolvedCs);
     if (dbId) flight.id = dbId;
 
     this.trackedFlights = [...this.trackedFlights, flight];
@@ -464,7 +476,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     if (lat === undefined || lon === undefined) {
       for (const state of this.allFlightStates) {
         const scs = state[1]?.trim().toUpperCase();
-        if (scs === cs) {
+        if (scs === resolvedCs) {
           lat = state[6];
           lon = state[5];
           altitude = state[7];
