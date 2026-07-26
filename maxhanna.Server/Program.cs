@@ -57,6 +57,8 @@ builder.Services.AddSingleton<KrakenService>();
 builder.Services.AddSingleton<maxhanna.Server.Services.EmailService>();
 builder.Services.AddSingleton<FirebaseNotificationService>();
 builder.Services.AddSingleton<RomEnrichmentService>();
+builder.Services.AddSingleton<FlightBatchService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<FlightBatchService>());
 builder.WebHost.ConfigureKestrel(options =>
 {
 		options.Limits.MaxRequestBodySize = long.MaxValue;

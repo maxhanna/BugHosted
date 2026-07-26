@@ -1,7 +1,7 @@
+using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace maxhanna.Server.Controllers
 {
@@ -9,15 +9,15 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class FlightController : ControllerBase
 	{
-		private readonly IHttpClientFactory _httpClientFactory;
 		private readonly IConfiguration _config;
 		private readonly Log _log;
+		private readonly FlightBatchService _batchService;
 
-		public FlightController(IHttpClientFactory httpClientFactory, IConfiguration config, Log log)
+		public FlightController(IConfiguration config, Log log, FlightBatchService batchService)
 		{
-			_httpClientFactory = httpClientFactory;
 			_config = config;
 			_log = log;
+			_batchService = batchService;
 		}
 
 		[HttpGet("states")]
@@ -28,140 +28,30 @@ namespace maxhanna.Server.Controllers
 				if (string.IsNullOrWhiteSpace(callsigns))
 					return Ok(new { states = new List<object>() });
 
-				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
-				{
-					await conn.OpenAsync();
+				var callsignList = callsigns
+					.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+					.Select(c => c.Trim().ToUpperInvariant())
+					.Where(c => !string.IsNullOrWhiteSpace(c))
+					.Distinct()
+					.ToList();
 
-					using (var cleanup = new MySqlCommand("DELETE FROM maxhanna.flight_cache WHERE created_at < UTC_TIMESTAMP() - INTERVAL 2 MINUTE", conn))
-					{
-						await cleanup.ExecuteNonQueryAsync();
-					}
+				var states = await _batchService.RequestStates(callsignList);
 
-					string? cachedJson = null;
-					using (var readCmd = new MySqlCommand("SELECT cache_data FROM maxhanna.flight_cache ORDER BY created_at DESC LIMIT 1", conn))
-					{
-						var result = await readCmd.ExecuteScalarAsync();
-						if (result != null && result != DBNull.Value)
-						{
-							cachedJson = result.ToString();
-						}
-					}
+				var wanted = callsigns.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+					.Select(c => c.ToUpperInvariant())
+					.ToHashSet();
 
-					List<List<object?>> states;
-					if (cachedJson != null)
-					{
-						states = JsonConvert.DeserializeObject<List<List<object?>>>(cachedJson) ?? new List<List<object?>>();
-					}
-					else
-					{
-						var callsignList = callsigns
-							.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-							.Select(c => c.Trim().ToUpperInvariant())
-							.Where(c => !string.IsNullOrWhiteSpace(c))
-							.Distinct()
-							.ToList();
+				var matched = states
+					.Where(s => s.Count > 1 && s[1] is string cs && wanted.Contains(((string)cs).Trim().ToUpperInvariant()))
+					.ToList();
 
-						states = await FetchFromAirplanesLive(callsignList);
-
-						if (states.Count > 0)
-						{
-							var json = JsonConvert.SerializeObject(states);
-							using (var insertCmd = new MySqlCommand("INSERT INTO maxhanna.flight_cache (cache_data, created_at) VALUES (@data, UTC_TIMESTAMP())", conn))
-							{
-								insertCmd.Parameters.AddWithValue("@data", json);
-								await insertCmd.ExecuteNonQueryAsync();
-							}
-						}
-					}
-
-					var wanted = callsigns.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-						.Select(c => c.ToUpperInvariant())
-						.ToHashSet();
-
-					var matched = states
-						.Where(s => s.Count > 1 && s[1] is string cs && wanted.Contains(((string)cs).Trim().ToUpperInvariant()))
-						.ToList();
-
-					return Ok(new { states = matched });
-				}
+				return Ok(new { states = matched });
 			}
 			catch (Exception ex)
 			{
 				_ = _log.Db($"Flight states error: {ex.Message}", null, "FLIGHT", true);
 				return Ok(new { states = new List<object>() });
 			}
-		}
-
-		private async Task<List<List<object?>>> FetchFromAirplanesLive(List<string> callsigns)
-		{
-			if (callsigns.Count == 0) return new List<List<object?>>();
-
-			var client = _httpClientFactory.CreateClient();
-			client.Timeout = TimeSpan.FromSeconds(15);
-
-			async Task<List<List<object?>>> FetchOne(string cs)
-			{
-				try
-				{
-					var response = await client.GetAsync($"https://api.airplanes.live/v2/callsign/{Uri.EscapeDataString(cs)}");
-					if (!response.IsSuccessStatusCode) return new List<List<object?>>();
-
-					var json = await response.Content.ReadAsStringAsync();
-					return ParseAirplanesResponse(json);
-				}
-				catch (Exception ex)
-				{
-					_ = _log.Db($"Airplanes.live error for {cs}: {ex.Message}", null, "FLIGHT", true);
-					return new List<List<object?>>();
-				}
-			}
-
-			var tasks = callsigns.Select(FetchOne);
-			var results = await Task.WhenAll(tasks);
-			return results.SelectMany(r => r).ToList();
-		}
-
-		private static List<List<object?>> ParseAirplanesResponse(string json)
-		{
-			var results = new List<List<object?>>();
-			var obj = JObject.Parse(json);
-			var acArray = obj["ac"] as JArray;
-			long now = obj["now"]?.Value<long>() ?? 0;
-			long ts = now / 1000;
-
-			if (acArray == null) return results;
-
-			foreach (var ac in acArray)
-			{
-				var state = new List<object?>();
-				state.Add(ac["hex"]?.ToString());                            // [0] icao24
-				state.Add(ac["flight"]?.ToString()?.Trim());                // [1] callsign
-				state.Add("");                                               // [2] origin_country
-				state.Add(ts);                                               // [3] time_position
-				state.Add(ts);                                               // [4] last_contact
-				state.Add(ac["lon"]?.Value<double?>());                     // [5] longitude
-				state.Add(ac["lat"]?.Value<double?>());                     // [6] latitude
-
-				var altToken = ac["alt_baro"];
-				if (altToken != null && (altToken.Type == JTokenType.Float || altToken.Type == JTokenType.Integer))
-					state.Add(altToken.Value<double>());                     // [7] barometric altitude
-				else if (altToken?.Type == JTokenType.String && altToken.Value<string>() == "ground")
-					state.Add(0);
-				else
-					state.Add(null);
-
-				state.Add(altToken?.Type == JTokenType.String && altToken.Value<string>() == "ground"); // [8] on_ground
-				state.Add(ac["gs"]?.Value<double?>());                      // [9] ground speed
-				state.Add(ac["track"]?.Value<double?>());                   // [10] heading
-				state.Add(ac["r"]?.ToString());                             // [11] registration
-				state.Add(ac["t"]?.ToString());                             // [12] aircraft type
-				state.Add(ac["desc"]?.ToString());                          // [13] description
-				state.Add(ac["ownOp"]?.ToString());                         // [14] owner/operator
-
-				results.Add(state);
-			}
-
-			return results;
 		}
 
 		[HttpGet("tracked")]
@@ -229,17 +119,17 @@ namespace maxhanna.Server.Controllers
 						cmd.Parameters.AddWithValue("@destLat", (object?)request.DestLat ?? DBNull.Value);
 						cmd.Parameters.AddWithValue("@destLon", (object?)request.DestLon ?? DBNull.Value);
 						var id = Convert.ToInt32(await cmd.ExecuteScalarAsync());
-						
+
 						// Insert user event when flight tracking starts
 						await UserEventController.InsertUserEventStatic(
-							request.UserId, 
-							"FlightTracking", 
-							$"Started tracking flight {request.Callsign}", 
-							id, 
-							"Flight", 
-							_config, 
+							request.UserId,
+							"FlightTracking",
+							$"Started tracking flight {request.Callsign}",
+							id,
+							"Flight",
+							_config,
 							_log);
-						
+
 						return Ok(new { id = id.ToString() });
 					}
 				}
@@ -277,94 +167,98 @@ namespace maxhanna.Server.Controllers
 		}
 
 		private static readonly Dictionary<string, string> IataToIcao = new(StringComparer.OrdinalIgnoreCase)
-	{
-		["AC"] = "ACA",   // Air Canada
-		["WS"] = "WJA",   // WestJet
-		["AA"] = "AAL",   // American Airlines
-		["DL"] = "DAL",   // Delta
-		["UA"] = "UAL",   // United
-		["WN"] = "SWA",   // Southwest
-		["AS"] = "ASA",   // Alaska Airlines
-		["B6"] = "JBU",   // JetBlue
-		["NK"] = "NKS",   // Spirit
-		["F9"] = "FFT",   // Frontier
-		["SY"] = "SCX",   // Sun Country
-		["HA"] = "HAL",   // Hawaiian
-		["LH"] = "DLH",   // Lufthansa
-		["BA"] = "BAW",   // British Airways
-		["AF"] = "AFR",   // Air France
-		["KL"] = "KLM",   // KLM
-		["TK"] = "THY",   // Turkish Airlines
-		["EK"] = "UAE",   // Emirates
-		["QR"] = "QTR",   // Qatar Airways
-		["EY"] = "ETD",   // Etihad
-		["SQ"] = "SIA",   // Singapore Airlines
-		["CX"] = "CPA",   // Cathay Pacific
-		["JL"] = "JAL",   // Japan Airlines
-		["NH"] = "ANA",   // All Nippon
-		["QF"] = "QFA",   // Qantas
-		["NZ"] = "ANZ",   // Air New Zealand
-		["VS"] = "VIR",   // Virgin Atlantic
-		["DY"] = "NAX",   // Norwegian
-		["FR"] = "RYR",   // Ryanair
-		["U2"] = "EZY",   // EasyJet
-	};
-
-	[HttpGet("lookup")]
-	public async Task<IActionResult> LookupFlight([FromQuery] string query)
-	{
-		if (string.IsNullOrWhiteSpace(query))
-			return Ok(new { found = false, callsign = (string?)null });
-
-		var raw = query.Trim().ToUpperInvariant();
-		var candidates = new List<string> { raw };
-
-		// Try stripping common suffixes like numbers to find the IATA prefix
-		var letters = new string(raw.TakeWhile(char.IsLetter).ToArray());
-		if (letters.Length >= 2 && letters.Length < raw.Length)
 		{
-			if (IataToIcao.TryGetValue(letters, out var icao))
-			{
-				var numberPart = raw[letters.Length..];
-				candidates.Add(icao + numberPart);
-			}
-		}
+			["AC"] = "ACA",   // Air Canada
+			["WS"] = "WJA",   // WestJet
+			["AA"] = "AAL",   // American Airlines
+			["DL"] = "DAL",   // Delta
+			["UA"] = "UAL",   // United
+			["WN"] = "SWA",   // Southwest
+			["AS"] = "ASA",   // Alaska Airlines
+			["B6"] = "JBU",   // JetBlue
+			["NK"] = "NKS",   // Spirit
+			["F9"] = "FFT",   // Frontier
+			["SY"] = "SCX",   // Sun Country
+			["HA"] = "HAL",   // Hawaiian
+			["LH"] = "DLH",   // Lufthansa
+			["BA"] = "BAW",   // British Airways
+			["AF"] = "AFR",   // Air France
+			["KL"] = "KLM",   // KLM
+			["TK"] = "THY",   // Turkish Airlines
+			["EK"] = "UAE",   // Emirates
+			["QR"] = "QTR",   // Qatar Airways
+			["EY"] = "ETD",   // Etihad
+			["SQ"] = "SIA",   // Singapore Airlines
+			["CX"] = "CPA",   // Cathay Pacific
+			["JL"] = "JAL",   // Japan Airlines
+			["NH"] = "ANA",   // All Nippon
+			["QF"] = "QFA",   // Qantas
+			["NZ"] = "ANZ",   // Air New Zealand
+			["VS"] = "VIR",   // Virgin Atlantic
+			["DY"] = "NAX",   // Norwegian
+			["FR"] = "RYR",   // Ryanair
+			["U2"] = "EZY",   // EasyJet
+		};
 
-		// Also try the raw input as an ICAO code if it looks like one (3 letters + digits)
-		if (letters.Length == 2 && raw.Length > 2)
+		[HttpGet("lookup")]
+		public async Task<IActionResult> LookupFlight([FromQuery] string query)
 		{
-			var numberPart = raw[letters.Length..];
-			// Some airlines use 3-letter ICAO directly
-			foreach (var kv in IataToIcao)
+			if (string.IsNullOrWhiteSpace(query))
+				return Ok(new { found = false, callsign = (string?)null });
+
+			var raw = query.Trim().ToUpperInvariant();
+			var candidates = new List<string> { raw };
+
+			// Try stripping common suffixes like numbers to find the IATA prefix
+			var letters = new string(raw.TakeWhile(char.IsLetter).ToArray());
+			if (letters.Length >= 2 && letters.Length < raw.Length)
 			{
-				if (kv.Value.Equals(letters, StringComparison.OrdinalIgnoreCase))
+				if (IataToIcao.TryGetValue(letters, out var icao))
 				{
-					candidates.Add(letters + numberPart);
-					break;
+					var numberPart = raw[letters.Length..];
+					candidates.Add(icao + numberPart);
 				}
 			}
-		}
 
-		candidates = candidates.Distinct().ToList();
-
-		var states = await FetchFromAirplanesLive(candidates);
-
-		foreach (var cs in candidates)
-		{
-			var match = states.FirstOrDefault(s => s.Count > 1 && s[1] is string scs &&
-				scs.Trim().Equals(cs, StringComparison.OrdinalIgnoreCase));
-			if (match != null)
+			// Also try the raw input as an ICAO code if it looks like one (3 letters + digits)
+			if (letters.Length == 2 && raw.Length > 2)
 			{
-				return Ok(new { found = true, callsign = cs,
-					lat = match.Count > 6 ? match[6] : null,
-					lon = match.Count > 5 ? match[5] : null });
+				var numberPart = raw[letters.Length..];
+				// Some airlines use 3-letter ICAO directly
+				foreach (var kv in IataToIcao)
+				{
+					if (kv.Value.Equals(letters, StringComparison.OrdinalIgnoreCase))
+					{
+						candidates.Add(letters + numberPart);
+						break;
+					}
+				}
 			}
+
+			candidates = candidates.Distinct().ToList();
+
+			var states = await _batchService.RequestStates(candidates);
+
+			foreach (var cs in candidates)
+			{
+				var match = states.FirstOrDefault(s => s.Count > 1 && s[1] is string scs &&
+					scs.Trim().Equals(cs, StringComparison.OrdinalIgnoreCase));
+				if (match != null)
+				{
+					return Ok(new
+					{
+						found = true,
+						callsign = cs,
+						lat = match.Count > 6 ? match[6] : null,
+						lon = match.Count > 5 ? match[5] : null
+					});
+				}
+			}
+
+			return Ok(new { found = false, callsign = (string?)null });
 		}
 
-		return Ok(new { found = false, callsign = (string?)null });
-	}
-
-	[HttpDelete("tracked")]
+		[HttpDelete("tracked")]
 		public async Task<IActionResult> DeleteTrackedFlight([FromQuery] int id, [FromQuery] int userId)
 		{
 			try

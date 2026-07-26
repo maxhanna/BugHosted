@@ -107,7 +107,8 @@
     <div *ngIf="selectedCalendarEntries!.length == 0">No entries</div>
     <fieldset class="saveEntryFieldset">
       <legend>New calendar entry</legend>
-      <input #calendarNoteEntry type="text" placeholder="Description" required class="saveEntryInput" />
+      <textarea #calendarNoteEntry rows="4" cols="50" placeholder="Description" required
+        class="saveEntryInput"></textarea>
       <select #calendarTypeEntry class="saveEntrySelect">
         <ng-container *ngFor="let eventType of getEventTypes()">
           <option>{{ eventType }}</option>
