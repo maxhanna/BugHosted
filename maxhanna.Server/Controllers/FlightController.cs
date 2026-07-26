@@ -123,7 +123,7 @@ namespace maxhanna.Server.Controllers
 						// Insert user event when flight tracking starts
 						await UserEventController.InsertUserEventStatic(
 							request.UserId,
-							"FlightTracking",
+							"flighttracking",
 							$"Started tracking flight {request.Callsign}",
 							id,
 							"Flight",
