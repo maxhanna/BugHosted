@@ -35,7 +35,7 @@
 .scheduleFrame {
   width: 100%;
   height: 300px;
-} 
+}
 
 .staticCurrentDay {
   background-color: var(--table-thead-color);
@@ -91,7 +91,6 @@ thead {
 
 .calEntry {
   display: flex;
-  flex-direction: row;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -99,13 +98,11 @@ thead {
   border-radius: 6px;
   background-color: var(--secondary-component-background-color);
   margin-bottom: 12px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  transition: all 0.2s ease-in-out;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .calEntry:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 #calendarEditingNote {
