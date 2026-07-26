@@ -80,7 +80,7 @@
                 <a [attr.href]="video.url" target="_blank" (click)="openYoutubePopup($event, video.url)">{{ video.url
                   }}</a>
               </div>
-              <div *ngIf="video.description" class="descriptionDiv descriptClass">{{ video.description }}</div>
+              <div *ngIf="video.description" class="descriptionDiv descriptClass" [title]="video.description">{{ video.description }}</div>
             </div>
             <div class="imageUrlPictureDiv">
               <a [attr.href]="video.url" target="_blank" [title]="video.title"
@@ -112,7 +112,7 @@
               <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
                 <a [attr.href]="result.url" target="_blank">{{ result.url }}</a>
               </div>
-              <div *ngIf="result.description" class="descriptionDiv descriptClass">{{ result.description }}</div>
+              <div *ngIf="result.description" class="descriptionDiv descriptClass" [title]="result.description">{{ result.description }}</div>
             </div>
             <div class="imageUrlPictureDiv">
               <a [attr.href]="result.url" target="_blank" [title]="result.title">

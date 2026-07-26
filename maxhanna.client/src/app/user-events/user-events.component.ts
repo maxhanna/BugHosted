@@ -253,6 +253,25 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     await this.loadEvents();
   }
 
+  parseEventText(text: string): { text: string; url?: string }[] {
+    if (!text) return [{ text: '' }];
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts: { text: string; url?: string }[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = urlRegex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push({ text: text.slice(lastIndex, match.index) });
+      }
+      parts.push({ text: match[0], url: match[0] });
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < text.length) {
+      parts.push({ text: text.slice(lastIndex) });
+    }
+    return parts;
+  }
+
   getEventTypeDescription(eventType: string): string {
     const descriptions: { [key: string]: string } = {
       'file_upload': 'File Uploads',

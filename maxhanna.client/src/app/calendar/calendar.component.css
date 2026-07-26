@@ -99,3 +99,8 @@ thead {
   margin-bottom: 8px;
   box-shadow: 10px 1px 3px rgba(0,0,0,0.1);
 }
+
+#calendarEditingNote {
+  max-width: 50vw;
+  max-width: 50dvw;
+}

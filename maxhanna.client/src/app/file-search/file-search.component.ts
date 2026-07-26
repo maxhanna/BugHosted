@@ -536,6 +536,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           const newItems = (res.data || []).filter((d: FileEntry) =>
             !this.directory?.data?.some((existingData) => existingData.id === d.id)
           );
+          if (res.currentDirectory) {
+            for (const f of newItems) { f.directory = res.currentDirectory; }
+          }
           this.directory.data = this.directory.data.concat(newItems);
           if (this.isInRomDirectory) {
             for (let x = 0; x < this.directory.data.length; x++) {
@@ -574,6 +577,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           if (!isFileIdSearch && this.fileIdFilter == null) {
             if (this.directory && this.directory.currentDirectory) {
               this.currentDirectory = this.directory.currentDirectory;
+              for (const f of this.directory.data ?? []) {
+                f.directory = this.directory.currentDirectory;
+              }
             } else if (!noData) {
               this.currentDirectory = '';
             }

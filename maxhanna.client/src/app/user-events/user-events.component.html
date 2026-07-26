@@ -12,7 +12,11 @@
         <span class="eventIcon">{{ getEventIcon(e.eventType) }}</span>
         <span class="eventText">
           <app-user-tag [userId]="e.userId" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag> 
-          {{ e.eventText }}</span>
+          <ng-container *ngFor="let seg of parseEventText(e.eventText)">
+            <a *ngIf="seg.url" [href]="seg.url" target="_blank" (click)="$event.stopPropagation(); parentRef?.visitExternalLink(seg.url!)">{{ seg.text }}</a>
+            <span *ngIf="!seg.url">{{ seg.text }}</span>
+          </ng-container>
+        </span>
         <span class="eventTime" [title]="e.createdAt | date: 'y/MM/d HH:mm'">{{ e.createdAt | timeSince:'minute':true }}</span>
       </div>
     </div>

@@ -30,7 +30,7 @@
           [inputtedParentRef]="parent" [componentType]="'search'" [ratingFile]="detail">
         </app-rating-stars>
       </div>
-      <div *ngIf="detail.description && !onlySearch" class="descriptionDiv descriptClass">{{ detail.description }}</div>
+      <div *ngIf="detail.description && !onlySearch" class="descriptionDiv descriptClass" [title]="detail.description">{{ detail.description }}</div>
       <div *ngIf="detail.author && !onlySearch" class="descriptionDiv authorClass">{{ detail.author }}</div>
       <div *ngIf="detail.httpStatus && !hideStatus" class="descriptionDiv authorClass">
         {{ detail.httpStatus }} {{ getHttpStatusMeaning(detail.httpStatus) }}

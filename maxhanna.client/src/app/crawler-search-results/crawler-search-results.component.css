@@ -58,7 +58,7 @@
 }
 
 .metadataTitleLinkFavouriteWrapper a {
-  color: var(--text-color, #e0e0e0);
+  color: var(--link-color, #e0e0e0);
   text-decoration: none;
 }
 

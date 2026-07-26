@@ -137,6 +137,9 @@
 .descriptClass {
   margin: 10px;
   font-size: smaller;
+  max-height: 50px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .groupDomainTitle {
