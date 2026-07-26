@@ -95,7 +95,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     "CalendarComponent",
     "WeatherComponent",
     "MastermindComponent",
-    "WorlderComponent",
+    "WordlerComponent",
     "ArrayComponent",
     "NexusComponent",
   ];

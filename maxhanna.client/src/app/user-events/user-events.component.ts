@@ -114,6 +114,8 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       case 'trade_executed': return '₿';
       case 'trophy': return '🏆';
       case 'reaction_added': return '😊';
+      case 'wordler_win': return '🧠';
+      case 'flighttracking': return '✈️';
       default: return '📌';
     }
   }
@@ -184,7 +186,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
 
   isClickableEvent(eventType: string): boolean {
     return eventType === 'story_post' || eventType === 'comment' || eventType === 'upload' || eventType === 'trophy' || eventType === 'trade_executed'
-      || eventType.includes('digcraft') || eventType.includes('meta') || eventType.includes('bones') || eventType.includes('ender') || eventType.includes('nexus') 
+      || eventType.includes('digcraft') || eventType.includes('meta') || eventType.includes('bones') || eventType.includes('ender') || eventType.includes('nexus')
       || eventType.includes('emulator') || eventType.includes('meme');
   }
 
@@ -202,16 +204,16 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     if (!this.parentRef?.user?.id) {
       return;
     }
-    
+
     try {
       const allEventTypes = await this.userEventService.getAllEventTypes();
       this.eventTypes = allEventTypes && allEventTypes.length > 0 ? allEventTypes.sort() : [];
-      
+
       this.eventTypeDescriptions = {};
       this.eventTypes.forEach(eventType => {
         this.eventTypeDescriptions[eventType] = this.getEventTypeDescription(eventType);
       });
-      
+
       const eventToggles = await this.userEventService.getUserEventPreferences(this.parentRef.user.id);
       if (eventToggles) {
         for (const eventType of this.eventTypes) {
@@ -233,23 +235,23 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
 
   async toggleEventType(eventType: string) {
     this.eventToggles[eventType] = !this.eventToggles[eventType];
-    
+
     if (!this.parentRef?.user?.id) {
       return;
     }
-    
+
     try {
       const preferences = this.eventTypes.map(et => ({
         userId: this.parentRef?.user?.id ?? 0,
         eventType: et,
         isEnabled: this.eventToggles[et]
       }));
-      
+
       await this.userEventService.saveUserEventPreferences(preferences);
     } catch (error) {
       console.error('Failed to save event toggle:', error);
     }
-    
+
     await this.loadEvents();
   }
 
@@ -293,8 +295,35 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       'trade_executed': 'Trade Executions',
       'trophy': 'Trophies Earned'
     };
-    
+
     return descriptions[eventType] || eventType;
+  }
+
+  getEventTypeDescription(eventType: string): string {
+      const descriptions: { [key: string]: string } = {
+      'file_upload': 'File Uploads',
+      'story_post': 'Story Posts',
+      'comment': 'Comments',
+      'bones_kill': 'Bones Kills',
+      'bones_death': 'Bones Deaths',
+      'ender_kill': 'Ender Kills',
+      'ender_death': 'Ender Deaths',
+      'digcraft_play': 'DigCraft Play',
+      'digcraft_death': 'DigCraft Deaths',
+      'digcraft_kill': 'DigCraft Kills',
+      'emulator_play': 'Emulator Play',
+      'nexus_play': 'Nexus Play',
+      'meta_encounter': 'Meta Encounters',
+      'daily_meme': 'Daily Memes',
+      'favourite_add': 'Favourites Added',
+      'digcraft_levelup': 'DigCraft Level-ups',
+      'trade_executed': 'Trade Executions',
+      'trophy': 'Trophies Earned',
+      'wordler_win': 'Wordler Wins',
+      'flighttracking': 'Flight Tracking Events'
+    };
+
+      return descriptions[eventType] || eventType;
   }
 
 }

@@ -218,7 +218,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   filteredNewsPins: NewsPin[] = [];
   minNewsDate: Date | null = null;
   maxNewsDate: Date | null = null;
-  newsDateFilterValue: number = 100;
+  newsDateFilterValue: number = 1;
   private customPings: GlobePing[] = [];
   private hoveredPin: { id: string; label: string; x: number; y: number } | null = null;
   hoveredFlightCallsign: string | null = null;
@@ -745,17 +745,17 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private async loadNewsPins(): Promise<void> {
-    try {
-      this.newsPins = await this.newsService.getNewsPins();
-      const dates = this.newsPins
-        .map(p => p.createdAt).filter((d): d is Date => !!d)
-        .sort((a, b) => a.getTime() - b.getTime());
-      if (dates.length) {
-        this.minNewsDate = dates[0];
-        this.maxNewsDate = dates[dates.length - 1];
-      }
-      this.applyNewsDateFilter();
-    } catch { /* non-fatal */ }
+      try {
+          this.newsPins = await this.newsService.getNewsPins();
+          const dates = this.newsPins.map(p => p.createdAt).filter((d): d is Date => !!d)
+          .sort((a, b) => a.getTime() - b.getTime());
+          if (dates.length) {
+              this.minNewsDate = dates[0];
+              this.maxNewsDate = dates[dates.length -1];
+              this.newsDateFilterValue = 1;
+          }
+          this.applyNewsDateFilter();
+      } catch { /* non-fatal */ }
   }
 
   private async loadUsersWithLocations(): Promise<void> {
