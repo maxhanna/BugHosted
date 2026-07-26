@@ -1535,12 +1535,29 @@
   margin: 0;
 }
 
-.log-entry.log-warn summary { color: var(--warn); }
-.log-entry.log-error summary { color: var(--error); }
-.log-entry.log-success summary { color: var(--success); }
-.log-entry.log-phase summary { color: #64b5f6; }
-.log-entry.log-step summary { color: #ce93d8; }
-.log-entry.log-think summary { color: #81c784; }
+.log-entry.log-warn summary {
+  color: var(--warn);
+}
+
+.log-entry.log-error summary {
+  color: var(--error);
+}
+
+.log-entry.log-success summary {
+  color: var(--success);
+}
+
+.log-entry.log-phase summary {
+  color: #64b5f6;
+}
+
+.log-entry.log-step summary {
+  color: #ce93d8;
+}
+
+.log-entry.log-think summary {
+  color: #81c784;
+}
 
 /* ===== FILE PICKER ===== */
 /* ===== BENCHMARKS ===== */
@@ -1661,7 +1678,6 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px;
-  background: #0d0d0d;
   max-height: 40vh;
   overflow-y: auto;
   display: flex;
@@ -1676,10 +1692,6 @@
   padding: 4px8px;
   border-radius: 4px;
   cursor: pointer;
-}
-
-.picker-tree-item:hover {
-  background: var(--surface2);
 }
 
 .picker-tree-item.expanded>.picker-tree-children {
