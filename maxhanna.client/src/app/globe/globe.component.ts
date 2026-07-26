@@ -414,6 +414,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     const cs = this.newCallsign.trim().toUpperCase();
     if (!cs) return;
 
+    if (this.trackedFlights.some(f => f.callsign?.toUpperCase() === cs)) {
+      alert('Flight already being tracked.');
+      return;
+    }
+
     let lat: number | undefined;
     let lon: number | undefined;
     let altitude: number | undefined;
@@ -1876,7 +1881,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private drawPlaneIcon(ctx: CanvasRenderingContext2D, x: number, y: number, heading: number | undefined | null, isActive: boolean, isTracked: boolean = false): void {
     const size = isActive ? 8 : 6;
-    const headingRad = heading != null ? (heading * Math.PI / 180) : 0;
+    const headingRad = heading != null ? (heading * Math.PI / 180) - Math.PI / 2 : 0;
     const glowSize = isActive ? 18 : 14;
     const color = isTracked ? '#00ddff' : '#ffdd00';
 
@@ -1887,6 +1892,20 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     ctx.arc(x, y, glowSize, 0, Math.PI * 2);
     ctx.fillStyle = grad;
     ctx.fill();
+
+    if (heading != null) {
+      const lineLen = 30;
+      const endX = x + Math.cos(headingRad) * lineLen;
+      const endY = y + Math.sin(headingRad) * lineLen;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(endX, endY);
+      ctx.strokeStyle = isTracked ? '#00ddff' : '#ffdd00';
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = 0.6;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
 
     ctx.save();
     ctx.translate(x, y);

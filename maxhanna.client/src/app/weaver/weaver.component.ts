@@ -840,10 +840,16 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
 
   // --- File picker ---
   openFilePicker(card: WeaverCard) {
-    this.pickerCardId = card.id;
-    this.pickerSelected = this.getAttachedFiles(card).slice();
-    this.pickerTree = this.buildFileTree();
-    this.pickerOpen = true;
+      this.pickerCardId = card.id;
+      this.pickerSelected = this.getAttachedFiles(card).slice();
+      this.pickerTree = this.buildFileTree();
+      this.pickerOpen = true;
+      setTimeout(() => {
+          const input = document.getElementById('pickerSearchInput');
+          if (input) {
+              input.focus();
+          }
+      }, 0);
   }
 
   closeFilePicker() {
