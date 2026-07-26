@@ -76,8 +76,8 @@
     </div>
     <div style="width:100%;" *ngIf="selectedCalendarEntries!.length > 0">
       <div *ngFor="let cal of selectedCalendarEntries" id="calNo{{cal.id}}"
-        [class.popupPanel]="isEditingEntry.includes(cal)"
-        class="calEntry"
+        [class.popupPanel]="isEditingEntry.includes(cal)" class="calEntry"
+        [class.notExpandedCalEntry]="!isEditingEntry.includes(cal)"
         (click)="isEditingEntry.includes(cal) ? '' : editCalendarEntry(cal)">
         <div>{{cal.date | date:'shortTime'}}</div>
         <div>
