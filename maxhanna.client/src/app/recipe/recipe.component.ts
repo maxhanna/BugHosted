@@ -46,6 +46,9 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     this.recipes.forEach(recipe => {
       if(!this.expandedRecipes.has(recipe.id)) {
         this.expandedRecipes.set(recipe.id, false);
+      } else {
+        const currentStatus = this.expandedRecipes.get(recipe.id) ?? false;
+        this.expandedRecipes.set(recipe.id, currentStatus);
       }
     });
   }
