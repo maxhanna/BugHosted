@@ -41,20 +41,25 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     super();
   }
 
-  ngOnInit(): void {
-    this.loadRecipes();
+  async ngOnInit() {
+    await this.loadRecipes();
+    this.recipes.forEach(recipe => {
+      if(!this.expandedRecipes.has(recipe.id)) {
+        this.expandedRecipes.set(recipe.id, false);
+      }
+    });
   }
 
-  loadRecipes(): void {
-    this.isLoading = true;
-    this.recipeService.getRecipes(this.searchTerm || undefined).subscribe({
+  async loadRecipes(): Promise<void> {
+    this.startLoading();
+    await this.recipeService.getRecipes(this.searchTerm || undefined).subscribe({
       next: (recipes) => {
         this.recipes = recipes;
         this.applyFilters();
-        this.isLoading = false;
+        this.stopLoading();
       },
       error: () => {
-        this.isLoading = false;
+        this.stopLoading();
       }
     });
   }
