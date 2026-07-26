@@ -141,6 +141,7 @@ label {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 16px;
+  align-items: baseline;
 }
 
 .recipe-card {
@@ -172,13 +173,7 @@ label {
   border-radius: 999px;
   font-size: 0.8rem;
 }
-
-.recipe-description,
-.recipe-section li,
-.recipe-footer {
-  color: #6f5a48;
-}
-
+ 
 .recipe-links {
   list-style: none;
   padding: 0;

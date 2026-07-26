@@ -103,12 +103,13 @@
         <div class="recipe-card-body">
           <div class="recipe-title-row">
             <h3>{{ recipe.name }}</h3>
-            <span class="pill" *ngIf="recipe.tags?.length">{{ recipe.tags[0] }}</span>
+            <span class="pill" *ngFor="let tag of recipe.tags">{{ tag }}</span>
           </div>
           <p class="recipe-description">{{ recipe.description }}</p>
 
-          <button class="ghost-btn" (click)="toggleRecipeDetails(recipe.id)">{{ expandedRecipes.has(recipe.id) &&
-            expandedRecipes.get(recipe.id) ? 'Collapse' : 'Expand' }}</button>
+          <button class="ghost-btn" (click)="toggleRecipeDetails(recipe.id)">
+            {{ expandedRecipes.has(recipe.id) && expandedRecipes.get(recipe.id) ? 'Collapse' : 'Expand' }}
+          </button>
 
           <div class="recipe-section" *ngIf="expandedRecipes.has(recipe.id)">
             <h4>Ingredients</h4>
