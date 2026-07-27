@@ -1499,7 +1499,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   visitExternalLink(url?: string, index = true, forceNewTab = false) {
     if (!url) return;
     if (index) {
-      this.indexLink(url);
+      this.indexLink(url, true);
     }
 
     if (!forceNewTab && this.isYoutubeUrl(url)) {
@@ -1515,9 +1515,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
     event?.stopPropagation();
   }
-  async indexLink(url: string) {
+  async indexLink(url: string, skipUserEvent = false) {
     this.crawlerService.indexLink(url);
-    this.userEventService.insertUserEvent(this.user?.id ?? 0, "link", `Visited ${url}`);
+    if (!skipUserEvent) {
+      this.userEventService.insertUserEvent(this.user?.id ?? 0, "link", `Visited ${url}`);
+    }
   }
 
   async addFavourite(url?: string, imgUrl?: string, name?: string) {
