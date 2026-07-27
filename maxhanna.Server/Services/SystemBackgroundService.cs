@@ -2234,6 +2234,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
 
         private async Task DeleteOldSearchResults()
         {
+            Console.WriteLine("Deleting Old Search Results");
             try
             {
                 using (var conn = new MySqlConnection(_connectionString))
@@ -2264,6 +2265,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
 
         private async Task DeleteOldSearchQueries()
         {
+            Console.WriteLine("Deleting Old Search Queries");
             try
             {
                 using (var conn = new MySqlConnection(_connectionString))
@@ -2290,6 +2292,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
         // Delete: Any rows older than 3 days AND NOT in that top-20-per-user set.
         private async Task DeleteOldEnderScores()
         {
+            Console.WriteLine("Deleting Old Ender scores.");
             try
             {
                 await using var conn = new MySqlConnection(_connectionString);
@@ -2321,6 +2324,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
 
         private async Task DeleteOldSentimentAnalysis()
         {
+            Console.WriteLine("Deleting Old Sentiment Analyses");
             try
             {
                 using (var conn = new MySqlConnection(_connectionString))
@@ -2344,6 +2348,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
         }
         public async Task DeleteOldGlobalMetrics()
         {
+            Console.WriteLine("Deleting Old Global Metrics");
             const string componentName = "METRICS_CLEANUP";
 
             // Validate configuration
@@ -2386,6 +2391,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
         }
         private async Task AssignTrophies()
         {
+            Console.WriteLine("Assigning Trophies");
             int trophiesAssigned = 0;
 
             try
@@ -2592,6 +2598,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
 
         private async Task DeleteOldFavourites()
         {
+            Console.WriteLine("Deleting Old Favourites");
             try
             {
                 await using var conn = new MySqlConnection(_connectionString);
@@ -2613,6 +2620,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
         /// </summary>
         private async Task DeleteExpiredPasswordResetTokens()
         {
+            Console.WriteLine("Deleting Expired Password Tokens");
             try
             {
                 await using var conn = new MySqlConnection(_connectionString);
@@ -2634,6 +2642,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
         }
         private async Task CleanupOrphanedPhotos()
         {
+            Console.WriteLine("Deleting Orphaned Photos");
             try
             {
                 using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
@@ -2709,6 +2718,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
 
         private async Task DeleteOldUserEvents()
         {
+            Console.WriteLine("Deleting Old User Events");
             try
             {
                 await using var conn = new MySqlConnection(_connectionString);
@@ -2729,6 +2739,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
         }
         private async Task DeleteOldCalendarNotifications()
         {
+            Console.WriteLine("Deleting Old Calendar Notifications");
             try
             {
                 await using var conn = new MySqlConnection(_connectionString);
