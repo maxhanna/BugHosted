@@ -1068,10 +1068,25 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         f.enabled && f.callsign && typeof f.callsign === 'string' && f.callsign.trim().toUpperCase() === callsign.toUpperCase()
       );
 
+      let interpLat = lat;
+      let interpLon = lon;
+      if (isTracked && heading != null && velocity != null && state[3] != null) {
+        const tp = Number(state[3]);
+        const elapsed = (Date.now() / 1000) - tp;
+        if (elapsed > 0 && elapsed < 120) {
+          const headingRad = heading * Math.PI / 180;
+          const distNm = (velocity * elapsed) / 3600;
+          const latDelta = distNm / 60;
+          const lonDelta = distNm / (60 * Math.cos(lat * Math.PI / 180));
+          interpLat = lat + latDelta * Math.cos(headingRad);
+          interpLon = lon + lonDelta * Math.sin(headingRad);
+        }
+      }
+
       pings.push({
         id: `flight:${callsign}`,
-        lat,
-        lon,
+        lat: interpLat,
+        lon: interpLon,
         label: callsign,
         zoom: 0,
         source: 'custom',
