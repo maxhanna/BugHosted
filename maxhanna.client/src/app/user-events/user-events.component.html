@@ -1,17 +1,21 @@
 ﻿<div [class.componentMain]="showTitleBar">
-  <app-title-bar *ngIf="showTitleBar" [title]="'User-Events'" (closeClicked)="safeDestroy();" (menuClicked)="showMenuPanel()"></app-title-bar>
-  
+  <app-title-bar *ngIf="showTitleBar" [title]="'User-Events'" (closeClicked)="safeDestroy();"
+    (menuClicked)="showMenuPanel()"></app-title-bar>
+
   <div *ngIf="commentLoading" class="loading"><app-loading-spinner></app-loading-spinner>Loading comment...</div>
   <div *ngIf="loading" class="loading">Loading events...</div>
   <div *ngIf="loadError" class="error">{{ loadError }}</div>
 
   <div class="user-events-component">
-    <div class="userEventsTitle popupPanelTitle" *ngIf="!showTitleBar && (loading || events?.length)">Recent Activity:</div> 
+    <div class="userEventsTitle popupPanelTitle" *ngIf="!showTitleBar && (loading || events?.length)">Recent Activity:
+    </div>
     <div *ngIf="events && events.length > 0">
-      <div *ngFor="let e of events" class="eventRow" [class.clickable-event]="isClickableEvent(e.eventType)" [class.non-clickable-event]="!isClickableEvent(e.eventType)" (click)="isClickableEvent(e.eventType) ? viewEvent(e) : null">
+      <div *ngFor="let e of events" class="eventRow" [class.clickable-event]="isClickableEvent(e.eventType)"
+        [class.non-clickable-event]="!isClickableEvent(e.eventType)"
+        (click)="isClickableEvent(e.eventType) ? viewEvent(e) : null">
         <span class="eventIcon">{{ getEventIcon(e.eventType) }}</span>
         <span class="eventText">
-          <app-user-tag [userId]="e.userId" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag> 
+          <app-user-tag [userId]="e.userId" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag>
           <ng-container *ngFor="let seg of parseEventText(e.eventText)">
             <a *ngIf="seg.url && !isYoutubeLink(seg.url)" [href]="seg.url" target="_blank"
               (click)="$event.stopPropagation(); parentRef?.indexLink(seg.url!)">{{ seg.text }}</a>
@@ -20,7 +24,8 @@
             <span *ngIf="!seg.url">{{ seg.text }}</span>
           </ng-container>
         </span>
-        <span class="eventTime" [title]="e.createdAt | date: 'y/MM/d HH:mm'">{{ e.createdAt | timeSince:'minute':true }}</span>
+        <span class="eventTime" [title]="e.createdAt | date: 'y/MM/d HH:mm'">{{ e.createdAt | timeSince:'minute':true
+          }}</span>
       </div>
     </div>
     <div *ngIf="!loading && (!events || events.length == 0)">
@@ -30,8 +35,8 @@
       <button (click)="loadMoreEvents()" class="load-more-button">Load More Events</button>
     </div>
   </div>
-  
-  <!-- Popup Menu Panel --> 
+
+  <!-- Popup Menu Panel -->
   <div class="popupPanel" *ngIf="isMenuPanelOpen">
     <div class="popupPanelHeader">
       <span class="popupPanelTitle">Event Filters</span>
@@ -45,5 +50,5 @@
       </div>
     </div>
     <button class="closeButton" id="closeOverlay" (click)="closeMenuPanel()"></button>
-  </div> 
+  </div>
 </div>
