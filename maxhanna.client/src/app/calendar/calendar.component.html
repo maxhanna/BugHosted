@@ -109,13 +109,15 @@
       <legend>New calendar entry</legend>
       <textarea #calendarNoteEntry rows="4" cols="50" placeholder="Description" required
         class="saveEntryInput"></textarea>
-      <select #calendarTypeEntry class="saveEntrySelect">
-        <ng-container *ngFor="let eventType of getEventTypes()">
-          <option>{{ eventType }}</option>
-        </ng-container>
-      </select>
-      <input #calendarTimeEntry type="time" value="00:00" class="saveEntryInput" />
-      <input type="button" (click)="validateNoteEntry()" value="💾" class="saveEntryButton" />
+      <div class="saveEntryDiv">
+        <select #calendarTypeEntry class="saveEntrySelect">
+          <ng-container *ngFor="let eventType of getEventTypes()">
+            <option>{{ eventType }}</option>
+          </ng-container>
+        </select>
+        <input #calendarTimeEntry type="time" value="00:00" class="saveEntryInput" />
+        <input type="button" (click)="validateNoteEntry()" value="💾" class="saveEntryButton" />
+      </div>
     </fieldset>
   </div>
   <div *ngIf="isLoading">Loading...</div>
