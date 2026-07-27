@@ -2,8 +2,7 @@
   Component, OnInit, OnDestroy, AfterViewInit,
   ElementRef, ViewChild, HostListener, NgZone,
   EventEmitter, Input, Output
-} from '@angular/core';
-import { FormsModule } from '@angular/forms';
+} from '@angular/core'; 
 import { SocialService } from '../../services/social.service';
 import { EncryptionService } from '../../services/encryption.service';
 import { CrawlerService } from '../../services/crawler.service';
@@ -16,10 +15,7 @@ import { TrackedFlight } from '../../services/datacontracts/flight';
 import { UserService, UserWithLocation } from '../../services/user.service';
 import { User } from '../../services/datacontracts/user/user';
 import { CITY_COORDS, COUNTRY_COORDS, TOWN_COORDS } from './coordinates';
-
-// ---------------------------------------------------------------------------
-// Vertex shader
-// ---------------------------------------------------------------------------
+ 
 const VERT_SRC = `
 attribute vec2 a_pos;
 varying vec2 v_uv;
@@ -28,10 +24,7 @@ void main() {
   gl_Position = vec4(a_pos, 0.0, 1.0);
 }
 `;
-
-// ---------------------------------------------------------------------------
-// Fragment shader — ray-sphere intersection, equirectangular texture sample
-// ---------------------------------------------------------------------------
+ 
 const FRAG_SRC = `
 precision highp float;
 varying vec2 v_uv;
@@ -315,10 +308,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     private userService: UserService,
     private crawlerService: CrawlerService
   ) { }
-
-  // =========================================================================
-  // Lifecycle
-  // =========================================================================
+ 
   ngOnInit(): void {
     this.loadStories();
     this.loadNewsPins();
@@ -358,19 +348,13 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.flightInterval = null;
     }
   }
-
-  // =========================================================================
-  // Zoom slider (template binding)
-  // =========================================================================
+ 
   onZoomSlider(event: Event): void {
     const val = +(event.target as HTMLInputElement).value;
     this.zoomSliderValue = val;
     this.camDistTarget = this.zoomSliderToCamDist(val);
   }
-
-  // =========================================================================
-  // Flights
-  // =========================================================================
+ 
   async loadFlights(): Promise<void> {
     try {
       this.isRefreshingFlights = true;
@@ -418,8 +402,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       alert('Flight already being tracked.');
       return;
     }
-
-    // Try converting commercial flight number to ADS-B callsign via backend lookup
+ 
     let resolvedCs = cs;
     try {
       const res = await fetch(`/flight/lookup?query=${encodeURIComponent(cs)}`);
@@ -707,7 +690,6 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // Get pings by source type for accordion
   getClusterPingsBySource(source: string): ResolvedGlobePing[] {
     return this.selectedClusterPings.filter(ping => ping.source === source);
   }
@@ -719,15 +701,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       return d && ['city', 'town', 'country'].includes(d.type);
     });
   }
-
-  // Toggle accordion for a specific source
+ 
   toggleAccordion(source: string): void {
     this.accordionStates[source] = !this.accordionStates[source];
   }
-
-  // =========================================================================
-  // Stories
-  // =========================================================================
+ 
   private async loadStories(): Promise<void> {
     try {
       const resp = await this.socialService.getStories(
@@ -2770,10 +2748,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   keepOriginalOrder = () => 0;
-
-  // =========================================================================
-  // Matrix helpers (row-major 3×3)
-  // =========================================================================
+ 
   private mul3(a: Float32Array, b: Float32Array): Float32Array {
     const r = new Float32Array(9);
     for (let i = 0; i < 3; i++)
