@@ -298,7 +298,7 @@ export class FileUploadComponent implements AfterViewInit {
         this.fileService.notifyFollowersFileUploaded(this.user.id, this.user.username ?? "Anonymous", this.uploadedFileList[0].id, this.uploadedFileList.length);
       }
       this.userUploadFinishedEvent.emit(this.uploadedFileList);
-      const msg = `Finished uploading ${fileUploadCount} files.`;
+      const msg = `Finished uploading ${fileUploadCount} file${fileUploadCount > 1 ? 's' : ''} to ${this.currentDirectory}.`;
       this.userNotificationEvent.emit(msg);
       await this.userEventService.insertUserEvent(this.user?.id ?? 0, "upload_file", msg, this.uploadedFileList[0].id);
       if (this.duplicateFileNames.length > 0) {
