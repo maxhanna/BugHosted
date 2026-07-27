@@ -95,6 +95,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   getEventIcon(eventType: string): string {
     switch (eventType.toLowerCase()) {
       case 'file_upload': return '📁';
+      case 'upload_file': return '📁';
       case 'story_post': return '🌍';
       case 'grandtheft': return '🚔';
       case 'comment': return '💬';
@@ -281,12 +282,14 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   getEventTypeDescription(eventType: string): string {
     const descriptions: { [key: string]: string } = {
       'file_upload': 'File Uploads',
+      'upload_file': 'File Uploads',
       'story_post': 'Story Posts',
       'comment': 'Comments',
       'bones_kill': 'Bones Kills',
       'bones_death': 'Bones Deaths',
       'ender_kill': 'Ender Kills',
       'ender_death': 'Ender Deaths',
+      'grandtheft': 'Grand Theft Play',
       'digcraft_play': 'DigCraft Play',
       'digcraft_death': 'DigCraft Deaths',
       'digcraft_kill': 'DigCraft Kills',
@@ -302,7 +305,9 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       'link': 'Visited External Link',
       'wordler_win': 'Wordler Wins',
       'weaver_card_added': 'Weaver Cards Created',
-      'flighttracking': 'Flight Tracking Events'
+      'weaver_card_created': 'Weaver Cards Created',
+      'flighttracking': 'Flight Tracking Events',
+      'FlightTracking': 'Flight Tracking Events'
     };
 
     return descriptions[eventType] || eventType;
