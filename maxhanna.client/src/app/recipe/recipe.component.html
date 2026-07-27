@@ -20,8 +20,7 @@
       <input class="search-input" type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()"
         placeholder="Search recipes by name, ingredient, or tag" />
       <div class="toolbar-meta">
-        <span>{{ filteredRecipes.length }} recipes</span>
-        <span *ngIf="!isLoading">Fresh picks</span>
+        <span>{{ filteredRecipes.length }} recipes</span> 
       </div>
     </div>
 

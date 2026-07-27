@@ -90,6 +90,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
 
     this.filteredRecipes = this.recipes.filter(recipe => {
       const haystack = [
+        recipe.id.toString(),
         recipe.name,
         recipe.description,
         recipe.ingredients.join(' '),

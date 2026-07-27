@@ -59,7 +59,7 @@ public class RecipeController : ControllerBase
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
-            query += " WHERE LOWER(name) LIKE @term OR LOWER(description) LIKE @term OR LOWER(ingredients) LIKE @term OR LOWER(tags) LIKE @term OR LOWER(instructions) LIKE @term";
+            query += " WHERE CAST(id AS CHAR) LIKE @term OR LOWER(name) LIKE @term OR LOWER(description) LIKE @term OR LOWER(ingredients) LIKE @term OR LOWER(tags) LIKE @term OR LOWER(instructions) LIKE @term";
             parameters.Add(new MySqlParameter("@term", $"%{term.ToLowerInvariant()}%"));
         }
 
