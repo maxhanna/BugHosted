@@ -2253,7 +2253,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
                     using (var deleteCmd = new MySqlCommand(deleteSql, conn))
                     {
                         int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-                        //    _ = _log.Db($"Deleted {affectedRows} search results older than 30 days.", null);
+                        _ = _log.Db($"Deleted {affectedRows} search results older than 30 days.", null);
                     }
                 }
             }
