@@ -115,7 +115,7 @@ thead {
   border-radius: 6px;
   background-color: var(--secondary-component-background-color);
   margin-bottom: 12px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px var(--main-border-color);
   transition: all 0.2s ease-in-out;
 }
 
@@ -124,7 +124,9 @@ thead {
 }
 
 .notExpandedCalEntry:hover {
+  cursor: pointer;
   transform: translateY(-2px);
+  background: var(--gradient-background);
 }
 
 #calendarEditingNote {
