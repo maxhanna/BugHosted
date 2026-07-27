@@ -108,7 +108,7 @@
           <p class="recipe-description">{{ recipe.description }}</p>
 
           <button class="ghost-btn" (click)="toggleRecipeDetails(recipe.id)">
-            {{ expandedRecipes.has(recipe.id) && expandedRecipes.get(recipe.id) ? 'Collapse' : 'Expand' }}
+          {{ expandedRecipes.has(recipe.id) && expandedRecipes.get(recipe.id) ? 'Collapse' : 'Expand' }}
           </button>
 
           <div class="recipe-section" *ngIf="expandedRecipes.has(recipe.id)">

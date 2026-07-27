@@ -2,9 +2,9 @@
 import { ChildComponent } from '../child.component';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
-import { FileService } from '../../services/file.service';
 import { RecipePayload, RecipeService, Recipe } from '../../services/recipe.service';
 import { Topic } from '../../services/datacontracts/topics/topic';
+import { UserEventService } from '../../services/user-event.service';
 
 @Component({
   selector: 'app-recipe',
@@ -14,6 +14,7 @@ import { Topic } from '../../services/datacontracts/topics/topic';
 })
 export class RecipeComponent extends ChildComponent implements OnInit {
   @Input() parentComponent: any;
+  @Input() recipeId?: number;
   @ViewChild('mediaSelector') mediaSelector?: MediaSelectorComponent;
   recipes: Recipe[] = [];
   filteredRecipes: Recipe[] = [];
@@ -37,7 +38,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     externalLinks: []
   };
 
-  constructor(private recipeService: RecipeService, private fileService: FileService) {
+  constructor(private recipeService: RecipeService, private userEventService: UserEventService) {
     super();
   }
 
@@ -51,6 +52,14 @@ export class RecipeComponent extends ChildComponent implements OnInit {
         this.expandedRecipes.set(recipe.id, currentStatus);
       }
     });
+    if (this.recipeId && this.recipes.length > 0) {
+      const target = this.recipes.find(r => r.id === this.recipeId);
+      if (target) {
+        this.expandedRecipes.set(target.id, true);
+        this.searchTerm = '';
+        this.applyFilters();
+      }
+    }
   }
 
   async loadRecipes(): Promise<void> {
@@ -203,6 +212,8 @@ export class RecipeComponent extends ChildComponent implements OnInit {
       ? this.recipeService.updateRecipe(this.editingRecipeId, payload)
       : this.recipeService.createRecipe(payload);
 
+    const msg = `${this.editingRecipeId ? 'Edited' : 'Added'} a recipe!`;
+    this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, this.editingRecipeId ? 'recipe_edited' : 'recipe_added', msg);
     request$.subscribe({
       next: () => {
         this.isLoading = false;

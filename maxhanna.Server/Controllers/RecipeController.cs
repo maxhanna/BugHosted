@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Collections.Concurrent;
+using System.Xml.Linq;
+using maxhanna.Server.Services;
+using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using Microsoft.Extensions.Configuration;
 
 public class RecipeDto
 {
@@ -35,10 +37,14 @@ public class RecipeCreateRequest
 public class RecipeController : ControllerBase
 {
     private readonly string _connectionString;
+    private readonly Log _log;
+    private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
+    private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
 
-    public RecipeController(IConfiguration configuration)
+    public RecipeController(IConfiguration configuration, Log log)
     {
         _connectionString = configuration.GetValue<string>("ConnectionStrings:maxhanna") ?? string.Empty;
+        _log = log;
     }
 
     [HttpGet]
@@ -133,6 +139,8 @@ public class RecipeController : ControllerBase
         var insertedId = Convert.ToInt32(await command.ExecuteScalarAsync());
         recipe.Id = insertedId;
 
+        _ = AppendToSitemapAsync(insertedId, recipe.Name, recipe.Description);
+
         return Ok(recipe);
     }
 
@@ -198,7 +206,53 @@ public class RecipeController : ControllerBase
             });
         }
 
+        _ = AppendToSitemapAsync(id, request.Name.Trim(), request.Description.Trim());
+
         return NotFound();
+    }
+
+    private async Task AppendToSitemapAsync(int recipeId, string name, string description)
+    {
+        var url = $"https://bughosted.com/recipe/{recipeId}";
+        var lastMod = DateTime.UtcNow.ToString("yyyy-MM-dd");
+
+        await _sitemapLock.WaitAsync();
+        try
+        {
+            XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+            XDocument sitemap;
+
+            if (System.IO.File.Exists(_sitemapPath))
+            {
+                sitemap = XDocument.Load(_sitemapPath);
+            }
+            else
+            {
+                sitemap = new XDocument(new XElement(ns + "urlset"));
+            }
+
+            var existingEntry = sitemap.Descendants(ns + "url")
+                .FirstOrDefault(x => x.Element(ns + "loc")?.Value == url);
+            existingEntry?.Remove();
+
+            var urlElement = new XElement(ns + "url",
+                new XElement(ns + "loc", url),
+                new XElement(ns + "lastmod", lastMod),
+                new XElement(ns + "changefreq", "weekly"),
+                new XElement(ns + "priority", "0.6")
+            );
+
+            sitemap.Root?.Add(urlElement);
+            sitemap.Save(_sitemapPath);
+        }
+        catch (Exception ex)
+        {
+            _ = _log.Db($"Failed to update sitemap for recipe {recipeId}: {ex.Message}", null, "RECIPE", true);
+        }
+        finally
+        {
+            _sitemapLock.Release();
+        }
     }
 
     private static List<string> ParseList(MySqlDataReader reader, string columnName)

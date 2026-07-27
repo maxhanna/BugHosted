@@ -47,6 +47,8 @@ const routes: Routes = [
   { path: 'Music', component: AppComponent },
   { path: 'GrandTheft', component: AppComponent }, 
   { path: 'Paint', component: AppComponent },
+  { path: 'Recipe/:recipeId', component: AppComponent },
+  { path: 'Recipe', component: AppComponent },
   { path: 'ResetPassword/:token/:username', component: AppComponent },
 ];
 
