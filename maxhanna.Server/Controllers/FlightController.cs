@@ -2,6 +2,7 @@ using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace maxhanna.Server.Controllers
 {
@@ -9,12 +10,14 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class FlightController : ControllerBase
 	{
+		private readonly IHttpClientFactory _httpClientFactory;
 		private readonly IConfiguration _config;
 		private readonly Log _log;
 		private readonly FlightBatchService _batchService;
 
-		public FlightController(IConfiguration config, Log log, FlightBatchService batchService)
+		public FlightController(IHttpClientFactory httpClientFactory, IConfiguration config, Log log, FlightBatchService batchService)
 		{
+			_httpClientFactory = httpClientFactory;
 			_config = config;
 			_log = log;
 			_batchService = batchService;
@@ -256,6 +259,94 @@ namespace maxhanna.Server.Controllers
 			}
 
 			return Ok(new { found = false, callsign = (string?)null });
+		}
+
+		[HttpGet("schedule")]
+		public async Task<IActionResult> GetSchedule([FromQuery] string callsign)
+		{
+			if (string.IsNullOrWhiteSpace(callsign))
+				return Ok(new { found = false });
+
+			var cs = callsign.Trim().ToUpperInvariant();
+			var apiKey = _config.GetValue<string>("Aviationstack:ApiKey");
+			if (string.IsNullOrEmpty(apiKey))
+				return Ok(new { found = false, error = "API key not configured" });
+
+			try
+			{
+				using var conn = new MySqlConnection(_config["ConnectionStrings:maxhanna"]);
+				await conn.OpenAsync();
+
+				await using (var createTable = new MySqlCommand(@"
+					CREATE TABLE IF NOT EXISTS maxhanna.flight_schedule_cache (
+						callsign VARCHAR(20) NOT NULL PRIMARY KEY,
+						schedule JSON NOT NULL,
+						fetched_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+					)", conn))
+				{
+					await createTable.ExecuteNonQueryAsync();
+				}
+
+				await using (var cleanup = new MySqlCommand(
+					"DELETE FROM maxhanna.flight_schedule_cache WHERE fetched_at < UTC_TIMESTAMP() - INTERVAL 6 HOUR", conn))
+				{
+					await cleanup.ExecuteNonQueryAsync();
+				}
+
+				await using (var readCmd = new MySqlCommand(
+					"SELECT schedule, fetched_at FROM maxhanna.flight_schedule_cache WHERE callsign = @cs", conn))
+				{
+					readCmd.Parameters.AddWithValue("@cs", cs);
+					using var reader = await readCmd.ExecuteReaderAsync();
+					if (await reader.ReadAsync())
+					{
+						var json = reader.GetString(0);
+						var fetched = reader.GetDateTime(1);
+						if (DateTime.UtcNow - fetched < TimeSpan.FromMinutes(30))
+						{
+							return Ok(new { found = true, schedule = JsonConvert.DeserializeObject(json) });
+						}
+					}
+				}
+
+				var client = _httpClientFactory.CreateClient();
+				client.Timeout = TimeSpan.FromSeconds(10);
+				var response = await client.GetAsync(
+					$"http://api.aviationstack.com/v1/flights?access_key={apiKey}&flight_icao={cs}");
+
+				if (!response.IsSuccessStatusCode)
+					return Ok(new { found = false });
+
+				var body = await response.Content.ReadAsStringAsync();
+				var parsed = JObject.Parse(body);
+				var dataArray = parsed["data"] as JArray;
+
+				if (dataArray == null || dataArray.Count == 0)
+					return Ok(new { found = false });
+
+				await using (var insertCmd = new MySqlCommand(
+					"REPLACE INTO maxhanna.flight_schedule_cache (callsign, schedule, fetched_at) VALUES (@cs, @json, UTC_TIMESTAMP())", conn))
+				{
+					insertCmd.Parameters.AddWithValue("@cs", cs);
+					insertCmd.Parameters.AddWithValue("@json", dataArray.ToString(Newtonsoft.Json.Formatting.None));
+					await insertCmd.ExecuteNonQueryAsync();
+				}
+
+				// Remove landed flights from cache (arrival scheduled time has passed)
+				await using (var removeLanded = new MySqlCommand(
+					"DELETE FROM maxhanna.flight_schedule_cache WHERE callsign = @cs AND fetched_at < UTC_TIMESTAMP() - INTERVAL 2 HOUR", conn))
+				{
+					removeLanded.Parameters.AddWithValue("@cs", cs);
+					await removeLanded.ExecuteNonQueryAsync();
+				}
+
+				return Ok(new { found = true, schedule = dataArray.ToObject<List<object>>() });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db($"Flight schedule error for {callsign}: {ex.Message}", null, "FLIGHT", true);
+				return Ok(new { found = false, error = ex.Message });
+			}
 		}
 
 		[HttpDelete("tracked")]

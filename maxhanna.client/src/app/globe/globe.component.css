@@ -603,6 +603,14 @@
   text-align: right;
 }
 
+.flight-schedule-entry {
+  padding: 8px;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  border: 1px solid #2a2a4a;
+}
+
 /* ---- News Article Popup ---- */
 .news-popup-backdrop {
   position: fixed;

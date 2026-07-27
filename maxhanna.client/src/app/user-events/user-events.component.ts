@@ -295,6 +295,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       'trade_executed': 'Trade Executions',
       'trophy': 'Trophies Earned',
       'wordler_win': 'Wordler Wins',
+      'weaver_card_added': 'Weaver Cards Created',
       'flighttracking': 'Flight Tracking Events'
     };
 

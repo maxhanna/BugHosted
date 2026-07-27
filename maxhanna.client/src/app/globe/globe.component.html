@@ -284,6 +284,20 @@
           selectedFlight.lastContact * 1000 | date:'medium' }}</span></div>
       <div class="detail-row" *ngIf="selectedFlight.lastUpdated"><span class="detail-label">Updated:</span><span>{{
           selectedFlight.lastUpdated | date:'medium' }}</span></div>
+      <div class="detail-group" *ngIf="selectedFlight.schedule?.length">
+        <div class="detail-group-title">Schedule</div>
+        <div *ngFor="let s of selectedFlight.schedule" class="flight-schedule-entry">
+          <div class="detail-row" *ngIf="s.airline?.name"><span class="detail-label">Airline:</span><span>{{ s.airline.name }}</span></div>
+          <div class="detail-row" *ngIf="s.departure?.airport"><span class="detail-label">Departure:</span><span>{{ s.departure.airport }} <span *ngIf="s.departure.iata">({{ s.departure.iata }})</span></span></div>
+          <div class="detail-row" *ngIf="s.departure?.scheduled"><span class="detail-label">Scheduled:</span><span>{{ s.departure.scheduled | date:'medium' }}</span></div>
+          <div class="detail-row" *ngIf="s.departure?.estimated"><span class="detail-label">Estimated:</span><span>{{ s.departure.estimated | date:'medium' }}</span></div>
+          <div class="detail-row" *ngIf="s.departure?.gate || s.departure?.terminal"><span class="detail-label">Gate/Terminal:</span><span>{{ s.departure.gate || '' }}{{ s.departure.gate && s.departure.terminal ? ' / ' : '' }}{{ s.departure.terminal || '' }}</span></div>
+          <div class="detail-row" *ngIf="s.arrival?.airport"><span class="detail-label">Arrival:</span><span>{{ s.arrival.airport }} <span *ngIf="s.arrival.iata">({{ s.arrival.iata }})</span></span></div>
+          <div class="detail-row" *ngIf="s.arrival?.scheduled"><span class="detail-label">Scheduled:</span><span>{{ s.arrival.scheduled | date:'medium' }}</span></div>
+          <div class="detail-row" *ngIf="s.arrival?.estimated"><span class="detail-label">Estimated:</span><span>{{ s.arrival.estimated | date:'medium' }}</span></div>
+          <div class="detail-row" *ngIf="s.flight?.status"><span class="detail-label">Status:</span><span>{{ s.flight.status }}</span></div>
+        </div>
+      </div>
     </div>
   </div>
 

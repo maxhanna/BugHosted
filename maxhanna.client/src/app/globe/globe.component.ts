@@ -557,6 +557,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.showFlightDetail = true;
     this.showDataPanel = false;
     this.focusPing(ping);
+
+    this.loadFlightSchedule(flightData?.callsign || ping.label);
   }
 
   focusTrackedFlight(flight: TrackedFlight): void {
@@ -572,6 +574,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.showFlightDetail = true;
     this.showDataPanel = false;
+    this.loadFlightSchedule(flight.callsign);
 
     const lat = flight.lat;
     const lon = flight.lon;
@@ -586,6 +589,18 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         data: { type: 'flight', callsign: flight.callsign },
       });
     }
+  }
+
+  async loadFlightSchedule(callsign: string): Promise<void> {
+    try {
+      const res = await fetch(`/flight/schedule?callsign=${encodeURIComponent(callsign)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.found && data.schedule) {
+          if (this.selectedFlight) (this.selectedFlight as any).schedule = data.schedule;
+        }
+      }
+    } catch {}
   }
 
   closeFlightDetail(): void {

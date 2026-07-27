@@ -2,6 +2,7 @@
 import { WeaverService, WeaverCard, WeaverProject, KanbanPayload, IdeFileEntry, IdeTab, EditorState, BenchmarkEntry } from '../../services/weaver.service';
 import { AppComponent } from '../app.component';
 import { ChildComponent } from '../child.component';
+import { UserEventService } from '../../services/user-event.service';
 
 @Component({
   selector: 'app-weaver',
@@ -149,7 +150,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
 
   private pollTimer: any;
 
-  constructor(private weaverService: WeaverService) { super(); }
+  constructor(private weaverService: WeaverService, private userEventService: UserEventService) { super(); }
 
   async ngOnInit() {
     this.voiceSupported = !!this.SpeechRecognitionClass;
@@ -561,6 +562,12 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
       this.state.todo.push(card);
     }
     this.commandResult = 'Card added locally + command sent';
+    // Insert user event immediately after adding local card but before sending remote command
+    await this.userEventService.insertUserEvent(
+      this.parentRef?.user?.id ?? 1,
+      "weaver_card_created",
+      "New card created in Weaver."
+    );
     const result = await this.weaverService.addCommand(this.token, 'addCard', {
       cardId: card.id,
       text: '',
