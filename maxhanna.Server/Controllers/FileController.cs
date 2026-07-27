@@ -1,23 +1,20 @@
-﻿using maxhanna.Server.Services;
-using maxhanna.Server.Controllers.DataContracts;
-using maxhanna.Server.Controllers.DataContracts.Notification;
-using maxhanna.Server.Controllers.DataContracts.Files;
-using maxhanna.Server.Controllers.DataContracts.Social;
-using maxhanna.Server.Controllers.DataContracts.Topics; 
-using maxhanna.Server.Controllers.DataContracts.Users;
-using Microsoft.AspNetCore.Mvc;
-using MySqlConnector;
-using Newtonsoft.Json;
-using SixLabors.ImageSharp;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Data;
 using System.Diagnostics;
 using System.Net;
-using System.Xml.Linq;
-using Xabe.FFmpeg;
 using System.Text.RegularExpressions;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using System.Xml.Linq;
+using maxhanna.Server.Controllers.DataContracts;
+using maxhanna.Server.Controllers.DataContracts.Files;
+using maxhanna.Server.Controllers.DataContracts.Notification;
+using maxhanna.Server.Controllers.DataContracts.Social;
+using maxhanna.Server.Controllers.DataContracts.Topics;
+using maxhanna.Server.Controllers.DataContracts.Users;
+using maxhanna.Server.Services;
+using Microsoft.AspNetCore.Mvc;
+using MySqlConnector;
+using SixLabors.ImageSharp;
+using Xabe.FFmpeg;
 
 namespace maxhanna.Server.Controllers
 {
