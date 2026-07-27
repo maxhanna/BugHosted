@@ -5,6 +5,7 @@ import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { AppComponent } from '../app.component';
 import { Topic } from '../../services/datacontracts/topics/topic';
+import { UserEventService } from '../../services/user-event.service';
 
 @Component({
   selector: 'app-file-upload',
@@ -13,7 +14,7 @@ import { Topic } from '../../services/datacontracts/topics/topic';
   standalone: false
 })
 export class FileUploadComponent implements AfterViewInit {
-  constructor(private fileService: FileService, private cdr: ChangeDetectorRef) { }
+  constructor(private fileService: FileService, private userEventService: UserEventService, private cdr: ChangeDetectorRef) { }
   @Input() currentDirectory = '';
   @Input() user?: User;
   @Input() inputtedParentRef?: AppComponent;
@@ -264,7 +265,7 @@ export class FileUploadComponent implements AfterViewInit {
     return this.uploadFileList.length > 0 && this.uploadFileList.every(f => this.duplicatesFound[f.name]);
   }
 
-  private handleUploadedFile(event: any, filesArray: File[]) {
+  private async handleUploadedFile(event: any, filesArray: File[]) {
     const parsedFiles = (JSON.parse(event.body) as FileEntry[]);
     // API returns an array but we subscribe per original file; take first match for progress association
     if (parsedFiles && parsedFiles.length > 0) {
@@ -278,14 +279,15 @@ export class FileUploadComponent implements AfterViewInit {
     if (this.fileUploadTopics.length > 0) {
       const id = parsedFiles && parsedFiles.length > 0 ? parsedFiles[0].id : 0;
       const tmpFileEntry = new FileEntry(id);
-      this.fileService.editTopics(this.inputtedParentRef?.user ?? new User(0, "Anonymous"), tmpFileEntry, this.fileUploadTopics);
+      await this.fileService.editTopics(this.inputtedParentRef?.user ?? new User(0, "Anonymous"), tmpFileEntry, this.fileUploadTopics);
     }
-    this.lastFileUploadedCheck(filesArray, this.uploadedFileList.length);
+    await this.lastFileUploadedCheck(filesArray, this.uploadedFileList.length);
   }
 
-  private lastFileUploadedCheck(filesArray: File[], index: number) {
+  private async lastFileUploadedCheck(filesArray: File[], index: number) {
     const failedCount = Object.keys(this.uploadErrors).length;
     if (filesArray.length == this.nonDupUploadedCount + failedCount) {
+      const fileUploadCount = this.uploadedFileList.length;
       if (this.fileUploadTopics.length > 0) {
         this.uploadedFileList.forEach(x => {
           x.topics = this.fileUploadTopics;
@@ -296,8 +298,9 @@ export class FileUploadComponent implements AfterViewInit {
         this.fileService.notifyFollowersFileUploaded(this.user.id, this.user.username ?? "Anonymous", this.uploadedFileList[0].id, this.uploadedFileList.length);
       }
       this.userUploadFinishedEvent.emit(this.uploadedFileList);
-      this.userNotificationEvent.emit(`Finished uploading ${this.uploadedFileList.length} files.`);
-
+      const msg = `Finished uploading ${fileUploadCount} files.`;
+      this.userNotificationEvent.emit(msg);
+      await this.userEventService.insertUserEvent(this.user?.id ?? 0, "upload_file", msg, this.uploadedFileList[0].id);
       if (this.duplicateFileNames.length > 0) {
         this.userNotificationEvent.emit(`Skipped duplicates: ${this.duplicateFileNames.join(', ')}`);
       }

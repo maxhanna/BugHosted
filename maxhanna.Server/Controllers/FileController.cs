@@ -3,8 +3,7 @@ using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Notification;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Social;
-using maxhanna.Server.Controllers.DataContracts.Topics;
-using maxhanna.Server.Controllers.DataContracts.UserEvents;
+using maxhanna.Server.Controllers.DataContracts.Topics; 
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
@@ -2073,8 +2072,7 @@ namespace maxhanna.Server.Controllers
                 if (uploaded.Count > 0)
                 {
                     string folder = string.IsNullOrEmpty(folderPath) ? "Uploads" : WebUtility.UrlDecode(folderPath).Replace("/", " ").Trim();
-                    string eventText = $"uploaded {uploaded.Count} file{(uploaded.Count > 1 ? "s" : "")} to {folder}";
-                    await UserEventController.InsertUserEventStatic(userId, "file_upload", eventText, uploaded[0].Id, "file", _config, _log);
+                    string eventText = $"uploaded {uploaded.Count} file{(uploaded.Count > 1 ? "s" : "")} to {folder}"; 
                 }
                 return Ok(uploaded);
             }
