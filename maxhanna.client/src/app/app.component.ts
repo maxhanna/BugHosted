@@ -1517,6 +1517,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   }
   async indexLink(url: string) {
     this.crawlerService.indexLink(url);
+    this.userEventService.insertUserEvent(this.user?.id ?? 0, "link", `Visited ${url}`);
   }
 
   async addFavourite(url?: string, imgUrl?: string, name?: string) {
