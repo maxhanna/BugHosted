@@ -276,17 +276,7 @@ namespace maxhanna.Server.Controllers
 			{
 				using var conn = new MySqlConnection(_config["ConnectionStrings:maxhanna"]);
 				await conn.OpenAsync();
-
-				await using (var createTable = new MySqlCommand(@"
-					CREATE TABLE IF NOT EXISTS maxhanna.flight_schedule_cache (
-						callsign VARCHAR(20) NOT NULL PRIMARY KEY,
-						schedule JSON NOT NULL,
-						fetched_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-					)", conn))
-				{
-					await createTable.ExecuteNonQueryAsync();
-				}
-
+ 
 				await using (var cleanup = new MySqlCommand(
 					"DELETE FROM maxhanna.flight_schedule_cache WHERE fetched_at < UTC_TIMESTAMP() - INTERVAL 6 HOUR", conn))
 				{
