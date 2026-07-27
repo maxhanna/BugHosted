@@ -20,7 +20,7 @@
       <input class="search-input" type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()"
         placeholder="Search recipes by name, ingredient, or tag" />
       <div class="toolbar-meta">
-        <span>{{ filteredRecipes.length }} recipes</span> 
+        <span style="white-space: nowrap;">{{ filteredRecipes.length }} recipes</span> 
       </div>
     </div>
 
@@ -115,27 +115,33 @@
           {{ expandedRecipes.has(recipe.id) && expandedRecipes.get(recipe.id) ? 'Collapse' : 'Expand' }}
           </button>
 
-          <div class="recipe-section" *ngIf="expandedRecipes.has(recipe.id)">
+          <div class="recipe-section" *ngIf="expandedRecipes.get(recipe.id)">
             <h4>Ingredients</h4>
             <ul>
               <li *ngFor="let ingredient of recipe.ingredients">{{ ingredient }}</li>
             </ul>
           </div>
 
-          <div class="recipe-section" *ngIf="expandedRecipes.has(recipe.id)">
+          <div class="recipe-section" *ngIf="expandedRecipes.get(recipe.id)">
             <h4>How to make it</h4>
             <ol>
               <li *ngFor="let step of recipe.instructions">{{ step }}</li>
             </ol>
           </div>
 
-          <div class="recipe-section" *ngIf="recipe.externalLinks?.length">
+          <div class="recipe-section" *ngIf="expandedRecipes.get(recipe.id) && recipe.externalLinks?.length">
             <h4>Links</h4>
             <ul class="recipe-links">
               <li *ngFor="let link of recipe.externalLinks">
                 <a (click)="visitLink(link)">{{ link }}</a>
               </li>
             </ul>
+          </div>
+
+          <div class="recipe-section" *ngIf="expandedRecipes.get(recipe.id)">
+            <iframe *ngIf="getFirstYouTubeEmbedUrl(recipe.externalLinks) as ytSrc"
+              [src]="ytSrc" width="100%" height="315"
+              frameborder="0" allowfullscreen></iframe>
           </div>
 
           <div class="recipe-footer">

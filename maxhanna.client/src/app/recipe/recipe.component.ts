@@ -1,4 +1,5 @@
 ﻿import { Component, Input, OnInit, ViewChild } from '@angular/core';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ChildComponent } from '../child.component';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
@@ -39,7 +40,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     externalLinks: []
   };
 
-  constructor(private recipeService: RecipeService, private userEventService: UserEventService) {
+  constructor(private recipeService: RecipeService, private userEventService: UserEventService, private sanitizer: DomSanitizer) {
     super();
   }
 
@@ -196,6 +197,17 @@ export class RecipeComponent extends ChildComponent implements OnInit {
 
   visitLink(url: string): void {
     this.parentRef?.visitExternalLink(url);
+  }
+
+  getFirstYouTubeEmbedUrl(links: string[]): SafeResourceUrl | null {
+    if (!links?.length) return null;
+    for (const link of links) {
+      if (this.parentRef?.isYoutubeUrl(link)) {
+        const id = this.parentRef?.getYouTubeVideoId(link);
+        if (id) return this.sanitizer.bypassSecurityTrustResourceUrl(`https://www.youtube.com/embed/${id}`);
+      }
+    }
+    return null;
   }
 
   onMediaSelection(files: FileEntry[]): void {
