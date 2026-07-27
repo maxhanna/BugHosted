@@ -362,12 +362,17 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     this.searchInput.nativeElement.value = '';
     await this.getTodoInfo();
   }
-  openEditListPanel() {
-    this.closeShareListPanel();
-    setTimeout(() => { 
-      this.isEditListPanelOpen = true;
-      this.parentRef?.showOverlay();
-    }, 50);
+  openEditListPanel() { 
+    this.isMenuPanelOpen = false; 
+    setTimeout(() => {
+      this.closeShareListPanel();
+      setTimeout(() => {
+        this.isEditListPanelOpen = true;
+        this.parentRef?.showOverlay();
+      }, 50);
+    }, 10);
+
+   
   }
   closeEditListPanel() {
     this.isEditListPanelOpen = false;
@@ -425,8 +430,12 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     this.parentRef?.visitExternalLink(url);
   }
   openShareListPanel() {
-    this.isShareListPanelOpen = true;
-    this.parentRef?.showOverlay();
+    this.isMenuPanelOpen = false;
+    this.parentRef?.closeOverlay();
+    setTimeout(() => { 
+      this.isShareListPanelOpen = true;
+      this.parentRef?.showOverlay();
+    }, 10);
   }
   closeShareListPanel() {
     this.isShareListPanelOpen = false;

@@ -18,15 +18,11 @@
   <app-title-bar [title]="'Todo'" (menuClicked)="openMenuPanel()" (closeClicked)="remove_me('TodoComponent');">
   </app-title-bar>
 
-  <div style="display: flex; justify-content: center; align-items: center; gap: 20px">
-    <select #selectedType class=selectType (change)="typeOnChange()" style="font-size:large">
-      <option *ngFor="let type of todoTypes" [value]="type">{{ type }} <span *ngIf="type === selectedType.value">({{
-          todoCount }})</span></option>
-    </select>
-    <button type="button" class="smallFont cursorPointerUnderlined" aria-label="Edit list"
-      (click)="openEditListPanel()">Edit</button>
-    <button type="button" class="smallFont cursorPointerUnderlined" aria-label="Share list"
-      (click)="openShareListPanel()">Sharing</button>
+  <div style="display: flex; justify-content: center; align-items: center; gap:20px">
+  <select #selectedType class=selectType (change)="typeOnChange()" style="font-size:large">
+  <option *ngFor="let type of todoTypes" [value]="type">{{ type }} <span *ngIf="type === selectedType.value">({{
+  todoCount }})</span></option>
+  </select>
   </div>
 
   <fieldset class="addTodoInputFieldset">
@@ -225,6 +221,10 @@
   <div>
     <button class="smallFont" (click)="exportTodosAsTxt()">Export Todos (.txt)</button>
     <button class="smallFont" (click)="exportAllTodosAsTxt()">Export All Todos (.txt)</button>
+    <button type="button" class="smallFont" aria-label="Edit list"
+      (click)="openEditListPanel()">Edit</button>
+    <button type="button" class="smallFont" aria-label="Share list"
+      (click)="openShareListPanel()">Sharing</button>
     <button class="closeButton" id="closeOverlay" (click)="closeMenuPanel()">Close</button>
   </div>
 </div>
