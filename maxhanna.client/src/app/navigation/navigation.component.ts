@@ -451,7 +451,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   async getNotificationInfo() {
     const sig = this._abortController.signal;
     if (sig.aborted) return;
-    if (!this._parent || !this._parent.user || this.navbarCollapsed) {
+    if (!this._parent || !this._parent.user || this._parent.isUploadingFile || this.navbarCollapsed) {
       return;
     }
     if (this._parent.isUploadingFile) {

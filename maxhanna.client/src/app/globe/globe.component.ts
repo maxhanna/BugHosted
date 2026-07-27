@@ -315,13 +315,14 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loadUsersWithLocations();
     this.loadFlights();
     this.loadAllFlights();
-    this.filterCoordinates();
-    const currentUser = this.inputtedParentRef?.user;
-    if(currentUser) {
-      const userWithLocation = this.usersWithLocations.find(u => u.user.id === currentUser.id);
+    this.filterCoordinates(); 
+    if (this.userId) {
+      const userWithLocation = this.usersWithLocations.find(u => u.user.id === this.userId);
+      console.log("Rotating to user location:", userWithLocation);
       if(userWithLocation && userWithLocation.city && userWithLocation.country) {
         const coords = this.lookupCityCoords(userWithLocation.city, userWithLocation.country);
         if(coords) {
+          console.log("Found user coords:", coords);
           this.rotateToLocation(coords[0], coords[1]);
         }
       }
