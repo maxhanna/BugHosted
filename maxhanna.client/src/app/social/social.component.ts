@@ -318,6 +318,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       topics = topics.trim() != '' ? topics + ',' : topics;
       searchTopics.forEach(x => { topics += topics.trim() != '' ? ',' + x.id : x.id })
     }
+    this.currentPage = 1;
     await this.getStories(this.currentPage, 10, search, topics);
     if (!!!debounced) {
       this.closeMenuPanel();
