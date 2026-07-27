@@ -115,8 +115,8 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       case 'trophy': return '🏆';
       case 'reaction_added': return '😊';
       case 'wordler_win': return '🧠';
-      case 'viewed': return '▶️';
-      case 'visited': return '🔗';
+      case 'youtube': return '▶️';
+      case 'link': return '🔗';
       case 'flighttracking': return '✈️';
       default: return '📌';
     }
@@ -296,8 +296,8 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       'digcraft_levelup': 'DigCraft Level-ups',
       'trade_executed': 'Trade Executions',
       'trophy': 'Trophies Earned',
-      'viewed': 'Viewed Youtube Video',
-      'visited': 'Visited External Link',
+      'youtube': 'Viewed Youtube Video',
+      'link': 'Visited External Link',
       'wordler_win': 'Wordler Wins',
       'weaver_card_added': 'Weaver Cards Created',
       'flighttracking': 'Flight Tracking Events'
