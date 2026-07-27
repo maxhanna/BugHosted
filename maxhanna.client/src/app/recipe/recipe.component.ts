@@ -22,6 +22,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   searchTerm = '';
   isCreating = false;
   editingRecipeId: number | null = null;
+  viewingRecipeId: number | null = null;
   override isLoading = false;
   selectedFiles: FileEntry[] = [];
   selectedTopics: Topic[] = [];
@@ -52,13 +53,13 @@ export class RecipeComponent extends ChildComponent implements OnInit {
         this.expandedRecipes.set(recipe.id, currentStatus);
       }
     });
-    if (this.recipeId && this.recipes.length > 0) {
+    if (this.recipeId) {
+      this.viewingRecipeId = this.recipeId;
       const target = this.recipes.find(r => r.id === this.recipeId);
       if (target) {
         this.expandedRecipes.set(target.id, true);
-        this.searchTerm = '';
-        this.applyFilters();
       }
+      this.applyFilters();
     }
   }
 
@@ -77,6 +78,10 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   }
 
   applyFilters(): void {
+    if (this.viewingRecipeId) {
+      this.filteredRecipes = this.recipes.filter(r => r.id === this.viewingRecipeId);
+      return;
+    }
     const search = this.searchTerm.trim().toLowerCase();
     if (!search) {
       this.filteredRecipes = [...this.recipes];
@@ -93,6 +98,12 @@ export class RecipeComponent extends ChildComponent implements OnInit {
       ].join(' ').toLowerCase();
       return haystack.includes(search);
     });
+  }
+
+  clearViewingRecipeId(): void {
+    this.viewingRecipeId = null;
+    this.searchTerm = '';
+    this.applyFilters();
   }
 
   openCreateForm(): void {

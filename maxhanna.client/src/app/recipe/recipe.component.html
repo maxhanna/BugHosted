@@ -1,7 +1,12 @@
 ﻿<div class="componentMain">
   <app-title-bar [title]="'Recipe'" (closeClicked)="remove_me('RecipeComponent')"></app-title-bar>
   <div class="recipe-shell">
-    <div class="recipe-hero">
+    <div class="recipe-back-banner" *ngIf="viewingRecipeId">
+      <span>Showing linked recipe</span>
+      <button class="ghost-btn" (click)="clearViewingRecipeId()">← Back to all recipes</button>
+    </div>
+
+    <div class="recipe-hero" *ngIf="!viewingRecipeId">
       <div>
         <p class="eyebrow">Community cookbook</p>
         <h2>Discover, share, and save recipes</h2>
@@ -11,7 +16,7 @@
       <button class="primary-btn" (click)="openCreateForm()">+ Add a recipe</button>
     </div>
 
-    <div class="recipe-toolbar">
+    <div class="recipe-toolbar" *ngIf="!viewingRecipeId">
       <input class="search-input" type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()"
         placeholder="Search recipes by name, ingredient, or tag" />
       <div class="toolbar-meta">
