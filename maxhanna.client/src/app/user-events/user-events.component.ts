@@ -256,7 +256,9 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
 
     await this.loadEvents();
   }
-
+  isYoutubeLink(link?: string): boolean{
+    return this.parentRef?.isYoutubeUrl(link) ?? false;
+  }
   parseEventText(text: string): { text: string; url?: string }[] {
     if (!text) return [{ text: '' }];
     const urlRegex = /(https?:\/\/[^\s]+)/g;

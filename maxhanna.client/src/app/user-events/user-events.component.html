@@ -13,7 +13,10 @@
         <span class="eventText">
           <app-user-tag [userId]="e.userId" [displayMiniTag]="true" [inputtedParentRef]="parentRef"></app-user-tag> 
           <ng-container *ngFor="let seg of parseEventText(e.eventText)">
-            <a *ngIf="seg.url" [href]="seg.url" target="_blank" (click)="$event.stopPropagation(); parentRef?.visitExternalLink(seg.url!)">{{ seg.text }}</a>
+            <a *ngIf="seg.url && !isYoutubeLink(seg.url)" [href]="seg.url" target="_blank"
+              (click)="$event.stopPropagation(); parentRef?.indexLink(seg.url!)">{{ seg.text }}</a>
+            <a *ngIf="seg.url && isYoutubeLink(seg.url)"
+              (click)="$event.stopPropagation(); parentRef?.visitExternalLink(seg.url!)">{{ seg.text }}</a>
             <span *ngIf="!seg.url">{{ seg.text }}</span>
           </ng-container>
         </span>
