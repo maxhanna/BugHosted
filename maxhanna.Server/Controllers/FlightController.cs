@@ -268,7 +268,7 @@ namespace maxhanna.Server.Controllers
 				return Ok(new { found = false });
 
 			var cs = callsign.Trim().ToUpperInvariant();
-			var apiKey = _config.GetValue<string>("Aviationstack:ApiKey");
+			var apiKey = _config.GetValue<string>("Aviationstack:Api");
 			if (string.IsNullOrEmpty(apiKey))
 				return Ok(new { found = false, error = "API key not configured" });
 
