@@ -1,9 +1,0 @@
-﻿; Undo for maxhanna.client/src/app/recipe/recipe.component.html @ 2026-07-27T16:52:31.8269098Z
-; Restore with: git apply --reverse "C:\Users\Saint\Desktop\Repos\BugHosted\data\undo\maxhanna.client_src_app_recipe_recipe.component.html.20260727-165231-6257.diff"
-; Or use: git checkout -- "maxhanna.client\src\app\recipe\recipe.component.html"
-; To APPLY this diff: git apply "C:\Users\Saint\Desktop\Repos\BugHosted\data\undo\maxhanna.client_src_app_recipe_recipe.component.html.20260727-165231-6257.diff"
---- a/maxhanna.client/src/app/recipe/recipe.component.html
-+++ b/maxhanna.client/src/app/recipe/recipe.component.html
-@@ -111,1 +111,1 @@
--            {{ expandedRecipes.has(recipe.id) && expandedRecipes.get(recipe.id) ? 'Collapse' : 'Expand' }}
-+          {{ expandedRecipes.has(recipe.id) && expandedRecipes.get(recipe.id) ? 'Collapse' : 'Expand' }}
