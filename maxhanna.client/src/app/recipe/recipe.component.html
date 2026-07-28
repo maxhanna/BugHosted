@@ -27,7 +27,7 @@
     <div *ngIf="isCreating" class="composer-card popupPanel">
       <div class="composer-header">
         <h3>{{ editingRecipeId ? 'Edit recipe' : 'Share a new recipe' }}</h3>
-        <button (click)="cancelCreate()">Cancel</button>
+        <button *ngIf="onMobile()" (click)="cancelCreate()">Cancel</button>
       </div>
 
       <label>
@@ -93,7 +93,7 @@
         <button class="primary-btn submit-btn" (click)="submitRecipe()">
           {{ editingRecipeId ? 'Update recipe' : 'Save recipe' }}
         </button>
-        <button class="ghost-btn cancel-btn" id="closeOverlay" (click)="cancelCreate()">Cancel</button>
+        <button id="closeOverlay" (click)="cancelCreate()">Cancel</button>
       </div>
     </div>
 
