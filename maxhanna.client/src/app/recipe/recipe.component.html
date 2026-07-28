@@ -20,7 +20,7 @@
       <input class="search-input" type="text" [(ngModel)]="searchTerm" (ngModelChange)="applyFilters()"
         placeholder="Search recipes by name, ingredient, or tag" />
       <div class="toolbar-meta">
-        <span style="white-space: nowrap;">{{ filteredRecipes.length }} recipes</span> 
+        <span style="white-space: nowrap;">{{ filteredRecipes.length }} recipes</span>
       </div>
     </div>
 
@@ -48,8 +48,7 @@
         </div>
         <div class="inline-stack" *ngFor="let ingredient of form.ingredients; let i = index; trackBy: trackByIndex">
           <input type="text" [id]="'ingredient' + i" [(ngModel)]="form.ingredients[i]" placeholder="Ingredient" />
-          <button type="button" (click)="removeIngredient(i)"
-            *ngIf="form.ingredients.length > 1">Remove</button>
+          <button type="button" (click)="removeIngredient(i)" *ngIf="form.ingredients.length > 1">Remove</button>
         </div>
       </div>
 
@@ -59,9 +58,9 @@
           <button type="button" (click)="addInstruction()">+ Add</button>
         </div>
         <div class="inline-stack" *ngFor="let instruction of form.instructions; let i = index; trackBy: trackByIndex">
-          <textarea [id]="'instruction' + i" rows="2" [(ngModel)]="form.instructions[i]" placeholder="Step {{ i + 1 }}"></textarea>
-          <button type="button" (click)="removeInstruction(i)"
-            *ngIf="form.instructions.length > 1">Remove</button>
+          <textarea [id]="'instruction' + i" rows="2" [(ngModel)]="form.instructions[i]"
+            placeholder="Step {{ i + 1 }}"></textarea>
+          <button type="button" (click)="removeInstruction(i)" *ngIf="form.instructions.length > 1">Remove</button>
         </div>
       </div>
 
@@ -90,11 +89,12 @@
           [selectedFiles]="selectedFiles" (selectFileEvent)="onMediaSelection($event)">
         </app-media-selector>
       </div>
-
-      <button class="primary-btn submit-btn" (click)="submitRecipe()">
-        {{ editingRecipeId ? 'Update recipe' : 'Save recipe' }}
-      </button>
-      <button class="ghost-btn cancel-btn" id="closeOverlay" (click)="cancelCreate()">Cancel</button>
+      <div style="display:flex; width: 100%">
+        <button class="primary-btn submit-btn" (click)="submitRecipe()">
+          {{ editingRecipeId ? 'Update recipe' : 'Save recipe' }}
+        </button>
+        <button class="ghost-btn cancel-btn" id="closeOverlay" (click)="cancelCreate()">Cancel</button>
+      </div>
     </div>
 
     <div *ngIf="isLoading && recipes.length === 0" class="empty-state">Loading recipes…</div>
@@ -104,8 +104,8 @@
 
     <div class="recipe-grid" *ngIf="filteredRecipes.length > 0">
       <article class="recipe-card" *ngFor="let recipe of filteredRecipes; trackBy: trackByRecipeId">
-        <app-media-viewer *ngIf="recipe.imageFileIds[0]" [fileId]="recipe.imageFileIds[0]"
-          [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false" [inputtedParentRef]="parentRef"></app-media-viewer>
+        <app-media-viewer *ngIf="recipe.imageFileIds[0]" [fileId]="recipe.imageFileIds[0]" [displayExpander]="false"
+          [displayExtraInfo]="false" [showCommentSection]="false" [inputtedParentRef]="parentRef"></app-media-viewer>
         <div *ngIf="!recipe.imageFileIds[0] && getYouTubeUrl(recipe) as ytUrl" class="recipe-video"
           [class.recipe-video-full]="isVideoOnlyRecipe(recipe)"
           [class.recipe-video-short]="isRecipeVideoShort(getFirstYoutubeUrlForRecipe(recipe))">
@@ -119,13 +119,12 @@
           </div>
           <p class="recipe-description">{{ recipe.description }}</p>
 
-          <app-rating-stars [rating]="getUserRating(recipe)" [inputtedParentRef]="parentRef"
-            [componentType]="'recipe'" [ratingRecipeId]="recipe.id"
-            [recipeAverageRating]="recipe.averageRating" [recipeRatingCount]="recipe.ratingCount"
-            [readOnly]="!parentRef?.user?.id"></app-rating-stars>
+          <app-rating-stars [rating]="getUserRating(recipe)" [inputtedParentRef]="parentRef" [componentType]="'recipe'"
+            [ratingRecipeId]="recipe.id" [recipeAverageRating]="recipe.averageRating"
+            [recipeRatingCount]="recipe.ratingCount" [readOnly]="!parentRef?.user?.id"></app-rating-stars>
 
           <button *ngIf="!isVideoOnlyRecipe(recipe)" (click)="toggleRecipeDetails(recipe.id)">
-          {{ expandedRecipes.has(recipe.id) && expandedRecipes.get(recipe.id) ? 'Collapse' : 'Expand' }}
+            {{ expandedRecipes.has(recipe.id) && expandedRecipes.get(recipe.id) ? 'Collapse' : 'Expand' }}
           </button>
 
           <div class="recipe-section" *ngIf="expandedRecipes.get(recipe.id)">
@@ -142,12 +141,15 @@
             </ol>
           </div>
 
-          <div class="recipe-section" *ngIf="expandedRecipes.get(recipe.id) && !isVideoOnlyRecipe(recipe) && getFirstYouTubeId(recipe)"
+          <div class="recipe-section"
+            *ngIf="expandedRecipes.get(recipe.id) && !isVideoOnlyRecipe(recipe) && getFirstYouTubeId(recipe)"
             [class.recipe-video-short]="isRecipeVideoShort(getFirstYoutubeUrlForRecipe(recipe))">
-            <iframe [src]="getYouTubeUrl(recipe)" width="100%" height="315" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+            <iframe [src]="getYouTubeUrl(recipe)" width="100%" height="315" frameborder="0"
+              allow="autoplay; encrypted-media" allowfullscreen></iframe>
           </div>
 
-          <div class="recipe-section" *ngIf="(expandedRecipes.get(recipe.id) || isVideoOnlyRecipe(recipe)) && recipe.externalLinks?.length">
+          <div class="recipe-section"
+            *ngIf="(expandedRecipes.get(recipe.id) || isVideoOnlyRecipe(recipe)) && recipe.externalLinks?.length">
             <h4>Links</h4>
             <ul class="recipe-links">
               <li *ngFor="let link of recipe.externalLinks">
