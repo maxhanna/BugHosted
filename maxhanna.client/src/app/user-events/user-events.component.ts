@@ -121,6 +121,8 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       case 'flighttracking': return '✈️';
       case 'weaver_card_added': return '🕷️';
       case 'weaver_card_created': return '🕷️';
+      case 'recipe_edited': return '🍳';
+      case 'recipe_added': return '🍳';
       default: return '📌';
     }
   }
