@@ -155,17 +155,7 @@
 .btn-danger:hover {
   background: #c62828;
 }
-
-.btn-ghost {
-  background: transparent;
-  border-color: transparent;
-  color: var(--muted);
-}
-
-.btn-ghost:hover {
-  color: var(--text);
-}
-
+  
 .btn-sm {
   padding: 5px 12px;
   font-size: 12px;

@@ -207,7 +207,7 @@
           </div>
           <input [value]="searchFilter" (input)="onSearchFilterChange($event)" placeholder="Search cards…"
             class="weaver-input weaver-input-sm" />
-          <button *ngIf="searchFilter" (click)="searchFilter = ''" class="btn btn-xs btn-ghost">✕</button>
+          <button *ngIf="searchFilter" (click)="searchFilter = ''" class="btn btn-xs">✕</button>
         </div>
         <div class="toolbar-right">
           <label class="toolbar-label">Project:</label>
@@ -218,9 +218,9 @@
           <span class="project-desc" *ngIf="selectedProjectPath && getSelectedProject()?.description">— {{
             getSelectedProject()?.description }}</span>
           <button (click)="addCard()" class="btn btn-sm btn-primary">+ Add</button>
-          <button (click)="showSelfImproving = !showSelfImproving" class="btn btn-sm btn-ghost">📈 {{
+          <button (click)="showSelfImproving = !showSelfImproving" class="btn btn-sm">📈 {{
             filteredSelfImproving.length }}</button>
-          <button (click)="showArchived = !showArchived" class="btn btn-sm btn-ghost">🗄 {{ archivedCount }}</button>
+          <button (click)="showArchived = !showArchived" class="btn btn-sm">🗄 {{ archivedCount }}</button>
         </div>
       </div>
 
@@ -237,7 +237,7 @@
             <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('todo')">
               <div class="kanban-col-header">
                 <span>📋 To Do <span class="col-count">{{ filteredTodo.length }}</span></span>
-                <button (click)="toggleColumnCollapse('todo')" class="btn btn-xs btn-ghost">{{ collapsedColumns['todo']
+                <button (click)="toggleColumnCollapse('todo')" class="btn btn-xs">{{ collapsedColumns['todo']
                   ?
                   '▶' : '▼' }}</button>
               </div>
@@ -348,9 +348,9 @@
                     <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr"
                       title="Pull Request">{{
                       card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
-                    <button (click)="splitCard(card)" class="btn btn-xs btn-ghost" title="Split">✂ Split</button>
-                    <button (click)="openFilePicker(card)" class="btn btn-xs btn-ghost" title="Attach files">📎</button>
-                    <button (click)="openDeleteCardConfirm(card.id, 'todo')" class="btn btn-xs btn-ghost"
+                    <button (click)="splitCard(card)" class="btn btn-xs" title="Split">✂ Split</button>
+                    <button (click)="openFilePicker(card)" class="btn btn-xs" title="Attach files">📎</button>
+                    <button (click)="openDeleteCardConfirm(card.id, 'todo')" class="btn btn-xs"
                       title="Delete">✕</button>
                   </div>
                   <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
@@ -378,7 +378,7 @@
             <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('doing')">
               <div class="kanban-col-header">
                 <span>⚡ Doing <span class="col-count">{{ filteredDoing.length }}</span></span>
-                <button (click)="toggleColumnCollapse('doing')" class="btn btn-xs btn-ghost">{{
+                <button (click)="toggleColumnCollapse('doing')" class="btn btn-xs">{{
                   collapsedColumns['doing']
                   ?
                   '▶' : '▼' }}</button>
@@ -502,9 +502,9 @@
                       [disabled]="agentActive && activeCardId === card.id">✔ Done</button>
                     <button (click)="stopAgent()" *ngIf="agentActive && activeCardId === card.id"
                       class="btn btn-xs btn-danger">⏹ Stop</button>
-                    <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← Back</button>
-                    <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
-                    <button (click)="openDeleteCardConfirm(card.id, 'doing')" class="btn btn-xs btn-ghost"
+                    <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs">← Back</button>
+                    <button (click)="copyCardText(card)" class="btn btn-xs">📋 Copy</button>
+                    <button (click)="openDeleteCardConfirm(card.id, 'doing')" class="btn btn-xs"
                       [disabled]="activeCardId === card.id">✕</button>
                   </div>
                   <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
@@ -523,7 +523,7 @@
             <div class="kanban-col" (dragover)="onDragOver($event)" (drop)="onDrop('done')">
               <div class="kanban-col-header">
                 <span>✅ Done <span class="col-count">{{ filteredDone.length }}</span></span>
-                <button (click)="toggleColumnCollapse('done')" class="btn btn-xs btn-ghost">{{ collapsedColumns['todo']
+                <button (click)="toggleColumnCollapse('done')" class="btn btn-xs">{{ collapsedColumns['todo']
                   ?
                   '▶' : '▼' }}</button>
               </div>
@@ -623,10 +623,10 @@
                     </details>
                   </div>
                   <div class="card-actions">
-                    <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← Reopen</button>
-                    <button (click)="archiveCard(card.id, 'done')" class="btn btn-xs btn-ghost">🗄 Archive</button>
-                    <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
-                    <button (click)="openDeleteCardConfirm(card.id, 'done')" class="btn btn-xs btn-ghost">✕</button>
+                    <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs">← Reopen</button>
+                    <button (click)="archiveCard(card.id, 'done')" class="btn btn-xs">🗄 Archive</button>
+                    <button (click)="copyCardText(card)" class="btn btn-xs">📋 Copy</button>
+                    <button (click)="openDeleteCardConfirm(card.id, 'done')" class="btn btn-xs">✕</button>
                   </div>
                   <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
                     <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
@@ -645,7 +645,7 @@
               (drop)="onDrop('selfImproving')">
               <div class="kanban-col-header">
                 <span>🤖 Self-Improving <span class="col-count">{{ filteredSelfImproving.length }}</span></span>
-                <button (click)="toggleColumnCollapse('selfImproving')" class="btn btn-xs btn-ghost">
+                <button (click)="toggleColumnCollapse('selfImproving')" class="btn btn-xs">
                   {{ collapsedColumns['selfImproving'] ? '▶' : '▼' }}</button>
               </div>
               <div class="kanban-col-body" *ngIf="!collapsedColumns['selfImproving']">
@@ -736,13 +736,13 @@
                     </details>
                   </div>
                   <div class="card-actions">
-                    <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs btn-ghost">← To Todo</button>
+                    <button (click)="moveCard(card.id, 'todo')" class="btn btn-xs">← To Todo</button>
                     <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr"
                       title="Pull Request">{{
                       card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
-                    <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
+                    <button (click)="copyCardText(card)" class="btn btn-xs">📋 Copy</button>
                     <button (click)="openDeleteCardConfirm(card.id, 'selfImproving')"
-                      class="btn btn-xs btn-ghost">✕</button>
+                      class="btn btn-xs">✕</button>
                   </div>
                   <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
                     <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
@@ -762,7 +762,7 @@
             <div class="kanban-col">
               <div class="kanban-col-header">
                 <span>🗄 Archived <span class="col-count">{{ filteredArchived.length }}</span></span>
-                <button (click)="showArchived = false" class="btn btn-xs btn-ghost">✕</button>
+                <button (click)="showArchived = false" class="btn btn-xs">✕</button>
               </div>
               <div class="kanban-col-body" *ngIf="!collapsedColumns['archived']">
                 <div *ngFor="let card of filteredArchived; trackBy: trackByCardId" class="kanban-card archived">
@@ -804,7 +804,7 @@
                     <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr"
                       title="Pull Request">{{
                       card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
-                    <button (click)="copyCardText(card)" class="btn btn-xs btn-ghost">📋 Copy</button>
+                    <button (click)="copyCardText(card)" class="btn btn-xs">📋 Copy</button>
                   </div>
                   <div *ngIf="card.prStatus" class="card-pr-status" [class.pr-error]="card.prStatus.status === 'error'">
                     <span *ngIf="card.prStatus.status === 'branch-created'">🌿 Branch: {{ card.prStatus.branch }}</span>
@@ -841,12 +841,12 @@
               getFileName(remoteEditorState.currentFile || '') || 'none' }}{{ remoteEditorState.dirty ? ' ●' : ''
               }})</span></summary>
           <div class="ide-toolbar">
-            <button (click)="toggleIdeSidebar()" class="btn btn-xs btn-ghost">{{ ideSidebarOpen ? '✕ Close' : '📂
+            <button (click)="toggleIdeSidebar()" class="btn btn-xs">{{ ideSidebarOpen ? '✕ Close' : '📂
               Browse' }}</button>
-            <button (click)="refreshIdeListing()" class="btn btn-xs btn-ghost" [disabled]="ideLoading">🔄</button>
+            <button (click)="refreshIdeListing()" class="btn btn-xs" [disabled]="ideLoading">🔄</button>
             <button (click)="saveIdeFile()" class="btn btn-xs btn-primary"
               [disabled]="!ideActiveTab?.dirty || ideLoading">💾 Save</button>
-            <button *ngIf="ideTabs.length > 0" (click)="closeIdeAllTabs()" class="btn btn-xs btn-ghost">✕ All
+            <button *ngIf="ideTabs.length > 0" (click)="closeIdeAllTabs()" class="btn btn-xs">✕ All
               Tabs</button>
           </div>
 
@@ -854,7 +854,7 @@
             <!-- File browser sidebar -->
             <div class="ide-sidebar" *ngIf="ideSidebarOpen">
               <div class="ide-sidebar-header">
-                <button (click)="goUpIdeDir()" class="btn btn-xs btn-ghost" [disabled]="!ideCurrentDir">⬆</button>
+                <button (click)="goUpIdeDir()" class="btn btn-xs" [disabled]="!ideCurrentDir">⬆</button>
                 <span class="ide-path-text" title="{{ ideCurrentDir || selectedProjectPath || '/' }}">{{ ideCurrentDir
                   || selectedProjectPath || '/' }}</span>
               </div>
@@ -1182,7 +1182,7 @@
       <div class="settings-actions">
         <button (click)="saveSettingsRemote()" class="btn btn-primary" [disabled]="sendingSettings">Save &amp;
           Send</button>
-        <button (click)="closeSettingsPanel()" class="btn btn-ghost">Cancel</button>
+        <button (click)="closeSettingsPanel()" class="btn">Cancel</button>
       </div>
     </div>
     <button id="closeOverlay" class="closeButton" (click)="closeSettingsPanel()"></button>
