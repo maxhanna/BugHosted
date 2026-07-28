@@ -1,13 +1,13 @@
 ﻿/* ===== GLOBALS ===== */
 :host {
-  --bg: #121212;
-  --surface: #1e1e1e;
+  --bg: var(--component-background-color);
+  --surface: var(--main-highlight-color);
   --surface2: #252525;
-  --border: #333;
-  --text: #e0e0e0;
+  --border: var(--main-border-color);
+  --text: var(--primary-font-color);
   --muted: #888;
-  --accent: #7c4dff;
-  --accent-hover: #651fff;
+  --accent: var(--third-font-color);
+  --accent-hover: var(--secondary-font-color);
   --success: #4caf50;
   --error: #ef5350;
   --warn: #ff9800;
@@ -69,7 +69,7 @@
 
 .login-card h2 {
   margin: 12px 0 4px;
-  color: #fff;
+  color: var(--primary-font-color);
   font-size: 22px;
 }
 
@@ -118,8 +118,6 @@
 
 .weaver-select {
   padding: 6px 10px;
-  background: #0d0d0d;
-  color: var(--text);
   border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 13px;
@@ -139,13 +137,7 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
-  background: var(--surface2);
-  color: var(--text);
   white-space: nowrap;
-}
-
-.btn:hover {
-  background: #333;
 }
 
 .btn:disabled {
@@ -153,15 +145,6 @@
   cursor: not-allowed;
 }
 
-.btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-.btn-primary:hover {
-  background: var(--accent-hover);
-}
 
 .btn-danger {
   background: var(--error);
@@ -230,26 +213,11 @@
   padding: 12px 16px 40px;
 }
 
-/* Header */
-.dash-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 0 12px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 8px;
-}
 
 .dash-header-left {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.dash-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #fff;
 }
 
 .dash-subtitle {

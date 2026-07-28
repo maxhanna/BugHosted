@@ -117,8 +117,10 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       case 'reaction_added': return '😊';
       case 'wordler_win': return '🧠';
       case 'youtube': return '▶️';
-      case 'link': return '🔗';
+      case 'link': return '🕸️';
       case 'flighttracking': return '✈️';
+      case 'weaver_card_added': return '🕷️';
+      case 'weaver_card_created': return '🕷️';
       default: return '📌';
     }
   }
@@ -257,7 +259,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
 
     await this.loadEvents();
   }
-  isYoutubeLink(link?: string): boolean{
+  isYoutubeLink(link?: string): boolean {
     return this.parentRef?.isYoutubeUrl(link) ?? false;
   }
   parseEventText(text: string): { text: string; url?: string }[] {
