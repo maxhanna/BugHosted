@@ -343,12 +343,11 @@
                   </div>
                   <div class="card-actions">
                     <button (click)="toggleCardReady(card)" class="btn btn-xs" [class.btn-ready]="card.ready">{{
-                      card.ready
-                      ? '⏹ UnReady' : (agentActive ? '▶ Ready' : '▶ Run') }}</button>
+                    card.ready
+                    ? '⏹ UnReady' : (agentActive ? '▶ Ready' : '▶ Run') }}</button>
                     <button (click)="togglePr(card)" class="btn btn-xs" [class.btn-pr]="card.autoPr"
-                      title="Pull Request">{{
-                      card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
-                    <button (click)="splitCard(card)" class="btn btn-xs" title="Split">✂ Split</button>
+                    title="Pull Request">{{
+                    card.autoPr ? '🔀 PR On' : '🔀 PR Off' }}</button>
                     <button (click)="openFilePicker(card)" class="btn btn-xs" title="Attach files">📎</button>
                     <button (click)="openDeleteCardConfirm(card.id, 'todo')" class="btn btn-xs"
                       title="Delete">✕</button>
