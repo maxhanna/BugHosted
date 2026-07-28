@@ -1,4 +1,5 @@
 ﻿import { Component, Input, OnInit, ViewChild } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 import { ChildComponent } from '../child.component';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
@@ -65,16 +66,11 @@ export class RecipeComponent extends ChildComponent implements OnInit {
 
   async loadRecipes(): Promise<void> {
     this.startLoading();
-    await this.recipeService.getRecipes(this.searchTerm || undefined).subscribe({
-      next: (recipes) => {
-        this.recipes = recipes;
-        this.applyFilters();
-        this.stopLoading();
-      },
-      error: () => {
-        this.stopLoading();
-      }
-    });
+    try {
+      this.recipes = await firstValueFrom(this.recipeService.getRecipes(this.searchTerm || undefined));
+      this.applyFilters();
+    } catch { }
+    this.stopLoading();
   }
 
   applyFilters(): void {

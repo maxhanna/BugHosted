@@ -669,9 +669,9 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         }
         else if (this.router.url.toLowerCase().includes('recipe')) {
           this.checkAndClearRouterOutlet();
-          const recipeId = this.router.url.toLowerCase().split('recipe/')[1]?.split('?')[0];
+          const recipeIdStr = this.router.url.toLowerCase().split('recipe/')[1]?.split('?')[0];
           this.angLocation.replaceState(this.router.url.split('?')[0]);
-          this.createComponent("Recipe", { "recipeId": recipeId });
+          this.createComponent("Recipe", { "recipeId": recipeIdStr ? parseInt(recipeIdStr, 10) : undefined });
         }
         else if (!this.user) {
           this.createComponent('User');
