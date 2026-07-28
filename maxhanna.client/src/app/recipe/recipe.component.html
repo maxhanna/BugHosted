@@ -91,8 +91,9 @@
         </app-media-selector>
       </div>
 
-      <button class="primary-btn submit-btn" (click)="submitRecipe()">{{ editingRecipeId ? 'Update recipe' : 'Save
-        recipe' }}</button>
+      <button class="primary-btn submit-btn" (click)="submitRecipe()">
+        {{ editingRecipeId ? 'Update recipe' : 'Save recipe' }}
+      </button>
       <button class="ghost-btn cancel-btn" id="closeOverlay" (click)="cancelCreate()">Cancel</button>
     </div>
 
