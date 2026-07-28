@@ -18,6 +18,7 @@
   --third-font-color: cornflowerblue;
   --main-border: 2px ridge var(--main-border-color);
   --main-border-color: var(--main-highlight-color);
+  --border-color: var(--main-border-color);
   --gameboyBgColor: darkgrey;
   --nexus-gamescreen-height: 275px;
   --nexus-gamescreen-width: 350px;

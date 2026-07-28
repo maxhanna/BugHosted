@@ -1081,16 +1081,16 @@
   <div class="popupPanel" style="overflow: auto" *ngIf="isMenuPanelOpen">
     <div class="popupPanelTitle">Weaver</div>
     <div style="gap: 10px; padding: 10px; display: flex">
-      <button (click)="doLogout()" class="btn btn-ghost" style="width: 100%">
+      <button (click)="doLogout()">
         Logout
       </button>
-      <button (click)="openSettingsPanel()" class="btn btn-ghost" [disabled]="!settingsData">
+      <button (click)="openSettingsPanel()" [disabled]="!settingsData">
         Settings
       </button>
     </div>
     <hr style="
       margin: 8px 0;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      border-top: 1px solid var(--main-border-color);
       border-bottom: none;
     " />
     <a href="https://bughosted.com/assets/Weaver.exe" target="_blank" class="menu-link">Download Weaver</a><br />
