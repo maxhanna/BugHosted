@@ -1116,7 +1116,8 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   onSettingsFieldChange(field: string, event: Event) {
-    this.editSettings[field] = (event.target as HTMLInputElement | HTMLSelectElement).value;
+    const el = event.target as HTMLInputElement | HTMLSelectElement;
+    this.editSettings[field] = el instanceof HTMLInputElement && el.type === 'range' ? parseInt(el.value, 10) : el.value;
   }
 
   onSettingsCheckboxChange(field: string, event: Event) {

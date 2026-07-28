@@ -1105,84 +1105,173 @@
   <div class="popupPanel settings-popup-panel" style="overflow: auto;" *ngIf="settingsPanelOpen">
     <div class="popupPanelTitle">Weaver Settings</div>
     <div class="popupPanelContents gradientBackground settings-popup-contents">
-      <div class="settings-edit-field">
-        <label>LLM URL</label>
-        <input [value]="editSettings.llamaUrl || ''" (input)="onSettingsFieldChange('llamaUrl', $event)"
-          class="weaver-input" placeholder="http://localhost:11434" />
-      </div>
-      <div class="settings-edit-field">
-        <label>Build Commands</label>
-        <input [value]="editSettings.buildCommands || ''" (input)="onSettingsFieldChange('buildCommands', $event)"
-          class="weaver-input" placeholder="npm run build" />
-      </div>
-      <div class="settings-edit-field">
-        <label>Terminal Approval Mode</label>
-        <select [value]="editSettings.terminalApprovalMode || 'manual'"
-          (change)="onSettingsFieldChange('terminalApprovalMode', $event)" class="weaver-select">
-          <option value="auto">Auto</option>
-          <option value="manual">Manual</option>
-        </select>
-      </div>
-      <div class="settings-edit-field">
-        <label>Approved Terminal Roots</label>
-        <input [value]="editSettings.approvedTerminalRoots || ''"
-          (input)="onSettingsFieldChange('approvedTerminalRoots', $event)" class="weaver-input"
-          placeholder="Comma-separated paths" />
-      </div>
-      <div class="settings-edit-field">
-        <label>Disallowed Terminal Roots</label>
-        <input [value]="editSettings.disallowedTerminalRoots || ''"
-          (input)="onSettingsFieldChange('disallowedTerminalRoots', $event)" class="weaver-input"
-          placeholder="Comma-separated paths" />
-      </div>
-      <div class="settings-edit-field">
-        <label>Default Project</label>
-        <input [value]="editSettings.defaultProject || ''" (input)="onSettingsFieldChange('defaultProject', $event)"
-          class="weaver-input" placeholder="Project name" />
-      </div>
-      <details style="margin-top:12px;">
-        <summary
-          style="cursor:pointer;font-weight:700;font-size:1em;text-transform:uppercase;letter-spacing:0.5px;color:var(--accent);padding:8px 0;">
-          File Hints
-        </summary>
-        <div style="margin-top:8px;">
-          <span style="font-size:12px;color:var(--muted);margin-bottom:8px;display:block;">
-            Map keywords to files so the agent knows where to look. These are stored on the remote Weaver machine.
-          </span>
-          <details *ngFor="let project of projects; let pi = index" style="margin-bottom:8px;">
-            <summary style="cursor:pointer;font-weight:600;">{{ project.name }}</summary>
-            <div *ngFor="let hint of fileHintsByProject(project.path); let hi = index"
-              style="border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;margin-bottom:8px;">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-                <span style="font-size:12px;color:var(--muted);white-space:nowrap;">Keywords:</span>
-                <input [value]="hint.keywords" (input)="onFileHintKeywordsChange(project.path, hi, $event)"
-                  placeholder="comma-separated keywords" style="flex:1;padding:4px 8px;font-size:12px;" />
-              </div>
-              <div style="margin-left:4px;">
-                <span style="font-size:12px;color:var(--muted);">Files:</span>
-                <div *ngFor="let file of hint.files; let fi = index"
-                  style="display:flex;align-items:center;gap:4px;margin:4px 0;">
-                  <input [value]="file" (input)="onFileHintFileChange(project.path, hi, fi, $event)"
-                    placeholder="file path" style="flex:1;padding:3px 6px;font-size:12px;" />
-                  <button (click)="removeFileFromHint(project.path, hi, fi)" title="Remove file"
-                    style="padding:2px 6px;font-size:11px;">✕</button>
-                </div>
-                <button (click)="addFileToHint(project.path, hi)"
-                  style="padding:2px 8px;font-size:11px;margin-top:2px;">+ File</button>
-              </div>
-              <div style="display:flex;justify-content:flex-end;margin-top:6px;">
-                <button (click)="removeHint(project.path, hi)"
-                  style="padding:2px 8px;font-size:11px;color:var(--error);">✕ Remove</button>
-              </div>
-            </div>
-            <button (click)="addHint(project.path)" style="padding:4px 10px;font-size:12px;margin-top:4px;">+ Add
-              Keyword Mapping</button>
-          </details>
+      <details>
+        <summary class="settings-section-header">Connection / Model</summary>
+        <div class="settings-edit-field">
+          <label>LLM URL</label>
+          <input [value]="editSettings.llamaUrl || ''" (input)="onSettingsFieldChange('llamaUrl', $event)"
+            class="weaver-input" placeholder="http://localhost:11434" />
+        </div>
+        <div class="settings-edit-field">
+          <label>Model Name</label>
+          <input [value]="editSettings.llamaModel || ''" (input)="onSettingsFieldChange('llamaModel', $event)"
+            class="weaver-input" placeholder="medgemma:4b" />
         </div>
       </details>
+      <details>
+        <summary class="settings-section-header">Auto-queue</summary>
+        <div class="settings-check-field">
+          <label>
+            <input type="checkbox" [checked]="editSettings.autoQueue"
+              (change)="onSettingsCheckboxChange('autoQueue', $event)" />
+            Auto-queue: process next Todo card when one completes
+          </label>
+        </div>
+      </details>
+      <details>
+        <summary class="settings-section-header">Panels</summary>
+        <div class="settings-check-field">
+          <label><input type="checkbox" [checked]="editSettings.showAI"
+              (change)="onSettingsCheckboxChange('showAI', $event)" /> Show Ask AI panel</label>
+        </div>
+        <div class="settings-check-field">
+          <label><input type="checkbox" [checked]="editSettings.showTerminal"
+              (change)="onSettingsCheckboxChange('showTerminal', $event)" /> Show terminal panel</label>
+        </div>
+        <div class="settings-check-field">
+          <label><input type="checkbox" [checked]="editSettings.showKanban"
+              (change)="onSettingsCheckboxChange('showKanban', $event)" /> Show Kanban board</label>
+        </div>
+        <div class="settings-check-field">
+          <label><input type="checkbox" [checked]="editSettings.showCalendar"
+              (change)="onSettingsCheckboxChange('showCalendar', $event)" /> Show Calendar view</label>
+        </div>
+        <div class="settings-check-field">
+          <label><input type="checkbox" [checked]="editSettings.showIDE"
+              (change)="onSettingsCheckboxChange('showIDE', $event)" /> Show IDE</label>
+        </div>
+        <div class="settings-check-field">
+          <label><input type="checkbox" [checked]="editSettings.prByDefault"
+              (change)="onSettingsCheckboxChange('prByDefault', $event)" /> PR enabled by default</label>
+        </div>
+      </details>
+      <details>
+        <summary class="settings-section-header">Terminal Approval</summary>
+        <div class="settings-edit-field">
+          <label>Mode</label>
+          <select [value]="editSettings.terminalApprovalMode || 'approveAll'"
+            (change)="onSettingsFieldChange('terminalApprovalMode', $event)" class="weaver-select">
+            <option value="approveEach">Approve every command</option>
+            <option value="approveRoot">Approve command roots</option>
+            <option value="approveAll">Approve all commands</option>
+          </select>
+        </div>
+        <div class="settings-edit-field">
+          <label>Approved Roots</label>
+          <input [value]="editSettings.approvedTerminalRoots || ''"
+            (input)="onSettingsFieldChange('approvedTerminalRoots', $event)" class="weaver-input"
+            placeholder="git, dotnet, rg, npm" />
+        </div>
+        <div class="settings-edit-field">
+          <label>Disallowed Roots</label>
+          <input [value]="editSettings.disallowedTerminalRoots || ''"
+            (input)="onSettingsFieldChange('disallowedTerminalRoots', $event)" class="weaver-input"
+            placeholder="rm, sudo" />
+        </div>
+      </details>
+      <details>
+        <summary class="settings-section-header">Context Size Limits</summary>
+        <div class="settings-help-text">These limits control how much context the LLM receives. Higher values allow the agent to handle larger files but consume more tokens.</div>
+        <div class="settings-range-field">
+          <label>Max File Context Chars <span>{{editSettings.maxFileContextChars || 24000}}</span></label>
+          <input type="range" [value]="editSettings.maxFileContextChars || 24000" min="4000" max="64000" step="1000"
+            (input)="onSettingsFieldChange('maxFileContextChars', $event)" class="weaver-range" />
+        </div>
+        <div class="settings-range-field">
+          <label>Max Full File Tokens <span>{{editSettings.maxFullFileTokens || 4096}}</span></label>
+          <input type="range" [value]="editSettings.maxFullFileTokens || 4096" min="512" max="16384" step="512"
+            (input)="onSettingsFieldChange('maxFullFileTokens', $event)" class="weaver-range" />
+        </div>
+        <div class="settings-range-field">
+          <label>Max Context Chars <span>{{editSettings.maxContextChars || 22000}}</span></label>
+          <input type="range" [value]="editSettings.maxContextChars || 22000" min="4000" max="64000" step="1000"
+            (input)="onSettingsFieldChange('maxContextChars', $event)" class="weaver-range" />
+        </div>
+        <div class="settings-range-field">
+          <label>File Body Truncation Chars <span>{{editSettings.fileBodyTruncationChars || 8000}}</span></label>
+          <input type="range" [value]="editSettings.fileBodyTruncationChars || 8000" min="1000" max="32000" step="500"
+            (input)="onSettingsFieldChange('fileBodyTruncationChars', $event)" class="weaver-range" />
+        </div>
+        <div class="settings-range-field">
+          <label>Build Output Tail Chars <span>{{editSettings.buildOutputTailChars || 8000}}</span></label>
+          <input type="range" [value]="editSettings.buildOutputTailChars || 8000" min="1000" max="32000" step="500"
+            (input)="onSettingsFieldChange('buildOutputTailChars', $event)" class="weaver-range" />
+        </div>
+        <div class="settings-range-field">
+          <label>Default Max Tokens <span>{{editSettings.defaultMaxTokens || 2048}}</span></label>
+          <input type="range" [value]="editSettings.defaultMaxTokens || 2048" min="256" max="16384" step="256"
+            (input)="onSettingsFieldChange('defaultMaxTokens', $event)" class="weaver-range" />
+        </div>
+        <div class="settings-check-field">
+          <label><input type="checkbox" [checked]="editSettings.includeProjectSkeleton"
+              (change)="onSettingsCheckboxChange('includeProjectSkeleton', $event)" /> Include Project File Skeleton</label>
+          <span class="settings-help-text">adds project directory tree to discovery context</span>
+        </div>
+        <div class="settings-check-field">
+          <label><input type="checkbox" [checked]="editSettings.includeEditKnowledge"
+              (change)="onSettingsCheckboxChange('includeEditKnowledge', $event)" /> Include Edit Knowledge</label>
+          <span class="settings-help-text">do/dont/patterns from past edits</span>
+        </div>
+      </details>
+      <details>
+        <summary class="settings-section-header">Build Commands</summary>
+        <div class="settings-edit-field">
+          <label>Default Build Commands</label>
+          <input [value]="editSettings.buildCommands || ''" (input)="onSettingsFieldChange('buildCommands', $event)"
+            class="weaver-input" placeholder="npm run build" />
+        </div>
+      </details>
+      <details>
+        <summary class="settings-section-header">Default Project</summary>
+        <div class="settings-edit-field">
+          <input [value]="editSettings.defaultProject || ''" (input)="onSettingsFieldChange('defaultProject', $event)"
+            class="weaver-input" placeholder="Project path" />
+        </div>
+      </details>
+      <details>
+        <summary class="settings-section-header">File Hints</summary>
+        <div class="settings-help-text">Map keywords to files so the agent knows where to look. These are stored on the remote Weaver machine.</div>
+        <details *ngFor="let project of projects; let pi = index" style="margin-bottom:8px;">
+          <summary style="cursor:pointer;font-weight:600;">{{ project.name }}</summary>
+          <div *ngFor="let hint of fileHintsByProject(project.path); let hi = index"
+            style="border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <span style="font-size:12px;color:var(--muted);white-space:nowrap;">Keywords:</span>
+              <input [value]="hint.keywords" (input)="onFileHintKeywordsChange(project.path, hi, $event)"
+                placeholder="comma-separated keywords" style="flex:1;padding:4px 8px;font-size:12px;" />
+            </div>
+            <div style="margin-left:4px;">
+              <span style="font-size:12px;color:var(--muted);">Files:</span>
+              <div *ngFor="let file of hint.files; let fi = index"
+                style="display:flex;align-items:center;gap:4px;margin:4px 0;">
+                <input [value]="file" (input)="onFileHintFileChange(project.path, hi, fi, $event)"
+                  placeholder="file path" style="flex:1;padding:3px 6px;font-size:12px;" />
+                <button (click)="removeFileFromHint(project.path, hi, fi)" title="Remove file"
+                  style="padding:2px 6px;font-size:11px;">&#10005;</button>
+              </div>
+              <button (click)="addFileToHint(project.path, hi)"
+                style="padding:2px 8px;font-size:11px;margin-top:2px;">+ File</button>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+              <button (click)="removeHint(project.path, hi)"
+                style="padding:2px 8px;font-size:11px;color:var(--error);">&#10005; Remove</button>
+            </div>
+          </div>
+          <button (click)="addHint(project.path)" style="padding:4px 10px;font-size:12px;margin-top:4px;">+ Add Keyword Mapping</button>
+        </details>
+      </details>
       <div class="settings-actions">
-        <button (click)="saveSettingsRemote()" class="btn btn-primary" [disabled]="sendingSettings">Save &amp;
-          Send</button>
+        <button (click)="saveSettingsRemote()" class="btn btn-primary" [disabled]="sendingSettings">Save &amp; Send</button>
         <button (click)="closeSettingsPanel()" class="btn">Cancel</button>
       </div>
     </div>
