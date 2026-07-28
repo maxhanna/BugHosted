@@ -93,6 +93,7 @@
 
       <button class="primary-btn submit-btn" (click)="submitRecipe()">{{ editingRecipeId ? 'Update recipe' : 'Save
         recipe' }}</button>
+      <button class="ghost-btn cancel-btn" id="closeOverlay" (click)="cancelCreate()">Cancel</button>
     </div>
 
     <div *ngIf="isLoading && recipes.length === 0" class="empty-state">Loading recipes…</div>

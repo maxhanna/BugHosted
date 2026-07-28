@@ -137,6 +137,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     };
     this.selectedFiles = [];
     this.selectedTopics = [];
+    this.parentRef?.closeOverlay();
   }
 
   canEdit(recipe: Recipe): boolean {
