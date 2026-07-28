@@ -3,7 +3,7 @@
   <div class="recipe-shell">
     <div class="recipe-back-banner" *ngIf="viewingRecipeId">
       <span>Showing linked recipe</span>
-      <button class="ghost-btn" (click)="clearViewingRecipeId()">← Back to all recipes</button>
+      <button (click)="clearViewingRecipeId()">← Back to all recipes</button>
     </div>
 
     <div class="recipe-hero" *ngIf="!viewingRecipeId">
@@ -27,7 +27,7 @@
     <div *ngIf="isCreating" class="composer-card popupPanel">
       <div class="composer-header">
         <h3>{{ editingRecipeId ? 'Edit recipe' : 'Share a new recipe' }}</h3>
-        <button class="ghost-btn" (click)="cancelCreate()">Cancel</button>
+        <button (click)="cancelCreate()">Cancel</button>
       </div>
 
       <label>
@@ -44,11 +44,11 @@
       <div class="field-block">
         <div class="field-title-row">
           <span>Ingredients</span>
-          <button class="ghost-btn" type="button" (click)="addIngredient()">+ Add</button>
+          <button type="button" (click)="addIngredient()">+ Add</button>
         </div>
         <div class="inline-stack" *ngFor="let ingredient of form.ingredients; let i = index; trackBy: trackByIndex">
           <input type="text" [id]="'ingredient' + i" [(ngModel)]="form.ingredients[i]" placeholder="Ingredient" />
-          <button class="ghost-btn" type="button" (click)="removeIngredient(i)"
+          <button type="button" (click)="removeIngredient(i)"
             *ngIf="form.ingredients.length > 1">Remove</button>
         </div>
       </div>
@@ -56,11 +56,11 @@
       <div class="field-block">
         <div class="field-title-row">
           <span>Instructions</span>
-          <button class="ghost-btn" type="button" (click)="addInstruction()">+ Add</button>
+          <button type="button" (click)="addInstruction()">+ Add</button>
         </div>
         <div class="inline-stack" *ngFor="let instruction of form.instructions; let i = index; trackBy: trackByIndex">
           <textarea [id]="'instruction' + i" rows="2" [(ngModel)]="form.instructions[i]" placeholder="Step {{ i + 1 }}"></textarea>
-          <button class="ghost-btn" type="button" (click)="removeInstruction(i)"
+          <button type="button" (click)="removeInstruction(i)"
             *ngIf="form.instructions.length > 1">Remove</button>
         </div>
       </div>
@@ -76,11 +76,11 @@
       <div class="field-block">
         <div class="field-title-row">
           <span>External Links</span>
-          <button class="ghost-btn" type="button" (click)="addLink()">+ Add</button>
+          <button type="button" (click)="addLink()">+ Add</button>
         </div>
         <div class="inline-stack" *ngFor="let link of form.externalLinks; let i = index; trackBy: trackByIndex">
           <input type="url" [(ngModel)]="form.externalLinks[i]" placeholder="https://youtube.com/watch?v=..." />
-          <button class="ghost-btn" type="button" (click)="removeLink(i)">Remove</button>
+          <button type="button" (click)="removeLink(i)">Remove</button>
         </div>
       </div>
 
@@ -123,7 +123,7 @@
             [recipeAverageRating]="recipe.averageRating" [recipeRatingCount]="recipe.ratingCount"
             [readOnly]="!parentRef?.user?.id"></app-rating-stars>
 
-          <button class="ghost-btn" *ngIf="!isVideoOnlyRecipe(recipe)" (click)="toggleRecipeDetails(recipe.id)">
+          <button *ngIf="!isVideoOnlyRecipe(recipe)" (click)="toggleRecipeDetails(recipe.id)">
           {{ expandedRecipes.has(recipe.id) && expandedRecipes.get(recipe.id) ? 'Collapse' : 'Expand' }}
           </button>
 
@@ -158,7 +158,7 @@
           <div class="recipe-footer">
             <span>By {{ recipe.createdBy || 'a community cook' }}</span>
             <span>{{ recipe.createdAt | date:'mediumDate' }}</span>
-            <button class="ghost-btn" *ngIf="canEdit(recipe)" (click)="editRecipe(recipe)">Edit</button>
+            <button *ngIf="canEdit(recipe)" (click)="editRecipe(recipe)">Edit</button>
             <app-share-button [link]="'Recipe/' + recipe.id"></app-share-button>
           </div>
         </div>

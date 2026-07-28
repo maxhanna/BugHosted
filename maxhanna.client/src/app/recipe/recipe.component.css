@@ -57,8 +57,7 @@
   max-width: 650px;
 }
 
-.primary-btn,
-.ghost-btn {
+.primary-btn {
   border: none;
   border-radius: 999px;
   padding: 10px 14px;
@@ -66,19 +65,13 @@
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.primary-btn:hover,
-.ghost-btn:hover {
+.primary-btn:hover {
   transform: translateY(-1px);
 }
 
 .primary-btn {
   box-shadow: 0 8px 20px rgba(255, 94, 58, 0.3);
-}
-
-.ghost-btn {
-  background: rgba(255, 255, 255, 0.9);
-  color: #6b4f3b;
-}
+} 
 
 .recipe-toolbar {
   display: flex;
