@@ -1,11 +1,11 @@
-<div #observerTarget class="crawlerResultContainer">
+﻿<div #observerTarget class="crawlerResultContainer">
   <div *ngIf="!loaded && !loadingDetail" class="resultPlaceholder">
-    <div class="placeholderTitle" *ngIf="!displaySocialResults">{{ result.title || 'Loading...' }}</div>
+    <div class="placeholderTitle" *ngIf="(result.title || result.url) && !displaySocialResults">{{ (result.title || result.url) }}</div>
     <a *ngIf="displaySocialResults" (click)="visit(result.url)" [attr.href]="!onlySearch ? result.url : null"
       [attr.target]="!onlySearch ? '_blank' : null">
-      {{ result.title || 'Loading...' }} 
+      {{ result.title || result.url || 'Loading...' }} 
     </a>
-    <div class="placeholderUrl">{{ result.url }}</div>
+    <div class="placeholderUrl" *ngIf="result.title">{{ result.url }}</div>
   </div>
   <div *ngIf="loadingDetail" class="resultLoading">
     <app-loading-spinner [icon]="'🕸️'"></app-loading-spinner>

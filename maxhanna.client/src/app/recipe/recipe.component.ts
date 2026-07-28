@@ -1,4 +1,5 @@
 ﻿import { Component, Input, OnInit, ViewChild } from '@angular/core';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { firstValueFrom } from 'rxjs';
 import { ChildComponent } from '../child.component';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
@@ -40,7 +41,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     externalLinks: []
   };
 
-  constructor(private recipeService: RecipeService, private userEventService: UserEventService) {
+  constructor(private recipeService: RecipeService, private userEventService: UserEventService, private sanitizer: DomSanitizer) {
     super();
   }
 
@@ -163,7 +164,8 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   }
 
   addIngredient(): void {
-    this.form.ingredients.push('');
+  this.form.ingredients.push('');
+  setTimeout(() => this.scrollToNewInput(this.form.ingredients.length -1), 0);
   }
 
   removeIngredient(index: number): void {
@@ -171,7 +173,8 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   }
 
   addInstruction(): void {
-    this.form.instructions.push('');
+  this.form.instructions.push('');
+  setTimeout(() => this.scrollToNewInput(this.form.instructions.length -1), 0);
   }
 
   removeInstruction(index: number): void {
@@ -238,6 +241,23 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     });
   }
  
+  getFirstYouTubeId(recipe: Recipe): string | null {
+    for (const link of recipe.externalLinks) {
+      if (this.parentRef?.isYoutubeUrl(link)) {
+        return this.parentRef?.getYouTubeVideoId(link) || null;
+      }
+    }
+    return null;
+  }
+
+  getYouTubeUrl(recipe: Recipe): SafeResourceUrl | null {
+    const id = this.getFirstYouTubeId(recipe);
+    if (!id) return null;
+    return this.sanitizer.bypassSecurityTrustResourceUrl(
+      `https://www.youtube.com/embed/${id}?autoplay=1&mute=1`
+    );
+  }
+
   trackByRecipeId(index: number, recipe: Recipe): number {
     return recipe.id ?? index;
   }
@@ -249,22 +269,5 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   toggleRecipeDetails(recipeId: number): void {
       const isExpanded = this.expandedRecipes.get(recipeId);
       this.expandedRecipes.set(recipeId, !isExpanded);
-      if (!isExpanded) {
-        const recipe = this.recipes.find(r => r.id === recipeId);
-        if (recipe?.externalLinks?.length) {
-          for (const link of recipe.externalLinks) {
-            if (this.parentRef?.isYoutubeUrl(link)) {
-              const id = this.parentRef?.getYouTubeVideoId(link);
-              if (id) {
-                setTimeout(() => {
-                  const el = document.getElementById('recipeYtIframe' + recipeId) as HTMLIFrameElement | null;
-                  if (el) el.src = `https://www.youtube.com/embed/${id}?autoplay=1`;
-                });
-                return;
-              }
-            }
-          }
-        }
-      }
   }
 }

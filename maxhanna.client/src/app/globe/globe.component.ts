@@ -309,10 +309,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     private crawlerService: CrawlerService
   ) { }
  
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
+    await this.loadUsersWithLocations();
     this.loadStories();
     this.loadNewsPins();
-    this.loadUsersWithLocations();
     this.loadFlights();
     this.loadAllFlights();
     this.filterCoordinates(); 
