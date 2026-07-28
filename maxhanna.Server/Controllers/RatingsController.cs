@@ -98,14 +98,49 @@ namespace maxhanna.Server.Controllers
                     }
                 }
 
+                // If we have a user and a recipe rating, try to update existing rating
+                if (rating.User != null && rating.RecipeId.HasValue)
+                {
+                    int userId = rating.User.Id ?? 0;
+                    const string selectRecipeSql = @"SELECT rating FROM ratings WHERE user_id = @UserId AND recipe_id = @RecipeId LIMIT 1";
+                    using var sel3 = new MySqlCommand(selectRecipeSql, conn);
+                    sel3.Parameters.AddWithValue("@UserId", userId);
+                    sel3.Parameters.AddWithValue("@RecipeId", rating.RecipeId.Value);
+                    var existingObj3 = await sel3.ExecuteScalarAsync();
+                    if (existingObj3 != null && existingObj3 != DBNull.Value)
+                    {
+                        var existingRating3 = Convert.ToInt32(existingObj3);
+                        if (existingRating3 == rating.Value)
+                        {
+                            const string deleteRecipeSql = @"DELETE FROM ratings WHERE user_id = @UserId AND recipe_id = @RecipeId";
+                            using var del3 = new MySqlCommand(deleteRecipeSql, conn);
+                            del3.Parameters.AddWithValue("@UserId", userId);
+                            del3.Parameters.AddWithValue("@RecipeId", rating.RecipeId.Value);
+                            await del3.ExecuteNonQueryAsync();
+                            return Ok(new { success = true, deleted = true });
+                        }
+                        else
+                        {
+                            const string updateRecipeSql = @"UPDATE ratings SET rating = @Rating, timestamp = UTC_TIMESTAMP() WHERE user_id = @UserId AND recipe_id = @RecipeId";
+                            using var upd3 = new MySqlCommand(updateRecipeSql, conn);
+                            upd3.Parameters.AddWithValue("@UserId", userId);
+                            upd3.Parameters.AddWithValue("@RecipeId", rating.RecipeId.Value);
+                            upd3.Parameters.AddWithValue("@Rating", rating.Value);
+                            var rows3 = await upd3.ExecuteNonQueryAsync();
+                            if (rows3 > 0) return Ok(new { success = true, replaced = true });
+                        }
+                    }
+                }
+
                 // No existing rating found (or no identifying keys), insert a new row
                 int insertUserId = rating.User?.Id ?? 0;
-                string sql = @"INSERT INTO ratings (user_id, rating, file_id, search_id, timestamp) VALUES (@UserId, @Rating, @FileId, @SearchId, UTC_TIMESTAMP())";
+                string sql = @"INSERT INTO ratings (user_id, rating, file_id, search_id, recipe_id, timestamp) VALUES (@UserId, @Rating, @FileId, @SearchId, @RecipeId, UTC_TIMESTAMP())";
                 using var cmd = new MySqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("@UserId", insertUserId);
                 cmd.Parameters.AddWithValue("@Rating", rating.Value);
                 cmd.Parameters.AddWithValue("@FileId", rating.FileId ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("@SearchId", rating.SearchId ?? (object)DBNull.Value);
+                cmd.Parameters.AddWithValue("@RecipeId", rating.RecipeId ?? (object)DBNull.Value);
 
                 await cmd.ExecuteNonQueryAsync();
                 return Ok(new { success = true, replaced = false });
@@ -125,7 +160,7 @@ namespace maxhanna.Server.Controllers
             using var conn = new MySqlConnection(connectionString);
             await conn.OpenAsync();
             string sql = @"
-                SELECT r.id, r.rating, r.timestamp, r.file_id, r.search_id,
+                SELECT r.id, r.rating, r.timestamp, r.file_id, r.search_id, r.recipe_id,
                        COALESCE(u.id, 0) as user_id,
                        COALESCE(u.username, 'anonymous') as username,
                        u.pass, u.created, u.last_seen,
@@ -165,6 +200,7 @@ namespace maxhanna.Server.Controllers
                     Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp")),
                     FileId = reader.IsDBNull(reader.GetOrdinal("file_id")) ? null : reader.GetInt32(reader.GetOrdinal("file_id")),
                     SearchId = reader.IsDBNull(reader.GetOrdinal("search_id")) ? null : reader.GetInt32(reader.GetOrdinal("search_id")),
+                    RecipeId = reader.IsDBNull(reader.GetOrdinal("recipe_id")) ? null : reader.GetInt32(reader.GetOrdinal("recipe_id")),
                     User = user
                 };
                 ratings.Add(rating);
@@ -180,7 +216,7 @@ namespace maxhanna.Server.Controllers
             using var conn = new MySqlConnection(connectionString);
             await conn.OpenAsync();
             string sql = @"
-                SELECT r.id, r.rating, r.timestamp, r.file_id, r.search_id,
+                SELECT r.id, r.rating, r.timestamp, r.file_id, r.search_id, r.recipe_id,
                        COALESCE(u.id, 0) as user_id,
                        COALESCE(u.username, 'anonymous') as username,
                        u.pass, u.created, u.last_seen,
@@ -220,6 +256,7 @@ namespace maxhanna.Server.Controllers
                     Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp")),
                     FileId = reader.IsDBNull(reader.GetOrdinal("file_id")) ? null : reader.GetInt32(reader.GetOrdinal("file_id")),
                     SearchId = reader.IsDBNull(reader.GetOrdinal("search_id")) ? null : reader.GetInt32(reader.GetOrdinal("search_id")),
+                    RecipeId = reader.IsDBNull(reader.GetOrdinal("recipe_id")) ? null : reader.GetInt32(reader.GetOrdinal("recipe_id")),
                     User = user
                 };
                 ratings.Add(rating);
@@ -235,7 +272,7 @@ namespace maxhanna.Server.Controllers
             using var conn = new MySqlConnection(connectionString);
             await conn.OpenAsync();
             string sql = @"
-                SELECT r.id, r.rating, r.timestamp, r.file_id, r.search_id,
+                SELECT r.id, r.rating, r.timestamp, r.file_id, r.search_id, r.recipe_id,
                        COALESCE(u.id, 0) as user_id,
                        COALESCE(u.username, 'anonymous') as username,
                        u.pass, u.created, u.last_seen,
@@ -275,6 +312,63 @@ namespace maxhanna.Server.Controllers
                     Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp")),
                     FileId = reader.IsDBNull(reader.GetOrdinal("file_id")) ? null : reader.GetInt32(reader.GetOrdinal("file_id")),
                     SearchId = reader.IsDBNull(reader.GetOrdinal("search_id")) ? null : reader.GetInt32(reader.GetOrdinal("search_id")),
+                    RecipeId = reader.IsDBNull(reader.GetOrdinal("recipe_id")) ? null : reader.GetInt32(reader.GetOrdinal("recipe_id")),
+                    User = user
+                };
+                ratings.Add(rating);
+            }
+            return Ok(ratings);
+        }
+
+        [HttpPost("/Ratings/GetByRecipe")]
+        public async Task<IActionResult> GetByRecipe([FromBody] int recipeId)
+        {
+            var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+            var ratings = new List<Rating>();
+            using var conn = new MySqlConnection(connectionString);
+            await conn.OpenAsync();
+            string sql = @"
+                SELECT r.id, r.rating, r.timestamp, r.file_id, r.search_id, r.recipe_id,
+                       COALESCE(u.id, 0) as user_id,
+                       COALESCE(u.username, 'anonymous') as username,
+                       u.pass, u.created, u.last_seen,
+                       udp.file_id as display_file_id,
+                       udp.tag_background_file_id as tag_background_file_id
+                FROM ratings r
+                LEFT JOIN users u ON r.user_id = u.id
+                LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
+                WHERE r.recipe_id = @RecipeId
+                ORDER BY r.timestamp DESC
+                LIMIT 50
+            ";
+            using var cmd = new MySqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@RecipeId", recipeId);
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                FileEntry? displayPic = null;
+                if (!reader.IsDBNull(reader.GetOrdinal("display_file_id"))) {
+                    displayPic = new FileEntry(Convert.ToInt32(reader["display_file_id"]));
+                }
+                FileEntry? backgroundPic = null;
+                if (!reader.IsDBNull(reader.GetOrdinal("tag_background_file_id"))) {
+                    backgroundPic = new FileEntry(Convert.ToInt32(reader["tag_background_file_id"]));
+                }
+                var user = new maxhanna.Server.Controllers.DataContracts.Users.User {
+                    Id = reader.GetInt32(reader.GetOrdinal("user_id")),
+                    Username = reader.GetString(reader.GetOrdinal("username")),
+                    DisplayPictureFile = displayPic,
+                    ProfileBackgroundPictureFile = backgroundPic,
+                    LastSeen = reader.IsDBNull(reader.GetOrdinal("last_seen")) ? (DateTime?)null : reader.GetDateTime(reader.GetOrdinal("last_seen"))
+                };
+                var rating = new Rating
+                {
+                    Id = reader.GetInt32(reader.GetOrdinal("id")),
+                    Value = reader.GetInt32(reader.GetOrdinal("rating")),
+                    Timestamp = reader.GetDateTime(reader.GetOrdinal("timestamp")),
+                    FileId = reader.IsDBNull(reader.GetOrdinal("file_id")) ? null : reader.GetInt32(reader.GetOrdinal("file_id")),
+                    SearchId = reader.IsDBNull(reader.GetOrdinal("search_id")) ? null : reader.GetInt32(reader.GetOrdinal("search_id")),
+                    RecipeId = reader.IsDBNull(reader.GetOrdinal("recipe_id")) ? null : reader.GetInt32(reader.GetOrdinal("recipe_id")),
                     User = user
                 };
                 ratings.Add(rating);

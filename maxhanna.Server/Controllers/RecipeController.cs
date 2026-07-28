@@ -17,6 +17,8 @@ public class RecipeDto
     public List<string> ExternalLinks { get; set; } = new();
     public string CreatedBy { get; set; } = "Community cook";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public double AverageRating { get; set; }
+    public int RatingCount { get; set; }
 }
 
 public class RecipeCreateRequest
@@ -53,17 +55,21 @@ public class RecipeController : ControllerBase
         await using var connection = new MySqlConnection(_connectionString);
         await connection.OpenAsync();
 
-        var query = "SELECT id, user_id, name, description, ingredients, instructions, tags, image_file_ids, external_links, created_by, created_at FROM recipes";
+        var query = @"SELECT r.id, r.user_id, r.name, r.description, r.ingredients, r.instructions, r.tags, r.image_file_ids, r.external_links, r.created_by, r.created_at,
+                       COALESCE(AVG(rat.rating), 0) AS average_rating,
+                       COUNT(rat.id) AS rating_count
+                FROM recipes r
+                LEFT JOIN ratings rat ON rat.recipe_id = r.id";
         var parameters = new List<MySqlParameter>();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
-            query += " WHERE CAST(id AS CHAR) LIKE @term OR LOWER(name) LIKE @term OR LOWER(description) LIKE @term OR LOWER(ingredients) LIKE @term OR LOWER(tags) LIKE @term OR LOWER(instructions) LIKE @term";
+            query += " WHERE CAST(r.id AS CHAR) LIKE @term OR LOWER(r.name) LIKE @term OR LOWER(r.description) LIKE @term OR LOWER(r.ingredients) LIKE @term OR LOWER(r.tags) LIKE @term OR LOWER(r.instructions) LIKE @term";
             parameters.Add(new MySqlParameter("@term", $"%{term.ToLowerInvariant()}%"));
         }
 
-        query += " ORDER BY created_at DESC";
+        query += " GROUP BY r.id ORDER BY r.created_at DESC";
 
         await using var command = new MySqlCommand(query, connection);
         foreach (var parameter in parameters)
@@ -87,7 +93,9 @@ public class RecipeController : ControllerBase
                 ImageFileIds = ParseIntList(reader, "image_file_ids"),
                 ExternalLinks = ParseList(reader, "external_links"),
                 CreatedBy = reader.IsDBNull(reader.GetOrdinal("created_by")) ? "Community cook" : reader.GetString(reader.GetOrdinal("created_by")),
-                CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at"))
+                CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
+                AverageRating = reader.IsDBNull(reader.GetOrdinal("average_rating")) ? 0 : Convert.ToDouble(reader["average_rating"]),
+                RatingCount = reader.IsDBNull(reader.GetOrdinal("rating_count")) ? 0 : reader.GetInt32(reader.GetOrdinal("rating_count"))
             });
         }
 
@@ -184,7 +192,13 @@ public class RecipeController : ControllerBase
 
         await updateCmd.ExecuteNonQueryAsync();
 
-        var getQuery = "SELECT id, user_id, name, description, ingredients, instructions, tags, image_file_ids, external_links, created_by, created_at FROM recipes WHERE id = @id";
+        var getQuery = @"SELECT r.id, r.user_id, r.name, r.description, r.ingredients, r.instructions, r.tags, r.image_file_ids, r.external_links, r.created_by, r.created_at,
+                         COALESCE(AVG(rat.rating), 0) AS average_rating,
+                         COUNT(rat.id) AS rating_count
+                  FROM recipes r
+                  LEFT JOIN ratings rat ON rat.recipe_id = r.id
+                  WHERE r.id = @id
+                  GROUP BY r.id";
         await using var getCmd = new MySqlCommand(getQuery, connection);
         getCmd.Parameters.AddWithValue("@id", id);
         await using var reader = await getCmd.ExecuteReaderAsync();
@@ -202,7 +216,9 @@ public class RecipeController : ControllerBase
                 ImageFileIds = ParseIntList(reader, "image_file_ids"),
                 ExternalLinks = ParseList(reader, "external_links"),
                 CreatedBy = reader.IsDBNull(reader.GetOrdinal("created_by")) ? "Community cook" : reader.GetString(reader.GetOrdinal("created_by")),
-                CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at"))
+                CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
+                AverageRating = reader.IsDBNull(reader.GetOrdinal("average_rating")) ? 0 : Convert.ToDouble(reader["average_rating"]),
+                RatingCount = reader.IsDBNull(reader.GetOrdinal("rating_count")) ? 0 : reader.GetInt32(reader.GetOrdinal("rating_count"))
             });
         }
 

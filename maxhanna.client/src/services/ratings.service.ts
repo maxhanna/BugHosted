@@ -8,6 +8,7 @@ export interface Rating {
   timestamp?: string;
   file_id?: number;
   search_id?: number;
+  recipe_id?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -48,9 +49,26 @@ export class RatingsService {
       return (error as Error).message;
     }
   }
-  async submitRating(user: User, value: number, fileId?: number, searchId?: number): Promise<any> {
-    if (!fileId && !searchId) {
-      console.error('submitRating called without fileId or searchId');
+  async getRatingsByRecipe(recipeId: number): Promise<Rating[] | undefined> {
+    try {
+      const response = await fetch('/ratings/getbyrecipe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(recipeId),
+      });
+      if (!response.ok) {
+        throw new Error(`Error fetching ratings by recipe: ${response.statusText}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to fetch ratings by recipe', error);
+      return undefined;
+    }
+  }
+
+  async submitRating(user: User, value: number, fileId?: number, searchId?: number, recipeId?: number): Promise<any> {
+    if (!fileId && !searchId && !recipeId) {
+      console.error('submitRating called without fileId, searchId, or recipeId');
       return null;
     }
     try {
@@ -61,7 +79,8 @@ export class RatingsService {
           User: user,
           Value: value,
           FileId: fileId ?? null,
-          SearchId: searchId ?? null
+          SearchId: searchId ?? null,
+          RecipeId: recipeId ?? null
         })
       });
       if (!res.ok) {

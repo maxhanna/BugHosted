@@ -105,7 +105,8 @@
       <article class="recipe-card" *ngFor="let recipe of filteredRecipes; trackBy: trackByRecipeId">
         <app-media-viewer *ngIf="recipe.imageFileIds[0]" [fileId]="recipe.imageFileIds[0]"
           [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false" [inputtedParentRef]="parentRef"></app-media-viewer>
-        <div *ngIf="!recipe.imageFileIds[0] && getYouTubeUrl(recipe) as ytUrl" class="recipe-video">
+        <div *ngIf="!recipe.imageFileIds[0] && getYouTubeUrl(recipe) as ytUrl" class="recipe-video"
+          [class.recipe-video-full]="isVideoOnlyRecipe(recipe)">
           <iframe [src]="ytUrl" width="100%" height="220" frameborder="0" allow="autoplay; encrypted-media"
             allowfullscreen></iframe>
         </div>
@@ -116,7 +117,12 @@
           </div>
           <p class="recipe-description">{{ recipe.description }}</p>
 
-          <button class="ghost-btn" (click)="toggleRecipeDetails(recipe.id)">
+          <app-rating-stars [rating]="getUserRating(recipe)" [inputtedParentRef]="parentRef"
+            [componentType]="'recipe'" [ratingRecipeId]="recipe.id"
+            [recipeAverageRating]="recipe.averageRating" [recipeRatingCount]="recipe.ratingCount"
+            [readOnly]="!parentRef?.user?.id"></app-rating-stars>
+
+          <button class="ghost-btn" *ngIf="!isVideoOnlyRecipe(recipe)" (click)="toggleRecipeDetails(recipe.id)">
           {{ expandedRecipes.has(recipe.id) && expandedRecipes.get(recipe.id) ? 'Collapse' : 'Expand' }}
           </button>
 
@@ -134,7 +140,7 @@
             </ol>
           </div>
 
-          <div class="recipe-section" *ngIf="expandedRecipes.get(recipe.id) && recipe.externalLinks?.length">
+          <div class="recipe-section" *ngIf="(expandedRecipes.get(recipe.id) || isVideoOnlyRecipe(recipe)) && recipe.externalLinks?.length">
             <h4>Links</h4>
             <ul class="recipe-links">
               <li *ngFor="let link of recipe.externalLinks">

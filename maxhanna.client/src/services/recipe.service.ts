@@ -14,6 +14,8 @@ export interface Recipe {
   externalLinks: string[];
   createdBy: string;
   createdAt: string;
+  averageRating?: number;
+  ratingCount?: number;
 }
 
 export interface RecipePayload {

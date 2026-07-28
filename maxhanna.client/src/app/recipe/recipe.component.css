@@ -150,7 +150,8 @@ label {
 
 .recipe-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(48vw, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(48dvw, 1fr));
   gap: 16px; 
 }
 
@@ -163,6 +164,11 @@ label {
   width: 100%;
   height: 220px;
   object-fit: cover;
+}
+
+.recipe-video-full iframe {
+  height: auto;
+  aspect-ratio: 16 / 9;
 }
 
 .recipe-card-body {

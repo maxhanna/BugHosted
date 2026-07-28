@@ -20,12 +20,12 @@
   </ng-container>
 </span>
 
-<span *ngIf="ratingFile && ratingFile.ratingCount && !showRatingValueOnly"
+<span *ngIf="!showRatingValueOnly && (ratingFile?.ratingCount || recipeRatingCount)"
   class="cursorPointer"
   (click)="openRatingsPanel()"
 >
-  <span class="linkFontColor linkTextDecoration">{{rating.value | number:'1.1-1'}}</span> 
-  (<span class="linkFontColor linkTextDecoration">{{ratingFile.ratingCount}}</span>)
+  <span class="linkFontColor linkTextDecoration">{{(recipeAverageRating ?? rating.value) | number:'1.1-1'}}</span> 
+  (<span class="linkFontColor linkTextDecoration">{{recipeRatingCount ?? ratingFile?.ratingCount}}</span>)
 </span>
 
 <!-- Ratings Popup Panel -->

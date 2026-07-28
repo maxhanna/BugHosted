@@ -17,7 +17,10 @@ export class RatingStarsComponent implements OnInit {
   @Input() readOnly = false;
   @Input() ratingFile?: FileEntry | MetaData;
   @Input() showRatingValueOnly = false;
-  @Input() componentType: 'file' | 'search' = 'file';
+  @Input() componentType: 'file' | 'search' | 'recipe' = 'file';
+  @Input() ratingRecipeId?: number;
+  @Input() recipeAverageRating?: number;
+  @Input() recipeRatingCount?: number;
   @Output() rated = new EventEmitter<number>();
   @Output() panelOpened = new EventEmitter<void>();
   @Output() panelClosed = new EventEmitter<void>();
@@ -31,7 +34,11 @@ export class RatingStarsComponent implements OnInit {
   isPanelOpeningLoading = false;
 
   ngOnInit() {
-    this.tmpFileId = this.ratingFile?.id;
+    if (this.componentType === 'recipe' && this.ratingRecipeId) {
+      this.tmpFileId = this.ratingRecipeId;
+    } else {
+      this.tmpFileId = this.ratingFile?.id;
+    }
   }
 
   get isCurrentUser() {
@@ -90,7 +97,9 @@ export class RatingStarsComponent implements OnInit {
         try {
           const ratings = this.componentType === 'file'
             ? await this.ratingsService.getRatingsByFile(this.tmpFileId) as Rating[] | undefined
-            : await this.ratingsService.getRatingsBySearch(this.tmpFileId) as Rating[] | undefined;
+            : this.componentType === 'recipe'
+              ? await this.ratingsService.getRatingsByRecipe(this.tmpFileId) as Rating[] | undefined
+              : await this.ratingsService.getRatingsBySearch(this.tmpFileId) as Rating[] | undefined;
           if (this.ratingFile) {
             this.ratingFile.ratings = Array.isArray(ratings) ? ratings : [];
           }
@@ -132,8 +141,9 @@ export class RatingStarsComponent implements OnInit {
       await this.ratingsService.submitRating(
         user, 
         star, 
-        this.componentType === 'file' ? this.tmpFileId : undefined, 
-        this.componentType != 'file' ? this.tmpFileId : undefined
+        this.componentType === 'file' ? this.tmpFileId : undefined,
+        this.componentType === 'search' ? this.tmpFileId : undefined,
+        this.componentType === 'recipe' ? this.tmpFileId : undefined
       );
       // If this is the ratings panel file, recalculate average from ratings array
       if (this.tmpFileId && Array.isArray(ratings)) 

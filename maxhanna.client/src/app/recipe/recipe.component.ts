@@ -2,6 +2,8 @@
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { firstValueFrom } from 'rxjs';
 import { ChildComponent } from '../child.component';
+import { User } from '../../services/datacontracts/user/user';
+import { Rating } from '../../services/ratings.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { RecipePayload, RecipeService, Recipe } from '../../services/recipe.service';
@@ -245,6 +247,22 @@ export class RecipeComponent extends ChildComponent implements OnInit {
         alert('Could not save the recipe right now.');
       }
     });
+  }
+
+  getUserRating(recipe: Recipe): Rating {
+    const uid = this.parentRef?.user?.id ?? 0;
+    return {
+      value: 0,
+      user: uid > 0 ? new User(uid, this.parentRef?.user?.username ?? '') : undefined
+    };
+  }
+
+  isVideoOnlyRecipe(recipe: Recipe): boolean {
+    return !recipe.description?.trim()
+      && (!recipe.ingredients?.length || recipe.ingredients.every(i => !i.trim()))
+      && (!recipe.instructions?.length || recipe.instructions.every(i => !i.trim()))
+      && !recipe.imageFileIds?.length
+      && !!this.getFirstYouTubeId(recipe);
   }
 
   getFirstYouTubeId(recipe: Recipe): string | null {

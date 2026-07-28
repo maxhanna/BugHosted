@@ -10,6 +10,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Ratings
         public DateTime Timestamp { get; set; }
         public int? FileId { get; set; }
         public int? SearchId { get; set; }
+        public int? RecipeId { get; set; }
         public User? User { get; set; }
     }
 }
