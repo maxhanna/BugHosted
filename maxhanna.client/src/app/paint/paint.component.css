@@ -138,14 +138,12 @@
 }
 
 .paintCanvas {
-  border: 1px solid var(--border-color, #555);
-  cursor: crosshair;
-  display: block;
-  image-rendering: pixelated;
-  max-width: 100%;
-  max-height: calc(100vh - 140px);
-  object-fit: contain;
-  touch-action: none;
+    border: 1px solid var(--border-color, #555);
+    cursor: crosshair;
+    display: block;
+    image-rendering: pixelated;
+    object-fit: contain;
+    touch-action: none;
 }
 
 .overlayCanvas {

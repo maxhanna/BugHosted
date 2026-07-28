@@ -121,11 +121,23 @@ export class PaintComponent extends ChildComponent {
   private getPos(e: PointerEvent): { x: number; y: number } {
     const canvas = this.canvasRef.nativeElement;
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    const imgW = canvas.width;
+    const imgH = canvas.height;
+    const containerRatio = rect.width / rect.height;
+    const imgRatio = imgW / imgH;
+    let renderW: number, renderH: number, offsetX = 0, offsetY = 0;
+    if (imgRatio > containerRatio) {
+      renderW = rect.width;
+      renderH = rect.width / imgRatio;
+      offsetY = (rect.height - renderH) / 2;
+    } else {
+      renderH = rect.height;
+      renderW = rect.height * imgRatio;
+      offsetX = (rect.width - renderW) / 2;
+    }
     return {
-      x: (e.clientX - rect.left) * scaleX / this.zoom,
-      y: (e.clientY - rect.top) * scaleY / this.zoom
+      x: ((e.clientX - rect.left - offsetX) * (imgW / renderW)) / this.zoom,
+      y: ((e.clientY - rect.top - offsetY) * (imgH / renderH)) / this.zoom
     };
   }
 
@@ -681,15 +693,19 @@ export class PaintComponent extends ChildComponent {
     const nw = parseInt(w, 10);
     const nh = parseInt(h, 10);
     if (isNaN(nw) || isNaN(nh) || nw < this.canvasMinW || nh < this.canvasMinH) return;
-    this.canvasWidth = nw;
-    this.canvasHeight = nh;
     const canvas = this.canvasRef.nativeElement;
+    const imageData = this.ctx.getImageData(0, 0, canvas.width, canvas.height);
     canvas.width = nw;
     canvas.height = nh;
+    this.canvasWidth = nw;
+    this.canvasHeight = nh;
+    this.ctx = canvas.getContext('2d')!;
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.fillRect(0, 0, nw, nh);
+    this.ctx.putImageData(imageData, 0, 0);
     const overlay = this.overlayRef.nativeElement;
     overlay.width = nw;
     overlay.height = nh;
-    this.ctx = canvas.getContext('2d')!;
     this.overlayCtx = overlay.getContext('2d')!;
     this.clearSelection();
     this.saveState();
@@ -708,14 +724,21 @@ export class PaintComponent extends ChildComponent {
     if (!this.isResizing) return;
     const dx = e.clientX - this.resizeX;
     const dy = e.clientY - this.resizeY;
-    this.canvasWidth = Math.max(this.canvasMinW, this.resizeStartW + dx);
-    this.canvasHeight = Math.max(this.canvasMinH, this.resizeStartH + dy);
+    const newW = Math.max(this.canvasMinW, this.resizeStartW + dx);
+    const newH = Math.max(this.canvasMinH, this.resizeStartH + dy);
     const canvas = this.canvasRef.nativeElement;
-    canvas.width = this.canvasWidth;
-    canvas.height = this.canvasHeight;
+    const imageData = this.ctx.getImageData(0, 0, canvas.width, canvas.height);
+    canvas.width = newW;
+    canvas.height = newH;
+    this.canvasWidth = newW;
+    this.canvasHeight = newH;
+    this.ctx.fillStyle = '#ffffff';
+    this.ctx.fillRect(0, 0, newW, newH);
+    this.ctx.putImageData(imageData, 0, 0);
     const overlay = this.overlayRef.nativeElement;
-    overlay.width = this.canvasWidth;
-    overlay.height = this.canvasHeight;
+    overlay.width = newW;
+    overlay.height = newH;
+    this.overlayCtx = overlay.getContext('2d')!;
     this.restoreOverlay();
   }
 
