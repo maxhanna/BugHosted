@@ -48,7 +48,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   async ngOnInit() {
     await this.loadRecipes();
     this.recipes.forEach(recipe => {
-      if(!this.expandedRecipes.has(recipe.id)) {
+      if (!this.expandedRecipes.has(recipe.id)) {
         this.expandedRecipes.set(recipe.id, false);
       } else {
         const currentStatus = this.expandedRecipes.get(recipe.id) ?? false;
@@ -164,8 +164,8 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   }
 
   addIngredient(): void {
-  this.form.ingredients.push('');
-  setTimeout(() => this.scrollToNewInput(this.form.ingredients.length -1), 0);
+    this.form.ingredients.push('');
+    setTimeout(() => this.scrollToNewInput('ingredient', this.form.ingredients.length - 1), 0);
   }
 
   removeIngredient(index: number): void {
@@ -173,8 +173,14 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   }
 
   addInstruction(): void {
-  this.form.instructions.push('');
-  setTimeout(() => this.scrollToNewInput(this.form.instructions.length -1), 0);
+    this.form.instructions.push('');
+    setTimeout(() => this.scrollToNewInput('instruction', this.form.instructions.length - 1), 0);
+  }
+
+  scrollToNewInput(type: 'ingredient' | 'instruction', index: number) {
+    setTimeout(() => {
+      document.getElementById(type + index)?.scrollIntoView();
+    }, 50);
   }
 
   removeInstruction(index: number): void {
@@ -240,7 +246,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
       }
     });
   }
- 
+
   getFirstYouTubeId(recipe: Recipe): string | null {
     for (const link of recipe.externalLinks) {
       if (this.parentRef?.isYoutubeUrl(link)) {
@@ -267,7 +273,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   }
 
   toggleRecipeDetails(recipeId: number): void {
-      const isExpanded = this.expandedRecipes.get(recipeId);
-      this.expandedRecipes.set(recipeId, !isExpanded);
+    const isExpanded = this.expandedRecipes.get(recipeId);
+    this.expandedRecipes.set(recipeId, !isExpanded);
   }
 }
