@@ -70,7 +70,7 @@
           <span>Tags</span>
         </div>
         <app-topics [isDropdown]="true" [user]="parentRef?.user" [parent]="parentRef" [attachedTopics]="selectedTopics"
-          (topicAdded)="onTopicsChanged($event)"></app-topics>
+          [preventClosingOverlay]="true" (topicAdded)="onTopicsChanged($event)"></app-topics>
       </div>
 
       <div class="field-block">
