@@ -307,6 +307,8 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       'trophy': 'Trophies Earned',
       'youtube': 'Viewed Youtube Video',
       'link': 'Visited External Link',
+      'recipe_added': 'Recipes Added',
+      'recipe_edited': 'Recipes Edited',
       'wordler_win': 'Wordler Wins',
       'weaver_card_added': 'Weaver Cards Created',
       'weaver_card_created': 'Weaver Cards Created',
