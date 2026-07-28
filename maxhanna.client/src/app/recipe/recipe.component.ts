@@ -1,5 +1,4 @@
 ﻿import { Component, Input, OnInit, ViewChild } from '@angular/core';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ChildComponent } from '../child.component';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
@@ -40,7 +39,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     externalLinks: []
   };
 
-  constructor(private recipeService: RecipeService, private userEventService: UserEventService, private sanitizer: DomSanitizer) {
+  constructor(private recipeService: RecipeService, private userEventService: UserEventService) {
     super();
   }
 
@@ -199,17 +198,6 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     this.parentRef?.visitExternalLink(url);
   }
 
-  getFirstYouTubeEmbedUrl(links: string[]): SafeResourceUrl | null {
-    if (!links?.length) return null;
-    for (const link of links) {
-      if (this.parentRef?.isYoutubeUrl(link)) {
-        const id = this.parentRef?.getYouTubeVideoId(link);
-        if (id) return this.sanitizer.bypassSecurityTrustResourceUrl(`https://www.youtube.com/embed/${id}`);
-      }
-    }
-    return null;
-  }
-
   onMediaSelection(files: FileEntry[]): void {
     this.selectedFiles = files;
     this.form.imageFileIds = files.map(file => file.id).filter(Boolean);
@@ -264,5 +252,22 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   toggleRecipeDetails(recipeId: number): void {
       const isExpanded = this.expandedRecipes.get(recipeId);
       this.expandedRecipes.set(recipeId, !isExpanded);
-  } 
+      if (!isExpanded) {
+        const recipe = this.recipes.find(r => r.id === recipeId);
+        if (recipe?.externalLinks?.length) {
+          for (const link of recipe.externalLinks) {
+            if (this.parentRef?.isYoutubeUrl(link)) {
+              const id = this.parentRef?.getYouTubeVideoId(link);
+              if (id) {
+                setTimeout(() => {
+                  const el = document.getElementById('recipeYtIframe' + recipeId) as HTMLIFrameElement | null;
+                  if (el) el.src = `https://www.youtube.com/embed/${id}?autoplay=1`;
+                });
+                return;
+              }
+            }
+          }
+        }
+      }
+  }
 }
