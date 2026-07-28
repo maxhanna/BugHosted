@@ -257,12 +257,27 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     };
   }
 
+  isRecipeVideoShort(url?: string): boolean { 
+    if (!url) { return false; }
+    return this.parentRef?.isYoutubeShortUrl(url) ?? false;
+  }
+
   isVideoOnlyRecipe(recipe: Recipe): boolean {
     return !recipe.description?.trim()
       && (!recipe.ingredients?.length || recipe.ingredients.every(i => !i.trim()))
       && (!recipe.instructions?.length || recipe.instructions.every(i => !i.trim()))
       && !recipe.imageFileIds?.length
       && !!this.getFirstYouTubeId(recipe);
+  }
+
+  getFirstYoutubeUrlForRecipe(recipe?: Recipe) : string | undefined { 
+    if (!recipe) return;
+    for (const link of recipe.externalLinks) {
+      if (this.parentRef?.isYoutubeUrl(link)) {
+        return link;
+      }
+    }
+    return;
   }
 
   getFirstYouTubeId(recipe: Recipe): string | null {
@@ -274,12 +289,18 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     return null;
   }
 
+  private youTubeUrlCache = new Map<number, SafeResourceUrl>();
+
   getYouTubeUrl(recipe: Recipe): SafeResourceUrl | null {
+    const cached = this.youTubeUrlCache.get(recipe.id);
+    if (cached) return cached;
     const id = this.getFirstYouTubeId(recipe);
     if (!id) return null;
-    return this.sanitizer.bypassSecurityTrustResourceUrl(
+    const url = this.sanitizer.bypassSecurityTrustResourceUrl(
       `https://www.youtube.com/embed/${id}?autoplay=1&mute=1`
     );
+    this.youTubeUrlCache.set(recipe.id, url);
+    return url;
   }
 
   trackByRecipeId(index: number, recipe: Recipe): number {

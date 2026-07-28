@@ -1493,6 +1493,14 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     if (!url) return null;
     return this.fileService.parseYoutubeId(url);
   }
+  isYoutubeShortUrl(url: string): boolean {
+    if (!this.isYoutubeUrl(url)) { return false; } 
+    try {
+      return new URL(url).pathname.includes('/shorts/');
+    } catch {
+      return false;
+    }
+  }
   createComponentButtonClicked() {
     const title = (document.getElementById("componentCreateName") as HTMLInputElement).value;
     if (title) { this.createComponent(title); }

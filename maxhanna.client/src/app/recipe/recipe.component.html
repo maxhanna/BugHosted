@@ -106,7 +106,8 @@
         <app-media-viewer *ngIf="recipe.imageFileIds[0]" [fileId]="recipe.imageFileIds[0]"
           [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false" [inputtedParentRef]="parentRef"></app-media-viewer>
         <div *ngIf="!recipe.imageFileIds[0] && getYouTubeUrl(recipe) as ytUrl" class="recipe-video"
-          [class.recipe-video-full]="isVideoOnlyRecipe(recipe)">
+          [class.recipe-video-full]="isVideoOnlyRecipe(recipe)"
+          [class.recipe-video-short]="isRecipeVideoShort(getFirstYoutubeUrlForRecipe(recipe))">
           <iframe [src]="ytUrl" width="100%" height="220" frameborder="0" allow="autoplay; encrypted-media"
             allowfullscreen></iframe>
         </div>
@@ -138,6 +139,11 @@
             <ol>
               <li *ngFor="let step of recipe.instructions">{{ step }}</li>
             </ol>
+          </div>
+
+          <div class="recipe-section" *ngIf="expandedRecipes.get(recipe.id) && !isVideoOnlyRecipe(recipe) && getFirstYouTubeId(recipe)"
+            [class.recipe-video-short]="isRecipeVideoShort(getFirstYoutubeUrlForRecipe(recipe))">
+            <iframe [src]="getYouTubeUrl(recipe)" width="100%" height="315" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
           </div>
 
           <div class="recipe-section" *ngIf="(expandedRecipes.get(recipe.id) || isVideoOnlyRecipe(recipe)) && recipe.externalLinks?.length">
