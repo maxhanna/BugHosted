@@ -44,7 +44,7 @@
       <div class="field-block">
         <div class="field-title-row">
           <span>Ingredients</span>
-          <button type="button" (click)="addIngredient()">+ Add</button>
+          <button type="button" (click)="addIngredient()" *ngIf="!hasEmptyIngredient()">+ Add</button>
         </div>
         <div class="inline-stack" *ngFor="let ingredient of form.ingredients; let i = index; trackBy: trackByIndex">
           <input type="text" [id]="'ingredient' + i" [(ngModel)]="form.ingredients[i]" placeholder="Ingredient" />
@@ -55,7 +55,7 @@
       <div class="field-block">
         <div class="field-title-row">
           <span>Instructions</span>
-          <button type="button" (click)="addInstruction()">+ Add</button>
+          <button type="button" (click)="addInstruction()" *ngIf="!hasEmptyInstruction()">+ Add</button>
         </div>
         <div class="inline-stack" *ngFor="let instruction of form.instructions; let i = index; trackBy: trackByIndex">
           <textarea [id]="'instruction' + i" rows="2" [(ngModel)]="form.instructions[i]"

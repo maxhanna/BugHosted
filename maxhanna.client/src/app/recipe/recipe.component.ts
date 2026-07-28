@@ -165,6 +165,14 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     this.selectedTopics = (recipe.tags || []).map((t, i) => new Topic(i, t));
   }
 
+  hasEmptyIngredient(): boolean {
+    return this.form.ingredients.some(i => !i.trim());
+  }
+
+  hasEmptyInstruction(): boolean {
+    return this.form.instructions.some(i => !i.trim());
+  }
+
   addIngredient(): void {
     this.form.ingredients.push('');
     setTimeout(() => this.scrollToNewInput('ingredient', this.form.ingredients.length - 1), 0);

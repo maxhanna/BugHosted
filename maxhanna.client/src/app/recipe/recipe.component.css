@@ -88,7 +88,7 @@
   width: 100%;
   border: 1px solid #e2d6c5;
   border-radius: 12px;
-  padding: 10px 12px;
+  padding: 10px 0px;
   font: inherit;
   background: white;
 }
@@ -115,12 +115,14 @@
   align-items: center;
   gap: 8px;
   color: var(--third-font-color);
+  width: 100%;
 }
 
 .field-block {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
 }
 
 .inline-stack {
@@ -135,6 +137,7 @@ label {
   gap: 6px;
   font-weight: 600;
   color: var(--third-font-color);
+  width: 100%;
 }
 
 .submit-btn {
