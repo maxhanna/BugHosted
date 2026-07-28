@@ -262,7 +262,8 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     return this.parentRef?.isYoutubeShortUrl(url) ?? false;
   }
 
-  isVideoOnlyRecipe(recipe: Recipe): boolean {
+  isVideoOnlyRecipe(recipe?: Recipe): boolean {
+    if (!recipe) { return false; }
     return !recipe.description?.trim()
       && (!recipe.ingredients?.length || recipe.ingredients.every(i => !i.trim()))
       && (!recipe.instructions?.length || recipe.instructions.every(i => !i.trim()))
