@@ -103,7 +103,11 @@
       different ingredient or name.</div>
 
     <div class="recipe-grid" *ngIf="filteredRecipes.length > 0">
-      <article class="recipe-card" *ngFor="let recipe of filteredRecipes; trackBy: trackByRecipeId">
+      <article 
+        class="recipe-card" 
+        [class.popupPanel]="expandedRecipes.get(recipe.id)" 
+        [style.width]="expandedRecipes.get(recipe.id) ? '95vw' : ''" 
+        *ngFor="let recipe of filteredRecipes; trackBy: trackByRecipeId">
         <app-media-viewer *ngIf="recipe.imageFileIds[0]" [fileId]="recipe.imageFileIds[0]" [displayExpander]="false"
           [displayExtraInfo]="false" [showCommentSection]="false" [inputtedParentRef]="parentRef"></app-media-viewer>
         <div *ngIf="!recipe.imageFileIds[0] && getYouTubeUrl(recipe) as ytUrl" class="recipe-video"
