@@ -275,7 +275,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     private cdr: ChangeDetectorRef) { super(); }
 
   ngOnInit() {
-    this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, "grandtheft", "Started playing Grand Theft!");
+    this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, "grandtheft", "Started playing Grand Theft!", undefined, "GrandTheft");
   }
 
   ngAfterViewInit() {

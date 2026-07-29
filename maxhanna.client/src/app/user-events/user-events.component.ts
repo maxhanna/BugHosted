@@ -192,9 +192,10 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   }
 
   isClickableEvent(eventType: string): boolean {
-    return eventType === 'story_post' || eventType === 'comment' || eventType === 'upload' || eventType === 'trophy' || eventType === 'trade_executed'
-      || eventType.includes('digcraft') || eventType.includes('meta') || eventType.includes('bones') || eventType.includes('ender') || eventType.includes('nexus')
-      || eventType.includes('emulator') || eventType.includes('meme');
+    const lEType = eventType.toLowerCase();
+    return lEType === 'story_post' || lEType === 'comment' || lEType === 'upload' || lEType === 'trophy' || lEType === 'trade_executed'
+      || lEType.includes('digcraft') || lEType.includes('meta') || lEType.includes('bones') || lEType.includes('ender') || lEType.includes('nexus')
+      || lEType.includes('emulator') || lEType.includes('meme') || lEType.includes('grandtheft') || eventType.includes('recipe');
   }
 
   showMenuPanel() {

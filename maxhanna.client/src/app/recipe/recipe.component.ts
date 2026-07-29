@@ -241,7 +241,13 @@ export class RecipeComponent extends ChildComponent implements OnInit {
       : this.recipeService.createRecipe(payload);
 
     const msg = `${this.editingRecipeId ? 'Edited' : 'Added'} a recipe!`;
-    this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, this.editingRecipeId ? 'recipe_edited' : 'recipe_added', msg);
+    this.userEventService.insertUserEvent(
+      this.parentRef?.user?.id ?? 0, 
+      this.editingRecipeId ? 'recipe_edited' : 'recipe_added', 
+      msg, 
+      this.editingRecipeId??undefined, 
+      'recipe'
+    );
     request$.subscribe({
       next: () => {
         this.isLoading = false;
