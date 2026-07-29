@@ -151,7 +151,7 @@ label {
   gap: 16px; 
 }
 
-.recipe-card {
+.recipe-card:not(.popupPanel) {
   overflow: hidden;
 }
 
