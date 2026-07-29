@@ -127,7 +127,7 @@
             [ratingRecipeId]="recipe.id" [recipeAverageRating]="recipe.averageRating"
             [recipeRatingCount]="recipe.ratingCount" [readOnly]="!parentRef?.user?.id"></app-rating-stars>
 
-          <button *ngIf="!isVideoOnlyRecipe(recipe)" (click)="toggleRecipeDetails(recipe.id)">
+          <button *ngIf="!isVideoOnlyRecipe(recipe)" (click)="toggleRecipeDetails(recipe.id)" id="closeOverlay">
             {{ expandedRecipes.has(recipe.id) && expandedRecipes.get(recipe.id) ? 'Collapse' : 'Expand' }}
           </button>
 
