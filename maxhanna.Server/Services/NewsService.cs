@@ -931,6 +931,11 @@ public class NewsService
       insertStoryFileSql += " INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, (SELECT id FROM maxhanna.topics WHERE topic = 'Crypto'));";
     }
 
+    if (accountId == memeServiceAccountNo)
+    {
+      insertStoryFileSql += " INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, (SELECT id FROM maxhanna.topics WHERE topic = 'Meme of the Day'));";
+    }
+
     // POST THE SAME STORY TO NEWS USER PROFILE
     string insertUserProfileSql = @"
             INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date)
@@ -1477,6 +1482,8 @@ public class NewsService
                 ), 0)
             ) AS score
         FROM file_uploads
+        LEFT JOIN maxhanna.file_topics ft ON file_uploads.id = ft.file_id
+        LEFT JOIN maxhanna.topics t ON ft.topic_id = t.id AND t.topic = 'NSFW'
         WHERE is_folder = 0
         AND is_public = 1
         AND folder_path = '{MemeFolderPath}' 
@@ -1485,6 +1492,7 @@ public class NewsService
             'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif', 'svg', 'ico', 'heic', 'heif', 'raw', 'cr2', 'nef', 'orf', 'arw',
             'mp4', 'm4v', 'mov', 'avi', 'wmv', 'flv', 'webm', 'mkv', 'mpeg', 'mpg', '3gp', '3g2', 'mts', 'm2ts', 'ts', 'vob', 'ogv'
         )
+        AND t.id IS NULL
         HAVING score > 0
         ORDER BY score DESC
         LIMIT 1");
