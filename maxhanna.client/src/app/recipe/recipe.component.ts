@@ -330,6 +330,8 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     const isExpanded = !this.expandedRecipes.get(recipeId);
     if (isExpanded) {
       this.parentRef?.showOverlay();
+    } else if (this.parentRef) {
+      this.parentRef.closeOverlay(false);
     }
     this.expandedRecipes.set(recipeId, isExpanded);
   }
