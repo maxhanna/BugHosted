@@ -254,12 +254,13 @@ export class TopComponent extends ChildComponent implements OnInit {
     }
   }
 
-  urlSelectedEvent(url: string) {
+  urlSelectedEvent(data: {url: string; imageUrl?: string; title?: string}) {
+    const url = data.url ?? '';
     if (this.isSearchingUrlForEdit) {
-      this.urlEditInput.nativeElement.value = url ?? "";
+      this.urlEditInput.nativeElement.value = url;
       this.isSearchingUrlForEdit = false;
     } else {
-      this.urlInput.nativeElement.value = url ?? "";
+      this.urlInput.nativeElement.value = url;
       this.isSearchingUrl = false;
       this.parentRef?.closeOverlay();
     }

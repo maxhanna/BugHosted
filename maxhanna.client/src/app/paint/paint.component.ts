@@ -58,6 +58,8 @@ export class PaintComponent extends ChildComponent {
   isSelectionActive: boolean = false;
 
   showMenuPanel = false;
+  menuTab: string = 'properties';
+  resizeMode: string = 'crop';
 
   private resizeX = 0;
   private resizeY = 0;
@@ -431,10 +433,15 @@ export class PaintComponent extends ChildComponent {
   }
 
   private floodFill(startX: number, startY: number, fillColor: string) {
-    const imageData = this.ctx.getImageData(0, 0, this.canvasWidth, this.canvasHeight);
-    const data = imageData.data;
     const w = this.canvasWidth;
     const h = this.canvasHeight;
+
+    // Clamp coordinates to canvas bounds (mobile touch events can fire out-of-bounds)
+    startX = Math.max(0, Math.min(w - 1, Math.round(startX)));
+    startY = Math.max(0, Math.min(h - 1, Math.round(startY)));
+
+    const imageData = this.ctx.getImageData(0, 0, w, h);
+    const data = imageData.data;
 
     const idx = (startY * w + startX) * 4;
     const targetR = data[idx];
@@ -709,6 +716,33 @@ export class PaintComponent extends ChildComponent {
     this.overlayCtx = overlay.getContext('2d')!;
     this.clearSelection();
     this.saveState();
+  }
+
+  scaleCanvas(w: string, h: string) {
+    const nw = parseInt(w, 10);
+    const nh = parseInt(h, 10);
+    if (isNaN(nw) || isNaN(nh) || nw < this.canvasMinW || nh < this.canvasMinH) return;
+    const canvas = this.canvasRef.nativeElement;
+    // Snapshot current canvas to an offscreen Image, then scale-draw onto resized canvas
+    const dataUrl = canvas.toDataURL('image/png');
+    const img = new Image();
+    img.onload = () => {
+      canvas.width = nw;
+      canvas.height = nh;
+      this.canvasWidth = nw;
+      this.canvasHeight = nh;
+      this.ctx = canvas.getContext('2d')!;
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.fillRect(0, 0, nw, nh);
+      this.ctx.drawImage(img, 0, 0, nw, nh);
+      const overlay = this.overlayRef.nativeElement;
+      overlay.width = nw;
+      overlay.height = nh;
+      this.overlayCtx = overlay.getContext('2d')!;
+      this.clearSelection();
+      this.saveState();
+    };
+    img.src = dataUrl;
   }
 
   startResize(e: PointerEvent) {

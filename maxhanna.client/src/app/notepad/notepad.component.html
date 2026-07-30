@@ -8,9 +8,7 @@
 
   <!-- Viewing Mode: regular div display -->
   <div *ngIf="!isEditing" class="noteViewDisplay" (dblclick)="toggleEdit()" title="Double-click to edit">
-    <div class="noteViewContent" *ngIf="currentNoteText; else emptyNoteView">
-      {{ currentNoteText }}
-    </div>
+    <div class="noteViewContent" *ngIf="currentNoteText; else emptyNoteView" [innerHtml]="parentRef?.getTextForDOM(currentNoteText, 'noteView')"></div>
     <ng-template #emptyNoteView>
       <div class="noteViewEmpty">
         <span class="noteViewEmptyIcon">📝</span>
@@ -21,14 +19,24 @@
 
   <!-- Editing Mode: textarea display -->
   <textarea *ngIf="isEditing" #noteInput class="noteInputTextArea" (input)="handleNoteInputChange()" required></textarea>
+
+  <!-- Share to Feed: inline under textarea when editing -->
+  <div *ngIf="isEditing && currentNoteText" class="shareToFeedInline">
+    <app-text-input
+      [inputtedParentRef]="parentRef"
+      [type]="'Social'"
+      [showPostInput]="true"
+      [showTopicSelector]="true"
+      [initialContent]="currentNoteText"
+      [postButtonText]="'Share to Feed'"
+      (contentPosted)="onNoteContentPosted($event)">
+    </app-text-input>
+  </div>
   <div style="display:flex; justify-content: space-between;">
     <div style="display:flex; gap:8px; align-items:center;">
       <!-- Edit / View toggle -->
       <button class="editToggleBtn" (click)="toggleEdit()" [title]="isEditing ? 'Switch to viewing mode' : 'Switch to editing mode'">
         {{ isEditing ? '👁️ View' : '✏️ Edit' }}
-      </button>
-      <button *ngIf="currentNoteText" class="shareToFeedBtn" (click)="toggleShareToFeed()" title="Share to Feed">
-        📢 Share
       </button>
     </div>
     <div>
@@ -104,18 +112,3 @@
     <button (click)="dismissAutoSyncPrompt()">Cancel</button>
   </div>
 </div>
-
-<!-- Share to Feed popup using app-text-input -->
-<div class="popupPanel" *ngIf="isShareToFeedOpen">
-    <div class="popupPanelTitle">Share Note to Feed</div>
-    <app-text-input
-      [inputtedParentRef]="parentRef"
-      [type]="'Social'"
-      [showPostInput]="true"
-      [showTopicSelector]="true"
-      [initialContent]="currentNoteText"
-      [postButtonText]="'Share to Feed'"
-      (contentPosted)="onNoteContentPosted($event)">
-    </app-text-input>
-    <button id="closeOverlay" (click)="toggleShareToFeed()" class="closeButton" style="margin-top:10px">Cancel</button>
-  </div>

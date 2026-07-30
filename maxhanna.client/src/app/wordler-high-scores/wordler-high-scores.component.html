@@ -31,8 +31,9 @@
                     </th>
                     <th>Difficulty</th>
                     <th>User</th>
-                    <th>Score</th>
+                    <th>Guesses</th>
                     <th>Time (s)</th>
+                    <th>Score</th>
                     <th>Date</th>
                   </tr>
                 </thead>
@@ -44,8 +45,9 @@
                       <app-user-tag [user]="s.user" [displayMiniTag]="true" [displayHoverPicture]="true"
                         [inputtedParentRef]="inputtedParentRef" [openInNewTab]="true"></app-user-tag>
                     </td>
+                    <td>{{ s.guessCount }}/6</td>
+                    <td>{{ s.time }}s</td>
                     <td>{{ s.score }}</td>
-                    <td>{{ s.time }}</td>
                     <td>{{ s.submitted ? (s.submitted | timeSince:'minute':true) : '-' }}</td>
                   </tr>
                 </tbody>

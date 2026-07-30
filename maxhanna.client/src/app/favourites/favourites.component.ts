@@ -372,16 +372,17 @@ export class FavouritesComponent extends ChildComponent implements OnInit, After
     this.isMenuPanelOpen = false;
     this.parentRef?.closeOverlay();
   }
-  urlSelectedEvent(url: string) {
+  urlSelectedEvent(data: {url: string; imageUrl?: string; title?: string}) {
+    const url = data.url ?? '';
     setTimeout(() => {
-      this.linkInput.nativeElement.value = url ?? "";
+      this.linkInput.nativeElement.value = url;
     }, 500);
     if (this.isSearchingEditUrl) {
-      this.editingUrlInput.nativeElement.value = url ?? "";
+      this.editingUrlInput.nativeElement.value = url;
       this.isSearchingEditUrl = false;
     }
     else if (this.isSearchingUrl) {
-      this.selectedMeta = { url, title: url, description: '', imageUrl: '', httpStatus: 0 };
+      this.selectedMeta = { url, title: data.title ?? url, description: '', imageUrl: data.imageUrl ?? '', httpStatus: 0 };
       this.closeSearchPopup();
     }
   }

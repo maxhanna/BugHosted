@@ -59,7 +59,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   @Input() url: string = '';
   @Input() onlySearch: boolean = false;
   @Input() inputtedParentRef?: AppComponent;
-  @Output() urlSelectedEvent = new EventEmitter<string>();
+  @Output() urlSelectedEvent = new EventEmitter<{url: string; imageUrl?: string; title?: string}>();
   @Output() closeSearchEvent = new EventEmitter<void>();
 
   constructor(private sanitizer: DomSanitizer, private crawlerService: CrawlerService) { super(); }
@@ -107,10 +107,11 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   //   } catch (e) { }
   // }
 
-  visitExternalLink(url?: string) {
+  visitExternalLink(data?: {url: string; imageUrl?: string; title?: string}) {
+    const url = typeof data === 'string' ? data : data?.url;
     if (!url) return;
     if (this.onlySearch) {
-      this.urlSelectedEvent.emit(url);
+      this.urlSelectedEvent.emit(data ?? { url });
     }
     this.parentRef?.indexLink(url);
   }
@@ -279,7 +280,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     const url = this.keywordsInput?.nativeElement?.value?.trim();
     if (!url) return;
     if (this.onlySearch) {
-      this.urlSelectedEvent.emit(url);
+      this.urlSelectedEvent.emit({ url, imageUrl: '', title: '' });
       this.closeSearchEvent.emit();
       return;
     }

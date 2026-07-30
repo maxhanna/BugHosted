@@ -96,20 +96,48 @@
 
 <div class="menuPanel" *ngIf="showMenuPanel">
   <div class="menuPanelContent">
-    <div class="menuPanelTitle">Image Properties</div>
-    <div class="menuRow">
-      <label>Width: <input #wInput type="number" [value]="canvasWidth" min="100" class="sizeInput" /></label>
-      <label>Height: <input #hInput type="number" [value]="canvasHeight" min="100" class="sizeInput" /></label>
-      <button (click)="applySize(wInput.value, hInput.value)">Apply</button>
+    <div class="menuTabs">
+      <button class="menuTab" [class.active]="menuTab === 'properties'" (click)="menuTab = 'properties'">⚙️ Properties</button>
+      <button class="menuTab" [class.active]="menuTab === 'resize'" (click)="menuTab = 'resize'">📐 Resize</button>
     </div>
-    <div class="menuSeparator"></div>
-    <div class="menuRow">
-      <input #fileInput type="file" accept="image/*" (change)="loadImageFromFile($event)" style="display:none" />
-      <button (click)="savePainting()">💾 Save</button>
-      <button (click)="downloadPainting()">📤 Download</button>
-      <button (click)="fileInput.click()">📂 Open</button>
-      <button (click)="loadPaintingByFileId()">📥 Load by ID</button>
+
+    <!-- Properties tab -->
+    <div *ngIf="menuTab === 'properties'">
+      <div class="menuRow">
+        <label>Width: <input #wInput type="number" [value]="canvasWidth" min="100" class="sizeInput" /></label>
+        <label>Height: <input #hInput type="number" [value]="canvasHeight" min="100" class="sizeInput" /></label>
+        <button (click)="applySize(wInput.value, hInput.value)">Apply</button>
+      </div>
+      <div class="menuSeparator"></div>
+      <div class="menuRow">
+        <input #fileInput type="file" accept="image/*" (change)="loadImageFromFile($event)" style="display:none" />
+        <button (click)="savePainting()">💾 Save</button>
+        <button (click)="downloadPainting()">📤 Download</button>
+        <button (click)="fileInput.click()">📂 Open</button>
+        <button (click)="loadPaintingByFileId()">📥 Load by ID</button>
+      </div>
     </div>
+
+    <!-- Resize tab -->
+    <div *ngIf="menuTab === 'resize'">
+      <div class="menuRow">
+        <label class="resizeToggle">
+          <input type="radio" [(ngModel)]="resizeMode" value="crop" /> ✂️ Crop
+        </label>
+        <label class="resizeToggle">
+          <input type="radio" [(ngModel)]="resizeMode" value="scale" /> 📏 Scale
+        </label>
+      </div>
+      <div class="menuRow" *ngIf="resizeMode === 'scale'">
+        <label>Width: <input #rwInput type="number" [value]="canvasWidth" min="100" class="sizeInput" /></label>
+        <label>Height: <input #rhInput type="number" [value]="canvasHeight" min="100" class="sizeInput" /></label>
+        <button (click)="scaleCanvas(rwInput.value, rhInput.value)">Scale</button>
+      </div>
+      <div class="menuRow" *ngIf="resizeMode === 'crop'">
+        <p class="menuHint">Use the Select Area tool (⬜) in the toolbar to select a region, then click ✂️ Crop.</p>
+      </div>
+    </div>
+
     <div class="menuCloseRow">
       <button (click)="toggleMenuPanel()">Close</button>
     </div>

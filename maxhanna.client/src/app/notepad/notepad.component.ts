@@ -34,7 +34,6 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   showAutoSyncPrompt: boolean = false; 
   lastSyncedAt?: Date; 
   isEditing: boolean = false;
-  isShareToFeedOpen: boolean = false;
   currentNoteText: string = '';
   private sharedNotePollTimer?: any;  
   private loadedNote?: string; 
@@ -70,19 +69,7 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     }
   }
 
-  toggleShareToFeed() {
-    this.isShareToFeedOpen = !this.isShareToFeedOpen;
-    if (this.isShareToFeedOpen) {
-      this.parentRef?.showOverlay();
-    } else {
-      this.parentRef?.closeOverlay();
-    }
-  }
-
   onNoteContentPosted(event: { results: any, content: any, originalContent: string }) {
-    // Social post was created from the note — just close the share panel
-    this.isShareToFeedOpen = false;
-    this.parentRef?.closeOverlay();
     this.parentRef?.showNotification('Note shared to feed!');
   }
 

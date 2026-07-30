@@ -19,7 +19,7 @@ export class CrawlerSearchResultsComponent extends ChildComponent {
   @Input() onlySearch: boolean = false;
   @Input() hideStatus: boolean = false;
   @Input() displaySocialResults: boolean = false;
-  @Output() urlSelectedEvent = new EventEmitter<string>();
+  @Output() urlSelectedEvent = new EventEmitter<{url: string; imageUrl?: string; title?: string}>();
 
   @ViewChild('observerTarget', { static: true }) observerTarget!: ElementRef;
 
@@ -63,7 +63,13 @@ export class CrawlerSearchResultsComponent extends ChildComponent {
   visit(url?: string) {
     if (!url) return;
     this.parent?.indexLink(url);
-    if (this.onlySearch) this.urlSelectedEvent.emit(url);
+    if (this.onlySearch) {
+      this.urlSelectedEvent.emit({
+        url,
+        imageUrl: this.detail?.imageUrl ?? undefined,
+        title: this.detail?.title ?? undefined
+      });
+    }
   }
 
   async addFavourite() {

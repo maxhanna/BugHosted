@@ -306,18 +306,28 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     }
     this.stopLoading();
   }
+  private calculateScore(guessCount: number, elapsedSeconds: number, difficulty: number): number {
+    // Score = (7 - guessCount) * difficulty * 10 * clamp(120 / max(1, seconds), 0.5, 3.0)
+    // Higher = better. Range roughly 20-1260.
+    const base = (7 - guessCount) * difficulty * 10;
+    const timeMultiplier = Math.max(0.5, Math.min(3.0, 120.0 / Math.max(1, elapsedSeconds)));
+    return Math.round(base * timeMultiplier);
+  }
+
   async winningScenario(guess: string) {
     this.startLoading();
     this.stopTimer();
     const difficulty = this.getDifficultyByValue(this.selectedDifficulty);
-    const eventText = `Won Wordler on ${difficulty} with ${this.elapsedTime} seconds`;
+    const guessCount = this.currentAttempt;
+    const computedScore = this.calculateScore(guessCount, this.elapsedTime, this.selectedDifficulty);
+    const eventText = `Won Wordler on ${difficulty} with ${guessCount} guesses in ${this.elapsedTime}s (score: ${computedScore})`;
     this.userEventService.insertUserEvent(
       this.parentRef?.user?.id ?? 0,
       'wordler_win',
       eventText,
       this.scores.length > 0 ? this.scores[this.scores.length - 1].id : 0
     );
-    let tmpScore: WordlerScore = { score: this.currentAttempt, user: this.parentRef?.user ?? new User(0, "Anonymous"), time: this.elapsedTime, difficulty: this.selectedDifficulty };
+    let tmpScore: WordlerScore = { score: computedScore, guessCount: guessCount, user: this.parentRef?.user ?? new User(0, "Anonymous"), time: this.elapsedTime, difficulty: this.selectedDifficulty };
     await this.wordlerService.addScore(tmpScore);
     this.disableAllInputs = true;
     await this.loadScoreData();
