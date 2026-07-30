@@ -287,6 +287,11 @@
 .subComment {
   padding: 6px;
   border-radius: 6px;
+  touch-action: pan-y;
+}
+
+.subcomments-container {
+  touch-action: pan-y;
 }
 
 .commentTextDiv {

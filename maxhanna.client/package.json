@@ -40,6 +40,7 @@
     "@angular/router": "^19.2.4",
     "@emulatorjs/core-ppsspp": "^4.2.3",
     "@emulatorjs/cores": "^4.2.3",
+    "@microsoft/signalr": "^10.0.0",
     "chart.js": "^4.4.3",
     "firebase": "^12.4.0",
     "jest-editor-support": "*",

@@ -119,6 +119,7 @@ import { RecipeComponent } from './recipe/recipe.component';
 import { CrawlerSearchResultsComponent } from './crawler-search-results/crawler-search-results.component';
 import { ModeratorComponent } from './moderator/moderator.component';
 import { PaintComponent } from './paint/paint.component';
+import { RacingComponent } from './racing/racing.component';
 
 @NgModule({
   declarations: [
@@ -221,6 +222,7 @@ import { PaintComponent } from './paint/paint.component';
     CrawlerSearchResultsComponent,
     ModeratorComponent,
     PaintComponent,
+    RacingComponent,
   ],
   bootstrap: [AppComponent],
   imports: [

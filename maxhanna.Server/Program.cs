@@ -111,6 +111,8 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.MapHub<maxhanna.Server.Hubs.CoEditHub>("/hubs/coEdit");
+app.MapHub<maxhanna.Server.Hubs.RacingHub>("/hubs/racing");
+
 
 app.MapFallbackToFile("/index.html");
 try

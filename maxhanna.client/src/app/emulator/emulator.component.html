@@ -268,18 +268,27 @@
 
 <!-- Reset confirmation modal -->
 <div class="popupPanel menuPanel" *ngIf="isResetModalOpen">
-  <div class="popupPanelTitle">Confirm Reset</div>
+  <div class="popupPanelTitle">Reset Game</div>
   <div style="padding:8px;">
-    <p>Are you sure you want to reset the game? This will reload the emulator and may overwrite current progress.</p>
+    <p>Choose how you want to restart:</p>
+    <div class="emuMenuButtonGrid" style="margin-top:12px; margin-bottom:8px;">
+      <button (click)="performReset()" class="enhancedButton squareButton" title="Soft Reset — Restarts the game ROM without reloading the emulator">
+        ♻️<div class="emuMenuButtonLabel inlineButton">Soft Reset</div>
+      </button>
+      <small style="color:#aaa; font-size:11px; line-height:1.3;">Restarts the game. Like pressing Reset on a console. {{ skipLoadingSave ? 'Progress is not saved.' : 'Progress is saved before restarting.' }}</small>
+    </div>
+    <div class="emuMenuButtonGrid" style="margin-top:12px; margin-bottom:8px;">
+      <button (click)="performPowerCycle()" class="enhancedButton squareButton" title="Hard Reset — Turns the console off and back on, preserving your save state">
+        🔌<div class="emuMenuButtonLabel inlineButton">Power Cycle</div>
+      </button>
+      <small style="color:#aaa; font-size:11px; line-height:1.3;">Like turning the console off and on again. Saves your progress and reloads everything fresh.</small>
+    </div>
     <label style="display:flex; align-items:center; gap:8px; margin-top:8px;">
-      <input #skipLoadingSaveCheckbox type="checkbox" [checked]="skipLoadingSave"
-        (change)="skipLoadingSave = skipLoadingSaveCheckbox.checked" />
-      <span>Re-load {{ skipLoadingSave ? 'without' : 'with' }} saved state.</span>
+      <input #skipLoadingSaveCheckbox type="checkbox" [checked]="!skipLoadingSave"
+        (change)="skipLoadingSave = !skipLoadingSaveCheckbox.checked" />
+      <span>Load saved state after reset</span>
     </label>
     <div class="emuMenuButtonGrid" style="margin-top:12px;">
-      <button (click)="performReset()" class="enhancedButton squareButton" title="Confirm Reset">
-        ♻️<div class="emuMenuButtonLabel inlineButton">Reset</div>
-      </button>
       <button class="closeButton enhancedButton squareButton" id="closeOverlay" (click)="cancelReset()" title="Cancel">
         ❌<div class="emuMenuButtonLabel inlineButton">Cancel</div>
       </button>

@@ -1,0 +1,348 @@
+<div class="componentMain">
+  <app-title-bar [title]="'Grand Prix'" [hasMenu]="true" (menuClicked)="backToMenu()"
+    (closeClicked)="remove_me('RacingComponent');">
+  </app-title-bar>
+
+  <div class="popupPanel" *ngIf="!parentRef?.user?.id">
+    <app-user [loginOnly]="true" [inputtedParentRef]="parentRef" (close)="closeLoginPanel()"
+      [loginReasonMessage]="'Please log in to race!'"></app-user>
+  </div>
+
+  <!-- ─── Canvas ─── -->
+  <div id="race-container">
+    <canvas id="race-canvas" #raceCanvas></canvas>
+
+    <!-- ─── Loading ─── -->
+    <div id="race-loading" *ngIf="!isLoaded">
+      <div class="race-spinner"></div>
+      <div>Building Track...</div>
+    </div>
+
+    <!-- ─── Menu ─── -->
+    <div id="race-menu" *ngIf="gameState === 'menu'">
+      <h1 class="race-title">GRAND PRIX</h1>
+      <div class="race-subtitle">Grand Prix Championship</div>
+      <div class="race-player-info">
+        <span>${{ playerCar.money }}</span>
+        <span>Wins: {{ playerCar.wins }} / Races: {{ playerCar.totalRaces }}</span>
+      </div>
+
+      <!-- Tab toggle -->
+      <div class="race-menu-tabs">
+        <button class="race-menu-tab" [class.active]="!showMultiplayer" (click)="toggleMultiplayerTab()">OFFLINE</button>
+        <button class="race-menu-tab" [class.active]="showMultiplayer" (click)="toggleMultiplayerTab()">MULTIPLAYER</button>
+      </div>
+
+      <!-- ─── Single Player Tracks ─── -->
+      <div class="race-menu-tracks" *ngIf="!showMultiplayer">
+        <div class="menu-section-title">SELECT TRACK</div>
+        <div class="race-track-card" *ngFor="let t of TRACKS"
+          [class.race-track-locked]="playerCar.money < t.entryFee"
+          (click)="playerCar.money >= t.entryFee && selectTrack(t)">
+          <div class="race-track-info">
+            <div class="race-track-name">{{ t.name }}</div>
+            <div class="race-track-diff" [class.easy]="t.difficulty === 'easy'"
+              [class.medium]="t.difficulty === 'medium'"
+              [class.hard]="t.difficulty === 'hard'">
+              {{ t.difficulty | uppercase }} · {{ t.laps }} Laps · {{ t.length }}m
+            </div>
+            <div class="race-track-desc">{{ t.description }}</div>
+          </div>
+          <div class="race-track-cost">
+            <span class="race-fee">${{ t.entryFee }}</span>
+            <span class="race-prize">Prize: ${{ t.prizePool }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── Multiplayer Lobby ─── -->
+      <div class="race-mp-lobby" *ngIf="showMultiplayer">
+        <div class="menu-section-title">RACE ONLINE</div>
+
+        <!-- Connection error -->
+        <div class="race-mp-error" *ngIf="lobbyConnectionError">
+          {{ lobbyConnectionError }}
+          <button class="race-mp-retry" (click)="selectTrackMultiplayer(TRACKS[0])">Retry</button>
+        </div>
+
+        <!-- Track selection -->
+        <div class="race-mp-track-info" *ngIf="selectedTrack">
+          <div class="race-mp-track-name">{{ selectedTrack.name }}</div>
+          <div class="race-mp-track-diff">{{ selectedTrack.difficulty | uppercase }} · {{ selectedTrack.laps }} Laps</div>
+        </div>
+
+        <!-- Join / Lobby state -->
+        <div *ngIf="!selectedTrack">
+          <div class="race-track-card" *ngFor="let t of TRACKS"
+            (click)="selectTrackMultiplayer(t)">
+            <div class="race-track-info">
+              <div class="race-track-name">{{ t.name }}</div>
+              <div class="race-track-diff" [class.easy]="t.difficulty === 'easy'"
+                [class.medium]="t.difficulty === 'medium'"
+                [class.hard]="t.difficulty === 'hard'">
+                {{ t.difficulty | uppercase }} · {{ t.laps }} Laps · {{ t.length }}m
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Player list -->
+        <div class="race-mp-players" *ngIf="selectedTrack && lobbyPlayers.length > 0">
+          <div class="mp-player-row" *ngFor="let p of lobbyPlayers"
+            [style.border-left-color]="getPlayerColor(p.connectionId)">
+            <div class="mp-player-name">
+              {{ p.playerName }}
+              <span class="mp-host-badge" *ngIf="p.isHost">HOST</span>
+            </div>
+            <div class="mp-player-status">
+              <span class="mp-ready-yes" *ngIf="p.ready">✓ READY</span>
+              <span class="mp-ready-no" *ngIf="!p.ready">WAITING</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ready / Start buttons -->
+        <div class="race-mp-actions" *ngIf="selectedTrack">
+          <button class="race-mp-btn" (click)="toggleReadyMultiplayer()"
+            [class.race-mp-ready]="amReady">
+            {{ amReady ? '✓ READY' : 'READY UP' }}
+          </button>
+          <button class="race-mp-btn race-mp-start" *ngIf="isLobbyHost"
+            (click)="startRaceMP()" [class.race-mp-disabled]="!allPlayersReady()">
+            START RACE
+          </button>
+        </div>
+
+        <!-- Chat -->
+        <div class="race-mp-chat" *ngIf="selectedTrack">
+          <div class="race-mp-chat-title">Lobby Chat</div>
+          <div class="race-mp-chat-msgs">
+            <div class="race-mp-chat-msg" *ngFor="let c of chatMessages">
+              <span class="race-mp-chat-name">{{ c.playerName }}:</span>
+              <span class="race-mp-chat-text">{{ c.message }}</span>
+            </div>
+          </div>
+          <div class="race-mp-chat-input-row">
+            <input class="race-mp-chat-input" [(ngModel)]="chatInput"
+              (keyup.enter)="sendChatMessage()"
+              placeholder="Type a message..." maxlength="200" />
+            <button class="race-mp-chat-send" (click)="sendChatMessage()">Send</button>
+          </div>
+        </div>
+      </div>
+
+      <button class="race-garage-btn" (click)="openGarage()">GARAGE</button>
+    </div>
+
+    <!-- ─── Garage ─── -->
+    <div id="race-garage" *ngIf="gameState === 'garage'">
+      <h2 class="race-garage-title">GARAGE</h2>
+      <div class="race-garage-money">${{ playerCar.money }}</div>
+
+      <div class="race-garage-tabs">
+        <button class="race-tab" [class.active]="selectedTab === 'upgrades'" (click)="selectedTab = 'upgrades'">UPGRADES</button>
+        <button class="race-tab" [class.active]="selectedTab === 'skins'" (click)="selectedTab = 'skins'">SKINS</button>
+      </div>
+
+      <!-- Upgrades -->
+      <div class="race-upgrade-panel" *ngIf="selectedTab === 'upgrades'">
+        <div class="race-upgrade-cat" *ngFor="let cat of ['engine','tires','suspension','brakes','body']">
+          <div class="race-upgrade-cat-header">{{ cat | uppercase }}</div>
+          <div class="race-upgrade-row" *ngFor="let u of getUpgradesForCategory(cat)">
+            <div class="race-upgrade-info">
+              <div class="race-upgrade-name">{{ u.name }}</div>
+              <div class="race-upgrade-desc">{{ u.description }}</div>
+            </div>
+            <div class="race-upgrade-status">
+              <span *ngIf="getUpgradeLevel(cat) >= u.level" class="race-owned">✓</span>
+              <button *ngIf="getUpgradeLevel(cat) < u.level" class="race-buy-btn"
+                [class.disabled]="!canAffordUpgrade(u)"
+                (click)="buyUpgrade(u)">
+                ${{ u.cost }}
+              </button>
+            </div>
+          </div>
+        </div>
+        <button class="race-back-btn" (click)="backToMenu()">← BACK</button>
+      </div>
+
+      <!-- Skins -->
+      <div class="race-skin-panel" *ngIf="selectedTab === 'skins'">
+        <div class="race-skin-grid">
+          <div class="race-skin-card" *ngFor="let s of CAR_SKINS"
+            [class.race-skin-active]="playerCar.skinId === s.id"
+            [class.race-skin-owned]="s.owned"
+            (click)="selectSkin(s)">
+            <div class="race-skin-preview" [style.background]="s.color"></div>
+            <div class="race-skin-name">{{ s.name }}</div>
+            <div class="race-skin-cost">
+              <span *ngIf="!s.owned && s.cost > 0">${{ s.cost }}</span>
+              <span *ngIf="s.owned && s.cost === 0">Free</span>
+              <span *ngIf="s.owned && s.cost > 0" class="race-skinned">✓</span>
+            </div>
+          </div>
+        </div>
+        <button class="race-back-btn" (click)="backToMenu()">← BACK</button>
+      </div>
+    </div>
+
+    <!-- ─── Countdown ─── -->
+    <div id="race-countdown" *ngIf="gameState === 'countdown'">
+      <div class="race-countdown-num">{{ countdownTimer }}</div>
+      <div class="race-countdown-label">
+        <span *ngIf="countdownTimer > 0">GET READY</span>
+        <span *ngIf="countdownTimer === 0">GO!</span>
+      </div>
+    </div>
+
+    <!-- ─── Racing HUD ─── -->
+    <div id="race-hud" *ngIf="gameState === 'racing' || gameState === 'paused'">
+      <!-- Speedometer -->
+      <div class="race-speedometer">
+        <div class="race-speed-val">{{ hudSpeed | number:'1.0-0' }}</div>
+        <div class="race-speed-unit">KM/H</div>
+        <div class="race-rpm-bar">
+          <div class="race-rpm-fill" [style.width.%]="hudRPM * 100"></div>
+        </div>
+      </div>
+
+      <!-- Lap info -->
+      <div class="race-lap-info">
+        <div class="race-lap">LAP {{ currentLap + 1 }} / {{ totalLaps }}</div>
+        <div class="race-pos">P{{ racePosition }} / {{ totalRacers }}</div>
+      </div>
+
+      <!-- Position -->
+      <div class="race-position-display">
+        <div class="race-pos-big">{{ racePosition }}</div>
+        <div class="race-pos-label">
+          of {{ totalRacers }}
+          <span *ngIf="racePosition === 1" class="race-leading">LEADING</span>
+        </div>
+      </div>
+
+      <!-- Timing -->
+      <div class="race-timing">
+        <div class="race-timing-row">
+          <span>BEST</span>
+          <span>{{ formatTime(bestLapTime) }}</span>
+        </div>
+        <div class="race-timing-row">
+          <span>LAST</span>
+          <span>{{ formatTime(lastLapTime) }}</span>
+        </div>
+        <div class="race-timing-row" *ngIf="currentLap > 0">
+          <span>TOTAL</span>
+          <span>{{ formatTime(totalRaceTime) }}</span>
+        </div>
+      </div>
+
+      <!-- Minimap -->
+      <div class="race-minimap">
+        <div class="race-minimap-track">
+          <div class="race-minimap-dot race-minimap-player"
+            [style.left.%]="((carDist % renderer.totalTrackDist) / renderer.totalTrackDist) * 100"></div>
+          <div class="race-minimap-dot race-minimap-bot" *ngFor="let b of bots"
+            [style.left.%]="((b.dist % renderer.totalTrackDist) / renderer.totalTrackDist) * 100"></div>
+          <div class="race-minimap-dot race-minimap-remote" *ngFor="let rc of remoteCars | keyvalue"
+            [style.left.%]="((rc.value.distance % renderer.totalTrackDist) / renderer.totalTrackDist) * 100"
+            [style.background]="getPlayerColor(rc.value.connectionId)"></div>
+        </div>
+      </div>
+
+      <!-- Gear indicator -->
+      <div class="race-gear">{{ getGear() }}</div>
+
+      <!-- Messages -->
+      <div class="race-messages">
+        <div class="race-msg" *ngFor="let m of messages">{{ m }}</div>
+      </div>
+
+      <!-- Off-track warning -->
+      <div class="race-offtrack" *ngIf="isOffTrack">
+        OFF TRACK!
+      </div>
+
+      <!-- Pause overlay -->
+      <div id="race-pause" *ngIf="gameState === 'paused'" (click)="togglePause()">
+        <div class="race-pause-text">PAUSED</div>
+        <div class="race-pause-hint">Press M to resume</div>
+      </div>
+    </div>
+
+    <!-- ─── Finished / Podium ─── -->
+    <div id="race-finished" *ngIf="gameState === 'finished'">
+      <div class="gp-podium">
+        <div class="gp-podium-title">RACE RESULTS</div>
+        <div class="gp-podium-step" *ngIf="racePosition === 1">
+          <div class="gp-podium-crown">🏆</div>
+          <div class="gp-podium-pos">1st</div>
+          <div class="gp-podium-label">YOU WIN!</div>
+          <div class="gp-podium-time">{{ formatTime(totalRaceTime) }}</div>
+          <div class="gp-podium-money">+${{ calculatePrize() }}</div>
+        </div>
+        <div class="gp-podium-row" *ngIf="racePosition !== 1">
+          <div class="gp-podium-pos-sm">#{{ racePosition }}</div>
+          <div class="gp-podium-label-sm">Place</div>
+          <div class="gp-podium-time-sm">{{ formatTime(totalRaceTime) }}</div>
+        </div>
+        <div class="gp-podium-stats">
+          <div class="gp-stat-row">
+            <span class="gp-stat-label">Best Lap</span>
+            <span class="gp-stat-val">{{ formatTime(bestLapTime) }}</span>
+          </div>
+          <div class="gp-stat-row" *ngIf="lastLapTime > 0">
+            <span class="gp-stat-label">Last Lap</span>
+            <span class="gp-stat-val">{{ formatTime(lastLapTime) }}</span>
+          </div>
+          <div class="gp-stat-row">
+            <span class="gp-stat-label">Position</span>
+            <span class="gp-stat-val">{{ racePosition }} / {{ totalRacers }}</span>
+          </div>
+          <div class="gp-stat-row">
+            <span class="gp-stat-label">Laps</span>
+            <span class="gp-stat-val">{{ currentLap }} / {{ totalLaps }}</span>
+          </div>
+        </div>
+        <div class="gp-podium-money-row" *ngIf="racePosition === 1">
+          <span class="gp-money-prize">${{ calculatePrize() }}</span>
+          <span class="gp-money-label">Race Earnings</span>
+        </div>
+        <div class="gp-podium-money-row" *ngIf="racePosition !== 1">
+          <span class="gp-money-prize">${{ calculatePrize() }}</span>
+          <span class="gp-money-label">Participation</span>
+        </div>
+        <div class="gp-podium-auto">Returning to menu...</div>
+      </div>
+    </div>
+
+    <!-- ─── Leaderboard ─── -->
+    <div id="race-leaderboard" *ngIf="showLeaderboard">
+      <div class="race-lb-title">LEADERBOARD</div>
+      <div class="race-lb-row race-lb-header">
+        <span>#</span><span>Player</span><span>Best Lap</span><span>Wins</span>
+      </div>
+      <div class="race-lb-row" *ngFor="let r of leaderboard; let i = index">
+        <span>{{ i + 1 }}</span>
+        <span>{{ r.playerName }}</span>
+        <span>{{ formatTime(r.lapTime) }}</span>
+        <span>{{ r.moneyEarned }}</span>
+      </div>
+      <div class="race-lb-close" (click)="showLeaderboard = false">Press L to close</div>
+    </div>
+
+    <!-- ─── Mobile Controls ─── -->
+    <div id="race-mobile" *ngIf="isMobile && (gameState === 'racing')">
+      <div class="race-mob-left">
+        <button class="race-mob-btn race-mob-steer" (touchstart)="mobileAction('left', true)" (touchend)="mobileAction('left', false)">◀</button>
+      </div>
+      <div class="race-mob-right">
+        <button class="race-mob-btn race-mob-steer" (touchstart)="mobileAction('right', true)" (touchend)="mobileAction('right', false)">▶</button>
+      </div>
+      <div class="race-mob-bottom">
+        <button class="race-mob-btn race-mob-brake" (touchstart)="mobileAction('brake', true)" (touchend)="mobileAction('brake', false)">BRAKE</button>
+        <button class="race-mob-btn race-mob-gas" (touchstart)="mobileAction('gas', true)" (touchend)="mobileAction('gas', false)">GAS</button>
+      </div>
+    </div>
+  </div>
+</div>

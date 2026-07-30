@@ -45,7 +45,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   isFileUploaderExpanded = false;
   isFaqOpen = false;
   isResetModalOpen = false;
-  skipLoadingSave = true;
+  skipLoadingSave = false; // checked by default: load saved state after reset
   isSystemSelectPanelOpen = false;
   wasMenuOpenBeforeLoggingIn = false;
   faqItems = FAQ_ITEMS;
@@ -2809,7 +2809,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (!this.romName) return;
     this.closeMenuPanel();
     setTimeout(() => {
-      this.skipLoadingSave = true; // default to saving
+      this.skipLoadingSave = false; // default: load saved state after reset
       this.isResetModalOpen = true;
       this.parentRef?.showOverlay();
     }, 300);
@@ -2844,6 +2844,27 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     } else {
       this.fullReloadToEmulator(this.getReloadParamsSkipLoadingSaveFile(skipSave));
     }
+  }
+
+  performPowerCycle(): void {
+    const skipLoad = this.skipLoadingSave;
+    this.isResetModalOpen = false;
+    this.parentRef?.closeOverlay();
+
+    const emu = this.emulatorInstance || (window as any).EJS || (window as any).EJS_emulator;
+    if (!emu) {
+      this.status = 'Power cycling…';
+      this.fullReloadToEmulator(this.getReloadParamsSkipLoadingSaveFile(skipLoad));
+      return;
+    }
+    this.status = 'Saving state before power cycle…';
+    this.callEjsSave().then(() => {
+      this.status = 'Power cycling…';
+      this.fullReloadToEmulator(this.getReloadParamsSkipLoadingSaveFile(false));
+    }).catch(() => {
+      this.status = 'Power cycling (no save to preserve)…';
+      this.fullReloadToEmulator(this.getReloadParamsSkipLoadingSaveFile(true));
+    });
   }
 
   cancelReset(): void {
