@@ -788,9 +788,7 @@ export class GrandTheftRenderer {
     nodeNames: string[];
   } | null = null;
   public mark23Animations: GltfAnimation[] | null = null;
-  // First-person arms animation timers
-  private _armsAnimTime = 0;
-  private _armsAnimName = '';
+  // Mark23 pistol animation timers
   private _mark23AnimTime = 0;
   private _mark23AnimName = '';
 
@@ -4621,7 +4619,6 @@ void main() {
     camX: number, camY: number, camZ: number,
     camYaw: number, camPitch: number,
     weapon: number,
-    armsAnim: string,
     mark23Anim: string | null,
     dt: number
   ): void {
@@ -4634,27 +4631,8 @@ void main() {
     const fz = Math.cos(camYaw) * Math.cos(camPitch);
     const rightX = Math.cos(camYaw), rightZ = -Math.sin(camYaw);
 
-    // ── Animate and skin first-person arms ──
+    // ── Draw first-person arms (static — draw before skinning to avoid VBO corruption) ──
     if (this.firstPersonArmsMesh) {
-      // Apply skeletal animation if available
-      if (this.firstPersonArmsAnimations && this.firstPersonArmsSkeleton) {
-        const skel = this.firstPersonArmsSkeleton;
-        const anims = this.firstPersonArmsAnimations;
-        if (armsAnim !== this._armsAnimName) {
-          this._armsAnimName = armsAnim;
-          this._armsAnimTime = 0;
-        }
-        const anim = anims.find(a => a.name === armsAnim) ?? anims[0];
-        if (anim && anim.duration > 0) {
-          this._armsAnimTime += dt;
-          if (this._armsAnimTime > anim.duration) this._armsAnimTime %= anim.duration;
-          const localMatrices = new Float32Array(skel.boneCount * 16);
-          this.sampleAnimation(anim, this._armsAnimTime, skel, localMatrices);
-          const jointMatrices = new Float32Array(skel.boneCount * 16);
-          this.computeJointMatrices(skel, localMatrices, jointMatrices);
-          this.skinMeshGeneric(this.firstPersonArmsMesh, skel, jointMatrices);
-        }
-      }
       const ax = camX + fx * 0.2 + rightX * 0.06;
       const ay = camY + fy * 0.2 - 1.5;
       const az = camZ + fz * 1.2 + rightZ * 0.06;
@@ -4663,7 +4641,6 @@ void main() {
 
     // ── Animate and skin mark23 (pistol) ──
     if (weapon === 1 && this.mark23Mesh) {
-      // Apply skeletal animation if available
       if (this.mark23Animations && this.mark23Skeleton) {
         const skel = this.mark23Skeleton;
         const anims = this.mark23Animations;

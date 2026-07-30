@@ -2842,7 +2842,6 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           camX, camY, camZ,
           this.camYaw, this.camPitch,
           this.currentWeapon,
-          anims.arms,
           anims.mark23,
           dt
         );

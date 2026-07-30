@@ -345,7 +345,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.showPostsFromFilter
     );
 
-    if (res && res.stories) {
+    if (res && res.stories && res.stories.length > 0) {
       res.stories.forEach(story => {
         if (story.storyText) {
           try {
@@ -364,13 +364,21 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
               )
           )
         );
+        this.cd.detectChanges();
       } else {
         this.storyResponse = res;
+        this.cd.detectChanges();
       }
       this.totalPages = this.storyResponse?.pageCount ?? 0;
       this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
       this.setPollResultsIfVoted(res);
       await this.loadPollResultsForStories(res.stories);
+    } else if (!append) {
+      // Search/filter returned no results — clear the feed so empty state renders
+      this.storyResponse = res ?? { stories: [], totalCount: 0, pageCount: 0, currentPage: 1 } as StoryResponse;
+      this.totalPages = 0;
+      this.totalPagesArray = [];
+      this.cd.detectChanges();
     }
     setTimeout(() => {
       this.canLoad = true;
