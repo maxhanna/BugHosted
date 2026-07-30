@@ -121,7 +121,7 @@
             <h3>{{ recipe.name }}</h3>
             <span class="pill" *ngFor="let tag of recipe.tags">{{ tag }}</span>
           </div>
-          <p class="recipe-description">{{ recipe.description }}</p>
+          <p *ngIf="recipe.description" class="recipe-description">{{ recipe.description }}</p>
 
           <app-rating-stars [rating]="getUserRating(recipe)" [inputtedParentRef]="parentRef" [componentType]="'recipe'"
             [ratingRecipeId]="recipe.id" [recipeAverageRating]="recipe.averageRating"
