@@ -150,7 +150,7 @@ namespace maxhanna.Server.Controllers
 										OR s.story_text LIKE CONCAT('%', @searchTerm, '%')
 						OR s.city LIKE CONCAT('%', @searchTerm, '%')
 						OR s.country LIKE CONCAT('%', @searchTerm, '%')
-						OR u.username LIKE CONCAT('%', @searchTerm, '%')
+						OR (SELECT username FROM users WHERE id = s.user_id LIMIT 1) LIKE CONCAT('%', @searchTerm, '%')
 					) "
         );
         parameters.Add("@searchTerm", search);
