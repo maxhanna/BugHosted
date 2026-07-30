@@ -305,6 +305,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       { path: 'assets/grandtheft/jillValentine/scene.gltf', needsFlip: false },
       { path: 'assets/grandtheft/jessica_jones/scene.gltf' },
       { path: 'assets/grandtheft/redneck/scene.gltf', needsFlip: false },
+      // Animated Mixamo character — rename scene.gltf to your model file
+      { path: 'assets/grandtheft/animated_npc/scene.gltf' },
     ]) {
       tasks.push({ load: () => this.renderer.loadGLTF(cfg.path, false).then(npc => { if (npc) { if (cfg.needsFlip === false) for (const m of npc) m.needsFlip = false; this.renderer.npcMeshes.push(npc); } }) });
     }

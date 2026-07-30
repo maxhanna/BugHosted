@@ -788,6 +788,11 @@ export class GrandTheftRenderer {
     nodeNames: string[];
   } | null = null;
   public mark23Animations: GltfAnimation[] | null = null;
+  // First-person arms animation timers
+  private _armsAnimTime = 0;
+  private _armsAnimName = '';
+  private _mark23AnimTime = 0;
+  private _mark23AnimName = '';
 
   // ── Animation state machine for NPCs, pedestrians, and player models ──
   public entityAnimators: Map<number, EntityAnimator> = new Map();
@@ -4030,25 +4035,19 @@ void main() {
 
       // ── Helicopter rotor spin ──
       if (npc.type === 'helicopter') {
-        const meshes = Array.isArray(npc.mesh) ? npc.mesh : [npc.mesh];
-        const nonRotor: CityMesh[] = [];
-        const rotors: CityMesh[] = [];
-        for (const m of meshes) {
-          if (m.isRotor) rotors.push(m);
-          else nonRotor.push(m);
-        }
-        // Draw body normally
-        if (nonRotor.length > 0) this.drawMesh(nonRotor, npc.x, expY, npc.z, npc.yaw);
-        // Draw rotors with continuous spin (main ~15 rad/s, tail detected by name ~50 rad/s)
-        if (rotors.length > 0) {
-          const now = performance.now() / 1000;
-          for (const r of rotors) {
-            const isTail = (r.meshName || '').toLowerCase().includes('tail');
-            const rotorSpeed = isTail ? 50 : 15;
-            const spinAngle = now * rotorSpeed;
-            this.drawMesh(r, npc.x, expY, npc.z, npc.yaw + spinAngle);
-          }
-        }
+        // Draw the body normally first
+        this.drawMesh(npc.mesh, npc.x, expY, npc.z, npc.yaw);
+        // Draw procedural spinning rotor blades on top
+        const rotorMesh = this.getRotorBladeMesh();
+        const now = performance.now() / 1000;
+        const mainRotorY = expY + 2.5;  // above the helicopter body
+        const mainSpin = now * 20;       // ~3.2 rev/sec — fast enough to look like a disc
+        this.drawMesh(rotorMesh, npc.x, mainRotorY, npc.z, npc.yaw + mainSpin, [1, 1, 1], [0.55, 0.55, 0.55, 0.5]);
+        // Tail rotor — offset BEHIND the helicopter
+        const tailOffX = -Math.sin(npc.yaw) * 3.5;
+        const tailOffZ = -Math.cos(npc.yaw) * 3.5;
+        const tailSpin = now * 55;       // ~8.7 rev/sec — faster for smaller rotor
+        this.drawMesh(rotorMesh, npc.x + tailOffX, mainRotorY - 0.8, npc.z + tailOffZ, npc.yaw + tailSpin, [0.35, 0.35, 0.35], [0.4, 0.4, 0.4, 0.45]);
       } else {
         this.drawMesh(npc.mesh, npc.x, expY, npc.z, npc.yaw);
       }
@@ -4525,6 +4524,18 @@ void main() {
     return mesh;
   }
 
+  /** Procedural rotor blade - a flat elongated diamond shape that spins on Y axis */
+  getRotorBladeMesh(): CityMesh {
+    if (this.meshCache.has('rotor_blade')) return this.meshCache.get('rotor_blade')!;
+    const verts: number[] = [], indices: number[] = [];
+    // Two crossing long flat boxes to look like a 2-blade rotor
+    this.addBox(verts, indices, 0, 0, 0, 5.0, 0.08, 0.5, 0.15, 0.15, 0.15, 0.9, 0);
+    this.addBox(verts, indices, 0, 0, 0, 0.5, 0.08, 5.0, 0.15, 0.15, 0.15, 0.9, 24);
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set('rotor_blade', mesh);
+    return mesh;
+  }
+
   private getBoxMesh(w: number, h: number, d: number): CityMesh {
     const key = `box_${w}_${h}_${d}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
@@ -4622,18 +4633,62 @@ void main() {
     const fy = -Math.sin(camPitch);
     const fz = Math.cos(camYaw) * Math.cos(camPitch);
     const rightX = Math.cos(camYaw), rightZ = -Math.sin(camYaw);
+
+    // ── Animate and skin first-person arms ──
     if (this.firstPersonArmsMesh) {
+      // Apply skeletal animation if available
+      if (this.firstPersonArmsAnimations && this.firstPersonArmsSkeleton) {
+        const skel = this.firstPersonArmsSkeleton;
+        const anims = this.firstPersonArmsAnimations;
+        if (armsAnim !== this._armsAnimName) {
+          this._armsAnimName = armsAnim;
+          this._armsAnimTime = 0;
+        }
+        const anim = anims.find(a => a.name === armsAnim) ?? anims[0];
+        if (anim && anim.duration > 0) {
+          this._armsAnimTime += dt;
+          if (this._armsAnimTime > anim.duration) this._armsAnimTime %= anim.duration;
+          const localMatrices = new Float32Array(skel.boneCount * 16);
+          this.sampleAnimation(anim, this._armsAnimTime, skel, localMatrices);
+          const jointMatrices = new Float32Array(skel.boneCount * 16);
+          this.computeJointMatrices(skel, localMatrices, jointMatrices);
+          this.skinMeshGeneric(this.firstPersonArmsMesh, skel, jointMatrices);
+        }
+      }
       const ax = camX + fx * 0.2 + rightX * 0.06;
       const ay = camY + fy * 0.2 - 1.5;
       const az = camZ + fz * 1.2 + rightZ * 0.06;
       this.drawMesh(this.firstPersonArmsMesh, ax, ay, az, camYaw + Math.PI, [0.6, 0.6, 0.6], [1, 1, 1, 1]);
     }
+
+    // ── Animate and skin mark23 (pistol) ──
     if (weapon === 1 && this.mark23Mesh) {
+      // Apply skeletal animation if available
+      if (this.mark23Animations && this.mark23Skeleton) {
+        const skel = this.mark23Skeleton;
+        const anims = this.mark23Animations;
+        const mAnimName = mark23Anim ?? '';
+        if (mAnimName !== this._mark23AnimName) {
+          this._mark23AnimName = mAnimName;
+          this._mark23AnimTime = 0;
+        }
+        const anim = anims.find(a => a.name === mAnimName) ?? anims[0];
+        if (anim && anim.duration > 0) {
+          this._mark23AnimTime += dt;
+          if (this._mark23AnimTime > anim.duration) this._mark23AnimTime %= anim.duration;
+          const localMatrices = new Float32Array(skel.boneCount * 16);
+          this.sampleAnimation(anim, this._mark23AnimTime, skel, localMatrices);
+          const jointMatrices = new Float32Array(skel.boneCount * 16);
+          this.computeJointMatrices(skel, localMatrices, jointMatrices);
+          this.skinMeshGeneric(this.mark23Mesh, skel, jointMatrices);
+        }
+      }
       const mx = camX + fx * 0.4 + rightX * 0.06;
       const my = camY + fy * 2.4 - 2.2;
       const mz = camZ + fz * 3.4 + rightZ * 0.06;
       this.drawMesh(this.mark23Mesh, mx, my, mz, camYaw, [1, 1, 1], [1, 1, 1, 1]);
     }
+
     gl.enable(gl.BLEND);
     gl.enable(gl.DEPTH_TEST);
   }
@@ -5419,11 +5474,6 @@ void main() {
 
         const mesh = this.createMesh(verts, indices, texture, isSkinned);
         mesh.meshName = p.meshName || '';
-        // Detect helicopter rotor sub-meshes by name
-        const nameLower = (p.meshName || '').toLowerCase();
-        if (nameLower.includes('rotor') || nameLower.includes('blade') || nameLower.includes('propeller') || nameLower.includes('prop')) {
-          mesh.isRotor = true;
-        }
         if (isSkinned && restPos && restNrm && jointIdx && jointWgt) {
           mesh.vertexCount = vCount;
           mesh.restPositions = restPos;
