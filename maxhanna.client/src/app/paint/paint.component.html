@@ -97,18 +97,12 @@
 <div class="menuPanel" *ngIf="showMenuPanel">
   <div class="menuPanelContent">
     <div class="menuTabs">
-      <button class="menuTab" [class.active]="menuTab === 'properties'" (click)="menuTab = 'properties'">⚙️ Properties</button>
-      <button class="menuTab" [class.active]="menuTab === 'resize'" (click)="menuTab = 'resize'">📐 Resize</button>
+      <button class="menuTab" [class.active]="menuTab === 'file'" (click)="menuTab = 'file'">📁 File</button>
+      <button class="menuTab" [class.active]="menuTab === 'canvas'" (click)="menuTab = 'canvas'">📐 Canvas Size</button>
     </div>
 
-    <!-- Properties tab -->
-    <div *ngIf="menuTab === 'properties'">
-      <div class="menuRow">
-        <label>Width: <input #wInput type="number" [value]="canvasWidth" min="100" class="sizeInput" /></label>
-        <label>Height: <input #hInput type="number" [value]="canvasHeight" min="100" class="sizeInput" /></label>
-        <button (click)="applySize(wInput.value, hInput.value)">Apply</button>
-      </div>
-      <div class="menuSeparator"></div>
+    <!-- File tab -->
+    <div *ngIf="menuTab === 'file'">
       <div class="menuRow">
         <input #fileInput type="file" accept="image/*" (change)="loadImageFromFile($event)" style="display:none" />
         <button (click)="savePainting()">💾 Save</button>
@@ -116,25 +110,37 @@
         <button (click)="fileInput.click()">📂 Open</button>
         <button (click)="loadPaintingByFileId()">📥 Load by ID</button>
       </div>
+      <div class="menuSeparator"></div>
+      <div class="menuRow menuHint">
+        Current: {{ canvasWidth }} × {{ canvasHeight }}
+      </div>
     </div>
 
-    <!-- Resize tab -->
-    <div *ngIf="menuTab === 'resize'">
-      <div class="menuRow">
-        <label class="resizeToggle">
-          <input type="radio" [(ngModel)]="resizeMode" value="crop" /> ✂️ Crop
-        </label>
-        <label class="resizeToggle">
-          <input type="radio" [(ngModel)]="resizeMode" value="scale" /> 📏 Scale
-        </label>
+    <!-- Canvas Size tab -->
+    <div *ngIf="menuTab === 'canvas'">
+      <div class="menuSection">
+        <div class="menuSectionTitle">Resize Canvas</div>
+        <p class="menuHint">Changes the canvas size. Existing artwork stays at the top-left; excess is cropped.</p>
+        <div class="menuRow">
+          <label>Width: <input #wInput type="number" [value]="canvasWidth" min="100" class="sizeInput" /></label>
+          <label>Height: <input #hInput type="number" [value]="canvasHeight" min="100" class="sizeInput" /></label>
+          <button (click)="applySize(wInput.value, hInput.value)">Resize</button>
+        </div>
       </div>
-      <div class="menuRow" *ngIf="resizeMode === 'scale'">
-        <label>Width: <input #rwInput type="number" [value]="canvasWidth" min="100" class="sizeInput" /></label>
-        <label>Height: <input #rhInput type="number" [value]="canvasHeight" min="100" class="sizeInput" /></label>
-        <button (click)="scaleCanvas(rwInput.value, rhInput.value)">Scale</button>
+      <div class="menuSeparator"></div>
+      <div class="menuSection">
+        <div class="menuSectionTitle">Scale Image</div>
+        <p class="menuHint">Stretches or shrinks the artwork to fit the new canvas size.</p>
+        <div class="menuRow">
+          <label>Width: <input #rwInput type="number" [value]="canvasWidth" min="100" class="sizeInput" /></label>
+          <label>Height: <input #rhInput type="number" [value]="canvasHeight" min="100" class="sizeInput" /></label>
+          <button (click)="scaleCanvas(rwInput.value, rhInput.value)">Scale</button>
+        </div>
       </div>
-      <div class="menuRow" *ngIf="resizeMode === 'crop'">
-        <p class="menuHint">Use the Select Area tool (⬜) in the toolbar to select a region, then click ✂️ Crop.</p>
+      <div class="menuSeparator"></div>
+      <div class="menuSection">
+        <div class="menuSectionTitle">Crop</div>
+        <p class="menuHint">Use the Select Area tool (⬜) in the toolbar to drag a region, then click ✂️ Crop to cut to that area. Or drag the corner handle (↘) to resize the canvas directly.</p>
       </div>
     </div>
 

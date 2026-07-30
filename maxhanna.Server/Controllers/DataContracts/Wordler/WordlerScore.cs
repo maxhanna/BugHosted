@@ -13,4 +13,11 @@ namespace maxhanna.Server.Controllers.DataContracts.Wordler
 		public DateTime Submitted { get; set; }
 		public int Difficulty { get; set; }
 	}
+
+	public class WordlerPendingScoreRequest
+	{
+		public int UserId { get; set; }
+		public int Difficulty { get; set; }
+		public int TotalEnterPresses { get; set; }
+	}
 }

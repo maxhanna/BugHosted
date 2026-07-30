@@ -58,8 +58,7 @@ export class PaintComponent extends ChildComponent {
   isSelectionActive: boolean = false;
 
   showMenuPanel = false;
-  menuTab: string = 'properties';
-  resizeMode: string = 'crop';
+  menuTab: string = 'file';
 
   private resizeX = 0;
   private resizeY = 0;

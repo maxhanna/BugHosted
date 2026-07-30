@@ -344,6 +344,53 @@
   font-size: 14px;
 }
 
+.menuTabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+  border-bottom: 2px solid var(--border-color, #444);
+}
+
+.menuTab {
+  padding: 8px 16px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-color, #e0e0e0);
+  cursor: pointer;
+  font-size: 13px;
+  margin-bottom: -2px;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.menuTab:hover {
+  color: var(--accent-color, #4a9eff);
+}
+
+.menuTab.active {
+  border-bottom-color: var(--accent-color, #4a9eff);
+  color: var(--accent-color, #4a9eff);
+  font-weight: 600;
+}
+
+.menuSection {
+  margin-bottom: 4px;
+}
+
+.menuSectionTitle {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--accent-color, #4a9eff);
+  margin-bottom: 4px;
+}
+
+.menuHint {
+  font-size: 11px;
+  color: var(--text-muted, #888);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
 .menuRow {
   display: flex;
   gap: 10px;

@@ -621,7 +621,80 @@ namespace maxhanna.Server.Controllers
 		}
 
 	 
-		private string CheckProfanity(string word)
+			[HttpPost("/Wordler/UpsertPendingScore")]
+		public async Task<IActionResult> UpsertPendingScore([FromBody] WordlerPendingScoreRequest req)
+		{
+			if (req.UserId <= 0) return BadRequest("Invalid user ID.");
+			var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+			try
+			{
+				using var conn = new MySqlConnection(connectionString);
+				await conn.OpenAsync();
+				string sql = @"
+					INSERT INTO wordler_pending_scores (user_id, difficulty, total_enter_presses)
+					VALUES (@userId, @difficulty, @enterPresses)
+					ON DUPLICATE KEY UPDATE total_enter_presses = @enterPresses, updated_at = UTC_TIMESTAMP();";
+				using var cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@userId", req.UserId);
+				cmd.Parameters.AddWithValue("@difficulty", req.Difficulty);
+				cmd.Parameters.AddWithValue("@enterPresses", req.TotalEnterPresses);
+				await cmd.ExecuteNonQueryAsync();
+				return Ok(new { success = true });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error upserting pending score." + ex.Message, req.UserId, "WORDLER", true);
+				return StatusCode(500, "Internal server error");
+			}
+		}
+
+		[HttpGet("/Wordler/GetPendingScore")]
+		public async Task<IActionResult> GetPendingScore([FromQuery] int userId, [FromQuery] int difficulty)
+		{
+			if (userId <= 0) return BadRequest("Invalid user ID.");
+			var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+			try
+			{
+				using var conn = new MySqlConnection(connectionString);
+				await conn.OpenAsync();
+				string sql = @"SELECT total_enter_presses FROM wordler_pending_scores WHERE user_id = @userId AND difficulty = @difficulty;";
+				using var cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@userId", userId);
+				cmd.Parameters.AddWithValue("@difficulty", difficulty);
+				var result = await cmd.ExecuteScalarAsync();
+				return Ok(new { totalEnterPresses = result != null ? Convert.ToInt32(result) : 0 });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error getting pending score." + ex.Message, userId, "WORDLER", true);
+				return StatusCode(500, "Internal server error");
+			}
+		}
+
+		[HttpDelete("/Wordler/DeletePendingScore")]
+		public async Task<IActionResult> DeletePendingScore([FromQuery] int userId, [FromQuery] int difficulty)
+		{
+			if (userId <= 0) return BadRequest("Invalid user ID.");
+			var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+			try
+			{
+				using var conn = new MySqlConnection(connectionString);
+				await conn.OpenAsync();
+				string sql = @"DELETE FROM wordler_pending_scores WHERE user_id = @userId AND difficulty = @difficulty;";
+				using var cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@userId", userId);
+				cmd.Parameters.AddWithValue("@difficulty", difficulty);
+				await cmd.ExecuteNonQueryAsync();
+				return Ok(new { success = true });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error deleting pending score." + ex.Message, userId, "WORDLER", true);
+				return StatusCode(500, "Internal server error");
+			}
+		}
+
+	private string CheckProfanity(string word)
 		{
 			if (profanity.Contains(word))
 			{

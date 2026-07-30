@@ -32,6 +32,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   selectedDifficulty = 0;
   disableAllInputs = false;
   guessAttempts: string[] = [];
+  totalEnterPresses: number = 0;
   isMenuPanelOpen = false;
   definition?: string;
 
@@ -138,6 +139,12 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     this.selectedDifficulty = parseInt(this.difficultySelect.nativeElement.value);
 
     this.wordToGuess = (await this.wordlerService.getRandomWord(this.selectedDifficulty)).toUpperCase();
+
+    // Restore totalEnterPresses from pending score (survives page reloads)
+    if (this.parentRef?.user?.id) {
+      this.totalEnterPresses = await this.wordlerService.getPendingScore(this.parentRef.user.id, this.selectedDifficulty);
+    }
+
     await this.reloadGuesses();
 
     this.gameStarted = true;
@@ -154,7 +161,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   }
 
   private async reloadGuesses() {
-    if (this.parentRef?.user?.id) { 
+    if (this.parentRef?.user?.id) {
       this.startLoading();
       this.cdr.detectChanges();
       try {
@@ -258,6 +265,8 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       //first check if valid word
       const validityRes = await this.wordlerService.checkGuess(this.selectedDifficulty, guess);
       if (validityRes && validityRes[0] == "0") {
+        this.totalEnterPresses++;
+        this._syncPendingScore();
         const message = validityRes.substring(1, validityRes.length).trim() ?? '';
         if (message && message.trim() != '') {
           this.parentRef?.showNotification("Thats not a real word, try again, The Wordler raises his brow at your choices.");
@@ -274,18 +283,20 @@ export class WordlerComponent extends ChildComponent implements OnInit {
         }
       }
       this.currentAttempt++;
+      this.totalEnterPresses++;
+      this._syncPendingScore();
       this.provideFeedback(guess, attemptIndex);
 
       this.guesses.push(newGuess);
 
-      if (this.parentRef && this.parentRef.user && this.parentRef.user.id !=0) {
-         try {
-            this.isLoading = true;
-            await this.wordlerService.submitGuess(newGuess);
-         } catch { }
-         finally {
-            this.isLoading = false;
-         }
+      if (this.parentRef && this.parentRef.user && this.parentRef.user.id != 0) {
+        try {
+          this.isLoading = true;
+          await this.wordlerService.submitGuess(newGuess);
+        } catch { }
+        finally {
+          this.isLoading = false;
+        }
       }
 
       if (guess === this.wordToGuess) {
@@ -326,8 +337,8 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       'wordler_win',
       eventText,
       this.scores.length > 0 ? this.scores[this.scores.length - 1].id : 0
-    );
-    let tmpScore: WordlerScore = { score: computedScore, attempts: this.currentAttempt, guessCount: this.guesses.length, user: this.parentRef?.user ?? new User(0, "Anonymous"), time: this.elapsedTime, difficulty: this.selectedDifficulty };
+    ); let tmpScore: WordlerScore = { score: computedScore, attempts: this.currentAttempt, guessCount: this.currentAttempt, totalAttempts: this.totalEnterPresses, user: this.parentRef?.user ?? new User(0, "Anonymous"), time: this.elapsedTime, difficulty: this.selectedDifficulty };
+    await this.wordlerService.deletePendingScore(this.parentRef?.user?.id ?? 0, this.selectedDifficulty);
     await this.wordlerService.addScore(tmpScore);
     this.disableAllInputs = true;
     await this.loadScoreData();
@@ -447,6 +458,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
 
   giveUp() {
     if (confirm("Are you sure ?")) {
+      this.wordlerService.deletePendingScore(this.parentRef?.user?.id ?? 0, this.selectedDifficulty);
       this.showScores = true;
       this.gameStarted = false;
       this.currentAttempt = 0;
@@ -455,6 +467,12 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       this.disableAllInputs = true;
       this.showExitGameButton = false;
       this.definition = undefined;
+    }
+  }
+
+  private _syncPendingScore() {
+    if (this.parentRef?.user?.id) {
+      this.wordlerService.upsertPendingScore(this.parentRef.user.id, this.selectedDifficulty, this.totalEnterPresses);
     }
   }
 

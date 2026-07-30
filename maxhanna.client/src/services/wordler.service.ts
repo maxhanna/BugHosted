@@ -207,4 +207,30 @@ export class WordlerService {
       return (error as Error).message;
     }
   }
+
+  async upsertPendingScore(userId: number, difficulty: number, totalEnterPresses: number) {
+    try {
+      const response = await fetch(`/wordler/upsertpendingscore`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, difficulty, totalEnterPresses }),
+      });
+      return response.ok;
+    } catch { return false; }
+  }
+
+  async getPendingScore(userId: number, difficulty: number): Promise<number> {
+    try {
+      const response = await fetch(`/wordler/getpendingscore?userId=${userId}&difficulty=${difficulty}`);
+      if (!response.ok) return 0;
+      const data = await response.json();
+      return data.totalEnterPresses ?? 0;
+    } catch { return 0; }
+  }
+
+  async deletePendingScore(userId: number, difficulty: number) {
+    try {
+      await fetch(`/wordler/deletependingscore?userId=${userId}&difficulty=${difficulty}`, { method: 'DELETE' });
+    } catch { }
+  }
 }
