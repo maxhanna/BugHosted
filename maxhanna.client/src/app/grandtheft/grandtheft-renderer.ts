@@ -4027,7 +4027,31 @@ void main() {
       const isAircraft = npc.type === 'helicopter' || npc.type === 'plane';
       const terrainY = submerged ? -1.5 : getTerrainHeight(npc.x, npc.z);
       const expY = isAircraft ? (npc.y || 0) : (npc as any)._expY ?? terrainY;
-      this.drawMesh(npc.mesh, npc.x, expY, npc.z, npc.yaw);
+
+      // ── Helicopter rotor spin ──
+      if (npc.type === 'helicopter') {
+        const meshes = Array.isArray(npc.mesh) ? npc.mesh : [npc.mesh];
+        const nonRotor: CityMesh[] = [];
+        const rotors: CityMesh[] = [];
+        for (const m of meshes) {
+          if (m.isRotor) rotors.push(m);
+          else nonRotor.push(m);
+        }
+        // Draw body normally
+        if (nonRotor.length > 0) this.drawMesh(nonRotor, npc.x, expY, npc.z, npc.yaw);
+        // Draw rotors with continuous spin (main ~15 rad/s, tail detected by name ~50 rad/s)
+        if (rotors.length > 0) {
+          const now = performance.now() / 1000;
+          for (const r of rotors) {
+            const isTail = (r.meshName || '').toLowerCase().includes('tail');
+            const rotorSpeed = isTail ? 50 : 15;
+            const spinAngle = now * rotorSpeed;
+            this.drawMesh(r, npc.x, expY, npc.z, npc.yaw + spinAngle);
+          }
+        }
+      } else {
+        this.drawMesh(npc.mesh, npc.x, expY, npc.z, npc.yaw);
+      }
       if (npc.hasDriver !== false && npc.type !== 'cop') {
         const dMesh = this.getPedestrianMesh(npc.gender || 'male', npc.id);
         const sinY = Math.sin(npc.yaw), cosY = Math.cos(npc.yaw);
@@ -5395,6 +5419,11 @@ void main() {
 
         const mesh = this.createMesh(verts, indices, texture, isSkinned);
         mesh.meshName = p.meshName || '';
+        // Detect helicopter rotor sub-meshes by name
+        const nameLower = (p.meshName || '').toLowerCase();
+        if (nameLower.includes('rotor') || nameLower.includes('blade') || nameLower.includes('propeller') || nameLower.includes('prop')) {
+          mesh.isRotor = true;
+        }
         if (isSkinned && restPos && restNrm && jointIdx && jointWgt) {
           mesh.vertexCount = vCount;
           mesh.restPositions = restPos;

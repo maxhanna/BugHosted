@@ -154,6 +154,7 @@ export interface CityMesh {
   meshName?: string;
   renderScale?: number;
   yawOffset?: number;
+  isRotor?: boolean;                    // set true during load for helicopter rotor sub-meshes
   // Animation support — stored on loaded models that have skeletons
   animations?: GltfAnimation[];
   skeleton?: {
