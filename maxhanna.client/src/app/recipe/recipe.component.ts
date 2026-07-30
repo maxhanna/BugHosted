@@ -148,21 +148,27 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   }
 
   editRecipe(recipe: Recipe): void {
-    this.isCreating = true;
-    this.editingRecipeId = recipe.id;
-    this.form = {
-      userId: recipe.userId,
-      name: recipe.name,
-      description: recipe.description,
-      createdBy: recipe.createdBy,
-      ingredients: [...recipe.ingredients],
-      instructions: [...recipe.instructions],
-      tags: [...recipe.tags],
-      imageFileIds: [...(recipe.imageFileIds || [])],
-      externalLinks: [...(recipe.externalLinks || [])]
-    };
-    this.selectedFiles = [];
-    this.selectedTopics = (recipe.tags || []).map((t, i) => new Topic(i, t));
+    const isExpanded = this.expandedRecipes.get(recipe.id);
+    if (isExpanded) {
+      this.toggleRecipeDetails(recipe.id);
+    }
+    setTimeout(() => {
+      this.isCreating = true;
+      this.editingRecipeId = recipe.id;
+      this.form = {
+        userId: recipe.userId,
+        name: recipe.name,
+        description: recipe.description,
+        createdBy: recipe.createdBy,
+        ingredients: [...recipe.ingredients],
+        instructions: [...recipe.instructions],
+        tags: [...recipe.tags],
+        imageFileIds: [...(recipe.imageFileIds || [])],
+        externalLinks: [...(recipe.externalLinks || [])]
+      };
+      this.selectedFiles = [];
+      this.selectedTopics = (recipe.tags || []).map((t, i) => new Topic(i, t));
+    }, 50); 
   }
 
   hasEmptyIngredient(): boolean {
