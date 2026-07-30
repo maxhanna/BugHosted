@@ -1292,6 +1292,14 @@ public class NewsService
     fileCmd.Parameters.AddWithValue("@fileId", fileId);
     await fileCmd.ExecuteNonQueryAsync();
 
+    // Tag the file upload itself with "Meme of the Day" topic
+    const string insertFileTopicSql = @"
+            INSERT IGNORE INTO file_topics (file_id, topic_id)
+            VALUES (@fileId, (SELECT id FROM topics WHERE topic = 'Meme of the Day'));";
+    using var fileTopicCmd = new MySqlCommand(insertFileTopicSql, conn, transaction);
+    fileTopicCmd.Parameters.AddWithValue("@fileId", fileId);
+    await fileTopicCmd.ExecuteNonQueryAsync();
+
     try
     {
       string eventText = $"Top Daily Meme posted!";
