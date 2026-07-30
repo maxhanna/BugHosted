@@ -53,6 +53,7 @@ import { RecipeComponent } from './recipe/recipe.component';
 import { PaintComponent } from './paint/paint.component';
 import { ModeratorComponent } from './moderator/moderator.component';
 import { UserEventService } from '../services/user-event.service';
+import { RacingComponent } from './racing/racing.component';
 
 
 @Component({
@@ -164,6 +165,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "🖍️", title: "Paint", content: undefined },
+    { ownership: 0, icon: "🏎️", title: "GrandPrix", content: undefined },
     { ownership: 0, icon: "👁️", title: "Moderator", content: undefined },
     { ownership: 0, icon: "📡", title: "SigInt", content: undefined },
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
@@ -304,6 +306,11 @@ export class AppComponent implements OnInit, AfterViewInit {
       ownership: 0,
       title: 'Art',
       content: `Submit your art to the site and have others appraise your work!`
+    },
+    {
+      ownership: 0,
+      title: 'Racing',
+      content: `Multiplayer Racing Game! Challenger your friends and upgrade your ride!`
     },
     {
       ownership: 0,
@@ -470,6 +477,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Planter": PlanterComponent,
     "Weaver": WeaverComponent,
     "Recipe": RecipeComponent,
+    "Racing": RacingComponent,
     "Notifications": NotificationsComponent,
     "UpdateUserSettings": UpdateUserSettingsComponent,
     "User-Events": UserEventsComponent,
@@ -646,6 +654,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         else if (this.router.url.toLowerCase().includes('sigint')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('SigInt');
+        }
+        else if (this.router.url.toLowerCase().includes('racing')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Racing');
         }
         else if (this.router.url.toLowerCase().includes('grandtheft')) {
           this.checkAndClearRouterOutlet();
