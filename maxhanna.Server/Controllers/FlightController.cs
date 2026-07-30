@@ -284,19 +284,29 @@ namespace maxhanna.Server.Controllers
 				}
 
 				await using (var readCmd = new MySqlCommand(
-					"SELECT schedule, fetched_at FROM maxhanna.flight_schedule_cache WHERE callsign = @cs", conn))
+					"SELECT schedule, fetched_at FROM maxhanna.flight_schedule_cache WHERE callsign = @cs ORDER BY fetched_at DESC LIMIT 1", conn))
 				{
 					readCmd.Parameters.AddWithValue("@cs", cs);
-					using var reader = await readCmd.ExecuteReaderAsync();
+					await using var reader = await readCmd.ExecuteReaderAsync();
 					if (await reader.ReadAsync())
 					{
 						var json = reader.GetString(0);
 						var fetched = reader.GetDateTime(1);
-						if (DateTime.UtcNow - fetched < TimeSpan.FromMinutes(30))
+						var diffMinutes = (DateTime.UtcNow - fetched).TotalMinutes;
+						if (diffMinutes >= 0 && diffMinutes < 30)
 						{
 							return Ok(new { found = true, schedule = JsonConvert.DeserializeObject(json) });
 						}
 					}
+				}
+
+				// Delete stale cache entry before calling the API,
+				// so a failed/empty API response doesn't leave stale data.
+				await using (var delStale = new MySqlCommand(
+					"DELETE FROM maxhanna.flight_schedule_cache WHERE callsign = @cs", conn))
+				{
+					delStale.Parameters.AddWithValue("@cs", cs);
+					await delStale.ExecuteNonQueryAsync();
 				}
 
 				var client = _httpClientFactory.CreateClient();
