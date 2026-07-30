@@ -2164,6 +2164,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         'mupen64plus_next': base + 'n64icon.png',
         'parallel_n64': base + 'n64icon.png',
         'melonds': base + 'ndsicon.png',
+        '3ds': base + 'ndsicon.png',
         'mgba': base + 'gbaicon.png',
         'gambatte': base + 'gbicon.png',
         'fceumm': base + 'nesicon.png',

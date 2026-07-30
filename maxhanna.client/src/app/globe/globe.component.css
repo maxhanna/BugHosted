@@ -611,6 +611,47 @@
   border: 1px solid #2a2a4a;
 }
 
+.schedule-entry-divider {
+  border-top: 1px dashed #3a3a5a;
+  padding-top: 12px;
+  margin-top: 4px;
+}
+
+.detail-sub-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+
+.flight-status-badge {
+  font-weight: 600;
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  text-transform: capitalize;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ccc;
+}
+
+.status-active {
+  background: rgba(0, 200, 83, 0.2);
+  color: #00c853;
+}
+
+.status-landed {
+  background: rgba(255, 180, 50, 0.2);
+  color: #ffb432;
+}
+
+.status-scheduled {
+  background: rgba(74, 170, 255, 0.2);
+  color: #4af;
+}
+
 /* ---- News Article Popup ---- */
 .news-popup-backdrop {
   position: fixed;

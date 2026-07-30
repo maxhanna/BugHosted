@@ -285,17 +285,24 @@
       <div class="detail-row" *ngIf="selectedFlight.lastUpdated"><span class="detail-label">Updated:</span><span>{{
           selectedFlight.lastUpdated | date:'medium' }}</span></div>
       <div class="detail-group" *ngIf="selectedFlight.schedule?.length">
-        <div class="detail-group-title">Schedule</div>
-        <div *ngFor="let s of selectedFlight.schedule" class="flight-schedule-entry">
-          <div class="detail-row" *ngIf="s.airline?.name"><span class="detail-label">Airline:</span><span>{{ s.airline.name }}</span></div>
-          <div class="detail-row" *ngIf="s.departure?.airport"><span class="detail-label">Departure:</span><span>{{ s.departure.airport }} <span *ngIf="s.departure.iata">({{ s.departure.iata }})</span></span></div>
-          <div class="detail-row" *ngIf="s.departure?.scheduled"><span class="detail-label">Scheduled:</span><span>{{ s.departure.scheduled | date:'medium' }}</span></div>
-          <div class="detail-row" *ngIf="s.departure?.estimated"><span class="detail-label">Estimated:</span><span>{{ s.departure.estimated | date:'medium' }}</span></div>
-          <div class="detail-row" *ngIf="s.departure?.gate || s.departure?.terminal"><span class="detail-label">Gate/Terminal:</span><span>{{ s.departure.gate || '' }}{{ s.departure.gate && s.departure.terminal ? ' / ' : '' }}{{ s.departure.terminal || '' }}</span></div>
-          <div class="detail-row" *ngIf="s.arrival?.airport"><span class="detail-label">Arrival:</span><span>{{ s.arrival.airport }} <span *ngIf="s.arrival.iata">({{ s.arrival.iata }})</span></span></div>
-          <div class="detail-row" *ngIf="s.arrival?.scheduled"><span class="detail-label">Scheduled:</span><span>{{ s.arrival.scheduled | date:'medium' }}</span></div>
-          <div class="detail-row" *ngIf="s.arrival?.estimated"><span class="detail-label">Estimated:</span><span>{{ s.arrival.estimated | date:'medium' }}</span></div>
-          <div class="detail-row" *ngIf="s.flight?.status"><span class="detail-label">Status:</span><span>{{ s.flight.status }}</span></div>
+        <div class="detail-group-title">Schedule ({{ selectedFlight.schedule.length }} flight{{ selectedFlight.schedule.length !== 1 ? 's' : '' }})</div>
+        <div *ngFor="let s of selectedFlight.schedule; let i = index" class="flight-schedule-entry" [class.schedule-entry-divider]="i > 0">
+          <div class="detail-row" *ngIf="s.flight_date"><span class="detail-label">Date:</span><span>{{ s.flight_date | date:'mediumDate' }}</span></div>
+          <div class="detail-row" *ngIf="s.airline?.name"><span class="detail-label">Airline:</span><span>{{ s.airline.name }} <span *ngIf="s.flight?.number">#{{ s.flight.number }}</span></span></div>
+          <div class="detail-row" *ngIf="s.flight_status"><span class="detail-label">Status:</span><span class="flight-status-badge" [class.status-active]="s.flight_status === 'active'" [class.status-landed]="s.flight_status === 'landed'" [class.status-scheduled]="s.flight_status === 'scheduled'">{{ s.flight_status | titlecase }}</span></div>
+          <div class="detail-sub-title">Departure</div>
+          <div class="detail-row" *ngIf="s.departure?.airport"><span class="detail-label">From:</span><span>{{ s.departure.airport }} <span *ngIf="s.departure.iata">({{ s.departure.iata }})</span></span></div>
+          <div class="detail-row" *ngIf="s.departure?.scheduled"><span class="detail-label">Scheduled:</span><span>{{ s.departure.scheduled | date:'short' }}</span></div>
+          <div class="detail-row" *ngIf="s.departure?.estimated && s.departure.estimated !== s.departure.scheduled"><span class="detail-label">Estimated:</span><span>{{ s.departure.estimated | date:'short' }}</span></div>
+          <div class="detail-row" *ngIf="s.departure?.actual"><span class="detail-label">Actual:</span><span>{{ s.departure.actual | date:'short' }}</span></div>
+          <div class="detail-row" *ngIf="s.departure?.gate || s.departure?.terminal"><span class="detail-label">Gate:</span><span>{{ s.departure.gate || '' }}{{ s.departure.gate && s.departure.terminal ? ' / ' : '' }}{{ s.departure.terminal ? 'T' + s.departure.terminal : '' }}</span></div>
+          <div class="detail-sub-title">Arrival</div>
+          <div class="detail-row" *ngIf="s.arrival?.airport"><span class="detail-label">To:</span><span>{{ s.arrival.airport }} <span *ngIf="s.arrival.iata">({{ s.arrival.iata }})</span></span></div>
+          <div class="detail-row" *ngIf="s.arrival?.scheduled"><span class="detail-label">Scheduled:</span><span>{{ s.arrival.scheduled | date:'short' }}</span></div>
+          <div class="detail-row" *ngIf="s.arrival?.estimated && s.arrival.estimated !== s.arrival.scheduled"><span class="detail-label">Estimated:</span><span>{{ s.arrival.estimated | date:'short' }}</span></div>
+          <div class="detail-row" *ngIf="s.arrival?.actual"><span class="detail-label">Actual:</span><span>{{ s.arrival.actual | date:'short' }}</span></div>
+          <div class="detail-row" *ngIf="s.arrival?.gate || s.arrival?.terminal"><span class="detail-label">Gate:</span><span>{{ s.arrival.gate || '' }}{{ s.arrival.gate && s.arrival.terminal ? ' / ' : '' }}{{ s.arrival.terminal ? 'T' + s.arrival.terminal : '' }}</span></div>
+          <div class="detail-row" *ngIf="s.arrival?.baggage"><span class="detail-label">Baggage:</span><span>{{ s.arrival.baggage }}</span></div>
         </div>
       </div>
     </div>
