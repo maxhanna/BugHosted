@@ -2430,7 +2430,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (c.includes('fceumm') || c.includes('nestopia') || c === 'nes') return 'nes';
     if (c.includes('genesis') || c.includes('picodrive') || c.includes('megadrive')) return 'genesis';
     if (c.includes('smsplus')) return 'sega_master_system';
-    if (c.includes('melonds') || c.includes('desmume') || c.includes('nds')) return 'nds';
+    if (c.includes('melonds') || c.includes('desmume') || c.includes('nds') || c.includes('3ds')) return 'nds';
     if (c === 'psp' || c.includes('ppsspp')) return 'psp';
     if (c.includes('mupen64') || c.includes('parallel_n64')) return 'n64';
     if (c.includes('yabause')) return 'saturn';

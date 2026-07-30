@@ -17,12 +17,10 @@
     </ng-template>
   </div>
 
-  <!-- Editing Mode: textarea display -->
-  <textarea *ngIf="isEditing" #noteInput class="noteInputTextArea" (input)="handleNoteInputChange()" required></textarea>
-
-  <!-- Share to Feed: inline under textarea when editing -->
-  <div *ngIf="isEditing && currentNoteText" class="shareToFeedInline">
+  <!-- Editing Mode: app-text-input replaces old textarea -->
+  <div *ngIf="isEditing" class="shareToFeedInline">
     <app-text-input
+      #noteTextInput
       [inputtedParentRef]="parentRef"
       [type]="'Social'"
       [showPostInput]="true"
@@ -54,7 +52,7 @@
       <fieldset class="buttonFields">
         <small class="autoSyncedIndicator" *ngIf="lastSyncedAt">Auto-synced at {{ lastSyncedAt | date:'mediumTime'
           }}</small>
-        <input type="submit" value="💾" (click)="addNote(); noteAddButton.disabled=true;" #noteAddButton
+        <input type="submit" value="💾" (click)="addNote()" #noteAddButton
           title="Save Note" />
         <input type="submit" value="↗️" (click)="shareNoteButtonClick()" #shareNoteButton title="Share Note" />
         <input type="submit" value="🆕" (click)="clearInputs()" #newNoteButton title="New Note" />

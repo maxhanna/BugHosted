@@ -91,12 +91,22 @@
 }
 
 @media only screen and (min-width : 660px) {
-  .noteInputTextArea {
+  :host ::ng-deep .shareToFeedInline .foodForThought {
     min-width: 60vw;
   }
 }
 
 textarea {
+  margin-left: auto;
+  margin-right: auto;
+  width: 95%;
+  min-height: 200px;
+  display: block;
+  height: CALC(100% - 205px);
+}
+
+/* Make the app-text-input's textarea as big as the old noteInputTextArea */
+:host ::ng-deep .shareToFeedInline .foodForThought {
   margin-left: auto;
   margin-right: auto;
   width: 95%;

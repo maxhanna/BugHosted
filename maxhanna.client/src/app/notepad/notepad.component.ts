@@ -1,10 +1,11 @@
-import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Note } from '../../services/datacontracts/note';
 import { NotepadService } from '../../services/notepad.service'; 
 import { UserService } from '../../services/user.service';
 import { User } from '../../services/datacontracts/user/user';
 import { NotificationService } from '../../services/notification.service';
+import { TextInputComponent } from '../text-input/text-input.component';
 
 @Component({
     selector: 'app-notepad',
@@ -12,9 +13,10 @@ import { NotificationService } from '../../services/notification.service';
     styleUrl: './notepad.component.css',
     standalone: false
 })
-export class NotepadComponent extends ChildComponent implements OnInit, OnDestroy {
-  @ViewChild('noteInput') noteInput!: ElementRef<HTMLTextAreaElement>;
+export class NotepadComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
+  @ViewChild('noteTextInput') noteTextInput!: TextInputComponent;
   @ViewChild('noteId') noteId!: ElementRef<HTMLInputElement>;
+  private _inputListenerCleanup: (() => void) | null = null;
   @ViewChild('noteAddButton') noteAddButton!: ElementRef<HTMLInputElement>;
   @ViewChild('newNoteButton') newNoteButton!: ElementRef<HTMLInputElement>;
   @ViewChild('shareNoteButton') shareNoteButton!: ElementRef<HTMLInputElement>;
@@ -24,7 +26,6 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
    
   @Input() inputtedSearch?: string;
 
-  noteInputValue: string = ''; // Initialize with an empty string
   isPanelExpanded: boolean = false;
   notes: Array<Note> = [];
   isCarouselPopped: boolean = false;
@@ -50,21 +51,27 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   }
   ngOnDestroy() {  
     this.stopSharedNotePolling(); 
+    this._detachInputListener();
+  }
+
+  private _detachInputListener() {
+    if (this._inputListenerCleanup) {
+      this._inputListenerCleanup();
+      this._inputListenerCleanup = null;
+    }
   }
   toggleEdit() {
     this.isEditing = !this.isEditing;
     if (this.isEditing) {
-      // Sync currentNoteText into the textarea when entering edit mode
       setTimeout(() => {
-        if (this.noteInput) {
-          this.noteInput.nativeElement.value = this.currentNoteText;
-          this.noteInput.nativeElement.focus();
+        if (this.noteTextInput?.textarea) {
+          this.noteTextInput.textarea.value = this.currentNoteText;
+          this.noteTextInput.textarea.focus();
         }
       }, 50);
     } else {
-      // Save textarea content back to currentNoteText when leaving edit mode (auto-save on toggle)
-      if (this.noteInput) {
-        this.currentNoteText = this.noteInput.nativeElement.value;
+      if (this.noteTextInput?.textarea) {
+        this.currentNoteText = this.noteTextInput.textarea.value;
       }
     }
   }
@@ -74,8 +81,8 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   clearInputs() {
-    if (this.noteInput) {
-      this.noteInput.nativeElement.value = "";
+    if (this.noteTextInput?.textarea) {
+      this.noteTextInput.textarea.value = "";
     }
     this.currentNoteText = "";
     this.noteId.nativeElement.value = "";
@@ -85,10 +92,23 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     this.stopSharedNotePolling();
     this.isEditing = false;
   }
-  handleNoteInputChange() {
-    this.noteAddButton.nativeElement.disabled = false;
-    this.noteInputValue = this.noteInput.nativeElement.value.trim();
-    this.currentNoteText = this.noteInput.nativeElement.value;
+  ngAfterViewInit() {
+    this._attachInputListener();
+  }
+
+  private _attachInputListener() {
+    this._detachInputListener();
+    const textarea = this.noteTextInput?.textarea;
+    if (!textarea) {
+      setTimeout(() => this._attachInputListener(), 200);
+      return;
+    }
+    const handler = () => {
+      this.currentNoteText = textarea.value;
+      if (this.noteAddButton) this.noteAddButton.nativeElement.disabled = false;
+    };
+    textarea.addEventListener('input', handler);
+    this._inputListenerCleanup = () => textarea.removeEventListener('input', handler);
   }
   async getUsers() {
     this.users = await this.userService.getAllUsers(this.parentRef?.user?.id) ?? [];
@@ -170,8 +190,8 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     try {
       const res = await this.notepadService.getNote(this.parentRef?.user.id, id);
       this.currentNoteText = res.note ?? '';
-      if (this.noteInput) {
-        this.noteInput.nativeElement.value = this.currentNoteText;
+      if (this.noteTextInput?.textarea) {
+        this.noteTextInput.textarea.value = this.currentNoteText;
       }
       if (this.noteId) {
         this.noteId.nativeElement.value = id + "";
@@ -214,7 +234,7 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     }
   }
   async addNote() {
-    const text = this.noteInput.nativeElement.value;
+    const text = this.noteTextInput?.textarea?.value ?? '';
     if (!text || text.trim() == "") {
       return alert("Note cannot be empty!");
     }
@@ -302,7 +322,7 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     }
   }
   private async attemptFetchLatestSelectedNote() {
-    const currentText = this.currentNoteText;
+    const currentText = this.noteTextInput?.textarea?.value ?? this.currentNoteText;
     if (this.loadedNote != currentText) {
       this.showAutoSyncPrompt = true;
       this.parentRef?.showOverlay();  
@@ -316,8 +336,8 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
       const res = await this.notepadService.getNote(this.parentRef?.user.id, this.selectedNote.id!);
       this.currentNoteText = res.note ?? '';
       this.loadedNote = res.note;
-      if (this.noteInput) {
-        this.noteInput.nativeElement.value = this.currentNoteText;
+      if (this.noteTextInput?.textarea) {
+        this.noteTextInput.textarea.value = this.currentNoteText;
       }
       this.setLastSynced(new Date());
     } catch (error) {
