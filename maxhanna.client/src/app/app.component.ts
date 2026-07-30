@@ -1192,7 +1192,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     });
 
     // Step 2: Convert regular URLs into clickable links
-    text = text.replace(/(<a[^>]*>.*?<\/a>)|(https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+)/gi, (match, existingLink, url) => {
+    text = text.replace(/(<a[^>]*>.*?<\/a>)|(https?:\/\/[a-zA-Z0-9\-._~:/?#@!$&'()*+,;=%]+)/gi, (match, existingLink, url) => {
       if (existingLink) return existingLink;
       return `<a href='${url}' target="_blank" onClick="document.getElementById('hiddenUrlToVisit').value='${url}';document.getElementById('hiddenUrlToVisitButton').click()" class=cursorPointer>${url}</a>`;
     }).replace(/\n/g, '<br>');

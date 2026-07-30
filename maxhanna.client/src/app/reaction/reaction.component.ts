@@ -137,7 +137,8 @@ export class ReactionComponent extends ChildComponent implements OnInit {
 
   ngOnInit() {
     if (!this.currentReactions || this.currentReactions.length === 0) {
-      if (this.fileId) {
+      // Only load file reactions if this is a file-level reaction (not a comment/story/message)
+      if (this.fileId && !this.commentId && !this.storyId && !this.messageId) {
         this.loadReactions();
       }
     }
@@ -182,11 +183,29 @@ export class ReactionComponent extends ChildComponent implements OnInit {
     }
     this.reactionLoading = true;
     let tmpReaction = new Reaction();
-    tmpReaction.messageId = this.messageId;
-    tmpReaction.storyId = this.storyId;
-    tmpReaction.commentId = this.commentId;
-    tmpReaction.fileId = this.fileId;
     tmpReaction.userProfileId = this.userProfileId;
+    // Only set the ID for the entity type this reaction is targeting — prevent cross-entity leaks
+    if (this.commentId) {
+      tmpReaction.commentId = this.commentId;
+      tmpReaction.fileId = undefined;
+      tmpReaction.storyId = undefined;
+      tmpReaction.messageId = undefined;
+    } else if (this.storyId) {
+      tmpReaction.storyId = this.storyId;
+      tmpReaction.commentId = undefined;
+      tmpReaction.fileId = undefined;
+      tmpReaction.messageId = undefined;
+    } else if (this.messageId) {
+      tmpReaction.messageId = this.messageId;
+      tmpReaction.commentId = undefined;
+      tmpReaction.fileId = undefined;
+      tmpReaction.storyId = undefined;
+    } else if (this.fileId) {
+      tmpReaction.fileId = this.fileId;
+      tmpReaction.commentId = undefined;
+      tmpReaction.storyId = undefined;
+      tmpReaction.messageId = undefined;
+    }
     tmpReaction.user = this.user ?? new User(0, "Anonymous");
     tmpReaction.type = reaction;
     tmpReaction.timestamp = new Date();
@@ -224,18 +243,18 @@ export class ReactionComponent extends ChildComponent implements OnInit {
 
     console.log("Sending notification for component:", this.component, this.commentId, this.storyId, this.messageId, this.fileId);
 
-    if (this.fileId && (this.component as FileEntry).user?.id !== 0) {
-      targetNotificationUserIds = [(this.component as FileEntry).user?.id!];
+    if (this.commentId) {
+      targetNotificationUserIds = [(this.component as FileComment).user?.id ?? 0];
       notificationData = { ...notificationData, toUserIds: targetNotificationUserIds };
     } else if (this.storyId) {
       targetNotificationUserIds = [(this.component as Story).user?.id ?? 0];
       notificationData = { ...notificationData, toUserIds: targetNotificationUserIds };
-    } else if (this.commentId) {
-      targetNotificationUserIds = [(this.component as FileComment).user?.id ?? 0];
-      notificationData = { ...notificationData, toUserIds: targetNotificationUserIds };
     } else if (this.messageId) {
       const sender = (this.component as Message).sender;
       targetNotificationUserIds = [sender.id ?? 0];
+      notificationData = { ...notificationData, toUserIds: targetNotificationUserIds };
+    } else if (this.fileId && (this.component as FileEntry).user?.id !== 0) {
+      targetNotificationUserIds = [(this.component as FileEntry).user?.id!];
       notificationData = { ...notificationData, toUserIds: targetNotificationUserIds };
     }
     if (targetNotificationUserIds.length > 0) {

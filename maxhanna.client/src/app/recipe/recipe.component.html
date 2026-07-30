@@ -86,7 +86,7 @@
       <div class="field-block">
         <span>Photos</span>
         <app-media-selector #mediaSelector [inputtedParentRef]="parentRef" [maxSelectedFiles]="4"
-          [selectedFiles]="selectedFiles" (selectFileEvent)="onMediaSelection($event)">
+          [currentDirectory]="'Pictures/Recipes/'" [selectedFiles]="selectedFiles" (selectFileEvent)="onMediaSelection($event)">
         </app-media-selector>
       </div>
       <div style="display:flex; width: 100%">

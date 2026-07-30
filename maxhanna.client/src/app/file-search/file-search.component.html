@@ -560,16 +560,16 @@
         {{optionsFile?.accessCount}}
       </div>
     </div>
+    <div *ngIf="!optionsFile?.isFolder" class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Comments:</div>
+      <div class="optionsStatsDescription cursorPointerUnderlined linkFontColor" (click)="showFileCommentsPopup(optionsFile)">
+        🗨️ {{optionsFile?.commentsCount ?? optionsFile?.fileComments?.length ?? 0}}
+      </div>
+    </div>
     <div *ngIf="optionsFile?.favouriteCount !== undefined" class="optionsStatsDiv">
       <div class="optionsStatsHeader">Favourites:</div>
       <div class="optionsStatsDescription cursorPointerUnderlined linkFontColor" (click)="getFavouritedBy(optionsFile)">
         {{optionsFile?.favouriteCount}}
-      </div>
-    </div>
-    <div *ngIf="!optionsFile?.isFolder && (optionsFile?.commentsCount ?? optionsFile?.fileComments?.length)" class="optionsStatsDiv">
-      <div class="optionsStatsHeader">Comments:</div>
-      <div class="optionsStatsDescription cursorPointerUnderlined linkFontColor" (click)="showFileCommentsPopup(optionsFile)">
-        🗨️ {{optionsFile?.commentsCount ?? optionsFile?.fileComments?.length}}
       </div>
     </div>
     <div *ngIf="displayRatings" class="optionsStatsDiv">

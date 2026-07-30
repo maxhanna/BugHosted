@@ -122,8 +122,8 @@
         <div class="menuSectionTitle">Resize Canvas</div>
         <p class="menuHint">Changes the canvas size. Existing artwork stays at the top-left; excess is cropped.</p>
         <div class="menuRow">
-          <label>Width: <input #wInput type="number" [value]="canvasWidth" min="100" class="sizeInput" /></label>
-          <label>Height: <input #hInput type="number" [value]="canvasHeight" min="100" class="sizeInput" /></label>
+          <label>Width: <input #wInput type="number" [value]="canvasWidth" min="1" class="sizeInput" /></label>
+          <label>Height: <input #hInput type="number" [value]="canvasHeight" min="1" class="sizeInput" /></label>
           <button (click)="applySize(wInput.value, hInput.value)">Resize</button>
         </div>
       </div>
@@ -132,8 +132,8 @@
         <div class="menuSectionTitle">Scale Image</div>
         <p class="menuHint">Stretches or shrinks the artwork to fit the new canvas size.</p>
         <div class="menuRow">
-          <label>Width: <input #rwInput type="number" [value]="canvasWidth" min="100" class="sizeInput" /></label>
-          <label>Height: <input #rhInput type="number" [value]="canvasHeight" min="100" class="sizeInput" /></label>
+          <label>Width: <input #rwInput type="number" [value]="canvasWidth" min="1" class="sizeInput" /></label>
+          <label>Height: <input #rhInput type="number" [value]="canvasHeight" min="1" class="sizeInput" /></label>
           <button (click)="scaleCanvas(rwInput.value, rhInput.value)">Scale</button>
         </div>
       </div>

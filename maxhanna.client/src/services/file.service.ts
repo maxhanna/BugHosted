@@ -801,6 +801,17 @@ export class FileService {
     }
     return '';
   }
+  async getFileCommentCount(fileId: number): Promise<number> {
+    try {
+      const res = await fetch(`/file/getcommentcount?fileId=${fileId}`);
+      if (!res.ok) return 0;
+      const json = await res.json();
+      return json?.count ?? 0;
+    } catch {
+      return 0;
+    }
+  }
+
   async editTopics(user: User, file: FileEntry, topics: Topic[]) {
     try {
       const res = await fetch('/file/edit-topics', {

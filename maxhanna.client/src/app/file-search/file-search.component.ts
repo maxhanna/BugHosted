@@ -760,6 +760,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       } else {
         this.goToFirstPage();
         this.currentDirectory += file.fileName + "/";
+        this.pageLocked = false;
         this.getDirectory(file.fileName);
       }
     }
@@ -1054,6 +1055,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     const target = this.moveUpOneLevel();
     this.goToFirstPage();
     this.currentDirectory = target;
+    this.pageLocked = false;
     this.getDirectory();
   }
 
@@ -1173,11 +1175,20 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if ((!file.topics || file.topics.length === 0) && file.id) {
       this.loadFileTopics(file);
     }
+    if (file.commentsCount === undefined && file.id) {
+      this.loadFileCommentCount(file);
+    }
   }
 
   private async loadFileTopics(file: FileEntry) { 
     if (file.topics) return;
     file.topics = await this.fileService.getTopics(file.id) ?? []; 
+  }
+
+  private async loadFileCommentCount(file: FileEntry) {
+    if (file.commentsCount !== undefined || !file.id) return;
+    file.commentsCount = await this.fileService.getFileCommentCount(file.id);
+    try { this.changeDetectorRef.detectChanges(); } catch { }
   }
 
   closeOptionsPanel(resetFile = true) {

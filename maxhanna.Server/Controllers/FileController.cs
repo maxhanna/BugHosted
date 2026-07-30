@@ -4214,6 +4214,26 @@ namespace maxhanna.Server.Controllers
             }
         }
 
+        [HttpGet("/File/GetCommentCount", Name = "GetFileCommentCount")]
+        public async Task<IActionResult> GetFileCommentCount([FromQuery] int fileId)
+        {
+            try
+            {
+                using var connection = new MySqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                var cmd = new MySqlCommand(@"SELECT COUNT(*) FROM comments WHERE file_id = @fileId", connection);
+                cmd.Parameters.AddWithValue("@fileId", fileId);
+                var count = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+                return Ok(new { count });
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Error fetching comment count: {ex.Message}", null, "FILE", true);
+                return StatusCode(500, "An error occurred while fetching comment count.");
+            }
+        }
+
         [HttpPost("/File/GetFileTopics", Name = "GetFileTopics")]
         public async Task<IActionResult> GetFileTopicsForFile([FromBody] int fileId)
         {

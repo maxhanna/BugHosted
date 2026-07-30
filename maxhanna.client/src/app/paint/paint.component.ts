@@ -65,8 +65,8 @@ export class PaintComponent extends ChildComponent {
   private isResizing = false;
   private resizeStartW = 0;
   private resizeStartH = 0;
-  canvasMinW = 100;
-  canvasMinH = 100;
+  canvasMinW = 1;
+  canvasMinH = 1;
 
   brushSizes = [1, 2, 5, 10, 20, 30];
   presetColors = [
@@ -104,6 +104,10 @@ export class PaintComponent extends ChildComponent {
   }
 
   ngAfterViewInit() {
+    if (this.onMobile()) {
+      this.canvasWidth = 320;
+      this.canvasHeight = 480;
+    }
     const canvas = this.canvasRef.nativeElement;
     canvas.width = this.canvasWidth;
     canvas.height = this.canvasHeight;
@@ -786,8 +790,8 @@ export class PaintComponent extends ChildComponent {
     const w = prompt('Canvas width:', String(this.canvasWidth));
     const h = prompt('Canvas height:', String(this.canvasHeight));
     if (w && h && !isNaN(Number(w)) && !isNaN(Number(h))) {
-      this.canvasWidth = Number(w);
-      this.canvasHeight = Number(h);
+      this.canvasWidth = Math.max(this.canvasMinW, Number(w));
+      this.canvasHeight = Math.max(this.canvasMinH, Number(h));
       const canvas = this.canvasRef.nativeElement;
       canvas.width = this.canvasWidth;
       canvas.height = this.canvasHeight;
