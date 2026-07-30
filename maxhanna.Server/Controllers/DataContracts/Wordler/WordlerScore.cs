@@ -7,6 +7,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Wordler
 		public int Id { get; set; }
 		public User? User { get; set; }
 		public int Score { get; set; }
+		public int Attempts {get; set; }
 		public int GuessCount { get; set; }
 		public int Time { get; set; }
 		public DateTime Submitted { get; set; }

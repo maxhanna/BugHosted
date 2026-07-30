@@ -140,13 +140,14 @@ namespace maxhanna.Server.Controllers
 
 				// If no score exists for the current user and date, proceed to insert the new score
 				string sql = @"
-                    INSERT INTO wordler_scores (user_id, score, guess_count, time, difficulty, submitted)
-                    VALUES (@UserId, @Score, @GuessCount, @Time, @Difficulty, @Submitted)";
+                    INSERT INTO wordler_scores (user_id, score, attempts, guess_count, time, difficulty, submitted)
+                    VALUES (@UserId, @Score, @Attempts, @GuessCount, @Time, @Difficulty, @Submitted)";
 				using (var cmd = new MySqlCommand(sql, conn))
 				{
 					cmd.Parameters.AddWithValue("@UserId", score.User?.Id ?? 0);
 					cmd.Parameters.AddWithValue("@Score", score.Score);
 					cmd.Parameters.AddWithValue("@GuessCount", score.GuessCount);
+					cmd.Parameters.AddWithValue("@Attempts", score.Attempts);
 					cmd.Parameters.AddWithValue("@Time", score.Time);
 					cmd.Parameters.AddWithValue("@Difficulty", score.Difficulty);
 					cmd.Parameters.AddWithValue("@Submitted", DateTime.UtcNow);
@@ -206,7 +207,7 @@ namespace maxhanna.Server.Controllers
 
 				// Do not limit to current date here; callers (client) will filter for 'today' when needed.
 		  string sql = @"
-		      SELECT ws.id, ws.user_id, ws.score, ws.guess_count, ws.time, ws.submitted,
+		      SELECT ws.id, ws.user_id, ws.score, ws.attempts, ws.guess_count, ws.time, ws.submitted,
 			      u.id as u_id, u.username as u_username, udp.file_id as display_picture_file_id, ws.difficulty
 		      FROM wordler_scores ws
 		      LEFT JOIN users u ON ws.user_id = u.id 
@@ -258,6 +259,7 @@ namespace maxhanna.Server.Controllers
 								User = tmpuser,
 								Score = reader.GetInt32("score"),
 								GuessCount = reader.GetInt32("guess_count"),
+								Attempts = reader.GetInt32("attempts"),
 								Time = reader.GetInt32("time"),
 								Submitted = reader.GetDateTime("submitted"),
 								Difficulty = reader.GetInt32("difficulty"),

@@ -327,7 +327,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
       eventText,
       this.scores.length > 0 ? this.scores[this.scores.length - 1].id : 0
     );
-    let tmpScore: WordlerScore = { score: computedScore, guessCount: guessCount, user: this.parentRef?.user ?? new User(0, "Anonymous"), time: this.elapsedTime, difficulty: this.selectedDifficulty };
+    let tmpScore: WordlerScore = { score: computedScore, attempts: this.currentAttempt, guessCount: this.guesses.length, user: this.parentRef?.user ?? new User(0, "Anonymous"), time: this.elapsedTime, difficulty: this.selectedDifficulty };
     await this.wordlerService.addScore(tmpScore);
     this.disableAllInputs = true;
     await this.loadScoreData();
