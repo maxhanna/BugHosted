@@ -40,7 +40,7 @@ namespace maxhanna.Server.Controllers
 			{
 				sql += " AND note LIKE CONCAT('%', @Search, '%')";
 			}
-			sql += ";";
+			sql += " ORDER BY id DESC;";
 			try
 			{
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))

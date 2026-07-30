@@ -33,6 +33,9 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   splitNoteOwnershipUsers: User[] = []; 
   showAutoSyncPrompt: boolean = false; 
   lastSyncedAt?: Date; 
+  isEditing: boolean = false;
+  isShareToFeedOpen: boolean = false;
+  currentNoteText: string = '';
   private sharedNotePollTimer?: any;  
   private loadedNote?: string; 
   private readonly SHARED_NOTE_POLL_INTERVAL = 60000; 
@@ -49,18 +52,56 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   ngOnDestroy() {  
     this.stopSharedNotePolling(); 
   }
+  toggleEdit() {
+    this.isEditing = !this.isEditing;
+    if (this.isEditing) {
+      // Sync currentNoteText into the textarea when entering edit mode
+      setTimeout(() => {
+        if (this.noteInput) {
+          this.noteInput.nativeElement.value = this.currentNoteText;
+          this.noteInput.nativeElement.focus();
+        }
+      }, 50);
+    } else {
+      // Save textarea content back to currentNoteText when leaving edit mode (auto-save on toggle)
+      if (this.noteInput) {
+        this.currentNoteText = this.noteInput.nativeElement.value;
+      }
+    }
+  }
+
+  toggleShareToFeed() {
+    this.isShareToFeedOpen = !this.isShareToFeedOpen;
+    if (this.isShareToFeedOpen) {
+      this.parentRef?.showOverlay();
+    } else {
+      this.parentRef?.closeOverlay();
+    }
+  }
+
+  onNoteContentPosted(event: { results: any, content: any, originalContent: string }) {
+    // Social post was created from the note — just close the share panel
+    this.isShareToFeedOpen = false;
+    this.parentRef?.closeOverlay();
+    this.parentRef?.showNotification('Note shared to feed!');
+  }
+
   clearInputs() {
-    if (!this.noteInput) { return; }
-    this.noteInput.nativeElement.value = "";
+    if (this.noteInput) {
+      this.noteInput.nativeElement.value = "";
+    }
+    this.currentNoteText = "";
     this.noteId.nativeElement.value = "";
     this.newNoteButton.nativeElement.style.display = "none";
     this.shareNoteButton.nativeElement.style.display = "none";
     this.deleteNoteButton.nativeElement.style.display = "none"; 
-    this.stopSharedNotePolling(); 
+    this.stopSharedNotePolling();
+    this.isEditing = false;
   }
   handleNoteInputChange() {
     this.noteAddButton.nativeElement.disabled = false;
-    this.noteInputValue = this.noteInput.nativeElement.value.trim(); 
+    this.noteInputValue = this.noteInput.nativeElement.value.trim();
+    this.currentNoteText = this.noteInput.nativeElement.value;
   }
   async getUsers() {
     this.users = await this.userService.getAllUsers(this.parentRef?.user?.id) ?? [];
@@ -141,12 +182,14 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     if (!id || !this.parentRef?.user?.id) { return; }
     try {
       const res = await this.notepadService.getNote(this.parentRef?.user.id, id);
+      this.currentNoteText = res.note ?? '';
       if (this.noteInput) {
-        this.noteInput.nativeElement.value = res.note!;
+        this.noteInput.nativeElement.value = this.currentNoteText;
       }
       if (this.noteId) {
         this.noteId.nativeElement.value = id + "";
       }
+      this.isEditing = false;
       this.isPanelExpanded = false;
       this.selectedNote = res; 
       this.splitNoteOwnership(); 
@@ -272,7 +315,7 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     }
   }
   private async attemptFetchLatestSelectedNote() {
-    const currentText = this.noteInput?.nativeElement?.value ?? '';
+    const currentText = this.currentNoteText;
     if (this.loadedNote != currentText) {
       this.showAutoSyncPrompt = true;
       this.parentRef?.showOverlay();  
@@ -284,9 +327,10 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     try {
       if (!this.selectedNote || !this.parentRef?.user?.id) { return; } 
       const res = await this.notepadService.getNote(this.parentRef?.user.id, this.selectedNote.id!);
+      this.currentNoteText = res.note ?? '';
+      this.loadedNote = res.note;
       if (this.noteInput) {
-        this.noteInput.nativeElement.value = res.note!;
-        this.loadedNote = res.note;
+        this.noteInput.nativeElement.value = this.currentNoteText;
       }
       this.setLastSynced(new Date());
     } catch (error) {

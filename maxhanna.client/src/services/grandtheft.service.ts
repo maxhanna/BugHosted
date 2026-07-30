@@ -154,6 +154,17 @@ export interface CityMesh {
   meshName?: string;
   renderScale?: number;
   yawOffset?: number;
+  // Animation support — stored on loaded models that have skeletons
+  animations?: GltfAnimation[];
+  skeleton?: {
+    boneParents: Int32Array;
+    boneLocalMatrices: Float32Array;
+    inverseBindMatrices: Float32Array;
+    skinRootWorld: Float32Array;
+    nodeToBoneIdx: Map<number, number>;
+    boneCount: number;
+    nodeNames: string[];
+  };
 }
 export interface GltfAnimation {
   name: string;

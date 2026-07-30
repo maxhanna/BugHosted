@@ -2802,6 +2802,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         camX, camY, camZ, this.camYaw, this.camPitch, aspect,
         targetX, this.carY - CAR_HEIGHT + rockOffset, targetZ, this.carYaw,
         this._allNPCs, this.otherPlayers, this._allPeds, this.parkedCars,
+        dt,
         this.tracers, this.muzzleFlashes, this.rockets, this.explosions, this.bloodSplats,
         this.bloodPools,
         this.bulletSmoke,

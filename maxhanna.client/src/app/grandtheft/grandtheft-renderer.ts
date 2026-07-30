@@ -497,6 +497,23 @@ function hashSeed(s: number | string): number {
   return h;
 }
 
+export interface EntityAnimator {
+  currentAnimation: string;        // name of the active animation
+  time: number;                    // current playback time (seconds)
+  loop: boolean;                   // whether to loop
+  speed: number;                   // playback speed multiplier
+}
+
+export interface EntityAnimatorSkeleton {
+  boneParents: Int32Array;
+  boneLocalMatrices: Float32Array;
+  inverseBindMatrices: Float32Array;
+  skinRootWorld: Float32Array;
+  nodeToBoneIdx: Map<number, number>;
+  boneCount: number;
+  nodeNames: string[];
+}
+
 export class GrandTheftRenderer {
   private gl: WebGL2RenderingContext;
   private program: WebGLProgram;
@@ -771,6 +788,11 @@ export class GrandTheftRenderer {
     nodeNames: string[];
   } | null = null;
   public mark23Animations: GltfAnimation[] | null = null;
+
+  // ── Animation state machine for NPCs, pedestrians, and player models ──
+  public entityAnimators: Map<number, EntityAnimator> = new Map();
+  // Per-mesh animation data cache: maps a mesh identity to its shared skeleton + animations
+  private _meshAnimData: WeakMap<CityMesh, { animations: GltfAnimation[] | null; skeleton: EntityAnimatorSkeleton | null }> = new WeakMap();
 
   // Skeleton data for CPU skinning (used by Franklin model)
   public skelBoneParents: Int32Array | null = null;
@@ -1401,6 +1423,126 @@ void main() {
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, newData);
     }
   }
+
+  // ── Animation State Machine ──
+
+  /** Find the best animation matching a desired state (idle, walk, run) */
+  matchAnimationName(animations: GltfAnimation[], state: 'idle' | 'walk' | 'run' | 'drive'): string | null {
+    if (!animations || animations.length === 0) return null;
+
+    const keywords: Record<string, string[]> = {
+      idle: ['idle', 'idle_', '_idle', 'standing', 'breathing'],
+      walk: ['walk', 'walking', 'walk_', '_walk', 'jog', 'jogging'],
+      run: ['run', 'running', 'sprint', 'sprinting'],
+      drive: ['drive', 'driving', 'steer', 'steering'],
+    };
+
+    const targets = keywords[state];
+    const lowerTargets = targets.map(t => t.toLowerCase());
+
+    // Score each animation: exact name match > prefix match > contains match
+    let best: { name: string; score: number } | null = null;
+    for (const anim of animations) {
+      const name = anim.name.toLowerCase();
+      // Exact match of full animation name to a target keyword
+      for (let i = 0; i < lowerTargets.length; i++) {
+        if (name === lowerTargets[i]) {
+          const score = 100 - i;
+          if (!best || score > best.score) best = { name: anim.name, score };
+        }
+      }
+      // Animation name contains the target keyword
+      for (let i = 0; i < lowerTargets.length; i++) {
+        if (name.includes(lowerTargets[i])) {
+          const score = 50 - i;
+          if (!best || score > best.score) best = { name: anim.name, score };
+        }
+      }
+    }
+
+    // Fallback: return first animation if nothing matched (default to it)
+    if (!best && animations.length > 0) {
+      best = { name: animations[0].name, score: 0 };
+    }
+
+    return best ? best.name : null;
+  }
+
+  /**
+   * Update an entity's animation state and CPU-skin its mesh.
+   * Returns true if the mesh was skinned (caller should then drawMesh).
+   * For entities without skeleton data, this is a no-op (returns false).
+   */
+  animateAndSkinEntity(
+    entityId: number,
+    entityMesh: CityMesh | CityMesh[],
+    state: 'idle' | 'walk' | 'run' | 'drive',
+    dt: number,
+    speed: number = 1
+  ): boolean {
+    const meshes = Array.isArray(entityMesh) ? entityMesh : [entityMesh];
+    if (meshes.length === 0) return false;
+
+    // Get or discover animation data from the first mesh
+    let animData = this._meshAnimData.get(meshes[0]);
+    if (!animData) {
+      const src = meshes.find(m => m.skeleton && m.animations && m.animations.length > 0);
+      if (!src) return false;
+      animData = { animations: src.animations ?? null, skeleton: src.skeleton ?? null };
+      meshes.forEach(m => this._meshAnimData.set(m, animData!));
+    }
+
+    const { animations, skeleton } = animData;
+    if (!animations || !skeleton || skeleton.boneCount === 0) return false;
+
+    // Determine desired animation name
+    const desiredAnim = this.matchAnimationName(animations, state);
+    if (!desiredAnim) return false;
+
+    // Get or create animator for this entity
+    let animator = this.entityAnimators.get(entityId);
+    if (!animator) {
+      animator = { currentAnimation: desiredAnim, time: 0, loop: true, speed: 1 };
+      this.entityAnimators.set(entityId, animator);
+    }
+
+    // Switch animation if state changed
+    if (animator.currentAnimation !== desiredAnim) {
+      animator.currentAnimation = desiredAnim;
+      animator.time = 0;
+    }
+
+    // Find the animation object
+    const anim = animations.find(a => a.name === desiredAnim);
+    if (!anim || anim.duration <= 0) return false;
+
+    // Advance time
+    animator.time += dt * speed;
+    if (animator.loop && anim.duration > 0) {
+      animator.time = animator.time % anim.duration;
+    }
+
+    // Sample animation into local matrices
+    const localMatrices = new Float32Array(skeleton.boneCount * 16);
+    this.sampleAnimation(anim, animator.time, skeleton, localMatrices);
+
+    // Compute joint matrices and skin all meshes in one batch
+    const jointMatrices = new Float32Array(skeleton.boneCount * 16);
+    this.computeJointMatrices(skeleton, localMatrices, jointMatrices);
+    this.skinMeshGeneric(meshes, skeleton, jointMatrices);
+
+    return true;
+  }
+
+  /** Prune animators for entities no longer in the active set. Call periodically. */
+  cleanupAnimators(activeEntityIds: Set<number>) {
+    for (const id of this.entityAnimators.keys()) {
+      if (!activeEntityIds.has(id)) {
+        this.entityAnimators.delete(id);
+      }
+    }
+  }
+
   // CPU skinning: compute bone transforms, blend vertices, update VBO
   skinPlayerMesh(meshes: CityMesh | CityMesh[], dt: number = 0): void {
     try {
@@ -3543,6 +3685,7 @@ void main() {
     camX: number, camY: number, camZ: number, camYaw: number, camPitch: number, aspect: number,
     targetX: number, targetY: number, targetZ: number, carYaw: number,
     serverNPCs: any[], otherPlayers: any[], serverPedestrians: any[], parkedCars: any[],
+    dt: number = 0,
     tracers: any[], muzzleFlashes: any[], rockets: any[], explosions: any[], bloodSplats: any[],
     bloodPools: any[],
     bulletSmoke: any[],
@@ -3875,6 +4018,10 @@ void main() {
     }
 
     for (const npc of serverNPCs) {
+      // Animate skinned NPCs (pedestrians with skeletons, not rigid vehicles)
+      const npcSpeed = npc.speed ?? 0;
+      const npcState = npcSpeed > 0.5 ? 'walk' : 'idle';
+      this.animateAndSkinEntity(npc.id, npc.mesh, npcState, dt, Math.max(1, npcSpeed));
       const biome = getBiome(Math.floor(npc.x / 80), Math.floor(npc.z / 80));
       const submerged = biome === 'ocean';
       const isAircraft = npc.type === 'helicopter' || npc.type === 'plane';
@@ -3906,7 +4053,22 @@ void main() {
       }
     }
 
-    for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw);
+    for (const ped of serverPedestrians) {
+      const pedSpeed = ped.speed ?? 0;
+      const pedState = pedSpeed > 0.3 ? 'walk' : 'idle';
+      this.animateAndSkinEntity(ped.id, ped.mesh, pedState, dt, Math.max(1, pedSpeed * 2));
+      this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw);
+    }
+
+    // Periodic cleanup of stale animators for despawned entities
+    if (dt > 0 && Math.random() < 0.05) {
+      const activeIds = new Set<number>();
+      activeIds.add(-1); // player mesh
+      for (const npc of serverNPCs) activeIds.add(npc.id);
+      for (const ped of serverPedestrians) activeIds.add(ped.id);
+      this.cleanupAnimators(activeIds);
+    }
+
     for (const p of otherPlayers) {
       if (p.passengerOfUserId && p.passengerOfUserId > 0) {
         const host = otherPlayers.find(h => h.userId === p.passengerOfUserId);
@@ -3953,7 +4115,11 @@ void main() {
       }
     }
 
-    if (playerMesh) this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], false, 0, carRoll);
+    if (playerMesh) {
+      const playerState = this.walkSpeed > 0.3 ? (this.walkSpeed > 2 ? 'run' : 'walk') : 'idle';
+      this.animateAndSkinEntity(-1, playerMesh, playerState, dt, Math.max(1, this.walkSpeed * 2));
+      this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], false, 0, carRoll);
+    }
 
     if (attachedMeshes && attachedMeshes.length > 0) {
       const sinY = Math.sin(carYaw), cosY = Math.cos(carYaw);
@@ -5247,9 +5413,16 @@ void main() {
           for (const m of meshes) (m as any)._isMotorcycle = true;
         }
       }
+      // Extract animations and skeleton once, store to both out param and first mesh
+      const anims = this.extractGltfAnimations(json, buffers);
+      const skel = this.extractGltfSkeleton(json, buffers);
       if (out) {
-        out.animations = this.extractGltfAnimations(json, buffers);
-        out.skeleton = this.extractGltfSkeleton(json, buffers);
+        out.animations = anims;
+        out.skeleton = skel;
+      }
+      if (meshes.length > 0) {
+        if (anims) meshes[0].animations = anims;
+        if (skel) meshes[0].skeleton = skel;
       }
 
       json = null;

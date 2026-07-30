@@ -2,6 +2,86 @@
   max-width: 90vw;
   height: CALC(100vh - 60px);
   height: CALC(100dvh - 60px);
+}
+
+/* Viewing mode display */
+.noteViewDisplay {
+  margin-left: auto;
+  margin-right: auto;
+  width: 95%;
+  min-height: 200px;
+  display: block;
+  height: CALC(100% - 205px);
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  overflow-y: auto;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.noteViewDisplay:hover {
+  border-color: #888;
+  background: rgba(255, 255, 255, 0.06);
+}
+.noteViewContent {
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #e0e0e0;
+}
+.noteViewEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: #666;
+  font-style: italic;
+}
+.noteViewEmptyIcon {
+  font-size: 48px;
+  opacity: 0.4;
+}
+
+/* Edit toggle button */
+.editToggleBtn {
+  background: linear-gradient(135deg, #3a3a5a 0%, #4a4a6a 100%);
+  color: #e0e0e0;
+  border: 1px solid #555;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.editToggleBtn:hover {
+  background: linear-gradient(135deg, #4a4a6a 0%, #5a5a7a 100%);
+  border-color: #777;
+  color: #fff;
+}
+
+/* Share to feed button */
+.shareToFeedBtn {
+  background: linear-gradient(135deg, #2a4a3a 0%, #3a5a4a 100%);
+  color: #a0e0b0;
+  border: 1px solid #4a6a5a;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.shareToFeedBtn:hover {
+  background: linear-gradient(135deg, #3a5a4a 0%, #4a6a5a 100%);
+  border-color: #5a7a6a;
+  color: #c0ffd0;
 } 
 @media only screen and (max-width : 667px) {
   .componentMain {
