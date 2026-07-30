@@ -501,6 +501,19 @@
     <button class="close-btn" (click)="closeCoordsEditPopup()">×</button>
     <div class="data-content">
       <div class="form-group">
+        <label>Search city / country / town:</label>
+        <input type="text" [(ngModel)]="locationSearchTerm" (ngModelChange)="filterLocationSearch()"
+          placeholder="Type to search…" class="flight-input" />
+      </div>
+      <div class="location-search-results" *ngIf="locationSearchResults.length > 0">
+        <div *ngFor="let result of locationSearchResults" class="location-search-item"
+          (click)="selectLocation(result)">
+          <span class="location-type-badge">{{ result.type }}</span>
+          <span class="location-name">{{ result.name }}</span>
+          <span class="location-coords">{{ result.lat.toFixed(4) }}, {{ result.lon.toFixed(4) }}</span>
+        </div>
+      </div>
+      <div class="form-group">
         <label>Latitude:</label>
         <input type="number" #editLatInput [value]="editLat" (change)="changeEditLatLon()" step="0.0001" class="flight-input">
       </div>

@@ -178,6 +178,8 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   isCoordsEditPopupOpen = false;
   editLat = 0;
   editLon = 0;
+  locationSearchTerm = '';
+  locationSearchResults: Array<{ type: string; name: string; lat: number; lon: number }> = [];
 
   // ---- WebGL --------------------------------------------------------------
   private gl!: WebGLRenderingContext;
@@ -1168,12 +1170,53 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     console.log("opening coords display");
     this.editLat = 0;
     this.editLon = 0;
+    this.locationSearchTerm = '';
+    this.locationSearchResults = [];
     this.isCoordsEditPopupOpen = true;
     this.inputtedParentRef.openOverlay();
   }
   closeCoordsEditPopup(): void {
     this.isCoordsEditPopupOpen = false;
     this.inputtedParentRef.closeOverlay();
+  }
+  filterLocationSearch() {
+    const query = this.locationSearchTerm.trim().toLowerCase();
+    if (!query) {
+      this.locationSearchResults = [];
+      return;
+    }
+    const results: Array<{ type: string; name: string; lat: number; lon: number }> = [];
+
+    const searchMap = (map: Record<string, [number, number]>, type: string) => {
+      for (const [key, coords] of Object.entries(map)) {
+        if (key.toLowerCase().includes(query)) {
+          results.push({ type, name: key, lat: coords[0], lon: coords[1] });
+          if (results.length >= 20) break;
+        }
+      }
+    };
+
+    searchMap(COUNTRY_COORDS, 'Country');
+    searchMap(CITY_COORDS, 'City');
+    searchMap(TOWN_COORDS, 'Town');
+
+    // Sort: exact matches first, then prefix, then substring
+    results.sort((a, b) => {
+      const aName = a.name.toLowerCase();
+      const bName = b.name.toLowerCase();
+      const aExact = aName === query ? 0 : aName.startsWith(query) ? 1 : 2;
+      const bExact = bName === query ? 0 : bName.startsWith(query) ? 1 : 2;
+      if (aExact !== bExact) return aExact - bExact;
+      return a.name.localeCompare(b.name);
+    });
+
+    this.locationSearchResults = results.slice(0, 30);
+  }
+  selectLocation(result: { type: string; name: string; lat: number; lon: number }) {
+    this.editLat = result.lat;
+    this.editLon = result.lon;
+    this.locationSearchTerm = '';
+    this.locationSearchResults = [];
   }
   private userToPing(userWithLoc: UserWithLocation): ResolvedGlobePing | null {
     const user = userWithLoc.user;

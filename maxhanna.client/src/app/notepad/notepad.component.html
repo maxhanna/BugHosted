@@ -1,14 +1,12 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me('NotepadComponent');"></div> 
-  <app-title-bar 
-    [title]="'Notepad'" 
-    [inputtedParentRef]="parentRef"
-    (closeClicked)="remove_me('NotepadComponent');">
+  <div class="closeButton" (click)="remove_me('NotepadComponent');"></div>
+  <app-title-bar [title]="'Notepad'" [inputtedParentRef]="parentRef" (closeClicked)="remove_me('NotepadComponent');">
   </app-title-bar>
 
   <!-- Viewing Mode: regular div display -->
   <div *ngIf="!isEditing" class="noteViewDisplay" (dblclick)="toggleEdit()" title="Double-click to edit">
-    <div class="noteViewContent" *ngIf="currentNoteText; else emptyNoteView" [innerHtml]="parentRef?.getTextForDOM(currentNoteText, 'noteView')"></div>
+    <div class="noteViewContent" *ngIf="currentNoteText; else emptyNoteView"
+      [innerHtml]="parentRef?.getTextForDOM(currentNoteText, 'noteView')"></div>
     <ng-template #emptyNoteView>
       <div class="noteViewEmpty">
         <span class="noteViewEmptyIcon">📝</span>
@@ -18,24 +16,20 @@
   </div>
 
   <!-- Editing Mode: app-text-input replaces old textarea -->
-  <div *ngIf="isEditing" class="shareToFeedInline">
-    <app-text-input
-      #noteTextInput
-      [inputtedParentRef]="parentRef"
-      [type]="'Social'"
-      [showPostInput]="true"
-      [showTopicSelector]="true"
-      [initialContent]="currentNoteText"
-      [postButtonText]="'Share to Feed'"
+  <div *ngIf="isEditing" class="shareToFeedInline"> 
+    <app-text-input #noteTextInput [inputtedParentRef]="parentRef"
+      [type]="'Social'" [showPostInput]="true" [showTopicSelector]="true" [postButtonText]="'✅'"
       (contentPosted)="onNoteContentPosted($event)">
     </app-text-input>
   </div>
   <div style="display:flex; justify-content: space-between;">
     <div style="display:flex; gap:8px; align-items:center;">
       <!-- Edit / View toggle -->
-      <button class="editToggleBtn" (click)="toggleEdit()" [title]="isEditing ? 'Switch to viewing mode' : 'Switch to editing mode'">
+      <button class="editToggleBtn" (click)="toggleEdit()"
+        [title]="isEditing ? 'Switch to viewing mode' : 'Switch to editing mode'">
         {{ isEditing ? '👁️ View' : '✏️ Edit' }}
       </button>
+      <button class="deleteNoteBtn" *ngIf="noteId?.value" (click)="deleteNote()" title="Delete Note">❌</button>
     </div>
     <div>
       Shared With:
@@ -52,16 +46,13 @@
       <fieldset class="buttonFields">
         <small class="autoSyncedIndicator" *ngIf="lastSyncedAt">Auto-synced at {{ lastSyncedAt | date:'mediumTime'
           }}</small>
-        <input type="submit" value="💾" (click)="addNote()" #noteAddButton
-          title="Save Note" />
         <input type="submit" value="↗️" (click)="shareNoteButtonClick()" #shareNoteButton title="Share Note" />
         <input type="submit" value="🆕" (click)="clearInputs()" #newNoteButton title="New Note" />
-        <input type="submit" value="❌" (click)="deleteNote()" #deleteNoteButton title="Delete Note" />
         <input type="hidden" value="" #noteId />
       </fieldset>
     </div>
   </div>
-  
+
 
   <div
     *ngIf="(notes && notes.length > 0) || (searchInput && searchInput.nativeElement && searchInput.nativeElement.value)"

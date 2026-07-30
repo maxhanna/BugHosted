@@ -17,10 +17,8 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   @ViewChild('noteTextInput') noteTextInput!: TextInputComponent;
   @ViewChild('noteId') noteId!: ElementRef<HTMLInputElement>;
   private _inputListenerCleanup: (() => void) | null = null;
-  @ViewChild('noteAddButton') noteAddButton!: ElementRef<HTMLInputElement>;
   @ViewChild('newNoteButton') newNoteButton!: ElementRef<HTMLInputElement>;
   @ViewChild('shareNoteButton') shareNoteButton!: ElementRef<HTMLInputElement>;
-  @ViewChild('deleteNoteButton') deleteNoteButton!: ElementRef<HTMLInputElement>;
   @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
   @ViewChild('notesCarousel') notesCarousel!: ElementRef<HTMLDivElement>;
    
@@ -76,8 +74,8 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     }
   }
 
-  onNoteContentPosted(event: { results: any, content: any, originalContent: string }) {
-    this.parentRef?.showNotification('Note shared to feed!');
+  async onNoteContentPosted(event: { results: any, content: any, originalContent: string }) {
+    await this.addNote();
   }
 
   clearInputs() {
@@ -87,8 +85,7 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     this.currentNoteText = "";
     this.noteId.nativeElement.value = "";
     this.newNoteButton.nativeElement.style.display = "none";
-    this.shareNoteButton.nativeElement.style.display = "none";
-    this.deleteNoteButton.nativeElement.style.display = "none"; 
+    this.shareNoteButton.nativeElement.style.display = "none"; 
     this.stopSharedNotePolling();
     this.isEditing = false;
   }
@@ -105,7 +102,6 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     }
     const handler = () => {
       this.currentNoteText = textarea.value;
-      if (this.noteAddButton) this.noteAddButton.nativeElement.disabled = false;
     };
     textarea.addEventListener('input', handler);
     this._inputListenerCleanup = () => textarea.removeEventListener('input', handler);
@@ -202,7 +198,6 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
       this.splitNoteOwnership(); 
       this.newNoteButton.nativeElement.style.display = "inline-block";
       this.shareNoteButton.nativeElement.style.display = "inline-block";
-      this.deleteNoteButton.nativeElement.style.display = "inline-block";
       this.lastSyncedAt = undefined;
       this.stopSharedNotePolling();
       const ownership = this.selectedNote?.ownership ?? '';
