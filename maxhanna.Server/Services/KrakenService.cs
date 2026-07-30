@@ -289,6 +289,26 @@ public class KrakenService
   private async Task<bool> HandleHFTBuying(int userId, string coin, UserKrakenApiKey keys, string strategy, string tmpCoin, decimal coinPriceCAD, decimal currentPrice, decimal coinBalance, decimal usdcBalance)
   {
     decimal coinToTrade = _MinimumBTCTradeAmount;
+
+    // Respect max balance setting from wallet configuration
+    if (_MaximumBTCBalance > 0 && coinBalance + coinToTrade > _MaximumBTCBalance)
+    {
+      decimal availableRoom = _MaximumBTCBalance - coinBalance;
+      if (availableRoom <= 0)
+      {
+        _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Already at max {tmpCoin} balance ({coinBalance} / {_MaximumBTCBalance}). Trade Cancelled.", userId, "TRADE", viewDebugLogs);
+        return false;
+      }
+      decimal originalAmount = coinToTrade;
+      coinToTrade = Math.Min(coinToTrade, availableRoom);
+      if (coinToTrade < _MinimumBTCTradeAmount)
+      {
+        _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Available room ({FormatBTC(availableRoom)} {tmpCoin}) below minimum trade amount ({FormatBTC(_MinimumBTCTradeAmount)}). Trade Cancelled.", userId, "TRADE", viewDebugLogs);
+        return false;
+      }
+      _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Capped buy from {FormatBTC(originalAmount)} to {FormatBTC(coinToTrade)} {tmpCoin} to respect max balance ({_MaximumBTCBalance}).", userId, "TRADE", viewDebugLogs);
+    }
+
     _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Buying {FormatBTC(coinToTrade)} {coin}.", userId, "TRADE", viewDebugLogs);
     await ExecuteTrade(userId, tmpCoin, keys, FormatBTC(coinToTrade), "buy", coinBalance, usdcBalance, coinPriceCAD, currentPrice, strategy, null, null);
     return true;
