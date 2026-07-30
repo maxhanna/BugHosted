@@ -1,4 +1,4 @@
-﻿import { Component, Input, OnInit, ViewChild } from '@angular/core';
+﻿import { Component, ElementRef, HostListener, Input, OnInit, ViewChild } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { firstValueFrom } from 'rxjs';
 import { ChildComponent } from '../child.component';
@@ -19,6 +19,16 @@ import { UserEventService } from '../../services/user-event.service';
 export class RecipeComponent extends ChildComponent implements OnInit {
   @Input() parentComponent: any;
   @Input() recipeId?: number;
+  @HostListener('document:keyDown', ['$event']) onKeyDown(event: KeyboardEvent) {
+    if(event.key === 'Escape') {
+      const expandedRecipeIds = Array.from(this.expandedRecipes.entries())
+      .filter(([_, value]) => value)
+      .map(([key, _]) => key);
+      if(expandedRecipeIds.length > 0) {
+        this.toggleRecipeDetails(expandedRecipeIds[0]);
+      }
+    }
+  }
   @ViewChild('mediaSelector') mediaSelector?: MediaSelectorComponent;
   recipes: Recipe[] = [];
   filteredRecipes: Recipe[] = [];
