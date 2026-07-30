@@ -328,7 +328,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
 
   toggleRecipeDetails(recipeId: number): void {
     const isExpanded = this.expandedRecipes.get(recipeId);
-    if (isExpanded) {
+    if (!isExpanded) {
       this.parentRef?.showOverlay();
     }
     this.expandedRecipes.set(recipeId, !isExpanded);
