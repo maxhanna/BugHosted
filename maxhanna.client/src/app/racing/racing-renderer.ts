@@ -94,8 +94,8 @@ export class RacingRenderer {
     if (!gl) throw new Error('WebGL2 not supported');
     this.gl = gl;
 
-    // Create white texture
-    this.whiteTex = this.makeTex(1, 1, new Uint8Array([200, 200, 200]));
+    // Create white texture (pure white so vertex colors show at full brightness)
+    this.whiteTex = this.makeTex(1, 1, new Uint8Array([255, 255, 255]));
     this.asphaltTex = this.makeAsphaltTex();
     this.grassTex = this.makeGrassTex();
     this.trackTex = this.makeTrackMarkingsTex();
@@ -154,15 +154,17 @@ export class RacingRenderer {
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
         const i = (y * size + x) * 3;
-        // Left 4px white line, right 4px white line
-        if (x < 4 || x > size - 5) {
+        // Edge lines run ALONG the road (v = 0 / v = 1), dashes run along u
+        if (y < 4 || y > size - 5) {
           data[i] = 255; data[i + 1] = 255; data[i + 2] = 255;
-        } else if (x > size / 2 - 2 && x < size / 2 + 2) {
-          // Center dashed line - every other row
-          if (y % 16 < 8) { data[i] = 255; data[i + 1] = 255; data[i + 2] = 200; }
-          else { data[i] = 40; data[i + 1] = 40; data[i + 2] = 40; }
+        } else if (y > size / 2 - 2 && y < size / 2 + 2) {
+          // Center dashed line - dashes every other texel along the road
+          if (x % 16 < 8) { data[i] = 255; data[i + 1] = 255; data[i + 2] = 200; }
+          else { data[i] = 45; data[i + 1] = 45; data[i + 2] = 48; }
         } else {
-          data[i] = 40; data[i + 1] = 40; data[i + 2] = 40;
+          // Asphalt base with subtle noise
+          const n = 42 + (i % 7);
+          data[i] = n; data[i + 1] = n; data[i + 2] = n + 2;
         }
       }
     }
@@ -227,7 +229,7 @@ void main() {
   vec3 specColor = spec * vec3(0.4);
 
   vec3 color = amb + diffColor + specColor;
-  float fog = clamp((vDepth - 60.0) / 180.0, 0.0, 1.0);
+  float fog = clamp((vDepth - 80.0) / 400.0, 0.0, 1.0);
   color = mix(color, uFogColor, fog * vColor.a);
   FragColor = vec4(color, vColor.a);
 }`;
@@ -247,6 +249,7 @@ void main() {
     this.fogColorLoc = gl.getUniformLocation(this.prog, 'uFogColor')!;
     this.viewPosLoc = gl.getUniformLocation(this.prog, 'uViewPos')!;
     this.useVertexColor = gl.getUniformLocation(this.prog, 'uUseVertexColor')!;
+    gl.uniform1i(this.useVertexColor, 1);
   }
 
   private createProgram(vs: string, fs: string): WebGLProgram {
@@ -341,7 +344,28 @@ void main() {
     this.skySunDirLoc = gl.getUniformLocation(this.skyProg, 'uSunDir')!;
     this.skyTimeLoc = gl.getUniformLocation(this.skyProg, 'uTime')!;
 
-    const verts = new Float32Array([-1, -1, -1, 1, -1, -1, -1, 1, -1, 1, 1, -1, -1, -1, 1, 1, -1, 1, -1, 1, 1, 1, 1, 1]);
+    // Full cube: 6 faces × 2 triangles × 3 verts = 36 verts
+    const c = 1;
+    const verts = new Float32Array([
+      // +Z face
+      -c, -c, c,  c, -c, c,  c, c, c,
+      -c, -c, c,  c, c, c,  -c, c, c,
+      // -Z face
+      c, -c, -c,  -c, -c, -c,  -c, c, -c,
+      c, -c, -c,  -c, c, -c,  c, c, -c,
+      // +X face
+      c, -c, c,  c, -c, -c,  c, c, -c,
+      c, -c, c,  c, c, -c,  c, c, c,
+      // -X face
+      -c, -c, -c,  -c, -c, c,  -c, c, c,
+      -c, -c, -c,  -c, c, c,  -c, c, -c,
+      // +Y face
+      -c, c, c,  c, c, c,  c, c, -c,
+      -c, c, c,  c, c, -c,  -c, c, -c,
+      // -Y face
+      -c, -c, -c,  c, -c, -c,  c, -c, c,
+      -c, -c, -c,  c, -c, c,  -c, -c, c,
+    ]);
     this.skyVao = gl.createVertexArray()!;
     gl.bindVertexArray(this.skyVao);
     const buf = gl.createBuffer()!;
@@ -470,14 +494,14 @@ void main() {
       const segDist = i / pts.length;
 
       // Left edge
-      verts.push(p.x + ppx * hw, 0, p.z + ppz * hw, 0, 1, 0, 0.7, 0.7, 0.7, segDist * 4, 0);
-      verts.push(n.x + npx * hwN, 0, n.z + npz * hwN, 0, 1, 0, 0.7, 0.7, 0.7, (segDist + 1 / pts.length) * 4, 0);
+      verts.push(p.x + ppx * hw, 0, p.z + ppz * hw, 0, 1, 0, 1, 1, 1, segDist * 4, 0);
+      verts.push(n.x + npx * hwN, 0, n.z + npz * hwN, 0, 1, 0, 1, 1, 1, (segDist + 1 / pts.length) * 4, 0);
       // Center
-      verts.push(p.x, 0, p.z, 0, 1, 0, 0.6, 0.6, 0.6, segDist * 4, 0.5);
-      verts.push(n.x, 0, n.z, 0, 1, 0, 0.6, 0.6, 0.6, (segDist + 1 / pts.length) * 4, 0.5);
+      verts.push(p.x, 0, p.z, 0, 1, 0, 1, 1, 1, segDist * 4, 0.5);
+      verts.push(n.x, 0, n.z, 0, 1, 0, 1, 1, 1, (segDist + 1 / pts.length) * 4, 0.5);
       // Right edge
-      verts.push(p.x - ppx * hw, 0, p.z - ppz * hw, 0, 1, 0, 0.7, 0.7, 0.7, segDist * 4, 1);
-      verts.push(n.x - npx * hwN, 0, n.z - npz * hwN, 0, 1, 0, 0.7, 0.7, 0.7, (segDist + 1 / pts.length) * 4, 1);
+      verts.push(p.x - ppx * hw, 0, p.z - ppz * hw, 0, 1, 0, 1, 1, 1, segDist * 4, 1);
+      verts.push(n.x - npx * hwN, 0, n.z - npz * hwN, 0, 1, 0, 1, 1, 1, (segDist + 1 / pts.length) * 4, 1);
 
       const vi = i * perSegVerts;
       idxs.push(vi, vi + 1, vi + 2);
@@ -487,12 +511,12 @@ void main() {
 
       // Grass shoulders - wider on each side
       const shoulderW = 20;
-      // Left shoulder
-      verts.push(p.x + ppx * (hw + shoulderW), -0.05, p.z + ppz * (hw + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, segDist * 0.5, 0);
-      verts.push(n.x + npx * (hwN + shoulderW), -0.05, n.z + npz * (hwN + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, (segDist + 1 / pts.length) * 0.5, 0);
+      // Left shoulder (samples plain asphalt region of the texture, tinted green)
+      verts.push(p.x + ppx * (hw + shoulderW), -0.05, p.z + ppz * (hw + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, segDist * 0.5, 0.25);
+      verts.push(n.x + npx * (hwN + shoulderW), -0.05, n.z + npz * (hwN + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, (segDist + 1 / pts.length) * 0.5, 0.25);
       // Right shoulder
-      verts.push(p.x - ppx * (hw + shoulderW), -0.05, p.z - ppz * (hw + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, segDist * 0.5, 1);
-      verts.push(n.x - npx * (hwN + shoulderW), -0.05, n.z - npz * (hwN + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, (segDist + 1 / pts.length) * 0.5, 1);
+      verts.push(p.x - ppx * (hw + shoulderW), -0.05, p.z - ppz * (hw + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, segDist * 0.5, 0.75);
+      verts.push(n.x - npx * (hwN + shoulderW), -0.05, n.z - npz * (hwN + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, (segDist + 1 / pts.length) * 0.5, 0.75);
 
       const si = pts.length * perSegVerts + i * 4;
       idxs.push(si, si + 1, vi);
@@ -530,29 +554,29 @@ void main() {
       const bwN = n.width / 2 + 0.5;
       const sd = i / pts.length;
 
-      // Left barrier front face
-      verts.push(p.x + ppx * bw, 0, p.z + ppz * bw, 0, 0, 1, 0.2, 0.2, 0.2, sd, 0);
-      verts.push(n.x + npx * bwN, 0, n.z + npz * bwN, 0, 0, 1, 0.2, 0.2, 0.2, (i + 1) / pts.length, 0);
-      verts.push(p.x + ppx * bw, barrierH, p.z + ppz * bw, 0, 0, 1, 0.2, 0.2, 0.2, sd, 1);
-      verts.push(n.x + npx * bwN, barrierH, n.z + npz * bwN, 0, 0, 1, 0.2, 0.2, 0.2, (i + 1) / pts.length, 1);
+      // Left barrier front face (sample plain asphalt so walls stay dark, not striped)
+      verts.push(p.x + ppx * bw, 0, p.z + ppz * bw, 0, 0, 1, 0.2, 0.2, 0.2, sd, 0.25);
+      verts.push(n.x + npx * bwN, 0, n.z + npz * bwN, 0, 0, 1, 0.2, 0.2, 0.2, (i + 1) / pts.length, 0.25);
+      verts.push(p.x + ppx * bw, barrierH, p.z + ppz * bw, 0, 0, 1, 0.2, 0.2, 0.2, sd, 0.25);
+      verts.push(n.x + npx * bwN, barrierH, n.z + npz * bwN, 0, 0, 1, 0.2, 0.2, 0.2, (i + 1) / pts.length, 0.25);
       const bvi = verts.length / 11 - 4;
       idxs.push(bvi, bvi + 1, bvi + 2);
       idxs.push(bvi + 1, bvi + 3, bvi + 2);
 
       // Right barrier
-      verts.push(p.x - ppx * bw, 0, p.z - ppz * bw, 0, 0, 0, -1, 0.2, 0.2, 0.2, sd, 0);
-      verts.push(n.x - npx * bwN, 0, n.z - npz * bwN, 0, 0, 0, -1, 0.2, 0.2, 0.2, (i + 1) / pts.length, 0);
-      verts.push(p.x - ppx * bw, barrierH, p.z - ppz * bw, 0, 0, 0, -1, 0.2, 0.2, 0.2, sd, 1);
-      verts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, 0, 0, 0, -1, 0.2, 0.2, 0.2, (i + 1) / pts.length, 1);
+      verts.push(p.x - ppx * bw, 0, p.z - ppz * bw, 0, 0, 0, -1, 0.2, 0.2, 0.2, sd, 0.25);
+      verts.push(n.x - npx * bwN, 0, n.z - npz * bwN, 0, 0, 0, -1, 0.2, 0.2, 0.2, (i + 1) / pts.length, 0.25);
+      verts.push(p.x - ppx * bw, barrierH, p.z - ppz * bw, 0, 0, 0, -1, 0.2, 0.2, 0.2, sd, 0.25);
+      verts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, 0, 0, 0, -1, 0.2, 0.2, 0.2, (i + 1) / pts.length, 0.25);
       const bvi2 = verts.length / 11 - 4;
       idxs.push(bvi2, bvi2 + 1, bvi2 + 2);
       idxs.push(bvi2 + 1, bvi2 + 3, bvi2 + 2);
 
       // Barrier top caps
-      verts.push(p.x + ppx * bw, barrierH, p.z + ppz * bw, 0, 1, 0, 0.3, 0.3, 0.3, sd, 0);
-      verts.push(n.x + npx * bwN, barrierH, n.z + npz * bwN, 0, 1, 0, 0.3, 0.3, 0.3, (i + 1) / pts.length, 0);
-      verts.push(p.x - ppx * bw, barrierH, p.z - ppz * bw, 0, 1, 0, 0.3, 0.3, 0.3, sd, 1);
-      verts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, 0, 1, 0, 0.3, 0.3, 0.3, (i + 1) / pts.length, 1);
+      verts.push(p.x + ppx * bw, barrierH, p.z + ppz * bw, 0, 1, 0, 0.3, 0.3, 0.3, sd, 0.25);
+      verts.push(n.x + npx * bwN, barrierH, n.z + npz * bwN, 0, 1, 0, 0.3, 0.3, 0.3, (i + 1) / pts.length, 0.25);
+      verts.push(p.x - ppx * bw, barrierH, p.z - ppz * bw, 0, 1, 0, 0.3, 0.3, 0.3, sd, 0.25);
+      verts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, 0, 1, 0, 0.3, 0.3, 0.3, (i + 1) / pts.length, 0.25);
       const tc = verts.length / 11 - 4;
       idxs.push(tc, tc + 1, tc + 2);
       idxs.push(tc + 1, tc + 3, tc + 2);
@@ -800,6 +824,7 @@ void main() {
   private addCylinder(verts: number[], idxs: number[], cx: number, cy: number, cz: number, radius: number, height: number, segments: number, color: number[]) {
     const [r, g, b] = color;
     const baseIdx = verts.length / 11;
+    const stride = segments + 1;
 
     // Top ring
     for (let i = 0; i <= segments; i++) {
@@ -815,38 +840,27 @@ void main() {
       const z = Math.sin(a) * radius;
       verts.push(cx + x, cy, cz + z, 0, -1, 0, r * 0.9, g * 0.9, b * 0.9, 1, i / segments, 0);
     }
-    // Side ring (top)
-    for (let i = 0; i <= segments; i++) {
-      const a = (i / segments) * Math.PI * 2;
-      const x = Math.cos(a) * radius;
-      const z = Math.sin(a) * radius;
-      verts.push(cx + x, cy + height, cz + z, Math.cos(a), 0, Math.sin(a), r, g, b, 1, i / segments, 1);
-    }
-    // Side ring (bottom)
-    for (let i = 0; i <= segments; i++) {
-      const a = (i / segments) * Math.PI * 2;
-      const x = Math.cos(a) * radius;
-      const z = Math.sin(a) * radius;
-      verts.push(cx + x, cy, cz + z, Math.cos(a), 0, Math.sin(a), r, g, b, 1, i / segments, 0);
+    const topStart = baseIdx;
+    const bottomStart = baseIdx + stride;
+
+    // Side walls: connect top ring to bottom ring (outward-facing)
+    for (let i = 0; i < segments; i++) {
+      idxs.push(bottomStart + i, topStart + i, topStart + i + 1);
+      idxs.push(bottomStart + i, topStart + i + 1, bottomStart + i + 1);
     }
 
-    const stride = segments + 1;
-    // Top cap
+    // Top cap: fan from center (CCW when viewed from above → +Y normal)
+    const topCenter = verts.length / 11;
+    verts.push(cx, cy + height, cz, 0, 1, 0, r, g, b, 1, 0.5, 1);
     for (let i = 0; i < segments; i++) {
-      idxs.push(baseIdx + i, baseIdx + i + 1, baseIdx + stride + i);
-      idxs.push(baseIdx + stride + i, baseIdx + i + 1, baseIdx + stride + i + 1);
+      idxs.push(topCenter, topStart + i + 1, topStart + i);
     }
-    // Bottom cap (inverted)
-    const bottomStart = baseIdx + stride * 2;
+
+    // Bottom cap: fan from center (faces down → visible from below)
+    const bottomCenter = verts.length / 11;
+    verts.push(cx, cy, cz, 0, -1, 0, r, g, b, 1, 0.5, 0);
     for (let i = 0; i < segments; i++) {
-      idxs.push(bottomStart + i, bottomStart + stride + i, bottomStart + i + 1);
-      idxs.push(bottomStart + i + 1, bottomStart + stride + i, bottomStart + stride + i + 1);
-    }
-    // Side
-    const sideStart = baseIdx + stride * 4;
-    for (let i = 0; i < segments; i++) {
-      idxs.push(sideStart + i, sideStart + i + 1, sideStart + stride + i);
-      idxs.push(sideStart + stride + i, sideStart + i + 1, sideStart + stride + i + 1);
+      idxs.push(bottomCenter, bottomStart + i, bottomStart + i + 1);
     }
   }
 
@@ -1017,9 +1031,11 @@ void main() {
     gl.uniformMatrix4fv(this.skyViewLoc, false, this.viewMatrix);
     gl.uniform3fv(this.skySunDirLoc, this.sunDir);
     gl.uniform1f(this.skyTimeLoc, this.elapsed);
+    gl.disable(gl.CULL_FACE);
     gl.bindVertexArray(this.skyVao);
-    gl.drawArrays(gl.TRIANGLES, 0, 12);
+    gl.drawArrays(gl.TRIANGLES, 0, 36);
     gl.bindVertexArray(null);
+    gl.enable(gl.CULL_FACE);
 
     // Apply rain weather: darker ambient, desaturated fog
     if (isRaining) {

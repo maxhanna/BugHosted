@@ -133,7 +133,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   // ─── Speed Effects ───
   private _baseFov = 1.1;
   screenShake = 0;
-  isRaining = true;
+  isRaining = false;
+
+  // ─── Sound ───
+  soundOn = false;
 
   constructor(
     private racingService: RacingService,
@@ -144,6 +147,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
 
   ngOnInit() {
     this.loadPlayerCar();
+    try { this.soundOn = localStorage.getItem('gp_sound') === '1'; } catch { }
     this.userEventService.insertUserEvent(
       this.parentRef?.user?.id ?? 0, "racing", "Started Racing!", undefined, "Racing"
     );
@@ -328,9 +332,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.gameLoop(this.lastTime);
     });
 
-    // Init engine audio on first user interaction
+    // Init engine audio on first user interaction (only if sound is enabled)
     const initAudio = () => {
-      if (!this._audioCtx) this.initEngineAudio();
+      if (this.soundOn && !this._audioCtx) this.initEngineAudio();
       document.removeEventListener('click', initAudio);
       document.removeEventListener('keydown', initAudio);
     };
@@ -350,6 +354,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     // Clean up engine audio
     try {
       if (this._engineOsc) { this._engineOsc.stop(); this._engineOsc.disconnect(); }
+      if (this._engineFilter) this._engineFilter.disconnect();
       if (this._engineGain) this._engineGain.disconnect();
       if (this._audioCtx) this._audioCtx.close();
     } catch { }
@@ -1002,27 +1007,59 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   // ─── Engine Audio ───
+  private _engineFilter: BiquadFilterNode | null = null;
+
+  toggleSound() {
+    this.soundOn = !this.soundOn;
+    try { localStorage.setItem('gp_sound', this.soundOn ? '1' : '0'); } catch { }
+    if (this.soundOn) {
+      if (!this._audioCtx) this.initEngineAudio();
+    } else {
+      this.stopEngineAudio();
+    }
+  }
+
+  private stopEngineAudio() {
+    try {
+      if (this._engineOsc) { this._engineOsc.stop(); this._engineOsc.disconnect(); }
+      if (this._engineFilter) this._engineFilter.disconnect();
+      if (this._engineGain) this._engineGain.disconnect();
+      if (this._audioCtx) this._audioCtx.close();
+    } catch { }
+    this._engineOsc = null;
+    this._engineFilter = null;
+    this._engineGain = null;
+    this._audioCtx = null;
+  }
+
   private initEngineAudio() {
     try {
       this._audioCtx = new AudioContext();
       this._engineOsc = this._audioCtx.createOscillator();
+      this._engineFilter = this._audioCtx.createBiquadFilter();
       this._engineGain = this._audioCtx.createGain();
       this._engineOsc.type = 'sawtooth';
+      // Lowpass filter makes the engine a rumble instead of a harsh buzz
+      this._engineFilter.type = 'lowpass';
+      this._engineFilter.frequency.value = 500;
+      this._engineFilter.Q.value = 0.7;
       this._engineGain.gain.value = 0.04;
-      this._engineOsc.connect(this._engineGain);
+      this._engineOsc.connect(this._engineFilter);
+      this._engineFilter.connect(this._engineGain);
       this._engineGain.connect(this._audioCtx.destination);
       this._engineOsc.start();
     } catch { }
   }
 
   private updateEngineAudio(dt: number) {
-    if (!this._audioCtx || !this._engineOsc || !this._engineGain) return;
+    if (!this.soundOn || !this._audioCtx || !this._engineOsc || !this._engineFilter || !this._engineGain) return;
     const speed = Math.abs(this.carSpeed);
     const maxSpd = this.getMaxSpeed();
     const rpm = Math.max(0.3, Math.min(1.2, speed / maxSpd * 1.3 + 0.3));
     const freq = 55 + rpm * 120;
     this._engineOsc.frequency.setTargetAtTime(freq, this._audioCtx.currentTime, 0.05);
-    this._engineGain.gain.setTargetAtTime(0.02 + rpm * 0.04, this._audioCtx.currentTime, 0.05);
+    this._engineFilter.frequency.setTargetAtTime(350 + rpm * 500, this._audioCtx.currentTime, 0.05);
+    this._engineGain.gain.setTargetAtTime(0.02 + rpm * 0.03, this._audioCtx.currentTime, 0.05);
   }
 
   calculatePrize(): number {

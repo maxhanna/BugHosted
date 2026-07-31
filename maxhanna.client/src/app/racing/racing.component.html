@@ -131,7 +131,12 @@
         </div>
       </div>
 
-      <button class="race-garage-btn" (click)="openGarage()">GARAGE</button>
+      <div class="race-menu-actions">
+        <button class="race-garage-btn" (click)="openGarage()">GARAGE</button>
+        <button class="race-garage-btn race-sound-btn" [class.on]="soundOn" (click)="toggleSound()">
+          {{ soundOn ? '🔊 SOUND: ON' : '🔇 SOUND: OFF' }}
+        </button>
+      </div>
     </div>
 
     <!-- ─── Garage ─── -->

@@ -174,9 +174,20 @@
   font-size: 11px;
 }
 
-.race-garage-btn {
+.race-menu-actions {
+  display: flex;
+  gap: 12px;
   margin-top: 16px;
-  padding: 12px 48px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.race-menu-actions .race-garage-btn {
+  margin-top: 0;
+}
+
+.race-garage-btn {
+  padding: 12px 36px;
   border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.05);
@@ -186,6 +197,19 @@
   letter-spacing: 4px;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+.race-sound-btn {
+  letter-spacing: 1px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.race-sound-btn.on {
+  color: #4caf50;
+  border-color: rgba(76, 175, 80, 0.6);
+  background: rgba(76, 175, 80, 0.1);
 }
 
 .race-garage-btn:hover {
