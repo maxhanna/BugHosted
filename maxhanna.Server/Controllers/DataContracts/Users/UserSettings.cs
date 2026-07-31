@@ -25,5 +25,10 @@
         public bool DisplayProfileLocation { get; set; }
         public int? PageSize { get; set; }
         public bool WeeklyDigestEnabled { get; set; } = true;
+        [Newtonsoft.Json.JsonProperty("followPushEnabled")]
+        public bool FollowNotificationsPush { get; set; } = true;
+
+        [Newtonsoft.Json.JsonProperty("followEmailEnabled")]
+        public bool FollowNotificationsEmail { get; set; } = false;
     }
 }

@@ -30,7 +30,9 @@ namespace maxhanna.Server.Controllers
         "display_profile_location",
         "calendar_notifications_enabled",
         "page_size",
-        "weekly_digest_enabled"
+        "weekly_digest_enabled",
+        "follow_notifications_push",
+        "follow_notifications_email"
     };
 
     private static readonly ConcurrentDictionary<int, LoginPinState> _loginPinStates = new();
@@ -2388,7 +2390,9 @@ namespace maxhanna.Server.Controllers
      digcraft_view_distance,
      IFNULL(display_profile_location,1) AS display_profile_location,
      IFNULL(calendar_notifications_enabled,0) AS calendar_notifications_enabled,
-     IFNULL(weekly_digest_enabled,1) AS weekly_digest_enabled
+     IFNULL(weekly_digest_enabled,1) AS weekly_digest_enabled,
+     IFNULL(follow_notifications_push,1) AS follow_notifications_push,
+     IFNULL(follow_notifications_email,0) AS follow_notifications_email
      FROM maxhanna.user_settings 
      WHERE user_id = @userId;";
           MySqlCommand selectCmd = new MySqlCommand(selectSql, conn);
@@ -2423,6 +2427,8 @@ namespace maxhanna.Server.Controllers
               userSettings.CalendarNotificationsEnabled = !reader.IsDBNull(reader.GetOrdinal("calendar_notifications_enabled")) && reader.GetInt32("calendar_notifications_enabled") == 1;
               userSettings.PageSize = reader.IsDBNull(reader.GetOrdinal("page_size")) ? null : reader.GetInt32("page_size");
               userSettings.WeeklyDigestEnabled = !reader.IsDBNull(reader.GetOrdinal("weekly_digest_enabled")) && reader.GetInt32("weekly_digest_enabled") == 1;
+              userSettings.FollowNotificationsPush = !reader.IsDBNull(reader.GetOrdinal("follow_notifications_push")) && reader.GetInt32("follow_notifications_push") == 1;
+              userSettings.FollowNotificationsEmail = !reader.IsDBNull(reader.GetOrdinal("follow_notifications_email")) && reader.GetInt32("follow_notifications_email") == 1;
             }
           }
 
