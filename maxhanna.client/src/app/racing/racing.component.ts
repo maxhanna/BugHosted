@@ -14,7 +14,7 @@ const ACCEL = 35;
 const BRAKE_FORCE = 40;
 const FRICTION = 0.97;
 const MAX_SPEED_BASE = 55;
-const TURN_SPEED = 2.2;
+const TURN_SPEED = 1.2;
 const OFF_TRACK_DRAG = 0.92;
 const AI_LOOKAHEAD = 3;
 
@@ -109,7 +109,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   isMobile = false;
   mobileGas = false; mobileBrake = false;
   mobileLeft = false; mobileRight = false;
-  mobileSteerCurrent = 0; // Lerped value for smooth steering
+  keyboardSteerCurrent = 0; // Lerped value for smooth steering
 
   // ─── Leaderboard ───
   leaderboard: RaceResult[] = [];
@@ -747,26 +747,27 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   private processInput(dt: number) {
-    let gas = 0, brake = 0, steer = 0;
+    let gas = 0, brake = 0, steerTarget = 0;
     if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) gas = 1;
     if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) brake = 1;
-    if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) steer = -1;
-    if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) steer = 1;
+    if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) steerTarget = -1;
+    if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) steerTarget = 1;
 
     if (this.mobileGas) gas = 1;
     if (this.mobileBrake) brake = 1;
 
-    // Mobile steering: lerp smoothly instead of snapping, and use 40% sensitivity
+    // Unified smooth steering — both keyboard and mobile use lerp
     const mobileTarget = this.mobileLeft ? -1 : (this.mobileRight ? 1 : 0);
-    const lerpSpeed = 8; // How fast steering builds up
-    this.mobileSteerCurrent += (mobileTarget - this.mobileSteerCurrent) * Math.min(1, dt * lerpSpeed);
-    if (Math.abs(this.mobileSteerCurrent) < 0.001) this.mobileSteerCurrent = 0;
-    if (mobileTarget !== 0) {
-      steer = this.mobileSteerCurrent * 0.4; // 40% sensitivity on mobile
-    }
+    const useMobile = mobileTarget !== 0;
+    const effectiveTarget = useMobile ? mobileTarget * 0.4 : steerTarget; // mobile at 40% sensitivity
+
+    // Smoothly lerp toward target (fast attack, prevents wild snapping)
+    const lerpSpeed = 10; // builds up quickly but smoothly
+    this.keyboardSteerCurrent += (effectiveTarget - this.keyboardSteerCurrent) * Math.min(1, dt * lerpSpeed);
+    if (Math.abs(this.keyboardSteerCurrent) < 0.002) this.keyboardSteerCurrent = 0;
 
     this.carAccel = gas - brake;
-    this.carSteer = steer;
+    this.carSteer = this.keyboardSteerCurrent;
   }
 
   private updatePhysics(dt: number) {
@@ -785,7 +786,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
 
     this.carSpeed = Math.max(-maxSpeed * 0.3, Math.min(maxSpeed, this.carSpeed));
 
-    const turnFactor = Math.max(0.1, 1 - Math.abs(this.carSpeed) / maxSpeed * 0.5);
+    // Speed-sensitive turning: sharper at low speeds, dampened at high speeds
+    const speedRatio = Math.abs(this.carSpeed) / maxSpeed;
+    const turnFactor = Math.max(0.28, 1 - speedRatio * speedRatio * 0.72);
     const steerAmount = this.carSteer * TURN_SPEED * turnFactor * corner * dt * 60;
     this.carYaw += steerAmount;
 
