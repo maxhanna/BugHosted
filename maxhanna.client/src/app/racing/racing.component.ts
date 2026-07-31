@@ -109,6 +109,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   isMobile = false;
   mobileGas = false; mobileBrake = false;
   mobileLeft = false; mobileRight = false;
+  mobileSteerCurrent = 0; // Lerped value for smooth steering
 
   // ─── Leaderboard ───
   leaderboard: RaceResult[] = [];
@@ -754,8 +755,15 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
 
     if (this.mobileGas) gas = 1;
     if (this.mobileBrake) brake = 1;
-    if (this.mobileLeft) steer = -1;
-    if (this.mobileRight) steer = 1;
+
+    // Mobile steering: lerp smoothly instead of snapping, and use 40% sensitivity
+    const mobileTarget = this.mobileLeft ? -1 : (this.mobileRight ? 1 : 0);
+    const lerpSpeed = 8; // How fast steering builds up
+    this.mobileSteerCurrent += (mobileTarget - this.mobileSteerCurrent) * Math.min(1, dt * lerpSpeed);
+    if (Math.abs(this.mobileSteerCurrent) < 0.001) this.mobileSteerCurrent = 0;
+    if (mobileTarget !== 0) {
+      steer = this.mobileSteerCurrent * 0.4; // 40% sensitivity on mobile
+    }
 
     this.carAccel = gas - brake;
     this.carSteer = steer;
@@ -1292,6 +1300,45 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const basePrize = this.selectedTrack?.prizePool || 300;
     const positionMultiplier = Math.max(0.1, 1 - (this.racePosition - 1) * 0.15);
     return Math.round(basePrize * positionMultiplier);
+  }
+
+  // ─── Track-line minimap racer data ───
+  getMinimapRacers(): { name: string; pct: number; color: string; isPlayer: boolean; lap: number }[] {
+    const td = this.renderer?.totalTrackDist || 1;
+    const result: { name: string; pct: number; color: string; isPlayer: boolean; lap: number }[] = [];
+
+    // Player (cyan/blue dot)
+    result.push({
+      name: 'You',
+      pct: ((this.carDist % td) / td) * 100,
+      color: '#00e5ff',
+      isPlayer: true,
+      lap: this.currentLap,
+    });
+
+    // Bots (red dots)
+    for (const b of this.bots) {
+      result.push({
+        name: b.name,
+        pct: ((b.dist % td) / td) * 100,
+        color: '#e53935',
+        isPlayer: false,
+        lap: b.lap,
+      });
+    }
+
+    // Remote players (their colored dots)
+    for (const rc of this.remoteCars.values()) {
+      result.push({
+        name: rc.playerName,
+        pct: ((rc.distance % td) / td) * 100,
+        color: this.getPlayerColor(rc.connectionId),
+        isPlayer: false,
+        lap: rc.lap,
+      });
+    }
+
+    return result;
   }
 
   get TRACKS() { return TRACKS; }

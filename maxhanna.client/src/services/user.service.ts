@@ -1055,4 +1055,6 @@ export type UserSettingName =
   | "page_size"
   | "calendar_notifications_enabled"
   | "digcraft_view_distance"
-  | "weekly_digest_enabled";
+  | "weekly_digest_enabled"
+  | "follow_notifications_push"
+  | "follow_notifications_email";

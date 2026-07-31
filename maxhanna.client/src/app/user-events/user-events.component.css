@@ -156,6 +156,12 @@
   flex: 1;
 }
 
+.eventToggleSeparator {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--main-border-color);
+}
+
 .loading {
   text-align: center;
   padding: 1rem;

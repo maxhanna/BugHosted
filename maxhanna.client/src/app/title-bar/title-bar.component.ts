@@ -196,17 +196,35 @@ export class TitleBarComponent implements OnInit, OnChanges {
     return this.classes;
   }
 
-  get searchRight(): string {
-    if (!this.showSearch) return '0px';
+  get searchRight(): number {
+    if (!this.showSearch) return 0;
+    // Count visible buttons to the RIGHT of search (search is leftmost)
     let count = 0;
-    // Controls typically rendered on the right side
-    if (this.showMenu) count++;
     if (this.showClose) count++;
+    if (this.showMenu) count++;
     if (this.showRefresh) count++;
-    if (this.showBack) count++;
     if (this.showHelp) count++;
-    const px = (count * 50) + (count * 3.25);
-    return `${px}px`;
+    if (this.showBack) count++;
+    return count * 53;
+  }
+
+  // Computed right position for each button (buttons to its right * 53px each)
+  // Button order from right edge: close(0) → menu(53) → refresh(106) → help(159) → back(212)
+  get closeRight(): number { return 0; }
+  get menuRight(): number { return this.buttonRight(false, false, false, false, true); }
+  get refreshRight(): number { return this.buttonRight(false, false, false, true, true); }
+  get helpRight(): number { return this.buttonRight(false, false, true, true, true); }
+  get backRight(): number { return this.buttonRight(false, true, true, true, true); }
+
+  private buttonRight(back: boolean, help: boolean, refresh: boolean, menu: boolean, close: boolean): number {
+    let count = 0;
+    // Count visible buttons to the RIGHT of this button (order from right: close, menu, refresh, help, back)
+    if (close && this.showClose) count++;
+    if (menu && this.showMenu) count++;
+    if (refresh && this.showRefresh) count++;
+    if (help && this.showHelp) count++;
+    if (back && this.showBack) count++;
+    return count * 53;
   }
 }
 

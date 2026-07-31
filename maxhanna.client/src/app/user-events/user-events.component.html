@@ -48,6 +48,12 @@
           <span class="toggleText">{{ eventTypeDescriptions[eventType] }}</span>
         </label>
       </div>
+      <div class="eventToggleRow eventToggleSeparator">
+        <label class="toggleLabel">
+          <input type="checkbox" [checked]="excludeSelf" (change)="toggleExcludeSelf()" />
+          <span class="toggleText">🙋 Only show others' events</span>
+        </label>
+      </div>
     </div>
     <button class="closeButton" id="closeOverlay" (click)="closeMenuPanel()"></button>
   </div>

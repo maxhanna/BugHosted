@@ -55,6 +55,26 @@
             (click)="updatePushNotifications()" />
         </div>
       </div>
+      <div class="sectionDescriptionSection">
+        <div>
+          Follow Notifications - Push:
+          <div class="xSmallFont">Get a push notification when someone comments on a post, file, or comment you follow.</div>
+        </div>
+        <div>
+          <input type="checkbox" #followPushCheckbox [checked]="followPushEnabled"
+            (change)="updateFollowPush()" />
+        </div>
+      </div>
+      <div class="sectionDescriptionSection">
+        <div>
+          Follow Notifications - Email:
+          <div class="xSmallFont">Get an email when someone comments on a post, file, or comment you follow.</div>
+        </div>
+        <div>
+          <input type="checkbox" #followEmailCheckbox [checked]="followEmailEnabled"
+            (change)="updateFollowEmail()" />
+        </div>
+      </div>
     </div>
 
     <!-- SECRET QUESTIONS (Password Reset) -->

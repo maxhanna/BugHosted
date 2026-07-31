@@ -108,7 +108,12 @@
         <button (click)="savePainting()">💾 Save</button>
         <button (click)="downloadPainting()">📤 Download</button>
         <button (click)="fileInput.click()">📂 Open</button>
-        <button (click)="loadPaintingByFileId()">📥 Load by ID</button>
+        <app-media-selector #mediaSelector
+          [inputtedParentRef]="parentRef"
+          [maxSelectedFiles]="1"
+          uploadButtonText="Load"
+          (selectFileEvent)="onMediaSelected($event)">
+        </app-media-selector>
       </div>
       <div class="menuSeparator"></div>
       <div class="menuRow menuHint">

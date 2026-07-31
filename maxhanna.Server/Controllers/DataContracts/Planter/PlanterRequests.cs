@@ -57,5 +57,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Planter
         public List<PlantSuggestion>? Suggestions { get; set; }
         public PlantSuggestion? TopPick { get; set; }
         public int? SuggestedWaterHours { get; set; }
+        public string? RawAiResponse { get; set; }
+        public string? ErrorDetail { get; set; }
     }
 }

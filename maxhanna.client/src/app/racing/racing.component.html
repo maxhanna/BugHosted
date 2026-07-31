@@ -282,7 +282,19 @@
       </div>
     </div>
 
-    <!-- ─── Racing HUD / Cockpit ─── -->
+    <!-- Track-line Minimap (top of screen) -->
+    <div class="track-line-minimap" *ngIf="gameState === 'racing' || gameState === 'paused'">
+      <div class="tl-track">
+        <div class="tl-start-marker" style="left:0%">S/F</div>
+        <div class="tl-dot" *ngFor="let r of getMinimapRacers()"
+          [style.left.%]="r.pct"
+          [style.background]="r.color"
+          [class.tl-dot-player]="r.isPlayer"
+          [title]="r.name">
+          <span class="tl-label">{{ r.name }} L{{ r.lap + 1 }}</span>
+        </div>
+      </div>
+    </div>
     <div id="race-hud" *ngIf="gameState === 'racing' || gameState === 'paused'">
       <!-- ── Dashboard Frame ── -->
       <div class="cockpit-dash">
@@ -397,18 +409,6 @@
           <div class="panel-row">
             <span class="panel-label">TOTAL</span>
             <span class="panel-val">{{ formatTime(totalRaceTime) }}</span>
-          </div>
-          <!-- Minimap -->
-          <div class="panel-minimap">
-            <div class="panel-minimap-track">
-              <div class="panel-minimap-dot panel-minimap-player"
-                [style.left.%]="((carDist % renderer.totalTrackDist) / renderer.totalTrackDist) * 100"></div>
-              <div class="panel-minimap-dot panel-minimap-bot" *ngFor="let b of bots"
-                [style.left.%]="((b.dist % renderer.totalTrackDist) / renderer.totalTrackDist) * 100"></div>
-              <div class="panel-minimap-dot panel-minimap-remote" *ngFor="let rc of remoteCars | keyvalue"
-                [style.left.%]="((rc.value.distance % renderer.totalTrackDist) / renderer.totalTrackDist) * 100"
-                [style.background]="getPlayerColor(rc.value.connectionId)"></div>
-            </div>
           </div>
         </div>
       </div>

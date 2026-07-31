@@ -2,6 +2,8 @@
 import { ChildComponent } from '../child.component';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 
 @Component({
   selector: 'app-paint',
@@ -597,10 +599,16 @@ export class PaintComponent extends ChildComponent {
     }
   }
 
-  async loadPaintingByFileId() {
-    const id = prompt('Enter File ID:');
-    if (!id || isNaN(Number(id))) return;
-    await this.loadPainting(Number(id));
+  @ViewChild('mediaSelector') mediaSelector!: MediaSelectorComponent;
+
+  onMediaSelected(files: FileEntry[]) {
+    if (!files || files.length === 0) return;
+    const fileId = files[0].id;
+    if (fileId) {
+      this.loadPainting(fileId);
+      // Clear the media selector after loading so it doesn't show stale selection
+      this.mediaSelector.selectedFiles = [];
+    }
   }
 
   downloadPainting() {

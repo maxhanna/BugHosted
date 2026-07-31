@@ -2,6 +2,7 @@ using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Planter;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
+using System.Text;
 using System.Text.Json;
 
 namespace maxhanna.Server.Controllers
@@ -505,57 +506,178 @@ namespace maxhanna.Server.Controllers
 
             try
             {
-                string systemPrompt = "You are a botanist identifying a plant from a photo. " +
-                    "Respond with ONLY a valid JSON object in this exact format (no markdown, no code fences): " +
-                    "{ \"suggestions\": [ " +
-                    "{ \"name\": \"Common plant name\", \"species\": \"Scientific name\", \"reason\": \"Brief reason for identification\" } " +
-                    "], \"topPick\": { \"name\": \"Best guess common name\", \"species\": \"Best guess scientific name\" }, " +
-                    "\"suggestedWaterHours\": 48 }. " +
-                    "Include 3-5 suggestions. The first/topPick should be your most confident identification. " +
-                    "Set suggestedWaterHours to the number of hours between waterings recommended for this plant species " +
-                    "(e.g., 24 for daily, 48 for every 2 days, 72 for every 3 days, 168 for weekly). " +
-                    "Use empty strings if uncertain rather than guessing scientific names.";
+                string systemPrompt = BuildIdentifyPrompt();
 
                 var responseText = await _ai.SendVisionToAI(systemPrompt, request.PhotoFileId);
+                
+                // Verbose: log what the AI actually returned
+                _ = _log.Db($"IdentifyPlant raw AI response (first 500 chars): {(responseText?.Length > 500 ? responseText.Substring(0, 500) + "..." : responseText)}", request.UserId, "PLANTER", false);
+
                 if (string.IsNullOrEmpty(responseText))
-                    return Ok(new IdentifyPlantResponse { Suggestions = new List<PlantSuggestion>(), TopPick = new PlantSuggestion() });
+                    return Ok(new IdentifyPlantResponse 
+                    { 
+                        Suggestions = new List<PlantSuggestion>(), 
+                        TopPick = new PlantSuggestion(),
+                        RawAiResponse = null,
+                        ErrorDetail = "The AI returned an empty response. The model may be busy or the image could not be processed. Try uploading a clearer photo with better lighting."
+                    });
 
-                var jsonToParse = responseText;
-                var firstBrace = responseText.IndexOf('{');
-                var lastBrace = responseText.LastIndexOf('}');
-                if (firstBrace >= 0 && lastBrace > firstBrace)
-                    jsonToParse = responseText.Substring(firstBrace, lastBrace - firstBrace + 1);
-
-                int? waterHours = null;
-                try
-                {
-                    var parsed = JsonSerializer.Deserialize<IdentifyPlantResponse>(jsonToParse, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                    if (parsed?.Suggestions != null && parsed.Suggestions.Count > 0)
-                    {
-                        if (parsed.SuggestedWaterHours == null || parsed.SuggestedWaterHours <= 0)
-                            parsed.SuggestedWaterHours = ExtractWaterInterval(responseText);
-                        return Ok(parsed);
-                    }
-                }
-                catch { }
-
-                if (waterHours == null) waterHours = ExtractWaterInterval(responseText);
-                var display = responseText.Length > 200 ? responseText.Substring(0, 200) + "..." : responseText;
-                return Ok(new IdentifyPlantResponse
-                {
-                    Suggestions = new List<PlantSuggestion>
-                    {
-                        new PlantSuggestion { Name = "Unknown plant", Species = "", Reason = display }
-                    },
-                    TopPick = new PlantSuggestion { Name = "Unknown plant", Species = "" },
-                    SuggestedWaterHours = waterHours
-                });
+                return Ok(ParseIdentifyResponse(responseText));
             }
             catch (Exception ex)
             {
                 _ = _log.Db($"Error in IdentifyPlant: {ex.Message}", request.UserId, "PLANTER", true);
-                return StatusCode(500, "Plant identification failed.");
+                return Ok(new IdentifyPlantResponse
+                {
+                    Suggestions = new List<PlantSuggestion>(),
+                    TopPick = new PlantSuggestion(),
+                    RawAiResponse = null,
+                    ErrorDetail = $"Identification failed: {ex.Message}. The AI service may be temporarily unavailable. Please try again."
+                });
             }
+        }
+
+        [HttpPost("/Planter/IdentifyPlantStream")]
+        public async Task IdentifyPlantStream([FromBody] IdentifyPlantRequest request)
+        {
+            if (request.UserId == 0 || request.PhotoFileId == 0)
+            {
+                Response.StatusCode = 400;
+                await WriteSseEventAsync("error", "{\"error\":\"UserId and PhotoFileId are required.\"}");
+                return;
+            }
+
+            Response.Headers.Append("Content-Type", "text/event-stream");
+            Response.Headers.Append("Cache-Control", "no-cache");
+            Response.Headers.Append("Connection", "keep-alive");
+
+            var ct = HttpContext.RequestAborted;
+
+            try
+            {
+                string systemPrompt = BuildIdentifyPrompt();
+
+                // Signal start
+                await WriteSseEventAsync("status", "{\"phase\":\"analyzing\",\"message\":\"Analyzing your plant photo...\"}");
+                await Response.Body.FlushAsync(ct);
+
+                var fullResponse = await _ai.StreamVisionToAI(
+                    systemPrompt,
+                    request.PhotoFileId,
+                    async (token, tokenCt) =>
+                    {
+                        // Stream each token to the client via SSE
+                        var tokenJson = JsonSerializer.Serialize(new { text = token });
+                        await WriteSseEventAsync("token", tokenJson);
+                        await Response.Body.FlushAsync(tokenCt);
+                    },
+                    ct
+                );
+
+                // Parse the full response
+                if (string.IsNullOrEmpty(fullResponse))
+                {
+                    await WriteSseEventAsync("result", "{\"error\":\"The AI returned an empty response. The model may be busy or the image could not be processed. Try uploading a clearer photo with better lighting.\",\"suggestions\":[]}");
+                }
+                else
+                {
+                    var parsed = ParseIdentifyResponse(fullResponse);
+                    var resultJson = JsonSerializer.Serialize(parsed, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+                    await WriteSseEventAsync("result", resultJson);
+                }
+
+                await Response.Body.FlushAsync(ct);
+            }
+            catch (OperationCanceledException)
+            {
+                // Client disconnected — expected
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db($"Error in IdentifyPlantStream: {ex.Message}", request.UserId, "PLANTER", true);
+                await WriteSseEventAsync("error", $"{{\"error\":\"{EscapeJsonString(ex.Message)}\"}}");
+                await Response.Body.FlushAsync(ct);
+            }
+        }
+
+        private IdentifyPlantResponse ParseIdentifyResponse(string responseText)
+        {
+            var jsonToParse = responseText;
+            var firstBrace = responseText.IndexOf('{');
+            var lastBrace = responseText.LastIndexOf('}');
+            if (firstBrace >= 0 && lastBrace > firstBrace)
+                jsonToParse = responseText.Substring(firstBrace, lastBrace - firstBrace + 1);
+
+            int? waterHours = null;
+            try
+            {
+                var parsed = JsonSerializer.Deserialize<IdentifyPlantResponse>(jsonToParse, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (parsed?.Suggestions != null && parsed.Suggestions.Count > 0)
+                {
+                    if (parsed.SuggestedWaterHours == null || parsed.SuggestedWaterHours <= 0)
+                        parsed.SuggestedWaterHours = ExtractWaterInterval(responseText);
+                    parsed.RawAiResponse = responseText;
+                    return parsed;
+                }
+            }
+            catch (JsonException jex)
+            {
+                var snippet = responseText.Length > 500 ? responseText.Substring(0, 500) + "..." : responseText;
+                return new IdentifyPlantResponse
+                {
+                    Suggestions = new List<PlantSuggestion>
+                    {
+                        new PlantSuggestion { Name = "Could not parse AI response", Species = "", Reason = $"JSON parse error: {jex.Message}" }
+                    },
+                    TopPick = new PlantSuggestion { Name = "Could not parse AI response", Species = "" },
+                    RawAiResponse = responseText,
+                    ErrorDetail = $"The AI returned a response that could not be understood as a plant identification. Raw output: {snippet}"
+                };
+            }
+
+            if (waterHours == null) waterHours = ExtractWaterInterval(responseText);
+            var display = responseText.Length > 500 ? responseText.Substring(0, 500) + "..." : responseText;
+            return new IdentifyPlantResponse
+            {
+                Suggestions = new List<PlantSuggestion>
+                {
+                    new PlantSuggestion { Name = "Unknown plant", Species = "", Reason = display }
+                },
+                TopPick = new PlantSuggestion { Name = "Unknown plant", Species = "" },
+                SuggestedWaterHours = waterHours,
+                RawAiResponse = responseText,
+                ErrorDetail = "The AI could not identify this plant from the photo. Try uploading a clearer image with the plant centered and well-lit."
+            };
+        }
+
+        private static string BuildIdentifyPrompt()
+        {
+            return "You are a botanist identifying a plant from a photo. " +
+                "Respond with ONLY a valid JSON object in this exact format (no markdown, no code fences): " +
+                "{ \"suggestions\": [ " +
+                "{ \"name\": \"Common plant name\", \"species\": \"Scientific name\", \"reason\": \"Brief reason for identification\" } " +
+                "], \"topPick\": { \"name\": \"Best guess common name\", \"species\": \"Best guess scientific name\" }, " +
+                "\"suggestedWaterHours\": 48 }. " +
+                "Include 3-5 suggestions. The first/topPick should be your most confident identification. " +
+                "Set suggestedWaterHours to the number of hours between waterings recommended for this plant species " +
+                "(e.g., 24 for daily, 48 for every 2 days, 72 for every 3 days, 168 for weekly). " +
+                "Use empty strings if uncertain rather than guessing scientific names.";
+        }
+
+        private async Task WriteSseEventAsync(string eventType, string data)
+        {
+            var bytes = Encoding.UTF8.GetBytes($"event: {eventType}\ndata: {data}\n\n");
+            await Response.Body.WriteAsync(bytes);
+        }
+
+        private static string EscapeJsonString(string text)
+        {
+            return text
+                .Replace("\\", "\\\\")
+                .Replace("\"", "\\\"")
+                .Replace("\n", "\\n")
+                .Replace("\r", "\\r")
+                .Replace("\t", "\\t");
         }
 
         [HttpPost("/Planter/ChatAboutPlant")]

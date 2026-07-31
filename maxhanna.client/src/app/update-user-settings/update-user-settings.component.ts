@@ -55,6 +55,8 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   isKrakenHelpPanelShowing = false;
   isDisplayingNSFW = false;
   isPushNotificationsEnabled? = false;
+  followPushEnabled = true;
+  followEmailEnabled = false;
   isSecurityQuestionsToggled = false;
   showAddBlockedUserPopup = false;
   cachedSecurityQuestions?: Array<{ question: string; answer?: string }> = undefined;
@@ -126,6 +128,8 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
           this.userSettings = res;
           this.isDisplayingNSFW = res.nsfwEnabled ?? false;
           this.displayProfileLocation = res.displayProfileLocation ?? true;
+          this.followPushEnabled = res.followPushEnabled ?? true;
+          this.followEmailEnabled = res.followEmailEnabled ?? false;
           if (this.displayProfileLocationCheckmark?.nativeElement) {
             this.displayProfileLocationCheckmark.nativeElement.checked = this.displayProfileLocation;
           }
@@ -781,6 +785,20 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     this.isPushNotificationsEnabled = this.pushNotificationsCheckmark.nativeElement.checked;
     this.userService.updateUserSettings(this.parentRef.user.id, [{ settingName: 'notifications_enabled', value: this.isPushNotificationsEnabled }]).then(res => {
       this.parentRef?.showNotification(res);
+    });
+  }
+  updateFollowPush() {
+    if (!this.parentRef?.user?.id) return;
+    this.followPushEnabled = !this.followPushEnabled;
+    this.userService.updateUserSettings(this.parentRef.user.id, [{ settingName: 'follow_notifications_push', value: this.followPushEnabled }]).then(res => {
+      console.log('Follow push setting saved:', res);
+    });
+  }
+  updateFollowEmail() {
+    if (!this.parentRef?.user?.id) return;
+    this.followEmailEnabled = !this.followEmailEnabled;
+    this.userService.updateUserSettings(this.parentRef.user.id, [{ settingName: 'follow_notifications_email', value: this.followEmailEnabled }]).then(res => {
+      console.log('Follow email setting saved:', res);
     });
   }
   showKrakenHelpPanel() {

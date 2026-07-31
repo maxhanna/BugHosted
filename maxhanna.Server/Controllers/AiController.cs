@@ -1561,6 +1561,99 @@ Constraints:
       return body;
     }
 
+    /// <summary>
+    /// Streams vision AI tokens via SSE. Accepts a callback invoked per token chunk and a CancellationToken.
+    /// Returns the full accumulated response text when complete, or null on failure.
+    /// </summary>
+    public async Task<string?> StreamVisionToAI(string prompt, int imageFileId, Func<string, CancellationToken, Task> onToken, CancellationToken ct, string? url = null, string? model = null)
+    {
+      var baseUrl = url ?? _config.GetValue<string>("Ai:MedicalBaseUrl");
+      var aiModel = model ?? (url == null ? _config.GetValue<string>("Ai:MedicalModel") : null) ?? "gemma3:4b";
+
+      var imageBase64 = await LoadImageAsBase64(imageFileId);
+      if (imageBase64 == null)
+        return null;
+
+      var payload = new
+      {
+        model = aiModel,
+        messages = new[]
+        {
+          new
+          {
+            role = "user",
+            content = new object[]
+            {
+              new { type = "text", text = prompt },
+              new { type = "image_url", image_url = new { url = imageBase64 } }
+            }
+          }
+        },
+        stream = true
+      };
+
+      var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
+      {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+      });
+
+      var httpReq = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/chat/completions")
+      {
+        Content = new StringContent(json, Encoding.UTF8, "application/json")
+      };
+
+      using var resp = await _httpClient.SendAsync(httpReq, HttpCompletionOption.ResponseHeadersRead, ct);
+      httpReq.Dispose();
+
+      if (!resp.IsSuccessStatusCode)
+      {
+        var errBody = await resp.Content.ReadAsStringAsync();
+        _ = _log.Db($"StreamVisionToAI error {(int)resp.StatusCode}: {errBody}", null, "AI", true);
+        return null;
+      }
+
+      var fullText = new StringBuilder();
+      try
+      {
+        using var stream = await resp.Content.ReadAsStreamAsync();
+        using var reader = new StreamReader(stream);
+
+        while (!reader.EndOfStream && !ct.IsCancellationRequested)
+        {
+          var line = await reader.ReadLineAsync();
+          if (string.IsNullOrEmpty(line)) continue;
+          if (!line.StartsWith("data: ")) continue;
+
+          var data = line.Substring(6);
+          if (data == "[DONE]") break;
+
+          try
+          {
+            var chunk = JsonSerializer.Deserialize<JsonElement>(data);
+            if (chunk.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+            {
+              var delta = choices[0].GetProperty("delta");
+              if (delta.TryGetProperty("content", out var content))
+              {
+                var token = content.GetString() ?? "";
+                fullText.Append(token);
+                await onToken(token, ct);
+              }
+            }
+          }
+          catch { /* skip malformed chunk */ }
+        }
+      }
+      catch (OperationCanceledException) { /* client disconnected */ }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"StreamVisionToAI read error: {ex.Message}", null, "AI", true);
+      }
+
+      var result = fullText.ToString();
+      return string.IsNullOrWhiteSpace(result) ? null : result;
+    }
+
     private async Task<string?> LoadImageAsBase64(int fileId)
     {
       try

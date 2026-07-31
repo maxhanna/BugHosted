@@ -22,4 +22,6 @@ export class UserSettings {
   pageSize?: number;
   calendarNotificationsEnabled?: boolean;
   weeklyDigestEnabled?: boolean;
+  followPushEnabled?: boolean;
+  followEmailEnabled?: boolean;
 }

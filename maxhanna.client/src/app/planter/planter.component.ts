@@ -27,6 +27,9 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
   identificationResult: PlantIdentificationResult | null = null;
   isIdentifying = false;
   identifyUploadProgress = 0;
+  identifyStreamTokens = '';
+  identifyErrorDetail = '';
+  identifyAbortController: AbortController | null = null;
   selectedSuggestion: PlantSuggestion | null = null;
   customPlantName = '';
   newPlantName = '';
@@ -83,10 +86,17 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   resetIdentification() {
+    // Cancel any in-flight streaming
+    if (this.identifyAbortController) {
+      this.identifyAbortController.abort();
+      this.identifyAbortController = null;
+    }
     this.identificationPhotoFile = null;
     this.identificationResult = null;
     this.isIdentifying = false;
     this.identifyUploadProgress = 0;
+    this.identifyStreamTokens = '';
+    this.identifyErrorDetail = '';
     this.selectedSuggestion = null;
     this.customPlantName = '';
   }
@@ -121,22 +131,61 @@ export class PlanterComponent extends ChildComponent implements OnInit, OnDestro
   async runIdentification(fileId: number) {
     if (!this.parentRef?.user?.id) return;
     this.isIdentifying = true;
+    this.identifyStreamTokens = '';
+    this.identifyErrorDetail = '';
+    this.identificationResult = null;
+
+    // Cancel any previous in-flight request
+    if (this.identifyAbortController) {
+      this.identifyAbortController.abort();
+    }
+    this.identifyAbortController = new AbortController();
+    const signal = this.identifyAbortController.signal;
+
     try {
-      const result = await this.planterService.identifyPlant(this.parentRef.user.id, fileId);
-      if (result?.suggestions?.length) {
+      const result = await this.planterService.identifyPlantStream(
+        this.parentRef.user.id,
+        fileId,
+        (token: string) => {
+          // Append token to the live display
+          this.identifyStreamTokens += token;
+        },
+        (status: string) => {
+          // Status message (e.g. "Analyzing your plant photo...")
+          // Could show in UI if needed
+        },
+        signal
+      );
+
+      if (!result) {
+        this.identifyErrorDetail = 'The AI service did not respond. It may be temporarily unavailable. Please try again in a moment.';
+        return;
+      }
+
+      // If the backend returned an error detail, show it
+      if (result.errorDetail) {
+        this.identifyErrorDetail = result.errorDetail;
+        if (result.rawAiResponse) {
+          this.identifyStreamTokens = result.rawAiResponse;
+        }
+      }
+
+      if (result.suggestions?.length) {
         this.identificationResult = result;
         this.selectedSuggestion = result.topPick || result.suggestions[0];
         this.customPlantName = this.selectedSuggestion.species
           ? `${this.selectedSuggestion.name} (${this.selectedSuggestion.species})`
           : this.selectedSuggestion.name;
-      } else {
-        this.parentRef?.showNotification('AI could not identify the plant. Enter the name manually.');
+      } else if (!result.errorDetail) {
+        this.identifyErrorDetail = 'The AI could not identify the plant from this photo. Try uploading a clearer image with the plant centered and well-lit.';
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return;
       console.error('Identification failed:', e);
-      this.parentRef?.showNotification('Plant identification failed. Enter the name manually.');
+      this.identifyErrorDetail = `Identification failed: ${e?.message || 'Unknown error'}. The AI service may be experiencing issues.`;
     } finally {
       this.isIdentifying = false;
+      this.identifyAbortController = null;
     }
   }
 

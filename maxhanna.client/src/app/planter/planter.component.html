@@ -31,7 +31,22 @@
       </div>
 
       <div *ngIf="isIdentifying" class="identify-loading">
-        <span>🔍 AI is identifying your plant...</span>
+        <div class="identify-stream-header">🔍 AI is analyzing your plant...</div>
+        <div *ngIf="identifyStreamTokens" class="identify-stream-tokens">
+          <pre>{{ identifyStreamTokens }}</pre>
+        </div>
+      </div>
+
+      <!-- Error detail (verbose) -->
+      <div *ngIf="identifyErrorDetail && !identificationResult?.suggestions?.length" class="identify-error-detail">
+        <div class="error-title">⚠️ {{ identifyErrorDetail }}</div>
+        <div *ngIf="identifyStreamTokens" class="error-raw">
+          <details>
+            <summary>View raw AI response</summary>
+            <pre>{{ identifyStreamTokens }}</pre>
+          </details>
+        </div>
+        <button class="retry-btn" (click)="runIdentification(identificationPhotoFile!.id)">🔄 Try Again</button>
       </div>
 
       <!-- Identification Results -->

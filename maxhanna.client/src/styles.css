@@ -124,12 +124,16 @@ fieldset {
   }
 }
 
-.refreshButton::before,
-.closeButton::before,
-.menuButton::before,
-.menuBackButton::before,
-.helpButton::before {
-  z-index: 1;
+.refreshButton,
+.closeButton,
+.menuButton,
+.menuBackButton,
+.helpButton,
+.searchButton {
+  position: absolute;
+  top: 0px;
+  width: 50px;
+  height: 46px;
 }
 
 .refreshButton::before,
@@ -137,10 +141,11 @@ fieldset {
 .menuButton::before,
 .menuBackButton::before,
 .helpButton::before,
-.notificationTopButton,
-.searchButton {
+.searchButton::before {
+  z-index: 1;
   position: absolute;
   top: 0px;
+  right: 0px;
   width: 50px;
   height: 46px;
   font-size: 35px;
@@ -165,7 +170,6 @@ fieldset {
 
 .helpButton::before {
   content: '❔';
-  right: 103px;
 }
 
 .searchButton {
@@ -179,18 +183,11 @@ fieldset {
 
 .menuBackButton::before {
   content: '⤺';
-  right: 106px;
   text-shadow: 1px 1px var(--main-link-color);
-}
-
-.refreshButton::before,
-.menuButton::before {
-  right: 53px;
 }
 
 .closeButton::before {
   content: '❌';
-  right: 0px;
 }
 
 .refreshButton:active::before,

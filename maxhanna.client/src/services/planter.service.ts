@@ -151,6 +151,80 @@ export class PlanterService {
     }
   }
 
+  async identifyPlantStream(
+    userId: number,
+    photoFileId: number,
+    onToken: (token: string) => void,
+    onStatus: (message: string) => void,
+    signal?: AbortSignal
+  ): Promise<PlantIdentificationResult | null> {
+    try {
+      const response = await fetch('/planter/identifyplantstream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, photoFileId }),
+        signal,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `HTTP ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response body');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let finalResult: PlantIdentificationResult | null = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        let currentEvent = '';
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            currentEvent = line.substring(7).trim();
+          } else if (line.startsWith('data: ')) {
+            const data = line.substring(6);
+            try {
+              const parsed = JSON.parse(data);
+
+              if (currentEvent === 'token' && parsed.text) {
+                onToken(parsed.text);
+              } else if (currentEvent === 'status') {
+                onStatus(parsed.message || '');
+              } else if (currentEvent === 'result') {
+                finalResult = parsed as PlantIdentificationResult;
+              } else if (currentEvent === 'error') {
+                finalResult = {
+                  suggestions: [],
+                  topPick: { name: '', species: '', reason: '' },
+                  errorDetail: parsed.error || 'Unknown streaming error',
+                };
+              }
+            } catch { /* skip malformed JSON */ }
+          }
+        }
+      }
+
+      return finalResult;
+    } catch (error: any) {
+      if (error?.name === 'AbortError') return null;
+      console.error('Error in streaming plant identification:', error);
+      return {
+        suggestions: [],
+        topPick: { name: '', species: '', reason: '' },
+        errorDetail: error?.message || 'Streaming connection failed. Please try again.',
+      };
+    }
+  }
+
   async analyzePlant(userId: number, plantId: number, photoFileId: number, analysisType: string, regenerate?: boolean): Promise<string | null> {
     try {
       const response = await fetch('/planter/analyzeplant', {

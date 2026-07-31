@@ -24,6 +24,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
   eventTypes: string[] = [];
   eventToggles: { [key: string]: boolean } = {};
   eventTypeDescriptions: { [key: string]: string } = {};
+  excludeSelf = false;
   // Pagination properties
   totalEvents = 0;
   pageSize = 10;
@@ -36,6 +37,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
     }
+    this.excludeSelf = localStorage.getItem('userEventsExcludeSelf') === 'true';
     await this.loadEventToggles();
     await this.loadEvents();
     this.pollingInterval = setInterval(async () => {
@@ -63,9 +65,14 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     try {
       const enabledTypes = this.getEnabledEventTypes();
       const result = await this.userEventService.getUserEvents(this.pageSize, 0, enabledTypes);
-      this.events = result.events;
+      this.events = this.excludeSelf
+        ? result.events.filter(e => e.userId !== this.parentRef?.user?.id)
+        : result.events;
       this.totalEvents = result.totalCount;
-      this.hasMoreEvents = this.events.length < this.totalEvents;
+      // When filtering self, hasMoreEvents is based on whether we got a full page
+      this.hasMoreEvents = this.excludeSelf
+        ? result.events.length >= this.pageSize
+        : this.events.length < this.totalEvents;
     } catch (e) {
       console.error('Failed to load user events', e);
       this.events = [];
@@ -82,9 +89,15 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       const offset = this.events.length;
       const enabledTypes = this.getEnabledEventTypes();
       const result = await this.userEventService.getUserEvents(this.pageSize, offset, enabledTypes);
-      this.events = [...this.events, ...result.events];
+      const newEvents = this.excludeSelf
+        ? result.events.filter(e => e.userId !== this.parentRef?.user?.id)
+        : result.events;
+      this.events = [...this.events, ...newEvents];
       this.totalEvents = result.totalCount;
-      this.hasMoreEvents = this.events.length < this.totalEvents;
+      // When filtering self, hasMoreEvents is based on whether we got a full page
+      this.hasMoreEvents = this.excludeSelf
+        ? result.events.length >= this.pageSize
+        : this.events.length < this.totalEvents;
     } catch (e) {
       console.error('Failed to load more user events', e);
       this.loadError = 'Failed to load more events.';
@@ -298,6 +311,12 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     }
 
     await this.loadEvents();
+  }
+
+  toggleExcludeSelf() {
+    this.excludeSelf = !this.excludeSelf;
+    localStorage.setItem('userEventsExcludeSelf', String(this.excludeSelf));
+    this.loadEvents();
   }
   isYoutubeLink(link?: string): boolean {
     return this.parentRef?.isYoutubeUrl(link) ?? false;
