@@ -4,8 +4,8 @@ import { RacingRenderer, TrackPoint } from './racing-renderer';
 import { RacingService } from '../../services/racing.service';
 import { RacingHubService, LobbyPlayer, RemoteCarPosition } from '../../services/racing-hub.service';
 import {
-  RacingPlayerCar, RaceResult,
-  TRACKS, UPGRADE_DEFS, CAR_SKINS, BOT_CONFIGS, TrackDefinition
+  RacingPlayerCar, RaceResult, RacingAppearancePart,
+  TRACKS, UPGRADE_DEFS, CAR_SKINS, BOT_CONFIGS, APPEARANCE_PARTS, TrackDefinition
 } from '../../services/datacontracts/racing/racing-types';
 import { UserEventService } from '../../services/user-event.service';
 import { Subscription } from 'rxjs';
@@ -65,7 +65,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   // ─── Game State ───
   gameState: 'menu' | 'garage' | 'countdown' | 'racing' | 'paused' | 'finished' = 'menu';
   selectedTrack: TrackDefinition | null = null;
-  selectedTab: 'menu' | 'upgrades' | 'skins' = 'menu';
+  selectedTab: 'menu' | 'upgrades' | 'skins' | 'appearance' = 'menu';
   currentLap = 0;
   totalLaps = 3;
   countdownTimer = 0;
@@ -75,7 +75,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
 
   // ─── Player Car ───
   playerCar: RacingPlayerCar = {
-    userId: 0, upgrades: [], skinId: 0,
+    userId: 0, upgrades: [], skinId: 1, spoilerId: 0, rimId: 0, exhaustId: 0, decalId: 0,
     totalRaces: 0, wins: 0, money: 500, bestLap: 0, totalEarnings: 0
   };
   carX = 0; carZ = 0; carYaw = 0; carSpeed = 0;
@@ -231,9 +231,25 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           this.lapStartTime = this.raceStartTime;
           this.currentLap = 0;
           this.bestLapTime = Infinity;
-          this.totalRacers = this.lobbyPlayers.length;
+          this.carSpeed = 0;
+          this.carDist = 0;
+          this.racePosition = 1;
+          this.lapTimes = [];
+          this.lastLapTime = 0;
+          this.totalRaceTime = 0;
+          this.isOffTrack = false;
+          this.offTrackTimer = 0;
+          this.messages = [];
           this._raceFinished = false;
           this._mpFinished = false;
+          // Place player at start
+          const startP = this.renderer.getTrackPointAlong(0);
+          this.carX = startP.x;
+          this.carZ = startP.z;
+          this.carYaw = Math.atan2(startP.dirX, startP.dirZ);
+          // Spawn bots to fill the grid alongside real players
+          this.spawnBots(4);
+          this.totalRacers = this.bots.length + this.lobbyPlayers.length;
           // Deduct entry fee for multiplayer
           if (this.selectedTrack) {
             this.playerCar.money -= this.selectedTrack.entryFee;
@@ -273,7 +289,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
             colorR: 0.9, colorG: 0.3, colorB: 0.3,
             lap: data.currentLap || 0,
           });
-          this.totalRacers = this.lobbyPlayers.length;
+          this.totalRacers = this.bots.length + this.lobbyPlayers.length;
         }
       })
     );
@@ -431,6 +447,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return skin.color;
   }
 
+  getCarLabel(): string {
+    const skin = CAR_SKINS.find(s => s.id === this.playerCar.skinId);
+    return skin?.name || 'CUSTOM';
+  }
+
   // ─── Menu ───
   selectTrack(track: TrackDefinition) {
     this.selectedTrack = track;
@@ -537,6 +558,32 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   // ─── Race ───
+  private spawnBots(count: number) {
+    this.bots = [];
+    const botNames = ['Speed Racer', 'Lightning', 'Nitro', 'Tornado', 'Blitz', 'Storm', 'Vortex', 'Phantom'];
+    for (let i = 0; i < count; i++) {
+      const offset = -5 - i * 4;
+      const bp = this.renderer.getTrackPointAlong(((offset % this.renderer.totalTrackDist) + this.renderer.totalTrackDist) % this.renderer.totalTrackDist);
+      // Mix of difficulty levels: first 2 hard, middle 2 medium, rest easy
+      let config;
+      if (i < 2) config = BOT_CONFIGS['hard'];
+      else if (i < 4) config = BOT_CONFIGS['medium'];
+      else config = BOT_CONFIGS['easy'];
+      this.bots.push({
+        dist: ((offset % this.renderer.totalTrackDist) + this.renderer.totalTrackDist) % this.renderer.totalTrackDist,
+        speed: 0,
+        yaw: Math.atan2(bp.dirX, bp.dirZ),
+        x: bp.x, z: bp.z,
+        lap: 0,
+        name: botNames[i % botNames.length],
+        color: i % 8,
+        config,
+        mistakeTimer: 0,
+        hasMistake: false,
+      });
+    }
+  }
+
   private startRace(track: TrackDefinition) {
     const userId = this.parentRef?.user?.id ?? 0;
     if (!userId || !this.selectedTrack) return;
@@ -566,27 +613,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.carYaw = Math.atan2(startP.dirX, startP.dirZ);
     this.carDist = 0;
 
-    // Create bots
-    this.bots = [];
-    const botNames = ['Speed Racer', 'Lightning', 'Nitro', 'Tornado', 'Blitz', 'Storm'];
-    const numBots = Math.min(5, 6 - track.laps);
-    for (let i = 0; i < numBots; i++) {
-      const offset = -5 - i * 4;
-      const bp = this.renderer.getTrackPointAlong(((offset % this.renderer.totalTrackDist) + this.renderer.totalTrackDist) % this.renderer.totalTrackDist);
-      this.bots.push({
-        dist: ((offset % this.renderer.totalTrackDist) + this.renderer.totalTrackDist) % this.renderer.totalTrackDist,
-        speed: 0,
-        yaw: Math.atan2(bp.dirX, bp.dirZ),
-        x: bp.x, z: bp.z,
-        lap: 0,
-        name: botNames[i % botNames.length],
-        color: i % 6,
-        config: i < 2 ? BOT_CONFIGS['hard'] : (i < 4 ? BOT_CONFIGS['medium'] : BOT_CONFIGS['easy']),
-        mistakeTimer: 0,
-        hasMistake: false,
-      });
-    }
-    this.totalRacers = 1 + numBots;
+    // Create bots (always 4 — fills the grid in both single & multiplayer)
+    this.spawnBots(4);
+    this.totalRacers = 1 + this.bots.length;
 
     // Countdown
     this._countdownInterval = setInterval(() => {
@@ -692,6 +721,27 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
 
       this.hudSpeed = Math.abs(this.carSpeed * 3.6);
       this.hudRPM = Math.min(1, Math.abs(this.carSpeed) / this.getMaxSpeed() * 1.1);
+      
+      // Smooth steering wheel rotation (lerp toward target)
+      const targetSteer = this.carSteer * 35;
+      this.steerSmoothed += (targetSteer - this.steerSmoothed) * Math.min(1, dt * 8);
+      
+      // Direct DOM updates for smooth 60fps wheel animation (bypasses Angular CD)
+      if (this.steerWheelEl?.nativeElement) {
+        this.steerWheelEl.nativeElement.style.transform = `rotate(${this.steerSmoothed}deg)`;
+      }
+      if (this.wheelSpeedEl?.nativeElement) {
+        this.wheelSpeedEl.nativeElement.textContent = Math.round(this.hudSpeed).toString();
+      }
+      if (this.wheelRpmEl?.nativeElement) {
+        const rpm = Math.round(this.hudRPM * 100);
+        this.wheelRpmEl.nativeElement.style.width = rpm + '%';
+        this.wheelRpmEl.nativeElement.className = 'wheel-rpm-fill' + 
+          (this.hudRPM > 0.95 ? ' rpm-redline' : this.hudRPM > 0.85 ? ' rpm-high' : '');
+      }
+      if (this.wheelGearEl?.nativeElement) {
+        this.wheelGearEl.nativeElement.textContent = this.getGear();
+      }
     }
   }
 
@@ -966,6 +1016,127 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.addMessage(`Skin changed to: ${skin.name}!`);
   }
 
+  // ─── Appearance Parts ───
+  getAppearanceParts(): RacingAppearancePart[] { return APPEARANCE_PARTS; }
+
+  getAppearanceCategories(): { key: string; label: string; parts: RacingAppearancePart[] }[] {
+    return [
+      { key: 'spoiler', label: 'SPOILERS', parts: APPEARANCE_PARTS.filter(p => p.category === 'spoiler') },
+      { key: 'rims', label: 'RIMS', parts: APPEARANCE_PARTS.filter(p => p.category === 'rims') },
+      { key: 'exhaust', label: 'EXHAUST', parts: APPEARANCE_PARTS.filter(p => p.category === 'exhaust') },
+      { key: 'decal', label: 'DECALS & WRAPS', parts: APPEARANCE_PARTS.filter(p => p.category === 'decal') },
+    ];
+  }
+
+  getAppearancePreviewClass(p: RacingAppearancePart): string {
+    if (p.id === 101) return 'prev-spoiler-carbon';
+    if (p.id === 102) return 'prev-spoiler-dual';
+    if (p.id === 103) return 'prev-spoiler-drs';
+    if (p.id === 201) return 'prev-rim-alloy';
+    if (p.id === 202) return 'prev-rim-deep';
+    if (p.id === 203) return 'prev-rim-gold';
+    if (p.id === 301) return 'prev-exhaust-sport';
+    if (p.id === 302) return 'prev-exhaust-titanium';
+    if (p.id === 401) return 'prev-decal-stripes';
+    if (p.id === 402) return 'prev-decal-flame';
+    if (p.id === 403) return 'prev-decal-carbon';
+    if (p.id === 404) return 'prev-decal-number';
+    return '';
+  }
+
+  getEquippedAppearance(cat: string): number {
+    switch (cat) {
+      case 'spoiler': return this.playerCar.spoilerId;
+      case 'rims': return this.playerCar.rimId;
+      case 'exhaust': return this.playerCar.exhaustId;
+      case 'decal': return this.playerCar.decalId;
+      default: return 0;
+    }
+  }
+
+  isAppearanceOwned(part: RacingAppearancePart): boolean {
+    return part.owned || this.getEquippedAppearance(part.category) === part.id;
+  }
+
+  async buyAppearancePart(part: RacingAppearancePart) {
+    if (this.playerCar.money < part.cost) return;
+    if (this.isAppearanceOwned(part)) {
+      // Just equip it
+      this.equipAppearance(part);
+      return;
+    }
+    this.playerCar.money -= part.cost;
+    part.owned = true;
+    this.equipAppearance(part);
+    this.saveCar();
+    this.addMessage(`${part.name} installed!`);
+  }
+
+  private equipAppearance(part: RacingAppearancePart) {
+    switch (part.category) {
+      case 'spoiler': this.playerCar.spoilerId = part.id; break;
+      case 'rims': this.playerCar.rimId = part.id; break;
+      case 'exhaust': this.playerCar.exhaustId = part.id; break;
+      case 'decal': this.playerCar.decalId = part.id; break;
+    }
+    this.saveCar();
+  }
+
+  getSpoilerStyle(): string {
+    const id = this.playerCar.spoilerId;
+    if (id === 101) return 'spoiler-carbon';
+    if (id === 102) return 'spoiler-dual';
+    if (id === 103) return 'spoiler-drs';
+    return '';
+  }
+
+  getRimStyle(): string {
+    const id = this.playerCar.rimId;
+    if (id === 201) return 'rim-alloy';
+    if (id === 202) return 'rim-deep';
+    if (id === 203) return 'rim-gold';
+    return '';
+  }
+
+  getExhaustStyle(): string {
+    const id = this.playerCar.exhaustId;
+    if (id === 301) return 'exhaust-sport';
+    if (id === 302) return 'exhaust-titanium';
+    return '';
+  }
+
+  getDecalStyle(): string {
+    const id = this.playerCar.decalId;
+    if (id === 401) return 'decal-stripes';
+    if (id === 402) return 'decal-flame';
+    if (id === 403) return 'decal-carbon';
+    if (id === 404) return 'decal-number';
+    return '';
+  }
+
+  // ─── Stat Preview (hover on upgrade) ───
+  hoveredUpgrade: any = null;
+
+  getStatPreview(u: any): { before: number; after: number; label: string } {
+    const current = this.getUpgradeLevel(u.category);
+    const bonus = u.statBonus;
+    const cat = u.category;
+    let beforeVal = 0, afterVal = 0, label = '';
+    switch (cat) {
+      case 'engine': label = 'TOP SPEED'; beforeVal = Math.round(MAX_SPEED_BASE * (1 + this.getSpeedBonus() / 100) * 3.6); break;
+      case 'tires': label = 'GRIP'; beforeVal = Math.round((0.85 + this.getGripBonus() / 100) * 100); break;
+      case 'suspension': label = 'CORNER'; beforeVal = Math.round((0.8 + this.getCornerBonus() / 100) * 100); break;
+      case 'brakes': label = 'BRAKING'; beforeVal = Math.round(BRAKE_FORCE * (1 + this.getBrakeBonus() / 100)); break;
+      case 'body': label = 'WEIGHT'; beforeVal = Math.round(this.getWeightBonus()); break;
+    }
+    afterVal = beforeVal + (cat === 'body' ? bonus : Math.round(bonus * (cat === 'engine' ? 0.55 : cat === 'tires' ? 1 : cat === 'suspension' ? 1 : 1.3)));
+    if (cat === 'engine') {
+      const tempBonus = this.getSpeedBonus() + bonus;
+      afterVal = Math.round(MAX_SPEED_BASE * (1 + tempBonus / 100) * (1 - this.getWeightBonus() / 200) * 3.6);
+    }
+    return { before: beforeVal, after: afterVal, label };
+  }
+
   // ─── Mobile ───
   mobileAction(action: string, active: boolean) {
     switch (action) {
@@ -1117,8 +1288,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   get maxSpeedKmh(): number { return Math.round(this.getMaxSpeed() * 3.6); }
-  get steerAngle(): number { return this.carSteer * 35; }
-
   calculatePrize(): number {
     const basePrize = this.selectedTrack?.prizePool || 300;
     const positionMultiplier = Math.max(0.1, 1 - (this.racePosition - 1) * 0.15);

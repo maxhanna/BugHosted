@@ -141,54 +141,136 @@
 
     <!-- ─── Garage ─── -->
     <div id="race-garage" *ngIf="gameState === 'garage'">
-      <h2 class="race-garage-title">GARAGE</h2>
-      <div class="race-garage-money">${{ playerCar.money }}</div>
-
-      <div class="race-garage-tabs">
-        <button class="race-tab" [class.active]="selectedTab === 'upgrades'" (click)="selectedTab = 'upgrades'">UPGRADES</button>
-        <button class="race-tab" [class.active]="selectedTab === 'skins'" (click)="selectedTab = 'skins'">SKINS</button>
+      <div class="garage-top-bar">
+        <h2 class="garage-title">GRAND PRIX GARAGE</h2>
+        <div class="garage-money">${{ playerCar.money | number:'1.0-0' }}</div>
       </div>
 
-      <!-- Upgrades -->
-      <div class="race-upgrade-panel" *ngIf="selectedTab === 'upgrades'">
-        <div class="race-upgrade-cat" *ngFor="let cat of ['engine','tires','suspension','brakes','body']">
-          <div class="race-upgrade-cat-header">{{ cat | uppercase }}</div>
-          <div class="race-upgrade-row" *ngFor="let u of getUpgradesForCategory(cat)">
-            <div class="race-upgrade-info">
-              <div class="race-upgrade-name">{{ u.name }}</div>
-              <div class="race-upgrade-desc">{{ u.description }}</div>
+      <div class="garage-layout">
+        <!-- Left: Car Preview -->
+        <div class="garage-preview">
+          <div class="garage-car-stage">
+            <div class="garage-spotlight"></div>
+            <div class="car-preview-container">
+              <!-- Car body -->
+              <div class="car-preview-body" [style.background]="getSkinColor()">
+                <div class="car-cockpit"></div>
+                <!-- Decal overlay -->
+                <div class="car-decal-overlay" [class]="getDecalStyle()" *ngIf="playerCar.decalId"></div>
+              </div>
+              <!-- Spoiler -->
+              <div class="car-spoiler" [class]="getSpoilerStyle()" *ngIf="playerCar.spoilerId"></div>
+              <!-- Front wing -->
+              <div class="car-front-wing"></div>
+              <!-- Rear wing mount -->
+              <div class="car-wing-mount"></div>
+              <!-- Wheels -->
+              <div class="car-wheel wheel-fl" [class]="getRimStyle()"></div>
+              <div class="car-wheel wheel-fr" [class]="getRimStyle()"></div>
+              <div class="car-wheel wheel-rl" [class]="getRimStyle()"></div>
+              <div class="car-wheel wheel-rr" [class]="getRimStyle()"></div>
+              <!-- Exhaust -->
+              <div class="car-exhaust-pipes" [class]="getExhaustStyle()" *ngIf="playerCar.exhaustId"></div>
+              <!-- Halo -->
+              <div class="car-halo"></div>
             </div>
-            <div class="race-upgrade-status">
-              <span *ngIf="getUpgradeLevel(cat) >= u.level" class="race-owned">✓</span>
-              <button *ngIf="getUpgradeLevel(cat) < u.level" class="race-buy-btn"
-                [class.disabled]="!canAffordUpgrade(u)"
-                (click)="buyUpgrade(u)">
-                ${{ u.cost }}
-              </button>
+          </div>
+          <div class="garage-car-label">{{ getCarLabel() }}</div>
+          <div class="garage-stats-quick">
+            <span>⚡{{maxSpeedKmh}} KM/H</span>
+            <span>🔧{{tireName}}</span>
+            <span>🏎️{{engineName}}</span>
+          </div>
+        </div>
+
+        <!-- Right: Upgrade Catalog -->
+        <div class="garage-catalog">
+          <div class="garage-tabs">
+            <button class="garage-tab" [class.active]="selectedTab === 'upgrades'" (click)="selectedTab = 'upgrades'">PERFORMANCE</button>
+            <button class="garage-tab" [class.active]="selectedTab === 'appearance'" (click)="selectedTab = 'appearance'">APPEARANCE</button>
+            <button class="garage-tab" [class.active]="selectedTab === 'skins'" (click)="selectedTab = 'skins'">PAINT</button>
+          </div>
+
+          <!-- Performance Upgrades -->
+          <div class="garage-catalog-scroll" *ngIf="selectedTab === 'upgrades'">
+            <div class="garage-cat-group" *ngFor="let cat of ['engine','tires','suspension','brakes','body']">
+              <div class="garage-cat-title">
+                <span>{{ cat | uppercase }}</span>
+                <span class="garage-cat-level">LVL {{getUpgradeLevel(cat)}}</span>
+              </div>
+              <div class="garage-upgrade-card" *ngFor="let u of getUpgradesForCategory(cat)"
+                (mouseenter)="hoveredUpgrade = u" (mouseleave)="hoveredUpgrade = null"
+                [class.card-owned]="getUpgradeLevel(cat) >= u.level"
+                [class.card-next]="getUpgradeLevel(cat) + 1 === u.level"
+                [class.card-locked]="getUpgradeLevel(cat) + 1 < u.level">
+                <div class="card-left">
+                  <div class="card-name">{{ u.name }}</div>
+                  <div class="card-desc">{{ u.description }}</div>
+                </div>
+                <div class="card-right">
+                  <div class="card-stat-preview" *ngIf="hoveredUpgrade === u && getUpgradeLevel(cat) + 1 === u.level">
+                    <ng-container *ngIf="getStatPreview(u) as p">
+                      <span class="stat-before">{{ p.label }}: {{ p.before }}</span>
+                      <span class="stat-arrow">→</span>
+                      <span class="stat-after">{{ p.after }}</span>
+                    </ng-container>
+                  </div>
+                  <div *ngIf="getUpgradeLevel(cat) >= u.level" class="card-owned-badge">✓ OWNED</div>
+                  <button *ngIf="getUpgradeLevel(cat) + 1 === u.level" class="card-buy-btn"
+                    [class.affordable]="playerCar.money >= u.cost"
+                    (click)="buyUpgrade(u)">
+                    ${{ u.cost | number:'1.0-0' }}
+                  </button>
+                  <div *ngIf="getUpgradeLevel(cat) + 1 < u.level" class="card-locked-text">🔒</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Appearance Parts -->
+          <div class="garage-catalog-scroll" *ngIf="selectedTab === 'appearance'">
+            <div class="garage-cat-group" *ngFor="let cat of getAppearanceCategories()">
+              <div class="garage-cat-title">
+                <span>{{ cat.label }}</span>
+              </div>
+              <div class="garage-appearance-grid">
+                <div class="garage-appearance-card" *ngFor="let p of cat.parts"
+                  [class.appearance-equipped]="getEquippedAppearance(p.category) === p.id"
+                  (click)="buyAppearancePart(p)">
+                  <div class="garage-appearance-preview" [class]="getAppearancePreviewClass(p)"></div>
+                  <div class="garage-appearance-name">{{ p.name }}</div>
+                  <div class="garage-appearance-desc">{{ p.description }}</div>
+                  <div class="garage-appearance-cost">
+                    <span *ngIf="getEquippedAppearance(p.category) === p.id">✓ EQUIPPED</span>
+                    <span *ngIf="getEquippedAppearance(p.category) !== p.id && isAppearanceOwned(p)">EQUIP</span>
+                    <span *ngIf="!isAppearanceOwned(p)">${{ p.cost | number:'1.0-0' }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Paint / Skins -->
+          <div class="garage-catalog-scroll" *ngIf="selectedTab === 'skins'">
+            <div class="garage-skin-grid">
+              <div class="garage-skin-card" *ngFor="let s of CAR_SKINS"
+                [class.garage-skin-active]="playerCar.skinId === s.id"
+                (click)="selectSkin(s)">
+                <div class="garage-skin-preview" [style.background]="s.color"></div>
+                <div class="garage-skin-name">{{ s.name }}</div>
+                <div class="garage-skin-cost">
+                  <span *ngIf="playerCar.skinId === s.id" class="garage-skin-owned">✓ ACTIVE</span>
+                  <span *ngIf="playerCar.skinId !== s.id && s.owned">SELECT</span>
+                  <span *ngIf="!s.owned && s.cost === 0">FREE</span>
+                  <span *ngIf="!s.owned && s.cost > 0">${{ s.cost | number:'1.0-0' }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-        <button class="race-back-btn" (click)="backToMenu()">← BACK</button>
       </div>
 
-      <!-- Skins -->
-      <div class="race-skin-panel" *ngIf="selectedTab === 'skins'">
-        <div class="race-skin-grid">
-          <div class="race-skin-card" *ngFor="let s of CAR_SKINS"
-            [class.race-skin-active]="playerCar.skinId === s.id"
-            [class.race-skin-owned]="s.owned"
-            (click)="selectSkin(s)">
-            <div class="race-skin-preview" [style.background]="s.color"></div>
-            <div class="race-skin-name">{{ s.name }}</div>
-            <div class="race-skin-cost">
-              <span *ngIf="!s.owned && s.cost > 0">${{ s.cost }}</span>
-              <span *ngIf="s.owned && s.cost === 0">Free</span>
-              <span *ngIf="s.owned && s.cost > 0" class="race-skinned">✓</span>
-            </div>
-          </div>
-        </div>
-        <button class="race-back-btn" (click)="backToMenu()">← BACK</button>
-      </div>
+      <button class="garage-back-btn" (click)="backToMenu()">← BACK TO MENU</button>
     </div>
 
     <!-- ─── Countdown ─── -->
@@ -242,7 +324,7 @@
         <!-- Center: Steering Wheel -->
         <div class="cockpit-wheel-area">
           <div class="steering-column"></div>
-          <div class="steering-wheel" [style.transform]="'rotate(' + steerAngle + 'deg)'">
+          <div class="steering-wheel" #steerWheel>
             <!-- Wheel rim -->
             <div class="wheel-rim">
               <div class="wheel-grip wheel-grip-top"></div>
@@ -254,13 +336,13 @@
               <!-- Wheel center display -->
               <div class="wheel-center">
                 <div class="wheel-display">
-                  <div class="wheel-speed">{{ hudSpeed | number:'1.0-0' }}</div>
+                  <div class="wheel-speed" #wheelSpeed>{{ hudSpeed | number:'1.0-0' }}</div>
                   <div class="wheel-speed-unit">KM/H</div>
                   <div class="wheel-rpm-bar">
-                    <div class="wheel-rpm-fill" [style.width.%]="hudRPM * 100"
+                    <div class="wheel-rpm-fill" #wheelRpm [style.width.%]="hudRPM * 100"
                       [class.rpm-high]="hudRPM > 0.85" [class.rpm-redline]="hudRPM > 0.95"></div>
                   </div>
-                  <div class="wheel-gear">{{ getGear() }}</div>
+                  <div class="wheel-gear" #wheelGear>{{ getGear() }}</div>
                 </div>
               </div>
 

@@ -17,10 +17,23 @@ export interface RacingCarSkin {
   owned: boolean;
 }
 
+export interface RacingAppearancePart {
+  id: number;
+  name: string;
+  category: 'spoiler' | 'rims' | 'exhaust' | 'decal';
+  cost: number;
+  owned: boolean;
+  description: string;
+}
+
 export interface RacingPlayerCar {
   userId: number;
   upgrades: RacingCarUpgrade[];
   skinId: number;
+  spoilerId: number;
+  rimId: number;
+  exhaustId: number;
+  decalId: number;
   totalRaces: number;
   wins: number;
   money: number;
@@ -126,4 +139,23 @@ export const CAR_SKINS: RacingCarSkin[] = [
   { id: 6, name: 'Racing Stripe', color: '#ffffff', cost: 3000, owned: false },
   { id: 7, name: 'Carbon Black', color: '#212121', cost: 5000, owned: false },
   { id: 8, name: 'Chrome Silver', color: '#9e9e9e', cost: 8000, owned: false },
+];
+
+export const APPEARANCE_PARTS: RacingAppearancePart[] = [
+  // Spoilers
+  { id: 101, name: 'Carbon Wing', category: 'spoiler', cost: 2000, owned: false, description: 'Aggressive carbon-fiber rear wing' },
+  { id: 102, name: 'Dual Wing', category: 'spoiler', cost: 5000, owned: false, description: 'Pro-level dual element aero' },
+  { id: 103, name: 'DRS Wing', category: 'spoiler', cost: 10000, owned: false, description: 'Drag Reduction System wing' },
+  // Rims
+  { id: 201, name: 'Alloy Rims', category: 'rims', cost: 800, owned: false, description: 'Lightweight alloy wheels' },
+  { id: 202, name: 'Deep Dish', category: 'rims', cost: 2000, owned: false, description: 'Deep dish racing wheels' },
+  { id: 203, name: 'Gold Forged', category: 'rims', cost: 5000, owned: false, description: 'Forged gold racing rims' },
+  // Exhaust
+  { id: 301, name: 'Sport Exhaust', category: 'exhaust', cost: 600, owned: false, description: 'Chrome-tipped sport exhaust' },
+  { id: 302, name: 'Titanium Tips', category: 'exhaust', cost: 2500, owned: false, description: 'Titanium blue-burn tips' },
+  // Decals
+  { id: 401, name: 'Racing Stripes', category: 'decal', cost: 400, owned: false, description: 'Classic racing stripes' },
+  { id: 402, name: 'Flame Decal', category: 'decal', cost: 800, owned: false, description: 'Hot rod flame graphics' },
+  { id: 403, name: 'Carbon Wrap', category: 'decal', cost: 3000, owned: false, description: 'Full carbon-fiber wrap' },
+  { id: 404, name: '#44 Number', category: 'decal', cost: 500, owned: false, description: 'Race number 44 plate' },
 ];
