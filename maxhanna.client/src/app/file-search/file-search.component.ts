@@ -1175,7 +1175,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if ((!file.topics || file.topics.length === 0) && file.id) {
       this.loadFileTopics(file);
     }
-    if (file.commentsCount === undefined && file.id) {
+    if (file.id) {
       this.loadFileCommentCount(file);
     }
   }
@@ -1186,7 +1186,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   private async loadFileCommentCount(file: FileEntry) {
-    if (file.commentsCount !== undefined || !file.id) return;
+    if (!file.id) return;
     file.commentsCount = await this.fileService.getFileCommentCount(file.id);
     try { this.changeDetectorRef.detectChanges(); } catch { }
   }

@@ -10,8 +10,7 @@ import { ChildComponent } from '../child.component';
   styleUrl: './crypto-bot-configuration.component.css'
 })
 export class CryptoBotConfigurationComponent extends ChildComponent {
-  constructor(private tradeService: TradeService, private cdRef: ChangeDetectorRef) { super(); } 
-
+  constructor(private tradeService: TradeService, private cdRef: ChangeDetectorRef) { super(); }
   @Input() inputtedParentRef?: AppComponent;
   @Input() btcToCadPrice?: number;
   @Input() ethToCadPrice?: number;
@@ -38,6 +37,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   @ViewChild('tradeMaxTradeTimeToLive') tradeMaxTradeTimeToLive!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeMaximumFromBalance') tradeMaximumFromBalance!: ElementRef<HTMLInputElement>;
 
+  ttlFormatted = ''; 
   tradeConfigLastUpdated: Date | undefined = undefined;
   private readonly DEFAULT_USER_ID = 1;
 
@@ -220,6 +220,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     this.tradeStopLoss.nativeElement.valueAsNumber = effectiveConfig.tradeStopLoss;
     this.tradeStopLossPercentage.nativeElement.valueAsNumber = effectiveConfig.tradeStopLossPercentage;
     this.tradeMaxTradeTimeToLive.nativeElement.valueAsNumber = effectiveConfig.maxTradeTimeToLive ?? 0;
+    this.formatTTLForValue(effectiveConfig.maxTradeTimeToLive ?? 0);
 
     if (!removeUserSpecificData) {
       this.tradeConfigLastUpdated = effectiveConfig.updated;
@@ -240,6 +241,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     }
     this.tradeTradeThreshold.nativeElement.valueAsNumber = 0.0085;
     this.tradeMaxTradeTimeToLive.nativeElement.valueAsNumber = 0;
+    this.formatTTLForValue(0);
 
     // Set coin-specific defaults
     const fromCoin = this.tradeFromCoinSelect?.nativeElement?.value ?? "XBT";
@@ -334,5 +336,33 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
 
     const cryptoAmount = minFiatAmount / coinPrice;
     return parseFloat(cryptoAmount.toFixed(8)); // Standard crypto precision
+  }
+
+  formatTTL(event: Event) {
+    const input = event.target as HTMLInputElement;
+    this.formatTTLForValue(parseInt(input.value, 10));
+  }
+
+  private formatTTLForValue(minutes: number) {
+    if (!minutes || minutes <= 0) {
+      this.ttlFormatted = '';
+      return;
+    }
+
+    const years = Math.floor(minutes / 525600);
+    const months = Math.floor((minutes % 525600) / 43800);
+    const days = Math.floor((minutes % 43800) / 1440);
+    const hours = Math.floor((minutes % 1440) / 60);
+    const mins = minutes % 60;
+
+    const parts: string[] = [];
+    if (years > 0) parts.push(`${years}y`);
+    if (months > 0) parts.push(`${months}mo`);
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    if (mins > 0 || parts.length === 0) parts.push(`${mins}m`);
+
+    this.ttlFormatted = '≈ ' + parts.join(' ');
+    this.cdRef.detectChanges();
   }
 }

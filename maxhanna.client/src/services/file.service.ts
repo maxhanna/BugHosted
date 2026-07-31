@@ -509,11 +509,12 @@ export class FileService {
   }
   async getComments(fileId: number) {
     try {
-      const response = await fetch(`/file/comments/${fileId}`, {
-        method: 'GET',
+      const response = await fetch(`/comment/getcomments`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ fileId }),
       });
 
       if (!response.ok) {
