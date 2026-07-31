@@ -278,6 +278,15 @@ namespace maxhanna.Server.Services
                 {
                     await _dbQueue.EnqueueAsync(async () =>
                     {
+                        await new FollowNotificationService(_config, _log, _emailService).SendFollowNotifications();
+                    });
+                }
+                catch (Exception ex) { _ = _log.Db($"Error in SendFollowNotifications: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
+
+                try
+                {
+                    await _dbQueue.EnqueueAsync(async () =>
+                    {
                         await SendFollowNotifications();
                     });
                 }
@@ -484,6 +493,9 @@ namespace maxhanna.Server.Services
 
                 try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldUserEvents(); }); }
                 catch (Exception ex) { _ = _log.Db($"Error in DeleteOldUserEvents: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
+
+                try { await _dbQueue.EnqueueAsync(async () => { await new FollowNotificationService(_config, _log, _emailService).DeleteOldFollowNotifications(); }); }
+                catch (Exception ex) { _ = _log.Db($"Error in DeleteOldFollowNotifications: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
                 try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldFollowNotifications(); }); }
                 catch (Exception ex) { _ = _log.Db($"Error in DeleteOldFollowNotifications: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
