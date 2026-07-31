@@ -18,7 +18,13 @@
   <!-- Editing Mode: app-text-input replaces old textarea -->
   <div *ngIf="isEditing" class="shareToFeedInline"> 
     <app-text-input #noteTextInput [inputtedParentRef]="parentRef"
-      [type]="'Social'" [showPostInput]="true" [showTopicSelector]="true" [postButtonText]="'✅'"
+      [type]="'Notepad'" 
+      [showPostInput]="true" 
+      [showTopicSelector]="true" 
+      [showTopics]="false" 
+      [saveAsStory]="false"
+      [postButtonText]="'✅'" 
+      [skipSendingNotifications]="true"
       (contentPosted)="onNoteContentPosted($event)">
     </app-text-input>
   </div>

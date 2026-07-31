@@ -50,7 +50,7 @@
         </span>
     </button>
     <button class="mainTopicSelectionsHeaderButton" [class.highlight]="highlightTopicsButton"
-        (click)="showTopicsPanel(); highlightTopicsButton = false" *ngIf="type == 'Social'">
+        (click)="showTopicsPanel(); highlightTopicsButton = false" *ngIf="type == 'Social' && showTopics">
         🗂️{{ (!showPostInput && (!onMobile() || (mediaSelector && !mediaSelector.selectedFiles.length)) && (!onMobile()
         || !attachedTopics.length)) ? 'Topics' : (onMobile() || messageId) ? '' : 'Topics'}}
         <span class="matchingTopicsInsideButtonWrapper" *ngIf="attachedTopics && attachedTopics.length > 0">
@@ -107,7 +107,7 @@
 </div>
 
 <!-- Post Topics Popup -->
-<div class="popupPanel" *ngIf="isTopicsPanelOpen">
+<div class="popupPanel" *ngIf="isTopicsPanelOpen && showTopics">
     <div class="popupPanelTitle">Topics 🗂️</div>
     <div style="margin-bottom:15px;">
         <app-topics #topicSelector [isDropdown]="true" [user]="parentRef?.user" [parent]="parentRef"

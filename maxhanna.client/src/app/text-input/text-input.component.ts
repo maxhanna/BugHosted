@@ -46,6 +46,9 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   @Input() parentClass? = "";
   @Input() attachedTopics: Array<Topic> = [];
   @Input() showTopicSelector: boolean = true;
+  @Input() showTopics: boolean = true;
+  @Input() saveAsStory: boolean = true;
+  @Input() skipSendingNotifications: boolean = false;
   @Input() type?: "Social" | "Comment" | "Chat";
   @Input() currentChatUsers?: User[];
   @Input() quoteMessage?: string;
@@ -250,7 +253,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     this.attachedTopics = this.topicSelector?.attachedTopics ?? this.attachedTopics;
     this.highlightTopicsButton = false;
 
-    if (this.type === 'Social' && !this.profileUser && (!this.attachedTopics || this.attachedTopics.length === 0)) {
+    if (this.type === 'Social' && this.showTopics && !this.profileUser && (!this.attachedTopics || this.attachedTopics.length === 0)) {
       this.parentRef?.showNotification('Please select at least one topic before posting to the feed.');
       this.highlightTopicsButton = true;
       this.isTopicsPanelOpen = true;
@@ -290,7 +293,8 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         let originalContent = "";
 
         let derivedIds: { userProfileId?: number, storyId?: number, fileId?: number, commentId?: number } | undefined = undefined;
-        if (this.type == "Social") {
+        let skipNotifications = false;
+        if (this.type == "Social" && this.saveAsStory) {
           content = await this.createStory(files);
           originalContent = content.originalContent;
           derivedIds = {
@@ -300,6 +304,11 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
             commentId: undefined
           };
           results = await this.socialService.postStory(user.id ?? 0, content.story, sessionToken ?? "");
+        } else if (this.type == "Social") {
+          originalContent = this.parentRef?.replaceEmojisInMessage(this.textarea.value?.trim() || '') ?? '';
+          content = { originalContent: originalContent };
+          results = true;
+          skipNotifications = true;
         } else if (this.type == "Comment") {
           const commentStart = Date.now();
           content = await this.createComment(files);
@@ -336,7 +345,9 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         if (results) {
           const resultData = { results: results, content: content, originalContent: originalContent };
           this.contentPosted.emit(resultData);
-          this.createNotifications(resultData, derivedIds);
+          if (!skipNotifications && !this.skipSendingNotifications) {
+            this.createNotifications(resultData, derivedIds);
+          }
         } else {
           parent?.showNotification("Error: No response from server.");
         }
@@ -823,6 +834,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   }
   getButtonHighlightState(): boolean {
     return this.type == "Social"
+     && this.showTopics
      && !this.profileUser 
      && !(this.attachedTopics && this.attachedTopics.length > 0)
      && (this.textarea.value.trim().length > 0 || (this.attachedFiles && this.attachedFiles.length > 0));
