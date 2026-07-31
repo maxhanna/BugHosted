@@ -80,12 +80,10 @@ export class AppComponent implements OnInit, AfterViewInit {
     'EnderComponent',
     'DigCraftComponent',
     'GrandTheftComponent',
+    'RacingComponent', 
     'MetaComponent',
     'UpdateUserSettingsComponent',
-    'MediaViewerComponent',
-    'RecipeComponent',
-    'PaintComponent',
-    'RecipeComponent',
+    'MediaViewerComponent', 
   ];
   unflexedNavigationComponents: string[] = [
     'EmulatorComponent',
@@ -371,6 +369,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       ownership: 0,
       title: 'Paint',
       content: `Create and share your artwork with others.`
+    },
+    {
+      ownership: 0,
+      title: 'Planter',
+      content: `Create a list of your plants, have AI keep watch over health and growth.`
     },
     {
       ownership: 0,
