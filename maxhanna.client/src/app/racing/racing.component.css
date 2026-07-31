@@ -1138,39 +1138,52 @@
   z-index: 10;
 }
 
+/* ── Cockpit Surround (dark frame that covers screen edges) ── */
+#race-hud {
+  background: 
+    /* top header bar */
+    linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 40%, transparent 100%) 0 0 / 100% 8% no-repeat,
+    /* left pillar */
+    linear-gradient(90deg, rgba(4,4,6,0.9) 0%, rgba(4,4,6,0.3) 60%, transparent 100%) 0 0 / 10% 100% no-repeat,
+    /* right pillar */
+    linear-gradient(270deg, rgba(4,4,6,0.9) 0%, rgba(4,4,6,0.3) 60%, transparent 100%) 100% 0 / 10% 100% no-repeat;
+}
+
 /* ── Dashboard Frame ── */
 .cockpit-dash {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 42%;
+  height: 62%;
   background: linear-gradient(0deg, 
-    rgba(8,8,10,1) 0%, 
-    rgba(12,12,16,0.95) 30%, 
-    rgba(16,16,22,0.85) 60%, 
-    rgba(20,20,28,0.5) 85%,
+    rgba(4,4,8,1) 0%, 
+    rgba(8,8,14,0.98) 20%,
+    rgba(10,10,18,0.92) 40%,
+    rgba(14,14,24,0.72) 65%,
+    rgba(18,18,30,0.3) 85%,
     transparent 100%
   );
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  padding: 0 2% 2% 2%;
+  padding: 0 3% 2.5% 3%;
   box-sizing: border-box;
-  border-top: 1px solid rgba(255,255,255,0.06);
+  border-top: 2px solid rgba(255,255,255,0.04);
+  box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
 }
 
 /* ── Side Panels ── */
 .cockpit-panel {
-  width: 22%;
-  max-width: 280px;
-  min-width: 160px;
-  padding: 10px 14px;
-  background: rgba(0,0,0,0.5);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 8px;
+  width: 24%;
+  max-width: 320px;
+  min-width: 180px;
+  padding: 12px 16px;
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
   backdrop-filter: blur(4px);
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .panel-title {
@@ -1208,7 +1221,7 @@
 }
 
 .panel-val-big {
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 900;
   color: #fff;
   font-variant-numeric: tabular-nums;
@@ -1239,7 +1252,7 @@
 }
 
 .panel-pos-big {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 900;
   color: #ffd600;
   text-shadow: 0 0 12px rgba(255,214,0,0.3);
@@ -1327,7 +1340,7 @@
   align-items: center;
   justify-content: flex-end;
   flex: 1;
-  max-width: 450px;
+  max-width: 520px;
   height: 100%;
 }
 
@@ -1342,8 +1355,8 @@
 
 .steering-wheel {
   position: relative;
-  width: min(280px, 55vw);
-  height: min(260px, 50vw);
+  width: min(360px, 60vw);
+  height: min(340px, 56vw);
   transition: transform 0.08s ease-out;
   transform-origin: center center;
   filter: drop-shadow(0 4px 20px rgba(0,0,0,0.5));
@@ -1420,7 +1433,7 @@
 }
 
 .wheel-speed {
-  font-size: 32px;
+  font-size: 38px;
   font-weight: 900;
   color: #00e5ff;
   font-family: 'Consolas', 'Courier New', monospace;
@@ -1470,7 +1483,7 @@
 }
 
 .wheel-gear {
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 900;
   color: #00e5ff;
   font-family: 'Consolas', 'Courier New', monospace;
@@ -1487,21 +1500,21 @@
 }
 
 .hand-left {
-  top: 28%;
-  left: -8%;
+  top: 25%;
+  left: -6%;
   transform: rotate(-15deg);
 }
 
 .hand-right {
-  top: 28%;
-  right: -8%;
+  top: 25%;
+  right: -6%;
   transform: rotate(15deg);
 }
 
 .glove {
   position: relative;
-  width: 32px;
-  height: 48px;
+  width: 38px;
+  height: 56px;
 }
 
 .glove-cuff {
@@ -1571,6 +1584,96 @@
   background: 
     repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(255,255,255,0.05) 3px, rgba(255,255,255,0.05) 4px);
   border-radius: 2px;
+}
+
+/* ── Mobile: reduce cockpit surround pillars ── */
+@media (max-width: 768px), (pointer: coarse) {
+  #race-hud {
+    background:
+      linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 40%, transparent 100%) 0 0 / 100% 6% no-repeat,
+      linear-gradient(90deg, rgba(4,4,6,0.7) 0%, transparent 100%) 0 0 / 4% 100% no-repeat,
+      linear-gradient(270deg, rgba(4,4,6,0.7) 0%, transparent 100%) 100% 0 / 4% 100% no-repeat;
+  }
+
+  .cockpit-dash {
+    height: 55%;
+    padding: 0 2% 2% 2%;
+  }
+
+  .cockpit-panel {
+    width: 20%;
+    min-width: 0;
+    padding: 6px 8px;
+    border-radius: 6px;
+  }
+
+  .cockpit-panel-left,
+  .cockpit-panel-right {
+    font-size: 8px;
+  }
+
+  .cockpit-wheel-area {
+    max-width: 280px;
+  }
+
+  .steering-wheel {
+    width: min(220px, 48vw);
+    height: min(210px, 46vw);
+  }
+
+  .wheel-speed {
+    font-size: 24px;
+  }
+
+  .wheel-gear {
+    font-size: 14px;
+  }
+
+  .panel-title {
+    font-size: 7px;
+    letter-spacing: 1px;
+  }
+
+  .panel-row {
+    gap: 2px;
+    margin-bottom: 1px;
+    font-size: 7px;
+  }
+
+  .panel-label {
+    min-width: 28px;
+    font-size: 6px;
+  }
+
+  .panel-val {
+    font-size: 7px;
+  }
+
+  .panel-val-big {
+    font-size: 14px;
+  }
+
+  .panel-pos-big {
+    font-size: 16px;
+  }
+
+  .hand-left { left: -4%; }
+  .hand-right { right: -4%; }
+  .glove { width: 24px; height: 36px; }
+  .glove-finger { width: 5px; height: 10px; }
+  .glove-finger.f1 { left: 1px; }
+  .glove-finger.f2 { left: 7px; }
+  .glove-finger.f3 { left: 13px; }
+  .glove-finger.f4 { left: 18px; }
+
+  .track-line-minimap {
+    top: 3%;
+    padding: 0 8px;
+  }
+
+  .tl-label {
+    font-size: 6px;
+  }
 }
 
 /* Keep old keyframes */
