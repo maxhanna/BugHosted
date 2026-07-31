@@ -245,6 +245,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!this._parent) {
       console.warn('Skipping notification fetch because user is not logged in');
       return;
+    } 
+    if (this._parent.isUploadingFile) {
+      return;
     }
     console.log("fetch notifications"); 
     this._parent.notificationsActive = true;
