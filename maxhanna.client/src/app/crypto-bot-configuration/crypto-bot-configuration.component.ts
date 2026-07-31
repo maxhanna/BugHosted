@@ -35,6 +35,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
   @ViewChild('tradeStopLoss') tradeStopLoss!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeStopLossPercentage') tradeStopLossPercentage!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeVolumeSpikeMaxTradeOccurance') tradeVolumeSpikeMaxTradeOccurance!: ElementRef<HTMLInputElement>;
+  @ViewChild('tradeMaxTradeTimeToLive') tradeMaxTradeTimeToLive!: ElementRef<HTMLInputElement>;
   @ViewChild('tradeMaximumFromBalance') tradeMaximumFromBalance!: ElementRef<HTMLInputElement>;
 
   tradeConfigLastUpdated: Date | undefined = undefined;
@@ -81,6 +82,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
       TradeStopLossPercentage: parseNum(getVal(this.tradeStopLossPercentage)),
       VolumeSpikeMaxTradeOccurance: parseNum(getVal(this.tradeVolumeSpikeMaxTradeOccurance)),
       MaximumFromBalance: maxFromBalance,
+      MaxTradeTimeToLive: parseNum(getVal(this.tradeMaxTradeTimeToLive)),
     };
 
     const invalidField = Object.entries(fields).find(([key, val]) => val === null || isNaN(val));
@@ -217,6 +219,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
     this.tradeMaximumFromBalance.nativeElement.valueAsNumber = effectiveConfig.maximumFromBalance;
     this.tradeStopLoss.nativeElement.valueAsNumber = effectiveConfig.tradeStopLoss;
     this.tradeStopLossPercentage.nativeElement.valueAsNumber = effectiveConfig.tradeStopLossPercentage;
+    this.tradeMaxTradeTimeToLive.nativeElement.valueAsNumber = effectiveConfig.maxTradeTimeToLive ?? 0;
 
     if (!removeUserSpecificData) {
       this.tradeConfigLastUpdated = effectiveConfig.updated;
@@ -236,6 +239,7 @@ export class CryptoBotConfigurationComponent extends ChildComponent {
       this.tradeReserveSellPercentage.nativeElement.valueAsNumber = 0.075;
     }
     this.tradeTradeThreshold.nativeElement.valueAsNumber = 0.0085;
+    this.tradeMaxTradeTimeToLive.nativeElement.valueAsNumber = 0;
 
     // Set coin-specific defaults
     const fromCoin = this.tradeFromCoinSelect?.nativeElement?.value ?? "XBT";

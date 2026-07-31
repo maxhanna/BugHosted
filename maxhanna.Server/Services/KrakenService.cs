@@ -27,6 +27,7 @@ public class KrakenService
   private static decimal _TradeStopLossPercentage = 0;
   private static int _MaxTradeTypeOccurances = 5;
   private static int _VolumeSpikeMaxTradeOccurance = 1;
+  private static int? _MaxTradeTimeToLive = null;
   private readonly HttpClient _httpClient;
   private static IConfiguration? _config;
   private readonly string _baseAddr = "https://api.kraken.com/";
@@ -63,6 +64,13 @@ public class KrakenService
     if (!ValidateAndApplyConfig(userId, coin, strategy, tmpCoin, tc))
     {
       return false;
+    }
+
+    // 0. Check for expired trades that need to be auto-sold via TTL
+    if (_MaxTradeTimeToLive.HasValue && _MaxTradeTimeToLive.Value > 0)
+    {
+      bool soldExpired = await AutoSellExpiredTrades(userId, tmpCoin, strategy, keys);
+      if (soldExpired) return true;
     }
 
     // 2. Get last trade info
@@ -3907,6 +3915,7 @@ ON DUPLICATE KEY UPDATE
           VolumeSpikeMaxTradeOccurance = reader.GetInt32("volume_spike_max_trade_occurances"),
           TradeStopLoss = reader.GetDecimal("trade_stop_loss"),
           TradeStopLossPercentage = reader.GetDecimal("trade_stop_loss_percentage"),
+          MaxTradeTimeToLive = reader.IsDBNull(reader.GetOrdinal("max_trade_time_to_live")) ? null : reader.GetInt32("max_trade_time_to_live"),
         };
       }
     }
@@ -3922,7 +3931,7 @@ ON DUPLICATE KEY UPDATE
     string toCoin, string strategy, decimal maxFromBalance, decimal minFromAmount, decimal threshold,
     decimal maxToAmount, decimal reserveSellPercentage,
     decimal coinReserveUSDCValue, int maxtradeTypeOccurances, int volumeSpikeMaxTradeOccurance,
-    decimal tradeStopLoss, decimal tradeStopLossPercentage)
+    decimal tradeStopLoss, decimal tradeStopLossPercentage, int? maxTradeTimeToLive = null)
   {
     try
     {
@@ -3945,7 +3954,8 @@ ON DUPLICATE KEY UPDATE
 				max_trade_type_occurances,
 				volume_spike_max_trade_occurances,
 				trade_stop_loss,
-				trade_stop_loss_percentage
+				trade_stop_loss_percentage,
+				max_trade_time_to_live
 			)
 			VALUES (
 				@userId, @fromCoin, @toCoin, @strategy, UTC_TIMESTAMP(),
@@ -3953,7 +3963,8 @@ ON DUPLICATE KEY UPDATE
 				@threshold, @maxToAmount, @reserveSellPercentage, 
 				@coinReserveUSDCValue, 
 				@maxTradeTypeOccurances, 
-				@volumeSpikeMaxTradeOccurance, @tradeStopLoss, @tradeStopLossPercentage
+				@volumeSpikeMaxTradeOccurance, @tradeStopLoss, @tradeStopLossPercentage,
+				@maxTradeTimeToLive
 			)
 			ON DUPLICATE KEY UPDATE 
 				updated = UTC_TIMESTAMP(),
@@ -3966,7 +3977,8 @@ ON DUPLICATE KEY UPDATE
 				max_trade_type_occurances = @maxTradeTypeOccurances,
 				volume_spike_max_trade_occurances = @volumeSpikeMaxTradeOccurance,
 				trade_stop_loss = @tradeStopLoss,
-				trade_stop_loss_percentage = @tradeStopLossPercentage;
+				trade_stop_loss_percentage = @tradeStopLossPercentage,
+				max_trade_time_to_live = @maxTradeTimeToLive;
 				", connection);
 
       cmd.Parameters.AddWithValue("@userId", userId);
@@ -3983,6 +3995,7 @@ ON DUPLICATE KEY UPDATE
       cmd.Parameters.AddWithValue("@volumeSpikeMaxTradeOccurance", volumeSpikeMaxTradeOccurance);
       cmd.Parameters.AddWithValue("@tradeStopLoss", tradeStopLoss);
       cmd.Parameters.AddWithValue("@tradeStopLossPercentage", tradeStopLossPercentage);
+      cmd.Parameters.AddWithValue("@maxTradeTimeToLive", (object?)maxTradeTimeToLive ?? DBNull.Value);
 
       await cmd.ExecuteNonQueryAsync();
       return true;
@@ -4008,6 +4021,7 @@ ON DUPLICATE KEY UPDATE
     _VolumeSpikeMaxTradeOccurance = tc.VolumeSpikeMaxTradeOccurance ?? 0;
     _TradeStopLoss = tc.TradeStopLoss ?? 0;
     _TradeStopLossPercentage = tc.TradeStopLossPercentage ?? 0;
+    _MaxTradeTimeToLive = tc.MaxTradeTimeToLive;
 
     return true;
   }
@@ -4705,6 +4719,110 @@ ON DUPLICATE KEY UPDATE
     catch (Exception e)
     {
       _ = _log.Db("⚠️KrakenService exception ExitPosition: " + e.Message, outputToConsole: viewDebugLogs);
+      return false;
+    }
+  }
+
+  /// <summary>
+  /// Auto-sells any buy trades that have exceeded the configured MaxTradeTimeToLive (in minutes).
+  /// Only sells unmatched buy trades whose timestamp + TTL has passed.
+  /// </summary>
+  private async Task<bool> AutoSellExpiredTrades(int userId, string coin, string strategy, UserKrakenApiKey keys)
+  {
+    if (!_MaxTradeTimeToLive.HasValue || _MaxTradeTimeToLive.Value <= 0) return false;
+
+    try
+    {
+      using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+      await conn.OpenAsync();
+
+      // Find unmatched buy trades that have exceeded TTL
+      const string sql = @"
+        SELECT id, value, coin_price_usdc
+        FROM trade_history
+        WHERE user_id = @UserId
+          AND from_currency = 'USDC'
+          AND to_currency = @Coin
+          AND strategy = @Strategy
+          AND matching_trade_id IS NULL
+          AND TIMESTAMPDIFF(MINUTE, timestamp, UTC_TIMESTAMP()) >= @TtlMinutes
+        ORDER BY timestamp ASC;";
+
+      using var cmd = new MySqlCommand(sql, conn);
+      cmd.Parameters.AddWithValue("@UserId", userId);
+      cmd.Parameters.AddWithValue("@Coin", coin);
+      cmd.Parameters.AddWithValue("@Strategy", strategy);
+      cmd.Parameters.AddWithValue("@TtlMinutes", _MaxTradeTimeToLive.Value);
+
+      var expiredTrades = new List<(int id, decimal value, decimal price)>();
+      using var reader = await cmd.ExecuteReaderAsync();
+      while (await reader.ReadAsync())
+      {
+        expiredTrades.Add((
+          reader.GetInt32("id"),
+          reader.GetDecimal("value"),
+          reader.GetDecimal("coin_price_usdc")
+        ));
+      }
+      reader.Close();
+
+      if (expiredTrades.Count == 0) return false;
+
+      _ = _log.Db($"({coin}:{userId}:{strategy}) Found {expiredTrades.Count} expired trades exceeding {_MaxTradeTimeToLive.Value}min TTL. Auto-selling...", userId, "TRADE", viewDebugLogs);
+
+      // Get current price and balances for selling
+      decimal? coinPriceUSDC = await GetCoinPriceToUSDC(userId, coin, keys);
+      if (coinPriceUSDC == null)
+      {
+        _ = _log.Db($"({coin}:{userId}:{strategy}) Unable to fetch {coin}/USDC price for TTL sell. Skipping.", userId, "TRADE", viewDebugLogs);
+        return false;
+      }
+
+      decimal? coinPriceCAD = await IsSystemUpToDate(userId, coin, coinPriceUSDC.Value);
+      if (coinPriceCAD == null) return false;
+
+      var balances = await GetBalance(userId, coin, strategy, keys);
+      if (balances == null) return false;
+
+      decimal coinBalance = GetCoinBalanceFromDictionaryAndKey(balances, coin);
+      decimal usdcBalance = GetCoinBalanceFromDictionaryAndKey(balances, "USDC");
+
+      int soldCount = 0;
+      decimal cumulativeSold = 0;
+      foreach (var trade in expiredTrades)
+      {
+        decimal remainingBalance = coinBalance - cumulativeSold;
+        if (trade.value > remainingBalance)
+        {
+          _ = _log.Db($"({coin}:{userId}:{strategy}) TTL sell of trade #{trade.id} ({FormatBTC(trade.value)}) exceeds remaining balance ({FormatBTC(remainingBalance)}). Skipping.", userId, "TRADE", viewDebugLogs);
+          continue;
+        }
+
+        if (trade.value < _MinimumBTCTradeAmount)
+        {
+          _ = _log.Db($"({coin}:{userId}:{strategy}) TTL sell of trade #{trade.id} ({FormatBTC(trade.value)}) below minimum ({FormatBTC(_MinimumBTCTradeAmount)}). Skipping.", userId, "TRADE", viewDebugLogs);
+          continue;
+        }
+
+        _ = _log.Db($"({coin}:{userId}:{strategy}) TTL auto-selling trade #{trade.id}: {FormatBTC(trade.value)} {coin} at {coinPriceUSDC.Value:F2} USDC.", userId, "TRADE", viewDebugLogs);
+        await ExecuteTrade(userId, coin, keys, FormatBTC(trade.value), "sell",
+          coinBalance - cumulativeSold, usdcBalance + (cumulativeSold * coinPriceUSDC.Value),
+          coinPriceCAD.Value, coinPriceUSDC.Value, strategy, null,
+          new List<TradeRecord> { new TradeRecord { id = trade.id, from_currency = coin, to_currency = "USDC", value = (float)trade.value } });
+        cumulativeSold += trade.value;
+        soldCount++;
+      }
+
+      if (soldCount > 0)
+      {
+        _ = _log.Db($"({coin}:{userId}:{strategy}) TTL auto-sold {soldCount} expired trades totalling {FormatBTC(cumulativeSold)} {coin}.", userId, "TRADE", viewDebugLogs);
+        return true;
+      }
+      return false;
+    }
+    catch (Exception ex)
+    {
+      _ = _log.Db($"⚠️Error auto-selling expired trades: " + ex.Message, userId, "TRADE", viewErrorDebugLogs);
       return false;
     }
   }

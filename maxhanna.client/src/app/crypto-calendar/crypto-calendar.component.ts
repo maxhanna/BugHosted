@@ -67,7 +67,8 @@ export class CryptoCalendarComponent implements OnInit, AfterViewInit, OnDestroy
       if (res?.success) {
         this.allEvents = res.events.map((e: any) => ({
           ...e,
-          eventDate: new Date(e.eventDate)
+          eventDate: new Date(e.eventDate),
+          dateEnd: e.dateEnd ? new Date(e.dateEnd) : undefined
         }));
         this.uniqueCoinSymbols = [
           ...new Set(this.allEvents.map(e => e.coinSymbol).sort())
@@ -109,6 +110,25 @@ export class CryptoCalendarComponent implements OnInit, AfterViewInit, OnDestroy
 
   formatDate(date: Date): string {
     return date.toISOString().split('T')[0];
+  }
+
+  formatEventDate(date: Date | string): string {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return '';
+    const now = new Date();
+    const diffMs = d.getTime() - now.getTime();
+    const diffDays = Math.round(diffMs / 86400000);
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays === -1) return 'Yesterday';
+    if (diffDays > 0 && diffDays <= 7) return `In ${diffDays} days`;
+    if (diffDays < 0 && diffDays >= -7) return `${Math.abs(diffDays)} days ago`;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  splitCategories(categories: string): string[] {
+    if (!categories) return [];
+    return categories.split(',').map(c => c.trim()).filter(c => c.length > 0);
   }
 
   toggleCollapsed() { 

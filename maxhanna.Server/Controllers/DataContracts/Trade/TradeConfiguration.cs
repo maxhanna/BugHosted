@@ -14,5 +14,6 @@ public class TradeConfiguration
 	public int? VolumeSpikeMaxTradeOccurance { get; set; }
 	public decimal? TradeStopLoss { get; set; }
 	public decimal? TradeStopLossPercentage { get; set; }
+	public int? MaxTradeTimeToLive { get; set; }
 	public DateTime? Updated { get; set; }
 }

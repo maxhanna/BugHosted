@@ -412,7 +412,8 @@ public class TradeController : ControllerBase
 					req.MaxTradeTypeOccurances ?? 0,
 					req.VolumeSpikeMaxTradeOccurance ?? 0,
 					req.TradeStopLoss ?? 0,
-					req.TradeStopLossPercentage ?? 0
+					req.TradeStopLossPercentage ?? 0,
+				req.MaxTradeTimeToLive
 			);
 
 			return worked ? Ok(worked) : BadRequest("Something went wrong. Check input data.");

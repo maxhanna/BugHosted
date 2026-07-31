@@ -268,6 +268,25 @@
         </div>
     </div>
 
+    <!-- Max Trade Time to Live (minutes) -->
+    <div class="config-box">
+        <div class="config-header">
+            <span>Max Trade TTL (min)</span>
+            <span class="info-icon" (click)="toggleExplanation($event)">i</span>
+        </div>
+        <input type="number" #tradeMaxTradeTimeToLive
+            title="Set the maximum time in minutes a trade can exist before being automatically sold. Leave at 0 to disable." />
+        <div class="config-explanation">
+            <p><strong>What it does:</strong> This sets a time limit (in minutes) for how long an unmatched buy trade can remain open. 
+                When a trade exceeds this limit, the bot automatically sells it at the current market price to exit the position.</p>
+            <p><strong>Why it matters:</strong> Prevents trades from being stuck indefinitely in unfavorable conditions. 
+                If the market moves against you and no matching sell triggers within your TTL, the bot will cut losses and free up your funds.</p>
+            <p><strong>How to use it:</strong> Set to a reasonable timeframe based on your strategy — e.g., 60 minutes for HFT, 
+                720 minutes (12 hours) for DCA, or longer for IND. Leave at 0 to disable time-based auto-selling entirely. 
+                Only applies to unmatched buy positions.</p>
+        </div>
+    </div>
+
     <!-- Stop-Loss Price (DCA only) -->
     <div class="config-box" [style.display]="tradeStrategySelect.value == 'DCA' ? 'flex' : 'none'">
         <div class="config-header">

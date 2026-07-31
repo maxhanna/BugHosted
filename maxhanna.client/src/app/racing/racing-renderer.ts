@@ -174,12 +174,12 @@ export class RacingRenderer {
   private vsSrc = `#version 300 es
 in vec3 aPos;
 in vec3 aNormal;
-in vec4 aColor;
+in vec3 aColor;
 in vec2 aUV;
 uniform mat4 uProj;
 uniform mat4 uView;
 uniform mat4 uModel;
-uniform vec4 uColor;
+uniform vec3 uColor;
 uniform mat3 uNormalMatrix;
 out vec4 vColor;
 out vec3 vNormal;
@@ -190,7 +190,7 @@ void main() {
   vec4 wp = uModel * vec4(aPos, 1.0);
   vec4 vp = uView * wp;
   gl_Position = uProj * vp;
-  vColor = aColor * uColor;
+  vColor = vec4(aColor * uColor, 1.0);
   vNormal = normalize(uNormalMatrix * aNormal);
   vWorldPos = wp.xyz;
   vDepth = length(vp.xyz);
@@ -555,19 +555,19 @@ void main() {
       const sd = i / pts.length;
 
       // Left barrier front face (sample plain asphalt so walls stay dark, not striped)
-      verts.push(p.x + ppx * bw, 0, p.z + ppz * bw, 0, 0, 1, 0.2, 0.2, 0.2, sd, 0.25);
-      verts.push(n.x + npx * bwN, 0, n.z + npz * bwN, 0, 0, 1, 0.2, 0.2, 0.2, (i + 1) / pts.length, 0.25);
-      verts.push(p.x + ppx * bw, barrierH, p.z + ppz * bw, 0, 0, 1, 0.2, 0.2, 0.2, sd, 0.25);
-      verts.push(n.x + npx * bwN, barrierH, n.z + npz * bwN, 0, 0, 1, 0.2, 0.2, 0.2, (i + 1) / pts.length, 0.25);
+      verts.push(p.x + ppx * bw, 0, p.z + ppz * bw, ppx, 0, ppz, 0.2, 0.2, 0.2, sd, 0.25);
+      verts.push(n.x + npx * bwN, 0, n.z + npz * bwN, npx, 0, npz, 0.2, 0.2, 0.2, (i + 1) / pts.length, 0.25);
+      verts.push(p.x + ppx * bw, barrierH, p.z + ppz * bw, ppx, 0, ppz, 0.2, 0.2, 0.2, sd, 0.25);
+      verts.push(n.x + npx * bwN, barrierH, n.z + npz * bwN, npx, 0, npz, 0.2, 0.2, 0.2, (i + 1) / pts.length, 0.25);
       const bvi = verts.length / 11 - 4;
       idxs.push(bvi, bvi + 1, bvi + 2);
       idxs.push(bvi + 1, bvi + 3, bvi + 2);
 
       // Right barrier
-      verts.push(p.x - ppx * bw, 0, p.z - ppz * bw, 0, 0, 0, -1, 0.2, 0.2, 0.2, sd, 0.25);
-      verts.push(n.x - npx * bwN, 0, n.z - npz * bwN, 0, 0, 0, -1, 0.2, 0.2, 0.2, (i + 1) / pts.length, 0.25);
-      verts.push(p.x - ppx * bw, barrierH, p.z - ppz * bw, 0, 0, 0, -1, 0.2, 0.2, 0.2, sd, 0.25);
-      verts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, 0, 0, 0, -1, 0.2, 0.2, 0.2, (i + 1) / pts.length, 0.25);
+      verts.push(p.x - ppx * bw, 0, p.z - ppz * bw, -ppx, 0, -ppz, 0.2, 0.2, 0.2, sd, 0.25);
+      verts.push(n.x - npx * bwN, 0, n.z - npz * bwN, -npx, 0, -npz, 0.2, 0.2, 0.2, (i + 1) / pts.length, 0.25);
+      verts.push(p.x - ppx * bw, barrierH, p.z - ppz * bw, -ppx, 0, -ppz, 0.2, 0.2, 0.2, sd, 0.25);
+      verts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, -npx, 0, -npz, 0.2, 0.2, 0.2, (i + 1) / pts.length, 0.25);
       const bvi2 = verts.length / 11 - 4;
       idxs.push(bvi2, bvi2 + 1, bvi2 + 2);
       idxs.push(bvi2 + 1, bvi2 + 3, bvi2 + 2);
@@ -600,9 +600,9 @@ void main() {
     gl.enableVertexAttribArray(1);
     gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
     gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(2, 4, gl.FLOAT, false, stride, 24);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
     gl.enableVertexAttribArray(3);
-    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 40);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
   }
 
@@ -684,9 +684,9 @@ void main() {
     gl.enableVertexAttribArray(1);
     gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
     gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(2, 4, gl.FLOAT, false, stride, 24);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
     gl.enableVertexAttribArray(3);
-    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 40);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
   }
 
@@ -731,9 +731,9 @@ void main() {
     gl.enableVertexAttribArray(1);
     gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
     gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(2, 4, gl.FLOAT, false, stride, 24);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
     gl.enableVertexAttribArray(3);
-    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 40);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
 
     // Build wheel mesh
@@ -765,9 +765,9 @@ void main() {
     gl.enableVertexAttribArray(1);
     gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
     gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(2, 4, gl.FLOAT, false, stride, 24);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
     gl.enableVertexAttribArray(3);
-    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 40);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
   }
 
@@ -814,7 +814,7 @@ void main() {
       const base = verts.length / 11;
       for (let vi = 0; vi < 4; vi++) {
         const vv = v[face[vi]];
-        verts.push(cx + vv[0], cy + vv[1], cz + vv[2], norm[0], norm[1], norm[2], r, g, b, 1, uvs[vi][0], uvs[vi][1]);
+        verts.push(cx + vv[0], cy + vv[1], cz + vv[2], norm[0], norm[1], norm[2], r, g, b, uvs[vi][0], uvs[vi][1]);
       }
       idxs.push(base, base + 1, base + 2);
       idxs.push(base + 2, base + 3, base);
@@ -831,14 +831,14 @@ void main() {
       const a = (i / segments) * Math.PI * 2;
       const x = Math.cos(a) * radius;
       const z = Math.sin(a) * radius;
-      verts.push(cx + x, cy + height, cz + z, 0, 1, 0, r * 1.1, g * 1.1, b * 1.1, 1, i / segments, 1);
+      verts.push(cx + x, cy + height, cz + z, 0, 1, 0, r * 1.1, g * 1.1, b * 1.1, i / segments, 1);
     }
     // Bottom ring
     for (let i = 0; i <= segments; i++) {
       const a = (i / segments) * Math.PI * 2;
       const x = Math.cos(a) * radius;
       const z = Math.sin(a) * radius;
-      verts.push(cx + x, cy, cz + z, 0, -1, 0, r * 0.9, g * 0.9, b * 0.9, 1, i / segments, 0);
+      verts.push(cx + x, cy, cz + z, 0, -1, 0, r * 0.9, g * 0.9, b * 0.9, i / segments, 0);
     }
     const topStart = baseIdx;
     const bottomStart = baseIdx + stride;
@@ -851,14 +851,14 @@ void main() {
 
     // Top cap: fan from center (CCW when viewed from above → +Y normal)
     const topCenter = verts.length / 11;
-    verts.push(cx, cy + height, cz, 0, 1, 0, r, g, b, 1, 0.5, 1);
+    verts.push(cx, cy + height, cz, 0, 1, 0, r, g, b, 0.5, 1);
     for (let i = 0; i < segments; i++) {
       idxs.push(topCenter, topStart + i + 1, topStart + i);
     }
 
     // Bottom cap: fan from center (faces down → visible from below)
     const bottomCenter = verts.length / 11;
-    verts.push(cx, cy, cz, 0, -1, 0, r, g, b, 1, 0.5, 0);
+    verts.push(cx, cy, cz, 0, -1, 0, r, g, b, 0.5, 0);
     for (let i = 0; i < segments; i++) {
       idxs.push(bottomCenter, bottomStart + i, bottomStart + i + 1);
     }
@@ -871,11 +871,11 @@ void main() {
     // Base ring
     for (let i = 0; i <= segments; i++) {
       const a = (i / segments) * Math.PI * 2;
-      verts.push(cx + Math.cos(a) * radius, cy, cz + Math.sin(a) * radius, 0, -1, 0, r, g, b, 1, i / segments, 0);
+      verts.push(cx + Math.cos(a) * radius, cy, cz + Math.sin(a) * radius, 0, -1, 0, r, g, b, i / segments, 0);
     }
     // Tip
     const tipIdx = verts.length / 11;
-    verts.push(cx, cy + height, cz, 0, 1, 0, r * 1.3, g * 1.3, b * 1.3, 1, 0.5, 1);
+    verts.push(cx, cy + height, cz, 0, 1, 0, r * 1.3, g * 1.3, b * 1.3, 0.5, 1);
 
     // Base triangles
     for (let i = 0; i < segments; i++) {
@@ -886,10 +886,10 @@ void main() {
     const sideStart = verts.length / 11;
     for (let i = 0; i <= segments; i++) {
       const a = (i / segments) * Math.PI * 2;
-      verts.push(cx + Math.cos(a) * radius, cy, cz + Math.sin(a) * radius, Math.cos(a) * 0.5, 0.5, Math.sin(a) * 0.5, r, g, b, 1, i / segments, 0);
+      verts.push(cx + Math.cos(a) * radius, cy, cz + Math.sin(a) * radius, Math.cos(a) * 0.5, 0.5, Math.sin(a) * 0.5, r, g, b, i / segments, 0);
     }
     const tipIdx2 = verts.length / 11;
-    verts.push(cx, cy + height, cz, 0, 0.7, 0, r * 1.1, g * 1.1, b * 1.1, 1, 0.5, 1);
+    verts.push(cx, cy + height, cz, 0, 0.7, 0, r * 1.1, g * 1.1, b * 1.1, 0.5, 1);
 
     for (let i = 0; i < segments; i++) {
       idxs.push(sideStart + i, tipIdx2, sideStart + i + 1);
@@ -907,7 +907,7 @@ void main() {
         const x = Math.cos(a) * Math.sin(b) * r;
         const y = Math.cos(b) * r;
         const z = Math.sin(a) * Math.sin(b) * r;
-        verts.push(cx + x, cy + y, cz + z, x / r, y / r, z / r, cr, cg, cb, 1, i / segments, j / segments);
+        verts.push(cx + x, cy + y, cz + z, x / r, y / r, z / r, cr, cg, cb, i / segments, j / segments);
       }
     }
     const stride = segments + 1;
@@ -1065,7 +1065,7 @@ void main() {
     gl.bindTexture(gl.TEXTURE_2D, this.trackTex);
     this.mat4Identity(this.modelMatrix);
     gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
-    gl.uniform4f(this.colorLoc, 1, 1, 1, 1);
+    gl.uniform3f(this.colorLoc, 1, 1, 1);
     this.setNormalMatrix(this.modelMatrix);
     gl.drawElements(gl.TRIANGLES, this.trackCount, gl.UNSIGNED_SHORT, 0);
 
@@ -1075,7 +1075,7 @@ void main() {
     gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
     this.mat4Identity(this.modelMatrix);
     gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
-    gl.uniform4f(this.colorLoc, 1, 1, 1, 1);
+    gl.uniform3f(this.colorLoc, 1, 1, 1);
     this.setNormalMatrix(this.modelMatrix);
     gl.drawElements(gl.TRIANGLES, this.sceneryCount, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(null);
@@ -1109,7 +1109,7 @@ void main() {
       gl.depthMask(false);
       gl.bindVertexArray(this._rainVao);
       gl.uniform1i(this.hasTexLoc, 0);
-      gl.uniform4f(this.colorLoc, 1, 1, 1, 1);
+      gl.uniform3f(this.colorLoc, 1, 1, 1);
       this.mat4Identity(this.modelMatrix);
       gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
       gl.drawArrays(gl.LINES, 0, this._rainCount);
@@ -1131,7 +1131,7 @@ void main() {
     this.mat4RotateY(this.modelMatrix, yaw);
     this.mat4Scale(this.modelMatrix, [0.8, 0.8, 0.8]);
     gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
-    gl.uniform4f(this.colorLoc, r, g, b, 1);
+    gl.uniform3f(this.colorLoc, r, g, b);
     gl.uniform1i(this.hasTexLoc, 0);
     this.setNormalMatrix(this.modelMatrix);
     gl.drawElements(gl.TRIANGLES, this.carCount, gl.UNSIGNED_SHORT, 0);
@@ -1151,7 +1151,7 @@ void main() {
       this.mat4Translate(this.modelMatrix, wp);
       this.mat4RotateX(this.modelMatrix, this.elapsed * 5);
       gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
-      gl.uniform4f(this.colorLoc, 0.05, 0.05, 0.05, 1);
+      gl.uniform3f(this.colorLoc, 0.05, 0.05, 0.05);
       this.setNormalMatrix(this.modelMatrix);
       gl.drawElements(gl.TRIANGLES, this.wheelCount, gl.UNSIGNED_SHORT, 0);
     }
