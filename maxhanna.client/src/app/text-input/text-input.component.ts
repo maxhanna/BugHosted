@@ -49,7 +49,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   @Input() showTopics: boolean = true;
   @Input() saveAsStory: boolean = true;
   @Input() skipSendingNotifications: boolean = false;
-  @Input() type?: "Social" | "Comment" | "Chat";
+  @Input() type?: "Social" | "Comment" | "Chat" | "Notepad";
   @Input() currentChatUsers?: User[];
   @Input() quoteMessage?: string;
   @Input() initialContent?: string;
