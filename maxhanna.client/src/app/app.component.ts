@@ -163,7 +163,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🔔", title: "Notifications", content: undefined },
     { ownership: 0, icon: "👤", title: "User", content: undefined },
     { ownership: 0, icon: "🖍️", title: "Paint", content: undefined },
-    { ownership: 0, icon: "🏎️", title: "GrandPrix", content: undefined },
+    { ownership: 0, icon: "🏎️", title: "Racing", content: undefined },
     { ownership: 0, icon: "👁️", title: "Moderator", content: undefined },
     { ownership: 0, icon: "📡", title: "SigInt", content: undefined },
     { ownership: 0, icon: "➕", title: "UpdateUserSettings", content: undefined },
@@ -180,6 +180,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     'UpdateUserSettings': 'Settings',
     'User-Events': 'User Events',
     'Bug-Wars': 'Bug Wars',
+    'Racing': 'Grand Prix'
   }
   navigationItemDescriptions: MenuItem[] = [
     {
