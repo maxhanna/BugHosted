@@ -92,6 +92,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       this.loading = false;
     }
   }
+  
   getEventIcon(eventType: string): string {
     switch (eventType.toLowerCase()) {
       case 'file_upload': return '📁';
@@ -125,6 +126,42 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       case 'recipe_added': return '🍳';
       default: return '📌';
     }
+  } 
+
+  getEventDescription(eventType: string): string {
+    const descriptions: { [key: string]: string } = {
+      'file_upload': 'File Uploads',
+      'upload_file': 'File Uploads',
+      'story_post': 'Story Posts',
+      'comment': 'Comments',
+      'bones_kill': 'Bones Kills',
+      'bones_death': 'Bones Deaths',
+      'ender_kill': 'Ender Kills',
+      'ender_death': 'Ender Deaths',
+      'grandtheft': 'Grand Theft Play',
+      'digcraft_play': 'DigCraft Play',
+      'digcraft_death': 'DigCraft Deaths',
+      'digcraft_kill': 'DigCraft Kills',
+      'emulator_play': 'Emulator Play',
+      'nexus_play': 'Nexus Play',
+      'meta_encounter': 'Meta Encounters',
+      'daily_meme': 'Daily Memes',
+      'favourite_add': 'Favourites Added',
+      'digcraft_levelup': 'DigCraft Level-ups',
+      'trade_executed': 'Trade Executions',
+      'trophy': 'Trophies Earned',
+      'youtube': 'Viewed Youtube Video',
+      'link': 'Visited External Link',
+      'recipe_added': 'Recipes Added',
+      'recipe_edited': 'Recipes Edited',
+      'wordler_win': 'Wordler Wins',
+      'weaver_card_added': 'Weaver Cards Created',
+      'weaver_card_created': 'Weaver Cards Created',
+      'flighttracking': 'Flight Tracking Events',
+      'FlightTracking': 'Flight Tracking Events'
+    };
+
+    return descriptions[eventType] || eventType;
   }
 
   viewEvent(e: UserEvent) {
@@ -219,7 +256,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
 
       this.eventTypeDescriptions = {};
       this.eventTypes.forEach(eventType => {
-        this.eventTypeDescriptions[eventType] = this.getEventTypeDescription(eventType);
+        this.eventTypeDescriptions[eventType] = this.getEventDescription(eventType);
       });
 
       const eventToggles = await this.userEventService.getUserEventPreferences(this.parentRef.user.id);
@@ -283,41 +320,4 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     }
     return parts;
   }
-
-  getEventTypeDescription(eventType: string): string {
-    const descriptions: { [key: string]: string } = {
-      'file_upload': 'File Uploads',
-      'upload_file': 'File Uploads',
-      'story_post': 'Story Posts',
-      'comment': 'Comments',
-      'bones_kill': 'Bones Kills',
-      'bones_death': 'Bones Deaths',
-      'ender_kill': 'Ender Kills',
-      'ender_death': 'Ender Deaths',
-      'grandtheft': 'Grand Theft Play',
-      'digcraft_play': 'DigCraft Play',
-      'digcraft_death': 'DigCraft Deaths',
-      'digcraft_kill': 'DigCraft Kills',
-      'emulator_play': 'Emulator Play',
-      'nexus_play': 'Nexus Play',
-      'meta_encounter': 'Meta Encounters',
-      'daily_meme': 'Daily Memes',
-      'favourite_add': 'Favourites Added',
-      'digcraft_levelup': 'DigCraft Level-ups',
-      'trade_executed': 'Trade Executions',
-      'trophy': 'Trophies Earned',
-      'youtube': 'Viewed Youtube Video',
-      'link': 'Visited External Link',
-      'recipe_added': 'Recipes Added',
-      'recipe_edited': 'Recipes Edited',
-      'wordler_win': 'Wordler Wins',
-      'weaver_card_added': 'Weaver Cards Created',
-      'weaver_card_created': 'Weaver Cards Created',
-      'flighttracking': 'Flight Tracking Events',
-      'FlightTracking': 'Flight Tracking Events'
-    };
-
-    return descriptions[eventType] || eventType;
-  }
-
 }
