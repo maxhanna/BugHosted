@@ -121,6 +121,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   // ─── HUD ───
   hudSpeed = 0;
   hudRPM = 0;
+  steerSmoothed = 0;
+  @ViewChild('steerWheel') steerWheelEl?: ElementRef<HTMLDivElement>;
+  @ViewChild('wheelSpeed') wheelSpeedEl?: ElementRef<HTMLDivElement>;
+  @ViewChild('wheelRpm') wheelRpmEl?: ElementRef<HTMLDivElement>;
+  @ViewChild('wheelGear') wheelGearEl?: ElementRef<HTMLDivElement>;
 
   // ─── Audio Engine ───
   private _audioCtx: AudioContext | null = null;
@@ -610,7 +615,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const dt = Math.min((time - this.lastTime) / 1000, 0.05);
     this.lastTime = time;
 
-    if (this.gameState === 'racing' && !this.isMobile) {
+    if (this.gameState === 'racing') {
       this.processInput(dt);
     }
 
@@ -1061,6 +1066,58 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._engineFilter.frequency.setTargetAtTime(350 + rpm * 500, this._audioCtx.currentTime, 0.05);
     this._engineGain.gain.setTargetAtTime(0.02 + rpm * 0.03, this._audioCtx.currentTime, 0.05);
   }
+
+  // ─── Cockpit / Dashboard Data ───
+  get engineLevel(): number { return this.getUpgradeLevel('engine'); }
+  get tireLevel(): number { return this.getUpgradeLevel('tires'); }
+  get suspLevel(): number { return this.getUpgradeLevel('suspension'); }
+  get brakeLevel(): number { return this.getUpgradeLevel('brakes'); }
+  get bodyLevel(): number { return this.getUpgradeLevel('body'); }
+
+  get tireName(): string {
+    const lvl = this.tireLevel;
+    if (lvl >= 4) return 'HYPER';
+    if (lvl >= 3) return 'SLICK';
+    if (lvl >= 2) return 'RACE';
+    if (lvl >= 1) return 'SPORT';
+    return 'STOCK';
+  }
+
+  get engineName(): string {
+    const lvl = this.engineLevel;
+    if (lvl >= 5) return 'STAGE 5';
+    if (lvl >= 4) return 'STAGE 4';
+    if (lvl >= 3) return 'STAGE 3';
+    if (lvl >= 2) return 'STAGE 2';
+    if (lvl >= 1) return 'STAGE 1';
+    return 'STOCK';
+  }
+
+  get suspName(): string {
+    const lvl = this.suspLevel;
+    if (lvl >= 3) return 'PRO';
+    if (lvl >= 2) return 'RACE';
+    if (lvl >= 1) return 'SPORT';
+    return 'STOCK';
+  }
+
+  get brakeName(): string {
+    const lvl = this.brakeLevel;
+    if (lvl >= 3) return 'STAGE 3';
+    if (lvl >= 2) return 'STAGE 2';
+    if (lvl >= 1) return 'STAGE 1';
+    return 'STOCK';
+  }
+
+  get bodyName(): string {
+    const lvl = this.bodyLevel;
+    if (lvl >= 2) return 'AERO';
+    if (lvl >= 1) return 'CARBON';
+    return 'STOCK';
+  }
+
+  get maxSpeedKmh(): number { return Math.round(this.getMaxSpeed() * 3.6); }
+  get steerAngle(): number { return this.carSteer * 35; }
 
   calculatePrize(): number {
     const basePrize = this.selectedTrack?.prizePool || 300;

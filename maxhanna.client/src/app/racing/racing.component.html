@@ -200,73 +200,144 @@
       </div>
     </div>
 
-    <!-- ─── Racing HUD ─── -->
+    <!-- ─── Racing HUD / Cockpit ─── -->
     <div id="race-hud" *ngIf="gameState === 'racing' || gameState === 'paused'">
-      <!-- Speedometer -->
-      <div class="race-speedometer">
-        <div class="race-speed-val">{{ hudSpeed | number:'1.0-0' }}</div>
-        <div class="race-speed-unit">KM/H</div>
-        <div class="race-rpm-bar">
-          <div class="race-rpm-fill" [style.width.%]="hudRPM * 100"></div>
+      <!-- ── Dashboard Frame ── -->
+      <div class="cockpit-dash">
+        <!-- Left panel: Car Upgrades -->
+        <div class="cockpit-panel cockpit-panel-left">
+          <div class="panel-title">CAR STATUS</div>
+          <div class="panel-row">
+            <span class="panel-label">ENGINE</span>
+            <span class="panel-val">{{engineName}}</span>
+            <span class="panel-bonus">+{{getSpeedBonus()}}%</span>
+          </div>
+          <div class="panel-row">
+            <span class="panel-label">TIRES</span>
+            <span class="panel-val">{{tireName}}</span>
+            <span class="panel-bonus">+{{getGripBonus()}}%</span>
+          </div>
+          <div class="panel-row">
+            <span class="panel-label">SUSP</span>
+            <span class="panel-val">{{suspName}}</span>
+            <span class="panel-bonus">+{{getCornerBonus()}}%</span>
+          </div>
+          <div class="panel-row">
+            <span class="panel-label">BRAKES</span>
+            <span class="panel-val">{{brakeName}}</span>
+            <span class="panel-bonus">+{{getBrakeBonus()}}%</span>
+          </div>
+          <div class="panel-row">
+            <span class="panel-label">BODY</span>
+            <span class="panel-val">{{bodyName}}</span>
+            <span class="panel-bonus">-{{getWeightBonus()}}%</span>
+          </div>
+          <div class="panel-row panel-row-top">
+            <span class="panel-label">TOP SPD</span>
+            <span class="panel-val panel-val-big">{{maxSpeedKmh}}</span>
+            <span class="panel-unit">KM/H</span>
+          </div>
+        </div>
+
+        <!-- Center: Steering Wheel -->
+        <div class="cockpit-wheel-area">
+          <div class="steering-column"></div>
+          <div class="steering-wheel" [style.transform]="'rotate(' + steerAngle + 'deg)'">
+            <!-- Wheel rim -->
+            <div class="wheel-rim">
+              <div class="wheel-grip wheel-grip-top"></div>
+              <div class="wheel-grip wheel-grip-left"></div>
+              <div class="wheel-grip wheel-grip-right"></div>
+              <div class="wheel-grip wheel-grip-bot-left"></div>
+              <div class="wheel-grip wheel-grip-bot-right"></div>
+
+              <!-- Wheel center display -->
+              <div class="wheel-center">
+                <div class="wheel-display">
+                  <div class="wheel-speed">{{ hudSpeed | number:'1.0-0' }}</div>
+                  <div class="wheel-speed-unit">KM/H</div>
+                  <div class="wheel-rpm-bar">
+                    <div class="wheel-rpm-fill" [style.width.%]="hudRPM * 100"
+                      [class.rpm-high]="hudRPM > 0.85" [class.rpm-redline]="hudRPM > 0.95"></div>
+                  </div>
+                  <div class="wheel-gear">{{ getGear() }}</div>
+                </div>
+              </div>
+
+              <!-- Driver hands on the wheel -->
+              <div class="driver-hand hand-left">
+                <div class="glove">
+                  <div class="glove-cuff"></div>
+                  <div class="glove-palm"></div>
+                  <div class="glove-thumb"></div>
+                  <div class="glove-finger f1"></div>
+                  <div class="glove-finger f2"></div>
+                  <div class="glove-finger f3"></div>
+                  <div class="glove-finger f4"></div>
+                </div>
+              </div>
+              <div class="driver-hand hand-right">
+                <div class="glove">
+                  <div class="glove-cuff"></div>
+                  <div class="glove-palm"></div>
+                  <div class="glove-thumb"></div>
+                  <div class="glove-finger f1"></div>
+                  <div class="glove-finger f2"></div>
+                  <div class="glove-finger f3"></div>
+                  <div class="glove-finger f4"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right panel: Race Info -->
+        <div class="cockpit-panel cockpit-panel-right">
+          <div class="panel-title">RACE INFO</div>
+          <div class="panel-row panel-row-pos">
+            <span class="panel-label">POSITION</span>
+            <span class="panel-pos-big">P{{ racePosition }}</span>
+            <span class="panel-unit">/{{ totalRacers }}</span>
+          </div>
+          <div class="panel-row">
+            <span class="panel-label">LAP</span>
+            <span class="panel-val panel-val-big">{{ currentLap }}</span>
+            <span class="panel-unit">/{{ totalLaps }}</span>
+          </div>
+          <div class="panel-row">
+            <span class="panel-label">BEST</span>
+            <span class="panel-val">{{ formatTime(bestLapTime) }}</span>
+          </div>
+          <div class="panel-row">
+            <span class="panel-label">LAST</span>
+            <span class="panel-val">{{ formatTime(lastLapTime) }}</span>
+          </div>
+          <div class="panel-row">
+            <span class="panel-label">TOTAL</span>
+            <span class="panel-val">{{ formatTime(totalRaceTime) }}</span>
+          </div>
+          <!-- Minimap -->
+          <div class="panel-minimap">
+            <div class="panel-minimap-track">
+              <div class="panel-minimap-dot panel-minimap-player"
+                [style.left.%]="((carDist % renderer.totalTrackDist) / renderer.totalTrackDist) * 100"></div>
+              <div class="panel-minimap-dot panel-minimap-bot" *ngFor="let b of bots"
+                [style.left.%]="((b.dist % renderer.totalTrackDist) / renderer.totalTrackDist) * 100"></div>
+              <div class="panel-minimap-dot panel-minimap-remote" *ngFor="let rc of remoteCars | keyvalue"
+                [style.left.%]="((rc.value.distance % renderer.totalTrackDist) / renderer.totalTrackDist) * 100"
+                [style.background]="getPlayerColor(rc.value.connectionId)"></div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- Lap info -->
-      <div class="race-lap-info">
-        <div class="race-lap">LAP {{ currentLap + 1 }} / {{ totalLaps }}</div>
-        <div class="race-pos">P{{ racePosition }} / {{ totalRacers }}</div>
-      </div>
-
-      <!-- Position -->
-      <div class="race-position-display">
-        <div class="race-pos-big">{{ racePosition }}</div>
-        <div class="race-pos-label">
-          of {{ totalRacers }}
-          <span *ngIf="racePosition === 1" class="race-leading">LEADING</span>
-        </div>
-      </div>
-
-      <!-- Timing -->
-      <div class="race-timing">
-        <div class="race-timing-row">
-          <span>BEST</span>
-          <span>{{ formatTime(bestLapTime) }}</span>
-        </div>
-        <div class="race-timing-row">
-          <span>LAST</span>
-          <span>{{ formatTime(lastLapTime) }}</span>
-        </div>
-        <div class="race-timing-row" *ngIf="currentLap > 0">
-          <span>TOTAL</span>
-          <span>{{ formatTime(totalRaceTime) }}</span>
-        </div>
-      </div>
-
-      <!-- Minimap -->
-      <div class="race-minimap">
-        <div class="race-minimap-track">
-          <div class="race-minimap-dot race-minimap-player"
-            [style.left.%]="((carDist % renderer.totalTrackDist) / renderer.totalTrackDist) * 100"></div>
-          <div class="race-minimap-dot race-minimap-bot" *ngFor="let b of bots"
-            [style.left.%]="((b.dist % renderer.totalTrackDist) / renderer.totalTrackDist) * 100"></div>
-          <div class="race-minimap-dot race-minimap-remote" *ngFor="let rc of remoteCars | keyvalue"
-            [style.left.%]="((rc.value.distance % renderer.totalTrackDist) / renderer.totalTrackDist) * 100"
-            [style.background]="getPlayerColor(rc.value.connectionId)"></div>
-        </div>
-      </div>
-
-      <!-- Gear indicator -->
-      <div class="race-gear">{{ getGear() }}</div>
-
-      <!-- Messages -->
+      <!-- Messages center -->
       <div class="race-messages">
         <div class="race-msg" *ngFor="let m of messages">{{ m }}</div>
       </div>
 
       <!-- Off-track warning -->
-      <div class="race-offtrack" *ngIf="isOffTrack">
-        OFF TRACK!
-      </div>
+      <div class="race-offtrack" *ngIf="isOffTrack">OFF TRACK!</div>
 
       <!-- Pause overlay -->
       <div id="race-pause" *ngIf="gameState === 'paused'" (click)="togglePause()">
@@ -339,14 +410,14 @@
     <!-- ─── Mobile Controls ─── -->
     <div id="race-mobile" *ngIf="isMobile && (gameState === 'racing')">
       <div class="race-mob-left">
-        <button class="race-mob-btn race-mob-steer" (touchstart)="mobileAction('left', true)" (touchend)="mobileAction('left', false)">◀</button>
+        <button class="race-mob-btn race-mob-steer" (touchstart)="mobileAction('left', true)" (touchend)="mobileAction('left', false)" (touchcancel)="mobileAction('left', false)">◀</button>
       </div>
       <div class="race-mob-right">
-        <button class="race-mob-btn race-mob-steer" (touchstart)="mobileAction('right', true)" (touchend)="mobileAction('right', false)">▶</button>
+        <button class="race-mob-btn race-mob-steer" (touchstart)="mobileAction('right', true)" (touchend)="mobileAction('right', false)" (touchcancel)="mobileAction('right', false)">▶</button>
       </div>
       <div class="race-mob-bottom">
-        <button class="race-mob-btn race-mob-brake" (touchstart)="mobileAction('brake', true)" (touchend)="mobileAction('brake', false)">BRAKE</button>
-        <button class="race-mob-btn race-mob-gas" (touchstart)="mobileAction('gas', true)" (touchend)="mobileAction('gas', false)">GAS</button>
+        <button class="race-mob-btn race-mob-brake" (touchstart)="mobileAction('brake', true)" (touchend)="mobileAction('brake', false)" (touchcancel)="mobileAction('brake', false)">BRAKE</button>
+        <button class="race-mob-btn race-mob-gas" (touchstart)="mobileAction('gas', true)" (touchend)="mobileAction('gas', false)" (touchcancel)="mobileAction('gas', false)">GAS</button>
       </div>
     </div>
   </div>
