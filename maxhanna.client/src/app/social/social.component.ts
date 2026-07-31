@@ -20,6 +20,7 @@ import { EncryptionService } from '../../services/encryption.service';
 import { TextToSpeechService } from '../../services/text-to-speech.service';
 import { CurrencyFlagPipe } from '../currency-flag.pipe';
 import { PollService } from '../../services/poll.service';
+import { FollowService } from '../../services/follow.service';
 
 @Component({
   selector: 'app-social',
@@ -42,7 +43,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   isMenuPanelOpen = false;
   isStoryOptionsPanelOpen = false;
   isStoryVisibilityPanelOpen = false;
-  isPostOptionsPanelOpen = false; 
+  isPostOptionsPanelOpen = false;
+  isFollowingStory: { [key: number]: boolean } = {}; 
   showPostInput = false;
   showComponentSelector = false;
   wasFromSearchId = false;
@@ -107,7 +109,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     private cd: ChangeDetectorRef,
     private currencyFlagPipe: CurrencyFlagPipe,
     private renderer: Renderer2,
-    private pollService: PollService
+    private pollService: PollService,
+    private followService: FollowService
 ) {
     super();
   }
@@ -799,6 +802,19 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const parent = this.parent ?? this.parentRef;
     parent?.closeOverlay();
   }
+  async toggleFollowStory(story: Story) {
+    const userId = this.parentRef?.user?.id;
+    if (!userId || !story.id) {
+      this.parentRef?.showNotification('You must be logged in to follow posts.');
+      return;
+    }
+    const result = await this.followService.toggleFollow(userId, 'story', story.id);
+    if (result) {
+      this.isFollowingStory[story.id] = result.following;
+      this.parentRef?.showNotification(result.message);
+    }
+  }
+
   showStoryOptionsPanel(story: Story) {
     if (this.isStoryOptionsPanelOpen) {
       this.closeStoryOptionsPanel();
@@ -808,6 +824,13 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.isStoryOptionsPanelOpen = true;
     const parent = this.parent ?? this.parentRef;
     parent?.showOverlay();
+    
+    // Check if following this story
+    if (story.id && this.parentRef?.user?.id) {
+      this.followService.checkFollow(this.parentRef.user.id, 'story', story.id).then(following => {
+        this.isFollowingStory[story.id!] = following;
+      });
+    }
   }
   closeStoryOptionsPanel() {
     this.isStoryOptionsPanelOpen = false;

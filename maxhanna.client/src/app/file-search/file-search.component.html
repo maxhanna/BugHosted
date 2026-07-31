@@ -457,6 +457,11 @@
         🙈{{optionsFile?.isHidden ? "Un":""}}Hide
       </ng-container>
     </button>
+    <button (click)="toggleFollowFile($any(optionsFile))" *ngIf="userIsLoggedIn() && !optionsFile?.isFolder && optionsFile?.id"
+      [disabled]="isLoading"
+      [title]="isFollowingFile[$any(optionsFile).id] ? 'Unfollow this file' : 'Follow this file for comment notifications'">
+      {{isFollowingFile[$any(optionsFile).id] ? '🔔 Unfollow' : '🔔 Follow'}}
+    </button>
     <button (click)="addToFavourites(optionsFile)" *ngIf="userIsLoggedIn()"
       [disabled]="isLoading || isAddingToFavourites"
       [title]="optionsFile?.isFavourited ? ('Remove from favourites') : ('Add ' + (optionsFile?.givenFileName ?? optionsFile?.fileName) + ' to favourites')">

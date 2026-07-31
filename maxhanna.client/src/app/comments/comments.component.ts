@@ -11,6 +11,7 @@ import { EncryptionService } from '../../services/encryption.service';
 import { TextToSpeechService } from '../../services/text-to-speech.service';
 import { Poll } from '../../services/datacontracts/social/poll';
 import { CurrencyFlagPipe } from '../currency-flag.pipe';
+import { FollowService } from '../../services/follow.service';
 
 @Component({
   selector: 'app-comments',
@@ -27,6 +28,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   selectedFiles: FileEntry[] = [];
   minimizedComments: Set<number> = new Set<number>();
   closedComments: Set<number> = new Set<number>();
+  isFollowingComment: { [key: number]: boolean } = {};
   commentCount = 0;
   activeCommentId: number | null = null;
   breadcrumbComments: FileComment[] = [];
@@ -76,7 +78,8 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     private commentService: CommentService,
     private encryptionService: EncryptionService,
     private textToSpeechService: TextToSpeechService,
-    private currencyFlagPipe: CurrencyFlagPipe) {
+    private currencyFlagPipe: CurrencyFlagPipe,
+    private followService: FollowService) {
     super();
   }
 
@@ -482,6 +485,19 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     return this.getTextForDOM(text ?? "", idToPass as any);
   }
 
+  async toggleFollowComment(comment: FileComment) {
+    const userId = this.parentRef?.user?.id;
+    if (!userId || !comment.id) {
+      this.parentRef?.showNotification('You must be logged in to follow comments.');
+      return;
+    }
+    const result = await this.followService.toggleFollow(userId, 'comment', comment.id);
+    if (result) {
+      this.isFollowingComment[comment.id] = result.following;
+      this.parentRef?.showNotification(result.message);
+    }
+  }
+
   showOptionsPanel(comment: FileComment) {
     if (this.isOptionsPanelOpen) {
       this.closeOptionsPanel();
@@ -490,6 +506,13 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     this.isOptionsPanelOpen = true;
     this.optionsComment = comment;
     this.parentRef?.showOverlay();
+
+    // Check if following this comment
+    if (comment.id && this.parentRef?.user?.id) {
+      this.followService.checkFollow(this.parentRef.user.id, 'comment', comment.id).then(following => {
+        this.isFollowingComment[comment.id!] = following;
+      });
+    }
   }
 
   closeOptionsPanel() {

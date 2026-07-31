@@ -165,6 +165,10 @@
           ✏️ Edit Text
         </button>
         <button (click)="copyLink(optionStory.id)" title="Share Link">📋 Share Post</button>
+        <button [disabled]="isLoading" (click)="toggleFollowStory(optionStory)" *ngIf="parentRef?.user?.id && optionStory?.id"
+          [title]="isFollowingStory[optionStory.id!] ? 'Unfollow this post' : 'Follow this post for comment notifications'">
+          {{isFollowingStory[optionStory.id!] ? '🔔 Unfollow' : '🔔 Follow'}}
+        </button>
         <button [disabled]="isLoading" (click)="hide(optionStory)" *ngIf="parentRef?.user?.id">
           {{optionStory.hidden ? '🙉 Unhide' : '🙈 Hide'}} Post
         </button>

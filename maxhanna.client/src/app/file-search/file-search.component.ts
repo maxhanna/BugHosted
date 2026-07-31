@@ -14,6 +14,7 @@ import { FileComment } from '../../services/datacontracts/file/file-comment';
 import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
 import { RomService } from '../../services/rom.service';
+import { FollowService } from '../../services/follow.service';
 import { FileAccessLog } from '../../services/datacontracts/file/file-access-log';
 import { FileNote } from '../../services/datacontracts/file/file-note';
 import { Core, CoreDescriptor } from '../emulator/emulator-types';
@@ -136,6 +137,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   isFirstLoad = true;
   isAddingToFavourites = false;
   isAddingToMusicPlaylist = false;
+  isFollowingFile: { [key: number]: boolean } = {};
   isRatingPanelOpen = false;
   pageLocked = false;
   appending = false;
@@ -170,6 +172,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     private userService: UserService,
     private todoService: TodoService,
     private romService: RomService,
+    private followService: FollowService,
     private route: ActivatedRoute,
     private changeDetectorRef: ChangeDetectorRef,
     private sanitizer: DomSanitizer) {
@@ -1163,6 +1166,19 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   emittedNotification(event: string) {
     this.notifyUser(event);
   }
+  async toggleFollowFile(file: FileEntry) {
+    const userId = this.parentRef?.user?.id;
+    if (!userId || !file.id) {
+      this.parentRef?.showNotification('You must be logged in to follow files.');
+      return;
+    }
+    const result = await this.followService.toggleFollow(userId, 'file', file.id);
+    if (result) {
+      this.isFollowingFile[file.id] = result.following;
+      this.parentRef?.showNotification(result.message);
+    }
+  }
+
   showOptionsPanel(file: FileEntry) {
     if (this.isOptionsPanelOpen) {
       this.closeOptionsPanel();
@@ -1177,6 +1193,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
     if (file.id) {
       this.loadFileCommentCount(file);
+    }
+    if (file.id && this.parentRef?.user?.id) {
+      this.followService.checkFollow(this.parentRef.user.id, 'file', file.id).then(following => {
+        this.isFollowingFile[file.id!] = following;
+      });
     }
   }
 

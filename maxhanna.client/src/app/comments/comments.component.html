@@ -203,6 +203,10 @@
     <button (click)="copyAllText(optionsComment)" title="Copy all text">
       📋Copy Text
     </button>
+    <button [disabled]="false" (click)="toggleFollowComment(optionsComment)" *ngIf="parentRef?.user?.id"
+      [title]="isFollowingComment[optionsComment.id] ? 'Unfollow this comment' : 'Follow this comment for reply notifications'">
+      {{isFollowingComment[optionsComment.id] ? '🔔 Unfollow' : '🔔 Follow'}}
+    </button>
     <button (click)="speakMessage(optionsComment.commentText)" *ngIf="!isTextToSpeechSpeaking()">
       🔊Read Outloud
     </button>
