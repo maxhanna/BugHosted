@@ -342,7 +342,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
           results = await this.chatService.sendMessage(user?.id ?? 0, content.chatUsersIdsArray, this.chatId, content.msg, files);
         }
 
-        if (results) {
+        if (results || this.type == "Notepad") {
           const resultData = { results: results, content: content, originalContent: originalContent };
           this.contentPosted.emit(resultData);
           if (!skipNotifications && !this.skipSendingNotifications) {
