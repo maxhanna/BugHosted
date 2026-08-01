@@ -1036,7 +1036,7 @@
 
  <!-- Grid media expand popup (image/video clicked in grid view, outside ROM folder) -->
  <div class="popupPanel imagePreviewPopup" *ngIf="isGridMediaExpanded && gridMediaFile">
- <div class="popupPanelTitle">{{ gridMediaFile?.givenFileName ?? gridMediaFile?.fileName }}</div>
+ <div class="popupPanelTitle">{{ gridMediaFile.givenFileName ?? gridMediaFile.fileName }}</div>
  <div class="imagePreviewContainer gridMediaExpandContainer">
  <app-media-viewer [fileId]="gridMediaFile.id" [autoplay]="true" [displayExpander]="false"
  [displayExtraInfo]="false" [displayLoading]="true" [showCommentSection]="false" [showTopics]="false"
