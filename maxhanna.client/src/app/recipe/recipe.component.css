@@ -207,7 +207,7 @@
   gap: 14px;
   flex: 1;
 }
-.recipe-card-expanded .recipe-card-body { overflow-y: auto; max-height: 600px; }
+.recipe-card-expanded .recipe-card-body { overflow-y: auto; }
 
 .recipe-title-row {
   display: flex;
