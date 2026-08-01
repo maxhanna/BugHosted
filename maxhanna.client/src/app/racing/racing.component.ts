@@ -99,6 +99,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   lobbyConnectionError = '';
   chatMessages: { playerName: string; message: string }[] = [];
   chatInput = '';
+  autoStartSeconds = 0; // 2-min countdown display
+  mpCountdownTimer = 0; // final 3-2-1-GO
   private _mpSubs: Subscription[] = [];
   private _positionSyncTimer = 0;
   private _mpLobbyTrackId = '';
@@ -324,6 +326,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     );
 
     this._mpSubs.push(
+      this.racingHub.autoStartCountdown$.subscribe(remaining => {
+        this.ngZone.run(() => {
+          this.autoStartSeconds = remaining;
+        });
+      })
+    );
+
+    this._mpSubs.push(
       this.racingHub.connectionError$.subscribe(err => {
         this.ngZone.run(() => {
           this.lobbyConnectionError = err;
@@ -502,13 +512,15 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     await this.racingHub.toggleReady(this._mpLobbyTrackId);
   }
 
+  get autoStartDisplay(): string {
+    if (this.autoStartSeconds <= 0) return '';
+    const m = Math.floor(this.autoStartSeconds / 60);
+    const s = this.autoStartSeconds % 60;
+    return `Auto-start in ${m}:${s.toString().padStart(2, '0')}`;
+  }
+
   async startRaceMP() {
     if (!this._mpLobbyTrackId || !this.isLobbyHost) return;
-    // Check all ready
-    if (this.lobbyPlayers.some(p => !p.ready)) {
-      this.addMessage('Waiting for all players to ready up...');
-      return;
-    }
     this.countdownTimer = 4;
     this.gameState = 'countdown';
     await this.racingHub.startRace(this._mpLobbyTrackId);
@@ -548,8 +560,39 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.showMultiplayer = false;
   }
 
-  allPlayersReady(): boolean {
-    return this.lobbyPlayers.length > 0 && this.lobbyPlayers.every(p => p.ready);
+  // ─── Garage Car 3D Rotation ───
+  carRotateX = 15;
+  carRotateY = -25;
+  isCarDragging = false;
+  private _carDragStart: { x: number; y: number; rotX: number; rotY: number } | null = null;
+
+  getCarTransform(): string {
+    return `rotateX(${this.carRotateX}deg) rotateY(${this.carRotateY}deg)`;
+  }
+
+  onCarPointerDown(e: PointerEvent) {
+    this._carDragStart = { x: e.clientX, y: e.clientY, rotX: this.carRotateX, rotY: this.carRotateY };
+    this.isCarDragging = true;
+    try { (e.target as HTMLElement)?.setPointerCapture?.(e.pointerId); } catch { }
+    e.preventDefault();
+  }
+
+  onCarPointerMove(e: PointerEvent) {
+    if (!this._carDragStart) return;
+    const dx = e.clientX - this._carDragStart.x;
+    const dy = e.clientY - this._carDragStart.y;
+    this.carRotateY = this._carDragStart.rotY + dx * 0.45;
+    this.carRotateX = Math.max(-70, Math.min(70, this._carDragStart.rotX - dy * 0.45));
+  }
+
+  onCarPointerUp() {
+    this._carDragStart = null;
+    this.isCarDragging = false;
+  }
+
+  resetCarView() {
+    this.carRotateX = 15;
+    this.carRotateY = -25;
   }
 
   getPlayerColor(connectionId: string): string {
@@ -711,12 +754,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         });
       });
 
-      // Add player car
-      carList.push({
-        x: this.carX, y: 0.1, z: this.carZ,
-        yaw: this.carYaw,
-        r: 0.2, g: 0.5, b: 0.9
-      });
+      // Player car NOT rendered in first-person (camera is inside it)
 
       this.renderer.render(eyeX, eyeY, eyeZ, yaw, pitch, aspect, carList, dt, fovZoom, shakeX, shakeY, this.isRaining, speedRatio);
 
@@ -750,14 +788,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     let gas = 0, brake = 0, steerTarget = 0;
     if (this.keys.has('KeyW') || this.keys.has('ArrowUp')) gas = 1;
     if (this.keys.has('KeyS') || this.keys.has('ArrowDown')) brake = 1;
-    if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) steerTarget = -1;
-    if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) steerTarget = 1;
+    if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) steerTarget = 1;
+    if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) steerTarget = -1;
 
     if (this.mobileGas) gas = 1;
     if (this.mobileBrake) brake = 1;
 
     // Unified smooth steering — both keyboard and mobile use lerp
-    const mobileTarget = this.mobileLeft ? -1 : (this.mobileRight ? 1 : 0);
+    const mobileTarget = this.mobileLeft ? 1 : (this.mobileRight ? -1 : 0);
     const useMobile = mobileTarget !== 0;
     const effectiveTarget = useMobile ? mobileTarget * 0.4 : steerTarget; // mobile at 40% sensitivity
 
@@ -812,6 +850,21 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const dzTrack = this.carZ - tp.z;
     const distFromCenter = Math.hypot(dxTrack, dzTrack);
     const halfWidth = (tp.width || 16) / 2;
+    const barrierDist = halfWidth + 0.5; // barrier wall position
+
+    // Hard barrier collision — bounce car back if it hits the wall
+    if (distFromCenter > barrierDist) {
+      const normX = dxTrack / distFromCenter;
+      const normZ = dzTrack / distFromCenter;
+      // Clamp position to barrier edge
+      this.carX = tp.x + normX * barrierDist;
+      this.carZ = tp.z + normZ * barrierDist;
+      // Kill velocity component heading into the wall
+      const towardWall = (Math.sin(this.carYaw) * normX + Math.cos(this.carYaw) * normZ) * this.carSpeed;
+      if (towardWall > 0) this.carSpeed -= towardWall * 0.7;
+      this.carSpeed *= 0.8; // friction scrape
+      this.screenShake = Math.max(0.06, this.screenShake);
+    }
 
     if (distFromCenter > halfWidth + 5) {
       this.isOffTrack = true;
@@ -1305,6 +1358,23 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const basePrize = this.selectedTrack?.prizePool || 300;
     const positionMultiplier = Math.max(0.1, 1 - (this.racePosition - 1) * 0.15);
     return Math.round(basePrize * positionMultiplier);
+  }
+
+  getPrizeBreakdown(track: TrackDefinition): { pos: number; label: string; amount: number }[] {
+    const breakdown = [];
+    for (let p = 1; p <= 5; p++) {
+      const multiplier = Math.max(0.1, 1 - (p - 1) * 0.15);
+      const amount = Math.round(track.prizePool * multiplier);
+      const suffix = p === 1 ? 'st' : p === 2 ? 'nd' : p === 3 ? 'rd' : 'th';
+      breakdown.push({ pos: p, label: `${p}${suffix}`, amount });
+    }
+    return breakdown;
+  }
+
+  getWinConditionText(track: TrackDefinition, isMultiplayer: boolean = false): string {
+    return isMultiplayer
+      ? `Complete ${track.laps} laps. First to finish wins! Race against other players online + 4 AI drivers.`
+      : `Complete ${track.laps} laps. First to finish wins! Race against 4 AI drivers.`;
   }
 
   // ─── Track-line minimap racer data ───

@@ -4,6 +4,7 @@
     [hasNotifications]="!!parentRef?.user?.id" 
     [hasSearch]="true"
     [hasClose]="!user" 
+    [showRefresh]="false"
     [inputtedParentRef]="parentRef"
     (menuClicked)="showMenuPanel()" 
     (closeClicked)="remove_me('FileComponent');">

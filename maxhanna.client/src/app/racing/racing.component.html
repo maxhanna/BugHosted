@@ -47,6 +47,15 @@
               {{ t.difficulty | uppercase }} · {{ t.laps }} Laps · {{ t.length }}m
             </div>
             <div class="race-track-desc">{{ t.description }}</div>
+            <!-- Win conditions -->
+            <div class="race-win-conditions">
+              <div class="race-win-rule">{{ getWinConditionText(t) }}</div>
+              <div class="race-prize-breakdown">
+                <span class="race-prize-badge" *ngFor="let p of getPrizeBreakdown(t)">
+                  {{ p.label }}: ${{ p.amount }}
+                </span>
+              </div>
+            </div>
           </div>
           <div class="race-track-cost">
             <span class="race-fee">${{ t.entryFee }}</span>
@@ -68,13 +77,27 @@
         <!-- Track selection -->
         <div class="race-mp-track-info" *ngIf="selectedTrack">
           <div class="race-mp-track-name">{{ selectedTrack.name }}</div>
-          <div class="race-mp-track-diff">{{ selectedTrack.difficulty | uppercase }} · {{ selectedTrack.laps }} Laps</div>
+          <div class="race-mp-track-diff">{{ selectedTrack.difficulty | uppercase }} · {{ selectedTrack.laps }} Laps · {{ selectedTrack.length }}m</div>
+          <div class="race-track-desc">{{ selectedTrack.description }}</div>
+          <div class="race-win-conditions">
+            <div class="race-win-rule">{{ getWinConditionText(selectedTrack, true) }}</div>
+            <div class="race-prize-breakdown">
+              <span class="race-prize-badge" *ngFor="let p of getPrizeBreakdown(selectedTrack)">
+                {{ p.label }}: ${{ p.amount }}
+              </span>
+            </div>
+          </div>
+          <div class="race-track-cost" style="margin-top:8px">
+            <span class="race-fee">${{ selectedTrack.entryFee }}</span>
+            <span class="race-prize">Prize: ${{ selectedTrack.prizePool }}</span>
+          </div>
         </div>
 
         <!-- Join / Lobby state -->
         <div *ngIf="!selectedTrack">
           <div class="race-track-card" *ngFor="let t of TRACKS"
-            (click)="selectTrackMultiplayer(t)">
+            [class.race-track-locked]="playerCar.money < t.entryFee"
+            (click)="playerCar.money >= t.entryFee && selectTrackMultiplayer(t)">
             <div class="race-track-info">
               <div class="race-track-name">{{ t.name }}</div>
               <div class="race-track-diff" [class.easy]="t.difficulty === 'easy'"
@@ -82,6 +105,20 @@
                 [class.hard]="t.difficulty === 'hard'">
                 {{ t.difficulty | uppercase }} · {{ t.laps }} Laps · {{ t.length }}m
               </div>
+              <div class="race-track-desc">{{ t.description }}</div>
+              <!-- Win conditions -->
+              <div class="race-win-conditions">
+                <div class="race-win-rule">{{ getWinConditionText(t, true) }}</div>
+                <div class="race-prize-breakdown">
+                  <span class="race-prize-badge" *ngFor="let p of getPrizeBreakdown(t)">
+                    {{ p.label }}: ${{ p.amount }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div class="race-track-cost">
+              <span class="race-fee">${{ t.entryFee }}</span>
+              <span class="race-prize">Prize: ${{ t.prizePool }}</span>
             </div>
           </div>
         </div>
@@ -99,6 +136,11 @@
               <span class="mp-ready-no" *ngIf="!p.ready">WAITING</span>
             </div>
           </div>
+
+          <!-- Auto-start countdown timer -->
+          <div class="race-mp-countdown" *ngIf="autoStartDisplay">
+            ⏱️ {{ autoStartDisplay }}
+          </div>
         </div>
 
         <!-- Ready / Start buttons -->
@@ -108,7 +150,7 @@
             {{ amReady ? '✓ READY' : 'READY UP' }}
           </button>
           <button class="race-mp-btn race-mp-start" *ngIf="isLobbyHost"
-            (click)="startRaceMP()" [class.race-mp-disabled]="!allPlayersReady()">
+            (click)="startRaceMP()">
             START RACE
           </button>
         </div>
@@ -151,31 +193,83 @@
         <div class="garage-preview">
           <div class="garage-car-stage">
             <div class="garage-spotlight"></div>
-            <div class="car-preview-container">
-              <!-- Car body -->
-              <div class="car-preview-body" [style.background]="getSkinColor()">
-                <div class="car-cockpit"></div>
-                <!-- Decal overlay -->
-                <div class="car-decal-overlay" [class]="getDecalStyle()" *ngIf="playerCar.decalId"></div>
+            <div class="car-3d-wrap">
+              <div class="car-preview-container"
+                [style.transform]="getCarTransform()"
+                [class.car-dragging]="isCarDragging"
+                (pointerdown)="onCarPointerDown($event)"
+                (pointermove)="onCarPointerMove($event)"
+                (pointerup)="onCarPointerUp()"
+                (pointercancel)="onCarPointerUp()"
+                (pointerleave)="onCarPointerUp()"
+                title="Drag to rotate">
+                <!-- Ground shadow -->
+                <div class="car-shadow"></div>
+
+                <!-- Floor / undertray -->
+                <div class="car-floor"></div>
+                <!-- Diffuser at rear -->
+                <div class="car-diffuser"></div>
+
+                <!-- Nose cone (long, tapered) -->
+                <div class="car-nose" [style.background]="getSkinColor()"></div>
+                <div class="car-nose-tip" [style.background]="getSkinColor()"></div>
+
+                <!-- Front wing (wide, low, with endplates) -->
+                <div class="car-front-wing">
+                  <div class="fw-plane"></div>
+                  <div class="fw-flap"></div>
+                  <div class="fw-endplate fw-ep-left"></div>
+                  <div class="fw-endplate fw-ep-right"></div>
+                </div>
+
+                <!-- Main body / monocoque -->
+                <div class="car-preview-body" [style.background]="getSkinColor()">
+                  <!-- Cockpit opening -->
+                  <div class="car-cockpit"></div>
+                  <!-- Halo above cockpit -->
+                  <div class="car-halo"></div>
+                  <!-- Sidepods -->
+                  <div class="car-sidepod car-sidepod-l"></div>
+                  <div class="car-sidepod car-sidepod-r"></div>
+                  <!-- Airbox intake -->
+                  <div class="car-airbox"></div>
+                  <!-- Engine cover line -->
+                  <div class="car-engine-line"></div>
+                  <!-- Decal overlay -->
+                  <div class="car-decal-overlay" [class]="getDecalStyle()" *ngIf="playerCar.decalId"></div>
+                </div>
+
+                <!-- Rear wing (multi-element with endplates) -->
+                <div class="car-rear-wing">
+                  <div class="rw-plane rw-plane-main"></div>
+                  <div class="rw-plane rw-plane-flap"></div>
+                  <div class="rw-endplate rw-ep-left"></div>
+                  <div class="rw-endplate rw-ep-right"></div>
+                </div>
+                <!-- Rear wing mount -->
+                <div class="car-wing-mount"></div>
+
+                <!-- Spoiler upgrade -->
+                <div class="car-spoiler" [class]="getSpoilerStyle()" *ngIf="playerCar.spoilerId"></div>
+                <!-- Exhaust upgrade -->
+                <div class="car-exhaust-pipes" [class]="getExhaustStyle()" *ngIf="playerCar.exhaustId"></div>
+
+                <!-- Wheels -->
+                <div class="car-wheel wheel-fl" [class]="getRimStyle()"></div>
+                <div class="car-wheel wheel-fr" [class]="getRimStyle()"></div>
+                <div class="car-wheel wheel-rl" [class]="getRimStyle()"></div>
+                <div class="car-wheel wheel-rr" [class]="getRimStyle()"></div>
               </div>
-              <!-- Spoiler -->
-              <div class="car-spoiler" [class]="getSpoilerStyle()" *ngIf="playerCar.spoilerId"></div>
-              <!-- Front wing -->
-              <div class="car-front-wing"></div>
-              <!-- Rear wing mount -->
-              <div class="car-wing-mount"></div>
-              <!-- Wheels -->
-              <div class="car-wheel wheel-fl" [class]="getRimStyle()"></div>
-              <div class="car-wheel wheel-fr" [class]="getRimStyle()"></div>
-              <div class="car-wheel wheel-rl" [class]="getRimStyle()"></div>
-              <div class="car-wheel wheel-rr" [class]="getRimStyle()"></div>
-              <!-- Exhaust -->
-              <div class="car-exhaust-pipes" [class]="getExhaustStyle()" *ngIf="playerCar.exhaustId"></div>
-              <!-- Halo -->
-              <div class="car-halo"></div>
             </div>
           </div>
-          <div class="garage-car-label">{{ getCarLabel() }}</div>
+          <div class="garage-car-label">
+            {{ getCarLabel() }}
+            <div class="garage-car-actions">
+              <span class="garage-rotate-hint">🔄 drag to rotate</span>
+              <button class="garage-reset-view" (click)="resetCarView()" title="Reset car view">⟲</button>
+            </div>
+          </div>
           <div class="garage-stats-quick">
             <span>⚡{{maxSpeedKmh}} KM/H</span>
             <span>🔧{{tireName}}</span>

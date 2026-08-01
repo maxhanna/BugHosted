@@ -56,6 +56,7 @@ export class RacingHubService implements OnDestroy {
   readonly playerFinished$ = new Subject<PlayerFinishedEvent>();
   readonly chatMessage$ = new Subject<ChatMessage>();
   readonly madeHost$ = new Subject<void>();
+  readonly autoStartCountdown$ = new Subject<number>();
   readonly connectionError$ = new Subject<string>();
 
   get myConnectionId(): string | null { return this.hub?.connectionId ?? null; }
@@ -113,6 +114,10 @@ export class RacingHubService implements OnDestroy {
 
       this.hub.on('OnMadeHost', () => {
         this.madeHost$.next();
+      });
+
+      this.hub.on('OnAutoStartCountdown', (remaining: number) => {
+        this.autoStartCountdown$.next(remaining);
       });
 
       this.hub.onreconnecting(() => {

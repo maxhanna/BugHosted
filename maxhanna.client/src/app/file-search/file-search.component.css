@@ -715,3 +715,153 @@
   display: flex;
   gap: 8px;
 }
+
+/* ─── Grid View ─── */
+.file-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+  padding: 8px 4px;
+}
+
+.grid-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--component-background-color, rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: 12px;
+  padding: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+.grid-item:hover {
+  border-color: rgba(255,255,255,0.12);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  transform: translateY(-2px);
+}
+.grid-item.selected {
+  border-color: var(--main-link-color, #4a9eff);
+  box-shadow: 0 0 0 2px var(--main-link-color, #4a9eff), 0 4px 16px rgba(74,158,255,0.2);
+  background: rgba(74,158,255,0.04);
+}
+
+/* Thumbnail area */
+.grid-thumb {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(0,0,0,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.grid-thumb app-media-viewer,
+.grid-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Non-image file placeholder */
+.grid-thumb-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.01), rgba(255,255,255,0.04));
+  text-align: center;
+}
+.grid-thumb-placeholder .placeholder-icon {
+  font-size: 32px;
+  opacity: 0.6;
+}
+.grid-thumb-placeholder .placeholder-name {
+  font-size: 11px;
+  color: var(--secondary-font-color, #94a3b8);
+  word-break: break-word;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* File type badge */
+.file-type-badge {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: rgba(0,0,0,0.7);
+  color: rgba(255,255,255,0.7);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+
+/* File name label */
+.grid-label {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--main-font-color, #e0e0e0);
+  word-break: break-word;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  padding: 0 2px;
+}
+
+/* Folder item */
+.grid-item.folder .grid-thumb {
+  background: linear-gradient(135deg, rgba(255,193,7,0.08), rgba(255,152,0,0.04));
+  border: 1px dashed rgba(255,193,7,0.3);
+}
+
+/* Responsive grid */
+@media (max-width: 768px) {
+  .file-grid {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+  }
+  .grid-item {
+    border-radius: 10px;
+    padding: 6px;
+    gap: 6px;
+  }
+  .grid-thumb {
+    border-radius: 6px;
+  }
+  .grid-label {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 400px) {
+  .file-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .grid-item {
+    border-radius: 8px;
+    padding: 4px;
+  }
+  .file-type-badge {
+    font-size: 7px;
+    padding: 1px 4px;
+  }
+}

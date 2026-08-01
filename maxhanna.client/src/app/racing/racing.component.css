@@ -156,6 +156,42 @@
   margin-top: 4px;
 }
 
+/* Win conditions on track cards */
+.race-win-conditions {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.race-win-rule {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.race-prize-breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.race-prize-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(255, 215, 0, 0.1);
+  border: 1px solid rgba(255, 215, 0, 0.2);
+  color: #ffd700;
+}
+
+.race-prize-badge:first-child {
+  background: rgba(255, 215, 0, 0.18);
+  border-color: rgba(255, 215, 0, 0.35);
+}
+
 .race-track-cost {
   display: flex;
   flex-direction: column;
@@ -308,7 +344,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  perspective: 800px;
   position: relative;
   min-height: 240px;
 }
@@ -331,12 +366,58 @@
 }
 
 .garage-car-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 3px;
   color: rgba(255,255,255,0.6);
   margin-top: 8px;
   text-transform: uppercase;
+}
+
+.garage-car-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.garage-rotate-hint {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.3);
+  text-transform: none;
+  animation: hint-pulse 2.5s ease-in-out infinite;
+}
+
+.garage-reset-view {
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 50%;
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.6);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.garage-reset-view:hover {
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  border-color: rgba(255,255,255,0.35);
+}
+
+@keyframes hint-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.8; }
 }
 
 .garage-stats-quick {
@@ -356,120 +437,289 @@
   padding: 3px 10px;
 }
 
-/* ── F1 Car Preview Model (3/4 view from behind/side) ── */
-.car-preview-container {
-  position: relative;
-  width: 280px;
-  height: 180px;
-  transform: rotateX(15deg) rotateY(-25deg);
-  transform-style: preserve-3d;
+/* ── F1 Car Preview Model (3D, draggable) ── */
+.car-3d-wrap {
+  perspective: 900px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* Car body — F1 wedge shape */
-.car-preview-body {
+.car-preview-container {
+  position: relative;
+  width: 300px;
+  height: 190px;
+  transform-style: preserve-3d;
+  transform-origin: 50% 70%;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.car-preview-container.car-dragging {
+  cursor: grabbing;
+}
+
+/* Ground shadow */
+.car-shadow {
+  position: absolute;
+  bottom: 8px;
+  left: 5%;
+  right: 5%;
+  height: 16px;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.55), transparent 70%);
+  filter: blur(3px);
+}
+
+/* Floor / undertray */
+.car-floor {
+  position: absolute;
+  bottom: 22px;
+  left: 16px;
+  right: 14px;
+  height: 6px;
+  background: linear-gradient(180deg, #141416, #0a0a0c);
+  border-radius: 3px;
+}
+
+/* Diffuser at rear */
+.car-diffuser {
+  position: absolute;
+  bottom: 22px;
+  right: 8px;
+  width: 34px;
+  height: 8px;
+  background: linear-gradient(180deg, #1a1a1e, #0c0c0e);
+  border-radius: 0 4px 4px 0;
+  transform: skewY(-12deg);
+  transform-origin: bottom left;
+}
+
+/* Nose cone — long tapered tip */
+.car-nose {
+  position: absolute;
+  bottom: 26px;
+  left: 10px;
+  width: 130px;
+  height: 20px;
+  border-radius: 14px 0 0 14px;
+  clip-path: polygon(0 12%, 100% 0, 100% 100%, 0 88%);
+  box-shadow: inset 0 6px 10px rgba(255,255,255,0.12), inset 0 -3px 6px rgba(0,0,0,0.35);
+}
+
+.car-nose-tip {
+  position: absolute;
+  bottom: 26px;
+  left: 2px;
+  width: 16px;
+  height: 12px;
+  clip-path: polygon(0 50%, 100% 0, 100% 100%);
+  z-index: 2;
+}
+
+/* Front wing — wide, low, endplates */
+.car-front-wing {
   position: absolute;
   bottom: 30px;
-  left: 10px;
-  right: 10px;
-  height: 42px;
-  background: #cc0000;
+  left: 0px;
+  width: 34px;
+  height: 18px;
+}
+
+.fw-plane {
+  position: absolute;
+  bottom: 6px;
+  left: 0;
+  width: 34px;
+  height: 4px;
+  background: #151518;
+  border-radius: 2px;
+}
+
+.fw-flap {
+  position: absolute;
+  bottom: 12px;
+  left: 2px;
+  width: 30px;
+  height: 3px;
+  background: #202024;
+  border-radius: 2px;
+}
+
+.fw-endplate {
+  position: absolute;
+  bottom: 0;
+  width: 4px;
+  height: 16px;
+  background: #0d0d0f;
+  border-radius: 1px;
+}
+
+.fw-ep-left { left: 0; }
+.fw-ep-right { right: 0; }
+
+/* Main body / monocoque */
+.car-preview-body {
+  position: absolute;
+  bottom: 26px;
+  left: 108px;
+  right: 30px;
+  height: 34px;
   border-radius: 6px 6px 2px 2px;
-  box-shadow: 
-    inset 0 8px 20px rgba(255,255,255,0.08),
-    inset 0 -2px 6px rgba(0,0,0,0.5),
-    0 4px 12px rgba(0,0,0,0.4);
-  overflow: hidden;
+  box-shadow:
+    inset 0 8px 16px rgba(255,255,255,0.10),
+    inset 0 -3px 8px rgba(0,0,0,0.5),
+    0 3px 10px rgba(0,0,0,0.45);
+  overflow: visible;
 }
 
 .car-preview-body::before {
   content: '';
   position: absolute;
-  top: 0; left: 0; right: 0; height: 40%;
-  background: linear-gradient(180deg, rgba(255,255,255,0.25), transparent);
+  top: 0; left: 0; right: 0; height: 55%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.22), transparent);
   border-radius: 6px 6px 0 0;
 }
-
-.car-preview-body::after {
-  content: '';
-  position: absolute;
-  bottom: 0; left: 0; right: 0; height: 2px;
-  background: rgba(0,0,0,0.4);
-}
-
-/* Nose cone — kept for future use */
-/* .car-preview-nose { ... } */
 
 /* Cockpit opening */
 .car-cockpit {
   position: absolute;
-  top: 4px;
-  left: 30%;
-  width: 28px;
-  height: 30px;
-  background: #0a0a0a;
-  border-radius: 2px 2px 0 0;
-  border: 2px solid rgba(0,0,0,0.6);
-  box-shadow: inset 0 0 8px rgba(0,0,0,0.8);
+  top: -6px;
+  left: 34%;
+  width: 30px;
+  height: 22px;
+  background: #0a0a0c;
+  border-radius: 50% 50% 3px 3px;
+  border: 2px solid rgba(0,0,0,0.7);
+  box-shadow: inset 0 4px 10px rgba(0,0,0,0.9);
+  z-index: 3;
 }
 
 /* Halo */
 .car-halo {
   position: absolute;
-  top: 2px;
-  left: 28%;
-  width: 36px;
-  height: 26px;
-  border: 3px solid #1a1a1a;
+  top: -18px;
+  left: 32%;
+  width: 40px;
+  height: 14px;
+  border: 3px solid #16161a;
   border-radius: 50% 50% 0 0;
   border-bottom: none;
   background: transparent;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  z-index: 4;
 }
 
-/* Front wing */
-.car-front-wing {
+/* Sidepods */
+.car-sidepod {
   position: absolute;
-  bottom: 52px;
-  left: -18px;
-  right: -5px;
-  height: 8px;
-  background: #1a1a1a;
+  top: 8px;
+  height: 20px;
+  width: 40px;
+  background: rgba(0,0,0,0.22);
+  border-radius: 6px;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+}
+
+.car-sidepod-l {
+  left: 6%;
+  transform: skewY(-6deg);
+}
+
+.car-sidepod-r {
+  right: 4%;
+  transform: skewY(-6deg);
+}
+
+/* Airbox intake behind cockpit */
+.car-airbox {
+  position: absolute;
+  top: -4px;
+  right: 18%;
+  width: 20px;
+  height: 14px;
+  background: linear-gradient(180deg, #0d0d0f, #1a1a1e);
+  border-radius: 4px 4px 2px 2px;
+  clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%);
+  z-index: 2;
+}
+
+/* Engine cover line */
+.car-engine-line {
+  position: absolute;
+  top: 42%;
+  left: 8%;
+  right: 6%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0,0,0,0.35), transparent);
+}
+
+/* Rear wing — multi-element */
+.car-rear-wing {
+  position: absolute;
+  bottom: 34px;
+  right: 4px;
+  width: 26px;
+  height: 40px;
+}
+
+.rw-plane {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: #151518;
   border-radius: 2px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
 }
 
-.car-front-wing::after {
-  content: '';
-  position: absolute;
-  top: -3px;
-  left: 5px;
-  right: 5px;
-  height: 4px;
-  background: #222;
-  border-radius: 1px;
+.rw-plane-main {
+  top: 4px;
+  height: 5px;
 }
+
+.rw-plane-flap {
+  top: 13px;
+  height: 4px;
+  background: #202024;
+}
+
+.rw-endplate {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #0d0d0f;
+}
+
+.rw-ep-left { left: 0; }
+.rw-ep-right { right: 0; }
 
 /* Rear wing mount */
 .car-wing-mount {
   position: absolute;
-  bottom: 68px;
-  right: 5px;
-  width: 3px;
-  height: 16px;
-  background: #222;
+  bottom: 36px;
+  right: 22px;
+  width: 4px;
+  height: 22px;
+  background: #18181c;
+  z-index: 2;
 }
 
-/* Spoiler / Rear Wing (base) */
+/* Spoiler / Rear Wing (base, upgrade) */
 .car-spoiler {
   position: absolute;
-  bottom: 70px;
-  right: -8px;
-  width: 50px;
+  bottom: 76px;
+  right: -2px;
+  width: 52px;
   height: 10px;
   background: #1a1a1a;
   border-radius: 1px 2px 1px 1px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.5);
   transition: all 0.3s;
+  z-index: 5;
 }
 
 .car-spoiler::after {
@@ -518,33 +768,35 @@
   background: #333 !important;
 }
 
-/* Wheels */
+/* Wheels — F1 style, exposed and large */
 .car-wheel {
   position: absolute;
-  width: 24px;
-  height: 24px;
-  background: radial-gradient(circle at 35% 35%, #333, #111 70%);
+  width: 34px;
+  height: 34px;
+  background: radial-gradient(circle at 35% 35%, #2e2e30, #0a0a0c 70%);
   border-radius: 50%;
-  border: 3px solid #1a1a1a;
-  box-shadow: inset 0 2px 4px rgba(255,255,255,0.1), 0 2px 6px rgba(0,0,0,0.5);
+  border: 4px solid #101012;
+  box-shadow: inset 0 2px 5px rgba(255,255,255,0.08), 0 3px 8px rgba(0,0,0,0.6);
   transition: all 0.3s;
+  z-index: 6;
 }
 
 .car-wheel::before {
   content: '';
   position: absolute;
   top: 50%; left: 50%;
-  width: 6px; height: 6px;
-  background: #555;
+  width: 12px; height: 12px;
+  background: #3a3a3d;
   border-radius: 50%;
   transform: translate(-50%, -50%);
-  border: 1px solid #333;
+  border: 2px solid #222;
+  box-shadow: inset 0 1px 2px rgba(255,255,255,0.2);
 }
 
-.wheel-fl { bottom: 18px; left: 2px; }
-.wheel-fr { bottom: 18px; left: 42px; }
-.wheel-rl { bottom: 18px; right: 60px; }
-.wheel-rr { bottom: 18px; right: 18px; }
+.wheel-fl { bottom: 18px; left: 6px; }
+.wheel-fr { bottom: 18px; left: 64px; }
+.wheel-rl { bottom: 18px; right: 40px; }
+.wheel-rr { bottom: 18px; right: 4px; }
 
 /* Rim variants */
 .rim-alloy {
@@ -1057,9 +1309,8 @@
     padding: 12px;
   }
 
-  .car-preview-container {
-    width: 200px;
-    height: 130px;
+  .car-3d-wrap {
+    transform: scale(0.78);
   }
 
   .garage-catalog {
@@ -2199,6 +2450,18 @@
 }
 
 /* ─── Multiplayer Chat ─── */
+.race-mp-countdown {
+  text-align: center;
+  padding: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffd600;
+  background: rgba(255, 214, 0, 0.08);
+  border: 1px solid rgba(255, 214, 0, 0.2);
+  border-radius: 6px;
+  margin-top: 8px;
+}
+
 .race-mp-chat {
   display: flex;
   flex-direction: column;

@@ -5,12 +5,13 @@ namespace maxhanna.Server.Hubs
 {
     /// <summary>
     /// SignalR hub for real-time multiplayer Grand Prix racing.
-    /// Manages lobbies, countdown sync, per-frame position sync, and race results.
+    /// Manages lobbies, 2-minute auto-start countdown, per-frame position sync, and race results.
     /// </summary>
     public class RacingHub : Hub
     {
         private static readonly ConcurrentDictionary<string, LobbyState> _lobbies = new();
         private static readonly ConcurrentDictionary<string, RacerState> _racers = new();
+        private const int AUTO_START_SECONDS = 120; // 2 minutes before auto-start
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
@@ -23,6 +24,7 @@ namespace maxhanna.Server.Hubs
                     await Clients.Group(racer.LobbyId).SendAsync("OnPlayerLeft", racer.PlayerName);
                     if (lobby.Players.Count == 0)
                     {
+                        CancelAutoStartTimer(lobby);
                         _lobbies.TryRemove(racer.LobbyId, out _);
                     }
                 }
@@ -86,6 +88,12 @@ namespace maxhanna.Server.Hubs
                 skinId = lp.SkinId
             });
 
+            // Start auto-start timer if this is the first player
+            if (lobby.Players.Count == 1)
+            {
+                StartAutoStartTimer(lobby, lobbyId);
+            }
+
             return new
             {
                 lobbyId,
@@ -129,6 +137,7 @@ namespace maxhanna.Server.Hubs
 
                 if (lobby.Players.Count == 0)
                 {
+                    CancelAutoStartTimer(lobby);
                     _lobbies.TryRemove(lobbyId, out _);
                 }
             }
@@ -174,8 +183,7 @@ namespace maxhanna.Server.Hubs
 
         /// <summary>
         /// Host starts the race — triggers countdown for all players.
-        /// Returns immediately to avoid blocking the host's invoke call.
-        /// The actual countdown runs in the background.
+        /// Can be called at any time, even with only 1 player. Cancels auto-start timer.
         /// </summary>
         public Task StartRace(string trackId)
         {
@@ -183,6 +191,11 @@ namespace maxhanna.Server.Hubs
             if (!_lobbies.TryGetValue(lobbyId, out var lobby)) return Task.CompletedTask;
 
             if (lobby.HostConnectionId != Context.ConnectionId) return Task.CompletedTask;
+
+            if (lobby.RaceStatus == "racing" || lobby.RaceStatus == "countdown") return Task.CompletedTask;
+
+            // Cancel auto-start timer
+            CancelAutoStartTimer(lobby);
 
             lobby.RaceStatus = "countdown";
 
@@ -208,6 +221,61 @@ namespace maxhanna.Server.Hubs
             });
 
             return Task.CompletedTask;
+        }
+
+        private void StartAutoStartTimer(LobbyState lobby, string lobbyId)
+        {
+            CancelAutoStartTimer(lobby);
+
+            lobby.AutoStartRemaining = AUTO_START_SECONDS;
+            lobby.AutoStartCts = new CancellationTokenSource();
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    while (lobby.AutoStartRemaining > 0 && lobby.RaceStatus == "lobby")
+                    {
+                        await Clients.Group(lobbyId).SendAsync("OnAutoStartCountdown", lobby.AutoStartRemaining);
+                        await Task.Delay(1000, lobby.AutoStartCts.Token);
+                        if (lobby.AutoStartCts.Token.IsCancellationRequested) return;
+                        lobby.AutoStartRemaining--;
+                    }
+
+                    if (!lobby.AutoStartCts.Token.IsCancellationRequested && lobby.RaceStatus == "lobby" && lobby.Players.Count > 0)
+                    {
+                        // Auto-start the race
+                        lobby.RaceStatus = "countdown";
+                        await Clients.Group(lobbyId).SendAsync("OnRaceCountdown", 4);
+                        for (int i = 3; i >= 0; i--)
+                        {
+                            await Task.Delay(1000, lobby.AutoStartCts.Token);
+                            await Clients.Group(lobbyId).SendAsync("OnRaceCountdown", i);
+                        }
+                        if (!lobby.AutoStartCts.Token.IsCancellationRequested)
+                        {
+                            lobby.RaceStatus = "racing";
+                            await Clients.Group(lobbyId).SendAsync("OnRaceStarted", new
+                            {
+                                startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                                totalLaps = 3
+                            });
+                        }
+                    }
+                }
+                catch (TaskCanceledException) { }
+                catch { }
+            }, lobby.AutoStartCts.Token);
+        }
+
+        private void CancelAutoStartTimer(LobbyState lobby)
+        {
+            if (lobby.AutoStartCts != null)
+            {
+                lobby.AutoStartCts.Cancel();
+                lobby.AutoStartCts.Dispose();
+                lobby.AutoStartCts = null;
+            }
         }
 
         /// <summary>
@@ -268,6 +336,8 @@ namespace maxhanna.Server.Hubs
             public string HostConnectionId { get; set; } = "";
             public string RaceStatus { get; set; } = "lobby";
             public List<LobbyPlayer> Players { get; set; } = new();
+            public int AutoStartRemaining { get; set; }
+            public CancellationTokenSource? AutoStartCts { get; set; }
         }
 
         private class LobbyPlayer

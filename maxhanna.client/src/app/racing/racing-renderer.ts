@@ -512,11 +512,11 @@ void main() {
       // Grass shoulders - wider on each side
       const shoulderW = 20;
       // Left shoulder (samples plain asphalt region of the texture, tinted green)
-      verts.push(p.x + ppx * (hw + shoulderW), -0.05, p.z + ppz * (hw + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, segDist * 0.5, 0.25);
-      verts.push(n.x + npx * (hwN + shoulderW), -0.05, n.z + npz * (hwN + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, (segDist + 1 / pts.length) * 0.5, 0.25);
+      verts.push(p.x + ppx * (hw + shoulderW), -0.2, p.z + ppz * (hw + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, segDist * 0.5, 0.25);
+      verts.push(n.x + npx * (hwN + shoulderW), -0.2, n.z + npz * (hwN + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, (segDist + 1 / pts.length) * 0.5, 0.25);
       // Right shoulder
-      verts.push(p.x - ppx * (hw + shoulderW), -0.05, p.z - ppz * (hw + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, segDist * 0.5, 0.75);
-      verts.push(n.x - npx * (hwN + shoulderW), -0.05, n.z - npz * (hwN + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, (segDist + 1 / pts.length) * 0.5, 0.75);
+      verts.push(p.x - ppx * (hw + shoulderW), -0.2, p.z - ppz * (hw + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, segDist * 0.5, 0.75);
+      verts.push(n.x - npx * (hwN + shoulderW), -0.2, n.z - npz * (hwN + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, (segDist + 1 / pts.length) * 0.5, 0.75);
 
       const si = pts.length * perSegVerts + i * 4;
       idxs.push(si, si + 1, vi);
@@ -530,7 +530,7 @@ void main() {
     const sfpx = -sf.dirZ;
     const sfpz = sf.dirX;
     const sfw = sf.width / 2;
-    const sfOff = 0.01;
+    const sfOff = 0.03;
     verts.push(sf.x + sfpx * sfw, sfOff, sf.z + sfpz * sfw, 0, 1, 0, 1, 1, 1, 0, 0);
     verts.push(sf.x - sfpx * sfw, sfOff, sf.z - sfpz * sfw, 0, 1, 0, 1, 1, 1, 1, 0);
     const sfN = pts[1];
@@ -1050,7 +1050,7 @@ void main() {
 
     // Apply FOV zoom (speed-based tunnel vision) and screen shake
     const fov = 1.1 * fovZoom;
-    this.mat4Perspective(this.projMatrix, fov, aspect, 0.1, 500);
+    this.mat4Perspective(this.projMatrix, fov, aspect, 0.5, 600);
     const cosY = Math.cos(yaw), sinY = Math.sin(yaw);
     const cosP = Math.cos(pitch), sinP = Math.sin(pitch);
     const eye = [eyeX + shakeX, eyeY + shakeY, eyeZ];

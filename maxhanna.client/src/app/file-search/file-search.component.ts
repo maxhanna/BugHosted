@@ -1133,6 +1133,23 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   getFileWithoutExtension(fileName: string) {
     return this.fileService.getFileWithoutExtension(fileName);
   }
+
+  getFileEmoji(fileName: string): string {
+    const ext = (fileName || '').split('.').pop()?.toLowerCase() || '';
+    const map: Record<string, string> = {
+      'pdf': '📄', 'doc': '📝', 'docx': '📝', 'xls': '📊', 'xlsx': '📊', 'ppt': '📽️', 'pptx': '📽️',
+      'zip': '📦', 'rar': '📦', '7z': '📦', 'tar': '📦', 'gz': '📦',
+      'txt': '📃', 'json': '📋', 'xml': '📋', 'csv': '📋', 'log': '📋',
+      'exe': '⚙️', 'dll': '⚙️', 'apk': '📱', 'iso': '💿',
+      'mp3': '🎵', 'wav': '🎵', 'flac': '🎵', 'ogg': '🎵', 'aac': '🎵',
+      'mp4': '🎬', 'avi': '🎬', 'mkv': '🎬', 'mov': '🎬', 'webm': '🎬',
+      'html': '🌐', 'css': '🎨', 'js': '📜', 'ts': '📜', 'py': '🐍', 'java': '☕', 'cs': '🔷',
+      'png': '🖼️', 'jpg': '🖼️', 'jpeg': '🖼️', 'gif': '🖼️', 'svg': '🖼️', 'webp': '🖼️', 'bmp': '🖼️',
+      'bin': '📁', 'dat': '📁', 'rom': '🎮', 'nes': '🎮', 'smc': '🎮', 'sfc': '🎮',
+      'gb': '🎮', 'gbc': '🎮', 'gba': '🎮', 'n64': '🎮', 'nds': '🎮',
+    };
+    return map[ext] || '📄';
+  }
   shareFile(user?: User) {
     if (!user?.id) return;
     if (this.selectedSharedFile && this.currentUser.id) {

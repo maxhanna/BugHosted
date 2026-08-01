@@ -24,7 +24,7 @@ export class TitleBarComponent implements OnInit, OnChanges {
   @Input() hasHelp: boolean = false;
   @Input() showHelp?: boolean;
   @Input() hasRefresh: boolean = false;
-  @Input() showRefresh?: boolean; 
+  @Input() showRefresh?: boolean;
   @Input() font?: string;
   @Output() closeClicked = new EventEmitter<any>();
   @Output() menuClicked = new EventEmitter<any>();
@@ -72,7 +72,7 @@ export class TitleBarComponent implements OnInit, OnChanges {
     }
     if (this.hasBack) {
       this.showBack = false;
-    } 
+    }
     if ((this.showSearch === undefined) && this.hasSearch) {
       this.showSearch = true;
     }
@@ -86,7 +86,7 @@ export class TitleBarComponent implements OnInit, OnChanges {
     this.classes = "";
 
     if (this.inputtedParentRef && this.title) {
-      setTimeout(() => { if (this.inputtedParentRef && this.title) { this.inputtedParentRef.replacePageTitleAndDescription(this.title, this.title); } }, 1); 
+      setTimeout(() => { if (this.inputtedParentRef && this.title) { this.inputtedParentRef.replacePageTitleAndDescription(this.title, this.title); } }, 1);
     }
   }
 
@@ -118,7 +118,7 @@ export class TitleBarComponent implements OnInit, OnChanges {
     return (this.closeClicked?.observers?.length ?? 0) > 0;
   }
 
-  get notificationIconSlot() : SlotNumber {
+  get notificationIconSlot(): SlotNumber {
     if (this.numberOfItems === 0) {
       return 0;
     }
@@ -196,35 +196,17 @@ export class TitleBarComponent implements OnInit, OnChanges {
     return this.classes;
   }
 
-  get searchRight(): number {
-    if (!this.showSearch) return 0;
-    // Count visible buttons to the RIGHT of search (search is leftmost)
+  get searchRight(): string {
+    if (!this.showSearch) return '0px';
     let count = 0;
-    if (this.showClose) count++;
+    // Controls typically rendered on the right side
     if (this.showMenu) count++;
+    if (this.showClose) count++;
     if (this.showRefresh) count++;
-    if (this.showHelp) count++;
     if (this.showBack) count++;
-    return count * 53;
-  }
-
-  // Computed right position for each button (buttons to its right * 53px each)
-  // Button order from right edge: close(0) → menu(53) → refresh(106) → help(159) → back(212)
-  get closeRight(): number { return 0; }
-  get menuRight(): number { return this.buttonRight(false, false, false, false, true); }
-  get refreshRight(): number { return this.buttonRight(false, false, false, true, true); }
-  get helpRight(): number { return this.buttonRight(false, false, true, true, true); }
-  get backRight(): number { return this.buttonRight(false, true, true, true, true); }
-
-  private buttonRight(back: boolean, help: boolean, refresh: boolean, menu: boolean, close: boolean): number {
-    let count = 0;
-    // Count visible buttons to the RIGHT of this button (order from right: close, menu, refresh, help, back)
-    if (close && this.showClose) count++;
-    if (menu && this.showMenu) count++;
-    if (refresh && this.showRefresh) count++;
-    if (help && this.showHelp) count++;
-    if (back && this.showBack) count++;
-    return count * 53;
+    if (this.showHelp) count++;
+    const px = (count * 50) + (count * 3.25);
+    return `${px}px`;
   }
 }
 

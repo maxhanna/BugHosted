@@ -1,30 +1,13 @@
-<div class="closeButton" *ngIf="showClose" title="Close" (click)="closeClicked.emit($event)"
-  [style.right.px]="closeRight"></div>
-<div class="menuButton" *ngIf="showMenu" title="Open Menu" (click)="menuClicked.emit($event);"
-  [style.right.px]="menuRight"></div> 
-<div class="refreshButton" *ngIf="showRefresh" title="Refresh" (click)="refreshClicked.emit($event)"
-  [style.right.px]="refreshRight"></div>
-<div class="helpButton" *ngIf="showHelp" title="Show Help" (click)="helpClicked.emit($event)"
-  [style.right.px]="helpRight"></div>
-<div class="menuBackButton" *ngIf="showBack" title="Back to User List" (click)="backClicked.emit();"
-  [style.right.px]="backRight"></div>
-<div class="searchButton" 
-  *ngIf="showSearch" 
-  title="Show Search" 
-  (click)="searchClicked.emit($event)" 
-  [style.right.px]="searchRight"
-  class="searchButton"
-></div>
+<div class="closeButton" *ngIf="showClose" title="Close" (click)="closeClicked.emit($event)"></div>
+<div class="refreshButton" *ngIf="showRefresh" title="Refresh" (click)="refreshClicked.emit($event)"></div>
+<div class="menuButton" *ngIf="showMenu" title="Open Menu" (click)="menuClicked.emit($event);"></div>
+<div class="helpButton" *ngIf="showHelp" title="Show Help" (click)="helpClicked.emit($event)"></div>
+<div class="searchButton" *ngIf="showSearch" title="Show Search" (click)="searchClicked.emit($event)"
+  [style.right]="searchRight" class="searchButton"></div>
+<div class="menuBackButton" *ngIf="showBack" title="Back to User List" (click)="backClicked.emit();"></div>
 <div class="componentTitle" *ngIf="showTitle">
-  <span 
-    [class]="titleSpanClass" 
-    [ngStyle]="font ? { 'font-family': font } : {}"
-    >{{ title }}</span>
+  <span [class]="titleSpanClass" [ngStyle]="font ? { 'font-family': font } : {}">{{ title }}</span>
 </div>
-<app-notifications 
-  *ngIf="showNotifications" 
-  [minimalInterface]="true"
-  [inputtedParentRef]="inputtedParentRef" 
-  [notificationIconSlot]="notificationIconSlot"
-  (notificationRead)="notificationReadEmitted()">
+<app-notifications *ngIf="showNotifications" [minimalInterface]="true" [inputtedParentRef]="inputtedParentRef"
+  [notificationIconSlot]="notificationIconSlot" (notificationRead)="notificationReadEmitted()">
 </app-notifications>
