@@ -1,4 +1,3 @@
-/* You can add global styles to this file, and also import other style files */
 :root {
   --main-font-size: 16px;
   --main-bg-color: #0e0e0e;
@@ -9,7 +8,6 @@
   --table-thead-color: var(--main-highlight-color);
   --main-font-family: Helvetica, Arial;
   --title-font-family: 'Courier New', Arial, sans-serif;
-  /*'Gill Sans', Verdana, sans-serif;*/
   --section-font-family: 'Courier New', Arial, sans-serif;
   --main-font-color: #b0c2b1;
   --main-link-color: chartreuse;
@@ -25,9 +23,6 @@
   --main-background-image-url: '';
   --gradient-background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
 }
-
-
-/* prevent pull-to-refresh for Safari 16+ */
 @media screen and (pointer: coarse) {
   @supports (-webkit-backdrop-filter: blur(1px)) and (overscroll-behavior-y: none) {
     html {
@@ -36,11 +31,9 @@
     }
   }
 }
-
 html {
   height: 100%;
 }
-
 body {
   margin: 0px;
   -webkit-overflow-scrolling: auto !important;
@@ -56,12 +49,10 @@ body {
   background-position: center center;
   background-repeat: no-repeat;
 }
-
 html,
 body {
   overscroll-behavior-x: none;
 }
-
 a,
 .linkedComponent {
   color: var(--main-link-color);
@@ -71,43 +62,33 @@ a,
   text-decoration: none;
   word-break: break-word;
 }
-
 textarea {
   font-size: var(--main-font-size);
 }
-
-  /* Ensure inline meta panel can position absolute children */
-  .romMetaPanelInline {
-    position: relative;
-  }
- 
-
+.romMetaPanelInline {
+  position: relative;
+}
 a:visited,
 .linkedComponent {
   color: var(--main-link-color);
 }
-
 a:active,
 .linkedComponent {
   color: var(--secondary-font-color);
 }
-
 a:hover,
 .linkedComponent {
   border-radius: 5px;
   border-bottom: 1px dotted var(--main-font-color);
 }
-
 legend {
   border: var(--main-border);
   text-align: center;
 }
-
 fieldset {
   text-align: center;
   border: var(--main-border);
 }
-
 .componentMain {
   background-color: var(--component-background-color);
   position: relative;
@@ -117,35 +98,27 @@ fieldset {
   transition: transform 0.8s ease;
   overflow: auto;
 }
-
 @media only screen and (max-width : 667px) {
   .componentMain {
     width: 100%;
   }
 }
-
-.refreshButton,
-.closeButton,
-.menuButton,
-.menuBackButton,
-.helpButton,
-.searchButton {
-  position: absolute;
-  top: 0px;
-  width: 50px;
-  height: 46px;
+.refreshButton::before,
+.closeButton::before,
+.menuButton::before,
+.menuBackButton::before,
+.helpButton::before {
+  z-index: 1;
 }
-
 .refreshButton::before,
 .closeButton::before,
 .menuButton::before,
 .menuBackButton::before,
 .helpButton::before,
-.searchButton::before {
-  z-index: 1;
+.notificationTopButton,
+.searchButton {
   position: absolute;
   top: 0px;
-  right: 0px;
   width: 50px;
   height: 46px;
   font-size: 35px;
@@ -159,37 +132,36 @@ fieldset {
   align-items: center;
   justify-content: center;
 }
-
 .refreshButton::before {
   content: '🔄';
 }
-
 .menuButton::before {
   content: '☰';
 }
-
 .helpButton::before {
   content: '❔';
+  right: 103px;
 }
-
 .searchButton {
   text-shadow: 1px 1px var(--main-link-color);
   z-index: 1;
 }
-
 .searchButton::before {
   content: '🔍';
 }
-
 .menuBackButton::before {
   content: '⤺';
+  right: 106px;
   text-shadow: 1px 1px var(--main-link-color);
 }
-
+.refreshButton::before,
+.menuButton::before {
+  right: 53px;
+}
 .closeButton::before {
   content: '❌';
+  right: 0px;
 }
-
 .refreshButton:active::before,
 .closeButton:active::before,
 .menuButton:active::before,
@@ -202,13 +174,11 @@ fieldset {
   width: 50px;
   height: 43px;
 }
-
 .notificationTopButton {
   text-shadow: 1px 1px var(--main-link-color);
   z-index: 1;
   right: 106px;
 }
-
 .componentTitle {
   padding-left: 10px;
   width: calc(100% - 10px);
@@ -220,24 +190,20 @@ fieldset {
   top: 0px;
   left: 0px;
   display: block;
-  /* text-shadow: 0px 0.50px 0.50px var(--secondary-font-color); */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   box-shadow: 0.5px 0.5px var(--main-border-color);
   background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
 }
-
 @media only screen and (max-width:800px) {
   .componentTitle {
     font-size: x-large;
   }
 }
-
 .mainTableDiv {
   overflow-y: auto;
 }
-
 .mainTableTitle {
   display: block;
   width: 100%;
@@ -245,40 +211,32 @@ fieldset {
   text-align: center;
   text-decoration: underline;
 }
-
-/* Make the table scrollable horizontally on mobile */
 @media only screen and (max-device-width: 480px) and (-webkit-min-device-pixel-ratio: 1.5) {
   .mainTable {
     overflow-x: scroll;
   }
 }
-
 @media only screen and (max-device-width:800px) {
   .componentMain {
     max-width: 100%;
   }
-
   .mainTableDiv {
     overflow-x: auto;
   }
-
   .mainTable td {
     word-wrap: break-word;
     text-overflow: ellipsis;
   }
-
   .mainTable input {
     word-wrap: break-word;
     text-overflow: ellipsis;
   }
 }
-
 .mainTable {
   width: 100%;
   background-color: var(--secondary-component-background-color);
   border-collapse: collapse;
 }
-
 .mainTable thead th {
   position: sticky;
   top: 0;
@@ -286,29 +244,24 @@ fieldset {
   z-index: 1;
   cursor: default;
 }
-
 .mainTable tr:not(thead, tr):hover {
   outline: var(--main-border);
 }
-
 .mainTable tr:nth-child(even) {
   border-bottom: 1px solid;
   border-top: 1px solid;
   border-color: var(--main-highlight-color);
   background-color: var(--secondary-bg-color);
 }
-
 .mainTable tbody {
   height: 30px !important;
   width: 100%;
   overflow-y: hidden;
   cursor: default;
 }
-
 .mainTable tbody tr:hover td:first-child {
   position: relative;
 }
-
 .mainTable tbody tr:hover td:first-child::before,
 .mainTable tbody tr:hover td:first-child::after {
   content: '';
@@ -319,15 +272,12 @@ fieldset {
   height: 1px;
   pointer-events: none;
 }
-
 .mainTable tbody tr:hover td:first-child::before {
   left: 0;
 }
-
 .mainTable tbody tr:hover td:first-child::after {
   right: 0;
 }
-
 .mainTable th {
   border-collapse: collapse;
   text-align: left;
@@ -337,13 +287,11 @@ fieldset {
   top: -3px;
   font-weight: bold;
 }
-
 .mainTable tr:hover {
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
   position: relative;
 }
-
 .mainTable tr:hover::after {
   content: '';
   position: absolute;
@@ -354,18 +302,14 @@ fieldset {
   background-color: var(--third-font-color);
   animation: underline 0.3s ease;
 }
-
 @keyframes underline {
   from {
     width: 0;
   }
-
   to {
     width: 100%;
   }
 }
-
-
 #loadingDiv {
   position: fixed;
   top: 0;
@@ -376,87 +320,51 @@ fieldset {
   z-index: 1;
   display: none;
 }
-
 #loadingBar {
   height: 100%;
   background: linear-gradient(to right, #ff7e5f, #feb47b, #ffdb99, #fffeaa, #dbf6e9, #a7f4e8, #77e0e8, #96d0e1, #a2bcc8, #a0a7b2, #958d9f, #6f7474);
   animation: loadingAnimation 2s linear infinite;
 }
-
 @keyframes loadingAnimation {
   0% {
     width: 0%;
   }
-
   100% {
     width: 100%;
   }
 }
-
-/* 
-::-webkit-scrollbar {
-  width: 10px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  box-shadow: var(--main-border);
-  border: var(--main-border);
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb {
-  border-radius: 10px;
-  background: var(--secondary-font-color);
-  box-shadow: var(--main-border);
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--main-font-color);
-} */
-
-
-
 .notification {
   color: var(--secondary-font-color);
   font-size: smaller;
   text-decoration-color: var(--main-font-color);
 }
-
 .notification::before {
   content: '🪲';
 }
-
 .cursorPointer {
   cursor: pointer;
 }
-
 .cursorPointerUnderlined {
   cursor: pointer !important;
   text-decoration: underline;
 }
-
 .usernameProfileLink {
   text-decoration-color: var(--secondary-font-color);
   text-shadow: 0.1px 0.1px var(--third-font-color);
   font-weight: 100;
 }
-
 .smallExpander {
   font-size: small;
   cursor: pointer;
 }
-
 .avatar {
   max-width: 50px;
   max-height: 50px;
 }
-
 .largeAvatar {
   max-width: 100px;
   max-height: 100px;
 }
-
 .avatarBug,
 .avatarBust {
   display: inline;
@@ -464,63 +372,48 @@ fieldset {
   top: auto;
   left: auto;
 }
-
 .avatarBug {
   font-size: 15px;
   left: 8px;
   top: -75px;
 }
-
-
 .avatarBust {
   font-size: 40px !important;
 }
-
 .bold {
   font-weight: bold;
 }
-
 .italics {
   font-style: italic;
 }
-
 .smallFont {
   font-size: small;
 }
-
 .xSmallFont {
   font-size: x-small !important;
 }
-
 .xxSmallFont {
   font-size: xx-small !important;
 }
-
 .largeFont {
   font-size: large;
 }
-
 .capitalize {
   text-transform: capitalize;
 }
-
 .invertedHighlights {
   color: var(--secondary-font-color);
   text-shadow: 0.2px 1px 1.1px var(--primary-font-color);
 }
-
 .redText {
   color: red;
 }
-
 .warnText {
   color: orange;
 }
-
 .greyText {
   color: grey;
 }
-
 .mainInfoSection {
   text-align: center;
   font-size: small;
@@ -531,54 +424,44 @@ fieldset {
   color: var(--secondary-font-color);
   box-shadow: 0px 0px 5px black;
 }
-
 .gradientBackground {
   background: var(--gradient-background);
 }
-
 .highlightBackgroundColor {
   background-color: var(--main-highlight-color);
 }
-
 .onlineButton::before {
   content: '🟢';
   display: inline-block;
   line-height: 1;
 }
-
 .onlineButton {
   font-size: x-small;
   position: relative;
   top: -3px;
   animation: glow 1.5s infinite alternate;
 }
-
 .glowing {
   animation: glow 1.5s infinite alternate;
 }
-
 @keyframes glow {
   0% {
     text-shadow: 0 0 0px var(--secondary-font-color), 0 0 5px var(--secondary-font-color), 0 0 6px var(--secondary-font-color), 0 0 7px var(--secondary-font-color), 0 0 8px var(--secondary-font-color);
   }
-
   100% {
     text-shadow: 0 0 5px var(--secondary-font-color), 0 0 6px var(--secondary-font-color), 0 0 7px var(--secondary-font-color), 0 0 8px var(--secondary-font-color), 0 0 9px var(--secondary-font-color);
   }
 }
-
 @keyframes fadeIn {
   from {
     opacity: 0;
     transform: translateY(10px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
-
 .popupPanel {
   max-height: 80vh;
   max-height: 80dvh;
@@ -601,19 +484,16 @@ fieldset {
   cursor: default;
   animation: popupFadeIn 0.2s ease-out;
 }
-
 @keyframes popupFadeIn {
   from {
     opacity: 0;
     transform: translate(-50%, 0);
   }
-
   to {
     opacity: 1;
     transform: translate(-50%, -50%);
   }
 }
-
 .fullscreenPopupPanel {
   top: 0px !important;
   left: 0px !important;
@@ -624,31 +504,26 @@ fieldset {
   height: 100vh !important;
   height: 100dvh !important;
 }
-
 @media only screen and (max-width : 667px) {
   .popupPanel {
     width: calc(100vw - 50px);
     width: calc(100dvw - 50px);
   }
 }
-
 .popupPanel>.popupPanelTitle:first-of-type {
   padding-left: 45px;
   padding-right: 45px;
   margin-bottom: 10px;
   white-space: break-spaces;
 }
-
 .popupPanelTitle {
   font-family: var(--section-font-family);
   font-size: x-large;
   text-align: center;
 }
-
 .titleFont {
   font-family: var(--section-font-family);
 }
-
 .matchingTopic {
   display: inline-flex;
   border-radius: 4px;
@@ -661,8 +536,6 @@ fieldset {
   gap: 8px;
   font-size: small;
 }
-
-
 .optionsStatsWrapperDiv {
   display: flex;
   flex-direction: column;
@@ -671,18 +544,15 @@ fieldset {
   max-height: 300px;
   overflow: auto;
 }
-
 .optionsStatsDiv {
   display: flex;
   justify-content: space-between;
   border-bottom: 1px dotted var(--main-font-color);
   width: calc(100% - 10px);
 }
-
 .optionsStatsDiv:hover {
   border-bottom: 1px solid var(--main-link-color);
 }
-
 .optionsStatsHeader {
   min-width: 125px;
   display: flex;
@@ -694,30 +564,24 @@ fieldset {
   cursor: default;
   word-break: break-word;
 }
-
 .optionsStatsDescription {
   text-align: right;
   line-break: anywhere;
   cursor: default;
 }
-
 .optionsStatsDescription select {
   cursor: pointer;
 }
-
 @media only screen and (min-width : 667px) {
-
   .optionsStatsDescription,
   .optionsStatsHeader {
     padding: 5px;
   }
 }
-
 .popupPanel button,
 .popupPanel a {
   cursor: pointer;
 }
-
 .hiddenInput {
   width: 0px;
   height: 0px;
@@ -725,80 +589,64 @@ fieldset {
   top: 99vh;
   right: 99vw;
 }
-
 .quote-text {
   font-size: x-small;
 }
-
 .quote-message {
   color: var(--secondary-font-color);
 }
-
 .quote-time {
   font-size: smaller;
 }
-
 .quote-link {
   color: unset;
   cursor: pointer;
   text-align: unset;
 }
-
 .linkedComponent {
   color: var(--main-link-color);
   cursor: pointer;
 }
-
 .secondaryFontColor {
   color: var(--secondary-font-color);
 }
-
 .thirdFontColor {
   color: var(--third-font-color);
 }
-
 .linkFontColor,
 .linkColor {
   color: var(--main-link-color);
 }
-
 .linkFontColor:hover,
 .linkColor:hover {
   color: var(--secondary-font-color);
-} 
-
+}
 .linkFontColor:active,
 .linkColor:active {
   color: var(--main-font-color);
   text-decoration: underline;
-} 
-
+}
 .linkTextDecoration {
   text-decoration: underline;
   text-decoration-color: var(--main-link-color);
 }
-
 .linkTextDecoration:hover {
   text-decoration: underline;
   text-decoration-color: var(--secondary-font-color);
 }
-
 .linkTextDecoration:active {
   text-decoration: underline;
   text-decoration-color: var(--main-font-color);
 }
-
 .blackFontColor {
   color: black;
 }
-
 .centeredContainer {
   position: absolute;
   top: 20%;
   left: 50%;
   transform: translate(-50%, -10%);
 }
-
 .userMentionSpan {
   color: var(--main-link-color);
   font-weight: bold;
@@ -806,7 +654,6 @@ fieldset {
   text-decoration: underline;
   font-style: italic;
 }
-
 .poll-container {
   padding: 15px 15px 0px 15px;
   display: flex;
@@ -815,66 +662,52 @@ fieldset {
   justify-content: center;
   align-items: flex-start;
 }
-
 .messageContainer .poll-container {
   width: 100%;
 }
-
 .poll-question {
   font-weight: bold;
   margin-bottom: 15px;
   font-size: x-large;
   color: var(--secondary-font-color);
 }
-
 .poll-option-text {
-  /* allow option text to size naturally; occupying full width above the bar */
   width: 100%;
   margin-bottom: 6px;
 }
-
 .poll-options {
   width: 100%;
 }
-
 .poll-option {
   margin-bottom: 15px;
   display: flex;
   flex-direction: column;
-  /* stack text above the bar */
   width: 100%;
   align-items: stretch;
 }
-
-/* Interactive options (checkbox/radio) should show checkbox beside the text */
 .poll-option-interactive {
   flex-direction: row;
   align-items: center;
   gap: 8px;
 }
-
 .poll-option-interactive>input[type="checkbox"],
 .poll-option-interactive>input[type="radio"] {
   margin-right: 8px;
   flex: 0 0 auto;
 }
-
 .poll-option-interactive>label {
   flex: 1 1 auto;
 }
-
 .poll-result {
   width: 100%;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-
 .poll-option:hover {
   color: var(--secondary-font-color);
   background-color: var(--main-highlight-color-quarter-opacity);
 }
-
 .poll-vote-btn {
   padding: 5px 15px;
   background-color: var(--component-background-color);
@@ -883,51 +716,42 @@ fieldset {
   border-radius: 4px;
   cursor: pointer;
 }
-
 .poll-stats {
-  /* show stats next to or below the bar depending on space */
   position: relative;
   font-size: 12px;
   color: var(--secondary-font-color);
   margin-top: 2px;
 }
-
 .poll-bar {
   background-color: var(--main-highlight-color);
 }
-
 .poll-bar,
 .poll-bar-empty {
   border-radius: 5px;
   transition: width 0.3s ease;
   display: block;
-  /* Ensure a tiny visible indicator even when percentage rounds to 0% (helps in narrow/story containers) */
   min-width: 6px;
   max-width: 100%;
   height: 14px;
   text-align: left;
   color: var(--secondary-font-color);
 }
-
 .option-row {
   display: flex;
   justify-content: space-between;
   margin-bottom: 5px;
 }
-
 .vote-bar-container {
   border-radius: 5px;
   margin-bottom: 5px;
   min-width: 70px;
 }
-
 .vote-bar {
   height: 100%;
   background-color: var(--third-font-color);
   border-radius: 5px;
   transition: width 0.3s ease;
 }
-
 .percentage {
   text-align: left;
   font-size: 12px;
@@ -935,24 +759,20 @@ fieldset {
   padding-left: 5px;
   padding-top: 2px;
 }
-
 .total-voters {
   margin-top: 20px;
   font-style: italic;
   text-align: center;
   color: var(--third-font-color);
 }
-
 .pollTitle {
   position: relative;
   top: -25px;
 }
-
 .pollResults {
   position: relative;
   top: -20px;
 }
-
 .voterSpan {
   color: var(--third-font-color);
   font-size: x-small;
@@ -964,7 +784,6 @@ fieldset {
   margin-top: 5px;
   margin-left: 5px;
 }
-
 .deletePollVoteButton {
   font-size: x-small;
   margin-left: 5px;
@@ -972,7 +791,6 @@ fieldset {
   margin-top: 5px;
   cursor: pointer;
 }
-
 .toggle-switch {
   position: relative;
   display: inline-block;
@@ -980,28 +798,22 @@ fieldset {
   height: 20px;
   margin-right: 10px;
 }
-
 .toggle-switch input {
   opacity: 0;
   width: 0;
   height: 0;
 }
-
 .coloredBgButton {
-  /* background: linear-gradient(to bottom, var(--main-highlight-color), transparent); */
   background: transparent;
   color: var(--main-link-color);
   border: 0;
   transition: transform 0.1s ease;
 }
-
 .coloredBgButton:active {
   background: linear-gradient(to top, var(--main-highlight-color), transparent);
   transform: translateY(2px);
   box-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
 }
-
-/* Base spoiler look (hidden) */
 .spoiler {
   position: relative;
   cursor: pointer;
@@ -1014,24 +826,16 @@ fieldset {
   -webkit-user-select: none;
   outline: none;
 }
-
-/* Obfuscate content without DOM changes: blur + transparent foreground */
 .spoiler .spoiler__content {
   filter: blur(6px);
   color: transparent;
-  /* prevents quick select “cheat” */
   text-shadow: 0 0 9px rgba(0, 0, 0, 0.45);
-  /* gives the blurred “fog” look */
   transition: filter 140ms ease, color 140ms ease, text-shadow 140ms ease;
 }
-
-/* Prevent selection revealing the text */
 .spoiler .spoiler__content::selection {
   background: transparent;
   color: transparent;
 }
-
-/* Reveal states: hover, keyboard focus, or active (touch press) */
 .spoiler:hover .spoiler__content,
 .spoiler:focus .spoiler__content,
 .spoiler:active .spoiler__content {
@@ -1039,19 +843,14 @@ fieldset {
   color: var(--main-text-color);
   text-shadow: none;
 }
-
-/* Optional: focus ring for accessibility */
 .spoiler:focus {
   box-shadow: 0 0 0 2px rgba(100, 149, 237, 0.5);
 }
-
-/* Reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
   .spoiler .spoiler__content {
     transition: none;
   }
 }
-
 .closePopupBtn {
   position: absolute;
   top: 1rem;
@@ -1063,7 +862,6 @@ fieldset {
   cursor: pointer;
   transition: transform 0.2s ease;
 }
-
 .closePopupBtn:hover {
   transform: rotate(90deg);
 }
