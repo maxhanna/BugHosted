@@ -85,6 +85,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   lapStartTime = 0; lastLapTime = 0; raceStartTime = 0;
   totalRaceTime = 0; bestLapTime = 0;
   isOffTrack = false; offTrackTimer = 0;
+  // Wall contact state: used so speed is penalized once per impact instead of
+  // every frame while scraping the wall (which caused visible bouncing).
+  private _wasOnWall = false;
 
   // ─── Bots ───
   bots: BotCar[] = [];
@@ -858,56 +861,68 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const barrierDist = halfWidth + 0.5; // barrier wall position
 
     // ── Barrier collision ──
-    // Slide along the wall instead of bouncing off it. The car keeps its
-    // forward momentum redirected along the wall tangent — never a 180° flip
-    // that flings the player backwards across the track.
-    if (distFromCenter > barrierDist) {
+    // Smooth, damped wall-follow. Instead of snapping the car to the wall
+    // tangent every frame (which oscillated and looked like bouncing), the
+    // car is eased against the barrier with a soft clamp, the yaw is blended
+    // toward the tangent gradually, and the speed penalty applies ONCE per
+    // impact — not repeatedly while scraping.
+    const onWall = distFromCenter > barrierDist;
+    if (onWall) {
       const normX = dxTrack / distFromCenter;
       const normZ = dzTrack / distFromCenter;
 
-      // 1. Push car clear of the wall (just inside the barrier edge)
-      this.carX = tp.x + normX * (barrierDist - 0.2);
-      this.carZ = tp.z + normZ * (barrierDist - 0.2);
+      // 1. Soft position clamp — ease the car to the wall edge instead of teleporting
+      const targetDist = barrierDist - 0.25;
+      const distCorrection = distFromCenter - targetDist;
+      // Cap the ease below 1 so even a deep first-frame penetration is eased in
+      // over a couple of frames instead of snapping (no teleport = no bounce).
+      const ease = Math.min(0.85, distCorrection * 0.4 + 0.35);
+      this.carX += (tp.x + normX * targetDist - this.carX) * ease;
+      this.carZ += (tp.z + normZ * targetDist - this.carZ) * ease;
 
       // 2. Velocity vector
       const vx = Math.sin(this.carYaw) * this.carSpeed;
       const vz = Math.cos(this.carYaw) * this.carSpeed;
       const intoWall = vx * normX + vz * normZ;
 
-      if (intoWall > 0) {
-        // Wall tangent (perpendicular to normal)
-        const tX = -normZ;
-        const tZ = normX;
-        // Keep the along-wall component, drop the into-wall component
-        const along = vx * tX + vz * tZ;
-        // impactAngle: 0 = grazing (parallel), 1 = head-on — shallow hits keep more speed
-        const impactAngle = Math.abs(intoWall) / Math.max(0.01, Math.hypot(vx, vz));
-        const retain = 0.95 - impactAngle * 0.35; // graze keeps 0.95, head-on drops to 0.60
-        const preCollisionSpeed = Math.abs(this.carSpeed);
-        this.carSpeed *= retain;
-        // Never fully stop after a real hit — but never INCREASE speed either
-        // (a low-speed tap that retains 0.60× shouldn't get boosted back up).
-        if (preCollisionSpeed >= 5 && Math.abs(this.carSpeed) < 5) {
-          this.carSpeed = Math.sign(this.carSpeed) * 5;
+      // 3. Wall tangent and along-wall velocity
+      const tX = -normZ;
+      const tZ = normX;
+      const along = vx * tX + vz * tZ;
+
+      // 4. Once per impact: fully project the velocity vector onto the wall
+      //    tangent — set BOTH speed and yaw from the projected vector. This
+      //    rotates at most 90° (never a 180° flip) and leaves zero residual
+      //    into-wall push, so the car genuinely slides on the very first frame
+      //    instead of re-penetrating while the yaw catches up.
+      if (!this._wasOnWall) {
+        if (intoWall > 0) {
+          const impactAngle = Math.abs(intoWall) / Math.max(0.01, Math.hypot(vx, vz));
+          const retain = 0.9 - impactAngle * 0.3; // graze keeps 0.90, head-on drops to 0.60
+          const preCollisionSpeed = Math.abs(this.carSpeed);
+          // Projected velocity = along-wall component (vector) × retain
+          const projX = tX * along * retain;
+          const projZ = tZ * along * retain;
+          const projSpeed = Math.hypot(projX, projZ);
+          this.carYaw = Math.atan2(projX, projZ);
+          this.carSpeed = projSpeed;
+          if (preCollisionSpeed >= 5 && Math.abs(this.carSpeed) < 5) {
+            this.carSpeed = Math.sign(this.carSpeed) * 5;
+          }
+          this.screenShake = Math.max(0.04, Math.min(0.12, Math.abs(intoWall) / 300));
         }
-        // Steer yaw toward the wall tangent
-        this.carYaw = Math.atan2(tX * Math.sign(along || 1), tZ * Math.sign(along || 1));
-        // Small wobble so it feels like a scrape, not a snap
-        this.carYaw += (Math.random() - 0.5) * 0.02;
-        this.screenShake = Math.max(0.04, Math.min(0.12, Math.abs(intoWall) / 400));
       }
 
-      // Safety net: if still heading into the wall, rotate toward tangent
-      const vxAfter = Math.sin(this.carYaw) * this.carSpeed;
-      const vzAfter = Math.cos(this.carYaw) * this.carSpeed;
-      const stillIntoWall = vxAfter * normX + vzAfter * normZ;
-      if (stillIntoWall > 0) {
-        const tX = -normZ, tZ = normX;
-        const along = vxAfter * tX + vzAfter * tZ;
-        this.carYaw = Math.atan2(tX * Math.sign(along || 1), tZ * Math.sign(along || 1));
-        this.carSpeed *= 0.9;
-      }
+      // 5. While in contact (subsequent frames), gently steer along the wall so
+      //    the car tracks curved walls smoothly — the impact frame already
+      //    snapped the direction, so this only corrects small drifts.
+      const tangentYaw = Math.atan2(tX * Math.sign(along || 1), tZ * Math.sign(along || 1));
+      let yawDiff = tangentYaw - this.carYaw;
+      while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+      while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+      this.carYaw += yawDiff * 0.12; // blend ~12% per frame → smooth, responsive deflection
     }
+    this._wasOnWall = onWall;
 
     // ── Car-to-car collision ──
     // Check against all bots and remote players (via remoteCars map)

@@ -160,22 +160,17 @@ export class RacingRenderer {
           const white = ((Math.floor(x / checkerW) + Math.floor(y / 16)) % 2) === 0;
           const c = white ? 245 : 15;
           data[i] = c; data[i + 1] = c; data[i + 2] = c;
-        } else if (y < 3 || y > size - 4) {
-          // Crisp white edge lines along the road edges
-          data[i] = 250; data[i + 1] = 250; data[i + 2] = 250;
-        } else if ((y >= 3 && y < 7) || (y > size - 8 && y <= size - 4)) {
-          // Red/white curb stripes just inside the edge lines — the classic
-          // F1 track-boundary cue, so the road edge reads clearly at speed.
-          if (Math.floor(x / 8) % 2 === 0) { data[i] = 205; data[i + 1] = 28; data[i + 2] = 28; }
-          else { data[i] = 232; data[i + 1] = 232; data[i + 2] = 232; }
+        } else if (y < 2 || y > size - 3) {
+          // Subtle white edge line — thin and dim so the road stays clean
+          data[i] = 120; data[i + 1] = 120; data[i + 2] = 118;
         } else if (y > size / 2 - 2 && y < size / 2 + 2) {
-          // Center dashed line
-          if (x % 16 < 8) { data[i] = 245; data[i + 1] = 245; data[i + 2] = 240; }
-          else { data[i] = 52; data[i + 1] = 52; data[i + 2] = 54; }
+          // Dashed center line — muted so it guides without dominating
+          if (x % 24 < 10) { data[i] = 140; data[i + 1] = 140; data[i + 2] = 136; }
+          else { data[i] = 62; data[i + 1] = 62; data[i + 2] = 63; }
         } else {
-          // Clean low-noise asphalt so the road reads clearly
-          const n = 55 + ((i * 3) % 6);
-          data[i] = n; data[i + 1] = n; data[i + 2] = n + 2;
+          // Plain asphalt — very low noise so the road reads as a clean surface
+          const n = 58 + ((i * 7) % 5);
+          data[i] = n; data[i + 1] = n; data[i + 2] = n + 1;
         }
       }
     }
@@ -573,14 +568,17 @@ void main() {
       idxs.push(bvi, bvi + 1, bvi + 2);
       idxs.push(bvi + 1, bvi + 3, bvi + 2);
 
-      // Right barrier
+      // Right barrier — NOTE: winding is mirrored relative to the left barrier.
+      // The left wall's outward normal is +perp; the right wall's is -perp, so the
+      // same index order would be BACK-facing under gl.cullFace(gl.BACK) and the
+      // wall would render transparent. Reverse the triangles here.
       verts.push(p.x - ppx * bw, 0, p.z - ppz * bw, -ppx, 0, -ppz, sr, sg, sb, sd, 0.25);
       verts.push(n.x - npx * bwN, 0, n.z - npz * bwN, -npx, 0, -npz, sr, sg, sb, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
       verts.push(p.x - ppx * bw, barrierH, p.z - ppz * bw, -ppx, 0, -ppz, sr, sg, sb, sd, 0.25);
       verts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, -npx, 0, -npz, sr, sg, sb, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
       const bvi2 = verts.length / 11 - 4;
-      idxs.push(bvi2, bvi2 + 1, bvi2 + 2);
-      idxs.push(bvi2 + 1, bvi2 + 3, bvi2 + 2);
+      idxs.push(bvi2, bvi2 + 2, bvi2 + 1);
+      idxs.push(bvi2 + 1, bvi2 + 2, bvi2 + 3);
 
       // Barrier top caps — slightly darker variant of the stripe so tops read as caps
       const tr = striped ? 3.8 : 3.2;
