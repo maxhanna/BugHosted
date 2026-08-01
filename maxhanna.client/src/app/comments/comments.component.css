@@ -294,6 +294,15 @@
   touch-action: pan-y;
 }
 
+/* Prevent nested scrollable areas inside sub-comments — they steal touch events on mobile.
+   Only the outermost .comments-section should scroll; sub-comments flow naturally within it. */
+.subComment .comments-section,
+.subcomments-container .comments-section {
+  max-height: none !important;
+  overflow-y: visible !important;
+  overscroll-behavior-y: auto;
+}
+
 .commentTextDiv {
   padding-top: 5px;
   padding-left: 10px;

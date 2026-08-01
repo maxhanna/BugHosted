@@ -1141,6 +1141,9 @@
 /* ── Cockpit Surround — carbon fiber frame + tinted visor ── */
 #race-hud {
   background: 
+    /* Carbon weave texture (thin crosshatch — only visible on pillars) */
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.008) 2px, rgba(255,255,255,0.008) 3px),
+    repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(255,255,255,0.006) 3px, rgba(255,255,255,0.006) 4px),
     /* Top tinted visor strip (aerodynamic shade) */
     linear-gradient(180deg, rgba(2,2,4,0.95) 0%, rgba(3,3,6,0.7) 30%, rgba(6,6,10,0.2) 70%, transparent 100%) 0 0 / 100% 9% no-repeat,
     /* Left A-pillar: carbon-fiber look with inner bevel */
@@ -1163,24 +1166,6 @@
     ) 100% 0 / 12% 100% no-repeat,
     /* Right pillar inner highlight */
     linear-gradient(270deg, transparent 88%, rgba(60,60,70,0.08) 92%, rgba(80,80,90,0.04) 96%, transparent 100%) 100% 0 / 12% 100% no-repeat;
-}
-
-/* Carbon fiber weave overlay on cockpit surround */
-#race-hud::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: 
-    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.008) 2px, rgba(255,255,255,0.008) 3px),
-    repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(255,255,255,0.006) 3px, rgba(255,255,255,0.006) 4px);
-  pointer-events: none;
-  mask-image: 
-    linear-gradient(180deg, black 9%, transparent 9%),
-    linear-gradient(90deg, black 12%, transparent 12%),
-    linear-gradient(270deg, black 12%, transparent 12%);
-  mask-composite: exclude;
-  -webkit-mask-composite: source-in;
-  z-index: 1;
 }
 
 /* ── Dashboard Frame — brushed aluminum + carbon ── */

@@ -1,4 +1,4 @@
-﻿import { Component, ElementRef, HostListener, Input, OnInit, ViewChild } from '@angular/core';
+import { Component, HostListener, Input, OnInit, ViewChild } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { firstValueFrom } from 'rxjs';
 import { ChildComponent } from '../child.component';
@@ -19,342 +19,182 @@ import { UserEventService } from '../../services/user-event.service';
 export class RecipeComponent extends ChildComponent implements OnInit {
   @Input() parentComponent: any;
   @Input() recipeId?: number;
-  @HostListener('document:keyDown', ['$event']) onKeyDown(event: KeyboardEvent) {
-    if(event.key === 'Escape') {
-      const expandedRecipeIds = Array.from(this.expandedRecipes.entries())
-      .filter(([_, value]) => value)
-      .map(([key, _]) => key);
-      if(expandedRecipeIds.length > 0) {
-        this.toggleRecipeDetails(expandedRecipeIds[0]);
-      }
+
+  @HostListener('document:keydown', ['$event']) onKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      if (this.editingRecipeId !== null) { this.cancelEdit(); return; }
+      const ids = Array.from(this.expandedRecipes.entries()).filter(([_, v]) => v).map(([k]) => k);
+      if (ids.length > 0) this.toggleRecipeDetails(ids[0]);
     }
   }
+
   @ViewChild('mediaSelector') mediaSelector?: MediaSelectorComponent;
   recipes: Recipe[] = [];
   filteredRecipes: Recipe[] = [];
   expandedRecipes = new Map<number, boolean>();
   searchTerm = '';
-  isCreating = false;
   editingRecipeId: number | null = null;
   viewingRecipeId: number | null = null;
   override isLoading = false;
   selectedFiles: FileEntry[] = [];
   selectedTopics: Topic[] = [];
+  form: RecipePayload = this.makeBlankForm();
+  private youTubeUrlCache = new Map<number, SafeResourceUrl>();
 
-  form: RecipePayload = {
-    userId: 0,
-    name: '',
-    description: '',
-    createdBy: '',
-    ingredients: [''],
-    instructions: [''],
-    tags: [],
-    imageFileIds: [],
-    externalLinks: []
-  };
-
-  constructor(private recipeService: RecipeService, private userEventService: UserEventService, private sanitizer: DomSanitizer) {
-    super();
-  }
+  constructor(
+    private recipeService: RecipeService,
+    private userEventService: UserEventService,
+    private sanitizer: DomSanitizer
+  ) { super(); }
 
   async ngOnInit() {
     await this.loadRecipes();
-    this.recipes.forEach(recipe => {
-      if (!this.expandedRecipes.has(recipe.id)) {
-        this.expandedRecipes.set(recipe.id, false);
-      } else {
-        const currentStatus = this.expandedRecipes.get(recipe.id) ?? false;
-        this.expandedRecipes.set(recipe.id, currentStatus);
-      }
-    });
+    this.recipes.forEach(r => { if (!this.expandedRecipes.has(r.id)) this.expandedRecipes.set(r.id, false); });
     if (this.recipeId) {
       this.viewingRecipeId = this.recipeId;
-      const target = this.recipes.find(r => r.id === this.recipeId);
-      if (target) {
-        this.expandedRecipes.set(target.id, true);
-      }
+      const t = this.recipes.find(r => r.id === this.recipeId);
+      if (t) { this.expandedRecipes.set(t.id, true); }
       this.applyFilters();
     }
+  }
+
+  private makeBlankForm(): RecipePayload {
+    return { userId: 0, name: '', description: '', createdBy: '', ingredients: [''], instructions: [''], tags: [], imageFileIds: [], externalLinks: [] };
   }
 
   async loadRecipes(): Promise<void> {
     this.startLoading();
-    try {
-      this.recipes = await firstValueFrom(this.recipeService.getRecipes(this.searchTerm || undefined));
-      this.applyFilters();
-    } catch { }
+    try { this.recipes = await firstValueFrom(this.recipeService.getRecipes(this.searchTerm || undefined)); this.applyFilters(); }
+    catch { }
     this.stopLoading();
   }
 
   applyFilters(): void {
-    if (this.viewingRecipeId) {
-      this.filteredRecipes = this.recipes.filter(r => r.id === this.viewingRecipeId);
-      return;
-    }
-    const search = this.searchTerm.trim().toLowerCase();
-    if (!search) {
-      this.filteredRecipes = [...this.recipes];
-      return;
-    }
-
-    this.filteredRecipes = this.recipes.filter(recipe => {
-      const haystack = [
-        recipe.id.toString(),
-        recipe.name,
-        recipe.description,
-        recipe.ingredients.join(' '),
-        recipe.instructions.join(' '),
-        recipe.tags.join(' ')
-      ].join(' ').toLowerCase();
-      return haystack.includes(search);
-    });
+    if (this.viewingRecipeId) { this.filteredRecipes = this.recipes.filter(r => r.id === this.viewingRecipeId); return; }
+    const s = this.searchTerm.trim().toLowerCase();
+    if (!s) { this.filteredRecipes = [...this.recipes]; return; }
+    this.filteredRecipes = this.recipes.filter(r =>
+      [r.id.toString(), r.name, r.description, r.ingredients.join(' '), r.instructions.join(' '), r.tags.join(' ')]
+        .join(' ').toLowerCase().includes(s)
+    );
   }
 
-  clearViewingRecipeId(): void {
-    this.viewingRecipeId = null;
-    this.searchTerm = '';
-    this.applyFilters();
-  }
+  clearViewingRecipeId(): void { this.viewingRecipeId = null; this.searchTerm = ''; this.applyFilters(); }
 
   openCreateForm(): void {
-    this.isCreating = true;
-    this.editingRecipeId = null;
-    this.form = {
-      userId: 0,
-      name: '',
-      description: '',
-      createdBy: '',
-      ingredients: [''],
-      instructions: [''],
-      tags: [],
-      imageFileIds: [],
-      externalLinks: []
-    };
+    this.editingRecipeId = 0;
+    this.form = this.makeBlankForm();
     this.selectedFiles = [];
     this.selectedTopics = [];
   }
 
-  cancelCreate(): void {
-    this.isCreating = false;
+  cancelEdit(): void {
+    const wasEditing = this.editingRecipeId;
     this.editingRecipeId = null;
-    this.form = {
-      userId: 0,
-      name: '',
-      description: '',
-      createdBy: '',
-      ingredients: [''],
-      instructions: [''],
-      tags: [],
-      imageFileIds: [],
-      externalLinks: []
-    };
+    this.form = this.makeBlankForm();
     this.selectedFiles = [];
     this.selectedTopics = [];
-    this.parentRef?.closeOverlay();
-  }
-
-  canEdit(recipe: Recipe): boolean {
-    return !!this.parentRef?.user?.id && recipe.userId === this.parentRef.user.id;
-  }
-
-  editRecipe(recipe: Recipe): void {
-    const isExpanded = this.expandedRecipes.get(recipe.id);
-    if (isExpanded) {
-      this.toggleRecipeDetails(recipe.id);
+    // Collapse the card that was being edited
+    if (wasEditing && wasEditing > 0) {
+      this.expandedRecipes.set(wasEditing, false);
     }
-    setTimeout(() => {
-      this.isCreating = true;
-      this.editingRecipeId = recipe.id;
-      this.form = {
-        userId: recipe.userId,
-        name: recipe.name,
-        description: recipe.description,
-        createdBy: recipe.createdBy,
-        ingredients: [...recipe.ingredients],
-        instructions: [...recipe.instructions],
-        tags: [...recipe.tags],
-        imageFileIds: [...(recipe.imageFileIds || [])],
-        externalLinks: [...(recipe.externalLinks || [])]
-      };
-      this.selectedFiles = [];
-      this.selectedTopics = (recipe.tags || []).map((t, i) => new Topic(i, t));
-    }, 50); 
   }
 
-  hasEmptyIngredient(): boolean {
-    return this.form.ingredients.some(i => !i.trim());
+  canEdit(r: Recipe): boolean { return !!this.parentRef?.user?.id && r.userId === this.parentRef.user.id; }
+
+  editRecipe(r: Recipe): void {
+    this.expandedRecipes.set(r.id, true);
+    this.editingRecipeId = r.id;
+    this.form = {
+      userId: r.userId, name: r.name, description: r.description, createdBy: r.createdBy,
+      ingredients: [...r.ingredients], instructions: [...r.instructions],
+      tags: [...r.tags], imageFileIds: [...(r.imageFileIds || [])],
+      externalLinks: [...(r.externalLinks || [])]
+    };
+    this.selectedFiles = [];
+    this.selectedTopics = (r.tags || []).map((t, i) => new Topic(i, t));
   }
 
-  hasEmptyInstruction(): boolean {
-    return this.form.instructions.some(i => !i.trim());
+  hasEmptyIngredient(): boolean { return this.form.ingredients.some(i => !i.trim()); }
+  hasEmptyInstruction(): boolean { return this.form.instructions.some(i => !i.trim()); }
+
+  addIngredient(): void { this.form.ingredients.push(''); setTimeout(() => this.scrollTo('ingredient', this.form.ingredients.length - 1), 0); }
+  removeIngredient(i: number): void { this.form.ingredients.splice(i, 1); }
+  addInstruction(): void { this.form.instructions.push(''); setTimeout(() => this.scrollTo('instruction', this.form.instructions.length - 1), 0); }
+  removeInstruction(i: number): void { this.form.instructions.splice(i, 1); }
+
+  private scrollTo(type: string, i: number) {
+    setTimeout(() => { document.getElementById(type + i)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 50);
   }
 
-  addIngredient(): void {
-    this.form.ingredients.push('');
-    setTimeout(() => this.scrollToNewInput('ingredient', this.form.ingredients.length - 1), 0);
-  }
-
-  removeIngredient(index: number): void {
-    this.form.ingredients.splice(index, 1);
-  }
-
-  addInstruction(): void {
-    this.form.instructions.push('');
-    setTimeout(() => this.scrollToNewInput('instruction', this.form.instructions.length - 1), 0);
-  }
-
-  scrollToNewInput(type: 'ingredient' | 'instruction', index: number) {
-    setTimeout(() => {
-      document.getElementById(type + index)?.scrollIntoView();
-    }, 50);
-  }
-
-  removeInstruction(index: number): void {
-    this.form.instructions.splice(index, 1);
-  }
-
-  onTopicsChanged(topics: Topic[]): void {
-    this.selectedTopics = topics;
-    this.form.tags = topics.map(t => t.topicText);
-  }
-
-  addLink(): void {
-    this.form.externalLinks.push('');
-  }
-
-  removeLink(index: number): void {
-    this.form.externalLinks.splice(index, 1);
-  }
-
-  visitLink(url: string): void {
-    this.parentRef?.visitExternalLink(url);
-  }
-
-  onMediaSelection(files: FileEntry[]): void {
-    this.selectedFiles = files;
-    this.form.imageFileIds = files.map(file => file.id).filter(Boolean);
-  }
+  onTopicsChanged(topics: Topic[]): void { this.selectedTopics = topics; this.form.tags = topics.map(t => t.topicText); }
+  addLink(): void { this.form.externalLinks.push(''); }
+  removeLink(i: number): void { this.form.externalLinks.splice(i, 1); }
+  visitLink(url: string): void { this.parentRef?.visitExternalLink(url); }
+  onMediaSelection(files: FileEntry[]): void { this.selectedFiles = files; this.form.imageFileIds = files.map(f => f.id).filter(Boolean); }
 
   submitRecipe(): void {
-    if (!this.form.name.trim()) {
-      return alert('Please give your recipe a name.');
-    }
-
-    const payload: RecipePayload = {
+    if (!this.form.name.trim()) return alert('Please give your recipe a name.');
+    const p: RecipePayload = {
       ...this.form,
       userId: this.parentRef?.user?.id || 0,
-      ingredients: this.form.ingredients.map(value => value.trim()).filter(Boolean),
-      instructions: this.form.instructions.map(value => value.trim()).filter(Boolean),
+      ingredients: this.form.ingredients.map(v => v.trim()).filter(Boolean),
+      instructions: this.form.instructions.map(v => v.trim()).filter(Boolean),
       tags: this.selectedTopics.map(t => t.topicText).filter(Boolean),
       imageFileIds: this.form.imageFileIds,
-      externalLinks: this.form.externalLinks.map(value => value.trim()).filter(Boolean),
-      createdBy: this.parentRef?.user?.username ?? "Anonymous"
+      externalLinks: this.form.externalLinks.map(v => v.trim()).filter(Boolean),
+      createdBy: this.parentRef?.user?.username ?? 'Anonymous'
     };
-
     this.isLoading = true;
-    const request$ = this.editingRecipeId
-      ? this.recipeService.updateRecipe(this.editingRecipeId, payload)
-      : this.recipeService.createRecipe(payload);
-
-    const msg = `${this.editingRecipeId ? 'Edited' : 'Added'} a recipe!`;
+    const isUpdate = this.editingRecipeId !== null && this.editingRecipeId > 0;
+    const req$ = isUpdate ? this.recipeService.updateRecipe(this.editingRecipeId!, p) : this.recipeService.createRecipe(p);
     this.userEventService.insertUserEvent(
-      this.parentRef?.user?.id ?? 0, 
-      this.editingRecipeId ? 'recipe_edited' : 'recipe_added', 
-      msg, 
-      this.editingRecipeId??undefined, 
-      'recipe'
+      this.parentRef?.user?.id ?? 0, isUpdate ? 'recipe_edited' : 'recipe_added',
+      `${isUpdate ? 'Edited' : 'Added'} a recipe!`, this.editingRecipeId ?? undefined, 'recipe'
     );
-    request$.subscribe({
+    req$.subscribe({
       next: () => {
-        this.isLoading = false;
-        this.isCreating = false;
-        this.editingRecipeId = null;
-        this.loadRecipes();
-        this.cancelCreate();
+        this.isLoading = false; this.editingRecipeId = null;
+        this.loadRecipes(); this.form = this.makeBlankForm();
+        this.selectedFiles = []; this.selectedTopics = [];
       },
-      error: () => {
-        this.isLoading = false;
-        alert('Could not save the recipe right now.');
-      }
+      error: () => { this.isLoading = false; alert('Could not save the recipe right now.'); }
     });
   }
 
-  getUserRating(recipe: Recipe): Rating {
+  getUserRating(r: Recipe): Rating {
     const uid = this.parentRef?.user?.id ?? 0;
-    return {
-      value: 0,
-      user: uid > 0 ? new User(uid, this.parentRef?.user?.username ?? '') : undefined
-    };
+    return { value: 0, user: uid > 0 ? new User(uid, this.parentRef?.user?.username ?? '') : undefined };
   }
 
-  isRecipeVideoShort(url?: string): boolean { 
-    if (!url) { return false; }
-    return this.parentRef?.isYoutubeShortUrl(url) ?? false;
+  isRecipeVideoShort(url?: string): boolean { return url ? (this.parentRef?.isYoutubeShortUrl(url) ?? false) : false; }
+  isVideoOnlyRecipe(r?: Recipe): boolean {
+    if (!r) return false;
+    return !r.description?.trim() && (!r.ingredients?.length || r.ingredients.every(i => !i.trim()))
+      && (!r.instructions?.length || r.instructions.every(i => !i.trim()))
+      && !r.imageFileIds?.length && !!this.getFirstYouTubeId(r);
   }
-
-  isVideoOnlyRecipe(recipe?: Recipe): boolean {
-    if (!recipe) { return false; }
-    return !recipe.description?.trim()
-      && (!recipe.ingredients?.length || recipe.ingredients.every(i => !i.trim()))
-      && (!recipe.instructions?.length || recipe.instructions.every(i => !i.trim()))
-      && !recipe.imageFileIds?.length
-      && !!this.getFirstYouTubeId(recipe);
-  }
-
-  getFirstYoutubeUrlForRecipe(recipe?: Recipe) : string | undefined { 
-    if (!recipe) return;
-    for (const link of recipe.externalLinks) {
-      if (this.parentRef?.isYoutubeUrl(link)) {
-        return link;
-      }
-    }
+  getFirstYoutubeUrlForRecipe(r?: Recipe): string | undefined {
+    if (!r) return;
+    for (const l of r.externalLinks) if (this.parentRef?.isYoutubeUrl(l)) return l;
     return;
   }
-
-  getFirstYouTubeId(recipe: Recipe): string | null {
-    for (const link of recipe.externalLinks) {
-      if (this.parentRef?.isYoutubeUrl(link)) {
-        return this.parentRef?.getYouTubeVideoId(link) || null;
-      }
-    }
+  getFirstYouTubeId(r: Recipe): string | null {
+    for (const l of r.externalLinks) if (this.parentRef?.isYoutubeUrl(l)) return this.parentRef?.getYouTubeVideoId(l) || null;
     return null;
   }
-
-  private youTubeUrlCache = new Map<number, SafeResourceUrl>();
-
-  getYouTubeUrl(recipe: Recipe): SafeResourceUrl | null {
-    const cached = this.youTubeUrlCache.get(recipe.id);
-    if (cached) return cached;
-    const id = this.getFirstYouTubeId(recipe);
-    if (!id) return null;
-    const url = this.sanitizer.bypassSecurityTrustResourceUrl(
-      `https://www.youtube.com/embed/${id}?autoplay=1&mute=1`
-    );
-    this.youTubeUrlCache.set(recipe.id, url);
-    return url;
+  getYouTubeUrl(r: Recipe): SafeResourceUrl | null {
+    const c = this.youTubeUrlCache.get(r.id); if (c) return c;
+    const id = this.getFirstYouTubeId(r); if (!id) return null;
+    const url = this.sanitizer.bypassSecurityTrustResourceUrl(`https://www.youtube.com/embed/${id}?autoplay=1&mute=1`);
+    this.youTubeUrlCache.set(r.id, url); return url;
   }
-
-  trackByRecipeId(index: number, recipe: Recipe): number {
-    return recipe.id ?? index;
-  }
-
-  trackByIndex(index: number): number {
-    return index;
-  }
+  trackByRecipeId(_: number, r: Recipe): number { return r.id ?? _; }
+  trackByIndex(i: number): number { return i; }
 
   toggleRecipeDetails(recipeId: number): void {
-    clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
-      const isExpanded = !this.expandedRecipes.get(recipeId);
-      if (this.parentRef) {
-        if (isExpanded) {
-          this.parentRef.showOverlay();
-        } else {
-          this.parentRef.closeOverlay(false);
-        }
-      }
-
-      this.expandedRecipes.set(recipeId, isExpanded);
-    }, 500);  
+    const expanded = !this.expandedRecipes.get(recipeId);
+    this.expandedRecipes.set(recipeId, expanded);
+    if (!expanded && this.editingRecipeId === recipeId) this.cancelEdit();
   }
 }

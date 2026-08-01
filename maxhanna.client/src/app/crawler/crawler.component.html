@@ -1,31 +1,23 @@
-﻿<div class="componentMain">
+<div class="componentMain">
   <app-title-bar [title]="!onlySearch ? 'Crawler' : ''" [showTitle]="!onlySearch" [hasMenu]="!onlySearch"
     [showMenu]="!onlySearch" [hasClose]="!onlySearch" [showClose]="!onlySearch" (menuClicked)="showMenuPanel()"
     (closeClicked)="remove_me('Crawler');">
   </app-title-bar>
 
-  <div class="xxSmallFont nbDiv" [style.margin-Top]="onlySearch ? '-20px' : ''">
-    <div *ngIf="!searchResults.length && !onMobile() && !onlySearch">
-      Total indexes: {{indexCount}}{{" "}}
-      ({{youtubeResults.length}} YouTube results){{" "}}
-      ({{redditResults.length || 0 }} Reddit results){{" "}}
-      ({{xResults.length || 0 }} X results){{" "}}
-      ({{imdbResults.length || 0 }} IMDB results)
-    </div>
+  <!-- Stats Bar -->
+  <div class="stats-bar nbDiv" [style.margin-Top]="onlySearch ? '-16px' : ''">
+    <span class="stat-badge" *ngIf="!onlySearch">Total: <span class="stat-value">{{indexCount}}</span> indexed</span>
+    <span class="stat-badge" *ngIf="searchResults.length">Results: <span class="stat-value">{{totalResults}}</span></span>
+    <span class="stat-badge" *ngIf="youtubeResults.length">YouTube: <span class="stat-value">{{youtubeResults.length}}</span></span>
+    <span class="stat-badge" *ngIf="redditResults.length">Reddit: <span class="stat-value">{{redditResults.length}}</span></span>
+    <span class="stat-badge" *ngIf="xResults.length">X: <span class="stat-value">{{xResults.length}}</span></span>
+    <span class="stat-badge" *ngIf="imdbResults.length">IMDB: <span class="stat-value">{{imdbResults.length}}</span></span>
   </div>
 
-  <div class="xxSmallFont">
-    Search results: {{ totalResults }}{{" "}}
-    ({{ youtubeResults.length }} YouTube results){{" "}}
-    ({{redditResults.length || 0 }} Reddit results){{" "}}
-    ({{xResults.length || 0 }} X results){{" "}}
-    ({{imdbResults.length || 0 }} IMDB results)
-  </div>
-
-  <div class="crawler-container" [style.position]="onlySearch ? 'relative' : ''"
-    [style.top]="onlySearch ? '-35px' : ''">
+  <div class="crawler-container" [style.position]="onlySearch ? 'relative' : ''" [style.top]="onlySearch ? '-30px' : ''">
+    <!-- Search Bar -->
     <div style="text-align: center;">
-      <div [class]="!onlySearch ? 'crawlerInputs' : ''" *ngIf="totalPages > 1" style="margin-bottom:10px">
+      <div class="pagination-bar" *ngIf="totalPages > 1">
         <button (click)="onPageChange(currentPage - 1)" [disabled]="currentPage <= 1">Previous</button>
         <span>Page {{ currentPage }} of {{ totalPages }}</span>
         <button (click)="onPageChange(currentPage + 1)" [disabled]="currentPage >= totalPages">Next</button>
@@ -33,154 +25,103 @@
       <div [class]="!onlySearch ? 'crawlerInputs' : 'searchOnlyCrawlerInputs'">
         <div style="display:flex; flex-direction: column; gap: 8px; align-items: center;">
           <div>
-            <input #keywordsInput type="text" placeholder="Search Title/Description/URL"
-              (keydown.enter)="searchKeywords()" />
-            <button (click)="searchKeywords()"
-              [disabled]="isLoading || !(keywordsInput?.value && keywordsInput.value.trim())">
-              🔎{{!onMobile() ? 'Crawl' : ''}}
+            <input #keywordsInput type="text" placeholder="Search Title/Description/URL" (keydown.enter)="searchKeywords()" />
+            <button (click)="searchKeywords()" [disabled]="isLoading || !(keywordsInput?.value && keywordsInput.value.trim())">
+              Search{{!onMobile() ? ' the Web' : ''}}
             </button>
           </div>
         </div>
-        <button (click)="addWithoutSearch()"
-          [disabled]="isLoading || !(keywordsInput?.value && keywordsInput.value.trim())" *ngIf="onlySearch"
-          title="Add without searching">＋</button>
+        <button (click)="addWithoutSearch()" [disabled]="isLoading || !(keywordsInput?.value && keywordsInput.value.trim())" *ngIf="onlySearch" title="Add without searching">+</button>
       </div>
     </div>
 
-    <div *ngIf="isLoading" class="loadingNotificationDiv">
-      <app-loading-spinner [icon]="'🕸️'">Crawling the Web</app-loading-spinner>
-    </div>
-    <div *ngIf="isSearchingYoutube" class="loadingNotificationDiv">
-      <app-loading-spinner [icon]="'▶️'">Crawling Youtube</app-loading-spinner>
-    </div>
-    <div *ngIf="isSearchingReddit" class="loadingNotificationDiv">
-      <app-loading-spinner [icon]="'🤖'">Crawling Reddit</app-loading-spinner>
-    </div>
-    <div *ngIf="isSearchingX" class="loadingNotificationDiv">
-      <app-loading-spinner [icon]="'🐦'">Crawling X</app-loading-spinner>
-    </div>
-
+    <!-- Loading states -->
+    <div *ngIf="isLoading" class="loadingNotificationDiv"><app-loading-spinner [icon]="'&#x1F578;'">Crawling the Web</app-loading-spinner></div>
+    <div *ngIf="isSearchingYoutube" class="loadingNotificationDiv"><app-loading-spinner [icon]="'&#x25B6;'">Crawling Youtube</app-loading-spinner></div>
+    <div *ngIf="isSearchingReddit" class="loadingNotificationDiv"><app-loading-spinner [icon]="'&#x1F916;'">Crawling Reddit</app-loading-spinner></div>
+    <div *ngIf="isSearchingX" class="loadingNotificationDiv"><app-loading-spinner [icon]="'&#x1F426;'">Crawling X</app-loading-spinner></div>
     <div *ngIf="error" class="error-message">{{ error }}</div>
 
-    <div class="metadataSearchWrapper"
-      [style.opacity]="(isLoading && isSearchingYoutube && isSearchingReddit) ? 0.5 : 1"
-      [style.max-Height]="onlySearch ? '30vh' : ''">
-
-      <div *ngIf="youtubeResults?.length" class="metadataSearchWrapper" [style.opacity]="isSearchingYoutube ? 0.5 : 1"
-        [style.max-Height]="onlySearch ? '30vh' : ''">
-        <div class="metadataSearchDiv gradientBackground">
-          <div class="groupDomainTitle">YouTube Results</div>
-          <div *ngFor="let video of youtubeResults.slice(0, youtubeDisplayLimit)" class="groupLinkWrapperDiv">
-            <div class="groupLinkDataWrapperDiv">
-              <div class="descriptionDiv titleClass cursorPointer linkTextDecoration">
-                <a class="pageTitleLink" [attr.href]="video.url" target="_blank"
-                  (click)="openYoutubePopup($event, video.url)">{{ video.title }}</a>
-              </div>
-              <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
-                <a [attr.href]="video.url" target="_blank" (click)="openYoutubePopup($event, video.url)">{{ video.url
-                  }}</a>
-              </div>
-              <div *ngIf="video.description" class="descriptionDiv descriptClass" [title]="video.description">{{ video.description }}</div>
+    <!-- YouTube Results -->
+    <div *ngIf="youtubeResults?.length" class="metadataSearchWrapper" [style.opacity]="isSearchingYoutube ? 0.5 : 1" [style.max-Height]="onlySearch ? '30vh' : ''">
+      <div class="metadataSearchDiv gradientBackground">
+        <div class="groupDomainTitle">YouTube Results</div>
+        <div *ngFor="let video of youtubeResults.slice(0, youtubeDisplayLimit)" class="groupLinkWrapperDiv">
+          <div class="groupLinkDataWrapperDiv">
+            <a class="pageTitleLink" [attr.href]="video.url" target="_blank" (click)="openYoutubePopup($event, video.url)">{{ video.title }}</a>
+            <div class="metadataTitleLinkFavouriteWrapper">
+              <a [attr.href]="video.url" target="_blank" (click)="openYoutubePopup($event, video.url)">{{ video.url }}</a>
             </div>
-            <div class="imageUrlPictureDiv">
-              <a [attr.href]="video.url" target="_blank" [title]="video.title"
-                (click)="openYoutubePopup($event, video.url)">
-                <img [src]="video.thumbnailUrl" [attr.loading]="'lazy'" [title]="video.title"
-                  (error)="video.thumbnailUrl = ''" />
-              </a>
-            </div>
+            <div *ngIf="video.description" class="descriptClass" [title]="video.description">{{ video.description }}</div>
           </div>
-        </div>
-        <div style="text-align: center; margin-top:10px;" *ngIf="youtubeResults.length >1">
-          <button (click)="showMoreYoutube()">
-            Display {{ youtubeDisplayLimit > 1 ? "less" : "more" }} YouTube results {{ youtubeDisplayLimit === 1 ?
-            ("(" +
-            (youtubeResults.length - 1) + ")") : ""}}
-          </button>
+          <div class="imageUrlPictureDiv">
+            <a [attr.href]="video.url" target="_blank" [title]="video.title" (click)="openYoutubePopup($event, video.url)">
+              <img [src]="video.thumbnailUrl" loading="lazy" [title]="video.title" (error)="video.thumbnailUrl = ''" />
+            </a>
+          </div>
         </div>
       </div>
-
-      <div *ngIf="imdbResults.length" class="metadataSearchWrapper" [style.opacity]="isSearchingImdb ?0.5 :1"
-        [style.max-Height]="onlySearch ? '30vh' : ''">
-        <div class="metadataSearchDiv gradientBackground">
-          <div class="groupDomainTitle">IMDB Results</div>
-          <div *ngFor="let result of imdbResults.slice(0, imdbDisplayLimit)" class="groupLinkWrapperDiv">
-            <div class="groupLinkDataWrapperDiv">
-              <div class="descriptionDiv titleClass cursorPointer linkTextDecoration">
-                <a class="pageTitleLink" [attr.href]="result.url" target="_blank">{{ result.title }}</a>
-              </div>
-              <div class="descriptionDiv cursorPointer metadataTitleLinkFavouriteWrapper">
-                <a [attr.href]="result.url" target="_blank">{{ result.url }}</a>
-              </div>
-              <div *ngIf="result.description" class="descriptionDiv descriptClass" [title]="result.description">{{ result.description }}</div>
-            </div>
-            <div class="imageUrlPictureDiv">
-              <a [attr.href]="result.url" target="_blank" [title]="result.title">
-                <img [src]="result.imageUrl || 'https://placehold.co/128x72?text=No+Image' " [attr.loading]="'lazy'"
-                  [title]="result.title" (error)="result.imageUrl = ''" />
-              </a>
-            </div>
-          </div>
-        </div>
-        <div style="text-align: center; margin-top:10px;" *ngIf="imdbResults.length">
-          <button (click)="showMoreImdb()">
-            Display {{ imdbDisplayLimit >1 ? "less" : "more" }} IMDB results {{ imdbDisplayLimit === 1 ? ("(" +
-            (imdbResults.length -1) + ")") : ""}}
-          </button>
-        </div>
+      <div class="more-btn-row" *ngIf="youtubeResults.length > 1">
+        <button (click)="showMoreYoutube()">{{ youtubeDisplayLimit > 1 ? 'Show less' : 'Show all ' + youtubeResults.length + ' YouTube results' }}</button>
       </div>
     </div>
 
+    <!-- IMDB Results -->
+    <div *ngIf="imdbResults.length" class="metadataSearchWrapper" [style.opacity]="isSearchingImdb ? 0.5 : 1" [style.max-Height]="onlySearch ? '30vh' : ''">
+      <div class="metadataSearchDiv gradientBackground">
+        <div class="groupDomainTitle">IMDB Results</div>
+        <div *ngFor="let result of imdbResults.slice(0, imdbDisplayLimit)" class="groupLinkWrapperDiv">
+          <div class="groupLinkDataWrapperDiv">
+            <a class="pageTitleLink" [attr.href]="result.url" target="_blank">{{ result.title }}</a>
+            <div class="metadataTitleLinkFavouriteWrapper">
+              <a [attr.href]="result.url" target="_blank">{{ result.url }}</a>
+            </div>
+            <div *ngIf="result.description" class="descriptClass" [title]="result.description">{{ result.description }}</div>
+          </div>
+          <div class="imageUrlPictureDiv">
+            <img [src]="result.imageUrl || 'https://placehold.co/128x72?text=No+Image'" loading="lazy" [title]="result.title" (error)="result.imageUrl = ''" />
+          </div>
+        </div>
+      </div>
+      <div class="more-btn-row" *ngIf="imdbResults.length > 1">
+        <button (click)="showMoreImdb()">{{ imdbDisplayLimit > 1 ? 'Show less' : 'Show all ' + imdbResults.length + ' IMDB results' }}</button>
+      </div>
+    </div>
+
+    <!-- Social Results (Reddit, X, Facebook) -->
     <div *ngIf="socialResults?.length" class="metadataSearchWrapper" [style.max-Height]="onlySearch ? '30vh' : ''">
       <div class="metadataSearchDiv gradientBackground">
         <div class="groupDomainTitle">Reddit, X, Facebook Results</div>
         <div *ngFor="let result of socialResults.slice(0, socialDisplayLimit)" class="groupLinkWrapperDiv">
-          <app-crawler-search-results style="width:100%" [result]="result"
-            [inputtedParentRef]="inputtedParentRef ?? parentRef" [onlySearch]="onlySearch" [hideStatus]="true"
-            [displaySocialResults]="true" (urlSelectedEvent)="visitExternalLink($event)">
-          </app-crawler-search-results>
+          <app-crawler-search-results style="width:100%" [result]="result" [inputtedParentRef]="inputtedParentRef ?? parentRef" [onlySearch]="onlySearch" [hideStatus]="true" [displaySocialResults]="true" (urlSelectedEvent)="visitExternalLink($event)"></app-crawler-search-results>
         </div>
       </div>
-      <div style="text-align: center; margin-top:10px;" *ngIf="socialResults.length > socialDisplayLimit">
-        <button (click)="showMoreSocial()">
-          Display more Reddit, X, Facebook results ({{ socialResults.length - socialDisplayLimit }} more)
-        </button>
+      <div class="more-btn-row" *ngIf="socialResults.length > socialDisplayLimit">
+        <button (click)="showMoreSocial()">Show more ({{ socialResults.length - socialDisplayLimit }} remaining)</button>
       </div>
     </div>
 
-    <div *ngFor="let group of groupedResults" class="metadataSearchDiv gradientBackground">
-      <div class="groupDomainTitle">
-        {{ group.domain }}
+    <!-- Web Results (grouped by domain) -->
+    <div *ngFor="let group of groupedResults" class="metadataSearchDiv">
+      <div class="groupDomainTitle">{{ group.domain }}</div>
+      <div *ngFor="let result of group.links; let i = index" [class]="(group.showSubdomains || i === 0) ? 'groupLinkWrapperDiv' : ''">
+        <app-crawler-search-results *ngIf="group.showSubdomains || i === 0" style="width:100%" [result]="result" [inputtedParentRef]="inputtedParentRef ?? parentRef" [onlySearch]="onlySearch" (urlSelectedEvent)="visitExternalLink($event)"></app-crawler-search-results>
       </div>
-      <div *ngFor="let result of group.links; let i = index"
-        [class]="(group.showSubdomains || i === 0) ? 'groupLinkWrapperDiv' : ''">
-        <app-crawler-search-results *ngIf="group.showSubdomains || i === 0" style="width:100%" [result]="result"
-          [inputtedParentRef]="inputtedParentRef ?? parentRef" [onlySearch]="onlySearch"
-          (urlSelectedEvent)="visitExternalLink($event)">
-        </app-crawler-search-results>
+      <div class="expandButton" *ngIf="group.links.length > 1" (click)="toggleSubdomains(group)">
+        <button>{{ group.showSubdomains ? 'Collapse' : 'Show all ' + group.links.length + ' results' }}</button>
       </div>
-      <span (click)="toggleSubdomains(group)" class="expandButton" *ngIf="group.links.length > 1">
-        <button>{{ group.showSubdomains ? 'Collapse' : 'Expand' }}</button>
-      </span>
     </div>
-    <div style="text-align:center">
-      <button *ngIf="totalPages > 1 && currentPage < totalPages" (click)="onPageChange()">
-        Display More Web Results
-      </button>
+
+    <div class="more-btn-row" *ngIf="totalPages > 1 && currentPage < totalPages">
+      <button (click)="onPageChange()">Load More Results</button>
     </div>
   </div>
-  <div *ngIf="searchResults?.length == 0 && !error && !isLoading" class="smallFont nbDiv">
-    <div *ngIf="!onlySearch" (click)="seeNew()" class="cursorPointer linkTextDecoration">See the latest indexes.</div>
+
+  <div *ngIf="searchResults?.length == 0 && !error && !isLoading" class="nbDiv">
+    <span *ngIf="!onlySearch" (click)="seeNew()" class="cursorPointer linkTextDecoration">See the latest indexes.</span>
   </div>
-</div>
-<div *ngIf="!searchResults.length" class="xxSmallFont">Total indexes: {{indexCount}}</div>
-<div *ngIf="searchResults?.length" class="xxSmallFont">
-  Total indexes: {{ indexCount }}{{" "}}
-  Search results: {{ totalResults }}{{" "}}
-  ({{ youtubeResults.length }} YouTube results){{" "}}
-  ({{ redditResults.length || 0 }} Reddit results){{" "}}
-  ({{ xResults.length || 0 }} X results){{" "}}
-  ({{ imdbResults.length || 0 }} IMDB results)
+
+  <div *ngIf="!searchResults.length && indexCount" class="nbDiv">Total indexes: {{indexCount}}</div>
 </div>
 
 <!-- Menu Popup -->
@@ -192,37 +133,24 @@
       <option *ngFor="let size of pageSizes" [value]="size" [selected]="size === pageSize">{{ size }}</option>
     </select>
   </div>
-
-  <div class="popupPanelTitle">Database Nerd Stats:</div>
-  <div *ngIf="isLoading" class="optionsStatsWrapperDiv">
-    <div class="optionsStatsDiv">
-      <div class="optionsStatsDescription">Loading statistics...</div>
-    </div>
-  </div>
+  <div class="popupPanelTitle">Database Stats:</div>
+  <div *ngIf="isLoading" class="optionsStatsWrapperDiv"><div class="optionsStatsDiv"><div class="optionsStatsDescription">Loading...</div></div></div>
   <div *ngIf="!isLoading && storageStats" class="optionsStatsWrapperDiv">
-    <div class="optionsStatsDiv">
-      <div class="optionsStatsHeader">Total Rows:</div>
-      <div class="optionsStatsDescription">{{storageStats.totalRows}}</div>
-    </div>
-    <div class="optionsStatsDiv">
-      <div class="optionsStatsHeader">Total Database Size MB:</div>
-      <div class="optionsStatsDescription">{{storageStats.totalDatabaseSizeMB}}</div>
-    </div>
+    <div class="optionsStatsDiv"><div class="optionsStatsHeader">Total Rows:</div><div class="optionsStatsDescription">{{storageStats.totalRows}}</div></div>
+    <div class="optionsStatsDiv"><div class="optionsStatsHeader">Total Size (MB):</div><div class="optionsStatsDescription">{{storageStats.totalDatabaseSizeMB}}</div></div>
   </div>
   <div class="smallFont">Note: You can index your website by searching for it.</div>
   <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>
 
 <!-- YouTube Video Popup -->
-<div class="popupPanel" *ngIf="showYoutubePopup"
-  style="min-width: 360px; width: min(90vw, 800px); height: min(80vh, 600px);">
+<div class="popupPanel" *ngIf="showYoutubePopup" style="min-width: 360px; width: min(90vw, 800px); height: min(80vh, 600px);">
   <div class="popupPanelTitle" style="display: flex; justify-content: space-between; align-items: center;">
     <span>YouTube Video</span>
     <span (click)="closeYoutubePopup()" class="cursorPointer" style="font-size: 20px; line-height: 1;">&times;</span>
   </div>
   <div style="padding: 10px; height: calc(100% - 50px);">
-    <iframe [src]="sanitizedYoutubeUrl" style="width: 100%; height: 100%; border: none;" allowfullscreen>
-    </iframe>
+    <iframe [src]="sanitizedYoutubeUrl" style="width: 100%; height: 100%; border: none;" allowfullscreen></iframe>
   </div>
   <button (click)="closeYoutubePopup()" class="closeButton">Close</button>
 </div>
@@ -233,13 +161,10 @@
   <div style="padding: 12px; max-height: 50vh; overflow: auto;">
     <div *ngIf="favouritedByList && favouritedByList.length > 0; else noFavourites">
       <div *ngFor="let u of favouritedByList" style="margin-bottom:8px;">
-        <app-user-tag [user]="u" [inputtedParentRef]="inputtedParentRef ?? parentRef"
-          [displayMiniTag]="true"></app-user-tag>
+        <app-user-tag [user]="u" [inputtedParentRef]="inputtedParentRef ?? parentRef" [displayMiniTag]="true"></app-user-tag>
       </div>
     </div>
-    <ng-template #noFavourites>
-      <div class="smallFont">No users have favourited this URL.</div>
-    </ng-template>
+    <ng-template #noFavourites><div class="smallFont">No users have favourited this URL.</div></ng-template>
   </div>
   <button id="closeOverlay" (click)="closeFavouritedByPanel()" class="closeButton">Close</button>
 </div>
