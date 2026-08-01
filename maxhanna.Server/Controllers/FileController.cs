@@ -778,10 +778,24 @@ namespace maxhanna.Server.Controllers
             reader.Close();
 
             var commentUsers = new Dictionary<int, User>();
-            // foreach (var uid in userIdsNeeded)
-            // {
-            //   commentUsers[uid] = await GetCachedUserAsync(uid, connection) ?? new User(uid);
-            // }
+            if (userIdsNeeded.Count > 0)
+            {
+                var idList = string.Join(",", userIdsNeeded);
+                using var userCmd = new MySqlCommand($"SELECT id, username FROM maxhanna.users WHERE id IN ({idList})", connection);
+                using var userRdr = await userCmd.ExecuteReaderAsync();
+                while (await userRdr.ReadAsync())
+                {
+                    var uid = userRdr.GetInt32(0);
+                    commentUsers[uid] = new User(uid, userRdr.IsDBNull(1) ? "Anonymous" : userRdr.GetString(1));
+                }
+            }
+            foreach (var uid in userIdsNeeded)
+            {
+                if (!commentUsers.ContainsKey(uid))
+                {
+                    commentUsers[uid] = new User(uid);
+                }
+            }
 
             Dictionary<int, FileComment> allCommentsById = new();
             List<(FileComment comment, int parentId)> childComments = new();
@@ -805,7 +819,7 @@ namespace maxhanna.Server.Controllers
                         Id = commentId,
                         FileId = fileIdValue,
                         CommentId = commentParentId,
-                        User = new User(uid),
+                        User = commentUsers.TryGetValue(uid, out var commentUser) ? commentUser : new User(uid),
                         CommentText = row["commentText"] as string ?? "",
                         Date = row["commentDate"] is DateTime dt ? dt : DateTime.MinValue,
                         City = commentCity,

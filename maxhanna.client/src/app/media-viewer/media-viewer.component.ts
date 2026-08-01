@@ -52,6 +52,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Output() mediaEndedEvent = new EventEmitter<void>();
   @Output() finishedLoadingEvent = new EventEmitter<void>();
   @Output() fileEntryFoundEvent = new EventEmitter<FileEntry>();
+  @Output() videoMetadataEvent = new EventEmitter<{ fileId: number; duration: number }>();
 
   @ViewChild('mediaContainer', { static: false }) mediaContainer?: ElementRef;
   @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay?: ElementRef;
@@ -829,6 +830,14 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   }
   onVideoWaiting() {
     this.isVideoBuffering = true;
+  }
+
+  /** Emits the loaded video's duration (seconds) when its metadata becomes available. */
+  onVideoMetadataLoaded(event: Event) {
+    const video = event.target as HTMLVideoElement;
+    if (!video || !isFinite(video.duration) || video.duration <= 0) return;
+    const fileId = this.fileId ?? this.selectedFile?.id ?? 0;
+    this.videoMetadataEvent.emit({ fileId, duration: video.duration });
   }
 
   onVideoCanPlay() {

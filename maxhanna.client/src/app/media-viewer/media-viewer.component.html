@@ -31,7 +31,8 @@
       <video #mediaContainer *ngIf="videoFileExtensionsIncludes(this.selectedFileExtension)" [src]="selectedFileSrc"
         [controls]="displayControls" [autoplay]="autoplay" [loop]="loop" [muted]="muted" (waiting)="onVideoWaiting()"
         (canplay)="onVideoCanPlay()" (stalled)="onVideoStalled()" (touchend)="togglePlay(mediaContainer)"
-        (play)="togglePlay(mediaContainer)" (ended)="onMediaEnded()" playsinline preload="auto" class="video media">
+        (play)="togglePlay(mediaContainer)" (ended)="onMediaEnded()" (loadedmetadata)="onVideoMetadataLoaded($event)"
+        playsinline preload="auto" class="video media">
       </video>
       <audio #mediaContainer *ngIf="audioFileExtensionsIncludes(this.selectedFileExtension)" [src]="selectedFileSrc"
         controls preload="auto" [autoplay]="false" [muted]="muted" [loop]="loop" (touchend)="togglePlay(mediaContainer)"

@@ -31,6 +31,9 @@ interface BotCar {
   mistakeTimer: number;
   hasMistake: boolean;
   alive: boolean;
+  // Lateral offset from the track centerline — spreads bots across the road so
+  // they don't all drive the exact same line (that caused constant collisions).
+  laneOffset: number;
 }
 
 interface RemoteCarVisual {
@@ -88,6 +91,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   // Wall contact state: used so speed is penalized once per impact instead of
   // every frame while scraping the wall (which caused visible bouncing).
   private _wasOnWall = false;
+  // Car-to-car impact cooldown: the response fires once per collision, not every
+  // frame of overlap (which drained speed and made the steering jitter wildly).
+  private _carImpactCooldown = 0;
 
   // ─── Bots ───
   bots: BotCar[] = [];
@@ -612,6 +618,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     for (let i = 0; i < count; i++) {
       const offset = -5 - i * 4;
       const bp = this.renderer.getTrackPointAlong(((offset % this.renderer.totalTrackDist) + this.renderer.totalTrackDist) % this.renderer.totalTrackDist);
+      // Spread bots across the track width so they don't all drive the centerline
+      const laneOffsets = [0, 2.5, -2.5, 1.8, -1.8, 3];
+      const laneOffset = laneOffsets[i % laneOffsets.length];
+      const ppx = -bp.dirZ;
+      const ppz = bp.dirX;
       // Mix of difficulty levels: first 2 hard, middle 2 medium, rest easy
       let config;
       if (i < 2) config = BOT_CONFIGS['hard'];
@@ -621,7 +632,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         dist: ((offset % this.renderer.totalTrackDist) + this.renderer.totalTrackDist) % this.renderer.totalTrackDist,
         speed: 0,
         yaw: Math.atan2(bp.dirX, bp.dirZ),
-        x: bp.x, z: bp.z,
+        x: bp.x + ppx * laneOffset, z: bp.z + ppz * laneOffset,
         lap: 0,
         name: botNames[i % botNames.length],
         color: i % 8,
@@ -629,6 +640,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         mistakeTimer: 0,
         hasMistake: false,
         alive: true,
+        laneOffset,
       });
     }
   }
@@ -861,24 +873,28 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const barrierDist = halfWidth + 0.5; // barrier wall position
 
     // ── Barrier collision ──
-    // Smooth, damped wall-follow. Instead of snapping the car to the wall
-    // tangent every frame (which oscillated and looked like bouncing), the
-    // car is eased against the barrier with a soft clamp, the yaw is blended
-    // toward the tangent gradually, and the speed penalty applies ONCE per
-    // impact — not repeatedly while scraping.
+    // Smooth, damped wall-follow. The car is eased against the barrier with a
+    // CAPPED per-frame step (never teleports, even on deep penetration), the
+    // yaw is BLENDED toward the tangent instead of snapping (no 90° launch),
+    // and speed is lost proportional to how directly the car hits. Only the
+    // first frame of contact applies the impact response.
     const onWall = distFromCenter > barrierDist;
     if (onWall) {
       const normX = dxTrack / distFromCenter;
       const normZ = dzTrack / distFromCenter;
 
-      // 1. Soft position clamp — ease the car to the wall edge instead of teleporting
-      const targetDist = barrierDist - 0.25;
-      const distCorrection = distFromCenter - targetDist;
-      // Cap the ease below 1 so even a deep first-frame penetration is eased in
-      // over a couple of frames instead of snapping (no teleport = no bounce).
-      const ease = Math.min(0.85, distCorrection * 0.4 + 0.35);
-      this.carX += (tp.x + normX * targetDist - this.carX) * ease;
-      this.carZ += (tp.z + normZ * targetDist - this.carZ) * ease;
+      // 1. Soft position clamp — move toward the wall edge by at most 1.5 units
+      //    per frame so a deep first-frame penetration eases out smoothly
+      //    instead of teleporting the car (teleports = the "flying" feeling).
+      const targetDist = barrierDist - 0.3;
+      const toX = tp.x + normX * targetDist - this.carX;
+      const toZ = tp.z + normZ * targetDist - this.carZ;
+      const toLen = Math.hypot(toX, toZ);
+      if (toLen > 0.0001) {
+        const step = Math.min(toLen, 1.5);
+        this.carX += (toX / toLen) * step;
+        this.carZ += (toZ / toLen) * step;
+      }
 
       // 2. Velocity vector
       const vx = Math.sin(this.carYaw) * this.carSpeed;
@@ -890,45 +906,49 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       const tZ = normX;
       const along = vx * tX + vz * tZ;
 
-      // 4. Once per impact: fully project the velocity vector onto the wall
-      //    tangent — set BOTH speed and yaw from the projected vector. This
-      //    rotates at most 90° (never a 180° flip) and leaves zero residual
-      //    into-wall push, so the car genuinely slides on the very first frame
-      //    instead of re-penetrating while the yaw catches up.
-      if (!this._wasOnWall) {
-        if (intoWall > 0) {
-          const impactAngle = Math.abs(intoWall) / Math.max(0.01, Math.hypot(vx, vz));
-          const retain = 0.9 - impactAngle * 0.3; // graze keeps 0.90, head-on drops to 0.60
-          const preCollisionSpeed = Math.abs(this.carSpeed);
-          // Projected velocity = along-wall component (vector) × retain
-          const projX = tX * along * retain;
-          const projZ = tZ * along * retain;
-          const projSpeed = Math.hypot(projX, projZ);
-          this.carYaw = Math.atan2(projX, projZ);
-          this.carSpeed = projSpeed;
-          if (preCollisionSpeed >= 5 && Math.abs(this.carSpeed) < 5) {
-            this.carSpeed = Math.sign(this.carSpeed) * 5;
-          }
-          this.screenShake = Math.max(0.04, Math.min(0.12, Math.abs(intoWall) / 300));
-        }
+      // 4. Once per impact: damp the into-wall push and BLEND yaw toward the
+      //    tangent. Speed retained scales with impact angle — a graze keeps
+      //    almost all speed, a head-on loses most — and the yaw never snaps,
+      //    so the car slides along the wall instead of launching off it.
+      if (!this._wasOnWall && intoWall > 0) {
+        const impactAngle = Math.abs(intoWall) / Math.max(0.01, Math.hypot(vx, vz));
+        const retain = 1 - impactAngle * 0.7; // graze ~0.9, head-on ~0.3
+        const targetYaw = Math.atan2(tX * (along >= 0 ? 1 : -1), tZ * (along >= 0 ? 1 : -1));
+        let yawDiff = targetYaw - this.carYaw;
+        while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+        while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+        this.carYaw += yawDiff * 0.4; // blend 40% on impact frame
+        // Preserve the car's direction (forward/backward) through the impact
+        this.carSpeed = Math.sign(this.carSpeed || 1) * Math.abs(along) * retain * 0.92; // extra friction on the crash frame
+        this.screenShake = Math.max(0.04, Math.min(0.12, Math.abs(intoWall) / 300));
       }
 
-      // 5. While in contact (subsequent frames), gently steer along the wall so
-      //    the car tracks curved walls smoothly — the impact frame already
-      //    snapped the direction, so this only corrects small drifts.
-      const tangentYaw = Math.atan2(tX * Math.sign(along || 1), tZ * Math.sign(along || 1));
-      let yawDiff = tangentYaw - this.carYaw;
-      while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
-      while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-      this.carYaw += yawDiff * 0.12; // blend ~12% per frame → smooth, responsive deflection
+      // 5. While in contact, gently nudge yaw toward the tangent so the car
+      //    tracks curved walls — a small 6% blend that never fights the player.
+      //    Gated on |along| so a scraping car at near-zero tangent speed can't
+      //    ping-pong the 180°-flipped tangent target (no low-speed oscillation).
+      if (Math.abs(along) > 1) {
+        const tangentYaw = Math.atan2(tX * (along >= 0 ? 1 : -1), tZ * (along >= 0 ? 1 : -1));
+        let yawDiff = tangentYaw - this.carYaw;
+        while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+        while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+        this.carYaw += yawDiff * 0.06;
+      }
     }
     this._wasOnWall = onWall;
 
     // ── Car-to-car collision ──
-    // Check against all bots and remote players (via remoteCars map)
+    // Check against all bots and remote players (via remoteCars map). The old
+    // code used a huge 4.0-unit min distance and applied random yaw jitter on
+    // EVERY frame of overlap — that drained speed constantly and made steering
+    // jitter wildly. Now: realistic radius, positional push-apart every frame,
+    // but the speed/steering response fires ONCE per impact (0.3s cooldown).
     {
       const myX = this.carX, myZ = this.carZ, mySpeed = this.carSpeed;
-      const carRadius = 2.0;
+      const carRadius = 1.1; // car is ~1.3 wide, ~2.6 long — 2.2 center distance is realistic
+      const minDist = carRadius * 2;
+
+      this._carImpactCooldown -= dt;
 
       // Collect nearby cars: bots + remote players (exclude self)
       const nearbyCars: { x: number; z: number; yaw: number; speed: number; isBot: boolean; ref: any }[] = [];
@@ -944,20 +964,20 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         const dxC = myX - other.x;
         const dzC = myZ - other.z;
         const dist = Math.hypot(dxC, dzC);
-        const minDist = carRadius * 2;
 
         if (dist < minDist && dist > 0.01) {
           const pushX = dxC / dist;
           const pushZ = dzC / dist;
           const overlap = minDist - dist;
+          // Cap the per-frame push so cars never teleport apart
+          const push = Math.min(overlap, 0.6);
 
           // Push apart
-          this.carX += pushX * overlap * 0.5;
-          this.carZ += pushZ * overlap * 0.5;
-
+          this.carX += pushX * push * 0.5;
+          this.carZ += pushZ * push * 0.5;
           if (other.isBot) {
-            other.ref.x -= pushX * overlap * 0.5;
-            other.ref.z -= pushZ * overlap * 0.5;
+            other.ref.x -= pushX * push * 0.5;
+            other.ref.z -= pushZ * push * 0.5;
           }
 
           // Relative velocity along collision normal
@@ -967,16 +987,16 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           const theirVz = Math.cos(other.yaw) * other.speed;
           const relV = (myVx - theirVx) * pushX + (myVz - theirVz) * pushZ;
 
-          if (relV > 0) {
-            this.carSpeed -= relV * 0.3;
-            if (other.isBot) {
-              other.ref.speed += relV * 0.3;
-            }
-            this.carYaw += (Math.random() - 0.5) * 0.1;
-            if (other.isBot) {
-              other.ref.yaw += (Math.random() - 0.5) * 0.1;
-            }
-            this.screenShake = Math.max(0.02, this.screenShake);
+          // Response only on the first frame of each impact — no per-frame jitter
+          if (relV > 0 && this._carImpactCooldown <= 0) {
+            this._carImpactCooldown = 0.3;
+            const hit = Math.min(relV * 0.35, 8); // bounded speed loss
+            this.carSpeed -= hit;
+            if (other.isBot) other.ref.speed += hit * 0.3;
+            // Tiny yaw nudge ONCE per impact, not every frame
+            this.carYaw += (Math.random() - 0.5) * 0.02;
+            if (other.isBot) other.ref.yaw += (Math.random() - 0.5) * 0.02;
+            this.screenShake = Math.max(0.02, Math.min(0.08, relV * 0.01));
           }
         }
       }
@@ -1054,9 +1074,15 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       bot.dist = this.renderer.getDistFromPoint(bot.x, bot.z);
 
       const curTP = this.renderer.getTrackPointAlong(bot.dist);
-      const snap = 0.3;
-      bot.x += (curTP.x - bot.x) * snap;
-      bot.z += (curTP.z - bot.z) * snap;
+      // Follow the bot's lane (lateral offset from centerline) with a soft snap.
+      // The old hard 0.3 snap pinned every bot to the exact centerline.
+      const ppx = -curTP.dirZ;
+      const ppz = curTP.dirX;
+      const laneX = curTP.x + ppx * bot.laneOffset;
+      const laneZ = curTP.z + ppz * bot.laneOffset;
+      const snap = 0.12;
+      bot.x += (laneX - bot.x) * snap;
+      bot.z += (laneZ - bot.z) * snap;
 
       const prevDist = bot.dist;
       if (prevDist < this.renderer.totalTrackDist * 0.2 && bot.dist > this.renderer.totalTrackDist * 0.8) {

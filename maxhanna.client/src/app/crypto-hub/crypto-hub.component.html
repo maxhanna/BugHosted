@@ -519,7 +519,7 @@
 
           <div class="button-wrapper" *ngIf="(canShowTradePanelInfo() || showingTradeSettings) && hasKrakenApi">
             <button class="cursorPointer" *ngIf="!showingTradeSettings" (click)="showTradeSettings()" id="config-button"
-              aria-describedby="config-desc">
+              aria-describedby="config-desc" title="Opens the settings panel to configure trading parameters like trade thresholds and reserve amounts.">
               {{showingTradeSettings ? 'Hide' : 'Show'}} Configuration
             </button>
             <p class="button-description" id="config-desc" *ngIf="!showingTradeSettings">
@@ -529,7 +529,8 @@
           <div class="button-wrapper" *ngIf="canShowTradePanelInfo() || isTradebotBalanceShowing">
             <button class="cursorPointer" *ngIf="!isTradebotBalanceShowing"
               (click)="isTradebotBalanceShowing ? hideBalance() : checkBalance()" [disabled]="isLoading"
-              id="trades-button" aria-describedby="trades-desc">
+              id="trades-button" aria-describedby="trades-desc"
+              title="Displays a table of recent trades, including BTC/USDC transactions, prices, and fees.">
               {{isTradebotBalanceShowing ? 'Hide' : 'Show'}} Trades
             </button>
             <p class="button-description" id="trades-desc" *ngIf="!isTradebotBalanceShowing">
@@ -539,7 +540,8 @@
 
           <div class="button-wrapper" *ngIf="canShowTradePanelInfo() || showingTradeLogs">
             <button class="cursorPointer" *ngIf="!showingTradeLogs" (click)="showTradeLogs()" id="logs-button"
-              aria-describedby="logs-desc" [style.marginBottom]="onMobile() ? '10px' : ''">
+              aria-describedby="logs-desc" [style.marginBottom]="onMobile() ? '10px' : ''"
+              title="Shows detailed logs of bot actions, such as trade decisions and errors, with pagination.">
               {{showingTradeLogs ? 'Hide' : 'Show'}} Logs
             </button>
             <p class="button-description" id="logs-desc" *ngIf="!showingTradeLogs">
@@ -549,7 +551,8 @@
 
           <div class="button-wrapper" *ngIf="canShowTradePanelInfo() || isTradeLiveViewShowing">
             <button class="cursorPointer" *ngIf="!isTradeLiveViewShowing"
-              (click)="!isTradeLiveViewShowing ? showTradeLiveView() : hideTradeLiveView()" [disabled]="isLoading">
+              (click)="!isTradeLiveViewShowing ? showTradeLiveView() : hideTradeLiveView()" [disabled]="isLoading"
+              title="Displays a live trading view with price charts, logs, and trade history for active bots.">
               Show Live Trade View
             </button>
             <p class="button-description" id="trades-desc" *ngIf="!isTradeLiveViewShowing">
@@ -587,7 +590,8 @@
 
           <div class="button-wrapper"
             *ngIf="(isShowingTradeProfit || isShowingTradeValueGraph || isShowingTradeSimulator)">
-            <button class="cursorPointer" (click)="closeTradeDivs()">
+            <button class="cursorPointer" (click)="closeTradeDivs()"
+              title="Hides the currently open profit / graph / simulator panel.">
               Hide {{ isShowingTradeProfit ? 'Profit' : isShowingTradeValueGraph ? 'Graph' : isShowingTradeSimulator ?
               'Sim' : '' }}
             </button>
@@ -595,7 +599,7 @@
 
           <div class="button-wrapper" *ngIf="canShowTradePanelInfo()">
             <button class="cursorPointer" (click)="showTradeInformationPanel()" id="info-button"
-              aria-describedby="info-desc">
+              aria-describedby="info-desc" title="Opens a panel with details about the bot's features, logic, and best practices.">
               Information
             </button>
             <p class="button-description" id="info-desc">

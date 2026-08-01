@@ -44,8 +44,9 @@ export class FileEntry {
   // ---- ROM Metadata (optional, from rom_igdb_enrichment join) ---- 
   romMetadata?: RomMetadata;
 
-  // UI-only derived field
-  romInlineThumbs?: string[]; 
+  // UI-only derived fields
+  romInlineThumbs?: string[];
+  videoDuration?: number; 
 
 
   constructor(id: number, fileName?: string, directory?: string, visibility?: string, sharedWith?: string,

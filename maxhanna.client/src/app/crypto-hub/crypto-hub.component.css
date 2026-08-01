@@ -489,14 +489,22 @@ div:not(.trade-panel-controls) .button-wrapper {
 
 @media (max-width: 480px) {
   .trade-panel-controls {
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px;
   }
 
-  .button-wrapper {
+  /* The pair-selector wrapper (coin + strategy + start/stop) spans the full width */
+  .trade-panel-controls > .button-wrapper:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .trade-panel-controls .button-wrapper {
     max-width: 100%;
     width: 100%;
+    gap: 4px;
   }
 
   div:not(.trade-panel-controls) .button-wrapper {
@@ -505,10 +513,13 @@ div:not(.trade-panel-controls) .button-wrapper {
 
   .trade-panel-controls button.cursorPointer {
     font-size: small;
+    padding: 8px 6px;
   }
 
+  /* Hide the verbose helper text on phones — buttons carry tooltips and the
+     panel is far less cluttered without a paragraph under every button. */
   .trade-panel-controls .button-description {
-    font-size: smaller;
+    display: none;
   }
 }
 

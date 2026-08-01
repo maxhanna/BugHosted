@@ -1,64 +1,181 @@
-.logsAndTradeHistoryMobile, .logsAndTradeHistory {
+/* One logs + one history per currency, side by side on desktop */
+.logsAndTradeHistory {
     display: flex;
     flex-direction: row;
-    justify-content: space-evenly;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: nowrap;
+    gap: 16px;
+    padding: 4px 0;
 }
 
-.logsAndTradeHistory {
-    flex-wrap: nowrap;
-}
+/* Stacked full-width on mobile — no more cramped side-by-side tables */
 .logsAndTradeHistoryMobile {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 4px 0;
+}
+
+.grouping {
+    border: var(--main-border);
+    border-radius: 8px;
+    margin: 8px 0;
+    overflow: hidden;
+    background: var(--component-background-color);
+}
+
+/* Accordion header for each currency section */
+.currencySectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    cursor: pointer;
+    background: linear-gradient(135deg, var(--component-background-color), var(--secondary-component-background-color));
+    border-bottom: 1px solid var(--main-border);
+    user-select: none;
+    transition: background 0.15s ease;
+}
+
+.currencySectionHeader:hover {
+    background: var(--main-highlight-color-quarter-opacity);
+}
+
+.currencyHeaderLeft {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.currencyChevron {
+    font-size: 12px;
+    color: var(--main-link-color);
+    width: 14px;
+    text-align: center;
+}
+
+.currencyName {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.currencyStrategies {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.currencySectionBody {
+    padding: 12px;
+}
+
+.graphContainer {
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.tradeLogsContainer,
+.tradeHistoryContainer {
+    flex: 1 1 50%;
+    min-width: 0;
+    width: 100%;
+}
+
+.subsectionLabel {
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+/* Coin pill bar */
+.coinPillBar {
+    position: sticky;
+    top: 0;
+    z-index: 9999;
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(10,10,10,0.8);
+    backdrop-filter: blur(4px);
+    border-bottom: 1px solid rgba(255,255,255,0.03);
     flex-wrap: wrap;
 }
 
-
-.grouping {
-    border: var(--main-border); 
+/* Compact state when collapsed: reduce padding/height so bar appears much smaller */
+.coinPillBar.collapsed {
+    padding: 4px 6px;
+    gap: 6px;
+    max-height: 34px;
+    overflow: hidden;
+    align-items: center;
+    transition: max-height 160ms ease, padding 160ms ease, gap 160ms ease;
 }
 
-.tradeLogsContainer {
-    max-width: 370px;
-}
-.graph-placeholder {
-    min-height: 300px;
-    /* Adjust for graph component */
-    width: 100%;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-    background-size: 200% 100%;
-    animation: loading 1.5s infinite;
-    border-radius: 4px;
-    margin: 10px 0;
+.coinPillBar.collapsed .coinPill {
+    padding: 4px 6px;
+    font-size: 12px;
+    opacity: 0.95;
 }
 
-.logs-placeholder {
-    min-height: 150px;
-    /* Adjust for logs component */
-    width: 100%;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-    background-size: 200% 100%;
-    animation: loading 1.5s infinite;
-    border-radius: 4px;
-    margin: 10px 0;
+.coinPillBar.collapsed .coinPillToggle {
+    padding: 4px 6px;
+    font-size: 12px;
 }
 
-.history-placeholder {
-    min-height: 150px;
-    /* Adjust for history component */
-    width: 100%;
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-    background-size: 200% 100%;
-    animation: loading 1.5s infinite;
-    border-radius: 4px;
-    margin: 10px 0;
+.coinPill {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #333 0%, #111 100%);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    transition: transform 120ms ease, background 120ms ease;
 }
 
-@keyframes loading {
-    0% {
-        background-position: 200% 0;
+.coinPill:hover { transform: translateY(-2px); background: linear-gradient(180deg,#555 0%,#222 100%); }
+
+/* When collapsed, hide coin pills but keep toggle visible */
+.coinPill.hiddenWhenCollapsed {
+    display: none;
+}
+
+.coinPillAction,
+.coinPillToggle {
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.04);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.coinPillAction:hover, .coinPillToggle:hover { background: rgba(255,255,255,0.08); }
+
+.coinPillAction {
+    margin-left: auto;
+}
+
+.coinPillToggle {
+    margin-left: auto;
+}
+
+.coinPillAction + .coinPillToggle {
+    margin-left: 0;
+}
+
+@media only screen and (max-width : 768px) {
+    .currencySectionBody {
+        padding: 8px;
     }
 
-    100% {
-        background-position: -200% 0;
+    .tradeLogsContainer,
+    .tradeHistoryContainer {
+        flex: 1 1 100%;
     }
 }
 

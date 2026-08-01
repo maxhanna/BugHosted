@@ -190,12 +190,17 @@
                 <ng-container *ngIf="!file.isFolder && isMediaFile(file.fileName)">
                   <app-media-viewer [fileId]="file.id" [displayExpander]="false" [displayExtraInfo]="false"
                     [displayLoading]="false" [autoplay]="false" [showCommentSection]="false" [showTopics]="false"
-                    [blockExpand]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef">
+                    [blockExpand]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef"
+                    (videoMetadataEvent)="onVideoMetadataEvent($event)">
                   </app-media-viewer>
                 </ng-container>
                 <!-- Play badge overlay for video thumbs -->
                 <span class="grid-video-play" *ngIf="!file.isFolder && isVideoFileOnly(file.fileName)"
                   title="Play video">▶</span>
+                <!-- Video duration badge (populated from the loaded video's metadata) -->
+                <span class="grid-video-duration"
+                  *ngIf="!file.isFolder && isVideoFileOnly(file.fileName) && file.videoDuration"
+                  title="Video duration">⏱ {{ formatVideoDuration(file.videoDuration) }}</span>
                 <!-- ROM game thumbnail -->
                 <ng-container
                   *ngIf="shouldShowRomMetadata() && file && file.romInlineThumbs && file.romInlineThumbs.length > 0">
@@ -1036,7 +1041,9 @@
 
  <!-- Grid media expand popup (image/video clicked in grid view, outside ROM folder) -->
  <div class="popupPanel imagePreviewPopup" *ngIf="isGridMediaExpanded && gridMediaFile">
- <div class="popupPanelTitle">{{ gridMediaFile.givenFileName ?? gridMediaFile.fileName }}</div>
+ <div class="popupPanelTitle gridMediaTitle">{{ gridMediaFile.givenFileName ?? gridMediaFile.fileName }}
+   <span class="gridMediaCounter" *ngIf="gridMediaFiles.length > 1">{{ gridMediaIndex + 1 }} / {{ gridMediaFiles.length }}</span>
+ </div>
  <div class="imagePreviewContainer gridMediaExpandContainer">
  <app-media-viewer [fileId]="gridMediaFile.id" [autoplay]="true" [displayExpander]="false"
  [displayExtraInfo]="false" [displayLoading]="true" [showCommentSection]="false" [showTopics]="false"
@@ -1044,7 +1051,11 @@
  </app-media-viewer>
  </div>
  <div class="popupPanelActions">
- <button class="popupPanelAction" id="closeOverlay" (click)="closeGridMediaExpand()">Close</button>
+ <button class="popupPanelAction" (click)="showGridMediaPrev()" [disabled]="gridMediaFiles.length <= 1"
+   title="Previous media (←)">&#8249; Prev</button>
+ <button class="popupPanelAction" (click)="showGridMediaNext()" [disabled]="gridMediaFiles.length <= 1"
+   title="Next media (→)">Next &#8250;</button>
+ <button class="popupPanelAction" id="closeOverlay" (click)="closeGridMediaExpand()" title="Close (Esc)">Close</button>
  </div>
  </div>
 

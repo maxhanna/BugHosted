@@ -36,6 +36,10 @@ export class RacingRenderer {
   private carCount = 0;
   private wheelVao!: WebGLVertexArrayObject;
   private wheelCount = 0;
+  private barrierVao!: WebGLVertexArrayObject;
+  private barrierCount = 0;
+  private finishVao!: WebGLVertexArrayObject;
+  private finishCount = 0;
 
   private whiteTex!: WebGLTexture;
   private asphaltTex!: WebGLTexture;
@@ -151,27 +155,23 @@ export class RacingRenderer {
   private makeTrackMarkingsTex(): WebGLTexture {
     const size = 128;
     const data = new Uint8Array(size * size * 3);
-    const checkerW = 8; // px column reserved for the baked start/finish checker strip (u=0)
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
         const i = (y * size + x) * 3;
-        // Start/finish checkerboard — baked at u=0 so the first road segments show a clean band
-        if (x < checkerW) {
-          const white = ((Math.floor(x / checkerW) + Math.floor(y / 16)) % 2) === 0;
-          const c = white ? 245 : 15;
-          data[i] = c; data[i + 1] = c; data[i + 2] = c;
-        } else if (y < 2 || y > size - 3) {
+        // No baked checkerboard here — the start/finish band is drawn as its own
+        // flat-colored quad so it appears exactly once per lap (the old baked
+        // column repeated 4× around the track because the road UV wraps 4×/lap).
+        if (y < 2 || y > size - 3) {
           // Crisp white edge lines — clear track boundary without being harsh
-          data[i] = 205; data[i + 1] = 205; data[i + 2] = 202;
+          data[i] = 215; data[i + 1] = 215; data[i + 2] = 212;
         } else if (y > size / 2 - 2 && y < size / 2 + 2) {
           // Dashed center line — legible but not dominating
-          if (x % 24 < 10) { data[i] = 200; data[i + 1] = 200; data[i + 2] = 196; }
-          else { data[i] = 58; data[i + 1] = 58; data[i + 2] = 60; }
+          if (x % 24 < 10) { data[i] = 205; data[i + 1] = 205; data[i + 2] = 201; }
+          else { data[i] = 62; data[i + 1] = 62; data[i + 2] = 64; }
         } else {
-          // Asphalt with gentle grain — reads as a real surface without clutter.
-          // Hash-based noise ((x*7+y*13)%5) avoids the diagonal banding that a
-          // plain (x+y) term produces under REPEAT wrapping.
-          const n = 50 + ((x * 7 + y * 13) % 9) + ((i * 5) % 6);
+          // Clean, uniform asphalt — no noise banding, no clutter. Just a smooth
+          // dark surface so the road reads clearly at speed.
+          const n = 56;
           data[i] = n; data[i + 1] = n; data[i + 2] = n + 2;
         }
       }
@@ -474,16 +474,32 @@ void main() {
       const d = Math.hypot(p.x - wx, p.z - wz);
       if (d < bestDist) { bestDist = d; bestIdx = i; }
     }
-    const segLen = this.totalTrackDist / this.trackLen;
-    return (bestIdx / this.trackLen) * this.totalTrackDist;
+    // Project onto the nearest segment for a CONTINUOUS distance value. The old
+    // version returned (bestIdx / len) * total — a stepped, quantized distance
+    // that made the wall-clamp target (and off-track pull) jump around, which
+    // is what flung the car and made steering feel jittery.
+    const p = this._trackPoints[bestIdx];
+    const n = this._trackPoints[(bestIdx + 1) % this._trackPoints.length];
+    const ax = wx - p.x, az = wz - p.z;
+    const sx = n.x - p.x, sz = n.z - p.z;
+    const segLenSq = sx * sx + sz * sz;
+    let t = segLenSq > 0.0001 ? (ax * sx + az * sz) / segLenSq : 0;
+    t = Math.max(0, Math.min(1, t));
+    return ((bestIdx + t) / this.trackLen) * this.totalTrackDist;
   }
 
   // ─── Track Mesh Building ───
+  // Split into THREE buffers so each pass can set the right lighting/texture mode:
+  //  - trackVao  → asphalt road + grass shoulders (textured)
+  //  - barrierVao → red/white barrier walls (flat vertex colors, uHasTexture=0)
+  //  - finishVao → start/finish checkerboard quad (flat colors, drawn ONCE per lap)
   private buildTrackMesh() {
     const pts = this._trackPoints;
     const gl = this.gl;
     const verts: number[] = [];
     const idxs: number[] = [];
+    const barVerts: number[] = [];
+    const barIdxs: number[] = [];
     const perSegVerts = 6; // 3 on each side
 
     for (let i = 0; i < pts.length; i++) {
@@ -517,88 +533,70 @@ void main() {
       idxs.push(vi + 2, vi + 3, vi + 5);
       idxs.push(vi + 2, vi + 5, vi + 4);
 
-      // Grass shoulders - wider on each side, clean muted green (no texture bleed)
+      // Grass shoulders - wider on each side, clean muted green (no texture bleed).
+      // The shader computes base = vColor × texture, and the sampled asphalt is
+      // ~0.22 brightness, so the tint is boosted ~4.5× to read as visible grass.
       const shoulderW = 20;
-      const su = 0.2 + segDist * 0.5; // offset UVs away from the checker strip at u=0
-      const suN = 0.2 + (segDist + 1 / pts.length) * 0.5;
-      // Left shoulder (samples plain asphalt region of the texture, tinted green)
-      verts.push(p.x + ppx * (hw + shoulderW), -0.2, p.z + ppz * (hw + shoulderW), 0, 1, 0, 0.1, 0.32, 0.08, su, 0.25);
-      verts.push(n.x + npx * (hwN + shoulderW), -0.2, n.z + npz * (hwN + shoulderW), 0, 1, 0, 0.1, 0.32, 0.08, suN, 0.25);
+      const su = 0.3 + segDist * 0.4; // sample the plain asphalt region of the texture
+      const suN = 0.3 + (segDist + 1 / pts.length) * 0.4;
+      const gr = 0.55, gg = 1.7, gb = 0.4;
+      // Left shoulder
+      verts.push(p.x + ppx * (hw + shoulderW), -0.2, p.z + ppz * (hw + shoulderW), 0, 1, 0, gr, gg, gb, su, 0.25);
+      verts.push(n.x + npx * (hwN + shoulderW), -0.2, n.z + npz * (hwN + shoulderW), 0, 1, 0, gr, gg, gb, suN, 0.25);
       // Right shoulder
-      verts.push(p.x - ppx * (hw + shoulderW), -0.2, p.z - ppz * (hw + shoulderW), 0, 1, 0, 0.1, 0.32, 0.08, su, 0.75);
-      verts.push(n.x - npx * (hwN + shoulderW), -0.2, n.z - npz * (hwN + shoulderW), 0, 1, 0, 0.1, 0.32, 0.08, suN, 0.75);
+      verts.push(p.x - ppx * (hw + shoulderW), -0.2, p.z - ppz * (hw + shoulderW), 0, 1, 0, gr, gg, gb, su, 0.75);
+      verts.push(n.x - npx * (hwN + shoulderW), -0.2, n.z - npz * (hwN + shoulderW), 0, 1, 0, gr, gg, gb, suN, 0.75);
 
       const si = pts.length * perSegVerts + i * 4;
       idxs.push(si, si + 1, vi);
       idxs.push(vi, vi + 1, si + 1);
       idxs.push(vi + 4, vi + 5, si + 2);
       idxs.push(si + 2, vi + 5, si + 3);
-    }
 
-    // Start/Finish line is baked into the road texture (checker column at u=0),
-    // so the first road segments automatically show the checkered band — no separate quad.
-
-    // Barrier walls on both sides
-    const barrierH = 0.85;
-    // Left barrier
-    for (let i = 0; i < pts.length; i++) {
-      const p = pts[i];
-      const n = pts[(i + 1) % pts.length];
-      const ppx = -p.dirZ;
-      const ppz = p.dirX;
-      const npx = -n.dirZ;
-      const npz = n.dirX;
-      const bw = p.width / 2 + 0.5;
-      const bwN = n.width / 2 + 0.5;
-      const sd = 0.25 + (i / pts.length) * 0.5; // avoid checker strip at u=0
-
-      // Red/white stripe pattern along the wall so the track edge is obvious.
-      // The track pass samples the dark asphalt texture (uUseVertexColor=1 → base = vColor × texture,
-      // and this UV range samples ~0.22-brightness asphalt). Colors are boosted ~4.5× so the
-      // multiplication yields vivid white/red instead of muted dark gray/maroon.
+      // ── Barrier walls (separate buffer, flat vivid colors — no texture multiply) ──
+      const barrierH = 0.85;
+      const bw = hw + 0.5;
+      const bwN = hwN + 0.5;
+      // Red/white stripe pattern so the track edge is obvious
       const striped = Math.floor(i / 4) % 2 === 0;
-      const sr = striped ? 4.5 : 3.8;
-      const sg = striped ? 4.4 : 0.28;
-      const sb = striped ? 4.3 : 0.22;
+      const br = striped ? 0.95 : 0.8;
+      const bg = striped ? 0.95 : 0.1;
+      const bb = striped ? 0.95 : 0.08;
 
-      // Left barrier front face
-      verts.push(p.x + ppx * bw, 0, p.z + ppz * bw, ppx, 0, ppz, sr, sg, sb, sd, 0.25);
-      verts.push(n.x + npx * bwN, 0, n.z + npz * bwN, npx, 0, npz, sr, sg, sb, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
-      verts.push(p.x + ppx * bw, barrierH, p.z + ppz * bw, ppx, 0, ppz, sr, sg, sb, sd, 0.25);
-      verts.push(n.x + npx * bwN, barrierH, n.z + npz * bwN, npx, 0, npz, sr, sg, sb, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
-      const bvi = verts.length / 11 - 4;
-      idxs.push(bvi, bvi + 1, bvi + 2);
-      idxs.push(bvi + 1, bvi + 3, bvi + 2);
+      // Left barrier front face (outward normal = +perp)
+      const lb = barVerts.length / 11;
+      barVerts.push(p.x + ppx * bw, 0, p.z + ppz * bw, ppx, 0, ppz, br, bg, bb, 0, 0);
+      barVerts.push(n.x + npx * bwN, 0, n.z + npz * bwN, npx, 0, npz, br, bg, bb, 1, 0);
+      barVerts.push(p.x + ppx * bw, barrierH, p.z + ppz * bw, ppx, 0, ppz, br, bg, bb, 0, 1);
+      barVerts.push(n.x + npx * bwN, barrierH, n.z + npz * bwN, npx, 0, npz, br, bg, bb, 1, 1);
+      barIdxs.push(lb, lb + 1, lb + 2);
+      barIdxs.push(lb + 1, lb + 3, lb + 2);
 
-      // Right barrier — NOTE: winding is mirrored relative to the left barrier.
-      // The left wall's outward normal is +perp; the right wall's is -perp, so the
-      // same index order would be BACK-facing under gl.cullFace(gl.BACK) and the
-      // wall would render transparent. Reverse the triangles here.
-      verts.push(p.x - ppx * bw, 0, p.z - ppz * bw, -ppx, 0, -ppz, sr, sg, sb, sd, 0.25);
-      verts.push(n.x - npx * bwN, 0, n.z - npz * bwN, -npx, 0, -npz, sr, sg, sb, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
-      verts.push(p.x - ppx * bw, barrierH, p.z - ppz * bw, -ppx, 0, -ppz, sr, sg, sb, sd, 0.25);
-      verts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, -npx, 0, -npz, sr, sg, sb, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
-      const bvi2 = verts.length / 11 - 4;
-      idxs.push(bvi2, bvi2 + 2, bvi2 + 1);
-      idxs.push(bvi2 + 1, bvi2 + 2, bvi2 + 3);
+      // Right barrier front face (outward normal = -perp)
+      const rb = barVerts.length / 11;
+      barVerts.push(p.x - ppx * bw, 0, p.z - ppz * bw, -ppx, 0, -ppz, br, bg, bb, 0, 0);
+      barVerts.push(n.x - npx * bwN, 0, n.z - npz * bwN, -npx, 0, -npz, br, bg, bb, 1, 0);
+      barVerts.push(p.x - ppx * bw, barrierH, p.z - ppz * bw, -ppx, 0, -ppz, br, bg, bb, 0, 1);
+      barVerts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, -npx, 0, -npz, br, bg, bb, 1, 1);
+      barIdxs.push(rb, rb + 2, rb + 1);
+      barIdxs.push(rb + 1, rb + 2, rb + 3);
 
-      // Barrier top caps — slightly darker variant of the stripe so tops read as caps
-      const tr = striped ? 3.8 : 3.2;
-      const tg = striped ? 3.7 : 0.24;
-      const tb = striped ? 3.6 : 0.19;
-      verts.push(p.x + ppx * bw, barrierH, p.z + ppz * bw, 0, 1, 0, tr, tg, tb, sd, 0.25);
-      verts.push(n.x + npx * bwN, barrierH, n.z + npz * bwN, 0, 1, 0, tr, tg, tb, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
-      verts.push(p.x - ppx * bw, barrierH, p.z - ppz * bw, 0, 1, 0, tr, tg, tb, sd, 0.25);
-      verts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, 0, 1, 0, tr, tg, tb, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
-      const tc = verts.length / 11 - 4;
-      idxs.push(tc, tc + 1, tc + 2);
-      idxs.push(tc + 1, tc + 3, tc + 2);
+      // Barrier top caps
+      const tcr = striped ? 0.8 : 0.65;
+      const tcg = striped ? 0.8 : 0.08;
+      const tcb = striped ? 0.8 : 0.06;
+      const tc = barVerts.length / 11;
+      barVerts.push(p.x + ppx * bw, barrierH, p.z + ppz * bw, 0, 1, 0, tcr, tcg, tcb, 0, 0);
+      barVerts.push(n.x + npx * bwN, barrierH, n.z + npz * bwN, 0, 1, 0, tcr, tcg, tcb, 1, 0);
+      barVerts.push(p.x - ppx * bw, barrierH, p.z - ppz * bw, 0, 1, 0, tcr, tcg, tcb, 0, 1);
+      barVerts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, 0, 1, 0, tcr, tcg, tcb, 1, 1);
+      barIdxs.push(tc, tc + 1, tc + 2);
+      barIdxs.push(tc + 1, tc + 3, tc + 2);
     }
 
     const vertArray = new Float32Array(verts);
     const idxArray = new Uint16Array(idxs);
     this.trackCount = idxArray.length;
-
     this.trackVao = gl.createVertexArray()!;
     gl.bindVertexArray(this.trackVao);
     const vbo = gl.createBuffer()!;
@@ -607,6 +605,91 @@ void main() {
     const ibo = gl.createBuffer()!;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idxArray, gl.STATIC_DRAW);
+    const stride = 11 * 4;
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+
+    // Barrier buffer
+    const barArray = new Float32Array(barVerts);
+    const barIdxArray = new Uint16Array(barIdxs);
+    this.barrierCount = barIdxArray.length;
+    this.barrierVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.barrierVao);
+    const bvbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, bvbo);
+    gl.bufferData(gl.ARRAY_BUFFER, barArray, gl.STATIC_DRAW);
+    const bibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, barIdxArray, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+
+    // Start/Finish checkerboard — drawn as a separate flat quad at the line so
+    // it appears exactly once per lap instead of repeating every quarter lap.
+    this.buildFinishLine();
+  }
+
+  private buildFinishLine() {
+    const gl = this.gl;
+    const p = this._trackPoints[0];
+    const n = this._trackPoints[1];
+    const ppx = -p.dirZ;
+    const ppz = p.dirX;
+    const hw = p.width / 2;
+    const segLen = Math.hypot(n.x - p.x, n.z - p.z) || 1;
+    // A short band along the direction of travel at the start/finish point
+    const nx = (n.x - p.x) / segLen;
+    const nz = (n.z - p.z) / segLen;
+    const bandLen = Math.min(3.5, segLen);
+    const verts: number[] = [];
+    const idxs: number[] = [];
+    const cols = 8, rows = 2;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const white = (r + c) % 2 === 0;
+        const col = white ? 0.92 : 0.1;
+        const x0 = p.x + ppx * (c / cols * 2 - 1) * hw + nx * (r / rows * bandLen);
+        const z0 = p.z + ppz * (c / cols * 2 - 1) * hw + nz * (r / rows * bandLen);
+        const x1 = p.x + ppx * ((c + 1) / cols * 2 - 1) * hw + nx * (r / rows * bandLen);
+        const z1 = p.z + ppz * ((c + 1) / cols * 2 - 1) * hw + nz * (r / rows * bandLen);
+        const x2 = p.x + ppx * ((c + 1) / cols * 2 - 1) * hw + nx * ((r + 1) / rows * bandLen);
+        const z2 = p.z + ppz * ((c + 1) / cols * 2 - 1) * hw + nz * ((r + 1) / rows * bandLen);
+        const x3 = p.x + ppx * (c / cols * 2 - 1) * hw + nx * ((r + 1) / rows * bandLen);
+        const z3 = p.z + ppz * (c / cols * 2 - 1) * hw + nz * ((r + 1) / rows * bandLen);
+        const b = verts.length / 11;
+        verts.push(x0, 0.02, z0, 0, 1, 0, col, col, col, 0, 0);
+        verts.push(x1, 0.02, z1, 0, 1, 0, col, col, col, 0, 0);
+        verts.push(x2, 0.02, z2, 0, 1, 0, col, col, col, 0, 0);
+        verts.push(x3, 0.02, z3, 0, 1, 0, col, col, col, 0, 0);
+        idxs.push(b, b + 1, b + 2);
+        idxs.push(b, b + 2, b + 3);
+      }
+    }
+    const fArray = new Float32Array(verts);
+    const fIdxArray = new Uint16Array(idxs);
+    this.finishCount = fIdxArray.length;
+    this.finishVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.finishVao);
+    const fvbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, fvbo);
+    gl.bufferData(gl.ARRAY_BUFFER, fArray, gl.STATIC_DRAW);
+    const fibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, fibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, fIdxArray, gl.STATIC_DRAW);
     const stride = 11 * 4;
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
@@ -1092,6 +1175,10 @@ void main() {
     gl.uniformMatrix4fv(this.shadowModelLoc, false, this.modelMatrix);
     gl.bindVertexArray(this.trackVao);
     gl.drawElements(gl.TRIANGLES, this.trackCount, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(this.barrierVao);
+    gl.drawElements(gl.TRIANGLES, this.barrierCount, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(this.finishVao);
+    gl.drawElements(gl.TRIANGLES, this.finishCount, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(this.sceneryVao);
     gl.drawElements(gl.TRIANGLES, this.sceneryCount, gl.UNSIGNED_SHORT, 0);
 
@@ -1144,21 +1231,42 @@ void main() {
     gl.uniform3f(this.viewPosLoc, eye[0], eye[1], eye[2]);
     gl.uniform1i(this.hasTexLoc, 1);
 
-    // Track
+    // Track (asphalt road + shoulders, textured)
     gl.bindVertexArray(this.trackVao);
     gl.uniform1i(this.textureLoc, 0);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.trackTex);
+    gl.uniform1i(this.hasTexLoc, 1);
     this.mat4Identity(this.modelMatrix);
     gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
     gl.uniform3f(this.colorLoc, 1, 1, 1);
     this.setNormalMatrix(this.modelMatrix);
     gl.drawElements(gl.TRIANGLES, this.trackCount, gl.UNSIGNED_SHORT, 0);
 
-    // Scenery
+    // Start/Finish checkerboard (flat colors — exactly one band per lap)
+    gl.bindVertexArray(this.finishVao);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
+    gl.uniform1i(this.hasTexLoc, 0);
+    this.mat4Identity(this.modelMatrix);
+    gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+    gl.uniform3f(this.colorLoc, 1, 1, 1);
+    this.setNormalMatrix(this.modelMatrix);
+    gl.drawElements(gl.TRIANGLES, this.finishCount, gl.UNSIGNED_SHORT, 0);
+
+    // Barrier walls (flat vivid red/white — no dark-texture multiply)
+    gl.bindVertexArray(this.barrierVao);
+    this.mat4Identity(this.modelMatrix);
+    gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+    gl.uniform3f(this.colorLoc, 1, 1, 1);
+    this.setNormalMatrix(this.modelMatrix);
+    gl.drawElements(gl.TRIANGLES, this.barrierCount, gl.UNSIGNED_SHORT, 0);
+
+    // Scenery (trees, grandstands, light poles)
     gl.bindVertexArray(this.sceneryVao);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
+    gl.uniform1i(this.hasTexLoc, 1);
     this.mat4Identity(this.modelMatrix);
     gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
     gl.uniform3f(this.colorLoc, 1, 1, 1);

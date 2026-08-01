@@ -88,6 +88,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   imagePreviewUrl?: string | null = null;
   isGridMediaExpanded = false;
   gridMediaFile: FileEntry | undefined;
+  /** All expandable media files in the current listing, for prev/next flipping. */
+  gridMediaFiles: FileEntry[] = [];
+  gridMediaIndex = 0;
   isVisibilityDropdownOpen = false;
   visibilityDropdownFile: FileEntry | null = null;
   showCommentsInOpenedFiles: number[] = [];
@@ -773,15 +776,42 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   openGridMediaExpand(file: FileEntry) {
+    // Build the flip list from the current listing: media files (outside the ROM tree), deduped by id.
+    this.gridMediaFiles = (this.directory?.data ?? [])
+      .filter(f => !f.isFolder && !this.isInRomTree() && this.isMediaFile(f.fileName ?? ''))
+      .filter((f, i, arr) => arr.findIndex(x => x.id === f.id) === i);
+    const idx = this.gridMediaFiles.findIndex(f => f.id === file.id);
+    this.gridMediaIndex = idx >= 0 ? idx : 0;
     this.gridMediaFile = file;
     this.isGridMediaExpanded = true;
     this.parentRef?.showOverlay();
     try { this.changeDetectorRef.detectChanges(); } catch { }
   }
 
+  showGridMediaPrev() {
+    if (this.gridMediaFiles.length <= 1) return;
+    this.gridMediaIndex = (this.gridMediaIndex - 1 + this.gridMediaFiles.length) % this.gridMediaFiles.length;
+    this.setGridMediaFile(this.gridMediaFiles[this.gridMediaIndex]);
+  }
+
+  showGridMediaNext() {
+    if (this.gridMediaFiles.length <= 1) return;
+    this.gridMediaIndex = (this.gridMediaIndex + 1) % this.gridMediaFiles.length;
+    this.setGridMediaFile(this.gridMediaFiles[this.gridMediaIndex]);
+  }
+
+  private setGridMediaFile(file: FileEntry) {
+    this.gridMediaFile = file;
+    // media-viewer reloads when its fileId input changes (OnChanges), so flipping the
+    // file object is enough to load the next/previous media.
+    try { this.changeDetectorRef.detectChanges(); } catch { }
+  }
+
   closeGridMediaExpand() {
     this.isGridMediaExpanded = false;
     this.gridMediaFile = undefined;
+    this.gridMediaFiles = [];
+    this.gridMediaIndex = 0;
     this.parentRef?.closeOverlay();
   }
 
@@ -1144,6 +1174,27 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     if (!fileName) return false;
     const lower = fileName.toLowerCase();
     return this.fileService.videoFileExtensions.some(ext => lower.endsWith(`.${ext}`));
+  }
+
+  /** Stores the duration reported by a grid thumb's media-viewer on the matching file entry. */
+  onVideoMetadataEvent(event: { fileId: number; duration: number }) {
+    if (!event || !event.fileId || !isFinite(event.duration) || event.duration <= 0) return;
+    const file = this.directory?.data?.find(f => f.id === event.fileId);
+    if (file) {
+      file.videoDuration = event.duration;
+      try { this.changeDetectorRef.detectChanges(); } catch { }
+    }
+  }
+
+  /** Formats a duration in seconds as m:ss (or h:mm:ss for long videos). */
+  formatVideoDuration(seconds: number): string {
+    if (!isFinite(seconds) || seconds <= 0) return '';
+    const total = Math.round(seconds);
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
   }
 
   /** Check if a file is an image file based on its extension */
@@ -1585,6 +1636,17 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       case 'Enter':
         this.activateHoveredFile();
         event.preventDefault();
+        break;
+
+      // Grid media expand popup navigation
+      case 'ArrowLeft':
+        if (this.isGridMediaExpanded) { this.showGridMediaPrev(); event.preventDefault(); }
+        break;
+      case 'ArrowRight':
+        if (this.isGridMediaExpanded) { this.showGridMediaNext(); event.preventDefault(); }
+        break;
+      case 'Escape':
+        if (this.isGridMediaExpanded) { this.closeGridMediaExpand(); event.preventDefault(); }
         break;
     }
   }

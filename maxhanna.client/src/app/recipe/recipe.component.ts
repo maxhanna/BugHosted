@@ -1,4 +1,4 @@
-import { Component, HostListener, Input, OnInit, ViewChild } from '@angular/core';
+﻿import { Component, HostListener, Input, OnInit, ViewChild } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { firstValueFrom } from 'rxjs';
 import { ChildComponent } from '../child.component';
@@ -186,7 +186,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   getYouTubeUrl(r: Recipe): SafeResourceUrl | null {
     const c = this.youTubeUrlCache.get(r.id); if (c) return c;
     const id = this.getFirstYouTubeId(r); if (!id) return null;
-    const url = this.sanitizer.bypassSecurityTrustResourceUrl(`https://www.youtube.com/embed/${id}?autoplay=1&mute=1`);
+    const url = this.sanitizer.bypassSecurityTrustResourceUrl(`https://www.youtube.com/embed/${id}?autoplay= 1&mute= 1`);
     this.youTubeUrlCache.set(r.id, url); return url;
   }
   trackByRecipeId(_: number, r: Recipe): number { return r.id ?? _; }
@@ -197,4 +197,11 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     this.expandedRecipes.set(recipeId, expanded);
     if (!expanded && this.editingRecipeId === recipeId) this.cancelEdit();
   }
+
+  showMenuPanel(): void {
+   this.menuOpen = true;
+   if (this.parentRef) {
+   this.parentRef.overlayVisible = true;
+   }
+   }
 }

@@ -1,7 +1,6 @@
 using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace maxhanna.Server.Controllers
@@ -295,7 +294,9 @@ namespace maxhanna.Server.Controllers
 						var diffMinutes = (DateTime.UtcNow - fetched).TotalMinutes;
 						if (diffMinutes >= 0 && diffMinutes < 30)
 						{
-							return Ok(new { found = true, schedule = JsonConvert.DeserializeObject(json) });
+							// Deserialize with System.Text.Json (not Newtonsoft JToken) so the
+							// response serializes back to the same shape the frontend expects.
+							return Ok(new { found = true, schedule = System.Text.Json.JsonSerializer.Deserialize<object>(json) });
 						}
 					}
 				}
@@ -340,7 +341,10 @@ namespace maxhanna.Server.Controllers
 					await removeLanded.ExecuteNonQueryAsync();
 				}
 
-				return Ok(new { found = true, schedule = dataArray.ToObject<List<object>>() });
+				// Deserialize with System.Text.Json (not List<JObject>) so the schedule array
+				// round-trips to real objects instead of empty nested arrays.
+				var scheduleObj = System.Text.Json.JsonSerializer.Deserialize<object>(dataArray.ToString(Newtonsoft.Json.Formatting.None));
+				return Ok(new { found = true, schedule = scheduleObj });
 			}
 			catch (Exception ex)
 			{

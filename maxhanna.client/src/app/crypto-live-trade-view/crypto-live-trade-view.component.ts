@@ -1,9 +1,6 @@
-import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnDestroy, QueryList, ViewChildren } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { ChildComponent } from '../child.component';
-import { CryptoCoinGraphViewerComponent } from '../crypto-coin-graph-viewer/crypto-coin-graph-viewer.component';
-import { CryptoTradeLogsComponent } from '../crypto-trade-logs/crypto-trade-logs.component';
-import { CryptoTradeHistoryComponent } from '../crypto-trade-history/crypto-trade-history.component';
 
 @Component({
   selector: 'app-crypto-live-trade-view',
@@ -12,56 +9,48 @@ import { CryptoTradeHistoryComponent } from '../crypto-trade-history/crypto-trad
   styleUrl: './crypto-live-trade-view.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class CryptoLiveTradeViewComponent extends ChildComponent implements AfterViewInit, OnDestroy {
+export class CryptoLiveTradeViewComponent extends ChildComponent {
   constructor(private cdr: ChangeDetectorRef) { super(); }
   // Pill bar collapsed state
   isPillBarCollapsed: boolean = false;
 
-  // ViewChildren for accessing dynamic instances (useful for other logic, but not needed for destruction)
-  @ViewChildren(CryptoCoinGraphViewerComponent) coinGraphViewers!: QueryList<CryptoCoinGraphViewerComponent>;
-  @ViewChildren(CryptoTradeLogsComponent) tradeLogsComponents!: QueryList<CryptoTradeLogsComponent>;
-  @ViewChildren(CryptoTradeHistoryComponent) tradeHistoryComponents!: QueryList<CryptoTradeHistoryComponent>;
+  // Per-currency accordion: which currency sections are expanded
+  expandedCurrencies: Set<string> = new Set();
 
   @Input() inputtedParentRef!: AppComponent;
   @Input() selectedCurrency!: string;
   @Input() latestCurrencyPriceRespectToCAD!: number;
   @Input() hasKrakenApi!: boolean;
   @Input() set activeTradeBots(value: { strategy: string; currency: string; startedSince: string }[]) {
-    this._activeTradeBots = value;
-    this._cachedUniqueCurrencyBots = null;
-    this._cachedGroupedBots.clear();
-    this.initializeVisibility();
-    this.cdr.markForCheck();
+    // The parent binds [activeTradeBots]="getActiveTradeBots()" which can return
+    // a NEW array reference on every change-detection cycle. Only rebuild the
+    // caches and accordion when the actual set of bots changed — otherwise the
+    // user's expand/collapse choices would be wiped constantly.
+    const newSig = this.botSignature(value || []);
+    if (newSig !== this._lastBotSignature) {
+      this._activeTradeBots = value || [];
+      this._cachedUniqueCurrencyBots = null;
+      this._cachedGroupedBots.clear();
+      this.resetExpanded();
+      this._lastBotSignature = newSig;
+      this.cdr.markForCheck();
+    }
   }
 
   private _activeTradeBots: { strategy: string; currency: string; startedSince: string }[] = [];
   private _cachedUniqueCurrencyBots: { strategy: string; currency: string; startedSince: string }[] | null = null;
   private _cachedGroupedBots: Map<string, { strategy: string; startedSince: string }[]> = new Map();
-  visibleComponents = {
-    graph: new Map<number, boolean>(),
-    logs: new Map<number, boolean>(),
-    history: new Map<number, boolean>()
-  };
-  private timeoutIds: number[] = []; // Store setTimeout IDs
+  private _lastBotSignature = '';
+
+  // Stable fingerprint of the active bots so we can ignore no-op input updates.
+  // Signed on currency|strategy only (not startedSince) so a status poll that
+  // refreshes the started-since timestamp never resets the user's accordion state.
+  private botSignature(bots: { strategy: string; currency: string; startedSince: string }[]): string {
+    return bots.map(b => `${b.currency}|${b.strategy}`).sort().join(';');
+  }
 
   get activeTradeBots(): { strategy: string; currency: string; startedSince: string }[] {
     return this._activeTradeBots;
-  }
-
-  ngAfterViewInit() {
-    this.initializeVisibility();
-    this.cdr.markForCheck();
-
-    // Optional: Subscribe to QueryList changes for debugging
-    this.coinGraphViewers.changes.subscribe((ql: QueryList<CryptoCoinGraphViewerComponent>) => {
-      console.log('CoinGraphViewers updated:', ql.length);
-    });
-    this.tradeLogsComponents.changes.subscribe((ql: QueryList<CryptoTradeLogsComponent>) => {
-      console.log('TradeLogsComponents updated:', ql.length);
-    });
-    this.tradeHistoryComponents.changes.subscribe((ql: QueryList<CryptoTradeHistoryComponent>) => {
-      console.log('TradeHistoryComponents updated:', ql.length);
-    });
   }
 
   // Scroll the page to the first group matching the given currency
@@ -77,12 +66,6 @@ export class CryptoLiveTradeViewComponent extends ChildComponent implements Afte
     } catch (e) {
       console.error('scrollToCoin failed', e);
     }
-  }
-
-  ngOnDestroy() {
-    // Only clear custom timeouts; Angular handles child destruction automatically
-    this.timeoutIds.forEach(id => clearTimeout(id));
-    this.timeoutIds = [];
   }
 
   togglePillBar() {
@@ -125,59 +108,55 @@ export class CryptoLiveTradeViewComponent extends ChildComponent implements Afte
     else return tmpCoin;
   }
 
-  initializeVisibility() { 
-    this.visibleComponents.graph.clear();
-    this.visibleComponents.logs.clear();
-    this.visibleComponents.history.clear();
+  // ─── Accordion helpers ───
 
-    this.uniqueCurrencyBots.forEach((bot, i) => {
-      this.visibleComponents.graph.set(i, false);
-      const strategies = this.groupedBotsByCurrency(bot.currency);
-      strategies.forEach((_, j) => {
-        const combinedIndex = i + j;
-        this.visibleComponents.logs.set(combinedIndex, false);
-        this.visibleComponents.history.set(combinedIndex, false);
-      });
-    });
-
-    this.setStaggeredVisibility();
+  // Default: only the first currency expanded (the rest collapsed) so the view
+  // isn't a wall of tables — especially on mobile. The pill bar lets users jump
+  // to any currency, and the chevron header expands/collapses each one.
+  private resetExpanded() {
+    this.expandedCurrencies.clear();
+    const bots = this.uniqueCurrencyBots;
+    if (bots.length > 0) {
+      this.expandedCurrencies.add(bots[0].currency);
+    }
   }
 
-  setStaggeredVisibility() {
-    this.visibleComponents.graph.clear();
-    this.visibleComponents.logs.clear();
-    this.visibleComponents.history.clear();
-
-    this.uniqueCurrencyBots.forEach((_, i) => {
-      this.visibleComponents.graph.set(i, false);
-      const timeoutId1 = setTimeout(() => {
-        this.visibleComponents.graph.set(i, true);
-        this.cdr.detectChanges();
-      }, i * 2000) as unknown as number;
-      this.timeoutIds.push(timeoutId1);
-
-      const strategies = this.groupedBotsByCurrency(_.currency);
-      strategies.forEach((_, j) => {
-        const combinedIndex = i + j;
-        this.visibleComponents.logs.set(combinedIndex, false);
-        this.visibleComponents.history.set(combinedIndex, false);
-
-        const timeoutId2 = setTimeout(() => {
-          this.visibleComponents.logs.set(combinedIndex, true);
-          this.cdr.detectChanges();
-
-          const timeoutId3 = setTimeout(() => {
-            this.visibleComponents.history.set(combinedIndex, true);
-            this.cdr.detectChanges();
-          }, 1000) as unknown as number;
-          this.timeoutIds.push(timeoutId3);
-        }, (i * strategies.length + j) * 2000) as unknown as number;
-        this.timeoutIds.push(timeoutId2);
-      });
-    });
+  isCurrencyExpanded(currency: string): boolean {
+    return this.expandedCurrencies.has(currency);
   }
 
-  shouldShowComponent(index: number, type: 'graph' | 'logs' | 'history'): boolean {
-    return this.visibleComponents[type].get(index) || false;
+  toggleCurrency(currency: string) {
+    if (this.expandedCurrencies.has(currency)) {
+      this.expandedCurrencies.delete(currency);
+    } else {
+      this.expandedCurrencies.add(currency);
+    }
+    this.cdr.markForCheck();
+  }
+
+  expandAll() {
+    this.uniqueCurrencyBots.forEach(bot => this.expandedCurrencies.add(bot.currency));
+    this.cdr.markForCheck();
+  }
+
+  collapseAll() {
+    this.expandedCurrencies.clear();
+    this.cdr.markForCheck();
+  }
+
+  allCollapsed(): boolean {
+    return this.expandedCurrencies.size === 0;
+  }
+
+  // Each currency section renders ONE logs component and ONE history component —
+  // their built-in coin + strategy dropdowns do the filtering. We just pick a
+  // sensible default strategy (the first active one for that currency).
+  firstStrategyFor(currency: string): string {
+    const strategies = this.groupedBotsByCurrency(currency);
+    return strategies.length > 0 ? strategies[0].strategy : 'DCA';
+  }
+
+  strategiesLabel(currency: string): string {
+    return this.groupedBotsByCurrency(currency).map(s => s.strategy).join(', ');
   }
 }

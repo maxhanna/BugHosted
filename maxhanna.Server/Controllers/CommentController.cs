@@ -325,9 +325,25 @@ namespace maxhanna.Server.Controllers
 					}
 
 					var cachedUsers = new Dictionary<int, User>();
+					if (userIdsNeeded.Count > 0)
+					{
+						var idList = string.Join(",", userIdsNeeded);
+						using (var userCmd = new MySqlCommand($"SELECT id, username FROM maxhanna.users WHERE id IN ({idList})", conn))
+						using (var userRdr = await userCmd.ExecuteReaderAsync())
+						{
+							while (await userRdr.ReadAsync())
+							{
+								var uid = userRdr.GetInt32(0);
+								cachedUsers[uid] = new User(uid, userRdr.IsDBNull(1) ? "Anonymous" : userRdr.GetString(1));
+							}
+						}
+					}
 					foreach (var uid in userIdsNeeded)
 					{
-						cachedUsers[uid] = new User(uid);
+						if (!cachedUsers.ContainsKey(uid))
+						{
+							cachedUsers[uid] = new User(uid);
+						}
 					}
 
 					var comments = new Dictionary<int, FileComment>();
@@ -585,9 +601,25 @@ namespace maxhanna.Server.Controllers
 					}
 
 					var cachedUsers = new Dictionary<int, User>();
+					if (userIdsNeeded.Count > 0)
+					{
+						var idList = string.Join(",", userIdsNeeded);
+						using (var userCmd = new MySqlCommand($"SELECT id, username FROM maxhanna.users WHERE id IN ({idList})", conn))
+						using (var userRdr = await userCmd.ExecuteReaderAsync())
+						{
+							while (await userRdr.ReadAsync())
+							{
+								var uid = userRdr.GetInt32(0);
+								cachedUsers[uid] = new User(uid, userRdr.IsDBNull(1) ? "Anonymous" : userRdr.GetString(1));
+							}
+						}
+					}
 					foreach (var uid in userIdsNeeded)
 					{
-						cachedUsers[uid] = new User(uid);
+						if (!cachedUsers.ContainsKey(uid))
+						{
+							cachedUsers[uid] = new User(uid);
+						}
 					}
 
 					var comments = new Dictionary<int, FileComment>();
