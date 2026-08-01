@@ -86,6 +86,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   isShowingFileFavouriters = false;
   isShowingImagePreview = false;
   imagePreviewUrl?: string | null = null;
+  isGridMediaExpanded = false;
+  gridMediaFile: FileEntry | undefined;
   isVisibilityDropdownOpen = false;
   visibilityDropdownFile: FileEntry | null = null;
   showCommentsInOpenedFiles: number[] = [];
@@ -750,6 +752,39 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     event.stopPropagation();
     return this.selectFile(file);
   }
+
+  /** Whether the current directory is anywhere inside the ROMs tree (incl. system subfolders). */
+  private isInRomTree(): boolean {
+    return /\broms?\b/i.test(this.currentDirectory ?? '');
+  }
+
+  /**
+   * Grid view click handler. Images/videos (outside the ROM tree) open an
+   * expanded preview popup. Everything else keeps the existing grid behavior:
+   * folders do nothing on click, ROMs and other files go through selectFile.
+   */
+  onGridItemClick(file: FileEntry) {
+    if (file.isFolder) return;
+    if (!this.isInRomTree() && this.isMediaFile(file.fileName ?? '')) {
+      this.openGridMediaExpand(file);
+      return;
+    }
+    this.selectFile(file);
+  }
+
+  openGridMediaExpand(file: FileEntry) {
+    this.gridMediaFile = file;
+    this.isGridMediaExpanded = true;
+    this.parentRef?.showOverlay();
+    try { this.changeDetectorRef.detectChanges(); } catch { }
+  }
+
+  closeGridMediaExpand() {
+    this.isGridMediaExpanded = false;
+    this.gridMediaFile = undefined;
+    this.parentRef?.closeOverlay();
+  }
+
   selectFile(file: FileEntry) {
     if (!file.isFolder && this.clearAfterSelectFile) {
       this.selectFileEvent.emit(file);
@@ -1102,6 +1137,13 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       return mediaFileTypes.some(extension => lowerCaseFileName.endsWith(`.${extension}`));
     }
     return false;
+  }
+
+  /** True only for video files (excludes audio — isVideoFile() includes audio). */
+  isVideoFileOnly(fileName?: string): boolean {
+    if (!fileName) return false;
+    const lower = fileName.toLowerCase();
+    return this.fileService.videoFileExtensions.some(ext => lower.endsWith(`.${ext}`));
   }
 
   /** Check if a file is an image file based on its extension */

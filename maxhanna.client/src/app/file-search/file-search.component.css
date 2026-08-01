@@ -517,6 +517,39 @@
   max-width: calc(100dvw - 90px);
 }
 
+/* Expanded image/video preview opened from grid view */
+.gridMediaExpandContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 40vh;
+  min-height: 40dvh;
+  max-height: 70vh;
+  max-height: 70dvh;
+  width: 100%;
+}
+
+.gridMediaExpandContainer app-media-viewer,
+.gridMediaExpandContainer .mediaContainerWrapperDiv,
+.gridMediaExpandContainer .mediaContainerDiv,
+.gridMediaExpandContainer .mediaDiv {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.gridMediaExpandContainer .media {
+  max-width: 100%;
+  max-height: 65vh;
+  max-height: 65dvh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
 .spaceAroundSystemFilters {
   flex-direction: column;
   margin-bottom: 15px;
@@ -765,6 +798,46 @@
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+/* Video items get a widescreen thumbnail so 16:9 clips aren't squished into a square.
+   Note: media-viewer's own .mediaDiv/.media rules center the inner video with
+   max-width:100% + height:auto, so a 16:9 clip fills this 16:9 box exactly. */
+.grid-item.video .grid-thumb {
+  aspect-ratio: 16 / 9;
+  background: rgba(0,0,0,0.35);
+}
+.grid-item.video .grid-thumb app-media-viewer {
+  width: 100%;
+  height: 100%;
+}
+
+/* Centered play badge on video thumbs */
+.grid-video-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.55);
+  border: 2px solid rgba(255,255,255,0.85);
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 4px; /* optically center the ▶ glyph */
+  pointer-events: none;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+  transition: transform 0.15s ease, background 0.15s ease;
+  z-index: 2;
+}
+.grid-item.video:hover .grid-video-play {
+  transform: translate(-50%, -50%) scale(1.12);
+  background: rgba(0,0,0,0.75);
 }
 
 /* Non-image file placeholder */

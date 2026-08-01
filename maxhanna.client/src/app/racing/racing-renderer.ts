@@ -161,16 +161,18 @@ export class RacingRenderer {
           const c = white ? 245 : 15;
           data[i] = c; data[i + 1] = c; data[i + 2] = c;
         } else if (y < 2 || y > size - 3) {
-          // Subtle white edge line — thin and dim so the road stays clean
-          data[i] = 120; data[i + 1] = 120; data[i + 2] = 118;
+          // Crisp white edge lines — clear track boundary without being harsh
+          data[i] = 205; data[i + 1] = 205; data[i + 2] = 202;
         } else if (y > size / 2 - 2 && y < size / 2 + 2) {
-          // Dashed center line — muted so it guides without dominating
-          if (x % 24 < 10) { data[i] = 140; data[i + 1] = 140; data[i + 2] = 136; }
-          else { data[i] = 62; data[i + 1] = 62; data[i + 2] = 63; }
+          // Dashed center line — legible but not dominating
+          if (x % 24 < 10) { data[i] = 200; data[i + 1] = 200; data[i + 2] = 196; }
+          else { data[i] = 58; data[i + 1] = 58; data[i + 2] = 60; }
         } else {
-          // Plain asphalt — very low noise so the road reads as a clean surface
-          const n = 58 + ((i * 7) % 5);
-          data[i] = n; data[i + 1] = n; data[i + 2] = n + 1;
+          // Asphalt with gentle grain — reads as a real surface without clutter.
+          // Hash-based noise ((x*7+y*13)%5) avoids the diagonal banding that a
+          // plain (x+y) term produces under REPEAT wrapping.
+          const n = 50 + ((x * 7 + y * 13) % 9) + ((i * 5) % 6);
+          data[i] = n; data[i + 1] = n; data[i + 2] = n + 2;
         }
       }
     }
@@ -1114,7 +1116,11 @@ void main() {
     gl.bindVertexArray(null);
     gl.depthMask(true);
     gl.enable(gl.DEPTH_TEST);
-    gl.enable(gl.CULL_FACE);
+    // NOTE: the whole main geometry pass is rendered with back-face culling DISABLED.
+    // The barrier walls are single-sided quads; if their winding is ever off by one
+    // mirror, gl.cullFace(gl.BACK) makes the wall vanish ("transparent walls").
+    // Rendering them double-sided guarantees walls are always visible.
+    gl.disable(gl.CULL_FACE);
     // The sky wrote no depth, so the depth buffer stays at its cleared value
     // and the main geometry pass draws over the sky correctly.
 

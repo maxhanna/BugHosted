@@ -184,7 +184,7 @@
 
         <ng-template #gridView>
           <div class="file-grid">
-            <div *ngFor="let file of directory.data" class="grid-item" [class.selected]="optionsFile?.id === file.id || selectedSharedFile?.id === file.id" [class.folder]="file.isFolder" (click)="!file.isFolder && selectFile(file)">
+            <div *ngFor="let file of directory.data" class="grid-item" [class.selected]="optionsFile?.id === file.id || selectedSharedFile?.id === file.id" [class.folder]="file.isFolder" [class.video]="!file.isFolder && isVideoFileOnly(file.fileName)" (click)="onGridItemClick(file)">
               <div class="grid-thumb">
                 <!-- Show image thumbnail for image/media files -->
                 <ng-container *ngIf="!file.isFolder && isMediaFile(file.fileName)">
@@ -193,6 +193,9 @@
                     [blockExpand]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef">
                   </app-media-viewer>
                 </ng-container>
+                <!-- Play badge overlay for video thumbs -->
+                <span class="grid-video-play" *ngIf="!file.isFolder && isVideoFileOnly(file.fileName)"
+                  title="Play video">▶</span>
                 <!-- ROM game thumbnail -->
                 <ng-container
                   *ngIf="shouldShowRomMetadata() && file && file.romInlineThumbs && file.romInlineThumbs.length > 0">
@@ -1028,6 +1031,20 @@
  <button class="popupPanelAction" (click)="previousPreviewImage()">&#8249; Prev</button>
  <button class="popupPanelAction" (click)="nextPreviewImage()">Next &#8250;</button>
  <button class="popupPanelAction" id="closeOverlay" (click)="closeImagePreview()">Close</button>
+ </div>
+ </div>
+
+ <!-- Grid media expand popup (image/video clicked in grid view, outside ROM folder) -->
+ <div class="popupPanel imagePreviewPopup" *ngIf="isGridMediaExpanded && gridMediaFile">
+ <div class="popupPanelTitle">{{ gridMediaFile?.givenFileName ?? gridMediaFile?.fileName }}</div>
+ <div class="imagePreviewContainer gridMediaExpandContainer">
+ <app-media-viewer [fileId]="gridMediaFile.id" [autoplay]="true" [displayExpander]="false"
+ [displayExtraInfo]="false" [displayLoading]="true" [showCommentSection]="false" [showTopics]="false"
+ [blockExpand]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef">
+ </app-media-viewer>
+ </div>
+ <div class="popupPanelActions">
+ <button class="popupPanelAction" id="closeOverlay" (click)="closeGridMediaExpand()">Close</button>
  </div>
  </div>
 
