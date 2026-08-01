@@ -167,7 +167,7 @@
         class="storyContainer">
         <app-social-post [socialId]="story.id" [story]="story" [user]="user" [profileUserId]="userProfileId"
           [commentId]="commentId" [feedIndex]="s" [canLoad]="canLoad" [compactness]="compactness"
-          [autoOpenComments]="!!storyId" [inputtedParentRef]="parentRef ?? parent" [parent]="parent"
+          [autoOpenComments]="!!storyId" [inputtedParentRef]="parentRef ?? parent"
           (postDeleted)="onPostDeleted($event)" (topicClicked)="onPostTopicClicked($event)"
           (topicIgnored)="onPostTopicIgnored()" (postHidden)="onPostHidden()">
         </app-social-post>

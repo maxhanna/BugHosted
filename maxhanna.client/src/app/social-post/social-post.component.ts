@@ -50,7 +50,6 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
   @Input() autoOpenComments = false;
   @Input() canLoad = false;
   @Input() compactness: Compactness = "yes";
-  @Input() parent?: AppComponent;
   @Input() inputtedParentRef?: AppComponent;
 
   @Output() postDeleted = new EventEmitter<Story>();
@@ -289,7 +288,7 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
   }
 
   async saveStoryVisibility(story: Story) {
-    const parent = this.parent ?? this.parentRef;
+    const parent = this.inputtedParentRef ?? this.parentRef;
     if (!parent?.user?.id) return alert('Must be logged in to change visibility.');
     try {
       const sessionToken = await parent.getSessionToken();
