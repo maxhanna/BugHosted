@@ -30,6 +30,7 @@ interface BotCar {
   config: any;
   mistakeTimer: number;
   hasMistake: boolean;
+  alive: boolean;
 }
 
 interface RemoteCarVisual {
@@ -624,6 +625,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         config,
         mistakeTimer: 0,
         hasMistake: false,
+        alive: true,
       });
     }
   }
@@ -854,18 +856,131 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const halfWidth = (tp.width || 16) / 2;
     const barrierDist = halfWidth + 0.5; // barrier wall position
 
-    // Hard barrier collision — bounce car back if it hits the wall
+    // ── Barrier collision ──
+    // Bounce the car off the wall with speed + angle-dependent force.
+    // Graze: a shallow scrape sheds speed but doesn't stop the car.
+    // Head-on: full reflection, big speed loss.
     if (distFromCenter > barrierDist) {
       const normX = dxTrack / distFromCenter;
       const normZ = dzTrack / distFromCenter;
-      // Clamp position to barrier edge
-      this.carX = tp.x + normX * barrierDist;
-      this.carZ = tp.z + normZ * barrierDist;
-      // Kill velocity component heading into the wall
-      const towardWall = (Math.sin(this.carYaw) * normX + Math.cos(this.carYaw) * normZ) * this.carSpeed;
-      if (towardWall > 0) this.carSpeed -= towardWall * 0.7;
-      this.carSpeed *= 0.8; // friction scrape
-      this.screenShake = Math.max(0.06, this.screenShake);
+
+      // 1. Push car clear of the wall (inside barrier edge)
+      this.carX = tp.x + normX * (barrierDist - 0.3);
+      this.carZ = tp.z + normZ * (barrierDist - 0.3);
+
+      // 2. Reflect velocity off the wall normal
+      //    velocity vector = (sin(yaw), cos(yaw)) * speed
+      const vx = Math.sin(this.carYaw) * this.carSpeed;
+      const vz = Math.cos(this.carYaw) * this.carSpeed;
+
+      // Dot product with wall normal — positive = heading into wall
+      const intoWall = vx * normX + vz * normZ;
+
+      if (intoWall > 0) {
+        // Reflect the into-wall component, keep the along-wall component
+        const reflectX = vx - 2 * intoWall * normX;
+        const reflectZ = vz - 2 * intoWall * normZ;
+
+        // Determine impact severity: speed * angle factor
+        const impactAngle = Math.abs(intoWall) / Math.max(0.01, Math.hypot(vx, vz));
+        const impactSeverity = Math.abs(this.carSpeed) * impactAngle;
+
+        // Graze: purely angle-based. If the car is nearly parallel to the wall
+        // (impactAngle < 0.26 ≈ 15° from parallel), it's a scrape — shed a tiny bit
+        // of speed and continue. No hard bounce, no big speed loss.
+        const isGraze = impactAngle < 0.26;
+
+        if (isGraze) {
+          // Graze: small speed loss, slight direction change, no bounce
+          this.carSpeed *= 0.92;
+          this.carYaw += (Math.random() - 0.5) * 0.03;
+        } else {
+          // Full bounce: reflect the car's yaw toward the outgoing direction
+          const newYaw = Math.atan2(reflectX, reflectZ);
+          // Blend: at high severity snap fully to reflected angle
+          const blend = Math.min(1, impactSeverity / 60);
+          this.carYaw = this.carYaw * (1 - blend) + newYaw * blend;
+
+          // Speed loss: head-on loses more, shallow loses less
+          // impactAngle=1 (head-on) → 0.7× multiplier, impactAngle=0 → 0.95×
+          const speedRetain = 0.95 - impactAngle * 0.25;
+          this.carSpeed *= Math.max(0.3, speedRetain);
+
+          // Small random deflection so you don't get stuck parallel
+          this.carYaw += (Math.random() - 0.5) * 0.04;
+        }
+
+        this.screenShake = Math.max(0.04, Math.min(0.15, impactSeverity / 300));
+      }
+
+      // If the car is still heading into the wall after reflection, nudge it
+      // gently — prevents sliding through barriers at extreme angles without
+      // compounding the speedRetain multiplier.
+      const vxAfter = Math.sin(this.carYaw) * this.carSpeed;
+      const vzAfter = Math.cos(this.carYaw) * this.carSpeed;
+      const stillIntoWall = vxAfter * normX + vzAfter * normZ;
+      if (stillIntoWall > 0) {
+        this.carSpeed *= 0.85;
+        this.carYaw += 0.08;
+      }
+    }
+
+    // ── Car-to-car collision ──
+    // Check against all bots and remote players (via remoteCars map)
+    {
+      const myX = this.carX, myZ = this.carZ, mySpeed = this.carSpeed;
+      const carRadius = 2.0;
+
+      // Collect nearby cars: bots + remote players (exclude self)
+      const nearbyCars: { x: number; z: number; yaw: number; speed: number; isBot: boolean; ref: any }[] = [];
+      for (const bot of this.bots) {
+        if (!bot.alive) continue;
+        nearbyCars.push({ x: bot.x, z: bot.z, yaw: bot.yaw, speed: bot.speed, isBot: true, ref: bot });
+      }
+      for (const [, rc] of this.remoteCars) {
+        nearbyCars.push({ x: rc.x, z: rc.z, yaw: rc.yaw, speed: rc.speed, isBot: false, ref: rc });
+      }
+
+      for (const other of nearbyCars) {
+        const dxC = myX - other.x;
+        const dzC = myZ - other.z;
+        const dist = Math.hypot(dxC, dzC);
+        const minDist = carRadius * 2;
+
+        if (dist < minDist && dist > 0.01) {
+          const pushX = dxC / dist;
+          const pushZ = dzC / dist;
+          const overlap = minDist - dist;
+
+          // Push apart
+          this.carX += pushX * overlap * 0.5;
+          this.carZ += pushZ * overlap * 0.5;
+
+          if (other.isBot) {
+            other.ref.x -= pushX * overlap * 0.5;
+            other.ref.z -= pushZ * overlap * 0.5;
+          }
+
+          // Relative velocity along collision normal
+          const myVx = Math.sin(this.carYaw) * mySpeed;
+          const myVz = Math.cos(this.carYaw) * mySpeed;
+          const theirVx = Math.sin(other.yaw) * other.speed;
+          const theirVz = Math.cos(other.yaw) * other.speed;
+          const relV = (myVx - theirVx) * pushX + (myVz - theirVz) * pushZ;
+
+          if (relV > 0) {
+            this.carSpeed -= relV * 0.3;
+            if (other.isBot) {
+              other.ref.speed += relV * 0.3;
+            }
+            this.carYaw += (Math.random() - 0.5) * 0.1;
+            if (other.isBot) {
+              other.ref.yaw += (Math.random() - 0.5) * 0.1;
+            }
+            this.screenShake = Math.max(0.02, this.screenShake);
+          }
+        }
+      }
     }
 
     if (distFromCenter > halfWidth + 5) {
