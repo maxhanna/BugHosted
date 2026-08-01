@@ -96,8 +96,8 @@
           <app-crawler-search-results style="width:100%" [result]="result" [inputtedParentRef]="inputtedParentRef ?? parentRef" [onlySearch]="onlySearch" [hideStatus]="true" [displaySocialResults]="true" (urlSelectedEvent)="visitExternalLink($event)"></app-crawler-search-results>
         </div>
       </div>
-      <div class="more-btn-row" *ngIf="socialResults.length > socialDisplayLimit">
-        <button (click)="showMoreSocial()">Show more ({{ socialResults.length - socialDisplayLimit }} remaining)</button>
+      <div class="more-btn-row" *ngIf="socialResults.length > 1">
+        <button (click)="showMoreSocial()">{{ socialDisplayLimit > 1 ? 'Show less' : 'Show all ' + socialResults.length + ' social results' }}</button>
       </div>
     </div>
 

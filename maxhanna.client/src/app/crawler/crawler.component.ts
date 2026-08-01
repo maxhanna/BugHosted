@@ -421,7 +421,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   }
 
   showMoreSocial() {
-    this.socialDisplayLimit += 10;
+    this.socialDisplayLimit = this.socialDisplayLimit > 1 ? 1 : this.socialResults.length;
   }
   showMoreImdb() {
       if (this.imdbDisplayLimit >1) {
