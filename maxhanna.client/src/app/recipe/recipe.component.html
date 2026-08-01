@@ -1,5 +1,5 @@
-<div class="componentMain">
-  <app-title-bar [title]="'Recipes'" (closeClicked)="remove_me('RecipeComponent')"></app-title-bar>
+﻿<div class="componentMain">
+  <app-title-bar [title]="'Recipes'" (closeClicked)="remove_me('RecipeComponent')" (menuClicked)="openPopupPanel()"></app-title-bar>
   <div class="recipe-shell">
     <div class="recipe-back-banner" *ngIf="viewingRecipeId">
       <span>Showing linked recipe</span>
@@ -159,5 +159,14 @@
         </ng-container>
       </article>
     </div>
+  </div>
+
+  <!-- Recipe Menu Popup (mirrors music component pattern) -->
+  <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
+    <div class="popupPanelTitle">Recipes</div>
+    <div class="popupPanelContents" style="padding:10px;">
+      <p>Recipe menu coming soon.</p>
+    </div>
+    <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>
   </div>
 </div>

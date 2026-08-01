@@ -590,6 +590,30 @@ void main() {
       barIdxs.push(rb, rb + 2, rb + 1);
       barIdxs.push(rb + 1, rb + 2, rb + 3);
 
+      // ── Curb strips — red/white checkerboard on the floor just inside the
+      // walls (track edge hw → wall base bw). Alternating color per segment,
+      // staggered between the two sides, gives a classic F1 kerb look. The
+      // physics layer scrubs the car's speed while any wheel is over this band.
+      const curbTop = 0.02; // just above the road surface so no z-fighting
+      const addCurb = (side: 1 | -1, checker: boolean) => {
+        const cRed = checker ? 0.93 : 0.85;
+        const cGrn = checker ? 0.93 : 0.08;
+        const cBlu = checker ? 0.93 : 0.08;
+        const dirX = side === 1 ? ppx : -ppx;
+        const dirZ = side === 1 ? ppz : -ppz;
+        const ci = barVerts.length / 11;
+        barVerts.push(p.x + dirX * hw, curbTop, p.z + dirZ * hw, 0, 1, 0, cRed, cGrn, cBlu, 0, 0);
+        barVerts.push(n.x + dirX * hwN, curbTop, n.z + dirZ * hwN, 0, 1, 0, cRed, cGrn, cBlu, 1, 0);
+        barVerts.push(p.x + dirX * bw, curbTop, p.z + dirZ * bw, 0, 1, 0, cRed, cGrn, cBlu, 0, 1);
+        barVerts.push(n.x + dirX * bwN, curbTop, n.z + dirZ * bwN, 0, 1, 0, cRed, cGrn, cBlu, 1, 1);
+        // Winding (ci, ci+2, ci+1)/(ci+1, ci+2, ci+3) faces UP (+Y) so the curb
+        // survives back-face culling when viewed from the cockpit.
+        barIdxs.push(ci, ci + 2, ci + 1);
+        barIdxs.push(ci + 1, ci + 2, ci + 3);
+      };
+      addCurb(1, i % 2 === 0);
+      addCurb(-1, i % 2 === 1);
+
       // Barrier top caps — thin strips over each wall only (never over the road)
       const tcr = striped ? 0.8 : 0.65;
       const tcg = striped ? 0.8 : 0.08;

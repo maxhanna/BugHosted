@@ -22,6 +22,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
 
   @HostListener('document:keydown', ['$event']) onKeyDown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
+      if (this.isMenuPanelOpen) { this.closeMenuPanel(); return; }
       if (this.editingRecipeId !== null) { this.cancelEdit(); return; }
       const ids = Array.from(this.expandedRecipes.entries()).filter(([_, v]) => v).map(([k]) => k);
       if (ids.length > 0) this.toggleRecipeDetails(ids[0]);
@@ -40,6 +41,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
   selectedTopics: Topic[] = [];
   form: RecipePayload = this.makeBlankForm();
   private youTubeUrlCache = new Map<number, SafeResourceUrl>();
+  isMenuPanelOpen = false;
 
   constructor(
     private recipeService: RecipeService,
@@ -196,5 +198,15 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     const expanded = !this.expandedRecipes.get(recipeId);
     this.expandedRecipes.set(recipeId, expanded);
     if (!expanded && this.editingRecipeId === recipeId) this.cancelEdit();
+  }
+
+  openPopupPanel(): void {
+    this.isMenuPanelOpen = true;
+    this.parentRef?.showOverlay();
+  }
+
+  closeMenuPanel(): void {
+    this.isMenuPanelOpen = false;
+    this.parentRef?.closeOverlay();
   }
 }

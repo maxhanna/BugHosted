@@ -16,6 +16,7 @@ const FRICTION = 0.97;
 const MAX_SPEED_BASE = 55;
 const TURN_SPEED = 0.55;
 const OFF_TRACK_DRAG = 0.92;
+const CURB_DRAG = 0.96; // red/white curb strips scrub speed (gentler than grass)
 const AI_LOOKAHEAD = 3;
 
 interface BotCar {
@@ -85,6 +86,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   carX = 0; carZ = 0; carYaw = 0; carSpeed = 0;
   carAccel = 0; carSteer = 0;
   carDist = 0; lapTimes: number[] = [];
+  // Previous frame's track distance — used to detect finish-line wrap-around.
+  private lastCarDist = 0;
   lapStartTime = 0; lastLapTime = 0; raceStartTime = 0;
   totalRaceTime = 0; bestLapTime = 0;
   isOffTrack = false; offTrackTimer = 0;
@@ -260,6 +263,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           this.bestLapTime = Infinity;
           this.carSpeed = 0;
           this.carDist = 0;
+          this.lastCarDist = 0;
           this.racePosition = 1;
           this.lapTimes = [];
           this.lastLapTime = 0;
@@ -305,7 +309,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           // Track lap from racing position (most reliable)
           if (data.currentLap > oldLap) existing.lap = data.currentLap;
           // Fallback: detect lap crossing from distance wrapping (only if currentLap didn't already increment)
-          else if (data.distance > 100 && oldDist < 50) existing.lap++;
+          else if (data.distance < 50 && oldDist > 100) existing.lap++;
           existing.distance = data.distance;
         } else {
           // First time seeing this car — add it
@@ -672,6 +676,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.racePosition = 1;
     this.carSpeed = 0;
     this.carDist = 0;
+    this.lastCarDist = 0;
     this.lapTimes = [];
     this.lastLapTime = 0;
     this.raceStartTime = performance.now();
@@ -917,6 +922,18 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const halfWidth = (tp.width || 16) / 2;
     const barrierDist = halfWidth + 0.5; // barrier wall position
 
+    // ── Curb strip slowdown ──
+    // Red/white checkerboard strips sit on the floor from the track edge to the
+    // wall base. Any wheel crossing onto them scrubs speed — a clear penalty,
+    // but gentler than the off-track grass drag. The upper bound stops at the
+    // wall-clamp position (barrierDist - 0.3) so scraping the wall doesn't also
+    // stack the curb drag on top of the wall's impact response.
+    const wheelReach = 0.5; // ~outer wheel/body extent from the car centreline
+    if (distFromCenter > halfWidth - wheelReach && distFromCenter < barrierDist - 0.3 && Math.abs(this.carSpeed) > 1) {
+      this.carSpeed *= Math.pow(CURB_DRAG, dt * 60); // frame-rate independent
+      this.screenShake = Math.max(this.screenShake, 0.02);
+    }
+
     // ── Barrier collision ──
     // Smooth, damped wall-follow. The car is eased against the barrier with a
     // CAPPED per-frame step (never teleports, even on deep penetration), the
@@ -1081,14 +1098,24 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
 
   private updateBots(dt: number) {
     for (const bot of this.bots) {
+      const prevBotDist = bot.dist;
       const lookDist = bot.dist + AI_LOOKAHEAD * 5;
       const target = this.renderer.getTrackPointAlong(lookDist);
 
       const baseSpeed = bot.config.speedBase * (1 + this.getSpeedBonus() / 200);
       const maxBotSpeed = Math.min(baseSpeed + bot.config.speedVariance, this.getMaxSpeed() * 0.95);
 
-      const dx = target.x - bot.x;
-      const dz = target.z - bot.z;
+      // Steer toward a point on the bot's OWN lane line (same lateral offset as
+      // the lane snap below). Pointing at the bare centerline while the lane
+      // snap drags the bot sideways made every bot visibly travel diagonally —
+      // the rendered yaw no longer matched the true velocity direction.
+      const tpx = -target.dirZ;
+      const tpz = target.dirX;
+      const tx = target.x + tpx * bot.laneOffset;
+      const tz = target.z + tpz * bot.laneOffset;
+
+      const dx = tx - bot.x;
+      const dz = tz - bot.z;
       const targetYaw = Math.atan2(dx, dz);
 
       let yawDiff = targetYaw - bot.yaw;
@@ -1129,32 +1156,35 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       bot.x += (laneX - bot.x) * snap;
       bot.z += (laneZ - bot.z) * snap;
 
-      const prevDist = bot.dist;
-      if (prevDist < this.renderer.totalTrackDist * 0.2 && bot.dist > this.renderer.totalTrackDist * 0.8) {
+      // Lap crossing: distance wraps from the track end back to ~0.
+      if (prevBotDist > this.renderer.totalTrackDist * 0.8 && bot.dist < this.renderer.totalTrackDist * 0.2) {
         bot.lap++;
       }
     }
   }
 
   private checkLapCrossing() {
-    const prevDist = this.carDist;
+    const prevDist = this.lastCarDist;
     const trackLen = this.renderer.totalTrackDist;
 
-    if (prevDist < trackLen * 0.2 && this.carDist > trackLen * 0.8) {
+    // Crossing the line = distance wraps from near the track end back to ~0.
+    // The old code aliased prevDist to the CURRENT value (impossible condition)
+    // and compared backwards, so laps never advanced and the race could never end.
+    if (prevDist > trackLen * 0.8 && this.carDist < trackLen * 0.2) {
       this.currentLap++;
       const lapTime = performance.now() - this.lapStartTime;
       this.lapTimes.push(lapTime);
       this.lastLapTime = lapTime;
 
       if (lapTime < this.bestLapTime) this.bestLapTime = lapTime;
-      if (this.currentLap > this.totalLaps) {
+      if (this.currentLap >= this.totalLaps) {
         this.finishRace();
-      } else if (this.currentLap === this.totalLaps + 1) {
       } else {
         this.lapStartTime = performance.now();
         this.addMessage(`Lap ${this.currentLap}: ${(lapTime / 1000).toFixed(2)}s`);
       }
     }
+    this.lastCarDist = this.carDist;
   }
 
   private updateRacePosition() {
