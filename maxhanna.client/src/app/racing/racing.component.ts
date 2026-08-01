@@ -886,11 +886,17 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
 
     this.carDist = trackDist;
 
+    // Gentle track-alignment when not steering.
+    // The old 0.05 correction per frame was so aggressive that the car snapped back to
+    // track direction the instant the player released a key, making turning feel useless.
+    // Now: only nudge when the car is > 0.15 rad off track, at 0.01 per frame.
     if (Math.abs(this.carSteer) < 0.1) {
       let yawDiff = expectedDir - this.carYaw;
       while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
       while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-      this.carYaw += yawDiff * 0.05;
+      if (Math.abs(yawDiff) > 0.15) {
+        this.carYaw += Math.sign(yawDiff) * Math.min(Math.abs(yawDiff), 0.01);
+      }
     }
   }
 
