@@ -88,6 +88,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   lapStartTime = 0; lastLapTime = 0; raceStartTime = 0;
   totalRaceTime = 0; bestLapTime = 0;
   isOffTrack = false; offTrackTimer = 0;
+  // Wrong-way detection: car heading vs. track tangent, latches only after
+  // driving against the flow for a short time so spins/collisions don't flicker.
+  wrongWay = false;
+  private _wrongWayTimer = 0;
+  private _wrongWayShown = false;
   // Wall contact state: used so speed is penalized once per impact instead of
   // every frame while scraping the wall (which caused visible bouncing).
   private _wasOnWall = false;
@@ -128,6 +133,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private readonly joyRadius = 46; // px travel from center to full deflection (keeps thumb inside base)
   @ViewChild('joyThumb') joyThumbEl?: ElementRef<HTMLDivElement>;
   keyboardSteerCurrent = 0; // Lerped value for smooth steering
+  // Mobile pedal buttons — the virtual joystick only steers.
+  gasHeld = false;
+  brakeHeld = false;
 
   // ─── Leaderboard ───
   leaderboard: RaceResult[] = [];
@@ -258,6 +266,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           this.totalRaceTime = 0;
           this.isOffTrack = false;
           this.offTrackTimer = 0;
+          this.wrongWay = false;
+          this._wrongWayTimer = 0;
+          this._wrongWayShown = false;
           this.messages = [];
           this._raceFinished = false;
           this._mpFinished = false;
@@ -669,6 +680,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.bestLapTime = Infinity;
     this.isOffTrack = false;
     this.offTrackTimer = 0;
+    this.wrongWay = false;
+    this._wrongWayTimer = 0;
+    this._wrongWayShown = false;
     this.messages = [];
     this._raceFinished = false;
     this._mpFinished = false;
@@ -816,21 +830,20 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) steerTarget = 1;
     if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) steerTarget = -1;
 
-    // Virtual joystick: vertical axis = gas (up, +y) / brake (down, -y),
-    // horizontal axis = steering (left/right). Deadzone prevents drift.
+    // Virtual joystick: steering only (horizontal axis). Gas/brake are the
+    // separate pedal buttons. Deadzone prevents drift.
     if (this.joyActive) {
       const dz = 0.18;
-      const y = Math.abs(this.joyY) > dz ? this.joyY : 0;
       const x = Math.abs(this.joyX) > dz ? this.joyX : 0;
-      // Gas/brake stay full-range (analog stick feels natural as a pedal);
-      // only steering is dampened so the car doesn't feel twitchy.
-      if (y > 0) gas = y;
-      else if (y < 0) brake = -y;
       // Invert: pushing the stick right (joyX > 0) must turn right. Keyboard
       // convention is left input = +1, so map joyX (right = +) to -steerTarget.
       // Scale below full deflection — joystick users found raw ±1 too twitchy.
       if (x !== 0) steerTarget = -x * 0.55;
     }
+
+    // Pedal buttons (mobile) — independent of the steering stick
+    if (this.gasHeld) gas = 1;
+    if (this.brakeHeld) brake = 1;
 
     // Smoothly lerp toward target — slower attack so turning feels gradual,
     // not instantly maxed (users reported the car was too twitchy).
@@ -879,6 +892,24 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const trackDist = this.renderer.getDistFromPoint(this.carX, this.carZ);
     const tp = this.renderer.getTrackPointAlong(trackDist);
     const expectedDir = Math.atan2(tp.dirX, tp.dirZ);
+
+    // ── Wrong-way detection ──
+    // Travel heading accounts for reversing (negative speed flips the car 180°).
+    // The warning latches after ~0.7s of facing against the track flow and only
+    // while moving, so a spin or a wall-scrape doesn't flash it.
+    const travelHeading = this.carSpeed < 0 ? this.carYaw + Math.PI : this.carYaw;
+    let headingDiff = travelHeading - expectedDir;
+    while (headingDiff > Math.PI) headingDiff -= Math.PI * 2;
+    while (headingDiff < -Math.PI) headingDiff += Math.PI * 2;
+    const facingWrong = Math.abs(headingDiff) > Math.PI / 2 && Math.abs(this.carSpeed) > 3;
+    if (facingWrong) this._wrongWayTimer += dt; else this._wrongWayTimer = 0;
+    const wasWrong = this.wrongWay;
+    this.wrongWay = this._wrongWayTimer > 0.7;
+    if (this.wrongWay && !wasWrong && !this._wrongWayShown) {
+      this._wrongWayShown = true;
+      this.addMessage('⚠️ WRONG WAY! Turn around!');
+    }
+    if (!this.wrongWay && this._wrongWayShown) this._wrongWayShown = false;
 
     const dxTrack = this.carX - tp.x;
     const dzTrack = this.carZ - tp.z;
@@ -1385,7 +1416,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const pt = this.joyPoint(e);
     if (!pt) return;
     let dx = pt.clientX - this.joyOriginX;
-    let dy = -(pt.clientY - this.joyOriginY); // up = +y (gas)
+    let dy = 0; // steering-only stick — vertical travel disabled (gas/brake are buttons)
     const dist = Math.hypot(dx, dy);
     if (dist > this.joyRadius) {
       dx = (dx / dist) * this.joyRadius;
@@ -1409,6 +1440,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.joyThumbEl.nativeElement.style.transform = 'translate(0px, 0px)';
     }
   }
+
+  gasDown() { this.gasHeld = true; }
+  gasUp() { this.gasHeld = false; }
+  brakeDown() { this.brakeHeld = true; }
+  brakeUp() { this.brakeHeld = false; }
 
   private joyPoint(e: TouchEvent | PointerEvent): { clientX: number; clientY: number } | null {
     if (e instanceof TouchEvent) {

@@ -123,6 +123,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.parentRef.preventShowSecurityPopup = true;
       this.parentRef.navigationComponent?.stopNotifications();
     }
+    // The emulator forces a full page navigation to /Emulator (COOP/COEP headers
+    // are required for SharedArrayBuffer). That reload resets the app, and the
+    // boot-time theme fetch is skipped because creating this component stops
+    // notifications (preventFetchNotifs stays true for ~5s). Force the user's
+    // theme to be re-applied so it isn't lost on entry.
+    if (this.parentRef?.user?.id && this.parentRef.navigationComponent) {
+      this.parentRef.navigationComponent.getThemeInfo(this.parentRef.user.id).catch(() => { });
+    }
     this.isSearchVisible = true;
   }
 

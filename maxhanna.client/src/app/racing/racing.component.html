@@ -515,6 +515,9 @@
       <!-- Off-track warning -->
       <div class="race-offtrack" *ngIf="isOffTrack">OFF TRACK!</div>
 
+      <!-- Wrong-way warning -->
+      <div class="race-wrongway" *ngIf="wrongWay">⬅ WRONG WAY ➡</div>
+
       <!-- Pause overlay -->
       <div id="race-pause" *ngIf="gameState === 'paused'" (click)="togglePause()">
         <div class="race-pause-text">PAUSED</div>
@@ -599,12 +602,28 @@
             <span class="joy-hint joy-hint-left">◀</span>
             <span class="joy-hint joy-hint-right">▶</span>
           </div>
-          <div class="race-joy-axis race-joy-axis-v">
-            <span class="joy-hint joy-hint-up">GAS ▲</span>
-            <span class="joy-hint joy-hint-down">BRAKE ▼</span>
-          </div>
         </div>
-        <div class="race-joy-label">STEER · GAS · BRAKE</div>
+        <div class="race-joy-label">STEER</div>
+      </div>
+
+      <!-- Pedal buttons: gas / brake are separate from the steering stick -->
+      <div class="race-pedals">
+        <div class="race-pedal race-pedal-brake"
+          (touchstart)="brakeDown()" (touchmove)="brakeDown()"
+          (touchend)="brakeUp()" (touchcancel)="brakeUp()"
+          (pointerdown)="brakeDown()" (pointermove)="brakeDown()"
+          (pointerup)="brakeUp()" (pointercancel)="brakeUp()">
+          <span class="race-pedal-icon">🛑</span>
+          <span class="race-pedal-label">BRAKE</span>
+        </div>
+        <div class="race-pedal race-pedal-gas"
+          (touchstart)="gasDown()" (touchmove)="gasDown()"
+          (touchend)="gasUp()" (touchcancel)="gasUp()"
+          (pointerdown)="gasDown()" (pointermove)="gasDown()"
+          (pointerup)="gasUp()" (pointercancel)="gasUp()">
+          <span class="race-pedal-icon">🏁</span>
+          <span class="race-pedal-label">GAS</span>
+        </div>
       </div>
     </div>
   </div>

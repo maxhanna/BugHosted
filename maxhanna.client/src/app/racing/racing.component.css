@@ -2083,6 +2083,32 @@
   animation: race-pulse 0.5s ease-in-out infinite;
 }
 
+/* Wrong-way warning — flashing red banner, sits just above center */
+.race-wrongway {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #ff1744;
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: 6px;
+  text-shadow: 0 0 24px rgba(255, 23, 68, 0.9), 0 2px 4px rgba(0, 0, 0, 0.8);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.55));
+  padding: 6px 22px;
+  border-radius: 8px;
+  border: 2px solid rgba(255, 23, 68, 0.7);
+  white-space: nowrap;
+  pointer-events: none;
+  animation: race-wrongway-flash 0.5s ease-in-out infinite;
+  z-index: 12;
+}
+
+@keyframes race-wrongway-flash {
+  0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.35; transform: translate(-50%, -50%) scale(0.96); }
+}
+
 /* Pause */
 #race-pause {
   position: absolute;
@@ -2695,17 +2721,6 @@
   padding: 0 10px;
 }
 
-.race-joy-axis-v {
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 8px 0;
-}
-
 .joy-hint {
   font-size: 11px;
   font-weight: 800;
@@ -2713,9 +2728,6 @@
   color: rgba(255, 255, 255, 0.55);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
 }
-
-.joy-hint-up { color: rgba(76, 175, 80, 0.9); }
-.joy-hint-down { color: rgba(229, 57, 53, 0.9); }
 
 .race-joy-label {
   position: absolute;
@@ -2728,6 +2740,69 @@
   letter-spacing: 2px;
   color: rgba(255, 255, 255, 0.45);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+/* Pedal buttons — gas/brake are separate from the steering joystick */
+.race-pedals {
+  position: absolute;
+  right: 24px;
+  bottom: 28px;
+  display: flex;
+  gap: 14px;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.race-pedal {
+  width: 88px;
+  height: 128px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 0 6px rgba(255, 255, 255, 0.05) inset;
+  transition: transform 0.08s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.race-pedal:active {
+  transform: translateY(3px) scale(0.97);
+  filter: brightness(1.35);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 22px currentColor;
+}
+
+.race-pedal-brake {
+  background: radial-gradient(circle at 50% 30%,
+    rgba(229, 57, 53, 0.55) 0%,
+    rgba(120, 20, 20, 0.75) 100%);
+  color: #ff8a80;
+}
+
+.race-pedal-gas {
+  background: radial-gradient(circle at 50% 30%,
+    rgba(76, 175, 80, 0.55) 0%,
+    rgba(20, 90, 30, 0.78) 100%);
+  color: #a5f3a8;
+}
+
+.race-pedal-icon {
+  font-size: 30px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.race-pedal-label {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
 @media (orientation: landscape) and (pointer: coarse) {

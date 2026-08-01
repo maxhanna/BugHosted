@@ -36,10 +36,10 @@
     </div>
 
     <!-- Loading states -->
-    <div *ngIf="isLoading" class="loadingNotificationDiv"><app-loading-spinner [icon]="'&#x1F578;'">Crawling the Web</app-loading-spinner></div>
-    <div *ngIf="isSearchingYoutube" class="loadingNotificationDiv"><app-loading-spinner [icon]="'&#x25B6;'">Crawling Youtube</app-loading-spinner></div>
-    <div *ngIf="isSearchingReddit" class="loadingNotificationDiv"><app-loading-spinner [icon]="'&#x1F916;'">Crawling Reddit</app-loading-spinner></div>
-    <div *ngIf="isSearchingX" class="loadingNotificationDiv"><app-loading-spinner [icon]="'&#x1F426;'">Crawling X</app-loading-spinner></div>
+    <div *ngIf="isLoading" class="loadingNotificationDiv"><app-loading-spinner [icon]="'🕸️'">Crawling the Web</app-loading-spinner></div>
+    <div *ngIf="isSearchingYoutube" class="loadingNotificationDiv"><app-loading-spinner [icon]="'▶️'">Crawling Youtube</app-loading-spinner></div>
+    <div *ngIf="isSearchingReddit" class="loadingNotificationDiv"><app-loading-spinner [icon]="'🤖'">Crawling Reddit</app-loading-spinner></div>
+    <div *ngIf="isSearchingX" class="loadingNotificationDiv"><app-loading-spinner [icon]="'🐦'">Crawling X</app-loading-spinner></div>
     <div *ngIf="error" class="error-message">{{ error }}</div>
 
     <!-- YouTube Results -->
