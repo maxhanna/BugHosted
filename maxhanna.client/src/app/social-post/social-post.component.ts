@@ -268,7 +268,7 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
   }
 
   async editStoryTopic(topics: Topic[], story: Story) {
-    const user = this.parentRef?.user ?? this.parent?.user;
+    const user = this.parentRef?.user ?? this.inputtedParentRef?.user;
     if (user) {
       this.parentRef?.updateLastSeen();
       this.socialService.editTopics(story, topics);
@@ -303,7 +303,7 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
   }
 
   maybeShowStoryOptionsPanel(story: Story) {
-    const currentUserId = this.parentRef?.user?.id ?? this.parent?.user?.id;
+    const currentUserId = this.parentRef?.user?.id;
     if (!story || !story.user) return;
     if (currentUserId && (story.user.id === currentUserId || currentUserId === 1)) {
       this.showStoryVisibilityPanel(story);
@@ -319,13 +319,13 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
     }
     this.visibilityStory = story;
     this.isStoryVisibilityPanelOpen = true;
-    const parent = this.parent ?? this.parentRef;
+    const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.showOverlay();
   }
   closeStoryVisibilityPanel() {
     this.isStoryVisibilityPanelOpen = false;
     this.visibilityStory = undefined;
-    const parent = this.parent ?? this.parentRef;
+    const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
   }
 
@@ -463,7 +463,7 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
     }
     this.optionStory = story;
     this.isStoryOptionsPanelOpen = true;
-    const parent = this.parent ?? this.parentRef;
+    const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.showOverlay();
 
     if (story.id && this.parentRef?.user?.id) {
@@ -475,7 +475,7 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
   closeStoryOptionsPanel() {
     this.isStoryOptionsPanelOpen = false;
     this.optionStory = undefined;
-    const parent = this.parent ?? this.parentRef;
+    const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
   }
 
@@ -624,12 +624,12 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
   }
 
   getTextForDOM(text?: string, componentId?: any) {
-    const parent = this.parent ?? this.parentRef;
+    const parent = this.inputtedParentRef ?? this.parentRef;
     return parent?.getTextForDOM(text, "storyText" + componentId);
   }
 
   async hide(story: Story) {
-    const parent = this.parent ?? this.parentRef;
+    const parent = this.inputtedParentRef ?? this.parentRef;
     const user = parent?.user;
     if (user && user.id && story.id) {
       this.parentRef?.updateLastSeen();
@@ -697,7 +697,7 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
   }
 
   copyFileLink(file: FileEntry) {
-    const parent = this.parent ?? this.parentRef;
+    const parent = this.inputtedParentRef ?? this.parentRef;
     const link = `https://bughosted.com/${file?.directory?.includes("Meme") ? 'Memes' : 'File'}/${file?.id}`;
     try {
       navigator.clipboard.writeText(link);
