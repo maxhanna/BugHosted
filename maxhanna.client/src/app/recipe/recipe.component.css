@@ -146,8 +146,8 @@ label {
 
 .recipe-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(48vw, 1fr));
-  grid-template-columns: repeat(auto-fit, minmax(48dvw, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(35vw, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(35dvw, 1fr));
   gap: 16px; 
 }
 

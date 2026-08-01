@@ -353,8 +353,10 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         }
       }
 
-      this.clearInputs();
-      this.showPostInput = false;
+      if (this.type != "Notepad") { 
+        this.clearInputs();
+        this.showPostInput = false;
+      }
     } catch (error) {
       console.error("Error while posting:", error);
       this.parentRef?.showNotification("An unexpected error occurred.");

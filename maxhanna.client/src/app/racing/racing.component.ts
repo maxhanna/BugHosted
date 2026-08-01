@@ -787,9 +787,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.carSpeed = Math.max(-maxSpeed * 0.3, Math.min(maxSpeed, this.carSpeed));
 
     // Speed-sensitive turning: sharper at low speeds, dampened at high speeds
+    // No turning when stationary (real car behavior)
     const speedRatio = Math.abs(this.carSpeed) / maxSpeed;
+    const speedFactor = Math.min(1, Math.abs(this.carSpeed) / 3.0); // 0 at stop, 1 at ≥3 m/s
     const turnFactor = Math.max(0.28, 1 - speedRatio * speedRatio * 0.72);
-    const steerAmount = this.carSteer * TURN_SPEED * turnFactor * corner * dt * 60;
+    const steerAmount = this.carSteer * TURN_SPEED * turnFactor * speedFactor * corner * dt * 60;
     this.carYaw += steerAmount;
 
     if (Math.abs(this.carSteer) > 0.1 && Math.abs(this.carSpeed) > 20) {

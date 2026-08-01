@@ -1138,63 +1138,166 @@
   z-index: 10;
 }
 
-/* ── Cockpit Surround (dark frame that covers screen edges) ── */
+/* ── Cockpit Surround — carbon fiber frame + tinted visor ── */
 #race-hud {
   background: 
-    /* top header bar */
-    linear-gradient(180deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 40%, transparent 100%) 0 0 / 100% 8% no-repeat,
-    /* left pillar */
-    linear-gradient(90deg, rgba(4,4,6,0.9) 0%, rgba(4,4,6,0.3) 60%, transparent 100%) 0 0 / 10% 100% no-repeat,
-    /* right pillar */
-    linear-gradient(270deg, rgba(4,4,6,0.9) 0%, rgba(4,4,6,0.3) 60%, transparent 100%) 100% 0 / 10% 100% no-repeat;
+    /* Top tinted visor strip (aerodynamic shade) */
+    linear-gradient(180deg, rgba(2,2,4,0.95) 0%, rgba(3,3,6,0.7) 30%, rgba(6,6,10,0.2) 70%, transparent 100%) 0 0 / 100% 9% no-repeat,
+    /* Left A-pillar: carbon-fiber look with inner bevel */
+    linear-gradient(90deg, 
+      rgba(2,2,4,0.98) 0%, 
+      rgba(4,4,6,0.85) 15%, 
+      rgba(6,6,8,0.4) 40%, 
+      rgba(8,8,10,0.12) 70%,
+      transparent 100%
+    ) 0 0 / 12% 100% no-repeat,
+    /* Left pillar inner highlight (beveled edge) */
+    linear-gradient(90deg, transparent 88%, rgba(60,60,70,0.08) 92%, rgba(80,80,90,0.04) 96%, transparent 100%) 0 0 / 12% 100% no-repeat,
+    /* Right A-pillar: carbon-fiber look */
+    linear-gradient(270deg, 
+      rgba(2,2,4,0.98) 0%, 
+      rgba(4,4,6,0.85) 15%, 
+      rgba(6,6,8,0.4) 40%, 
+      rgba(8,8,10,0.12) 70%,
+      transparent 100%
+    ) 100% 0 / 12% 100% no-repeat,
+    /* Right pillar inner highlight */
+    linear-gradient(270deg, transparent 88%, rgba(60,60,70,0.08) 92%, rgba(80,80,90,0.04) 96%, transparent 100%) 100% 0 / 12% 100% no-repeat;
 }
 
-/* ── Dashboard Frame ── */
+/* Carbon fiber weave overlay on cockpit surround */
+#race-hud::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: 
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.008) 2px, rgba(255,255,255,0.008) 3px),
+    repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(255,255,255,0.006) 3px, rgba(255,255,255,0.006) 4px);
+  pointer-events: none;
+  mask-image: 
+    linear-gradient(180deg, black 9%, transparent 9%),
+    linear-gradient(90deg, black 12%, transparent 12%),
+    linear-gradient(270deg, black 12%, transparent 12%);
+  mask-composite: exclude;
+  -webkit-mask-composite: source-in;
+  z-index: 1;
+}
+
+/* ── Dashboard Frame — brushed aluminum + carbon ── */
 .cockpit-dash {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 62%;
-  background: linear-gradient(0deg, 
-    rgba(4,4,8,1) 0%, 
-    rgba(8,8,14,0.98) 20%,
-    rgba(10,10,18,0.92) 40%,
-    rgba(14,14,24,0.72) 65%,
-    rgba(18,18,30,0.3) 85%,
-    transparent 100%
-  );
+  height: 64%;
+  /* Brushed metal base with carbon weave overlay */
+  background: 
+    /* Carbon weave pattern */
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 1px,
+      rgba(255,255,255,0.015) 1px,
+      rgba(255,255,255,0.015) 2px
+    ),
+    /* Brushed aluminum vertical grain */
+    repeating-linear-gradient(
+      0deg,
+      rgba(18,18,24,0.5) 0px,
+      rgba(22,22,28,0.5) 1px,
+      rgba(18,18,24,0.5) 2px
+    ),
+    /* Base dark gradient */
+    linear-gradient(0deg, 
+      rgba(2,2,5,1) 0%, 
+      rgba(5,5,10,0.99) 15%,
+      rgba(8,8,15,0.94) 35%,
+      rgba(12,12,20,0.78) 55%,
+      rgba(16,16,26,0.38) 75%,
+      rgba(20,20,30,0.08) 92%,
+      transparent 100%
+    );
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   padding: 0 3% 2.5% 3%;
   box-sizing: border-box;
-  border-top: 2px solid rgba(255,255,255,0.04);
-  box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+  /* Top edge: anodized aluminum trim with specular highlight */
+  border-top: 1px solid rgba(180,180,190,0.15);
+  box-shadow: 
+    0 -1px 0 rgba(255,255,255,0.04),
+    /* Inner shadow for depth */
+    inset 0 2px 12px rgba(0,0,0,0.6),
+    /* Outer glow from below */
+    0 -15px 50px rgba(0,0,0,0.7);
 }
 
-/* ── Side Panels ── */
+/* Dashboard top trim — aluminum accent strip */
+.cockpit-dash::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 3%;
+  right: 3%;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(200,200,210,0.4) 5%,
+    rgba(200,200,210,0.15) 50%,
+    rgba(200,200,210,0.4) 95%,
+    transparent 100%
+  );
+  box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+/* ── Side Panels — machined aluminum bezels ── */
 .cockpit-panel {
   width: 24%;
-  max-width: 320px;
+  max-width: 340px;
   min-width: 180px;
-  padding: 12px 16px;
-  background: rgba(0,0,0,0.55);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 10px;
-  backdrop-filter: blur(4px);
-  margin-bottom: 12px;
+  padding: 14px 18px;
+  /* Dark anodized bezel with inner bevel */
+  background: 
+    /* Machined circular grain */
+    radial-gradient(ellipse at 30% 20%, rgba(40,40,50,0.3) 0%, transparent 70%),
+    linear-gradient(135deg, rgba(20,20,26,0.95), rgba(8,8,12,0.98));
+  border: 1px solid rgba(140,140,150,0.12);
+  border-radius: 12px;
+  margin-bottom: 14px;
+  position: relative;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    inset 0 -1px 0 rgba(0,0,0,0.4),
+    0 2px 8px rgba(0,0,0,0.5);
+  /* Screw heads in corners */
+  --screw-color: rgba(80,80,90,0.6);
+}
+
+/* Screw heads */
+.cockpit-panel::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  right: 6px;
+  height: 32px;
+  background:
+    radial-gradient(circle at 12px 50%, var(--screw-color) 1.5px, transparent 2px),
+    radial-gradient(circle at calc(100% - 12px) 50%, var(--screw-color) 1.5px, transparent 2px);
+  pointer-events: none;
+  z-index: 2;
 }
 
 .panel-title {
-  font-size: 10px;
-  letter-spacing: 3px;
-  color: rgba(255,255,255,0.35);
-  margin-bottom: 8px;
-  padding-bottom: 4px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-size: 9px;
+  letter-spacing: 4px;
+  color: rgba(229,57,53,0.9);
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(229,57,53,0.15);
   text-transform: uppercase;
-  font-weight: 700;
+  font-weight: 800;
+  text-shadow: 0 0 8px rgba(229,57,53,0.2);
 }
 
 .panel-row {
@@ -1206,31 +1309,34 @@
 }
 
 .panel-label {
-  color: rgba(255,255,255,0.3);
-  letter-spacing: 1px;
+  color: rgba(255,255,255,0.25);
+  letter-spacing: 1.5px;
   font-weight: 600;
-  min-width: 42px;
-  font-size: 9px;
+  min-width: 44px;
+  font-size: 8px;
 }
 
 .panel-val {
-  color: #fff;
+  color: #e8e8f0;
   font-weight: 700;
   font-size: 10px;
   flex: 1;
+  text-shadow: 0 0 4px rgba(200,200,220,0.15);
 }
 
 .panel-val-big {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 900;
-  color: #fff;
+  color: #f0f0ff;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  /* Digital display glow */
+  text-shadow: 0 0 10px rgba(100,180,255,0.3), 0 0 2px rgba(100,180,255,0.15);
 }
 
 .panel-unit {
-  color: rgba(255,255,255,0.3);
-  font-size: 9px;
+  color: rgba(255,255,255,0.22);
+  font-size: 8px;
   letter-spacing: 1px;
 }
 
@@ -1239,24 +1345,42 @@
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.5px;
+  text-shadow: 0 0 4px rgba(76,175,80,0.2);
 }
 
 .panel-row-top {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid rgba(255,255,255,0.06);
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.05);
 }
 
 .panel-row-pos {
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .panel-pos-big {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 900;
   color: #ffd600;
-  text-shadow: 0 0 12px rgba(255,214,0,0.3);
+  text-shadow: 0 0 16px rgba(255,214,0,0.35), 0 0 4px rgba(255,214,0,0.2);
   line-height: 1;
+}
+
+/* LED indicator row below panels */
+.cockpit-panel::after {
+  content: '';
+  position: absolute;
+  bottom: 8px;
+  left: 18px;
+  right: 18px;
+  height: 3px;
+  background:
+    radial-gradient(circle at 6px 50%, rgba(76,175,80,0.6) 1px, transparent 1.5px),
+    radial-gradient(circle at 16px 50%, rgba(255,152,0,0.4) 1px, transparent 1.5px),
+    radial-gradient(circle at 26px 50%, rgba(76,175,80,0.6) 1px, transparent 1.5px),
+    radial-gradient(circle at 36px 50%, rgba(229,57,53,0.2) 1px, transparent 1.5px);
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* ── Track-line Minimap (top of screen) ── */

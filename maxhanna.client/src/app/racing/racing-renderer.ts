@@ -1086,24 +1086,24 @@ void main() {
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.clearColor(0.4, 0.45, 0.5, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    gl.enable(gl.CULL_FACE);
 
-    // Sky
+    // Sky — disable culling and depth writes to prevent flickering
+    gl.disable(gl.CULL_FACE);
+    gl.depthMask(false);
     gl.useProgram(this.skyProg);
     gl.uniformMatrix4fv(this.skyProjLoc, false, this.projMatrix);
     gl.uniformMatrix4fv(this.skyViewLoc, false, this.viewMatrix);
     gl.uniform3fv(this.skySunDirLoc, this.sunDir);
     gl.uniform1f(this.skyTimeLoc, this.elapsed);
-    gl.disable(gl.CULL_FACE);
     gl.bindVertexArray(this.skyVao);
     gl.drawArrays(gl.TRIANGLES, 0, 36);
     gl.bindVertexArray(null);
+    gl.depthMask(true);
     gl.enable(gl.CULL_FACE);
 
-    // Apply rain weather: darker ambient, desaturated fog
+    // Rain: only clears depth (sky already filled the color buffer)
     if (isRaining) {
-      gl.clearColor(0.25, 0.28, 0.32, 1);
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.clear(gl.DEPTH_BUFFER_BIT);
     }
 
     // Main program
