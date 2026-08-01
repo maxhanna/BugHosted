@@ -57,8 +57,7 @@ a,
 .linkedComponent {
   color: var(--main-link-color);
   font-family: Gadugi, Arial, Helvetica;
-  padding: 1px;
-  text-align: center;
+  padding: 1px; 
   text-decoration: none;
   word-break: break-word;
 }
