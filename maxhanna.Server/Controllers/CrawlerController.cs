@@ -655,10 +655,22 @@ namespace maxhanna.Server.Controllers
 
       for (var x = 0; x < searchResults.Count; x++)
       {
-        if (!String.IsNullOrEmpty(searchResults[x].Url))
+        var vid = searchResults[x];
+        if (string.IsNullOrEmpty(vid.Url)) continue;
+
+        // Persist the API metadata (title, description, author, keywords, image) so the
+        // search_results row is populated even if the page scrape is blocked or slow.
+        await _webCrawler.SaveSearchResult(vid.Url, new Metadata
         {
-          IndexLinks(searchResults[x].Url);
-        }
+          Url = vid.Url,
+          Title = vid.Title,
+          Description = vid.Description,
+          Author = vid.ChannelTitle,
+          Keywords = keyword,
+          ImageUrl = vid.ThumbnailUrl
+        });
+
+        IndexLinks(vid.Url);
       }
       return Ok(searchResults);
     }
@@ -739,7 +751,8 @@ namespace maxhanna.Server.Controllers
             VideoId = videoIdElem.GetString() ?? "",
             Title = snippet.GetProperty("title").GetString() ?? "",
             Description = snippet.GetProperty("description").GetString() ?? "",
-            ThumbnailUrl = snippet.GetProperty("thumbnails").GetProperty("default").GetProperty("url").GetString() ?? ""
+            ThumbnailUrl = snippet.GetProperty("thumbnails").GetProperty("default").GetProperty("url").GetString() ?? "",
+            ChannelTitle = snippet.TryGetProperty("channelTitle", out var ct) ? ct.GetString() ?? "" : ""
           });
         }
       }
@@ -963,6 +976,13 @@ namespace maxhanna.Server.Controllers
           {
             foreach (var result in results.Where(r => !string.IsNullOrWhiteSpace(r.Url)))
             {
+              // Persist the API metadata (title, description, author, keywords) so the
+              // search_results row is populated even if the page scrape is blocked or slow.
+              // Skip placeholder titles ("Reddit result", "X result", etc.) — they'd pollute search.
+              if (!string.IsNullOrWhiteSpace(result.Title) && !result.Title.EndsWith(" result", StringComparison.OrdinalIgnoreCase))
+              {
+                await _webCrawler.SaveSearchResult(result.Url!, result);
+              }
               _ = _webCrawler.StartScrapingAsync(result.Url!);
             }
             return results;
@@ -1037,6 +1057,13 @@ namespace maxhanna.Server.Controllers
           {
             foreach (var result in results.Where(r => !string.IsNullOrWhiteSpace(r.Url)))
             {
+              // Persist the API metadata (title, description, author, keywords) so the
+              // search_results row is populated even if the page scrape is blocked or slow.
+              // Skip placeholder titles ("Reddit result", "X result", etc.) — they'd pollute search.
+              if (!string.IsNullOrWhiteSpace(result.Title) && !result.Title.EndsWith(" result", StringComparison.OrdinalIgnoreCase))
+              {
+                await _webCrawler.SaveSearchResult(result.Url!, result);
+              }
               _ = _webCrawler.StartScrapingAsync(result.Url!);
             }
             return results;
@@ -1064,15 +1091,17 @@ namespace maxhanna.Server.Controllers
         {
           using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
 
-          // 🔎 Restrict Google to Reddit via site: operator + include_domains
-          string xQuery = $"site:x.com {keyword}";
+          // 🔎 Restrict Google to X/Twitter domains via site: operator + include_domains.
+          // t.co is Twitter's URL shortener — every link posted on X redirects through it,
+          // so search results commonly come back as t.co links. twitter.com is the legacy host.
+          string xQuery = $"site:x.com OR site:twitter.com OR site:t.co {keyword}";
           string url = $"https://serpapi.com/search.json?engine=google"
                      + $"&q={Uri.EscapeDataString(xQuery)}"
-                     + $"&include_domains=x.com"
+                     + $"&include_domains=x.com,twitter.com,t.co"
                      + $"&api_key={Uri.EscapeDataString(apiKey)}"
                      + $"&google_domain=google.com&hl=en&gl=us";
 
-          _ = _log.Db($"[Search Debug] Using SerpAPI (X-only) for keyword '{keyword}'", null, "CRAWLERCTRL", true);
+          _ = _log.Db($"[Search Debug] Using SerpAPI (X/Twitter/t.co) for keyword '{keyword}'", null, "CRAWLERCTRL", true);
           using var resp = await http.GetAsync(url, ct);
           if (resp.IsSuccessStatusCode)
           {
@@ -1089,8 +1118,13 @@ namespace maxhanna.Server.Controllers
                 string? snippet = item.TryGetProperty("snippet", out var s) ? s.GetString() : null;
 
                 if (string.IsNullOrWhiteSpace(urlValue)) continue;
-                if (!urlValue.Contains("x.com", StringComparison.OrdinalIgnoreCase))
-                  continue; // defensive filter
+                // Defensive filter — accept x.com, twitter.com (legacy host), and
+                // t.co (Twitter's URL shortener, which links posted on X redirect through).
+                bool isXHost = urlValue.Contains("x.com", StringComparison.OrdinalIgnoreCase)
+                            || urlValue.Contains("twitter.com", StringComparison.OrdinalIgnoreCase)
+                            || urlValue.Contains("t.co", StringComparison.OrdinalIgnoreCase);
+                if (!isXHost)
+                  continue;
 
                 results.Add(new Metadata
                 {
@@ -1112,6 +1146,13 @@ namespace maxhanna.Server.Controllers
           {
             foreach (var result in results.Where(r => !string.IsNullOrWhiteSpace(r.Url)))
             {
+              // Persist the API metadata (title, description, author, keywords) so the
+              // search_results row is populated even if the page scrape is blocked or slow.
+              // Skip placeholder titles ("Reddit result", "X result", etc.) — they'd pollute search.
+              if (!string.IsNullOrWhiteSpace(result.Title) && !result.Title.EndsWith(" result", StringComparison.OrdinalIgnoreCase))
+              {
+                await _webCrawler.SaveSearchResult(result.Url!, result);
+              }
               _ = _webCrawler.StartScrapingAsync(result.Url!);
             }
             return results;
@@ -1478,6 +1519,8 @@ namespace maxhanna.Server.Controllers
           var wiki = await TryFindWikipediaUrlAsync(keyword, prefetchCts.Token);
           if (!string.IsNullOrWhiteSpace(wiki?.Url))
           {
+            // Persist the API metadata so the search_results row exists immediately.
+            await _webCrawler.SaveSearchResult(wiki.Url, wiki);
             // Index asynchronously so next searches show the card
             await _webCrawler.StartScrapingAsync(wiki.Url);
           }
@@ -1612,6 +1655,11 @@ namespace maxhanna.Server.Controllers
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var result = await TryFindWikipediaUrlAsync(request.Keyword, cts.Token);
         if (result == null) return NotFound("No Wikipedia entry found.");
+        if (!string.IsNullOrWhiteSpace(result.Url))
+        {
+          // Persist the API metadata so the search_results row is populated immediately.
+          await _webCrawler.SaveSearchResult(result.Url, result);
+        }
         return Ok(result);
       }
       catch (Exception ex)

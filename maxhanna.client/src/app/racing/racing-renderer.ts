@@ -151,19 +151,25 @@ export class RacingRenderer {
   private makeTrackMarkingsTex(): WebGLTexture {
     const size = 128;
     const data = new Uint8Array(size * size * 3);
+    const checkerW = 8; // px column reserved for the baked start/finish checker strip (u=0)
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
         const i = (y * size + x) * 3;
-        // Edge lines run ALONG the road (v = 0 / v = 1), dashes run along u
-        if (y < 4 || y > size - 5) {
-          data[i] = 255; data[i + 1] = 255; data[i + 2] = 255;
+        // Start/finish checkerboard — baked at u=0 so the first road segments show a clean band
+        if (x < checkerW) {
+          const white = ((Math.floor(x / checkerW) + Math.floor(y / 16)) % 2) === 0;
+          const c = white ? 245 : 15;
+          data[i] = c; data[i + 1] = c; data[i + 2] = c;
+        } else if (y < 3 || y > size - 4) {
+          // Crisp white edge lines along the road edges
+          data[i] = 250; data[i + 1] = 250; data[i + 2] = 250;
         } else if (y > size / 2 - 2 && y < size / 2 + 2) {
-          // Center dashed line - dashes every other texel along the road
-          if (x % 16 < 8) { data[i] = 255; data[i + 1] = 255; data[i + 2] = 200; }
-          else { data[i] = 45; data[i + 1] = 45; data[i + 2] = 48; }
+          // Center dashed line
+          if (x % 16 < 8) { data[i] = 245; data[i + 1] = 245; data[i + 2] = 240; }
+          else { data[i] = 52; data[i + 1] = 52; data[i + 2] = 54; }
         } else {
-          // Asphalt base with subtle noise
-          const n = 42 + (i % 7);
+          // Clean low-noise asphalt so the road reads clearly
+          const n = 55 + ((i * 3) % 6);
           data[i] = n; data[i + 1] = n; data[i + 2] = n + 2;
         }
       }
@@ -325,18 +331,18 @@ void main() {
   vec3 top = vec3(0.1, 0.2, 0.5);
   vec3 horizon = vec3(0.7, 0.75, 0.85);
   vec3 bottom = vec3(0.4, 0.45, 0.5);
-  vec3 sky;
-  if (d.y > 0.0) sky = mix(horizon, top, h * 1.5);
-  else {
-    float gh = clamp(-d.y * 3.0, 0.0, 1.0);
-    sky = mix(horizon, bottom, gh * 0.5);
-  }
+  // Smooth blend from ground → horizon → zenith with no hard seam at d.y = 0
+  vec3 upper = mix(horizon, top, clamp(h * 1.5, 0.0, 1.0));
+  vec3 lower = mix(horizon, bottom, clamp(-d.y * 3.0, 0.0, 1.0) * 0.5);
+  float skyT = clamp(d.y * 4.0 + 0.5, 0.0, 1.0);
+  vec3 sky = mix(lower, upper, skyT);
+  // Soft, subtle sun — no blinding white disc, no oversaturated glow
   float sunDot = dot(d, normalize(uSunDir));
-  float sun = pow(max(sunDot, 0.0), 80.0);
-  sky += vec3(1.0, 0.9, 0.6) * sun * 1.5;
-  float sunGlow = pow(max(sunDot, 0.0), 8.0);
-  sky += vec3(1.0, 0.7, 0.3) * sunGlow * 0.3;
-  FragColor = vec4(sky, 1.0);
+  float sun = pow(max(sunDot, 0.0), 120.0);
+  sky += vec3(1.0, 0.95, 0.8) * sun * 0.9;
+  float sunGlow = pow(max(sunDot, 0.0), 12.0);
+  sky += vec3(1.0, 0.85, 0.6) * sunGlow * 0.18;
+  FragColor = vec4(clamp(sky, 0.0, 1.0), 1.0);
 }`;
     this.skyProg = this.createProgram(svs, sfs);
     this.skyProjLoc = gl.getUniformLocation(this.skyProg, 'uProj')!;
@@ -509,14 +515,16 @@ void main() {
       idxs.push(vi + 2, vi + 3, vi + 5);
       idxs.push(vi + 2, vi + 5, vi + 4);
 
-      // Grass shoulders - wider on each side
+      // Grass shoulders - wider on each side, clean muted green (no texture bleed)
       const shoulderW = 20;
+      const su = 0.2 + segDist * 0.5; // offset UVs away from the checker strip at u=0
+      const suN = 0.2 + (segDist + 1 / pts.length) * 0.5;
       // Left shoulder (samples plain asphalt region of the texture, tinted green)
-      verts.push(p.x + ppx * (hw + shoulderW), -0.2, p.z + ppz * (hw + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, segDist * 0.5, 0.25);
-      verts.push(n.x + npx * (hwN + shoulderW), -0.2, n.z + npz * (hwN + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, (segDist + 1 / pts.length) * 0.5, 0.25);
+      verts.push(p.x + ppx * (hw + shoulderW), -0.2, p.z + ppz * (hw + shoulderW), 0, 1, 0, 0.1, 0.32, 0.08, su, 0.25);
+      verts.push(n.x + npx * (hwN + shoulderW), -0.2, n.z + npz * (hwN + shoulderW), 0, 1, 0, 0.1, 0.32, 0.08, suN, 0.25);
       // Right shoulder
-      verts.push(p.x - ppx * (hw + shoulderW), -0.2, p.z - ppz * (hw + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, segDist * 0.5, 0.75);
-      verts.push(n.x - npx * (hwN + shoulderW), -0.2, n.z - npz * (hwN + shoulderW), 0, 1, 0, 0.15, 0.4, 0.1, (segDist + 1 / pts.length) * 0.5, 0.75);
+      verts.push(p.x - ppx * (hw + shoulderW), -0.2, p.z - ppz * (hw + shoulderW), 0, 1, 0, 0.1, 0.32, 0.08, su, 0.75);
+      verts.push(n.x - npx * (hwN + shoulderW), -0.2, n.z - npz * (hwN + shoulderW), 0, 1, 0, 0.1, 0.32, 0.08, suN, 0.75);
 
       const si = pts.length * perSegVerts + i * 4;
       idxs.push(si, si + 1, vi);
@@ -525,20 +533,8 @@ void main() {
       idxs.push(si + 2, vi + 5, si + 3);
     }
 
-    // Start/Finish line
-    const sf = pts[0];
-    const sfpx = -sf.dirZ;
-    const sfpz = sf.dirX;
-    const sfw = sf.width / 2;
-    const sfOff = 0.03;
-    verts.push(sf.x + sfpx * sfw, sfOff, sf.z + sfpz * sfw, 0, 1, 0, 1, 1, 1, 0, 0);
-    verts.push(sf.x - sfpx * sfw, sfOff, sf.z - sfpz * sfw, 0, 1, 0, 1, 1, 1, 1, 0);
-    const sfN = pts[1];
-    verts.push(sfN.x + sfpx * sfw, sfOff, sfN.z + sfpz * sfw, 0, 1, 0, 1, 1, 1, 0, 1);
-    verts.push(sfN.x - sfpx * sfw, sfOff, sfN.z - sfpz * sfw, 0, 1, 0, 1, 1, 1, 1, 1);
-    const sfStart = verts.length / 11 - 4;
-    idxs.push(sfStart, sfStart + 1, sfStart + 2);
-    idxs.push(sfStart + 1, sfStart + 3, sfStart + 2);
+    // Start/Finish line is baked into the road texture (checker column at u=0),
+    // so the first road segments automatically show the checkered band — no separate quad.
 
     // Barrier walls on both sides
     const barrierH = 0.6;
@@ -552,31 +548,31 @@ void main() {
       const npz = n.dirX;
       const bw = p.width / 2 + 0.5;
       const bwN = n.width / 2 + 0.5;
-      const sd = i / pts.length;
+      const sd = 0.25 + (i / pts.length) * 0.5; // avoid checker strip at u=0
 
       // Left barrier front face (sample plain asphalt so walls stay dark, not striped)
       verts.push(p.x + ppx * bw, 0, p.z + ppz * bw, ppx, 0, ppz, 0.2, 0.2, 0.2, sd, 0.25);
-      verts.push(n.x + npx * bwN, 0, n.z + npz * bwN, npx, 0, npz, 0.2, 0.2, 0.2, (i + 1) / pts.length, 0.25);
+      verts.push(n.x + npx * bwN, 0, n.z + npz * bwN, npx, 0, npz, 0.2, 0.2, 0.2, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
       verts.push(p.x + ppx * bw, barrierH, p.z + ppz * bw, ppx, 0, ppz, 0.2, 0.2, 0.2, sd, 0.25);
-      verts.push(n.x + npx * bwN, barrierH, n.z + npz * bwN, npx, 0, npz, 0.2, 0.2, 0.2, (i + 1) / pts.length, 0.25);
+      verts.push(n.x + npx * bwN, barrierH, n.z + npz * bwN, npx, 0, npz, 0.2, 0.2, 0.2, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
       const bvi = verts.length / 11 - 4;
       idxs.push(bvi, bvi + 1, bvi + 2);
       idxs.push(bvi + 1, bvi + 3, bvi + 2);
 
       // Right barrier
       verts.push(p.x - ppx * bw, 0, p.z - ppz * bw, -ppx, 0, -ppz, 0.2, 0.2, 0.2, sd, 0.25);
-      verts.push(n.x - npx * bwN, 0, n.z - npz * bwN, -npx, 0, -npz, 0.2, 0.2, 0.2, (i + 1) / pts.length, 0.25);
+      verts.push(n.x - npx * bwN, 0, n.z - npz * bwN, -npx, 0, -npz, 0.2, 0.2, 0.2, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
       verts.push(p.x - ppx * bw, barrierH, p.z - ppz * bw, -ppx, 0, -ppz, 0.2, 0.2, 0.2, sd, 0.25);
-      verts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, -npx, 0, -npz, 0.2, 0.2, 0.2, (i + 1) / pts.length, 0.25);
+      verts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, -npx, 0, -npz, 0.2, 0.2, 0.2, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
       const bvi2 = verts.length / 11 - 4;
       idxs.push(bvi2, bvi2 + 1, bvi2 + 2);
       idxs.push(bvi2 + 1, bvi2 + 3, bvi2 + 2);
 
       // Barrier top caps
       verts.push(p.x + ppx * bw, barrierH, p.z + ppz * bw, 0, 1, 0, 0.3, 0.3, 0.3, sd, 0.25);
-      verts.push(n.x + npx * bwN, barrierH, n.z + npz * bwN, 0, 1, 0, 0.3, 0.3, 0.3, (i + 1) / pts.length, 0.25);
+      verts.push(n.x + npx * bwN, barrierH, n.z + npz * bwN, 0, 1, 0, 0.3, 0.3, 0.3, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
       verts.push(p.x - ppx * bw, barrierH, p.z - ppz * bw, 0, 1, 0, 0.3, 0.3, 0.3, sd, 0.25);
-      verts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, 0, 1, 0, 0.3, 0.3, 0.3, (i + 1) / pts.length, 0.25);
+      verts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, 0, 1, 0, 0.3, 0.3, 0.3, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
       const tc = verts.length / 11 - 4;
       idxs.push(tc, tc + 1, tc + 2);
       idxs.push(tc + 1, tc + 3, tc + 2);
@@ -613,31 +609,32 @@ void main() {
     const verts: number[] = [];
     const idxs: number[] = [];
 
-    // Trees: place along both sides of the track
+    // Trees: place along both sides of the track, but well clear of the road
     let treeIdx = 0;
-    for (let i = 0; i < pts.length; i += 2) {
+    for (let i = 0; i < pts.length; i += 3) {
       const p = pts[i];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
-      const dist = p.width / 2 + 5 + Math.random() * 15;
+      // Keep trees far from the asphalt + shoulders so they don't overlap the road
+      const dist = p.width / 2 + 24 + Math.random() * 20;
 
       for (const side of [-1, 1]) {
-        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 4;
-        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 4;
+        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
+        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
 
         // Tree trunk
-        const th = 2 + Math.random() * 2;
+        const th = 1.5 + Math.random() * 1.5;
         const tr = 0.15 + Math.random() * 0.1;
         this.addCylinder(verts, idxs, tx, 0, tz, tr, th, 6, [0.3, 0.15, 0.05]);
 
-        // Tree crown (2 cones)
-        const cr = 1 + Math.random() * 0.8;
-        const ch = 1.5 + Math.random() * 0.8;
-        this.addCone(verts, idxs, tx, th - 0.3, tz, cr, ch, 8, [0.05, 0.3 + Math.random() * 0.15, 0.02]);
+        // Tree crown (2 cones, slightly smaller)
+        const cr = 0.8 + Math.random() * 0.6;
+        const ch = 1.2 + Math.random() * 0.6;
+        this.addCone(verts, idxs, tx, th - 0.3, tz, cr, ch, 8, [0.05, 0.28 + Math.random() * 0.12, 0.02]);
 
-        if (treeIdx++ > 400) break;
+        if (treeIdx++ > 250) break;
       }
-      if (treeIdx > 400) break;
+      if (treeIdx > 250) break;
     }
 
     // Grandstands at key points
@@ -1087,8 +1084,10 @@ void main() {
     gl.clearColor(0.4, 0.45, 0.5, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    // Sky — disable culling and depth writes to prevent flickering
+    // Sky — fill the background with depth testing OFF and no depth writes so the
+    // sky can never z-fight with distant geometry (was flashing white/blue at horizon).
     gl.disable(gl.CULL_FACE);
+    gl.disable(gl.DEPTH_TEST);
     gl.depthMask(false);
     gl.useProgram(this.skyProg);
     gl.uniformMatrix4fv(this.skyProjLoc, false, this.projMatrix);
@@ -1099,7 +1098,10 @@ void main() {
     gl.drawArrays(gl.TRIANGLES, 0, 36);
     gl.bindVertexArray(null);
     gl.depthMask(true);
+    gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
+    // The sky wrote no depth, so the depth buffer stays at its cleared value
+    // and the main geometry pass draws over the sky correctly.
 
     // Rain: only clears depth (sky already filled the color buffer)
     if (isRaining) {

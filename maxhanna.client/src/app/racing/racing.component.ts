@@ -761,8 +761,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.hudSpeed = Math.abs(this.carSpeed * 3.6);
       this.hudRPM = Math.min(1, Math.abs(this.carSpeed) / this.getMaxSpeed() * 1.1);
       
-      // Smooth steering wheel rotation (lerp toward target)
-      const targetSteer = this.carSteer * 35;
+      // Smooth steering wheel rotation (lerp toward target).
+      // Negative sign: carSteer > 0 = turning left, and CSS rotate(-deg) swings the wheel
+      // counter-clockwise (top of wheel to the left) — matching a real car's wheel.
+      const targetSteer = -this.carSteer * 35;
       this.steerSmoothed += (targetSteer - this.steerSmoothed) * Math.min(1, dt * 8);
       
       // Direct DOM updates for smooth 60fps wheel animation (bypasses Angular CD)

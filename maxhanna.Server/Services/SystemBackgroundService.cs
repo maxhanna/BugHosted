@@ -415,9 +415,6 @@ namespace maxhanna.Server.Services
                 try { await _dbQueue.EnqueueAsync(async () => { await MoveInactiveEnderHeroes(); }); }
                 catch (Exception ex) { _ = _log.Db($"Error in MoveInactiveEnderHeroes: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
-                try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldSearchResults(); }); }
-                catch (Exception ex) { _ = _log.Db($"Error in DeleteOldSearchResults: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
-
                 try { await _dbQueue.EnqueueAsync(async () => { await DeleteOldTradeVolumesSixMonths(); }); }
                 catch (Exception ex) { _ = _log.Db($"Error in DeleteOldTradeVolumesSixMonths: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
 
@@ -2241,38 +2238,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
             }
         }
 
-
-        private async Task DeleteOldSearchResults()
-        {
-            Console.WriteLine("Deleting Old Search Results");
-            try
-            {
-                using (var conn = new MySqlConnection(_connectionString))
-                {
-                    await conn.OpenAsync();
-                    var deleteSql = @"
-                        DELETE FROM search_results 
-						WHERE title IS NULL 
-						AND description IS NULL
-						AND author IS NULL
-						AND keywords IS NULL
-						AND image_url IS NULL
-						AND response_code IS NULL
-						AND last_crawled < UTC_TIMESTAMP() - INTERVAL 30 DAY;";
-
-                    using (var deleteCmd = new MySqlCommand(deleteSql, conn))
-                    {
-                        int affectedRows = await deleteCmd.ExecuteNonQueryAsync();
-                        _ = _log.Db($"Deleted {affectedRows} search results older than 30 days.", null);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _ = _log.Db("Error occurred while deleting old search results. " + ex.Message, null);
-            }
-        }
-
+ 
         private async Task DeleteOldSearchQueries()
         {
             Console.WriteLine("Deleting Old Search Queries");

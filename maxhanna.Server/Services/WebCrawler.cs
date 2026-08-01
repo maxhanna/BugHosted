@@ -624,6 +624,18 @@ public class WebCrawler
       _ = _log.Db($"Skipping save for {domain} due to bughosted in title/description", null, "CRAWLER", true);
       return;
     }
+
+    if (string.IsNullOrEmpty(metadata?.Title)
+     && string.IsNullOrEmpty(metadata?.Description)
+      && string.IsNullOrEmpty(metadata?.Author)
+      && string.IsNullOrEmpty(metadata?.Keywords)
+      && string.IsNullOrEmpty(metadata?.ImageUrl)
+      && metadata?.HttpStatus == null)
+    {
+      _ = _log.Db($"Skipping save for {domain} due to empty metadata", null, "CRAWLER", true);
+      return;
+    }
+
     try
     {
       var cs = _config.GetValue<string>("ConnectionStrings:maxhanna");
@@ -636,7 +648,7 @@ public class WebCrawler
                 (url, title, description, author, keywords, image_url, found_date, last_crawled, failed, response_code)
             VALUES
                 (@url, @title, @description, @author,
-                 @keywords, @imageUrl, UTC_TIMESTAMP(), UTC_TIMESTAMP(), FALSE, NULL);
+                 @keywords, @imageUrl, UTC_TIMESTAMP(), UTC_TIMESTAMP(), FALSE, @httpStatus);
         ";
       var insertedNewRow = false;
       try
@@ -648,6 +660,7 @@ public class WebCrawler
         insertCmd.Parameters.AddWithValue("@author", (object?)metadata?.Author ?? DBNull.Value);
         insertCmd.Parameters.AddWithValue("@keywords", (object?)metadata?.Keywords ?? DBNull.Value);
         insertCmd.Parameters.AddWithValue("@imageUrl", (object?)metadata?.ImageUrl ?? DBNull.Value);
+        insertCmd.Parameters.AddWithValue("@httpStatus", (object?)metadata?.HttpStatus ?? DBNull.Value);
         await insertCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
         insertedNewRow = true; // Insert succeeded → brand new row
       }
@@ -663,7 +676,7 @@ public class WebCrawler
                     found_date   = UTC_TIMESTAMP(),
                     last_crawled = UTC_TIMESTAMP(),
                     failed       = FALSE,
-                    response_code= NULL
+                    response_code= @httpStatus
                 WHERE url = @url
                 LIMIT 1;
             ";
@@ -674,6 +687,7 @@ public class WebCrawler
         updateCmd.Parameters.AddWithValue("@author", (object?)metadata?.Author ?? DBNull.Value);
         updateCmd.Parameters.AddWithValue("@keywords", (object?)metadata?.Keywords ?? DBNull.Value);
         updateCmd.Parameters.AddWithValue("@imageUrl", (object?)metadata?.ImageUrl ?? DBNull.Value);
+        updateCmd.Parameters.AddWithValue("@httpStatus", (object?)metadata?.HttpStatus ?? DBNull.Value);
         await updateCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
       }
       if (insertedNewRow)
