@@ -806,6 +806,19 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     }
     else return "";
   }
+
+  /** Build an @username title for the title bar, e.g. '@john, @jane, @bob' */
+  getChatUserMentions(): string {
+    if (!this.currentChatUsers) return 'Chat';
+    const others = this.getChatUsersWithoutSelf();
+    if (!others || others.length === 0) return 'Chat';
+    return 'Chat with ' + others.map(u => '@' + u.username).join(', ');
+  }
+
+  /** Open a user profile component for the given user — delegates to the base class */
+  override viewProfile(user?: User, previousComponent?: string, previousComponentParameters?: any) {
+    super.viewProfile(user, previousComponent || 'Chat', previousComponentParameters);
+  }
   getChatUsersWithoutCurrentUser() {
     const parent = this.parentRef ?? this.inputtedParentRef;
     return this.currentChatUsers?.filter(x => x.id != (parent?.user?.id ?? 0));

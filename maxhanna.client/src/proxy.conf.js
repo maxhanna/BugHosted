@@ -77,6 +77,7 @@ const PROXY_CONFIG = [
       "/healthtracker",
       "/paint",
       "/moderator",
+      "/follow",
     ],
     target,
     changeOrigin: true, // This helps with certain CORS issues and forwards headers correctly 

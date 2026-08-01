@@ -163,6 +163,11 @@ export class RacingRenderer {
         } else if (y < 3 || y > size - 4) {
           // Crisp white edge lines along the road edges
           data[i] = 250; data[i + 1] = 250; data[i + 2] = 250;
+        } else if ((y >= 3 && y < 7) || (y > size - 8 && y <= size - 4)) {
+          // Red/white curb stripes just inside the edge lines — the classic
+          // F1 track-boundary cue, so the road edge reads clearly at speed.
+          if (Math.floor(x / 8) % 2 === 0) { data[i] = 205; data[i + 1] = 28; data[i + 2] = 28; }
+          else { data[i] = 232; data[i + 1] = 232; data[i + 2] = 232; }
         } else if (y > size / 2 - 2 && y < size / 2 + 2) {
           // Center dashed line
           if (x % 16 < 8) { data[i] = 245; data[i + 1] = 245; data[i + 2] = 240; }
@@ -537,7 +542,7 @@ void main() {
     // so the first road segments automatically show the checkered band — no separate quad.
 
     // Barrier walls on both sides
-    const barrierH = 0.6;
+    const barrierH = 0.85;
     // Left barrier
     for (let i = 0; i < pts.length; i++) {
       const p = pts[i];
@@ -550,29 +555,41 @@ void main() {
       const bwN = n.width / 2 + 0.5;
       const sd = 0.25 + (i / pts.length) * 0.5; // avoid checker strip at u=0
 
-      // Left barrier front face (sample plain asphalt so walls stay dark, not striped)
-      verts.push(p.x + ppx * bw, 0, p.z + ppz * bw, ppx, 0, ppz, 0.2, 0.2, 0.2, sd, 0.25);
-      verts.push(n.x + npx * bwN, 0, n.z + npz * bwN, npx, 0, npz, 0.2, 0.2, 0.2, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
-      verts.push(p.x + ppx * bw, barrierH, p.z + ppz * bw, ppx, 0, ppz, 0.2, 0.2, 0.2, sd, 0.25);
-      verts.push(n.x + npx * bwN, barrierH, n.z + npz * bwN, npx, 0, npz, 0.2, 0.2, 0.2, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
+      // Red/white stripe pattern along the wall so the track edge is obvious.
+      // The track pass samples the dark asphalt texture (uUseVertexColor=1 → base = vColor × texture,
+      // and this UV range samples ~0.22-brightness asphalt). Colors are boosted ~4.5× so the
+      // multiplication yields vivid white/red instead of muted dark gray/maroon.
+      const striped = Math.floor(i / 4) % 2 === 0;
+      const sr = striped ? 4.5 : 3.8;
+      const sg = striped ? 4.4 : 0.28;
+      const sb = striped ? 4.3 : 0.22;
+
+      // Left barrier front face
+      verts.push(p.x + ppx * bw, 0, p.z + ppz * bw, ppx, 0, ppz, sr, sg, sb, sd, 0.25);
+      verts.push(n.x + npx * bwN, 0, n.z + npz * bwN, npx, 0, npz, sr, sg, sb, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
+      verts.push(p.x + ppx * bw, barrierH, p.z + ppz * bw, ppx, 0, ppz, sr, sg, sb, sd, 0.25);
+      verts.push(n.x + npx * bwN, barrierH, n.z + npz * bwN, npx, 0, npz, sr, sg, sb, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
       const bvi = verts.length / 11 - 4;
       idxs.push(bvi, bvi + 1, bvi + 2);
       idxs.push(bvi + 1, bvi + 3, bvi + 2);
 
       // Right barrier
-      verts.push(p.x - ppx * bw, 0, p.z - ppz * bw, -ppx, 0, -ppz, 0.2, 0.2, 0.2, sd, 0.25);
-      verts.push(n.x - npx * bwN, 0, n.z - npz * bwN, -npx, 0, -npz, 0.2, 0.2, 0.2, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
-      verts.push(p.x - ppx * bw, barrierH, p.z - ppz * bw, -ppx, 0, -ppz, 0.2, 0.2, 0.2, sd, 0.25);
-      verts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, -npx, 0, -npz, 0.2, 0.2, 0.2, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
+      verts.push(p.x - ppx * bw, 0, p.z - ppz * bw, -ppx, 0, -ppz, sr, sg, sb, sd, 0.25);
+      verts.push(n.x - npx * bwN, 0, n.z - npz * bwN, -npx, 0, -npz, sr, sg, sb, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
+      verts.push(p.x - ppx * bw, barrierH, p.z - ppz * bw, -ppx, 0, -ppz, sr, sg, sb, sd, 0.25);
+      verts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, -npx, 0, -npz, sr, sg, sb, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
       const bvi2 = verts.length / 11 - 4;
       idxs.push(bvi2, bvi2 + 1, bvi2 + 2);
       idxs.push(bvi2 + 1, bvi2 + 3, bvi2 + 2);
 
-      // Barrier top caps
-      verts.push(p.x + ppx * bw, barrierH, p.z + ppz * bw, 0, 1, 0, 0.3, 0.3, 0.3, sd, 0.25);
-      verts.push(n.x + npx * bwN, barrierH, n.z + npz * bwN, 0, 1, 0, 0.3, 0.3, 0.3, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
-      verts.push(p.x - ppx * bw, barrierH, p.z - ppz * bw, 0, 1, 0, 0.3, 0.3, 0.3, sd, 0.25);
-      verts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, 0, 1, 0, 0.3, 0.3, 0.3, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
+      // Barrier top caps — slightly darker variant of the stripe so tops read as caps
+      const tr = striped ? 3.8 : 3.2;
+      const tg = striped ? 3.7 : 0.24;
+      const tb = striped ? 3.6 : 0.19;
+      verts.push(p.x + ppx * bw, barrierH, p.z + ppz * bw, 0, 1, 0, tr, tg, tb, sd, 0.25);
+      verts.push(n.x + npx * bwN, barrierH, n.z + npz * bwN, 0, 1, 0, tr, tg, tb, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
+      verts.push(p.x - ppx * bw, barrierH, p.z - ppz * bw, 0, 1, 0, tr, tg, tb, sd, 0.25);
+      verts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, 0, 1, 0, tr, tg, tb, 0.25 + ((i + 1) / pts.length) * 0.5, 0.25);
       const tc = verts.length / 11 - 4;
       idxs.push(tc, tc + 1, tc + 2);
       idxs.push(tc + 1, tc + 3, tc + 2);

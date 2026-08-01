@@ -1,14 +1,20 @@
 <div class="componentMain">
-  <div class="closeButton" (click)="remove_me('ChatComponent');"></div>
-  <div class="menuButton" (click)="showMenuPanel();"></div>
-  <div *ngIf="currentChatUsers" class="menuBackButton" title="Back to User List" (click)="closeChat();"></div>
-  <div class="componentTitle">
-    Chat
-    <span *ngIf="currentChatUsers">
-      with
-      <span *ngFor="let user of getChatUsersWithoutSelf(); let i = index"
-        (click)="user?.id ? viewProfile(user, 'Chat') : ''" class="cursorPointer"><span *ngIf="i > 0">,
-        </span>{{user.username}}</span>
+  <app-title-bar
+    [title]="getChatUserMentions()"
+    [inputtedParentRef]="parentRef"
+    [showTitle]="true"
+    [hasMenu]="true"
+    [hasClose]="true"
+    [hasBack]="!!currentChatUsers"
+    (menuClicked)="showMenuPanel()"
+    (closeClicked)="remove_me('ChatComponent');"
+    (backClicked)="closeChat()">
+  </app-title-bar>
+  <!-- Clickable @username list — opens the user's profile on click -->
+  <div class="chatUserMentions" *ngIf="currentChatUsers">
+    <span *ngFor="let user of getChatUsersWithoutSelf(); let i = index">
+      <span *ngIf="i > 0">, </span>
+      <span class="cursorPointer" (click)="viewProfile(user, 'Chat')" title="View user profile" [textContent]="'@' + user.username"></span>
     </span>
   </div>
 

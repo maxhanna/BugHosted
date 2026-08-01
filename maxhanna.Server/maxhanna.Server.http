@@ -256,3 +256,9 @@ Accept: application/json
 POST {{maxhanna.Server_HostAddress}}/Moderator/
 Accept: application/json
 ###
+GET {{maxhanna.Server_HostAddress}}/Follow/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/Follow/
+Accept: application/json
+###

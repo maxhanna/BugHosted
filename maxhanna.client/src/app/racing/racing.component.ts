@@ -14,7 +14,7 @@ const ACCEL = 35;
 const BRAKE_FORCE = 40;
 const FRICTION = 0.97;
 const MAX_SPEED_BASE = 55;
-const TURN_SPEED = 1.2;
+const TURN_SPEED = 0.55;
 const OFF_TRACK_DRAG = 0.92;
 const AI_LOOKAHEAD = 3;
 
@@ -803,8 +803,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const useMobile = mobileTarget !== 0;
     const effectiveTarget = useMobile ? mobileTarget * 0.4 : steerTarget; // mobile at 40% sensitivity
 
-    // Smoothly lerp toward target (fast attack, prevents wild snapping)
-    const lerpSpeed = 10; // builds up quickly but smoothly
+    // Smoothly lerp toward target — slower attack so turning feels gradual,
+    // not instantly maxed (users reported the car was too twitchy).
+    const lerpSpeed = 6;
     this.keyboardSteerCurrent += (effectiveTarget - this.keyboardSteerCurrent) * Math.min(1, dt * lerpSpeed);
     if (Math.abs(this.keyboardSteerCurrent) < 0.002) this.keyboardSteerCurrent = 0;
 
@@ -857,71 +858,54 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const barrierDist = halfWidth + 0.5; // barrier wall position
 
     // ── Barrier collision ──
-    // Bounce the car off the wall with speed + angle-dependent force.
-    // Graze: a shallow scrape sheds speed but doesn't stop the car.
-    // Head-on: full reflection, big speed loss.
+    // Slide along the wall instead of bouncing off it. The car keeps its
+    // forward momentum redirected along the wall tangent — never a 180° flip
+    // that flings the player backwards across the track.
     if (distFromCenter > barrierDist) {
       const normX = dxTrack / distFromCenter;
       const normZ = dzTrack / distFromCenter;
 
-      // 1. Push car clear of the wall (inside barrier edge)
-      this.carX = tp.x + normX * (barrierDist - 0.3);
-      this.carZ = tp.z + normZ * (barrierDist - 0.3);
+      // 1. Push car clear of the wall (just inside the barrier edge)
+      this.carX = tp.x + normX * (barrierDist - 0.2);
+      this.carZ = tp.z + normZ * (barrierDist - 0.2);
 
-      // 2. Reflect velocity off the wall normal
-      //    velocity vector = (sin(yaw), cos(yaw)) * speed
+      // 2. Velocity vector
       const vx = Math.sin(this.carYaw) * this.carSpeed;
       const vz = Math.cos(this.carYaw) * this.carSpeed;
-
-      // Dot product with wall normal — positive = heading into wall
       const intoWall = vx * normX + vz * normZ;
 
       if (intoWall > 0) {
-        // Reflect the into-wall component, keep the along-wall component
-        const reflectX = vx - 2 * intoWall * normX;
-        const reflectZ = vz - 2 * intoWall * normZ;
-
-        // Determine impact severity: speed * angle factor
+        // Wall tangent (perpendicular to normal)
+        const tX = -normZ;
+        const tZ = normX;
+        // Keep the along-wall component, drop the into-wall component
+        const along = vx * tX + vz * tZ;
+        // impactAngle: 0 = grazing (parallel), 1 = head-on — shallow hits keep more speed
         const impactAngle = Math.abs(intoWall) / Math.max(0.01, Math.hypot(vx, vz));
-        const impactSeverity = Math.abs(this.carSpeed) * impactAngle;
-
-        // Graze: purely angle-based. If the car is nearly parallel to the wall
-        // (impactAngle < 0.26 ≈ 15° from parallel), it's a scrape — shed a tiny bit
-        // of speed and continue. No hard bounce, no big speed loss.
-        const isGraze = impactAngle < 0.26;
-
-        if (isGraze) {
-          // Graze: small speed loss, slight direction change, no bounce
-          this.carSpeed *= 0.92;
-          this.carYaw += (Math.random() - 0.5) * 0.03;
-        } else {
-          // Full bounce: reflect the car's yaw toward the outgoing direction
-          const newYaw = Math.atan2(reflectX, reflectZ);
-          // Blend: at high severity snap fully to reflected angle
-          const blend = Math.min(1, impactSeverity / 60);
-          this.carYaw = this.carYaw * (1 - blend) + newYaw * blend;
-
-          // Speed loss: head-on loses more, shallow loses less
-          // impactAngle=1 (head-on) → 0.7× multiplier, impactAngle=0 → 0.95×
-          const speedRetain = 0.95 - impactAngle * 0.25;
-          this.carSpeed *= Math.max(0.3, speedRetain);
-
-          // Small random deflection so you don't get stuck parallel
-          this.carYaw += (Math.random() - 0.5) * 0.04;
+        const retain = 0.95 - impactAngle * 0.35; // graze keeps 0.95, head-on drops to 0.60
+        const preCollisionSpeed = Math.abs(this.carSpeed);
+        this.carSpeed *= retain;
+        // Never fully stop after a real hit — but never INCREASE speed either
+        // (a low-speed tap that retains 0.60× shouldn't get boosted back up).
+        if (preCollisionSpeed >= 5 && Math.abs(this.carSpeed) < 5) {
+          this.carSpeed = Math.sign(this.carSpeed) * 5;
         }
-
-        this.screenShake = Math.max(0.04, Math.min(0.15, impactSeverity / 300));
+        // Steer yaw toward the wall tangent
+        this.carYaw = Math.atan2(tX * Math.sign(along || 1), tZ * Math.sign(along || 1));
+        // Small wobble so it feels like a scrape, not a snap
+        this.carYaw += (Math.random() - 0.5) * 0.02;
+        this.screenShake = Math.max(0.04, Math.min(0.12, Math.abs(intoWall) / 400));
       }
 
-      // If the car is still heading into the wall after reflection, nudge it
-      // gently — prevents sliding through barriers at extreme angles without
-      // compounding the speedRetain multiplier.
+      // Safety net: if still heading into the wall, rotate toward tangent
       const vxAfter = Math.sin(this.carYaw) * this.carSpeed;
       const vzAfter = Math.cos(this.carYaw) * this.carSpeed;
       const stillIntoWall = vxAfter * normX + vzAfter * normZ;
       if (stillIntoWall > 0) {
-        this.carSpeed *= 0.85;
-        this.carYaw += 0.08;
+        const tX = -normZ, tZ = normX;
+        const along = vxAfter * tX + vzAfter * tZ;
+        this.carYaw = Math.atan2(tX * Math.sign(along || 1), tZ * Math.sign(along || 1));
+        this.carSpeed *= 0.9;
       }
     }
 
