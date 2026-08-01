@@ -123,7 +123,7 @@
       {{optionStory.hidden ? '🙉 Unhide' : '🙈 Hide'}} Post
     </button>
     <button [disabled]="isLoading" (click)="delete(optionStory)"
-      *ngIf="(optionStory.user?.id == parentRef?.user?.id) || (userProfileId && userProfileId == parentRef?.user?.id) || (parentRef?.user?.id == 1 || parent?.user?.id == 1)"
+      *ngIf="(optionStory.user?.id == parentRef?.user?.id) || (userProfileId && userProfileId == parentRef?.user?.id) || (parentRef?.user?.id == 1)"
       title="Delete Post">
       ❌ Delete Post
     </button>
@@ -169,7 +169,7 @@
             </span>
           </span>
           <div *ngIf="optionStory && optionStory.id && editingTopics.includes(optionStory.id)">
-            <app-topics #topicComponent [isDropdown]="true" [user]="parentRef?.user" [parent]="parent ?? parentRef"
+            <app-topics #topicComponent [isDropdown]="true" [user]="parentRef?.user" [parent]="parentRef"
               [attachedTopics]="optionStory.storyTopics" (topicAdded)="editStoryTopic($event, optionStory)"
               (topicClicked)="removeTopicsFromStory($event, optionStory)">
             </app-topics>
