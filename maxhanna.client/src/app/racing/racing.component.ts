@@ -119,8 +119,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   // ─── Input ───
   keys = new Set<string>();
   isMobile = false;
-  mobileGas = false; mobileBrake = false;
-  mobileLeft = false; mobileRight = false;
+  // Virtual joystick: x = steering (-1..1), y = gas/brake (-1..1, up is +)
+  joyActive = false;
+  joyX = 0;
+  joyY = 0;
+  private joyOriginX = 0;
+  private joyOriginY = 0;
+  private readonly joyRadius = 46; // px travel from center to full deflection (keeps thumb inside base)
+  @ViewChild('joyThumb') joyThumbEl?: ElementRef<HTMLDivElement>;
   keyboardSteerCurrent = 0; // Lerped value for smooth steering
 
   // ─── Leaderboard ───
@@ -810,18 +816,26 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.keys.has('KeyA') || this.keys.has('ArrowLeft')) steerTarget = 1;
     if (this.keys.has('KeyD') || this.keys.has('ArrowRight')) steerTarget = -1;
 
-    if (this.mobileGas) gas = 1;
-    if (this.mobileBrake) brake = 1;
-
-    // Unified smooth steering — both keyboard and mobile use lerp
-    const mobileTarget = this.mobileLeft ? 1 : (this.mobileRight ? -1 : 0);
-    const useMobile = mobileTarget !== 0;
-    const effectiveTarget = useMobile ? mobileTarget * 0.4 : steerTarget; // mobile at 40% sensitivity
+    // Virtual joystick: vertical axis = gas (up, +y) / brake (down, -y),
+    // horizontal axis = steering (left/right). Deadzone prevents drift.
+    if (this.joyActive) {
+      const dz = 0.18;
+      const y = Math.abs(this.joyY) > dz ? this.joyY : 0;
+      const x = Math.abs(this.joyX) > dz ? this.joyX : 0;
+      // Gas/brake stay full-range (analog stick feels natural as a pedal);
+      // only steering is dampened so the car doesn't feel twitchy.
+      if (y > 0) gas = y;
+      else if (y < 0) brake = -y;
+      // Invert: pushing the stick right (joyX > 0) must turn right. Keyboard
+      // convention is left input = +1, so map joyX (right = +) to -steerTarget.
+      // Scale below full deflection — joystick users found raw ±1 too twitchy.
+      if (x !== 0) steerTarget = -x * 0.55;
+    }
 
     // Smoothly lerp toward target — slower attack so turning feels gradual,
     // not instantly maxed (users reported the car was too twitchy).
     const lerpSpeed = 6;
-    this.keyboardSteerCurrent += (effectiveTarget - this.keyboardSteerCurrent) * Math.min(1, dt * lerpSpeed);
+    this.keyboardSteerCurrent += (steerTarget - this.keyboardSteerCurrent) * Math.min(1, dt * lerpSpeed);
     if (Math.abs(this.keyboardSteerCurrent) < 0.002) this.keyboardSteerCurrent = 0;
 
     this.carAccel = gas - brake;
@@ -1351,14 +1365,58 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return { before: beforeVal, after: afterVal, label };
   }
 
-  // ─── Mobile ───
-  mobileAction(action: string, active: boolean) {
-    switch (action) {
-      case 'gas': this.mobileGas = active; break;
-      case 'brake': this.mobileBrake = active; break;
-      case 'left': this.mobileLeft = active; break;
-      case 'right': this.mobileRight = active; break;
+  // ─── Mobile (virtual joystick) ───
+  joyStart(e: TouchEvent | PointerEvent) {
+    // Both touch* and pointer* handlers are bound; ignore the duplicate fired
+    // right after pointerdown, and ignore a second finger landing mid-gesture.
+    if (this.joyActive) return;
+    const pt = this.joyPoint(e);
+    if (!pt) return;
+    this.joyActive = true;
+    this.joyOriginX = pt.clientX;
+    this.joyOriginY = pt.clientY;
+    try { (e.target as HTMLElement)?.setPointerCapture?.((e as PointerEvent).pointerId); } catch { }
+    this.joyMove(e);
+    e.preventDefault();
+  }
+
+  joyMove(e: TouchEvent | PointerEvent) {
+    if (!this.joyActive) return;
+    const pt = this.joyPoint(e);
+    if (!pt) return;
+    let dx = pt.clientX - this.joyOriginX;
+    let dy = -(pt.clientY - this.joyOriginY); // up = +y (gas)
+    const dist = Math.hypot(dx, dy);
+    if (dist > this.joyRadius) {
+      dx = (dx / dist) * this.joyRadius;
+      dy = (dy / dist) * this.joyRadius;
     }
+    this.joyX = Math.max(-1, Math.min(1, dx / this.joyRadius));
+    this.joyY = Math.max(-1, Math.min(1, dy / this.joyRadius));
+    // Move the thumb visually (clamped to the ring)
+    if (this.joyThumbEl?.nativeElement) {
+      this.joyThumbEl.nativeElement.style.transform =
+        `translate(${dx}px, ${-dy}px)`;
+    }
+    e.preventDefault();
+  }
+
+  joyEnd() {
+    this.joyActive = false;
+    this.joyX = 0;
+    this.joyY = 0;
+    if (this.joyThumbEl?.nativeElement) {
+      this.joyThumbEl.nativeElement.style.transform = 'translate(0px, 0px)';
+    }
+  }
+
+  private joyPoint(e: TouchEvent | PointerEvent): { clientX: number; clientY: number } | null {
+    if (e instanceof TouchEvent) {
+      if (e.touches.length === 0) return null;
+      const t = e.touches[0];
+      return { clientX: t.clientX, clientY: t.clientY };
+    }
+    return { clientX: e.clientX, clientY: e.clientY };
   }
 
   // ─── Helpers ───

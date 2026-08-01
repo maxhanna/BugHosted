@@ -2599,64 +2599,135 @@
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* ─── Mobile ─── */
+/* ─── Mobile (virtual joystick) ─── */
 #race-mobile {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 160px;
+  height: 240px;
   pointer-events: none;
   z-index: 20;
   touch-action: none;
 }
 
-.race-mob-left, .race-mob-right {
+.race-joy-zone {
   position: absolute;
-  bottom: 60px;
+  left: 24px;
+  bottom: 28px;
+  width: 168px;
+  height: 168px;
   pointer-events: auto;
-}
-
-.race-mob-left { left: 10px; }
-.race-mob-right { right: 10px; }
-
-.race-mob-bottom {
-  position: absolute;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 10px;
-  pointer-events: auto;
-}
-
-.race-mob-btn {
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  font-size: 12px;
-  font-weight: bold;
-  pointer-events: auto;
+  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
-  touch-action: none;
+  -webkit-touch-callout: none;
 }
 
-.race-mob-btn:active {
-  transform: scale(0.9);
+.race-joy-base {
+  position: relative;
+  width: 168px;
+  height: 168px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%,
+    rgba(10, 14, 22, 0.55) 0%,
+    rgba(10, 14, 22, 0.45) 55%,
+    rgba(10, 14, 22, 0.6) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.06) inset,
+    0 8px 24px rgba(0, 0, 0, 0.45);
 }
 
-.race-mob-gas {
-  background: rgba(76, 175, 80, 0.3);
-  border-color: rgba(76, 175, 80, 0.6);
+.race-joy-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 116px;
+  height: 116px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px dashed rgba(255, 255, 255, 0.18);
 }
 
-.race-mob-brake {
-  background: rgba(229, 57, 53, 0.3);
-  border-color: rgba(229, 57, 53, 0.6);
+.race-joy-thumb {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  margin: -36px 0 0 -36px;
+  background: radial-gradient(circle at 35% 30%,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0.22) 45%,
+    rgba(76, 175, 80, 0.35) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
+  transition: box-shadow 0.15s ease;
+  will-change: transform;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.race-joy-thumb-grip {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%,
+    rgba(255, 255, 255, 0.9) 0%,
+    rgba(255, 255, 255, 0.35) 60%);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.race-joy-axis {
+  position: absolute;
+  pointer-events: none;
+}
+
+.race-joy-axis-h {
+  top: 50%;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+  display: flex;
+  justify-content: space-between;
+  padding: 0 10px;
+}
+
+.race-joy-axis-v {
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.joy-hint {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.55);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+.joy-hint-up { color: rgba(76, 175, 80, 0.9); }
+.joy-hint-down { color: rgba(229, 57, 53, 0.9); }
+
+.race-joy-label {
+  position: absolute;
+  top: 172px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.45);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
 }
 
 @media (orientation: landscape) and (pointer: coarse) {

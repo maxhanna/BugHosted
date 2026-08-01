@@ -424,6 +424,32 @@
   .recipe-hero h2 { font-size: 1.4rem; }
   .recipe-shell { padding: 12px; }
   .composer-card { padding: 18px; }
+
+  /* Video-only recipe expanded: bare full-width video with nothing on top,
+     so the player controls are fully usable. Text/ratings move below it. */
+  .recipe-card-expanded.recipe-video-only {
+    flex-direction: column;
+  }
+  .recipe-card-expanded.recipe-video-only .recipe-media {
+    width: 100%;
+    min-height: 0;
+    max-height: none;
+  }
+  .recipe-card-expanded.recipe-video-only .recipe-video {
+    width: 100%;
+  }
+  .recipe-card-expanded.recipe-video-only .recipe-video iframe {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    min-height: 0;
+    display: block;
+  }
+  .recipe-card-expanded.recipe-video-only .recipe-video-short iframe {
+    aspect-ratio: 9 / 16;
+    max-height: 65vh;
+    margin: 0 auto;
+  }
 }
 
 @media (max-width: 500px) {

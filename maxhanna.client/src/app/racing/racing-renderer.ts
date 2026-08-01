@@ -536,22 +536,31 @@ void main() {
       // Grass shoulders - wider on each side, clean muted green (no texture bleed).
       // The shader computes base = vColor × texture, and the sampled asphalt is
       // ~0.22 brightness, so the tint is boosted ~4.5× to read as visible grass.
+      // Dedicated inner verts sit at the road edge but sample the plain-asphalt
+      // region (v=0.25/0.75), so the texture's white edge-line rows (v≈0 / v≈1)
+      // never bleed onto the grass.
       const shoulderW = 20;
       const su = 0.3 + segDist * 0.4; // sample the plain asphalt region of the texture
       const suN = 0.3 + (segDist + 1 / pts.length) * 0.4;
       const gr = 0.55, gg = 1.7, gb = 0.4;
-      // Left shoulder
+      // Left shoulder (inner lip at road edge + outer lip)
+      verts.push(p.x + ppx * hw, -0.2, p.z + ppz * hw, 0, 1, 0, gr, gg, gb, su, 0.25);
+      verts.push(n.x + npx * hwN, -0.2, n.z + npz * hwN, 0, 1, 0, gr, gg, gb, suN, 0.25);
       verts.push(p.x + ppx * (hw + shoulderW), -0.2, p.z + ppz * (hw + shoulderW), 0, 1, 0, gr, gg, gb, su, 0.25);
       verts.push(n.x + npx * (hwN + shoulderW), -0.2, n.z + npz * (hwN + shoulderW), 0, 1, 0, gr, gg, gb, suN, 0.25);
-      // Right shoulder
+      // Right shoulder (inner lip at road edge + outer lip)
+      verts.push(p.x - ppx * hw, -0.2, p.z - ppz * hw, 0, 1, 0, gr, gg, gb, su, 0.75);
+      verts.push(n.x - npx * hwN, -0.2, n.z - npz * hwN, 0, 1, 0, gr, gg, gb, suN, 0.75);
       verts.push(p.x - ppx * (hw + shoulderW), -0.2, p.z - ppz * (hw + shoulderW), 0, 1, 0, gr, gg, gb, su, 0.75);
       verts.push(n.x - npx * (hwN + shoulderW), -0.2, n.z - npz * (hwN + shoulderW), 0, 1, 0, gr, gg, gb, suN, 0.75);
 
-      const si = pts.length * perSegVerts + i * 4;
-      idxs.push(si, si + 1, vi);
-      idxs.push(vi, vi + 1, si + 1);
-      idxs.push(vi + 4, vi + 5, si + 2);
-      idxs.push(si + 2, vi + 5, si + 3);
+      const si = pts.length * perSegVerts + i * 8;
+      // Left shoulder quad (inner -> outer, no shared road-edge verts)
+      idxs.push(si, si + 1, si + 2);
+      idxs.push(si + 2, si + 1, si + 3);
+      // Right shoulder quad
+      idxs.push(si + 4, si + 5, si + 6);
+      idxs.push(si + 6, si + 5, si + 7);
 
       // ── Barrier walls (separate buffer, flat vivid colors — no texture multiply) ──
       const barrierH = 0.85;
@@ -581,17 +590,27 @@ void main() {
       barIdxs.push(rb, rb + 2, rb + 1);
       barIdxs.push(rb + 1, rb + 2, rb + 3);
 
-      // Barrier top caps
+      // Barrier top caps — thin strips over each wall only (never over the road)
       const tcr = striped ? 0.8 : 0.65;
       const tcg = striped ? 0.8 : 0.08;
       const tcb = striped ? 0.8 : 0.06;
+      const capW = 0.3; // lip width outboard of the wall face (visible from cockpit, never over the road)
+      // Left cap strip (bw -> bw+capW, outboard = +perp)
       const tc = barVerts.length / 11;
       barVerts.push(p.x + ppx * bw, barrierH, p.z + ppz * bw, 0, 1, 0, tcr, tcg, tcb, 0, 0);
       barVerts.push(n.x + npx * bwN, barrierH, n.z + npz * bwN, 0, 1, 0, tcr, tcg, tcb, 1, 0);
-      barVerts.push(p.x - ppx * bw, barrierH, p.z - ppz * bw, 0, 1, 0, tcr, tcg, tcb, 0, 1);
-      barVerts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, 0, 1, 0, tcr, tcg, tcb, 1, 1);
+      barVerts.push(p.x + ppx * (bw + capW), barrierH, p.z + ppz * (bw + capW), 0, 1, 0, tcr, tcg, tcb, 0, 1);
+      barVerts.push(n.x + npx * (bwN + capW), barrierH, n.z + npz * (bwN + capW), 0, 1, 0, tcr, tcg, tcb, 1, 1);
       barIdxs.push(tc, tc + 1, tc + 2);
       barIdxs.push(tc + 1, tc + 3, tc + 2);
+      // Right cap strip (-bw -> -(bw+capW), outboard = -perp)
+      const tr = barVerts.length / 11;
+      barVerts.push(p.x - ppx * bw, barrierH, p.z - ppz * bw, 0, 1, 0, tcr, tcg, tcb, 0, 0);
+      barVerts.push(n.x - npx * bwN, barrierH, n.z - npz * bwN, 0, 1, 0, tcr, tcg, tcb, 1, 0);
+      barVerts.push(p.x - ppx * (bw + capW), barrierH, p.z - ppz * (bw + capW), 0, 1, 0, tcr, tcg, tcb, 0, 1);
+      barVerts.push(n.x - npx * (bwN + capW), barrierH, n.z - npz * (bwN + capW), 0, 1, 0, tcr, tcg, tcb, 1, 1);
+      barIdxs.push(tr, tr + 1, tr + 2);
+      barIdxs.push(tr + 1, tr + 3, tr + 2);
     }
 
     const vertArray = new Float32Array(verts);

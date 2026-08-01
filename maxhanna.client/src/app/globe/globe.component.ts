@@ -593,10 +593,108 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       if (res.ok) {
         const data = await res.json();
         if (data.found && data.schedule) {
-          if (this.selectedFlight) (this.selectedFlight as any).schedule = data.schedule;
+          const schedule = Array.isArray(data.schedule) ? data.schedule : [];
+          if (this.selectedFlight) (this.selectedFlight as any).schedule = schedule;
+          this.applyScheduleToFlight(callsign, schedule);
         }
       }
     } catch {}
+  }
+
+  /**
+   * Use the full schedule of the current aircraft to figure out where it came
+   * from and where it is going, then draw real great-circle arcs between the
+   * aircraft and those airports (replaces the tiny heading stub).
+   */
+  private applyScheduleToFlight(callsign: string, schedule: any[]): void {
+    const leg = this.pickCurrentFlightLeg(callsign, schedule);
+    if (!leg || !this.selectedFlight) return;
+
+    const depCode = leg.departure?.iata || leg.departure?.icao;
+    const arrCode = leg.arrival?.iata || leg.arrival?.icao;
+    if (!depCode || !arrCode) return;
+
+    const dep = this.flightService.getAirportCoords(depCode);
+    const arr = this.flightService.getAirportCoords(arrCode);
+    const planeLat = this.selectedFlight.lat;
+    const planeLon = this.selectedFlight.lon;
+
+    if (this.selectedFlight) {
+      this.selectedFlight.origin = dep?.name || leg.departure?.airport || depCode;
+      this.selectedFlight.destination = arr?.name || leg.arrival?.airport || arrCode;
+    }
+
+    // Full arcs: origin -> aircraft -> destination. Only draw what we can resolve.
+    const arcs: Arc[] = [];
+    if (dep && planeLat != null && planeLon != null) {
+      arcs.push({
+        from: { lat: dep.lat, lon: dep.lon },
+        to: { lat: planeLat, lon: planeLon },
+        color: '#00ddff',
+      });
+    }
+    if (arr && planeLat != null && planeLon != null) {
+      arcs.push({
+        from: { lat: planeLat, lon: planeLon },
+        to: { lat: arr.lat, lon: arr.lon },
+        color: '#ff9f43',
+      });
+    }
+    if (arcs.length) this.flightArcs = arcs;
+  }
+
+  /**
+   * Pick the schedule entry that matches the current flight number and is the
+   * live/current leg (prefer 'active', then the one whose departure/arrival
+   * times bracket now, then the next scheduled departure).
+   */
+  private pickCurrentFlightLeg(callsign: string, schedule: any[]): any | null {
+    if (!schedule?.length) return null;
+    const cs = (callsign || '').toUpperCase().replace(/\s+/g, '');
+    const csNum = cs.replace(/\D/g, '');
+    const now = Date.now();
+
+    const toMs = (v: any): number => {
+      if (!v) return NaN;
+      const t = typeof v === 'number' ? v * 1000 : Date.parse(v);
+      return isNaN(t) ? NaN : t;
+    };
+
+    let best: any = null;
+    let bestScore = -Infinity;
+
+    for (const s of schedule) {
+      const fiata = (s.flight?.iata || '').toUpperCase();
+      const ficao = (s.flight?.icao || '').toUpperCase();
+      const fnum = String(s.flight?.number || '').toUpperCase();
+
+      // Match the callsign against the flight's iata / icao / number.
+      const exactMatch = ficao === cs || fiata === cs || fnum === csNum;
+      const looseMatch = !exactMatch && ((fiata && cs.includes(fiata)) || (ficao && cs.includes(ficao)));
+      if (!exactMatch && !looseMatch) continue;
+
+      const status = (s.flight_status || '').toLowerCase();
+      const depT = toMs(s.departure?.scheduled);
+      const arrT = toMs(s.arrival?.scheduled);
+      const inWindow = !isNaN(depT) && !isNaN(arrT) && depT <= now && now <= arrT;
+      const future = !isNaN(depT) && depT > now;
+
+      let score = exactMatch ? 100 : 40;
+      if (status === 'active' || status === 'en-route' || status === 'en_route') score += 1000;
+      else if (status === 'landed' || status === 'arrived') score -= 800;
+      else if (status === 'cancelled') score -= 2000;
+      if (inWindow) score += 500;
+      else if (future) score += 100 - Math.min(90, (depT - now) / 3600000);
+      else if (!isNaN(depT)) score -= 300;
+
+      if (score > bestScore) { bestScore = score; best = s; }
+    }
+
+    // Fallback: first entry that has both a departure and arrival airport.
+    if (!best) {
+      best = schedule.find(s => (s.departure?.iata || s.departure?.icao) && (s.arrival?.iata || s.arrival?.icao)) || null;
+    }
+    return best;
   }
 
   closeFlightDetail(): void {

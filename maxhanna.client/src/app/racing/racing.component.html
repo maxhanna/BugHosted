@@ -583,17 +583,28 @@
       <div class="race-lb-close" (click)="showLeaderboard = false">Press L to close</div>
     </div>
 
-    <!-- ─── Mobile Controls ─── -->
+    <!-- ─── Mobile Controls (virtual joystick: steer left/right, push up for gas, down for brake) ─── -->
     <div id="race-mobile" *ngIf="isMobile && (gameState === 'racing')">
-      <div class="race-mob-left">
-        <button class="race-mob-btn race-mob-steer" (touchstart)="mobileAction('left', true)" (touchend)="mobileAction('left', false)" (touchcancel)="mobileAction('left', false)">◀</button>
-      </div>
-      <div class="race-mob-right">
-        <button class="race-mob-btn race-mob-steer" (touchstart)="mobileAction('right', true)" (touchend)="mobileAction('right', false)" (touchcancel)="mobileAction('right', false)">▶</button>
-      </div>
-      <div class="race-mob-bottom">
-        <button class="race-mob-btn race-mob-brake" (touchstart)="mobileAction('brake', true)" (touchend)="mobileAction('brake', false)" (touchcancel)="mobileAction('brake', false)">BRAKE</button>
-        <button class="race-mob-btn race-mob-gas" (touchstart)="mobileAction('gas', true)" (touchend)="mobileAction('gas', false)" (touchcancel)="mobileAction('gas', false)">GAS</button>
+      <div class="race-joy-zone"
+        (touchstart)="joyStart($event)" (touchmove)="joyMove($event)"
+        (touchend)="joyEnd()" (touchcancel)="joyEnd()"
+        (pointerdown)="joyStart($event)" (pointermove)="joyMove($event)"
+        (pointerup)="joyEnd()" (pointercancel)="joyEnd()">
+        <div class="race-joy-base">
+          <div class="race-joy-ring"></div>
+          <div class="race-joy-thumb" #joyThumb>
+            <div class="race-joy-thumb-grip"></div>
+          </div>
+          <div class="race-joy-axis race-joy-axis-h">
+            <span class="joy-hint joy-hint-left">◀</span>
+            <span class="joy-hint joy-hint-right">▶</span>
+          </div>
+          <div class="race-joy-axis race-joy-axis-v">
+            <span class="joy-hint joy-hint-up">GAS ▲</span>
+            <span class="joy-hint joy-hint-down">BRAKE ▼</span>
+          </div>
+        </div>
+        <div class="race-joy-label">STEER · GAS · BRAKE</div>
       </div>
     </div>
   </div>
