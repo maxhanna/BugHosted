@@ -28,7 +28,6 @@ import { FollowService } from '../../services/follow.service';
 export class SocialPostComponent extends ChildComponent implements OnInit {
   optionStory?: Story;
   visibilityStory?: Story;
-  comments: FileComment[] = [];
   openedStoryComments: number[] = [];
   openedStoryYoutubeVideos: number[] = [];
   isStoryOptionsPanelOpen = false;
@@ -108,6 +107,8 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
       }
       this.story = s;
       await this.afterStoryReady();
+    } else {
+      this.parentRef?.showNotification(`Could not load post #${this.socialId}.`);
     }
     this.isLoading = false;
   }
