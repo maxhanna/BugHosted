@@ -59,11 +59,12 @@ namespace maxhanna.Server.Controllers
       [FromQuery] int page = 1,
       [FromQuery] int pageSize = 10,
       [FromQuery] bool showHiddenStories = false,
-      [FromQuery] ShowPostsFrom? showPostsFromFilter = ShowPostsFrom.All)
+      [FromQuery] ShowPostsFrom? showPostsFromFilter = ShowPostsFrom.All,
+      [FromQuery] bool details = true)
     {
       try
       {
-        var stories = await GetStoriesAsync(request, search, topics, page, pageSize, showHiddenStories, showPostsFromFilter);
+        var stories = await GetStoriesAsync(request, search, topics, page, pageSize, showHiddenStories, showPostsFromFilter, includeDetails: details);
         return Ok(stories);
       }
       catch (Exception ex)
@@ -73,7 +74,7 @@ namespace maxhanna.Server.Controllers
       }
     }
 
-    private async Task<StoryResponse> GetStoriesAsync(GetStoryRequest request, string? search, string? topics, int page = 1, int pageSize = 10, bool showHiddenStories = false, ShowPostsFrom? showPostsFromFilter = ShowPostsFrom.All)
+    private async Task<StoryResponse> GetStoriesAsync(GetStoryRequest request, string? search, string? topics, int page = 1, int pageSize = 10, bool showHiddenStories = false, ShowPostsFrom? showPostsFromFilter = ShowPostsFrom.All, bool includeDetails = true)
     {
       var whereClause = new StringBuilder(@" WHERE 1=1 ");
       var orderByClause = " ORDER BY s.id DESC ";
@@ -319,16 +320,34 @@ namespace maxhanna.Server.Controllers
       }
 
       storyResponse.Stories = storyDictionary.Values.ToList();
-      await AttachFilesToStoriesAsync(request.UserId, storyResponse.Stories);
-      await FetchAndAttachTopicsAsync(storyResponse.Stories);
-      await FetchAndAttachReactionsAsync(storyResponse.Stories);
-      await FetchAndAttachPollVotesAsync(storyResponse);
+      if (includeDetails)
+      {
+        await AttachFilesToStoriesAsync(request.UserId, storyResponse.Stories);
+        await FetchAndAttachTopicsAsync(storyResponse.Stories);
+        await FetchAndAttachReactionsAsync(storyResponse.Stories);
+        await FetchAndAttachPollVotesAsync(storyResponse);
+        storyResponse.Stories.ForEach(s =>
+        {
+          s.StoryText = _log.EncryptContent(s.StoryText ?? "", s.User?.Id + "");
+        });
+      }
+      else
+      {
+        // Lightweight list: drop heavy payload fields, keep the id (+ lightweight fields)
+        // so the client can render the post stub and fetch details per-post.
+        storyResponse.Stories.ForEach(s =>
+        {
+          s.StoryText = null;
+          s.StoryFiles = null;
+          s.StoryComments = null;
+          s.StoryTopics = null;
+          s.Reactions = null;
+          s.Metadata = null;
+          s.Polls = null;
+        });
+      }
       storyResponse.CurrentPage = page;
       storyResponse.PageCount = (int)Math.Ceiling((double)storyResponse.TotalCount / pageSize);
-      storyResponse.Stories.ForEach(s =>
-      {
-        s.StoryText = _log.EncryptContent(s.StoryText ?? "", s.User?.Id + "");
-      });
       return storyResponse;
     }
 

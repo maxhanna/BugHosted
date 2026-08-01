@@ -1,0 +1,293 @@
+:host {
+  display: block;
+}
+
+.storyText {
+  width: 100%;
+  padding: 5px;
+  display: inline-block;
+  border-radius: 3px;
+  font-weight: 400;
+  word-break: break-word;
+  user-select: text;
+}
+
+.metadataContent {
+  width: 100%;
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+}
+
+.metaImgDiv {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+}
+
+.metadataImage {
+  max-width: 100%;
+  max-height: 500px;
+}
+
+@media only screen and (max-device-width: 800px) {
+  .metadataImage {
+    max-width: 300px;
+    max-height: 300px;
+  }
+}
+
+.metadataDescription {
+  font-size: smaller;
+  color: var(--secondary-font-color);
+  text-align: center;
+}
+
+.metadataTitle {
+  font-size: small;
+  color: var(--main-font-color);
+}
+
+.attachment {
+  display: inline-block;
+  max-width: calc(100% - 20px);
+}
+
+.singleAttachment {
+  max-width: calc(100% - 20px);
+  max-height: 525px;
+}
+
+.multipleAttachments {
+  max-width: 48%;
+}
+
+@media only screen and (max-width : 667px) {
+  .multipleAttachments {
+    max-width: 99%;
+  }
+}
+
+.storyOptionsPopupButtons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-evenly;
+  align-items: center;
+  align-content: center;
+  flex-direction: row;
+  padding: 20px;
+  gap: 20px;
+}
+
+.fileNameStatsHeader {
+  display: flex;
+  flex-direction: column;
+  align-content: flex-start;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.metadataOptionsStats {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  border: var(--main-border);
+  border-width: 4px;
+}
+
+.storyTextContainer {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.storyTextContainer.collapsed {
+  max-height: 150px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  font-size: smaller;
+  box-shadow: 0 20px 35px -35px var(--primary-font-color);
+  cursor: pointer;
+}
+
+.storyContentDiv {
+  padding-left: 10px;
+  padding-right: 10px;
+  width: 100%;
+}
+
+.storyContainerWrapperContainerDiv {
+  border: var(--main-border);
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  border-top: 0;
+  background-color: var(--component-background-color);
+}
+
+.storyHeader {
+  display: flex;
+  padding-left: 10px;
+  padding-right: 10px;
+  border: var(--main-border);
+  border-bottom: 0;
+  background: linear-gradient(to bottom, var(--main-highlight-color), transparent);
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+.storyDate {
+  color: var(--secondary-font-color);
+  font-size: 11px;
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+}
+
+.textExpanderDiv {
+  width: 100%;
+  text-align: center;
+  cursor: pointer;
+  margin-bottom: 10px;
+  opacity: 75%;
+}
+
+.attachmentsDiv {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  margin-top: 5px;
+  margin-bottom: 5px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+}
+
+.reactionTopics {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-content: center;
+  flex-direction: column-reverse;
+}
+
+.smallExpander {
+  width: 110px;
+  text-align: center;
+}
+
+.smallExpander:hover {
+  color: var(--secondary-font-color);
+  text-decoration: underline;
+}
+
+.popupPanelTitle {
+  display: flex;
+  justify-content: space-evenly;
+}
+
+.youtubePlaceholderImageContainer {
+  position: relative;
+}
+
+.playButtonInMetadataImage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 10px 20px;
+  background-color: rgba(255, 0, 0, 0.7);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.playButton {
+  background: rgba(255, 0, 0, 0.25);
+  border-radius: 50% / 10%;
+  color: #FFFFFF;
+  height: 3em;
+  margin: 20px auto;
+  padding: 0;
+  text-align: center;
+  text-indent: 0.1em;
+  transition: all 150ms ease-out;
+  width: 4em;
+  box-shadow: inset 0px 2px 5px rgba(255, 255, 255, 0.6),
+    inset 0px -2px 5px rgba(0, 0, 0, 0.5),
+    0px 5px 10px rgba(0, 0, 0, 0.5);
+}
+
+.playButton:hover {
+  background: red;
+  box-shadow: inset 0px 2px 5px rgba(255, 255, 255, 0.8), inset 0px -2px 5px rgba(0, 0, 0, 0.6), 0px 5px 15px rgba(0, 0, 0, 0.7);
+}
+
+.playButton::before {
+  background: inherit;
+  border-radius: 5% / 50%;
+  bottom: 9%;
+  content: "";
+  left: -5%;
+  position: absolute;
+  right: -5%;
+  top: 9%;
+  background: linear-gradient(60deg, rgba(255, 255, 255, 0.2) 10%, transparent 50%, rgba(0, 0, 0, 0.2) 90%);
+  clip-path: polygon(20% 10%, 80% 10%, 95% 50%, 80% 90%, 20% 90%, 6% 50%);
+}
+
+.playButton::after {
+  border-style: solid;
+  border-width: 1em 0 1em 1.732em;
+  border-color: transparent transparent transparent rgba(255, 255, 255, 0.85);
+  content: ' ';
+  font-size: 0.75em;
+  height: 0;
+  margin: -1em 0 0 -0.75em;
+  top: 50%;
+  left: 53%;
+  position: absolute;
+  width: 0;
+}
+
+.postOptionButtonWrapper {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 1px;
+}
+
+button.postOptionButtons,
+.postOptionButtons ::ng-deep * button,
+.postOptionButtons ::ng-deep * span {
+  height: 25px;
+}
+
+.showPostOptionButton {
+  cursor: pointer;
+  font-size: small;
+}
+
+.reducedFileName {
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.postedOnDiv {
+  display: flex;
+  font-size: small;
+  align-items: center;
+  justify-content: flex-end;
+}

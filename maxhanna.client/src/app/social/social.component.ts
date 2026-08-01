@@ -1,7 +1,7 @@
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnDestroy, OnInit, Renderer2, ViewChild } from '@angular/core';
 import { Compactness, ShowPostsFrom } from '../../services/datacontracts/user/show-posts-from';
 import { ChildComponent } from '../child.component';
-import { MetaData, Story } from '../../services/datacontracts/social/story';
+import { Story } from '../../services/datacontracts/social/story';
 import { SocialService } from '../../services/social.service';
 import { TopicService } from '../../services/topic.service';
 import { AppComponent } from '../app.component';
@@ -11,40 +11,25 @@ import { StoryResponse } from '../../services/datacontracts/social/story-respons
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
-import { FileComment } from '../../services/datacontracts/file/file-comment'; 
 import { UserService } from '../../services/user.service';
-import { TodoService } from '../../services/todo.service';
-import { Todo } from '../../services/datacontracts/todo'; 
-import { FileService } from '../../services/file.service'; 
+import { FileService } from '../../services/file.service';
 import { EncryptionService } from '../../services/encryption.service';
-import { TextToSpeechService } from '../../services/text-to-speech.service';
-import { CurrencyFlagPipe } from '../currency-flag.pipe';
-import { PollService } from '../../services/poll.service';
-import { FollowService } from '../../services/follow.service';
 
 @Component({
   selector: 'app-social',
   templateUrl: './social.component.html',
   styleUrl: './social.component.css',
-  standalone: false,
-  providers: [CurrencyFlagPipe]
+  standalone: false
 })
 export class SocialComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   fileMetadata: any;
   youtubeMetadata: any;
   storyResponse?: StoryResponse;
-  optionStory?: Story;
-  comments: FileComment[] = [];
-  openedStoryComments: number[] = [];
-  openedStoryYoutubeVideos: number[] = [];
   trendingSearches: string[] = [];
   isMobileTopicsPanelOpen = false;
   isSearchSocialsPanelOpen = false;
   isMenuPanelOpen = false;
-  isStoryOptionsPanelOpen = false;
-  isStoryVisibilityPanelOpen = false;
   isPostOptionsPanelOpen = false;
-  isFollowingStory: { [key: number]: boolean } = {}; 
   showPostInput = false;
   showComponentSelector = false;
   wasFromSearchId = false;
@@ -52,17 +37,12 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   isDisplayingNSFW = false;
   showHiddenFiles = false;
   canLoad = false; 
-  isEditing: number[] = [];
-  editingTopics: number[] = [];
   attachedFiles: FileEntry[] = [];
   attachedTopics: Array<Topic> = [];
-  storyOverflowMap: { [key: string]: boolean } = {};
   userProfileId?: number = undefined;
   fileType: string | undefined;
   abortAttachmentRequestController: AbortController | null = null;
   notifications: String[] = [];
-  expanded: string[] = [];
-  minimizedStories: number[] = [];
   attachedSearchTopics: Array<Topic> = [];
   currentPage: number = 1;
   totalPages: number = 1;
@@ -75,7 +55,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   showPostsFromFilter: ShowPostsFrom = "all";
   compactness: Compactness= "yes";
   private storyUpdateInterval: any;
-  private overflowCache: Record<string, boolean> = {};
   city: string | undefined;
   country: string | undefined;
   
@@ -102,15 +81,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   constructor(private socialService: SocialService,
     private topicService: TopicService,
     private userService: UserService,
-    private todoService: TodoService,
     private fileService: FileService,
     private encryptionService: EncryptionService,
-    private textToSpeechService: TextToSpeechService,
     private cd: ChangeDetectorRef,
-    private currencyFlagPipe: CurrencyFlagPipe,
-    private renderer: Renderer2,
-    private pollService: PollService,
-    private followService: FollowService
+    private renderer: Renderer2
 ) {
     super();
   }
@@ -119,9 +93,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.isLoading = true;
     if (this.parent) {
       this.parentRef = this.parent;
-    }
-    if (this.storyId) {
-      this.openedStoryComments.push(this.storyId);
     }
     this.isLoading = false;
 
@@ -137,8 +108,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       });
     }
  
-    this.loadMinimizedStories();
-
     const tmpStoryId = this.storyId;
     const tmpCommentId = this.commentId;
 
@@ -160,9 +129,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
             pageCount: 1, 
             currentPage: 1 
           } as StoryResponse;
-
-          // Load poll results for the story
-          await this.loadPollResultsForStories([single]);
 
           // If the current user has blocked the author, show placeholder locally
           try {
@@ -207,10 +173,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       }
     })
     this.changeComponentMainHeight();
-    
-    // Ensure poll HTML is updated in DOM after all data is loaded
-    this.updatePollsInDOM(200);
-    
+
     this.stopLoading();
   }
 
@@ -235,84 +198,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     } 
   } 
 
-  async delete(story: Story) {
-    const parent = this.parentRef;
-    if (!parent?.user?.id) { return alert("Error: Cannot delete a post unless logged in or the post belongs to you."); }
-    if (!confirm("Are you sure you want to delete this post?")) return;
-    this.startLoading();
-    const sessionToken = await parent.getSessionToken();
-    const res = await this.socialService.deleteStory(parent.user.id, story, sessionToken);
-    if (res) {
-      this.parentRef?.showNotification(res);
-      if (res.toLowerCase().includes('successful')) {
-        this.storyResponse!.stories! = this.storyResponse!.stories!.filter((x: { id: number | undefined; }) => x.id != story.id);
-      }
-    }
-    this.closeStoryOptionsPanel();
-    this.stopLoading();
-  }
-  async edit(story: Story) {
-    if (this.isEditing.includes(story.id ?? 0)) {
-      this.isEditing = this.isEditing.filter(x => x != story.id);
-    } else {
-      this.isEditing.push(story.id ?? 0);
-    }
-    this.closeStoryOptionsPanel();
-  }
-
-  // Centralized cancel handler for story editing (used by app-text-input cancelEdit)
-  cancelEdit(story: Story) {
-    if (!story || story.id === undefined) return;
-    this.isEditing = this.isEditing.filter(x => x != story.id);
-    // ensure story options panel is closed when cancelling an edit
-    this.isStoryOptionsPanelOpen = false;
-  }
-  async editTopic(story: Story) {
-    if (story.id) {
-      if (this.editingTopics.includes(story.id)) {
-        this.editingTopics = this.editingTopics.filter(x => x != story.id);
-      } else {
-        this.editingTopics.push(story.id);
-      }
-    }
-  }
-  async editStory(story: Story) {
-    // Legacy DOM edit handler: if the old textarea is present, use it; otherwise rely on the new app-text-input flow.
-    const textarea = document.getElementById('storyTextTextarea' + story.id) as HTMLTextAreaElement | null;
-    if (!textarea) {
-      this.parentRef?.showNotification('Please use the editor Update button to save changes.');
-      return;
-    }
-    const message = textarea.value;
-    const ogMessage = message + "";
-    story.storyText = this.encryptionService.encryptContent(message, story.user.id + "");
-    if (document.getElementById('storyText' + story.id) && this.parentRef?.user?.id) {
-      this.startLoading();
-      this.parentRef.updateLastSeen();
-      const sessionToken = await this.parentRef.getSessionToken();
-      await this.socialService.editStory(this.parentRef.user.id, story, sessionToken);
-      this.isEditing = this.isEditing.filter(x => x != story.id);
-      setTimeout(() => { story.storyText = ogMessage }, 10);
-      this.stopLoading();
-    }
-  }
-  
-  // Handler for app-text-input contentUpdated event for stories
-  async onStoryUpdated(event: { results: any, content: any, originalContent: string }, story: Story) {
-    try {
-      if (event && event.results) {
-        // Update local UI with decrypted/plaintext content
-        story.storyText = event.originalContent;
-        // Close edit mode for this story
-        this.isEditing = this.isEditing.filter(x => x != story.id);
-        this.parentRef?.showNotification(`Post #${story.id} edited successfully.`);
-      } else {
-        this.parentRef?.showNotification(`Failed to edit post #${story.id}.`);
-      }
-    } catch (err) {
-      console.error('onStoryUpdated error', err);
-    }
-  }
   async searchStories(searchTopics?: Array<Topic>, debounced?: boolean) {
     let search = this.userSearch;
 
@@ -345,19 +230,11 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       page,
       pageSize,
       showHiddenStories,
-      this.showPostsFromFilter
+      this.showPostsFromFilter,
+      false // details=false: list returns lightweight stubs; each app-social-post fetches its own details
     );
 
     if (res && res.stories && res.stories.length > 0) {
-      res.stories.forEach(story => {
-        if (story.storyText) {
-          try {
-            story.storyText = this.encryptionService.decryptContent(story.storyText, story.user.id + "");
-          } catch (ex) {
-            console.error(`Failed to decrypt story ID ${story.id}: ${ex}`);
-          }
-        }
-      });
       if (append && this.storyResponse?.stories) {
         this.storyResponse.stories = this.storyResponse.stories.concat(
           res.stories.filter(
@@ -374,8 +251,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       }
       this.totalPages = this.storyResponse?.pageCount ?? 0;
       this.totalPagesArray = Array.from({ length: this.totalPages }, (_, index) => index + 1);
-      this.setPollResultsIfVoted(res);
-      await this.loadPollResultsForStories(res.stories);
     } else if (!append) {
       // Search/filter returned no results — clear the feed so empty state renders
       this.storyResponse = res ?? { stories: [], totalCount: 0, pageCount: 0, currentPage: 1 } as StoryResponse;
@@ -387,82 +262,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.canLoad = true;
     }, 1000);
     this.stopLoading();
-  }
-
-  private setPollResultsIfVoted(res: StoryResponse) {
-    if (!res.stories?.length) return;
-    res.stories.forEach(story => {
-      const storyPolls = story.polls || [];
-      storyPolls.forEach(poll => {
-        if (!poll || !story.storyText?.includes('[Poll]')) return;
-        if (poll.userVotes.some(x => x.userId === this.parentRef?.user?.id)) {
-          const pollRegex = /\[Poll\](.*?)\[\/Poll\]/s;
-          const match = story.storyText?.match(pollRegex);
-          if (match) {
-            poll.options.forEach(option => {
-              story.storyText = story.storyText?.replace(option.text, `${option.text} (${option.voteCount} votes, ${option.percentage}%)`);
-            });
-          }
-          story.storyText += `<button onclick=\"document.getElementById('pollComponentId').value='storyText${story.id}';document.getElementById('pollDeleteButton').click()\" class=\"deletePollVoteButton\">Delete Vote</button>`;
-          story.storyText += `<div class=voterSpan>Voters(${poll.userVotes.length}): ${poll.userVotes.map(x => '@' + x.username).join(', ')}</div>`;
-        }
-      });
-    });
-  }
-
-  private async loadPollResultsForStories(stories: Story[]) {
-    if (!stories?.length || !this.parentRef?.user?.id) return;
-    
-    for (const story of stories) {
-      if (!story.polls?.length) continue;
-      if (!story.storyText?.includes('[Poll]')) continue;
-      
-      for (const poll of story.polls) {
-        if (!poll.componentId) continue;
-        
-        try {
-          const pollResults = await this.pollService.getResults(poll.componentId);
-          if (pollResults) {
-            poll.totalVotes = pollResults.totalVotes ?? poll.totalVotes ?? 0;
-            
-            // Update poll options with vote counts and percentages
-            if (pollResults.options) {
-              poll.options = pollResults.options.map((opt: any) => ({
-                id: opt.id ?? opt.value ?? opt.Value ?? '',
-                text: opt.text ?? opt.value ?? opt.Value ?? '',
-                voteCount: opt.voteCount ?? opt.VoteCount ?? 0,
-                percentage: opt.percentage ?? (poll.totalVotes > 0 ? Math.round((opt.voteCount / poll.totalVotes) * 100) : 0)
-              }));
-            }
-            if (pollResults.userVotes) {
-              poll.userVotes = pollResults.userVotes;
-            }
-            
-            // Update story text with vote counts for display
-            if (poll.options && poll.totalVotes > 0) {
-              poll.options.forEach(option => {
-                story.storyText = story.storyText?.replace(
-                  option.text,
-                  `${option.text} (${option.voteCount} votes, ${option.percentage}%)`
-                );
-              });
-            }
-            
-            // Add voter list and delete button if user has voted
-            const hasVoted = poll.userVotes?.some((v: any) => v.userId === this.parentRef?.user?.id);
-            if (hasVoted && !story.storyText.includes("Voters") && !story.storyText.includes("Delete Vote")) {
-              story.storyText += `<button onclick=\"document.getElementById('pollComponentId').value='${poll.componentId}';document.getElementById('pollDeleteButton').click()\" class=\"deletePollVoteButton\">Delete Vote</button>`;
-              story.storyText += `<div class=voterSpan>Voters(${poll.userVotes.length}): ${poll.userVotes.map((x: any) => '@' + x.username).join(', ')}</div>`;
-            }
-          }
-        } catch (error) {
-          console.error(`Failed to load poll results for componentId ${poll.componentId}:`, error);
-        }
-      }
-    }
-    
-    // Rebuild poll HTML in DOM with the updated data
-    this.updatePollsInDOM(100);
   }
 
   private getSearchStoryId() {
@@ -478,129 +277,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     return storyId;
   }
 
-  updatePollsInDOM(delayMs: number = 1000): void {
-    // Now polls are per-story only; iterate each story's polls
-    if (!this.storyResponse?.stories?.length) return;
-    setTimeout(() => {
-      this.storyResponse?.stories?.forEach(s => {
-        (s.polls || []).forEach(poll => {
-          const componentId = poll.componentId;
-          const pollContainer = document.getElementById(componentId);
-          if (!pollContainer) return;
-          if (this.parentRef && typeof this.parentRef.buildPollHtmlFromPollObject === 'function') {
-            try {
-              pollContainer.innerHTML = this.parentRef.buildPollHtmlFromPollObject(poll, componentId);
-            } catch (e) {
-              console.error('Error building poll HTML from parent builder', e);
-            }
-          } else {
-            // Fallback: empty to avoid throwing if parentRef not available
-            pollContainer.innerHTML = '';
-          }
-        });
-      });
-    }, delayMs);
-  } 
- 
- 
-  async editStoryTopic(topics: Topic[], story: Story) {
-    const user = this.parentRef?.user ?? this.parent?.user;
-    if (user) {
-      this.parentRef?.updateLastSeen();
-      this.socialService.editTopics(story, topics);
-      this.closeStoryOptionsPanel();
-      this.editingTopics = this.editingTopics.filter(x => x != story.id);
-      story.storyTopics = topics;
-    }
-  }
-
-  onOptionStoryVisibilityChange(event: Event, story: Story) {
-    const val = (event.target as HTMLSelectElement | null)?.value;
-    if (!story) return;
-    if (val === 'public' || val === 'following' || val === 'self') {
-      story.visibility = val;
-    }
-    this.saveStoryVisibility(story);
-  }
-
-  async saveStoryVisibility(story: Story) {
-    const parent = this.parent ?? this.parentRef;
-    if (!parent?.user?.id) return alert('Must be logged in to change visibility.');
-    try {
-      const sessionToken = await parent.getSessionToken();
-      await this.socialService.editStory(parent.user.id, story, sessionToken ?? '');
-      this.parentRef?.showNotification('Visibility updated.');
-      this.editingTopics = this.editingTopics.filter(x => x != story.id);
-      this.closeStoryOptionsPanel();
-    } catch (err) {
-      console.error('Failed to update visibility', err);
-      this.parentRef?.showNotification('Failed to update visibility');
-    }
-  }
-
-  maybeShowStoryOptionsPanel(story: Story) {
-    const currentUserId = this.parentRef?.user?.id ?? this.parent?.user?.id;
-    if (!story || !story.user) return; 
-    if (currentUserId && (story.user.id === currentUserId || currentUserId === 1)) {
-      // open visibility panel instead of general story options
-      this.showStoryVisibilityPanel(story);
-    } else {
-      this.parentRef?.showNotification('You are not the owner of this post.');
-    }
-  }
-
-  // Story visibility panel handlers
-  visibilityStory?: Story;
-  showStoryVisibilityPanel(story: Story) {
-    if (this.isStoryVisibilityPanelOpen) {
-      this.closeStoryVisibilityPanel();
-      return;
-    }
-    this.visibilityStory = story;
-    this.isStoryVisibilityPanelOpen = true;
-    const parent = this.parent ?? this.parentRef;
-    parent?.showOverlay();
-  }
-  closeStoryVisibilityPanel() {
-    this.isStoryVisibilityPanelOpen = false;
-    this.visibilityStory = undefined;
-    const parent = this.parent ?? this.parentRef;
-    parent?.closeOverlay();
-  }
-
-  async removeTopicsFromStory(topicsToRemove: Topic[], story: Story) { 
-    let updatedTopics = story.storyTopics?.filter(
-      x => !topicsToRemove.some(t => t.id === x.id)
-    ) ?? [];
-
-    await this.editStoryTopic(updatedTopics, story);
-  }
-
   removeAttachment(fileId: number) {
     this.attachedFiles = this.attachedFiles.filter(x => x.id != fileId);
-  }
-
-  extractUrl(text?: string) {
-    if (!text) return;
-    const urlPattern = /(https?:\/\/[^\s]+)/g;
-    const matches = text.match(urlPattern);
-    return matches ? matches[0] : undefined;
-  }
-  goToLink(story?: Story, metadataUrl?: string) {
-    if (story && story.storyText) {
-      const goodUrl = metadataUrl ?? this.extractUrl(story.storyText);
-      if (goodUrl) {
-        this.parentRef?.visitExternalLink(goodUrl);
-      }
-    }
-    else {
-      if (story && story.metadata) {
-        const tmpUrl = story.metadata[0].imageUrl;
-        if (tmpUrl) {
-          this.parentRef?.visitExternalLink(tmpUrl);
-        }
-      }
-    }
   }
 
   async pageChanged(selectorId?: number) {
@@ -630,11 +308,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }, 20);
   }
 
-  isValidYoutubeImageUrl(url?: string): boolean {
-    if (!url) return false;
-    return url.includes("ytimg");
-  }
-
   onTopicAdded(topics?: Array<Topic>) {
     if (topics) {
       this.currentPage = 1;
@@ -643,7 +316,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       this.scrollToStory();
       this.closeMenuPanel();
       this.closePostOptionsPanel();
-      this.closeStoryOptionsPanel(); 
     }
   }
   removeTopic(topic: Topic) {
@@ -656,6 +328,20 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.currentPage = 1; 
     this.onTopicAdded(this.attachedTopics);
     this.scrollToStory();
+  }
+  onPostDeleted(story: Story) {
+    if (!this.storyResponse?.stories) return;
+    this.storyResponse.stories = this.storyResponse.stories.filter(x => x.id != story.id);
+    this.refreshDOM();
+  }
+  onPostTopicClicked(topics: Topic[]) {
+    this.topicClicked(topics);
+  }
+  onPostTopicIgnored() {
+    this.getStories();
+  }
+  onPostHidden() {
+    this.getStories();
   }
   topTopicClicked(topicName: string, topicId: number) {
     this.attachedTopics.push(new Topic(topicId, topicName));
@@ -672,96 +358,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (files) {
       this.attachedFiles = files.flatMap(fileArray => fileArray);
     }
-  }
-  copyLink(storyId?: number) {
-    const apd = this.user ? `User/${this.user.id}/${storyId}` : `Social/${storyId}`;
-    const link = `https://bughosted.com/${apd}`;
-    this.closeStoryOptionsPanel();
-    navigator.clipboard.writeText(link).then(() => {
-      this.parentRef?.showNotification('Link copied to clipboard!');
-    }).catch(err => {
-      this.parentRef?.showNotification('Failed to copy link!');
-    });
-  }
-
-  formatDate(dateString?: Date): string {
-    if (!dateString) return '';
-    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
-    const day = date.getDate();
-
-    const monthNames = [
-      "January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"
-    ];
-
-    const month = monthNames[date.getMonth()];
-    const year = date.getFullYear();
-
-    let hours = date.getHours();
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const ampm = hours >= 12 ? 'pm' : 'am';
-    hours = hours % 12 || 12;
-
-    return `${month} ${day}, ${year} - ${hours}:${minutes} ${ampm}`;
-  }
-
-
-  toggleCollapse(storyId?: string): void {
-    if (!storyId) return;
-
-    if (!this.expanded.includes(storyId)) {
-      this.storyOverflowMap[storyId as string] = !this.storyOverflowMap[storyId as string];
-      this.expanded.push(storyId);
-    }
-  }
-
-  // Header-aware toggle that ignores clicks from child elements
-  toggleHeaderCollapse(storyId?: number, event?: Event): void {
-    if (!storyId) return;
-    const targetId = (event?.target as HTMLElement)?.id ?? undefined;
-    if (event && event.target !== event.currentTarget && targetId != 'storyDate') {
-      return;
-    } 
-
-    if (this.minimizedStories.includes(storyId)) {
-      this.minimizedStories = this.minimizedStories.filter(x => x != storyId);
-    } else {
-      this.minimizedStories.push(storyId); 
-    }
-    this.saveMinimizedStories();
-    this.cd.detectChanges();
-  }
-
-  private readonly MINIMIZED_KEY = 'bughosted_minimized_stories';
-  private readonly MINIMIZED_EXPIRY_DAYS = 10;
-
-  private saveMinimizedStories(): void {
-    const data = {
-      ids: this.minimizedStories,
-      expiry: Date.now() + this.MINIMIZED_EXPIRY_DAYS * 24 * 60 * 60 * 1000
-    };
-    try { localStorage.setItem(this.MINIMIZED_KEY, JSON.stringify(data)); } catch { }
-  }
-
-  private loadMinimizedStories(): void {
-    try {
-      const raw = localStorage.getItem(this.MINIMIZED_KEY);
-      if (!raw) return;
-      const data = JSON.parse(raw);
-      if (Date.now() > data.expiry) {
-        localStorage.removeItem(this.MINIMIZED_KEY);
-        return;
-      }
-      this.minimizedStories = data.ids || [];
-    } catch { }
-  }
-
-  isStoryExpanded(storyId: number): boolean {
-    return !this.minimizedStories.includes(storyId);
-  }
-
-  isExpanded(elementId: string) {
-    return this.expanded.includes(elementId);
   }
 
   showSearchSocialsPanel() {
@@ -802,44 +398,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const parent = this.parent ?? this.parentRef;
     parent?.closeOverlay();
   }
-  async toggleFollowStory(story: Story) {
-    const userId = this.parentRef?.user?.id;
-    if (!userId || !story.id) {
-      this.parentRef?.showNotification('You must be logged in to follow posts.');
-      return;
-    }
-    const result = await this.followService.toggleFollow(userId, 'story', story.id);
-    if (result) {
-      this.isFollowingStory[story.id] = result.following;
-      this.parentRef?.showNotification(result.message);
-    }
-  }
-
-  showStoryOptionsPanel(story: Story) {
-    if (this.isStoryOptionsPanelOpen) {
-      this.closeStoryOptionsPanel();
-      return;
-    }
-    this.optionStory = story;
-    this.isStoryOptionsPanelOpen = true;
-    const parent = this.parent ?? this.parentRef;
-    parent?.showOverlay();
-    
-    // Check if following this story
-    if (story.id && this.parentRef?.user?.id) {
-      this.followService.checkFollow(this.parentRef.user.id, 'story', story.id).then(following => {
-        this.isFollowingStory[story.id!] = following;
-      });
-    }
-  }
-  closeStoryOptionsPanel() {
-    this.isStoryOptionsPanelOpen = false;
-    this.optionStory = undefined;
-
-    const parent = this.parent ?? this.parentRef;
-    parent?.closeOverlay();
-  } 
-  
   showPostOptionsPanel() {
     if (this.isPostOptionsPanelOpen) {
       this.closePostOptionsPanel();
@@ -858,191 +416,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     parent?.closeOverlay();
   }
   
-  isEditButtonVisible(storyId?: number) {
-    if (!storyId) return false;
-    const element = document.getElementById('storyTextEditConfirmButton' + storyId) as HTMLTextAreaElement;
-    return element?.style.display === 'block';
-  }
-
-  showComments(storyId?: number) {
-    const storyKey = storyId ?? 0;
-
-    if (this.openedStoryComments.includes(storyKey)) {
-      this.openedStoryComments = this.openedStoryComments.filter(x => x !== storyKey);
-    } else {
-      this.openedStoryComments.push(storyKey);
-    }
-
-    setTimeout(() => {
-      const tgt = document.getElementById("commentsHeader" + storyId);
-
-      if (tgt && !this.isElementInViewport(tgt)) {
-        tgt.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 100);
-  }
-
-
-  commentAddedEvent(comment: FileComment) {
-    if (comment.storyId) {
-      // attempt to decrypt the incoming comment so replies appear decrypted immediately
-      try {
-        if (!comment.decrypted && comment.commentText && comment.user && comment.user.id) {
-          comment.commentText = this.encryptionService.decryptContent(comment.commentText, String(comment.user.id));
-          comment.decrypted = true;
-        }
-      } catch (ex) {
-        console.error('Failed to decrypt new comment', ex);
-      }
-      const targetStory = this.storyResponse?.stories?.find(x => x.id === comment.storyId);
-      if (targetStory) {
-        if (!targetStory.storyComments) {
-          targetStory.storyComments = [comment];
-        } else {
-          targetStory.storyComments.push(comment);
-        }
-        if (targetStory.commentsCount) {
-          targetStory.commentsCount++;
-        } else {
-          targetStory.commentsCount = 1;
-        }
-      }
-    }
-  }
-  commentRemovedEvent(comment: FileComment) {
-    if (comment.storyId) {
-      const targetStory = this.storyResponse?.stories?.find(x => x.id === comment.storyId);
-      if (targetStory && targetStory.storyComments) {
-
-        targetStory.storyComments = targetStory.storyComments.filter(x => x.id !== comment.id);
-
-        if (targetStory.commentsCount) {
-          targetStory.commentsCount--;
-        } else {
-          targetStory.commentsCount = 0;
-        }
-      }
-    }
-  }
-  isYoutubeUrl(url?: string): boolean {
-    return this.parentRef?.isYoutubeUrl(url) ?? false;
-  }
-  async addFileToMusicPlaylist(fileEntry: FileEntry) {
-    if (!confirm("Add this file to your music playlist?")) {
-      return;
-    }
-    const user = this.parentRef?.user;
-    if (!user?.id || !fileEntry || !fileEntry.id) {
-      return alert("Error: Cannot add file to music playlist without logging in or a valid file entry.");
-    }
-
-    let tmpTodo = new Todo();
-    tmpTodo.type = "music";
-    tmpTodo.todo = (fileEntry.givenFileName ?? fileEntry.fileName ?? `Video ID:${fileEntry.id}`).trim();
-    tmpTodo.fileId = fileEntry.id;
-    tmpTodo.date = new Date(); // Ensure date is set for sorting
-    const resTodo = await this.todoService.createTodo(user.id, tmpTodo);
-    if (resTodo) {
-      this.parentRef?.showNotification(`Added ${tmpTodo.todo} to music playlist.`);
-    }
-  }
-  async addToMusicPlaylist(story?: Story, metadata?: MetaData, event?: Event) {
-    if (!story || !story.metadata || !this.parentRef?.user?.id) return;
-    const url = this.extractUrl(story.storyText);
-    const title = metadata?.title ?? "";
-    const yturl = this.extractYouTubeVideoURL(url);
-    if (!yturl || !title || yturl.trim() == "" || title.trim() == "") {
-      return alert("Title & URL cannot be empty!");
-    }
-    let tmpTodo = new Todo();
-    tmpTodo.type = "music";
-    tmpTodo.url = yturl.trim();
-    tmpTodo.todo = title.replace("- YouTube", "").trim();
-
-    const resTodo = await this.todoService.createTodo(this.parentRef.user.id, tmpTodo);
-    if (resTodo) {
-      this.parentRef?.showNotification(`Added ${title} to music playlist.`);
-    }
-    if (event) {
-      const button = event.target as HTMLButtonElement;
-      button.textContent = "Added";
-      button.disabled = true;
-    }
-    //this.closeStoryOptionsPanel();
-  }
-  extractYouTubeVideoURL(url?: string) {
-    if (!url) return;
-    const youtubeRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-    const match = url.match(youtubeRegex);
-
-    if (match && match[1]) {
-      return "https://www.youtube.com/watch?v=" + match[1];
-    } else {
-      return url;
-    }
-  }
-
-  extractYouTubeVideoId(input?: string) {
-    if (!input) return '';
-
-    // Trim the input to remove extra spaces and newlines
-    input = input.trim();
-
-    // Use a regex to extract the URL from the input string
-    const urlRegex = /https?:\/\/[^\s]+/;
-    const urlMatch = input.match(urlRegex);
-
-    if (!urlMatch) return '';
-
-    const url = urlMatch[0];
-
-    // Updated regex to support mobile links
-    const youtubeRegex = /^(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-
-    const youtubeMatch = url.match(youtubeRegex);
-
-    return youtubeMatch?.[1] ?? '';
-  }
-
-  hasOverflow(elementId: string): boolean {
-    if (this.isLoading || !this.canLoad) return false;
-    if (this.compactness.includes("no")) {
-      return false;
-    }
-    if (this.overflowCache[elementId] !== undefined) {
-      return this.overflowCache[elementId];
-    }
-
-    const element = document.getElementById(elementId);
-    if (!element) return false;
-
-    if (this.compactness.includes("yess")) {
-      const tgtStory = this.storyResponse?.stories?.find(x => x.id == parseInt(elementId.replace("storyTextContainer", "")));
-      if (tgtStory) {
-        if (tgtStory.storyFiles && tgtStory.storyFiles.length > 0) {
-          this.overflowCache[elementId] = true;
-          return this.overflowCache[elementId];
-        }
-      }
-    }
-
-    if (this.compactness.includes("yes")) {
-      const tgtStory = this.storyResponse?.stories?.find(x => x.id == parseInt(elementId.replace("storyTextContainer", "")));
-      if (tgtStory) {
-        if (tgtStory.metadata && tgtStory.metadata.length > 0) {
-          this.overflowCache[elementId] = true;
-          return this.overflowCache[elementId];
-        }
-      }
-    }
-
-    const threshold = 400;
-    const buffer = 20;
-    this.overflowCache[elementId] = element.scrollHeight >= (threshold + buffer);
-
-    return this.overflowCache[elementId];
-  }
-
   async loadMorePosts() {
     if (this.isLoading || !this.canLoad) return;
     this.canLoad = false; 
@@ -1065,27 +438,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }, 1000);
   }
 
-  ignoreTopic(topic: Topic) {
-    if (!confirm(`Are you sure you want to ignore the topic: ${topic.topicText}? You will no longer see posts with this topic. This can be undone within the topics menu.`)) {
-      return;
-    }
-    if (this.parentRef?.user?.id) {
-      this.topicService.addIgnoredTopic(this.parentRef.user.id, topic).then(res => {
-        if (res) {
-          this.parentRef?.showNotification(res.message);
-          if (res.success) {
-            this.closePostOptionsPanel();
-            this.getStories();
-          }
-        }
-      });
-    }
-  } 
-
-  getTextForDOM(text?: string, componentId?: any) {
-    const parent = this.parent ?? this.parentRef;
-    return parent?.getTextForDOM(text, "storyText" + componentId);
-  }
   clearSearchInput() {
     this.search.nativeElement.value = '';
     this.userSearch = '';
@@ -1106,79 +458,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     const showHidden = this.filter.hidden == "yes";
 
     this.getStories(undefined, undefined, undefined, undefined, undefined, showHidden);
-  }
-  async hide(story: Story) {
-    const parent = this.parent ?? this.parentRef;
-    const user = parent?.user;
-    if (user && user.id && story.id) {
-      this.parentRef?.updateLastSeen();
-      if (story.hidden) {
-        story.hidden = false;
-        this.socialService.unhideStory(user.id, story.id).then(res => {
-          if (res) {
-            parent.showNotification(res);
-          }
-        })
-      } else {
-        story.hidden = true;
-        this.socialService.hideStory(user.id, story.id).then(res => {
-          if (res) {
-            parent.showNotification(res);
-          }
-          if (this.filter.hidden != "yes") {
-            this.getStories(undefined, undefined, undefined, undefined, undefined, false);
-          }
-        });
-      }
-    }
-  }
-  getTotalCommentCount(commentList?: FileComment[]): number {
-    if (!commentList || commentList.length === 0) return 0;
-    let count = 0;
-
-    const countSubComments = (comment: FileComment): number => {
-      let subCount = 0;
-      if (comment.comments && comment.comments.length) {
-        subCount += comment.comments.length;
-        for (let sub of comment.comments) {
-          subCount += countSubComments(sub); // Recursively count deeper sub-comments
-        }
-      }
-      return subCount;
-    };
-
-    for (let comment of commentList) {
-      count++; // Count main comment
-      count += countSubComments(comment); // Count its sub-comments
-    }
-
-    return count;
-  }
-  copyDivText = async (element: HTMLElement) => {
-    try {
-      const text = element.innerText;
-      await navigator.clipboard.writeText(text);
-      this.parentRef?.showNotification("Text copied to Clipboard!");
-    } catch (err) {
-      console.error('Failed to copy text: ', err);
-      alert('Failed to copy text. Please select and copy manually.');
-    }
-  };
-
-  copyAllText(storyId?: number) {
-    if (!storyId) {
-      alert("Post Id is null");
-      return;
-    }
-    this.closePostOptionsPanel();
-    const el = document.getElementById("storyText" + storyId);
-    if (!el) {
-      console.warn(`Element with ID storyText${storyId} not found.`);
-      alert(`Post with ID ${storyId} not found.`);
-      return;
-    } else {
-      this.copyDivText(el);
-    }
   }
   async updateNSFW(event: Event) {
     const parent = this.parent ?? this.parentRef;
@@ -1228,77 +507,13 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.userService.updateCompactness(this.parentRef?.user?.id ?? 0, this.compactness).then(res => {
       if (res) {
         this.parentRef?.showNotification(res.message);
-        this.overflowCache = {}; // Reset overflow cache
-        this.storyOverflowMap = {}; // Reset story overflow map
-        this.minimizedStories = []; // Reset expanded stories
         this.getStories();
       }
-    });
-  }
-  getVideoStoryFiles(story: Story) {
-    return story.storyFiles?.filter(file => {
-      return this.fileService.videoFileExtensions.includes(this.fileService.getFileExtension(file.fileName ?? ''));
     });
   }
   contentPosted(event: { results: any, originalContent: string }) {
     this.getStories();
   }
-  copyFileLink(file: FileEntry) {
-    const parent = this.parent ?? this.parentRef;
-    const link = `https://bughosted.com/${file?.directory?.includes("Meme") ? 'Memes' : 'File'}/${file?.id}`;
-    try {
-      navigator.clipboard.writeText(link);
-      parent?.showNotification(`Link copied to clipboard!`);
-    } catch {
-      parent?.showNotification("Error: Unable to share link!"); 
-    }
-  }
-  speakMessage(message?: string) {
-    this.textToSpeechService.speakMessage(message);
-  }
-  stopSpeaking() {
-    this.textToSpeechService.stopSpeaking();
-  }
-  isTextToSpeechSpeaking() {
-    return this.textToSpeechService.isSpeaking;
-  }
-  
-  getPostVisibilityIcon(vis?: string): string {
-    switch ((vis || '').toLowerCase()) {
-      case 'public':     return '🌍';
-      case 'following':  return '👥';
-      case 'self':       return '🔒';
-      default:           return '❓';
-    }
-  }
-  
-  formatPostMetadata(story: Story): string {
-    if (!story) return "";
-
-    const parts: string[] = [];
-
-    // 📍 City + Country (only if present)
-    const city = story.city?.trim();
-    const country = story.country?.trim();
-    const flag = country ? this.currencyFlagPipe.transform(country) : null;
-
-    if (city || country) {
-      let loc = "";
-      if (city) loc += city;
-      if (city && country) loc += ", ";
-      if (country) loc += country;
-      if (flag) loc += " " + flag;
-      parts.push(loc);
-    }
-
-    // 🗓️ Date (always present)
-    parts.push(this.formatDate(story.date));
-
-    // 🆔 ID (always present)
-    parts.push("ID: " + story.id);
-
-    return parts.join(" · ");
-  } 
 
   private changeComponentMainHeight() {
     if (this.user) {

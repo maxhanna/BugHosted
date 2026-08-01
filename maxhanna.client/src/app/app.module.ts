@@ -28,6 +28,7 @@ import { ChatComponent } from './chat/chat.component';
 import { UserListComponent } from './user-list/user-list.component';
 import { MemeComponent } from './meme/meme.component';
 import { SocialComponent } from './social/social.component';
+import { SocialPostComponent } from './social-post/social-post.component';
 import { FileUploadComponent } from './file-upload/file-upload.component';
 import { NewsComponent } from './news/news.component';
 import { TopicsComponent } from './topics/topics.component';
@@ -141,6 +142,7 @@ import { RacingComponent } from './racing/racing.component';
     UserListComponent,
     MemeComponent,
     SocialComponent,
+    SocialPostComponent,
     FileUploadComponent,
     NewsComponent,
     TopicsComponent,
