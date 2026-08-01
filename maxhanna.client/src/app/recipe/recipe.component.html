@@ -116,7 +116,7 @@
             <p *ngIf="recipe.description" class="recipe-description">{{ recipe.description }}</p>
             <app-rating-stars [rating]="getUserRating(recipe)" [inputtedParentRef]="parentRef" [componentType]="'recipe'" [ratingRecipeId]="recipe.id" [recipeAverageRating]="recipe.averageRating" [recipeRatingCount]="recipe.ratingCount" [readOnly]="!parentRef?.user?.id"></app-rating-stars>
 
-            <button class="expand-btn" *ngIf="!isVideoOnlyRecipe(recipe)" (click)="toggleRecipeDetails(recipe.id)">
+            <button class="expand-btn" (click)="toggleRecipeDetails(recipe.id)">
               {{ expandedRecipes.get(recipe.id) ? 'Hide details' : 'View full recipe' }}
             </button>
 
@@ -129,7 +129,7 @@
                 <h4>Instructions</h4>
                 <ol><li *ngFor="let step of recipe.instructions">{{ step }}</li></ol>
               </div>
-              <div class="recipe-section" *ngIf="getFirstYouTubeId(recipe)">
+              <div class="recipe-section" *ngIf="getFirstYouTubeId(recipe) && !isVideoOnlyRecipe(recipe)">
                 <iframe [src]="getYouTubeUrl(recipe)" height="315" frameborder="0" allowfullscreen></iframe>
               </div>
               <div class="recipe-section" *ngIf="recipe.externalLinks?.length">
