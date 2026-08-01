@@ -197,11 +197,4 @@ export class RecipeComponent extends ChildComponent implements OnInit {
     this.expandedRecipes.set(recipeId, expanded);
     if (!expanded && this.editingRecipeId === recipeId) this.cancelEdit();
   }
-
-  showMenuPanel(): void {
-   this.menuOpen = true;
-   if (this.parentRef) {
-   this.parentRef.overlayVisible = true;
-   }
-   }
 }
