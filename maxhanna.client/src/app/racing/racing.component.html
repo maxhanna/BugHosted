@@ -203,63 +203,143 @@
                 (pointercancel)="onCarPointerUp()"
                 (pointerleave)="onCarPointerUp()"
                 title="Drag to rotate">
-                <!-- Ground shadow -->
+                <!-- Ground shadow (flat ellipse on the floor) -->
                 <div class="car-shadow"></div>
 
                 <!-- Floor / undertray -->
-                <div class="car-floor"></div>
-                <!-- Diffuser at rear -->
-                <div class="car-diffuser"></div>
+                <div class="b3d" style="--x:150px; --y:148px; --z:0px; --w:260px; --h:4px; --d:56px;">
+                  <i class="top carbo"></i><i class="bot dark"></i>
+                  <i class="lft dark"></i><i class="rgt dark"></i>
+                  <i class="fnt dark"></i><i class="bak dark"></i>
+                </div>
 
                 <!-- Nose cone (long, tapered) -->
-                <div class="car-nose" [style.background]="getSkinColor()"></div>
-                <div class="car-nose-tip" [style.background]="getSkinColor()"></div>
+                <div class="b3d" style="--x:80px; --y:140px; --z:0px; --w:120px; --h:13px; --d:22px;">
+                  <i class="top skin" [style.background]="getSkinColor()"></i><i class="bot dark"></i>
+                  <i class="lft skin" [style.background]="getSkinColor()"></i><i class="rgt skin" [style.background]="getSkinColor()"></i>
+                  <i class="fnt skin" [style.background]="getSkinColor()"></i><i class="bak skin" [style.background]="getSkinColor()"></i>
+                </div>
+                <!-- Nose tip -->
+                <div class="b3d" style="--x:17px; --y:141px; --z:0px; --w:14px; --h:9px; --d:14px;">
+                  <i class="top skin" [style.background]="getSkinColor()"></i><i class="bot dark"></i>
+                  <i class="lft skin" [style.background]="getSkinColor()"></i><i class="rgt skin" [style.background]="getSkinColor()"></i>
+                  <i class="fnt skin" [style.background]="getSkinColor()"></i><i class="bak skin" [style.background]="getSkinColor()"></i>
+                </div>
 
                 <!-- Front wing (wide, low, with endplates) -->
-                <div class="car-front-wing">
-                  <div class="fw-plane"></div>
-                  <div class="fw-flap"></div>
-                  <div class="fw-endplate fw-ep-left"></div>
-                  <div class="fw-endplate fw-ep-right"></div>
+                <div class="b3d" style="--x:30px; --y:141px; --z:0px; --w:36px; --h:5px; --d:96px;">
+                  <i class="top carbo"></i><i class="bot dark"></i>
+                  <i class="lft carbo"></i><i class="rgt carbo"></i>
+                  <i class="fnt carbo"></i><i class="bak carbo"></i>
+                </div>
+                <div class="b3d" style="--x:30px; --y:136px; --z:48px; --w:38px; --h:15px; --d:4px;">
+                  <i class="top carbo"></i><i class="bot dark"></i>
+                  <i class="lft dark"></i><i class="rgt dark"></i>
+                  <i class="fnt carbo"></i><i class="bak carbo"></i>
+                </div>
+                <div class="b3d" style="--x:30px; --y:136px; --z:-48px; --w:38px; --h:15px; --d:4px;">
+                  <i class="top carbo"></i><i class="bot dark"></i>
+                  <i class="lft dark"></i><i class="rgt dark"></i>
+                  <i class="fnt carbo"></i><i class="bak carbo"></i>
                 </div>
 
                 <!-- Main body / monocoque -->
-                <div class="car-preview-body" [style.background]="getSkinColor()">
-                  <!-- Cockpit opening -->
-                  <div class="car-cockpit"></div>
-                  <!-- Halo above cockpit -->
-                  <div class="car-halo"></div>
-                  <!-- Sidepods -->
-                  <div class="car-sidepod car-sidepod-l"></div>
-                  <div class="car-sidepod car-sidepod-r"></div>
-                  <!-- Airbox intake -->
-                  <div class="car-airbox"></div>
-                  <!-- Engine cover line -->
-                  <div class="car-engine-line"></div>
-                  <!-- Decal overlay -->
-                  <div class="car-decal-overlay" [class]="getDecalStyle()" *ngIf="playerCar.decalId"></div>
+                <div class="b3d" style="--x:185px; --y:132px; --z:0px; --w:130px; --h:30px; --d:38px;">
+                  <i class="top skin" [style.background]="getSkinColor()"></i><i class="bot dark"></i>
+                  <i class="lft skin" [style.background]="getSkinColor()"></i><i class="rgt skin" [style.background]="getSkinColor()"></i>
+                  <i class="fnt skin" [style.background]="getSkinColor()"></i><i class="bak skin" [style.background]="getSkinColor()"></i>
+                </div>
+                <!-- Cockpit opening (above the decal wrap so the hole stays visible) -->
+                <div class="b3d" style="--x:158px; --y:115.8px; --z:0px; --w:26px; --h:0.8px; --d:22px;">
+                  <i class="top cockpit"></i>
+                </div>
+                <!-- Halo above cockpit -->
+                <div class="b3d" style="--x:140px; --y:112px; --z:0px; --w:6px; --h:8px; --d:30px;">
+                  <i class="top carbo"></i><i class="bot carbo"></i>
+                  <i class="lft carbo"></i><i class="rgt carbo"></i>
+                  <i class="fnt carbo"></i><i class="bak carbo"></i>
+                </div>
+                <div class="b3d" style="--x:160px; --y:112px; --z:15px; --w:52px; --h:5px; --d:5px;">
+                  <i class="top carbo"></i><i class="bot carbo"></i>
+                  <i class="lft carbo"></i><i class="rgt carbo"></i>
+                  <i class="fnt carbo"></i><i class="bak carbo"></i>
+                </div>
+                <div class="b3d" style="--x:160px; --y:112px; --z:-15px; --w:52px; --h:5px; --d:5px;">
+                  <i class="top carbo"></i><i class="bot carbo"></i>
+                  <i class="lft carbo"></i><i class="rgt carbo"></i>
+                  <i class="fnt carbo"></i><i class="bak carbo"></i>
+                </div>
+
+                <!-- Sidepods -->
+                <div class="b3d" style="--x:170px; --y:138px; --z:26px; --w:70px; --h:16px; --d:14px;">
+                  <i class="top skin" [style.background]="getSkinColor()"></i><i class="bot dark"></i>
+                  <i class="lft carbo"></i><i class="rgt skin" [style.background]="getSkinColor()"></i>
+                  <i class="fnt carbo"></i><i class="bak carbo"></i>
+                </div>
+                <div class="b3d" style="--x:170px; --y:138px; --z:-26px; --w:70px; --h:16px; --d:14px;">
+                  <i class="top skin" [style.background]="getSkinColor()"></i><i class="bot dark"></i>
+                  <i class="lft skin" [style.background]="getSkinColor()"></i><i class="rgt carbo"></i>
+                  <i class="fnt carbo"></i><i class="bak carbo"></i>
+                </div>
+
+                <!-- Engine cover -->
+                <div class="b3d" style="--x:230px; --y:128px; --z:0px; --w:74px; --h:22px; --d:26px;">
+                  <i class="top skin" [style.background]="getSkinColor()"></i><i class="bot dark"></i>
+                  <i class="lft skin" [style.background]="getSkinColor()"></i><i class="rgt skin" [style.background]="getSkinColor()"></i>
+                  <i class="fnt skin" [style.background]="getSkinColor()"></i><i class="bak skin" [style.background]="getSkinColor()"></i>
+                </div>
+                <!-- Airbox intake -->
+                <div class="b3d" style="--x:228px; --y:116px; --z:0px; --w:28px; --h:14px; --d:16px;">
+                  <i class="top carbo"></i><i class="bot dark"></i>
+                  <i class="lft carbo"></i><i class="rgt carbo"></i>
+                  <i class="fnt carbo"></i><i class="bak carbo"></i>
+                </div>
+
+                <!-- Decal overlay (on the body top, below the cockpit opening) -->
+                <div class="b3d" *ngIf="playerCar.decalId" style="--x:185px; --y:116.8px; --z:0px; --w:128px; --h:0.8px; --d:36px;">
+                  <i class="top decal" [ngClass]="getDecalStyle()"></i>
                 </div>
 
                 <!-- Rear wing (multi-element with endplates) -->
-                <div class="car-rear-wing">
-                  <div class="rw-plane rw-plane-main"></div>
-                  <div class="rw-plane rw-plane-flap"></div>
-                  <div class="rw-endplate rw-ep-left"></div>
-                  <div class="rw-endplate rw-ep-right"></div>
+                <div class="b3d" style="--x:272px; --y:112px; --z:0px; --w:38px; --h:42px; --d:80px;">
+                  <i class="top carbo"></i><i class="bot carbo"></i>
+                  <i class="lft carbo"></i><i class="rgt carbo"></i>
+                  <i class="fnt carbo"></i><i class="bak carbo"></i>
                 </div>
-                <!-- Rear wing mount -->
-                <div class="car-wing-mount"></div>
+                <div class="b3d" style="--x:272px; --y:112px; --z:40px; --w:42px; --h:44px; --d:5px;">
+                  <i class="top carbo"></i><i class="bot dark"></i>
+                  <i class="lft dark"></i><i class="rgt dark"></i>
+                  <i class="fnt carbo"></i><i class="bak carbo"></i>
+                </div>
+                <div class="b3d" style="--x:272px; --y:112px; --z:-40px; --w:42px; --h:44px; --d:5px;">
+                  <i class="top carbo"></i><i class="bot dark"></i>
+                  <i class="lft dark"></i><i class="rgt dark"></i>
+                  <i class="fnt carbo"></i><i class="bak carbo"></i>
+                </div>
 
-                <!-- Spoiler upgrade -->
-                <div class="car-spoiler" [class]="getSpoilerStyle()" *ngIf="playerCar.spoilerId"></div>
-                <!-- Exhaust upgrade -->
-                <div class="car-exhaust-pipes" [class]="getExhaustStyle()" *ngIf="playerCar.exhaustId"></div>
+                <!-- Spoiler upgrade (wing above engine cover, ahead of the rear wing) -->
+                <div class="b3d" *ngIf="playerCar.spoilerId" style="--x:225px; --y:103px; --z:0px; --w:56px; --h:2px; --d:30px;">
+                  <i class="top spoiler" [ngClass]="getSpoilerStyle()"></i>
+                </div>
 
-                <!-- Wheels -->
-                <div class="car-wheel wheel-fl" [class]="getRimStyle()"></div>
-                <div class="car-wheel wheel-fr" [class]="getRimStyle()"></div>
-                <div class="car-wheel wheel-rl" [class]="getRimStyle()"></div>
-                <div class="car-wheel wheel-rr" [class]="getRimStyle()"></div>
+                <!-- Exhaust upgrade (twin pipes at the very back, below the rear wing) -->
+                <div class="b3d" *ngIf="playerCar.exhaustId" style="--x:270px; --y:136px; --z:0px; --w:4px; --h:8px; --d:16px;">
+                  <i class="fnt exhaust" [ngClass]="getExhaustStyle()"></i><i class="bak exhaust"></i>
+                </div>
+
+                <!-- Wheels (3D coins: outer disc, inner disc, tread band) -->
+                <div class="wheel3d" style="--wx:62px; --wy:135px; --wz:31px;">
+                  <i class="disc outer" [ngClass]="getRimStyle()"></i><i class="disc inner"></i><i class="band"></i>
+                </div>
+                <div class="wheel3d" style="--wx:62px; --wy:135px; --wz:-31px;">
+                  <i class="disc outer" [ngClass]="getRimStyle()"></i><i class="disc inner"></i><i class="band"></i>
+                </div>
+                <div class="wheel3d" style="--wx:238px; --wy:135px; --wz:31px;">
+                  <i class="disc outer" [ngClass]="getRimStyle()"></i><i class="disc inner"></i><i class="band"></i>
+                </div>
+                <div class="wheel3d" style="--wx:238px; --wy:135px; --wz:-31px;">
+                  <i class="disc outer" [ngClass]="getRimStyle()"></i><i class="disc inner"></i><i class="band"></i>
+                </div>
               </div>
             </div>
           </div>
@@ -588,7 +668,7 @@
 
     <!-- ─── Mobile Controls (virtual joystick: steer left/right, push up for gas, down for brake) ─── -->
     <div id="race-mobile" *ngIf="isMobile && (gameState === 'racing')">
-      <div class="race-joy-zone"
+      <div class="race-joy-zone" #joyZone
         (touchstart)="joyStart($event)" (touchmove)="joyMove($event)"
         (touchend)="joyEnd()" (touchcancel)="joyEnd()"
         (pointerdown)="joyStart($event)" (pointermove)="joyMove($event)"

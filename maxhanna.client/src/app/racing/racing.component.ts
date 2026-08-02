@@ -135,6 +135,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private joyOriginY = 0;
   private readonly joyRadius = 46; // px travel from center to full deflection (keeps thumb inside base)
   @ViewChild('joyThumb') joyThumbEl?: ElementRef<HTMLDivElement>;
+  @ViewChild('joyZone') joyZoneEl?: ElementRef<HTMLDivElement>;
   keyboardSteerCurrent = 0; // Lerped value for smooth steering
   // Mobile pedal buttons — the virtual joystick only steers.
   gasHeld = false;
@@ -592,8 +593,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   // ─── Garage Car 3D Rotation ───
-  carRotateX = 15;
-  carRotateY = -25;
+  // Hero 3/4 view — tilted up and turned so the nose, sidepod and top deck
+  // (wings, cockpit, airbox) all read at once. The car is now a real 3D model
+  // with depth, so this angle shows off the volume instead of a flat sprite.
+  carRotateX = 20;
+  carRotateY = -40;
   isCarDragging = false;
   private _carDragStart: { x: number; y: number; rotX: number; rotY: number } | null = null;
 
@@ -622,8 +626,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   resetCarView() {
-    this.carRotateX = 15;
-    this.carRotateY = -25;
+    this.carRotateX = 20;
+    this.carRotateY = -40;
   }
 
   getPlayerColor(connectionId: string): string {
@@ -1434,10 +1438,21 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const pt = this.joyPoint(e);
     if (!pt) return;
     this.joyActive = true;
-    this.joyOriginX = pt.clientX;
-    this.joyOriginY = pt.clientY;
+    // Anchor the steering origin to the joystick base's REAL center on screen,
+    // not to wherever the finger happened to land. The old code used the touch
+    // point as origin, so touching right-of-center shifted the whole stick —
+    // the deadzone plus that offset ate the left direction and made the car
+    // feel like it could never turn left.
+    const rect = this.joyZoneEl?.nativeElement?.getBoundingClientRect?.();
+    if (rect && rect.width > 0 && rect.height > 0) {
+      this.joyOriginX = rect.left + rect.width / 2;
+      this.joyOriginY = rect.top + rect.height / 2;
+    } else {
+      this.joyOriginX = pt.clientX;
+      this.joyOriginY = pt.clientY;
+    }
     try { (e.target as HTMLElement)?.setPointerCapture?.((e as PointerEvent).pointerId); } catch { }
-    this.joyMove(e);
+    this.joyMove(e); // snaps the thumb under the finger (dx = finger − base center)
     e.preventDefault();
   }
 

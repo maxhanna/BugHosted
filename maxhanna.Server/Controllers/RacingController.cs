@@ -2,8 +2,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using MySqlConnector;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace maxhanna.Server.Controllers
@@ -12,8 +14,311 @@ namespace maxhanna.Server.Controllers
 	[Route("[controller]")]
 	public class RacingController : ControllerBase
 	{
+		// ── In-memory game state ─────────────────────────────────────────────
+		// The racing game (garage, cash, upgrades, appearance, results) lives in
+		// server memory so closing/reopening the component never loses progress.
+		// A 10-minute timer dumps anything dirty to the DB for long-term
+		// persistence (same pattern as GrandTheftController).
+		private static readonly ConcurrentDictionary<int, RacingCarState> _cars = new();
+		private static readonly ConcurrentQueue<PendingRaceResult> _pendingResults = new();
+		private static readonly object _persistLock = new();
+		private static readonly Lazy<Timer> _persistTimer = new(() =>
+			new Timer(PersistAllToDb, null, TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(10)));
+		private static bool _schemaEnsured = false;
+		private static string? _connStrCache;
+
+		private sealed class RacingCarState
+		{
+			public int UserId;
+			public List<object> Upgrades = new();
+			public int SkinId = 1;
+			public int SpoilerId = 0;
+			public int RimId = 0;
+			public int ExhaustId = 0;
+			public int DecalId = 0;
+			public int TotalRaces = 0;
+			public int Wins = 0;
+			public int Money = 500;
+			public double BestLap = 0;
+			public int TotalEarnings = 0;
+			public bool Dirty = false;
+			// Incremented on every mutation so the dump timer can tell whether a
+			// concurrent save landed while it was writing (avoids clearing a stale
+			// Dirty flag and silently dropping an update).
+			public int Version = 0;
+		}
+
+		private sealed class PendingRaceResult
+		{
+			public int UserId;
+			public string PlayerName = "";
+			public int Position;
+			public double LapTime;
+			public double TotalTime;
+			public int MoneyEarned;
+		}
+
+		private sealed class LeaderboardEntry
+		{
+			public int PlayerId;
+			public string PlayerName = "";
+			public int Position;
+			public double LapTime;
+			public double TotalTime;
+			public int MoneyEarned;
+			public bool IsBot = false;
+		}
+
+		private sealed class UpgradeDef
+		{
+			public int Id { get; set; }
+			public string Name { get; set; } = "";
+			public string Category { get; set; } = "";
+			public int Level { get; set; }
+			public int MaxLevel { get; set; }
+			public int Cost { get; set; }
+			public string Description { get; set; } = "";
+			public int StatBonus { get; set; }
+		}
+
 		private readonly IConfiguration _config;
-		public RacingController(IConfiguration config) { _config = config; }
+		public RacingController(IConfiguration config)
+		{
+			_config = config;
+			_connStrCache ??= config.GetValue<string>("ConnectionStrings:maxhanna");
+			_ = _persistTimer.Value; // ensure the 10-min dump timer is running
+		}
+
+		private static string? GetConnStr()
+		{
+			if (!string.IsNullOrEmpty(_connStrCache)) return _connStrCache;
+			try
+			{
+				_connStrCache = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
+					.GetValue<string>("ConnectionStrings:maxhanna");
+			}
+			catch { }
+			return _connStrCache;
+		}
+
+		private static void EnsureSchema(string connStr)
+		{
+			if (_schemaEnsured) return;
+			lock (_persistLock)
+			{
+				if (_schemaEnsured) return;
+				try
+				{
+					using var conn = new MySqlConnection(connStr);
+					conn.Open();
+					using (var cmd = new MySqlCommand(@"
+						CREATE TABLE IF NOT EXISTS racing_player_car (
+							user_id INT PRIMARY KEY,
+							upgrades_json LONGTEXT NULL,
+							skin_id INT NOT NULL DEFAULT 1,
+							spoiler_id INT NOT NULL DEFAULT 0,
+							rim_id INT NOT NULL DEFAULT 0,
+							exhaust_id INT NOT NULL DEFAULT 0,
+							decal_id INT NOT NULL DEFAULT 0,
+							total_races INT NOT NULL DEFAULT 0,
+							wins INT NOT NULL DEFAULT 0,
+							money INT NOT NULL DEFAULT 500,
+							best_lap DOUBLE NOT NULL DEFAULT 0,
+							total_earnings INT NOT NULL DEFAULT 0
+						)", conn))
+					{
+						cmd.ExecuteNonQuery();
+					}
+					using (var cmd = new MySqlCommand(@"
+						CREATE TABLE IF NOT EXISTS racing_results (
+							id INT AUTO_INCREMENT PRIMARY KEY,
+							user_id INT NOT NULL,
+							position INT NOT NULL DEFAULT 1,
+							lap_time DOUBLE NOT NULL DEFAULT 0,
+							total_time DOUBLE NOT NULL DEFAULT 0,
+							money_earned INT NOT NULL DEFAULT 0,
+							raced_at DATETIME NULL
+						)", conn))
+					{
+						cmd.ExecuteNonQuery();
+					}
+					// Bring older tables up to date — each ALTER throws if the column
+					// already exists, so swallow per-column errors.
+					foreach (var col in new[] { "spoiler_id", "rim_id", "exhaust_id", "decal_id", "total_earnings" })
+					{
+						try
+						{
+							using var alt = new MySqlCommand($"ALTER TABLE racing_player_car ADD COLUMN {col} INT NOT NULL DEFAULT 0", conn);
+							alt.ExecuteNonQuery();
+						}
+						catch { }
+					}
+					_schemaEnsured = true;
+				}
+				catch { }
+			}
+		}
+
+		/// <summary>Lazy-load a user's car from the DB (or a fresh default) into memory.</summary>
+		private RacingCarState EnsureCarLoaded(int userId)
+		{
+			if (_cars.TryGetValue(userId, out var st)) return st;
+			st = LoadFromDb(userId);
+			_cars[userId] = st;
+			return st;
+		}
+
+		private RacingCarState LoadFromDb(int userId)
+		{
+			var st = new RacingCarState { UserId = userId };
+			try
+			{
+				var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna");
+				if (string.IsNullOrEmpty(connStr)) return st;
+				EnsureSchema(connStr);
+				using var conn = new MySqlConnection(connStr);
+				conn.Open();
+				using var cmd = new MySqlCommand(@"
+					SELECT upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id,
+					       total_races, wins, money, best_lap, total_earnings
+					FROM racing_player_car WHERE user_id = @uid", conn);
+				cmd.Parameters.AddWithValue("@uid", userId);
+				using var rdr = cmd.ExecuteReader();
+				if (rdr.Read())
+				{
+					if (!rdr.IsDBNull(0) && rdr.GetString(0) is { Length: > 0 } j)
+						st.Upgrades = JsonSerializer.Deserialize<List<object>>(j) ?? new List<object>();
+					st.SkinId = rdr.IsDBNull(1) ? 1 : rdr.GetInt32(1);
+					st.SpoilerId = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2);
+					st.RimId = rdr.IsDBNull(3) ? 0 : rdr.GetInt32(3);
+					st.ExhaustId = rdr.IsDBNull(4) ? 0 : rdr.GetInt32(4);
+					st.DecalId = rdr.IsDBNull(5) ? 0 : rdr.GetInt32(5);
+					st.TotalRaces = rdr.GetInt32(6);
+					st.Wins = rdr.GetInt32(7);
+					st.Money = rdr.GetInt32(8);
+					st.BestLap = rdr.IsDBNull(9) ? 0 : rdr.GetDouble(9);
+					st.TotalEarnings = rdr.IsDBNull(10) ? 0 : rdr.GetInt32(10);
+				}
+			}
+			catch { }
+			return st;
+		}
+
+		private static object ToCarJson(RacingCarState st)
+		{
+			// Snapshot under the car lock: MVC serializes the response AFTER this
+			// method returns, so handing it the live list would let a concurrent
+			// BuyUpgrade .Add() trip "Collection was modified" mid-serialize.
+			int userId, skinId, spoilerId, rimId, exhaustId, decalId, totalRaces, wins, money, totalEarnings;
+			double bestLap;
+			List<object> upgrades;
+			lock (st)
+			{
+				userId = st.UserId;
+				upgrades = new List<object>(st.Upgrades);
+				skinId = st.SkinId; spoilerId = st.SpoilerId; rimId = st.RimId;
+				exhaustId = st.ExhaustId; decalId = st.DecalId;
+				totalRaces = st.TotalRaces; wins = st.Wins; money = st.Money;
+				bestLap = st.BestLap; totalEarnings = st.TotalEarnings;
+			}
+			return new
+			{
+				UserId = userId,
+				Upgrades = upgrades,
+				SkinId = skinId,
+				SpoilerId = spoilerId,
+				RimId = rimId,
+				ExhaustId = exhaustId,
+				DecalId = decalId,
+				TotalRaces = totalRaces,
+				Wins = wins,
+				Money = money,
+				BestLap = bestLap,
+				TotalEarnings = totalEarnings
+			};
+		}
+
+		/// <summary>Periodic dump: if anything is dirty, persist it to the DB.</summary>
+		private static void PersistAllToDb(object? state)
+		{
+			if (!Monitor.TryEnter(_persistLock)) return;
+			try
+			{
+				bool anyDirty = false;
+				foreach (var kv in _cars) { if (kv.Value.Dirty) { anyDirty = true; break; } }
+				if (!anyDirty && _pendingResults.IsEmpty) return;
+
+				var connStr = GetConnStr();
+				if (string.IsNullOrEmpty(connStr)) return;
+				EnsureSchema(connStr);
+				using var conn = new MySqlConnection(connStr);
+				conn.Open();
+
+				foreach (var kv in _cars)
+				{
+					var st = kv.Value;
+					if (!st.Dirty) continue;
+					int version;
+					using (var cmd = new MySqlCommand(@"
+						INSERT INTO racing_player_car (user_id, upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id, total_races, wins, money, best_lap, total_earnings)
+						VALUES (@uid, @upgrades, @skin, @sp, @rm, @ex, @dc, @races, @wins, @money, @best, @earnings)
+						ON DUPLICATE KEY UPDATE
+							upgrades_json = @upgrades, skin_id = @skin, spoiler_id = @sp, rim_id = @rm,
+							exhaust_id = @ex, decal_id = @dc, total_races = @races, wins = @wins,
+							money = @money, best_lap = @best, total_earnings = @earnings", conn))
+					{
+						// Snapshot under the car lock so a concurrent save can't mutate the
+						// upgrades list mid-serialize (Collection was modified).
+						lock (st)
+						{
+							cmd.Parameters.AddWithValue("@uid", st.UserId);
+							cmd.Parameters.AddWithValue("@upgrades", JsonSerializer.Serialize(st.Upgrades));
+							cmd.Parameters.AddWithValue("@skin", st.SkinId);
+							cmd.Parameters.AddWithValue("@sp", st.SpoilerId);
+							cmd.Parameters.AddWithValue("@rm", st.RimId);
+							cmd.Parameters.AddWithValue("@ex", st.ExhaustId);
+							cmd.Parameters.AddWithValue("@dc", st.DecalId);
+							cmd.Parameters.AddWithValue("@races", st.TotalRaces);
+							cmd.Parameters.AddWithValue("@wins", st.Wins);
+							cmd.Parameters.AddWithValue("@money", st.Money);
+							cmd.Parameters.AddWithValue("@best", st.BestLap);
+							cmd.Parameters.AddWithValue("@earnings", st.TotalEarnings);
+							version = st.Version;
+						}
+						cmd.ExecuteNonQuery();
+						lock (st)
+						{
+							// Only clear Dirty if no save landed while we were writing
+							// (a concurrent save would have bumped Version).
+							if (st.Version == version) st.Dirty = false;
+						}
+					}
+				}
+
+				// Drain results into a local list so a mid-loop DB failure re-enqueues
+				// the remainder instead of silently dropping it.
+				var results = new List<PendingRaceResult>();
+				while (_pendingResults.TryDequeue(out var r)) results.Add(r);
+				foreach (var r in results)
+				{
+					try
+					{
+						using var cmd = new MySqlCommand(@"
+							INSERT INTO racing_results (user_id, position, lap_time, total_time, money_earned, raced_at)
+							VALUES (@uid, @pos, @lap, @total, @money, UTC_TIMESTAMP())", conn);
+						cmd.Parameters.AddWithValue("@uid", r.UserId);
+						cmd.Parameters.AddWithValue("@pos", r.Position);
+						cmd.Parameters.AddWithValue("@lap", r.LapTime);
+						cmd.Parameters.AddWithValue("@total", r.TotalTime);
+						cmd.Parameters.AddWithValue("@money", r.MoneyEarned);
+						cmd.ExecuteNonQuery();
+					}
+					catch { _pendingResults.Enqueue(r); }
+				}
+			}
+			catch { }
+			finally { Monitor.Exit(_persistLock); }
+		}
 
 		[HttpGet("tracks")]
 		public IActionResult GetTracks()
@@ -28,192 +333,113 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpGet("car/{userId}")]
-		public async Task<IActionResult> GetPlayerCar(int userId)
+		public IActionResult GetPlayerCar(int userId)
 		{
 			try
 			{
-				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-				await conn.OpenAsync();
-
-				using var cmd = new MySqlCommand(@"
-					SELECT user_id, upgrades_json, skin_id, total_races, wins, money, best_lap, total_earnings
-					FROM racing_player_car WHERE user_id = @uid", conn);
-				cmd.Parameters.AddWithValue("@uid", userId);
-				using var rdr = await cmd.ExecuteReaderAsync();
-				if (await rdr.ReadAsync())
-				{
-					var upgrades = new List<object>();
-					if (!await rdr.IsDBNullAsync(1))
-					{
-						var json = rdr.GetString(1);
-						upgrades = JsonSerializer.Deserialize<List<object>>(json) ?? new List<object>();
-					}
-					return Ok(new
-					{
-						UserId = rdr.GetInt32(0),
-						Upgrades = upgrades,
-						SkinId = rdr.IsDBNull(2) ? 1 : rdr.GetInt32(2),
-						TotalRaces = rdr.GetInt32(3),
-						Wins = rdr.GetInt32(4),
-						Money = rdr.GetInt32(5),
-						BestLap = rdr.IsDBNull(6) ? 0 : rdr.GetDouble(6),
-						TotalEarnings = rdr.GetInt32(7)
-					});
-				}
-				return Ok(new { UserId = userId, Upgrades = new List<object>(), SkinId = 1, TotalRaces = 0, Wins = 0, Money = 500, BestLap = 0, TotalEarnings = 0 });
+				var st = EnsureCarLoaded(userId);
+				return Ok(ToCarJson(st));
 			}
 			catch { return BadRequest(); }
 		}
 
 		[HttpPost("car/save")]
-		public async Task<IActionResult> SavePlayerCar([FromBody] JsonElement body)
+		public IActionResult SavePlayerCar([FromBody] JsonElement body)
 		{
 			try
 			{
-				int userId = body.GetProperty("userId").GetInt32();
-				var upgradesJson = body.TryGetProperty("upgrades", out var ups) ? ups.GetRawText() : "[]";
-				int skinId = body.TryGetProperty("skinId", out var si) ? si.GetInt32() : 1;
-				int totalRaces = body.TryGetProperty("totalRaces", out var tr) ? tr.GetInt32() : 0;
-				int wins = body.TryGetProperty("wins", out var w) ? w.GetInt32() : 0;
-				int money = body.TryGetProperty("money", out var m) ? m.GetInt32() : 500;
-				double bestLap = body.TryGetProperty("bestLap", out var bl) ? bl.GetDouble() : 0;
-				int totalEarnings = body.TryGetProperty("totalEarnings", out var te) ? te.GetInt32() : 0;
-
-				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-				await conn.OpenAsync();
-
-				using var cmd = new MySqlCommand(@"
-					INSERT INTO racing_player_car (user_id, upgrades_json, skin_id, total_races, wins, money, best_lap, total_earnings)
-					VALUES (@uid, @upgrades, @skin, @races, @wins, @money, @best, @earnings)
-					ON DUPLICATE KEY UPDATE
-						upgrades_json = @upgrades, skin_id = @skin, total_races = @races,
-						wins = @wins, money = @money, best_lap = @best, total_earnings = @earnings", conn);
-				cmd.Parameters.AddWithValue("@uid", userId);
-				cmd.Parameters.AddWithValue("@upgrades", upgradesJson);
-				cmd.Parameters.AddWithValue("@skin", skinId);
-				cmd.Parameters.AddWithValue("@races", totalRaces);
-				cmd.Parameters.AddWithValue("@wins", wins);
-				cmd.Parameters.AddWithValue("@money", money);
-				cmd.Parameters.AddWithValue("@best", bestLap);
-				cmd.Parameters.AddWithValue("@earnings", totalEarnings);
-				await cmd.ExecuteNonQueryAsync();
-
+				int userId = body.TryGetProperty("userId", out var u) ? u.GetInt32() : 0;
+				if (userId <= 0) return BadRequest();
+				var st = EnsureCarLoaded(userId);
+				lock (st)
+				{
+					if (body.TryGetProperty("upgrades", out var ups) && ups.ValueKind == JsonValueKind.Array)
+						st.Upgrades = JsonSerializer.Deserialize<List<object>>(ups.GetRawText()) ?? st.Upgrades;
+					if (body.TryGetProperty("skinId", out var si)) st.SkinId = si.GetInt32();
+					if (body.TryGetProperty("spoilerId", out var sp)) st.SpoilerId = sp.GetInt32();
+					if (body.TryGetProperty("rimId", out var rm)) st.RimId = rm.GetInt32();
+					if (body.TryGetProperty("exhaustId", out var ex)) st.ExhaustId = ex.GetInt32();
+					if (body.TryGetProperty("decalId", out var dc)) st.DecalId = dc.GetInt32();
+					if (body.TryGetProperty("totalRaces", out var tr)) st.TotalRaces = tr.GetInt32();
+					if (body.TryGetProperty("wins", out var w)) st.Wins = w.GetInt32();
+					if (body.TryGetProperty("money", out var m)) st.Money = m.GetInt32();
+					if (body.TryGetProperty("bestLap", out var bl)) st.BestLap = bl.GetDouble();
+					if (body.TryGetProperty("totalEarnings", out var te)) st.TotalEarnings = te.GetInt32();
+					st.Dirty = true;
+					st.Version++;
+				}
 				return Ok(new { ok = true });
 			}
 			catch { return BadRequest(); }
 		}
 
 		[HttpPost("car/upgrade")]
-		public async Task<IActionResult> BuyUpgrade([FromBody] JsonElement body)
+		public IActionResult BuyUpgrade([FromBody] JsonElement body)
 		{
 			try
 			{
 				int userId = body.GetProperty("userId").GetInt32();
 				int upgradeId = body.GetProperty("upgradeId").GetInt32();
-
-				var (cost, name, cat, level) = GetUpgradeDef(upgradeId);
-				if (cost <= 0) return BadRequest("Invalid upgrade");
-
-				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-				await conn.OpenAsync();
-
-				// Get current car data
-				int currentMoney = 500;
-				string? upgradesJson = "[]";
-				using (var getCmd = new MySqlCommand("SELECT money, upgrades_json FROM racing_player_car WHERE user_id = @uid", conn))
+				var def = GetUpgradeDef(upgradeId);
+				if (def == null) return BadRequest("Invalid upgrade");
+				var st = EnsureCarLoaded(userId);
+				lock (st)
 				{
-					getCmd.Parameters.AddWithValue("@uid", userId);
-					using var rdr = await getCmd.ExecuteReaderAsync();
-					if (await rdr.ReadAsync())
+					if (st.Money < def.Cost) return BadRequest("Not enough money");
+					foreach (var u in st.Upgrades)
 					{
-						currentMoney = rdr.GetInt32(0);
-						upgradesJson = rdr.IsDBNull(1) ? "[]" : rdr.GetString(1);
+						if (u is JsonElement je && je.TryGetProperty("id", out var id) && id.GetInt32() == upgradeId)
+							return BadRequest("Already owned");
 					}
-					await rdr.CloseAsync();
+					// Serialize with camelCase so the client's u.id/u.category/u.statBonus
+					// reads work (raw JsonSerializer.Serialize would emit PascalCase keys
+					// that survive the response as pre-serialized nodes -> NaN stats).
+					var camel = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+					st.Upgrades.Add(JsonSerializer.Deserialize<object>(JsonSerializer.Serialize(def, camel))!);
+					st.Money -= def.Cost;
+					st.Dirty = true;
+					st.Version++;
 				}
-
-				if (currentMoney < cost) return BadRequest("Not enough money");
-
-				var upgrades = JsonSerializer.Deserialize<List<JsonElement>>(upgradesJson ?? "[]") ?? new List<JsonElement>();
-				// Check if already owned
-				foreach (var u in upgrades)
-				{
-					if (u.TryGetProperty("id", out var id) && id.GetInt32() == upgradeId)
-						return BadRequest("Already owned");
-				}
-
-				// Add upgrade
-				var newUpgrade = new Dictionary<string, object>
-				{
-					["id"] = upgradeId,
-					["name"] = name,
-					["category"] = cat,
-					["level"] = level,
-					["cost"] = cost,
-				};
-				upgrades.Add(JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(newUpgrade)));
-
-				int newMoney = currentMoney - cost;
-				string newJson = JsonSerializer.Serialize(upgrades);
-
-				using var upCmd = new MySqlCommand("UPDATE racing_player_car SET upgrades_json = @json, money = @money WHERE user_id = @uid", conn);
-				upCmd.Parameters.AddWithValue("@uid", userId);
-				upCmd.Parameters.AddWithValue("@json", newJson);
-				upCmd.Parameters.AddWithValue("@money", newMoney);
-				await upCmd.ExecuteNonQueryAsync();
-
-				return Ok(new { UserId = userId, Upgrades = upgrades, Money = newMoney, SkinId = 1, TotalRaces = 0, Wins = 0, BestLap = 0, TotalEarnings = 0 });
+				return Ok(ToCarJson(st));
 			}
 			catch { return BadRequest(); }
 		}
 
 		[HttpPost("car/skin")]
-		public async Task<IActionResult> BuySkin([FromBody] JsonElement body)
+		public IActionResult BuySkin([FromBody] JsonElement body)
 		{
 			try
 			{
 				int userId = body.GetProperty("userId").GetInt32();
 				int skinId = body.GetProperty("skinId").GetInt32();
-
-				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-				await conn.OpenAsync();
-
-				using var cmd = new MySqlCommand("UPDATE racing_player_car SET skin_id = @skin WHERE user_id = @uid", conn);
-				cmd.Parameters.AddWithValue("@uid", userId);
-				cmd.Parameters.AddWithValue("@skin", skinId);
-				await cmd.ExecuteNonQueryAsync();
-
-				return Ok(new { ok = true });
+				var st = EnsureCarLoaded(userId);
+				lock (st)
+				{
+					st.SkinId = skinId;
+					st.Dirty = true;
+					st.Version++;
+				}
+				return Ok(ToCarJson(st));
 			}
 			catch { return BadRequest(); }
 		}
 
 		[HttpPost("race/result")]
-		public async Task<IActionResult> SubmitRaceResult([FromBody] JsonElement body)
+		public IActionResult SubmitRaceResult([FromBody] JsonElement body)
 		{
 			try
 			{
 				int userId = body.GetProperty("userId").GetInt32();
 				var result = body.GetProperty("result");
-
-				int position = result.GetProperty("position").GetInt32();
-				double lapTime = result.TryGetProperty("lapTime", out var lt) ? lt.GetDouble() : 0;
-				double totalTime = result.TryGetProperty("totalTime", out var tt) ? tt.GetDouble() : 0;
-				int moneyEarned = result.TryGetProperty("moneyEarned", out var me) ? me.GetInt32() : 0;
-
-				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-				await conn.OpenAsync();
-
-				using var cmd = new MySqlCommand(@"
-					INSERT INTO racing_results (user_id, position, lap_time, total_time, money_earned, raced_at)
-					VALUES (@uid, @pos, @lap, @total, @money, UTC_TIMESTAMP())", conn);
-				cmd.Parameters.AddWithValue("@uid", userId);
-				cmd.Parameters.AddWithValue("@pos", position);
-				cmd.Parameters.AddWithValue("@lap", lapTime);
-				cmd.Parameters.AddWithValue("@total", totalTime);
-				cmd.Parameters.AddWithValue("@money", moneyEarned);
-				await cmd.ExecuteNonQueryAsync();
-
+				_pendingResults.Enqueue(new PendingRaceResult
+				{
+					UserId = userId,
+					PlayerName = result.TryGetProperty("playerName", out var pn) ? pn.GetString() ?? "" : "",
+					Position = result.GetProperty("position").GetInt32(),
+					LapTime = result.TryGetProperty("lapTime", out var lt) ? lt.GetDouble() : 0,
+					TotalTime = result.TryGetProperty("totalTime", out var tt) ? tt.GetDouble() : 0,
+					MoneyEarned = result.TryGetProperty("moneyEarned", out var me) ? me.GetInt32() : 0,
+				});
 				return Ok(new { ok = true });
 			}
 			catch { return BadRequest(); }
@@ -224,56 +450,75 @@ namespace maxhanna.Server.Controllers
 		{
 			try
 			{
-				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-				await conn.OpenAsync();
-
-				using var cmd = new MySqlCommand(@"
-					SELECT r.user_id, u.username, r.position, r.lap_time, r.total_time, r.money_earned
-					FROM racing_results r
-					JOIN users u ON r.user_id = u.id
-					ORDER BY r.lap_time ASC LIMIT 20", conn);
-				using var rdr = await cmd.ExecuteReaderAsync();
-				var results = new List<object>();
-				while (await rdr.ReadAsync())
+				var results = new List<LeaderboardEntry>();
+				var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna");
+				if (!string.IsNullOrEmpty(connStr))
 				{
-					results.Add(new
+					EnsureSchema(connStr);
+					using var conn = new MySqlConnection(connStr);
+					await conn.OpenAsync();
+					using var cmd = new MySqlCommand(@"
+						SELECT r.user_id, u.username, r.position, r.lap_time, r.total_time, r.money_earned
+						FROM racing_results r
+						JOIN users u ON r.user_id = u.id
+						ORDER BY r.lap_time ASC LIMIT 20", conn);
+					using var rdr = await cmd.ExecuteReaderAsync();
+					while (await rdr.ReadAsync())
 					{
-						PlayerId = rdr.GetInt32(0),
-						PlayerName = rdr.GetString(1),
-						Position = rdr.GetInt32(2),
-						LapTime = rdr.GetDouble(3),
-						TotalTime = rdr.GetDouble(4),
-						MoneyEarned = rdr.GetInt32(5),
+						results.Add(new LeaderboardEntry
+						{
+							PlayerId = rdr.GetInt32(0),
+							PlayerName = rdr.GetString(1),
+							Position = rdr.GetInt32(2),
+							LapTime = rdr.GetDouble(3),
+							TotalTime = rdr.GetDouble(4),
+							MoneyEarned = rdr.GetInt32(5),
+							IsBot = false
+						});
+					}
+				}
+				// Merge in-memory results not yet flushed so new races show instantly
+				foreach (var r in _pendingResults)
+				{
+					results.Add(new LeaderboardEntry
+					{
+						PlayerId = r.UserId,
+						PlayerName = r.PlayerName,
+						Position = r.Position,
+						LapTime = r.LapTime,
+						TotalTime = r.TotalTime,
+						MoneyEarned = r.MoneyEarned,
 						IsBot = false
 					});
 				}
-				return Ok(results);
+				results.Sort((a, b) => a.LapTime.CompareTo(b.LapTime));
+				return Ok(results.GetRange(0, Math.Min(20, results.Count)));
 			}
-			catch { return Ok(new List<object>()); }
+			catch { return Ok(new List<LeaderboardEntry>()); }
 		}
 
-		private static (int cost, string name, string cat, int level) GetUpgradeDef(int id)
+		private static UpgradeDef? GetUpgradeDef(int id)
 		{
 			return id switch
 			{
-				1 => (500, "Stage 1 Engine", "engine", 1),
-				2 => (1500, "Stage 2 Engine", "engine", 2),
-				3 => (4000, "Stage 3 Engine", "engine", 3),
-				4 => (10000, "Stage 4 Engine", "engine", 4),
-				5 => (25000, "Stage 5 Engine", "engine", 5),
-				6 => (300, "Sport Tires", "tires", 1),
-				7 => (800, "Racing Tires", "tires", 2),
-				8 => (2000, "Slick Tires", "tires", 3),
-				9 => (6000, "Hyper Tires", "tires", 4),
-				10 => (400, "Sport Suspension", "suspension", 1),
-				11 => (1200, "Race Suspension", "suspension", 2),
-				12 => (3500, "Pro Suspension", "suspension", 3),
-				13 => (250, "Stage 1 Brakes", "brakes", 1),
-				14 => (700, "Stage 2 Brakes", "brakes", 2),
-				15 => (1800, "Stage 3 Brakes", "brakes", 3),
-				16 => (1000, "Carbon Body", "body", 1),
-				17 => (3000, "Aero Body", "body", 2),
-				_ => (0, "", "", 0)
+				1 => new UpgradeDef { Id = 1, Name = "Stage 1 Engine", Category = "engine", Level = 1, MaxLevel = 5, Cost = 500, Description = "+10% Top Speed", StatBonus = 10 },
+				2 => new UpgradeDef { Id = 2, Name = "Stage 2 Engine", Category = "engine", Level = 2, MaxLevel = 5, Cost = 1500, Description = "+20% Top Speed", StatBonus = 20 },
+				3 => new UpgradeDef { Id = 3, Name = "Stage 3 Engine", Category = "engine", Level = 3, MaxLevel = 5, Cost = 4000, Description = "+30% Top Speed", StatBonus = 30 },
+				4 => new UpgradeDef { Id = 4, Name = "Stage 4 Engine", Category = "engine", Level = 4, MaxLevel = 5, Cost = 10000, Description = "+40% Top Speed", StatBonus = 40 },
+				5 => new UpgradeDef { Id = 5, Name = "Stage 5 Engine", Category = "engine", Level = 5, MaxLevel = 5, Cost = 25000, Description = "+50% Top Speed", StatBonus = 50 },
+				6 => new UpgradeDef { Id = 6, Name = "Sport Tires", Category = "tires", Level = 1, MaxLevel = 4, Cost = 300, Description = "+5% Grip", StatBonus = 5 },
+				7 => new UpgradeDef { Id = 7, Name = "Racing Tires", Category = "tires", Level = 2, MaxLevel = 4, Cost = 800, Description = "+12% Grip", StatBonus = 12 },
+				8 => new UpgradeDef { Id = 8, Name = "Slick Tires", Category = "tires", Level = 3, MaxLevel = 4, Cost = 2000, Description = "+20% Grip", StatBonus = 20 },
+				9 => new UpgradeDef { Id = 9, Name = "Hyper Tires", Category = "tires", Level = 4, MaxLevel = 4, Cost = 6000, Description = "+30% Grip", StatBonus = 30 },
+				10 => new UpgradeDef { Id = 10, Name = "Sport Suspension", Category = "suspension", Level = 1, MaxLevel = 3, Cost = 400, Description = "+5% Cornering", StatBonus = 5 },
+				11 => new UpgradeDef { Id = 11, Name = "Race Suspension", Category = "suspension", Level = 2, MaxLevel = 3, Cost = 1200, Description = "+12% Cornering", StatBonus = 12 },
+				12 => new UpgradeDef { Id = 12, Name = "Pro Suspension", Category = "suspension", Level = 3, MaxLevel = 3, Cost = 3500, Description = "+20% Cornering", StatBonus = 20 },
+				13 => new UpgradeDef { Id = 13, Name = "Stage 1 Brakes", Category = "brakes", Level = 1, MaxLevel = 3, Cost = 250, Description = "+10% Braking", StatBonus = 10 },
+				14 => new UpgradeDef { Id = 14, Name = "Stage 2 Brakes", Category = "brakes", Level = 2, MaxLevel = 3, Cost = 700, Description = "+20% Braking", StatBonus = 20 },
+				15 => new UpgradeDef { Id = 15, Name = "Stage 3 Brakes", Category = "brakes", Level = 3, MaxLevel = 3, Cost = 1800, Description = "+30% Braking", StatBonus = 30 },
+				16 => new UpgradeDef { Id = 16, Name = "Carbon Body", Category = "body", Level = 1, MaxLevel = 2, Cost = 1000, Description = "-5% Weight", StatBonus = 5 },
+				17 => new UpgradeDef { Id = 17, Name = "Aero Body", Category = "body", Level = 2, MaxLevel = 2, Cost = 3000, Description = "-12% Weight", StatBonus = 12 },
+				_ => null
 			};
 		}
 	}

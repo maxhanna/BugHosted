@@ -437,7 +437,7 @@
   padding: 3px 10px;
 }
 
-/* ── F1 Car Preview Model (3D, draggable) ── */
+/* ── F1 Car Preview Model (real 3D, draggable) ── */
 .car-3d-wrap {
   perspective: 900px;
   width: 100%;
@@ -463,419 +463,105 @@
   cursor: grabbing;
 }
 
-/* Ground shadow */
+/* ── 3D box primitive: center (--x,--y,--z), size (--w,--h,--d) ── */
+.b3d {
+  position: absolute;
+  left: 0; top: 0;
+  width: 0; height: 0;
+  transform-style: preserve-3d;
+  transform: translate3d(var(--x), var(--y), var(--z));
+}
+.b3d i {
+  position: absolute;
+  left: 0; top: 0;
+  display: block;
+  backface-visibility: hidden;
+}
+.b3d .top {
+  width: var(--w); height: var(--d);
+  margin-left: calc(var(--w) / -2);
+  margin-top: calc(var(--d) / -2);
+  transform: rotateX(90deg) translateZ(calc(var(--h) / 2));
+}
+.b3d .bot {
+  width: var(--w); height: var(--d);
+  margin-left: calc(var(--w) / -2);
+  margin-top: calc(var(--d) / -2);
+  transform: rotateX(-90deg) translateZ(calc(var(--h) / 2));
+}
+.b3d .lft {
+  width: var(--d); height: var(--h);
+  margin-left: calc(var(--d) / -2);
+  margin-top: calc(var(--h) / -2);
+  transform: rotateY(-90deg) translateZ(calc(var(--w) / 2));
+}
+.b3d .rgt {
+  width: var(--d); height: var(--h);
+  margin-left: calc(var(--d) / -2);
+  margin-top: calc(var(--h) / -2);
+  transform: rotateY(90deg) translateZ(calc(var(--w) / 2));
+}
+.b3d .fnt {
+  width: var(--w); height: var(--h);
+  margin-left: calc(var(--w) / -2);
+  margin-top: calc(var(--h) / -2);
+  transform: rotateY(0deg) translateZ(calc(var(--d) / 2));
+}
+.b3d .bak {
+  width: var(--w); height: var(--h);
+  margin-left: calc(var(--w) / -2);
+  margin-top: calc(var(--h) / -2);
+  transform: rotateY(180deg) translateZ(calc(var(--d) / 2));
+}
+
+/* ── Face materials ── */
+.carbo {
+  background: linear-gradient(135deg, #1c1c20, #0d0d10);
+}
+.dark {
+  background: #0a0a0c;
+}
+.skin {
+  box-shadow: inset 0 2px 3px rgba(255,255,255,0.12), inset 0 -2px 4px rgba(0,0,0,0.28);
+}
+
+/* Ground shadow — flat ellipse just below the undertray so the whole shape reads */
 .car-shadow {
   position: absolute;
-  bottom: 8px;
-  left: 5%;
-  right: 5%;
-  height: 16px;
-  background: radial-gradient(ellipse at center, rgba(0,0,0,0.55), transparent 70%);
-  filter: blur(3px);
+  left: 50%; top: 152px;
+  width: 250px; height: 95px;
+  transform: translate(-50%, -50%) rotateX(90deg);
+  background: radial-gradient(ellipse, rgba(0,0,0,0.6), transparent 68%);
+  filter: blur(4px);
 }
 
-/* Floor / undertray */
-.car-floor {
-  position: absolute;
-  bottom: 22px;
-  left: 16px;
-  right: 14px;
-  height: 6px;
-  background: linear-gradient(180deg, #141416, #0a0a0c);
-  border-radius: 3px;
-}
-
-/* Diffuser at rear */
-.car-diffuser {
-  position: absolute;
-  bottom: 22px;
-  right: 8px;
-  width: 34px;
-  height: 8px;
-  background: linear-gradient(180deg, #1a1a1e, #0c0c0e);
-  border-radius: 0 4px 4px 0;
-  transform: skewY(-12deg);
-  transform-origin: bottom left;
-}
-
-/* Nose cone — long tapered tip */
-.car-nose {
-  position: absolute;
-  bottom: 26px;
-  left: 10px;
-  width: 130px;
-  height: 20px;
-  border-radius: 14px 0 0 14px;
-  clip-path: polygon(0 12%, 100% 0, 100% 100%, 0 88%);
-  box-shadow: inset 0 6px 10px rgba(255,255,255,0.12), inset 0 -3px 6px rgba(0,0,0,0.35);
-}
-
-.car-nose-tip {
-  position: absolute;
-  bottom: 26px;
-  left: 2px;
-  width: 16px;
-  height: 12px;
-  clip-path: polygon(0 50%, 100% 0, 100% 100%);
-  z-index: 2;
-}
-
-/* Front wing — wide, low, endplates */
-.car-front-wing {
-  position: absolute;
-  bottom: 30px;
-  left: 0px;
-  width: 34px;
-  height: 18px;
-}
-
-.fw-plane {
-  position: absolute;
-  bottom: 6px;
-  left: 0;
-  width: 34px;
-  height: 4px;
-  background: #151518;
-  border-radius: 2px;
-}
-
-.fw-flap {
-  position: absolute;
-  bottom: 12px;
-  left: 2px;
-  width: 30px;
-  height: 3px;
-  background: #202024;
-  border-radius: 2px;
-}
-
-.fw-endplate {
-  position: absolute;
-  bottom: 0;
-  width: 4px;
-  height: 16px;
-  background: #0d0d0f;
-  border-radius: 1px;
-}
-
-.fw-ep-left { left: 0; }
-.fw-ep-right { right: 0; }
-
-/* Main body / monocoque */
-.car-preview-body {
-  position: absolute;
-  bottom: 26px;
-  left: 108px;
-  right: 30px;
-  height: 34px;
-  border-radius: 6px 6px 2px 2px;
-  box-shadow:
-    inset 0 8px 16px rgba(255,255,255,0.10),
-    inset 0 -3px 8px rgba(0,0,0,0.5),
-    0 3px 10px rgba(0,0,0,0.45);
-  overflow: visible;
-}
-
-.car-preview-body::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; height: 55%;
-  background: linear-gradient(180deg, rgba(255,255,255,0.22), transparent);
-  border-radius: 6px 6px 0 0;
-}
-
-/* Cockpit opening */
-.car-cockpit {
-  position: absolute;
-  top: -6px;
-  left: 34%;
-  width: 30px;
-  height: 22px;
-  background: #0a0a0c;
-  border-radius: 50% 50% 3px 3px;
+/* Cockpit opening (thin dark plate on the body top) */
+.cockpit {
+  background: #07070a;
+  border-radius: 50% 50% 6px 6px;
   border: 2px solid rgba(0,0,0,0.7);
-  box-shadow: inset 0 4px 10px rgba(0,0,0,0.9);
-  z-index: 3;
+  box-shadow: inset 0 3px 8px rgba(0,0,0,0.9);
 }
 
-/* Halo */
-.car-halo {
-  position: absolute;
-  top: -18px;
-  left: 32%;
-  width: 40px;
-  height: 14px;
-  border: 3px solid #16161a;
-  border-radius: 50% 50% 0 0;
-  border-bottom: none;
-  background: transparent;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
-  z-index: 4;
-}
-
-/* Sidepods */
-.car-sidepod {
-  position: absolute;
-  top: 8px;
-  height: 20px;
-  width: 40px;
-  background: rgba(0,0,0,0.22);
-  border-radius: 6px;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
-}
-
-.car-sidepod-l {
-  left: 6%;
-  transform: skewY(-6deg);
-}
-
-.car-sidepod-r {
-  right: 4%;
-  transform: skewY(-6deg);
-}
-
-/* Airbox intake behind cockpit */
-.car-airbox {
-  position: absolute;
-  top: -4px;
-  right: 18%;
-  width: 20px;
-  height: 14px;
-  background: linear-gradient(180deg, #0d0d0f, #1a1a1e);
-  border-radius: 4px 4px 2px 2px;
-  clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%);
-  z-index: 2;
-}
-
-/* Engine cover line */
-.car-engine-line {
-  position: absolute;
-  top: 42%;
-  left: 8%;
-  right: 6%;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(0,0,0,0.35), transparent);
-}
-
-/* Rear wing — multi-element */
-.car-rear-wing {
-  position: absolute;
-  bottom: 34px;
-  right: 4px;
-  width: 26px;
-  height: 40px;
-}
-
-.rw-plane {
-  position: absolute;
-  left: 0;
-  right: 0;
-  background: #151518;
-  border-radius: 2px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.5);
-}
-
-.rw-plane-main {
-  top: 4px;
-  height: 5px;
-}
-
-.rw-plane-flap {
-  top: 13px;
-  height: 4px;
-  background: #202024;
-}
-
-.rw-endplate {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: #0d0d0f;
-}
-
-.rw-ep-left { left: 0; }
-.rw-ep-right { right: 0; }
-
-/* Rear wing mount */
-.car-wing-mount {
-  position: absolute;
-  bottom: 36px;
-  right: 22px;
-  width: 4px;
-  height: 22px;
-  background: #18181c;
-  z-index: 2;
-}
-
-/* Spoiler / Rear Wing (base, upgrade) */
-.car-spoiler {
-  position: absolute;
-  bottom: 76px;
-  right: -2px;
-  width: 52px;
-  height: 10px;
-  background: #1a1a1a;
-  border-radius: 1px 2px 1px 1px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
-  transition: all 0.3s;
-  z-index: 5;
-}
-
-.car-spoiler::after {
-  content: '';
-  position: absolute;
-  top: -16px;
-  left: 2px;
-  right: 2px;
-  height: 6px;
-  background: #1a1a1a;
-  border-radius: 1px;
-  box-shadow: 0 -1px 3px rgba(0,0,0,0.4);
-}
-
-/* Spoiler variants */
-.spoiler-carbon {
-  background: linear-gradient(135deg, #1a1a1a 0%, #333 50%, #1a1a1a 100%) !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.6), 0 0 12px rgba(100,100,255,0.1) !important;
-}
-
-.spoiler-dual {
-  height: 12px !important;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.5) !important;
-}
-
-.spoiler-dual::before {
-  content: '';
-  position: absolute;
-  top: -10px;
-  left: 2px;
-  right: 2px;
-  height: 5px;
-  background: #222;
-  border-radius: 1px;
-}
-
-.spoiler-drs {
-  background: linear-gradient(135deg, #111 0%, #444 50%, #111 100%) !important;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.7), 0 0 20px rgba(200,50,50,0.15) !important;
-  height: 14px !important;
-}
-
-.spoiler-drs::after {
-  top: -18px !important;
-  height: 7px !important;
-  background: #333 !important;
-}
-
-/* Wheels — F1 style, exposed and large */
-.car-wheel {
-  position: absolute;
-  width: 34px;
-  height: 34px;
-  background: radial-gradient(circle at 35% 35%, #2e2e30, #0a0a0c 70%);
-  border-radius: 50%;
-  border: 4px solid #101012;
-  box-shadow: inset 0 2px 5px rgba(255,255,255,0.08), 0 3px 8px rgba(0,0,0,0.6);
-  transition: all 0.3s;
-  z-index: 6;
-}
-
-.car-wheel::before {
-  content: '';
-  position: absolute;
-  top: 50%; left: 50%;
-  width: 12px; height: 12px;
-  background: #3a3a3d;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  border: 2px solid #222;
-  box-shadow: inset 0 1px 2px rgba(255,255,255,0.2);
-}
-
-.wheel-fl { bottom: 18px; left: 6px; }
-.wheel-fr { bottom: 18px; left: 64px; }
-.wheel-rl { bottom: 18px; right: 40px; }
-.wheel-rr { bottom: 18px; right: 4px; }
-
-/* Rim variants */
-.rim-alloy {
-  border-color: #888 !important;
-  box-shadow: inset 0 2px 4px rgba(255,255,255,0.2), 0 0 10px rgba(136,136,136,0.3), 0 2px 6px rgba(0,0,0,0.5) !important;
-}
-
-.rim-deep {
-  width: 26px !important; height: 26px !important;
-  border-color: #333 !important;
-  background: radial-gradient(circle at 35% 35%, #444, #0a0a0a 70%) !important;
-  box-shadow: inset 0 2px 4px rgba(255,255,255,0.15), 0 2px 8px rgba(0,0,0,0.6) !important;
-}
-
-.rim-gold {
-  border-color: #c8a500 !important;
-  background: radial-gradient(circle at 35% 35%, #e6c200, #8b7500 70%) !important;
-  box-shadow: inset 0 2px 4px rgba(255,255,255,0.3), 0 0 14px rgba(200,165,0,0.4), 0 2px 6px rgba(0,0,0,0.5) !important;
-}
-
-.rim-gold::before {
-  background: #e6c200 !important;
-  border-color: #c8a500 !important;
-}
-
-/* Exhaust pipes */
-.car-exhaust-pipes {
-  position: absolute;
-  bottom: 38px;
-  right: 8px;
-  width: 10px;
-  height: 6px;
-  background: #666;
-  border-radius: 3px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
-  transition: all 0.3s;
-}
-
-.exhaust-sport {
-  background: linear-gradient(180deg, #aaa, #666) !important;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.4), 0 0 6px rgba(255,150,50,0.2) !important;
-}
-
-.exhaust-titanium {
-  background: linear-gradient(180deg, #4488cc, #222288, #8844cc) !important;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.4), 0 0 8px rgba(100,100,255,0.3) !important;
-  width: 12px !important;
-  height: 7px !important;
-}
-
-/* Decal overlay */
-.car-decal-overlay {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  pointer-events: none;
-  border-radius: inherit;
-}
-
+/* Decal overlay (thin plate on the body top) */
+.decal { border-radius: 6px; }
 .decal-stripes {
   background: repeating-linear-gradient(
     90deg, transparent, transparent 20px, rgba(255,255,255,0.8) 20px, rgba(255,255,255,0.8) 28px
   );
 }
-
 .decal-flame {
   background: linear-gradient(180deg, transparent 40%, rgba(255,100,0,0.5) 60%, rgba(255,200,0,0.6) 80%, rgba(255,50,0,0.7) 100%);
   border-radius: 0 0 4px 4px;
 }
-
 .decal-carbon {
   background: repeating-linear-gradient(
     45deg, rgba(0,0,0,0.3) 0px, rgba(0,0,0,0.3) 2px, rgba(255,255,255,0.04) 2px, rgba(255,255,255,0.04) 4px
   );
 }
-
 .decal-number {
   background: none;
 }
-
 .decal-number::after {
   content: '44';
   position: absolute;
@@ -888,6 +574,106 @@
   letter-spacing: 2px;
 }
 
+/* ── Wheels (3D coins: two discs + tread band) ── */
+.wheel3d {
+  position: absolute;
+  left: 0; top: 0;
+  width: 0; height: 0;
+  transform-style: preserve-3d;
+  transform: translate3d(var(--wx), var(--wy), var(--wz));
+}
+.wheel3d i { position: absolute; display: block; }
+.wheel3d .disc {
+  width: 30px; height: 30px;
+  left: -15px; top: -15px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #2e2e30, #0a0a0c 70%);
+  border: 4px solid #101012;
+  box-shadow: inset 0 2px 5px rgba(255,255,255,0.08), 0 3px 8px rgba(0,0,0,0.6);
+  transition: all 0.3s;
+}
+.wheel3d .disc::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 12px; height: 12px;
+  background: #3a3a3d;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  border: 2px solid #222;
+  box-shadow: inset 0 1px 2px rgba(255,255,255,0.2);
+}
+.wheel3d .disc.outer { transform: translateZ(7px); }
+.wheel3d .disc.inner { transform: translateZ(-7px); }
+.wheel3d .band {
+  width: 14px; height: 30px;
+  left: -7px; top: -15px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #1c1c1f, #0a0a0c);
+  transform: rotateY(90deg);
+}
+
+/* Rim variants (outer disc) */
+.rim-alloy {
+  border-color: #888 !important;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.2), 0 0 10px rgba(136,136,136,0.3), 0 2px 6px rgba(0,0,0,0.5) !important;
+}
+.rim-deep {
+  border-color: #333 !important;
+  background: radial-gradient(circle at 35% 35%, #444, #0a0a0a 70%) !important;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.15), 0 2px 8px rgba(0,0,0,0.6) !important;
+}
+.rim-gold {
+  border-color: #c8a500 !important;
+  background: radial-gradient(circle at 35% 35%, #e6c200, #8b7500 70%) !important;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.3), 0 0 14px rgba(200,165,0,0.4), 0 2px 6px rgba(0,0,0,0.5) !important;
+}
+.rim-gold::before {
+  background: #e6c200 !important;
+  border-color: #c8a500 !important;
+}
+
+/* Spoiler upgrade (thin wing above the engine cover) */
+.spoiler {
+  background: #1a1a1a;
+  border-radius: 2px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  transition: all 0.3s;
+}
+.spoiler-carbon {
+  background: linear-gradient(135deg, #1a1a1a 0%, #333 50%, #1a1a1a 100%) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.6), 0 0 12px rgba(100,100,255,0.1) !important;
+}
+.spoiler-dual {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5) !important;
+}
+.spoiler-dual::before {
+  content: '';
+  position: absolute;
+  top: 4px; left: 2px; right: 2px;
+  height: 3px;
+  background: #222;
+  border-radius: 1px;
+}
+.spoiler-drs {
+  background: linear-gradient(135deg, #111 0%, #444 50%, #111 100%) !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.7), 0 0 20px rgba(200,50,50,0.15) !important;
+}
+
+/* Exhaust upgrade (twin pipes at the back) */
+.exhaust {
+  background: linear-gradient(180deg, #777, #444);
+  border-radius: 2px;
+  transition: all 0.3s;
+}
+.exhaust-sport {
+  background: linear-gradient(180deg, #aaa, #666) !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4), 0 0 6px rgba(255,150,50,0.2) !important;
+}
+.exhaust-titanium {
+  background: linear-gradient(180deg, #4488cc, #222288, #8844cc) !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4), 0 0 8px rgba(100,100,255,0.3) !important;
+}
 /* ── Right: Upgrade Catalog ── */
 .garage-catalog {
   flex: 1;
