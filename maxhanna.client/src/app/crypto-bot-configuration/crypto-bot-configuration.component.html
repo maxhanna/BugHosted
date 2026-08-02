@@ -277,7 +277,7 @@
         <input type="number" #tradeMaxTradeTimeToLive
             (input)="formatTTL($event)"
             title="Set the maximum time in minutes a trade can exist before being automatically sold. Leave at 0 to disable." />
-        <div class="ttl-formatted" *ngIf="ttlFormatted">{{ ttlFormatted }}</div>
+        <div class="currentSettings ttl-formatted" *ngIf="ttlFormatted">{{ ttlFormatted }}</div>
         <div class="config-explanation">
             <p><strong>What it does:</strong> This sets a time limit (in minutes) for how long an unmatched buy trade can remain open. 
                 When a trade exceeds this limit, the bot automatically sells it at the current market price to exit the position.</p>
