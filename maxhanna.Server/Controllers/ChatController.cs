@@ -6,6 +6,8 @@ using maxhanna.Server.Controllers.DataContracts.Social;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Data;
+using System.Xml.Linq;
+using System.Threading;
 using static maxhanna.Server.Controllers.AiController;
 
 namespace maxhanna.Server.Controllers
@@ -1184,6 +1186,258 @@ namespace maxhanna.Server.Controllers
 			{
 				conn.Close();
 			}
+		}        [HttpPost("/Chat/MakePublic", Name = "MakeChatPublic")]
+		public async Task<IActionResult> MakeChatPublic([FromBody] MakeChatPublicRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+		{
+			if (request == null || request.ChatId <= 0 || request.UserId <= 0)
+				return BadRequest("Invalid request.");
+
+			if (!await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader))
+				return StatusCode(500, "Access Denied.");
+
+			// Only global moderators (or the owner) can make a chat public.
+			if (request.UserId != 1 && !await IsGlobalModeratorAsync(request.UserId))
+				return Unauthorized("Only moderators can make chats public.");
+
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+
+				// Ensure the chat_rooms table exists.
+				string ensureSql = @"CREATE TABLE IF NOT EXISTS maxhanna.chat_rooms (
+					chat_id INT PRIMARY KEY,
+					name VARCHAR(120) NOT NULL,
+					is_public TINYINT(1) NOT NULL DEFAULT 0,
+					created_by INT NULL,
+					created_at DATETIME DEFAULT UTC_TIMESTAMP()
+				);";
+				using (var ensureCmd = new MySqlCommand(ensureSql, conn))
+					await ensureCmd.ExecuteNonQueryAsync();
+
+				string name = string.IsNullOrWhiteSpace(request.Name) ? "Public Chat #" + request.ChatId : request.Name.Trim();
+
+				string upsertSql = @"INSERT INTO maxhanna.chat_rooms (chat_id, name, is_public, created_by, created_at)
+					VALUES (@ChatId, @Name, 1, @UserId, UTC_TIMESTAMP())
+					ON DUPLICATE KEY UPDATE name = @Name, is_public = 1;";
+				using (var upsertCmd = new MySqlCommand(upsertSql, conn))
+				{
+					upsertCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+					upsertCmd.Parameters.AddWithValue("@Name", name);
+					upsertCmd.Parameters.AddWithValue("@UserId", request.UserId);
+					await upsertCmd.ExecuteNonQueryAsync();
+				}
+
+				// Promote everyone currently in the chat to chat_moderator for this chat.
+				// Membership is inferred from the receiver lists in messages.
+				var memberIds = new HashSet<int>();
+				string memberSql = @"SELECT DISTINCT receiver FROM maxhanna.messages WHERE chat_id = @ChatId;";
+				using (var memCmd = new MySqlCommand(memberSql, conn))
+				{
+					memCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+					using var reader = await memCmd.ExecuteReaderAsync();
+					while (await reader.ReadAsync())
+					{
+						string receiver = reader.IsDBNull(0) ? "" : reader.GetString(0);
+						foreach (var idStr in receiver.Split(','))
+							if (int.TryParse(idStr.Trim(), out int id) && id > 0)
+								memberIds.Add(id);
+					}
+				}
+
+				string ensureRolesSql = @"CREATE TABLE IF NOT EXISTS maxhanna.moderator_roles (
+					id INT AUTO_INCREMENT PRIMARY KEY,
+					user_id INT NOT NULL,
+					role VARCHAR(50) NOT NULL,
+					target_type VARCHAR(20) NULL,
+					target_id INT NULL,
+					assigned_by INT NULL,
+					assigned_at DATETIME DEFAULT UTC_TIMESTAMP(),
+					UNIQUE KEY uq_user_role_target (user_id, role, target_type, target_id)
+				);";
+				using (var ensureRolesCmd = new MySqlCommand(ensureRolesSql, conn))
+					await ensureRolesCmd.ExecuteNonQueryAsync();
+
+				foreach (var memberId in memberIds)
+				{
+					string roleSql = @"INSERT INTO maxhanna.moderator_roles (user_id, role, target_type, target_id, assigned_by, assigned_at)
+						VALUES (@UserId, 'chat_moderator', 'chat', @ChatId, @AssignedBy, UTC_TIMESTAMP())
+						ON DUPLICATE KEY UPDATE assigned_by = @AssignedBy;";
+					using var roleCmd = new MySqlCommand(roleSql, conn);
+					roleCmd.Parameters.AddWithValue("@UserId", memberId);
+					roleCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+					roleCmd.Parameters.AddWithValue("@AssignedBy", request.UserId);
+					await roleCmd.ExecuteNonQueryAsync();
+				}
+
+				await AppendChatToSitemapAsync(request.ChatId);
+				_ = _log.Db($"Moderator {request.UserId} made chat #{request.ChatId} public (\"{name}\") with {memberIds.Count} members promoted to chat moderators.", request.UserId, "MODERATOR", true);
+
+				return Ok(new { message = "Chat is now public.", name, memberCount = memberIds.Count });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred in MakeChatPublic: " + ex.Message, request.UserId, "CHAT", true);
+				return StatusCode(500, "Failed to make chat public.");
+			}
+			finally { conn.Close(); }
+		}
+
+		[HttpPost("/Chat/SearchPublic", Name = "SearchPublicChats")]
+		public async Task<IActionResult> SearchPublicChats([FromBody] SearchPublicChatsRequest request)
+		{
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+				string ensureSql = @"CREATE TABLE IF NOT EXISTS maxhanna.chat_rooms (
+					chat_id INT PRIMARY KEY,
+					name VARCHAR(120) NOT NULL,
+					is_public TINYINT(1) NOT NULL DEFAULT 0,
+					created_by INT NULL,
+					created_at DATETIME DEFAULT UTC_TIMESTAMP()
+				);";
+				using (var ensureCmd = new MySqlCommand(ensureSql, conn))
+					await ensureCmd.ExecuteNonQueryAsync();
+
+				string search = string.IsNullOrWhiteSpace(request?.Search) ? "" : request.Search.Trim();
+				string sql = @"
+					SELECT cr.chat_id, cr.name, cr.created_by, cr.created_at
+					FROM maxhanna.chat_rooms cr
+					WHERE cr.is_public = 1";
+				if (!string.IsNullOrEmpty(search))
+					sql += " AND cr.name LIKE @Search";
+				sql += " ORDER BY cr.created_at DESC LIMIT 50;";
+
+				using var cmd = new MySqlCommand(sql, conn);
+				if (!string.IsNullOrEmpty(search))
+					cmd.Parameters.AddWithValue("@Search", "%" + search + "%");
+
+				using var reader = await cmd.ExecuteReaderAsync();
+				var results = new List<PublicChatInfo>();
+				while (await reader.ReadAsync())
+				{
+					var info = new PublicChatInfo
+					{
+						ChatId = reader.GetInt32("chat_id"),
+						Name = reader.GetString("name"),
+						CreatedAt = reader.IsDBNull(reader.GetOrdinal("created_at")) ? null : reader.GetDateTime("created_at")
+					};
+					info.MemberCount = await CountChatMembersAsync(conn, info.ChatId);
+					results.Add(info);
+				}
+				return Ok(results);
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred in SearchPublicChats: " + ex.Message, request?.UserId ?? 0, "CHAT", true);
+				return StatusCode(500, "Failed to search public chats.");
+			}
+			finally { conn.Close(); }
+		}
+
+		[HttpPost("/Chat/JoinPublic", Name = "JoinPublicChat")]
+		public async Task<IActionResult> JoinPublicChat([FromBody] JoinPublicChatRequest request)
+		{
+			if (request == null || request.ChatId <= 0 || request.UserId <= 0)
+				return BadRequest("Invalid request.");
+
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+				string ensureSql = @"CREATE TABLE IF NOT EXISTS maxhanna.chat_rooms (
+					chat_id INT PRIMARY KEY,
+					name VARCHAR(120) NOT NULL,
+					is_public TINYINT(1) NOT NULL DEFAULT 0,
+					created_by INT NULL,
+					created_at DATETIME DEFAULT UTC_TIMESTAMP()
+				);";
+				using (var ensureCmd = new MySqlCommand(ensureSql, conn))
+					await ensureCmd.ExecuteNonQueryAsync();
+
+				// Verify the chat is public.
+				string checkSql = "SELECT COUNT(*) FROM maxhanna.chat_rooms WHERE chat_id = @ChatId AND is_public = 1;";
+				using (var checkCmd = new MySqlCommand(checkSql, conn))
+				{
+					checkCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+					if (Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) == 0)
+						return NotFound("Chat is not public.");
+				}
+
+				// Remove the user from the left-chat table (in case they left before) and add them
+				// to every message receiver list so membership is visible everywhere.
+				string unleftSql = "DELETE FROM maxhanna.user_left_chat WHERE chat_id = @ChatId AND user_id = @UserId;";
+				using (var unleftCmd = new MySqlCommand(unleftSql, conn))
+				{
+					unleftCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+					unleftCmd.Parameters.AddWithValue("@UserId", request.UserId);
+					await unleftCmd.ExecuteNonQueryAsync();
+				}
+
+				string updateSql = @"UPDATE maxhanna.messages
+					SET receiver = CONCAT(receiver, ',', @UserId)
+					WHERE chat_id = @ChatId AND NOT FIND_IN_SET(@UserId, receiver);";
+				using (var updCmd = new MySqlCommand(updateSql, conn))
+				{
+					updCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+					updCmd.Parameters.AddWithValue("@UserId", request.UserId);
+					int updated = await updCmd.ExecuteNonQueryAsync();
+					_ = _log.Db($"User {request.UserId} joined public chat #{request.ChatId} ({updated} message(s) updated).", request.UserId, "CHAT", true);
+				}
+
+				// Also join any existing group chat membership stored per-receiver list.
+				return Ok(new { message = "Joined chat." });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred in JoinPublicChat: " + ex.Message, request.UserId, "CHAT", true);
+				return StatusCode(500, "Failed to join chat.");
+			}
+			finally { conn.Close(); }
+		}
+
+		[HttpPost("/Chat/GetChatRoom", Name = "GetChatRoom")]
+		public async Task<IActionResult> GetChatRoom([FromBody] GetChatRoomRequest request)
+		{
+			if (request == null || request.ChatId <= 0)
+				return BadRequest("Invalid request.");
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+				string ensureSql = @"CREATE TABLE IF NOT EXISTS maxhanna.chat_rooms (
+					chat_id INT PRIMARY KEY,
+					name VARCHAR(120) NOT NULL,
+					is_public TINYINT(1) NOT NULL DEFAULT 0,
+					created_by INT NULL,
+					created_at DATETIME DEFAULT UTC_TIMESTAMP()
+				);";
+				using (var ensureCmd = new MySqlCommand(ensureSql, conn))
+					await ensureCmd.ExecuteNonQueryAsync();
+
+				string sql = "SELECT name, is_public, created_by FROM maxhanna.chat_rooms WHERE chat_id = @ChatId LIMIT 1;";
+				using var cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+				using var reader = await cmd.ExecuteReaderAsync();
+				if (await reader.ReadAsync())
+				{
+					return Ok(new PublicChatInfo
+					{
+						ChatId = request.ChatId,
+						Name = reader.IsDBNull(0) ? "" : reader.GetString(0),
+						IsPublic = reader.IsDBNull(1) ? false : reader.GetBoolean(1),
+						CreatedBy = reader.IsDBNull(2) ? null : reader.GetInt32(2)
+					});
+				}
+				return Ok(new PublicChatInfo { ChatId = request.ChatId, Name = "", IsPublic = false });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred in GetChatRoom: " + ex.Message, request.ChatId, "CHAT", true);
+				return StatusCode(500, "Failed to get chat room.");
+			}
+			finally { conn.Close(); }
 		}
 
 		[HttpPost("/Chat/EditFiles", Name = "EditChatFiles")]
@@ -1241,6 +1495,98 @@ private static int GetInt32OrDefault(IDataRecord r, string name, int def = 0)
 private static bool IsDbNull(IDataRecord r, string name) =>
     r.IsDBNull(r.GetOrdinal(name));
 
+private async Task<bool> IsGlobalModeratorAsync(int userId)
+{
+  if (userId == 1) return true;
+  try
+  {
+    string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+    using var conn = new MySqlConnection(connStr);
+    await conn.OpenAsync();
+    string sql = "SELECT COUNT(*) FROM maxhanna.user_roles WHERE user_id = @UserId AND role = 'moderator';";
+    using var cmd = new MySqlCommand(sql, conn);
+    cmd.Parameters.AddWithValue("@UserId", userId);
+    return Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
+  }
+  catch { return false; }
+}
+
+private static readonly SemaphoreSlim _chatSitemapLock = new(1, 1);
+private async Task<int> CountChatMembersAsync(MySqlConnection conn, int chatId)
+{
+  // Membership is inferred from the receiver lists on messages; count distinct member ids.
+  string sql = @"
+    SELECT COUNT(DISTINCT CAST(TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(m.receiver, ',', n.n), ',', -1)) AS UNSIGNED)) AS member_count
+    FROM maxhanna.messages m
+    JOIN (SELECT 1 n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5
+          UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10
+          UNION ALL SELECT 11 UNION ALL SELECT 12 UNION ALL SELECT 13 UNION ALL SELECT 14 UNION ALL SELECT 15
+          UNION ALL SELECT 16 UNION ALL SELECT 17 UNION ALL SELECT 18 UNION ALL SELECT 19 UNION ALL SELECT 20
+          UNION ALL SELECT 21 UNION ALL SELECT 22 UNION ALL SELECT 23 UNION ALL SELECT 24 UNION ALL SELECT 25
+          UNION ALL SELECT 26 UNION ALL SELECT 27 UNION ALL SELECT 28 UNION ALL SELECT 29 UNION ALL SELECT 30
+          UNION ALL SELECT 31 UNION ALL SELECT 32 UNION ALL SELECT 33 UNION ALL SELECT 34 UNION ALL SELECT 35
+          UNION ALL SELECT 36 UNION ALL SELECT 37 UNION ALL SELECT 38 UNION ALL SELECT 39 UNION ALL SELECT 40) n
+    WHERE m.chat_id = @ChatId
+      AND n.n <= 1 + (LENGTH(m.receiver) - LENGTH(REPLACE(m.receiver, ',', '')))
+      AND CAST(TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(m.receiver, ',', n.n), ',', -1)) AS UNSIGNED) > 0;";
+  try
+  {
+    using var cmd = new MySqlCommand(sql, conn);
+    cmd.Parameters.AddWithValue("@ChatId", chatId);
+    var result = await cmd.ExecuteScalarAsync();
+    return result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
+  }
+  catch
+  {
+    return 0;
+  }
+}
+
+private async Task AppendChatToSitemapAsync(int chatId)
+{
+  string chatUrl = $"https://bughosted.com/Chat/{chatId}";
+  string lastMod = DateTime.UtcNow.ToString("yyyy-MM-dd");
+  string sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
+
+  await _chatSitemapLock.WaitAsync();
+  try
+  {
+    XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+    XDocument sitemap;
+
+    if (System.IO.File.Exists(sitemapPath))
+    {
+      sitemap = XDocument.Load(sitemapPath);
+      var existingUrl = sitemap.Descendants(ns + "loc")
+                               .FirstOrDefault(x => x.Value == chatUrl);
+      if (existingUrl != null)
+      {
+        existingUrl.Parent?.Element(ns + "lastmod")?.SetValue(lastMod);
+        sitemap.Save(sitemapPath);
+        return;
+      }
+    }
+    else
+    {
+      sitemap = new XDocument(new XElement(ns + "urlset"));
+    }
+
+    XElement newUrlElement = new XElement(ns + "url",
+        new XElement(ns + "loc", chatUrl),
+        new XElement(ns + "lastmod", lastMod),
+        new XElement(ns + "changefreq", "daily"),
+        new XElement(ns + "priority", "0.8")
+    );
+
+    sitemap?.Root?.Add(newUrlElement);
+    sitemap?.Save(sitemapPath);
+  }
+  finally
+  {
+    _chatSitemapLock.Release();
+  }
+}
+
 	}
 }
 
@@ -1274,4 +1620,33 @@ private static bool IsDbNull(IDataRecord r, string name) =>
 			public int? UserId { get; set; }
 			public int MessageId { get; set; }
 			public List<FileEntry>? Files { get; set; }
+		}
+		public class MakeChatPublicRequest
+		{
+			public int ChatId { get; set; }
+			public string? Name { get; set; }
+			public int UserId { get; set; }
+		}
+		public class SearchPublicChatsRequest
+		{
+			public string? Search { get; set; }
+			public int UserId { get; set; }
+		}
+		public class JoinPublicChatRequest
+		{
+			public int ChatId { get; set; }
+			public int UserId { get; set; }
+		}
+		public class GetChatRoomRequest
+		{
+			public int ChatId { get; set; }
+		}
+		public class PublicChatInfo
+		{
+			public int ChatId { get; set; }
+			public string Name { get; set; } = "";
+			public bool IsPublic { get; set; }
+			public int MemberCount { get; set; }
+			public int? CreatedBy { get; set; }
+			public DateTime? CreatedAt { get; set; }
 		}

@@ -1804,7 +1804,7 @@ export class DigCraftRenderer {
             if (blockId === BlockId.TALLGRASS || blockId === BlockId.SEAWEED) {
               const bxc = ox + x + 0.5, bzc = oz + z + 0.5, byc = y;
               const isSea = blockId === BlockId.SEAWEED;
-              const baseG = isSea ? 0.35 : 0.22, baseR = isSea ? 0.20 : 0.18, baseB = isSea ? 0.25 : 0.08;
+              const baseG = isSea ? 0.35 : 0.35, baseR = isSea ? 0.20 : 0.22, baseB = isSea ? 0.25 : 0.12;
               const pushCube = (cx: number, cy: number, cz: number, s: number, col: number[], bright: number, soff: number) => {
                 const hs = s / 2;
                 const fcs = [
@@ -1828,19 +1828,43 @@ export class DigCraftRenderer {
                 }
               };
               const cubeS = 0.10;
-              for (let bi = 0; bi < 4; bi++) {
-                const seed = ((x * 73856093 + z * 19349663 + y * 83492791 + bi * 374761393) >>> 0);
-                const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
-                const angle = bi * Math.PI / 2 + 0.35;
-                const dist = 0.02 + rnd * 0.06;
-                const stackH = 3 + ((x * 3 + z * 7 + y * 11 + bi * 5) % 3);
-                const cx = bxc + Math.cos(angle) * dist;
-                const cz = bzc + Math.sin(angle) * dist;
-                for (let si = 0; si < stackH; si++) {
-                  const t = si / stackH;
-                  const shade = 0.6 + t * 0.5;
-                  const c = [baseR * shade * (0.9 + rnd * 0.1), baseG * shade * (0.9 + rnd * 0.1), baseB * shade * (0.9 + rnd * 0.1)];
-                  pushCube(cx, byc + cubeS * 0.5 + si * cubeS * 0.7, cz, cubeS * (1 - t * 0.3), c, 0.7 + rnd * 0.2, bi * 100 + si);
+              if (isSea) {
+                // SEAWEED: sparse underwater blades
+                for (let bi = 0; bi < 4; bi++) {
+                  const seed = ((x * 73856093 + z * 19349663 + y * 83492791 + bi * 374761393) >>> 0);
+                  const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                  const angle = bi * Math.PI / 2 + 0.35;
+                  const dist = 0.02 + rnd * 0.06;
+                  const stackH = 3 + ((x * 3 + z * 7 + y * 11 + bi * 5) % 3);
+                  const cx = bxc + Math.cos(angle) * dist;
+                  const cz = bzc + Math.sin(angle) * dist;
+                  for (let si = 0; si < stackH; si++) {
+                    const t = si / stackH;
+                    const shade = 0.6 + t * 0.5;
+                    const c = [baseR * shade * (0.9 + rnd * 0.1), baseG * shade * (0.9 + rnd * 0.1), baseB * shade * (0.9 + rnd * 0.1)];
+                    pushCube(cx, byc + cubeS * 0.5 + si * cubeS * 0.7, cz, cubeS * (1 - t * 0.3), c, 0.7 + rnd * 0.2, bi * 100 + si);
+                  }
+                }
+              } else {
+                // TALLGRASS: dense grassy covering across the whole block footprint
+                const grid = this.lowEndMode ? 3 : 5;
+                for (let gx = 0; gx < grid; gx++) {
+                  for (let gz = 0; gz < grid; gz++) {
+                    const seed = ((x * 73856093 + z * 19349663 + y * 83492791 + gx * 17 + gz * 23) >>> 0);
+                    const rnd = (((seed * 1103515245 + 12345) >>> 0) % 1000) / 1000;
+                    const jx = (gx + 0.15 + rnd * 0.7) / grid;
+                    const jz = (gz + 0.15 + (((seed >>> 4) % 700) / 1000) * 0.7) / grid;
+                    const cx = bxc - 0.5 + jx;
+                    const cz = bzc - 0.5 + jz;
+                    const stackH = 4 + ((x * 3 + z * 7 + y * 11 + gx * 5 + gz * 3) % 3);
+                    const lean = (rnd - 0.5) * 0.12;
+                    for (let si = 0; si < stackH; si++) {
+                      const t = si / stackH;
+                      const shade = 0.5 + t * 0.6;
+                      const c = [baseR * shade * (0.9 + rnd * 0.1), baseG * shade * (0.9 + rnd * 0.1), baseB * shade * (0.9 + rnd * 0.1)];
+                      pushCube(cx + lean * t, byc + cubeS * 0.5 + si * cubeS * 0.9, cz + lean * t, cubeS * (1 - t * 0.35), c, 0.75 + rnd * 0.2, gx * 100 + gz * 10 + si);
+                    }
+                  }
                 }
               }
               continue;

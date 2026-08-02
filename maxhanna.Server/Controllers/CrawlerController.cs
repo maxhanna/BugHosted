@@ -22,6 +22,38 @@ namespace maxhanna.Server.Controllers
       "this","to","was","were","will","with","you","your"
     };
 
+    // SerpAPI dedup cache: keeps a small in-memory list of recently checked (source, keyword)
+    // pairs so the same search isn't fired in rapid succession. The list is cleared whenever a
+    // SerpAPI search happens more than 5 minutes after the previous one; otherwise it persists
+    // and duplicate lookups within the window are skipped.
+    private static readonly object _serpApiDedupeLock = new();
+    private static DateTime _lastSerpApiSearchUtc = DateTime.MinValue;
+    private static readonly HashSet<string> _recentSerpApiLookups = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly TimeSpan SerpApiDedupeWindow = TimeSpan.FromMinutes(5);
+
+    private bool IsSerpApiLookupDuplicate(string source, string keyword)
+    {
+      lock (_serpApiDedupeLock)
+      {
+        var now = DateTime.UtcNow;
+        // A search arriving more than 5 minutes after the last one starts a fresh window.
+        if (now - _lastSerpApiSearchUtc > SerpApiDedupeWindow)
+        {
+          _recentSerpApiLookups.Clear();
+        }
+
+        var key = source + "|" + (keyword ?? "").Trim().ToLowerInvariant();
+        if (_recentSerpApiLookups.Contains(key))
+        {
+          return true; // already checked recently — skip the HTTP call
+        }
+
+        _recentSerpApiLookups.Add(key);
+        _lastSerpApiSearchUtc = now;
+        return false;
+      }
+    }
+
     public CrawlerController(Log log, IConfiguration config, WebCrawler webCrawler)
     {
       _log = log;
@@ -926,6 +958,11 @@ namespace maxhanna.Server.Controllers
 
         if (!string.IsNullOrWhiteSpace(apiKey) && provider.Equals("serpapi", StringComparison.OrdinalIgnoreCase))
         {
+          if (IsSerpApiLookupDuplicate("reddit", keyword))
+          {
+            _ = _log.Db($"[Search Debug] Skipping duplicate SerpAPI (Reddit-only) lookup for keyword '{keyword}'", null, "CRAWLERCTRL", true);
+            return results;
+          }
           using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
 
           // 🔎 Restrict Google to Reddit via site: operator + include_domains
@@ -1007,6 +1044,11 @@ namespace maxhanna.Server.Controllers
 
         if (!string.IsNullOrWhiteSpace(apiKey) && provider.Equals("serpapi", StringComparison.OrdinalIgnoreCase))
         {
+          if (IsSerpApiLookupDuplicate("imdb", keyword))
+          {
+            _ = _log.Db($"[IMDb Search Debug] Skipping duplicate SerpAPI (IMDb-only) lookup for keyword '{keyword}'", null, "CRAWLERCTRL", true);
+            return results;
+          }
           using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(1) };
 
           // 🔎 Restrict Google to IMDB via site: operator + include_domains
@@ -1089,6 +1131,11 @@ namespace maxhanna.Server.Controllers
 
         if (!string.IsNullOrWhiteSpace(apiKey) && provider.Equals("serpapi", StringComparison.OrdinalIgnoreCase))
         {
+          if (IsSerpApiLookupDuplicate("x", keyword))
+          {
+            _ = _log.Db($"[Search Debug] Skipping duplicate SerpAPI (X/Twitter/t.co) lookup for keyword '{keyword}'", null, "CRAWLERCTRL", true);
+            return results;
+          }
           using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
 
           // 🔎 Restrict Google to X/Twitter domains via site: operator + include_domains.

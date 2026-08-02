@@ -4,6 +4,7 @@ import { User } from './datacontracts/user/user';
 import { FileEntry } from './datacontracts/file/file-entry';
 import { Message } from './datacontracts/chat/message'; 
 import { GetChatThemeResponse, SetChatThemeRequest } from './datacontracts/chat/chat-theme';
+import { PublicChatInfo } from './datacontracts/moderator/moderator';
 
 @Injectable({
   providedIn: 'root'
@@ -183,6 +184,60 @@ export class ChatService {
       return null;
     }
   }
+  async makeChatPublic(chatId: number, name: string, userId: number): Promise<boolean> {
+    try {
+      const response = await fetch(`/chat/makepublic`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ChatId: chatId, Name: name, UserId: userId }),
+      });
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  async searchPublicChats(search: string, userId: number): Promise<PublicChatInfo[]> {
+    try {
+      const response = await fetch(`/chat/searchpublic`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Search: search, UserId: userId }),
+      });
+      if (!response.ok) return [];
+      return await response.json() as PublicChatInfo[];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  async joinPublicChat(chatId: number, userId: number): Promise<boolean> {
+    try {
+      const response = await fetch(`/chat/joinpublic`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ChatId: chatId, UserId: userId }),
+      });
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  async getChatRoom(chatId: number): Promise<PublicChatInfo | null> {
+    try {
+      const response = await fetch(`/chat/getchatroom`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ChatId: chatId }),
+      });
+      if (!response.ok) return null;
+      return await response.json() as PublicChatInfo;
+    } catch (error) {
+      return null;
+    }
+  }
+
   getCommaSeparatedGroupChatUserNames(users: User | User[], currentUser?: User, includeCurrentUser: boolean = false): string {
     let userArray: User[];
 

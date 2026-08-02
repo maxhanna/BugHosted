@@ -1,4 +1,4 @@
-﻿<div class="componentMain">
+<div class="componentMain">
   <app-title-bar [title]="'Moderator'" (closeClicked)="remove_me('ModeratorComponent')"></app-title-bar>
 
   <div *ngIf="!parentRef?.user" class="smallFont">You must be logged in to access this panel.</div>
@@ -7,7 +7,7 @@
   </div>
 
   <div *ngIf="parentRef?.user && isModerator">
-    <button (click)="toggleUserList()" [disabled]="modActionLoading" *ngIf="!showUserList">Add Moderators</button>
+    <button (click)="toggleUserList()" [disabled]="modActionLoading" *ngIf="!showUserList">Add Moderator / Role</button>
 
     <div *ngIf="showUserList" class="userSearchDiv">
       <app-user-list [selectionMode]="true" [inputtedParentRef]="parentRef" [openDirectlyToSearch]="true"
@@ -16,8 +16,26 @@
       </app-user-list>
       <div *ngIf="selectedUsers.length > 0" style="margin-top: 10px;">
         <strong>{{ selectedUsers.length }} user(s) selected</strong>
+        <div style="margin-top: 6px;">
+          <label>Role: </label>
+          <select [(ngModel)]="selectedRole" (change)="onRoleSelectionChange()">
+            <option *ngFor="let r of roleCatalog" [value]="r.role">{{ r.label }} — {{ r.description }}</option>
+          </select>
+        </div>
+        <div *ngIf="selectedTargetType === 'chat'" style="margin-top: 6px;">
+          <label>Chat: </label>
+          <select [(ngModel)]="selectedTargetId">
+            <option *ngFor="let c of chatTargets" [value]="c.id">{{ c.name }}</option>
+          </select>
+        </div>
+        <div *ngIf="selectedTargetType === 'topic'" style="margin-top: 6px;">
+          <label>Topic: </label>
+          <select [(ngModel)]="selectedTargetId">
+            <option *ngFor="let t of topicTargets" [value]="t.id">{{ t.name }}</option>
+          </select>
+        </div>
         <button (click)="addModerators()" [disabled]="modActionLoading" style="margin-left: 10px;">
-          {{ modActionLoading ? 'Saving...' : 'Designate as Moderator' }}
+          {{ modActionLoading ? 'Saving...' : 'Assign Role' }}
         </button>
       </div>
     </div>
@@ -30,21 +48,61 @@
           <tr>
             <th (click)="sortTable($event)">ID</th>
             <th (click)="sortTable($event)">Username</th>
+            <th>Roles</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let m of moderators">
-            <td>{{ m.id }}</td>
+          <tr *ngFor="let m of moderators" (click)="toggleExpand(m.user?.id ?? 0)" style="cursor: pointer;">
+            <td>{{ m.user?.id }}</td>
             <td>
-              <app-user-tag [user]="m" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+              <app-user-tag [user]="m.user" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+              <span class="smallFont" style="margin-left:6px;">{{ isExpanded(m.user?.id ?? 0) ? '▾' : '▸' }}</span>
             </td>
-            <td>
-              <button *ngIf="m.id !== 1" (click)="removeModerator(m)" [disabled]="modActionLoading" style="color:red;">
+            <td class="smallFont">{{ roleChips(m) }}</td>
+            <td (click)="$event.stopPropagation();">
+              <button *ngIf="m.user?.id !== 1" (click)="removeModerator(m.user!)" [disabled]="modActionLoading" style="color:red;">
                 Remove
               </button>
-              <span *ngIf="m.id === 1" class="smallFont">(Owner)</span>
+              <span *ngIf="m.user?.id === 1" class="smallFont">(Owner)</span>
             </td>
+          </tr>
+          <ng-container *ngFor="let m of moderators">
+            <tr *ngIf="isExpanded(m.user?.id ?? 0)">
+              <td colspan="4" style="padding: 8px 16px;">
+                <div class="moderatorRolesBox">
+                  <strong>Roles:</strong>
+                  <div *ngIf="!m.roles || m.roles.length === 0" class="smallFont">No roles assigned.</div>
+                  <div *ngFor="let r of m.roles" class="moderatorRoleChip">
+                    <span>{{ formatRole(r) }}</span>
+                    <button *ngIf="m.user?.id !== 1" (click)="removeRole(m.user!, r)" [disabled]="modActionLoading"
+                      title="Remove role" style="margin-left:8px; color:red; cursor:pointer;">✕</button>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </ng-container>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 style="margin-top: 30px;">Moderator Logs</h2>
+    <div *ngIf="logsLoading" class="smallFont">Loading...</div>
+    <div *ngIf="!logsLoading && modLogs.length === 0" class="smallFont">No moderator actions logged yet.</div>
+    <div *ngIf="!logsLoading && modLogs.length > 0" class="currentModeratorTable">
+      <table class="contentTable">
+        <thead>
+          <tr>
+            <th (click)="sortTable($event)">ID</th>
+            <th (click)="sortTable($event)">Timestamp</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let log of modLogs">
+            <td>{{ log.id }}</td>
+            <td>{{ log.timestampUtc | date:'y/MM/d HH:mm:ss' }}</td>
+            <td class="smallFont">{{ log.comment }}</td>
           </tr>
         </tbody>
       </table>

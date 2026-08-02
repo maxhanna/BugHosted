@@ -57,6 +57,29 @@
 }
 
 .race-title {
+  position: relative;
+  display: inline-block;
+  margin: 0;
+  filter: drop-shadow(0 0 30px rgba(229, 57, 53, 0.4));
+  user-select: none;
+}
+
+.race-title-emoji {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -56%) rotate(-8deg);
+  font-size: clamp(120px, 20vw, 220px);
+  line-height: 1;
+  opacity: 0.28;
+  filter: saturate(1.25) drop-shadow(0 0 26px rgba(255, 111, 0, 0.55));
+  pointer-events: none;
+  z-index: 0;
+}
+
+.race-title-text {
+  position: relative;
+  z-index: 1;
   font-size: 56px;
   font-weight: 900;
   background: linear-gradient(135deg, #e53935, #ff6f00, #e53935);
@@ -64,9 +87,7 @@
   -webkit-text-fill-color: transparent;
   letter-spacing: 8px;
   text-transform: uppercase;
-  margin: 0;
   text-shadow: none;
-  filter: drop-shadow(0 0 30px rgba(229, 57, 53, 0.4));
 }
 
 .race-subtitle {

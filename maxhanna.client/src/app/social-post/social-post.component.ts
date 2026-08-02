@@ -17,6 +17,7 @@ import { TextToSpeechService } from '../../services/text-to-speech.service';
 import { CurrencyFlagPipe } from '../currency-flag.pipe';
 import { PollService } from '../../services/poll.service';
 import { FollowService } from '../../services/follow.service';
+import { ModeratorService } from '../../services/moderator.service';
 
 @Component({
   selector: 'app-social-post',
@@ -39,6 +40,7 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
   userProfileId?: number = undefined;
   expanded: string[] = [];
   minimizedStories: number[] = [];
+  moderatedTopicIds: number[] = [];
   private overflowCache: Record<string, boolean> = {};
 
   @Input() socialId?: number;
@@ -66,7 +68,8 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
     private cd: ChangeDetectorRef,
     private currencyFlagPipe: CurrencyFlagPipe,
     private pollService: PollService,
-    private followService: FollowService
+    private followService: FollowService,
+    private moderatorService: ModeratorService
   ) {
     super();
   }
@@ -92,6 +95,27 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
     }
     // Reload minimized state after the story is known (fetch path sets it after ngOnInit).
     this.loadMinimizedStories();
+    await this.loadMyModerationRoles();
+  }
+
+  /** Load the current user's scoped moderator roles (topic moderators can edit/delete posts in their topics). */
+  private async loadMyModerationRoles() {
+    const user = this.parentRef?.user ?? this.inputtedParentRef?.user;
+    if (!user?.id) return;
+    const sessionToken = await (this.parentRef ?? this.inputtedParentRef)?.getSessionToken() ?? '';
+    const roles = await this.moderatorService.getMyRoles(user.id, sessionToken);
+    this.moderatedTopicIds = roles
+      .filter(r => r.role === 'topic_moderator' && r.targetType === 'topic' && r.targetId)
+      .map(r => r.targetId!);
+  }
+
+  /** True when the current user may moderate this post (owner, admin, or topic moderator of any attached topic). */
+  canModerateStory(story?: Story): boolean {
+    const currentUserId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id;
+    if (!currentUserId || !story) return false;
+    if (story.user?.id === currentUserId || currentUserId === 1) return true;
+    if (this.moderatedTopicIds.length === 0) return false;
+    return (story.storyTopics ?? []).some(t => this.moderatedTopicIds.includes(t.id));
   }
 
   private async fetchStory() {

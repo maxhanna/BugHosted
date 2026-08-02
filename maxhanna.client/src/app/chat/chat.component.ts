@@ -38,6 +38,15 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   totalPagesArray: number[] = [];
   isDisplayingChatMembersPanel = false;
   isMenuPanelOpen = false;
+  // Public chat features
+  isMakingChatPublic = false;
+  newChatName = '';
+  currentChatRoomName = '';
+  currentChatIsPublic = false;
+  publicChatSearch = '';
+  publicChatResults: any[] = [];
+  isSearchingPublicChats = false;
+  isJoiningPublicChat = false;
   showUserList = true;
   currentChatTheme: string = '';
   currentChatUserThemeId: number | null = null;
@@ -627,6 +636,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       if (!this.currentChatId && message0.chatId) {
         this.currentChatId = message0.chatId;
       }
+      this.refreshChatRoomInfo();
     }
 
     setTimeout(() => {
@@ -689,6 +699,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.hasManuallyScrolled = false;
     this.currentChatUsers = undefined;
     this.chatHistory = [];
+    this.currentChatRoomName = '';
+    this.currentChatIsPublic = false;
     this.pageNumber = 0;
     this.totalPages = 0;
     this.totalPagesArray = new Array<number>();
@@ -970,6 +982,68 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.isMenuPanelOpen = false;
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
+  }
+
+  async makeChatPublic() {
+    const userId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id;
+    if (!userId || !this.currentChatId) {
+      this.parentRef?.showNotification('Open a chat first to make it public.');
+      return;
+    }
+    if (!this.newChatName.trim()) {
+      this.parentRef?.showNotification('Please name the public chat.');
+      return;
+    }
+    this.isMakingChatPublic = true;
+    const ok = await this.chatService.makeChatPublic(this.currentChatId, this.newChatName.trim(), userId);
+    this.isMakingChatPublic = false;
+    if (ok) {
+      this.currentChatIsPublic = true;
+      this.currentChatRoomName = this.newChatName.trim();
+      this.parentRef?.showNotification('Chat is now public! Members were promoted to chat moderators.');
+    } else {
+      this.parentRef?.showNotification('Failed to make the chat public. Are you a moderator?');
+    }
+  }
+
+  async searchPublicChats() {
+    const userId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id;
+    if (!userId) return;
+    this.isSearchingPublicChats = true;
+    this.publicChatResults = await this.chatService.searchPublicChats(this.publicChatSearch.trim(), userId);
+    this.isSearchingPublicChats = false;
+  }
+
+  async joinPublicChat(chatId: number) {
+    const userId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id;
+    if (!userId) return;
+    this.isJoiningPublicChat = true;
+    const ok = await this.chatService.joinPublicChat(chatId, userId);
+    this.isJoiningPublicChat = false;
+    if (ok) {
+      this.parentRef?.showNotification('Joined the public chat!');
+      // Load the chat users and open it
+      const users = await this.chatService.getChatUsersByChatId(chatId);
+      if (users && users.length > 0) {
+        this.closeMenuPanel();
+        await this.openChat(users);
+      }
+    } else {
+      this.parentRef?.showNotification('Failed to join the public chat.');
+    }
+  }
+
+  async refreshChatRoomInfo() {
+    if (!this.currentChatId) {
+      this.currentChatRoomName = '';
+      this.currentChatIsPublic = false;
+      return;
+    }
+    const room = await this.chatService.getChatRoom(this.currentChatId);
+    if (room) {
+      this.currentChatIsPublic = !!room.isPublic;
+      this.currentChatRoomName = room.name || '';
+    }
   }
 
 

@@ -213,6 +213,40 @@
         <button (click)="displayChatMembers()">Display</button>
       </div>
     </div>
+    <div class="optionsStatsDiv" *ngIf="!showUserList && currentChatId">
+      <div class="optionsStatsHeader">
+        Public Chat:
+        <span *ngIf="currentChatIsPublic" style="color:var(--main-highlight-color);">🌐 {{ currentChatRoomName }}</span>
+      </div>
+      <div class="optionsStatsDescription" *ngIf="!currentChatIsPublic">
+        <input [(ngModel)]="newChatName" placeholder="Chat name" style="width:100%; margin-bottom:4px;">
+        <button (click)="makeChatPublic()" [disabled]="isMakingChatPublic || !newChatName.trim()">
+          {{ isMakingChatPublic ? 'Making public...' : 'Make Public' }}
+        </button>
+        <div class="smallFont thirdFontColor">Making a chat public lets anyone search &amp; join it, and promotes existing members to chat moderators.</div>
+      </div>
+      <div class="optionsStatsDescription" *ngIf="currentChatIsPublic">
+        <span class="smallFont thirdFontColor">This chat is public — anyone can find and join it.</span>
+      </div>
+    </div>
+    <div class="optionsStatsDiv">
+      <div class="optionsStatsHeader">Join Public Chat:</div>
+      <div class="optionsStatsDescription">
+        <input [(ngModel)]="publicChatSearch" placeholder="Search public chats..." style="width:100%; margin-bottom:4px;" (keyup.enter)="searchPublicChats()">
+        <button (click)="searchPublicChats()" [disabled]="isSearchingPublicChats">
+          {{ isSearchingPublicChats ? 'Searching...' : 'Search' }}
+        </button>
+        <div *ngIf="publicChatResults.length > 0" style="margin-top:8px; max-height: 180px; overflow:auto;">
+          <div *ngFor="let chat of publicChatResults" style="margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+            <span>🌐 {{ chat.name }} <span class="smallFont">({{ chat.memberCount }} members)</span></span>
+            <button (click)="joinPublicChat(chat.chatId)" [disabled]="isJoiningPublicChat" style="margin-left:8px;">Join</button>
+          </div>
+        </div>
+        <div *ngIf="!isSearchingPublicChats && publicChatSearch && publicChatResults.length === 0" class="smallFont thirdFontColor" style="margin-top:4px;">
+          No public chats found.
+        </div>
+      </div>
+    </div>
   </div>
   <div class="smallFont thirdFontColor">
     Note: Chat messages are end-to-end encrypted with quantum-resistant encryption. We take your privacy seriously. That

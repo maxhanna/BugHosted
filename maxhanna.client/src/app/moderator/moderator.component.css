@@ -25,3 +25,22 @@
   max-width: 100dvw;
   overflow: auto;
 }
+
+.moderatorRolesBox {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.moderatorRoleChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--gradient-background);
+  border: 1px solid var(--main-highlight-color);
+  border-radius: 12px;
+  padding: 3px 10px;
+  font-size: 12px;
+  margin: 2px 4px 2px 0;
+}

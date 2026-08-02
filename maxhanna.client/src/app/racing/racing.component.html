@@ -20,7 +20,10 @@
 
     <!-- ─── Menu ─── -->
     <div id="race-menu" *ngIf="gameState === 'menu'">
-      <h1 class="race-title">GRAND PRIX</h1>
+      <h1 class="race-title">
+        <span class="race-title-emoji" aria-hidden="true">🏎️</span>
+        <span class="race-title-text">GRAND PRIX</span>
+      </h1>
       <div class="race-subtitle">Grand Prix Championship</div>
       <div class="race-player-info">
         <span>${{ playerCar.money }}</span>
