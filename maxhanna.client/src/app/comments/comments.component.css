@@ -379,6 +379,7 @@
   font-weight: bold;
   margin-bottom: 4px;
   color: var(--main-font-color);
+  background: var(--gradient-background);
 }
 
 .breadcrumb-comment-text {
