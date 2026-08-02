@@ -8,6 +8,23 @@ input {
     border-radius: 2px;
 }
 
+/* Resizable textarea grip — make the drag-to-resize knob stand out */
+textarea::-webkit-resizer {
+    background:
+        linear-gradient(135deg, transparent 0%, transparent 30%, #ffc107 30%, #ffc107 42%, transparent 42%),
+        linear-gradient(135deg, transparent 0%, transparent 58%, #ffc107 58%, #ffc107 70%, transparent 70%);
+    border-radius: 0 3px 3px 0;
+    transition: filter 0.15s ease;
+}
+
+textarea:hover::-webkit-resizer,
+textarea:focus::-webkit-resizer {
+    background:
+        linear-gradient(135deg, transparent 0%, transparent 30%, #ffd54a 30%, #ffd54a 42%, transparent 42%),
+        linear-gradient(135deg, transparent 0%, transparent 58%, #ffd54a 58%, #ffd54a 70%, transparent 70%);
+    filter: drop-shadow(0 0 4px rgba(255, 193, 7, 0.7));
+}
+
 .topicsGrid {
     display: flex;
     flex-wrap: wrap;

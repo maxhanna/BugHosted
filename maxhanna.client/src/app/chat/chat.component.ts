@@ -807,12 +807,13 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     else return "";
   }
 
-  /** Build an @username title for the title bar, e.g. '@john, @jane, @bob' */
+  /** Static title prefix — the clickable @usernames are rendered as links in
+   *  the title bar itself (via [titleUsers]), not as plain text here. */
   getChatUserMentions(): string {
     if (!this.currentChatUsers) return 'Chat';
     const others = this.getChatUsersWithoutSelf();
     if (!others || others.length === 0) return 'Chat';
-    return 'Chat with ' + others.map(u => '@' + u.username).join(', ');
+    return 'Chat with';
   }
 
   /** Open a user profile component for the given user — delegates to the base class */

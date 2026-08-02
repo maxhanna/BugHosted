@@ -1,6 +1,8 @@
 <div class="componentMain">
   <app-title-bar
     [title]="getChatUserMentions()"
+    [titleUsers]="getChatUsersWithoutSelf()"
+    (titleUserClicked)="viewProfile($event, 'Chat')"
     [inputtedParentRef]="parentRef"
     [showTitle]="true"
     [hasMenu]="true"
@@ -10,13 +12,6 @@
     (closeClicked)="remove_me('ChatComponent');"
     (backClicked)="closeChat()">
   </app-title-bar>
-  <!-- Clickable @username list — opens the user's profile on click -->
-  <div class="chatUserMentions" *ngIf="currentChatUsers">
-    <span *ngFor="let user of getChatUsersWithoutSelf(); let i = index">
-      <span *ngIf="i > 0">, </span>
-      <span class="cursorPointer" (click)="viewProfile(user, 'Chat')" title="View user profile" [textContent]="'@' + user.username"></span>
-    </span>
-  </div>
 
   <app-user-list 
     (userClickEvent)="singleUserSelected($event);" 

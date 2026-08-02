@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
 import { AppComponent } from '../app.component';
+import { User } from '../../services/datacontracts/user/user';
 
 @Component({
   selector: 'app-title-bar',
@@ -26,6 +27,11 @@ export class TitleBarComponent implements OnInit, OnChanges {
   @Input() hasRefresh: boolean = false;
   @Input() showRefresh?: boolean;
   @Input() font?: string;
+  // Optional clickable @user tags appended to the title (e.g. chat partners).
+  // When provided, the title text is the static prefix and each user renders as
+  // a clickable @name link in the title bar itself.
+  @Input() titleUsers?: User[];
+  @Output() titleUserClicked = new EventEmitter<User>();
   @Output() closeClicked = new EventEmitter<any>();
   @Output() menuClicked = new EventEmitter<any>();
   @Output() helpClicked = new EventEmitter<any>();

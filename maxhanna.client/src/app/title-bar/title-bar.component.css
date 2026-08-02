@@ -15,6 +15,17 @@
     src: url("../../assets/bones/OwreKynge.ttf")
 }
 .titleSpan { display: block; overflow: hidden; text-overflow: ellipsis; } 
+.titleUserLink {
+  cursor: pointer;
+  color: #8ab4ff;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s ease;
+}
+.titleUserLink:hover {
+  color: #fff;
+  text-shadow: 0 0 8px rgba(138, 180, 255, 0.6);
+}
 .sizeOf0 { width: calc(100% - 50px); }
 .sizeOf1 { width: calc(100% - 100px); }
 .sizeOf2 { width: calc(100% - 150px); }
