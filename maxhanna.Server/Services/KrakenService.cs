@@ -2091,7 +2091,7 @@ public class KrakenService
   }
 
 
-  private async Task CreateTradeHistory(decimal currentCoinPriceInCAD, decimal currentCoinPriceInUSDC, string amount, int userId,
+  private async Task<int?> CreateTradeHistory(decimal currentCoinPriceInCAD, decimal currentCoinPriceInUSDC, string amount, int userId,
     string from, string to, decimal coinBalance, decimal usdcBalance, string strategy, int? matchingTradeId,
     List<TradeRecord>? matchingTradeRecords, bool isReserved)
   {
@@ -2099,14 +2099,14 @@ public class KrakenService
     if (string.IsNullOrEmpty(from) || string.IsNullOrEmpty(to) || string.IsNullOrEmpty(amount) || string.IsNullOrEmpty(strategy))
     {
       _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Invalid input parameters: from={from}, to={to}, amount={amount}, strategy={strategy}", userId, "TRADE", viewDebugLogs);
-      return;
+      return null;
     }
 
     // Validate configuration
     if (_config == null || string.IsNullOrEmpty(_config.GetValue<string>("ConnectionStrings:maxhanna")))
     {
       _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Configuration or connection string is missing.", userId, "TRADE", viewDebugLogs);
-      return;
+      return null;
     }
 
     // Round CoinValueCad to 2 decimal places if from or to is BTC or XBT
@@ -2209,19 +2209,23 @@ public class KrakenService
           ? $"Bought {amount} {to}"
           : $"Sold {amount} {from}";
         await UserEventController.InsertUserEventStatic(userId, "trade_executed", eventText, newId, "trade_history", _config, _log);
+        return newId;
       }
       else
       {
         _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Failed to retrieve new trade ID, pair {from}/{to}.", userId, "TRADE", viewDebugLogs);
+        return null;
       }
     }
     catch (MySqlException ex)
     {
       _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Database error creating trade history, pair {from}/{to}: {ex.Message}", userId, "TRADE", viewDebugLogs);
+      return null;
     }
     catch (Exception ex)
     {
       _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Unexpected error creating trade history, pair {from}/{to}: {ex.Message}", userId, "TRADE", viewDebugLogs);
+      return null;
     }
   }
 
@@ -2258,6 +2262,22 @@ public class KrakenService
     createNotificationCmd.Parameters.AddWithValue("@Content", notification);
     await createNotificationCmd.ExecuteNonQueryAsync();
     _ = _firebaseNotificationService.SendFirebaseNotification(userId, notification);
+  }
+
+  /// <summary>
+  /// Best-effort notification: never lets a notification/Db failure abort trade bookkeeping
+  /// (e.g. closing the remaining expired trades in a TTL batch).
+  /// </summary>
+  private async Task SafeNotifyUser(string notification, int userId, MySqlConnection conn, string coin, string strategy)
+  {
+    try
+    {
+      await NotifyUser(notification, userId, conn);
+    }
+    catch (Exception ex)
+    {
+      _ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️Failed to send force-close notification: " + ex.Message, userId, "TRADE", viewErrorDebugLogs);
+    }
   }
 
   private async Task CreateWalletEntriesFromFetchedDictionary(Dictionary<string, decimal>? balanceDictionary, int userId)
@@ -4787,38 +4807,131 @@ ON DUPLICATE KEY UPDATE
       decimal coinBalance = GetCoinBalanceFromDictionaryAndKey(balances, coin);
       decimal usdcBalance = GetCoinBalanceFromDictionaryAndKey(balances, "USDC");
 
-      int soldCount = 0;
-      decimal cumulativeSold = 0;
+      // BULK TTL SELL: sum up every expired trade that fits within the wallet balance,
+      // execute ONE real order for the combined value, then log a separate sell row per
+      // trade (self-matched) so the books look exactly like the old per-trade selling.
+      decimal totalSellValue = 0m;
+      var sellableTrades = new List<(int id, decimal value)>();
       foreach (var trade in expiredTrades)
       {
-        decimal remainingBalance = coinBalance - cumulativeSold;
+        decimal remainingBalance = coinBalance - totalSellValue;
         if (trade.value > remainingBalance)
         {
-          _ = _log.Db($"({coin}:{userId}:{strategy}) TTL sell of trade #{trade.id} ({FormatBTC(trade.value)}) exceeds remaining balance ({FormatBTC(remainingBalance)}). Skipping.", userId, "TRADE", viewDebugLogs);
+          // Can't sell what isn't in the wallet — mark the trade as closed (matching_trade_id = itself)
+          // so it stops being retried as an expired buy every TTL cycle.
+          _ = _log.Db($"({coin}:{userId}:{strategy}) TTL sell of trade #{trade.id} ({FormatBTC(trade.value)}) exceeds remaining balance ({FormatBTC(remainingBalance)}). Closing trade as invalid.", userId, "TRADE", viewDebugLogs);
+          const string closeSql = @"
+            UPDATE trade_history
+            SET matching_trade_id = id
+            WHERE id = @TradeId AND matching_trade_id IS NULL;";
+          await using var closeCmd = new MySqlCommand(closeSql, conn);
+          closeCmd.Parameters.AddWithValue("@TradeId", trade.id);
+          await closeCmd.ExecuteNonQueryAsync();
+          // Let the user know the trade was invalidated so they can investigate the wallet.
+          string coinDisplay = CoinNameMap.TryGetValue(coin, out var coinName) ? coinName : coin;
+          await SafeNotifyUser($"TTL sell of trade #{trade.id} ({FormatBTC(trade.value)} {coinDisplay}) was force-closed: it exceeds your remaining balance ({FormatBTC(remainingBalance)} {coinDisplay}). Trade marked as invalid — please check your wallet balance.", userId, conn, coin, strategy);
           continue;
         }
 
-        if (trade.value < _MinimumBTCTradeAmount)
-        {
-          _ = _log.Db($"({coin}:{userId}:{strategy}) TTL sell of trade #{trade.id} ({FormatBTC(trade.value)}) below minimum ({FormatBTC(_MinimumBTCTradeAmount)}). Skipping.", userId, "TRADE", viewDebugLogs);
-          continue;
-        }
-
-        _ = _log.Db($"({coin}:{userId}:{strategy}) TTL auto-selling trade #{trade.id}: {FormatBTC(trade.value)} {coin} at {coinPriceUSDC.Value:F2} USDC.", userId, "TRADE", viewDebugLogs);
-        await ExecuteTrade(userId, coin, keys, FormatBTC(trade.value), "sell",
-          coinBalance - cumulativeSold, usdcBalance + (cumulativeSold * coinPriceUSDC.Value),
-          coinPriceCAD.Value, coinPriceUSDC.Value, strategy, null,
-          new List<TradeRecord> { new TradeRecord { id = trade.id, from_currency = coin, to_currency = "USDC", value = (float)trade.value } });
-        cumulativeSold += trade.value;
-        soldCount++;
+        // Include below-minimum trades in the bulk — the combined order clears the minimum.
+        sellableTrades.Add((trade.id, trade.value));
+        totalSellValue += trade.value;
       }
 
-      if (soldCount > 0)
+      if (sellableTrades.Count == 0) return false;
+
+      if (totalSellValue < _MinimumBTCTradeAmount)
       {
-        _ = _log.Db($"({coin}:{userId}:{strategy}) TTL auto-sold {soldCount} expired trades totalling {FormatBTC(cumulativeSold)} {coin}.", userId, "TRADE", viewDebugLogs);
-        return true;
+        // Combined value is still too small to trade — close them all as invalid so they
+        // stop being retried (and stop spamming the log) every TTL cycle.
+        _ = _log.Db($"({coin}:{userId}:{strategy}) TTL bulk total {FormatBTC(totalSellValue)} {coin} below minimum ({FormatBTC(_MinimumBTCTradeAmount)}). Closing {sellableTrades.Count} expired trades as invalid.", userId, "TRADE", viewDebugLogs);
+        foreach (var (tradeId, _) in sellableTrades)
+        {
+          const string closeSql = @"
+            UPDATE trade_history
+            SET matching_trade_id = id
+            WHERE id = @TradeId AND matching_trade_id IS NULL;";
+          await using var closeCmd = new MySqlCommand(closeSql, conn);
+          closeCmd.Parameters.AddWithValue("@TradeId", tradeId);
+          await closeCmd.ExecuteNonQueryAsync();
+        }
+        // Let the user know these trades were invalidated so they can investigate.
+        string belowMinCoin = CoinNameMap.TryGetValue(coin, out var belowMinName) ? belowMinName : coin;
+        await SafeNotifyUser($"TTL bulk sell was force-closed: {sellableTrades.Count} expired {belowMinCoin} trade(s) totalling {FormatBTC(totalSellValue)} {belowMinCoin} are below the minimum trade amount ({FormatBTC(_MinimumBTCTradeAmount)}). Trades marked as invalid — please check your wallet balance.", userId, conn, coin, strategy);
+        return false;
       }
-      return false;
+
+      // Execute ONE real sell order for the combined value.
+      string bulkCoin = coin.ToUpper();
+      bulkCoin = bulkCoin == "BTC" ? "XBT" : bulkCoin;
+      var parameters = new Dictionary<string, string>
+      {
+        ["pair"] = $"{bulkCoin}USDC",
+        ["type"] = "sell",
+        ["ordertype"] = "market",
+        ["volume"] = FormatBTC(totalSellValue)
+      };
+      _ = _log.Db($"({coin}:{userId}:{strategy}) TTL bulk auto-selling {sellableTrades.Count} expired trades totalling {FormatBTC(totalSellValue)} {coin} at {coinPriceUSDC.Value:F2} USDC.", userId, "TRADE", viewDebugLogs);
+      Dictionary<string, Object>? response = await MakeRequestAsync(userId, keys, "/AddOrder", "private", parameters);
+      if (response == null)
+      {
+        _ = _log.Db($"({coin}:{userId}:{strategy}) ⚠️ ERROR executing bulk TTL sell: sell {bulkCoin}->USDC/{FormatBTC(totalSellValue)}. Verify configuration.", userId, "TRADE", viewErrorDebugLogs);
+        return false;
+      }
+      await GetOrderResults(userId, keys, FormatBTC(totalSellValue), bulkCoin, "USDC", response);
+
+      // CRITICAL: the coins are now gone from the wallet. Close every covered buy BEFORE
+      // any per-trade bookkeeping so a DB hiccup can never leave them open and cause a
+      // double-sell on the next TTL cycle. A single batched UPDATE either closes them all
+      // or throws (which the caller's catch logs) — either way no partial-open state.
+      var buyIds = sellableTrades.Select(t => t.id).ToList();
+      var buyParamPlaceholders = string.Join(",", buyIds.Select((_, i) => $"@BuyId{i}"));
+      const string closeAllBuysSql = @"
+        UPDATE trade_history
+        SET matching_trade_id = id
+        WHERE id IN ({placeholders})
+          AND matching_trade_id IS NULL;";
+      var closeAllBuysCmd = new MySqlCommand(closeAllBuysSql.Replace("{placeholders}", buyParamPlaceholders), conn);
+      for (int i = 0; i < buyIds.Count; i++)
+      {
+        closeAllBuysCmd.Parameters.AddWithValue($"@BuyId{i}", buyIds[i]);
+      }
+      int closedBuys = await closeAllBuysCmd.ExecuteNonQueryAsync();
+      if (closedBuys != sellableTrades.Count)
+      {
+        // Some buys were already closed by a concurrent pass — log but keep going; the
+        // bookkeeping below will self-match its own rows, and already-closed buys are fine.
+        _ = _log.Db($"({coin}:{userId}:{strategy}) Bulk TTL: closed {closedBuys}/{sellableTrades.Count} buys (rest were already matched).", userId, "TRADE", viewDebugLogs);
+      }
+
+      // Log a separate sell trade_history row per trade (same as per-trade selling), each
+      // self-matched. Best-effort bookkeeping only — the buys are already closed above.
+      decimal cumulativeSold = 0m;
+      foreach (var (tradeId, tradeValue) in sellableTrades)
+      {
+        int? newSellId = await CreateTradeHistory(coinPriceCAD.Value, coinPriceUSDC.Value, FormatBTC(tradeValue), userId,
+          bulkCoin, "USDC", coinBalance - cumulativeSold, usdcBalance + (cumulativeSold * coinPriceUSDC.Value),
+          strategy, null, null, false);
+        if (newSellId != null)
+        {
+          // self-match the new sell row
+          const string selfMatchSql = @"
+            UPDATE trade_history
+            SET matching_trade_id = id
+            WHERE id = @SellId AND matching_trade_id IS NULL;";
+          await using var selfMatchCmd = new MySqlCommand(selfMatchSql, conn);
+          selfMatchCmd.Parameters.AddWithValue("@SellId", newSellId.Value);
+          await selfMatchCmd.ExecuteNonQueryAsync();
+        }
+        else
+        {
+          _ = _log.Db($"({coin}:{userId}:{strategy}) Bulk TTL: could not log sell row for buy #{tradeId} (buy already closed, no double-sell risk).", userId, "TRADE", viewErrorDebugLogs);
+        }
+        cumulativeSold += tradeValue;
+      }
+
+      _ = _log.Db($"({coin}:{userId}:{strategy}) TTL auto-sold {sellableTrades.Count} expired trades totalling {FormatBTC(totalSellValue)} {coin}.", userId, "TRADE", viewDebugLogs);
+      return true;
     }
     catch (Exception ex)
     {
@@ -5229,9 +5342,12 @@ ON DUPLICATE KEY UPDATE
       return false;
     }
 
+    // MaxTradeTimeToLive is optional: a null value means "TTL auto-sell disabled" and is
+    // handled downstream (_MaxTradeTimeToLive.HasValue guards). It must not cancel trades.
     var nullProperties = config.GetType()
       .GetProperties()
       .Where(p => p.GetValue(config) == null)
+      .Where(p => p.Name != "MaxTradeTimeToLive")
       .Select(p => p.Name)
       .ToList();
 
