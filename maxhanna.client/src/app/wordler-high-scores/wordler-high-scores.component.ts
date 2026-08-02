@@ -33,6 +33,7 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
   @Input() showHeaderTitles: boolean = true;
   @Input() headersCollapsed: boolean = false;
   @Input() inputtedParentRef?: any;
+  @Input() displayWordlerInHeader? = true;
 
   // not used for multi-mode output; per-mode mappings are stored in groupedByMode
   scores: WordlerScore[] = [];
