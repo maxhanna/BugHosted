@@ -147,10 +147,15 @@
   cursor: not-allowed;
 }
 
-/* ─── Loading ─── */
+.notificationContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center; 
+  gap: 20px;
+}
 .loadingNotificationDiv {
   margin: 24px;
-  display: flex;
+  display: inline-flex;
   justify-content: center;
   align-items: center;
 }

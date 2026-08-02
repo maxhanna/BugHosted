@@ -28,6 +28,7 @@ export interface RacingAppearancePart {
 
 export interface RacingPlayerCar {
   userId: number;
+  playerName: string;
   upgrades: RacingCarUpgrade[];
   skinId: number;
   spoilerId: number;

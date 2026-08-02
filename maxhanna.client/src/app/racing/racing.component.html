@@ -27,6 +27,19 @@
         <span>Wins: {{ playerCar.wins }} / Races: {{ playerCar.totalRaces }}</span>
       </div>
 
+      <!-- Racer name — persisted with the car, shown in lobbies & leaderboard -->
+      <div class="race-player-name-row">
+        <label class="race-player-name-label" for="race-player-name">🏎️ RACER NAME</label>
+        <input id="race-player-name" class="race-player-name-input" type="text"
+          maxlength="40" spellcheck="false"
+          placeholder="{{ playerCar.playerName || parentRef?.user?.username || 'Enter racer name…' }}"
+          [value]="playerNameDraft"
+          (input)="onPlayerNameInput($any($event.target).value)"
+          (keyup.enter)="savePlayerName()"
+          (blur)="savePlayerName()">
+        <span class="race-player-name-hint">Shown to other racers</span>
+      </div>
+
       <!-- Tab toggle -->
       <div class="race-menu-tabs">
         <button class="race-menu-tab" [class.active]="!showMultiplayer" (click)="toggleMultiplayerTab()">OFFLINE</button>

@@ -89,6 +89,55 @@
   padding: 10px 24px;
 }
 
+/* Racer name row — sits under the cash/wins strip on the menu */
+.race-player-name-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.race-player-name-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.race-player-name-input {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 6px 12px;
+  width: 220px;
+  max-width: 60vw;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.race-player-name-input:focus {
+  border-color: rgba(229, 57, 53, 0.7);
+  box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.15);
+}
+
+.race-player-name-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.race-player-name-hint {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 11px;
+}
+
 .race-menu-tracks {
   width: 100%;
   max-width: 600px;

@@ -26,10 +26,13 @@ namespace maxhanna.Server.Controllers
 			new Timer(PersistAllToDb, null, TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(10)));
 		private static bool _schemaEnsured = false;
 		private static string? _connStrCache;
+		private static bool _startupLoadStarted = false;
+		private static bool _shutdownHooksRegistered = false;
 
 		private sealed class RacingCarState
 		{
 			public int UserId;
+			public string PlayerName = "";
 			public List<object> Upgrades = new();
 			public int SkinId = 1;
 			public int SpoilerId = 0;
@@ -87,6 +90,24 @@ namespace maxhanna.Server.Controllers
 			_config = config;
 			_connStrCache ??= config.GetValue<string>("ConnectionStrings:maxhanna");
 			_ = _persistTimer.Value; // ensure the 10-min dump timer is running
+
+			// Restore every saved player's car into server memory so a restart never
+			// wipes game data — the DB is the source of truth for long-term state.
+			if (!_startupLoadStarted)
+			{
+				lock (_persistLock)
+				{
+					if (!_startupLoadStarted)
+					{
+						_startupLoadStarted = true;
+						LoadAllFromDb();
+					}
+				}
+			}
+
+			// Flush any dirty in-memory state when the process shuts down, so a
+			// restart inside the 10-minute dump window doesn't lose recent progress.
+			RegisterShutdownDump();
 		}
 
 		private static string? GetConnStr()
@@ -114,6 +135,7 @@ namespace maxhanna.Server.Controllers
 					using (var cmd = new MySqlCommand(@"
 						CREATE TABLE IF NOT EXISTS racing_player_car (
 							user_id INT PRIMARY KEY,
+							player_name VARCHAR(64) NOT NULL DEFAULT '',
 							upgrades_json LONGTEXT NULL,
 							skin_id INT NOT NULL DEFAULT 1,
 							spoiler_id INT NOT NULL DEFAULT 0,
@@ -133,6 +155,7 @@ namespace maxhanna.Server.Controllers
 						CREATE TABLE IF NOT EXISTS racing_results (
 							id INT AUTO_INCREMENT PRIMARY KEY,
 							user_id INT NOT NULL,
+							player_name VARCHAR(64) NOT NULL DEFAULT '',
 							position INT NOT NULL DEFAULT 1,
 							lap_time DOUBLE NOT NULL DEFAULT 0,
 							total_time DOUBLE NOT NULL DEFAULT 0,
@@ -149,6 +172,15 @@ namespace maxhanna.Server.Controllers
 						try
 						{
 							using var alt = new MySqlCommand($"ALTER TABLE racing_player_car ADD COLUMN {col} INT NOT NULL DEFAULT 0", conn);
+							alt.ExecuteNonQuery();
+						}
+						catch { }
+					}
+					foreach (var (table, col) in new[] { ("racing_player_car", "player_name VARCHAR(64) NOT NULL DEFAULT ''"), ("racing_results", "player_name VARCHAR(64) NOT NULL DEFAULT ''") })
+					{
+						try
+						{
+							using var alt = new MySqlCommand($"ALTER TABLE {table} ADD COLUMN {col}", conn);
 							alt.ExecuteNonQuery();
 						}
 						catch { }
@@ -180,7 +212,7 @@ namespace maxhanna.Server.Controllers
 				conn.Open();
 				using var cmd = new MySqlCommand(@"
 					SELECT upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id,
-					       total_races, wins, money, best_lap, total_earnings
+					       total_races, wins, money, best_lap, total_earnings, player_name
 					FROM racing_player_car WHERE user_id = @uid", conn);
 				cmd.Parameters.AddWithValue("@uid", userId);
 				using var rdr = cmd.ExecuteReader();
@@ -198,10 +230,74 @@ namespace maxhanna.Server.Controllers
 					st.Money = rdr.GetInt32(8);
 					st.BestLap = rdr.IsDBNull(9) ? 0 : rdr.GetDouble(9);
 					st.TotalEarnings = rdr.IsDBNull(10) ? 0 : rdr.GetInt32(10);
+					st.PlayerName = rdr.IsDBNull(11) ? "" : rdr.GetString(11);
 				}
 			}
 			catch { }
 			return st;
+		}
+
+		/// <summary>
+		/// Warm-up pass run once at server start: read every player's saved car from
+		/// the DB into memory so a restart never wipes game state. Runs inside the
+		/// persist lock so it can't race the 10-minute dump.
+		/// </summary>
+		private static void LoadAllFromDb()
+		{
+			try
+			{
+				var connStr = GetConnStr();
+				if (string.IsNullOrEmpty(connStr)) return;
+				EnsureSchema(connStr);
+				using var conn = new MySqlConnection(connStr);
+				conn.Open();
+				using var cmd = new MySqlCommand(@"
+					SELECT user_id, upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id,
+					       total_races, wins, money, best_lap, total_earnings, player_name
+					FROM racing_player_car", conn);
+				using var rdr = cmd.ExecuteReader();
+				while (rdr.Read())
+				{
+					var st = new RacingCarState { UserId = rdr.GetInt32(0) };
+					if (!rdr.IsDBNull(1) && rdr.GetString(1) is { Length: > 0 } j)
+						st.Upgrades = JsonSerializer.Deserialize<List<object>>(j) ?? new List<object>();
+					st.SkinId = rdr.IsDBNull(2) ? 1 : rdr.GetInt32(2);
+					st.SpoilerId = rdr.IsDBNull(3) ? 0 : rdr.GetInt32(3);
+					st.RimId = rdr.IsDBNull(4) ? 0 : rdr.GetInt32(4);
+					st.ExhaustId = rdr.IsDBNull(5) ? 0 : rdr.GetInt32(5);
+					st.DecalId = rdr.IsDBNull(6) ? 0 : rdr.GetInt32(6);
+					st.TotalRaces = rdr.GetInt32(7);
+					st.Wins = rdr.GetInt32(8);
+					st.Money = rdr.GetInt32(9);
+					st.BestLap = rdr.IsDBNull(10) ? 0 : rdr.GetDouble(10);
+					st.TotalEarnings = rdr.IsDBNull(11) ? 0 : rdr.GetInt32(11);
+					st.PlayerName = rdr.IsDBNull(12) ? "" : rdr.GetString(12);
+					_cars[st.UserId] = st;
+				}
+			}
+			catch
+			{
+				// DB may not be ready at boot — let the next request retry the warm-up
+				// instead of permanently disabling it (lazy per-user load still works).
+				_startupLoadStarted = false;
+			}
+		}
+
+		/// <summary>
+		/// Best-effort dump of all dirty cars when the process exits (Ctrl+C, kill,
+		/// IIS stop). The dump timer may not have fired yet for recent changes, so
+		/// this makes a restart inside the 10-minute window lossless.
+		/// </summary>
+		private static void RegisterShutdownDump()
+		{
+			if (_shutdownHooksRegistered) return;
+			lock (_persistLock)
+			{
+				if (_shutdownHooksRegistered) return;
+				_shutdownHooksRegistered = true;
+				AppDomain.CurrentDomain.ProcessExit += (_, _) => PersistAllToDb(null);
+				Console.CancelKeyPress += (_, _) => PersistAllToDb(null);
+			}
 		}
 
 		private static object ToCarJson(RacingCarState st)
@@ -211,6 +307,7 @@ namespace maxhanna.Server.Controllers
 			// BuyUpgrade .Add() trip "Collection was modified" mid-serialize.
 			int userId, skinId, spoilerId, rimId, exhaustId, decalId, totalRaces, wins, money, totalEarnings;
 			double bestLap;
+			string playerName;
 			List<object> upgrades;
 			lock (st)
 			{
@@ -220,10 +317,12 @@ namespace maxhanna.Server.Controllers
 				exhaustId = st.ExhaustId; decalId = st.DecalId;
 				totalRaces = st.TotalRaces; wins = st.Wins; money = st.Money;
 				bestLap = st.BestLap; totalEarnings = st.TotalEarnings;
+				playerName = st.PlayerName;
 			}
 			return new
 			{
 				UserId = userId,
+				PlayerName = playerName,
 				Upgrades = upgrades,
 				SkinId = skinId,
 				SpoilerId = spoilerId,
@@ -260,10 +359,10 @@ namespace maxhanna.Server.Controllers
 					if (!st.Dirty) continue;
 					int version;
 					using (var cmd = new MySqlCommand(@"
-						INSERT INTO racing_player_car (user_id, upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id, total_races, wins, money, best_lap, total_earnings)
-						VALUES (@uid, @upgrades, @skin, @sp, @rm, @ex, @dc, @races, @wins, @money, @best, @earnings)
+						INSERT INTO racing_player_car (user_id, player_name, upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id, total_races, wins, money, best_lap, total_earnings)
+						VALUES (@uid, @name, @upgrades, @skin, @sp, @rm, @ex, @dc, @races, @wins, @money, @best, @earnings)
 						ON DUPLICATE KEY UPDATE
-							upgrades_json = @upgrades, skin_id = @skin, spoiler_id = @sp, rim_id = @rm,
+							player_name = @name, upgrades_json = @upgrades, skin_id = @skin, spoiler_id = @sp, rim_id = @rm,
 							exhaust_id = @ex, decal_id = @dc, total_races = @races, wins = @wins,
 							money = @money, best_lap = @best, total_earnings = @earnings", conn))
 					{
@@ -272,6 +371,7 @@ namespace maxhanna.Server.Controllers
 						lock (st)
 						{
 							cmd.Parameters.AddWithValue("@uid", st.UserId);
+							cmd.Parameters.AddWithValue("@name", st.PlayerName);
 							cmd.Parameters.AddWithValue("@upgrades", JsonSerializer.Serialize(st.Upgrades));
 							cmd.Parameters.AddWithValue("@skin", st.SkinId);
 							cmd.Parameters.AddWithValue("@sp", st.SpoilerId);
@@ -304,9 +404,10 @@ namespace maxhanna.Server.Controllers
 					try
 					{
 						using var cmd = new MySqlCommand(@"
-							INSERT INTO racing_results (user_id, position, lap_time, total_time, money_earned, raced_at)
-							VALUES (@uid, @pos, @lap, @total, @money, UTC_TIMESTAMP())", conn);
+							INSERT INTO racing_results (user_id, player_name, position, lap_time, total_time, money_earned, raced_at)
+							VALUES (@uid, @name, @pos, @lap, @total, @money, UTC_TIMESTAMP())", conn);
 						cmd.Parameters.AddWithValue("@uid", r.UserId);
+						cmd.Parameters.AddWithValue("@name", r.PlayerName);
 						cmd.Parameters.AddWithValue("@pos", r.Position);
 						cmd.Parameters.AddWithValue("@lap", r.LapTime);
 						cmd.Parameters.AddWithValue("@total", r.TotalTime);
@@ -353,6 +454,7 @@ namespace maxhanna.Server.Controllers
 				var st = EnsureCarLoaded(userId);
 				lock (st)
 				{
+					if (body.TryGetProperty("playerName", out var pn)) st.PlayerName = pn.GetString() ?? "";
 					if (body.TryGetProperty("upgrades", out var ups) && ups.ValueKind == JsonValueKind.Array)
 						st.Upgrades = JsonSerializer.Deserialize<List<object>>(ups.GetRawText()) ?? st.Upgrades;
 					if (body.TryGetProperty("skinId", out var si)) st.SkinId = si.GetInt32();
@@ -458,9 +560,9 @@ namespace maxhanna.Server.Controllers
 					using var conn = new MySqlConnection(connStr);
 					await conn.OpenAsync();
 					using var cmd = new MySqlCommand(@"
-						SELECT r.user_id, u.username, r.position, r.lap_time, r.total_time, r.money_earned
+						SELECT r.user_id, COALESCE(NULLIF(r.player_name, ''), u.username) AS player_name, r.position, r.lap_time, r.total_time, r.money_earned
 						FROM racing_results r
-						JOIN users u ON r.user_id = u.id
+						LEFT JOIN users u ON r.user_id = u.id
 						ORDER BY r.lap_time ASC LIMIT 20", conn);
 					using var rdr = await cmd.ExecuteReaderAsync();
 					while (await rdr.ReadAsync())

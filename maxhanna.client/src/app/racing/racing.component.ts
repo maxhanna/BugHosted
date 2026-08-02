@@ -88,7 +88,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
 
   // ─── Player Car ───
   playerCar: RacingPlayerCar = {
-    userId: 0, upgrades: [], skinId: 1, spoilerId: 0, rimId: 0, exhaustId: 0, decalId: 0,
+    userId: 0, playerName: '', upgrades: [], skinId: 1, spoilerId: 0, rimId: 0, exhaustId: 0, decalId: 0,
     totalRaces: 0, wins: 0, money: 500, bestLap: 0, totalEarnings: 0
   };
   carX = 0; carZ = 0; carYaw = 0; carSpeed = 0;
@@ -477,13 +477,24 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const userId = this.parentRef?.user?.id ?? 0;
     if (!userId) return;
     const car = await this.racingService.getPlayerCar(userId);
-    if (car) this.playerCar = car;
+    if (car) {
+      this.playerCar = car;
+      // Older saves have no name — default to the account username so the lobby
+      // and leaderboard always show something friendly.
+      if (!this.playerCar.playerName) {
+        this.playerCar.playerName = this.parentRef?.user?.username || '';
+      }
+    }
     else {
       this.playerCar.userId = userId;
+      this.playerCar.playerName = this.parentRef?.user?.username || '';
       this.playerCar.money = 500;
       this.playerCar.upgrades = [];
       this.playerCar.skinId = 1;
     }
+    // Seed the input with the current name so focusing + blurring without typing
+    // never resets it (placeholder alone would let an empty blur wipe a custom name).
+    this.playerNameDraft = this.playerCar.playerName || '';
   }
 
   getSpeedBonus(): number {
@@ -584,7 +595,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   private async joinLobby(track: TrackDefinition) {
-    const username = this.parentRef?.user?.username || 'Player';
+    const username = this.playerCar.playerName?.trim() || this.parentRef?.user?.username || 'Player';
     const userId = this.parentRef?.user?.id ?? 0;
     const tid = track.id.toString();
     this.trackIdStr = tid;
@@ -1477,7 +1488,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const result: RaceResult = {
       position: this.racePosition,
       playerId: this.parentRef?.user?.id ?? 0,
-      playerName: this.parentRef?.user?.username || 'Player',
+      playerName: this.playerCar.playerName?.trim() || this.parentRef?.user?.username || 'Player',
       lapTime: this.bestLapTime || totalTime,
       totalTime: totalTime,
       moneyEarned: moneyEarned,
@@ -1497,6 +1508,25 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
 
   async saveCar() {
     await this.racingService.savePlayerCar(this.playerCar);
+  }
+
+  // Player name input — trimmed, persisted with the car, and used for the lobby
+  // and leaderboard instead of the account username.
+  playerNameDraft = '';
+
+  onPlayerNameInput(value: string) {
+    this.playerNameDraft = value;
+  }
+
+  async savePlayerName() {
+    const name = this.playerNameDraft.trim().slice(0, 40);
+    this.playerNameDraft = name;
+    // No-op when nothing changed (e.g. focus → blur without typing) so a custom
+    // name isn't clobbered back to the account username.
+    if (name === (this.playerCar.playerName || '')) return;
+    this.playerCar.playerName = name || this.parentRef?.user?.username || '';
+    await this.saveCar();
+    this.addMessage(this.playerCar.playerName ? `Racer name set to ${this.playerCar.playerName}!` : 'Racer name cleared');
   }
 
   // ─── Upgrades ───
