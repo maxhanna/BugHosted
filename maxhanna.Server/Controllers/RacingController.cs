@@ -560,10 +560,13 @@ namespace maxhanna.Server.Controllers
 					using var conn = new MySqlConnection(connStr);
 					await conn.OpenAsync();
 					using var cmd = new MySqlCommand(@"
-						SELECT r.user_id, COALESCE(NULLIF(r.player_name, ''), u.username) AS player_name, r.position, r.lap_time, r.total_time, r.money_earned
+						SELECT r.user_id, COALESCE(NULLIF(r.player_name, ''), u.username) AS player_name,
+						       MIN(r.lap_time) AS lap_time, MIN(r.total_time) AS total_time
 						FROM racing_results r
 						LEFT JOIN users u ON r.user_id = u.id
-						ORDER BY r.lap_time ASC LIMIT 20", conn);
+						WHERE r.lap_time > 0
+						GROUP BY r.user_id, player_name
+						ORDER BY lap_time ASC LIMIT 20", conn);
 					using var rdr = await cmd.ExecuteReaderAsync();
 					while (await rdr.ReadAsync())
 					{
@@ -571,30 +574,45 @@ namespace maxhanna.Server.Controllers
 						{
 							PlayerId = rdr.GetInt32(0),
 							PlayerName = rdr.GetString(1),
-							Position = rdr.GetInt32(2),
-							LapTime = rdr.GetDouble(3),
-							TotalTime = rdr.GetDouble(4),
-							MoneyEarned = rdr.GetInt32(5),
+							LapTime = rdr.GetDouble(2),
+							TotalTime = rdr.GetDouble(3),
+							Position = 0,
+							MoneyEarned = 0,
 							IsBot = false
 						});
 					}
 				}
-				// Merge in-memory results not yet flushed so new races show instantly
+				// Merge in-memory results not yet flushed so new races show instantly.
+				// Keep only each player's best pending lap so a single player can't
+				// occupy multiple board slots before the periodic flush runs.
+				var pendingBest = new Dictionary<int, LeaderboardEntry>();
 				foreach (var r in _pendingResults)
 				{
-					results.Add(new LeaderboardEntry
+					if (r.LapTime <= 0) continue;
+					if (!pendingBest.TryGetValue(r.UserId, out var existing) || r.LapTime < existing.LapTime)
 					{
-						PlayerId = r.UserId,
-						PlayerName = r.PlayerName,
-						Position = r.Position,
-						LapTime = r.LapTime,
-						TotalTime = r.TotalTime,
-						MoneyEarned = r.MoneyEarned,
-						IsBot = false
-					});
+						pendingBest[r.UserId] = new LeaderboardEntry
+						{
+							PlayerId = r.UserId,
+							PlayerName = r.PlayerName,
+							Position = 0,
+							LapTime = r.LapTime,
+							TotalTime = r.TotalTime,
+							MoneyEarned = 0,
+							IsBot = false
+						};
+					}
 				}
-				results.Sort((a, b) => a.LapTime.CompareTo(b.LapTime));
-				return Ok(results.GetRange(0, Math.Min(20, results.Count)));
+				foreach (var kv in pendingBest) results.Add(kv.Value);
+
+				// Dedupe against rows already in the DB (player may appear in both)
+				results = results
+					.GroupBy(e => e.PlayerId)
+					.Select(g => g.OrderBy(e => e.LapTime).First())
+					.OrderBy(e => e.LapTime)
+					.Take(20)
+					.ToList();
+				return Ok(results);
 			}
 			catch { return Ok(new List<LeaderboardEntry>()); }
 		}

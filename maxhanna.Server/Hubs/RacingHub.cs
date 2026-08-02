@@ -12,6 +12,7 @@ namespace maxhanna.Server.Hubs
         private static readonly ConcurrentDictionary<string, LobbyState> _lobbies = new();
         private static readonly ConcurrentDictionary<string, RacerState> _racers = new();
         private const int AUTO_START_SECONDS = 120; // 2 minutes before auto-start
+        private const int COUNTDOWN_MS = 10_000;    // 10-second start-light sequence
 
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
@@ -231,25 +232,25 @@ namespace maxhanna.Server.Hubs
 
             lobby.RaceStatus = "countdown";
 
-            // Fire-and-forget the countdown so the hub method returns immediately
+            // Broadcast the race start timestamp ONCE. The client drives its own
+            // start-light countdown locally from startTime (now + 10s), so a
+            // dropped message or a stuck background loop can never freeze the
+            // lights or stall the race — the countdown can't get stuck waiting
+            // on 11 separate per-second tick messages.
+            var startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + COUNTDOWN_MS;
+            _ = Clients.Group(lobbyId).SendAsync("OnRaceStarted", new
+            {
+                startTime,
+                totalLaps = lobby.TotalLaps
+            });
+
+            // Flip the server-side lobby state after the lights finish. No
+            // per-second messages needed — the client is authoritative for the
+            // visible countdown and starts the race itself when startTime hits.
             _ = Task.Run(async () =>
             {
-                try
-                {
-                    await Clients.Group(lobbyId).SendAsync("OnRaceCountdown", 10);
-                    for (int i = 9; i >= 0; i--)
-                    {
-                        await Task.Delay(1000);
-                        await Clients.Group(lobbyId).SendAsync("OnRaceCountdown", i);
-                    }
-                    lobby.RaceStatus = "racing";
-                    await Clients.Group(lobbyId).SendAsync("OnRaceStarted", new
-                    {
-                        startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                        totalLaps = lobby.TotalLaps
-                    });
-                }
-                catch { }
+                try { await Task.Delay(COUNTDOWN_MS); } catch { }
+                lobby.RaceStatus = "racing";
             });
 
             return Task.CompletedTask;
@@ -298,43 +299,46 @@ namespace maxhanna.Server.Hubs
             lobby.AutoStartRemaining = AUTO_START_SECONDS;
             lobby.AutoStartCts = new CancellationTokenSource();
 
+            // Capture the token ONCE. The old loop read lobby.AutoStartCts.Token
+            // every iteration, so the instant CancelAutoStartTimer nulled the
+            // field the loop died with a swallowed NullReferenceException after
+            // the first tick — freezing the "Auto-start in 2:00" display.
+            var token = lobby.AutoStartCts.Token;
+
             _ = Task.Run(async () =>
             {
                 try
                 {
                     while (lobby.AutoStartRemaining > 0 && lobby.RaceStatus == "lobby")
                     {
-                        await Clients.Group(lobbyId).SendAsync("OnAutoStartCountdown", lobby.AutoStartRemaining);
-                        await Task.Delay(1000, lobby.AutoStartCts.Token);
-                        if (lobby.AutoStartCts.Token.IsCancellationRequested) return;
+                        try { await Clients.Group(lobbyId).SendAsync("OnAutoStartCountdown", lobby.AutoStartRemaining); } catch { }
+                        try { await Task.Delay(1000, token); } catch { return; }
+                        if (token.IsCancellationRequested) return;
                         lobby.AutoStartRemaining--;
                     }
 
-                    if (!lobby.AutoStartCts.Token.IsCancellationRequested && lobby.RaceStatus == "lobby" && lobby.Players.Count > 0)
+                    if (!token.IsCancellationRequested && lobby.RaceStatus == "lobby" && lobby.Players.Count > 0)
                     {
-                        // Auto-start the race
+                        // Auto-start the race — broadcast the authoritative start
+                        // timestamp once; the client counts the lights down locally.
                         lobby.RaceStatus = "countdown";
-                        await Clients.Group(lobbyId).SendAsync("OnRaceCountdown", 10);
-                        for (int i = 9; i >= 0; i--)
+                        var startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + COUNTDOWN_MS;
+                        await Clients.Group(lobbyId).SendAsync("OnRaceStarted", new
                         {
-                            await Task.Delay(1000, lobby.AutoStartCts.Token);
-                            await Clients.Group(lobbyId).SendAsync("OnRaceCountdown", i);
-                        }
-                        if (!lobby.AutoStartCts.Token.IsCancellationRequested)
+                            startTime,
+                            totalLaps = lobby.TotalLaps
+                        });
+                        try { await Task.Delay(COUNTDOWN_MS, token); } catch { return; }
+                        if (!token.IsCancellationRequested)
                         {
                             lobby.RaceStatus = "racing";
                             lobby.FinishedConnections.Clear();
-                            await Clients.Group(lobbyId).SendAsync("OnRaceStarted", new
-                            {
-                                startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                                totalLaps = lobby.TotalLaps
-                            });
                         }
                     }
                 }
                 catch (TaskCanceledException) { }
                 catch { }
-            }, lobby.AutoStartCts.Token);
+            }, token);
         }
 
         private void CancelAutoStartTimer(LobbyState lobby)

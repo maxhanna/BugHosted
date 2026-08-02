@@ -25,6 +25,9 @@
       <div class="race-player-info">
         <span>${{ playerCar.money }}</span>
         <span>Wins: {{ playerCar.wins }} / Races: {{ playerCar.totalRaces }}</span>
+        <span *ngIf="playerCar.bestLap > 0" title="Your fastest lap">
+          Best: {{ formatTime(playerCar.bestLap) }}
+        </span>
       </div>
 
       <!-- Racer name — persisted with the car, shown in lobbies & leaderboard -->
@@ -44,6 +47,7 @@
       <div class="race-menu-tabs">
         <button class="race-menu-tab" [class.active]="!showMultiplayer" (click)="toggleMultiplayerTab()">OFFLINE</button>
         <button class="race-menu-tab" [class.active]="showMultiplayer" (click)="toggleMultiplayerTab()">MULTIPLAYER</button>
+        <button class="race-menu-tab" [class.active]="showLeaderboard" (click)="toggleLeaderboard()">🏆 BEST LAPS</button>
       </div>
 
       <!-- ─── Single Player Tracks ─── -->
@@ -492,8 +496,9 @@
           [class.green]="startLightPhase === 'green' || startLightPhase === 'go'"></div>
       </div>
       <div class="race-countdown-label">
-        <span *ngIf="countdownTimer > 0">GET READY</span>
-        <span *ngIf="countdownTimer === 0">GO!</span>
+        <span class="race-countdown-num" *ngIf="countdownTimer > 0">{{ countdownTimer }}</span>
+        <span class="race-countdown-num race-countdown-go" *ngIf="countdownTimer === 0">GO!</span>
+        <span class="race-countdown-caption" *ngIf="countdownTimer > 0">GET READY</span>
       </div>
     </div>
 
@@ -695,23 +700,29 @@
           </button>
           <div class="gp-podium-auto" *ngIf="!isLobbyHost">Waiting for host rematch...</div>
         </div>
-        <div class="gp-podium-auto" *ngIf="!isInMultiplayerRace">Returning to menu...</div>
+        <div class="gp-podium-auto" *ngIf="!isInMultiplayerRace">
+          <button class="race-mp-btn" (click)="backToMenu()">
+            🏁 BACK TO MENU
+          </button>
+        </div>
       </div>
     </div>
 
     <!-- ─── Leaderboard ─── -->
     <div id="race-leaderboard" *ngIf="showLeaderboard">
-      <div class="race-lb-title">LEADERBOARD</div>
+      <div class="race-lb-title">🏆 BEST LAPS</div>
       <div class="race-lb-row race-lb-header">
-        <span>#</span><span>Player</span><span>Best Lap</span><span>Wins</span>
+        <span>#</span><span>Player</span><span>Best Lap</span><span>Race</span>
       </div>
-      <div class="race-lb-row" *ngFor="let r of leaderboard; let i = index">
+      <div class="race-lb-row" *ngFor="let r of leaderboard; let i = index"
+        [class.race-lb-me]="r.playerId === (parentRef?.user?.id ?? 0)">
         <span>{{ i + 1 }}</span>
         <span>{{ r.playerName }}</span>
         <span>{{ formatTime(r.lapTime) }}</span>
-        <span>{{ r.moneyEarned }}</span>
+        <span>{{ formatTime(r.totalTime) }}</span>
       </div>
-      <div class="race-lb-close" (click)="showLeaderboard = false">Press L to close</div>
+      <div class="race-lb-empty" *ngIf="leaderboard.length === 0">No laps recorded yet — go set one!</div>
+      <div class="race-lb-close" (click)="showLeaderboard = false">Click or press L to close</div>
     </div>
 
     <!-- ─── Mobile Controls (virtual joystick: steer left/right, push up for gas, down for brake) ─── -->

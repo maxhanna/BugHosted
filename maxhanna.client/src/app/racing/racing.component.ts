@@ -127,6 +127,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   chatInput = '';
   autoStartSeconds = 0; // 2-min countdown display
   mpCountdownTimer = 0; // final 3-2-1-GO
+  // Local countdown drivers: the server now broadcasts ONE authoritative start
+  // timestamp (startTime) / auto-start remaining value, and the client ticks the
+  // visible countdown locally from it — so a dropped tick message can never
+  // freeze the lights or the "Auto-start in 2:00" display.
+  private _mpStartCountdownTimer: any = null;
+  private _mpRaceStartAt = 0;
+  private _autoStartTicker: any = null;
+  private autoStartDeadline = 0;
   private _mpSubs: Subscription[] = [];
   private _positionSyncTimer = 0;
   private _mpLobbyTrackId = '';
@@ -141,7 +149,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   joyY = 0;
   private joyOriginX = 0;
   private joyOriginY = 0;
-  private readonly joyRadius = 46; // px travel from center to full deflection (keeps thumb inside base)
+  private joyBaseCenterX = 0;
+  private joyBaseCenterY = 0;
+  private readonly joyRadius = 46; // px travel from grab point to full deflection
+  private readonly joyThumbTravel = 48; // px the thumb can visually travel from base center (84 − 36)
   @ViewChild('joyThumb') joyThumbEl?: ElementRef<HTMLDivElement>;
   @ViewChild('joyZone') joyZoneEl?: ElementRef<HTMLDivElement>;
   keyboardSteerCurrent = 0; // Lerped value for smooth steering
@@ -278,40 +289,26 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.racingHub.raceStarted$.subscribe(data => {
         this.ngZone.run(() => {
           this.totalLaps = data.totalLaps;
-          this.gameState = 'racing';
-          this.raceStartTime = performance.now();
-          this.lapStartTime = this.raceStartTime;
-          this.currentLap = 0;
-          this.bestLapTime = Infinity;
-          this.carSpeed = 0;
-          this.carDist = 0;
-          this.lastCarDist = 0;
-          this.racePosition = 1;
-          this.lapTimes = [];
-          this.lastLapTime = 0;
-          this.totalRaceTime = 0;
-          this.isOffTrack = false;
-          this.offTrackTimer = 0;
-          this.wrongWay = false;
-          this._wrongWayTimer = 0;
-          this._wrongWayShown = false;
-          this.messages = [];
-          this._raceFinished = false;
-          this._mpFinished = false;
-          // Place player at start
-          const startP = this.renderer.getTrackPointAlong(0);
-          this.carX = startP.x;
-          this.carZ = startP.z;
-          this.carYaw = Math.atan2(startP.dirX, startP.dirZ);
-          // Spawn bots to fill the grid alongside real players
-          this.spawnBots(4);
-          this.totalRacers = this.bots.length + this.lobbyPlayers.length;
-          // Deduct entry fee for multiplayer
-          if (this.selectedTrack) {
-            this.playerCar.money -= this.selectedTrack.entryFee;
-            this.saveCar();
+          const startAt = data.startTime;
+          if (startAt && startAt > Date.now()) {
+            // Future start: count the F1 lights down locally from the
+            // authoritative server timestamp. 10s of lights, then go.
+            this._mpRaceStartAt = startAt;
+            this.countdownTimer = Math.max(0, Math.ceil((startAt - Date.now()) / 1000));
+            this.gameState = 'countdown';
+            this.stopMpStartCountdown();
+            this._mpStartCountdownTimer = setInterval(() => {
+              const remain = Math.max(0, Math.ceil((this._mpRaceStartAt - Date.now()) / 1000));
+              this.countdownTimer = remain;
+              if (remain <= 0) {
+                this.stopMpStartCountdown();
+                this.beginRace();
+              }
+            }, 200);
+          } else {
+            // startTime already passed (or missing) — start immediately.
+            this.beginRace();
           }
-          this.addMessage('GO! GO! GO!');
         });
       })
     );
@@ -395,6 +392,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           this.amReady = false;
           this.remoteCars.clear();
           this.messages = [];
+          this.stopMpStartCountdown();
+          this.stopAutoStartTicker();
+          this.autoStartSeconds = 0;
           this.gameState = 'menu';
           this.showMultiplayer = true;
           this.addMessage('Rematch! Ready up to race again.');
@@ -405,7 +405,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._mpSubs.push(
       this.racingHub.autoStartCountdown$.subscribe(remaining => {
         this.ngZone.run(() => {
+          // Anchor a local deadline from the server value and tick it down
+          // ourselves — the server only needs to send the initial value (and any
+          // re-syncs), so a dropped tick can't freeze the "Auto-start in 2:00".
           this.autoStartSeconds = remaining;
+          this.autoStartDeadline = Date.now() + remaining * 1000;
+          this.startAutoStartTicker();
         });
       })
     );
@@ -430,7 +435,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     document.addEventListener('keydown', (e: KeyboardEvent) => {
       this.keys.add(e.code);
       if (e.code === 'KeyM' && this.gameState === 'racing') this.togglePause();
-      if (e.code === 'KeyL') this.showLeaderboard = !this.showLeaderboard;
+      if (e.code === 'KeyL') this.toggleLeaderboard();
     });
     document.addEventListener('keyup', (e: KeyboardEvent) => {
       this.keys.delete(e.code);
@@ -454,6 +459,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   ngOnDestroy() {
     cancelAnimationFrame(this.animId);
     if (this._countdownInterval) clearInterval(this._countdownInterval);
+    this.stopMpStartCountdown();
+    this.stopAutoStartTicker();
     // Leave lobby
     if (this._mpLobbyTrackId) {
       this.racingHub.leaveLobby(this._mpLobbyTrackId);
@@ -495,6 +502,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     // Seed the input with the current name so focusing + blurring without typing
     // never resets it (placeholder alone would let an empty blur wipe a custom name).
     this.playerNameDraft = this.playerCar.playerName || '';
+    // Pre-load high scores so the menu board is ready the first time it's opened.
+    this.loadLeaderboard();
   }
 
   getSpeedBonus(): number {
@@ -579,6 +588,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.isLobbyHost = false;
       this.amReady = false;
       this.chatMessages = [];
+      this.stopMpStartCountdown();
+      this.stopAutoStartTicker();
+      this.autoStartSeconds = 0;
     }
   }
 
@@ -647,7 +659,79 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (!this._mpLobbyTrackId || !this.isLobbyHost) return;
     this.countdownTimer = 10;
     this.gameState = 'countdown';
+    // The server broadcasts OnRaceStarted with a future startTime; raceStarted$
+    // takes over the countdown from there. Don't start a local race here.
     await this.racingHub.startRace(this._mpLobbyTrackId, this.selectedTrack?.laps ?? 3);
+  }
+
+  // Clears the local start-light countdown timer (used for multiplayer races,
+  // where the server broadcasts the authoritative start timestamp once).
+  private stopMpStartCountdown() {
+    if (this._mpStartCountdownTimer) {
+      clearInterval(this._mpStartCountdownTimer);
+      this._mpStartCountdownTimer = null;
+    }
+  }
+
+  // Local fallback ticker for the 2-minute auto-start display. Anchored to a
+  // deadline set from the server's remaining value, so the countdown keeps
+  // ticking even if individual server ticks are dropped.
+  private startAutoStartTicker() {
+    if (this._autoStartTicker) clearInterval(this._autoStartTicker);
+    this._autoStartTicker = setInterval(() => {
+      const remain = Math.max(0, Math.ceil((this.autoStartDeadline - Date.now()) / 1000));
+      this.autoStartSeconds = remain;
+      if (remain <= 0 && this._autoStartTicker) {
+        clearInterval(this._autoStartTicker);
+        this._autoStartTicker = null;
+      }
+    }, 500);
+  }
+
+  private stopAutoStartTicker() {
+    if (this._autoStartTicker) {
+      clearInterval(this._autoStartTicker);
+      this._autoStartTicker = null;
+    }
+  }
+
+  // Shared race-start initialisation for multiplayer: called once the start
+  // timestamp arrives (immediately, or after the local light countdown).
+  private beginRace() {
+    this.gameState = 'racing';
+    this.raceStartTime = performance.now();
+    this.lapStartTime = this.raceStartTime;
+    this.currentLap = 0;
+    this.bestLapTime = Infinity;
+    this.carSpeed = 0;
+    this.carDist = 0;
+    this.lastCarDist = 0;
+    this.racePosition = 1;
+    this.lapTimes = [];
+    this.lastLapTime = 0;
+    this.totalRaceTime = 0;
+    this.isOffTrack = false;
+    this.offTrackTimer = 0;
+    this.wrongWay = false;
+    this._wrongWayTimer = 0;
+    this._wrongWayShown = false;
+    this.messages = [];
+    this._raceFinished = false;
+    this._mpFinished = false;
+    // Place player at start
+    const startP = this.renderer.getTrackPointAlong(0);
+    this.carX = startP.x;
+    this.carZ = startP.z;
+    this.carYaw = Math.atan2(startP.dirX, startP.dirZ);
+    // Spawn bots to fill the grid alongside real players
+    this.spawnBots(4);
+    this.totalRacers = this.bots.length + this.lobbyPlayers.length;
+    // Deduct entry fee for multiplayer
+    if (this.selectedTrack) {
+      this.playerCar.money -= this.selectedTrack.entryFee;
+      this.saveCar();
+    }
+    this.addMessage('GO! GO! GO!');
   }
 
   async rematchMP() {
@@ -658,6 +742,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   async leaveLobby() {
     if (!this._mpLobbyTrackId) return;
     await this.racingHub.leaveLobby(this._mpLobbyTrackId);
+    this.stopMpStartCountdown();
+    this.stopAutoStartTicker();
+    this.autoStartSeconds = 0;
     this._mpLobbyTrackId = '';
     this.lobbyPlayers = [];
     this.isLobbyHost = false;
@@ -699,6 +786,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.amReady = false;
       this.chatMessages = [];
       this.remoteCars.clear();
+      this.stopMpStartCountdown();
+      this.stopAutoStartTicker();
+      this.autoStartSeconds = 0;
     }
     this.showMultiplayer = false;
   }
@@ -1482,6 +1572,13 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.addMessage(`Finished #${this.racePosition} of ${this.totalRacers} +$${moneyEarned}`);
     }
     this.playerCar.money += moneyEarned;
+
+    // Persist a new personal best lap so it survives restarts and shows up in
+    // the menu high-score strip (saved with the car via car/save).
+    if (this.bestLapTime > 0 && this.bestLapTime < 99999999 &&
+      (!this.playerCar.bestLap || this.bestLapTime < this.playerCar.bestLap)) {
+      this.playerCar.bestLap = this.bestLapTime;
+    }
     this.saveCar();
 
     // Save result to leaderboard
@@ -1495,15 +1592,24 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       isBot: !this._mpLobbyTrackId,
     };
     this.racingService.submitRaceResult(this.parentRef?.user?.id ?? 0, result);
+    // Refresh the high-score board so the new time appears instantly.
+    this.loadLeaderboard();
+  }
 
-    // Auto return to menu after 5s — but in multiplayer the podium offers a
-    // Rematch button (host) or a wait message, so keep players on the results
-    // screen instead of silently dropping them back out of the lobby.
-    if (!this._mpLobbyTrackId) {
-      setTimeout(() => {
-        if (this.gameState === 'finished') this.backToMenu();
-      }, 5000);
+  // ─── High Scores / Leaderboard ───
+  // Fetches the fastest lap times from the server and displays them.
+  async loadLeaderboard() {
+    try {
+      const trackId = this.selectedTrack?.id ?? 1;
+      this.leaderboard = await this.racingService.getLeaderboard(trackId);
+    } catch {
+      this.leaderboard = [];
     }
+  }
+
+  async toggleLeaderboard() {
+    this.showLeaderboard = !this.showLeaderboard;
+    if (this.showLeaderboard) await this.loadLeaderboard();
   }
 
   async saveCar() {
@@ -1694,6 +1800,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   // ─── Mobile (virtual joystick) ───
+  // FLOATING joystick: neutral is wherever the thumb grabs the stick, not the
+  // exact pixel center of the base. On a phone your thumb never rests dead on
+  // center, so a fixed stick anchored to the base center always feels offset
+  // (rest 10px right → car drifts right). Here the stick "picks up" under the
+  // finger and steering is displacement from that grab point — rest anywhere
+  // and the car goes straight.
   joyStart(e: TouchEvent | PointerEvent) {
     // Both touch* and pointer* handlers are bound; ignore the duplicate fired
     // right after pointerdown, and ignore a second finger landing mid-gesture.
@@ -1701,21 +1813,19 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const pt = this.joyPoint(e);
     if (!pt) return;
     this.joyActive = true;
-    // Anchor the steering origin to the joystick base's REAL center on screen,
-    // not to wherever the finger happened to land. The old code used the touch
-    // point as origin, so touching right-of-center shifted the whole stick —
-    // the deadzone plus that offset ate the left direction and made the car
-    // feel like it could never turn left.
     const rect = this.joyZoneEl?.nativeElement?.getBoundingClientRect?.();
     if (rect && rect.width > 0 && rect.height > 0) {
-      this.joyOriginX = rect.left + rect.width / 2;
-      this.joyOriginY = rect.top + rect.height / 2;
-    } else {
-      this.joyOriginX = pt.clientX;
-      this.joyOriginY = pt.clientY;
+      // Remember the base's visual center so we can clamp the thumb inside it.
+      this.joyBaseCenterX = rect.left + rect.width / 2;
+      this.joyBaseCenterY = rect.top + rect.height / 2;
     }
-    try { (e.target as HTMLElement)?.setPointerCapture?.((e as PointerEvent).pointerId); } catch { }
-    this.joyMove(e); // snaps the thumb under the finger (dx = finger − base center)
+    // The steering neutral point = where the finger grabbed (floating origin).
+    this.joyOriginX = pt.clientX;
+    this.joyOriginY = pt.clientY;
+    // Capture on the zone itself (not the touched child) so a finger sliding
+    // off the thumb keeps driving the stick.
+    try { this.joyZoneEl?.nativeElement?.setPointerCapture?.((e as PointerEvent).pointerId); } catch { }
+    this.joyMove(e); // parks the thumb under the finger; input stays neutral
     e.preventDefault();
   }
 
@@ -1723,19 +1833,18 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (!this.joyActive) return;
     const pt = this.joyPoint(e);
     if (!pt) return;
+    // Steering = displacement from the grab point (floating neutral). Clamp so
+    // the full deflection is reached at the same thumb travel as before.
     let dx = pt.clientX - this.joyOriginX;
-    let dy = 0; // steering-only stick — vertical travel disabled (gas/brake are buttons)
-    const dist = Math.hypot(dx, dy);
-    if (dist > this.joyRadius) {
-      dx = (dx / dist) * this.joyRadius;
-      dy = (dy / dist) * this.joyRadius;
-    }
+    const dist = Math.abs(dx);
+    if (dist > this.joyRadius) dx = (dx / dist) * this.joyRadius;
     this.joyX = Math.max(-1, Math.min(1, dx / this.joyRadius));
-    this.joyY = Math.max(-1, Math.min(1, dy / this.joyRadius));
-    // Move the thumb visually (clamped to the ring)
+    this.joyY = 0; // steering-only stick — vertical travel disabled (gas/brake are buttons)
+    // Thumb visual: follows the finger, clamped to stay inside the visible base.
     if (this.joyThumbEl?.nativeElement) {
-      this.joyThumbEl.nativeElement.style.transform =
-        `translate(${dx}px, ${-dy}px)`;
+      let vx = pt.clientX - this.joyBaseCenterX;
+      vx = Math.max(-this.joyThumbTravel, Math.min(this.joyThumbTravel, vx));
+      this.joyThumbEl.nativeElement.style.transform = `translate(${vx}px, 0px)`;
     }
     e.preventDefault();
   }
@@ -1757,8 +1866,17 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private joyPoint(e: TouchEvent | PointerEvent): { clientX: number; clientY: number } | null {
     if (e instanceof TouchEvent) {
       if (e.touches.length === 0) return null;
-      const t = e.touches[0];
-      return { clientX: t.clientX, clientY: t.clientY };
+      // With two thumbs (one on the joystick, one on a pedal) touches[0] may be
+      // the OTHER finger — that would yank the stick to the pedal. Pick the
+      // touch nearest the joystick's grab point instead.
+      let best = e.touches[0];
+      let bestD = Infinity;
+      for (let i = 0; i < e.touches.length; i++) {
+        const t = e.touches[i];
+        const d = Math.hypot(t.clientX - this.joyOriginX, t.clientY - this.joyOriginY);
+        if (d < bestD) { bestD = d; best = t; }
+      }
+      return { clientX: best.clientX, clientY: best.clientY };
     }
     return { clientX: e.clientX, clientY: e.clientY };
   }

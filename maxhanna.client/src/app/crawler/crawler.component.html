@@ -86,7 +86,7 @@
             <div *ngIf="result.description" class="descriptClass" [title]="result.description">{{ result.description }}</div>
           </div>
           <div class="imageUrlPictureDiv">
-            <img [src]="result.imageUrl || 'https://placehold.co/128x72?text=No+Image'" loading="lazy" [title]="result.title" (error)="result.imageUrl = ''" />
+            <img *ngIf="result.imageUrl" [src]="result.imageUrl" loading="lazy" [title]="result.title" (error)="result.imageUrl = ''" />
           </div>
         </div>
       </div>

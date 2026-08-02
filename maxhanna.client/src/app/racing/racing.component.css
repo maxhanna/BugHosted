@@ -1255,12 +1255,48 @@
 }
 
 .race-countdown-label {
-  font-size: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
   font-weight: 800;
-  letter-spacing: 10px;
   text-transform: uppercase;
   color: #fff;
-  text-shadow: 0 0 24px rgba(0, 0, 0, 0.9);
+}
+
+/* Big numeric timer — sits under the F1 start lights so players see both */
+.race-countdown-num {
+  font-size: 118px;
+  line-height: 1;
+  letter-spacing: 10px;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 34px rgba(255, 255, 255, 0.35), 0 0 70px rgba(0, 0, 0, 0.9);
+  animation: race-countdown-pop 1s ease-in-out infinite;
+}
+
+.race-countdown-go {
+  font-size: 96px;
+  letter-spacing: 14px;
+  color: #ffd600;
+  text-shadow: 0 0 45px rgba(255, 214, 0, 0.85);
+  animation: race-countdown-go-pulse 0.6s ease-in-out infinite;
+}
+
+.race-countdown-caption {
+  font-size: 20px;
+  letter-spacing: 8px;
+  color: rgba(255, 255, 255, 0.65);
+  text-shadow: 0 0 18px rgba(0, 0, 0, 0.9);
+}
+
+@keyframes race-countdown-pop {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.85; }
+}
+
+@keyframes race-countdown-go-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
 }
 
 /* ─── Racing HUD / F1 Cockpit ─── */
@@ -2188,6 +2224,13 @@
   animation: race-pulse 2s ease-in-out infinite;
 }
 
+/* The solo "Back to Menu" button sits inside .gp-podium-auto — keep it
+   steady instead of inheriting the pulsing text animation. */
+.gp-podium-auto .race-mp-btn {
+  animation: none;
+  color: #fff;
+}
+
 /* ─── Menu Tabs ─── */
 .race-menu-tabs {
   display: flex;
@@ -2535,6 +2578,23 @@
 .race-lb-row span { flex: 1; }
 .race-lb-row span:first-child { width: 30px; flex: none; }
 
+/* Highlight the current player's own row on the best-laps board */
+.race-lb-row.race-lb-me {
+  background: rgba(229, 57, 53, 0.12);
+  border-color: rgba(229, 57, 53, 0.4);
+  border-radius: 4px;
+  color: #ffd600;
+  font-weight: 700;
+}
+
+.race-lb-empty {
+  text-align: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+  padding: 18px 0;
+  font-style: italic;
+}
+
 .race-lb-close {
   text-align: center;
   font-size: 11px;
@@ -2542,6 +2602,11 @@
   padding-top: 8px;
   margin-top: 6px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+}
+
+.race-lb-close:hover {
+  color: #fff;
 }
 
 /* ─── Mobile (virtual joystick) ─── */

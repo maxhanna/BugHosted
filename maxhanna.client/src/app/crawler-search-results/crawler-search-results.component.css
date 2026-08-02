@@ -132,11 +132,11 @@
 /* Thumbnail image */
 .imageUrlPictureDiv {
   flex-shrink: 0;
-  width: 84px;
+  width: 284px;
 }
 .imageUrlPictureDiv img {
-  width: 84px;
-  height: 60px;
+  width: 284px;
+  height: 260px;
   border-radius: 6px;
   object-fit: cover;
   border: 1px solid rgba(0,0,0,0.06);
