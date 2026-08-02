@@ -1397,6 +1397,69 @@ namespace maxhanna.Server.Controllers
 			finally { conn.Close(); }
 		}
 
+		[HttpPost("/Chat/AddChatMembers", Name = "AddChatMembers")]
+		public async Task<IActionResult> AddChatMembers([FromBody] AddChatMembersRequest request)
+		{
+			if (request == null || request.ChatId <= 0 || request.UserIds == null || request.UserIds.Count == 0)
+				return BadRequest("Invalid request.");
+
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));				try
+				{
+					await conn.OpenAsync();
+					// Ensure the chat_rooms table exists, then verify the chat exists AND is public so
+					// a caller can't smuggle users into a private chat they don't belong to.
+					string ensureSql = @"CREATE TABLE IF NOT EXISTS maxhanna.chat_rooms (
+						chat_id INT PRIMARY KEY,
+						name VARCHAR(120) NOT NULL,
+						is_public TINYINT(1) NOT NULL DEFAULT 0,
+						created_by INT NULL,
+						created_at DATETIME DEFAULT UTC_TIMESTAMP()
+					);";
+					using (var ensureCmd = new MySqlCommand(ensureSql, conn))
+						await ensureCmd.ExecuteNonQueryAsync();
+
+					string checkSql = "SELECT COUNT(*) FROM maxhanna.chat_rooms WHERE chat_id = @ChatId AND is_public = 1;";
+					using (var checkCmd = new MySqlCommand(checkSql, conn))
+					{
+						checkCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+						if (Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) == 0)
+							return NotFound("Chat is not public.");
+					}
+
+					int added = 0;
+				foreach (int userId in request.UserIds.Distinct())
+				{
+					if (userId <= 0) continue;
+					// Remove from left-chat so they show as a member again.
+					string unleftSql = "DELETE FROM maxhanna.user_left_chat WHERE chat_id = @ChatId AND user_id = @UserId;";
+					using (var unleftCmd = new MySqlCommand(unleftSql, conn))
+					{
+						unleftCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+						unleftCmd.Parameters.AddWithValue("@UserId", userId);
+						await unleftCmd.ExecuteNonQueryAsync();
+					}
+
+					string updateSql = @"UPDATE maxhanna.messages
+						SET receiver = CONCAT(receiver, ',', @UserId)
+						WHERE chat_id = @ChatId AND NOT FIND_IN_SET(@UserId, receiver);";
+					using (var updCmd = new MySqlCommand(updateSql, conn))
+					{
+						updCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+						updCmd.Parameters.AddWithValue("@UserId", userId);
+						added += await updCmd.ExecuteNonQueryAsync();
+					}
+				}
+				_ = _log.Db($"{request.UserIds.Count} member(s) added to chat #{request.ChatId}.", request.UserId, "CHAT", true);
+				return Ok(new { added = added });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred in AddChatMembers: " + ex.Message, request.UserId, "CHAT", true);
+				return StatusCode(500, "Failed to add chat members.");
+			}
+			finally { conn.Close(); }
+		}
+
 		[HttpPost("/Chat/GetChatRoom", Name = "GetChatRoom")]
 		public async Task<IActionResult> GetChatRoom([FromBody] GetChatRoomRequest request)
 		{
@@ -1636,6 +1699,12 @@ private async Task AppendChatToSitemapAsync(int chatId)
 		{
 			public int ChatId { get; set; }
 			public int UserId { get; set; }
+		}
+		public class AddChatMembersRequest
+		{
+			public int ChatId { get; set; }
+			public int UserId { get; set; }
+			public List<int>? UserIds { get; set; }
 		}
 		public class GetChatRoomRequest
 		{

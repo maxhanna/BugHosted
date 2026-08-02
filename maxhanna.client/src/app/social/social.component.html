@@ -1,5 +1,5 @@
 <div class="componentMain" #componentMain>
-  <app-title-bar [title]="'Social'" [showTitle]="!user && !showOnlyPost" [hasMenu]="!!(!user && !showOnlyPost)"
+  <app-title-bar [title]="chatId ? (chatRoomName || 'Group') : 'Social'" [showTitle]="!user && !showOnlyPost" [hasMenu]="!!(!user && !showOnlyPost)"
     [showMenu]="!!(!user && !showOnlyPost)" [hasClose]="!!(!user && !showOnlyPost)"
     [showClose]="!!(!user && !showOnlyPost)" [hasBack]="!!(!user && !showOnlyPost)"
     [showBack]="!!(!user && !showOnlyPost)"ls
@@ -12,6 +12,25 @@
   </app-title-bar>
 
   <div [class]="user ? 'embeddedSocialComponentsContent' : 'socialComponentContents'">
+    <!-- Group Social Header (public chat board) -->
+    <div class="groupSocialHeader" *ngIf="chatId">
+      <div class="groupSocialTitle">🌐 {{ chatRoomName || ('Group #' + chatId) }}</div>
+      <div class="groupSocialActions">
+        <button (click)="openGroupChat()" class="coloredBgButton" title="Open this group's chat">💬 Open Chat</button>
+        <button (click)="toggleGroupMembersPanel()" class="coloredBgButton" title="View & add group members">👥 Members ({{ groupChatUsers.length }})</button>
+      </div>
+      <div class="groupMembersPanel" *ngIf="isGroupMembersPanelOpen">
+        <div class="groupMembersList">
+          <span *ngFor="let member of groupChatUsers" class="groupMemberTag">
+            <app-user-tag [user]="member" [inputtedParentRef]="parentRef ?? parent" [displayMiniTag]="true" [displayHoverPicture]="true"></app-user-tag>
+          </span>
+        </div>
+        <div class="groupAddMembers">
+          <div class="smallFont thirdFontColor" style="margin-bottom:4px;">Add people to this group (and its chat):</div>
+          <app-user-list [searchOnly]="true" [inputtedParentRef]="parentRef ?? parent" (groupChatEvent)="addChatMembers($event)"></app-user-list>
+        </div>
+      </div>
+    </div>
     <!-- Search Popup -->
     <div class="popupPanel" *ngIf="isSearchSocialsPanelOpen">
       <div class="popupPanelTitle">Search the Socials</div>
@@ -154,8 +173,8 @@
 
 
     <!-- Story Input -->
-    <div class="storyInputDiv" *ngIf="!showOnlyPost || user">
-      <app-text-input [inputtedParentRef]="parentRef ?? parent" [type]="'Social'" [profileUser]="user"
+    <div class="storyInputDiv" *ngIf="!showOnlyPost || user || chatId">
+      <app-text-input [inputtedParentRef]="parentRef ?? parent" [type]="'Social'" [profileUser]="user" [chatId]="chatId"
         [attachedTopics]="attachedTopics" (topicAdded)="searchStories($event)" (topicClicked)="topicClicked($event)"
         (topicIgnored)="searchStories()" (contentPosted)="contentPosted($event)">
       </app-text-input>

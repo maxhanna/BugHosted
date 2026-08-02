@@ -47,6 +47,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   publicChatResults: any[] = [];
   isSearchingPublicChats = false;
   isJoiningPublicChat = false;
+  private publicChatSearchTimeout: any;
   showUserList = true;
   currentChatTheme: string = '';
   currentChatUserThemeId: number | null = null;
@@ -1014,6 +1015,26 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.isSearchingPublicChats = false;
   }
 
+  debouncedPublicChatSearch() {
+    clearTimeout(this.publicChatSearchTimeout);
+    this.publicChatSearchTimeout = setTimeout(() => {
+      this.searchPublicChats();
+    }, 350);
+  }
+
+  openSocialBoard() {
+    if (!this.currentChatId) return;
+    this.closeMenuPanel();
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.createComponent('Social', { chatId: this.currentChatId, chatRoomName: this.currentChatRoomName });
+  }
+
+  openSocialBoardFor(chatId: number, chatName?: string) {
+    this.closeMenuPanel();
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.createComponent('Social', { chatId: chatId, chatRoomName: chatName ?? '' });
+  }
+
   async joinPublicChat(chatId: number) {
     const userId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id;
     if (!userId) return;
@@ -1078,6 +1099,29 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (!date) return "";
     const parent = this.inputtedParentRef ?? this.parentRef;
     return parent?.convertUtcToLocalTime(date) ?? date;
+  }
+
+  isMyMessage(message: Message): boolean {
+    const me = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id ?? 0;
+    return message.sender.id === me;
+  }
+
+  showDayDivider(message: Message, index: number): boolean {
+    if (index <= 0) return true;
+    const prev = this.chatHistory[index - 1];
+    if (!prev) return true;
+    return new Date(message.timestamp).toDateString() !== new Date(prev.timestamp).toDateString();
+  }
+
+  getDayLabel(message: Message): string {
+    if (!message?.timestamp) return '';
+    const d = new Date(message.timestamp);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    if (d.toDateString() === today.toDateString()) return 'Today';
+    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined });
   }
   private async subscribeToNotificationTopic(token: string) {
     const parent = this.inputtedParentRef ?? this.parentRef;

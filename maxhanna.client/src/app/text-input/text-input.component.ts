@@ -59,6 +59,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   @Input() attachedFiles: FileEntry[] = [];
   @Input() isReplyingToSubComment?: boolean;
   @Input() postButtonText?: string;
+  @Input() placeholderText?: string;
   @Output() contentPosted = new EventEmitter<{ results: any, content: any, originalContent: string }>();
   @Output() contentUpdated = new EventEmitter<{ results: any, content: any, originalContent: string }>();
   @Output() cancelEdit = new EventEmitter<void>();
@@ -661,10 +662,12 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       storyFiles: files ?? this.attachedFiles,
       storyTopics: this.attachedTopics,
       profileUserId: this.profileUser?.id,
+      chatId: this.chatId,
+      // Group-board posts are always public so every member can see them regardless of the poster's personal default.
+      visibility: this.chatId ? 'public' : this.visibility,
       city: location?.city,
       country: location?.country,
-      ip: location?.ip,
-      visibility: this.visibility
+      ip: location?.ip
     };
     return { story: storyObj as Story, originalContent: originalContent };
   }

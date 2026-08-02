@@ -17,6 +17,19 @@ const MAX_SPEED_BASE = 55;
 const TURN_SPEED = 0.38;
 const OFF_TRACK_DRAG = 0.92;
 const CURB_DRAG = 0.96; // red/white curb strips scrub speed (gentler than grass)
+
+// ── Driving-sim grip model ──
+// The nose (carYaw) turns with the steering rack; tire grip then redirects the
+// car's momentum, so the TRAVEL direction (carDir) chases the nose. The tires
+// can only push the car sideways so fast (LAT_ACCEL), so at speed the travel
+// direction lags the nose — that gap is the slip angle. Overspeed a corner and
+// the slip grows into a slide: the car arcs wide and scrubs speed, which is
+// why braking before a corner now matters.
+const LAT_ACCEL = 30;       // m/s² max lateral accel at 100% grip (≈3g)
+const MAX_RACK_YAW = 2.6;   // rad/s nose turn rate at full lock (steering rack)
+const SLIP_FULL = 0.45;     // rad of slip that counts as a full slide
+const SLIP_DRAG = 1.8;      // 1/s speed bleed at full slide (tire scrub)
+const SLIP_GRIP_CUT = 0.65; // how much a slide cuts remaining steering authority
 const AI_LOOKAHEAD = 3;
 const CAR_RADIUS = 1.1; // shared by player-vs-car and bot-vs-bot collision passes
 
@@ -93,6 +106,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   };
   carX = 0; carZ = 0; carYaw = 0; carSpeed = 0;
   carAccel = 0; carSteer = 0;
+  // Driving-sim slip state: carDir = actual travel heading (rad), slipAngle = the
+  // gap between the nose and the travel direction (0 = full grip).
+  carDir = 0;
+  slipAngle = 0;
   carDist = 0; lapTimes: number[] = [];
   // Previous frame's track distance — used to detect finish-line wrap-around.
   private lastCarDist = 0;
@@ -723,6 +740,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.carX = startP.x;
     this.carZ = startP.z;
     this.carYaw = Math.atan2(startP.dirX, startP.dirZ);
+    this.carDir = this.carYaw;
+    this.slipAngle = 0;
     // Spawn bots to fill the grid alongside real players
     this.spawnBots(4);
     this.totalRacers = this.bots.length + this.lobbyPlayers.length;
@@ -919,6 +938,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.carX = startP.x;
     this.carZ = startP.z;
     this.carYaw = Math.atan2(startP.dirX, startP.dirZ);
+    this.carDir = this.carYaw;
+    this.slipAngle = 0;
     this.carDist = 0;
 
     // Create bots (always 4 — fills the grid in both single & multiplayer)
@@ -1096,32 +1117,81 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const grip = 0.85 + this.getGripBonus() / 100;
     const corner = 0.8 + this.getCornerBonus() / 100;
     const brakeForce = BRAKE_FORCE * (1 + this.getBrakeBonus() / 100);
+    const speedAbs = Math.abs(this.carSpeed);
 
+    // ── Steering + grip (driving-sim slip model) ──
+    const speedRatio = speedAbs / maxSpeed;
+    const speedFactor = Math.min(1, speedAbs / 3.0); // 0 at stop, 1 at ≥3 m/s
+    const turnFactor = Math.max(0.28, 1 - speedRatio * speedRatio * 0.72);
+    // Weight transfer: braking loads the front tires and adds front grip.
+    const brakeGrip = this.carAccel < 0 ? 1.15 : 1.0;
+    const weatherGrip = this.isRaining ? 0.72 : 1.0;
+    const effGrip = grip * brakeGrip * weatherGrip;
+
+    // Grip-limited yaw rate the tires can redirect at this speed (m/s² → rad/s).
+    // Suspension (corner) scales the limit: better suspension = more cornering
+    // grip, not just faster steering (which MAX_RACK_YAW would otherwise clamp).
+    const maxYawRate = speedAbs > 0.5 ? (LAT_ACCEL * effGrip * (corner / 0.8)) / speedAbs : 99;
+    // Steering rack turns the nose (a slide fades its authority — tires give way).
+    const slidePrev = Math.min(1, Math.abs(this.slipAngle) / SLIP_FULL);
+    const rackYawRate = this.carSteer * TURN_SPEED * turnFactor * speedFactor * corner * 60
+      * (1 - SLIP_GRIP_CUT * slidePrev);
+    const yawRate = Math.max(-MAX_RACK_YAW, Math.min(MAX_RACK_YAW, rackYawRate));
+
+    if (this.carSpeed > 0.5) {
+      // Nose responds to the rack; the travel direction chases it at the grip
+      // limit, so momentum can't turn faster than the tires allow — the gap is
+      // the slip angle (the arc).
+      this.carYaw += yawRate * dt;
+      let dirDiff = this.carYaw - this.carDir;
+      while (dirDiff > Math.PI) dirDiff -= Math.PI * 2;
+      while (dirDiff < -Math.PI) dirDiff += Math.PI * 2;
+      const maxDirStep = maxYawRate * dt;
+      this.carDir += Math.max(-maxDirStep, Math.min(maxDirStep, dirDiff));
+    } else if (this.carSpeed < -0.5) {
+      // Reversing: travel is opposite the nose; no slip to track.
+      this.carDir = this.carYaw + Math.PI;
+    } else {
+      // Nearly stopped — nose and travel agree.
+      this.carDir = this.carYaw;
+    }
+
+    // Slip angle + slide intensity (drives speed scrub and steering fade).
+    // Only meaningful while moving forward — reversing/stopped set travel to the
+    // nose (carDir = carYaw + PI) which would otherwise read as ±PI slip (a
+    // full slide) and scrub speed whenever you reversed.
+    let slip = 0;
+    if (this.carSpeed > 0.5) {
+      slip = this.carYaw - this.carDir;
+      while (slip > Math.PI) slip -= Math.PI * 2;
+      while (slip < -Math.PI) slip += Math.PI * 2;
+    }
+    this.slipAngle = slip;
+    const slide = Math.min(1, Math.abs(slip) / SLIP_FULL);
+
+    // ── Acceleration / braking / coast ──
     if (this.carAccel > 0) {
-      this.carSpeed += ACCEL * (1 + this.getWeightBonus() / 200) * dt;
+      // Traction: full power only when the tires are hooked up.
+      const traction = 1 - 0.6 * slide;
+      this.carSpeed += ACCEL * (1 + this.getWeightBonus() / 200) * traction * dt;
     } else if (this.carAccel < 0) {
       this.carSpeed -= brakeForce * dt;
     } else {
       this.carSpeed *= (1 - (1 - FRICTION) * dt * 60);
     }
 
-    this.carSpeed = Math.max(-maxSpeed * 0.3, Math.min(maxSpeed, this.carSpeed));
-
-    // Speed-sensitive turning: sharper at low speeds, dampened at high speeds
-    // No turning when stationary (real car behavior)
-    const speedRatio = Math.abs(this.carSpeed) / maxSpeed;
-    const speedFactor = Math.min(1, Math.abs(this.carSpeed) / 3.0); // 0 at stop, 1 at ≥3 m/s
-    const turnFactor = Math.max(0.28, 1 - speedRatio * speedRatio * 0.72);
-    const steerAmount = this.carSteer * TURN_SPEED * turnFactor * speedFactor * corner * dt * 60;
-    this.carYaw += steerAmount;
-
-    if (Math.abs(this.carSteer) > 0.1 && Math.abs(this.carSpeed) > 20) {
-      const slide = steerAmount * this.carSpeed * 0.02 * (1 - grip);
-      this.carYaw -= slide * 0.5;
+    // Sliding scrubs speed — the reason you must brake before a corner.
+    if (slide > 0.02) {
+      this.carSpeed *= Math.exp(-SLIP_DRAG * slide * dt);
+      this.screenShake = Math.max(this.screenShake, slide * 0.012);
     }
 
-    const dx = Math.sin(this.carYaw) * this.carSpeed * dt;
-    const dz = Math.cos(this.carYaw) * this.carSpeed * dt;
+    this.carSpeed = Math.max(-maxSpeed * 0.3, Math.min(maxSpeed, this.carSpeed));
+
+    // Movement follows the TRAVEL direction (the slide arc), not the nose.
+    const travelYaw = this.carSpeed < 0 ? this.carYaw + Math.PI : this.carDir;
+    const dx = Math.sin(travelYaw) * this.carSpeed * dt;
+    const dz = Math.cos(travelYaw) * this.carSpeed * dt;
     this.carX += dx;
     this.carZ += dz;
 
@@ -1133,7 +1203,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     // Travel heading accounts for reversing (negative speed flips the car 180°).
     // The warning latches after ~0.7s of facing against the track flow and only
     // while moving, so a spin or a wall-scrape doesn't flash it.
-    const travelHeading = this.carSpeed < 0 ? this.carYaw + Math.PI : this.carYaw;
+    const travelHeading = this.carDir; // carDir already encodes reversing (nose + PI)
     let headingDiff = travelHeading - expectedDir;
     while (headingDiff > Math.PI) headingDiff -= Math.PI * 2;
     while (headingDiff < -Math.PI) headingDiff += Math.PI * 2;
@@ -1189,9 +1259,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         this.carZ += (toZ / toLen) * step;
       }
 
-      // 2. Velocity vector
-      const vx = Math.sin(this.carYaw) * this.carSpeed;
-      const vz = Math.cos(this.carYaw) * this.carSpeed;
+      // 2. Velocity vector — along the TRAVEL direction, so a sliding car hits
+      //    the wall sideways with its real momentum, not its nose heading.
+      const vx = Math.sin(this.carDir) * this.carSpeed;
+      const vz = Math.cos(this.carDir) * this.carSpeed;
       const intoWall = vx * normX + vz * normZ;
 
       // 3. Wall tangent and along-wall velocity
@@ -1211,6 +1282,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
         while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
         this.carYaw += yawDiff * 0.4; // blend 40% on impact frame
+        // Sync the travel direction too so momentum follows the wall instead of
+        // spinning the car's path away from it.
+        this.carDir += yawDiff * 0.4;
+        this.slipAngle = this.carYaw - this.carDir;
         // Preserve the car's direction (forward/backward) through the impact
         this.carSpeed = Math.sign(this.carSpeed || 1) * Math.abs(along) * retain * 0.92; // extra friction on the crash frame
         this.screenShake = Math.max(0.04, Math.min(0.12, Math.abs(intoWall) / 300));
@@ -1226,6 +1301,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
         while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
         this.carYaw += yawDiff * 0.06;
+        this.carDir += yawDiff * 0.06;
       }
     }
     this._wasOnWall = onWall;
@@ -1273,9 +1349,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
             other.ref.z -= pushZ * push * 0.5;
           }
 
-          // Relative velocity along collision normal
-          const myVx = Math.sin(this.carYaw) * mySpeed;
-          const myVz = Math.cos(this.carYaw) * mySpeed;
+          // Relative velocity along collision normal — use travel direction so
+          // a sliding car transfers its real momentum into the other car.
+          const myVx = Math.sin(this.carDir) * mySpeed;
+          const myVz = Math.cos(this.carDir) * mySpeed;
           const theirVx = Math.sin(other.yaw) * other.speed;
           const theirVz = Math.cos(other.yaw) * other.speed;
           const relV = (myVx - theirVx) * pushX + (myVz - theirVz) * pushZ;
@@ -1325,6 +1402,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
       if (Math.abs(yawDiff) > 0.15) {
         this.carYaw += Math.sign(yawDiff) * Math.min(Math.abs(yawDiff), 0.01);
+        // Gently nudge the travel direction toward track flow too, so stale
+        // slip decays naturally instead of snapping the car onto a new heading.
+        let dirDiff = expectedDir - this.carDir;
+        while (dirDiff > Math.PI) dirDiff -= Math.PI * 2;
+        while (dirDiff < -Math.PI) dirDiff += Math.PI * 2;
+        this.carDir += Math.sign(dirDiff) * Math.min(Math.abs(dirDiff), 0.01);
       }
     }
   }

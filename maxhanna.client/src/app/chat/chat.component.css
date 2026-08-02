@@ -47,86 +47,95 @@
   background-position: center;
 }
 
-.messageInputInnerDiv {
+.chatConversation {
   display: flex;
   flex-direction: column;
-}
-
-.chatHeader {
-  margin: 4px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  max-height: CALC(100vh - 115px);
+  max-height: CALC(100dvh - 115px);
+  min-height: 0;
 }
 
 .chatWindow {
-  border: 1px solid #ccc;
-  padding: 10px;
-  max-height: CALC(100vh - 160px);
-  max-height: CALC(100dvh - 160px);
-  overflow: auto;
-  margin-bottom: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 10px;
 }
 
-
-.align-left {
-  text-align: left;
+.chatComposer {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--main-border-color);
+  padding: 6px 4px 4px;
+  background-color: var(--component-background-color, transparent);
 }
 
-.align-right {
-  text-align: right;
+.chatDayDivider {
+  text-align: center;
+  margin: 14px 0 6px;
+  font-size: xx-small;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--third-font-color, inherit);
 }
 
-.align-right * {
-  border-color: var(--secondary-font-color);
-}
-
-.messageContainer {
+.messageRow {
   display: flex;
-  margin: 20px 0;
-  position: relative;
-  background: linear-gradient(to bottom, var(--main-highlight-color), transparent);
-  border-radius: 12px;
+  align-items: flex-end;
+  margin: 6px 0 14px;
+  gap: 6px;
+}
+
+.messageRow.mine {
+  flex-direction: row-reverse;
+}
+
+.messageBubble {
+  max-width: 70%;
+  padding: 8px 12px;
+  border-radius: 14px;
   border: var(--main-border);
-  padding-left: 12px;
-  padding-right: 12px;
+  background: var(--main-highlight-color);
+  color: var(--main-font-color, inherit);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
-.align-left .messageContainer {
-  text-align: left;
+.messageRow.mine .messageBubble {
+  background: linear-gradient(135deg, var(--main-highlight-color), var(--secondary-component-background-color));
+  border-bottom-right-radius: 4px;
 }
 
-.align-right .messageContainer {
-  text-align: right;
+.messageRow:not(.mine) .messageBubble {
+  border-bottom-left-radius: 4px;
 }
 
 .messageContent {
   display: inline-block;
-  padding: 10px 10px;
+  padding: 0;
   word-break: break-word;
   width: 100%;
 }
 
-.messageSender {
-  color: var(--secondary-font-color);
+.messageMeta {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
 }
 
-.messageInput {
-  display: flex;
-  gap: 10px;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-content: center;
-  justify-content: center;
-  align-items: center;
+.messageTimestamp {
+  font-size: xx-small;
+  white-space: nowrap;
+  color: var(--third-font-color, inherit);
 }
 
 .profileTag {
   margin-left: unset !important;
   margin-right: unset !important;
-  margin-top: 5px;
+  margin-top: 0;
   text-align: center;
   width: 50px;
+  flex: 0 0 50px;
   padding: 5px;
   display: flex;
   align-items: center;
@@ -136,24 +145,8 @@
   flex-direction: column;
 }
 
-.attachedFilesDiv {
-  display: flex;
-  justify-content: center;
-}
-
 .otherPersonsMessage {
-  background: linear-gradient(to bottom, var(--secondary-component-background-color), transparent);
-}
-
-.messageTimestamp {
-  font-size: xx-small;
-  white-space: nowrap;
-  position: absolute;
-  top: -12px;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: auto;
-  height: auto;
+  /* kept for backwards compatibility — styling is handled by .messageRow */
 }
 
 .reactionDiv {
@@ -193,6 +186,13 @@
   text-overflow: ellipsis;
 }
 
+.chatEmptyState {
+  text-align: center;
+  color: var(--third-font-color, inherit);
+  padding: 40px 10px;
+  font-size: small;
+}
+
 .chatMenuPopupPanel {
   max-width: 420px;
 }
@@ -200,6 +200,19 @@
 .popupPanelTitle {
   display: flex; 
   justify-content: space-evenly;
+}
+
+.chatMenuSectionHeader {
+  font-family: var(--section-font-family);
+  font-size: small;
+  color: var(--secondary-font-color);
+  border-bottom: 1px solid var(--main-highlight-color);
+  padding-bottom: 3px;
+  margin: 12px 0 8px;
+}
+
+.messageRow .poll-container {
+  width: 100%;
 }
 
 .addChatMembersList {
@@ -244,7 +257,6 @@
 .chatMenuPopupCloseDiv {
   margin: 20px 20px 0px 20px;
 }
-
 
 .poll-container {
   width: 100%;

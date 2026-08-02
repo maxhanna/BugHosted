@@ -224,6 +224,19 @@ export class ChatService {
     }
   }
 
+  async addChatMembers(chatId: number, userId: number, userIds: number[]): Promise<boolean> {
+    try {
+      const response = await fetch(`/chat/addchatmembers`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ChatId: chatId, UserId: userId, UserIds: userIds }),
+      });
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
+  }
+
   async getChatRoom(chatId: number): Promise<PublicChatInfo | null> {
     try {
       const response = await fetch(`/chat/getchatroom`, {

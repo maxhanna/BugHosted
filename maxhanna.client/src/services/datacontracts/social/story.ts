@@ -20,6 +20,7 @@ export class Story {
   storyComments: Array<FileComment> | undefined;
   storyTopics: Array<Topic> | undefined;
   profileUserId?: number | undefined;
+  chatId?: number | undefined;
   city?: string | undefined;
   country?: string | undefined;
   ip?: string | undefined;

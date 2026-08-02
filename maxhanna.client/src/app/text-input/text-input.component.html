@@ -3,7 +3,7 @@
       #postInput 
       id="postInput"
       *ngIf="!showPostInput" 
-      [placeholder]="isReplyingToSubComment ? 'Drop a crumb…' : 'What’s crawling your mind?'" 
+      [placeholder]="placeholderText ?? (isReplyingToSubComment ? 'Drop a crumb…' : 'What’s crawling your mind?')" 
       [disabled]="isLoading || _isPosting"
       [draggable]="!isFocused"
       (focus)="type == 'Chat' ? prepPostTextArea() : ''"
@@ -13,7 +13,7 @@
       (dragstart)="onDragStart($event)" />
     <textarea #postTextArea 
       *ngIf="showPostInput"
-      [placeholder]="isReplyingToSubComment ? 'Drop a crumb…' : 'What’s crawling your mind?'" 
+      [placeholder]="placeholderText ?? (isReplyingToSubComment ? 'Drop a crumb…' : 'What’s crawling your mind?')" 
       class="foodForThought" 
       id="postTextArea" 
       [disabled]="isLoading || _isPosting"

@@ -9,7 +9,7 @@ import { Topic } from './datacontracts/topics/topic';
   providedIn: 'root'
 })
 export class SocialService {
-  async getStories(userId?: number, search?: string, topics?: string, profileUserId?: number, storyId?: number, page: number = 1, pageSize: number = 10, showHiddenStories = false, showPostsFromFilter: string = 'all', details: boolean = true) {
+  async getStories(userId?: number, search?: string, topics?: string, profileUserId?: number, storyId?: number, page: number = 1, pageSize: number = 10, showHiddenStories = false, showPostsFromFilter: string = 'all', details: boolean = true, chatId?: number) {
     let params = new URLSearchParams();
     if (search)
       params.append("search", search);
@@ -33,7 +33,7 @@ export class SocialService {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ UserId: userId, ProfileUserId: profileUserId, StoryId: storyId }),
+        body: JSON.stringify({ UserId: userId, ProfileUserId: profileUserId, StoryId: storyId, ChatId: chatId }),
       });
 
       if (!res.ok) {

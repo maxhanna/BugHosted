@@ -26,96 +26,100 @@
     *ngIf="isPanelExpanded && showUserList">
   </app-user-list>
   <div class="chatArea" [class]="isPanelExpanded ? 'expanded' : ''">
-    <div *ngIf="currentChatUsers">
-      <div class="chatWindow" *ngIf="chatHistory" #chatWindow (scroll)="onScroll();">
+    <div *ngIf="currentChatUsers" class="chatConversation">
+      <div class="chatWindow" #chatWindow (scroll)="onScroll();">
         <div *ngIf="pageNumber < totalPages" appInView (inView)="loadPreviousPage()"
           style="width: 100%; text-align: center;" class="smallFont secondaryFontColor">
           <span>Current Page: {{pageNumber}}</span><span *ngIf="isLoadingPreviousPage">{{" "}}Loading...</span>
         </div>
 
-        <div *ngFor="let message of chatHistory" [attr.id]="'messageText' + message.id" [class.messageContainer]="true"
-          [class.otherPersonsMessage]="message.sender.id !== (parentRef?.user?.id ?? 0)"
-          [style.flexDirection]="message.sender.id != (parentRef?.user?.id ?? 0) ? 'row-reverse' : 'row'">
+        <ng-container *ngFor="let message of chatHistory; let i = index">
+          <div *ngIf="showDayDivider(message, i)" class="chatDayDivider">{{ getDayLabel(message) }}</div>
 
-          <span class="messageTimestamp">
-            {{ getUtcTimestampString(message.timestamp) }}
-            <span class="userSeen" *ngIf="message.seen" [title]="'Seen by:' + message.seen">👀</span>
-          </span>
+          <div [attr.id]="'messageText' + message.id" class="messageRow"
+            [class.mine]="isMyMessage(message)" [class.otherPersonsMessage]="!isMyMessage(message)">
+            <div class="profileTag">
+              <div class="usernameProfileLink">
+                <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef"
+                  [displayHoverPicture]="true" [containUsername]="true"></app-user-tag>
+              </div>
+            </div>
+            <div class="messageBubble">
+              <div class="messageContent" [attr.data-timestamp]="message.timestamp">
+                <div [innerHTML]="getTextForDOM(message.decrypted ? message.decrypted : decryptContent(message.content), 'messageText' + message.id)"
+                  *ngIf="!isEditing.includes(message.id)"></div>
+                <div *ngIf="isEditing.includes(message.id)">
+                  <app-text-input 
+                    [inputtedParentRef]="parentRef ?? inputtedParentRef"
+                    [type]="'Chat'" 
+                    [chatId]="currentChatId"
+                    [messageId]="message.id"
+                    [isEditing]="true"
+                    [attachedFiles]="message.files ?? []"
+                    [showPostInput]="true"
+                    [initialContent]="decryptContent(message.content)"
+                    [postButtonText]="'✏️Edit'"
+                    (contentUpdated)="onChatUpdated($event, message)"
+                    (cancelEdit)="stopEdit(message)">
+                  </app-text-input>
+                </div>
+                <div class="xxSmallFont thirdFontColor" *ngIf="message.editDate" [title]="message.editDate">
+                  Edited: {{message.editDate | timeSince:'minute':true}}
+                </div>
 
-          <!-- Profile tag on left for receiver, right for sender -->
-          <div class="profileTag">
-            <div class="usernameProfileLink">
-              <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef"
-                [displayHoverPicture]="true" [containUsername]="true"></app-user-tag>
+                <div *ngFor="let file of message.files"
+                  [style.marginTop]="(message.files && message.files.length > 0) ? '10px' : ''"
+                  [style.marginBottom]="(message.files && message.files.length > 0) ? '15px' : ''">
+                  <app-media-viewer 
+                    [file]="file" 
+                    [currentDirectory]="file.directory" 
+                    [inputtedParentRef]="parentRef"
+                    [displayExtraInfo]="false" 
+                    [displayExpander]="false" 
+                    [showMediaInformation]="true"
+                    [showCommentSection]="false"  
+                    [autoplay]="false" 
+                    [autoload]="true"
+                    [showTopics]="false" 
+                    [displayLoading]="true" >
+                  </app-media-viewer>
+                </div>
+
+                <div class="reactionDiv">
+                  <app-reaction [messageId]="message.id" [user]="parentRef?.user" [component]="message"
+                    [inputtedParentRef]="parentRef" [currentReactions]="message.reactions"
+                   ></app-reaction>
+                  <button *ngIf="!isEditing.length" title="Quote Chat Message" (click)="quote(message)"
+                    class="coloredBgButton">🗨️</button>
+                  <button
+                    *ngIf="message.sender.id === (parentRef?.user?.id ?? 0) && (isEditing.length == 0)"
+                    title="Edit Chat Message" class="coloredBgButton"
+                    (click)="edit(message)">
+                    ✏️
+                  </button> 
+                </div>
+              </div>
+              <div class="messageMeta">
+                <span class="messageTimestamp">
+                  {{ getUtcTimestampString(message.timestamp) }}
+                </span>
+                <span class="userSeen" *ngIf="message.seen" [title]="'Seen by:' + message.seen">👀</span>
+              </div>
             </div>
           </div>
-          <div class="messageContent" [attr.data-timestamp]="message.timestamp">
-            <div [innerHTML]="getTextForDOM(message.decrypted ? message.decrypted : decryptContent(message.content), 'messageText' + message.id)"
-              *ngIf="!isEditing.includes(message.id)"></div>
-            <div *ngIf="isEditing.includes(message.id)">
-              <app-text-input 
-                [inputtedParentRef]="parentRef ?? inputtedParentRef"
-                [type]="'Chat'" 
-                [chatId]="currentChatId"
-                [messageId]="message.id"
-                [isEditing]="true"
-                [attachedFiles]="message.files ?? []"
-                [showPostInput]="true"
-                [initialContent]="decryptContent(message.content)"
-                [postButtonText]="'✏️Edit'"
-                (contentUpdated)="onChatUpdated($event, message)"
-                (cancelEdit)="stopEdit(message)">
-              </app-text-input>
-            </div>
-            <div class="xxSmallFont thirdFontColor" *ngIf="message.editDate" [title]="message.editDate">
-              Edited: {{message.editDate | timeSince:'minute':true}}
-            </div>
-
-            <div *ngFor="let file of message.files"
-              [style.marginTop]="(message.files && message.files.length > 0) ? '10px' : ''"
-              [style.marginBottom]="(message.files && message.files.length > 0) ? '15px' : ''">
-              <app-media-viewer 
-                [file]="file" 
-                [currentDirectory]="file.directory" 
-                [inputtedParentRef]="parentRef"
-                [displayExtraInfo]="false" 
-                [displayExpander]="false" 
-                [showMediaInformation]="true"
-                [showCommentSection]="false"  
-                [autoplay]="false" 
-                [autoload]="true"
-                [showTopics]="false" 
-                [displayLoading]="true" >
-              </app-media-viewer>
-            </div>
-
-            <div class="reactionDiv">
-              <app-reaction [messageId]="message.id" [user]="parentRef?.user" [component]="message"
-                [inputtedParentRef]="parentRef" [currentReactions]="message.reactions"
-               ></app-reaction>
-              <button *ngIf="!isEditing.length" title="Quote Chat Message" (click)="quote(message)"
-                class="coloredBgButton">🗨️</button>
-              <button
-                *ngIf="message.sender.id === (parentRef?.user?.id ?? 0) && (isEditing.length == 0)"
-                title="Edit Chat Message" class="coloredBgButton"
-                (click)="edit(message)">
-                ✏️
-              </button> 
-            </div>
-          </div>
-        </div>
+        </ng-container>
 
         <div *ngIf="serverDown" class="serverDown">Server Down</div>
 
-        <div *ngIf="(!chatHistory || chatHistory.length == 0) && !isLoading">
-          ZZzzz. Empty chat!
+        <div *ngIf="(!chatHistory || chatHistory.length == 0) && !isLoading" class="chatEmptyState">
+          💬 No messages yet — say hi!
         </div>
-        <div *ngIf="(!chatHistory || chatHistory.length == 0) && isLoading">
-          Loading chat...
+        <div *ngIf="(!chatHistory || chatHistory.length == 0) && isLoading" class="chatEmptyState">
+          Loading conversation…
         </div>
       </div>
 
-      <div [style]="isEditing.length > 0 ? 'display: none' : ''">
+      <div class="chatComposer" [style]="isEditing.length > 0 ? 'display: none' : ''">
         <app-text-input #chatInput 
           [inputtedParentRef]="parentRef ?? inputtedParentRef" 
           [type]="'Chat'"
@@ -123,6 +127,7 @@
           [chatId]="currentChatId"
           [currentChatUsers]="currentChatUsers"
           [enterToPost]="true"
+          [placeholderText]="'Type a message…'"
           [postButtonText]="'💬Send'"
           (contentPosted)="chatMessagePosted($event)">
         </app-text-input>
@@ -168,6 +173,7 @@
     Chat Menu
   </div>
   <div class="optionsStatsWrapperDiv chatMenuPopupWrapperDiv">
+    <div class="chatMenuSectionHeader" *ngIf="!showUserList">💬 Conversation</div>
     <div class="optionsStatsDiv" *ngIf="!showUserList">
       <div class="optionsStatsHeader">Page:</div>
       <div class="optionsStatsDescription">
@@ -179,19 +185,39 @@
     <div class="optionsStatsDiv" *ngIf="!showUserList">
       <div class="optionsStatsHeader">Close Chat:</div>
       <div class="optionsStatsDescription">
-        <button (click)="closeChat()">Back</button>
+        <button (click)="closeChat()">⬅️ Back to list</button>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="!showUserList && currentChatId">
       <div class="optionsStatsHeader">Leave Chat:</div>
       <div class="optionsStatsDescription">
-        <button (click)="leaveChat(currentChatId)">Leave</button>
+        <button (click)="leaveChat(currentChatId)" class="redText">Leave</button>
       </div>
     </div>
+    <div class="optionsStatsDiv" *ngIf="!showUserList && currentChatUsers">
+      <div class="optionsStatsHeader">
+        Members:
+        <span *ngIf="currentChatUsers.length > 1" style="cursor: pointer" (click)="displayChatMembers()">
+          ({{currentChatUsers.length}})</span>
+      </div>
+      <div class="optionsStatsDescription">
+        <button (click)="displayChatMembers()">👥 Display</button>
+      </div>
+    </div>
+    <div class="optionsStatsDiv" *ngIf="!showUserList && currentChatIsPublic && currentChatId">
+      <div class="optionsStatsHeader">
+        Group Board:
+        <span *ngIf="currentChatIsPublic" style="color:var(--main-highlight-color);">🌐 {{ currentChatRoomName }}</span>
+      </div>
+      <div class="optionsStatsDescription">
+        <button (click)="openSocialBoard()" title="Open this group's social board">📋 Open Social Board</button>
+      </div>
+    </div>
+    <div class="chatMenuSectionHeader">🔧 Preferences</div>
     <div class="optionsStatsDiv">
       <div class="optionsStatsHeader" title="When Ghost Read is enabled: Read date no longer updates.">Ghost Read:</div>
       <div class="optionsStatsDescription" title="When Ghost Read is enabled: Read date no longer updates.">
-        <button (click)="enableGhostRead()">{{ghostReadEnabled ? '🙈Disable' : '🙉Enable'}}</button>
+        <button (click)="enableGhostRead()">{{ghostReadEnabled ? '🙈 Disable' : '🙉 Enable'}}</button>
       </div>
     </div>
     <div class="optionsStatsDiv" *ngIf="!showUserList && currentChatId && userThemes?.length">
@@ -203,43 +229,38 @@
         </select>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="!showUserList && currentChatUsers">
-      <div class="optionsStatsHeader">
-        Members:
-        <span *ngIf="currentChatUsers.length > 1" style="cursor: pointer" (click)="displayChatMembers()">
-          ({{currentChatUsers.length}})</span>
-      </div>
+    <div class="chatMenuSectionHeader" *ngIf="!showUserList && currentChatId">🌐 Public Chat</div>
+    <div class="optionsStatsDiv" *ngIf="!showUserList && currentChatId && !currentChatIsPublic">
+      <div class="optionsStatsHeader">Make Public:</div>
       <div class="optionsStatsDescription">
-        <button (click)="displayChatMembers()">Display</button>
-      </div>
-    </div>
-    <div class="optionsStatsDiv" *ngIf="!showUserList && currentChatId">
-      <div class="optionsStatsHeader">
-        Public Chat:
-        <span *ngIf="currentChatIsPublic" style="color:var(--main-highlight-color);">🌐 {{ currentChatRoomName }}</span>
-      </div>
-      <div class="optionsStatsDescription" *ngIf="!currentChatIsPublic">
         <input [(ngModel)]="newChatName" placeholder="Chat name" style="width:100%; margin-bottom:4px;">
         <button (click)="makeChatPublic()" [disabled]="isMakingChatPublic || !newChatName.trim()">
-          {{ isMakingChatPublic ? 'Making public...' : 'Make Public' }}
+          {{ isMakingChatPublic ? 'Making public...' : '🌐 Make Public' }}
         </button>
-        <div class="smallFont thirdFontColor">Making a chat public lets anyone search &amp; join it, and promotes existing members to chat moderators.</div>
+        <div class="smallFont thirdFontColor">Lets anyone search &amp; join it, and promotes existing members to chat moderators.</div>
       </div>
-      <div class="optionsStatsDescription" *ngIf="currentChatIsPublic">
+    </div>
+    <div class="optionsStatsDiv" *ngIf="!showUserList && currentChatId && currentChatIsPublic">
+      <div class="optionsStatsHeader">Public Chat:</div>
+      <div class="optionsStatsDescription">
         <span class="smallFont thirdFontColor">This chat is public — anyone can find and join it.</span>
       </div>
     </div>
+    <div class="chatMenuSectionHeader">🔍 Find Public Chats</div>
     <div class="optionsStatsDiv">
-      <div class="optionsStatsHeader">Join Public Chat:</div>
+      <div class="optionsStatsHeader">Search:</div>
       <div class="optionsStatsDescription">
-        <input [(ngModel)]="publicChatSearch" placeholder="Search public chats..." style="width:100%; margin-bottom:4px;" (keyup.enter)="searchPublicChats()">
+        <input [(ngModel)]="publicChatSearch" placeholder="Search public chats by name..." style="width:100%; margin-bottom:4px;" (keyup.enter)="searchPublicChats()" (input)="debouncedPublicChatSearch()">
         <button (click)="searchPublicChats()" [disabled]="isSearchingPublicChats">
-          {{ isSearchingPublicChats ? 'Searching...' : 'Search' }}
+          {{ isSearchingPublicChats ? 'Searching...' : '🔎 Search' }}
         </button>
         <div *ngIf="publicChatResults.length > 0" style="margin-top:8px; max-height: 180px; overflow:auto;">
           <div *ngFor="let chat of publicChatResults" style="margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
             <span>🌐 {{ chat.name }} <span class="smallFont">({{ chat.memberCount }} members)</span></span>
-            <button (click)="joinPublicChat(chat.chatId)" [disabled]="isJoiningPublicChat" style="margin-left:8px;">Join</button>
+            <span>
+              <button (click)="joinPublicChat(chat.chatId)" [disabled]="isJoiningPublicChat" style="margin-left:8px;">Join</button>
+              <button (click)="openSocialBoardFor(chat.chatId, chat.name)" style="margin-left:6px;" title="Open this group's social board">📋 Board</button>
+            </span>
           </div>
         </div>
         <div *ngIf="!isSearchingPublicChats && publicChatSearch && publicChatResults.length === 0" class="smallFont thirdFontColor" style="margin-top:4px;">

@@ -77,6 +77,12 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   @Input() user?: User;
   @Input() canScroll?: boolean = true;
   @Input() parent?: AppComponent;
+  @Input() chatId?: number;
+  @Input() chatRoomName?: string;
+
+  groupChatUsers: User[] = [];
+  isGroupMembersPanelOpen = false;
+  private chatService = undefined as any;
 
   constructor(private socialService: SocialService,
     private topicService: TopicService,
@@ -87,6 +93,52 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     private renderer: Renderer2
 ) {
     super();
+  }
+
+  async loadGroupInfo() {
+    if (!this.chatId) return;
+    try {
+      const { ChatService } = await import('../../services/chat.service');
+      const chatService = new (ChatService as any)();
+      this.chatService = chatService;
+      if (!this.chatRoomName) {
+        const room = await chatService.getChatRoom(this.chatId);
+        if (room) {
+          this.chatRoomName = room.name;
+        }
+      }
+      const members = await chatService.getChatUsersByChatId(this.chatId);
+      this.groupChatUsers = Array.isArray(members) ? members : [];
+    } catch (ex) {
+      console.warn('Failed to load group chat info', ex);
+    }
+  }
+
+  openGroupChat() {
+    if (!this.chatId) return;
+    const parent = this.parent ?? this.parentRef;
+    parent?.createComponent('Chat', { chatId: this.chatId });
+  }
+
+  toggleGroupMembersPanel() {
+    this.isGroupMembersPanelOpen = !this.isGroupMembersPanelOpen;
+  }
+
+  async addChatMembers(users?: User[]) {
+    if (!this.chatId || !users || users.length === 0) return;
+    if (!this.chatService) {
+      await this.loadGroupInfo();
+    }
+    if (!this.chatService) return;
+    const me = this.parentRef?.user?.id ?? 0;
+    const ok = await this.chatService.addChatMembers(this.chatId, me, users.map(u => u.id).filter((id): id is number => !!id));
+    if (ok) {
+      this.groupChatUsers = [...this.groupChatUsers, ...users.filter(u => !this.groupChatUsers.some(z => z.id === u.id))];
+      this.isGroupMembersPanelOpen = false;
+      this.parentRef?.showNotification('Members added to the group chat.');
+    } else {
+      this.parentRef?.showNotification('Failed to add members.');
+    }
   }
 
   async ngOnInit() {
@@ -164,6 +216,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     } else {
       await this.getStories();
     }
+
+    if (this.chatId) {
+      await this.loadGroupInfo();
+    }
    
 
     this.parentRef?.getLocation().then(res => {
@@ -230,8 +286,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       page,
       pageSize,
       showHiddenStories,
-      this.showPostsFromFilter,
-      false // details=false: list returns lightweight stubs; each app-social-post fetches its own details
+      // Group boards always show the full public feed for the chat, never the user's personal feed filter.
+      this.chatId ? 'all' : this.showPostsFromFilter,
+      false, // details=false: list returns lightweight stubs; each app-social-post fetches its own details
+      this.chatId
     );
 
     if (res && res.stories && res.stories.length > 0) {

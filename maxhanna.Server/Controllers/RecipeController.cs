@@ -59,9 +59,7 @@ public class RecipeController : ControllerBase
         var query = @"SELECT r.id, r.user_id, r.name, r.description, r.ingredients, r.instructions, r.tags, r.image_file_ids, r.external_links, r.created_by, r.created_at,
                        COALESCE(AVG(rat.rating), 0) AS average_rating,
                        COUNT(rat.id) AS rating_count,
-                       @UserId > 0 AND (SELECT COUNT(*) FROM ratings rat2 WHERE rat2.recipe_id = r.id AND rat2.user_id = @UserId) > 0
-                         THEN (SELECT rat3.rating FROM ratings rat3 WHERE rat3.recipe_id = r.id AND rat3.user_id = @UserId LIMIT 1)
-                       ELSE 0 END AS user_rating
+                       COALESCE((SELECT rat3.rating FROM ratings rat3 WHERE rat3.recipe_id = r.id AND rat3.user_id = @UserId LIMIT 1), 0) AS user_rating
                 FROM recipes r
                 LEFT JOIN ratings rat ON rat.recipe_id = r.id";
         var parameters = new List<MySqlParameter> { new MySqlParameter("@UserId", userId ?? 0) };

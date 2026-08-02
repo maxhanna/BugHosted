@@ -64,15 +64,13 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     this.loading = true;
     try {
       const enabledTypes = this.getEnabledEventTypes();
-      const result = await this.userEventService.getUserEvents(this.pageSize, 0, enabledTypes);
-      this.events = this.excludeSelf
-        ? result.events.filter(e => e.userId !== this.parentRef?.user?.id)
-        : result.events;
+      // Exclude self in SQL (not client-side) so pagination stays correct even
+      // when the user's own activity fills an entire page.
+      const excludeUserId = this.excludeSelf ? this.parentRef?.user?.id : undefined;
+      const result = await this.userEventService.getUserEvents(this.pageSize, 0, enabledTypes, excludeUserId);
+      this.events = result.events;
       this.totalEvents = result.totalCount;
-      // When filtering self, hasMoreEvents is based on whether we got a full page
-      this.hasMoreEvents = this.excludeSelf
-        ? result.events.length >= this.pageSize
-        : this.events.length < this.totalEvents;
+      this.hasMoreEvents = this.events.length < this.totalEvents;
     } catch (e) {
       console.error('Failed to load user events', e);
       this.events = [];
@@ -88,16 +86,11 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     try {
       const offset = this.events.length;
       const enabledTypes = this.getEnabledEventTypes();
-      const result = await this.userEventService.getUserEvents(this.pageSize, offset, enabledTypes);
-      const newEvents = this.excludeSelf
-        ? result.events.filter(e => e.userId !== this.parentRef?.user?.id)
-        : result.events;
-      this.events = [...this.events, ...newEvents];
+      const excludeUserId = this.excludeSelf ? this.parentRef?.user?.id : undefined;
+      const result = await this.userEventService.getUserEvents(this.pageSize, offset, enabledTypes, excludeUserId);
+      this.events = [...this.events, ...result.events];
       this.totalEvents = result.totalCount;
-      // When filtering self, hasMoreEvents is based on whether we got a full page
-      this.hasMoreEvents = this.excludeSelf
-        ? result.events.length >= this.pageSize
-        : this.events.length < this.totalEvents;
+      this.hasMoreEvents = this.events.length < this.totalEvents;
     } catch (e) {
       console.error('Failed to load more user events', e);
       this.loadError = 'Failed to load more events.';

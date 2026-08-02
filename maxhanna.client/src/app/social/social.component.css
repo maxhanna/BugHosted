@@ -7,6 +7,55 @@
   max-width: calc(99dvw);
 }
 
+.groupSocialHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  margin: 8px 12px 4px;
+  border-radius: 10px;
+  background: var(--main-background-color);
+  border: 1px solid var(--main-border-color);
+}
+
+.groupSocialTitle {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.groupSocialActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.groupMembersPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--main-background-color);
+  border: 1px solid var(--main-border-color);
+}
+
+.groupMembersList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.groupMemberTag {
+  display: inline-flex;
+  align-items: center;
+}
+
+.groupAddMembers {
+  margin-top: 4px;
+}
+
 .socialComponentContents {
   max-height: CALC(100vh - 60px);
   max-height: CALC(100dvh - 60px);

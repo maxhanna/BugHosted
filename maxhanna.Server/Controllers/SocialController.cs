@@ -179,6 +179,11 @@ namespace maxhanna.Server.Controllers
         whereClause.Append("AND s.profile_user_id = @profile ");
         parameters.Add("@profile", request.ProfileUserId.Value);
       }
+      if (request.ChatId != null && request.ChatId > 0)
+      {
+        whereClause.Append("AND s.chat_id = @chatId ");
+        parameters.Add("@chatId", request.ChatId.Value);
+      }
       // if (request.ProfileUserId == null || request.ProfileUserId == 0)
       // {
       //   whereClause.Append("AND s.profile_user_id IS NULL ");
@@ -247,7 +252,7 @@ namespace maxhanna.Server.Controllers
 				SELECT 
 					s.id AS story_id, 
 					s.user_id,
-					s.story_text, s.date, s.city, s.country, s.profile_user_id, s.visibility,
+					s.story_text, s.date, s.city, s.country, s.profile_user_id, s.chat_id, s.visibility,
 							CASE 
 									WHEN hs.story_id IS NOT NULL THEN TRUE 
 									ELSE FALSE 
@@ -270,6 +275,7 @@ namespace maxhanna.Server.Controllers
       using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
       {
         await conn.OpenAsync();
+        await EnsureStoryChatIdColumnAsync(conn);
         using (var countCmd = new MySqlCommand(countSql, conn))
         {
           foreach (var param in parameters)
@@ -311,6 +317,7 @@ namespace maxhanna.Server.Controllers
                   Hidden = rdr.IsDBNull(rdr.GetOrdinal("hidden")) ? false : rdr.GetBoolean("hidden"),
                   Visibility = rdr.IsDBNull(rdr.GetOrdinal("visibility")) ? null : rdr.GetString("visibility"),
                   ProfileUserId = rdr.IsDBNull(rdr.GetOrdinal("profile_user_id")) ? null : rdr.GetInt32("profile_user_id"),
+                  ChatId = rdr.IsDBNull(rdr.GetOrdinal("chat_id")) ? null : rdr.GetInt32("chat_id"),
                 };
                 storyDictionary[storyId] = story;
               }
@@ -1185,6 +1192,35 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+    private static bool _storyChatIdColumnEnsured = false;
+    private static readonly object _storyChatIdLock = new object();
+    private async Task EnsureStoryChatIdColumnAsync(MySqlConnection conn)
+    {
+      if (_storyChatIdColumnEnsured) return;
+      try
+      {
+        string checkSql = "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stories' AND COLUMN_NAME = 'chat_id';";
+        using (var checkCmd = new MySqlCommand(checkSql, conn))
+        {
+          if (Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) == 0)
+          {
+            using (var alterCmd = new MySqlCommand("ALTER TABLE stories ADD COLUMN chat_id INT NULL AFTER profile_user_id;", conn))
+            {
+              await alterCmd.ExecuteNonQueryAsync();
+            }
+          }
+          lock (_storyChatIdLock)
+          {
+            _storyChatIdColumnEnsured = true;
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("EnsureStoryChatIdColumnAsync error: " + ex.Message, null, "SOCIAL", true);
+      }
+    }
+
     [HttpPost("/Social/Post-Story/", Name = "PostStory")]
     public async Task<IActionResult> PostStory([FromBody] StoryRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
     {
@@ -1192,13 +1228,15 @@ namespace maxhanna.Server.Controllers
       {
         // Use the request.userId for decryption so the server uses the same id the client used to encrypt
         string decryptedText = _log.DecryptContent(request.story.StoryText ?? "", (request.userId ?? 0) + "");
-        string sql = @"INSERT INTO stories (user_id, story_text, profile_user_id, city, country, date, visibility) 
-			    VALUES (@userId, @storyText, @profileUserId, @city, @country, UTC_TIMESTAMP(), @visibility);";
+        string sql = @"INSERT INTO stories (user_id, story_text, profile_user_id, chat_id, city, country, date, visibility) 
+			    VALUES (@userId, @storyText, @profileUserId, @chatId, @city, @country, UTC_TIMESTAMP(), @visibility);";
         string topicSql = @"INSERT INTO story_topics (story_id, topic_id) VALUES (@storyId, @topicId);";
 
         using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
         {
           await conn.OpenAsync();
+
+          await EnsureStoryChatIdColumnAsync(conn);
 
           using (var cmd = new MySqlCommand(sql, conn))
           {
@@ -1206,6 +1244,9 @@ namespace maxhanna.Server.Controllers
             cmd.Parameters.AddWithValue("@storyText", decryptedText);
             cmd.Parameters.AddWithValue("@profileUserId", request.story.ProfileUserId.HasValue && request.story.ProfileUserId != 0
               ? request.story.ProfileUserId.Value
+              : (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("@chatId", request.story.ChatId.HasValue && request.story.ChatId != 0
+              ? request.story.ChatId.Value
               : (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@city", request.story.City ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("@country", request.story.Country ?? (object)DBNull.Value);

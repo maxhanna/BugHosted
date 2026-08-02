@@ -27,7 +27,7 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpGet(Name = "GetUserEvents")]
-        public async Task<IActionResult> GetUserEvents([FromQuery] int limit = 50, [FromQuery] int offset = 0, [FromQuery] string? eventTypes = null)
+        public async Task<IActionResult> GetUserEvents([FromQuery] int limit = 50, [FromQuery] int offset = 0, [FromQuery] string? eventTypes = null, [FromQuery] int? excludeUserId = null)
         {
             try
             {
@@ -42,6 +42,11 @@ namespace maxhanna.Server.Controllers
                     }
                 }
 
+                // "Only show others' events": exclude the current user's own events
+                // in SQL (not client-side), so pagination stays correct even when
+                // the user's own activity fills an entire page.
+                string excludeFilter = excludeUserId.HasValue ? " AND ue.user_id <> @ExcludeUserId" : "";
+
                 using (var selectConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                 {
                     await selectConn.OpenAsync();
@@ -51,6 +56,7 @@ namespace maxhanna.Server.Controllers
                         FROM maxhanna.user_events ue
                         WHERE ue.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 DAY)
                         {eventTypeFilter}
+                        {excludeFilter}
                         ORDER BY ue.created_at DESC
                         LIMIT @Limit OFFSET @Offset;";
 
@@ -58,6 +64,7 @@ namespace maxhanna.Server.Controllers
                     {
                         cmd.Parameters.AddWithValue("@Limit", limit);
                         cmd.Parameters.AddWithValue("@Offset", offset);
+                        if (excludeUserId.HasValue) cmd.Parameters.AddWithValue("@ExcludeUserId", excludeUserId.Value);
                         using (var reader = await cmd.ExecuteReaderAsync())
                         {
                             var events = new List<UserEvent>();
@@ -80,9 +87,10 @@ namespace maxhanna.Server.Controllers
                             using (var countConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
                             {
                                 await countConn.OpenAsync();
-                                string countSql = $@"SELECT COUNT(*) FROM maxhanna.user_events ue WHERE ue.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 DAY) {eventTypeFilter};";
+                                string countSql = $@"SELECT COUNT(*) FROM maxhanna.user_events ue WHERE ue.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 DAY) {eventTypeFilter} {excludeFilter};";
                                 using (var countCmd = new MySqlCommand(countSql, countConn))
                                 {
+                                    if (excludeUserId.HasValue) countCmd.Parameters.AddWithValue("@ExcludeUserId", excludeUserId.Value);
                                     int totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
                                     Response.Headers.Append("X-Total-Count", totalCount.ToString());
                                 }
