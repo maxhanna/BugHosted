@@ -411,12 +411,6 @@ div:not(.trade-panel-controls) .button-wrapper {
   max-height: CALC(100dvh - 150px);
   overflow: auto;
 }
-@media (max-width: 768px) {
-  .live-trade-view-container {
-      max-height: CALC(100vh - 315px);
-      max-height: CALC(100dvh - 315px);
-  }
-}
  
 .trade-info-column {
   transition: width 0.25s ease;
