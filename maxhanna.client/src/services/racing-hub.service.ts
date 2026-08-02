@@ -56,6 +56,8 @@ export class RacingHubService implements OnDestroy {
   readonly playerFinished$ = new Subject<PlayerFinishedEvent>();
   readonly chatMessage$ = new Subject<ChatMessage>();
   readonly madeHost$ = new Subject<void>();
+  readonly hostChanged$ = new Subject<{ connectionId: string }>();
+  readonly rematch$ = new Subject<LobbyPlayer[]>();
   readonly autoStartCountdown$ = new Subject<number>();
   readonly connectionError$ = new Subject<string>();
 
@@ -116,6 +118,14 @@ export class RacingHubService implements OnDestroy {
         this.madeHost$.next();
       });
 
+      this.hub.on('OnPlayerHostChanged', (data: { connectionId: string }) => {
+        this.hostChanged$.next(data);
+      });
+
+      this.hub.on('OnRematch', (data: { players: LobbyPlayer[] }) => {
+        this.rematch$.next(data.players || []);
+      });
+
       this.hub.on('OnAutoStartCountdown', (remaining: number) => {
         this.autoStartCountdown$.next(remaining);
       });
@@ -143,10 +153,10 @@ export class RacingHubService implements OnDestroy {
     this.hub = null;
   }
 
-  async joinLobby(trackId: string, playerName: string, playerId: number): Promise<LobbyState | null> {
+  async joinLobby(trackId: string, playerName: string, playerId: number, laps = 3): Promise<LobbyState | null> {
     try {
       if (!this.connected) await this.connect();
-      return await this.hub!.invoke<LobbyState>('JoinLobby', trackId, playerName, playerId);
+      return await this.hub!.invoke<LobbyState>('JoinLobby', trackId, playerName, playerId, laps);
     } catch (err) {
       console.error('JoinLobby failed:', err);
       return null;
@@ -170,9 +180,14 @@ export class RacingHubService implements OnDestroy {
     try { await this.hub!.invoke('UpdateSkin', trackId, skinId); } catch { }
   }
 
-  async startRace(trackId: string): Promise<void> {
+  async startRace(trackId: string, laps = 3): Promise<void> {
     if (!this.connected) return;
-    try { await this.hub!.invoke('StartRace', trackId); } catch { }
+    try { await this.hub!.invoke('StartRace', trackId, laps); } catch { }
+  }
+
+  async rematch(trackId: string): Promise<void> {
+    if (!this.connected) return;
+    try { await this.hub!.invoke('Rematch', trackId); } catch { }
   }
 
   async syncPosition(trackId: string, data: RemoteCarPosition): Promise<void> {

@@ -549,13 +549,18 @@ const proxyContext = [
   '/favourite', '/crawler', '/trade', '/top', '/poll', '/mastermind',
   '/ender', '/search', '/bones', '/ratings', '/digcraft', '/tilecache',
   '/flight', "/planter", "/weaver", "/bughosted", "/grandtheft", "/healthtracker",
-  "/paint", "/recipe", "/moderator", "/follow",
+  "/paint", "/recipe", "/moderator", "/follow", "/hubs", "/racing",
 ];
 // Proxy with retry logic and error handling
 const proxyOptions = {
   target: config.backendUrl,
   changeOrigin: true,
   secure: false,  // Disable SSL verification for local backend (self-signed cert)
+  // ws: true forwards WebSocket upgrades (SignalR hubs like /hubs/racing).
+  // http-proxy-middleware path-filters upgrades through the context list above,
+  // so /socket.io (EmulatorJS Netplay) connections never match and pass through
+  // to Socket.IO's own upgrade handler untouched.
+  ws: true,
   logLevel: config.proxyDebug ? 'debug' : 'warn',
   timeout: 30000, // 30 second timeout
   proxyTimeout: 30000,

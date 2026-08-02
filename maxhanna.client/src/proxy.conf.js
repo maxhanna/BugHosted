@@ -78,10 +78,13 @@ const PROXY_CONFIG = [
       "/paint",
       "/moderator",
       "/follow",
+      "/hubs",
+      "/racing",
     ],
     target,
     changeOrigin: true, // This helps with certain CORS issues and forwards headers correctly 
     secure: false,
+    ws: true, // WebSocket upgrades for SignalR hubs (e.g. /hubs/racing)
     logLevel: 'debug'
   }
 ]

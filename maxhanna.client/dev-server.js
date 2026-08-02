@@ -62,15 +62,18 @@ const proxyContext = [
   '/favourite', '/crawler', '/trade', '/top', '/poll', '/mastermind',
   '/ender', '/search', '/bones', '/ratings', '/digcraft', '/tilecache',
   "/weaver", "/bughosted", "/grandtheft", "/healthtracker", "/paint",
-  "/recipe", "/moderator", "/follow",
+  "/recipe", "/moderator", "/follow", "/hubs", "/racing",
 ];
 
 // Apply proxy middleware for API routes
-app.use(
-  createProxyMiddleware(proxyContext, {
+// ws: true forwards WebSocket upgrades (SignalR hubs like /hubs/racing) to the
+// backend. http-proxy-middleware filters upgrades by context path, so only
+// /hubs and /racing get proxied — nothing else is affected.
+const apiProxy = createProxyMiddleware(proxyContext, {
     target: config.backendUrl,
     changeOrigin: true,
     secure: false,
+    ws: true,
     logLevel: process.env.PROXY_DEBUG === 'true' ? 'debug' : 'warn',
     onError: (err, req, res) => {
       console.error(chalk.red(`[Proxy Error] ${req.method} ${req.path}:`), err.message);
@@ -85,8 +88,10 @@ app.use(
         console.warn(chalk.yellow(`[${proxyRes.statusCode}] ${req.method} ${req.path}`));
       }
     },
-  })
-);
+  });
+
+// Mount the API proxy for normal HTTP requests
+app.use(apiProxy);
 
 // Serve static assets from dist
 app.use(express.static(config.distPath, {

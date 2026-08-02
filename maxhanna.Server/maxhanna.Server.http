@@ -262,3 +262,9 @@ Accept: application/json
 POST {{maxhanna.Server_HostAddress}}/Follow/
 Accept: application/json
 ###
+GET {{maxhanna.Server_HostAddress}}/Racing/
+Accept: application/json
+###
+POST {{maxhanna.Server_HostAddress}}/Racing/
+Accept: application/json
+###

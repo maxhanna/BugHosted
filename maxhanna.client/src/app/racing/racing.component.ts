@@ -145,6 +145,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   leaderboard: RaceResult[] = [];
   showLeaderboard = false;
 
+  // True while the SignalR lobby connection is live (drives the lobby status dot).
+  get hubConnected(): boolean { return this.racingHub.connected; }
+  // Exposed for the podium template so we can tell multiplayer from offline.
+  get isInMultiplayerRace(): boolean { return !!this._mpLobbyTrackId; }
+
   // ─── Messages ───
   messages: string[] = [];
   private msgTimer: any = null;
@@ -358,6 +363,30 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     );
 
     this._mpSubs.push(
+      this.racingHub.hostChanged$.subscribe(data => {
+        this.ngZone.run(() => {
+          this.lobbyPlayers.forEach(p => p.isHost = p.connectionId === data.connectionId);
+          this.isLobbyHost = data.connectionId === this.racingHub.myConnectionId;
+        });
+      })
+    );
+
+    this._mpSubs.push(
+      this.racingHub.rematch$.subscribe(players => {
+        this.ngZone.run(() => {
+          // Race is over for everyone — return to the lobby, ready to go again.
+          this.lobbyPlayers = players;
+          this.amReady = false;
+          this.remoteCars.clear();
+          this.messages = [];
+          this.gameState = 'menu';
+          this.showMultiplayer = true;
+          this.addMessage('Rematch! Ready up to race again.');
+        });
+      })
+    );
+
+    this._mpSubs.push(
       this.racingHub.autoStartCountdown$.subscribe(remaining => {
         this.ngZone.run(() => {
           this.autoStartSeconds = remaining;
@@ -527,7 +556,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.trackIdStr = tid;
     this._mpLobbyTrackId = tid;
 
-    const state = await this.racingHub.joinLobby(tid, username, userId);
+    const state = await this.racingHub.joinLobby(tid, username, userId, track.laps);
     if (state) {
       this.lobbyPlayers = state.players;
       this.isLobbyHost = state.isHost;
@@ -535,6 +564,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.addMessage(`Joined multiplayer lobby for ${track.name}`);
     } else {
       this.lobbyConnectionError = 'Failed to join lobby. Try again.';
+    }
+  }
+
+  // Retry joining the currently-selected track (the old retry re-joined TRACKS[0]
+  // instead of the track the player actually picked).
+  async retryJoinLobby() {
+    if (this.selectedTrack) {
+      await this.joinLobby(this.selectedTrack);
     }
   }
 
@@ -555,7 +592,26 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (!this._mpLobbyTrackId || !this.isLobbyHost) return;
     this.countdownTimer = 4;
     this.gameState = 'countdown';
-    await this.racingHub.startRace(this._mpLobbyTrackId);
+    await this.racingHub.startRace(this._mpLobbyTrackId, this.selectedTrack?.laps ?? 3);
+  }
+
+  async rematchMP() {
+    if (!this._mpLobbyTrackId || !this.isLobbyHost) return;
+    await this.racingHub.rematch(this._mpLobbyTrackId);
+  }
+
+  async leaveLobby() {
+    if (!this._mpLobbyTrackId) return;
+    await this.racingHub.leaveLobby(this._mpLobbyTrackId);
+    this._mpLobbyTrackId = '';
+    this.lobbyPlayers = [];
+    this.isLobbyHost = false;
+    this.amReady = false;
+    this.chatMessages = [];
+    this.remoteCars.clear();
+    this.selectedTrack = null;
+    this.showMultiplayer = false;
+    this.lobbyConnectionError = '';
   }
 
   async kickPlayer(connectionId: string) {
@@ -1256,10 +1312,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     };
     this.racingService.submitRaceResult(this.parentRef?.user?.id ?? 0, result);
 
-    // Auto return to menu after 5s
-    setTimeout(() => {
-      if (this.gameState === 'finished') this.backToMenu();
-    }, 5000);
+    // Auto return to menu after 5s — but in multiplayer the podium offers a
+    // Rematch button (host) or a wait message, so keep players on the results
+    // screen instead of silently dropping them back out of the lobby.
+    if (!this._mpLobbyTrackId) {
+      setTimeout(() => {
+        if (this.gameState === 'finished') this.backToMenu();
+      }, 5000);
+    }
   }
 
   async saveCar() {

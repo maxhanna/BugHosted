@@ -20,12 +20,26 @@ namespace maxhanna.Server.Hubs
             {
                 if (_lobbies.TryGetValue(racer.LobbyId, out var lobby))
                 {
+                    var wasHost = lobby.HostConnectionId == Context.ConnectionId;
                     lobby.Players.RemoveAll(p => p.ConnectionId == Context.ConnectionId);
+                    lobby.FinishedConnections.Remove(Context.ConnectionId);
                     await Clients.Group(racer.LobbyId).SendAsync("OnPlayerLeft", racer.PlayerName);
                     if (lobby.Players.Count == 0)
                     {
                         CancelAutoStartTimer(lobby);
                         _lobbies.TryRemove(racer.LobbyId, out _);
+                    }
+                    else if (wasHost)
+                    {
+                        // Promote the first remaining player to host so the lobby
+                        // stays alive and someone can start the race.
+                        lobby.Players[0].IsHost = true;
+                        lobby.HostConnectionId = lobby.Players[0].ConnectionId;
+                        await Clients.Client(lobby.Players[0].ConnectionId).SendAsync("OnMadeHost");
+                        await Clients.Group(racer.LobbyId).SendAsync("OnPlayerHostChanged", new
+                        {
+                            connectionId = lobby.HostConnectionId
+                        });
                     }
                 }
             }
@@ -36,7 +50,7 @@ namespace maxhanna.Server.Hubs
         /// Create or join a lobby for the given track.
         /// Returns full lobby state to caller and broadcasts join to others.
         /// </summary>
-        public async Task<object> JoinLobby(string trackId, string playerName, int playerId)
+        public async Task<object> JoinLobby(string trackId, string playerName, int playerId, int laps = 3)
         {
             var lobbyId = $"racing_{trackId}";
 
@@ -48,6 +62,15 @@ namespace maxhanna.Server.Hubs
                 HostConnectionId = Context.ConnectionId,
                 Players = new List<LobbyPlayer>()
             });
+
+            // Store the track's real lap count so StartRace and auto-start
+            // broadcast it instead of a hardcoded 3.
+            lobby.TotalLaps = laps;
+
+            // Duplicate-join guard: drop any stale seat for this connection
+            // (double-click) or this player id (reconnect) before adding, so
+            // the lobby never shows ghost entries.
+            lobby.Players.RemoveAll(p => p.ConnectionId == Context.ConnectionId || p.PlayerId == playerId);
 
             // If this is the first player, set them as host
             if (lobby.Players.Count == 0)
@@ -124,12 +147,18 @@ namespace maxhanna.Server.Hubs
                 var p = lobby.Players.FirstOrDefault(x => x.ConnectionId == Context.ConnectionId);
                 lobby.Players.RemoveAll(x => x.ConnectionId == Context.ConnectionId);
 
+                lobby.FinishedConnections.Remove(Context.ConnectionId);
+
                 // If host left, assign new host
                 if (p?.IsHost == true && lobby.Players.Count > 0)
                 {
                     lobby.Players[0].IsHost = true;
                     lobby.HostConnectionId = lobby.Players[0].ConnectionId;
                     await Clients.Client(lobby.Players[0].ConnectionId).SendAsync("OnMadeHost");
+                    await Clients.Group(lobbyId).SendAsync("OnPlayerHostChanged", new
+                    {
+                        connectionId = lobby.HostConnectionId
+                    });
                 }
 
                 await Clients.Group(lobbyId).SendAsync("OnPlayerLeft", p?.PlayerName ?? "Unknown");
@@ -185,7 +214,7 @@ namespace maxhanna.Server.Hubs
         /// Host starts the race — triggers countdown for all players.
         /// Can be called at any time, even with only 1 player. Cancels auto-start timer.
         /// </summary>
-        public Task StartRace(string trackId)
+        public Task StartRace(string trackId, int laps = 3)
         {
             var lobbyId = $"racing_{trackId}";
             if (!_lobbies.TryGetValue(lobbyId, out var lobby)) return Task.CompletedTask;
@@ -193,6 +222,9 @@ namespace maxhanna.Server.Hubs
             if (lobby.HostConnectionId != Context.ConnectionId) return Task.CompletedTask;
 
             if (lobby.RaceStatus == "racing" || lobby.RaceStatus == "countdown") return Task.CompletedTask;
+
+            lobby.TotalLaps = laps;
+            lobby.FinishedConnections.Clear();
 
             // Cancel auto-start timer
             CancelAutoStartTimer(lobby);
@@ -214,13 +246,49 @@ namespace maxhanna.Server.Hubs
                     await Clients.Group(lobbyId).SendAsync("OnRaceStarted", new
                     {
                         startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                        totalLaps = 3
+                        totalLaps = lobby.TotalLaps
                     });
                 }
                 catch { }
             });
 
             return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Host resets the lobby to the ready-up state after a race so everyone
+        /// can go again. Clears ready flags and restarts the auto-start timer.
+        /// </summary>
+        public async Task Rematch(string trackId)
+        {
+            var lobbyId = $"racing_{trackId}";
+            if (!_lobbies.TryGetValue(lobbyId, out var lobby)) return;
+            if (lobby.HostConnectionId != Context.ConnectionId) return;
+
+            ResetLobby(lobby);
+
+            await Clients.Group(lobbyId).SendAsync("OnRematch", new
+            {
+                players = lobby.Players.Select(p => new
+                {
+                    p.ConnectionId,
+                    p.PlayerName,
+                    p.PlayerId,
+                    p.IsHost,
+                    p.Ready,
+                    p.SkinId
+                }).ToList()
+            });
+        }
+
+        private void ResetLobby(LobbyState lobby)
+        {
+            CancelAutoStartTimer(lobby);
+            lobby.RaceStatus = "lobby";
+            lobby.FinishedConnections.Clear();
+            foreach (var p in lobby.Players) p.Ready = false;
+            lobby.AutoStartRemaining = AUTO_START_SECONDS;
+            StartAutoStartTimer(lobby, lobby.LobbyId);
         }
 
         private void StartAutoStartTimer(LobbyState lobby, string lobbyId)
@@ -255,10 +323,11 @@ namespace maxhanna.Server.Hubs
                         if (!lobby.AutoStartCts.Token.IsCancellationRequested)
                         {
                             lobby.RaceStatus = "racing";
+                            lobby.FinishedConnections.Clear();
                             await Clients.Group(lobbyId).SendAsync("OnRaceStarted", new
                             {
                                 startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                                totalLaps = 3
+                                totalLaps = lobby.TotalLaps
                             });
                         }
                     }
@@ -312,6 +381,33 @@ namespace maxhanna.Server.Hubs
                 position,
                 totalTimeMs
             });
+
+            // When every remaining player has crossed the line, auto-return the
+            // lobby to the ready-up state so a rematch can start without waiting
+            // on the host to click a button.
+            if (_lobbies.TryGetValue(lobbyId, out var lobby) && lobby.RaceStatus == "racing")
+            {
+                lobby.FinishedConnections.Add(Context.ConnectionId);
+                // Snapshot the player list so a concurrent join/leave can't trip
+                // "Collection was modified" while IsSupersetOf enumerates it.
+                var connectionIds = lobby.Players.Select(p => p.ConnectionId).ToList();
+                if (connectionIds.Count > 0 && lobby.FinishedConnections.IsSupersetOf(connectionIds))
+                {
+                    ResetLobby(lobby);
+                    await Clients.Group(lobbyId).SendAsync("OnRematch", new
+                    {
+                        players = lobby.Players.Select(p => new
+                        {
+                            p.ConnectionId,
+                            p.PlayerName,
+                            p.PlayerId,
+                            p.IsHost,
+                            p.Ready,
+                            p.SkinId
+                        }).ToList()
+                    });
+                }
+            }
         }
 
         /// <summary>
@@ -335,7 +431,9 @@ namespace maxhanna.Server.Hubs
             public string TrackId { get; set; } = "";
             public string HostConnectionId { get; set; } = "";
             public string RaceStatus { get; set; } = "lobby";
+            public int TotalLaps { get; set; } = 3;
             public List<LobbyPlayer> Players { get; set; } = new();
+            public HashSet<string> FinishedConnections { get; set; } = new();
             public int AutoStartRemaining { get; set; }
             public CancellationTokenSource? AutoStartCts { get; set; }
         }

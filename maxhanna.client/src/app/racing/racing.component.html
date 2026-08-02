@@ -71,7 +71,18 @@
         <!-- Connection error -->
         <div class="race-mp-error" *ngIf="lobbyConnectionError">
           {{ lobbyConnectionError }}
-          <button class="race-mp-retry" (click)="selectTrackMultiplayer(TRACKS[0])">Retry</button>
+          <button class="race-mp-retry" (click)="retryJoinLobby()">Retry</button>
+        </div>
+
+        <!-- Live lobby status -->
+        <div class="race-mp-status-row">
+          <span class="race-mp-dot" [class.on]="hubConnected"></span>
+          <span class="race-mp-status-text">
+            {{ hubConnected ? 'Connected' : 'Connecting…' }}
+            <ng-container *ngIf="selectedTrack && lobbyPlayers.length > 0">
+              · {{ lobbyPlayers.length }} player{{ lobbyPlayers.length === 1 ? '' : 's' }} in lobby
+            </ng-container>
+          </span>
         </div>
 
         <!-- Track selection -->
@@ -143,7 +154,7 @@
           </div>
         </div>
 
-        <!-- Ready / Start buttons -->
+        <!-- Ready / Start / Leave buttons -->
         <div class="race-mp-actions" *ngIf="selectedTrack">
           <button class="race-mp-btn" (click)="toggleReadyMultiplayer()"
             [class.race-mp-ready]="amReady">
@@ -152,6 +163,10 @@
           <button class="race-mp-btn race-mp-start" *ngIf="isLobbyHost"
             (click)="startRaceMP()">
             START RACE
+          </button>
+          <button class="race-mp-btn race-mp-leave"
+            (click)="leaveLobby()">
+            LEAVE LOBBY
           </button>
         </div>
 
@@ -647,7 +662,14 @@
           <span class="gp-money-prize">${{ calculatePrize() }}</span>
           <span class="gp-money-label">Participation</span>
         </div>
-        <div class="gp-podium-auto">Returning to menu...</div>
+        <div class="gp-podium-rematch" *ngIf="isInMultiplayerRace">
+          <button class="race-mp-btn race-mp-start" *ngIf="isLobbyHost"
+            (click)="rematchMP()">
+            🔄 REMATCH
+          </button>
+          <div class="gp-podium-auto" *ngIf="!isLobbyHost">Waiting for host rematch...</div>
+        </div>
+        <div class="gp-podium-auto" *ngIf="!isInMultiplayerRace">Returning to menu...</div>
       </div>
     </div>
 
