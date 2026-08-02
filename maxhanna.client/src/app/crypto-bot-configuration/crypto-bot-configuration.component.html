@@ -335,7 +335,7 @@
     <!-- Save Button -->
     <div class="config-box save-box">
         <div class="config-header">
-            <span>Last Updated: {{tradeConfigLastUpdated || 'Never'}}</span>
+            <span class="thirdFontColor">Last Updated: {{tradeConfigLastUpdated || 'Never'}}</span>
         </div>
         <button (click)="updateCoinConfiguration()" [disabled]="isLoading">💾 Save Configuration</button>
     </div>

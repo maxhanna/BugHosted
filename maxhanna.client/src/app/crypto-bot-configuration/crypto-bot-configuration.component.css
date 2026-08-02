@@ -109,8 +109,7 @@ button:disabled {
     align-items: center;
     margin-bottom: 12px;
     font-weight: 600;
-    color: var(--main-font-color);
-    font-size: 14px;
+    color: var(--secondary-font-color);
 }
 
 .info-icon {
