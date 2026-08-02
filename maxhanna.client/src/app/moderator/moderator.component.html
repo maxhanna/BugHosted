@@ -6,138 +6,176 @@
   <div *ngIf="parentRef?.user && !isModerator" class="smallFont">Access denied. Only moderators can use this panel.
   </div>
 
-  <div *ngIf="parentRef?.user && isModerator">
-    <button (click)="toggleUserList()" [disabled]="modActionLoading" *ngIf="!showUserList">Add Moderator / Role</button>
+  <div *ngIf="parentRef?.user && isModerator" class="modPanel">
+    <!-- Tab bar -->
+    <div class="modTabs">
+      <button class="modTab" [class.active]="activeTab === 'moderators'" (click)="setTab('moderators')">
+        👮 Moderators
+      </button>
+      <button class="modTab" [class.active]="activeTab === 'logs'" (click)="setTab('logs')">
+        📜 Logs
+      </button>
+      <button class="modTab" [class.active]="activeTab === 'appeals'" (click)="setTab('appeals')">
+        ⚖️ Appeals <span *ngIf="appeals.length > 0" class="tabCount">{{ appeals.length }}</span>
+      </button>
+    </div>
 
-    <div *ngIf="showUserList" class="userSearchDiv">
-      <app-user-list [selectionMode]="true" [inputtedParentRef]="parentRef" [openDirectlyToSearch]="true"
-        [searchOnly]="true" [displayOnlyFriends]="false" [displayRadioFilters]="true"
-        (userSelectClickEvent)="onUsersSelected($event)">
-      </app-user-list>
-      <div *ngIf="selectedUsers.length > 0" style="margin-top: 10px;">
-        <strong>{{ selectedUsers.length }} user(s) selected</strong>
-        <div style="margin-top: 6px;">
-          <label>Role: </label>
-          <select [(ngModel)]="selectedRole" (change)="onRoleSelectionChange()">
-            <option *ngFor="let r of roleCatalog" [value]="r.role">{{ r.label }} — {{ r.description }}</option>
-          </select>
+    <!-- ── MODERATORS TAB ── -->
+    <div *ngIf="activeTab === 'moderators'" class="modSection">
+      <!-- Add moderator card -->
+      <div class="card">
+        <div class="cardTitle">➕ Add Moderator / Role</div>
+
+        <!-- Purpose-built user search -->
+        <div class="searchBlock">
+          <input
+            type="text"
+            class="userSearchInput"
+            placeholder="🔍 Type a username to find a user…"
+            [(ngModel)]="userSearchTerm"
+            (ngModelChange)="onSearchInput()"
+            (keydown.enter)="searchUsers()" />
+          <div *ngIf="searchingUsers" class="searchHint">Searching…</div>
+
+          <!-- Results -->
+          <div *ngIf="searchResults.length > 0" class="searchResults">
+            <div *ngFor="let u of searchResults" class="searchResultRow">
+              <app-user-tag [user]="u" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+              <span *ngIf="isAlreadyModerator(u)" class="alreadyMod">(already a moderator)</span>
+              <button class="addBtn" (click)="addUserToSelection(u)" [disabled]="isAlreadyModerator(u)"
+                [title]="isAlreadyModerator(u) ? 'This user is already a moderator — expand them below to manage roles' : 'Add to selection'">
+                {{ isAlreadyModerator(u) ? 'Already' : '＋ Add' }}
+              </button>
+            </div>
+          </div>
+          <div *ngIf="searchDone && searchResults.length === 0 && !searchingUsers" class="searchHint">
+            No users found for "{{ userSearchTerm }}".
+          </div>
         </div>
-        <div *ngIf="selectedTargetType === 'chat'" style="margin-top: 6px;">
-          <label>Chat: </label>
-          <select [(ngModel)]="selectedTargetId">
-            <option *ngFor="let c of chatTargets" [value]="c.id">{{ c.name }}</option>
-          </select>
+
+        <!-- Selected users -->
+        <div *ngIf="selectedUsers.length > 0" class="selectionBlock">
+          <div class="selectionLabel">Selected ({{ selectedUsers.length }}):</div>
+          <div class="chips">
+            <span *ngFor="let u of selectedUsers" class="chip">
+              {{ u.username || 'User #' + u.id }}
+              <button class="chipRemove" (click)="removeUserFromSelection(u)" title="Remove">✕</button>
+            </span>
+          </div>
+          <button class="linkBtn" (click)="clearSelection()">Clear all</button>
         </div>
-        <div *ngIf="selectedTargetType === 'topic'" style="margin-top: 6px;">
-          <label>Topic: </label>
-          <select [(ngModel)]="selectedTargetId">
-            <option *ngFor="let t of topicTargets" [value]="t.id">{{ t.name }}</option>
-          </select>
+
+        <!-- Role + target -->
+        <div *ngIf="selectedUsers.length > 0" class="roleBlock">
+          <div class="fieldRow">
+            <label>Role</label>
+            <select [(ngModel)]="selectedRole" (ngModelChange)="onRoleSelectionChange()" class="modSelect">
+              <option *ngFor="let r of roleCatalog" [value]="r.role">{{ r.label }} — {{ r.description }}</option>
+            </select>
+          </div>
+          <div *ngIf="selectedTargetType === 'chat'" class="fieldRow">
+            <label>Chat</label>
+            <select [(ngModel)]="selectedTargetId" class="modSelect">
+              <option [ngValue]="0" disabled>Select a chat…</option>
+              <option *ngFor="let c of chatTargets" [ngValue]="c.id">{{ c.name }}</option>
+            </select>
+          </div>
+          <div *ngIf="selectedTargetType === 'topic'" class="fieldRow">
+            <label>Topic</label>
+            <select [(ngModel)]="selectedTargetId" class="modSelect">
+              <option [ngValue]="0" disabled>Select a topic…</option>
+              <option *ngFor="let t of topicTargets" [ngValue]="t.id">{{ t.name }}</option>
+            </select>
+          </div>
+          <div class="fieldRow">
+            <button class="assignBtn" (click)="addModerators()" [disabled]="modActionLoading || !canAssign()">
+              {{ modActionLoading ? 'Saving…' : '✅ Assign Role' }}
+            </button>
+          </div>
+          <div *ngIf="modMessage" class="modMsg" [class.error]="modMessageIsError">{{ modMessage }}</div>
         </div>
-        <button (click)="addModerators()" [disabled]="modActionLoading" style="margin-left: 10px;">
-          {{ modActionLoading ? 'Saving...' : 'Assign Role' }}
-        </button>
+      </div>
+
+      <!-- Current moderators -->
+      <div class="card">
+        <div class="cardTitle">👮 Current Moderators ({{ moderators.length }})</div>
+        <div *ngIf="moderators.length === 0" class="searchHint">No moderators found.</div>
+
+        <div *ngFor="let m of moderators" class="modRow">
+          <div class="modRowHead" (click)="toggleExpand(m.user?.id ?? 0)">
+            <span class="expandCaret">{{ isExpanded(m.user?.id ?? 0) ? '▾' : '▸' }}</span>
+            <app-user-tag [user]="m.user" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+            <span *ngIf="m.user?.id === 1" class="ownerBadge">Owner</span>
+            <span class="rolePreview">{{ (m.roles.length || 0) }} role(s)</span>
+          </div>
+
+          <div *ngIf="isExpanded(m.user?.id ?? 0)" class="modRowBody">
+            <div *ngIf="!m.roles || m.roles.length === 0" class="searchHint">No roles assigned.</div>
+            <div *ngFor="let r of m.roles" class="moderatorRoleChip">
+              <span>{{ formatRole(r) }}</span>
+              <button *ngIf="m.user?.id !== 1" (click)="removeRole(m.user!, r)" [disabled]="modActionLoading"
+                title="Remove role" class="chipRemove">✕</button>
+            </div>
+            <button *ngIf="m.user?.id !== 1" class="removeModBtn" (click)="removeModerator(m.user!)"
+              [disabled]="modActionLoading">Remove all roles</button>
+          </div>
+        </div>
       </div>
     </div>
 
-    <h3>Current Moderators</h3>
-    <div *ngIf="moderators.length === 0" class="smallFont">No moderators found.</div>
-    <div class="currentModeratorTable">
-      <table *ngIf="moderators.length > 0" class="contentTable">
-        <thead>
-          <tr>
-            <th (click)="sortTable($event)">ID</th>
-            <th (click)="sortTable($event)">Username</th>
-            <th>Roles</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let m of moderators" (click)="toggleExpand(m.user?.id ?? 0)" style="cursor: pointer;">
-            <td>{{ m.user?.id }}</td>
-            <td>
-              <app-user-tag [user]="m.user" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
-              <span class="smallFont" style="margin-left:6px;">{{ isExpanded(m.user?.id ?? 0) ? '▾' : '▸' }}</span>
-            </td>
-            <td class="smallFont">{{ roleChips(m) }}</td>
-            <td (click)="$event.stopPropagation();">
-              <button *ngIf="m.user?.id !== 1" (click)="removeModerator(m.user!)" [disabled]="modActionLoading" style="color:red;">
-                Remove
-              </button>
-              <span *ngIf="m.user?.id === 1" class="smallFont">(Owner)</span>
-            </td>
-          </tr>
-          <ng-container *ngFor="let m of moderators">
-            <tr *ngIf="isExpanded(m.user?.id ?? 0)">
-              <td colspan="4" style="padding: 8px 16px;">
-                <div class="moderatorRolesBox">
-                  <strong>Roles:</strong>
-                  <div *ngIf="!m.roles || m.roles.length === 0" class="smallFont">No roles assigned.</div>
-                  <div *ngFor="let r of m.roles" class="moderatorRoleChip">
-                    <span>{{ formatRole(r) }}</span>
-                    <button *ngIf="m.user?.id !== 1" (click)="removeRole(m.user!, r)" [disabled]="modActionLoading"
-                      title="Remove role" style="margin-left:8px; color:red; cursor:pointer;">✕</button>
-                  </div>
-                </div>
+    <!-- ── LOGS TAB ── -->
+    <div *ngIf="activeTab === 'logs'" class="modSection">
+      <div class="card">
+        <div class="cardTitle">📜 Moderator Logs</div>
+        <div *ngIf="logsLoading" class="searchHint">Loading…</div>
+        <div *ngIf="!logsLoading && modLogs.length === 0" class="searchHint">No moderator actions logged yet.</div>
+        <table *ngIf="!logsLoading && modLogs.length > 0" class="contentTable">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let log of modLogs">
+              <td class="nowrap">{{ log.timestampUtc | date:'y/MM/d HH:mm:ss' }}</td>
+              <td class="smallFont">{{ log.comment }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── APPEALS TAB ── -->
+    <div *ngIf="activeTab === 'appeals'" class="modSection">
+      <div class="card">
+        <div class="cardTitle">⚖️ User Appeals</div>
+        <div *ngIf="loading" class="searchHint">Loading…</div>
+        <div *ngIf="!loading && appeals.length === 0" class="searchHint">No pending appeals.</div>
+        <table *ngIf="!loading && appeals.length > 0" class="contentTable">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Appeal Text</th>
+              <th>Created</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let a of appeals">
+              <td>{{ a.username || 'User #' + a.userId }}</td>
+              <td class="smallFont">{{ a.appealText }}</td>
+              <td class="nowrap">{{ a.createdAt | date:'y/MM/d HH:mm' }}</td>
+              <td>{{ a.resolution || 'Pending' }}</td>
+              <td>
+                <button *ngIf="!a.resolution" (click)="approveAppeal(a.id)" [disabled]="loading" class="okBtn">Approve</button>
+                <button *ngIf="!a.resolution" (click)="denyAppeal(a.id)" [disabled]="loading" class="noBtn">Deny</button>
               </td>
             </tr>
-          </ng-container>
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
     </div>
-
-    <h2 style="margin-top: 30px;">Moderator Logs</h2>
-    <div *ngIf="logsLoading" class="smallFont">Loading...</div>
-    <div *ngIf="!logsLoading && modLogs.length === 0" class="smallFont">No moderator actions logged yet.</div>
-    <div *ngIf="!logsLoading && modLogs.length > 0" class="currentModeratorTable">
-      <table class="contentTable">
-        <thead>
-          <tr>
-            <th (click)="sortTable($event)">ID</th>
-            <th (click)="sortTable($event)">Timestamp</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let log of modLogs">
-            <td>{{ log.id }}</td>
-            <td>{{ log.timestampUtc | date:'y/MM/d HH:mm:ss' }}</td>
-            <td class="smallFont">{{ log.comment }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <h2 style="margin-top: 30px;">User Appeals</h2>
-    <div *ngIf="loading" class="smallFont">Loading...</div>
-    <div *ngIf="!loading && appeals.length === 0" class="smallFont">No pending appeals.</div>
-    <table *ngIf="!loading && appeals.length > 0" class="contentTable">
-      <thead>
-        <tr>
-          <th (click)="sortTable($event)">ID</th>
-          <th (click)="sortTable($event)">User</th>
-          <th (click)="sortTable($event)">Appeal Text</th>
-          <th (click)="sortTable($event)">Created</th>
-          <th (click)="sortTable($event)">Status</th>
-          <th (click)="sortTable($event)">Resolved</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let a of appeals">
-          <td>{{ a.id }}</td>
-          <td>{{ a.username || 'User #' + a.userId }}</td>
-          <td>{{ a.appealText }}</td>
-          <td>{{ a.createdAt | date:'y/MM/d HH:mm' }}</td>
-          <td>{{ a.resolution || 'Pending' }}</td>
-          <td>{{ a.resolvedAt ? (a.resolvedAt | date:'y/MM/d HH:mm') : '-' }}</td>
-          <td>
-            <button *ngIf="!a.resolution" (click)="approveAppeal(a.id)" [disabled]="loading">Approve</button>
-            <button *ngIf="!a.resolution" (click)="denyAppeal(a.id)" [disabled]="loading"
-              style="margin-left:5px;">Deny</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
   </div>
 </div>

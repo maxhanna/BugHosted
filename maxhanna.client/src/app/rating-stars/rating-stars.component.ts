@@ -61,8 +61,7 @@ export class RatingStarsComponent implements OnInit {
   }
   
   onRate(star: number) {
-    console.log('onRate called with star:', star, 'current rating:', this.rating);
-    if (!this.readOnly && this.ratingFile && this.isCurrentUser) {
+    if (!this.readOnly && (this.ratingFile || this.componentType === 'recipe') && this.isCurrentUser) {
       this.rateFile(star);
     }
   }
@@ -172,7 +171,7 @@ export class RatingStarsComponent implements OnInit {
           this.ratingFile.averageRating = ratingsArr.length
             ? ratingsArr.reduce((sum, r) => sum + (r.value ?? 0), 0) / ratingsArr.length
             : star;
-        } else {
+        } else if (this.componentType !== 'recipe') {
           console.warn('No rating file available to update average rating, skipping average calculation.', this.tmpFileId, ratingsArr);
         }
       } 
@@ -183,10 +182,11 @@ export class RatingStarsComponent implements OnInit {
             ? ((this.ratingFile.averageRating ?? 0) * this.ratingFile.ratingCount + star) / (this.ratingFile.ratingCount + 1)
             : star;
           this.ratingFile.ratingCount = (this.ratingFile.ratingCount ?? 0) + 1;
-        } else {
+        } else if (this.componentType !== 'recipe') {
           console.warn('No rating file available to update average rating, skipping average calculation.', this.tmpFileId);
         }
       }
+      this.rated.emit(star);
       this.inputtedParentRef?.showNotification(`Rated ${star} star${star > 1 ? 's' : ''}!`);
     } catch (ex) {
       console.error(ex);

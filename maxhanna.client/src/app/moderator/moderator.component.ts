@@ -1,10 +1,9 @@
-import { Component, ViewChild } from '@angular/core';
+import { Component } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { UserService } from '../../services/user.service';
 import { ModeratorService } from '../../services/moderator.service';
 import { User } from '../../services/datacontracts/user/user';
 import { ModeratorInfo, ModeratorLog, ModeratorRole, RoleDefinition } from '../../services/datacontracts/moderator/moderator';
-import { UserListComponent } from '../user-list/user-list.component';
 
 @Component({
   selector: 'app-moderator',
@@ -13,29 +12,34 @@ import { UserListComponent } from '../user-list/user-list.component';
   styleUrl: './moderator.component.css'
 })
 export class ModeratorComponent extends ChildComponent {
-  @ViewChild('userList') userList!: UserListComponent;
+  activeTab: 'moderators' | 'logs' | 'appeals' = 'moderators';
 
   appeals: any[] = [];
   loading = false;
   isModerator = false;
   moderators: ModeratorInfo[] = [];
   roleCatalog: RoleDefinition[] = [];
-  selectedUsers: User[] = [];
-  showUserList = false;
-  modActionLoading = false;
-  expandedUserIds: number[] = [];
 
-  // Add-role flow
-  addRoleTargetUserId = 0;
+  // Add-role flow (purpose-built user search — no chat-oriented user-list noise)
+  userSearchTerm = '';
+  searchResults: User[] = [];
+  searchingUsers = false;
+  searchDone = false;
+  selectedUsers: User[] = [];
   selectedRole = '';
   selectedTargetType = 'global';
   selectedTargetId = 0;
   chatTargets: { id: number; name: string }[] = [];
   topicTargets: { id: number; name: string }[] = [];
+  modActionLoading = false;
+  modMessage = '';
+  modMessageIsError = false;
+  private searchDebounce: any;
+
+  expandedUserIds: number[] = [];
 
   // Logs
   modLogs: ModeratorLog[] = [];
-  showLogs = true;
   logsLoading = false;
 
   constructor(
@@ -53,6 +57,10 @@ export class ModeratorComponent extends ChildComponent {
         this.loadAppeals()
       ]);
     }
+  }
+
+  setTab(tab: 'moderators' | 'logs' | 'appeals') {
+    this.activeTab = tab;
   }
 
   async loadModerators() {
@@ -77,11 +85,9 @@ export class ModeratorComponent extends ChildComponent {
   async loadTargets() {
     const userId = this.parentRef?.user?.id;
     if (!userId) return;
-    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
     if (this.selectedTargetType === 'chat') {
       try {
         if (this.chatTargets.length === 0) {
-          // Load group chats via the chat service endpoint
           const response = await fetch('/chat/getgroupchats', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -152,9 +158,98 @@ export class ModeratorComponent extends ChildComponent {
     await this.loadAppeals();
   }
 
-  onUsersSelected(users?: User[]) {
-    if (!users) return;
-    this.selectedUsers = users;
+  // ─── Purpose-built user search ───
+  onSearchInput() {
+    clearTimeout(this.searchDebounce);
+    this.searchDone = false;
+    const term = (this.userSearchTerm || '').trim();
+    if (!term) {
+      this.searchResults = [];
+      this.searchingUsers = false;
+      return;
+    }
+    this.searchingUsers = true;
+    this.searchDebounce = setTimeout(() => this.searchUsers(), 300);
+  }
+
+  async searchUsers() {
+    const userId = this.parentRef?.user?.id;
+    const term = (this.userSearchTerm || '').trim();
+    if (!userId || !term) {
+      this.searchResults = [];
+      this.searchingUsers = false;
+      return;
+    }
+    try {
+      const found = (await this.userService.getAllUsers(userId, term)) ?? [];
+      this.searchResults = found.filter(u => u.id && !this.selectedUsers.some(s => s.id === u.id));
+    } catch (e) {
+      this.searchResults = [];
+    }
+    this.searchingUsers = false;
+    this.searchDone = true;
+  }
+
+  addUserToSelection(u: User) {
+    if (!u || !u.id || this.selectedUsers.some(s => s.id === u.id)) return;
+    this.selectedUsers.push(u);
+    this.searchResults = this.searchResults.filter(r => r.id !== u.id);
+    // If that was the last result, don't show a misleading "no users found" state.
+    if (this.searchResults.length === 0) this.searchDone = false;
+    this.modMessage = '';
+  }
+
+  removeUserFromSelection(u: User) {
+    this.selectedUsers = this.selectedUsers.filter(s => s.id !== u.id);
+  }
+
+  clearSelection() {
+    this.selectedUsers = [];
+    this.searchDone = false;
+    this.searchResults = [];
+    this.userSearchTerm = '';
+    this.modMessage = '';
+  }
+
+  isAlreadyModerator(u: User): boolean {
+    return this.moderators.some(m => m.user?.id === u.id);
+  }
+
+  canAssign(): boolean {
+    if (this.selectedUsers.length === 0 || !this.selectedRole) return false;
+    if (this.selectedTargetType === 'chat' && !this.selectedTargetId) return false;
+    if (this.selectedTargetType === 'topic' && !this.selectedTargetId) return false;
+    return true;
+  }
+
+  async addModerators() {
+    const userId = this.parentRef?.user?.id;
+    if (!userId || this.selectedUsers.length === 0 || !this.canAssign()) return;
+    const sessionToken = this.parentRef ? await this.parentRef.getSessionToken() ?? '' : '';
+    this.modActionLoading = true;
+    this.modMessage = '';
+    let failures = 0;
+    for (const u of this.selectedUsers) {
+      if (u.id) {
+        const ok = await this.moderatorService.setRole(u.id, this.selectedRole, userId, false, sessionToken, this.selectedTargetType, this.selectedTargetId || undefined);
+        if (!ok) failures++;
+      }
+    }
+    this.modActionLoading = false;
+    if (failures === 0) {
+      this.modMessage = `✅ Assigned '${this.roleLabel(this.selectedRole)}' to ${this.selectedUsers.length} user(s).`;
+      this.modMessageIsError = false;
+      this.clearSelection();
+      await Promise.all([this.loadModerators(), this.loadModeratorLogs()]);
+    } else {
+      this.modMessage = `❌ ${failures} assignment(s) failed. Please try again.`;
+      this.modMessageIsError = true;
+    }
+  }
+
+  roleLabel(role: string): string {
+    const def = this.roleCatalog.find(r => r.role === role);
+    return def?.label ?? role.replace(/_/g, ' ');
   }
 
   toggleExpand(userId: number) {
@@ -169,36 +264,11 @@ export class ModeratorComponent extends ChildComponent {
     return this.expandedUserIds.includes(userId);
   }
 
-  roleChips(info: ModeratorInfo): string {
-    if (!info.roles || info.roles.length === 0) return 'No roles';
-    return info.roles.map(r => {
-      let label = r.role.replace(/_/g, ' ');
-      if (r.targetName) label += ` (${r.targetName})`;
-      return label;
-    }).join(', ');
-  }
-
   formatRole(r: ModeratorRole): string {
     let label = r.role.replace(/_/g, ' ');
     if (r.targetName) label += ` — ${r.targetName}`;
     else if (r.targetType && r.targetType !== 'global') label += ` (${r.targetType} #${r.targetId ?? ''})`;
     return label;
-  }
-
-  async addModerators() {
-    const userId = this.parentRef?.user?.id;
-    if (!userId || this.selectedUsers.length === 0) return;
-    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-    this.modActionLoading = true;
-    for (const u of this.selectedUsers) {
-      if (u.id) {
-        await this.moderatorService.setRole(u.id, this.selectedRole, userId, false, sessionToken, this.selectedTargetType, this.selectedTargetId || undefined);
-      }
-    }
-    this.selectedUsers = [];
-    this.showUserList = false;
-    await Promise.all([this.loadModerators(), this.loadModeratorLogs()]);
-    this.modActionLoading = false;
   }
 
   async removeRole(targetUser: User, role: ModeratorRole) {
@@ -219,12 +289,5 @@ export class ModeratorComponent extends ChildComponent {
     await this.moderatorService.setRole(targetUser.id, 'moderator', userId, true, sessionToken, 'global');
     await Promise.all([this.loadModerators(), this.loadModeratorLogs()]);
     this.modActionLoading = false;
-  }
-
-  toggleUserList() {
-    this.showUserList = !this.showUserList;
-    if (!this.showUserList) {
-      this.selectedUsers = [];
-    }
   }
 }
