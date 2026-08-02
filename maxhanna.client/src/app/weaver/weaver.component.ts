@@ -397,8 +397,8 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
                 }
               }
             } catch { }
+          }
         }
-      }
       }
       if (hb.settingsData) {
         try {
@@ -577,13 +577,25 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     if (result?.id) {
       this.cardCommandMap[card.id] = result.id;
     }
-    // Scroll to the newly added card
+    this.focusOnAddedCard(card.id);
+
     setTimeout(() => {
       const cardElement = document.getElementById(`card-${card.id}`);
       if (cardElement) {
         cardElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
-    }, 0);
+    }, 150);
+  }
+
+  private focusOnAddedCard(cardId: string) {
+    const cardElement = document.getElementById(`card-${cardId}`);
+    if (cardElement && typeof cardElement.focus === 'function') {
+      setTimeout(() => {
+        try {
+          cardElement.focus();
+        } catch (e) { /* ignore errors from focusing */ }
+      }, 50);
+    }
   }
 
   // --- Card actions ---
@@ -847,16 +859,16 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
 
   // --- File picker ---
   openFilePicker(card: WeaverCard) {
-      this.pickerCardId = card.id;
-      this.pickerSelected = this.getAttachedFiles(card).slice();
-      this.pickerTree = this.buildFileTree();
-      this.pickerOpen = true;
-      setTimeout(() => {
-          const input = document.getElementById('pickerSearchInput');
-          if (input) {
-              input.focus();
-          }
-      }, 0);
+    this.pickerCardId = card.id;
+    this.pickerSelected = this.getAttachedFiles(card).slice();
+    this.pickerTree = this.buildFileTree();
+    this.pickerOpen = true;
+    setTimeout(() => {
+      const input = document.getElementById('pickerSearchInput');
+      if (input) {
+        input.focus();
+      }
+    }, 0);
   }
 
   closeFilePicker() {
