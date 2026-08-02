@@ -236,8 +236,8 @@ namespace maxhanna.Server.Hubs
             {
                 try
                 {
-                    await Clients.Group(lobbyId).SendAsync("OnRaceCountdown", 4);
-                    for (int i = 3; i >= 0; i--)
+                    await Clients.Group(lobbyId).SendAsync("OnRaceCountdown", 10);
+                    for (int i = 9; i >= 0; i--)
                     {
                         await Task.Delay(1000);
                         await Clients.Group(lobbyId).SendAsync("OnRaceCountdown", i);
@@ -314,8 +314,8 @@ namespace maxhanna.Server.Hubs
                     {
                         // Auto-start the race
                         lobby.RaceStatus = "countdown";
-                        await Clients.Group(lobbyId).SendAsync("OnRaceCountdown", 4);
-                        for (int i = 3; i >= 0; i--)
+                        await Clients.Group(lobbyId).SendAsync("OnRaceCountdown", 10);
+                        for (int i = 9; i >= 0; i--)
                         {
                             await Task.Delay(1000, lobby.AutoStartCts.Token);
                             await Clients.Group(lobbyId).SendAsync("OnRaceCountdown", i);

@@ -563,9 +563,11 @@ void main() {
       idxs.push(si + 6, si + 5, si + 7);
 
       // ── Barrier walls (separate buffer, flat vivid colors — no texture multiply) ──
+      // The curb band below spans hw → bw, so a 1.5-wide band (3× the old 0.5)
+      // needs the walls pushed back the same amount to keep the kerbs inside.
       const barrierH = 0.85;
-      const bw = hw + 0.5;
-      const bwN = hwN + 0.5;
+      const bw = hw + 1.5;
+      const bwN = hwN + 1.5;
       // Red/white stripe pattern so the track edge is obvious
       const striped = Math.floor(i / 4) % 2 === 0;
       const br = striped ? 0.95 : 0.8;
@@ -694,25 +696,31 @@ void main() {
     const ppz = p.dirX;
     const hw = p.width / 2;
     const segLen = Math.hypot(n.x - p.x, n.z - p.z) || 1;
-    // A short band along the direction of travel at the start/finish point
     const nx = (n.x - p.x) / segLen;
     const nz = (n.z - p.z) / segLen;
-    const bandLen = Math.min(3.5, segLen);
+    // A proper start/finish strip CENTERED under the car's spawn point (track
+    // distance 0) — the car lines up ON the checkerboard, like a real F1 grid
+    // line, and it stays visible in the cockpit view while the other cars sit
+    // in your peripheral vision. Longer band + finer grid than the old stub.
+    const bandLen = Math.min(9, segLen * 3);
+    const bandStart = -bandLen / 2;
     const verts: number[] = [];
     const idxs: number[] = [];
-    const cols = 8, rows = 2;
+    const cols = 12, rows = 6;
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const white = (r + c) % 2 === 0;
-        const col = white ? 0.92 : 0.1;
-        const x0 = p.x + ppx * (c / cols * 2 - 1) * hw + nx * (r / rows * bandLen);
-        const z0 = p.z + ppz * (c / cols * 2 - 1) * hw + nz * (r / rows * bandLen);
-        const x1 = p.x + ppx * ((c + 1) / cols * 2 - 1) * hw + nx * (r / rows * bandLen);
-        const z1 = p.z + ppz * ((c + 1) / cols * 2 - 1) * hw + nz * (r / rows * bandLen);
-        const x2 = p.x + ppx * ((c + 1) / cols * 2 - 1) * hw + nx * ((r + 1) / rows * bandLen);
-        const z2 = p.z + ppz * ((c + 1) / cols * 2 - 1) * hw + nz * ((r + 1) / rows * bandLen);
-        const x3 = p.x + ppx * (c / cols * 2 - 1) * hw + nx * ((r + 1) / rows * bandLen);
-        const z3 = p.z + ppz * (c / cols * 2 - 1) * hw + nz * ((r + 1) / rows * bandLen);
+        const col = white ? 0.95 : 0.08;
+        const f0 = bandStart + (r / rows) * bandLen;
+        const f1 = bandStart + ((r + 1) / rows) * bandLen;
+        const x0 = p.x + ppx * (c / cols * 2 - 1) * hw + nx * f0;
+        const z0 = p.z + ppz * (c / cols * 2 - 1) * hw + nz * f0;
+        const x1 = p.x + ppx * ((c + 1) / cols * 2 - 1) * hw + nx * f0;
+        const z1 = p.z + ppz * ((c + 1) / cols * 2 - 1) * hw + nz * f0;
+        const x2 = p.x + ppx * ((c + 1) / cols * 2 - 1) * hw + nx * f1;
+        const z2 = p.z + ppz * ((c + 1) / cols * 2 - 1) * hw + nz * f1;
+        const x3 = p.x + ppx * (c / cols * 2 - 1) * hw + nx * f1;
+        const z3 = p.z + ppz * (c / cols * 2 - 1) * hw + nz * f1;
         const b = verts.length / 11;
         verts.push(x0, 0.02, z0, 0, 1, 0, col, col, col, 0, 0);
         verts.push(x1, 0.02, z1, 0, 1, 0, col, col, col, 0, 0);
@@ -1365,7 +1373,11 @@ void main() {
 
     this.mat4Identity(this.modelMatrix);
     this.mat4Translate(this.modelMatrix, [x, y + 0.15, z]);
-    this.mat4RotateY(this.modelMatrix, yaw);
+    // The car mesh is built pointing along +X (nose at +X), but the game's yaw
+    // convention puts 0 rad at +Z (velocity = sin(yaw), cos(yaw)). Rotating by
+    // yaw alone drew every car 90° off its heading ("horizontal" instead of
+    // driving forward). Subtract π/2 to align the nose with the travel dir.
+    this.mat4RotateY(this.modelMatrix, yaw - Math.PI / 2);
     this.mat4Scale(this.modelMatrix, [0.8, 0.8, 0.8]);
     gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
     gl.uniform3f(this.colorLoc, r, g, b);
@@ -1384,7 +1396,8 @@ void main() {
     for (const wp of wheelPositions) {
       this.mat4Identity(this.modelMatrix);
       this.mat4Translate(this.modelMatrix, [x, y + 0.07, z]);
-      this.mat4RotateY(this.modelMatrix, yaw);
+      // Same nose-alignment offset as the body above.
+      this.mat4RotateY(this.modelMatrix, yaw - Math.PI / 2);
       this.mat4Translate(this.modelMatrix, wp);
       this.mat4RotateX(this.modelMatrix, this.elapsed * 5);
       gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);

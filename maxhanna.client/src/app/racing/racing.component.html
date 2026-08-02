@@ -221,6 +221,10 @@
                 <!-- Ground shadow (flat ellipse on the floor) -->
                 <div class="car-shadow"></div>
 
+                <!-- Car body wrapper: scales the width (Z axis) 3x so the car
+                     reads as a proper wide F1 car instead of a thin sliver. -->
+                <div class="car-body-scale">
+
                 <!-- Floor / undertray -->
                 <div class="b3d" style="--x:150px; --y:148px; --z:0px; --w:260px; --h:4px; --d:56px;">
                   <i class="top carbo"></i><i class="bot dark"></i>
@@ -355,6 +359,7 @@
                 <div class="wheel3d" style="--wx:238px; --wy:135px; --wz:-31px;">
                   <i class="disc outer" [ngClass]="getRimStyle()"></i><i class="disc inner"></i><i class="band"></i>
                 </div>
+                </div>
               </div>
             </div>
           </div>
@@ -462,9 +467,16 @@
       <button class="garage-back-btn" (click)="backToMenu()">← BACK TO MENU</button>
     </div>
 
-    <!-- ─── Countdown ─── -->
+    <!-- ─── Countdown (F1 start lights: red → yellow → green → GO) ─── -->
     <div id="race-countdown" *ngIf="gameState === 'countdown'">
-      <div class="race-countdown-num">{{ countdownTimer }}</div>
+      <div class="race-start-gantry">
+        <div class="race-start-light" [class.lit]="startLightPhase === 'red' || startLightPhase === 'go'"
+          [class.red]="startLightPhase === 'red' || startLightPhase === 'go'"></div>
+        <div class="race-start-light" [class.lit]="startLightPhase === 'yellow' || startLightPhase === 'go'"
+          [class.yellow]="startLightPhase === 'yellow' || startLightPhase === 'go'"></div>
+        <div class="race-start-light" [class.lit]="startLightPhase === 'green' || startLightPhase === 'go'"
+          [class.green]="startLightPhase === 'green' || startLightPhase === 'go'"></div>
+      </div>
       <div class="race-countdown-label">
         <span *ngIf="countdownTimer > 0">GET READY</span>
         <span *ngIf="countdownTimer === 0">GO!</span>

@@ -14,7 +14,7 @@ const ACCEL = 35;
 const BRAKE_FORCE = 40;
 const FRICTION = 0.97;
 const MAX_SPEED_BASE = 55;
-const TURN_SPEED = 0.55;
+const TURN_SPEED = 0.38;
 const OFF_TRACK_DRAG = 0.92;
 const CURB_DRAG = 0.96; // red/white curb strips scrub speed (gentler than grass)
 const AI_LOOKAHEAD = 3;
@@ -588,9 +588,19 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return `Auto-start in ${m}:${s.toString().padStart(2, '0')}`;
   }
 
+  // ─── F1-style start lights ───
+  // 10-second countdown split into three light phases: red (10-8), yellow (7-4),
+  // green (3-1), then GO (0) — classic racing start sequence instead of numbers.
+  get startLightPhase(): 'red' | 'yellow' | 'green' | 'go' {
+    if (this.countdownTimer >= 8) return 'red';
+    if (this.countdownTimer >= 4) return 'yellow';
+    if (this.countdownTimer >= 1) return 'green';
+    return 'go';
+  }
+
   async startRaceMP() {
     if (!this._mpLobbyTrackId || !this.isLobbyHost) return;
-    this.countdownTimer = 4;
+    this.countdownTimer = 10;
     this.gameState = 'countdown';
     await this.racingHub.startRace(this._mpLobbyTrackId, this.selectedTrack?.laps ?? 3);
   }
@@ -732,7 +742,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
 
     this.totalLaps = track.laps;
     this.currentLap = 0;
-    this.countdownTimer = 4;
+    this.countdownTimer = 10;
     this.racePosition = 1;
     this.carSpeed = 0;
     this.carDist = 0;
@@ -763,10 +773,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.spawnBots(4);
     this.totalRacers = 1 + this.bots.length;
 
-    // Countdown
+    // Countdown — 10 seconds, then GO stays up for one full beat so the
+    // player actually sees it before the race starts.
     this._countdownInterval = setInterval(() => {
       this.countdownTimer--;
-      if (this.countdownTimer <= 0) {
+      if (this.countdownTimer < 0) {
         clearInterval(this._countdownInterval);
         this.ngZone.run(() => {
           this.gameState = 'racing';
@@ -903,21 +914,29 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       // Invert: pushing the stick right (joyX > 0) must turn right. Keyboard
       // convention is left input = +1, so map joyX (right = +) to -steerTarget.
       // Scale below full deflection — joystick users found raw ±1 too twitchy.
-      if (x !== 0) steerTarget = -x * 0.55;
+      // (The steering response curve in processInput further softens center inputs.)
+      if (x !== 0) steerTarget = -x * 0.7;
     }
 
     // Pedal buttons (mobile) — independent of the steering stick
     if (this.gasHeld) gas = 1;
     if (this.brakeHeld) brake = 1;
 
-    // Smoothly lerp toward target — slower attack so turning feels gradual,
-    // not instantly maxed (users reported the car was too twitchy).
-    const lerpSpeed = 6;
+    // Smoothly lerp toward target — slow attack so the steering rack eases into
+    // a turn like a real car instead of snapping to full lock (the old attack
+    // was so fast the car felt like it was jerking from side to side).
+    const lerpSpeed = 3.5;
     this.keyboardSteerCurrent += (steerTarget - this.keyboardSteerCurrent) * Math.min(1, dt * lerpSpeed);
     if (Math.abs(this.keyboardSteerCurrent) < 0.002) this.keyboardSteerCurrent = 0;
 
+    // Non-linear steering response: inputs near center are scaled down so small
+    // nudges give fine, gradual corrections, while full lock still reaches the
+    // deep turn rate — this is what makes the car feel progressive like a real
+    // steering wheel instead of on/off.
+    const s = this.keyboardSteerCurrent;
+    this.carSteer = Math.sign(s) * Math.pow(Math.abs(s), 1.35);
+
     this.carAccel = gas - brake;
-    this.carSteer = this.keyboardSteerCurrent;
   }
 
   private updatePhysics(dt: number) {
@@ -980,7 +999,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const dzTrack = this.carZ - tp.z;
     const distFromCenter = Math.hypot(dxTrack, dzTrack);
     const halfWidth = (tp.width || 16) / 2;
-    const barrierDist = halfWidth + 0.5; // barrier wall position
+    const barrierDist = halfWidth + 1.5; // barrier wall position (pushed back for the 3×-wider kerbs)
 
     // ── Curb strip slowdown ──
     // Red/white checkerboard strips sit on the floor from the track edge to the
@@ -1146,7 +1165,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     // The old 0.05 correction per frame was so aggressive that the car snapped back to
     // track direction the instant the player released a key, making turning feel useless.
     // Now: only nudge when the car is > 0.15 rad off track, at 0.01 per frame.
-    if (Math.abs(this.carSteer) < 0.1) {
+    // Gate on the RAW input (keyboardSteerCurrent) — carSteer is the response-curved
+    // value, so gating on it would let the straightener override gentle steering nudges.
+    if (Math.abs(this.keyboardSteerCurrent) < 0.1) {
       let yawDiff = expectedDir - this.carYaw;
       while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
       while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;

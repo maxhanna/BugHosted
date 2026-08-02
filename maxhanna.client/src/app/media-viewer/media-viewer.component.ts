@@ -155,7 +155,20 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         fileSrc: this.fileSrc,
         alreadyLoaded: !!this.selectedFileSrc
       });
-      this.tryLoadFromCacheFastPath();
+ 
+      const idChanged = changes['fileId'] && !changes['fileId'].firstChange
+        && changes['fileId'].previousValue !== changes['fileId'].currentValue;
+      const fileChanged = changes['file'] && !changes['file'].firstChange
+        && changes['file'].previousValue !== changes['file'].currentValue;
+      const srcChanged = changes['fileSrc'] && !changes['fileSrc'].firstChange
+        && changes['fileSrc'].previousValue !== changes['fileSrc'].currentValue;
+
+      if (idChanged || fileChanged || srcChanged) {
+        this.hasTriedInitialCachedLoad = false;
+        this.reloadMedia(true).catch(() => { });
+      } else {
+        this.tryLoadFromCacheFastPath();
+      }
       if (this.showCommentSection) {
         this.ensureCommentsLoaded();
       }
