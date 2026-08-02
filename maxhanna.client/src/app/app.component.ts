@@ -97,6 +97,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     "WordlerComponent",
     "ArrayComponent",
     "NexusComponent",
+    "ThemesComponent",
   ];
   showMainContent = true;
   isModalOpen = false;
