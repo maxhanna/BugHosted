@@ -99,7 +99,8 @@ public class RecipeController : ControllerBase
                 CreatedBy = reader.IsDBNull(reader.GetOrdinal("created_by")) ? "Community cook" : reader.GetString(reader.GetOrdinal("created_by")),
                 CreatedAt = reader.GetDateTime(reader.GetOrdinal("created_at")),
                 AverageRating = reader.IsDBNull(reader.GetOrdinal("average_rating")) ? 0 : Convert.ToDouble(reader["average_rating"]),
-                RatingCount = reader.IsDBNull(reader.GetOrdinal("rating_count")) ? 0 : reader.GetInt32(reader.GetOrdinal("rating_count"))
+                RatingCount = reader.IsDBNull(reader.GetOrdinal("rating_count")) ? 0 : reader.GetInt32(reader.GetOrdinal("rating_count")),
+                UserRating = reader.IsDBNull(reader.GetOrdinal("user_rating")) ? 0 : Convert.ToDouble(reader["user_rating"])
             });
         }
 

@@ -114,7 +114,7 @@
               </div>
             </div>
             <p *ngIf="recipe.description" class="recipe-description">{{ recipe.description }}</p>
-            <app-rating-stars [rating]="getUserRating(recipe)" [inputtedParentRef]="parentRef" [componentType]="'recipe'" [ratingRecipeId]="recipe.id" [recipeAverageRating]="recipe.averageRating" [recipeRatingCount]="recipe.ratingCount" [readOnly]="!parentRef?.user?.id"></app-rating-stars>
+            <app-rating-stars [rating]="getUserRating(recipe)" [inputtedParentRef]="parentRef" [componentType]="'recipe'" [ratingRecipeId]="recipe.id" [recipeAverageRating]="recipe.averageRating" [recipeRatingCount]="recipe.ratingCount" [readOnly]="!parentRef?.user?.id" (rated)="onRated(recipe, $event)"></app-rating-stars>
 
             <button class="expand-btn" (click)="toggleRecipeDetails(recipe.id)">
               {{ expandedRecipes.get(recipe.id) ? 'Hide details' : 'View full recipe' }}

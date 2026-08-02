@@ -16,6 +16,7 @@ export interface Recipe {
   createdAt: string;
   averageRating?: number;
   ratingCount?: number;
+  userRating?: number;
 }
 
 export interface RecipePayload {
@@ -36,10 +37,13 @@ export interface RecipePayload {
 export class RecipeService {
   constructor(private http: HttpClient) { }
 
-  getRecipes(search?: string): Observable<Recipe[]> {
+  getRecipes(search?: string, userId?: number): Observable<Recipe[]> {
     let params = new HttpParams();
     if (search) {
       params = params.set('search', search);
+    }
+    if (userId) {
+      params = params.set('userId', userId);
     }
 
     return this.http.get<Recipe[]>('/recipe', { params });

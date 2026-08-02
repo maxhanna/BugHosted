@@ -66,7 +66,7 @@ export class RecipeComponent extends ChildComponent implements OnInit {
 
   async loadRecipes(): Promise<void> {
     this.startLoading();
-    try { this.recipes = await firstValueFrom(this.recipeService.getRecipes(this.searchTerm || undefined)); this.applyFilters(); }
+    try { this.recipes = await firstValueFrom(this.recipeService.getRecipes(this.searchTerm || undefined, this.parentRef?.user?.id)); this.applyFilters(); }
     catch { }
     this.stopLoading();
   }
@@ -166,7 +166,14 @@ export class RecipeComponent extends ChildComponent implements OnInit {
 
   getUserRating(r: Recipe): Rating {
     const uid = this.parentRef?.user?.id ?? 0;
-    return { value: 0, user: uid > 0 ? new User(uid, this.parentRef?.user?.username ?? '') : undefined };
+    return { value: r.userRating ?? 0, user: uid > 0 ? new User(uid, this.parentRef?.user?.username ?? '') : undefined };
+  }
+
+  async onRated(r: Recipe, star: number): Promise<void> {
+    if (!r) return;
+    // Optimistically show the user's rating, then refresh averages from the server.
+    r.userRating = star;
+    await this.loadRecipes();
   }
 
   isRecipeVideoShort(url?: string): boolean { return url ? (this.parentRef?.isYoutubeShortUrl(url) ?? false) : false; }
