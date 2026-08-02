@@ -1399,7 +1399,13 @@ void main() {
       // Same nose-alignment offset as the body above.
       this.mat4RotateY(this.modelMatrix, yaw - Math.PI / 2);
       this.mat4Translate(this.modelMatrix, wp);
-      this.mat4RotateX(this.modelMatrix, this.elapsed * 5);
+      // The wheel cylinder is built along Y (coin standing on its edge). Lay it
+      // onto the car's lateral axle (Z) with RX(π/2), then roll it about that
+      // axle with RZ. Order matters: mat4Rotate* right-multiplies, so RX is
+      // applied to the vertices first, then RZ spins the upright tire forward.
+      // Negative angle moves the top of the tire toward the nose (+X travel).
+      this.mat4RotateZ(this.modelMatrix, -this.elapsed * 5);
+      this.mat4RotateX(this.modelMatrix, Math.PI / 2);
       gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
       gl.uniform3f(this.colorLoc, 0.05, 0.05, 0.05);
       this.setNormalMatrix(this.modelMatrix);
@@ -1489,6 +1495,16 @@ void main() {
     out[6] = a12 * c + a22 * s; out[7] = a13 * c + a23 * s;
     out[8] = a20 * c - a10 * s; out[9] = a21 * c - a11 * s;
     out[10] = a22 * c - a12 * s; out[11] = a23 * c - a13 * s;
+  }
+
+  private mat4RotateZ(out: Float32Array, rad: number) {
+    const s = Math.sin(rad), c = Math.cos(rad);
+    const a00 = out[0], a01 = out[1], a02 = out[2], a03 = out[3];
+    const a10 = out[4], a11 = out[5], a12 = out[6], a13 = out[7];
+    out[0] = a00 * c + a10 * s; out[1] = a01 * c + a11 * s;
+    out[2] = a02 * c + a12 * s; out[3] = a03 * c + a13 * s;
+    out[4] = a10 * c - a00 * s; out[5] = a11 * c - a01 * s;
+    out[6] = a12 * c - a02 * s; out[7] = a13 * c - a03 * s;
   }
 
   private mat4Scale(out: Float32Array, v: number[]) {

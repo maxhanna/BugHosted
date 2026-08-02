@@ -78,7 +78,7 @@
         <div class="race-mp-status-row">
           <span class="race-mp-dot" [class.on]="hubConnected"></span>
           <span class="race-mp-status-text">
-            {{ hubConnected ? 'Connected' : 'Connecting…' }}
+            {{ mpStatusText }}
             <ng-container *ngIf="selectedTrack && lobbyPlayers.length > 0">
               · {{ lobbyPlayers.length }} player{{ lobbyPlayers.length === 1 ? '' : 's' }} in lobby
             </ng-container>
@@ -221,8 +221,9 @@
                 <!-- Ground shadow (flat ellipse on the floor) -->
                 <div class="car-shadow"></div>
 
-                <!-- Car body wrapper: scales the width (Z axis) 3x so the car
-                     reads as a proper wide F1 car instead of a thin sliver. -->
+                <!-- Car body wrapper: scales the width (Z axis) 2.25x (3x from
+                     the original thin sliver, then trimmed to 3/4) so the car
+                     reads as a wide-but-proportioned F1 car. -->
                 <div class="car-body-scale">
 
                 <!-- Floor / undertray -->

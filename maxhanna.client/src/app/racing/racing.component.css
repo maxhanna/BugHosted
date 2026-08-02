@@ -467,7 +467,7 @@
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
-  transform: scale3d(1, 1, 3);
+  transform: scale3d(1, 1, 2.25);
 }
 
 /* ── 3D box primitive: center (--x,--y,--z), size (--w,--h,--d) ── */

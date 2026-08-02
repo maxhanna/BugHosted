@@ -1,4 +1,4 @@
-<div class="componentMain">
+﻿<div class="componentMain">
   <div class="closeButton" (click)="remove_me('NotepadComponent');"></div>
   <app-title-bar [title]="'Notepad'" [inputtedParentRef]="parentRef" (closeClicked)="remove_me('NotepadComponent');">
   </app-title-bar>
@@ -31,7 +31,7 @@
   <div style="display:flex; justify-content: space-between;">
     <div style="display:flex; gap:8px; align-items:center;">
       <!-- Edit / View toggle -->
-      <button class="editToggleBtn" (click)="toggleEdit()"
+      <button (click)="toggleEdit()"
         [title]="isEditing ? 'Switch to viewing mode' : 'Switch to editing mode'">
         {{ isEditing ? '👁️ View' : '✏️ Edit' }}
       </button>

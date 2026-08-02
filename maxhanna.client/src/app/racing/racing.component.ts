@@ -18,6 +18,7 @@ const TURN_SPEED = 0.38;
 const OFF_TRACK_DRAG = 0.92;
 const CURB_DRAG = 0.96; // red/white curb strips scrub speed (gentler than grass)
 const AI_LOOKAHEAD = 3;
+const CAR_RADIUS = 1.1; // shared by player-vs-car and bot-vs-bot collision passes
 
 interface BotCar {
   dist: number;
@@ -35,6 +36,13 @@ interface BotCar {
   // Lateral offset from the track centerline — spreads bots across the road so
   // they don't all drive the exact same line (that caused constant collisions).
   laneOffset: number;
+  // Monotonic distance traveled since the race started (starts at the bot's
+  // negative grid offset). Unlike the wrapped `dist`, this never resets at the
+  // line, so laps and race position stay correct for cars that start before it.
+  raceDist: number;
+  // Per-race pace multiplier (≈0.88–1.12). Randomized at spawn so the same two
+  // cars don't dominate every race — each bot runs a slightly different speed.
+  pace: number;
 }
 
 interface RemoteCarVisual {
@@ -149,6 +157,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   get hubConnected(): boolean { return this.racingHub.connected; }
   // Exposed for the podium template so we can tell multiplayer from offline.
   get isInMultiplayerRace(): boolean { return !!this._mpLobbyTrackId; }
+  // True while a hub connection attempt is in flight (distinguishes "Connecting…" from "Not connected").
+  mpConnecting = false;
+
+  get mpStatusText(): string {
+    if (this.hubConnected) return 'Connected';
+    if (this.mpConnecting) return 'Connecting…';
+    return 'Not connected';
+  }
 
   // ─── Messages ───
   messages: string[] = [];
@@ -537,8 +553,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.joinLobby(track);
   }
 
-  toggleMultiplayerTab() {
+  async toggleMultiplayerTab() {
     this.showMultiplayer = !this.showMultiplayer;
+    if (this.showMultiplayer) {
+      // Opening the multiplayer panel should establish the SignalR connection
+      // right away — previously nothing connected until a track was clicked, so
+      // the status sat on "Connecting…" forever with zero network calls.
+      await this.ensureHubConnection();
+    }
     if (!this.showMultiplayer && this._mpLobbyTrackId) {
       this.racingHub.leaveLobby(this._mpLobbyTrackId);
       this._mpLobbyTrackId = '';
@@ -546,6 +568,18 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.isLobbyHost = false;
       this.amReady = false;
       this.chatMessages = [];
+    }
+  }
+
+  // Establishes the racing hub connection (idempotent) and tracks the in-flight
+  // state so the lobby status can distinguish "Connecting…" from "Not connected".
+  private async ensureHubConnection(): Promise<void> {
+    if (this.racingHub.connected || this.mpConnecting) return;
+    this.mpConnecting = true;
+    try {
+      await this.racingHub.connect();
+    } finally {
+      this.mpConnecting = false;
     }
   }
 
@@ -706,6 +740,21 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private spawnBots(count: number) {
     this.bots = [];
     const botNames = ['Speed Racer', 'Lightning', 'Nitro', 'Tornado', 'Blitz', 'Storm', 'Vortex', 'Phantom'];
+
+    // Shuffle the difficulty mix every race (2 hard, 2 medium, rest easy) so the
+    // same two hard cars aren't always glued to the front row winning every time.
+    // The pool is built then Fisher–Yates shuffled before assigning to grid slots.
+    const diffPool: string[] = [];
+    for (let i = 0; i < count; i++) {
+      if (i < 2) diffPool.push('hard');
+      else if (i < 4) diffPool.push('medium');
+      else diffPool.push('easy');
+    }
+    for (let i = diffPool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [diffPool[i], diffPool[j]] = [diffPool[j], diffPool[i]];
+    }
+
     for (let i = 0; i < count; i++) {
       const offset = -5 - i * 4;
       const bp = this.renderer.getTrackPointAlong(((offset % this.renderer.totalTrackDist) + this.renderer.totalTrackDist) % this.renderer.totalTrackDist);
@@ -714,11 +763,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       const laneOffset = laneOffsets[i % laneOffsets.length];
       const ppx = -bp.dirZ;
       const ppz = bp.dirX;
-      // Mix of difficulty levels: first 2 hard, middle 2 medium, rest easy
-      let config;
-      if (i < 2) config = BOT_CONFIGS['hard'];
-      else if (i < 4) config = BOT_CONFIGS['medium'];
-      else config = BOT_CONFIGS['easy'];
+      const config = BOT_CONFIGS[diffPool[i]];
       this.bots.push({
         dist: ((offset % this.renderer.totalTrackDist) + this.renderer.totalTrackDist) % this.renderer.totalTrackDist,
         speed: 0,
@@ -732,6 +777,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         hasMistake: false,
         alive: true,
         laneOffset,
+        // Starts at the grid offset (e.g. -5, -9) so the finish line sits at 0 —
+        // a bot that hasn't crossed it yet ranks behind the player on the line.
+        raceDist: offset,
+        // ±12% pace variance per race — breaks up the "always the same winner"
+        // feel; even the hardest bot can have an off day.
+        pace: 0.88 + Math.random() * 0.24,
       });
     }
   }
@@ -1086,8 +1137,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     // but the speed/steering response fires ONCE per impact (0.3s cooldown).
     {
       const myX = this.carX, myZ = this.carZ, mySpeed = this.carSpeed;
-      const carRadius = 1.1; // car is ~1.3 wide, ~2.6 long — 2.2 center distance is realistic
-      const minDist = carRadius * 2;
+      // car is ~1.3 wide, ~2.6 long — 2.2 center distance is realistic
+      const minDist = CAR_RADIUS * 2;
 
       this._carImpactCooldown -= dt;
 
@@ -1183,17 +1234,49 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       const lookDist = bot.dist + AI_LOOKAHEAD * 5;
       const target = this.renderer.getTrackPointAlong(lookDist);
 
-      const baseSpeed = bot.config.speedBase * (1 + this.getSpeedBonus() / 200);
-      const maxBotSpeed = Math.min(baseSpeed + bot.config.speedVariance, this.getMaxSpeed() * 0.95);
+      // Pace variance (0.88–1.12) plus a pace-scaled cap: fast bots get a genuine
+      // spread of top speeds instead of all tying at the same cap, so a different
+      // car wins each race instead of the same two hard bots.
+      const baseSpeed = bot.config.speedBase * bot.pace * (1 + this.getSpeedBonus() / 200);
+      const maxBotSpeed = Math.min(baseSpeed + bot.config.speedVariance, this.getMaxSpeed() * 0.95 * (0.9 + bot.pace * 0.1));
 
-      // Steer toward a point on the bot's OWN lane line (same lateral offset as
-      // the lane snap below). Pointing at the bare centerline while the lane
-      // snap drags the bot sideways made every bot visibly travel diagonally —
-      // the rendered yaw no longer matched the true velocity direction.
+      // ── Defensive driving (aggression) ──
+      // When the player gets close — ahead, beside, or crawling up the inside —
+      // the bot drifts toward the player's line to block, scaled by its
+      // aggression stat. Contact is handled by the car-to-car collision below,
+      // which slows the player down just like real racing. The swerve is blended
+      // smoothly so bots don't snap onto the player like magnets.
+      const pdxP = this.carX - bot.x;
+      const pdzP = this.carZ - bot.z;
+      const playerDist = Math.hypot(pdxP, pdzP);
+      let blockLane = 0;
+      let defensiveBrake = 1;
+      if (bot.config.aggression > 0.05 && playerDist < 10) {
+        const fwdX = Math.sin(bot.yaw);
+        const fwdZ = Math.cos(bot.yaw);
+        const latX = fwdZ;
+        const latZ = -fwdX;
+        const across = pdxP * latX + pdzP * latZ; // + = player on the right
+        const along = pdxP * fwdX + pdzP * fwdZ;  // + = player ahead
+        const proximity = Math.max(0, 1 - playerDist / 10);
+        if (Math.abs(along) < 8) {
+          const side = Math.abs(across) > 0.8 ? Math.sign(across) : (Math.random() - 0.5);
+          // NOTE: lat = (fwdZ, -fwdX) is the NEGATIVE of the lane-perpendicular
+          // (-dirZ, dirX), so a player at across > 0 sits on the -perp side and
+          // the bot must shift its lane by -side to move INTO the player.
+          blockLane = -side * proximity * bot.config.aggression * 2.2;
+        }
+        // Player is directly on the bot's bumper — brake a little to defend.
+        if (along < -1 && along > -6) defensiveBrake = 1 - bot.config.aggression * 0.25;
+      }
+      const effLane = bot.laneOffset + blockLane;
+
+      // Steer toward a point on the bot's OWN (possibly shifted) lane line, same
+      // lateral offset as the snap below so yaw matches the true velocity.
       const tpx = -target.dirZ;
       const tpz = target.dirX;
-      const tx = target.x + tpx * bot.laneOffset;
-      const tz = target.z + tpz * bot.laneOffset;
+      const tx = target.x + tpx * effLane;
+      const tz = target.z + tpz * effLane;
 
       const dx = tx - bot.x;
       const dz = tz - bot.z;
@@ -1203,11 +1286,17 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
       while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
 
-      bot.yaw += yawDiff * bot.config.cornerSkill * 0.1;
-
       const cornerSharpness = Math.abs(yawDiff);
+
+      bot.yaw += yawDiff * bot.config.cornerSkill * 0.1;
+      // Lower-skill bots wobble more — the human-like imperfection that makes
+      // them scrape walls and lose time instead of driving a perfect line.
+      // Weighted by corner sharpness so straights stay clean while corners are
+      // where they drift wide and hit the barriers.
+      bot.yaw += (Math.random() - 0.5) * (1 - bot.config.cornerSkill) * 0.02 * (0.3 + cornerSharpness);
+
       const cornerSlow = Math.max(0.4, 1 - cornerSharpness * 0.8);
-      const targetSpeed = maxBotSpeed * cornerSlow * (1 - bot.config.mistakeChance * 0.3);
+      const targetSpeed = maxBotSpeed * cornerSlow * defensiveBrake * (1 - bot.config.mistakeChance * 0.3);
 
       if (bot.mistakeTimer > 0) {
         bot.mistakeTimer -= dt;
@@ -1228,18 +1317,78 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
 
       const curTP = this.renderer.getTrackPointAlong(bot.dist);
       // Follow the bot's lane (lateral offset from centerline) with a soft snap.
-      // The old hard 0.3 snap pinned every bot to the exact centerline.
+      // Snap strength scales with skill: weak bots drift off line and into the
+      // walls below; skilled bots hold a tight racing line.
       const ppx = -curTP.dirZ;
       const ppz = curTP.dirX;
-      const laneX = curTP.x + ppx * bot.laneOffset;
-      const laneZ = curTP.z + ppz * bot.laneOffset;
-      const snap = 0.12;
+      const laneX = curTP.x + ppx * effLane;
+      const laneZ = curTP.z + ppz * effLane;
+      const snap = 0.05 + bot.config.cornerSkill * 0.08;
       bot.x += (laneX - bot.x) * snap;
       bot.z += (laneZ - bot.z) * snap;
 
-      // Lap crossing: distance wraps from the track end back to ~0.
-      if (prevBotDist > this.renderer.totalTrackDist * 0.8 && bot.dist < this.renderer.totalTrackDist * 0.2) {
-        bot.lap++;
+      // ── Bot wall & curb collisions ──
+      // Bots can now genuinely hit the barriers: past the curb they scrub speed
+      // on the checkerboard strips, and past the wall they get shoved back with
+      // a speed hit and a yaw nudge — same treatment as the player.
+      const botDxT = bot.x - curTP.x;
+      const botDzT = bot.z - curTP.z;
+      const botOff = Math.hypot(botDxT, botDzT);
+      const botHalf = (curTP.width || 16) / 2;
+      const botBarrier = botHalf + 1.5;
+      if (botOff > botBarrier) {
+        bot.speed *= Math.pow(0.9, dt * 60);
+        bot.yaw += (Math.random() - 0.5) * 0.25;
+        const scale = (botBarrier - 0.3) / botOff;
+        bot.x = curTP.x + botDxT * scale;
+        bot.z = curTP.z + botDzT * scale;
+      } else if (botOff > botHalf) {
+        bot.speed *= Math.pow(CURB_DRAG, dt * 60);
+      }
+
+      // Lap tracking: accumulate a MONOTONIC race distance so the finish-line
+      // wrap (dist 1199 → 0) doesn't confuse laps. The delta across the wrap is
+      // corrected by adding the track length, keeping raceDist ever-increasing.
+      // Old logic counted a lap on any high→low wrap, so a bot that started just
+      // before the line "completed" a phantom lap after ~10 units — the player
+      // then always ranked last because bots carried a free lap lead.
+      let delta = bot.dist - prevBotDist;
+      // Correct the finish-line wrap in BOTH directions (a collision can shove a
+      // bot backward across the line, which must not count as a lap forward).
+      if (delta < -this.renderer.totalTrackDist * 0.5) delta += this.renderer.totalTrackDist;
+      else if (delta > this.renderer.totalTrackDist * 0.5) delta -= this.renderer.totalTrackDist;
+      bot.raceDist += delta;
+      bot.lap = Math.max(0, Math.floor(bot.raceDist / this.renderer.totalTrackDist));
+    }
+
+    // ── Bot-to-bot collisions ──
+    // Bots bump each other the same way they bump the player: overlapping cars
+    // get pushed apart, and hard contact scrubs speed + nudges yaw. This keeps
+    // the pack from phasing through each other and creates the mid-race shuffle
+    // (the old car-to-car pass only ever compared the PLAYER against cars).
+    for (let i = 0; i < this.bots.length; i++) {
+      const a = this.bots[i];
+      if (!a.alive) continue;
+      for (let j = i + 1; j < this.bots.length; j++) {
+        const b = this.bots[j];
+        if (!b.alive) continue;
+        const abx = b.x - a.x;
+        const abz = b.z - a.z;
+        const abd = Math.hypot(abx, abz);
+        const minD = CAR_RADIUS * 2;
+        if (abd < minD && abd > 0.01) {
+          const push = (minD - abd) * 0.5;
+          const nx = abx / abd;
+          const nz = abz / abd;
+          a.x -= nx * push; a.z -= nz * push;
+          b.x += nx * push; b.z += nz * push;
+          if (abd < minD * 0.65) {
+            a.speed *= 0.98;
+            b.speed *= 0.98;
+            a.yaw += (Math.random() - 0.5) * 0.08;
+            b.yaw += (Math.random() - 0.5) * 0.08;
+          }
+        }
       }
     }
   }
@@ -1269,27 +1418,30 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   private updateRacePosition() {
-    const allRacers: { dist: number; lap: number }[] = this.bots.map(b => ({
-      dist: b.dist + b.lap * this.renderer.totalTrackDist,
-      lap: b.lap
+    // Rank every racer by MONOTONIC distance traveled past the finish line, so a
+    // car that has crossed the line is always ahead of one that hasn't, regardless
+    // of where the line sits in wrapped distance. Bots use their ever-increasing
+    // raceDist (which starts at their negative grid offset); remote cars and the
+    // player use lap × trackLen + wrapped dist. The player is located by marker,
+    // not by exact-float equality (which could collide with a bot's value).
+    const playerDist = this.currentLap * this.renderer.totalTrackDist + this.carDist;
+    const allRacers: { dist: number; isPlayer: boolean }[] = this.bots.map(b => ({
+      dist: b.raceDist,
+      isPlayer: false
     }));
 
     // Add remote players
     this.remoteCars.forEach(rc => {
       allRacers.push({
         dist: rc.distance + rc.lap * this.renderer.totalTrackDist,
-        lap: rc.lap
+        isPlayer: false
       });
     });
 
-    allRacers.push({
-      dist: this.carDist + this.currentLap * this.renderer.totalTrackDist,
-      lap: this.currentLap
-    });
-    allRacers.sort((a, b) => b.lap - a.lap || b.dist - a.dist);
-    this.racePosition = allRacers.findIndex(r =>
-      r.dist === this.carDist + this.currentLap * this.renderer.totalTrackDist
-    ) + 1;
+    allRacers.push({ dist: playerDist, isPlayer: true });
+    allRacers.sort((a, b) => b.dist - a.dist);
+    const playerIdx = allRacers.findIndex(r => r.isPlayer);
+    this.racePosition = playerIdx === -1 ? this.totalRacers : playerIdx + 1;
   }
 
   private finishRace() {
