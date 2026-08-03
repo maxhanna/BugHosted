@@ -83,6 +83,7 @@
   font-size: 56px;
   font-weight: 900;
   background: linear-gradient(135deg, #e53935, #ff6f00, #e53935);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   letter-spacing: 8px;
@@ -351,6 +352,7 @@
   font-weight: 900;
   letter-spacing: 5px;
   background: linear-gradient(135deg, #e53935, #ff6f00);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   margin: 0;

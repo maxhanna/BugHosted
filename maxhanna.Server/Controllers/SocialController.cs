@@ -274,8 +274,7 @@ namespace maxhanna.Server.Controllers
 
       using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
       {
-        await conn.OpenAsync();
-        await EnsureStoryChatIdColumnAsync(conn);
+        await conn.OpenAsync(); 
         using (var countCmd = new MySqlCommand(countSql, conn))
         {
           foreach (var param in parameters)
@@ -1193,33 +1192,7 @@ namespace maxhanna.Server.Controllers
     }
 
     private static bool _storyChatIdColumnEnsured = false;
-    private static readonly object _storyChatIdLock = new object();
-    private async Task EnsureStoryChatIdColumnAsync(MySqlConnection conn)
-    {
-      if (_storyChatIdColumnEnsured) return;
-      try
-      {
-        string checkSql = "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'stories' AND COLUMN_NAME = 'chat_id';";
-        using (var checkCmd = new MySqlCommand(checkSql, conn))
-        {
-          if (Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) == 0)
-          {
-            using (var alterCmd = new MySqlCommand("ALTER TABLE stories ADD COLUMN chat_id INT NULL AFTER profile_user_id;", conn))
-            {
-              await alterCmd.ExecuteNonQueryAsync();
-            }
-          }
-          lock (_storyChatIdLock)
-          {
-            _storyChatIdColumnEnsured = true;
-          }
-        }
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("EnsureStoryChatIdColumnAsync error: " + ex.Message, null, "SOCIAL", true);
-      }
-    }
+    private static readonly object _storyChatIdLock = new object(); 
 
     [HttpPost("/Social/Post-Story/", Name = "PostStory")]
     public async Task<IActionResult> PostStory([FromBody] StoryRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
@@ -1234,9 +1207,7 @@ namespace maxhanna.Server.Controllers
 
         using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
         {
-          await conn.OpenAsync();
-
-          await EnsureStoryChatIdColumnAsync(conn);
+          await conn.OpenAsync(); 
 
           using (var cmd = new MySqlCommand(sql, conn))
           {
