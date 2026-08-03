@@ -902,10 +902,34 @@
   white-space: nowrap;
 }
 
-.card-buy-btn:hover {
+.card-buy-btn:hover:not(:disabled) {
   background: rgba(255,214,0,0.18);
   border-color: rgba(255,214,0,0.6);
   box-shadow: 0 0 10px rgba(255,214,0,0.1);
+}
+
+/* While a purchase is in flight the buy buttons are locked so rapid clicks
+   can't double-buy. Dim them and kill the pointer affordance. */
+.card-buy-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+  animation: card-buy-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes card-buy-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.75; }
+}
+
+.garage-appearance-card.buying-disabled,
+.garage-skin-card.buying-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 .card-equip-btn {

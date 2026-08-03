@@ -231,25 +231,31 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   }
   async addNote() {
     const text = this.noteTextInput?.textarea?.value ?? '';
-    if (!text || text.trim() == "") {
-      return alert("Note cannot be empty!");
+    if (!text || text.trim() === '') {
+      return alert('Note cannot be empty!');
     }
 
     try {
-      if (this.noteId.nativeElement.value != "" && this.parentRef?.user?.id) {
+      let noteId: number | undefined;
+      if (this.noteId.nativeElement.value !== '' && this.parentRef?.user?.id) {
+        // Update existing note
         await this.notepadService.updateNote(this.parentRef.user.id, text, parseInt(this.noteId.nativeElement.value));
-      } else {
-        if (this.parentRef?.user?.id) {
-          const newNoteId = await this.notepadService.addNote(this.parentRef.user.id, text);
-          if (newNoteId) {
-            this.noteId.nativeElement.value = newNoteId + "";
-          }
+        noteId = parseInt(this.noteId.nativeElement.value);
+      } else if (this.parentRef?.user?.id) {
+        // Create new note
+        noteId = await this.notepadService.addNote(this.parentRef.user.id, text);
+        if (noteId) {
+          this.noteId.nativeElement.value = noteId.toString();
         }
+      }
+      // Record user event for saving note
+      if (this.parentRef?.user?.id && noteId) {
+        await this.userEventService.insertUserEvent(this.parentRef.user.id, 'notepad', 'save_note', noteId);
       }
     } catch (e) {
       console.error(e);
     }
-    this.parentRef?.showNotification(`Note saved.`); 
+    this.parentRef?.showNotification(`Note saved.`);
     this.getNotepad();
   }
   async deleteNote() {

@@ -36,6 +36,8 @@ export class RacingRenderer {
   private carCount = 0;
   private wheelVao!: WebGLVertexArrayObject;
   private wheelCount = 0;
+  private rearWheelVao!: WebGLVertexArrayObject;
+  private rearWheelCount = 0;
   private barrierVao!: WebGLVertexArrayObject;
   private barrierCount = 0;
   private finishVao!: WebGLVertexArrayObject;
@@ -854,35 +856,58 @@ void main() {
     // Floor edge winglets (thin vertical fins along the floor sides)
     this.addBox(verts, idxs, 0.1, 0.06, 0.53, 1.4, 0.07, 0.02, carbon);
     this.addBox(verts, idxs, 0.1, 0.06, -0.53, 1.4, 0.07, 0.02, carbon);
+    // Second row of floor edge fences
+    this.addBox(verts, idxs, -0.3, 0.05, 0.53, 0.8, 0.05, 0.015, carbon);
+    this.addBox(verts, idxs, -0.3, 0.05, -0.53, 0.8, 0.05, 0.015, carbon);
     // Diffuser ramp at the rear (rises toward the back)
     this.addTaperedBox(verts, idxs, -1.1, 0.035, 0, 0.4, 0.13, 0.03, 0.7, 0.45, carbon);
+    // Diffuser fins (vertical blades inside the rear diffuser)
+    for (const dz of [-0.3, -0.1, 0.1, 0.3]) {
+      this.addBox(verts, idxs, -1.15, 0.07, dz, 0.3, 0.08, 0.02, carbon);
+    }
 
     // ── 2. Monocoque / cockpit tub ──
     // Tapers up from the nose joint to the cockpit surround
     this.addTaperedBox(verts, idxs, 0.1, 0.15, 0, 1.15, 0.15, 0.27, 0.3, 0.4, [cr, cg, cb]);
-    // Cockpit opening (dark recess on the tub top)
-    this.addBox(verts, idxs, 0.45, 0.3, 0, 0.3, 0.01, 0.22, dark);
+    // Cockpit opening (dark recess sunk into the tub top)
+    this.addBox(verts, idxs, 0.45, 0.26, 0, 0.3, 0.02, 0.22, dark);
+    // Driver shoulders + torso peeking out of the cockpit
+    this.addBox(verts, idxs, 0.3, 0.24, 0, 0.16, 0.07, 0.18, [cr, cg, cb]);
+    this.addBox(verts, idxs, 0.33, 0.27, 0, 0.1, 0.05, 0.16, [0.1, 0.1, 0.12]);
     // Driver helmet + visor
-    this.addSphere(verts, idxs, 0.42, 0.32, 0, 0.09, 10, [0.95, 0.95, 0.98]);
-    this.addBox(verts, idxs, 0.5, 0.32, 0, 0.04, 0.06, 0.1, dark);
+    this.addSphere(verts, idxs, 0.42, 0.3, 0, 0.09, 10, [0.95, 0.95, 0.98]);
+    this.addBox(verts, idxs, 0.5, 0.3, 0, 0.04, 0.06, 0.1, dark);
+    // Steering wheel
+    this.addBox(verts, idxs, 0.53, 0.26, 0, 0.02, 0.02, 0.14, dark);
 
-    // ── 3. Halo ──
-    this.addBox(verts, idxs, 0.15, 0.3, 0, 0.05, 0.18, 0.06, carbon);   // center pillar
-    this.addBox(verts, idxs, 0.1, 0.42, 0, 0.2, 0.04, 0.52, carbon);    // front arch
-    this.addBox(verts, idxs, -0.15, 0.42, 0.2, 0.55, 0.04, 0.06, carbon); // left bar
-    this.addBox(verts, idxs, -0.15, 0.42, -0.2, 0.55, 0.04, 0.06, carbon); // right bar
+    // ── 3. Halo (over the driver) ──
+    this.addBox(verts, idxs, 0.05, 0.3, 0, 0.05, 0.18, 0.06, carbon);   // center pillar
+    this.addBox(verts, idxs, 0.4, 0.42, 0, 0.2, 0.04, 0.52, carbon);    // front arch
+    this.addBox(verts, idxs, 0.16, 0.42, 0.2, 0.5, 0.04, 0.06, carbon); // left bar
+    this.addBox(verts, idxs, 0.16, 0.42, -0.2, 0.5, 0.04, 0.06, carbon); // right bar
+    // Halo winglet (small fin on top of the front arch)
+    this.addBox(verts, idxs, 0.4, 0.46, 0, 0.1, 0.02, 0.1, carbon);
 
     // ── 4. Nose cone (stepped, tapering forward) ──
     this.addTaperedBox(verts, idxs, 0.7, 0.13, 0, 0.6, 0.14, 0.1, 0.2, 0.13, [cr, cg, cb]);
     this.addTaperedBox(verts, idxs, 1.05, 0.1, 0, 0.3, 0.1, 0.06, 0.13, 0.09, [cr, cg, cb]);
-    this.addCone(verts, idxs, 1.28, 0.09, 0, 0.06, 0.16, 8, [cr, cg, cb]);
+    // Nose tip: forward-pointing wedge (addCone builds upward, so use a
+    // horizontal taper instead of a vertical spike)
+    this.addTaperedBox(verts, idxs, 1.3, 0.1, 0, 0.2, 0.06, 0.03, 0.09, 0.04, [cr, cg, cb]);
+    // Nose side strakes (vertical fins along the nose sides)
+    this.addBox(verts, idxs, 0.9, 0.1, 0.1, 0.5, 0.05, 0.02, carbon);
+    this.addBox(verts, idxs, 0.9, 0.1, -0.1, 0.5, 0.05, 0.02, carbon);
 
-    // ── 5. Front wing (3 elements + endplates + pylons) ──
+    // ── 5. Front wing (4 elements + endplates + pylons) ──
     this.addBox(verts, idxs, 1.2, 0.06, 0, 0.32, 0.025, 1.5, carbon);   // main plane
     this.addBox(verts, idxs, 1.14, 0.1, 0, 0.2, 0.025, 1.42, carbon);   // flap
     this.addBox(verts, idxs, 1.09, 0.08, 0, 0.14, 0.02, 1.34, carbon);  // third element
+    this.addBox(verts, idxs, 1.03, 0.07, 0, 0.1, 0.02, 1.26, carbon);   // fourth element
     this.addTaperedBox(verts, idxs, 1.2, 0.11, 0.75, 0.36, 0.22, 0.14, 0.05, 0.05, carbon);  // endplates
     this.addTaperedBox(verts, idxs, 1.2, 0.11, -0.75, 0.36, 0.22, 0.14, 0.05, 0.05, carbon);
+    // Endplate lower steps
+    this.addBox(verts, idxs, 1.2, 0.05, 0.75, 0.34, 0.08, 0.03, carbon);
+    this.addBox(verts, idxs, 1.2, 0.05, -0.75, 0.34, 0.08, 0.03, carbon);
     this.addBox(verts, idxs, 1.2, 0.08, 0.16, 0.1, 0.05, 0.04, carbon); // nose pylons
     this.addBox(verts, idxs, 1.2, 0.08, -0.16, 0.1, 0.05, 0.04, carbon);
 
@@ -895,28 +920,39 @@ void main() {
     // Sidepod intakes (dark openings at the front)
     this.addBox(verts, idxs, 0.58, 0.22, 0.5, 0.1, 0.07, 0.24, dark);
     this.addBox(verts, idxs, 0.58, 0.22, -0.5, 0.1, 0.07, 0.24, dark);
+    // Sidepod cooling slats (dark outlets on top, seated flush on the surface)
+    this.addBox(verts, idxs, -0.35, 0.26, 0.5, 0.3, 0.01, 0.16, dark);
+    this.addBox(verts, idxs, -0.35, 0.26, -0.5, 0.3, 0.01, 0.16, dark);
 
-    // ── 7. Engine cover (sloping down to the rear) + airbox ──
-    this.addTaperedBox(verts, idxs, -0.5, 0.3, 0, 0.85, 0.28, 0.12, 0.32, 0.2, [cr, cg, cb]);
-    this.addTaperedBox(verts, idxs, -0.25, 0.42, 0, 0.45, 0.17, 0.09, 0.26, 0.16, carbon); // airbox
-    this.addBox(verts, idxs, -0.15, 0.48, 0, 0.1, 0.06, 0.12, dark); // intake hole
+    // ── 7. Engine cover (tall behind the cockpit, sloping down to the rear) ──
+    this.addTaperedBox(verts, idxs, -0.5, 0.3, 0, 0.85, 0.12, 0.28, 0.2, 0.32, [cr, cg, cb]);
+    // Airbox (tall at the intake, tapering back)
+    this.addTaperedBox(verts, idxs, -0.25, 0.42, 0, 0.45, 0.09, 0.17, 0.16, 0.26, carbon);
+    this.addBox(verts, idxs, -0.15, 0.47, 0, 0.1, 0.06, 0.14, dark); // intake hole
 
-    // ── 8. Rear wing (main plane + DRS flap + beam wing + endplates) ──
+    // ── 8. Rear wing (main plane + DRS flap + beam wing + gurney + endplates) ──
     this.addBox(verts, idxs, -1.0, 0.4, 0, 0.36, 0.035, 1.05, carbon);
     this.addBox(verts, idxs, -1.0, 0.46, 0, 0.28, 0.03, 1.0, carbon);
+    this.addBox(verts, idxs, -1.0, 0.45, 0, 0.08, 0.05, 0.9, carbon); // gurney lip
     this.addBox(verts, idxs, -0.95, 0.3, 0, 0.2, 0.025, 0.7, carbon);
     this.addBox(verts, idxs, -1.0, 0.42, 0.52, 0.34, 0.32, 0.045, carbon);
     this.addBox(verts, idxs, -1.0, 0.42, -0.52, 0.34, 0.32, 0.045, carbon);
     this.addBox(verts, idxs, -0.9, 0.3, 0.22, 0.1, 0.16, 0.04, grey); // support pylons
     this.addBox(verts, idxs, -0.9, 0.3, -0.22, 0.1, 0.16, 0.04, grey);
 
-    // ── 9. Bargeboards (vertical vanes ahead of the sidepods) ──
+    // ── 9. Bargeboards (stack of 3 vertical vanes ahead of the sidepods) ──
     this.addBox(verts, idxs, 0.55, 0.1, 0.33, 0.3, 0.12, 0.02, carbon);
     this.addBox(verts, idxs, 0.55, 0.1, -0.33, 0.3, 0.12, 0.02, carbon);
+    this.addBox(verts, idxs, 0.55, 0.07, 0.38, 0.26, 0.08, 0.015, carbon);
+    this.addBox(verts, idxs, 0.55, 0.07, -0.38, 0.26, 0.08, 0.015, carbon);
+    this.addBox(verts, idxs, 0.55, 0.05, 0.43, 0.2, 0.05, 0.012, carbon);
+    this.addBox(verts, idxs, 0.55, 0.05, -0.43, 0.2, 0.05, 0.012, carbon);
 
-    // ── 10. Mirrors ──
+    // ── 10. Mirrors + stalks ──
     this.addBox(verts, idxs, 0.35, 0.3, 0.6, 0.1, 0.05, 0.07, grey);
     this.addBox(verts, idxs, 0.35, 0.3, -0.6, 0.1, 0.05, 0.07, grey);
+    this.addStrut(verts, idxs, 0.3, 0.24, 0.52, 0.35, 0.3, 0.6, 0.02, carbon);
+    this.addStrut(verts, idxs, 0.3, 0.24, -0.52, 0.35, 0.3, -0.6, 0.02, carbon);
 
     // ── 11. Exhaust outlets ──
     this.addCylinder(verts, idxs, -0.72, 0.28, 0.18, 0.04, 0.07, 8, grey);
@@ -926,11 +962,28 @@ void main() {
     this.addBox(verts, idxs, -1.02, 0.52, 0, 0.05, 0.07, 0.06, [1, 0.15, 0.15]);
 
     // ── 13. T-cam + antenna ──
-    this.addBox(verts, idxs, 0.0, 0.58, 0, 0.04, 0.05, 0.05, [1.0, 0.9, 0.2]);
-    this.addCylinder(verts, idxs, -0.2, 0.55, 0, 0.008, 0.3, 6, grey);
+    this.addBox(verts, idxs, -0.2, 0.5, 0, 0.04, 0.05, 0.05, [1.0, 0.9, 0.2]);
+    this.addCylinder(verts, idxs, -0.6, 0.39, 0, 0.008, 0.3, 6, grey);
 
     // ── 14. Shark fin (thin blade over the engine cover) ──
     this.addBox(verts, idxs, -0.55, 0.4, 0, 0.5, 0.16, 0.015, carbon);
+
+    // ── 15. Suspension wishbones + pushrods ──
+    // Front upper arms (tub → wheel hub)
+    this.addStrut(verts, idxs, 0.58, 0.16, 0.22, 0.72, 0.06, 0.72, 0.025, carbon);
+    this.addStrut(verts, idxs, 0.58, 0.16, -0.22, 0.72, 0.06, -0.72, 0.025, carbon);
+    // Front lower arms
+    this.addStrut(verts, idxs, 0.62, 0.05, 0.22, 0.78, 0.02, 0.74, 0.025, carbon);
+    this.addStrut(verts, idxs, 0.62, 0.05, -0.22, 0.78, 0.02, -0.74, 0.025, carbon);
+    // Front pushrods (lower arm up into the tub)
+    this.addStrut(verts, idxs, 0.68, 0.03, 0.72, 0.6, 0.14, 0.18, 0.015, grey);
+    this.addStrut(verts, idxs, 0.68, 0.03, -0.72, 0.6, 0.14, -0.18, 0.015, grey);
+    // Rear upper arms
+    this.addStrut(verts, idxs, -0.52, 0.16, 0.22, -0.64, 0.06, 0.72, 0.025, carbon);
+    this.addStrut(verts, idxs, -0.52, 0.16, -0.22, -0.64, 0.06, -0.72, 0.025, carbon);
+    // Rear lower arms
+    this.addStrut(verts, idxs, -0.56, 0.05, 0.22, -0.7, 0.02, 0.74, 0.025, carbon);
+    this.addStrut(verts, idxs, -0.56, 0.05, -0.22, -0.7, 0.02, -0.74, 0.025, carbon);
 
     const vertArray = new Float32Array(verts);
     const idxArray = new Uint16Array(idxs);
@@ -961,27 +1014,57 @@ void main() {
 
   private buildWheelMesh() {
     const gl = this.gl;
-    const verts: number[] = [];
-    const idxs: number[] = [];
-    // Rim disc (wider so the wheel reads as a proper F1 tire when viewed from
-    // the side; the disc face fills the tread's inner circle)
-    this.addCylinder(verts, idxs, 0, 0, 0, 0.15, 0.15, 10, [0.07, 0.07, 0.08]);
-    // Tire tread — slightly larger radius than the disc so the band wraps the
-    // rim, and a lighter grey so the tire is visible against the dark track.
-    this.addCylinder(verts, idxs, 0, 0, 0, 0.17, 0.12, 10, [0.13, 0.13, 0.14]);
-
-    const va = new Float32Array(verts);
-    const ia = new Uint16Array(idxs);
-    this.wheelCount = ia.length;
+    const stride = 11 * 4;
+    // ── Front wheels (narrower) — rim disc + brake disc + hub + tread ──
+    const fv: number[] = [];
+    const fi: number[] = [];
+    // Rim disc (dark, fills the tread inner circle)
+    this.addCylinder(fv, fi, 0, 0, 0, 0.15, 0.15, 10, [0.07, 0.07, 0.08]);
+    // Brake disc (reddish, slightly wider than the rim so it peeks out)
+    this.addCylinder(fv, fi, 0, 0, 0, 0.09, 0.17, 10, [0.35, 0.12, 0.1]);
+    // Hub center
+    this.addCylinder(fv, fi, 0, 0, 0, 0.04, 0.17, 8, [0.5, 0.5, 0.55]);
+    // Tire tread — larger radius so the band wraps the rim
+    this.addCylinder(fv, fi, 0, 0, 0, 0.17, 0.12, 10, [0.13, 0.13, 0.14]);
+    const fva = new Float32Array(fv);
+    const fia = new Uint16Array(fi);
+    this.wheelCount = fia.length;
     this.wheelVao = gl.createVertexArray()!;
     gl.bindVertexArray(this.wheelVao);
     const vbo = gl.createBuffer()!;
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, va, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, fva, gl.STATIC_DRAW);
     const ibo = gl.createBuffer()!;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, ia, gl.STATIC_DRAW);
-    const stride = 11 * 4;
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, fia, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+
+    // ── Rear wheels (wider tread, slightly larger — like a real F1 car) ──
+    const rv: number[] = [];
+    const ri: number[] = [];
+    this.addCylinder(rv, ri, 0, 0, 0, 0.16, 0.18, 10, [0.07, 0.07, 0.08]);
+    this.addCylinder(rv, ri, 0, 0, 0, 0.1, 0.2, 10, [0.35, 0.12, 0.1]);
+    this.addCylinder(rv, ri, 0, 0, 0, 0.045, 0.2, 8, [0.5, 0.5, 0.55]);
+    this.addCylinder(rv, ri, 0, 0, 0, 0.18, 0.15, 10, [0.13, 0.13, 0.14]);
+    const rva = new Float32Array(rv);
+    const ria = new Uint16Array(ri);
+    this.rearWheelCount = ria.length;
+    this.rearWheelVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.rearWheelVao);
+    const rvbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, rvbo);
+    gl.bufferData(gl.ARRAY_BUFFER, rva, gl.STATIC_DRAW);
+    const ribo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ribo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, ria, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
     gl.enableVertexAttribArray(1);
@@ -1058,6 +1141,42 @@ void main() {
     }
     idxs.push(base, base + 1, base + 2);
     idxs.push(base + 2, base + 3, base);
+  }
+
+  // Thin box (strut / wishbone) running from point A to point B with a given
+  // cross-section thickness. Used for suspension arms, mirror stalks, and
+  // wing mounts. Uses the same 11-float vertex layout as addQuad.
+  private addStrut(verts: number[], idxs: number[], ax: number, ay: number, az: number, bx: number, by: number, bz: number, t: number, color: number[]) {
+    const dx = bx - ax, dy = by - ay, dz = bz - az;
+    const len = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+    const ux = dx / len, uy = dy / len, uz = dz / len;
+    // Build an orthonormal frame: u is the strut axis, v/w span the cross-section.
+    let vx = 0, vy = 1, vz = 0;
+    if (Math.abs(uy) > 0.9) { vx = 1; vy = 0; vz = 0; }
+    // v = v - (v·u)u, then normalize
+    const vdot = vx * ux + vy * uy + vz * uz;
+    vx -= vdot * ux; vy -= vdot * uy; vz -= vdot * uz;
+    const vlen = Math.sqrt(vx * vx + vy * vy + vz * vz) || 1;
+    vx /= vlen; vy /= vlen; vz /= vlen;
+    // w = u × v
+    const wx = uy * vz - uz * vy;
+    const wy = uz * vx - ux * vz;
+    const wz = ux * vy - uy * vx;
+    const h = t / 2;
+    const a0 = [ax - vx * h - wx * h, ay - vy * h - wy * h, az - vz * h - wz * h];
+    const a1 = [ax + vx * h - wx * h, ay + vy * h - wy * h, az + vz * h - wz * h];
+    const a2 = [ax + vx * h + wx * h, ay + vy * h + wy * h, az + vz * h + wz * h];
+    const a3 = [ax - vx * h + wx * h, ay - vy * h + wy * h, az - vz * h + wz * h];
+    const b0 = [bx - vx * h - wx * h, by - vy * h - wy * h, bz - vz * h - wz * h];
+    const b1 = [bx + vx * h - wx * h, by + vy * h - wy * h, bz + vz * h - wz * h];
+    const b2 = [bx + vx * h + wx * h, by + vy * h + wy * h, bz + vz * h + wz * h];
+    const b3 = [bx - vx * h + wx * h, by - vy * h + wy * h, bz - vz * h + wz * h];
+    this.addQuad(verts, idxs, a0, a1, b1, b0, color); // bottom
+    this.addQuad(verts, idxs, a2, a3, b3, b2, color); // top
+    this.addQuad(verts, idxs, a1, a2, b2, b1, color); // right (+v)
+    this.addQuad(verts, idxs, a0, b0, b3, a3, color); // left (−v)
+    this.addQuad(verts, idxs, a0, a3, a2, a1, color); // A cap (−u)
+    this.addQuad(verts, idxs, b0, b1, b2, b3, color); // B cap (+u)
   }
 
   // Frustum prism along X: back face (x = cx - l/2) sized hBack × wBack, front
@@ -1459,7 +1578,11 @@ void main() {
       [-0.55, 0, -0.60],
       [-0.55, 0, 0.60]
     ];
-    for (const wp of wheelPositions) {
+    for (let wi = 0; wi < wheelPositions.length; wi++) {
+      const wp = wheelPositions[wi];
+      // Rear wheels (wi >= 2) use the wider, slightly larger rear wheel mesh.
+      const rear = wi >= 2;
+      gl.bindVertexArray(rear ? this.rearWheelVao : this.wheelVao);
       this.mat4Identity(this.modelMatrix);
       this.mat4Translate(this.modelMatrix, [x, y + 0.17, z]);
       // Same nose-alignment offset as the body above.
@@ -1475,7 +1598,7 @@ void main() {
       gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
       gl.uniform3f(this.colorLoc, 0.05, 0.05, 0.05);
       this.setNormalMatrix(this.modelMatrix);
-      gl.drawElements(gl.TRIANGLES, this.wheelCount, gl.UNSIGNED_SHORT, 0);
+      gl.drawElements(gl.TRIANGLES, rear ? this.rearWheelCount : this.wheelCount, gl.UNSIGNED_SHORT, 0);
     }
     gl.bindVertexArray(null);
     gl.enable(gl.CULL_FACE);

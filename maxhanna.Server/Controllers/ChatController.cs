@@ -4,6 +4,8 @@ using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Social;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using maxhanna.Server.Hubs;
 using MySqlConnector;
 using System.Data;
 using System.Xml.Linq;
@@ -18,11 +20,13 @@ namespace maxhanna.Server.Controllers
 	{
 		private readonly Log _log;
 		private readonly IConfiguration _config;
+		private readonly IHubContext<ChatHub> _chatHub;
 
-		public ChatController(Log log, IConfiguration config)
+		public ChatController(Log log, IConfiguration config, IHubContext<ChatHub> chatHub)
 		{
 			_log = log;
 			_config = config;
+			_chatHub = chatHub;
 		}
 
 		[HttpPost("/Chat/Notifications", Name = "GetChatNotifications")]
@@ -993,11 +997,12 @@ namespace maxhanna.Server.Controllers
 				cmd.Parameters.AddWithValue("@Content", request.Content);
 
 				int rowsAffected = await cmd.ExecuteNonQueryAsync();
+				long insertedId = 0;
 
 				if (rowsAffected > 0)
 				{
 					// Retrieve the last inserted ID
-					long insertedId = cmd.LastInsertedId;
+					insertedId = cmd.LastInsertedId;
 					if (insertedId != 0 && request.Files != null && request.Files.Count > 0)
 					{
 						for (var x = 0; x < request.Files.Count; x++)
@@ -1017,6 +1022,18 @@ namespace maxhanna.Server.Controllers
 				MySqlCommand ulcCmd = new MySqlCommand(ulcSql, conn);
 				ulcCmd.Parameters.AddWithValue("@ChatId", targetChatId);
 				await ulcCmd.ExecuteNonQueryAsync();
+
+				// Push a real-time notification to everyone with this chat open so
+				// they refresh instantly instead of waiting for a poll. The payload
+				// carries senderId so the client can skip the refresh on its own
+				// message (the sender's post flow already refreshes the bubble).
+				try
+				{
+					await _chatHub.Clients.Group(ChatHub.GroupName((int)targetChatId))
+						.SendAsync("OnMessagePosted", new { chatId = (int)targetChatId, messageId = insertedId, senderId = request.SenderId });
+				}
+				catch { }
+
 				return Ok(targetChatId);
 			}
 			catch (Exception ex)
@@ -1142,6 +1159,27 @@ namespace maxhanna.Server.Controllers
 				cmd.Parameters.AddWithValue("@MessageId", request.MessageId);
 
 				int rowsAffected = await cmd.ExecuteNonQueryAsync();
+
+				// Push an edit notification so open chat windows refresh the bubble.
+				try
+				{
+					int? editChatId = null;
+					string chatIdSql = "SELECT chat_id FROM maxhanna.messages WHERE id = @MessageId LIMIT 1;";
+					using (var chatIdCmd = new MySqlCommand(chatIdSql, conn))
+					{
+						chatIdCmd.Parameters.AddWithValue("@MessageId", request.MessageId);
+						var v = await chatIdCmd.ExecuteScalarAsync();
+						if (v != null && int.TryParse(v.ToString(), out var cid)) editChatId = cid;
+					}
+					if (editChatId.HasValue)
+					{
+						// Payload carries senderId so the editor's own client can skip
+						// the refresh (their edit UI already applies the change).
+						await _chatHub.Clients.Group(ChatHub.GroupName(editChatId.Value))
+							.SendAsync("OnMessageEdited", new { chatId = editChatId.Value, messageId = request.MessageId, senderId = request.UserId ?? 0 });
+					}
+				}
+				catch { }
 
 				return Ok(rowsAffected);
 			}

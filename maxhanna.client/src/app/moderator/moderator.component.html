@@ -15,15 +15,15 @@
       <button class="modTab" [class.active]="activeTab === 'logs'" (click)="setTab('logs')">
         📜 Logs
       </button>
-      <button class="modTab" [class.active]="activeTab === 'appeals'" (click)="setTab('appeals')">
+      <button *ngIf="isAdmin" class="modTab" [class.active]="activeTab === 'appeals'" (click)="setTab('appeals')">
         ⚖️ Appeals <span *ngIf="appeals.length > 0" class="tabCount">{{ appeals.length }}</span>
       </button>
     </div>
 
     <!-- ── MODERATORS TAB ── -->
     <div *ngIf="activeTab === 'moderators'" class="modSection">
-      <!-- Add moderator card -->
-      <div class="card">
+      <!-- Add moderator card (admin only) -->
+      <div *ngIf="isAdmin" class="card">
         <div class="cardTitle">➕ Add Moderator / Role</div>
 
         <!-- Purpose-built user search -->
@@ -97,6 +97,9 @@
       </div>
 
       <!-- Current moderators -->
+      <div *ngIf="!isAdmin" class="searchHint">
+        🔒 Only admins can add moderators or manage appeals.
+      </div>
       <div class="card">
         <div class="cardTitle">👮 Current Moderators ({{ moderators.length }})</div>
         <div *ngIf="moderators.length === 0" class="searchHint">No moderators found.</div>
@@ -113,10 +116,14 @@
             <div *ngIf="!m.roles || m.roles.length === 0" class="searchHint">No roles assigned.</div>
             <div *ngFor="let r of m.roles" class="moderatorRoleChip">
               <span>{{ formatRole(r) }}</span>
-              <button *ngIf="m.user?.id !== 1" (click)="removeRole(m.user!, r)" [disabled]="modActionLoading"
-                title="Remove role" class="chipRemove">✕</button>
+              <ng-container *ngIf="isAdmin && m.user?.id !== 1">
+                <button *ngIf="!isProtectedAdminRemoval(m.user!, r)" (click)="removeRole(m.user!, r)" [disabled]="modActionLoading"
+                  title="Remove role" class="chipRemove">✕</button>
+                <span *ngIf="isProtectedAdminRemoval(m.user!, r)" class="chipLock"
+                  title="Protected: you can't remove your own admin role, and the last admin can't be demoted.">🔒</span>
+              </ng-container>
             </div>
-            <button *ngIf="m.user?.id !== 1" class="removeModBtn" (click)="removeModerator(m.user!)"
+            <button *ngIf="isAdmin && m.user?.id !== 1" class="removeModBtn" (click)="removeModerator(m.user!)"
               [disabled]="modActionLoading">Remove all roles</button>
           </div>
         </div>

@@ -221,9 +221,22 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   @ViewChild('wheelGear') wheelGearEl?: ElementRef<HTMLDivElement>;
 
   // ─── Audio Engine ───
+  // A layered synth instead of the old single sawtooth buzz: sub-octave sine
+  // (rumble) + twin detuned saws (body) + 2× sawtooth (top-end rasp) through
+  // an RPM-tracking lowpass whose cutoff gets a slow "combustion thrum" LFO,
+  // plus a speed-scaled wind/road noise layer.
   private _audioCtx: AudioContext | null = null;
+  private _subOsc: OscillatorNode | null = null;
   private _engineOsc: OscillatorNode | null = null;
+  private _engineOsc2: OscillatorNode | null = null;
+  private _harmOsc: OscillatorNode | null = null;
+  private _engineFilter: BiquadFilterNode | null = null;
+  private _thrumLfo: OscillatorNode | null = null;
+  private _thrumLfoGain: GainNode | null = null;
   private _engineGain: GainNode | null = null;
+  private _windSource: AudioBufferSourceNode | null = null;
+  private _windFilter: BiquadFilterNode | null = null;
+  private _windGain: GainNode | null = null;
 
   // ─── Podium / Results ───
   podiumData: { playerName: string; totalTime: number; moneyEarned: number }[] = [];
@@ -498,12 +511,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.racingHub.disconnect();
     this._mpSubs.forEach(s => s.unsubscribe());
     // Clean up engine audio
-    try {
-      if (this._engineOsc) { this._engineOsc.stop(); this._engineOsc.disconnect(); }
-      if (this._engineFilter) this._engineFilter.disconnect();
-      if (this._engineGain) this._engineGain.disconnect();
-      if (this._audioCtx) this._audioCtx.close();
-    } catch { }
+    this.stopEngineAudio();
     document.removeEventListener('keydown', () => { });
     document.removeEventListener('keyup', () => { });
     this.renderer?.clearCache();
@@ -534,6 +542,21 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.playerNameDraft = this.playerCar.playerName || '';
     // Pre-load high scores so the menu board is ready the first time it's opened.
     this.loadLeaderboard();
+  }
+
+  // Gentler re-sync than loadPlayerCar: only adopts data when the server actually
+  // returns a car, so a transient network failure during a purchase can't reset
+  // the garage to a fresh default (money 500, no upgrades, default skin).
+  private async refreshPlayerCarFromServer() {
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (!userId) return;
+    const car = await this.racingService.getPlayerCar(userId);
+    if (car) {
+      this.playerCar = car;
+      if (!this.playerCar.playerName) {
+        this.playerCar.playerName = this.parentRef?.user?.username || '';
+      }
+    }
   }
 
   getSpeedBonus(): number {
@@ -592,12 +615,20 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
 
   // ─── Menu ───
   selectTrack(track: TrackDefinition) {
+    if (this.playerCar.money < track.entryFee) {
+      this.addMessage(`You need $${track.entryFee.toLocaleString()} to enter ${track.name}.`);
+      return;
+    }
     this.selectedTrack = track;
     this.gameState = 'countdown';
     this.startRace(track);
   }
 
   selectTrackMultiplayer(track: TrackDefinition) {
+    if (this.playerCar.money < track.entryFee) {
+      this.addMessage(`You need $${track.entryFee.toLocaleString()} to enter ${track.name}.`);
+      return;
+    }
     this.selectedTrack = track;
     this.showMultiplayer = true;
     this.joinLobby(track);
@@ -1008,7 +1039,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.checkLapCrossing();
       this.updateRacePosition();
       this.totalRaceTime += dt * 1000;
-      this.updateEngineAudio(dt);
       // Speed effects: screen shake when off-track or hitting barriers
       if (this.isOffTrack) {
         this.screenShake = Math.min(0.04, this.screenShake + dt * 0.02);
@@ -1031,6 +1061,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         }
       }
     }
+
+    // Engine audio runs every frame (not just while racing) so the layered
+    // synth can ease to idle when paused / in the menu / on the podium.
+    this.updateEngineAudio();
 
     // Render
     if (this.renderer && this.isLoaded) {
@@ -1756,29 +1790,64 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return this.playerCar.money >= u.cost && this.getUpgradeLevel(u.category) + 1 === u.level;
   }
 
+  // True while any garage purchase request is in flight — gates every buy path
+  // so rapid clicks can't double-buy (the old code had no guard, and its local
+  // fallback applied purchases even when the server rejected them, stacking
+  // duplicate upgrades and money deductions).
+  isBuying = false;
+  // The upgrade currently being purchased — shows a spinner on just that card.
+  buyingUpgradeId: number | null = null;
+
   async buyUpgrade(u: any) {
-    if (!this.canAffordUpgrade(u)) return;
+    if (this.isBuying || !this.canAffordUpgrade(u)) return;
     const userId = this.parentRef?.user?.id ?? 0;
     if (!userId) return;
 
-    const result = await this.racingService.buyUpgrade(userId, u.id);
-    if (result) {
-      this.playerCar = result;
-      this.addMessage(`Upgraded: ${u.name}!`);
-    } else {
-      this.playerCar.money -= u.cost;
-      this.playerCar.upgrades.push({ ...u });
-      this.saveCar();
-      this.addMessage(`Upgraded: ${u.name}!`);
+    this.isBuying = true;
+    this.buyingUpgradeId = u.id;
+    try {
+      const result = await this.racingService.buyUpgrade(userId, u.id);
+      if (result) {
+        // Server is authoritative: it validated funds, rejected duplicates and
+        // deducted the cost — just adopt its state.
+        this.playerCar = result;
+        this.addMessage(`Upgraded: ${u.name}!`);
+      } else {
+        // Rejected (already owned / not enough money) or server unreachable.
+        // Never apply the purchase locally — that's what let double-clicks and
+        // rejected buys deduct twice. Re-sync to the server's truth instead.
+        this.addMessage(`Couldn't buy ${u.name} — purchase rejected.`);
+        await this.refreshPlayerCarFromServer();
+      }
+    } finally {
+      this.isBuying = false;
+      this.buyingUpgradeId = null;
     }
   }
 
   // ─── Skins ───
   async selectSkin(skin: any) {
+    if (this.isBuying) return;
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (!userId) return;
+
     if (!skin.owned) {
-      if (this.playerCar.money < skin.cost) return;
-      this.playerCar.money -= skin.cost;
-      skin.owned = true;
+      // Route purchases through the server so it validates the cost and can
+      // never let the balance go negative (the old client-only deduction could).
+      this.isBuying = true;
+      try {
+        const result = await this.racingService.buySkin(userId, skin.id);
+        if (result) {
+          this.playerCar = result;
+          skin.owned = true;
+        } else {
+          this.addMessage(`Couldn't buy ${skin.name} — not enough money.`);
+          await this.refreshPlayerCarFromServer();
+          return;
+        }
+      } finally {
+        this.isBuying = false;
+      }
     }
     this.playerCar.skinId = skin.id;
     this.saveCar();
@@ -1828,17 +1897,22 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   async buyAppearancePart(part: RacingAppearancePart) {
-    if (this.playerCar.money < part.cost) return;
+    if (this.isBuying || this.playerCar.money < part.cost) return;
     if (this.isAppearanceOwned(part)) {
       // Just equip it
       this.equipAppearance(part);
       return;
     }
-    this.playerCar.money -= part.cost;
-    part.owned = true;
-    this.equipAppearance(part);
-    this.saveCar();
-    this.addMessage(`${part.name} installed!`);
+    this.isBuying = true;
+    try {
+      this.playerCar.money -= part.cost;
+      part.owned = true;
+      this.equipAppearance(part);
+      await this.saveCar();
+      this.addMessage(`${part.name} installed!`);
+    } finally {
+      this.isBuying = false;
+    }
   }
 
   private equipAppearance(part: RacingAppearancePart) {
@@ -2024,7 +2098,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   // ─── Engine Audio ───
-  private _engineFilter: BiquadFilterNode | null = null;
 
   toggleSound() {
     this.soundOn = !this.soundOn;
@@ -2038,12 +2111,26 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
 
   private stopEngineAudio() {
     try {
-      if (this._engineOsc) { this._engineOsc.stop(); this._engineOsc.disconnect(); }
+      for (const osc of [this._subOsc, this._engineOsc, this._engineOsc2, this._harmOsc, this._thrumLfo]) {
+        if (osc) { try { osc.stop(); } catch { } osc.disconnect(); }
+      }
+      if (this._windSource) { try { this._windSource.stop(); } catch { } this._windSource.disconnect(); }
+      if (this._thrumLfoGain) this._thrumLfoGain.disconnect();
+      if (this._windFilter) this._windFilter.disconnect();
+      if (this._windGain) this._windGain.disconnect();
       if (this._engineFilter) this._engineFilter.disconnect();
       if (this._engineGain) this._engineGain.disconnect();
       if (this._audioCtx) this._audioCtx.close();
     } catch { }
+    this._subOsc = null;
     this._engineOsc = null;
+    this._engineOsc2 = null;
+    this._harmOsc = null;
+    this._thrumLfo = null;
+    this._thrumLfoGain = null;
+    this._windSource = null;
+    this._windFilter = null;
+    this._windGain = null;
     this._engineFilter = null;
     this._engineGain = null;
     this._audioCtx = null;
@@ -2051,32 +2138,121 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
 
   private initEngineAudio() {
     try {
-      this._audioCtx = new AudioContext();
-      this._engineOsc = this._audioCtx.createOscillator();
-      this._engineFilter = this._audioCtx.createBiquadFilter();
-      this._engineGain = this._audioCtx.createGain();
-      this._engineOsc.type = 'sawtooth';
-      // Lowpass filter makes the engine a rumble instead of a harsh buzz
+      const ctx = new AudioContext();
+      this._audioCtx = ctx;
+
+      this._engineFilter = ctx.createBiquadFilter();
       this._engineFilter.type = 'lowpass';
-      this._engineFilter.frequency.value = 500;
-      this._engineFilter.Q.value = 0.7;
-      this._engineGain.gain.value = 0.04;
-      this._engineOsc.connect(this._engineFilter);
+      this._engineFilter.frequency.value = 600;
+      this._engineFilter.Q.value = 0.8;
+
+      this._engineGain = ctx.createGain();
+      this._engineGain.gain.value = 0.06;
       this._engineFilter.connect(this._engineGain);
-      this._engineGain.connect(this._audioCtx.destination);
+      this._engineGain.connect(ctx.destination);
+
+      // Sub-octave sine — the deep thump that makes it feel like a V6
+      this._subOsc = ctx.createOscillator();
+      this._subOsc.type = 'sine';
+      const subGain = ctx.createGain();
+      subGain.gain.value = 0.5;
+      this._subOsc.connect(subGain);
+      subGain.connect(this._engineFilter);
+
+      // Twin main saws, detuned a few cents apart — the fat engine body
+      this._engineOsc = ctx.createOscillator();
+      this._engineOsc.type = 'sawtooth';
+      this._engineOsc.detune.value = -6;
+      const mainGain = ctx.createGain();
+      mainGain.gain.value = 0.3;
+      this._engineOsc.connect(mainGain);
+      mainGain.connect(this._engineFilter);
+
+      this._engineOsc2 = ctx.createOscillator();
+      this._engineOsc2.type = 'sawtooth';
+      this._engineOsc2.detune.value = 6;
+      const mainGain2 = ctx.createGain();
+      mainGain2.gain.value = 0.3;
+      this._engineOsc2.connect(mainGain2);
+      mainGain2.connect(this._engineFilter);
+
+      // Harmonic saw at 2× — the raspy top-end race note
+      this._harmOsc = ctx.createOscillator();
+      this._harmOsc.type = 'sawtooth';
+      const harmGain = ctx.createGain();
+      harmGain.gain.value = 0.12;
+      this._harmOsc.connect(harmGain);
+      harmGain.connect(this._engineFilter);
+
+      // Slow LFO wobbling the filter cutoff — "combustion thrum" so the note
+      // breathes instead of sounding like a flat constant tone
+      this._thrumLfo = ctx.createOscillator();
+      this._thrumLfo.type = 'sine';
+      this._thrumLfo.frequency.value = 7;
+      this._thrumLfoGain = ctx.createGain();
+      this._thrumLfoGain.gain.value = 70;
+      this._thrumLfo.connect(this._thrumLfoGain);
+      this._thrumLfoGain.connect(this._engineFilter.frequency);
+
+      // Wind / road noise — white noise through a bandpass that opens with speed
+      const len = ctx.sampleRate * 2;
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      this._windSource = ctx.createBufferSource();
+      this._windSource.buffer = buf;
+      this._windSource.loop = true;
+      this._windFilter = ctx.createBiquadFilter();
+      this._windFilter.type = 'bandpass';
+      this._windFilter.frequency.value = 800;
+      this._windFilter.Q.value = 0.5;
+      this._windGain = ctx.createGain();
+      this._windGain.gain.value = 0;
+      this._windSource.connect(this._windFilter);
+      this._windFilter.connect(this._windGain);
+      this._windGain.connect(ctx.destination);
+
+      this._subOsc.start();
       this._engineOsc.start();
+      this._engineOsc2.start();
+      this._harmOsc.start();
+      this._thrumLfo.start();
+      this._windSource.start();
     } catch { }
   }
 
-  private updateEngineAudio(dt: number) {
+  private updateEngineAudio() {
     if (!this.soundOn || !this._audioCtx || !this._engineOsc || !this._engineFilter || !this._engineGain) return;
+    const t = this._audioCtx.currentTime;
+
+    // Not racing (menu / pause / podium) — ease the engine down to a quiet idle
+    // instead of freezing at the last racing RPM.
+    if (this.gameState !== 'racing') {
+      if (this._engineOsc) this._engineOsc.frequency.setTargetAtTime(70, t, 0.15);
+      if (this._engineOsc2) this._engineOsc2.frequency.setTargetAtTime(70, t, 0.15);
+      if (this._subOsc) this._subOsc.frequency.setTargetAtTime(35, t, 0.15);
+      if (this._harmOsc) this._harmOsc.frequency.setTargetAtTime(140, t, 0.15);
+      this._engineGain.gain.setTargetAtTime(0, t, 0.2);
+      if (this._windGain) this._windGain.gain.setTargetAtTime(0, t, 0.2);
+      return;
+    }
+
     const speed = Math.abs(this.carSpeed);
     const maxSpd = this.getMaxSpeed();
-    const rpm = Math.max(0.3, Math.min(1.2, speed / maxSpd * 1.3 + 0.3));
-    const freq = 55 + rpm * 120;
-    this._engineOsc.frequency.setTargetAtTime(freq, this._audioCtx.currentTime, 0.05);
-    this._engineFilter.frequency.setTargetAtTime(350 + rpm * 500, this._audioCtx.currentTime, 0.05);
-    this._engineGain.gain.setTargetAtTime(0.02 + rpm * 0.03, this._audioCtx.currentTime, 0.05);
+    // RPM 0.3 (idle) → 1.25 (redline)
+    const rpm = Math.max(0.3, Math.min(1.25, speed / maxSpd * 1.35 + 0.3));
+    const baseFreq = 52 + rpm * 140; // fundamental ≈94–227 Hz
+    if (this._subOsc) this._subOsc.frequency.setTargetAtTime(baseFreq * 0.5, t, 0.05);
+    if (this._engineOsc) this._engineOsc.frequency.setTargetAtTime(baseFreq, t, 0.05);
+    if (this._engineOsc2) this._engineOsc2.frequency.setTargetAtTime(baseFreq, t, 0.05);
+    if (this._harmOsc) this._harmOsc.frequency.setTargetAtTime(baseFreq * 2, t, 0.05);
+    // Open the filter with RPM so it snarls as you climb the rev range
+    this._engineFilter.frequency.setTargetAtTime(350 + rpm * 900, t, 0.08);
+    this._engineGain.gain.setTargetAtTime(0.04 + rpm * 0.05, t, 0.08);
+    // Wind scales with speed² so it fades in naturally
+    const speedRatio = Math.min(1, speed / maxSpd);
+    if (this._windFilter) this._windFilter.frequency.setTargetAtTime(400 + speedRatio * 2200, t, 0.15);
+    if (this._windGain) this._windGain.gain.setTargetAtTime(speedRatio * speedRatio * 0.05, t, 0.15);
   }
 
   // ─── Cockpit / Dashboard Data ───

@@ -200,6 +200,13 @@
   transform: scale(1.2);
 }
 
+.chipLock {
+  font-size: 12px;
+  margin-left: 4px;
+  opacity: 0.75;
+  cursor: help;
+}
+
 .linkBtn {
   background: none;
   border: none;

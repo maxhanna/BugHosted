@@ -176,6 +176,19 @@ namespace maxhanna.Server.Controllers
 						}
 						catch { }
 					}
+					// best_lap was added to the CREATE TABLE later, so tables created
+					// before that never got the column — without it the load SELECT
+					// and the persist UPSERT both throw and best lap silently never
+					// saves (the row even fails to round-trip on restart). Add it.
+					foreach (var (col, def) in new[] { ("best_lap", "DOUBLE NOT NULL DEFAULT 0") })
+					{
+						try
+						{
+							using var alt = new MySqlCommand($"ALTER TABLE racing_player_car ADD COLUMN {col} {def}", conn);
+							alt.ExecuteNonQuery();
+						}
+						catch { }
+					}
 					foreach (var (table, col) in new[] { ("racing_player_car", "player_name VARCHAR(64) NOT NULL DEFAULT ''"), ("racing_results", "player_name VARCHAR(64) NOT NULL DEFAULT ''") })
 					{
 						try
@@ -464,7 +477,15 @@ namespace maxhanna.Server.Controllers
 					if (body.TryGetProperty("decalId", out var dc)) st.DecalId = dc.GetInt32();
 					if (body.TryGetProperty("totalRaces", out var tr)) st.TotalRaces = tr.GetInt32();
 					if (body.TryGetProperty("wins", out var w)) st.Wins = w.GetInt32();
-					if (body.TryGetProperty("money", out var m)) st.Money = m.GetInt32();
+					if (body.TryGetProperty("money", out var m))
+					{
+						int newMoney = m.GetInt32();
+						// The server is the source of truth for cash — reject any save
+						// that would persist a negative balance instead of accepting it
+						// blindly (that's how double-buys wrote negative money).
+						if (newMoney < 0) return BadRequest("Money cannot be negative");
+						st.Money = newMoney;
+					}
 					if (body.TryGetProperty("bestLap", out var bl)) st.BestLap = bl.GetDouble();
 					if (body.TryGetProperty("totalEarnings", out var te)) st.TotalEarnings = te.GetInt32();
 					st.Dirty = true;
@@ -515,9 +536,15 @@ namespace maxhanna.Server.Controllers
 				int userId = body.GetProperty("userId").GetInt32();
 				int skinId = body.GetProperty("skinId").GetInt32();
 				var st = EnsureCarLoaded(userId);
+				int cost = GetSkinCost(skinId);
+				if (cost < 0) return BadRequest("Invalid skin");
 				lock (st)
 				{
+					// Charge for the skin and reject the purchase if the player can't
+					// afford it — mirrors the upgrade endpoint so cash can't go negative.
+					if (st.Money < cost) return BadRequest("Not enough money");
 					st.SkinId = skinId;
+					st.Money -= cost;
 					st.Dirty = true;
 					st.Version++;
 				}
@@ -525,6 +552,14 @@ namespace maxhanna.Server.Controllers
 			}
 			catch { return BadRequest(); }
 		}
+
+		// Matches the client's CAR_SKINS costs (ids 1-8). Returning -1 flags an
+		// unknown skin so the endpoint rejects it.
+		private static int GetSkinCost(int skinId) => skinId switch
+		{
+			1 => 0, 2 => 500, 3 => 500, 4 => 1500, 5 => 2000, 6 => 3000, 7 => 5000, 8 => 8000,
+			_ => -1,
+		};
 
 		[HttpPost("race/result")]
 		public IActionResult SubmitRaceResult([FromBody] JsonElement body)

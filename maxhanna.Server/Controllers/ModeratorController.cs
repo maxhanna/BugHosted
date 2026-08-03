@@ -60,6 +60,30 @@ namespace maxhanna.Server.Controllers
       catch { return false; }
     }
 
+    // Admin is a moderator role with extra privileges (add moderators, manage
+    // appeals). The owner is always an admin.
+    private Task<bool> IsAdminAsync(int userId) => IsAdminAsync(_config, userId);
+
+    /// <summary>Public helper used by other controllers to check admin privileges.</summary>
+    public static async Task<bool> IsAdminAsync(IConfiguration config, int userId)
+    {
+      if (userId == 1) return true;
+      try
+      {
+        string connStr = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        // Only the global admin role grants panel-admin power. Scoped 'admin'
+        // rows must NOT count, or a non-global row would grant admin while
+        // escaping the lockout protection (which guards global 'admin' only).
+        string sql = "SELECT COUNT(*) FROM maxhanna.moderator_roles WHERE user_id = @UserId AND role = 'admin' AND target_type = 'global';";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@UserId", userId);
+        return Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
+      }
+      catch { return false; }
+    }
+
     [HttpPost("/Moderator/GetRoleCatalog", Name = "GetRoleCatalog")]
     public async Task<IActionResult> GetRoleCatalog(
       [FromBody] int callerUserId,
@@ -77,6 +101,7 @@ namespace maxhanna.Server.Controllers
       catalog.Add(new RoleDefinition { Role = "moderator", Label = "Moderator", Description = "Global moderator — can moderate everywhere.", TargetType = "global" });
       catalog.Add(new RoleDefinition { Role = "chat_moderator", Label = "Chat Moderator", Description = "Can moderate a specific chat room.", TargetType = "chat" });
       catalog.Add(new RoleDefinition { Role = "topic_moderator", Label = "Topic Moderator", Description = "Can edit/delete posts in a specific topic.", TargetType = "topic" });
+      catalog.Add(new RoleDefinition { Role = "admin", Label = "Admin", Description = "Admin — can add other moderators and manage appeals.", TargetType = "global" });
       catalog.ForEach(r => seen.Add(r.Role + "|" + (r.TargetType ?? "")));
 
       try
@@ -232,8 +257,8 @@ namespace maxhanna.Server.Controllers
       [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
     {
       if (!await _log.ValidateUserLoggedIn(request.CallerUserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
-      if (request.CallerUserId != 1 && !await IsGlobalModeratorAsync(request.CallerUserId))
-        return Unauthorized("Only moderators can change roles.");
+      if (request.CallerUserId != 1 && !await IsAdminAsync(request.CallerUserId))
+        return Unauthorized("Only admins can change roles.");
 
       if (string.IsNullOrWhiteSpace(request.Role) || request.TargetUserId <= 0)
         return BadRequest("Invalid request.");
@@ -251,6 +276,33 @@ namespace maxhanna.Server.Controllers
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
 
+        // ── Admin-role lockout protection ───────────────────────────────────
+        // An admin can never remove their own admin role, and the last admin
+        // can never be demoted, so the panel can never lock itself out.
+        if (request.Remove && targetType == "global" &&
+            request.Role.Equals("admin", StringComparison.OrdinalIgnoreCase))
+        {
+          // Rule 1: you cannot strip your own admin role.
+          if (request.TargetUserId == request.CallerUserId)
+            return BadRequest("You cannot remove your own admin role.");
+
+          // Rule 2: the last admin cannot be demoted. Only enforce when the
+          // target actually holds a global admin role AND is the only one left
+          // (the owner is an implicit admin, but we keep the explicit role row
+          // protected so the panel can't be emptied of manage-able admins).
+          string hasSql = "SELECT COUNT(*) FROM maxhanna.moderator_roles WHERE user_id = @UserId AND role = 'admin' AND target_type = 'global';";
+          using var hasCmd = new MySqlCommand(hasSql, conn);
+          hasCmd.Parameters.AddWithValue("@UserId", request.TargetUserId);
+          bool targetIsAdmin = Convert.ToInt32(await hasCmd.ExecuteScalarAsync()) > 0;
+
+          string totalSql = "SELECT COUNT(*) FROM maxhanna.moderator_roles WHERE role = 'admin' AND target_type = 'global';";
+          using var totalCmd = new MySqlCommand(totalSql, conn);
+          int adminCount = Convert.ToInt32(await totalCmd.ExecuteScalarAsync());
+
+          if (targetIsAdmin && adminCount <= 1)
+            return BadRequest("Cannot demote the last admin — the moderator panel would lock itself out.");
+        }
+
         if (request.Remove)
         {
           string delSql = @"DELETE FROM maxhanna.moderator_roles
@@ -262,13 +314,27 @@ namespace maxhanna.Server.Controllers
           delCmd.Parameters.AddWithValue("@TargetId", targetId ?? 0);
           await delCmd.ExecuteNonQueryAsync();
 
-          // Keep the legacy global moderator flag in sync.
-          if (targetType == "global" && request.Role.Equals("moderator", StringComparison.OrdinalIgnoreCase))
+          // Keep the legacy global moderator flag in sync. Admins get the legacy
+          // moderator row too so the panel stays visible and global-mod checks
+          // (login role, IsGlobalModeratorAsync) keep working for them. Only
+          // drop the legacy flag when NO global moderator/admin role remains —
+          // removing just 'admin' from someone who is also a plain moderator
+          // must not strip their moderator status.
+          if (targetType == "global" &&
+              (request.Role.Equals("moderator", StringComparison.OrdinalIgnoreCase) ||
+               request.Role.Equals("admin", StringComparison.OrdinalIgnoreCase)))
           {
-            string delLegacy = "DELETE FROM maxhanna.user_roles WHERE user_id = @UserId AND role = 'moderator';";
-            using var legacyCmd = new MySqlCommand(delLegacy, conn);
-            legacyCmd.Parameters.AddWithValue("@UserId", request.TargetUserId);
-            await legacyCmd.ExecuteNonQueryAsync();
+            string remainingSql = "SELECT COUNT(*) FROM maxhanna.moderator_roles WHERE user_id = @UserId AND role IN ('moderator', 'admin') AND target_type = 'global';";
+            using var remainingCmd = new MySqlCommand(remainingSql, conn);
+            remainingCmd.Parameters.AddWithValue("@UserId", request.TargetUserId);
+            bool stillGlobalMod = Convert.ToInt32(await remainingCmd.ExecuteScalarAsync()) > 0;
+            if (!stillGlobalMod)
+            {
+              string delLegacy = "DELETE FROM maxhanna.user_roles WHERE user_id = @UserId AND role = 'moderator';";
+              using var legacyCmd = new MySqlCommand(delLegacy, conn);
+              legacyCmd.Parameters.AddWithValue("@UserId", request.TargetUserId);
+              await legacyCmd.ExecuteNonQueryAsync();
+            }
           }
           _ = _log.Db($"Moderator {request.CallerUserId} removed role '{request.Role}' ({targetType}/{targetId}) from user {request.TargetUserId}", request.CallerUserId, "MODERATOR", true);
           return Ok(new { message = "Role removed." });
@@ -286,7 +352,9 @@ namespace maxhanna.Server.Controllers
         await upsCmd.ExecuteNonQueryAsync();
 
         // Keep the legacy global moderator flag in sync so login/other checks keep working.
-        if (targetType == "global" && request.Role.Equals("moderator", StringComparison.OrdinalIgnoreCase))
+        if (targetType == "global" &&
+            (request.Role.Equals("moderator", StringComparison.OrdinalIgnoreCase) ||
+             request.Role.Equals("admin", StringComparison.OrdinalIgnoreCase)))
         {
           string legacySql = "REPLACE INTO maxhanna.user_roles (user_id, role, assigned_by, assigned_at) VALUES (@UserId, 'moderator', @AssignedBy, UTC_TIMESTAMP());";
           using var legacyCmd = new MySqlCommand(legacySql, conn);

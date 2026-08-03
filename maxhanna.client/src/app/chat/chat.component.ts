@@ -14,6 +14,8 @@ import { UserSettings } from '../../services/datacontracts/user/user-settings';
 import { EncryptionService } from '../../services/encryption.service';
 import { UserTheme } from '../../services/datacontracts/chat/chat-theme';
 import { FileService } from '../../services/file.service';
+import { ChatHubService } from '../../services/chat-hub.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-chat',
@@ -81,12 +83,15 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   @Input() inputtedParentRef?: AppComponent;
   @Output() closeChatEvent = new EventEmitter<void>();
 
+  private _chatHubSubs: Subscription[] = [];
+
   constructor(
     private chatService: ChatService,
     private notificationService: NotificationService,
     private userService: UserService,
     private encryptionService: EncryptionService,
-    private fileService: FileService) {
+    private fileService: FileService,
+    private chatHub: ChatHubService) {
     super();
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
@@ -95,6 +100,21 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
   async ngOnInit() {
     this.startLoading();
+
+    // Real-time pushes: when someone else posts or edits a message in the chat
+    // we have open, refresh immediately instead of waiting for the 5s poll.
+    // Own messages/edits are skipped — the sender's post/edit flow already
+    // refreshes locally, so pushing here would double-fetch history.
+    const isMine = (senderId: number) => {
+      const me = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id ?? 0;
+      return senderId !== 0 && senderId === me;
+    };
+    this._chatHubSubs.push(
+      this.chatHub.messagePosted$.subscribe(e => { if (e.chatId === this.currentChatId && !isMine(e.senderId)) this.refreshAfterPush(); })
+    );
+    this._chatHubSubs.push(
+      this.chatHub.messageEdited$.subscribe(e => { if (e.chatId === this.currentChatId && !isMine(e.senderId)) this.refreshAfterPush(); })
+    );
 
     if (this.selectedUser) {
       await this.openChat([this.selectedUser]);
@@ -139,6 +159,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.currentChatUsers = undefined;
     clearInterval(this.pollingInterval);
     clearInterval(this.inviewDebounceTimeout);
+    if (this.pushRefreshTimer) clearTimeout(this.pushRefreshTimer);
+    if (this.currentChatId) this.chatHub.leaveChat(this.currentChatId);
+    this.chatHub.disconnect();
+    this._chatHubSubs.forEach(s => s.unsubscribe());
   }
 
   // Apply a user theme object to the chatArea by setting CSS variables.
@@ -163,7 +187,11 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       container.style.backgroundImage = 'none';
       return;
     }
-    this.startLoading();
+
+    // NOTE: intentionally no startLoading() here — the theme background
+    // resolves asynchronously in the background, so showing the full-screen
+    // loading overlay while it fetches made chat feel frozen after messages
+    // had already loaded.
 
     // Resolve the file entry (if set) using a small in-memory cache to avoid repeated network calls
     const bgImage = ut.backgroundImage;
@@ -263,14 +291,11 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (linkColor) container.style.setProperty('--main-link-color', linkColor);
     if (fontFamily) container.style.setProperty('--main-font-family', fontFamily);
     if (fontSize) container.style.setProperty('--main-font-size', (typeof fontSize === 'number' ? `${fontSize}px` : fontSize));
-
-    this.stopLoading();
   }
 
 
   async changeChatUserTheme(event: any) {
     if (!this.currentChatId) return;
-    this.startLoading();
     const val = event.target.value;
     const userThemeId = val ? +val : null;
     try {
@@ -299,11 +324,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         this.parentRef?.showNotification('Chat saved theme updated.');
       }
     } catch (ex) {
-      console.error('Failed to set chat theme userThemeId', ex);
-      this.parentRef?.showNotification('Failed to update chat theme.');
+      console.error('Failed to set chat theme userThemeId', ex);        this.parentRef?.showNotification('Failed to update chat theme.');
     }
-
-    this.stopLoading();
   }
 
 
@@ -314,11 +336,25 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           clearInterval(this.pollingInterval);
           return;
         }
+        // When the SignalR hub is connected we get instant push notifications,
+        // so the 5s full-history poll becomes a fallback for when the hub drops.
+        if (this.chatHub.connected) return;
         if (this.currentChatUsers) {
           await this.getMessageHistory(this.pageNumber, this.pageSize);
         }
       }, 5000);
     }
+  }
+
+  // Debounced single refresh triggered by a hub push (new message or edit).
+  private pushRefreshTimer: any = null;
+  private refreshAfterPush() {
+    if (this.pushRefreshTimer) clearTimeout(this.pushRefreshTimer);
+    this.pushRefreshTimer = setTimeout(() => {
+      if (this.currentChatUsers) {
+        this.getMessageHistory(this.pageNumber, this.pageSize);
+      }
+    }, 150);
   }
 
   scrollToBottomIfNeeded() {
@@ -600,6 +636,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.isPanelExpanded = true;
     this.showUserList = false;
     this.chatHistory = [];
+    // Leave the previous chat's SignalR group before switching to a new one so
+    // the connection doesn't accumulate stale group memberships server-side.
+    const previousChatId = this.currentChatId;
     this.currentChatId = undefined;
     this.isInitialLoad = false;
     users = this.filterUniqueUsers(users);
@@ -634,6 +673,14 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
       if (!this.currentChatId && message0.chatId) {
         this.currentChatId = message0.chatId;
+      }
+      // Join the SignalR group for this chat so pushes wake us up instead of
+      // us having to poll. Leave the previous group first (chat switch).
+      if (this.currentChatId) {
+        if (previousChatId && previousChatId !== this.currentChatId) {
+          this.chatHub.leaveChat(previousChatId);
+        }
+        this.chatHub.joinChat(this.currentChatId);
       }
       this.refreshChatRoomInfo();
     }
@@ -704,6 +751,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.totalPages = 0;
     this.totalPagesArray = new Array<number>();
     clearInterval(this.pollingInterval);
+    if (this.currentChatId) this.chatHub.leaveChat(this.currentChatId);
     this.showUserList = true;
     this.firstMessageDetails = null;
     this.isPanelExpanded = true;

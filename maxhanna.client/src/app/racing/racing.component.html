@@ -458,9 +458,11 @@
                   </div>
                   <div *ngIf="getUpgradeLevel(cat) >= u.level" class="card-owned-badge">✓ OWNED</div>
                   <button *ngIf="getUpgradeLevel(cat) + 1 === u.level" class="card-buy-btn"
-                    [class.affordable]="playerCar.money >= u.cost"
+                    [class.affordable]="playerCar.money >= u.cost && !isBuying"
+                    [disabled]="isBuying"
                     (click)="buyUpgrade(u)">
-                    ${{ u.cost | number:'1.0-0' }}
+                    <span *ngIf="buyingUpgradeId === u.id">⏳</span>
+                    <span *ngIf="buyingUpgradeId !== u.id">${{ u.cost | number:'1.0-0' }}</span>
                   </button>
                   <div *ngIf="getUpgradeLevel(cat) + 1 < u.level" class="card-locked-text">🔒</div>
                 </div>
@@ -477,6 +479,7 @@
               <div class="garage-appearance-grid">
                 <div class="garage-appearance-card" *ngFor="let p of cat.parts"
                   [class.appearance-equipped]="getEquippedAppearance(p.category) === p.id"
+                  [class.buying-disabled]="isBuying"
                   (click)="buyAppearancePart(p)">
                   <div class="garage-appearance-preview" [class]="getAppearancePreviewClass(p)"></div>
                   <div class="garage-appearance-name">{{ p.name }}</div>
@@ -496,6 +499,7 @@
             <div class="garage-skin-grid">
               <div class="garage-skin-card" *ngFor="let s of CAR_SKINS"
                 [class.garage-skin-active]="playerCar.skinId === s.id"
+                [class.buying-disabled]="isBuying"
                 (click)="selectSkin(s)">
                 <div class="garage-skin-preview" [style.background]="s.color"></div>
                 <div class="garage-skin-name">{{ s.name }}</div>

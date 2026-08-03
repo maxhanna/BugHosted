@@ -17,6 +17,9 @@ export class ModeratorComponent extends ChildComponent {
   appeals: any[] = [];
   loading = false;
   isModerator = false;
+  // Admin is a moderator role with extra privileges — only admins can add
+  // moderators or manage appeals (server-enforced, mirrored here for the UI).
+  isAdmin = false;
   moderators: ModeratorInfo[] = [];
   roleCatalog: RoleDefinition[] = [];
 
@@ -48,13 +51,22 @@ export class ModeratorComponent extends ChildComponent {
 
   async ngOnInit() {
     const user = this.parentRef?.user;
-    this.isModerator = user?.id === 1 || user?.role === 'moderator';
+    this.isModerator = user?.id === 1 || user?.role === 'moderator' || user?.role === 'admin';
     if (this.isModerator) {
+      // Detect admin: the owner is always one, the legacy role may say so, and
+      // the scoped-roles table is the source of truth (covers freshly-granted
+      // admins whose login role hasn't refreshed yet).
+      this.isAdmin = user?.id === 1 || user?.role === 'admin';
+      if (!this.isAdmin && user?.id) {
+        const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+        const myRoles = await this.moderatorService.getMyRoles(user.id, sessionToken);
+        this.isAdmin = myRoles.some(r => r.role === 'admin');
+      }
       await Promise.all([
         this.loadModerators(),
         this.loadRoleCatalog(),
         this.loadModeratorLogs(),
-        this.loadAppeals()
+        this.isAdmin ? this.loadAppeals() : Promise.resolve()
       ]);
     }
   }
@@ -274,11 +286,40 @@ export class ModeratorComponent extends ChildComponent {
   async removeRole(targetUser: User, role: ModeratorRole) {
     const userId = this.parentRef?.user?.id;
     if (!userId || !targetUser.id || targetUser.id === 1) return;
+    // Mirror of the server-side lockout protection — can't remove your own
+    // admin role, and the last admin can't be demoted.
+    if (this.isProtectedAdminRemoval(targetUser, role)) return;
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
     this.modActionLoading = true;
     await this.moderatorService.setRole(targetUser.id, role.role, userId, true, sessionToken, role.targetType, role.targetId ?? undefined);
     await Promise.all([this.loadModerators(), this.loadModeratorLogs()]);
     this.modActionLoading = false;
+  }
+
+  /** True when removing this role would strip the target's own admin role or
+   *  demote the last remaining admin — protected on the server too, so this
+   *  just keeps the ✕ from being shown for impossible actions. */
+  isProtectedAdminRemoval(targetUser: User, role: ModeratorRole): boolean {
+    // Exact match on 'admin' — mirrors the server's OrdinalIgnoreCase check so
+    // the client and server enforce the same rule (no substring surprises).
+    if (!role || !role.role || role.role.toLowerCase() !== 'admin') return false;
+    const t = (role.targetType ?? '').toLowerCase();
+    if (t && t !== 'global') return false; // only the global admin role is protected
+    const userId = this.parentRef?.user?.id;
+    if (targetUser.id === userId) return true; // rule 1: can't remove your own admin role
+    return this.isLastAdmin(targetUser); // rule 2: last admin can't be demoted
+  }
+
+  /** Whether this user is the only one holding a global admin role. */
+  isLastAdmin(targetUser: User): boolean {
+    const isAdminRole = (r: ModeratorRole) => r && r.role && r.role.toLowerCase() === 'admin' &&
+      (!r.targetType || r.targetType.toLowerCase() === 'global');
+    const targetHasAdmin = (this.moderators.find(m => m.user?.id === targetUser.id)?.roles ?? [])
+      .some(r => isAdminRole(r));
+    if (!targetHasAdmin) return false;
+    const otherAdmins = this.moderators.filter(m => m.user?.id && m.user.id !== targetUser.id)
+      .some(m => (m.roles ?? []).some(r => isAdminRole(r)));
+    return !otherAdmins;
   }
 
   async removeModerator(targetUser: User) {

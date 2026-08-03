@@ -1854,8 +1854,8 @@ namespace maxhanna.Server.Controllers
     {
       if (!await _log.ValidateUserLoggedIn(request.CallerUserId, encryptedUserIdHeader))
         return StatusCode(500, "Access Denied.");
-      if (request.CallerUserId != 1 && !await IsModeratorAsync(request.CallerUserId))
-        return Unauthorized("Only moderators can change roles.");
+      if (request.CallerUserId != 1 && !await ModeratorController.IsAdminAsync(_config, request.CallerUserId))
+        return Unauthorized("Only admins can change roles.");
 
       if (string.IsNullOrWhiteSpace(request.Role) || request.TargetUserId <= 0)
         return BadRequest("Invalid request.");
@@ -1984,7 +1984,7 @@ namespace maxhanna.Server.Controllers
     {
       if (!await _log.ValidateUserLoggedIn(adminUserId, encryptedUserIdHeader))
         return StatusCode(500, "Access Denied.");
-      if (adminUserId != 1 && !await IsModeratorAsync(adminUserId)) return Unauthorized("Only moderators can view appeals.");
+      if (adminUserId != 1 && !await ModeratorController.IsAdminAsync(_config, adminUserId)) return Unauthorized("Only admins can view appeals.");
 
       string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
       using (MySqlConnection conn = new MySqlConnection(connectionString))
@@ -2038,7 +2038,7 @@ namespace maxhanna.Server.Controllers
         return BadRequest("Invalid request.");
       if (!await _log.ValidateUserLoggedIn(request.AdminUserId, encryptedUserIdHeader))
         return StatusCode(500, "Access Denied.");
-      if (request.AdminUserId != 1 && !await IsModeratorAsync(request.AdminUserId)) return Unauthorized("Only moderators can resolve appeals.");
+      if (request.AdminUserId != 1 && !await ModeratorController.IsAdminAsync(_config, request.AdminUserId)) return Unauthorized("Only admins can resolve appeals.");
 
       string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
       using (MySqlConnection conn = new MySqlConnection(connectionString))
