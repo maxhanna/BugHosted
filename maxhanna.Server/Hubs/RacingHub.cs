@@ -118,6 +118,16 @@ namespace maxhanna.Server.Hubs
                 StartAutoStartTimer(lobby, lobbyId);
             }
 
+            // Push the current auto-start remaining straight to the joining
+            // client AND include it in the join payload, so non-host players see
+            // the "Auto-start in 2:00" banner the moment they arrive instead of
+            // waiting for the next group tick (which is why only the host seemed
+            // to see it before).
+            if (lobby.RaceStatus == "lobby" && lobby.AutoStartRemaining > 0)
+            {
+                try { await Clients.Caller.SendAsync("OnAutoStartCountdown", lobby.AutoStartRemaining); } catch { }
+            }
+
             return new
             {
                 lobbyId,
@@ -131,7 +141,8 @@ namespace maxhanna.Server.Hubs
                     p.Ready,
                     p.SkinId
                 }).ToList(),
-                isHost = lp.IsHost
+                isHost = lp.IsHost,
+                autoStartRemaining = lobby.RaceStatus == "lobby" ? lobby.AutoStartRemaining : 0
             };
         }
 

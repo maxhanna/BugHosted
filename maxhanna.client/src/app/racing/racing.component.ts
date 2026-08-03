@@ -647,6 +647,15 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (state) {
       this.lobbyPlayers = state.players;
       this.isLobbyHost = state.isHost;
+      // The join response carries the current auto-start remaining so EVERY
+      // player (host or not) sees the "Auto-start in 2:00" banner immediately —
+      // previously only the host got it because newcomers waited on the next
+      // group tick.
+      if (state.autoStartRemaining && state.autoStartRemaining > 0) {
+        this.autoStartSeconds = state.autoStartRemaining;
+        this.autoStartDeadline = Date.now() + state.autoStartRemaining * 1000;
+        this.startAutoStartTicker();
+      }
       this.lobbyConnectionError = '';
       this.addMessage(`Joined multiplayer lobby for ${track.name}`);
     } else {

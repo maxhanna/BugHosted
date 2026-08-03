@@ -16,6 +16,10 @@ export interface LobbyState {
   trackId: string;
   players: LobbyPlayer[];
   isHost: boolean;
+  // Seconds left before the lobby auto-starts (0 when no timer is running).
+  // Sent in the JoinLobby response so every player — host or not — can show
+  // the "Auto-start in 2:00" banner immediately on joining.
+  autoStartRemaining?: number;
 }
 
 export interface RemoteCarPosition {
