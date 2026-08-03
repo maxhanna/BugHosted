@@ -76,6 +76,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   isSubmittingAppeal = false;
   banAppealMessage = '';
   banAppealMessageIsError = false;
+  // True when the current user holds the chat_moderator role for the open room.
+  // Drives the "👮 Moderator" badge in the title bar.
+  isChatModerator = false;
   private pollingInterval: any;
   private isChangingPage = false;
   private isInitialLoad = false;
@@ -126,7 +129,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     // A moderator lifting the ban triggers a chat-wide push; re-check the ban
     // status so the notice disappears without needing to reopen the chat.
     this._chatHubSubs.push(
-      this.chatHub.messagePosted$.subscribe(e => { if (e.chatId === this.currentChatId) this.checkChatBanStatus(true); })
+      this.chatHub.messagePosted$.subscribe(e => { if (e.chatId === this.currentChatId) { this.checkChatBanStatus(true); this.checkChatModeratorStatus(true); } })
     );
     this._chatHubSubs.push(
       this.chatHub.messageEdited$.subscribe(e => { if (e.chatId === this.currentChatId && !isMine(e.senderId)) this.refreshAfterPush(); })
@@ -468,6 +471,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           this.scrollToBottomIfNeeded();
         }
         this.checkChatBanStatus();
+        // A chatId may have just been discovered (e.g. the first message created
+        // a room) — refresh the moderator badge for it.
+        this.checkChatModeratorStatus();
         this.isChangingPage = false;
         setTimeout(() => {
           // After messages load, update any poll results in DOM.
@@ -766,6 +772,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.chatHistory = [];
     this.currentChatRoomName = '';
     this.currentChatIsPublic = false;
+    this.isChatModerator = false;
+    // Reset the moderator-status throttle so reopening the same chat re-checks.
+    this._lastModCheckChatId = 0;
     this.pageNumber = 0;
     this.totalPages = 0;
     this.totalPagesArray = new Array<number>();
@@ -1134,6 +1143,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (!this.currentChatId) {
       this.currentChatRoomName = '';
       this.currentChatIsPublic = false;
+      this.isChatModerator = false;
       return;
     }
     const room = await this.chatService.getChatRoom(this.currentChatId);
@@ -1141,6 +1151,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.currentChatIsPublic = !!room.isPublic;
       this.currentChatRoomName = room.name || '';
     }
+    await this.checkChatModeratorStatus();
     await this.checkChatBanStatus();
   }
 
@@ -1180,6 +1191,48 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     } catch (e) {
       // Non-fatal: just keep the composer usable if the check fails.
       this.isBannedFromChat = false;
+    }
+  }
+
+  private _lastModCheckChatId = 0;
+  private _lastModCheckAt = 0;
+
+  /** Checks whether the current user holds the chat_moderator role for the open
+   *  room. When true, the title bar shows the "👮 Moderator" badge. Runs whenever
+   *  the open chat changes (openChat / getMessageHistory discovering a chatId),
+   *  and is reset when the chat closes. Throttled per chat like checkChatBanStatus
+   *  so the 5s polling fallback / message pushes don't fire an HTTP call every tick.
+   *  Pass force=true after a chat switch or role change to bypass the throttle.
+   *  Note: the flag is only cleared when the chat actually changed (or on error), so
+   *  a throttled re-check never clobbers the current badge. */
+  async checkChatModeratorStatus(force = false) {
+    const userId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id ?? 0;
+    const chatId = this.currentChatId;
+    if (!userId || !chatId) {
+      this.isChatModerator = false;
+      return;
+    }
+    // Throttle: same chat, checked within the last 30s → skip (unless forced).
+    const now = Date.now();
+    if (!force && this._lastModCheckChatId === chatId && now - this._lastModCheckAt < 30000) {
+      return;
+    }
+    // Chat switched (or first check for this chat) → clear any stale badge now.
+    if (chatId !== this._lastModCheckChatId) {
+      this.isChatModerator = false;
+    }
+    this._lastModCheckChatId = chatId;
+    this._lastModCheckAt = now;
+    try {
+      const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+      const roles = (await this.moderatorService.getMyRoles(userId, sessionToken)) ?? [];
+      this.isChatModerator = !!roles.some(r =>
+        (r.role ?? '').toLowerCase() === 'chat_moderator' &&
+        (r.targetType ?? '').toLowerCase() === 'chat' &&
+        r.targetId != null && +r.targetId === +chatId
+      );
+    } catch (e) {
+      this.isChatModerator = false;
     }
   }
 

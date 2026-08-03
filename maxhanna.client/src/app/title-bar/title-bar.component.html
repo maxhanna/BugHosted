@@ -7,14 +7,14 @@
 <div class="menuBackButton" *ngIf="showBack" title="Back to User List" (click)="backClicked.emit();"></div>
 <div class="componentTitle" *ngIf="showTitle">
   <span [class]="titleSpanClass" [ngStyle]="font ? { 'font-family': font } : {}">
-    <span>{{ title }}</span>
-    <ng-container *ngIf="titleUsers && titleUsers.length > 0">
-      <ng-container *ngFor="let user of titleUsers; let i = index">
-        <span *ngIf="i > 0">, </span>
-        <span class="titleUserLink" (click)="titleUserClicked.emit(user)" title="View user profile">&#64;{{ user.username }}</span>
+    <span>{{ title }}</span>      <ng-container *ngIf="titleUsers && titleUsers.length > 0">
+        <ng-container *ngFor="let user of titleUsers; let i = index">
+          <span *ngIf="i > 0">, </span>
+          <span class="titleUserLink" (click)="titleUserClicked.emit(user)" title="View user profile">&#64;{{ user.username }}</span>
+        </ng-container>
       </ng-container>
-    </ng-container>
-  </span>
+      <span *ngIf="badge" class="titleBadge" [title]="badgeTitle || badge">{{ badge }}</span>
+    </span>
 </div>
 <app-notifications *ngIf="showNotifications" [minimalInterface]="true" [inputtedParentRef]="inputtedParentRef"
   [notificationIconSlot]="notificationIconSlot" (notificationRead)="notificationReadEmitted()">

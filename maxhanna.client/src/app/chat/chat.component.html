@@ -2,6 +2,8 @@
   <app-title-bar
     [title]="getChatUserMentions()"
     [titleUsers]="getChatUsersWithoutSelf()"
+    [badge]="isChatModerator ? '👮 Moderator' : ''"
+    [badgeTitle]="'You are a moderator of this chat room'"
     (titleUserClicked)="viewProfile($event, 'Chat')"
     [inputtedParentRef]="parentRef"
     [showTitle]="true"

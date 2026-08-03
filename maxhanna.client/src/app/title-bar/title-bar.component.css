@@ -26,6 +26,22 @@
   color: #fff;
   text-shadow: 0 0 8px rgba(138, 180, 255, 0.6);
 }
+.titleBadge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 9px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
+  white-space: nowrap;
+  color: #1b5e20;
+  background: linear-gradient(135deg, #c8e6c9, #a5d6a7);
+  border: 1px solid #81c784;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  cursor: default;
+  letter-spacing: 0.3px;
+}
 .sizeOf0 { width: calc(100% - 50px); }
 .sizeOf1 { width: calc(100% - 100px); }
 .sizeOf2 { width: calc(100% - 150px); }
