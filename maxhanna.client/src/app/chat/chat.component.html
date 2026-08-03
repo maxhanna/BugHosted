@@ -59,7 +59,7 @@
   </div>
   <div class="chatArea" [class]="isPanelExpanded ? 'expanded' : ''">
     <div *ngIf="currentChatUsers" class="chatConversation">
-      <div class="makePublicBar" *ngIf="currentChatId && !currentChatIsPublic">
+      <div class="makePublicBar" *ngIf="currentChatId && !currentChatIsPublic && !isBannedFromChat">
         <span class="makePublicBarIcon">🌐</span>
         <input [(ngModel)]="newChatName" placeholder="Name this room to make it public..." class="makePublicNameInput" (keyup.enter)="makeChatPublic()">
         <button (click)="makeChatPublic()" [disabled]="isMakingChatPublic || !newChatName.trim()" class="coloredBgButton">
@@ -67,7 +67,7 @@
         </button>
         <span class="makePublicBarHint">Lets anyone search &amp; join it, and promotes existing members to chat moderators.</span>
       </div>
-      <div class="makePublicBar makePublicBar--isPublic" *ngIf="currentChatId && currentChatIsPublic">
+      <div class="makePublicBar makePublicBar--isPublic" *ngIf="currentChatId && currentChatIsPublic && !isBannedFromChat">
         <span class="makePublicBarIcon">🌐</span>
         <span class="makePublicBarName">{{ currentChatRoomName }}</span>
         <span class="makePublicBarHint">This chat is public — anyone can find and join it.</span>

@@ -27,7 +27,13 @@ namespace maxhanna.Server.Controllers
         string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
-        string sql = "SELECT COUNT(*) FROM maxhanna.user_roles WHERE user_id = @UserId AND role = 'moderator';";
+        // Any moderator role grants panel access: the legacy global moderator
+        // flag OR any scoped role (chat_moderator, topic_moderator, admin).
+        // Scoped moderators can open the panel and view the moderator list,
+        // role catalog, and logs; admin-only actions stay gated by IsAdminAsync.
+        string sql = @"SELECT
+            (SELECT COUNT(*) FROM maxhanna.user_roles WHERE user_id = @UserId AND role = 'moderator')
+            + (SELECT COUNT(*) FROM maxhanna.moderator_roles WHERE user_id = @UserId);";
         using var cmd = new MySqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("@UserId", userId);
         return Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
@@ -249,6 +255,14 @@ namespace maxhanna.Server.Controllers
 
       if (request.TargetUserId == 1 && request.Remove)
         return BadRequest("Cannot remove moderator status from the owner.");
+
+      // A chat moderator cannot demote themselves from a chat they moderate —
+      // that would let a room silently lose its last moderator (mirrors the
+      // client rule, enforced here so the API can't bypass it).
+      if (request.Remove && request.Role.Equals("chat_moderator", StringComparison.OrdinalIgnoreCase)
+        && targetType == "chat" && request.TargetUserId == request.CallerUserId
+        && await IsChatModeratorAsync(_config, request.CallerUserId, targetId ?? 0))
+        return BadRequest("You cannot remove your own chat moderator role.");
 
       string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 

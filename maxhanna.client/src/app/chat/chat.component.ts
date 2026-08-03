@@ -123,6 +123,11 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this._chatHubSubs.push(
       this.chatHub.messagePosted$.subscribe(e => { if (e.chatId === this.currentChatId && !isMine(e.senderId)) this.refreshAfterPush(); })
     );
+    // A moderator lifting the ban triggers a chat-wide push; re-check the ban
+    // status so the notice disappears without needing to reopen the chat.
+    this._chatHubSubs.push(
+      this.chatHub.messagePosted$.subscribe(e => { if (e.chatId === this.currentChatId) this.checkChatBanStatus(true); })
+    );
     this._chatHubSubs.push(
       this.chatHub.messageEdited$.subscribe(e => { if (e.chatId === this.currentChatId && !isMine(e.senderId)) this.refreshAfterPush(); })
     );
@@ -1137,16 +1142,29 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     await this.checkChatBanStatus();
   }
 
+  private _lastBanCheckChatId = 0;
+  private _lastBanCheckAt = 0;
+
   /** Polls the moderator service to see whether the current user is banned from
    *  this chat. When banned, the composer is replaced by a notice + appeal box.
-   *  Only checks when logged in and a chat is open. */
-  async checkChatBanStatus() {
+   *  Only checks when logged in and a chat is open. Throttled per chat (the 5s
+   *  polling fallback calls getMessageHistory repeatedly, and we don't want an
+   *  HTTP request on every tick). Pass force=true after an appeal or a chat
+   *  switch to bypass the throttle. */
+  async checkChatBanStatus(force = false) {
     const userId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id ?? 0;
     if (!userId || !this.currentChatId) {
       this.isBannedFromChat = false;
       this.hasPendingAppeal = false;
       return;
     }
+    // Throttle: same chat, checked within the last 30s → skip (unless forced).
+    const now = Date.now();
+    if (!force && this._lastBanCheckChatId === this.currentChatId && now - this._lastBanCheckAt < 30000) {
+      return;
+    }
+    this._lastBanCheckChatId = this.currentChatId;
+    this._lastBanCheckAt = now;
     try {
       const sessionToken = await this.parentRef?.getSessionToken() ?? '';
       const status = await this.moderatorService.isChatUserBanned(this.currentChatId, userId, sessionToken);
@@ -1187,6 +1205,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.banAppealText = '';
       this.banAppealMessage = res.message;
       this.banAppealMessageIsError = false;
+      // Refresh the underlying status immediately so the pending-appeal state sticks.
+      this.checkChatBanStatus(true);
     } else {
       this.banAppealMessage = res?.message || 'Failed to submit the appeal. Please try again.';
       this.banAppealMessageIsError = true;

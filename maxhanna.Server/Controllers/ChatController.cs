@@ -1269,6 +1269,11 @@ namespace maxhanna.Server.Controllers
 			if (request.UserId != 1 && !await IsGlobalModeratorAsync(request.UserId))
 				return Unauthorized("Only moderators can make chats public.");
 
+			// A user banned from this chat cannot manage it (making it public
+			// would promote members to chat moderators and change the room).
+			if (await ModeratorController.IsChatUserBannedAsync(_config, request.ChatId, request.UserId))
+				return StatusCode(403, "You are banned from this chat.");
+
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{

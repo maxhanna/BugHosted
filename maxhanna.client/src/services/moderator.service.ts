@@ -140,10 +140,14 @@ export class ModeratorService {
         headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
         body: JSON.stringify({ ChatId: chatId, UserId: userId, AppealText: appealText }),
       });
-      const data = await response.json().catch(() => null);
+      // Read the body as text first — the server returns plain strings on error
+      // (BadRequest), so trying JSON.parse directly would consume the body and
+      // make the real error message unrecoverable.
+      const body = await response.text();
+      let data: any = null;
+      try { data = body ? JSON.parse(body) : null; } catch { data = null; }
       if (response.ok) return { ok: true, message: (data && data.message) || 'Appeal submitted.' };
-      const msg = (data && data.message) ? data.message : (await response.text()) || 'Failed to submit appeal.';
-      return { ok: false, message: msg };
+      return { ok: false, message: (data && data.message) || body || 'Failed to submit appeal.' };
     } catch (error) {
       console.error('Error appealing chat ban:', error);
       return { ok: false, message: 'Failed to submit appeal. Please try again.' };
