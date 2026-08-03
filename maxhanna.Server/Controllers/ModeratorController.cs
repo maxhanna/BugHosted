@@ -444,38 +444,7 @@ namespace maxhanna.Server.Controllers
       }
     }
 
-    // ─── Chat-scoped bans & appeals ────────────────────────────────────────────
-    // Low-level moderation: a chat room's moderators can ban/unban users within
-    // that room only, and banned users can appeal to the room's moderators.
-
-    private async Task EnsureChatBanSchemaAsync(MySqlConnection conn)
-    {
-      const string bansSql = @"CREATE TABLE IF NOT EXISTS maxhanna.chat_bans (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        chat_id INT NOT NULL,
-        user_id INT NOT NULL,
-        banned_by INT NOT NULL,
-        reason VARCHAR(500) NULL,
-        created_at DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
-        lifted_at DATETIME NULL,
-        lifted_by INT NULL,
-        UNIQUE KEY uq_chat_bans (chat_id, user_id, lifted_at)
-      );";
-      const string appealsSql = @"CREATE TABLE IF NOT EXISTS maxhanna.chat_ban_appeal (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        chat_id INT NOT NULL,
-        user_id INT NOT NULL,
-        appeal_text TEXT NULL,
-        created_at DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
-        resolved_at DATETIME NULL,
-        resolved_by INT NULL,
-        resolution VARCHAR(20) NULL
-      );";
-      using var b = new MySqlCommand(bansSql, conn);
-      await b.ExecuteNonQueryAsync();
-      using var a = new MySqlCommand(appealsSql, conn);
-      await a.ExecuteNonQueryAsync();
-    }
+     
 
     /// <summary>True when the user has an active (not lifted) ban in this chat.</summary>
     private async Task<bool> IsChatUserBannedAsync(MySqlConnection conn, int chatId, int userId)
@@ -522,7 +491,7 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
-        await EnsureChatBanSchemaAsync(conn);
+
 
         string sql = @"INSERT INTO maxhanna.chat_bans (chat_id, user_id, banned_by, reason, created_at)
           VALUES (@ChatId, @UserId, @BannedBy, @Reason, UTC_TIMESTAMP())
@@ -561,7 +530,7 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
-        await EnsureChatBanSchemaAsync(conn);
+
 
         string sql = "UPDATE maxhanna.chat_bans SET lifted_at = UTC_TIMESTAMP(), lifted_by = @By WHERE chat_id = @ChatId AND user_id = @UserId AND lifted_at IS NULL;";
         using var cmd = new MySqlCommand(sql, conn);
@@ -596,7 +565,7 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
-        await EnsureChatBanSchemaAsync(conn);
+
         var bans = new List<object>();
         string sql = @"SELECT cb.id, cb.chat_id, cb.user_id, cb.banned_by, cb.reason, cb.created_at, cb.lifted_at, cb.lifted_by, u.username
           FROM maxhanna.chat_bans cb LEFT JOIN maxhanna.users u ON u.id = cb.user_id
@@ -643,7 +612,7 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
-        await EnsureChatBanSchemaAsync(conn);
+
 
         // Only an actively banned user may appeal.
         if (!await IsChatUserBannedAsync(conn, request.ChatId, request.UserId))
@@ -690,7 +659,7 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
-        await EnsureChatBanSchemaAsync(conn);
+
         var appeals = new List<object>();
         string sql = @"SELECT a.id, a.chat_id, a.user_id, a.appeal_text, a.created_at, a.resolved_at, a.resolved_by, a.resolution, u.username
           FROM maxhanna.chat_ban_appeal a LEFT JOIN maxhanna.users u ON u.id = a.user_id
@@ -735,7 +704,7 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
-        await EnsureChatBanSchemaAsync(conn);
+
 
         // Load the appeal to find its chat, then verify the caller moderates it.
         int chatId = 0, userId = 0;
@@ -800,7 +769,7 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
-        await EnsureChatBanSchemaAsync(conn);
+
         bool isBanned = await IsChatUserBannedAsync(conn, request.ChatId, request.UserId);
         bool hasPendingAppeal = false;
         if (isBanned)
