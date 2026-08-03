@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using MySqlConnector;
 using System;
 using System.Collections.Concurrent;
@@ -17,13 +18,18 @@ namespace maxhanna.Server.Controllers
 		// ── In-memory game state ─────────────────────────────────────────────
 		// The racing game (garage, cash, upgrades, appearance, results) lives in
 		// server memory so closing/reopening the component never loses progress.
-		// A 10-minute timer dumps anything dirty to the DB for long-term
-		// persistence (same pattern as GrandTheftController).
+		// A periodic timer dumps anything dirty to the DB for long-term
+		// persistence (same pattern as GrandTheftController). The interval
+		// defaults to 60 seconds (configurable via Racing:PersistIntervalSeconds)
+		// so a restart can't lose more than a minute of progress.
 		private static readonly ConcurrentDictionary<int, RacingCarState> _cars = new();
 		private static readonly ConcurrentQueue<PendingRaceResult> _pendingResults = new();
 		private static readonly object _persistLock = new();
+		private static int _persistIntervalSeconds = 60;
 		private static readonly Lazy<Timer> _persistTimer = new(() =>
-			new Timer(PersistAllToDb, null, TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(10)));
+			new Timer(PersistAllToDb, null,
+				TimeSpan.FromSeconds(_persistIntervalSeconds),
+				TimeSpan.FromSeconds(_persistIntervalSeconds)));
 		private static bool _schemaEnsured = false;
 		private static string? _connStrCache;
 		private static bool _startupLoadStarted = false;
@@ -85,11 +91,15 @@ namespace maxhanna.Server.Controllers
 		}
 
 		private readonly IConfiguration _config;
-		public RacingController(IConfiguration config)
+		public RacingController(IConfiguration config, IHostApplicationLifetime appLifetime)
 		{
 			_config = config;
 			_connStrCache ??= config.GetValue<string>("ConnectionStrings:maxhanna");
-			_ = _persistTimer.Value; // ensure the 10-min dump timer is running
+			// Pick up the configured dump cadence BEFORE the timer is first touched,
+			// so the Lazy factory builds the Timer with the right interval.
+			int interval = config.GetValue<int>("Racing:PersistIntervalSeconds", 60);
+			_persistIntervalSeconds = Math.Max(5, interval);
+			_ = _persistTimer.Value; // ensure the periodic dump timer is running
 
 			// Restore every saved player's car into server memory so a restart never
 			// wipes game data — the DB is the source of truth for long-term state.
@@ -106,8 +116,8 @@ namespace maxhanna.Server.Controllers
 			}
 
 			// Flush any dirty in-memory state when the process shuts down, so a
-			// restart inside the 10-minute dump window doesn't lose recent progress.
-			RegisterShutdownDump();
+			// restart inside the dump window doesn't lose recent progress.
+			RegisterShutdownDump(appLifetime);
 		}
 
 		private static string? GetConnStr()
@@ -301,15 +311,19 @@ namespace maxhanna.Server.Controllers
 		/// IIS stop). The dump timer may not have fired yet for recent changes, so
 		/// this makes a restart inside the 10-minute window lossless.
 		/// </summary>
-		private static void RegisterShutdownDump()
+		private static void RegisterShutdownDump(IHostApplicationLifetime? appLifetime)
 		{
 			if (_shutdownHooksRegistered) return;
 			lock (_persistLock)
 			{
 				if (_shutdownHooksRegistered) return;
 				_shutdownHooksRegistered = true;
-				AppDomain.CurrentDomain.ProcessExit += (_, _) => PersistAllToDb(null);
-				Console.CancelKeyPress += (_, _) => PersistAllToDb(null);
+				// ApplicationStopping fires early in graceful shutdown (IIS stop,
+				// dotnet run Ctrl+C, container SIGTERM) — well before ProcessExit —
+				// so the synchronous DB flush has time to actually complete.
+				appLifetime?.ApplicationStopping.Register(() => PersistAllToDbBlocking());
+				AppDomain.CurrentDomain.ProcessExit += (_, _) => PersistAllToDbBlocking();
+				Console.CancelKeyPress += (_, _) => PersistAllToDbBlocking();
 			}
 		}
 
@@ -351,9 +365,21 @@ namespace maxhanna.Server.Controllers
 		}
 
 		/// <summary>Periodic dump: if anything is dirty, persist it to the DB.</summary>
-		private static void PersistAllToDb(object? state)
+		private static void PersistAllToDb(object? state) => PersistAllToDbCore(false);
+
+		/// <summary>
+		/// Shutdown flush — waits (up to 15s) for the persist lock instead of bailing
+		/// like the timer does, so an in-flight timer write can't cause a restart to
+		/// silently drop the last few seconds of progress.
+		/// </summary>
+		private static void PersistAllToDbBlocking() => PersistAllToDbCore(true);
+
+		private static void PersistAllToDbCore(bool waitForLock)
 		{
-			if (!Monitor.TryEnter(_persistLock)) return;
+			bool acquired = waitForLock
+				? Monitor.TryEnter(_persistLock, TimeSpan.FromSeconds(15))
+				: Monitor.TryEnter(_persistLock);
+			if (!acquired) return;
 			try
 			{
 				bool anyDirty = false;

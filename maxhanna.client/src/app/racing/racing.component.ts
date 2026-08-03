@@ -2092,6 +2092,23 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (speed < 50) return '5';
     return '6';
   }
+  getShiftLedCount(): number {
+    // 5 LEDs, filling green→amber→red as RPM climbs toward redline
+    return Math.round(Math.min(1, this.hudRPM) * 5);
+  }
+  getShiftLedClass(i: number): string {
+    if (i >= this.getShiftLedCount()) return '';
+    if (i < 2) return 'led-green';
+    if (i < 4) return 'led-amber';
+    return 'led-red';
+  }
+  getDrsActive(): boolean {
+    return Math.abs(this.carSpeed) / this.getMaxSpeed() > 0.75 && !this.isOffTrack;
+  }
+  getAnalogNeedleDeg(): number {
+    // -120deg to +120deg sweep over 0..1 RPM
+    return -120 + Math.min(1, this.hudRPM) * 240;
+  }
 
   closeLoginPanel() {
     this.gameState = 'menu';

@@ -639,6 +639,22 @@ void main() {
       barVerts.push(n.x - npx * (bwN + capW), barrierH, n.z - npz * (bwN + capW), 0, 1, 0, tcr, tcg, tcb, 1, 1);
       barIdxs.push(tr, tr + 1, tr + 2);
       barIdxs.push(tr + 1, tr + 3, tr + 2);
+
+      // Sponsor boards every 15 segments — bright alternating panels on the outer cap
+      if (i % 15 === 0) {
+        const boardColors: [number, number, number][] = [
+          [0.9, 0.1, 0.1], [0.1, 0.5, 0.9], [0.95, 0.85, 0.1], [0.1, 0.8, 0.3],
+        ];
+        const bc = boardColors[Math.floor(i / 15) % boardColors.length];
+        const boardY = barrierH + 0.5;
+        const bTop = barVerts.length / 11;
+        barVerts.push(p.x + ppx * (bw + capW), barrierH, p.z + ppz * (bw + capW), 0, 1, 0, ...bc, 0, 0);
+        barVerts.push(n.x + npx * (bwN + capW), barrierH, n.z + npz * (bwN + capW), 0, 1, 0, ...bc, 1, 0);
+        barVerts.push(p.x + ppx * (bw + capW), boardY, p.z + ppz * (bw + capW), 0, 1, 0, ...bc, 0, 1);
+        barVerts.push(n.x + npx * (bwN + capW), boardY, n.z + npz * (bwN + capW), 0, 1, 0, ...bc, 1, 1);
+        barIdxs.push(bTop, bTop + 1, bTop + 2);
+        barIdxs.push(bTop + 1, bTop + 3, bTop + 2);
+      }
     }
 
     const vertArray = new Float32Array(verts);
@@ -948,6 +964,28 @@ void main() {
     this.addBox(verts, idxs, 0.55, 0.05, 0.43, 0.2, 0.05, 0.012, carbon);
     this.addBox(verts, idxs, 0.55, 0.05, -0.43, 0.2, 0.05, 0.012, carbon);
 
+    // ── 9b. Front wing cascade winglets (stacked vanes on endplates) ──
+    this.addBox(verts, idxs, 1.15, 0.2, 0.7, 0.12, 0.06, 0.1, carbon);
+    this.addBox(verts, idxs, 1.15, 0.2, -0.7, 0.12, 0.06, 0.1, carbon);
+    this.addTaperedBox(verts, idxs, 1.1, 0.16, 0.65, 0.2, 0.1, 0.02, 0.16, 0.02, carbon);
+    this.addTaperedBox(verts, idxs, 1.1, 0.16, -0.65, 0.2, 0.1, 0.02, 0.16, 0.02, carbon);
+
+    // ── 9c. Turning vanes (ahead of sidepod undercut, below the bargeboards) ──
+    this.addTaperedBox(verts, idxs, 0.35, 0.06, 0.35, 0.25, 0.06, 0.01, 0.14, 0.02, carbon);
+    this.addTaperedBox(verts, idxs, 0.35, 0.06, -0.35, 0.25, 0.06, 0.01, 0.14, 0.02, carbon);
+
+    // ── 9d. Front brake duct scoops ──
+    this.addBox(verts, idxs, 0.62, 0.12, 0.62, 0.1, 0.1, 0.06, carbon);
+    this.addBox(verts, idxs, 0.62, 0.12, -0.62, 0.1, 0.1, 0.06, carbon);
+
+    // ── 9e. DRS actuator pod ──
+    this.addBox(verts, idxs, -0.85, 0.38, 0, 0.1, 0.05, 0.08, grey);
+
+    // ── 9f. Livery accent stripe (contrast band on engine cover/sidepods) ──
+    const stripe: [number, number, number] = [0.05, 0.05, 0.08];
+    this.addBox(verts, idxs, -0.1, 0.335, 0.505, 0.5, 0.02, 0.005, stripe);
+    this.addBox(verts, idxs, -0.1, 0.335, -0.505, 0.5, 0.02, 0.005, stripe);
+
     // ── 10. Mirrors + stalks ──
     this.addBox(verts, idxs, 0.35, 0.3, 0.6, 0.1, 0.05, 0.07, grey);
     this.addBox(verts, idxs, 0.35, 0.3, -0.6, 0.1, 0.05, 0.07, grey);
@@ -1026,6 +1064,8 @@ void main() {
     this.addCylinder(fv, fi, 0, 0, 0, 0.04, 0.17, 8, [0.5, 0.5, 0.55]);
     // Tire tread — larger radius so the band wraps the rim
     this.addCylinder(fv, fi, 0, 0, 0, 0.17, 0.12, 10, [0.13, 0.13, 0.14]);
+    // Valve stem
+    this.addCylinder(fv, fi, 0.14, 0.05, 0, 0.008, 0.05, 4, [0.2, 0.2, 0.2]);
     const fva = new Float32Array(fv);
     const fia = new Uint16Array(fi);
     this.wheelCount = fia.length;
@@ -1053,7 +1093,8 @@ void main() {
     this.addCylinder(rv, ri, 0, 0, 0, 0.16, 0.18, 10, [0.07, 0.07, 0.08]);
     this.addCylinder(rv, ri, 0, 0, 0, 0.1, 0.2, 10, [0.35, 0.12, 0.1]);
     this.addCylinder(rv, ri, 0, 0, 0, 0.045, 0.2, 8, [0.5, 0.5, 0.55]);
-    this.addCylinder(rv, ri, 0, 0, 0, 0.18, 0.15, 10, [0.13, 0.13, 0.14]);
+    this.addCylinder(rv, ri, 0, 0, 0, 0.18, 0.15, 10, [0.13, 0.13, 0.14]); 
+    this.addCylinder(rv, ri, 0.15, 0.06, 0, 0.008, 0.05, 4, [0.2, 0.2, 0.2]);
     const rva = new Float32Array(rv);
     const ria = new Uint16Array(ri);
     this.rearWheelCount = ria.length;
@@ -1309,12 +1350,17 @@ void main() {
     const ppz = dirX;
     const hw = width / 2;
     // Tiered seats
+    const crowdColors: [number, number, number][] = [
+      [0.7, 0.15, 0.15], [0.15, 0.3, 0.7], [0.8, 0.7, 0.1],
+      [0.9, 0.9, 0.9], [0.15, 0.5, 0.2], [0.6, 0.2, 0.6],
+    ];
     for (let tier = 0; tier < 4; tier++) {
       const ty = 0.5 + tier * 0.3;
       const td = 1 + tier * 0.8;
       const tx = gx + ppx * td;
       const tz = gz + ppz * td;
-      this.addBox(verts, idxs, tx, ty, tz, 0.3, 0.3, hw * 2, [0.4, 0.4, 0.45]);
+      const c = crowdColors[Math.floor(Math.random() * crowdColors.length)];
+      this.addBox(verts, idxs, tx, ty, tz, 0.3, 0.3, hw * 2, c);
     }
     // Roof
     this.addBox(verts, idxs, gx + ppx * 3, 2.5, gz + ppz * 3, 1.5, 0.1, hw * 2.5, [0.3, 0.3, 0.35]);
