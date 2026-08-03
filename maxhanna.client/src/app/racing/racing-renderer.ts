@@ -31,6 +31,8 @@ export class RacingRenderer {
   private trackVao!: WebGLVertexArrayObject;
   private trackCount = 0;
   private sceneryVao!: WebGLVertexArrayObject;
+  private sceneryVbo!: WebGLBuffer;
+  private sceneryIbo!: WebGLBuffer;
   private sceneryCount = 0;
   private carVao!: WebGLVertexArrayObject;
   private carCount = 0;
@@ -73,6 +75,14 @@ export class RacingRenderer {
   fogColor: [number, number, number] = [0.4, 0.45, 0.5];
   elapsed = 0;
 
+  // Per-track environment theme (set before each race via setTheme). Drives the
+  // sky palette, lighting and the scenery kit (ocean/beach/city buildings).
+  theme: 'default' | 'miami' | 'city' | 'mountain' = 'default';
+  // Sky palette (top / horizon / bottom) used by the sky shader.
+  skyTop: [number, number, number] = [0.1, 0.2, 0.5];
+  skyHorizon: [number, number, number] = [0.7, 0.75, 0.85];
+  skyBottom: [number, number, number] = [0.4, 0.45, 0.5];
+
   // Track generation parameters
   readonly TRACK_SEGMENTS = 200;
   readonly TRACK_WIDTH = 16;
@@ -94,6 +104,11 @@ export class RacingRenderer {
   private skyViewLoc!: WebGLUniformLocation;
   private skySunDirLoc!: WebGLUniformLocation;
   private skyTimeLoc!: WebGLUniformLocation;
+  private skyTopLoc!: WebGLUniformLocation;
+  private skyHorizonLoc!: WebGLUniformLocation;
+  private skyBottomLoc!: WebGLUniformLocation;
+  private skySunColorLoc!: WebGLUniformLocation;
+  private skyGlowColorLoc!: WebGLUniformLocation;
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl2', { antialias: true, alpha: false });
@@ -328,24 +343,26 @@ precision highp float;
 in vec3 vDir;
 out vec4 FragColor;
 uniform vec3 uSunDir;
+uniform vec3 uTop;
+uniform vec3 uHorizon;
+uniform vec3 uBottom;
+uniform vec3 uSunColor;
+uniform vec3 uGlowColor;
 uniform float uTime;
 void main() {
   vec3 d = normalize(vDir);
   float h = d.y * 0.5 + 0.5;
-  vec3 top = vec3(0.1, 0.2, 0.5);
-  vec3 horizon = vec3(0.7, 0.75, 0.85);
-  vec3 bottom = vec3(0.4, 0.45, 0.5);
   // Smooth blend from ground → horizon → zenith with no hard seam at d.y = 0
-  vec3 upper = mix(horizon, top, clamp(h * 1.5, 0.0, 1.0));
-  vec3 lower = mix(horizon, bottom, clamp(-d.y * 3.0, 0.0, 1.0) * 0.5);
+  vec3 upper = mix(uHorizon, uTop, clamp(h * 1.5, 0.0, 1.0));
+  vec3 lower = mix(uHorizon, uBottom, clamp(-d.y * 3.0, 0.0, 1.0) * 0.5);
   float skyT = clamp(d.y * 4.0 + 0.5, 0.0, 1.0);
   vec3 sky = mix(lower, upper, skyT);
   // Soft, subtle sun — no blinding white disc, no oversaturated glow
   float sunDot = dot(d, normalize(uSunDir));
   float sun = pow(max(sunDot, 0.0), 120.0);
-  sky += vec3(1.0, 0.95, 0.8) * sun * 0.9;
+  sky += uSunColor * sun * 0.9;
   float sunGlow = pow(max(sunDot, 0.0), 12.0);
-  sky += vec3(1.0, 0.85, 0.6) * sunGlow * 0.18;
+  sky += uGlowColor * sunGlow * 0.18;
   FragColor = vec4(clamp(sky, 0.0, 1.0), 1.0);
 }`;
     this.skyProg = this.createProgram(svs, sfs);
@@ -353,6 +370,11 @@ void main() {
     this.skyViewLoc = gl.getUniformLocation(this.skyProg, 'uView')!;
     this.skySunDirLoc = gl.getUniformLocation(this.skyProg, 'uSunDir')!;
     this.skyTimeLoc = gl.getUniformLocation(this.skyProg, 'uTime')!;
+    this.skyTopLoc = gl.getUniformLocation(this.skyProg, 'uTop')!;
+    this.skyHorizonLoc = gl.getUniformLocation(this.skyProg, 'uHorizon')!;
+    this.skyBottomLoc = gl.getUniformLocation(this.skyProg, 'uBottom')!;
+    this.skySunColorLoc = gl.getUniformLocation(this.skyProg, 'uSunColor')!;
+    this.skyGlowColorLoc = gl.getUniformLocation(this.skyProg, 'uGlowColor')!;
 
     // Full cube: 6 faces × 2 triangles × 3 verts = 36 verts
     const c = 1;
@@ -450,6 +472,55 @@ void main() {
   }
 
   getTrackLength(): number { return this.totalTrackDist; }
+
+  /** Applies the environment theme for the selected track and rebuilds the
+   *  scenery geometry. Call before each race (both solo and multiplayer). */
+  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain') {
+    this.theme = theme;
+    switch (theme) {
+      case 'miami':
+        // Miami: warm tropical dusk — peach horizon, turquoise zenith, hot sun.
+        this.skyTop = [0.13, 0.32, 0.6];
+        this.skyHorizon = [0.95, 0.68, 0.55];
+        this.skyBottom = [0.55, 0.62, 0.7];
+        this.sunDir = [0.35, 0.55, 0.45];
+        this.sunColor = [1.0, 0.85, 0.7];
+        this.ambientColor = [0.32, 0.3, 0.34];
+        this.fogColor = [0.62, 0.6, 0.63];
+        break;
+      case 'city':
+        // Downtown: dusk navy + neon — cool sky, warm sodium street glow.
+        this.skyTop = [0.05, 0.08, 0.22];
+        this.skyHorizon = [0.45, 0.32, 0.5];
+        this.skyBottom = [0.2, 0.22, 0.3];
+        this.sunDir = [0.25, 0.45, 0.35];
+        this.sunColor = [1.0, 0.8, 0.6];
+        this.ambientColor = [0.2, 0.2, 0.26];
+        this.fogColor = [0.3, 0.3, 0.38];
+        break;
+      case 'mountain':
+        // Alpine: crisp blue sky, clean cool air.
+        this.skyTop = [0.08, 0.18, 0.45];
+        this.skyHorizon = [0.7, 0.78, 0.88];
+        this.skyBottom = [0.45, 0.52, 0.62];
+        this.sunDir = [0.4, 0.65, 0.5];
+        this.sunColor = [1.0, 0.95, 0.85];
+        this.ambientColor = [0.28, 0.28, 0.32];
+        this.fogColor = [0.45, 0.5, 0.58];
+        break;
+      default:
+        this.skyTop = [0.1, 0.2, 0.5];
+        this.skyHorizon = [0.7, 0.75, 0.85];
+        this.skyBottom = [0.4, 0.45, 0.5];
+        this.sunDir = [0.4, 0.7, 0.5];
+        this.sunColor = [1.0, 0.95, 0.85];
+        this.ambientColor = [0.25, 0.25, 0.3];
+        this.fogColor = [0.4, 0.45, 0.5];
+        break;
+    }
+    // Rebuild the scenery geometry for the new theme.
+    this.buildScenery();
+  }
 
   getTrackPointAlong(dist: number): TrackPoint {
     // Find position along track
@@ -771,42 +842,33 @@ void main() {
     gl.bindVertexArray(null);
   }
 
-  // ─── Scenery (trees, grandstands) ───
+  // ─── Scenery (theme-dependent) ───
   private buildScenery() {
     const gl = this.gl;
+    // Free the previous theme's scenery buffers (setTheme rebuilds this on
+    // every race start — solo, multiplayer and rematches — so leak-free matters).
+    if (this.sceneryVao) { try { gl.deleteVertexArray(this.sceneryVao); } catch { } }
+    if (this.sceneryVbo) { try { gl.deleteBuffer(this.sceneryVbo); } catch { } }
+    if (this.sceneryIbo) { try { gl.deleteBuffer(this.sceneryIbo); } catch { } }
     const pts = this._trackPoints;
     const verts: number[] = [];
     const idxs: number[] = [];
 
-    // Trees: place along both sides of the track, but well clear of the road
-    let treeIdx = 0;
-    for (let i = 0; i < pts.length; i += 3) {
-      const p = pts[i];
-      const ppx = -p.dirZ;
-      const ppz = p.dirX;
-      // Keep trees far from the asphalt + shoulders so they don't overlap the road
-      const dist = p.width / 2 + 24 + Math.random() * 20;
-
-      for (const side of [-1, 1]) {
-        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
-        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
-
-        // Tree trunk
-        const th = 1.5 + Math.random() * 1.5;
-        const tr = 0.15 + Math.random() * 0.1;
-        this.addCylinder(verts, idxs, tx, 0, tz, tr, th, 6, [0.3, 0.15, 0.05]);
-
-        // Tree crown (2 cones, slightly smaller)
-        const cr = 0.8 + Math.random() * 0.6;
-        const ch = 1.2 + Math.random() * 0.6;
-        this.addCone(verts, idxs, tx, th - 0.3, tz, cr, ch, 8, [0.05, 0.28 + Math.random() * 0.12, 0.02]);
-
-        if (treeIdx++ > 250) break;
-      }
-      if (treeIdx > 250) break;
+    // Theme scenery kit: each theme paints its own world beside the track.
+    if (this.theme === 'miami') {
+      // Ocean plane first (it sits below everything), then the sandy beach band.
+      this.addOceanPlane(verts, idxs);
+      this.addSandBand(verts, idxs);
+      this.addMiamiScenery(verts, idxs);
+    } else if (this.theme === 'city') {
+      this.addCityScenery(verts, idxs);
+    } else if (this.theme === 'mountain') {
+      this.addMountainScenery(verts, idxs);
+    } else {
+      this.addForestScenery(verts, idxs);
     }
 
-    // Grandstands at key points
+    // Grandstands at key points (all themes)
     const gsPositions = [0, Math.floor(pts.length / 4), Math.floor(pts.length / 2), Math.floor(pts.length * 3 / 4)];
     for (const gi of gsPositions) {
       const p = pts[gi];
@@ -817,7 +879,7 @@ void main() {
       this.addGrandstand(verts, idxs, gx, gz, p.dirX, p.dirZ, 4, 3);
     }
 
-    // Light poles every 20 segments
+    // Light poles every 20 segments (all themes)
     for (let i = 0; i < pts.length; i += 20) {
       const p = pts[i];
       const ppx = -p.dirZ;
@@ -828,7 +890,7 @@ void main() {
         // Pole
         this.addCylinder(verts, idxs, lx, 0, lz, 0.08, 3, 6, [0.2, 0.2, 0.2]);
         // Light
-        this.addSphere(verts, idxs, lx, 3, lz, 0.15, 6, [1, 0.95, 0.7]);
+        this.addSphere(verts, idxs, lx, 3, lz, 0.15, 6, this.theme === 'miami' ? [1, 0.9, 0.65] : [1, 0.95, 0.7]);
       }
     }
 
@@ -838,11 +900,11 @@ void main() {
 
     this.sceneryVao = gl.createVertexArray()!;
     gl.bindVertexArray(this.sceneryVao);
-    const vbo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    this.sceneryVbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.sceneryVbo);
     gl.bufferData(gl.ARRAY_BUFFER, vertArray, gl.STATIC_DRAW);
-    const ibo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+    this.sceneryIbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.sceneryIbo);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idxArray, gl.STATIC_DRAW);
     const stride = 11 * 4;
     gl.enableVertexAttribArray(0);
@@ -854,6 +916,248 @@ void main() {
     gl.enableVertexAttribArray(3);
     gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
+  }
+
+  // Default theme: the classic pine forest.
+  private addForestScenery(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    let treeIdx = 0;
+    for (let i = 0; i < pts.length; i += 3) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const dist = p.width / 2 + 24 + Math.random() * 20;
+      for (const side of [-1, 1]) {
+        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
+        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
+        const th = 1.5 + Math.random() * 1.5;
+        const tr = 0.15 + Math.random() * 0.1;
+        this.addCylinder(verts, idxs, tx, 0, tz, tr, th, 6, [0.3, 0.15, 0.05]);
+        const cr = 0.8 + Math.random() * 0.6;
+        const ch = 1.2 + Math.random() * 0.6;
+        this.addCone(verts, idxs, tx, th - 0.3, tz, cr, ch, 8, [0.05, 0.28 + Math.random() * 0.12, 0.02]);
+        if (treeIdx++ > 250) break;
+      }
+      if (treeIdx > 250) break;
+    }
+  }
+
+  // Mountain theme: pines + gray rock outcrops + snow caps in the distance.
+  private addMountainScenery(verts: number[], idxs: number[]) {
+    this.addForestScenery(verts, idxs);
+    const pts = this._trackPoints;
+    // Rocky outcrops poking up beside the track.
+    for (let i = 0; i < pts.length; i += 7) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 30 + Math.random() * 25;
+        const rx = p.x + ppx * dist * side + (Math.random() - 0.5) * 10;
+        const rz = p.z + ppz * dist * side + (Math.random() - 0.5) * 10;
+        const s = 1.2 + Math.random() * 2.2;
+        // Lower wide slab + upper peak = rocky silhouette.
+        this.addCone(verts, idxs, rx, 0, rz, s * 1.5, s, 6, [0.35, 0.35, 0.38]);
+        this.addCone(verts, idxs, rx + s * 0.3, s * 0.55, rz - s * 0.2, s * 0.7, s * 0.8, 6, [0.55, 0.55, 0.6]);
+      }
+    }
+  }
+
+  // City theme: glass towers with lit window grids + rooftop antennas.
+  private addCityScenery(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    const towerColors: [number, number, number][] = [
+      [0.12, 0.18, 0.32], [0.1, 0.22, 0.28], [0.2, 0.16, 0.3], [0.14, 0.14, 0.38], [0.08, 0.28, 0.34],
+    ];
+    let towerIdx = 0;
+    for (let i = 0; i < pts.length; i += 6) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 42 + Math.random() * 30;
+        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 12;
+        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 12;
+        const h = 14 + Math.random() * 34;
+        const w = 4 + Math.random() * 4;
+        const d = 4 + Math.random() * 4;
+        const col = towerColors[Math.floor(Math.random() * towerColors.length)];
+        this.addBox(verts, idxs, tx, h / 2, tz, w, h, d, col);
+        // Lit window grid on all four faces (bright dots at dusk).
+        const rows = Math.max(4, Math.floor(h / 4));
+        const cols = 2;
+        const wn = 0.5;
+        for (const sx of [-1, 1]) {
+          const zc = tz + sx * (d / 2 + 0.05);
+          for (let r = 0; r < rows; r++) {
+            const wy = 1 + r * (h - 2) / rows;
+            for (let c = 0; c < cols; c++) {
+              const xc = tx - w / 2 + 0.8 + c * (w - 1.6) / cols;
+              this.addWindowQuad(verts, idxs, xc, wy, zc, wn * 2, wn, 0, sx, [0.95, 0.85, 0.5]);
+            }
+          }
+        }
+        for (const sz of [-1, 1]) {
+          const xc = tx + sz * (w / 2 + 0.05);
+          for (let r = 0; r < rows; r++) {
+            const wy = 1 + r * (h - 2) / rows;
+            for (let c = 0; c < cols; c++) {
+              const zc = tz - d / 2 + 0.8 + c * (d - 1.6) / cols;
+              this.addWindowQuad(verts, idxs, xc, wy, zc, wn * 2, wn, sz, 0, [0.95, 0.85, 0.5]);
+            }
+          }
+        }
+        // Rooftop antenna + red beacon.
+        this.addCylinder(verts, idxs, tx, h, tz, 0.06, 3, 5, [0.3, 0.3, 0.35]);
+        this.addSphere(verts, idxs, tx, h + 3, tz, 0.12, 6, [0.9, 0.15, 0.12]);
+        if (towerIdx++ > 26) break;
+      }
+      if (towerIdx > 26) break;
+    }
+  }
+
+  // Miami theme: beach band + palm trees + art-deco buildings + umbrellas.
+  private addOceanPlane(verts: number[], idxs: number[]) {
+    // A huge turquoise plane under the whole world — reads as water beyond the sand.
+    const c = 900;
+    this.addQuad(verts, idxs,
+      [-c, -0.4, -c], [c, -0.4, -c], [c, -0.4, c], [-c, -0.4, c],
+      [0.05, 0.5, 0.55]);
+  }
+
+  private addSandBand(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    for (let i = 0; i < pts.length; i += 2) {
+      const p = pts[i];
+      const n = pts[(i + 1) % pts.length];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const npx = -n.dirZ, npz = n.dirX;
+      const inner = p.width / 2 + 18;
+      const outer = p.width / 2 + 52;
+      for (const side of [-1, 1]) {
+        const pIn = [p.x + ppx * inner * side, -0.26, p.z + ppz * inner * side];
+        const pOut = [p.x + ppx * outer * side, -0.26, p.z + ppz * outer * side];
+        const nIn = [n.x + npx * inner * side, -0.26, n.z + npz * inner * side];
+        const nOut = [n.x + npx * outer * side, -0.26, n.z + npz * outer * side];
+        this.addGroundQuad(verts, idxs, pIn, nIn, nOut, pOut, [0.85, 0.78, 0.58]);
+      }
+    }
+  }
+
+  private addMiamiScenery(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    // Palm trees along both sides.
+    let palmIdx = 0;
+    for (let i = 0; i < pts.length; i += 3) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 24 + Math.random() * 16;
+        const px = p.x + ppx * dist * side + (Math.random() - 0.5) * 6;
+        const pz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
+        this.addPalmTree(verts, idxs, px, pz, 0.8 + Math.random() * 0.5);
+        if (palmIdx++ > 60) break;
+      }
+      if (palmIdx > 60) break;
+    }
+
+    // Art-deco pastel buildings — a Miami skyline behind the beach.
+    const pastels: [number, number, number][] = [
+      [0.95, 0.6, 0.65], [0.6, 0.85, 0.8], [0.98, 0.85, 0.6], [0.85, 0.75, 0.9], [0.75, 0.85, 0.95],
+    ];
+    let bIdx = 0;
+    for (let i = 0; i < pts.length; i += 8) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 60 + Math.random() * 25;
+        const bx = p.x + ppx * dist * side + (Math.random() - 0.5) * 10;
+        const bz = p.z + ppz * dist * side + (Math.random() - 0.5) * 10;
+        const h = 10 + Math.random() * 16;
+        const w = 5 + Math.random() * 3;
+        const d = 5 + Math.random() * 3;
+        const col = pastels[Math.floor(Math.random() * pastels.length)];
+        this.addBox(verts, idxs, bx, h / 2, bz, w, h, d, col);
+        // Flat parapet roof for the art-deco look.
+        this.addBox(verts, idxs, bx, h + 0.4, bz, w + 0.8, 0.8, d + 0.8, [0.95, 0.95, 0.9]);
+        // Window grid on the two long faces.
+        const rows = Math.max(3, Math.floor(h / 4));
+        for (const sx of [-1, 1]) {
+          const zc = bz + sx * (d / 2 + 0.05);
+          for (let r = 0; r < rows; r++) {
+            const wy = 1 + r * (h - 2) / rows;
+            for (let c = 0; c < 3; c++) {
+              const xc = bx - w / 2 + 0.9 + c * (w - 1.8) / 3;
+              this.addWindowQuad(verts, idxs, xc, wy, zc, 0.8, 0.5, 0, sx, [0.15, 0.35, 0.4]);
+            }
+          }
+        }
+        if (bIdx++ > 20) break;
+      }
+      if (bIdx > 20) break;
+    }
+
+    // Beach umbrellas + towels scattered on the sand near the grandstands.
+    const gsPositions = [0, Math.floor(pts.length / 4), Math.floor(pts.length / 2), Math.floor(pts.length * 3 / 4)];
+    const umbrellaColors: [number, number, number][] = [
+      [0.9, 0.25, 0.3], [0.95, 0.8, 0.2], [0.1, 0.65, 0.55], [0.25, 0.5, 0.9], [0.95, 0.55, 0.8],
+    ];
+    for (const gi of gsPositions) {
+      const p = pts[gi];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (let u = 0; u < 3; u++) {
+        const dist = p.width / 2 + 26 + Math.random() * 12;
+        const side = u % 2 === 0 ? -1 : 1;
+        const ux = p.x + ppx * dist * side + (Math.random() - 0.5) * 6;
+        const uz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
+        this.addCylinder(verts, idxs, ux, 0, uz, 0.05, 1.6, 6, [0.85, 0.8, 0.7]);
+        this.addCone(verts, idxs, ux, 1.6, uz, 0.9, 0.35, 8, umbrellaColors[Math.floor(Math.random() * umbrellaColors.length)]);
+      }
+    }
+  }
+
+  // A drooping palm: bent trunk + radiating fronds, made from cheap primitives.
+  private addPalmTree(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    const lean = (Math.random() - 0.5) * 0.8;
+    const trunkH = 3.2 * s;
+    // Trunk: two segments with a kink for a natural sway.
+    this.addCylinder(verts, idxs, x, 0, z, 0.14 * s, trunkH * 0.55, 6, [0.5, 0.36, 0.18]);
+    const kinkX = x + lean * 0.4;
+    const kinkZ = z + lean * 0.3;
+    this.addCylinder(verts, idxs, kinkX, trunkH * 0.55, kinkZ, 0.11 * s, trunkH * 0.45, 6, [0.45, 0.32, 0.16]);
+    const topX = kinkX + lean * 0.55;
+    const topZ = kinkZ + lean * 0.4;
+    const topY = trunkH;
+    // 7 fronds radiating out + slightly down.
+    const frondCol = [0.06, 0.42, 0.1] as [number, number, number];
+    for (let f = 0; f < 7; f++) {
+      const a = (f / 7) * Math.PI * 2 + lean * 0.3;
+      const len = (1.6 + Math.random() * 0.5) * s;
+      const ex = topX + Math.cos(a) * len;
+      const ez = topZ + Math.sin(a) * len;
+      const ey = topY + 0.2 - Math.random() * 0.7;
+      this.addQuad(verts, idxs,
+        [topX, topY, topZ], [ex, ey, ez],
+        [topX + Math.cos(a) * len * 0.95, ey - 0.15, topZ + Math.sin(a) * len * 0.95],
+        [topX + Math.cos(a) * 0.3, topY - 0.15, topZ + Math.sin(a) * 0.3],
+        frondCol);
+    }
+    // A tiny coconut cluster at the crown.
+    this.addSphere(verts, idxs, topX + lean * 0.2, topY - 0.1, topZ + lean * 0.15, 0.14 * s, 6, [0.5, 0.35, 0.15]);
+  }
+
+  // Ground quad with forced up-normal so sand/water light correctly regardless of winding.
+  private addGroundQuad(verts: number[], idxs: number[], a: number[], b: number[], c: number[], d: number[], color: number[]) {
+    const [r, g, bl] = color;
+    const base = verts.length / 11;
+    for (const p of [a, b, c, d]) {
+      verts.push(p[0], -0.26, p[2], 0, 1, 0, r, g, bl, 0, 0);
+    }
+    idxs.push(base, base + 1, base + 2);
+    idxs.push(base + 2, base + 3, base);
   }
 
   // ─── Car Mesh ───
@@ -1184,6 +1488,21 @@ void main() {
     idxs.push(base + 2, base + 3, base);
   }
 
+  // Vertical window quad on a building wall. (nx, nz) is the OUTWARD wall
+  // normal (e.g. 0,1 for a +Z face, 1,0 for +X). Because the tangent (rx, rz)
+  // = (nz, -nx) swaps the corner order for negative normals, this single
+  // winding yields an outward normal for every face — no extra flip needed.
+  private addWindowQuad(verts: number[], idxs: number[], cx: number, cy: number, cz: number, w: number, h: number, nx: number, nz: number, color: number[]) {
+    const hw = w / 2;
+    // Left/right offsets along the wall (perpendicular to the outward normal).
+    const rx = nz, rz = -nx;
+    const a = [cx - rx * hw, cy, cz - rz * hw];
+    const b = [cx + rx * hw, cy, cz + rz * hw];
+    const c = [cx + rx * hw, cy + h, cz + rz * hw];
+    const d = [cx - rx * hw, cy + h, cz - rz * hw];
+    this.addQuad(verts, idxs, a, b, c, d, color);
+  }
+
   // Thin box (strut / wishbone) running from point A to point B with a given
   // cross-section thickness. Used for suspension arms, mirror stalks, and
   // wing mounts. Uses the same 11-float vertex layout as addQuad.
@@ -1465,6 +1784,11 @@ void main() {
     gl.uniformMatrix4fv(this.skyViewLoc, false, this.viewMatrix);
     gl.uniform3fv(this.skySunDirLoc, this.sunDir);
     gl.uniform1f(this.skyTimeLoc, this.elapsed);
+    gl.uniform3fv(this.skyTopLoc, this.skyTop);
+    gl.uniform3fv(this.skyHorizonLoc, this.skyHorizon);
+    gl.uniform3fv(this.skyBottomLoc, this.skyBottom);
+    gl.uniform3fv(this.skySunColorLoc, this.sunColor);
+    gl.uniform3fv(this.skyGlowColorLoc, [this.sunColor[0] * 0.85, this.sunColor[1] * 0.75, this.sunColor[2] * 0.6]);
     gl.bindVertexArray(this.skyVao);
     gl.drawArrays(gl.TRIANGLES, 0, 36);
     gl.bindVertexArray(null);

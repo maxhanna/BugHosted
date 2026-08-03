@@ -851,6 +851,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.carYaw = Math.atan2(startP.dirX, startP.dirZ);
     this.carDir = this.carYaw;
     this.slipAngle = 0;
+    // Apply the track's environment theme for the multiplayer race too.
+    if (this.selectedTrack) {
+      this.renderer.setTheme(this.themeForTrack(this.selectedTrack.id));
+    }
     // Spawn bots to fill the grid alongside real players
     this.spawnBots(4);
     this.totalRacers = this.bots.length + this.lobbyPlayers.length;
@@ -1054,6 +1058,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.carDir = this.carYaw;
     this.slipAngle = 0;
     this.carDist = 0;
+
+    // Apply the track's environment theme (Miami / Mountain / City / default).
+    this.renderer.setTheme(this.themeForTrack(track.id));
 
     // Create bots (always 4 — fills the grid in both single & multiplayer)
     this.spawnBots(4);
@@ -2739,6 +2746,15 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
 
   hideLoginPopup() { this.parentRef?.closeOverlay(); }
   get TRACKS() { return TRACKS; }
+
+  /** Maps a track id to its environment theme (rendered by RacingRenderer).
+   *  Track 1 is the Miami beach circuit, 2 the mountain pass, 3 the downtown GP. */
+  private themeForTrack(trackId: number): 'miami' | 'mountain' | 'city' | 'default' {
+    if (trackId === 1) return 'miami';
+    if (trackId === 2) return 'mountain';
+    if (trackId === 3) return 'city';
+    return 'default';
+  }
   get UPGRADE_DEFS() { return UPGRADE_DEFS; }
   get CAR_SKINS() { return CAR_SKINS; }
   

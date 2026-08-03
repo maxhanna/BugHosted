@@ -569,10 +569,12 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
             this.parentRef.renderPollIntoElement(poll.componentId, poll, { includeVoters: true, includeDelete: hasCurrentUserVoted, safeQuestion: safeQuestion });
           } else if (this.parentRef && typeof this.parentRef.buildPollHtmlFromPollObject === 'function') {
             const html = this.parentRef.buildPollHtmlFromPollObject(poll, poll.componentId);
-            tgt.innerHTML = html;
+            // The id lives on the outer message ROW; only replace the poll
+            // container inside the bubble so the bubble markup survives.
+            (tgt.querySelector('.poll-container') ?? tgt).innerHTML = html;
           } else {
             // As a last resort, render minimal container (shouldn't happen if AppComponent is present)
-            tgt.innerHTML = `<div class="poll-container" data-component-id="${poll.componentId}"><div class="poll-question">${poll.question}</div></div>`;
+            (tgt.querySelector('.poll-container') ?? tgt).innerHTML = `<div class="poll-container" data-component-id="${poll.componentId}"><div class="poll-question">${poll.question}</div></div>`;
           }
           continue;
         } catch (e) {

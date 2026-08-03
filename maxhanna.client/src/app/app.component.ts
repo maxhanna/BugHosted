@@ -1699,7 +1699,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     // attempt to read componentId from hidden input right away to disable only that poll
     const initialComponentId = (document.getElementById("pollComponentId") as HTMLInputElement)?.value ?? '';
     if (initialComponentId) {
-      const container = document.getElementById(initialComponentId);
+      const container = this.getPollRenderTarget(initialComponentId);
       if (container) {
         container.querySelectorAll('input, button, label').forEach((el: Element) => {
           try {
@@ -1737,7 +1737,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       }
 
       if (componentId) {
-        const container = document.getElementById(componentId);
+        const container = this.getPollRenderTarget(componentId);
         if (container) {
           // 1) find any checked input inside the container
           const checked = container.querySelector<HTMLInputElement>('input[type="checkbox"]:checked, input[type="radio"]:checked');
@@ -1783,7 +1783,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         // re-enable the poll UI that we disabled earlier
         const finishedComponentId = (document.getElementById("pollComponentId") as HTMLInputElement)?.value ?? initialComponentId ?? '';
         if (finishedComponentId) {
-          const container = document.getElementById(finishedComponentId);
+          const container = this.getPollRenderTarget(finishedComponentId);
           if (container) {
             container.querySelectorAll('input, button, label').forEach((el: Element) => {
               try {
@@ -1809,7 +1809,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     try {
       const componentId = (document.getElementById("pollComponentId") as HTMLInputElement)?.value;
       if (componentId && this.pollResults) {
-        const container = document.getElementById(componentId);
+        const container = this.getPollRenderTarget(componentId);
         if (container) {
           let pollHtml = `<div class="poll-container" data-component-id="${componentId}">` +
             `<div class="poll-question">${this.pollQuestion || ''}</div><div class="poll-options">`;
@@ -1829,7 +1829,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           });
 
           pollHtml += `</div><div class="poll-total">Total Votes: ${total}</div></div>`;
-          container.innerHTML = pollHtml;
+          this.setPollContainerHtml(container, pollHtml);
         }
       }
     } catch (err) {
@@ -1847,7 +1847,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   private renderPollResultsInDom(componentId: string, results: any, question: string) {
     try {
       if (!componentId || !results) return;
-      const container = document.getElementById(componentId);
+      const container = this.getPollRenderTarget(componentId);
       if (!container) return;
 
       let pollHtml = `<div class="poll-container" data-component-id="${componentId}">` +
@@ -1868,7 +1868,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       });
 
       pollHtml += `</div><div class="poll-total">Total Votes: ${total}</div></div>`;
-      container.innerHTML = pollHtml;
+      this.setPollContainerHtml(container, pollHtml);
     } catch (err) {
       console.error('Error rendering poll results in DOM', err);
     }
@@ -1901,16 +1901,43 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     return html;
   }
 
+  // Resolve the DOM element a poll render should update. The componentId may
+  // point at an OUTER wrapper (chat's messageText{id} sits on the message ROW,
+  // not on the poll itself), so prefer the nested .poll-container when present
+  // — this keeps the message bubble and surrounding markup intact instead of
+  // replacing the whole row with a bare poll that floats in the chat background.
+  private getPollRenderTarget(componentId: string): HTMLElement | null {
+    const el = document.getElementById(componentId);
+    if (!el) return null;
+    if (el.classList && el.classList.contains('poll-container')) return el;
+    const nested = el.querySelector('.poll-container');
+    return (nested as HTMLElement) || el;
+  }
+
+  // Set poll HTML into a container. When the target is already a .poll-container
+  // (chat renders polls inside the message bubble), strip the wrapper from the
+  // incoming HTML so we don't end up with nested containers.
+  private setPollContainerHtml(container: HTMLElement, wrappedHtml: string): void {
+    if (container.classList && container.classList.contains('poll-container')) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = wrappedHtml;
+      const inner = tmp.querySelector('.poll-container');
+      container.innerHTML = inner ? inner.innerHTML : wrappedHtml;
+    } else {
+      container.innerHTML = wrappedHtml;
+    }
+  }
+
   // Render a poll object into the DOM element with id == componentId.
   // options: { includeVoters?: boolean, includeDelete?: boolean, safeQuestion?: string }
   public renderPollIntoElement(componentId: string, poll: any, options?: any): void {
     try {
       if (!componentId || !poll) return;
-      const container = document.getElementById(componentId);
+      const container = this.getPollRenderTarget(componentId);
       if (!container) return;
 
       const html = this.buildPollHtmlFromPollObject(poll, componentId);
-      container.innerHTML = html;
+      this.setPollContainerHtml(container, html);
 
       // Append voter list if requested
       if (options?.includeVoters && poll.userVotes && poll.userVotes.length) {
@@ -1957,7 +1984,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       // (strip any "(X votes, Y%)" suffixes), then rebuild the interactive poll HTML (checkboxes)
       // and decrement the displayed total votes by 1 if present.
       try {
-        const container = document.getElementById(componentId);
+        const container = this.getPollRenderTarget(componentId);
         if (container) {
           const qEl = container.querySelector('.poll-question') as HTMLElement | null;
           const question = qEl ? (qEl.textContent ?? '').trim() : '';
@@ -1997,7 +2024,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           }
 
           pollHtml += `</div>`;
-          container.innerHTML = pollHtml;
+          this.setPollContainerHtml(container, pollHtml);
         }
       } catch (domErr) {
         console.error('Error updating poll DOM after delete:', domErr);
