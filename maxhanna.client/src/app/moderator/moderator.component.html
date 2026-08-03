@@ -98,7 +98,7 @@
             <div *ngIf="chatBans.length === 0" class="searchHint">No one is banned from this chat.</div>
             <div *ngFor="let b of chatBans" class="modRow">
               <div class="modRowHead">
-                <app-user-tag [user]="{ id: b.userId, username: b.username || 'User #' + b.userId }" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+                <app-user-tag [user]="chatBanUser(b)" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
                 <span class="smallFont secondaryFontColor" *ngIf="b.reason">— {{ b.reason }}</span>
                 <span class="smallFont secondaryFontColor" *ngIf="b.isActive">(active)</span>
                 <button *ngIf="b.isActive" class="okBtn" (click)="unbanChatModUser(b)" [disabled]="chatModActionLoading">Unban</button>
@@ -111,7 +111,7 @@
             <div *ngFor="let a of chatAppeals" class="modRow">
               <div class="modRowBody" style="padding:6px 0;">
                 <div>
-                  <app-user-tag [user]="{ id: a.userId, username: a.username || 'User #' + a.userId }" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+                  <app-user-tag [user]="chatAppealUser(a)" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
                   <span class="smallFont secondaryFontColor" *ngIf="a.createdAt"> — {{ a.createdAt | date:'y/MM/d HH:mm' }}</span>
                 </div>
                 <div class="smallFont" style="margin:4px 0;">{{ a.appealText }}</div>

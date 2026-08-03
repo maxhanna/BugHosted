@@ -108,6 +108,47 @@
   color: var(--main-highlight-color);
 }
 
+.chatBannedNotice {
+  padding: 12px 14px;
+  border-top: 1px solid var(--main-highlight-color);
+  background: var(--secondary-component-background-color);
+  font-size: small;
+}
+
+.chatBannedTitle {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.chatBannedHint {
+  color: var(--third-font-color);
+  margin-bottom: 4px;
+}
+
+.banAppealBox {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.banAppealTextarea {
+  width: 100%;
+  padding: 8px;
+  border: var(--main-border);
+  border-radius: 6px;
+  background: var(--main-bg-color);
+  color: var(--main-font-color);
+  resize: vertical;
+}
+
+.banAppealActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 
 .chatArea {
   margin-left: 0;

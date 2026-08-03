@@ -447,6 +447,16 @@ export class ModeratorComponent extends ChildComponent {
     this.banReason = '';
   }
 
+  /** Builds a proper User instance from a chat ban row for app-user-tag. */
+  chatBanUser(b: ChatBan): User {
+    return new User(b.userId, b.username || 'User #' + b.userId);
+  }
+
+  /** Builds a proper User instance from a chat appeal row for app-user-tag. */
+  chatAppealUser(a: ChatBanAppeal): User {
+    return new User(a.userId, a.username || 'User #' + a.userId);
+  }
+
   isChatMod(user: User): boolean {
     return (this.managedChatMods.some(m => m.user?.id === user.id));
   }

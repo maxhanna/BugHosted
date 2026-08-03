@@ -495,38 +495,38 @@ export class LineGraphComponent implements OnInit, OnChanges, AfterViewInit, OnD
         data: this.currentSecondaryData.map(d => d.priceCAD),
         backgroundColor: this.currentSecondaryData.map(d => {
           if (d.type.includes('buy_DCA')) return 'green';
-          if (d.type.includes('sell_DCA')) return '#ff0000';
+          if (d.type.includes('sell_HFT')) return '#ff0000';
           if (d.type.includes('buy_IND')) return '#0000ff';
           if (d.type.includes('sell_IND')) return '#ff00ff';
           if (d.type.includes('buy_HFT')) return '#00ff95';
-          if (d.type.includes('sell_HFT')) return '#5f0024';
+          if (d.type.includes('sell_DCA')) return '#5f0024';
           return 'grey';
         }),
         borderColor: this.currentSecondaryData.map(d => {
           if (d.type.includes('buy_DCA')) return 'green';
-          if (d.type.includes('sell_DCA')) return '#ff0000';
+          if (d.type.includes('sell_HFT')) return '#ff0000';
           if (d.type.includes('buy_IND')) return '#0000ff';
           if (d.type.includes('sell_IND')) return '#ff00ff';
           if (d.type.includes('buy_HFT')) return '#00ff95';
-          if (d.type.includes('sell_HFT')) return '#5f0024';
+          if (d.type.includes('sell_DCA')) return '#5f0024';
           return 'grey';
         }),
         pointBackgroundColor: this.currentSecondaryData.map(d => {
           if (d.type.includes('buy_DCA')) return 'green';
-          if (d.type.includes('sell_DCA')) return '#ff0000';
+          if (d.type.includes('sell_HFT')) return '#ff0000';
           if (d.type.includes('buy_IND')) return '#0000ff';
           if (d.type.includes('sell_IND')) return '#ff00ff';
           if (d.type.includes('buy_HFT')) return '#00ff95';
-          if (d.type.includes('sell_HFT')) return '#5f0024';
+          if (d.type.includes('sell_DCA')) return '#5f0024';
           return 'grey';
         }),
         pointBorderColor: this.currentSecondaryData.map(d => {
           if (d.type.includes('buy_DCA')) return 'green';
-          if (d.type.includes('sell_DCA')) return '#ff0000';
+          if (d.type.includes('sell_HFT')) return '#ff0000';
           if (d.type.includes('buy_IND')) return '#0000ff';
           if (d.type.includes('sell_IND')) return '#ff00ff';
           if (d.type.includes('buy_HFT')) return '#00ff95';
-          if (d.type.includes('sell_HFT')) return '#5f0024';
+          if (d.type.includes('sell_DCA')) return '#5f0024';
           return 'grey';
         }),
         borderWidth: 2,
