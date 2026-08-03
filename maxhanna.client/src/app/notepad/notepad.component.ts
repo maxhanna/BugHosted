@@ -1,8 +1,9 @@
-import { AfterViewInit, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Note } from '../../services/datacontracts/note';
 import { NotepadService } from '../../services/notepad.service'; 
 import { UserService } from '../../services/user.service';
+import { UserEventService } from '../../services/user-event.service';
 import { User } from '../../services/datacontracts/user/user';
 import { NotificationService } from '../../services/notification.service';
 import { TextInputComponent } from '../text-input/text-input.component';
@@ -37,7 +38,7 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   private sharedNotePollTimer?: any;  
   private loadedNote?: string; 
   private readonly SHARED_NOTE_POLL_INTERVAL = 60000; 
-  constructor(private notepadService: NotepadService, private userService: UserService, private notificationService: NotificationService) {
+  constructor(private notepadService: NotepadService, private userService: UserService, private notificationService: NotificationService, private userEventService: UserEventService) {
     super();
   }
   async ngOnInit() {

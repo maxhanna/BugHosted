@@ -849,80 +849,88 @@ void main() {
     const dark = [0.08, 0.08, 0.10];
     const grey = [0.22, 0.22, 0.24];
 
-    // ── 1. Floor / diffuser (wide flat base) ──
-    this.addBox(verts, idxs, -0.15, 0.03, 0, 2.6, 0.04, 1.3, dark);
-    // Diffuser ramp at rear
-    this.addBox(verts, idxs, -1.0, 0.08, 0, 0.3, 0.05, 1.0, carbon);
+    // ── 1. Floor / undertray (wide, low) ──
+    this.addBox(verts, idxs, -0.1, 0.02, 0, 2.6, 0.03, 1.05, dark);
+    // Floor edge winglets (thin vertical fins along the floor sides)
+    this.addBox(verts, idxs, 0.1, 0.06, 0.53, 1.4, 0.07, 0.02, carbon);
+    this.addBox(verts, idxs, 0.1, 0.06, -0.53, 1.4, 0.07, 0.02, carbon);
+    // Diffuser ramp at the rear (rises toward the back)
+    this.addTaperedBox(verts, idxs, -1.1, 0.035, 0, 0.4, 0.13, 0.03, 0.7, 0.45, carbon);
 
-    // ── 2. Main chassis / cockpit tub ──
-    this.addBox(verts, idxs, 0.05, 0.18, 0, 1.6, 0.22, 0.5, [cr, cg, cb]);
-    // Side impact structures
-    this.addBox(verts, idxs, 0.05, 0.15, 0.36, 1.3, 0.12, 0.12, carbon);
-    this.addBox(verts, idxs, 0.05, 0.15, -0.36, 1.3, 0.12, 0.12, carbon);
+    // ── 2. Monocoque / cockpit tub ──
+    // Tapers up from the nose joint to the cockpit surround
+    this.addTaperedBox(verts, idxs, 0.1, 0.15, 0, 1.15, 0.15, 0.27, 0.3, 0.4, [cr, cg, cb]);
+    // Cockpit opening (dark recess on the tub top)
+    this.addBox(verts, idxs, 0.45, 0.3, 0, 0.3, 0.01, 0.22, dark);
+    // Driver helmet + visor
+    this.addSphere(verts, idxs, 0.42, 0.32, 0, 0.09, 10, [0.95, 0.95, 0.98]);
+    this.addBox(verts, idxs, 0.5, 0.32, 0, 0.04, 0.06, 0.1, dark);
 
-    // ── 3. Nose cone (tapering forward) ──
-    this.addBox(verts, idxs, 0.85, 0.14, 0, 0.55, 0.12, 0.28, [cr, cg, cb]);
-    this.addBox(verts, idxs, 1.15, 0.11, 0, 0.25, 0.08, 0.18, [cr, cg, cb]);
-    this.addCone(verts, idxs, 1.32, 0.11, 0, 0.09, 0.22, 8, [cr, cg, cb]);
+    // ── 3. Halo ──
+    this.addBox(verts, idxs, 0.15, 0.3, 0, 0.05, 0.18, 0.06, carbon);   // center pillar
+    this.addBox(verts, idxs, 0.1, 0.42, 0, 0.2, 0.04, 0.52, carbon);    // front arch
+    this.addBox(verts, idxs, -0.15, 0.42, 0.2, 0.55, 0.04, 0.06, carbon); // left bar
+    this.addBox(verts, idxs, -0.15, 0.42, -0.2, 0.55, 0.04, 0.06, carbon); // right bar
 
-    // ── 4. Front wing ──
-    // Main plane (full car width — F1 wings span the entire track section)
-    this.addBox(verts, idxs, 1.2, 0.06, 0, 0.3, 0.03, 1.5, carbon);
-    // Secondary flap
-    this.addBox(verts, idxs, 1.15, 0.10, 0, 0.2, 0.03, 1.4, carbon);
-    // Endplates
-    this.addBox(verts, idxs, 1.2, 0.12, 0.75, 0.35, 0.18, 0.04, carbon);
-    this.addBox(verts, idxs, 1.2, 0.12, -0.75, 0.35, 0.18, 0.04, carbon);
-    // Nose pylons connecting wing to nose
-    this.addBox(verts, idxs, 1.2, 0.08, 0.15, 0.1, 0.06, 0.04, carbon);
-    this.addBox(verts, idxs, 1.2, 0.08, -0.15, 0.1, 0.06, 0.04, carbon);
+    // ── 4. Nose cone (stepped, tapering forward) ──
+    this.addTaperedBox(verts, idxs, 0.7, 0.13, 0, 0.6, 0.14, 0.1, 0.2, 0.13, [cr, cg, cb]);
+    this.addTaperedBox(verts, idxs, 1.05, 0.1, 0, 0.3, 0.1, 0.06, 0.13, 0.09, [cr, cg, cb]);
+    this.addCone(verts, idxs, 1.28, 0.09, 0, 0.06, 0.16, 8, [cr, cg, cb]);
 
-    // ── 5. Sidepods (wide, tapering to rear) ──
-    this.addBox(verts, idxs, -0.1, 0.18, 0.50, 1.2, 0.20, 0.35, [cr, cg, cb]);
-    this.addBox(verts, idxs, -0.1, 0.18, -0.50, 1.2, 0.20, 0.35, [cr, cg, cb]);
-    // Sidepod intakes (dark openings)
-    this.addBox(verts, idxs, 0.6, 0.20, 0.50, 0.15, 0.06, 0.15, dark);
-    this.addBox(verts, idxs, 0.6, 0.20, -0.50, 0.15, 0.06, 0.15, dark);
+    // ── 5. Front wing (3 elements + endplates + pylons) ──
+    this.addBox(verts, idxs, 1.2, 0.06, 0, 0.32, 0.025, 1.5, carbon);   // main plane
+    this.addBox(verts, idxs, 1.14, 0.1, 0, 0.2, 0.025, 1.42, carbon);   // flap
+    this.addBox(verts, idxs, 1.09, 0.08, 0, 0.14, 0.02, 1.34, carbon);  // third element
+    this.addTaperedBox(verts, idxs, 1.2, 0.11, 0.75, 0.36, 0.22, 0.14, 0.05, 0.05, carbon);  // endplates
+    this.addTaperedBox(verts, idxs, 1.2, 0.11, -0.75, 0.36, 0.22, 0.14, 0.05, 0.05, carbon);
+    this.addBox(verts, idxs, 1.2, 0.08, 0.16, 0.1, 0.05, 0.04, carbon); // nose pylons
+    this.addBox(verts, idxs, 1.2, 0.08, -0.16, 0.1, 0.05, 0.04, carbon);
 
-    // ── 6. Engine cover / airbox ──
-    this.addBox(verts, idxs, -0.5, 0.35, 0, 0.8, 0.18, 0.28, [cr, cg, cb]);
-    // Airbox
-    this.addBox(verts, idxs, -0.25, 0.50, 0, 0.4, 0.14, 0.24, [cr, cg, cb]);
-    // Intake hole
-    this.addBox(verts, idxs, -0.1, 0.50, 0, 0.08, 0.08, 0.10, dark);
+    // ── 6. Sidepods (wide intake → narrow rear, with undercut) ──
+    this.addTaperedBox(verts, idxs, -0.05, 0.17, 0.5, 1.15, 0.14, 0.25, 0.3, 0.42, [cr, cg, cb]);
+    this.addTaperedBox(verts, idxs, -0.05, 0.17, -0.5, 1.15, 0.14, 0.25, 0.3, 0.42, [cr, cg, cb]);
+    // Undercut (dark lower half of the sidepod)
+    this.addTaperedBox(verts, idxs, -0.05, 0.08, 0.5, 1.0, 0.06, 0.1, 0.26, 0.36, dark);
+    this.addTaperedBox(verts, idxs, -0.05, 0.08, -0.5, 1.0, 0.06, 0.1, 0.26, 0.36, dark);
+    // Sidepod intakes (dark openings at the front)
+    this.addBox(verts, idxs, 0.58, 0.22, 0.5, 0.1, 0.07, 0.24, dark);
+    this.addBox(verts, idxs, 0.58, 0.22, -0.5, 0.1, 0.07, 0.24, dark);
 
-    // ── 7. Halo bar ──
-    // Center pillar
-    this.addBox(verts, idxs, 0.15, 0.30, 0, 0.05, 0.18, 0.06, carbon);
-    // Front arch
-    this.addBox(verts, idxs, 0.08, 0.42, 0, 0.18, 0.04, 0.50, carbon);
-    // Left side bar
-    this.addBox(verts, idxs, -0.15, 0.42, 0.22, 0.55, 0.04, 0.06, carbon);
-    // Right side bar
-    this.addBox(verts, idxs, -0.15, 0.42, -0.22, 0.55, 0.04, 0.06, carbon);
+    // ── 7. Engine cover (sloping down to the rear) + airbox ──
+    this.addTaperedBox(verts, idxs, -0.5, 0.3, 0, 0.85, 0.28, 0.12, 0.32, 0.2, [cr, cg, cb]);
+    this.addTaperedBox(verts, idxs, -0.25, 0.42, 0, 0.45, 0.17, 0.09, 0.26, 0.16, carbon); // airbox
+    this.addBox(verts, idxs, -0.15, 0.48, 0, 0.1, 0.06, 0.12, dark); // intake hole
 
-    // ── 8. Rear wing ──
-    // Main plane (full car width like a real F1 rear wing)
-    this.addBox(verts, idxs, -1.0, 0.38, 0, 0.35, 0.04, 1.05, carbon);
-    // Upper flap (DRS)
-    this.addBox(verts, idxs, -1.0, 0.44, 0, 0.3, 0.03, 1.05, carbon);
-    // Endplates
-    this.addBox(verts, idxs, -1.0, 0.38, 0.52, 0.35, 0.3, 0.04, carbon);
-    this.addBox(verts, idxs, -1.0, 0.38, -0.52, 0.35, 0.3, 0.04, carbon);
-    // Support pylons
-    this.addBox(verts, idxs, -0.9, 0.28, 0.22, 0.1, 0.14, 0.04, grey);
-    this.addBox(verts, idxs, -0.9, 0.28, -0.22, 0.1, 0.14, 0.04, grey);
+    // ── 8. Rear wing (main plane + DRS flap + beam wing + endplates) ──
+    this.addBox(verts, idxs, -1.0, 0.4, 0, 0.36, 0.035, 1.05, carbon);
+    this.addBox(verts, idxs, -1.0, 0.46, 0, 0.28, 0.03, 1.0, carbon);
+    this.addBox(verts, idxs, -0.95, 0.3, 0, 0.2, 0.025, 0.7, carbon);
+    this.addBox(verts, idxs, -1.0, 0.42, 0.52, 0.34, 0.32, 0.045, carbon);
+    this.addBox(verts, idxs, -1.0, 0.42, -0.52, 0.34, 0.32, 0.045, carbon);
+    this.addBox(verts, idxs, -0.9, 0.3, 0.22, 0.1, 0.16, 0.04, grey); // support pylons
+    this.addBox(verts, idxs, -0.9, 0.3, -0.22, 0.1, 0.16, 0.04, grey);
 
-    // ── 9. Bargeboards (vertical turning vanes ahead of sidepods) ──
-    this.addBox(verts, idxs, 0.55, 0.10, 0.32, 0.3, 0.08, 0.03, carbon);
-    this.addBox(verts, idxs, 0.55, 0.10, -0.32, 0.3, 0.08, 0.03, carbon);
+    // ── 9. Bargeboards (vertical vanes ahead of the sidepods) ──
+    this.addBox(verts, idxs, 0.55, 0.1, 0.33, 0.3, 0.12, 0.02, carbon);
+    this.addBox(verts, idxs, 0.55, 0.1, -0.33, 0.3, 0.12, 0.02, carbon);
 
-    // ── 10. Exhaust outlet ──
-    this.addCylinder(verts, idxs, -0.7, 0.30, 0.20, 0.04, 0.06, 6, grey);
-    this.addCylinder(verts, idxs, -0.7, 0.30, -0.20, 0.04, 0.06, 6, grey);
+    // ── 10. Mirrors ──
+    this.addBox(verts, idxs, 0.35, 0.3, 0.6, 0.1, 0.05, 0.07, grey);
+    this.addBox(verts, idxs, 0.35, 0.3, -0.6, 0.1, 0.05, 0.07, grey);
 
-    // ── 11. T-cam (camera on top of airbox) ──
+    // ── 11. Exhaust outlets ──
+    this.addCylinder(verts, idxs, -0.72, 0.28, 0.18, 0.04, 0.07, 8, grey);
+    this.addCylinder(verts, idxs, -0.72, 0.28, -0.18, 0.04, 0.07, 8, grey);
+
+    // ── 12. Rain light ──
+    this.addBox(verts, idxs, -1.02, 0.52, 0, 0.05, 0.07, 0.06, [1, 0.15, 0.15]);
+
+    // ── 13. T-cam + antenna ──
     this.addBox(verts, idxs, 0.0, 0.58, 0, 0.04, 0.05, 0.05, [1.0, 0.9, 0.2]);
+    this.addCylinder(verts, idxs, -0.2, 0.55, 0, 0.008, 0.3, 6, grey);
+
+    // ── 14. Shark fin (thin blade over the engine cover) ──
+    this.addBox(verts, idxs, -0.55, 0.4, 0, 0.5, 0.16, 0.015, carbon);
 
     const vertArray = new Float32Array(verts);
     const idxArray = new Uint16Array(idxs);
@@ -1033,6 +1041,46 @@ void main() {
       idxs.push(base, base + 1, base + 2);
       idxs.push(base + 2, base + 3, base);
     }
+  }
+
+  // Single quad (4 corners). Normal is computed from the winding via a cross
+  // product, so tapered / sloped faces get correct per-face lighting.
+  private addQuad(verts: number[], idxs: number[], a: number[], b: number[], c: number[], d: number[], color: number[]) {
+    const [r, g, bl] = color;
+    let nx = (b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]);
+    let ny = (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]);
+    let nz = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+    const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+    nx /= len; ny /= len; nz /= len;
+    const base = verts.length / 11;
+    for (const p of [a, b, c, d]) {
+      verts.push(p[0], p[1], p[2], nx, ny, nz, r, g, bl, 0, 0);
+    }
+    idxs.push(base, base + 1, base + 2);
+    idxs.push(base + 2, base + 3, base);
+  }
+
+  // Frustum prism along X: back face (x = cx - l/2) sized hBack × wBack, front
+  // face (x = cx + l/2) sized hFront × wFront. Gives sloped top/bottom/sides
+  // for noses, sidepods, engine covers, and diffusers.
+  private addTaperedBox(verts: number[], idxs: number[], cx: number, cy: number, cz: number, l: number, hBack: number, hFront: number, wBack: number, wFront: number, color: number[]) {
+    const hl = l / 2, hhb = hBack / 2, hhf = hFront / 2, hwb = wBack / 2, hwf = wFront / 2;
+    const b0 = [cx - hl, cy - hhb, cz - hwb];
+    const b1 = [cx - hl, cy - hhb, cz + hwb];
+    const b2 = [cx - hl, cy + hhb, cz + hwb];
+    const b3 = [cx - hl, cy + hhb, cz - hwb];
+    const f0 = [cx + hl, cy - hhf, cz - hwf];
+    const f1 = [cx + hl, cy - hhf, cz + hwf];
+    const f2 = [cx + hl, cy + hhf, cz + hwf];
+    const f3 = [cx + hl, cy + hhf, cz - hwf];
+    // Bottom / top / left / right / back / front — winding chosen so the
+    // cross-product normal points outward.
+    this.addQuad(verts, idxs, b1, b0, f0, f1, color); // bottom
+    this.addQuad(verts, idxs, b2, f2, f3, b3, color); // top
+    this.addQuad(verts, idxs, b3, f3, f0, b0, color); // left (z-)
+    this.addQuad(verts, idxs, b1, f1, f2, b2, color); // right (z+)
+    this.addQuad(verts, idxs, b0, b1, b2, b3, color); // back (x-)
+    this.addQuad(verts, idxs, f0, f3, f2, f1, color); // front (x+)
   }
 
   private addCylinder(verts: number[], idxs: number[], cx: number, cy: number, cz: number, radius: number, height: number, segments: number, color: number[]) {
@@ -1370,6 +1418,10 @@ void main() {
   renderCar(x: number, y: number, z: number, yaw: number, r: number, g: number, b: number) {
     const gl = this.gl;
     gl.useProgram(this.prog);
+    // The detailed car body is built from double-sided quads with computed
+    // normals, so draw it with back-face culling OFF to avoid any winding
+    // mismatch hiding faces. (Re-enabled at the end.)
+    gl.disable(gl.CULL_FACE);
     gl.bindVertexArray(this.carVao);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
@@ -1426,6 +1478,7 @@ void main() {
       gl.drawElements(gl.TRIANGLES, this.wheelCount, gl.UNSIGNED_SHORT, 0);
     }
     gl.bindVertexArray(null);
+    gl.enable(gl.CULL_FACE);
   }
 
   clearCache() {
