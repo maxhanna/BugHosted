@@ -256,8 +256,15 @@ namespace maxhanna.Server.Controllers
 
 						MetaHero hero = new MetaHero();
 						hero.Position = new Vector2(posX, posY);
-						hero.Id = (int)botId;
-						hero.Speed = 1;
+                        if (botId == null)
+                        {
+                            hero.Id = 0;
+                        }
+                        else
+                        {
+                            hero.Id = (int)(botId ?? 0.0f);
+                        }
+                        hero.Speed = 1;
 						hero.Map = "HeroRoom";
 						hero.Name = req.Name;
 						return Ok(hero);

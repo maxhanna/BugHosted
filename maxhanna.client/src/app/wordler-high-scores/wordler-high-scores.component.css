@@ -1,7 +1,9 @@
-.clickable { cursor: pointer; }
-
-.difficulty-group h4 { margin: 8px 0; }
-
+﻿.clickable {
+    cursor: pointer;
+}
+.difficulty-group h4 {
+    margin: 8px 0;
+}
 .userPopupPanelTitle {
     display: flex;
     align-items: center;
@@ -12,9 +14,21 @@
     cursor: pointer;
     text-decoration: underline;
 }
-
-/* limit the height of score groups to max 30vh */
 .difficulty-group {
     max-height: 30vh;
     overflow: auto;
+}
+@media (max-width:767px) {
+    .guess-header {
+        max-width: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .attempt-header {
+        max-width: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 }

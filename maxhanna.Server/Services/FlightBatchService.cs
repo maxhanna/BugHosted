@@ -16,7 +16,6 @@ namespace maxhanna.Server.Services
         private readonly ConcurrentDictionary<string, DateTime> _lastFetched = new();
         private readonly object _flushLock = new();
         private bool _flushPending = false;
-        private bool _initialFlushScheduled = false;
 
         private const int CACHE_TTL_SECONDS = 60;
         private const int FLUSH_INTERVAL_SECONDS = 60;

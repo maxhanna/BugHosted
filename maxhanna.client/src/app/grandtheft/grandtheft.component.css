@@ -1173,6 +1173,36 @@
   font-size: 13px;
   color: #888;
 }
+.gt-advisory {
+  margin-top: 28px;
+  max-width: 520px;
+  padding: 14px 18px;
+  border: 1px solid rgba(255, 193, 7, 0.55);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: 0 0 24px rgba(255, 193, 7, 0.12) inset;
+  text-align: left;
+}
+.gt-advisory-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #ffc107;
+  text-align: center;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+.gt-advisory-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #ddd;
+}
+.gt-advisory-body b {
+  color: #fff;
+}
 canvas.hidden { display: none; }
 #gt-yt-player {
   position: absolute;

@@ -1,8 +1,6 @@
 .crawlerResultContainer {
   width: 100%;
 }
-
-/* ─── Placeholder (before detail loads) ─── */
 .resultPlaceholder {
   padding: 10px 0;
   opacity: 0.5;
@@ -20,14 +18,10 @@
   color: var(--secondary-font-color, #94a3b8);
   word-break: break-all;
 }
-
-/* ─── Loading ─── */
 .resultLoading {
   padding: 16px;
   text-align: center;
 }
-
-/* ─── Detail (after data loads) ─── */
 .resultDetail {
   display: flex;
   gap: 14px;
@@ -36,16 +30,19 @@
   animation: resultFadeIn 0.2s ease-out;
 }
 @keyframes resultFadeIn {
-  from { opacity: 0; transform: translateY(3px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-
 .groupLinkDataWrapperDiv {
   flex: 1;
   min-width: 0;
 }
-
-/* Title */
 .pageTitleLink {
   color: var(--link-color, #4a9eff);
   text-decoration: none;
@@ -58,8 +55,6 @@
 .pageTitleLink:hover {
   text-decoration: underline;
 }
-
-/* URL + Favourite */
 .metadataTitleLinkFavouriteWrapper {
   display: flex;
   align-items: center;
@@ -79,7 +74,6 @@
   text-decoration: underline;
   color: var(--link-color, #4a9eff);
 }
-
 .favouriteToggleButton {
   background: none;
   border: none;
@@ -94,10 +88,8 @@
   flex-shrink: 0;
 }
 .favouriteToggleButton:hover {
-  background: rgba(255,105,180,0.08);
+  background: rgba(255, 105, 180, 0.08);
 }
-
-/* Description & metadata */
 .descriptionDiv {
   margin-bottom: 3px;
   font-size: 13px;
@@ -128,8 +120,6 @@
 .keywordsClass:hover {
   text-decoration: underline;
 }
-
-/* Thumbnail image */
 .imageUrlPictureDiv {
   flex-shrink: 0;
   width: 284px;
@@ -139,14 +129,21 @@
   height: 260px;
   border-radius: 6px;
   object-fit: cover;
-  border: 1px solid rgba(0,0,0,0.06);
+  border: 1px solid rgba(0, 0, 0, 0.06);
   transition: opacity 0.2s;
 }
 .imageUrlPictureDiv img:hover {
   opacity: 0.85;
 }
-
-/* Social result (link style) */
+@media (max-width: 768px) {
+  .imageUrlPictureDiv {
+    width: 84px;
+  }
+  .imageUrlPictureDiv img {
+    width: 84px;
+    height: 60px;
+  }
+}
 .resultPlaceholder a,
 .crawlerResultContainer a {
   cursor: pointer;

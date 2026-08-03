@@ -1,4 +1,4 @@
-<div class="wordler-high-scores">
+﻿<div class="wordler-high-scores">
   <div *ngIf="loading">Loading scores...</div>
   <div *ngIf="error" class="error">{{ error }}</div>
 
@@ -31,8 +31,8 @@
                     </th>
                     <th>Difficulty</th>
                     <th>User</th>
-                    <th>Guesses</th>
-                    <th>Attempts</th>
+                    <th class="guess-header">Guesses</th>
+                    <th class="attempt-header">Attempts</th>
                     <th>Time (s)</th>
                     <th>Score</th>
                     <th>Date</th>
