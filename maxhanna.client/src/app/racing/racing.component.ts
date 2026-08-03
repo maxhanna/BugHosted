@@ -237,6 +237,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private _windSource: AudioBufferSourceNode | null = null;
   private _windFilter: BiquadFilterNode | null = null;
   private _windGain: GainNode | null = null;
+  // Crowd noise layer — bandpassed white noise that swells as the car passes
+  // each grandstand (stands sit at 0/25/50/75% of the lap, mirroring
+  // buildScenery in racing-renderer.ts).
+  private _crowdSource: AudioBufferSourceNode | null = null;
+  private _crowdFilter: BiquadFilterNode | null = null;
+  private _crowdGain: GainNode | null = null;
+  private static readonly GRANDSTAND_FRACS = [0, 0.25, 0.5, 0.75];
+  private static readonly CROWD_REACH = 55; // world units of audible proximity
 
   // ─── Podium / Results ───
   podiumData: { playerName: string; totalTime: number; moneyEarned: number }[] = [];
@@ -803,6 +811,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.playerCar.money -= this.selectedTrack.entryFee;
       this.saveCar();
     }
+    this.playCrowdCheer();
     this.addMessage('GO! GO! GO!');
   }
 
@@ -1011,6 +1020,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           this.gameState = 'racing';
           this.raceStartTime = performance.now();
           this.lapStartTime = this.raceStartTime;
+          this.playCrowdCheer();
         });
       }
     }, 1000);
@@ -1644,6 +1654,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     // and compared backwards, so laps never advanced and the race could never end.
     if (prevDist > trackLen * 0.8 && this.carDist < trackLen * 0.2) {
       this.currentLap++;
+      // Crowd roars a little louder on the final lap (finish) than regular laps.
+      this.playCrowdCheer(this.currentLap >= this.totalLaps ? 1.4 : 1);
       const lapTime = performance.now() - this.lapStartTime;
       this.lapTimes.push(lapTime);
       this.lastLapTime = lapTime;
@@ -2132,6 +2144,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         if (osc) { try { osc.stop(); } catch { } osc.disconnect(); }
       }
       if (this._windSource) { try { this._windSource.stop(); } catch { } this._windSource.disconnect(); }
+      if (this._crowdSource) { try { this._crowdSource.stop(); } catch { } this._crowdSource.disconnect(); }
+      if (this._crowdFilter) this._crowdFilter.disconnect();
+      if (this._crowdGain) this._crowdGain.disconnect();
       if (this._thrumLfoGain) this._thrumLfoGain.disconnect();
       if (this._windFilter) this._windFilter.disconnect();
       if (this._windGain) this._windGain.disconnect();
@@ -2148,6 +2163,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._windSource = null;
     this._windFilter = null;
     this._windGain = null;
+    this._crowdSource = null;
+    this._crowdFilter = null;
+    this._crowdGain = null;
     this._engineFilter = null;
     this._engineGain = null;
     this._audioCtx = null;
@@ -2229,12 +2247,32 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this._windFilter.connect(this._windGain);
       this._windGain.connect(ctx.destination);
 
+      // Crowd noise — bandpassed white noise started at zero gain; updateEngineAudio
+      // raises it based on how close the car is to the nearest grandstand.
+      const crowdLen = ctx.sampleRate * 2;
+      const crowdBuf = ctx.createBuffer(1, crowdLen, ctx.sampleRate);
+      const cdata = crowdBuf.getChannelData(0);
+      for (let i = 0; i < crowdLen; i++) cdata[i] = Math.random() * 2 - 1;
+      this._crowdSource = ctx.createBufferSource();
+      this._crowdSource.buffer = crowdBuf;
+      this._crowdSource.loop = true;
+      this._crowdFilter = ctx.createBiquadFilter();
+      this._crowdFilter.type = 'bandpass';
+      this._crowdFilter.frequency.value = 1200;
+      this._crowdFilter.Q.value = 0.6;
+      this._crowdGain = ctx.createGain();
+      this._crowdGain.gain.value = 0;
+      this._crowdSource.connect(this._crowdFilter);
+      this._crowdFilter.connect(this._crowdGain);
+      this._crowdGain.connect(ctx.destination);
+
       this._subOsc.start();
       this._engineOsc.start();
       this._engineOsc2.start();
       this._harmOsc.start();
       this._thrumLfo.start();
       this._windSource.start();
+      this._crowdSource.start();
     } catch { }
   }
 
@@ -2251,6 +2289,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       if (this._harmOsc) this._harmOsc.frequency.setTargetAtTime(140, t, 0.15);
       this._engineGain.gain.setTargetAtTime(0, t, 0.2);
       if (this._windGain) this._windGain.gain.setTargetAtTime(0, t, 0.2);
+      if (this._crowdGain) this._crowdGain.gain.setTargetAtTime(0, t, 0.2);
       return;
     }
 
@@ -2270,6 +2309,66 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const speedRatio = Math.min(1, speed / maxSpd);
     if (this._windFilter) this._windFilter.frequency.setTargetAtTime(400 + speedRatio * 2200, t, 0.15);
     if (this._windGain) this._windGain.gain.setTargetAtTime(speedRatio * speedRatio * 0.05, t, 0.15);
+
+    // Crowd in the grandstands — swells as the car closes on the nearest stand
+    // and fades once it's past. Circular distance on the wrapped lap position.
+    if (this._crowdGain && this.renderer) {
+      const td = this.renderer.totalTrackDist;
+      if (td > 0) {
+        const lapPos = ((this.carDist % td) + td) % td;
+        let nearest = Infinity;
+        for (const f of RacingComponent.GRANDSTAND_FRACS) {
+          const standDist = f * td;
+          const d = Math.abs(lapPos - standDist);
+          const wrapped = Math.min(d, td - d);
+          if (wrapped < nearest) nearest = wrapped;
+        }
+        const reach = RacingComponent.CROWD_REACH;
+        const level = nearest >= reach ? 0 : (1 - nearest / reach) * 0.05;
+        this._crowdGain.gain.setTargetAtTime(level, t, 0.1);
+        if (this._crowdFilter) {
+          this._crowdFilter.frequency.setTargetAtTime(900 + (level / 0.05) * 900, t, 0.15);
+        }
+      }
+    }
+  }
+
+  // One-shot crowd cheer — a swelled, short noise burst used at race start and
+  // when crossing the lap/finish line. A fresh buffer each call keeps it cheap;
+  // the fast swell + exponential decay reads as a crowd reacting, not more wind.
+  private playCrowdCheer(intensity = 1) {
+    if (!this.soundOn || !this._audioCtx || this.gameState !== 'racing') return;
+    try {
+      const ctx = this._audioCtx;
+      const t = ctx.currentTime;
+      const dur = 2.2;
+      const len = Math.floor(ctx.sampleRate * dur);
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+
+      // Brighter than the ambient babble — bandpass ~1.8kHz reads as cheering
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 1800;
+      filter.Q.value = 0.7;
+
+      const gain = ctx.createGain();
+      const peak = 0.14 * intensity;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(peak, t + 0.12);
+      gain.gain.setValueAtTime(peak, t + 0.6);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+
+      src.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      src.start(t);
+      src.stop(t + dur + 0.05);
+    } catch { }
   }
 
   // ─── Cockpit / Dashboard Data ───
