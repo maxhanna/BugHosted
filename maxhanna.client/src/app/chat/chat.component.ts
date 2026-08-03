@@ -462,6 +462,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           }
           this.scrollToBottomIfNeeded();
         }
+        this.checkChatBanStatus();
         this.isChangingPage = false;
         setTimeout(() => {
           // After messages load, update any poll results in DOM.
@@ -1371,6 +1372,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         this.chatWindow.nativeElement.scrollTop = this.chatWindow.nativeElement.scrollHeight;
       }, 250);
     });
+    this.checkChatBanStatus();
   }
   private playSoundIfNewMessage(newMessages: Message[]) {
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user ?? new User(0, "Anonymous");
