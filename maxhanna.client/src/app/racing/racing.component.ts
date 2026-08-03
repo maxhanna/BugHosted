@@ -145,6 +145,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   // Car-to-car impact cooldown: the response fires once per collision, not every
   // frame of overlap (which drained speed and made the steering jitter wildly).
   private _carImpactCooldown = 0;
+  // Bot-vs-bot impact-sound throttle: a sustained overlap fires one thud, not
+  // one every frame (same idea as the player's _carImpactCooldown).
+  private _botImpactCooldown = 0;
 
   // ─── Bots ───
   bots: BotCar[] = [];
@@ -1483,6 +1486,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
             this.carYaw += (Math.random() - 0.5) * 0.02;
             if (other.isBot) other.ref.yaw += (Math.random() - 0.5) * 0.02;
             this.screenShake = Math.max(0.02, Math.min(0.08, relV * 0.01));
+            // Impact thud — a fresh, short clunk that scales with closing speed.
+            // relV/20 keeps a graze quiet and only a real shunt hits full volume.
+            this.playImpactSound(Math.min(1, relV / 20), 1);
           }
         }
       }
@@ -1677,6 +1683,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     // get pushed apart, and hard contact scrubs speed + nudges yaw. This keeps
     // the pack from phasing through each other and creates the mid-race shuffle
     // (the old car-to-car pass only ever compared the PLAYER against cars).
+    // The impact-sound throttle ticks every frame (not just during contact) so
+    // two distinct shunts separated by a gap each fire their own thud, while a
+    // sustained overlap still only thuds every 0.25s.
+    this._botImpactCooldown -= dt;
     for (let i = 0; i < this.bots.length; i++) {
       const a = this.bots[i];
       if (!a.alive) continue;
@@ -1698,6 +1708,17 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
             b.speed *= 0.98;
             a.yaw += (Math.random() - 0.5) * 0.08;
             b.yaw += (Math.random() - 0.5) * 0.08;
+            // Hard contact → a distance-attenuated impact thud (throttled so a
+            // sustained overlap doesn't fire one every frame).
+            if (this._botImpactCooldown <= 0) {
+              this._botImpactCooldown = 0.25;
+              const mx = (a.x + b.x) * 0.5;
+              const mz = (a.z + b.z) * 0.5;
+              const dist = Math.hypot(mx - this.carX, mz - this.carZ);
+              const reach = RacingComponent.REMOTE_AUDIBLE;
+              const att = dist >= reach ? 0 : Math.pow(1 - dist / reach, 2);
+              if (att > 0.02) this.playImpactSound(0.6, att * 0.5);
+            }
           }
         }
       }
@@ -2544,6 +2565,63 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       gain.connect(ctx.destination);
       src.start(t);
       src.stop(t + dur + 0.05);
+    } catch { }
+  }
+
+  // One-shot car-to-car impact — a short, low thud built from bandpassed noise
+  // plus a sub-sine thump. Intensity (0..1) scales loudness; gainScale lets
+  // distant shunts fade to near-silence while your own bump stays punchy.
+  private playImpactSound(intensity = 1, gainScale = 1) {
+    if (!this.soundOn || !this._audioCtx || this.gameState !== 'racing') return;
+    try {
+      const ctx = this._audioCtx;
+      const t = ctx.currentTime;
+      const dur = 0.3;
+      const len = Math.floor(ctx.sampleRate * dur);
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      // Burst of noise that decays fast — the "clunk" body of the hit.
+      for (let i = 0; i < len; i++) {
+        const env = Math.pow(1 - i / len, 3);
+        d[i] = (Math.random() * 2 - 1) * env;
+      }
+
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+
+      // Bandpass ~300–400Hz keeps it a thud, not a screech.
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 350;
+      filter.Q.value = 0.8;
+
+      const gain = ctx.createGain();
+      // Cap ~0.3 so a hard shunt reads as a punchy thud without drowning the
+      // engine mix (which sits around 0.04–0.09).
+      const peak = Math.min(0.3, 0.06 + intensity * 0.24) * gainScale;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(peak, t + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+
+      // A sub sine drops 120→45Hz for the low body impact.
+      const sub = ctx.createOscillator();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(120, t);
+      sub.frequency.exponentialRampToValueAtTime(45, t + dur);
+      const subGain = ctx.createGain();
+      subGain.gain.setValueAtTime(peak * 1.4, t);
+      subGain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+
+      src.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      sub.connect(subGain);
+      subGain.connect(ctx.destination);
+
+      src.start(t);
+      src.stop(t + dur + 0.05);
+      sub.start(t);
+      sub.stop(t + dur + 0.05);
     } catch { }
   }
 

@@ -15,7 +15,7 @@
             : (m === 'today' ? "Today's " + (displayWordlerInHeader ? 'Wordler' : '') + " Scores" 
             : (m === 'user' ? "Your " + (displayWordlerInHeader ? 'Wordler' : '') + " Scores" 
             : (m === 'best' ? 'Best Scores (All Time)' 
-            : "All-time {{displayWordlerInHeader ? 'Wordler' : ''}} Scores"))) }}
+            : "All-time " + (displayWordlerInHeader ? 'Wordler' : '') + " Scores")))) }}
           <span *ngIf="!showUserHeader" style="float:right; font-size:0.9em">{{ isModeCollapsed(m) ? '+' : '−' }}</span>
         </div>
         <ng-container *ngIf="!isModeCollapsed(m)">

@@ -110,7 +110,7 @@
     </div>
 
     <app-wordler-high-scores [mode]="'today'" [userId]="parentRef?.user?.id" #todayScores
-      [inputtedParentRef]="parentRef" [headerClickable]="true"
+      [inputtedParentRef]="parentRef" [headerClickable]="true" [displayWordlerInHeader]="false"
       [showHeaderTitles]="true"></app-wordler-high-scores>
   </div>
 </div>
@@ -137,6 +137,7 @@
           [showHeader]="true"
           [showHeaderTitles]="true"
           [showUserHeader]="false"
+          [displayWordlerInHeader]="false"
           [headersCollapsed]="true">
         </app-wordler-high-scores>
       </div>
