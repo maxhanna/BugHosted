@@ -18,32 +18,7 @@ namespace maxhanna.Server.Controllers
       _log = log;
       _config = config;
     }
-
-    private static void EnsureSchema(string connStr)
-    {
-      try
-      {
-        using var conn = new MySqlConnection(connStr);
-        conn.Open();
-        string sql = @"CREATE TABLE IF NOT EXISTS maxhanna.moderator_roles (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            role VARCHAR(50) NOT NULL,
-            target_type VARCHAR(20) NULL,
-            target_id INT NULL,
-            assigned_by INT NULL,
-            assigned_at DATETIME DEFAULT UTC_TIMESTAMP(),
-            UNIQUE KEY uq_user_role_target (user_id, role, target_type, target_id)
-          );";
-        using var cmd = new MySqlCommand(sql, conn);
-        cmd.ExecuteNonQuery();
-      }
-      catch (Exception ex)
-      {
-        Console.WriteLine("ModeratorController.EnsureSchema failed: " + ex.Message);
-      }
-    }
-
+ 
     private async Task<bool> IsGlobalModeratorAsync(int userId)
     {
       if (userId == 1) return true;
@@ -93,7 +68,6 @@ namespace maxhanna.Server.Controllers
       if (!await IsGlobalModeratorAsync(callerUserId)) return Unauthorized("Only moderators can view the role catalog.");
 
       string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-      EnsureSchema(connStr);
       var catalog = new List<RoleDefinition>();
       var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -144,7 +118,6 @@ namespace maxhanna.Server.Controllers
       if (!await IsGlobalModeratorAsync(callerUserId)) return Unauthorized("Only moderators can view moderators.");
 
       string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-      EnsureSchema(connStr);
       var result = new List<ModeratorInfo>();
       try
       {
@@ -267,7 +240,6 @@ namespace maxhanna.Server.Controllers
         return BadRequest("Cannot remove moderator status from the owner.");
 
       string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-      EnsureSchema(connStr);
       string targetType = string.IsNullOrWhiteSpace(request.TargetType) ? "global" : request.TargetType!.Trim().ToLowerInvariant();
       int? targetId = targetType == "global" ? null : request.TargetId;
 
@@ -381,7 +353,6 @@ namespace maxhanna.Server.Controllers
       if (!await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
 
       string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-      EnsureSchema(connStr);
       var roles = new List<ModeratorRole>();
       try
       {

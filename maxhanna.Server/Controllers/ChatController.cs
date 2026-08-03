@@ -1240,18 +1240,7 @@ namespace maxhanna.Server.Controllers
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
-				await conn.OpenAsync();
-
-				// Ensure the chat_rooms table exists.
-				string ensureSql = @"CREATE TABLE IF NOT EXISTS maxhanna.chat_rooms (
-					chat_id INT PRIMARY KEY,
-					name VARCHAR(120) NOT NULL,
-					is_public TINYINT(1) NOT NULL DEFAULT 0,
-					created_by INT NULL,
-					created_at DATETIME DEFAULT UTC_TIMESTAMP()
-				);";
-				using (var ensureCmd = new MySqlCommand(ensureSql, conn))
-					await ensureCmd.ExecuteNonQueryAsync();
+				await conn.OpenAsync(); 
 
 				string name = string.IsNullOrWhiteSpace(request.Name) ? "Public Chat #" + request.ChatId : request.Name.Trim();
 
@@ -1281,20 +1270,7 @@ namespace maxhanna.Server.Controllers
 							if (int.TryParse(idStr.Trim(), out int id) && id > 0)
 								memberIds.Add(id);
 					}
-				}
-
-				string ensureRolesSql = @"CREATE TABLE IF NOT EXISTS maxhanna.moderator_roles (
-					id INT AUTO_INCREMENT PRIMARY KEY,
-					user_id INT NOT NULL,
-					role VARCHAR(50) NOT NULL,
-					target_type VARCHAR(20) NULL,
-					target_id INT NULL,
-					assigned_by INT NULL,
-					assigned_at DATETIME DEFAULT UTC_TIMESTAMP(),
-					UNIQUE KEY uq_user_role_target (user_id, role, target_type, target_id)
-				);";
-				using (var ensureRolesCmd = new MySqlCommand(ensureRolesSql, conn))
-					await ensureRolesCmd.ExecuteNonQueryAsync();
+				} 
 
 				foreach (var memberId in memberIds)
 				{
@@ -1327,17 +1303,7 @@ namespace maxhanna.Server.Controllers
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
-				await conn.OpenAsync();
-				string ensureSql = @"CREATE TABLE IF NOT EXISTS maxhanna.chat_rooms (
-					chat_id INT PRIMARY KEY,
-					name VARCHAR(120) NOT NULL,
-					is_public TINYINT(1) NOT NULL DEFAULT 0,
-					created_by INT NULL,
-					created_at DATETIME DEFAULT UTC_TIMESTAMP()
-				);";
-				using (var ensureCmd = new MySqlCommand(ensureSql, conn))
-					await ensureCmd.ExecuteNonQueryAsync();
-
+				await conn.OpenAsync(); 
 				string search = string.IsNullOrWhiteSpace(request?.Search) ? "" : request.Search.Trim();
 				string sql = @"
 					SELECT cr.chat_id, cr.name, cr.created_by, cr.created_at
@@ -1383,16 +1349,7 @@ namespace maxhanna.Server.Controllers
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
-				await conn.OpenAsync();
-				string ensureSql = @"CREATE TABLE IF NOT EXISTS maxhanna.chat_rooms (
-					chat_id INT PRIMARY KEY,
-					name VARCHAR(120) NOT NULL,
-					is_public TINYINT(1) NOT NULL DEFAULT 0,
-					created_by INT NULL,
-					created_at DATETIME DEFAULT UTC_TIMESTAMP()
-				);";
-				using (var ensureCmd = new MySqlCommand(ensureSql, conn))
-					await ensureCmd.ExecuteNonQueryAsync();
+				await conn.OpenAsync(); 
 
 				// Verify the chat is public.
 				string checkSql = "SELECT COUNT(*) FROM maxhanna.chat_rooms WHERE chat_id = @ChatId AND is_public = 1;";
@@ -1441,30 +1398,20 @@ namespace maxhanna.Server.Controllers
 			if (request == null || request.ChatId <= 0 || request.UserIds == null || request.UserIds.Count == 0)
 				return BadRequest("Invalid request.");
 
-			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));				try
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));				
+			try
+			{
+				await conn.OpenAsync(); 
+
+				string checkSql = "SELECT COUNT(*) FROM maxhanna.chat_rooms WHERE chat_id = @ChatId AND is_public = 1;";
+				using (var checkCmd = new MySqlCommand(checkSql, conn))
 				{
-					await conn.OpenAsync();
-					// Ensure the chat_rooms table exists, then verify the chat exists AND is public so
-					// a caller can't smuggle users into a private chat they don't belong to.
-					string ensureSql = @"CREATE TABLE IF NOT EXISTS maxhanna.chat_rooms (
-						chat_id INT PRIMARY KEY,
-						name VARCHAR(120) NOT NULL,
-						is_public TINYINT(1) NOT NULL DEFAULT 0,
-						created_by INT NULL,
-						created_at DATETIME DEFAULT UTC_TIMESTAMP()
-					);";
-					using (var ensureCmd = new MySqlCommand(ensureSql, conn))
-						await ensureCmd.ExecuteNonQueryAsync();
+					checkCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+					if (Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) == 0)
+						return NotFound("Chat is not public.");
+				}
 
-					string checkSql = "SELECT COUNT(*) FROM maxhanna.chat_rooms WHERE chat_id = @ChatId AND is_public = 1;";
-					using (var checkCmd = new MySqlCommand(checkSql, conn))
-					{
-						checkCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
-						if (Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) == 0)
-							return NotFound("Chat is not public.");
-					}
-
-					int added = 0;
+				int added = 0;
 				foreach (int userId in request.UserIds.Distinct())
 				{
 					if (userId <= 0) continue;
@@ -1506,17 +1453,7 @@ namespace maxhanna.Server.Controllers
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
-				await conn.OpenAsync();
-				string ensureSql = @"CREATE TABLE IF NOT EXISTS maxhanna.chat_rooms (
-					chat_id INT PRIMARY KEY,
-					name VARCHAR(120) NOT NULL,
-					is_public TINYINT(1) NOT NULL DEFAULT 0,
-					created_by INT NULL,
-					created_at DATETIME DEFAULT UTC_TIMESTAMP()
-				);";
-				using (var ensureCmd = new MySqlCommand(ensureSql, conn))
-					await ensureCmd.ExecuteNonQueryAsync();
-
+				await conn.OpenAsync(); 
 				string sql = "SELECT name, is_public, created_by FROM maxhanna.chat_rooms WHERE chat_id = @ChatId LIMIT 1;";
 				using var cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@ChatId", request.ChatId);

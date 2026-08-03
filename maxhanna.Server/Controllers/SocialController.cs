@@ -274,7 +274,7 @@ namespace maxhanna.Server.Controllers
 
       using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
       {
-        await conn.OpenAsync(); 
+        await conn.OpenAsync();
         using (var countCmd = new MySqlCommand(countSql, conn))
         {
           foreach (var param in parameters)
@@ -1192,7 +1192,7 @@ namespace maxhanna.Server.Controllers
     }
 
     private static bool _storyChatIdColumnEnsured = false;
-    private static readonly object _storyChatIdLock = new object(); 
+    private static readonly object _storyChatIdLock = new object();
 
     [HttpPost("/Social/Post-Story/", Name = "PostStory")]
     public async Task<IActionResult> PostStory([FromBody] StoryRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
@@ -1207,7 +1207,7 @@ namespace maxhanna.Server.Controllers
 
         using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
         {
-          await conn.OpenAsync(); 
+          await conn.OpenAsync();
 
           using (var cmd = new MySqlCommand(sql, conn))
           {
@@ -1307,7 +1307,6 @@ namespace maxhanna.Server.Controllers
 
       try
       {
-        await EnsureModeratorRolesSchemaAsync();
         string sql = @"
             DELETE FROM stories 
             WHERE 
@@ -1361,7 +1360,6 @@ namespace maxhanna.Server.Controllers
 
       try
       {
-        await EnsureModeratorRolesSchemaAsync();
         string sql = @"UPDATE stories SET story_text = @Text, visibility = @visibility 
           WHERE id = @StoryId AND (
             user_id = @UserId OR profile_user_id = @UserId OR @UserId = 1
@@ -1411,32 +1409,6 @@ namespace maxhanna.Server.Controllers
       {
         _ = _log.Db("An error occurred while deleting story." + ex.Message, request.userId, "SOCIAL", true);
         return StatusCode(500, "An error occurred while deleting story.");
-      }
-    }
-
-    private async Task EnsureModeratorRolesSchemaAsync()
-    {
-      try
-      {
-        string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-        using var conn = new MySqlConnection(connStr);
-        await conn.OpenAsync();
-        string sql = @"CREATE TABLE IF NOT EXISTS maxhanna.moderator_roles (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id INT NOT NULL,
-            role VARCHAR(50) NOT NULL,
-            target_type VARCHAR(20) NULL,
-            target_id INT NULL,
-            assigned_by INT NULL,
-            assigned_at DATETIME DEFAULT UTC_TIMESTAMP(),
-            UNIQUE KEY uq_user_role_target (user_id, role, target_type, target_id)
-          );";
-        using var cmd = new MySqlCommand(sql, conn);
-        await cmd.ExecuteNonQueryAsync();
-      }
-      catch (Exception ex)
-      {
-        _ = _log.Db("EnsureModeratorRolesSchemaAsync failed: " + ex.Message, null, "SOCIAL", true);
       }
     }
 
