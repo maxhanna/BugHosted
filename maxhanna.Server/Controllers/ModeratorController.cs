@@ -230,18 +230,27 @@ namespace maxhanna.Server.Controllers
       [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
     {
       if (!await _log.ValidateUserLoggedIn(request.CallerUserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
-      if (request.CallerUserId != 1 && !await IsAdminAsync(request.CallerUserId))
-        return Unauthorized("Only admins can change roles.");
 
       if (string.IsNullOrWhiteSpace(request.Role) || request.TargetUserId <= 0)
         return BadRequest("Invalid request.");
+
+      string targetType = string.IsNullOrWhiteSpace(request.TargetType) ? "global" : request.TargetType!.Trim().ToLowerInvariant();
+      int? targetId = targetType == "global" ? null : request.TargetId;
+
+      // Low-level chat moderation: anyone who already moderates a chat room can
+      // grant/revoke the chat_moderator role for THAT chat. Admins keep full
+      // control over every role/scope; everyone else is rejected.
+      bool isAdminCaller = request.CallerUserId == 1 || await IsAdminAsync(request.CallerUserId);
+      bool isChatScopedAssign = request.Role.Equals("chat_moderator", StringComparison.OrdinalIgnoreCase)
+        && targetType == "chat" && targetId.HasValue
+        && await IsChatModeratorAsync(_config, request.CallerUserId, targetId.Value);
+      if (!isAdminCaller && !isChatScopedAssign)
+        return Unauthorized("Only admins or that chat room's moderators can change this role.");
 
       if (request.TargetUserId == 1 && request.Remove)
         return BadRequest("Cannot remove moderator status from the owner.");
 
       string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-      string targetType = string.IsNullOrWhiteSpace(request.TargetType) ? "global" : request.TargetType!.Trim().ToLowerInvariant();
-      int? targetId = targetType == "global" ? null : request.TargetId;
 
       try
       {
@@ -421,6 +430,400 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+    // ─── Chat-scoped bans & appeals ────────────────────────────────────────────
+    // Low-level moderation: a chat room's moderators can ban/unban users within
+    // that room only, and banned users can appeal to the room's moderators.
+
+    private async Task EnsureChatBanSchemaAsync(MySqlConnection conn)
+    {
+      const string bansSql = @"CREATE TABLE IF NOT EXISTS maxhanna.chat_bans (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        chat_id INT NOT NULL,
+        user_id INT NOT NULL,
+        banned_by INT NOT NULL,
+        reason VARCHAR(500) NULL,
+        created_at DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
+        lifted_at DATETIME NULL,
+        lifted_by INT NULL,
+        UNIQUE KEY uq_chat_bans (chat_id, user_id, lifted_at)
+      );";
+      const string appealsSql = @"CREATE TABLE IF NOT EXISTS maxhanna.chat_ban_appeal (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        chat_id INT NOT NULL,
+        user_id INT NOT NULL,
+        appeal_text TEXT NULL,
+        created_at DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
+        resolved_at DATETIME NULL,
+        resolved_by INT NULL,
+        resolution VARCHAR(20) NULL
+      );";
+      using var b = new MySqlCommand(bansSql, conn);
+      await b.ExecuteNonQueryAsync();
+      using var a = new MySqlCommand(appealsSql, conn);
+      await a.ExecuteNonQueryAsync();
+    }
+
+    /// <summary>True when the user has an active (not lifted) ban in this chat.</summary>
+    private async Task<bool> IsChatUserBannedAsync(MySqlConnection conn, int chatId, int userId)
+    {
+      string sql = "SELECT COUNT(*) FROM maxhanna.chat_bans WHERE chat_id = @ChatId AND user_id = @UserId AND lifted_at IS NULL;";
+      using var cmd = new MySqlCommand(sql, conn);
+      cmd.Parameters.AddWithValue("@ChatId", chatId);
+      cmd.Parameters.AddWithValue("@UserId", userId);
+      return Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
+    }
+
+    /// <summary>Public helper — used by ChatController to block banned senders.</summary>
+    public static async Task<bool> IsChatUserBannedAsync(IConfiguration config, int chatId, int userId)
+    {
+      try
+      {
+        string connStr = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        string sql = "SELECT COUNT(*) FROM maxhanna.chat_bans WHERE chat_id = @ChatId AND user_id = @UserId AND lifted_at IS NULL;";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@ChatId", chatId);
+        cmd.Parameters.AddWithValue("@UserId", userId);
+        return Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
+      }
+      catch { return false; }
+    }
+
+    [HttpPost("/Moderator/BanChatUser", Name = "BanChatUser")]
+    public async Task<IActionResult> BanChatUser(
+      [FromBody] ChatBanRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (request == null || request.ChatId <= 0 || request.TargetUserId <= 0 || request.CallerUserId <= 0)
+        return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(request.CallerUserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+      if (request.CallerUserId != 1 && !await IsAdminAsync(request.CallerUserId)
+        && !await IsChatModeratorAsync(_config, request.CallerUserId, request.ChatId))
+        return Unauthorized("Only that chat room's moderators can ban users here.");
+      if (request.TargetUserId == 1) return BadRequest("Cannot ban the owner.");
+
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        await EnsureChatBanSchemaAsync(conn);
+
+        string sql = @"INSERT INTO maxhanna.chat_bans (chat_id, user_id, banned_by, reason, created_at)
+          VALUES (@ChatId, @UserId, @BannedBy, @Reason, UTC_TIMESTAMP())
+          ON DUPLICATE KEY UPDATE lifted_at = NULL, lifted_by = NULL, reason = @Reason, banned_by = @BannedBy;";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+        cmd.Parameters.AddWithValue("@UserId", request.TargetUserId);
+        cmd.Parameters.AddWithValue("@BannedBy", request.CallerUserId);
+        cmd.Parameters.AddWithValue("@Reason", string.IsNullOrWhiteSpace(request.Reason) ? "Banned by a chat moderator." : request.Reason.Trim());
+        await cmd.ExecuteNonQueryAsync();
+
+        _ = _log.Db($"Moderator {request.CallerUserId} banned user {request.TargetUserId} from chat #{request.ChatId} ({request.Reason})", request.CallerUserId, "MODERATOR", true);
+        return Ok(new { message = "User banned from this chat." });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in BanChatUser: " + ex.Message, request.CallerUserId, "MODERATOR", true);
+        return StatusCode(500, "Failed to ban user from chat.");
+      }
+    }
+
+    [HttpPost("/Moderator/UnbanChatUser", Name = "UnbanChatUser")]
+    public async Task<IActionResult> UnbanChatUser(
+      [FromBody] ChatBanRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (request == null || request.ChatId <= 0 || request.TargetUserId <= 0 || request.CallerUserId <= 0)
+        return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(request.CallerUserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+      if (request.CallerUserId != 1 && !await IsAdminAsync(request.CallerUserId)
+        && !await IsChatModeratorAsync(_config, request.CallerUserId, request.ChatId))
+        return Unauthorized("Only that chat room's moderators can unban users here.");
+
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        await EnsureChatBanSchemaAsync(conn);
+
+        string sql = "UPDATE maxhanna.chat_bans SET lifted_at = UTC_TIMESTAMP(), lifted_by = @By WHERE chat_id = @ChatId AND user_id = @UserId AND lifted_at IS NULL;";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+        cmd.Parameters.AddWithValue("@UserId", request.TargetUserId);
+        cmd.Parameters.AddWithValue("@By", request.CallerUserId);
+        await cmd.ExecuteNonQueryAsync();
+
+        _ = _log.Db($"Moderator {request.CallerUserId} un-banned user {request.TargetUserId} from chat #{request.ChatId}", request.CallerUserId, "MODERATOR", true);
+        return Ok(new { message = "User un-banned from this chat." });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in UnbanChatUser: " + ex.Message, request.CallerUserId, "MODERATOR", true);
+        return StatusCode(500, "Failed to unban user from chat.");
+      }
+    }
+
+    [HttpPost("/Moderator/GetChatBans", Name = "GetChatBans")]
+    public async Task<IActionResult> GetChatBans(
+      [FromBody] GetChatBansRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (request == null || request.ChatId <= 0 || request.CallerUserId <= 0) return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(request.CallerUserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+      if (request.CallerUserId != 1 && !await IsAdminAsync(request.CallerUserId)
+        && !await IsChatModeratorAsync(_config, request.CallerUserId, request.ChatId))
+        return Unauthorized("Only that chat room's moderators can view bans.");
+
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        await EnsureChatBanSchemaAsync(conn);
+        var bans = new List<object>();
+        string sql = @"SELECT cb.id, cb.chat_id, cb.user_id, cb.banned_by, cb.reason, cb.created_at, cb.lifted_at, cb.lifted_by, u.username
+          FROM maxhanna.chat_bans cb LEFT JOIN maxhanna.users u ON u.id = cb.user_id
+          WHERE cb.chat_id = @ChatId ORDER BY cb.created_at DESC;";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+        using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+          bans.Add(new
+          {
+            id = reader.GetInt32("id"),
+            chatId = reader.GetInt32("chat_id"),
+            userId = reader.GetInt32("user_id"),
+            username = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username"),
+            bannedBy = reader.GetInt32("banned_by"),
+            reason = reader.IsDBNull(reader.GetOrdinal("reason")) ? null : reader.GetString("reason"),
+            createdAt = reader.GetDateTime("created_at"),
+            liftedAt = reader.IsDBNull(reader.GetOrdinal("lifted_at")) ? null : (DateTime?)reader.GetDateTime("lifted_at"),
+            liftedBy = reader.IsDBNull(reader.GetOrdinal("lifted_by")) ? null : (int?)reader.GetInt32("lifted_by"),
+            isActive = reader.IsDBNull(reader.GetOrdinal("lifted_at"))
+          });
+        }
+        return Ok(bans);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in GetChatBans: " + ex.Message, request.CallerUserId, "MODERATOR", true);
+        return StatusCode(500, "Failed to get chat bans.");
+      }
+    }
+
+    [HttpPost("/Moderator/AppealChatBan", Name = "AppealChatBan")]
+    public async Task<IActionResult> AppealChatBan(
+      [FromBody] ChatBanAppealRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (request == null || request.ChatId <= 0 || request.UserId <= 0 || string.IsNullOrWhiteSpace(request.AppealText))
+        return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        await EnsureChatBanSchemaAsync(conn);
+
+        // Only an actively banned user may appeal.
+        if (!await IsChatUserBannedAsync(conn, request.ChatId, request.UserId))
+          return BadRequest("You are not banned from this chat.");
+
+        // One open appeal at a time per chat+user.
+        string openSql = "SELECT COUNT(*) FROM maxhanna.chat_ban_appeal WHERE chat_id = @ChatId AND user_id = @UserId AND resolved_at IS NULL;";
+        using var openCmd = new MySqlCommand(openSql, conn);
+        openCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+        openCmd.Parameters.AddWithValue("@UserId", request.UserId);
+        if (Convert.ToInt32(await openCmd.ExecuteScalarAsync()) > 0)
+          return BadRequest("You already have a pending appeal for this chat.");
+
+        string sql = "INSERT INTO maxhanna.chat_ban_appeal (chat_id, user_id, appeal_text, created_at) VALUES (@ChatId, @UserId, @AppealText, UTC_TIMESTAMP());";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+        cmd.Parameters.AddWithValue("@UserId", request.UserId);
+        cmd.Parameters.AddWithValue("@AppealText", request.AppealText.Trim());
+        await cmd.ExecuteNonQueryAsync();
+
+        _ = _log.Db($"User {request.UserId} appealed their ban in chat #{request.ChatId}", request.UserId, "MODERATOR", true);
+        return Ok(new { message = "Appeal submitted to the chat's moderators." });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in AppealChatBan: " + ex.Message, request.UserId, "MODERATOR", true);
+        return StatusCode(500, "Failed to submit appeal.");
+      }
+    }
+
+    [HttpPost("/Moderator/GetChatBanAppeals", Name = "GetChatBanAppeals")]
+    public async Task<IActionResult> GetChatBanAppeals(
+      [FromBody] GetChatBansRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (request == null || request.ChatId <= 0 || request.CallerUserId <= 0) return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(request.CallerUserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+      if (request.CallerUserId != 1 && !await IsAdminAsync(request.CallerUserId)
+        && !await IsChatModeratorAsync(_config, request.CallerUserId, request.ChatId))
+        return Unauthorized("Only that chat room's moderators can view appeals.");
+
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        await EnsureChatBanSchemaAsync(conn);
+        var appeals = new List<object>();
+        string sql = @"SELECT a.id, a.chat_id, a.user_id, a.appeal_text, a.created_at, a.resolved_at, a.resolved_by, a.resolution, u.username
+          FROM maxhanna.chat_ban_appeal a LEFT JOIN maxhanna.users u ON u.id = a.user_id
+          WHERE a.chat_id = @ChatId ORDER BY a.resolved_at IS NULL DESC, a.created_at DESC;";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+        using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+          appeals.Add(new
+          {
+            id = reader.GetInt32("id"),
+            chatId = reader.GetInt32("chat_id"),
+            userId = reader.GetInt32("user_id"),
+            username = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username"),
+            appealText = reader.IsDBNull(reader.GetOrdinal("appeal_text")) ? null : reader.GetString("appeal_text"),
+            createdAt = reader.GetDateTime("created_at"),
+            resolvedAt = reader.IsDBNull(reader.GetOrdinal("resolved_at")) ? null : (DateTime?)reader.GetDateTime("resolved_at"),
+            resolvedBy = reader.IsDBNull(reader.GetOrdinal("resolved_by")) ? null : (int?)reader.GetInt32("resolved_by"),
+            resolution = reader.IsDBNull(reader.GetOrdinal("resolution")) ? null : reader.GetString("resolution")
+          });
+        }
+        return Ok(appeals);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in GetChatBanAppeals: " + ex.Message, request.CallerUserId, "MODERATOR", true);
+        return StatusCode(500, "Failed to get chat ban appeals.");
+      }
+    }
+
+    [HttpPost("/Moderator/ResolveChatBanAppeal", Name = "ResolveChatBanAppeal")]
+    public async Task<IActionResult> ResolveChatBanAppeal(
+      [FromBody] ResolveChatBanAppealRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (request == null || request.AppealId <= 0 || request.CallerUserId <= 0) return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(request.CallerUserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        await EnsureChatBanSchemaAsync(conn);
+
+        // Load the appeal to find its chat, then verify the caller moderates it.
+        int chatId = 0, userId = 0;
+        string getSql = "SELECT chat_id, user_id FROM maxhanna.chat_ban_appeal WHERE id = @AppealId;";
+        using (var getCmd = new MySqlCommand(getSql, conn))
+        {
+          getCmd.Parameters.AddWithValue("@AppealId", request.AppealId);
+          using var reader = await getCmd.ExecuteReaderAsync();
+          if (await reader.ReadAsync())
+          {
+            chatId = reader.GetInt32("chat_id");
+            userId = reader.GetInt32("user_id");
+          }
+        }
+        if (chatId <= 0) return NotFound("Appeal not found.");
+
+        if (request.CallerUserId != 1 && !await IsAdminAsync(request.CallerUserId)
+          && !await IsChatModeratorAsync(_config, request.CallerUserId, chatId))
+          return Unauthorized("Only that chat room's moderators can resolve appeals.");
+
+        string resolution = string.IsNullOrWhiteSpace(request.Resolution) ? "denied" : request.Resolution.Trim().ToLowerInvariant();
+        string resolveSql = "UPDATE maxhanna.chat_ban_appeal SET resolved_at = UTC_TIMESTAMP(), resolved_by = @By, resolution = @Resolution WHERE id = @AppealId;";
+        using var resolveCmd = new MySqlCommand(resolveSql, conn);
+        resolveCmd.Parameters.AddWithValue("@AppealId", request.AppealId);
+        resolveCmd.Parameters.AddWithValue("@By", request.CallerUserId);
+        resolveCmd.Parameters.AddWithValue("@Resolution", resolution);
+        await resolveCmd.ExecuteNonQueryAsync();
+
+        // Approved appeal lifts the ban so the user can rejoin and chat again.
+        if (resolution == "approved")
+        {
+          string liftSql = "UPDATE maxhanna.chat_bans SET lifted_at = UTC_TIMESTAMP(), lifted_by = @By WHERE chat_id = @ChatId AND user_id = @UserId AND lifted_at IS NULL;";
+          using var liftCmd = new MySqlCommand(liftSql, conn);
+          liftCmd.Parameters.AddWithValue("@ChatId", chatId);
+          liftCmd.Parameters.AddWithValue("@UserId", userId);
+          liftCmd.Parameters.AddWithValue("@By", request.CallerUserId);
+          await liftCmd.ExecuteNonQueryAsync();
+        }
+
+        _ = _log.Db($"Moderator {request.CallerUserId} resolved chat #{chatId} ban appeal {request.AppealId} as '{resolution}'", request.CallerUserId, "MODERATOR", true);
+        return Ok(new { message = "Appeal resolved." });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in ResolveChatBanAppeal: " + ex.Message, request.CallerUserId, "MODERATOR", true);
+        return StatusCode(500, "Failed to resolve appeal.");
+      }
+    }
+
+    /// <summary>Lets a user check their own ban status in a chat so the client can
+    /// show a banned notice and appeal option without asking the moderators.</summary>
+    [HttpPost("/Moderator/IsChatUserBanned", Name = "IsChatUserBanned")]
+    public async Task<IActionResult> IsChatUserBanned(
+      [FromBody] ChatBanAppealRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (request == null || request.ChatId <= 0 || request.UserId <= 0) return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        await EnsureChatBanSchemaAsync(conn);
+        bool isBanned = await IsChatUserBannedAsync(conn, request.ChatId, request.UserId);
+        bool hasPendingAppeal = false;
+        if (isBanned)
+        {
+          string sql = "SELECT COUNT(*) FROM maxhanna.chat_ban_appeal WHERE chat_id = @ChatId AND user_id = @UserId AND resolved_at IS NULL;";
+          using var cmd = new MySqlCommand(sql, conn);
+          cmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+          cmd.Parameters.AddWithValue("@UserId", request.UserId);
+          hasPendingAppeal = Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
+        }
+        return Ok(new { isBanned, hasPendingAppeal });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in IsChatUserBanned: " + ex.Message, request.UserId, "MODERATOR", true);
+        return StatusCode(500, "Failed to check ban status.");
+      }
+    }
+
+    /// <summary>Public helper used by other controllers to check chat moderation.</summary>
+    public static async Task<bool> IsChatModeratorAsync(IConfiguration config, int userId, int chatId)
+    {
+      if (userId == 1) return true;
+      try
+      {
+        string connStr = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        string sql = "SELECT COUNT(*) FROM maxhanna.moderator_roles WHERE user_id = @UserId AND role = 'chat_moderator' AND target_type = 'chat' AND target_id = @ChatId;";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@UserId", userId);
+        cmd.Parameters.AddWithValue("@ChatId", chatId);
+        return Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
+      }
+      catch { return false; }
+    }
+
     /// <summary>Public helper used by other controllers to check topic moderation.</summary>
     public static async Task<bool> IsTopicModeratorAsync(IConfiguration config, int userId, int storyId)
     {
@@ -482,5 +885,33 @@ namespace maxhanna.Server.Controllers
   {
     public int CallerUserId { get; set; }
     public int Limit { get; set; } = 200;
+  }
+
+  public class ChatBanRequest
+  {
+    public int ChatId { get; set; }
+    public int TargetUserId { get; set; }
+    public int CallerUserId { get; set; }
+    public string? Reason { get; set; }
+  }
+
+  public class GetChatBansRequest
+  {
+    public int ChatId { get; set; }
+    public int CallerUserId { get; set; }
+  }
+
+  public class ChatBanAppealRequest
+  {
+    public int ChatId { get; set; }
+    public int UserId { get; set; }
+    public string AppealText { get; set; } = "";
+  }
+
+  public class ResolveChatBanAppealRequest
+  {
+    public int AppealId { get; set; }
+    public int CallerUserId { get; set; }
+    public string? Resolution { get; set; }
   }
 }

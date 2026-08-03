@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { ModeratorInfo, ModeratorLog, ModeratorRole, PublicChatInfo, RoleDefinition } from './datacontracts/moderator/moderator';
+import { ChatBan, ChatBanAppeal, ModeratorInfo, ModeratorLog, ModeratorRole, PublicChatInfo, RoleDefinition } from './datacontracts/moderator/moderator';
 
 @Injectable({
   providedIn: 'root'
@@ -85,6 +85,113 @@ export class ModeratorService {
     } catch (error) {
       console.error('Error fetching moderator logs:', error);
       return [];
+    }
+  }
+
+  // ─── Chat-scoped bans & appeals (low-level chat room moderation) ───
+
+  async banChatUser(chatId: number, targetUserId: number, callerUserId: number, reason: string, sessionToken: string): Promise<boolean> {
+    try {
+      const response = await fetch('/moderator/banchatuser', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify({ ChatId: chatId, TargetUserId: targetUserId, CallerUserId: callerUserId, Reason: reason }),
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Error banning chat user:', error);
+      return false;
+    }
+  }
+
+  async unbanChatUser(chatId: number, targetUserId: number, callerUserId: number, sessionToken: string): Promise<boolean> {
+    try {
+      const response = await fetch('/moderator/unbanchatuser', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify({ ChatId: chatId, TargetUserId: targetUserId, CallerUserId: callerUserId }),
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Error unbanning chat user:', error);
+      return false;
+    }
+  }
+
+  async getChatBans(chatId: number, callerUserId: number, sessionToken: string): Promise<ChatBan[]> {
+    try {
+      const response = await fetch('/moderator/getchatbans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify({ ChatId: chatId, CallerUserId: callerUserId }),
+      });
+      if (!response.ok) return [];
+      return await response.json() as ChatBan[];
+    } catch (error) {
+      console.error('Error fetching chat bans:', error);
+      return [];
+    }
+  }
+
+  async appealChatBan(chatId: number, userId: number, appealText: string, sessionToken: string): Promise<{ ok: boolean; message: string }> {
+    try {
+      const response = await fetch('/moderator/appealchatban', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify({ ChatId: chatId, UserId: userId, AppealText: appealText }),
+      });
+      const data = await response.json().catch(() => null);
+      if (response.ok) return { ok: true, message: (data && data.message) || 'Appeal submitted.' };
+      const msg = (data && data.message) ? data.message : (await response.text()) || 'Failed to submit appeal.';
+      return { ok: false, message: msg };
+    } catch (error) {
+      console.error('Error appealing chat ban:', error);
+      return { ok: false, message: 'Failed to submit appeal. Please try again.' };
+    }
+  }
+
+  async getChatBanAppeals(chatId: number, callerUserId: number, sessionToken: string): Promise<ChatBanAppeal[]> {
+    try {
+      const response = await fetch('/moderator/getchatbanappeals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify({ ChatId: chatId, CallerUserId: callerUserId }),
+      });
+      if (!response.ok) return [];
+      return await response.json() as ChatBanAppeal[];
+    } catch (error) {
+      console.error('Error fetching chat ban appeals:', error);
+      return [];
+    }
+  }
+
+  async resolveChatBanAppeal(appealId: number, callerUserId: number, resolution: string, sessionToken: string): Promise<boolean> {
+    try {
+      const response = await fetch('/moderator/resolvechatbanappeal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify({ AppealId: appealId, CallerUserId: callerUserId, Resolution: resolution }),
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Error resolving chat ban appeal:', error);
+      return false;
+    }
+  }
+
+  /** Lets a user check their own ban status in a chat (for the banned notice + appeal UI). */
+  async isChatUserBanned(chatId: number, userId: number, sessionToken: string): Promise<{ isBanned: boolean; hasPendingAppeal: boolean }> {
+    try {
+      const response = await fetch('/moderator/ischatuserbanned', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify({ ChatId: chatId, UserId: userId }),
+      });
+      if (!response.ok) return { isBanned: false, hasPendingAppeal: false };
+      return await response.json() as { isBanned: boolean; hasPendingAppeal: boolean };
+    } catch (error) {
+      console.error('Error checking chat ban status:', error);
+      return { isBanned: false, hasPendingAppeal: false };
     }
   }
 }

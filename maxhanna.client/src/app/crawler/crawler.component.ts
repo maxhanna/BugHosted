@@ -34,6 +34,10 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   pageSize: number = this.pageSizes[0];
   isFavouritedByPanelOpen: boolean = false;
   favouritedByList: User[] = [];
+  // Embedded HostAI popup — preloads the current keyword and auto-sends it so
+  // the user gets an AI-generated search answer for their query.
+  showAiPopup = false;
+  aiQuery = '';
   isUrlDisabled: boolean = false;
   isKeywordsDisabled: boolean = false;
   youtubeResults: YoutubeVideo[] = [];
@@ -149,6 +153,20 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   closeFavouritedByPanel() {
     this.isFavouritedByPanelOpen = false;
     this.favouritedByList = [];
+  }
+
+  openAiSearch() {
+    const kw = this.keywordsInput?.nativeElement?.value?.trim();
+    if (!kw) return;
+    this.aiQuery = kw;
+    this.showAiPopup = true;
+    this.parentRef?.showOverlay();
+  }
+
+  closeAiSearch() {
+    this.showAiPopup = false;
+    this.aiQuery = '';
+    this.parentRef?.closeOverlay();
   }
 
   async searchUrl(skipScrape?: boolean) {

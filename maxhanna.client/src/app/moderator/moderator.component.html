@@ -12,12 +12,119 @@
       <button class="modTab" [class.active]="activeTab === 'moderators'" (click)="setTab('moderators')">
         👮 Moderators
       </button>
+      <button *ngIf="isChatModerator || isAdmin" class="modTab" [class.active]="activeTab === 'chatmod'" (click)="setTab('chatmod')">
+        💬 Chat Mods <span *ngIf="selectedManagedChat && chatAppeals.length > 0" class="tabCount">{{ chatAppeals.length }}</span>
+      </button>
       <button class="modTab" [class.active]="activeTab === 'logs'" (click)="setTab('logs')">
         📜 Logs
       </button>
       <button *ngIf="isAdmin" class="modTab" [class.active]="activeTab === 'appeals'" (click)="setTab('appeals')">
         ⚖️ Appeals <span *ngIf="appeals.length > 0" class="tabCount">{{ appeals.length }}</span>
       </button>
+    </div>
+
+    <!-- ── CHAT MODERATION TAB (low-level chat room moderators) ── -->
+    <div *ngIf="activeTab === 'chatmod'" class="modSection">
+      <div class="card">
+        <div class="cardTitle">💬 Chat Room Moderation</div>
+        <div *ngIf="myChatRoles.length === 0" class="searchHint">
+          You don't moderate any chat rooms yet. Anyone who starts a group chat
+          is automatically a moderator of it, and chat moderators can promote
+          others in the room.
+        </div>
+
+        <div *ngIf="myChatRoles.length > 0">
+          <!-- Chat selector -->
+          <div class="fieldRow">
+            <label>Chat room</label>
+            <select [(ngModel)]="selectedManagedChat" (ngModelChange)="onManagedChatChange()" class="modSelect">
+              <option *ngFor="let r of myChatRoles" [ngValue]="r.targetId">{{ r.targetName || ('Chat #' + r.targetId) }}</option>
+            </select>
+          </div>
+
+          <div *ngIf="chatModLoading" class="searchHint">Loading…</div>
+          <div *ngIf="!chatModLoading">
+            <!-- Add moderator / ban -->
+            <div class="searchBlock">
+              <input type="text" class="userSearchInput" placeholder="🔍 Find a user to promote or ban…"
+                [(ngModel)]="chatModSearchTerm" (ngModelChange)="onChatModSearchInput()" (keydown.enter)="searchChatModUsers()" />
+              <div *ngIf="chatModSearching" class="searchHint">Searching…</div>
+              <div *ngIf="chatModSearchResults.length > 0" class="searchResults">
+                <div *ngFor="let u of chatModSearchResults" class="searchResultRow">
+                  <app-user-tag [user]="u" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+                  <span *ngIf="isChatMod(u)" class="alreadyMod">(already a chat mod)</span>
+                  <button class="addBtn" (click)="selectChatBanUser(u)" [disabled]="isChatMod(u)"
+                    [title]="isChatMod(u) ? 'Already a moderator of this chat' : 'Select to promote or ban'">
+                    {{ isChatMod(u) ? 'Mod' : 'Select' }}
+                  </button>
+                </div>
+              </div>
+              <div *ngIf="chatModSearchDone && chatModSearchResults.length === 0 && !chatModSearching" class="searchHint">
+                No users found for "{{ chatModSearchTerm }}".
+              </div>
+            </div>
+
+            <!-- Selected user actions -->
+            <div *ngIf="selectedChatBanUser" class="selectionBlock">
+              <div class="selectionLabel">
+                {{ selectedChatBanUser.username || ('User #' + selectedChatBanUser.id) }} in {{ managedChatName() }}:
+              </div>
+              <div class="chips" style="align-items:center;">
+                <button class="addBtn" (click)="addChatModerator(selectedChatBanUser)" [disabled]="chatModActionLoading || isChatMod(selectedChatBanUser)">
+                  👮 Promote to Chat Mod
+                </button>
+                <input [(ngModel)]="banReason" placeholder="Ban reason (optional)" class="modSelect" style="flex:1; min-width:120px;" />
+                <button class="noBtn" (click)="banChatModUser()" [disabled]="chatModActionLoading">🚫 Ban from Chat</button>
+                <button class="linkBtn" (click)="clearChatBanUser()">Clear</button>
+              </div>
+            </div>
+            <div *ngIf="chatModMessage" class="modMsg" [class.error]="chatModMessageIsError">{{ chatModMessage }}</div>
+
+            <!-- Current chat moderators -->
+            <div class="cardTitle" style="margin-top:14px;">👮 Chat Moderators ({{ managedChatMods.length }})</div>
+            <div *ngIf="managedChatMods.length === 0" class="searchHint">No chat moderators yet.</div>
+            <div *ngFor="let m of managedChatMods" class="modRow">
+              <div class="modRowHead">
+                <span class="expandCaret">▸</span>
+                <app-user-tag [user]="m.user" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+                <span *ngIf="m.user?.id === (parentRef?.user?.id ?? 0)" class="ownerBadge">You</span>
+                <button *ngIf="m.user?.id !== (parentRef?.user?.id ?? 0)" class="chipRemove"
+                  (click)="removeChatModerator(m.user!)" [disabled]="chatModActionLoading" title="Remove chat moderator role">✕</button>
+              </div>
+            </div>
+
+            <!-- Bans -->
+            <div class="cardTitle" style="margin-top:14px;">🚫 Banned Users</div>
+            <div *ngIf="chatBans.length === 0" class="searchHint">No one is banned from this chat.</div>
+            <div *ngFor="let b of chatBans" class="modRow">
+              <div class="modRowHead">
+                <app-user-tag [user]="{ id: b.userId, username: b.username || 'User #' + b.userId }" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+                <span class="smallFont secondaryFontColor" *ngIf="b.reason">— {{ b.reason }}</span>
+                <span class="smallFont secondaryFontColor" *ngIf="b.isActive">(active)</span>
+                <button *ngIf="b.isActive" class="okBtn" (click)="unbanChatModUser(b)" [disabled]="chatModActionLoading">Unban</button>
+              </div>
+            </div>
+
+            <!-- Appeals -->
+            <div class="cardTitle" style="margin-top:14px;">⚖️ Ban Appeals ({{ chatAppeals.length }})</div>
+            <div *ngIf="chatAppeals.length === 0" class="searchHint">No appeals for this chat.</div>
+            <div *ngFor="let a of chatAppeals" class="modRow">
+              <div class="modRowBody" style="padding:6px 0;">
+                <div>
+                  <app-user-tag [user]="{ id: a.userId, username: a.username || 'User #' + a.userId }" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+                  <span class="smallFont secondaryFontColor" *ngIf="a.createdAt"> — {{ a.createdAt | date:'y/MM/d HH:mm' }}</span>
+                </div>
+                <div class="smallFont" style="margin:4px 0;">{{ a.appealText }}</div>
+                <div *ngIf="a.resolution" class="smallFont" [class.thirdFontColor]="true">Resolved: {{ a.resolution }}</div>
+                <div *ngIf="!a.resolution">
+                  <button class="okBtn" (click)="resolveChatAppeal(a, 'approved')" [disabled]="chatModActionLoading">Approve</button>
+                  <button class="noBtn" (click)="resolveChatAppeal(a, 'denied')" [disabled]="chatModActionLoading">Deny</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ── MODERATORS TAB ── -->

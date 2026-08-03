@@ -403,16 +403,17 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         if (existing) {
           const oldLap = existing.lap;
           const oldDist = existing.distance;
+          // Slide estimate from yaw change between syncs (syncs arrive ~10Hz,
+          // so a raw per-update yaw delta is too jumpy — smooth it toward the
+          // new estimate instead of replacing it). Capture the previous yaw
+          // BEFORE overwriting it with the incoming value.
+          const prevYawR = existing.yaw;
           existing.x = data.x;
           existing.z = data.z;
           existing.yaw = data.yaw;
           existing.speed = data.speed;
           existing.currentLap = data.currentLap;
           existing.isOffTrack = data.isOffTrack;
-          // Slide estimate from yaw change between syncs (syncs arrive ~10Hz,
-          // so a raw per-update yaw delta is too jumpy — smooth it toward the
-          // new estimate instead of replacing it).
-          const prevYawR = existing.yaw;
           let yawDelta = data.yaw - prevYawR;
           while (yawDelta > Math.PI) yawDelta -= Math.PI * 2;
           while (yawDelta < -Math.PI) yawDelta += Math.PI * 2;

@@ -53,7 +53,12 @@
                 "glob": "**/*",
                 "input": "src/assets/grandtheft",
                 "output": "assets/grandtheft"
-              } 
+              },
+              {
+                "glob": "**/*",
+                "input": "src/assets/grandprix",
+                "output": "assets/grandprix"
+              }
             ],
             "styles": [
               "src/styles.css"

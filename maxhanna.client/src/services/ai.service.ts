@@ -24,6 +24,83 @@ export class AiService {
     }
   }
 
+  /**
+   * Streams a text query answer token-by-token over SSE (event: token {text},
+   * finishing with event: done {reply}). Mirrors planter.service's
+   * identifyPlantStream consumer. Resolves with the full reply text.
+   */
+  async sendMessageStream(
+    userId: number,
+    skipSave: boolean,
+    message: string,
+    encryptedUserId: string,
+    onToken: (token: string) => void,
+    maxCount?: number,
+    fileId?: number,
+    signal?: AbortSignal
+  ): Promise<string | null> {
+    try {
+      const response = await fetch('/ai/streamchat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Encrypted-UserId': encryptedUserId,
+        },
+        body: JSON.stringify({ UserId: userId, Message: message, SkipSave: skipSave, MaxCount: maxCount ?? 0, FileId: fileId }),
+        signal,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `HTTP ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response body');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let fullReply = '';
+      let streamError: string | null = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        let currentEvent = '';
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            currentEvent = line.substring(7).trim();
+          } else if (line.startsWith('data: ')) {
+            const data = line.substring(6);
+            try {
+              const parsed = JSON.parse(data);
+              if (currentEvent === 'token' && parsed.text) {
+                fullReply += parsed.text;
+                onToken(parsed.text);
+              } else if (currentEvent === 'done' && parsed.reply) {
+                fullReply = parsed.reply;
+              } else if (currentEvent === 'error') {
+                streamError = parsed.error || 'Unknown streaming error';
+              }
+            } catch { /* skip malformed JSON */ }
+          }
+        }
+      }
+
+      if (streamError) throw new Error(streamError);
+      return fullReply || null;
+    } catch (error: any) {
+      if (error?.name === 'AbortError') return null;
+      console.error('Error in AI streaming response:', error);
+      throw error;
+    }
+  }
+
   async generateImage(userId: number, message: string) {
     try {
       const response = await fetch(`/ai/generateimagewithai`, {

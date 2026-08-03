@@ -1,10 +1,11 @@
-﻿import { Component, ViewChild, ElementRef, OnDestroy, ChangeDetectorRef } from '@angular/core';
+﻿import { Component, ViewChild, ElementRef, OnDestroy, ChangeDetectorRef, Input, OnInit, AfterViewInit } from '@angular/core';
 import { AiService } from '../../services/ai.service';
 import { ChildComponent } from '../child.component';
 import { User } from '../../services/datacontracts/user/user';
 import { SpeechRecognitionComponent } from '../speech-recognition/speech-recognition.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
+import { AppComponent } from '../app.component';
 
 export class AIMessage { sender?: string; message: any };
 
@@ -14,7 +15,7 @@ export class AIMessage { sender?: string; message: any };
   styleUrl: './host-ai.component.css',
   standalone: false
 })
-export class HostAiComponent extends ChildComponent implements OnDestroy {
+export class HostAiComponent extends ChildComponent implements OnInit, AfterViewInit, OnDestroy {
   constructor(
     private aiService: AiService, 
     private cdr: ChangeDetectorRef
@@ -50,6 +51,36 @@ export class HostAiComponent extends ChildComponent implements OnDestroy {
   @ViewChild('chatContainer') chatContainer!: ElementRef<HTMLDivElement>;
   @ViewChild(SpeechRecognitionComponent) speechRecognitionComponent?: SpeechRecognitionComponent;
   @ViewChild(MediaSelectorComponent) fileSelector?: MediaSelectorComponent;
+
+  // ── Embeddable mode (e.g. the crawler's AI search popup) ──
+  // Pass an explicit AppComponent ref when HostAI is embedded inside another
+  // component (parentRef is otherwise only set by the dynamic component host).
+  @Input() inputtedParentRef?: AppComponent;
+  // When set, the message is preloaded into the input and auto-sent once the
+  // view is ready, so an embedded HostAI instantly answers the given query.
+  @Input() preloadedMessage?: string;
+  // Hide the title bar (and its remove_me close button) when embedded in a
+  // popup that manages its own header/close.
+  @Input() embedded = false;
+
+  ngOnInit() {
+    if (this.inputtedParentRef) this.parentRef = this.inputtedParentRef;
+    if (this.preloadedMessage) {
+      // Crawler AI search: use the general assistant (AIController) rather than
+      // the medical model, and label the assistant accordingly.
+      this.aiMode = 'general';
+      this.hostName = 'AI Search';
+    }
+  }
+
+  ngAfterViewInit() {
+    if (this.preloadedMessage && this.chatInput) {
+      this.chatInput.nativeElement.value = this.preloadedMessage;
+      this.userMessage = this.preloadedMessage;
+      // Let the view + parentRef settle before auto-sending the query.
+      setTimeout(() => { if (this.preloadedMessage) this.sendMessage(); }, 400);
+    }
+  }
 
 
 
@@ -171,47 +202,78 @@ export class HostAiComponent extends ChildComponent implements OnDestroy {
     this.checkIfUserWantsToChangeResponseLengthToVerbose(this.userMessage);
 
     this.startLoading();
-    this.pushMessage({ sender: 'You', message: this.userMessage.replace('\n', "<br>") });
-    this.parentRef.getSessionToken().then(sessionToken => {
-      this.aiService.sendMessage(user.id ?? 0, false, this.userMessage + this.engineeredText + JSON.stringify(this.savedMessageHistory) + ")", sessionToken, this.responseLength, this.selectedFile?.id).then(
-        (response) => {
-          // Handle plain "Access Denied" string response
-          if (typeof response === 'string' && response.toLowerCase().includes('access denied') && response.length <= 'access denied'.length + 5) {
-            this.parentRef?.showNotification('Access Denied');
-            this.stopLoading();
-            return;
-          }
-          let reply = this.aiService.parseMessage(response.response ?? response.reply);
-          this.savedMessageHistory.push((response.response ?? response.reply));
-          this.pushMessage({ sender: this.hostName, message: reply });
-          this.chatInput.nativeElement.value = "";
-          this.chatInput.nativeElement.focus();
-          this.savedMessageHistory.push(this.userMessage);
-          this.userMessage = '';
-          this.selectedFile = undefined;
-          this.fileSelector?.removeAllFiles();
-          this.stopLoading();
-        },
-        (error) => {
-          console.error(error);
-          // Handle "Access Denied" in error response
-          const errorMsg = error?.reply ?? error?.message ?? (typeof error === 'string' ? error : '');
-          if (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('access denied')) {
-            this.parentRef?.showNotification('Access Denied');
-          } else {
-            this.pushMessage({ sender: 'System', message: error.reply });
-          }
-          this.chatInput.nativeElement.value = "";
-          setTimeout(() => {
-            this.chatInput.nativeElement.focus();
-          }, 50);
-          this.savedMessageHistory.push(this.userMessage);
-          this.userMessage = '';
-          this.selectedFile = undefined;
-          this.fileSelector?.removeAllFiles();
-          this.stopLoading();
+    const userText = this.userMessage;
+    this.pushMessage({ sender: 'You', message: userText.replace('\n', "<br>") });
+    this.parentRef.getSessionToken().then(async sessionToken => {
+      const prompt = userText + this.engineeredText + JSON.stringify(this.savedMessageHistory) + ")";
+      // Live assistant bubble — tokens stream into it as they arrive.
+      this.pushMessage({ sender: this.hostName, message: '' });
+      const liveMsg = this.chatMessages[this.chatMessages.length - 1];
+      let acc = '';
+      let lastRender = 0;
+      const renderThrottle = 40; // ms between DOM updates while streaming
+
+      try {
+        const fullReply = await this.aiService.sendMessageStream(
+          user.id ?? 0, false, prompt, sessionToken,
+          (token) => {
+            acc += token;
+            const now = Date.now();
+            if (now - lastRender >= renderThrottle) {
+              lastRender = now;
+              liveMsg.message = this.aiService.parseMessage(acc);
+              this.cdr.detectChanges();
+              const tgt = document.getElementsByClassName("chat-box")[0];
+              if (tgt) tgt.scrollTop = tgt.scrollHeight;
+            }
+          },
+          this.responseLength, this.selectedFile?.id
+        );
+
+        if (fullReply) {
+          this.savedMessageHistory.push(fullReply);
+          liveMsg.message = this.aiService.parseMessage(fullReply);
+        } else if (acc) {
+          // Stream ended early (abort/disconnect) — keep what we already got.
+          liveMsg.message = this.aiService.parseMessage(acc);
+        } else {
+          liveMsg.message = 'No response from the AI.';
         }
-      );
+        this.cdr.detectChanges();
+        this.chatInput.nativeElement.value = "";
+        this.chatInput.nativeElement.focus();
+        this.savedMessageHistory.push(userText);
+        this.userMessage = '';
+        this.selectedFile = undefined;
+        this.fileSelector?.removeAllFiles();
+        this.stopLoading();
+      } catch (error: any) {
+        console.error(error);
+        const errorMsg = error?.reply ?? error?.message ?? (typeof error === 'string' ? error : '');
+        if (typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('access denied')) {
+          this.parentRef?.showNotification('Access Denied');
+          // Remove the empty live bubble so an Access Denied doesn't leave a
+          // blank message row in the chat.
+          const idx = this.chatMessages.indexOf(liveMsg);
+          if (idx >= 0) this.chatMessages.splice(idx, 1);
+        } else {
+          liveMsg.message = this.aiService.parseMessage(errorMsg || 'Failed to reach the AI.');
+        }
+        this.cdr.detectChanges();
+        this.chatInput.nativeElement.value = "";
+        setTimeout(() => {
+          this.chatInput.nativeElement.focus();
+        }, 50);
+        this.savedMessageHistory.push(userText);
+        this.userMessage = '';
+        this.selectedFile = undefined;
+        this.fileSelector?.removeAllFiles();
+        this.stopLoading();
+      }
+    }).catch(() => {
+      console.error('Failed to get session token');
+      this.stopLoading();
+      this.pushMessage({ sender: 'System', message: 'Failed to reach the AI.' });
     });
   }
 

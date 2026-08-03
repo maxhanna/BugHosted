@@ -47,7 +47,15 @@
 #race-menu {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(180deg, #0a0a0f 0%, #1a1a2e 50%, #0a0a0f 100%);
+  /* F1 photo stretched to cover the whole lobby, buried under a dark overlay
+     so the colorful artwork never fights the menu text or UI. Layers stack
+     top-first: main dark veil → spotlight contrast boost → base gradient →
+     photo. All baked into one background so nothing can paint over content. */
+  background:
+    linear-gradient(180deg, rgba(6, 6, 12, 0.88) 0%, rgba(8, 8, 16, 0.72) 35%, rgba(8, 8, 16, 0.72) 65%, rgba(6, 6, 12, 0.92) 100%),
+    linear-gradient(180deg, rgba(5, 5, 10, 0.35) 0%, rgba(5, 5, 10, 0) 30%, rgba(5, 5, 10, 0) 60%, rgba(5, 5, 10, 0.45) 100%),
+    linear-gradient(180deg, #0a0a0f 0%, #1a1a2e 50%, #0a0a0f 100%),
+    url("../../assets/grandprix/f1.png") center / cover no-repeat;
   display: flex;
   flex-direction: column;
   align-items: center;

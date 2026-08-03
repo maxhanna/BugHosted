@@ -70,45 +70,7 @@ namespace maxhanna.Server.Controllers
           await UpdateUserRequestCount(request.UserId, request.Message, "text");
         }
 
-        string basePrompt = request.Message;
-
-        // Handle length modifiers
-        switch (request.MaxCount)
-        {
-          case 30: // Super short
-            basePrompt += "\n\nRespond in one concise sentence. Do not elaborate.";
-            break;
-          case 200: // Short
-            basePrompt += "\n\nRespond briefly. Keep it to a few sentences and avoid unnecessary detail.";
-            break;
-          case 450: // Medium
-            basePrompt += "\n\nRespond with a moderate amount of detail. Two to three paragraphs is ideal.";
-            break;
-          case 600: // Long
-            basePrompt += "\n\nRespond in detail. Feel free to explain thoroughly and give multiple examples if needed.";
-            break;
-          case 0: // Unfiltered
-                  // No modification - allow model to respond freely
-            break;
-          default:
-            basePrompt += "\n\nRespond briefly.";
-            break;
-        }
-
-        if (request.FileId.HasValue)
-        {
-          var descRes = await DescribeMedia(request.FileId.GetValueOrDefault(0));
-          string? desc = descRes;
-          if (!string.IsNullOrEmpty(desc))
-          {
-            // Incorporate media analysis into the prompt
-            basePrompt = $"Media analysis: {desc}\n\nUser question: {basePrompt}";
-          }
-          else
-          {
-            _ = _log.Db($"Media analysis failed: no response.", null, "AiController", true);
-          }
-        }
+        string basePrompt = await BuildPromptWithModifiers(request);
 
         var fullResponse = await SendChatToAI(basePrompt);
         return Ok(new { Reply = fullResponse });
@@ -118,6 +80,146 @@ namespace maxhanna.Server.Controllers
         _ = _log.Db($"Error in SendMessageToAi: {ex.Message}", null, "AiController", true);
         return StatusCode(500, new { Reply = "Internal server error." });
       }
+    }
+
+    /// <summary>
+    /// Same contract as SendMessageToAi (auth, usage limits, length modifiers,
+    /// media description) but streams the answer back token-by-token over SSE
+    /// (event: token {text}) and finishes with event: done {reply}.
+    /// </summary>
+    [HttpPost("/Ai/StreamChat", Name = "StreamChat")]
+    public async Task StreamChat([FromBody] AiRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      Response.Headers.Append("Content-Type", "text/event-stream");
+      Response.Headers.Append("Cache-Control", "no-cache");
+      Response.Headers.Append("Connection", "keep-alive");
+      var ct = HttpContext.RequestAborted;
+
+      try
+      {
+        if (request == null || (string.IsNullOrWhiteSpace(request.Message) && request.FileId == null))
+        {
+          await WriteSseEventAsync("error", "{\"error\":\"Message cannot be empty.\"}");
+          await Response.Body.FlushAsync(ct);
+          return;
+        }
+
+        if (request.UserId != 0)
+        {
+          if (!await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader))
+          {
+            await WriteSseEventAsync("error", "{\"error\":\"Access Denied.\"}");
+            await Response.Body.FlushAsync(ct);
+            return;
+          }
+        }
+
+        if (await HasExceededUsageLimit("text", request.UserId))
+        {
+          await WriteSseEventAsync("error", "{\"error\":\"You have exceeded the maximum number of text requests for this month.\"}");
+          await Response.Body.FlushAsync(ct);
+          return;
+        }
+
+        if (!request.SkipSave)
+        {
+          await UpdateUserRequestCount(request.UserId, request.Message, "text");
+        }
+
+        string basePrompt = await BuildPromptWithModifiers(request);
+
+        var fullResponse = await StreamChatToAI(basePrompt, async (token, tokenCt) =>
+        {
+          var tokenJson = JsonSerializer.Serialize(new { text = token });
+          await WriteSseEventAsync("token", tokenJson);
+          await Response.Body.FlushAsync(tokenCt);
+        }, ct);
+
+        if (string.IsNullOrEmpty(fullResponse))
+        {
+          await WriteSseEventAsync("error", "{\"error\":\"The AI returned an empty response. The model may be busy. Try again.\"}");
+        }
+        else
+        {
+          var doneJson = JsonSerializer.Serialize(new { reply = fullResponse });
+          await WriteSseEventAsync("done", doneJson);
+        }
+        await Response.Body.FlushAsync(ct);
+      }
+      catch (OperationCanceledException)
+      {
+        // Client disconnected — expected.
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Error in StreamChat: {ex.Message}", request?.UserId ?? 0, "AiController", true);
+        await WriteSseEventAsync("error", $"{{\"error\":\"{EscapeJsonString(ex.Message)}\"}}");
+        await Response.Body.FlushAsync(ct);
+      }
+    }
+
+    /// <summary>
+    /// Applies the MaxCount length modifiers and prepends any media description.
+    /// Shared by SendMessageToAi and StreamChat so the two endpoints can't drift.
+    /// </summary>
+    private async Task<string> BuildPromptWithModifiers(AiRequest request)
+    {
+      string basePrompt = request.Message;
+
+      // Handle length modifiers
+      switch (request.MaxCount)
+      {
+        case 30: // Super short
+          basePrompt += "\n\nRespond in one concise sentence. Do not elaborate.";
+          break;
+        case 200: // Short
+          basePrompt += "\n\nRespond briefly. Keep it to a few sentences and avoid unnecessary detail.";
+          break;
+        case 450: // Medium
+          basePrompt += "\n\nRespond with a moderate amount of detail. Two to three paragraphs is ideal.";
+          break;
+        case 600: // Long
+          basePrompt += "\n\nRespond in detail. Feel free to explain thoroughly and give multiple examples if needed.";
+          break;
+        case 0: // Unfiltered
+                // No modification - allow model to respond freely
+          break;
+        default:
+          basePrompt += "\n\nRespond briefly.";
+          break;
+      }
+
+      if (request.FileId.HasValue)
+      {
+        var descRes = await DescribeMedia(request.FileId.GetValueOrDefault(0));
+        if (!string.IsNullOrEmpty(descRes))
+        {
+          // Incorporate media analysis into the prompt
+          basePrompt = $"Media analysis: {descRes}\n\nUser question: {basePrompt}";
+        }
+        else
+        {
+          _ = _log.Db($"Media analysis failed: no response.", null, "AiController", true);
+        }
+      }
+
+      return basePrompt;
+    }
+
+    private async Task WriteSseEventAsync(string eventType, string data)
+    {
+      var bytes = Encoding.UTF8.GetBytes($"event: {eventType}\ndata: {data}\n\n");
+      await Response.Body.WriteAsync(bytes);
+    }
+
+    private static string EscapeJsonString(string text)
+    {
+      return text
+        .Replace("\\", "\\\\")
+        .Replace("\"", "\\\"")
+        .Replace("\n", "\\n")
+        .Replace("\r", "\\r")
+        .Replace("\t", "\\t");
     }
 
     [HttpPost("/Ai/MedicalChat", Name = "MedicalChat")]
@@ -1507,6 +1609,83 @@ Constraints:
       if (parsed.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
         return choices[0].GetProperty("message").GetProperty("content").GetString() ?? "";
       return body;
+    }
+
+    /// <summary>
+    /// Streams a text-only chat completion token-by-token. Mirrors
+    /// StreamVisionToAI but without the image payload, so the same SSE consumer
+    /// shape (event: token / done) is used by /Ai/StreamChat.
+    /// </summary>
+    public async Task<string?> StreamChatToAI(string prompt, Func<string, CancellationToken, Task> onToken, CancellationToken ct, string? url = null, string? model = null)
+    {
+      var baseUrl = url ?? _config.GetValue<string>("Ai:MedicalBaseUrl");
+      var aiModel = model ?? (url == null ? _config.GetValue<string>("Ai:MedicalModel") : null) ?? "gemma3:4b";
+
+      var payload = new
+      {
+        model = aiModel,
+        messages = new[] { new { role = "user", content = prompt } },
+        stream = true
+      };
+
+      var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
+      {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+      });
+
+      using var req = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/chat/completions")
+      {
+        Content = new StringContent(json, Encoding.UTF8, "application/json")
+      };
+
+      using var resp = await _httpClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+      if (!resp.IsSuccessStatusCode)
+      {
+        var errBody = await resp.Content.ReadAsStringAsync();
+        _ = _log.Db($"StreamChatToAI error {(int)resp.StatusCode}: {errBody}", null, "AI", true);
+        return null;
+      }
+
+      var fullText = new StringBuilder();
+      try
+      {
+        using var stream = await resp.Content.ReadAsStreamAsync();
+        using var reader = new StreamReader(stream);
+
+        while (!reader.EndOfStream && !ct.IsCancellationRequested)
+        {
+          var line = await reader.ReadLineAsync();
+          if (string.IsNullOrEmpty(line)) continue;
+          if (!line.StartsWith("data: ")) continue;
+
+          var data = line.Substring(6);
+          if (data == "[DONE]") break;
+
+          try
+          {
+            var chunk = JsonSerializer.Deserialize<JsonElement>(data);
+            if (chunk.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+            {
+              var delta = choices[0].GetProperty("delta");
+              if (delta.TryGetProperty("content", out var content))
+              {
+                var token = content.GetString() ?? "";
+                fullText.Append(token);
+                await onToken(token, ct);
+              }
+            }
+          }
+          catch { /* skip malformed chunk */ }
+        }
+      }
+      catch (OperationCanceledException) { /* client disconnected */ }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"StreamChatToAI read error: {ex.Message}", null, "AI", true);
+      }
+
+      var result = fullText.ToString();
+      return string.IsNullOrWhiteSpace(result) ? null : result;
     }
 
     public async Task<string> SendVisionToAI(string prompt, int imageFileId, string? url = null, string? model = null)

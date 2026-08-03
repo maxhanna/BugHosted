@@ -29,6 +29,7 @@
             <button (click)="searchKeywords()" [disabled]="isLoading || !(keywordsInput?.value && keywordsInput.value.trim())">
               Search{{!onMobile() ? ' the Web' : ''}}
             </button>
+            <button class="ai-search-btn" (click)="openAiSearch()" [disabled]="!(keywordsInput?.value && keywordsInput.value.trim())" title="Ask HostAI to answer your query">🤖 AI</button>
           </div>
         </div>
         <button (click)="addWithoutSearch()" [disabled]="isLoading || !(keywordsInput?.value && keywordsInput.value.trim())" *ngIf="onlySearch" title="Add without searching">+</button>
@@ -160,6 +161,18 @@
     <iframe [src]="sanitizedYoutubeUrl" style="width: 100%; height: 100%; border: none;" allowfullscreen></iframe>
   </div>
   <button (click)="closeYoutubePopup()" class="closeButton">Close</button>
+</div>
+
+<!-- HostAI Search Popup -->
+<div class="popupPanel aiSearchPopup" *ngIf="showAiPopup">
+  <div class="popupPanelTitle" style="display: flex; justify-content: space-between; align-items: center;">
+    <span>🤖 AI: {{ aiQuery }}</span>
+    <span (click)="closeAiSearch()" class="cursorPointer" style="font-size: 20px; line-height: 1;">&times;</span>
+  </div>
+  <div class="aiSearchEmbed">
+    <app-host-ai [inputtedParentRef]="inputtedParentRef ?? parentRef" [preloadedMessage]="aiQuery" [embedded]="true"></app-host-ai>
+  </div>
+  <button id="closeOverlay" (click)="closeAiSearch()" class="closeButton">Close</button>
 </div>
 
 <!-- Favourited By Popup -->

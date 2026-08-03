@@ -15,6 +15,7 @@ import { EncryptionService } from '../../services/encryption.service';
 import { UserTheme } from '../../services/datacontracts/chat/chat-theme';
 import { FileService } from '../../services/file.service';
 import { ChatHubService } from '../../services/chat-hub.service';
+import { ModeratorService } from '../../services/moderator.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -66,6 +67,15 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   quoteMessage = "";
   serverDown = false;
   failCount = 0;
+  // Chat ban (low-level chat room moderation): when banned by the room's
+  // moderators the composer is replaced by a notice + appeal option.
+  isBannedFromChat = false;
+  hasPendingAppeal = false;
+  showBanAppealBox = false;
+  banAppealText = '';
+  isSubmittingAppeal = false;
+  banAppealMessage = '';
+  banAppealMessageIsError = false;
   private pollingInterval: any;
   private isChangingPage = false;
   private isInitialLoad = false;
@@ -91,7 +101,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     private userService: UserService,
     private encryptionService: EncryptionService,
     private fileService: FileService,
-    private chatHub: ChatHubService) {
+    private chatHub: ChatHubService,
+    private moderatorService: ModeratorService) {
     super();
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;

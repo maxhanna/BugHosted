@@ -43,3 +43,30 @@ export interface PublicChatInfo {
   createdBy?: number;
   createdAt?: Date;
 }
+
+/** A ban issued by a chat room's moderators, scoped to that chat only. */
+export interface ChatBan {
+  id: number;
+  chatId: number;
+  userId: number;
+  username?: string | null;
+  bannedBy?: number;
+  reason?: string | null;
+  createdAt?: Date;
+  liftedAt?: Date | null;
+  liftedBy?: number | null;
+  isActive: boolean;
+}
+
+/** An appeal against a chat ban, resolved by that chat's moderators. */
+export interface ChatBanAppeal {
+  id: number;
+  chatId: number;
+  userId: number;
+  username?: string | null;
+  appealText?: string | null;
+  createdAt?: Date;
+  resolvedAt?: Date | null;
+  resolvedBy?: number | null;
+  resolution?: string | null;
+}

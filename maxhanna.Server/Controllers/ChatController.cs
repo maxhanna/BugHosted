@@ -988,6 +988,38 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
+				// Low-level chat moderation: a sender who is banned from this chat
+				// room (by its chat moderators) can no longer post in it. This only
+				// blocks messaging — the ban never leaks into other chats or global
+				// privileges.
+				if (targetChatId > 0 && await ModeratorController.IsChatUserBannedAsync(_config, (int)targetChatId, request.SenderId))
+				{
+					return StatusCode(403, "You are banned from this chat.");
+				}
+
+				// Creating a chatroom promotes everyone in it to chat_moderator for
+				// that specific room (the low-level moderator role scoped to this
+				// chat only). Idempotent — re-opening an identical receiver list
+				// re-uses the existing chat and simply re-confirms the roles.
+				bool isNewChat = request.ChatId == null || request.ChatId == 0;
+				if (isNewChat && targetChatId > 0)
+				{
+					foreach (var idStr in receiverList.Split(','))
+					{
+						if (int.TryParse(idStr.Trim(), out int participantId) && participantId > 0)
+						{
+							string roleSql = @"INSERT INTO maxhanna.moderator_roles (user_id, role, target_type, target_id, assigned_by, assigned_at)
+							VALUES (@UserId, 'chat_moderator', 'chat', @ChatId, @AssignedBy, UTC_TIMESTAMP())
+							ON DUPLICATE KEY UPDATE assigned_by = @AssignedBy;";
+							using var roleCmd = new MySqlCommand(roleSql, conn);
+							roleCmd.Parameters.AddWithValue("@UserId", participantId);
+							roleCmd.Parameters.AddWithValue("@ChatId", targetChatId);
+							roleCmd.Parameters.AddWithValue("@AssignedBy", request.SenderId);
+							await roleCmd.ExecuteNonQueryAsync();
+						}
+					}
+				}
+
 				string sql = "INSERT INTO maxhanna.messages (sender, receiver, chat_id, content, timestamp) VALUES (@Sender, @Receiver, @ChatId, @Content, UTC_TIMESTAMP())";
 
 				MySqlCommand cmd = new MySqlCommand(sql, conn);

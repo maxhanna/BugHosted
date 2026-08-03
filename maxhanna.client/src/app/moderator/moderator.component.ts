@@ -3,7 +3,7 @@ import { ChildComponent } from '../child.component';
 import { UserService } from '../../services/user.service';
 import { ModeratorService } from '../../services/moderator.service';
 import { User } from '../../services/datacontracts/user/user';
-import { ModeratorInfo, ModeratorLog, ModeratorRole, RoleDefinition } from '../../services/datacontracts/moderator/moderator';
+import { ChatBan, ChatBanAppeal, ModeratorInfo, ModeratorLog, ModeratorRole, RoleDefinition } from '../../services/datacontracts/moderator/moderator';
 
 @Component({
   selector: 'app-moderator',
@@ -12,7 +12,7 @@ import { ModeratorInfo, ModeratorLog, ModeratorRole, RoleDefinition } from '../.
   styleUrl: './moderator.component.css'
 })
 export class ModeratorComponent extends ChildComponent {
-  activeTab: 'moderators' | 'logs' | 'appeals' = 'moderators';
+  activeTab: 'moderators' | 'chatmod' | 'logs' | 'appeals' = 'moderators';
 
   appeals: any[] = [];
   loading = false;
@@ -41,6 +41,26 @@ export class ModeratorComponent extends ChildComponent {
 
   expandedUserIds: number[] = [];
 
+  // Chat-scoped moderation (low-level chat room moderators)
+  isChatModerator = false;
+  myChatRoles: ModeratorRole[] = [];
+  selectedManagedChat = 0;
+  managedChatMods: ModeratorInfo[] = [];
+  chatBans: ChatBan[] = [];
+  chatAppeals: ChatBanAppeal[] = [];
+  chatModLoading = false;
+  chatModMessage = '';
+  chatModMessageIsError = false;
+  // Chat-mod user search (add mods / ban)
+  chatModSearchTerm = '';
+  chatModSearchResults: User[] = [];
+  chatModSearching = false;
+  chatModSearchDone = false;
+  selectedChatBanUser: User | null = null;
+  banReason = '';
+  chatModActionLoading = false;
+  private chatModSearchDebounce: any;
+
   // Logs
   modLogs: ModeratorLog[] = [];
   logsLoading = false;
@@ -51,16 +71,23 @@ export class ModeratorComponent extends ChildComponent {
 
   async ngOnInit() {
     const user = this.parentRef?.user;
-    this.isModerator = user?.id === 1 || user?.role === 'moderator' || user?.role === 'admin';
+    const isLegacyMod = user?.id === 1 || user?.role === 'moderator' || user?.role === 'admin';
+    this.isAdmin = user?.id === 1 || user?.role === 'admin';
+    let myRoles: ModeratorRole[] = [];
+    if (user?.id) {
+      const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+      myRoles = await this.moderatorService.getMyRoles(user.id, sessionToken);
+      // Admin is the source of truth for the scoped-roles table (covers freshly-granted admins).
+      if (!this.isAdmin) this.isAdmin = myRoles.some(r => r.role === 'admin');
+      // Low-level chat moderation: chat_moderator for a specific room grants
+      // access to this panel, scoped to the chats they moderate.
+      this.isChatModerator = myRoles.some(r => r.role === 'chat_moderator' && r.targetType === 'chat' && !!r.targetId);
+      this.myChatRoles = myRoles.filter(r => r.role === 'chat_moderator' && r.targetType === 'chat' && !!r.targetId);
+    }
+    this.isModerator = isLegacyMod || this.isChatModerator;
     if (this.isModerator) {
-      // Detect admin: the owner is always one, the legacy role may say so, and
-      // the scoped-roles table is the source of truth (covers freshly-granted
-      // admins whose login role hasn't refreshed yet).
-      this.isAdmin = user?.id === 1 || user?.role === 'admin';
-      if (!this.isAdmin && user?.id) {
-        const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-        const myRoles = await this.moderatorService.getMyRoles(user.id, sessionToken);
-        this.isAdmin = myRoles.some(r => r.role === 'admin');
+      if (this.isChatModerator && this.myChatRoles.length > 0) {
+        this.selectedManagedChat = this.myChatRoles[0].targetId ?? 0;
       }
       await Promise.all([
         this.loadModerators(),
@@ -68,11 +95,17 @@ export class ModeratorComponent extends ChildComponent {
         this.loadModeratorLogs(),
         this.isAdmin ? this.loadAppeals() : Promise.resolve()
       ]);
+      if (this.selectedManagedChat) {
+        await this.loadChatModeration();
+      }
     }
   }
 
-  setTab(tab: 'moderators' | 'logs' | 'appeals') {
+  setTab(tab: 'moderators' | 'chatmod' | 'logs' | 'appeals') {
     this.activeTab = tab;
+    if (tab === 'chatmod' && !this.selectedManagedChat) {
+      this.selectedManagedChat = this.myChatRoles[0]?.targetId ?? 0;
+    }
   }
 
   async loadModerators() {
@@ -330,5 +363,189 @@ export class ModeratorComponent extends ChildComponent {
     await this.moderatorService.setRole(targetUser.id, 'moderator', userId, true, sessionToken, 'global');
     await Promise.all([this.loadModerators(), this.loadModeratorLogs()]);
     this.modActionLoading = false;
+  }
+
+  // ─── Chat-scoped moderation ────────────────────────────────────────────────
+
+  /** All chat_moderator holders for the currently selected chat. */
+  async loadChatModeration() {
+    const userId = this.parentRef?.user?.id;
+    if (!userId || !this.selectedManagedChat) return;
+    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+    this.chatModLoading = true;
+    try {
+      const [mods, bans, appeals] = await Promise.all([
+        this.moderatorService.getModeratorsWithRoles(userId, sessionToken),
+        this.moderatorService.getChatBans(this.selectedManagedChat, userId, sessionToken),
+        this.moderatorService.getChatBanAppeals(this.selectedManagedChat, userId, sessionToken),
+      ]);
+      this.moderators = mods;
+      this.managedChatMods = mods.filter(m =>
+        (m.roles ?? []).some(r => r.role === 'chat_moderator' && r.targetType === 'chat' && r.targetId === this.selectedManagedChat));
+      this.chatBans = bans;
+      this.chatAppeals = appeals;
+    } catch (e) {
+      console.error('Error loading chat moderation:', e);
+    }
+    this.chatModLoading = false;
+  }
+
+  onManagedChatChange() {
+    this.selectedChatBanUser = null;
+    this.banReason = '';
+    this.chatModMessage = '';
+    this.loadChatModeration();
+  }
+
+  managedChatName(): string {
+    const role = this.myChatRoles.find(r => r.targetId === this.selectedManagedChat);
+    return role?.targetName ?? `Chat #${this.selectedManagedChat}`;
+  }
+
+  // Chat-mod user search (add moderators / ban users)
+  onChatModSearchInput() {
+    clearTimeout(this.chatModSearchDebounce);
+    this.chatModSearchDone = false;
+    const term = (this.chatModSearchTerm || '').trim();
+    if (!term) {
+      this.chatModSearchResults = [];
+      this.chatModSearching = false;
+      return;
+    }
+    this.chatModSearching = true;
+    this.chatModSearchDebounce = setTimeout(() => this.searchChatModUsers(), 300);
+  }
+
+  async searchChatModUsers() {
+    const userId = this.parentRef?.user?.id;
+    const term = (this.chatModSearchTerm || '').trim();
+    if (!userId || !term) {
+      this.chatModSearchResults = [];
+      this.chatModSearching = false;
+      return;
+    }
+    try {
+      const found = (await this.userService.getAllUsers(userId, term)) ?? [];
+      this.chatModSearchResults = found.filter(u => u.id && u.id !== this.selectedChatBanUser?.id);
+    } catch (e) {
+      this.chatModSearchResults = [];
+    }
+    this.chatModSearching = false;
+    this.chatModSearchDone = true;
+  }
+
+  selectChatBanUser(u: User) {
+    this.selectedChatBanUser = u;
+    this.chatModSearchTerm = '';
+    this.chatModSearchResults = [];
+    this.chatModSearchDone = false;
+    this.chatModMessage = '';
+  }
+
+  clearChatBanUser() {
+    this.selectedChatBanUser = null;
+    this.banReason = '';
+  }
+
+  isChatMod(user: User): boolean {
+    return (this.managedChatMods.some(m => m.user?.id === user.id));
+  }
+
+  /** Chat moderators can promote others to chat_moderator for their own room. */
+  async addChatModerator(user: User) {
+    const userId = this.parentRef?.user?.id;
+    if (!userId || !user.id || !this.selectedManagedChat) return;
+    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+    this.chatModActionLoading = true;
+    const ok = await this.moderatorService.setRole(user.id, 'chat_moderator', userId, false, sessionToken, 'chat', this.selectedManagedChat);
+    this.chatModActionLoading = false;
+    if (ok) {
+      this.chatModMessage = `✅ ${user.username ?? 'User'} is now a moderator of ${this.managedChatName()}.`;
+      this.chatModMessageIsError = false;
+      this.chatModSearchResults = this.chatModSearchResults.filter(r => r.id !== user.id);
+      this.chatModSearchDone = false;
+      await Promise.all([this.loadChatModeration(), this.loadModeratorLogs()]);
+    } else {
+      this.chatModMessage = `❌ Couldn't promote ${user.username ?? 'User'}. Only this chat's moderators can add moderators here.`;
+      this.chatModMessageIsError = true;
+    }
+  }
+
+  async removeChatModerator(user: User) {
+    const userId = this.parentRef?.user?.id;
+    if (!userId || !user.id || !this.selectedManagedChat) return;
+    if (user.id === this.parentRef?.user?.id) {
+      this.chatModMessage = `You can't remove your own chat moderator role here.`;
+      this.chatModMessageIsError = true;
+      return;
+    }
+    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+    this.chatModActionLoading = true;
+    const ok = await this.moderatorService.setRole(user.id, 'chat_moderator', userId, true, sessionToken, 'chat', this.selectedManagedChat);
+    this.chatModActionLoading = false;
+    if (ok) {
+      this.chatModMessage = `🗑️ ${user.username ?? 'User'} is no longer a moderator of ${this.managedChatName()}.`;
+      this.chatModMessageIsError = false;
+      await Promise.all([this.loadChatModeration(), this.loadModeratorLogs()]);
+    } else {
+      this.chatModMessage = `❌ Couldn't remove the role.`;
+      this.chatModMessageIsError = true;
+    }
+  }
+
+  async banChatModUser() {
+    const userId = this.parentRef?.user?.id;
+    if (!userId || !this.selectedChatBanUser?.id || !this.selectedManagedChat) return;
+    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+    this.chatModActionLoading = true;
+    const ok = await this.moderatorService.banChatUser(this.selectedManagedChat, this.selectedChatBanUser.id, userId, this.banReason.trim(), sessionToken);
+    this.chatModActionLoading = false;
+    if (ok) {
+      this.chatModMessage = `🚫 ${this.selectedChatBanUser.username ?? 'User'} was banned from ${this.managedChatName()}.`;
+      this.chatModMessageIsError = false;
+      this.clearChatBanUser();
+      this.chatModSearchDone = false;
+      this.chatModSearchResults = [];
+      await Promise.all([this.loadChatModeration(), this.loadModeratorLogs()]);
+    } else {
+      this.chatModMessage = `❌ Couldn't ban that user.`;
+      this.chatModMessageIsError = true;
+    }
+  }
+
+  async unbanChatModUser(ban: ChatBan) {
+    const userId = this.parentRef?.user?.id;
+    if (!userId || !this.selectedManagedChat) return;
+    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+    this.chatModActionLoading = true;
+    const ok = await this.moderatorService.unbanChatUser(this.selectedManagedChat, ban.userId, userId, sessionToken);
+    this.chatModActionLoading = false;
+    if (ok) {
+      this.chatModMessage = `✅ ${ban.username ?? 'User'} was unbanned.`;
+      this.chatModMessageIsError = false;
+      await Promise.all([this.loadChatModeration(), this.loadModeratorLogs()]);
+    } else {
+      this.chatModMessage = `❌ Couldn't unban that user.`;
+      this.chatModMessageIsError = true;
+    }
+  }
+
+  async resolveChatAppeal(appeal: ChatBanAppeal, resolution: 'approved' | 'denied') {
+    const userId = this.parentRef?.user?.id;
+    if (!userId) return;
+    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+    this.chatModActionLoading = true;
+    const ok = await this.moderatorService.resolveChatBanAppeal(appeal.id, userId, resolution, sessionToken);
+    this.chatModActionLoading = false;
+    if (ok) {
+      this.chatModMessage = resolution === 'approved'
+        ? `✅ Appeal approved — ${appeal.username ?? 'User'} was unbanned.`
+        : `❌ Appeal denied.`;
+      this.chatModMessageIsError = false;
+      await Promise.all([this.loadChatModeration(), this.loadModeratorLogs()]);
+    } else {
+      this.chatModMessage = `❌ Couldn't resolve the appeal.`;
+      this.chatModMessageIsError = true;
+    }
   }
 }
