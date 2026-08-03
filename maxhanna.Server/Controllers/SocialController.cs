@@ -1189,10 +1189,7 @@ namespace maxhanna.Server.Controllers
           }
         }
       }
-    }
-
-    private static bool _storyChatIdColumnEnsured = false;
-    private static readonly object _storyChatIdLock = new object();
+    } 
 
     [HttpPost("/Social/Post-Story/", Name = "PostStory")]
     public async Task<IActionResult> PostStory([FromBody] StoryRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)

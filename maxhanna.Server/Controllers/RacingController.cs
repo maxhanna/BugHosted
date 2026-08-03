@@ -30,7 +30,6 @@ namespace maxhanna.Server.Controllers
 			new Timer(PersistAllToDb, null,
 				TimeSpan.FromSeconds(_persistIntervalSeconds),
 				TimeSpan.FromSeconds(_persistIntervalSeconds)));
-		private static bool _schemaEnsured = false;
 		private static string? _connStrCache;
 		private static bool _startupLoadStarted = false;
 		private static bool _shutdownHooksRegistered = false;
