@@ -1133,6 +1133,63 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.currentChatIsPublic = !!room.isPublic;
       this.currentChatRoomName = room.name || '';
     }
+    await this.checkChatBanStatus();
+  }
+
+  /** Polls the moderator service to see whether the current user is banned from
+   *  this chat. When banned, the composer is replaced by a notice + appeal box.
+   *  Only checks when logged in and a chat is open. */
+  async checkChatBanStatus() {
+    const userId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id ?? 0;
+    if (!userId || !this.currentChatId) {
+      this.isBannedFromChat = false;
+      this.hasPendingAppeal = false;
+      return;
+    }
+    try {
+      const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+      const status = await this.moderatorService.isChatUserBanned(this.currentChatId, userId, sessionToken);
+      this.isBannedFromChat = !!status?.isBanned;
+      this.hasPendingAppeal = !!status?.hasPendingAppeal;
+      if (!this.isBannedFromChat) {
+        this.showBanAppealBox = false;
+        this.banAppealText = '';
+        this.banAppealMessage = '';
+      }
+    } catch (e) {
+      // Non-fatal: just keep the composer usable if the check fails.
+      this.isBannedFromChat = false;
+    }
+  }
+
+  toggleBanAppealBox() {
+    this.showBanAppealBox = !this.showBanAppealBox;
+    this.banAppealMessage = '';
+  }
+
+  async submitBanAppeal() {
+    const userId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id ?? 0;
+    if (!userId || !this.currentChatId) return;
+    const text = (this.banAppealText || '').trim();
+    if (!text) {
+      this.banAppealMessage = 'Please write a short appeal explaining why you should be let back in.';
+      this.banAppealMessageIsError = true;
+      return;
+    }
+    this.isSubmittingAppeal = true;
+    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+    const res = await this.moderatorService.appealChatBan(this.currentChatId, userId, text, sessionToken);
+    this.isSubmittingAppeal = false;
+    if (res?.ok) {
+      this.hasPendingAppeal = true;
+      this.showBanAppealBox = false;
+      this.banAppealText = '';
+      this.banAppealMessage = res.message;
+      this.banAppealMessageIsError = false;
+    } else {
+      this.banAppealMessage = res?.message || 'Failed to submit the appeal. Please try again.';
+      this.banAppealMessageIsError = true;
+    }
   }
 
 
