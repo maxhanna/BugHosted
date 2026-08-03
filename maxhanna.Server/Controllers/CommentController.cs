@@ -27,15 +27,18 @@ namespace maxhanna.Server.Controllers
 		{
 			string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 
-			if (request.FileId != null && request.StoryId != null)
+			// A comment can hang off exactly one root parent (file / story / recipe).
+			// CommentId (a reply) is allowed to coexist with the root parent id.
+			int rootParentCount = (request.FileId != null ? 1 : 0) + (request.StoryId != null ? 1 : 0) + (request.RecipeId != null ? 1 : 0);
+			if (rootParentCount > 1)
 			{
-				string message = "Both file_id and story_id cannot be provided at the same time.";
+				string message = "Only one of file_id, story_id, or recipe_id can be provided at the same time.";
 				_ = _log.Db(message, request.UserId, "COMMENT", true);
 				return BadRequest(message);
 			}
-			if ((request.FileId ?? 0) == 0 && (request.StoryId ?? 0) == 0)
+			if (rootParentCount == 0)
 			{
-				string message = "Either FileId or StoryId must be provided.";
+				string message = "Either FileId, StoryId, or RecipeId must be provided.";
 				_ = _log.Db(message, request.UserId, "COMMENT", true);
 				return BadRequest(message);
 			}
@@ -61,6 +64,11 @@ namespace maxhanna.Server.Controllers
 						columns.Add("story_id");
 						paramNames.Add("@storyId");
 					}
+					if (request.RecipeId != null)
+					{
+						columns.Add("recipe_id");
+						paramNames.Add("@recipeId");
+					}
 					if (request.CommentId != null)
 					{
 						columns.Add("comment_id");
@@ -69,8 +77,10 @@ namespace maxhanna.Server.Controllers
 
 					if (columns.Count == 0)
 					{
-						return BadRequest("Either file_id, story_id, or comment_id must be provided.");
+						return BadRequest("Either file_id, story_id, recipe_id, or comment_id must be provided.");
 					}
+
+					await EnsureRecipeIdColumnAsync(conn);
 
 					var columnsSql = ", " + string.Join(", ", columns);
 					var paramsSql = ", " + string.Join(", ", paramNames);
@@ -88,6 +98,7 @@ namespace maxhanna.Server.Controllers
 						// add optional parent id params only when present
 						if (request.FileId != null) cmd.Parameters.AddWithValue("@fileId", request.FileId);
 						if (request.StoryId != null) cmd.Parameters.AddWithValue("@storyId", request.StoryId);
+						if (request.RecipeId != null) cmd.Parameters.AddWithValue("@recipeId", request.RecipeId);
 						if (request.CommentId != null) cmd.Parameters.AddWithValue("@commentId", request.CommentId);
 						cmd.Parameters.AddWithValue("@comment", request.Comment);
 						cmd.Parameters.AddWithValue("@userProfileId", request.UserProfileId ?? (object)DBNull.Value);
@@ -124,7 +135,7 @@ namespace maxhanna.Server.Controllers
 
 					if (insertedId != 0 && request.UserId > 0)
 					{
-						string context = request.StoryId != null ? "a post" : request.FileId != null ? "a file" : "a comment";
+						string context = request.StoryId != null ? "a post" : request.FileId != null ? "a file" : request.RecipeId != null ? "a recipe" : "a comment";
 						string eventText = $"commented on {context}";
 						await UserEventController.InsertUserEventStatic(request.UserId, "comment", eventText, insertedId, "comment", _config, _log);
 					}
@@ -135,6 +146,35 @@ namespace maxhanna.Server.Controllers
 			{
 				_ = _log.Db("An error occurred while processing the PostComment request. " + ex.Message, request.UserId, "COMMENT", true);
 				return StatusCode(500, "An error occurred while processing the request.");
+			}
+		}
+
+		private static bool _recipeIdColumnEnsured = false;
+		private static readonly object _recipeIdColumnLock = new object();
+		private async Task EnsureRecipeIdColumnAsync(MySqlConnection conn)
+		{
+			if (_recipeIdColumnEnsured) return;
+			try
+			{
+				string checkSql = "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'comments' AND COLUMN_NAME = 'recipe_id';";
+				using (var checkCmd = new MySqlCommand(checkSql, conn))
+				{
+					if (Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) == 0)
+					{
+						using (var alterCmd = new MySqlCommand("ALTER TABLE comments ADD COLUMN recipe_id INT NULL AFTER story_id;", conn))
+						{
+							await alterCmd.ExecuteNonQueryAsync();
+						}
+					}
+					lock (_recipeIdColumnLock)
+					{
+						_recipeIdColumnEnsured = true;
+					}
+				}
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("EnsureRecipeIdColumnAsync error: " + ex.Message, null, "COMMENT", true);
 			}
 		}
 
@@ -234,13 +274,14 @@ namespace maxhanna.Server.Controllers
 
 		[HttpPost("/Comment/GetCommentById", Name = "GetCommentById")]
 		public async Task<IActionResult> GetCommentById([FromBody] GetCommentByIdRequest request)
-		{
-			try
+		{				try
 			{
 				string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
 				using (var conn = new MySqlConnection(connectionString))
 				{
 					await conn.OpenAsync();
+
+					await EnsureRecipeIdColumnAsync(conn);
 
 					string sql = @"
 						WITH RECURSIVE comment_tree (id, depth) AS (
@@ -251,11 +292,12 @@ namespace maxhanna.Server.Controllers
 						  WHERE ct.depth < 5
 						)
 						SELECT 
-							c.id AS commentId,
-							c.file_id AS commentFileId,
-							c.story_id AS commentStoryId,
-							c.comment_id AS comment_parent_id,
-							c.user_id AS commentUserId,
+						c.id AS commentId,
+						c.file_id AS commentFileId,
+						c.story_id AS commentStoryId,
+						c.recipe_id AS commentRecipeId,
+						c.comment_id AS comment_parent_id,
+						c.user_id AS commentUserId,
 							c.date AS commentDate,
 							c.city AS commentCity,
 							c.country AS commentCountry,
@@ -355,6 +397,7 @@ namespace maxhanna.Server.Controllers
 						if (commentId == 0) continue;
 						var commentFileId = row["commentFileId"] as int?;
 						var commentStoryId = row["commentStoryId"] as int?;
+						var commentRecipeId = row["commentRecipeId"] as int?;
 						var commentParentId = row["comment_parent_id"] as int?;
 						var commentDate = row["commentDate"] as DateTime? ?? DateTime.MinValue;
 						var commentCity = row["commentCity"] as string;
@@ -370,6 +413,7 @@ namespace maxhanna.Server.Controllers
 								Id = commentId,
 								FileId = commentFileId,
 								StoryId = commentStoryId,
+								RecipeId = commentRecipeId,
 								CommentId = commentParentId,
 								User = cachedUsers.TryGetValue(uid, out var cu) ? cu : new User(uid),
 								CommentText = commentText,
@@ -481,9 +525,9 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("/Comment/GetComments", Name = "GetComments")]
 		public async Task<IActionResult> GetComments([FromBody] GetCommentsRequest request)
 		{
-			if ((request.FileId ?? 0) == 0 && (request.StoryId ?? 0) == 0 && (request.UserProfileId ?? 0) == 0)
+			if ((request.FileId ?? 0) == 0 && (request.StoryId ?? 0) == 0 && (request.RecipeId ?? 0) == 0 && (request.UserProfileId ?? 0) == 0)
 			{
-				return BadRequest("Either fileId, storyId, or userProfileId must be provided.");
+				return BadRequest("Either fileId, storyId, recipeId, or userProfileId must be provided.");
 			}
 
 			try
@@ -492,6 +536,8 @@ namespace maxhanna.Server.Controllers
 				using (var conn = new MySqlConnection(connectionString))
 				{
 					await conn.OpenAsync();
+
+					await EnsureRecipeIdColumnAsync(conn);
 
 					string whereClause;
 					string paramName;
@@ -508,6 +554,12 @@ namespace maxhanna.Server.Controllers
 						whereClause = "c.file_id = @id";
 						paramName = "@id";
 						paramValue = request.FileId.Value;
+					}
+					else if (request.RecipeId != null)
+					{
+						whereClause = "c.recipe_id = @id";
+						paramName = "@id";
+						paramValue = request.RecipeId.Value;
 					}
 					else
 					{
@@ -527,11 +579,12 @@ namespace maxhanna.Server.Controllers
 							JOIN comment_tree ct ON c.comment_id = ct.id
 						)
 						SELECT 
-							c.id AS commentId,
-							c.file_id AS commentFileId,
-							c.story_id AS commentStoryId,
-							c.comment_id AS comment_parent_id,
-							c.user_id AS commentUserId,
+						c.id AS commentId,
+						c.file_id AS commentFileId,
+						c.story_id AS commentStoryId,
+						c.recipe_id AS commentRecipeId,
+						c.comment_id AS comment_parent_id,
+						c.user_id AS commentUserId,
 							c.date AS commentDate,
 							c.city AS commentCity,
 							c.country AS commentCountry,
@@ -631,6 +684,7 @@ namespace maxhanna.Server.Controllers
 						if (commentId == 0) continue;
 						var commentFileId = row["commentFileId"] as int?;
 						var commentStoryId = row["commentStoryId"] as int?;
+						var commentRecipeId = row["commentRecipeId"] as int?;
 						var commentParentId = row["comment_parent_id"] as int?;
 						var commentDate = row["commentDate"] as DateTime? ?? DateTime.MinValue;
 						var commentCity = row["commentCity"] as string;
@@ -646,6 +700,7 @@ namespace maxhanna.Server.Controllers
 								Id = commentId,
 								FileId = commentFileId,
 								StoryId = commentStoryId,
+								RecipeId = commentRecipeId,
 								CommentId = commentParentId,
 								User = cachedUsers.TryGetValue(uid, out var cu) ? cu : new User(uid),
 								CommentText = commentText,

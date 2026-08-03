@@ -61,13 +61,13 @@ export class NotificationService {
   } 
   async createNotifications(params: {
     fromUserId: number, toUserIds: number[], message: string,
-    storyId?: number, fileId?: number, chatId?: number,
+    storyId?: number, recipeId?: number, fileId?: number, chatId?: number,
     commentId?: number, userProfileId?: number,
   }) {
     return await this.fetchData('/notification/createnotifications',
       {
         FromUserId: params.fromUserId, ToUserIds: params.toUserIds, Message: params.message,
-        StoryId: params.storyId, FileId: params.fileId, ChatId: params.chatId,
+        StoryId: params.storyId, RecipeId: params.recipeId, FileId: params.fileId, ChatId: params.chatId,
         CommentId: params.commentId, UserProfileId: params.userProfileId
       });
   }  

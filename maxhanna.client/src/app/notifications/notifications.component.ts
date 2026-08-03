@@ -430,7 +430,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       this.parentRef?.createComponent('Ender');
     } else if (notification?.text?.toLowerCase().includes('shared a note') || notification?.text?.toLowerCase().includes('a note was shared') || notification?.text?.toLowerCase().includes('note was shared')) {
       this.parentRef?.createComponent('Notepad');
-    } else if (notification.text?.includes('Executed Trade') || notification.text?.includes('KrakenService')) {
+    } else if (notification.text?.includes('Executed Trade') || notification.text?.includes('KrakenService') || notification.text?.includes('TTL')) {
       this.goToCryptoHub(notification);
     } else if (notification.fileId) {
       this.goToFileId(notification)

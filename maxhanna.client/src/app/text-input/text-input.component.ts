@@ -39,6 +39,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   @Input() country?: string;
   @Input() hide = false;
   @Input() storyId?: number = undefined
+  @Input() recipeId?: number = undefined
   @Input() commentId?: number = undefined
   @Input() chatId?: number;
   @Input() messageId?: number;
@@ -293,7 +294,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
         let content = undefined;
         let originalContent = "";
 
-        let derivedIds: { userProfileId?: number, storyId?: number, fileId?: number, commentId?: number } | undefined = undefined;
+        let derivedIds: { userProfileId?: number, storyId?: number, recipeId?: number, fileId?: number, commentId?: number } | undefined = undefined;
         let skipNotifications = false;
         if (this.type == "Social" && this.saveAsStory) {
           content = await this.createStory(files);
@@ -317,6 +318,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
           derivedIds = {
             userProfileId: content.comment?.userProfileId ?? this.profileUser?.id ?? undefined,
             storyId: this.storyId ?? content.comment?.storyId ?? undefined,
+            recipeId: this.recipeId ?? content.comment?.recipeId ?? undefined,
             fileId: this.fileId ?? content.comment?.fileId ?? undefined,
             commentId: this.commentId ?? content.comment?.commentId ?? undefined
           };
@@ -326,6 +328,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
               user?.id,
               this.fileId ?? content.comment.fileId,
               this.storyId ?? content.comment.storyId,
+              this.recipeId ?? content.comment.recipeId,
               this.commentId ?? content.comment.commentId,
               content.comment.userProfileId ?? this.profileUser?.id,
               content.comment.commentFiles,
@@ -385,7 +388,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
 
     return element!;
   }
-  async createNotifications(results: { results: any, originalContent: string }, ids?: { userProfileId?: number, storyId?: number, fileId?: number, commentId?: number }) {
+  async createNotifications(results: { results: any, originalContent: string }, ids?: { userProfileId?: number, storyId?: number, recipeId?: number, fileId?: number, commentId?: number }) {
     const parent = this.parentRef;
     const user = parent?.user;
     // if component has an explicit storyId, prefer and propagate it into ids so downstream code sees it
@@ -406,13 +409,13 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
       const storyIdToUse = this.storyId ?? ids?.storyId ?? storyIdFromResults ?? (isStory ? this.commentParent?.id : undefined);
 
       // Profile user notification
-      if (this.profileUser?.id && this.profileUser.id != user.id && !mentionedSet.has(this.profileUser.id) && !notifiedUserIds.has(this.profileUser.id)) {
-        const notificationData: any = {
-          fromUserId: user.id,
-          toUserIds: [this.profileUser.id],
-          message: "New post on your profile!",
-          userProfileId: ids?.userProfileId ?? this.profileUser.id
-        };
+      if (this.profileUser?.id && this.profileUser.id != user.id && !mentionedSet.has(this.profileUser.id) && !notifiedUserIds.has(this.profileUser.id)) {            const notificationData: any = {
+              fromUserId: user.id,
+              toUserIds: [this.profileUser.id],
+              message: "New post on your profile!",
+              userProfileId: ids?.userProfileId ?? this.profileUser.id,
+              recipeId: ids?.recipeId
+            };
         this.notificationService.createNotifications(notificationData);
         notifiedUserIds.add(this.profileUser.id);
       }
@@ -426,6 +429,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
             message: "You were mentioned by " + (user?.username ?? 'Anonymous') + "!",
             userProfileId: ids?.userProfileId ?? undefined,
             storyId: storyIdToUse,
+            recipeId: ids?.recipeId ?? undefined,
             fileId: ids?.fileId ?? results.results?.fileId ?? (isFile ? this.commentParent?.id : undefined),
             commentId: ids?.commentId ?? results.results?.commentId ?? (isComment ? this.commentParent?.id : undefined),
           };
@@ -451,6 +455,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
               toUserIds: filteredToUserIds,
               message: message,
               storyId: storyIdToUse,
+              recipeId: ids?.recipeId ?? undefined,
               fileId: ids?.fileId ?? results.results?.fileId ?? (isFile ? this.commentParent?.id : undefined),
               commentId: ids?.commentId ?? results.results?.commentId ?? (isComment ? this.commentParent?.id : undefined),
               userProfileId: ids?.userProfileId ?? this.profileUser?.id,
@@ -489,6 +494,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
                 toUserIds: notifyIds,
                 message,
                 storyId: storyIdToUse,
+                recipeId: ids?.recipeId ?? undefined,
                 fileId: this.fileId ?? ids?.fileId ?? results.results?.fileId ?? (isFile ? this.commentParent?.id : undefined),
                 commentId: this.commentId ?? ids?.commentId ?? results.results?.commentId ?? (isComment ? this.commentParent?.id : undefined),
                 userProfileId: ids?.userProfileId ?? this.profileUser?.id,
@@ -688,6 +694,7 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
     tmpComment.date = currentDate;
     tmpComment.fileId = this.fileId ?? (isFile ? this.commentParent?.id : undefined);
     tmpComment.storyId = this.storyId ?? (isStory ? this.commentParent?.id : undefined);
+    tmpComment.recipeId = this.recipeId ?? undefined;
     tmpComment.commentId = this.commentId ?? (isComment ? this.commentParent?.id : undefined);
     tmpComment.commentFiles = files ?? this.attachedFiles;
     tmpComment.country = location?.country;

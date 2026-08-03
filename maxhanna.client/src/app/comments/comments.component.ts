@@ -62,6 +62,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   @Input() canReply = true;
   @Input() depth = 0;
   @Input() storyId?: number = undefined;
+  @Input() recipeId?: number = undefined;
   @Input() fileId?: number = undefined;
   @Input() replyingToCommentId?: number;
   @Input() scrollToCommentId?: number;
@@ -84,12 +85,13 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   }
 
   private async fetchComments() {
-    const id = this.storyId || this.fileId || this.userProfileId || this.userProfile?.id;
+    const id = this.storyId || this.recipeId || this.fileId || this.userProfileId || this.userProfile?.id;
     if (!id) return;
     if (this.commentList && this.commentList.length > 0) return;
 
     const body: any = {};
     if (this.storyId) body.storyId = this.storyId;
+    else if (this.recipeId) body.recipeId = this.recipeId;
     else if (this.fileId) body.fileId = this.fileId;
     else if (this.userProfileId || this.userProfile?.id) body.userProfileId = this.userProfileId || this.userProfile?.id;
 
@@ -154,7 +156,7 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
       }
     }
     if (changes['commentList']) {
-      if ((!this.commentList || this.commentList.length === 0) && (this.storyId || this.fileId || this.userProfileId || this.userProfile?.id)) {
+      if ((!this.commentList || this.commentList.length === 0) && (this.storyId || this.recipeId || this.fileId || this.userProfileId || this.userProfile?.id)) {
         this.fetchComments();
       } else {
         setTimeout(() => this.decryptCommentsRecursively(this.commentList), 100);

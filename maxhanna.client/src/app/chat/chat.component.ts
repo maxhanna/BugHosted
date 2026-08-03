@@ -49,6 +49,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   isJoiningPublicChat = false;
   private publicChatSearchTimeout: any;
   showUserList = true;
+  preChatTab: 'people' | 'public' = 'people';
   currentChatTheme: string = '';
   currentChatUserThemeId: number | null = null;
   userThemes: UserTheme[] = [];
@@ -334,7 +335,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
   async getMessageHistory(pageNumber?: number, pageSize: number = 10) {
     if (!this.currentChatUsers) return;
-    this.startLoading();
     try {
       const user = this.parentRef?.user ? this.parentRef.user : new User(0, "Anonymous");
       if (!this.currentChatUsers.some(x => x.id == user.id)) {
@@ -354,7 +354,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         if (this.chatHistory.length > 0) {
           this.chatHistory = [];
         }
-        this.stopLoading();
         return;
       }
       if (res) {
@@ -439,7 +438,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error('Error fetching message history:', error);
     }
-    this.stopLoading();
   }
 
   private setServerDown(res: any) {
@@ -1007,9 +1005,17 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   }
 
+  switchPreChatTab(tab: 'people' | 'public') {
+    this.preChatTab = tab;
+    if (tab === 'public') {
+      this.searchPublicChats();
+    }
+  }
+
   async searchPublicChats() {
-    const userId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id;
-    if (!userId) return;
+    // Search itself doesn't require login (the server ignores the id beyond logging);
+    // only joining a chat needs a user. Pass 0 when logged out so the search still works.
+    const userId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id ?? 0;
     this.isSearchingPublicChats = true;
     this.publicChatResults = await this.chatService.searchPublicChats(this.publicChatSearch.trim(), userId);
     this.isSearchingPublicChats = false;
@@ -1037,7 +1043,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
   async joinPublicChat(chatId: number) {
     const userId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id;
-    if (!userId) return;
+    if (!userId) {
+      this.parentRef?.showNotification('Log in to join public chats.');
+      return;
+    }
     this.isJoiningPublicChat = true;
     const ok = await this.chatService.joinPublicChat(chatId, userId);
     this.isJoiningPublicChat = false;

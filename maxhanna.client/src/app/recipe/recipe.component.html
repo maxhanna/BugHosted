@@ -138,6 +138,13 @@
                   <li *ngFor="let link of recipe.externalLinks"><a (click)="visitLink(link)">{{ link }}</a></li>
                 </ul>
               </div>
+
+              <div class="recipe-section">
+                <app-comments [inputtedParentRef]="parentRef" [type]="'Comment'"
+                  [component]="recipe" [component_id]="recipe.id" [recipeId]="recipe.id"
+                  [showComments]="true" [showCommentsHeader]="true">
+                </app-comments>
+              </div>
             </div>
 
             <div class="recipe-footer">

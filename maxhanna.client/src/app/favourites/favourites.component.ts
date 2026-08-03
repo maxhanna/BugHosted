@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+﻿import { AfterViewInit, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { Favourite } from '../../services/datacontracts/favourite/favourite';
 import { FavouriteService } from '../../services/favourite.service';
@@ -270,7 +270,7 @@ export class FavouritesComponent extends ChildComponent implements OnInit, After
     this.showNameImageInput = !!search;
     this.isSearchingUrls = true;
     const userId = this.parentRef?.user?.id;
-    this.loadFavorites(search);
+    this.loadFavorites(search.trim());
   }
 
   async openEditPanel(fav: Favourite) {

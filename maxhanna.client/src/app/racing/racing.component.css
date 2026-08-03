@@ -2548,6 +2548,128 @@
   background: rgba(229,57,53,0.2);
 }
 
+/* ─── Lobby UX: steps, roster, join badges, hints ─── */
+.race-mp-step-title {
+  font-size: 12px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #ffd600;
+  font-weight: 800;
+  margin: 4px 0 2px;
+}
+
+.race-mp-step-hint {
+  font-size: 12px;
+  color: rgba(255,255,255,0.55);
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.race-mp-track-card {
+  flex-wrap: wrap;
+}
+
+.race-mp-join-badge {
+  flex-basis: 100%;
+  margin-top: 8px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  background: rgba(229,57,53,0.15);
+  border: 1px solid rgba(229,57,53,0.5);
+  color: #ff8a80;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-align: center;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.race-track-card:not(.race-track-locked):hover .race-mp-join-badge {
+  background: rgba(229,57,53,0.3);
+  color: #fff;
+}
+
+.race-mp-join-badge.locked {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.4);
+}
+
+.race-mp-roster-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.race-mp-roster-label {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: rgba(255,255,255,0.4);
+  font-weight: 700;
+}
+
+.race-mp-ready-count {
+  font-size: 11px;
+  color: #ffd600;
+  font-weight: 700;
+}
+
+.mp-player-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mp-player-me {
+  background: rgba(76,175,80,0.08);
+}
+
+.mp-you-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: rgba(76,175,80,0.2);
+  color: #4caf50;
+  letter-spacing: 1px;
+  font-weight: 700;
+}
+
+.race-mp-empty {
+  font-size: 12px;
+  color: rgba(255,255,255,0.45);
+  padding: 10px;
+  text-align: center;
+  border: 1px dashed rgba(255,255,255,0.15);
+  border-radius: 6px;
+}
+
+.race-mp-hint {
+  font-size: 11px;
+  color: rgba(255,255,255,0.45);
+  text-align: center;
+  line-height: 1.4;
+}
+
+.race-mp-chat-own .race-mp-chat-name {
+  color: #4caf50;
+}
+
+.race-mp-chat-own {
+  background: rgba(76,175,80,0.06);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.race-mp-chat-empty {
+  font-size: 12px;
+  color: rgba(255,255,255,0.3);
+  font-style: italic;
+  padding: 4px 0;
+}
+
 /* Minimap remote cars */
 .race-minimap-remote {
   width: 5px;

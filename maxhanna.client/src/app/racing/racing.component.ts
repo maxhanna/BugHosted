@@ -183,6 +183,19 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
 
   // True while the SignalR lobby connection is live (drives the lobby status dot).
   get hubConnected(): boolean { return this.racingHub.connected; }
+  // The local player's SignalR connection id — used to tag "YOU" in the lobby roster.
+  get myConnectionId(): string | null { return this.racingHub.myConnectionId; }
+  // The name this player joined the lobby with (matches the server's playerName).
+  get myLobbyName(): string {
+    return this.playerCar.playerName?.trim() || this.parentRef?.user?.username || 'Player';
+  }
+  isMyChatMessage(c: { playerName: string; message: string }): boolean {
+    return c.playerName === this.myLobbyName;
+  }
+  // How many players in the lobby have pressed READY — shown in the roster header.
+  get readyCount(): number {
+    return this.lobbyPlayers.filter(p => p.ready).length;
+  }
   // Exposed for the podium template so we can tell multiplayer from offline.
   get isInMultiplayerRace(): boolean { return !!this._mpLobbyTrackId; }
   // True while a hub connection attempt is in flight (distinguishes "Connecting…" from "Not connected").
@@ -783,10 +796,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
 
   async sendChatMessage() {
     if (!this.chatInput.trim() || !this._mpLobbyTrackId) return;
-    await this.racingHub.sendChat(this._mpLobbyTrackId, this.chatInput);
-    this.chatMessages.push({ playerName: 'You', message: this.chatInput });
-    if (this.chatMessages.length > 50) this.chatMessages.shift();
+    const message = this.chatInput;
     this.chatInput = '';
+    // The hub broadcasts OnChatMessage back to EVERY client in the group
+    // (including the sender), so we must NOT push the message locally here —
+    // doing so made your own chat messages appear twice.
+    await this.racingHub.sendChat(this._mpLobbyTrackId, message);
   }
 
   openGarage() {

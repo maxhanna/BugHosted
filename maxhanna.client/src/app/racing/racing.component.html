@@ -105,7 +105,8 @@
           </span>
         </div>
 
-        <!-- Track selection -->
+        <!-- Step 2 · In the lobby -->
+        <div class="race-mp-step-title" *ngIf="selectedTrack">STEP 2 · IN THE LOBBY</div>
         <div class="race-mp-track-info" *ngIf="selectedTrack">
           <div class="race-mp-track-name">{{ selectedTrack.name }}</div>
           <div class="race-mp-track-diff">{{ selectedTrack.difficulty | uppercase }} · {{ selectedTrack.laps }} Laps · {{ selectedTrack.length }}m</div>
@@ -124,9 +125,11 @@
           </div>
         </div>
 
-        <!-- Join / Lobby state -->
+        <!-- Step 1 · Pick a track -->
         <div *ngIf="!selectedTrack">
-          <div class="race-track-card" *ngFor="let t of TRACKS"
+          <div class="race-mp-step-title">STEP 1 · PICK A TRACK</div>
+          <div class="race-mp-step-hint">Tap a track to join its lobby. You'll see who's inside before the race starts.</div>
+          <div class="race-track-card race-mp-track-card" *ngFor="let t of TRACKS"
             [class.race-track-locked]="playerCar.money < t.entryFee"
             (click)="playerCar.money >= t.entryFee && selectTrackMultiplayer(t)">
             <div class="race-track-info">
@@ -151,15 +154,27 @@
               <span class="race-fee">${{ t.entryFee }}</span>
               <span class="race-prize">Prize: ${{ t.prizePool }}</span>
             </div>
+            <span class="race-mp-join-badge" [class.locked]="playerCar.money < t.entryFee">
+              {{ playerCar.money >= t.entryFee ? 'JOIN LOBBY →' : '🔒 Locked' }}
+            </span>
           </div>
         </div>
 
-        <!-- Player list -->
+        <!-- Roster: who's in the lobby -->
+        <div class="race-mp-roster-head" *ngIf="selectedTrack">
+          <span class="race-mp-roster-label">👥 IN THE LOBBY</span>
+          <span class="race-mp-ready-count" *ngIf="lobbyPlayers.length > 0">
+            {{ readyCount }}/{{ lobbyPlayers.length }} ready
+          </span>
+        </div>
         <div class="race-mp-players" *ngIf="selectedTrack && lobbyPlayers.length > 0">
           <div class="mp-player-row" *ngFor="let p of lobbyPlayers"
+            [class.mp-player-me]="p.connectionId === myConnectionId"
             [style.border-left-color]="getPlayerColor(p.connectionId)">
             <div class="mp-player-name">
+              <span class="mp-player-dot" [style.background]="getPlayerColor(p.connectionId)"></span>
               {{ p.playerName }}
+              <span class="mp-you-badge" *ngIf="p.connectionId === myConnectionId">YOU</span>
               <span class="mp-host-badge" *ngIf="p.isHost">HOST</span>
             </div>
             <div class="mp-player-status">
@@ -167,11 +182,14 @@
               <span class="mp-ready-no" *ngIf="!p.ready">WAITING</span>
             </div>
           </div>
+        </div>
+        <div class="race-mp-empty" *ngIf="selectedTrack && lobbyPlayers.length === 0">
+          Waiting for players… share this track with friends to fill the lobby.
+        </div>
 
-          <!-- Auto-start countdown timer -->
-          <div class="race-mp-countdown" *ngIf="autoStartDisplay">
-            ⏱️ {{ autoStartDisplay }}
-          </div>
+        <!-- Auto-start countdown timer -->
+        <div class="race-mp-countdown" *ngIf="selectedTrack && autoStartDisplay">
+          ⏱️ {{ autoStartDisplay }}
         </div>
 
         <!-- Ready / Start / Leave buttons -->
@@ -189,14 +207,22 @@
             LEAVE LOBBY
           </button>
         </div>
+        <div class="race-mp-hint" *ngIf="selectedTrack">
+          <ng-container *ngIf="isLobbyHost">You're the host — press <b>START RACE</b> when everyone is ready.</ng-container>
+          <ng-container *ngIf="!isLobbyHost">Press <b>READY UP</b> so the host knows you're set to race.</ng-container>
+        </div>
 
         <!-- Chat -->
         <div class="race-mp-chat" *ngIf="selectedTrack">
           <div class="race-mp-chat-title">Lobby Chat</div>
           <div class="race-mp-chat-msgs">
-            <div class="race-mp-chat-msg" *ngFor="let c of chatMessages">
+            <div class="race-mp-chat-msg" *ngFor="let c of chatMessages"
+              [class.race-mp-chat-own]="isMyChatMessage(c)">
               <span class="race-mp-chat-name">{{ c.playerName }}:</span>
               <span class="race-mp-chat-text">{{ c.message }}</span>
+            </div>
+            <div class="race-mp-chat-empty" *ngIf="chatMessages.length === 0">
+              No messages yet — say hi!
             </div>
           </div>
           <div class="race-mp-chat-input-row">

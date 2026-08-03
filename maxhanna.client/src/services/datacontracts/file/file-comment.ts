@@ -10,6 +10,7 @@ export class FileComment {
   upvotes: number = 0;
   downvotes: number = 0;
   storyId?: number;
+  recipeId?: number;
   commentId?: number;
   fileId?: number;
   userProfileId?: number;

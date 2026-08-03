@@ -128,6 +128,7 @@
               [quoteMessage]="quoteMessage" 
               [profileUser]="userProfile" 
               [storyId]="storyId" 
+              [recipeId]="recipeId"
               [fileId]="fileId" 
               [commentId]="comment.id"
               [isReplyingToSubComment]="true"
@@ -143,7 +144,7 @@
 
           <div *ngFor="let subComment of comment.comments" class="subComment" [id]="'subComment' + subComment.id">
             <app-comments [inputtedParentRef]="parentRef" [type]="'Comment'"
-              [showCommentsHeader]="false" [storyId]="storyId" [fileId]="fileId" [comment_id]="subComment.id"
+              [showCommentsHeader]="false" [storyId]="storyId" [recipeId]="recipeId" [fileId]="fileId" [comment_id]="subComment.id"
               [automaticallyShowSubComments]="true" [commentList]="[subComment]" [depth]="depth + 1"
               [quoteMessage]="quoteMessage" [replyingToCommentId]="replyingToCommentId"
               [scrollToCommentId]="scrollToCommentId"
@@ -174,6 +175,7 @@
       [quoteMessage]="quoteMessage"
       [profileUser]="userProfile" 
       [storyId]="storyId" 
+      [recipeId]="recipeId"
       [fileId]="fileId"
       [isReplyingToSubComment]="false"
       (contentPosted)="commentPosted($event)"></app-text-input>

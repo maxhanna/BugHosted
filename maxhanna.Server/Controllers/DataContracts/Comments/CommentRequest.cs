@@ -5,10 +5,11 @@ namespace maxhanna.Server.Controllers.DataContracts.Comments
 {
 	public class CommentRequest
 	{
-		public CommentRequest(int userId, int? fileId, int? storyId, int? commentId, int? userProfileId, List<FileEntry>? selectedFiles, string comment, string? city, string? country, string? ip)
+		public CommentRequest(int userId, int? fileId, int? storyId, int? recipeId, int? commentId, int? userProfileId, List<FileEntry>? selectedFiles, string comment, string? city, string? country, string? ip)
 		{
 			UserId = userId;
 			StoryId = storyId;
+			RecipeId = recipeId;
 			FileId = fileId;
 			CommentId = commentId;
 			UserProfileId = userProfileId;
@@ -21,6 +22,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Comments
 		public int UserId { get; set; }
 		public int? FileId { get; set; }
 		public int? StoryId { get; set; }
+		public int? RecipeId { get; set; }
 		public int? CommentId { get; set; }
 		public int? UserProfileId { get; set; }
 		public string? City { get; set; }

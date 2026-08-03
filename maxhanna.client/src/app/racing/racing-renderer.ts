@@ -1386,12 +1386,18 @@ void main() {
     gl.drawElements(gl.TRIANGLES, this.carCount, gl.UNSIGNED_SHORT, 0);
 
     // Wheels
+    // The body mesh is scaled 0.8 (floor half-width ≈ 0.52, floor bottom ≈
+    // y+0.158), but the wheels are drawn UNscaled — so the old offsets
+    // (±0.2 lateral, -0.12 vertical) buried the tires under the floor and left
+    // a visible gap between the chassis and the tires. These offsets match the
+    // garage model: tire tops touch the floor bottom, and the wheels poke out
+    // past the floor/sidepods so the tires read as sitting BESIDE the chassis.
     gl.bindVertexArray(this.wheelVao);
     const wheelPositions = [
-      [-0.3, -0.12, -0.2],
-      [-0.3, -0.12, 0.2],
-      [0.3, -0.12, -0.2],
-      [0.3, -0.12, 0.2]
+      [-0.55, -0.052, -0.56],
+      [-0.55, -0.052, 0.56],
+      [0.55, -0.052, -0.56],
+      [0.55, -0.052, 0.56]
     ];
     for (const wp of wheelPositions) {
       this.mat4Identity(this.modelMatrix);

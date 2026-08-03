@@ -496,7 +496,7 @@
 
   <div *ngIf="optionsFile && optionsFile?.id && editingTopics.includes(optionsFile.id)">
     <app-topics #topicComponent [isDropdown]="true" [user]="inputtedParentRef?.user ?? parentRef?.user"
-      [parent]="inputtedParentRef ?? parentRef" [attachedTopics]="optionsFile.topics"
+      [parent]="inputtedParentRef ?? parentRef" [attachedTopics]="optionsFile.topics" [preventClosingOverlay]="true"
       (topicAdded)="editFileTopicInDB($event, optionsFile)">
     </app-topics>
   </div>

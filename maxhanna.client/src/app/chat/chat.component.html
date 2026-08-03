@@ -13,6 +13,13 @@
     (backClicked)="closeChat()">
   </app-title-bar>
 
+  <div class="preChatTabs" *ngIf="isPanelExpanded && showUserList">
+    <button (click)="switchPreChatTab('people')" [class.active]="preChatTab === 'people'"
+      class="coloredBgButton">👥 People</button>
+    <button (click)="switchPreChatTab('public')" [class.active]="preChatTab === 'public'"
+      class="coloredBgButton">🌐 Public Chats</button>
+  </div>
+
   <app-user-list 
     (userClickEvent)="singleUserSelected($event);" 
     (userSelectClickEvent)="userSelectClickEvent($event)"
@@ -23,10 +30,48 @@
     [displayRadioFilters]="true" 
     [inputtedParentRef]="parentRef" 
     class="userPanel"
-    *ngIf="isPanelExpanded && showUserList">
+    *ngIf="isPanelExpanded && showUserList && preChatTab === 'people'">
   </app-user-list>
+
+  <div class="publicChatSearchPanel" *ngIf="isPanelExpanded && showUserList && preChatTab === 'public'">
+    <div class="optionsStatsHeader">🔍 Search Public Chats</div>
+    <div class="optionsStatsDescription">
+      <div *ngIf="!(parentRef?.user?.id ?? inputtedParentRef?.user?.id)" class="smallFont thirdFontColor" style="margin-bottom:4px;">
+        Log in to join public chats.
+      </div>
+      <input [(ngModel)]="publicChatSearch" placeholder="Search public chats by name..." style="width:100%; margin-bottom:4px;" (keyup.enter)="searchPublicChats()" (input)="debouncedPublicChatSearch()">
+      <button (click)="searchPublicChats()" [disabled]="isSearchingPublicChats" class="coloredBgButton">
+        {{ isSearchingPublicChats ? 'Searching...' : '🔎 Search' }}
+      </button>
+      <div *ngIf="publicChatResults.length > 0" style="margin-top:8px;">
+        <div *ngFor="let chat of publicChatResults" style="margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <span>🌐 {{ chat.name }} <span class="smallFont">({{ chat.memberCount }} members)</span></span>
+          <span style="white-space: nowrap;">
+            <button (click)="joinPublicChat(chat.chatId)" [disabled]="isJoiningPublicChat" style="margin-left:8px;">Join</button>
+            <button (click)="openSocialBoardFor(chat.chatId, chat.name)" style="margin-left:6px;" title="Open this group's social board">📋 Board</button>
+          </span>
+        </div>
+      </div>
+      <div *ngIf="!isSearchingPublicChats && publicChatSearch && publicChatResults.length === 0" class="smallFont thirdFontColor" style="margin-top:4px;">
+        No public chats found.
+      </div>
+    </div>
+  </div>
   <div class="chatArea" [class]="isPanelExpanded ? 'expanded' : ''">
     <div *ngIf="currentChatUsers" class="chatConversation">
+      <div class="makePublicBar" *ngIf="currentChatId && !currentChatIsPublic">
+        <span class="makePublicBarIcon">🌐</span>
+        <input [(ngModel)]="newChatName" placeholder="Name this room to make it public..." class="makePublicNameInput" (keyup.enter)="makeChatPublic()">
+        <button (click)="makeChatPublic()" [disabled]="isMakingChatPublic || !newChatName.trim()" class="coloredBgButton">
+          {{ isMakingChatPublic ? 'Making public...' : '🌐 Make Public' }}
+        </button>
+        <span class="makePublicBarHint">Lets anyone search &amp; join it, and promotes existing members to chat moderators.</span>
+      </div>
+      <div class="makePublicBar makePublicBar--isPublic" *ngIf="currentChatId && currentChatIsPublic">
+        <span class="makePublicBarIcon">🌐</span>
+        <span class="makePublicBarName">{{ currentChatRoomName }}</span>
+        <span class="makePublicBarHint">This chat is public — anyone can find and join it.</span>
+      </div>
       <div class="chatWindow" #chatWindow (scroll)="onScroll();">
         <div *ngIf="pageNumber < totalPages" appInView (inView)="loadPreviousPage()"
           style="width: 100%; text-align: center;" class="smallFont secondaryFontColor">

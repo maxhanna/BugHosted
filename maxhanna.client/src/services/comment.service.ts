@@ -10,14 +10,15 @@ export class CommentService {
     userId?: number,
     fileId?: number,
     storyId?: number,
+    recipeId?: number,
     commentId?: number,
     userProfileId?: number,
     selectedFiles?: FileEntry[],
     city?: string,
     country?: string,
     ip?: string) {
-    if ((fileId && storyId && commentId) || (!fileId && !storyId && !commentId)) {
-      alert("Error: Must supply exactly one of FileId, StoryId, or CommentId");
+    if ((fileId && storyId && commentId && recipeId) || (!fileId && !storyId && !commentId && !recipeId)) {
+      alert("Error: Must supply exactly one of FileId, StoryId, RecipeId, or CommentId");
       return "Error: No Id supplied";
     }
     try {
@@ -30,6 +31,7 @@ export class CommentService {
           UserId: userId,
           FileId: fileId,
           StoryId: storyId,
+          RecipeId: recipeId,
           CommentId: commentId,
           UserProfileId: userProfileId,
           SelectedFiles: selectedFiles,

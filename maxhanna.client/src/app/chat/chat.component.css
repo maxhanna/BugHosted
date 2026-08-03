@@ -32,6 +32,82 @@
   display: block;
 }
 
+/* The pre-chat tab bar sits above the user list — shrink the list so the
+   combination never overflows the viewport. */
+.preChatTabs + .userPanel.expanded {
+  height: CALC(100vh - 105px);
+  height: CALC(100dvh - 105px);
+}
+
+/* Pre-chat tab bar (People / Public Chats) */
+.preChatTabs {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px 0;
+  justify-content: center;
+}
+
+.preChatTabs .coloredBgButton {
+  flex: 1;
+  max-width: 180px;
+  border-radius: 16px;
+  opacity: 0.75;
+  transition: opacity 0.15s ease;
+}
+
+.preChatTabs .coloredBgButton.active {
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--main-highlight-color);
+}
+
+/* Public chat search panel (pre-chat "Public Chats" tab) */
+.publicChatSearchPanel {
+  padding: 12px 14px;
+  max-height: CALC(100vh - 140px);
+  max-height: CALC(100dvh - 140px);
+  overflow-y: auto;
+}
+
+/* Make Public bar shown at the top of a chat room */
+.makePublicBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--main-highlight-color);
+  background: var(--component-background-color);
+  font-size: small;
+}
+
+.makePublicBar--isPublic {
+  background: var(--secondary-component-background-color);
+}
+
+.makePublicBarIcon {
+  font-size: 16px;
+}
+
+.makePublicNameInput {
+  flex: 1;
+  min-width: 140px;
+  padding: 5px 8px;
+  border: var(--main-border);
+  border-radius: 6px;
+  background: var(--main-bg-color);
+  color: var(--main-font-color);
+}
+
+.makePublicBarHint {
+  width: 100%;
+  color: var(--third-font-color);
+}
+
+.makePublicBarName {
+  font-weight: 600;
+  color: var(--main-highlight-color);
+}
+
 
 .chatArea {
   margin-left: 0;
@@ -45,9 +121,7 @@
   background-image: var(--main-background-image-url, none);
   background-size: cover;
   background-position: center;
-}
-
-.chatConversation {
+}  .chatConversation {
   display: flex;
   flex-direction: column;
   max-height: CALC(100vh - 115px);
