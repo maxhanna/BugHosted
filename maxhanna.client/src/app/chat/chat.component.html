@@ -164,7 +164,35 @@
         </div>
       </div>
 
-      <div class="chatComposer" [style]="isEditing.length > 0 ? 'display: none' : ''">
+      <!-- Banned from this chat → notice + appeal instead of the composer -->
+      <div *ngIf="currentChatId && isBannedFromChat" class="chatBannedNotice">
+        <div class="chatBannedTitle">🚫 You're banned from this chat</div>
+        <div class="chatBannedHint">This room's moderators have banned you from posting here. You can
+          appeal the ban — a moderator of this chat will review it.</div>
+
+        <div *ngIf="hasPendingAppeal" class="chatBannedHint" style="color:var(--main-highlight-color);">
+          ⏳ Your appeal is pending review by this chat's moderators.
+        </div>
+
+        <div *ngIf="!hasPendingAppeal">
+          <button *ngIf="!showBanAppealBox" class="coloredBgButton" (click)="toggleBanAppealBox()">📨 Appeal the ban</button>
+          <div *ngIf="showBanAppealBox" class="banAppealBox">
+            <textarea [(ngModel)]="banAppealText" class="banAppealTextarea" rows="3"
+              placeholder="Tell the moderators why you should be allowed back…"></textarea>
+            <div class="banAppealActions">
+              <button class="coloredBgButton" (click)="submitBanAppeal()" [disabled]="isSubmittingAppeal || !banAppealText.trim()">
+                {{ isSubmittingAppeal ? 'Submitting…' : '📨 Submit Appeal' }}
+              </button>
+              <button class="linkBtn" (click)="toggleBanAppealBox()">Cancel</button>
+            </div>
+          </div>
+          <div *ngIf="banAppealMessage" class="chatBannedHint" [class.error]="banAppealMessageIsError" style="margin-top:6px;">
+            {{ banAppealMessage }}
+          </div>
+        </div>
+      </div>
+
+      <div class="chatComposer" *ngIf="!isBannedFromChat" [style]="isEditing.length > 0 ? 'display: none' : ''">
         <app-text-input #chatInput 
           [inputtedParentRef]="parentRef ?? inputtedParentRef" 
           [type]="'Chat'"
