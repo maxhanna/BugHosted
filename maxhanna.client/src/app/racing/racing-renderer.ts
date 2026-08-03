@@ -963,56 +963,249 @@ void main() {
     }
   }
 
-  // City theme: glass towers with lit window grids + rooftop antennas.
+  // City theme: a dense downtown — a varied skyline of towers & blocks,
+  // overpasses that cross above the track, elevated highway ramps and street
+  // furniture (benches) along the sidewalks.
   private addCityScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
-    const towerColors: [number, number, number][] = [
+    const palette: [number, number, number][] = [
       [0.12, 0.18, 0.32], [0.1, 0.22, 0.28], [0.2, 0.16, 0.3], [0.14, 0.14, 0.38], [0.08, 0.28, 0.34],
+      [0.16, 0.12, 0.26], [0.1, 0.16, 0.28], [0.24, 0.2, 0.3], [0.12, 0.24, 0.24], [0.18, 0.18, 0.36],
     ];
-    let towerIdx = 0;
-    for (let i = 0; i < pts.length; i += 6) {
+
+    // Dense skyline: mix of building archetypes along both sides of the track.
+    let bIdx = 0;
+    for (let i = 0; i < pts.length; i += 4) {
       const p = pts[i];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
       for (const side of [-1, 1]) {
-        const dist = p.width / 2 + 42 + Math.random() * 30;
-        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 12;
-        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 12;
-        const h = 14 + Math.random() * 34;
-        const w = 4 + Math.random() * 4;
-        const d = 4 + Math.random() * 4;
-        const col = towerColors[Math.floor(Math.random() * towerColors.length)];
-        this.addBox(verts, idxs, tx, h / 2, tz, w, h, d, col);
-        // Lit window grid on all four faces (bright dots at dusk).
-        const rows = Math.max(4, Math.floor(h / 4));
-        const cols = 2;
-        const wn = 0.5;
-        for (const sx of [-1, 1]) {
-          const zc = tz + sx * (d / 2 + 0.05);
-          for (let r = 0; r < rows; r++) {
-            const wy = 1 + r * (h - 2) / rows;
-            for (let c = 0; c < cols; c++) {
-              const xc = tx - w / 2 + 0.8 + c * (w - 1.6) / cols;
-              this.addWindowQuad(verts, idxs, xc, wy, zc, wn * 2, wn, 0, sx, [0.95, 0.85, 0.5]);
-            }
-          }
-        }
-        for (const sz of [-1, 1]) {
-          const xc = tx + sz * (w / 2 + 0.05);
-          for (let r = 0; r < rows; r++) {
-            const wy = 1 + r * (h - 2) / rows;
-            for (let c = 0; c < cols; c++) {
-              const zc = tz - d / 2 + 0.8 + c * (d - 1.6) / cols;
-              this.addWindowQuad(verts, idxs, xc, wy, zc, wn * 2, wn, sz, 0, [0.95, 0.85, 0.5]);
-            }
-          }
-        }
-        // Rooftop antenna + red beacon.
-        this.addCylinder(verts, idxs, tx, h, tz, 0.06, 3, 5, [0.3, 0.3, 0.35]);
-        this.addSphere(verts, idxs, tx, h + 3, tz, 0.12, 6, [0.9, 0.15, 0.12]);
-        if (towerIdx++ > 26) break;
+        const dist = p.width / 2 + 40 + Math.random() * 26;
+        const bx = p.x + ppx * dist * side + (Math.random() - 0.5) * 10;
+        const bz = p.z + ppz * dist * side + (Math.random() - 0.5) * 10;
+        const h = 12 + Math.random() * 38;
+        const w = 4 + Math.random() * 5;
+        const d = 4 + Math.random() * 5;
+        const col = palette[Math.floor(Math.random() * palette.length)];
+        this.addCityBuilding(verts, idxs, bx, bz, h, w, d, col);
+        if (bIdx++ > 40) break;
       }
-      if (towerIdx > 26) break;
+      if (bIdx > 40) break;
+    }
+
+    // Overpasses: elevated decks crossing OVER the road — drive underneath.
+    const overpassEvery = Math.max(10, Math.floor(pts.length / 6));
+    for (let k = 0; k < 6; k++) {
+      const p = pts[(k * overpassEvery) % pts.length];
+      this.addOverpass(verts, idxs, p);
+    }
+
+    // Elevated parallel highway ramps on the far side of the track.
+    let rampIdx = 0;
+    for (let i = 0; i < pts.length; i += 22) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 62 + Math.random() * 18;
+        const rx = p.x + ppx * dist * side;
+        const rz = p.z + ppz * dist * side;
+        this.addHighwayRamp(verts, idxs, rx, rz, p.dirX, p.dirZ, 26 + Math.random() * 22);
+        if (rampIdx++ > 7) break;
+      }
+      if (rampIdx > 7) break;
+    }
+
+    // Benches along the sidewalks.
+    let benchIdx = 0;
+    for (let i = 0; i < pts.length; i += 8) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 14 + Math.random() * 8;
+        const bx = p.x + ppx * dist * side + (Math.random() - 0.5) * 3;
+        const bz = p.z + ppz * dist * side + (Math.random() - 0.5) * 3;
+        this.addBench(verts, idxs, bx, bz, p.dirX, p.dirZ);
+        if (benchIdx++ > 34) break;
+      }
+      if (benchIdx > 34) break;
+    }
+  }
+
+  // Picks one of several building archetypes for the city skyline.
+  private addCityBuilding(verts: number[], idxs: number[], bx: number, bz: number, h: number, w: number, d: number, col: number[]) {
+    const roll = Math.random();
+    if (roll < 0.22) {
+      this.addGlassTower(verts, idxs, bx, bz, h, w, d, col);
+    } else if (roll < 0.4) {
+      this.addSetbackTower(verts, idxs, bx, bz, h, w, d, col);
+    } else if (roll < 0.58) {
+      this.addLowRiseBlock(verts, idxs, bx, bz, h * 0.7, w, d, col);
+    } else if (roll < 0.72) {
+      this.addDomedHall(verts, idxs, bx, bz, h * 0.8, w, d, col);
+    } else if (roll < 0.86) {
+      this.addWaterTowerRoof(verts, idxs, bx, bz, h * 0.8, w, d, col);
+    } else {
+      this.addSpire(verts, idxs, bx, bz, h, w, d, col);
+    }
+  }
+
+  // Classic glass tower: lit window grid on all four faces + antenna + beacon.
+  private addGlassTower(verts: number[], idxs: number[], tx: number, tz: number, h: number, w: number, d: number, col: number[]) {
+    this.addBox(verts, idxs, tx, h / 2, tz, w, h, d, col);
+    const rows = Math.max(4, Math.floor(h / 4));
+    const cols = 2;
+    const wn = 0.5;
+    for (const sx of [-1, 1]) {
+      const zc = tz + sx * (d / 2 + 0.05);
+      for (let r = 0; r < rows; r++) {
+        const wy = 1 + r * (h - 2) / rows;
+        for (let c = 0; c < cols; c++) {
+          const xc = tx - w / 2 + 0.8 + c * (w - 1.6) / cols;
+          this.addWindowQuad(verts, idxs, xc, wy, zc, wn * 2, wn, 0, sx, [0.95, 0.85, 0.5]);
+        }
+      }
+    }
+    for (const sz of [-1, 1]) {
+      const xc = tx + sz * (w / 2 + 0.05);
+      for (let r = 0; r < rows; r++) {
+        const wy = 1 + r * (h - 2) / rows;
+        for (let c = 0; c < cols; c++) {
+          const zc = tz - d / 2 + 0.8 + c * (d - 1.6) / cols;
+          this.addWindowQuad(verts, idxs, xc, wy, zc, wn * 2, wn, sz, 0, [0.95, 0.85, 0.5]);
+        }
+      }
+    }
+    this.addCylinder(verts, idxs, tx, h, tz, 0.06, 3, 5, [0.3, 0.3, 0.35]);
+    this.addSphere(verts, idxs, tx, h + 3, tz, 0.12, 6, [0.9, 0.15, 0.12]);
+  }
+
+  // Art-deco setback tower: stacked shrinking tiers with a parapet crown.
+  private addSetbackTower(verts: number[], idxs: number[], bx: number, bz: number, h: number, w: number, d: number, col: number[]) {
+    const tiers: [number, number][] = [
+      [h * 0.55, 1], [h * 0.3, 0.8], [h * 0.18, 0.58],
+    ];
+    let y = 0;
+    for (const [th, scale] of tiers) {
+      this.addBox(verts, idxs, bx, y + th / 2, bz, w * scale, th, d * scale, col);
+      y += th;
+    }
+    // Parapet crown + tiny spire tip.
+    this.addBox(verts, idxs, bx, y + 0.3, bz, w * 0.42, 0.6, d * 0.42, [0.85, 0.85, 0.9]);
+    this.addCone(verts, idxs, bx, y + 0.7, bz, w * 0.16, 1.4, 6, [0.7, 0.7, 0.78]);
+  }
+
+  // Wide low-rise commercial block: flat roof + rooftop units + storefronts.
+  private addLowRiseBlock(verts: number[], idxs: number[], bx: number, bz: number, h: number, w: number, d: number, col: number[]) {
+    this.addBox(verts, idxs, bx, h / 2, bz, w * 1.4, h, d * 1.4, col);
+    // Flat roof + parapet + rooftop HVAC units.
+    this.addBox(verts, idxs, bx, h + 0.35, bz, w * 1.4 + 0.6, 0.7, d * 1.4 + 0.6, [0.75, 0.75, 0.8]);
+    for (const ux of [-0.8, 0.8]) {
+      this.addBox(verts, idxs, bx + ux, h + 1.4, bz, 0.8, 0.9, 0.8, [0.45, 0.45, 0.5]);
+    }
+    // Storefront window strip on the two long faces.
+    const rows = Math.max(2, Math.floor(h / 4));
+    const cols = 4;
+    for (const sx of [-1, 1]) {
+      const zc = bz + sx * (d * 1.4 / 2 + 0.05);
+      for (let r = 0; r < rows; r++) {
+        const wy = 1 + r * (h - 2) / rows;
+        for (let c = 0; c < cols; c++) {
+          const xc = bx - w * 1.4 / 2 + 1 + c * (w * 1.4 - 2) / cols;
+          this.addWindowQuad(verts, idxs, xc, wy, zc, 0.9, 0.6, 0, sx, [0.9, 0.85, 0.6]);
+        }
+      }
+    }
+  }
+
+  // Civic hall: block + columned portico + dome.
+  private addDomedHall(verts: number[], idxs: number[], bx: number, bz: number, h: number, w: number, d: number, col: number[]) {
+    this.addBox(verts, idxs, bx, h / 2, bz, w, h, d, col);
+    for (let c = 0; c < 4; c++) {
+      const cx = bx - w / 2 + (c + 0.5) * (w / 4);
+      this.addBox(verts, idxs, cx, h * 0.45, bz - d / 2 - 0.4, 0.4, h * 0.9, 0.4, [0.85, 0.85, 0.9]);
+    }
+    this.addBox(verts, idxs, bx, h + 0.3, bz, w + 0.8, 0.6, d + 0.8, [0.85, 0.85, 0.9]);
+    this.addSphere(verts, idxs, bx, h + 1.5, bz, Math.max(w, d) * 0.5, 6, [0.5, 0.6, 0.7]);
+    this.addCylinder(verts, idxs, bx, h + 2.4, bz, 0.06, 1.2, 6, [0.85, 0.85, 0.9]);
+  }
+
+  // Rooftop water tower: legs + cylindrical tank + conical roof.
+  private addWaterTowerRoof(verts: number[], idxs: number[], bx: number, bz: number, h: number, w: number, d: number, col: number[]) {
+    this.addBox(verts, idxs, bx, h / 2, bz, w, h, d, col);
+    const ty = h + 0.8;
+    for (const lx of [-0.9, 0.9]) {
+      for (const lz of [-0.9, 0.9]) {
+        this.addBox(verts, idxs, bx + lx, ty + 0.5, bz + lz, 0.25, 1, 0.25, [0.45, 0.45, 0.5]);
+      }
+    }
+    this.addCylinder(verts, idxs, bx, ty + 1.2, bz, 1.1, 1.4, 8, [0.55, 0.4, 0.3]);
+    this.addCone(verts, idxs, bx, ty + 2.6, bz, 1.15, 0.8, 8, [0.35, 0.3, 0.28]);
+  }
+
+  // Slender spire: slim shaft + needle.
+  private addSpire(verts: number[], idxs: number[], bx: number, bz: number, h: number, w: number, d: number, col: number[]) {
+    this.addBox(verts, idxs, bx, h / 2, bz, w, h, d, col);
+    this.addBox(verts, idxs, bx, h + h * 0.3, bz, w * 0.45, h * 0.6, d * 0.45, col);
+    this.addCone(verts, idxs, bx, h * 1.9, bz, w * 0.18, h * 0.35, 6, [0.6, 0.6, 0.65]);
+  }
+
+  // Elevated road deck crossing OVER the track — you drive underneath it.
+  private addOverpass(verts: number[], idxs: number[], p: any) {
+    const ppx = -p.dirZ;
+    const ppz = p.dirX;
+    const deckY = 7;
+    const halfSpan = p.width / 2 + 30;
+    this.addOrientedBox(verts, idxs, p.x, deckY, p.z, halfSpan * 2, 0.4, 5.5, ppx, ppz, [0.35, 0.37, 0.42]);
+    // Guard rails along both long edges.
+    for (const s of [-1, 1]) {
+      const ox = p.x + p.dirX * (5.5 / 2 - 0.15) * s;
+      const oz = p.z + p.dirZ * (5.5 / 2 - 0.15) * s;
+      this.addOrientedBox(verts, idxs, ox, deckY + 0.45, oz, halfSpan * 2, 0.5, 0.25, ppx, ppz, [0.55, 0.55, 0.6]);
+    }
+    // Support pillars outside the road, under the deck (clear of the curbs).
+    for (const s of [-1, 1]) {
+      for (const off of [p.width / 2 + 10, p.width / 2 + 19, p.width / 2 + 28]) {
+        const px = p.x + ppx * off * s;
+        const pz = p.z + ppz * off * s;
+        this.addBox(verts, idxs, px, deckY / 2, pz, 0.9, deckY, 0.9, [0.4, 0.4, 0.45]);
+      }
+    }
+  }
+
+  // Elevated highway segment running parallel to the track, with pillars.
+  private addHighwayRamp(verts: number[], idxs: number[], hx: number, hz: number, dirX: number, dirZ: number, len: number) {
+    const deckY = 5;
+    this.addOrientedBox(verts, idxs, hx, deckY, hz, len, 0.35, 7, dirX, dirZ, [0.35, 0.37, 0.42]);
+    for (const s of [-1, 1]) {
+      const ox = hx + (-dirZ) * (7 / 2 - 0.12) * s;
+      const oz = hz + (dirX) * (7 / 2 - 0.12) * s;
+      this.addOrientedBox(verts, idxs, ox, deckY + 0.4, oz, len, 0.45, 0.22, dirX, dirZ, [0.55, 0.55, 0.6]);
+    }
+    const steps = Math.max(2, Math.floor(len / 8));
+    for (let i = 0; i <= steps; i++) {
+      const t = -0.5 + (i / steps);
+      const px = hx + dirX * len * t;
+      const pz = hz + dirZ * len * t;
+      for (const s of [-1, 1]) {
+        this.addBox(verts, idxs, px + (-dirZ) * 3 * s, deckY / 2, pz + (dirX) * 3 * s, 0.7, deckY, 0.7, [0.4, 0.4, 0.45]);
+      }
+    }
+  }
+
+  // Simple street bench: wood seat + backrest + metal legs.
+  private addBench(verts: number[], idxs: number[], bx: number, bz: number, dirX: number, dirZ: number) {
+    const wood: [number, number, number] = [0.55, 0.42, 0.28];
+    const metal: [number, number, number] = [0.35, 0.37, 0.4];
+    const ppx = -dirZ, ppz = dirX;
+    // Seat
+    this.addOrientedBox(verts, idxs, bx, 0.5, bz, 1.7, 0.08, 0.5, dirX, dirZ, wood);
+    // Backrest (offset toward the back edge)
+    this.addOrientedBox(verts, idxs, bx - ppx * 0.1, 0.88, bz - ppz * 0.1, 1.7, 0.55, 0.08, dirX, dirZ, wood);
+    // Legs
+    for (const s of [-1, 1]) {
+      this.addBox(verts, idxs, bx + dirX * 0.7 * s, 0.25, bz + dirZ * 0.7 * s, 0.1, 0.5, 0.4, metal);
     }
   }
 
@@ -1115,6 +1308,20 @@ void main() {
         const uz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
         this.addCylinder(verts, idxs, ux, 0, uz, 0.05, 1.6, 6, [0.85, 0.8, 0.7]);
         this.addCone(verts, idxs, ux, 1.6, uz, 0.9, 0.35, 8, umbrellaColors[Math.floor(Math.random() * umbrellaColors.length)]);
+      }
+    }
+
+    // Boardwalk benches along the beach.
+    for (const gi of gsPositions) {
+      const p = pts[gi];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (let b = 0; b < 3; b++) {
+        const dist = p.width / 2 + 24 + Math.random() * 8;
+        const side = b % 2 === 0 ? -1 : 1;
+        const bx = p.x + ppx * dist * side + (Math.random() - 0.5) * 5;
+        const bz = p.z + ppz * dist * side + (Math.random() - 0.5) * 5;
+        this.addBench(verts, idxs, bx, bz, p.dirX, p.dirZ);
       }
     }
   }
@@ -1469,6 +1676,35 @@ void main() {
       idxs.push(base, base + 1, base + 2);
       idxs.push(base + 2, base + 3, base);
     }
+  }
+
+  // Box whose length runs along an arbitrary XZ direction (dirX, dirZ), with
+  // height along Y and width perpendicular to the direction. Used for overpass
+  // decks, highway ramps and benches that must align with the track's heading.
+  private addOrientedBox(verts: number[], idxs: number[], cx: number, cy: number, cz: number, len: number, h: number, wid: number, dirX: number, dirZ: number, color: number[]) {
+    const dl = Math.sqrt(dirX * dirX + dirZ * dirZ) || 1;
+    const ux = dirX / dl, uz = dirZ / dl;
+    const vx = -uz, vz = ux; // perpendicular (right-hand)
+    const hl = len / 2, hh = h / 2, hw = wid / 2;
+    const corner = (sx: number, sy: number, sz: number): number[] => [
+      cx + ux * hl * sx + vx * hw * sz,
+      cy + hh * sy,
+      cz + uz * hl * sx + vz * hw * sz,
+    ];
+    // 8 corners (naming mirrors addTaperedBox: b=back/u-, f=front/u+, 0=v-, 1=v+,
+    // y- bottom / y+ top):
+    //   b0=c00 back-bottom-left, b1=c01 back-bottom-right, b2=c03 back-top-right,
+    //   b3=c02 back-top-left, f0=c10 front-bottom-left, f1=c11 front-bottom-right,
+    //   f2=c13 front-top-right, f3=c12 front-top-left.
+    const c00 = corner(-1, -1, -1), c01 = corner(-1, -1, 1), c02 = corner(-1, 1, -1), c03 = corner(-1, 1, 1);
+    const c10 = corner(1, -1, -1), c11 = corner(1, -1, 1), c12 = corner(1, 1, -1), c13 = corner(1, 1, 1);
+    // Same windings as addTaperedBox (proven outward normals via addQuad's cross):
+    this.addQuad(verts, idxs, c01, c00, c10, c11, color); // bottom (b1,b0,f0,f1)
+    this.addQuad(verts, idxs, c03, c13, c12, c02, color); // top (b2,f2,f3,b3)
+    this.addQuad(verts, idxs, c02, c12, c10, c00, color); // left v- (b3,f3,f0,b0)
+    this.addQuad(verts, idxs, c01, c11, c13, c03, color); // right v+ (b1,f1,f2,b2)
+    this.addQuad(verts, idxs, c00, c01, c03, c02, color); // back u- (b0,b1,b2,b3)
+    this.addQuad(verts, idxs, c10, c12, c13, c11, color); // front u+ (f0,f3,f2,f1)
   }
 
   // Single quad (4 corners). Normal is computed from the winding via a cross

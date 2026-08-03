@@ -772,12 +772,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   // ─── F1-style start lights ───
-  // 10-second countdown split into three light phases: red (10-8), yellow (7-4),
-  // green (3-1), then GO (0) — classic racing start sequence instead of numbers.
+  // 10-second countdown with only red (10-8) and yellow (7-1) showing while
+  // counting down; the green light only lights up at GO (0), together with red
+  // and yellow, so green never appears before the race actually starts.
   get startLightPhase(): 'red' | 'yellow' | 'green' | 'go' {
     if (this.countdownTimer >= 8) return 'red';
-    if (this.countdownTimer >= 4) return 'yellow';
-    if (this.countdownTimer >= 1) return 'green';
+    if (this.countdownTimer >= 1) return 'yellow';
     return 'go';
   }
 
