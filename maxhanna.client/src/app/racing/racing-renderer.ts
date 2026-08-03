@@ -866,13 +866,13 @@ void main() {
     this.addCone(verts, idxs, 1.32, 0.11, 0, 0.09, 0.22, 8, [cr, cg, cb]);
 
     // ── 4. Front wing ──
-    // Main plane
-    this.addBox(verts, idxs, 1.2, 0.06, 0, 0.3, 0.03, 1.35, carbon);
+    // Main plane (full car width — F1 wings span the entire track section)
+    this.addBox(verts, idxs, 1.2, 0.06, 0, 0.3, 0.03, 1.5, carbon);
     // Secondary flap
-    this.addBox(verts, idxs, 1.15, 0.10, 0, 0.2, 0.03, 1.25, carbon);
+    this.addBox(verts, idxs, 1.15, 0.10, 0, 0.2, 0.03, 1.4, carbon);
     // Endplates
-    this.addBox(verts, idxs, 1.2, 0.12, 0.67, 0.35, 0.18, 0.04, carbon);
-    this.addBox(verts, idxs, 1.2, 0.12, -0.67, 0.35, 0.18, 0.04, carbon);
+    this.addBox(verts, idxs, 1.2, 0.12, 0.75, 0.35, 0.18, 0.04, carbon);
+    this.addBox(verts, idxs, 1.2, 0.12, -0.75, 0.35, 0.18, 0.04, carbon);
     // Nose pylons connecting wing to nose
     this.addBox(verts, idxs, 1.2, 0.08, 0.15, 0.1, 0.06, 0.04, carbon);
     this.addBox(verts, idxs, 1.2, 0.08, -0.15, 0.1, 0.06, 0.04, carbon);
@@ -902,13 +902,13 @@ void main() {
     this.addBox(verts, idxs, -0.15, 0.42, -0.22, 0.55, 0.04, 0.06, carbon);
 
     // ── 8. Rear wing ──
-    // Main plane
-    this.addBox(verts, idxs, -1.0, 0.38, 0, 0.35, 0.04, 0.85, carbon);
+    // Main plane (full car width like a real F1 rear wing)
+    this.addBox(verts, idxs, -1.0, 0.38, 0, 0.35, 0.04, 1.05, carbon);
     // Upper flap (DRS)
-    this.addBox(verts, idxs, -1.0, 0.44, 0, 0.3, 0.03, 0.85, carbon);
+    this.addBox(verts, idxs, -1.0, 0.44, 0, 0.3, 0.03, 1.05, carbon);
     // Endplates
-    this.addBox(verts, idxs, -1.0, 0.38, 0.43, 0.35, 0.3, 0.04, carbon);
-    this.addBox(verts, idxs, -1.0, 0.38, -0.43, 0.35, 0.3, 0.04, carbon);
+    this.addBox(verts, idxs, -1.0, 0.38, 0.52, 0.35, 0.3, 0.04, carbon);
+    this.addBox(verts, idxs, -1.0, 0.38, -0.52, 0.35, 0.3, 0.04, carbon);
     // Support pylons
     this.addBox(verts, idxs, -0.9, 0.28, 0.22, 0.1, 0.14, 0.04, grey);
     this.addBox(verts, idxs, -0.9, 0.28, -0.22, 0.1, 0.14, 0.04, grey);
@@ -955,9 +955,12 @@ void main() {
     const gl = this.gl;
     const verts: number[] = [];
     const idxs: number[] = [];
-    this.addCylinder(verts, idxs, 0, 0, 0, 0.12, 0.12, 8, [0.05, 0.05, 0.05]);
-    // Tire tread
-    this.addCylinder(verts, idxs, 0, 0, 0, 0.14, 0.1, 8, [0.1, 0.1, 0.1]);
+    // Rim disc (wider so the wheel reads as a proper F1 tire when viewed from
+    // the side; the disc face fills the tread's inner circle)
+    this.addCylinder(verts, idxs, 0, 0, 0, 0.15, 0.15, 10, [0.07, 0.07, 0.08]);
+    // Tire tread — slightly larger radius than the disc so the band wraps the
+    // rim, and a lighter grey so the tire is visible against the dark track.
+    this.addCylinder(verts, idxs, 0, 0, 0, 0.17, 0.12, 10, [0.13, 0.13, 0.14]);
 
     const va = new Float32Array(verts);
     const ia = new Uint16Array(idxs);
@@ -1393,15 +1396,20 @@ void main() {
     // garage model: tire tops touch the floor bottom, and the wheels poke out
     // past the floor/sidepods so the tires read as sitting BESIDE the chassis.
     gl.bindVertexArray(this.wheelVao);
+    // The wheels now sit AT the road surface (center y = 0.17, radius 0.17 →
+    // tire bottom exactly on the ground) so the chassis rests ON the tires
+    // instead of floating above them. Lateral ±0.60 puts the tire tread clearly
+    // outside the floor/sidepods — tires read as BESIDE the chassis like a real
+    // F1 car. Front wheels pushed to +0.62 (near the nose), rear at -0.55.
     const wheelPositions = [
-      [-0.55, -0.052, -0.56],
-      [-0.55, -0.052, 0.56],
-      [0.55, -0.052, -0.56],
-      [0.55, -0.052, 0.56]
+      [0.62, 0, -0.60],
+      [0.62, 0, 0.60],
+      [-0.55, 0, -0.60],
+      [-0.55, 0, 0.60]
     ];
     for (const wp of wheelPositions) {
       this.mat4Identity(this.modelMatrix);
-      this.mat4Translate(this.modelMatrix, [x, y + 0.07, z]);
+      this.mat4Translate(this.modelMatrix, [x, y + 0.17, z]);
       // Same nose-alignment offset as the body above.
       this.mat4RotateY(this.modelMatrix, yaw - Math.PI / 2);
       this.mat4Translate(this.modelMatrix, wp);
