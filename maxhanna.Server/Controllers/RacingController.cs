@@ -130,90 +130,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch { }
 			return _connStrCache;
-		}
-
-		private static void EnsureSchema(string connStr)
-		{
-			if (_schemaEnsured) return;
-			lock (_persistLock)
-			{
-				if (_schemaEnsured) return;
-				try
-				{
-					using var conn = new MySqlConnection(connStr);
-					conn.Open();
-					using (var cmd = new MySqlCommand(@"
-						CREATE TABLE IF NOT EXISTS racing_player_car (
-							user_id INT PRIMARY KEY,
-							player_name VARCHAR(64) NOT NULL DEFAULT '',
-							upgrades_json LONGTEXT NULL,
-							skin_id INT NOT NULL DEFAULT 1,
-							spoiler_id INT NOT NULL DEFAULT 0,
-							rim_id INT NOT NULL DEFAULT 0,
-							exhaust_id INT NOT NULL DEFAULT 0,
-							decal_id INT NOT NULL DEFAULT 0,
-							total_races INT NOT NULL DEFAULT 0,
-							wins INT NOT NULL DEFAULT 0,
-							money INT NOT NULL DEFAULT 500,
-							best_lap DOUBLE NOT NULL DEFAULT 0,
-							total_earnings INT NOT NULL DEFAULT 0
-						)", conn))
-					{
-						cmd.ExecuteNonQuery();
-					}
-					using (var cmd = new MySqlCommand(@"
-						CREATE TABLE IF NOT EXISTS racing_results (
-							id INT AUTO_INCREMENT PRIMARY KEY,
-							user_id INT NOT NULL,
-							player_name VARCHAR(64) NOT NULL DEFAULT '',
-							position INT NOT NULL DEFAULT 1,
-							lap_time DOUBLE NOT NULL DEFAULT 0,
-							total_time DOUBLE NOT NULL DEFAULT 0,
-							money_earned INT NOT NULL DEFAULT 0,
-							raced_at DATETIME NULL
-						)", conn))
-					{
-						cmd.ExecuteNonQuery();
-					}
-					// Bring older tables up to date — each ALTER throws if the column
-					// already exists, so swallow per-column errors.
-					foreach (var col in new[] { "spoiler_id", "rim_id", "exhaust_id", "decal_id", "total_earnings" })
-					{
-						try
-						{
-							using var alt = new MySqlCommand($"ALTER TABLE racing_player_car ADD COLUMN {col} INT NOT NULL DEFAULT 0", conn);
-							alt.ExecuteNonQuery();
-						}
-						catch { }
-					}
-					// best_lap was added to the CREATE TABLE later, so tables created
-					// before that never got the column — without it the load SELECT
-					// and the persist UPSERT both throw and best lap silently never
-					// saves (the row even fails to round-trip on restart). Add it.
-					foreach (var (col, def) in new[] { ("best_lap", "DOUBLE NOT NULL DEFAULT 0") })
-					{
-						try
-						{
-							using var alt = new MySqlCommand($"ALTER TABLE racing_player_car ADD COLUMN {col} {def}", conn);
-							alt.ExecuteNonQuery();
-						}
-						catch { }
-					}
-					foreach (var (table, col) in new[] { ("racing_player_car", "player_name VARCHAR(64) NOT NULL DEFAULT ''"), ("racing_results", "player_name VARCHAR(64) NOT NULL DEFAULT ''") })
-					{
-						try
-						{
-							using var alt = new MySqlCommand($"ALTER TABLE {table} ADD COLUMN {col}", conn);
-							alt.ExecuteNonQuery();
-						}
-						catch { }
-					}
-					_schemaEnsured = true;
-				}
-				catch { }
-			}
-		}
-
+		} 
 		/// <summary>Lazy-load a user's car from the DB (or a fresh default) into memory.</summary>
 		private RacingCarState EnsureCarLoaded(int userId)
 		{
@@ -230,8 +147,7 @@ namespace maxhanna.Server.Controllers
 			{
 				var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna");
 				if (string.IsNullOrEmpty(connStr)) return st;
-				EnsureSchema(connStr);
-				using var conn = new MySqlConnection(connStr);
+ 				using var conn = new MySqlConnection(connStr);
 				conn.Open();
 				using var cmd = new MySqlCommand(@"
 					SELECT upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id,
@@ -271,8 +187,7 @@ namespace maxhanna.Server.Controllers
 			{
 				var connStr = GetConnStr();
 				if (string.IsNullOrEmpty(connStr)) return;
-				EnsureSchema(connStr);
-				using var conn = new MySqlConnection(connStr);
+ 				using var conn = new MySqlConnection(connStr);
 				conn.Open();
 				using var cmd = new MySqlCommand(@"
 					SELECT user_id, upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id,
@@ -388,8 +303,7 @@ namespace maxhanna.Server.Controllers
 
 				var connStr = GetConnStr();
 				if (string.IsNullOrEmpty(connStr)) return;
-				EnsureSchema(connStr);
-				using var conn = new MySqlConnection(connStr);
+ 				using var conn = new MySqlConnection(connStr);
 				conn.Open();
 
 				foreach (var kv in _cars)
@@ -617,8 +531,7 @@ namespace maxhanna.Server.Controllers
 				var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna");
 				if (!string.IsNullOrEmpty(connStr))
 				{
-					EnsureSchema(connStr);
-					using var conn = new MySqlConnection(connStr);
+ 					using var conn = new MySqlConnection(connStr);
 					await conn.OpenAsync();
 					using var cmd = new MySqlCommand(@"
 						SELECT r.user_id, COALESCE(NULLIF(r.player_name, ''), u.username) AS player_name,
