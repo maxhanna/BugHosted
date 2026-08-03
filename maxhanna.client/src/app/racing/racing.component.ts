@@ -56,6 +56,21 @@ interface BotCar {
   // Per-race pace multiplier (≈0.88–1.12). Randomized at spawn so the same two
   // cars don't dominate every race — each bot runs a slightly different speed.
   pace: number;
+  // Sliding intensity 0..1 — feeds the distance-attenuated tire-screech audio
+  // for this bot (estimated from yaw change + wall contact in updateBots).
+  slide: number;
+}
+
+// One pooled "other car" audio voice — a compact engine synth + screech noise
+// bus. The pool is sized to the max cars on track (bots + remote players) and
+// each frame the loudest-attenuated cars are assigned to voices by distance.
+interface RemoteAudioVoice {
+  engineOsc: OscillatorNode;
+  engineFilter: BiquadFilterNode;
+  engineGain: GainNode;
+  screechSource: AudioBufferSourceNode;
+  screechFilter: BiquadFilterNode;
+  screechGain: GainNode;
 }
 
 interface RemoteCarVisual {
@@ -72,6 +87,9 @@ interface RemoteCarVisual {
   colorG: number;
   colorB: number;
   lap: number;
+  // Sliding intensity 0..1 — estimated from yaw change between position syncs,
+  // used for distance-attenuated engine/screech audio for remote players.
+  slide: number;
 }
 
 @Component({
@@ -246,6 +264,21 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private static readonly GRANDSTAND_FRACS = [0, 0.25, 0.5, 0.75];
   private static readonly CROWD_REACH = 55; // world units of audible proximity
 
+  // Tire screech — the player's own sliding. Bandpassed noise whose gain and
+  // cutoff follow the slip-model slide intensity (0..1) set in updatePhysics.
+  private _screechSource: AudioBufferSourceNode | null = null;
+  private _screechFilter: BiquadFilterNode | null = null;
+  private _screechGain: GainNode | null = null;
+  // The player's current slide 0..1 — set every physics frame so the audio
+  // update can read it without recomputing the slip model.
+  private _playerSlide = 0;
+  // Pooled voices for OTHER cars (bots + remote multiplayer players). Each
+  // voice plays a quiet engine + screech, attenuated by straight-line distance
+  // from the player so you only hear nearby cars over your own engine.
+  private _remoteVoices: RemoteAudioVoice[] = [];
+  private static readonly REMOTE_AUDIBLE = 55; // world units before a car is silent
+  private static readonly MAX_REMOTE_VOICES = 10; // bots (up to ~9) + remote players
+
   // ─── Podium / Results ───
   podiumData: { playerName: string; totalTime: number; moneyEarned: number }[] = [];
 
@@ -376,6 +409,16 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           existing.speed = data.speed;
           existing.currentLap = data.currentLap;
           existing.isOffTrack = data.isOffTrack;
+          // Slide estimate from yaw change between syncs (syncs arrive ~10Hz,
+          // so a raw per-update yaw delta is too jumpy — smooth it toward the
+          // new estimate instead of replacing it).
+          const prevYawR = existing.yaw;
+          let yawDelta = data.yaw - prevYawR;
+          while (yawDelta > Math.PI) yawDelta -= Math.PI * 2;
+          while (yawDelta < -Math.PI) yawDelta += Math.PI * 2;
+          const yawRateR = Math.abs(yawDelta) / 0.1;
+          const slideEst = Math.min(1, (yawRateR / 3.5) * Math.min(1, Math.abs(data.speed) / 8));
+          existing.slide = existing.slide * 0.5 + slideEst * 0.5;
           // Track lap from racing position (most reliable)
           if (data.currentLap > oldLap) existing.lap = data.currentLap;
           // Fallback: detect lap crossing from distance wrapping (only if currentLap didn't already increment)
@@ -392,6 +435,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
             currentLap: data.currentLap, isOffTrack: data.isOffTrack,
             colorR: 0.9, colorG: 0.3, colorB: 0.3,
             lap: data.currentLap || 0,
+            slide: 0,
           });
           this.totalRacers = this.bots.length + this.lobbyPlayers.length;
         }
@@ -967,6 +1011,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         // ±12% pace variance per race — breaks up the "always the same winner"
         // feel; even the hardest bot can have an off day.
         pace: 0.88 + Math.random() * 0.24,
+        slide: 0,
       });
     }
   }
@@ -1236,6 +1281,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
     this.slipAngle = slip;
     const slide = Math.min(1, Math.abs(slip) / SLIP_FULL);
+    // Expose to the audio engine (tire screech follows the slip-model slide).
+    this._playerSlide = slide;
 
     // ── Acceleration / braking / coast ──
     if (this.carAccel > 0) {
@@ -1483,6 +1530,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private updateBots(dt: number) {
     for (const bot of this.bots) {
       const prevBotDist = bot.dist;
+      const prevYaw = bot.yaw;
       const lookDist = bot.dist + AI_LOOKAHEAD * 5;
       const target = this.renderer.getTrackPointAlong(lookDist);
 
@@ -1567,6 +1615,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
 
       bot.dist = this.renderer.getDistFromPoint(bot.x, bot.z);
 
+      // Slide estimate for audio: how fast the yaw is changing relative to
+      // speed. Bots don't have a slip-angle model like the player, so yaw rate
+      // is the best proxy — hard cornering at speed reads as tire slip. Wall
+      // contact (below) also spikes it.
+      const yawRate = Math.abs(bot.yaw - prevYaw) / Math.max(0.0001, dt);
+      const speedFactor = Math.min(1, Math.abs(bot.speed) / 8);
+      bot.slide = Math.min(1, (yawRate / 3.5) * speedFactor);
+
       const curTP = this.renderer.getTrackPointAlong(bot.dist);
       // Follow the bot's lane (lateral offset from centerline) with a soft snap.
       // Snap strength scales with skill: weak bots drift off line and into the
@@ -1591,11 +1647,13 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       if (botOff > botBarrier) {
         bot.speed *= Math.pow(0.9, dt * 60);
         bot.yaw += (Math.random() - 0.5) * 0.25;
+        bot.slide = Math.max(bot.slide, 0.9);
         const scale = (botBarrier - 0.3) / botOff;
         bot.x = curTP.x + botDxT * scale;
         bot.z = curTP.z + botDzT * scale;
       } else if (botOff > botHalf) {
         bot.speed *= Math.pow(CURB_DRAG, dt * 60);
+        bot.slide = Math.max(bot.slide, 0.35);
       }
 
       // Lap tracking: accumulate a MONOTONIC race distance so the finish-line
@@ -2147,6 +2205,20 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       if (this._crowdSource) { try { this._crowdSource.stop(); } catch { } this._crowdSource.disconnect(); }
       if (this._crowdFilter) this._crowdFilter.disconnect();
       if (this._crowdGain) this._crowdGain.disconnect();
+      if (this._screechSource) { try { this._screechSource.stop(); } catch { } this._screechSource.disconnect(); }
+      if (this._screechFilter) this._screechFilter.disconnect();
+      if (this._screechGain) this._screechGain.disconnect();
+      for (const v of this._remoteVoices) {
+        try { v.engineOsc.stop(); } catch { }
+        try { v.screechSource.stop(); } catch { }
+        v.engineOsc.disconnect();
+        v.engineFilter.disconnect();
+        v.engineGain.disconnect();
+        v.screechSource.disconnect();
+        v.screechFilter.disconnect();
+        v.screechGain.disconnect();
+      }
+      this._remoteVoices = [];
       if (this._thrumLfoGain) this._thrumLfoGain.disconnect();
       if (this._windFilter) this._windFilter.disconnect();
       if (this._windGain) this._windGain.disconnect();
@@ -2166,6 +2238,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._crowdSource = null;
     this._crowdFilter = null;
     this._crowdGain = null;
+    this._screechSource = null;
+    this._screechFilter = null;
+    this._screechGain = null;
     this._engineFilter = null;
     this._engineGain = null;
     this._audioCtx = null;
@@ -2266,7 +2341,59 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this._crowdFilter.connect(this._crowdGain);
       this._crowdGain.connect(ctx.destination);
 
+      // Tire screech — the player's own sliding. Bandpassed noise whose gain
+      // and cutoff follow the slip-model slide (0..1) set each physics frame.
+      this._screechSource = ctx.createBufferSource();
+      this._screechSource.buffer = buf;
+      this._screechSource.loop = true;
+      this._screechFilter = ctx.createBiquadFilter();
+      this._screechFilter.type = 'bandpass';
+      this._screechFilter.frequency.value = 2200;
+      this._screechFilter.Q.value = 1.5;
+      this._screechGain = ctx.createGain();
+      this._screechGain.gain.value = 0;
+      this._screechSource.connect(this._screechFilter);
+      this._screechFilter.connect(this._screechGain);
+      this._screechGain.connect(ctx.destination);
+
+      // Pooled voices for OTHER cars (bots + remote players). Each voice is a
+      // compact engine synth + screech bus; updateEngineAudio assigns the
+      // nearest cars to voices each frame with distance-attenuated gain, so a
+      // distant car is silent and a car right beside you is faintly audible
+      // under your own engine.
+      this._remoteVoices = [];
+      for (let i = 0; i < RacingComponent.MAX_REMOTE_VOICES; i++) {
+        const vOsc = ctx.createOscillator();
+        vOsc.type = 'sawtooth';
+        vOsc.frequency.value = 80;
+        const vFilter = ctx.createBiquadFilter();
+        vFilter.type = 'lowpass';
+        vFilter.frequency.value = 400;
+        vFilter.Q.value = 0.8;
+        const vGain = ctx.createGain();
+        vGain.gain.value = 0;
+        vOsc.connect(vFilter);
+        vFilter.connect(vGain);
+        vGain.connect(ctx.destination);
+        const sSource = ctx.createBufferSource();
+        sSource.buffer = buf;
+        sSource.loop = true;
+        const sFilter = ctx.createBiquadFilter();
+        sFilter.type = 'bandpass';
+        sFilter.frequency.value = 2200;
+        sFilter.Q.value = 1.2;
+        const sGain = ctx.createGain();
+        sGain.gain.value = 0;
+        sSource.connect(sFilter);
+        sFilter.connect(sGain);
+        sGain.connect(ctx.destination);
+        vOsc.start();
+        sSource.start();
+        this._remoteVoices.push({ engineOsc: vOsc, engineFilter: vFilter, engineGain: vGain, screechSource: sSource, screechFilter: sFilter, screechGain: sGain });
+      }
+
       this._subOsc.start();
+      this._screechSource.start();
       this._engineOsc.start();
       this._engineOsc2.start();
       this._harmOsc.start();
@@ -2290,6 +2417,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this._engineGain.gain.setTargetAtTime(0, t, 0.2);
       if (this._windGain) this._windGain.gain.setTargetAtTime(0, t, 0.2);
       if (this._crowdGain) this._crowdGain.gain.setTargetAtTime(0, t, 0.2);
+      if (this._screechGain) this._screechGain.gain.setTargetAtTime(0, t, 0.1);
+      for (const v of this._remoteVoices) {
+        v.engineGain.gain.setTargetAtTime(0, t, 0.1);
+        v.screechGain.gain.setTargetAtTime(0, t, 0.1);
+      }
       return;
     }
 
@@ -2309,6 +2441,49 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const speedRatio = Math.min(1, speed / maxSpd);
     if (this._windFilter) this._windFilter.frequency.setTargetAtTime(400 + speedRatio * 2200, t, 0.15);
     if (this._windGain) this._windGain.gain.setTargetAtTime(speedRatio * speedRatio * 0.05, t, 0.15);
+
+    // ── Tire screech (player) ──
+    // Gain follows the slip-model slide; cutoff rises too so a big slide reads
+    // as a brighter, more aggressive squeal. Wall-scrapes also set slipAngle in
+    // updatePhysics, so grinding the barrier squeals too.
+    const slide = Math.min(1, this._playerSlide);
+    if (this._screechGain) {
+      this._screechGain.gain.setTargetAtTime(slide * 0.055, t, 0.05);
+      if (this._screechFilter) this._screechFilter.frequency.setTargetAtTime(1800 + slide * 1800, t, 0.07);
+    }
+
+    // ── Other cars (bots + remote players) ──
+    // Every other car on track gets a quiet engine + screech, attenuated by
+    // straight-line distance from the player: nearby cars are faintly audible
+    // under your own engine, distant cars are silent. The nearest cars claim
+    // the pooled voices each frame; unclaimed voices mute.
+    if (this._remoteVoices.length > 0) {
+      const cars: { x: number; z: number; yaw: number; speed: number; slide: number }[] = [];
+      for (const b of this.bots) cars.push({ x: b.x, z: b.z, yaw: b.yaw, speed: Math.abs(b.speed), slide: b.slide || 0 });
+      this.remoteCars.forEach(rc => cars.push({ x: rc.x, z: rc.z, yaw: rc.yaw, speed: Math.abs(rc.speed), slide: rc.slide || 0 }));
+      cars.sort((a, b) => Math.hypot(a.x - this.carX, a.z - this.carZ) - Math.hypot(b.x - this.carX, b.z - this.carZ));
+      const reach = RacingComponent.REMOTE_AUDIBLE;
+      for (let i = 0; i < this._remoteVoices.length; i++) {
+        const v = this._remoteVoices[i];
+        if (i < cars.length) {
+          const c = cars[i];
+          const dist = Math.hypot(c.x - this.carX, c.z - this.carZ);
+          // 0 at reach, ~1 when right on top; squared curve so cars fade out
+          // naturally instead of hitting a hard cutoff.
+          const att = dist >= reach ? 0 : Math.pow(1 - dist / reach, 2);
+          const rpmV = Math.max(0.3, Math.min(1.25, Math.abs(c.speed) / maxSpd * 1.35 + 0.3));
+          const baseF = 52 + rpmV * 140;
+          v.engineOsc.frequency.setTargetAtTime(baseF, t, 0.1);
+          v.engineFilter.frequency.setTargetAtTime(350 + rpmV * 900, t, 0.12);
+          v.engineGain.gain.setTargetAtTime(att * 0.05, t, 0.1);
+          v.screechFilter.frequency.setTargetAtTime(1800 + Math.min(1, c.slide) * 1800, t, 0.08);
+          v.screechGain.gain.setTargetAtTime(att * Math.min(1, c.slide) * 0.05, t, 0.08);
+        } else {
+          v.engineGain.gain.setTargetAtTime(0, t, 0.12);
+          v.screechGain.gain.setTargetAtTime(0, t, 0.1);
+        }
+      }
+    }
 
     // Crowd in the grandstands — swells as the car closes on the nearest stand
     // and fades once it's past. Circular distance on the wrapped lap position.
@@ -2483,7 +2658,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return result;
   }
 
+  hideLoginPopup() { this.parentRef?.closeOverlay(); }
   get TRACKS() { return TRACKS; }
   get UPGRADE_DEFS() { return UPGRADE_DEFS; }
   get CAR_SKINS() { return CAR_SKINS; }
+  
 }

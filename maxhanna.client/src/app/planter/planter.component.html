@@ -1,15 +1,11 @@
 ﻿<div [class.componentMain]="showTitleBar">
-  <app-title-bar *ngIf="showTitleBar" [title]="'Planter'" (closeClicked)="safeDestroy();" (menuClicked)="showMenuPanel()"></app-title-bar>
-  <div class="popupPanel" *ngIf="!parentRef?.user?.id || parentRef?.user?.id === 0">
-    <div class="popupPanelHeader">
-      <span class="popupPanelTitle">Please Log In</span>
-    </div>
-    <div class="popupPanelContent">
-      <p>You need to log in to access this feature.</p>
-      <button class="login-btn" (click)="onLoginClick()">Log In</button>
-    </div>
-    <button class="closeButton" id="closeOverlay" (click)="hideLoginPopup()"></button>
-  </div>
+  <app-title-bar *ngIf="showTitleBar" [title]="'Planter'" (closeClicked)="safeDestroy();"
+    (menuClicked)="showMenuPanel()"></app-title-bar>
+
+  <app-prompt [type]="'login'" [message]="'You need to log in to access this feature.'" [inputtedParentRef]="parentRef"
+    [visible]="!parentRef?.user?.id || parentRef?.user?.id === 0" (close)="hideLoginPopup()">
+  </app-prompt>
+
   <div class="planter-component">
     <div *ngIf="isLoading" class="loading">Loading...</div>
 
@@ -23,7 +19,8 @@
 
       <label class="identify-upload-btn" *ngIf="!isIdentifying && !identificationResult">
         📸 Take / Upload Photo
-        <input type="file" (change)="onIdentifyPhotoSelected($event)" accept="image/*" capture="environment" class="file-input" />
+        <input type="file" (change)="onIdentifyPhotoSelected($event)" accept="image/*" capture="environment"
+          class="file-input" />
       </label>
 
       <div *ngIf="identifyUploadProgress > 0" class="upload-progress">
@@ -52,16 +49,15 @@
       <!-- Identification Results -->
       <div *ngIf="identificationResult" class="identify-results">
         <div class="identify-photo-preview">
-          <app-media-viewer *ngIf="identificationPhotoFile" [file]="identificationPhotoFile" [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"></app-media-viewer>
+          <app-media-viewer *ngIf="identificationPhotoFile" [file]="identificationPhotoFile" [displayExpander]="false"
+            [displayExtraInfo]="false" [showCommentSection]="false"></app-media-viewer>
         </div>
 
         <div class="identify-suggestions">
           <div class="suggestions-label">AI Suggestions (select one or type your own):</div>
 
-          <div *ngFor="let suggestion of identificationResult.suggestions" 
-               class="suggestion-row" 
-               [class.selected]="selectedSuggestion === suggestion"
-               (click)="selectSuggestion(suggestion)">
+          <div *ngFor="let suggestion of identificationResult.suggestions" class="suggestion-row"
+            [class.selected]="selectedSuggestion === suggestion" (click)="selectSuggestion(suggestion)">
             <div class="suggestion-pick-badge" *ngIf="suggestion === identificationResult.topPick">⭐ Top Pick</div>
             <div class="suggestion-name">{{ suggestion.name }}</div>
             <div class="suggestion-species" *ngIf="suggestion.species">{{ suggestion.species }}</div>
@@ -69,8 +65,11 @@
           </div>
 
           <div class="custom-name-row">
-            <input [(ngModel)]="customPlantName" placeholder="Or type a custom name..." class="plant-input" (click)="selectedSuggestion = null" />
-            <button class="add-btn" (click)="addIdentifiedPlant()" [disabled]="!customPlantName.trim()">+ Add Plant</button>
+            <input [(ngModel)]="customPlantName" placeholder="Or type a custom name..." class="plant-input"
+              (click)="selectedSuggestion = null" />
+            <button class="add-btn" (click)="addIdentifiedPlant()" [disabled]="!customPlantName.trim()">
+              + Add Plant
+            </button>
           </div>
         </div>
       </div>
@@ -102,7 +101,9 @@
 
       <div *ngFor="let plant of plants" class="plant-row" (click)="selectPlant(plant)">
         <span class="plant-icon" *ngIf="!plant.photos || plant.photos.length ===0">🌿</span>
-        <app-media-viewer class="plant-photo-preview" *ngIf="plant.photos && plant.photos.length > 0" [file]="plant.photos[0]" [inputtedParentRef]="parentRef" [displayExpander]="false" [displayExtraInfo]="false" [showCommentSection]="false"></app-media-viewer>
+        <app-media-viewer class="plant-photo-preview" *ngIf="plant.photos && plant.photos.length > 0"
+          [file]="plant.photos[0]" [inputtedParentRef]="parentRef" [displayExpander]="false" [displayExtraInfo]="false"
+          [showCommentSection]="false"></app-media-viewer>
         <div class="plant-info">
           <span class="plant-name">{{ plant.name }}</span>
           <span class="plant-meta" *ngIf="plant.species || plant.location">
@@ -110,11 +111,13 @@
           </span>
         </div>
         <span class="plant-photo-count">{{ plant.photoCount || 0 }} 📷</span>
-        <span class="plant-watered" *ngIf="plant.lastWatered" [title]="'Last watered: ' + (plant.lastWatered | date:'y/MM/dd HH:mm')">
+        <span class="plant-watered" *ngIf="plant.lastWatered"
+          [title]="'Last watered: ' + (plant.lastWatered | date:'y/MM/dd HH:mm')">
           <span *ngIf="!needsWater(plant)">💧</span>
           <span *ngIf="needsWater(plant)" style="color:#ff4d4d;font-weight:bold">💧</span>
         </span>
-        <span class="plant-water-needed" *ngIf="plant.suggestedWaterHours && (!plant.lastWatered || needsWater(plant))" style="color:#ff4d4d;font-size:0.75em;">🚰</span>
+        <span class="plant-water-needed" *ngIf="plant.suggestedWaterHours && (!plant.lastWatered || needsWater(plant))"
+          style="color:#ff4d4d;font-size:0.75em;">🚰</span>
       </div>
     </div>
 
@@ -150,9 +153,11 @@
             Last watered: {{ selectedPlant.lastWatered | date:'medium' }}
           </div>
           <div *ngIf="selectedPlant.suggestedWaterHours" class="water-schedule">
-            Water every {{ selectedPlant.suggestedWaterHours >= 24 ? (selectedPlant.suggestedWaterHours / 24 + ' day(s)') : (selectedPlant.suggestedWaterHours + ' hour(s)') }}
+            Water every {{ selectedPlant.suggestedWaterHours >= 24 ? (selectedPlant.suggestedWaterHours / 24 + '
+            day(s)') : (selectedPlant.suggestedWaterHours + ' hour(s)') }}
           </div>
-          <div *ngIf="selectedPlant.lastWatered && selectedPlant.suggestedWaterHours" class="water-status" [class.water-due]="needsWater(selectedPlant)">
+          <div *ngIf="selectedPlant.lastWatered && selectedPlant.suggestedWaterHours" class="water-status"
+            [class.water-due]="needsWater(selectedPlant)">
             {{ getWaterStatusLabel(selectedPlant) }}
           </div>
           <div *ngIf="!selectedPlant.lastWatered && selectedPlant.suggestedWaterHours" class="water-status water-due">
@@ -172,12 +177,18 @@
         <div class="photo-grid">
           <div *ngFor="let photo of photos" class="photo-card">
             <app-media-viewer [file]="photo" class="plant-photo-img" [currentDirectory]="photo.directory"
-            [inputtedParentRef]="parentRef" [displayExtraInfo]="false" [showCommentSection]="false"
-            [autoplay]="true" [displayExpander]="false"></app-media-viewer>
+              [inputtedParentRef]="parentRef" [displayExtraInfo]="false" [showCommentSection]="false" [autoplay]="true"
+              [displayExpander]="false"></app-media-viewer>
             <div class="photo-actions">
-              <button (click)="analyzePlant(photo, 'general')" class="analysis-btn" [class.active]="selectedPhotoForAnalysis?.id === photo.id && analysisType === 'General Plant Analysis'">🔍 General</button>
-              <button (click)="analyzePlant(photo, 'health')" class="analysis-btn" [class.active]="selectedPhotoForAnalysis?.id === photo.id && analysisType === 'Health Analysis'">❤️ Health</button>
-              <button (click)="analyzePlant(photo, 'recommendations')" class="analysis-btn" [class.active]="selectedPhotoForAnalysis?.id === photo.id && analysisType === 'Recommendations'">📋 Tips</button>
+              <button (click)="analyzePlant(photo, 'general')" class="analysis-btn"
+                [class.active]="selectedPhotoForAnalysis?.id === photo.id && analysisType === 'General Plant Analysis'">🔍
+                General</button>
+              <button (click)="analyzePlant(photo, 'health')" class="analysis-btn"
+                [class.active]="selectedPhotoForAnalysis?.id === photo.id && analysisType === 'Health Analysis'">❤️
+                Health</button>
+              <button (click)="analyzePlant(photo, 'recommendations')" class="analysis-btn"
+                [class.active]="selectedPhotoForAnalysis?.id === photo.id && analysisType === 'Recommendations'">📋
+                Tips</button>
               <button (click)="deletePhoto(photo)" class="delete-photo-btn">🗑️</button>
             </div>
           </div>
@@ -185,7 +196,8 @@
 
         <label class="upload-btn-label" *ngIf="photos.length < 10">
           📸 Take / Upload Photo
-          <input type="file" (change)="onFileSelected($event)" accept="image/*" capture="environment" class="file-input" />
+          <input type="file" (change)="onFileSelected($event)" accept="image/*" capture="environment"
+            class="file-input" />
         </label>
         <div *ngIf="photos.length >= 10" class="photo-limit">Maximum 10 photos. Delete one to add more.</div>
       </div>
@@ -195,7 +207,8 @@
       <div *ngIf="analysisResult && !isAnalyzing" class="analysis-result">
         <div class="analysis-header">
           <h3>📊 {{ analysisType }}</h3>
-          <button (click)="analyzePlant(selectedPhotoForAnalysis!, originalAnalysisType, true)" class="regenerate-btn">🔄 Regenerate</button>
+          <button (click)="analyzePlant(selectedPhotoForAnalysis!, originalAnalysisType, true)"
+            class="regenerate-btn">🔄 Regenerate</button>
         </div>
         <div [innerHTML]="analysisResult"></div>
       </div>
@@ -204,14 +217,16 @@
       <div class="chat-section">
         <h3>💬 Ask the Plant Expert</h3>
         <div class="chat-messages">
-          <div *ngFor="let msg of chatMessages" class="chat-message" [class.user-msg]="msg.role === 'user'" [class.ai-msg]="msg.role === 'ai'">
+          <div *ngFor="let msg of chatMessages" class="chat-message" [class.user-msg]="msg.role === 'user'"
+            [class.ai-msg]="msg.role === 'ai'">
             <span class="msg-label">{{ msg.role === 'user' ? 'You' : 'AI' }}:</span>
             <span [innerHTML]="msg.text"></span>
           </div>
           <div *ngIf="isChatting" class="chat-typing">AI is thinking...</div>
         </div>
         <div class="chat-input-row">
-          <input [(ngModel)]="chatInput" placeholder="Ask about your plant..." class="chat-input" (keyup.enter)="sendChat()" [disabled]="isChatting" />
+          <input [(ngModel)]="chatInput" placeholder="Ask about your plant..." class="chat-input"
+            (keyup.enter)="sendChat()" [disabled]="isChatting" />
           <button (click)="sendChat()" class="send-btn" [disabled]="!chatInput.trim() || isChatting">Send</button>
         </div>
       </div>

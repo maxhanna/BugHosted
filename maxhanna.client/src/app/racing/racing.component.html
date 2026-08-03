@@ -816,3 +816,7 @@
     </div>
   </div>
 </div>
+
+  <app-prompt [type]="'login'" [message]="'You must login to persist your race results and upgrades.'" [inputtedParentRef]="parentRef"
+    [visible]="!parentRef?.user?.id || parentRef?.user?.id === 0" (close)="hideLoginPopup()">
+  </app-prompt>
