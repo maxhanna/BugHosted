@@ -110,6 +110,19 @@ export class RacingRenderer {
   private skySunColorLoc!: WebGLUniformLocation;
   private skyGlowColorLoc!: WebGLUniformLocation;
 
+  // Rear-view mirror: a second camera renders the world from behind the car
+  // into this FBO, then a screen-space quad blits it at the top of the view.
+  private mirrorTex!: WebGLTexture;
+  private mirrorDepth!: WebGLRenderbuffer;
+  private mirrorFBO!: WebGLFramebuffer;
+  private mirrorProg!: WebGLProgram;
+  private mirrorTexLoc!: WebGLUniformLocation;
+  private mirrorVao!: WebGLVertexArrayObject;
+  private mirrorW = 512;
+  private mirrorH = 288;
+  private mirrorProj!: Float32Array;
+  private mirrorView!: Float32Array;
+
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl2', { antialias: true, alpha: false });
     if (!gl) throw new Error('WebGL2 not supported');
@@ -124,6 +137,7 @@ export class RacingRenderer {
     this.initShader();
     this.initShadow();
     this.initSky();
+    this.initMirror();
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
@@ -405,6 +419,75 @@ void main() {
     gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+    gl.bindVertexArray(null);
+  }
+
+  // Rear-view mirror FBO + blit quad. The world is rendered a second time from
+  // a rear-facing camera into mirrorTex, then drawn as a textured quad at the
+  // top of the screen via a tiny 2D blit program.
+  private initMirror() {
+    const gl = this.gl;
+    this.mirrorProj = new Float32Array(16);
+    this.mirrorView = new Float32Array(16);
+
+    this.mirrorTex = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, this.mirrorTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, this.mirrorW, this.mirrorH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    // Depth buffer so the rear view occludes correctly (near cars block far ones).
+    this.mirrorDepth = gl.createRenderbuffer()!;
+    gl.bindRenderbuffer(gl.RENDERBUFFER, this.mirrorDepth);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, this.mirrorW, this.mirrorH);
+
+    this.mirrorFBO = gl.createFramebuffer()!;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.mirrorFBO);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.mirrorTex, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.mirrorDepth);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    // Tiny blit shader: samples the mirror texture onto a screen-space quad.
+    const mvs = `#version 300 es
+in vec2 aPos;
+in vec2 aUV;
+out vec2 vUV;
+void main() { vUV = aUV; gl_Position = vec4(aPos, 0.0, 1.0); }`;
+    const mfs = `#version 300 es
+precision highp float;
+in vec2 vUV;
+out vec4 FragColor;
+uniform sampler2D uTex;
+void main() { FragColor = texture(uTex, vUV); }`;
+    this.mirrorProg = this.createProgram(mvs, mfs);
+    this.mirrorTexLoc = gl.getUniformLocation(this.mirrorProg, 'uTex')!;
+
+    // Screen-space quad: centered horizontally, near the top. Aspect matches
+    // the mirror render target so the image isn't stretched.
+    const cw = gl.canvas.width || 1280;
+    const ch = gl.canvas.height || 720;
+    const qw = Math.min(0.4 * cw, 480);      // pixel width (cap for huge screens)
+    const qh = qw * (this.mirrorH / this.mirrorW);
+    const nx = qw / cw;                        // NDC half-width
+    const ny = qh / ch;                        // NDC half-height
+    const topY = 1 - 0.02 - ny;                // top margin 2%
+    const quad = new Float32Array([
+      -nx, topY - ny, 0, 0,
+      nx, topY - ny, 1, 0,
+      -nx, topY + ny, 0, 1,
+      nx, topY + ny, 1, 1,
+    ]);
+    this.mirrorVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.mirrorVao);
+    const qb = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, qb);
+    gl.bufferData(gl.ARRAY_BUFFER, quad, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 16, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 8);
     gl.bindVertexArray(null);
   }
 
@@ -891,6 +974,58 @@ void main() {
         this.addCylinder(verts, idxs, lx, 0, lz, 0.08, 3, 6, [0.2, 0.2, 0.2]);
         // Light
         this.addSphere(verts, idxs, lx, 3, lz, 0.15, 6, this.theme === 'miami' ? [1, 0.9, 0.65] : [1, 0.95, 0.7]);
+      }
+    }
+
+    // ── Start/Finish gantry over the start line ──
+    const sf = pts[0];
+    this.addStartGantry(verts, idxs, sf.x, sf.z, sf.dirX, sf.dirZ, sf.width);
+
+    // ── Corner furniture: tire barriers, marshal posts + braking boards ──
+    // Detect the sharpest bends from the heading change between segments, then
+    // dress each apex like a real circuit (runoff tires, marshal, brake boards).
+    const turns: { i: number; t: number; s: number }[] = [];
+    for (let i = 1; i < pts.length; i++) {
+      const p0 = pts[i - 1];
+      const p1 = pts[i];
+      const cross = p0.dirX * p1.dirZ - p0.dirZ * p1.dirX;
+      const dot = p0.dirX * p1.dirX + p0.dirZ * p1.dirZ;
+      const t = Math.abs(Math.atan2(cross, dot));
+      if (t > 0.04) turns.push({ i, t, s: cross > 0 ? -1 : 1 });
+    }
+    turns.sort((a, b) => b.t - a.t);
+    const picked: typeof turns = [];
+    for (const c of turns) {
+      if (picked.length >= 8) break;
+      // Circular distance so a corner straddling the start/finish seam (e.g.
+      // segments 197..202) can't be picked twice as two different bends.
+      if (picked.every(p => {
+        const d = Math.abs(p.i - c.i);
+        return Math.min(d, pts.length - d) > 18;
+      })) picked.push(c);
+    }
+    for (const c of picked) {
+      const p = pts[c.i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      // Outside of the turn (opposite the curvature center) — perp scaled by the
+      // turn sign places the furniture on the runoff side of the apex.
+      const ox = ppx * c.s;
+      const oz = ppz * c.s;
+      // Tire barrier stack on the runoff side, just beyond the wall.
+      this.addTireBarrier(verts, idxs, p.x + ox * (p.width / 2 + 4), p.z + oz * (p.width / 2 + 4), ppx, ppz, 5);
+      // Marshal post just past the barrier wall.
+      this.addMarshalPost(verts, idxs, p.x + ox * (p.width / 2 + 2.6), p.z + oz * (p.width / 2 + 2.6), ppx, ppz, c.s);
+      // Braking boards ~50m and ~100m before the apex (segment ≈ 10m), on the
+      // same runoff side as the barrier so they face the oncoming driver.
+      for (const back of [5, 10]) {
+        const bi = (c.i - back + pts.length) % pts.length;
+        const bp = pts[bi];
+        const bpx = -bp.dirZ;
+        const bpz = bp.dirX;
+        const bx = bp.x + bpx * (bp.width / 2 + 1.6) * c.s;
+        const bz = bp.z + bpz * (bp.width / 2 + 1.6) * c.s;
+        this.addBrakeBoard(verts, idxs, bx, bz, bpx, bpz);
       }
     }
 
@@ -1393,19 +1528,33 @@ void main() {
       this.addBox(verts, idxs, -1.15, 0.07, dz, 0.3, 0.08, 0.02, carbon);
     }
 
-    // ── 2. Monocoque / cockpit tub ──
-    // Tapers up from the nose joint to the cockpit surround
-    this.addTaperedBox(verts, idxs, 0.1, 0.15, 0, 1.15, 0.15, 0.27, 0.3, 0.4, [cr, cg, cb]);
+    // ── 2. Sculpted body hull (nose → tub → engine cover, one smooth loft) ──
+    // Cross-sections are superellipses skinned along the length, so the whole
+    // body — including the nose — is genuinely curved instead of flat boxes.
+    this.addLoft(verts, idxs, [
+      { x: -1.05, y: 0.10, cz: 0, h: 0.18, w: 0.30 },  // rear tail (narrow)
+      { x: -0.82, y: 0.13, cz: 0, h: 0.24, w: 0.36 },  // engine cover rising
+      { x: -0.55, y: 0.18, cz: 0, h: 0.32, w: 0.42 },  // engine cover hump
+      { x: -0.30, y: 0.23, cz: 0, h: 0.40, w: 0.46 },  // airbox peak
+      { x: -0.05, y: 0.21, cz: 0, h: 0.32, w: 0.50 },  // cockpit rear (widest)
+      { x: 0.18, y: 0.18, cz: 0, h: 0.26, w: 0.52 },   // cockpit surround
+      { x: 0.42, y: 0.16, cz: 0, h: 0.21, w: 0.44 },   // tub taper
+      { x: 0.66, y: 0.14, cz: 0, h: 0.17, w: 0.34 },   // nose base
+      { x: 0.90, y: 0.12, cz: 0, h: 0.14, w: 0.26 },   // nose
+      { x: 1.10, y: 0.10, cz: 0, h: 0.11, w: 0.19 },   // nose mid
+      { x: 1.28, y: 0.09, cz: 0, h: 0.09, w: 0.13 },   // nose tip taper
+      { x: 1.40, y: 0.09, cz: 0, h: 0.07, w: 0.08 },   // rounded nose tip
+    ], 20, [cr, cg, cb], true);
     // Cockpit opening (dark recess sunk into the tub top)
-    this.addBox(verts, idxs, 0.45, 0.26, 0, 0.3, 0.02, 0.22, dark);
+    this.addBox(verts, idxs, 0.30, 0.285, 0, 0.32, 0.02, 0.24, dark);
     // Driver shoulders + torso peeking out of the cockpit
-    this.addBox(verts, idxs, 0.3, 0.24, 0, 0.16, 0.07, 0.18, [cr, cg, cb]);
-    this.addBox(verts, idxs, 0.33, 0.27, 0, 0.1, 0.05, 0.16, [0.1, 0.1, 0.12]);
+    this.addBox(verts, idxs, 0.26, 0.27, 0, 0.18, 0.07, 0.20, [cr, cg, cb]);
+    this.addBox(verts, idxs, 0.29, 0.30, 0, 0.12, 0.05, 0.18, [0.1, 0.1, 0.12]);
     // Driver helmet + visor
-    this.addSphere(verts, idxs, 0.42, 0.3, 0, 0.09, 10, [0.95, 0.95, 0.98]);
-    this.addBox(verts, idxs, 0.5, 0.3, 0, 0.04, 0.06, 0.1, dark);
+    this.addSphere(verts, idxs, 0.40, 0.315, 0, 0.09, 10, [0.95, 0.95, 0.98]);
+    this.addBox(verts, idxs, 0.47, 0.315, 0, 0.04, 0.06, 0.10, dark);
     // Steering wheel
-    this.addBox(verts, idxs, 0.53, 0.26, 0, 0.02, 0.02, 0.14, dark);
+    this.addBox(verts, idxs, 0.50, 0.27, 0, 0.02, 0.02, 0.14, dark);
 
     // ── 3. Halo (over the driver) ──
     this.addBox(verts, idxs, 0.05, 0.3, 0, 0.05, 0.18, 0.06, carbon);   // center pillar
@@ -1415,21 +1564,33 @@ void main() {
     // Halo winglet (small fin on top of the front arch)
     this.addBox(verts, idxs, 0.4, 0.46, 0, 0.1, 0.02, 0.1, carbon);
 
-    // ── 4. Nose cone (stepped, tapering forward) ──
-    this.addTaperedBox(verts, idxs, 0.7, 0.13, 0, 0.6, 0.14, 0.1, 0.2, 0.13, [cr, cg, cb]);
-    this.addTaperedBox(verts, idxs, 1.05, 0.1, 0, 0.3, 0.1, 0.06, 0.13, 0.09, [cr, cg, cb]);
-    // Nose tip: forward-pointing wedge (addCone builds upward, so use a
-    // horizontal taper instead of a vertical spike)
-    this.addTaperedBox(verts, idxs, 1.3, 0.1, 0, 0.2, 0.06, 0.03, 0.09, 0.04, [cr, cg, cb]);
-    // Nose side strakes (vertical fins along the nose sides)
-    this.addBox(verts, idxs, 0.9, 0.1, 0.1, 0.5, 0.05, 0.02, carbon);
-    this.addBox(verts, idxs, 0.9, 0.1, -0.1, 0.5, 0.05, 0.02, carbon);
+    // ── 4. Nose side strakes (thin fins along the sculpted nose flanks) ──
+    this.addBox(verts, idxs, 0.92, 0.10, 0.13, 0.5, 0.05, 0.02, carbon);
+    this.addBox(verts, idxs, 0.92, 0.10, -0.13, 0.5, 0.05, 0.02, carbon);
+    // Nose tip pitot probe
+    this.addBox(verts, idxs, 1.42, 0.10, 0, 0.05, 0.02, 0.02, carbon);
 
-    // ── 5. Front wing (4 elements + endplates + pylons) ──
-    this.addBox(verts, idxs, 1.2, 0.06, 0, 0.32, 0.025, 1.5, carbon);   // main plane
-    this.addBox(verts, idxs, 1.14, 0.1, 0, 0.2, 0.025, 1.42, carbon);   // flap
-    this.addBox(verts, idxs, 1.09, 0.08, 0, 0.14, 0.02, 1.34, carbon);  // third element
-    this.addBox(verts, idxs, 1.03, 0.07, 0, 0.1, 0.02, 1.26, carbon);   // fourth element
+    // ── 5. Front wing (cambered multi-element + endplates + pylons) ──
+    // Each element is built from 6 short segments whose tips rise toward the
+    // endplates, giving the real arched/cambered F1 wing profile.
+    const frontWingEls = [
+      { x: 1.2, y: 0.06, span: 1.5, l: 0.34, h: 0.025, lift: 0.022 },  // main plane
+      { x: 1.14, y: 0.1, span: 1.42, l: 0.2, h: 0.025, lift: 0.02 },   // flap
+      { x: 1.09, y: 0.08, span: 1.34, l: 0.14, h: 0.02, lift: 0.015 }, // third element
+      { x: 1.03, y: 0.07, span: 1.26, l: 0.1, h: 0.02, lift: 0.012 }   // fourth element
+    ];
+    for (const el of frontWingEls) {
+      const segs = 6;
+      for (let i = 0; i < segs; i++) {
+        const z0 = -el.span / 2 + (el.span / segs) * i;
+        const z1 = z0 + el.span / segs;
+        const t0 = Math.abs(z0) / (el.span / 2);
+        const t1 = Math.abs(z1) / (el.span / 2);
+        const y0 = el.y + t0 * t0 * el.lift;
+        const y1 = el.y + t1 * t1 * el.lift;
+        this.addBox(verts, idxs, el.x, (y0 + y1) / 2, (z0 + z1) / 2, el.l, el.h, (z1 - z0) * 1.15, carbon);
+      }
+    }
     this.addTaperedBox(verts, idxs, 1.2, 0.11, 0.75, 0.36, 0.22, 0.14, 0.05, 0.05, carbon);  // endplates
     this.addTaperedBox(verts, idxs, 1.2, 0.11, -0.75, 0.36, 0.22, 0.14, 0.05, 0.05, carbon);
     // Endplate lower steps
@@ -1438,28 +1599,44 @@ void main() {
     this.addBox(verts, idxs, 1.2, 0.08, 0.16, 0.1, 0.05, 0.04, carbon); // nose pylons
     this.addBox(verts, idxs, 1.2, 0.08, -0.16, 0.1, 0.05, 0.04, carbon);
 
-    // ── 6. Sidepods (wide intake → narrow rear, with undercut) ──
-    this.addTaperedBox(verts, idxs, -0.05, 0.17, 0.5, 1.15, 0.14, 0.25, 0.3, 0.42, [cr, cg, cb]);
-    this.addTaperedBox(verts, idxs, -0.05, 0.17, -0.5, 1.15, 0.14, 0.25, 0.3, 0.42, [cr, cg, cb]);
-    // Undercut (dark lower half of the sidepod)
-    this.addTaperedBox(verts, idxs, -0.05, 0.08, 0.5, 1.0, 0.06, 0.1, 0.26, 0.36, dark);
-    this.addTaperedBox(verts, idxs, -0.05, 0.08, -0.5, 1.0, 0.06, 0.1, 0.26, 0.36, dark);
-    // Sidepod intakes (dark openings at the front)
-    this.addBox(verts, idxs, 0.58, 0.22, 0.5, 0.1, 0.07, 0.24, dark);
-    this.addBox(verts, idxs, 0.58, 0.22, -0.5, 0.1, 0.07, 0.24, dark);
+    // ── 6. Sidepods (rounded sculpted lofts, coke-bottle taper) ──
+    for (const sgn of [1, -1]) {
+      this.addLoft(verts, idxs, [
+        { x: 0.58, y: 0.17, cz: 0.48 * sgn, h: 0.28, w: 0.34 }, // intake mouth
+        { x: 0.30, y: 0.17, cz: 0.50 * sgn, h: 0.27, w: 0.38 }, // widest point
+        { x: 0.00, y: 0.17, cz: 0.50 * sgn, h: 0.24, w: 0.36 }, // mid
+        { x: -0.30, y: 0.16, cz: 0.48 * sgn, h: 0.20, w: 0.30 }, // tapering
+        { x: -0.60, y: 0.14, cz: 0.44 * sgn, h: 0.15, w: 0.22 }, // coke bottle
+        { x: -0.85, y: 0.12, cz: 0.38 * sgn, h: 0.11, w: 0.14 }, // tail
+      ], 16, [cr, cg, cb], true);
+    }
+    // Sidepod intakes (dark mouth slabs on the front cap)
+    this.addBox(verts, idxs, 0.585, 0.185, 0.5, 0.02, 0.13, 0.30, dark);
+    this.addBox(verts, idxs, 0.585, 0.185, -0.5, 0.02, 0.13, 0.30, dark);
     // Sidepod cooling slats (dark outlets on top, seated flush on the surface)
     this.addBox(verts, idxs, -0.35, 0.26, 0.5, 0.3, 0.01, 0.16, dark);
     this.addBox(verts, idxs, -0.35, 0.26, -0.5, 0.3, 0.01, 0.16, dark);
 
-    // ── 7. Engine cover (tall behind the cockpit, sloping down to the rear) ──
-    this.addTaperedBox(verts, idxs, -0.5, 0.3, 0, 0.85, 0.12, 0.28, 0.2, 0.32, [cr, cg, cb]);
-    // Airbox (tall at the intake, tapering back)
+    // ── 7. Engine cover (the body hull above already forms the curved cover) ──
+    // Airbox (tall at the intake, tapering back, seated on the hull hump)
     this.addTaperedBox(verts, idxs, -0.25, 0.42, 0, 0.45, 0.09, 0.17, 0.16, 0.26, carbon);
     this.addBox(verts, idxs, -0.15, 0.47, 0, 0.1, 0.06, 0.14, dark); // intake hole
 
     // ── 8. Rear wing (main plane + DRS flap + beam wing + gurney + endplates) ──
-    this.addBox(verts, idxs, -1.0, 0.4, 0, 0.36, 0.035, 1.05, carbon);
-    this.addBox(verts, idxs, -1.0, 0.46, 0, 0.28, 0.03, 1.0, carbon);
+    // Arch the two main planes so the tips rise toward the endplates.
+    for (const el of [{ x: -1.0, y: 0.4, span: 1.05, l: 0.36, h: 0.035, lift: 0.02 },
+                      { x: -1.0, y: 0.46, span: 1.0, l: 0.28, h: 0.03, lift: 0.015 }]) {
+      const segs = 6;
+      for (let i = 0; i < segs; i++) {
+        const z0 = -el.span / 2 + (el.span / segs) * i;
+        const z1 = z0 + el.span / segs;
+        const t0 = Math.abs(z0) / (el.span / 2);
+        const t1 = Math.abs(z1) / (el.span / 2);
+        const y0 = el.y + t0 * t0 * el.lift;
+        const y1 = el.y + t1 * t1 * el.lift;
+        this.addBox(verts, idxs, el.x, (y0 + y1) / 2, (z0 + z1) / 2, el.l, el.h, (z1 - z0) * 1.15, carbon);
+      }
+    }
     this.addBox(verts, idxs, -1.0, 0.45, 0, 0.08, 0.05, 0.9, carbon); // gurney lip
     this.addBox(verts, idxs, -0.95, 0.3, 0, 0.2, 0.025, 0.7, carbon);
     this.addBox(verts, idxs, -1.0, 0.42, 0.52, 0.34, 0.32, 0.045, carbon);
@@ -1494,8 +1671,8 @@ void main() {
 
     // ── 9f. Livery accent stripe (contrast band on engine cover/sidepods) ──
     const stripe: [number, number, number] = [0.05, 0.05, 0.08];
-    this.addBox(verts, idxs, -0.1, 0.335, 0.505, 0.5, 0.02, 0.005, stripe);
-    this.addBox(verts, idxs, -0.1, 0.335, -0.505, 0.5, 0.02, 0.005, stripe);
+    this.addBox(verts, idxs, -0.1, 0.30, 0.505, 0.5, 0.02, 0.005, stripe);
+    this.addBox(verts, idxs, -0.1, 0.30, -0.505, 0.5, 0.02, 0.005, stripe);
 
     // ── 10. Mirrors + stalks ──
     this.addBox(verts, idxs, 0.35, 0.3, 0.6, 0.1, 0.05, 0.07, grey);
@@ -1568,13 +1745,18 @@ void main() {
     const fv: number[] = [];
     const fi: number[] = [];
     // Rim disc (dark, fills the tread inner circle)
-    this.addCylinder(fv, fi, 0, 0, 0, 0.15, 0.15, 10, [0.07, 0.07, 0.08]);
+    this.addCylinder(fv, fi, 0, 0, 0, 0.15, 0.15, 14, [0.07, 0.07, 0.08]);
     // Brake disc (reddish, slightly wider than the rim so it peeks out)
-    this.addCylinder(fv, fi, 0, 0, 0, 0.09, 0.17, 10, [0.35, 0.12, 0.1]);
+    this.addCylinder(fv, fi, 0, 0, 0, 0.09, 0.17, 14, [0.35, 0.12, 0.1]);
     // Hub center
-    this.addCylinder(fv, fi, 0, 0, 0, 0.04, 0.17, 8, [0.5, 0.5, 0.55]);
+    this.addCylinder(fv, fi, 0, 0, 0, 0.04, 0.17, 10, [0.5, 0.5, 0.55]);
+    // 6 rim spokes (thin struts radiating from the hub to the rim face)
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * Math.PI * 2;
+      this.addStrut(fv, fi, 0, 0, 0, Math.cos(a) * 0.13, Math.sin(a) * 0.13, 0, 0.02, [0.16, 0.16, 0.17]);
+    }
     // Tire tread — larger radius so the band wraps the rim
-    this.addCylinder(fv, fi, 0, 0, 0, 0.17, 0.12, 10, [0.13, 0.13, 0.14]);
+    this.addCylinder(fv, fi, 0, 0, 0, 0.17, 0.12, 14, [0.13, 0.13, 0.14]);
     // Valve stem
     this.addCylinder(fv, fi, 0.14, 0.05, 0, 0.008, 0.05, 4, [0.2, 0.2, 0.2]);
     const fva = new Float32Array(fv);
@@ -1601,10 +1783,14 @@ void main() {
     // ── Rear wheels (wider tread, slightly larger — like a real F1 car) ──
     const rv: number[] = [];
     const ri: number[] = [];
-    this.addCylinder(rv, ri, 0, 0, 0, 0.16, 0.18, 10, [0.07, 0.07, 0.08]);
-    this.addCylinder(rv, ri, 0, 0, 0, 0.1, 0.2, 10, [0.35, 0.12, 0.1]);
-    this.addCylinder(rv, ri, 0, 0, 0, 0.045, 0.2, 8, [0.5, 0.5, 0.55]);
-    this.addCylinder(rv, ri, 0, 0, 0, 0.18, 0.15, 10, [0.13, 0.13, 0.14]); 
+    this.addCylinder(rv, ri, 0, 0, 0, 0.16, 0.18, 14, [0.07, 0.07, 0.08]);
+    this.addCylinder(rv, ri, 0, 0, 0, 0.1, 0.2, 14, [0.35, 0.12, 0.1]);
+    this.addCylinder(rv, ri, 0, 0, 0, 0.045, 0.2, 10, [0.5, 0.5, 0.55]);
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * Math.PI * 2;
+      this.addStrut(rv, ri, 0, 0, 0, Math.cos(a) * 0.14, Math.sin(a) * 0.14, 0, 0.02, [0.16, 0.16, 0.17]);
+    }
+    this.addCylinder(rv, ri, 0, 0, 0, 0.18, 0.15, 14, [0.13, 0.13, 0.14]); 
     this.addCylinder(rv, ri, 0.15, 0.06, 0, 0.008, 0.05, 4, [0.2, 0.2, 0.2]);
     const rva = new Float32Array(rv);
     const ria = new Uint16Array(ri);
@@ -1798,6 +1984,51 @@ void main() {
     this.addQuad(verts, idxs, f0, f3, f2, f1, color); // front (x+)
   }
 
+  // Smooth sculpted hull along X: skins superellipse cross-sections between
+  // consecutive stations. Each station has x (along the car, nose = +X),
+  // y (vertical center), cz (lateral center), h (full height) and w (full
+  // lateral width). The perimeter is sampled `segs` times around, so the
+  // surface is genuinely curved — no flat box faces. Optionally closes the
+  // two open ends with small fan caps (degenerate triangles are culled).
+  private addLoft(verts: number[], idxs: number[], stations: Array<{ x: number; y: number; cz: number; h: number; w: number }>, segs: number, color: number[], closeCaps: boolean) {
+    const n = 4; // superellipse exponent: 2 = ellipse, 4 = rounded rect
+    const rings: number[][][] = stations.map(st => {
+      const ring: number[][] = [];
+      const hw = st.w / 2, hh = st.h / 2;
+      for (let i = 0; i <= segs; i++) {
+        const a = (i / segs) * Math.PI * 2;
+        const ca = Math.cos(a), sa = Math.sin(a);
+        const sx = ca < 0 ? -1 : 1, sy = sa < 0 ? -1 : 1;
+        const lx = sx * Math.pow(Math.abs(ca), 2 / n) * hw;
+        const ly = sy * Math.pow(Math.abs(sa), 2 / n) * hh;
+        ring.push([st.x, st.y + ly, st.cz + lx]);
+      }
+      return ring;
+    });
+    // Skin consecutive stations. Quad order (A0, B0, B1, A1) yields outward
+    // cross-product normals (verified against the addTaperedBox convention).
+    for (let s = 0; s < stations.length - 1; s++) {
+      const A = rings[s], B = rings[s + 1];
+      for (let i = 0; i < segs; i++) {
+        this.addQuad(verts, idxs, A[i], B[i], B[i + 1], A[i + 1], color);
+      }
+    }
+    if (closeCaps) {
+      // Front cap (last station): fan winding gives +X outward normal.
+      const F = rings[rings.length - 1];
+      const fc = stations[stations.length - 1];
+      for (let i = 0; i < segs; i++) {
+        this.addQuad(verts, idxs, [fc.x, fc.y, fc.cz], F[i + 1], F[i], [fc.x, fc.y, fc.cz], color);
+      }
+      // Back cap (first station): reversed fan gives −X outward normal.
+      const R = rings[0];
+      const rc = stations[0];
+      for (let i = 0; i < segs; i++) {
+        this.addQuad(verts, idxs, [rc.x, rc.y, rc.cz], R[i], R[i + 1], [rc.x, rc.y, rc.cz], color);
+      }
+    }
+  }
+
   private addCylinder(verts: number[], idxs: number[], cx: number, cy: number, cz: number, radius: number, height: number, segments: number, color: number[]) {
     const [r, g, b] = color;
     const baseIdx = verts.length / 11;
@@ -1904,18 +2135,26 @@ void main() {
     const ppx = -dirZ;
     const ppz = dirX;
     const hw = width / 2;
-    // Tiered seats
     const crowdColors: [number, number, number][] = [
       [0.7, 0.15, 0.15], [0.15, 0.3, 0.7], [0.8, 0.7, 0.1],
       [0.9, 0.9, 0.9], [0.15, 0.5, 0.2], [0.6, 0.2, 0.6],
     ];
-    for (let tier = 0; tier < 4; tier++) {
-      const ty = 0.5 + tier * 0.3;
-      const td = 1 + tier * 0.8;
-      const tx = gx + ppx * td;
-      const tz = gz + ppz * td;
+    // Standing crowd along the front rail (closest to the track)
+    for (let s = 0; s < 10; s++) {
+      const off = (s - 4.5) * (hw * 2 / 10);
       const c = crowdColors[Math.floor(Math.random() * crowdColors.length)];
-      this.addBox(verts, idxs, tx, ty, tz, 0.3, 0.3, hw * 2, c);
+      this.addBox(verts, idxs, gx + ppx * off, 0.3, gz + ppz * off, 0.35, 0.55, hw * 2 / 10 * 1.1, c);
+    }
+    // Tiered seated blocks — 4 tiers, each split into 5 color blocks so the
+    // crowd reads as individual spectators instead of one flat stripe.
+    for (let tier = 0; tier < 4; tier++) {
+      const ty = 0.6 + tier * 0.3;
+      const td = 1 + tier * 0.8;
+      for (let s = 0; s < 5; s++) {
+        const off = (s - 2) * (hw * 2 / 5);
+        const c = crowdColors[Math.floor(Math.random() * crowdColors.length)];
+        this.addBox(verts, idxs, gx + ppx * td + ppx * off, ty, gz + ppz * td + ppz * off, 0.3, 0.28, hw * 2 / 5 * 1.1, c);
+      }
     }
     // Roof
     this.addBox(verts, idxs, gx + ppx * 3, 2.5, gz + ppz * 3, 1.5, 0.1, hw * 2.5, [0.3, 0.3, 0.35]);
@@ -1923,6 +2162,69 @@ void main() {
     for (const side of [-1, 1]) {
       this.addBox(verts, idxs, gx + ppx * 3 + ppx * side * hw * 1.2, 1.25, gz + ppz * 3 + ppz * side * hw * 1.2, 0.1, 2.5, 0.1, [0.3, 0.3, 0.35]);
     }
+    // Team flags on poles at each end
+    for (const side of [-1, 1]) {
+      const fx = gx + ppx * 0.6 * side;
+      const fz = gz + ppz * 0.6 * side;
+      this.addCylinder(verts, idxs, fx, 0, fz, 0.045, 2.4, 6, [0.55, 0.55, 0.58]);
+      this.addBox(verts, idxs, fx + ppx * 0.55 * side, 1.8, fz + ppz * 0.55 * side, 0.02, 0.55, 0.35, crowdColors[side === 1 ? 0 : 1]);
+    }
+  }
+
+  // Start/Finish arch: two pillars, a cross beam over the road, a checker
+  // banner and gantry lights — the classic circuit start gantry.
+  private addStartGantry(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, width: number) {
+    const ppx = -dirZ;
+    const ppz = dirX;
+    const hw = width / 2;
+    const beamY = 4.4;
+    // Pillars on both sides of the road
+    for (const side of [-1, 1]) {
+      this.addBox(verts, idxs, x + ppx * (hw + 1.3) * side, beamY / 2, z + ppz * (hw + 1.3) * side, 0.5, beamY, 0.5, [0.25, 0.25, 0.3]);
+    }
+    // Cross beam over the track
+    this.addOrientedBox(verts, idxs, x, beamY, z, width + 3, 0.45, 0.7, ppx, ppz, [0.35, 0.35, 0.4]);
+    // Checker banner hanging under the beam (alternating panels)
+    for (let s = 0; s < 6; s++) {
+      const off = (s - 2.5) * (width / 6);
+      const checker = s % 2 === 0;
+      this.addBox(verts, idxs, x + ppx * off, beamY - 0.55, z + ppz * off, 0.06, 0.9, width / 6 * 1.05, checker ? [0.92, 0.92, 0.92] : [0.12, 0.12, 0.14]);
+    }
+    // Gantry lights on the beam
+    for (const side of [-1, 0, 1]) {
+      this.addSphere(verts, idxs, x + ppx * (hw / 2) * side, beamY + 0.4, z + ppz * (hw / 2) * side, 0.16, 6, [1, 0.95, 0.7]);
+    }
+  }
+
+  // A stack of tires (2 high) running along the perpendicular direction — the
+  // classic runoff crash wall at corner apexes.
+  private addTireBarrier(verts: number[], idxs: number[], x: number, z: number, ppx: number, ppz: number, tires: number) {
+    for (let r = 0; r < 2; r++) {
+      for (let t = 0; t < tires; t++) {
+        const off = (t - (tires - 1) / 2) * 1.1;
+        const tx = x + ppx * off;
+        const tz = z + ppz * off;
+        this.addCylinder(verts, idxs, tx, r * 0.32, tz, 0.5, 0.3, 10, r === 0 ? [0.09, 0.09, 0.1] : [0.12, 0.12, 0.13]);
+      }
+    }
+  }
+
+  // Marshal post: white hut, red roof and a yellow flag on a pole.
+  private addMarshalPost(verts: number[], idxs: number[], x: number, z: number, ppx: number, ppz: number, side: number) {
+    this.addBox(verts, idxs, x, 0.5, z, 1.1, 1, 1.1, [0.85, 0.85, 0.88]);
+    this.addBox(verts, idxs, x, 1.05, z, 1.3, 0.12, 1.3, [0.85, 0.15, 0.15]);
+    const px = x + ppx * 0.9 * side;
+    const pz = z + ppz * 0.9 * side;
+    this.addCylinder(verts, idxs, px, 0, pz, 0.035, 2.4, 6, [0.55, 0.55, 0.58]);
+    this.addBox(verts, idxs, px + ppx * 0.6 * side, 1.9, pz + ppz * 0.6 * side, 0.02, 0.6, 0.35, [1, 0.85, 0.15]);
+  }
+
+  // Braking distance board: red panel with a white stripe on a post just off
+  // the track edge, angled toward the oncoming driver.
+  private addBrakeBoard(verts: number[], idxs: number[], x: number, z: number, ppx: number, ppz: number) {
+    this.addBox(verts, idxs, x, 0.6, z, 0.08, 1.2, 0.08, [0.6, 0.6, 0.62]);
+    this.addBox(verts, idxs, x + ppx * 0.3, 1.15, z + ppz * 0.3, 0.06, 0.85, 0.6, [0.9, 0.12, 0.12]);
+    this.addBox(verts, idxs, x + ppx * 0.33, 1.15, z + ppz * 0.33, 0.03, 0.3, 0.62, [0.95, 0.95, 0.95]);
   }
 
   // ─── Rendering ───
@@ -2009,6 +2311,19 @@ void main() {
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.clearColor(0.4, 0.45, 0.5, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    this.drawWorldScene(this.projMatrix, this.viewMatrix, eye as number[], cars, dt, isRaining, true);
+
+    // ─── Rear-view mirror (a second camera looking back, blitted on top) ───
+    this.renderMirror(eyeX, eyeY, eyeZ, yaw, cars, dt, isRaining);
+  }
+
+  // Shared world renderer used by both the main pass and the rear-view mirror.
+  // Draws sky + track + finish + barrier + scenery + cars (+ optional rain).
+  // `drawRain` is false for the mirror so rain particles aren't drawn twice.
+  private drawWorldScene(proj: Float32Array, view: Float32Array, eye: number[],
+    cars: { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number }[], dt: number,
+    isRaining: boolean, drawRain: boolean) {
+    const gl = this.gl;
 
     // Sky — fill the background with depth testing OFF and no depth writes so the
     // sky can never z-fight with distant geometry (was flashing white/blue at horizon).
@@ -2016,8 +2331,8 @@ void main() {
     gl.disable(gl.DEPTH_TEST);
     gl.depthMask(false);
     gl.useProgram(this.skyProg);
-    gl.uniformMatrix4fv(this.skyProjLoc, false, this.projMatrix);
-    gl.uniformMatrix4fv(this.skyViewLoc, false, this.viewMatrix);
+    gl.uniformMatrix4fv(this.skyProjLoc, false, proj);
+    gl.uniformMatrix4fv(this.skyViewLoc, false, view);
     gl.uniform3fv(this.skySunDirLoc, this.sunDir);
     gl.uniform1f(this.skyTimeLoc, this.elapsed);
     gl.uniform3fv(this.skyTopLoc, this.skyTop);
@@ -2045,8 +2360,8 @@ void main() {
 
     // Main program
     gl.useProgram(this.prog);
-    gl.uniformMatrix4fv(this.projLoc, false, this.projMatrix);
-    gl.uniformMatrix4fv(this.viewLoc, false, this.viewMatrix);
+    gl.uniformMatrix4fv(this.projLoc, false, proj);
+    gl.uniformMatrix4fv(this.viewLoc, false, view);
     gl.uniform3fv(this.lightDirLoc, this.sunDir);
     if (isRaining) {
       gl.uniform3fv(this.ambientLoc, new Float32Array([0.15, 0.15, 0.18]));
@@ -2106,11 +2421,11 @@ void main() {
       this.renderCar(car.x, car.y, car.z, car.yaw, car.r, car.g, car.b);
     }
 
-    // ─── Rain Particles (if enabled) ───
-    if (isRaining) {
+    // ─── Rain Particles (if enabled and requested) ───
+    if (drawRain && isRaining) {
       this.initRainParticles();
     }
-    if (this._rainCount > 0) {
+    if (drawRain && this._rainCount > 0) {
       const rain = this._rainParticles;
       const rainData: number[] = [];
       const wind = Math.sin(this.elapsed * 0.3) * 5;
@@ -2138,6 +2453,54 @@ void main() {
       gl.depthMask(true);
       gl.enable(gl.CULL_FACE);
     }
+  }
+
+  // Renders the world from a rear-facing camera into the mirror FBO, then
+  // blits that texture onto a quad at the top-center of the screen.
+  private renderMirror(eyeX: number, eyeY: number, eyeZ: number, yaw: number,
+    cars: { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number }[],
+    dt: number, isRaining: boolean) {
+    const gl = this.gl;
+
+    // Rear camera: just above the driver's eye, looking straight back with a
+    // slight downward tilt so the road and trailing cars fill the mirror.
+    const mEye = [eyeX, eyeY + 0.22, eyeZ];
+    const mYaw = yaw + Math.PI;
+    const mPitch = 0.06;
+    const cosY = Math.cos(mYaw), sinY = Math.sin(mYaw);
+    const cosP = Math.cos(mPitch), sinP = Math.sin(mPitch);
+    const lookX = mEye[0] + sinY * cosP;
+    const lookY = mEye[1] - sinP;
+    const lookZ = mEye[2] + cosY * cosP;
+    this.mat4Perspective(this.mirrorProj, 1.35, this.mirrorW / this.mirrorH, 0.5, 600);
+    this.mat4LookAt(this.mirrorView, mEye as number[], [lookX, lookY, lookZ], [0, 1, 0]);
+
+    // Render the world into the mirror texture.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.mirrorFBO);
+    gl.viewport(0, 0, this.mirrorW, this.mirrorH);
+    gl.clearColor(0.4, 0.45, 0.5, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    this.drawWorldScene(this.mirrorProj, this.mirrorView, mEye, cars, dt, isRaining, false);
+    // The player's own car isn't in `cars` (first-person camera sits inside it),
+    // but a real F1 mirror shows your own rear wing — draw it in the mirror pass.
+    this.renderCar(eyeX, 0.1, eyeZ, yaw, 0.85, 0.06, 0.06);
+
+    // Blit the mirror texture onto the top-center of the screen.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.disable(gl.DEPTH_TEST);
+    gl.depthMask(false);
+    gl.disable(gl.CULL_FACE);
+    gl.useProgram(this.mirrorProg);
+    gl.uniform1i(this.mirrorTexLoc, 0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.mirrorTex);
+    gl.bindVertexArray(this.mirrorVao);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.bindVertexArray(null);
+    gl.depthMask(true);
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.CULL_FACE);
   }
 
   renderCar(x: number, y: number, z: number, yaw: number, r: number, g: number, b: number) {

@@ -638,14 +638,28 @@ namespace maxhanna.Server.Controllers
 					EnsureSchema(connStr);
  					using var conn = new MySqlConnection(connStr);
 					await conn.OpenAsync();
+					// Union race results with the durable per-player best lap so the board
+					// keeps historical records even after racing_results rows age out.
+					// total_time is 0 for best-lap-only entries (client renders '--:--');
+					// NULLIF/MAX prefers the real race total when a result row exists.
 					using var cmd = new MySqlCommand(@"
-						SELECT r.user_id, COALESCE(NULLIF(r.player_name, ''), u.username) AS player_name,
-						       MIN(r.lap_time) AS lap_time, MIN(r.total_time) AS total_time
-						FROM racing_results r
-						LEFT JOIN users u ON r.user_id = u.id
-						WHERE r.lap_time > 0
-						GROUP BY r.user_id, player_name
-						ORDER BY lap_time ASC LIMIT 20", conn);
+						SELECT user_id, player_name, MIN(lap_time) AS lap_time,
+						       COALESCE(MAX(NULLIF(total_time, 0)), 0) AS total_time
+						FROM (
+							SELECT r.user_id, COALESCE(NULLIF(r.player_name, ''), u.username, 'Unknown') AS player_name,
+							       r.lap_time AS lap_time, r.total_time AS total_time
+							FROM racing_results r
+							LEFT JOIN users u ON r.user_id = u.id
+							WHERE r.lap_time > 0
+							UNION ALL
+							SELECT c.user_id, COALESCE(NULLIF(c.player_name, ''), u.username, 'Unknown') AS player_name,
+							       c.best_lap AS lap_time, 0 AS total_time
+							FROM racing_player_car c
+							LEFT JOIN users u ON c.user_id = u.id
+							WHERE c.best_lap > 0
+						) t
+						GROUP BY user_id, player_name
+						ORDER BY lap_time ASC LIMIT 40", conn);
 					using var rdr = await cmd.ExecuteReaderAsync();
 					while (await rdr.ReadAsync())
 					{
