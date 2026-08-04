@@ -282,15 +282,13 @@
         </button>
       </div>
 
-      <!-- Multiplayer lobby strip — set READY without leaving the garage and
-           see every lobby member's ready state while browsing upgrades. -->
-      <div class="garage-mp-strip" *ngIf="inMpLobby">
-        <div class="garage-mp-ready-wrap">
-          <button class="garage-ready-btn" [class.garage-ready-on]="amReady"
-            (click)="toggleReadyMultiplayer()" title="Toggle ready — the host can start when everyone is ready">
-            {{ amReady ? '✓ READY' : 'READY UP' }}
-          </button>
+      <!-- Floating multiplayer lobby widget — see who's in the lobby, the
+           ready count, and the live start countdown while browsing upgrades. -->
+      <div class="garage-mp-widget" *ngIf="inMpLobby">
+        <div class="garage-mp-widget-head">
+          <span class="garage-mp-widget-title">👥 LOBBY</span>
           <span class="garage-ready-count">{{ readyCount }}/{{ lobbyPlayers.length }} ready</span>
+          <span *ngIf="garageCountdownDisplay" class="garage-countdown">{{ garageCountdownDisplay }}</span>
         </div>
         <div class="garage-mp-roster" *ngIf="lobbyPlayers.length > 0">
           <div class="garage-mp-roster-row" *ngFor="let p of lobbyPlayers"
@@ -306,6 +304,10 @@
           </div>
         </div>
         <span class="garage-mp-empty" *ngIf="lobbyPlayers.length === 0">Waiting for players…</span>
+        <button class="garage-ready-btn" [class.garage-ready-on]="amReady"
+          (click)="toggleReadyMultiplayer()" title="Toggle ready — the host can start when everyone is ready">
+          {{ amReady ? '✓ READY' : 'READY UP' }}
+        </button>
       </div>
 
       <div class="garage-layout">

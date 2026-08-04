@@ -1107,11 +1107,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // head) drawn per-frame so they bob and cheer. They stand OUTSIDE the
     // barrier wall (hw + 1.5) and its cap (hw + 1.8) so nobody ever appears on
     // the track or the kerbs.
-    const fenceCrowdShirts: [number, number, number][] = [
-      [0.7, 0.15, 0.15], [0.15, 0.3, 0.7], [0.8, 0.7, 0.1],
-      [0.9, 0.9, 0.9], [0.15, 0.5, 0.2], [0.6, 0.2, 0.6],
-      [0.1, 0.65, 0.65], [0.95, 0.5, 0.15],
-    ];
+    const fenceCrowdShirts: [number, number, number][] = this.crowdShirtsForTheme();
     const fenceSkins: [number, number, number][] = [
       [0.85, 0.65, 0.5], [0.55, 0.36, 0.22], [0.95, 0.82, 0.66], [0.4, 0.26, 0.15],
     ];
@@ -2810,10 +2806,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const ppx = -dirZ;
     const ppz = dirX;
     const hw = width / 2;
-    const crowdShirts: [number, number, number][] = [
-      [0.7, 0.15, 0.15], [0.15, 0.3, 0.7], [0.8, 0.7, 0.1],
-      [0.9, 0.9, 0.9], [0.15, 0.5, 0.2], [0.6, 0.2, 0.6],
-    ];
+    // Track-themed crowd palette — each circuit's fans wear local colors
+    // (Miami pastels, Monza tricolour, Montreal blues, etc.).
+    const crowdShirts: [number, number, number][] = this.crowdShirtsForTheme();
     const skins: [number, number, number][] = [
       [0.85, 0.65, 0.5], [0.55, 0.36, 0.22], [0.95, 0.82, 0.66], [0.4, 0.26, 0.15],
     ];
@@ -2851,12 +2846,66 @@ void main() { FragColor = texture(uTex, vUV); }`;
     for (const side of [-1, 1]) {
       this.addBox(verts, idxs, gx + ppx * 3 + ppx * side * hw * 1.2, 1.25, gz + ppz * 3 + ppz * side * hw * 1.2, 0.1, 2.5, 0.1, [0.3, 0.3, 0.35]);
     }
-    // Team flags on poles at each end
+    // Team flags on poles at each end — flown in the circuit's two most
+    // iconic colors (e.g. Italian red/green at Monza, blue/white in Montreal).
     for (const side of [-1, 1]) {
       const fx = gx + ppx * 0.6 * side;
       const fz = gz + ppz * 0.6 * side;
       this.addCylinder(verts, idxs, fx, 0, fz, 0.045, 2.4, 6, [0.55, 0.55, 0.58]);
-      this.addBox(verts, idxs, fx + ppx * 0.55 * side, 1.8, fz + ppz * 0.55 * side, 0.02, 0.55, 0.35, crowdShirts[side === 1 ? 0 : 1]);
+      const flagCols = this.themeFlagColors();
+      this.addBox(verts, idxs, fx + ppx * 0.55 * side, 1.8, fz + ppz * 0.55 * side, 0.02, 0.55, 0.35, flagCols[side === 1 ? 0 : 1]);
+    }
+  }
+
+  // Track-themed jersey palette for crowd figures, keyed by the circuit theme.
+  private crowdShirtsForTheme(): [number, number, number][] {
+    switch (this.theme) {
+      case 'miami':
+        // Pastel beach palette: hot pink, aqua, coral, mint, lavender, cream.
+        return [[0.95, 0.45, 0.6], [0.2, 0.7, 0.75], [0.95, 0.55, 0.35],
+          [0.45, 0.85, 0.6], [0.75, 0.6, 0.9], [1, 0.9, 0.75], [0.3, 0.8, 0.9], [0.95, 0.85, 0.3]];
+      case 'italy':
+        // Monza — Italian tricolour crowd.
+        return [[0.8, 0.1, 0.1], [0, 0.55, 0.15], [0.9, 0.9, 0.9],
+          [0.7, 0.1, 0.1], [0, 0.45, 0.12], [0.85, 0.85, 0.85]];
+      case 'montreal':
+        // Quebec blues & whites with maple-leaf red accents.
+        return [[0.1, 0.3, 0.8], [0.9, 0.9, 0.95], [0.05, 0.2, 0.6],
+          [0.95, 0.3, 0.3], [0.7, 0.85, 1], [0.1, 0.25, 0.7]];
+      case 'monaco':
+        // Riviera — red & white, casino gold.
+        return [[0.8, 0.1, 0.1], [0.9, 0.9, 0.95], [0.7, 0.12, 0.12],
+          [0.85, 0.85, 0.9], [0.9, 0.75, 0.25], [0.95, 0.95, 0.98]];
+      case 'desert':
+        // Marrakech — Morocco red & green with sandy earth tones.
+        return [[0.75, 0.1, 0.1], [0, 0.45, 0.15], [0.8, 0.6, 0.35],
+          [0.9, 0.9, 0.9], [0.6, 0.3, 0.1], [0, 0.4, 0.12]];
+      case 'mountain':
+      case 'alpine':
+        // Snow circuits — cool alpine blues, whites and pine greens.
+        return [[0.1, 0.5, 0.7], [0.9, 0.9, 0.95], [0, 0.4, 0.25],
+          [0.7, 0.8, 1], [0.85, 0.9, 0.95], [0.1, 0.35, 0.55]];
+      case 'city':
+        // Downtown — concrete greys with signal red & amber.
+        return [[0.5, 0.55, 0.6], [0.85, 0.3, 0.2], [0.2, 0.3, 0.45],
+          [0.8, 0.8, 0.8], [0.35, 0.45, 0.55], [0.9, 0.75, 0.2]];
+      default:
+        return [[0.7, 0.15, 0.15], [0.15, 0.3, 0.7], [0.8, 0.7, 0.1],
+          [0.9, 0.9, 0.9], [0.15, 0.5, 0.2], [0.6, 0.2, 0.6], [0.1, 0.65, 0.65], [0.95, 0.5, 0.15]];
+    }
+  }
+
+  // Two most iconic flag colors for the current circuit (used on grandstand
+  // flag poles). Falls back to the first two jersey colors.
+  private themeFlagColors(): [number, number, number][] {
+    switch (this.theme) {
+      case 'italy': return [[0.8, 0.1, 0.1], [0, 0.55, 0.15]];   // red + green
+      case 'montreal': return [[0.1, 0.3, 0.8], [0.9, 0.9, 0.95]]; // blue + white
+      case 'monaco': return [[0.8, 0.1, 0.1], [0.9, 0.9, 0.95]];   // red + white
+      case 'desert': return [[0.75, 0.1, 0.1], [0, 0.45, 0.15]];   // red + green
+      case 'mountain': case 'alpine': return [[0.1, 0.5, 0.7], [0.9, 0.9, 0.95]];
+      case 'miami': return [[0.95, 0.45, 0.6], [0.2, 0.7, 0.75]];  // pink + aqua
+      default: return this.crowdShirtsForTheme().slice(0, 2);
     }
   }
 
@@ -2964,6 +3013,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // 6 boxes/person × 36 verts = 216 verts, each 11 floats.
   private _crowdData!: Float32Array;
   private _crowdPeople: CrowdPerson[] = [];
+  // 0..1 crowd reaction level — spikes when a car roars past a grandstand and
+  // decays over a few seconds. Amplifies bob/sway/wave in drawCrowd so the
+  // crowd visibly cheers harder in sync with the audio reaction moment.
+  private _crowdExcitement = 0;
   private _balloonVao!: WebGLVertexArrayObject;
   private _balloonVbo!: WebGLBuffer;
   private _balloonIbo!: WebGLBuffer;
@@ -3148,12 +3201,22 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
   }
 
+  /** Spikes the crowd animation into a cheering frenzy (used when a car
+   *  roars past a grandstand). Level 0..1; decays back to 0 over ~4s. */
+  exciteCrowd(level = 1) {
+    this._crowdExcitement = Math.max(0, Math.min(1, Math.max(this._crowdExcitement, level)));
+  }
+
   render(eyeX: number, eyeY: number, eyeZ: number, yaw: number, pitch: number, aspect: number,
     cars: { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number }[], dt: number,
     fovZoom: number = 1.0, shakeX: number = 0, shakeY: number = 0, isRaining: boolean = false, speedRatio: number = 0,
     playerSpeed: number = 0) {
     const gl = this.gl;
     this.elapsed += dt;
+    // Crowd reaction decays smoothly back to calm (~4s from full excitement).
+    if (this._crowdExcitement > 0) {
+      this._crowdExcitement = Math.max(0, this._crowdExcitement - dt * 0.25);
+    }
 
     // Apply FOV zoom (speed-based tunnel vision) and screen shake
     const fov = 1.1 * fovZoom;
@@ -3247,17 +3310,32 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // Animated crowd — rebuilt every frame so spectators bob, sway and wave
   // their arms (poses vary per person). Drawn after static scenery with the
   // main program already bound and proj/view set (mirror pass included).
-  private drawCrowd() {
+  // Spectators farther than CROWD_CULL_DIST from the camera are skipped, so
+  // the per-frame rebuild cost only covers the crowd you can actually see
+  // (this halves the cost again in the rear-view mirror pass, which reuses it).
+  private static CROWD_CULL_DIST = 80;
+  private drawCrowd(eye: number[]) {
     const gl = this.gl;
     if (!this._crowdVao || !this._crowdBuf || !this._crowdData || !this._crowdPeople.length) return;
     gl.useProgram(this.prog);
     const t = this.elapsed;
     const data = this._crowdData;
+    const cull2 = RacingRenderer.CROWD_CULL_DIST * RacingRenderer.CROWD_CULL_DIST;
+    const ex = eye[0];
+    const ez = eye[2];
+    // Reaction frenzy multiplier — amplifies every animation channel when the
+    // crowd has been excited (car roaring past a grandstand), decaying over
+    // a few seconds so the "cheer harder" effect ramps down naturally.
+    const frenzy = 1 + this._crowdExcitement * 1.6;
+    const waveSpeed = 4.1 + this._crowdExcitement * 3.2;
     let w = 0;
     for (const p of this._crowdPeople) {
+      const dx = p.x - ex;
+      const dz = p.z - ez;
+      if (dx * dx + dz * dz > cull2) continue;
       const s = p.scale;
-      const bob = Math.sin(t * 2.4 + p.phase) * 0.04 * s;
-      const legSway = Math.sin(t * 2.4 + p.phase) * 0.03 * s;
+      const bob = Math.sin(t * 2.4 + p.phase) * 0.04 * frenzy * s;
+      const legSway = Math.sin(t * 2.4 + p.phase) * 0.03 * frenzy * s;
       const y0 = p.y + bob;
       const ty = y0 + 0.72 * s;
       const [sr, sg, sb] = p.shirt;
@@ -3275,8 +3353,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       // Arms
       const armLen = 0.4 * s;
       const shoulderY = ty + 0.18 * s;
-      const sway = Math.sin(t * 2.9 + p.phase * 1.3) * 0.05 * s;
-      const wave = Math.sin(t * 4.1 + p.phase) * 0.09 * s;
+      const sway = Math.sin(t * 2.9 + p.phase * 1.3) * 0.05 * frenzy * s;
+      const wave = Math.sin(t * waveSpeed + p.phase) * 0.09 * frenzy * s;
       if (p.pose === 0) {
         // Arms hanging down, gentle sway
         w = this.pushBoxVerts(data, w, p.x - 0.21 * s + sway, shoulderY - armLen / 2, p.z, 0.07 * s, armLen, 0.09 * s, sr, sg, sb);
@@ -3425,7 +3503,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
 
     // Animated crowd figures (drawn after scenery so they pop over it; before
     // the HUD-adjacent pass, and included in the rear-view mirror too).
-    this.drawCrowd();
+    // Culled to the ~80m radius around the camera so distant spectators cost
+    // nothing to rebuild (matters even more in the mirror pass).
+    this.drawCrowd(eye);
 
     // ─── Rain Particles (if enabled and requested) ───
     if (drawRain && isRaining) {

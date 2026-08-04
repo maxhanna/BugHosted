@@ -195,6 +195,13 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private _nextCrowdFxAt = 0;
   private static readonly GRANDSTAND_FRACS = [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875];
   private static readonly CROWD_REACH = 55;
+  // A "reaction moment" fires when the player roars past a grandstand at speed:
+  // a short sharp crowd roar swell with a subtle Doppler pitch, synced to the
+  // animated crowd cheering harder (renderer.exciteCrowd) for a few seconds.
+  private static readonly STAND_ROAR_SPEED = 28;   // u/s — below this, no reaction
+  private static readonly STAND_ROAR_COOLDOWN = 2200; // ms between reaction moments
+  private _prevLapFrac = -1;      // lap fraction last frame (for frac-crossing detect)
+  private _lastStandRoarAt = 0;   // timestamp of last grandstand reaction moment
   private _screechSource: AudioBufferSourceNode | null = null;
   private _screechFilter: BiquadFilterNode | null = null;
   private _screechGain: GainNode | null = null;
@@ -272,6 +279,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         this.ngZone.run(() => {
           this.countdownTimer = count;
           if (count > 0 && this.gameState !== 'countdown') {
+            // Auto-start fired while the player was browsing the garage — close
+            // it so the start lights are front and center, never missed.
+            this.closeGarageForRaceStart();
             this.gameState = 'countdown';
           }
         });
@@ -282,6 +292,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         this.ngZone.run(() => {
           this.totalLaps = data.totalLaps;
           const startAt = data.startTime;
+          // Auto-start (or the host) launched the race while the player was in
+          // the garage — close the garage and launch so nobody misses the lights.
+          this.closeGarageForRaceStart();
           if (startAt && startAt > Date.now()) {
             this._mpRaceStartAt = startAt;
             this.countdownTimer = Math.max(0, Math.ceil((startAt - Date.now()) / 1000));
@@ -644,8 +657,22 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       if (remain <= 0 && this._autoStartTicker) {
         clearInterval(this._autoStartTicker);
         this._autoStartTicker = null;
+        // Safety net: the auto-start moment arrived. If the race-started
+        // broadcast hasn't flipped us out of the garage yet, close it so the
+        // upcoming lights are visible the instant they begin.
+        if (this.gameState === 'garage' && this._mpLobbyTrackId) {
+          this.closeGarageForRaceStart();
+        }
       }
     }, 500);
+  }
+  /** Closes the garage cleanly when a multiplayer race is starting, so the
+   *  start lights are never hidden behind the upgrade screen. No-op outside
+   *  the garage; the caller still transitions to the countdown state. */
+  private closeGarageForRaceStart() {
+    if (this.gameState !== 'garage') return;
+    this.selectedTab = 'menu';
+    this.gameState = 'countdown';
   }
   private stopAutoStartTicker() {
     if (this._autoStartTicker) {
@@ -2019,6 +2046,29 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           const wrapped = Math.min(d, td - d);
           if (wrapped < nearest) nearest = wrapped;
         }
+
+        // Reaction moment: when the car crosses a grandstand position at speed,
+        // fire a short sharp crowd roar swell with a Doppler pitch sweep and
+        // spike the animated crowd to cheer harder for a few seconds.
+        if (this._prevLapFrac >= 0) {
+          const lapFrac = lapPos / td;
+          let crossed = -1;
+          for (let i = 0; i < RacingComponent.GRANDSTAND_FRACS.length; i++) {
+            const f = RacingComponent.GRANDSTAND_FRACS[i];
+            // Wrap-aware crossing: did we pass frac f since the last frame?
+            const crossedIt = this._prevLapFrac <= lapFrac
+              ? (this._prevLapFrac <= f && f <= lapFrac)
+              : (f >= this._prevLapFrac || f <= lapFrac); // lap wrap (0 boundary)
+            if (crossedIt) { crossed = i; break; }
+          }
+          if (crossed >= 0 && Math.abs(this.carSpeed) >= RacingComponent.STAND_ROAR_SPEED
+            && performance.now() - this._lastStandRoarAt >= RacingComponent.STAND_ROAR_COOLDOWN) {
+            this._lastStandRoarAt = performance.now();
+            this.playStandRoar(Math.abs(this.carSpeed));
+            this.renderer.exciteCrowd(1);
+          }
+        }
+        this._prevLapFrac = lapPos / td;
         const reach = RacingComponent.CROWD_REACH;
         const level = nearest >= reach ? 0 : (1 - nearest / reach) * 0.05;
         this._crowdGain.gain.setTargetAtTime(level, t, 0.1);
@@ -2036,6 +2086,51 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       }
     }
   }
+  // A "reaction moment" roar — short, sharp swell that rises as the car
+  // approaches the stand then drops as it passes (subtle Doppler), built from
+  // layered noise bands with an attack/release envelope. Synced with the
+  // animated crowd spiking via renderer.exciteCrowd().
+  private playStandRoar(speed: number) {
+    if (!this.soundOn || !this._audioCtx || this.gameState !== 'racing') return;
+    try {
+      const ctx = this._audioCtx;
+      const t = ctx.currentTime;
+      const dur = 2.2;
+      // Doppler: pitch rises ~15% as the car approaches, falls back past base
+      // as it passes — subtle, not a siren.
+      const doppler = 1 + Math.min(0.16, 0.04 + (speed - RacingComponent.STAND_ROAR_SPEED) * 0.003);
+      const peak = 0.11 * Math.min(1.5, 0.75 + speed / 40);
+
+      const layers: { center: number; q: number; vol: number; attack: number; flutter: number }[] = [
+        { center: 480 * doppler, q: 0.6, vol: 1.0, attack: 0.12, flutter: 8 },
+        { center: 1250 * doppler, q: 0.7, vol: 0.7, attack: 0.09, flutter: 13 },
+        { center: 2300 * doppler, q: 0.8, vol: 0.4, attack: 0.06, flutter: 18 },
+      ];
+      for (const L of layers) {
+        const len = Math.floor(ctx.sampleRate * dur);
+        const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) {
+          const sec = i / ctx.sampleRate;
+          // Fast swell-in, then a natural crowd roar decay — short and sharp.
+          const env = Math.min(1, sec / L.attack) * Math.exp(-sec * 1.6);
+          const flutter = 0.55 + 0.45 * Math.sin(sec * L.flutter * Math.PI + (i % 7) * 0.9);
+          d[i] = (Math.random() * 2 - 1) * env * flutter;
+        }
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = L.center;
+        filter.Q.value = L.q;
+        const g = ctx.createGain();
+        g.gain.value = peak * L.vol;
+        src.connect(filter); filter.connect(g); g.connect(ctx.destination);
+        src.start(t); src.stop(t + dur + 0.05);
+      }
+    } catch { }
+  }
+
   // A crowd cheer is a MIX of many voices — low roar body, mid chatter and a
   // high shimmer — each band amplitude-modulated so it ripples like a real
   // crowd instead of steady hiss. The old "whistle" was one long piercing
