@@ -518,7 +518,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   // of the skyline while the player plays. Small batches + pacing so it never
   // stalls the frame; the chunk cache rebuilds lazily so new meshes appear.
   private loadDeferredAssets(deferredTasks: { load: () => Promise<any> }[]) {
-    if (deferredTasks.length === 0) { this.deferredRemaining = 0; return; }
+    if (deferredTasks.length === 0) {
+      this.deferredRemaining = 0;
+      this.renderer.clearGltfCache(); // Clear memory!
+      return;
+    }
     const BATCH = this.isMobile ? 1 : 4;
     let idx = 0;
     const processNext = () => {
@@ -526,15 +530,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const batch = deferredTasks.slice(idx, idx + BATCH);
       if (batch.length === 0) {
         this.deferredRemaining = 0;
+        // One rebuild at the end (not per batch) so streamed buildings/cars
+        // appear without regenerating every visible chunk dozens of times
+        // mid-game — far cheaper and no repeated pop-in.
+        this.renderer.clearChunkCache();
         this.renderer.clearGltfCache(); // Clear memory!
         return;
       }
       idx += batch.length;
       Promise.all(batch.map(t => t.load().catch(() => { }))).then(() => {
         this.deferredRemaining = deferredTasks.length - idx;
-        // Rebuild cached chunks so freshly streamed buildings/cars show up in
-        // the current view instead of waiting for a new chunk to generate.
-        this.renderer.clearChunkCache();
         if (this.isMobile) setTimeout(processNext, 180);
         else setTimeout(processNext, 60);
       });
