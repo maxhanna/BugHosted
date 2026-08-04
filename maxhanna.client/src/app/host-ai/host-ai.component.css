@@ -6,6 +6,16 @@
   flex-direction: column;
 }
 
+/* Embedded mode (e.g. inside the crawler): a plain block that blends into its
+   host — no full-page sizing, no popup chrome. The host controls the box. */
+.hostAiEmbedded {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+}
+
 .ai-mode-bar {
   display: flex;
   justify-content: center;

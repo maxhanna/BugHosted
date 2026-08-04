@@ -159,14 +159,13 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     const kw = this.keywordsInput?.nativeElement?.value?.trim();
     if (!kw) return;
     this.aiQuery = kw;
+    // Inline (not a popup) — no overlay; the AI answer renders as part of the page.
     this.showAiPopup = true;
-    this.parentRef?.showOverlay();
   }
 
   closeAiSearch() {
     this.showAiPopup = false;
     this.aiQuery = '';
-    this.parentRef?.closeOverlay();
   }
 
   async searchUrl(skipScrape?: boolean) {

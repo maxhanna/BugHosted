@@ -163,16 +163,15 @@
   <button (click)="closeYoutubePopup()" class="closeButton">Close</button>
 </div>
 
-<!-- HostAI Search Popup -->
-<div class="popupPanel aiSearchPopup" *ngIf="showAiPopup">
-  <div class="popupPanelTitle" style="display: flex; justify-content: space-between; align-items: center;">
-    <span>🤖 AI: {{ aiQuery }}</span>
-    <span (click)="closeAiSearch()" class="cursorPointer" style="font-size: 20px; line-height: 1;">&times;</span>
+<!-- HostAI Search (inline — embedded directly in the page, not a popup) -->
+<div class="aiSearchInline" *ngIf="showAiPopup">
+  <div class="aiSearchInlineHeader">
+    <span class="aiSearchInlineTitle">🤖 AI: {{ aiQuery }}</span>
+    <span (click)="closeAiSearch()" class="cursorPointer aiSearchInlineClose" title="Close AI search">&times;</span>
   </div>
   <div class="aiSearchEmbed">
     <app-host-ai [inputtedParentRef]="inputtedParentRef ?? parentRef" [preloadedMessage]="aiQuery" [embedded]="true"></app-host-ai>
   </div>
-  <button id="closeOverlay" (click)="closeAiSearch()" class="closeButton">Close</button>
 </div>
 
 <!-- Favourited By Popup -->

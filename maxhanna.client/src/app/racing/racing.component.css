@@ -50,11 +50,12 @@
   /* F1 photo stretched to cover the whole lobby, buried under a dark overlay
      so the colorful artwork never fights the menu text or UI. Layers stack
      top-first: main dark veil → spotlight contrast boost → base gradient →
-     photo. All baked into one background so nothing can paint over content. */
+     photo. The base gradient must stay semi-transparent so the photo beneath
+     is actually visible (an opaque layer above it would paint it out). */
   background:
     linear-gradient(180deg, rgba(6, 6, 12, 0.88) 0%, rgba(8, 8, 16, 0.72) 35%, rgba(8, 8, 16, 0.72) 65%, rgba(6, 6, 12, 0.92) 100%),
     linear-gradient(180deg, rgba(5, 5, 10, 0.35) 0%, rgba(5, 5, 10, 0) 30%, rgba(5, 5, 10, 0) 60%, rgba(5, 5, 10, 0.45) 100%),
-    linear-gradient(180deg, #0a0a0f 0%, #1a1a2e 50%, #0a0a0f 100%),
+    linear-gradient(180deg, rgba(10, 10, 15, 0.55) 0%, rgba(26, 26, 46, 0.25) 50%, rgba(10, 10, 15, 0.6) 100%),
     url("../../assets/grandprix/f1.png") center / cover no-repeat;
   display: flex;
   flex-direction: column;

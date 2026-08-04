@@ -69,7 +69,6 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   hasAnyTradeConfig = false;
   fullscreenTimeout = false;
   isTradeInformationOpen = false;
-  // When trade panel is open this toggles hiding the info column
   isTradeInfoHidden = false;
   isShowingTradeSimulator = false;
   isShowingTradeProfit = false;
@@ -1570,6 +1569,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
     this.isShowingTradeSimulator = false;
     this.isShowingTradeProfit = false;
     this.isTradeLiveViewShowing = false;
+    this.isTradeInfoHidden = true;
   }
 
   async openTradeFullscreen() {
@@ -1589,7 +1589,10 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
   }
   closeTradeFullscreen() {
     this.closeTradeDivs();
-    this.isTradePanelOpen = false;
+    setTimeout(() => {
+      this.isTradePanelOpen = false;
+      this.isTradeInfoHidden = false;
+    }, 10);
   }
   async showTradeSettings() {
     if (!this.parentRef?.user?.id) { return alert("You must be logged in to save settings."); }
@@ -1650,7 +1653,7 @@ export class CryptoHubComponent extends ChildComponent implements OnInit, OnDest
       setTimeout(() => {
         this.showTradeLogs();
         this.isTradeInfoHidden = true;
-      });
+      }, 10);
       return;
     }
     const wasShowingLogs = this.showingTradeLogs;

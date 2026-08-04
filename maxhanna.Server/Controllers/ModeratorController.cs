@@ -146,10 +146,12 @@ namespace maxhanna.Server.Controllers
           LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id;";
 
         using var cmd = new MySqlCommand(sql, conn);
-        using var reader = await cmd.ExecuteReaderAsync();
         var byUser = new Dictionary<int, ModeratorInfo>();
         var order = new List<int>();
 
+        // Reader must be disposed before ResolveTargetNamesAsync below reuses
+        // the connection — same "connection already in use" pitfall as GetMyRoles.
+        using (var reader = await cmd.ExecuteReaderAsync())
         while (await reader.ReadAsync())
         {
           int userId = reader.GetInt32("user_id");
@@ -400,7 +402,10 @@ namespace maxhanna.Server.Controllers
         string sql = @"SELECT role, target_type, target_id, assigned_at FROM maxhanna.moderator_roles WHERE user_id = @UserId;";
         using var cmd = new MySqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("@UserId", userId);
-        using var reader = await cmd.ExecuteReaderAsync();
+        // The reader must be disposed before ResolveTargetNamesAsync reuses the
+        // connection below — running a new command while a reader is still open
+        // throws "This MySqlConnection is already in use".
+        using (var reader = await cmd.ExecuteReaderAsync())
         while (await reader.ReadAsync())
         {
           roles.Add(new ModeratorRole

@@ -1,4 +1,4 @@
-﻿<div class="componentMain"> 
+﻿<div [class]="embedded ? 'hostAiEmbedded' : 'componentMain'">
   <app-title-bar *ngIf="!embedded" 
     [title]="hostName"
     (helpClicked)="showHelpPopup()"
@@ -8,7 +8,7 @@
 
 
 
-  <div class="medical-controls" *ngIf="aiMode === 'medical'">
+  <div class="medical-controls" *ngIf="aiMode === 'medical' && showChatbox">
     <div class="medical-controls-inner">
       <button class="med-btn" (click)="triggerCamera()" title="Take a photo with your camera" [disabled]="isLoading">📷 Camera</button>
       <button class="med-btn" (click)="triggerImageUpload()" title="Upload an image" [disabled]="isLoading">🖼️ Upload</button>
@@ -43,7 +43,7 @@
   <!-- Help button relocated to header (next to menu). Removed from inline empty state. -->
     </div>
 
-    <div class="input-container"> 
+    <div class="input-container" *ngIf="showChatbox"> 
       <!-- <button (click)="sayOutloud()" *ngIf="!startedTalking" [disabled]="isLoading || !userMessage.trim()"
         title="Repeat out loud.">🔊</button> -->
       <app-speech-recognition [disabled]="isLoading || startedTalking"

@@ -62,6 +62,9 @@ export class HostAiComponent extends ChildComponent implements OnInit, AfterView
   // Hide the title bar (and its remove_me close button) when embedded in a
   // popup that manages its own header/close.
   @Input() embedded = false;
+  // Two embeddable modes: with a chat input box (default) or without one
+  // (display-only AI conversation, e.g. rendering a preloaded answer inline).
+  @Input() showChatbox = true;
 
   ngOnInit() {
     if (this.inputtedParentRef) this.parentRef = this.inputtedParentRef;

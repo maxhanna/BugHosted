@@ -1,6 +1,7 @@
 import { AfterViewInit, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { RacingRenderer, TrackPoint } from './racing-renderer';
+import { MidiPlayer } from './midi-player';
 import { RacingService } from '../../services/racing.service';
 import { RacingHubService, LobbyPlayer, RemoteCarPosition } from '../../services/racing-hub.service';
 import {
@@ -186,6 +187,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private _crowdSource: AudioBufferSourceNode | null = null;
   private _crowdFilter: BiquadFilterNode | null = null;
   private _crowdGain: GainNode | null = null;
+  // Title-screen music — plays the .mid file (topgun.mid) while in the menu.
+  private _midiPlayer: MidiPlayer | null = null;
   private _nextCrowdFxAt = 0;
   private static readonly GRANDSTAND_FRACS = [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875];
   private static readonly CROWD_REACH = 55;
@@ -436,6 +439,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
     this.racingHub.disconnect();
     this._mpSubs.forEach(s => s.unsubscribe());
+    if (this._midiPlayer) { this._midiPlayer.stop(); this._midiPlayer = null; }
     this.stopEngineAudio();
     document.removeEventListener('keydown', () => { });
     document.removeEventListener('keyup', () => { });
@@ -882,6 +886,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       }
     }
     this.updateEngineAudio();
+    this.updateMenuMusic();
     if (this.renderer && this.isLoaded) {
       const aspect = this.canvasRef.nativeElement.width / this.canvasRef.nativeElement.height;
       const eyeY = 0.5;
@@ -1656,7 +1661,28 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.stopEngineAudio();
     }
   }
+  // Idempotent title-screen music driver — called every frame. Starts the MIDI
+  // player when the menu + sound are active and an audio context exists, stops
+  // it the moment the player leaves the menu, mutes sound, or tears down. It
+  // only acts on state changes, so per-frame cost is negligible.
+  private updateMenuMusic() {
+    const shouldPlay = this.soundOn && !!this._audioCtx && this.gameState === 'menu';
+    if (shouldPlay && !this._midiPlayer) {
+      try {
+        const player = new MidiPlayer(this._audioCtx!);
+        this._midiPlayer = player;
+        player.load('/assets/grandprix/topgun.mid').then(() => {
+          if (this._midiPlayer === player) player.play();
+        }).catch(() => { if (this._midiPlayer === player) this._midiPlayer = null; });
+      } catch { this._midiPlayer = null; }
+    } else if (!shouldPlay && this._midiPlayer) {
+      this._midiPlayer.stop();
+      this._midiPlayer = null;
+    }
+  }
+
   private stopEngineAudio() {
+    if (this._midiPlayer) { this._midiPlayer.stop(); this._midiPlayer = null; }
     try {
       for (const osc of [this._subOsc, this._engineOsc, this._engineOsc2, this._harmOsc, this._thrumLfo]) {
         if (osc) { try { osc.stop(); } catch { } osc.disconnect(); }

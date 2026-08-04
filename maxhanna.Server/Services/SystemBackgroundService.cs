@@ -1461,6 +1461,82 @@ namespace maxhanna.Server.Services
                     }
                 }
 
+                // ── "This Time Last Year" — what the user shared in the same
+                // ISO week, one calendar year ago (social posts, files,
+                // comments, recipes).
+                var lastYearHtml = new StringBuilder();
+                using (var lyStoryCmd = new MySqlCommand(@"
+          SELECT s.story_text, s.date
+          FROM stories s
+          WHERE s.user_id = @uid
+            AND YEARWEEK(s.date, 1) = YEARWEEK(DATE_SUB(UTC_DATE(), INTERVAL 1 YEAR), 1)
+          ORDER BY s.date DESC
+          LIMIT 3", conn))
+                {
+                    lyStoryCmd.Parameters.AddWithValue("@uid", userId.Value);
+                    using var rdr = await lyStoryCmd.ExecuteReaderAsync();
+                    while (await rdr.ReadAsync())
+                    {
+                        var text = rdr.IsDBNull(rdr.GetOrdinal("story_text")) ? "" : rdr.GetString("story_text");
+                        var date = rdr.GetDateTime("date").ToString("MMM dd");
+                        var snippet = text.Length > 90 ? text[..90] + "..." : text;
+                        lastYearHtml.Append($"<li><b>Social:</b> {snippet} <span style='color:#999'>({date})</span></li>");
+                    }
+                }
+                using (var lyFileCmd = new MySqlCommand(@"
+          SELECT f.file_name, f.upload_date
+          FROM file_uploads f
+          WHERE f.user_id = @uid
+            AND f.is_folder = 0
+            AND YEARWEEK(f.upload_date, 1) = YEARWEEK(DATE_SUB(UTC_DATE(), INTERVAL 1 YEAR), 1)
+          ORDER BY f.upload_date DESC
+          LIMIT 3", conn))
+                {
+                    lyFileCmd.Parameters.AddWithValue("@uid", userId.Value);
+                    using var rdr = await lyFileCmd.ExecuteReaderAsync();
+                    while (await rdr.ReadAsync())
+                    {
+                        var name = rdr.IsDBNull(rdr.GetOrdinal("file_name")) ? "File" : rdr.GetString("file_name");
+                        var date = rdr.GetDateTime("upload_date").ToString("MMM dd");
+                        lastYearHtml.Append($"<li><b>File:</b> {name} <span style='color:#999'>({date})</span></li>");
+                    }
+                }
+                using (var lyCommentCmd = new MySqlCommand(@"
+          SELECT c.comment, c.date
+          FROM comments c
+          WHERE c.user_id = @uid
+            AND YEARWEEK(c.date, 1) = YEARWEEK(DATE_SUB(UTC_DATE(), INTERVAL 1 YEAR), 1)
+          ORDER BY c.date DESC
+          LIMIT 3", conn))
+                {
+                    lyCommentCmd.Parameters.AddWithValue("@uid", userId.Value);
+                    using var rdr = await lyCommentCmd.ExecuteReaderAsync();
+                    while (await rdr.ReadAsync())
+                    {
+                        var text = rdr.IsDBNull(rdr.GetOrdinal("comment")) ? "" : rdr.GetString("comment");
+                        var date = rdr.GetDateTime("date").ToString("MMM dd");
+                        var snippet = text.Length > 90 ? text[..90] + "..." : text;
+                        lastYearHtml.Append($"<li><b>Comment:</b> {snippet} <span style='color:#999'>({date})</span></li>");
+                    }
+                }
+                using (var lyRecipeCmd = new MySqlCommand(@"
+          SELECT r.name, r.created_at
+          FROM recipes r
+          WHERE r.user_id = @uid
+            AND YEARWEEK(r.created_at, 1) = YEARWEEK(DATE_SUB(UTC_DATE(), INTERVAL 1 YEAR), 1)
+          ORDER BY r.created_at DESC
+          LIMIT 3", conn))
+                {
+                    lyRecipeCmd.Parameters.AddWithValue("@uid", userId.Value);
+                    using var rdr = await lyRecipeCmd.ExecuteReaderAsync();
+                    while (await rdr.ReadAsync())
+                    {
+                        var name = rdr.IsDBNull(rdr.GetOrdinal("name")) ? "Recipe" : rdr.GetString("name");
+                        var date = rdr.GetDateTime("created_at").ToString("MMM dd");
+                        lastYearHtml.Append($"<li><b>Recipe:</b> {name} <span style='color:#999'>({date})</span></li>");
+                    }
+                }
+
                 var body = $@"
 <html>
 <body style='font-family:Arial,sans-serif;background:#f5f5f5;padding:20px'>
@@ -1485,6 +1561,11 @@ namespace maxhanna.Server.Services
 {(songsHtml.Length > 0 ? $@"
 <h3>Songs Added This Month</h3>
 <ul>{songsHtml}</ul>" : "")}
+
+{(lastYearHtml.Length > 0 ? $@"
+<h3>This Time Last Year</h3>
+<p style='color:#666'>What you shared this same week, one year ago.</p>
+<ul>{lastYearHtml}</ul>" : "")}
 
 <p style='color:#999;font-size:12px;margin-top:24px'>
 You're receiving this because you have an email on your BugHosted account.

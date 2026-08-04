@@ -2971,8 +2971,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const shade = 0.08 + (b.phase % 1) * 0.05;
         const bodyF = 0.16;
         const wing = 0.9;
+        // Vertex layout matches the scenery VAO: pos(3) normal(3) color(3) uv(2)
         const mk = (x: number, y: number, z: number) => {
-          data.push(x, y, z, 0, 1, 0, 0, 0, shade, shade, shade + 0.01);
+          data.push(x, y, z, 0, 1, 0, shade, shade, shade + 0.01, 0, 0);
         };
         // Left wing triangle (body → tip, wingtip dips opposite the flap)
         mk(bx - dx * bodyF, by + flap, bz - dz * bodyF);
