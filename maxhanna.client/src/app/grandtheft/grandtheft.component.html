@@ -14,6 +14,7 @@
       <div class="gt-loading-spinner"></div>
       <div class="gt-loading-text">Loading Grand Theft...</div>
       <div class="gt-loading-progress">{{ totalAssets - loadingAssets }} / {{ totalAssets }}</div>
+      <div class="gt-loading-sub" *ngIf="deferredRemaining > 0">Streaming extra content in background…</div>
       <div class="gt-advisory">
         <div class="gt-advisory-title">⚠️ PARENTAL GUIDANCE ADVISORY</div>
         <div class="gt-advisory-body">
@@ -25,6 +26,10 @@
       </div>
     </div>
 
+    <div id="gt-deferred-badge" *ngIf="deferredRemaining > 0">
+      <span class="gt-deferred-spinner"></span>
+      Loading more content… {{ deferredRemaining }} left
+    </div>
     <div id="gt-wanted" *ngIf="wantedLevel > 0">
       <span *ngFor="let star of [1,2,3,4,5]" [class.active]="star <= wantedLevel">★</span>
     </div>

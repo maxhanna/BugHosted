@@ -143,6 +143,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _lastTrafficChunkZ = 0;
   isLoaded = false;
   loadingAssets = 0;
+  // Remaining background assets still streaming in after the game started.
+  deferredRemaining = 0;
   totalAssets = 0;
   showMap = false;
   showWeaponWheel = false;
@@ -294,12 +296,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.isMobile) this.renderer.reduceShadowMap();
 
     // ── Build asset task list ──
-    interface AssetTask { load: () => Promise<any>; }
+    // Tasks flagged `critical` block the start screen; everything else streams
+    // in async AFTER the game starts so load time stays snappy.
+    interface AssetTask { load: () => Promise<any>; critical?: boolean; }
     const tasks: AssetTask[] = [];
+    const critical = (t: AssetTask) => { t.critical = true; return t; };
 
-    tasks.push({ load: () => this.renderer.initPlayerModel('assets/grandtheft/franklin/scene.gltf', false).then(() => { }) });
-    tasks.push({ load: () => this.renderer.loadGLTF('assets/grandtheft/citylight/scene.gltf').then(lamps => { if (lamps) this.renderer.lampMesh = lamps; }) });
-    tasks.push({ load: () => this.renderer.loadGLTF('assets/grandtheft/skybox_skydays_3/scene.gltf', false).then(m => { if (m) this.renderer.skyboxMesh = m; }) });
+    // Critical: main character + first-person view + world backdrops.
+    tasks.push(critical({ load: () => this.renderer.initPlayerModel('assets/grandtheft/franklin/scene.gltf', false).then(() => { }) }));
+    tasks.push(critical({ load: () => this.renderer.loadGLTF('assets/grandtheft/citylight/scene.gltf').then(lamps => { if (lamps) this.renderer.lampMesh = lamps; }) }));
+    tasks.push(critical({ load: () => this.renderer.loadGLTF('assets/grandtheft/skybox_skydays_3/scene.gltf', false).then(m => { if (m) this.renderer.skyboxMesh = m; }) }));
 
     for (const cfg of [
       { path: 'assets/grandtheft/jillValentine/scene.gltf', needsFlip: false },
@@ -356,11 +362,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const cfg of specialMeshes) {
       const sc = cfg.scale;
       const yo = cfg.yawOffset;
-      tasks.push({ load: () => this.renderer.loadGLTF(cfg.path, cfg.storeSkeleton).then(mesh => { if (mesh) { cfg.assign(mesh); if (sc) for (const m of mesh) m.renderScale = sc; if (yo) for (const m of mesh) m.yawOffset = yo; } }) });
+      // Core world pieces (home base, police, taxi, hospital) block the start
+      // screen; boats, helis, planes, weapons etc. stream in afterwards.
+      const isCore = cfg.path.includes('crownVic') || cfg.path.includes('policeMan')
+        || cfg.path.includes('taxi') || cfg.path.includes('hospital') || cfg.path.includes('japaneseShop');
+      const t: AssetTask = { load: () => this.renderer.loadGLTF(cfg.path, cfg.storeSkeleton).then(mesh => { if (mesh) { cfg.assign(mesh); if (sc) for (const m of mesh) m.renderScale = sc; if (yo) for (const m of mesh) m.yawOffset = yo; } }) };
+      if (isCore) critical(t);
+      tasks.push(t);
     }
 
     const carConfigs = [
-      { path: 'assets/grandtheft/lambo/scene.gltf' },
+      { path: 'assets/grandtheft/lambo/scene.gltf', critical: true },
       { path: 'assets/grandtheft/2024_lamborghini_countach_lp5000_qv_lbworks/scene.gltf' },
       { path: 'assets/grandtheft/mitsubishi/scene.gltf' },
       { path: 'assets/grandtheft/hilux/scene.gltf' },
@@ -375,13 +387,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const cfg of carConfigs) {
       const sc = cfg.scale;
       const yo = cfg.yawOffset;
-      tasks.push({ load: () => this.renderer.loadGLTF(cfg.path).then(car => { if (!car) return; if (sc) for (const m of car) m.renderScale = sc; if (yo) for (const m of car) m.yawOffset = yo; this.renderer.carMeshes.push(car); }) });
+      const t: AssetTask = { load: () => this.renderer.loadGLTF(cfg.path).then(car => { if (!car) return; if (sc) for (const m of car) m.renderScale = sc; if (yo) for (const m of car) m.yawOffset = yo; this.renderer.carMeshes.push(car); }) };
+      if (cfg.critical) critical(t);
+      tasks.push(t);
     }
 
+    // First-person arms + starting weapon block the start screen (you need
+    // them the instant the game begins); everything else can stream in.
     const armsOut: { animations?: any; skeleton?: any } = {};
-    tasks.push({ load: () => this.renderer.loadGLTF('assets/grandtheft/first_person_arms/scene.gltf', true, armsOut).then(arms => { if (arms) { this.renderer.firstPersonArmsMesh = arms; this.renderer.firstPersonArmsSkeleton = armsOut.skeleton ?? null; this.renderer.firstPersonArmsAnimations = armsOut.animations ?? null; } }) });
+    tasks.push(critical({ load: () => this.renderer.loadGLTF('assets/grandtheft/first_person_arms/scene.gltf', true, armsOut).then(arms => { if (arms) { this.renderer.firstPersonArmsMesh = arms; this.renderer.firstPersonArmsSkeleton = armsOut.skeleton ?? null; this.renderer.firstPersonArmsAnimations = armsOut.animations ?? null; } }) }));
     const m23Out: { animations?: any; skeleton?: any } = {};
-    tasks.push({ load: () => this.renderer.loadGLTF('assets/grandtheft/first_person_mark23/scene.gltf', false, m23Out).then(m => { if (m) { this.renderer.mark23Mesh = m; this.renderer.mark23Skeleton = m23Out.skeleton ?? null; this.renderer.mark23Animations = m23Out.animations ?? null; } }) });
+    tasks.push(critical({ load: () => this.renderer.loadGLTF('assets/grandtheft/first_person_mark23/scene.gltf', false, m23Out).then(m => { if (m) { this.renderer.mark23Mesh = m; this.renderer.mark23Skeleton = m23Out.skeleton ?? null; this.renderer.mark23Animations = m23Out.animations ?? null; } }) }));
 
     // Building assets — tracked separately for cache clearing
     const buildingTasks: AssetTask[] = [];
@@ -389,8 +405,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       buildingTasks.push({ load: () => this.renderer.loadGLTF(`assets/grandtheft/airport_buildings/${name}/scene.gltf`, false).then(m => { if (m) this.renderer.airportBuildingMeshes.push(m); }) });
     }
     const cityNames = this.isMobile ? GrandTheftRenderer.CITY_BUILDING_NAMES.slice(0, 8) : GrandTheftRenderer.CITY_BUILDING_NAMES;
-    for (const name of cityNames) {
-      buildingTasks.push({
+    // First few city buildings are critical so the spawn area isn't a void;
+    // the rest of the skyline streams in while you play.
+    cityNames.forEach((name, cityIdx) => {
+      const t: AssetTask = {
         load: () => this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`, false).then(m => {
           if (m) {
             if (name === 'buildingRandom') {
@@ -418,29 +436,36 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             this.renderer.cityBuildingMeshes.push(m);
           }
         })
-      });
-    }
+      };
+      if (cityIdx < 3) critical(t);
+      buildingTasks.push(t);
+    });
     const suburbNames = this.isMobile ? GrandTheftRenderer.SUBURB_BUILDING_NAMES.slice(0, 8) : GrandTheftRenderer.SUBURB_BUILDING_NAMES;
     for (const name of suburbNames) {
       buildingTasks.push({ load: () => this.renderer.loadGLTF(`assets/grandtheft/${name}/scene.gltf`, false).then(m => { if (m) this.renderer.suburbBuildingMeshes.push(m); }) });
     }
     const allTasks = [...tasks, ...buildingTasks];
-    this.totalAssets = allTasks.length;
+    const criticalTasks = allTasks.filter(t => t.critical);
+    const deferredTasks = allTasks.filter(t => !t.critical);
+    this.totalAssets = criticalTasks.length;
     this.loadingAssets = this.totalAssets;
 
     const BATCH_SIZE = this.isMobile ? 1 : 6;
     let idx = 0;
     const processNextBatch = () => {
-      const batch = allTasks.slice(idx, idx + BATCH_SIZE);
+      const batch = criticalTasks.slice(idx, idx + BATCH_SIZE);
       if (batch.length === 0) {
+        // Critical assets are in — start the game NOW.
         this.renderer.clearChunkCache();
-        this.renderer.clearGltfCache(); // Clear memory!
         this.isLoaded = true;
         this.loadingAssets = 0;
+        this.deferredRemaining = deferredTasks.length;
         this.ngZone.runOutsideAngular(() => {
           this.lastTime = performance.now();
           this.gameLoop(this.lastTime);
         });
+        // Stream the rest in the background so start time stays snappy.
+        this.loadDeferredAssets(deferredTasks);
         return;
       }
       idx += batch.length;
@@ -488,6 +513,34 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     setTimeout(() => this.trySpawnAirportLotCars(), 2000);
   }
 
+  // Background asset streaming — runs after the critical assets let the game
+  // start, filling in NPC variety, extra vehicles, special meshes and the rest
+  // of the skyline while the player plays. Small batches + pacing so it never
+  // stalls the frame; the chunk cache rebuilds lazily so new meshes appear.
+  private loadDeferredAssets(deferredTasks: { load: () => Promise<any> }[]) {
+    if (deferredTasks.length === 0) { this.deferredRemaining = 0; return; }
+    const BATCH = this.isMobile ? 1 : 4;
+    let idx = 0;
+    const processNext = () => {
+      if (this._destroyed) return;
+      const batch = deferredTasks.slice(idx, idx + BATCH);
+      if (batch.length === 0) {
+        this.deferredRemaining = 0;
+        this.renderer.clearGltfCache(); // Clear memory!
+        return;
+      }
+      idx += batch.length;
+      Promise.all(batch.map(t => t.load().catch(() => { }))).then(() => {
+        this.deferredRemaining = deferredTasks.length - idx;
+        // Rebuild cached chunks so freshly streamed buildings/cars show up in
+        // the current view instead of waiting for a new chunk to generate.
+        this.renderer.clearChunkCache();
+        if (this.isMobile) setTimeout(processNext, 180);
+        else setTimeout(processNext, 60);
+      });
+    };
+    setTimeout(processNext, this.isMobile ? 300 : 100);
+  }
 
   ngOnDestroy() {
     this._destroyed = true;
