@@ -107,7 +107,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
           this.fileEntryFoundEvent.emit(tgt);
         }
       } else {
-        if (!this.selectedFile?.fileName) {
+        if (!this.selectedFile?.fileName && this.file?.id) {
           console.log("fetching file entry by id for file.id=" + this.file.id);
           const res = await this.fileService.getFileEntryById(this.file.id, this.parentRef?.user?.id ?? 0, this.parentRef?.fileCache);
           if (res) {
@@ -118,7 +118,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
               this.fileEntryFoundEvent.emit(res);
             }
           }
-        } else {
+        } else if (this.file?.id) {
           console.log("using existing file for file.id=" + this.file.id, this.file);
           this.selectedFile = this.file;
           this.parentRef?.fileCache.push(this.file);

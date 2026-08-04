@@ -352,10 +352,14 @@ export class TopComponent extends ChildComponent implements OnInit {
   onUrlInputChange(event: Event) {
     this.cd.detectChanges();
   }
+  private _editingFileCache: FileEntry[] = [];
   getEditingFile(entryFile: any) {
     var fileId = entryFile?.fileId;
     if (fileId) {
-      return [new FileEntry(fileId)];
+      if (this._editingFileCache[0]?.id !== fileId) {
+        this._editingFileCache = [new FileEntry(fileId)];
+      }
+      return this._editingFileCache;
     }
     return [];
   }

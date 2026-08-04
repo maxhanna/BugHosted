@@ -1,4 +1,10 @@
-<div class="sectionName gradientBackground" style="padding: 10px;">Crypto Wallets</div>
+<div class="sectionName gradientBackground walletSectionHeader" style="padding: 10px;">
+  <span>Crypto Wallets</span>
+  <button class="walletRefreshButton" (click)="refresh()" [disabled]="isWalletLoading"
+    title="Refresh wallet balances">
+    {{ isWalletLoading ? '🔄 Refreshing...' : '🔄 Refresh' }}
+  </button>
+</div>
 <div style="padding: 0px 10px" class="wallet">
   <table *ngIf="wallet && selectedCurrency" id="walletTable" class="mainTable">
     <thead *ngIf="wallet?.length">
@@ -46,6 +52,9 @@
       </tr>
     </tfoot>
   </table>
+  <div *ngIf="!wallet || wallet.length === 0" class="walletEmptyState">
+    No crypto wallets added yet. Add one below to start tracking your balances.
+  </div>
 </div>
 <div style="margin-top: 10px; margin-bottom:5px; text-align: center;">
   <button (click)="showHideAddWalletDiv()">

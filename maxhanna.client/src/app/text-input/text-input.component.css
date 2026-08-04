@@ -10,19 +10,27 @@ input {
 
 /* Resizable textarea grip — make the drag-to-resize knob stand out */
 textarea::-webkit-resizer {
+    width: 18px;
+    height: 18px;
     background:
-        linear-gradient(135deg, transparent 0%, transparent 30%, #ffc107 30%, #ffc107 42%, transparent 42%),
-        linear-gradient(135deg, transparent 0%, transparent 58%, #ffc107 58%, #ffc107 70%, transparent 70%);
-    border-radius: 0 3px 3px 0;
-    transition: filter 0.15s ease;
+        linear-gradient(135deg, transparent 0%, transparent 32%, #7a5b00 32%, #7a5b00 42%, transparent 42%),
+        linear-gradient(135deg, transparent 0%, transparent 58%, #7a5b00 58%, #7a5b00 68%, transparent 68%),
+        linear-gradient(135deg, #ffc107 0%, #ffb300 100%);
+    border: 2px solid #8a6d00;
+    border-radius: 6px 0 6px 0;
+    box-shadow: 0 0 6px rgba(255, 193, 7, 0.45);
+    transition: all 0.15s ease;
 }
 
 textarea:hover::-webkit-resizer,
 textarea:focus::-webkit-resizer {
+    border-color: #fff;
     background:
-        linear-gradient(135deg, transparent 0%, transparent 30%, #ffd54a 30%, #ffd54a 42%, transparent 42%),
-        linear-gradient(135deg, transparent 0%, transparent 58%, #ffd54a 58%, #ffd54a 70%, transparent 70%);
-    filter: drop-shadow(0 0 4px rgba(255, 193, 7, 0.7));
+        linear-gradient(135deg, transparent 0%, transparent 32%, #7a5b00 32%, #7a5b00 42%, transparent 42%),
+        linear-gradient(135deg, transparent 0%, transparent 58%, #7a5b00 58%, #7a5b00 68%, transparent 68%),
+        linear-gradient(135deg, #ffd54a 0%, #ffca28 100%);
+    box-shadow: 0 0 12px rgba(255, 213, 79, 0.95), inset 0 0 4px rgba(255, 255, 255, 0.5);
+    transform: scale(1.15);
 }
 
 .topicsGrid {

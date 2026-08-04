@@ -20,6 +20,7 @@ export class CryptoWalletsComponent extends ChildComponent implements OnInit {
   isWalletGraphFullscreened = false;
   areWalletAddressesHidden = true;
   expandedWalletCurrency: string | null = null;
+  isWalletLoading = false;
 
   constructor(private coinValueService: CoinValueService) { super(); }
 
@@ -117,15 +118,24 @@ export class CryptoWalletsComponent extends ChildComponent implements OnInit {
   }
 
 
+  async refresh() {
+    this.isWalletLoading = true;
+    try {
+      await this.getBTCWallets();
+    } finally {
+      this.isWalletLoading = false;
+    }
+  }
+
   private async getBTCWallets() {
     const user = this.inputtedParentRef?.user;
     const token = await this.inputtedParentRef?.getSessionToken();
     if (user?.id) {
       await this.coinValueService.getWallet(user.id, token ?? "").then(res => {
-        if (res && res.length > 0) {
-          this.wallet = res;
-        }
+        this.wallet = res ?? [];
       });
+    } else {
+      this.wallet = [];
     }
 
     if (this.wallet) {
