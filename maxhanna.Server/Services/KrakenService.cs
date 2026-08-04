@@ -553,6 +553,23 @@ public class KrakenService
         if (usdcValueToTrade > 0)
         {
           decimal coinAmount = usdcValueToTrade / coinPriceUSDC;
+
+          // Respect max coin balance setting.
+          if (_MaximumBTCBalance > 0 && coinBalance + coinAmount > _MaximumBTCBalance)
+          {
+            decimal availableRoom = _MaximumBTCBalance - coinBalance;
+            if (availableRoom <= 0)
+            {
+              _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Already at max {tmpCoin} balance ({coinBalance} / {_MaximumBTCBalance}). Trade Cancelled.", userId, "TRADE", viewDebugLogs);
+              await DeleteMomentumStrategy(userId, "USDC", tmpCoin, strategy);
+              return false;
+            }
+            decimal originalAmount = coinAmount;
+            coinAmount = Math.Min(coinAmount, availableRoom);
+            usdcValueToTrade = coinAmount * coinPriceUSDC;
+            _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Capped buy from {FormatBTC(originalAmount)} to {FormatBTC(coinAmount)} {tmpCoin} to respect max balance ({_MaximumBTCBalance}).", userId, "TRADE", viewDebugLogs);
+          }
+
           if (coinAmount < _MinimumBTCTradeAmount)
           {
             _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Not enough coin to trade! coinAmount : {coinAmount} must be greater than {_MinimumBTCTradeAmount}. Review configuration if this amount is incorrect. Trade Cancelled.", userId, "TRADE", viewDebugLogs);
@@ -1302,11 +1319,12 @@ public class KrakenService
 					LEFT JOIN (
 						SELECT matching_trade_id, SUM(value) as matched_sum
 						FROM trade_history
-						WHERE strategy = @strategy
+						WHERE strategy = @strategy AND matching_trade_id <> id
 						GROUP BY matching_trade_id
 					) m ON r.id = m.matching_trade_id
 					WHERE r.user_id = @userId AND r.strategy = @strategy AND r.is_reserved = 1 
-					AND r.from_currency = 'USDC' AND r.to_currency = @coin;";
+					AND r.from_currency = 'USDC' AND r.to_currency = @coin
+					AND (r.matching_trade_id IS NULL OR r.matching_trade_id <> r.id);";
 
       using (var reservedCmd = new MySqlCommand(reservedSql, conn))
       {
@@ -1441,9 +1459,38 @@ public class KrakenService
     tmpCoin = tmpCoin == "BTC" ? "XBT" : tmpCoin;
 
     _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Creating reserve ({tmpCoin}: {coinBalance}, USDC: {usdcBalance})", userId, "TRADE", viewDebugLogs);
+
+    // Respect the maximum coin balance setting (checked first to avoid a DB round-trip when already at max).
+    if (_MaximumBTCBalance > 0 && coinBalance >= _MaximumBTCBalance)
+    {
+      _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Already at max {tmpCoin} balance ({coinBalance} / {_MaximumBTCBalance}). Reserve skipped.", userId, "TRADE", viewDebugLogs);
+      return true;
+    }
+
+    // Only one open reserve should ever exist per (user, strategy, coin) — skip if one is already open.
+    int openReserves = await CountOpenReserves(userId, tmpCoin, strategy);
+    if (openReserves > 0)
+    {
+      _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) An open reserve already exists ({openReserves} open). Reserve creation skipped.", userId, "TRADE", viewDebugLogs);
+      return true;
+    }
+
     if (usdcBalance > _CoinReserveUSDCValue && _CoinReserveUSDCValue > 0)
     {
       decimal amount = _CoinReserveUSDCValue / coinPriceUSDC;
+      // Cap the reserve so it never pushes the balance past the configured max.
+      if (_MaximumBTCBalance > 0 && coinBalance + amount > _MaximumBTCBalance)
+      {
+        decimal availableRoom = _MaximumBTCBalance - coinBalance;
+        if (availableRoom <= 0)
+        {
+          _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) No room left under max {tmpCoin} balance ({_MaximumBTCBalance}). Reserve skipped.", userId, "TRADE", viewDebugLogs);
+          return true;
+        }
+        decimal originalAmount = amount;
+        amount = Math.Min(amount, availableRoom);
+        _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Capped reserve from {FormatBTC(originalAmount)} to {FormatBTC(amount)} {tmpCoin} to respect max balance ({_MaximumBTCBalance}).", userId, "TRADE", viewDebugLogs);
+      }
       _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Starting user off with some {amount} ({_CoinReserveUSDCValue}$USDC) {tmpCoin} reserves", userId, "TRADE", viewDebugLogs);
       await ExecuteTrade(userId, tmpCoin, keys, FormatBTC(amount), "buy", coinBalance, usdcBalance, coinPriceCAD, coinPriceUSDC, strategy, null, null, true);
     }
@@ -1453,6 +1500,32 @@ public class KrakenService
       return false;
     }
     return true;
+  }
+
+  private async Task<int> CountOpenReserves(int userId, string coin, string strategy)
+  {
+    string tmpCoin = coin.ToUpper() == "BTC" ? "XBT" : coin.ToUpper();
+    const string sql = @"
+			SELECT COUNT(*) FROM trade_history
+			WHERE user_id = @UserId AND strategy = @Strategy
+			AND from_currency = 'USDC' AND to_currency = @Coin
+			AND is_reserved = 1 AND matching_trade_id IS NULL;";
+    try
+    {
+      await using var conn = new MySqlConnection(_config?.GetValue<string>("ConnectionStrings:maxhanna"));
+      await conn.OpenAsync();
+      await using var cmd = new MySqlCommand(sql, conn);
+      cmd.Parameters.AddWithValue("@UserId", userId);
+      cmd.Parameters.AddWithValue("@Strategy", strategy);
+      cmd.Parameters.AddWithValue("@Coin", tmpCoin);
+      var count = await cmd.ExecuteScalarAsync();
+      return Convert.ToInt32(count);
+    }
+    catch (Exception ex)
+    {
+      _ = _log.Db($"({tmpCoin}:{userId}:{strategy}) ⚠️Error counting open reserves: {ex.Message}", userId, "TRADE", viewErrorDebugLogs);
+      return 0;
+    }
   }
 
   private async Task ExecuteTrade(int userId, string coin, UserKrakenApiKey keys, string amount, string buyOrSell, decimal coinBalance, decimal usdcBalance, decimal coinPriceCAD, decimal coinPriceUSDC, string strategy, int? matchingTradeId, List<TradeRecord>? matchingTradeRecords, bool isReserved = false)
