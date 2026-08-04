@@ -3227,24 +3227,39 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
                     if (now < occ.Value.AddMinutes(-lead)) continue;
                     upcoming.Add(new CalendarEntry(1, type, note, occ.Value, userId.ToString(), lead));
                 }
+                // Per-occurrence dedupe: skip occurrences already notified (keyed
+                // on user_id + calendar_date), so one event's notification never
+                // suppresses a different event with its own lead window.
+                var notifiedOccurrences = new HashSet<string>();
+                await using (var dedupeCmd = new MySqlCommand(
+                    "SELECT calendar_date FROM calendar_notifications_sent WHERE user_id = @uid AND notification_sent > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY)", conn))
+                {
+                    dedupeCmd.Parameters.AddWithValue("@uid", userId);
+                    await using var dedupeRdr = await dedupeCmd.ExecuteReaderAsync();
+                    while (await dedupeRdr.ReadAsync())
+                    {
+                        if (dedupeRdr.IsDBNull(0)) continue;
+                        notifiedOccurrences.Add(dedupeRdr.GetDateTime(0).ToString("yyyy-MM-dd HH:mm:ss"));
+                    }
+                }
+                var upcoming = pending
+                    .Where(e => e.Date.HasValue && !notifiedOccurrences.Contains(e.Date.Value.ToString("yyyy-MM-dd HH:mm:ss")))
+                    .ToList();
                 if (upcoming.Count == 0) continue;
-                // Per-user cooldown: don't re-notify within the last hour.
-                await using var dedupeCmd = new MySqlCommand(
-                    "SELECT COUNT(*) FROM calendar_notifications_sent WHERE user_id = @uid AND notification_sent > DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 HOUR)", conn);
-                dedupeCmd.Parameters.AddWithValue("@uid", userId);
-                var recentlySent = Convert.ToInt32(await dedupeCmd.ExecuteScalarAsync());
-                if (recentlySent > 0) continue;
                 var eventList = string.Join(", ", upcoming.Select(e => $"{e.Type} {e.Note} at {e.Date:yyyy-MM-dd HH:mm}"));
                 var message = $"Upcoming events: {eventList}";
                 await firebaseService.SendFirebaseNotification(userId, message);
                 await using var conn2 = new MySqlConnection(_connectionString);
                 await conn2.OpenAsync();
                 const string insertNotificationSql = @"INSERT INTO maxhanna.calendar_notifications_sent (user_id, calendar_text, calendar_date, notification_sent) VALUES (@userId, @calendarText, @calendarDate, UTC_TIMESTAMP())";
-                await using var insertCmd = new MySqlCommand(insertNotificationSql, conn2);
-                insertCmd.Parameters.AddWithValue("@userId", userId);
-                insertCmd.Parameters.AddWithValue("@calendarText", message);
-                insertCmd.Parameters.AddWithValue("@calendarDate", upcoming[0].Date);
-                insertCmd.ExecuteNonQuery();
+                foreach (var e in upcoming)
+                {
+                    await using var insertCmd = new MySqlCommand(insertNotificationSql, conn2);
+                    insertCmd.Parameters.AddWithValue("@userId", userId);
+                    insertCmd.Parameters.AddWithValue("@calendarText", message);
+                    insertCmd.Parameters.AddWithValue("@calendarDate", e.Date);
+                    await insertCmd.ExecuteNonQueryAsync();
+                }
                 usersWithEvents[userId.ToString()] = upcoming;
             }
             return usersWithEvents;
