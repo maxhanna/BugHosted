@@ -3215,7 +3215,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
             foreach (var kvp in eventsByUser)
             {
                 var userId = kvp.Key;
-                var upcoming = new List<CalendarEntry>(); 
+                var pending = new List<CalendarEntry>(); 
                 foreach (var (type, date, note, reminder) in kvp.Value)
                 {
                     var occ = NextOccurrenceAfter(now, type, date);
@@ -3225,7 +3225,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
                     // fixed 1-hour window). Fire only once the lead window opens.
                     var lead = reminder ?? 60;
                     if (now < occ.Value.AddMinutes(-lead)) continue;
-                    upcoming.Add(new CalendarEntry(1, type, note, occ.Value, userId.ToString(), lead));
+                    pending.Add(new CalendarEntry(1, type, note, occ.Value, userId.ToString(), lead));
                 }
                 // Per-occurrence dedupe: skip occurrences already notified (keyed
                 // on user_id + calendar_date), so one event's notification never
