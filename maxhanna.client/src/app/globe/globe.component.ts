@@ -2,7 +2,7 @@
   Component, OnInit, OnDestroy, AfterViewInit,
   ElementRef, ViewChild, HostListener, NgZone,
   EventEmitter, Input, Output
-} from '@angular/core'; 
+} from '@angular/core';
 import { SocialService } from '../../services/social.service';
 import { EncryptionService } from '../../services/encryption.service';
 import { CrawlerService } from '../../services/crawler.service';
@@ -15,7 +15,7 @@ import { TrackedFlight } from '../../services/datacontracts/flight';
 import { UserService, UserWithLocation } from '../../services/user.service';
 import { User } from '../../services/datacontracts/user/user';
 import { CITY_COORDS, COUNTRY_COORDS, TOWN_COORDS } from './coordinates';
- 
+
 const VERT_SRC = `
 attribute vec2 a_pos;
 varying vec2 v_uv;
@@ -24,7 +24,7 @@ void main() {
   gl_Position = vec4(a_pos, 0.0, 1.0);
 }
 `;
- 
+
 const FRAG_SRC = `
 precision highp float;
 varying vec2 v_uv;
@@ -310,23 +310,27 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     private userService: UserService,
     private crawlerService: CrawlerService
   ) { }
- 
+
   async ngOnInit(): Promise<void> {
     await this.loadUsersWithLocations();
     this.loadStories();
     this.loadNewsPins();
     this.loadFlights();
     this.loadAllFlights();
-    this.filterCoordinates(); 
+    this.filterCoordinates();
     if (this.userId) {
-      const userWithLocation = this.usersWithLocations.find(u => u.user.id === this.userId);
-      console.log("Rotating to user location:", userWithLocation);
-      if(userWithLocation && userWithLocation.city && userWithLocation.country) {
-        const coords = this.lookupCityCoords(userWithLocation.city, userWithLocation.country);
-        if(coords) {
-          console.log("Found user coords:", coords);
-          this.rotateToLocation(coords[0], coords[1]);
-        }
+      this.centerCurrentLocation();
+    }
+  }
+
+  centerCurrentLocation() {
+    const userWithLocation = this.usersWithLocations.find(u => u.user.id === this.userId);
+    console.log("Rotating to user location:", userWithLocation);
+    if (userWithLocation && userWithLocation.city && userWithLocation.country) {
+      const coords = this.lookupCityCoords(userWithLocation.city, userWithLocation.country);
+      if (coords) {
+        console.log("Found user coords:", coords);
+        this.rotateToLocation(coords[0], coords[1]);
       }
     }
   }
@@ -361,13 +365,13 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       this.flightInterval = null;
     }
   }
- 
+
   onZoomSlider(event: Event): void {
     const val = +(event.target as HTMLInputElement).value;
     this.zoomSliderValue = val;
     this.camDistTarget = this.zoomSliderToCamDist(val);
   }
- 
+
   async loadFlights(): Promise<void> {
     try {
       this.isRefreshingFlights = true;
@@ -415,7 +419,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       alert('Flight already being tracked.');
       return;
     }
- 
+
     let resolvedCs = cs;
     try {
       const res = await fetch(`/flight/lookup?query=${encodeURIComponent(cs)}`);
@@ -425,7 +429,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
           resolvedCs = data.callsign;
         }
       }
-    } catch {}
+    } catch { }
 
     let lat: number | undefined;
     let lon: number | undefined;
@@ -598,7 +602,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
           this.applyScheduleToFlight(callsign, schedule);
         }
       }
-    } catch {}
+    } catch { }
   }
 
   /**
@@ -812,11 +816,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       return d && ['city', 'town', 'country'].includes(d.type);
     });
   }
- 
+
   toggleAccordion(source: string): void {
     this.accordionStates[source] = !this.accordionStates[source];
   }
- 
+
   private async loadStories(): Promise<void> {
     try {
       const resp = await this.socialService.getStories(
@@ -849,17 +853,17 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private async loadNewsPins(): Promise<void> {
-      try {
-          this.newsPins = await this.newsService.getNewsPins();
-          const dates = this.newsPins.map(p => p.createdAt).filter((d): d is Date => !!d)
-          .sort((a, b) => a.getTime() - b.getTime());
-          if (dates.length) {
-              this.minNewsDate = dates[0];
-              this.maxNewsDate = dates[dates.length -1];
-              this.newsDateFilterValue = 1;
-          }
-          this.applyNewsDateFilter();
-      } catch { /* non-fatal */ }
+    try {
+      this.newsPins = await this.newsService.getNewsPins();
+      const dates = this.newsPins.map(p => p.createdAt).filter((d): d is Date => !!d)
+        .sort((a, b) => a.getTime() - b.getTime());
+      if (dates.length) {
+        this.minNewsDate = dates[0];
+        this.maxNewsDate = dates[dates.length - 1];
+        this.newsDateFilterValue = 1;
+      }
+      this.applyNewsDateFilter();
+    } catch { /* non-fatal */ }
   }
 
   private async loadUsersWithLocations(): Promise<void> {
@@ -2900,7 +2904,7 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   keepOriginalOrder = () => 0;
- 
+
   private mul3(a: Float32Array, b: Float32Array): Float32Array {
     const r = new Float32Array(9);
     for (let i = 0; i < 3; i++)

@@ -129,6 +129,11 @@ export const TRACKS: TrackDefinition[] = [
   { id: 1, name: 'Sunset Circuit', difficulty: 'easy', laps: 3, length: 1200, description: 'A simple coastal circuit with wide corners', entryFee: 0, prizePool: 300, bestTime: 0 },
   { id: 2, name: 'Mountain Pass', difficulty: 'medium', laps: 3, length: 1800, description: 'Twisty mountain roads with elevation changes', entryFee: 500, prizePool: 1500, bestTime: 0 },
   { id: 3, name: 'Downtown GP', difficulty: 'hard', laps: 5, length: 2500, description: 'Technical city circuit with tight corners', entryFee: 2000, prizePool: 8000, bestTime: 0 },
+  { id: 4, name: 'Alpine Snow', difficulty: 'hard', laps: 4, length: 2200, description: 'High-altitude snow circuit through pine forests', entryFee: 1500, prizePool: 6000, bestTime: 0 },
+  { id: 5, name: 'Marrakech GP', difficulty: 'medium', laps: 4, length: 2000, description: 'Desert street circuit winding through ancient medinas', entryFee: 1000, prizePool: 4000, bestTime: 0 },
+  { id: 6, name: 'Monte Carlo', difficulty: 'hard', laps: 5, length: 2600, description: 'Iconic Monaco street circuit with tight hairpins and tunnel', entryFee: 3000, prizePool: 12000, bestTime: 0 },
+  { id: 7, name: 'Circuit Montreal', difficulty: 'medium', laps: 4, length: 2100, description: 'Riverside circuit with fast chicanes and island park', entryFee: 1500, prizePool: 5000, bestTime: 0 },
+  { id: 8, name: 'Monza', difficulty: 'hard', laps: 5, length: 2800, description: 'Temple of speed — long straights, chicanes, and curva grande', entryFee: 4000, prizePool: 15000, bestTime: 0 },
 ];
 
 export const CAR_SKINS: RacingCarSkin[] = [

@@ -56,28 +56,41 @@
       <!-- ─── Single Player Tracks ─── -->
       <div class="race-menu-tracks" *ngIf="!showMultiplayer">
         <div class="menu-section-title">SELECT TRACK</div>
-        <div class="race-track-card" *ngFor="let t of TRACKS" [class.race-track-locked]="playerCar.money < t.entryFee"
-          (click)="playerCar.money >= t.entryFee && selectTrack(t)">
-          <div class="race-track-info">
-            <div class="race-track-name">{{ t.name }}</div>
-            <div class="race-track-diff" [class.easy]="t.difficulty === 'easy'"
-              [class.medium]="t.difficulty === 'medium'" [class.hard]="t.difficulty === 'hard'">
-              {{ t.difficulty | uppercase }} · {{ t.laps }} Laps · {{ t.length }}m
-            </div>
-            <div class="race-track-desc">{{ t.description }}</div>
-            <!-- Win conditions -->
-            <div class="race-win-conditions">
-              <div class="race-win-rule">{{ getWinConditionText(t) }}</div>
-              <div class="race-prize-breakdown">
-                <span class="race-prize-badge" *ngFor="let p of getPrizeBreakdown(t)">
-                  {{ p.label }}: ${{ p.amount }}
+        <div class="race-track-grid">
+          <div class="race-track-card" *ngFor="let t of trackDefs"
+            [class.race-track-locked]="playerCar.money < t.entryFee"
+            [class.race-track-selected]="$any(selectedTrack)?.id === $any(t).id"
+            (click)="playerCar.money >= t.entryFee && selectTrack(t)"
+            [style.background-image]="getTrackCardBg(t)">
+            <div class="race-track-card-overlay"></div>
+            <div class="race-track-card-content">
+              <div class="race-track-card-top">
+                <span class="race-track-flag">{{ getTrackFlag(t) }}</span>
+                <span class="race-track-diff-badge" [class.easy]="t.difficulty === 'easy'"
+                  [class.medium]="t.difficulty === 'medium'" [class.hard]="t.difficulty === 'hard'">
+                  {{ t.difficulty | uppercase }}
                 </span>
               </div>
+              <div class="race-track-name">{{ t.name }}</div>
+              <div class="race-track-stats">
+                <span class="race-track-stat">🏁 {{ t.laps }} Laps</span>
+                <span class="race-track-stat">📏 {{ t.length }}m</span>
+              </div>
+              <div class="race-track-desc">{{ t.description }}</div>
+              <div class="race-track-card-bottom">
+                <div class="race-track-card-fee" *ngIf="t.entryFee > 0">
+                  <span class="race-fee-label">Entry</span>
+                  <span class="race-fee-amount">${{ t.entryFee }}</span>
+                </div>
+                <div class="race-track-card-fee" *ngIf="t.entryFee === 0">
+                  <span class="race-fee-label">FREE</span>
+                </div>
+                <div class="race-track-card-prize">
+                  <span class="race-prize-label">Prize Pool</span>
+                  <span class="race-prize-amount">${{ t.prizePool }}</span>
+                </div>
+              </div>
             </div>
-          </div>
-          <div class="race-track-cost">
-            <span class="race-fee">${{ t.entryFee }}</span>
-            <span class="race-prize">Prize: ${{ t.prizePool }}</span>
           </div>
         </div>
       </div>
@@ -129,33 +142,42 @@
           <div class="race-mp-step-title">STEP 1 · PICK A TRACK</div>
           <div class="race-mp-step-hint">Tap a track to join its lobby. You'll see who's inside before the race starts.
           </div>
-          <div class="race-track-card race-mp-track-card" *ngFor="let t of TRACKS"
+          <div class="race-track-card race-mp-track-card" *ngFor="let t of trackDefs"
             [class.race-track-locked]="playerCar.money < t.entryFee"
-            (click)="playerCar.money >= t.entryFee && selectTrackMultiplayer(t)">
-            <div class="race-track-info">
+            [class.race-track-selected]="$any(selectedTrack)?.id === $any(t).id"
+            (click)="playerCar.money >= t.entryFee && selectTrackMultiplayer(t)"
+            [style.background-image]="getTrackCardBg(t)">
+            <div class="race-track-card-overlay"></div>
+            <div class="race-track-card-content">
+              <div class="race-track-card-top">
+                <span class="race-track-flag">{{ getTrackFlag(t) }}</span>
+                <span class="race-track-diff-badge" [class.easy]="t.difficulty === 'easy'"
+                  [class.medium]="t.difficulty === 'medium'" [class.hard]="t.difficulty === 'hard'">
+                  {{ t.difficulty | uppercase }}
+                </span>
+                <span class="race-track-join-hint" *ngIf="playerCar.money >= t.entryFee">JOIN</span>
+                <span class="race-track-join-hint locked" *ngIf="playerCar.money < t.entryFee">🔒</span>
+              </div>
               <div class="race-track-name">{{ t.name }}</div>
-              <div class="race-track-diff" [class.easy]="t.difficulty === 'easy'"
-                [class.medium]="t.difficulty === 'medium'" [class.hard]="t.difficulty === 'hard'">
-                {{ t.difficulty | uppercase }} · {{ t.laps }} Laps · {{ t.length }}m
+              <div class="race-track-stats">
+                <span class="race-track-stat">🏁 {{ t.laps }} Laps</span>
+                <span class="race-track-stat">📏 {{ t.length }}m</span>
               </div>
               <div class="race-track-desc">{{ t.description }}</div>
-              <!-- Win conditions -->
-              <div class="race-win-conditions">
-                <div class="race-win-rule">{{ getWinConditionText(t, true) }}</div>
-                <div class="race-prize-breakdown">
-                  <span class="race-prize-badge" *ngFor="let p of getPrizeBreakdown(t)">
-                    {{ p.label }}: ${{ p.amount }}
-                  </span>
+              <div class="race-track-card-bottom">
+                <div class="race-track-card-fee" *ngIf="t.entryFee > 0">
+                  <span class="race-fee-label">Entry</span>
+                  <span class="race-fee-amount">${{ t.entryFee }}</span>
+                </div>
+                <div class="race-track-card-fee" *ngIf="t.entryFee === 0">
+                  <span class="race-fee-label">FREE</span>
+                </div>
+                <div class="race-track-card-prize">
+                  <span class="race-prize-label">Prize Pool</span>
+                  <span class="race-prize-amount">${{ t.prizePool }}</span>
                 </div>
               </div>
             </div>
-            <div class="race-track-cost">
-              <span class="race-fee">${{ t.entryFee }}</span>
-              <span class="race-prize">Prize: ${{ t.prizePool }}</span>
-            </div>
-            <span class="race-mp-join-badge" [class.locked]="playerCar.money < t.entryFee">
-              {{ playerCar.money >= t.entryFee ? 'JOIN LOBBY →' : '🔒 Locked' }}
-            </span>
           </div>
         </div>
 

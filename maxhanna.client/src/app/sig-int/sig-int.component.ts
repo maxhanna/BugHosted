@@ -1,5 +1,6 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
+import { GlobeComponent } from '../globe/globe.component';
 
 @Component({
   selector: 'app-sig-int',
@@ -8,12 +9,13 @@ import { ChildComponent } from '../child.component';
   styleUrl: './sig-int.component.css'
 })
 export class SigIntComponent extends ChildComponent implements OnInit {
-  constructor() {
-    super();
-  }
-
+  
+  @ViewChild(GlobeComponent) globeComponent!: GlobeComponent; 
   isMenuPanelOpen = false;
 
+  constructor() {
+    super();
+  } 
   ngOnInit(): void {
   }
   ngOnDestroy(): void {

@@ -27,6 +27,10 @@ export class RacingRenderer {
   private fogColorLoc!: WebGLUniformLocation;
   private viewPosLoc!: WebGLUniformLocation;
   private useVertexColor!: WebGLUniformLocation;
+  private lightMatrixLoc!: WebGLUniformLocation;
+  private sunColorLoc!: WebGLUniformLocation;
+  private shadowMapLoc!: WebGLUniformLocation;
+  private shadowTexelLoc!: WebGLUniformLocation;
 
   private trackVao!: WebGLVertexArrayObject;
   private trackCount = 0;
@@ -77,7 +81,7 @@ export class RacingRenderer {
 
   // Per-track environment theme (set before each race via setTheme). Drives the
   // sky palette, lighting and the scenery kit (ocean/beach/city buildings).
-  theme: 'default' | 'miami' | 'city' | 'mountain' = 'default';
+  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'montreal' | 'italy' = 'default';
   // Sky palette (top / horizon / bottom) used by the sky shader.
   skyTop: [number, number, number] = [0.1, 0.2, 0.5];
   skyHorizon: [number, number, number] = [0.7, 0.75, 0.85];
@@ -218,6 +222,7 @@ in vec2 aUV;
 uniform mat4 uProj;
 uniform mat4 uView;
 uniform mat4 uModel;
+uniform mat4 uLightMatrix;
 uniform vec3 uColor;
 uniform mat3 uNormalMatrix;
 out vec4 vColor;
@@ -225,6 +230,7 @@ out vec3 vNormal;
 out vec3 vWorldPos;
 out vec2 vUV;
 out float vDepth;
+out vec4 vLightPos;
 void main() {
   vec4 wp = uModel * vec4(aPos, 1.0);
   vec4 vp = uView * wp;
@@ -234,6 +240,7 @@ void main() {
   vWorldPos = wp.xyz;
   vDepth = length(vp.xyz);
   vUV = aUV;
+  vLightPos = uLightMatrix * wp;
 }`;
 
   private fsSrc = `#version 300 es
@@ -243,14 +250,34 @@ in vec3 vNormal;
 in vec3 vWorldPos;
 in vec2 vUV;
 in float vDepth;
+in vec4 vLightPos;
 out vec4 FragColor;
 uniform vec3 uLightDir;
 uniform vec3 uViewPos;
 uniform sampler2D uTexture;
 uniform bool uHasTexture;
 uniform vec3 uAmbient;
+uniform vec3 uSunColor;
 uniform vec3 uFogColor;
 uniform bool uUseVertexColor;
+uniform sampler2D uShadowMap;
+uniform float uShadowTexel;
+
+// Soft 3x3 PCF directional shadow. sp is light-space UV/depth (0..1).
+// Outside the ortho frustum (which only wraps +-80m around the camera) -> lit.
+float calcShadow(vec3 sp, float NdotL) {
+  if (sp.x < 0.0 || sp.x > 1.0 || sp.y < 0.0 || sp.y > 1.0 || sp.z < 0.0 || sp.z > 1.0) return 1.0;
+  float bias = max(0.0008, 0.0025 * (1.0 - NdotL));
+  float depth = sp.z - bias;
+  float sum = 0.0;
+  for (int x = -1; x <= 1; x++) {
+    for (int y = -1; y <= 1; y++) {
+      float d = texture(uShadowMap, sp.xy + vec2(float(x), float(y)) * uShadowTexel).r;
+      sum += step(depth, d);
+    }
+  }
+  return sum / 9.0;
+}
 
 void main() {
   vec4 base = vColor;
@@ -260,16 +287,33 @@ void main() {
   vec3 N = normalize(vNormal);
   vec3 V = normalize(uViewPos - vWorldPos);
   vec3 L = normalize(uLightDir);
-  float diff = max(dot(N, L), 0.0);
-  vec3 amb = uAmbient * base.rgb;
-  vec3 diffColor = diff * vec3(1.0, 0.95, 0.85) * base.rgb;
-  vec3 R = reflect(-L, N);
-  float spec = pow(max(dot(R, V), 0.0), 16.0);
-  vec3 specColor = spec * vec3(0.4);
+  float NdotL = max(dot(N, L), 0.0);
 
-  vec3 color = amb + diffColor + specColor;
+  // Hemispheric ambient: faces pointing up catch sky light, undersides get
+  // ground bounce — lifts the flat look without washing out the scene.
+  float upness = N.y * 0.5 + 0.5;
+  vec3 amb = uAmbient * base.rgb * (0.55 + 0.9 * upness);
+
+  float shadow = calcShadow(vLightPos.xyz / vLightPos.w * 0.5 + 0.5, NdotL);
+  vec3 diffColor = NdotL * uSunColor * base.rgb * shadow;
+
+  // Blinn-Phong specular tinted by the sun — warm highlights on paint/glass.
+  vec3 H = normalize(L + V);
+  float specAmt = pow(max(dot(N, H), 0.0), 48.0);
+  vec3 specColor = specAmt * uSunColor * 0.55 * (shadow * 0.9 + 0.1);
+
+  // Fresnel rim — silhouettes catch the sky so cars and building edges pop.
+  float fres = pow(1.0 - max(dot(N, V), 0.0), 3.0);
+  vec3 rimColor = fres * uSunColor * 0.12;
+
+  vec3 color = amb + diffColor + specColor + rimColor;
+
   float fog = clamp((vDepth - 80.0) / 400.0, 0.0, 1.0);
   color = mix(color, uFogColor, fog * vColor.a);
+
+  // Filmic tone map (ACES Narkowicz) + gamma — richer midtones, no blown highlights.
+  color = clamp(color, 0.0, 1.0);
+  color = (color * (2.51 * color + 0.03)) / (color * (2.43 * color + 0.59) + 0.14);
   FragColor = vec4(color, vColor.a);
 }`;
 
@@ -288,6 +332,10 @@ void main() {
     this.fogColorLoc = gl.getUniformLocation(this.prog, 'uFogColor')!;
     this.viewPosLoc = gl.getUniformLocation(this.prog, 'uViewPos')!;
     this.useVertexColor = gl.getUniformLocation(this.prog, 'uUseVertexColor')!;
+    this.lightMatrixLoc = gl.getUniformLocation(this.prog, 'uLightMatrix')!;
+    this.sunColorLoc = gl.getUniformLocation(this.prog, 'uSunColor')!;
+    this.shadowMapLoc = gl.getUniformLocation(this.prog, 'uShadowMap')!;
+    this.shadowTexelLoc = gl.getUniformLocation(this.prog, 'uShadowTexel')!;
     gl.uniform1i(this.useVertexColor, 1);
   }
 
@@ -558,11 +606,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
 
   /** Applies the environment theme for the selected track and rebuilds the
    *  scenery geometry. Call before each race (both solo and multiplayer). */
-  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain') {
+  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'montreal' | 'italy') {
     this.theme = theme;
     switch (theme) {
       case 'miami':
-        // Miami: warm tropical dusk — peach horizon, turquoise zenith, hot sun.
         this.skyTop = [0.13, 0.32, 0.6];
         this.skyHorizon = [0.95, 0.68, 0.55];
         this.skyBottom = [0.55, 0.62, 0.7];
@@ -572,7 +619,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.fogColor = [0.62, 0.6, 0.63];
         break;
       case 'city':
-        // Downtown: dusk navy + neon — cool sky, warm sodium street glow.
         this.skyTop = [0.05, 0.08, 0.22];
         this.skyHorizon = [0.45, 0.32, 0.5];
         this.skyBottom = [0.2, 0.22, 0.3];
@@ -582,7 +628,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.fogColor = [0.3, 0.3, 0.38];
         break;
       case 'mountain':
-        // Alpine: crisp blue sky, clean cool air.
         this.skyTop = [0.08, 0.18, 0.45];
         this.skyHorizon = [0.7, 0.78, 0.88];
         this.skyBottom = [0.45, 0.52, 0.62];
@@ -590,6 +635,56 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.sunColor = [1.0, 0.95, 0.85];
         this.ambientColor = [0.28, 0.28, 0.32];
         this.fogColor = [0.45, 0.5, 0.58];
+        break;
+      case 'alpine':
+        // High-altitude snow: deep blue zenith, crisp white horizon, cold light.
+        this.skyTop = [0.02, 0.05, 0.25];
+        this.skyHorizon = [0.75, 0.8, 0.9];
+        this.skyBottom = [0.5, 0.55, 0.65];
+        this.sunDir = [0.3, 0.6, 0.4];
+        this.sunColor = [1.0, 0.98, 0.95];
+        this.ambientColor = [0.3, 0.32, 0.38];
+        this.fogColor = [0.55, 0.58, 0.65];
+        break;
+      case 'desert':
+        // Marrakech: hot golden sun, warm sandy horizon, hazy air.
+        this.skyTop = [0.15, 0.25, 0.5];
+        this.skyHorizon = [0.92, 0.78, 0.58];
+        this.skyBottom = [0.6, 0.5, 0.35];
+        this.sunDir = [0.5, 0.65, 0.55];
+        this.sunColor = [1.0, 0.88, 0.65];
+        this.ambientColor = [0.35, 0.32, 0.28];
+        this.fogColor = [0.58, 0.55, 0.5];
+        break;
+      case 'monaco':
+        // Monaco: Riviera afternoon — bright azure sky, crisp sea light.
+        this.skyTop = [0.08, 0.25, 0.55];
+        this.skyHorizon = [0.7, 0.78, 0.88];
+        this.skyBottom = [0.45, 0.55, 0.65];
+        this.sunDir = [0.4, 0.7, 0.5];
+        this.sunColor = [1.0, 0.95, 0.85];
+        this.ambientColor = [0.28, 0.3, 0.35];
+        this.fogColor = [0.45, 0.5, 0.55];
+        break;
+      case 'montreal':
+        // Montreal: late afternoon — warm golden light, hazy river air.
+        this.skyTop = [0.1, 0.2, 0.45];
+        this.skyHorizon = [0.82, 0.72, 0.65];
+        this.skyBottom = [0.5, 0.48, 0.52];
+        this.sunDir = [0.3, 0.55, 0.45];
+        this.sunColor = [1.0, 0.9, 0.75];
+        this.ambientColor = [0.28, 0.27, 0.3];
+        this.fogColor = [0.48, 0.48, 0.52];
+        break;
+      case 'italy':
+        // Monza: bright Italian summer — clear blue sky, warm sun.
+        this.skyTop = [0.06, 0.15, 0.45];
+        this.skyHorizon = [0.65, 0.72, 0.82];
+        this.skyBottom = [0.4, 0.45, 0.52];
+        this.sunDir = [0.45, 0.75, 0.5];
+        this.sunColor = [1.0, 0.95, 0.85];
+        this.ambientColor = [0.25, 0.26, 0.3];
+        this.fogColor = [0.4, 0.45, 0.5];
         break;
       default:
         this.skyTop = [0.1, 0.2, 0.5];
@@ -601,7 +696,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.fogColor = [0.4, 0.45, 0.5];
         break;
     }
-    // Rebuild the scenery geometry for the new theme.
     this.buildScenery();
   }
 
@@ -947,6 +1041,16 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addCityScenery(verts, idxs);
     } else if (this.theme === 'mountain') {
       this.addMountainScenery(verts, idxs);
+    } else if (this.theme === 'alpine') {
+      this.addAlpineScenery(verts, idxs);
+    } else if (this.theme === 'desert') {
+      this.addDesertScenery(verts, idxs);
+    } else if (this.theme === 'monaco') {
+      this.addMonacoScenery(verts, idxs);
+    } else if (this.theme === 'montreal') {
+      this.addMontrealScenery(verts, idxs);
+    } else if (this.theme === 'italy') {
+      this.addItalyScenery(verts, idxs);
     } else {
       this.addForestScenery(verts, idxs);
     }
@@ -1053,48 +1157,175 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.bindVertexArray(null);
   }
 
-  // Default theme: the classic pine forest.
+  // Default theme: a rich mixed forest with three tree types and undergrowth.
+  // Three tree archetypes: tall pine (cone), round deciduous (sphere on trunk),
+  // and multi-tiered evergreen (stacked cones). Undergrowth shrubs fill the gaps.
   private addForestScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
+    const trunk = [0.3, 0.15, 0.05];
+    const greenLight = [0.1, 0.35, 0.06];
+    const greenMid = [0.05, 0.28, 0.04];
+    const greenDark = [0.03, 0.2, 0.03];
+
     let treeIdx = 0;
-    for (let i = 0; i < pts.length; i += 3) {
+    for (let i = 0; i < pts.length; i += 2) {
       const p = pts[i];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
-      const dist = p.width / 2 + 24 + Math.random() * 20;
+      const dist = p.width / 2 + 22 + Math.random() * 22;
       for (const side of [-1, 1]) {
-        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
-        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
-        const th = 1.5 + Math.random() * 1.5;
-        const tr = 0.15 + Math.random() * 0.1;
-        this.addCylinder(verts, idxs, tx, 0, tz, tr, th, 6, [0.3, 0.15, 0.05]);
-        const cr = 0.8 + Math.random() * 0.6;
-        const ch = 1.2 + Math.random() * 0.6;
-        this.addCone(verts, idxs, tx, th - 0.3, tz, cr, ch, 8, [0.05, 0.28 + Math.random() * 0.12, 0.02]);
-        if (treeIdx++ > 250) break;
+        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 10;
+        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 10;
+        const roll = Math.random();
+
+        if (roll < 0.35) {
+          // Tall pine: single tall cone on a thin trunk — classic forest silhouette.
+          const th = 2.0 + Math.random() * 2.5;
+          this.addCylinder(verts, idxs, tx, 0, tz, 0.12, th, 6, trunk);
+          const cr = 0.7 + Math.random() * 0.8;
+          const ch = 1.5 + Math.random() * 1.2;
+          this.addCone(verts, idxs, tx, th - 0.2, tz, cr, ch, 10, greenMid);
+          // Darker lower cone for depth
+          this.addCone(verts, idxs, tx, th - 0.2 + ch * 0.4, tz, cr * 0.65, ch * 0.6, 10, greenDark);
+          // Light tip
+          this.addCone(verts, idxs, tx, th - 0.2 + ch * 0.8, tz, cr * 0.25, ch * 0.25, 8, greenLight);
+
+        } else if (roll < 0.65) {
+          // Round deciduous: sphere on a short trunk — broadleaf hardwood.
+          const th = 0.6 + Math.random() * 0.5;
+          this.addCylinder(verts, idxs, tx, 0, tz, 0.1, th, 5, trunk);
+          const sr = 0.5 + Math.random() * 0.6;
+          this.addSphere(verts, idxs, tx, th + sr * 0.7, tz, sr, 10, greenLight);
+          // Slightly darker inner sphere for volume
+          this.addSphere(verts, idxs, tx, th + sr * 0.5, tz, sr * 0.7, 8, greenMid);
+
+        } else {
+          // Multi-tiered evergreen: 3 stacked cones getting thinner — full Christmas tree.
+          const th = 0.8 + Math.random() * 0.5;
+          this.addCylinder(verts, idxs, tx, 0, tz, 0.1, th, 5, trunk);
+          const bottleDefs = [
+            { r: 0.5 + Math.random() * 0.3, h: 0.6 + Math.random() * 0.3, c: greenDark },
+            { r: 0.8 + Math.random() * 0.4, h: 0.7 + Math.random() * 0.3, c: greenMid },
+            { r: 0.6 + Math.random() * 0.3, h: 0.5 + Math.random() * 0.2, c: greenLight },
+          ];
+          let y = th - 0.2;
+          for (const def of bottleDefs) {
+            this.addCone(verts, idxs, tx, y, tz, def.r, def.h, 10, def.c);
+            y += def.h * 0.6;
+          }
+        }
+
+        // Undergrowth: small shrubs near the tree base
+        if (Math.random() < 0.4) {
+          const sx = tx + (Math.random() - 0.5) * 1.5;
+          const sz = tz + (Math.random() - 0.5) * 1.5;
+          this.addSphere(verts, idxs, sx, 0.2, sz, 0.2 + Math.random() * 0.15, 6, greenDark);
+        }
+
+        if (treeIdx++ > 200) break;
       }
-      if (treeIdx > 250) break;
+      if (treeIdx > 200) break;
+    }
+    // Scattered distant background trees (smaller, fewer segments)
+    for (let i = 0; i < 60; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const dist = 120 + Math.random() * 100;
+      const dx = pts[0].x + Math.cos(a) * dist;
+      const dz = pts[0].z + Math.sin(a) * dist;
+      this.addCone(verts, idxs, dx, 0, dz, 0.6 + Math.random() * 0.5, 1.0 + Math.random() * 0.8, 6, greenDark);
     }
   }
 
-  // Mountain theme: pines + gray rock outcrops + snow caps in the distance.
+  // Mountain theme: dramatic granite cliffs, rocky peaks, scree slopes, distant
+  // mountain silhouettes, and scattered alpine pines.
   private addMountainScenery(verts: number[], idxs: number[]) {
-    this.addForestScenery(verts, idxs);
     const pts = this._trackPoints;
-    // Rocky outcrops poking up beside the track.
-    for (let i = 0; i < pts.length; i += 7) {
+    const rock = [0.32, 0.30, 0.28];
+    const rockLight = [0.45, 0.43, 0.40];
+    const rockDark = [0.22, 0.20, 0.18];
+    const snow = [0.85, 0.88, 0.92];
+    const pine = [0.04, 0.22, 0.05];
+
+    // ── Distant mountain range (layered silhouettes) ──
+    // Three layers of far peaks, each with a different depth colour.
+    const layerScales = [0.6, 0.8, 1.0];
+    const layerColors: number[][] = [[0.35, 0.35, 0.38], [0.40, 0.40, 0.42], [0.45, 0.45, 0.48]];
+    for (let li = 0; li < layerScales.length; li++) {
+      const scale = layerScales[li];
+      const col = layerColors[li];
+      for (let k = 0; k < 8; k++) {
+        const a = ((k / 8) * Math.PI * 2 + (Math.random() - 0.5) * 0.3) * scale;
+        const dist = 180 + Math.random() * 220 * scale;
+        const mx = pts[0].x + Math.cos(a) * dist;
+        const mz = pts[0].z + Math.sin(a) * dist;
+        const mh = 20 + Math.random() * 50 * scale;
+        const mw = 20 + Math.random() * 30 * scale;
+        this.addCone(verts, idxs, mx, 0, mz, mw, mh, 8, col);
+        // Snow cap on the highest peaks
+        if (mh > 35) {
+          this.addCone(verts, idxs, mx, mh * 0.7, mz, mw * 0.4, mh * 0.3, 6, snow);
+        }
+      }
+    }
+
+    // ── Near granite cliffs and rock faces ──
+    for (let i = 0; i < pts.length; i += 5) {
       const p = pts[i];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
       for (const side of [-1, 1]) {
-        const dist = p.width / 2 + 30 + Math.random() * 25;
-        const rx = p.x + ppx * dist * side + (Math.random() - 0.5) * 10;
-        const rz = p.z + ppz * dist * side + (Math.random() - 0.5) * 10;
-        const s = 1.2 + Math.random() * 2.2;
-        // Lower wide slab + upper peak = rocky silhouette.
-        this.addCone(verts, idxs, rx, 0, rz, s * 1.5, s, 6, [0.35, 0.35, 0.38]);
-        this.addCone(verts, idxs, rx + s * 0.3, s * 0.55, rz - s * 0.2, s * 0.7, s * 0.8, 6, [0.55, 0.55, 0.6]);
+        const dist = p.width / 2 + 28 + Math.random() * 25;
+        const rx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
+        const rz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
+        const s = 1.0 + Math.random() * 2.5;
+        const roll = Math.random();
+
+        if (roll < 0.4) {
+          // Steep cliff face: tall narrow cone with a light top cap
+          this.addCone(verts, idxs, rx, 0, rz, s * 1.2, s * 1.8, 8, rock);
+          this.addCone(verts, idxs, rx, s * 1.2, rz, s * 0.8, s * 0.6, 6, rockLight);
+          if (s > 1.8) {
+            this.addCone(verts, idxs, rx, s * 1.6, rz, s * 0.3, s * 0.2, 5, snow);
+          }
+        } else if (roll < 0.7) {
+          // Wide granite plateau: flat top with steep sides
+          this.addCone(verts, idxs, rx, 0, rz, s * 1.8, s * 1.2, 7, rockDark);
+          this.addCone(verts, idxs, rx, s * 0.8, rz, s * 1.4, s * 0.4, 7, rockLight);
+        } else {
+          // Scree slope: broad low cone with rough texture
+          this.addCone(verts, idxs, rx, 0, rz, s * 2.0, s * 0.8, 8, rockDark);
+          this.addCone(verts, idxs, rx, s * 0.3, rz, s * 1.2, s * 0.5, 7, rock);
+        }
       }
+    }
+
+    // ── Alpine pines scattered among the rocks ──
+    let pineIdx = 0;
+    for (let i = 0; i < pts.length; i += 4) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 26 + Math.random() * 20;
+        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 10;
+        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 10;
+        const th = 1.0 + Math.random() * 1.8;
+        this.addCylinder(verts, idxs, tx, 0, tz, 0.08, th, 5, [0.3, 0.15, 0.05]);
+        // Scraggy alpine pine: narrow cone, dark green
+        this.addCone(verts, idxs, tx, th - 0.2, tz, 0.4 + Math.random() * 0.5, 0.6 + Math.random() * 0.5, 8, pine);
+        this.addCone(verts, idxs, tx, th - 0.1, tz, 0.3 + Math.random() * 0.3, 0.4 + Math.random() * 0.3, 8, [0.06, 0.28, 0.06]);
+        if (pineIdx++ > 100) break;
+      }
+      if (pineIdx > 100) break;
+    }
+
+    // ── Snow patches on the ground (white flattened spheres) ──
+    for (let i = 0; i < 30; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const dist = 40 + Math.random() * 160;
+      const sx = pts[0].x + Math.cos(a) * dist;
+      const sz = pts[0].z + Math.sin(a) * dist;
+      this.addSphere(verts, idxs, sx, 0.05, sz, 1.5 + Math.random() * 3.0, 6, snow);
     }
   }
 
@@ -1372,6 +1603,178 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
   }
 
+  // Alpine snow theme: snow-covered pines, snow banks, ice patches, mountain peaks.
+  private addAlpineScenery(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    // Snow-covered forest beside the track.
+    let treeIdx = 0;
+    for (let i = 0; i < pts.length; i += 3) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const dist = p.width / 2 + 24 + Math.random() * 20;
+      for (const side of [-1, 1]) {
+        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
+        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
+        const th = 1.5 + Math.random() * 1.5;
+        const tr = 0.15 + Math.random() * 0.1;
+        this.addCylinder(verts, idxs, tx, 0, tz, tr, th, 6, [0.35, 0.2, 0.08]);
+        const cr = 0.8 + Math.random() * 0.6;
+        const ch = 1.2 + Math.random() * 0.6;
+        this.addCone(verts, idxs, tx, th - 0.3, tz, cr, ch, 8, [0.02, 0.18, 0.06]);
+        // Snow cap on the cone tip
+        this.addCone(verts, idxs, tx, th - 0.3 + ch * 0.7, tz, cr * 0.4, ch * 0.3, 6, [0.92, 0.94, 0.98]);
+        if (treeIdx++ > 200) break;
+      }
+      if (treeIdx > 200) break;
+    }
+    // Snow banks along the track edge (white mounds)
+    for (let i = 0; i < pts.length; i += 6) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const sx = p.x + ppx * (p.width / 2 + 2) * side;
+        const sz = p.z + ppz * (p.width / 2 + 2) * side;
+        this.addCone(verts, idxs, sx, 0, sz, 1.2 + Math.random() * 1.0, 0.6 + Math.random() * 0.4, 6, [0.9, 0.92, 0.96]);
+      }
+    }
+    // Distant pointed mountain peaks
+    for (let i = 0; i < 12; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const dist = 200 + Math.random() * 300;
+      const mx = pts[0].x + Math.cos(a) * dist;
+      const mz = pts[0].z + Math.sin(a) * dist;
+      const mh = 30 + Math.random() * 60;
+      this.addCone(verts, idxs, mx, 0, mz, 40 + Math.random() * 30, mh, 8, [0.45, 0.5, 0.55]);
+      this.addCone(verts, idxs, mx, mh * 0.7, mz, 15 + Math.random() * 10, mh * 0.3, 6, [0.85, 0.88, 0.95]);
+    }
+  }
+
+  // Desert theme (Marrakech): sand, cacti, adobe buildings, dusty haze.
+  private addDesertScenery(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    // Sand dunes (low cones) along the track
+    for (let i = 0; i < pts.length; i += 5) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 20 + Math.random() * 30;
+        const dx = p.x + ppx * dist * side;
+        const dz = p.z + ppz * dist * side;
+        this.addCone(verts, idxs, dx, 0, dz, 4 + Math.random() * 6, 1.5 + Math.random() * 2, 8, [0.8, 0.72, 0.55]);
+      }
+    }
+    // Cacti (thin cylinders with arms)
+    let cactusIdx = 0;
+    for (let i = 0; i < pts.length; i += 8) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 35 + Math.random() * 20;
+        const cx = p.x + ppx * dist * side;
+        const cz = p.z + ppz * dist * side;
+        const ch = 1.0 + Math.random() * 1.2;
+        this.addCylinder(verts, idxs, cx, 0, cz, 0.06, ch, 6, [0.15, 0.25, 0.1]);
+        // Arms
+        this.addCylinder(verts, idxs, cx + 0.2, ch * 0.5, cz, 0.04, ch * 0.4, 5, [0.15, 0.25, 0.1]);
+        this.addCylinder(verts, idxs, cx - 0.2, ch * 0.6, cz, 0.04, ch * 0.3, 5, [0.15, 0.25, 0.1]);
+        if (cactusIdx++ > 30) break;
+      }
+      if (cactusIdx > 30) break;
+    }
+  }
+
+  // Monaco theme: riviera coastline, yachts, grand hotels, casino, harbour.
+  private addMonacoScenery(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    // Ocean plane (water)
+    this.addOceanPlane(verts, idxs);
+    // Promenade buildings (luxury hotels, casino)
+    const pastels: [number, number, number][] = [
+      [0.92, 0.85, 0.72], [0.85, 0.78, 0.68], [0.95, 0.88, 0.78], [0.78, 0.82, 0.88], [0.88, 0.82, 0.75],
+    ];
+    let bIdx = 0;
+    for (let i = 0; i < pts.length; i += 6) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 30 + Math.random() * 20;
+        const bx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
+        const bz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
+        const h = 15 + Math.random() * 25;
+        const w = 5 + Math.random() * 4;
+        const d = 5 + Math.random() * 4;
+        const col = pastels[Math.floor(Math.random() * pastels.length)];
+        this.addBox(verts, idxs, bx, h / 2, bz, w, h, d, col);
+        // Rooftop terrace
+        this.addBox(verts, idxs, bx, h + 0.1, bz, w + 0.6, 0.2, d + 0.6, [0.9, 0.9, 0.85]);
+        if (bIdx++ > 30) break;
+      }
+      if (bIdx > 30) break;
+    }
+    // Yachts in the harbour (small boxes on the water)
+    for (let i = 0; i < 8; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const dist = 80 + Math.random() * 40;
+      const yx = pts[0].x + Math.cos(a) * dist;
+      const yz = pts[0].z + Math.sin(a) * dist;
+      this.addBox(verts, idxs, yx, 0.1, yz, 2.5, 0.4, 1.0, [0.9, 0.9, 0.95]);
+      this.addBox(verts, idxs, yx, 0.5, yz, 2.0, 0.8, 0.4, [0.8, 0.8, 0.85]);
+    }
+  }
+
+  // Montreal theme: parc island, river, biosphere, grandstands.
+  private addMontrealScenery(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    // River plane (dark blue water)
+    this.addOceanPlane(verts, idxs);
+    // Park trees (dense green canopy)
+    let treeIdx = 0;
+    for (let i = 0; i < pts.length; i += 4) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 25 + Math.random() * 18;
+        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 6;
+        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
+        const th = 1.2 + Math.random() * 1.0;
+        this.addCylinder(verts, idxs, tx, 0, tz, 0.08, th, 5, [0.3, 0.18, 0.06]);
+        this.addSphere(verts, idxs, tx, th + 0.5, tz, 0.8 + Math.random() * 0.5, 6, [0.05, 0.35, 0.08]);
+        if (treeIdx++ > 80) break;
+      }
+      if (treeIdx > 80) break;
+    }
+  }
+
+  // Italy (Monza) theme: sprawling park, ancient trees, temple ruins, grandstands.
+  private addItalyScenery(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    // Classic tall Italian pines (stone pine umbrella shape)
+    let treeIdx = 0;
+    for (let i = 0; i < pts.length; i += 3) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 22 + Math.random() * 18;
+        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 6;
+        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
+        const th = 1.5 + Math.random() * 1.2;
+        this.addCylinder(verts, idxs, tx, 0, tz, 0.06, th, 5, [0.3, 0.2, 0.08]);
+        // Stone pine umbrella canopy
+        this.addCone(verts, idxs, tx, th - 0.3, tz, 1.2 + Math.random() * 0.8, 0.8 + Math.random() * 0.5, 8, [0.03, 0.22, 0.05]);
+        this.addCone(verts, idxs, tx, th + 0.1, tz, 0.8 + Math.random() * 0.5, 0.5 + Math.random() * 0.3, 8, [0.05, 0.28, 0.06]);
+        if (treeIdx++ > 150) break;
+      }
+      if (treeIdx > 150) break;
+    }
+  }
+
   private addMiamiScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
     // Palm trees along both sides.
@@ -1512,8 +1915,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const carbon = [0.12, 0.12, 0.14];
     const dark = [0.08, 0.08, 0.10];
     const grey = [0.22, 0.22, 0.24];
+    const [mrl, mgl, mbl] = [0.95, 0.95, 0.98]; // helmet white
 
-    // ── 1. Floor / undertray (wide, low) ──
+    // ── 1. Floor / undertray (wide, low, with diffuser tunnels) ──
+    // Main floor plank
     this.addBox(verts, idxs, -0.1, 0.02, 0, 2.6, 0.03, 1.05, dark);
     // Floor edge winglets (thin vertical fins along the floor sides)
     this.addBox(verts, idxs, 0.1, 0.06, 0.53, 1.4, 0.07, 0.02, carbon);
@@ -1521,66 +1926,117 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // Second row of floor edge fences
     this.addBox(verts, idxs, -0.3, 0.05, 0.53, 0.8, 0.05, 0.015, carbon);
     this.addBox(verts, idxs, -0.3, 0.05, -0.53, 0.8, 0.05, 0.015, carbon);
+    // Floor tea tray (leading edge ramp under the nose)
+    this.addTaperedBox(verts, idxs, 0.7, 0.01, 0, 0.5, 0.03, 0.02, 0.4, 0.5, carbon);
+    // Floor edge strakes (curved profile at the floor rear)
+    this.addTaperedBox(verts, idxs, -0.9, 0.03, 0.52, 0.5, 0.05, 0.02, 0.08, 0.02, carbon);
+    this.addTaperedBox(verts, idxs, -0.9, 0.03, -0.52, 0.5, 0.05, 0.02, 0.08, 0.02, carbon);
     // Diffuser ramp at the rear (rises toward the back)
     this.addTaperedBox(verts, idxs, -1.1, 0.035, 0, 0.4, 0.13, 0.03, 0.7, 0.45, carbon);
+    // Diffuser tunnels (two channels carved into the floor rear)
+    this.addTaperedBox(verts, idxs, -1.1, 0.01, 0.18, 0.4, 0.06, 0.02, 0.2, 0.08, dark);
+    this.addTaperedBox(verts, idxs, -1.1, 0.01, -0.18, 0.4, 0.06, 0.02, 0.2, 0.08, dark);
     // Diffuser fins (vertical blades inside the rear diffuser)
     for (const dz of [-0.3, -0.1, 0.1, 0.3]) {
       this.addBox(verts, idxs, -1.15, 0.07, dz, 0.3, 0.08, 0.02, carbon);
     }
 
-    // ── 2. Sculpted body hull (nose → tub → engine cover, one smooth loft) ──
-    // Cross-sections are superellipses skinned along the length, so the whole
-    // body — including the nose — is genuinely curved instead of flat boxes.
+    // ── 2. Sculpted body hull (nose → tub → engine cover, 16-station loft) ──
+    // Each station is a superellipse cross-section skinned along X. The curve
+    // is carefully shaped: a sharp nose tip, an S-duct dip, tub shoulder, airbox
+    // hump, and a tapered rear engine cover — all one continuous smooth surface.
     this.addLoft(verts, idxs, [
-      { x: -1.05, y: 0.10, cz: 0, h: 0.18, w: 0.30 },  // rear tail (narrow)
-      { x: -0.82, y: 0.13, cz: 0, h: 0.24, w: 0.36 },  // engine cover rising
-      { x: -0.55, y: 0.18, cz: 0, h: 0.32, w: 0.42 },  // engine cover hump
-      { x: -0.30, y: 0.23, cz: 0, h: 0.40, w: 0.46 },  // airbox peak
-      { x: -0.05, y: 0.21, cz: 0, h: 0.32, w: 0.50 },  // cockpit rear (widest)
-      { x: 0.18, y: 0.18, cz: 0, h: 0.26, w: 0.52 },   // cockpit surround
-      { x: 0.42, y: 0.16, cz: 0, h: 0.21, w: 0.44 },   // tub taper
-      { x: 0.66, y: 0.14, cz: 0, h: 0.17, w: 0.34 },   // nose base
-      { x: 0.90, y: 0.12, cz: 0, h: 0.14, w: 0.26 },   // nose
-      { x: 1.10, y: 0.10, cz: 0, h: 0.11, w: 0.19 },   // nose mid
-      { x: 1.28, y: 0.09, cz: 0, h: 0.09, w: 0.13 },   // nose tip taper
-      { x: 1.40, y: 0.09, cz: 0, h: 0.07, w: 0.08 },   // rounded nose tip
-    ], 20, [cr, cg, cb], true);
+      { x: -1.06, y: 0.10, cz: 0, h: 0.17, w: 0.28 },  // rear tail, narrow
+      { x: -0.90, y: 0.11, cz: 0, h: 0.19, w: 0.32 },  // gearbox housing
+      { x: -0.74, y: 0.13, cz: 0, h: 0.22, w: 0.36 },  // engine cover rising
+      { x: -0.58, y: 0.16, cz: 0, h: 0.26, w: 0.40 },  // engine cover mid
+      { x: -0.42, y: 0.20, cz: 0, h: 0.32, w: 0.44 },  // engine cover hump
+      { x: -0.26, y: 0.22, cz: 0, h: 0.38, w: 0.47 },  // airbox intake base
+      { x: -0.10, y: 0.21, cz: 0, h: 0.34, w: 0.50 },  // cockpit rear
+      { x: 0.06, y: 0.19, cz: 0, h: 0.28, w: 0.52 },   // cockpit mid (widest)
+      { x: 0.22, y: 0.18, cz: 0, h: 0.24, w: 0.51 },   // cockpit surround
+      { x: 0.38, y: 0.17, cz: 0, h: 0.21, w: 0.47 },   // tub shoulder
+      { x: 0.54, y: 0.15, cz: 0, h: 0.18, w: 0.40 },   // tub taper
+      { x: 0.70, y: 0.14, cz: 0, h: 0.16, w: 0.34 },   // nose base
+      { x: 0.86, y: 0.12, cz: 0, h: 0.14, w: 0.28 },   // nose S-duct dip
+      { x: 1.04, y: 0.10, cz: 0, h: 0.11, w: 0.21 },   // nose mid
+      { x: 1.22, y: 0.09, cz: 0, h: 0.08, w: 0.14 },   // nose tip taper
+      { x: 1.38, y: 0.09, cz: 0, h: 0.06, w: 0.08 },   // rounded nose tip
+    ], 24, [cr, cg, cb], true);
+
     // Cockpit opening (dark recess sunk into the tub top)
     this.addBox(verts, idxs, 0.30, 0.285, 0, 0.32, 0.02, 0.24, dark);
     // Driver shoulders + torso peeking out of the cockpit
     this.addBox(verts, idxs, 0.26, 0.27, 0, 0.18, 0.07, 0.20, [cr, cg, cb]);
     this.addBox(verts, idxs, 0.29, 0.30, 0, 0.12, 0.05, 0.18, [0.1, 0.1, 0.12]);
-    // Driver helmet + visor
-    this.addSphere(verts, idxs, 0.40, 0.315, 0, 0.09, 10, [0.95, 0.95, 0.98]);
-    this.addBox(verts, idxs, 0.47, 0.315, 0, 0.04, 0.06, 0.10, dark);
-    // Steering wheel
-    this.addBox(verts, idxs, 0.50, 0.27, 0, 0.02, 0.02, 0.14, dark);
 
-    // ── 3. Halo (over the driver) ──
-    this.addBox(verts, idxs, 0.05, 0.3, 0, 0.05, 0.18, 0.06, carbon);   // center pillar
-    this.addBox(verts, idxs, 0.4, 0.42, 0, 0.2, 0.04, 0.52, carbon);    // front arch
-    this.addBox(verts, idxs, 0.16, 0.42, 0.2, 0.5, 0.04, 0.06, carbon); // left bar
-    this.addBox(verts, idxs, 0.16, 0.42, -0.2, 0.5, 0.04, 0.06, carbon); // right bar
-    // Halo winglet (small fin on top of the front arch)
+    // ── 2b. Driver helmet + visor (detailed: helmet shell, visor strip, chin) ──
+    this.addSphere(verts, idxs, 0.40, 0.315, 0, 0.09, 14, [mrl, mgl, mbl]);
+    // Visor strip (dark band across the helmet front)
+    this.addBox(verts, idxs, 0.45, 0.315, 0, 0.04, 0.05, 0.12, dark);
+    // Visor opening (small dark rectangle on the visor)
+    this.addBox(verts, idxs, 0.47, 0.315, 0, 0.02, 0.03, 0.08, [0.02, 0.02, 0.04]);
+    // Helmet chin (small grey block below the sphere)
+    this.addBox(verts, idxs, 0.40, 0.265, 0, 0.06, 0.03, 0.08, [0.2, 0.2, 0.22]);
+    // Helmet tear-off posts (tiny protrusions on visor sides)
+    this.addBox(verts, idxs, 0.47, 0.315, 0.06, 0.01, 0.01, 0.01, [0.6, 0.6, 0.6]);
+    this.addBox(verts, idxs, 0.47, 0.315, -0.06, 0.01, 0.01, 0.01, [0.6, 0.6, 0.6]);
+
+    // ── 2c. Steering wheel + display ──
+    // Steering wheel column
+    this.addBox(verts, idxs, 0.50, 0.27, 0, 0.02, 0.02, 0.14, dark);
+    // Steering wheel grips (slightly wider, curved feel)
+    this.addBox(verts, idxs, 0.50, 0.27, 0.07, 0.02, 0.025, 0.02, [0.15, 0.15, 0.16]);
+    this.addBox(verts, idxs, 0.50, 0.27, -0.07, 0.02, 0.025, 0.02, [0.15, 0.15, 0.16]);
+    // Steering wheel display screen (small bright rectangle)
+    this.addBox(verts, idxs, 0.52, 0.28, 0, 0.01, 0.03, 0.06, [0.0, 0.3, 0.6]);
+    // Steering wheel buttons (tiny coloured dots)
+    this.addBox(verts, idxs, 0.50, 0.285, 0.04, 0.01, 0.01, 0.01, [1, 0, 0]);
+    this.addBox(verts, idxs, 0.50, 0.285, -0.04, 0.01, 0.01, 0.01, [0, 0.5, 0]);
+    this.addBox(verts, idxs, 0.50, 0.285, 0.08, 0.01, 0.01, 0.01, [0, 0.4, 1]);
+    this.addBox(verts, idxs, 0.50, 0.285, -0.08, 0.01, 0.01, 0.01, [1, 0.8, 0]);
+
+    // ── 3. Halo (over the driver — aero profile with rounded bars) ──
+    // Center pillar (from tub base up to the top arch)
+    this.addCylinder(verts, idxs, 0.05, 0.25, 0, 0.025, 0.18, 10, carbon);
+    // Front arch (the iconic halo top bar, wider than the tub)
+    this.addBox(verts, idxs, 0.4, 0.42, 0, 0.2, 0.04, 0.52, carbon);
+    // Front arch aero fairing (thicker center, slightly streamlined)
+    this.addTaperedBox(verts, idxs, 0.4, 0.42, 0, 0.2, 0.05, 0.04, 0.52, 0.48, carbon);
+    // Left side bar (from tub to front arch)
+    this.addStrut(verts, idxs, 0.05, 0.25, 0.2, 0.4, 0.42, 0.26, 0.025, carbon);
+    // Right side bar
+    this.addStrut(verts, idxs, 0.05, 0.25, -0.2, 0.4, 0.42, -0.26, 0.025, carbon);
+    // Left top bar (rear of arch to front of arch)
+    this.addStrut(verts, idxs, 0.05, 0.42, 0.24, 0.4, 0.42, 0.26, 0.025, carbon);
+    // Right top bar
+    this.addStrut(verts, idxs, 0.05, 0.42, -0.24, 0.4, 0.42, -0.26, 0.025, carbon);
+    // Halo winglet (small fin on top of the front arch, for aero)
     this.addBox(verts, idxs, 0.4, 0.46, 0, 0.1, 0.02, 0.1, carbon);
 
-    // ── 4. Nose side strakes (thin fins along the sculpted nose flanks) ──
+    // ── 4. Nose details (S-duct, strakes, pitot probe) ──
+    // Nose side strakes (thin fins along the sculpted nose flanks)
     this.addBox(verts, idxs, 0.92, 0.10, 0.13, 0.5, 0.05, 0.02, carbon);
     this.addBox(verts, idxs, 0.92, 0.10, -0.13, 0.5, 0.05, 0.02, carbon);
-    // Nose tip pitot probe
-    this.addBox(verts, idxs, 1.42, 0.10, 0, 0.05, 0.02, 0.02, carbon);
+    // Nose S-duct outlet (small dark opening on the nose underside)
+    this.addBox(verts, idxs, 0.85, 0.02, 0, 0.15, 0.02, 0.08, dark);
+    // Nose tip pitot probe (thin forward-pointing rod)
+    this.addBox(verts, idxs, 1.40, 0.10, 0, 0.06, 0.015, 0.015, [0.3, 0.3, 0.35]);
+    // Nose tip pitot probe tip (tiny red cap)
+    this.addBox(verts, idxs, 1.44, 0.10, 0, 0.02, 0.02, 0.02, [1, 0.1, 0.1]);
 
-    // ── 5. Front wing (cambered multi-element + endplates + pylons) ──
-    // Each element is built from 6 short segments whose tips rise toward the
-    // endplates, giving the real arched/cambered F1 wing profile.
+    // ── 5. Front wing (cambered multi-element + sculpted endplates + pylons) ──
+    // Each element is arched so the tips rise toward the endplates, giving the
+    // real F1 wing profile. 8 segments per element for smoother curvature.
     const frontWingEls = [
-      { x: 1.2, y: 0.06, span: 1.5, l: 0.34, h: 0.025, lift: 0.022 },  // main plane
-      { x: 1.14, y: 0.1, span: 1.42, l: 0.2, h: 0.025, lift: 0.02 },   // flap
-      { x: 1.09, y: 0.08, span: 1.34, l: 0.14, h: 0.02, lift: 0.015 }, // third element
-      { x: 1.03, y: 0.07, span: 1.26, l: 0.1, h: 0.02, lift: 0.012 }   // fourth element
+      { x: 1.22, y: 0.05, span: 1.55, l: 0.36, h: 0.025, lift: 0.025 },  // main plane
+      { x: 1.15, y: 0.09, span: 1.48, l: 0.22, h: 0.025, lift: 0.022 },   // second element
+      { x: 1.09, y: 0.07, span: 1.40, l: 0.16, h: 0.022, lift: 0.018 },   // third element
+      { x: 1.03, y: 0.06, span: 1.32, l: 0.12, h: 0.02, lift: 0.015 },    // fourth element
+      { x: 0.97, y: 0.05, span: 1.24, l: 0.08, h: 0.018, lift: 0.012 },   // fifth element (cascade)
     ];
     for (const el of frontWingEls) {
-      const segs = 6;
+      const segs = 8;
       for (let i = 0; i < segs; i++) {
         const z0 = -el.span / 2 + (el.span / segs) * i;
         const z1 = z0 + el.span / segs;
@@ -1591,42 +2047,69 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.addBox(verts, idxs, el.x, (y0 + y1) / 2, (z0 + z1) / 2, el.l, el.h, (z1 - z0) * 1.15, carbon);
       }
     }
-    this.addTaperedBox(verts, idxs, 1.2, 0.11, 0.75, 0.36, 0.22, 0.14, 0.05, 0.05, carbon);  // endplates
-    this.addTaperedBox(verts, idxs, 1.2, 0.11, -0.75, 0.36, 0.22, 0.14, 0.05, 0.05, carbon);
-    // Endplate lower steps
-    this.addBox(verts, idxs, 1.2, 0.05, 0.75, 0.34, 0.08, 0.03, carbon);
-    this.addBox(verts, idxs, 1.2, 0.05, -0.75, 0.34, 0.08, 0.03, carbon);
-    this.addBox(verts, idxs, 1.2, 0.08, 0.16, 0.1, 0.05, 0.04, carbon); // nose pylons
-    this.addBox(verts, idxs, 1.2, 0.08, -0.16, 0.1, 0.05, 0.04, carbon);
+    // Front wing endplates (sculpted shape: tapered front, full height at rear)
+    this.addTaperedBox(verts, idxs, 1.3, 0.12, 0.78, 0.4, 0.25, 0.15, 0.04, 0.04, carbon);
+    this.addTaperedBox(verts, idxs, 1.3, 0.12, -0.78, 0.4, 0.25, 0.15, 0.04, 0.04, carbon);
+    // Endplate lower step (the "foot" at the base)
+    this.addBox(verts, idxs, 1.22, 0.04, 0.78, 0.36, 0.08, 0.03, carbon);
+    this.addBox(verts, idxs, 1.22, 0.04, -0.78, 0.36, 0.08, 0.03, carbon);
+    // Endplate trailing edge (thin vertical strip at the rear of the endplate)
+    this.addBox(verts, idxs, 1.04, 0.12, 0.78, 0.02, 0.25, 0.03, carbon);
+    this.addBox(verts, idxs, 1.04, 0.12, -0.78, 0.02, 0.25, 0.03, carbon);
+    // Front wing cascade winglets on the endplates (stacked vanes)
+    this.addBox(verts, idxs, 1.15, 0.22, 0.74, 0.12, 0.06, 0.08, carbon);
+    this.addBox(verts, idxs, 1.15, 0.22, -0.74, 0.12, 0.06, 0.08, carbon);
+    this.addBox(verts, idxs, 1.12, 0.18, 0.70, 0.16, 0.05, 0.06, carbon);
+    this.addBox(verts, idxs, 1.12, 0.18, -0.70, 0.16, 0.05, 0.06, carbon);
+    // Nose pylons (connecting the wing to the nose, aero-shaped)
+    this.addBox(verts, idxs, 1.22, 0.08, 0.16, 0.12, 0.05, 0.04, carbon);
+    this.addBox(verts, idxs, 1.22, 0.08, -0.16, 0.12, 0.05, 0.04, carbon);
 
-    // ── 6. Sidepods (rounded sculpted lofts, coke-bottle taper) ──
+    // ── 6. Sidepods (rounded sculpted lofts with pronounced undercut) ──
     for (const sgn of [1, -1]) {
+      // Sidepod body (round cross-section, coke-bottle waist)
       this.addLoft(verts, idxs, [
         { x: 0.58, y: 0.17, cz: 0.48 * sgn, h: 0.28, w: 0.34 }, // intake mouth
-        { x: 0.30, y: 0.17, cz: 0.50 * sgn, h: 0.27, w: 0.38 }, // widest point
-        { x: 0.00, y: 0.17, cz: 0.50 * sgn, h: 0.24, w: 0.36 }, // mid
-        { x: -0.30, y: 0.16, cz: 0.48 * sgn, h: 0.20, w: 0.30 }, // tapering
-        { x: -0.60, y: 0.14, cz: 0.44 * sgn, h: 0.15, w: 0.22 }, // coke bottle
-        { x: -0.85, y: 0.12, cz: 0.38 * sgn, h: 0.11, w: 0.14 }, // tail
-      ], 16, [cr, cg, cb], true);
+        { x: 0.34, y: 0.18, cz: 0.50 * sgn, h: 0.27, w: 0.38 }, // widest point
+        { x: 0.08, y: 0.18, cz: 0.50 * sgn, h: 0.25, w: 0.37 }, // mid
+        { x: -0.18, y: 0.17, cz: 0.49 * sgn, h: 0.22, w: 0.33 }, // tapering
+        { x: -0.42, y: 0.16, cz: 0.47 * sgn, h: 0.18, w: 0.28 }, // coke bottle
+        { x: -0.64, y: 0.14, cz: 0.44 * sgn, h: 0.14, w: 0.22 }, // rear taper
+        { x: -0.84, y: 0.12, cz: 0.38 * sgn, h: 0.10, w: 0.14 }, // tail
+      ], 18, [cr, cg, cb], true);
     }
-    // Sidepod intakes (dark mouth slabs on the front cap)
-    this.addBox(verts, idxs, 0.585, 0.185, 0.5, 0.02, 0.13, 0.30, dark);
-    this.addBox(verts, idxs, 0.585, 0.185, -0.5, 0.02, 0.13, 0.30, dark);
-    // Sidepod cooling slats (dark outlets on top, seated flush on the surface)
+    // Sidepod intake mouths (dark openings on the front face)
+    this.addBox(verts, idxs, 0.585, 0.19, 0.5, 0.02, 0.14, 0.28, dark);
+    this.addBox(verts, idxs, 0.585, 0.19, -0.5, 0.02, 0.14, 0.28, dark);
+    // Sidepod undercut (dark recessed band at the bottom of the sidepod)
+    this.addBox(verts, idxs, 0.35, 0.04, 0.5, 0.6, 0.08, 0.34, dark);
+    this.addBox(verts, idxs, 0.35, 0.04, -0.5, 0.6, 0.08, 0.34, dark);
+    // Sidepod cooling slats (dark outlets on top, flush with the surface)
     this.addBox(verts, idxs, -0.35, 0.26, 0.5, 0.3, 0.01, 0.16, dark);
     this.addBox(verts, idxs, -0.35, 0.26, -0.5, 0.3, 0.01, 0.16, dark);
+    // Sidepod gills (small vertical slots on the sidepod sides)
+    for (let g = 0; g < 3; g++) {
+      const gx = 0.10 - g * 0.12;
+      this.addBox(verts, idxs, gx, 0.12, 0.5, 0.02, 0.04, 0.02, dark);
+      this.addBox(verts, idxs, gx, 0.12, -0.5, 0.02, 0.04, 0.02, dark);
+    }
 
     // ── 7. Engine cover (the body hull above already forms the curved cover) ──
-    // Airbox (tall at the intake, tapering back, seated on the hull hump)
+    // Airbox intake (tall at the front, tapering back, seated on the hull hump)
     this.addTaperedBox(verts, idxs, -0.25, 0.42, 0, 0.45, 0.09, 0.17, 0.16, 0.26, carbon);
     this.addBox(verts, idxs, -0.15, 0.47, 0, 0.1, 0.06, 0.14, dark); // intake hole
+    // Airbox inner divider (splits the intake into left/right channels)
+    this.addBox(verts, idxs, -0.15, 0.45, 0, 0.08, 0.04, 0.02, carbon);
 
-    // ── 8. Rear wing (main plane + DRS flap + beam wing + gurney + endplates) ──
-    // Arch the two main planes so the tips rise toward the endplates.
-    for (const el of [{ x: -1.0, y: 0.4, span: 1.05, l: 0.36, h: 0.035, lift: 0.02 },
-                      { x: -1.0, y: 0.46, span: 1.0, l: 0.28, h: 0.03, lift: 0.015 }]) {
-      const segs = 6;
+    // ── 8. Rear wing (3-element: beam wing, main plane, DRS flap + endplates) ──
+    // Arch all three elements so the tips rise toward the endplates (8 segments).
+    const rearWingEls = [
+      { x: -1.02, y: 0.35, span: 1.05, l: 0.30, h: 0.03, lift: 0.015 },  // beam wing (lowest)
+      { x: -1.02, y: 0.42, span: 1.08, l: 0.38, h: 0.035, lift: 0.02 },  // main plane
+      { x: -1.02, y: 0.49, span: 1.02, l: 0.26, h: 0.03, lift: 0.015 },   // DRS flap
+    ];
+    for (const el of rearWingEls) {
+      const segs = 8;
       for (let i = 0; i < segs; i++) {
         const z0 = -el.span / 2 + (el.span / segs) * i;
         const z1 = z0 + el.span / segs;
@@ -1637,79 +2120,126 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.addBox(verts, idxs, el.x, (y0 + y1) / 2, (z0 + z1) / 2, el.l, el.h, (z1 - z0) * 1.15, carbon);
       }
     }
-    this.addBox(verts, idxs, -1.0, 0.45, 0, 0.08, 0.05, 0.9, carbon); // gurney lip
-    this.addBox(verts, idxs, -0.95, 0.3, 0, 0.2, 0.025, 0.7, carbon);
-    this.addBox(verts, idxs, -1.0, 0.42, 0.52, 0.34, 0.32, 0.045, carbon);
-    this.addBox(verts, idxs, -1.0, 0.42, -0.52, 0.34, 0.32, 0.045, carbon);
-    this.addBox(verts, idxs, -0.9, 0.3, 0.22, 0.1, 0.16, 0.04, grey); // support pylons
-    this.addBox(verts, idxs, -0.9, 0.3, -0.22, 0.1, 0.16, 0.04, grey);
+    // Rear wing endplates (sculpted shape with curved cutout)
+    this.addBox(verts, idxs, -1.02, 0.42, 0.54, 0.38, 0.28, 0.045, carbon);
+    this.addBox(verts, idxs, -1.02, 0.42, -0.54, 0.38, 0.28, 0.045, carbon);
+    // Endplate curved cutout (dark recess in the endplate face)
+    this.addBox(verts, idxs, -1.02, 0.38, 0.54, 0.02, 0.08, 0.025, dark);
+    this.addBox(verts, idxs, -1.02, 0.38, -0.54, 0.02, 0.08, 0.025, dark);
+    // Endplate trailing edge extension (narrow strip at the rear)
+    this.addBox(verts, idxs, -0.83, 0.42, 0.54, 0.03, 0.28, 0.02, carbon);
+    this.addBox(verts, idxs, -0.83, 0.42, -0.54, 0.03, 0.28, 0.02, carbon);
+    // DRS actuator pod (the mechanism that opens the flap)
+    this.addBox(verts, idxs, -0.85, 0.40, 0, 0.10, 0.05, 0.08, grey);
+    // Rear wing support pylons (connecting wing to the gearbox)
+    this.addBox(verts, idxs, -0.92, 0.32, 0.22, 0.10, 0.16, 0.04, grey);
+    this.addBox(verts, idxs, -0.92, 0.32, -0.22, 0.10, 0.16, 0.04, grey);
+    // Beam wing support (small struts from gearbox to beam wing)
+    this.addBox(verts, idxs, -0.95, 0.30, 0.15, 0.06, 0.06, 0.03, carbon);
+    this.addBox(verts, idxs, -0.95, 0.30, -0.15, 0.06, 0.06, 0.03, carbon);
+    // Gurney lip (tiny flap at the trailing edge of the main plane)
+    this.addBox(verts, idxs, -1.02, 0.45, 0, 0.06, 0.04, 0.92, carbon);
+    // Monkey seat (small winglet below the beam wing, for exhaust blowing)
+    this.addBox(verts, idxs, -1.04, 0.28, 0, 0.12, 0.02, 0.50, carbon);
 
     // ── 9. Bargeboards (stack of 3 vertical vanes ahead of the sidepods) ──
-    this.addBox(verts, idxs, 0.55, 0.1, 0.33, 0.3, 0.12, 0.02, carbon);
-    this.addBox(verts, idxs, 0.55, 0.1, -0.33, 0.3, 0.12, 0.02, carbon);
+    this.addBox(verts, idxs, 0.55, 0.10, 0.33, 0.30, 0.12, 0.02, carbon);
+    this.addBox(verts, idxs, 0.55, 0.10, -0.33, 0.30, 0.12, 0.02, carbon);
     this.addBox(verts, idxs, 0.55, 0.07, 0.38, 0.26, 0.08, 0.015, carbon);
     this.addBox(verts, idxs, 0.55, 0.07, -0.38, 0.26, 0.08, 0.015, carbon);
-    this.addBox(verts, idxs, 0.55, 0.05, 0.43, 0.2, 0.05, 0.012, carbon);
-    this.addBox(verts, idxs, 0.55, 0.05, -0.43, 0.2, 0.05, 0.012, carbon);
+    this.addBox(verts, idxs, 0.55, 0.05, 0.43, 0.20, 0.05, 0.012, carbon);
+    this.addBox(verts, idxs, 0.55, 0.05, -0.43, 0.20, 0.05, 0.012, carbon);
+    // Bargeboard footplate (small horizontal vane at the base)
+    this.addBox(verts, idxs, 0.55, 0.015, 0.38, 0.20, 0.01, 0.12, carbon);
+    this.addBox(verts, idxs, 0.55, 0.015, -0.38, 0.20, 0.01, 0.12, carbon);
 
-    // ── 9b. Front wing cascade winglets (stacked vanes on endplates) ──
-    this.addBox(verts, idxs, 1.15, 0.2, 0.7, 0.12, 0.06, 0.1, carbon);
-    this.addBox(verts, idxs, 1.15, 0.2, -0.7, 0.12, 0.06, 0.1, carbon);
-    this.addTaperedBox(verts, idxs, 1.1, 0.16, 0.65, 0.2, 0.1, 0.02, 0.16, 0.02, carbon);
-    this.addTaperedBox(verts, idxs, 1.1, 0.16, -0.65, 0.2, 0.1, 0.02, 0.16, 0.02, carbon);
+    // ── 9b. Front wing cascade winglets (extra vanes on the endplates) ──
+    this.addBox(verts, idxs, 1.15, 0.22, 0.74, 0.12, 0.06, 0.08, carbon);
+    this.addBox(verts, idxs, 1.15, 0.22, -0.74, 0.12, 0.06, 0.08, carbon);
+    this.addBox(verts, idxs, 1.12, 0.18, 0.70, 0.16, 0.05, 0.06, carbon);
+    this.addBox(verts, idxs, 1.12, 0.18, -0.70, 0.16, 0.05, 0.06, carbon);
 
     // ── 9c. Turning vanes (ahead of sidepod undercut, below the bargeboards) ──
     this.addTaperedBox(verts, idxs, 0.35, 0.06, 0.35, 0.25, 0.06, 0.01, 0.14, 0.02, carbon);
     this.addTaperedBox(verts, idxs, 0.35, 0.06, -0.35, 0.25, 0.06, 0.01, 0.14, 0.02, carbon);
 
-    // ── 9d. Front brake duct scoops ──
-    this.addBox(verts, idxs, 0.62, 0.12, 0.62, 0.1, 0.1, 0.06, carbon);
-    this.addBox(verts, idxs, 0.62, 0.12, -0.62, 0.1, 0.1, 0.06, carbon);
+    // ── 9d. Front brake duct scoops (detailed: inlet + channel) ──
+    this.addBox(verts, idxs, 0.62, 0.12, 0.62, 0.10, 0.10, 0.06, carbon);
+    this.addBox(verts, idxs, 0.62, 0.12, -0.62, 0.10, 0.10, 0.06, carbon);
+    // Brake duct inlet (dark opening)
+    this.addBox(verts, idxs, 0.67, 0.12, 0.62, 0.02, 0.06, 0.04, dark);
+    this.addBox(verts, idxs, 0.67, 0.12, -0.62, 0.02, 0.06, 0.04, dark);
+    // Brake duct hose (thin tube from the duct to the hub)
+    this.addStrut(verts, idxs, 0.62, 0.12, 0.62, 0.72, 0.06, 0.72, 0.015, grey);
+    this.addStrut(verts, idxs, 0.62, 0.12, -0.62, 0.72, 0.06, -0.72, 0.015, grey);
 
-    // ── 9e. DRS actuator pod ──
-    this.addBox(verts, idxs, -0.85, 0.38, 0, 0.1, 0.05, 0.08, grey);
-
-    // ── 9f. Livery accent stripe (contrast band on engine cover/sidepods) ──
+    // ── 9e. Livery accent stripe (contrast band on engine cover/sidepods) ──
     const stripe: [number, number, number] = [0.05, 0.05, 0.08];
     this.addBox(verts, idxs, -0.1, 0.30, 0.505, 0.5, 0.02, 0.005, stripe);
     this.addBox(verts, idxs, -0.1, 0.30, -0.505, 0.5, 0.02, 0.005, stripe);
 
     // ── 10. Mirrors + stalks ──
-    this.addBox(verts, idxs, 0.35, 0.3, 0.6, 0.1, 0.05, 0.07, grey);
-    this.addBox(verts, idxs, 0.35, 0.3, -0.6, 0.1, 0.05, 0.07, grey);
-    this.addStrut(verts, idxs, 0.3, 0.24, 0.52, 0.35, 0.3, 0.6, 0.02, carbon);
-    this.addStrut(verts, idxs, 0.3, 0.24, -0.52, 0.35, 0.3, -0.6, 0.02, carbon);
+    this.addBox(verts, idxs, 0.35, 0.30, 0.60, 0.10, 0.05, 0.07, grey);
+    this.addBox(verts, idxs, 0.35, 0.30, -0.60, 0.10, 0.05, 0.07, grey);
+    this.addStrut(verts, idxs, 0.30, 0.24, 0.52, 0.35, 0.30, 0.60, 0.02, carbon);
+    this.addStrut(verts, idxs, 0.30, 0.24, -0.52, 0.35, 0.30, -0.60, 0.02, carbon);
+    // Mirror reflective surface (small bright rectangle on the mirror face)
+    this.addBox(verts, idxs, 0.40, 0.30, 0.60, 0.02, 0.03, 0.05, [0.6, 0.65, 0.7]);
+    this.addBox(verts, idxs, 0.40, 0.30, -0.60, 0.02, 0.03, 0.05, [0.6, 0.65, 0.7]);
 
     // ── 11. Exhaust outlets ──
-    this.addCylinder(verts, idxs, -0.72, 0.28, 0.18, 0.04, 0.07, 8, grey);
-    this.addCylinder(verts, idxs, -0.72, 0.28, -0.18, 0.04, 0.07, 8, grey);
+    this.addCylinder(verts, idxs, -0.72, 0.28, 0.18, 0.04, 0.07, 10, grey);
+    this.addCylinder(verts, idxs, -0.72, 0.28, -0.18, 0.04, 0.07, 10, grey);
+    // Exhaust tailpipe inner (dark opening)
+    this.addCylinder(verts, idxs, -0.70, 0.28, 0.18, 0.025, 0.02, 8, dark);
+    this.addCylinder(verts, idxs, -0.70, 0.28, -0.18, 0.025, 0.02, 8, dark);
 
-    // ── 12. Rain light ──
-    this.addBox(verts, idxs, -1.02, 0.52, 0, 0.05, 0.07, 0.06, [1, 0.15, 0.15]);
+    // ── 12. Rain light (bright red LED cluster at the rear) ──
+    this.addBox(verts, idxs, -1.035, 0.52, 0, 0.05, 0.07, 0.06, [1, 0.15, 0.15]);
+    // Rain light inner LEDs (small bright dots)
+    this.addBox(verts, idxs, -1.03, 0.52, 0.02, 0.01, 0.03, 0.01, [1, 0.5, 0.5]);
+    this.addBox(verts, idxs, -1.03, 0.52, -0.02, 0.01, 0.03, 0.01, [1, 0.5, 0.5]);
+    this.addBox(verts, idxs, -1.03, 0.52, 0, 0.01, 0.03, 0.01, [1, 0.5, 0.5]);
 
     // ── 13. T-cam + antenna ──
-    this.addBox(verts, idxs, -0.2, 0.5, 0, 0.04, 0.05, 0.05, [1.0, 0.9, 0.2]);
-    this.addCylinder(verts, idxs, -0.6, 0.39, 0, 0.008, 0.3, 6, grey);
+    this.addBox(verts, idxs, -0.20, 0.50, 0, 0.04, 0.05, 0.05, [1.0, 0.9, 0.2]);
+    this.addCylinder(verts, idxs, -0.60, 0.39, 0, 0.008, 0.30, 8, grey);
 
     // ── 14. Shark fin (thin blade over the engine cover) ──
-    this.addBox(verts, idxs, -0.55, 0.4, 0, 0.5, 0.16, 0.015, carbon);
+    this.addBox(verts, idxs, -0.55, 0.40, 0, 0.50, 0.16, 0.015, carbon);
 
-    // ── 15. Suspension wishbones + pushrods ──
-    // Front upper arms (tub → wheel hub)
+    // ── 15. Suspension wishbones + pushrods (detailed double-wishbone layout) ──
+    // Front upper arms (tub → wheel hub, forward-swept)
     this.addStrut(verts, idxs, 0.58, 0.16, 0.22, 0.72, 0.06, 0.72, 0.025, carbon);
     this.addStrut(verts, idxs, 0.58, 0.16, -0.22, 0.72, 0.06, -0.72, 0.025, carbon);
+    // Front upper rear arms
+    this.addStrut(verts, idxs, 0.54, 0.16, 0.22, 0.68, 0.06, 0.72, 0.025, carbon);
+    this.addStrut(verts, idxs, 0.54, 0.16, -0.22, 0.68, 0.06, -0.72, 0.025, carbon);
     // Front lower arms
     this.addStrut(verts, idxs, 0.62, 0.05, 0.22, 0.78, 0.02, 0.74, 0.025, carbon);
     this.addStrut(verts, idxs, 0.62, 0.05, -0.22, 0.78, 0.02, -0.74, 0.025, carbon);
+    // Front lower rear arms
+    this.addStrut(verts, idxs, 0.58, 0.05, 0.22, 0.74, 0.02, 0.74, 0.025, carbon);
+    this.addStrut(verts, idxs, 0.58, 0.05, -0.22, 0.74, 0.02, -0.74, 0.025, carbon);
     // Front pushrods (lower arm up into the tub)
-    this.addStrut(verts, idxs, 0.68, 0.03, 0.72, 0.6, 0.14, 0.18, 0.015, grey);
-    this.addStrut(verts, idxs, 0.68, 0.03, -0.72, 0.6, 0.14, -0.18, 0.015, grey);
+    this.addStrut(verts, idxs, 0.68, 0.03, 0.72, 0.60, 0.14, 0.18, 0.015, grey);
+    this.addStrut(verts, idxs, 0.68, 0.03, -0.72, 0.60, 0.14, -0.18, 0.015, grey);
+    // Front anti-roll bar (thin bar connecting the pushrods)
+    this.addStrut(verts, idxs, 0.60, 0.14, 0.18, 0.60, 0.14, -0.18, 0.012, grey);
     // Rear upper arms
     this.addStrut(verts, idxs, -0.52, 0.16, 0.22, -0.64, 0.06, 0.72, 0.025, carbon);
     this.addStrut(verts, idxs, -0.52, 0.16, -0.22, -0.64, 0.06, -0.72, 0.025, carbon);
+    // Rear upper rear arms
+    this.addStrut(verts, idxs, -0.56, 0.16, 0.22, -0.68, 0.06, 0.72, 0.025, carbon);
+    this.addStrut(verts, idxs, -0.56, 0.16, -0.22, -0.68, 0.06, -0.72, 0.025, carbon);
     // Rear lower arms
-    this.addStrut(verts, idxs, -0.56, 0.05, 0.22, -0.7, 0.02, 0.74, 0.025, carbon);
-    this.addStrut(verts, idxs, -0.56, 0.05, -0.22, -0.7, 0.02, -0.74, 0.025, carbon);
+    this.addStrut(verts, idxs, -0.56, 0.05, 0.22, -0.70, 0.02, 0.74, 0.025, carbon);
+    this.addStrut(verts, idxs, -0.56, 0.05, -0.22, -0.70, 0.02, -0.74, 0.025, carbon);
+    // Rear lower rear arms
+    this.addStrut(verts, idxs, -0.60, 0.05, 0.22, -0.74, 0.02, 0.74, 0.025, carbon);
+    this.addStrut(verts, idxs, -0.60, 0.05, -0.22, -0.74, 0.02, -0.74, 0.025, carbon);
+    // Rear anti-roll bar
+    this.addStrut(verts, idxs, -0.54, 0.14, 0.18, -0.54, 0.14, -0.18, 0.012, grey);
 
     const vertArray = new Float32Array(verts);
     const idxArray = new Uint16Array(idxs);
@@ -1745,20 +2275,27 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const fv: number[] = [];
     const fi: number[] = [];
     // Rim disc (dark, fills the tread inner circle)
-    this.addCylinder(fv, fi, 0, 0, 0, 0.15, 0.15, 14, [0.07, 0.07, 0.08]);
+    this.addCylinder(fv, fi, 0, 0, 0, 0.15, 0.15, 18, [0.07, 0.07, 0.08]);
     // Brake disc (reddish, slightly wider than the rim so it peeks out)
-    this.addCylinder(fv, fi, 0, 0, 0, 0.09, 0.17, 14, [0.35, 0.12, 0.1]);
+    this.addCylinder(fv, fi, 0, 0, 0, 0.09, 0.17, 18, [0.35, 0.12, 0.1]);
+    // Brake caliper (small colourful block that clamps the disc)
+    this.addBox(fv, fi, 0.08, 0.06, 0, 0.06, 0.04, 0.03, [0.9, 0.1, 0.1]);
     // Hub center
-    this.addCylinder(fv, fi, 0, 0, 0, 0.04, 0.17, 10, [0.5, 0.5, 0.55]);
+    this.addCylinder(fv, fi, 0, 0, 0, 0.04, 0.17, 12, [0.5, 0.5, 0.55]);
     // 6 rim spokes (thin struts radiating from the hub to the rim face)
     for (let k = 0; k < 6; k++) {
       const a = (k / 6) * Math.PI * 2;
       this.addStrut(fv, fi, 0, 0, 0, Math.cos(a) * 0.13, Math.sin(a) * 0.13, 0, 0.02, [0.16, 0.16, 0.17]);
     }
     // Tire tread — larger radius so the band wraps the rim
-    this.addCylinder(fv, fi, 0, 0, 0, 0.17, 0.12, 14, [0.13, 0.13, 0.14]);
+    this.addCylinder(fv, fi, 0, 0, 0, 0.17, 0.12, 18, [0.13, 0.13, 0.14]);
+    // Tire sidewall lettering (small raised bumps on the tread side)
+    for (let k = 0; k < 4; k++) {
+      const a = (k / 4) * Math.PI * 2 + 0.2;
+      this.addBox(fv, fi, Math.cos(a) * 0.17, 0.12, Math.sin(a) * 0.17, 0.02, 0.01, 0.02, [0.2, 0.2, 0.2]);
+    }
     // Valve stem
-    this.addCylinder(fv, fi, 0.14, 0.05, 0, 0.008, 0.05, 4, [0.2, 0.2, 0.2]);
+    this.addCylinder(fv, fi, 0.14, 0.05, 0, 0.008, 0.05, 6, [0.2, 0.2, 0.2]);
     const fva = new Float32Array(fv);
     const fia = new Uint16Array(fi);
     this.wheelCount = fia.length;
@@ -1783,15 +2320,20 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // ── Rear wheels (wider tread, slightly larger — like a real F1 car) ──
     const rv: number[] = [];
     const ri: number[] = [];
-    this.addCylinder(rv, ri, 0, 0, 0, 0.16, 0.18, 14, [0.07, 0.07, 0.08]);
-    this.addCylinder(rv, ri, 0, 0, 0, 0.1, 0.2, 14, [0.35, 0.12, 0.1]);
-    this.addCylinder(rv, ri, 0, 0, 0, 0.045, 0.2, 10, [0.5, 0.5, 0.55]);
+    this.addCylinder(rv, ri, 0, 0, 0, 0.16, 0.18, 18, [0.07, 0.07, 0.08]);
+    this.addCylinder(rv, ri, 0, 0, 0, 0.1, 0.2, 18, [0.35, 0.12, 0.1]);
+    this.addBox(rv, ri, 0.08, 0.06, 0, 0.06, 0.04, 0.03, [0.9, 0.1, 0.1]);
+    this.addCylinder(rv, ri, 0, 0, 0, 0.045, 0.2, 12, [0.5, 0.5, 0.55]);
     for (let k = 0; k < 6; k++) {
       const a = (k / 6) * Math.PI * 2;
       this.addStrut(rv, ri, 0, 0, 0, Math.cos(a) * 0.14, Math.sin(a) * 0.14, 0, 0.02, [0.16, 0.16, 0.17]);
     }
-    this.addCylinder(rv, ri, 0, 0, 0, 0.18, 0.15, 14, [0.13, 0.13, 0.14]); 
-    this.addCylinder(rv, ri, 0.15, 0.06, 0, 0.008, 0.05, 4, [0.2, 0.2, 0.2]);
+    this.addCylinder(rv, ri, 0, 0, 0, 0.18, 0.15, 18, [0.13, 0.13, 0.14]); 
+    for (let k = 0; k < 4; k++) {
+      const a = (k / 4) * Math.PI * 2 + 0.2;
+      this.addBox(rv, ri, Math.cos(a) * 0.18, 0.15, Math.sin(a) * 0.18, 0.02, 0.01, 0.02, [0.2, 0.2, 0.2]);
+    }
+    this.addCylinder(rv, ri, 0.15, 0.06, 0, 0.008, 0.05, 6, [0.2, 0.2, 0.2]);
     const rva = new Float32Array(rv);
     const ria = new Uint16Array(ri);
     this.rearWheelCount = ria.length;
@@ -2297,6 +2839,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.uniformMatrix4fv(this.shadowLightLoc, false, this.lightSpace);
     this.mat4Identity(this.modelMatrix);
     gl.uniformMatrix4fv(this.shadowModelLoc, false, this.modelMatrix);
+    // Push occluders away from the light so the shader's small depth bias is
+    // enough — kills shadow acne without peter-panning (detached shadows).
+    gl.enable(gl.POLYGON_OFFSET_FILL);
+    gl.polygonOffset(2.0, 2.0);
     gl.bindVertexArray(this.trackVao);
     gl.drawElements(gl.TRIANGLES, this.trackCount, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(this.barrierVao);
@@ -2305,6 +2851,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.drawElements(gl.TRIANGLES, this.finishCount, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(this.sceneryVao);
     gl.drawElements(gl.TRIANGLES, this.sceneryCount, gl.UNSIGNED_SHORT, 0);
+    // Cars cast shadows on the track — the single most visible shadow in the game.
+    for (const car of cars) {
+      this.renderCarShadow(car.x, car.y, car.z, car.yaw);
+    }
+    gl.disable(gl.POLYGON_OFFSET_FILL);
 
     // ─── Main Pass ───
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -2363,6 +2914,19 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.uniformMatrix4fv(this.projLoc, false, proj);
     gl.uniformMatrix4fv(this.viewLoc, false, view);
     gl.uniform3fv(this.lightDirLoc, this.sunDir);
+    // Per-theme sun color drives diffuse + specular (warm Miami, cool city).
+    if (isRaining) {
+      gl.uniform3fv(this.sunColorLoc, new Float32Array([this.sunColor[0] * 0.5, this.sunColor[1] * 0.5, this.sunColor[2] * 0.55]));
+    } else {
+      gl.uniform3fv(this.sunColorLoc, this.sunColor);
+    }
+    // Bind the shadow map and its projection so the world gets real shadows.
+    gl.uniformMatrix4fv(this.lightMatrixLoc, false, this.lightSpace);
+    gl.uniform1f(this.shadowTexelLoc, 1.0 / this.shadowSize);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.shadowTex);
+    gl.uniform1i(this.shadowMapLoc, 1);
+    gl.activeTexture(gl.TEXTURE0);
     if (isRaining) {
       gl.uniform3fv(this.ambientLoc, new Float32Array([0.15, 0.15, 0.18]));
       gl.uniform3fv(this.fogColorLoc, new Float32Array([0.2, 0.22, 0.25]));
@@ -2571,6 +3135,42 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
     gl.bindVertexArray(null);
     gl.enable(gl.CULL_FACE);
+  }
+
+  // Same transforms as renderCar, but into the shadow depth map so cars cast
+  // shadows on the track and scenery. Cull state is left untouched (the shadow
+  // pass runs with culling disabled, matching the double-sided geometry).
+  private renderCarShadow(x: number, y: number, z: number, yaw: number) {
+    const gl = this.gl;
+    gl.useProgram(this.shadowProg);
+    gl.bindVertexArray(this.carVao);
+    this.mat4Identity(this.modelMatrix);
+    this.mat4Translate(this.modelMatrix, [x, y + 0.15, z]);
+    this.mat4RotateY(this.modelMatrix, yaw - Math.PI / 2);
+    this.mat4Scale(this.modelMatrix, [0.8, 0.8, 0.8]);
+    gl.uniformMatrix4fv(this.shadowModelLoc, false, this.modelMatrix);
+    gl.drawElements(gl.TRIANGLES, this.carCount, gl.UNSIGNED_SHORT, 0);
+
+    const wheelPositions = [
+      [0.62, 0, -0.60],
+      [0.62, 0, 0.60],
+      [-0.55, 0, -0.60],
+      [-0.55, 0, 0.60]
+    ];
+    for (let wi = 0; wi < wheelPositions.length; wi++) {
+      const wp = wheelPositions[wi];
+      const rear = wi >= 2;
+      gl.bindVertexArray(rear ? this.rearWheelVao : this.wheelVao);
+      this.mat4Identity(this.modelMatrix);
+      this.mat4Translate(this.modelMatrix, [x, y + 0.17, z]);
+      this.mat4RotateY(this.modelMatrix, yaw - Math.PI / 2);
+      this.mat4Translate(this.modelMatrix, wp);
+      this.mat4RotateZ(this.modelMatrix, -this.elapsed * 5);
+      this.mat4RotateX(this.modelMatrix, Math.PI / 2);
+      gl.uniformMatrix4fv(this.shadowModelLoc, false, this.modelMatrix);
+      gl.drawElements(gl.TRIANGLES, rear ? this.rearWheelCount : this.wheelCount, gl.UNSIGNED_SHORT, 0);
+    }
+    gl.bindVertexArray(null);
   }
 
   clearCache() {

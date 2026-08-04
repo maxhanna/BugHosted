@@ -2745,17 +2745,44 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   hideLoginPopup() { this.parentRef?.closeOverlay(); }
-  get TRACKS() { return TRACKS; }
+  trackDefs: TrackDefinition[] = TRACKS as TrackDefinition[];
 
-  /** Maps a track id to its environment theme (rendered by RacingRenderer).
-   *  Track 1 is the Miami beach circuit, 2 the mountain pass, 3 the downtown GP. */
-  private themeForTrack(trackId: number): 'miami' | 'mountain' | 'city' | 'default' {
+  /** Maps a track id to its environment theme (rendered by RacingRenderer). */
+  private themeForTrack(trackId: number): 'miami' | 'mountain' | 'city' | 'default' | 'alpine' | 'desert' | 'monaco' | 'montreal' | 'italy' {
     if (trackId === 1) return 'miami';
     if (trackId === 2) return 'mountain';
     if (trackId === 3) return 'city';
+    if (trackId === 4) return 'alpine';
+    if (trackId === 5) return 'desert';
+    if (trackId === 6) return 'monaco';
+    if (trackId === 7) return 'montreal';
+    if (trackId === 8) return 'italy';
     return 'default';
   }
   get UPGRADE_DEFS() { return UPGRADE_DEFS; }
   get CAR_SKINS() { return CAR_SKINS; }
+
+  /** Returns a country flag emoji for the track based on its theme/location. */
+  getTrackFlag(track: TrackDefinition): string {
+    const flags: Record<number, string> = {
+      1: '🇺🇸', 2: '🏔️', 3: '🏙️', 4: '🏔️', 5: '🇲🇦', 6: '🇲🇨', 7: '🇨🇦', 8: '🇮🇹',
+    };
+    return flags[track.id] || '🏁';
+  }
+
+  /** Returns a CSS gradient background for the track card matching its theme. */
+  getTrackCardBg(track: TrackDefinition): string {
+    const bgs: Record<number, string> = {
+      1: 'linear-gradient(135deg, #ff7e5f 0%, #feb47b 30%, #86a8e7 70%, #91eae4 100%)',
+      2: 'linear-gradient(135deg, #2c3e50 0%, #3498db 40%, #87ceeb 100%)',
+      3: 'linear-gradient(135deg, #0f0c29 0%, #302b63 40%, #24243e 100%)',
+      4: 'linear-gradient(135deg, #1a1a2e 0%, #4a6fa5 30%, #b8d4e3 100%)',
+      5: 'linear-gradient(135deg, #d4a373 0%, #e9c46a 40%, #f4a261 100%)',
+      6: 'linear-gradient(135deg, #1a5276 0%, #2e86c1 30%, #85c1e9 70%, #f9e79f 100%)',
+      7: 'linear-gradient(135deg, #1b4332 0%, #2d6a4f 30%, #52b788 70%, #a5d6a5 100%)',
+      8: 'linear-gradient(135deg, #1a1a2e 0%, #6b1d1d 30%, #e74c3c 70%, #f39c12 100%)',
+    };
+    return bgs[track.id] || 'linear-gradient(135deg, #2c3e50, #4ca1af)';
+  }
   
 }
