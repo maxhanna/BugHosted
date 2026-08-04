@@ -271,10 +271,10 @@
         <button (click)="displayChatMembers()">👥 Display</button>
       </div>
     </div>
-    <div class="optionsStatsDiv" *ngIf="!showUserList && currentChatIsPublic && currentChatId">
+    <div class="optionsStatsDiv" *ngIf="!showUserList && currentChatId">
       <div class="optionsStatsHeader">
         Group Board:
-        <span *ngIf="currentChatIsPublic" style="color:var(--main-highlight-color);">🌐 {{ currentChatRoomName }}</span>
+        <span style="color:var(--main-highlight-color);">📋 {{ currentChatRoomName || ('Chat #' + currentChatId) }}</span>
       </div>
       <div class="optionsStatsDescription">
         <button (click)="openSocialBoard()" title="Open this group's social board">📋 Open Social Board</button>

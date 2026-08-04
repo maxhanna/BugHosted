@@ -160,6 +160,26 @@ textarea {
   gap: 10px;
 }
 
+/* Shared-with line shown under the top toolbar when a note has collaborators */
+.sharedWithLine {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 6px 0;
+}
+.sharedWithLabel {
+  font-size: 12px;
+  opacity: 0.7;
+}
+.sharedWithUsers {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 .poppedUpCarouselleArea {
   max-width: 70vw;
   overflow: auto; 

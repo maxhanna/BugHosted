@@ -1015,6 +1015,18 @@ namespace maxhanna.Server.Controllers
 					_playerDeathBroadcasted.TryRemove(req.UserId, out _);
 				}
 
+				// The client respawned (death cleared its weapons locally). Strip any
+				// weapons/ammo the server may still hold — the death handler only runs
+				// when a poll carrying health <= 0 reaches us, so a respawn that lands
+				// before that poll (e.g. slow poll while dead) would otherwise leave
+				// e.g. a rocket launcher in _playerWeapons and re-grant it to the client
+				// on the very next position sync.
+				if (req.Respawned)
+				{
+					_playerWeapons[req.UserId] = new bool[5] { true, false, false, false, false };
+					_playerAmmo[req.UserId] = new int[5];
+				}
+
 				if (!string.IsNullOrEmpty(req.ModelUrl)) _playerModelUrls[req.UserId] = req.ModelUrl!;
 
 				if (req.IsShooting)
@@ -2848,7 +2860,7 @@ namespace maxhanna.Server.Controllers
 
 	public class GrandTheftSaveRequest { public int UserId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public int Score { get; set; } }
 	public class GrandTheftScoreRequest { public int UserId { get; set; } public int Score { get; set; } }
-	public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string? ModelUrl { get; set; } public int Money { get; set; } = 0; public bool IsInCar { get; set; } public string? VehicleType { get; set; } public float CarColorR { get; set; } = 1f; public float CarColorG { get; set; } = 1f; public float CarColorB { get; set; } = 1f; public int PassengerOfUserId { get; set; } = 0; public string? ChatMessage { get; set; } }
+	public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string? ModelUrl { get; set; } public int Money { get; set; } = 0; public bool IsInCar { get; set; } public string? VehicleType { get; set; } public float CarColorR { get; set; } = 1f; public float CarColorG { get; set; } = 1f; public float CarColorB { get; set; } = 1f; public int PassengerOfUserId { get; set; } = 0; public string? ChatMessage { get; set; } public bool Respawned { get; set; } }
 	public class GTShootRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public int Weapon { get; set; } = 0; public float OriginX { get; set; } public float OriginY { get; set; } public float OriginZ { get; set; } public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } }
 	public class GTHitRequest { public int AttackerId { get; set; } public long TargetId { get; set; } public int WorldId { get; set; } = 1; public int Damage { get; set; } = 10; public float AttackerX { get; set; } public float AttackerZ { get; set; } }
 	public class GTStealCarRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; }

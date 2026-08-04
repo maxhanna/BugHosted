@@ -1504,7 +1504,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.playerVehicleColor[1],
       this.playerVehicleColor[2],
       this.isPassenger ? this.passengerOfUserId : 0,
-      chatMsg
+      chatMsg,
+      this._justRespawned
     );
 
     if (res && res.evicted && this.isInCar) {
@@ -1528,7 +1529,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (res && res.droppedWeapons) {
       this.droppedWeapons = res.droppedWeapons;
     }
-    if (res && res.ownedWeapons) {
+    // Don't let a stale server response (polled before it processed our respawn)
+    // re-grant the weapons we were stripped of — local state is already fists.
+    if (res && res.ownedWeapons && !this._justRespawned) {
       this.ownedWeapons = res.ownedWeapons;
       this.ammo = res.ammo;
     }
@@ -3173,11 +3176,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private updateHelicopter(dt: number) {
     const maxSpeed = 35, climbRate = 12, yawSpeed = 2.0, turnSpeed = 2.5;
 
-    if (this.isMobile && this.joystickActive) {
-      if (Math.abs(this.joystickX) > 0.1) this.carYaw -= this.joystickX * turnSpeed * dt;
-    } else {
-      if (this.keys.has('KeyA')) this.carYaw += turnSpeed * dt;
-      if (this.keys.has('KeyD')) this.carYaw -= turnSpeed * dt;
+    // A helicopter sitting on the ground can't pivot in place — it must be
+    // airborne (above the minimum altitude) before it can turn at all.
+    const heliRoofY = this.getBuildingRoofY(this.carX, this.carZ);
+    const heliFloorY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
+    const heliMinY = heliRoofY > heliFloorY ? heliRoofY : heliFloorY;
+    const grounded = this.carY <= heliMinY + 0.15;
+
+    if (!grounded) {
+      if (this.isMobile && this.joystickActive) {
+        if (Math.abs(this.joystickX) > 0.1) this.carYaw -= this.joystickX * turnSpeed * dt;
+      } else {
+        if (this.keys.has('KeyA')) this.carYaw += turnSpeed * dt;
+        if (this.keys.has('KeyD')) this.carYaw -= turnSpeed * dt;
+      }
     }
 
     if (this.altUpPressed) this.carVy = Math.min(this.carVy + climbRate * dt, 10);
@@ -3199,17 +3211,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carVx += (targetVx - this.carVx) * Math.min(1, 3 * dt);
     this.carVz += (targetVz - this.carVz) * Math.min(1, 3 * dt);
 
-    if (this.keys.has('KeyQ')) this.carYaw -= yawSpeed * dt;
-    if (this.keys.has('KeyE')) this.carYaw += yawSpeed * dt;
+    if (!grounded) {
+      if (this.keys.has('KeyQ')) this.carYaw -= yawSpeed * dt;
+      if (this.keys.has('KeyE')) this.carYaw += yawSpeed * dt;
+    }
 
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
     this.carY += this.carVy * dt;
     this.carSpeed = Math.hypot(this.carVx, this.carVz);
 
-    const heliRoofY = this.getBuildingRoofY(this.carX, this.carZ);
-    const heliFloorY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
-    const heliMinY = heliRoofY > heliFloorY ? heliRoofY : heliFloorY;
     if (this.carY < heliMinY) { this.carY = heliMinY; this.carVy = Math.max(0, this.carVy); }
   }
 

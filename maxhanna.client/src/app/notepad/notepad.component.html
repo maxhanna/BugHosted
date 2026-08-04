@@ -38,17 +38,6 @@
       <button class="deleteNoteBtn" *ngIf="noteId?.value" (click)="deleteNote()" title="Delete Note">❌</button>
     </div>
     <div>
-      Shared With:
-      <div *ngIf="splitNoteOwnershipUsers && splitNoteOwnershipUsers.length > 0; else noSharedUsers">
-        <div *ngFor="let user of splitNoteOwnershipUsers">
-          <app-user-tag [user]="user" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
-        </div>
-      </div>
-      <ng-template #noSharedUsers>
-        <span>Only you</span>
-      </ng-template>
-    </div>
-    <div>
       <fieldset class="buttonFields">
         <small class="autoSyncedIndicator" *ngIf="lastSyncedAt">Auto-synced at {{ lastSyncedAt | date:'mediumTime'
           }}</small>
@@ -56,6 +45,15 @@
         <input type="submit" value="🆕" (click)="clearInputs()" #newNoteButton title="New Note" />
         <input type="hidden" value="" #noteId />
       </fieldset>
+    </div>
+  </div>
+  <div class="sharedWithLine"
+    *ngIf="splitNoteOwnershipUsers && splitNoteOwnershipUsers.length > 0">
+    <span class="sharedWithLabel">Shared With:</span>
+    <div class="sharedWithUsers">
+      <div *ngFor="let user of splitNoteOwnershipUsers">
+        <app-user-tag [user]="user" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
+      </div>
     </div>
   </div>
 
