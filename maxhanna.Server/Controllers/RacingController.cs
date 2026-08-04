@@ -8,20 +8,12 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-
 namespace maxhanna.Server.Controllers
 {
 	[ApiController]
 	[Route("[controller]")]
 	public class RacingController : ControllerBase
 	{
-		// ── In-memory game state ─────────────────────────────────────────────
-		// The racing game (garage, cash, upgrades, appearance, results) lives in
-		// server memory so closing/reopening the component never loses progress.
-		// A periodic timer dumps anything dirty to the DB for long-term
-		// persistence (same pattern as GrandTheftController). The interval
-		// defaults to 10 minutes (configurable via Racing:PersistIntervalSeconds)
-		// so we don't hammer SQL — the shutdown flush keeps restarts lossless.
 		private static readonly ConcurrentDictionary<int, RacingCarState> _cars = new();
 		private static readonly ConcurrentQueue<PendingRaceResult> _pendingResults = new();
 		private static readonly object _persistLock = new();
@@ -34,7 +26,6 @@ namespace maxhanna.Server.Controllers
 		private static bool _startupLoadStarted = false;
 		private static bool _shutdownHooksRegistered = false;
 		private static bool _schemaEnsured = false;
-
 		private sealed class RacingCarState
 		{
 			public int UserId;
@@ -50,10 +41,9 @@ namespace maxhanna.Server.Controllers
 			public int Money = 500;
 			public double BestLap = 0;
 			public int TotalEarnings = 0;
-			public bool Dirty = false; 
+			public bool Dirty = false;
 			public int Version = 0;
 		}
-
 		private sealed class PendingRaceResult
 		{
 			public int UserId;
@@ -63,7 +53,6 @@ namespace maxhanna.Server.Controllers
 			public double TotalTime;
 			public int MoneyEarned;
 		}
-
 		private sealed class LeaderboardEntry
 		{
 			public int PlayerId;
@@ -74,7 +63,6 @@ namespace maxhanna.Server.Controllers
 			public int MoneyEarned;
 			public bool IsBot = false;
 		}
-
 		private sealed class UpgradeDef
 		{
 			public int Id { get; set; }
@@ -86,18 +74,14 @@ namespace maxhanna.Server.Controllers
 			public string Description { get; set; } = "";
 			public int StatBonus { get; set; }
 		}
-
 		private readonly IConfiguration _config;
 		public RacingController(IConfiguration config, IHostApplicationLifetime appLifetime)
 		{
 			_config = config;
-			_connStrCache ??= config.GetValue<string>("ConnectionStrings:maxhanna"); 
+			_connStrCache ??= config.GetValue<string>("ConnectionStrings:maxhanna");
 			int interval = _persistIntervalSeconds;
 			_persistIntervalSeconds = Math.Max(5, interval);
-			_ = _persistTimer.Value; // ensure the periodic dump timer is running
-
-			// Restore every saved player's car into server memory so a restart never
-			// wipes game data — the DB is the source of truth for long-term state.
+			_ = _persistTimer.Value;
 			if (!_startupLoadStarted)
 			{
 				lock (_persistLock)
@@ -109,12 +93,8 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 			}
-
-			// Flush any dirty in-memory state when the process shuts down, so a
-			// restart inside the dump window doesn't lose recent progress.
 			RegisterShutdownDump(appLifetime);
 		}
-
 		private static string? GetConnStr()
 		{
 			if (!string.IsNullOrEmpty(_connStrCache)) return _connStrCache;
@@ -126,101 +106,6 @@ namespace maxhanna.Server.Controllers
 			catch { }
 			return _connStrCache;
 		}
-
-		/// <summary>
-		/// Creates the racing tables (and back-fills newer columns) if they don't
-		/// exist yet. Runs once per process under the persist lock; every DB path
-		/// calls it first so a fresh database works without a manual schema script.
-		/// </summary>
-		private static void EnsureSchema(string connStr)
-		{
-			if (_schemaEnsured) return;
-			lock (_persistLock)
-			{
-				if (_schemaEnsured) return;
-				try
-				{
-					using var conn = new MySqlConnection(connStr);
-					conn.Open();
-					using (var cmd = new MySqlCommand(@"
-						CREATE TABLE IF NOT EXISTS racing_player_car (
-							user_id INT PRIMARY KEY,
-							player_name VARCHAR(64) NOT NULL DEFAULT '',
-							upgrades_json LONGTEXT NULL,
-							skin_id INT NOT NULL DEFAULT 1,
-							spoiler_id INT NOT NULL DEFAULT 0,
-							rim_id INT NOT NULL DEFAULT 0,
-							exhaust_id INT NOT NULL DEFAULT 0,
-							decal_id INT NOT NULL DEFAULT 0,
-							total_races INT NOT NULL DEFAULT 0,
-							wins INT NOT NULL DEFAULT 0,
-							money INT NOT NULL DEFAULT 500,
-							best_lap DOUBLE NOT NULL DEFAULT 0,
-							total_earnings INT NOT NULL DEFAULT 0
-						)", conn))
-					{
-						cmd.ExecuteNonQuery();
-					}
-					using (var cmd = new MySqlCommand(@"
-						CREATE TABLE IF NOT EXISTS racing_results (
-							id INT AUTO_INCREMENT PRIMARY KEY,
-							user_id INT NOT NULL,
-							player_name VARCHAR(64) NOT NULL DEFAULT '',
-							position INT NOT NULL DEFAULT 1,
-							lap_time DOUBLE NOT NULL DEFAULT 0,
-							total_time DOUBLE NOT NULL DEFAULT 0,
-							money_earned INT NOT NULL DEFAULT 0,
-							raced_at DATETIME NULL
-						)", conn))
-					{
-						cmd.ExecuteNonQuery();
-					}
-					// Bring older tables up to date — each ALTER throws if the column
-					// already exists, so swallow per-column errors.
-					foreach (var col in new[] { "spoiler_id", "rim_id", "exhaust_id", "decal_id", "total_earnings" })
-					{
-						try
-						{
-							using var alt = new MySqlCommand($"ALTER TABLE racing_player_car ADD COLUMN {col} INT NOT NULL DEFAULT 0", conn);
-							alt.ExecuteNonQuery();
-						}
-						catch { }
-					}
-					// best_lap was added to the CREATE TABLE later, so tables created
-					// before that never got the column — without it the load SELECT
-					// and the persist UPSERT both throw and best lap silently never
-					// saves (the row even fails to round-trip on restart). Add it.
-					foreach (var (col, def) in new[] { ("best_lap", "DOUBLE NOT NULL DEFAULT 0") })
-					{
-						try
-						{
-							using var alt = new MySqlCommand($"ALTER TABLE racing_player_car ADD COLUMN {col} {def}", conn);
-							alt.ExecuteNonQuery();
-						}
-						catch { }
-					}
-					foreach (var (table, col) in new[] { ("racing_player_car", "player_name VARCHAR(64) NOT NULL DEFAULT ''"), ("racing_results", "player_name VARCHAR(64) NOT NULL DEFAULT ''") })
-					{
-						try
-						{
-							using var alt = new MySqlCommand($"ALTER TABLE {table} ADD COLUMN {col}", conn);
-							alt.ExecuteNonQuery();
-						}
-						catch { }
-					}
-					_schemaEnsured = true;
-				}
-				catch (Exception ex)
-				{
-					// Schema not created (e.g. DB not reachable yet) — leave the flag
-					// false so the next DB path retries. Log so "cash reset on
-					// restart" style failures are diagnosable instead of silent.
-					Console.WriteLine($"[Racing] EnsureSchema failed: {ex.Message}");
-				}
-			}
-		}
-
-		/// <summary>Lazy-load a user's car from the DB (or a fresh default) into memory.</summary>
 		private RacingCarState EnsureCarLoaded(int userId)
 		{
 			if (_cars.TryGetValue(userId, out var st)) return st;
@@ -228,7 +113,6 @@ namespace maxhanna.Server.Controllers
 			_cars[userId] = st;
 			return st;
 		}
-
 		private RacingCarState LoadFromDb(int userId)
 		{
 			var st = new RacingCarState { UserId = userId };
@@ -236,8 +120,7 @@ namespace maxhanna.Server.Controllers
 			{
 				var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna");
 				if (string.IsNullOrEmpty(connStr)) return st;
-				EnsureSchema(connStr);
- 				using var conn = new MySqlConnection(connStr);
+				using var conn = new MySqlConnection(connStr);
 				conn.Open();
 				using var cmd = new MySqlCommand(@"
 					SELECT upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id,
@@ -265,20 +148,13 @@ namespace maxhanna.Server.Controllers
 			catch { }
 			return st;
 		}
-
-		/// <summary>
-		/// Warm-up pass run once at server start: read every player's saved car from
-		/// the DB into memory so a restart never wipes game state. Runs inside the
-		/// persist lock so it can't race the periodic dump.
-		/// </summary>
 		private static void LoadAllFromDb()
 		{
 			try
 			{
 				var connStr = GetConnStr();
 				if (string.IsNullOrEmpty(connStr)) return;
-				EnsureSchema(connStr);
- 				using var conn = new MySqlConnection(connStr);
+				using var conn = new MySqlConnection(connStr);
 				conn.Open();
 				using var cmd = new MySqlCommand(@"
 					SELECT user_id, upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id,
@@ -310,17 +186,9 @@ namespace maxhanna.Server.Controllers
 			catch (Exception ex)
 			{
 				Console.WriteLine($"[Racing] Startup DB load failed: {ex.Message}");
-				// DB may not be ready at boot — let the next request retry the warm-up
-				// instead of permanently disabling it (lazy per-user load still works).
 				_startupLoadStarted = false;
 			}
 		}
-
-		/// <summary>
-		/// Best-effort dump of all dirty cars when the process exits (Ctrl+C, kill,
-		/// IIS stop). The dump timer may not have fired yet for recent changes, so
-		/// this makes a restart inside the dump window lossless.
-		/// </summary>
 		private static void RegisterShutdownDump(IHostApplicationLifetime? appLifetime)
 		{
 			if (_shutdownHooksRegistered) return;
@@ -328,20 +196,13 @@ namespace maxhanna.Server.Controllers
 			{
 				if (_shutdownHooksRegistered) return;
 				_shutdownHooksRegistered = true;
-				// ApplicationStopping fires early in graceful shutdown (IIS stop,
-				// dotnet run Ctrl+C, container SIGTERM) — well before ProcessExit —
-				// so the synchronous DB flush has time to actually complete.
 				appLifetime?.ApplicationStopping.Register(() => PersistAllToDbBlocking());
 				AppDomain.CurrentDomain.ProcessExit += (_, _) => PersistAllToDbBlocking();
 				Console.CancelKeyPress += (_, _) => PersistAllToDbBlocking();
 			}
 		}
-
 		private static object ToCarJson(RacingCarState st)
 		{
-			// Snapshot under the car lock: MVC serializes the response AFTER this
-			// method returns, so handing it the live list would let a concurrent
-			// BuyUpgrade .Add() trip "Collection was modified" mid-serialize.
 			int userId, skinId, spoilerId, rimId, exhaustId, decalId, totalRaces, wins, money, totalEarnings;
 			double bestLap;
 			string playerName;
@@ -373,17 +234,8 @@ namespace maxhanna.Server.Controllers
 				TotalEarnings = totalEarnings
 			};
 		}
-
-		/// <summary>Periodic dump: if anything is dirty, persist it to the DB.</summary>
 		private static void PersistAllToDb(object? state) => PersistAllToDbCore(false);
-
-		/// <summary>
-		/// Shutdown flush — waits (up to 15s) for the persist lock instead of bailing
-		/// like the timer does, so an in-flight timer write can't cause a restart to
-		/// silently drop the last few seconds of progress.
-		/// </summary>
 		private static void PersistAllToDbBlocking() => PersistAllToDbCore(true);
-
 		private static void PersistAllToDbCore(bool waitForLock)
 		{
 			bool acquired = waitForLock
@@ -395,13 +247,10 @@ namespace maxhanna.Server.Controllers
 				bool anyDirty = false;
 				foreach (var kv in _cars) { if (kv.Value.Dirty) { anyDirty = true; break; } }
 				if (!anyDirty && _pendingResults.IsEmpty) return;
-
 				var connStr = GetConnStr();
 				if (string.IsNullOrEmpty(connStr)) return;
-				EnsureSchema(connStr);
- 				using var conn = new MySqlConnection(connStr);
+				using var conn = new MySqlConnection(connStr);
 				conn.Open();
-
 				int carsWritten = 0;
 				foreach (var kv in _cars)
 				{
@@ -416,8 +265,6 @@ namespace maxhanna.Server.Controllers
 							exhaust_id = @ex, decal_id = @dc, total_races = @races, wins = @wins,
 							money = @money, best_lap = @best, total_earnings = @earnings", conn))
 					{
-						// Snapshot under the car lock so a concurrent save can't mutate the
-						// upgrades list mid-serialize (Collection was modified).
 						lock (st)
 						{
 							cmd.Parameters.AddWithValue("@uid", st.UserId);
@@ -435,19 +282,14 @@ namespace maxhanna.Server.Controllers
 							cmd.Parameters.AddWithValue("@earnings", st.TotalEarnings);
 							version = st.Version;
 						}
-					cmd.ExecuteNonQuery();
-					lock (st)
-					{
-						// Only clear Dirty if no save landed while we were writing
-						// (a concurrent save would have bumped Version).
-						if (st.Version == version) st.Dirty = false;
+						cmd.ExecuteNonQuery();
+						lock (st)
+						{
+							if (st.Version == version) st.Dirty = false;
+						}
+						carsWritten++;
 					}
-					carsWritten++;
 				}
-				}
-
-				// Drain results into a local list so a mid-loop DB failure re-enqueues
-				// the remainder instead of silently dropping it.
 				var results = new List<PendingRaceResult>();
 				while (_pendingResults.TryDequeue(out var r)) results.Add(r);
 				int resultsWritten = 0;
@@ -477,7 +319,6 @@ namespace maxhanna.Server.Controllers
 			}
 			finally { Monitor.Exit(_persistLock); }
 		}
-
 		[HttpGet("tracks")]
 		public IActionResult GetTracks()
 		{
@@ -489,7 +330,6 @@ namespace maxhanna.Server.Controllers
 			};
 			return Ok(tracks);
 		}
-
 		[HttpGet("car/{userId}")]
 		public IActionResult GetPlayerCar(int userId)
 		{
@@ -500,7 +340,6 @@ namespace maxhanna.Server.Controllers
 			}
 			catch { return BadRequest(); }
 		}
-
 		[HttpPost("car/save")]
 		public IActionResult SavePlayerCar([FromBody] JsonElement body)
 		{
@@ -524,9 +363,6 @@ namespace maxhanna.Server.Controllers
 					if (body.TryGetProperty("money", out var m))
 					{
 						int newMoney = m.GetInt32();
-						// The server is the source of truth for cash — reject any save
-						// that would persist a negative balance instead of accepting it
-						// blindly (that's how double-buys wrote negative money).
 						if (newMoney < 0) return BadRequest("Money cannot be negative");
 						st.Money = newMoney;
 					}
@@ -539,7 +375,6 @@ namespace maxhanna.Server.Controllers
 			}
 			catch { return BadRequest(); }
 		}
-
 		[HttpPost("car/upgrade")]
 		public IActionResult BuyUpgrade([FromBody] JsonElement body)
 		{
@@ -558,9 +393,6 @@ namespace maxhanna.Server.Controllers
 						if (u is JsonElement je && je.TryGetProperty("id", out var id) && id.GetInt32() == upgradeId)
 							return BadRequest("Already owned");
 					}
-					// Serialize with camelCase so the client's u.id/u.category/u.statBonus
-					// reads work (raw JsonSerializer.Serialize would emit PascalCase keys
-					// that survive the response as pre-serialized nodes -> NaN stats).
 					var camel = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 					st.Upgrades.Add(JsonSerializer.Deserialize<object>(JsonSerializer.Serialize(def, camel))!);
 					st.Money -= def.Cost;
@@ -571,7 +403,6 @@ namespace maxhanna.Server.Controllers
 			}
 			catch { return BadRequest(); }
 		}
-
 		[HttpPost("car/skin")]
 		public IActionResult BuySkin([FromBody] JsonElement body)
 		{
@@ -584,8 +415,6 @@ namespace maxhanna.Server.Controllers
 				if (cost < 0) return BadRequest("Invalid skin");
 				lock (st)
 				{
-					// Charge for the skin and reject the purchase if the player can't
-					// afford it — mirrors the upgrade endpoint so cash can't go negative.
 					if (st.Money < cost) return BadRequest("Not enough money");
 					st.SkinId = skinId;
 					st.Money -= cost;
@@ -596,15 +425,18 @@ namespace maxhanna.Server.Controllers
 			}
 			catch { return BadRequest(); }
 		}
-
-		// Matches the client's CAR_SKINS costs (ids 1-8). Returning -1 flags an
-		// unknown skin so the endpoint rejects it.
 		private static int GetSkinCost(int skinId) => skinId switch
 		{
-			1 => 0, 2 => 500, 3 => 500, 4 => 1500, 5 => 2000, 6 => 3000, 7 => 5000, 8 => 8000,
+			1 => 0,
+			2 => 500,
+			3 => 500,
+			4 => 1500,
+			5 => 2000,
+			6 => 3000,
+			7 => 5000,
+			8 => 8000,
 			_ => -1,
 		};
-
 		[HttpPost("race/result")]
 		public IActionResult SubmitRaceResult([FromBody] JsonElement body)
 		{
@@ -625,7 +457,6 @@ namespace maxhanna.Server.Controllers
 			}
 			catch { return BadRequest(); }
 		}
-
 		[HttpGet("leaderboard/{trackId}")]
 		public async Task<IActionResult> GetLeaderboard(int trackId)
 		{
@@ -635,13 +466,8 @@ namespace maxhanna.Server.Controllers
 				var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna");
 				if (!string.IsNullOrEmpty(connStr))
 				{
-					EnsureSchema(connStr);
- 					using var conn = new MySqlConnection(connStr);
+					using var conn = new MySqlConnection(connStr);
 					await conn.OpenAsync();
-					// Union race results with the durable per-player best lap so the board
-					// keeps historical records even after racing_results rows age out.
-					// total_time is 0 for best-lap-only entries (client renders '--:--');
-					// NULLIF/MAX prefers the real race total when a result row exists.
 					using var cmd = new MySqlCommand(@"
 						SELECT user_id, player_name, MIN(lap_time) AS lap_time,
 						       COALESCE(MAX(NULLIF(total_time, 0)), 0) AS total_time
@@ -675,9 +501,6 @@ namespace maxhanna.Server.Controllers
 						});
 					}
 				}
-				// Merge in-memory results not yet flushed so new races show instantly.
-				// Keep only each player's best pending lap so a single player can't
-				// occupy multiple board slots before the periodic flush runs.
 				var pendingBest = new Dictionary<int, LeaderboardEntry>();
 				foreach (var r in _pendingResults)
 				{
@@ -697,8 +520,6 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 				foreach (var kv in pendingBest) results.Add(kv.Value);
-
-				// Dedupe against rows already in the DB (player may appear in both)
 				results = results
 					.GroupBy(e => e.PlayerId)
 					.Select(g => g.OrderBy(e => e.LapTime).First())
@@ -709,7 +530,6 @@ namespace maxhanna.Server.Controllers
 			}
 			catch { return Ok(new List<LeaderboardEntry>()); }
 		}
-
 		private static UpgradeDef? GetUpgradeDef(int id)
 		{
 			return id switch

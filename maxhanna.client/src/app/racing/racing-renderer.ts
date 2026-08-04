@@ -1027,6 +1027,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this.sceneryVao) { try { gl.deleteVertexArray(this.sceneryVao); } catch { } }
     if (this.sceneryVbo) { try { gl.deleteBuffer(this.sceneryVbo); } catch { } }
     if (this.sceneryIbo) { try { gl.deleteBuffer(this.sceneryIbo); } catch { } }
+    if (this._birdsVao) { try { gl.deleteVertexArray(this._birdsVao); } catch { } }
+    if (this._birdsBuf) { try { gl.deleteBuffer(this._birdsBuf); } catch { } }
+    if (this._balloonVao) { try { gl.deleteVertexArray(this._balloonVao); } catch { } }
+    if (this._balloonVbo) { try { gl.deleteBuffer(this._balloonVbo); } catch { } }
+    if (this._balloonIbo) { try { gl.deleteBuffer(this._balloonIbo); } catch { } }
     const pts = this._trackPoints;
     const verts: number[] = [];
     const idxs: number[] = [];
@@ -1055,15 +1060,47 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addForestScenery(verts, idxs);
     }
 
-    // Grandstands at key points (all themes)
-    const gsPositions = [0, Math.floor(pts.length / 4), Math.floor(pts.length / 2), Math.floor(pts.length * 3 / 4)];
+    // Grandstands at key points (all themes) — every 1/8 of the lap now, so
+    // there's always a packed stand roaring somewhere on the circuit. The
+    // start/finish and mid-lap stands are the big showpiece ones.
+    const gsPositions = [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875].map(f => Math.floor(f * pts.length));
     for (const gi of gsPositions) {
       const p = pts[gi];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
       const gx = p.x + ppx * (p.width / 2 + 8);
       const gz = p.z + ppz * (p.width / 2 + 8);
-      this.addGrandstand(verts, idxs, gx, gz, p.dirX, p.dirZ, 4, 3);
+      const wide = gi === 0 || gi === Math.floor(pts.length / 2);
+      this.addGrandstand(verts, idxs, gx, gz, p.dirX, p.dirZ, wide ? 5 : 3.5, 3);
+    }
+
+    // ── Crowds lining the fences ──
+    // Packed rows of standing spectators right next to the barriers on both
+    // sides, every ~16 segments, so cheering people line the whole lap — not
+    // just the grandstands. Each spectator is a torso box + a little head box.
+    const fenceCrowdColors: [number, number, number][] = [
+      [0.7, 0.15, 0.15], [0.15, 0.3, 0.7], [0.8, 0.7, 0.1],
+      [0.9, 0.9, 0.9], [0.15, 0.5, 0.2], [0.6, 0.2, 0.6],
+      [0.1, 0.65, 0.65], [0.95, 0.5, 0.15],
+    ];
+    for (let i = 0; i < pts.length; i += 16) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = (i / 16) % 2 === 0 ? -1 : 1;
+      const baseX = p.x + ppx * (p.width / 2 + 1.3) * side;
+      const baseZ = p.z + ppz * (p.width / 2 + 1.3) * side;
+      const n = 2 + Math.floor(Math.random() * 2); // 2-3 spectators per cluster
+      for (let s = 0; s < n; s++) {
+        const c = fenceCrowdColors[Math.floor(Math.random() * fenceCrowdColors.length)];
+        const off = (s - n / 2) * 0.85;
+        const sx = baseX + ppx * off;
+        const sz = baseZ + ppz * off;
+        // Torso
+        this.addBox(verts, idxs, sx, 0.95, sz, 0.34, 0.95, 0.34, c);
+        // Head
+        this.addBox(verts, idxs, sx, 1.48, sz, 0.17, 0.17, 0.17, [0.13, 0.11, 0.1]);
+      }
     }
 
     // Light poles every 20 segments (all themes)
@@ -1155,6 +1192,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.enableVertexAttribArray(3);
     gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
+
+    // Animated sky objects (birds + balloons) get rebuilt alongside the theme
+    // so their positions orbit the freshly generated circuit.
+    this.initSkyObjects();
   }
 
   // Default theme: a rich mixed forest with three tree types and undergrowth.
@@ -2805,6 +2846,174 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
   private _rainBuf!: WebGLBuffer;
 
+  // Distant birds + hot-air balloons — animated sky objects that wheel over
+  // the circuit. Birds are a dynamic per-frame buffer (flapping wings), the
+  // balloons are one shared mesh drawn per balloon via model-matrix translate.
+  private _birdsVao!: WebGLVertexArrayObject;
+  private _birdsBuf!: WebGLBuffer;
+  private _birds: { phase: number; speed: number; radius: number; alt: number; ang: number; dir: number }[] = [];
+  private _balloonVao!: WebGLVertexArrayObject;
+  private _balloonVbo!: WebGLBuffer;
+  private _balloonIbo!: WebGLBuffer;
+  private _balloonCount = 0;
+  private _balloons: { ang: number; radius: number; alt: number; phase: number; color: [number, number, number] }[] = [];
+  private _trackCenterX = 0;
+  private _trackCenterZ = 0;
+
+  // Builds the animated sky-object geometry (bird flock params, balloon mesh)
+  // once per circuit, centered on the track centroid so they orbit the race.
+  private initSkyObjects() {
+    const gl = this.gl;
+    const pts = this._trackPoints;
+    let cx = 0, cz = 0;
+    if (pts.length) {
+      for (const p of pts) { cx += p.x; cz += p.z; }
+      cx /= pts.length; cz /= pts.length;
+    }
+    this._trackCenterX = cx;
+    this._trackCenterZ = cz;
+
+    // Birds — a couple of flocks wheeling high above the circuit.
+    this._birds = [];
+    for (let i = 0; i < 18; i++) {
+      this._birds.push({
+        phase: Math.random() * Math.PI * 2,
+        speed: 0.05 + Math.random() * 0.09,
+        radius: 160 + Math.random() * 130,
+        alt: 34 + Math.random() * 30,
+        ang: Math.random() * Math.PI * 2,
+        dir: Math.random() < 0.5 ? 1 : -1,
+      });
+    }
+
+    // Hot-air balloons — a handful of colourful ones drifting nearby.
+    this._balloons = [];
+    const balloonColors: [number, number, number][] = [
+      [0.9, 0.25, 0.2], [0.2, 0.55, 0.9], [0.95, 0.75, 0.15],
+      [0.35, 0.8, 0.35], [0.85, 0.4, 0.7],
+    ];
+    for (let i = 0; i < 4; i++) {
+      this._balloons.push({
+        ang: Math.random() * Math.PI * 2,
+        radius: 190 + Math.random() * 120,
+        alt: 26 + Math.random() * 14,
+        phase: Math.random() * Math.PI * 2,
+        color: balloonColors[i % balloonColors.length],
+      });
+    }
+
+    // Balloon mesh — one white envelope sphere + a basket, tinted per balloon
+    // via the color uniform (colorLoc multiplies the baked per-vertex color).
+    const bverts: number[] = [];
+    const bidxs: number[] = [];
+    this.addSphere(bverts, bidxs, 0, 0, 0, 1, 10, [1, 1, 1]);
+    this.addBox(bverts, bidxs, 0, -1.7, 0, 0.7, 0.55, 0.7, [0.45, 0.3, 0.18]);
+    const bv = new Float32Array(bverts);
+    const bi = new Uint16Array(bidxs);
+    this._balloonCount = bi.length;
+    this._balloonVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this._balloonVao);
+    this._balloonVbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._balloonVbo);
+    gl.bufferData(gl.ARRAY_BUFFER, bv, gl.STATIC_DRAW);
+    this._balloonIbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this._balloonIbo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, bi, gl.STATIC_DRAW);
+    const stride = 11 * 4;
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+
+    // Birds — dynamic buffer, 18 birds × 2 wing triangles × 3 verts × 11 floats.
+    this._birdsVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this._birdsVao);
+    this._birdsBuf = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._birdsBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this._birds.length * 6 * 11), gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+  }
+
+  // Animated birds + balloons, drawn after the static scenery in the world pass
+  // (so they also show up in the rear-view mirror). Runs with the main program
+  // already bound and proj/view set; only per-object model matrices change.
+  private drawSkyObjects(dt: number) {
+    const gl = this.gl;
+    const t = this.elapsed;
+    const cx = this._trackCenterX, cz = this._trackCenterZ;
+
+    // Birds: flocks wheel around the circuit with flapping wings.
+    if (this._birds.length && this._birdsBuf && this._birdsVao) {
+      const data: number[] = [];
+      for (const b of this._birds) {
+        b.ang += b.dir * b.speed * dt;
+        const bx = cx + Math.cos(b.ang) * b.radius;
+        const bz = cz + Math.sin(b.ang) * b.radius;
+        const by = b.alt + Math.sin(t * 0.7 + b.phase) * 2.5;
+        const flap = Math.sin(t * 9 + b.phase) * 0.22;
+        // Flight direction + perpendicular for wing spread
+        const dx = Math.cos(b.ang + Math.PI / 2) * b.dir;
+        const dz = Math.sin(b.ang + Math.PI / 2) * b.dir;
+        const px = -dz, pz = dx;
+        const shade = 0.08 + (b.phase % 1) * 0.05;
+        const bodyF = 0.16;
+        const wing = 0.9;
+        const mk = (x: number, y: number, z: number) => {
+          data.push(x, y, z, 0, 1, 0, 0, 0, shade, shade, shade + 0.01);
+        };
+        // Left wing triangle (body → tip, wingtip dips opposite the flap)
+        mk(bx - dx * bodyF, by + flap, bz - dz * bodyF);
+        mk(bx, by, bz);
+        mk(bx + px * wing, by - flap * 0.6, bz + pz * wing);
+        // Right wing triangle
+        mk(bx + dx * bodyF, by + flap, bz + dz * bodyF);
+        mk(bx, by, bz);
+        mk(bx - px * wing, by - flap * 0.6, bz - pz * wing);
+      }
+      gl.bindBuffer(gl.ARRAY_BUFFER, this._birdsBuf);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
+      gl.bindVertexArray(this._birdsVao);
+      gl.uniform1i(this.hasTexLoc, 0);
+      gl.uniform3f(this.colorLoc, 1, 1, 1);
+      this.mat4Identity(this.modelMatrix);
+      gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+      this.setNormalMatrix(this.modelMatrix);
+      gl.drawArrays(gl.TRIANGLES, 0, this._birds.length * 6);
+      gl.bindVertexArray(null);
+    }
+
+    // Balloons: slow orbit + gentle vertical bob.
+    if (this._balloons.length && this._balloonVao && this._balloonCount) {
+      for (const bal of this._balloons) {
+        bal.ang += 0.012 * dt;
+        const bx = cx + Math.cos(bal.ang) * bal.radius;
+        const bz = cz + Math.sin(bal.ang) * bal.radius;
+        const by = bal.alt + Math.sin(t * 0.5 + bal.phase) * 1.8;
+        this.mat4Translate(this.modelMatrix, [bx, by, bz]);
+        gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+        this.setNormalMatrix(this.modelMatrix);
+        gl.uniform1i(this.hasTexLoc, 0);
+        gl.uniform3f(this.colorLoc, bal.color[0], bal.color[1], bal.color[2]);
+        gl.bindVertexArray(this._balloonVao);
+        gl.drawElements(gl.TRIANGLES, this._balloonCount, gl.UNSIGNED_SHORT, 0);
+        gl.bindVertexArray(null);
+      }
+    }
+  }
+
   render(eyeX: number, eyeY: number, eyeZ: number, yaw: number, pitch: number, aspect: number,
     cars: { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number }[], dt: number,
     fovZoom: number = 1.0, shakeX: number = 0, shakeY: number = 0, isRaining: boolean = false, speedRatio: number = 0) {
@@ -2979,6 +3188,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.setNormalMatrix(this.modelMatrix);
     gl.drawElements(gl.TRIANGLES, this.sceneryCount, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(null);
+
+    // Distant birds + hot-air balloons wheeling over the circuit
+    this.drawSkyObjects(dt);
 
     // Cars
     for (const car of cars) {
