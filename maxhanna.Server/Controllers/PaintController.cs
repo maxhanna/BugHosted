@@ -36,7 +36,7 @@ public class PaintController : ControllerBase
     {
       var match = Regex.Match(request.ImageData, @"^data:image\/(png|jpeg|webp);base64,(.+)$");
       if (!match.Success) return BadRequest("Invalid image data format.");
-      var ext = match.Groups[1].Value == "png" ? "png" : match.Groups[1].Value == "webp" ? "webp" : "jpeg";
+      var ext = match.Groups[1].Value == "png" ? "png" : match.Groups[1].Value == "webp" ? "webp" : "jpg";
       var base64Data = match.Groups[2].Value;
       var bytes = Convert.FromBase64String(base64Data);
 
@@ -101,13 +101,60 @@ public class PaintController : ControllerBase
         await _log.Db($"Paint: failed to ensure user folder row: {ex.Message}", request.UserId, "PAINT", true);
       }
 
-      var fileName = $"paint_{request.UserId}_{DateTime.UtcNow:yyyyMMddHHmmss}_{Guid.NewGuid():N}.{ext}";
-      if (!string.IsNullOrWhiteSpace(request.FileName))
+      // Re-save: reuse the existing row/file so we update in place instead of
+      // inserting a duplicate row (which trips the file_name unique key).
+      string? existingFileName = null;
+      string? existingFolderPath = null;
+      string? existingGivenName = null;
+      if (request.FileId.HasValue && request.FileId.Value > 0)
       {
-        var safeName = Regex.Replace(request.FileName, @"[^\w\-_\. ]", "");
-        if (!string.IsNullOrWhiteSpace(safeName)) fileName = $"{safeName}_{Guid.NewGuid():N}.{ext}";
+        using (var infoConn = new MySqlConnection(connStr))
+        {
+          await infoConn.OpenAsync();
+          var infoCmd = new MySqlCommand("SELECT file_name, folder_path, given_file_name FROM maxhanna.file_uploads WHERE id = @fid AND user_id = @uid;", infoConn);
+          infoCmd.Parameters.AddWithValue("@fid", request.FileId.Value);
+          infoCmd.Parameters.AddWithValue("@uid", request.UserId);
+          using var infoReader = await infoCmd.ExecuteReaderAsync();
+          if (await infoReader.ReadAsync())
+          {
+            existingFileName = infoReader.IsDBNull(0) ? null : infoReader.GetString(0);
+            existingFolderPath = infoReader.IsDBNull(1) ? null : infoReader.GetString(1);
+            existingGivenName = infoReader.IsDBNull(2) ? null : infoReader.GetString(2);
+          }
+        }
+        // Stale/foreign fileId: don't silently succeed or orphan a written file.
+        if (string.IsNullOrEmpty(existingFileName)) return NotFound("Painting not found.");
       }
-      var filePath = Path.Combine(uploadDir, fileName).Replace("\\", "/");
+
+      string fileName;
+      string writeDir = uploadDir;
+      if (string.IsNullOrEmpty(existingFileName))
+      {
+        // Fresh save.
+        fileName = $"paint_{request.UserId}_{DateTime.UtcNow:yyyyMMddHHmmss}_{Guid.NewGuid():N}.{ext}";
+        if (!string.IsNullOrWhiteSpace(request.FileName))
+        {
+          var safeName = Regex.Replace(request.FileName, @"[^\w\-_\. ]", "");
+          if (!string.IsNullOrWhiteSpace(safeName)) fileName = $"{safeName}_{Guid.NewGuid():N}.{ext}";
+        }
+      }
+      else
+      {
+        // Re-save: same name as the stored file -> overwrite in place. Changed
+        // name -> write a fresh file (rename) and drop the old one afterwards.
+        writeDir = existingFolderPath ?? uploadDir;
+        var safeName = string.IsNullOrWhiteSpace(request.FileName)
+          ? existingFileName
+          : Regex.Replace(request.FileName, @"[^\w\-_\. ]", "");
+        fileName = string.IsNullOrWhiteSpace(safeName)
+          ? existingFileName
+          : $"{safeName}_{Guid.NewGuid():N}.{ext}";
+        if (string.Equals(fileName, existingFileName, StringComparison.OrdinalIgnoreCase))
+          fileName = existingFileName;
+      }
+
+      if (!writeDir.EndsWith("/")) writeDir += "/";
+      var filePath = Path.Combine(writeDir, fileName).Replace("\\", "/");
 
       await System.IO.File.WriteAllBytesAsync(filePath, bytes);
 
@@ -121,30 +168,25 @@ public class PaintController : ControllerBase
         var givenFileName = !string.IsNullOrWhiteSpace(request.FileName)
           ? request.FileName
           : fileName;
+        // Keep the original display name when re-saving with the same name so it
+        // isn't clobbered by the generated (GUID-suffixed) file name.
+        if (!string.IsNullOrEmpty(existingGivenName) &&
+            string.Equals(fileName, existingFileName, StringComparison.OrdinalIgnoreCase))
+        {
+          givenFileName = existingGivenName;
+        }
 
         var vis = request.Visibility ?? "Public";
-        var cmd = new MySqlCommand(@"
-          INSERT INTO maxhanna.file_uploads (user_id, file_name, given_file_name, upload_date, folder_path, is_public, is_folder, file_size, width, height, last_updated, last_updated_by_user_id)
-          VALUES (@uid, @fn, @gfn, UTC_TIMESTAMP(), @fp, @pub, 0, @fs, @w, @h, UTC_TIMESTAMP(), @uid);
-          SELECT LAST_INSERT_ID();", conn);
-
-        cmd.Parameters.AddWithValue("@uid", request.UserId);
-        cmd.Parameters.AddWithValue("@fn", fileName);
-        cmd.Parameters.AddWithValue("@gfn", givenFileName);
-        cmd.Parameters.AddWithValue("@fp", uploadDir);
-        cmd.Parameters.AddWithValue("@pub", vis == "Public" ? 1 : 0);
-        cmd.Parameters.AddWithValue("@fs", (int)fileSize); 
-        cmd.Parameters.AddWithValue("@w", request.Width ?? 0);
-        cmd.Parameters.AddWithValue("@h", request.Height ?? 0);
-
-        var result = await cmd.ExecuteScalarAsync();
-        fileId = Convert.ToInt32(result ?? 0);
 
         if (request.FileId.HasValue && request.FileId.Value > 0)
         {
-          var upd = new MySqlCommand(@"UPDATE maxhanna.file_uploads SET file_name = @fn, given_file_name = @gfn, file_size = @fs, width = @w, height = @h, last_updated = UTC_TIMESTAMP(), last_updated_by_user_id = @uid WHERE id = @fid;", conn);
+          // Update the existing row in place - never insert a second row for the
+          // same painting (file_name is unique; insert+update = duplicate key).
+          var upd = new MySqlCommand(@"UPDATE maxhanna.file_uploads SET file_name = @fn, given_file_name = @gfn, folder_path = @fp, is_public = @pub, file_size = @fs, width = @w, height = @h, last_updated = UTC_TIMESTAMP(), last_updated_by_user_id = @uid WHERE id = @fid AND user_id = @uid;", conn);
           upd.Parameters.AddWithValue("@fn", fileName);
           upd.Parameters.AddWithValue("@gfn", givenFileName);
+          upd.Parameters.AddWithValue("@fp", writeDir);
+          upd.Parameters.AddWithValue("@pub", vis == "Public" ? 1 : 0);
           upd.Parameters.AddWithValue("@fs", (int)fileSize);
           upd.Parameters.AddWithValue("@w", request.Width ?? 0);
           upd.Parameters.AddWithValue("@h", request.Height ?? 0);
@@ -152,6 +194,39 @@ public class PaintController : ControllerBase
           upd.Parameters.AddWithValue("@fid", request.FileId.Value);
           await upd.ExecuteNonQueryAsync();
           fileId = request.FileId.Value;
+
+          // Renamed? Remove the superseded file from disk.
+          if (!string.IsNullOrEmpty(existingFileName) &&
+              !string.Equals(existingFileName, fileName, StringComparison.OrdinalIgnoreCase) &&
+              !string.IsNullOrEmpty(existingFolderPath))
+          {
+            try
+            {
+              var oldPath = Path.Combine(existingFolderPath, existingFileName).Replace("\\", "/");
+              if (System.IO.File.Exists(oldPath) && !string.Equals(oldPath, filePath, StringComparison.OrdinalIgnoreCase))
+                System.IO.File.Delete(oldPath);
+            }
+            catch { }
+          }
+        }
+        else
+        {
+          var cmd = new MySqlCommand(@"
+          INSERT INTO maxhanna.file_uploads (user_id, file_name, given_file_name, upload_date, folder_path, is_public, is_folder, file_size, width, height, last_updated, last_updated_by_user_id)
+          VALUES (@uid, @fn, @gfn, UTC_TIMESTAMP(), @fp, @pub, 0, @fs, @w, @h, UTC_TIMESTAMP(), @uid);
+          SELECT LAST_INSERT_ID();", conn);
+
+          cmd.Parameters.AddWithValue("@uid", request.UserId);
+          cmd.Parameters.AddWithValue("@fn", fileName);
+          cmd.Parameters.AddWithValue("@gfn", givenFileName);
+          cmd.Parameters.AddWithValue("@fp", writeDir);
+          cmd.Parameters.AddWithValue("@pub", vis == "Public" ? 1 : 0);
+          cmd.Parameters.AddWithValue("@fs", (int)fileSize);
+          cmd.Parameters.AddWithValue("@w", request.Width ?? 0);
+          cmd.Parameters.AddWithValue("@h", request.Height ?? 0);
+
+          var result = await cmd.ExecuteScalarAsync();
+          fileId = Convert.ToInt32(result ?? 0);
         }
       }
 
@@ -161,7 +236,7 @@ public class PaintController : ControllerBase
       {
         FileId = fileId,
         FileName = fileName,
-        FilePath = uploadDir + fileName,
+        FilePath = writeDir + fileName,
         FileSize = (int)fileSize
       });
     }
@@ -200,8 +275,11 @@ public class PaintController : ControllerBase
 
       var imageData = await System.IO.File.ReadAllBytesAsync(fullPath);
       var ext = Path.GetExtension(fullPath).TrimStart('.').ToLower();
+      // Normalize "jpg" to the canonical "jpeg" mime type in the data URI so
+      // browsers decode the image reliably regardless of the file extension.
+      var mime = ext == "jpg" ? "jpeg" : ext;
       var base64 = Convert.ToBase64String(imageData);
-      var dataUri = $"data:image/{ext};base64,{base64}";
+      var dataUri = $"data:image/{mime};base64,{base64}";
 
       return Ok(new PaintLoadResponse { FileId = request.FileId, ImageData = dataUri });
     }

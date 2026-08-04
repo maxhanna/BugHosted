@@ -1,0 +1,76 @@
+<div class="conversion-shell">
+  <header class="conversion-hero">
+    <div>
+      <p class="eyebrow">Conversion Studio</p>
+      <h2>Convert files, build fonts, ask the AI</h2>
+      <p class="hero-copy">
+        Pick a file from your machine, convert it to another format, turn pixel-art letters
+        into a TrueType font, or have the vision model describe and critique it.
+      </p>
+    </div>
+  </header>
+
+  <section class="conversion-panel">
+    <h3>1. Choose a file</h3>
+    <input #fileInput type="file" (change)="onFileSelected($event)" />
+    <div class="file-info" *ngIf="selectedFile">
+      <img *ngIf="localPreviewUrl" [src]="localPreviewUrl" class="file-preview" alt="Preview" />
+      <div class="file-meta">
+        <strong>{{ selectedFile.name }}</strong>
+        <span>{{ selectedFile.size | fileSize }}</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="conversion-panel">
+    <h3>2. Convert format</h3>
+    <p class="help-text">Images convert via ImageSharp; audio/video convert through FFmpeg. The result is saved to your files (Converted folder).</p>
+    <div class="row">
+      <select [(ngModel)]="targetFormat">
+        <option *ngFor="let f of targetFormats" [value]="f">{{ f }}</option>
+      </select>
+      <button (click)="convert()" [disabled]="isConverting || !selectedFile">
+        {{ isConverting ? 'Converting…' : 'Convert' }}
+      </button>
+    </div>
+    <div *ngIf="conversionResult" class="result-box">
+      <span class="result-file">{{ conversionResult.fileName }}</span>
+      <button class="link" (click)="downloadConverted(conversionResult.fileId, conversionResult.fileName)">Download</button>
+    </div>
+  </section>
+
+  <section class="conversion-panel" *ngIf="isImageSelected()">
+    <h3>3. Build a font from this image</h3>
+    <p class="help-text">
+      Upload pixel art of one or more letters (separate glyphs by a gap). Leave the mapping blank to let the
+      vision model identify the characters, or type them below in reading order.
+    </p>
+    <div class="row">
+      <input [(ngModel)]="fontText" placeholder="Optional: AB C …" />
+      <button (click)="makeFont()" [disabled]="isMakingFont">
+        {{ isMakingFont ? 'Tracing…' : 'Create .ttf' }}
+      </button>
+    </div>
+    <div *ngIf="fontResult" class="result-box">
+      <div class="font-preview-box">
+        <span class="font-preview" [style.font-family]="fontFamilyName + ', sans-serif'">{{ fontSampleText }}</span>
+      </div>
+      <div class="row">
+        <input [(ngModel)]="fontSampleText" placeholder="Sample text to preview…" />
+        <button class="link" (click)="downloadConverted(fontResult.fileId, fontResult.fileName)">Download .ttf</button>
+      </div>
+      <p class="help-text">Characters: {{ fontResult.characters }}</p>
+    </div>
+  </section>
+
+  <section class="conversion-panel">
+    <h3>3. Ask the vision model</h3>
+    <div class="row">
+      <input [(ngModel)]="visionPrompt" placeholder="Optional prompt: describe / critique this image…" />
+      <button (click)="runVision()" [disabled]="isRunningVision || !selectedFile">
+        {{ isRunningVision ? 'Thinking…' : 'Analyze' }}
+      </button>
+    </div>
+    <div *ngIf="visionReport" class="result-box vision-report">{{ visionReport }}</div>
+  </section>
+</div>

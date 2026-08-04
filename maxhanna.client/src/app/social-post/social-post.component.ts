@@ -33,6 +33,8 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
   openedStoryYoutubeVideos: number[] = [];
   isStoryOptionsPanelOpen = false;
   isStoryVisibilityPanelOpen = false;
+  isMetadataDetailPanelOpen = false;
+  metadataDetail?: MetaData;
   isFollowingStory: { [key: number]: boolean } = {};
   isEditing: number[] = [];
   editingTopics: number[] = [];
@@ -351,6 +353,57 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
     this.visibilityStory = undefined;
     const parent = this.inputtedParentRef ?? this.parentRef;
     parent?.closeOverlay();
+  }
+
+  showMetadataDetail(metadata: MetaData, event?: Event) {
+    event?.stopPropagation();
+    event?.preventDefault();
+    this.metadataDetail = metadata;
+    this.isMetadataDetailPanelOpen = true;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.showOverlay();
+  }
+
+  closeMetadataDetail() {
+    this.isMetadataDetailPanelOpen = false;
+    this.metadataDetail = undefined;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    parent?.closeOverlay();
+  }
+
+  getMetadataDomain(url?: string): string {
+    if (!url) return '';
+    try {
+      return new URL(url).hostname.replace(/^www\./, '');
+    } catch {
+      return url.split('/')[0] ?? '';
+    }
+  }
+
+  /** Build a display list of every populated field on the metadata object for the details popup. */
+  getMetadataDetailRows(metadata?: MetaData): { label: string; value: string; href?: string }[] {
+    const rows: { label: string; value: string; href?: string }[] = [];
+    if (!metadata) return rows;
+    const push = (label: string, value: any, href?: string) => {
+      if (value === undefined || value === null || value === '') return;
+      rows.push({ label, value: String(value), href });
+    };
+    if (metadata.id !== undefined) push('Metadata ID', metadata.id);
+    push('URL', metadata.url, metadata.url);
+    push('Title', metadata.title);
+    push('Description', metadata.description);
+    push('Author', metadata.author);
+    push('Keywords', metadata.keywords);
+    push('Image URL', metadata.imageUrl, metadata.imageUrl);
+    push('HTTP Status', metadata.httpStatus);
+    push('Favourite Count', metadata.favouriteCount);
+    push('Your Favourite', metadata.isUserFavourite !== undefined ? (metadata.isUserFavourite ? 'Yes' : 'No') : undefined);
+    push('Average Rating', metadata.averageRating !== undefined ? `${metadata.averageRating} / 5` : undefined);
+    push('Rating Count', metadata.ratingCount);
+    if (metadata.ratings && metadata.ratings.length > 0) {
+      push('Ratings', `${metadata.ratings.length} rating${metadata.ratings.length > 1 ? 's' : ''} total`);
+    }
+    return rows;
   }
 
   async removeTopicsFromStory(topicsToRemove: Topic[], story: Story) {

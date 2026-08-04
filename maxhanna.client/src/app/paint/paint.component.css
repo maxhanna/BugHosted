@@ -240,6 +240,16 @@
   font-size: 14px;
 }
 
+.fileTypeSelect {
+  width: 100%;
+  background: var(--input-bg, #3a3a3a);
+  color: var(--text-color, #e0e0e0);
+  border: 1px solid var(--border-color, #555);
+  border-radius: 3px;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
 .textDialog {
   position: fixed;
   top: 0;

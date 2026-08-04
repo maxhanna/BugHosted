@@ -46,11 +46,11 @@
         {{ isSearchingPublicChats ? 'Searching...' : '🔎 Search' }}
       </button>
       <div *ngIf="publicChatResults.length > 0" style="margin-top:8px;">
-        <div *ngFor="let chat of publicChatResults" style="margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
-          <span>🌐 {{ chat.name }} <span class="smallFont">({{ chat.memberCount }} members)</span></span>
-          <span style="white-space: nowrap;">
-            <button (click)="joinPublicChat(chat.chatId)" [disabled]="isJoiningPublicChat" style="margin-left:8px;">Join</button>
-            <button (click)="openSocialBoardFor(chat.chatId, chat.name)" style="margin-left:6px;" title="Open this group's social board">📋 Board</button>
+        <div *ngFor="let chat of publicChatResults" class="publicChatResultRow">
+          <span class="publicChatResultName">🌐 {{ chat.name }} <span class="smallFont">({{ chat.memberCount }} members)</span></span>
+          <span class="publicChatResultActions">
+            <button (click)="joinPublicChat(chat.chatId)" [disabled]="isJoiningPublicChat">Join</button>
+            <button (click)="openSocialBoardFor(chat.chatId, chat.name)" title="Open this group's social board">📋 Board</button>
           </span>
         </div>
       </div>
@@ -60,15 +60,7 @@
     </div>
   </div>
   <div class="chatArea" [class]="isPanelExpanded ? 'expanded' : ''">
-    <div *ngIf="currentChatUsers" class="chatConversation">
-      <div class="makePublicBar" *ngIf="currentChatId && !currentChatIsPublic && !isBannedFromChat">
-        <span class="makePublicBarIcon">🌐</span>
-        <input [(ngModel)]="newChatName" placeholder="Name this room to make it public..." class="makePublicNameInput" (keyup.enter)="makeChatPublic()">
-        <button (click)="makeChatPublic()" [disabled]="isMakingChatPublic || !newChatName.trim()" class="coloredBgButton">
-          {{ isMakingChatPublic ? 'Making public...' : '🌐 Make Public' }}
-        </button>
-        <span class="makePublicBarHint">Lets anyone search &amp; join it, and promotes existing members to chat moderators.</span>
-      </div>
+    <div *ngIf="currentChatUsers" class="chatConversation"> 
       <div class="makePublicBar makePublicBar--isPublic" *ngIf="currentChatId && currentChatIsPublic && !isBannedFromChat">
         <span class="makePublicBarIcon">🌐</span>
         <span class="makePublicBarName">{{ currentChatRoomName }}</span>

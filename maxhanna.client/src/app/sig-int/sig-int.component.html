@@ -16,5 +16,8 @@
     <button id="centerLocationBtn" (click)="globeComponent.centerCurrentLocation(); closeMenuPanel()" class="menu-button">
     Center Current Location
     </button>
+    <button id="preciseLocationBtn" (click)="getPreciseLocation()" class="menu-button" title="Uses your browser's GPS to find your exact position">
+    📍 Get Precise Location
+    </button>
     <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
     </div>

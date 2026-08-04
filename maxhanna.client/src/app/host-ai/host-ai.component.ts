@@ -31,6 +31,13 @@ export class HostAiComponent extends ChildComponent implements OnInit, AfterView
   capturedImage: string | null = null;
   medicalChatHistory: { role: string; content: any }[] = [];
 
+  // Streaming state for the general assistant: while a reply is being
+  // streamed we show a live status (thinking… → streaming…) and a Cancel
+  // button that aborts the fetch so long answers can be interrupted.
+  isStreaming = false;
+  hasReceivedToken = false;
+  private streamAbortController: AbortController | null = null;
+
   get canSend(): boolean {
     if (this.aiMode === 'medical') {
       return !!this.userMessage.trim() || !!this.capturedImage;
@@ -172,6 +179,9 @@ export class HostAiComponent extends ChildComponent implements OnInit, AfterView
     if (this.speechRecognitionComponent) {
       this.speechRecognitionComponent.stopListening();
     }
+    // Tear down any in-flight stream so a closed component can't leak.
+    this.streamAbortController?.abort();
+    this.streamAbortController = null;
     setTimeout(() => {
       this.stopTalking();
     }, 50);
@@ -185,6 +195,11 @@ export class HostAiComponent extends ChildComponent implements OnInit, AfterView
       this.sendMedicalMessage();
       return;
     }
+
+    // Don't start a second request while one is streaming — otherwise the
+    // new AbortController would orphan the in-flight stream (and its Cancel
+    // button would no longer be able to stop it).
+    if (this.isStreaming) return;
 
     const user = this.parentRef.user ?? new User(0);
 
@@ -207,6 +222,9 @@ export class HostAiComponent extends ChildComponent implements OnInit, AfterView
     this.startLoading();
     const userText = this.userMessage;
     this.pushMessage({ sender: 'You', message: userText.replace('\n', "<br>") });
+    this.isStreaming = true;
+    this.hasReceivedToken = false;
+    this.streamAbortController = new AbortController();
     this.parentRef.getSessionToken().then(async sessionToken => {
       const prompt = userText + this.engineeredText + JSON.stringify(this.savedMessageHistory) + ")";
       // Live assistant bubble — tokens stream into it as they arrive.
@@ -215,12 +233,14 @@ export class HostAiComponent extends ChildComponent implements OnInit, AfterView
       let acc = '';
       let lastRender = 0;
       const renderThrottle = 40; // ms between DOM updates while streaming
+      const controller = this.streamAbortController;
 
       try {
         const fullReply = await this.aiService.sendMessageStream(
           user.id ?? 0, false, prompt, sessionToken,
           (token) => {
             acc += token;
+            this.hasReceivedToken = true;
             const now = Date.now();
             if (now - lastRender >= renderThrottle) {
               lastRender = now;
@@ -230,7 +250,8 @@ export class HostAiComponent extends ChildComponent implements OnInit, AfterView
               if (tgt) tgt.scrollTop = tgt.scrollHeight;
             }
           },
-          this.responseLength, this.selectedFile?.id
+          this.responseLength, this.selectedFile?.id,
+          controller?.signal
         );
 
         if (fullReply) {
@@ -239,6 +260,12 @@ export class HostAiComponent extends ChildComponent implements OnInit, AfterView
         } else if (acc) {
           // Stream ended early (abort/disconnect) — keep what we already got.
           liveMsg.message = this.aiService.parseMessage(acc);
+          if (controller?.signal.aborted) {
+            liveMsg.message += ' <span class="ai-stopped-note">(stopped)</span>';
+          }
+        } else if (controller?.signal.aborted) {
+          // User cancelled before any tokens arrived.
+          liveMsg.message = '<span class="ai-stopped-note">Response cancelled.</span>';
         } else {
           liveMsg.message = 'No response from the AI.';
         }
@@ -249,6 +276,8 @@ export class HostAiComponent extends ChildComponent implements OnInit, AfterView
         this.userMessage = '';
         this.selectedFile = undefined;
         this.fileSelector?.removeAllFiles();
+        this.isStreaming = false;
+        this.streamAbortController = null;
         this.stopLoading();
       } catch (error: any) {
         console.error(error);
@@ -271,13 +300,24 @@ export class HostAiComponent extends ChildComponent implements OnInit, AfterView
         this.userMessage = '';
         this.selectedFile = undefined;
         this.fileSelector?.removeAllFiles();
+        this.isStreaming = false;
+        this.streamAbortController = null;
         this.stopLoading();
       }
     }).catch(() => {
       console.error('Failed to get session token');
+      this.isStreaming = false;
+      this.streamAbortController = null;
       this.stopLoading();
       this.pushMessage({ sender: 'System', message: 'Failed to reach the AI.' });
     });
+  }
+
+  /** Interrupt the in-flight stream (used by the Cancel button). */
+  cancelStream() {
+    this.streamAbortController?.abort();
+    // Keep isStreaming true so the status bar stays visible until the fetch
+    // unwinds and the live bubble gets its final (stopped) state.
   }
 
   speechRecognitionEvent(transcript: string | undefined) {

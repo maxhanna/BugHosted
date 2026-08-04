@@ -121,6 +121,7 @@ import { CrawlerSearchResultsComponent } from './crawler-search-results/crawler-
 import { ModeratorComponent } from './moderator/moderator.component';
 import { PaintComponent } from './paint/paint.component';
 import { RacingComponent } from './racing/racing.component';
+import { ConversionComponent } from './conversion/conversion.component';
 
 @NgModule({
   declarations: [
@@ -225,6 +226,7 @@ import { RacingComponent } from './racing/racing.component';
     ModeratorComponent,
     PaintComponent,
     RacingComponent,
+    ConversionComponent,
   ],
   bootstrap: [AppComponent],
   imports: [

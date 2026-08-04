@@ -155,12 +155,66 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     this.favouritedByList = [];
   }
 
+  // Domain/protocol queries (e.g. "example.com", "https://x") are direct URL
+  // lookups — AI answers don't apply, so the AI button is disabled and any open
+  // AI panel is dropped for them.
+  private isDomainOrUrlQuery(query: string): boolean {
+    const q = (query ?? '').trim();
+    if (!q) return false;
+    if (/^https?:\/\//i.test(q)) return true;
+    if (/^(www\.)?[^\s]+\.[a-z]{2,}(\/|\?|#|$)/i.test(q)) return true;
+    try {
+      const u = new URL(q.startsWith('http') ? q : 'https://' + q);
+      return u.hostname.indexOf('.') > 0 && u.hostname !== 'localhost';
+    } catch { return false; }
+  }
+
+  get aiSearchDisabled(): boolean {
+    const q = this.keywordsInput?.nativeElement?.value?.trim() ?? '';
+    return !q || this.isDomainOrUrlQuery(q);
+  }
+
+  get aiSearchTitle(): string {
+    if (this.aiSearchDisabled) {
+      return this.keywordsInput?.nativeElement?.value?.trim()
+        ? 'AI search is not available for domains or URLs.'
+        : 'Enter a search query first.';
+    }
+    return 'Ask HostAI to answer your query';
+  }
+
+  // Remount the embedded HostAI so its preloadedMessage is re-sent with the new
+  // query. app-host-ai only auto-sends in ngAfterViewInit, so toggling the panel
+  // off→on on the next tick forces a brand-new answer for the current search.
+  private remountAiSearch(kw: string) {
+    this.aiQuery = kw;
+    this.showAiPopup = false;
+    setTimeout(() => { this.showAiPopup = true; }, 0);
+  }
+
+  // Wipe every non-AI result surface so the page shows ONLY the AI answer.
+  private clearAllResults() {
+    this.searchResults = [];
+    this.groupedResults = [];
+    this.youtubeResults = [];
+    this.redditResults = [];
+    this.xResults = [];
+    this.imdbResults = [];
+    this.socialResults = [];
+    this.error = '';
+    this.totalResults = 0;
+    this.totalPages = 0;
+    this.currentPage = 1;
+    this.lastSearch = '';
+  }
+
   openAiSearch() {
     const kw = this.keywordsInput?.nativeElement?.value?.trim();
     if (!kw) return;
-    this.aiQuery = kw;
-    // Inline (not a popup) — no overlay; the AI answer renders as part of the page.
-    this.showAiPopup = true;
+    if (this.isDomainOrUrlQuery(kw)) return;
+    // AI only: hide the web/yt/reddit/x/imdb results and show the answer alone.
+    this.clearAllResults();
+    this.remountAiSearch(kw);
   }
 
   closeAiSearch() {
@@ -182,6 +236,13 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   async searchKeywords(skipScrape?: boolean) {
     const keywords = this.keywordsInput.nativeElement.value;
     console.log("searching keywords", keywords);
+    // Keep the AI answer relevant to THIS search: refresh it for keyword
+    // queries, or drop it entirely for domain/protocol lookups.
+    if (keywords && !this.isDomainOrUrlQuery(keywords)) {
+      this.remountAiSearch(keywords.trim());
+    } else {
+      this.closeAiSearch();
+    }
     if (keywords) {
       console.log('searching youtube');
       this.isSearchingYoutube = true;

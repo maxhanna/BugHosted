@@ -236,6 +236,79 @@ ul {
   font-size: small;
 }
 
+/* Live streaming status bar — shown while the general assistant streams a
+   reply. Swaps from a pulsing "thinking…" to "streaming…" once the first
+   token lands, and always offers a Cancel button to interrupt long answers. */
+.ai-stream-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 20px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: rgba(var(--main-highlight-color-rgb, 74, 144, 217), 0.08);
+  border: 1px solid var(--main-border-color, #555);
+  font-size: 13px;
+  color: var(--secondary-font-color, #aaa);
+}
+
+.ai-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-style: italic;
+}
+
+.ai-thinking-dots {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgba(var(--main-highlight-color-rgb, 74, 144, 217), 0.3);
+  border-top-color: var(--main-highlight-color, #4a90d9);
+  animation: ai-thinking-spin 0.8s linear infinite;
+}
+
+@keyframes ai-thinking-spin {
+  to { transform: rotate(360deg); }
+}
+
+.ai-streaming {
+  color: var(--main-highlight-color, #4a90d9);
+  font-weight: 600;
+}
+
+.ai-cancel-btn {
+  margin-left: auto;
+  padding: 4px 12px;
+  border: 1px solid rgba(229, 57, 53, 0.5);
+  border-radius: 6px;
+  background: rgba(229, 57, 53, 0.12);
+  color: #e57373;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.ai-cancel-btn:hover {
+  background: rgba(229, 57, 53, 0.25);
+  color: #fff;
+  border-color: rgba(229, 57, 53, 0.8);
+}
+
+.ai-stopped-note {
+  color: #e57373;
+  font-size: 0.85em;
+  font-style: italic;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-thinking-dots {
+    animation: none;
+    border-top-color: var(--main-highlight-color, #4a90d9);
+  }
+}
+
 .chat-image {
   max-width: 100%;
   height: auto;

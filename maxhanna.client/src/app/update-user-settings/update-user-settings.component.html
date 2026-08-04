@@ -344,8 +344,16 @@
       </div>
     </div>
     <div *ngIf="showOnlySelectableMenuItems || isMenuIconsToggled" class="sectionDescriptionDiv">
+      <div class="menuSearchBox">
+        <input type="text" class="menuSearchInput" placeholder="🔍 Search apps…"
+          [(ngModel)]="menuSearchQuery" />
+        <span *ngIf="menuSearchQuery" class="menuSearchClear" (click)="menuSearchQuery = ''">✕</span>
+      </div>
+      <div class="menuSearchNoResults" *ngIf="getFilteredSelectableIcons().length === 0">
+        No apps match "{{ menuSearchQuery }}".
+      </div>
       <div class="menuIconTable menuIconTableContainer" *ngIf="selectableIcons">
-        <div *ngFor="let icon of selectableIcons" class="selectableIconMenuSection">
+        <div *ngFor="let icon of getFilteredSelectableIcons()" class="selectableIconMenuSection">
           <div
             [class]="'selectableMenuIconTitles' + (icon.title === expandedIconTitle ? ' selectableMenuIconTitlesExpanded' : '') "
             (click)="toggleIconDescription(icon.title)">

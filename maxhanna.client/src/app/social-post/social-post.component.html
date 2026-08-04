@@ -78,15 +78,26 @@
       </div>
       <div style="display:flex; flex-wrap:wrap; gap: 15px;"
         *ngIf="isStoryExpanded(story.id) && (compactness === 'no' || compactness === 'yes' || isExpanded('storyTextContainer'+story.id)) && (!hasOverflow('storyTextContainer'+story.id) || (isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id)))">
-        <div *ngFor="let metadata of story?.metadata" class="metadataContent">
-          <div *ngIf="metadata.title" class="metadataTitle">{{metadata.title}}</div>
-          <div *ngIf="metadata.description" class="metadataDescription"
-            [innerHtml]="metadata.description | clickableUrls"></div>
-          <div *ngIf="metadata.imageUrl" (click)="goToLink(story, metadata.url)"
-            class="cursorPointerUnderlined metaImgDiv">
-            <img class="metadataImage" [src]="metadata.imageUrl" />
-            <button class="playButtonInMetadataImage playButton"
-              *ngIf="isValidYoutubeImageUrl(metadata.imageUrl)"></button>
+        <div *ngFor="let metadata of story?.metadata" class="metadataContent"
+          (click)="goToLink(story, metadata.url)" title="Open link">
+          <div class="metadataCardInner">
+            <div *ngIf="metadata.imageUrl" class="cursorPointerUnderlined metaImgDiv">
+              <img class="metadataImage" [src]="metadata.imageUrl" />
+              <button class="playButtonInMetadataImage playButton"
+                *ngIf="isValidYoutubeImageUrl(metadata.imageUrl)"></button>
+            </div>
+            <div class="metadataCardBody">
+              <div *ngIf="metadata.title" class="metadataTitle">{{metadata.title}}</div>
+              <div *ngIf="metadata.description" class="metadataDescription"
+                [innerHtml]="metadata.description | clickableUrls"></div>
+              <div class="metadataCardFooter">
+                <span class="metadataDomain" [title]="metadata.url">
+                  {{ getMetadataDomain(metadata.url) || metadata.url }}
+                </span>
+                <button type="button" class="metadataDetailsButton" (click)="showMetadataDetail(metadata, $event)"
+                  title="View full link metadata">ⓘ Details</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -247,6 +258,32 @@
   </div>
 
   <button id="closeOverlay" (click)="closeStoryOptionsPanel()" class="closeButton"
+    style="margin-top: 8px;">Close</button>
+</div>
+
+<!-- Link Metadata Details Popup -->
+<div class="popupPanel metadataDetailPopup" *ngIf="isMetadataDetailPanelOpen && metadataDetail">
+  <div class="popupPanelTitle" style="margin-bottom: 15px;">🔗 Link Metadata</div>
+  <div class="metadataDetailBody gradientBackground">
+    <div *ngIf="metadataDetail.imageUrl" class="metadataDetailImageWrap">
+      <a [href]="metadataDetail.url || metadataDetail.imageUrl" target="_blank" rel="noopener"
+        title="Open link">
+        <img class="metadataImage" [src]="metadataDetail.imageUrl" />
+        <button type="button" class="playButtonInMetadataImage playButton"
+          *ngIf="isValidYoutubeImageUrl(metadataDetail.imageUrl)"></button>
+      </a>
+    </div>
+    <div class="metadataDetailRows">
+      <div class="metadataDetailRow" *ngFor="let row of getMetadataDetailRows(metadataDetail)">
+        <div class="metadataDetailLabel">{{ row.label }}</div>
+        <div class="metadataDetailValue">
+          <a *ngIf="row.href" [href]="row.href" target="_blank" rel="noopener" [title]="row.value">{{ row.value }}</a>
+          <span *ngIf="!row.href">{{ row.value }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <button id="closeOverlay" (click)="closeMetadataDetail()" class="closeButton"
     style="margin-top: 8px;">Close</button>
 </div>
 

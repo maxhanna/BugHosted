@@ -26,7 +26,10 @@
     <!-- ─── Menu ─── -->
     <div id="race-menu" *ngIf="gameState === 'menu'">
       <h1 class="race-title">
-        <span class="race-title-emoji" aria-hidden="true">🏎️</span>
+        <span class="race-title-emoji" aria-hidden="true">
+          <span class="race-title-flag">🏁</span>
+          <span class="race-title-car">🏎️</span>
+        </span>
         <span class="race-title-text">GRAND PRIX</span>
       </h1>
       <div class="race-subtitle">Grand Prix Championship</div>
@@ -481,18 +484,22 @@
                     <i class="fnt exhaust" [ngClass]="getExhaustStyle()"></i><i class="bak exhaust"></i>
                   </div>
 
-                  <!-- Wheels (3D coins: outer disc, inner disc, tread band) -->
+                  <!-- Wheels (3D coins: outer disc, inner disc, tread band). The
+                       .wheel-crawl wrapper spins the whole coin about its hub
+                       (origin 0,0) so the tires idle-crawl even while parked,
+                       matching the racing renderer's negative-spin-for-forward
+                       convention. -->
                   <div class="wheel3d" style="--wx:62px; --wy:135px; --wz:31px;">
-                    <i class="disc outer" [ngClass]="getRimStyle()"></i><i class="disc inner"></i><i class="band"></i>
+                    <div class="wheel-crawl"><i class="disc outer" [ngClass]="getRimStyle()"></i><i class="disc inner"></i><i class="band"></i></div>
                   </div>
                   <div class="wheel3d" style="--wx:62px; --wy:135px; --wz:-31px;">
-                    <i class="disc outer" [ngClass]="getRimStyle()"></i><i class="disc inner"></i><i class="band"></i>
+                    <div class="wheel-crawl"><i class="disc outer" [ngClass]="getRimStyle()"></i><i class="disc inner"></i><i class="band"></i></div>
                   </div>
                   <div class="wheel3d" style="--wx:238px; --wy:135px; --wz:31px;">
-                    <i class="disc outer" [ngClass]="getRimStyle()"></i><i class="disc inner"></i><i class="band"></i>
+                    <div class="wheel-crawl"><i class="disc outer" [ngClass]="getRimStyle()"></i><i class="disc inner"></i><i class="band"></i></div>
                   </div>
                   <div class="wheel3d" style="--wx:238px; --wy:135px; --wz:-31px;">
-                    <i class="disc outer" [ngClass]="getRimStyle()"></i><i class="disc inner"></i><i class="band"></i>
+                    <div class="wheel-crawl"><i class="disc outer" [ngClass]="getRimStyle()"></i><i class="disc inner"></i><i class="band"></i></div>
                   </div>
                 </div>
               </div>
@@ -522,7 +529,7 @@
             <button class="garage-tab" [class.active]="selectedTab === 'skins'"
               (click)="selectedTab = 'skins'">PAINT</button>
             <button class="garage-tab" [class.active]="selectedTab === 'records'"
-              (click)="selectedTab = 'records'">🏆 RECORDS</button>
+              (click)="openRecordsTab()">🏆 RECORDS</button>
           </div>
 
           <!-- Performance Upgrades -->
@@ -589,21 +596,68 @@
           <div class="garage-catalog-scroll" *ngIf="selectedTab === 'records'">
             <div class="garage-cat-title"><span>TRACK RECORDS</span></div>
             <div class="garage-records-hint">Your fastest lap on each circuit — records are tracked per track.</div>
+            <div class="garage-friends-toggle-row">
+              <button class="garage-friends-toggle" [class.on]="friendsMode" (click)="toggleFriendsMode()">
+                <span class="garage-friends-toggle-icon">👥</span>
+                <span class="garage-friends-toggle-label">vs friends</span>
+                <span class="garage-friends-toggle-state">{{ friendsMode ? 'ON' : 'OFF' }}</span>
+              </button>
+              <span class="garage-friends-loading" *ngIf="friendsLoading">Loading friends…</span>
+            </div>
             <div class="garage-record-card" *ngFor="let t of trackDefs"
               [class.record-best]="getTrackBestLap(t.id) > 0 && getTrackBestLap(t.id) === getOverallBestLap() && getOverallBestLap() > 0">
-              <div class="garage-record-left">
-                <span class="garage-record-flag">{{ getTrackFlag(t) }}</span>
-                <span class="garage-record-name">{{ t.name }}</span>
-                <span class="garage-record-diff" [class.easy]="t.difficulty === 'easy'"
-                  [class.medium]="t.difficulty === 'medium'" [class.hard]="t.difficulty === 'hard'">
-                  {{ t.difficulty | uppercase }}
-                </span>
+              <div class="garage-record-card-top">
+                <div class="garage-record-left">
+                  <span class="garage-record-flag">{{ getTrackFlag(t) }}</span>
+                  <span class="garage-record-name">{{ t.name }}</span>
+                  <span class="garage-record-diff" [class.easy]="t.difficulty === 'easy'"
+                    [class.medium]="t.difficulty === 'medium'" [class.hard]="t.difficulty === 'hard'">
+                    {{ t.difficulty | uppercase }}
+                  </span>
+                </div>
+                <div class="garage-record-right">
+                  <span *ngIf="getTrackBestLap(t.id) > 0" class="garage-record-time">
+                    🏆 {{ formatTime(getTrackBestLap(t.id)) }}
+                  </span>
+                  <span *ngIf="getTrackBestLap(t.id) <= 0" class="garage-record-empty">No record yet</span>
+                  <span class="garage-record-friends"
+                    *ngIf="friendsMode && getTrackFriendsBeaten(t.id) > 0"
+                    [title]="'Friends you beat on ' + t.name">
+                    ⚔️ ahead of {{ getTrackFriendsBeaten(t.id) }}
+                  </span>
+                </div>
               </div>
-              <div class="garage-record-right">
-                <span *ngIf="getTrackBestLap(t.id) > 0" class="garage-record-time">
-                  🏆 {{ formatTime(getTrackBestLap(t.id)) }}
-                </span>
-                <span *ngIf="getTrackBestLap(t.id) <= 0" class="garage-record-empty">No record yet</span>
+              <!-- Top-5 pace on this circuit — the times to beat -->
+              <div class="garage-top5" *ngIf="getTrackTopLaps(t.id).length > 0">
+                <div class="garage-top5-title">TOP 5 PACE</div>
+                <div class="garage-top5-row garage-top5-head">
+                  <span>#</span><span>Player</span><span>Lap</span><span>Gap</span>
+                </div>
+                <div class="garage-top5-row" *ngFor="let r of getTrackTopLaps(t.id); let i = index"
+                  [class.garage-top5-me]="r.playerId === (parentRef?.user?.id ?? 0)">
+                  <span>{{ i + 1 }}</span>
+                  <span class="garage-top5-name">{{ r.playerName }}{{ r.playerId === (parentRef?.user?.id ?? 0) ? ' (you)' : '' }}</span>
+                  <span>{{ formatTime(r.lapTime) }}</span>
+                  <span class="garage-top5-gap">{{ getTrackTopLapGap(r, t.id) }}</span>
+                </div>
+              </div>
+              <div class="garage-top5-empty" *ngIf="getTrackTopLaps(t.id).length === 0">
+                No laps on record yet — be the first to set pace!
+              </div>
+              <!-- Friends' per-track bests vs yours (toggle in the header) -->
+              <div class="garage-friends" *ngIf="friendsMode">
+                <div class="garage-top5-title">VS FRIENDS</div>
+                <div class="garage-friends-row" *ngFor="let fr of getTrackFriendRows(t.id)" title="View friend's records"
+                  (click)="openFriendProfile(fr)">
+                  <span class="garage-friends-name">{{ fr.playerName }}</span>
+                  <span class="garage-friends-lap">{{ formatTime(fr.lap) }}</span>
+                  <span class="garage-friends-vs" [class.ahead]="fr.ahead" [class.tie]="fr.vsYou === 'tie'">
+                    {{ fr.vsYou }}
+                  </span>
+                </div>
+                <div class="garage-friends-empty" *ngIf="getTrackFriendRows(t.id).length === 0">
+                  No friends have a lap on this track yet.
+                </div>
               </div>
             </div>
             <div class="garage-records-empty" *ngIf="getOverallBestLap() <= 0">
@@ -780,12 +834,34 @@
             <span class="panel-label">TOTAL</span>
             <span class="panel-val">{{ formatTime(totalRaceTime) }}</span>
           </div>
+          <div class="panel-row" *ngIf="getLivePaceText()">
+            <span class="panel-label">PACE</span>
+            <span class="panel-val" [class.panel-val-pace-ahead]="getLivePaceAhead()">{{ getLivePaceText() }}</span>
+          </div>
         </div>
       </div>
 
       <!-- Messages center -->
       <div class="race-messages">
         <div class="race-msg" *ngFor="let m of messages">{{ m }}</div>
+      </div>
+
+      <!-- New track record toast -->
+      <div class="record-toast" *ngIf="recordToast">
+        <div class="record-toast-trophy">🏆</div>
+        <div class="record-toast-body">
+          <div class="record-toast-title">New track record!</div>
+          <div class="record-toast-sub">{{ getRecordToastTrack() }} · {{ getRecordToastTimes() }}</div>
+        </div>
+      </div>
+
+      <!-- Beat your best friend milestone toast -->
+      <div class="record-toast beat-toast" *ngIf="beatFriendToast">
+        <div class="record-toast-trophy beat-toast-icon">⚔️</div>
+        <div class="record-toast-body">
+          <div class="record-toast-title beat-toast-title">Beat your best friend!</div>
+          <div class="record-toast-sub">{{ beatFriendToast.friendName }} · {{ getBeatFriendToastTrack() }} by {{ getBeatFriendMarginText() }}</div>
+        </div>
       </div>
 
       <!-- Off-track warning -->
@@ -804,6 +880,10 @@
     <!-- ─── Finished / Podium ─── -->
     <div id="race-finished" *ngIf="gameState === 'finished'">
       <div class="gp-podium">
+        <div class="gp-podium-emblem" aria-hidden="true">
+          <span class="race-title-flag">🏁</span>
+          <span class="race-title-car" [class.gp-emblem-winner]="racePosition === 1">🏎️</span>
+        </div>
         <div class="gp-podium-title">RACE RESULTS</div>
         <div class="gp-podium-step" *ngIf="racePosition === 1">
           <div class="gp-podium-crown">🏆</div>
@@ -863,14 +943,22 @@
       <div class="race-lb-standings" *ngIf="parentRef?.user?.id">
         <span class="race-lb-medal">{{ getLeaderboardMedal() }}</span>
         <span class="race-lb-standing-text">{{ getLeaderboardStandingText() }}</span>
+        <span class="race-lb-movement" *ngIf="getLeaderboardRankMovement()"
+          [class.race-lb-move-up]="rankMovement < 0" [class.race-lb-move-down]="rankMovement > 0">
+          {{ getLeaderboardRankMovement() }}
+        </span>
       </div>
       <div class="race-lb-row race-lb-header">
         <span>#</span><span>Player</span><span>Best Lap</span><span>Gap</span><span>Race</span>
       </div>
       <div class="race-lb-row" *ngFor="let r of leaderboard; let i = index"
-        [class.race-lb-me]="r.playerId === (parentRef?.user?.id ?? 0)">
-        <span>{{ i + 1 }}</span>
-        <span>{{ r.playerName }}</span>
+        [class.race-lb-me]="r.playerId === (parentRef?.user?.id ?? 0)"
+        [class.race-lb-podium]="i < 3" [class.race-lb-gold]="i === 0"
+        [class.race-lb-silver]="i === 1" [class.race-lb-bronze]="i === 2">
+        <span class="race-lb-rank"><span *ngIf="i < 3" class="race-lb-trophy">🏆</span>{{ i + 1 }}</span>
+        <span class="race-lb-name" *ngIf="r.playerId > 0 && !r.isBot" title="View racer records"
+          (click)="openRacerProfile(r)">{{ r.playerName }} 👤</span>
+        <span *ngIf="r.playerId <= 0 || r.isBot">{{ r.playerName }}</span>
         <span>{{ r.playerId === (parentRef?.user?.id ?? 0) && r.lapTime <= 0 ? 'No lap yet' : formatTime(r.lapTime) }}</span>
         <span class="race-lb-gap" [class]="getLeaderboardGapClass(r)" title="Gap vs the leader and vs your best">
           {{ getLeaderboardGapText(r) }}
@@ -879,6 +967,39 @@
       </div>
       <div class="race-lb-empty" *ngIf="leaderboard.length === 0">No laps recorded yet — go set one!</div>
       <div class="race-lb-close" (click)="showLeaderboard = false">Click or press L to close</div>
+    </div>
+
+    <!-- ─── Racer profile popup (per-track records from a leaderboard click) ─── -->
+    <div class="racer-popup-overlay" *ngIf="racerProfile" (click)="closeRacerProfile()">
+      <div class="racer-popup" (click)="$event.stopPropagation()">
+        <div class="racer-popup-head">
+          <div class="racer-popup-title">👤 {{ racerProfile.playerName }}</div>
+          <button class="racer-popup-close" (click)="closeRacerProfile()" title="Close">✕</button>
+        </div>
+        <div class="racer-popup-loading" *ngIf="racerProfile.loading">Loading records…</div>
+        <ng-container *ngIf="!racerProfile.loading">
+          <div class="racer-popup-stats" *ngIf="racerProfile.car">
+            <span>🏁 {{ racerProfile.car.wins }} wins</span>
+            <span>🏎️ {{ racerProfile.car.totalRaces }} races</span>
+            <span>💰 ${{ racerProfile.car.money | number:'1.0-0' }}</span>
+          </div>
+          <div class="racer-popup-table" *ngIf="getRacerTrackLaps().length > 0">
+            <div class="racer-popup-row racer-popup-head">
+              <span>Track</span><span>Best Lap</span>
+            </div>
+            <div class="racer-popup-row" *ngFor="let tl of getRacerTrackLaps()">
+              <span class="racer-popup-track">{{ tl.flag }} {{ tl.name }}</span>
+              <span class="racer-popup-lap">{{ formatTime(tl.lap) }}</span>
+            </div>
+          </div>
+          <div class="racer-popup-nolaps" *ngIf="!racerProfile.car || getRacerTrackLaps().length === 0">
+            No per-track records on file for this racer.
+          </div>
+          <div class="racer-popup-actions">
+            <button class="racer-popup-profile-btn" (click)="openFullRacerProfile()">Open full profile →</button>
+          </div>
+        </ng-container>
+      </div>
     </div>
 
     <!-- ─── Mobile Controls (virtual joystick: steer left/right, push up for gas, down for brake) ─── -->

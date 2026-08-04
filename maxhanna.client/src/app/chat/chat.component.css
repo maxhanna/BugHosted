@@ -68,6 +68,39 @@
   overflow-y: auto;
 }
 
+/* A single public-chat search result: name on the left, actions on the right.
+   flex-wrap lets the actions drop below the name on narrow screens instead of
+   squishing the name into an unreadable sliver. */
+.publicChatResultRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--main-border-color, #555);
+  border-radius: 6px;
+  background: var(--secondary-component-background-color, rgba(0,0,0,0.25));
+}
+
+.publicChatResultName {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.publicChatResultActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.publicChatResultActions button {
+  white-space: nowrap;
+}
+
 /* Make Public bar shown at the top of a chat room */
 .makePublicBar {
   display: flex;

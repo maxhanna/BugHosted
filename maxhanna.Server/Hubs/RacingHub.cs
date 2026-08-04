@@ -14,6 +14,12 @@ namespace maxhanna.Server.Hubs
         private const int AUTO_START_SECONDS = 120; // 2 minutes before auto-start
         private const int COUNTDOWN_MS = 10_000;    // 10-second start-light sequence
 
+        /// <summary>
+        /// Number of players currently connected to a racing lobby. Exposed so
+        /// the navigation icon can show a live player count (like Grand Theft).
+        /// </summary>
+        public static int ActiveRacerCount => _racers.Count;
+
         public override async Task OnDisconnectedAsync(Exception? exception)
         {
             // Remove player from any lobby they're in

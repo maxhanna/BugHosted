@@ -28,6 +28,7 @@ import { NewsService } from '../../services/news.service';
 import { UserTheme } from '../../services/datacontracts/chat/chat-theme';
 import { DigcraftService } from '../../services/digcraft.service';
 import { GrandtheftService } from '../../services/grandtheft.service';
+import { RacingService } from '../../services/racing.service';
 
 @Component({
   selector: 'app-navigation',
@@ -45,6 +46,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   enderUserRank: { rank?: number | null, score?: number | null, totalPlayers?: number | null } | null = null;
   private enderInterval: any;
   grandtheftActivePlayers: number | null = null;
+  racingActivePlayers: number | null = null;
   digcraftActivePlayers: number | null = null;
   private digcraftInterval: any;
   bonesActivePlayers: number | null = null;
@@ -87,6 +89,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   isLoadingEnder = false;
   isLoadingBones = false;
   isLoadingGrandTheft = false;
+  isLoadingRacing = false;
   isLoadingDigcraft = false;
   isLoadingNexus = false;
   isLoadingEmulator = false;
@@ -144,6 +147,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private crawlerService: CrawlerService,
     private grandTheftService: GrandtheftService,
     private digcraftService: DigcraftService,
+    private racingService: RacingService,
     private newsService: NewsService) { }
 
   async ngOnInit() {
@@ -185,6 +189,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingBones = false;
     this.isLoadingMeta = false;
     this.isLoadingGrandTheft = false;
+    this.isLoadingRacing = false;
     this.isLoadingNexus = false;
     this.isLoadingEmulator = false;
     this.isLoadingMusic = false;
@@ -209,7 +214,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       'notificationInfo', 'weatherInfo', 'cryptoHub', 'calendarInfo',
       'wordler', 'ender', 'bones', 'digcraft', 'nexus', 'meta',
       'music', 'todo', 'array', 'emulation', 'social', 'art',
-      'crawler', 'newsCount', 'theme', 'grandTheft'
+      'crawler', 'newsCount', 'theme', 'grandTheft', 'racing'
     ];
 
     keysToReset.forEach(key => {
@@ -272,6 +277,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       Promise.resolve(this.getThemeInfo()),
       Promise.resolve(this.getBonesPlayerInfo()),
       Promise.resolve(this.getGrandTheftPlayerInfo()),
+      Promise.resolve(this.getRacingPlayerInfo()),
       Promise.resolve(this.getDigcraftPlayerInfo())
     ].map(p =>
       // Isolate failures so one error doesn't prevent others
@@ -310,6 +316,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.scheduleRecurring('bones', () => { if (this._parent.notificationsActive) this.getBonesPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('digcraft', () => { if (this._parent.notificationsActive) this.getDigcraftPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('grandTheft', () => { if (this._parent.notificationsActive) this.getGrandTheftPlayerInfo(); }, this.time60Secs);
+    this.scheduleRecurring('racing', () => { if (this._parent.notificationsActive) this.getRacingPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('nexus', () => { if (this._parent.notificationsActive) this.getNexusPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('meta', () => { if (this._parent.notificationsActive) this.getMetaPlayerInfo(); }, this.time60Secs);
     this.scheduleRecurring('music', () => { if (this._parent.notificationsActive) this.getMusicInfo(); }, this.time60Mins);
@@ -953,6 +960,34 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     this.isLoadingGrandTheft = false;
     this.updateLastRunTimestamp('grandTheft');
+  }
+
+  private async getRacingPlayerInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
+    if (!this._parent.notificationsActive) {
+      return;
+    }
+    if (this._parent.lastRunTimestamps['racing']
+      && Date.now() - this._parent.lastRunTimestamps['racing'] < this.time60Secs) {
+      return;
+    }
+    this.isLoadingRacing = true;
+    if (this._parent?.navigationItems) {
+      const racingNav = this._parent.navigationItems.find(x => x.title === 'Racing');
+      if (racingNav && this.hasUserSelectedNavItem('Racing')) {
+        try {
+          const res = await this.racingService.getActivePlayers(sig);
+          this.racingActivePlayers = res ?? null;
+        } catch (e) {
+          this.racingActivePlayers = null;
+          console.error('Error fetching Racing player data:', e);
+        }
+        racingNav.content = (this.racingActivePlayers ?? 0).toString();
+      }
+    }
+    this.isLoadingRacing = false;
+    this.updateLastRunTimestamp('racing');
   }
 
   private async getDigcraftPlayerInfo() {

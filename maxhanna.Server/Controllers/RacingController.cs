@@ -446,6 +446,16 @@ namespace maxhanna.Server.Controllers
 			}
 			finally { Monitor.Exit(_persistLock); }
 		}
+		/// <summary>
+		/// Live count of players connected to racing lobbies (used by the
+		/// navigation icon badge, mirroring Grand Theft's player count).
+		/// </summary>
+		[HttpGet("activeplayers")]
+		public IActionResult GetActivePlayers()
+		{
+			var count = Hubs.RacingHub.ActiveRacerCount;
+			return Ok(new { count });
+		}
 		[HttpGet("tracks")]
 		public IActionResult GetTracks()
 		{
@@ -466,6 +476,60 @@ namespace maxhanna.Server.Controllers
 				return Ok(ToCarJson(st));
 			}
 			catch { return BadRequest(); }
+		}
+		// Friends' per-track best laps, for the garage RECORDS 'vs friends' toggle.
+		// Returns [{ userId, playerName, bestLapsByTrack }] — only friends who have
+		// at least one recorded lap. In-memory laps (not yet dumped) are merged so
+		// the comparison stays fresh between DB dumps.
+		[HttpGet("friends/{userId}")]
+		public IActionResult GetFriendRecords(int userId)
+		{
+			try
+			{
+				var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna");
+				var friendIds = new List<int>();
+				if (!string.IsNullOrEmpty(connStr))
+				{
+					using var conn = new MySqlConnection(connStr);
+					conn.Open();
+					using var cmd = new MySqlCommand(@"
+						SELECT u.id FROM users u
+						INNER JOIN friends f ON u.id = f.friend_id WHERE f.user_id = @uid
+						UNION
+						SELECT u.id FROM users u
+						INNER JOIN friends f ON u.id = f.user_id WHERE f.friend_id = @uid", conn);
+					cmd.Parameters.AddWithValue("@uid", userId);
+					using var rdr = cmd.ExecuteReader();
+					while (rdr.Read()) friendIds.Add(rdr.GetInt32(0));
+				}
+				var result = new List<object>();
+				foreach (var fid in friendIds)
+				{
+					// Prefer the live in-memory state (ensures the car is loaded), then
+					// fall back to a direct DB read of racing_best_laps if needed.
+					RacingCarState? st = null;
+					if (_cars.TryGetValue(fid, out var cached)) st = cached;
+					else
+					{
+						st = LoadFromDb(fid);
+						_cars.TryAdd(fid, st);
+					}
+					Dictionary<int, double> bests;
+					lock (st)
+					{
+						if (st.BestLapsByTrack.Count == 0) continue;
+						bests = new Dictionary<int, double>(st.BestLapsByTrack);
+					}
+					result.Add(new
+					{
+						UserId = fid,
+						PlayerName = string.IsNullOrWhiteSpace(st.PlayerName) ? $"User {fid}" : st.PlayerName,
+						BestLapsByTrack = bests
+					});
+				}
+				return Ok(result);
+			}
+			catch { return Ok(new List<object>()); }
 		}
 		[HttpPost("car/save")]
 		public IActionResult SavePlayerCar([FromBody] JsonElement body)
@@ -729,9 +793,13 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 				}
-				return Ok(new { results, totalCount, userRank });
+				// Track's current pace-setter lap — the top row of the ordered results
+				// (results already include pending in-memory laps, so this is the true
+				// leader even before the next DB dump). 0 when nobody has a lap yet.
+				double bestLap = results.Count > 0 ? results[0].LapTime : 0;
+				return Ok(new { results, totalCount, userRank, bestLap });
 			}
-			catch { return Ok(new { results = new List<LeaderboardEntry>(), totalCount = 0, userRank = 0 }); }
+			catch { return Ok(new { results = new List<LeaderboardEntry>(), totalCount = 0, userRank = 0, bestLap = 0.0 }); }
 		}
 		private static UpgradeDef? GetUpgradeDef(int id)
 		{

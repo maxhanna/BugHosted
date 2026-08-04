@@ -33,15 +33,23 @@ export class MidiPlayer {
   /** Schedule the whole song now, looping until stop() is called. */
   play() {
     if (this.playing || this.notes.length === 0) return;
+    // Browsers keep the AudioContext suspended until a user gesture resumes it;
+    // without this the oscillators are scheduled but never actually sound.
+    if (this.ctx.state === 'suspended') { try { this.ctx.resume(); } catch { } }
     this.playing = true;
     const startAt = this.ctx.currentTime + 0.08;
     for (const n of this.notes) {
       this.scheduleNote(startAt + n.start, n.duration, n.note, n.velocity);
     }
-    // Loop: when the song finishes, tear down its nodes and restart.
+    // Loop: when the song finishes, tear down its nodes and restart. `playing`
+    // must be cleared before re-entering play(), otherwise the guard above
+    // swallows the restart and the music dies after the first pass.
     this.loopHandle = window.setTimeout(() => {
       this.stopAllNodes();
-      if (this.playing) this.play();
+      if (this.playing) {
+        this.playing = false;
+        this.play();
+      }
     }, this.totalDuration * 1000 + 120);
   }
 
@@ -115,7 +123,7 @@ export class MidiPlayer {
 
     // Tempo map (tick → microseconds per quarter note). Default 500000.
     const tempos: { tick: number; tempo: number }[] = [{ tick: 0, tempo: 500000 }];
-    const rawEvents: { tick: number; on: boolean; note: number; vel: number }[] = [];
+    const rawEvents: { tick: number; on: boolean; note: number; vel: number; ch: number }[] = [];
 
     for (let t = 0; t < ntrks; t++) {
       const trackTag = String.fromCharCode(readU8(), readU8(), readU8(), readU8());
@@ -154,11 +162,11 @@ export class MidiPlayer {
         } else if (high === 0x90) {
           const note = readU8();
           const vel = readU8();
-          rawEvents.push({ tick, on: vel > 0, note, vel });
+          rawEvents.push({ tick, on: vel > 0, note, vel, ch: status & 0x0f });
         } else if (high === 0x80) {
           const note = readU8();
           readU8();
-          rawEvents.push({ tick, on: false, note, vel: 0 });
+          rawEvents.push({ tick, on: false, note, vel: 0, ch: status & 0x0f });
         } else if (high === 0xb0 || high === 0xe0 || high === 0xa0) {
           pos += 2; // controller / pitch bend / poly aftertouch
         } else if (high === 0xc0 || high === 0xd0) {
@@ -185,23 +193,27 @@ export class MidiPlayer {
     };
 
     // Pair note-on events with their note-off to build (start, duration) notes.
+    // Keyed by channel×note so two channels playing the same pitch can't stomp
+    // each other (a note-off on ch 2 no longer cuts a ch 1 note short).
     rawEvents.sort((a, b) => a.tick - b.tick);
-    const activeOn: { [note: number]: { tick: number; vel: number } } = {};
+    const activeOn: { [key: number]: { tick: number; vel: number } } = {};
     const notes: { start: number; duration: number; note: number; velocity: number }[] = [];
+    const keyOf = (ev: { ch: number; note: number }) => ev.ch * 128 + ev.note;
     for (const ev of rawEvents) {
+      const k = keyOf(ev);
       if (ev.on) {
-        activeOn[ev.note] = { tick: ev.tick, vel: ev.vel };
-      } else if (activeOn[ev.note]) {
-        const start = tickToSec(activeOn[ev.note].tick);
+        activeOn[k] = { tick: ev.tick, vel: ev.vel };
+      } else if (activeOn[k]) {
+        const start = tickToSec(activeOn[k].tick);
         const end = tickToSec(ev.tick);
-        notes.push({ start, duration: Math.max(0.08, end - start), note: ev.note, velocity: activeOn[ev.note].vel / 127 });
-        delete activeOn[ev.note];
+        notes.push({ start, duration: Math.max(0.08, end - start), note: ev.note, velocity: activeOn[k].vel / 127 });
+        delete activeOn[k];
       }
     }
     // Close any dangling note-ons (missing note-offs) with a short tail.
-    for (const note in activeOn) {
-      const start = tickToSec(activeOn[note].tick);
-      notes.push({ start, duration: 0.4, note: +note, velocity: activeOn[note].vel / 127 });
+    for (const key in activeOn) {
+      const start = tickToSec(activeOn[key].tick);
+      notes.push({ start, duration: 0.4, note: +key % 128, velocity: activeOn[key].vel / 127 });
     }
 
     notes.sort((a, b) => a.start - b.start);

@@ -33,6 +33,16 @@
         </div>
       </div>
       <div class="loadingResponseDiv" *ngIf="isLoading">Loading...</div>
+      <!-- Live streaming status: thinking… until the first token arrives,
+           then streaming… with a Cancel button to interrupt long replies. -->
+      <div class="ai-stream-status" *ngIf="isStreaming">
+        <span class="ai-thinking" *ngIf="!hasReceivedToken">
+          <span class="ai-thinking-dots"></span>
+          thinking…
+        </span>
+        <span class="ai-streaming" *ngIf="hasReceivedToken">streaming…</span>
+        <button class="ai-cancel-btn" (click)="cancelStream()" title="Stop generating the response">■ Cancel</button>
+      </div>
     </div>
     <div *ngIf="!isLoading && (!chatMessages || chatMessages.length == 0)" class="emptyHostAiMessage">
       <div>{{ greetingMessage() }}{{ parentRef?.user?.username ? ', ' + parentRef!.user!.username : '' }}.</div>

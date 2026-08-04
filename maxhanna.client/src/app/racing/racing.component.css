@@ -80,10 +80,52 @@
   transform: translate(-50%, -56%) rotate(-8deg);
   font-size: clamp(120px, 20vw, 220px);
   line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0.28;
   filter: saturate(1.25) drop-shadow(0 0 26px rgba(255, 111, 0, 0.55));
   pointer-events: none;
   z-index: 0;
+}
+
+/* Checkered flag sits behind the race car, peeking out slightly larger and
+   more faded so the layered emblem reads as flag → car. */
+.race-title-flag {
+  position: absolute;
+  font-size: 1.18em;
+  transform: translate(4%, 9%) rotate(3deg);
+  opacity: 0.45;
+  z-index: 0;
+  filter: saturate(1.1) drop-shadow(0 0 22px rgba(255, 255, 255, 0.25));
+  transform-origin: 12% 82%;
+  animation: race-flag-sway 5.5s ease-in-out infinite;
+}
+
+.race-title-car {
+  position: relative;
+  z-index: 1;
+  animation: race-emblem-pulse 6s ease-in-out infinite;
+}
+
+/* Gentle life for the title emblem: the whole mark breathes slowly while the
+   flag sways behind the car. Both are subtle on purpose — the emblem sits
+   ghosted behind the GRAND PRIX text. */
+@keyframes race-flag-sway {
+  0%, 100% { transform: translate(4%, 9%) rotate(3deg) skewX(0deg); }
+  50%      { transform: translate(4%, 9%) rotate(-2deg) skewX(-2.5deg); }
+}
+
+@keyframes race-emblem-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.035); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .race-title-flag,
+  .race-title-car {
+    animation: none;
+  }
 }
 
 .race-title-text {
@@ -916,6 +958,25 @@
   transform: translate3d(var(--wx), var(--wy), var(--wz));
 }
 .wheel3d i { position: absolute; display: block; }
+
+/* Idle wheel crawl — spins the whole 3D coin about its hub (origin 0,0) so
+   the tires slowly roll even while the car is parked in the garage. Uses the
+   same negative-rotation-for-forward convention as the racing renderer's
+   integrated wheel spin; a long 14s cycle reads as a subtle "slow crawl"
+   instead of a distracting fast spin. */
+.wheel-crawl {
+  position: absolute;
+  left: 0; top: 0;
+  width: 0; height: 0;
+  transform-style: preserve-3d;
+  animation: garage-wheel-crawl 14s linear infinite;
+}
+@keyframes garage-wheel-crawl {
+  to { transform: rotateZ(-360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wheel-crawl { animation: none; }
+}
 .wheel3d .disc {
   width: 30px; height: 30px;
   left: -15px; top: -15px;
@@ -1791,6 +1852,15 @@
   text-shadow: 0 0 4px rgba(200,200,220,0.15);
 }
 
+/* Live pace readout — green glow when the current lap is at/better than the
+   track's pace-setter, amber otherwise. */
+.panel-val.panel-val-pace-ahead {
+  color: #4ade80;
+  text-shadow: 0 0 6px rgba(74, 222, 128, 0.35);
+}
+.panel-val.panel-val-pace-ahead + .panel-unit,
+.panel-val-pace-ahead { letter-spacing: 0.5px; }
+
 .panel-val-big {
   font-size: 24px;
   font-weight: 900;
@@ -2300,6 +2370,72 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* New track record toast — celebratory gold flash over the HUD */
+.record-toast {
+  position: absolute;
+  top: 128px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255, 200, 0, 0.22), rgba(255, 140, 0, 0.1));
+  border: 1px solid rgba(255, 200, 0, 0.5);
+  box-shadow: 0 6px 24px rgba(255, 180, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(4px);
+  z-index: 30;
+  animation: record-toast-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.record-toast-trophy {
+  font-size: 26px;
+  line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(255, 200, 0, 0.7));
+  animation: record-toast-bounce 1.6s ease-in-out infinite;
+}
+.record-toast-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.record-toast-title {
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  color: #ffe082;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+.record-toast-sub {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  font-variant-numeric: tabular-nums;
+}
+@keyframes record-toast-in {
+  from { opacity: 0; transform: translateX(-50%) scale(0.7) translateY(-14px); }
+  to { opacity: 1; transform: translateX(-50%) scale(1) translateY(0); }
+}
+@keyframes record-toast-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* Beat-your-best-friend variant — blue rivalry flash, stacked under the gold
+   record toast when both fire from the same lap. */
+.record-toast.beat-toast {
+  top: 182px;
+  background: linear-gradient(135deg, rgba(74, 144, 217, 0.28), rgba(126, 87, 194, 0.12));
+  border-color: rgba(126, 200, 255, 0.55);
+  box-shadow: 0 6px 24px rgba(74, 144, 217, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+.record-toast.beat-toast .beat-toast-icon {
+  filter: drop-shadow(0 0 8px rgba(126, 200, 255, 0.7));
+}
+.record-toast.beat-toast .beat-toast-title {
+  color: #b7e3ff;
+}
+
 /* Off-track warning */
 .race-offtrack {
   position: absolute;
@@ -2398,6 +2534,60 @@
   color: #fff;
   text-shadow: 0 0 20px rgba(255,255,255,0.2);
   margin-bottom: 4px;
+}
+
+/* Layered 🏁🏎️ emblem above RACE RESULTS — same flag-sway / pulse as the
+   menu title but smaller and fully visible (the podium has a dark backdrop
+   so it doesn't need the ghosted treatment). */
+.gp-podium-emblem {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 44px;
+  line-height: 1;
+  filter: drop-shadow(0 0 18px rgba(255, 111, 0, 0.35));
+  margin-bottom: 2px;
+}
+
+.gp-podium-emblem .race-title-flag {
+  position: absolute;
+  font-size: 1.18em;
+  transform: translate(4%, 9%) rotate(3deg);
+  opacity: 0.5;
+  z-index: 0;
+  transform-origin: 12% 82%;
+  animation: race-flag-sway 5.5s ease-in-out infinite;
+}
+
+.gp-podium-emblem .race-title-car {
+  position: relative;
+  z-index: 1;
+  animation: race-emblem-pulse 6s ease-in-out infinite;
+}
+
+/* Winner flourish — plays once when the results appear after a win: a brief
+   gold glow-flash with a quick scale-up on the car, then the steady pulse
+   resumes. The flash is listed last so it wins the transform/filter during
+   its run, then hands back to the pulse. */
+.gp-podium-emblem .race-title-car.gp-emblem-winner {
+  animation: race-emblem-pulse 6s ease-in-out infinite,
+    race-winner-flash 1.2s ease-out 1;
+}
+
+@keyframes race-winner-flash {
+  0%   { transform: scale(1);   filter: drop-shadow(0 0 0px rgba(255, 214, 0, 0)); }
+  30%  { transform: scale(1.3); filter: drop-shadow(0 0 30px rgba(255, 214, 0, 0.95)); }
+  60%  { transform: scale(1.12); filter: drop-shadow(0 0 14px rgba(255, 214, 0, 0.7)); }
+  100% { transform: scale(1);   filter: drop-shadow(0 0 0px rgba(255, 214, 0, 0)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gp-podium-emblem .race-title-flag,
+  .gp-podium-emblem .race-title-car,
+  .gp-podium-emblem .race-title-car.gp-emblem-winner {
+    animation: none;
+  }
 }
 
 .gp-podium-step {
@@ -3022,6 +3212,191 @@
   font-weight: 700;
 }
 
+/* Podium rows — gold/silver/bronze tint so the top-3 stand out at a glance.
+   The rank cell keeps a fixed slot so the trophy never shifts the columns. */
+.race-lb-row.race-lb-podium {
+  font-weight: 800;
+  border-radius: 6px;
+}
+.race-lb-row.race-lb-gold {
+  background: linear-gradient(90deg, rgba(255, 200, 0, 0.22), rgba(255, 200, 0, 0.06));
+  border-bottom-color: rgba(255, 200, 0, 0.45);
+}
+.race-lb-row.race-lb-silver {
+  background: linear-gradient(90deg, rgba(200, 210, 220, 0.18), rgba(200, 210, 220, 0.05));
+  border-bottom-color: rgba(210, 220, 230, 0.4);
+}
+.race-lb-row.race-lb-bronze {
+  background: linear-gradient(90deg, rgba(205, 127, 50, 0.2), rgba(205, 127, 50, 0.05));
+  border-bottom-color: rgba(205, 127, 50, 0.4);
+}
+.race-lb-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.race-lb-trophy {
+  font-size: 12px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
+}
+.race-lb-row.race-lb-gold .race-lb-trophy { filter: drop-shadow(0 0 6px rgba(255, 200, 0, 0.55)); }
+.race-lb-row.race-lb-silver .race-lb-trophy { filter: drop-shadow(0 0 6px rgba(200, 210, 220, 0.45)); }
+.race-lb-row.race-lb-bronze .race-lb-trophy { filter: drop-shadow(0 0 6px rgba(205, 127, 50, 0.5)); }
+
+/* Clickable racer name → profile popup */
+.race-lb-name {
+  cursor: pointer;
+  font-weight: 700;
+  color: #7ec8ff;
+  transition: color 0.15s, text-shadow 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.race-lb-name:hover {
+  color: #b7e3ff;
+  text-shadow: 0 0 8px rgba(126, 200, 255, 0.5);
+  text-decoration: underline;
+}
+
+/* ── Racer profile popup ── */
+.racer-popup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.racer-popup {
+  width: min(420px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: linear-gradient(160deg, #1c2030, #0e1018);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+  padding: 16px;
+}
+.racer-popup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.racer-popup-title {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.racer-popup-close {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.75);
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.15s;
+}
+.racer-popup-close:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+.racer-popup-loading {
+  padding: 18px 4px;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  font-size: 13px;
+}
+.racer-popup-stats {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.racer-popup-stats span {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+}
+.racer-popup-table {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+.racer-popup-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+}
+.racer-popup-row.racer-popup-head {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+  background: none;
+  border: none;
+  padding: 0 10px 2px;
+}
+.racer-popup-track {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.racer-popup-lap {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  color: #ffd54f;
+}
+.racer-popup-nolaps {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  font-style: italic;
+  padding: 10px 4px;
+}
+.racer-popup-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.racer-popup-profile-btn {
+  background: linear-gradient(135deg, #4a90d9, #2f6db3);
+  border: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 9px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: 0 4px 12px rgba(47, 109, 179, 0.35);
+}
+.racer-popup-profile-btn:hover {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+
 .race-lb-empty {
   text-align: center;
   font-size: 12px;
@@ -3338,15 +3713,20 @@
 }
 .garage-record-card {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
   padding: 10px 14px;
   margin-bottom: 8px;
   border-radius: 10px;
   background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.08);
   transition: all 0.2s;
+}
+.garage-record-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 .garage-record-card:hover {
   background: rgba(255,255,255,0.07);
@@ -3402,6 +3782,170 @@
   font-size: 11px;
   color: rgba(255,255,255,0.35);
   font-style: italic;
+}
+
+/* 'ahead of N friends' summary badge on each RECORDS card (vs-friends mode) */
+.garage-record-friends {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(74, 222, 128, 0.14);
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  color: #4ade80;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+}
+/* ── Top-5 pace mini-table inside each record card ── */
+.garage-top5 {
+  border-top: 1px dashed rgba(255,255,255,0.1);
+  padding-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.garage-top5-title {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: rgba(255,255,255,0.4);
+}
+.garage-top5-row {
+  display: grid;
+  grid-template-columns: 22px 1fr 52px 44px;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.75);
+  font-variant-numeric: tabular-nums;
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+.garage-top5-row.garage-top5-head {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.35);
+  text-transform: uppercase;
+}
+.garage-top5-row.garage-top5-me {
+  background: rgba(255,213,79,0.1);
+  outline: 1px solid rgba(255,213,79,0.35);
+  color: #ffd54f;
+}
+.garage-top5-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.garage-top5-gap {
+  text-align: right;
+  font-weight: 700;
+  color: rgba(255,255,255,0.55);
+}
+.garage-top5-empty {
+  font-size: 10px;
+  color: rgba(255,255,255,0.3);
+  font-style: italic;
+  padding: 2px 4px;
+}
+
+/* ── 'vs friends' toggle + per-track friend comparison rows ── */
+.garage-friends-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 0 8px;
+}
+.garage-friends-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.65);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.garage-friends-toggle:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.25);
+}
+.garage-friends-toggle.on {
+  background: linear-gradient(135deg, rgba(74,144,217,0.35), rgba(74,144,217,0.15));
+  border-color: rgba(126,200,255,0.55);
+  color: #b7e3ff;
+}
+.garage-friends-toggle-state {
+  font-size: 10px;
+  letter-spacing: 1px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.12);
+}
+.garage-friends-toggle.on .garage-friends-toggle-state {
+  background: rgba(126,200,255,0.25);
+  color: #d8efff;
+}
+.garage-friends-loading {
+  font-size: 11px;
+  color: rgba(255,255,255,0.45);
+  font-style: italic;
+}
+.garage-friends {
+  border-top: 1px dashed rgba(255,255,255,0.1);
+  padding-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.garage-friends-row {
+  display: grid;
+  grid-template-columns: 1fr 52px 44px;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.75);
+  font-variant-numeric: tabular-nums;
+  padding: 2px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.garage-friends-row:hover {
+  background: rgba(126, 200, 255, 0.1);
+  color: #b7e3ff;
+}
+.garage-friends-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.garage-friends-lap {
+  font-weight: 800;
+  color: #ffd54f;
+}
+.garage-friends-vs {
+  text-align: right;
+  font-weight: 800;
+}
+.garage-friends-vs.ahead {
+  color: #4ade80;
+}
+.garage-friends-vs.tie {
+  color: #ffd600;
+}
+.garage-friends-empty {
+  font-size: 10px;
+  color: rgba(255,255,255,0.3);
+  font-style: italic;
+  padding: 2px 4px;
 }
 .garage-records-empty {
   font-size: 12px;
@@ -3460,4 +4004,24 @@
   letter-spacing: 0.5px;
   color: #ffd600;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.race-lb-movement {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+}
+.race-lb-movement.race-lb-move-up {
+  color: #4ade80;
+  background: rgba(34, 197, 94, 0.16);
+  border-color: rgba(74, 222, 128, 0.35);
+}
+.race-lb-movement.race-lb-move-down {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(248, 113, 113, 0.35);
 }

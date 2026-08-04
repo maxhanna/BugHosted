@@ -47,6 +47,53 @@ td {
   width: 100%;
 }
 
+/* App Selection search box — find menu items fast */
+.menuSearchBox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--main-border-color);
+}
+.menuSearchInput {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--main-border-color);
+  background: var(--component-background-color);
+  color: var(--main-font-color);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.menuSearchInput::placeholder {
+  color: var(--third-font-color);
+}
+.menuSearchInput:focus {
+  border-color: var(--main-link-color);
+  box-shadow: 0 0 0 2px rgba(126, 200, 255, 0.25);
+}
+.menuSearchClear {
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--third-font-color);
+  font-size: 12px;
+  transition: color 0.15s, background 0.15s;
+}
+.menuSearchClear:hover {
+  color: var(--main-font-color);
+  background: var(--secondary-component-background-color);
+}
+.menuSearchNoResults {
+  padding: 12px 16px;
+  color: var(--third-font-color);
+  font-size: 12px;
+  font-style: italic;
+  border-bottom: 1px solid var(--main-border-color);
+}
+
 .menuIconTable tr {
   height: 30px;
 }

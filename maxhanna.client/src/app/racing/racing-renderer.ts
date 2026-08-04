@@ -60,6 +60,12 @@ export class RacingRenderer {
   private brakeCount = 0;
   private rearBrakeVao!: WebGLVertexArrayObject;
   private rearBrakeCount = 0;
+  // Branded rim-face disc (own VAO so it can be drawn textured) + its texture.
+  private rimFaceVao!: WebGLVertexArrayObject;
+  private rimFaceCount = 0;
+  private rearRimFaceVao!: WebGLVertexArrayObject;
+  private rearRimFaceCount = 0;
+  private tireBrandTex!: WebGLTexture;
   private barrierVao!: WebGLVertexArrayObject;
   private barrierCount = 0;
   private finishVao!: WebGLVertexArrayObject;
@@ -153,6 +159,7 @@ export class RacingRenderer {
     this.asphaltTex = this.makeAsphaltTex();
     this.grassTex = this.makeGrassTex();
     this.trackTex = this.makeTrackMarkingsTex();
+    this.tireBrandTex = this.makeTireBrandTex();
 
     this.initShader();
     this.initShadow();
@@ -201,6 +208,59 @@ export class RacingRenderer {
       data[i * 3] = r; data[i * 3 + 1] = g; data[i * 3 + 2] = 15 + (i % 10);
     }
     return this.makeTex(size, size, data);
+  }
+
+  // Tire-brand texture: a small procedural canvas with crisp 'BHOSTED'
+  // lettering arced around a dark rim, mapped onto the rim face via planar UVs
+  // (replaces the old raised-stud branding so the text reads as real lettering).
+  private makeTireBrandTex(): WebGLTexture {
+    const gl = this.gl;
+    const size = 256;
+    const c = document.createElement('canvas');
+    c.width = size;
+    c.height = size;
+    const g = c.getContext('2d')!;
+    // Dark rim base
+    g.fillStyle = '#141416';
+    g.fillRect(0, 0, size, size);
+    // Subtle inner ring accent
+    g.strokeStyle = '#26262a';
+    g.lineWidth = 6;
+    g.beginPath();
+    g.arc(size / 2, size / 2, size * 0.32, 0, Math.PI * 2);
+    g.stroke();
+    // 'BHOSTED' lettering arced around the rim, letters upright at the top
+    // and rotating to stay radial — reads like real tire sidewall branding.
+    const text = 'BHOSTED';
+    const cx = size / 2;
+    const cy = size / 2;
+    const radius = size * 0.34;
+    g.font = 'bold 44px Arial, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#e8e8ea';
+    const startAng = -Math.PI / 2 - 0.5;
+    const step = 0.16;
+    for (let i = 0; i < text.length; i++) {
+      const a = startAng + i * step;
+      g.save();
+      g.translate(cx + Math.cos(a) * radius, cy + Math.sin(a) * radius);
+      g.rotate(a + Math.PI / 2);
+      g.fillText(text[i], 0, 0);
+      g.restore();
+    }
+    // Small center cap text
+    g.font = 'bold 15px Arial, sans-serif';
+    g.fillStyle = '#6a6a70';
+    g.fillText('GRAND PRIX', cx, cy + 3);
+    const t = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return t;
   }
 
   private makeTrackMarkingsTex(): WebGLTexture {
@@ -1324,55 +1384,62 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const snow = [0.85, 0.88, 0.92];
     const pine = [0.04, 0.22, 0.05];
 
-    // ── Distant mountain range (layered silhouettes) ──
-    // Three layers of far peaks, each with a different depth colour.
-    const layerScales = [0.6, 0.8, 1.0];
-    const layerColors: number[][] = [[0.35, 0.35, 0.38], [0.40, 0.40, 0.42], [0.45, 0.45, 0.48]];
-    for (let li = 0; li < layerScales.length; li++) {
-      const scale = layerScales[li];
-      const col = layerColors[li];
-      for (let k = 0; k < 8; k++) {
-        const a = ((k / 8) * Math.PI * 2 + (Math.random() - 0.5) * 0.3) * scale;
-        const dist = 180 + Math.random() * 220 * scale;
-        const mx = pts[0].x + Math.cos(a) * dist;
-        const mz = pts[0].z + Math.sin(a) * dist;
-        const mh = 20 + Math.random() * 50 * scale;
-        const mw = 20 + Math.random() * 30 * scale;
-        this.addCone(verts, idxs, mx, 0, mz, mw, mh, 8, col);
-        // Snow cap on the highest peaks
-        if (mh > 35) {
-          this.addCone(verts, idxs, mx, mh * 0.7, mz, mw * 0.4, mh * 0.3, 6, snow);
-        }
+    // The circuit is a loop around the origin, so all distant scenery must sit
+    // beyond the track's outer edge. The old code scattered peaks from pts[0]
+    // (a point ON the track) at radii 180-400, which dropped mountains directly
+    // onto the far side of the loop. Compute the track's outer extent instead.
+    let outer = 0;
+    for (const p of pts) {
+      const r = Math.hypot(p.x, p.z) + p.width / 2;
+      if (r > outer) outer = r;
+    }
+
+    // ── Distant mountain range (single silhouette ring beyond the track) ──
+    const ridgeColors: number[][] = [[0.38, 0.38, 0.42], [0.42, 0.42, 0.46], [0.46, 0.46, 0.5]];
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
+      const mh = 25 + Math.random() * 55;
+      const mw = 30 + Math.random() * 40;
+      // Base radius extends inward toward the track, so pin the ring distance to
+      // outer + baseRadius + margin — the cone can never reach the tarmac.
+      const dist = outer + mw + 30 + Math.random() * 120;
+      const mx = Math.cos(a) * dist;
+      const mz = Math.sin(a) * dist;
+      const col = ridgeColors[k % ridgeColors.length];
+      this.addCone(verts, idxs, mx, 0, mz, mw, mh, 8, col);
+      // Snow dusting only on the tallest peaks — one cap, no stacked layers.
+      if (mh > 55) {
+        this.addCone(verts, idxs, mx, mh * 0.72, mz, mw * 0.35, mh * 0.28, 6, snow);
       }
     }
 
-    // ── Near granite cliffs and rock faces ──
+    // ── Near granite cliffs and rock faces (single-cone peaks) ──
+    // Each feature is ONE cone — the old code stacked 2-3 differently-coloured
+    // cones (rock + rockLight + snow cap), which read as "two layered" peaks.
+    // The cone helper already brightens the tip, so the shading stays natural.
     for (let i = 0; i < pts.length; i += 5) {
       const p = pts[i];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
       for (const side of [-1, 1]) {
-        const dist = p.width / 2 + 28 + Math.random() * 25;
+        const dist = p.width / 2 + 34 + Math.random() * 24;
         const rx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
         const rz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
         const s = 1.0 + Math.random() * 2.5;
         const roll = Math.random();
 
         if (roll < 0.4) {
-          // Steep cliff face: tall narrow cone with a light top cap
-          this.addCone(verts, idxs, rx, 0, rz, s * 1.2, s * 1.8, 8, rock);
-          this.addCone(verts, idxs, rx, s * 1.2, rz, s * 0.8, s * 0.6, 6, rockLight);
+          // Steep pointed peak
+          this.addCone(verts, idxs, rx, 0, rz, s * 1.2, s * 2.4, 8, rockLight);
           if (s > 1.8) {
-            this.addCone(verts, idxs, rx, s * 1.6, rz, s * 0.3, s * 0.2, 5, snow);
+            this.addCone(verts, idxs, rx, s * 2.0, rz, s * 0.3, s * 0.4, 5, snow);
           }
         } else if (roll < 0.7) {
-          // Wide granite plateau: flat top with steep sides
-          this.addCone(verts, idxs, rx, 0, rz, s * 1.8, s * 1.2, 7, rockDark);
-          this.addCone(verts, idxs, rx, s * 0.8, rz, s * 1.4, s * 0.4, 7, rockLight);
+          // Broad rounded plateau
+          this.addCone(verts, idxs, rx, 0, rz, s * 1.8, s * 1.3, 7, rockDark);
         } else {
-          // Scree slope: broad low cone with rough texture
-          this.addCone(verts, idxs, rx, 0, rz, s * 2.0, s * 0.8, 8, rockDark);
-          this.addCone(verts, idxs, rx, s * 0.3, rz, s * 1.2, s * 0.5, 7, rock);
+          // Scree slope
+          this.addCone(verts, idxs, rx, 0, rz, s * 2.0, s * 0.9, 8, rock);
         }
       }
     }
@@ -1397,12 +1464,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
       if (pineIdx > 100) break;
     }
 
-    // ── Snow patches on the ground (white flattened spheres) ──
-    for (let i = 0; i < 30; i++) {
+    // ── Snow patches on the ground (white flattened spheres, outside the track) ──
+    // Same ring logic as the peaks: radius strictly beyond the track's outer
+    // edge, so snow never lands on the tarmac.
+    for (let i = 0; i < 36; i++) {
       const a = Math.random() * Math.PI * 2;
-      const dist = 40 + Math.random() * 160;
-      const sx = pts[0].x + Math.cos(a) * dist;
-      const sz = pts[0].z + Math.sin(a) * dist;
+      const dist = outer + 20 + Math.random() * 110;
+      const sx = Math.cos(a) * dist;
+      const sz = Math.sin(a) * dist;
       this.addSphere(verts, idxs, sx, 0.05, sz, 1.5 + Math.random() * 3.0, 6, snow);
     }
   }
@@ -1717,15 +1786,24 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.addCone(verts, idxs, sx, 0, sz, 1.2 + Math.random() * 1.0, 0.6 + Math.random() * 0.4, 6, [0.9, 0.92, 0.96]);
       }
     }
-    // Distant pointed mountain peaks
-    for (let i = 0; i < 12; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const dist = 200 + Math.random() * 300;
-      const mx = pts[0].x + Math.cos(a) * dist;
-      const mz = pts[0].z + Math.sin(a) * dist;
+    // Distant pointed mountain peaks — placed beyond the track's outer edge.
+    // (The old code scattered from pts[0], a point ON the circuit, so peaks at
+    // radii 200-500 landed on the far side of the loop.)
+    let outer = 0;
+    for (const p of pts) {
+      const r = Math.hypot(p.x, p.z) + p.width / 2;
+      if (r > outer) outer = r;
+    }
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2 + (Math.random() - 0.5) * 0.25;
       const mh = 30 + Math.random() * 60;
-      this.addCone(verts, idxs, mx, 0, mz, 40 + Math.random() * 30, mh, 8, [0.45, 0.5, 0.55]);
-      this.addCone(verts, idxs, mx, mh * 0.7, mz, 15 + Math.random() * 10, mh * 0.3, 6, [0.85, 0.88, 0.95]);
+      const mw = 40 + Math.random() * 30;
+      // Pin the ring distance so the wide base never reaches back to the track.
+      const dist = outer + mw + 40 + Math.random() * 110;
+      const mx = Math.cos(a) * dist;
+      const mz = Math.sin(a) * dist;
+      this.addCone(verts, idxs, mx, 0, mz, mw, mh, 8, [0.45, 0.5, 0.55]);
+      this.addCone(verts, idxs, mx, mh * 0.7, mz, mw * 0.35, mh * 0.3, 6, [0.85, 0.88, 0.95]);
     }
   }
 
@@ -2358,17 +2436,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // ── Brake assembly (drawn separately so its heat glow only hits the disc) ──
     const fb: number[] = [];
     const fbi: number[] = [];
+    // ── Branded rim face (own mesh: planar UVs carry the crisp BHOSTED tex) ──
+    const frf: number[] = [];
+    const frfi: number[] = [];
     // Rim disc (dark, fills the tread inner circle — 0.165 ≈ tread 0.17)
     this.addCylinder(fv, fi, 0, 0, 0, 0.165, 0.15, 18, [0.07, 0.07, 0.08]);
-    // Faint tire-brand lettering on the closed rim — a ring of tiny raised
-    // studs near the rim edge that read as molded sidewall text when still and
-    // blur into a subtle tread ring as the wheel spins up.
-    for (let k = 0; k < 10; k++) {
-      const a = (k / 10) * Math.PI * 2 + 0.2;
-      const lx = Math.cos(a) * 0.13;
-      const lz = Math.sin(a) * 0.13;
-      this.addBox(fv, fi, lx, 0.152, lz, 0.028, 0.008, 0.012, [0.15, 0.15, 0.16]);
-    }
+    // Branded rim face — sits slightly proud of the rim cap (0.152 > 0.15) so
+    // the texture never z-fights the cap, and under the tire band (0.17). White
+    // verts so the shader's `base *= texture` shows the lettering at full color.
+    this.addRimFace(frf, frfi, 0, 0.152, 0, 0.14, [1, 1, 1]);
     // Tire tread — larger radius so the band wraps the rim
     this.addCylinder(fv, fi, 0, 0, 0, 0.17, 0.12, 18, [0.13, 0.13, 0.14]);
     // Tire sidewall lettering (small raised bumps on the tread side)
@@ -2422,6 +2498,25 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.enableVertexAttribArray(3);
     gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
+    // Branded front rim face VAO (own buffers so it can be drawn textured).
+    this.rimFaceCount = frfi.length;
+    this.rimFaceVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.rimFaceVao);
+    const rfbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, rfbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(frf), gl.STATIC_DRAW);
+    const rfibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, rfibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(frfi), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
 
     // ── Rear wheels (wider tread, slightly larger — like a real F1 car) ──
     // Same closed-rim design as the fronts — solid disc, no spokes to sweep.
@@ -2429,13 +2524,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const ri: number[] = [];
     const rb: number[] = [];
     const rbi: number[] = [];
+    // ── Branded rear rim face (own mesh: planar UVs carry the BHOSTED tex) ──
+    const rrf: number[] = [];
+    const rrfi: number[] = [];
     this.addCylinder(rv, ri, 0, 0, 0, 0.175, 0.18, 18, [0.07, 0.07, 0.08]);
-    for (let k = 0; k < 10; k++) {
-      const a = (k / 10) * Math.PI * 2 + 0.2;
-      const lx = Math.cos(a) * 0.14;
-      const lz = Math.sin(a) * 0.14;
-      this.addBox(rv, ri, lx, 0.182, lz, 0.03, 0.008, 0.013, [0.15, 0.15, 0.16]);
-    }
+    // Rear rim face — slightly proud of the rim cap (0.182 > 0.18), white verts
+    // so the lettering texture shows at full brightness.
+    this.addRimFace(rrf, rrfi, 0, 0.182, 0, 0.15, [1, 1, 1]);
     this.addCylinder(rv, ri, 0, 0, 0, 0.18, 0.15, 18, [0.13, 0.13, 0.14]); 
     for (let k = 0; k < 4; k++) {
       const a = (k / 4) * Math.PI * 2 + 0.2;
@@ -2474,6 +2569,25 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const rbibo = gl.createBuffer()!;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, rbibo);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(rbi), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+    // Branded rear rim face VAO (own buffers so it can be drawn textured).
+    this.rearRimFaceCount = rrfi.length;
+    this.rearRimFaceVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.rearRimFaceVao);
+    const rrfbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, rrfbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rrf), gl.STATIC_DRAW);
+    const rrfibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, rrfibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(rrfi), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
     gl.enableVertexAttribArray(1);
@@ -2743,6 +2857,28 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
   }
 
+  // Flat disc with PLANAR UVs — maps the whole disc face onto the texture so
+  // tire-brand lettering reads crisply (u = 0.5 + x/2r, v = 0.5 + z/2r). The
+  // rim's cap faces carry a strip UV (v=1 only), which would squash text into
+  // one row — so the branded face is its own mesh. +Y normal (faces outward
+  // once the wheel is laid onto its lateral axle with RX(π/2)).
+  private addRimFace(verts: number[], idxs: number[], cx: number, cy: number, cz: number, radius: number, color: number[]) {
+    const [r, g, b] = color;
+    const segments = 24;
+    const baseIdx = verts.length / 11;
+    // Center vertex (planar UV 0.5,0.5)
+    verts.push(cx, cy, cz, 0, 1, 0, r, g, b, 0.5, 0.5);
+    for (let i = 0; i <= segments; i++) {
+      const a = (i / segments) * Math.PI * 2;
+      const x = Math.cos(a) * radius;
+      const z = Math.sin(a) * radius;
+      verts.push(cx + x, cy, cz + z, 0, 1, 0, r, g, b, 0.5 + x / (radius * 2), 0.5 + z / (radius * 2));
+    }
+    for (let i = 0; i < segments; i++) {
+      idxs.push(baseIdx, baseIdx + 1 + i, baseIdx + 2 + i);
+    }
+  }
+
   private addCone(verts: number[], idxs: number[], cx: number, cy: number, cz: number, radius: number, height: number, segments: number, color: number[]) {
     const [r, g, b] = color;
     const baseIdx = verts.length / 11;
@@ -3001,6 +3137,122 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
   private _rainBuf!: WebGLBuffer;
 
+  // ─── Tire smoke particles ───
+  // Grey puffs emitted at the rear wheels when a car is sliding hard (high
+  // slip). Pooled, billboarded toward the camera each frame (like rain) and
+  // drawn with a tiny dedicated program so per-vertex alpha fades them out.
+  private _smokeParticles: { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; maxLife: number; size: number }[] = [];
+  private _smokeVao!: WebGLVertexArrayObject;
+  private _smokeBuf!: WebGLBuffer;
+  private _smokeMax = 120;
+  private _smokeInitialized = false;
+  private smokeProg!: WebGLProgram;
+  private smokeProjLoc!: WebGLUniformLocation;
+  private smokeViewLoc!: WebGLUniformLocation;
+
+  private initSmoke() {
+    if (this._smokeInitialized) return;
+    this._smokeInitialized = true;
+    const gl = this.gl;
+    const vs = `#version 300 es\nin vec3 aPos;\nin vec4 aColor;\nuniform mat4 uProj;\nuniform mat4 uView;\nout vec4 vColor;\nvoid main() { vColor = aColor; gl_Position = uProj * uView * vec4(aPos, 1.0); }`;
+    const fs = `#version 300 es\nprecision highp float;\nin vec4 vColor;\nout vec4 FragColor;\nvoid main() { FragColor = vColor; }`;
+    this.smokeProg = this.createProgram(vs, fs);
+    this.smokeProjLoc = gl.getUniformLocation(this.smokeProg, 'uProj')!;
+    this.smokeViewLoc = gl.getUniformLocation(this.smokeProg, 'uView')!;
+    this._smokeVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this._smokeVao);
+    const buf = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, this._smokeMax * 6 * 7 * 4, gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 28, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 28, 12);
+    gl.bindVertexArray(null);
+    this._smokeBuf = buf;
+  }
+
+  // Spawns grey puffs at the rear wheels of a car that is sliding (slide > 0.35).
+  // Rear wheel world positions derived from the car's yaw (nose +X after the
+  // yaw-π/2 model rotation → forward = (sin yaw, cos yaw), lateral = ±0.60).
+  private emitSmoke(x: number, z: number, yaw: number, slide: number) {
+    if (this._smokeParticles.length >= this._smokeMax) return;
+    const intensity = Math.min((slide - 0.35) / 0.65, 1);
+    if (intensity <= 0) return;
+    const sinY = Math.sin(yaw), cosY = Math.cos(yaw);
+    for (const side of [-1, 1]) {
+      const wx = x - 0.55 * sinY - side * 0.60 * cosY;
+      const wz = z - 0.55 * cosY + side * 0.60 * sinY;
+      const count = 1 + Math.floor(intensity * 2 + Math.random());
+      for (let i = 0; i < count; i++) {
+        if (this._smokeParticles.length >= this._smokeMax) return;
+        this._smokeParticles.push({
+          x: wx + (Math.random() - 0.5) * 0.15,
+          y: 0.2 + Math.random() * 0.15,
+          z: wz + (Math.random() - 0.5) * 0.15,
+          vx: -sinY * (0.5 + Math.random() * 0.8) + (Math.random() - 0.5) * 0.6,
+          vy: 1.0 + Math.random() * 1.2,
+          vz: -cosY * (0.5 + Math.random() * 0.8) + (Math.random() - 0.5) * 0.6,
+          life: 0,
+          maxLife: 0.45 + Math.random() * 0.4,
+          size: 0.15 + Math.random() * 0.1
+        });
+      }
+    }
+  }
+
+  // Advances smoke once per frame (main pass only, so mirror doesn't double-age
+  // the pool) and rebuilds camera-facing billboard quads into the dynamic buffer.
+  private updateSmoke(dt: number) {
+    const parts = this._smokeParticles;
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const p = parts[i];
+      p.life += dt;
+      if (p.life >= p.maxLife) { parts.splice(i, 1); continue; }
+      p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
+      p.vy *= (1 - 0.4 * dt);
+      p.vx *= (1 - 0.6 * dt); p.vz *= (1 - 0.6 * dt);
+    }
+  }
+
+  private drawSmoke(proj: Float32Array, view: Float32Array) {
+    const gl = this.gl;
+    const parts = this._smokeParticles;
+    if (parts.length === 0) return;
+    this.initSmoke();
+    // Camera axes: rows of the view matrix (world-space right / up).
+    const rx = view[0], ry = view[4], rz = view[8];
+    const ux = view[1], uy = view[5], uz = view[9];
+    const data: number[] = [];
+    for (const p of parts) {
+      const t = p.life / p.maxLife;
+      const s = p.size * (0.5 + t * 1.8);
+      const alpha = Math.max(0, 0.5 * (1 - t));
+      const gray = 0.5 + t * 0.15;
+      const hx = rx * s, hy = ry * s, hz = rz * s;
+      const wx = ux * s, wy = uy * s, wz = uz * s;
+      const cx = p.x, cy = p.y, cz = p.z;
+      data.push(cx - hx + wx, cy - hy + wy, cz - hz + wz, gray, gray, gray + 0.03, alpha);
+      data.push(cx + hx + wx, cy + hy + wy, cz + hz + wz, gray, gray, gray + 0.03, alpha);
+      data.push(cx + hx - wx, cy + hy - wy, cz + hz - wz, gray, gray, gray + 0.03, alpha);
+      data.push(cx - hx + wx, cy - hy + wy, cz - hz + wz, gray, gray, gray + 0.03, alpha);
+      data.push(cx + hx - wx, cy + hy - wy, cz + hz - wz, gray, gray, gray + 0.03, alpha);
+      data.push(cx - hx - wx, cy - hy - wy, cz - hz - wz, gray, gray, gray + 0.03, alpha);
+    }
+    gl.useProgram(this.smokeProg);
+    gl.uniformMatrix4fv(this.smokeProjLoc, false, proj);
+    gl.uniformMatrix4fv(this.smokeViewLoc, false, view);
+    gl.bindVertexArray(this._smokeVao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._smokeBuf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
+    gl.depthMask(false);
+    gl.disable(gl.CULL_FACE);
+    gl.drawArrays(gl.TRIANGLES, 0, data.length / 7);
+    gl.enable(gl.CULL_FACE);
+    gl.depthMask(true);
+    gl.bindVertexArray(null);
+  }
+
   // Distant birds + hot-air balloons — animated sky objects that wheel over
   // the circuit. Birds are a dynamic per-frame buffer (flapping wings), the
   // balloons are one shared mesh drawn per balloon via model-matrix translate.
@@ -3208,9 +3460,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
 
   render(eyeX: number, eyeY: number, eyeZ: number, yaw: number, pitch: number, aspect: number,
-    cars: { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number }[], dt: number,
+    cars: { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number; accel?: number; spin?: number; slide?: number }[], dt: number,
     fovZoom: number = 1.0, shakeX: number = 0, shakeY: number = 0, isRaining: boolean = false, speedRatio: number = 0,
-    playerSpeed: number = 0) {
+    playerSpeed: number = 0, playerAccel: number = 0, playerSpin: number = 0, playerSlide: number = 0) {
     const gl = this.gl;
     this.elapsed += dt;
     // Crowd reaction decays smoothly back to calm (~4s from full excitement).
@@ -3260,7 +3512,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.drawElements(gl.TRIANGLES, this.sceneryCount, gl.UNSIGNED_SHORT, 0);
     // Cars cast shadows on the track — the single most visible shadow in the game.
     for (const car of cars) {
-      this.renderCarShadow(car.x, car.y, car.z, car.yaw, car.speed ?? 0);
+      this.renderCarShadow(car.x, car.y, car.z, car.yaw, car.speed ?? 0, car.spin, car.slide ?? 0);
     }
     gl.disable(gl.POLYGON_OFFSET_FILL);
 
@@ -3272,7 +3524,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.drawWorldScene(this.projMatrix, this.viewMatrix, eye as number[], cars, dt, isRaining, true);
 
     // ─── Rear-view mirror (a second camera looking back, blitted on top) ───
-    this.renderMirror(eyeX, eyeY, eyeZ, yaw, cars, dt, isRaining, playerSpeed);
+    this.renderMirror(eyeX, eyeY, eyeZ, yaw, cars, dt, isRaining, playerSpeed, playerAccel, playerSpin, playerSlide);
   }
 
   // Appends one box (6 faces × 2 tris = 36 verts, 11 floats each) into the
@@ -3385,7 +3637,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // Draws sky + track + finish + barrier + scenery + cars (+ optional rain).
   // `drawRain` is false for the mirror so rain particles aren't drawn twice.
   private drawWorldScene(proj: Float32Array, view: Float32Array, eye: number[],
-    cars: { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number }[],
+    cars: { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number; accel?: number; spin?: number; slide?: number }[],
     dt: number, isRaining: boolean, drawRain: boolean) {
     const gl = this.gl;
 
@@ -3496,9 +3748,19 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // Distant birds + hot-air balloons wheeling over the circuit
     this.drawSkyObjects(dt);
 
-    // Cars
+    // Cars — pass the integrated spin so every pass draws the identical wheel
+    // angle (the mirror's drawWorldScene call renders the same cars again).
     for (const car of cars) {
-      this.renderCar(car.x, car.y, car.z, car.yaw, car.r, car.g, car.b, car.speed ?? 0);
+      this.renderCar(car.x, car.y, car.z, car.yaw, car.r, car.g, car.b, car.speed ?? 0, car.accel ?? 0, car.spin, car.slide ?? 0);
+      // Tire smoke only in the main pass (mirror skips so the pool ages once).
+      if (drawRain && (car.slide ?? 0) > 0.35) {
+        this.emitSmoke(car.x, car.z, car.yaw, car.slide ?? 0);
+      }
+    }
+    // Advance + draw smoke puffs (camera-facing billboards) once per frame.
+    if (drawRain) {
+      this.updateSmoke(dt);
+      this.drawSmoke(proj, view);
     }
 
     // Animated crowd figures (drawn after scenery so they pop over it; before
@@ -3544,8 +3806,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // Renders the world from a rear-facing camera into the mirror FBO, then
   // blits that texture onto a quad at the top-center of the screen.
   private renderMirror(eyeX: number, eyeY: number, eyeZ: number, yaw: number,
-    cars: { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number }[],
-    dt: number, isRaining: boolean, playerSpeed: number = 0) {
+    cars: { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number; accel?: number; spin?: number; slide?: number }[],
+    dt: number, isRaining: boolean, playerSpeed: number = 0, playerAccel: number = 0, playerSpin: number = 0, playerSlide: number = 0) {
     const gl = this.gl;
 
     // Rear camera: just above the driver's eye, looking straight back with a
@@ -3568,8 +3830,16 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     this.drawWorldScene(this.mirrorProj, this.mirrorView, mEye, cars, dt, isRaining, false);
     // The player's own car isn't in `cars` (first-person camera sits inside it),
-    // but a real F1 mirror shows your own rear wing — draw it in the mirror pass.
-    this.renderCar(eyeX, 0.1, eyeZ, yaw, 0.85, 0.06, 0.06, playerSpeed);
+    // but a real F1 mirror shows your own rear wing — draw it in the mirror pass
+    // with the SAME integrated spin the main pass would use, so the wheels stay
+    // in sync instead of re-deriving an angle from a positional formula.
+    this.renderCar(eyeX, 0.1, eyeZ, yaw, 0.85, 0.06, 0.06, playerSpeed, playerAccel, playerSpin, playerSlide);
+    // Own-car tire smoke: puffs at the rear wheels show in the mirror when you
+    // are sliding hard. Emitted (no dt update — the main pass ages the pool).
+    if (playerSlide > 0.35) {
+      this.emitSmoke(eyeX, eyeZ, yaw, playerSlide);
+      this.drawSmoke(this.mirrorProj, this.mirrorView);
+    }
 
     // Blit the mirror texture onto the top-center of the screen.
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -3589,7 +3859,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.enable(gl.CULL_FACE);
   }
 
-  renderCar(x: number, y: number, z: number, yaw: number, r: number, g: number, b: number, speed: number = 0) {
+  renderCar(x: number, y: number, z: number, yaw: number, r: number, g: number, b: number, speed: number = 0, accel: number = 0, spin?: number, slide: number = 0) {
     const gl = this.gl;
     gl.useProgram(this.prog);
     // The detailed car body is built from double-sided quads with computed
@@ -3633,14 +3903,18 @@ void main() { FragColor = texture(uTex, vUV); }`;
       [-0.55, 0, -0.60],
       [-0.55, 0, 0.60]
     ];    // Wheel-speed heat: fades the brake glow in as |speed| climbs. Full glow
-    // around 30 u/s (max ~55), no glow when parked.
-    const heatGlow = Math.min(Math.abs(speed) / 30, 1) * 0.85;
+    // around 30 u/s (max ~55), no glow when parked. A subtle sine flicker
+    // (faster with speed) keeps the disc alive, and hard braking (accel < -0.3,
+    // i.e. the brake pedal actually applied) adds a brief hotter flash on top.
+    const heatBase = Math.min(Math.abs(speed) / 30, 1) * 0.85;
+    const flicker = 0.9 + 0.1 * Math.sin(this.elapsed * (7 + Math.abs(speed) * 0.3));
+    const brakeFlash = accel < -0.3 ? Math.min(1, -accel) * 0.55 : 0;
+    const heatGlow = Math.min(1.35, heatBase * flicker + brakeFlash);
     gl.uniform1f(this.heatGlowLoc, heatGlow);
     for (let wi = 0; wi < wheelPositions.length; wi++) {
       const wp = wheelPositions[wi];
       // Rear wheels (wi >= 2) use the wider, slightly larger rear wheel mesh.
       const rear = wi >= 2;
-      gl.bindVertexArray(rear ? this.rearWheelVao : this.wheelVao);
       this.mat4Identity(this.modelMatrix);
       this.mat4Translate(this.modelMatrix, [x, y + 0.17, z]);
       // Same nose-alignment offset as the body above.
@@ -3654,12 +3928,34 @@ void main() { FragColor = texture(uTex, vUV); }`;
       // Spin tracks the car's real speed: angular velocity = speed / wheel radius
       // (radius 0.17 → ~5.9 rad/s per unit of speed), clamped so the tread doesn't
       // strobe, and 0 when the car is parked. Reverse shows the tires rolling back.
-      const wheelSpin = this.elapsed * Math.min(Math.abs(speed) / 0.17, 40) * (speed < 0 ? 1 : -1);
+      // Integrated spin angle (radians) passed from the game loop, so the wheels
+      // roll smoothly through speed changes. Falls back to the old positional
+      // formula only if a caller hasn't supplied one.
+      // Slip scrubs the wheels: when the car slides (slide 0..1) the tires lose
+      // forward traction, so the visual spin drops toward the road speed minus
+      // the slip — a drifting wheel visibly slows/stalls instead of over-rolling.
+      const slipFactor = Math.max(0, 1 - Math.min(slide, 1) * 0.75);
+      const wheelSpin = spin !== undefined
+        ? spin * slipFactor
+        : this.elapsed * Math.min(Math.abs(speed) / 0.17, 40) * (speed < 0 ? 1 : -1) * slipFactor;
       this.mat4RotateZ(this.modelMatrix, wheelSpin);
       this.mat4RotateX(this.modelMatrix, Math.PI / 2);
       gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
-      gl.uniform3f(this.colorLoc, 0.05, 0.05, 0.05);
       this.setNormalMatrix(this.modelMatrix);
+      // Branded rim face — drawn first (under the tread) with the BHOSTED
+      // texture mapped via planar UVs. Same transform as the wheel so the
+      // lettering spins with it.
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.tireBrandTex);
+      gl.uniform1i(this.hasTexLoc, 1);
+      gl.uniform3f(this.colorLoc, 1, 1, 1);
+      gl.bindVertexArray(rear ? this.rearRimFaceVao : this.rimFaceVao);
+      gl.drawElements(gl.TRIANGLES, rear ? this.rearRimFaceCount : this.rimFaceCount, gl.UNSIGNED_SHORT, 0);
+      // Tire (untextured) drawn over the rim face.
+      gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
+      gl.uniform1i(this.hasTexLoc, 0);
+      gl.uniform3f(this.colorLoc, 0.05, 0.05, 0.05);
+      gl.bindVertexArray(rear ? this.rearWheelVao : this.wheelVao);
       gl.drawElements(gl.TRIANGLES, rear ? this.rearWheelCount : this.wheelCount, gl.UNSIGNED_SHORT, 0);
       // Brake assembly — same placement/roll, but tinted by the heat glow that
       // the uniform above applies to. Drawn after the tire so it sits on top.
@@ -3674,7 +3970,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // Same transforms as renderCar, but into the shadow depth map so cars cast
   // shadows on the track and scenery. Cull state is left untouched (the shadow
   // pass runs with culling disabled, matching the double-sided geometry).
-  private renderCarShadow(x: number, y: number, z: number, yaw: number, speed: number = 0) {
+  private renderCarShadow(x: number, y: number, z: number, yaw: number, speed: number = 0, spin?: number, slide: number = 0) {
     const gl = this.gl;
     gl.useProgram(this.shadowProg);
     gl.bindVertexArray(this.carVao);
@@ -3699,7 +3995,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.mat4Translate(this.modelMatrix, [x, y + 0.17, z]);
       this.mat4RotateY(this.modelMatrix, yaw - Math.PI / 2);
       this.mat4Translate(this.modelMatrix, wp);
-      const wheelSpin = this.elapsed * Math.min(Math.abs(speed) / 0.17, 40) * (speed < 0 ? 1 : -1);
+      const slipFactor = Math.max(0, 1 - Math.min(slide, 1) * 0.75);
+      const wheelSpin = spin !== undefined
+        ? spin * slipFactor
+        : this.elapsed * Math.min(Math.abs(speed) / 0.17, 40) * (speed < 0 ? 1 : -1) * slipFactor;
       this.mat4RotateZ(this.modelMatrix, wheelSpin);
       this.mat4RotateX(this.modelMatrix, Math.PI / 2);
       gl.uniformMatrix4fv(this.shadowModelLoc, false, this.modelMatrix);

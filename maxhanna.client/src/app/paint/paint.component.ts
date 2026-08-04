@@ -36,6 +36,9 @@ export class PaintComponent extends ChildComponent {
   fileName = '';
   currentFileId: number | null = null;
   visibility: string = 'Public';
+  // File type picked in the File menu — drives both the data-URL mime type and
+  // the file extension the server assigns on save.
+  fileType: 'jpg' | 'png' | 'webp' = 'png';
 
   fontFamily = 'Arial';
   fontSize = 16;
@@ -552,13 +555,21 @@ export class PaintComponent extends ChildComponent {
     if (this.recentColors.length > 8) this.recentColors.pop();
   }
 
+  private getMimeType(): string {
+    switch (this.fileType) {
+      case 'jpg': return 'image/jpeg';
+      case 'webp': return 'image/webp';
+      default: return 'image/png';
+    }
+  }
+
   async savePainting() {
     const userId = this.parentRef?.user?.id;
     if (!userId) { this.parentRef?.showNotification('Please log in to save paintings.'); return; }
 
     this.startLoading();
     try {
-      const dataUrl = this.canvasRef.nativeElement.toDataURL('image/png');
+      const dataUrl = this.canvasRef.nativeElement.toDataURL(this.getMimeType());
       const body = {
         userId,
         imageData: dataUrl,
@@ -613,8 +624,9 @@ export class PaintComponent extends ChildComponent {
 
   downloadPainting() {
     const link = document.createElement('a');
-    link.download = this.fileName || 'painting.png';
-    link.href = this.canvasRef.nativeElement.toDataURL('image/png');
+    const ext = this.fileType === 'jpg' ? 'jpg' : this.fileType;
+    link.download = this.fileName || ('painting.' + ext);
+    link.href = this.canvasRef.nativeElement.toDataURL(this.getMimeType());
     link.click();
   }
   selectArea() {

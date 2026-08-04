@@ -146,6 +146,15 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   leaderboard: RaceResult[] = [];
   leaderboardTotal = 0;
   leaderboardUserRank = 0;
+  // The track's current pace-setter lap (server-returned alongside userRank), so
+  // the standings row can show "+1.2s behind 1st" without recomputing it.
+  leaderboardBestLap = 0;
+  // Rank movement since the user's previous race on this track (positive =
+  // dropped N places, negative = climbed N). Persisted per track in localStorage.
+  rankMovement = 0;
+  // Racer profile popup (click a name on the leaderboard): the racer's car
+  // (with the per-track best-lap breakdown) while it loads.
+  racerProfile: { playerId: number; playerName: string; car: RacingPlayerCar | null; loading: boolean } | null = null;
   showLeaderboard = false;
   get hubConnected(): boolean { return this.racingHub.connected; }
   get myConnectionId(): string | null { return this.racingHub.myConnectionId; }
@@ -166,10 +175,20 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return 'Not connected';
   }
   messages: string[] = [];
+  // '🏆 New track record!' toast — old vs new time when a per-track best improves.
+  recordToast: { old: number; new: number; trackId: number } | null = null;
+  private _recordToastTimer: any = null;
+  // '⚔️ Beat your best friend!' milestone toast — fires when a lap puts the
+  // player ahead of their fastest friend on that track.
+  beatFriendToast: { friendName: string; margin: number; trackId: number } | null = null;
+  private _beatFriendToastTimer: any = null;
   private msgTimer: any = null;
   hudSpeed = 0;
   hudRPM = 0;
   steerSmoothed = 0;
+  // Live current-lap elapsed time, refreshed every frame so the in-race HUD
+  // pace readout (P+0.4s · +1.2s vs best) tracks mid-session.
+  liveLapTime = 0;
   @ViewChild('steerWheel') steerWheelEl?: ElementRef<HTMLDivElement>;
   @ViewChild('wheelSpeed') wheelSpeedEl?: ElementRef<HTMLDivElement>;
   @ViewChild('wheelRpm') wheelRpmEl?: ElementRef<HTMLDivElement>;
@@ -202,6 +221,17 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private static readonly STAND_ROAR_COOLDOWN = 2200; // ms between reaction moments
   private _prevLapFrac = -1;      // lap fraction last frame (for frac-crossing detect)
   private _lastStandRoarAt = 0;   // timestamp of last grandstand reaction moment
+  private _lastTickSecond = -1;   // last whole-second the garage tick played for
+  // Per-car previous speeds for the brake-glow accel estimate.
+  private _prevBotSpeeds = new Map<BotCar, number>();
+  private _prevRemoteSpeeds = new Map<string, number>();
+  // Integrated wheel-spin angles per car (radians). Spin is accumulated as
+  // rate × dt so it advances smoothly with speed changes — passing the exact
+  // same angle to every render pass keeps the mirror's own-car wheels in sync
+  // with the main camera's (no frame-boundary jumps).
+  private _botSpins = new Map<BotCar, number>();
+  private _remoteSpins = new Map<string, number>();
+  private _playerSpin = 0;
   private _screechSource: AudioBufferSourceNode | null = null;
   private _screechFilter: BiquadFilterNode | null = null;
   private _screechGain: GainNode | null = null;
@@ -651,9 +681,16 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
   private startAutoStartTicker() {
     if (this._autoStartTicker) clearInterval(this._autoStartTicker);
+    this._lastTickSecond = -1;
     this._autoStartTicker = setInterval(() => {
       const remain = Math.max(0, Math.ceil((this.autoStartDeadline - Date.now()) / 1000));
       this.autoStartSeconds = remain;
+      // Subtle tick each second while in the garage, so a player ducked into
+      // the upgrades can still hear the auto-start countdown running down.
+      if (this.gameState === 'garage' && remain !== this._lastTickSecond) {
+        this._lastTickSecond = remain;
+        if (remain > 0) this.playCountdownTick(remain);
+      }
       if (remain <= 0 && this._autoStartTicker) {
         clearInterval(this._autoStartTicker);
         this._autoStartTicker = null;
@@ -665,6 +702,51 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         }
       }
     }, 500);
+  }
+  // Subtle one-second tick while in the garage with a lobby countdown running
+  // — a quiet sine blip whose pitch rises for the final three seconds, so the
+  // countdown is audible even mid-upgrade.
+  private playCountdownTick(secondsLeft: number) {
+    if (!this.soundOn || !this._audioCtx) return;
+    try {
+      const ctx = this._audioCtx;
+      const t = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = secondsLeft <= 3 ? 880 : 660;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.045, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.18);
+    } catch { }
+  }
+  // Louder rising 'GO' fanfare when the multiplayer race actually launches
+  // (auto-start or host start), so a garage player can't miss the start.
+  private playGoChime() {
+    if (!this.soundOn || !this._audioCtx) return;
+    try {
+      const ctx = this._audioCtx;
+      const t = ctx.currentTime;
+      const notes = [523.25, 659.25, 783.99]; // C5, E5, G5 rising triad
+      notes.forEach((f, i) => {
+        const osc = ctx.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.value = f;
+        const g = ctx.createGain();
+        const start = t + i * 0.09;
+        g.gain.setValueAtTime(0.0001, start);
+        g.gain.exponentialRampToValueAtTime(0.09, start + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + 0.5);
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + 0.55);
+      });
+    } catch { }
   }
   /** Closes the garage cleanly when a multiplayer race is starting, so the
    *  start lights are never hidden behind the upgrade screen. No-op outside
@@ -681,6 +763,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
   private beginRace() {
+    // Louder 'GO' fanfare the instant the multiplayer race launches — covers
+    // both auto-start and host-start, and is audible even mid-garage.
+    this.playGoChime();
     this.gameState = 'racing';
     this.raceStartTime = performance.now();
     this.lapStartTime = this.raceStartTime;
@@ -946,25 +1031,48 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       const fovZoom = 1.0 - speedRatio * 0.15;
       const shakeX = this.screenShake * (Math.random() - 0.5) * 2;
       const shakeY = this.screenShake * (Math.random() - 0.5) * 2;
+      // Accel estimate for the brake-glow flash: (speed - prevSpeed) / dt.
+      // Signed — negative = decelerating (braking), which flares the discs.
+      const accelFor = (obj: { speed: number }, prev: number) =>
+        dt > 0 ? (obj.speed - prev) / dt : 0;
+      // Wheel spin is INTEGRATED per car (rate × dt, clamped like the renderer's
+      // old positional formula) so it advances smoothly through speed changes.
+      // The same accumulated angle is passed to every render pass — the mirror
+      // draws the player's own car with this exact value, keeping its wheels in
+      // sync with the main camera's.
+      const wheelRate = (spd: number) => Math.min(Math.abs(spd) / 0.17, 40) * (spd < 0 ? 1 : -1);
       const carList = this.bots.map(b => {
         const colors = [
           [0.8, 0.2, 0.2], [0.2, 0.4, 0.9], [0.1, 0.7, 0.1],
           [0.9, 0.7, 0.1], [0.7, 0.2, 0.7], [1.0, 0.5, 0]
         ];
         const c = colors[b.color % colors.length];
-        return { x: b.x, y: 0.1, z: b.z, yaw: b.yaw, r: c[0], g: c[1], b: c[2], speed: b.speed };
+        const prev = this._prevBotSpeeds.get(b) ?? b.speed;
+        this._prevBotSpeeds.set(b, b.speed);
+        const spin = (this._botSpins.get(b) ?? 0) + wheelRate(b.speed) * dt;
+        this._botSpins.set(b, spin);
+        return { x: b.x, y: 0.1, z: b.z, yaw: b.yaw, r: c[0], g: c[1], b: c[2], speed: b.speed, accel: accelFor(b, prev), spin, slide: b.slide };
       });
       this.remoteCars.forEach(rc => {
+        const prev = this._prevRemoteSpeeds.get(rc.connectionId) ?? rc.speed;
+        this._prevRemoteSpeeds.set(rc.connectionId, rc.speed);
+        const spin = (this._remoteSpins.get(rc.connectionId) ?? 0) + wheelRate(rc.speed) * dt;
+        this._remoteSpins.set(rc.connectionId, spin);
         carList.push({
           x: rc.x, y: 0.1, z: rc.z,
           yaw: rc.yaw,
           r: rc.colorR, g: rc.colorG, b: rc.colorB,
-          speed: rc.speed
+          speed: rc.speed,
+          accel: accelFor(rc, prev),
+          spin,
+          slide: rc.slide
         });
       });
-      this.renderer.render(eyeX, eyeY, eyeZ, yaw, pitch, aspect, carList, dt, fovZoom, shakeX, shakeY, this.isRaining, speedRatio, this.carSpeed);
+      this._playerSpin += wheelRate(this.carSpeed) * dt;
+      this.renderer.render(eyeX, eyeY, eyeZ, yaw, pitch, aspect, carList, dt, fovZoom, shakeX, shakeY, this.isRaining, speedRatio, this.carSpeed, this.carAccel, this._playerSpin, this._playerSlide);
       this.hudSpeed = Math.abs(this.carSpeed * 3.6);
       this.hudRPM = Math.min(1, Math.abs(this.carSpeed) / this.getMaxSpeed() * 1.1);
+      this.liveLapTime = this.lapStartTime > 0 ? performance.now() - this.lapStartTime : 0;
       const targetSteer = -this.carSteer * 35;
       this.steerSmoothed += (targetSteer - this.steerSmoothed) * Math.min(1, dt * 8);
       if (this.steerWheelEl?.nativeElement) {
@@ -1368,7 +1476,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const playerIdx = allRacers.findIndex(r => r.isPlayer);
     this.racePosition = playerIdx === -1 ? this.totalRacers : playerIdx + 1;
   }
-  private finishRace() {
+  private async finishRace() {
     if (this._raceFinished) return;
     this._raceFinished = true;
     const totalTime = performance.now() - this.raceStartTime;
@@ -1394,7 +1502,13 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.playerCar.bestLapsByTrack = this.playerCar.bestLapsByTrack || {};
       const prevTrackBest = this.playerCar.bestLapsByTrack[trackIdForLap] || 0;
       if (!prevTrackBest || this.bestLapTime < prevTrackBest) {
+        // Flash the record-improvement toast: old → new (or a first-record
+        // celebration when there was no previous time on this track).
+        this.showRecordToast(prevTrackBest, this.bestLapTime, trackIdForLap);
         this.playerCar.bestLapsByTrack[trackIdForLap] = this.bestLapTime;
+        // If this lap also crossed ahead of the player's fastest friend on the
+        // track, fire the beat-your-friend milestone (fetches friends on demand).
+        await this.maybeCelebrateFriendBeat(trackIdForLap, prevTrackBest);
       }
       // Keep the overall best in sync (smallest per-track lap).
       const trackBests = Object.values(this.playerCar.bestLapsByTrack).filter(v => v > 0);
@@ -1412,7 +1526,80 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       trackId: this.selectedTrack?.id ?? 1,
     };
     this.racingService.submitRaceResult(this.parentRef?.user?.id ?? 0, result);
-    this.loadLeaderboard();
+    await this.loadLeaderboard();
+    this.recordRankMovement();
+  }
+
+  // Compares the user's current leaderboard rank against the rank stored from
+  // their last race on this track (localStorage), then persists the current
+  // rank so the next race can show the delta. Skipped when there's no rank yet.
+  private recordRankMovement() {
+    const trackId = this.selectedTrack?.id ?? 1;
+    const uid = this.parentRef?.user?.id ?? 0;
+    if (!uid || this.leaderboardUserRank <= 0) return;
+    const key = `gp_rank_${trackId}_${uid}`;
+    let prev = 0;
+    try {
+      const raw = localStorage.getItem(key);
+      prev = raw ? parseInt(raw, 10) || 0 : 0;
+    } catch { /* localStorage unavailable */ }
+    this.rankMovement = prev > 0 ? this.leaderboardUserRank - prev : 0;
+    try {
+      localStorage.setItem(key, String(this.leaderboardUserRank));
+    } catch { /* localStorage unavailable */ }
+  }
+
+  // '▲ up 3 since last race' / '▼ down 2 since last race' / '' when no delta.
+  getLeaderboardRankMovement(): string {
+    const d = this.rankMovement;
+    if (d === 0) return '';
+    const dir = d < 0 ? '▲ up' : '▼ down';
+    return `${dir} ${Math.abs(d)} since last race`;
+  }
+
+  // ─── Racer profile popup ───
+  // Clicking a name on the leaderboard fetches that racer's car state (which
+  // carries the per-track best-lap breakdown) and shows it in a popup instead
+  // of only the single best lap the board row displays.
+  async openRacerProfile(r: RaceResult) {
+    if (!r || r.playerId <= 0 || r.isBot) return;
+    this.racerProfile = { playerId: r.playerId, playerName: r.playerName, car: null, loading: true };
+    const car = await this.racingService.getPlayerCar(r.playerId);
+    if (this.racerProfile?.playerId === r.playerId) {
+      this.racerProfile = { playerId: r.playerId, playerName: r.playerName, car, loading: false };
+    }
+  }
+  closeRacerProfile() {
+    this.racerProfile = null;
+  }
+  // Opens the racer profile popup from a vs-friends row (the rows carry the
+  // friend's userId + playerName, reusing the exact leaderboard popup flow).
+  openFriendProfile(fr: { userId: number; playerName: string }): void {
+    if (!fr || fr.userId <= 0) return;
+    this.openRacerProfile({
+      position: 0, playerId: fr.userId, playerName: fr.playerName,
+      lapTime: 0, totalTime: 0, moneyEarned: 0, isBot: false,
+    });
+  }
+  // Open the racer's full site profile in-app.
+  openFullRacerProfile() {
+    const p = this.racerProfile;
+    if (!p) return;
+    this.parentRef?.createComponent('User', { userId: p.playerId });
+    this.closeRacerProfile();
+  }
+  // Per-track best-lap breakdown for the popup racer, in track order, only
+  // including tracks with a recorded lap.
+  getRacerTrackLaps(): { trackId: number; name: string; flag: string; lap: number }[] {
+    const car = this.racerProfile?.car;
+    const bests = car?.bestLapsByTrack;
+    if (!bests) return [];
+    const out: { trackId: number; name: string; flag: string; lap: number }[] = [];
+    for (const t of this.trackDefs) {
+      const lap = bests[t.id];
+      if (lap && lap > 0) out.push({ trackId: t.id, name: t.name, flag: this.getTrackFlag(t), lap });
+    }
+    return out;
   }
   async loadLeaderboard() {
     const trackId = this.selectedTrack?.id ?? 1;
@@ -1422,10 +1609,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.leaderboard = data?.results ?? [];
       this.leaderboardTotal = data?.totalCount ?? this.leaderboard.length;
       this.leaderboardUserRank = data?.userRank ?? 0;
+      this.leaderboardBestLap = data?.bestLap ?? 0;
     } catch {
       this.leaderboard = [];
       this.leaderboardTotal = 0;
       this.leaderboardUserRank = 0;
+      this.leaderboardBestLap = 0;
     }
     // The server already ranks the current user if their lap cracks the top 50
     // — leave it in its ranked position and just let the row highlight. Only pin
@@ -1460,8 +1649,41 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   getLeaderboardStandingText(): string {
     const total = this.leaderboardTotal;
     const rank = this.leaderboardUserRank;
-    if (rank > 0) return `#${rank} of ${total} on this level`;
+    if (rank > 0) {
+      let text = `#${rank} of ${total} on this level`;
+      // Show how far off the pace when the user isn't the leader and both the
+      // pace-setter lap and the user's own track best are known.
+      const leader = this.leaderboardBestLap;
+      const myBest = this.getTrackBestLap(this.selectedTrack?.id ?? 1);
+      if (rank > 1 && leader > 0 && myBest > 0 && myBest > leader) {
+        text += ` · ${this.formatLapGap(myBest - leader)} behind 1st`;
+      }
+      return text;
+    }
     return total > 0 ? `No lap yet — ${total} racers on this level` : 'No laps recorded yet';
+  }
+
+  // ─── Live in-race pace readout ───
+  // 'P+0.4s' vs the track's pace-setter lap + '+1.2s vs best' against the
+  // player's own per-track record, computed from the live current-lap clock.
+  getLivePaceText(): string {
+    const live = this.liveLapTime;
+    if (live <= 0) return '';
+    const leader = this.leaderboardBestLap;
+    const myBest = this.getTrackBestLap(this.selectedTrack?.id ?? 1);
+    const parts: string[] = [];
+    if (leader > 0) {
+      parts.push(live <= leader ? 'PACE' : `P${this.formatLapGap(live - leader)}`);
+    }
+    if (myBest > 0) {
+      parts.push(`${this.formatLapGap(live - myBest)} vs best`);
+    }
+    return parts.length > 0 ? parts.join(' · ') : '';
+  }
+  // True when the live lap is at or ahead of the track's pace-setter.
+  getLivePaceAhead(): boolean {
+    const live = this.liveLapTime;
+    return live > 0 && this.leaderboardBestLap > 0 && live <= this.leaderboardBestLap;
   }
   async toggleLeaderboard() {
     this.showLeaderboard = !this.showLeaderboard;
@@ -1712,6 +1934,75 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.msgTimer) clearTimeout(this.msgTimer);
     this.msgTimer = setTimeout(() => this.messages = [], 4000);
   }
+
+  // Shows (or refreshes) the new-track-record toast for ~4.5s, with the old vs
+  // new time so players see exactly how much they beat themselves by.
+  private showRecordToast(prev: number, curr: number, trackId: number) {
+    if (curr <= 0) return;
+    this.recordToast = { old: prev, new: curr, trackId };
+    if (this._recordToastTimer) clearTimeout(this._recordToastTimer);
+    this._recordToastTimer = setTimeout(() => this.recordToast = null, 4500);
+  }
+
+  // After a per-track record improves, checks whether the new time crossed ahead
+  // of the player's fastest friend on that track. Fetches the vs-friends data on
+  // demand (only when a record was actually beaten, so it's a rare call).
+  private async maybeCelebrateFriendBeat(trackId: number, prevBest: number) {
+    if (this.bestLapTime <= 0) return;
+    if (this.friendRecords.length === 0) {
+      const uid = this.parentRef?.user?.id ?? 0;
+      if (!uid) return;
+      this.friendRecords = await this.racingService.getFriendRecords(uid);
+    }
+    let fastestLap = 0;
+    let fastestName = '';
+    for (const f of this.friendRecords) {
+      const lap = f.bestLapsByTrack && f.bestLapsByTrack[trackId];
+      if (lap && lap > 0 && (fastestLap === 0 || lap < fastestLap)) {
+        fastestLap = lap;
+        fastestName = f.playerName;
+      }
+    }
+    if (fastestLap <= 0) return;
+    // Only celebrate the crossing: not already ahead before this lap, and now
+    // strictly faster than the friend's best on the track.
+    const wasAlreadyAhead = prevBest > 0 && prevBest < fastestLap;
+    if (wasAlreadyAhead || this.bestLapTime >= fastestLap) return;
+    this.showBeatFriendToast(fastestName, fastestLap - this.bestLapTime, trackId);
+  }
+
+  private showBeatFriendToast(friendName: string, margin: number, trackId: number) {
+    this.beatFriendToast = { friendName, margin, trackId };
+    if (this._beatFriendToastTimer) clearTimeout(this._beatFriendToastTimer);
+    this._beatFriendToastTimer = setTimeout(() => this.beatFriendToast = null, 4500);
+  }
+  // Track name for the beat-your-friend toast.
+  getBeatFriendToastTrack(): string {
+    const t = this.beatFriendToast;
+    if (!t) return '';
+    const track = this.trackDefs.find(x => x.id === t.trackId);
+    return track ? track.name : 'this track';
+  }
+  // The margin by which you beat your friend, e.g. '0.4s'.
+  getBeatFriendMarginText(): string {
+    const t = this.beatFriendToast;
+    if (!t) return '';
+    return `${(t.margin / 1000).toFixed(1)}s`;
+  }
+  // '1:02.4 → 1:00.1' (or '— → 1:00.1' when there was no previous record).
+  getRecordToastTimes(): string {
+    const t = this.recordToast;
+    if (!t) return '';
+    const oldStr = t.old > 0 ? this.formatTime(t.old) : '—';
+    return `${oldStr} → ${this.formatTime(t.new)}`;
+  }
+  // Track name for the toast (fallback 'this track').
+  getRecordToastTrack(): string {
+    const t = this.recordToast;
+    if (!t) return '';
+    const track = this.trackDefs.find(x => x.id === t.trackId);
+    return track ? track.name : 'this track';
+  }
   formatTime(ms: number): string {
     if (!ms || ms === Infinity) return '--:--';
     const s = Math.floor(ms / 1000);
@@ -1834,6 +2125,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private initEngineAudio() {
     try {
       const ctx = new AudioContext();
+      // Ensure the context is actually running — browsers suspend it until a
+      // user gesture, and without resume() the title music stays silent.
+      if (ctx.state === 'suspended') { try { ctx.resume(); } catch { } }
       this._audioCtx = ctx;
       this._engineFilter = ctx.createBiquadFilter();
       this._engineFilter.type = 'lowpass';
@@ -2389,6 +2683,107 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   getOverallBestLap(): number {
     return this.playerCar?.bestLap ?? 0;
   }
+  /** Per-track top-5 paces for the garage RECORDS mini-tables (trackId → rows). */
+  trackTopLaps: { [trackId: number]: RaceResult[] } = {};
+  // Friends' per-track bests (userId → bestLapsByTrack) for the 'vs friends' toggle.
+  friendRecords: { userId: number; playerName: string; bestLapsByTrack: Record<number, number> }[] = [];
+  // Whether the RECORDS tab shows the per-track friend comparison.
+  friendsMode = false;
+  friendsLoading = false;
+
+  // RECORDS tab opens the per-track records — also warm the top-5 pace tables
+  // so players see the time to beat on every circuit without extra clicks.
+  async openRecordsTab() {
+    this.selectedTab = 'records';
+    await this.loadAllTrackTopLaps();
+  }
+
+  // Toggles the per-track 'vs friends' comparison and lazily loads the friends'
+  // record data the first time it's needed.
+  async toggleFriendsMode() {
+    this.friendsMode = !this.friendsMode;
+    if (this.friendsMode && this.friendRecords.length === 0) {
+      await this.loadFriendRecords();
+    }
+  }
+
+  private async loadFriendRecords() {
+    const uid = this.parentRef?.user?.id ?? 0;
+    if (!uid) return;
+    this.friendsLoading = true;
+    try {
+      this.friendRecords = await this.racingService.getFriendRecords(uid);
+    } catch {
+      this.friendRecords = [];
+    } finally {
+      this.friendsLoading = false;
+    }
+  }
+
+  private async loadAllTrackTopLaps() {
+    const uid = this.parentRef?.user?.id ?? 0;
+    await Promise.all(this.trackDefs.map(async t => {
+      try {
+        const data = await this.racingService.getLeaderboard(t.id, uid);
+        this.trackTopLaps[t.id] = (data?.results ?? []).slice(0, 5);
+      } catch {
+        this.trackTopLaps[t.id] = [];
+      }
+    }));
+  }
+
+  getTrackTopLaps(trackId: number): RaceResult[] {
+    return this.trackTopLaps[trackId] || [];
+  }
+
+  // Friends who have a lap on this track, sorted fastest-first, each carrying
+  // the lap time and a 'vs your best' gap label for the RECORDS comparison.
+  getTrackFriendRows(trackId: number): { userId: number; playerName: string; lap: number; vsYou: string; ahead: boolean }[] {
+    const myBest = this.getTrackBestLap(trackId);
+    const rows: { userId: number; playerName: string; lap: number; vsYou: string; ahead: boolean }[] = [];
+    for (const f of this.friendRecords) {
+      const lap = f.bestLapsByTrack && f.bestLapsByTrack[trackId];
+      if (!lap || lap <= 0) continue;
+      let vsYou = '—';
+      let ahead = false;
+      if (myBest > 0) {
+        const delta = lap - myBest;
+        ahead = delta < 0;
+        vsYou = ahead ? this.formatLapGap(delta) : (delta === 0 ? 'tie' : `+${(delta / 1000).toFixed(1)}s`);
+      }
+      rows.push({ userId: f.userId, playerName: f.playerName, lap, vsYou, ahead });
+    }
+    return rows.sort((a, b) => a.lap - b.lap);
+  }
+
+  // How many friends the player is strictly ahead of on this track (0 when the
+  // player has no record yet, or no friend has a lap on this circuit). Drives
+  // the per-card 'ahead of N friends' summary badge.
+  getTrackFriendsBeaten(trackId: number): number {
+    const myBest = this.getTrackBestLap(trackId);
+    if (myBest <= 0) return 0;
+    let count = 0;
+    for (const f of this.friendRecords) {
+      const lap = f.bestLapsByTrack && f.bestLapsByTrack[trackId];
+      if (lap && lap > 0 && lap > myBest) count++;
+    }
+    return count;
+  }
+
+  // Gap of a row vs the pace-setter on THIS track's mini-table (independent of
+  // the main leaderboard's selected-track state).
+  getTrackTopLapGap(r: RaceResult, trackId: number): string {
+    if (!r.lapTime || r.lapTime <= 0) return '';
+    const rows = this.getTrackTopLaps(trackId);
+    let leader = 0;
+    for (const row of rows) {
+      if (row.lapTime > 0 && (leader === 0 || row.lapTime < leader)) leader = row.lapTime;
+    }
+    if (leader <= 0) return '';
+    if (r.lapTime <= leader) return 'PACE';
+    return this.formatLapGap(r.lapTime - leader);
+  }
+
   /** Fastest lap currently on the board (0 when nothing is recorded). */
   getLeaderboardLeaderLap(): number {
     let leader = 0;

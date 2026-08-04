@@ -1360,14 +1360,21 @@ namespace maxhanna.Server.Controllers
 				var results = new List<PublicChatInfo>();
 				while (await reader.ReadAsync())
 				{
-					var info = new PublicChatInfo
+					results.Add(new PublicChatInfo
 					{
 						ChatId = reader.GetInt32("chat_id"),
 						Name = reader.GetString("name"),
 						CreatedAt = reader.IsDBNull(reader.GetOrdinal("created_at")) ? null : reader.GetDateTime("created_at")
-					};
+					});
+				}
+				// Close the reader BEFORE running per-chat count queries — issuing
+				// a new command on the same connection while a reader is open
+				// throws MySqlConnector "connection already in use", which the
+				// count helper swallowed and returned 0 for every chat.
+				await reader.CloseAsync();
+				foreach (var info in results)
+				{
 					info.MemberCount = await CountChatMembersAsync(conn, info.ChatId);
-					results.Add(info);
 				}
 				return Ok(results);
 			}

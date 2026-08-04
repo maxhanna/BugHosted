@@ -59,6 +59,12 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
     return this.eventTypes.filter(et => this.eventToggles[et] !== false);
   }
 
+  private getEventData(eventType: string): { icon: string; description: string } {
+    const icon = this.getEventIcon(eventType);
+    const description = this.getEventDescription(eventType);
+    return { icon, description };
+  }
+
   async loadEvents() {
     this.loadError = null;
     this.loading = true;
@@ -130,6 +136,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       case 'weaver_card_created': return '🕷️';
       case 'recipe_edited': return '🍳';
       case 'recipe_added': return '🍳';
+      case 'racing': return '🏎️';
       default: return '📌';
     }
   } 

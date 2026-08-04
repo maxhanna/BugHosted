@@ -14,6 +14,7 @@
 
 .metadataContent {
   width: 100%;
+  max-width: 100%;
   position: relative;
   display: inline-flex;
   flex-direction: column;
@@ -21,6 +22,120 @@
   align-content: center;
   justify-content: center;
   align-items: center;
+  border: 1px solid var(--main-border-color);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--main-background-color);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.metadataContent:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  border-color: var(--main-highlight-color);
+}
+
+.metadataCardInner {
+  width: 100%;
+}
+
+.metadataCardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px 10px;
+}
+
+.metadataCardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.metadataDomain {
+  font-size: 11px;
+  color: var(--secondary-font-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metadataDetailsButton {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--main-border-color);
+  background: var(--main-highlight-color);
+  color: var(--main-font-color);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.metadataDetailsButton:hover {
+  background: var(--main-highlight-color-quarter-opacity);
+}
+
+.metadataDetailPopup {
+  max-width: 440px;
+}
+
+.metadataDetailBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.metadataDetailImageWrap {
+  text-align: center;
+}
+
+.metadataDetailImageWrap a {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.metadataDetailImageWrap .metadataImage {
+  max-height: 280px;
+  border-radius: 8px;
+}
+
+.metadataDetailRows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metadataDetailRow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(var(--main-highlight-color-rgb), 0.08);
+}
+
+.metadataDetailLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--secondary-font-color);
+}
+
+.metadataDetailValue {
+  font-size: 13px;
+  color: var(--main-font-color);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.metadataDetailValue a {
+  color: var(--main-link-color);
 }
 
 .metaImgDiv {

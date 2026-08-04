@@ -51,6 +51,7 @@ const routes: Routes = [
   { path: 'Recipe/:recipeId', component: AppComponent },
   { path: 'Recipe', component: AppComponent },
   { path: 'ResetPassword/:token/:username', component: AppComponent },
+  { path: 'Conversion', component: AppComponent },
 ];
 
 @NgModule({

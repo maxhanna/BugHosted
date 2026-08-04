@@ -41,6 +41,9 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   showOnlyApiKeys = false;
   showOnlyAccountSection = false;
   selectableIcons: MenuItem[] = [];
+  // Search box for the App Selection (menu icons) section — filters the app
+  // list live by title/icon so users can find a menu item fast.
+  menuSearchQuery = '';
   btcWalletAddresses?: string[];
   notifications: string[] = [];
   selectedCurrency = '';
@@ -496,6 +499,17 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   }
   menuIconsIncludes(title: string) {
     return this.parentRef!.userSelectedNavigationItems.some(x => x.title == title) || this.inputtedParentRef?.userSelectedNavigationItems.some(x => x.title == title);
+  }
+  // Case-insensitive live filter for the App Selection list, matching title,
+  // icon, or the description text so apps are findable by any of them.
+  getFilteredSelectableIcons(): MenuItem[] {
+    const q = this.menuSearchQuery.trim().toLowerCase();
+    if (!q) return this.selectableIcons;
+    return this.selectableIcons.filter(icon =>
+      (icon.title ?? '').toLowerCase().includes(q) ||
+      (icon.icon ?? '').toLowerCase().includes(q) ||
+      (this.parentRef?.getMenuItemDescription?.(icon.title) ?? '').toLowerCase().includes(q)
+    );
   }
 
   formatDate(date?: Date | string | null): string {

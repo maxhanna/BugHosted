@@ -54,6 +54,7 @@ import { PaintComponent } from './paint/paint.component';
 import { ModeratorComponent } from './moderator/moderator.component';
 import { UserEventService } from '../services/user-event.service';
 import { RacingComponent } from './racing/racing.component';
+import { ConversionComponent } from './conversion/conversion.component';
 
 
 @Component({
@@ -173,6 +174,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "🕷️", title: "Weaver", content: undefined },
     { ownership: 0, icon: "🚔", title: "GrandTheft", content: undefined },
     { ownership: 0, icon: "🍳", title: "Recipe", content: undefined },
+    { ownership: 0, icon: "🔄", title: "Conversion", content: undefined },
     { ownership: 0, icon: "ℹ️", title: "Help", content: undefined }
   ];
   componentTitles: { [key: string]: string } = {
@@ -402,6 +404,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     },
     {
       ownership: 0,
+      title: 'Conversion',
+      content: `Conversion tool for converting between different formats.`
+    },
+    {
+      ownership: 0,
       title: 'Emulator',
       content: `Our emulator emulates multiple game consoles directly in your browser! Featuring:
       <ul>
@@ -488,6 +495,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "User-Events": UserEventsComponent,
     "Paint": PaintComponent,
     "Moderator": ModeratorComponent,
+    "Conversion": ConversionComponent,
   };
   userSelectedNavigationItems: Array<MenuItem> = [];
   constructor(private router: Router,
@@ -690,6 +698,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           this.angLocation.replaceState(this.router.url.split('?')[0]);
           this.createComponent("Recipe", { "recipeId": recipeIdStr ? parseInt(recipeIdStr, 10) : undefined });
         }
+        else if (this.router.url.toLowerCase().includes('conversion')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Conversion');
+        }
         else if (!this.user) {
           this.createComponent('User');
         }
@@ -709,6 +721,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         "Favourites",
         "Crawler",
         "HostAi",
+        "Conversion",
         "User",
         "Help",
       ];

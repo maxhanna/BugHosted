@@ -10,10 +10,30 @@ export class RacingService {
 
   constructor(private http: HttpClient) { }
 
+  // Live count of players connected to racing lobbies (navigation icon badge).
+  async getActivePlayers(signal?: AbortSignal): Promise<number | null> {
+    try {
+      const response = await fetch(`${this.baseUrl}/activeplayers`, { signal });
+      if (!response.ok) return null;
+      const data: any = await response.json();
+      return data?.count ?? null;
+    } catch (e) {
+      console.error('Error fetching active racing players', e);
+      return null;
+    }
+  }
+
   async getPlayerCar(userId: number): Promise<RacingPlayerCar | null> {
     try {
       return await this.http.get<RacingPlayerCar>(`${this.baseUrl}/car/${userId}`).toPromise() ?? null;
     } catch { return null; }
+  }
+
+  // Friends' per-track best laps for the RECORDS 'vs friends' toggle.
+  async getFriendRecords(userId: number): Promise<{ userId: number; playerName: string; bestLapsByTrack: Record<number, number> }[]> {
+    try {
+      return await this.http.get<any[]>(`${this.baseUrl}/friends/${userId}`).toPromise() ?? [];
+    } catch { return []; }
   }
 
   async savePlayerCar(car: RacingPlayerCar): Promise<boolean> {
@@ -47,16 +67,17 @@ export class RacingService {
     } catch { return null; }
   }
 
-  async getLeaderboard(trackId: number, userId: number = 0): Promise<{ results: RaceResult[]; totalCount: number; userRank: number }> {
+  async getLeaderboard(trackId: number, userId: number = 0): Promise<{ results: RaceResult[]; totalCount: number; userRank: number; bestLap: number }> {
     try {
       const data: any = await this.http.get(`${this.baseUrl}/leaderboard/${trackId}?userId=${userId}`).toPromise();
-      if (Array.isArray(data)) return { results: data, totalCount: data.length, userRank: 0 };
+      if (Array.isArray(data)) return { results: data, totalCount: data.length, userRank: 0, bestLap: 0 };
       return {
         results: data?.results ?? [],
         totalCount: data?.totalCount ?? 0,
         userRank: data?.userRank ?? 0,
+        bestLap: data?.bestLap ?? 0,
       };
-    } catch { return { results: [], totalCount: 0, userRank: 0 }; }
+    } catch { return { results: [], totalCount: 0, userRank: 0, bestLap: 0 }; }
   }
 
   async joinRace(userId: number, trackId: number): Promise<any> {

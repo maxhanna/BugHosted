@@ -146,49 +146,6 @@
   text-overflow: ellipsis;
 }
 
-.metadataContent {
-  width: 100%;
-  position: relative;
-  display: inline-flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  align-content: center;
-  justify-content: center;
-  align-items: center;
-}
-
-.metaImgDiv {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-content: center;
-  justify-content: center;
-  align-items: center;
-}
-
-.metadataImage {
-  max-width: 100%;
-  max-height: 500px;
-}
-
-@media only screen and (max-device-width: 800px) {
-  .metadataImage {
-    max-width: 300px;
-    max-height: 300px;
-  }
-}
-
-.metadataDescription {
-  font-size: smaller;
-  color: var(--secondary-font-color);
-  text-align: center;
-}
-
-.metadataTitle {
-  font-size: small;
-  color: var(--main-font-color);
-}
-
 .attachedFileSpan {
   cursor: pointer;
 }
@@ -252,15 +209,6 @@ singleAttachment {
   align-content: flex-start;
   justify-content: center;
   align-items: flex-start;
-}
-
-.metadataOptionsStats {
-  margin-top: 10px;
-  display: flex;
-  flex-direction: column;
-  padding: 10px;
-  border: var(--main-border);
-  border-width: 4px;
 }
 
 .createdByStoryOptionsDiv {
