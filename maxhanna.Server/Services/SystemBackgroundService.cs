@@ -3184,16 +3184,16 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
             await conn.OpenAsync();
         
             var sql = @"
-        SELECT u.user_id, ce.type, ce.date, ce.note
+        SELECT u.user_id, ce.type, ce.date, ce.note, ce.reminder
         FROM user_settings u
         INNER JOIN calendar ce ON u.user_id = ce.ownership
         WHERE u.calendar_notifications_enabled = 1
         UNION
-        SELECT u.user_id, 'Birthday', ua.birthday, ua.description
+        SELECT u.user_id, 'Birthday', ua.birthday, ua.description, NULL
         FROM user_settings u
         INNER JOIN user_about ua ON ua.user_id = u.user_id
         WHERE u.calendar_notifications_enabled = 1 AND ua.birthday IS NOT NULL";
-            var eventsByUser = new Dictionary<int, List<(string Type, DateTime Date, string Note)>>();
+            var eventsByUser = new Dictionary<int, List<(string Type, DateTime Date, string Note, int? Reminder)>>();
             await using (var cmd = new MySqlCommand(sql, conn))
             await using (var reader = await cmd.ExecuteReaderAsync())
             {
@@ -3203,11 +3203,12 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
                     var type = reader.IsDBNull(reader.GetOrdinal("type")) ? "Event" : reader.GetString("type");
                     var date = reader.GetDateTime("date");
                     var note = reader.IsDBNull(reader.GetOrdinal("note")) ? "" : reader.GetString("note");
+                    var reminder = reader.IsDBNull(reader.GetOrdinal("reminder")) ? (int?)null : reader.GetInt32("reminder");
                     if (!eventsByUser.TryGetValue(userId, out var list))
                     {
-                        eventsByUser[userId] = list = new List<(string, DateTime, string)>();
+                        eventsByUser[userId] = list = new List<(string, DateTime, string, int?)>();
                     }
-                    list.Add((type, date, note));
+                    list.Add((type, date, note, reminder));
                 }
             }
             var firebaseService = new FirebaseNotificationService(_log, _config);
@@ -3215,11 +3216,16 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
             {
                 var userId = kvp.Key;
                 var upcoming = new List<CalendarEntry>(); 
-                foreach (var (type, date, note) in kvp.Value)
+                foreach (var (type, date, note, reminder) in kvp.Value)
                 {
                     var occ = NextOccurrenceAfter(now, type, date);
-                    if (occ == null || occ.Value > now.AddHours(1)) continue;
-                    upcoming.Add(new CalendarEntry(1, type, note, occ.Value, userId.ToString()));
+                    if (occ == null || occ.Value <= now) continue;
+                    // Per-event lead time: notify `reminder` minutes before the
+                    // event (default 60 minutes when unset, preserving the old
+                    // fixed 1-hour window). Fire only once the lead window opens.
+                    var lead = reminder ?? 60;
+                    if (now < occ.Value.AddMinutes(-lead)) continue;
+                    upcoming.Add(new CalendarEntry(1, type, note, occ.Value, userId.ToString(), lead));
                 }
                 if (upcoming.Count == 0) continue;
                 // Per-user cooldown: don't re-notify within the last hour.

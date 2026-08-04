@@ -13,6 +13,17 @@ export interface RacingCarVertex {
   nx: number; ny: number; nz: number;
 }
 
+export interface CrowdPerson {
+  x: number; y: number; z: number;
+  shirt: [number, number, number];
+  skin: [number, number, number];
+  hair: [number, number, number];
+  pants: [number, number, number];
+  pose: number;        // 0 = arms down, 1 = both arms up, 2 = one arm up
+  scale: number;       // height variance ~0.85-1.15
+  phase: number;       // animation phase offset (per-person)
+}
+
 export class RacingRenderer {
   private gl: WebGL2RenderingContext;
   private prog!: WebGLProgram;
@@ -1032,6 +1043,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this._balloonVao) { try { gl.deleteVertexArray(this._balloonVao); } catch { } }
     if (this._balloonVbo) { try { gl.deleteBuffer(this._balloonVbo); } catch { } }
     if (this._balloonIbo) { try { gl.deleteBuffer(this._balloonIbo); } catch { } }
+    if (this._crowdVao) { try { gl.deleteVertexArray(this._crowdVao); } catch { } }
+    if (this._crowdBuf) { try { gl.deleteBuffer(this._crowdBuf); } catch { } }
+    this._crowdPeople = [];
     const pts = this._trackPoints;
     const verts: number[] = [];
     const idxs: number[] = [];
@@ -1075,31 +1089,46 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
 
     // ── Crowds lining the fences ──
-    // Packed rows of standing spectators right next to the barriers on both
-    // sides, every ~16 segments, so cheering people line the whole lap — not
-    // just the grandstands. Each spectator is a torso box + a little head box.
-    const fenceCrowdColors: [number, number, number][] = [
+    // Packed rows of spectators right next to the barriers on both sides, every
+    // ~16 segments, so cheering people line the whole lap — not just the
+    // grandstands. Each one is a posed, animated figure (legs, torso, arms,
+    // head) drawn per-frame so they bob and cheer. They stand OUTSIDE the
+    // barrier wall (hw + 1.5) and its cap (hw + 1.8) so nobody ever appears on
+    // the track or the kerbs.
+    const fenceCrowdShirts: [number, number, number][] = [
       [0.7, 0.15, 0.15], [0.15, 0.3, 0.7], [0.8, 0.7, 0.1],
       [0.9, 0.9, 0.9], [0.15, 0.5, 0.2], [0.6, 0.2, 0.6],
       [0.1, 0.65, 0.65], [0.95, 0.5, 0.15],
+    ];
+    const fenceSkins: [number, number, number][] = [
+      [0.85, 0.65, 0.5], [0.55, 0.36, 0.22], [0.95, 0.82, 0.66], [0.4, 0.26, 0.15],
+    ];
+    const fenceHairs: [number, number, number][] = [
+      [0.1, 0.08, 0.06], [0.55, 0.38, 0.18], [0.9, 0.85, 0.7], [0.18, 0.12, 0.08], [0.3, 0.2, 0.12],
     ];
     for (let i = 0; i < pts.length; i += 16) {
       const p = pts[i];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
       const side = (i / 16) % 2 === 0 ? -1 : 1;
-      const baseX = p.x + ppx * (p.width / 2 + 1.3) * side;
-      const baseZ = p.z + ppz * (p.width / 2 + 1.3) * side;
+      // 1.0 clear of the barrier cap (wall face at hw+1.5, cap to hw+1.8).
+      const baseX = p.x + ppx * (p.width / 2 + 2.8) * side;
+      const baseZ = p.z + ppz * (p.width / 2 + 2.8) * side;
       const n = 2 + Math.floor(Math.random() * 2); // 2-3 spectators per cluster
       for (let s = 0; s < n; s++) {
-        const c = fenceCrowdColors[Math.floor(Math.random() * fenceCrowdColors.length)];
-        const off = (s - n / 2) * 0.85;
-        const sx = baseX + ppx * off;
-        const sz = baseZ + ppz * off;
-        // Torso
-        this.addBox(verts, idxs, sx, 0.95, sz, 0.34, 0.95, 0.34, c);
-        // Head
-        this.addBox(verts, idxs, sx, 1.48, sz, 0.17, 0.17, 0.17, [0.13, 0.11, 0.1]);
+        const off = (s - n / 2) * 0.8;
+        this._crowdPeople.push({
+          x: baseX + ppx * off,
+          y: 0,
+          z: baseZ + ppz * off,
+          shirt: fenceCrowdShirts[Math.floor(Math.random() * fenceCrowdShirts.length)],
+          skin: fenceSkins[Math.floor(Math.random() * fenceSkins.length)],
+          hair: fenceHairs[Math.floor(Math.random() * fenceHairs.length)],
+          pants: [0.12, 0.12, 0.16],
+          pose: Math.floor(Math.random() * 3),
+          scale: 0.85 + Math.random() * 0.3,
+          phase: Math.random() * Math.PI * 2,
+        });
       }
     }
 
@@ -2312,22 +2341,20 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private buildWheelMesh() {
     const gl = this.gl;
     const stride = 11 * 4;
-    // ── Front wheels (narrower) — rim disc + brake disc + hub + tread ──
+    // ── Front wheels (narrower) — solid rim disc + brake disc + hub + tread ──
+    // The rim is a SOLID disc that fills the tire's inner circle (no spokes):
+    // open-spoke wheels sweep like a windmill when spinning. A closed rim keeps
+    // the wheel looking fully round at any rotation speed.
     const fv: number[] = [];
     const fi: number[] = [];
-    // Rim disc (dark, fills the tread inner circle)
-    this.addCylinder(fv, fi, 0, 0, 0, 0.15, 0.15, 18, [0.07, 0.07, 0.08]);
+    // Rim disc (dark, fills the tread inner circle — 0.165 ≈ tread 0.17)
+    this.addCylinder(fv, fi, 0, 0, 0, 0.165, 0.15, 18, [0.07, 0.07, 0.08]);
     // Brake disc (reddish, slightly wider than the rim so it peeks out)
     this.addCylinder(fv, fi, 0, 0, 0, 0.09, 0.17, 18, [0.35, 0.12, 0.1]);
     // Brake caliper (small colourful block that clamps the disc)
     this.addBox(fv, fi, 0.08, 0.06, 0, 0.06, 0.04, 0.03, [0.9, 0.1, 0.1]);
     // Hub center
     this.addCylinder(fv, fi, 0, 0, 0, 0.04, 0.17, 12, [0.5, 0.5, 0.55]);
-    // 6 rim spokes (thin struts radiating from the hub to the rim face)
-    for (let k = 0; k < 6; k++) {
-      const a = (k / 6) * Math.PI * 2;
-      this.addStrut(fv, fi, 0, 0, 0, Math.cos(a) * 0.13, Math.sin(a) * 0.13, 0, 0.02, [0.16, 0.16, 0.17]);
-    }
     // Tire tread — larger radius so the band wraps the rim
     this.addCylinder(fv, fi, 0, 0, 0, 0.17, 0.12, 18, [0.13, 0.13, 0.14]);
     // Tire sidewall lettering (small raised bumps on the tread side)
@@ -2359,16 +2386,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.bindVertexArray(null);
 
     // ── Rear wheels (wider tread, slightly larger — like a real F1 car) ──
+    // Same closed-rim design as the fronts — solid disc, no spokes to sweep.
     const rv: number[] = [];
     const ri: number[] = [];
-    this.addCylinder(rv, ri, 0, 0, 0, 0.16, 0.18, 18, [0.07, 0.07, 0.08]);
+    this.addCylinder(rv, ri, 0, 0, 0, 0.175, 0.18, 18, [0.07, 0.07, 0.08]);
     this.addCylinder(rv, ri, 0, 0, 0, 0.1, 0.2, 18, [0.35, 0.12, 0.1]);
     this.addBox(rv, ri, 0.08, 0.06, 0, 0.06, 0.04, 0.03, [0.9, 0.1, 0.1]);
     this.addCylinder(rv, ri, 0, 0, 0, 0.045, 0.2, 12, [0.5, 0.5, 0.55]);
-    for (let k = 0; k < 6; k++) {
-      const a = (k / 6) * Math.PI * 2;
-      this.addStrut(rv, ri, 0, 0, 0, Math.cos(a) * 0.14, Math.sin(a) * 0.14, 0, 0.02, [0.16, 0.16, 0.17]);
-    }
     this.addCylinder(rv, ri, 0, 0, 0, 0.18, 0.15, 18, [0.13, 0.13, 0.14]); 
     for (let k = 0; k < 4; k++) {
       const a = (k / 4) * Math.PI * 2 + 0.2;
@@ -2718,26 +2742,40 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const ppx = -dirZ;
     const ppz = dirX;
     const hw = width / 2;
-    const crowdColors: [number, number, number][] = [
+    const crowdShirts: [number, number, number][] = [
       [0.7, 0.15, 0.15], [0.15, 0.3, 0.7], [0.8, 0.7, 0.1],
       [0.9, 0.9, 0.9], [0.15, 0.5, 0.2], [0.6, 0.2, 0.6],
     ];
-    // Standing crowd along the front rail (closest to the track)
-    for (let s = 0; s < 10; s++) {
-      const off = (s - 4.5) * (hw * 2 / 10);
-      const c = crowdColors[Math.floor(Math.random() * crowdColors.length)];
-      this.addBox(verts, idxs, gx + ppx * off, 0.3, gz + ppz * off, 0.35, 0.55, hw * 2 / 10 * 1.1, c);
-    }
-    // Tiered seated blocks — 4 tiers, each split into 5 color blocks so the
-    // crowd reads as individual spectators instead of one flat stripe.
-    for (let tier = 0; tier < 4; tier++) {
-      const ty = 0.6 + tier * 0.3;
-      const td = 1 + tier * 0.8;
-      for (let s = 0; s < 5; s++) {
-        const off = (s - 2) * (hw * 2 / 5);
-        const c = crowdColors[Math.floor(Math.random() * crowdColors.length)];
-        this.addBox(verts, idxs, gx + ppx * td + ppx * off, ty, gz + ppz * td + ppz * off, 0.3, 0.28, hw * 2 / 5 * 1.1, c);
-      }
+    const skins: [number, number, number][] = [
+      [0.85, 0.65, 0.5], [0.55, 0.36, 0.22], [0.95, 0.82, 0.66], [0.4, 0.26, 0.15],
+    ];
+    const hairs: [number, number, number][] = [
+      [0.1, 0.08, 0.06], [0.55, 0.38, 0.18], [0.9, 0.85, 0.7], [0.18, 0.12, 0.08], [0.3, 0.2, 0.12],
+    ];
+    // Standing crowd along the front rail (closest to the track) + a second
+    // row up on the first tier — posed, animated figures instead of blocks.
+    const standPeople: [number, number][] = [
+      // front rail row (5) spans the width of the stand; 5 more up on the first
+      // tier, staggered so the crowd fills the stand instead of clumping.
+      [-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0],
+      [-1.6, 1], [-0.6, 1], [0.4, 1], [1.4, 1], [2.4, 1],
+    ];
+    for (const [off, tier] of standPeople) {
+      const bx = gx + ppx * (off * hw * 0.45 + tier * 0.9);
+      const bz = gz + ppz * (off * hw * 0.35 + tier * 0.9);
+      const ty = 0.1 + tier * 0.35;
+      this._crowdPeople.push({
+        x: bx,
+        y: ty,
+        z: bz,
+        shirt: crowdShirts[Math.floor(Math.random() * crowdShirts.length)],
+        skin: skins[Math.floor(Math.random() * skins.length)],
+        hair: hairs[Math.floor(Math.random() * hairs.length)],
+        pants: [0.12, 0.12, 0.16],
+        pose: Math.floor(Math.random() * 3),
+        scale: 0.9 + Math.random() * 0.25,
+        phase: Math.random() * Math.PI * 2,
+      });
     }
     // Roof
     this.addBox(verts, idxs, gx + ppx * 3, 2.5, gz + ppz * 3, 1.5, 0.1, hw * 2.5, [0.3, 0.3, 0.35]);
@@ -2750,7 +2788,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const fx = gx + ppx * 0.6 * side;
       const fz = gz + ppz * 0.6 * side;
       this.addCylinder(verts, idxs, fx, 0, fz, 0.045, 2.4, 6, [0.55, 0.55, 0.58]);
-      this.addBox(verts, idxs, fx + ppx * 0.55 * side, 1.8, fz + ppz * 0.55 * side, 0.02, 0.55, 0.35, crowdColors[side === 1 ? 0 : 1]);
+      this.addBox(verts, idxs, fx + ppx * 0.55 * side, 1.8, fz + ppz * 0.55 * side, 0.02, 0.55, 0.35, crowdShirts[side === 1 ? 0 : 1]);
     }
   }
 
@@ -2852,6 +2890,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private _birdsVao!: WebGLVertexArrayObject;
   private _birdsBuf!: WebGLBuffer;
   private _birds: { phase: number; speed: number; radius: number; alt: number; ang: number; dir: number }[] = [];
+  private _crowdVao!: WebGLVertexArrayObject;
+  private _crowdBuf!: WebGLBuffer;
+  // Preallocated per-frame geometry for the animated crowd (never GC'd).
+  // 6 boxes/person × 36 verts = 216 verts, each 11 floats.
+  private _crowdData!: Float32Array;
+  private _crowdPeople: CrowdPerson[] = [];
   private _balloonVao!: WebGLVertexArrayObject;
   private _balloonVbo!: WebGLBuffer;
   private _balloonIbo!: WebGLBuffer;
@@ -2936,6 +2980,27 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this._birdsBuf = gl.createBuffer()!;
     gl.bindBuffer(gl.ARRAY_BUFFER, this._birdsBuf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this._birds.length * 6 * 11), gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+
+    // Animated crowd — one big dynamic buffer rebuilt every frame with bob,
+    // arm-wave and leg-sway offsets. Each person = 6 boxes (legs, torso, 2
+    // arms, head, hair) × 36 verts = 216 verts × 11 floats. Sized for up to
+    // 120 people with room to spare (fence crowds ~30 + 8 grandstands × 8).
+    const maxCrowdVerts = 140 * 216;
+    this._crowdData = new Float32Array(maxCrowdVerts * 11);
+    this._crowdVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this._crowdVao);
+    this._crowdBuf = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._crowdBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, this._crowdData, gl.DYNAMIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
     gl.enableVertexAttribArray(1);
@@ -3078,6 +3143,97 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.renderMirror(eyeX, eyeY, eyeZ, yaw, cars, dt, isRaining);
   }
 
+  // Appends one box (6 faces × 2 tris = 36 verts, 11 floats each) into the
+  // preallocated dynamic crowd buffer, returning the next write index.
+  private pushBoxVerts(d: Float32Array, wi: number, cx: number, cy: number, cz: number,
+    l: number, h: number, w: number, r: number, g: number, b: number): number {
+    const hx = l / 2, hy = h / 2, hz = w / 2;
+    const v = (x: number, y: number, z: number, nx: number, ny: number, nz: number) => {
+      d[wi++] = cx + x; d[wi++] = cy + y; d[wi++] = cz + z;
+      d[wi++] = nx; d[wi++] = ny; d[wi++] = nz;
+      d[wi++] = r; d[wi++] = g; d[wi++] = b;
+      d[wi++] = 0; d[wi++] = 0;
+    };
+    // +Z
+    v(-hx, -hy, hz, 0, 0, 1); v(hx, -hy, hz, 0, 0, 1); v(hx, hy, hz, 0, 0, 1);
+    v(-hx, -hy, hz, 0, 0, 1); v(hx, hy, hz, 0, 0, 1); v(-hx, hy, hz, 0, 0, 1);
+    // -Z
+    v(hx, -hy, -hz, 0, 0, -1); v(-hx, -hy, -hz, 0, 0, -1); v(-hx, hy, -hz, 0, 0, -1);
+    v(hx, -hy, -hz, 0, 0, -1); v(-hx, hy, -hz, 0, 0, -1); v(hx, hy, -hz, 0, 0, -1);
+    // +X
+    v(hx, -hy, hz, 1, 0, 0); v(hx, -hy, -hz, 1, 0, 0); v(hx, hy, -hz, 1, 0, 0);
+    v(hx, -hy, hz, 1, 0, 0); v(hx, hy, -hz, 1, 0, 0); v(hx, hy, hz, 1, 0, 0);
+    // -X
+    v(-hx, -hy, -hz, -1, 0, 0); v(-hx, -hy, hz, -1, 0, 0); v(-hx, hy, hz, -1, 0, 0);
+    v(-hx, -hy, -hz, -1, 0, 0); v(-hx, hy, hz, -1, 0, 0); v(-hx, hy, -hz, -1, 0, 0);
+    // +Y
+    v(-hx, hy, hz, 0, 1, 0); v(hx, hy, hz, 0, 1, 0); v(hx, hy, -hz, 0, 1, 0);
+    v(-hx, hy, hz, 0, 1, 0); v(hx, hy, -hz, 0, 1, 0); v(-hx, hy, -hz, 0, 1, 0);
+    // -Y
+    v(-hx, -hy, -hz, 0, -1, 0); v(hx, -hy, -hz, 0, -1, 0); v(hx, -hy, hz, 0, -1, 0);
+    v(-hx, -hy, -hz, 0, -1, 0); v(hx, -hy, hz, 0, -1, 0); v(-hx, -hy, hz, 0, -1, 0);
+    return wi;
+  }
+
+  // Animated crowd — rebuilt every frame so spectators bob, sway and wave
+  // their arms (poses vary per person). Drawn after static scenery with the
+  // main program already bound and proj/view set (mirror pass included).
+  private drawCrowd() {
+    const gl = this.gl;
+    if (!this._crowdVao || !this._crowdBuf || !this._crowdData || !this._crowdPeople.length) return;
+    gl.useProgram(this.prog);
+    const t = this.elapsed;
+    const data = this._crowdData;
+    let w = 0;
+    for (const p of this._crowdPeople) {
+      const s = p.scale;
+      const bob = Math.sin(t * 2.4 + p.phase) * 0.04 * s;
+      const legSway = Math.sin(t * 2.4 + p.phase) * 0.03 * s;
+      const y0 = p.y + bob;
+      const ty = y0 + 0.72 * s;
+      const [sr, sg, sb] = p.shirt;
+      const [kr, kg, kb] = p.skin;
+      const [hr, hg, hb] = p.hair;
+      const [pr, pg, pb] = p.pants;
+      // Legs (pants)
+      w = this.pushBoxVerts(data, w, p.x + legSway * 0.4, y0 + 0.24 * s, p.z, 0.2 * s, 0.48 * s, 0.24 * s, pr, pg, pb);
+      // Torso (shirt)
+      w = this.pushBoxVerts(data, w, p.x, ty, p.z, 0.26 * s, 0.48 * s, 0.3 * s, sr, sg, sb);
+      // Head (skin)
+      w = this.pushBoxVerts(data, w, p.x, ty + 0.34 * s, p.z, 0.17 * s, 0.17 * s, 0.17 * s, kr, kg, kb);
+      // Hair (small cap on the head)
+      w = this.pushBoxVerts(data, w, p.x, ty + 0.45 * s, p.z, 0.19 * s, 0.06 * s, 0.19 * s, hr, hg, hb);
+      // Arms
+      const armLen = 0.4 * s;
+      const shoulderY = ty + 0.18 * s;
+      const sway = Math.sin(t * 2.9 + p.phase * 1.3) * 0.05 * s;
+      const wave = Math.sin(t * 4.1 + p.phase) * 0.09 * s;
+      if (p.pose === 0) {
+        // Arms hanging down, gentle sway
+        w = this.pushBoxVerts(data, w, p.x - 0.21 * s + sway, shoulderY - armLen / 2, p.z, 0.07 * s, armLen, 0.09 * s, sr, sg, sb);
+        w = this.pushBoxVerts(data, w, p.x + 0.21 * s - sway, shoulderY - armLen / 2, p.z, 0.07 * s, armLen, 0.09 * s, sr, sg, sb);
+      } else if (p.pose === 1) {
+        // Both arms up, waving
+        w = this.pushBoxVerts(data, w, p.x - 0.2 * s, shoulderY + armLen / 2 + wave, p.z, 0.07 * s, armLen, 0.09 * s, sr, sg, sb);
+        w = this.pushBoxVerts(data, w, p.x + 0.2 * s, shoulderY + armLen / 2 - wave, p.z, 0.07 * s, armLen, 0.09 * s, sr, sg, sb);
+      } else {
+        // One arm up, one down
+        w = this.pushBoxVerts(data, w, p.x - 0.21 * s + sway, shoulderY - armLen / 2, p.z, 0.07 * s, armLen, 0.09 * s, sr, sg, sb);
+        w = this.pushBoxVerts(data, w, p.x + 0.2 * s, shoulderY + armLen / 2 + wave, p.z, 0.07 * s, armLen, 0.09 * s, sr, sg, sb);
+      }
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._crowdBuf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
+    gl.bindVertexArray(this._crowdVao);
+    gl.uniform1i(this.hasTexLoc, 0);
+    gl.uniform3f(this.colorLoc, 1, 1, 1);
+    this.mat4Identity(this.modelMatrix);
+    gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+    this.setNormalMatrix(this.modelMatrix);
+    gl.drawArrays(gl.TRIANGLES, 0, w / 11);
+    gl.bindVertexArray(null);
+  }
+
   // Shared world renderer used by both the main pass and the rear-view mirror.
   // Draws sky + track + finish + barrier + scenery + cars (+ optional rain).
   // `drawRain` is false for the mirror so rain particles aren't drawn twice.
@@ -3197,6 +3353,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     for (const car of cars) {
       this.renderCar(car.x, car.y, car.z, car.yaw, car.r, car.g, car.b);
     }
+
+    // Animated crowd figures (drawn after scenery so they pop over it; before
+    // the HUD-adjacent pass, and included in the rear-view mirror too).
+    this.drawCrowd();
 
     // ─── Rain Particles (if enabled and requested) ───
     if (drawRain && isRaining) {

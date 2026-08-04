@@ -264,6 +264,11 @@
       <div class="garage-top-bar">
         <h2 class="garage-title">GRAND PRIX GARAGE</h2>
         <div class="garage-money">${{ playerCar.money | number:'1.0-0' }}</div>
+        <button class="garage-return-btn" (click)="backToMenu()"
+          [title]="inMpLobby ? 'Return to the multiplayer lobby' : 'Return to the main menu'">
+          <span>{{ inMpLobby ? '← LOBBY' : '← MENU' }}</span>
+          <span *ngIf="garageCountdownDisplay" class="garage-countdown">{{ garageCountdownDisplay }}</span>
+        </button>
       </div>
 
       <div class="garage-layout">
@@ -795,7 +800,7 @@
         [class.race-lb-me]="r.playerId === (parentRef?.user?.id ?? 0)">
         <span>{{ i + 1 }}</span>
         <span>{{ r.playerName }}</span>
-        <span>{{ formatTime(r.lapTime) }}</span>
+        <span>{{ r.playerId === (parentRef?.user?.id ?? 0) && r.lapTime <= 0 ? 'No lap yet' : formatTime(r.lapTime) }}</span>
         <span>{{ formatTime(r.totalTime) }}</span>
       </div>
       <div class="race-lb-empty" *ngIf="leaderboard.length === 0">No laps recorded yet — go set one!</div>

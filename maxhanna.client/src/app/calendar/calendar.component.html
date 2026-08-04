@@ -94,6 +94,11 @@
             <div>Type: <select id="calendarEditingType" (change)="hasEditedCalendarEntry = true">
                 <option *ngFor="let t of getEventTypes()" [selected]="t === cal.type">{{t}}</option>
               </select></div>
+            <div>Notify me:
+              <input id="calendarEditingReminder" type="number" min="0" step="5"
+                [value]="cal.reminder ?? 60" (input)="hasEditedCalendarEntry = true"
+                style="width:80px;" /> minutes before
+            </div>
           </div>
         </div>
         <div style="width:35px; display:flex; gap: 5px;" class="calendarActionButtons">
@@ -116,6 +121,10 @@
           </ng-container>
         </select>
         <input #calendarTimeEntry type="time" value="00:00" class="saveEntryInput" />
+        <span class="saveEntryReminder">Notify me
+          <input #calendarReminderEntry type="number" min="0" step="5" value="60"
+            class="saveEntryInput saveEntryReminderInput" title="Minutes before the event to send a notification" />
+          min before</span>
         <input type="button" (click)="validateNoteEntry()" value="💾" class="saveEntryButton" />
       </div>
     </fieldset>
@@ -161,7 +170,8 @@
     </div>
   </div>
   <div class="xSmallFont secondaryFontColor">
-    Enabling notifications sends your system a notification (on your device) 15 minutes before an event occurs.
+    Enabling notifications sends your system a notification (on your device) before an event occurs —
+    the lead time (default 60 minutes) is set per event under "Notify me ... minutes before".
   </div>
   <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
 </div>

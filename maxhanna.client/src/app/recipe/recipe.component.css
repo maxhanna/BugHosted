@@ -160,6 +160,24 @@
   box-shadow: 0 8px 30px rgba(0,0,0,0.08);
 }
 
+/* Text shadow: when a card carries an image or video, its text may sit in
+   front of that media (e.g. title over the hero image). Give it a soft,
+   layered shadow so it stays legible on busy/bright media. */
+.recipe-card.recipe-has-media .recipe-title-row h3 {
+  text-shadow: 0 1px 2px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.35), 0 0 24px rgba(0,0,0,0.25);
+}
+.recipe-card.recipe-has-media .recipe-description {
+  text-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.25);
+}
+.recipe-card.recipe-has-media .expand-btn {
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+/* Lighter shadow when media sits beside the text (expanded row layout) — the
+   shadow then only needs to separate text from the media edge. */
+.recipe-card-expanded.recipe-has-media .recipe-title-row h3 {
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3), 0 2px 6px rgba(0,0,0,0.2);
+}
+
 /* Expanded: spans full grid row with side-by-side layout */
 .recipe-card-expanded {
   grid-column: 1 / -1;

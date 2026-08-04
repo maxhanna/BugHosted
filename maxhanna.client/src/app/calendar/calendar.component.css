@@ -138,3 +138,29 @@ thead {
   max-width: 80vw;
   max-width: 80dvw;
 }
+/* ─── Per-event reminder (minutes before) ─── */
+.saveEntryReminder {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--secondary-font-color, #64748b);
+  white-space: nowrap;
+}
+.saveEntryFieldset input.saveEntryReminderInput {
+  width: 70px;
+  text-align: center;
+  height: 40px;
+  padding: 8px;
+}
+.saveEntryReminderInput::-webkit-inner-spin-button,
+.saveEntryReminderInput::-webkit-outer-spin-button {
+  opacity: 1;
+}
+#calendarEditingReminder {
+  height: 32px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--main-border-color);
+  font-size: 14px;
+}

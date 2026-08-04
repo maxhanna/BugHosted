@@ -24,6 +24,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   @ViewChild('calendarNoteEntry') calendarNoteEntry!: ElementRef<HTMLInputElement>;
   @ViewChild('calendarTypeEntry') calendarTypeEntry!: ElementRef<HTMLSelectElement>;
   @ViewChild('calendarTimeEntry') calendarTimeEntry!: ElementRef<HTMLInputElement>;
+  @ViewChild('calendarReminderEntry') calendarReminderEntry!: ElementRef<HTMLInputElement>;
   @ViewChild('selectedYearDropdown') selectedYearDropdown!: ElementRef<HTMLSelectElement>;
   @ViewChild('selectedMonthDropdown') selectedMonthDropdown!: ElementRef<HTMLSelectElement>;
 
@@ -171,9 +172,11 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       const timeElem = document.getElementById('calendarEditingTime') as HTMLInputElement;
       const noteElem = document.getElementById('calendarEditingNote') as HTMLInputElement;
       const typeElem = document.getElementById('calendarEditingType') as HTMLSelectElement;
+      const reminderElem = document.getElementById('calendarEditingReminder') as HTMLInputElement;
       const time = timeElem?.value ?? '00:00';
       const note = noteElem?.value ?? '';
       const type = typeElem?.value ?? entry.type;
+      const reminder = reminderElem?.value !== undefined && reminderElem.value !== '' ? Math.max(0, parseInt(reminderElem.value, 10) || 0) : undefined;
 
       // build updated CalendarEntry
       const updated = new (entry as any).constructor() as CalendarEntry;
@@ -186,6 +189,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       updated.date = utcDate;
       updated.note = note;
       updated.type = type;
+      updated.reminder = reminder;
 
       try {
         await this.calendarService.editCalendarEntry(this.parentRef?.user?.id, updated).then(res => {
@@ -201,6 +205,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
           this.calendarEntries[idx].note = updated.note;
           this.calendarEntries[idx].type = updated.type;
           this.calendarEntries[idx].date = updated.date;
+          this.calendarEntries[idx].reminder = updated.reminder;
         }
         this.isEditingEntry = this.isEditingEntry.filter(x => x.id !== id);
         await this.refreshCalendar();
@@ -402,6 +407,9 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     tmpCalendarEntry.type = this.calendarTypeEntry.nativeElement.value;
     tmpCalendarEntry.note = this.calendarNoteEntry.nativeElement.value;
 
+    const reminderValue = this.calendarReminderEntry?.nativeElement?.value;
+    tmpCalendarEntry.reminder = reminderValue !== undefined && reminderValue !== '' ? Math.max(0, parseInt(reminderValue, 10) || 0) : undefined;
+
     return tmpCalendarEntry;
   }
 
@@ -425,6 +433,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     this.calendarTimeEntry.nativeElement.value = "00:00";
     this.calendarNoteEntry.nativeElement.value = "";
     this.calendarTypeEntry.nativeElement.value = this.calendarTypeEntry.nativeElement.options[0].value;
+    if (this.calendarReminderEntry?.nativeElement) this.calendarReminderEntry.nativeElement.value = "60";
   }
 
   convertSymbols(symbols: string[] | undefined): string {

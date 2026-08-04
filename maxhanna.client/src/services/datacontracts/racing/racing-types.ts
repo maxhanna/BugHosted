@@ -51,6 +51,7 @@ export interface RaceResult {
   moneyEarned: number;
   isBot: boolean;
   botDifficulty?: string;
+  trackId?: number;
 }
 
 export interface RaceState {

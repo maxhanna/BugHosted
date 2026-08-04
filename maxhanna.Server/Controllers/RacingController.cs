@@ -52,6 +52,7 @@ namespace maxhanna.Server.Controllers
 			public double LapTime;
 			public double TotalTime;
 			public int MoneyEarned;
+			public int TrackId = 1;
 		}
 		private sealed class LeaderboardEntry
 		{
@@ -82,6 +83,7 @@ namespace maxhanna.Server.Controllers
 			int interval = _persistIntervalSeconds;
 			_persistIntervalSeconds = Math.Max(5, interval);
 			_ = _persistTimer.Value;
+			EnsureSchema();
 			if (!_startupLoadStarted)
 			{
 				lock (_persistLock)
@@ -94,6 +96,66 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 			RegisterShutdownDump(appLifetime);
+		}
+		// Creates the racing tables if they don't exist. This controller reads and
+		// writes racing_player_car / racing_results directly, so the schema must
+		// be guaranteed before any query runs (previously the leaderboard silently
+		// returned nothing when the tables were missing). Idempotent + safe on every
+		// startup.
+		private static void EnsureSchema()
+		{
+			if (_schemaEnsured) return;
+			lock (_persistLock)
+			{
+				if (_schemaEnsured) return;
+				try
+				{
+					var connStr = GetConnStr();
+					if (string.IsNullOrEmpty(connStr)) return;
+					using var conn = new MySqlConnection(connStr);
+					conn.Open();
+					using (var cmd = new MySqlCommand(@"
+						CREATE TABLE IF NOT EXISTS racing_player_car (
+							user_id INT PRIMARY KEY,
+							player_name VARCHAR(64) NULL,
+							upgrades_json TEXT NULL,
+							skin_id INT NOT NULL DEFAULT 1,
+							spoiler_id INT NOT NULL DEFAULT 0,
+							rim_id INT NOT NULL DEFAULT 0,
+							exhaust_id INT NOT NULL DEFAULT 0,
+							decal_id INT NOT NULL DEFAULT 0,
+							total_races INT NOT NULL DEFAULT 0,
+							wins INT NOT NULL DEFAULT 0,
+							money INT NOT NULL DEFAULT 500,
+							best_lap DOUBLE NOT NULL DEFAULT 0,
+							total_earnings INT NOT NULL DEFAULT 0
+						)", conn))
+					{
+						cmd.ExecuteNonQuery();
+					}
+					using (var cmd = new MySqlCommand(@"
+						CREATE TABLE IF NOT EXISTS racing_results (
+							id INT AUTO_INCREMENT PRIMARY KEY,
+							user_id INT NOT NULL,
+							player_name VARCHAR(64) NULL,
+							position INT NOT NULL DEFAULT 0,
+							lap_time DOUBLE NOT NULL DEFAULT 0,
+							total_time DOUBLE NOT NULL DEFAULT 0,
+							money_earned INT NOT NULL DEFAULT 0,
+							track_id INT NOT NULL DEFAULT 1,
+							raced_at DATETIME NOT NULL
+						)", conn))
+					{
+						cmd.ExecuteNonQuery();
+					}
+					_schemaEnsured = true;
+					Console.WriteLine("[Racing] Schema ensured (racing_player_car, racing_results).");
+				}
+				catch (Exception ex)
+				{
+					Console.WriteLine($"[Racing] Schema ensure failed: {ex.Message}");
+				}
+			}
 		}
 		private static string? GetConnStr()
 		{
@@ -298,14 +360,15 @@ namespace maxhanna.Server.Controllers
 					try
 					{
 						using var cmd = new MySqlCommand(@"
-							INSERT INTO racing_results (user_id, player_name, position, lap_time, total_time, money_earned, raced_at)
-							VALUES (@uid, @name, @pos, @lap, @total, @money, UTC_TIMESTAMP())", conn);
+							INSERT INTO racing_results (user_id, player_name, position, lap_time, total_time, money_earned, track_id, raced_at)
+							VALUES (@uid, @name, @pos, @lap, @total, @money, @track, UTC_TIMESTAMP())", conn);
 						cmd.Parameters.AddWithValue("@uid", r.UserId);
 						cmd.Parameters.AddWithValue("@name", r.PlayerName);
 						cmd.Parameters.AddWithValue("@pos", r.Position);
 						cmd.Parameters.AddWithValue("@lap", r.LapTime);
 						cmd.Parameters.AddWithValue("@total", r.TotalTime);
 						cmd.Parameters.AddWithValue("@money", r.MoneyEarned);
+						cmd.Parameters.AddWithValue("@track", r.TrackId);
 						cmd.ExecuteNonQuery();
 						resultsWritten++;
 					}
@@ -452,6 +515,7 @@ namespace maxhanna.Server.Controllers
 					LapTime = result.TryGetProperty("lapTime", out var lt) ? lt.GetDouble() : 0,
 					TotalTime = result.TryGetProperty("totalTime", out var tt) ? tt.GetDouble() : 0,
 					MoneyEarned = result.TryGetProperty("moneyEarned", out var me) ? me.GetInt32() : 0,
+					TrackId = result.TryGetProperty("trackId", out var tk) ? tk.GetInt32() : 1,
 				});
 				return Ok(new { ok = true });
 			}
@@ -471,12 +535,11 @@ namespace maxhanna.Server.Controllers
 					using var cmd = new MySqlCommand(@"
 						SELECT user_id, player_name, MIN(lap_time) AS lap_time,
 						       COALESCE(MAX(NULLIF(total_time, 0)), 0) AS total_time
-						FROM (
-							SELECT r.user_id, COALESCE(NULLIF(r.player_name, ''), u.username, 'Unknown') AS player_name,
-							       r.lap_time AS lap_time, r.total_time AS total_time
-							FROM racing_results r
-							LEFT JOIN users u ON r.user_id = u.id
-							WHERE r.lap_time > 0
+						FROM (								SELECT r.user_id, COALESCE(NULLIF(r.player_name, ''), u.username, 'Unknown') AS player_name,
+								       r.lap_time AS lap_time, r.total_time AS total_time
+								FROM racing_results r
+								LEFT JOIN users u ON r.user_id = u.id
+								WHERE r.lap_time > 0 AND r.track_id = @trackId
 							UNION ALL
 							SELECT c.user_id, COALESCE(NULLIF(c.player_name, ''), u.username, 'Unknown') AS player_name,
 							       c.best_lap AS lap_time, 0 AS total_time
@@ -485,7 +548,8 @@ namespace maxhanna.Server.Controllers
 							WHERE c.best_lap > 0
 						) t
 						GROUP BY user_id, player_name
-						ORDER BY lap_time ASC LIMIT 40", conn);
+						ORDER BY lap_time ASC LIMIT 100", conn);
+					cmd.Parameters.AddWithValue("@trackId", trackId);
 					using var rdr = await cmd.ExecuteReaderAsync();
 					while (await rdr.ReadAsync())
 					{
@@ -504,7 +568,7 @@ namespace maxhanna.Server.Controllers
 				var pendingBest = new Dictionary<int, LeaderboardEntry>();
 				foreach (var r in _pendingResults)
 				{
-					if (r.LapTime <= 0) continue;
+					if (r.LapTime <= 0 || r.TrackId != trackId) continue;
 					if (!pendingBest.TryGetValue(r.UserId, out var existing) || r.LapTime < existing.LapTime)
 					{
 						pendingBest[r.UserId] = new LeaderboardEntry
@@ -524,7 +588,7 @@ namespace maxhanna.Server.Controllers
 					.GroupBy(e => e.PlayerId)
 					.Select(g => g.OrderBy(e => e.LapTime).First())
 					.OrderBy(e => e.LapTime)
-					.Take(20)
+					.Take(50)
 					.ToList();
 				return Ok(results);
 			}

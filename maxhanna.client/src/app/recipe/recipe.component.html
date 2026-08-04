@@ -96,6 +96,7 @@
       <article class="recipe-card"
                [class.recipe-card-expanded]="expandedRecipes.get(recipe.id)"
                [class.recipe-card-editing]="editingRecipeId === recipe.id"
+               [class.recipe-has-media]="recipe.imageFileIds[0] || !!getYouTubeUrl(recipe)"
                *ngFor="let recipe of filteredRecipes; trackBy: trackByRecipeId">
 
         <!-- View Mode -->

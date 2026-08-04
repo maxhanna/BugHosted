@@ -36,8 +36,9 @@ namespace maxhanna.Server.Controllers
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
 					await conn.OpenAsync();
+					await EnsureReminderColumnAsync(conn);
 					string sql = @"
-							SELECT Id, Type, Note, Date, Ownership FROM maxhanna.calendar
+							SELECT Id, Type, Note, Date, Ownership, Reminder FROM maxhanna.calendar
 							WHERE Ownership = @Owner
 								AND (
 									(Date BETWEEN @StartDate AND @EndDateWithTime) -- explicit entries in the range
@@ -53,7 +54,8 @@ namespace maxhanna.Server.Controllers
 									'Birthday' AS Type,
 									description AS Note,
 									birthday AS Date,
-									@Owner AS Ownership
+									@Owner AS Ownership,
+									NULL AS Reminder
 						FROM user_about
 						WHERE user_id = @Owner
 							AND MONTH(birthday) = MONTH(@StartDate)
@@ -70,7 +72,7 @@ namespace maxhanna.Server.Controllers
 						{
 							while (await rdr.ReadAsync())
 							{
-								entries.Add(new CalendarEntry(rdr.GetInt32(0), rdr.GetString(1), rdr.GetString(2), rdr.GetDateTime(3), rdr.GetString(4)));
+								entries.Add(new CalendarEntry(rdr.GetInt32(0), rdr.GetString(1), rdr.GetString(2), rdr.GetDateTime(3), rdr.GetString(4), rdr.IsDBNull(5) ? (int?)null : rdr.GetInt32(5)));
 							}
 						}
 					}
@@ -109,14 +111,16 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				conn.Open();
+				await EnsureReminderColumnAsync(conn);
 
 				// Assuming CalendarEntryModel has properties for Type, Note, and Date
-				string sql = "INSERT INTO maxhanna.calendar (Type, Note, Date, Ownership) VALUES (@Type, @Note, @Date, @Owner)";
+				string sql = "INSERT INTO maxhanna.calendar (Type, Note, Date, Ownership, Reminder) VALUES (@Type, @Note, @Date, @Owner, @Reminder)";
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@Type", req.calendarEntry.Type);
 				cmd.Parameters.AddWithValue("@Note", req.calendarEntry.Note);
 				cmd.Parameters.AddWithValue("@Date", req.calendarEntry.Date);
 				cmd.Parameters.AddWithValue("@Owner", req.userId);
+				cmd.Parameters.AddWithValue("@Reminder", req.calendarEntry.Reminder ?? (object)DBNull.Value);
 				await cmd.ExecuteNonQueryAsync();
 				return Ok();
 
@@ -198,17 +202,20 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				conn.Open();
+				await EnsureReminderColumnAsync(conn);
 				string sql = @"
 						UPDATE maxhanna.calendar
 						SET Type = @Type,
 							Note = @Note,
-							Date = @Date
+							Date = @Date,
+							Reminder = @Reminder
 						WHERE Id = @Id AND Ownership = @Owner
 						LIMIT 1;";
 				MySqlCommand cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@Type", req.calendarEntry.Type);
 				cmd.Parameters.AddWithValue("@Note", req.calendarEntry.Note);
 				cmd.Parameters.AddWithValue("@Date", req.calendarEntry.Date);
+				cmd.Parameters.AddWithValue("@Reminder", req.calendarEntry.Reminder ?? (object)DBNull.Value);
 				cmd.Parameters.AddWithValue("@Id", req.calendarEntry.Id);
 				cmd.Parameters.AddWithValue("@Owner", req.userId);
 				int rows = await cmd.ExecuteNonQueryAsync();
@@ -233,6 +240,29 @@ namespace maxhanna.Server.Controllers
 			finally
 			{
 				conn.Close();
+			}
+		}
+
+		/// <summary>
+		/// Idempotent migration: adds the Reminder column (minutes-before) to the
+		/// calendar table if it does not exist yet, so existing installs don't break.
+		/// </summary>
+		private async Task EnsureReminderColumnAsync(MySqlConnection conn)
+		{
+			try
+			{
+				const string check = "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'calendar' AND COLUMN_NAME = 'Reminder';";
+				await using var checkCmd = new MySqlCommand(check, conn);
+				var exists = Convert.ToInt64(await checkCmd.ExecuteScalarAsync());
+				if (exists > 0) return;
+				const string alter = "ALTER TABLE maxhanna.calendar ADD COLUMN Reminder INT NULL AFTER Date;";
+				await using var alterCmd = new MySqlCommand(alter, conn);
+				await alterCmd.ExecuteNonQueryAsync();
+				_ = _log.Db("Added Reminder column to calendar table.", null, "CALENDAR");
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Failed to ensure calendar Reminder column: " + ex.Message, null, "CALENDAR");
 			}
 		}
 	}

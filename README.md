@@ -20,88 +20,120 @@ BugHosted is designed for full end‑to‑end encryption (E2EE) of sensitive use
 Concise purpose for each application component.
 
 ### Social
-Social feed and interactions between users.
+Social platform feed and interactions between users.
 
 ### SigInt
-Signals Intelligence Across the globe. View intercepted signals from around the world.
+Signals Intelligence across the globe. View intercepted signals from around the world.
 
 ### Meme
-Create and share memes reusable across the site.
+Create and share memes reusable anywhere on the site — in chat, on the socials, or even as a display picture.
 
 ### Bug-Wars
-Real‑time strategy MMO base and territory control.
+Real-time strategy, massively multiplayer online game set in the near future. Create your base and compete against others for control over the map!
 
 ### Meta-Bots
-MMORPG module (in development).
+Up-and-coming MMORPG (in development).
 
 ### Chat
-Direct and group messaging system.
+Chat system to connect you with your friends or groups of friends.
 
 ### Emulation
-Web emulator for multiple retro consoles with autosave. Play the latest emulators including PS1, PSP and Nintendo 64. Also supports all the retro consoles like Sega Saturn, NES and Atari.
+Web emulator for multiple retro consoles with autosave, server-side saved progress and netplay. Play the latest emulators including PS1, PSP and Nintendo 64, plus retro consoles like Sega Saturn, NES, Game Boy and Atari. Works on mobile and desktop with gamepad, keyboard or touch support.
 
 ### Array
-Progression corridor: descend, gain XP, items, PvP.
+The Array transports users down a seemingly infinite array. The further you go, the more experience you gain. Find items to make you stronger and fight other players for glory!
 
 ### Wordler
-Daily shared word puzzle with streak & leaderboard.
+Can you defeat the Wordler? A word guessing game inspired from the NY Times website!
 
 ### Mastermind
-Classic color/sequence guessing game.
+The classic color/sequence guessing game inspired from the original board game.
 
 ### Art
-User-submitted artwork with appraisal/votes.
+Submit your art to the site and have others appraise your work.
 
 ### Files
-Site-wide file storage & public sharing backbone.
+Site-wide file storage & public sharing backbone. Anything publicly available in the filesystem can be used as an attachment anywhere on the site or shared publicly off-site for free!
 
 ### Calendar
-User reminders and scheduling utility.
+The Calendar helps you remember important things — birthdays, milestones, reminders and more. Don't forget.
 
 ### Weather
-Current weather by IP or user-specified location.
+Current weather by IP auto-detection or user-specified location.
 
 ### Todo
-Task and reminder list management.
+A todo list to keep yourself reminded of everything to do. Create your own lists and save reminders.
 
 ### Music
-Favorite media list and playlist integration.
+A music list to keep track of your favourite YouTube songs. Once added, the songs are displayed and a playlist can be selected from your profile page!
 
 ### Notepad
-Personal notes and saved article storage.
+Jot down notes and share them with others. Saved news articles show up here.
 
 ### Contacts
-User contact management and quick access.
+Add your friends as contacts — simply go to a person's profile page and click Add as Contact to keep track of friends' contact information and profiles.
 
 ### News
-Aggregated multi‑source news by topic.
+Get the latest news on any subject from multiple different sources (both main and non-mainstream news).
 
 ### Crypto-Hub
-Crypto prices, wallets, mining rigs, trade tools.
+Crypto Hub does many crypto-related things:
+* Keeps track of crypto prices for the most popular coins.
+* Shows your cryptocurrency wallet balance.
+* Manages your cryptocurrency mining rigs (NiceHash API).
+* Manages your trade bot (Kraken API).
+* Views trading logs.
 
 ### Favourites
-Curated public/shareable link collections.
+Share and keep track of your favourite links. Make a list of your favourites — other users can see and search for the links you added too! Track how popular your favourites are.
 
 ### Ender
-Ender is a compact, real-time micro-game that runs inside the BugHosted shell. It's designed for quick sessions and as a showcase of lightweight multiplayer mechanics.
+Ender is a fast multiplayer arena where neon lightcycles race and duel. Players outmaneuver each other, lay down bike-walls to trap foes, and compete for survival and high scores. Retro pixel visuals, short rounds, and emergent tactics make every match intense and replayable.
 
 ### Bones
-Massive multiplayer RPG where players control heroes.
+Action MMORPG where players control heroes. Under construction.
+
+### Racing
+Multiplayer Grand Prix racing game! Challenge your friends and upgrade your ride across themed tracks with realistic car physics.
+
+### DigCraft
+A 3D multiplayer block-building game. Mine, craft, and build!
+
+### GrandTheft
+A 3D multiplayer Grand Theft Auto style game!
+
+### Planter
+Create a list of your plants and have AI keep watch over their health and growth.
+
+### Paint
+Create and share your artwork with others.
+
+### Weaver
+Remote dashboard for Weaver — view kanban data, send commands, and monitor your Weaver AI agent from anywhere.
 
 ### Top100
-Ranked user-voted topic lists.
+Create lists in topics and rank them according to a user voting system! Promote your favourite site, products, or create a ranking list on any topic.
 
 ### Theme
-Site theme selection and sharing.
+Change the site's theme! Share your theme with others or use a theme someone else has shared.
 
 ### HostAi
-Integrated AI assistant queries.
+BugHosted's AI. Get information about anything instantly.
 
 ### Crawler
-Search engine & external site index interface.
+Our search engine with a full database of uncensored results. Index your website or search our database for any information that can be found on the web.
 
 ### Notifications
-Unified notification feed across modules.
+Unified notification feed across all components of the website. Get up-to-date information about your content.
+
+### Recipe
+Manage and view recipes with ingredients and instructions. Create and share your food recipes with others.
+
+### Moderator
+Manage and moderate the site's content and user interactions.
+
+### User-Events
+Display of all recent user events.
 
 ### User
 Profile display and management.
@@ -113,4 +145,4 @@ User settings editing interface.
 Displays and caches image/video/audio with fullscreen.
 
 ### Help
-Component capability overview display.
+Component capability overview displayed on screen.

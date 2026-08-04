@@ -451,6 +451,37 @@
   gap: 16px;
 }
 
+.garage-return-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: linear-gradient(135deg, #3a3a5a, #4a4a6a);
+  color: #e0e0e0;
+  border: 1px solid #555;
+  border-radius: 8px;
+  padding: 7px 16px;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+}
+
+.garage-return-btn:hover {
+  background: linear-gradient(135deg, #4a4a6a, #5a5a7a);
+  border-color: #ffc107;
+  color: #fff;
+}
+
+.garage-countdown {
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffc107;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .garage-title {
   font-size: 22px;
   font-weight: 900;

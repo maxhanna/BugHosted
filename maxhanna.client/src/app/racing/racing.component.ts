@@ -186,6 +186,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private _windGain: GainNode | null = null;
   private _crowdSource: AudioBufferSourceNode | null = null;
   private _crowdFilter: BiquadFilterNode | null = null;
+  private _crowdFilter2: BiquadFilterNode | null = null;
   private _crowdGain: GainNode | null = null;
   // Title-screen music — plays the .mid file (topgun.mid) while in the menu.
   private _midiPlayer: MidiPlayer | null = null;
@@ -609,6 +610,18 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.countdownTimer >= 1) return 'yellow';
     return 'go';
   }
+  // While a multiplayer lobby is counting down to start, the garage's return
+  // button shows the live countdown so players never lose track of it.
+  get garageCountdownDisplay(): string {
+    if (!this.showMultiplayer && !this._mpLobbyTrackId) return '';
+    if (this.countdownTimer > 0) return `⏱ ${this.countdownTimer}s to start`;
+    if (this.autoStartSeconds > 0) {
+      const m = Math.floor(this.autoStartSeconds / 60);
+      const s = this.autoStartSeconds % 60;
+      return `⏱ auto-start ${m}:${s.toString().padStart(2, '0')}`;
+    }
+    return '';
+  }
   async startRaceMP() {
     if (!this._mpLobbyTrackId || !this.isLobbyHost) return;
     this.countdownTimer = 10;
@@ -707,6 +720,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.chatInput = '';
     await this.racingHub.sendChat(this._mpLobbyTrackId, message);
   }
+  get inMpLobby(): boolean { return !!this._mpLobbyTrackId; }
   openGarage() {
     this.selectedTab = 'upgrades';
     this.gameState = 'garage';
@@ -714,6 +728,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   backToMenu() {
     this.gameState = 'menu';
     this.selectedTab = 'menu';
+    // Leaving the garage while queued for a multiplayer lobby returns to the
+    // lobby (connection intact) instead of bailing out to singleplayer.
+    if (this._mpLobbyTrackId && this.showMultiplayer) {
+      return;
+    }
     if (this._mpLobbyTrackId) {
       this.racingHub.leaveLobby(this._mpLobbyTrackId);
       this._mpLobbyTrackId = '';
@@ -1353,16 +1372,35 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       totalTime: totalTime,
       moneyEarned: moneyEarned,
       isBot: !this._mpLobbyTrackId,
+      trackId: this.selectedTrack?.id ?? 1,
     };
     this.racingService.submitRaceResult(this.parentRef?.user?.id ?? 0, result);
     this.loadLeaderboard();
   }
   async loadLeaderboard() {
+    const trackId = this.selectedTrack?.id ?? 1;
     try {
-      const trackId = this.selectedTrack?.id ?? 1;
       this.leaderboard = await this.racingService.getLeaderboard(trackId);
     } catch {
       this.leaderboard = [];
+    }
+    // Always show the current user's own best lap — pinned at the end of the
+    // list even when it doesn't make the top ranks, so players can see where
+    // they stand (or that they haven't set a lap yet) on the selected track.
+    const uid = this.parentRef?.user?.id ?? 0;
+    if (uid) {
+      this.leaderboard = this.leaderboard.filter(r => r.playerId !== uid);
+      const mine: RaceResult = {
+        position: this.leaderboard.length + 1,
+        playerId: uid,
+        playerName: this.playerCar.playerName?.trim() || this.parentRef?.user?.username || 'You',
+        lapTime: this.playerCar.bestLap > 0 ? this.playerCar.bestLap : 0,
+        totalTime: this.playerCar.bestLap > 0 ? 0 : 0,
+        moneyEarned: 0,
+        isBot: false,
+        trackId: trackId,
+      };
+      this.leaderboard.push(mine);
     }
   }
   async toggleLeaderboard() {
@@ -1690,6 +1728,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       if (this._windSource) { try { this._windSource.stop(); } catch { } this._windSource.disconnect(); }
       if (this._crowdSource) { try { this._crowdSource.stop(); } catch { } this._crowdSource.disconnect(); }
       if (this._crowdFilter) this._crowdFilter.disconnect();
+      if (this._crowdFilter2) this._crowdFilter2.disconnect();
       if (this._crowdGain) this._crowdGain.disconnect();
       if (this._screechSource) { try { this._screechSource.stop(); } catch { } this._screechSource.disconnect(); }
       if (this._screechFilter) this._screechFilter.disconnect();
@@ -1723,6 +1762,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._windGain = null;
     this._crowdSource = null;
     this._crowdFilter = null;
+    this._crowdFilter2 = null;
     this._crowdGain = null;
     this._screechSource = null;
     this._screechFilter = null;
@@ -1792,21 +1832,35 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this._windSource.connect(this._windFilter);
       this._windFilter.connect(this._windGain);
       this._windGain.connect(ctx.destination);
-      const crowdLen = ctx.sampleRate * 2;
+      // Ambient crowd murmur: amplitude-modulated noise (slow random swells so
+      // it reads as many distant voices, not steady hiss) through TWO parallel
+      // bandpass bands — a low murmur body + a higher chatter shimmer.
+      const crowdLen = ctx.sampleRate * 4;
       const crowdBuf = ctx.createBuffer(1, crowdLen, ctx.sampleRate);
       const cdata = crowdBuf.getChannelData(0);
-      for (let i = 0; i < crowdLen; i++) cdata[i] = Math.random() * 2 - 1;
+      let cLevel = 0.45;
+      const cStep = Math.floor(ctx.sampleRate * 0.25);
+      for (let i = 0; i < crowdLen; i++) {
+        if (i % cStep === 0) cLevel = Math.max(0.12, Math.min(1, cLevel + (Math.random() - 0.5) * 0.45));
+        cdata[i] = (Math.random() * 2 - 1) * cLevel;
+      }
       this._crowdSource = ctx.createBufferSource();
       this._crowdSource.buffer = crowdBuf;
       this._crowdSource.loop = true;
       this._crowdFilter = ctx.createBiquadFilter();
       this._crowdFilter.type = 'bandpass';
-      this._crowdFilter.frequency.value = 1200;
-      this._crowdFilter.Q.value = 0.6;
+      this._crowdFilter.frequency.value = 700;
+      this._crowdFilter.Q.value = 0.45;
+      this._crowdFilter2 = ctx.createBiquadFilter();
+      this._crowdFilter2.type = 'bandpass';
+      this._crowdFilter2.frequency.value = 1700;
+      this._crowdFilter2.Q.value = 0.55;
       this._crowdGain = ctx.createGain();
       this._crowdGain.gain.value = 0;
       this._crowdSource.connect(this._crowdFilter);
       this._crowdFilter.connect(this._crowdGain);
+      this._crowdSource.connect(this._crowdFilter2);
+      this._crowdFilter2.connect(this._crowdGain);
       this._crowdGain.connect(ctx.destination);
       this._screechSource = ctx.createBufferSource();
       this._screechSource.buffer = buf;
@@ -1936,7 +1990,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         const level = nearest >= reach ? 0 : (1 - nearest / reach) * 0.05;
         this._crowdGain.gain.setTargetAtTime(level, t, 0.1);
         if (this._crowdFilter) {
-          this._crowdFilter.frequency.setTargetAtTime(900 + (level / 0.05) * 900, t, 0.15);
+          this._crowdFilter.frequency.setTargetAtTime(600 + (level / 0.05) * 400, t, 0.15);
+        }
+        if (this._crowdFilter2) {
+          this._crowdFilter2.frequency.setTargetAtTime(1500 + (level / 0.05) * 900, t, 0.15);
         }
         if (nearest < reach * 0.45 && performance.now() > this._nextCrowdFxAt) {
           this._nextCrowdFxAt = performance.now() + 6500 + Math.random() * 9000;
@@ -1946,13 +2003,23 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       }
     }
   }
+  // A crowd cheer is a MIX of many voices — low roar body, mid chatter and a
+  // high shimmer — each band amplitude-modulated so it ripples like a real
+  // crowd instead of steady hiss. The old "whistle" was one long piercing
+  // 2.3kHz tone with a resonant bandpass; now whistles are just a few short,
+  // quiet blips buried inside the cheer, and everything sits at modest gain so
+  // it reads as a distant grandstand, not a close-up referee.
   private playCrowdCheer(type: 'roar' | 'whistle' | 'applause' | 'wave' | 'big' = 'roar', intensity = 1) {
     if (!this.soundOn || !this._audioCtx || this.gameState !== 'racing') return;
     try {
       const ctx = this._audioCtx;
       const t = ctx.currentTime;
-      const dur = type === 'big' ? 3.0 : type === 'whistle' ? 2.6 : type === 'applause' ? 1.8 : 2.2;
-      const peak = (type === 'big' ? 0.16 : 0.12) * intensity;
+      const dur = type === 'big' ? 3.4 : type === 'applause' ? 2.2 : 2.6;
+      const peak = (type === 'big' ? 0.13 : 0.085) * intensity;
+
+      // 'wave' — a slow swell passing along the stands, its own buffer + swell
+      // envelope (quieter and wider-band than the old version). It plays on
+      // its own, not on top of the layered mix below.
       if (type === 'wave') {
         const wLen = Math.floor(ctx.sampleRate * 4.4);
         const wBuf = ctx.createBuffer(1, wLen, ctx.sampleRate);
@@ -1960,98 +2027,79 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         for (let i = 0; i < wLen; i++) {
           const sec = i / ctx.sampleRate;
           const swell = Math.max(0, Math.sin(sec * 0.6 * Math.PI));
-          wd[i] = (Math.random() * 2 - 1) * swell;
+          const flutter = 0.6 + 0.4 * Math.sin(sec * 12 * Math.PI);
+          wd[i] = (Math.random() * 2 - 1) * swell * flutter;
         }
         const wSrc = ctx.createBufferSource();
         wSrc.buffer = wBuf;
         const wFilter = ctx.createBiquadFilter();
         wFilter.type = 'bandpass';
-        wFilter.frequency.value = 1400;
-        wFilter.Q.value = 0.6;
+        wFilter.frequency.value = 1100;
+        wFilter.Q.value = 0.5;
         const wGain = ctx.createGain();
         wGain.gain.value = peak;
-        wSrc.connect(wFilter);
-        wFilter.connect(wGain);
-        wGain.connect(ctx.destination);
-        wSrc.start(t);
-        wSrc.stop(t + 4.45);
+        wSrc.connect(wFilter); wFilter.connect(wGain); wGain.connect(ctx.destination);
+        wSrc.start(t); wSrc.stop(t + 4.45);
         return;
       }
-      const len = Math.floor(ctx.sampleRate * dur);
-      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      const gain = ctx.createGain();
-      if (type === 'roar' || type === 'big') {
-        filter.frequency.value = 1800;
-        filter.Q.value = 0.7;
-        gain.gain.setValueAtTime(0, t);
-        gain.gain.linearRampToValueAtTime(peak, t + 0.12);
-        gain.gain.setValueAtTime(peak, t + 0.6);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
-      } else if (type === 'whistle') {
-        filter.frequency.value = 2600;
-        filter.Q.value = 4;
-        gain.gain.setValueAtTime(0, t);
-        gain.gain.linearRampToValueAtTime(peak * 0.45, t + 0.1);
-        gain.gain.setValueAtTime(peak * 0.45, t + dur * 0.7);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
-      } else {
-        filter.frequency.value = 3200;
-        filter.Q.value = 0.8;
-        gain.gain.setValueAtTime(0, t);
-        gain.gain.linearRampToValueAtTime(peak * 0.8, t + 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + dur * 0.6);
+
+      // Layered voice mix. `vol` relative to peak; bands are slightly muffled
+      // (modest Q) so the result stays soft and distant.
+      const layers: { center: number; q: number; vol: number; attack: number; flutter: number }[] = [
+        { center: 550, q: 0.5, vol: 1.0, attack: 0.3, flutter: 7 },
+        { center: 1350, q: 0.6, vol: 0.75, attack: 0.18, flutter: 11 },
+        { center: 2400, q: 0.7, vol: 0.35, attack: 0.1, flutter: 16 },
+      ];
+      if (type === 'applause') {
+        layers[0].vol = 0.35; layers[1].vol = 0.7; layers[2].vol = 1.05;
       }
-      src.connect(filter);
-      filter.connect(gain);
-      gain.connect(ctx.destination);
-      src.start(t);
-      src.stop(t + dur + 0.05);
-      if (type === 'whistle' || type === 'big') {
-        const wOsc = ctx.createOscillator();
-        wOsc.type = 'sine';
-        wOsc.frequency.setValueAtTime(2300 + Math.random() * 500, t);
-        wOsc.frequency.setValueAtTime(1900 + Math.random() * 400, t + dur * 0.6);
-        const wGain = ctx.createGain();
-        wGain.gain.setValueAtTime(0, t);
-        wGain.gain.linearRampToValueAtTime(peak * 0.5, t + 0.15);
-        wGain.gain.setValueAtTime(peak * 0.5, t + dur * 0.6);
-        wGain.gain.exponentialRampToValueAtTime(0.001, t + dur);
-        wOsc.connect(wGain);
-        wGain.connect(ctx.destination);
-        wOsc.start(t);
-        wOsc.stop(t + dur + 0.05);
-      }
-      if (type === 'applause' || type === 'big') {
-        const aLen = Math.floor(ctx.sampleRate * 1.6);
-        const aBuf = ctx.createBuffer(1, aLen, ctx.sampleRate);
-        const ad = aBuf.getChannelData(0);
-        for (let i = 0; i < aLen; i++) {
+      for (const L of layers) {
+        const len = Math.floor(ctx.sampleRate * dur);
+        const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) {
           const sec = i / ctx.sampleRate;
-          const env = (0.5 + 0.5 * Math.sin(sec * 22 * Math.PI)) * Math.pow(1 - i / aLen, 2);
-          ad[i] = (Math.random() * 2 - 1) * env;
+          // "many voices" flutter + per-sample variation
+          const flutter = 0.6 + 0.4 * Math.sin(sec * L.flutter * Math.PI + (i % 7) * 0.9);
+          d[i] = (Math.random() * 2 - 1) * flutter;
         }
-        const aSrc = ctx.createBufferSource();
-        aSrc.buffer = aBuf;
-        const aFilter = ctx.createBiquadFilter();
-        aFilter.type = 'bandpass';
-        aFilter.frequency.value = 2400;
-        aFilter.Q.value = 1.2;
-        const aGain = ctx.createGain();
-        aGain.gain.setValueAtTime(0, t + 0.05);
-        aGain.gain.linearRampToValueAtTime(peak * 0.7, t + 0.2);
-        aGain.gain.exponentialRampToValueAtTime(0.001, t + 1.7);
-        aSrc.connect(aFilter);
-        aFilter.connect(aGain);
-        aGain.connect(ctx.destination);
-        aSrc.start(t);
-        aSrc.stop(t + 1.75);
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        const f = ctx.createBiquadFilter();
+        f.type = 'bandpass';
+        f.frequency.value = L.center;
+        f.Q.value = L.q;
+        const g = ctx.createGain();
+        const v = peak * L.vol;
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(v, t + L.attack);
+        g.gain.setValueAtTime(v, t + dur * 0.6);
+        g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+        src.connect(f); f.connect(g); g.connect(ctx.destination);
+        src.start(t); src.stop(t + dur + 0.05);
       }
+
+      // Scattered distant whistle blips — short, quiet chirps "from someone in
+      // the stands", never a long piercing tone, and always small vs the mix.
+      if (type === 'whistle' || type === 'big') {
+        const blips = type === 'whistle' ? 3 + Math.floor(Math.random() * 3) : 1 + Math.floor(Math.random() * 2);
+        for (let b = 0; b < blips; b++) {
+          const bt = t + 0.25 + Math.random() * dur * 0.7;
+          const blen = 0.1 + Math.random() * 0.16;
+          const o = ctx.createOscillator();
+          o.type = 'sine';
+          o.frequency.setValueAtTime(2100 + Math.random() * 900, bt);
+          o.frequency.exponentialRampToValueAtTime(1600 + Math.random() * 400, bt + blen);
+          const og = ctx.createGain();
+          const v = peak * (0.1 + Math.random() * 0.14);
+          og.gain.setValueAtTime(0, bt);
+          og.gain.linearRampToValueAtTime(v, bt + 0.02);
+          og.gain.exponentialRampToValueAtTime(0.001, bt + blen);
+          o.connect(og); og.connect(ctx.destination);
+          o.start(bt); o.stop(bt + blen + 0.02);
+        }
+      }
+
     } catch { }
   }
   private playImpactSound(intensity = 1, gainScale = 1) {
