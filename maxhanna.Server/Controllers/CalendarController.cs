@@ -151,6 +151,47 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpPost("/Calendar/NotificationsSent", Name = "GetCalendarNotificationsSent")]
+		public async Task<IActionResult> GetNotificationsSent([FromBody] int userId)
+		{
+			var rows = new List<CalendarNotificationSent>();
+			try
+			{
+				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+				{
+					await conn.OpenAsync();
+					await EnsureNotificationsSentTableAsync(conn);
+					const string sql = @"
+						SELECT calendar_text, calendar_date, notification_sent
+						FROM maxhanna.calendar_notifications_sent
+						WHERE user_id = @Owner
+						ORDER BY notification_sent DESC
+						LIMIT 20;";
+					await using var cmd = new MySqlCommand(sql, conn);
+					cmd.Parameters.AddWithValue("@Owner", userId);
+					await using var rdr = await cmd.ExecuteReaderAsync();
+					while (await rdr.ReadAsync())
+					{
+						rows.Add(new CalendarNotificationSent(
+							rdr.IsDBNull(0) ? "" : rdr.GetString(0),
+							rdr.IsDBNull(1) ? (DateTime?)null : rdr.GetDateTime(1),
+							rdr.IsDBNull(2) ? (DateTime?)null : rdr.GetDateTime(2)));
+					}
+				}
+				return Ok(rows);
+			}
+			catch (MySqlException ex)
+			{
+				_ = _log.Db("Database error while fetching sent calendar notifications: " + ex.Message, userId, "CALENDAR");
+				return StatusCode(503, "Database error while fetching sent calendar notifications.");
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An unexpected error occurred while fetching sent calendar notifications. " + ex.Message, userId, "CALENDAR");
+				return StatusCode(500, "An unexpected error occurred while fetching sent calendar notifications.");
+			}
+		}
+
 		[HttpDelete("{id}", Name = "DeleteCalendarEntry")]
 		public async Task<IActionResult> Delete([FromBody] int userId, int id)
 		{
@@ -240,6 +281,32 @@ namespace maxhanna.Server.Controllers
 			finally
 			{
 				conn.Close();
+			}
+		}
+
+		/// <summary>
+		/// Idempotent migration: creates the calendar_notifications_sent table if it
+		/// does not exist yet, so the "notifications sent" section works on fresh installs.
+		/// </summary>
+		private async Task EnsureNotificationsSentTableAsync(MySqlConnection conn)
+		{
+			try
+			{
+				const string create = @"CREATE TABLE IF NOT EXISTS maxhanna.calendar_notifications_sent (
+					Id INT NOT NULL AUTO_INCREMENT,
+					user_id INT NOT NULL,
+					calendar_text TEXT NULL,
+					calendar_date DATETIME NULL,
+					notification_sent DATETIME NULL,
+					PRIMARY KEY (Id),
+					KEY idx_calendar_notifications_user (user_id, notification_sent)
+				);";
+				await using var createCmd = new MySqlCommand(create, conn);
+				await createCmd.ExecuteNonQueryAsync();
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Failed to ensure calendar_notifications_sent table: " + ex.Message, null, "CALENDAR");
 			}
 		}
 

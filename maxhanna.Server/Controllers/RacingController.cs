@@ -39,7 +39,8 @@ namespace maxhanna.Server.Controllers
 			public int TotalRaces = 0;
 			public int Wins = 0;
 			public int Money = 500;
-			public double BestLap = 0;
+			public double BestLap = 0; // overall best across all tracks (legacy/display)
+			public Dictionary<int, double> BestLapsByTrack = new(); // trackId -> best lap ms
 			public int TotalEarnings = 0;
 			public bool Dirty = false;
 			public int Version = 0;
@@ -148,6 +149,24 @@ namespace maxhanna.Server.Controllers
 					{
 						cmd.ExecuteNonQuery();
 					}
+					using (var cmd = new MySqlCommand(@"
+						CREATE TABLE IF NOT EXISTS racing_best_laps (
+							user_id INT NOT NULL,
+							track_id INT NOT NULL,
+							best_lap DOUBLE NOT NULL DEFAULT 0,
+							PRIMARY KEY (user_id, track_id)
+						)", conn))
+					{
+						cmd.ExecuteNonQuery();
+					}
+					// One-time backfill: seed per-track best laps from the legacy global
+					// best_lap column (assigned to track 1) so existing records survive.
+					using (var cmd = new MySqlCommand(@"
+						INSERT IGNORE INTO racing_best_laps (user_id, track_id, best_lap)
+						SELECT user_id, 1, best_lap FROM racing_player_car WHERE best_lap > 0", conn))
+					{
+						cmd.ExecuteNonQuery();
+					}
 					_schemaEnsured = true;
 					Console.WriteLine("[Racing] Schema ensured (racing_player_car, racing_results).");
 				}
@@ -189,22 +208,35 @@ namespace maxhanna.Server.Controllers
 					       total_races, wins, money, best_lap, total_earnings, player_name
 					FROM racing_player_car WHERE user_id = @uid", conn);
 				cmd.Parameters.AddWithValue("@uid", userId);
-				using var rdr = cmd.ExecuteReader();
-				if (rdr.Read())
+				using (var rdr = cmd.ExecuteReader())
 				{
-					if (!rdr.IsDBNull(0) && rdr.GetString(0) is { Length: > 0 } j)
-						st.Upgrades = JsonSerializer.Deserialize<List<object>>(j) ?? new List<object>();
-					st.SkinId = rdr.IsDBNull(1) ? 1 : rdr.GetInt32(1);
-					st.SpoilerId = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2);
-					st.RimId = rdr.IsDBNull(3) ? 0 : rdr.GetInt32(3);
-					st.ExhaustId = rdr.IsDBNull(4) ? 0 : rdr.GetInt32(4);
-					st.DecalId = rdr.IsDBNull(5) ? 0 : rdr.GetInt32(5);
-					st.TotalRaces = rdr.GetInt32(6);
-					st.Wins = rdr.GetInt32(7);
-					st.Money = rdr.GetInt32(8);
-					st.BestLap = rdr.IsDBNull(9) ? 0 : rdr.GetDouble(9);
-					st.TotalEarnings = rdr.IsDBNull(10) ? 0 : rdr.GetInt32(10);
-					st.PlayerName = rdr.IsDBNull(11) ? "" : rdr.GetString(11);
+					if (rdr.Read())
+					{
+						if (!rdr.IsDBNull(0) && rdr.GetString(0) is { Length: > 0 } j)
+							st.Upgrades = JsonSerializer.Deserialize<List<object>>(j) ?? new List<object>();
+						st.SkinId = rdr.IsDBNull(1) ? 1 : rdr.GetInt32(1);
+						st.SpoilerId = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2);
+						st.RimId = rdr.IsDBNull(3) ? 0 : rdr.GetInt32(3);
+						st.ExhaustId = rdr.IsDBNull(4) ? 0 : rdr.GetInt32(4);
+						st.DecalId = rdr.IsDBNull(5) ? 0 : rdr.GetInt32(5);
+						st.TotalRaces = rdr.GetInt32(6);
+						st.Wins = rdr.GetInt32(7);
+						st.Money = rdr.GetInt32(8);
+						st.BestLap = rdr.IsDBNull(9) ? 0 : rdr.GetDouble(9);
+						st.TotalEarnings = rdr.IsDBNull(10) ? 0 : rdr.GetInt32(10);
+						st.PlayerName = rdr.IsDBNull(11) ? "" : rdr.GetString(11);
+					}
+				}
+				// The reader above is disposed by the using block; it is safe to run
+				// a second query on the same connection now (MySqlConnector forbids
+				// two open readers on one connection).
+				using var bestCmd = new MySqlCommand(@"
+					SELECT track_id, best_lap FROM racing_best_laps WHERE user_id = @uid AND best_lap > 0", conn);
+				bestCmd.Parameters.AddWithValue("@uid", userId);
+				using var bestRdr = bestCmd.ExecuteReader();
+				while (bestRdr.Read())
+				{
+					st.BestLapsByTrack[bestRdr.GetInt32(0)] = bestRdr.GetDouble(1);
 				}
 			}
 			catch { }
@@ -222,26 +254,39 @@ namespace maxhanna.Server.Controllers
 					SELECT user_id, upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id,
 					       total_races, wins, money, best_lap, total_earnings, player_name
 					FROM racing_player_car", conn);
-				using var rdr = cmd.ExecuteReader();
 				int loaded = 0;
-				while (rdr.Read())
+				using (var rdr = cmd.ExecuteReader())
 				{
-					var st = new RacingCarState { UserId = rdr.GetInt32(0) };
-					if (!rdr.IsDBNull(1) && rdr.GetString(1) is { Length: > 0 } j)
-						st.Upgrades = JsonSerializer.Deserialize<List<object>>(j) ?? new List<object>();
-					st.SkinId = rdr.IsDBNull(2) ? 1 : rdr.GetInt32(2);
-					st.SpoilerId = rdr.IsDBNull(3) ? 0 : rdr.GetInt32(3);
-					st.RimId = rdr.IsDBNull(4) ? 0 : rdr.GetInt32(4);
-					st.ExhaustId = rdr.IsDBNull(5) ? 0 : rdr.GetInt32(5);
-					st.DecalId = rdr.IsDBNull(6) ? 0 : rdr.GetInt32(6);
-					st.TotalRaces = rdr.GetInt32(7);
-					st.Wins = rdr.GetInt32(8);
-					st.Money = rdr.GetInt32(9);
-					st.BestLap = rdr.IsDBNull(10) ? 0 : rdr.GetDouble(10);
-					st.TotalEarnings = rdr.IsDBNull(11) ? 0 : rdr.GetInt32(11);
-					st.PlayerName = rdr.IsDBNull(12) ? "" : rdr.GetString(12);
-					_cars[st.UserId] = st;
-					loaded++;
+					while (rdr.Read())
+					{
+						var st = new RacingCarState { UserId = rdr.GetInt32(0) };
+						if (!rdr.IsDBNull(1) && rdr.GetString(1) is { Length: > 0 } j)
+							st.Upgrades = JsonSerializer.Deserialize<List<object>>(j) ?? new List<object>();
+						st.SkinId = rdr.IsDBNull(2) ? 1 : rdr.GetInt32(2);
+						st.SpoilerId = rdr.IsDBNull(3) ? 0 : rdr.GetInt32(3);
+						st.RimId = rdr.IsDBNull(4) ? 0 : rdr.GetInt32(4);
+						st.ExhaustId = rdr.IsDBNull(5) ? 0 : rdr.GetInt32(5);
+						st.DecalId = rdr.IsDBNull(6) ? 0 : rdr.GetInt32(6);
+						st.TotalRaces = rdr.GetInt32(7);
+						st.Wins = rdr.GetInt32(8);
+						st.Money = rdr.GetInt32(9);
+						st.BestLap = rdr.IsDBNull(10) ? 0 : rdr.GetDouble(10);
+						st.TotalEarnings = rdr.IsDBNull(11) ? 0 : rdr.GetInt32(11);
+						st.PlayerName = rdr.IsDBNull(12) ? "" : rdr.GetString(12);
+						_cars[st.UserId] = st;
+						loaded++;
+					}
+				}
+				// First reader disposed above — safe to run the per-track query now.
+				using var bestCmd = new MySqlCommand(@"
+					SELECT user_id, track_id, best_lap FROM racing_best_laps WHERE best_lap > 0", conn);
+				using var bestRdr = bestCmd.ExecuteReader();
+				while (bestRdr.Read())
+				{
+					if (_cars.TryGetValue(bestRdr.GetInt32(0), out var car))
+					{
+						car.BestLapsByTrack[bestRdr.GetInt32(1)] = bestRdr.GetDouble(2);
+					}
 				}
 				Console.WriteLine($"[Racing] Startup: loaded {loaded} player car(s) from DB into memory.");
 			}
@@ -269,6 +314,7 @@ namespace maxhanna.Server.Controllers
 			double bestLap;
 			string playerName;
 			List<object> upgrades;
+			Dictionary<int, double> bestLapsByTrack;
 			lock (st)
 			{
 				userId = st.UserId;
@@ -277,6 +323,7 @@ namespace maxhanna.Server.Controllers
 				exhaustId = st.ExhaustId; decalId = st.DecalId;
 				totalRaces = st.TotalRaces; wins = st.Wins; money = st.Money;
 				bestLap = st.BestLap; totalEarnings = st.TotalEarnings;
+				bestLapsByTrack = new Dictionary<int, double>(st.BestLapsByTrack);
 				playerName = st.PlayerName;
 			}
 			return new
@@ -293,6 +340,7 @@ namespace maxhanna.Server.Controllers
 				Wins = wins,
 				Money = money,
 				BestLap = bestLap,
+				BestLapsByTrack = bestLapsByTrack,
 				TotalEarnings = totalEarnings
 			};
 		}
@@ -345,6 +393,22 @@ namespace maxhanna.Server.Controllers
 							version = st.Version;
 						}
 						cmd.ExecuteNonQuery();
+						// Per-track best laps (racing_best_laps) — keep the minimum lap per
+						// track so an older worse time never overwrites a record.
+						Dictionary<int, double> bestByTrack;
+						lock (st) { bestByTrack = new Dictionary<int, double>(st.BestLapsByTrack); }
+						foreach (var kvBest in bestByTrack)
+						{
+							if (kvBest.Value <= 0) continue;
+							using var blCmd = new MySqlCommand(@"
+								INSERT INTO racing_best_laps (user_id, track_id, best_lap)
+								VALUES (@uid, @track, @best)
+								ON DUPLICATE KEY UPDATE best_lap = LEAST(best_lap, VALUES(best_lap))", conn);
+							blCmd.Parameters.AddWithValue("@uid", st.UserId);
+							blCmd.Parameters.AddWithValue("@track", kvBest.Key);
+							blCmd.Parameters.AddWithValue("@best", kvBest.Value);
+							blCmd.ExecuteNonQuery();
+						}
 						lock (st)
 						{
 							if (st.Version == version) st.Dirty = false;
@@ -430,6 +494,24 @@ namespace maxhanna.Server.Controllers
 						st.Money = newMoney;
 					}
 					if (body.TryGetProperty("bestLap", out var bl)) st.BestLap = bl.GetDouble();
+					if (body.TryGetProperty("bestLapsByTrack", out var blt) && blt.ValueKind == JsonValueKind.Object)
+					{
+						var parsed = JsonSerializer.Deserialize<Dictionary<int, double>>(blt.GetRawText());
+						if (parsed != null)
+						{
+							// Merge, never regress: only a better (smaller) lap replaces the
+							// existing one, matching the LEAST() upsert semantics in the dump.
+							foreach (var kv in parsed)
+							{
+								if (kv.Value <= 0) continue;
+								if (!st.BestLapsByTrack.TryGetValue(kv.Key, out var existing) || kv.Value < existing)
+									st.BestLapsByTrack[kv.Key] = kv.Value;
+							}
+							// Keep the overall best lap in sync (smallest per-track lap).
+							var bests = st.BestLapsByTrack.Values.Where(v => v > 0).ToList();
+							if (bests.Count > 0) st.BestLap = bests.Min();
+						}
+					}
 					if (body.TryGetProperty("totalEarnings", out var te)) st.TotalEarnings = te.GetInt32();
 					st.Dirty = true;
 					st.Version++;
@@ -522,7 +604,7 @@ namespace maxhanna.Server.Controllers
 			catch { return BadRequest(); }
 		}
 		[HttpGet("leaderboard/{trackId}")]
-		public async Task<IActionResult> GetLeaderboard(int trackId)
+		public async Task<IActionResult> GetLeaderboard(int trackId, [FromQuery] int userId = 0)
 		{
 			try
 			{
@@ -541,19 +623,23 @@ namespace maxhanna.Server.Controllers
 								LEFT JOIN users u ON r.user_id = u.id
 								WHERE r.lap_time > 0 AND r.track_id = @trackId
 							UNION ALL
-							SELECT c.user_id, COALESCE(NULLIF(c.player_name, ''), u.username, 'Unknown') AS player_name,
-							       c.best_lap AS lap_time, 0 AS total_time
-							FROM racing_player_car c
-							LEFT JOIN users u ON c.user_id = u.id
-							WHERE c.best_lap > 0
+							SELECT bl.user_id, COALESCE(NULLIF(c.player_name, ''), u.username, 'Unknown') AS player_name,
+							       bl.best_lap AS lap_time, 0 AS total_time
+							FROM racing_best_laps bl
+							LEFT JOIN racing_player_car c ON c.user_id = bl.user_id
+							LEFT JOIN users u ON bl.user_id = u.id
+							WHERE bl.best_lap > 0 AND bl.track_id = @trackId
 						) t
 						GROUP BY user_id, player_name
 						ORDER BY lap_time ASC LIMIT 100", conn);
 					cmd.Parameters.AddWithValue("@trackId", trackId);
-					using var rdr = await cmd.ExecuteReaderAsync();
-					while (await rdr.ReadAsync())
+					// Reader disposed before any second query on the same connection
+					// (MySqlConnector forbids two open readers per connection).
+					using (var rdr = await cmd.ExecuteReaderAsync())
 					{
-						results.Add(new LeaderboardEntry
+						while (await rdr.ReadAsync())
+						{
+							results.Add(new LeaderboardEntry
 						{
 							PlayerId = rdr.GetInt32(0),
 							PlayerName = rdr.GetString(1),
@@ -563,6 +649,7 @@ namespace maxhanna.Server.Controllers
 							MoneyEarned = 0,
 							IsBot = false
 						});
+						}
 					}
 				}
 				var pendingBest = new Dictionary<int, LeaderboardEntry>();
@@ -590,9 +677,61 @@ namespace maxhanna.Server.Controllers
 					.OrderBy(e => e.LapTime)
 					.Take(50)
 					.ToList();
-				return Ok(results);
+				// ── Standing summary: total racers on this track + the caller's rank ──
+				// (rank 0 means the user has no recorded lap on this circuit yet).
+				int totalCount = 0;
+				int userRank = 0;
+				if (!string.IsNullOrEmpty(connStr) && userId > 0)
+				{
+					using var conn2 = new MySqlConnection(connStr);
+					await conn2.OpenAsync();
+					using (var cntCmd = new MySqlCommand(@"
+						SELECT COUNT(*) FROM (
+							SELECT user_id, MIN(lap_time) AS best FROM (
+								SELECT r.user_id, r.lap_time AS lap_time FROM racing_results r
+								WHERE r.lap_time > 0 AND r.track_id = @trackId
+								UNION ALL
+								SELECT bl.user_id, bl.best_lap AS lap_time FROM racing_best_laps bl
+								WHERE bl.best_lap > 0 AND bl.track_id = @trackId
+							) u GROUP BY user_id
+						) t", conn2))
+					{
+						cntCmd.Parameters.AddWithValue("@trackId", trackId);
+						totalCount = Convert.ToInt32(await cntCmd.ExecuteScalarAsync());
+					}
+					using (var bestCmd = new MySqlCommand(@"
+						SELECT MIN(lap_time) FROM (
+							SELECT r.lap_time AS lap_time FROM racing_results r
+							WHERE r.lap_time > 0 AND r.track_id = @trackId AND r.user_id = @uid
+							UNION ALL
+							SELECT bl.best_lap AS lap_time FROM racing_best_laps bl
+							WHERE bl.best_lap > 0 AND bl.track_id = @trackId AND bl.user_id = @uid
+						) me", conn2))
+					{
+						bestCmd.Parameters.AddWithValue("@trackId", trackId);
+						bestCmd.Parameters.AddWithValue("@uid", userId);
+						var myBest = await bestCmd.ExecuteScalarAsync();
+						if (myBest != null && myBest != DBNull.Value && Convert.ToDouble(myBest) > 0)
+						{
+							using var rankCmd = new MySqlCommand(@"
+								SELECT COUNT(*) + 1 FROM (
+									SELECT user_id, MIN(lap_time) AS best FROM (
+										SELECT r.user_id, r.lap_time AS lap_time FROM racing_results r
+										WHERE r.lap_time > 0 AND r.track_id = @trackId
+										UNION ALL
+										SELECT bl.user_id, bl.best_lap AS lap_time FROM racing_best_laps bl
+										WHERE bl.best_lap > 0 AND bl.track_id = @trackId
+									) u GROUP BY user_id
+								) t WHERE t.best < @myBest", conn2);
+							rankCmd.Parameters.AddWithValue("@trackId", trackId);
+							rankCmd.Parameters.AddWithValue("@myBest", Convert.ToDouble(myBest));
+							userRank = Convert.ToInt32(await rankCmd.ExecuteScalarAsync());
+						}
+					}
+				}
+				return Ok(new { results, totalCount, userRank });
 			}
-			catch { return Ok(new List<LeaderboardEntry>()); }
+			catch { return Ok(new { results = new List<LeaderboardEntry>(), totalCount = 0, userRank = 0 }); }
 		}
 		private static UpgradeDef? GetUpgradeDef(int id)
 		{

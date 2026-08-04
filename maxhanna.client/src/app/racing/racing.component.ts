@@ -80,7 +80,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   isLoaded = false;
   gameState: 'menu' | 'garage' | 'countdown' | 'racing' | 'paused' | 'finished' = 'menu';
   selectedTrack: TrackDefinition | null = null;
-  selectedTab: 'menu' | 'upgrades' | 'skins' | 'appearance' = 'menu';
+  selectedTab: 'menu' | 'upgrades' | 'skins' | 'appearance' | 'records' = 'menu';
   currentLap = 0;
   totalLaps = 3;
   countdownTimer = 0;
@@ -144,6 +144,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   gasHeld = false;
   brakeHeld = false;
   leaderboard: RaceResult[] = [];
+  leaderboardTotal = 0;
+  leaderboardUserRank = 0;
   showLeaderboard = false;
   get hubConnected(): boolean { return this.racingHub.connected; }
   get myConnectionId(): string | null { return this.racingHub.myConnectionId; }
@@ -923,16 +925,17 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           [0.9, 0.7, 0.1], [0.7, 0.2, 0.7], [1.0, 0.5, 0]
         ];
         const c = colors[b.color % colors.length];
-        return { x: b.x, y: 0.1, z: b.z, yaw: b.yaw, r: c[0], g: c[1], b: c[2] };
+        return { x: b.x, y: 0.1, z: b.z, yaw: b.yaw, r: c[0], g: c[1], b: c[2], speed: b.speed };
       });
       this.remoteCars.forEach(rc => {
         carList.push({
           x: rc.x, y: 0.1, z: rc.z,
           yaw: rc.yaw,
-          r: rc.colorR, g: rc.colorG, b: rc.colorB
+          r: rc.colorR, g: rc.colorG, b: rc.colorB,
+          speed: rc.speed
         });
       });
-      this.renderer.render(eyeX, eyeY, eyeZ, yaw, pitch, aspect, carList, dt, fovZoom, shakeX, shakeY, this.isRaining, speedRatio);
+      this.renderer.render(eyeX, eyeY, eyeZ, yaw, pitch, aspect, carList, dt, fovZoom, shakeX, shakeY, this.isRaining, speedRatio, this.carSpeed);
       this.hudSpeed = Math.abs(this.carSpeed * 3.6);
       this.hudRPM = Math.min(1, Math.abs(this.carSpeed) / this.getMaxSpeed() * 1.1);
       const targetSteer = -this.carSteer * 35;
@@ -1359,9 +1362,16 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.addMessage(`Finished #${this.racePosition} of ${this.totalRacers} +$${moneyEarned}`);
     }
     this.playerCar.money += moneyEarned;
-    if (this.bestLapTime > 0 && this.bestLapTime < 99999999 &&
-      (!this.playerCar.bestLap || this.bestLapTime < this.playerCar.bestLap)) {
-      this.playerCar.bestLap = this.bestLapTime;
+    const trackIdForLap = this.selectedTrack?.id ?? 1;
+    if (this.bestLapTime > 0 && this.bestLapTime < 99999999) {
+      this.playerCar.bestLapsByTrack = this.playerCar.bestLapsByTrack || {};
+      const prevTrackBest = this.playerCar.bestLapsByTrack[trackIdForLap] || 0;
+      if (!prevTrackBest || this.bestLapTime < prevTrackBest) {
+        this.playerCar.bestLapsByTrack[trackIdForLap] = this.bestLapTime;
+      }
+      // Keep the overall best in sync (smallest per-track lap).
+      const trackBests = Object.values(this.playerCar.bestLapsByTrack).filter(v => v > 0);
+      this.playerCar.bestLap = trackBests.length > 0 ? Math.min(...trackBests) : this.playerCar.bestLap;
     }
     this.saveCar();
     const result: RaceResult = {
@@ -1379,29 +1389,52 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
   async loadLeaderboard() {
     const trackId = this.selectedTrack?.id ?? 1;
+    const uid = this.parentRef?.user?.id ?? 0;
     try {
-      this.leaderboard = await this.racingService.getLeaderboard(trackId);
+      const data = await this.racingService.getLeaderboard(trackId, uid);
+      this.leaderboard = data?.results ?? [];
+      this.leaderboardTotal = data?.totalCount ?? this.leaderboard.length;
+      this.leaderboardUserRank = data?.userRank ?? 0;
     } catch {
       this.leaderboard = [];
+      this.leaderboardTotal = 0;
+      this.leaderboardUserRank = 0;
     }
-    // Always show the current user's own best lap — pinned at the end of the
-    // list even when it doesn't make the top ranks, so players can see where
-    // they stand (or that they haven't set a lap yet) on the selected track.
-    const uid = this.parentRef?.user?.id ?? 0;
-    if (uid) {
-      this.leaderboard = this.leaderboard.filter(r => r.playerId !== uid);
+    // The server already ranks the current user if their lap cracks the top 50
+    // — leave it in its ranked position and just let the row highlight. Only pin
+    // the user's lap at the end when it did NOT make the list, so they can still
+    // see where they stand (or that they haven't set a lap yet) on the track.
+    if (uid && !this.leaderboard.some(r => r.playerId === uid)) {
+      // Per-track record: only the lap actually set on this circuit counts here.
+      const myTrackBest = (this.playerCar.bestLapsByTrack && this.playerCar.bestLapsByTrack[trackId] > 0)
+        ? this.playerCar.bestLapsByTrack[trackId] : 0;
       const mine: RaceResult = {
         position: this.leaderboard.length + 1,
         playerId: uid,
         playerName: this.playerCar.playerName?.trim() || this.parentRef?.user?.username || 'You',
-        lapTime: this.playerCar.bestLap > 0 ? this.playerCar.bestLap : 0,
-        totalTime: this.playerCar.bestLap > 0 ? 0 : 0,
+        lapTime: myTrackBest > 0 ? myTrackBest : 0,
+        totalTime: 0,
         moneyEarned: 0,
         isBot: false,
         trackId: trackId,
       };
       this.leaderboard.push(mine);
+      // If the user has a lap but sits outside the fetched top-50, use the
+      // server-computed rank so the summary row is still accurate.
+      if (this.leaderboardUserRank <= 0 && myTrackBest > 0) this.leaderboardUserRank = this.leaderboard.length;
     }
+  }
+  getLeaderboardMedal(): string {
+    if (this.leaderboardUserRank === 1) return '🥇';
+    if (this.leaderboardUserRank === 2) return '🥈';
+    if (this.leaderboardUserRank === 3) return '🥉';
+    return this.leaderboardUserRank > 0 ? '🎖️' : '🏁';
+  }
+  getLeaderboardStandingText(): string {
+    const total = this.leaderboardTotal;
+    const rank = this.leaderboardUserRank;
+    if (rank > 0) return `#${rank} of ${total} on this level`;
+    return total > 0 ? `No lap yet — ${total} racers on this level` : 'No laps recorded yet';
   }
   async toggleLeaderboard() {
     this.showLeaderboard = !this.showLeaderboard;
@@ -2254,6 +2287,57 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   get UPGRADE_DEFS() { return UPGRADE_DEFS; }
   get CAR_SKINS() { return CAR_SKINS; }
   /** Returns a country flag emoji for the track based on its theme/location. */
+  getTrackBestLap(trackId: number): number {
+    const bests = this.playerCar?.bestLapsByTrack;
+    return (bests && bests[trackId] > 0) ? bests[trackId] : 0;
+  }
+  getOverallBestLap(): number {
+    return this.playerCar?.bestLap ?? 0;
+  }
+  /** Fastest lap currently on the board (0 when nothing is recorded). */
+  getLeaderboardLeaderLap(): number {
+    let leader = 0;
+    for (const r of this.leaderboard) {
+      if (r.lapTime > 0 && (leader === 0 || r.lapTime < leader)) leader = r.lapTime;
+    }
+    return leader;
+  }
+  private formatLapGap(deltaMs: number): string {
+    const sec = Math.abs(deltaMs) / 1000;
+    const sign = deltaMs <= 0 ? '-' : '+';
+    return `${sign}${sec.toFixed(1)}s`;
+  }
+  /** "+1.2s vs 1st · +0.4s vs your best" — how far off the pace a row is. */
+  getLeaderboardGapText(r: RaceResult): string {
+    if (!r.lapTime || r.lapTime <= 0) return '';
+    const leader = this.getLeaderboardLeaderLap();
+    const uid = this.parentRef?.user?.id ?? 0;
+    const isMe = r.playerId === uid;
+    const parts: string[] = [];
+    if (leader > 0) {
+      if (r.lapTime <= leader) parts.push('PACE');
+      else parts.push(`${this.formatLapGap(r.lapTime - leader)} vs 1st`);
+    }
+    if (!isMe) {
+      const myBest = this.getTrackBestLap(this.selectedTrack?.id ?? 1);
+      if (myBest > 0) {
+        if (r.lapTime > myBest) parts.push(`${this.formatLapGap(r.lapTime - myBest)} vs your best`);
+        else if (r.lapTime < myBest) parts.push('faster than your best');
+        else parts.push('ties your best');
+      }
+    }
+    return parts.join(' · ');
+  }
+  getLeaderboardGapClass(r: RaceResult): string {
+    if (!r.lapTime || r.lapTime <= 0) return '';
+    const leader = this.getLeaderboardLeaderLap();
+    if (leader > 0 && r.lapTime <= leader) return 'lb-gap-leader';
+    const myBest = this.getTrackBestLap(this.selectedTrack?.id ?? 1);
+    if (this.parentRef?.user?.id && r.playerId !== this.parentRef.user.id && myBest > 0 && r.lapTime < myBest) {
+      return 'lb-gap-ahead';
+    }
+    return 'lb-gap-behind';
+  }
   getTrackFlag(track: TrackDefinition): string {
     const flags: Record<number, string> = {
       1: '🇺🇸', 2: '🏔️', 3: '🏙️', 4: '🏔️', 5: '🇲🇦', 6: '🇲🇨', 7: '🇨🇦', 8: '🇮🇹',

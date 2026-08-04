@@ -38,7 +38,8 @@ export interface RacingPlayerCar {
   totalRaces: number;
   wins: number;
   money: number;
-  bestLap: number; // ms
+  bestLap: number; // ms — overall best across all tracks (legacy/display)
+  bestLapsByTrack?: Record<number, number>; // trackId -> best lap ms
   totalEarnings: number;
 }
 

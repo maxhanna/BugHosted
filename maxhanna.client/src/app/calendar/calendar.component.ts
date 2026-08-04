@@ -3,6 +3,7 @@ import { ChildComponent } from '../child.component';
 import { CalendarService } from '../../services/calendar.service';
 import { CalendarDate } from '../../services/datacontracts/calendar/calendar-date';
 import { CalendarEntry } from '../../services/datacontracts/calendar/calendar-entry';
+import { CalendarNotificationSent } from '../../services/datacontracts/calendar/calendar-notification-sent';
 import { UserService, UserSettingName } from '../../services/user.service';
 import { UserSettings } from '../../services/datacontracts/user/user-settings';
 
@@ -43,6 +44,8 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   selectedMonth?: string;
   selectedYear?: number;
   calendarNotificationsEnabled = false;
+  sentNotifications: CalendarNotificationSent[] = [];
+  sentNotificationsLoading = false;
   isMenuPanelOpen: boolean = false;
   eventSymbolMap: { [key: string]: string } = {
     'Event': '💥',
@@ -493,6 +496,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     if (this.parentRef) {
       this.parentRef.showOverlay();
     }
+    this.loadSentNotifications();
   }
   closeMenuPanel() {
     this.isMenuPanelOpen = false;
@@ -527,5 +531,26 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     if (this.parentRef?.user?.id) {
       await this.userService.updateUserSettings(this.parentRef.user.id, [{ settingName: "calendar_notifications_enabled", value: this.calendarNotificationsEnabled }]);
     }
+  }
+
+  async loadSentNotifications() {
+    if (!this.parentRef?.user?.id) return;
+    this.sentNotificationsLoading = true;
+    try {
+      this.sentNotifications = (await this.calendarService.getNotificationsSent(this.parentRef.user.id)) ?? [];
+    } catch (error) {
+      const msg = this.formatError(error);
+      console.error("Error fetching sent calendar notifications:", msg);
+      this.sentNotifications = [];
+    } finally {
+      this.sentNotificationsLoading = false;
+    }
+  }
+
+  formatNotificationSent(sent: CalendarNotificationSent): string {
+    const when = sent.notificationSent ? new Date(sent.notificationSent) : null;
+    const whenStr = when && !isNaN(when.getTime()) ? when.toLocaleString() : '';
+    if (sent.calendarText) return sent.calendarText + (whenStr ? ` — ${whenStr}` : '');
+    return whenStr || 'Notification'; 
   }
 }

@@ -164,3 +164,48 @@ thead {
   border: 1px solid var(--main-border-color);
   font-size: 14px;
 }
+
+/* ─── Notifications sent section (menu panel) ─── */
+.sentNotificationsSection {
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--main-border-color, rgba(0,0,0,0.1));
+}
+.sentNotificationsRefresh {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.sentNotificationsRefresh:hover { background: rgba(0,0,0,0.06); }
+.sentNotificationsRefresh:disabled { opacity: 0.5; cursor: default; }
+.sentNotificationsEmpty {
+  font-size: 12px;
+  color: var(--secondary-font-color, #94a3b8);
+  padding: 8px 0;
+  font-style: italic;
+}
+.sentNotificationsList {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.sentNotificationItem {
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--secondary-component-background-color, rgba(0,0,0,0.04));
+  border: 1px solid var(--main-border-color, rgba(0,0,0,0.08));
+}
+.sentNotificationText {
+  word-break: break-word;
+}

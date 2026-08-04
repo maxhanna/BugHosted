@@ -42,6 +42,7 @@ export class RacingRenderer {
   private sunColorLoc!: WebGLUniformLocation;
   private shadowMapLoc!: WebGLUniformLocation;
   private shadowTexelLoc!: WebGLUniformLocation;
+  private heatGlowLoc!: WebGLUniformLocation;
 
   private trackVao!: WebGLVertexArrayObject;
   private trackCount = 0;
@@ -55,6 +56,10 @@ export class RacingRenderer {
   private wheelCount = 0;
   private rearWheelVao!: WebGLVertexArrayObject;
   private rearWheelCount = 0;
+  private brakeVao!: WebGLVertexArrayObject;
+  private brakeCount = 0;
+  private rearBrakeVao!: WebGLVertexArrayObject;
+  private rearBrakeCount = 0;
   private barrierVao!: WebGLVertexArrayObject;
   private barrierCount = 0;
   private finishVao!: WebGLVertexArrayObject;
@@ -273,6 +278,7 @@ uniform vec3 uFogColor;
 uniform bool uUseVertexColor;
 uniform sampler2D uShadowMap;
 uniform float uShadowTexel;
+uniform float uHeatGlow;
 
 // Soft 3x3 PCF directional shadow. sp is light-space UV/depth (0..1).
 // Outside the ortho frustum (which only wraps +-80m around the camera) -> lit.
@@ -319,6 +325,10 @@ void main() {
 
   vec3 color = amb + diffColor + specColor + rimColor;
 
+  // Brake-disc heat glow — emissive orange that fades in as the wheels spin
+  // up. uHeatGlow is driven by wheel speed in renderCar (0 when parked).
+  color += uHeatGlow * vec3(1.0, 0.45, 0.08);
+
   float fog = clamp((vDepth - 80.0) / 400.0, 0.0, 1.0);
   color = mix(color, uFogColor, fog * vColor.a);
 
@@ -347,7 +357,9 @@ void main() {
     this.sunColorLoc = gl.getUniformLocation(this.prog, 'uSunColor')!;
     this.shadowMapLoc = gl.getUniformLocation(this.prog, 'uShadowMap')!;
     this.shadowTexelLoc = gl.getUniformLocation(this.prog, 'uShadowTexel')!;
+    this.heatGlowLoc = gl.getUniformLocation(this.prog, 'uHeatGlow')!;
     gl.uniform1i(this.useVertexColor, 1);
+    gl.uniform1f(this.heatGlowLoc, 0);
   }
 
   private createProgram(vs: string, fs: string): WebGLProgram {
@@ -2347,14 +2359,20 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // the wheel looking fully round at any rotation speed.
     const fv: number[] = [];
     const fi: number[] = [];
+    // ── Brake assembly (drawn separately so its heat glow only hits the disc) ──
+    const fb: number[] = [];
+    const fbi: number[] = [];
     // Rim disc (dark, fills the tread inner circle — 0.165 ≈ tread 0.17)
     this.addCylinder(fv, fi, 0, 0, 0, 0.165, 0.15, 18, [0.07, 0.07, 0.08]);
-    // Brake disc (reddish, slightly wider than the rim so it peeks out)
-    this.addCylinder(fv, fi, 0, 0, 0, 0.09, 0.17, 18, [0.35, 0.12, 0.1]);
-    // Brake caliper (small colourful block that clamps the disc)
-    this.addBox(fv, fi, 0.08, 0.06, 0, 0.06, 0.04, 0.03, [0.9, 0.1, 0.1]);
-    // Hub center
-    this.addCylinder(fv, fi, 0, 0, 0, 0.04, 0.17, 12, [0.5, 0.5, 0.55]);
+    // Faint tire-brand lettering on the closed rim — a ring of tiny raised
+    // studs near the rim edge that read as molded sidewall text when still and
+    // blur into a subtle tread ring as the wheel spins up.
+    for (let k = 0; k < 10; k++) {
+      const a = (k / 10) * Math.PI * 2 + 0.2;
+      const lx = Math.cos(a) * 0.13;
+      const lz = Math.sin(a) * 0.13;
+      this.addBox(fv, fi, lx, 0.152, lz, 0.028, 0.008, 0.012, [0.15, 0.15, 0.16]);
+    }
     // Tire tread — larger radius so the band wraps the rim
     this.addCylinder(fv, fi, 0, 0, 0, 0.17, 0.12, 18, [0.13, 0.13, 0.14]);
     // Tire sidewall lettering (small raised bumps on the tread side)
@@ -2364,6 +2382,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
     // Valve stem
     this.addCylinder(fv, fi, 0.14, 0.05, 0, 0.008, 0.05, 6, [0.2, 0.2, 0.2]);
+    // Brake disc (reddish, slightly wider than the rim so it peeks out)
+    this.addCylinder(fb, fbi, 0, 0, 0, 0.09, 0.17, 18, [0.35, 0.12, 0.1]);
+    // Brake caliper (small colourful block that clamps the disc)
+    this.addBox(fb, fbi, 0.08, 0.06, 0, 0.06, 0.04, 0.03, [0.9, 0.1, 0.1]);
+    // Hub center
+    this.addCylinder(fb, fbi, 0, 0, 0, 0.04, 0.17, 12, [0.5, 0.5, 0.55]);
     const fva = new Float32Array(fv);
     const fia = new Uint16Array(fi);
     this.wheelCount = fia.length;
@@ -2384,21 +2408,47 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.enableVertexAttribArray(3);
     gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
+    this.brakeCount = fbi.length;
+    this.brakeVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.brakeVao);
+    const bvbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, bvbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(fb), gl.STATIC_DRAW);
+    const bibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(fbi), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
 
     // ── Rear wheels (wider tread, slightly larger — like a real F1 car) ──
     // Same closed-rim design as the fronts — solid disc, no spokes to sweep.
     const rv: number[] = [];
     const ri: number[] = [];
+    const rb: number[] = [];
+    const rbi: number[] = [];
     this.addCylinder(rv, ri, 0, 0, 0, 0.175, 0.18, 18, [0.07, 0.07, 0.08]);
-    this.addCylinder(rv, ri, 0, 0, 0, 0.1, 0.2, 18, [0.35, 0.12, 0.1]);
-    this.addBox(rv, ri, 0.08, 0.06, 0, 0.06, 0.04, 0.03, [0.9, 0.1, 0.1]);
-    this.addCylinder(rv, ri, 0, 0, 0, 0.045, 0.2, 12, [0.5, 0.5, 0.55]);
+    for (let k = 0; k < 10; k++) {
+      const a = (k / 10) * Math.PI * 2 + 0.2;
+      const lx = Math.cos(a) * 0.14;
+      const lz = Math.sin(a) * 0.14;
+      this.addBox(rv, ri, lx, 0.182, lz, 0.03, 0.008, 0.013, [0.15, 0.15, 0.16]);
+    }
     this.addCylinder(rv, ri, 0, 0, 0, 0.18, 0.15, 18, [0.13, 0.13, 0.14]); 
     for (let k = 0; k < 4; k++) {
       const a = (k / 4) * Math.PI * 2 + 0.2;
       this.addBox(rv, ri, Math.cos(a) * 0.18, 0.15, Math.sin(a) * 0.18, 0.02, 0.01, 0.02, [0.2, 0.2, 0.2]);
     }
     this.addCylinder(rv, ri, 0.15, 0.06, 0, 0.008, 0.05, 6, [0.2, 0.2, 0.2]);
+    this.addCylinder(rb, rbi, 0, 0, 0, 0.1, 0.2, 18, [0.35, 0.12, 0.1]);
+    this.addBox(rb, rbi, 0.08, 0.06, 0, 0.06, 0.04, 0.03, [0.9, 0.1, 0.1]);
+    this.addCylinder(rb, rbi, 0, 0, 0, 0.045, 0.2, 12, [0.5, 0.5, 0.55]);
     const rva = new Float32Array(rv);
     const ria = new Uint16Array(ri);
     this.rearWheelCount = ria.length;
@@ -2410,6 +2460,24 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const ribo = gl.createBuffer()!;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ribo);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, ria, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+    this.rearBrakeCount = rbi.length;
+    this.rearBrakeVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.rearBrakeVao);
+    const rbbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, rbbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rb), gl.STATIC_DRAW);
+    const rbibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, rbibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(rbi), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
     gl.enableVertexAttribArray(1);
@@ -3081,8 +3149,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
 
   render(eyeX: number, eyeY: number, eyeZ: number, yaw: number, pitch: number, aspect: number,
-    cars: { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number }[], dt: number,
-    fovZoom: number = 1.0, shakeX: number = 0, shakeY: number = 0, isRaining: boolean = false, speedRatio: number = 0) {
+    cars: { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number }[], dt: number,
+    fovZoom: number = 1.0, shakeX: number = 0, shakeY: number = 0, isRaining: boolean = false, speedRatio: number = 0,
+    playerSpeed: number = 0) {
     const gl = this.gl;
     this.elapsed += dt;
 
@@ -3128,7 +3197,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.drawElements(gl.TRIANGLES, this.sceneryCount, gl.UNSIGNED_SHORT, 0);
     // Cars cast shadows on the track — the single most visible shadow in the game.
     for (const car of cars) {
-      this.renderCarShadow(car.x, car.y, car.z, car.yaw);
+      this.renderCarShadow(car.x, car.y, car.z, car.yaw, car.speed ?? 0);
     }
     gl.disable(gl.POLYGON_OFFSET_FILL);
 
@@ -3140,7 +3209,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.drawWorldScene(this.projMatrix, this.viewMatrix, eye as number[], cars, dt, isRaining, true);
 
     // ─── Rear-view mirror (a second camera looking back, blitted on top) ───
-    this.renderMirror(eyeX, eyeY, eyeZ, yaw, cars, dt, isRaining);
+    this.renderMirror(eyeX, eyeY, eyeZ, yaw, cars, dt, isRaining, playerSpeed);
   }
 
   // Appends one box (6 faces × 2 tris = 36 verts, 11 floats each) into the
@@ -3238,8 +3307,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // Draws sky + track + finish + barrier + scenery + cars (+ optional rain).
   // `drawRain` is false for the mirror so rain particles aren't drawn twice.
   private drawWorldScene(proj: Float32Array, view: Float32Array, eye: number[],
-    cars: { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number }[], dt: number,
-    isRaining: boolean, drawRain: boolean) {
+    cars: { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number }[],
+    dt: number, isRaining: boolean, drawRain: boolean) {
     const gl = this.gl;
 
     // Sky — fill the background with depth testing OFF and no depth writes so the
@@ -3351,7 +3420,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
 
     // Cars
     for (const car of cars) {
-      this.renderCar(car.x, car.y, car.z, car.yaw, car.r, car.g, car.b);
+      this.renderCar(car.x, car.y, car.z, car.yaw, car.r, car.g, car.b, car.speed ?? 0);
     }
 
     // Animated crowd figures (drawn after scenery so they pop over it; before
@@ -3395,8 +3464,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // Renders the world from a rear-facing camera into the mirror FBO, then
   // blits that texture onto a quad at the top-center of the screen.
   private renderMirror(eyeX: number, eyeY: number, eyeZ: number, yaw: number,
-    cars: { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number }[],
-    dt: number, isRaining: boolean) {
+    cars: { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number }[],
+    dt: number, isRaining: boolean, playerSpeed: number = 0) {
     const gl = this.gl;
 
     // Rear camera: just above the driver's eye, looking straight back with a
@@ -3420,7 +3489,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.drawWorldScene(this.mirrorProj, this.mirrorView, mEye, cars, dt, isRaining, false);
     // The player's own car isn't in `cars` (first-person camera sits inside it),
     // but a real F1 mirror shows your own rear wing — draw it in the mirror pass.
-    this.renderCar(eyeX, 0.1, eyeZ, yaw, 0.85, 0.06, 0.06);
+    this.renderCar(eyeX, 0.1, eyeZ, yaw, 0.85, 0.06, 0.06, playerSpeed);
 
     // Blit the mirror texture onto the top-center of the screen.
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -3440,7 +3509,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.enable(gl.CULL_FACE);
   }
 
-  renderCar(x: number, y: number, z: number, yaw: number, r: number, g: number, b: number) {
+  renderCar(x: number, y: number, z: number, yaw: number, r: number, g: number, b: number, speed: number = 0) {
     const gl = this.gl;
     gl.useProgram(this.prog);
     // The detailed car body is built from double-sided quads with computed
@@ -3483,7 +3552,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
       [0.62, 0, 0.60],
       [-0.55, 0, -0.60],
       [-0.55, 0, 0.60]
-    ];
+    ];    // Wheel-speed heat: fades the brake glow in as |speed| climbs. Full glow
+    // around 30 u/s (max ~55), no glow when parked.
+    const heatGlow = Math.min(Math.abs(speed) / 30, 1) * 0.85;
+    gl.uniform1f(this.heatGlowLoc, heatGlow);
     for (let wi = 0; wi < wheelPositions.length; wi++) {
       const wp = wheelPositions[wi];
       // Rear wheels (wi >= 2) use the wider, slightly larger rear wheel mesh.
@@ -3499,13 +3571,22 @@ void main() { FragColor = texture(uTex, vUV); }`;
       // axle with RZ. Order matters: mat4Rotate* right-multiplies, so RX is
       // applied to the vertices first, then RZ spins the upright tire forward.
       // Negative angle moves the top of the tire toward the nose (+X travel).
-      this.mat4RotateZ(this.modelMatrix, -this.elapsed * 5);
+      // Spin tracks the car's real speed: angular velocity = speed / wheel radius
+      // (radius 0.17 → ~5.9 rad/s per unit of speed), clamped so the tread doesn't
+      // strobe, and 0 when the car is parked. Reverse shows the tires rolling back.
+      const wheelSpin = this.elapsed * Math.min(Math.abs(speed) / 0.17, 40) * (speed < 0 ? 1 : -1);
+      this.mat4RotateZ(this.modelMatrix, wheelSpin);
       this.mat4RotateX(this.modelMatrix, Math.PI / 2);
       gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
       gl.uniform3f(this.colorLoc, 0.05, 0.05, 0.05);
       this.setNormalMatrix(this.modelMatrix);
       gl.drawElements(gl.TRIANGLES, rear ? this.rearWheelCount : this.wheelCount, gl.UNSIGNED_SHORT, 0);
+      // Brake assembly — same placement/roll, but tinted by the heat glow that
+      // the uniform above applies to. Drawn after the tire so it sits on top.
+      gl.bindVertexArray(rear ? this.rearBrakeVao : this.brakeVao);
+      gl.drawElements(gl.TRIANGLES, rear ? this.rearBrakeCount : this.brakeCount, gl.UNSIGNED_SHORT, 0);
     }
+    gl.uniform1f(this.heatGlowLoc, 0);
     gl.bindVertexArray(null);
     gl.enable(gl.CULL_FACE);
   }
@@ -3513,7 +3594,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // Same transforms as renderCar, but into the shadow depth map so cars cast
   // shadows on the track and scenery. Cull state is left untouched (the shadow
   // pass runs with culling disabled, matching the double-sided geometry).
-  private renderCarShadow(x: number, y: number, z: number, yaw: number) {
+  private renderCarShadow(x: number, y: number, z: number, yaw: number, speed: number = 0) {
     const gl = this.gl;
     gl.useProgram(this.shadowProg);
     gl.bindVertexArray(this.carVao);
@@ -3538,7 +3619,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.mat4Translate(this.modelMatrix, [x, y + 0.17, z]);
       this.mat4RotateY(this.modelMatrix, yaw - Math.PI / 2);
       this.mat4Translate(this.modelMatrix, wp);
-      this.mat4RotateZ(this.modelMatrix, -this.elapsed * 5);
+      const wheelSpin = this.elapsed * Math.min(Math.abs(speed) / 0.17, 40) * (speed < 0 ? 1 : -1);
+      this.mat4RotateZ(this.modelMatrix, wheelSpin);
       this.mat4RotateX(this.modelMatrix, Math.PI / 2);
       gl.uniformMatrix4fv(this.shadowModelLoc, false, this.modelMatrix);
       gl.drawElements(gl.TRIANGLES, rear ? this.rearWheelCount : this.wheelCount, gl.UNSIGNED_SHORT, 0);

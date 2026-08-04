@@ -1,6 +1,11 @@
 <div class="componentMain">
-  <app-title-bar [title]="'Grand Prix'" [hasMenu]="true" (menuClicked)="backToMenu()"
-    (closeClicked)="remove_me('RacingComponent');">
+  <!-- While a multiplayer lobby is active, the title bar shows the same live
+       countdown the garage return button does, so the hamburger row keeps the
+       lobby context visible — and menuClicked goes through backToMenu(), which
+       returns to the lobby instead of bailing out to singleplayer. -->
+  <app-title-bar [title]="'Grand Prix'" [hasMenu]="true" [badge]="garageCountdownDisplay"
+    [badgeTitle]="'Multiplayer race starting soon — returning keeps you in the lobby'"
+    (menuClicked)="backToMenu()" (closeClicked)="remove_me('RacingComponent');">
   </app-title-bar>
 
   <div class="popupPanel" *ngIf="!parentRef?.user?.id">
@@ -77,6 +82,9 @@
                 <span class="race-track-stat">📏 {{ t.length }}m</span>
               </div>
               <div class="race-track-desc">{{ t.description }}</div>
+              <div class="race-track-your-best" *ngIf="getTrackBestLap(t.id) > 0" title="Your fastest lap on this track">
+                🏆 Your best: {{ formatTime(getTrackBestLap(t.id)) }}
+              </div>
               <div class="race-track-card-bottom">
                 <div class="race-track-card-fee" *ngIf="t.entryFee > 0">
                   <span class="race-fee-label">Entry</span>
@@ -164,6 +172,9 @@
                 <span class="race-track-stat">📏 {{ t.length }}m</span>
               </div>
               <div class="race-track-desc">{{ t.description }}</div>
+              <div class="race-track-your-best" *ngIf="getTrackBestLap(t.id) > 0" title="Your fastest lap on this track">
+                🏆 Your best: {{ formatTime(getTrackBestLap(t.id)) }}
+              </div>
               <div class="race-track-card-bottom">
                 <div class="race-track-card-fee" *ngIf="t.entryFee > 0">
                   <span class="race-fee-label">Entry</span>
@@ -269,6 +280,32 @@
           <span>{{ inMpLobby ? '← LOBBY' : '← MENU' }}</span>
           <span *ngIf="garageCountdownDisplay" class="garage-countdown">{{ garageCountdownDisplay }}</span>
         </button>
+      </div>
+
+      <!-- Multiplayer lobby strip — set READY without leaving the garage and
+           see every lobby member's ready state while browsing upgrades. -->
+      <div class="garage-mp-strip" *ngIf="inMpLobby">
+        <div class="garage-mp-ready-wrap">
+          <button class="garage-ready-btn" [class.garage-ready-on]="amReady"
+            (click)="toggleReadyMultiplayer()" title="Toggle ready — the host can start when everyone is ready">
+            {{ amReady ? '✓ READY' : 'READY UP' }}
+          </button>
+          <span class="garage-ready-count">{{ readyCount }}/{{ lobbyPlayers.length }} ready</span>
+        </div>
+        <div class="garage-mp-roster" *ngIf="lobbyPlayers.length > 0">
+          <div class="garage-mp-roster-row" *ngFor="let p of lobbyPlayers"
+            [class.garage-mp-row-me]="p.connectionId === myConnectionId">
+            <span class="mp-player-dot" [style.background]="getPlayerColor(p.connectionId)"></span>
+            <span class="garage-mp-row-name">
+              {{ p.playerName }}
+              <span class="mp-you-badge" *ngIf="p.connectionId === myConnectionId">YOU</span>
+              <span class="mp-host-badge" *ngIf="p.isHost">HOST</span>
+            </span>
+            <span class="mp-ready-yes" *ngIf="p.ready">✓ READY</span>
+            <span class="mp-ready-no" *ngIf="!p.ready">WAITING</span>
+          </div>
+        </div>
+        <span class="garage-mp-empty" *ngIf="lobbyPlayers.length === 0">Waiting for players…</span>
       </div>
 
       <div class="garage-layout">
@@ -482,6 +519,8 @@
               (click)="selectedTab = 'appearance'">APPEARANCE</button>
             <button class="garage-tab" [class.active]="selectedTab === 'skins'"
               (click)="selectedTab = 'skins'">PAINT</button>
+            <button class="garage-tab" [class.active]="selectedTab === 'records'"
+              (click)="selectedTab = 'records'">🏆 RECORDS</button>
           </div>
 
           <!-- Performance Upgrades -->
@@ -541,6 +580,32 @@
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- Per-track records -->
+          <div class="garage-catalog-scroll" *ngIf="selectedTab === 'records'">
+            <div class="garage-cat-title"><span>TRACK RECORDS</span></div>
+            <div class="garage-records-hint">Your fastest lap on each circuit — records are tracked per track.</div>
+            <div class="garage-record-card" *ngFor="let t of trackDefs"
+              [class.record-best]="getTrackBestLap(t.id) > 0 && getTrackBestLap(t.id) === getOverallBestLap() && getOverallBestLap() > 0">
+              <div class="garage-record-left">
+                <span class="garage-record-flag">{{ getTrackFlag(t) }}</span>
+                <span class="garage-record-name">{{ t.name }}</span>
+                <span class="garage-record-diff" [class.easy]="t.difficulty === 'easy'"
+                  [class.medium]="t.difficulty === 'medium'" [class.hard]="t.difficulty === 'hard'">
+                  {{ t.difficulty | uppercase }}
+                </span>
+              </div>
+              <div class="garage-record-right">
+                <span *ngIf="getTrackBestLap(t.id) > 0" class="garage-record-time">
+                  🏆 {{ formatTime(getTrackBestLap(t.id)) }}
+                </span>
+                <span *ngIf="getTrackBestLap(t.id) <= 0" class="garage-record-empty">No record yet</span>
+              </div>
+            </div>
+            <div class="garage-records-empty" *ngIf="getOverallBestLap() <= 0">
+              Set your first lap to start building per-track records!
             </div>
           </div>
 
@@ -793,14 +858,21 @@
     <!-- ─── Leaderboard ─── -->
     <div id="race-leaderboard" *ngIf="showLeaderboard">
       <div class="race-lb-title">🏆 BEST LAPS</div>
+      <div class="race-lb-standings" *ngIf="parentRef?.user?.id">
+        <span class="race-lb-medal">{{ getLeaderboardMedal() }}</span>
+        <span class="race-lb-standing-text">{{ getLeaderboardStandingText() }}</span>
+      </div>
       <div class="race-lb-row race-lb-header">
-        <span>#</span><span>Player</span><span>Best Lap</span><span>Race</span>
+        <span>#</span><span>Player</span><span>Best Lap</span><span>Gap</span><span>Race</span>
       </div>
       <div class="race-lb-row" *ngFor="let r of leaderboard; let i = index"
         [class.race-lb-me]="r.playerId === (parentRef?.user?.id ?? 0)">
         <span>{{ i + 1 }}</span>
         <span>{{ r.playerName }}</span>
         <span>{{ r.playerId === (parentRef?.user?.id ?? 0) && r.lapTime <= 0 ? 'No lap yet' : formatTime(r.lapTime) }}</span>
+        <span class="race-lb-gap" [class]="getLeaderboardGapClass(r)" title="Gap vs the leader and vs your best">
+          {{ getLeaderboardGapText(r) }}
+        </span>
         <span>{{ formatTime(r.totalTime) }}</span>
       </div>
       <div class="race-lb-empty" *ngIf="leaderboard.length === 0">No laps recorded yet — go set one!</div>

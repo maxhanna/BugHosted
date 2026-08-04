@@ -169,6 +169,25 @@
       </div>
     </div>
   </div>
+  <div class="sentNotificationsSection" *ngIf="parentRef?.user?.id">
+    <div class="optionsStatsHeader">
+      Notifications Sent :
+      <button class="sentNotificationsRefresh" (click)="loadSentNotifications()"
+        [disabled]="sentNotificationsLoading" title="Refresh">🔄</button>
+    </div>
+    <div class="xSmallFont secondaryFontColor">
+      The last event notifications delivered to your device (kept for 24 hours).
+    </div>
+    <div *ngIf="sentNotificationsLoading" class="sentNotificationsEmpty">Loading...</div>
+    <div *ngIf="!sentNotificationsLoading && sentNotifications.length === 0" class="sentNotificationsEmpty">
+      No notifications sent yet. Enable notifications above and set a reminder on an event.
+    </div>
+    <ul class="sentNotificationsList" *ngIf="!sentNotificationsLoading && sentNotifications.length > 0">
+      <li *ngFor="let sent of sentNotifications" class="sentNotificationItem">
+        <span class="sentNotificationText">{{ formatNotificationSent(sent) }}</span>
+      </li>
+    </ul>
+  </div>
   <div class="xSmallFont secondaryFontColor">
     Enabling notifications sends your system a notification (on your device) before an event occurs —
     the lead time (default 60 minutes) is set per event under "Notify me ... minutes before".

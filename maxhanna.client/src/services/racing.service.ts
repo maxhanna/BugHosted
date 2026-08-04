@@ -47,10 +47,16 @@ export class RacingService {
     } catch { return null; }
   }
 
-  async getLeaderboard(trackId: number): Promise<RaceResult[]> {
+  async getLeaderboard(trackId: number, userId: number = 0): Promise<{ results: RaceResult[]; totalCount: number; userRank: number }> {
     try {
-      return await this.http.get<RaceResult[]>(`${this.baseUrl}/leaderboard/${trackId}`).toPromise() ?? [];
-    } catch { return []; }
+      const data: any = await this.http.get(`${this.baseUrl}/leaderboard/${trackId}?userId=${userId}`).toPromise();
+      if (Array.isArray(data)) return { results: data, totalCount: data.length, userRank: 0 };
+      return {
+        results: data?.results ?? [],
+        totalCount: data?.totalCount ?? 0,
+        userRank: data?.userRank ?? 0,
+      };
+    } catch { return { results: [], totalCount: 0, userRank: 0 }; }
   }
 
   async joinRace(userId: number, trackId: number): Promise<any> {
