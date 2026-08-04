@@ -1578,6 +1578,7 @@ Constraints:
     /// Centralized vision call that accepts base64-encoded images directly (no DB file id required).
     /// Uses the configured medical/vision model (e.g. "medgemma4" via Ai:MedicalModel).
     /// </summary>
+    [NonAction]
     public async Task<string?> SendVisionBase64Async(string prompt, string[] base64Images, double temperature = 0.2, string? model = null, CancellationToken? ct = null)
     {
       if (base64Images == null || base64Images.Length == 0 || string.IsNullOrWhiteSpace(prompt)) return null;

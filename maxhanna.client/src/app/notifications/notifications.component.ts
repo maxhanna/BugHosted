@@ -441,14 +441,14 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     } else if (notification.chatId) {
       this.goToChat(notification);
     } else if (notification?.text?.toLowerCase().includes("following")) {
-      this.viewProfile(notification.fromUser, 
-        this.parentRef?.previousComponent[this.parentRef?.previousComponent?.length - 2].componentType,
-        this.parentRef?.previousComponent[this.parentRef?.previousComponent?.length - 2].inputs
+      this.viewProfile(notification.fromUser,
+        this.parentRef?.currentComponent,
+        this.parentRef?.currentComponentParameters
       );
     } else if (notification?.text?.toLowerCase().includes("friend request")) {
-      this.viewProfile(notification.fromUser, 
-        this.parentRef?.previousComponent[this.parentRef?.previousComponent?.length - 2].componentType,
-        this.parentRef?.previousComponent[this.parentRef?.previousComponent?.length - 2].inputs
+      this.viewProfile(notification.fromUser,
+        this.parentRef?.currentComponent,
+        this.parentRef?.currentComponentParameters
       );
     }
   }

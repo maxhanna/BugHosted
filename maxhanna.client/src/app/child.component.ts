@@ -26,14 +26,7 @@ export class ChildComponent {
     }
   }
   backButtonPressed() {
-    if (this.parentRef && this.parentRef.previousComponent.length > 1) {
-      const tmpPrevComponent = this.parentRef.previousComponent[this.parentRef.previousComponent.length - 2];
-      if (tmpPrevComponent) {
-        const previousComponent = tmpPrevComponent.componentType;
-        const params = tmpPrevComponent.inputs;
-        this.parentRef.createComponent(previousComponent ?? "", params);
-      }
-    }
+    this.parentRef?.goBack();
   }
   onMobile() {
     return (

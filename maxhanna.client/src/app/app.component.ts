@@ -125,7 +125,7 @@ export class AppComponent implements OnInit, AfterViewInit {
   youtubeSearchResults: YoutubeVideo[] = [];
   youtubeSearchKeyword: string = '';
   componentsReferences = Array<ComponentRef<any>>();
-  previousComponent: { componentType: string, inputs?: { [key: string]: any; } }[] = [];
+  previousComponent: { componentType: string, inputs?: { [key: string]: any; }, previousComponentParameters?: { [key: string]: any; } }[] = [];
   private youtubeSearchClearTimer?: any;
   private lastLastSeenUpdate: number | null = null;
   private _serverUpCache: number | null = null;
@@ -767,7 +767,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     }
   }
 
-  createComponent(componentType: string, inputs?: { [key: string]: any; }, previousComponentParameters?: { [key: string]: any; }) {
+  createComponent(componentType: string, inputs?: { [key: string]: any; }, previousComponentParameters?: { [key: string]: any; }, skipHistoryPush: boolean = false) {
     //console.log("in create component : " + componentType);
     this.navigationComponent?.minimizeNav();
     this.closeOverlay();
@@ -792,9 +792,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     }
 
     this.removeAllComponents();
-    this.previousComponent.push({ componentType: componentType, inputs: inputs });
-    if (this.previousComponent.length > 5) {
-      this.previousComponent.shift();
+    if (!skipHistoryPush) {
+      this.previousComponent.push({ componentType: componentType, inputs: inputs, previousComponentParameters: previousComponentParameters });
+      if (this.previousComponent.length > 25) {
+        this.previousComponent.shift();
+      }
     }
 
     const childComponentRef = this.VCR.createComponent(componentClass);
@@ -813,6 +815,23 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     this.currentComponentParameters = previousComponentParameters ?? inputs;
     this.componentsReferences.push(childComponentRef);
     return childComponentRef;
+  }
+
+  /**
+   * Navigate back through the component history. Unlike the old behaviour (which
+   * re-pushed the target onto the stack, so history never unwound and profile→profile
+   * bounced forever), this pops the current entry and returns to the one beneath it
+   * WITHOUT pushing again — history now behaves like a real back stack.
+   */
+  goBack() {
+    if (this.previousComponent.length <= 1) {
+      return;
+    }
+    // Drop the entry we're leaving; the new top is where we're returning to.
+    this.previousComponent.pop();
+    const target = this.previousComponent[this.previousComponent.length - 1];
+    if (!target) return;
+    this.createComponent(target.componentType, target.inputs, target.previousComponentParameters, true);
   }
   removeComponent(key: number) {
     if (!this.VCR || this.VCR.length < 1) return;
@@ -833,6 +852,16 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     this.componentsReferences = this.componentsReferences.filter(
       x => x.instance.unique_key !== key
     );
+    // The user closed this component with ✕ — drop it from the history stack too,
+    // otherwise a later Back press would resurrect a component they deliberately
+    // dismissed.
+    if (componentRef) {
+      const removedType = Object.entries(this.componentMap).find(([, cls]) => componentRef.instance instanceof cls)?.[0];
+      if (removedType) {
+        const idx = this.previousComponent.findIndex(x => x.componentType === removedType);
+        if (idx !== -1) this.previousComponent.splice(idx, 1);
+      }
+    }
     this.currentComponentParameters = undefined;
     this.navigationComponent?.maximizeNav();
   }
