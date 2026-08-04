@@ -2871,7 +2871,8 @@ public class KrakenService
       string strategy,
       double? hours = null,
       int? page = null,
-      int? pageSize = null)
+      int? pageSize = null,
+      string? search = null)
   {
     // Normalize coin symbol (BTC -> XBT)
     string tmpCoin = (coin ?? string.Empty).ToUpperInvariant();
@@ -2881,6 +2882,12 @@ public class KrakenService
     int skip = Math.Max(((page ?? 1) - 1) * take, 0);    // offset
     bool hasHours = hours.HasValue && hours.Value > 0;
     DateTime startTimeUtc = DateTime.UtcNow.AddHours(-(hours ?? 0.0));
+    // Escape LIKE wildcards so a literal % or _ in the query doesn't act as a wildcard.
+    string tmpSearch = (search ?? string.Empty).Trim()
+        .Replace("\\", "\\\\")
+        .Replace("%", "\\%")
+        .Replace("_", "\\_");
+    bool hasSearch = tmpSearch.Length > 0;
 
     var response = new TradeHistoryResponse
     {
@@ -2900,6 +2907,12 @@ WITH filtered AS (
     AND strategy = @Strategy
     AND (@HasHours = 0 OR timestamp >= @StartTime)
     AND from_currency = @Coin
+    AND (@HasSearch = 0 OR CAST(id AS CHAR) LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
+      OR CAST(IFNULL(matching_trade_id, 0) AS CHAR) LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
+      OR from_currency LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
+      OR to_currency LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
+      OR CAST(value AS DECIMAL(18, 6)) LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
+      OR CAST(coin_price_usdc AS DECIMAL(18, 6)) LIKE CONCAT('%', @Search, '%') ESCAPE '\\')
 
   UNION ALL
 
@@ -2913,6 +2926,12 @@ WITH filtered AS (
     AND strategy = @Strategy
     AND (@HasHours = 0 OR timestamp >= @StartTime)
     AND to_currency = @Coin
+    AND (@HasSearch = 0 OR CAST(id AS CHAR) LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
+      OR CAST(IFNULL(matching_trade_id, 0) AS CHAR) LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
+      OR from_currency LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
+      OR to_currency LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
+      OR CAST(value AS DECIMAL(18, 6)) LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
+      OR CAST(coin_price_usdc AS DECIMAL(18, 6)) LIKE CONCAT('%', @Search, '%') ESCAPE '\\')
 )
 SELECT
   f.*,
@@ -2938,6 +2957,8 @@ LIMIT @PageSize OFFSET @Offset;";
       cmd.Parameters.Add("@Coin", MySqlDbType.VarChar, 45).Value = tmpCoin;
       cmd.Parameters.Add("@HasHours", MySqlDbType.Int32).Value = hasHours ? 1 : 0;
       cmd.Parameters.Add("@StartTime", MySqlDbType.DateTime).Value = hasHours ? startTimeUtc : (object)DBNull.Value;
+      cmd.Parameters.Add("@HasSearch", MySqlDbType.Int32).Value = hasSearch ? 1 : 0;
+      cmd.Parameters.Add("@Search", MySqlDbType.VarChar, 255).Value = tmpSearch;
       cmd.Parameters.Add("@PageSize", MySqlDbType.Int32).Value = take;
       cmd.Parameters.Add("@Offset", MySqlDbType.Int32).Value = skip;
 

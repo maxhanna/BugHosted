@@ -1,6 +1,6 @@
 import { Component, ElementRef, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { ConversionService, ConversionResult, FontConversionResult } from '../../services/conversion.service';
+import { ConversionService, ConversionResult, FontConversionResult, YoutubeDownloadResult } from '../../services/conversion.service';
 import { FileService } from '../../services/file.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 
@@ -17,8 +17,10 @@ export class ConversionComponent extends ChildComponent {
   selectedFileEntry?: FileEntry;
   localPreviewUrl?: string;
 
-  targetFormats = ['mp4', 'mp3', 'webm', 'ogg', 'wav', 'flac', 'png', 'jpg', 'webp', 'bmp', 'gif'];
-  targetFormat = 'mp4';
+  imageFormats = ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tiff', 'tga', 'qoi', 'pbm', 'pnm', 'pgm', 'ppm'];
+  audioFormats = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'opus', 'wma', 'ac3', 'mp2', 'alac', 'mka'];
+  videoFormats = ['mp4', 'webm', 'mkv', 'avi', 'mov', 'm4v', 'flv', 'wmv', 'ts', 'm2ts', 'mpeg', 'mpg', 'ogv', '3gp', 'asf'];
+  targetFormat = 'jpg';
   isConverting = false;
   conversionResult?: ConversionResult;
 
@@ -31,6 +33,11 @@ export class ConversionComponent extends ChildComponent {
   visionPrompt = '';
   isRunningVision = false;
   visionReport?: string;
+
+  youtubeUrl = '';
+  youtubeFormat = 'mp4';
+  isDownloadingYoutube = false;
+  youtubeResult?: YoutubeDownloadResult;
 
   constructor(private conversionService: ConversionService, private fileService: FileService) {
     super();
@@ -110,6 +117,23 @@ export class ConversionComponent extends ChildComponent {
       if (!this.visionReport) this.parentRef?.showNotification('Vision report failed.');
     } finally {
       this.isRunningVision = false;
+    }
+  }
+
+  async downloadYoutube() {
+    const url = this.youtubeUrl.trim();
+    if (!url) { this.parentRef?.showNotification('Paste a YouTube URL first.'); return; }
+
+    this.isDownloadingYoutube = true;
+    try {
+      this.youtubeResult = (await this.conversionService.youtubeDownload(url, this.youtubeFormat, this.parentRef?.user?.id)) ?? undefined;
+      if (!this.youtubeResult || !this.youtubeResult.fileId || this.youtubeResult.fileId <= 0) {
+        this.parentRef?.showNotification(this.youtubeResult?.note || 'Download failed.');
+      } else {
+        this.parentRef?.showNotification(this.youtubeResult.title ? `Downloaded: ${this.youtubeResult.title}` : 'Download complete.');
+      }
+    } finally {
+      this.isDownloadingYoutube = false;
     }
   }
 

@@ -44,6 +44,8 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
   selectedTradeBalanceId?: number = undefined;
   selectedCoin: string = 'BTC'; // Default value
   selectedStrategy: string = 'DCA'; // Default value
+  searchTerm = '';
+  private searchDebounceTimer: any = null;
   tradeHistoryInterval: any;
   timeLeft = 120;
   defaultTimeLeft = 120;
@@ -112,7 +114,8 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
         this.selectedStrategy,
         undefined,
         this.currentTradePage,
-        this.tradesPerPage
+        this.tradesPerPage,
+        this.searchTerm
       )
       .then((res) => {
         if (res && res.trades) {
@@ -174,6 +177,29 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
       return;
     }
     this.selectedStrategy = (event.target as HTMLSelectElement).value;
+    this.currentTradePage = 1;
+    this.checkBalance();
+  }
+
+  onSearchInput(event: Event) {
+    if (this.destroyed) {
+      return;
+    }
+    // Update the field synchronously so the [value] binding doesn't revert typing.
+    this.searchTerm = (event.target as HTMLInputElement).value;
+    clearTimeout(this.searchDebounceTimer);
+    this.searchDebounceTimer = setTimeout(() => {
+      this.currentTradePage = 1;
+      this.checkBalance();
+    }, 400);
+  }
+
+  clearTradeSearch() {
+    if (this.destroyed) {
+      return;
+    }
+    clearTimeout(this.searchDebounceTimer);
+    this.searchTerm = '';
     this.currentTradePage = 1;
     this.checkBalance();
   }

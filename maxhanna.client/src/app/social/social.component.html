@@ -14,10 +14,12 @@
   <div [class]="user ? 'embeddedSocialComponentsContent' : 'socialComponentContents'">
     <!-- Group Social Header (public chat board) -->
     <div class="groupSocialHeader" *ngIf="chatId">
-      <div class="groupSocialTitle">🌐 {{ chatRoomName || ('Group #' + chatId) }}</div>
+      <div class="groupSocialTitle">{{ chatRoomIcon || '🌐' }} {{ chatRoomName || ('Group #' + chatId) }}</div>
+      <div class="groupSocialDescription" *ngIf="chatRoomDescription">{{ chatRoomDescription }}</div>
       <div class="groupSocialActions">
         <button (click)="openGroupChat()" class="coloredBgButton" title="Open this group's chat">💬 Open Chat</button>
         <button (click)="toggleGroupMembersPanel()" class="coloredBgButton" title="View & add group members">👥 Members ({{ groupChatUsers.length }})</button>
+        <button *ngIf="isChatRoomModerator" (click)="openGroupInfoEditor()" class="coloredBgButton" title="Edit room title & description">✏️ Edit Room</button>
       </div>
       <div class="groupMembersPanel" *ngIf="isGroupMembersPanelOpen">
         <div class="groupMembersList">
@@ -28,6 +30,32 @@
         <div class="groupAddMembers">
           <div class="smallFont thirdFontColor" style="margin-bottom:4px;">Add people to this group (and its chat):</div>
           <app-user-list [searchOnly]="true" [inputtedParentRef]="parentRef ?? parent" (groupChatEvent)="addChatMembers($event)"></app-user-list>
+        </div>
+      </div>
+      <div class="groupInfoEditPanel" *ngIf="isGroupInfoEditOpen">
+        <div class="groupInfoEditTitle">✏️ Edit Room Info</div>
+        <label class="smallFont thirdFontColor">Room Name</label>
+        <input type="text" class="groupInfoEditInput" placeholder="Room name" maxlength="80"
+          [value]="editGroupName" (input)="onEditGroupNameInput($any($event.target).value)" />
+        <label class="smallFont thirdFontColor">Description</label>
+        <textarea class="groupInfoEditTextarea" placeholder="What is this community about?" maxlength="500" rows="3"
+          [value]="editGroupDescription" (input)="onEditGroupDescriptionInput($any($event.target).value)"></textarea>
+        <label class="smallFont thirdFontColor">Community Icon (emoji)</label>
+        <div class="groupInfoIconRow">
+          <span class="groupInfoIconPreview">{{ editGroupIcon || '🌐' }}</span>
+          <input type="text" class="groupInfoEditInput groupInfoIconInput" placeholder="e.g. 🏁 🎮 ⚽ 🐺 (or leave blank for the globe)"
+            maxlength="8" [value]="editGroupIcon" (input)="onEditGroupIconInput($any($event.target).value)" />
+          <span class="groupInfoEmojiQuick" *ngFor="let e of ['🏁','🎮','⚽','🏀','🐺','⚔️','🚀','🏖️','🎵','🐉']"
+            (click)="onEditGroupIconInput(e)" [title]="'Use ' + e">{{ e }}</span>
+        </div>
+        <label class="smallFont thirdFontColor">Board Theme</label>
+        <select class="groupInfoEditInput" (change)="onEditGroupThemeChange($any($event.target).value)">
+          <option [value]="0" [selected]="!editGroupThemeId">Default (site theme)</option>
+          <option *ngFor="let t of boardThemes" [value]="t.id" [selected]="editGroupThemeId === t.id">{{ t.name }}</option>
+        </select>
+        <div class="groupInfoEditActions">
+          <button class="coloredBgButton" (click)="saveGroupInfo()" [disabled]="isSavingGroupInfo">{{ isSavingGroupInfo ? 'Saving…' : '💾 Save' }}</button>
+          <button class="coloredBgButton" (click)="isGroupInfoEditOpen = false" [disabled]="isSavingGroupInfo">Cancel</button>
         </div>
       </div>
     </div>

@@ -1,7 +1,9 @@
 ﻿using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
 using MySqlConnector;
 using System.Collections.Concurrent;
+using System.Text.Json;
 using System.Threading;
 
 namespace maxhanna.Server.Controllers
@@ -731,15 +733,37 @@ namespace maxhanna.Server.Controllers
 			_persistTimer = new Timer(PersistAllToDb, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
 		}
 
-		private static void PersistAllToDb(object? state)
+		// Mirrors racing's shutdown flush so a graceful server stop (Ctrl+C, app
+		// stop, process exit) dumps the in-memory weapon/ammo arrays before dying.
+		private static bool _shutdownHooksRegistered;
+		private static void RegisterShutdownDump(IHostApplicationLifetime? appLifetime)
 		{
-			if (!Monitor.TryEnter(_persistLock)) return;
+			if (_shutdownHooksRegistered) return;
+			lock (_persistLock)
+			{
+				if (_shutdownHooksRegistered) return;
+				_shutdownHooksRegistered = true;
+				appLifetime?.ApplicationStopping.Register(() => PersistAllToDbBlocking());
+				AppDomain.CurrentDomain.ProcessExit += (_, _) => PersistAllToDbBlocking();
+				Console.CancelKeyPress += (_, _) => PersistAllToDbBlocking();
+			}
+		}
+
+		private static void PersistAllToDb(object? state) => PersistAllToDbCore(false);
+		private static void PersistAllToDbBlocking() => PersistAllToDbCore(true);
+		private static void PersistAllToDbCore(bool force)
+		{
+			if (force) Monitor.Enter(_persistLock);
+			else if (!Monitor.TryEnter(_persistLock)) return;
 			try
 			{
 				var fiveMinAgo = DateTime.UtcNow.AddMinutes(-5);
-				bool anyActive = false;
-				foreach (var kv in _lastSeen) { if (kv.Value >= fiveMinAgo) { anyActive = true; break; } }
-				if (!anyActive) return;
+				if (!force)
+				{
+					bool anyActive = false;
+					foreach (var kv in _lastSeen) { if (kv.Value >= fiveMinAgo) { anyActive = true; break; } }
+					if (!anyActive) return;
+				}
 
 				var connStr = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
 					.GetValue<string>("ConnectionStrings:maxhanna");
@@ -748,8 +772,7 @@ namespace maxhanna.Server.Controllers
 				conn.Open();
 				foreach (var uid in _playerX.Keys)
 				{
-					if (!_lastSeen.TryGetValue(uid, out var seen)) continue;
-					if ((DateTime.UtcNow - seen).TotalMinutes > 5) continue;
+					if (!force && (!_lastSeen.TryGetValue(uid, out var seen) || (DateTime.UtcNow - seen).TotalMinutes > 5)) continue;
 					_playerPosY.TryGetValue(uid, out var py);
 					_playerYaw.TryGetValue(uid, out var y);
 					_playerPitch.TryGetValue(uid, out var p);
@@ -764,11 +787,17 @@ namespace maxhanna.Server.Controllers
 					int weapon = 0;
 					if (_playerWeapons.TryGetValue(uid, out var wp) && wp != null)
 						for (int i = 0; i < wp.Length; i++) if (wp[i]) { weapon = i; break; }
+					string weaponsJson = "[]";
+					if (_playerWeapons.TryGetValue(uid, out var wpj) && wpj != null)
+						weaponsJson = JsonSerializer.Serialize((bool[])wpj.Clone());
+					string ammoJson = "[]";
+					if (_playerAmmo.TryGetValue(uid, out var paj) && paj != null)
+						ammoJson = JsonSerializer.Serialize((int[])paj.Clone());
 
 					using var cmd = new MySqlCommand(@"
-						INSERT INTO maxhanna.grandtheft_player_state (user_id, world_id, pos_x, pos_y, pos_z, yaw, pitch, car_yaw, car_speed, health, weapon, money, last_seen)
-						VALUES (@uid, @wid, @px, @py, @pz, @y, @p, @cy, @cs, @h, @w, @money, UTC_TIMESTAMP())
-						ON DUPLICATE KEY UPDATE pos_x = @px, pos_y = @py, pos_z = @pz, yaw = @y, pitch = @p, car_yaw = @cy, car_speed = @cs, health = @h, weapon = @w, money = @money, last_seen = UTC_TIMESTAMP()", conn);
+						INSERT INTO maxhanna.grandtheft_player_state (user_id, world_id, pos_x, pos_y, pos_z, yaw, pitch, car_yaw, car_speed, health, weapon, weapons_json, ammo_json, money, last_seen)
+						VALUES (@uid, @wid, @px, @py, @pz, @y, @p, @cy, @cs, @h, @w, @weaponsJson, @ammoJson, @money, UTC_TIMESTAMP())
+						ON DUPLICATE KEY UPDATE pos_x = @px, pos_y = @py, pos_z = @pz, yaw = @y, pitch = @p, car_yaw = @cy, car_speed = @cs, health = @h, weapon = @w, weapons_json = @weaponsJson, ammo_json = @ammoJson, money = @money, last_seen = UTC_TIMESTAMP()", conn);
 					cmd.Parameters.AddWithValue("@uid", uid);
 					cmd.Parameters.AddWithValue("@wid", wid);
 					cmd.Parameters.AddWithValue("@px", px);
@@ -780,6 +809,8 @@ namespace maxhanna.Server.Controllers
 					cmd.Parameters.AddWithValue("@cs", cs);
 					cmd.Parameters.AddWithValue("@h", hp > 0 ? hp : 100);
 					cmd.Parameters.AddWithValue("@w", weapon);
+					cmd.Parameters.AddWithValue("@weaponsJson", weaponsJson);
+					cmd.Parameters.AddWithValue("@ammoJson", ammoJson);
 					cmd.Parameters.AddWithValue("@money", money);
 					cmd.ExecuteNonQuery();
 				}
@@ -795,7 +826,7 @@ namespace maxhanna.Server.Controllers
 			{
 				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				conn.Open();
-				using var cmd = new MySqlCommand("SELECT s.user_id, s.world_id, s.pos_x, s.pos_y, s.pos_z, s.yaw, s.pitch, s.car_yaw, s.car_speed, s.health, s.weapon, s.money, s.last_seen, u.username FROM maxhanna.grandtheft_player_state s JOIN maxhanna.users u ON s.user_id = u.id WHERE s.user_id = @uid", conn);
+				using var cmd = new MySqlCommand("SELECT s.user_id, s.world_id, s.pos_x, s.pos_y, s.pos_z, s.yaw, s.pitch, s.car_yaw, s.car_speed, s.health, s.weapon, s.weapons_json, s.ammo_json, s.money, s.last_seen, u.username FROM maxhanna.grandtheft_player_state s JOIN maxhanna.users u ON s.user_id = u.id WHERE s.user_id = @uid", conn);
 				cmd.Parameters.AddWithValue("@uid", userId);
 				using var rdr = cmd.ExecuteReader();
 				if (rdr.Read())
@@ -812,16 +843,75 @@ namespace maxhanna.Server.Controllers
 					_playerMoney[userId] = rdr.GetInt32("money");
 					_playerWorldId[userId] = rdr.GetInt32("world_id");
 					_playerUsername[userId] = rdr.GetString("username");
-					int weapon = rdr.GetInt32("weapon");
+					// Restore the full weapon/ammo arrays (previously only the single
+					// weapon int was kept, so a server restart lost everything else).
 					if (!_playerWeapons.ContainsKey(userId))
 					{
 						var wp = new bool[5];
-						if (weapon >= 0 && weapon < 5) wp[weapon] = true;
+						var pa = new int[5];
+						if (!rdr.IsDBNull(rdr.GetOrdinal("weapons_json")))
+						{
+							try
+							{
+								var parsedW = JsonSerializer.Deserialize<bool[]>(rdr.GetString("weapons_json"));
+								if (parsedW != null && parsedW.Length == 5) wp = parsedW;
+							}
+							catch { }
+						}
+						else
+						{
+							int weapon = rdr.GetInt32("weapon");
+							if (weapon >= 0 && weapon < 5) wp[weapon] = true;
+						}
+						if (!rdr.IsDBNull(rdr.GetOrdinal("ammo_json")))
+						{
+							try
+							{
+								var parsedA = JsonSerializer.Deserialize<int[]>(rdr.GetString("ammo_json"));
+								if (parsedA != null && parsedA.Length == 5) pa = parsedA;
+							}
+							catch { }
+						}
 						_playerWeapons[userId] = wp;
+						_playerAmmo[userId] = pa;
 					}
 				}
 			}
 			catch { }
+		}
+
+		// Adds the weapons_json / ammo_json columns to grandtheft_player_state if
+		// they don't exist yet. Idempotent + safe on every startup.
+		private static bool _schemaEnsured;
+		private static void EnsureSchema()
+		{
+			if (_schemaEnsured) return;
+			lock (_persistLock)
+			{
+				if (_schemaEnsured) return;
+				try
+				{
+					var connStr = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
+						.GetValue<string>("ConnectionStrings:maxhanna");
+					if (string.IsNullOrEmpty(connStr)) return;
+					using var conn = new MySqlConnection(connStr);
+					conn.Open();
+					foreach (var col in new[] { "weapons_json", "ammo_json" })
+					{
+						using var check = new MySqlCommand(
+							"SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'grandtheft_player_state' AND COLUMN_NAME = @col", conn);
+						check.Parameters.AddWithValue("@col", col);
+						if (Convert.ToInt32(check.ExecuteScalar()) == 0)
+						{
+							using var alter = new MySqlCommand(
+								$"ALTER TABLE maxhanna.grandtheft_player_state ADD COLUMN {col} TEXT NULL;", conn);
+							alter.ExecuteNonQuery();
+						}
+					}
+					_schemaEnsured = true;
+				}
+				catch { }
+			}
 		}
 
 		private void BroadcastDeathMessage(int playerId, float posX, float posZ, float? carYaw, int worldId, string killerName, string victimName, string cause)
@@ -924,7 +1014,12 @@ namespace maxhanna.Server.Controllers
 			public DateTime DiedAt { get; set; }
 		}
 
-		public GrandTheftController(IConfiguration config) { _config = config; }
+		public GrandTheftController(IConfiguration config, IHostApplicationLifetime? appLifetime)
+		{
+			_config = config;
+			EnsureSchema();
+			RegisterShutdownDump(appLifetime);
+		}
 		private const float HOME_BASE_X = 120f;
 		private const float HOME_BASE_Z = 40f;
 		private const float HOME_BASE_YAW = 0f;
@@ -997,6 +1092,19 @@ namespace maxhanna.Server.Controllers
 					_playerCarColorB[req.UserId] = req.CarColorB;
 				}
 				_playerPassengerOf[req.UserId] = req.PassengerOfUserId;
+
+				// Adopt the client's actual weapon/ammo arrays. The client decrements
+				// ammo locally when shooting, so without this the server's copy (and
+				// therefore the DB dump) would never reflect spent ammunition. This runs
+				// BEFORE the death/respawn handling below so the death-drop stays the
+				// final authority — a death poll can't have its dropped weapons re-granted
+				// by a stale pre-death client array.
+				if (req.OwnedWeapons != null && req.OwnedWeapons.Length == 5 &&
+					req.Ammo != null && req.Ammo.Length == 5)
+				{
+					_playerWeapons[req.UserId] = (bool[])req.OwnedWeapons.Clone();
+					_playerAmmo[req.UserId] = (int[])req.Ammo.Clone();
+				}
 
 				if (req.Health <= 0)
 				{
@@ -2860,7 +2968,7 @@ namespace maxhanna.Server.Controllers
 
 	public class GrandTheftSaveRequest { public int UserId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public int Score { get; set; } }
 	public class GrandTheftScoreRequest { public int UserId { get; set; } public int Score { get; set; } }
-	public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string? ModelUrl { get; set; } public int Money { get; set; } = 0; public bool IsInCar { get; set; } public string? VehicleType { get; set; } public float CarColorR { get; set; } = 1f; public float CarColorG { get; set; } = 1f; public float CarColorB { get; set; } = 1f; public int PassengerOfUserId { get; set; } = 0; public string? ChatMessage { get; set; } public bool Respawned { get; set; } }
+	public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string? ModelUrl { get; set; } public int Money { get; set; } = 0; public bool IsInCar { get; set; } public string? VehicleType { get; set; } public float CarColorR { get; set; } = 1f; public float CarColorG { get; set; } = 1f; public float CarColorB { get; set; } = 1f; public int PassengerOfUserId { get; set; } = 0; public string? ChatMessage { get; set; } public bool Respawned { get; set; } public bool[]? OwnedWeapons { get; set; } public int[]? Ammo { get; set; } }
 	public class GTShootRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public int Weapon { get; set; } = 0; public float OriginX { get; set; } public float OriginY { get; set; } public float OriginZ { get; set; } public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } }
 	public class GTHitRequest { public int AttackerId { get; set; } public long TargetId { get; set; } public int WorldId { get; set; } = 1; public int Damage { get; set; } = 10; public float AttackerX { get; set; } public float AttackerZ { get; set; } }
 	public class GTStealCarRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; }

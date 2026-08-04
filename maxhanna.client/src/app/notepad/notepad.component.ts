@@ -31,6 +31,8 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   users: User[] = [];
   selectedNote?: Note;
   splitNoteOwnershipUsers: User[] = []; 
+  showAllCollaborators = false;
+  readonly MAX_COLLAPSED_COLLABORATORS = 5; 
   showAutoSyncPrompt: boolean = false; 
   lastSyncedAt?: Date; 
   isEditing: boolean = false;
@@ -273,9 +275,19 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
   async search() {
     this.getNotepad();
   }
+  // Number of collaborators a note is shared with (excluding the current user)
+  getNoteSharedCount(note?: Note): number {
+    if (!note?.ownership) { return 0; }
+    const me = this.parentRef?.user?.id;
+    return note.ownership.split(',')
+      .map(s => s.trim())
+      .filter(x => x !== '' && (!me || parseInt(x) !== me))
+      .length;
+  }
   async splitNoteOwnership() {
     const ids = this.selectedNote?.ownership?.split(',').filter(x => parseInt(x) != this.parentRef?.user?.id);
     this.splitNoteOwnershipUsers = [];
+    this.showAllCollaborators = false;
     ids?.forEach(async id => {
       await this.userService.getUserById(parseInt(id), this.parentRef?.userCache).then((res: User | null) => { 
         if (res && res != null) {

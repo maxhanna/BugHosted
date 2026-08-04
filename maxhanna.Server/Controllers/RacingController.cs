@@ -17,7 +17,12 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, RacingCarState> _cars = new();
 		private static readonly ConcurrentQueue<PendingRaceResult> _pendingResults = new();
 		private static readonly object _persistLock = new();
-		private static int _persistIntervalSeconds = 600;
+		// Backstop interval for the periodic DB dump. Persistence is primarily
+		// write-through (ScheduleFlush after every mutation), so this timer only
+		// catches anything missed — 15s keeps the loss window tiny even on a hard
+		// process kill (previously 600s meant up to 10 minutes of cash/upgrades/
+		// lap records vanished on every server restart).
+		private static int _persistIntervalSeconds = 15;
 		private static readonly Lazy<Timer> _persistTimer = new(() =>
 			new Timer(PersistAllToDb, null,
 				TimeSpan.FromSeconds(_persistIntervalSeconds),
@@ -84,7 +89,6 @@ namespace maxhanna.Server.Controllers
 			int interval = _persistIntervalSeconds;
 			_persistIntervalSeconds = Math.Max(5, interval);
 			_ = _persistTimer.Value;
-			EnsureSchema();
 			if (!_startupLoadStarted)
 			{
 				lock (_persistLock)
@@ -98,84 +102,7 @@ namespace maxhanna.Server.Controllers
 			}
 			RegisterShutdownDump(appLifetime);
 		}
-		// Creates the racing tables if they don't exist. This controller reads and
-		// writes racing_player_car / racing_results directly, so the schema must
-		// be guaranteed before any query runs (previously the leaderboard silently
-		// returned nothing when the tables were missing). Idempotent + safe on every
-		// startup.
-		private static void EnsureSchema()
-		{
-			if (_schemaEnsured) return;
-			lock (_persistLock)
-			{
-				if (_schemaEnsured) return;
-				try
-				{
-					var connStr = GetConnStr();
-					if (string.IsNullOrEmpty(connStr)) return;
-					using var conn = new MySqlConnection(connStr);
-					conn.Open();
-					using (var cmd = new MySqlCommand(@"
-						CREATE TABLE IF NOT EXISTS racing_player_car (
-							user_id INT PRIMARY KEY,
-							player_name VARCHAR(64) NULL,
-							upgrades_json TEXT NULL,
-							skin_id INT NOT NULL DEFAULT 1,
-							spoiler_id INT NOT NULL DEFAULT 0,
-							rim_id INT NOT NULL DEFAULT 0,
-							exhaust_id INT NOT NULL DEFAULT 0,
-							decal_id INT NOT NULL DEFAULT 0,
-							total_races INT NOT NULL DEFAULT 0,
-							wins INT NOT NULL DEFAULT 0,
-							money INT NOT NULL DEFAULT 500,
-							best_lap DOUBLE NOT NULL DEFAULT 0,
-							total_earnings INT NOT NULL DEFAULT 0
-						)", conn))
-					{
-						cmd.ExecuteNonQuery();
-					}
-					using (var cmd = new MySqlCommand(@"
-						CREATE TABLE IF NOT EXISTS racing_results (
-							id INT AUTO_INCREMENT PRIMARY KEY,
-							user_id INT NOT NULL,
-							player_name VARCHAR(64) NULL,
-							position INT NOT NULL DEFAULT 0,
-							lap_time DOUBLE NOT NULL DEFAULT 0,
-							total_time DOUBLE NOT NULL DEFAULT 0,
-							money_earned INT NOT NULL DEFAULT 0,
-							track_id INT NOT NULL DEFAULT 1,
-							raced_at DATETIME NOT NULL
-						)", conn))
-					{
-						cmd.ExecuteNonQuery();
-					}
-					using (var cmd = new MySqlCommand(@"
-						CREATE TABLE IF NOT EXISTS racing_best_laps (
-							user_id INT NOT NULL,
-							track_id INT NOT NULL,
-							best_lap DOUBLE NOT NULL DEFAULT 0,
-							PRIMARY KEY (user_id, track_id)
-						)", conn))
-					{
-						cmd.ExecuteNonQuery();
-					}
-					// One-time backfill: seed per-track best laps from the legacy global
-					// best_lap column (assigned to track 1) so existing records survive.
-					using (var cmd = new MySqlCommand(@"
-						INSERT IGNORE INTO racing_best_laps (user_id, track_id, best_lap)
-						SELECT user_id, 1, best_lap FROM racing_player_car WHERE best_lap > 0", conn))
-					{
-						cmd.ExecuteNonQuery();
-					}
-					_schemaEnsured = true;
-					Console.WriteLine("[Racing] Schema ensured (racing_player_car, racing_results).");
-				}
-				catch (Exception ex)
-				{
-					Console.WriteLine($"[Racing] Schema ensure failed: {ex.Message}");
-				}
-			}
-		}
+		
 		private static string? GetConnStr()
 		{
 			if (!string.IsNullOrEmpty(_connStrCache)) return _connStrCache;
@@ -346,6 +273,18 @@ namespace maxhanna.Server.Controllers
 		}
 		private static void PersistAllToDb(object? state) => PersistAllToDbCore(false);
 		private static void PersistAllToDbBlocking() => PersistAllToDbCore(true);
+		/// <summary>
+		/// Fire-and-forget immediate DB flush. Called after every mutating endpoint so
+		/// cash/upgrades/lap records are durable the moment they change — the periodic
+		/// timer (and the shutdown hooks) are only backstops now. Uses the blocking
+		/// variant so it waits for the persist lock instead of silently skipping when
+		/// a dump is already in flight.
+		/// </summary>
+		private static void ScheduleFlush()
+		{
+			try { _ = Task.Run(PersistAllToDbBlocking); }
+			catch { /* fire-and-forget; the timer backstop will catch it */ }
+		}
 		private static void PersistAllToDbCore(bool waitForLock)
 		{
 			bool acquired = waitForLock
@@ -580,6 +519,7 @@ namespace maxhanna.Server.Controllers
 					st.Dirty = true;
 					st.Version++;
 				}
+				ScheduleFlush();
 				return Ok(new { ok = true });
 			}
 			catch { return BadRequest(); }
@@ -608,6 +548,7 @@ namespace maxhanna.Server.Controllers
 					st.Dirty = true;
 					st.Version++;
 				}
+				ScheduleFlush();
 				return Ok(ToCarJson(st));
 			}
 			catch { return BadRequest(); }
@@ -630,6 +571,7 @@ namespace maxhanna.Server.Controllers
 					st.Dirty = true;
 					st.Version++;
 				}
+				ScheduleFlush();
 				return Ok(ToCarJson(st));
 			}
 			catch { return BadRequest(); }
@@ -663,6 +605,7 @@ namespace maxhanna.Server.Controllers
 					MoneyEarned = result.TryGetProperty("moneyEarned", out var me) ? me.GetInt32() : 0,
 					TrackId = result.TryGetProperty("trackId", out var tk) ? tk.GetInt32() : 1,
 				});
+				ScheduleFlush();
 				return Ok(new { ok = true });
 			}
 			catch { return BadRequest(); }

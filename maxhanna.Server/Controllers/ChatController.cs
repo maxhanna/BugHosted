@@ -1344,8 +1344,9 @@ namespace maxhanna.Server.Controllers
 			{
 				await conn.OpenAsync();
 				string search = string.IsNullOrWhiteSpace(request?.Search) ? "" : request.Search.Trim();
+				await EnsureChatRoomColumnsAsync(conn);
 				string sql = @"
-					SELECT cr.chat_id, cr.name, cr.created_by, cr.created_at
+					SELECT cr.chat_id, cr.name, cr.description, cr.icon, cr.created_by, cr.created_at
 					FROM maxhanna.chat_rooms cr
 					WHERE cr.is_public = 1";
 				if (!string.IsNullOrEmpty(search))
@@ -1364,6 +1365,8 @@ namespace maxhanna.Server.Controllers
 					{
 						ChatId = reader.GetInt32("chat_id"),
 						Name = reader.GetString("name"),
+						Description = reader.IsDBNull(reader.GetOrdinal("description")) ? "" : reader.GetString("description"),
+						Icon = reader.IsDBNull(reader.GetOrdinal("icon")) ? "" : reader.GetString("icon"),
 						CreatedAt = reader.IsDBNull(reader.GetOrdinal("created_at")) ? null : reader.GetDateTime("created_at")
 					});
 				}
@@ -1500,7 +1503,8 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				await conn.OpenAsync();
-				string sql = "SELECT name, is_public, created_by FROM maxhanna.chat_rooms WHERE chat_id = @ChatId LIMIT 1;";
+				await EnsureChatRoomColumnsAsync(conn);
+				string sql = "SELECT name, description, icon, is_public, created_by FROM maxhanna.chat_rooms WHERE chat_id = @ChatId LIMIT 1;";
 				using var cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@ChatId", request.ChatId);
 				using var reader = await cmd.ExecuteReaderAsync();
@@ -1510,8 +1514,10 @@ namespace maxhanna.Server.Controllers
 					{
 						ChatId = request.ChatId,
 						Name = reader.IsDBNull(0) ? "" : reader.GetString(0),
-						IsPublic = reader.IsDBNull(1) ? false : reader.GetBoolean(1),
-						CreatedBy = reader.IsDBNull(2) ? null : reader.GetInt32(2)
+						Description = reader.IsDBNull(1) ? "" : reader.GetString(1),
+						Icon = reader.IsDBNull(2) ? "" : reader.GetString(2),
+						IsPublic = reader.IsDBNull(3) ? false : reader.GetBoolean(3),
+						CreatedBy = reader.IsDBNull(4) ? null : reader.GetInt32(4)
 					});
 				}
 				return Ok(new PublicChatInfo { ChatId = request.ChatId, Name = "", IsPublic = false });
@@ -1520,6 +1526,76 @@ namespace maxhanna.Server.Controllers
 			{
 				_ = _log.Db("An error occurred in GetChatRoom: " + ex.Message, request.ChatId, "CHAT", true);
 				return StatusCode(500, "Failed to get chat room.");
+			}
+			finally { conn.Close(); }
+		}
+
+		[HttpPost("/Chat/UpdateRoomInfo", Name = "UpdateChatRoomInfo")]
+		public async Task<IActionResult> UpdateChatRoomInfo([FromBody] UpdateChatRoomInfoRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+		{
+			if (request == null || request.ChatId <= 0 || request.UserId <= 0)
+				return BadRequest("Invalid request.");
+
+			if (!await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader))
+				return StatusCode(500, "Access Denied.");
+
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+			try
+			{
+				await conn.OpenAsync();
+				await EnsureChatRoomColumnsAsync(conn);
+
+				// Only edit rooms that already have a community board — never let an edit
+				// silently create a public room (or flip a private chat's board public).
+				string existsSql = "SELECT COUNT(*) FROM maxhanna.chat_rooms WHERE chat_id = @ChatId;";
+				using (var existsCmd = new MySqlCommand(existsSql, conn))
+				{
+					existsCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+					if (Convert.ToInt32(await existsCmd.ExecuteScalarAsync()) == 0)
+						return NotFound("This chat has no community board yet.");
+				}
+
+				// Only the room owner, a global moderator, or a chat moderator for THIS room can edit its info.
+				string ownerSql = "SELECT created_by FROM maxhanna.chat_rooms WHERE chat_id = @ChatId LIMIT 1;";
+				int? ownerId = null;
+				using (var ownerCmd = new MySqlCommand(ownerSql, conn))
+				{
+					ownerCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+					using var ownerReader = await ownerCmd.ExecuteReaderAsync();
+					if (await ownerReader.ReadAsync())
+						ownerId = ownerReader.IsDBNull(0) ? null : ownerReader.GetInt32(0);
+				}
+
+				bool isOwner = ownerId.HasValue && ownerId.Value == request.UserId;
+				bool isGlobalMod = await IsGlobalModeratorAsync(request.UserId);
+				bool isChatMod = await ModeratorController.IsChatModeratorAsync(_config, request.UserId, request.ChatId);
+				if (!isOwner && !isGlobalMod && !isChatMod)
+					return Unauthorized("Only moderators of this chat can edit its info.");
+
+				if (await ModeratorController.IsChatUserBannedAsync(_config, request.ChatId, request.UserId))
+					return StatusCode(403, "You are banned from this chat.");
+
+				string name = string.IsNullOrWhiteSpace(request.Name) ? "Public Chat #" + request.ChatId : request.Name.Trim();
+				string description = request.Description?.Trim() ?? "";
+				string icon = request.Icon?.Trim() ?? "";
+
+				string updateSql = "UPDATE maxhanna.chat_rooms SET name = @Name, description = @Description, icon = @Icon WHERE chat_id = @ChatId;";
+				using (var updateCmd = new MySqlCommand(updateSql, conn))
+				{
+					updateCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+					updateCmd.Parameters.AddWithValue("@Name", name);
+					updateCmd.Parameters.AddWithValue("@Description", string.IsNullOrEmpty(description) ? (object)DBNull.Value : description);
+					updateCmd.Parameters.AddWithValue("@Icon", string.IsNullOrEmpty(icon) ? (object)DBNull.Value : icon);
+					await updateCmd.ExecuteNonQueryAsync();
+				}
+
+				_ = _log.Db($"Moderator {request.UserId} updated room info for chat #{request.ChatId} (name=\"{name}\").", request.UserId, "MODERATOR", true);
+				return Ok(new { message = "Chat room info updated.", name, description });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("An error occurred in UpdateChatRoomInfo: " + ex.Message, request.UserId, "CHAT", true);
+				return StatusCode(500, "Failed to update chat room info.");
 			}
 			finally { conn.Close(); }
 		}
@@ -1593,6 +1669,44 @@ namespace maxhanna.Server.Controllers
 				return Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
 			}
 			catch { return false; }
+		}
+
+		private static bool _chatRoomColumnsEnsured;
+		private static readonly SemaphoreSlim _chatRoomColumnsLock = new(1, 1);
+		private async Task EnsureChatRoomColumnsAsync(MySqlConnection conn)
+		{
+			// Run the information_schema checks + ALTERs once per process; the lock
+			// prevents a double-ALTER race between concurrent requests.
+			if (_chatRoomColumnsEnsured) return;
+			await _chatRoomColumnsLock.WaitAsync();
+			try
+			{
+				if (_chatRoomColumnsEnsured) return;
+				string checkSql = @"SELECT column_name FROM information_schema.columns
+					WHERE table_schema = DATABASE() AND table_name = 'chat_rooms';";
+				var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+				using (var checkCmd = new MySqlCommand(checkSql, conn))
+				using (var rdr = await checkCmd.ExecuteReaderAsync())
+				{
+					while (await rdr.ReadAsync())
+						existing.Add(rdr.GetString(0));
+				}
+				if (!existing.Contains("description"))
+				{
+					using var alterDesc = new MySqlCommand("ALTER TABLE maxhanna.chat_rooms ADD COLUMN description VARCHAR(500) NULL;", conn);
+					await alterDesc.ExecuteNonQueryAsync();
+				}
+				if (!existing.Contains("icon"))
+				{
+					using var alterIcon = new MySqlCommand("ALTER TABLE maxhanna.chat_rooms ADD COLUMN icon VARCHAR(32) NULL;", conn);
+					await alterIcon.ExecuteNonQueryAsync();
+				}
+				_chatRoomColumnsEnsured = true;
+			}
+			finally
+			{
+				_chatRoomColumnsLock.Release();
+			}
 		}
 
 		private static readonly SemaphoreSlim _chatSitemapLock = new(1, 1);
@@ -1735,8 +1849,18 @@ public class PublicChatInfo
 {
 	public int ChatId { get; set; }
 	public string Name { get; set; } = "";
+	public string Description { get; set; } = "";
+	public string Icon { get; set; } = "";
 	public bool IsPublic { get; set; }
 	public int MemberCount { get; set; }
 	public int? CreatedBy { get; set; }
 	public DateTime? CreatedAt { get; set; }
+}
+public class UpdateChatRoomInfoRequest
+{
+	public int ChatId { get; set; }
+	public int UserId { get; set; }
+	public string Name { get; set; } = "";
+	public string Description { get; set; } = "";
+	public string Icon { get; set; } = "";
 }

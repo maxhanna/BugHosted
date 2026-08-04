@@ -923,6 +923,21 @@
           <span class="gp-money-prize">${{ calculatePrize() }}</span>
           <span class="gp-money-label">Participation</span>
         </div>
+        <div class="gp-standings" *ngIf="finalStandings.length">
+          <div class="gp-standings-title">🏁 Final Standings</div>
+          <div class="gp-standings-row gp-standings-head">
+            <span>#</span><span>Driver</span><span>Laps</span>
+          </div>
+          <div class="gp-standings-row" *ngFor="let s of finalStandings"
+            [class.gp-standings-me]="s.isPlayer">
+            <span class="gp-standings-pos">{{ s.position }}</span>
+            <span class="gp-standings-name">
+              <span class="gp-standings-dot" [style.background]="s.color"></span>
+              {{ s.name }}<span *ngIf="s.isPlayer" class="gp-standings-you"> (You)</span>
+            </span>
+            <span class="gp-standings-laps">{{ s.laps }}/{{ totalLaps }}</span>
+          </div>
+        </div>
         <div class="gp-podium-rematch" *ngIf="isInMultiplayerRace">
           <button class="race-mp-btn race-mp-start" *ngIf="isLobbyHost" (click)="rematchMP()">
             🔄 REMATCH
@@ -939,7 +954,7 @@
 
     <!-- ─── Leaderboard ─── -->
     <div id="race-leaderboard" *ngIf="showLeaderboard">
-      <div class="race-lb-title">🏆 BEST LAPS</div>
+      <div class="race-lb-title">🏆 BEST LAPS{{ selectedTrack ? ' — ' + getTrackFlag(selectedTrack) + ' ' + selectedTrack.name : '' }}</div>
       <div class="race-lb-standings" *ngIf="parentRef?.user?.id">
         <span class="race-lb-medal">{{ getLeaderboardMedal() }}</span>
         <span class="race-lb-standing-text">{{ getLeaderboardStandingText() }}</span>
@@ -963,7 +978,7 @@
         <span class="race-lb-gap" [class]="getLeaderboardGapClass(r)" title="Gap vs the leader and vs your best">
           {{ getLeaderboardGapText(r) }}
         </span>
-        <span>{{ formatTime(r.totalTime) }}</span>
+        <span class="race-lb-race" [title]="r.totalTime > 0 ? 'Total race time: ' + formatTime(r.totalTime) : 'Circuit'">{{ getLeaderboardRaceName(r) }}</span>
       </div>
       <div class="race-lb-empty" *ngIf="leaderboard.length === 0">No laps recorded yet — go set one!</div>
       <div class="race-lb-close" (click)="showLeaderboard = false">Click or press L to close</div>

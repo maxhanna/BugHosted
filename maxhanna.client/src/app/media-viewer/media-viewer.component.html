@@ -20,9 +20,12 @@
     <div *ngIf="!autoload" class="noAutoLoadDiv" (click)="forceLoad()">
       <span class="clickToLoadText">Click here to load media</span>
     </div>
-    <div *ngIf="isLoading && (autoload || !selectedFileSrc || displayLoading)"
+    <div *ngIf="!showMediaLoading && isLoading && (autoload || !selectedFileSrc || displayLoading)"
       style="min-height:50px; min-width: 50px;">
       Loading Media...
+    </div>
+    <div *ngIf="showMediaLoading && isLoading && !selectedFileSrc" class="mediaLoadingSpinner">
+      <app-loading-spinner>Loading…</app-loading-spinner>
     </div>
     <div *ngIf="autoload && selectedFileSrc != ''" class="mediaDiv">
       <img #mediaContainer (click)="expandFile({url: selectedFile, extension: selectedFileExtension})"

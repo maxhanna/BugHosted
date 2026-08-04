@@ -716,12 +716,124 @@
   white-space: nowrap;
 }
 
+/* Taxi hail prompt — yellow, shown when standing next to a taxi. */
+#gt-taxi-hail-prompt {
+  position: absolute;
+  bottom: 220px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  color: #ffd633;
+  font-size: 14px;
+  font-weight: bold;
+  background: rgba(90, 70, 0, 0.75);
+  border: 1px solid rgba(255, 214, 51, 0.8);
+  border-radius: 6px;
+  padding: 6px 16px;
+  text-shadow: 0 0 8px rgba(255, 214, 51, 0.6);
+  animation: gt-pulse 1.5s ease-in-out infinite;
+  pointer-events: none;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  white-space: nowrap;
+}
+
+/* Taxi destination picker — full-screen dim overlay with a centered panel. */
+#gt-taxi-destinations {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.gt-taxi-dest-panel {
+  background: rgba(20, 20, 24, 0.96);
+  border: 1px solid rgba(255, 214, 51, 0.5);
+  border-radius: 10px;
+  padding: 18px 20px;
+  min-width: 240px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+}
+
+.gt-taxi-dest-title {
+  color: #ffd633;
+  font-size: 18px;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 14px;
+  letter-spacing: 0.5px;
+}
+
+.gt-taxi-dest-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #eee;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.gt-taxi-dest-option:hover {
+  background: rgba(255, 214, 51, 0.18);
+  border-color: rgba(255, 214, 51, 0.7);
+  transform: translateX(2px);
+}
+
+.gt-taxi-dest-icon {
+  font-size: 20px;
+}
+
+.gt-taxi-dest-name {
+  font-weight: 600;
+}
+
+.gt-taxi-dest-cancel {
+  text-align: center;
+  margin-top: 6px;
+  color: #aaa;
+  font-size: 13px;
+  padding: 6px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.gt-taxi-dest-cancel:hover {
+  color: #fff;
+}
+
+/* Taxi ride status — small overlay while the ride cinematic plays. */
+#gt-taxi-ride {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 12;
+  color: #ffd633;
+  font-size: 15px;
+  font-weight: bold;
+  background: rgba(90, 70, 0, 0.8);
+  border: 1px solid rgba(255, 214, 51, 0.8);
+  border-radius: 8px;
+  padding: 8px 18px;
+  text-shadow: 0 0 10px rgba(255, 214, 51, 0.5);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  white-space: nowrap;
+  animation: gt-taxi-pulse 1.4s ease-in-out infinite;
+}
+
 /* ───── Settings Menu Popup ───── */
 .gt-menu-panel {
   max-width: 360px;
-}
-
-.gt-settings-body {
+}.gt-settings-body {
   padding: 12px;
   display: flex;
   flex-direction: column;

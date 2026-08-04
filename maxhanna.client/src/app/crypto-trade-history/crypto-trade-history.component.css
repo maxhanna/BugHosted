@@ -15,6 +15,48 @@
     background-color: white;
 }
 
+.tradeHistorySearchWrapper {
+    position: relative;
+    width: 220px;
+    max-width: 100%;
+    margin: 4px 0;
+}
+
+.tradeHistorySearchInput {
+    width: 100%;
+    padding: 6px 28px 6px 10px;
+    border: var(--main-border);
+    border-radius: 4px;
+    background: var(--main-background-color);
+    color: var(--main-font-color);
+    font-size: 12px;
+    box-sizing: border-box;
+}
+
+.tradeHistorySearchInput:focus {
+    outline: none;
+    border-color: var(--main-button-background-color, #0af);
+    box-shadow: 0 0 4px rgba(0, 170, 255, 0.35);
+}
+
+.tradeHistorySearchClear {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--main-font-color, #888);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 2px;
+    line-height: 1;
+}
+
+.tradeHistorySearchClear:hover {
+    color: #f33;
+}
+
 .tradeHistoryTableWrapper {
     display: flex;
     align-items: center;

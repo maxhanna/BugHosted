@@ -24,11 +24,92 @@
   letter-spacing: 0.5px;
 }
 
+.groupSocialDescription {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--third-font-color, #8a8f98);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .groupSocialActions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+.groupInfoEditPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--main-background-color);
+  border: 1px solid var(--main-border-color);
+}
+
+.groupInfoEditTitle {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.groupInfoEditInput,
+.groupInfoEditTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--main-border-color);
+  background: var(--main-background-color);
+  color: var(--main-font-color);
+  font-size: 14px;
+  resize: vertical;
+}
+
+.groupInfoEditInput:focus,
+.groupInfoEditTextarea:focus {
+  outline: none;
+  border-color: var(--main-color, #4f9cf9);
+}
+
+.groupInfoEditActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.groupInfoIconRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.groupInfoIconPreview {
+  font-size: 22px;
+  line-height: 1;
+  min-width: 28px;
+  text-align: center;
+}
+
+.groupInfoIconInput {
+  flex: 1;
+  min-width: 160px;
+}
+
+.groupInfoEmojiQuick {
+  cursor: pointer;
+  font-size: 18px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  transition: transform 0.1s ease, background 0.1s ease;
+}
+
+.groupInfoEmojiQuick:hover {
+  transform: scale(1.25);
+  background: var(--main-highlight-color-quarter-opacity, rgba(0, 0, 0, 0.06));
 }
 
 .groupMembersPanel {

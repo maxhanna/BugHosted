@@ -644,34 +644,47 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       const url = (document.getElementById('todoEditingUrlTextarea') as HTMLTextAreaElement).value.trim();
       const fileId = this.todoEditingFile.selectedFiles[0]?.id ?? undefined;
       this.isEditing = this.isEditing.filter(x => x.id !== id);
-      this.startLoading();
-      try {
-        await this.todoService.editTodo(id, text, url, fileId).then(res => {
-          if (res) {
-            this.parentRef?.showNotification(res);
-            this.parentRef?.closeOverlay(false);
-            this.isExpandedEditFile = false;
-          }
-        });
-        const todoIndex = this.todos.findIndex(todo => todo.id === id);
-        if (todoIndex !== -1) {
-          this.todos[todoIndex].todo = text;
-          this.todos[todoIndex].url = url;
-          this.todos[todoIndex].fileId = fileId;
-        }
-        this.resumeSharedPollingIfNeeded();
-      } catch (error) {
-        console.error("Error updating todo:", error);
-        this.parentRef?.showNotification("Failed to update todo");
-      } finally {
-        this.stopLoading();
+      const original = {
+        todo: this.todos.find(t => t.id === id)?.todo,
+        url: this.todos.find(t => t.id === id)?.url,
+        fileId: this.todos.find(t => t.id === id)?.fileId,
+      };
+      // Preempt the edit: apply it locally right away so no loading state is needed.
+      const todo = this.todos.find(t => t.id === id);
+      if (todo) {
+        todo.todo = text;
+        todo.url = url;
+        todo.fileId = fileId;
       }
+      // The service never throws (returns null on failure), so no try/catch needed.
+      const res = await this.todoService.editTodo(id, text, url, fileId);
+      if (res) {
+        this.parentRef?.showNotification(res);
+        this.parentRef?.closeOverlay(false);
+        this.isExpandedEditFile = false;
+      } else {
+        // Server rejected the edit (negative result) — roll the optimistic change back
+        // and keep the panel context so the failure is visible.
+        this.rollbackTodoEdit(id, original);
+        this.parentRef?.showNotification("Failed to update todo");
+      }
+      this.resumeSharedPollingIfNeeded();
+    }
+  }
+  private rollbackTodoEdit(id: number, original: { todo?: string; url?: string; fileId?: number }) {
+    // Re-find by id so a refetch/reorder during the request can't hit the wrong row.
+    const todo = this.todos.find(t => t.id === id);
+    if (todo) {
+      todo.todo = original.todo;
+      todo.url = original.url;
+      todo.fileId = original.fileId;
     }
   }
   async closeEditPopup(shouldEdit = true) {
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
-      this.startLoading();
+      // No loading: editTodo applies the change optimistically and rolls it
+      // back only if the server returns a negative result.
       if (this.hasEditedTodo && shouldEdit) {
         await this.editTodo(this.isEditing[0]);
       } else {
@@ -682,7 +695,6 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       if (this.parentRef) {
         this.parentRef.closeOverlay(false);
       }
-      this.stopLoading();
     }, 50);
   }
   expandedEditFile(value: boolean) {

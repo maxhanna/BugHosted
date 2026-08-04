@@ -74,8 +74,90 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+    /// <summary>
+    /// Whether a user may access a specific story. Stories on a private-chat board
+    /// are restricted to chat members; public-board and non-chat stories are open.
+    /// Enforced against the story's OWN chat_id so lookups by StoryId (e.g.
+    /// GetStoryById, edit, delete, comments) can't bypass the board membership check.
+    /// </summary>
+    private async Task<bool> CanViewStoryAsync(MySqlConnection conn, int storyId, int userId)
+    {
+      string chatSql = "SELECT chat_id FROM maxhanna.stories WHERE id = @StoryId LIMIT 1;";
+      int? storyChatId = null;
+      using (var chatCmd = new MySqlCommand(chatSql, conn))
+      {
+        chatCmd.Parameters.AddWithValue("@StoryId", storyId);
+        var result = await chatCmd.ExecuteScalarAsync();
+        if (result != null && result != DBNull.Value)
+        {
+          storyChatId = Convert.ToInt32(result);
+        }
+      }
+      if (storyChatId == null || storyChatId == 0) return true;
+      return await CanViewChatBoardAsync(conn, storyChatId.Value, userId);
+    }
+
+    /// <summary>
+    /// Whether a user may access a chat-linked social board. Public chats are open
+    /// to everyone; private chats are restricted to their members (users who appear
+    /// in the chat's message receivers, plus the room creator).
+    /// </summary>
+    public static async Task<bool> CanViewChatBoardAsync(MySqlConnection conn, int chatId, int userId)
+    {
+      string publicSql = "SELECT COUNT(*) FROM maxhanna.chat_rooms WHERE chat_id = @ChatId AND is_public = 1;";
+      using (var publicCmd = new MySqlCommand(publicSql, conn))
+      {
+        publicCmd.Parameters.AddWithValue("@ChatId", chatId);
+        var isPublic = Convert.ToInt32(await publicCmd.ExecuteScalarAsync());
+        if (isPublic > 0) return true;
+      }
+      if (userId <= 0) return false;
+      string memberSql = @"SELECT COUNT(*) FROM maxhanna.messages m
+        WHERE m.chat_id = @ChatId
+        AND (m.sender = @UserId OR FIND_IN_SET(@UserId, m.receiver) > 0);";
+      using (var memberCmd = new MySqlCommand(memberSql, conn))
+      {
+        memberCmd.Parameters.AddWithValue("@ChatId", chatId);
+        memberCmd.Parameters.AddWithValue("@UserId", userId);
+        if (Convert.ToInt32(await memberCmd.ExecuteScalarAsync()) > 0) return true;
+      }
+      string creatorSql = "SELECT COUNT(*) FROM maxhanna.chat_rooms WHERE chat_id = @ChatId AND created_by = @UserId;";
+      using (var creatorCmd = new MySqlCommand(creatorSql, conn))
+      {
+        creatorCmd.Parameters.AddWithValue("@ChatId", chatId);
+        creatorCmd.Parameters.AddWithValue("@UserId", userId);
+        return Convert.ToInt32(await creatorCmd.ExecuteScalarAsync()) > 0;
+      }
+    }
+
     private async Task<StoryResponse> GetStoriesAsync(GetStoryRequest request, string? search, string? topics, int page = 1, int pageSize = 10, bool showHiddenStories = false, ShowPostsFrom? showPostsFromFilter = ShowPostsFrom.All, bool includeDetails = true)
     {
+      // Private-chat boards are member-only: anonymous or non-member users get no
+      // stories. Enforced against the board for chat-scoped reads AND against the
+      // story's own chat_id for story-id lookups (e.g. GetStoryById), so neither
+      // path can bypass the membership check. Only opens a connection when a
+      // chat/story scope is actually requested — the plain feed pays no extra cost.
+      if ((request.ChatId != null && request.ChatId > 0) || request.StoryId != null)
+      {
+        using (var authConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+        {
+          await authConn.OpenAsync();
+          if (request.ChatId != null && request.ChatId > 0)
+          {
+            if (!await CanViewChatBoardAsync(authConn, request.ChatId.Value, request.UserId))
+            {
+              return new StoryResponse();
+            }
+          }
+          else if (request.StoryId != null)
+          {
+            if (!await CanViewStoryAsync(authConn, request.StoryId.Value, request.UserId))
+            {
+              return new StoryResponse();
+            }
+          }
+        }
+      }
       var whereClause = new StringBuilder(@" WHERE 1=1 ");
       var orderByClause = " ORDER BY s.id DESC ";
       var parameters = new Dictionary<string, object>();
@@ -1196,6 +1278,18 @@ namespace maxhanna.Server.Controllers
     {
       try
       {
+        // Private-chat boards are member-only: only chat members may post to them.
+        if (request.story.ChatId.HasValue && request.story.ChatId.Value > 0)
+        {
+          using (var authConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+          {
+            await authConn.OpenAsync();
+            if (!await CanViewChatBoardAsync(authConn, request.story.ChatId.Value, request.userId ?? 0))
+            {
+              return StatusCode(403, "You must be a member of this chat to post to its board.");
+            }
+          }
+        }
         // Use the request.userId for decryption so the server uses the same id the client used to encrypt
         string decryptedText = _log.DecryptContent(request.story.StoryText ?? "", (request.userId ?? 0) + "");
         string sql = @"INSERT INTO stories (user_id, story_text, profile_user_id, chat_id, city, country, date, visibility) 
@@ -1263,10 +1357,18 @@ namespace maxhanna.Server.Controllers
               string[]? urls = _crawler.ExtractUrls(decryptedText);
               if (urls != null)
               {
-                // Fetch metadata
+                // Fetch metadata (awaited + guarded so a crawler failure can't
+                // silently leave the story with no metadata rows).
                 Console.WriteLine($"Urls extracted for metadata: {string.Join(", ", urls)}");
                 var metadataRequest = new MetadataRequest { Url = urls };
-                var metadataResponse = SetMetadata(metadataRequest, storyId);
+                try
+                {
+                  await SetMetadata(metadataRequest, storyId);
+                }
+                catch (Exception mex)
+                {
+                  _ = _log.Db("Metadata insert failed for story " + storyId + ": " + mex.Message, request.userId, "SOCIAL", true);
+                }
               }
 
               await AppendToSitemapAsync(storyId);
@@ -1304,6 +1406,16 @@ namespace maxhanna.Server.Controllers
 
       try
       {
+        // Board membership guard: non-members can't delete stories from a private-chat board.
+        using (var authConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+        {
+          await authConn.OpenAsync();
+          if (!await CanViewStoryAsync(authConn, request.story.Id, request.userId.Value))
+          {
+            return StatusCode(403, "You must be a member of this chat to delete its posts.");
+          }
+        }
+
         string sql = @"
             DELETE FROM stories 
             WHERE 
@@ -1357,6 +1469,17 @@ namespace maxhanna.Server.Controllers
 
       try
       {
+        // Board membership guard: non-members can't edit stories from a private-chat
+      // board. Runs unconditionally — a missing userId is treated as a non-member.
+      using (var authConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+      {
+        await authConn.OpenAsync();
+        if (!await CanViewStoryAsync(authConn, request.story.Id, request.userId ?? 0))
+        {
+          return StatusCode(403, "You must be a member of this chat to edit its posts.");
+        }
+      }
+
         string sql = @"UPDATE stories SET story_text = @Text, visibility = @visibility 
           WHERE id = @StoryId AND (
             user_id = @UserId OR profile_user_id = @UserId OR @UserId = 1
@@ -1420,6 +1543,16 @@ namespace maxhanna.Server.Controllers
 
       try
       {
+        // Board membership guard: non-members can't attach files to a private-chat board post.
+        using (var authConn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+        {
+          await authConn.OpenAsync();
+          if (!await CanViewStoryAsync(authConn, request.StoryId, request.UserId))
+          {
+            return StatusCode(403, "You must be a member of this chat to edit its posts.");
+          }
+        }
+
         using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
         {
           await conn.OpenAsync();

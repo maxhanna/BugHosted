@@ -77,7 +77,7 @@
         </span>
       </div>
       <div style="display:flex; flex-wrap:wrap; gap: 15px;"
-        *ngIf="isStoryExpanded(story.id) && (compactness === 'no' || compactness === 'yes' || isExpanded('storyTextContainer'+story.id)) && (!hasOverflow('storyTextContainer'+story.id) || (isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id)))">
+        *ngIf="isStoryExpanded(story.id) && (compactness === 'no' || compactness === 'yes' || isExpanded('storyTextContainer'+story.id)) && (compactness === 'yes' || !hasOverflow('storyTextContainer'+story.id) || (isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id)))">
         <div *ngFor="let metadata of story?.metadata" class="metadataContent"
           (click)="goToLink(story, metadata.url)" title="Open link">
           <div class="metadataCardInner">

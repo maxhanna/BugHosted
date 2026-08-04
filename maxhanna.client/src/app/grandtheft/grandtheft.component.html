@@ -55,6 +55,28 @@
       {{ isMobile ? 'Tap to enter as passenger' : 'Press E to enter as passenger' }}
     </div>
 
+    <div id="gt-taxi-hail-prompt" *ngIf="nearTaxi && !taxiRideActive && !showTaxiDestinations" [style.pointer-events]="isMobile ? 'auto' : null" (click)="toggleCar()" (touchend)="$event.preventDefault(); toggleCar()">
+      {{ isMobile ? '🚕 Tap to hail taxi' : '🚕 Press E to hail taxi' }}
+    </div>
+
+    <div id="gt-taxi-destinations" *ngIf="showTaxiDestinations" (click)="showTaxiDestinations = false">
+      <div class="gt-taxi-dest-panel" (click)="$event.stopPropagation()">
+        <div class="gt-taxi-dest-title">🚕 Where to?</div>
+        <div class="gt-taxi-dest-option" *ngFor="let d of taxiDestinations" [style.pointer-events]="isMobile ? 'auto' : null"
+          (click)="selectTaxiDestination(d)" (touchend)="$event.preventDefault(); selectTaxiDestination(d)">
+          <span class="gt-taxi-dest-icon">{{ d.icon }}</span>
+          <span class="gt-taxi-dest-name">{{ d.name }}</span>
+        </div>
+        <div class="gt-taxi-dest-cancel" [style.pointer-events]="isMobile ? 'auto' : null" (click)="showTaxiDestinations = false">Cancel</div>
+      </div>
+    </div>
+
+    <div id="gt-taxi-ride" *ngIf="taxiRideActive">
+      <span *ngIf="taxiRidePhase === 'arriving'">🚕 Taxi arriving…</span>
+      <span *ngIf="taxiRidePhase === 'stopped'">🚕 You have arrived</span>
+      <span *ngIf="taxiRidePhase === 'departing'">🚕 Taxi driving away…</span>
+    </div>
+
     <div id="gt-hud">
       <div id="gt-speedometer">
         <span id="gt-speed-value">{{ hudSpeed | number: '1.0-0' }}</span>

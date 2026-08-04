@@ -27,6 +27,8 @@ export class CryptoTradeLogsComponent extends ChildComponent implements AfterVie
   totalLogs = 0;
   selectedCoin?: string;
   selectedStrategy?: string;
+  searchTerm = '';
+  private searchDebounceTimer: any = null;
   timeLeft = 120;
   defaultTimeLeft = 120;
   private tradeLogInterval: any = null;
@@ -51,7 +53,7 @@ export class CryptoTradeLogsComponent extends ChildComponent implements AfterVie
     this.stopTradeLogPolling();
   }
 
-  private async fetchTradeLogs(selectedCoin?: string, selectedStrategy?: string) {
+  private async fetchTradeLogs(selectedCoin?: string, selectedStrategy?: string, search?: string) {
     try {
       this.stopTradeLogPolling();
       this.startLoading();
@@ -65,7 +67,8 @@ export class CryptoTradeLogsComponent extends ChildComponent implements AfterVie
         strategy ?? this.selectedStrategy ?? "DCA",
         sessionToken,
         this.currentLogPage,
-        this.logsPerPage
+        this.logsPerPage,
+        search ?? this.searchTerm
       );
       this.tradeLogs = response.logs;
       this.totalLogs = response.total;
@@ -143,5 +146,22 @@ export class CryptoTradeLogsComponent extends ChildComponent implements AfterVie
     this.selectedCoin = coin;
     this.selectedStrategy = strategy;
     this.fetchTradeLogs(this.selectedCoin, this.selectedStrategy);
+  }
+
+  onSearchInput(event: Event) {
+    // Update the field synchronously so the [value] binding doesn't revert typing.
+    this.searchTerm = (event.target as HTMLInputElement).value;
+    clearTimeout(this.searchDebounceTimer);
+    this.searchDebounceTimer = setTimeout(() => {
+      this.currentLogPage = 1;
+      this.fetchTradeLogs();
+    }, 400);
+  }
+
+  clearLogSearch() {
+    clearTimeout(this.searchDebounceTimer);
+    this.searchTerm = '';
+    this.currentLogPage = 1;
+    this.fetchTradeLogs();
   }
 }

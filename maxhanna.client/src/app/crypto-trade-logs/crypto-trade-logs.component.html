@@ -14,6 +14,11 @@
                 <option value="IND">{{onMobile() ? 'IND' : 'Indicator'}}</option>
             </select>
         </div>
+        <div class="tradeLogSearchWrapper">
+            <input type="text" class="tradeLogSearchInput" placeholder="🔍 Search logs…"
+                [value]="searchTerm" (input)="onSearchInput($event)" />
+            <button *ngIf="searchTerm" class="tradeLogSearchClear" (click)="clearLogSearch()" title="Clear search">✕</button>
+        </div>
         <div class="xxSmallFont">
             Refresh in {{timeLeft}}s.
         </div>
@@ -53,8 +58,8 @@
         <tbody>
             <tr *ngFor="let log of tradeLogs">
                 <td>{{ log.comment }}</td>
-                <td class="xxSmallFont" [title]="inputtedParentRef.convertUtcToLocalTime(log.timestamp)">{{
-                    inputtedParentRef.convertUtcToLocalTime(log.timestamp) | timeSince }}</td>
+                <td class="xxSmallFont" [title]="inputtedParentRef.convertUtcToLocalTime(log.timestampUtc)">{{
+                    inputtedParentRef.convertUtcToLocalTime(log.timestampUtc) | timeSince }}</td>
             </tr>
         </tbody>
     </table>

@@ -49,6 +49,28 @@ namespace maxhanna.Server.Controllers
 				{
 					await conn.OpenAsync();
 
+					// Private-chat board guard: only chat members may comment on a
+					// story that lives on a private-chat board.
+					if (request.StoryId != null)
+					{
+						string storyChatSql = "SELECT chat_id FROM maxhanna.stories WHERE id = @StoryId LIMIT 1;";
+						int? storyChatId = null;
+						using (var storyChatCmd = new MySqlCommand(storyChatSql, conn))
+						{
+							storyChatCmd.Parameters.AddWithValue("@StoryId", request.StoryId.Value);
+							var chatIdObj = await storyChatCmd.ExecuteScalarAsync();
+							if (chatIdObj != null && chatIdObj != DBNull.Value && Convert.ToInt32(chatIdObj) > 0)
+							{
+								storyChatId = Convert.ToInt32(chatIdObj);
+							}
+						}
+						if (storyChatId != null
+							&& !await SocialController.CanViewChatBoardAsync(conn, storyChatId.Value, request.UserId))
+						{
+							return StatusCode(403, "You must be a member of this chat to comment on its posts.");
+						}
+					}
+
 					int insertedId = 0;
 
 					// Build dynamic column list for optional parent ids (file_id, story_id, comment_id)

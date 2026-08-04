@@ -22,6 +22,13 @@ export interface VisionReportResult {
   report: string;
 }
 
+export interface YoutubeDownloadResult {
+  fileId: number;
+  fileName: string;
+  title: string;
+  note: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -32,6 +39,8 @@ export class ConversionService {
   uploadFile(file: File, user?: User): Observable<any> {
     const formData = new FormData();
     formData.append('files', file);
+    formData.append('userId', user?.id ? String(user.id) : '0');
+    formData.append('isPublic', 'true');
 
     let dir = '';
     try {
@@ -72,6 +81,20 @@ export class ConversionService {
       if (!res.ok) return null;
       return await res.json();
     }).catch(() => null);
+  }
+
+  youtubeDownload(url: string, format: string, userId: number | undefined): Promise<YoutubeDownloadResult | null> {
+    return fetch('/conversion/youtubedownload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ Url: url, Format: format, UserId: userId })
+    }).then(async (res) => {
+      if (!res.ok) {
+        const errText = await res.text();
+        return { fileId: 0, fileName: '', title: '', note: errText || 'Download failed.' };
+      }
+      return await res.json();
+    }).catch(() => ({ fileId: 0, fileName: '', title: '', note: 'Download failed.' }));
   }
 }
 

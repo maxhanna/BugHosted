@@ -34,7 +34,7 @@ const WEAPON_DAMAGES = [10, 15, 25, 45, 100];
 const PLAYER_POLL_FAST_MS = 200;
 const PLAYER_POLL_SLOW_MS = 1000;
 const ENTER_CAR_DIST = 4;
-const HOOKER_SECLUDED_RADIUS = 50;
+const HOOKER_SECLUDED_RADIUS = 15;
 const HOOKER_HEAL_PER_SEC = 5;
 const HOOKER_MONEY_PER_SEC = 1;
 const HOOKER_MAX_MONEY = 80;
@@ -139,6 +139,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   _parkedSmokeTimers: { [id: number]: number } = {};
   private _respawnTimer: any = null;
   private _justRespawned = false;
+  // True once the server has returned its authoritative weapon/ammo state and we
+  // adopted it. Until then we DON'T send our default fists array on the first
+  // poll — otherwise a fresh page load would wipe DB-restored weapons before the
+  // server response (carrying them) ever reaches us.
+  private weaponsSynced = false;
   private _lastTrafficChunkX = 0;
   private _lastTrafficChunkZ = 0;
   isLoaded = false;
@@ -169,6 +174,19 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   taxiMarkers: { type: 'hail' | 'destination' | 'beam'; x: number; z: number; phase?: number }[] = [];
   taxiMode = false;
   taxiSearchCountdown = 0;
+  // Taxi passenger ride: pick a destination, a taxi drives in, you step out.
+  nearTaxi = false;
+  showTaxiDestinations = false;
+  taxiDestinations: { name: string; icon: string; x: number; z: number; yaw: number }[] = [];
+  taxiRideActive = false;
+  taxiRidePhase: 'arriving' | 'stopped' | 'departing' = 'arriving';
+  private taxiRideTimer = 0;
+  private taxiRideTaxi: any = null;
+  private taxiRideStartX = 0;
+  private taxiRideStartZ = 0;
+  private taxiRideStopX = 0;
+  private taxiRideStopZ = 0;
+  private taxiRideHidePlayer = false;
   taxiAttachedMeshes: { mesh: CityMesh | CityMesh[]; offsetX: number; offsetY: number; offsetZ: number; yaw: number; scale?: number }[] = [];
   private driverInCarMesh: { mesh: CityMesh | CityMesh[]; offsetX: number; offsetY: number; offsetZ: number; yaw: number; scale?: number } | null = null;
 
@@ -242,10 +260,24 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   vehicleName = '';
   vehicleBannerTimer = 0;
   wastedTimer = 0;
+  // Death-cam anchor: where the player died, so the camera can pan away into
+  // the sky without following a drifting car/body.
+  private _deathCamX = 0;
+  private _deathCamZ = 0;
   radioOn = false;
   radioSongs: string[] = [];
   altUpPressed = false;
   altDownPressed = false;
+  // Procedural Web Audio for the helicopter rotor (spool-up on the ground,
+  // silent in the air).
+  private _heliCtx: AudioContext | null = null;
+  private _heliOsc: OscillatorNode | null = null;
+  private _heliOsc2: OscillatorNode | null = null;
+  private _heliFilter: BiquadFilterNode | null = null;
+  private _heliGain: GainNode | null = null;
+  private _heliLfo: OscillatorNode | null = null;
+  private _heliLfoGain: GainNode | null = null;
+  private _heliSpool = 0;
   radioIndex = -1;
   radioSongTitle = '';
   private ytPlayer: any = null;
@@ -571,6 +603,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.stopNPCPolling();
     this.stopAutoFire();
     if (this.policeSirenSound) { this.policeSirenSound.pause(); this.policeSirenSound = null; }
+    this.stopHeliAudio();
     this.renderer?.clearCache();
     clearTimeout(this._chatClearTimer);
     this.remove_me("GrandTheftComponent")
@@ -666,6 +699,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         return;
       }
       this.exitCar();
+    } else if (this.nearTaxi) {
+      this.openTaxiDestinations();
     } else if (this.nearCar) {
       this.enterCar();
     } else {
@@ -874,7 +909,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           const chunk = this.renderer.getCityChunk(cxa + dxa, cza + dza);
           for (const da of chunk.decorativeAircraft) {
             const ddx = da.x - this.carX, ddz = da.z - this.carZ;
-            if (Math.sqrt(ddx * ddx + ddz * ddz) < ENTER_CAR_DIST) {
+            if (Math.sqrt(ddx * ddx + ddz * ddz) < this.aircraftEnterDist(da)) {
               this.carX = da.x; this.carZ = da.z; this.carYaw = da.yaw;
               this.camYaw = da.yaw;
               this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
@@ -989,8 +1024,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       return;
     }
     const side = this.getOtherPlayerCarSide();
-    this.showStealCarPrompt = (side === 'driver');
-    this.showEnterPassengerPrompt = (side === 'passenger');
+    // A taxi takes precedence — hail it instead of showing steal/enter prompts.
+    this.showStealCarPrompt = (side === 'driver' && !this.nearTaxi);
+    this.showEnterPassengerPrompt = (side === 'passenger' && !this.nearTaxi);
   }
 
   private tryEnterAsPassenger(): boolean {
@@ -1002,6 +1038,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.isPassenger = true;
         this.passengerOfUserId = op.userId;
         this.isInCar = false;
+        this.stopHeliAudio();
         this.carX = op.posX;
         this.carZ = op.posZ;
         this.carYaw = op.yaw;
@@ -1151,6 +1188,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.carX = GARAGE_ENTRANCE_X;
         this.carZ = GARAGE_ENTRANCE_Z + 3;
         this.stopRadio();
+        this.stopHeliAudio();
         return;
       }
     }
@@ -1167,6 +1205,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const bestRoofY = exitRoofY > carRoofY ? exitRoofY : carRoofY;
     this.carY = CAR_HEIGHT + (bestRoofY > exitTerrainY ? bestRoofY : exitTerrainY);
     this.isInCar = false; this.vehicleType = 'car';
+    this.stopHeliAudio();
     this.currentCarId = 0;
     this.camDist = 4; this.camHeight = 2;
     this.taxiMission = null;
@@ -1505,7 +1544,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.playerVehicleColor[2],
       this.isPassenger ? this.passengerOfUserId : 0,
       chatMsg,
-      this._justRespawned
+      this._justRespawned,
+      this.weaponsSynced ? this.ownedWeapons : undefined,
+      this.weaponsSynced ? this.ammo : undefined
     );
 
     if (res && res.evicted && this.isInCar) {
@@ -1534,6 +1575,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (res && res.ownedWeapons && !this._justRespawned) {
       this.ownedWeapons = res.ownedWeapons;
       this.ammo = res.ammo;
+      this.weaponsSynced = true;
     }
 
     if (res?.chatMessages) {
@@ -2524,7 +2566,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
 
 
-    if (this.isPassenger) {
+    if (this.health <= 0) {
+      // Dead — freeze the body so the death cam stays centered on the corpse.
+      // No movement, no vehicle updates; the render block below runs the pan.
+      this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+    } else if (this.taxiRideActive) {
+      // Riding a taxi — the player rides inside until it stops, so no movement.
+      this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+    } else if (this.isPassenger) {
       this.updatePassengerFollow();
     } else if (this.isInCar && this.vehicleType === 'boat') this.updateBoat(dt);
     else if (this.isInCar && this.vehicleType === 'helicopter') this.updateHelicopter(dt);
@@ -2573,6 +2622,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.updateNPCInterpolation();
     this.updatePoliceSiren();
+    this.updateTaxiRide(dt);
     this.updateTaxiMission(dt);
     this.updatePoliceMode(dt);
     this.updateDealershipMission(dt);
@@ -2735,11 +2785,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (!this._wasDead) {
         this._wasDead = true;
         this.wastedTimer = 3;
+        this._deathCamX = this.carX;
+        this._deathCamZ = this.carZ;
         this.dropMoneyAt(this.carX, this.carZ, this.money);
         this.money = 0;
         this.currentWeapon = 0;
         this.ownedWeapons = [true, false, false, false, false];
         this.ammo = [0, 0, 0, 0, 0];
+        // Abort any taxi ride — you can't finish it while dead.
+        this.taxiRideActive = false;
+        this.taxiRideTaxi = null;
+        this.taxiRideHidePlayer = false;
+        this.showTaxiDestinations = false;
       }
       if (this._wasDead && !this._respawnTimer) {
         this._respawnTimer = setTimeout(() => {
@@ -2762,7 +2819,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this._respawnTimer = null;
           this._justRespawned = true;
           setTimeout(() => { this._justRespawned = false; }, 3000);
-        }, 1500);
+        }, 3000);
       }
     } else {
       this._wasDead = false;
@@ -2783,11 +2840,24 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     const canvas = this.canvasRef.nativeElement;
     const aspect = canvas.width / canvas.height;
-    const targetX = this.carX, targetZ = this.carZ;
+    let targetX = this.carX, targetZ = this.carZ;
     let targetY = this.carY + (this.isInCar ? 0 : 1.2);
     let effectiveDist = this.camDist, effectiveHeight = this.camHeight;
 
-    if (this.firstPerson) {
+    // GTA-style death cam: while WASTED is on screen, the camera slowly rises
+    // from the body into the sky, pulling back and pitching down to keep the
+    // corpse centered as it climbs — like the classic GTA death sequence.
+    if (this.wastedTimer > 0 && this.health <= 0) {
+      const deathProgress = 1 - Math.max(0, this.wastedTimer) / 3; // 0 → 1
+      const eased = 1 - Math.pow(1 - deathProgress, 2); // ease-out climb
+      effectiveDist = 6 + 16 * eased;        // pull back 6 → 22
+      effectiveHeight = 3 + 11 * eased;      // rise 3 → 14
+      targetX = this._deathCamX;
+      targetZ = this._deathCamZ;
+      targetY = this.carY + 0.5;             // keep the body in frame
+      this.camPitch = 0.15 + 0.55 * eased;   // tilt down as we gain altitude
+      this.camYaw += dt * 0.08;              // slow cinematic drift
+    } else if (this.firstPerson) {
       effectiveDist = 0; effectiveHeight = 0;
       targetY = this.carY + (this.isInCar ? 0.3 : 1.5);
     }
@@ -2795,12 +2865,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const camX = targetX - Math.sin(this.camYaw) * effectiveDist;
     const camZ = targetZ - Math.cos(this.camYaw) * effectiveDist;
     const camY = targetY + effectiveHeight;
-    const renderMesh = this.isInCar ? this.playerVehicleMesh : (this.firstPerson ? null : this.renderer.playerMesh);
+    const renderMesh = this.isInCar ? this.playerVehicleMesh
+      : ((this.firstPerson || (this.taxiRideActive && this.taxiRideHidePlayer)) ? null : this.renderer.playerMesh);
     this._allNPCs.length = 0;
     for (const n of this.serverNPCs) this._allNPCs.push(n);
     for (const n of this.trafficCars) this._allNPCs.push(n);
     for (const n of this.airportLotCars) this._allNPCs.push(n);
     for (const n of this.policeModeThugCars) this._allNPCs.push(n);
+    if (this.taxiRideActive && this.taxiRideTaxi) this._allNPCs.push(this.taxiRideTaxi);
 
     this._allPeds.length = 0;
     for (const p of this.serverPedestrians) this._allPeds.push(p);
@@ -3182,6 +3254,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const heliFloorY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
     const heliMinY = heliRoofY > heliFloorY ? heliRoofY : heliFloorY;
     const grounded = this.carY <= heliMinY + 0.15;
+    if (!this._heliCtx) this.initHeliAudio();
+    this.updateHeliAudio(dt, grounded);
 
     if (!grounded) {
       if (this.isMobile && this.joystickActive) {
@@ -3203,6 +3277,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (this.keys.has('KeyW')) fwdInput = 1;
       if (this.keys.has('KeyS')) fwdInput = -1;
     }
+    // A grounded rotor can't push the airframe sideways — ignore throttle
+    // input until the skids lift off, and bleed off any residual drift.
+    if (grounded) {
+      fwdInput = 0;
+      this.carVx *= Math.max(0, 1 - 8 * dt);
+      this.carVz *= Math.max(0, 1 - 8 * dt);
+    }
     this.carPitch = -fwdInput * 0.25;
 
     const forwardX = Math.sin(this.carYaw), forwardZ = Math.cos(this.carYaw);
@@ -3222,6 +3303,85 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carSpeed = Math.hypot(this.carVx, this.carVz);
 
     if (this.carY < heliMinY) { this.carY = heliMinY; this.carVy = Math.max(0, this.carVy); }
+  }
+
+  // ---- Helicopter rotor audio (procedural Web Audio) ----
+  // A low sawtooth pair through a lowpass, amplitude-modulated by a slow LFO
+  // for the blade-beat "wop wop". Spools up while grounded + climbing, idles
+  // faintly on the ground, and silences once airborne so takeoff sounds
+  // distinct from cruise.
+  private initHeliAudio() {
+    if (this._heliCtx) return;
+    try {
+      const ctx = new AudioContext();
+      if (ctx.state === 'suspended') { try { ctx.resume(); } catch { } }
+      this._heliCtx = ctx;
+      this._heliFilter = ctx.createBiquadFilter();
+      this._heliFilter.type = 'lowpass';
+      this._heliFilter.frequency.value = 180;
+      this._heliFilter.Q.value = 1.5;
+      this._heliGain = ctx.createGain();
+      this._heliGain.gain.value = 0;
+      this._heliFilter.connect(this._heliGain);
+      this._heliGain.connect(ctx.destination);
+      this._heliOsc = ctx.createOscillator();
+      this._heliOsc.type = 'sawtooth';
+      this._heliOsc.frequency.value = 24;
+      this._heliOsc.connect(this._heliFilter);
+      this._heliOsc2 = ctx.createOscillator();
+      this._heliOsc2.type = 'sawtooth';
+      this._heliOsc2.frequency.value = 48;
+      this._heliOsc2.detune.value = 9;
+      const o2g = ctx.createGain();
+      o2g.gain.value = 0.45;
+      this._heliOsc2.connect(o2g);
+      o2g.connect(this._heliFilter);
+      // Slow LFO amplitude-modulates the master gain → the blade-beat "wop wop"
+      this._heliLfo = ctx.createOscillator();
+      this._heliLfo.type = 'sine';
+      this._heliLfo.frequency.value = 6;
+      this._heliLfoGain = ctx.createGain();
+      this._heliLfoGain.gain.value = 0;
+      this._heliLfo.connect(this._heliLfoGain);
+      this._heliLfoGain.connect(this._heliGain.gain);
+      this._heliOsc.start();
+      this._heliOsc2.start();
+      this._heliLfo.start();
+    } catch (e) {
+      this._heliCtx = null;
+    }
+  }
+
+  private updateHeliAudio(dt: number, grounded: boolean) {
+    if (!this._heliCtx) return;
+    if (this._heliCtx.state === 'suspended') { try { this._heliCtx.resume(); } catch { } }
+    // Grounded + throttle held → spool up; grounded idle → faint thrum;
+    // airborne → silence.
+    const climbing = this.altUpPressed;
+    const target = grounded ? (climbing ? 1 : 0.18) : 0;
+    this._heliSpool += (target - this._heliSpool) * Math.min(1, 4 * dt);
+    const s = this._heliSpool;
+    if (this._heliOsc) this._heliOsc.frequency.value = 22 + s * 24;
+    if (this._heliOsc2) this._heliOsc2.frequency.value = 44 + s * 48;
+    if (this._heliFilter) this._heliFilter.frequency.value = 140 + s * 400;
+    if (this._heliGain) this._heliGain.gain.value = s * 0.09;
+    if (this._heliLfo) this._heliLfo.frequency.value = 5 + s * 5;
+    if (this._heliLfoGain) this._heliLfoGain.gain.value = s * 0.03;
+  }
+
+  private stopHeliAudio() {
+    try {
+      for (const o of [this._heliOsc, this._heliOsc2, this._heliLfo]) {
+        if (o) { try { o.stop(); } catch { } try { o.disconnect(); } catch { } }
+      }
+      if (this._heliGain) { try { this._heliGain.disconnect(); } catch { } }
+      if (this._heliFilter) { try { this._heliFilter.disconnect(); } catch { } }
+      if (this._heliLfoGain) { try { this._heliLfoGain.disconnect(); } catch { } }
+      if (this._heliCtx) { try { this._heliCtx.close(); } catch { } }
+    } catch (e) { }
+    this._heliCtx = null; this._heliOsc = null; this._heliOsc2 = null;
+    this._heliFilter = null; this._heliGain = null; this._heliLfo = null;
+    this._heliLfoGain = null; this._heliSpool = 0;
   }
 
   private updatePlane(dt: number) {
@@ -3415,15 +3575,39 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     );
   }
 
+  /**
+   * Entry distance for a decorative aircraft (plane/helicopter). These are also
+   * registered as buildings for collision, and the collision box is derived from
+   * the model bounds × renderScale — which is much wider than ENTER_CAR_DIST for
+   * a plane (scale 2.25). Using the fixed 4-unit radius meant the player was
+   * pushed out of the plane's collision box before ever reaching the entry
+   * threshold, making planes impossible to enter. Match the real footprint so
+   * the player can walk up to the body and get in.
+   */
+  private aircraftEnterDist(da: any): number {
+    const models = Array.isArray(da.model) ? da.model : [da.model];
+    let maxHalf = 0;
+    for (const m of models) {
+      if (!m || m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined) continue;
+      const rs = m.renderScale ?? 1;
+      const hw = (m.maxX - m.minX) / 2 * rs;
+      const hd = (m.maxZ - m.minZ) / 2 * rs;
+      maxHalf = Math.max(maxHalf, hw, hd);
+    }
+    return Math.max(ENTER_CAR_DIST, maxHalf + 1.5);
+  }
+
   private checkNearCar() {
-    if (this.isInCar) { this.nearCar = false; return; }
+    if (this.isInCar) { this.nearCar = false; this.nearTaxi = false; return; }
     this.nearCar = [...this.serverNPCs, ...this.parkedCars].some(v => v.health > 0 && Math.sqrt((v.x - this.carX) ** 2 + (v.z - this.carZ) ** 2) < ENTER_CAR_DIST);
+    // Standing next to a taxi lets you ride it as a passenger.
+    this.nearTaxi = [...this.serverNPCs, ...this.parkedCars].some(v => v.type === 'taxi' && v.health > 0 && Math.sqrt((v.x - this.carX) ** 2 + (v.z - this.carZ) ** 2) < ENTER_CAR_DIST);
     if (!this.nearCar) {
       const cxa = Math.floor(this.carX / 80), cza = Math.floor(this.carZ / 80);
       for (let dza = -1; dza <= 1; dza++) {
         for (let dxa = -1; dxa <= 1; dxa++) {
           const chunk = this.renderer.getCityChunk(cxa + dxa, cza + dza);
-          if (chunk.decorativeAircraft.some(da => Math.hypot(da.x - this.carX, da.z - this.carZ) < ENTER_CAR_DIST)) {
+          if (chunk.decorativeAircraft.some(da => Math.hypot(da.x - this.carX, da.z - this.carZ) < this.aircraftEnterDist(da))) {
             this.nearCar = true;
             return;
           }
@@ -4011,6 +4195,106 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
     while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
     npc.yaw = npc.prevYaw + yawDiff * t;
+  }
+
+  // ── Taxi passenger ride (destination waypoints) ──────────────────────────
+  private nearestDealership(): { x: number; z: number; yaw: number } {
+    if (this.dealershipNPCs.length > 0) {
+      const dl = this.dealershipNPCs[0];
+      return { x: dl.x, z: dl.z, yaw: -Math.PI / 2 };
+    }
+    return { x: 960 + 18, z: -480 + 25, yaw: -Math.PI / 2 };
+  }
+
+  private openTaxiDestinations() {
+    if (this.taxiRideActive || this.isInCar || this.isPassenger) return;
+    const dealership = this.nearestDealership();
+    this.taxiDestinations = [
+      { name: 'Hospital', icon: '🏥', x: HOSPITAL_SPAWN_X, z: HOSPITAL_SPAWN_Z, yaw: HOSPITAL_SPAWN_YAW },
+      { name: 'Dealership', icon: '🚗', x: dealership.x, z: dealership.z, yaw: dealership.yaw },
+      { name: 'Garage', icon: '🔧', x: GARAGE_ENTRANCE_X, z: GARAGE_ENTRANCE_Z + 3, yaw: 0 },
+    ];
+    this.showTaxiDestinations = true;
+  }
+
+  private selectTaxiDestination(dest: { name: string; icon: string; x: number; z: number; yaw: number }) {
+    this.showTaxiDestinations = false;
+    if (this.isInCar || this.isPassenger) return;
+    // Taxi pulls up a few units short of the destination, then you step out.
+    const stopDist = 5;
+    const stopX = dest.x - Math.sin(dest.yaw) * stopDist;
+    const stopZ = dest.z - Math.cos(dest.yaw) * stopDist;
+    const terrainY = getTerrainHeight(stopX, stopZ);
+    const roofY = this.getBuildingRoofY(stopX, stopZ);
+    this.carX = stopX; this.carZ = stopZ;
+    this.carY = CAR_HEIGHT + (roofY > terrainY ? roofY : terrainY);
+    this.carYaw = dest.yaw;
+    this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+    this.camYaw = dest.yaw;
+    this.camPitch = 0.2;
+    this.camDist = 4; this.camHeight = 2;
+    this.isInCar = false;
+    this.isPassenger = false;
+    this.taxiRideActive = true;
+    this.taxiRidePhase = 'arriving';
+    this.taxiRideTimer = 0;
+    this.taxiRideHidePlayer = true; // riding inside until the taxi stops
+    this.taxiRideStartX = stopX + Math.sin(dest.yaw) * 60;
+    this.taxiRideStartZ = stopZ + Math.cos(dest.yaw) * 60;
+    this.taxiRideStopX = stopX; this.taxiRideStopZ = stopZ;
+    this.taxiRideTaxi = {
+      id: -900000 - Math.floor(Math.random() * 100000),
+      x: this.taxiRideStartX, z: this.taxiRideStartZ, yaw: dest.yaw,
+      mesh: this.renderer.getTaxiMesh(),
+      type: 'taxi', health: 1000, colorR: 1, colorG: 0.85, colorB: 0.1,
+    };
+  }
+
+  private updateTaxiRide(dt: number) {
+    if (!this.taxiRideActive || !this.taxiRideTaxi) return;
+    this.taxiRideTimer += dt;
+    const taxi = this.taxiRideTaxi;
+    if (this.taxiRidePhase === 'arriving') {
+      const dur = 3.0;
+      const t = Math.min(1, this.taxiRideTimer / dur);
+      const ease = 1 - Math.pow(1 - t, 3); // ease-out glide to the curb
+      taxi.x = this.taxiRideStartX + (this.taxiRideStopX - this.taxiRideStartX) * ease;
+      taxi.z = this.taxiRideStartZ + (this.taxiRideStopZ - this.taxiRideStartZ) * ease;
+      if (t >= 1) {
+        this.taxiRidePhase = 'stopped';
+        this.taxiRideTimer = 0;
+        // You step out beside the taxi.
+        this.taxiRideHidePlayer = false;
+        const angle = taxi.yaw - Math.PI / 2;
+        this.carX = taxi.x + Math.sin(angle) * 2.2;
+        this.carZ = taxi.z + Math.cos(angle) * 2.2;
+        const eT = getTerrainHeight(this.carX, this.carZ);
+        const eR = this.getBuildingRoofY(this.carX, this.carZ);
+        this.carY = CAR_HEIGHT + (eR > eT ? eR : eT);
+        this.carYaw = taxi.yaw;
+      }
+    } else if (this.taxiRidePhase === 'stopped') {
+      if (this.taxiRideTimer >= 1.2) {
+        this.taxiRidePhase = 'departing';
+        this.taxiRideTimer = 0;
+      }
+    } else if (this.taxiRidePhase === 'departing') {
+      const dur = 2.5;
+      const t = Math.min(1, this.taxiRideTimer / dur);
+      const ease = t * t; // accelerate away
+      taxi.x = this.taxiRideStopX + Math.sin(taxi.yaw) * 90 * ease;
+      taxi.z = this.taxiRideStopZ + Math.cos(taxi.yaw) * 90 * ease;
+      if (t >= 1) this.endTaxiRide();
+    }
+  }
+
+  private endTaxiRide() {
+    this.taxiRideActive = false;
+    this.taxiRideTaxi = null;
+    this.taxiRideHidePlayer = false;
+    this.taxiRidePhase = 'arriving';
+    this.taxiRideTimer = 0;
+    this.camDist = 4; this.camHeight = 2;
   }
 
   private updateTaxiMission(dt: number) {

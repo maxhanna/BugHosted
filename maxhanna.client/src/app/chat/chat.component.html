@@ -47,7 +47,7 @@
       </button>
       <div *ngIf="publicChatResults.length > 0" style="margin-top:8px;">
         <div *ngFor="let chat of publicChatResults" class="publicChatResultRow">
-          <span class="publicChatResultName">🌐 {{ chat.name }} <span class="smallFont">({{ chat.memberCount }} members)</span></span>
+          <span class="publicChatResultName">{{ chat.icon || '🌐' }} {{ chat.name }} <span class="smallFont">({{ chat.memberCount }} members)</span></span>
           <span class="publicChatResultActions">
             <button (click)="joinPublicChat(chat.chatId)" [disabled]="isJoiningPublicChat">Join</button>
             <button (click)="openSocialBoardFor(chat.chatId, chat.name)" title="Open this group's social board">📋 Board</button>
@@ -323,7 +323,7 @@
         </button>
         <div *ngIf="publicChatResults.length > 0" style="margin-top:8px; max-height: 180px; overflow:auto;">
           <div *ngFor="let chat of publicChatResults" style="margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
-            <span>🌐 {{ chat.name }} <span class="smallFont">({{ chat.memberCount }} members)</span></span>
+            <span>{{ chat.icon || '🌐' }} {{ chat.name }} <span class="smallFont">({{ chat.memberCount }} members)</span></span>
             <span>
               <button (click)="joinPublicChat(chat.chatId)" [disabled]="isJoiningPublicChat" style="margin-left:8px;">Join</button>
               <button (click)="openSocialBoardFor(chat.chatId, chat.name)" style="margin-left:6px;" title="Open this group's social board">📋 Board</button>

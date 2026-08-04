@@ -282,7 +282,9 @@ export class GrandtheftService {
     carColorR?: number, carColorG?: number, carColorB?: number,
     passengerOfUserId?: number,
     chatMessage?: string,
-    respawned?: boolean
+    respawned?: boolean,
+    ownedWeapons?: boolean[],
+    ammo?: number[]
   ): Promise<GTUpdatePositionResponse | null> {
     try {
       const body: any = { userId, worldId, posX, posY, posZ, yaw, pitch, carYaw, carSpeed, health, weapon, isShooting };
@@ -296,6 +298,8 @@ export class GrandtheftService {
       if (passengerOfUserId !== undefined) body.passengerOfUserId = passengerOfUserId;
       if (chatMessage !== undefined) body.chatMessage = chatMessage;
       if (respawned !== undefined) body.respawned = respawned;
+      if (ownedWeapons) body.ownedWeapons = ownedWeapons;
+      if (ammo) body.ammo = ammo;
       return await this.http.post<GTUpdatePositionResponse>(`${this.baseUrl}/updateposition`, body).toPromise() ?? null;
     } catch (e) {
       console.error('Error updating position', e);

@@ -51,8 +51,8 @@ export class TradeService {
       return error.message ?? 'Unexpected error';
     }
   }
-  async getTradeHistory(userId: number, encryptedUserId: string, coin?: string, strategy?: string, hours?: number, page?: number, pageSize?: number) {
-    return this.post(`/trade/gettradehistory`, { UserId: userId, Coin: coin ?? "XBT", Strategy: strategy ?? "DCA", Hours: hours, Page: page, PageSize: pageSize }, 'json', encryptedUserId);
+  async getTradeHistory(userId: number, encryptedUserId: string, coin?: string, strategy?: string, hours?: number, page?: number, pageSize?: number, search?: string) {
+    return this.post(`/trade/gettradehistory`, { UserId: userId, Coin: coin ?? "XBT", Strategy: strategy ?? "DCA", Hours: hours, Page: page, PageSize: pageSize, Search: search ?? '' }, 'json', encryptedUserId);
   }
   async getTradeById(userId: number, tradeId: number, encryptedUserId: string) {
     return this.post(`/trade/gettradebyid`, { UserId: userId, TradeId: tradeId }, 'json', encryptedUserId);
@@ -93,8 +93,8 @@ export class TradeService {
   async getTradeConfiguration(userId: number, encryptedUserId: string, from?: string, to?: string, strategy?: string) {
     return this.post(`/trade/getconfiguration`, { UserId: userId, FromCoin: from, ToCoin: to, Strategy: strategy }, 'json', encryptedUserId);
   }
-  async getTradeLogs(userId: number, coin: string, strategy: string, encryptedUserId: string, page: number, pageSize: number) {
-    return this.post(`/trade/gettradelogs`, { UserId: userId, Coin: coin, Strategy: strategy, Page: page, PageSize: pageSize }, 'json', encryptedUserId);
+  async getTradeLogs(userId: number, coin: string, strategy: string, encryptedUserId: string, page: number, pageSize: number, search?: string) {
+    return this.post(`/trade/gettradelogs`, { UserId: userId, Coin: coin, Strategy: strategy, Page: page, PageSize: pageSize, Search: search ?? '' }, 'json', encryptedUserId);
   }
   async getLastTradeLogs(userId: number, encryptedUserId: string) {
     return this.post(`/trade/getlasttradelogs`, userId, 'json', encryptedUserId);

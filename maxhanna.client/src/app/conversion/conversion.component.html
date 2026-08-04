@@ -27,7 +27,15 @@
     <p class="help-text">Images convert via ImageSharp; audio/video convert through FFmpeg. The result is saved to your files (Converted folder).</p>
     <div class="row">
       <select [(ngModel)]="targetFormat">
-        <option *ngFor="let f of targetFormats" [value]="f">{{ f }}</option>
+        <optgroup label="Images">
+          <option *ngFor="let f of imageFormats" [value]="f">{{ f }}</option>
+        </optgroup>
+        <optgroup label="Audio">
+          <option *ngFor="let f of audioFormats" [value]="f">{{ f }}</option>
+        </optgroup>
+        <optgroup label="Video">
+          <option *ngFor="let f of videoFormats" [value]="f">{{ f }}</option>
+        </optgroup>
       </select>
       <button (click)="convert()" [disabled]="isConverting || !selectedFile">
         {{ isConverting ? 'Converting…' : 'Convert' }}
@@ -72,5 +80,26 @@
       </button>
     </div>
     <div *ngIf="visionReport" class="result-box vision-report">{{ visionReport }}</div>
+  </section>
+
+  <section class="conversion-panel">
+    <h3>4. Download YouTube video</h3>
+    <p class="help-text">Paste a youtube.com or youtu.be link. MP4 grabs the best combined video stream; audio downloads the highest-quality soundtrack (M4A, or MP3 if FFmpeg is available on the server).</p>
+    <div class="row">
+      <input [(ngModel)]="youtubeUrl" placeholder="https://www.youtube.com/watch?v=…" />
+      <select [(ngModel)]="youtubeFormat">
+        <option value="mp4">MP4 (video)</option>
+        <option value="audio">Audio (M4A)</option>
+        <option value="mp3">Audio (MP3)</option>
+      </select>
+      <button (click)="downloadYoutube()" [disabled]="isDownloadingYoutube || !youtubeUrl">
+        {{ isDownloadingYoutube ? 'Downloading…' : 'Download' }}
+      </button>
+    </div>
+    <div *ngIf="youtubeResult" class="result-box">
+      <span class="result-file">{{ youtubeResult.fileName || youtubeResult.title }}</span>
+      <button *ngIf="youtubeResult.fileId > 0" class="link" (click)="downloadConverted(youtubeResult.fileId, youtubeResult.fileName)">Download</button>
+      <span *ngIf="youtubeResult.note" class="help-text">{{ youtubeResult.note }}</span>
+    </div>
   </section>
 </div>

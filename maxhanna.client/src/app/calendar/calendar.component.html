@@ -94,7 +94,7 @@
             <div>Type: <select id="calendarEditingType" (change)="hasEditedCalendarEntry = true">
                 <option *ngFor="let t of getEventTypes()" [selected]="t === cal.type">{{t}}</option>
               </select></div>
-            <div>Notify me:
+            <div *ngIf="calendarNotificationsEnabled">Notify me:
               <input id="calendarEditingReminder" type="number" min="0" step="5"
                 [value]="cal.reminder ?? 60" (input)="hasEditedCalendarEntry = true"
                 style="width:80px;" /> minutes before
@@ -121,7 +121,7 @@
           </ng-container>
         </select>
         <input #calendarTimeEntry type="time" value="00:00" class="saveEntryInput" />
-        <span class="saveEntryReminder">Notify me
+        <span class="saveEntryReminder" *ngIf="calendarNotificationsEnabled">Notify me
           <input #calendarReminderEntry type="number" min="0" step="5" value="60"
             class="saveEntryInput saveEntryReminderInput" title="Minutes before the event to send a notification" />
           min before</span>

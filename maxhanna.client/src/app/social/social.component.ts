@@ -82,6 +82,20 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
   groupChatUsers: User[] = [];
   isGroupMembersPanelOpen = false;
+  chatRoomDescription = '';
+  chatRoomIcon = '';
+  isChatRoomModerator = false;
+  isGroupInfoEditOpen = false;
+  editGroupName = '';
+  editGroupDescription = '';
+  editGroupIcon = '';
+  editGroupThemeId: number | null = null;
+  isSavingGroupInfo = false;
+  // Per-chat theme (shared with the chat window via chat_themes) applied to the board root.
+  boardThemes: any[] = [];
+  currentBoardThemeId: number | null = null;
+  isLoadingBoardTheme = false;
+  private roomCreatedBy?: number;
   private chatService = undefined as any;
 
   constructor(private socialService: SocialService,
@@ -90,7 +104,8 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     private fileService: FileService,
     private encryptionService: EncryptionService,
     private cd: ChangeDetectorRef,
-    private renderer: Renderer2
+    private renderer: Renderer2,
+    private elementRef: ElementRef
 ) {
     super();
   }
@@ -101,18 +116,183 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       const { ChatService } = await import('../../services/chat.service');
       const chatService = new (ChatService as any)();
       this.chatService = chatService;
-      if (!this.chatRoomName) {
-        const room = await chatService.getChatRoom(this.chatId);
-        if (room) {
-          this.chatRoomName = room.name;
-        }
+      const room = await chatService.getChatRoom(this.chatId);
+      if (room) {
+        // Server is the source of truth for the board header (title, description, icon, owner).
+        this.chatRoomName = room.name || this.chatRoomName || '';
+        this.chatRoomDescription = room.description ?? '';
+        this.chatRoomIcon = room.icon ?? '';
+        this.roomCreatedBy = room.createdBy;
       }
       const members = await chatService.getChatUsersByChatId(this.chatId);
       this.groupChatUsers = Array.isArray(members) ? members : [];
+      await this.refreshChatModeratorStatus();
+      this.loadBoardTheme();
+      this.loadBoardThemeOptions();
     } catch (ex) {
       console.warn('Failed to load group chat info', ex);
     }
   }
+
+  async refreshChatModeratorStatus() {
+    const me = this.parentRef?.user?.id ?? 0;
+    if (!me || !this.chatId) { this.isChatRoomModerator = false; return; }
+    if (this.roomCreatedBy === me) { this.isChatRoomModerator = true; return; }
+    try {
+      const { ModeratorService } = await import('../../services/moderator.service');
+      const moderatorService = new (ModeratorService as any)();
+      const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+      const roles = await moderatorService.getMyRoles(me, sessionToken);
+      this.isChatRoomModerator = roles.some((r: any) =>
+        (r.targetType === 'chat' && r.role === 'chat_moderator' && r.targetId === this.chatId) ||
+        (r.targetType === 'global' && (r.role === 'admin' || r.role === 'moderator'))
+      );
+    } catch (ex) {
+      this.isChatRoomModerator = false;
+    }
+  }
+
+  /** Applies the chat's saved theme to this board by setting scoped CSS vars on
+   *  the component's host element (same theme the chat window uses). */
+  async applyBoardTheme(ut: any | null) {
+    const host = this.elementRef?.nativeElement as HTMLElement | null;
+    if (!host) return;
+    const resetVars = () => {
+      const keys = [
+        '--main-background-image-url', '--main-bg-color', '--main-background-color',
+        '--component-background-color', '--secondary-component-background-color',
+        '--main-font-color', '--secondary-font-color', '--third-font-color',
+        '--main-highlight-color', '--main-highlight-color-quarter-opacity',
+        '--main-link-color', '--main-font-family', '--main-font-size', '--main-border-color'
+      ];
+      for (const k of keys) host.style.removeProperty(k);
+      host.style.backgroundImage = 'none';
+    };
+    if (!ut) { resetVars(); return; }
+    resetVars();
+
+    let directLink: string | null = null;
+    try {
+      const bg = ut.backgroundImage;
+      if (bg?.id) {
+        const fe = await this.fileService.getFileEntryById(bg.id, this.parentRef?.user?.id, this.parentRef?.fileCache);
+        if (fe?.fileName) {
+          const dir = this.parentRef?.getDirectoryName(fe);
+          const parts = ['assets', 'Uploads', dir && dir !== '.' ? dir : undefined, fe.fileName].filter(Boolean);
+          directLink = `https://bughosted.com/${parts.map(s => encodeURIComponent(s as string)).join('/')}`;
+        }
+      }
+    } catch (e) { /* non-fatal */ }
+    if (directLink) {
+      host.style.setProperty('--main-background-image-url', `url("${directLink}")`);
+      host.style.backgroundImage = `url("${directLink}")`;
+    } else {
+      host.style.setProperty('--main-background-image-url', 'none');
+    }
+
+    const apply = (v: string | null | undefined, prop: string) => { if (v) host.style.setProperty(prop, v); };
+    apply(ut.backgroundColor, '--main-bg-color');
+    apply(ut.backgroundColor, '--main-background-color');
+    apply(ut.componentBackgroundColor, '--component-background-color');
+    apply(ut.secondaryComponentBackgroundColor, '--secondary-component-background-color');
+    apply(ut.fontColor, '--main-font-color');
+    apply(ut.secondaryFontColor, '--secondary-font-color');
+    apply(ut.thirdFontColor, '--third-font-color');
+    apply(ut.mainHighlightColor, '--main-highlight-color');
+    apply(ut.mainHighlightColor, '--main-border-color');
+    apply(ut.mainHighlightColorQuarterOpacity, '--main-highlight-color-quarter-opacity');
+    apply(ut.linkColor, '--main-link-color');
+    apply(ut.fontFamily, '--main-font-family');
+    if (ut.fontSize) host.style.setProperty('--main-font-size', typeof ut.fontSize === 'number' ? `${ut.fontSize}px` : ut.fontSize);
+    // Derive an rgb() triplet so elements using --main-highlight-color-rgb match.
+    if (ut.mainHighlightColor) {
+      const rgb = this.hexToRgb(ut.mainHighlightColor);
+      if (rgb) host.style.setProperty('--main-highlight-color-rgb', rgb);
+    }
+  }
+
+  private hexToRgb(value: string): string | null {
+    let hex = value.trim().replace(/^#/, '');
+    if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+    if (!/^[0-9a-fA-F]{6}$/.test(hex)) return null;
+    const n = parseInt(hex, 16);
+    return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+  }
+
+  /** Loads the chat's saved theme (chat_themes) and applies it to this board. */
+  async loadBoardTheme() {
+    if (!this.chatId || this.isLoadingBoardTheme) return;
+    this.isLoadingBoardTheme = true;
+    try {
+      const res = await this.chatService.getChatTheme(this.chatId);
+      if (res?.userTheme) {
+        this.currentBoardThemeId = res.userTheme.id;
+        await this.applyBoardTheme(res.userTheme);
+      } else {
+        this.currentBoardThemeId = null;
+        await this.applyBoardTheme(null);
+      }
+    } catch (ex) {
+      console.warn('Failed to load board theme', ex);
+    } finally {
+      this.isLoadingBoardTheme = false;
+    }
+  }
+
+  /** Loads the theme catalogue for the picker in the edit popup. */
+  async loadBoardThemeOptions() {
+    try {
+      const res = await this.userService.getAllThemes();
+      if (res) this.boardThemes = res;
+    } catch (ex) {
+      console.warn('Failed to load board theme options', ex);
+    }
+  }
+
+  openGroupInfoEditor() {
+    this.editGroupName = this.chatRoomName || '';
+    this.editGroupDescription = this.chatRoomDescription || '';
+    this.editGroupIcon = this.chatRoomIcon || '';
+    this.editGroupThemeId = this.currentBoardThemeId;
+    this.isGroupInfoEditOpen = true;
+  }
+
+  async saveGroupInfo() {
+    if (!this.chatId || this.isSavingGroupInfo) return;
+    const me = this.parentRef?.user?.id ?? 0;
+    if (!me) return;
+    this.isSavingGroupInfo = true;
+    try {
+      const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+      const ok = await this.chatService.updateChatRoomInfo(this.chatId, this.editGroupName, this.editGroupDescription, this.editGroupIcon, me, sessionToken);
+      if (ok) {
+        if (this.editGroupName.trim()) this.chatRoomName = this.editGroupName.trim();
+        this.chatRoomDescription = this.editGroupDescription.trim();
+        this.chatRoomIcon = this.editGroupIcon.trim();
+        // Save the board theme selection (shared per-chat theme in chat_themes).
+        const themeId = this.editGroupThemeId;
+        const themeRes = await this.chatService.setChatTheme(this.chatId, '', themeId);
+        if (themeRes !== null) {
+          this.currentBoardThemeId = themeId;
+          const ut = themeId ? (this.boardThemes.find(t => t.id === themeId) ?? null) : null;
+          await this.applyBoardTheme(ut);
+        }
+        this.isGroupInfoEditOpen = false;
+        this.parentRef?.showNotification('Room info updated.');
+      } else {
+        this.parentRef?.showNotification('Failed to update room info.');
+      }
+    } catch (ex) {
+      this.parentRef?.showNotification('Failed to update room info.');
+    } finally {
+      this.isSavingGroupInfo = false;
+    }
+  }
+
+  onEditGroupNameInput(value: string) { this.editGroupName = value; }
+  onEditGroupDescriptionInput(value: string) { this.editGroupDescription = value; }
+  onEditGroupIconInput(value: string) { this.editGroupIcon = value; }
+  onEditGroupThemeChange(value: string) { this.editGroupThemeId = value ? +value : null; }
 
   openGroupChat() {
     if (!this.chatId) return;

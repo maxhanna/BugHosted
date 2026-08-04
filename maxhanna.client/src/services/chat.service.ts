@@ -149,6 +149,7 @@ export class ChatService {
         body: JSON.stringify(payload),
       });
 
+      if (!response.ok) return null;
       return await response.text();
     } catch (error) {
       return null;
@@ -251,6 +252,19 @@ export class ChatService {
       return await response.json() as PublicChatInfo;
     } catch (error) {
       return null;
+    }
+  }
+
+  async updateChatRoomInfo(chatId: number, name: string, description: string, icon: string, userId: number, encryptedUserId: string): Promise<boolean> {
+    try {
+      const response = await fetch(`/chat/updateroominfo`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': encryptedUserId },
+        body: JSON.stringify({ ChatId: chatId, Name: name, Description: description, Icon: icon, UserId: userId }),
+      });
+      return response.ok;
+    } catch (error) {
+      return false;
     }
   }
 

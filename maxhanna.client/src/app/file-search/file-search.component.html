@@ -171,7 +171,7 @@
                   [showCommentSectionOnLoad]="fileId ? true:false || showCommentsInOpenedFiles.includes(file.id)"
                   [showCommentSectionHeader]="fileSearchMode ? false : displayComments" [showTopics]="showTopics"
                   [inputtedParentRef]="parentRef" [canScroll]="fileId ? true : false" [displayExpander]="false"
-                  [displayExtraInfo]="false" [commentId]="commentId" [displayLoading]="true"
+                  [displayExtraInfo]="false" [commentId]="commentId" [displayLoading]="true" [showMediaLoading]="true"
                   (emittedNotification)="emittedNotification($event)"
                   (commentHeaderClickedEvent)="addOrRemoveIdFromOpenedComments(file.id, $event)"
                   (expandClickedEvent)="expandClickedEvent.emit($event)" (topicClickedEvent)="fileTopicClicked($event)"
@@ -189,8 +189,8 @@
                 <!-- Show image thumbnail for image/media files -->
                 <ng-container *ngIf="!file.isFolder && isMediaFile(file.fileName)">
                   <app-media-viewer [fileId]="file.id" [displayExpander]="false" [displayExtraInfo]="false"
-                    [displayLoading]="false" [autoplay]="false" [showCommentSection]="false" [showTopics]="false"
-                    [blockExpand]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef"
+                    [displayLoading]="false" [showMediaLoading]="true" [autoplay]="false" [showCommentSection]="false"
+                    [showTopics]="false" [blockExpand]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef"
                     (videoMetadataEvent)="onVideoMetadataEvent($event)">
                   </app-media-viewer>
                 </ng-container>
@@ -1045,8 +1045,8 @@
  </div>
  <div class="imagePreviewContainer gridMediaExpandContainer">
  <app-media-viewer [fileId]="gridMediaFile.id" [autoplay]="true" [displayExpander]="false"
- [displayExtraInfo]="false" [displayLoading]="true" [showCommentSection]="false" [showTopics]="false"
- [blockExpand]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef">
+ [displayExtraInfo]="false" [displayLoading]="true" [showMediaLoading]="true" [showCommentSection]="false"
+ [showTopics]="false" [blockExpand]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef">
  </app-media-viewer>
  </div>
  <div class="popupPanelActions">

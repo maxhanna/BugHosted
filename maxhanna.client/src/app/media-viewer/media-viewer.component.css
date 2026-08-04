@@ -73,6 +73,14 @@
   object-fit: contain;
 }
 
+.mediaLoadingSpinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  min-width: 100%;
+}
+
 .displayExpander {
   font-size: 8px;
 }

@@ -43,6 +43,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() inputtedParentRef?: AppComponent;
   @Input() isLoadedFromURL = false;
   @Input() showMediaInformation = false;
+  @Input() showMediaLoading = false;
   @Input() commentId?: number;
 
   @Output() emittedNotification = new EventEmitter<string>();

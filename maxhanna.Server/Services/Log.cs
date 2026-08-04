@@ -39,7 +39,7 @@ public class Log
 
 
 
-  public async Task<List<LogDto>> GetLogs(int? userId = null, string? component = null, int limit = 1000, string keywords = "", int page = 1, CancellationToken ct = default)
+  public async Task<List<LogDto>> GetLogs(int? userId = null, string? component = null, int limit = 1000, string keywords = "", int page = 1, string? search = null, CancellationToken ct = default)
   {
     var list = new List<LogDto>(limit);
     int offset = (page - 1) * limit;
@@ -58,6 +58,11 @@ public class Log
     if (hasKeywords)
     {
       sb.AppendLine("  AND comment LIKE CONCAT('%', @Keywords, '%')");
+    }
+    bool hasSearch = !string.IsNullOrWhiteSpace(search);
+    if (hasSearch)
+    {
+      sb.AppendLine("  AND comment LIKE CONCAT('%', @Search, '%')");
     }
     sb.AppendLine("ORDER BY id DESC");
     sb.AppendLine("LIMIT @Limit OFFSET @Offset");
@@ -86,6 +91,10 @@ public class Log
       {
         cmd.Parameters.Add("@Keywords", MySqlDbType.Text).Value = keywords;
       }
+      if (hasSearch)
+      {
+        cmd.Parameters.Add("@Search", MySqlDbType.Text).Value = search;
+      }
       await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleResult | CommandBehavior.SequentialAccess, ct);
 
       // Resolve ordinals once
@@ -113,7 +122,7 @@ public class Log
     return list;
   } 
   
-  public async Task<int> GetLogsCount(int? userId = null, string? component = null, string keywords = "")
+  public async Task<int> GetLogsCount(int? userId = null, string? component = null, string keywords = "", string? search = null)
   {
     var sql = new StringBuilder("SELECT COUNT(*) FROM maxhanna.logs WHERE 1=1");
 
@@ -129,6 +138,10 @@ public class Log
   
     if (!string.IsNullOrEmpty(keywords)) {
       sql.Append(" AND comment LIKE CONCAT('%', @Keywords, '%') ");
+    }
+
+    if (!string.IsNullOrWhiteSpace(search)) {
+      sql.Append(" AND comment LIKE CONCAT('%', @Search, '%') ");
     }
 
     try
@@ -148,6 +161,10 @@ public class Log
       if (!string.IsNullOrEmpty(keywords))
       {
         cmd.Parameters.AddWithValue("@Keywords", keywords);
+      }
+      if (!string.IsNullOrWhiteSpace(search))
+      {
+        cmd.Parameters.AddWithValue("@Search", search);
       }
 
       var result = await cmd.ExecuteScalarAsync();

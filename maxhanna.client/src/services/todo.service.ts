@@ -110,6 +110,11 @@ export class TodoService {
         body: JSON.stringify({ id: id, content: content, url: url, fileId: fileId }),
       });
 
+      // A non-2xx response is a negative result — surface it as null so the
+      // caller can detect failure instead of treating an error body as success.
+      if (!response.ok) {
+        return null;
+      }
       return await response.text();
     } catch (error) {
       return null;
@@ -125,6 +130,9 @@ export class TodoService {
         body: JSON.stringify({ id: id, content: content, url: url }),
       });
 
+      if (!response.ok) {
+        return null;
+      }
       return await response.text();
     } catch (error) {
       return null;

@@ -74,6 +74,7 @@ const PROXY_CONFIG = [
       "/bughosted",
       "/grandtheft",
       "/recipe",
+      "/conversion",
       "/healthtracker",
       "/paint",
       "/moderator",

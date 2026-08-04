@@ -1,7 +1,6 @@
 import { AfterViewInit, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { RacingRenderer, TrackPoint } from './racing-renderer';
-import { MidiPlayer } from './midi-player';
 import { RacingService } from '../../services/racing.service';
 import { RacingHubService, LobbyPlayer, RemoteCarPosition } from '../../services/racing-hub.service';
 import {
@@ -209,8 +208,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private _crowdFilter: BiquadFilterNode | null = null;
   private _crowdFilter2: BiquadFilterNode | null = null;
   private _crowdGain: GainNode | null = null;
-  // Title-screen music — plays the .mid file (topgun.mid) while in the menu.
-  private _midiPlayer: MidiPlayer | null = null;
   private _nextCrowdFxAt = 0;
   private static readonly GRANDSTAND_FRACS = [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875];
   private static readonly CROWD_REACH = 55;
@@ -240,6 +237,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private static readonly REMOTE_AUDIBLE = 55;
   private static readonly MAX_REMOTE_VOICES = 10;
   podiumData: { playerName: string; totalTime: number; moneyEarned: number }[] = [];
+  // Full final standings shown on the results screen: every bot, remote player
+  // and the local player ordered by total distance at the moment the race ended.
+  finalStandings: { position: number; name: string; isBot: boolean; isPlayer: boolean; color: string; laps: number }[] = [];
   private _baseFov = 1.1;
   screenShake = 0;
   isRaining = false;
@@ -485,7 +485,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
     this.racingHub.disconnect();
     this._mpSubs.forEach(s => s.unsubscribe());
-    if (this._midiPlayer) { this._midiPlayer.stop(); this._midiPlayer = null; }
     this.stopEngineAudio();
     document.removeEventListener('keydown', () => { });
     document.removeEventListener('keyup', () => { });
@@ -784,6 +783,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._wrongWayTimer = 0;
     this._wrongWayShown = false;
     this.messages = [];
+    this.finalStandings = [];
     this._raceFinished = false;
     this._mpFinished = false;
     const startP = this.renderer.getTrackPointAlong(0);
@@ -956,6 +956,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._wrongWayTimer = 0;
     this._wrongWayShown = false;
     this.messages = [];
+    this.finalStandings = [];
     this._raceFinished = false;
     this._mpFinished = false;
     const startP = this.renderer.getTrackPointAlong(0);
@@ -1019,7 +1020,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       }
     }
     this.updateEngineAudio();
-    this.updateMenuMusic();
     if (this.renderer && this.isLoaded) {
       const aspect = this.canvasRef.nativeElement.width / this.canvasRef.nativeElement.height;
       const eyeY = 0.5;
@@ -1484,6 +1484,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this._mpFinished = true;
       this.racingHub.finishRace(this._mpLobbyTrackId, this.racePosition, totalTime);
     }
+    this.buildFinalStandings();
     this.gameState = 'finished';
     const basePrize = this.selectedTrack?.prizePool || 300;
     const positionMultiplier = Math.max(0.1, 1 - (this.racePosition - 1) * 0.15);
@@ -1528,6 +1529,44 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.racingService.submitRaceResult(this.parentRef?.user?.id ?? 0, result);
     await this.loadLeaderboard();
     this.recordRankMovement();
+  }
+
+  /** Snapshot every racer's progress at the moment the player crosses the line
+   *  and sort into the final classification shown on the results screen. */
+  private buildFinalStandings() {
+    const trackLen = this.renderer.totalTrackDist;
+    const palette = ['#e53935', '#4a9eff', '#4caf50', '#ffd600', '#9c27b0', '#ff9800', '#00bcd4', '#e91e63'];
+    const racers: { name: string; isBot: boolean; isPlayer: boolean; color: string; dist: number; laps: number }[] = [];
+    for (const b of this.bots) {
+      if (!b.alive) continue;
+      racers.push({
+        name: b.name, isBot: true, isPlayer: false,
+        color: palette[b.color % palette.length],
+        dist: b.raceDist,
+        laps: b.lap,
+      });
+    }
+    this.remoteCars.forEach(rc => {
+      racers.push({
+        name: rc.playerName, isBot: false, isPlayer: false,
+        color: `rgb(${Math.round(rc.colorR * 255)}, ${Math.round(rc.colorG * 255)}, ${Math.round(rc.colorB * 255)})`,
+        dist: rc.lap * trackLen + rc.distance,
+        laps: rc.lap,
+      });
+    });
+    racers.push({
+      name: this.playerCar.playerName?.trim() || this.parentRef?.user?.username || 'Player',
+      isBot: false, isPlayer: true, color: '#ffffff',
+      dist: this.currentLap * trackLen + this.carDist,
+      laps: this.currentLap,
+    });
+    racers.sort((a, b) => b.dist - a.dist);
+    this.finalStandings = racers.map((r, i) => ({
+      position: i + 1, name: r.name, isBot: r.isBot, isPlayer: r.isPlayer,
+      color: r.color,
+      // Bots keep lapping past the checkered flag — cap the column at the race length.
+      laps: Math.min(r.laps, this.totalLaps),
+    }));
   }
 
   // Compares the user's current leaderboard rank against the rank stored from
@@ -1688,6 +1727,13 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   async toggleLeaderboard() {
     this.showLeaderboard = !this.showLeaderboard;
     if (this.showLeaderboard) await this.loadLeaderboard();
+  }
+  // Name of the circuit a leaderboard row belongs to. Rows are filtered to the
+  // selected track server-side, but we resolve per-row (via r.trackId when the
+  // row carries one) so the label stays correct for every entry.
+  getLeaderboardRaceName(r: RaceResult): string {
+    const track = this.trackDefs.find(t => t.id === r.trackId) || this.selectedTrack;
+    return track ? `${this.getTrackFlag(track)} ${track.name}` : 'Race';
   }
   async saveCar() {
     await this.racingService.savePlayerCar(this.playerCar);
@@ -2050,28 +2096,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.stopEngineAudio();
     }
   }
-  // Idempotent title-screen music driver — called every frame. Starts the MIDI
-  // player when the menu + sound are active and an audio context exists, stops
-  // it the moment the player leaves the menu, mutes sound, or tears down. It
-  // only acts on state changes, so per-frame cost is negligible.
-  private updateMenuMusic() {
-    const shouldPlay = this.soundOn && !!this._audioCtx && this.gameState === 'menu';
-    if (shouldPlay && !this._midiPlayer) {
-      try {
-        const player = new MidiPlayer(this._audioCtx!);
-        this._midiPlayer = player;
-        player.load('/assets/grandprix/topgun.mid').then(() => {
-          if (this._midiPlayer === player) player.play();
-        }).catch(() => { if (this._midiPlayer === player) this._midiPlayer = null; });
-      } catch { this._midiPlayer = null; }
-    } else if (!shouldPlay && this._midiPlayer) {
-      this._midiPlayer.stop();
-      this._midiPlayer = null;
-    }
-  }
-
   private stopEngineAudio() {
-    if (this._midiPlayer) { this._midiPlayer.stop(); this._midiPlayer = null; }
     try {
       for (const osc of [this._subOsc, this._engineOsc, this._engineOsc2, this._harmOsc, this._thrumLfo]) {
         if (osc) { try { osc.stop(); } catch { } osc.disconnect(); }

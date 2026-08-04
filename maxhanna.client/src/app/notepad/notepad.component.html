@@ -51,9 +51,22 @@
     *ngIf="splitNoteOwnershipUsers && splitNoteOwnershipUsers.length > 0">
     <span class="sharedWithLabel">Shared With:</span>
     <div class="sharedWithUsers">
-      <div *ngFor="let user of splitNoteOwnershipUsers">
-        <app-user-tag [user]="user" [inputtedParentRef]="parentRef" [displayMiniTag]="true"></app-user-tag>
-      </div>
+      <ng-container *ngFor="let user of splitNoteOwnershipUsers; let i = index">
+        <div class="sharedWithUserChip"
+          *ngIf="showAllCollaborators || i < MAX_COLLAPSED_COLLABORATORS">
+          <app-user-tag [user]="user" [inputtedParentRef]="parentRef"
+            [displayOnlyAvatar]="!showAllCollaborators"
+            [displayMiniTag]="showAllCollaborators"></app-user-tag>
+          <button *ngIf="isOriginalOwner()" class="sharedWithUnshareButton"
+            title="Remove {{ user.username }} from this note"
+            (click)="user.id && unshareUser(user.id)">✕</button>
+        </div>
+      </ng-container>
+      <button *ngIf="!showAllCollaborators && splitNoteOwnershipUsers.length > MAX_COLLAPSED_COLLABORATORS"
+        class="sharedWithMoreButton" (click)="showAllCollaborators = true"
+        title="Show all {{ splitNoteOwnershipUsers.length }} collaborators">
+        +{{ splitNoteOwnershipUsers.length - MAX_COLLAPSED_COLLABORATORS }} more
+      </button>
     </div>
   </div>
 
@@ -68,7 +81,13 @@
   <div #notesCarousel [style.gap]="isCarouselPopped ? '5px' : ''"
     [class]="isCarouselPopped ? 'popupPanel poppedUpCarouselleArea' : 'notesCarousel'" (wheel)="onNotesWheel($event)">
     <div [class]="isCarouselPopped ? 'poppedUpCarouselleArea poppedUpCarouselleList' : ''">
-      <label *ngFor="let note of notes" (click)="getNote(note.id!); closeCarouselPopup();">{{ note.note }}</label>
+      <label *ngFor="let note of notes" (click)="getNote(note.id!); closeCarouselPopup();" class="noteCard">
+        <span class="noteCardSharedBadge" *ngIf="getNoteSharedCount(note) > 0"
+          title="Shared with {{ getNoteSharedCount(note) }} other{{ getNoteSharedCount(note) === 1 ? '' : 's' }}">
+          👥 {{ getNoteSharedCount(note) }}
+        </span>
+        {{ note.note }}
+      </label>
     </div>
     <button *ngIf="isCarouselPopped" class="closeButton" (click)="closeCarouselPopup()" id="closeOverlay">Close</button>
   </div>
