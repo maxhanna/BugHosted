@@ -4217,7 +4217,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.showTaxiDestinations = true;
   }
 
-  private selectTaxiDestination(dest: { name: string; icon: string; x: number; z: number; yaw: number }) {
+  selectTaxiDestination(dest: { name: string; icon: string; x: number; z: number; yaw: number }) {
     this.showTaxiDestinations = false;
     if (this.isInCar || this.isPassenger) return;
     // Taxi pulls up a few units short of the destination, then you step out.
