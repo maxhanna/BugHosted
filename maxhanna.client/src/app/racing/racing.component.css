@@ -1413,6 +1413,11 @@
 
 /* ── Responsive: Mobile Garage ── */
 @media (max-width: 768px), (pointer: coarse) {
+  .garage-mp-strip {
+    padding: 8px 14px;
+    gap: 10px;
+  }
+
   .garage-layout {
     flex-direction: column;
   }
