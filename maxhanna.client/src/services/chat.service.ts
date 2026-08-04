@@ -184,11 +184,14 @@ export class ChatService {
       return null;
     }
   }
-  async makeChatPublic(chatId: number, name: string, userId: number): Promise<boolean> {
+  async makeChatPublic(chatId: number, name: string, userId: number, encryptedUserId: string): Promise<boolean> {
     try {
       const response = await fetch(`/chat/makepublic`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Encrypted-UserId': encryptedUserId
+         },
         body: JSON.stringify({ ChatId: chatId, Name: name, UserId: userId }),
       });
       return response.ok;

@@ -85,10 +85,6 @@
             <option value="Private">Private</option>
           </select>
         </label>
-        <label>
-          File name:
-          <input type="text" [(ngModel)]="fileName" class="fileNameInput" placeholder="painting.png" />
-        </label>
       </span>
     </div>
   </div>
@@ -103,9 +99,17 @@
 
     <!-- File tab -->
     <div *ngIf="menuTab === 'file'">
+      <div class="menuSection">
+        <div class="menuSectionTitle">File Name</div>
+        <p class="menuHint">Name your painting — used when saving and downloading.</p>
+        <div class="menuRow">
+          <input type="text" [(ngModel)]="fileName" class="fileNameInput" placeholder="painting.png" />
+        </div>
+      </div>
+      <div class="menuSeparator"></div>
       <div class="menuRow">
         <input #fileInput type="file" accept="image/*" (change)="loadImageFromFile($event)" style="display:none" />
-        <button (click)="savePainting()">💾 Save</button>
+        <button (click)="savePainting()" [disabled]="!parentRef?.user?.id" [title]="!parentRef?.user?.id ? 'You must sign in to use this feature.' : 'Save to BugHosted server in your user upload folder.'">💾 Save</button>
         <button (click)="downloadPainting()">📤 Download</button>
         <button (click)="fileInput.click()">📂 Open</button>
         <app-media-selector #mediaSelector

@@ -40,9 +40,66 @@ public class PaintController : ControllerBase
       var base64Data = match.Groups[2].Value;
       var bytes = Convert.FromBase64String(base64Data);
 
-      var uploadDir = Path.Combine(_baseTarget, "Paint").Replace("\\", "/");
+      var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+
+      // Save into the user's personal folder (Users/[username]), matching how
+      // regular user file uploads are stored (see UserController).
+      var username = request.UserId.ToString();
+      try
+      {
+        using (var nameConn = new MySqlConnection(connStr))
+        {
+          await nameConn.OpenAsync();
+          var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @uid LIMIT 1;", nameConn);
+          nameCmd.Parameters.AddWithValue("@uid", request.UserId);
+          var nameResult = await nameCmd.ExecuteScalarAsync();
+          if (nameResult != null && !string.IsNullOrWhiteSpace(nameResult.ToString()))
+          {
+            username = nameResult.ToString()!;
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        await _log.Db($"Paint: failed to resolve username, falling back to userId: {ex.Message}", request.UserId, "PAINT", true);
+      }
+
+      var usersRoot = Path.Combine(_baseTarget, "Users").Replace("\\", "/");
+      if (!usersRoot.EndsWith("/")) usersRoot += "/";
+      var uploadDir = Path.Combine(usersRoot, username).Replace("\\", "/");
       if (!uploadDir.EndsWith("/")) uploadDir += "/";
       if (!Directory.Exists(uploadDir)) Directory.CreateDirectory(uploadDir);
+      // Mark the user folder private, matching the registration-time setup.
+      var marker = Path.Combine(uploadDir, ".private");
+      if (!System.IO.File.Exists(marker))
+      {
+        try { await System.IO.File.WriteAllTextAsync(marker, "private"); } catch { }
+      }
+      // Ensure the Users/[username] virtual folder row exists in file_uploads so
+      // the folder shows up in the file browser (mirror of UserController).
+      try
+      {
+        using (var folderConn = new MySqlConnection(connStr))
+        {
+          await folderConn.OpenAsync();
+          var folderExists = new MySqlCommand(@"SELECT COUNT(*) FROM maxhanna.file_uploads WHERE user_id = @uid AND file_name = @fn AND is_folder = 1;", folderConn);
+          folderExists.Parameters.AddWithValue("@uid", request.UserId);
+          folderExists.Parameters.AddWithValue("@fn", username);
+          var folderCount = Convert.ToInt32(await folderExists.ExecuteScalarAsync());
+          if (folderCount == 0)
+          {
+            var insertFolder = new MySqlCommand(@"INSERT INTO maxhanna.file_uploads (user_id, upload_date, file_name, folder_path, is_public, is_folder) VALUES (@uid, UTC_TIMESTAMP(), @fn, @fp, 0, 1);", folderConn);
+            insertFolder.Parameters.AddWithValue("@uid", request.UserId);
+            insertFolder.Parameters.AddWithValue("@fn", username);
+            insertFolder.Parameters.AddWithValue("@fp", usersRoot);
+            await insertFolder.ExecuteNonQueryAsync();
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        await _log.Db($"Paint: failed to ensure user folder row: {ex.Message}", request.UserId, "PAINT", true);
+      }
 
       var fileName = $"paint_{request.UserId}_{DateTime.UtcNow:yyyyMMddHHmmss}_{Guid.NewGuid():N}.{ext}";
       if (!string.IsNullOrWhiteSpace(request.FileName))
@@ -55,7 +112,6 @@ public class PaintController : ControllerBase
       await System.IO.File.WriteAllBytesAsync(filePath, bytes);
 
       var fileSize = new FileInfo(filePath).Length;
-      var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
 
       int fileId;
       using (var conn = new MySqlConnection(connStr))

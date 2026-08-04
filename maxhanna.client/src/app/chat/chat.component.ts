@@ -114,11 +114,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
   async ngOnInit() {
     this.startLoading();
-
-    // Real-time pushes: when someone else posts or edits a message in the chat
-    // we have open, refresh immediately instead of waiting for the 5s poll.
-    // Own messages/edits are skipped — the sender's post/edit flow already
-    // refreshes locally, so pushing here would double-fetch history.
     const isMine = (senderId: number) => {
       const me = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id ?? 0;
       return senderId !== 0 && senderId === me;
@@ -126,8 +121,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this._chatHubSubs.push(
       this.chatHub.messagePosted$.subscribe(e => { if (e.chatId === this.currentChatId && !isMine(e.senderId)) this.refreshAfterPush(); })
     );
-    // A moderator lifting the ban triggers a chat-wide push; re-check the ban
-    // status so the notice disappears without needing to reopen the chat.
     this._chatHubSubs.push(
       this.chatHub.messagePosted$.subscribe(e => { if (e.chatId === this.currentChatId) { this.checkChatBanStatus(true); this.checkChatModeratorStatus(true); } })
     );
@@ -184,8 +177,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this._chatHubSubs.forEach(s => s.unsubscribe());
   }
 
-  // Apply a user theme object to the chatArea by setting CSS variables.
-  // Supports both camelCase and snake_case property names from server or local records.=
   async applyUserTheme(ut: UserTheme | null) {
     const container = document.querySelector('.chatArea') as HTMLElement | null;
     if (!container) return;
@@ -207,12 +198,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // NOTE: intentionally no startLoading() here — the theme background
-    // resolves asynchronously in the background, so showing the full-screen
-    // loading overlay while it fetches made chat feel frozen after messages
-    // had already loaded.
-
-    // Resolve the file entry (if set) using a small in-memory cache to avoid repeated network calls
     const bgImage = ut.backgroundImage;
     let directLink: string | null = null;
 
@@ -221,7 +206,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       if (bgImage?.id) {
         const cached = this.fileEntryCache.get(bgImage.id);
         if (cached === undefined) {
-          // not cached yet — fetch and cache result (could be null)
           try {
             tmpBackImage = await this.fileService.getFileEntryById(bgImage.id, this.parentRef?.user?.id, this.parentRef?.fileCache);
             this.fileEntryCache.set(bgImage.id, tmpBackImage ?? null);
@@ -246,16 +230,13 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       console.warn('Failed to resolve background image:', e);
     }
 
-    // Immediately assign background so browser begins fetching; do not block UI waiting for preload.
     if (directLink) {
       const cssUrl = `url("${directLink}")`;
-      // Set CSS var and background immediately.
       requestAnimationFrame(() => {
         container.style.setProperty('--main-background-image-url', cssUrl);
         container.style.backgroundImage = cssUrl;
       });
 
-      // In background, verify the image loads — if it fails and the assigned URL still matches, clear it.
       (async () => {
         try {
           const ok = await new Promise<boolean>((resolve) => {
@@ -265,7 +246,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
             img.referrerPolicy = 'no-referrer';
             img.src = directLink!;
           });
-          // If load failed and the css var still references this link, clear it (don't override newer themes)
           const currentVar = container.style.getPropertyValue('--main-background-image-url');
           if (!ok && currentVar === cssUrl) {
             requestAnimationFrame(() => {
@@ -284,7 +264,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       });
     }
 
-    // Apply other color/font variables
     const {
       backgroundColor: bgColor,
       fontColor,
@@ -320,21 +299,17 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     try {
       const res = await this.chatService.setChatTheme(this.currentChatId, this.currentChatTheme ?? '', userThemeId);
       if (res) {
-        // store the selected saved theme id (or null)
         this.currentChatUserThemeId = userThemeId;
         if (userThemeId) {
-          // find the theme values and apply CSS vars (support both snake_case and camelCase shapes)
           const ut = this.userThemes.find(u => u.id === userThemeId);
           if (ut) {
             await this.applyUserTheme(ut);
           }
         } else {
-          // user cleared saved theme; remove CSS variables and any theme classes
           const container = document.querySelector('.chatArea') as HTMLElement | null;
           if (container) {
             container.style.removeProperty('--main-bg-color');
             container.style.removeProperty('--main-font-color');
-            // also remove any theme-* classes
             const classesToRemove = Array.from(container.classList).filter((c: string) => c.startsWith('theme-'));
             for (const c of classesToRemove) container.classList.remove(c);
           }
@@ -343,7 +318,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         this.parentRef?.showNotification('Chat saved theme updated.');
       }
     } catch (ex) {
-      console.error('Failed to set chat theme userThemeId', ex);        this.parentRef?.showNotification('Failed to update chat theme.');
+      console.error('Failed to set chat theme userThemeId', ex); this.parentRef?.showNotification('Failed to update chat theme.');
     }
   }
 
@@ -355,8 +330,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           clearInterval(this.pollingInterval);
           return;
         }
-        // When the SignalR hub is connected we get instant push notifications,
-        // so the 5s full-history poll becomes a fallback for when the hub drops.
         if (this.chatHub.connected) return;
         if (this.currentChatUsers) {
           await this.getMessageHistory(this.pageNumber, this.pageSize);
@@ -365,7 +338,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Debounced single refresh triggered by a hub push (new message or edit).
   private pushRefreshTimer: any = null;
   private refreshAfterPush() {
     if (this.pushRefreshTimer) clearTimeout(this.pushRefreshTimer);
@@ -1070,7 +1042,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       return;
     }
     this.isMakingChatPublic = true;
-    const ok = await this.chatService.makeChatPublic(this.currentChatId, this.newChatName.trim(), userId);
+    const token = await this.parentRef?.getSessionToken() ?? '';
+    const ok = await this.chatService.makeChatPublic(this.currentChatId, this.newChatName.trim(), userId, token);
     this.isMakingChatPublic = false;
     if (ok) {
       this.currentChatIsPublic = true;
@@ -1466,12 +1439,11 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   private joinUrl(...parts: (string | undefined | null)[]): string {
     const cleaned = parts
       .filter((p): p is string => !!p)
-      .map(p => p.replace(/(^\/+|\/+$)/g, '')); // trim leading/trailing slashes
+      .map(p => p.replace(/(^\/+|\/+$)/g, ''));
     return cleaned.join('/');
   }
 
   private encodePath(path: string): string {
-    // Encode each segment separately to keep slashes intact
     return path.split('/').map(s => encodeURIComponent(s)).join('/');
   }
 

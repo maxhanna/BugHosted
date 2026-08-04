@@ -234,6 +234,12 @@
   font-size: 12px;
 }
 
+.menuPanel .fileNameInput {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
 .textDialog {
   position: fixed;
   top: 0;

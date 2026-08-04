@@ -412,7 +412,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   notificationTextClick(notification: UserNotification) {
     if (!notification.isRead) {
       this.read(notification, true);
-      if ((notification.text?.includes('Executed Trade') || notification.text?.includes('KrakenService'))
+      if ((notification.text?.includes('Executed Trade') || notification.text?.includes('KrakenService') || notification.text?.includes('TTL'))
           && this.parentRef?.navigationComponent) {
         this.parentRef.navigationComponent.tradeNotifsCount--;
       }
@@ -579,7 +579,7 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
     const text = notification.text?.toLowerCase() || '';
 
     if (text.includes('you were slain by') || text.includes('you died') || text.includes('you killed')) return 'Bones';
-    if (text.includes('executed trade') || text.includes('krakenservice')) return 'Crypto-Hub';
+    if (text.includes('executed trade') || text.includes('krakenservice') || text.includes('ttl')) return 'Crypto-Hub';
     if (text.includes('chat')) return 'Chat';
     if (!text.includes('profile') && (text.includes('post') || text.includes('comment'))) return 'Social';
     if (text.includes('profile') || text.includes('friend request') || text.includes('following')) return 'User';

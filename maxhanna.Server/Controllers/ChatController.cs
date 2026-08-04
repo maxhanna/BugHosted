@@ -304,23 +304,24 @@ namespace maxhanna.Server.Controllers
 				}
 
 			}
-		} 
+		}
 
-    [HttpPost("/Chat/GetChatTheme", Name = "GetChatTheme")]
-    public async Task<IActionResult> GetChatTheme([FromBody] GetChatThemeRequest req)
-    { 
-        if (req == null) {
-          return BadRequest();
-        }
+		[HttpPost("/Chat/GetChatTheme", Name = "GetChatTheme")]
+		public async Task<IActionResult> GetChatTheme([FromBody] GetChatThemeRequest req)
+		{
+			if (req == null)
+			{
+				return BadRequest();
+			}
 
-        var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-        await using var conn = new MySqlConnection(connectionString);
+			var connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			await using var conn = new MySqlConnection(connectionString);
 
-        try
-        {
-            await conn.OpenAsync();
+			try
+			{
+				await conn.OpenAsync();
 
-            const string sql = @"
+				const string sql = @"
                 SELECT ct.theme, ct.user_theme_id,
                       ut.id AS ut_id,
                       ut.user_id AS ut_user_id,
@@ -342,62 +343,62 @@ namespace maxhanna.Server.Controllers
                 WHERE ct.chat_id = @ChatId
                 LIMIT 1";
 
-            await using var cmd = new MySqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("@ChatId", req?.ChatId);
+				await using var cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@ChatId", req?.ChatId);
 
-            await using var reader = await cmd.ExecuteReaderAsync();
-            if (await reader.ReadAsync())
-            {
-                
-              var theme = IsDbNull(reader, "theme") ? "" : reader.GetString(reader.GetOrdinal("theme"));
-              int? userThemeId = GetInt32Nullable(reader, "user_theme_id");
+				await using var reader = await cmd.ExecuteReaderAsync();
+				if (await reader.ReadAsync())
+				{
 
-              UserTheme? userTheme = null;
-              if (!IsDbNull(reader, "ut_id"))
-              {
-                  var bgImageId = GetInt32Nullable(reader, "ut_background_image");
-                  FileEntry? tmpBackgroundImage = bgImageId.HasValue ? new FileEntry(bgImageId.Value) : null;
+					var theme = IsDbNull(reader, "theme") ? "" : reader.GetString(reader.GetOrdinal("theme"));
+					int? userThemeId = GetInt32Nullable(reader, "user_theme_id");
 
-                  userTheme = new UserTheme
-                  {
-                      Id = GetInt32OrDefault(reader, "ut_id"),
-                      UserId = GetInt32Nullable(reader, "ut_user_id"),
-                      BackgroundImage = tmpBackgroundImage,
-                      FontColor = IsDbNull(reader, "ut_font_color") ? null : reader.GetString(reader.GetOrdinal("ut_font_color")),
-                      SecondaryFontColor = IsDbNull(reader, "ut_secondary_font_color") ? null : reader.GetString(reader.GetOrdinal("ut_secondary_font_color")),
-                      ThirdFontColor = IsDbNull(reader, "ut_third_font_color") ? null : reader.GetString(reader.GetOrdinal("ut_third_font_color")),
-                      BackgroundColor = IsDbNull(reader, "ut_background_color") ? null : reader.GetString(reader.GetOrdinal("ut_background_color")),
-                      ComponentBackgroundColor = IsDbNull(reader, "ut_component_background_color") ? null : reader.GetString(reader.GetOrdinal("ut_component_background_color")),
-                      SecondaryComponentBackgroundColor = IsDbNull(reader, "ut_secondary_component_background_color") ? null : reader.GetString(reader.GetOrdinal("ut_secondary_component_background_color")),
-                      MainHighlightColor = IsDbNull(reader, "ut_main_highlight_color") ? null : reader.GetString(reader.GetOrdinal("ut_main_highlight_color")),
-                      MainHighlightColorQuarterOpacity = IsDbNull(reader, "ut_main_highlight_color_quarter_opacity") ? null : reader.GetString(reader.GetOrdinal("ut_main_highlight_color_quarter_opacity")),
-                      LinkColor = IsDbNull(reader, "ut_link_color") ? null : reader.GetString(reader.GetOrdinal("ut_link_color")),
-                      FontSize = GetInt32Nullable(reader, "ut_font_size"),
-                      FontFamily = IsDbNull(reader, "ut_font_family") ? null : reader.GetString(reader.GetOrdinal("ut_font_family")),
-                      Name = IsDbNull(reader, "ut_name") ? "" : reader.GetString(reader.GetOrdinal("ut_name")),
-                  };
-              }
+					UserTheme? userTheme = null;
+					if (!IsDbNull(reader, "ut_id"))
+					{
+						var bgImageId = GetInt32Nullable(reader, "ut_background_image");
+						FileEntry? tmpBackgroundImage = bgImageId.HasValue ? new FileEntry(bgImageId.Value) : null;
 
-                return Ok(new GetChatThemeResponse { Theme = theme, UserThemeId = userThemeId, UserTheme = userTheme });
-            }
+						userTheme = new UserTheme
+						{
+							Id = GetInt32OrDefault(reader, "ut_id"),
+							UserId = GetInt32Nullable(reader, "ut_user_id"),
+							BackgroundImage = tmpBackgroundImage,
+							FontColor = IsDbNull(reader, "ut_font_color") ? null : reader.GetString(reader.GetOrdinal("ut_font_color")),
+							SecondaryFontColor = IsDbNull(reader, "ut_secondary_font_color") ? null : reader.GetString(reader.GetOrdinal("ut_secondary_font_color")),
+							ThirdFontColor = IsDbNull(reader, "ut_third_font_color") ? null : reader.GetString(reader.GetOrdinal("ut_third_font_color")),
+							BackgroundColor = IsDbNull(reader, "ut_background_color") ? null : reader.GetString(reader.GetOrdinal("ut_background_color")),
+							ComponentBackgroundColor = IsDbNull(reader, "ut_component_background_color") ? null : reader.GetString(reader.GetOrdinal("ut_component_background_color")),
+							SecondaryComponentBackgroundColor = IsDbNull(reader, "ut_secondary_component_background_color") ? null : reader.GetString(reader.GetOrdinal("ut_secondary_component_background_color")),
+							MainHighlightColor = IsDbNull(reader, "ut_main_highlight_color") ? null : reader.GetString(reader.GetOrdinal("ut_main_highlight_color")),
+							MainHighlightColorQuarterOpacity = IsDbNull(reader, "ut_main_highlight_color_quarter_opacity") ? null : reader.GetString(reader.GetOrdinal("ut_main_highlight_color_quarter_opacity")),
+							LinkColor = IsDbNull(reader, "ut_link_color") ? null : reader.GetString(reader.GetOrdinal("ut_link_color")),
+							FontSize = GetInt32Nullable(reader, "ut_font_size"),
+							FontFamily = IsDbNull(reader, "ut_font_family") ? null : reader.GetString(reader.GetOrdinal("ut_font_family")),
+							Name = IsDbNull(reader, "ut_name") ? "" : reader.GetString(reader.GetOrdinal("ut_name")),
+						};
+					}
 
-            return Ok(new GetChatThemeResponse { Theme = "", UserThemeId = null, UserTheme = null });
-        }
-        catch (Exception ex)
-        {
-            try { _ = _log.Db("Error in GetChatTheme: " + ex.ToString(), null, "CHAT", outputToConsole: true); } catch {}
-            var problem = new ProblemDetails
-            {
-                Title = "GetChatTheme failed",
-                Status = StatusCodes.Status500InternalServerError,
-                Detail = ex.InnerException?.Message ?? ex.Message,
-                Type = "https://httpstatuses.com/500",
-                Instance = HttpContext?.Request?.Path.Value
-            };
-            problem.Extensions["code"] = "CHAT_THEME_001";
-            return StatusCode(StatusCodes.Status500InternalServerError, problem);
-        }
-    }
+					return Ok(new GetChatThemeResponse { Theme = theme, UserThemeId = userThemeId, UserTheme = userTheme });
+				}
+
+				return Ok(new GetChatThemeResponse { Theme = "", UserThemeId = null, UserTheme = null });
+			}
+			catch (Exception ex)
+			{
+				try { _ = _log.Db("Error in GetChatTheme: " + ex.ToString(), null, "CHAT", outputToConsole: true); } catch { }
+				var problem = new ProblemDetails
+				{
+					Title = "GetChatTheme failed",
+					Status = StatusCodes.Status500InternalServerError,
+					Detail = ex.InnerException?.Message ?? ex.Message,
+					Type = "https://httpstatuses.com/500",
+					Instance = HttpContext?.Request?.Path.Value
+				};
+				problem.Extensions["code"] = "CHAT_THEME_001";
+				return StatusCode(StatusCodes.Status500InternalServerError, problem);
+			}
+		}
 
 
 		[HttpPost("/Chat/SetChatTheme", Name = "SetChatTheme")]
@@ -823,14 +824,14 @@ namespace maxhanna.Server.Controllers
 											if (hasExplicitPoll || hasVotes)
 											{
 												var poll = new DataContracts.Social.Poll
-													{
-														ComponentId = compId,
-														Question = hasExplicitPoll ? question : "Poll",
-														Options = new List<DataContracts.Social.PollOption>(),
-														UserVotes = votes ?? new List<DataContracts.Social.PollVote>(),
-														TotalVotes = votes?.Count ?? 0,
-														CreatedAt = msg.Timestamp
-													};
+												{
+													ComponentId = compId,
+													Question = hasExplicitPoll ? question : "Poll",
+													Options = new List<DataContracts.Social.PollOption>(),
+													UserVotes = votes ?? new List<DataContracts.Social.PollVote>(),
+													TotalVotes = votes?.Count ?? 0,
+													CreatedAt = msg.Timestamp
+												};
 
 												if (hasExplicitPoll)
 												{
@@ -1256,7 +1257,8 @@ namespace maxhanna.Server.Controllers
 			{
 				conn.Close();
 			}
-		}        [HttpPost("/Chat/MakePublic", Name = "MakeChatPublic")]
+		}
+		[HttpPost("/Chat/MakePublic", Name = "MakeChatPublic")]
 		public async Task<IActionResult> MakeChatPublic([FromBody] MakeChatPublicRequest request, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
 		{
 			if (request == null || request.ChatId <= 0 || request.UserId <= 0)
@@ -1277,7 +1279,7 @@ namespace maxhanna.Server.Controllers
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
-				await conn.OpenAsync(); 
+				await conn.OpenAsync();
 
 				string name = string.IsNullOrWhiteSpace(request.Name) ? "Public Chat #" + request.ChatId : request.Name.Trim();
 
@@ -1307,7 +1309,7 @@ namespace maxhanna.Server.Controllers
 							if (int.TryParse(idStr.Trim(), out int id) && id > 0)
 								memberIds.Add(id);
 					}
-				} 
+				}
 
 				foreach (var memberId in memberIds)
 				{
@@ -1340,7 +1342,7 @@ namespace maxhanna.Server.Controllers
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
-				await conn.OpenAsync(); 
+				await conn.OpenAsync();
 				string search = string.IsNullOrWhiteSpace(request?.Search) ? "" : request.Search.Trim();
 				string sql = @"
 					SELECT cr.chat_id, cr.name, cr.created_by, cr.created_at
@@ -1386,7 +1388,7 @@ namespace maxhanna.Server.Controllers
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
-				await conn.OpenAsync(); 
+				await conn.OpenAsync();
 
 				// Verify the chat is public.
 				string checkSql = "SELECT COUNT(*) FROM maxhanna.chat_rooms WHERE chat_id = @ChatId AND is_public = 1;";
@@ -1435,10 +1437,10 @@ namespace maxhanna.Server.Controllers
 			if (request == null || request.ChatId <= 0 || request.UserIds == null || request.UserIds.Count == 0)
 				return BadRequest("Invalid request.");
 
-			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));				
+			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
-				await conn.OpenAsync(); 
+				await conn.OpenAsync();
 
 				string checkSql = "SELECT COUNT(*) FROM maxhanna.chat_rooms WHERE chat_id = @ChatId AND is_public = 1;";
 				using (var checkCmd = new MySqlCommand(checkSql, conn))
@@ -1490,7 +1492,7 @@ namespace maxhanna.Server.Controllers
 			MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 			try
 			{
-				await conn.OpenAsync(); 
+				await conn.OpenAsync();
 				string sql = "SELECT name, is_public, created_by FROM maxhanna.chat_rooms WHERE chat_id = @ChatId LIMIT 1;";
 				using var cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@ChatId", request.ChatId);
@@ -1551,46 +1553,46 @@ namespace maxhanna.Server.Controllers
 			finally { conn.Close(); }
 		}
 
-private static int? GetInt32Nullable(IDataRecord r, string name)
-{
-    int i = r.GetOrdinal(name);
-    if (r.IsDBNull(i)) return null;
-    var v = r.GetValue(i); // could be string, long, decimal, etc.
-    try { return Convert.ToInt32(v); } catch { return null; }
-}
+		private static int? GetInt32Nullable(IDataRecord r, string name)
+		{
+			int i = r.GetOrdinal(name);
+			if (r.IsDBNull(i)) return null;
+			var v = r.GetValue(i); // could be string, long, decimal, etc.
+			try { return Convert.ToInt32(v); } catch { return null; }
+		}
 
-private static int GetInt32OrDefault(IDataRecord r, string name, int def = 0)
-{
-    int i = r.GetOrdinal(name);
-    if (r.IsDBNull(i)) return def;
-    var v = r.GetValue(i);
-    try { return Convert.ToInt32(v); } catch { return def; }
-}
+		private static int GetInt32OrDefault(IDataRecord r, string name, int def = 0)
+		{
+			int i = r.GetOrdinal(name);
+			if (r.IsDBNull(i)) return def;
+			var v = r.GetValue(i);
+			try { return Convert.ToInt32(v); } catch { return def; }
+		}
 
-private static bool IsDbNull(IDataRecord r, string name) =>
-    r.IsDBNull(r.GetOrdinal(name));
+		private static bool IsDbNull(IDataRecord r, string name) =>
+			r.IsDBNull(r.GetOrdinal(name));
 
-private async Task<bool> IsGlobalModeratorAsync(int userId)
-{
-  if (userId == 1) return true;
-  try
-  {
-    string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-    using var conn = new MySqlConnection(connStr);
-    await conn.OpenAsync();
-    string sql = "SELECT COUNT(*) FROM maxhanna.user_roles WHERE user_id = @UserId AND role = 'moderator';";
-    using var cmd = new MySqlCommand(sql, conn);
-    cmd.Parameters.AddWithValue("@UserId", userId);
-    return Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
-  }
-  catch { return false; }
-}
+		private async Task<bool> IsGlobalModeratorAsync(int userId)
+		{
+			if (userId == 1) return true;
+			try
+			{
+				string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+				using var conn = new MySqlConnection(connStr);
+				await conn.OpenAsync();
+				string sql = "SELECT COUNT(*) FROM maxhanna.user_roles WHERE user_id = @UserId AND role = 'moderator';";
+				using var cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@UserId", userId);
+				return Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
+			}
+			catch { return false; }
+		}
 
-private static readonly SemaphoreSlim _chatSitemapLock = new(1, 1);
-private async Task<int> CountChatMembersAsync(MySqlConnection conn, int chatId)
-{
-  // Membership is inferred from the receiver lists on messages; count distinct member ids.
-  string sql = @"
+		private static readonly SemaphoreSlim _chatSitemapLock = new(1, 1);
+		private async Task<int> CountChatMembersAsync(MySqlConnection conn, int chatId)
+		{
+			// Membership is inferred from the receiver lists on messages; count distinct member ids.
+			string sql = @"
     SELECT COUNT(DISTINCT CAST(TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(m.receiver, ',', n.n), ',', -1)) AS UNSIGNED)) AS member_count
     FROM maxhanna.messages m
     JOIN (SELECT 1 n UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5
@@ -1604,130 +1606,130 @@ private async Task<int> CountChatMembersAsync(MySqlConnection conn, int chatId)
     WHERE m.chat_id = @ChatId
       AND n.n <= 1 + (LENGTH(m.receiver) - LENGTH(REPLACE(m.receiver, ',', '')))
       AND CAST(TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(m.receiver, ',', n.n), ',', -1)) AS UNSIGNED) > 0;";
-  try
-  {
-    using var cmd = new MySqlCommand(sql, conn);
-    cmd.Parameters.AddWithValue("@ChatId", chatId);
-    var result = await cmd.ExecuteScalarAsync();
-    return result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
-  }
-  catch
-  {
-    return 0;
-  }
-}
+			try
+			{
+				using var cmd = new MySqlCommand(sql, conn);
+				cmd.Parameters.AddWithValue("@ChatId", chatId);
+				var result = await cmd.ExecuteScalarAsync();
+				return result == null || result == DBNull.Value ? 0 : Convert.ToInt32(result);
+			}
+			catch
+			{
+				return 0;
+			}
+		}
 
-private async Task AppendChatToSitemapAsync(int chatId)
-{
-  string chatUrl = $"https://bughosted.com/Chat/{chatId}";
-  string lastMod = DateTime.UtcNow.ToString("yyyy-MM-dd");
-  string sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
+		private async Task AppendChatToSitemapAsync(int chatId)
+		{
+			string chatUrl = $"https://bughosted.com/Chat/{chatId}";
+			string lastMod = DateTime.UtcNow.ToString("yyyy-MM-dd");
+			string sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
 
-  await _chatSitemapLock.WaitAsync();
-  try
-  {
-    XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
-    XDocument sitemap;
+			await _chatSitemapLock.WaitAsync();
+			try
+			{
+				XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+				XDocument sitemap;
 
-    if (System.IO.File.Exists(sitemapPath))
-    {
-      sitemap = XDocument.Load(sitemapPath);
-      var existingUrl = sitemap.Descendants(ns + "loc")
-                               .FirstOrDefault(x => x.Value == chatUrl);
-      if (existingUrl != null)
-      {
-        existingUrl.Parent?.Element(ns + "lastmod")?.SetValue(lastMod);
-        sitemap.Save(sitemapPath);
-        return;
-      }
-    }
-    else
-    {
-      sitemap = new XDocument(new XElement(ns + "urlset"));
-    }
+				if (System.IO.File.Exists(sitemapPath))
+				{
+					sitemap = XDocument.Load(sitemapPath);
+					var existingUrl = sitemap.Descendants(ns + "loc")
+											 .FirstOrDefault(x => x.Value == chatUrl);
+					if (existingUrl != null)
+					{
+						existingUrl.Parent?.Element(ns + "lastmod")?.SetValue(lastMod);
+						sitemap.Save(sitemapPath);
+						return;
+					}
+				}
+				else
+				{
+					sitemap = new XDocument(new XElement(ns + "urlset"));
+				}
 
-    XElement newUrlElement = new XElement(ns + "url",
-        new XElement(ns + "loc", chatUrl),
-        new XElement(ns + "lastmod", lastMod),
-        new XElement(ns + "changefreq", "daily"),
-        new XElement(ns + "priority", "0.8")
-    );
+				XElement newUrlElement = new XElement(ns + "url",
+					new XElement(ns + "loc", chatUrl),
+					new XElement(ns + "lastmod", lastMod),
+					new XElement(ns + "changefreq", "daily"),
+					new XElement(ns + "priority", "0.8")
+				);
 
-    sitemap?.Root?.Add(newUrlElement);
-    sitemap?.Save(sitemapPath);
-  }
-  finally
-  {
-    _chatSitemapLock.Release();
-  }
-}
+				sitemap?.Root?.Add(newUrlElement);
+				sitemap?.Save(sitemapPath);
+			}
+			finally
+			{
+				_chatSitemapLock.Release();
+			}
+		}
 
 	}
 }
 
-		public class SendMessageRequest
-		{
-			public int SenderId { get; set; }
-			public int[]? ReceiverIds { get; set; }
-			public int? ChatId { get; set; }
-			public string? Content { get; set; }
-			public List<FileEntry>? Files { get; set; }
-		}
-		public class Notification
-		{
-			public int ChatId { get; set; }
-			public int Count { get; set; }
-		}
-		public class LeaveChatRequest
-		{
-			public int ChatId { get; set; }
-			public int UserId { get; set; }
-		}
-		public class EditChatRequest
-		{
-			public int? UserId { get; set; }
-			public int MessageId { get; set; }
-			public string? Content { get; set; }
-		}
+public class SendMessageRequest
+{
+	public int SenderId { get; set; }
+	public int[]? ReceiverIds { get; set; }
+	public int? ChatId { get; set; }
+	public string? Content { get; set; }
+	public List<FileEntry>? Files { get; set; }
+}
+public class Notification
+{
+	public int ChatId { get; set; }
+	public int Count { get; set; }
+}
+public class LeaveChatRequest
+{
+	public int ChatId { get; set; }
+	public int UserId { get; set; }
+}
+public class EditChatRequest
+{
+	public int? UserId { get; set; }
+	public int MessageId { get; set; }
+	public string? Content { get; set; }
+}
 
-		public class EditChatFilesRequest
-		{
-			public int? UserId { get; set; }
-			public int MessageId { get; set; }
-			public List<FileEntry>? Files { get; set; }
-		}
-		public class MakeChatPublicRequest
-		{
-			public int ChatId { get; set; }
-			public string? Name { get; set; }
-			public int UserId { get; set; }
-		}
-		public class SearchPublicChatsRequest
-		{
-			public string? Search { get; set; }
-			public int UserId { get; set; }
-		}
-		public class JoinPublicChatRequest
-		{
-			public int ChatId { get; set; }
-			public int UserId { get; set; }
-		}
-		public class AddChatMembersRequest
-		{
-			public int ChatId { get; set; }
-			public int UserId { get; set; }
-			public List<int>? UserIds { get; set; }
-		}
-		public class GetChatRoomRequest
-		{
-			public int ChatId { get; set; }
-		}
-		public class PublicChatInfo
-		{
-			public int ChatId { get; set; }
-			public string Name { get; set; } = "";
-			public bool IsPublic { get; set; }
-			public int MemberCount { get; set; }
-			public int? CreatedBy { get; set; }
-			public DateTime? CreatedAt { get; set; }
-		}
+public class EditChatFilesRequest
+{
+	public int? UserId { get; set; }
+	public int MessageId { get; set; }
+	public List<FileEntry>? Files { get; set; }
+}
+public class MakeChatPublicRequest
+{
+	public int ChatId { get; set; }
+	public string? Name { get; set; }
+	public int UserId { get; set; }
+}
+public class SearchPublicChatsRequest
+{
+	public string? Search { get; set; }
+	public int UserId { get; set; }
+}
+public class JoinPublicChatRequest
+{
+	public int ChatId { get; set; }
+	public int UserId { get; set; }
+}
+public class AddChatMembersRequest
+{
+	public int ChatId { get; set; }
+	public int UserId { get; set; }
+	public List<int>? UserIds { get; set; }
+}
+public class GetChatRoomRequest
+{
+	public int ChatId { get; set; }
+}
+public class PublicChatInfo
+{
+	public int ChatId { get; set; }
+	public string Name { get; set; } = "";
+	public bool IsPublic { get; set; }
+	public int MemberCount { get; set; }
+	public int? CreatedBy { get; set; }
+	public DateTime? CreatedAt { get; set; }
+}
