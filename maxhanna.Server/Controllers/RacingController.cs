@@ -315,14 +315,7 @@ namespace maxhanna.Server.Controllers
 			};
 		}
 		private static void PersistAllToDb(object? state) => PersistAllToDbCore(false);
-		private static void PersistAllToDbBlocking() => PersistAllToDbCore(true);
-		/// <summary>
-		/// Fire-and-forget immediate DB flush. Called after every mutating endpoint so
-		/// cash/upgrades/lap records are durable the moment they change — the periodic
-		/// timer (and the shutdown hooks) are only backstops now. Uses the blocking
-		/// variant so it waits for the persist lock instead of silently skipping when
-		/// a dump is already in flight.
-		/// </summary>
+		private static void PersistAllToDbBlocking() => PersistAllToDbCore(true); 
 		private static void ScheduleFlush()
 		{
 			try { _ = Task.Run(PersistAllToDbBlocking); }
@@ -376,9 +369,7 @@ namespace maxhanna.Server.Controllers
 							cmd.Parameters.AddWithValue("@earnings", st.TotalEarnings);
 							version = st.Version;
 						}
-						cmd.ExecuteNonQuery();
-						// Per-track best laps (racing_best_laps) — keep the minimum lap per
-						// track so an older worse time never overwrites a record.
+						cmd.ExecuteNonQuery(); 
 						Dictionary<int, double> bestByTrack;
 						lock (st) { bestByTrack = new Dictionary<int, double>(st.BestLapsByTrack); }
 						foreach (var kvBest in bestByTrack)
