@@ -24,6 +24,8 @@ export interface CrowdPerson {
   pose: number;        // 0 = arms down, 1 = both arms up, 2 = one arm up
   scale: number;       // height variance ~0.85-1.15
   phase: number;       // animation phase offset (per-person)
+  veiled?: boolean;    // true = draped robe + head cover (no bare head/hair)
+  pattern?: [number, number, number]; // accent color for a Moroccan pattern band
 }
 
 export class RacingRenderer {
@@ -42,6 +44,9 @@ export class RacingRenderer {
   private useVertexColor!: WebGLUniformLocation;
   private lightMatrixLoc!: WebGLUniformLocation;
   private sunColorLoc!: WebGLUniformLocation;
+  private envTopLoc!: WebGLUniformLocation;
+  private envBottomLoc!: WebGLUniformLocation;
+  private envStrengthLoc!: WebGLUniformLocation;
   private shadowMapLoc!: WebGLUniformLocation;
   private shadowTexelLoc!: WebGLUniformLocation;
   private heatGlowLoc!: WebGLUniformLocation;
@@ -163,6 +168,21 @@ export class RacingRenderer {
   private mirrorVao!: WebGLVertexArrayObject;
   private mirrorW = 512;
   private mirrorH = 288;
+  // Heat shimmer (Marrakech mirage) — the desert theme renders the main pass
+  // into an offscreen FBO, then blits it back with a time-animated UV
+  // distortion peaked around the horizon so the distant sand visibly shimmers.
+  private heatShimmer = false;
+  private _heatInitialized = false;
+  private _heatFBO: WebGLFramebuffer | null = null;
+  private _heatTex: WebGLTexture | null = null;
+  private _heatDepth: WebGLRenderbuffer | null = null;
+  private _heatW = 0;
+  private _heatH = 0;
+  private heatProg!: WebGLProgram;
+  private heatSceneLoc!: WebGLUniformLocation;
+  private heatTimeLoc!: WebGLUniformLocation;
+  private heatHorizonLoc!: WebGLUniformLocation;
+  private heatVao!: WebGLVertexArrayObject;
   private mirrorProj!: Float32Array;
   private mirrorView!: Float32Array;
 
@@ -359,6 +379,9 @@ uniform float uHeatGlow;
 uniform float uMetallic;
 uniform vec3 uRimTint;
 uniform float uRimStrength;
+uniform vec3 uEnvTop;
+uniform vec3 uEnvBottom;
+uniform float uEnvStrength;
 
 // Soft 3x3 PCF directional shadow. sp is light-space UV/depth (0..1).
 // Outside the ortho frustum (which only wraps +-80m around the camera) -> lit.
@@ -374,6 +397,19 @@ float calcShadow(vec3 sp, float NdotL) {
     }
   }
   return sum / 9.0;
+}
+
+// Procedural environment reflection: the reflection vector samples a sky/ground
+// gradient, a bright horizon band, and a tight sun glint — so glossy paint and
+// walls show real directional reflections instead of a flat ambient sheen.
+vec3 envColor(vec3 R, float sh) {
+  float t = clamp(R.y * 0.5 + 0.5, 0.0, 1.0);
+  vec3 grad = mix(uEnvBottom, uEnvTop, pow(t, 0.8));
+  float hor = exp(-abs(R.y) * 10.0) * 0.55;
+  // The sun glint is shadow-attenuated so a car parked in grandstand shade
+  // doesn't flash a mirror glint on its paint.
+  float sun = pow(max(dot(R, normalize(uLightDir)), 0.0), 700.0) * 3.0 * sh;
+  return grad * (0.6 + hor) + sun * uSunColor * 1.6;
 }
 
 void main() {
@@ -398,22 +434,45 @@ void main() {
   float shadow = calcShadow(vLightPos.xyz / vLightPos.w * 0.5 + 0.5, NdotL);
   vec3 diffColor = NdotL * uSunColor * base.rgb * shadow;
 
-  // Blinn-Phong specular tinted by the sun — warm highlights on paint/glass.
-  // uMetallic (from the skin finish) boosts the highlight: matte wraps stay
-  // flat, chrome paints get a sharp mirror glint.
+  // Clearcoat two-lobe specular tinted by the sun — a broad wet sheen plus a
+  // tight mirror glint on the paint. uMetallic (the skin finish) drives the
+  // gloss: matte wraps stay flat, chrome paints get a hot glint.
   vec3 H = normalize(L + V);
-  float specAmt = pow(max(dot(N, H), 0.0), 48.0);
-  vec3 specColor = specAmt * uSunColor * (0.55 + uMetallic * 0.85) * (shadow * 0.9 + 0.1);
+  float gloss = 0.28 + uMetallic * 0.9;
+  float soft = pow(max(dot(N, H), 0.0), 12.0);
+  float sharp = pow(max(dot(N, H), 0.0), 180.0);
+  vec3 specColor = uSunColor * (soft * 0.55 + sharp * 1.7) * gloss * (shadow * 0.85 + 0.15);
+
+  // Fill light from the opposite side — bounces a little sky light into the
+  // faces the sun can't reach, so walls and barriers never go flat black.
+  vec3 F = normalize(vec3(-L.x, 0.4, -L.z));
+  float fillAmt = max(dot(N, F), 0.0) * (1.0 - smoothstep(0.05, 0.5, NdotL));
+  vec3 fillColor = fillAmt * uAmbient * 1.9 * base.rgb;
+
+  // Environment reflection — the reflection vector samples the procedural
+  // sky/ground + sun glint above, tinted by the surface color. uEnvStrength is
+  // ~0.16 on scenery (walls get a glossy sheen) and ~1.0 on car paint.
+  vec3 R = reflect(-V, N);
+  vec3 refl = envColor(R, shadow) * base.rgb * uEnvStrength;
 
   // Fresnel rim — silhouettes catch the sky so cars and building edges pop.
   float fres = pow(1.0 - max(dot(N, V), 0.0), 3.0);
-  vec3 rimColor = fres * uSunColor * 0.12;
+  vec3 rimColor = fres * uSunColor * 0.14;
 
-  vec3 color = amb + diffColor + specColor + rimColor;
+  vec3 color = amb + diffColor + specColor + fillColor + refl + rimColor;
 
-  // Brake-disc heat glow — emissive orange that fades in as the wheels spin
-  // up. uHeatGlow is driven by wheel speed in renderCar (0 when parked).
-  color += uHeatGlow * vec3(1.0, 0.45, 0.08);
+  // Brake-disc heat — blackbody temperature ramp: dull red at low heat, bright
+  // orange in the mid, white-hot as uHeatGlow peaks (hard braking). The ramp is
+  // normalized across the 0..1.35 range the CPU emits; the white cap only
+  // appears when the disc is truly glowing, and intensity scales with heat so
+  // the rotor visibly brightens as it climbs.
+  float hh = clamp(uHeatGlow, 0.0, 1.35) / 1.35;
+  vec3 heatColor = mix(vec3(0.24, 0.02, 0.0), vec3(1.0, 0.40, 0.06), smoothstep(0.0, 0.5, hh));
+  heatColor = mix(heatColor, vec3(1.0, 0.62, 0.18), smoothstep(0.4, 0.72, hh));
+  heatColor = mix(heatColor, vec3(1.0, 0.96, 0.90), smoothstep(0.7, 1.0, hh));
+  // Intensity scales with heat itself (no floor), so a parked car's rotors
+  // stay completely dark — uHeatGlow 0 → hh 0 → nothing added.
+  color += heatColor * hh * 1.15;
 
   float fog = clamp((vDepth - 80.0) / 400.0, 0.0, 1.0);
   color = mix(color, uFogColor, fog * vColor.a);
@@ -441,6 +500,9 @@ void main() {
     this.useVertexColor = gl.getUniformLocation(this.prog, 'uUseVertexColor')!;
     this.lightMatrixLoc = gl.getUniformLocation(this.prog, 'uLightMatrix')!;
     this.sunColorLoc = gl.getUniformLocation(this.prog, 'uSunColor')!;
+    this.envTopLoc = gl.getUniformLocation(this.prog, 'uEnvTop')!;
+    this.envBottomLoc = gl.getUniformLocation(this.prog, 'uEnvBottom')!;
+    this.envStrengthLoc = gl.getUniformLocation(this.prog, 'uEnvStrength')!;
     this.shadowMapLoc = gl.getUniformLocation(this.prog, 'uShadowMap')!;
     this.shadowTexelLoc = gl.getUniformLocation(this.prog, 'uShadowTexel')!;
     this.heatGlowLoc = gl.getUniformLocation(this.prog, 'uHeatGlow')!;
@@ -723,6 +785,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
    *  scenery geometry. Call before each race (both solo and multiplayer). */
   setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'montreal' | 'italy') {
     this.theme = theme;
+    // Marrakech: enable the heat-shimmer post pass over the sand.
+    this.heatShimmer = theme === 'desert';
+    // Each race (theme set) can celebrate its winner once.
+    this._winnerCelebrated = false;
+    this._confettiBurst.length = 0;
     switch (theme) {
       case 'miami':
         this.skyTop = [0.13, 0.32, 0.6];
@@ -1135,6 +1202,172 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
 
   // ─── Scenery (theme-dependent) ───
+  // ─── Animated oasis FX ───
+  // Lazy-init the two dynamic buffers used by the swaying-palm and rippling-
+  // water passes. Same vertex layout as the crowd (pos/normal/color/uv, 11
+  // floats, 44-byte stride) so they draw with the main lit program.
+  private initOasisFx() {
+    if (this._frondVao) return;
+    const gl = this.gl;
+    const mk = () => {
+      const vao = gl.createVertexArray()!;
+      gl.bindVertexArray(vao);
+      const buf = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 44, 0);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 44, 12);
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribPointer(2, 3, gl.FLOAT, false, 44, 24);
+      gl.enableVertexAttribArray(3);
+      gl.vertexAttribPointer(3, 2, gl.FLOAT, false, 44, 36);
+      gl.bindVertexArray(null);
+      return { vao, buf };
+    };
+    const f = mk(); this._frondVao = f.vao; this._frondBuf = f.buf;
+    const w = mk(); this._waterVao = w.vao; this._waterBuf = w.buf;
+    // Preallocate capacity: up to 220 crowns × 7 fronds × 6 verts; 4 pools × 600.
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._frondBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, 220 * 7 * 6 * 11 * 4, gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._waterBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, 4 * 600 * 11 * 4, gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+  }
+
+  // Rebuilds + draws the palm fronds every frame: each crown slowly rotates
+  // around its trunk top (two overlapping sine swells per palm so the sway is
+  // organic), with a gentle droop. Culled to ~450m (the fog fully hides
+  // anything past ~480m) so every visible palm keeps its canopy — the fronds
+  // were removed from the static mesh, so a tighter cull would leave bare trunks.
+  private drawPalmFronds(eye: number[]) {
+    const crowns = this._palmCrowns;
+    if (!crowns.length) return;
+    const gl = this.gl;
+    this.initOasisFx();
+    const t = this.elapsed;
+    const verts: number[] = [];
+    const idxs: number[] = [];
+    const rnd = (i: number) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+    const frondCol = [0.06, 0.42, 0.1] as [number, number, number];
+    const maxVerts = 220 * 7 * 6;
+    let used = 0;
+    for (const c of crowns) {
+      if (used >= maxVerts) break;
+      const ddx = c.x - eye[0], ddz = c.z - eye[2];
+      if (ddx * ddx + ddz * ddz > 450 * 450) continue;
+      const sway = Math.sin(t * 0.9 + c.phase) * 0.18 + Math.sin(t * 0.4 + c.phase * 1.7) * 0.07;
+      const droop = Math.abs(Math.sin(t * 0.8 + c.phase * 1.3)) * 0.14;
+      for (let f = 0; f < 7; f++) {
+        if (used >= maxVerts) break;
+        const a = (f / 7) * Math.PI * 2 + c.lean * 0.3 + sway;
+        const len = (1.6 + rnd(c.phase * 13 + f * 7) * 0.5) * c.s;
+        const ex = c.x + Math.cos(a) * len;
+        const ez = c.z + Math.sin(a) * len;
+        const ey = c.y + 0.2 - rnd(c.phase * 29 + f * 3) * 0.7 - droop * 0.5;
+        this.addQuad(verts, idxs,
+          [c.x, c.y, c.z], [ex, ey, ez],
+          [c.x + Math.cos(a) * len * 0.95, ey - 0.15, c.z + Math.sin(a) * len * 0.95],
+          [c.x + Math.cos(a) * 0.3, c.y - 0.15, c.z + Math.sin(a) * 0.3],
+          frondCol);
+        used += 6;
+      }
+    }
+    if (!idxs.length) return;
+    // Expand the indexed quads into a non-indexed triangle list for the buffer.
+    const tri: number[] = [];
+    for (const i of idxs) {
+      const o = i * 11;
+      tri.push(verts[o], verts[o + 1], verts[o + 2], verts[o + 3], verts[o + 4], verts[o + 5],
+        verts[o + 6], verts[o + 7], verts[o + 8], verts[o + 9], verts[o + 10]);
+    }
+    const data = new Float32Array(tri);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._frondBuf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
+    gl.useProgram(this.prog);
+    gl.uniform1i(this.hasTexLoc, 0);
+    gl.uniform3f(this.colorLoc, 1, 1, 1);
+    this.mat4Identity(this.modelMatrix);
+    gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+    this.setNormalMatrix(this.modelMatrix);
+    gl.bindVertexArray(this._frondVao);
+    gl.drawArrays(gl.TRIANGLES, 0, data.length / 11);
+    gl.bindVertexArray(null);
+  }
+
+  // Rebuilds + draws each oasis water pool as an animated heightfield grid:
+  // concentric ripples emanating from the pool centre plus slow wind waves,
+  // with finite-difference normals so the sun glints on the ripple slopes.
+  // Culled to ~260m. Only populated on the desert theme.
+  private drawOasisWater(eye: number[]) {
+    const pools = this._oasisPools;
+    if (!pools.length) return;
+    const gl = this.gl;
+    this.initOasisFx();
+    const t = this.elapsed;
+    const verts: number[] = [];
+    const maxVerts = 4 * 600;
+    let used = 0;
+    for (const pool of pools) {
+      if (used >= maxVerts) break;
+      const ddx = pool.x - eye[0], ddz = pool.z - eye[2];
+      if (ddx * ddx + ddz * ddz > 260 * 260) continue;
+      const cells = 10;
+      const half = pool.r;
+      const cell = (2 * half) / cells;
+      const H = (wx: number, wz: number) => {
+        const dxp = wx - pool.x, dzp = wz - pool.z;
+        const dist = Math.sqrt(dxp * dxp + dzp * dzp) || 0.001;
+        const ripple = Math.sin(dist * 5.5 - t * 3.0 + pool.phase) * 0.035 * Math.exp(-dist * 0.45);
+        const wave = Math.sin(wx * 0.8 + t * 1.3) * 0.012 + Math.cos(wz * 1.0 + t * 1.0) * 0.012;
+        // Stay above the -0.26 sand band so ripple troughs never clip through it.
+        return Math.max(-0.255, -0.22 + ripple + wave);
+      };
+      const gh: number[][] = [];
+      for (let i = 0; i <= cells; i++) {
+        gh.push([]);
+        for (let j = 0; j <= cells; j++) {
+          gh[i].push(H(pool.x - half + cell * i, pool.z - half + cell * j));
+        }
+      }
+      for (let i = 0; i < cells && used < maxVerts; i++) {
+        for (let j = 0; j < cells && used < maxVerts; j++) {
+          const corners: number[][] = [];
+          for (const [di, dj] of [[0, 0], [1, 0], [1, 1], [0, 1]] as const) {
+            const ci = i + di, cj = j + dj;
+            const wx = pool.x - half + cell * ci;
+            const wz = pool.z - half + cell * cj;
+            const hC = gh[ci][cj];
+            const slopeX = (gh[Math.min(cells, ci + 1)][cj] - gh[Math.max(0, ci - 1)][cj]) / (2 * cell);
+            const slopeZ = (gh[ci][Math.min(cells, cj + 1)] - gh[ci][Math.max(0, cj - 1)]) / (2 * cell);
+            let nx = -slopeX, ny = 1, nz = -slopeZ;
+            const nl = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+            nx /= nl; ny /= nl; nz /= nl;
+            const wv = Math.max(0, (hC - -0.22) * 4); // crest brightening
+            corners.push([wx, hC, wz, nx, ny, nz, 0.11 + 0.06 * wv, 0.46 + 0.08 * wv, 0.44 + 0.07 * wv]);
+          }
+          const [a, b, c2, d] = corners;
+          for (const v of [a, b, c2]) verts.push(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], 0, 0);
+          for (const v of [a, c2, d]) verts.push(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], 0, 0);
+          used += 6;
+        }
+      }
+    }
+    if (!verts.length) return;
+    const data = new Float32Array(verts);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._waterBuf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
+    gl.useProgram(this.prog);
+    gl.uniform1i(this.hasTexLoc, 0);
+    gl.uniform3f(this.colorLoc, 1, 1, 1);
+    this.mat4Identity(this.modelMatrix);
+    gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+    this.setNormalMatrix(this.modelMatrix);
+    gl.bindVertexArray(this._waterVao);
+    gl.drawArrays(gl.TRIANGLES, 0, data.length / 11);
+    gl.bindVertexArray(null);
+  }
+
   private buildScenery() {
     const gl = this.gl;
     // Free the previous theme's scenery buffers (setTheme rebuilds this on
@@ -1143,6 +1376,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this.sceneryVbo) { try { gl.deleteBuffer(this.sceneryVbo); } catch { } }
     if (this.sceneryIbo) { try { gl.deleteBuffer(this.sceneryIbo); } catch { } }
     if (this._birdsVao) { try { gl.deleteVertexArray(this._birdsVao); } catch { } }
+    if (this._animalsVao) { try { gl.deleteVertexArray(this._animalsVao); } catch { } }
+    if (this._animalsBuf) { try { gl.deleteBuffer(this._animalsBuf); } catch { } }
     if (this._birdsBuf) { try { gl.deleteBuffer(this._birdsBuf); } catch { } }
     if (this._balloonVao) { try { gl.deleteVertexArray(this._balloonVao); } catch { } }
     if (this._balloonVbo) { try { gl.deleteBuffer(this._balloonVbo); } catch { } }
@@ -1152,6 +1387,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this._confettiVao) { try { gl.deleteVertexArray(this._confettiVao); } catch { } }
     if (this._confettiBuf) { try { gl.deleteBuffer(this._confettiBuf); } catch { } }
     this._crowdPeople = [];
+    this._palmCrowns.length = 0;
+    this._oasisPools.length = 0;
     const pts = this._trackPoints;
     const verts: number[] = [];
     const idxs: number[] = [];
@@ -1237,6 +1474,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
           phase: Math.random() * Math.PI * 2,
         });
       }
+    }
+
+    // Marrakech festival crowd — a handful of veiled, Moroccan-patterned
+    // spectators right at the start/finish grandstand for local festival
+    // energy (robes, head covers, patterned bands instead of jerseys).
+    if (this.theme === 'desert') {
+      this.addFestivalCrowd(pts);
     }
 
     // Light poles every 20 segments (all themes)
@@ -2006,11 +2250,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const ox = p.x + ppx * dist * side;
       const oz = p.z + ppz * dist * side;
       const r = 4 + Math.random() * 2;
-      // Water pool (sits just above the -0.26 sand band so no z-fighting).
-      this.addQuad(verts, idxs,
-        [ox - r, -0.22, oz - r], [ox + r, -0.22, oz - r],
-        [ox + r, -0.22, oz + r], [ox - r, -0.22, oz + r],
-        [0.15, 0.45, 0.42]);
+      // Water pool — the static mesh skips it; drawOasisWater builds an
+      // animated ripple grid here every frame (sits just above the -0.26 sand).
+      this._oasisPools.push({ x: ox, z: oz, r, phase: Math.random() * Math.PI * 2 });
       // Palms ringing the water.
       for (let pi = 0; pi < 6; pi++) {
         const a = (pi / 6) * Math.PI * 2 + Math.random() * 0.6;
@@ -2372,20 +2614,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const topX = kinkX + lean * 0.55;
     const topZ = kinkZ + lean * 0.4;
     const topY = trunkH;
-    // 7 fronds radiating out + slightly down.
-    const frondCol = [0.06, 0.42, 0.1] as [number, number, number];
-    for (let f = 0; f < 7; f++) {
-      const a = (f / 7) * Math.PI * 2 + lean * 0.3;
-      const len = (1.6 + Math.random() * 0.5) * s;
-      const ex = topX + Math.cos(a) * len;
-      const ez = topZ + Math.sin(a) * len;
-      const ey = topY + 0.2 - Math.random() * 0.7;
-      this.addQuad(verts, idxs,
-        [topX, topY, topZ], [ex, ey, ez],
-        [topX + Math.cos(a) * len * 0.95, ey - 0.15, topZ + Math.sin(a) * len * 0.95],
-        [topX + Math.cos(a) * 0.3, topY - 0.15, topZ + Math.sin(a) * 0.3],
-        frondCol);
-    }
+    // Fronds are drawn dynamically every frame (swaying in the breeze) — record
+    // the crown anchor here; the static mesh keeps trunk + coconuts only.
+    this._palmCrowns.push({ x: topX, y: topY, z: topZ, s, phase: Math.random() * Math.PI * 2, lean });
     // A tiny coconut cluster at the crown.
     this.addSphere(verts, idxs, topX + lean * 0.2, topY - 0.1, topZ + lean * 0.15, 0.14 * s, 6, [0.5, 0.35, 0.15]);
   }
@@ -2469,7 +2700,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // Each station is a superellipse cross-section skinned along X. The curve
     // is carefully shaped: a sharp nose tip, an S-duct dip, tub shoulder, airbox
     // hump, and a tapered rear engine cover — all one continuous smooth surface.
-    this.addLoft(verts, idxs, [
+    // addSmoothLoft averages per-vertex normals so the hull renders sleek, not
+    // faceted (flat per-quad normals made the car look blocky).
+    this.addSmoothLoft(verts, idxs, [
       { x: -1.06, y: 0.10, cz: 0, h: 0.17, w: 0.28 },  // rear tail, narrow
       { x: -0.90, y: 0.11, cz: 0, h: 0.19, w: 0.32 },  // gearbox housing
       { x: -0.74, y: 0.13, cz: 0, h: 0.22, w: 0.36 },  // engine cover rising
@@ -2486,10 +2719,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
       { x: 1.04, y: 0.10, cz: 0, h: 0.11, w: 0.21 },   // nose mid
       { x: 1.22, y: 0.09, cz: 0, h: 0.08, w: 0.14 },   // nose tip taper
       { x: 1.38, y: 0.09, cz: 0, h: 0.06, w: 0.08 },   // rounded nose tip
-    ], 24, [cr, cg, cb], true);
+    ], 30, [cr, cg, cb], true);
 
-    // Cockpit opening (dark recess sunk into the tub top)
-    this.addBox(verts, idxs, 0.30, 0.285, 0, 0.32, 0.02, 0.24, dark);
+    // Cockpit opening (rounded dark collar sunk into the tub top — a short
+    // smooth loft tube so the hole reads elliptical, not a square notch)
+    this.addSmoothLoft(verts, idxs, [
+      { x: 0.13, y: 0.30, cz: 0, h: 0.035, w: 0.26 },
+      { x: 0.47, y: 0.30, cz: 0, h: 0.035, w: 0.26 },
+    ], 20, dark, false);
     // Driver shoulders + torso peeking out of the cockpit
     this.addBox(verts, idxs, 0.26, 0.27, 0, 0.18, 0.07, 0.20, [cr, cg, cb]);
     this.addBox(verts, idxs, 0.29, 0.30, 0, 0.12, 0.05, 0.18, [0.1, 0.1, 0.12]);
@@ -2525,6 +2762,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addCylinder(verts, idxs, 0.05, 0.25, 0, 0.025, 0.18, 10, carbon);
     // Front arch (the iconic halo top bar, wider than the tub)
     this.addBox(verts, idxs, 0.4, 0.42, 0, 0.2, 0.04, 0.52, carbon);
+    // Rounded arch ends (short vertical caps so the bar ends aren't square slabs)
+    this.addCylinder(verts, idxs, 0.4, 0.40, 0.26, 0.022, 0.05, 10, carbon);
+    this.addCylinder(verts, idxs, 0.4, 0.40, -0.26, 0.022, 0.05, 10, carbon);
     // Front arch aero fairing (thicker center, slightly streamlined)
     this.addTaperedBox(verts, idxs, 0.4, 0.42, 0, 0.2, 0.05, 0.04, 0.52, 0.48, carbon);
     // Left side bar (from tub to front arch)
@@ -2592,7 +2832,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // ── 6. Sidepods (rounded sculpted lofts with pronounced undercut) ──
     for (const sgn of [1, -1]) {
       // Sidepod body (round cross-section, coke-bottle waist)
-      this.addLoft(verts, idxs, [
+      this.addSmoothLoft(verts, idxs, [
         { x: 0.58, y: 0.17, cz: 0.48 * sgn, h: 0.28, w: 0.34 }, // intake mouth
         { x: 0.34, y: 0.18, cz: 0.50 * sgn, h: 0.27, w: 0.38 }, // widest point
         { x: 0.08, y: 0.18, cz: 0.50 * sgn, h: 0.25, w: 0.37 }, // mid
@@ -2600,7 +2840,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
         { x: -0.42, y: 0.16, cz: 0.47 * sgn, h: 0.18, w: 0.28 }, // coke bottle
         { x: -0.64, y: 0.14, cz: 0.44 * sgn, h: 0.14, w: 0.22 }, // rear taper
         { x: -0.84, y: 0.12, cz: 0.38 * sgn, h: 0.10, w: 0.14 }, // tail
-      ], 18, [cr, cg, cb], true);
+      ], 22, [cr, cg, cb], true);
     }
     // Sidepod intake mouths (dark openings on the front face)
     this.addBox(verts, idxs, 0.585, 0.19, 0.5, 0.02, 0.14, 0.28, dark);
@@ -3322,10 +3562,16 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // lateral width). The perimeter is sampled `segs` times around, so the
   // surface is genuinely curved — no flat box faces. Optionally closes the
   // two open ends with small fan caps (degenerate triangles are culled).
-  private addLoft(verts: number[], idxs: number[], stations: Array<{ x: number; y: number; cz: number; h: number; w: number }>, segs: number, color: number[], closeCaps: boolean) {
+  // addSmoothLoft: loft skinning (identical ring generation and winding to the
+  // now-removed flat addLoft), but averages the
+  // adjacent face normals at every ring vertex before emitting them, so the
+  // skinned surface renders sleek instead of faceted. The old flat per-quad
+  // normals made the sculpted F1 body read as a stack of polygons — the
+  // main source of the "blocky" look. Caps get analytic +/-X normals.
+  private addSmoothLoft(verts: number[], idxs: number[], stations: Array<{ x: number; y: number; cz: number; h: number; w: number }>, segs: number, color: number[], closeCaps: boolean) {
     const n = 4; // superellipse exponent: 2 = ellipse, 4 = rounded rect
-    const rings: number[][][] = stations.map(st => {
-      const ring: number[][] = [];
+    const ringIdx: number[][] = stations.map(st => {
+      const row: number[] = [];
       const hw = st.w / 2, hh = st.h / 2;
       for (let i = 0; i <= segs; i++) {
         const a = (i / segs) * Math.PI * 2;
@@ -3333,31 +3579,61 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const sx = ca < 0 ? -1 : 1, sy = sa < 0 ? -1 : 1;
         const lx = sx * Math.pow(Math.abs(ca), 2 / n) * hw;
         const ly = sy * Math.pow(Math.abs(sa), 2 / n) * hh;
-        ring.push([st.x, st.y + ly, st.cz + lx]);
+        verts.push(st.x, st.y + ly, st.cz + lx, 0, 0, 0, color[0], color[1], color[2], 0, 0);
+        row.push(verts.length / 11 - 1);
       }
-      return ring;
+      return row;
     });
-    // Skin consecutive stations. Quad order (A0, B0, B1, A1) yields outward
-    // cross-product normals (verified against the addTaperedBox convention).
+    // Accumulate a face normal onto each ring vertex; then normalize below.
+    const acc: number[][] = [];
+    const addN = (vi: number, nx: number, ny: number, nz: number) => {
+      let a = acc[vi];
+      if (!a) { a = [0, 0, 0]; acc[vi] = a; }
+      a[0] += nx; a[1] += ny; a[2] += nz;
+    };
     for (let s = 0; s < stations.length - 1; s++) {
-      const A = rings[s], B = rings[s + 1];
+      const A = ringIdx[s], B = ringIdx[s + 1];
       for (let i = 0; i < segs; i++) {
-        this.addQuad(verts, idxs, A[i], B[i], B[i + 1], A[i + 1], color);
+        const ax = verts[A[i] * 11], ay = verts[A[i] * 11 + 1], az = verts[A[i] * 11 + 2];
+        const bx = verts[B[i] * 11], by = verts[B[i] * 11 + 1], bz = verts[B[i] * 11 + 2];
+        const cx = verts[B[i + 1] * 11], cy = verts[B[i + 1] * 11 + 1], cz2 = verts[B[i + 1] * 11 + 2];
+        const ux = bx - ax, uy = by - ay, uz = bz - az;
+        const vx = cx - ax, vy = cy - ay, vz = cz2 - az;
+        let nx = uy * vz - uz * vy;
+        let ny = uz * vx - ux * vz;
+        let nz = ux * vy - uy * vx;
+        const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+        nx /= len; ny /= len; nz /= len;
+        const quad = [A[i], B[i], B[i + 1], A[i + 1]];
+        for (const vi of quad) addN(vi, nx, ny, nz);
+        idxs.push(A[i], B[i], B[i + 1]);
+        idxs.push(B[i + 1], A[i + 1], A[i]);
+      }
+    }
+    // Normalize the averaged normals back into the vertex buffer.
+    for (let s = 0; s < stations.length; s++) {
+      for (const vi of ringIdx[s]) {
+        const a = acc[vi];
+        if (!a) continue;
+        const len = Math.sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]) || 1;
+        verts[vi * 11 + 3] = a[0] / len;
+        verts[vi * 11 + 4] = a[1] / len;
+        verts[vi * 11 + 5] = a[2] / len;
       }
     }
     if (closeCaps) {
-      // Front cap (last station): fan winding gives +X outward normal.
-      const F = rings[rings.length - 1];
+      // Front cap (last station): fan from center with +X outward normal.
+      const F = ringIdx[ringIdx.length - 1];
       const fc = stations[stations.length - 1];
-      for (let i = 0; i < segs; i++) {
-        this.addQuad(verts, idxs, [fc.x, fc.y, fc.cz], F[i + 1], F[i], [fc.x, fc.y, fc.cz], color);
-      }
-      // Back cap (first station): reversed fan gives −X outward normal.
-      const R = rings[0];
+      verts.push(fc.x, fc.y, fc.cz, 1, 0, 0, color[0], color[1], color[2], 0, 0);
+      const fCenter = verts.length / 11 - 1;
+      for (let i = 0; i < segs; i++) idxs.push(fCenter, F[i + 1], F[i]);
+      // Back cap (first station): reversed fan with −X outward normal.
+      const R = ringIdx[0];
       const rc = stations[0];
-      for (let i = 0; i < segs; i++) {
-        this.addQuad(verts, idxs, [rc.x, rc.y, rc.cz], R[i], R[i + 1], [rc.x, rc.y, rc.cz], color);
-      }
+      verts.push(rc.x, rc.y, rc.cz, -1, 0, 0, color[0], color[1], color[2], 0, 0);
+      const rCenter = verts.length / 11 - 1;
+      for (let i = 0; i < segs; i++) idxs.push(rCenter, R[i], R[i + 1]);
     }
   }
 
@@ -3518,6 +3794,59 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
   }
 
+  // Marrakech festival spectators — veiled figures in long robes and
+  // Moroccan-patterned bands, clustered around the start/finish line
+  // (the widest, most crowded part of the lap).
+  private addFestivalCrowd(pts: { x: number; z: number; dirX: number; dirZ: number; width: number }[]) {
+    if (!pts.length) return;
+    const start = pts[0];
+    const ppx = -start.dirZ;
+    const ppz = start.dirX;
+    const robeColors: [number, number, number][] = [
+      [0.92, 0.88, 0.78], // cream
+      [0.75, 0.1, 0.1],   // Moroccan red
+      [0.85, 0.8, 0.72],  // sand
+      [0.1, 0.32, 0.14],  // deep green
+      [0.95, 0.93, 0.88], // white
+    ];
+    const patternColors: [number, number, number][] = [
+      [0.85, 0.6, 0.1],  // saffron gold
+      [0.75, 0.1, 0.1],  // crimson
+      [0, 0.45, 0.15],   // green
+      [0.1, 0.35, 0.6],  // zellige blue
+    ];
+    const skins: [number, number, number][] = [
+      [0.55, 0.36, 0.22], [0.75, 0.55, 0.4], [0.4, 0.26, 0.15],
+    ];
+    // ~14 festival-goers: 8 along the front rail either side of the arch,
+    // 6 more up on the grandstand's first tier, staggered.
+    const spots: [number, number, number][] = [
+      [-4, 0, 0], [-3.2, 0, 0.2], [-2.4, 0, -0.15], [-1.6, 0, 0.1],
+      [1.6, 0, -0.1], [2.4, 0, 0.15], [3.2, 0, -0.2], [4, 0, 0],
+      [-3.6, 1, 0.4], [-2.8, 1, 0], [-2, 1, 0.3],
+      [2, 1, -0.3], [2.8, 1, 0], [3.6, 1, 0.4],
+    ];
+    for (const [off, tier, stagger] of spots) {
+      const bx = start.x + ppx * (start.width / 2 + 3.2) + ppx * off;
+      const bz = start.z + ppz * (start.width / 2 + 3.2) + ppz * off;
+      const ty = 0.1 + tier * 0.35 + stagger;
+      this._crowdPeople.push({
+        x: bx,
+        y: ty,
+        z: bz,
+        shirt: robeColors[Math.floor(Math.random() * robeColors.length)],
+        skin: skins[Math.floor(Math.random() * skins.length)],
+        hair: [0, 0, 0], // unused — covered by the veil
+        pants: [0.12, 0.12, 0.16],
+        pose: Math.floor(Math.random() * 3),
+        scale: 0.9 + Math.random() * 0.2,
+        phase: Math.random() * Math.PI * 2,
+        veiled: true,
+        pattern: patternColors[Math.floor(Math.random() * patternColors.length)],
+      });
+    }
+  }
+
   // Track-themed jersey palette for crowd figures, keyed by the circuit theme.
   private crowdShirtsForTheme(): [number, number, number][] {
     switch (this.theme) {
@@ -3666,10 +3995,19 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // Grey puffs emitted at the rear wheels when a car is sliding hard (high
   // slip). Pooled, billboarded toward the camera each frame (like rain) and
   // drawn with a tiny dedicated program so per-vertex alpha fades them out.
-  private _smokeParticles: { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; maxLife: number; size: number }[] = [];
+  private _smokeParticles: { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; maxLife: number; size: number; color?: [number, number, number] }[] = [];
   private _smokeVao!: WebGLVertexArrayObject;
   private _smokeBuf!: WebGLBuffer;
-  private _smokeMax = 120;
+  private _smokeMax = 160;
+  // Animated oasis FX — swaying palm crowns and rippling water pools, rebuilt
+  // per frame into dynamic buffers (same 11-float layout as the crowd) so the
+  // desert oases feel alive instead of being baked into the static scenery.
+  private _palmCrowns: { x: number; y: number; z: number; s: number; phase: number; lean: number }[] = [];
+  private _oasisPools: { x: number; z: number; r: number; phase: number }[] = [];
+  private _frondVao: WebGLVertexArrayObject | null = null;
+  private _frondBuf: WebGLBuffer | null = null;
+  private _waterVao: WebGLVertexArrayObject | null = null;
+  private _waterBuf: WebGLBuffer | null = null;
   private _smokeInitialized = false;
   private smokeProg!: WebGLProgram;
   private smokeProjLoc!: WebGLUniformLocation;
@@ -3726,6 +4064,46 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
   }
 
+  // Brake-dust puffs: small, short-lived, dusty-grey-brown particles burst from
+  // ALL FOUR wheels when the brakes are slammed on (large negative acceleration),
+  // like an F1 lockup. Reuses the smoke pool/billboard system — just darker,
+  // lower to the ground, and shorter-lived than tire smoke, spraying backward
+  // off the discs. Color is set per particle so drawSmoke keeps them dusty.
+  private emitBrakeDust(x: number, z: number, yaw: number, brake: number, speed: number = 0) {
+    if (this._smokeParticles.length >= this._smokeMax) return;
+    const intensity = Math.min(brake, 1);
+    if (intensity <= 0) return;
+    // Puff count scales with both braking force and road speed — a 300 km/h
+    // lockup kicks a visibly bigger cloud than a crawling stop.
+    const speedFactor = Math.min(Math.abs(speed) / 40, 1);
+    const sinY = Math.sin(yaw), cosY = Math.cos(yaw);
+    for (const side of [-1, 1]) {
+      const wheels: Array<[number, number]> = [
+        [x + 0.62 * sinY - side * 0.60 * cosY, z + 0.62 * cosY + side * 0.60 * sinY], // front
+        [x - 0.55 * sinY - side * 0.60 * cosY, z - 0.55 * cosY + side * 0.60 * sinY]  // rear
+      ];
+      for (const [wx, wz] of wheels) {
+        if (this._smokeParticles.length >= this._smokeMax) return;
+        const count = 1 + Math.floor(intensity * (0.8 + speedFactor * 0.9) + Math.random() * 0.7);
+        for (let i = 0; i < count; i++) {
+          if (this._smokeParticles.length >= this._smokeMax) return;
+          this._smokeParticles.push({
+            x: wx + (Math.random() - 0.5) * 0.12,
+            y: 0.12 + Math.random() * 0.1,
+            z: wz + (Math.random() - 0.5) * 0.12,
+            vx: -sinY * (0.6 + Math.random() * 0.9) + (Math.random() - 0.5) * 0.5,
+            vy: 0.4 + Math.random() * 0.5,
+            vz: -cosY * (0.6 + Math.random() * 0.9) + (Math.random() - 0.5) * 0.5,
+            life: 0,
+            maxLife: 0.3 + Math.random() * 0.25,
+            size: 0.1 + Math.random() * 0.07,
+            color: [0.38, 0.33, 0.29]
+          });
+        }
+      }
+    }
+  }
+
   // Advances smoke once per frame (main pass only, so mirror doesn't double-age
   // the pool) and rebuilds camera-facing billboard quads into the dynamic buffer.
   private updateSmoke(dt: number) {
@@ -3754,15 +4132,20 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const s = p.size * (0.5 + t * 1.8);
       const alpha = Math.max(0, 0.5 * (1 - t));
       const gray = 0.5 + t * 0.15;
+      // Colored particles (brake dust) keep their dusty tint, gently lightening
+      // with age; tire smoke stays grey.
+      const cr = p.color ? p.color[0] * (0.75 + 0.4 * t) : gray;
+      const cg = p.color ? p.color[1] * (0.75 + 0.4 * t) : gray;
+      const cb = p.color ? p.color[2] * (0.75 + 0.4 * t) : gray + 0.03;
       const hx = rx * s, hy = ry * s, hz = rz * s;
       const wx = ux * s, wy = uy * s, wz = uz * s;
       const cx = p.x, cy = p.y, cz = p.z;
-      data.push(cx - hx + wx, cy - hy + wy, cz - hz + wz, gray, gray, gray + 0.03, alpha);
-      data.push(cx + hx + wx, cy + hy + wy, cz + hz + wz, gray, gray, gray + 0.03, alpha);
-      data.push(cx + hx - wx, cy + hy - wy, cz + hz - wz, gray, gray, gray + 0.03, alpha);
-      data.push(cx - hx + wx, cy - hy + wy, cz - hz + wz, gray, gray, gray + 0.03, alpha);
-      data.push(cx + hx - wx, cy + hy - wy, cz + hz - wz, gray, gray, gray + 0.03, alpha);
-      data.push(cx - hx - wx, cy - hy - wy, cz - hz - wz, gray, gray, gray + 0.03, alpha);
+      data.push(cx - hx + wx, cy - hy + wy, cz - hz + wz, cr, cg, cb, alpha);
+      data.push(cx + hx + wx, cy + hy + wy, cz + hz + wz, cr, cg, cb, alpha);
+      data.push(cx + hx - wx, cy + hy - wy, cz + hz - wz, cr, cg, cb, alpha);
+      data.push(cx - hx + wx, cy - hy + wy, cz - hz + wz, cr, cg, cb, alpha);
+      data.push(cx + hx - wx, cy + hy - wy, cz + hz - wz, cr, cg, cb, alpha);
+      data.push(cx - hx - wx, cy - hy - wy, cz - hz - wz, cr, cg, cb, alpha);
     }
     gl.useProgram(this.smokeProg);
     gl.uniformMatrix4fv(this.smokeProjLoc, false, proj);
@@ -3791,6 +4174,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private _confettiBuf!: WebGLBuffer;
   private _confettiCount = 0;
   private _confetti: { x: number; y: number; z: number; vx: number; vy: number; vz: number; phase: number; spin: number; size: number; color: [number, number, number] }[] = [];
+  // Winner's confetti burst — explosive launch particles (pit box + final
+  // straight) that recycle onto the same ambient field once they fall back.
+  private _confettiBurst: { x: number; y: number; z: number; vx: number; vy: number; vz: number; phase: number; spin: number; size: number; sx: number; sy: number; sz: number; color: [number, number, number] }[] = [];
+  private _winnerCelebrated = false;
   private _crowdVao!: WebGLVertexArrayObject;
   private _crowdBuf!: WebGLBuffer;
   // Preallocated per-frame geometry for the animated crowd (never GC'd).
@@ -3808,6 +4195,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private _balloons: { ang: number; radius: number; alt: number; phase: number; color: [number, number, number] }[] = [];
   private _trackCenterX = 0;
   private _trackCenterZ = 0;
+  // Mountain wildlife — deer on the grassy flats and mountain goats among the
+  // rocky peaks (drawn per-frame like the birds so they can graze/bob).
+  private _animalsVao!: WebGLVertexArrayObject;
+  private _animalsBuf!: WebGLBuffer;
+  private _animals: { kind: 0 | 1; x: number; z: number; yaw: number; size: number; phase: number }[] = [];
 
   // Builds the animated sky-object geometry (bird flock params, balloon mesh)
   // once per circuit, centered on the track centroid so they orbit the race.
@@ -3824,15 +4216,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
 
     // Birds — theme-flavoured flocks wheeling above the circuit. Miami gets
     // darting white seagulls over the bay; the mountain/alpine worlds get big
-    // soaring eagles; the desert gets circling vultures; elsewhere small dark
-    // passerines.
+    // soaring eagles (denser — every other bird so the summits feel alive);
+    // the desert gets circling vultures; elsewhere small dark passerines.
     this._birds = [];
     const isMiami = this.theme === 'miami';
     const isHighCountry = this.theme === 'mountain' || this.theme === 'alpine';
     const isDesert = this.theme === 'desert';
-    const birdCount = isMiami ? 26 : isHighCountry ? 16 : isDesert ? 14 : 18;
+    const birdCount = isMiami ? 26 : isHighCountry ? 24 : isDesert ? 14 : 18;
     for (let i = 0; i < birdCount; i++) {
-      const eagle = isHighCountry && i % 3 === 0;
+      const eagle = isHighCountry && i % 2 === 0;
       const vulture = isDesert && i % 2 === 0;
       this._birds.push({
         phase: Math.random() * Math.PI * 2,
@@ -3844,6 +4236,58 @@ void main() { FragColor = texture(uTex, vUV); }`;
         size: eagle ? 1.7 + Math.random() * 0.4 : vulture ? 1.3 + Math.random() * 0.3 : isMiami ? 0.7 + Math.random() * 0.25 : 0.9 + Math.random() * 0.3,
         shade: isMiami ? 0.85 + Math.random() * 0.08 : vulture ? 0.12 : eagle ? 0.1 : 0.08 + Math.random() * 0.05,
       });
+    }
+
+    // Mountain wildlife — deer grazing in the grassy flats beyond the barriers
+    // and mountain goats picking their way along the rocky peak bases. Placed
+    // off the track ring (width/2 + 26..40) so they're visible but never on
+    // the racing line; their sizes/grazing phases differ per animal.
+    this._animals = [];
+    if (isHighCountry) {
+      let deerIdx = 0;
+      // Sparse on purpose — wildlife should read as occasionally glimpsed, not
+      // a permanent herd lining the whole lap (every 10th segment, ~13 animals).
+      for (let i = 0; i < pts.length; i += 10) {
+        const p = pts[i];
+        const ppx = -p.dirZ;
+        const ppz = p.dirX;
+        const side = (i / 10) % 2 === 0 ? -1 : 1;
+        // Deer: flat grassy ground, ~10 of them in small clusters. Goats: a
+        // little farther out where the rock piles rise, ~8 of them.
+        const kind: 0 | 1 = deerIdx % 2 === 0 ? 0 : 1;
+        const dist = kind === 0
+          ? p.width / 2 + 26 + (deerIdx % 5) * 2.5 + Math.random() * 3
+          : p.width / 2 + 36 + Math.random() * 6;
+        const ax = p.x + ppx * dist * side + (Math.random() - 0.5) * 4;
+        const az = p.z + ppz * dist * side + (Math.random() - 0.5) * 4;
+        this._animals.push({
+          kind,
+          x: ax,
+          z: az,
+          // Face away from the track (towards the hills/mountains).
+          yaw: Math.atan2(ppx * side, ppz * side),
+          size: kind === 0 ? 0.85 + Math.random() * 0.25 : 0.7 + Math.random() * 0.2,
+          phase: Math.random() * Math.PI * 2,
+        });
+        deerIdx++;
+        if (deerIdx >= 13) break;
+      }
+      // Animals ride on a tiny dynamic buffer — 18 max, ~10 boxes each.
+      this._animalsVao = gl.createVertexArray()!;
+      gl.bindVertexArray(this._animalsVao);
+      this._animalsBuf = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, this._animalsBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(18 * 10 * 36 * 11), gl.DYNAMIC_DRAW);
+      const stride = 11 * 4;
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+      gl.enableVertexAttribArray(3);
+      gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+      gl.bindVertexArray(null);
     }
 
     // Hot-air balloons — a handful of colourful ones drifting nearby (more in
@@ -3972,11 +4416,17 @@ void main() { FragColor = texture(uTex, vUV); }`;
 
     // Shared quad mesh (one unit square, centred on origin) drawn per particle
     // via an instance-less dynamic buffer rebuilt each frame, like the birds.
+    // The buffer is sized for a worst-case ceiling — ambient field plus the
+    // winner's cannonade (celebrateWinner adds up to 210 more) — because
+    // drawConfetti writes BOTH sets into this one buffer each frame, and an
+    // out-of-bounds bufferSubData kills the WebGL context. Miami's dense
+    // ambient alone (216) + burst would already exceed the ambient-only size.
+    const maxConfetti = Math.max(this._confetti.length, 500);
     this._confettiVao = gl.createVertexArray()!;
     gl.bindVertexArray(this._confettiVao);
     this._confettiBuf = gl.createBuffer()!;
     gl.bindBuffer(gl.ARRAY_BUFFER, this._confettiBuf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this._confettiCount * 11), gl.DYNAMIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(maxConfetti * 6 * 11), gl.DYNAMIC_DRAW);
     const stride = 11 * 4;
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
@@ -3989,13 +4439,57 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.bindVertexArray(null);
   }
 
+  // Winner's celebration: a one-shot confetti cannonade when the race winner
+  // crosses the line. Bursts at the finish line itself plus a dense cluster
+  // back on the final straight (the winner's pit box area), so the whole
+  // run-in erupts. Particles launch upward with a radial spread, fall under
+  // gravity, and recycle onto the ambient confetti field. Fires once per race
+  // (guarded by _winnerCelebrated, reset on each setTheme).
+  celebrateWinner() {
+    if (this._winnerCelebrated) return;
+    this._winnerCelebrated = true;
+    const pts = this._trackPoints;
+    if (!pts.length) return;
+    const colors: [number, number, number][] = [
+      [0.95, 0.25, 0.3], [0.2, 0.7, 0.95], [0.98, 0.8, 0.1], [0.3, 0.85, 0.4],
+      [0.95, 0.5, 0.85], [0.95, 0.6, 0.2], [0.55, 0.45, 0.95], [0.95, 0.95, 0.98],
+    ];
+    // Finish line + a cluster ~60m back along the final straight (pit box).
+    const line = pts[0];
+    const straight = this.getTrackPointAlong(Math.max(0, this.totalTrackDist - 60));
+    const anchors = [{ x: line.x, z: line.z }, { x: straight.x, z: straight.z }];
+    for (const a of anchors) {
+      // Line cluster is dense + wide across the road; the pit cluster spreads
+      // over the run-in so the car drives through a curtain of colour.
+      const count = a === anchors[0] ? 120 : 90;
+      for (let i = 0; i < count; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const rad = 0.5 + Math.random() * 4;
+        const speed = 6 + Math.random() * 8;
+        this._confettiBurst.push({
+          x: a.x + Math.cos(ang) * rad,
+          y: 0.4 + Math.random() * 0.8,
+          z: a.z + Math.sin(ang) * rad,
+          vx: Math.cos(ang) * speed * 0.5,
+          vy: 8 + Math.random() * 6,
+          vz: Math.sin(ang) * speed * 0.5,
+          phase: Math.random() * Math.PI * 2,
+          spin: 3 + Math.random() * 7,
+          size: 0.08 + Math.random() * 0.08,
+          sx: a.x, sy: 0.3, sz: a.z,
+          color: colors[Math.floor(Math.random() * colors.length)],
+        });
+      }
+    }
+  }
+
   // Animates + draws the confetti shower. view gives the camera axes for the
   // billboards; particles beyond ~110m are skipped so far clusters don't cost
   // anything (the mirror pass rebuilds the same set, so the cull matters).
   private drawConfetti(dt: number, view: Float32Array, eye: number[]) {
     const gl = this.gl;
     const t = this.elapsed;
-    if (!this._confetti.length || !this._confettiVao) return;
+    if ((!this._confetti.length && !this._confettiBurst.length) || !this._confettiVao) return;
 
     // Camera right/up in world space (columns of the view matrix, column-major).
     const rxx = view[0], rxy = view[4], rxz = view[8];
@@ -4021,6 +4515,36 @@ void main() { FragColor = texture(uTex, vUV); }`;
         data.push(c.x + ax * ox + bx * oz, c.y + ay * ox + by * oz, c.z + az * ox + bz * oz, nx, ny, nz, col[0], col[1], col[2], 0, 0);
       };
       // Two triangles of a unit square in the billboard plane (size s).
+      p(-s, 0, -s, 0, 1, 0); p(s, 0, -s, 0, 1, 0); p(-s, 0, s, 0, 1, 0);
+      p(s, 0, -s, 0, 1, 0); p(s, 0, s, 0, 1, 0); p(-s, 0, s, 0, 1, 0);
+    }
+    // Winner's cannonade: launch upward with radial momentum, tumble, then fall
+    // under gravity. When a piece lands it joins the ambient shower (recycling
+    // from its own ground point, so the finish line keeps raining colour).
+    for (const c of this._confettiBurst) {
+      c.vy -= 24 * dt;
+      c.x += c.vx * dt;
+      c.y += c.vy * dt;
+      c.z += c.vz * dt;
+      c.phase += c.spin * dt;
+      if (c.y < 0.3) {
+        c.y = 12 + Math.random() * 10;   // landed → recycled into the field
+        c.vx = (Math.random() - 0.5) * 0.6;
+        c.vy = 0.8 + Math.random() * 0.9;
+        c.vz = (Math.random() - 0.5) * 0.6;
+        c.x = c.sx + (Math.random() - 0.5) * 10;
+        c.z = c.sz + (Math.random() - 0.5) * 10;
+      }
+      if (Math.hypot(c.x - eye[0], c.z - eye[2]) > 110) continue;
+
+      const s = c.size;
+      const ca = Math.cos(c.phase), sa = Math.sin(c.phase);
+      const ax = rxx * ca + uxx * sa, ay = rxy * ca + uxy * sa, az = rxz * ca + uxz * sa;
+      const bx = -rxx * sa + uxx * ca, by = -rxy * sa + uxy * ca, bz = -rxz * sa + uxz * ca;
+      const col = c.color;
+      const p = (ox: number, oy: number, oz: number, nx: number, ny: number, nz: number) => {
+        data.push(c.x + ax * ox + bx * oz, c.y + ay * ox + by * oz, c.z + az * ox + bz * oz, nx, ny, nz, col[0], col[1], col[2], 0, 0);
+      };
       p(-s, 0, -s, 0, 1, 0); p(s, 0, -s, 0, 1, 0); p(-s, 0, s, 0, 1, 0);
       p(s, 0, -s, 0, 1, 0); p(s, 0, s, 0, 1, 0); p(-s, 0, s, 0, 1, 0);
     }
@@ -4107,6 +4631,82 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
   }
 
+  // Mountain wildlife — deer and mountain goats rebuilt per frame so they can
+  // graze (head dip cycles), breathe and sway. Simple box-animal silhouettes
+  // (body, neck, head, legs + horns/ears), culled ~120m so far herds cost
+  // nothing in the rear-view mirror.
+  private drawAnimals(eye: number[]) {
+    const gl = this.gl;
+    if (!this._animals.length || !this._animalsVao || !this._animalsBuf) return;
+    const t = this.elapsed;
+    const data: number[] = [];
+    let w = 0;
+    // 90m cull — animals are small and the mirror redraws them, so keep the
+    // per-frame rebuild cheap (same spirit as the 80m crowd cull).
+    const cull2 = 90 * 90;
+    for (const a of this._animals) {
+      const dx = a.x - eye[0];
+      const dz = a.z - eye[2];
+      if (dx * dx + dz * dz > cull2) continue;
+      const cy = Math.cos(a.yaw), sy = Math.sin(a.yaw);
+      const s = a.size;
+      // Graze cycle: every ~6s the animal lowers its head for a few seconds,
+      // with a gentle breath bob and tail flick.
+      const graze = Math.max(0, Math.sin(t * 0.35 + a.phase) - 0.55) * 2.2;
+      const bob = Math.sin(t * 2.1 + a.phase) * 0.02 * s;
+      const tail = Math.sin(t * 3.3 + a.phase) * 0.05 * s;
+      const isDeer = a.kind === 0;
+      // Colours
+      const bodyCol: [number, number, number] = isDeer ? [0.58, 0.4, 0.24] : [0.45, 0.45, 0.48];
+      const legCol: [number, number, number] = isDeer ? [0.3, 0.2, 0.12] : [0.32, 0.32, 0.35];
+      const headCol: [number, number, number] = isDeer ? [0.62, 0.45, 0.28] : [0.5, 0.5, 0.53];
+      const hornCol: [number, number, number] = [0.85, 0.85, 0.88];
+      // World -> local helpers: local X along facing, local Z sideways.
+      const L = (lx: number, lz: number) => [a.x + lx * cy - lz * sy, a.z + lx * sy + lz * cy] as const;
+      // Body (box): length 1.0s, height 0.42s, sits on legs.
+      const [bx1, bz1] = L(0, 0);
+      w = this.pushBoxVerts(data, w, bx1, 0.28 * s, bz1, 1.0 * s, 0.42 * s, 0.34 * s, bodyCol[0], bodyCol[1], bodyCol[2]);
+      // Four legs
+      for (const sideL of [-1, 1]) {
+        for (const fwdL of [-1, 1]) {
+          const [lx2, lz2] = L(fwdL * 0.32 * s, sideL * 0.12 * s);
+          w = this.pushBoxVerts(data, w, lx2, 0.12 * s, lz2, 0.1 * s, 0.24 * s, 0.1 * s, legCol[0], legCol[1], legCol[2]);
+        }
+      }
+      // Neck + head, lowered when grazing
+      const neckBaseY = 0.42 * s;
+      const headDip = graze * 0.18 * s;
+      const [nx, nz] = L(0.42 * s, 0);
+      w = this.pushBoxVerts(data, w, nx, neckBaseY - headDip * 0.5, nz, 0.16 * s, 0.36 * s, 0.16 * s, bodyCol[0], bodyCol[1], bodyCol[2]);
+      const [hx, hz] = L(0.52 * s, 0);
+      w = this.pushBoxVerts(data, w, hx, neckBaseY + 0.16 * s - headDip, hz, 0.2 * s, 0.18 * s, 0.14 * s, headCol[0], headCol[1], headCol[2]);
+      // Ears (deer) or horns (goats)
+      for (const sideL of [-1, 1]) {
+        if (isDeer) {
+          const [ex, ez] = L(0.52 * s, sideL * 0.12 * s);
+          w = this.pushBoxVerts(data, w, ex, neckBaseY + 0.3 * s - headDip, ez, 0.05 * s, 0.1 * s, 0.03 * s, headCol[0], headCol[1], headCol[2]);
+        } else {
+          const [gx, gz] = L(0.5 * s, sideL * 0.07 * s);
+          w = this.pushBoxVerts(data, w, gx, neckBaseY + 0.28 * s - headDip, gz, 0.05 * s, 0.16 * s, 0.05 * s, hornCol[0], hornCol[1], hornCol[2]);
+        }
+      }
+      // Tail flick
+      const tailCol: [number, number, number] = isDeer ? [0.85, 0.8, 0.7] : [0.4, 0.4, 0.43];
+      const [tx, tz] = L(-0.55 * s, 0);
+      w = this.pushBoxVerts(data, w, tx, 0.42 * s + tail, tz, 0.07 * s, 0.1 * s, 0.06 * s, tailCol[0], tailCol[1], tailCol[2]);
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._animalsBuf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
+    gl.bindVertexArray(this._animalsVao);
+    gl.uniform1i(this.hasTexLoc, 0);
+    gl.uniform3f(this.colorLoc, 1, 1, 1);
+    this.mat4Identity(this.modelMatrix);
+    gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+    this.setNormalMatrix(this.modelMatrix);
+    gl.drawArrays(gl.TRIANGLES, 0, data.length / 11);
+    gl.bindVertexArray(null);
+  }
+
   /** Spikes the crowd animation into a cheering frenzy (used when a car
    *  roars past a grandstand). Level 0..1; decays back to 0 over ~4s. */
   exciteCrowd(level = 1) {
@@ -4114,7 +4714,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
 
   render(eyeX: number, eyeY: number, eyeZ: number, yaw: number, pitch: number, aspect: number,
-    cars: (RacingCarAppearance & { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number; accel?: number; spin?: number; slide?: number })[], dt: number,
+    cars: (RacingCarAppearance & { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number; accel?: number; spin?: number; slide?: number; id?: string })[], dt: number,
     fovZoom: number = 1.0, shakeX: number = 0, shakeY: number = 0, isRaining: boolean = false, speedRatio: number = 0,
     playerSpeed: number = 0, playerAccel: number = 0, playerSpin: number = 0, playerSlide: number = 0, playerAppearance?: RacingCarAppearance) {
     const gl = this.gl;
@@ -4172,11 +4772,22 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.disable(gl.POLYGON_OFFSET_FILL);
 
     // ─── Main Pass ───
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-    gl.clearColor(0.4, 0.45, 0.5, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    this.drawWorldScene(this.projMatrix, this.viewMatrix, eye as number[], cars, dt, isRaining, true);
+    // The desert theme routes the scene through a fullscreen heat-shimmer pass
+    // (mirage distortion above the sand); every other theme draws directly.
+    if (this.heatShimmer && this.ensureHeatPass()) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this._heatFBO);
+      gl.viewport(0, 0, this._heatW, this._heatH);
+      gl.clearColor(0.4, 0.45, 0.5, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      this.drawWorldScene(this.projMatrix, this.viewMatrix, eye as number[], cars, dt, isRaining, true);
+      this.drawHeatShimmer();
+    } else {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+      gl.clearColor(0.4, 0.45, 0.5, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      this.drawWorldScene(this.projMatrix, this.viewMatrix, eye as number[], cars, dt, isRaining, true);
+    }
 
     // ─── Rear-view mirror (a second camera looking back, blitted on top) ───
     this.renderMirror(eyeX, eyeY, eyeZ, yaw, cars, dt, isRaining, playerSpeed, playerAccel, playerSpin, playerSlide, playerAppearance);
@@ -4184,7 +4795,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
 
   // Appends one box (6 faces × 2 tris = 36 verts, 11 floats each) into the
   // preallocated dynamic crowd buffer, returning the next write index.
-  private pushBoxVerts(d: Float32Array, wi: number, cx: number, cy: number, cz: number,
+  private pushBoxVerts(d: (number[] | Float32Array), wi: number, cx: number, cy: number, cz: number,
     l: number, h: number, w: number, r: number, g: number, b: number): number {
     const hx = l / 2, hy = h / 2, hz = w / 2;
     const v = (x: number, y: number, z: number, nx: number, ny: number, nz: number) => {
@@ -4251,26 +4862,40 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const [pr, pg, pb] = p.pants;
       // Legs (pants)
       w = this.pushBoxVerts(data, w, p.x + legSway * 0.4, y0 + 0.24 * s, p.z, 0.2 * s, 0.48 * s, 0.24 * s, pr, pg, pb);
-      // Torso (shirt)
-      w = this.pushBoxVerts(data, w, p.x, ty, p.z, 0.26 * s, 0.48 * s, 0.3 * s, sr, sg, sb);
-      // Head (skin)
-      w = this.pushBoxVerts(data, w, p.x, ty + 0.34 * s, p.z, 0.17 * s, 0.17 * s, 0.17 * s, kr, kg, kb);
-      // Hair (small cap on the head)
-      w = this.pushBoxVerts(data, w, p.x, ty + 0.45 * s, p.z, 0.19 * s, 0.06 * s, 0.19 * s, hr, hg, hb);
-      // Arms
+      if (p.veiled) {
+        // Long robe (torso) + a slightly wider hem reading as a floor-length
+        // djellaba, a patterned accent band across the chest, and a matching
+        // head cover instead of bare hair. No bare arms — sleeves come from
+        // the robe, so the pose only shifts the shoulders subtly.
+        const [xr, xg, xb] = p.pattern ?? [0.85, 0.6, 0.1];
+        w = this.pushBoxVerts(data, w, p.x, ty, p.z, 0.3 * s, 0.62 * s, 0.32 * s, sr, sg, sb);
+        w = this.pushBoxVerts(data, w, p.x, ty + 0.1 * s, p.z, 0.31 * s, 0.05 * s, 0.33 * s, xr, xg, xb);
+        // Head + veil that drapes past the shoulders
+        w = this.pushBoxVerts(data, w, p.x, ty + 0.44 * s, p.z, 0.18 * s, 0.16 * s, 0.18 * s, kr, kg, kb);
+        w = this.pushBoxVerts(data, w, p.x, ty + 0.5 * s, p.z, 0.26 * s, 0.12 * s, 0.26 * s, sr, sg, sb);
+      } else {
+        // Torso (shirt)
+        w = this.pushBoxVerts(data, w, p.x, ty, p.z, 0.26 * s, 0.48 * s, 0.3 * s, sr, sg, sb);
+        // Head (skin)
+        w = this.pushBoxVerts(data, w, p.x, ty + 0.34 * s, p.z, 0.17 * s, 0.17 * s, 0.17 * s, kr, kg, kb);
+        // Hair (small cap on the head)
+        w = this.pushBoxVerts(data, w, p.x, ty + 0.45 * s, p.z, 0.19 * s, 0.06 * s, 0.19 * s, hr, hg, hb);
+      }
+      // Arms — skipped for veiled figures: the robe covers them, so rendering
+      // bare sleeves would read as floating fabric.
       const armLen = 0.4 * s;
       const shoulderY = ty + 0.18 * s;
       const sway = Math.sin(t * 2.9 + p.phase * 1.3) * 0.05 * frenzy * s;
       const wave = Math.sin(t * waveSpeed + p.phase) * 0.09 * frenzy * s;
-      if (p.pose === 0) {
+      if (!p.veiled && p.pose === 0) {
         // Arms hanging down, gentle sway
         w = this.pushBoxVerts(data, w, p.x - 0.21 * s + sway, shoulderY - armLen / 2, p.z, 0.07 * s, armLen, 0.09 * s, sr, sg, sb);
         w = this.pushBoxVerts(data, w, p.x + 0.21 * s - sway, shoulderY - armLen / 2, p.z, 0.07 * s, armLen, 0.09 * s, sr, sg, sb);
-      } else if (p.pose === 1) {
+      } else if (!p.veiled && p.pose === 1) {
         // Both arms up, waving
         w = this.pushBoxVerts(data, w, p.x - 0.2 * s, shoulderY + armLen / 2 + wave, p.z, 0.07 * s, armLen, 0.09 * s, sr, sg, sb);
         w = this.pushBoxVerts(data, w, p.x + 0.2 * s, shoulderY + armLen / 2 - wave, p.z, 0.07 * s, armLen, 0.09 * s, sr, sg, sb);
-      } else {
+      } else if (!p.veiled && p.pose === 2) {
         // One arm up, one down
         w = this.pushBoxVerts(data, w, p.x - 0.21 * s + sway, shoulderY - armLen / 2, p.z, 0.07 * s, armLen, 0.09 * s, sr, sg, sb);
         w = this.pushBoxVerts(data, w, p.x + 0.2 * s, shoulderY + armLen / 2 + wave, p.z, 0.07 * s, armLen, 0.09 * s, sr, sg, sb);
@@ -4292,7 +4917,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // Draws sky + track + finish + barrier + scenery + cars (+ optional rain).
   // `drawRain` is false for the mirror so rain particles aren't drawn twice.
   private drawWorldScene(proj: Float32Array, view: Float32Array, eye: number[],
-    cars: (RacingCarAppearance & { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number; accel?: number; spin?: number; slide?: number })[],
+    cars: (RacingCarAppearance & { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number; accel?: number; spin?: number; slide?: number; id?: string })[],
     dt: number, isRaining: boolean, drawRain: boolean) {
     const gl = this.gl;
 
@@ -4334,6 +4959,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.uniformMatrix4fv(this.projLoc, false, proj);
     gl.uniformMatrix4fv(this.viewLoc, false, view);
     gl.uniform3fv(this.lightDirLoc, this.sunDir);
+    // Environment reflections (procedural sky/ground + sun glint): moderate on
+    // scenery so walls/buildings get a glossy sheen, boosted to near-mirror on
+    // car paint inside renderCar via uEnvStrength.
+    gl.uniform3fv(this.envTopLoc, this.skyTop);
+    gl.uniform3fv(this.envBottomLoc, this.skyBottom);
+    gl.uniform1f(this.envStrengthLoc, 0.16);
     // Per-theme sun color drives diffuse + specular (warm Miami, cool city).
     if (isRaining) {
       gl.uniform3fv(this.sunColorLoc, new Float32Array([this.sunColor[0] * 0.5, this.sunColor[1] * 0.5, this.sunColor[2] * 0.55]));
@@ -4407,6 +5038,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // Confetti showering over the start/finish + grandstands
     this.drawConfetti(dt, view, eye);
 
+    // Animated oasis FX — swaying palm fronds + rippling water. Rebuilt per
+    // pass (main + mirror) so both views stay in sync; empty on non-palm themes.
+    this.drawPalmFronds(eye);
+    this.drawOasisWater(eye);
+
+    // Mountain wildlife — deer + mountain goats grazing in the hills
+    this.drawAnimals(eye);
+
     // Cars — pass the integrated spin so every pass draws the identical wheel
     // angle (the mirror's drawWorldScene call renders the same cars again).
     for (const car of cars) {
@@ -4415,7 +5054,24 @@ void main() { FragColor = texture(uTex, vUV); }`;
       if (drawRain && (car.slide ?? 0) > 0.35) {
         this.emitSmoke(car.x, car.z, car.yaw, car.slide ?? 0);
       }
+      // Brake-dust bursts from every wheel on hard braking (lockup feel). The
+      // -0.4 threshold is deliberately stricter than the -0.3 brake-heat flash
+      // so dust only appears on genuinely hard stops, not trail braking.
+      if (drawRain && (car.accel ?? 0) < -0.4) {
+        this.emitBrakeDust(car.x, car.z, car.yaw, Math.min(1, -(car.accel ?? 0)), car.speed ?? 0);
+      }
+      // Per-car brake heat: ramp/cool each wheel once per frame. Main pass only
+      // (drawRain=true) — the mirror re-renders the same cars without updating,
+      // so heat advances exactly once per frame per car.
+      if (drawRain && car.id) {
+        let h = this._carHeat.get(car.id);
+        if (!h) { h = [0, 0, 0, 0]; this._carHeat.set(car.id, h); }
+        this.updateBrakeHeat(h, dt, car.speed ?? 0, car.accel ?? 0);
+      }
     }
+    // Cars boosted uEnvStrength to paint level — drop it back to the scenery
+    // level so the smoke/crowd/rain passes don't inherit mirror gloss.
+    gl.uniform1f(this.envStrengthLoc, 0.16);
     // Advance + draw smoke puffs (camera-facing billboards) once per frame.
     if (drawRain) {
       this.updateSmoke(dt);
@@ -4465,7 +5121,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // Renders the world from a rear-facing camera into the mirror FBO, then
   // blits that texture onto a quad at the top-center of the screen.
   private renderMirror(eyeX: number, eyeY: number, eyeZ: number, yaw: number,
-    cars: (RacingCarAppearance & { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number; accel?: number; spin?: number; slide?: number })[],
+    cars: (RacingCarAppearance & { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number; accel?: number; spin?: number; slide?: number; id?: string })[],
     dt: number, isRaining: boolean, playerSpeed: number = 0, playerAccel: number = 0, playerSpin: number = 0, playerSlide: number = 0, playerAppearance?: RacingCarAppearance) {
     const gl = this.gl;
 
@@ -4493,14 +5149,27 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // with the SAME integrated spin the main pass would use, so the wheels stay
     // in sync instead of re-deriving an angle from a positional formula. Uses
     // the equipped skin color + appearance (was hardcoded team red before).
+    // Player's own brake heat — updated once per frame here (the mirror is the
+    // only pass that sees the player's accel/speed), so their discs ramp and
+    // cool like everyone else's.
+    this.updateBrakeHeat(this._playerHeat, dt, playerSpeed, playerAccel);
     const pa = playerAppearance ?? {};
     this.renderCar(eyeX, 0.1, eyeZ, yaw,
       pa.skin?.[0] ?? 0.85, pa.skin?.[1] ?? 0.06, pa.skin?.[2] ?? 0.06,
       playerSpeed, playerAccel, playerSpin, playerSlide, pa);
-    // Own-car tire smoke: puffs at the rear wheels show in the mirror when you
-    // are sliding hard. Emitted (no dt update — the main pass ages the pool).
+    // Own-car tire smoke + brake dust show in the mirror (emitted, no dt update
+    // — the main pass ages the pool). Brake dust bursts from every wheel when
+    // you slam the brakes, so the rear puffs read in the mirror like a lockup.
+    let mirrorPuffs = false;
     if (playerSlide > 0.35) {
       this.emitSmoke(eyeX, eyeZ, yaw, playerSlide);
+      mirrorPuffs = true;
+    }
+    if (playerAccel < -0.4) {
+      this.emitBrakeDust(eyeX, eyeZ, yaw, Math.min(1, -playerAccel), playerSpeed);
+      mirrorPuffs = true;
+    }
+    if (mirrorPuffs) {
       this.drawSmoke(this.mirrorProj, this.mirrorView);
     }
 
@@ -4522,6 +5191,37 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.enable(gl.CULL_FACE);
   }
 
+  // ─── Persistent brake-disc heat ───
+  // Per-wheel heat values (4 wheels) keyed by the car's stable id ('b<idx>' for
+  // bots, 'r<connectionId>' for remotes), plus a dedicated tracker for the
+  // player's own car (only ever drawn in the mirror pass). Updated once per
+  // frame so the discs ramp up under braking and cool slowly afterwards — the
+  // glow lingers after a braking zone instead of snapping off with speed.
+  private _carHeat: Map<string, number[]> = new Map();
+  private _playerHeat: number[] = [0, 0, 0, 0];
+
+  private updateBrakeHeat(h: number[], dt: number, speed: number, accel: number) {
+    const braking = accel < -0.3;
+    const force = Math.min(1, -accel);
+    const speedFactor = Math.min(Math.abs(speed) / 30, 1);
+    for (let wi = 0; wi < 4; wi++) {
+      let v = h[wi];
+      if (braking) {
+        // Ramp up while braking — front discs (wi 0/1) run a touch hotter like
+        // real F1 brake bias. Faster with braking force and road speed.
+        const frontBias = wi < 2 ? 1.12 : 1.0;
+        v += (0.9 + 0.85 * force) * (0.35 + 0.65 * speedFactor) * frontBias * dt;
+        v = Math.min(v, 1.35);
+      } else {
+        // Exponential cool-down: the glow lingers a few seconds after the
+        // braking zone, then fades to black.
+        v *= Math.exp(-dt / 3.0);
+        if (v < 0.005) v = 0;
+      }
+      h[wi] = v;
+    }
+  }
+
   renderCar(x: number, y: number, z: number, yaw: number, r: number, g: number, b: number, speed: number = 0, accel: number = 0, spin?: number, slide: number = 0, appearance?: RacingCarAppearance) {
     const gl = this.gl;
     const app = appearance ?? {};
@@ -4534,6 +5234,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // is strength 0 here so the body/decal/accent draws below stay unpainted.
     gl.uniform1f(this.metallicLoc, app.metallic ?? 0.45);
     gl.uniform1f(this.rimStrengthLoc, 0);
+    // Mirror-clear reflections on paint: strong env for glossy finishes, still
+    // visible on matte wraps so every livery catches the sky and sun glint.
+    gl.uniform1f(this.envStrengthLoc, 0.22 + (app.metallic ?? 0.45) * 0.75);
     gl.bindVertexArray(this.carVao);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
@@ -4597,14 +5300,17 @@ void main() { FragColor = texture(uTex, vUV); }`;
       [0.62, 0, 0.60],
       [-0.55, 0, -0.60],
       [-0.55, 0, 0.60]
-    ];    // Wheel-speed heat: fades the brake glow in as |speed| climbs. Full glow
-    // around 30 u/s (max ~55), no glow when parked. A subtle sine flicker
-    // (faster with speed) keeps the disc alive, and hard braking (accel < -0.3,
-    // i.e. the brake pedal actually applied) adds a brief hotter flash on top.
-    const heatBase = Math.min(Math.abs(speed) / 30, 1) * 0.85;
-    const flicker = 0.9 + 0.1 * Math.sin(this.elapsed * (7 + Math.abs(speed) * 0.3));
-    const brakeFlash = accel < -0.3 ? Math.min(1, -accel) * 0.55 : 0;
-    const heatGlow = Math.min(1.35, heatBase * flicker + brakeFlash);
+    ];    // Persistent per-wheel brake heat — each wheel's stored value ramps up
+    // while braking and cools slowly off the brakes (updated once per frame in
+    // the main pass / mirror), so the discs stay glowing after a braking zone.
+    // A subtle sine flicker keeps live discs alive, and hard braking adds a
+    // small instant pop on top of the stored heat.
+    const flicker = 0.92 + 0.08 * Math.sin(this.elapsed * (7 + Math.abs(speed) * 0.3));
+    const flash = accel < -0.3 ? Math.min(1, -accel) * 0.3 : 0;
+    // Cars with an id default to a cold rotor if not tracked yet (first frame /
+    // after clearCache) — only the player's own car (no id) uses _playerHeat, so
+    // a fresh car never inherits the player's glowing discs.
+    const heatArr = appearance?.id ? (this._carHeat.get(appearance.id) ?? [0, 0, 0, 0]) : this._playerHeat;
     // The glow is scoped to the brake mesh only: the rim face and black tire
     // band are drawn with uHeatGlow = 0 so they stay dark; the uniform is
     // enabled just before the brake draw below and cleared again after.
@@ -4667,7 +5373,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       // Brake assembly — same placement/roll, but the heat glow uniform is
       // enabled ONLY here so the glowing rotor shows inside the tire while
       // the black rubber band stays dark.
-      gl.uniform1f(this.heatGlowLoc, heatGlow);
+      gl.uniform1f(this.heatGlowLoc, Math.min(1.35, (heatArr[wi] ?? 0) * flicker + flash));
       gl.bindVertexArray(rear ? this.rearBrakeVao : this.brakeVao);
       gl.drawElements(gl.TRIANGLES, rear ? this.rearBrakeCount : this.brakeCount, gl.UNSIGNED_SHORT, 0);
       gl.uniform1f(this.heatGlowLoc, 0);
@@ -4720,7 +5426,124 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.bindVertexArray(null);
   }
 
+  // Creates/recreates the offscreen scene buffer for the heat-shimmer post
+  // pass (sized to the canvas, rebuilt on resize). Falls back to a direct draw
+  // if the FBO can't be made complete.
+  private ensureHeatPass(): boolean {
+    const gl = this.gl;
+    const cw = gl.canvas.width || 1280;
+    const ch = gl.canvas.height || 720;
+    if (this._heatFBO && this._heatW === cw && this._heatH === ch) return true;
+    if (!this._heatInitialized) {
+      this._heatInitialized = true;
+      this.initHeatPass();
+    }
+    if (this._heatFBO) {
+      gl.deleteFramebuffer(this._heatFBO);
+      gl.deleteTexture(this._heatTex);
+      gl.deleteRenderbuffer(this._heatDepth);
+      this._heatFBO = null;
+    }
+    this._heatW = cw; this._heatH = ch;
+    this._heatTex = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, this._heatTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, cw, ch, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this._heatDepth = gl.createRenderbuffer()!;
+    gl.bindRenderbuffer(gl.RENDERBUFFER, this._heatDepth);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, cw, ch);
+    this._heatFBO = gl.createFramebuffer()!;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._heatFBO);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this._heatTex, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this._heatDepth);
+    const complete = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    if (!complete) { this.heatShimmer = false; return false; }
+    return true;
+  }
+
+  // Fullscreen mirage: samples the just-rendered scene texture with a flowing,
+  // time-animated UV distortion that peaks around the horizon line (distant
+  // sand/dunes), so the desert visibly shimmers above the ground.
+  private drawHeatShimmer() {
+    const gl = this.gl;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.disable(gl.DEPTH_TEST);
+    gl.depthMask(false);
+    gl.disable(gl.CULL_FACE);
+    // Blending MUST be off: the world pass leaves GL_BLEND enabled (additive
+    // underglow + alpha smoke) and the default framebuffer still holds the
+    // previous frame's image — an additive fullscreen quad would ghost over it.
+    // With blending off, the opaque quad fully overwrites, so no clear needed.
+    gl.disable(gl.BLEND);
+    gl.useProgram(this.heatProg);
+    gl.uniform1i(this.heatSceneLoc, 0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this._heatTex);
+    gl.uniform1f(this.heatTimeLoc, this.elapsed);
+    gl.uniform1f(this.heatHorizonLoc, 0.42);
+    gl.bindVertexArray(this.heatVao);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.bindVertexArray(null);
+    gl.depthMask(true);
+    gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.CULL_FACE);
+  }
+
+  private initHeatPass() {
+    const gl = this.gl;
+    const vs = `#version 300 es
+in vec2 aPos;
+out vec2 vUV;
+void main() { vUV = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }`;
+    const fs = `#version 300 es
+precision highp float;
+in vec2 vUV;
+out vec4 FragColor;
+uniform sampler2D uScene;
+uniform float uTime;
+uniform float uHorizonY;
+void main() {
+  // Heat mask: strongest around the horizon (distant sand), fading into sky
+  // and near ground so only the far desert shimmers.
+  float heat = exp(-abs(vUV.y - uHorizonY) * 9.0);
+  // Two flowing noise octaves — horizontal scroll + rising vertical wobble.
+  float n1 = sin(vUV.x * 150.0 + uTime * 2.4);
+  float n2 = sin(vUV.x * 41.0 - uTime * 1.5 + sin(vUV.y * 70.0 + uTime * 1.2) * 2.5);
+  float n3 = sin(vUV.y * 55.0 - uTime * 2.8 + vUV.x * 26.0);
+  float dx = (n1 * 0.55 + n2 * 0.45) * 0.0055;
+  float dy = (n3 * 0.65 + n1 * 0.35) * 0.004;
+  vec2 uv = vUV + vec2(dx, dy) * heat;
+  FragColor = texture(uScene, clamp(uv, 0.001, 0.999));
+}`;
+    this.heatProg = this.createProgram(vs, fs);
+    this.heatSceneLoc = gl.getUniformLocation(this.heatProg, 'uScene')!;
+    this.heatTimeLoc = gl.getUniformLocation(this.heatProg, 'uTime')!;
+    this.heatHorizonLoc = gl.getUniformLocation(this.heatProg, 'uHorizonY')!;
+    this.heatVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.heatVao);
+    const hbuf = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, hbuf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.bindVertexArray(null);
+  }
+
   clearCache() {
+    this._carHeat.clear();
+    if (this._heatFBO) {
+      const gl = this.gl;
+      gl.deleteFramebuffer(this._heatFBO);
+      gl.deleteTexture(this._heatTex);
+      gl.deleteRenderbuffer(this._heatDepth);
+      this._heatFBO = null;
+      this._heatW = 0; this._heatH = 0;
+    }
     this._trackPoints = [];
   }
 

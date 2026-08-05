@@ -304,7 +304,10 @@
         <button class="garage-return-btn" (click)="backToMenu()"
           [title]="inMpLobby ? 'Return to the multiplayer lobby' : 'Return to the main menu'">
           <span>{{ inMpLobby ? '← LOBBY' : '← MENU' }}</span>
-          <span *ngIf="garageCountdownDisplay" class="garage-countdown">{{ garageCountdownDisplay }}</span>
+          <span *ngIf="garageCountdownDisplay" class="garage-countdown-wrap">
+            <span class="garage-countdown">{{ garageCountdownDisplay }}</span>
+            <span class="garage-countdown-bar"><span class="garage-countdown-bar-fill" [style.width.%]="garageCountdownProgress"></span></span>
+          </span>
         </button>
       </div>
 
@@ -314,7 +317,10 @@
         <div class="garage-mp-widget-head">
           <span class="garage-mp-widget-title">👥 LOBBY</span>
           <span class="garage-ready-count">{{ readyCount }}/{{ lobbyPlayers.length }} ready</span>
-          <span *ngIf="garageCountdownDisplay" class="garage-countdown">{{ garageCountdownDisplay }}</span>
+          <span *ngIf="garageCountdownDisplay" class="garage-countdown-wrap">
+            <span class="garage-countdown">{{ garageCountdownDisplay }}</span>
+            <span class="garage-countdown-bar"><span class="garage-countdown-bar-fill" [style.width.%]="garageCountdownProgress"></span></span>
+          </span>
         </div>
         <div class="gp-standings-countdown garage-standings-countdown" [class.gp-standings-low]="standingsLow"
           *ngIf="serverStandings && standingsCountdownText">
@@ -368,17 +374,25 @@
                     <i class="fnt dark"></i><i class="bak dark"></i>
                   </div>
 
-                  <!-- Nose cone (long, tapered) -->
-                  <div class="b3d" style="--x:80px; --y:140px; --z:0px; --w:120px; --h:13px; --d:22px;">
-                    <i class="top skin" [style.background]="getSkinColor()"></i><i class="bot dark"></i>
+                  <!-- Nose cone (stepped taper so the side profile reads smooth,
+                       like the lofted nose in the racing renderer) -->
+                  <div class="b3d" style="--x:88px; --y:139px; --z:0px; --w:76px; --h:12px; --d:21px;">
+                    <i class="top skin nose-top" [style.background]="getSkinColor()"></i><i class="bot dark"></i>
                     <i class="lft skin" [style.background]="getSkinColor()"></i><i class="rgt skin"
                       [style.background]="getSkinColor()"></i>
                     <i class="fnt skin" [style.background]="getSkinColor()"></i><i class="bak skin"
                       [style.background]="getSkinColor()"></i>
                   </div>
-                  <!-- Nose tip -->
-                  <div class="b3d" style="--x:17px; --y:141px; --z:0px; --w:14px; --h:9px; --d:14px;">
-                    <i class="top skin" [style.background]="getSkinColor()"></i><i class="bot dark"></i>
+                  <div class="b3d" style="--x:48px; --y:140px; --z:0px; --w:46px; --h:11px; --d:19px;">
+                    <i class="top skin nose-top" [style.background]="getSkinColor()"></i><i class="bot dark"></i>
+                    <i class="lft skin" [style.background]="getSkinColor()"></i><i class="rgt skin"
+                      [style.background]="getSkinColor()"></i>
+                    <i class="fnt skin" [style.background]="getSkinColor()"></i><i class="bak skin"
+                      [style.background]="getSkinColor()"></i>
+                  </div>
+                  <!-- Nose tip (short final taper with a rounded top) -->
+                  <div class="b3d" style="--x:16px; --y:141px; --z:0px; --w:14px; --h:8px; --d:14px;">
+                    <i class="top skin nose-top" [style.background]="getSkinColor()"></i><i class="bot dark"></i>
                     <i class="lft skin" [style.background]="getSkinColor()"></i><i class="rgt skin"
                       [style.background]="getSkinColor()"></i>
                     <i class="fnt skin" [style.background]="getSkinColor()"></i><i class="bak skin"
@@ -389,6 +403,12 @@
                   <div class="b3d" style="--x:30px; --y:141px; --z:0px; --w:36px; --h:5px; --d:96px;">
                     <i class="top carbo"></i><i class="bot dark"></i>
                     <i class="lft carbo"></i><i class="rgt carbo"></i>
+                    <i class="fnt carbo"></i><i class="bak carbo"></i>
+                  </div>
+                  <!-- Second front-wing plane (lower cascade element; kept 1px
+                       clear of the floor's top face at y=146 to avoid z-fight) -->
+                  <div class="b3d" style="--x:30px; --y:144px; --z:0px; --w:26px; --h:2px; --d:70px;">
+                    <i class="top carbo"></i><i class="bot carbo"></i>
                     <i class="fnt carbo"></i><i class="bak carbo"></i>
                   </div>
                   <div class="b3d" style="--x:30px; --y:136px; --z:48px; --w:38px; --h:15px; --d:4px;">
@@ -402,9 +422,9 @@
                     <i class="fnt carbo"></i><i class="bak carbo"></i>
                   </div>
 
-                  <!-- Main body / monocoque -->
+                  <!-- Main body / monocoque (rounded top so the tub reads curved) -->
                   <div class="b3d" style="--x:185px; --y:132px; --z:0px; --w:130px; --h:30px; --d:38px;">
-                    <i class="top skin" [style.background]="getSkinColor()"></i><i class="bot dark"></i>
+                    <i class="top skin round-top" [style.background]="getSkinColor()"></i><i class="bot dark"></i>
                     <i class="lft skin" [style.background]="getSkinColor()"></i><i class="rgt skin"
                       [style.background]="getSkinColor()"></i>
                     <i class="fnt skin" [style.background]="getSkinColor()"></i><i class="bak skin"
@@ -413,6 +433,11 @@
                   <!-- Cockpit opening (above the decal wrap so the hole stays visible) -->
                   <div class="b3d" style="--x:158px; --y:115.8px; --z:0px; --w:26px; --h:0.8px; --d:22px;">
                     <i class="top cockpit"></i>
+                  </div>
+                  <!-- Driver helmet (rounded dome peeking out of the cockpit) -->
+                  <div class="b3d" style="--x:158px; --y:111px; --z:0px; --w:20px; --h:15px; --d:17px;">
+                    <i class="top helmet-dome"></i><i class="fnt helmside"></i><i class="bak helmside"></i>
+                    <i class="lft helmside"></i><i class="rgt helmside"></i>
                   </div>
                   <!-- Livery accent stripes (thin plates on the body top + sidepods) -->
                   <div class="b3d" *ngIf="playerCar.accentId"
@@ -427,19 +452,20 @@
                     style="--x:170px; --y:132.4px; --z:-26px; --w:70px; --h:3px; --d:0.8px;">
                     <i class="rgt accent" [ngClass]="getAccentStyle()"></i>
                   </div>
-                  <!-- Halo above cockpit -->
+                  <!-- Halo above cockpit (rounded bars so it reads like the real
+                       titanium loop, not a slab) -->
                   <div class="b3d" style="--x:140px; --y:112px; --z:0px; --w:6px; --h:8px; --d:30px;">
-                    <i class="top carbo"></i><i class="bot carbo"></i>
+                    <i class="top carbo halo-bar"></i><i class="bot carbo"></i>
                     <i class="lft carbo"></i><i class="rgt carbo"></i>
                     <i class="fnt carbo"></i><i class="bak carbo"></i>
                   </div>
                   <div class="b3d" style="--x:160px; --y:112px; --z:15px; --w:52px; --h:5px; --d:5px;">
-                    <i class="top carbo"></i><i class="bot carbo"></i>
+                    <i class="top carbo halo-bar"></i><i class="bot carbo"></i>
                     <i class="lft carbo"></i><i class="rgt carbo"></i>
                     <i class="fnt carbo"></i><i class="bak carbo"></i>
                   </div>
                   <div class="b3d" style="--x:160px; --y:112px; --z:-15px; --w:52px; --h:5px; --d:5px;">
-                    <i class="top carbo"></i><i class="bot carbo"></i>
+                    <i class="top carbo halo-bar"></i><i class="bot carbo"></i>
                     <i class="lft carbo"></i><i class="rgt carbo"></i>
                     <i class="fnt carbo"></i><i class="bak carbo"></i>
                   </div>
@@ -456,9 +482,9 @@
                     <i class="fnt carbo"></i><i class="bak carbo"></i>
                   </div>
 
-                  <!-- Engine cover -->
+                  <!-- Engine cover (rounded top) -->
                   <div class="b3d" style="--x:230px; --y:128px; --z:0px; --w:74px; --h:22px; --d:26px;">
-                    <i class="top skin" [style.background]="getSkinColor()"></i><i class="bot dark"></i>
+                    <i class="top skin round-top" [style.background]="getSkinColor()"></i><i class="bot dark"></i>
                     <i class="lft skin" [style.background]="getSkinColor()"></i><i class="rgt skin"
                       [style.background]="getSkinColor()"></i>
                     <i class="fnt skin" [style.background]="getSkinColor()"></i><i class="bak skin"
@@ -477,10 +503,19 @@
                     <i class="top decal" [ngClass]="getDecalStyle()"></i>
                   </div>
 
-                  <!-- Rear wing (multi-element with endplates) -->
-                  <div class="b3d" style="--x:272px; --y:112px; --z:0px; --w:38px; --h:42px; --d:80px;">
+                  <!-- Rear wing (split into real elements: main plane, DRS flap,
+                       beam wing — not one tall slab) -->
+                  <div class="b3d" style="--x:272px; --y:112px; --z:0px; --w:34px; --h:3px; --d:80px;">
                     <i class="top carbo"></i><i class="bot carbo"></i>
                     <i class="lft carbo"></i><i class="rgt carbo"></i>
+                    <i class="fnt carbo"></i><i class="bak carbo"></i>
+                  </div>
+                  <div class="b3d" style="--x:271px; --y:105px; --z:0px; --w:26px; --h:2.5px; --d:76px;">
+                    <i class="top carbo"></i><i class="bot carbo"></i>
+                    <i class="fnt carbo"></i><i class="bak carbo"></i>
+                  </div>
+                  <div class="b3d" style="--x:274px; --y:119px; --z:0px; --w:22px; --h:2px; --d:58px;">
+                    <i class="top carbo"></i><i class="bot carbo"></i>
                     <i class="fnt carbo"></i><i class="bak carbo"></i>
                   </div>
                   <div class="b3d" style="--x:272px; --y:112px; --z:40px; --w:42px; --h:44px; --d:5px;">

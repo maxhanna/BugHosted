@@ -30,6 +30,7 @@ export interface RacingAppearancePart {
 // Per-car 3D appearance passed to the renderer (drives rim tint, livery
 // accent, decal stripes, neon underglow and the paint finish's specular).
 export interface RacingCarAppearance {
+  id?: string;                  // stable car identity for per-car renderer state (brake heat)
   rimStyle?: number;            // APPEARANCE_PARTS rims id
   accent?: [number, number, number];
   decalStyle?: number;          // APPEARANCE_PARTS decal id

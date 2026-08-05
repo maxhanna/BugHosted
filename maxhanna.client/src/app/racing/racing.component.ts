@@ -222,6 +222,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private _prevLapFrac = -1;      // lap fraction last frame (for frac-crossing detect)
   private _lastStandRoarAt = 0;   // timestamp of last grandstand reaction moment
   private _lastTickSecond = -1;   // last whole-second the garage tick played for
+  private _lastStandingsTickSecond = -1; // last whole-second the standings tick played for
   // Per-car previous speeds for the brake-glow accel estimate.
   private _prevBotSpeeds = new Map<BotCar, number>();
   private _prevRemoteSpeeds = new Map<string, number>();
@@ -441,6 +442,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           }
           this._standingsDeadline = Date.now() + ms;
           this._standingsTotalMs = ms;
+          this._lastStandingsTickSecond = -1;
           this.updateStandingsCountdown();
           this._standingsTimer = window.setInterval(() => this.updateStandingsCountdown(), 500);
         });
@@ -710,6 +712,20 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const m = Math.floor(this.autoStartSeconds / 60);
     const s = this.autoStartSeconds % 60;
     return `Auto-start in ${m}:${s.toString().padStart(2, '0')}`;
+  }
+  // Depleting bar (100% -> 0%) for the garage auto-start countdown, mirroring
+  // the standings window's progress treatment. Driven by the auto-start ticker
+  // (500ms) so it drains smoothly without its own timer.
+  get garageCountdownProgress(): number {
+    if (this.autoStartDeadline <= 0) return 0;
+    if (this.countdownTimer > 0) {
+      // Pre-race lights countdown: 10 -> 0s
+      return Math.max(0, Math.min(100, (this.countdownTimer / 10) * 100));
+    }
+    if (this.autoStartSeconds <= 0) return 0;
+    const remain = Math.max(0, this.autoStartDeadline - Date.now());
+    const total = this.autoStartSeconds * 1000;
+    return total > 0 ? Math.max(0, Math.min(100, (remain / total) * 100)) : 0;
   }
   get startLightPhase(): 'red' | 'yellow' | 'green' | 'go' {
     if (this.countdownTimer >= 8) return 'red';
@@ -1140,6 +1156,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         this._botSpins.set(b, spin);
         return {
           x: b.x, y: 0.1, z: b.z, yaw: b.yaw, r: c[0], g: c[1], b: c[2], speed: b.speed, accel: accelFor(b, prev), spin, slide: b.slide,
+          id: 'b' + i, // stable id for per-car renderer state (brake heat)
           ...botAppearance(i, b.color)
         };
       });
@@ -1158,6 +1175,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           accel: accelFor(rc, prev),
           spin,
           slide: rc.slide,
+          id: 'r' + rc.connectionId, // stable id for per-car renderer state (brake heat)
           ...botAppearance(i, seed)
         });
       });
@@ -1587,6 +1605,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.racePosition === 1) {
       this.playerCar.wins++;
       this.addMessage(`🏆 YOU WIN! +$${moneyEarned}`);
+      // Winner's confetti cannonade — bursts out of the pit box on the final
+      // straight and showers the line as the winning car crosses.
+      this.renderer.celebrateWinner();
     } else {
       this.addMessage(`Finished #${this.racePosition} of ${this.totalRacers} +$${moneyEarned}`);
     }
@@ -1698,6 +1719,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       ? Math.max(0, Math.min(100, (remaining / this._standingsTotalMs) * 100))
       : 100;
     this.standingsLow = remaining > 0 && remaining <= 3000;
+    // Same subtle tick/chime as the lobby countdown once the window drops to
+    // 3s, so a player in the garage isn't caught off guard by the rematch race
+    // auto-starting. One tick per whole second — always the urgent high blip
+    // (playCountdownTick uses 880Hz for secondsLeft <= 3, which is all we call).
+    if (this.standingsLow && secs !== this._lastStandingsTickSecond) {
+      this._lastStandingsTickSecond = secs;
+      if (secs > 0) this.playCountdownTick(secs);
+    }
     if (remaining <= 0) this.stopStandingsCountdown();
   }
 
@@ -1708,6 +1737,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
     this.standingsProgress = 100;
     this.standingsLow = false;
+    this._lastStandingsTickSecond = -1;
   }
 
   private applyServerStandings(): void {
@@ -2064,6 +2094,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.isBuying || this.playerCar.money < part.cost) return;
     if (this.isAppearanceOwned(part)) {
       this.equipAppearance(part);
+      this.saveCar();
       return;
     }
     this.isBuying = true;
@@ -2086,7 +2117,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       case 'glow': this.playerCar.glowId = part.id; break;
       case 'accent': this.playerCar.accentId = part.id; break;
     }
-    this.saveCar();
+    // No save here — callers (buyAppearancePart) persist once with await so the
+    // in-flight guard stays true until the write completes (prevents double buys
+    // racing two saveCar calls).
   }
   getSpoilerStyle(): string {
     const id = this.playerCar.spoilerId;

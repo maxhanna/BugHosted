@@ -901,12 +901,33 @@
 /* ── Face materials ── */
 .carbo {
   background: linear-gradient(135deg, #1c1c20, #0d0d10);
+  box-shadow: inset 0 2px 3px rgba(255,255,255,0.08), inset 0 -3px 6px rgba(0,0,0,0.55);
 }
 .dark {
   background: #0a0a0c;
 }
 .skin {
-  box-shadow: inset 0 2px 3px rgba(255,255,255,0.12), inset 0 -2px 4px rgba(0,0,0,0.28);
+  /* Glossy clearcoat: a bright highlight along the top-left of every face plus
+     a soft bottom shade, so the paint reads as curved reflective panels. */
+  box-shadow: inset 3px -4px 6px rgba(255,255,255,0.22), inset -3px 4px 8px rgba(0,0,0,0.32),
+    inset 0 1px 2px rgba(255,255,255,0.18);
+}
+
+/* ── Rounded surfacing ──
+   Border-radius on the horizontal top faces makes the CSS car read as sculpted
+   instead of a stack of flat boxes (matches the smooth lofted WebGL hull). */
+.round-top { border-radius: 26px; }
+.nose-top { border-radius: 12px; }
+.halo-bar { border-radius: 50%; }
+
+/* Driver helmet — a rounded dome peeking out of the cockpit opening */
+.helmet-dome {
+  border-radius: 50% 50% 45% 45%;
+  background: radial-gradient(circle at 50% 35%, #ffffff 0 28%, #f0f0f4 45%, #c9c9d2 72%, #9a9aa4 100%);
+  box-shadow: inset 0 -5px 10px rgba(0,0,0,0.4);
+}
+.helmside {
+  background: linear-gradient(180deg, #d8d8de 0%, #a8a8b2 60%, #7e7e88 100%);
 }
 
 /* Ground shadow — flat ellipse just below the undertray so the whole shape reads */
@@ -1649,6 +1670,15 @@
 .garage-appearance-preview.prev-decal-skull { background: radial-gradient(ellipse at 50% 42%, rgba(240,240,240,0.85) 0 26%, transparent 27%); }
 .garage-appearance-preview.prev-decal-lion { background: radial-gradient(ellipse at 50% 60%, rgba(200,140,40,0.55), transparent 55%); }
 .garage-appearance-preview.prev-decal-number7, .garage-appearance-preview.prev-decal-number27, .garage-appearance-preview.prev-decal-number99 { background: #1a1a1e; color: #fff; font-size: 14px; font-weight: 900; font-style: italic; text-align: center; line-height: 44px; }
+.garage-appearance-preview.prev-decal-number7::after,
+.garage-appearance-preview.prev-decal-number27::after,
+.garage-appearance-preview.prev-decal-number99::after {
+  content: '7';
+  display: block;
+  font-style: italic;
+}
+.garage-appearance-preview.prev-decal-number27::after { content: '27'; }
+.garage-appearance-preview.prev-decal-number99::after { content: '99'; }
 .garage-appearance-preview.prev-decal-sponsor { background: repeating-linear-gradient(90deg, rgba(255,255,255,0.7) 0 8px, rgba(0,0,0,0.55) 8px 16px, rgba(255,255,255,0.7) 16px 24px, rgba(200,30,30,0.75) 24px 32px); }
 .garage-appearance-preview.prev-glow-blue { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(0,120,255,0.2); box-shadow: 0 0 18px 6px rgba(0,120,255,0.55); }
 .garage-appearance-preview.prev-glow-green { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(0,230,80,0.2); box-shadow: 0 0 18px 6px rgba(0,230,80,0.5); }
