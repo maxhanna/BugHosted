@@ -1,3 +1,4 @@
+﻿using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Data;
@@ -23,6 +24,8 @@ namespace maxhanna.Server.Controllers
     private readonly string _connectionString;
     private readonly string _baseTarget;
     private bool _ffmpegAvailable;
+
+    private static readonly ConcurrentDictionary<Guid, YoutubeDownloadJob> _youtubeJobs = new();
 
     private static readonly string[] ImageTargetFormats = { "png", "jpg", "jpeg", "webp", "bmp", "gif", "tiff", "tga", "qoi", "pbm", "pnm", "pgm", "ppm" };
 
@@ -279,128 +282,205 @@ namespace maxhanna.Server.Controllers
       }
     }
 
-    /// <summary>Downloads a YouTube video (muxed MP4) or its audio (M4A/MP3).</summary>
+    /// <summary>Starts a YouTube download (muxed MP4) or its audio (M4A/MP3) as a background job.</summary>
+    /// <remarks>Returns immediately with a job id; poll /Conversion/YoutubeDownloadStatus until it completes.</remarks>
     [HttpPost("/Conversion/YoutubeDownload", Name = "Conversion_YoutubeDownload")]
-    public async Task<IActionResult> YoutubeDownload([FromBody] YoutubeDownloadRequest request)
+    public IActionResult YoutubeDownload([FromBody] YoutubeDownloadRequest request)
     {
-      bool wantMp3 = request != null && string.Equals(request.Format, "mp3", StringComparison.OrdinalIgnoreCase);
-      try
+      if (request == null || string.IsNullOrWhiteSpace(request.Url)) return BadRequest("Invalid request.");
+      var url = request.Url.Trim();
+      if (!IsYoutubeUrl(url)) return BadRequest("Only youtube.com / youtu.be URLs are supported.");
+
+      var job = new YoutubeDownloadJob();
+      _youtubeJobs[job.Id] = job;
+      PurgeOldJobs();
+
+      // Hard cap on the whole job so a stalled stream can never hang forever.
+      var tokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+      _ = Task.Run(async () =>
       {
-        if (request == null || string.IsNullOrWhiteSpace(request.Url)) return BadRequest("Invalid request.");
-        var url = request.Url.Trim();
-        if (!IsYoutubeUrl(url)) return BadRequest("Only youtube.com / youtu.be URLs are supported.");
-
-        var client = new YoutubeClient();
-        var video = await client.Videos.GetAsync(url);
-        var manifest = await client.Videos.Streams.GetManifestAsync(video.Id);
-
-        string safeTitle = SanitizeFileName(video.Title);
-        string outputFolder = Path.Combine(_baseTarget, "YouTube").Replace("\\", "/") + "/";
-        Directory.CreateDirectory(outputFolder.Replace("/", Path.DirectorySeparatorChar.ToString()));
-
-        string downloadPath;
-        string finalName;
-        string note = "";
-        int? width = null, height = null;
-
-        if (string.Equals(request.Format, "audio", StringComparison.OrdinalIgnoreCase) || wantMp3)
+        try
         {
-          var audioStream = manifest.GetAudioOnlyStreams().OrderByDescending(s => s.Bitrate).FirstOrDefault();
-          if (audioStream == null) return BadRequest("No downloadable audio stream available for this video.");
+          job.Status = "running";
+          job.ProgressText = "Fetching video info…";
+          var result = await RunYoutubeDownloadAsync(request, tokenSource.Token, job);
+          job.Result = result;
+          job.Status = "completed";
+          job.Progress = 100;
+          job.ProgressText = "Complete";
+          _ = _log.Db($"YouTube download completed: \"{result.Title}\" -> {result.FileName} (file {result.FileId})", request.UserId ?? 0, "CONVERSION", true);
+        }
+        catch (OperationCanceledException)
+        {
+          job.Status = "failed";
+          job.Error = "Download timed out after 5 minutes - try a shorter video or another format.";
+          _ = _log.Db("YouTube download timed out after 5 minutes.", request.UserId ?? 0, "CONVERSION", true);
+        }
+        catch (Exception ex)
+        {
+          job.Status = "failed";
+          job.Error = ex.Message;
+          _ = _log.Db("YouTube download error: " + ex.Message, request.UserId ?? 0, "CONVERSION", true);
+        }
+      }, tokenSource.Token);
 
-          var audioExt = audioStream.Container.Name switch
-          {
-            "MP4" => "m4a",
-            "WEBM" => "webm",
-            "OGG" => "ogg",
-            "OPUS" => "opus",
-            _ => "m4a"
-          };
+      return Ok(new YoutubeDownloadJobResult { JobId = job.Id, Status = job.Status });
+    }
 
-          var sourceM4a = Path.Combine(outputFolder, $"{safeTitle}.{audioExt}");
-          await client.Videos.Streams.DownloadAsync(audioStream, sourceM4a);
+    /// <summary>Returns the current state of a YouTube download job started via /Conversion/YoutubeDownload.</summary>
+    [HttpGet("/Conversion/YoutubeDownloadStatus", Name = "Conversion_YoutubeDownloadStatus")]
+    public IActionResult YoutubeDownloadStatus([FromQuery] Guid jobId)
+    {
+      if (!_youtubeJobs.TryGetValue(jobId, out var job)) return NotFound("Job not found.");
+      return Ok(new YoutubeDownloadStatusResult
+      {
+        JobId = job.Id,
+        Status = job.Status,
+        Progress = job.Progress,
+        ProgressText = job.ProgressText,
+        Result = job.Status == "completed" ? job.Result : null,
+        Error = job.Error
+      });
+    }
 
-          if (wantMp3 && _ffmpegAvailable)
-          {
-            finalName = $"{safeTitle}.mp3";
-            downloadPath = Path.Combine(outputFolder, finalName);
-            if (System.IO.File.Exists(downloadPath)) System.IO.File.Delete(downloadPath);
-            var conversion = FFmpeg.Conversions.New()
-              .AddParameter($"-i \"{sourceM4a}\"")
-              .AddParameter("-vn")
-              .AddParameter("-b:a 192k")
-              .SetOutput(downloadPath);
-            await conversion.Start();
-            try { System.IO.File.Delete(sourceM4a); } catch { }
-          }
-          else
-          {
-            finalName = $"{safeTitle}.{audioExt}";
-            downloadPath = sourceM4a;
-            note = wantMp3 ? "FFmpeg not available - saved as M4A instead of MP3." : "";
-          }
+    private async Task<YoutubeDownloadResult> RunYoutubeDownloadAsync(
+      YoutubeDownloadRequest request,
+      CancellationToken ct,
+      YoutubeDownloadJob job)
+    {
+      bool wantMp3 = string.Equals(request.Format, "mp3", StringComparison.OrdinalIgnoreCase);
+      var url = request.Url!.Trim();
+
+      var client = new YoutubeClient();
+      var video = await client.Videos.GetAsync(url, ct);
+      var manifest = await client.Videos.Streams.GetManifestAsync(video.Id, ct);
+
+      job.Progress = 5;
+      job.ProgressText = "Video found - preparing…";
+
+      string safeTitle = SanitizeFileName(video.Title);
+      string outputFolder = Path.Combine(_baseTarget, "YouTube").Replace("\\", "/") + "/";
+      Directory.CreateDirectory(outputFolder.Replace("/", Path.DirectorySeparatorChar.ToString()));
+
+      string downloadPath;
+      string finalName;
+      string note = "";
+      int? width = null, height = null;
+
+      if (string.Equals(request.Format, "audio", StringComparison.OrdinalIgnoreCase) || wantMp3)
+      {
+        var audioStream = manifest.GetAudioOnlyStreams().OrderByDescending(s => s.Bitrate).FirstOrDefault();
+        if (audioStream == null) throw new InvalidOperationException("No downloadable audio stream available for this video.");
+
+        var audioExt = audioStream.Container.Name switch
+        {
+          "MP4" => "m4a",
+          "WEBM" => "webm",
+          "OGG" => "ogg",
+          "OPUS" => "opus",
+          _ => "m4a"
+        };
+
+        var sourceM4a = Path.Combine(outputFolder, $"{safeTitle}.{audioExt}");
+        await client.Videos.Streams.DownloadAsync(audioStream, sourceM4a, ScopedProgress(job, 10, wantMp3 ? 60 : 95), ct);
+
+        if (wantMp3 && _ffmpegAvailable)
+        {
+          finalName = $"{safeTitle}.mp3";
+          downloadPath = Path.Combine(outputFolder, finalName);
+          if (System.IO.File.Exists(downloadPath)) System.IO.File.Delete(downloadPath);
+          job.ProgressText = "Converting to MP3…";
+          var conversion = FFmpeg.Conversions.New()
+            .AddParameter($"-i \"{sourceM4a}\"")
+            .AddParameter("-vn")
+            .AddParameter("-b:a 192k")
+            .SetOutput(downloadPath);
+
+          await conversion.Start();
+          try { System.IO.File.Delete(sourceM4a); } catch { }
         }
         else
         {
-          var muxed = manifest.GetMuxedStreams().TryGetWithHighestVideoQuality();
-          if (muxed != null)
-          {
-            finalName = $"{safeTitle}.mp4";
-            downloadPath = Path.Combine(outputFolder, finalName);
-            await client.Videos.Streams.DownloadAsync(muxed, downloadPath);
-          }
-          else if (_ffmpegAvailable)
-          {
-            var videoOnly = manifest.GetVideoOnlyStreams().OrderByDescending(s => s.VideoQuality).FirstOrDefault();
-            var audioOnly = manifest.GetAudioOnlyStreams().OrderByDescending(s => s.Bitrate).FirstOrDefault();
-            if (videoOnly == null || audioOnly == null) return BadRequest("No video stream available for this video.");
-
-            var vPath = Path.Combine(outputFolder, $"{safeTitle}.video.{videoOnly.Container.Name.ToLower()}");
-            var aPath = Path.Combine(outputFolder, $"{safeTitle}.audio.{audioOnly.Container.Name.ToLower()}");
-            await client.Videos.Streams.DownloadAsync(videoOnly, vPath);
-            await client.Videos.Streams.DownloadAsync(audioOnly, aPath);
-
-            finalName = $"{safeTitle}.mp4";
-            downloadPath = Path.Combine(outputFolder, finalName);
-            var conversion = FFmpeg.Conversions.New()
-              .AddParameter($"-i \"{vPath}\"")
-              .AddParameter($"-i \"{aPath}\"")
-              .AddParameter("-c:v copy")
-              .AddParameter("-c:a aac")
-              .AddParameter("-shortest")
-              .SetOutput(downloadPath);
-            await conversion.Start();
-            try { System.IO.File.Delete(vPath); System.IO.File.Delete(aPath); } catch { }
-            note = "Video had no combined stream - merged best video + audio with FFmpeg.";
-          }
-          else
-          {
-            return BadRequest("This video has no combined audio+video stream and FFmpeg is not available to merge.");
-          }
+          finalName = $"{safeTitle}.{audioExt}";
+          downloadPath = sourceM4a;
+          note = wantMp3 ? "FFmpeg not available - saved as M4A instead of MP3." : "";
         }
-
-        if (!System.IO.File.Exists(downloadPath) || new FileInfo(downloadPath).Length == 0)
-        {
-          return StatusCode(500, "Download failed - output file is empty.");
-        }
-
-        long fileSize = new FileInfo(downloadPath).Length;
-        int userId = request.UserId ?? 0;
-        int newFileId = await InsertConvertedFile(userId, finalName, outputFolder, fileSize, width, height);
-        _ = _log.Db($"YouTube download completed: \"{video.Title}\" -> {finalName} (file {newFileId})", userId, "CONVERSION", true);
-
-        return Ok(new YoutubeDownloadResult
-        {
-          FileId = newFileId,
-          FileName = finalName,
-          Title = video.Title,
-          Note = note
-        });
       }
-      catch (Exception ex)
+      else
       {
-        _ = _log.Db("YouTube download error: " + ex.Message, request?.UserId ?? 0, "CONVERSION", true);
-        return StatusCode(500, "YouTube download failed: " + ex.Message);
+        var muxed = manifest.GetMuxedStreams().TryGetWithHighestVideoQuality();
+        if (muxed != null)
+        {
+          finalName = $"{safeTitle}.mp4";
+          downloadPath = Path.Combine(outputFolder, finalName);
+          await client.Videos.Streams.DownloadAsync(muxed, downloadPath, ScopedProgress(job, 10, 95), ct);
+        }
+        else if (_ffmpegAvailable)
+        {
+          var videoOnly = manifest.GetVideoOnlyStreams().OrderByDescending(s => s.VideoQuality).FirstOrDefault();
+          var audioOnly = manifest.GetAudioOnlyStreams().OrderByDescending(s => s.Bitrate).FirstOrDefault();
+          if (videoOnly == null || audioOnly == null) throw new InvalidOperationException("No video stream available for this video.");
+
+          var vPath = Path.Combine(outputFolder, $"{safeTitle}.video.{videoOnly.Container.Name.ToLower()}");
+          var aPath = Path.Combine(outputFolder, $"{safeTitle}.audio.{audioOnly.Container.Name.ToLower()}");
+          await client.Videos.Streams.DownloadAsync(videoOnly, vPath, ScopedProgress(job, 10, 50), ct);
+          await client.Videos.Streams.DownloadAsync(audioOnly, aPath, ScopedProgress(job, 50, 90), ct);
+
+          finalName = $"{safeTitle}.mp4";
+          downloadPath = Path.Combine(outputFolder, finalName);
+          job.ProgressText = "Merging video and audio…";
+          var conversion = FFmpeg.Conversions.New()
+            .AddParameter($"-i \"{vPath}\"")
+            .AddParameter($"-i \"{aPath}\"")
+            .AddParameter("-c:v copy")
+            .AddParameter("-c:a aac")
+            .AddParameter("-shortest")
+            .SetOutput(downloadPath);
+
+          await conversion.Start();
+          try { System.IO.File.Delete(vPath); System.IO.File.Delete(aPath); } catch { }
+          note = "Video had no combined stream - merged best video + audio with FFmpeg.";
+        }
+        else
+        {
+          throw new InvalidOperationException("This video has no combined audio+video stream and FFmpeg is not available to merge.");
+        }
+      }
+
+      if (!System.IO.File.Exists(downloadPath) || new FileInfo(downloadPath).Length == 0)
+      {
+        throw new InvalidOperationException("Download failed - output file is empty.");
+      }
+
+      job.ProgressText = "Saving to your files…";
+      long fileSize = new FileInfo(downloadPath).Length;
+      int userId = request.UserId ?? 0;
+      int newFileId = await InsertConvertedFile(userId, finalName, outputFolder, fileSize, width, height);
+
+      return new YoutubeDownloadResult
+      {
+        FileId = newFileId,
+        FileName = finalName,
+        Title = video.Title,
+        Note = note
+      };
+    }
+
+    private static IProgress<double> ScopedProgress(YoutubeDownloadJob job, double start, double end)
+    {
+      return new Progress<double>(p =>
+      {
+        job.Progress = (int)Math.Round(start + p * (end - start));
+        job.ProgressText = $"Downloading… {job.Progress}%";
+      });
+    }
+
+    private static void PurgeOldJobs()
+    {
+      var cutoff = DateTime.UtcNow.AddMinutes(-30);
+      foreach (var kv in _youtubeJobs)
+      {
+        if (kv.Value.CreatedUtc < cutoff) _youtubeJobs.TryRemove(kv.Key, out _);
       }
     }
 
@@ -544,6 +624,33 @@ namespace maxhanna.Server.Controllers
     public string? Url { get; set; }
     public string? Format { get; set; }
     public int? UserId { get; set; }
+  }
+
+  public class YoutubeDownloadJobResult
+  {
+    public Guid JobId { get; set; }
+    public string? Status { get; set; }
+  }
+
+  public class YoutubeDownloadStatusResult
+  {
+    public Guid JobId { get; set; }
+    public string? Status { get; set; }
+    public int Progress { get; set; }
+    public string? ProgressText { get; set; }
+    public YoutubeDownloadResult? Result { get; set; }
+    public string? Error { get; set; }
+  }
+
+  public class YoutubeDownloadJob
+  {
+    public Guid Id { get; } = Guid.NewGuid();
+    public string Status { get; set; } = "queued";
+    public int Progress { get; set; }
+    public string? ProgressText { get; set; }
+    public YoutubeDownloadResult? Result { get; set; }
+    public string? Error { get; set; }
+    public DateTime CreatedUtc { get; } = DateTime.UtcNow;
   }
 
   public class YoutubeDownloadResult

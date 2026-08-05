@@ -10,8 +10,27 @@ import {
 } from '../../services/datacontracts/racing/racing-types';
 import { UserEventService } from '../../services/user-event.service';
 import { Subscription } from 'rxjs';
+
+// A recorded car position for the post-race replay (one per racing frame).
+interface ReplayCar {
+  x: number; z: number; yaw: number; speed: number; accel: number; slide: number;
+  id: string; r: number; g: number; b: number;
+}
+// A whole-grid snapshot at one moment of the race.
+interface ReplayFrame {
+  t: number; // ms since race start
+  px: number; pz: number; pyaw: number; pspd: number; pacc: number; pslid: number;
+  cars: ReplayCar[];
+}
+
 const ACCEL = 35;
 const BRAKE_FORCE = 40;
+// Overheated-disc fade: the renderer simulates per-wheel brake heat (0..1.35)
+// for the glow; physics reads it back so sustained heavy braking eases off the
+// deceleration until the discs cool — rewarding smooth brake management.
+const BRAKE_HEAT_FADE_ON = 0.85;      // heat at which bite starts to drop
+const BRAKE_HEAT_FADE_TOP = 1.35;     // heat at which fade maxes out (white-hot)
+const BRAKE_HEAT_FADE_AMOUNT = 0.4;   // max braking loss (down to 60% force)
 const FRICTION = 0.97;
 const MAX_SPEED_BASE = 55;
 const TURN_SPEED = 0.38;
@@ -86,6 +105,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   totalLaps = 3;
   countdownTimer = 0;
   private _raceFinished = false;
+  // Race replay — snapshots of every car each racing frame, played back behind
+  // the podium with a cinematic orbit camera once the race finishes.
+  private _replayFrames: ReplayFrame[] = [];
+  private _replayTime = 0;
+  private _replaySpins = new Map<string, number>();
+  private _replayTrailArmed = false;
   racePosition = 1;
   totalRacers = 1;
   playerCar: RacingPlayerCar = {
@@ -195,6 +220,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private msgTimer: any = null;
   hudSpeed = 0;
   hudRPM = 0;
+  // Brake-disc heat HUD: current hottest disc (0..1.35, same sim as the glow)
+  // plus the hottest point reached on the current lap (the peak notch).
+  hudBrakeHeat = 0;
+  _brakePeakThisLap = 0;
   steerSmoothed = 0;
   // Live current-lap elapsed time, refreshed every frame so the in-race HUD
   // pace readout (P+0.4s · +1.2s vs best) tracks mid-session.
@@ -203,6 +232,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   @ViewChild('wheelSpeed') wheelSpeedEl?: ElementRef<HTMLDivElement>;
   @ViewChild('wheelRpm') wheelRpmEl?: ElementRef<HTMLDivElement>;
   @ViewChild('wheelGear') wheelGearEl?: ElementRef<HTMLDivElement>;
+  @ViewChild('brakeFill') brakeFillEl?: ElementRef<HTMLDivElement>;
+  @ViewChild('brakePeak') brakePeakEl?: ElementRef<HTMLDivElement>;
+  @ViewChild('brakeGauge') brakeGaugeEl?: ElementRef<HTMLDivElement>;
+  @ViewChild('brakeState') brakeStateEl?: ElementRef<HTMLSpanElement>;
   private _audioCtx: AudioContext | null = null;
   private _subOsc: OscillatorNode | null = null;
   private _engineOsc: OscillatorNode | null = null;
@@ -244,6 +277,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private _screechSource: AudioBufferSourceNode | null = null;
   private _screechFilter: BiquadFilterNode | null = null;
   private _screechGain: GainNode | null = null;
+  // Brake squeal — a separate noise->bandpass->gain chain that only sounds when
+  // hard braking crosses the brake-dust threshold (one-frame accel < -0.3), the
+  // filter center pitched up with speed for a rising squeal.
+  private _squealSource: AudioBufferSourceNode | null = null;
+  private _squealFilter: BiquadFilterNode | null = null;
+  private _squealGain: GainNode | null = null;
   private _playerSlide = 0;
   private _remoteVoices: RemoteAudioVoice[] = [];
   private static readonly REMOTE_AUDIBLE = 55;
@@ -936,6 +975,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.raceStartTime = performance.now();
     this.lapStartTime = this.raceStartTime;
     this.currentLap = 0;
+    this._brakePeakThisLap = 0;
     this.bestLapTime = Infinity;
     this.carSpeed = 0;
     this.carDist = 0;
@@ -956,6 +996,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.stopStandingsCountdown();
     this.dnfRacers = [];
     this._raceFinished = false;
+    this._replayFrames = [];
+    this._replayTime = 0;
+    this._replaySpins.clear();
     this._mpFinished = false;
     this._mpWinnerCelebrated = false;
     const startP = this.renderer.getTrackPointAlong(0);
@@ -1138,6 +1181,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.stopStandingsCountdown();
     this.dnfRacers = [];
     this._raceFinished = false;
+    this._replayFrames = [];
+    this._replayTime = 0;
+    this._replaySpins.clear();
     this._mpFinished = false;
     this._mpWinnerCelebrated = false;
     const startP = this.renderer.getTrackPointAlong(0);
@@ -1199,6 +1245,37 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.checkLapCrossing();
       this.updateRacePosition();
       this.totalRaceTime += dt * 1000;
+      // Race replay: snapshot the whole grid each frame for the post-race
+      // cinematic (ring-buffered so very long races only keep the last ~100s).
+      if (this._replayFrames.length >= 6000) this._replayFrames.shift();
+      const recColors = [
+        [0.8, 0.2, 0.2], [0.2, 0.4, 0.9], [0.1, 0.7, 0.1],
+        [0.9, 0.7, 0.1], [0.7, 0.2, 0.7], [1.0, 0.5, 0]
+      ];
+      const rcars: ReplayCar[] = [];
+      this.bots.forEach((b, bi) => {
+        const pc = recColors[b.color % recColors.length];
+        const prev = this._prevBotSpeeds.get(b) ?? b.speed;
+        rcars.push({
+          x: b.x, z: b.z, yaw: b.yaw, speed: b.speed,
+          accel: dt > 0 ? (b.speed - prev) / dt : 0, slide: b.slide,
+          id: 'b' + bi, r: pc[0], g: pc[1], b: pc[2]
+        });
+      });
+      this.remoteCars.forEach((rc) => {
+        const prev = this._prevRemoteSpeeds.get(rc.connectionId) ?? rc.speed;
+        rcars.push({
+          x: rc.x, z: rc.z, yaw: rc.yaw, speed: rc.speed,
+          accel: dt > 0 ? (rc.speed - prev) / dt : 0, slide: rc.slide,
+          id: 'r' + rc.connectionId, r: rc.colorR, g: rc.colorG, b: rc.colorB
+        });
+      });
+      this._replayFrames.push({
+        t: this.totalRaceTime,
+        px: this.carX, pz: this.carZ, pyaw: this.carYaw,
+        pspd: this.carSpeed, pacc: this.carAccel, pslid: this._playerSlide,
+        cars: rcars
+      });
       if (this.isOffTrack) {
         this.screenShake = Math.min(0.04, this.screenShake + dt * 0.02);
       } else {
@@ -1226,6 +1303,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       for (let i = 0; i < whistles; i++) this.playMarmotWhistle();
     }
     if (this.renderer && this.isLoaded) {
+      // Post-race cinematic: replay the race behind the podium with a cool
+      // orbit camera instead of the frozen first-person finish view.
+      if (this.gameState === 'finished' && this._replayFrames.length > 1) {
+        this.renderReplay(dt);
+        return;
+      }
       const aspect = this.canvasRef.nativeElement.width / this.canvasRef.nativeElement.height;
       const eyeY = 0.5;
       const eyeX = this.carX;
@@ -1249,20 +1332,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       // Deterministic per-car appearance so the grid looks alive: each bot/remote
       // picks a rim style, decal and accent from its grid index, and remote cars
       // hash their connection id so two remotes never match exactly.
-      const botAppearance = (i: number, seed: number): RacingCarAppearance => {
-        const rimIds = Object.keys(RIM_TINTS).map(Number);
-        const decalIds = Object.keys(DECAL_COLORS).map(Number);
-        const accentIds = Object.keys(ACCENT_COLORS).map(Number);
-        const glowIds = Object.keys(GLOW_COLORS).map(Number);
-        const hash = (i * 7 + seed * 13) & 0xffff;
-        return {
-          rimStyle: rimIds[(hash + i) % rimIds.length],
-          decalStyle: decalIds[(hash * 3 + i) % decalIds.length],
-          accent: ACCENT_COLORS[accentIds[(hash + i * 2) % accentIds.length]],
-          glow: (hash + i) % 5 === 0 ? GLOW_COLORS[glowIds[(hash + i) % glowIds.length]] : undefined,
-          metallic: 0.3 + ((hash + i * 3) % 6) / 10,
-        };
-      };
       const carList = this.bots.map((b, i) => {
         const colors = [
           [0.8, 0.2, 0.2], [0.2, 0.4, 0.9], [0.1, 0.7, 0.1],
@@ -1276,7 +1345,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         return {
           x: b.x, y: 0.1, z: b.z, yaw: b.yaw, r: c[0], g: c[1], b: c[2], speed: b.speed, accel: accelFor(b, prev), spin, slide: b.slide,
           id: 'b' + i, // stable id for per-car renderer state (brake heat)
-          ...botAppearance(i, b.color)
+          ...this.botAppearanceFor(i, b.color)
         };
       });
       this.remoteCars.forEach((rc) => {
@@ -1295,13 +1364,16 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           spin,
           slide: rc.slide,
           id: 'r' + rc.connectionId, // stable id for per-car renderer state (brake heat)
-          ...botAppearance(i, seed)
+          ...this.botAppearanceFor(i, seed)
         });
       });
       this._playerSpin += wheelRate(this.carSpeed) * dt;
       this.renderer.render(eyeX, eyeY, eyeZ, yaw, pitch, aspect, carList, dt, fovZoom, shakeX, shakeY, this.isRaining, speedRatio, this.carSpeed, this.carAccel, this._playerSpin, this._playerSlide, this.getPlayerAppearance());
       this.hudSpeed = Math.abs(this.carSpeed * 3.6);
       this.hudRPM = Math.min(1, Math.abs(this.carSpeed) / this.getMaxSpeed() * 1.1);
+      // Brake-temp gauge — current heat + track the lap's hottest peak.
+      this.hudBrakeHeat = this.renderer?.getPlayerBrakeHeat() ?? 0;
+      if (this.hudBrakeHeat > this._brakePeakThisLap) this._brakePeakThisLap = this.hudBrakeHeat;
       this.liveLapTime = this.lapStartTime > 0 ? performance.now() - this.lapStartTime : 0;
       const targetSteer = -this.carSteer * 35;
       this.steerSmoothed += (targetSteer - this.steerSmoothed) * Math.min(1, dt * 8);
@@ -1319,6 +1391,25 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       }
       if (this.wheelGearEl?.nativeElement) {
         this.wheelGearEl.nativeElement.textContent = this.getGear();
+      }
+      // Brake-temp gauge — direct DOM writes like the other per-frame HUD
+      // values (CD doesn't fire every rAF frame).
+      if (this.brakeFillEl?.nativeElement && this.brakePeakEl?.nativeElement) {
+        const state = this.getBrakeHeatState();
+        const pct = this.getBrakeHeatPercent();
+        const peakPct = this.getBrakePeakPercent();
+        const fill = this.brakeFillEl.nativeElement;
+        const peak = this.brakePeakEl.nativeElement;
+        fill.style.width = pct + '%';
+        peak.style.left = peakPct + '%';
+        fill.parentElement?.setAttribute('title',
+          `Brake heat ${pct.toFixed(0)}% — peak ${peakPct.toFixed(0)}% this lap`);
+        this.brakeGaugeEl?.nativeElement.classList.toggle('brake-temp-hot', state === 'hot');
+        this.brakeGaugeEl?.nativeElement.classList.toggle('brake-temp-warm', state === 'warm');
+        this.brakeStateEl?.nativeElement.classList.toggle('brake-temp-state-hot', state === 'hot');
+        if (this.brakeStateEl?.nativeElement) {
+          this.brakeStateEl.nativeElement.textContent = state === 'hot' ? 'HOT' : state === 'warm' ? 'WARM' : 'COOL';
+        }
       }
     }
   }
@@ -1346,7 +1437,16 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const maxSpeed = this.getMaxSpeed();
     const grip = 0.85 + this.getGripBonus() / 100;
     const corner = 0.8 + this.getCornerBonus() / 100;
-    const brakeForce = BRAKE_FORCE * (1 + this.getBrakeBonus() / 100);
+    const brakeUpgrade = 1 + this.getBrakeBonus() / 100;
+    // Brake fade from disc heat (shared with the renderer's glow): past the
+    // threshold the rotors lose bite until they cool back down.
+    let heatFade = 1;
+    const discHeat = this.renderer?.getPlayerBrakeHeat() ?? 0;
+    if (discHeat > BRAKE_HEAT_FADE_ON) {
+      const t = Math.min(1, (discHeat - BRAKE_HEAT_FADE_ON) / (BRAKE_HEAT_FADE_TOP - BRAKE_HEAT_FADE_ON));
+      heatFade = 1 - BRAKE_HEAT_FADE_AMOUNT * t;
+    }
+    const brakeForce = BRAKE_FORCE * brakeUpgrade * heatFade;
     const speedAbs = Math.abs(this.carSpeed);
     const speedRatio = speedAbs / maxSpeed;
     const speedFactor = Math.min(1, speedAbs / 3.0);
@@ -1670,6 +1770,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const trackLen = this.renderer.totalTrackDist;
     if (prevDist > trackLen * 0.8 && this.carDist < trackLen * 0.2) {
       this.currentLap++;
+      // Fresh lap — reset the brake peak notch so it marks THIS lap's hottest
+      // braking point.
+      this._brakePeakThisLap = 0;
       if (this.currentLap >= this.totalLaps) {
         // The winner's line-crossing roar is played by playWinnerCheer in
         // finishRace (synced with the cannonade), so skip the generic big
@@ -1720,6 +1823,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
     this.buildFinalStandings();
     this.gameState = 'finished';
+    // Clear the live FX pools so the replay re-derives smoke/dust/heat/marks
+    // from the recorded inputs instead of inheriting the race's leftovers.
+    this.renderer?.resetRaceFX();
     const basePrize = this.selectedTrack?.prizePool || 300;
     const positionMultiplier = Math.max(0.1, 1 - (this.racePosition - 1) * 0.15);
     const moneyEarned = Math.round(basePrize * positionMultiplier);
@@ -2336,6 +2442,124 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const n = parseInt(full, 16);
     return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
   }
+  // Deterministic per-car appearance so the grid looks alive: each bot/remote
+  // picks a rim style, decal and accent from its grid index, and remote cars
+  // hash their connection id so two remotes never match exactly. Shared by the
+  // live render and the post-race replay so replays match the race's look.
+  private botAppearanceFor(i: number, seed: number): RacingCarAppearance {
+    const rimIds = Object.keys(RIM_TINTS).map(Number);
+    const decalIds = Object.keys(DECAL_COLORS).map(Number);
+    const accentIds = Object.keys(ACCENT_COLORS).map(Number);
+    const glowIds = Object.keys(GLOW_COLORS).map(Number);
+    const hash = (i * 7 + seed * 13) & 0xffff;
+    return {
+      rimStyle: rimIds[(hash + i) % rimIds.length],
+      decalStyle: decalIds[(hash * 3 + i) % decalIds.length],
+      accent: ACCENT_COLORS[accentIds[(hash + i * 2) % accentIds.length]],
+      glow: (hash + i) % 5 === 0 ? GLOW_COLORS[glowIds[(hash + i) % glowIds.length]] : undefined,
+      metallic: 0.3 + ((hash + i * 3) % 6) / 10,
+    };
+  }
+
+  // Shortest-path angle interpolation (avoids wheels spinning the long way).
+  private lerpAngle(a: number, b: number, t: number): number {
+    let d = b - a;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    return a + d * t;
+  }
+
+  // Post-race cinematic: plays the recorded race back with a slow orbit camera
+  // around the player's car, behind the translucent podium/score overlay. The
+  // recorded accel/slide re-drive the renderer's heat, dust, smoke and rubber
+  // marks, so the replay recreates the race's drama authentically.
+  private renderReplay(dt: number) {
+    const frames = this._replayFrames;
+    if (frames.length < 2 || !this.renderer || !this.isLoaded) return;
+    const canvas = this.canvasRef.nativeElement;
+    const aspect = canvas.width / canvas.height;
+    // Advance the replay clock; loop when the recorded race is over.
+    this._replayTime += dt;
+    const last = frames[frames.length - 1];
+    if (this._replayTime > last.t) {
+      this._replayTime = 0;
+      this._replaySpins.clear();
+      this._replayTrailArmed = false;
+    }
+    // Bracketing frames (frames are ~16ms apart, so a linear scan is cheap).
+    let i = 0;
+    while (i < frames.length - 2 && frames[i + 1].t < this._replayTime) i++;
+    const a = frames[i];
+    const b = frames[i + 1];
+    const frac = Math.min(1, Math.max(0, (this._replayTime - a.t) / Math.max(0.001, b.t - a.t)));
+    const lerp = (x: number, y: number) => x + (y - x) * frac;
+    const px = lerp(a.px, b.px);
+    const pz = lerp(a.pz, b.pz);
+    const pyaw = this.lerpAngle(a.pyaw, b.pyaw, frac);
+    const pspd = lerp(a.pspd, b.pspd);
+    const pacc = lerp(a.pacc, b.pacc);
+    const pslid = lerp(a.pslid, b.pslid);
+    // Cinematic orbit — a slow arc around the car, gently bobbing in height.
+    const orbit = this._replayTime * 0.45;
+    const r = 8.2;
+    const eyeX = px + Math.cos(orbit) * r;
+    const eyeZ = pz + Math.sin(orbit) * r;
+    const eyeY = 3.0 + Math.sin(this._replayTime * 0.6) * 0.8;
+    const toX = px - eyeX;
+    const toZ = pz - eyeZ;
+    const camYaw = Math.atan2(toX, toZ);
+    // Positive pitch looks DOWN in the renderer's view convention
+    // (forward.y = -sinP, lookY = eyeY - sinP) — aim the ray at the car.
+    const camPitch = Math.atan2(eyeY - 0.6, Math.hypot(toX, toZ));
+    // Interpolate every car by id (remotes can join/leave mid-race).
+    const grid = new Map<string, ReplayCar>();
+    for (const c of a.cars) grid.set(c.id, c);
+    for (const c of b.cars) {
+      const prev = grid.get(c.id);
+      grid.set(c.id, prev
+        ? { ...prev, x: lerp(prev.x, c.x), z: lerp(prev.z, c.z), yaw: this.lerpAngle(prev.yaw, c.yaw, frac), speed: lerp(prev.speed, c.speed), accel: lerp(prev.accel, c.accel), slide: lerp(prev.slide, c.slide) }
+        : c);
+    }
+    // The player's own car joins the replay grid (it isn't in the recordings).
+    const pa = this.getPlayerAppearance();
+    const skin = pa.skin ?? [0.85, 0.06, 0.06];
+    grid.set('replay-player', { x: px, z: pz, yaw: pyaw, speed: pspd, accel: pacc, slide: pslid, id: 'replay-player', r: skin[0], g: skin[1], b: skin[2] });
+    // Build the car list with wheel spin integrated from the recorded speeds.
+    const wheelRate = (spd: number) => Math.min(Math.abs(spd) / 0.17, 40) * (spd < 0 ? 1 : -1);
+    const carList: (RacingCarAppearance & { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed: number; accel: number; spin: number; slide: number; id: string })[] = [];
+    grid.forEach((c, id) => {
+      const spin = (this._replaySpins.get(id) ?? 0) + wheelRate(c.speed) * dt;
+      this._replaySpins.set(id, spin);
+      // Strip the 'r' prefix so remote liveries hash identically to the live
+      // race (the live grid hashes the bare connectionId).
+      const seedId = id.startsWith('r') ? id.slice(1) : id;
+      const seed = seedId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+      carList.push({
+        x: c.x, y: 0.1, z: c.z, yaw: c.yaw, r: c.r, g: c.g, b: c.b,
+        speed: c.speed, accel: c.accel, spin, slide: c.slide, id: c.id,
+        ...this.botAppearanceFor(seed % 1000, seed)
+      });
+    });
+    const maxSpd = this.getMaxSpeed();
+    // Win-confetti trail: anchor it to the replay car (the renderer defaults to
+    // the camera eye) and arm it only as the replay reaches the finish crossing
+    // — the last ~8s — so the confetti pours off the winner over the line
+    // instead of at the grid. Disarmed elsewhere (and on each loop wrap).
+    this.renderer.winTrailAnchor = { x: px, z: pz, yaw: pyaw };
+    const nearFinish = this._replayTime >= last.t - RacingRenderer.WIN_TRAIL_SECONDS;
+    if (nearFinish && !this._replayTrailArmed) {
+      this.renderer.armWinTrail();
+      this._replayTrailArmed = true;
+    } else if (!nearFinish) {
+      // Unconditional disarm (idempotent): kills the trail armed at live
+      // finish on the first replay frame, so no confetti pours at the grid.
+      this.renderer.disarmWinTrail();
+      this._replayTrailArmed = false;
+    }
+    this.renderer.render(eyeX, eyeY, eyeZ, camYaw, camPitch, aspect, carList, dt, 1.0, 0, 0,
+      this.isRaining, Math.min(1, Math.abs(pspd) / maxSpd), pspd, pacc, 0, pslid, pa, true);
+  }
+
   // The equipped appearance packed for the 3D renderer — used for the player's
   // own car (rear-view mirror) and as the base for remote cars.
   getPlayerAppearance(): RacingCarAppearance {
@@ -2534,6 +2758,21 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   getDrsActive(): boolean {
     return Math.abs(this.carSpeed) / this.getMaxSpeed() > 0.75 && !this.isOffTrack;
   }
+  // ── Brake-temp gauge ──────────────────────────────────────────────
+  // Heat 0..BRAKE_HEAT_FADE_TOP (1.35) — the same per-wheel sim that drives
+  // the brake glow and the fade, read back per frame.
+  getBrakeHeatPercent(): number {
+    return Math.min(100, (this.hudBrakeHeat / BRAKE_HEAT_FADE_TOP) * 100);
+  }
+  getBrakePeakPercent(): number {
+    return Math.min(100, (this._brakePeakThisLap / BRAKE_HEAT_FADE_TOP) * 100);
+  }
+  getBrakeHeatState(): 'cool' | 'warm' | 'hot' {
+    if (this.hudBrakeHeat >= BRAKE_HEAT_FADE_ON) return 'hot';
+    if (this.hudBrakeHeat >= 0.6) return 'warm';
+    return 'cool';
+  }
+
   getAnalogNeedleDeg(): number {
     return -120 + Math.min(1, this.hudRPM) * 240;
   }
@@ -2562,6 +2801,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       if (this._screechSource) { try { this._screechSource.stop(); } catch { } this._screechSource.disconnect(); }
       if (this._screechFilter) this._screechFilter.disconnect();
       if (this._screechGain) this._screechGain.disconnect();
+      if (this._squealSource) { try { this._squealSource.stop(); } catch { } this._squealSource.disconnect(); }
+      if (this._squealFilter) this._squealFilter.disconnect();
+      if (this._squealGain) this._squealGain.disconnect();
       for (const v of this._remoteVoices) {
         try { v.engineOsc.stop(); } catch { }
         try { v.screechSource.stop(); } catch { }
@@ -2596,6 +2838,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._screechSource = null;
     this._screechFilter = null;
     this._screechGain = null;
+    this._squealSource = null;
+    this._squealFilter = null;
+    this._squealGain = null;
     this._engineFilter = null;
     this._engineGain = null;
     this._audioCtx = null;
@@ -2706,6 +2951,20 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this._screechSource.connect(this._screechFilter);
       this._screechFilter.connect(this._screechGain);
       this._screechGain.connect(ctx.destination);
+      // Brake squeal chain — same looped noise buffer, a tighter bandpass that
+      // rises with speed, gain starts silent (gated on hard braking only).
+      this._squealSource = ctx.createBufferSource();
+      this._squealSource.buffer = buf;
+      this._squealSource.loop = true;
+      this._squealFilter = ctx.createBiquadFilter();
+      this._squealFilter.type = 'bandpass';
+      this._squealFilter.frequency.value = 2800;
+      this._squealFilter.Q.value = 2.5;
+      this._squealGain = ctx.createGain();
+      this._squealGain.gain.value = 0;
+      this._squealSource.connect(this._squealFilter);
+      this._squealFilter.connect(this._squealGain);
+      this._squealGain.connect(ctx.destination);
       this._remoteVoices = [];
       for (let i = 0; i < RacingComponent.MAX_REMOTE_VOICES; i++) {
         const vOsc = ctx.createOscillator();
@@ -2738,6 +2997,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       }
       this._subOsc.start();
       this._screechSource.start();
+      this._squealSource.start();
       this._engineOsc.start();
       this._engineOsc2.start();
       this._harmOsc.start();
@@ -2758,6 +3018,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       if (this._windGain) this._windGain.gain.setTargetAtTime(0, t, 0.2);
       if (this._crowdGain) this._crowdGain.gain.setTargetAtTime(0, t, 0.2);
       if (this._screechGain) this._screechGain.gain.setTargetAtTime(0, t, 0.1);
+      if (this._squealGain) this._squealGain.gain.setTargetAtTime(0, t, 0.1);
       for (const v of this._remoteVoices) {
         v.engineGain.gain.setTargetAtTime(0, t, 0.1);
         v.screechGain.gain.setTargetAtTime(0, t, 0.1);
@@ -2781,6 +3042,20 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this._screechGain) {
       this._screechGain.gain.setTargetAtTime(slide * 0.055, t, 0.05);
       if (this._screechFilter) this._screechFilter.frequency.setTargetAtTime(1800 + slide * 1800, t, 0.07);
+    }
+    // Brake squeal — only sounds when the player's brake input crosses the same
+    // -0.3 threshold that triggers brake dust (carAccel = gas - brake, exactly
+    // -1 while braking, so it's exact parity with the renderer's dust gate). The
+    // bandpass center (the perceived pitch) rises with road speed, and a speed
+    // floor stops a standstill brake-hold from squealing forever. Subtle: peaks
+    // around half the slide-screech level.
+    const brakeSqueal = this.carAccel < -0.3 ? Math.min(1, speed / 8) : 0;
+    if (this._squealGain) {
+      this._squealGain.gain.setTargetAtTime(brakeSqueal * 0.028, t, 0.04);
+      if (this._squealFilter) {
+        this._squealFilter.frequency.setTargetAtTime(2600 + speedRatio * 2400, t, 0.06);
+        this._squealFilter.Q.setTargetAtTime(2.2 + brakeSqueal * 1.8, t, 0.08);
+      }
     }
     if (this._remoteVoices.length > 0) {
       const cars: { x: number; z: number; yaw: number; speed: number; slide: number }[] = [];

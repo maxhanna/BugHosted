@@ -917,6 +917,18 @@
             <span class="panel-label">PACE</span>
             <span class="panel-val" [class.panel-val-pace-ahead]="getLivePaceAhead()">{{ getLivePaceText() }}</span>
           </div>
+          <!-- Brake-temp gauge: fills with disc heat; the gold notch marks the
+               hottest braking point reached on the current lap. Fill/peak/state
+               are updated directly every frame in the render loop (CD doesn't
+               fire per-frame), mirroring the wheel speed/RPM/gear elements. -->
+          <div class="panel-row panel-row-temp">
+            <span class="panel-label">BRK</span>
+            <div class="brake-temp-gauge" #brakeGauge title="Brake heat — the gold notch is this lap's hottest braking point">
+              <div class="brake-temp-fill" #brakeFill></div>
+              <div class="brake-temp-peak" #brakePeak></div>
+            </div>
+            <span class="brake-temp-state" #brakeState></span>
+          </div>
         </div>
       </div>
 
@@ -958,6 +970,8 @@
 
     <!-- ─── Finished / Podium ─── -->
     <div id="race-finished" *ngIf="gameState === 'finished'">
+      <!-- The race replays behind this translucent overlay on an orbit camera -->
+      <div class="race-replay-badge">🎬 RACE REPLAY</div>
       <div class="gp-podium">
         <div class="gp-podium-emblem" aria-hidden="true">
           <span class="race-title-flag">🏁</span>

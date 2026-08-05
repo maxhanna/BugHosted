@@ -40,6 +40,9 @@ export class ConversionComponent extends ChildComponent {
   youtubeUrl = '';
   youtubeFormat = 'mp4';
   isDownloadingYoutube = false;
+  youtubeProgress = 0;
+  youtubeStatusText = '';
+  youtubeError = '';
   youtubeResult?: YoutubeDownloadResult;
 
   asciiStyles = ['Blocks', 'Solid', 'Dots', 'Hash'];
@@ -217,12 +220,36 @@ export class ConversionComponent extends ChildComponent {
     if (!url) { this.parentRef?.showNotification('Paste a YouTube URL first.'); return; }
 
     this.isDownloadingYoutube = true;
+    this.youtubeResult = undefined;
+    this.youtubeError = '';
+    this.youtubeProgress = 0;
+    this.youtubeStatusText = 'Starting download…';
     try {
-      this.youtubeResult = (await this.conversionService.youtubeDownload(url, this.youtubeFormat, this.parentRef?.user?.id)) ?? undefined;
-      if (!this.youtubeResult || !this.youtubeResult.fileId || this.youtubeResult.fileId <= 0) {
-        this.parentRef?.showNotification(this.youtubeResult?.note || 'Download failed.');
+      const started = await this.conversionService.startYoutubeDownload(url, this.youtubeFormat, this.parentRef?.user?.id);
+      if (!started?.jobId) { this.parentRef?.showNotification('Could not start the download.'); return; }
+
+      const jobId = started.jobId;
+      let status = await this.conversionService.getYoutubeDownloadStatus(jobId);
+      const maxWaitMs = 6 * 60 * 1000;
+      const pollIntervalMs = 2000;
+      const startedAt = Date.now();
+
+      while (status && status.status !== 'completed' && status.status !== 'failed' && Date.now() - startedAt < maxWaitMs) {
+        this.youtubeProgress = status.progress || 0;
+        this.youtubeStatusText = status.progressText || `Downloading… ${this.youtubeProgress}%`;
+        await new Promise(r => setTimeout(r, pollIntervalMs));
+        status = await this.conversionService.getYoutubeDownloadStatus(jobId);
+      }
+
+      if (status?.status === 'completed' && status.result) {
+        this.youtubeResult = status.result;
+        this.parentRef?.showNotification(status.result.title ? `Downloaded: ${status.result.title}` : 'Download complete.');
+      } else if (status?.status === 'failed') {
+        this.youtubeError = status.error || 'Download failed.';
+        this.parentRef?.showNotification('Download failed.');
       } else {
-        this.parentRef?.showNotification(this.youtubeResult.title ? `Downloaded: ${this.youtubeResult.title}` : 'Download complete.');
+        this.youtubeError = 'The download is still running - check back in a minute.';
+        this.parentRef?.showNotification('Download still in progress.');
       }
     } finally {
       this.isDownloadingYoutube = false;

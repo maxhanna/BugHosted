@@ -368,7 +368,7 @@ namespace maxhanna.Server.Services
       uint first = ordered.Count > 0 ? (uint)ordered.Min(g => (int)g.Character) : 0x20;
       uint last = ordered.Count > 0 ? (uint)ordered.Max(g => (int)g.Character) : 0x20;
 
-      var data = new byte[78];
+      var data = new byte[86];
       var w = new BE(data);
       w.WriteUInt16(0);                    // version
       w.WriteInt16(500);                   // xAvgCharWidth

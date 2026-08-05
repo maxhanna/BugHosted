@@ -134,11 +134,19 @@
         {{ isDownloadingYoutube ? 'Downloading…' : 'Download' }}
       </button>
     </div>
-    <div *ngIf="youtubeResult" class="result-box" [class.result-error]="youtubeResult.fileId <= 0">
-      <span class="result-icon">{{ youtubeResult.fileId > 0 ? '✅' : '⚠️' }}</span>
-      <span class="result-file">{{ youtubeResult.fileName || youtubeResult.title || 'Download failed' }}</span>
-      <button *ngIf="youtubeResult.fileId > 0" class="link" (click)="downloadConverted(youtubeResult.fileId, youtubeResult.fileName)">Download</button>
-      <span *ngIf="youtubeResult.note && youtubeResult.fileId <= 0" class="help-text">{{ youtubeResult.note }}</span>
+    <div *ngIf="isDownloadingYoutube" class="youtube-status">
+      <div class="progress-bar"><div class="progress-fill" [style.width.%]="youtubeProgress"></div></div>
+      <span class="help-text">{{ youtubeStatusText }}</span>
+    </div>
+    <div *ngIf="youtubeError" class="result-box result-error">
+      <span class="result-icon">⚠️</span>
+      <span class="help-text">{{ youtubeError }}</span>
+    </div>
+    <div *ngIf="youtubeResult" class="result-box result-success">
+      <span class="result-icon">✅</span>
+      <span class="result-file">{{ youtubeResult.fileName || youtubeResult.title }}</span>
+      <button class="link" (click)="downloadConverted(youtubeResult.fileId, youtubeResult.fileName)">Download</button>
+      <span *ngIf="youtubeResult.note" class="help-text">{{ youtubeResult.note }}</span>
     </div>
   </section>
 

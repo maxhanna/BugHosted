@@ -29,6 +29,20 @@ export interface YoutubeDownloadResult {
   note: string;
 }
 
+export interface YoutubeDownloadJobInfo {
+  jobId: string;
+  status: string;
+}
+
+export interface YoutubeDownloadStatusResult {
+  jobId: string;
+  status: string;
+  progress: number;
+  progressText: string;
+  result?: YoutubeDownloadResult;
+  error?: string;
+}
+
 export interface TextToAsciiResult {
   fileId: number;
   fileName: string;
@@ -90,18 +104,23 @@ export class ConversionService {
     }).catch(() => null);
   }
 
-  youtubeDownload(url: string, format: string, userId: number | undefined): Promise<YoutubeDownloadResult | null> {
+  startYoutubeDownload(url: string, format: string, userId: number | undefined): Promise<YoutubeDownloadJobInfo | null> {
     return fetch('/conversion/youtubedownload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ Url: url, Format: format, UserId: userId })
     }).then(async (res) => {
-      if (!res.ok) {
-        const errText = await res.text();
-        return { fileId: 0, fileName: '', title: '', note: errText || 'Download failed.' };
-      }
+      if (!res.ok) return null;
       return await res.json();
-    }).catch(() => ({ fileId: 0, fileName: '', title: '', note: 'Download failed.' }));
+    }).catch(() => null);
+  }
+
+  getYoutubeDownloadStatus(jobId: string): Promise<YoutubeDownloadStatusResult | null> {
+    return fetch(`/conversion/youtubedownloadstatus?jobId=${encodeURIComponent(jobId)}`)
+      .then(async (res) => {
+        if (!res.ok) return null;
+        return await res.json();
+      }).catch(() => null);
   }
 
   textToAscii(text: string, style: string, scale: number, userId: number | undefined): Promise<TextToAsciiResult | null> {
