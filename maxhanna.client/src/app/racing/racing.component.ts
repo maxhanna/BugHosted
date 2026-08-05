@@ -1731,7 +1731,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       // Winner's moment — confetti cannonade, a crowd roar + applause + whistle
       // mix, and a visual cheering spike in the animated stands, all fired
       // together so the celebration lands exactly on the line crossing.
-      this.renderer.celebrateWinner(this.carX, this.carZ, this.carYaw, Math.abs(this.carSpeed));
+      this.renderer.celebrateWinner(Math.abs(this.carSpeed));
       this.renderer.exciteCrowd(1);
       this.playWinnerCheer();
     } else {
