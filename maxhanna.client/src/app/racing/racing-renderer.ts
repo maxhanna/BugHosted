@@ -3925,6 +3925,102 @@ void main() { FragColor = texture(uTex, vUV); }`;
     for (const side of [-1, 0, 1]) {
       this.addSphere(verts, idxs, x + ppx * (hw / 2) * side, beamY + 0.4, z + ppz * (hw / 2) * side, 0.16, 6, [1, 0.95, 0.7]);
     }
+    // Marrakech festival: Moroccan lantern strings draped between the pillars.
+    if (this.theme === 'desert') {
+      this.addFestivalLights(verts, idxs, x, z, ppx, ppz, hw);
+    }
+  }
+
+  // Moroccan lantern strings — glowing amber/red/teal/gold globes on sagging
+  // wires draped between the start/finish pillars of the desert circuit. Two
+  // parallel strings (one over the road, one set back) give the start line a
+  // souk-festival atmosphere; bright saturated cores let them read as lit even
+  // in the bright desert sun.
+  private addFestivalLights(verts: number[], idxs: number[], x: number, z: number, ppx: number, ppz: number, hw: number) {
+    const span = hw + 1.3; // pillar offsets (match addStartGantry)
+    const anchorY = 4.4;
+    const sag = 1.8;
+    const steps = 10;
+    const colors: [number, number, number][] = [
+      [1.0, 0.72, 0.25], // amber
+      [0.95, 0.32, 0.22], // red
+      [0.32, 0.92, 0.78], // teal
+      [1.0, 0.85, 0.45], // gold
+    ];
+    for (const depth of [0, 0.7]) {
+      const dz = ppz * depth;
+      const x0 = x - ppx * span, z0 = z + dz - ppz * span;
+      const x1 = x + ppx * span, z1 = z + dz + ppz * span;
+      let px0 = x0, py0 = anchorY, pz0 = z0;
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        const px = x0 + (x1 - x0) * t;
+        const pz = z0 + (z1 - z0) * t;
+        const py = anchorY - sag * Math.sin(t * Math.PI);
+        // Wire segment between consecutive catenary nodes.
+        this.addWire(verts, idxs, px0, py0, pz0, px, py, pz, 0.028, [0.22, 0.16, 0.1]);
+        px0 = px; py0 = py; pz0 = pz;
+        // Lantern at each node (skip the ends so the string starts at the pillars).
+        if (i > 1 && i < steps) {
+          // Integer index (string ordinal shifts the palette so the two
+          // strings aren't in identical color order).
+          const col = colors[(i * 2 + (depth > 0 ? 1 : 0)) % colors.length];
+          this.addSphere(verts, idxs, px, py - 0.16, pz, 0.13, 8, col);
+          this.addSphere(verts, idxs, px, py - 0.16, pz, 0.055, 6, [1, 0.98, 0.85]);
+          // Brass cap seated flush on the lamp — its tip just above the wire
+          // reads as the string's attachment point.
+          this.addCone(verts, idxs, px, py - 0.03, pz, 0.06, 0.12, 6, [0.55, 0.4, 0.2]);
+        }
+      }
+    }
+  }
+
+  // Thin box oriented along any 3D direction — needed for the sagging lantern
+  // wire segments that the axis-aligned addCylinder can't draw. Same vertex
+  // layout (11 floats) and face/normal table as addBox.
+  private addWire(verts: number[], idxs: number[], x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, t: number, color: number[]) {
+    const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0;
+    const len = Math.hypot(dx, dy, dz);
+    if (len < 1e-6) return;
+    const [r, g, b] = color;
+    const fx = dx / len, fy = dy / len, fz = dz / len;
+    // Perpendicular right axis (swap helper when nearly vertical).
+    let hx = 0, hy = 1, hz = 0;
+    if (Math.abs(fy) > 0.9) { hx = 1; hy = 0; hz = 0; }
+    let rxn = fy * hz - fz * hy, ryn = fz * hx - fx * hz, rzn = fx * hy - fy * hx;
+    const rl = Math.hypot(rxn, ryn, rzn) || 1;
+    rxn /= rl; ryn /= rl; rzn /= rl;
+    // Up = right × forward.
+    const ux = ryn * fz - rzn * fy, uy = rzn * fx - rxn * fz, uz = rxn * fy - ryn * fx;
+    const h = t / 2;
+    // 8 corners in addBox order: v0..v3 near ring, v4..v7 far ring,
+    // local X = right, Y = up, Z = forward.
+    const p: [number, number, number][] = [];
+    for (let i = 0; i < 8; i++) {
+      const s = i < 4 ? 0 : len;
+      const xi = (i % 4 === 1 || i % 4 === 2) ? h : -h;
+      const yi = (i === 2 || i === 3 || i === 6 || i === 7) ? h : -h;
+      p.push([x0 + fx * s + rxn * xi + ux * yi, y0 + fy * s + ryn * xi + uy * yi, z0 + fz * s + rzn * xi + uz * yi]);
+    }
+    const faces = [
+      { f: [3, 2, 1, 0], n: [0, 0, 1] },
+      { f: [4, 5, 6, 7], n: [0, 0, -1] },
+      { f: [0, 1, 5, 4], n: [-1, 0, 0] },
+      { f: [2, 3, 7, 6], n: [1, 0, 0] },
+      { f: [1, 2, 6, 5], n: [0, 1, 0] },
+      { f: [3, 0, 4, 7], n: [0, -1, 0] },
+    ];
+    for (const face of faces) {
+      const base = verts.length / 11;
+      const nx = face.n[0] * rxn + face.n[1] * ux + face.n[2] * fx;
+      const ny = face.n[0] * ryn + face.n[1] * uy + face.n[2] * fy;
+      const nz = face.n[0] * rzn + face.n[1] * uz + face.n[2] * fz;
+      for (const vi of face.f) {
+        verts.push(p[vi][0], p[vi][1], p[vi][2], nx, ny, nz, r, g, b, 0, 0);
+      }
+      idxs.push(base, base + 1, base + 2);
+      idxs.push(base + 2, base + 3, base);
+    }
   }
 
   // A stack of tires (2 high) running along the perpendicular direction — the

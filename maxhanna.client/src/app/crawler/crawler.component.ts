@@ -74,7 +74,9 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     }
     this.crawlerService.indexCount().then(res => { if (res) { this.indexCount = parseInt(res); } });
     if (!this.onlySearch) {
-      (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.add("centeredContainer");
+      (document.getElementById("crawlerContainer") as HTMLDivElement)?.classList.add("centeredContainer");
+    } else {
+      (document.getElementById("crawlerContainer") as HTMLDivElement)?.classList.add("embeddedContainer");
     }
     setTimeout(() => {
       if (this.url) {
