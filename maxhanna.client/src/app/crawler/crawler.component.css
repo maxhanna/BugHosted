@@ -42,6 +42,13 @@
   flex-wrap: wrap;
   margin-bottom: 16px;
 }
+.search-btn-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 .crawlerInputs input[type="text"] {
   padding: 12px 18px;
   border: 2px solid rgba(0, 0, 0, 0.08);
@@ -380,18 +387,20 @@
 }
 
 .aiSearchInline {
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 12px;
-  margin: 12px 0;
+  background: var(--component-background-color, #fff);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  margin: 0 0 16px;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 .aiSearchInlineHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 14px;
-  background: var(--component-background-color, rgba(0, 0, 0, 0.03));
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  padding: 10px 14px;
+  background: linear-gradient(90deg, rgba(74, 158, 255, 0.08), rgba(108, 92, 231, 0.08));
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 }
 .aiSearchInlineTitle {
   font-weight: 600;

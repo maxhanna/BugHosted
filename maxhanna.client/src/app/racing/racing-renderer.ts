@@ -61,6 +61,14 @@ export class RacingRenderer {
   private sceneryVbo!: WebGLBuffer;
   private sceneryIbo!: WebGLBuffer;
   private sceneryCount = 0;
+  // Translucent cloud pass — separate buffer drawn with uAlpha blending right
+  // after the opaque scenery, so clouds soften into the sky (smokey) instead
+  // of reading as solid balls.
+  private _cloudVao: WebGLVertexArrayObject | null = null;
+  private _cloudVbo: WebGLBuffer | null = null;
+  private _cloudIbo: WebGLBuffer | null = null;
+  private _cloudCount = 0;
+  private alphaLoc!: WebGLUniformLocation;
   private carVao!: WebGLVertexArrayObject;
   private carCount = 0;
   private wheelVao!: WebGLVertexArrayObject;
@@ -192,6 +200,14 @@ export class RacingRenderer {
   // (canvas-sized) and the mirror pass (mirror-sized).
   private heatMaskLoc!: WebGLUniformLocation;
   private _heatMaskTex: WebGLTexture | null = null;
+  private heatViewProjLoc!: WebGLUniformLocation;
+  private heatVulturesLoc!: WebGLUniformLocation;
+  private _heatViewProj = new Float32Array(16);
+  // Desert vultures for the heat-shimmer silhouettes — world-anchored around
+  // the circuit and projected through the camera each frame, so they sit in
+  // the background instead of drifting with the screen.
+  private _vultures: { ang: number; radius: number; alt: number; speed: number; phase: number }[] = [];
+  private _vultureWorld = new Float32Array(12);
   private _heatMaskFBO: WebGLFramebuffer | null = null;
   private _heatMaskW = 0;
   private _heatMaskH = 0;
@@ -407,6 +423,7 @@ uniform float uRimStrength;
 uniform vec3 uEnvTop;
 uniform vec3 uEnvBottom;
 uniform float uEnvStrength;
+uniform float uAlpha;
 
 // Soft 3x3 PCF directional shadow. sp is light-space UV/depth (0..1).
 // Outside the ortho frustum (which only wraps +-80m around the camera) -> lit.
@@ -500,12 +517,12 @@ void main() {
   color += heatColor * hh * 1.15;
 
   float fog = clamp((vDepth - 80.0) / 400.0, 0.0, 1.0);
-  color = mix(color, uFogColor, fog * vColor.a);
+  color = mix(color, uFogColor, fog * vColor.a * uAlpha);
 
   // Filmic tone map (ACES Narkowicz) + gamma — richer midtones, no blown highlights.
   color = clamp(color, 0.0, 1.0);
   color = (color * (2.51 * color + 0.03)) / (color * (2.43 * color + 0.59) + 0.14);
-  FragColor = vec4(color, vColor.a);
+  FragColor = vec4(color, vColor.a * uAlpha);
 }`;
 
   private initShader() {
@@ -534,7 +551,9 @@ void main() {
     this.metallicLoc = gl.getUniformLocation(this.prog, 'uMetallic')!;
     this.rimTintLoc = gl.getUniformLocation(this.prog, 'uRimTint')!;
     this.rimStrengthLoc = gl.getUniformLocation(this.prog, 'uRimStrength')!;
+    this.alphaLoc = gl.getUniformLocation(this.prog, 'uAlpha')!;
     gl.uniform1i(this.useVertexColor, 1);
+    gl.uniform1f(this.alphaLoc, 1);
     gl.uniform1f(this.heatGlowLoc, 0);
     gl.uniform1f(this.metallicLoc, 0.45);
     gl.uniform3f(this.rimTintLoc, 0.72, 0.72, 0.75);
@@ -1426,6 +1445,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this.sceneryVao) { try { gl.deleteVertexArray(this.sceneryVao); } catch { } }
     if (this.sceneryVbo) { try { gl.deleteBuffer(this.sceneryVbo); } catch { } }
     if (this.sceneryIbo) { try { gl.deleteBuffer(this.sceneryIbo); } catch { } }
+    if (this._cloudVao) { try { gl.deleteVertexArray(this._cloudVao); } catch { } }
+    if (this._cloudVbo) { try { gl.deleteBuffer(this._cloudVbo); } catch { } }
+    if (this._cloudIbo) { try { gl.deleteBuffer(this._cloudIbo); } catch { } }
+    this._cloudCount = 0;
     if (this._birdsVao) { try { gl.deleteVertexArray(this._birdsVao); } catch { } }
     if (this._animalsVao) { try { gl.deleteVertexArray(this._animalsVao); } catch { } }
     if (this._animalsBuf) { try { gl.deleteBuffer(this._animalsBuf); } catch { } }
@@ -1477,8 +1500,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addForestScenery(verts, idxs);
     }
 
-    // Drifting cumulus clouds high over the circuit, tinted per theme.
-    this.addClouds(verts, idxs);
+    // Drifting cumulus clouds high over the circuit, tinted per theme. Drawn
+    // in their own translucent pass (separate buffer), so they don't count
+    // toward the 65k scenery index budget either.
+    this.addClouds();
 
     // Grandstands at key points (all themes) — every 1/8 of the lap now, so
     // there's always a packed stand roaring somewhere on the circuit. The
@@ -1820,10 +1845,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
   }
 
-  // Fluffy cumulus clouds drifting high above the circuit, tinted per theme
-  // so they blend into each world's sky (Miami gets a bright festive sky full
-  // of them; mountain/alpine get crisp white ones; city gets dim grey).
-  private addClouds(verts: number[], idxs: number[]) {
+  // Fluffy cumulus clouds drifting high above the circuit, tinted per theme so
+  // they blend into each world's sky (Miami gets a bright festive sky full of
+  // them; mountain/alpine get crisp white ones; city gets dim grey). Each cloud
+  // is a proper cumulus: a wide flattened base plus several heaped lobes of
+  // varying size (dense ellipsoids, not a handful of blobby spheres), and the
+  // whole pass is drawn translucent via uAlpha so clouds read as soft smoke.
+  private addClouds() {
+    const gl = this.gl;
     const pts = this._trackPoints;
     let cx = 0, cz = 0;
     for (const p of pts) { cx += p.x; cz += p.z; }
@@ -1835,12 +1864,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const r = Math.hypot(p.x, p.z) + p.width / 2;
       if (r > outer) outer = r;
     }
-    const count = this.theme === 'miami' ? 10 : this.theme === 'mountain' || this.theme === 'alpine' ? 8 : 6;
+    const count = this.theme === 'miami' ? 9 : this.theme === 'mountain' || this.theme === 'alpine' ? 8 : 6;
     const base = this.theme === 'city'
       ? [0.16, 0.17, 0.2]
       : this.theme === 'mountain' || this.theme === 'alpine'
         ? [0.95, 0.96, 0.99]
         : [0.98, 0.98, 1.0];
+    const verts: number[] = [];
+    const idxs: number[] = [];
+    const seg = 9; // Denser mesh than the old 7-ring spheres — more polygons.
     for (let i = 0; i < count; i++) {
       const a = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
       const dist = outer + 30 + Math.random() * 140;
@@ -1850,12 +1882,69 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const r = 9 + Math.random() * 7;
       const dim = 0.9 + Math.random() * 0.1;
       const col = [base[0] * dim, base[1] * dim, base[2] * dim];
-      // A puffy cluster of three overlapping spheres, flattened by scale.
-      this.addSphere(verts, idxs, px, py, pz, r, 7, col);
-      this.addSphere(verts, idxs, px + r * 0.8, py + r * 0.15, pz + r * 0.4, r * 0.65, 7, col);
-      this.addSphere(verts, idxs, px - r * 0.7, py + r * 0.1, pz - r * 0.5, r * 0.55, 7, col);
-      // Flattened base for a classic cumulus silhouette.
-      this.addSphere(verts, idxs, px + r * 0.1, py - r * 0.55, pz, r * 0.8, 7, col);
+      // A proper cumulus: wide squat base pancakes + 4-6 heaped lobes of varied
+      // size and a wispy uneven crown — far less blobby than overlapping balls.
+      this.addEllipsoid(verts, idxs, px, py - r * 0.45, pz, r * 1.05, r * 0.5, r * 0.95, seg, col);
+      this.addEllipsoid(verts, idxs, px + r * 0.5, py - r * 0.4, pz + r * 0.25, r * 0.7, r * 0.42, r * 0.62, seg, col);
+      this.addEllipsoid(verts, idxs, px - r * 0.5, py - r * 0.42, pz - r * 0.2, r * 0.65, r * 0.4, r * 0.58, seg, col);
+      // Tall centre lobe.
+      this.addEllipsoid(verts, idxs, px, py, pz, r * 0.62, r * 0.6, r * 0.58, seg, col);
+      // Flanking lobes.
+      this.addEllipsoid(verts, idxs, px + r * 0.62, py + r * 0.1, pz + r * 0.3, r * 0.45, r * 0.42, r * 0.4, seg, col);
+      this.addEllipsoid(verts, idxs, px - r * 0.58, py + r * 0.05, pz - r * 0.35, r * 0.42, r * 0.4, r * 0.38, seg, col);
+      // Wispy crown bits.
+      this.addEllipsoid(verts, idxs, px + r * 0.2, py + r * 0.52, pz + r * 0.1, r * 0.32, r * 0.3, r * 0.3, seg, col);
+      this.addEllipsoid(verts, idxs, px - r * 0.15, py + r * 0.6, pz - r * 0.05, r * 0.24, r * 0.24, r * 0.24, seg, col);
+    }
+    this._cloudCount = idxs.length;
+    if (this._cloudCount === 0) return;
+    // Same vertex layout as the scenery pass (stride 11 floats, 32-bit indices)
+    // so the main shader can render clouds with full lighting + fog.
+    this._cloudVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this._cloudVao);
+    this._cloudVbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._cloudVbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+    this._cloudIbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this._cloudIbo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(idxs), gl.STATIC_DRAW);
+    const stride = 11 * 4;
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+  }
+
+  // Axis-scaled sphere: lets cloud puffs be flattened/squashed per axis so
+  // they read as wide cumulus lobes instead of uniform balls.
+  private addEllipsoid(verts: number[], idxs: number[], cx: number, cy: number, cz: number, rx: number, ry: number, rz: number, segments: number, color: number[]) {
+    const [cr, cg, cb] = color;
+    const baseIdx = verts.length / 11;
+    for (let i = 0; i <= segments; i++) {
+      const a = (i / segments) * Math.PI * 2;
+      for (let j = 0; j <= segments; j++) {
+        const b = (j / segments) * Math.PI;
+        const nx = Math.cos(a) * Math.sin(b);
+        const ny = Math.cos(b);
+        const nz = Math.sin(a) * Math.sin(b);
+        verts.push(cx + nx * rx, cy + ny * ry, cz + nz * rz, nx, ny, nz, cr, cg, cb, i / segments, j / segments);
+      }
+    }
+    const stride = segments + 1;
+    for (let i = 0; i < segments; i++) {
+      for (let j = 0; j < segments; j++) {
+        const a0 = baseIdx + i * stride + j;
+        const b0 = a0 + 1;
+        const c0 = a0 + stride;
+        const d0 = c0 + 1;
+        idxs.push(a0, b0, c0);
+        idxs.push(c0, b0, d0);
+      }
     }
   }
 
@@ -2136,27 +2225,21 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // Alpine snow theme: snow-covered pines, snow banks, ice patches, mountain peaks.
   private addAlpineScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
-    // Snow-covered forest beside the track.
+    // Tall snow-covered spruce forest beside the track — layered multi-tier
+    // conifers with widely random heights so the treeline feels real.
     let treeIdx = 0;
     for (let i = 0; i < pts.length; i += 3) {
       const p = pts[i];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
-      const dist = p.width / 2 + 24 + Math.random() * 20;
+      const dist = p.width / 2 + 22 + Math.random() * 18;
       for (const side of [-1, 1]) {
         const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
         const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
-        const th = 1.5 + Math.random() * 1.5;
-        const tr = 0.15 + Math.random() * 0.1;
-        this.addCylinder(verts, idxs, tx, 0, tz, tr, th, 6, [0.35, 0.2, 0.08]);
-        const cr = 0.8 + Math.random() * 0.6;
-        const ch = 1.2 + Math.random() * 0.6;
-        this.addCone(verts, idxs, tx, th - 0.3, tz, cr, ch, 8, [0.02, 0.18, 0.06]);
-        // Snow cap on the cone tip
-        this.addCone(verts, idxs, tx, th - 0.3 + ch * 0.7, tz, cr * 0.4, ch * 0.3, 6, [0.92, 0.94, 0.98]);
-        if (treeIdx++ > 200) break;
+        this.addAlpineConifer(verts, idxs, tx, tz, 0.8 + Math.random() * 0.7);
+        if (treeIdx++ > 140) break;
       }
-      if (treeIdx > 200) break;
+      if (treeIdx > 140) break;
     }
     // Snow banks along the track edge (white mounds)
     for (let i = 0; i < pts.length; i += 6) {
@@ -2168,6 +2251,20 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const sz = p.z + ppz * (p.width / 2 + 2) * side;
         this.addCone(verts, idxs, sx, 0, sz, 1.2 + Math.random() * 1.0, 0.6 + Math.random() * 0.4, 6, [0.9, 0.92, 0.96]);
       }
+    }
+    // Snowmen dotted around OUTSIDE the track — between the trees and on the
+    // banks, facing the road so drivers get a little wave of local colour.
+    let smIdx = 0;
+    for (let i = 0; i < pts.length; i += 24) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = (i / 24) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 20 + Math.random() * 12;
+      const smx = p.x + ppx * dist * side + (Math.random() - 0.5) * 4;
+      const smz = p.z + ppz * dist * side + (Math.random() - 0.5) * 4;
+      this.addSnowman(verts, idxs, smx, smz, 0.8 + Math.random() * 0.5, Math.atan2(ppx * side, ppz * side));
+      if (smIdx++ > 14) break;
     }
     // Distant pointed mountain peaks — placed beyond the track's outer edge.
     // (The old code scattered from pts[0], a point ON the circuit, so peaks at
@@ -2188,6 +2285,68 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addCone(verts, idxs, mx, 0, mz, mw, mh, 8, [0.45, 0.5, 0.55]);
       this.addCone(verts, idxs, mx, mh * 0.7, mz, mw * 0.35, mh * 0.3, 6, [0.85, 0.88, 0.95]);
     }
+  }
+
+  // Tall alpine spruce — 5-6 stacked branch tiers, each a slightly smaller
+  // cone than the one below (the classic layered conifer silhouette), with
+  // snow dusted on every tier and a pointed tip. Heights vary widely.
+  private addAlpineConifer(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    const h = (4 + Math.random() * 7) * s; // very tall, random heights
+    const trunkH = h * 0.1;
+    this.addCylinder(verts, idxs, x, 0, z, 0.13 * s, trunkH, 6, [0.35, 0.22, 0.1]);
+    const greens: [number, number, number][] = [
+      [0.02, 0.16, 0.06], [0.03, 0.2, 0.07], [0.02, 0.13, 0.05],
+    ];
+    const snow = [0.92, 0.94, 0.98];
+    const tiers = 5 + Math.floor(Math.random() * 2);
+    const baseR = (0.75 + Math.random() * 0.35) * s;
+    let lastTop = trunkH;
+    for (let t = 0; t < tiers; t++) {
+      const frac = t / tiers;
+      const ty = trunkH + frac * h * 0.85;
+      const tr = baseR * (1 - frac * 0.82);
+      const th = h * (0.22 - frac * 0.1);
+      this.addCone(verts, idxs, x, ty, z, tr, th, 8, greens[t % greens.length]);
+      // Snow dusted on this tier's top edge.
+      this.addCone(verts, idxs, x, ty + th * 0.72, z, tr * 0.34, th * 0.28, 6, snow);
+      lastTop = ty + th;
+    }
+    // Pointed snow-dusted tip, anchored to the actual crown top (no float gap).
+    this.addCone(verts, idxs, x, lastTop - h * 0.02, z, baseR * 0.12, h * 0.16, 6, snow);
+  }
+
+  // A roadside snowman: three snowballs, coal face + buttons, carrot nose,
+  // twig arms and a little top hat. Faces `yaw` (toward the track).
+  private addSnowman(verts: number[], idxs: number[], x: number, z: number, s: number, yaw: number) {
+    const snow = [0.94, 0.96, 1];
+    const coal = [0.1, 0.1, 0.12];
+    const fx = Math.cos(yaw);
+    const fz = Math.sin(yaw);
+    this.addSphere(verts, idxs, x, 0.55 * s, z, 0.55 * s, 8, snow);       // base
+    this.addSphere(verts, idxs, x, 1.15 * s, z, 0.4 * s, 8, snow);        // torso
+    this.addSphere(verts, idxs, x, 1.68 * s, z, 0.3 * s, 8, snow);        // head
+    // Coal eyes on the face side.
+    const eyeY = 1.74 * s;
+    this.addSphere(verts, idxs, x + fx * 0.16 * s, eyeY, z + fz * 0.16 * s, 0.045 * s, 5, coal);
+    this.addSphere(verts, idxs, x - fx * 0.16 * s, eyeY, z - fz * 0.16 * s, 0.045 * s, 5, coal);
+    // Carrot nose (orange cone pointing toward the track).
+    this.addCone(verts, idxs, x + fx * 0.28 * s, 1.62 * s, z + fz * 0.28 * s, 0.05 * s, 0.22 * s, 6, [0.95, 0.5, 0.1]);
+    // Coal buttons down the front of the torso.
+    for (let b = 0; b < 3; b++) {
+      this.addSphere(verts, idxs, x + fx * 0.26 * s, (1.05 + b * 0.13) * s, z + fz * 0.26 * s, 0.045 * s, 5, coal);
+    }
+    // Twig arms — thin boxes poking out at the sides.
+    const armY = 1.22 * s;
+    const armA = yaw + 1.25;
+    const ax = fx * 0.32 * s;
+    const az = fz * 0.32 * s;
+    this.addOrientedBox(verts, idxs, x + ax + Math.cos(armA) * 0.25 * s, armY, z + az + Math.sin(armA) * 0.25 * s,
+      0.5 * s, 0.05 * s, 0.05 * s, Math.cos(armA), Math.sin(armA), [0.42, 0.3, 0.16]);
+    this.addOrientedBox(verts, idxs, x - ax + Math.cos(-armA) * 0.25 * s, armY, z - az + Math.sin(-armA) * 0.25 * s,
+      0.5 * s, 0.05 * s, 0.05 * s, Math.cos(-armA), Math.sin(-armA), [0.42, 0.3, 0.16]);
+    // Top hat.
+    this.addCylinder(verts, idxs, x, 1.98 * s, z, 0.16 * s, 0.28 * s, 8, [0.12, 0.12, 0.14]);
+    this.addCylinder(verts, idxs, x, 1.9 * s, z, 0.24 * s, 0.09 * s, 8, [0.12, 0.12, 0.14]);
   }
 
   // Desert theme (Marrakech): sand, cacti, adobe buildings, dusty haze.
@@ -2443,65 +2602,411 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // Monaco theme: riviera coastline, yachts, grand hotels, casino, harbour.
   private addMonacoScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
-    // Ocean plane (water)
+    // Ocean plane (water) — the circuit hugs the bay.
     this.addOceanPlane(verts, idxs);
-    // Promenade buildings (luxury hotels, casino)
+    let outer = 0;
+    for (const p of pts) {
+      const r = Math.hypot(p.x, p.z) + p.width / 2;
+      if (r > outer) outer = r;
+    }
     const pastels: [number, number, number][] = [
-      [0.92, 0.85, 0.72], [0.85, 0.78, 0.68], [0.95, 0.88, 0.78], [0.78, 0.82, 0.88], [0.88, 0.82, 0.75],
+      [0.92, 0.85, 0.72], [0.85, 0.78, 0.68], [0.95, 0.88, 0.78], [0.78, 0.82, 0.88],
+      [0.88, 0.82, 0.75], [0.7, 0.75, 0.82], [0.96, 0.9, 0.8], [0.8, 0.72, 0.9],
     ];
+    // Near canyon: towers packed right up against the circuit (14-32m out, so
+    // they clear the grandstands) — the enclosed street-circuit feel where
+    // most of the view is building, not sky. Uses the city theme's tower
+    // archetypes so Monaco gets real skyscrapers, not plain boxes.
     let bIdx = 0;
-    for (let i = 0; i < pts.length; i += 6) {
+    for (let i = 0; i < pts.length; i += 3) {
       const p = pts[i];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
       for (const side of [-1, 1]) {
-        const dist = p.width / 2 + 30 + Math.random() * 20;
-        const bx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
-        const bz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
-        const h = 15 + Math.random() * 25;
+        const dist = p.width / 2 + 14 + Math.random() * 18;
+        const bx = p.x + ppx * dist * side + (Math.random() - 0.5) * 6;
+        const bz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
+        const h = 22 + Math.random() * 34;
         const w = 5 + Math.random() * 4;
         const d = 5 + Math.random() * 4;
-        const col = pastels[Math.floor(Math.random() * pastels.length)];
-        this.addBox(verts, idxs, bx, h / 2, bz, w, h, d, col);
-        // Rooftop terrace
-        this.addBox(verts, idxs, bx, h + 0.1, bz, w + 0.6, 0.2, d + 0.6, [0.9, 0.9, 0.85]);
-        if (bIdx++ > 30) break;
+        this.addCityBuilding(verts, idxs, bx, bz, h, w, d, pastels[Math.floor(Math.random() * pastels.length)]);
+        if (bIdx++ > 90) break;
       }
-      if (bIdx > 30) break;
+      if (bIdx > 90) break;
     }
-    // Yachts in the harbour (small boxes on the water)
-    for (let i = 0; i < 8; i++) {
+    // Outer ring: taller towers behind the near wall, so the skyline recedes
+    // in depth — very little sky survives between the two rows.
+    let oIdx = 0;
+    for (let i = 0; i < pts.length; i += 4) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 50 + Math.random() * 34;
+        const bx = p.x + ppx * dist * side + (Math.random() - 0.5) * 12;
+        const bz = p.z + ppz * dist * side + (Math.random() - 0.5) * 12;
+        const h = 34 + Math.random() * 46;
+        const w = 6 + Math.random() * 5;
+        const d = 6 + Math.random() * 5;
+        this.addCityBuilding(verts, idxs, bx, bz, h, w, d, pastels[Math.floor(Math.random() * pastels.length)]);
+        if (oIdx++ > 60) break;
+      }
+      if (oIdx > 60) break;
+    }
+    // Little towns: cosy Riviera village clusters on the hillsides beyond the
+    // towers — cream houses with terracotta roofs huddled together.
+    for (let k = 0; k < 14; k++) {
+      const ang = Math.random() * Math.PI * 2;
+      const dist = outer + 25 + Math.random() * 60;
+      const tx = Math.cos(ang) * dist;
+      const tz = Math.sin(ang) * dist;
+      const n = 3 + Math.floor(Math.random() * 4);
+      for (let m = 0; m < n; m++) {
+        this.addRivieraHouse(verts, idxs, tx + (Math.random() - 0.5) * 14, tz + (Math.random() - 0.5) * 14,
+          Math.random() * Math.PI * 2, 1 + Math.random() * 0.6);
+      }
+    }
+    // Bougie shops: upscale storefronts with striped awnings lining the
+    // circuit (fashion houses, cafés, casinos) — the Monte-Carlo paddock vibe.
+    let shopIdx = 0;
+    for (let i = 0; i < pts.length; i += 10) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = (i / 10) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 5 + Math.random() * 4;
+      const sx = p.x + ppx * dist * side + (Math.random() - 0.5) * 3;
+      const sz = p.z + ppz * dist * side + (Math.random() - 0.5) * 3;
+      this.addBoutique(verts, idxs, sx, sz, p.dirX, p.dirZ, 1);
+      if (shopIdx++ > 38) break;
+    }
+    // Palms along the promenade between the shops.
+    let palmIdx = 0;
+    for (let i = 0; i < pts.length; i += 8) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = (i / 8) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 12 + Math.random() * 5;
+      const px = p.x + ppx * dist * side + (Math.random() - 0.5) * 4;
+      const pz = p.z + ppz * dist * side + (Math.random() - 0.5) * 4;
+      this.addPalmTree(verts, idxs, px, pz, 0.9 + Math.random() * 0.5);
+      if (palmIdx++ > 44) break;
+    }
+    // Yachts bobbing in the bay — hull + cabin, yawed to face the water and
+    // kept beyond the outer tower ring (95m+) so none drift through a tower.
+    for (let i = 0; i < 10; i++) {
       const a = Math.random() * Math.PI * 2;
-      const dist = 80 + Math.random() * 40;
+      const dist = 95 + Math.random() * 45;
       const yx = pts[0].x + Math.cos(a) * dist;
       const yz = pts[0].z + Math.sin(a) * dist;
-      this.addBox(verts, idxs, yx, 0.1, yz, 2.5, 0.4, 1.0, [0.9, 0.9, 0.95]);
-      this.addBox(verts, idxs, yx, 0.5, yz, 2.0, 0.8, 0.4, [0.8, 0.8, 0.85]);
+      const yaw = Math.random() * Math.PI * 2;
+      const dx = Math.cos(yaw), dz = Math.sin(yaw);
+      this.addOrientedBox(verts, idxs, yx, 0.15, yz, 2.5, 0.4, 1.0, dx, dz, [0.9, 0.9, 0.95]);
+      this.addOrientedBox(verts, idxs, yx, 0.55, yz, 2.0, 0.8, 0.4, dx, dz, [0.8, 0.8, 0.85]);
     }
+    // Packed bleachers on the far side of the circuit (like Montreal).
+    this.addExtraBleachers(verts, idxs);
   }
 
-  // Montreal theme: parc island, river, biosphere, grandstands.
+  // A cosy Mediterranean house — cream walls with a terracotta flat roof and
+  // a dark doorway, for the hillside villages.
+  private addRivieraHouse(verts: number[], idxs: number[], x: number, z: number, yaw: number, s: number) {
+    const dx = Math.cos(yaw), dz = Math.sin(yaw);
+    const wall = [0.95, 0.92, 0.85];
+    const roof = [0.75, 0.32, 0.18];
+    const h = 1.6 * s;
+    this.addOrientedBox(verts, idxs, x, h / 2, z, 1.8 * s, h, 1.4 * s, dx, dz, wall);
+    // Terracotta roof, overhanging the walls.
+    this.addOrientedBox(verts, idxs, x, h + 0.1 * s, z, 2.1 * s, 0.22 * s, 1.7 * s, dx, dz, roof);
+    // Dark doorway on the front face.
+    const px = -dz, pz = dx;
+    const fx = x + px * (0.72 * s), fz = z + pz * (0.72 * s);
+    this.addQuad(verts, idxs,
+      [fx - dx * 0.22 * s, 0.05, fz - dz * 0.22 * s],
+      [fx + dx * 0.22 * s, 0.05, fz + dz * 0.22 * s],
+      [fx + dx * 0.22 * s, 1.0 * s, fz + dz * 0.22 * s],
+      [fx - dx * 0.22 * s, 1.0 * s, fz - dz * 0.22 * s],
+      [0.3, 0.2, 0.12]);
+  }
+
+  // A bougie storefront — pastel boutique box with a striped awning and a
+  // small sign, lining the circuit like the Monte-Carlo paddock shops.
+  private addBoutique(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, s: number) {
+    const h = 2.4 * s;
+    // Storefront body.
+    this.addOrientedBox(verts, idxs, x, h / 2, z, 2.0 * s, h, 1.6 * s, dirX, dirZ, [0.95, 0.9, 0.82]);
+    // Awning — a striped thin box protruding over the front.
+    const px = -dirZ, pz = dirX;
+    this.addOrientedBox(verts, idxs, x + px * (0.85 * s), h * 0.78, z + pz * (0.85 * s),
+      2.0 * s, 0.1 * s, 0.6 * s, dirX, dirZ, [0.85, 0.55, 0.2]);
+    // Sign — a small coloured panel on the front face above the awning.
+    const sx = x + px * (0.85 * s), sz = z + pz * (0.85 * s);
+    this.addQuad(verts, idxs,
+      [sx - dirX * 0.3 * s, h * 0.92, sz - dirZ * 0.3 * s],
+      [sx + dirX * 0.3 * s, h * 0.92, sz + dirZ * 0.3 * s],
+      [sx + dirX * 0.3 * s, h * 1.06, sz + dirZ * 0.3 * s],
+      [sx - dirX * 0.3 * s, h * 1.06, sz - dirZ * 0.3 * s],
+      [0.55, 0.15, 0.25]);
+  }
+
+  // Montreal (Circuit Gilles-Villeneuve) theme: a dense park island — maple
+  // & round park trees hugging the track with city towers peeking BETWEEN the
+  // trees, flower beds, an Expo 67 geodesic dome out on the river, Quebec &
+  // Canada flags waving the whole way round, and bleacher crowds packed along
+  // the circuit.
   private addMontrealScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
-    // River plane (dark blue water)
+    // River plane (dark blue water) — the track sits on the island.
     this.addOceanPlane(verts, idxs);
-    // Park trees (dense green canopy)
+
+    // Expo 67 geodesic dome on its own little island out in the river.
+    let cx = 0, cz = 0;
+    for (const p of pts) { cx += p.x; cz += p.z; }
+    cx /= pts.length; cz /= pts.length;
+    let outer = 0;
+    for (const p of pts) {
+      const r = Math.hypot(p.x, p.z) + p.width / 2;
+      if (r > outer) outer = r;
+    }
+    const domeAng = Math.random() * Math.PI * 2;
+    const domeDist = outer + 40 + Math.random() * 45;
+    this.addGeodesicDome(verts, idxs,
+      cx + Math.cos(domeAng) * domeDist, 0.35, cz + Math.sin(domeAng) * domeDist,
+      7.5 + Math.random() * 3);
+
+    // Foreground forest: maples and round park trees hugging the track.
     let treeIdx = 0;
     for (let i = 0; i < pts.length; i += 4) {
       const p = pts[i];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
       for (const side of [-1, 1]) {
-        const dist = p.width / 2 + 25 + Math.random() * 18;
-        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 6;
-        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
-        const th = 1.2 + Math.random() * 1.0;
-        this.addCylinder(verts, idxs, tx, 0, tz, 0.08, th, 5, [0.3, 0.18, 0.06]);
-        this.addSphere(verts, idxs, tx, th + 0.5, tz, 0.8 + Math.random() * 0.5, 6, [0.05, 0.35, 0.08]);
-        if (treeIdx++ > 80) break;
+        const dist = p.width / 2 + 24 + Math.random() * 20;
+        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 7;
+        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 7;
+        if (Math.random() < 0.55) {
+          this.addMapleTree(verts, idxs, tx, tz, 0.9 + Math.random() * 0.5);
+        } else {
+          const th = 1.3 + Math.random() * 1.0;
+          this.addCylinder(verts, idxs, tx, 0, tz, 0.08, th, 5, [0.3, 0.18, 0.06]);
+          this.addSphere(verts, idxs, tx, th + 0.5, tz, 0.85 + Math.random() * 0.5, 6, [0.05, 0.35, 0.08]);
+        }
+        if (treeIdx++ > 70) break;
       }
-      if (treeIdx > 80) break;
+      if (treeIdx > 70) break;
     }
+
+    // City towers BEHIND the tree line — visible between the canopies, so the
+    // island feels forested but urban at the same time (Montreal skyline).
+    let bIdx = 0;
+    for (let i = 0; i < pts.length; i += 5) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 55 + Math.random() * 32;
+        const bx = p.x + ppx * dist * side + (Math.random() - 0.5) * 10;
+        const bz = p.z + ppz * dist * side + (Math.random() - 0.5) * 10;
+        const h = 18 + Math.random() * 30;
+        const w = 5 + Math.random() * 4;
+        const d = 5 + Math.random() * 4;
+        const roll = Math.random();
+        const col = roll < 0.45 ? [0.45, 0.5, 0.58] : roll < 0.7 ? [0.58, 0.47, 0.44] : [0.32, 0.42, 0.6];
+        this.addBox(verts, idxs, bx, h / 2, bz, w, h, d, col);
+        // Rooftop accent block so the silhouette isn't a flat slab.
+        this.addBox(verts, idxs, bx, h + 0.1, bz, w + 0.5, 0.2, d + 0.5, [0.2, 0.2, 0.24]);
+        if (bIdx++ > 32) break;
+      }
+      if (bIdx > 32) break;
+    }
+
+    // Flower beds right beside the barrier — bright island gardens.
+    let flowerIdx = 0;
+    for (let i = 0; i < pts.length; i += 12) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = (i / 12) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 2.6 + Math.random() * 4;
+      const fx = p.x + ppx * dist * side + (Math.random() - 0.5) * 2;
+      const fz = p.z + ppz * dist * side + (Math.random() - 0.5) * 2;
+      this.addFlowerCluster(verts, idxs, fx, fz, 0.7 + Math.random() * 0.5);
+      if (flowerIdx++ > 42) break;
+    }
+
+    // Quebec & Canada flags waving along the whole lap, just off the road.
+    let flagIdx = 0;
+    for (let i = 0; i < pts.length; i += 18) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 5 + (side === 1 ? 1.4 : 0);
+        const fx = p.x + ppx * dist * side;
+        const fz = p.z + ppz * dist * side;
+        this.addFlagOnPole(verts, idxs, fx, fz, p.dirX, p.dirZ,
+          (flagIdx + side) % 2 === 0 ? 'quebec' : 'canada', 3.1, 1);
+        if (flagIdx++ > 62) break;
+      }
+      if (flagIdx > 62) break;
+    }
+
+    // Extra packed bleachers on the OPPOSITE side to the main grandstands,
+    // halfway between them, so the island is ringed with fans all lap long.
+    this.addExtraBleachers(verts, idxs);
+  }
+
+  // Extra packed bleachers on the OPPOSITE side to the main grandstands,
+  // halfway between them — rings packed circuits (Montreal, Monaco) with fans.
+  private addExtraBleachers(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    const step = Math.max(8, Math.floor(pts.length / 8));
+    let bleacherIdx = 0;
+    for (let i = Math.floor(pts.length / 16); i < pts.length + Math.floor(pts.length / 16); i += step) {
+      const p = pts[i % pts.length];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const gx = p.x - ppx * (p.width / 2 + 8);
+      const gz = p.z - ppz * (p.width / 2 + 8);
+      this.addGrandstand(verts, idxs, gx, gz, p.dirX, p.dirZ, 3, 3);
+      if (bleacherIdx++ > 7) break;
+    }
+  }
+
+  // Quebec maple — a broad five-lobe crown (autumn reds, occasionally deep
+  // green), the classic sugar-maple silhouette for the island park.
+  private addMapleTree(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    const th = 1.4 * s;
+    this.addCylinder(verts, idxs, x, 0, z, 0.09 * s, th, 5, [0.32, 0.2, 0.08]);
+    const crown = Math.random() < 0.6
+      ? (Math.random() < 0.5 ? [0.78, 0.18, 0.07] : [0.88, 0.42, 0.08])
+      : [0.1, 0.42, 0.1];
+    const cy = th + 0.5 * s;
+    const cr = 0.72 * s;
+    // Five broad flattened lobes fanning out plus a centre top.
+    for (let k = 0; k < 5; k++) {
+      const a = (k / 5) * Math.PI * 2 + Math.PI / 5;
+      const lx = Math.cos(a) * cr * 0.55;
+      const lz = Math.sin(a) * cr * 0.55;
+      this.addEllipsoid(verts, idxs, x + lx, cy + Math.abs(Math.cos(a)) * 0.1 * s, z + lz,
+        cr * 0.52, cr * 0.42, cr * 0.42, 6, crown);
+    }
+    this.addEllipsoid(verts, idxs, x, cy + 0.2 * s, z, cr * 0.5, cr * 0.4, cr * 0.5, 6, crown);
+  }
+
+  // A small flower bed: 3-5 bright blossoms on short green stems.
+  private addFlowerCluster(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    const petals: [number, number, number][] = [
+      [0.95, 0.15, 0.3], [1, 0.85, 0.2], [0.95, 0.95, 0.98], [0.7, 0.3, 0.85], [1, 0.55, 0.25],
+    ];
+    const n = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      const ox = (Math.random() - 0.5) * 0.9 * s;
+      const oz = (Math.random() - 0.5) * 0.9 * s;
+      const stemH = (0.2 + Math.random() * 0.18) * s;
+      this.addCylinder(verts, idxs, x + ox, 0, z + oz, 0.02 * s, stemH, 4, [0.12, 0.5, 0.12]);
+      this.addSphere(verts, idxs, x + ox, stemH + 0.05 * s, z + oz, 0.09 * s, 4, petals[i % petals.length]);
+    }
+  }
+
+  // A waving flag on a pole: the cloth is three slightly-twisted segments so it
+  // reads as fluttering in the breeze. Two variants — Canada (red/white/red +
+  // maple leaf) and Quebec (blue field, white cross, corner fleurs).
+  private addFlagOnPole(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, kind: 'canada' | 'quebec', poleH: number, size: number) {
+    this.addCylinder(verts, idxs, x, 0, z, 0.05 * size, poleH, 6, [0.55, 0.55, 0.58]);
+    const w = 1.15 * size;   // flag width, from the pole outward
+    const h = 0.7 * size;    // flag height
+    const topY = poleH - 0.05;
+    const red: [number, number, number] = [0.82, 0.1, 0.12];
+    const white: [number, number, number] = [0.95, 0.95, 0.95];
+    const blue: [number, number, number] = [0.05, 0.2, 0.62];
+    const segW = w / 3;
+    const twists = [0.1, 0, -0.1];
+    const drops = [0, 0.05, 0.02];
+    let segOff = 0;
+    for (let seg = 0; seg < 3; seg++) {
+      const ta = twists[seg];
+      const cdirX = dirX * Math.cos(ta) - dirZ * Math.sin(ta);
+      const cdirZ = dirX * Math.sin(ta) + dirZ * Math.cos(ta);
+      const segX = x + dirX * (segOff + segW / 2);
+      const segZ = z + dirZ * (segOff + segW / 2);
+      const segY = topY - drops[seg] - h / 2;
+      const cxFrac = (segOff + segW / 2) / w - 0.5; // -0.5..0.5 across the flag
+      let col: number[];
+      if (kind === 'canada') {
+        col = Math.abs(cxFrac) < 0.17 ? white : red;
+      } else {
+        col = blue;
+      }
+      this.addOrientedBox(verts, idxs, segX, segY, segZ, segW - 0.02, h, 0.02, cdirX, cdirZ, col);
+      segOff += segW;
+    }
+    // Emblems at the cloth centre, slightly thicker so they sit proud of the
+    // folds (no z-fight with the fabric).
+    const cxf = x + dirX * (w / 2);
+    const czf = z + dirZ * (w / 2);
+    const cyf = topY - h / 2;
+    if (kind === 'canada') {
+      // Maple leaf: a centre stem plus two crossed diagonal lobes.
+      this.addOrientedBox(verts, idxs, cxf, cyf, czf, 0.05, h * 0.42, 0.035, dirX, dirZ, red);
+      const d1x = dirX * Math.cos(0.55) - dirZ * Math.sin(0.55);
+      const d1z = dirX * Math.sin(0.55) + dirZ * Math.cos(0.55);
+      const d2x = dirX * Math.cos(-0.55) - dirZ * Math.sin(-0.55);
+      const d2z = dirX * Math.sin(-0.55) + dirZ * Math.cos(-0.55);
+      this.addOrientedBox(verts, idxs, cxf, cyf, czf, 0.05, h * 0.4, 0.035, d1x, d1z, red);
+      this.addOrientedBox(verts, idxs, cxf, cyf, czf, 0.05, h * 0.4, 0.035, d2x, d2z, red);
+    } else {
+      // Quebec: white cross + four corner fleur-de-lis hints.
+      this.addOrientedBox(verts, idxs, cxf, cyf, czf, 0.1, h, 0.035, dirX, dirZ, white);
+      this.addOrientedBox(verts, idxs, cxf, cyf, czf, w, 0.13, 0.035, dirX, dirZ, white);
+      for (const qx of [-1, 1]) {
+        for (const qy of [-1, 1]) {
+          const ox = qx * w * 0.24;
+          const oy = qy * h * 0.26;
+          this.addOrientedBox(verts, idxs, cxf + dirX * ox, cyf + oy, czf + dirZ * ox, 0.09, 0.09, 0.035, dirX, dirZ, white);
+        }
+      }
+    }
+  }
+
+  // Expo 67 geodesic dome — a flat-shaded icosahedron half-shell (silver
+  // frame + glassy panels) on a ring pedestal sitting on its own little island.
+  private addGeodesicDome(verts: number[], idxs: number[], x: number, y: number, z: number, r: number) {
+    const t = (1 + Math.sqrt(5)) / 2;
+    const V: [number, number, number][] = [
+      [-1, t, 0], [1, t, 0], [-1, -t, 0], [1, -t, 0],
+      [0, -1, t], [0, 1, t], [0, -1, -t], [0, 1, -t],
+      [t, 0, -1], [t, 0, 1], [-t, 0, -1], [-t, 0, 1],
+    ];
+    const F: [number, number, number][] = [
+      [0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11],
+      [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
+      [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9],
+      [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1],
+    ];
+    const s = r / Math.sqrt(1 + t * t); // scale icosahedron verts to radius r
+    const frame: [number, number, number] = [0.5, 0.53, 0.6];
+    const panel: [number, number, number] = [0.78, 0.84, 0.92];
+    let fi = 0;
+    for (const [a, b, c] of F) {
+      const A = V[a], B = V[b], C = V[c];
+      // Face normal — flat-shaded facets read as the geodesic frame.
+      const ux = B[0] - A[0], uy = B[1] - A[1], uz = B[2] - A[2];
+      const vx = C[0] - A[0], vy = C[1] - A[1], vz = C[2] - A[2];
+      let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      const nl = Math.hypot(nx, ny, nz) || 1;
+      nx /= nl; ny /= nl; nz /= nl;
+      // Keep the half-shell: only upward-facing panels.
+      if (ny <= 0.18) continue;
+      const col = fi++ % 2 === 0 ? panel : frame;
+      for (const P of [A, B, C]) {
+        verts.push(x + P[0] * s, y + r + P[1] * s, z + P[2] * s, nx, ny, nz, col[0], col[1], col[2], 0, 0);
+      }
+    }
+    // Base ring + pedestal island (the dome sits on its own little island).
+    this.addCylinder(verts, idxs, x, y, z, r * 0.98, 0.22, 12, [0.35, 0.36, 0.4]);
+    this.addCylinder(verts, idxs, x, y - 0.9, z, r * 0.6, 1.8, 10, [0.5, 0.52, 0.55]);
   }
 
   // Italy (Monza) theme: sprawling park, ancient trees, temple ruins, grandstands.
@@ -3771,30 +4276,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
 
   private addSphere(verts: number[], idxs: number[], cx: number, cy: number, cz: number, r: number, segments: number, color: number[]) {
-    const [cr, cg, cb] = color;
-    const baseIdx = verts.length / 11;
-    // Simplified: just 3 rings
-    for (let i = 0; i <= segments; i++) {
-      const a = (i / segments) * Math.PI * 2;
-      for (let j = 0; j <= segments; j++) {
-        const b = (j / segments) * Math.PI;
-        const x = Math.cos(a) * Math.sin(b) * r;
-        const y = Math.cos(b) * r;
-        const z = Math.sin(a) * Math.sin(b) * r;
-        verts.push(cx + x, cy + y, cz + z, x / r, y / r, z / r, cr, cg, cb, i / segments, j / segments);
-      }
-    }
-    const stride = segments + 1;
-    for (let i = 0; i < segments; i++) {
-      for (let j = 0; j < segments; j++) {
-        const a = baseIdx + i * stride + j;
-        const b = a + 1;
-        const c = a + stride;
-        const d = c + 1;
-        idxs.push(a, b, c);
-        idxs.push(c, b, d);
-      }
-    }
+    // Uniform sphere is just an ellipsoid with equal radii — share the geometry.
+    this.addEllipsoid(verts, idxs, cx, cy, cz, r, r, r, segments, color);
   }
 
   private addGrandstand(verts: number[], idxs: number[], gx: number, gz: number, dirX: number, dirZ: number, width: number, depth: number) {
@@ -4119,6 +4602,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private _rainCount = 0;
   private _rainInitialized = false;
 
+  // Snow particles (alpine/mountain themes) — a dense blizzard of white
+  // flakes, each blown on its own gust and sway so the wind speed visibly
+  // varies across the screen (far more than the rain system).
+  private _snowParticles: { x: number; y: number; z: number; fall: number; wind: number; phase: number }[] = [];
+  private _snowVao!: WebGLVertexArrayObject;
+  private _snowBuf!: WebGLBuffer;
+  private _snowCount = 0;
+  private _snowInitialized = false;
+
   private initRainParticles() {
     if (this._rainInitialized) return;
     this._rainInitialized = true;
@@ -4147,6 +4639,42 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this._rainBuf = buf;
   }
   private _rainBuf!: WebGLBuffer;
+
+  private initSnowParticles() {
+    if (this._snowInitialized) return;
+    this._snowInitialized = true;
+    const gl = this.gl;
+    // Far denser than rain — a proper blizzard.
+    const count = 3500;
+    const verts: number[] = [];
+    this._snowParticles = [];
+    for (let i = 0; i < count; i++) {
+      const f = {
+        x: (Math.random() - 0.5) * 260,
+        y: Math.random() * 40,
+        z: (Math.random() - 0.5) * 260,
+        fall: 1.5 + Math.random() * 3.0, // slow, drifting fall
+        wind: 2 + Math.random() * 12,     // per-flake gust speed (various)
+        phase: Math.random() * Math.PI * 2,
+      };
+      this._snowParticles.push(f);
+      // Short white streak (flake): two vertices, same 7-float layout as rain.
+      verts.push(f.x, f.y, f.z, 0.97, 0.98, 1, 0.9);
+      verts.push(f.x, f.y - 0.16, f.z, 0.97, 0.98, 1, 0.9);
+    }
+    this._snowCount = count * 2;
+    this._snowVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this._snowVao);
+    const buf = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.DYNAMIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 28, 0);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 28, 12);
+    gl.bindVertexArray(null);
+    this._snowBuf = buf;
+  }
 
   // ─── Tire smoke particles ───
   // Grey puffs emitted at the rear wheels when a car is sliding hard (high
@@ -4600,6 +5128,23 @@ void main() { FragColor = texture(uTex, vUV); }`;
       });
     }
 
+    // Desert vultures for the heat-shimmer silhouettes — 4 birds circling the
+    // circuit at the same heights as the 3D flock. They're projected through
+    // the camera every frame in the heat shader so they stay world-anchored
+    // in the background instead of drifting with the screen.
+    this._vultures = [];
+    if (isDesert) {
+      for (let i = 0; i < 4; i++) {
+        this._vultures.push({
+          ang: (i / 4) * Math.PI * 2 + Math.random() * 0.6,
+          radius: 150 + Math.random() * 130,
+          alt: 58 + Math.random() * 28,
+          speed: 0.03 + Math.random() * 0.04,
+          phase: Math.random() * Math.PI * 2,
+        });
+      }
+    }
+
     // Mountain wildlife — deer grazing in the grassy flats beyond the barriers
     // and mountain goats picking their way along the rocky peak bases. Placed
     // off the track ring (width/2 + 26..40) so they're visible but never on
@@ -4685,7 +5230,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       [0.9, 0.25, 0.2], [0.2, 0.55, 0.9], [0.95, 0.75, 0.15],
       [0.35, 0.8, 0.35], [0.85, 0.4, 0.7], [0.95, 0.5, 0.8], [0.4, 0.75, 0.95],
     ];
-    for (let i = 0; i < (isMiami ? 7 : 4); i++) {
+    for (let i = 0; i < (isMiami || this.theme === 'montreal' || this.theme === 'monaco' ? 7 : 4); i++) {
       this._balloons.push({
         ang: Math.random() * Math.PI * 2,
         radius: 190 + Math.random() * 120,
@@ -4804,9 +5349,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // Animated crowd — one big dynamic buffer rebuilt every frame with bob,
     // arm-wave and leg-sway offsets. Each person = 6 boxes (legs, torso, 2
     // arms, head, hair) × 36 verts = 216 verts × 11 floats. Sized for up to
-    // 150 people with headroom for festival extras (fence crowds ~40 + 8
-    // grandstands × 10 + 14 festival-goers, a few holding waving flags).
-    const maxCrowdVerts = 150 * 216;
+    // 230 people with headroom for festival extras — the packed Montreal
+    // island and the Monte-Carlo canyon both field 8 grandstands + 8 extra
+    // bleachers × 10 = 160 stand figures plus ~40 fence crowds, and the
+    // Marrakech festival adds veiled/flag spectators (fence ~40 + 8×10 +
+    // 8×10 + 14 fest).
+    const maxCrowdVerts = 230 * 216;
     this._crowdData = new Float32Array(maxCrowdVerts * 11);
     this._crowdVao = gl.createVertexArray()!;
     gl.bindVertexArray(this._crowdVao);
@@ -4834,7 +5382,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private initConfetti() {
     const gl = this.gl;
     const pts = this._trackPoints;
-    const dense = this.theme === 'miami';   // Miami is a celebration
+    const dense = this.theme === 'miami' || this.theme === 'monaco'; // Miami & Monte-Carlo celebrate
     const desert = this.theme === 'desert'; // Marrakech petals
     const perStand = dense ? 26 : desert ? 8 : 12;
     // The start/finish straight is the showpiece — double the local density.
@@ -5763,6 +6311,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
 
     // Main program
     gl.useProgram(this.prog);
+    gl.uniform1f(this.alphaLoc, 1);
     gl.uniformMatrix4fv(this.projLoc, false, proj);
     gl.uniformMatrix4fv(this.viewLoc, false, view);
     gl.uniform3fv(this.lightDirLoc, this.sunDir);
@@ -5827,7 +6376,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.drawElements(gl.TRIANGLES, this.barrierCount, gl.UNSIGNED_SHORT, 0);
 
     // Scenery (trees, grandstands, light poles) — 32-bit indices for dense
-    // themes (Miami skyline + clouds can exceed 65 535).
+    // themes (a Miami skyline can exceed 65 535). Clouds live in their own
+    // translucent buffer (see below), outside this index budget.
     gl.bindVertexArray(this.sceneryVao);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
@@ -5837,6 +6387,26 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.uniform3f(this.colorLoc, 1, 1, 1);
     this.setNormalMatrix(this.modelMatrix);
     gl.drawElements(gl.TRIANGLES, this.sceneryCount, gl.UNSIGNED_INT, 0);
+
+    // Translucent clouds — a separate blend pass right after the opaque
+    // scenery so the puffs soften into the sky (smokey) instead of reading as
+    // solid balls. Runs in the main view, the mirror and the heat pass alike
+    // (drawWorldScene is shared), with a slightly fainter cloud on the bright
+    // white mountain skies where solid geometry reads harshest.
+    if (this._cloudCount > 0) {
+      gl.uniform1f(this.alphaLoc, this.theme === 'mountain' || this.theme === 'alpine' ? 0.5 : 0.6);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
+      gl.uniform1i(this.hasTexLoc, 1);
+      this.mat4Identity(this.modelMatrix);
+      gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+      gl.uniform3f(this.colorLoc, 1, 1, 1);
+      this.setNormalMatrix(this.modelMatrix);
+      gl.bindVertexArray(this._cloudVao);
+      gl.drawElements(gl.TRIANGLES, this._cloudCount, gl.UNSIGNED_INT, 0);
+      gl.bindVertexArray(null);
+      gl.uniform1f(this.alphaLoc, 1);
+    }
     gl.bindVertexArray(null);
 
     // Marrakech mirage lake — a shimmering pool on the track ahead, drawn
@@ -5956,6 +6526,54 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.depthMask(true);
       gl.enable(gl.CULL_FACE);
     }
+
+    // ─── Snow (alpine/mountain themes) — a dense blizzard of white flakes,
+    // each blown on its own gust so the wind visibly varies across the screen.
+    const snowing = this.theme === 'alpine' || this.theme === 'mountain';
+    if (drawRain && snowing) {
+      this.initSnowParticles();
+      if (this._snowCount > 0) {
+        const snow = this._snowParticles;
+        const snowData: number[] = [];
+        // Rolling gust front: bursts of sideways push that ease off, so the
+        // blizzard breathes instead of drifting uniformly.
+        const gust = 1 + 0.9 * Math.sin(this.elapsed * 0.5) * Math.sin(this.elapsed * 0.13);
+        for (let i = 0; i < snow.length; i++) {
+          const f = snow[i];
+          f.y -= f.fall * dt;
+          const vx = f.wind * 0.3 * gust + Math.sin(this.elapsed * 0.9 + f.phase) * 0.7;
+          const vz = f.wind * 0.13 * gust + Math.cos(this.elapsed * 0.7 + f.phase) * 0.5;
+          f.x += vx * dt;
+          f.z += vz * dt;
+          if (f.y < -2) {
+            f.y = 30 + Math.random() * 12;
+            f.x = eye[0] + (Math.random() - 0.5) * 260;
+            f.z = eye[2] + (Math.random() - 0.5) * 260;
+          }
+          // Tilt the streak toward the wind so flakes read as blowing, not
+          // falling straight down while drifting sideways.
+          const vlen = Math.hypot(vx, vz) || 1;
+          const sx = (vx / vlen) * 0.1;
+          const sz = (vz / vlen) * 0.1;
+          snowData.push(f.x, f.y, f.z, 0.97, 0.98, 1, 0.9);
+          snowData.push(f.x + sx, f.y - 0.16, f.z + sz, 0.97, 0.98, 1, 0.9);
+        }
+        gl.bindBuffer(gl.ARRAY_BUFFER, this._snowBuf);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(snowData));
+        gl.useProgram(this.prog);
+        gl.disable(gl.CULL_FACE);
+        gl.depthMask(false);
+        gl.bindVertexArray(this._snowVao);
+        gl.uniform1i(this.hasTexLoc, 0);
+        gl.uniform3f(this.colorLoc, 1, 1, 1);
+        this.mat4Identity(this.modelMatrix);
+        gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+        gl.drawArrays(gl.LINES, 0, this._snowCount);
+        gl.bindVertexArray(null);
+        gl.depthMask(true);
+        gl.enable(gl.CULL_FACE);
+      }
+    }
   }
 
   // Renders the world from a rear-facing camera into the mirror FBO, then
@@ -6056,6 +6674,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
       // Half-strength variant of the speed-scaled main strength, so the small
       // mirror stays readable while matching the main view's turbulence.
       gl.uniform1f(this.heatStrengthLoc, 0.5 * heatStrength);
+      // Same world-anchored vultures, projected through the mirror camera so
+      // they sit correctly in the rear-view background too.
+      this.mat4Multiply(this._heatViewProj, this.mirrorProj, this.mirrorView);
+      gl.uniformMatrix4fv(this.heatViewProjLoc, false, this._heatViewProj);
+      this.uploadVultures();
       gl.bindVertexArray(this.heatVao);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.bindVertexArray(null);
@@ -6632,12 +7255,41 @@ void main() {
     gl.uniform1f(this.heatTimeLoc, this.elapsed);
     gl.uniform1f(this.heatHorizonLoc, 0.42);
     gl.uniform1f(this.heatStrengthLoc, strength);
+    // Project the world-anchored vultures through the current camera so they
+    // stay in the background (projMatrix/viewMatrix hold the main view).
+    this.mat4Multiply(this._heatViewProj, this.projMatrix, this.viewMatrix);
+    gl.uniformMatrix4fv(this.heatViewProjLoc, false, this._heatViewProj);
+    this.uploadVultures();
     gl.bindVertexArray(this.heatVao);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindVertexArray(null);
     gl.depthMask(true);
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
+  }
+
+  /** Advances the desert vultures' slow orbit around the circuit (elapsed-driven
+   *  so the main view and mirror stay in sync) and uploads their world positions
+   *  to the heat shader's uVultures uniform. */
+  private uploadVultures() {
+    const gl = this.gl;
+    const t = this.elapsed;
+    const cx = this._trackCenterX, cz = this._trackCenterZ;
+    // Guard: with no vultures defined (non-desert theme), clear the uniform so
+    // a stale position can never draw silhouettes at the world origin.
+    if (this._vultures.length === 0) {
+      this._vultureWorld.fill(0);
+      gl.uniform3fv(this.heatVulturesLoc, this._vultureWorld);
+      return;
+    }
+    for (let i = 0; i < this._vultures.length && i < 4; i++) {
+      const v = this._vultures[i];
+      const ang = v.ang + v.speed * t;
+      this._vultureWorld[i * 3] = cx + Math.cos(ang) * v.radius;
+      this._vultureWorld[i * 3 + 1] = v.alt + Math.sin(t * 0.5 + v.phase) * 3;
+      this._vultureWorld[i * 3 + 2] = cz + Math.sin(ang) * v.radius;
+    }
+    gl.uniform3fv(this.heatVulturesLoc, this._vultureWorld);
   }
 
   private initHeatPass() {
@@ -6655,6 +7307,10 @@ uniform sampler2D uMask;
 uniform float uTime;
 uniform float uHorizonY;
 uniform float uStrength;
+// World-anchored desert vultures — projected through the camera below so they
+// stay in the background as the car drives, instead of drifting on the screen.
+uniform mat4 uViewProj;
+uniform vec3 uVultures[4];
 // Capsule SDF: distance to a line segment of radius r.
 float sdSegment(vec2 p, vec2 a, vec2 b, float r) {
   vec2 pa = p - a, ba = b - a;
@@ -6684,24 +7340,25 @@ void main() {
   float dx = (n1 * 0.55 + n2 * 0.45) * 0.0055;
   float dy = (n3 * 0.65 + n1 * 0.35) * 0.004;
   vec2 uv = vUV + vec2(dx, dy) * heat * uStrength;
-  vec3 col = texture(uScene, clamp(uv, 0.001, 0.999)).rgb;  // Faint vulture silhouettes circling over the shimmer band — three birds at
-  // staggered phases drift across the sky just above the horizon, wrapping at
-  // the screen edges, and darken with the heat strength (subtler in the
-  // mirror and at low speed). Kept genuinely faint so overlap stays subtle.
+  vec3 col = texture(uScene, clamp(uv, 0.001, 0.999)).rgb;  // Vulture silhouettes anchored to the desert sky — the uVultures world
+  // positions are projected through the camera (uViewProj) so they stay in the
+  // background as the car drives and turns, instead of riding along with the
+  // screen. Birds behind the camera or far outside the frame are skipped.
   float dark = 0.0;
-  for (int i = 0; i < 3; i++) {
-    float ph = float(i) * 2.094 + 1.3;
-    float sp = 0.02 + float(i) * 0.006;
-    float cx = fract(uTime * sp + ph * 0.4) - 0.5;
-    float cy = uHorizonY + 0.1 + sin(uTime * 0.5 + ph) * 0.035;
-    float sc = 0.07 + float(i) * 0.016;
-    vec2 q = (vUV - vec2(cx + 0.5, cy)) / sc;
-    float flap = sin(uTime * 1.2 + ph * 2.6) * 0.06;
+  for (int i = 0; i < 4; i++) {
+    vec4 w = vec4(uVultures[i], 1.0);
+    vec4 clip = uViewProj * w;
+    if (clip.w <= 0.001) continue;
+    vec2 suv = (clip.xy / clip.w) * 0.5 + 0.5;
+    if (suv.x < -0.2 || suv.x > 1.2 || suv.y < -0.2 || suv.y > 1.2) continue;
+    // Perspective size: silhouettes shrink with distance (~180m reference).
+    float sc = max(0.02, (0.05 + float(i) * 0.018) * (180.0 / clip.w));
+    vec2 q = (vUV - suv) / sc;
+    float flap = sin(uTime * 1.2 + float(i) * 2.6) * 0.06;
     float d = vultureShape(q, flap);
     float a = 1.0 - smoothstep(-0.02, 0.035, d);
-    // Fade near the screen edges only — cy already keeps the birds in the
-    // band, so no y-fade is needed.
-    a *= smoothstep(0.0, 0.1, vUV.x) * smoothstep(1.0, 0.9, vUV.x);
+    // Soften as a bird exits either screen edge so it doesn't pop in/out.
+    a *= smoothstep(0.0, 0.08, suv.x) * smoothstep(1.0, 0.92, suv.x);
     dark += a * (0.25 + 0.15 * uStrength);
   }
   col *= 1.0 - clamp(dark, 0.0, 0.6);
@@ -6713,6 +7370,8 @@ void main() {
     this.heatTimeLoc = gl.getUniformLocation(this.heatProg, 'uTime')!;
     this.heatHorizonLoc = gl.getUniformLocation(this.heatProg, 'uHorizonY')!;
     this.heatStrengthLoc = gl.getUniformLocation(this.heatProg, 'uStrength')!;
+    this.heatViewProjLoc = gl.getUniformLocation(this.heatProg, 'uViewProj')!;
+    this.heatVulturesLoc = gl.getUniformLocation(this.heatProg, 'uVultures')!;
     this.heatVao = gl.createVertexArray()!;
     gl.bindVertexArray(this.heatVao);
     const hbuf = gl.createBuffer()!;

@@ -2872,14 +2872,26 @@ public class KrakenService
       double? hours = null,
       int? page = null,
       int? pageSize = null,
-      string? search = null)
+      string? search = null,
+      long? matchingTradeId = null,
+      bool hasMatchingTrade = false,
+      DateTime? fromDate = null,
+      DateTime? toDate = null,
+      double? spentMin = null,
+      double? spentMax = null,
+      double? receivedMin = null,
+      double? receivedMax = null,
+      bool hasPrice = false,
+      bool exportAll = false)
   {
     // Normalize coin symbol (BTC -> XBT)
     string tmpCoin = (coin ?? string.Empty).ToUpperInvariant();
     if (tmpCoin == "BTC") tmpCoin = "XBT";
 
-    int take = Math.Clamp(pageSize ?? 50, 1, 500);       // default 50, cap 500
-    int skip = Math.Max(((page ?? 1) - 1) * take, 0);    // offset
+    // Export mode returns every matching row for CSV reports; paged mode caps
+    // the page at 500 rows.
+    int take = exportAll ? 5000 : Math.Clamp(pageSize ?? 50, 1, 500);       // default 50, cap 500
+    int skip = exportAll ? 0 : Math.Max(((page ?? 1) - 1) * take, 0);       // offset
     bool hasHours = hours.HasValue && hours.Value > 0;
     DateTime startTimeUtc = DateTime.UtcNow.AddHours(-(hours ?? 0.0));
     // Escape LIKE wildcards so a literal % or _ in the query doesn't act as a wildcard.
@@ -2888,6 +2900,13 @@ public class KrakenService
         .Replace("%", "\\%")
         .Replace("_", "\\_");
     bool hasSearch = tmpSearch.Length > 0;
+    bool hasTradeId = matchingTradeId.HasValue && matchingTradeId.Value > 0;
+    bool hasFromDate = fromDate.HasValue;
+    bool hasToDate = toDate.HasValue;
+    bool hasSpentMin = spentMin.HasValue && spentMin.Value >= 0;
+    bool hasSpentMax = spentMax.HasValue && spentMax.Value >= 0;
+    bool hasReceivedMin = receivedMin.HasValue && receivedMin.Value >= 0;
+    bool hasReceivedMax = receivedMax.HasValue && receivedMax.Value >= 0;
 
     var response = new TradeHistoryResponse
     {
@@ -2906,32 +2925,22 @@ WITH filtered AS (
   WHERE user_id = @UserId
     AND strategy = @Strategy
     AND (@HasHours = 0 OR timestamp >= @StartTime)
-    AND from_currency = @Coin
+    AND (from_currency = @Coin OR to_currency = @Coin)
     AND (@HasSearch = 0 OR CAST(id AS CHAR) LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
       OR CAST(IFNULL(matching_trade_id, 0) AS CHAR) LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
       OR from_currency LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
       OR to_currency LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
       OR CAST(value AS DECIMAL(18, 6)) LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
       OR CAST(coin_price_usdc AS DECIMAL(18, 6)) LIKE CONCAT('%', @Search, '%') ESCAPE '\\')
-
-  UNION ALL
-
-  SELECT
-    id, user_id, from_currency, to_currency, strategy,
-    value, timestamp, coin_price_cad, coin_price_usdc,
-    trade_value_cad, trade_value_usdc, fees,
-    matching_trade_id, is_reserved
-  FROM trade_history
-  WHERE user_id = @UserId
-    AND strategy = @Strategy
-    AND (@HasHours = 0 OR timestamp >= @StartTime)
-    AND to_currency = @Coin
-    AND (@HasSearch = 0 OR CAST(id AS CHAR) LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
-      OR CAST(IFNULL(matching_trade_id, 0) AS CHAR) LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
-      OR from_currency LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
-      OR to_currency LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
-      OR CAST(value AS DECIMAL(18, 6)) LIKE CONCAT('%', @Search, '%') ESCAPE '\\'
-      OR CAST(coin_price_usdc AS DECIMAL(18, 6)) LIKE CONCAT('%', @Search, '%') ESCAPE '\\')
+    AND (@HasTradeId = 0 OR id = @TradeId OR matching_trade_id = @TradeId)
+    AND (@HasMatch = 0 OR matching_trade_id IS NOT NULL)
+    AND (@HasFromDate = 0 OR timestamp >= @FromDate)
+    AND (@HasToDate = 0 OR timestamp <= @ToDate)
+    AND (@HasSpentMin = 0 OR trade_value_usdc >= @SpentMin)
+    AND (@HasSpentMax = 0 OR trade_value_usdc <= @SpentMax)
+    AND (@HasReceivedMin = 0 OR value >= @ReceivedMin)
+    AND (@HasReceivedMax = 0 OR value <= @ReceivedMax)
+    AND (@HasPrice = 0 OR IFNULL(coin_price_usdc, 0) > 0 OR IFNULL(coin_price_cad, 0) > 0)
 )
 SELECT
   f.*,
@@ -2959,6 +2968,22 @@ LIMIT @PageSize OFFSET @Offset;";
       cmd.Parameters.Add("@StartTime", MySqlDbType.DateTime).Value = hasHours ? startTimeUtc : (object)DBNull.Value;
       cmd.Parameters.Add("@HasSearch", MySqlDbType.Int32).Value = hasSearch ? 1 : 0;
       cmd.Parameters.Add("@Search", MySqlDbType.VarChar, 255).Value = tmpSearch;
+      cmd.Parameters.Add("@HasTradeId", MySqlDbType.Int32).Value = hasTradeId ? 1 : 0;
+      cmd.Parameters.Add("@TradeId", MySqlDbType.Int64).Value = hasTradeId ? matchingTradeId : (object)DBNull.Value;
+      cmd.Parameters.Add("@HasMatch", MySqlDbType.Int32).Value = hasMatchingTrade ? 1 : 0;
+      cmd.Parameters.Add("@HasFromDate", MySqlDbType.Int32).Value = hasFromDate ? 1 : 0;
+      cmd.Parameters.Add("@FromDate", MySqlDbType.DateTime).Value = hasFromDate ? fromDate : (object)DBNull.Value;
+      cmd.Parameters.Add("@HasToDate", MySqlDbType.Int32).Value = hasToDate ? 1 : 0;
+      cmd.Parameters.Add("@ToDate", MySqlDbType.DateTime).Value = hasToDate ? toDate : (object)DBNull.Value;
+      cmd.Parameters.Add("@HasSpentMin", MySqlDbType.Int32).Value = hasSpentMin ? 1 : 0;
+      cmd.Parameters.Add("@SpentMin", MySqlDbType.Decimal).Value = hasSpentMin ? spentMin : (object)DBNull.Value;
+      cmd.Parameters.Add("@HasSpentMax", MySqlDbType.Int32).Value = hasSpentMax ? 1 : 0;
+      cmd.Parameters.Add("@SpentMax", MySqlDbType.Decimal).Value = hasSpentMax ? spentMax : (object)DBNull.Value;
+      cmd.Parameters.Add("@HasReceivedMin", MySqlDbType.Int32).Value = hasReceivedMin ? 1 : 0;
+      cmd.Parameters.Add("@ReceivedMin", MySqlDbType.Decimal).Value = hasReceivedMin ? receivedMin : (object)DBNull.Value;
+      cmd.Parameters.Add("@HasReceivedMax", MySqlDbType.Int32).Value = hasReceivedMax ? 1 : 0;
+      cmd.Parameters.Add("@ReceivedMax", MySqlDbType.Decimal).Value = hasReceivedMax ? receivedMax : (object)DBNull.Value;
+      cmd.Parameters.Add("@HasPrice", MySqlDbType.Int32).Value = hasPrice ? 1 : 0;
       cmd.Parameters.Add("@PageSize", MySqlDbType.Int32).Value = take;
       cmd.Parameters.Add("@Offset", MySqlDbType.Int32).Value = skip;
 

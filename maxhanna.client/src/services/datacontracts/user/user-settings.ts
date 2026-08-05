@@ -24,4 +24,5 @@ export class UserSettings {
   weeklyDigestEnabled?: boolean;
   followPushEnabled?: boolean;
   followEmailEnabled?: boolean;
+  showNavSearch?: boolean;
 }

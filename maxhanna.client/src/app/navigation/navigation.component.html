@@ -40,7 +40,8 @@
   <ng-container *ngFor="let item of _parent.navigationItems">
     <div *ngIf="(menuIconsIncludes(item.title)) 
          || item.title === 'User'
-         || (!navbarCollapsed && item.title === 'UpdateUserSettings')" class="navLinkDiv">
+         || (!navbarCollapsed && item.title === 'UpdateUserSettings')"
+         [class.navSearchHidden]="!matchesNavSearch(item.title)" class="navLinkDiv">
       <span class="navbarNotificationSpan {{item.content && item.content.length > 10 ? 'largeNotificationSpan' : ''}}"
         (click)="goTo(item.title, $event)" [title]="cleanItemTitle(item.title)">
         <span (click)="goTo(item.title, $event)" [title]="cleanItemTitle(item.title)">
@@ -92,6 +93,26 @@
     </div>
   </ng-container>
 </div>
+
+<!-- Search bar at the bottom of the nav page — filters the apps above. The
+     show/hide state is remembered per-user via user settings (show_nav_search).
+     Hidden entirely when the nav is minimized (navbarCollapsed). -->
+<div *ngIf="!navbarCollapsed">
+  <div class="navSearchBar" [class.hidden]="!showNavSearch">
+    <button class="navSearchToggle" (click)="toggleNavSearch()"
+      [title]="showNavSearch ? 'Hide search' : 'Show search'"
+      [attr.aria-label]="showNavSearch ? 'Hide search' : 'Show search'">🔍</button>
+    <div class="navSearchInputWrap">
+      <input class="navSearchInput" type="text" [(ngModel)]="navSearchTerm"
+        placeholder="Search apps..." autocomplete="off" spellcheck="false" />
+      <button *ngIf="navSearchTerm" class="navSearchClear" (click)="navSearchTerm = ''"
+        title="Clear search" aria-label="Clear search">✕</button>
+    </div>
+  </div>
+  <button *ngIf="!showNavSearch" class="navSearchToggle navSearchToggleFloating" (click)="toggleNavSearch()"
+    title="Show search" aria-label="Show search">🔍</button>
+</div>
+
 <div class="loading-notification-container" (click)="closeNotifications()" *ngIf="notificationsServerDown 
     || isLoadingNotifications 
     || isLoadingTheme 

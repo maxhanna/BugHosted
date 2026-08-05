@@ -124,6 +124,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   slipAngle = 0;
   carDist = 0; lapTimes: number[] = [];
   private lastCarDist = 0;
+  // Cumulative net forward distance around the track (wrap-aware, same math as
+  // the bots). Laps are only credited against this, so reversing across the
+  // finish line subtracts progress instead of farming extra laps.
+  private _playerRaceDist = 0;
   lapStartTime = 0; lastLapTime = 0; raceStartTime = 0;
   totalRaceTime = 0; bestLapTime = 0;
   isOffTrack = false; offTrackTimer = 0;
@@ -237,6 +241,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   @ViewChild('brakeGauge') brakeGaugeEl?: ElementRef<HTMLDivElement>;
   @ViewChild('brakeState') brakeStateEl?: ElementRef<HTMLSpanElement>;
   private _audioCtx: AudioContext | null = null;
+  // Set once the component is torn down — every loop, audio, listener and
+  // timer path checks it so nothing can fire (or be re-created) after destroy.
+  private _destroyed = false;
+  // Stored handler refs so ngOnDestroy can remove the document listeners the
+  // game uses (anonymous inline handlers can't be removed by name).
+  private _onKeyDown: (e: KeyboardEvent) => void = () => { };
+  private _onKeyUp: (e: KeyboardEvent) => void = () => { };
+  private _initAudio: () => void = () => { };
   private _subOsc: OscillatorNode | null = null;
   private _engineOsc: OscillatorNode | null = null;
   private _engineOsc2: OscillatorNode | null = null;
@@ -290,7 +302,13 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   podiumData: { playerName: string; totalTime: number; moneyEarned: number }[] = [];
   // Full final standings shown on the results screen: every bot, remote player
   // and the local player ordered by total distance at the moment the race ended.
-  finalStandings: { position: number; name: string; playerId: number; isBot: boolean; isPlayer: boolean; isDnf: boolean; color: string; laps: number }[] = [];
+  finalStandings: { position: number; name: string; playerId: number; isBot: boolean; isPlayer: boolean; isDnf: boolean; color: string; laps: number; totalTimeMs: number }[] = [];
+  // Standings panel collapse state (podium + lobby previous-race list). Starts
+  // collapsed on small screens so the results fit without scrolling.
+  standingsCollapsed = false;
+  // The player's real total race time at the moment they crossed the line —
+  // the reference used when estimating other racers' totals.
+  private _lastRaceTotalTime = 0;
   // Authoritative lobby-wide classification, broadcast by the server once every
   // multiplayer racer has finished. Replaces the local finish-moment snapshot.
   serverStandings: RaceStandingsRow[] | null = null;
@@ -321,6 +339,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     private ngZone: NgZone,
   ) { super(); }
   ngOnInit() {
+    // On narrow screens the standings list starts collapsed so the podium fits
+    // without scrolling — the header toggle re-opens it.
+    if (typeof window !== 'undefined' && window.innerWidth < 768) this.standingsCollapsed = true;
     this.loadPlayerCar();
     try { this.soundOn = localStorage.getItem('gp_sound') === '1'; } catch { }
     this.userEventService.insertUserEvent(
@@ -602,40 +623,58 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     canvas.height = window.innerHeight;
     this.renderer = new RacingRenderer(canvas);
     this.isLoaded = true;
-    document.addEventListener('keydown', (e: KeyboardEvent) => {
+    this._onKeyDown = (e: KeyboardEvent) => {
+      if (this._destroyed) return;
       this.keys.add(e.code);
       if (e.code === 'KeyM' && this.gameState === 'racing') this.togglePause();
       if (e.code === 'KeyL') this.toggleLeaderboard();
-    });
-    document.addEventListener('keyup', (e: KeyboardEvent) => {
+    };
+    this._onKeyUp = (e: KeyboardEvent) => {
+      if (this._destroyed) return;
       this.keys.delete(e.code);
-    });
+    };
+    document.addEventListener('keydown', this._onKeyDown);
+    document.addEventListener('keyup', this._onKeyUp);
     this.ngZone.runOutsideAngular(() => {
       this.lastTime = performance.now();
       this.gameLoop(this.lastTime);
     });
-    const initAudio = () => {
+    // Audio is created lazily on the first user gesture (browsers require it).
+    // The listener removes itself once audio is up, and ngOnDestroy removes it
+    // too so a destroyed instance can never spin up a permanent hum.
+    this._initAudio = () => {
+      if (this._destroyed) return;
       if (this.soundOn && !this._audioCtx) this.initEngineAudio();
-      document.removeEventListener('click', initAudio);
-      document.removeEventListener('keydown', initAudio);
+      document.removeEventListener('click', this._initAudio);
+      document.removeEventListener('keydown', this._initAudio);
     };
-    document.addEventListener('click', initAudio);
-    document.addEventListener('keydown', initAudio);
+    document.addEventListener('click', this._initAudio);
+    document.addEventListener('keydown', this._initAudio);
   }
   ngOnDestroy() {
+    // Flag everything dead FIRST so no loop, listener, hub callback or timer
+    // can spin up audio (or anything else) after teardown begins.
+    this._destroyed = true;
     cancelAnimationFrame(this.animId);
     if (this._countdownInterval) clearInterval(this._countdownInterval);
     this.stopMpStartCountdown();
     this.stopAutoStartTicker();
     this.stopStandingsCountdown();
+    if (this.msgTimer) clearTimeout(this.msgTimer);
+    if (this._recordToastTimer) clearTimeout(this._recordToastTimer);
+    if (this._beatFriendToastTimer) clearTimeout(this._beatFriendToastTimer);
     if (this._mpLobbyTrackId) {
       this.racingHub.leaveLobby(this._mpLobbyTrackId);
     }
     this.racingHub.disconnect();
     this._mpSubs.forEach(s => s.unsubscribe());
     this.stopEngineAudio();
-    document.removeEventListener('keydown', () => { });
-    document.removeEventListener('keyup', () => { });
+    // Remove the exact stored handlers — anonymous wrappers can't be removed,
+    // so the game's key listeners and lazy audio initializer must be fields.
+    document.removeEventListener('keydown', this._onKeyDown);
+    document.removeEventListener('keyup', this._onKeyUp);
+    document.removeEventListener('click', this._initAudio);
+    document.removeEventListener('keydown', this._initAudio);
     this.renderer?.clearCache();
     this.remove_me("RacingComponent");
   }
@@ -886,7 +925,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   // classic whistling-marmot call), quiet and brief so it reads as wildlife
   // at the track edge rather than an alarm in the cockpit.
   private playMarmotWhistle() {
-    if (!this.soundOn || !this._audioCtx) return;
+    if (this._destroyed || !this.soundOn || !this._audioCtx) return;
     try {
       const ctx = this._audioCtx;
       const t = ctx.currentTime;
@@ -912,7 +951,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   // — a quiet sine blip whose pitch rises for the final three seconds, so the
   // countdown is audible even mid-upgrade.
   private playCountdownTick(secondsLeft: number) {
-    if (!this.soundOn || !this._audioCtx) return;
+    if (this._destroyed || !this.soundOn || !this._audioCtx) return;
     try {
       const ctx = this._audioCtx;
       const t = ctx.currentTime;
@@ -932,7 +971,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   // Louder rising 'GO' fanfare when the multiplayer race actually launches
   // (auto-start or host start), so a garage player can't miss the start.
   private playGoChime() {
-    if (!this.soundOn || !this._audioCtx) return;
+    if (this._destroyed || !this.soundOn || !this._audioCtx) return;
     try {
       const ctx = this._audioCtx;
       const t = ctx.currentTime;
@@ -980,6 +1019,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.carSpeed = 0;
     this.carDist = 0;
     this.lastCarDist = 0;
+    this._playerRaceDist = 0;
     this.racePosition = 1;
     this.lapTimes = [];
     this.lastLapTime = 0;
@@ -1082,10 +1122,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
   carRotateX = 20;
   carRotateY = -40;
+  carZoom = 1;
   isCarDragging = false;
   private _carDragStart: { x: number; y: number; rotX: number; rotY: number } | null = null;
   getCarTransform(): string {
-    return `rotateX(${this.carRotateX}deg) rotateY(${this.carRotateY}deg)`;
+    // Scale first so zoom magnifies the final rotated car about its origin.
+    return `scale(${this.carZoom}) rotateX(${this.carRotateX}deg) rotateY(${this.carRotateY}deg)`;
   }
   onCarPointerDown(e: PointerEvent) {
     this._carDragStart = { x: e.clientX, y: e.clientY, rotX: this.carRotateX, rotY: this.carRotateY };
@@ -1104,9 +1146,18 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._carDragStart = null;
     this.isCarDragging = false;
   }
+  zoomCar(dir: number) {
+    // 0.55x .. 2.2x — keeps the car readable at any garage size.
+    this.carZoom = Math.max(0.55, Math.min(2.2, Math.round((this.carZoom + dir) * 100) / 100));
+  }
+  onCarWheel(e: WheelEvent) {
+    e.preventDefault();
+    this.zoomCar(e.deltaY < 0 ? 0.15 : -0.15);
+  }
   resetCarView() {
     this.carRotateX = 20;
     this.carRotateY = -40;
+    this.carZoom = 1;
   }
   getPlayerColor(connectionId: string): string {
     const colors = ['#e53935', '#4a9eff', '#4caf50', '#ffd600', '#9c27b0', '#ff9800', '#00bcd4', '#e91e63'];
@@ -1163,6 +1214,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.carSpeed = 0;
     this.carDist = 0;
     this.lastCarDist = 0;
+    this._playerRaceDist = 0;
     this.lapTimes = [];
     this.lastLapTime = 0;
     this.raceStartTime = performance.now();
@@ -1215,6 +1267,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.gameState = this.gameState === 'racing' ? 'paused' : 'racing';
   }
   private gameLoop(time: number) {
+    if (this._destroyed) return;
     this.animId = requestAnimationFrame((t) => this.gameLoop(t));
     const dt = Math.min((time - this.lastTime) / 1000, 0.05);
     this.lastTime = time;
@@ -1768,8 +1821,18 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private checkLapCrossing() {
     const prevDist = this.lastCarDist;
     const trackLen = this.renderer.totalTrackDist;
-    if (prevDist > trackLen * 0.8 && this.carDist < trackLen * 0.2) {
-      this.currentLap++;
+    if (trackLen > 0) {
+      // Wrap-aware net progress since last frame (same as the bots): reversing
+      // across the line subtracts from net progress, so shimmying backwards can
+      // never farm a lap — only a full forward lap around the circuit counts.
+      let delta = this.carDist - prevDist;
+      if (delta < -trackLen * 0.5) delta += trackLen;
+      else if (delta > trackLen * 0.5) delta -= trackLen;
+      this._playerRaceDist += delta;
+    }
+    const lapReached = trackLen > 0 ? Math.floor(this._playerRaceDist / trackLen) : 0;
+    if (lapReached > this.currentLap) {
+      this.currentLap = lapReached;
       // Fresh lap — reset the brake peak notch so it marks THIS lap's hottest
       // braking point.
       this._brakePeakThisLap = 0;
@@ -1797,7 +1860,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.lastCarDist = this.carDist;
   }
   private updateRacePosition() {
-    const playerDist = this.currentLap * this.renderer.totalTrackDist + this.carDist;
+    // Use the same cumulative net-progress metric as the bots so reversing can't
+    // inflate the player's standing distance.
+    const playerDist = this._playerRaceDist;
     const allRacers: { dist: number; isPlayer: boolean }[] = this.bots.map(b => ({
       dist: b.raceDist,
       isPlayer: false
@@ -1817,6 +1882,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this._raceFinished) return;
     this._raceFinished = true;
     const totalTime = performance.now() - this.raceStartTime;
+    this._lastRaceTotalTime = totalTime;
     if (this._mpLobbyTrackId && !this._mpFinished) {
       this._mpFinished = true;
       this.racingHub.finishRace(this._mpLobbyTrackId, this.racePosition, totalTime, this.currentLap);
@@ -1881,6 +1947,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
    *  and sort into the final classification shown on the results screen. */
   private buildFinalStandings() {
     const trackLen = this.renderer.totalTrackDist;
+    const playerDist = this.currentLap * trackLen + this.carDist;
     const palette = ['#e53935', '#4a9eff', '#4caf50', '#ffd600', '#9c27b0', '#ff9800', '#00bcd4', '#e91e63'];
     const racers: { name: string; playerId: number; isBot: boolean; isPlayer: boolean; color: string; dist: number; laps: number }[] = [];
     for (const b of this.bots) {
@@ -1913,7 +1980,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const dnfRows = this.dnfRacers.map(d => ({
       position: -1, name: d.name, playerId: d.playerId,
       isBot: false, isPlayer: false, isDnf: true,
-      color: d.color || '#9e9e9e', laps: 0,
+      color: d.color || '#9e9e9e', laps: 0, totalTimeMs: 0,
     }));
     this.finalStandings = [
       ...racers.map((r, i) => ({
@@ -1922,9 +1989,34 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         color: r.color,
         // Bots keep lapping past the checkered flag — cap the column at the race length.
         laps: Math.min(r.laps, this.totalLaps),
+        // Total race time: real for the player; projected from their pace for
+        // racers already past the line. Unfinished racers get 0 → '—'.
+        totalTimeMs: r.isPlayer
+          ? this._lastRaceTotalTime
+          : this.estimateStandingsTime(r.dist, this._lastRaceTotalTime, playerDist),
       })),
       ...dnfRows,
     ];
+  }
+
+  /** Project a racer's total race time from their covered distance relative to a
+   *  reference racer with a known time over a known distance (t·(2 − d/dRef)):
+   *  racers ahead of the reference finished earlier, racers behind are
+   *  extrapolated to the line at the reference's average pace. */
+  private estimateStandingsTime(dist: number, refTimeMs: number, refDist: number): number {
+    if (!refTimeMs || refTimeMs <= 0 || !refDist || refDist <= 0 || !dist || dist <= 0) return 0;
+    return Math.max(0, refTimeMs * (2 - dist / refDist));
+  }
+
+  /** Collapses/expands the standings panel (podium + lobby previous-race list). */
+  toggleStandings(): void {
+    this.standingsCollapsed = !this.standingsCollapsed;
+  }
+
+  /** Formatted total race time for a standings row — '—' for DNF or unfinished. */
+  getStandingsTime(s: { totalTimeMs: number; isDnf: boolean }): string {
+    if (s.isDnf || !s.totalTimeMs || s.totalTimeMs <= 0) return '—';
+    return this.formatTime(s.totalTimeMs);
   }
 
   // Opens the same racer profile popup the leaderboard uses, from a final
@@ -1993,9 +2085,16 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const myId = this.parentRef?.user?.id || 0;
     // The server orders rows finishers-then-DNF; DNF racers never claim a slot —
     // they're appended after every finisher and bot.
+    const trackLen = this.renderer.totalTrackDist;
     const finishers = rows.filter(r => !r.isDnf).sort((a, b) => a.position - b.position);
     const dnfs = rows.filter(r => r.isDnf);
     const claimed = new Set(finishers.map(p => p.position));
+    // Reference pace for estimating bot totals: the winner's real time over
+    // their covered distance (laps × track + in-lap position).
+    const winnerRow = finishers[0];
+    const winRc = winnerRow ? this.remoteCars.get(winnerRow.connectionId) : undefined;
+    const winDist = winRc ? Math.max(1, winnerRow.laps * trackLen + winRc.distance) : 0;
+    const winTime = winnerRow ? (winnerRow.totalTimeMs || 0) : 0;
     // Bots are client-simulated and deterministic, so their relative order is
     // identical on every client at the broadcast moment. Only merge them when a
     // race is actually in progress or finished — a player who joins a lobby
@@ -2005,7 +2104,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const bots = inRace ? this.bots.filter(b => b.alive).slice().sort((a, b) => b.raceDist - a.raceDist) : [];
     const total = bots.length + finishers.length;
     let botIdx = 0;
-    const result: { position: number; name: string; playerId: number; isBot: boolean; isPlayer: boolean; isDnf: boolean; color: string; laps: number }[] = [];
+    const result: { position: number; name: string; playerId: number; isBot: boolean; isPlayer: boolean; isDnf: boolean; color: string; laps: number; totalTimeMs: number }[] = [];
     for (let pos = 1; pos <= total; pos++) {
       const p = claimed.has(pos) ? finishers.find(x => x.position === pos) : undefined;
       if (p) {
@@ -2017,6 +2116,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           position: pos, name: p.playerName, playerId: p.playerId,
           isBot: false, isPlayer: p.playerId > 0 && p.playerId === myId, isDnf: false,
           color, laps: Math.min(p.laps || 0, this.totalLaps),
+          totalTimeMs: p.totalTimeMs || 0,
         });
       } else if (botIdx < bots.length) {
         const b = bots[botIdx++];
@@ -2024,6 +2124,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           position: pos, name: b.name, playerId: 0, isBot: true, isPlayer: false, isDnf: false,
           color: palette[b.color % palette.length],
           laps: Math.min(b.lap, this.totalLaps),
+          totalTimeMs: winTime > 0 ? this.estimateStandingsTime(b.raceDist, winTime, winDist) : 0,
         });
       }
     }
@@ -2039,6 +2140,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
             ? `rgb(${Math.round(rc.colorR * 255)}, ${Math.round(rc.colorG * 255)}, ${Math.round(rc.colorB * 255)})`
             : this.getPlayerColor(p.connectionId),
           laps: Math.min(p.laps || 0, this.totalLaps),
+          totalTimeMs: p.totalTimeMs || 0,
         });
       }
     }
@@ -2051,7 +2153,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         color: rc
           ? `rgb(${Math.round(rc.colorR * 255)}, ${Math.round(rc.colorG * 255)}, ${Math.round(rc.colorB * 255)})`
           : '#9e9e9e',
-        laps: 0,
+        laps: 0, totalTimeMs: 0,
       });
     }
     this.finalStandings = result;
@@ -2780,6 +2882,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.gameState = 'menu';
   }
   toggleSound() {
+    if (this._destroyed) return;
     this.soundOn = !this.soundOn;
     try { localStorage.setItem('gp_sound', this.soundOn ? '1' : '0'); } catch { }
     if (this.soundOn) {
@@ -2820,8 +2923,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       if (this._windGain) this._windGain.disconnect();
       if (this._engineFilter) this._engineFilter.disconnect();
       if (this._engineGain) this._engineGain.disconnect();
-      if (this._audioCtx) this._audioCtx.close();
     } catch { }
+    // Closing the context is the ultimate kill switch — keep it in its own
+    // try so an unexpected earlier throw can never leave audio humming.
+    try { if (this._audioCtx) this._audioCtx.close(); } catch { }
     this._subOsc = null;
     this._engineOsc = null;
     this._engineOsc2 = null;
@@ -2846,6 +2951,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._audioCtx = null;
   }
   private initEngineAudio() {
+    if (this._destroyed) return;
     try {
       const ctx = new AudioContext();
       // Ensure the context is actually running — browsers suspend it until a
@@ -3007,7 +3113,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     } catch { }
   }
   private updateEngineAudio() {
-    if (!this.soundOn || !this._audioCtx || !this._engineOsc || !this._engineFilter || !this._engineGain) return;
+    if (this._destroyed || !this.soundOn || !this._audioCtx || !this._engineOsc || !this._engineFilter || !this._engineGain) return;
     const t = this._audioCtx.currentTime;
     if (this.gameState !== 'racing') {
       if (this._engineOsc) this._engineOsc.frequency.setTargetAtTime(70, t, 0.15);
@@ -3138,7 +3244,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   // layered noise bands with an attack/release envelope. Synced with the
   // animated crowd spiking via renderer.exciteCrowd().
   private playStandRoar(speed: number) {
-    if (!this.soundOn || !this._audioCtx || this.gameState !== 'racing') return;
+    if (this._destroyed || !this.soundOn || !this._audioCtx || this.gameState !== 'racing') return;
     try {
       const ctx = this._audioCtx;
       const t = ctx.currentTime;
@@ -3185,7 +3291,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   // quiet blips buried inside the cheer, and everything sits at modest gain so
   // it reads as a distant grandstand, not a close-up referee.
   private playCrowdCheer(type: 'roar' | 'whistle' | 'applause' | 'wave' | 'big' = 'roar', intensity = 1) {
-    if (!this.soundOn || !this._audioCtx || this.gameState !== 'racing') return;
+    if (this._destroyed || !this.soundOn || !this._audioCtx || this.gameState !== 'racing') return;
     try {
       const ctx = this._audioCtx;
       const t = ctx.currentTime;
@@ -3283,7 +3389,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   // the same instant as the confetti cannonade (allowFinished lets it play in
   // the 'finished' state the race just entered).
   private playWinnerCheer() {
-    if (!this.soundOn || !this._audioCtx) return;
+    if (this._destroyed || !this.soundOn || !this._audioCtx) return;
     try {
       const ctx = this._audioCtx;
       const t = ctx.currentTime;
@@ -3348,7 +3454,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     } catch { }
   }
   private playImpactSound(intensity = 1, gainScale = 1) {
-    if (!this.soundOn || !this._audioCtx || this.gameState !== 'racing') return;
+    if (this._destroyed || !this.soundOn || !this._audioCtx || this.gameState !== 'racing') return;
     try {
       const ctx = this._audioCtx;
       const t = ctx.currentTime;

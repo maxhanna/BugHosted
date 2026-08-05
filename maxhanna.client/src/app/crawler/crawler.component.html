@@ -24,8 +24,8 @@
       </div>
       <div [class]="!onlySearch ? 'crawlerInputs' : 'searchOnlyCrawlerInputs'">
         <div style="display:flex; flex-direction: column; gap: 8px; align-items: center;">
-          <div>
-            <input #keywordsInput type="text" placeholder="Search Title/Description/URL" (keydown.enter)="searchKeywords()" />
+          <input #keywordsInput type="text" placeholder="Search Title/Description/URL" (keydown.enter)="searchKeywords()" />
+          <div class="search-btn-row">
             <button (click)="searchKeywords()" [disabled]="isLoading || !(keywordsInput?.value && keywordsInput.value.trim())">
               Search{{!onMobile() ? ' the Web' : ''}}
             </button>
@@ -49,6 +49,17 @@
      </div>
   
     <div *ngIf="error" class="error-message">{{ error }}</div>
+
+    <!-- HostAI answer — first card of the results list, seamlessly integrated -->
+    <div class="aiSearchInline" *ngIf="showAiPopup">
+      <div class="aiSearchInlineHeader">
+        <span class="aiSearchInlineTitle">🤖 AI: {{ aiQuery }}</span>
+        <span (click)="closeAiSearch()" class="cursorPointer aiSearchInlineClose" title="Close AI search">&times;</span>
+      </div>
+      <div class="aiSearchEmbed">
+        <app-host-ai [inputtedParentRef]="inputtedParentRef ?? parentRef" [preloadedMessage]="aiQuery" [embedded]="true"></app-host-ai>
+      </div>
+    </div>
 
     <!-- YouTube Results -->
     <div *ngIf="youtubeResults?.length" class="metadataSearchWrapper" [style.opacity]="isSearchingYoutube ? 0.5 : 1" [style.max-Height]="onlySearch ? '30vh' : ''">
@@ -161,17 +172,6 @@
     <iframe [src]="sanitizedYoutubeUrl" style="width: 100%; height: 100%; border: none;" allowfullscreen></iframe>
   </div>
   <button (click)="closeYoutubePopup()" class="closeButton">Close</button>
-</div>
-
-<!-- HostAI Search (inline — embedded directly in the page, not a popup) -->
-<div class="aiSearchInline" *ngIf="showAiPopup">
-  <div class="aiSearchInlineHeader">
-    <span class="aiSearchInlineTitle">🤖 AI: {{ aiQuery }}</span>
-    <span (click)="closeAiSearch()" class="cursorPointer aiSearchInlineClose" title="Close AI search">&times;</span>
-  </div>
-  <div class="aiSearchEmbed">
-    <app-host-ai [inputtedParentRef]="inputtedParentRef ?? parentRef" [preloadedMessage]="aiQuery" [embedded]="true"></app-host-ai>
-  </div>
 </div>
 
 <!-- Favourited By Popup -->

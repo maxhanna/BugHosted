@@ -1,6 +1,6 @@
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnDestroy, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { TradeService } from '../../services/trade.service';
+import { TradeService, TradeHistoryFilters, downloadCsvReport } from '../../services/trade.service';
 import { AppComponent } from '../app.component';
 
 @Component({
@@ -32,6 +32,12 @@ export class CryptoTradeLogsComponent extends ChildComponent implements AfterVie
   timeLeft = 120;
   defaultTimeLeft = 120;
   private tradeLogInterval: any = null;
+
+  // Options panel state (hidden div toggled by the ⚙ checkbox)
+  showLogOptions = false;
+  logFromDate = '';
+  logToDate = '';
+  exportingLogs = false;
 
   async ngAfterViewInit() {
     setTimeout(() => {
@@ -68,7 +74,8 @@ export class CryptoTradeLogsComponent extends ChildComponent implements AfterVie
         sessionToken,
         this.currentLogPage,
         this.logsPerPage,
-        search ?? this.searchTerm
+        search ?? this.searchTerm,
+        this.buildLogFilters()
       );
       this.tradeLogs = response.logs;
       this.totalLogs = response.total;
@@ -163,5 +170,75 @@ export class CryptoTradeLogsComponent extends ChildComponent implements AfterVie
     this.searchTerm = '';
     this.currentLogPage = 1;
     this.fetchTradeLogs();
+  }
+
+  // ---- Options panel: date-range filters (AND-combined with the keyword search) ----
+
+  buildLogFilters(exportAll = false): TradeHistoryFilters {
+    return {
+      fromDate: this.logFromDate ? new Date(this.logFromDate + 'T00:00:00').toISOString() : undefined,
+      toDate: this.logToDate ? new Date(this.logToDate + 'T23:59:59').toISOString() : undefined,
+      exportAll,
+    };
+  }
+
+  onLogFilterInput(event: Event, field: string) {
+    (this as any)[field] = (event.target as HTMLInputElement).value;
+    clearTimeout(this.searchDebounceTimer);
+    this.searchDebounceTimer = setTimeout(() => {
+      this.currentLogPage = 1;
+      this.fetchTradeLogs();
+    }, 400);
+  }
+
+  clearLogFilters() {
+    clearTimeout(this.searchDebounceTimer);
+    this.logFromDate = '';
+    this.logToDate = '';
+    this.currentLogPage = 1;
+    this.fetchTradeLogs();
+  }
+
+  // ---- Export filtered logs to CSV (Excel-compatible) ----
+
+  async exportTradeLogsToCsv() {
+    if (this.exportingLogs) {
+      return;
+    }
+    this.exportingLogs = true;
+    try {
+      const coin = this.selectedCoin ?? this.tradeLogCoinFilter?.nativeElement?.value ?? 'BTC';
+      const strategy = this.selectedStrategy ?? this.tradeLogStrategyFilter?.nativeElement?.value ?? 'DCA';
+      const sessionToken = await this.inputtedParentRef.getSessionToken() ?? "";
+      const userId = this.hasKrakenApi ? this.inputtedParentRef.user?.id ?? 1 : 1;
+      const response = await this.tradeService.getTradeLogs(
+        userId,
+        coin,
+        strategy,
+        sessionToken,
+        1,
+        25000,
+        this.searchTerm,
+        this.buildLogFilters(true)
+      );
+      if (response && response.logs && response.logs.length > 0) {
+        const headers = ['Comment', 'Time (UTC)'];
+        const rows = response.logs.map((log: any) => [log.comment, log.timestampUtc]);
+        downloadCsvReport(`trade-logs-${coin}-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+        const total = response.total ?? response.logs.length;
+        this.inputtedParentRef.showNotification(
+          response.logs.length < total
+            ? `Exported first ${response.logs.length} of ${total} log lines.`
+            : `Exported ${response.logs.length} log lines.`
+        );
+      } else {
+        this.inputtedParentRef.showNotification('No logs matched the filters to export.');
+      }
+    } catch (error) {
+      console.error('Log export failed:', error);
+      this.inputtedParentRef.showNotification('Log export failed: ' + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      this.exportingLogs = false;
+    }
   }
 }

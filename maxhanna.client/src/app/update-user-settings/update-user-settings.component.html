@@ -282,6 +282,17 @@
            <div><input type="text" placeholder="Country (ex: 'Canada')" #weatherLocationCountryInput /></div>
          </div>
          <div class="sectionDescriptionSection">
+           <div>Detect: </div>
+           <div>
+             <button (click)="detectLocation()"
+               title="Use your browser's GPS to find your precise city and country"
+               [disabled]="detectingLocation">
+               {{ detectingLocation ? '⏳ Detecting…' : '📡 Detect' }}
+             </button>
+             <span class="xSmallFont">Uses your browser's GPS — fills City &amp; Country, then press 💾 Save Location</span>
+           </div>
+         </div>
+         <div class="sectionDescriptionSection">
            <div>Show location on profile: </div>
            <div>
              <input type="checkbox" #displayProfileLocationCheckmark [checked]="displayProfileLocation"

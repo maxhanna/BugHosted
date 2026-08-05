@@ -15,9 +15,31 @@
             </select>
         </div>
         <div class="tradeLogSearchWrapper">
-            <input type="text" class="tradeLogSearchInput" placeholder="🔍 Search logs…"
-                [value]="searchTerm" (input)="onSearchInput($event)" />
-            <button *ngIf="searchTerm" class="tradeLogSearchClear" (click)="clearLogSearch()" title="Clear search">✕</button>
+            <label class="tradeLogOptionsToggle" title="Toggle search &amp; filter options">
+                <input type="checkbox" [checked]="showLogOptions"
+                    (change)="showLogOptions = $any($event.target).checked" /> ⚙ Options
+            </label>
+            <div *ngIf="showLogOptions" class="tradeLogOptionsPanel">
+                <div class="tradeLogOptionsRow">
+                    <input type="text" class="tradeLogSearchInput" placeholder="🔍 Search logs…"
+                        [value]="searchTerm" (input)="onSearchInput($event)" />
+                    <button *ngIf="searchTerm" class="tradeLogSearchClear" (click)="clearLogSearch()" title="Clear search">✕</button>
+                </div>
+                <div class="tradeLogOptionsRow">
+                    <label class="tradeLogOptionLabel">From
+                        <input type="date" [value]="logFromDate"
+                            (input)="onLogFilterInput($event, 'logFromDate')" /></label>
+                    <label class="tradeLogOptionLabel">To
+                        <input type="date" [value]="logToDate"
+                            (input)="onLogFilterInput($event, 'logToDate')" /></label>
+                </div>
+                <div class="tradeLogOptionsRow">
+                    <button class="tradeLogOptionButton" (click)="clearLogFilters()"
+                        [disabled]="exportingLogs">Clear filters</button>
+                    <button class="tradeLogOptionButton tradeLogExportButton" (click)="exportTradeLogsToCsv()"
+                        [disabled]="exportingLogs">{{ exportingLogs ? '⏳ Exporting…' : '⬇ Export to Excel' }}</button>
+                </div>
+            </div>
         </div>
         <div class="xxSmallFont">
             Refresh in {{timeLeft}}s.

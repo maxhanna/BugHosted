@@ -873,6 +873,50 @@
   border-color: rgba(255,255,255,0.35);
 }
 
+/* Zoom in/out controls — round −/＋ pair with a live % readout */
+.garage-zoom-cluster {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.garage-zoom-btn {
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 50%;
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.7);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.garage-zoom-btn:hover {
+  background: rgba(255,255,255,0.14);
+  color: #fff;
+  border-color: rgba(255,255,255,0.35);
+}
+
+.garage-zoom-btn:active {
+  transform: scale(0.92);
+}
+
+.garage-zoom-level {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.45);
+  min-width: 34px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 @keyframes hint-pulse {
   0%, 100% { opacity: 0.35; }
   50% { opacity: 0.8; }
@@ -3066,13 +3110,6 @@
   color: rgba(255,255,255,0.7);
 }
 
-.gp-podium-money {
-  font-size: 32px;
-  font-weight: 900;
-  color: #ffd600;
-  text-shadow: 0 0 20px rgba(255, 214, 0, 0.4);
-}
-
 .gp-podium-row {
   display: flex;
   flex-direction: column;
@@ -3153,17 +3190,6 @@
   text-align: center;
   padding-bottom: 4px;
   letter-spacing: 0.3px;
-}
-
-.gp-standings-title {
-  text-align: center;
-  font-weight: 700;
-  letter-spacing: 1px;
-  font-size: 14px;
-  padding: 4px 0 8px;
-  color: rgba(255,255,255,0.9);
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  margin-bottom: 6px;
 }
 
 /* Previous-race results panel in the multiplayer lobby — shown when a player
@@ -3344,6 +3370,73 @@
   opacity: 0.7;
   min-width: 34px;
   text-align: right;
+}
+
+/* Total race time column — real for racers who finished, '—' otherwise. */
+.gp-standings-time {
+  font-variant-numeric: tabular-nums;
+  min-width: 56px;
+  text-align: right;
+  opacity: 0.8;
+}
+
+/* Collapsible standings header (podium + lobby previous-race list) — the whole
+   title is a button so tapping it folds/unfolds the classification. The
+   countdown stays visible above the fold regardless of collapse state. */
+.gp-standings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 0 8px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-align: center;
+  color: rgba(255,255,255,0.9);
+  transition: color 0.15s ease;
+}
+
+.gp-standings-toggle:hover { color: #fff; }
+
+.gp-standings-chevron {
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.6;
+  transition: transform 0.2s ease;
+}
+
+.gp-standings-chevron.closed { transform: rotate(180deg); }
+
+/* Mobile: compact standings rows, and the podium scrolls instead of
+   overflowing the viewport. */
+@media (max-width: 768px) {
+  .gp-podium {
+    max-height: 94vh;
+    overflow-y: auto;
+    padding: 10px 4px;
+  }
+  .gp-podium-title { font-size: 24px; letter-spacing: 5px; }
+  .gp-podium-stats { width: min(88vw, 340px); min-width: 0; padding: 8px 12px; }
+  .gp-podium-money-row { margin-top: 4px; }
+  .gp-money-prize { font-size: 24px; }
+  .gp-standings {
+    width: min(96vw, 380px);
+    max-height: 36vh;
+    padding: 6px 8px;
+  }
+  .gp-standings-toggle { font-size: 13px; }
+  .gp-standings-row { font-size: 12px; gap: 6px; padding: 4px 5px; }
+  .gp-standings-pos { width: 18px; }
+  .gp-standings-time { min-width: 52px; font-size: 12px; }
+  .gp-standings-laps { min-width: 28px; font-size: 12px; }
 }
 
 .gp-money-prize {

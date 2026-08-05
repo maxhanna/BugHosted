@@ -39,7 +39,7 @@ public class Log
 
 
 
-  public async Task<List<LogDto>> GetLogs(int? userId = null, string? component = null, int limit = 1000, string keywords = "", int page = 1, string? search = null, CancellationToken ct = default)
+  public async Task<List<LogDto>> GetLogs(int? userId = null, string? component = null, int limit = 1000, string keywords = "", int page = 1, string? search = null, DateTime? fromDate = null, DateTime? toDate = null, CancellationToken ct = default)
   {
     var list = new List<LogDto>(limit);
     int offset = (page - 1) * limit;
@@ -63,6 +63,16 @@ public class Log
     if (hasSearch)
     {
       sb.AppendLine("  AND comment LIKE CONCAT('%', @Search, '%')");
+    }
+    bool hasFromDate = fromDate.HasValue;
+    if (hasFromDate)
+    {
+      sb.AppendLine("  AND `timestamp` >= @FromDate");
+    }
+    bool hasToDate = toDate.HasValue;
+    if (hasToDate)
+    {
+      sb.AppendLine("  AND `timestamp` <= @ToDate");
     }
     sb.AppendLine("ORDER BY id DESC");
     sb.AppendLine("LIMIT @Limit OFFSET @Offset");
@@ -95,6 +105,14 @@ public class Log
       {
         cmd.Parameters.Add("@Search", MySqlDbType.Text).Value = search;
       }
+      if (hasFromDate)
+      {
+        cmd.Parameters.Add("@FromDate", MySqlDbType.DateTime).Value = fromDate.Value;
+      }
+      if (hasToDate)
+      {
+        cmd.Parameters.Add("@ToDate", MySqlDbType.DateTime).Value = toDate.Value;
+      }
       await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleResult | CommandBehavior.SequentialAccess, ct);
 
       // Resolve ordinals once
@@ -122,7 +140,7 @@ public class Log
     return list;
   } 
   
-  public async Task<int> GetLogsCount(int? userId = null, string? component = null, string keywords = "", string? search = null)
+  public async Task<int> GetLogsCount(int? userId = null, string? component = null, string keywords = "", string? search = null, DateTime? fromDate = null, DateTime? toDate = null)
   {
     var sql = new StringBuilder("SELECT COUNT(*) FROM maxhanna.logs WHERE 1=1");
 
@@ -142,6 +160,16 @@ public class Log
 
     if (!string.IsNullOrWhiteSpace(search)) {
       sql.Append(" AND comment LIKE CONCAT('%', @Search, '%') ");
+    }
+
+    bool hasFromDate = fromDate.HasValue;
+    if (hasFromDate) {
+      sql.Append(" AND `timestamp` >= @FromDate ");
+    }
+
+    bool hasToDate = toDate.HasValue;
+    if (hasToDate) {
+      sql.Append(" AND `timestamp` <= @ToDate ");
     }
 
     try
@@ -165,6 +193,14 @@ public class Log
       if (!string.IsNullOrWhiteSpace(search))
       {
         cmd.Parameters.AddWithValue("@Search", search);
+      }
+      if (hasFromDate)
+      {
+        cmd.Parameters.AddWithValue("@FromDate", fromDate.Value);
+      }
+      if (hasToDate)
+      {
+        cmd.Parameters.AddWithValue("@ToDate", toDate.Value);
       }
 
       var result = await cmd.ExecuteScalarAsync();

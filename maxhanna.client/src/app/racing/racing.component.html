@@ -225,24 +225,31 @@
         <!-- Previous race results — shown to players who join a lobby while the
              last race's classification is still on display (rematch window). -->
         <div class="gp-lobby-results" *ngIf="selectedTrack && serverStandings && finalStandings.length">
-          <div class="gp-standings-title">🏁 Previous Race Results</div>
+          <button class="gp-standings-toggle" (click)="toggleStandings()"
+            [attr.aria-expanded]="!standingsCollapsed" title="Toggle standings">
+            <span>🏁 Previous Race Results</span>
+            <span class="gp-standings-chevron" [class.closed]="standingsCollapsed">▴</span>
+          </button>
           <div class="gp-standings-countdown" [class.gp-standings-low]="standingsLow" [class.gp-standings-flash]="standingsTickFlash"
             *ngIf="serverStandings && standingsCountdownText">
             <span class="gp-standings-countdown-text">⏳ {{ standingsCountdownText }}</span>
             <span class="gp-standings-bar"><span class="gp-standings-bar-fill" [style.width.%]="standingsProgress"></span></span>
           </div>
-          <div class="gp-standings-row gp-standings-head">
-            <span>#</span><span>Driver</span><span>Laps</span>
-          </div>
-          <div class="gp-standings-row" *ngFor="let s of finalStandings"
-            [class.gp-standings-dnf]="s.isDnf">
-            <span class="gp-standings-pos">{{ s.isDnf ? 'DNF' : s.position }}</span>
-            <span class="gp-standings-name">
-              <span class="gp-standings-dot" [style.background]="s.color"></span>
-              {{ s.name }}<span *ngIf="s.isPlayer" class="gp-standings-you"> (You)</span>
-            </span>
-            <span class="gp-standings-laps">{{ s.isDnf ? '—' : s.laps + '/' + selectedTrack.laps }}</span>
-          </div>
+          <ng-container *ngIf="!standingsCollapsed">
+            <div class="gp-standings-row gp-standings-head">
+              <span class="gp-standings-pos">#</span><span>Driver</span><span class="gp-standings-time">Time</span><span class="gp-standings-laps">Laps</span>
+            </div>
+            <div class="gp-standings-row" *ngFor="let s of finalStandings"
+              [class.gp-standings-dnf]="s.isDnf">
+              <span class="gp-standings-pos">{{ s.isDnf ? 'DNF' : s.position }}</span>
+              <span class="gp-standings-name">
+                <span class="gp-standings-dot" [style.background]="s.color"></span>
+                {{ s.name }}<span *ngIf="s.isPlayer" class="gp-standings-you"> (You)</span>
+              </span>
+              <span class="gp-standings-time">{{ getStandingsTime(s) }}</span>
+              <span class="gp-standings-laps">{{ s.isDnf ? '—' : s.laps + '/' + selectedTrack.laps }}</span>
+            </div>
+          </ng-container>
         </div>
 
         <!-- Auto-start countdown timer -->
@@ -356,7 +363,8 @@
               <div class="car-preview-container" [style.transform]="getCarTransform()"
                 [class.car-dragging]="isCarDragging" (pointerdown)="onCarPointerDown($event)"
                 (pointermove)="onCarPointerMove($event)" (pointerup)="onCarPointerUp()"
-                (pointercancel)="onCarPointerUp()" (pointerleave)="onCarPointerUp()" title="Drag to rotate">
+                (pointercancel)="onCarPointerUp()" (pointerleave)="onCarPointerUp()"
+                (wheel)="onCarWheel($event)" title="Drag to rotate · scroll to zoom">
                 <!-- Ground shadow (flat ellipse on the floor) -->
                 <div class="car-shadow"></div>
                 <!-- Neon underglow (livery accent glow below the undertray) -->
@@ -586,7 +594,12 @@
           <div class="garage-car-label">
             {{ getCarLabel() }}
             <div class="garage-car-actions">
-              <span class="garage-rotate-hint">🔄 drag to rotate</span>
+              <span class="garage-rotate-hint">🔄 drag to rotate · scroll to zoom</span>
+              <div class="garage-zoom-cluster">
+                <button class="garage-zoom-btn" (click)="zoomCar(-0.15)" title="Zoom out">−</button>
+                <span class="garage-zoom-level">{{ (carZoom * 100).toFixed(0) }}%</span>
+                <button class="garage-zoom-btn" (click)="zoomCar(0.15)" title="Zoom in">＋</button>
+              </div>
               <button class="garage-reset-view" (click)="resetCarView()" title="Reset car view">⟲</button>
             </div>
           </div>
@@ -983,7 +996,6 @@
           <div class="gp-podium-pos">1st</div>
           <div class="gp-podium-label">YOU WIN!</div>
           <div class="gp-podium-time">{{ formatTime(totalRaceTime) }}</div>
-          <div class="gp-podium-money">+${{ calculatePrize() }}</div>
         </div>
         <div class="gp-podium-row" *ngIf="racePosition !== 1">
           <div class="gp-podium-pos-sm">#{{ racePosition }}</div>
@@ -1017,29 +1029,36 @@
           <span class="gp-money-label">Participation</span>
         </div>
         <div class="gp-standings" *ngIf="finalStandings.length">
-          <div class="gp-standings-title">🏁 Final Standings</div>
+          <button class="gp-standings-toggle" (click)="toggleStandings()"
+            [attr.aria-expanded]="!standingsCollapsed" title="Toggle standings">
+            <span>🏁 Final Standings</span>
+            <span class="gp-standings-chevron" [class.closed]="standingsCollapsed">▴</span>
+          </button>
         <div class="gp-standings-countdown" [class.gp-standings-low]="standingsLow" [class.gp-standings-flash]="standingsTickFlash"
           *ngIf="standingsCountdownText">
           <span class="gp-standings-countdown-text">⏳ {{ standingsCountdownText }}</span>
           <span class="gp-standings-bar"><span class="gp-standings-bar-fill" [style.width.%]="standingsProgress"></span></span>
         </div>
-          <div class="gp-standings-full" *ngIf="serverStandings">Full lobby results — all racers finished</div>
-          <div class="gp-standings-row gp-standings-head">
-            <span>#</span><span>Driver</span><span>Laps</span>
-          </div>
-          <div class="gp-standings-row" *ngFor="let s of finalStandings"
-            [class.gp-standings-me]="s.isPlayer"
-            [class.gp-standings-dnf]="s.isDnf">
-            <span class="gp-standings-pos">{{ s.isDnf ? 'DNF' : s.position }}</span>
-            <span class="gp-standings-name"
-              [class.gp-standings-clickable]="!s.isBot && s.playerId > 0"
-              [title]="(!s.isBot && s.playerId > 0) ? 'View profile' : ''"
-              (click)="!s.isBot && s.playerId > 0 && openStandingsProfile(s)">
-              <span class="gp-standings-dot" [style.background]="s.color"></span>
-              {{ s.name }}<span *ngIf="s.isPlayer" class="gp-standings-you"> (You)</span>
-            </span>
-            <span class="gp-standings-laps">{{ s.isDnf ? '—' : s.laps + '/' + totalLaps }}</span>
-          </div>
+          <ng-container *ngIf="!standingsCollapsed">
+            <div class="gp-standings-full" *ngIf="serverStandings">Full lobby results — all racers finished</div>
+            <div class="gp-standings-row gp-standings-head">
+              <span class="gp-standings-pos">#</span><span>Driver</span><span class="gp-standings-time">Time</span><span class="gp-standings-laps">Laps</span>
+            </div>
+            <div class="gp-standings-row" *ngFor="let s of finalStandings"
+              [class.gp-standings-me]="s.isPlayer"
+              [class.gp-standings-dnf]="s.isDnf">
+              <span class="gp-standings-pos">{{ s.isDnf ? 'DNF' : s.position }}</span>
+              <span class="gp-standings-name"
+                [class.gp-standings-clickable]="!s.isBot && s.playerId > 0"
+                [title]="(!s.isBot && s.playerId > 0) ? 'View profile' : ''"
+                (click)="!s.isBot && s.playerId > 0 && openStandingsProfile(s)">
+                <span class="gp-standings-dot" [style.background]="s.color"></span>
+                {{ s.name }}<span *ngIf="s.isPlayer" class="gp-standings-you"> (You)</span>
+              </span>
+              <span class="gp-standings-time">{{ getStandingsTime(s) }}</span>
+              <span class="gp-standings-laps">{{ s.isDnf ? '—' : s.laps + '/' + totalLaps }}</span>
+            </div>
+          </ng-container>
         </div>
         <div class="gp-podium-rematch" *ngIf="isInMultiplayerRace">
           <button class="race-mp-btn race-mp-start" *ngIf="isLobbyHost" (click)="rematchMP()">

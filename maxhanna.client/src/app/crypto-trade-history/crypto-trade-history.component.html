@@ -15,9 +15,56 @@
             </select>
         </div>
         <div class="tradeHistorySearchWrapper">
-            <input type="text" class="tradeHistorySearchInput" placeholder="🔍 Search trades…"
-                [value]="searchTerm" (input)="onSearchInput($event)" />
-            <button *ngIf="searchTerm" class="tradeHistorySearchClear" (click)="clearTradeSearch()" title="Clear search">✕</button>
+            <label class="tradeHistoryOptionsToggle" title="Toggle search &amp; filter options">
+                <input type="checkbox" [checked]="showHistoryOptions"
+                    (change)="showHistoryOptions = $any($event.target).checked" /> ⚙ Options
+            </label>
+            <div *ngIf="showHistoryOptions" class="tradeHistoryOptionsPanel">
+                <div class="tradeHistoryOptionsRow">
+                    <input type="text" class="tradeHistorySearchInput" placeholder="🔍 Search trades…"
+                        [value]="searchTerm" (input)="onSearchInput($event)" />
+                    <button *ngIf="searchTerm" class="tradeHistorySearchClear" (click)="clearTradeSearch()" title="Clear search">✕</button>
+                </div>
+                <div class="tradeHistoryOptionsRow">
+                    <label class="tradeHistoryOptionLabel">Match Trade ID
+                        <input type="number" [value]="matchingTradeId"
+                            (input)="onHistoryFilterInput($event, 'matchingTradeId')" /></label>
+                    <label class="tradeHistoryOptionLabel"><input type="checkbox" [checked]="hasMatchingTrade"
+                            (change)="onHistoryFilterCheck($event, 'hasMatchingTrade')" /> Has matching trade</label>
+                    <label class="tradeHistoryOptionLabel"><input type="checkbox" [checked]="hasPrice"
+                            (change)="onHistoryFilterCheck($event, 'hasPrice')" /> Has price</label>
+                </div>
+                <div class="tradeHistoryOptionsRow">
+                    <label class="tradeHistoryOptionLabel">From
+                        <input type="date" [value]="fromDate"
+                            (input)="onHistoryFilterInput($event, 'fromDate')" /></label>
+                    <label class="tradeHistoryOptionLabel">To
+                        <input type="date" [value]="toDate"
+                            (input)="onHistoryFilterInput($event, 'toDate')" /></label>
+                </div>
+                <div class="tradeHistoryOptionsRow">
+                    <label class="tradeHistoryOptionLabel">Spent ≥
+                        <input type="number" step="any" [value]="spentMin"
+                            (input)="onHistoryFilterInput($event, 'spentMin')" /></label>
+                    <label class="tradeHistoryOptionLabel">Spent ≤
+                        <input type="number" step="any" [value]="spentMax"
+                            (input)="onHistoryFilterInput($event, 'spentMax')" /></label>
+                </div>
+                <div class="tradeHistoryOptionsRow">
+                    <label class="tradeHistoryOptionLabel">Received ≥
+                        <input type="number" step="any" [value]="receivedMin"
+                            (input)="onHistoryFilterInput($event, 'receivedMin')" /></label>
+                    <label class="tradeHistoryOptionLabel">Received ≤
+                        <input type="number" step="any" [value]="receivedMax"
+                            (input)="onHistoryFilterInput($event, 'receivedMax')" /></label>
+                </div>
+                <div class="tradeHistoryOptionsRow">
+                    <button class="tradeHistoryOptionButton" (click)="clearHistoryFilters()"
+                        [disabled]="exportingHistory">Clear filters</button>
+                    <button class="tradeHistoryOptionButton tradeHistoryExportButton" (click)="exportTradeHistoryToCsv()"
+                        [disabled]="exportingHistory">{{ exportingHistory ? '⏳ Exporting…' : '⬇ Export to Excel' }}</button>
+                </div>
+            </div>
         </div>
         <div class="xxSmallFont">
             Refresh in {{timeLeft}}s.

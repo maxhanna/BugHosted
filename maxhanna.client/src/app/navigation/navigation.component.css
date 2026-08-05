@@ -15,6 +15,138 @@
   padding: 12px;
 }
 
+/* Hidden while the user is typing in the nav search bar — keeps the page tidy
+   so only matching apps stay visible. */
+.navSearchHidden {
+  display: none !important;
+}
+
+/* ── Nav page search bar ───────────────────────────────────────────────
+   Sits at the bottom of the navigation page (the top nav, not the left
+   pane). Desktop: a compact rounded pill, centered under the app icons.
+   Mobile: a full-width, thumb-friendly bar with a bigger hit target. */
+.navSearchBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px 14px;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.navSearchBar.hidden {
+  display: none;
+}
+
+.navSearchToggle {
+  background: var(--main-highlight-color, #3a3a3a);
+  border: 1px solid var(--main-highlight-color, #3a3a3a);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--secondary-font-color, #fff);
+  flex: 0 0 auto;
+  transition: transform 0.15s ease, opacity 0.2s ease;
+}
+
+@supports (background: rgb(from red r g b)) {
+  .navSearchToggle {
+    background: rgb(from var(--main-highlight-color) r g b / 30%);
+  }
+}
+
+.navSearchToggle:hover {
+  transform: scale(1.08);
+}
+
+.navSearchToggle:active {
+  transform: scale(0.95);
+}
+
+.navSearchToggleFloating {
+  position: relative;
+  left: 14px;
+  margin-bottom: 14px;
+}
+
+.navSearchInputWrap {
+  position: relative;
+  flex: 1 1 auto;
+  max-width: 420px;
+}
+
+.navSearchInput {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 32px 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--main-highlight-color, #3a3a3a);
+  background: var(--main-highlight-color, #3a3a3a);
+  color: var(--secondary-font-color, #fff);
+  font-size: var(--main-font-size, 14px);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+@supports (background: rgb(from red r g b)) {
+  .navSearchInput {
+    background: rgb(from var(--main-highlight-color) r g b / 25%);
+  }
+}
+
+.navSearchInput::placeholder {
+  color: var(--third-font-color, cornflowerblue);
+  opacity: 0.7;
+}
+
+.navSearchInput:focus {
+  border-color: var(--main-link-color, chartreuse);
+  box-shadow: 0 0 0 2px rgb(from var(--main-link-color) r g b / 20%);
+}
+
+.navSearchClear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--secondary-font-color, #fff);
+  font-size: 13px;
+  cursor: pointer;
+  opacity: 0.7;
+  padding: 4px 6px;
+}
+
+.navSearchClear:hover {
+  opacity: 1;
+}
+
+/* Mobile: the search takes the full width with a taller, easier-to-tap
+   field and the toggle button tucks in beside it. */
+@media (max-width: 768px) {
+  .navSearchBar {
+    padding: 4px 10px 12px;
+    gap: 8px;
+  }
+
+  .navSearchToggle {
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
+  }
+
+  .navSearchInputWrap {
+    max-width: none;
+  }
+
+  .navSearchInput {
+    padding: 11px 36px 11px 14px;
+    font-size: 16px;
+  }
+}
+
 a {
   font-style: unset;
 }

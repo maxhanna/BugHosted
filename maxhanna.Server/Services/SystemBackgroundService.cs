@@ -422,6 +422,8 @@ namespace maxhanna.Server.Services
                 catch (Exception ex) { _ = _log.Db($"Error in DeleteOldUserEvents: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
                 try { await _dbQueue.EnqueueAsync(async () => { await new FollowNotificationService(_config, _log, _emailService).DeleteOldFollowNotifications(); }); }
                 catch (Exception ex) { _ = _log.Db("Error in DeleteOldFollowNotifications: " + ex.Message, null, "SYSTEM", outputToConsole: true); }
+                try { await _dbQueue.EnqueueAsync(async () => { await DeleteInvalidBenchmarks(); }); }
+                catch (Exception ex) { _ = _log.Db($"Error in DeleteInvalidBenchmarks: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
                 _ = Task.Run(async () => { try { await _log.BackupDatabase(); } catch (Exception ex) { _ = _log.Db($"Error in BackupDatabase: {ex.Message}", null, "SYSTEM", outputToConsole: true); } });
             }
             finally
@@ -2557,10 +2559,33 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
             }
         }
         /// <summary>
-        /// Daily cleanup: delete password reset tokens that expired more than 24 hours ago
-        /// (preserves any tokens that are still within their expiry window).
-        /// Also deletes any used tokens older than 24 hours.
+        /// Daily cleanup: delete benchmark rows that carry no usable data — missing
+        /// benchmark name/title, duration, or model (the core identifying fields).
+        /// Broken or partial submissions would otherwise clutter the leaderboards.
         /// </summary>
+        private async Task DeleteInvalidBenchmarks()
+        {
+            Console.WriteLine("Deleting Invalid Benchmarks");
+            try
+            {
+                await using var conn = new MySqlConnection(_connectionString);
+                await conn.OpenAsync();
+                const string sql = @"DELETE FROM maxhanna.weaver_benchmark_data
+          WHERE benchmark_name IS NULL OR TRIM(benchmark_name) = ''
+             OR duration IS NULL OR TRIM(duration) = ''
+             OR model IS NULL OR TRIM(model) = '';";
+                await using var cmd = new MySqlCommand(sql, conn);
+                int deleted = Convert.ToInt32(await cmd.ExecuteNonQueryAsync());
+                if (deleted > 0)
+                {
+                    _ = _log.Db($"DeleteInvalidBenchmarks removed {deleted} invalid benchmark rows", null, "SYSTEM", outputToConsole: true);
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DeleteInvalidBenchmarks failure: " + ex.Message, null, "SYSTEM", true);
+            }
+        }
         private async Task DeleteExpiredPasswordResetTokens()
         {
             Console.WriteLine("Deleting Expired Password Tokens");

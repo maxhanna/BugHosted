@@ -1,6 +1,39 @@
 import { Injectable, signal } from '@angular/core';
 import { ProfitData } from './datacontracts/trade/profit-data';
 
+// Structured filters used by the trade history / trade logs options panels.
+// All present filters are AND-combined server-side.
+export interface TradeHistoryFilters {
+  matchingTradeId?: number;
+  hasMatchingTrade?: boolean;
+  fromDate?: string; // ISO 8601 UTC
+  toDate?: string; // ISO 8601 UTC
+  spentMin?: number;
+  spentMax?: number;
+  receivedMin?: number;
+  receivedMax?: number;
+  hasPrice?: boolean;
+  exportAll?: boolean; // fetch every matching row for CSV reports
+}
+
+// Builds a CSV file from headers + rows and triggers a download.
+export function downloadCsvReport(filename: string, headers: string[], rows: any[][]): void {
+  const esc = (v: any): string => {
+    const s = v === null || v === undefined ? '' : String(v);
+    return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const csv = [headers, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -51,8 +84,22 @@ export class TradeService {
       return error.message ?? 'Unexpected error';
     }
   }
-  async getTradeHistory(userId: number, encryptedUserId: string, coin?: string, strategy?: string, hours?: number, page?: number, pageSize?: number, search?: string) {
-    return this.post(`/trade/gettradehistory`, { UserId: userId, Coin: coin ?? "XBT", Strategy: strategy ?? "DCA", Hours: hours, Page: page, PageSize: pageSize, Search: search ?? '' }, 'json', encryptedUserId);
+  async getTradeHistory(userId: number, encryptedUserId: string, coin?: string, strategy?: string, hours?: number, page?: number, pageSize?: number, search?: string, filters?: TradeHistoryFilters) {
+    return this.post(`/trade/gettradehistory`, {
+      UserId: userId, Coin: coin ?? "XBT", Strategy: strategy ?? "DCA", Hours: hours, Page: page, PageSize: pageSize, Search: search ?? '',
+      ...(filters ? {
+        MatchingTradeId: filters.matchingTradeId ?? null,
+        HasMatchingTrade: filters.hasMatchingTrade ?? false,
+        FromDate: filters.fromDate ?? null,
+        ToDate: filters.toDate ?? null,
+        SpentMin: filters.spentMin ?? null,
+        SpentMax: filters.spentMax ?? null,
+        ReceivedMin: filters.receivedMin ?? null,
+        ReceivedMax: filters.receivedMax ?? null,
+        HasPrice: filters.hasPrice ?? false,
+        ExportAll: filters.exportAll ?? false,
+      } : {}),
+    }, 'json', encryptedUserId);
   }
   async getTradeById(userId: number, tradeId: number, encryptedUserId: string) {
     return this.post(`/trade/gettradebyid`, { UserId: userId, TradeId: tradeId }, 'json', encryptedUserId);
@@ -93,8 +140,13 @@ export class TradeService {
   async getTradeConfiguration(userId: number, encryptedUserId: string, from?: string, to?: string, strategy?: string) {
     return this.post(`/trade/getconfiguration`, { UserId: userId, FromCoin: from, ToCoin: to, Strategy: strategy }, 'json', encryptedUserId);
   }
-  async getTradeLogs(userId: number, coin: string, strategy: string, encryptedUserId: string, page: number, pageSize: number, search?: string) {
-    return this.post(`/trade/gettradelogs`, { UserId: userId, Coin: coin, Strategy: strategy, Page: page, PageSize: pageSize, Search: search ?? '' }, 'json', encryptedUserId);
+  async getTradeLogs(userId: number, coin: string, strategy: string, encryptedUserId: string, page: number, pageSize: number, search?: string, filters?: TradeHistoryFilters) {
+    return this.post(`/trade/gettradelogs`, {
+      UserId: userId, Coin: coin, Strategy: strategy, Page: page, PageSize: pageSize, Search: search ?? '',
+      FromDate: filters?.fromDate ?? null,
+      ToDate: filters?.toDate ?? null,
+      ExportAll: filters?.exportAll ?? false,
+    }, 'json', encryptedUserId);
   }
   async getLastTradeLogs(userId: number, encryptedUserId: string) {
     return this.post(`/trade/getlasttradelogs`, userId, 'json', encryptedUserId);

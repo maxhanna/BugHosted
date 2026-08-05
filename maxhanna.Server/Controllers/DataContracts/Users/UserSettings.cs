@@ -30,5 +30,9 @@
 
         [Newtonsoft.Json.JsonProperty("followEmailEnabled")]
         public bool FollowNotificationsEmail { get; set; } = false;
+
+        // Whether the search bar on the navigation page (top nav) is visible.
+        [Newtonsoft.Json.JsonProperty("showNavSearch")]
+        public bool ShowNavSearch { get; set; } = true;
     }
 }

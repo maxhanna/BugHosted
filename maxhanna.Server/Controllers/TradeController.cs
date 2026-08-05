@@ -20,7 +20,7 @@ public class TradeController : ControllerBase
 		{
 			if (req.UserId != 1 && !await _log.ValidateUserLoggedIn(req.UserId, encryptedUserId))
 				return StatusCode(500, "Access Denied.");
-			var history = await _krakenService.GetTradeHistory(req.UserId, req.Coin ?? "XBT", req.Strategy ?? "DCA", req.Hours, req.Page, req.PageSize, req.Search);
+			var history = await _krakenService.GetTradeHistory(req.UserId, req.Coin ?? "XBT", req.Strategy ?? "DCA", req.Hours, req.Page, req.PageSize, req.Search, req.MatchingTradeId, req.HasMatchingTrade, req.FromDate, req.ToDate, req.SpentMin, req.SpentMax, req.ReceivedMin, req.ReceivedMax, req.HasPrice, req.ExportAll);
 			return Ok(history);
 		}
 		catch (Exception ex)
@@ -257,17 +257,21 @@ public class TradeController : ControllerBase
 			var result = await _log.GetLogs(
 				req.UserId,
 				"TRADE",
-				req.PageSize ?? 2500,
+				req.ExportAll ? 25000 : (req.PageSize ?? 2500),
 				$"({req.Coin.Replace("BTC", "XBT")}:{req.UserId}:{req.Strategy})",
 				req.Page ?? 1,
-				req.Search
+				req.Search,
+				req.FromDate,
+				req.ToDate
 			);
 
 			var totalCount = await _log.GetLogsCount(
 				req.UserId,
 				"TRADE",
 				$"({req.Coin.Replace("BTC", "XBT")}:{req.UserId}:{req.Strategy})",
-				req.Search
+				req.Search,
+				req.FromDate,
+				req.ToDate
 			);
 
 			return Ok(new { logs = result, total = totalCount });

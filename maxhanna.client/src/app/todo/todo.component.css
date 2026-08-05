@@ -228,6 +228,15 @@ input:checked+.slider:before {
   text-decoration: line-through;
 }
 
+/* Edit popup textareas — doubled height (default ~2 rows) so longer todo
+   text and URLs are readable while editing. Still user-resizable. */
+#todoEditingTextarea,
+#todoEditingUrlTextarea {
+  height: 76px;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
 /* Resizable textarea grip — make the drag-to-resize knob stand out */
 textarea::-webkit-resizer {
   width: 18px;

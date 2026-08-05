@@ -31,6 +31,9 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   isGeneralToggled = false;
   isMenuIconsToggled = false;
   isWeatherLocationToggled = false;
+  // True while the browser is fetching a precise GPS position for the Detect
+  // button — shows a spinner on the button and blocks double-clicks.
+  detectingLocation = false;
   isBlockedUsersToggled = false;
   isDeleteAccountToggled = false;
   isBTCWalletAddressesToggled = false;
@@ -334,6 +337,73 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       } else if ((!keys.orgId || !keys.apiKey || !keys.apiSecret) && (keys.orgId || keys.apiKey || keys.apiSecret)) {
         return alert("Incomplete Nicehash API key entry. Fill in All 3 API key, Org ID and API Secret values to save.");
       }
+    }
+  }
+
+  /** Uses the browser's GPS (HTML5 geolocation) to find the user's precise
+   *  location, reverse-geocodes it to a city + country, and fills the City /
+   *  Country inputs so they can press Save Location. Mirrors the sig-int
+   *  getCurrentPosition pattern (high accuracy, 15s timeout). */
+  detectLocation(): void {
+    if (!this.parentRef?.user?.id || this.detectingLocation) return;
+    if (!navigator.geolocation) {
+      this.parentRef?.showNotification('Geolocation is not supported by this browser.');
+      return;
+    }
+    this.detectingLocation = true;
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        const place = await this.reverseGeocode(lat, lon);
+        // The section may have been collapsed while the GPS request was pending
+        // (the *ngIf removes the inputs), so the ViewChilds can be undefined —
+        // write defensively so the button never gets stuck on "Detecting…".
+        const cityEl = this.weatherLocationCityInput?.nativeElement;
+        const countryEl = this.weatherLocationCountryInput?.nativeElement;
+        if (place && (place.city || place.country)) {
+          if (cityEl) cityEl.value = place.city;
+          if (countryEl) countryEl.value = place.country;
+          this.parentRef?.showNotification(
+            `Detected: ${place.city}${place.country ? ', ' + place.country : ''} (${lat.toFixed(4)}, ${lon.toFixed(4)}) — press Save Location to apply`
+          );
+        } else {
+          this.parentRef?.showNotification(
+            `Location found (${lat.toFixed(4)}, ${lon.toFixed(4)}) but couldn't resolve the city — type it in and press Save Location`
+          );
+        }
+        this.detectingLocation = false;
+      },
+      (err) => {
+        this.detectingLocation = false;
+        const msg = err.code === err.PERMISSION_DENIED
+          ? 'Location permission denied. Enable location access in your browser and try again.'
+          : err.code === err.POSITION_UNAVAILABLE
+            ? 'Location unavailable. Try again in a moment.'
+            : 'Location request timed out. Try again.';
+        this.parentRef?.showNotification(msg);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+    );
+  }
+
+  /** Reverse-geocodes a lat/lon pair to { city, country } via OpenStreetMap's
+   *  Nominatim API. Returns null on any failure so the caller can fall back. */
+  private async reverseGeocode(lat: number, lon: number): Promise<{ city: string; country: string } | null> {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      const a = data?.address;
+      if (!a) return null;
+      return {
+        city: (a.city || a.town || a.village || a.municipality || a.county || '').trim(),
+        country: (a.country || '').trim(),
+      };
+    } catch {
+      return null;
     }
   }
 

@@ -32,8 +32,46 @@ namespace maxhanna.Server.Controllers
         "page_size",
         "weekly_digest_enabled",
         "follow_notifications_push",
-        "follow_notifications_email"
+        "follow_notifications_email",
+        "show_nav_search"
     };
+
+    private static bool _userSettingsSchemaEnsured = false;
+    private static readonly object _userSettingsSchemaLock = new object();
+
+    // Adds missing columns to user_settings (e.g. show_nav_search) so settings
+    // added after the table was created work without a manual ALTER. Runs once
+    // per process, before any read/write touches the table.
+    private static void EnsureUserSettingsSchema(string? connStr)
+    {
+      if (_userSettingsSchemaEnsured || string.IsNullOrEmpty(connStr)) return;
+      lock (_userSettingsSchemaLock)
+      {
+        if (_userSettingsSchemaEnsured) return;
+        _userSettingsSchemaEnsured = true;
+        try
+        {
+          using var conn = new MySqlConnection(connStr);
+          conn.Open();
+          foreach (var col in new[] { (Name: "show_nav_search", Def: "INT NOT NULL DEFAULT 1") })
+          {
+            using (var check = new MySqlCommand(
+              "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_settings' AND COLUMN_NAME = @col", conn))
+            {
+              check.Parameters.AddWithValue("@col", col.Name);
+              if (Convert.ToInt32(check.ExecuteScalar()) > 0) continue;
+            }
+            using var alter = new MySqlCommand($"ALTER TABLE maxhanna.user_settings ADD COLUMN {col.Name} {col.Def};", conn);
+            alter.ExecuteNonQuery();
+            Console.WriteLine($"[UserSettings] Schema: added user_settings.{col.Name}.");
+          }
+        }
+        catch (Exception ex)
+        {
+          Console.WriteLine($"[UserSettings] Schema ensure failed: {ex.Message}");
+        }
+      }
+    }
 
     private static readonly ConcurrentDictionary<int, LoginPinState> _loginPinStates = new();
 
@@ -2362,7 +2400,9 @@ namespace maxhanna.Server.Controllers
     [HttpPost("/User/GetUserSettings", Name = "GetUserSettings")]
     public async Task<IActionResult> GetUserSettings([FromBody] int userId)
     {
-      using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+      string? connStr = _config.GetValue<string>("ConnectionStrings:maxhanna");
+      EnsureUserSettingsSchema(connStr);
+      using (MySqlConnection conn = new MySqlConnection(connStr))
       {
         try
         {
@@ -2392,7 +2432,8 @@ namespace maxhanna.Server.Controllers
      IFNULL(calendar_notifications_enabled,0) AS calendar_notifications_enabled,
      IFNULL(weekly_digest_enabled,1) AS weekly_digest_enabled,
      IFNULL(follow_notifications_push,1) AS follow_notifications_push,
-     IFNULL(follow_notifications_email,0) AS follow_notifications_email
+     IFNULL(follow_notifications_email,0) AS follow_notifications_email,
+     IFNULL(show_nav_search,1) AS show_nav_search
      FROM maxhanna.user_settings 
      WHERE user_id = @userId;";
           MySqlCommand selectCmd = new MySqlCommand(selectSql, conn);
@@ -2429,6 +2470,7 @@ namespace maxhanna.Server.Controllers
               userSettings.WeeklyDigestEnabled = !reader.IsDBNull(reader.GetOrdinal("weekly_digest_enabled")) && reader.GetInt32("weekly_digest_enabled") == 1;
               userSettings.FollowNotificationsPush = !reader.IsDBNull(reader.GetOrdinal("follow_notifications_push")) && reader.GetInt32("follow_notifications_push") == 1;
               userSettings.FollowNotificationsEmail = !reader.IsDBNull(reader.GetOrdinal("follow_notifications_email")) && reader.GetInt32("follow_notifications_email") == 1;
+              userSettings.ShowNavSearch = !reader.IsDBNull(reader.GetOrdinal("show_nav_search")) && reader.GetInt32("show_nav_search") == 1;
             }
           }
 
@@ -2477,7 +2519,9 @@ namespace maxhanna.Server.Controllers
         return BadRequest("No valid settings to update.");
       }
 
-      using (MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+      string? connStr = _config.GetValue<string>("ConnectionStrings:maxhanna");
+      EnsureUserSettingsSchema(connStr);
+      using (MySqlConnection conn = new MySqlConnection(connStr))
       {
         try
         {

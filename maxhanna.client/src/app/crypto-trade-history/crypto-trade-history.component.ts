@@ -1,7 +1,7 @@
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnDestroy, OnChanges, SimpleChanges, ViewChild } from '@angular/core';
 import { AppComponent } from '../app.component';
 import { ChildComponent } from '../child.component';
-import { TradeService } from '../../services/trade.service';
+import { TradeService, TradeHistoryFilters, downloadCsvReport } from '../../services/trade.service';
 
 @Component({
   selector: 'app-crypto-trade-history',
@@ -50,6 +50,19 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
   timeLeft = 120;
   defaultTimeLeft = 120;
   destroyed = false;
+
+  // Options panel state (hidden div toggled by the ⚙ checkbox)
+  showHistoryOptions = false;
+  matchingTradeId = '';
+  hasMatchingTrade = false;
+  fromDate = '';
+  toDate = '';
+  spentMin = '';
+  spentMax = '';
+  receivedMin = '';
+  receivedMax = '';
+  hasPrice = false;
+  exportingHistory = false;
 
   ngAfterViewInit(): void {
     // Initialize with default values if provided
@@ -115,7 +128,8 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
         undefined,
         this.currentTradePage,
         this.tradesPerPage,
-        this.searchTerm
+        this.searchTerm,
+        this.buildHistoryFilters()
       )
       .then((res) => {
         if (res && res.trades) {
@@ -202,6 +216,118 @@ export class CryptoTradeHistoryComponent extends ChildComponent implements After
     this.searchTerm = '';
     this.currentTradePage = 1;
     this.checkBalance();
+  }
+
+  // ---- Options panel: structured filters (all AND-combined server-side) ----
+
+  private numOrUndefined(value: string): number | undefined {
+    if (value === null || value === undefined || value === '' || isNaN(Number(value))) {
+      return undefined;
+    }
+    return Number(value);
+  }
+
+  buildHistoryFilters(exportAll = false): TradeHistoryFilters {
+    return {
+      matchingTradeId: this.numOrUndefined(this.matchingTradeId),
+      hasMatchingTrade: this.hasMatchingTrade,
+      fromDate: this.fromDate ? new Date(this.fromDate + 'T00:00:00').toISOString() : undefined,
+      toDate: this.toDate ? new Date(this.toDate + 'T23:59:59').toISOString() : undefined,
+      spentMin: this.numOrUndefined(this.spentMin),
+      spentMax: this.numOrUndefined(this.spentMax),
+      receivedMin: this.numOrUndefined(this.receivedMin),
+      receivedMax: this.numOrUndefined(this.receivedMax),
+      hasPrice: this.hasPrice,
+      exportAll,
+    };
+  }
+
+  onHistoryFilterInput(event: Event, field: string) {
+    if (this.destroyed) {
+      return;
+    }
+    (this as any)[field] = (event.target as HTMLInputElement).value;
+    this.debounceHistoryRefresh();
+  }
+
+  onHistoryFilterCheck(event: Event, field: string) {
+    if (this.destroyed) {
+      return;
+    }
+    (this as any)[field] = (event.target as HTMLInputElement).checked;
+    this.debounceHistoryRefresh();
+  }
+
+  debounceHistoryRefresh() {
+    clearTimeout(this.searchDebounceTimer);
+    this.searchDebounceTimer = setTimeout(() => {
+      this.currentTradePage = 1;
+      this.checkBalance();
+    }, 400);
+  }
+
+  clearHistoryFilters() {
+    if (this.destroyed) {
+      return;
+    }
+    clearTimeout(this.searchDebounceTimer);
+    this.matchingTradeId = '';
+    this.hasMatchingTrade = false;
+    this.fromDate = '';
+    this.toDate = '';
+    this.spentMin = '';
+    this.spentMax = '';
+    this.receivedMin = '';
+    this.receivedMax = '';
+    this.hasPrice = false;
+    this.currentTradePage = 1;
+    this.checkBalance();
+  }
+
+  // ---- Export filtered data to CSV (Excel-compatible) ----
+
+  async exportTradeHistoryToCsv() {
+    if (this.destroyed || this.exportingHistory) {
+      return;
+    }
+    this.exportingHistory = true;
+    try {
+      const userId = this.hasKrakenApi ? this.inputtedParentRef.user?.id ?? 1 : 1;
+      const sessionToken = await this.inputtedParentRef?.getSessionToken() ?? '';
+      const res = await this.tradeService.getTradeHistory(
+        userId,
+        sessionToken,
+        this.selectedCoin,
+        this.selectedStrategy,
+        undefined,
+        1,
+        5000,
+        this.searchTerm,
+        this.buildHistoryFilters(true)
+      );
+      if (res && res.trades && res.trades.length > 0) {
+        const headers = ['ID', 'From', 'To', 'Value', 'Coin Price USDC', 'Coin Price CAD', 'Trade Value USDC', 'Trade Value CAD', 'Fees', 'Timestamp (UTC)', 'Matching Trade ID', 'Reserved'];
+        const rows = res.trades.map((t: any) => [
+          t.id, t.from_currency, t.to_currency, t.value, t.coin_price_usdc, t.coin_price_cad,
+          t.trade_value_usdc, t.trade_value_cad, t.fees, t.timestamp, t.matching_trade_id ?? '',
+          t.is_reserved ? 'yes' : ''
+        ]);
+        downloadCsvReport(`trade-history-${this.selectedCoin}-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+        const total = res.totalCount ?? res.trades.length;
+        this.inputtedParentRef?.showNotification(
+          res.trades.length < total
+            ? `Exported first ${res.trades.length} of ${total} matching trades.`
+            : `Exported ${res.trades.length} trades.`
+        );
+      } else {
+        this.inputtedParentRef?.showNotification('No trades matched the filters to export.');
+      }
+    } catch (error) {
+      console.error('Export failed:', error);
+      this.inputtedParentRef?.showNotification('Export failed: ' + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      this.exportingHistory = false;
+    }
   }
 
   scrollUpTradePage() {

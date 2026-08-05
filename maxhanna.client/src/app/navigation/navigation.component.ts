@@ -80,6 +80,11 @@ export class NavigationComponent implements OnInit, OnDestroy {
   tradeNotifsCount = 0;
   navbarReady = false;
   navbarCollapsed: boolean = false;
+  // Search bar at the bottom of the nav page — filters the nav items as you
+  // type. Show/hide is a per-user preference persisted via user settings
+  // (show_nav_search), defaulting to visible.
+  navSearchTerm = '';
+  showNavSearch = true;
   isBTCRising = true;
   isLoadingNotifications = false;
   isLoadingTheme = false;
@@ -156,8 +161,44 @@ export class NavigationComponent implements OnInit, OnDestroy {
    // this.getNotifications();
     this.displayAppSelectionHelp();  
     // Gamepad polling setup
-    this._gamepadLastButtonStates = []; 
-  } 
+    this._gamepadLastButtonStates = [];
+    this.loadNavSearchPreference();
+  }
+
+  // Restore the user's show/hide preference for the nav search bar from their
+  // saved settings (defaults to visible).
+  async loadNavSearchPreference() {
+    const userId = this.user?.id ?? this._parent?.user?.id;
+    if (!userId) return;
+    try {
+      const settings = await this.userService.getUserSettings(userId);
+      if (settings && settings.showNavSearch !== undefined) {
+        this.showNavSearch = settings.showNavSearch;
+      }
+    } catch (e) {
+      console.error('Error loading nav search preference:', e);
+    }
+  }
+
+  toggleNavSearch() {
+    this.showNavSearch = !this.showNavSearch;
+    if (!this.showNavSearch) {
+      this.navSearchTerm = '';
+    }
+    const userId = this.user?.id ?? this._parent?.user?.id;
+    if (userId) {
+      this.userService.updateUserSettings(userId, [{ settingName: 'show_nav_search', value: this.showNavSearch }]);
+    }
+  }
+
+  // True when the item should be shown given the current search term (matched
+  // against both the raw title and its pretty display name).
+  matchesNavSearch(title: string): boolean {
+    const term = this.navSearchTerm.trim().toLowerCase();
+    if (!term) return true;
+    return title.toLowerCase().includes(term)
+      || this.cleanItemTitle(title).toLowerCase().includes(term);
+  }
 
   ngOnDestroy() {
     console.log("destroying navbar, stopping notifications");

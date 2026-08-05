@@ -1057,4 +1057,5 @@ export type UserSettingName =
   | "digcraft_view_distance"
   | "weekly_digest_enabled"
   | "follow_notifications_push"
-  | "follow_notifications_email";
+  | "follow_notifications_email"
+  | "show_nav_search";
