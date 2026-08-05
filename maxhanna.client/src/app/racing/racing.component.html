@@ -222,6 +222,24 @@
           Waiting for players… share this track with friends to fill the lobby.
         </div>
 
+        <!-- Previous race results — shown to players who join a lobby while the
+             last race's classification is still on display (rematch window). -->
+        <div class="gp-lobby-results" *ngIf="selectedTrack && serverStandings && finalStandings.length">
+          <div class="gp-standings-title">🏁 Previous Race Results</div>
+          <div class="gp-standings-row gp-standings-head">
+            <span>#</span><span>Driver</span><span>Laps</span>
+          </div>
+          <div class="gp-standings-row" *ngFor="let s of finalStandings"
+            [class.gp-standings-dnf]="s.isDnf">
+            <span class="gp-standings-pos">{{ s.isDnf ? 'DNF' : s.position }}</span>
+            <span class="gp-standings-name">
+              <span class="gp-standings-dot" [style.background]="s.color"></span>
+              {{ s.name }}<span *ngIf="s.isPlayer" class="gp-standings-you"> (You)</span>
+            </span>
+            <span class="gp-standings-laps">{{ s.isDnf ? '—' : s.laps + '/' + selectedTrack.laps }}</span>
+          </div>
+        </div>
+
         <!-- Auto-start countdown timer -->
         <div class="race-mp-countdown" *ngIf="selectedTrack && autoStartDisplay">
           ⏱️ {{ autoStartDisplay }}
@@ -925,17 +943,22 @@
         </div>
         <div class="gp-standings" *ngIf="finalStandings.length">
           <div class="gp-standings-title">🏁 Final Standings</div>
+          <div class="gp-standings-full" *ngIf="serverStandings">Full lobby results — all racers finished</div>
           <div class="gp-standings-row gp-standings-head">
             <span>#</span><span>Driver</span><span>Laps</span>
           </div>
           <div class="gp-standings-row" *ngFor="let s of finalStandings"
-            [class.gp-standings-me]="s.isPlayer">
-            <span class="gp-standings-pos">{{ s.position }}</span>
-            <span class="gp-standings-name">
+            [class.gp-standings-me]="s.isPlayer"
+            [class.gp-standings-dnf]="s.isDnf">
+            <span class="gp-standings-pos">{{ s.isDnf ? 'DNF' : s.position }}</span>
+            <span class="gp-standings-name"
+              [class.gp-standings-clickable]="!s.isBot && s.playerId > 0"
+              [title]="(!s.isBot && s.playerId > 0) ? 'View profile' : ''"
+              (click)="!s.isBot && s.playerId > 0 && openStandingsProfile(s)">
               <span class="gp-standings-dot" [style.background]="s.color"></span>
               {{ s.name }}<span *ngIf="s.isPlayer" class="gp-standings-you"> (You)</span>
             </span>
-            <span class="gp-standings-laps">{{ s.laps }}/{{ totalLaps }}</span>
+            <span class="gp-standings-laps">{{ s.isDnf ? '—' : s.laps + '/' + totalLaps }}</span>
           </div>
         </div>
         <div class="gp-podium-rematch" *ngIf="isInMultiplayerRace">

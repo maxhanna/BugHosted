@@ -2708,6 +2708,14 @@
   padding: 8px 12px;
 }
 
+.gp-standings-full {
+  font-size: 11px;
+  opacity: 0.75;
+  text-align: center;
+  padding-bottom: 4px;
+  letter-spacing: 0.3px;
+}
+
 .gp-standings-title {
   text-align: center;
   font-weight: 700;
@@ -2717,6 +2725,19 @@
   color: rgba(255,255,255,0.9);
   border-bottom: 1px solid rgba(255,255,255,0.08);
   margin-bottom: 6px;
+}
+
+/* Previous-race results panel in the multiplayer lobby — shown when a player
+   joins while the last race's classification is still on display, and cleared
+   when the lobby resets to ready-up (OnRematch). */
+.gp-lobby-results {
+  margin: 10px 0 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  max-height: 30vh;
+  overflow-y: auto;
 }
 
 .gp-standings-row {
@@ -2744,6 +2765,20 @@
   font-weight: 600;
 }
 
+/* Retired racers (disconnected mid-race) — muted and struck through so DNF
+   rows read as retired rather than as a position. */
+.gp-standings-row.gp-standings-dnf {
+  opacity: 0.55;
+}
+.gp-standings-row.gp-standings-dnf .gp-standings-name {
+  font-style: italic;
+  text-decoration: line-through;
+}
+.gp-standings-row.gp-standings-dnf .gp-standings-pos {
+  font-weight: 700;
+  color: #ff5252;
+}
+
 .gp-standings-pos {
   width: 22px;
   text-align: right;
@@ -2760,6 +2795,20 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.gp-standings-clickable {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 2px 5px;
+  margin-left: -5px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.gp-standings-clickable:hover {
+  background: var(--main-highlight-color-quarter-opacity, rgba(74, 158, 255, 0.16));
+  color: var(--main-font-color);
+  text-decoration: underline;
 }
 
 .gp-standings-dot {

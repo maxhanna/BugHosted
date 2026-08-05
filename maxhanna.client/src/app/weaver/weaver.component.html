@@ -963,7 +963,7 @@
             (click)="selectCommand(cmd)">
             <div class="cmd-info">
               <span class="cmd-name">{{ cmd.command }}</span>
-              <span class="cmd-time">{{ cmd.createdAt }}</span>
+              <span class="cmd-time">{{ cmd.createdAt | date:"MM/dd/y" }}</span>
             </div>
             <span class="cmd-expand">{{ selectedCommand?.id === cmd.id ? '▼' : '▶' }}</span>
           </div>

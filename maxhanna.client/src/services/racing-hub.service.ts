@@ -40,6 +40,18 @@ export interface PlayerFinishedEvent {
   totalTimeMs: number;
 }
 
+// One row of the authoritative lobby-wide final classification, broadcast by
+// the server once every player has crossed the line.
+export interface RaceStandingsRow {
+  connectionId: string;
+  playerName: string;
+  playerId: number;
+  position: number;
+  totalTimeMs: number;
+  laps: number;
+  isDnf?: boolean;
+}
+
 export interface ChatMessage {
   playerName: string;
   message: string;
@@ -58,6 +70,7 @@ export class RacingHubService implements OnDestroy {
   readonly raceStarted$ = new Subject<{ startTime: number; totalLaps: number }>();
   readonly carPositionUpdate$ = new Subject<RemoteCarPosition>();
   readonly playerFinished$ = new Subject<PlayerFinishedEvent>();
+  readonly raceStandings$ = new Subject<RaceStandingsRow[]>();
   readonly chatMessage$ = new Subject<ChatMessage>();
   readonly madeHost$ = new Subject<void>();
   readonly hostChanged$ = new Subject<{ connectionId: string }>();
@@ -112,6 +125,10 @@ export class RacingHubService implements OnDestroy {
 
       this.hub.on('OnPlayerFinished', (data: PlayerFinishedEvent) => {
         this.playerFinished$.next(data);
+      });
+
+      this.hub.on('OnRaceStandings', (data: { standings: RaceStandingsRow[] }) => {
+        this.raceStandings$.next(data.standings || []);
       });
 
       this.hub.on('OnChatMessage', (data: ChatMessage) => {
@@ -199,9 +216,9 @@ export class RacingHubService implements OnDestroy {
     try { await this.hub!.invoke('SyncPosition', trackId, data); } catch { }
   }
 
-  async finishRace(trackId: string, position: number, totalTimeMs: number): Promise<void> {
+  async finishRace(trackId: string, position: number, totalTimeMs: number, laps = 0): Promise<void> {
     if (!this.connected) return;
-    try { await this.hub!.invoke('FinishRace', trackId, position, totalTimeMs); } catch { }
+    try { await this.hub!.invoke('FinishRace', trackId, position, totalTimeMs, laps); } catch { }
   }
 
   async sendChat(trackId: string, message: string): Promise<void> {

@@ -2,7 +2,7 @@ import { AfterViewInit, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewCh
 import { ChildComponent } from '../child.component';
 import { RacingRenderer, TrackPoint } from './racing-renderer';
 import { RacingService } from '../../services/racing.service';
-import { RacingHubService, LobbyPlayer, RemoteCarPosition } from '../../services/racing-hub.service';
+import { RacingHubService, LobbyPlayer, RemoteCarPosition, RaceStandingsRow } from '../../services/racing-hub.service';
 import {
   RacingPlayerCar, RaceResult, RacingAppearancePart,
   TRACKS, UPGRADE_DEFS, CAR_SKINS, BOT_CONFIGS, APPEARANCE_PARTS, TrackDefinition
@@ -52,6 +52,7 @@ interface RemoteAudioVoice {
 interface RemoteCarVisual {
   connectionId: string;
   playerName: string;
+  playerId: number;
   x: number;
   z: number;
   yaw: number;
@@ -239,7 +240,13 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   podiumData: { playerName: string; totalTime: number; moneyEarned: number }[] = [];
   // Full final standings shown on the results screen: every bot, remote player
   // and the local player ordered by total distance at the moment the race ended.
-  finalStandings: { position: number; name: string; isBot: boolean; isPlayer: boolean; color: string; laps: number }[] = [];
+  finalStandings: { position: number; name: string; playerId: number; isBot: boolean; isPlayer: boolean; isDnf: boolean; color: string; laps: number }[] = [];
+  // Authoritative lobby-wide classification, broadcast by the server once every
+  // multiplayer racer has finished. Replaces the local finish-moment snapshot.
+  serverStandings: RaceStandingsRow[] | null = null;
+  // Remote players who dropped mid-race, kept on the board as DNF instead of
+  // vanishing (the server broadcasts the same rows authoritatively).
+  dnfRacers: { name: string; playerId: number; color: string }[] = [];
   private _baseFov = 1.1;
   screenShake = 0;
   isRaining = false;
@@ -280,10 +287,25 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._mpSubs.push(
       this.racingHub.playerLeft$.subscribe(playerName => {
         this.ngZone.run(() => {
-          this.lobbyPlayers = this.lobbyPlayers.filter(p => p.playerName !== playerName);
+          const wasRacing = this.gameState === 'racing';
+          const lp = this.lobbyPlayers.find(p => p.playerName === playerName);
+          let rcPlayerId = 0, rcColor = '';
           this.remoteCars.forEach((v, k) => {
-            if (v.playerName === playerName) this.remoteCars.delete(k);
+            if (v.playerName === playerName) {
+              rcPlayerId = v.playerId || 0;
+              rcColor = `rgb(${Math.round(v.colorR * 255)}, ${Math.round(v.colorG * 255)}, ${Math.round(v.colorB * 255)})`;
+              this.remoteCars.delete(k);
+            }
           });
+          this.lobbyPlayers = this.lobbyPlayers.filter(p => p.playerName !== playerName);
+          // A racer who drops mid-race is DNF, not dropped.
+          if (wasRacing && !this.dnfRacers.some(d => d.name === playerName)) {
+            this.dnfRacers.push({
+              name: playerName,
+              playerId: rcPlayerId || lp?.playerId || 0,
+              color: rcColor || '#9e9e9e',
+            });
+          }
           this.addMessage(`${playerName} left.`);
         });
       })
@@ -371,6 +393,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           this.remoteCars.set(data.connectionId, {
             connectionId: data.connectionId,
             playerName: player?.playerName || '???',
+            playerId: player?.playerId || 0,
             x: data.x, z: data.z, yaw: data.yaw,
             speed: data.speed, distance: data.distance,
             currentLap: data.currentLap, isOffTrack: data.isOffTrack,
@@ -386,6 +409,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.racingHub.playerFinished$.subscribe(data => {
         this.ngZone.run(() => {
           this.addMessage(`${data.playerName} finished #${data.position}!`);
+        });
+      })
+    );
+    this._mpSubs.push(
+      this.racingHub.raceStandings$.subscribe(rows => {
+        this.ngZone.run(() => {
+          this.serverStandings = rows;
+          this.applyServerStandings();
         });
       })
     );
@@ -421,6 +452,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           this.lobbyPlayers = players;
           this.amReady = false;
           this.remoteCars.clear();
+          this.serverStandings = null;
+          this.dnfRacers = [];
           this.messages = [];
           this.stopMpStartCountdown();
           this.stopAutoStartTicker();
@@ -784,6 +817,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._wrongWayShown = false;
     this.messages = [];
     this.finalStandings = [];
+    this.serverStandings = null;
+    this.dnfRacers = [];
     this._raceFinished = false;
     this._mpFinished = false;
     const startP = this.renderer.getTrackPointAlong(0);
@@ -957,6 +992,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._wrongWayShown = false;
     this.messages = [];
     this.finalStandings = [];
+    this.serverStandings = null;
+    this.dnfRacers = [];
     this._raceFinished = false;
     this._mpFinished = false;
     const startP = this.renderer.getTrackPointAlong(0);
@@ -1482,7 +1519,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const totalTime = performance.now() - this.raceStartTime;
     if (this._mpLobbyTrackId && !this._mpFinished) {
       this._mpFinished = true;
-      this.racingHub.finishRace(this._mpLobbyTrackId, this.racePosition, totalTime);
+      this.racingHub.finishRace(this._mpLobbyTrackId, this.racePosition, totalTime, this.currentLap);
     }
     this.buildFinalStandings();
     this.gameState = 'finished';
@@ -1536,11 +1573,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private buildFinalStandings() {
     const trackLen = this.renderer.totalTrackDist;
     const palette = ['#e53935', '#4a9eff', '#4caf50', '#ffd600', '#9c27b0', '#ff9800', '#00bcd4', '#e91e63'];
-    const racers: { name: string; isBot: boolean; isPlayer: boolean; color: string; dist: number; laps: number }[] = [];
+    const racers: { name: string; playerId: number; isBot: boolean; isPlayer: boolean; color: string; dist: number; laps: number }[] = [];
     for (const b of this.bots) {
       if (!b.alive) continue;
       racers.push({
-        name: b.name, isBot: true, isPlayer: false,
+        name: b.name, playerId: 0, isBot: true, isPlayer: false,
         color: palette[b.color % palette.length],
         dist: b.raceDist,
         laps: b.lap,
@@ -1548,7 +1585,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
     this.remoteCars.forEach(rc => {
       racers.push({
-        name: rc.playerName, isBot: false, isPlayer: false,
+        name: rc.playerName, playerId: rc.playerId || 0, isBot: false, isPlayer: false,
         color: `rgb(${Math.round(rc.colorR * 255)}, ${Math.round(rc.colorG * 255)}, ${Math.round(rc.colorB * 255)})`,
         dist: rc.lap * trackLen + rc.distance,
         laps: rc.lap,
@@ -1556,17 +1593,115 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     });
     racers.push({
       name: this.playerCar.playerName?.trim() || this.parentRef?.user?.username || 'Player',
+      playerId: this.parentRef?.user?.id || 0,
       isBot: false, isPlayer: true, color: '#ffffff',
       dist: this.currentLap * trackLen + this.carDist,
       laps: this.currentLap,
     });
     racers.sort((a, b) => b.dist - a.dist);
-    this.finalStandings = racers.map((r, i) => ({
-      position: i + 1, name: r.name, isBot: r.isBot, isPlayer: r.isPlayer,
-      color: r.color,
-      // Bots keep lapping past the checkered flag — cap the column at the race length.
-      laps: Math.min(r.laps, this.totalLaps),
+    // Remote players who dropped mid-race are DNF: keep them on the board but
+    // retired, after every finisher regardless of how far they'd driven.
+    const dnfRows = this.dnfRacers.map(d => ({
+      position: -1, name: d.name, playerId: d.playerId,
+      isBot: false, isPlayer: false, isDnf: true,
+      color: d.color || '#9e9e9e', laps: 0,
     }));
+    this.finalStandings = [
+      ...racers.map((r, i) => ({
+        position: i + 1, name: r.name, playerId: r.playerId,
+        isBot: r.isBot, isPlayer: r.isPlayer, isDnf: false,
+        color: r.color,
+        // Bots keep lapping past the checkered flag — cap the column at the race length.
+        laps: Math.min(r.laps, this.totalLaps),
+      })),
+      ...dnfRows,
+    ];
+  }
+
+  // Opens the same racer profile popup the leaderboard uses, from a final
+  // standings row. Bots and racers without a known userId are not clickable.
+  openStandingsProfile(s: { playerId: number; name: string; isBot: boolean }): void {
+    if (!s || s.isBot || s.playerId <= 0) return;
+    this.openRacerProfile({
+      position: 0, playerId: s.playerId, playerName: s.name,
+      lapTime: 0, totalTime: 0, moneyEarned: 0, isBot: false,
+    });
+  }
+
+  /** Rebuild the final standings from the server's authoritative classification
+   *  once every multiplayer racer has finished. Player rows come from the hub
+   *  (their reported positions already account for bots); bots fill the gaps at
+   *  the unclaimed positions in their local order, so every client shows the
+   *  exact same lobby-wide table. */
+  private applyServerStandings(): void {
+    const rows = this.serverStandings;
+    if (!rows || rows.length === 0 || !this._mpLobbyTrackId) return;
+    const palette = ['#e53935', '#4a9eff', '#4caf50', '#ffd600', '#9c27b0', '#ff9800', '#00bcd4', '#e91e63'];
+    const myId = this.parentRef?.user?.id || 0;
+    // The server orders rows finishers-then-DNF; DNF racers never claim a slot —
+    // they're appended after every finisher and bot.
+    const finishers = rows.filter(r => !r.isDnf).sort((a, b) => a.position - b.position);
+    const dnfs = rows.filter(r => r.isDnf);
+    const claimed = new Set(finishers.map(p => p.position));
+    // Bots are client-simulated and deterministic, so their relative order is
+    // identical on every client at the broadcast moment. Only merge them when a
+    // race is actually in progress or finished — a player who joins a lobby
+    // mid-standings is in the menu state, where their local bot list is stale
+    // and would leak wrong rows into the previous-race panel.
+    const inRace = this.gameState === 'racing' || this.gameState === 'finished';
+    const bots = inRace ? this.bots.filter(b => b.alive).slice().sort((a, b) => b.raceDist - a.raceDist) : [];
+    const total = bots.length + finishers.length;
+    let botIdx = 0;
+    const result: { position: number; name: string; playerId: number; isBot: boolean; isPlayer: boolean; isDnf: boolean; color: string; laps: number }[] = [];
+    for (let pos = 1; pos <= total; pos++) {
+      const p = claimed.has(pos) ? finishers.find(x => x.position === pos) : undefined;
+      if (p) {
+        const rc = this.remoteCars.get(p.connectionId);
+        const color = rc
+          ? `rgb(${Math.round(rc.colorR * 255)}, ${Math.round(rc.colorG * 255)}, ${Math.round(rc.colorB * 255)})`
+          : this.getPlayerColor(p.connectionId);
+        result.push({
+          position: pos, name: p.playerName, playerId: p.playerId,
+          isBot: false, isPlayer: p.playerId > 0 && p.playerId === myId, isDnf: false,
+          color, laps: Math.min(p.laps || 0, this.totalLaps),
+        });
+      } else if (botIdx < bots.length) {
+        const b = bots[botIdx++];
+        result.push({
+          position: pos, name: b.name, playerId: 0, isBot: true, isPlayer: false, isDnf: false,
+          color: palette[b.color % palette.length],
+          laps: Math.min(b.lap, this.totalLaps),
+        });
+      }
+    }
+    // Safety net: a player whose reported position fell outside 1..total still
+    // belongs on the board — append any unplaced finishers in position order.
+    for (const p of finishers) {
+      if (!result.some(r => !r.isBot && r.playerId === p.playerId && r.name === p.playerName)) {
+        const rc = this.remoteCars.get(p.connectionId);
+        result.push({
+          position: result.length + 1, name: p.playerName, playerId: p.playerId,
+          isBot: false, isPlayer: p.playerId > 0 && p.playerId === myId, isDnf: false,
+          color: rc
+            ? `rgb(${Math.round(rc.colorR * 255)}, ${Math.round(rc.colorG * 255)}, ${Math.round(rc.colorB * 255)})`
+            : this.getPlayerColor(p.connectionId),
+          laps: Math.min(p.laps || 0, this.totalLaps),
+        });
+      }
+    }
+    // Retired racers go last, in the order the server reported them.
+    for (const p of dnfs) {
+      const rc = this.remoteCars.get(p.connectionId);
+      result.push({
+        position: -1, name: p.playerName, playerId: p.playerId,
+        isBot: false, isPlayer: p.playerId > 0 && p.playerId === myId, isDnf: true,
+        color: rc
+          ? `rgb(${Math.round(rc.colorR * 255)}, ${Math.round(rc.colorG * 255)}, ${Math.round(rc.colorB * 255)})`
+          : '#9e9e9e',
+        laps: 0,
+      });
+    }
+    this.finalStandings = result;
   }
 
   // Compares the user's current leaderboard rank against the rank stored from
