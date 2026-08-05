@@ -244,6 +244,15 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   // Authoritative lobby-wide classification, broadcast by the server once every
   // multiplayer racer has finished. Replaces the local finish-moment snapshot.
   serverStandings: RaceStandingsRow[] | null = null;
+  /** Live 'Results shown for 0:04' countdown text while the standings window is open. */
+  standingsCountdownText = '';
+  /** 0-100 fill of the standings window progress bar. */
+  standingsProgress = 100;
+  /** True when <3s remain — triggers the subtle urgent pulse. */
+  standingsLow = false;
+  private _standingsDeadline = 0;
+  private _standingsTotalMs = 0;
+  private _standingsTimer: number | null = null;
   // Remote players who dropped mid-race, kept on the board as DNF instead of
   // vanishing (the server broadcasts the same rows authoritatively).
   dnfRacers: { name: string; playerId: number; color: string }[] = [];
@@ -421,6 +430,21 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       })
     );
     this._mpSubs.push(
+      this.racingHub.standingsWindowMs$.subscribe(ms => {
+        this.ngZone.run(() => {
+          this.stopStandingsCountdown();
+          if (ms <= 0) {
+            this.standingsCountdownText = '';
+            return;
+          }
+          this._standingsDeadline = Date.now() + ms;
+          this._standingsTotalMs = ms;
+          this.updateStandingsCountdown();
+          this._standingsTimer = window.setInterval(() => this.updateStandingsCountdown(), 500);
+        });
+      })
+    );
+    this._mpSubs.push(
       this.racingHub.chatMessage$.subscribe(data => {
         this.ngZone.run(() => {
           this.chatMessages.push(data);
@@ -453,6 +477,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           this.amReady = false;
           this.remoteCars.clear();
           this.serverStandings = null;
+          this.standingsCountdownText = '';
+          this.stopStandingsCountdown();
           this.dnfRacers = [];
           this.messages = [];
           this.stopMpStartCountdown();
@@ -513,6 +539,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this._countdownInterval) clearInterval(this._countdownInterval);
     this.stopMpStartCountdown();
     this.stopAutoStartTicker();
+    this.stopStandingsCountdown();
     if (this._mpLobbyTrackId) {
       this.racingHub.leaveLobby(this._mpLobbyTrackId);
     }
@@ -818,6 +845,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.messages = [];
     this.finalStandings = [];
     this.serverStandings = null;
+    this.standingsCountdownText = '';
+    this.stopStandingsCountdown();
     this.dnfRacers = [];
     this._raceFinished = false;
     this._mpFinished = false;
@@ -993,6 +1022,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.messages = [];
     this.finalStandings = [];
     this.serverStandings = null;
+    this.standingsCountdownText = '';
+    this.stopStandingsCountdown();
     this.dnfRacers = [];
     this._raceFinished = false;
     this._mpFinished = false;
@@ -1633,6 +1664,27 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
    *  (their reported positions already account for bots); bots fill the gaps at
    *  the unclaimed positions in their local order, so every client shows the
    *  exact same lobby-wide table. */
+  /** Ticks the live standings countdown; self-stops when the window expires. */
+  private updateStandingsCountdown(): void {
+    const remaining = Math.max(0, this._standingsDeadline - Date.now());
+    const secs = Math.ceil(remaining / 1000);
+    this.standingsCountdownText = remaining > 0 ? `Results shown for 0:${String(secs).padStart(2, '0')}` : '';
+    this.standingsProgress = this._standingsTotalMs > 0
+      ? Math.max(0, Math.min(100, (remaining / this._standingsTotalMs) * 100))
+      : 100;
+    this.standingsLow = remaining > 0 && remaining <= 3000;
+    if (remaining <= 0) this.stopStandingsCountdown();
+  }
+
+  private stopStandingsCountdown(): void {
+    if (this._standingsTimer !== null) {
+      clearInterval(this._standingsTimer);
+      this._standingsTimer = null;
+    }
+    this.standingsProgress = 100;
+    this.standingsLow = false;
+  }
+
   private applyServerStandings(): void {
     const rows = this.serverStandings;
     if (!rows || rows.length === 0 || !this._mpLobbyTrackId) return;

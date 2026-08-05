@@ -594,6 +594,15 @@
   flex-wrap: wrap;
 }
 
+.garage-mp-widget .garage-standings-countdown {
+  margin-top: 0;
+  text-align: left;
+  font-weight: 700;
+  color: #ffc107;
+  padding: 2px 0 4px;
+  border-bottom: 1px dashed rgba(255,255,255,0.08);
+}
+
 .garage-mp-widget-title {
   font-size: 12px;
   font-weight: 800;
@@ -2738,6 +2747,62 @@
   background: rgba(0, 0, 0, 0.25);
   max-height: 30vh;
   overflow-y: auto;
+}
+
+.gp-standings-countdown {
+  margin-top: 6px;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+  color: rgba(255, 255, 255, 0.55);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.gp-standings-countdown-text {
+  display: block;
+}
+
+.gp-standings-bar {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  margin-top: 5px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.gp-standings-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #ffc107, #ff6f00);
+  box-shadow: 0 0 6px rgba(255, 193, 7, 0.45);
+  transition: width 0.5s linear;
+}
+
+.gp-standings-countdown.gp-standings-low .gp-standings-bar-fill {
+  background: linear-gradient(90deg, #ff5722, #ffc107);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .gp-standings-countdown.gp-standings-low .gp-standings-countdown-text {
+    animation: gp-standings-pulse 1s ease-in-out infinite;
+  }
+
+  .gp-standings-countdown.gp-standings-low .gp-standings-bar-fill {
+    animation: gp-standings-pulse 1s ease-in-out infinite;
+  }
+}
+
+@keyframes gp-standings-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gp-standings-bar-fill {
+    transition: none;
+  }
 }
 
 .gp-standings-row {

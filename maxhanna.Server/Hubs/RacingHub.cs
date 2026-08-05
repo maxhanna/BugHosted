@@ -514,7 +514,8 @@ namespace maxhanna.Server.Hubs
                 {
                     await Clients.Caller.SendAsync("OnRaceStandings", new
                     {
-                        standings = BuildStandingsPayload(lobby)
+                        standings = BuildStandingsPayload(lobby),
+                        remainingMs = GetStandingsRemainingMs(lobby)
                     });
                 }
                 catch { }
@@ -539,7 +540,8 @@ namespace maxhanna.Server.Hubs
 
             await Clients.Group(lobbyId).SendAsync("OnRaceStandings", new
             {
-                standings = BuildStandingsPayload(lobby)
+                standings = BuildStandingsPayload(lobby),
+                remainingMs = GetStandingsRemainingMs(lobby)
             });
 
             // Hold the final classification on screen long enough to read it
@@ -575,9 +577,7 @@ namespace maxhanna.Server.Hubs
                 // past the absolute deadline; a short grace floor guarantees the
                 // reset still fires (and the lobby still returns to ready-up)
                 // once the cap is reached.
-                var elapsed = DateTime.UtcNow - lobby.StandingsWindowStartUtc;
-                var remaining = TimeSpan.FromMilliseconds(Math.Min(FINAL_STANDINGS_DISPLAY_MS, MAX_STANDINGS_DISPLAY_MS - (int)elapsed.TotalMilliseconds));
-                if (remaining < TimeSpan.FromMilliseconds(1_000)) remaining = TimeSpan.FromMilliseconds(1_000);
+                var remaining = TimeSpan.FromMilliseconds(GetStandingsRemainingMs(lobby));
                 try { await Task.Delay(remaining, token); }
                 catch { return; }
                 if (token.IsCancellationRequested) return;
@@ -604,6 +604,21 @@ namespace maxhanna.Server.Hubs
                 // Only clear the reference if a newer reset didn't take its place.
                 if (ReferenceEquals(lobby.StandingsResetCts, cts)) lobby.StandingsResetCts = null;
             });
+        }
+
+        /// <summary>
+        /// Milliseconds left in the standings display window: a fresh full
+        /// FINAL_STANDINGS_DISPLAY_MS normally, clamped to the absolute
+        /// MAX_STANDINGS_DISPLAY_MS deadline anchored at first broadcast, with a
+        /// 1s grace floor so the reset always fires once the cap is reached.
+        /// Shared by the reset timer and the OnRaceStandings payload so clients
+        /// can render a live countdown that matches the actual reset moment.
+        /// </summary>
+        private int GetStandingsRemainingMs(LobbyState lobby)
+        {
+            var elapsed = DateTime.UtcNow - lobby.StandingsWindowStartUtc;
+            var remaining = (int)Math.Min(FINAL_STANDINGS_DISPLAY_MS, MAX_STANDINGS_DISPLAY_MS - (int)elapsed.TotalMilliseconds);
+            return Math.Max(remaining, 1_000);
         }
 
         private void CancelStandingsReset(LobbyState lobby)

@@ -71,6 +71,8 @@ export class RacingHubService implements OnDestroy {
   readonly carPositionUpdate$ = new Subject<RemoteCarPosition>();
   readonly playerFinished$ = new Subject<PlayerFinishedEvent>();
   readonly raceStandings$ = new Subject<RaceStandingsRow[]>();
+  /** Milliseconds left in the standings display window (live countdown source). */
+  readonly standingsWindowMs$ = new Subject<number>();
   readonly chatMessage$ = new Subject<ChatMessage>();
   readonly madeHost$ = new Subject<void>();
   readonly hostChanged$ = new Subject<{ connectionId: string }>();
@@ -127,8 +129,9 @@ export class RacingHubService implements OnDestroy {
         this.playerFinished$.next(data);
       });
 
-      this.hub.on('OnRaceStandings', (data: { standings: RaceStandingsRow[] }) => {
+      this.hub.on('OnRaceStandings', (data: { standings: RaceStandingsRow[]; remainingMs?: number }) => {
         this.raceStandings$.next(data.standings || []);
+        this.standingsWindowMs$.next(data.remainingMs ?? 0);
       });
 
       this.hub.on('OnChatMessage', (data: ChatMessage) => {

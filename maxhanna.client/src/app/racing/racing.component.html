@@ -226,6 +226,11 @@
              last race's classification is still on display (rematch window). -->
         <div class="gp-lobby-results" *ngIf="selectedTrack && serverStandings && finalStandings.length">
           <div class="gp-standings-title">🏁 Previous Race Results</div>
+          <div class="gp-standings-countdown" [class.gp-standings-low]="standingsLow"
+            *ngIf="serverStandings && standingsCountdownText">
+            <span class="gp-standings-countdown-text">⏳ {{ standingsCountdownText }}</span>
+            <span class="gp-standings-bar"><span class="gp-standings-bar-fill" [style.width.%]="standingsProgress"></span></span>
+          </div>
           <div class="gp-standings-row gp-standings-head">
             <span>#</span><span>Driver</span><span>Laps</span>
           </div>
@@ -310,6 +315,11 @@
           <span class="garage-mp-widget-title">👥 LOBBY</span>
           <span class="garage-ready-count">{{ readyCount }}/{{ lobbyPlayers.length }} ready</span>
           <span *ngIf="garageCountdownDisplay" class="garage-countdown">{{ garageCountdownDisplay }}</span>
+        </div>
+        <div class="gp-standings-countdown garage-standings-countdown" [class.gp-standings-low]="standingsLow"
+          *ngIf="serverStandings && standingsCountdownText">
+          <span class="gp-standings-countdown-text">⏳ {{ standingsCountdownText }}</span>
+          <span class="gp-standings-bar"><span class="gp-standings-bar-fill" [style.width.%]="standingsProgress"></span></span>
         </div>
         <div class="garage-mp-roster" *ngIf="lobbyPlayers.length > 0">
           <div class="garage-mp-roster-row" *ngFor="let p of lobbyPlayers"
@@ -943,6 +953,11 @@
         </div>
         <div class="gp-standings" *ngIf="finalStandings.length">
           <div class="gp-standings-title">🏁 Final Standings</div>
+          <div class="gp-standings-countdown" [class.gp-standings-low]="standingsLow"
+            *ngIf="standingsCountdownText">
+            <span class="gp-standings-countdown-text">⏳ {{ standingsCountdownText }}</span>
+            <span class="gp-standings-bar"><span class="gp-standings-bar-fill" [style.width.%]="standingsProgress"></span></span>
+          </div>
           <div class="gp-standings-full" *ngIf="serverStandings">Full lobby results — all racers finished</div>
           <div class="gp-standings-row gp-standings-head">
             <span>#</span><span>Driver</span><span>Laps</span>
