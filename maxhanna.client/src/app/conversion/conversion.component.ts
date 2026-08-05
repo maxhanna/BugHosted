@@ -1,6 +1,6 @@
 import { Component, ElementRef, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { ConversionService, ConversionResult, FontConversionResult, YoutubeDownloadResult } from '../../services/conversion.service';
+import { ConversionService, ConversionResult, FontConversionResult, YoutubeDownloadResult, TextToAsciiResult } from '../../services/conversion.service';
 import { FileService } from '../../services/file.service';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 
@@ -16,6 +16,9 @@ export class ConversionComponent extends ChildComponent {
   selectedFile?: File;
   selectedFileEntry?: FileEntry;
   localPreviewUrl?: string;
+  isUploading = false;
+  isDragging = false;
+  private uploadedFileKey = '';
 
   imageFormats = ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'tiff', 'tga', 'qoi', 'pbm', 'pnm', 'pgm', 'ppm'];
   audioFormats = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'opus', 'wma', 'ac3', 'mp2', 'alac', 'mka'];
@@ -39,30 +42,119 @@ export class ConversionComponent extends ChildComponent {
   isDownloadingYoutube = false;
   youtubeResult?: YoutubeDownloadResult;
 
+  asciiStyles = ['Blocks', 'Solid', 'Dots', 'Hash'];
+  asciiText = '';
+  asciiStyle = 'Blocks';
+  asciiScale = 1;
+  asciiScaleOptions = [1, 2, 3];
+  isGeneratingAscii = false;
+  asciiResult?: TextToAsciiResult;
+
   constructor(private conversionService: ConversionService, private fileService: FileService) {
     super();
   }
 
-  onFileSelected(event: any) {
-    const file: File | undefined = event?.target?.files?.[0];
-    if (!file) return;
-    this.selectedFile = file;
-    this.selectedFileEntry = undefined;
-    this.conversionResult = undefined;
-    this.fontResult = undefined;
-    this.visionReport = undefined;
-    if (this.localPreviewUrl) URL.revokeObjectURL(this.localPreviewUrl);
-    this.localPreviewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined;
+  get detectedKind(): 'image' | 'audio' | 'video' | 'other' {
+    if (!this.selectedFile) return 'other';
+    if (this.selectedFile.type.startsWith('image/')) return 'image';
+    if (this.selectedFile.type.startsWith('audio/')) return 'audio';
+    if (this.selectedFile.type.startsWith('video/')) return 'video';
+    return 'other';
+  }
+
+  get detectedKindLabel(): string {
+    switch (this.detectedKind) {
+      case 'image': return 'Image';
+      case 'audio': return 'Audio';
+      case 'video': return 'Video';
+      default: return 'File';
+    }
+  }
+
+  get availableFormats(): string[] {
+    switch (this.detectedKind) {
+      case 'image': return this.imageFormats;
+      case 'audio': return this.audioFormats;
+      case 'video': return this.videoFormats;
+      default: return [...this.imageFormats, ...this.audioFormats, ...this.videoFormats];
+    }
+  }
+
+  get formatGroupLabel(): string {
+    switch (this.detectedKind) {
+      case 'image': return 'Image formats';
+      case 'audio': return 'Audio formats';
+      case 'video': return 'Video formats';
+      default: return 'All formats';
+    }
   }
 
   isImageSelected(): boolean {
-    return !!this.selectedFile && this.selectedFile.type.startsWith('image/');
+    return this.detectedKind === 'image';
+  }
+
+  onDragOver(event: DragEvent) {
+    event.preventDefault();
+    this.isDragging = true;
+  }
+
+  onDragLeave() {
+    this.isDragging = false;
+  }
+
+  onDrop(event: DragEvent) {
+    event.preventDefault();
+    this.isDragging = false;
+    const file = event.dataTransfer?.files?.[0];
+    if (file) this.setSelectedFile(file);
+  }
+
+  onFileSelected(event: any) {
+    const file: File | undefined = event?.target?.files?.[0];
+    if (file) this.setSelectedFile(file);
+  }
+
+  setSelectedFile(file: File) {
+    this.selectedFile = file;
+    this.selectedFileEntry = undefined;
+    this.uploadedFileKey = '';
+    this.conversionResult = undefined;
+    this.fontResult = undefined;
+    this.visionReport = undefined;
+    this.youtubeResult = undefined;
+    if (this.localPreviewUrl) URL.revokeObjectURL(this.localPreviewUrl);
+    this.localPreviewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined;
+
+    this.targetFormat = this.defaultFormatFor(this.detectedKind);
+    if (!this.availableFormats.includes(this.targetFormat)) {
+      this.targetFormat = this.availableFormats[0] ?? 'png';
+    }
+  }
+
+  clearSelectedFile() {
+    this.selectedFile = undefined;
+    this.selectedFileEntry = undefined;
+    this.uploadedFileKey = '';
+    if (this.localPreviewUrl) { URL.revokeObjectURL(this.localPreviewUrl); this.localPreviewUrl = undefined; }
+    this.conversionResult = undefined;
+    this.fontResult = undefined;
+    this.visionReport = undefined;
+    if (this.fileInput) this.fileInput.nativeElement.value = '';
+  }
+
+  private defaultFormatFor(kind: 'image' | 'audio' | 'video' | 'other'): string {
+    switch (kind) {
+      case 'image': return 'jpg';
+      case 'audio': return 'mp3';
+      case 'video': return 'mp4';
+      default: return 'png';
+    }
   }
 
   async convert() {
     if (!this.selectedFile) { this.parentRef?.showNotification('Select a file first.'); return; }
-    if (!this.selectedFileEntry) await this.uploadSelectedFile();
-    if (!this.selectedFileEntry) { this.parentRef?.showNotification('Upload failed.'); return; }
+    if (!this.selectedFileEntry && !(await this.ensureUploaded())) { this.parentRef?.showNotification('Upload failed.'); return; }
+    if (!this.selectedFileEntry) return;
 
     this.isConverting = true;
     try {
@@ -76,8 +168,8 @@ export class ConversionComponent extends ChildComponent {
 
   async makeFont() {
     if (!this.selectedFile) { this.parentRef?.showNotification('Select an image file first.'); return; }
-    if (!this.selectedFileEntry) await this.uploadSelectedFile();
-    if (!this.selectedFileEntry) { this.parentRef?.showNotification('Upload failed.'); return; }
+    if (!this.selectedFileEntry && !(await this.ensureUploaded())) { this.parentRef?.showNotification('Upload failed.'); return; }
+    if (!this.selectedFileEntry) return;
 
     this.isMakingFont = true;
     try {
@@ -95,20 +187,10 @@ export class ConversionComponent extends ChildComponent {
     }
   }
 
-  async downloadConverted(fileId: number, fileName: string) {
-    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-    const dataUri = await this.fileService.getFileSrcByFileId(fileId, sessionToken);
-    if (!dataUri) { this.parentRef?.showNotification('Could not load file.'); return; }
-    const a = document.createElement('a');
-    a.href = dataUri;
-    a.download = fileName;
-    a.click();
-  }
-
   async runVision() {
     if (!this.selectedFile) { this.parentRef?.showNotification('Select a file first.'); return; }
-    if (!this.selectedFileEntry) await this.uploadSelectedFile();
-    if (!this.selectedFileEntry) { this.parentRef?.showNotification('Upload failed.'); return; }
+    if (!this.selectedFileEntry && !(await this.ensureUploaded())) { this.parentRef?.showNotification('Upload failed.'); return; }
+    if (!this.selectedFileEntry) return;
 
     this.isRunningVision = true;
     try {
@@ -118,6 +200,16 @@ export class ConversionComponent extends ChildComponent {
     } finally {
       this.isRunningVision = false;
     }
+  }
+
+  async downloadConverted(fileId: number, fileName: string) {
+    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+    const dataUri = await this.fileService.getFileSrcByFileId(fileId, sessionToken);
+    if (!dataUri) { this.parentRef?.showNotification('Could not load file.'); return; }
+    const a = document.createElement('a');
+    a.href = dataUri;
+    a.download = fileName;
+    a.click();
   }
 
   async downloadYoutube() {
@@ -137,19 +229,54 @@ export class ConversionComponent extends ChildComponent {
     }
   }
 
-  private async uploadSelectedFile() {
-    if (!this.selectedFile) return;
-    const text = await this.conversionService.uploadFile(this.selectedFile, this.parentRef?.user).toPromise();
-    if (!text) return;
-    let parsed: any;
-    try { parsed = JSON.parse(text); } catch { return; }
-    const arr = Array.isArray(parsed) ? parsed : [parsed];
-    if (arr.length > 0 && arr[0]?.id) {
+  async generateAscii() {
+    const text = this.asciiText.trim();
+    if (!text) { this.parentRef?.showNotification('Type some text first.'); return; }
+
+    this.isGeneratingAscii = true;
+    try {
+      this.asciiResult = (await this.conversionService.textToAscii(text, this.asciiStyle, this.asciiScale, this.parentRef?.user?.id)) ?? undefined;
+      if (!this.asciiResult) this.parentRef?.showNotification('Could not render ASCII art.');
+    } finally {
+      this.isGeneratingAscii = false;
+    }
+  }
+
+  async copyAscii() {
+    const art = this.asciiResult?.art;
+    if (!art) return;
+    try {
+      await navigator.clipboard.writeText(art);
+      this.parentRef?.showNotification('ASCII art copied to clipboard.');
+    } catch (e) {
+      this.parentRef?.showNotification('Could not copy - select the text manually.');
+    }
+  }
+
+  private async ensureUploaded(): Promise<boolean> {
+    if (this.selectedFileEntry) return true;
+    if (!this.selectedFile) return false;
+
+    const key = `${this.selectedFile.name}|${this.selectedFile.size}|${this.selectedFile.lastModified}`;
+    if (key === this.uploadedFileKey && this.selectedFileEntry) return true;
+
+    this.isUploading = true;
+    try {
+      const text = await this.conversionService.uploadFile(this.selectedFile, this.parentRef?.user).toPromise();
+      if (!text) return false;
+      let parsed: any;
+      try { parsed = JSON.parse(text); } catch { return false; }
+      const arr = Array.isArray(parsed) ? parsed : [parsed];
+      if (!arr.length || !arr[0]?.id) return false;
       const f = arr[0];
       this.selectedFileEntry = new FileEntry(
         f.id, f.fileName, f.directory, f.visibility, undefined, undefined,
         f.isFolder, undefined, undefined, f.fileSize, f.fileType
       );
+      this.uploadedFileKey = key;
+      return true;
+    } finally {
+      this.isUploading = false;
     }
   }
 

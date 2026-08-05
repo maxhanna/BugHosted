@@ -515,7 +515,8 @@ namespace maxhanna.Server.Hubs
                     await Clients.Caller.SendAsync("OnRaceStandings", new
                     {
                         standings = BuildStandingsPayload(lobby),
-                        remainingMs = GetStandingsRemainingMs(lobby)
+                        remainingMs = GetStandingsRemainingMs(lobby),
+                        winner = BuildWinnerPayload(lobby)
                     });
                 }
                 catch { }
@@ -541,7 +542,11 @@ namespace maxhanna.Server.Hubs
             await Clients.Group(lobbyId).SendAsync("OnRaceStandings", new
             {
                 standings = BuildStandingsPayload(lobby),
-                remainingMs = GetStandingsRemainingMs(lobby)
+                remainingMs = GetStandingsRemainingMs(lobby),
+                // The race winner, so every client can celebrate the same
+                // moment the final classification lands (cannonade for the
+                // winner, finish-line burst for everyone else).
+                winner = BuildWinnerPayload(lobby)
             });
 
             // Hold the final classification on screen long enough to read it
@@ -650,6 +655,21 @@ namespace maxhanna.Server.Hubs
                     r.Laps,
                     r.IsDnf
                 }).ToList();
+
+        /// The winner of the just-finished race (first non-DNF finisher), or
+        /// null when nobody finished — used by every client to fire the shared
+        /// winner celebration exactly when the final classification lands.
+        private object? BuildWinnerPayload(LobbyState lobby) =>
+            lobby.FinishedResults
+                .Where(r => !r.IsDnf)
+                .OrderBy(r => r.Position)
+                .Select(r => (object)new
+                {
+                    r.ConnectionId,
+                    r.PlayerName,
+                    r.PlayerId
+                })
+                .FirstOrDefault();
 
         /// <summary>
         /// Send chat message within the lobby.

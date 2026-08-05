@@ -108,6 +108,18 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
+.chatTagPopupPanel {
+  max-width: 260px;
+  border: var(--main-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.chatTagThemeSwatch {
+  height: 8px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+}
+
 .user-tag-background-overlay {
   position: absolute;
   top: 0;

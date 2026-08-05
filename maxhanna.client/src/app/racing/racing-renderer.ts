@@ -1378,6 +1378,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this._birdsVao) { try { gl.deleteVertexArray(this._birdsVao); } catch { } }
     if (this._animalsVao) { try { gl.deleteVertexArray(this._animalsVao); } catch { } }
     if (this._animalsBuf) { try { gl.deleteBuffer(this._animalsBuf); } catch { } }
+    this._marmotWhistles = 0;
     if (this._birdsBuf) { try { gl.deleteBuffer(this._birdsBuf); } catch { } }
     if (this._balloonVao) { try { gl.deleteVertexArray(this._balloonVao); } catch { } }
     if (this._balloonVbo) { try { gl.deleteBuffer(this._balloonVbo); } catch { } }
@@ -1386,6 +1387,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this._crowdBuf) { try { gl.deleteBuffer(this._crowdBuf); } catch { } }
     if (this._confettiVao) { try { gl.deleteVertexArray(this._confettiVao); } catch { } }
     if (this._confettiBuf) { try { gl.deleteBuffer(this._confettiBuf); } catch { } }
+    // Kill any stale winner-trail so a rematch/new race never inherits it.
+    this._winTrailStartedAt = -1;
     this._crowdPeople = [];
     this._palmCrowns.length = 0;
     this._oasisPools.length = 0;
@@ -4164,9 +4167,18 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // Distant birds + hot-air balloons — animated sky objects that wheel over
   // the circuit. Birds are a dynamic per-frame buffer (flapping wings), the
   // balloons are one shared mesh drawn per balloon via model-matrix translate.
+  // Eagles (high-country birds, size >= 1.5) occasionally STOOP — a dramatic
+  // dive from their orbit altitude down toward a random point on the racing
+  // line, then a wheel-up climb back to altitude (mountain-life moments).
+  private static readonly EAGLE_STOOP_MS = 5200;   // full dive + wheel-up cycle
+  private static readonly EAGLE_STOOP_MIN_GAP = 11;  // seconds between stoops
+  private static readonly EAGLE_STOOP_MAX_GAP = 26;
   private _birdsVao!: WebGLVertexArrayObject;
   private _birdsBuf!: WebGLBuffer;
-  private _birds: { phase: number; speed: number; radius: number; alt: number; ang: number; dir: number; size: number; shade: number }[] = [];
+  private _birds: {
+    phase: number; speed: number; radius: number; alt: number; ang: number; dir: number; size: number; shade: number;
+    eagle?: boolean; diveT: number; diveNext: number; diveX: number; diveZ: number;
+  }[] = [];
   // Falling confetti — small camera-facing squares tumbling over the start/
   // finish line and grandstands (drawn per-frame like the birds, culled by
   // distance so far stands cost nothing).
@@ -4174,10 +4186,19 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private _confettiBuf!: WebGLBuffer;
   private _confettiCount = 0;
   private _confetti: { x: number; y: number; z: number; vx: number; vy: number; vz: number; phase: number; spin: number; size: number; color: [number, number, number] }[] = [];
+  private _confettiCap = 1300;
   // Winner's confetti burst — explosive launch particles (pit box + final
   // straight) that recycle onto the same ambient field once they fall back.
   private _confettiBurst: { x: number; y: number; z: number; vx: number; vy: number; vz: number; phase: number; spin: number; size: number; sx: number; sy: number; sz: number; color: [number, number, number] }[] = [];
   private _winnerCelebrated = false;
+  // Winner's confetti trail — after the line is crossed, a stream of colour
+  // pours off the winning car's rear wing while it coasts down the straight.
+  // The trail follows the camera eye (the winning car IS the local player),
+  // emitting only while the car is still moving, for a few seconds.
+  private _winTrailSpeed = 0;
+  private _winTrailStartedAt = -1;
+  private static readonly WIN_TRAIL_SECONDS = 7;
+  private static readonly WIN_TRAIL_MIN_SPEED = 6;
   private _crowdVao!: WebGLVertexArrayObject;
   private _crowdBuf!: WebGLBuffer;
   // Preallocated per-frame geometry for the animated crowd (never GC'd).
@@ -4199,7 +4220,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // rocky peaks (drawn per-frame like the birds so they can graze/bob).
   private _animalsVao!: WebGLVertexArrayObject;
   private _animalsBuf!: WebGLBuffer;
-  private _animals: { kind: 0 | 1; x: number; z: number; yaw: number; size: number; phase: number }[] = [];
+  private _animals: { kind: 0 | 1 | 2; x: number; z: number; yaw: number; size: number; phase: number; retr: number }[] = [];
+  // Marmot alarm whistles, queued while a car startles one; the component
+  // drains the queue each frame via consumeMarmotWhistle() to play the sound.
+  private _marmotWhistles = 0;
 
   // Builds the animated sky-object geometry (bird flock params, balloon mesh)
   // once per circuit, centered on the track centroid so they orbit the race.
@@ -4226,6 +4250,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     for (let i = 0; i < birdCount; i++) {
       const eagle = isHighCountry && i % 2 === 0;
       const vulture = isDesert && i % 2 === 0;
+      const diveTarget = eagle && pts.length
+        ? pts[Math.floor(Math.random() * pts.length)]
+        : null;
       this._birds.push({
         phase: Math.random() * Math.PI * 2,
         speed: eagle || vulture ? 0.04 + Math.random() * 0.05 : isMiami ? 0.09 + Math.random() * 0.08 : 0.05 + Math.random() * 0.09,
@@ -4235,6 +4262,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
         dir: Math.random() < 0.5 ? 1 : -1,
         size: eagle ? 1.7 + Math.random() * 0.4 : vulture ? 1.3 + Math.random() * 0.3 : isMiami ? 0.7 + Math.random() * 0.25 : 0.9 + Math.random() * 0.3,
         shade: isMiami ? 0.85 + Math.random() * 0.08 : vulture ? 0.12 : eagle ? 0.1 : 0.08 + Math.random() * 0.05,
+        // Eagle stoop state — staggered first dives so the flock doesn't
+        // stoop in lockstep (8..24s until each eagle's first dramatic dive).
+        eagle: !!diveTarget,
+        diveT: 0,
+        diveNext: eagle ? 8 + Math.random() * 16 : Number.MAX_SAFE_INTEGER,
+        diveX: diveTarget?.x ?? cx,
+        diveZ: diveTarget?.z ?? cz,
       });
     }
 
@@ -4268,16 +4302,42 @@ void main() { FragColor = texture(uTex, vUV); }`;
           yaw: Math.atan2(ppx * side, ppz * side),
           size: kind === 0 ? 0.85 + Math.random() * 0.25 : 0.7 + Math.random() * 0.2,
           phase: Math.random() * Math.PI * 2,
+          retr: 0,
         });
         deerIdx++;
         if (deerIdx >= 13) break;
       }
-      // Animals ride on a tiny dynamic buffer — 18 max, ~10 boxes each.
+      // Alpine marmots — whistling sentinels perched on rocks near the racing
+      // line. They stand upright, watch the cars, and when one comes too close
+      // they whistle and vanish into a burrow mound (retr: 1.6s retreat, hide
+      // 4..9s, 1.2s resurface). Placed on every 15th segment, ~8 of them, so
+      // a lap catches a few alarms but not a chorus.
+      if (this.theme === 'alpine') {
+        for (let i = 0; i < pts.length; i += 15) {
+          const p = pts[i];
+          const ppx = -p.dirZ;
+          const ppz = p.dirX;
+          const side = (i / 15) % 2 === 0 ? -1 : 1;
+          const dist = p.width / 2 + 20 + Math.random() * 8;
+          this._animals.push({
+            kind: 2,
+            x: p.x + ppx * dist * side + (Math.random() - 0.5) * 2,
+            z: p.z + ppz * dist * side + (Math.random() - 0.5) * 2,
+            // Face the track so they watch the cars pass.
+            yaw: Math.atan2(-ppx * side, -ppz * side),
+            size: 0.5 + Math.random() * 0.14,
+            phase: Math.random() * Math.PI * 2,
+            retr: 0,
+          });
+        }
+      }
+      // Animals ride on a tiny dynamic buffer — 26 max (deer/goats/marmots),
+      // ~10 boxes each.
       this._animalsVao = gl.createVertexArray()!;
       gl.bindVertexArray(this._animalsVao);
       this._animalsBuf = gl.createBuffer()!;
       gl.bindBuffer(gl.ARRAY_BUFFER, this._animalsBuf);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(18 * 10 * 36 * 11), gl.DYNAMIC_DRAW);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(26 * 10 * 36 * 11), gl.DYNAMIC_DRAW);
       const stride = 11 * 4;
       gl.enableVertexAttribArray(0);
       gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
@@ -4421,7 +4481,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // drawConfetti writes BOTH sets into this one buffer each frame, and an
     // out-of-bounds bufferSubData kills the WebGL context. Miami's dense
     // ambient alone (216) + burst would already exceed the ambient-only size.
-    const maxConfetti = Math.max(this._confetti.length, 500);
+    // Capacity ceiling: ambient field + winner cannonade (210) + winner's
+    // rear-wing trail (up to a few hundred streaming pieces). Generous headroom
+    // so bufferSubData can never out-of-bounds.
+    const maxConfetti = Math.max(this._confetti.length, 1300);
+    // Trail emission ceiling — keep headroom under the allocated buffer so
+    // bufferSubData can never write out of bounds (see the emission guard).
+    this._confettiCap = maxConfetti - 50;
     this._confettiVao = gl.createVertexArray()!;
     gl.bindVertexArray(this._confettiVao);
     this._confettiBuf = gl.createBuffer()!;
@@ -4443,11 +4509,19 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // crosses the line. Bursts at the finish line itself plus a dense cluster
   // back on the final straight (the winner's pit box area), so the whole
   // run-in erupts. Particles launch upward with a radial spread, fall under
-  // gravity, and recycle onto the ambient confetti field. Fires once per race
-  // (guarded by _winnerCelebrated, reset on each setTheme).
-  celebrateWinner() {
+  // gravity, and recycle onto the ambient confetti field. Also starts the
+  // rear-wing trail: a stream of confetti pours off the winning car as it
+  // coasts down the straight (winX/winZ = car position, winSpeed = its speed
+  // at the moment of victory). Fires once per race (guarded by
+  // _winnerCelebrated, reset on each setTheme).
+  celebrateWinner(winSpeed = 0, skipTrail = false) {
     if (this._winnerCelebrated) return;
     this._winnerCelebrated = true;
+    this._winTrailSpeed = winSpeed;
+    // Only the winner's own client arms the rear-wing trail (it's anchored to
+    // the camera eye — the winner's car). Remote clients celebrate the finish
+    // line but must NOT trail confetti off their own car, so they skip it.
+    if (!skipTrail) this._winTrailStartedAt = this.elapsed;
     const pts = this._trackPoints;
     if (!pts.length) return;
     const colors: [number, number, number][] = [
@@ -4486,10 +4560,52 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // Animates + draws the confetti shower. view gives the camera axes for the
   // billboards; particles beyond ~110m are skipped so far clusters don't cost
   // anything (the mirror pass rebuilds the same set, so the cull matters).
-  private drawConfetti(dt: number, view: Float32Array, eye: number[]) {
+  private drawConfetti(dt: number, view: Float32Array, eye: number[], camYaw = 0, drawRain = false) {
     const gl = this.gl;
     const t = this.elapsed;
     if ((!this._confetti.length && !this._confettiBurst.length) || !this._confettiVao) return;
+
+    // Winner's rear-wing trail — a fresh stream of confetti pours off the car
+    // while it's still moving (main pass only, so the mirror just renders it).
+    if (drawRain && this._winTrailStartedAt >= 0) {
+      const trailAge = t - this._winTrailStartedAt;
+      if (trailAge > RacingRenderer.WIN_TRAIL_SECONDS) {
+        this._winTrailStartedAt = -1;
+      } else if (Math.abs(this._winTrailSpeed) >= RacingRenderer.WIN_TRAIL_MIN_SPEED
+        // Hard ceiling: the ambient array only grows during the trail (pieces
+        // recycle in place afterwards), so stop emitting before the shared
+        // buffer's capacity so bufferSubData can never write out of bounds.
+        && this._confetti.length + this._confettiBurst.length < this._confettiCap) {
+        // Rear wing sits ~2.5m behind the cockpit (the camera is the car).
+        const bx = eye[0] - Math.sin(camYaw) * 2.5;
+        const bz = eye[2] - Math.cos(camYaw) * 2.5;
+        const backX = -Math.sin(camYaw);
+        const backZ = -Math.cos(camYaw);
+        const colors: [number, number, number][] = [
+          [0.95, 0.25, 0.3], [0.2, 0.7, 0.95], [0.98, 0.8, 0.1], [0.3, 0.85, 0.4],
+          [0.95, 0.5, 0.85], [0.95, 0.6, 0.2], [0.55, 0.45, 0.95], [0.95, 0.95, 0.98],
+        ];
+        // 5 pieces/frame — the car covers a few metres per frame at racing
+        // speed, so this reads as a continuous stream behind the wing.
+        for (let i = 0; i < 5; i++) {
+          const spread = (Math.random() - 0.5) * 0.7;
+          const sideX = -Math.cos(camYaw);
+          const sideZ = Math.sin(camYaw);
+          this._confetti.push({
+            x: bx + sideX * spread,
+            y: 1.1 + Math.random() * 0.35,
+            z: bz + sideZ * spread,
+            vx: backX * (3 + Math.random() * 3) + (Math.random() - 0.5) * 0.6,
+            vy: 1.2 + Math.random() * 1.6,
+            vz: backZ * (3 + Math.random() * 3) + (Math.random() - 0.5) * 0.6,
+            phase: Math.random() * Math.PI * 2,
+            spin: 2 + Math.random() * 5,
+            size: 0.08 + Math.random() * 0.08,
+            color: colors[Math.floor(Math.random() * colors.length)],
+          });
+        }
+      }
+    }
 
     // Camera right/up in world space (columns of the view matrix, column-major).
     const rxx = view[0], rxy = view[4], rxz = view[8];
@@ -4572,14 +4688,54 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // Birds: flocks wheel around the circuit with flapping wings.
     if (this._birds.length && this._birdsBuf && this._birdsVao) {
       const data: number[] = [];
+      const stoopMs = RacingRenderer.EAGLE_STOOP_MS / 1000;
       for (const b of this._birds) {
         b.ang += b.dir * b.speed * dt;
-        const bx = cx + Math.cos(b.ang) * b.radius;
-        const bz = cz + Math.sin(b.ang) * b.radius;
-        const by = b.alt + Math.sin(t * 0.7 + b.phase) * 2.5;
+        // Eagle stoop cycle: when diveNext elapses, swoop from the orbit circle
+        // down toward a random point on the racing line, then wheel back up.
+        // State machine: waiting (diveNext>0, diveT=0) → stooping (diveT>0,
+        // diveNext pinned at MAX so the dive can never re-chain) → waiting.
+        if (b.eagle) {
+          if (b.diveT <= 0 && b.diveNext > 0) {
+            b.diveNext -= dt;
+            if (b.diveNext <= 0) {
+              b.diveT = stoopMs;
+              b.diveNext = Number.MAX_SAFE_INTEGER;
+              const tp = this._trackPoints[Math.floor(Math.random() * this._trackPoints.length)];
+              if (tp) { b.diveX = tp.x; b.diveZ = tp.z; }
+            }
+          } else if (b.diveT > 0) {
+            b.diveT -= dt;
+            if (b.diveT <= 0) {
+              b.diveT = 0;
+              b.diveNext = RacingRenderer.EAGLE_STOOP_MIN_GAP + Math.random() * (RacingRenderer.EAGLE_STOOP_MAX_GAP - RacingRenderer.EAGLE_STOOP_MIN_GAP);
+            }
+          }
+        }
+        const orbX = cx + Math.cos(b.ang) * b.radius;
+        const orbZ = cz + Math.sin(b.ang) * b.radius;
+        const orbY = b.alt + Math.sin(t * 0.7 + b.phase) * 2.5;
+        let bx = orbX, bz = orbZ, by = orbY;
+        let flapFreq = b.size >= 1.5 ? 5.5 : 9;
+        if (b.eagle && b.diveT > 0) {
+          const k = 1 - b.diveT / stoopMs;      // 0 → 1 through the stoop
+          // Descent eases in over the first ~60%, climb eases out after — the
+          // classic stoop profile, dipping to just above the racing line.
+          const down = Math.min(1, k / 0.6);
+          const diveY = Math.max(4.5, b.alt * 0.16);
+          const altF = down * down * (3 - 2 * down);
+          by = b.alt * (1 - altF) + diveY * altF
+            + Math.sin(t * 0.7 + b.phase) * 2.5 * (1 - altF);
+          // Fly from the orbit circle down to the racing-line target, then
+          // wheel back out to the orbit on the climb.
+          const horizF = Math.sin(Math.min(1, k) * Math.PI);
+          bx = orbX + (b.diveX - orbX) * horizF;
+          bz = orbZ + (b.diveZ - orbZ) * horizF;
+          // Tucked, fast wingbeat while stooping; wide, slow wings wheeling up.
+          flapFreq = k < 0.6 ? 7.5 : 4.2;
+        }
         // Big eagles flap slower and deeper; small seagulls flutter fast.
-        const flapFreq = b.size >= 1.5 ? 5.5 : 9;
-        const flap = Math.sin(t * flapFreq + b.phase) * 0.22 * (b.size >= 1.5 ? 0.8 : 1);
+        const flap = Math.sin(t * flapFreq + b.phase) * 0.22 * (b.size >= 1.5 ? 0.8 : 1) * (b.eagle && b.diveT > 0 ? 0.45 : 1);
         // Flight direction + perpendicular for wing spread (scaled by size)
         const dx = Math.cos(b.ang + Math.PI / 2) * b.dir;
         const dz = Math.sin(b.ang + Math.PI / 2) * b.dir;
@@ -4650,6 +4806,25 @@ void main() { FragColor = texture(uTex, vUV); }`;
       if (dx * dx + dz * dz > cull2) continue;
       const cy = Math.cos(a.yaw), sy = Math.sin(a.yaw);
       const s = a.size;
+      // Marmot alarm: when a car comes within ~24m of a perched marmot, it
+      // whistles once and dives into its burrow (1.6s), hides ~4.5s, then pops
+      // back up (1.2s). retr anchors the cycle to elapsed time (both render
+      // passes sample the same snapshot, so the animation is deterministic and
+      // frame-rate independent): 0 = perched, 0..1.6 = diving, 1.6..6.1 =
+      // buried, 6.1..7.3 = resurfacing, then 0 again.
+      const isMarmot = a.kind === 2;
+      if (isMarmot) {
+        const d2 = dx * dx + dz * dz;
+        if (d2 < 24 * 24) {
+          if (a.retr <= 0) {
+            a.retr = t;     // start the dive now
+            this._marmotWhistles++;
+          }
+        } else if (a.retr > 0 && t - a.retr >= 6.1) {
+          a.retr = 0;       // car gone + fully buried — reset to perched
+        }
+        if (a.retr > 0 && t - a.retr >= 7.3) a.retr = 0; // cycle complete
+      }
       // Graze cycle: every ~6s the animal lowers its head for a few seconds,
       // with a gentle breath bob and tail flick.
       const graze = Math.max(0, Math.sin(t * 0.35 + a.phase) - 0.55) * 2.2;
@@ -4694,6 +4869,39 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const tailCol: [number, number, number] = isDeer ? [0.85, 0.8, 0.7] : [0.4, 0.4, 0.43];
       const [tx, tz] = L(-0.55 * s, 0);
       w = this.pushBoxVerts(data, w, tx, 0.42 * s + tail, tz, 0.07 * s, 0.1 * s, 0.06 * s, tailCol[0], tailCol[1], tailCol[2]);
+      // Alpine marmot — a stubby upright sentinel perched on a rock beside the
+      // track. It watches the cars, and when one gets close it whistles and
+      // dives into a burrow mound (retr: 0 perched → 1.6 buried → -4.5 hidden
+      // → 0 pop back up). The rock + burrow mound stay put; only the marmot
+      // vanishes.
+      if (isMarmot) {
+        const k = a.retr > 0 ? Math.max(0, Math.min(1, (t - a.retr) / 7.3)) : 0;
+        // 0..0.22 diving (shrink-out), 0.22..0.84 buried, 0.84..1 resurfacing
+        // (pop back in) — all phase boundaries are continuous.
+        let vis = 1;
+        if (k < 0.22) vis = 1 - Math.sin((k / 0.22) * Math.PI * 0.5);       // dive shrink-out
+        else if (k >= 0.84) vis = Math.sin(((k - 0.84) / 0.16) * Math.PI * 0.5); // pop back in
+        else vis = 0;                                 // buried
+        // The rock the marmot stands on (always there).
+        w = this.pushBoxVerts(data, w, a.x, 0.05 * s, a.z, 0.6 * s, 0.1 * s, 0.5 * s, 0.62, 0.58, 0.52);
+        // Burrow mound — dark earth bump beside the rock, where it disappears to.
+        const [mx, mz] = L(-0.5 * s, 0.35 * s);
+        w = this.pushBoxVerts(data, w, mx, 0.02 * s, mz, 0.5 * s, 0.08 * s, 0.36 * s, 0.32, 0.26, 0.2);
+        if (vis > 0.02) {
+          const vs = s * vis;
+          const breathe = Math.sin(t * 3.1 + a.phase) * 0.015 * vs;
+          // Sitting marmot: plump upright body + head, alert ears, stubby tail.
+          w = this.pushBoxVerts(data, w, a.x, 0.16 * vs + breathe, a.z, 0.5 * vs, 0.36 * vs, 0.4 * vs, 0.66, 0.48, 0.28);
+          const [hx, hz] = L(0.2 * vs, 0);
+          w = this.pushBoxVerts(data, w, hx, 0.36 * vs + breathe, hz, 0.26 * vs, 0.22 * vs, 0.24 * vs, 0.6, 0.42, 0.24);
+          for (const sideL of [-1, 1]) {
+            const [ex, ez] = L(0.24 * vs, sideL * 0.12 * vs);
+            w = this.pushBoxVerts(data, w, ex, 0.5 * vs + breathe, ez, 0.06 * vs, 0.12 * vs, 0.04 * vs, 0.42, 0.3, 0.18);
+          }
+          const [tlx, tlz] = L(-0.3 * vs, 0);
+          w = this.pushBoxVerts(data, w, tlx, 0.16 * vs + breathe, tlz, 0.12 * vs, 0.06 * vs, 0.08 * vs, 0.55, 0.4, 0.24);
+        }
+      }
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, this._animalsBuf);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
@@ -4713,12 +4921,25 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this._crowdExcitement = Math.max(0, Math.min(1, Math.max(this._crowdExcitement, level)));
   }
 
+  /** Drains the marmot-alarm queue. Returns the number of whistles queued
+   *  since the last call (the component plays a whistle sound for each). */
+  consumeMarmotWhistle(): number {
+    const n = this._marmotWhistles;
+    this._marmotWhistles = 0;
+    return n;
+  }
+
   render(eyeX: number, eyeY: number, eyeZ: number, yaw: number, pitch: number, aspect: number,
     cars: (RacingCarAppearance & { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number; accel?: number; spin?: number; slide?: number; id?: string })[], dt: number,
     fovZoom: number = 1.0, shakeX: number = 0, shakeY: number = 0, isRaining: boolean = false, speedRatio: number = 0,
     playerSpeed: number = 0, playerAccel: number = 0, playerSpin: number = 0, playerSlide: number = 0, playerAppearance?: RacingCarAppearance) {
     const gl = this.gl;
     this.elapsed += dt;
+    // Keep the winner's trail speed live so emission stops when the coasting
+    // car actually slows below the threshold (the anchor speed is stale).
+    if (this._winTrailStartedAt >= 0) {
+      this._winTrailSpeed = Math.abs(playerSpeed);
+    }
     // Crowd reaction decays smoothly back to calm (~4s from full excitement).
     if (this._crowdExcitement > 0) {
       this._crowdExcitement = Math.max(0, this._crowdExcitement - dt * 0.25);
@@ -5035,8 +5256,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // Distant birds + hot-air balloons wheeling over the circuit
     this.drawSkyObjects(dt);
 
-    // Confetti showering over the start/finish + grandstands
-    this.drawConfetti(dt, view, eye);
+    // Confetti showering over the start/finish + grandstands. The camera yaw
+    // + drawRain flag let the winner's rear-wing trail stream off the car in
+    // the main pass only (the mirror pass renders it without re-emitting).
+    const camYaw = Math.atan2(-view[8], -view[10]);
+    this.drawConfetti(dt, view, eye, camYaw, drawRain);
 
     // Animated oasis FX — swaying palm fronds + rippling water. Rebuilt per
     // pass (main + mirror) so both views stay in sync; empty on non-palm themes.

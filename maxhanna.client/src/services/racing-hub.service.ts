@@ -57,6 +57,14 @@ export interface ChatMessage {
   message: string;
 }
 
+// The winner of a just-finished multiplayer race, broadcast with the final
+// standings so every client celebrates the same winner at the same moment.
+export interface RaceWinner {
+  connectionId: string;
+  playerName: string;
+  playerId: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class RacingHubService implements OnDestroy {
   private hub: signalR.HubConnection | null = null;
@@ -71,6 +79,8 @@ export class RacingHubService implements OnDestroy {
   readonly carPositionUpdate$ = new Subject<RemoteCarPosition>();
   readonly playerFinished$ = new Subject<PlayerFinishedEvent>();
   readonly raceStandings$ = new Subject<RaceStandingsRow[]>();
+  /** Winner of the just-finished race (null when nobody finished). */
+  readonly raceWinner$ = new Subject<RaceWinner | null>();
   /** Milliseconds left in the standings display window (live countdown source). */
   readonly standingsWindowMs$ = new Subject<number>();
   readonly chatMessage$ = new Subject<ChatMessage>();
@@ -129,9 +139,10 @@ export class RacingHubService implements OnDestroy {
         this.playerFinished$.next(data);
       });
 
-      this.hub.on('OnRaceStandings', (data: { standings: RaceStandingsRow[]; remainingMs?: number }) => {
+      this.hub.on('OnRaceStandings', (data: { standings: RaceStandingsRow[]; remainingMs?: number; winner?: RaceWinner | null }) => {
         this.raceStandings$.next(data.standings || []);
         this.standingsWindowMs$.next(data.remainingMs ?? 0);
+        this.raceWinner$.next(data.winner ?? null);
       });
 
       this.hub.on('OnChatMessage', (data: ChatMessage) => {

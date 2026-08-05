@@ -82,6 +82,38 @@
     </div>
   </div>
 </div>
+<!-- CHAT TAG POPUP PANEL -->
+<div class="popupPanel chatTagPopupPanel" [style.left.px]="showChatTagX ? showChatTagX.value : 0"
+  [style.top.px]="showChatTagY ? showChatTagY.value : 0" *ngIf="isShowingChatTagPopup"
+  (click)="isShowingChatTagPopup = false;" (touchend)="isShowingChatTagPopup = false;">
+  <div class="user-tag-content-wrapper">
+    <div class="chatTagThemeSwatch" *ngIf="chatTagPopupTheme?.userTheme?.backgroundColor"
+      [style.background]="chatTagPopupTheme?.userTheme?.backgroundColor"></div>
+    <div style="display: flex; justify-content: space-between; gap:20px;">
+      <div class="popupUserTagAvatarAndName blackFontColor">
+        <div style="height:50px; width:50px; overflow:hidden; display:inline-block;">
+          <app-chat-tag [chatId]="showChatTagChatId ? parseInteger(showChatTagChatId.value) : 0"
+            [inputtedParentRef]="this" (chatLoaded)="chatTagLoaded($event)" [preventOpen]="true"
+            [hideName]="true">
+          </app-chat-tag>
+        </div>
+        <div style="margin-top:5px;" class="smallFont">
+          <span>
+            {{popupChatTag?.name ?? ("Chat #" + (showChatTagChatId ? parseInteger(showChatTagChatId.value) : 0))}}
+          </span>
+        </div>
+      </div>
+      <div *ngIf="popupChatTag" class="popupUserTagInfo blackFontColor" style="min-width: 110px;">
+        <div *ngIf="popupChatTag.description" [class]="popupChatTag.description.length > 55 ? 'xxSmallFont' :
+          popupChatTag.description.length > 25 ? 'smallFont' : ''">
+          {{ popupChatTag.description }}
+        </div>
+        <div class="xxSmallFont" *ngIf="popupChatTag.isPublic">🌐 Public chat</div>
+        <div class="xxSmallFont" *ngIf="popupChatTag.memberCount">{{ popupChatTag.memberCount }} members</div>
+      </div>
+    </div>
+  </div>
+</div>
 <!-- USER TAG POPUP PANEL -->
 <div class="popupPanel userTagPopupPanel" [style.left.px]="showUserTagX ? showUserTagX.value : 0"
   [style.top.px]="showUserTagY ? showUserTagY.value : 0" *ngIf="isShowingUserTagPopup"
@@ -183,3 +215,8 @@
 <input type="hidden" id="showUserTagX" #showUserTagX />
 <input type="hidden" id="showUserTagY" #showUserTagY />
 <input type="hidden" id="showUserTagUserId" #showUserTagUserId />
+<button type="button" id="showChatTagButton" style="display: none;" (click)="showChatTagPopup()"></button>
+<button type="button" id="hideChatTagButton" style="display: none;" (click)="isShowingChatTagPopup = false"></button>
+<input type="hidden" id="showChatTagX" #showChatTagX />
+<input type="hidden" id="showChatTagY" #showChatTagY />
+<input type="hidden" id="showChatTagChatId" #showChatTagChatId />

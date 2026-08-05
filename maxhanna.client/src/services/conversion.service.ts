@@ -29,6 +29,13 @@ export interface YoutubeDownloadResult {
   note: string;
 }
 
+export interface TextToAsciiResult {
+  fileId: number;
+  fileName: string;
+  folderPath: string;
+  art: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -95,6 +102,17 @@ export class ConversionService {
       }
       return await res.json();
     }).catch(() => ({ fileId: 0, fileName: '', title: '', note: 'Download failed.' }));
+  }
+
+  textToAscii(text: string, style: string, scale: number, userId: number | undefined): Promise<TextToAsciiResult | null> {
+    return fetch('/conversion/texttoascii', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ Text: text, Style: style, Scale: scale, UserId: userId })
+    }).then(async (res) => {
+      if (!res.ok) return null;
+      return await res.json();
+    }).catch(() => null);
   }
 }
 

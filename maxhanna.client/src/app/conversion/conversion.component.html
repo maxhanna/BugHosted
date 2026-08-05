@@ -4,87 +4,125 @@
       <p class="eyebrow">Conversion Studio</p>
       <h2>Convert files, build fonts, ask the AI</h2>
       <p class="hero-copy">
-        Pick a file from your machine, convert it to another format, turn pixel-art letters
-        into a TrueType font, or have the vision model describe and critique it.
+        Drop in a file to convert it, turn pixel-art letters into a TrueType font, get a vision-model
+        report, download YouTube audio or video, or render text as big ASCII art.
       </p>
     </div>
   </header>
 
+  <!-- STEP 1: PICK A FILE -->
   <section class="conversion-panel">
-    <h3>1. Choose a file</h3>
-    <input #fileInput type="file" (change)="onFileSelected($event)" />
+    <div class="panel-heading">
+      <span class="step-badge">1</span>
+      <h3>Choose a file</h3>
+      <span class="step-hint" *ngIf="selectedFile">{{ detectedKindLabel }} selected</span>
+    </div>
+
+    <div class="dropzone" [class.dragging]="isDragging" (dragover)="onDragOver($event)"
+      (dragleave)="onDragLeave()" (drop)="onDrop($event)" (click)="fileInput.click()" role="button"
+      [attr.aria-label]="'Choose a file'">
+      <input #fileInput type="file" hidden (change)="onFileSelected($event)" />
+      <span class="drop-icon">📁</span>
+      <span *ngIf="!selectedFile">Drop a file here, or <span class="link-text">browse</span></span>
+      <span *ngIf="selectedFile">{{ selectedFile.name }}</span>
+    </div>
+
     <div class="file-info" *ngIf="selectedFile">
       <img *ngIf="localPreviewUrl" [src]="localPreviewUrl" class="file-preview" alt="Preview" />
       <div class="file-meta">
         <strong>{{ selectedFile.name }}</strong>
-        <span>{{ selectedFile.size | fileSize }}</span>
+        <span>{{ selectedFile.size | fileSize }} · {{ detectedKindLabel }}</span>
       </div>
+      <button class="link" (click)="clearSelectedFile()">✕ Remove</button>
     </div>
   </section>
 
+  <!-- STEP 2: CONVERT FORMAT -->
   <section class="conversion-panel">
-    <h3>2. Convert format</h3>
-    <p class="help-text">Images convert via ImageSharp; audio/video convert through FFmpeg. The result is saved to your files (Converted folder).</p>
+    <div class="panel-heading">
+      <span class="step-badge">2</span>
+      <h3>Convert to another format</h3>
+      <span class="step-hint" *ngIf="selectedFile">{{ formatGroupLabel }}</span>
+    </div>
+    <p class="help-text">Images convert in-browser on the server; audio and video use FFmpeg. Results land in your <strong>Files → Converted</strong> folder.</p>
     <div class="row">
-      <select [(ngModel)]="targetFormat">
-        <optgroup label="Images">
-          <option *ngFor="let f of imageFormats" [value]="f">{{ f }}</option>
-        </optgroup>
-        <optgroup label="Audio">
-          <option *ngFor="let f of audioFormats" [value]="f">{{ f }}</option>
-        </optgroup>
-        <optgroup label="Video">
-          <option *ngFor="let f of videoFormats" [value]="f">{{ f }}</option>
-        </optgroup>
+      <select [(ngModel)]="targetFormat" [disabled]="!selectedFile || isConverting">
+        <option *ngFor="let f of availableFormats" [value]="f">{{ f }}</option>
       </select>
       <button (click)="convert()" [disabled]="isConverting || !selectedFile">
         {{ isConverting ? 'Converting…' : 'Convert' }}
       </button>
+      <span *ngIf="isUploading" class="busy-hint">Uploading…</span>
     </div>
-    <div *ngIf="conversionResult" class="result-box">
+    <div *ngIf="conversionResult" class="result-box result-success">
+      <span class="result-icon">✅</span>
       <span class="result-file">{{ conversionResult.fileName }}</span>
       <button class="link" (click)="downloadConverted(conversionResult.fileId, conversionResult.fileName)">Download</button>
     </div>
   </section>
 
-  <section class="conversion-panel" *ngIf="isImageSelected()">
-    <h3>3. Build a font from this image</h3>
-    <p class="help-text">
-      Upload pixel art of one or more letters (separate glyphs by a gap). Leave the mapping blank to let the
-      vision model identify the characters, or type them below in reading order.
-    </p>
-    <div class="row">
-      <input [(ngModel)]="fontText" placeholder="Optional: AB C …" />
-      <button (click)="makeFont()" [disabled]="isMakingFont">
-        {{ isMakingFont ? 'Tracing…' : 'Create .ttf' }}
-      </button>
+  <!-- STEP 3: FONT (images only) -->
+  <section class="conversion-panel">
+    <div class="panel-heading">
+      <span class="step-badge">3</span>
+      <h3>Build a font from pixel art</h3>
     </div>
-    <div *ngIf="fontResult" class="result-box">
-      <div class="font-preview-box">
-        <span class="font-preview" [style.font-family]="fontFamilyName + ', sans-serif'">{{ fontSampleText }}</span>
-      </div>
+    <div *ngIf="!isImageSelected()" class="lock-hint">
+      🔒 Pick an <strong>image</strong> in step 1 to unlock font building.
+    </div>
+    <ng-container *ngIf="isImageSelected()">
+      <p class="help-text">
+        Each connected shape in the image becomes one glyph. Leave the mapping blank to let the vision model
+        identify the characters, or type them below in reading order.
+      </p>
       <div class="row">
-        <input [(ngModel)]="fontSampleText" placeholder="Sample text to preview…" />
-        <button class="link" (click)="downloadConverted(fontResult.fileId, fontResult.fileName)">Download .ttf</button>
+        <input [(ngModel)]="fontText" placeholder="Optional: AB C …" />
+        <button (click)="makeFont()" [disabled]="isMakingFont">
+          {{ isMakingFont ? 'Tracing…' : 'Create .ttf' }}
+        </button>
+        <span *ngIf="isUploading" class="busy-hint">Uploading…</span>
       </div>
-      <p class="help-text">Characters: {{ fontResult.characters }}</p>
-    </div>
+      <div *ngIf="fontResult" class="result-box result-success">
+        <div class="font-preview-box">
+          <span class="font-preview" [style.font-family]="fontFamilyName + ', sans-serif'">{{ fontSampleText }}</span>
+        </div>
+        <div class="row">
+          <input [(ngModel)]="fontSampleText" placeholder="Sample text to preview…" />
+          <button class="link" (click)="downloadConverted(fontResult.fileId, fontResult.fileName)">Download .ttf</button>
+        </div>
+        <p class="help-text">Characters found: {{ fontResult.characters }}</p>
+      </div>
+    </ng-container>
   </section>
 
+  <!-- STEP 4: VISION (images only) -->
   <section class="conversion-panel">
-    <h3>3. Ask the vision model</h3>
-    <div class="row">
-      <input [(ngModel)]="visionPrompt" placeholder="Optional prompt: describe / critique this image…" />
-      <button (click)="runVision()" [disabled]="isRunningVision || !selectedFile">
-        {{ isRunningVision ? 'Thinking…' : 'Analyze' }}
-      </button>
+    <div class="panel-heading">
+      <span class="step-badge">4</span>
+      <h3>Ask the vision model</h3>
     </div>
-    <div *ngIf="visionReport" class="result-box vision-report">{{ visionReport }}</div>
+    <div *ngIf="!isImageSelected()" class="lock-hint">
+      🔒 Pick an <strong>image</strong> in step 1 to unlock vision analysis.
+    </div>
+    <ng-container *ngIf="isImageSelected()">
+      <div class="row">
+        <input [(ngModel)]="visionPrompt" placeholder="Optional prompt: describe / critique this image…" />
+        <button (click)="runVision()" [disabled]="isRunningVision">
+          {{ isRunningVision ? 'Thinking…' : 'Analyze' }}
+        </button>
+        <span *ngIf="isUploading" class="busy-hint">Uploading…</span>
+      </div>
+      <div *ngIf="visionReport" class="result-box vision-report">{{ visionReport }}</div>
+    </ng-container>
   </section>
 
+  <!-- STEP 5: YOUTUBE -->
   <section class="conversion-panel">
-    <h3>4. Download YouTube video</h3>
-    <p class="help-text">Paste a youtube.com or youtu.be link. MP4 grabs the best combined video stream; audio downloads the highest-quality soundtrack (M4A, or MP3 if FFmpeg is available on the server).</p>
+    <div class="panel-heading">
+      <span class="step-badge">5</span>
+      <h3>Download from YouTube</h3>
+    </div>
+    <p class="help-text">Paste a <strong>youtube.com</strong> or <strong>youtu.be</strong> link. MP4 grabs the best combined stream; audio saves the highest-quality soundtrack (M4A — MP3 when the server has FFmpeg).</p>
     <div class="row">
       <input [(ngModel)]="youtubeUrl" placeholder="https://www.youtube.com/watch?v=…" />
       <select [(ngModel)]="youtubeFormat">
@@ -96,10 +134,42 @@
         {{ isDownloadingYoutube ? 'Downloading…' : 'Download' }}
       </button>
     </div>
-    <div *ngIf="youtubeResult" class="result-box">
-      <span class="result-file">{{ youtubeResult.fileName || youtubeResult.title }}</span>
+    <div *ngIf="youtubeResult" class="result-box" [class.result-error]="youtubeResult.fileId <= 0">
+      <span class="result-icon">{{ youtubeResult.fileId > 0 ? '✅' : '⚠️' }}</span>
+      <span class="result-file">{{ youtubeResult.fileName || youtubeResult.title || 'Download failed' }}</span>
       <button *ngIf="youtubeResult.fileId > 0" class="link" (click)="downloadConverted(youtubeResult.fileId, youtubeResult.fileName)">Download</button>
-      <span *ngIf="youtubeResult.note" class="help-text">{{ youtubeResult.note }}</span>
+      <span *ngIf="youtubeResult.note && youtubeResult.fileId <= 0" class="help-text">{{ youtubeResult.note }}</span>
+    </div>
+  </section>
+
+  <!-- STEP 6: TEXT TO ASCII ART -->
+  <section class="conversion-panel">
+    <div class="panel-heading">
+      <span class="step-badge">6</span>
+      <h3>Text → ASCII art</h3>
+    </div>
+    <p class="help-text">Type anything (letters, numbers, punctuation). It renders as big block art you can copy or download as a .txt file.</p>
+    <div class="row ascii-row">
+      <textarea [(ngModel)]="asciiText" rows="2" placeholder="Type something fun…" maxlength="400"></textarea>
+      <div class="ascii-options">
+        <select [(ngModel)]="asciiStyle">
+          <option *ngFor="let s of asciiStyles" [value]="s">{{ s }}</option>
+        </select>
+        <select [(ngModel)]="asciiScale">
+          <option *ngFor="let s of asciiScaleOptions" [ngValue]="s">{{ s }}×</option>
+        </select>
+      </div>
+      <button (click)="generateAscii()" [disabled]="isGeneratingAscii || !asciiText.trim()">
+        {{ isGeneratingAscii ? 'Rendering…' : 'Generate' }}
+      </button>
+    </div>
+    <div *ngIf="asciiResult?.art" class="ascii-out">
+      <pre>{{ asciiResult?.art }}</pre>
+      <div class="row">
+        <button class="link" (click)="copyAscii()">📋 Copy</button>
+        <button *ngIf="asciiResult && asciiResult.fileId > 0" class="link"
+          (click)="downloadConverted(asciiResult.fileId, asciiResult.fileName)">Download .txt</button>
+      </div>
     </div>
   </section>
 </div>

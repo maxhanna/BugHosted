@@ -54,6 +54,36 @@
   color: var(--main-font-color, #1e293b);
 }
 
+.panel-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(74, 170, 255, 0.16);
+  color: #4aaaff;
+  font-size: 0.8rem;
+  font-weight: 800;
+  flex: none;
+}
+
+.step-hint {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--secondary-font-color, #64748b);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 .help-text {
   margin: 0;
   font-size: 0.85rem;
@@ -68,40 +98,39 @@
   flex-wrap: wrap;
 }
 
-input[type="file"] {
-  font-size: 0.9rem;
-  color: var(--main-font-color, #1e293b);
-}
-
-select, input[type="text"], input:not([type="file"]) {
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--main-font-color, #1e293b);
-  font-size: 0.9rem;
-  flex: 1;
-  min-width: 200px;
-}
-
-button {
-  padding: 8px 18px;
-  border-radius: 8px;
-  border: 1px solid rgba(74, 170, 255, 0.35);
-  background: rgba(74, 170, 255, 0.12);
-  color: #4aaaff;
-  font-weight: 600;
-  font-size: 0.9rem;
+.dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 26px 18px;
+  border: 2px dashed rgba(148, 163, 184, 0.4);
+  border-radius: 14px;
+  color: var(--secondary-font-color, #64748b);
+  font-size: 0.95rem;
   cursor: pointer;
-  white-space: nowrap;
+  text-align: center;
+  transition: border-color .15s ease, background-color .15s ease;
 }
 
-button:hover:not(:disabled) { background: rgba(74, 170, 255, 0.22); }
-button:disabled { opacity: 0.45; cursor: not-allowed; }
+.dropzone:hover {
+  border-color: rgba(74, 170, 255, 0.5);
+  background: rgba(74, 170, 255, 0.05);
+}
 
-button.link {
-  background: none;
-  border-color: rgba(74, 170, 255, 0.3);
+.dropzone.dragging {
+  border-color: #4aaaff;
+  background: rgba(74, 170, 255, 0.1);
+}
+
+.drop-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.link-text {
+  color: #4aaaff;
+  text-decoration: underline;
 }
 
 .file-info {
@@ -127,6 +156,58 @@ button.link {
   font-size: 0.85rem;
 }
 
+select, input[type="text"], input:not([type="file"]), textarea {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--main-font-color, #1e293b);
+  font-size: 0.9rem;
+  flex: 1;
+  min-width: 200px;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 48px;
+  font-family: inherit;
+}
+
+button {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid rgba(74, 170, 255, 0.35);
+  background: rgba(74, 170, 255, 0.12);
+  color: #4aaaff;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button:hover:not(:disabled) { background: rgba(74, 170, 255, 0.22); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+button.link {
+  background: none;
+  border-color: rgba(74, 170, 255, 0.3);
+}
+
+.busy-hint {
+  font-size: 0.8rem;
+  color: var(--secondary-font-color, #64748b);
+  font-style: italic;
+}
+
+.lock-hint {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--secondary-font-color, #64748b);
+  font-size: 0.88rem;
+}
+
 .result-box {
   display: flex;
   align-items: center;
@@ -140,8 +221,17 @@ button.link {
   font-size: 0.9rem;
 }
 
+.result-success { border-color: rgba(74, 200, 120, 0.3); background: rgba(74, 200, 120, 0.07); }
+.result-error { border-color: rgba(244, 120, 120, 0.35); background: rgba(244, 120, 120, 0.07); }
+
+.result-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .result-file {
   font-weight: 600;
+  word-break: break-all;
 }
 
 .vision-report {
@@ -164,4 +254,36 @@ button.link {
   line-height: 1.4;
   white-space: pre-wrap;
   color: #0f172a;
+}
+
+.ascii-row {
+  align-items: stretch;
+}
+
+.ascii-options {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+
+.ascii-options select {
+  flex: none;
+  min-width: 0;
+  width: 92px;
+}
+
+.ascii-out pre {
+  margin: 0;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px dashed rgba(148, 163, 184, 0.4);
+  background: rgba(255, 255, 255, 0.5);
+  color: #0f172a;
+  font-family: monospace;
+  font-size: 0.62rem;
+  line-height: 1.1;
+  white-space: pre;
+  overflow-x: auto;
+  max-height: 320px;
+  overflow-y: auto;
 }

@@ -39,6 +39,7 @@ import { FileSearchComponent } from './file-search/file-search.component';
 import { UpdateUserSettingsComponent } from './update-user-settings/update-user-settings.component';
 import { CommentsComponent } from './comments/comments.component';
 import { UserTagComponent } from './user-tag/user-tag.component';
+import { ChatTagComponent } from './chat-tag/chat-tag.component';
 import { LineGraphComponent } from './line-graph/line-graph.component';
 import { ReactionComponent } from './reaction/reaction.component';
 import { ArrayComponent } from './array/array.component';
@@ -154,6 +155,7 @@ import { ConversionComponent } from './conversion/conversion.component';
     CommentsComponent,
     MediaSelectorComponent,
     UserTagComponent,
+    ChatTagComponent,
     ReactionComponent,
     ArrayComponent,
     NexusComponent,

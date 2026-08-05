@@ -125,10 +125,18 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private _mpRaceStartAt = 0;
   private _autoStartTicker: any = null;
   private autoStartDeadline = 0;
+  // Original total countdown duration (ms), captured when the deadline is set —
+  // used as the depleting-bar denominator so the bar drains 100% -> 0% instead
+  // of sawtoothing off the live ceil-refreshed autoStartSeconds.
+  private _autoStartTotalMs = 0;
   private _mpSubs: Subscription[] = [];
   private _positionSyncTimer = 0;
   private _mpLobbyTrackId = '';
   private _mpFinished = false;
+  // Guards the multiplayer winner celebration so the server's standings
+  // announcement doesn't double-fire on the winner's own client (which already
+  // celebrated at its line crossing). Reset per race (beginRace).
+  private _mpWinnerCelebrated = false;
   keys = new Set<string>();
   isMobile = false;
   joyActive = false;
@@ -253,6 +261,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   standingsProgress = 100;
   /** True when <3s remain — triggers the subtle urgent pulse. */
   standingsLow = false;
+  /** True for a beat right after each final-3s tick — flashes the panel border
+   *  in sync with the audible tick so the countdown reads visually too. */
+  standingsTickFlash = false;
+  private _standingsFlashTimer: any = null;
   private _standingsDeadline = 0;
   private _standingsTotalMs = 0;
   private _standingsTimer: number | null = null;
@@ -432,6 +444,34 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         });
       })
     );
+    // Winner announcement — the server broadcasts it with the final standings,
+    // so EVERY client celebrates the same winner at the same moment. The
+    // winner's own client already fired the cannonade at their line crossing
+    // (guarded by _mpWinnerCelebrated), so this mainly brings the celebration
+    // to the rest of the lobby: finish-line burst + crowd frenzy for everyone.
+    this._mpSubs.push(
+      this.racingHub.raceWinner$.subscribe(winner => {
+        this.ngZone.run(() => {
+          if (!winner || !this._mpLobbyTrackId) return;
+          const myId = this.parentRef?.user?.id ?? 0;
+          if (winner.playerId === myId) {
+            if (this._mpWinnerCelebrated) return;
+            this._mpWinnerCelebrated = true;
+            this.renderer.celebrateWinner(Math.abs(this.carSpeed));
+            this.renderer.exciteCrowd(1);
+            this.playWinnerCheer();
+          } else {
+            // Remote winner — finish-line burst + crowd frenzy only, no
+            // rear-wing trail (that's anchored to the winner's own camera).
+            // Also gated to an active race view so a late joiner catching the
+            // standings doesn't get a celebration in the lobby.
+            if (this.gameState !== 'finished' && this.gameState !== 'racing') return;
+            this.renderer.celebrateWinner(0, true);
+            this.renderer.exciteCrowd(1);
+          }
+        });
+      })
+    );
     this._mpSubs.push(
       this.racingHub.standingsWindowMs$.subscribe(ms => {
         this.ngZone.run(() => {
@@ -488,6 +528,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           this.stopMpStartCountdown();
           this.stopAutoStartTicker();
           this.autoStartSeconds = 0;
+      this.autoStartDeadline = 0;
+      this._autoStartTotalMs = 0;
+          this.autoStartDeadline = 0;
+          this._autoStartTotalMs = 0;
           this.gameState = 'menu';
           this.showMultiplayer = true;
           this.addMessage('Rematch! Ready up to race again.');
@@ -499,6 +543,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         this.ngZone.run(() => {
           this.autoStartSeconds = remaining;
           this.autoStartDeadline = Date.now() + remaining * 1000;
+          this._autoStartTotalMs = Math.max(remaining * 1000, 100);
           this.startAutoStartTicker();
         });
       })
@@ -665,6 +710,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.stopMpStartCountdown();
       this.stopAutoStartTicker();
       this.autoStartSeconds = 0;
+      this.autoStartDeadline = 0;
+      this._autoStartTotalMs = 0;
     }
   }
   private async ensureHubConnection(): Promise<void> {
@@ -689,6 +736,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       if (state.autoStartRemaining && state.autoStartRemaining > 0) {
         this.autoStartSeconds = state.autoStartRemaining;
         this.autoStartDeadline = Date.now() + state.autoStartRemaining * 1000;
+        this._autoStartTotalMs = Math.max(state.autoStartRemaining * 1000, 100);
         this.startAutoStartTicker();
       }
       this.lobbyConnectionError = '';
@@ -722,10 +770,20 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       // Pre-race lights countdown: 10 -> 0s
       return Math.max(0, Math.min(100, (this.countdownTimer / 10) * 100));
     }
-    if (this.autoStartSeconds <= 0) return 0;
+    if (this.autoStartSeconds <= 0 || this._autoStartTotalMs <= 0) return 0;
     const remain = Math.max(0, this.autoStartDeadline - Date.now());
-    const total = this.autoStartSeconds * 1000;
-    return total > 0 ? Math.max(0, Math.min(100, (remain / total) * 100)) : 0;
+    return Math.max(0, Math.min(100, (remain / this._autoStartTotalMs) * 100));
+  }
+  // Urgent state for the garage auto-start bar — red + pulsing in the final
+  // 3 seconds, mirroring the standings low-state treatment.
+  get garageCountdownLow(): boolean {
+    if (this.countdownTimer > 0) return this.countdownTimer <= 3;
+    return this.autoStartSeconds > 0 && this.autoStartSeconds <= 3;
+  }
+  // Depleting bar under the start-lights countdown — drains 100% -> 0% as
+  // the 10s pre-race countdown runs down, so players see the start draining.
+  get countdownProgress(): number {
+    return Math.max(0, Math.min(100, (this.countdownTimer / 10) * 100));
   }
   get startLightPhase(): 'red' | 'yellow' | 'green' | 'go' {
     if (this.countdownTimer >= 8) return 'red';
@@ -759,6 +817,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private startAutoStartTicker() {
     if (this._autoStartTicker) clearInterval(this._autoStartTicker);
     this._lastTickSecond = -1;
+    // Snapshot the total once in case a tick runs before the handlers set it
+    // (defensive — the handlers normally set _autoStartTotalMs already).
+    if (this.autoStartDeadline > 0 && this._autoStartTotalMs <= 0) {
+      this._autoStartTotalMs = Math.max(this.autoStartSeconds * 1000, 100);
+    }
     this._autoStartTicker = setInterval(() => {
       const remain = Math.max(0, Math.ceil((this.autoStartDeadline - Date.now()) / 1000));
       this.autoStartSeconds = remain;
@@ -779,6 +842,32 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         }
       }
     }, 500);
+  }
+  // Alpine marmot alarm — two short shrill chirps sweeping up-down (the
+  // classic whistling-marmot call), quiet and brief so it reads as wildlife
+  // at the track edge rather than an alarm in the cockpit.
+  private playMarmotWhistle() {
+    if (!this.soundOn || !this._audioCtx) return;
+    try {
+      const ctx = this._audioCtx;
+      const t = ctx.currentTime;
+      for (let chirp = 0; chirp < 2; chirp++) {
+        const start = t + chirp * 0.13;
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(2600, start);
+        osc.frequency.linearRampToValueAtTime(3400, start + 0.05);
+        osc.frequency.linearRampToValueAtTime(2100, start + 0.11);
+        g.gain.setValueAtTime(0.0001, start);
+        g.gain.exponentialRampToValueAtTime(0.035, start + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, start + 0.12);
+        osc.connect(g);
+        g.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + 0.13);
+      }
+    } catch { }
   }
   // Subtle one-second tick while in the garage with a lobby countdown running
   // — a quiet sine blip whose pitch rises for the final three seconds, so the
@@ -868,6 +957,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.dnfRacers = [];
     this._raceFinished = false;
     this._mpFinished = false;
+    this._mpWinnerCelebrated = false;
     const startP = this.renderer.getTrackPointAlong(0);
     this.carX = startP.x;
     this.carZ = startP.z;
@@ -896,6 +986,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.stopMpStartCountdown();
     this.stopAutoStartTicker();
     this.autoStartSeconds = 0;
+    this.autoStartDeadline = 0;
+    this._autoStartTotalMs = 0;
     this._mpLobbyTrackId = '';
     this.lobbyPlayers = [];
     this.isLobbyHost = false;
@@ -940,6 +1032,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.stopMpStartCountdown();
       this.stopAutoStartTicker();
       this.autoStartSeconds = 0;
+      this.autoStartDeadline = 0;
+      this._autoStartTotalMs = 0;
     }
     this.showMultiplayer = false;
   }
@@ -1045,6 +1139,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.dnfRacers = [];
     this._raceFinished = false;
     this._mpFinished = false;
+    this._mpWinnerCelebrated = false;
     const startP = this.renderer.getTrackPointAlong(0);
     this.carX = startP.x;
     this.carZ = startP.z;
@@ -1080,6 +1175,24 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.gameState === 'racing') {
       this.processInput(dt);
     }
+    if (this.gameState === 'finished' && this._raceFinished && this.racePosition === 1) {
+      // Victory coast — the winner keeps rolling down the straight after the
+      // line, shedding speed under friction, so the confetti trail streams off
+      // the rear wing instead of the car stopping dead at the finish.
+      const grip = 0.85 + this.getGripBonus() / 100;
+      this.carSpeed -= 26 * grip * dt;
+      if (this.carSpeed <= 0) this.carSpeed = 0;
+      this.carX += Math.sin(this.carYaw) * this.carSpeed * dt;
+      this.carZ += Math.cos(this.carYaw) * this.carSpeed * dt;
+      // Let the car follow the road instead of ploughing into a wall.
+      const cd = this.renderer.getDistFromPoint(this.carX, this.carZ);
+      const tp = this.renderer.getTrackPointAlong(cd);
+      const expected = Math.atan2(tp.dirX, tp.dirZ);
+      let dh = this.carYaw - expected;
+      while (dh > Math.PI) dh -= Math.PI * 2;
+      while (dh < -Math.PI) dh += Math.PI * 2;
+      this.carYaw += Math.max(-0.9 * dt, Math.min(0.9 * dt, dh * 1.2));
+    }
     if (this.gameState === 'racing') {
       this.updatePhysics(dt);
       this.updateBots(dt);
@@ -1106,6 +1219,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       }
     }
     this.updateEngineAudio();
+    // Alpine marmot alarms: play a whistle for each marmot the renderer
+    // startled this frame (queued while a car drove past its burrow).
+    if (this.renderer) {
+      const whistles = this.renderer.consumeMarmotWhistle();
+      for (let i = 0; i < whistles; i++) this.playMarmotWhistle();
+    }
     if (this.renderer && this.isLoaded) {
       const aspect = this.canvasRef.nativeElement.width / this.canvasRef.nativeElement.height;
       const eyeY = 0.5;
@@ -1552,7 +1671,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (prevDist > trackLen * 0.8 && this.carDist < trackLen * 0.2) {
       this.currentLap++;
       if (this.currentLap >= this.totalLaps) {
-        this.playCrowdCheer('big', 1.5);
+        // The winner's line-crossing roar is played by playWinnerCheer in
+        // finishRace (synced with the cannonade), so skip the generic big
+        // cheer here for P1 to avoid two overlapping roars; everyone else
+        // still gets the full lap-end cheer.
+        if (this.racePosition !== 1) this.playCrowdCheer('big', 1.5);
       } else {
         const cheerTypes: ('roar' | 'whistle' | 'applause' | 'wave')[] = ['roar', 'whistle', 'applause', 'wave'];
         this.playCrowdCheer(cheerTypes[Math.floor(Math.random() * cheerTypes.length)], 1);
@@ -1605,9 +1728,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.racePosition === 1) {
       this.playerCar.wins++;
       this.addMessage(`🏆 YOU WIN! +$${moneyEarned}`);
-      // Winner's confetti cannonade — bursts out of the pit box on the final
-      // straight and showers the line as the winning car crosses.
-      this.renderer.celebrateWinner();
+      // Winner's moment — confetti cannonade, a crowd roar + applause + whistle
+      // mix, and a visual cheering spike in the animated stands, all fired
+      // together so the celebration lands exactly on the line crossing.
+      this.renderer.celebrateWinner(this.carX, this.carZ, this.carYaw, Math.abs(this.carSpeed));
+      this.renderer.exciteCrowd(1);
+      this.playWinnerCheer();
     } else {
       this.addMessage(`Finished #${this.racePosition} of ${this.totalRacers} +$${moneyEarned}`);
     }
@@ -1723,9 +1849,18 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     // 3s, so a player in the garage isn't caught off guard by the rematch race
     // auto-starting. One tick per whole second — always the urgent high blip
     // (playCountdownTick uses 880Hz for secondsLeft <= 3, which is all we call).
+    // Each tick also flashes the panel border, syncing the visual to the audio.
     if (this.standingsLow && secs !== this._lastStandingsTickSecond) {
       this._lastStandingsTickSecond = secs;
-      if (secs > 0) this.playCountdownTick(secs);
+      if (secs > 0) {
+        this.playCountdownTick(secs);
+        this.standingsTickFlash = true;
+        if (this._standingsFlashTimer) clearTimeout(this._standingsFlashTimer);
+        this._standingsFlashTimer = setTimeout(() => {
+          this.standingsTickFlash = false;
+          this._standingsFlashTimer = null;
+        }, 300);
+      }
     }
     if (remaining <= 0) this.stopStandingsCountdown();
   }
@@ -1735,8 +1870,13 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       clearInterval(this._standingsTimer);
       this._standingsTimer = null;
     }
+    if (this._standingsFlashTimer) {
+      clearTimeout(this._standingsFlashTimer);
+      this._standingsFlashTimer = null;
+    }
     this.standingsProgress = 100;
     this.standingsLow = false;
+    this.standingsTickFlash = false;
     this._lastStandingsTickSecond = -1;
   }
 
@@ -2860,6 +3000,76 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         }
       }
 
+    } catch { }
+  }
+  // Victory roar — the crowd's reaction to the winner crossing the line,
+  // layered louder and fuller than the per-lap cheers: a big roaring swell
+  // with applause underneath and scattered whistles on top, all starting at
+  // the same instant as the confetti cannonade (allowFinished lets it play in
+  // the 'finished' state the race just entered).
+  private playWinnerCheer() {
+    if (!this.soundOn || !this._audioCtx) return;
+    try {
+      const ctx = this._audioCtx;
+      const t = ctx.currentTime;
+      const dur = 4.2;
+      const peak = 0.16;
+      // Two overlapping voice layers — a deep roar and a brighter cheer — plus
+      // a mid-density applause band underneath.
+      const layers: { center: number; q: number; vol: number; attack: number; flutter: number }[] = [
+        { center: 500, q: 0.45, vol: 1.0, attack: 0.25, flutter: 6 },
+        { center: 1300, q: 0.55, vol: 0.8, attack: 0.15, flutter: 10 },
+        { center: 2600, q: 0.7, vol: 0.45, attack: 0.08, flutter: 18 },
+      ];
+      for (const L of layers) {
+        const len = Math.floor(ctx.sampleRate * dur);
+        const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) {
+          const sec = i / ctx.sampleRate;
+          const flutter = 0.6 + 0.4 * Math.sin(sec * L.flutter * Math.PI + (i % 7) * 0.9);
+          d[i] = (Math.random() * 2 - 1) * flutter;
+        }
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        const f = ctx.createBiquadFilter();
+        f.type = 'bandpass';
+        f.frequency.value = L.center;
+        f.Q.value = L.q;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(peak * L.vol, t + L.attack);
+        g.gain.setValueAtTime(peak * L.vol, t + dur * 0.65);
+        g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+        src.connect(f); f.connect(g); g.connect(ctx.destination);
+        src.start(t); src.stop(t + dur + 0.05);
+      }
+      // Scattered victory whistles + one sharp leading whistle right at the
+      // line crossing, so the spike is instantly audible.
+      const lead = ctx.createOscillator();
+      lead.type = 'sine';
+      lead.frequency.setValueAtTime(2400, t);
+      lead.frequency.exponentialRampToValueAtTime(3200, t + 0.12);
+      const lg = ctx.createGain();
+      lg.gain.setValueAtTime(0.0001, t);
+      lg.gain.exponentialRampToValueAtTime(0.05, t + 0.02);
+      lg.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+      lead.connect(lg); lg.connect(ctx.destination);
+      lead.start(t); lead.stop(t + 0.32);
+      for (let b = 0; b < 3 + Math.floor(Math.random() * 3); b++) {
+        const bt = t + 0.4 + Math.random() * dur * 0.75;
+        const blen = 0.09 + Math.random() * 0.15;
+        const o = ctx.createOscillator();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(2000 + Math.random() * 1000, bt);
+        o.frequency.exponentialRampToValueAtTime(1500 + Math.random() * 500, bt + blen);
+        const og = ctx.createGain();
+        og.gain.setValueAtTime(0, bt);
+        og.gain.linearRampToValueAtTime(0.045, bt + 0.02);
+        og.gain.exponentialRampToValueAtTime(0.001, bt + blen);
+        o.connect(og); og.connect(ctx.destination);
+        o.start(bt); o.stop(bt + blen + 0.02);
+      }
     } catch { }
   }
   private playImpactSound(intensity = 1, gainScale = 1) {

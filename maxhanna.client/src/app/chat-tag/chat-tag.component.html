@@ -1,0 +1,9 @@
+<div class="cursorPointer userTag {{displayMiniTag ? 'miniTag' : ''}}" (mouseenter)="onChatTagHover($event)"
+  (mouseleave)="onChatTagLeave()" (click)="onChatTagClick($event)">
+  <div class="chatIconWrap {{displayMiniTag ? 'miniIconWrap' : 'largeIconWrap'}}" *ngIf="!hideName">
+    <span class="chatIcon">{{ chat?.icon || '🌐' }}</span>
+  </div>
+  <span class="username miniChatName" [title]="chat?.description || chat?.name || ('Chat #' + (chatId ?? ''))">
+    {{ chat?.name || ('Chat #' + (chatId ?? '')) }}
+  </span>
+</div>

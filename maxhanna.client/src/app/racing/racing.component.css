@@ -551,7 +551,27 @@
   transition: width 0.5s linear;
 }
 
+/* Final 3s of the auto-start — red/urgent like the standings low state. */
+.garage-countdown-bar-fill.garage-countdown-bar-fill-low {
+  background: linear-gradient(90deg, #ff5722, #ffc107);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .garage-countdown-bar-fill.garage-countdown-bar-fill-low {
+    animation: gp-garage-countdown-pulse 1s ease-in-out infinite;
+  }
+
+  @keyframes gp-garage-countdown-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .garage-countdown-bar-fill.garage-countdown-bar-fill-low {
+    animation: none;
+  }
+
   .garage-countdown-bar-fill {
     transition: none;
   }
@@ -625,6 +645,34 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+/* Rematch imminent — the standings window is under 3s, so the widget border
+   pulses amber to warn that the lobby auto-starts the rematch any second. */
+.garage-mp-widget.garage-mp-widget-low {
+  border-color: rgba(255, 193, 7, 0.85);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .garage-mp-widget.garage-mp-widget-low {
+    animation: gp-garage-widget-amber 1s ease-in-out infinite;
+  }
+
+  @keyframes gp-garage-widget-amber {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.0), 0 8px 24px rgba(0, 0, 0, 0.55);
+    }
+    50% {
+      box-shadow: 0 0 10px 2px rgba(255, 193, 7, 0.55), 0 8px 24px rgba(0, 0, 0, 0.55);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .garage-mp-widget.garage-mp-widget-low {
+    animation: none;
+    box-shadow: 0 0 6px 1px rgba(255, 193, 7, 0.35);
+  }
 }
 
 .garage-mp-widget .garage-standings-countdown {
@@ -1750,9 +1798,26 @@
   .garage-mp-widget {
     top: 8px;
     right: 8px;
-    width: 190px;
+    width: min(220px, calc(100vw - 24px));
     padding: 8px 10px;
     max-height: calc(100% - 90px);
+  }
+
+  /* On narrow screens the standings countdown takes its own full-width line
+     (below the head row) instead of squeezing beside the ready count —
+     slightly smaller text so '⏳ Results shown for 0:04' fits cleanly. */
+  .garage-mp-widget .garage-standings-countdown {
+    font-size: 10px;
+    letter-spacing: 0.2px;
+  }
+
+  .garage-mp-widget .garage-countdown-wrap {
+    min-width: 0;
+  }
+
+  .garage-mp-widget .garage-countdown-bar {
+    min-width: 0;
+    width: 100%;
   }
 
   .garage-mp-roster {
@@ -1908,6 +1973,45 @@
   letter-spacing: 8px;
   color: rgba(255, 255, 255, 0.65);
   text-shadow: 0 0 18px rgba(0, 0, 0, 0.9);
+}
+
+/* Thin depleting bar under the start lights — drains as the 10s countdown
+   runs down so players can see the start approaching at a glance. */
+.race-countdown-bar {
+  display: block;
+  width: 260px;
+  height: 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.race-countdown-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #ffc107, #ff6f00);
+  box-shadow: 0 0 8px rgba(255, 193, 7, 0.6);
+  transition: width 0.9s linear;
+}
+
+.race-countdown-bar-fill.race-countdown-bar-go {
+  background: linear-gradient(90deg, #4caf50, #8bc34a);
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.7);
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .race-countdown-bar-fill {
+    transition: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .race-countdown-bar {
+    width: 200px;
+  }
 }
 
 @keyframes race-countdown-pop {
@@ -3020,6 +3124,26 @@
 
 .gp-standings-countdown.gp-standings-low .gp-standings-bar-fill {
   background: linear-gradient(90deg, #ff5722, #ffc107);
+}
+
+/* One-beat amber border flash synced to each final-3s tick (the panel border
+   lights up the moment the audible tick fires, then fades back). An outline
+   (not border) so toggling the class never shifts the layout. */
+.gp-standings-countdown.gp-standings-flash {
+  outline: 1px solid rgba(255, 193, 7, 0.9);
+  outline-offset: -1px;
+  box-shadow: 0 0 10px rgba(255, 193, 7, 0.45);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .gp-standings-countdown.gp-standings-flash {
+    animation: gp-standings-flash 0.3s ease-out;
+  }
+
+  @keyframes gp-standings-flash {
+    0% { box-shadow: 0 0 14px rgba(255, 193, 7, 0.7); }
+    100% { box-shadow: 0 0 0 rgba(255, 193, 7, 0); }
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {

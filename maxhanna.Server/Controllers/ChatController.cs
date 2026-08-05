@@ -1344,7 +1344,6 @@ namespace maxhanna.Server.Controllers
 			{
 				await conn.OpenAsync();
 				string search = string.IsNullOrWhiteSpace(request?.Search) ? "" : request.Search.Trim();
-				await EnsureChatRoomColumnsAsync(conn);
 				string sql = @"
 					SELECT cr.chat_id, cr.name, cr.description, cr.icon, cr.created_by, cr.created_at
 					FROM maxhanna.chat_rooms cr
@@ -1503,7 +1502,6 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				await conn.OpenAsync();
-				await EnsureChatRoomColumnsAsync(conn);
 				string sql = "SELECT name, description, icon, is_public, created_by FROM maxhanna.chat_rooms WHERE chat_id = @ChatId LIMIT 1;";
 				using var cmd = new MySqlCommand(sql, conn);
 				cmd.Parameters.AddWithValue("@ChatId", request.ChatId);
@@ -1543,10 +1541,7 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				await conn.OpenAsync();
-				await EnsureChatRoomColumnsAsync(conn);
 
-				// Only edit rooms that already have a community board — never let an edit
-				// silently create a public room (or flip a private chat's board public).
 				string existsSql = "SELECT COUNT(*) FROM maxhanna.chat_rooms WHERE chat_id = @ChatId;";
 				using (var existsCmd = new MySqlCommand(existsSql, conn))
 				{
@@ -1670,45 +1665,7 @@ namespace maxhanna.Server.Controllers
 			}
 			catch { return false; }
 		}
-
-		private static bool _chatRoomColumnsEnsured;
-		private static readonly SemaphoreSlim _chatRoomColumnsLock = new(1, 1);
-		private async Task EnsureChatRoomColumnsAsync(MySqlConnection conn)
-		{
-			// Run the information_schema checks + ALTERs once per process; the lock
-			// prevents a double-ALTER race between concurrent requests.
-			if (_chatRoomColumnsEnsured) return;
-			await _chatRoomColumnsLock.WaitAsync();
-			try
-			{
-				if (_chatRoomColumnsEnsured) return;
-				string checkSql = @"SELECT column_name FROM information_schema.columns
-					WHERE table_schema = DATABASE() AND table_name = 'chat_rooms';";
-				var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-				using (var checkCmd = new MySqlCommand(checkSql, conn))
-				using (var rdr = await checkCmd.ExecuteReaderAsync())
-				{
-					while (await rdr.ReadAsync())
-						existing.Add(rdr.GetString(0));
-				}
-				if (!existing.Contains("description"))
-				{
-					using var alterDesc = new MySqlCommand("ALTER TABLE maxhanna.chat_rooms ADD COLUMN description VARCHAR(500) NULL;", conn);
-					await alterDesc.ExecuteNonQueryAsync();
-				}
-				if (!existing.Contains("icon"))
-				{
-					using var alterIcon = new MySqlCommand("ALTER TABLE maxhanna.chat_rooms ADD COLUMN icon VARCHAR(32) NULL;", conn);
-					await alterIcon.ExecuteNonQueryAsync();
-				}
-				_chatRoomColumnsEnsured = true;
-			}
-			finally
-			{
-				_chatRoomColumnsLock.Release();
-			}
-		}
-
+  
 		private static readonly SemaphoreSlim _chatSitemapLock = new(1, 1);
 		private async Task<int> CountChatMembersAsync(MySqlConnection conn, int chatId)
 		{

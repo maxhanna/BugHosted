@@ -55,6 +55,9 @@ import { ModeratorComponent } from './moderator/moderator.component';
 import { UserEventService } from '../services/user-event.service';
 import { RacingComponent } from './racing/racing.component';
 import { ConversionComponent } from './conversion/conversion.component';
+import { ChatService } from '../services/chat.service';
+import { PublicChatInfo } from '../services/datacontracts/moderator/moderator';
+import { GetChatThemeResponse } from '../services/datacontracts/chat/chat-theme';
 
 
 @Component({
@@ -446,6 +449,9 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   preventShowSecurityPopup = false;
   isUploadingFile = false;
   popupUserTagUser?: User;
+  isShowingChatTagPopup = false;
+  popupChatTag?: PublicChatInfo;
+  chatTagPopupTheme?: GetChatThemeResponse;
   isSpeaking = false;
   isShowingPasswordResetResult = false;
   passwordResetResultMessage = '';
@@ -510,6 +516,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     private changeDetectorRef: ChangeDetectorRef,
     private sanitizer: DomSanitizer,
     private angLocation: Location,
+    private chatService: ChatService,
   ) { }
 
   async ngOnInit() {
@@ -572,6 +579,13 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           const storyId = this.router.url.toLowerCase().split('user/')[1]?.split('/')[1];
           this.angLocation.replaceState(this.router.url.split('?')[0]);
           this.createComponent("User", { "userId": userId, storyId: storyId });
+        }
+        else if (this.router.url.includes('Chat')) {
+          this.checkAndClearRouterOutlet();
+          const chatUrlId = this.router.url.toLowerCase().split('chat/')[1]?.split('?')[0];
+          const chatId = this.parseInteger(chatUrlId);
+          this.angLocation.replaceState(this.router.url.split('?')[0]);
+          this.createComponent("Chat", { chatId: chatId > 0 ? chatId : undefined });
         }
         else if (this.router.url.toLowerCase().includes('music')) {
           this.checkAndClearRouterOutlet();
@@ -1043,6 +1057,15 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
       this.isShowingUserTagPopup = true;
+    }, 500);
+  }
+  showChatTagPopup() {
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(async () => {
+      this.isShowingChatTagPopup = true;
+      const chatId = (document.getElementById("showChatTagChatId") as HTMLInputElement)?.value;
+      const id = this.parseInteger(chatId);
+      if (id > 0) this.chatTagPopupTheme = (await this.chatService.getChatTheme(id)) ?? undefined;
     }, 500);
   }
   openUserSettings(previousComponent?: string, showOnlyAccountSection?: boolean, showOnlySelectableMenuItems?: boolean) {
@@ -2119,6 +2142,9 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     setTimeout(() => {
       this.userTagPopupMediaViewer?.reloadMedia(true);
     }, 50);
+  }
+  chatTagLoaded(chat?: PublicChatInfo) {
+    this.popupChatTag = chat;
   }
   isUserOnline(lastSeen: string | Date | undefined): boolean {
     if (lastSeen === null || lastSeen === undefined) return false;
