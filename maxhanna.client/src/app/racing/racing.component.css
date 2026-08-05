@@ -919,6 +919,26 @@
   filter: blur(4px);
 }
 
+/* Neon underglow — colored glow pool under the undertray (matches the racing
+   renderer's underglow plane; the glow color classes drive box-shadow). */
+.car-underglow {
+  position: absolute;
+  left: 50%; top: 153px;
+  width: 190px; height: 62px;
+  transform: translate(-50%, -50%) rotateX(90deg);
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(255,255,255,0.22), transparent 62%);
+  opacity: 0.85;
+  transition: all 0.3s;
+}
+.car-underglow.glow-blue { box-shadow: 0 0 42px 16px rgba(0,120,255,0.55); }
+.car-underglow.glow-green { box-shadow: 0 0 42px 16px rgba(0,230,80,0.5); }
+.car-underglow.glow-purple { box-shadow: 0 0 42px 16px rgba(170,60,255,0.55); }
+.car-underglow.glow-pink { box-shadow: 0 0 42px 16px rgba(255,40,190,0.55); }
+.car-underglow.glow-cyan { box-shadow: 0 0 42px 16px rgba(0,230,230,0.5); }
+.car-underglow.glow-red { box-shadow: 0 0 42px 16px rgba(255,40,40,0.55); }
+.car-underglow.glow-gold { box-shadow: 0 0 42px 16px rgba(255,190,30,0.55); }
+
 /* Cockpit opening (thin dark plate on the body top) */
 .cockpit {
   background: #07070a;
@@ -957,6 +977,64 @@
   text-shadow: 0 2px 4px rgba(0,0,0,0.6);
   letter-spacing: 2px;
 }
+
+/* ── More decal wraps ── */
+.decal-checkered {
+  background: repeating-conic-gradient(rgba(0,0,0,0.55) 0deg 90deg, rgba(255,255,255,0.55) 90deg 180deg);
+  background-size: 12px 12px;
+  opacity: 0.85;
+}
+.decal-lightning {
+  background: linear-gradient(115deg, transparent 38%, rgba(255,220,40,0.9) 44%, transparent 50%, transparent 62%, rgba(255,220,40,0.9) 68%, transparent 74%);
+}
+.decal-skull {
+  background: radial-gradient(ellipse at 50% 42%, rgba(240,240,240,0.85) 0 26%, transparent 27%);
+}
+.decal-skull::before {
+  content: '';
+  position: absolute;
+  left: 50%; top: 46%;
+  width: 18px; height: 10px;
+  transform: translateX(-50%);
+  background: radial-gradient(circle at 30% 50%, rgba(0,0,0,0.75) 0 3px, transparent 4px), radial-gradient(circle at 70% 50%, rgba(0,0,0,0.75) 0 3px, transparent 4px), linear-gradient(180deg, transparent 30%, rgba(0,0,0,0.75) 31% 34%, transparent 35%);
+}
+.decal-lion {
+  background: radial-gradient(ellipse at 50% 60%, rgba(200,140,40,0.55), transparent 55%);
+}
+.decal-lion::before {
+  content: '';
+  position: absolute;
+  left: 50%; top: 56%;
+  width: 16px; height: 10px;
+  transform: translate(-50%, -50%) rotate(-12deg);
+  border-radius: 60% 40% 55% 45%;
+  background: radial-gradient(ellipse at 35% 40%, rgba(255,220,150,0.9) 0 30%, transparent 31%);
+}
+.decal-number7::after, .decal-number27::after, .decal-number99::after {
+  content: '7';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 20px;
+  font-weight: 900;
+  font-style: italic;
+  color: rgba(255,255,255,0.85);
+  text-shadow: 0 2px 5px rgba(0,0,0,0.7);
+}
+.decal-number27::after { content: '27'; }
+.decal-number99::after { content: '99'; }
+.decal-sponsor {
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,0.7) 0 14px, rgba(0,0,0,0.55) 14px 28px, rgba(255,255,255,0.7) 28px 42px, rgba(200,30,30,0.75) 42px 56px);
+}
+
+/* Livery accent — thin stripe plates on the body top + sidepods */
+.accent { border-radius: 2px; transition: all 0.3s; }
+.accent-white { background: #e8e8ea; box-shadow: 0 0 8px rgba(255,255,255,0.45); }
+.accent-gold { background: #e6c200; box-shadow: 0 0 8px rgba(230,194,0,0.5); }
+.accent-silver { background: #b9bec7; box-shadow: 0 0 8px rgba(200,210,225,0.4); }
+.accent-red { background: #d32f2f; box-shadow: 0 0 8px rgba(211,47,47,0.5); }
+.accent-blue { background: #1e88e5; box-shadow: 0 0 8px rgba(30,136,229,0.5); }
+.accent-black { background: #16161a; box-shadow: 0 0 8px rgba(0,0,0,0.6); }
 
 /* ── Wheels (3D coins: two discs + tread band) ── */
 .wheel3d {
@@ -1035,6 +1113,36 @@
   background: #e6c200 !important;
   border-color: #c8a500 !important;
 }
+.rim-chrome {
+  border-color: #dfe4ec !important;
+  background: linear-gradient(135deg, #f2f5f9, #9aa4b0 55%, #d6dbe2) !important;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.6), 0 0 12px rgba(220,230,245,0.35), 0 2px 6px rgba(0,0,0,0.5) !important;
+}
+.rim-chrome::before { background: #dfe4ec !important; border-color: #9aa4b0 !important; }
+.rim-bronze {
+  border-color: #a96f3d !important;
+  background: radial-gradient(circle at 35% 35%, #c98d55, #7c4f28 70%) !important;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.25), 0 0 12px rgba(169,111,61,0.4), 0 2px 6px rgba(0,0,0,0.5) !important;
+}
+.rim-bronze::before { background: #c98d55 !important; border-color: #a96f3d !important; }
+.rim-white {
+  border-color: #f2f2f4 !important;
+  background: radial-gradient(circle at 35% 35%, #ffffff, #b8b8c0 70%) !important;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.5), 0 0 12px rgba(255,255,255,0.3), 0 2px 6px rgba(0,0,0,0.5) !important;
+}
+.rim-white::before { background: #ffffff !important; border-color: #d4d4da !important; }
+.rim-black {
+  border-color: #0c0c0e !important;
+  background: radial-gradient(circle at 35% 35%, #26262b, #050506 70%) !important;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.1), 0 0 12px rgba(0,0,0,0.7), 0 2px 6px rgba(0,0,0,0.6) !important;
+}
+.rim-black::before { background: #1a1a1e !important; border-color: #000 !important; }
+.rim-blue {
+  border-color: #1e88e5 !important;
+  background: radial-gradient(circle at 35% 35%, #42a5f5, #0d47a1 70%) !important;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.25), 0 0 14px rgba(30,136,229,0.45), 0 2px 6px rgba(0,0,0,0.5) !important;
+}
+.rim-blue::before { background: #42a5f5 !important; border-color: #1e88e5 !important; }
 
 /* Spoiler upgrade (thin wing above the engine cover) */
 .spoiler {
@@ -1062,6 +1170,30 @@
   background: linear-gradient(135deg, #111 0%, #444 50%, #111 100%) !important;
   box-shadow: 0 2px 10px rgba(0,0,0,0.7), 0 0 20px rgba(200,50,50,0.15) !important;
 }
+.spoiler-gurney {
+  background: linear-gradient(180deg, #2a2a30, #101014) !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15) !important;
+}
+.spoiler-whale {
+  background: linear-gradient(180deg, #3a3a40 0%, #18181c 60%, #0c0c0f 100%) !important;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.6) !important;
+}
+.spoiler-biplane {
+  background: linear-gradient(180deg, #16161a, #26262c) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.55) !important;
+}
+.spoiler-biplane::before {
+  content: '';
+  position: absolute;
+  top: -6px; left: 4px; right: 4px;
+  height: 2px;
+  background: #1c1c22;
+  border-radius: 1px;
+}
+.spoiler-aero {
+  background: linear-gradient(135deg, #0d2a55, #1e5aa8 60%, #0d2a55) !important;
+  box-shadow: 0 2px 12px rgba(30,90,168,0.4), 0 0 6px rgba(255,255,255,0.08) !important;
+}
 
 /* Exhaust upgrade (twin pipes at the back) */
 .exhaust {
@@ -1076,6 +1208,18 @@
 .exhaust-titanium {
   background: linear-gradient(180deg, #4488cc, #222288, #8844cc) !important;
   box-shadow: 0 1px 4px rgba(0,0,0,0.4), 0 0 8px rgba(100,100,255,0.3) !important;
+}
+.exhaust-twin {
+  background: linear-gradient(90deg, #999 0 40%, #333 40% 60%, #999 60% 100%) !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4), 0 0 8px rgba(255,140,60,0.35) !important;
+}
+.exhaust-quad {
+  background: linear-gradient(90deg, #bbb 0 22%, #444 22% 28%, #bbb 28% 50%, #444 50% 56%, #bbb 56% 78%, #444 78% 84%, #bbb 84% 100%) !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.45), 0 0 10px rgba(255,160,70,0.4) !important;
+}
+.exhaust-carbon {
+  background: repeating-linear-gradient(135deg, #1a1a1e 0 2px, #2c2c32 2px 4px) !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.5), 0 0 8px rgba(255,120,40,0.3) !important;
 }
 /* ── Right: Upgrade Catalog ── */
 .garage-catalog {
@@ -1488,6 +1632,37 @@
 .garage-appearance-preview.prev-decal-flame { background: linear-gradient(180deg, #cc0000 30%, #ff6600 50%, #ffcc00 70%, #ff3300 100%); }
 .garage-appearance-preview.prev-decal-carbon { background: repeating-linear-gradient(45deg, #1a1a1a 0px, #1a1a1a 2px, #2a2a2a 2px, #2a2a2a 4px); }
 .garage-appearance-preview.prev-decal-number { background: #cc0000; color: #fff; font-size: 14px; font-weight: 900; letter-spacing: 2px; }
+.garage-appearance-preview.prev-spoiler-gurney { border: 2px solid #444; background: linear-gradient(180deg, #2a2a30, #101014); }
+.garage-appearance-preview.prev-spoiler-whale { border: 2px solid #555; background: linear-gradient(180deg, #3a3a40, #0c0c0f); }
+.garage-appearance-preview.prev-spoiler-biplane { border: 2px solid #3a3a40; background: linear-gradient(180deg, #16161a, #26262c); box-shadow: inset 0 -4px 0 #101014; }
+.garage-appearance-preview.prev-spoiler-aero { border: 2px solid #1e5aa8; background: linear-gradient(135deg, #0d2a55, #1e5aa8); box-shadow: 0 0 8px rgba(30,90,168,0.5); }
+.garage-appearance-preview.prev-rim-chrome { border-radius: 50%; width: 24px; height: 24px; border: 3px solid #dfe4ec; background: linear-gradient(135deg, #f2f5f9, #9aa4b0 55%, #d6dbe2); margin: 0 auto; box-shadow: 0 0 8px rgba(220,230,245,0.4); }
+.garage-appearance-preview.prev-rim-bronze { border-radius: 50%; width: 24px; height: 24px; border: 3px solid #a96f3d; background: radial-gradient(circle at 35% 35%, #c98d55, #7c4f28); margin: 0 auto; }
+.garage-appearance-preview.prev-rim-white { border-radius: 50%; width: 24px; height: 24px; border: 3px solid #f2f2f4; background: radial-gradient(circle at 35% 35%, #fff, #b8b8c0); margin: 0 auto; }
+.garage-appearance-preview.prev-rim-black { border-radius: 50%; width: 26px; height: 26px; border: 4px solid #0c0c0e; background: radial-gradient(circle at 35% 35%, #26262b, #050506); margin: 0 auto; box-shadow: 0 0 8px rgba(0,0,0,0.7); }
+.garage-appearance-preview.prev-rim-blue { border-radius: 50%; width: 24px; height: 24px; border: 3px solid #1e88e5; background: radial-gradient(circle at 35% 35%, #42a5f5, #0d47a1); margin: 0 auto; box-shadow: 0 0 8px rgba(30,136,229,0.5); }
+.garage-appearance-preview.prev-exhaust-twin { border-radius: 50%; width: 16px; height: 12px; background: linear-gradient(90deg, #999 0 40%, #333 40% 60%, #999 60% 100%); margin: 0 auto; }
+.garage-appearance-preview.prev-exhaust-quad { border-radius: 4px; width: 20px; height: 10px; background: linear-gradient(90deg, #bbb 0 22%, #444 22% 28%, #bbb 28% 50%, #444 50% 56%, #bbb 56% 78%, #444 78% 84%, #bbb 84% 100%); margin: 0 auto; }
+.garage-appearance-preview.prev-exhaust-carbon { border-radius: 50%; width: 14px; height: 14px; background: repeating-linear-gradient(135deg, #1a1a1e 0 2px, #2c2c32 2px 4px); margin: 0 auto; }
+.garage-appearance-preview.prev-decal-checkered { background: repeating-conic-gradient(rgba(0,0,0,0.55) 0deg 90deg, rgba(255,255,255,0.55) 90deg 180deg); background-size: 12px 12px; }
+.garage-appearance-preview.prev-decal-lightning { background: linear-gradient(115deg, transparent 38%, rgba(255,220,40,0.9) 44%, transparent 50%, transparent 62%, rgba(255,220,40,0.9) 68%, transparent 74%); }
+.garage-appearance-preview.prev-decal-skull { background: radial-gradient(ellipse at 50% 42%, rgba(240,240,240,0.85) 0 26%, transparent 27%); }
+.garage-appearance-preview.prev-decal-lion { background: radial-gradient(ellipse at 50% 60%, rgba(200,140,40,0.55), transparent 55%); }
+.garage-appearance-preview.prev-decal-number7, .garage-appearance-preview.prev-decal-number27, .garage-appearance-preview.prev-decal-number99 { background: #1a1a1e; color: #fff; font-size: 14px; font-weight: 900; font-style: italic; text-align: center; line-height: 44px; }
+.garage-appearance-preview.prev-decal-sponsor { background: repeating-linear-gradient(90deg, rgba(255,255,255,0.7) 0 8px, rgba(0,0,0,0.55) 8px 16px, rgba(255,255,255,0.7) 16px 24px, rgba(200,30,30,0.75) 24px 32px); }
+.garage-appearance-preview.prev-glow-blue { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(0,120,255,0.2); box-shadow: 0 0 18px 6px rgba(0,120,255,0.55); }
+.garage-appearance-preview.prev-glow-green { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(0,230,80,0.2); box-shadow: 0 0 18px 6px rgba(0,230,80,0.5); }
+.garage-appearance-preview.prev-glow-purple { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(170,60,255,0.2); box-shadow: 0 0 18px 6px rgba(170,60,255,0.55); }
+.garage-appearance-preview.prev-glow-pink { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(255,40,190,0.2); box-shadow: 0 0 18px 6px rgba(255,40,190,0.55); }
+.garage-appearance-preview.prev-glow-cyan { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(0,230,230,0.2); box-shadow: 0 0 18px 6px rgba(0,230,230,0.5); }
+.garage-appearance-preview.prev-glow-red { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(255,40,40,0.2); box-shadow: 0 0 18px 6px rgba(255,40,40,0.55); }
+.garage-appearance-preview.prev-glow-gold { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(255,190,30,0.2); box-shadow: 0 0 18px 6px rgba(255,190,30,0.55); }
+.garage-appearance-preview.prev-accent-white { background: #e8e8ea; box-shadow: 0 0 8px rgba(255,255,255,0.45); }
+.garage-appearance-preview.prev-accent-gold { background: #e6c200; box-shadow: 0 0 8px rgba(230,194,0,0.5); }
+.garage-appearance-preview.prev-accent-silver { background: #b9bec7; box-shadow: 0 0 8px rgba(200,210,225,0.4); }
+.garage-appearance-preview.prev-accent-red { background: #d32f2f; box-shadow: 0 0 8px rgba(211,47,47,0.5); }
+.garage-appearance-preview.prev-accent-blue { background: #1e88e5; box-shadow: 0 0 8px rgba(30,136,229,0.5); }
+.garage-appearance-preview.prev-accent-black { background: #16161a; box-shadow: 0 0 8px rgba(0,0,0,0.6); }
 
 .garage-appearance-name {
   font-size: 11px;

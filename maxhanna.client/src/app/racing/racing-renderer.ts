@@ -1,6 +1,8 @@
 /// <reference types="@types/node" />
 /// <reference lib="dom" />
 
+import { RIM_TINTS, DECAL_COLORS, RacingCarAppearance } from '../../services/datacontracts/racing/racing-types';
+
 export interface TrackPoint {
   x: number; z: number;
   dirX: number; dirZ: number;
@@ -43,6 +45,9 @@ export class RacingRenderer {
   private shadowMapLoc!: WebGLUniformLocation;
   private shadowTexelLoc!: WebGLUniformLocation;
   private heatGlowLoc!: WebGLUniformLocation;
+  private metallicLoc!: WebGLUniformLocation;
+  private rimTintLoc!: WebGLUniformLocation;
+  private rimStrengthLoc!: WebGLUniformLocation;
 
   private trackVao!: WebGLVertexArrayObject;
   private trackCount = 0;
@@ -54,8 +59,12 @@ export class RacingRenderer {
   private carCount = 0;
   private wheelVao!: WebGLVertexArrayObject;
   private wheelCount = 0;
+  private wheelRimVao!: WebGLVertexArrayObject;
+  private wheelRimCount = 0;
   private rearWheelVao!: WebGLVertexArrayObject;
   private rearWheelCount = 0;
+  private rearWheelRimVao!: WebGLVertexArrayObject;
+  private rearWheelRimCount = 0;
   private brakeVao!: WebGLVertexArrayObject;
   private brakeCount = 0;
   private rearBrakeVao!: WebGLVertexArrayObject;
@@ -70,6 +79,14 @@ export class RacingRenderer {
   private barrierCount = 0;
   private finishVao!: WebGLVertexArrayObject;
   private finishCount = 0;
+  // Per-car appearance meshes: accent (sidepod stripes + exhaust), decal
+  // (engine-cover stripes + nose plate) and underglow (neon pool under the car).
+  private accentVao!: WebGLVertexArrayObject;
+  private accentCount = 0;
+  private decalVao!: WebGLVertexArrayObject;
+  private decalCount = 0;
+  private glowVao!: WebGLVertexArrayObject;
+  private glowCount = 0;
 
   private whiteTex!: WebGLTexture;
   private asphaltTex!: WebGLTexture;
@@ -339,6 +356,9 @@ uniform bool uUseVertexColor;
 uniform sampler2D uShadowMap;
 uniform float uShadowTexel;
 uniform float uHeatGlow;
+uniform float uMetallic;
+uniform vec3 uRimTint;
+uniform float uRimStrength;
 
 // Soft 3x3 PCF directional shadow. sp is light-space UV/depth (0..1).
 // Outside the ortho frustum (which only wraps +-80m around the camera) -> lit.
@@ -361,6 +381,10 @@ void main() {
   if (uHasTexture) base *= texture(uTexture, vUV);
   if (!uUseVertexColor) base = vColor;
 
+  // Rim tint — colors the metal wheel parts per-car; strength 0 leaves parts
+  // at their vertex color (black tire band + brake rotor stay untinted).
+  base.rgb = mix(base.rgb, base.rgb * uRimTint, uRimStrength);
+
   vec3 N = normalize(vNormal);
   vec3 V = normalize(uViewPos - vWorldPos);
   vec3 L = normalize(uLightDir);
@@ -375,9 +399,11 @@ void main() {
   vec3 diffColor = NdotL * uSunColor * base.rgb * shadow;
 
   // Blinn-Phong specular tinted by the sun — warm highlights on paint/glass.
+  // uMetallic (from the skin finish) boosts the highlight: matte wraps stay
+  // flat, chrome paints get a sharp mirror glint.
   vec3 H = normalize(L + V);
   float specAmt = pow(max(dot(N, H), 0.0), 48.0);
-  vec3 specColor = specAmt * uSunColor * 0.55 * (shadow * 0.9 + 0.1);
+  vec3 specColor = specAmt * uSunColor * (0.55 + uMetallic * 0.85) * (shadow * 0.9 + 0.1);
 
   // Fresnel rim — silhouettes catch the sky so cars and building edges pop.
   float fres = pow(1.0 - max(dot(N, V), 0.0), 3.0);
@@ -418,8 +444,14 @@ void main() {
     this.shadowMapLoc = gl.getUniformLocation(this.prog, 'uShadowMap')!;
     this.shadowTexelLoc = gl.getUniformLocation(this.prog, 'uShadowTexel')!;
     this.heatGlowLoc = gl.getUniformLocation(this.prog, 'uHeatGlow')!;
+    this.metallicLoc = gl.getUniformLocation(this.prog, 'uMetallic')!;
+    this.rimTintLoc = gl.getUniformLocation(this.prog, 'uRimTint')!;
+    this.rimStrengthLoc = gl.getUniformLocation(this.prog, 'uRimStrength')!;
     gl.uniform1i(this.useVertexColor, 1);
     gl.uniform1f(this.heatGlowLoc, 0);
+    gl.uniform1f(this.metallicLoc, 0.45);
+    gl.uniform3f(this.rimTintLoc, 0.72, 0.72, 0.75);
+    gl.uniform1f(this.rimStrengthLoc, 0);
   }
 
   private createProgram(vs: string, fs: string): WebGLProgram {
@@ -1117,6 +1149,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this._balloonIbo) { try { gl.deleteBuffer(this._balloonIbo); } catch { } }
     if (this._crowdVao) { try { gl.deleteVertexArray(this._crowdVao); } catch { } }
     if (this._crowdBuf) { try { gl.deleteBuffer(this._crowdBuf); } catch { } }
+    if (this._confettiVao) { try { gl.deleteVertexArray(this._confettiVao); } catch { } }
+    if (this._confettiBuf) { try { gl.deleteBuffer(this._confettiBuf); } catch { } }
     this._crowdPeople = [];
     const pts = this._trackPoints;
     const verts: number[] = [];
@@ -1135,6 +1169,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     } else if (this.theme === 'alpine') {
       this.addAlpineScenery(verts, idxs);
     } else if (this.theme === 'desert') {
+      // Wide sandy apron under everything, then the dunes/mesas/oases on top.
+      this.addDesertGround(verts, idxs);
       this.addDesertScenery(verts, idxs);
     } else if (this.theme === 'monaco') {
       this.addMonacoScenery(verts, idxs);
@@ -1145,6 +1181,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     } else {
       this.addForestScenery(verts, idxs);
     }
+
+    // Drifting cumulus clouds high over the circuit, tinted per theme.
+    this.addClouds(verts, idxs);
 
     // Grandstands at key points (all themes) — every 1/8 of the lap now, so
     // there's always a packed stand roaring somewhere on the circuit. The
@@ -1268,7 +1307,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
 
     const vertArray = new Float32Array(verts);
-    const idxArray = new Uint16Array(idxs);
+    // Dense themes (Miami skyline + clouds + trees) can exceed 65 535 indices,
+    // so scenery uses 32-bit indices (WebGL2 supports gl.UNSIGNED_INT natively).
+    const idxArray = new Uint32Array(idxs);
     this.sceneryCount = idxArray.length;
 
     this.sceneryVao = gl.createVertexArray()!;
@@ -1293,6 +1334,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // Animated sky objects (birds + balloons) get rebuilt alongside the theme
     // so their positions orbit the freshly generated circuit.
     this.initSkyObjects();
+    this.initConfetti();
   }
 
   // Default theme: a rich mixed forest with three tree types and undergrowth.
@@ -1473,6 +1515,45 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const sx = Math.cos(a) * dist;
       const sz = Math.sin(a) * dist;
       this.addSphere(verts, idxs, sx, 0.05, sz, 1.5 + Math.random() * 3.0, 6, snow);
+    }
+  }
+
+  // Fluffy cumulus clouds drifting high above the circuit, tinted per theme
+  // so they blend into each world's sky (Miami gets a bright festive sky full
+  // of them; mountain/alpine get crisp white ones; city gets dim grey).
+  private addClouds(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    let cx = 0, cz = 0;
+    for (const p of pts) { cx += p.x; cz += p.z; }
+    cx /= pts.length; cz /= pts.length;
+    // Keep the clouds BEYOND the track's outer extent (same convention as the
+    // mountains), so no cloud ever hangs low over the circuit itself.
+    let outer = 0;
+    for (const p of pts) {
+      const r = Math.hypot(p.x, p.z) + p.width / 2;
+      if (r > outer) outer = r;
+    }
+    const count = this.theme === 'miami' ? 10 : this.theme === 'mountain' || this.theme === 'alpine' ? 8 : 6;
+    const base = this.theme === 'city'
+      ? [0.16, 0.17, 0.2]
+      : this.theme === 'mountain' || this.theme === 'alpine'
+        ? [0.95, 0.96, 0.99]
+        : [0.98, 0.98, 1.0];
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+      const dist = outer + 30 + Math.random() * 140;
+      const px = cx + Math.cos(a) * dist;
+      const pz = cz + Math.sin(a) * dist;
+      const py = 55 + Math.random() * 35;
+      const r = 9 + Math.random() * 7;
+      const dim = 0.9 + Math.random() * 0.1;
+      const col = [base[0] * dim, base[1] * dim, base[2] * dim];
+      // A puffy cluster of three overlapping spheres, flattened by scale.
+      this.addSphere(verts, idxs, px, py, pz, r, 7, col);
+      this.addSphere(verts, idxs, px + r * 0.8, py + r * 0.15, pz + r * 0.4, r * 0.65, 7, col);
+      this.addSphere(verts, idxs, px - r * 0.7, py + r * 0.1, pz - r * 0.5, r * 0.55, 7, col);
+      // Flattened base for a classic cumulus silhouette.
+      this.addSphere(verts, idxs, px + r * 0.1, py - r * 0.55, pz, r * 0.8, 7, col);
     }
   }
 
@@ -1808,39 +1889,255 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
 
   // Desert theme (Marrakech): sand, cacti, adobe buildings, dusty haze.
+  // Wide sandy apron under the whole desert — dry sand from the track edge out
+  // past the dunes, so Marrakech reads as endless desert rather than grass.
+  private addDesertGround(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    for (let i = 0; i < pts.length; i += 2) {
+      const p = pts[i];
+      const n = pts[(i + 1) % pts.length];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const npx = -n.dirZ, npz = n.dirX;
+      const inner = p.width / 2 + 16;
+      const outer = p.width / 2 + 80;
+      for (const side of [-1, 1]) {
+        const pIn = [p.x + ppx * inner * side, -0.26, p.z + ppz * inner * side];
+        const pOut = [p.x + ppx * outer * side, -0.26, p.z + ppz * outer * side];
+        const nIn = [n.x + npx * inner * side, -0.26, n.z + npz * inner * side];
+        const nOut = [n.x + npx * outer * side, -0.26, n.z + npz * outer * side];
+        this.addGroundQuad(verts, idxs, pIn, nIn, nOut, pOut, [0.85, 0.76, 0.55]);
+      }
+    }
+  }
+
   private addDesertScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
-    // Sand dunes (low cones) along the track
+    const sand = [0.82, 0.72, 0.52];
+    const sandLight = [0.92, 0.84, 0.62];
+    const sandDark = [0.66, 0.56, 0.4];
+    const rock = [0.62, 0.45, 0.3];
+    const rockDark = [0.45, 0.32, 0.22];
+
+    // Track outer extent so distant dunes/mesas never sit on the circuit.
+    let outer = 0;
+    for (const p of pts) {
+      const r = Math.hypot(p.x, p.z) + p.width / 2;
+      if (r > outer) outer = r;
+    }
+
+    // ── Wind-combed sand dunes along the track: big soft cones with a swept
+    // tail so they read as dunes sculpted by the wind, not cones. Bases sink
+    // slightly below the -0.26 apron so no disc edge shows under them. ──
     for (let i = 0; i < pts.length; i += 5) {
       const p = pts[i];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
       for (const side of [-1, 1]) {
-        const dist = p.width / 2 + 20 + Math.random() * 30;
-        const dx = p.x + ppx * dist * side;
-        const dz = p.z + ppz * dist * side;
-        this.addCone(verts, idxs, dx, 0, dz, 4 + Math.random() * 6, 1.5 + Math.random() * 2, 8, [0.8, 0.72, 0.55]);
+        const dist = p.width / 2 + 24 + Math.random() * 26;
+        const dx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
+        const dz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
+        const s = 4 + Math.random() * 5;
+        const h = 1.2 + Math.random() * 1.8;
+        const col = Math.random() < 0.5 ? sand : sandLight;
+        // Main dune + swept tail (offset lower cone) for a natural wind shape.
+        this.addCone(verts, idxs, dx, -0.15, dz, s, h, 8, col);
+        this.addCone(verts, idxs, dx + (Math.random() - 0.5) * s * 1.4, -0.15, dz + (Math.random() - 0.5) * s * 1.4, s * 0.8, h * 0.7, 7, sandDark);
       }
     }
-    // Cacti (thin cylinders with arms)
-    let cactusIdx = 0;
-    for (let i = 0; i < pts.length; i += 8) {
+
+    // ── Distant giant dunes ringing the horizon (beyond the track). ──
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
+      const dist = outer + 50 + Math.random() * 120;
+      const mx = Math.cos(a) * dist;
+      const mz = Math.sin(a) * dist;
+      const s = 16 + Math.random() * 18;
+      const h = 4 + Math.random() * 5;
+      this.addCone(verts, idxs, mx, -0.15, mz, s, h, 8, sand);
+      this.addCone(verts, idxs, mx + s * 0.4, -0.15, mz, s * 0.7, h * 0.8, 7, sandLight);
+    }
+
+    // ── Rocky mesas & cliffs — flat-topped buttes and jagged pinnacles far
+    // beyond the track, in warm desert rock tones. ──
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2 + (Math.random() - 0.5) * 0.35;
+      const dist = outer + 40 + Math.random() * 100;
+      const mx = Math.cos(a) * dist;
+      const mz = Math.sin(a) * dist;
+      const s = 10 + Math.random() * 10;
+      const h = 8 + Math.random() * 12;
+      const roll = Math.random();
+      if (roll < 0.45) {
+        // Flat-topped mesa: broad cone + squared-off box cap.
+        this.addCone(verts, idxs, mx, 0, mz, s, h, 8, rock);
+        this.addBox(verts, idxs, mx, h - 1.5, mz, s * 0.55, 2.2, s * 0.55, rockDark);
+      } else if (roll < 0.75) {
+        // Jagged cliff: two stacked offset cones.
+        this.addCone(verts, idxs, mx, -0.15, mz, s, h, 7, rock);
+        this.addCone(verts, idxs, mx + s * 0.35, h * 0.4, mz - s * 0.2, s * 0.6, h * 0.65, 6, rockDark);
+      } else {
+        // Pinnacle: narrow tall cone with a lighter cap.
+        this.addCone(verts, idxs, mx, -0.15, mz, s * 0.8, h * 1.3, 7, rockDark);
+        this.addCone(verts, idxs, mx, h * 0.85, mz, s * 0.28, h * 0.35, 6, rock);
+      }
+    }
+    // Nearer rocky outcrops among the dunes.
+    for (let i = 0; i < pts.length; i += 9) {
       const p = pts[i];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
       for (const side of [-1, 1]) {
-        const dist = p.width / 2 + 35 + Math.random() * 20;
-        const cx = p.x + ppx * dist * side;
-        const cz = p.z + ppz * dist * side;
-        const ch = 1.0 + Math.random() * 1.2;
-        this.addCylinder(verts, idxs, cx, 0, cz, 0.06, ch, 6, [0.15, 0.25, 0.1]);
-        // Arms
-        this.addCylinder(verts, idxs, cx + 0.2, ch * 0.5, cz, 0.04, ch * 0.4, 5, [0.15, 0.25, 0.1]);
-        this.addCylinder(verts, idxs, cx - 0.2, ch * 0.6, cz, 0.04, ch * 0.3, 5, [0.15, 0.25, 0.1]);
-        if (cactusIdx++ > 30) break;
+        const dist = p.width / 2 + 30 + Math.random() * 20;
+        const rx = p.x + ppx * dist * side + (Math.random() - 0.5) * 6;
+        const rz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
+        const s = 2 + Math.random() * 3;
+        this.addCone(verts, idxs, rx, -0.15, rz, s, s * (1.2 + Math.random() * 1.2), 7, Math.random() < 0.5 ? rock : rockDark);
       }
-      if (cactusIdx > 30) break;
     }
+
+    // ── Oases: a pool of water ringed by palms and reeds, at a few fixed
+    // points around the lap so drivers always pass one. ──
+    for (const oi of [Math.floor(pts.length / 5), Math.floor(pts.length / 2), Math.floor(pts.length * 4 / 5)]) {
+      const p = pts[oi];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = p.width / 2 + 40 + Math.random() * 14;
+      const ox = p.x + ppx * dist * side;
+      const oz = p.z + ppz * dist * side;
+      const r = 4 + Math.random() * 2;
+      // Water pool (sits just above the -0.26 sand band so no z-fighting).
+      this.addQuad(verts, idxs,
+        [ox - r, -0.22, oz - r], [ox + r, -0.22, oz - r],
+        [ox + r, -0.22, oz + r], [ox - r, -0.22, oz + r],
+        [0.15, 0.45, 0.42]);
+      // Palms ringing the water.
+      for (let pi = 0; pi < 6; pi++) {
+        const a = (pi / 6) * Math.PI * 2 + Math.random() * 0.6;
+        const px = ox + Math.cos(a) * (r + 2.5 + Math.random() * 2);
+        const pz = oz + Math.sin(a) * (r + 2.5 + Math.random() * 2);
+        this.addPalmTree(verts, idxs, px, pz, 0.9 + Math.random() * 0.5);
+      }
+      // Reeds + a scrub bush at the water's edge.
+      for (let ri = 0; ri < 4; ri++) {
+        const a = Math.random() * Math.PI * 2;
+        const rx = ox + Math.cos(a) * r * 0.8;
+        const rz = oz + Math.sin(a) * r * 0.8;
+        this.addCone(verts, idxs, rx, 0, rz, 0.12, 0.5 + Math.random() * 0.4, 5, [0.2, 0.4, 0.15]);
+      }
+      this.addSphere(verts, idxs, ox + r * 0.6, 0.25, oz + r * 0.4, 0.5, 7, [0.25, 0.5, 0.18]);
+    }
+
+    // ── Camels: small caravans of two-three plodding between the dunes. ──
+    for (const ci of [Math.floor(pts.length / 6), Math.floor(pts.length / 3), Math.floor(pts.length * 2 / 3)]) {
+      const p = pts[ci];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = p.width / 2 + 34 + Math.random() * 12;
+      const bx = p.x + ppx * dist * side;
+      const bz = p.z + ppz * dist * side;
+      const n = 2 + Math.floor(Math.random() * 2);
+      for (let k = 0; k < n; k++) {
+        this.addCamel(verts, idxs, bx + ppx * k * 1.8, bz + ppz * k * 1.8, ppx, ppz, 0.8 + Math.random() * 0.2);
+      }
+    }
+
+    // ── Shanty villages: clusters of flat-roofed mud-brick shacks with a palm
+    // or two, tucked into the dunes at fixed points. ──
+    for (const vi of [Math.floor(pts.length / 7), Math.floor(pts.length * 3 / 7), Math.floor(pts.length * 5 / 7)]) {
+      const p = pts[vi];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = p.width / 2 + 30 + Math.random() * 12;
+      const vx = p.x + ppx * dist * side;
+      const vz = p.z + ppz * dist * side;
+      const huts = 4 + Math.floor(Math.random() * 3);
+      for (let h = 0; h < huts; h++) {
+        const hx = vx + (Math.random() - 0.5) * 16;
+        const hz = vz + (Math.random() - 0.5) * 16;
+        this.addShack(verts, idxs, hx, hz, ppx, ppz, 0.7 + Math.random() * 0.3);
+      }
+      this.addPalmTree(verts, idxs, vx + 3, vz + 2, 0.8);
+      this.addPalmTree(verts, idxs, vx - 3, vz - 2, 0.7);
+    }
+
+    // ── Cacti: saguaro with arms + barrel cactus, scattered in the open. ──
+    let cactusIdx = 0;
+    for (let i = 0; i < pts.length; i += 6) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 26 + Math.random() * 20;
+        const cx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
+        const cz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
+        if (Math.random() < 0.65) {
+          // Saguaro: tall trunk + one or two arms.
+          const ch = 1.2 + Math.random() * 1.4;
+          const cCol = [0.16, 0.28, 0.12];
+          this.addCylinder(verts, idxs, cx, 0, cz, 0.07, ch, 6, cCol);
+          const arms = 1 + Math.floor(Math.random() * 2);
+          for (let a = 0; a < arms; a++) {
+            const as = a === 0 ? -1 : 1;
+            const ay = ch * (0.35 + Math.random() * 0.3);
+            // Horizontal arm + vertical tip.
+            this.addCylinder(verts, idxs, cx + as * 0.12, ay, cz, 0.045, 0.3, 5, cCol);
+            this.addCylinder(verts, idxs, cx + as * 0.38, ay + 0.12, cz, 0.045, 0.35 + Math.random() * 0.2, 5, cCol);
+          }
+        } else {
+          // Barrel cactus: squat rounded body + tiny bloom.
+          this.addSphere(verts, idxs, cx, 0.3, cz, 0.3, 8, [0.18, 0.3, 0.13]);
+          this.addSphere(verts, idxs, cx, 0.55, cz, 0.14, 6, [0.95, 0.55, 0.3]);
+        }
+        if (cactusIdx++ > 34) break;
+      }
+      if (cactusIdx > 34) break;
+    }
+  }
+
+  // A small two-humped camel plodding along dirX/dirZ, built from primitives.
+  private addCamel(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, s: number) {
+    const body = [0.75, 0.6, 0.42];
+    const dark = [0.5, 0.38, 0.26];
+    // 4 legs
+    for (const [lx, lz] of [[0.3, 0.14], [0.3, -0.14], [-0.3, 0.14], [-0.3, -0.14]]) {
+      this.addCylinder(verts, idxs, x + lx * s, 0.4 * s, z + lz * s, 0.045 * s, 0.8 * s, 5, dark);
+    }
+    // Body (oriented along travel dir)
+    this.addOrientedBox(verts, idxs, x, 0.9 * s, z, 1.4 * s, 0.5 * s, 0.45 * s, dirX, dirZ, body);
+    // Hump
+    this.addSphere(verts, idxs, x + dirX * 0.1 * s, 1.25 * s, z + dirZ * 0.1 * s, 0.26 * s, 6, body);
+    // Neck + head at the front
+    const nx = x + dirX * 0.6 * s;
+    const nz = z + dirZ * 0.6 * s;
+    this.addOrientedBox(verts, idxs, nx, 1.25 * s, nz, 0.5 * s, 0.9 * s, 0.16 * s, dirX, dirZ, body);
+    this.addSphere(verts, idxs, nx + dirX * 0.35 * s, 1.75 * s, nz + dirZ * 0.35 * s, 0.13 * s, 6, dark);
+    // Tail
+    this.addCylinder(verts, idxs, x - dirX * 0.62 * s, 1.05 * s, z - dirZ * 0.62 * s, 0.03 * s, 0.3 * s, 4, dark);
+  }
+
+  // A flat-roofed mud-brick shack for the shanty villages.
+  private addShack(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, s: number) {
+    const mud = [0.78, 0.64, 0.44];
+    const roof = [0.55, 0.42, 0.28];
+    const h = 1.3 * s;
+    // Walls (oriented along the track so the door faces the road)
+    this.addOrientedBox(verts, idxs, x, h / 2, z, 1.6 * s, h, 1.3 * s, dirX, dirZ, mud);
+    // Flat roof, slightly overhanging
+    this.addOrientedBox(verts, idxs, x, h + 0.12 * s, z, 1.8 * s, 0.2 * s, 1.5 * s, dirX, dirZ, roof);
+    // Dark doorway on the road-facing long face. The wall face is at wid/2 =
+    // 0.65s, so the door sits at 0.72s — far enough out to never z-fight with
+    // the mud walls even at distance.
+    const px = -dirZ, pz = dirX;
+    const fx = x + px * (0.72 * s), fz = z + pz * (0.72 * s);
+    this.addQuad(verts, idxs,
+      [fx - dirX * 0.2 * s, 0.05, fz - dirZ * 0.2 * s],
+      [fx + dirX * 0.2 * s, 0.05, fz + dirZ * 0.2 * s],
+      [fx + dirX * 0.2 * s, 0.85 * s, fz + dirZ * 0.2 * s],
+      [fx - dirX * 0.2 * s, 0.85 * s, fz - dirZ * 0.2 * s],
+      [0.25, 0.18, 0.12]);
   }
 
   // Monaco theme: riviera coastline, yachts, grand hotels, casino, harbour.
@@ -1933,9 +2230,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
 
   private addMiamiScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
-    // Palm trees along both sides.
+    // Palms + flowering subtropical trees (jacaranda pink / flame orange) along
+    // both sides — a varied, lush streetscape instead of rows of identical palms.
     let palmIdx = 0;
-    for (let i = 0; i < pts.length; i += 3) {
+    for (let i = 0; i < pts.length; i += 2) {
       const p = pts[i];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
@@ -1943,18 +2241,24 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const dist = p.width / 2 + 24 + Math.random() * 16;
         const px = p.x + ppx * dist * side + (Math.random() - 0.5) * 6;
         const pz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
-        this.addPalmTree(verts, idxs, px, pz, 0.8 + Math.random() * 0.5);
-        if (palmIdx++ > 60) break;
+        if (Math.random() < 0.62) {
+          this.addPalmTree(verts, idxs, px, pz, 0.7 + Math.random() * 0.6);
+        } else {
+          this.addFloweringTree(verts, idxs, px, pz, 0.8 + Math.random() * 0.5);
+        }
+        if (palmIdx++ > 110) break;
       }
-      if (palmIdx > 60) break;
+      if (palmIdx > 110) break;
     }
 
-    // Art-deco pastel buildings — a Miami skyline behind the beach.
+    // Dense pastel skyline behind the beach: low art-deco blocks, taller
+    // glass towers and setback towers for a real Miami vista.
     const pastels: [number, number, number][] = [
       [0.95, 0.6, 0.65], [0.6, 0.85, 0.8], [0.98, 0.85, 0.6], [0.85, 0.75, 0.9], [0.75, 0.85, 0.95],
+      [0.95, 0.7, 0.55], [0.65, 0.95, 0.9], [0.9, 0.8, 0.7],
     ];
     let bIdx = 0;
-    for (let i = 0; i < pts.length; i += 8) {
+    for (let i = 0; i < pts.length; i += 5) {
       const p = pts[i];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
@@ -1962,46 +2266,82 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const dist = p.width / 2 + 60 + Math.random() * 25;
         const bx = p.x + ppx * dist * side + (Math.random() - 0.5) * 10;
         const bz = p.z + ppz * dist * side + (Math.random() - 0.5) * 10;
-        const h = 10 + Math.random() * 16;
+        const h = 10 + Math.random() * 30;
         const w = 5 + Math.random() * 3;
         const d = 5 + Math.random() * 3;
         const col = pastels[Math.floor(Math.random() * pastels.length)];
-        this.addBox(verts, idxs, bx, h / 2, bz, w, h, d, col);
-        // Flat parapet roof for the art-deco look.
-        this.addBox(verts, idxs, bx, h + 0.4, bz, w + 0.8, 0.8, d + 0.8, [0.95, 0.95, 0.9]);
-        // Window grid on the two long faces.
-        const rows = Math.max(3, Math.floor(h / 4));
-        for (const sx of [-1, 1]) {
-          const zc = bz + sx * (d / 2 + 0.05);
-          for (let r = 0; r < rows; r++) {
-            const wy = 1 + r * (h - 2) / rows;
-            for (let c = 0; c < 3; c++) {
-              const xc = bx - w / 2 + 0.9 + c * (w - 1.8) / 3;
-              this.addWindowQuad(verts, idxs, xc, wy, zc, 0.8, 0.5, 0, sx, [0.15, 0.35, 0.4]);
+        const roll = Math.random();
+        if (roll < 0.3 && h > 18) {
+          // Tall glass tower with a lit beacon.
+          this.addGlassTower(verts, idxs, bx, bz, h, w, d, col);
+        } else if (roll < 0.45 && h > 14) {
+          // Art-deco setback tower.
+          this.addSetbackTower(verts, idxs, bx, bz, h, w, d, col);
+        } else {
+          this.addBox(verts, idxs, bx, h / 2, bz, w, h, d, col);
+          // Flat parapet roof for the art-deco look.
+          this.addBox(verts, idxs, bx, h + 0.4, bz, w + 0.8, 0.8, d + 0.8, [0.95, 0.95, 0.9]);
+        }
+        // Window grid on the two long faces (skip for glass towers — they bake
+        // their own warm-lit windows).
+        if (roll >= 0.3) {
+          const rows = Math.max(3, Math.floor(h / 4));
+          for (const sx of [-1, 1]) {
+            const zc = bz + sx * (d / 2 + 0.05);
+            for (let r = 0; r < rows; r++) {
+              const wy = 1 + r * (h - 2) / rows;
+              for (let c = 0; c < 3; c++) {
+                const xc = bx - w / 2 + 0.9 + c * (w - 1.8) / 3;
+                this.addWindowQuad(verts, idxs, xc, wy, zc, 0.8, 0.5, 0, sx, [0.15, 0.35, 0.4]);
+              }
             }
           }
         }
-        if (bIdx++ > 20) break;
+        if (bIdx++ > 44) break;
       }
-      if (bIdx > 20) break;
+      if (bIdx > 44) break;
     }
 
-    // Beach umbrellas + towels scattered on the sand near the grandstands.
+    // Beach umbrellas + towels + beach balls scattered on the sand near the
+    // grandstands — a lively sunbather scene in full colour.
     const gsPositions = [0, Math.floor(pts.length / 4), Math.floor(pts.length / 2), Math.floor(pts.length * 3 / 4)];
     const umbrellaColors: [number, number, number][] = [
       [0.9, 0.25, 0.3], [0.95, 0.8, 0.2], [0.1, 0.65, 0.55], [0.25, 0.5, 0.9], [0.95, 0.55, 0.8],
+      [0.95, 0.35, 0.9], [0.2, 0.8, 0.85],
+    ];
+    const towelColors: [number, number, number][] = [
+      [0.95, 0.35, 0.4], [0.3, 0.7, 0.95], [0.95, 0.85, 0.2], [0.3, 0.85, 0.55], [0.95, 0.55, 0.8], [0.95, 0.65, 0.3],
+    ];
+    const ballColors: [number, number, number][] = [
+      [0.95, 0.3, 0.3], [0.3, 0.6, 0.95], [0.98, 0.85, 0.2], [0.25, 0.8, 0.45], [0.95, 0.45, 0.75],
     ];
     for (const gi of gsPositions) {
       const p = pts[gi];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
-      for (let u = 0; u < 3; u++) {
+      for (let u = 0; u < 4; u++) {
         const dist = p.width / 2 + 26 + Math.random() * 12;
         const side = u % 2 === 0 ? -1 : 1;
         const ux = p.x + ppx * dist * side + (Math.random() - 0.5) * 6;
         const uz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
         this.addCylinder(verts, idxs, ux, 0, uz, 0.05, 1.6, 6, [0.85, 0.8, 0.7]);
         this.addCone(verts, idxs, ux, 1.6, uz, 0.9, 0.35, 8, umbrellaColors[Math.floor(Math.random() * umbrellaColors.length)]);
+        // Striped towel lying flat on the sand beside the umbrella pole.
+        // (addQuad with explicit y so it sits just above the sand band at -0.26
+        // instead of z-fighting with it.)
+        if (Math.random() < 0.85) {
+          const tcol = towelColors[Math.floor(Math.random() * towelColors.length)];
+          const tx = ux + (Math.random() < 0.5 ? 1.1 : -1.1);
+          const tz = uz + (Math.random() < 0.5 ? 1.0 : -1.0);
+          this.addQuad(verts, idxs,
+            [tx - 1.0, -0.23, tz - 0.55], [tx + 1.0, -0.23, tz - 0.55],
+            [tx + 1.0, -0.23, tz + 0.55], [tx - 1.0, -0.23, tz + 0.55], tcol);
+        }
+        // Beach ball resting on the sand nearby (bottom at sand level -0.26,
+        // centre at -0.26 + radius 0.3 so it doesn't float).
+        if (Math.random() < 0.7) {
+          this.addSphere(verts, idxs, ux + (Math.random() - 0.5) * 3, 0.04, uz + (Math.random() - 0.5) * 3, 0.3, 8, ballColors[Math.floor(Math.random() * ballColors.length)]);
+        }
       }
     }
 
@@ -2050,6 +2390,27 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addSphere(verts, idxs, topX + lean * 0.2, topY - 0.1, topZ + lean * 0.15, 0.14 * s, 6, [0.5, 0.35, 0.15]);
   }
 
+  // A flowering subtropical tree — jacaranda-pink or flame-orange blossom
+  // canopy on a slender trunk, for lively Miami streetscapes.
+  private addFloweringTree(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    const lean = (Math.random() - 0.5) * 0.5;
+    const trunkH = 2.2 * s;
+    this.addCylinder(verts, idxs, x, 0, z, 0.12 * s, trunkH, 6, [0.42, 0.28, 0.14]);
+    const topX = x + lean * 0.4;
+    const topZ = z + lean * 0.3;
+    // Pink jacaranda or orange flame tree.
+    const blossom: [number, number, number] = Math.random() < 0.55
+      ? [0.93, 0.45, 0.72]
+      : [0.98, 0.55, 0.25];
+    const r = (0.9 + Math.random() * 0.5) * s;
+    // Big billowing bloom made of three overlapping spheres.
+    this.addSphere(verts, idxs, topX, trunkH + r * 0.7, topZ, r, 8, blossom);
+    this.addSphere(verts, idxs, topX + r * 0.45, trunkH + r * 0.55, topZ + r * 0.2, r * 0.65, 7, blossom);
+    this.addSphere(verts, idxs, topX - r * 0.4, trunkH + r * 0.5, topZ - r * 0.25, r * 0.6, 7, blossom);
+    // A hint of green foliage underneath.
+    this.addSphere(verts, idxs, topX, trunkH + r * 0.35, topZ, r * 0.8, 7, [0.12, 0.4, 0.12]);
+  }
+
   // Ground quad with forced up-normal so sand/water light correctly regardless of winding.
   private addGroundQuad(verts: number[], idxs: number[], a: number[], b: number[], c: number[], d: number[], color: number[]) {
     const [r, g, bl] = color;
@@ -2066,6 +2427,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const gl = this.gl;
     const verts: number[] = [];
     const idxs: number[] = [];
+    // Accent mesh (sidepod livery stripe + exhaust tips) — tinted per car by
+    // the accent/livery color. Decal mesh (engine-cover stripes + nose plate)
+    // is colored per car by the decal style.
+    const accVerts: number[] = [];
+    const accIdxs: number[] = [];
+    const decVerts: number[] = [];
+    const decIdxs: number[] = [];
 
     const [cr, cg, cb] = [0.85, 0.06, 0.06]; // Team red
     const carbon = [0.12, 0.12, 0.14];
@@ -2330,9 +2698,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addStrut(verts, idxs, 0.62, 0.12, -0.62, 0.72, 0.06, -0.72, 0.015, grey);
 
     // ── 9e. Livery accent stripe (contrast band on engine cover/sidepods) ──
-    const stripe: [number, number, number] = [0.05, 0.05, 0.08];
-    this.addBox(verts, idxs, -0.1, 0.30, 0.505, 0.5, 0.02, 0.005, stripe);
-    this.addBox(verts, idxs, -0.1, 0.30, -0.505, 0.5, 0.02, 0.005, stripe);
+    // Lives in the ACCENT mesh so its color is the per-car livery accent (white
+    // verts × uColor — the shader multiplies vertex color by the car color).
+    this.addBox(accVerts, accIdxs, -0.1, 0.30, 0.505, 0.5, 0.02, 0.005, [1, 1, 1]);
+    this.addBox(accVerts, accIdxs, -0.1, 0.30, -0.505, 0.5, 0.02, 0.005, [1, 1, 1]);
 
     // ── 10. Mirrors + stalks ──
     this.addBox(verts, idxs, 0.35, 0.30, 0.60, 0.10, 0.05, 0.07, grey);
@@ -2343,12 +2712,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addBox(verts, idxs, 0.40, 0.30, 0.60, 0.02, 0.03, 0.05, [0.6, 0.65, 0.7]);
     this.addBox(verts, idxs, 0.40, 0.30, -0.60, 0.02, 0.03, 0.05, [0.6, 0.65, 0.7]);
 
-    // ── 11. Exhaust outlets ──
-    this.addCylinder(verts, idxs, -0.72, 0.28, 0.18, 0.04, 0.07, 10, grey);
-    this.addCylinder(verts, idxs, -0.72, 0.28, -0.18, 0.04, 0.07, 10, grey);
+    // ── 11. Exhaust outlets (accent mesh → colored by the livery accent) ──
+    this.addCylinder(accVerts, accIdxs, -0.72, 0.28, 0.18, 0.04, 0.07, 10, [1, 1, 1]);
+    this.addCylinder(accVerts, accIdxs, -0.72, 0.28, -0.18, 0.04, 0.07, 10, [1, 1, 1]);
     // Exhaust tailpipe inner (dark opening)
-    this.addCylinder(verts, idxs, -0.70, 0.28, 0.18, 0.025, 0.02, 8, dark);
-    this.addCylinder(verts, idxs, -0.70, 0.28, -0.18, 0.025, 0.02, 8, dark);
+    this.addCylinder(accVerts, accIdxs, -0.70, 0.28, 0.18, 0.025, 0.02, 8, dark);
+    this.addCylinder(accVerts, accIdxs, -0.70, 0.28, -0.18, 0.025, 0.02, 8, dark);
 
     // ── 12. Rain light (bright red LED cluster at the rear) ──
     this.addBox(verts, idxs, -1.035, 0.52, 0, 0.05, 0.07, 0.06, [1, 0.15, 0.15]);
@@ -2363,6 +2732,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
 
     // ── 14. Shark fin (thin blade over the engine cover) ──
     this.addBox(verts, idxs, -0.55, 0.40, 0, 0.50, 0.16, 0.015, carbon);
+
+    // ── Decal livery (per-car colored stripes over the engine cover + a nose
+    // number plate). White verts — uColor carries the decal style's color.
+    this.addBox(decVerts, decIdxs, -0.3, 0.375, 0.06, 1.0, 0.01, 0.09, [1, 1, 1]);
+    this.addBox(decVerts, decIdxs, -0.3, 0.375, -0.06, 1.0, 0.01, 0.09, [1, 1, 1]);
+    this.addBox(decVerts, decIdxs, 1.12, 0.12, 0, 0.10, 0.14, 0.012, [1, 1, 1]);
 
     // ── 15. Suspension wishbones + pushrods (detailed double-wishbone layout) ──
     // Front upper arms (tub → wheel hub, forward-swept)
@@ -2420,6 +2795,83 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
 
+    // Accent VAO (livery stripe + exhaust) — drawn with the per-car accent color.
+    const accArray = new Float32Array(accVerts);
+    const accIdxArray = new Uint16Array(accIdxs);
+    this.accentCount = accIdxArray.length;
+    this.accentVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.accentVao);
+    const avbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, avbo);
+    gl.bufferData(gl.ARRAY_BUFFER, accArray, gl.STATIC_DRAW);
+    const aibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, aibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, accIdxArray, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+
+    // Decal VAO (stripes + nose plate) — drawn only when a decal is equipped.
+    const decArray = new Float32Array(decVerts);
+    const decIdxArray = new Uint16Array(decIdxs);
+    this.decalCount = decIdxArray.length;
+    this.decalVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.decalVao);
+    const dvbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, dvbo);
+    gl.bufferData(gl.ARRAY_BUFFER, decArray, gl.STATIC_DRAW);
+    const dibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, dibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, decIdxArray, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+
+    // Underglow quad — a flat pool under the car drawn with additive blending,
+    // tinted by the per-car neon color. Sits just above the road (the body
+    // translate is +0.15, so local y -0.13 lands ~0.046 above the asphalt).
+    const gv: number[] = [];
+    const gi: number[] = [];
+    const glowL = 1.5, glowW = 0.72;
+    const gy = -0.13;
+    gv.push(-glowL, gy, -glowW, 0, 1, 0, 1, 1, 1, 0, 0);
+    gv.push(glowL, gy, -glowW, 0, 1, 0, 1, 1, 1, 1, 0);
+    gv.push(glowL, gy, glowW, 0, 1, 0, 1, 1, 1, 1, 1);
+    gv.push(-glowL, gy, -glowW, 0, 1, 0, 1, 1, 1, 0, 0);
+    gv.push(glowL, gy, glowW, 0, 1, 0, 1, 1, 1, 1, 1);
+    gv.push(-glowL, gy, glowW, 0, 1, 0, 1, 1, 1, 0, 1);
+    gi.push(0, 1, 2, 3, 4, 5);
+    this.glowCount = gi.length;
+    this.glowVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.glowVao);
+    const gvbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, gvbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(gv), gl.STATIC_DRAW);
+    const gibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(gi), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+
     // Build wheel mesh
     this.buildWheelMesh();
   }
@@ -2433,18 +2885,23 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // the wheel looking fully round at any rotation speed.
     const fv: number[] = [];
     const fi: number[] = [];
+    // Rim barrel — its OWN mesh/VAO (white verts) so the per-car rim tint
+    // (uRimTint) colors the metal without ever tinting the black tire band.
+    const fvRim: number[] = [];
+    const fiRim: number[] = [];
     // ── Brake assembly (drawn separately so its heat glow only hits the disc) ──
     const fb: number[] = [];
     const fbi: number[] = [];
     // ── Branded rim face (own mesh: planar UVs carry the crisp BHOSTED tex) ──
     const frf: number[] = [];
     const frfi: number[] = [];
-    // Rim disc (dark, fills the tread inner circle — 0.165 ≈ tread 0.17)
-    this.addCylinder(fv, fi, 0, 0, 0, 0.165, 0.15, 18, [0.07, 0.07, 0.08]);
+    // Rim disc (white so the rim tint shows at full strength; fills the tread
+    // inner circle — 0.165 ≈ tread 0.17)
+    this.addCylinder(fvRim, fiRim, 0, 0, 0, 0.165, 0.15, 18, [1, 1, 1]);
     // Branded rim face — sits slightly proud of the rim cap (0.152 > 0.15) so
     // the texture never z-fights the cap, and under the tire band (0.17). White
     // verts so the shader's `base *= texture` shows the lettering at full color.
-    this.addRimFace(frf, frfi, 0, 0.152, 0, 0.14, [1, 1, 1]);
+    this.addRimRing(frf, frfi, 0, 0.152, 0, 0.135, 0.065, [1, 1, 1]);
     // Tire tread — larger radius so the band wraps the rim
     this.addCylinder(fv, fi, 0, 0, 0, 0.17, 0.12, 18, [0.13, 0.13, 0.14]);
     // Tire sidewall lettering (small raised bumps on the tread side)
@@ -2454,12 +2911,44 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
     // Valve stem
     this.addCylinder(fv, fi, 0.14, 0.05, 0, 0.008, 0.05, 6, [0.2, 0.2, 0.2]);
-    // Brake disc (reddish, slightly wider than the rim so it peeks out)
-    this.addCylinder(fb, fbi, 0, 0, 0, 0.09, 0.17, 18, [0.35, 0.12, 0.1]);
-    // Brake caliper (small colourful block that clamps the disc)
-    this.addBox(fb, fbi, 0.08, 0.06, 0, 0.06, 0.04, 0.03, [0.9, 0.1, 0.1]);
-    // Hub center
-    this.addCylinder(fb, fbi, 0, 0, 0, 0.04, 0.17, 12, [0.5, 0.5, 0.55]);
+    // Brake rotor — thin ventilated steel disc that sits PROUD of the rim
+    // (top cap at z=0.17 vs rim face at 0.152) so the disc reads inside the
+    // tire, visible through the rim's centre bore. uHeatGlow is enabled only
+    // while drawing this mesh in renderCar, so the rotor glows hot while the
+    // black rubber band stays dark.
+    this.addCylinder(fb, fbi, 0, 0, 0, 0.078, 0.17, 22, [0.42, 0.40, 0.38]);
+    // Drilled ventilation holes — small dark bores punched through the disc.
+    for (let k = 0; k < 8; k++) {
+      const a = (k / 8) * Math.PI * 2 + 0.35;
+      this.addCylinder(fb, fbi, Math.cos(a) * 0.052, 0, Math.sin(a) * 0.052, 0.011, 0.19, 8, [0.03, 0.03, 0.04]);
+    }
+    // Brake caliper — red block straddling the rotor edge, proud of the disc.
+    this.addBox(fb, fbi, 0.07, 0.16, 0, 0.045, 0.05, 0.06, [0.85, 0.12, 0.10]);
+    // Hub centre cap (slightly proud of the rotor face).
+    this.addCylinder(fb, fbi, 0, 0, 0, 0.028, 0.19, 12, [0.22, 0.22, 0.26]);
+    // Front rim barrel VAO (tinted per rim style).
+    const fvaRim = new Float32Array(fvRim);
+    const fiaRim = new Uint16Array(fiRim);
+    this.wheelRimCount = fiaRim.length;
+    this.wheelRimVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.wheelRimVao);
+    const rvbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, rvbo);
+    gl.bufferData(gl.ARRAY_BUFFER, fvaRim, gl.STATIC_DRAW);
+    const ribo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ribo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, fiaRim, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+
+    // Front TIRE VAO (band + sidewall lettering + valve) — never tinted.
     const fva = new Float32Array(fv);
     const fia = new Uint16Array(fi);
     this.wheelCount = fia.length;
@@ -2522,34 +3011,63 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // Same closed-rim design as the fronts — solid disc, no spokes to sweep.
     const rv: number[] = [];
     const ri: number[] = [];
+    const rvRim: number[] = [];
+    const riRim: number[] = [];
     const rb: number[] = [];
     const rbi: number[] = [];
     // ── Branded rear rim face (own mesh: planar UVs carry the BHOSTED tex) ──
     const rrf: number[] = [];
     const rrfi: number[] = [];
-    this.addCylinder(rv, ri, 0, 0, 0, 0.175, 0.18, 18, [0.07, 0.07, 0.08]);
+    this.addCylinder(rvRim, riRim, 0, 0, 0, 0.175, 0.18, 18, [1, 1, 1]);
     // Rear rim face — slightly proud of the rim cap (0.182 > 0.18), white verts
     // so the lettering texture shows at full brightness.
-    this.addRimFace(rrf, rrfi, 0, 0.182, 0, 0.15, [1, 1, 1]);
+    this.addRimRing(rrf, rrfi, 0, 0.182, 0, 0.145, 0.07, [1, 1, 1]);
     this.addCylinder(rv, ri, 0, 0, 0, 0.18, 0.15, 18, [0.13, 0.13, 0.14]); 
     for (let k = 0; k < 4; k++) {
       const a = (k / 4) * Math.PI * 2 + 0.2;
       this.addBox(rv, ri, Math.cos(a) * 0.18, 0.15, Math.sin(a) * 0.18, 0.02, 0.01, 0.02, [0.2, 0.2, 0.2]);
     }
     this.addCylinder(rv, ri, 0.15, 0.06, 0, 0.008, 0.05, 6, [0.2, 0.2, 0.2]);
-    this.addCylinder(rb, rbi, 0, 0, 0, 0.1, 0.2, 18, [0.35, 0.12, 0.1]);
-    this.addBox(rb, rbi, 0.08, 0.06, 0, 0.06, 0.04, 0.03, [0.9, 0.1, 0.1]);
-    this.addCylinder(rb, rbi, 0, 0, 0, 0.045, 0.2, 12, [0.5, 0.5, 0.55]);
+    this.addCylinder(rb, rbi, 0, 0, 0, 0.088, 0.2, 22, [0.42, 0.40, 0.38]);
+    for (let k = 0; k < 8; k++) {
+      const a = (k / 8) * Math.PI * 2 + 0.35;
+      this.addCylinder(rb, rbi, Math.cos(a) * 0.058, 0, Math.sin(a) * 0.058, 0.012, 0.215, 8, [0.03, 0.03, 0.04]);
+    }
+    this.addBox(rb, rbi, 0.08, 0.19, 0, 0.05, 0.055, 0.065, [0.85, 0.12, 0.10]);
+    this.addCylinder(rb, rbi, 0, 0, 0, 0.031, 0.22, 12, [0.22, 0.22, 0.26]);
+    // Rear rim barrel VAO (tinted per rim style).
+    const rvaRim = new Float32Array(rvRim);
+    const riaRim = new Uint16Array(riRim);
+    this.rearWheelRimCount = riaRim.length;
+    this.rearWheelRimVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.rearWheelRimVao);
+    const rrvbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, rrvbo);
+    gl.bufferData(gl.ARRAY_BUFFER, rvaRim, gl.STATIC_DRAW);
+    const rribo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, rribo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, riaRim, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+
+    // Rear TIRE VAO (band + sidewall lettering + valve) — never tinted.
     const rva = new Float32Array(rv);
     const ria = new Uint16Array(ri);
     this.rearWheelCount = ria.length;
     this.rearWheelVao = gl.createVertexArray()!;
     gl.bindVertexArray(this.rearWheelVao);
-    const rvbo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ARRAY_BUFFER, rvbo);
+    const rrvbo2 = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, rrvbo2);
     gl.bufferData(gl.ARRAY_BUFFER, rva, gl.STATIC_DRAW);
-    const ribo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ribo);
+    const rribo2 = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, rribo2);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, ria, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
@@ -2600,6 +3118,35 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
 
   // ─── Primitive Helpers ───
+  // Annular rim face (ring with a centre bore) so the brake rotor shows
+  // through the wheel. Planar UVs are normalised to the OUTER radius so the
+  // BHOSTED lettering (drawn mid-texture) lands on the ring, not the hole.
+  private addRimRing(verts: number[], idxs: number[], cx: number, cy: number, cz: number, outerRadius: number, innerRadius: number, color: number[]) {
+    const [r, g, b] = color;
+    const segments = 28;
+    const baseIdx = verts.length / 11;
+    // Inner bore ring
+    for (let i = 0; i <= segments; i++) {
+      const a = (i / segments) * Math.PI * 2;
+      const x = Math.cos(a) * innerRadius;
+      const z = Math.sin(a) * innerRadius;
+      verts.push(cx + x, cy, cz + z, 0, 1, 0, r, g, b, 0.5 + x / (outerRadius * 2), 0.5 + z / (outerRadius * 2));
+    }
+    const innerStart = baseIdx;
+    // Outer ring
+    for (let i = 0; i <= segments; i++) {
+      const a = (i / segments) * Math.PI * 2;
+      const x = Math.cos(a) * outerRadius;
+      const z = Math.sin(a) * outerRadius;
+      verts.push(cx + x, cy, cz + z, 0, 1, 0, r, g, b, 0.5 + x / (outerRadius * 2), 0.5 + z / (outerRadius * 2));
+    }
+    const outerStart = innerStart + segments + 1;
+    for (let i = 0; i < segments; i++) {
+      idxs.push(innerStart + i, innerStart + i + 1, outerStart + i);
+      idxs.push(innerStart + i + 1, outerStart + i + 1, outerStart + i);
+    }
+  }
+
   private addBox(verts: number[], idxs: number[], cx: number, cy: number, cz: number, l: number, h: number, w: number, color: number[]) {
     const hw = w / 2, hh = h / 2, hl = l / 2;
     const [r, g, b] = color;
@@ -2854,28 +3401,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
     verts.push(cx, cy, cz, 0, -1, 0, r, g, b, 0.5, 0);
     for (let i = 0; i < segments; i++) {
       idxs.push(bottomCenter, bottomStart + i, bottomStart + i + 1);
-    }
-  }
-
-  // Flat disc with PLANAR UVs — maps the whole disc face onto the texture so
-  // tire-brand lettering reads crisply (u = 0.5 + x/2r, v = 0.5 + z/2r). The
-  // rim's cap faces carry a strip UV (v=1 only), which would squash text into
-  // one row — so the branded face is its own mesh. +Y normal (faces outward
-  // once the wheel is laid onto its lateral axle with RX(π/2)).
-  private addRimFace(verts: number[], idxs: number[], cx: number, cy: number, cz: number, radius: number, color: number[]) {
-    const [r, g, b] = color;
-    const segments = 24;
-    const baseIdx = verts.length / 11;
-    // Center vertex (planar UV 0.5,0.5)
-    verts.push(cx, cy, cz, 0, 1, 0, r, g, b, 0.5, 0.5);
-    for (let i = 0; i <= segments; i++) {
-      const a = (i / segments) * Math.PI * 2;
-      const x = Math.cos(a) * radius;
-      const z = Math.sin(a) * radius;
-      verts.push(cx + x, cy, cz + z, 0, 1, 0, r, g, b, 0.5 + x / (radius * 2), 0.5 + z / (radius * 2));
-    }
-    for (let i = 0; i < segments; i++) {
-      idxs.push(baseIdx, baseIdx + 1 + i, baseIdx + 2 + i);
     }
   }
 
@@ -3258,7 +3783,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // balloons are one shared mesh drawn per balloon via model-matrix translate.
   private _birdsVao!: WebGLVertexArrayObject;
   private _birdsBuf!: WebGLBuffer;
-  private _birds: { phase: number; speed: number; radius: number; alt: number; ang: number; dir: number }[] = [];
+  private _birds: { phase: number; speed: number; radius: number; alt: number; ang: number; dir: number; size: number; shade: number }[] = [];
+  // Falling confetti — small camera-facing squares tumbling over the start/
+  // finish line and grandstands (drawn per-frame like the birds, culled by
+  // distance so far stands cost nothing).
+  private _confettiVao!: WebGLVertexArrayObject;
+  private _confettiBuf!: WebGLBuffer;
+  private _confettiCount = 0;
+  private _confetti: { x: number; y: number; z: number; vx: number; vy: number; vz: number; phase: number; spin: number; size: number; color: [number, number, number] }[] = [];
   private _crowdVao!: WebGLVertexArrayObject;
   private _crowdBuf!: WebGLBuffer;
   // Preallocated per-frame geometry for the animated crowd (never GC'd).
@@ -3290,26 +3822,38 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this._trackCenterX = cx;
     this._trackCenterZ = cz;
 
-    // Birds — a couple of flocks wheeling high above the circuit.
+    // Birds — theme-flavoured flocks wheeling above the circuit. Miami gets
+    // darting white seagulls over the bay; the mountain/alpine worlds get big
+    // soaring eagles; the desert gets circling vultures; elsewhere small dark
+    // passerines.
     this._birds = [];
-    for (let i = 0; i < 18; i++) {
+    const isMiami = this.theme === 'miami';
+    const isHighCountry = this.theme === 'mountain' || this.theme === 'alpine';
+    const isDesert = this.theme === 'desert';
+    const birdCount = isMiami ? 26 : isHighCountry ? 16 : isDesert ? 14 : 18;
+    for (let i = 0; i < birdCount; i++) {
+      const eagle = isHighCountry && i % 3 === 0;
+      const vulture = isDesert && i % 2 === 0;
       this._birds.push({
         phase: Math.random() * Math.PI * 2,
-        speed: 0.05 + Math.random() * 0.09,
-        radius: 160 + Math.random() * 130,
-        alt: 34 + Math.random() * 30,
+        speed: eagle || vulture ? 0.04 + Math.random() * 0.05 : isMiami ? 0.09 + Math.random() * 0.08 : 0.05 + Math.random() * 0.09,
+        radius: isMiami ? 110 + Math.random() * 90 : eagle || vulture ? 170 + Math.random() * 120 : 160 + Math.random() * 130,
+        alt: isMiami ? 18 + Math.random() * 16 : eagle || vulture ? 55 + Math.random() * 30 : 34 + Math.random() * 30,
         ang: Math.random() * Math.PI * 2,
         dir: Math.random() < 0.5 ? 1 : -1,
+        size: eagle ? 1.7 + Math.random() * 0.4 : vulture ? 1.3 + Math.random() * 0.3 : isMiami ? 0.7 + Math.random() * 0.25 : 0.9 + Math.random() * 0.3,
+        shade: isMiami ? 0.85 + Math.random() * 0.08 : vulture ? 0.12 : eagle ? 0.1 : 0.08 + Math.random() * 0.05,
       });
     }
 
-    // Hot-air balloons — a handful of colourful ones drifting nearby.
+    // Hot-air balloons — a handful of colourful ones drifting nearby (more in
+    // the festive Miami sky).
     this._balloons = [];
     const balloonColors: [number, number, number][] = [
       [0.9, 0.25, 0.2], [0.2, 0.55, 0.9], [0.95, 0.75, 0.15],
-      [0.35, 0.8, 0.35], [0.85, 0.4, 0.7],
+      [0.35, 0.8, 0.35], [0.85, 0.4, 0.7], [0.95, 0.5, 0.8], [0.4, 0.75, 0.95],
     ];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < (isMiami ? 7 : 4); i++) {
       this._balloons.push({
         ang: Math.random() * Math.PI * 2,
         radius: 190 + Math.random() * 120,
@@ -3347,7 +3891,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
 
-    // Birds — dynamic buffer, 18 birds × 2 wing triangles × 3 verts × 11 floats.
+    // Birds — dynamic buffer, one triangle pair per bird × 11 floats each.
+    // (bufferData sizing uses the bird count, so theme-flavoured flock sizes
+    //  are all covered).
     this._birdsVao = gl.createVertexArray()!;
     gl.bindVertexArray(this._birdsVao);
     this._birdsBuf = gl.createBuffer()!;
@@ -3385,6 +3931,112 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.bindVertexArray(null);
   }
 
+  // Builds the falling-confetti field: colourful squares that shower down over
+  // the start/finish line and grandstands, then recycle back to the top. Drawn
+  // as camera-facing billboards each frame (shared quad mesh, per-particle
+  // transform), culled by distance so far stands cost nothing in the mirror.
+  private initConfetti() {
+    const gl = this.gl;
+    const pts = this._trackPoints;
+    const dense = this.theme === 'miami';   // Miami is a celebration
+    const perStand = dense ? 26 : 12;
+    const confettiColors: [number, number, number][] = [
+      [0.95, 0.25, 0.3], [0.2, 0.7, 0.95], [0.98, 0.8, 0.1], [0.3, 0.85, 0.4],
+      [0.95, 0.5, 0.85], [0.95, 0.6, 0.2], [0.55, 0.45, 0.95], [0.95, 0.95, 0.98],
+    ];
+    this._confetti = [];
+    // Anchor clusters at the start/finish and each grandstand.
+    const anchors: { x: number; z: number }[] = [{ x: pts[0].x, z: pts[0].z }];
+    for (const f of [0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875]) {
+      const p = pts[Math.floor(f * pts.length)];
+      anchors.push({ x: p.x, z: p.z });
+    }
+    for (const a of anchors) {
+      for (let i = 0; i < perStand; i++) {
+        const side = i % 2 === 0 ? -1 : 1;
+        this._confetti.push({
+          x: a.x + (Math.random() - 0.5) * 24 + side * 10,
+          y: 4 + Math.random() * 14,
+          z: a.z + (Math.random() - 0.5) * 24,
+          vx: (Math.random() - 0.5) * 0.6,
+          vy: 0.8 + Math.random() * 0.9,
+          vz: (Math.random() - 0.5) * 0.6,
+          phase: Math.random() * Math.PI * 2,
+          spin: 2 + Math.random() * 5,
+          size: 0.09 + Math.random() * 0.09,
+          color: confettiColors[Math.floor(Math.random() * confettiColors.length)],
+        });
+      }
+    }
+    this._confettiCount = this._confetti.length * 6;
+
+    // Shared quad mesh (one unit square, centred on origin) drawn per particle
+    // via an instance-less dynamic buffer rebuilt each frame, like the birds.
+    this._confettiVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this._confettiVao);
+    this._confettiBuf = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._confettiBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this._confettiCount * 11), gl.DYNAMIC_DRAW);
+    const stride = 11 * 4;
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+  }
+
+  // Animates + draws the confetti shower. view gives the camera axes for the
+  // billboards; particles beyond ~110m are skipped so far clusters don't cost
+  // anything (the mirror pass rebuilds the same set, so the cull matters).
+  private drawConfetti(dt: number, view: Float32Array, eye: number[]) {
+    const gl = this.gl;
+    const t = this.elapsed;
+    if (!this._confetti.length || !this._confettiVao) return;
+
+    // Camera right/up in world space (columns of the view matrix, column-major).
+    const rxx = view[0], rxy = view[4], rxz = view[8];
+    const uxx = view[1], uxy = view[5], uxz = view[9];
+    const data: number[] = [];
+    for (const c of this._confetti) {
+      // Fall + gentle sway + slight flutter.
+      c.y -= c.vy * dt;
+      c.x += c.vx * dt + Math.sin(t * 2 + c.phase) * 0.12 * dt;
+      c.z += c.vz * dt + Math.cos(t * 1.7 + c.phase) * 0.1 * dt;
+      c.phase += c.spin * dt;
+      if (c.y < 0.3) c.y = 12 + Math.random() * 10;   // recycle to the top
+      if (Math.hypot(c.x - eye[0], c.z - eye[2]) > 110) continue;
+
+      const s = c.size;
+      const ca = Math.cos(c.phase), sa = Math.sin(c.phase);
+      // Rotate the billboard basis by the spin angle around the view axis.
+      const ax = rxx * ca + uxx * sa, ay = rxy * ca + uxy * sa, az = rxz * ca + uxz * sa;
+      const bx = -rxx * sa + uxx * ca, by = -rxy * sa + uxy * ca, bz = -rxz * sa + uxz * ca;
+      const col = c.color;
+      const base = data.length / 11;
+      const p = (ox: number, oy: number, oz: number, nx: number, ny: number, nz: number) => {
+        data.push(c.x + ax * ox + bx * oz, c.y + ay * ox + by * oz, c.z + az * ox + bz * oz, nx, ny, nz, col[0], col[1], col[2], 0, 0);
+      };
+      // Two triangles of a unit square in the billboard plane (size s).
+      p(-s, 0, -s, 0, 1, 0); p(s, 0, -s, 0, 1, 0); p(-s, 0, s, 0, 1, 0);
+      p(s, 0, -s, 0, 1, 0); p(s, 0, s, 0, 1, 0); p(-s, 0, s, 0, 1, 0);
+    }
+    if (!data.length) return;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._confettiBuf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
+    gl.bindVertexArray(this._confettiVao);
+    gl.uniform1i(this.hasTexLoc, 0);
+    gl.uniform3f(this.colorLoc, 1, 1, 1);
+    this.mat4Identity(this.modelMatrix);
+    gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+    this.setNormalMatrix(this.modelMatrix);
+    gl.drawArrays(gl.TRIANGLES, 0, data.length / 11);
+    gl.bindVertexArray(null);
+  }
+
   // Animated birds + balloons, drawn after the static scenery in the world pass
   // (so they also show up in the rear-view mirror). Runs with the main program
   // already bound and proj/view set; only per-object model matrices change.
@@ -3401,14 +4053,16 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const bx = cx + Math.cos(b.ang) * b.radius;
         const bz = cz + Math.sin(b.ang) * b.radius;
         const by = b.alt + Math.sin(t * 0.7 + b.phase) * 2.5;
-        const flap = Math.sin(t * 9 + b.phase) * 0.22;
-        // Flight direction + perpendicular for wing spread
+        // Big eagles flap slower and deeper; small seagulls flutter fast.
+        const flapFreq = b.size >= 1.5 ? 5.5 : 9;
+        const flap = Math.sin(t * flapFreq + b.phase) * 0.22 * (b.size >= 1.5 ? 0.8 : 1);
+        // Flight direction + perpendicular for wing spread (scaled by size)
         const dx = Math.cos(b.ang + Math.PI / 2) * b.dir;
         const dz = Math.sin(b.ang + Math.PI / 2) * b.dir;
         const px = -dz, pz = dx;
-        const shade = 0.08 + (b.phase % 1) * 0.05;
-        const bodyF = 0.16;
-        const wing = 0.9;
+        const shade = b.shade;
+        const bodyF = 0.16 * b.size;
+        const wing = 0.9 * b.size;
         // Vertex layout matches the scenery VAO: pos(3) normal(3) color(3) uv(2)
         const mk = (x: number, y: number, z: number) => {
           data.push(x, y, z, 0, 1, 0, shade, shade, shade + 0.01, 0, 0);
@@ -3460,9 +4114,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
 
   render(eyeX: number, eyeY: number, eyeZ: number, yaw: number, pitch: number, aspect: number,
-    cars: { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number; accel?: number; spin?: number; slide?: number }[], dt: number,
+    cars: (RacingCarAppearance & { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number; accel?: number; spin?: number; slide?: number })[], dt: number,
     fovZoom: number = 1.0, shakeX: number = 0, shakeY: number = 0, isRaining: boolean = false, speedRatio: number = 0,
-    playerSpeed: number = 0, playerAccel: number = 0, playerSpin: number = 0, playerSlide: number = 0) {
+    playerSpeed: number = 0, playerAccel: number = 0, playerSpin: number = 0, playerSlide: number = 0, playerAppearance?: RacingCarAppearance) {
     const gl = this.gl;
     this.elapsed += dt;
     // Crowd reaction decays smoothly back to calm (~4s from full excitement).
@@ -3508,8 +4162,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.drawElements(gl.TRIANGLES, this.barrierCount, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(this.finishVao);
     gl.drawElements(gl.TRIANGLES, this.finishCount, gl.UNSIGNED_SHORT, 0);
+    // Scenery uses 32-bit indices (dense Miami skyline can exceed 16-bit).
     gl.bindVertexArray(this.sceneryVao);
-    gl.drawElements(gl.TRIANGLES, this.sceneryCount, gl.UNSIGNED_SHORT, 0);
+    gl.drawElements(gl.TRIANGLES, this.sceneryCount, gl.UNSIGNED_INT, 0);
     // Cars cast shadows on the track — the single most visible shadow in the game.
     for (const car of cars) {
       this.renderCarShadow(car.x, car.y, car.z, car.yaw, car.speed ?? 0, car.spin, car.slide ?? 0);
@@ -3524,7 +4179,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.drawWorldScene(this.projMatrix, this.viewMatrix, eye as number[], cars, dt, isRaining, true);
 
     // ─── Rear-view mirror (a second camera looking back, blitted on top) ───
-    this.renderMirror(eyeX, eyeY, eyeZ, yaw, cars, dt, isRaining, playerSpeed, playerAccel, playerSpin, playerSlide);
+    this.renderMirror(eyeX, eyeY, eyeZ, yaw, cars, dt, isRaining, playerSpeed, playerAccel, playerSpin, playerSlide, playerAppearance);
   }
 
   // Appends one box (6 faces × 2 tris = 36 verts, 11 floats each) into the
@@ -3637,7 +4292,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // Draws sky + track + finish + barrier + scenery + cars (+ optional rain).
   // `drawRain` is false for the mirror so rain particles aren't drawn twice.
   private drawWorldScene(proj: Float32Array, view: Float32Array, eye: number[],
-    cars: { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number; accel?: number; spin?: number; slide?: number }[],
+    cars: (RacingCarAppearance & { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number; accel?: number; spin?: number; slide?: number })[],
     dt: number, isRaining: boolean, drawRain: boolean) {
     const gl = this.gl;
 
@@ -3733,7 +4388,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.setNormalMatrix(this.modelMatrix);
     gl.drawElements(gl.TRIANGLES, this.barrierCount, gl.UNSIGNED_SHORT, 0);
 
-    // Scenery (trees, grandstands, light poles)
+    // Scenery (trees, grandstands, light poles) — 32-bit indices for dense
+    // themes (Miami skyline + clouds can exceed 65 535).
     gl.bindVertexArray(this.sceneryVao);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
@@ -3742,16 +4398,19 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
     gl.uniform3f(this.colorLoc, 1, 1, 1);
     this.setNormalMatrix(this.modelMatrix);
-    gl.drawElements(gl.TRIANGLES, this.sceneryCount, gl.UNSIGNED_SHORT, 0);
+    gl.drawElements(gl.TRIANGLES, this.sceneryCount, gl.UNSIGNED_INT, 0);
     gl.bindVertexArray(null);
 
     // Distant birds + hot-air balloons wheeling over the circuit
     this.drawSkyObjects(dt);
 
+    // Confetti showering over the start/finish + grandstands
+    this.drawConfetti(dt, view, eye);
+
     // Cars — pass the integrated spin so every pass draws the identical wheel
     // angle (the mirror's drawWorldScene call renders the same cars again).
     for (const car of cars) {
-      this.renderCar(car.x, car.y, car.z, car.yaw, car.r, car.g, car.b, car.speed ?? 0, car.accel ?? 0, car.spin, car.slide ?? 0);
+      this.renderCar(car.x, car.y, car.z, car.yaw, car.r, car.g, car.b, car.speed ?? 0, car.accel ?? 0, car.spin, car.slide ?? 0, car);
       // Tire smoke only in the main pass (mirror skips so the pool ages once).
       if (drawRain && (car.slide ?? 0) > 0.35) {
         this.emitSmoke(car.x, car.z, car.yaw, car.slide ?? 0);
@@ -3806,8 +4465,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // Renders the world from a rear-facing camera into the mirror FBO, then
   // blits that texture onto a quad at the top-center of the screen.
   private renderMirror(eyeX: number, eyeY: number, eyeZ: number, yaw: number,
-    cars: { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number; accel?: number; spin?: number; slide?: number }[],
-    dt: number, isRaining: boolean, playerSpeed: number = 0, playerAccel: number = 0, playerSpin: number = 0, playerSlide: number = 0) {
+    cars: (RacingCarAppearance & { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number; accel?: number; spin?: number; slide?: number })[],
+    dt: number, isRaining: boolean, playerSpeed: number = 0, playerAccel: number = 0, playerSpin: number = 0, playerSlide: number = 0, playerAppearance?: RacingCarAppearance) {
     const gl = this.gl;
 
     // Rear camera: just above the driver's eye, looking straight back with a
@@ -3832,8 +4491,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // The player's own car isn't in `cars` (first-person camera sits inside it),
     // but a real F1 mirror shows your own rear wing — draw it in the mirror pass
     // with the SAME integrated spin the main pass would use, so the wheels stay
-    // in sync instead of re-deriving an angle from a positional formula.
-    this.renderCar(eyeX, 0.1, eyeZ, yaw, 0.85, 0.06, 0.06, playerSpeed, playerAccel, playerSpin, playerSlide);
+    // in sync instead of re-deriving an angle from a positional formula. Uses
+    // the equipped skin color + appearance (was hardcoded team red before).
+    const pa = playerAppearance ?? {};
+    this.renderCar(eyeX, 0.1, eyeZ, yaw,
+      pa.skin?.[0] ?? 0.85, pa.skin?.[1] ?? 0.06, pa.skin?.[2] ?? 0.06,
+      playerSpeed, playerAccel, playerSpin, playerSlide, pa);
     // Own-car tire smoke: puffs at the rear wheels show in the mirror when you
     // are sliding hard. Emitted (no dt update — the main pass ages the pool).
     if (playerSlide > 0.35) {
@@ -3859,13 +4522,18 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.enable(gl.CULL_FACE);
   }
 
-  renderCar(x: number, y: number, z: number, yaw: number, r: number, g: number, b: number, speed: number = 0, accel: number = 0, spin?: number, slide: number = 0) {
+  renderCar(x: number, y: number, z: number, yaw: number, r: number, g: number, b: number, speed: number = 0, accel: number = 0, spin?: number, slide: number = 0, appearance?: RacingCarAppearance) {
     const gl = this.gl;
+    const app = appearance ?? {};
     gl.useProgram(this.prog);
     // The detailed car body is built from double-sided quads with computed
     // normals, so draw it with back-face culling OFF to avoid any winding
     // mismatch hiding faces. (Re-enabled at the end.)
     gl.disable(gl.CULL_FACE);
+    // Paint finish specular (from the skin) + rim tint defaults. The rim tint
+    // is strength 0 here so the body/decal/accent draws below stay unpainted.
+    gl.uniform1f(this.metallicLoc, app.metallic ?? 0.45);
+    gl.uniform1f(this.rimStrengthLoc, 0);
     gl.bindVertexArray(this.carVao);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
@@ -3883,6 +4551,33 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.uniform1i(this.hasTexLoc, 0);
     this.setNormalMatrix(this.modelMatrix);
     gl.drawElements(gl.TRIANGLES, this.carCount, gl.UNSIGNED_SHORT, 0);
+
+    // Decal livery (engine-cover stripes + nose plate) — per-car color from
+    // the decal style. Same body transform, drawn right over the paint.
+    if (app.decalStyle && DECAL_COLORS[app.decalStyle]) {
+      const dc = DECAL_COLORS[app.decalStyle];
+      gl.uniform3f(this.colorLoc, dc[0], dc[1], dc[2]);
+      gl.bindVertexArray(this.decalVao);
+      gl.drawElements(gl.TRIANGLES, this.decalCount, gl.UNSIGNED_SHORT, 0);
+    }
+    // Livery accent (sidepod stripes + exhaust tips) — per-car accent color.
+    const acc = app.accent ?? [0.16, 0.16, 0.2];
+    gl.uniform3f(this.colorLoc, acc[0], acc[1], acc[2]);
+    gl.bindVertexArray(this.accentVao);
+    gl.drawElements(gl.TRIANGLES, this.accentCount, gl.UNSIGNED_SHORT, 0);
+
+    // Neon underglow — additive pool of light beneath the car, drawn while the
+    // body transform is still bound (before the wheels overwrite the matrix).
+    if (app.glow) {
+      const g = app.glow;
+      const pulse = 0.75 + 0.25 * Math.sin(this.elapsed * 3 + z * 0.6);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      gl.uniform3f(this.colorLoc, g[0] * pulse, g[1] * pulse, g[2] * pulse);
+      gl.bindVertexArray(this.glowVao);
+      gl.drawElements(gl.TRIANGLES, this.glowCount, gl.UNSIGNED_SHORT, 0);
+      gl.bindVertexArray(null);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    }
 
     // Wheels
     // The body mesh is scaled 0.8 (floor half-width ≈ 0.52, floor bottom ≈
@@ -3910,7 +4605,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const flicker = 0.9 + 0.1 * Math.sin(this.elapsed * (7 + Math.abs(speed) * 0.3));
     const brakeFlash = accel < -0.3 ? Math.min(1, -accel) * 0.55 : 0;
     const heatGlow = Math.min(1.35, heatBase * flicker + brakeFlash);
-    gl.uniform1f(this.heatGlowLoc, heatGlow);
+    // The glow is scoped to the brake mesh only: the rim face and black tire
+    // band are drawn with uHeatGlow = 0 so they stay dark; the uniform is
+    // enabled just before the brake draw below and cleared again after.
+    gl.uniform1f(this.heatGlowLoc, 0);
     for (let wi = 0; wi < wheelPositions.length; wi++) {
       const wp = wheelPositions[wi];
       // Rear wheels (wi >= 2) use the wider, slightly larger rear wheel mesh.
@@ -3945,22 +4643,34 @@ void main() { FragColor = texture(uTex, vUV); }`;
       // Branded rim face — drawn first (under the tread) with the BHOSTED
       // texture mapped via planar UVs. Same transform as the wheel so the
       // lettering spins with it.
+      // Rim tint per style — colors the branded ring + rim barrel; strength is
+      // cleared again before the tire so the black rubber stays black.
+      const rimTint = app.rimStyle && RIM_TINTS[app.rimStyle] ? RIM_TINTS[app.rimStyle] : [0.72, 0.72, 0.75];
+      gl.uniform3f(this.rimTintLoc, rimTint[0], rimTint[1], rimTint[2]);
+      gl.uniform1f(this.rimStrengthLoc, 1);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, this.tireBrandTex);
       gl.uniform1i(this.hasTexLoc, 1);
       gl.uniform3f(this.colorLoc, 1, 1, 1);
       gl.bindVertexArray(rear ? this.rearRimFaceVao : this.rimFaceVao);
       gl.drawElements(gl.TRIANGLES, rear ? this.rearRimFaceCount : this.rimFaceCount, gl.UNSIGNED_SHORT, 0);
-      // Tire (untextured) drawn over the rim face.
+      // Rim barrel (metal) — tinted per rim style.
+      gl.bindVertexArray(rear ? this.rearWheelRimVao : this.wheelRimVao);
+      gl.drawElements(gl.TRIANGLES, rear ? this.rearWheelRimCount : this.wheelRimCount, gl.UNSIGNED_SHORT, 0);
+      gl.uniform1f(this.rimStrengthLoc, 0);
+      // Tire (untextured) drawn over the rim face — stays black, never tinted.
       gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
       gl.uniform1i(this.hasTexLoc, 0);
       gl.uniform3f(this.colorLoc, 0.05, 0.05, 0.05);
       gl.bindVertexArray(rear ? this.rearWheelVao : this.wheelVao);
       gl.drawElements(gl.TRIANGLES, rear ? this.rearWheelCount : this.wheelCount, gl.UNSIGNED_SHORT, 0);
-      // Brake assembly — same placement/roll, but tinted by the heat glow that
-      // the uniform above applies to. Drawn after the tire so it sits on top.
+      // Brake assembly — same placement/roll, but the heat glow uniform is
+      // enabled ONLY here so the glowing rotor shows inside the tire while
+      // the black rubber band stays dark.
+      gl.uniform1f(this.heatGlowLoc, heatGlow);
       gl.bindVertexArray(rear ? this.rearBrakeVao : this.brakeVao);
       gl.drawElements(gl.TRIANGLES, rear ? this.rearBrakeCount : this.brakeCount, gl.UNSIGNED_SHORT, 0);
+      gl.uniform1f(this.heatGlowLoc, 0);
     }
     gl.uniform1f(this.heatGlowLoc, 0);
     gl.bindVertexArray(null);
@@ -4003,6 +4713,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.mat4RotateX(this.modelMatrix, Math.PI / 2);
       gl.uniformMatrix4fv(this.shadowModelLoc, false, this.modelMatrix);
       gl.drawElements(gl.TRIANGLES, rear ? this.rearWheelCount : this.wheelCount, gl.UNSIGNED_SHORT, 0);
+      // Rim barrel too, so the wheel shadow keeps its full silhouette.
+      gl.bindVertexArray(rear ? this.rearWheelRimVao : this.wheelRimVao);
+      gl.drawElements(gl.TRIANGLES, rear ? this.rearWheelRimCount : this.wheelRimCount, gl.UNSIGNED_SHORT, 0);
     }
     gl.bindVertexArray(null);
   }

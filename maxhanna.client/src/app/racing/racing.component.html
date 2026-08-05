@@ -353,6 +353,8 @@
                 (pointercancel)="onCarPointerUp()" (pointerleave)="onCarPointerUp()" title="Drag to rotate">
                 <!-- Ground shadow (flat ellipse on the floor) -->
                 <div class="car-shadow"></div>
+                <!-- Neon underglow (livery accent glow below the undertray) -->
+                <div class="car-underglow" *ngIf="playerCar.glowId" [ngClass]="getGlowStyle()"></div>
 
                 <!-- Car body wrapper: scales the width (Z axis) 2.25x (3x from
                      the original thin sliver, then trimmed to 3/4) so the car
@@ -411,6 +413,19 @@
                   <!-- Cockpit opening (above the decal wrap so the hole stays visible) -->
                   <div class="b3d" style="--x:158px; --y:115.8px; --z:0px; --w:26px; --h:0.8px; --d:22px;">
                     <i class="top cockpit"></i>
+                  </div>
+                  <!-- Livery accent stripes (thin plates on the body top + sidepods) -->
+                  <div class="b3d" *ngIf="playerCar.accentId"
+                    style="--x:185px; --y:117.2px; --z:0px; --w:96px; --h:0.7px; --d:30px;">
+                    <i class="top accent" [ngClass]="getAccentStyle()"></i>
+                  </div>
+                  <div class="b3d" *ngIf="playerCar.accentId"
+                    style="--x:170px; --y:132.4px; --z:26px; --w:70px; --h:3px; --d:0.8px;">
+                    <i class="lft accent" [ngClass]="getAccentStyle()"></i>
+                  </div>
+                  <div class="b3d" *ngIf="playerCar.accentId"
+                    style="--x:170px; --y:132.4px; --z:-26px; --w:70px; --h:3px; --d:0.8px;">
+                    <i class="rgt accent" [ngClass]="getAccentStyle()"></i>
                   </div>
                   <!-- Halo above cockpit -->
                   <div class="b3d" style="--x:140px; --y:112px; --z:0px; --w:6px; --h:8px; --d:30px;">

@@ -41,6 +41,8 @@ namespace maxhanna.Server.Controllers
 			public int RimId = 0;
 			public int ExhaustId = 0;
 			public int DecalId = 0;
+			public int GlowId = 0;
+			public int AccentId = 0;
 			public int TotalRaces = 0;
 			public int Wins = 0;
 			public int Money = 500;
@@ -86,6 +88,7 @@ namespace maxhanna.Server.Controllers
 		{
 			_config = config;
 			_connStrCache ??= config.GetValue<string>("ConnectionStrings:maxhanna");
+			EnsureSchema();
 			int interval = _persistIntervalSeconds;
 			_persistIntervalSeconds = Math.Max(5, interval);
 			_ = _persistTimer.Value;
@@ -103,6 +106,40 @@ namespace maxhanna.Server.Controllers
 			RegisterShutdownDump(appLifetime);
 		}
 		
+		// Adds appearance columns (glow_id, accent_id) to racing_player_car if
+		// missing — runs once per process before any load/dump touches the table.
+		private static void EnsureSchema()
+		{
+			if (_schemaEnsured) return;
+			lock (_persistLock)
+			{
+				if (_schemaEnsured) return;
+				_schemaEnsured = true;
+				try
+				{
+					var connStr = GetConnStr();
+					if (string.IsNullOrEmpty(connStr)) return;
+					using var conn = new MySqlConnection(connStr);
+					conn.Open();
+					foreach (var col in new[] { (Name: "glow_id", Def: "INT NOT NULL DEFAULT 0"), (Name: "accent_id", Def: "INT NOT NULL DEFAULT 0") })
+					{
+						using (var check = new MySqlCommand(
+							"SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'racing_player_car' AND COLUMN_NAME = @col", conn))
+						{
+							check.Parameters.AddWithValue("@col", col.Name);
+							if (Convert.ToInt32(check.ExecuteScalar()) > 0) continue;
+						}
+						using var alter = new MySqlCommand($"ALTER TABLE racing_player_car ADD COLUMN {col.Name} {col.Def};", conn);
+						alter.ExecuteNonQuery();
+						Console.WriteLine($"[Racing] Schema: added racing_player_car.{col.Name}.");
+					}
+				}
+				catch (Exception ex)
+				{
+					Console.WriteLine($"[Racing] Schema ensure failed: {ex.Message}");
+				}
+			}
+		}
 		private static string? GetConnStr()
 		{
 			if (!string.IsNullOrEmpty(_connStrCache)) return _connStrCache;
@@ -131,7 +168,7 @@ namespace maxhanna.Server.Controllers
 				using var conn = new MySqlConnection(connStr);
 				conn.Open();
 				using var cmd = new MySqlCommand(@"
-					SELECT upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id,
+					SELECT upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id, glow_id, accent_id,
 					       total_races, wins, money, best_lap, total_earnings, player_name
 					FROM racing_player_car WHERE user_id = @uid", conn);
 				cmd.Parameters.AddWithValue("@uid", userId);
@@ -146,12 +183,14 @@ namespace maxhanna.Server.Controllers
 						st.RimId = rdr.IsDBNull(3) ? 0 : rdr.GetInt32(3);
 						st.ExhaustId = rdr.IsDBNull(4) ? 0 : rdr.GetInt32(4);
 						st.DecalId = rdr.IsDBNull(5) ? 0 : rdr.GetInt32(5);
-						st.TotalRaces = rdr.GetInt32(6);
-						st.Wins = rdr.GetInt32(7);
-						st.Money = rdr.GetInt32(8);
-						st.BestLap = rdr.IsDBNull(9) ? 0 : rdr.GetDouble(9);
-						st.TotalEarnings = rdr.IsDBNull(10) ? 0 : rdr.GetInt32(10);
-						st.PlayerName = rdr.IsDBNull(11) ? "" : rdr.GetString(11);
+						st.GlowId = rdr.IsDBNull(6) ? 0 : rdr.GetInt32(6);
+						st.AccentId = rdr.IsDBNull(7) ? 0 : rdr.GetInt32(7);
+						st.TotalRaces = rdr.GetInt32(8);
+						st.Wins = rdr.GetInt32(9);
+						st.Money = rdr.GetInt32(10);
+						st.BestLap = rdr.IsDBNull(11) ? 0 : rdr.GetDouble(11);
+						st.TotalEarnings = rdr.IsDBNull(12) ? 0 : rdr.GetInt32(12);
+						st.PlayerName = rdr.IsDBNull(13) ? "" : rdr.GetString(13);
 					}
 				}
 				// The reader above is disposed by the using block; it is safe to run
@@ -178,7 +217,7 @@ namespace maxhanna.Server.Controllers
 				using var conn = new MySqlConnection(connStr);
 				conn.Open();
 				using var cmd = new MySqlCommand(@"
-					SELECT user_id, upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id,
+					SELECT user_id, upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id, glow_id, accent_id,
 					       total_races, wins, money, best_lap, total_earnings, player_name
 					FROM racing_player_car", conn);
 				int loaded = 0;
@@ -194,12 +233,14 @@ namespace maxhanna.Server.Controllers
 						st.RimId = rdr.IsDBNull(4) ? 0 : rdr.GetInt32(4);
 						st.ExhaustId = rdr.IsDBNull(5) ? 0 : rdr.GetInt32(5);
 						st.DecalId = rdr.IsDBNull(6) ? 0 : rdr.GetInt32(6);
-						st.TotalRaces = rdr.GetInt32(7);
-						st.Wins = rdr.GetInt32(8);
-						st.Money = rdr.GetInt32(9);
-						st.BestLap = rdr.IsDBNull(10) ? 0 : rdr.GetDouble(10);
-						st.TotalEarnings = rdr.IsDBNull(11) ? 0 : rdr.GetInt32(11);
-						st.PlayerName = rdr.IsDBNull(12) ? "" : rdr.GetString(12);
+						st.GlowId = rdr.IsDBNull(7) ? 0 : rdr.GetInt32(7);
+						st.AccentId = rdr.IsDBNull(8) ? 0 : rdr.GetInt32(8);
+						st.TotalRaces = rdr.GetInt32(9);
+						st.Wins = rdr.GetInt32(10);
+						st.Money = rdr.GetInt32(11);
+						st.BestLap = rdr.IsDBNull(12) ? 0 : rdr.GetDouble(12);
+						st.TotalEarnings = rdr.IsDBNull(13) ? 0 : rdr.GetInt32(13);
+						st.PlayerName = rdr.IsDBNull(14) ? "" : rdr.GetString(14);
 						_cars[st.UserId] = st;
 						loaded++;
 					}
@@ -237,7 +278,7 @@ namespace maxhanna.Server.Controllers
 		}
 		private static object ToCarJson(RacingCarState st)
 		{
-			int userId, skinId, spoilerId, rimId, exhaustId, decalId, totalRaces, wins, money, totalEarnings;
+			int userId, skinId, spoilerId, rimId, exhaustId, decalId, glowId, accentId, totalRaces, wins, money, totalEarnings;
 			double bestLap;
 			string playerName;
 			List<object> upgrades;
@@ -247,7 +288,7 @@ namespace maxhanna.Server.Controllers
 				userId = st.UserId;
 				upgrades = new List<object>(st.Upgrades);
 				skinId = st.SkinId; spoilerId = st.SpoilerId; rimId = st.RimId;
-				exhaustId = st.ExhaustId; decalId = st.DecalId;
+				exhaustId = st.ExhaustId; decalId = st.DecalId; glowId = st.GlowId; accentId = st.AccentId;
 				totalRaces = st.TotalRaces; wins = st.Wins; money = st.Money;
 				bestLap = st.BestLap; totalEarnings = st.TotalEarnings;
 				bestLapsByTrack = new Dictionary<int, double>(st.BestLapsByTrack);
@@ -263,6 +304,8 @@ namespace maxhanna.Server.Controllers
 				RimId = rimId,
 				ExhaustId = exhaustId,
 				DecalId = decalId,
+				GlowId = glowId,
+				AccentId = accentId,
 				TotalRaces = totalRaces,
 				Wins = wins,
 				Money = money,
@@ -307,11 +350,11 @@ namespace maxhanna.Server.Controllers
 					if (!st.Dirty) continue;
 					int version;
 					using (var cmd = new MySqlCommand(@"
-						INSERT INTO racing_player_car (user_id, player_name, upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id, total_races, wins, money, best_lap, total_earnings)
-						VALUES (@uid, @name, @upgrades, @skin, @sp, @rm, @ex, @dc, @races, @wins, @money, @best, @earnings)
+						INSERT INTO racing_player_car (user_id, player_name, upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id, glow_id, accent_id, total_races, wins, money, best_lap, total_earnings)
+						VALUES (@uid, @name, @upgrades, @skin, @sp, @rm, @ex, @dc, @glow, @acc, @races, @wins, @money, @best, @earnings)
 						ON DUPLICATE KEY UPDATE
 							player_name = @name, upgrades_json = @upgrades, skin_id = @skin, spoiler_id = @sp, rim_id = @rm,
-							exhaust_id = @ex, decal_id = @dc, total_races = @races, wins = @wins,
+							exhaust_id = @ex, decal_id = @dc, glow_id = @glow, accent_id = @acc, total_races = @races, wins = @wins,
 							money = @money, best_lap = @best, total_earnings = @earnings", conn))
 					{
 						lock (st)
@@ -324,6 +367,8 @@ namespace maxhanna.Server.Controllers
 							cmd.Parameters.AddWithValue("@rm", st.RimId);
 							cmd.Parameters.AddWithValue("@ex", st.ExhaustId);
 							cmd.Parameters.AddWithValue("@dc", st.DecalId);
+							cmd.Parameters.AddWithValue("@glow", st.GlowId);
+							cmd.Parameters.AddWithValue("@acc", st.AccentId);
 							cmd.Parameters.AddWithValue("@races", st.TotalRaces);
 							cmd.Parameters.AddWithValue("@wins", st.Wins);
 							cmd.Parameters.AddWithValue("@money", st.Money);
@@ -488,6 +533,8 @@ namespace maxhanna.Server.Controllers
 					if (body.TryGetProperty("rimId", out var rm)) st.RimId = rm.GetInt32();
 					if (body.TryGetProperty("exhaustId", out var ex)) st.ExhaustId = ex.GetInt32();
 					if (body.TryGetProperty("decalId", out var dc)) st.DecalId = dc.GetInt32();
+					if (body.TryGetProperty("glowId", out var gl)) st.GlowId = gl.GetInt32();
+					if (body.TryGetProperty("accentId", out var ac)) st.AccentId = ac.GetInt32();
 					if (body.TryGetProperty("totalRaces", out var tr)) st.TotalRaces = tr.GetInt32();
 					if (body.TryGetProperty("wins", out var w)) st.Wins = w.GetInt32();
 					if (body.TryGetProperty("money", out var m))
@@ -586,6 +633,22 @@ namespace maxhanna.Server.Controllers
 			6 => 3000,
 			7 => 5000,
 			8 => 8000,
+			9 => 2500,
+			10 => 2500,
+			11 => 3500,
+			12 => 3500,
+			13 => 3500,
+			14 => 4500,
+			15 => 4500,
+			16 => 5000,
+			17 => 5500,
+			18 => 6000,
+			19 => 6500,
+			20 => 7000,
+			21 => 7500,
+			22 => 8000,
+			23 => 9000,
+			24 => 12000,
 			_ => -1,
 		};
 		[HttpPost("race/result")]

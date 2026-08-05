@@ -5,7 +5,8 @@ import { RacingService } from '../../services/racing.service';
 import { RacingHubService, LobbyPlayer, RemoteCarPosition, RaceStandingsRow } from '../../services/racing-hub.service';
 import {
   RacingPlayerCar, RaceResult, RacingAppearancePart,
-  TRACKS, UPGRADE_DEFS, CAR_SKINS, BOT_CONFIGS, APPEARANCE_PARTS, TrackDefinition
+  TRACKS, UPGRADE_DEFS, CAR_SKINS, BOT_CONFIGS, APPEARANCE_PARTS, TrackDefinition,
+  RIM_TINTS, DECAL_COLORS, GLOW_COLORS, ACCENT_COLORS, SKIN_FINISH_FACTOR, RacingCarAppearance
 } from '../../services/datacontracts/racing/racing-types';
 import { UserEventService } from '../../services/user-event.service';
 import { Subscription } from 'rxjs';
@@ -89,6 +90,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   totalRacers = 1;
   playerCar: RacingPlayerCar = {
     userId: 0, playerName: '', upgrades: [], skinId: 1, spoilerId: 0, rimId: 0, exhaustId: 0, decalId: 0,
+    glowId: 0, accentId: 0,
     totalRaces: 0, wins: 0, money: 500, bestLap: 0, totalEarnings: 0
   };
   carX = 0; carZ = 0; carYaw = 0; carSpeed = 0;
@@ -1109,7 +1111,24 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       // draws the player's own car with this exact value, keeping its wheels in
       // sync with the main camera's.
       const wheelRate = (spd: number) => Math.min(Math.abs(spd) / 0.17, 40) * (spd < 0 ? 1 : -1);
-      const carList = this.bots.map(b => {
+      // Deterministic per-car appearance so the grid looks alive: each bot/remote
+      // picks a rim style, decal and accent from its grid index, and remote cars
+      // hash their connection id so two remotes never match exactly.
+      const botAppearance = (i: number, seed: number): RacingCarAppearance => {
+        const rimIds = Object.keys(RIM_TINTS).map(Number);
+        const decalIds = Object.keys(DECAL_COLORS).map(Number);
+        const accentIds = Object.keys(ACCENT_COLORS).map(Number);
+        const glowIds = Object.keys(GLOW_COLORS).map(Number);
+        const hash = (i * 7 + seed * 13) & 0xffff;
+        return {
+          rimStyle: rimIds[(hash + i) % rimIds.length],
+          decalStyle: decalIds[(hash * 3 + i) % decalIds.length],
+          accent: ACCENT_COLORS[accentIds[(hash + i * 2) % accentIds.length]],
+          glow: (hash + i) % 5 === 0 ? GLOW_COLORS[glowIds[(hash + i) % glowIds.length]] : undefined,
+          metallic: 0.3 + ((hash + i * 3) % 6) / 10,
+        };
+      };
+      const carList = this.bots.map((b, i) => {
         const colors = [
           [0.8, 0.2, 0.2], [0.2, 0.4, 0.9], [0.1, 0.7, 0.1],
           [0.9, 0.7, 0.1], [0.7, 0.2, 0.7], [1.0, 0.5, 0]
@@ -1119,13 +1138,18 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         this._prevBotSpeeds.set(b, b.speed);
         const spin = (this._botSpins.get(b) ?? 0) + wheelRate(b.speed) * dt;
         this._botSpins.set(b, spin);
-        return { x: b.x, y: 0.1, z: b.z, yaw: b.yaw, r: c[0], g: c[1], b: c[2], speed: b.speed, accel: accelFor(b, prev), spin, slide: b.slide };
+        return {
+          x: b.x, y: 0.1, z: b.z, yaw: b.yaw, r: c[0], g: c[1], b: c[2], speed: b.speed, accel: accelFor(b, prev), spin, slide: b.slide,
+          ...botAppearance(i, b.color)
+        };
       });
-      this.remoteCars.forEach(rc => {
+      this.remoteCars.forEach((rc) => {
         const prev = this._prevRemoteSpeeds.get(rc.connectionId) ?? rc.speed;
         this._prevRemoteSpeeds.set(rc.connectionId, rc.speed);
         const spin = (this._remoteSpins.get(rc.connectionId) ?? 0) + wheelRate(rc.speed) * dt;
         this._remoteSpins.set(rc.connectionId, spin);
+        const seed = rc.connectionId.split('').reduce((a, ch) => a + ch.charCodeAt(0), 0);
+        const i = seed % 1000;
         carList.push({
           x: rc.x, y: 0.1, z: rc.z,
           yaw: rc.yaw,
@@ -1133,11 +1157,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           speed: rc.speed,
           accel: accelFor(rc, prev),
           spin,
-          slide: rc.slide
+          slide: rc.slide,
+          ...botAppearance(i, seed)
         });
       });
       this._playerSpin += wheelRate(this.carSpeed) * dt;
-      this.renderer.render(eyeX, eyeY, eyeZ, yaw, pitch, aspect, carList, dt, fovZoom, shakeX, shakeY, this.isRaining, speedRatio, this.carSpeed, this.carAccel, this._playerSpin, this._playerSlide);
+      this.renderer.render(eyeX, eyeY, eyeZ, yaw, pitch, aspect, carList, dt, fovZoom, shakeX, shakeY, this.isRaining, speedRatio, this.carSpeed, this.carAccel, this._playerSpin, this._playerSlide, this.getPlayerAppearance());
       this.hudSpeed = Math.abs(this.carSpeed * 3.6);
       this.hudRPM = Math.min(1, Math.abs(this.carSpeed) / this.getMaxSpeed() * 1.1);
       this.liveLapTime = this.lapStartTime > 0 ? performance.now() - this.lapStartTime : 0;
@@ -2000,22 +2025,26 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       { key: 'rims', label: 'RIMS', parts: APPEARANCE_PARTS.filter(p => p.category === 'rims') },
       { key: 'exhaust', label: 'EXHAUST', parts: APPEARANCE_PARTS.filter(p => p.category === 'exhaust') },
       { key: 'decal', label: 'DECALS & WRAPS', parts: APPEARANCE_PARTS.filter(p => p.category === 'decal') },
+      { key: 'glow', label: 'NEON UNDERGLOW', parts: APPEARANCE_PARTS.filter(p => p.category === 'glow') },
+      { key: 'accent', label: 'LIVERY ACCENT', parts: APPEARANCE_PARTS.filter(p => p.category === 'accent') },
     ];
   }
   getAppearancePreviewClass(p: RacingAppearancePart): string {
-    if (p.id === 101) return 'prev-spoiler-carbon';
-    if (p.id === 102) return 'prev-spoiler-dual';
-    if (p.id === 103) return 'prev-spoiler-drs';
-    if (p.id === 201) return 'prev-rim-alloy';
-    if (p.id === 202) return 'prev-rim-deep';
-    if (p.id === 203) return 'prev-rim-gold';
-    if (p.id === 301) return 'prev-exhaust-sport';
-    if (p.id === 302) return 'prev-exhaust-titanium';
-    if (p.id === 401) return 'prev-decal-stripes';
-    if (p.id === 402) return 'prev-decal-flame';
-    if (p.id === 403) return 'prev-decal-carbon';
-    if (p.id === 404) return 'prev-decal-number';
-    return '';
+    const previews: Record<number, string> = {
+      101: 'prev-spoiler-carbon', 102: 'prev-spoiler-dual', 103: 'prev-spoiler-drs',
+      104: 'prev-spoiler-gurney', 105: 'prev-spoiler-whale', 106: 'prev-spoiler-biplane', 107: 'prev-spoiler-aero',
+      201: 'prev-rim-alloy', 202: 'prev-rim-deep', 203: 'prev-rim-gold',
+      204: 'prev-rim-chrome', 205: 'prev-rim-bronze', 206: 'prev-rim-white', 207: 'prev-rim-black', 208: 'prev-rim-blue',
+      301: 'prev-exhaust-sport', 302: 'prev-exhaust-titanium', 303: 'prev-exhaust-twin', 304: 'prev-exhaust-quad', 305: 'prev-exhaust-carbon',
+      401: 'prev-decal-stripes', 402: 'prev-decal-flame', 403: 'prev-decal-carbon', 404: 'prev-decal-number',
+      405: 'prev-decal-checkered', 406: 'prev-decal-lightning', 407: 'prev-decal-skull', 408: 'prev-decal-lion',
+      409: 'prev-decal-number7', 410: 'prev-decal-number27', 411: 'prev-decal-number99', 412: 'prev-decal-sponsor',
+      501: 'prev-glow-blue', 502: 'prev-glow-green', 503: 'prev-glow-purple', 504: 'prev-glow-pink',
+      505: 'prev-glow-cyan', 506: 'prev-glow-red', 507: 'prev-glow-gold',
+      601: 'prev-accent-white', 602: 'prev-accent-gold', 603: 'prev-accent-silver', 604: 'prev-accent-red',
+      605: 'prev-accent-blue', 606: 'prev-accent-black',
+    };
+    return previews[p.id] ?? '';
   }
   getEquippedAppearance(cat: string): number {
     switch (cat) {
@@ -2023,6 +2052,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       case 'rims': return this.playerCar.rimId;
       case 'exhaust': return this.playerCar.exhaustId;
       case 'decal': return this.playerCar.decalId;
+      case 'glow': return this.playerCar.glowId;
+      case 'accent': return this.playerCar.accentId;
       default: return 0;
     }
   }
@@ -2052,6 +2083,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       case 'rims': this.playerCar.rimId = part.id; break;
       case 'exhaust': this.playerCar.exhaustId = part.id; break;
       case 'decal': this.playerCar.decalId = part.id; break;
+      case 'glow': this.playerCar.glowId = part.id; break;
+      case 'accent': this.playerCar.accentId = part.id; break;
     }
     this.saveCar();
   }
@@ -2060,6 +2093,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (id === 101) return 'spoiler-carbon';
     if (id === 102) return 'spoiler-dual';
     if (id === 103) return 'spoiler-drs';
+    if (id === 104) return 'spoiler-gurney';
+    if (id === 105) return 'spoiler-whale';
+    if (id === 106) return 'spoiler-biplane';
+    if (id === 107) return 'spoiler-aero';
     return '';
   }
   getRimStyle(): string {
@@ -2067,12 +2104,20 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (id === 201) return 'rim-alloy';
     if (id === 202) return 'rim-deep';
     if (id === 203) return 'rim-gold';
+    if (id === 204) return 'rim-chrome';
+    if (id === 205) return 'rim-bronze';
+    if (id === 206) return 'rim-white';
+    if (id === 207) return 'rim-black';
+    if (id === 208) return 'rim-blue';
     return '';
   }
   getExhaustStyle(): string {
     const id = this.playerCar.exhaustId;
     if (id === 301) return 'exhaust-sport';
     if (id === 302) return 'exhaust-titanium';
+    if (id === 303) return 'exhaust-twin';
+    if (id === 304) return 'exhaust-quad';
+    if (id === 305) return 'exhaust-carbon';
     return '';
   }
   getDecalStyle(): string {
@@ -2081,7 +2126,55 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (id === 402) return 'decal-flame';
     if (id === 403) return 'decal-carbon';
     if (id === 404) return 'decal-number';
+    if (id === 405) return 'decal-checkered';
+    if (id === 406) return 'decal-lightning';
+    if (id === 407) return 'decal-skull';
+    if (id === 408) return 'decal-lion';
+    if (id === 409) return 'decal-number7';
+    if (id === 410) return 'decal-number27';
+    if (id === 411) return 'decal-number99';
+    if (id === 412) return 'decal-sponsor';
     return '';
+  }
+  getGlowStyle(): string {
+    const id = this.playerCar.glowId;
+    if (id === 501) return 'glow-blue';
+    if (id === 502) return 'glow-green';
+    if (id === 503) return 'glow-purple';
+    if (id === 504) return 'glow-pink';
+    if (id === 505) return 'glow-cyan';
+    if (id === 506) return 'glow-red';
+    if (id === 507) return 'glow-gold';
+    return '';
+  }
+  getAccentStyle(): string {
+    const id = this.playerCar.accentId;
+    if (id === 601) return 'accent-white';
+    if (id === 602) return 'accent-gold';
+    if (id === 603) return 'accent-silver';
+    if (id === 604) return 'accent-red';
+    if (id === 605) return 'accent-blue';
+    if (id === 606) return 'accent-black';
+    return '';
+  }
+  private hexToRgb(hex: string): [number, number, number] {
+    const h = hex.replace('#', '');
+    const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+    const n = parseInt(full, 16);
+    return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+  }
+  // The equipped appearance packed for the 3D renderer — used for the player's
+  // own car (rear-view mirror) and as the base for remote cars.
+  getPlayerAppearance(): RacingCarAppearance {
+    const skin = CAR_SKINS.find(s => s.id === this.playerCar.skinId) || CAR_SKINS[0];
+    return {
+      rimStyle: this.playerCar.rimId,
+      accent: ACCENT_COLORS[this.playerCar.accentId] ?? undefined,
+      decalStyle: this.playerCar.decalId,
+      glow: GLOW_COLORS[this.playerCar.glowId] ?? undefined,
+      metallic: SKIN_FINISH_FACTOR[skin.finish] ?? 0.45,
+      skin: this.hexToRgb(skin.color),
+    };
   }
   hoveredUpgrade: any = null;
   getStatPreview(u: any): { before: number; after: number; label: string } {
