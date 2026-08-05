@@ -422,7 +422,10 @@ namespace maxhanna.Server.Controllers
 					}
 					catch { _pendingResults.Enqueue(r); }
 				}
-				Console.WriteLine($"[Racing] Dump: wrote {carsWritten} car(s) and {resultsWritten} result(s) to DB.");
+				if (carsWritten > 0 || resultsWritten > 0)
+				{
+					Console.WriteLine($"[Racing] Dump: wrote {carsWritten} car(s) and {resultsWritten} result(s) to DB.");
+				}
 			}
 			catch (Exception ex)
 			{
