@@ -524,6 +524,39 @@
   white-space: nowrap;
 }
 
+/* Depleting auto-start progress bar (same treatment as the standings bar,
+   compact so it fits the garage return button + lobby widget head). */
+.garage-countdown-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: stretch;
+}
+
+.garage-countdown-bar {
+  display: block;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+  min-width: 64px;
+}
+
+.garage-countdown-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #ff6f00, #ffc107);
+  box-shadow: 0 0 4px rgba(255, 193, 7, 0.5);
+  transition: width 0.5s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .garage-countdown-bar-fill {
+    transition: none;
+  }
+}
+
 .garage-title {
   font-size: 22px;
   font-weight: 900;
