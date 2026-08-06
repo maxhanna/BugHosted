@@ -30,7 +30,6 @@ namespace maxhanna.Server.Controllers
 		private static string? _connStrCache;
 		private static bool _startupLoadStarted = false;
 		private static bool _shutdownHooksRegistered = false;
-		private static bool _schemaEnsured = false;
 		private sealed class RacingCarState
 		{
 			public int UserId;

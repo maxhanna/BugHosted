@@ -885,6 +885,13 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
         if (resCreateUser && !resCreateUser.toLowerCase().includes("error")) {
           tmpUser.id = parseInt(resCreateUser!);
           await this.userService.addMenuItem(tmpUser.id, ["Social", "Meme", "Wordler", "Files", "Emulation", "Bug-Wars", "Crypto-Hub", "Notifications", "Help"]);
+          // Auto-capture the browser timezone at sign-up so calendar
+          // notifications (15 min / 1 hr before an event) fire in the
+          // user's local timezone instead of the server's.
+          const browserTz = this.getBrowserTimezone();
+          if (browserTz) {
+            this.userService.updateUserSettings(tmpUser.id, [{ settingName: 'timezone', value: browserTz }]);
+          }
           await this.login(guest ? tmpUserName : undefined, true);
           parent?.getLocation();
           setTimeout(() => {
@@ -904,6 +911,14 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
           parent?.showNotification(`Error: ${message}`);
         }
       }
+    }
+  }
+
+  private getBrowserTimezone(): string {
+    try {
+      return (Intl.DateTimeFormat().resolvedOptions() as any).timeZone ?? '';
+    } catch {
+      return '';
     }
   }
 

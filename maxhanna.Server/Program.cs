@@ -80,7 +80,6 @@ defaultAuth = FirebaseAuth.DefaultInstance;
 var app = builder.Build();
 // Ensure user_settings has the timezone column before SystemBackgroundService
 // (calendar notifications) reads it — otherwise a fresh process would fail.
-maxhanna.Server.Controllers.UserController.EnsureUserSettingsSchema(builder.Configuration.GetConnectionString("maxhanna"));
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
 	ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
