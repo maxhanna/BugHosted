@@ -41,16 +41,6 @@
         </span>
       </div>
 
-      <!-- Racer name — persisted with the car, shown in lobbies & leaderboard -->
-      <div class="race-player-name-row">
-        <label class="race-player-name-label" for="race-player-name">🏎️ RACER NAME</label>
-        <input id="race-player-name" class="race-player-name-input" type="text" maxlength="40" spellcheck="false"
-          placeholder="{{ playerCar.playerName || parentRef?.user?.username || 'Enter racer name…' }}"
-          [value]="playerNameDraft" (input)="onPlayerNameInput($any($event.target).value)"
-          (keyup.enter)="savePlayerName()" (blur)="savePlayerName()">
-        <span class="race-player-name-hint">Shown to other racers</span>
-      </div>
-
       <!-- Tab toggle -->
       <div class="race-menu-tabs">
         <button class="race-menu-tab" [class.active]="!showMultiplayer"
@@ -211,6 +201,7 @@
               {{ p.playerName }}
               <span class="mp-you-badge" *ngIf="p.connectionId === myConnectionId">YOU</span>
               <span class="mp-host-badge" *ngIf="p.isHost">HOST</span>
+              <span class="mp-in-race" *ngIf="p.inRace" title="Already racing in another lobby — they'll be busy when the race starts">🏁 IN RACE</span>
             </div>
             <div class="mp-player-status">
               <span class="mp-ready-yes" *ngIf="p.ready">✓ READY</span>
@@ -301,6 +292,47 @@
         <button class="race-garage-btn race-sound-btn" [class.on]="soundOn" (click)="toggleSound()">
           {{ soundOn ? '🔊 SOUND: ON' : '🔇 SOUND: OFF' }}
         </button>
+        <button class="race-garage-btn race-options-btn" (click)="toggleOptions()">
+          ⚙️ OPTIONS
+        </button>
+      </div>
+    </div>
+
+    <!-- ─── Menu Options popup ─── -->
+    <div class="race-options-overlay" *ngIf="showOptions" (click)="toggleOptions()">
+      <div class="race-options-popup" (click)="$event.stopPropagation()">
+        <div class="race-options-head">
+          <div class="race-options-title">⚙️ OPTIONS</div>
+          <button class="race-options-close" (click)="toggleOptions()" title="Close">✕</button>
+        </div>
+
+        <!-- Racer name — persisted with the car, shown in lobbies & leaderboard -->
+        <div class="race-options-section">
+          <label class="race-player-name-label" for="race-player-name">🏎️ RACER NAME</label>
+          <input id="race-player-name" class="race-player-name-input" type="text" maxlength="40" spellcheck="false"
+            placeholder="{{ playerCar.playerName || parentRef?.user?.username || 'Enter racer name…' }}"
+            [value]="playerNameDraft" (input)="onPlayerNameInput($any($event.target).value)"
+            (keyup.enter)="savePlayerName()" (blur)="savePlayerName()">
+          <span class="race-player-name-hint">Shown to other racers</span>
+        </div>
+
+        <div class="race-options-section">
+          <div class="race-options-sub">GAME OPTIONS</div>
+          <label class="race-option-row">
+            <span class="race-option-label">🔊 Sound effects & music</span>
+            <input type="checkbox" class="race-option-check" [checked]="soundOn" (change)="toggleSound()">
+          </label>
+          <label class="race-option-row">
+            <span class="race-option-label">📳 Camera shake</span>
+            <input type="checkbox" class="race-option-check" [checked]="cameraShakeOn" (change)="toggleCameraShake()">
+          </label>
+          <label class="race-option-row">
+            <span class="race-option-label">🔭 Speed zoom (FOV widens as you accelerate)</span>
+            <input type="checkbox" class="race-option-check" [checked]="speedFovOn" (change)="toggleSpeedFov()">
+          </label>
+        </div>
+
+        <div class="race-options-hint">Settings are saved automatically on this device.</div>
       </div>
     </div>
 
@@ -343,6 +375,7 @@
               {{ p.playerName }}
               <span class="mp-you-badge" *ngIf="p.connectionId === myConnectionId">YOU</span>
               <span class="mp-host-badge" *ngIf="p.isHost">HOST</span>
+              <span class="mp-in-race" *ngIf="p.inRace" title="Already racing in another lobby — they'll be busy when the race starts">🏁 IN RACE</span>
             </span>
             <span class="mp-ready-yes" *ngIf="p.ready">✓ READY</span>
             <span class="mp-ready-no" *ngIf="!p.ready">WAITING</span>
@@ -1131,32 +1164,76 @@
     <!-- ─── Leaderboard ─── -->
     <div id="race-leaderboard" *ngIf="showLeaderboard">
       <div class="race-lb-title">🏆 BEST LAPS{{ selectedTrack ? ' — ' + getTrackFlag(selectedTrack) + ' ' + selectedTrack.name : '' }}</div>
-      <div class="race-lb-standings" *ngIf="parentRef?.user?.id">
-        <span class="race-lb-medal">{{ getLeaderboardMedal() }}</span>
-        <span class="race-lb-standing-text">{{ getLeaderboardStandingText() }}</span>
-        <span class="race-lb-movement" *ngIf="getLeaderboardRankMovement()"
-          [class.race-lb-move-up]="rankMovement < 0" [class.race-lb-move-down]="rankMovement > 0">
-          {{ getLeaderboardRankMovement() }}
-        </span>
+      <div class="race-lb-modes">
+        <button class="race-lb-mode" [class.active]="leaderboardMode === 'track'" (click)="setLeaderboardMode('track')">
+          🏁 This Track
+        </button>
+        <button class="race-lb-mode" [class.active]="leaderboardMode === 'overall'" (click)="setLeaderboardMode('overall')">
+          🏆 All Races
+        </button>
       </div>
-      <div class="race-lb-row race-lb-header">
-        <span>#</span><span>Player</span><span>Best Lap</span><span>Gap</span><span>Race</span>
-      </div>
-      <div class="race-lb-row" *ngFor="let r of leaderboard; let i = index"
-        [class.race-lb-me]="r.playerId === (parentRef?.user?.id ?? 0)"
-        [class.race-lb-podium]="i < 3" [class.race-lb-gold]="i === 0"
-        [class.race-lb-silver]="i === 1" [class.race-lb-bronze]="i === 2">
-        <span class="race-lb-rank"><span *ngIf="i < 3" class="race-lb-trophy">🏆</span>{{ i + 1 }}</span>
-        <span class="race-lb-name" *ngIf="r.playerId > 0 && !r.isBot" title="View racer records"
-          (click)="openRacerProfile(r)">{{ r.playerName }} 👤</span>
-        <span *ngIf="r.playerId <= 0 || r.isBot">{{ r.playerName }}</span>
-        <span>{{ r.playerId === (parentRef?.user?.id ?? 0) && r.lapTime <= 0 ? 'No lap yet' : formatTime(r.lapTime) }}</span>
-        <span class="race-lb-gap" [class]="getLeaderboardGapClass(r)" title="Gap vs the leader and vs your best">
-          {{ getLeaderboardGapText(r) }}
-        </span>
-        <span class="race-lb-race" [title]="r.totalTime > 0 ? 'Total race time: ' + formatTime(r.totalTime) : 'Circuit'">{{ getLeaderboardRaceName(r) }}</span>
-      </div>
-      <div class="race-lb-empty" *ngIf="leaderboard.length === 0">No laps recorded yet — go set one!</div>
+
+      <!-- Per-track leaderboard -->
+      <ng-container *ngIf="leaderboardMode === 'track'">
+        <div class="race-lb-standings" *ngIf="parentRef?.user?.id">
+          <span class="race-lb-medal">{{ getLeaderboardMedal() }}</span>
+          <span class="race-lb-standing-text">{{ getLeaderboardStandingText() }}</span>
+          <span class="race-lb-movement" *ngIf="getLeaderboardRankMovement()"
+            [class.race-lb-move-up]="rankMovement < 0" [class.race-lb-move-down]="rankMovement > 0">
+            {{ getLeaderboardRankMovement() }}
+          </span>
+        </div>
+        <div class="race-lb-row race-lb-header">
+          <span>#</span><span>Player</span><span>Best Lap</span><span>Gap</span><span>Race</span>
+        </div>
+        <div class="race-lb-row" *ngFor="let r of leaderboard; let i = index"
+          [class.race-lb-me]="r.playerId === (parentRef?.user?.id ?? 0)"
+          [class.race-lb-podium]="i < 3" [class.race-lb-gold]="i === 0"
+          [class.race-lb-silver]="i === 1" [class.race-lb-bronze]="i === 2">
+          <span class="race-lb-rank"><span *ngIf="i < 3" class="race-lb-trophy">🏆</span>{{ i + 1 }}</span>
+          <span class="race-lb-name" *ngIf="r.playerId > 0 && !r.isBot" title="View racer records"
+            (click)="openRacerProfile(r)">{{ r.playerName }} 👤</span>
+          <span *ngIf="r.playerId <= 0 || r.isBot">{{ r.playerName }}</span>
+          <span>{{ r.playerId === (parentRef?.user?.id ?? 0) && r.lapTime <= 0 ? 'No lap yet' : formatTime(r.lapTime) }}</span>
+          <span class="race-lb-gap" [class]="getLeaderboardGapClass(r)" title="Gap vs the leader and vs your best">
+            {{ getLeaderboardGapText(r) }}
+          </span>
+          <span class="race-lb-race" [title]="r.totalTime > 0 ? 'Total race time: ' + formatTime(r.totalTime) : 'Circuit'">{{ getLeaderboardRaceName(r) }}</span>
+        </div>
+        <div class="race-lb-empty" *ngIf="leaderboard.length === 0">No laps recorded yet — go set one!</div>
+      </ng-container>
+
+      <!-- All-races high-scores view -->
+      <ng-container *ngIf="leaderboardMode === 'overall'">
+        <div class="race-lb-standings" *ngIf="parentRef?.user?.id">
+          <span class="race-lb-medal">{{ getOverallMedal() }}</span>
+          <span class="race-lb-standing-text">{{ getOverallStandingText() }}</span>
+        </div>
+        <div class="race-lb-row race-lb-header race-lb-header-overall">
+          <span>#</span><span>Player</span><span>Best Lap</span><span>Circuit</span><span>Gap</span>
+        </div>
+        <div class="race-lb-row race-lb-row-overall" *ngFor="let r of overallLeaderboard; let i = index"
+          [class.race-lb-me]="r.playerId === (parentRef?.user?.id ?? 0)"
+          [class.race-lb-podium]="i < 3" [class.race-lb-gold]="i === 0"
+          [class.race-lb-silver]="i === 1" [class.race-lb-bronze]="i === 2">
+          <span class="race-lb-rank"><span *ngIf="i < 3" class="race-lb-trophy">🏆</span>{{ i + 1 }}</span>
+          <span class="race-lb-name" *ngIf="r.playerId > 0 && !r.isBot" title="View racer records"
+            (click)="openRacerProfile(r)">{{ r.playerName }} 👤</span>
+          <span *ngIf="r.playerId <= 0 || r.isBot">{{ r.playerName }}</span>
+          <span class="race-lb-best">{{ formatTime(r.lapTime) }}</span>
+          <span class="race-lb-overall-track">{{ getOverallRowTrack(r) }}</span>
+          <span class="race-lb-gap" [class.lb-gap-leader]="overallLeaderboardBestLap > 0 && r.lapTime <= overallLeaderboardBestLap">
+            {{ getOverallGapText(r) }}
+          </span>
+          <div class="race-lb-chips">
+            <span class="race-lb-chip" *ngFor="let c of getOverallChips(r)" [title]="c.name + ': ' + formatTime(c.lap)">
+              {{ c.flag }} {{ formatTime(c.lap) }}
+            </span>
+          </div>
+        </div>
+        <div class="race-lb-empty" *ngIf="overallLeaderboard.length === 0">No laps recorded anywhere yet — go set one!</div>
+      </ng-container>
+
       <div class="race-lb-close" (click)="showLeaderboard = false">Click or press L to close</div>
     </div>
 

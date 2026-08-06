@@ -3,7 +3,7 @@ import { ChildComponent } from '../child.component';
 import { UserService } from '../../services/user.service';
 import { ModeratorService } from '../../services/moderator.service';
 import { User } from '../../services/datacontracts/user/user';
-import { ChatBan, ChatBanAppeal, ModeratorInfo, ModeratorLog, ModeratorRole, RoleDefinition } from '../../services/datacontracts/moderator/moderator';
+import { ChatBan, ChatBanAppeal, ModeratorInfo, ModeratorLog, ModeratorRequest, ModeratorRole, RoleDefinition } from '../../services/datacontracts/moderator/moderator';
 
 @Component({
   selector: 'app-moderator',
@@ -15,6 +15,7 @@ export class ModeratorComponent extends ChildComponent {
   activeTab: 'moderators' | 'chatmod' | 'logs' | 'appeals' = 'moderators';
 
   appeals: any[] = [];
+  modRequests: ModeratorRequest[] = [];
   loading = false;
   isModerator = false;
   // Admin is a moderator role with extra privileges — only admins can add
@@ -48,6 +49,7 @@ export class ModeratorComponent extends ChildComponent {
   managedChatMods: ModeratorInfo[] = [];
   chatBans: ChatBan[] = [];
   chatAppeals: ChatBanAppeal[] = [];
+  chatModRequests: ModeratorRequest[] = [];
   chatModLoading = false;
   chatModMessage = '';
   chatModMessageIsError = false;
@@ -149,10 +151,10 @@ export class ModeratorComponent extends ChildComponent {
       }
     } else if (this.selectedTargetType === 'topic') {
       try {
-        const response = await fetch('/topic/gettopics', {
+        const response = await fetch('/topic/get', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ UserId: userId }),
+          body: JSON.stringify({ UserId: userId, Topic: null }),
         });
         const topics: any[] = await response.json() ?? [];
         this.topicTargets = topics.map(t => ({ id: t.id, name: t.topicText ?? t.topic ?? 'Topic ' + t.id }));
@@ -174,7 +176,12 @@ export class ModeratorComponent extends ChildComponent {
     if (!userId) return;
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
     this.loading = true;
-    this.appeals = await this.userService.getAppeals(userId, sessionToken);
+    const [appeals, modRequests] = await Promise.all([
+      this.userService.getAppeals(userId, sessionToken),
+      this.moderatorService.getModeratorRequests(userId, sessionToken),
+    ]);
+    this.appeals = appeals;
+    this.modRequests = modRequests;
     this.loading = false;
   }
 
@@ -200,6 +207,16 @@ export class ModeratorComponent extends ChildComponent {
     if (!userId) return;
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
     await this.userService.resolveAppeal(appealId, userId, 'denied', sessionToken);
+    await this.loadAppeals();
+  }
+
+  async resolveModRequest(req: ModeratorRequest, resolution: 'approved' | 'denied') {
+    const userId = this.parentRef?.user?.id;
+    if (!userId) return;
+    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+    this.loading = true;
+    await this.moderatorService.resolveModeratorRequest(req.id, userId, resolution, sessionToken);
+    this.loading = false;
     await this.loadAppeals();
   }
 
@@ -374,20 +391,40 @@ export class ModeratorComponent extends ChildComponent {
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
     this.chatModLoading = true;
     try {
-      const [mods, bans, appeals] = await Promise.all([
+      const [mods, bans, appeals, requests] = await Promise.all([
         this.moderatorService.getModeratorsWithRoles(userId, sessionToken),
         this.moderatorService.getChatBans(this.selectedManagedChat, userId, sessionToken),
         this.moderatorService.getChatBanAppeals(this.selectedManagedChat, userId, sessionToken),
+        this.moderatorService.getModeratorRequests(userId, sessionToken, true),
       ]);
       this.moderators = mods;
       this.managedChatMods = mods.filter(m =>
         (m.roles ?? []).some(r => r.role === 'chat_moderator' && r.targetType === 'chat' && r.targetId === this.selectedManagedChat));
       this.chatBans = bans;
       this.chatAppeals = appeals;
+      this.chatModRequests = (requests ?? []).filter(r => r.chatId === this.selectedManagedChat);
     } catch (e) {
       console.error('Error loading chat moderation:', e);
     }
     this.chatModLoading = false;
+  }
+
+  async resolveChatModRequest(req: ModeratorRequest, resolution: 'approved' | 'denied') {
+    const userId = this.parentRef?.user?.id;
+    if (!userId) return;
+    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+    this.chatModActionLoading = true;
+    const res = await this.moderatorService.resolveModeratorRequest(req.id, userId, resolution, sessionToken);
+    this.chatModActionLoading = false;
+    if (res.ok) {
+      this.chatModMessage = res.message;
+      this.chatModMessageIsError = false;
+      await this.loadChatModeration();
+      if (this.isAdmin) await this.loadAppeals();
+    } else {
+      this.chatModMessage = res.message;
+      this.chatModMessageIsError = true;
+    }
   }
 
   onManagedChatChange() {
@@ -455,6 +492,10 @@ export class ModeratorComponent extends ChildComponent {
   /** Builds a proper User instance from a chat appeal row for app-user-tag. */
   chatAppealUser(a: ChatBanAppeal): User {
     return new User(a.userId, a.username || 'User #' + a.userId);
+  }
+
+  modRequestUser(r: ModeratorRequest): User {
+    return new User(r.userId, r.username || 'User #' + r.userId);
   }
 
   isChatMod(user: User): boolean {

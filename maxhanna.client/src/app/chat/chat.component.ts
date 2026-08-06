@@ -79,6 +79,14 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   // True when the current user holds the chat_moderator role for the open room.
   // Drives the "👮 Moderator" badge in the title bar.
   isChatModerator = false;
+  // Moderator request for the open room: non-mods can ask to moderate, and the
+  // request lands in the moderator panel for the room's moderators to review.
+  showModRequestBox = false;
+  modRequestText = '';
+  isSubmittingModRequest = false;
+  hasPendingModRequest = false;
+  modRequestMessage = '';
+  modRequestMessageIsError = false;
   private pollingInterval: any;
   private isChangingPage = false;
   private isInitialLoad = false;
@@ -388,6 +396,12 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         const newMessages: Message[] = [];
         const updatedChatHistory = [...this.chatHistory];
 
+        // Resolve the chat id before decrypting (the decrypt key is the chat
+        // id), so the very first load of a new chat renders plaintext.
+        if (!this.currentChatId && res.messages[0]?.chatId) {
+          this.currentChatId = res.messages[0].chatId;
+        }
+
         res.messages.forEach((incomingMessage: Message) => {
           const existingIndex = updatedChatHistory.findIndex(
             (existingMessage: Message) => existingMessage.id === incomingMessage.id
@@ -398,10 +412,32 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
             if (
               existing.content !== incomingMessage.content || existing.timestamp !== incomingMessage.timestamp
             ) {
+              // Changed — decrypt + render ONCE here instead of in the template
+              // on every change-detection tick; both results are cached.
+              const decrypted = this.decryptContent(incomingMessage.content);
+              incomingMessage.decrypted = decrypted;
+              incomingMessage.domHtml = this.getTextForDOM(decrypted, 'messageText' + incomingMessage.id);
               updatedChatHistory[existingIndex] = { ...incomingMessage };
               hasChanges = true;
             }
+            // Unchanged messages keep their cached decrypted/domHtml — no
+            // decrypt or HTML rebuild on a quiet poll.
           } else {
+            const decrypted = this.decryptContent(incomingMessage.content);
+            incomingMessage.decrypted = decrypted;
+            incomingMessage.domHtml = this.getTextForDOM(decrypted, 'messageText' + incomingMessage.id);
+            if (decrypted && decrypted.trim()) {
+              // An optimistic temp row (negative id) from the send path — replace
+              // it in place with the real server message instead of duplicating.
+              const tempIndex = updatedChatHistory.findIndex(
+                (m: Message) => m.id < 0 && (m.decrypted ?? '') === decrypted
+              );
+              if (tempIndex !== -1) {
+                updatedChatHistory[tempIndex] = { ...incomingMessage };
+                hasChanges = true;
+                return;
+              }
+            }
             newMessages.push({ ...incomingMessage });
             hasChanges = true;
           }
@@ -409,18 +445,21 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
         if (hasChanges) {
           // Append new messages and sort
-          this.chatHistory = [...updatedChatHistory, ...newMessages].sort(
+          const merged = [...updatedChatHistory, ...newMessages].sort(
             (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
+          // Drop optimistic temp rows that never reconciled with a server
+          // message (e.g. the server transformed the stored text) — stale
+          // ghosts older than 30s are no longer waiting on their refetch.
+          this.chatHistory = merged.filter(
+            (m: Message) => m.id > 0 || Date.now() - Math.abs(m.id) < 30000
           );
           this.updateSeenStatus(res);
           if (!this.isChangingPage) {
             this.playSoundIfNewMessage(newMessages);
           }
           this.pageNumber = res.currentPage;
-          if (!this.currentChatId && res.messages[0]?.chatId) {
-            this.currentChatId = res.messages[0].chatId;
-
-            if (this.firstMessageDetails) {
+          if (this.firstMessageDetails && res.messages[0]) {
               const encryptedContent = this.encryptContent(this.firstMessageDetails.content);
               if (encryptedContent !== res.messages[0].content) {
                 const editRes = await this.chatService.editMessage(
@@ -438,7 +477,6 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
               }
               // Clear firstMessageDetails after processing
               this.firstMessageDetails = null;
-            }
           }
           this.scrollToBottomIfNeeded();
         }
@@ -745,6 +783,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.currentChatRoomName = '';
     this.currentChatIsPublic = false;
     this.isChatModerator = false;
+    this.hasPendingModRequest = false;
+    this.showModRequestBox = false;
     // Reset the moderator-status throttle so reopening the same chat re-checks.
     this._lastModCheckChatId = 0;
     this.pageNumber = 0;
@@ -1204,8 +1244,48 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         (r.targetType ?? '').toLowerCase() === 'chat' &&
         r.targetId != null && +r.targetId === +chatId
       );
+      // Non-mods may have a pending request to moderate this room — show a
+      // pending state instead of the request button.
+      if (!this.isChatModerator) {
+        const pending = await this.moderatorService.getMyModeratorRequest(chatId, userId, sessionToken);
+        this.hasPendingModRequest = !!pending;
+      } else {
+        this.hasPendingModRequest = false;
+      }
     } catch (e) {
       this.isChatModerator = false;
+      this.hasPendingModRequest = false;
+    }
+  }
+
+  toggleModRequestBox() {
+    this.showModRequestBox = !this.showModRequestBox;
+    this.modRequestMessage = '';
+  }
+
+  async submitModRequest() {
+    const userId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id ?? 0;
+    const chatId = this.currentChatId;
+    const text = (this.modRequestText || '').trim();
+    if (!userId || !chatId) return;
+    if (!text) {
+      this.modRequestMessage = 'Please write a short note about why you want to moderate.';
+      this.modRequestMessageIsError = true;
+      return;
+    }
+    this.isSubmittingModRequest = true;
+    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+    const res = await this.moderatorService.requestModerator(chatId, userId, text, sessionToken);
+    this.isSubmittingModRequest = false;
+    if (res.ok) {
+      this.hasPendingModRequest = true;
+      this.showModRequestBox = false;
+      this.modRequestText = '';
+      this.modRequestMessage = res.message;
+      this.modRequestMessageIsError = false;
+    } else {
+      this.modRequestMessage = res.message;
+      this.modRequestMessageIsError = true;
     }
   }
 
@@ -1367,6 +1447,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
 
         // set both transient and convenient decrypted properties on message so templates can use either
         message.decrypted = decryptedText;
+        // Invalidate the cached rendered HTML so the row rebuilds with the edit
+        message.domHtml = undefined;
         // mark message as edited now
         message.editDate = new Date();
         // clear edit state for this message
@@ -1415,23 +1497,58 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.firstMessageDetails = { content: event.originalContent };
     }
 
-    await this.getMessageHistory().then(x => {
-      setTimeout(() => {
-        this.chatWindow.nativeElement.scrollTop = this.chatWindow.nativeElement.scrollHeight;
-      }, 250);
-    });
+    // Optimistic append: paint the sent message instantly instead of waiting
+    // for a full history round trip. The background refetch below reconciles
+    // ids, ordering and the temp row (negative id) in getMessageHistory.
+    const user = this.parentRef?.user ? this.parentRef.user : new User(0, 'Anonymous');
+    const plain = event?.originalContent ?? '';
+    if (this.currentChatId && plain.trim()) {
+      const tempId = -Date.now();
+      const optimistic = new Message(tempId, this.currentChatId, user, this.currentChatUsers ?? [], this.encryptContent(plain), new Date());
+      optimistic.decrypted = plain;
+      optimistic.domHtml = this.getTextForDOM(plain, 'messageText' + tempId);
+      this.chatHistory = [...this.chatHistory, optimistic].sort(
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+      this.scrollToBottomIfNeeded();
+    }
+
+    // Don't block the send on the refetch — the optimistic row already
+    // painted, so reconcile quietly in the background (no 250ms scroll hack).
+    await this.getMessageHistory();
     this.checkChatBanStatus();
   }
+
+  // Rendered HTML for a message row — computed once when the history loads and
+  // cached on the message, so change detection re-reads a property instead of
+  // rebuilding the HTML for every message on every CD tick.
+  messageTextHtml(m: Message): any {
+    if (!m.domHtml) {
+      const text = m.decrypted ?? this.decryptContent(m.content);
+      m.domHtml = this.getTextForDOM(text, 'messageText' + m.id);
+    }
+    return m.domHtml;
+  }
+
+  // Stable row identity — stops Angular from rebuilding every message row when
+  // the history array is replaced (jitter when messages load in).
+  trackByMessage(_i: number, m: Message): number {
+    return m.id;
+  }
+  private _notificationAudio: HTMLAudioElement | null = null;
   private playSoundIfNewMessage(newMessages: Message[]) {
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user ?? new User(0, "Anonymous");
     const receivedNewMessages = newMessages.length > 0 && newMessages.some(x => x.sender.id != user.id);
 
     if (receivedNewMessages) {
-      console.log("playing sound!", new Date());
-      const notificationSound = new Audio("https://bughosted.com/assets/Uploads/Users/Max/arcade-ui-30-229499.mp4");
+      // Reuse one Audio element instead of allocating a new one per message.
+      if (!this._notificationAudio) {
+        this._notificationAudio = new Audio("https://bughosted.com/assets/Uploads/Users/Max/arcade-ui-30-229499.mp4");
+        this._notificationAudio.volume = 0.3;
+      }
       try {
-        notificationSound.volume = 0.3;
-        notificationSound.play()
+        this._notificationAudio.currentTime = 0;
+        void this._notificationAudio.play();
       } catch (e) { console.error("Error playing notification sound:", e) }
     }
   }

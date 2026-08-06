@@ -9,6 +9,8 @@ export interface LobbyPlayer {
   isHost: boolean;
   ready: boolean;
   skinId: number;
+  // True when this member is already racing in another lobby ("🏁 IN RACE").
+  inRace?: boolean;
 }
 
 export interface LobbyState {
@@ -73,6 +75,8 @@ export class RacingHubService implements OnDestroy {
   private hub: signalR.HubConnection | null = null;
 
   readonly lobbyState$ = new Subject<LobbyState>();
+  // Patch updates for an existing roster row's "in another race" flag.
+  readonly rosterUpdate$ = new Subject<{ connectionId: string; inRace: boolean }>();
   readonly playerJoined$ = new Subject<LobbyPlayer>();
   readonly playerLeft$ = new Subject<string>();
   readonly playerReadyChanged$ = new Subject<{ connectionId: string; ready: boolean }>();
@@ -116,6 +120,10 @@ export class RacingHubService implements OnDestroy {
 
       this.hub.on('OnPlayerLeft', (playerName: string) => {
         this.playerLeft$.next(playerName);
+      });
+
+      this.hub.on('OnLobbyRosterUpdate', (data: { connectionId: string; inRace: boolean }) => {
+        this.rosterUpdate$.next(data);
       });
 
       this.hub.on('OnPlayerReadyChanged', (data: { connectionId: string; ready: boolean }) => {

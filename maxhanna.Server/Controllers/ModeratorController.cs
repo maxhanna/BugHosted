@@ -793,6 +793,250 @@ namespace maxhanna.Server.Controllers
         return StatusCode(500, "Failed to check ban status.");
       }
     }
+ 
+
+    /// <summary>Lets a chat member request moderator status for that room. The
+    /// request lands in the moderator panel's requests list for the room's
+    /// moderators (or admins) to approve or deny.</summary>
+    [HttpPost("/Moderator/RequestModerator", Name = "RequestModerator")]
+    public async Task<IActionResult> RequestModerator(
+      [FromBody] ModeratorRequestRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (request == null || request.ChatId <= 0 || request.UserId <= 0) return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+
+        // The chat must exist.
+        string chatSql = "SELECT COUNT(*) FROM maxhanna.chat_rooms WHERE chat_id = @ChatId;";
+        using (var chatCmd = new MySqlCommand(chatSql, conn))
+        {
+          chatCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+          if (Convert.ToInt32(await chatCmd.ExecuteScalarAsync()) == 0)
+            return NotFound("Chat not found.");
+        }
+
+        // A banned user can't request to moderate the room that banned them.
+        if (await IsChatUserBannedAsync(conn, request.ChatId, request.UserId))
+          return BadRequest("You are banned from this chat and cannot request moderator status.");
+
+        // No point requesting when you already moderate it (or everything).
+        if (request.UserId == 1 || await IsGlobalModeratorAsync(request.UserId)
+          || await IsChatModeratorAsync(_config, request.UserId, request.ChatId))
+          return BadRequest("You are already a moderator of this chat.");
+
+        // One open request at a time per chat + user.
+        string openSql = "SELECT COUNT(*) FROM maxhanna.moderator_request WHERE chat_id = @ChatId AND user_id = @UserId AND resolved_at IS NULL;";
+        using (var openCmd = new MySqlCommand(openSql, conn))
+        {
+          openCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+          openCmd.Parameters.AddWithValue("@UserId", request.UserId);
+          if (Convert.ToInt32(await openCmd.ExecuteScalarAsync()) > 0)
+            return BadRequest("You already have a pending moderator request for this chat.");
+        }
+
+        string sql = "INSERT INTO maxhanna.moderator_request (user_id, chat_id, request_text, created_at) VALUES (@UserId, @ChatId, @RequestText, UTC_TIMESTAMP());";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@UserId", request.UserId);
+        cmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+        cmd.Parameters.AddWithValue("@RequestText", (request.RequestText ?? "").Trim());
+        await cmd.ExecuteNonQueryAsync();
+        _ = _log.Db($"User {request.UserId} requested moderator status in chat #{request.ChatId}", request.UserId, "MODERATOR", true);
+        return Ok(new { message = "Moderator request submitted to the chat's moderators." });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in RequestModerator: " + ex.Message, request.UserId, "MODERATOR", true);
+        return StatusCode(500, "Failed to submit moderator request.");
+      }
+    }
+
+    /// <summary>Returns the caller's own pending moderator request for a chat
+    /// (id 0 when none) so the chat/social UI can show a pending state.</summary>
+    [HttpPost("/Moderator/GetMyModeratorRequest", Name = "GetMyModeratorRequest")]
+    public async Task<IActionResult> GetMyModeratorRequest(
+      [FromBody] ModeratorRequestRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (request == null || request.ChatId <= 0 || request.UserId <= 0) return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        string sql = @"SELECT id, request_text, created_at FROM maxhanna.moderator_request
+          WHERE chat_id = @ChatId AND user_id = @UserId AND resolved_at IS NULL
+          ORDER BY created_at DESC LIMIT 1;";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+        cmd.Parameters.AddWithValue("@UserId", request.UserId);
+        using var reader = await cmd.ExecuteReaderAsync();
+        if (await reader.ReadAsync())
+        {
+          return Ok(new
+          {
+            id = reader.GetInt32("id"),
+            chatId = request.ChatId,
+            requestText = reader.IsDBNull(reader.GetOrdinal("request_text")) ? null : reader.GetString("request_text"),
+            createdAt = reader.GetDateTime("created_at")
+          });
+        }
+        return Ok(new { id = 0 });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in GetMyModeratorRequest: " + ex.Message, request.UserId, "MODERATOR", true);
+        return StatusCode(500, "Failed to check moderator request.");
+      }
+    }
+
+    /// <summary>Lists open moderator requests — admins see all, chat moderators
+    /// only see requests for the rooms they moderate.</summary>
+    [HttpPost("/Moderator/GetModeratorRequests", Name = "GetModeratorRequests")]
+    public async Task<IActionResult> GetModeratorRequests(
+      [FromBody] GetModeratorRequestsRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (request == null || request.CallerUserId <= 0) return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(request.CallerUserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+
+      bool isAdmin = request.CallerUserId == 1 || await IsAdminAsync(request.CallerUserId);
+      bool isGlobalMod = await IsGlobalModeratorAsync(request.CallerUserId);
+      if (!isAdmin && !isGlobalMod && !request.IsChatModeratorView)
+        return Unauthorized("Only moderators can view moderator requests.");
+
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        string sql;
+        MySqlCommand cmd;
+        if (isAdmin || isGlobalMod)
+        {
+          sql = @"SELECT mr.id, mr.chat_id, mr.user_id, mr.request_text, mr.created_at,
+                 u.username, cr.name AS chat_name
+               FROM maxhanna.moderator_request mr
+               LEFT JOIN maxhanna.users u ON u.id = mr.user_id
+               LEFT JOIN maxhanna.chat_rooms cr ON cr.chat_id = mr.chat_id
+               WHERE mr.resolved_at IS NULL
+               ORDER BY mr.created_at DESC;";
+          cmd = new MySqlCommand(sql, conn);
+        }
+        else
+        {
+          // Chat moderators: only requests for the rooms they moderate.
+          sql = @"SELECT mr.id, mr.chat_id, mr.user_id, mr.request_text, mr.created_at,
+                 u.username, cr.name AS chat_name
+               FROM maxhanna.moderator_request mr
+               LEFT JOIN maxhanna.users u ON u.id = mr.user_id
+               LEFT JOIN maxhanna.chat_rooms cr ON cr.chat_id = mr.chat_id
+               JOIN maxhanna.moderator_roles mine ON mine.target_type = 'chat' AND mine.target_id = mr.chat_id
+                 AND mine.user_id = @CallerUserId AND mine.role = 'chat_moderator'
+               WHERE mr.resolved_at IS NULL
+               ORDER BY mr.created_at DESC;";
+          cmd = new MySqlCommand(sql, conn);
+          cmd.Parameters.AddWithValue("@CallerUserId", request.CallerUserId);
+        }
+        var list = new List<object>();
+        using (var reader = await cmd.ExecuteReaderAsync())
+        while (await reader.ReadAsync())
+        {
+          list.Add(new
+          {
+            id = reader.GetInt32("id"),
+            chatId = reader.GetInt32("chat_id"),
+            userId = reader.GetInt32("user_id"),
+            username = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username"),
+            chatName = reader.IsDBNull(reader.GetOrdinal("chat_name")) ? null : reader.GetString("chat_name"),
+            requestText = reader.IsDBNull(reader.GetOrdinal("request_text")) ? null : reader.GetString("request_text"),
+            createdAt = reader.GetDateTime("created_at")
+          });
+        }
+        return Ok(list);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in GetModeratorRequests: " + ex.Message, request.CallerUserId, "MODERATOR", true);
+        return StatusCode(500, "Failed to get moderator requests.");
+      }
+    }
+
+    /// <summary>Approves or denies a moderator request. Approving grants the
+    /// chat_moderator role for that room (mirrors SetRole's upsert).</summary>
+    [HttpPost("/Moderator/ResolveModeratorRequest", Name = "ResolveModeratorRequest")]
+    public async Task<IActionResult> ResolveModeratorRequest(
+      [FromBody] ResolveModeratorRequestRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (request == null || request.RequestId <= 0 || request.CallerUserId <= 0) return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(request.CallerUserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+
+      string resolution = (request.Resolution ?? "").ToLowerInvariant();
+      if (resolution != "approved" && resolution != "denied") return BadRequest("Invalid resolution.");
+
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+
+        // Load the request to find its chat, then verify the caller may act on it.
+        string getSql = "SELECT chat_id, user_id FROM maxhanna.moderator_request WHERE id = @RequestId AND resolved_at IS NULL;";
+        int chatId = 0;
+        int requesterId = 0;
+        using (var getCmd = new MySqlCommand(getSql, conn))
+        {
+          getCmd.Parameters.AddWithValue("@RequestId", request.RequestId);
+          using var reader = await getCmd.ExecuteReaderAsync();
+          if (await reader.ReadAsync())
+          {
+            chatId = reader.GetInt32("chat_id");
+            requesterId = reader.GetInt32("user_id");
+          }
+        }
+        if (chatId <= 0) return NotFound("Request not found.");
+
+        bool isAdmin = request.CallerUserId == 1 || await IsAdminAsync(request.CallerUserId);
+        bool isGlobalMod = await IsGlobalModeratorAsync(request.CallerUserId);
+        if (!isAdmin && !isGlobalMod && !await IsChatModeratorAsync(_config, request.CallerUserId, chatId))
+          return Unauthorized("Only that chat room's moderators can resolve requests.");
+
+        if (resolution == "approved")
+        {
+          string upsertSql = @"INSERT INTO maxhanna.moderator_roles (user_id, role, target_type, target_id, assigned_by, assigned_at)
+            VALUES (@UserId, 'chat_moderator', 'chat', @ChatId, @AssignedBy, UTC_TIMESTAMP())
+            ON DUPLICATE KEY UPDATE assigned_by = @AssignedBy, assigned_at = UTC_TIMESTAMP();";
+          using var upsCmd = new MySqlCommand(upsertSql, conn);
+          upsCmd.Parameters.AddWithValue("@UserId", requesterId);
+          upsCmd.Parameters.AddWithValue("@ChatId", chatId);
+          upsCmd.Parameters.AddWithValue("@AssignedBy", request.CallerUserId);
+          await upsCmd.ExecuteNonQueryAsync();
+        }
+
+        string resolveSql = "UPDATE maxhanna.moderator_request SET resolved_at = UTC_TIMESTAMP(), resolved_by = @By, resolution = @Resolution WHERE id = @RequestId;";
+        using var resolveCmd = new MySqlCommand(resolveSql, conn);
+        resolveCmd.Parameters.AddWithValue("@By", request.CallerUserId);
+        resolveCmd.Parameters.AddWithValue("@Resolution", resolution);
+        resolveCmd.Parameters.AddWithValue("@RequestId", request.RequestId);
+        await resolveCmd.ExecuteNonQueryAsync();
+
+        _ = _log.Db($"Moderator {request.CallerUserId} resolved moderator request {request.RequestId} as '{resolution}' for chat #{chatId}", request.CallerUserId, "MODERATOR", true);
+        return Ok(new { message = resolution == "approved" ? "Request approved — user is now a chat moderator." : "Request denied." });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in ResolveModeratorRequest: " + ex.Message, request.CallerUserId, "MODERATOR", true);
+        return StatusCode(500, "Failed to resolve moderator request.");
+      }
+    }
 
     /// <summary>Public helper used by other controllers to check chat moderation.</summary>
     public static async Task<bool> IsChatModeratorAsync(IConfiguration config, int userId, int chatId)
@@ -899,6 +1143,26 @@ namespace maxhanna.Server.Controllers
   public class ResolveChatBanAppealRequest
   {
     public int AppealId { get; set; }
+    public int CallerUserId { get; set; }
+    public string? Resolution { get; set; }
+  }
+
+  public class ModeratorRequestRequest
+  {
+    public int UserId { get; set; }
+    public int ChatId { get; set; }
+    public string? RequestText { get; set; }
+  }
+
+  public class GetModeratorRequestsRequest
+  {
+    public int CallerUserId { get; set; }
+    public bool IsChatModeratorView { get; set; }
+  }
+
+  public class ResolveModeratorRequestRequest
+  {
+    public int RequestId { get; set; }
     public int CallerUserId { get; set; }
     public string? Resolution { get; set; }
   }

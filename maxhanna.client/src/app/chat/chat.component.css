@@ -182,6 +182,38 @@
   align-items: center;
 }
 
+.chatModRequestBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: var(--main-border);
+  background: var(--secondary-bg-color, transparent);
+}
+
+.chatModRequestBtn {
+  background: var(--colored-bg-button-bg, #2f6f2f);
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: filter 0.15s ease;
+}
+
+.chatModRequestBtn:hover {
+  filter: brightness(1.15);
+}
+
+.chatModRequestBox {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 
 .chatArea {
   margin-left: 0;

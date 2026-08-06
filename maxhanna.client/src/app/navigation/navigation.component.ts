@@ -266,6 +266,50 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.navSuggestIndex = -1;
   }
 
+  // Apps from the full catalog the user has NOT added to their nav yet — so
+  // searching "conversion" surfaces an app like that even before the user pins
+  // it. Matched against both the title and the description text, deduped
+  // (catalog has a couple of duplicate titles) and capped at 6 rows.
+  get navUnaddedApps(): MenuItem[] {
+    const term = this.navSearchTerm.trim().toLowerCase();
+    if (term.length < 2) return [];
+    const added = new Set((this._parent?.userSelectedNavigationItems ?? []).map(x => x.title));
+    // Only suggest apps that can actually be added and opened — the catalog is
+    // the descriptive help text, the navigable universe is navigationItems.
+    const navigable = new Set((this._parent?.navigationItems ?? []).map(x => x.title));
+    const catalog = this._parent?.navigationItemDescriptions ?? [];
+    const seen = new Set<string>();
+    const out: MenuItem[] = [];
+    for (const item of catalog) {
+      if (!navigable.has(item.title) || added.has(item.title) || seen.has(item.title)) continue;
+      const content = (item.content ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      const hay = (item.title + ' ' + content).toLowerCase();
+      if (!hay.includes(term)) continue;
+      seen.add(item.title);
+      out.push({ ...item, content });
+      if (out.length >= 6) break;
+    }
+    return out;
+  }
+
+  // Add an unadded app to the user's nav (persisted via the same endpoint the
+  // settings' add-menu-items section uses) and open it immediately.
+  openUnaddedApp(item: MenuItem) {
+    const parent = this._parent;
+    const term = this.navSearchTerm.trim();
+    this.recordNavSearch(term);
+    if (parent) {
+      if (parent.user?.id) {
+        parent.userSelectedNavigationItems.push(new MenuItem(parent.user.id, item.title));
+        this.userService.addMenuItem(parent.user.id, [item.title]).then(res => {
+          if (res) parent.showNotification(res);
+        });
+      }
+      parent.createComponent(item.title);
+    }
+    this.clearNavSearch();
+  }
+
   // '12 of 40 apps' — how many of the currently visible nav items match the
   // active search term (same visibility filter the navLinkDiv *ngIf uses).
   get navSearchMatchLabel(): string {
@@ -428,8 +472,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   // Flat, display-ordered list of every current suggestion so keyboard
   // navigation can address them with a single index across all groups.
-  private getNavSuggestFlat(): { type: 'file' | 'post' | 'comment' | 'news' | 'favourite', item: any }[] {
-    const out: { type: 'file' | 'post' | 'comment' | 'news' | 'favourite', item: any }[] = [];
+  private getNavSuggestFlat(): { type: 'file' | 'post' | 'comment' | 'news' | 'favourite' | 'app', item: any }[] {
+    const out: { type: 'file' | 'post' | 'comment' | 'news' | 'favourite' | 'app', item: any }[] = [];
+    // Apps group sits first in the popup, so it leads the flat keyboard list.
+    for (const a of this.navUnaddedApps) out.push({ type: 'app', item: a });
     if (!this.navSuggestions) return out;
     for (const f of this.navSuggestions.files) out.push({ type: 'file', item: f });
     for (const p of this.navSuggestions.posts) out.push({ type: 'post', item: p });
@@ -442,13 +488,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
   // Base index (in the flat list) where the given group starts, so the
   // template can compute each row's global index: offset + row index.
   navSuggestGroupOffset(group: 'files' | 'posts' | 'comments' | 'news' | 'favourites'): number {
-    if (!this.navSuggestions) return 0;
+    const apps = this.navUnaddedApps.length;
     switch (group) {
-      case 'files': return 0;
-      case 'posts': return this.navSuggestions.files.length;
-      case 'comments': return this.navSuggestions.files.length + this.navSuggestions.posts.length;
-      case 'news': return this.navSuggestions.files.length + this.navSuggestions.posts.length + this.navSuggestions.comments.length;
-      case 'favourites': return this.navSuggestions.files.length + this.navSuggestions.posts.length + this.navSuggestions.comments.length + this.navSuggestions.news.length;
+      case 'files': return apps;
+      case 'posts': return apps + this.navSuggestions!.files.length;
+      case 'comments': return apps + this.navSuggestions!.files.length + this.navSuggestions!.posts.length;
+      case 'news': return apps + this.navSuggestions!.files.length + this.navSuggestions!.posts.length + this.navSuggestions!.comments.length;
+      case 'favourites': return apps + this.navSuggestions!.files.length + this.navSuggestions!.posts.length + this.navSuggestions!.comments.length + this.navSuggestions!.news.length;
     }
     return 0;
   }
@@ -512,7 +558,13 @@ export class NavigationComponent implements OnInit, OnDestroy {
   // media viewer / file detail (not just the Files listing); posts/comments
   // open Social, news opens News, favourites open the Favourites app with the
   // query pre-filled.
-  openSuggestion(type: 'file' | 'post' | 'comment' | 'news' | 'favourite', item: any) {
+  openSuggestion(type: 'file' | 'post' | 'comment' | 'news' | 'favourite' | 'app', item: any) {
+    // App suggestions add the app to the user's nav and open it — that path
+    // records the search and clears the popup itself.
+    if (type === 'app') {
+      this.openUnaddedApp(item as MenuItem);
+      return;
+    }
     const term = this.navSearchTerm.trim();
     this.recordNavSearch(term);
     if (type === 'file') {

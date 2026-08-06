@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { ChatBan, ChatBanAppeal, ModeratorInfo, ModeratorLog, ModeratorRole, PublicChatInfo, RoleDefinition } from './datacontracts/moderator/moderator';
+import { ChatBan, ChatBanAppeal, ModeratorInfo, ModeratorLog, ModeratorRequest, ModeratorRole, PublicChatInfo, RoleDefinition } from './datacontracts/moderator/moderator';
 
 @Injectable({
   providedIn: 'root'
@@ -180,6 +180,77 @@ export class ModeratorService {
     } catch (error) {
       console.error('Error resolving chat ban appeal:', error);
       return false;
+    }
+  }
+
+  /** Lets a chat member request moderator status for that room. */
+  async requestModerator(chatId: number, userId: number, requestText: string, sessionToken: string): Promise<{ ok: boolean; message: string }> {
+    try {
+      const response = await fetch('/moderator/requestmoderator', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify({ ChatId: chatId, UserId: userId, RequestText: requestText }),
+      });
+      let data: any = null;
+      const body = await response.text();
+      try { data = body ? JSON.parse(body) : null; } catch { /* non-JSON body */ }
+      if (response.ok) return { ok: true, message: (data && data.message) || 'Moderator request submitted.' };
+      return { ok: false, message: (data && data.message) || body || 'Failed to submit moderator request.' };
+    } catch (error) {
+      console.error('Error requesting moderator:', error);
+      return { ok: false, message: 'Failed to submit moderator request. Please try again.' };
+    }
+  }
+
+  /** The caller's own pending moderator request for a chat (id 0 when none). */
+  async getMyModeratorRequest(chatId: number, userId: number, sessionToken: string): Promise<ModeratorRequest | null> {
+    try {
+      const response = await fetch('/moderator/getmymoderatorrequest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify({ ChatId: chatId, UserId: userId }),
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data && data.id > 0 ? data as ModeratorRequest : null;
+    } catch (error) {
+      console.error('Error checking moderator request:', error);
+      return null;
+    }
+  }
+
+  /** Open moderator requests — admins see all, chat moderators see their rooms'. */
+  async getModeratorRequests(callerUserId: number, sessionToken: string, isChatModeratorView = false): Promise<ModeratorRequest[]> {
+    try {
+      const response = await fetch('/moderator/getmoderatorrequests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify({ CallerUserId: callerUserId, IsChatModeratorView: isChatModeratorView }),
+      });
+      if (!response.ok) return [];
+      return await response.json() as ModeratorRequest[];
+    } catch (error) {
+      console.error('Error fetching moderator requests:', error);
+      return [];
+    }
+  }
+
+  /** Approve (grants chat_moderator) or deny a moderator request. */
+  async resolveModeratorRequest(requestId: number, callerUserId: number, resolution: string, sessionToken: string): Promise<{ ok: boolean; message: string }> {
+    try {
+      const response = await fetch('/moderator/resolvemoderatorrequest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify({ RequestId: requestId, CallerUserId: callerUserId, Resolution: resolution }),
+      });
+      let data: any = null;
+      const body = await response.text();
+      try { data = body ? JSON.parse(body) : null; } catch { /* non-JSON body */ }
+      if (response.ok) return { ok: true, message: (data && data.message) || 'Request resolved.' };
+      return { ok: false, message: (data && data.message) || body || 'Failed to resolve request.' };
+    } catch (error) {
+      console.error('Error resolving moderator request:', error);
+      return { ok: false, message: 'Failed to resolve request.' };
     }
   }
 

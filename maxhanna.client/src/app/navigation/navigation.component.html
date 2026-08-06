@@ -154,6 +154,24 @@
         <div *ngIf="navSuggestionsLoading" class="navSuggestLoading">
           <span class="navSuggestSpinner"></span> Searching…
         </div>
+        <!-- Apps the user hasn't added to their nav yet — matched locally so
+             they appear instantly, even while the server suggest is loading.
+             Clicking adds the app to their nav and opens it. -->
+        <div class="navSuggestGroup" *ngIf="navSearchTerm.trim().length >= 2 && navUnaddedApps.length">
+          <div class="navSuggestGroupTitle">🛠️ Apps to add</div>
+          <button class="navSuggestItem" *ngFor="let app of navUnaddedApps; let i = index"
+            [class.navSuggestActive]="navSuggestIndex === i"
+            [id]="'navSuggestItem' + i"
+            (mouseenter)="navSuggestIndex = i"
+            (click)="openUnaddedApp(app)">
+            <span class="navSuggestItemIcon">✨</span>
+            <span class="navSuggestItemText">
+              <span class="navSuggestItemTitle">{{ app.title }}</span>
+              <span class="navSuggestItemSub">{{ app.content | slice:0:60 }}</span>
+            </span>
+            <span class="navSuggestAddTag">Add</span>
+          </button>
+        </div>
         <ng-container *ngIf="!navSuggestionsLoading && navSuggestions">
           <div class="navSuggestGroup" *ngIf="navSuggestions.files.length">
             <div class="navSuggestGroupTitle">📁 Files</div>
@@ -226,7 +244,7 @@
             </button>
           </div>
           <div class="navSuggestEmpty"
-            *ngIf="!navSuggestions.files.length && !navSuggestions.posts.length && !navSuggestions.comments.length && !navSuggestions.news.length && !navSuggestions.favourites.length">
+            *ngIf="!navSuggestions.files.length && !navSuggestions.posts.length && !navSuggestions.comments.length && !navSuggestions.news.length && !navSuggestions.favourites.length && !navUnaddedApps.length">
             No matches for “{{ navSearchTerm }}”
           </div>
         </ng-container>

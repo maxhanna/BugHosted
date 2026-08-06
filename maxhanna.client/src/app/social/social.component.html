@@ -20,6 +20,20 @@
         <button (click)="openGroupChat()" class="coloredBgButton" title="Open this group's chat">💬 Open Chat</button>
         <button (click)="toggleGroupMembersPanel()" class="coloredBgButton" title="View & add group members">👥 Members ({{ groupChatUsers.length }})</button>
         <button *ngIf="isChatRoomModerator" (click)="openGroupInfoEditor()" class="coloredBgButton" title="Edit room title & description">✏️ Edit Room</button>
+        <button *ngIf="!isChatRoomModerator" (click)="toggleModRequestBox()" class="coloredBgButton"
+          [title]="hasPendingModRequest ? 'Your request is pending review' : 'Ask this board\'s moderators for moderator status'">
+          {{ hasPendingModRequest ? '⏳ Request pending' : (showModRequestBox ? 'Cancel' : '🙋 Request Mod') }}
+        </button>
+      </div>
+      <div class="groupModRequestPanel" *ngIf="showModRequestBox && !hasPendingModRequest">
+        <textarea class="groupModRequestTextarea" [(ngModel)]="modRequestText" maxlength="500"
+          placeholder="Tell the moderators why you'd make a good moderator…"></textarea>
+        <div class="groupModRequestActions">
+          <button class="coloredBgButton" (click)="submitModRequest()" [disabled]="isSubmittingModRequest || !modRequestText.trim()">
+            {{ isSubmittingModRequest ? 'Sending…' : 'Submit request' }}
+          </button>
+          <span *ngIf="modRequestMessage" class="smallFont" [class.error]="modRequestMessageIsError" [class.thirdFontColor]="!modRequestMessageIsError">{{ modRequestMessage }}</span>
+        </div>
       </div>
       <div class="groupMembersPanel" *ngIf="isGroupMembersPanelOpen">
         <div class="groupMembersList">

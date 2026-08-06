@@ -186,10 +186,11 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       updated.id = entry.id;
       const currentDate = new Date(entry.date!);
       const [hours, minutes] = time.split(':').map(Number);
+      // The user's local wall-clock time (the input is in their local zone) —
+      // the Date encodes the correct instant; JSON sends it as UTC. The old
+      // `- getTimezoneOffset()` shift double-converted on top of that.
       currentDate.setHours(hours, minutes);
-      // convert to UTC like create does
-      const utcDate = new Date(currentDate.getTime() - (currentDate.getTimezoneOffset() * 60000));
-      updated.date = utcDate;
+      updated.date = currentDate;
       updated.note = note;
       updated.type = type;
       updated.reminder = reminder;
@@ -402,10 +403,11 @@ export class CalendarComponent extends ChildComponent implements OnInit {
 
     const timeString = this.calendarTimeEntry.nativeElement.value;
     const [hours, minutes] = timeString.split(":").map(Number);
+    // The Date is the user's LOCAL wall-clock here, which already encodes the
+    // correct instant — JSON serializes it as its UTC equivalent, so no manual
+    // offset math (the old `- getTimezoneOffset()` shift double-converted and
+    // stored times wrong by the user's UTC offset).
     tmpCalendarEntry.date.setHours(hours, minutes);
-
-    const utcDate = new Date(tmpCalendarEntry.date.getTime() - (tmpCalendarEntry.date.getTimezoneOffset() * 60000));
-    tmpCalendarEntry.date = utcDate;
 
     tmpCalendarEntry.type = this.calendarTypeEntry.nativeElement.value;
     tmpCalendarEntry.note = this.calendarNoteEntry.nativeElement.value;
@@ -483,6 +485,20 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     }
 
     return entry.note || '';
+  }
+
+  // Human timezone label for a calendar date, e.g. 'UTC+2', 'UTC-5',
+  // 'UTC+5:30' or 'UTC' at zero offset. Computed for THAT date (not today) so
+  // DST transitions don't label an event with the current offset.
+  tzOffsetLabel(date?: Date): string {
+    if (!date) return '';
+    const m = -date.getTimezoneOffset();
+    if (m === 0) return 'UTC';
+    const sign = m > 0 ? '+' : '-';
+    const abs = Math.abs(m);
+    const h = Math.floor(abs / 60);
+    const mm = abs % 60;
+    return `UTC${sign}${h}${mm ? ':' + String(mm).padStart(2, '0') : ''}`;
   }
   getEventTypes(): string[] {
     return Object.keys(this.eventSymbolMap);

@@ -66,13 +66,34 @@
         <span class="makePublicBarName">{{ currentChatRoomName }}</span>
         <span class="makePublicBarHint">This chat is public — anyone can find and join it.</span>
       </div>
+      <div class="chatModRequestBar" *ngIf="currentChatId && currentChatUsers.length > 2 && !isChatModerator && !isBannedFromChat">
+        <ng-container *ngIf="!hasPendingModRequest; else pendingModRequest">
+          <span class="makePublicBarHint">Want to help run this room?</span>
+          <button class="chatModRequestBtn" (click)="toggleModRequestBox()">
+            {{ showModRequestBox ? 'Cancel' : '🙋 Request to be a moderator' }}
+          </button>
+        </ng-container>
+        <ng-template #pendingModRequest>
+          <span class="makePublicBarHint">⏳ Your moderator request is pending review by this room's moderators.</span>
+        </ng-template>
+        <div class="chatModRequestBox" *ngIf="showModRequestBox && !hasPendingModRequest">
+          <textarea [(ngModel)]="modRequestText" class="banAppealTextarea"
+            placeholder="Tell the moderators why you'd make a good moderator…" maxlength="500"></textarea>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button (click)="submitModRequest()" [disabled]="isSubmittingModRequest || !modRequestText.trim()" class="coloredBgButton">
+              {{ isSubmittingModRequest ? 'Sending…' : 'Submit request' }}
+            </button>
+            <span *ngIf="modRequestMessage" class="smallFont" [class.error]="modRequestMessageIsError" [class.thirdFontColor]="!modRequestMessageIsError">{{ modRequestMessage }}</span>
+          </div>
+        </div>
+      </div>
       <div class="chatWindow" #chatWindow (scroll)="onScroll();">
         <div *ngIf="pageNumber < totalPages" appInView (inView)="loadPreviousPage()"
           style="width: 100%; text-align: center;" class="smallFont secondaryFontColor">
           <span>Current Page: {{pageNumber}}</span><span *ngIf="isLoadingPreviousPage">{{" "}}Loading...</span>
         </div>
 
-        <ng-container *ngFor="let message of chatHistory; let i = index">
+        <ng-container *ngFor="let message of chatHistory; let i = index; trackBy: trackByMessage">
           <div *ngIf="showDayDivider(message, i)" class="chatDayDivider">{{ getDayLabel(message) }}</div>
 
           <div [attr.id]="'messageText' + message.id" class="messageRow"
@@ -85,7 +106,7 @@
             </div>
             <div class="messageBubble">
               <div class="messageContent" [attr.data-timestamp]="message.timestamp">
-                <div [innerHTML]="getTextForDOM(message.decrypted ? message.decrypted : decryptContent(message.content), 'messageText' + message.id)"
+                <div [innerHTML]="messageTextHtml(message)"
                   *ngIf="!isEditing.includes(message.id)"></div>
                 <div *ngIf="isEditing.includes(message.id)">
                   <app-text-input 

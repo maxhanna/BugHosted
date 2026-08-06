@@ -106,6 +106,19 @@ thead {
   white-space: nowrap;
 }
 
+/* Timezone hint next to the edit-popup time input — makes it clear the event
+   is stored as UTC and shown in the user's local zone (e.g. '(UTC+2)'). */
+.calTzHint {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--secondary-font-color, rgba(255,255,255,0.5));
+  opacity: 0.75;
+  cursor: help;
+  white-space: nowrap;
+}
+
 .calEntry {
   display: flex; 
   align-items: center;

@@ -1,7 +1,7 @@
-.componentMain {
+﻿.componentMain {
   min-width: 50vw;
-  height: CALC(100vh - 60px);
-  height: CALC(100dvh - 60px);
+  height: calc(100vh - 60px);
+  height: calc(100dvh - 60px);
   display: flex;
   flex-direction: column;
 }
@@ -133,8 +133,11 @@
   flex-shrink: 0;
   display: flex;
   flex-direction: row; 
-  align-items: stretch;
-  flex-wrap: wrap;
+  align-items: center;
+}
+
+.chat-container .input-container > * {
+  margin-right: 8px;
 }
 
 .chat-container .input-container textarea {

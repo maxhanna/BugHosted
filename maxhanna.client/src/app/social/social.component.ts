@@ -85,6 +85,14 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   chatRoomDescription = '';
   chatRoomIcon = '';
   isChatRoomModerator = false;
+  // Moderator request for this board's chat room — non-mods can ask to
+  // moderate and the request lands in the moderator panel for review.
+  showModRequestBox = false;
+  modRequestText = '';
+  isSubmittingModRequest = false;
+  hasPendingModRequest = false;
+  modRequestMessage = '';
+  modRequestMessageIsError = false;
   isGroupInfoEditOpen = false;
   editGroupName = '';
   editGroupDescription = '';
@@ -147,9 +155,54 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         (r.targetType === 'chat' && r.role === 'chat_moderator' && r.targetId === this.chatId) ||
         (r.targetType === 'global' && (r.role === 'admin' || r.role === 'moderator'))
       );
+      // Non-mods may have a pending request to moderate this board's room.
+      if (!this.isChatRoomModerator) {
+        const pending = await moderatorService.getMyModeratorRequest(this.chatId, me, sessionToken);
+        this.hasPendingModRequest = !!pending;
+      } else {
+        this.hasPendingModRequest = false;
+      }
     } catch (ex) {
       this.isChatRoomModerator = false;
+      this.hasPendingModRequest = false;
     }
+  }
+
+  toggleModRequestBox() {
+    this.showModRequestBox = !this.showModRequestBox;
+    this.modRequestMessage = '';
+  }
+
+  async submitModRequest() {
+    const me = this.parentRef?.user?.id ?? 0;
+    const text = (this.modRequestText || '').trim();
+    if (!me || !this.chatId) return;
+    if (!text) {
+      this.modRequestMessage = 'Please write a short note about why you want to moderate.';
+      this.modRequestMessageIsError = true;
+      return;
+    }
+    this.isSubmittingModRequest = true;
+    try {
+      const { ModeratorService } = await import('../../services/moderator.service');
+      const moderatorService = new (ModeratorService as any)();
+      const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+      const res = await moderatorService.requestModerator(this.chatId, me, text, sessionToken);
+      if (res.ok) {
+        this.hasPendingModRequest = true;
+        this.showModRequestBox = false;
+        this.modRequestText = '';
+        this.modRequestMessage = res.message;
+        this.modRequestMessageIsError = false;
+      } else {
+        this.modRequestMessage = res.message;
+        this.modRequestMessageIsError = true;
+      }
+    } catch (ex) {
+      this.modRequestMessage = 'Failed to submit the request. Please try again.';
+      this.modRequestMessageIsError = true;
+    }
+    this.isSubmittingModRequest = false;
   }
 
   /** Applies the chat's saved theme to this board by setting scoped CSS vars on

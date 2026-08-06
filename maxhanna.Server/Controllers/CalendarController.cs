@@ -36,7 +36,6 @@ namespace maxhanna.Server.Controllers
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
 					await conn.OpenAsync();
-					await EnsureReminderColumnAsync(conn);
 					string sql = @"
 							SELECT Id, Type, Note, Date, Ownership, Reminder FROM maxhanna.calendar
 							WHERE Ownership = @Owner
@@ -72,7 +71,12 @@ namespace maxhanna.Server.Controllers
 						{
 							while (await rdr.ReadAsync())
 							{
-								entries.Add(new CalendarEntry(rdr.GetInt32(0), rdr.GetString(1), rdr.GetString(2), rdr.GetDateTime(3), rdr.GetString(4), rdr.IsDBNull(5) ? (int?)null : rdr.GetInt32(5)));
+								// The DATETIME column stores UTC wall-clock (clients always send UTC
+							// instants). Mark it Kind=Utc so JSON serializes with a trailing 'Z'
+							// and the client can parse the true instant instead of assuming
+							// local time — the fix for cross-timezone drift.
+							var storedDate = DateTime.SpecifyKind(rdr.GetDateTime(3), DateTimeKind.Utc);
+							entries.Add(new CalendarEntry(rdr.GetInt32(0), rdr.GetString(1), rdr.GetString(2), storedDate, rdr.GetString(4), rdr.IsDBNull(5) ? (int?)null : rdr.GetInt32(5)));
 							}
 						}
 					}
@@ -111,7 +115,6 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				conn.Open();
-				await EnsureReminderColumnAsync(conn);
 
 				// Assuming CalendarEntryModel has properties for Type, Note, and Date
 				string sql = "INSERT INTO maxhanna.calendar (Type, Note, Date, Ownership, Reminder) VALUES (@Type, @Note, @Date, @Owner, @Reminder)";
@@ -160,7 +163,6 @@ namespace maxhanna.Server.Controllers
 				using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
 				{
 					await conn.OpenAsync();
-					await EnsureNotificationsSentTableAsync(conn);
 					const string sql = @"
 						SELECT calendar_text, calendar_date, notification_sent
 						FROM maxhanna.calendar_notifications_sent
@@ -174,8 +176,8 @@ namespace maxhanna.Server.Controllers
 					{
 						rows.Add(new CalendarNotificationSent(
 							rdr.IsDBNull(0) ? "" : rdr.GetString(0),
-							rdr.IsDBNull(1) ? (DateTime?)null : rdr.GetDateTime(1),
-							rdr.IsDBNull(2) ? (DateTime?)null : rdr.GetDateTime(2)));
+							rdr.IsDBNull(1) ? (DateTime?)null : DateTime.SpecifyKind(rdr.GetDateTime(1), DateTimeKind.Utc),
+							rdr.IsDBNull(2) ? (DateTime?)null : DateTime.SpecifyKind(rdr.GetDateTime(2), DateTimeKind.Utc)));
 					}
 				}
 				return Ok(rows);
@@ -243,7 +245,6 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				conn.Open();
-				await EnsureReminderColumnAsync(conn);
 				string sql = @"
 						UPDATE maxhanna.calendar
 						SET Type = @Type,
@@ -282,55 +283,6 @@ namespace maxhanna.Server.Controllers
 			{
 				conn.Close();
 			}
-		}
-
-		/// <summary>
-		/// Idempotent migration: creates the calendar_notifications_sent table if it
-		/// does not exist yet, so the "notifications sent" section works on fresh installs.
-		/// </summary>
-		private async Task EnsureNotificationsSentTableAsync(MySqlConnection conn)
-		{
-			try
-			{
-				const string create = @"CREATE TABLE IF NOT EXISTS maxhanna.calendar_notifications_sent (
-					Id INT NOT NULL AUTO_INCREMENT,
-					user_id INT NOT NULL,
-					calendar_text TEXT NULL,
-					calendar_date DATETIME NULL,
-					notification_sent DATETIME NULL,
-					PRIMARY KEY (Id),
-					KEY idx_calendar_notifications_user (user_id, notification_sent)
-				);";
-				await using var createCmd = new MySqlCommand(create, conn);
-				await createCmd.ExecuteNonQueryAsync();
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("Failed to ensure calendar_notifications_sent table: " + ex.Message, null, "CALENDAR");
-			}
-		}
-
-		/// <summary>
-		/// Idempotent migration: adds the Reminder column (minutes-before) to the
-		/// calendar table if it does not exist yet, so existing installs don't break.
-		/// </summary>
-		private async Task EnsureReminderColumnAsync(MySqlConnection conn)
-		{
-			try
-			{
-				const string check = "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'calendar' AND COLUMN_NAME = 'Reminder';";
-				await using var checkCmd = new MySqlCommand(check, conn);
-				var exists = Convert.ToInt64(await checkCmd.ExecuteScalarAsync());
-				if (exists > 0) return;
-				const string alter = "ALTER TABLE maxhanna.calendar ADD COLUMN Reminder INT NULL AFTER Date;";
-				await using var alterCmd = new MySqlCommand(alter, conn);
-				await alterCmd.ExecuteNonQueryAsync();
-				_ = _log.Db("Added Reminder column to calendar table.", null, "CALENDAR");
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("Failed to ensure calendar Reminder column: " + ex.Message, null, "CALENDAR");
-			}
-		}
+		} 
 	}
 }

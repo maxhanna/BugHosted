@@ -87,6 +87,10 @@
           <div *ngIf="isEditingEntry.includes(cal)">
             Time: <input id="calendarEditingTime" type="time" [value]="(cal.date | date:'HH:mm')"
               (input)="hasEditedCalendarEntry = true" />
+            <span class="calTzHint"
+              [title]="'Stored as UTC — shown in your local timezone (' + tzOffsetLabel(cal.date) + ')'">
+              ({{ tzOffsetLabel(cal.date) }})
+            </span>
             <div>Note:
               <textarea id="calendarEditingNote" rows="4" cols="50" [value]="cal.note"
                 (input)="hasEditedCalendarEntry = true"></textarea>

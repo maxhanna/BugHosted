@@ -78,6 +78,10 @@ interface BotCar {
   raceDist: number;
   pace: number;
   slide: number;
+  // 0..1 brake application from the last frame — fed to the renderer as a
+  // synthetic input accel so its per-car heat/lock/dust sims ramp with how
+  // hard the bot actually brakes, not the (binary) measured deceleration.
+  brakeCommitment?: number;
 }
 interface RemoteAudioVoice {
   engineOsc: OscillatorNode;
@@ -233,6 +237,15 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   // The track's current pace-setter lap (server-returned alongside userRank), so
   // the standings row can show "+1.2s behind 1st" without recomputing it.
   leaderboardBestLap = 0;
+  // Best Laps popup mode: the per-track leaderboard, or the all-races
+  // high-scores view ranking every player's fastest lap across all circuits.
+  leaderboardMode: 'track' | 'overall' = 'track';
+  overallLeaderboard: RaceResult[] = [];
+  overallLeaderboardTotal = 0;
+  overallLeaderboardUserRank = 0;
+  overallLeaderboardBestLap = 0;
+  // Per-player per-track bests for the all-races view (playerId -> trackId -> lap ms).
+  overallPerTrack: Map<number, { [trackId: number]: number }> = new Map();
   // Rank movement since the user's previous race on this track (positive =
   // dropped N places, negative = climbed N). Persisted per track in localStorage.
   rankMovement = 0;
@@ -387,6 +400,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   screenShake = 0;
   isRaining = false;
   soundOn = false;
+  showOptions = false;
+  cameraShakeOn = true;
+  speedFovOn = true;
   constructor(
     private racingService: RacingService,
     private racingHub: RacingHubService,
@@ -399,6 +415,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (typeof window !== 'undefined' && window.innerWidth < 768) this.standingsCollapsed = true;
     this.loadPlayerCar();
     try { this.soundOn = localStorage.getItem('gp_sound') === '1'; } catch { }
+    try { this.cameraShakeOn = localStorage.getItem('gp_shake') !== '0'; } catch { }
+    try { this.speedFovOn = localStorage.getItem('gp_fov') !== '0'; } catch { }
     // Restore the player's saved garage camera (orbit + zoom) from localStorage.
     this.restoreGarageCam();
     this.userEventService.insertUserEvent(
@@ -422,6 +440,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
             this.lobbyPlayers.push(p);
           }
           this.addMessage(`${p.playerName} joined!`);
+        });
+      })
+    );
+    this._mpSubs.push(
+      this.racingHub.rosterUpdate$.subscribe(u => {
+        this.ngZone.run(() => {
+          const p = this.lobbyPlayers.find(x => x.connectionId === u.connectionId);
+          if (p) p.inRace = u.inRace;
         });
       })
     );
@@ -850,19 +876,33 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.showMultiplayer = !this.showMultiplayer;
     if (this.showMultiplayer) {
       await this.ensureHubConnection();
+      // No active lobby → always show the fresh track picker. A stale
+      // selectedTrack (from an offline race or a left lobby) would otherwise
+      // render a ghost 'STEP 2 · IN THE LOBBY' with no lobby behind it — hiding
+      // the map list and making LEAVE LOBBY a no-op (can't leave or change map).
+      if (!this._mpLobbyTrackId) {
+        this.selectedTrack = null;
+        this.lobbyConnectionError = '';
+      }
     }
-    if (!this.showMultiplayer && this._mpLobbyTrackId) {
-      this.racingHub.leaveLobby(this._mpLobbyTrackId);
-      this._mpLobbyTrackId = '';
-      this.lobbyPlayers = [];
-      this.isLobbyHost = false;
-      this.amReady = false;
-      this.chatMessages = [];
-      this.stopMpStartCountdown();
-      this.stopAutoStartTicker();
-      this.autoStartSeconds = 0;
-      this.autoStartDeadline = 0;
-      this._autoStartTotalMs = 0;
+    if (!this.showMultiplayer) {
+      // Leaving the multiplayer tab — drop the lobby connection and any stale
+      // track selection so re-entering shows the picker, never a ghost lobby.
+      if (this._mpLobbyTrackId) {
+        this.racingHub.leaveLobby(this._mpLobbyTrackId);
+        this._mpLobbyTrackId = '';
+        this.lobbyPlayers = [];
+        this.isLobbyHost = false;
+        this.amReady = false;
+        this.chatMessages = [];
+        this.stopMpStartCountdown();
+        this.stopAutoStartTicker();
+        this.autoStartSeconds = 0;
+        this.autoStartDeadline = 0;
+        this._autoStartTotalMs = 0;
+      }
+      this.selectedTrack = null;
+      this.lobbyConnectionError = '';
     }
   }
   private async ensureHubConnection(): Promise<void> {
@@ -1069,6 +1109,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
    *  start lights are never hidden behind the upgrade screen. No-op outside
    *  the garage; the caller still transitions to the countdown state. */
   private closeGarageForRaceStart() {
+    // A race is launching — never leave the options popup (or garage) covering
+    // the start lights/HUD. The popup can be open while a lobby auto-start fires.
+    this.showOptions = false;
     if (this.gameState !== 'garage') return;
     this.selectedTab = 'menu';
     this.gameState = 'countdown';
@@ -1157,8 +1200,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.chatMessages = [];
     this.remoteCars.clear();
     this.selectedTrack = null;
-    this.showMultiplayer = false;
     this.lobbyConnectionError = '';
+    // Stay on the multiplayer tab so the 'pick a track' list is immediately
+    // visible — leaving a lobby is how players switch maps, and dumping them
+    // onto the offline list made changing the track a two-step detour.
+    this.showMultiplayer = true;
   }
   async kickPlayer(connectionId: string) {
     if (!this.isLobbyHost) return;
@@ -1200,6 +1246,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.autoStartDeadline = 0;
       this._autoStartTotalMs = 0;
     }
+    // Clear the track selection whenever we leave multiplayer so re-entering
+    // the tab shows the fresh picker instead of a ghost 'IN THE LOBBY' view.
+    this.selectedTrack = null;
+    this.lobbyConnectionError = '';
     this.showMultiplayer = false;
   }
   carRotateX = 20;
@@ -1343,6 +1393,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private startRace(track: TrackDefinition) {
     const userId = this.parentRef?.user?.id ?? 0;
     if (!userId || !this.selectedTrack) return;
+    this.showOptions = false;
     this.totalLaps = track.laps;
     this.currentLap = 0;
     this.countdownTimer = 10;
@@ -1515,9 +1566,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       const pitch = -0.05 + (this.carSpeed / this.getMaxSpeed()) * 0.03;
       const yaw = this.carYaw;
       const speedRatio = Math.abs(this.carSpeed) / this.getMaxSpeed();
-      const fovZoom = 1.0 - speedRatio * 0.15;
-      const shakeX = this.screenShake * (Math.random() - 0.5) * 2;
-      const shakeY = this.screenShake * (Math.random() - 0.5) * 2;
+      const fovZoom = this.speedFovOn ? 1.0 - speedRatio * 0.15 : 1.0;
+      const shakeX = this.cameraShakeOn ? this.screenShake * (Math.random() - 0.5) * 2 : 0;
+      const shakeY = this.cameraShakeOn ? this.screenShake * (Math.random() - 0.5) * 2 : 0;
       // Accel estimate for the brake-glow flash: (speed - prevSpeed) / dt.
       // Signed — negative = decelerating (braking), which flares the discs.
       const accelFor = (obj: { speed: number }, prev: number) =>
@@ -1541,8 +1592,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         this._prevBotSpeeds.set(b, b.speed);
         const spin = (this._botSpins.get(b) ?? 0) + wheelRate(b.speed) * dt;
         this._botSpins.set(b, spin);
+        // Synthetic 0..1 brake input (mirroring the player's input accel) so
+        // the renderer's heat/lock/dust sims ramp with how hard the bot ACTUALLY
+        // brakes — measured accel would clamp force to 1 on any deceleration.
+        const botAccel = b.brakeCommitment !== undefined ? -b.brakeCommitment : accelFor(b, prev);
         return {
-          x: b.x, y: 0.1, z: b.z, yaw: b.yaw, r: c[0], g: c[1], b: c[2], speed: b.speed, accel: accelFor(b, prev), spin, slide: b.slide,
+          x: b.x, y: 0.1, z: b.z, yaw: b.yaw, r: c[0], g: c[1], b: c[2], speed: b.speed, accel: botAccel, spin, slide: b.slide,
           id: b.id, // stable id for per-car renderer state (brake heat)
           ...this.botAppearanceFor(i, b.color)
         };
@@ -1897,7 +1952,19 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     for (const bot of this.bots) {
       const prevBotDist = bot.dist;
       const prevYaw = bot.yaw;
-      const lookDist = bot.dist + AI_LOOKAHEAD * 5;
+      // Heat-aware trail-braking: hot discs force the bot to brake earlier and
+      // lighter. Aggression tunes the heat it tolerates before backing off —
+      // calm bots ease off early and never fade; aggressive bots push the discs
+      // past fade-on, lose bite and drop pace. Heat is the renderer's per-car
+      // sim (one frame behind, driven by last frame's brake commitment).
+      const botHeat = this.renderer?.getCarBrakeHeat(bot.id) ?? 0;
+      const heatComfort = 0.55 + bot.config.aggression * 0.6;   // 0.55 .. 1.15
+      const heatPenalty = botHeat > heatComfort
+        ? Math.min(1, (botHeat - heatComfort) / (BRAKE_HEAT_FADE_TOP - heatComfort))
+        : 0;
+      // Hot bots look further ahead so they start braking sooner to compensate
+      // for the reduced bite — braking early is exactly what costs them time.
+      const lookDist = bot.dist + AI_LOOKAHEAD * 5 * (1 + heatPenalty * 0.4);
       const target = this.renderer.getTrackPointAlong(lookDist);
       const baseSpeed = bot.config.speedBase * bot.pace * (1 + this.getSpeedBonus() / 200);
       const maxBotSpeed = Math.min(baseSpeed + bot.config.speedVariance, this.getMaxSpeed() * 0.95 * (0.9 + bot.pace * 0.1));
@@ -1942,21 +2009,28 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       } else if (Math.random() < bot.config.mistakeChance * dt) {
         bot.mistakeTimer = 0.5 + Math.random() * 1;
       }
-      // Brake-heat fade — the same disc-heat sim as the player: hot discs lose
-      // bite, so a bot that over-brakes late in the race stops worse into
-      // corners and its pace degrades just like the player's. Heat is read
-      // back from the renderer's per-car sim (one frame behind, eased).
+      // Heat-modulated braking instead of an always-full-brake ease: brake
+      // commitment scales with cornerSkill when cool, then eases off as the
+      // discs heat past the aggression-tuned comfort threshold — up to 85% cut
+      // at white-hot. Only genuine corner braking counts (straight defensive
+      // easing shouldn't cook the discs).
       let ease = 0.1;
-      // Only genuine corner braking counts — a bot easing down for defensive
-      // reasons on a straight shouldn't cook its discs. (Bots' measured accel
-      // is effectively binary, so without the sharpness gate every stop would
-      // overheat them and the fade would be an always-on late-race tax.)
       if (targetSpeed < bot.speed && cornerSharpness > 0.12) {
-        const bh = this.renderer?.getCarBrakeHeat(bot.id) ?? 0;
-        if (bh > BRAKE_HEAT_FADE_ON) {
-          const t = Math.min(1, (bh - BRAKE_HEAT_FADE_ON) / (BRAKE_HEAT_FADE_TOP - BRAKE_HEAT_FADE_ON));
-          ease *= 1 - BRAKE_HEAT_FADE_AMOUNT * t;
-        }
+        const skill = 0.7 + bot.config.cornerSkill * 0.3;   // skilled bots brake harder when cool
+        // Floor at 0.35 keeps the renderer's braking gate (accel < -0.3) engaged
+        // so a faded bot eases smoothly instead of flip-flopping between braking
+        // and cooldown every frame.
+        const commitment = Math.max(0.35, skill * (1 - 0.85 * heatPenalty));
+        ease = 0.04 + commitment * 0.09;
+        bot.brakeCommitment = commitment;
+      } else if (targetSpeed < bot.speed) {
+        // Gentle straight-line braking — small floor so the brakes still read
+        // without cooking the discs like a hard corner stop.
+        bot.brakeCommitment = 0.25;
+      } else {
+        // Accelerating/coasting — a light positive signal keeps the renderer's
+        // per-car heat (and lock/dust) sims seeing a proportional input.
+        bot.brakeCommitment = targetSpeed > bot.speed + 1 ? 0.7 : 0;
       }
       bot.speed += (targetSpeed - bot.speed) * ease;
       bot.speed = Math.max(0, Math.min(maxBotSpeed, bot.speed));
@@ -2550,7 +2624,125 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
   async toggleLeaderboard() {
     this.showLeaderboard = !this.showLeaderboard;
-    if (this.showLeaderboard) await this.loadLeaderboard();
+    if (this.showLeaderboard) {
+      if (this.leaderboardMode === 'overall') await this.loadOverallLeaderboard();
+      else await this.loadLeaderboard();
+    }
+  }
+  // Switch the Best Laps popup between the selected circuit's leaderboard and
+  // the all-races high-scores view (loads the overall board on first use).
+  async setLeaderboardMode(mode: 'track' | 'overall') {
+    this.leaderboardMode = mode;
+    // Always refetch on switch so a race finished while on the other tab shows
+    // up immediately instead of waiting for the popup to reopen.
+    if (mode === 'overall') {
+      await this.loadOverallLeaderboard();
+    }
+  }
+  async loadOverallLeaderboard() {
+    const uid = this.parentRef?.user?.id ?? 0;
+    try {
+      const data = await this.racingService.getOverallLeaderboard(uid);
+      this.overallLeaderboard = data?.results ?? [];
+      this.overallLeaderboardTotal = data?.totalCount ?? 0;
+      this.overallLeaderboardUserRank = data?.userRank ?? 0;
+      this.overallLeaderboardBestLap = data?.bestLap ?? 0;
+      this.overallPerTrack = new Map();
+      for (const r of this.overallLeaderboard) {
+        const b = (r as any).bestLapsByTrack;
+        if (r.playerId > 0 && b) this.overallPerTrack.set(r.playerId, b);
+      }
+      // Pin the user's overall lap at the bottom when it didn't crack the top 100.
+      if (uid && !this.overallLeaderboard.some(r => r.playerId === uid)) {
+        const myBest = this.getMyOverallBest();
+        if (myBest > 0) {
+          this.overallLeaderboard.push({
+            position: this.overallLeaderboard.length + 1,
+            playerId: uid,
+            playerName: this.playerCar.playerName?.trim() || this.parentRef?.user?.username || 'You',
+            lapTime: myBest,
+            totalTime: 0,
+            moneyEarned: 0,
+            isBot: false,
+            trackId: this.getMyOverallTrackId(),
+          });
+        }
+      }
+    } catch {
+      this.overallLeaderboard = [];
+      this.overallLeaderboardTotal = 0;
+      this.overallLeaderboardUserRank = 0;
+      this.overallLeaderboardBestLap = 0;
+    }
+  }
+  // The user's per-track records for the overall view — the server only
+  // includes players who cracked the top 100, so fall back to the player car's
+  // locally-loaded records when the user isn't on the board.
+  private getMyOverallByTrack(): { [trackId: number]: number } | null {
+    const uid = this.parentRef?.user?.id ?? 0;
+    if (!uid) return null;
+    const mine = this.overallPerTrack.get(uid) ?? this.playerCar.bestLapsByTrack;
+    return mine && Object.keys(mine).length > 0 ? mine : null;
+  }
+  getMyOverallBest(): number {
+    const mine = this.getMyOverallByTrack();
+    if (!mine) return 0;
+    const vals = Object.values(mine).filter(v => v > 0);
+    return vals.length ? Math.min(...vals) : 0;
+  }
+  getMyOverallTrackId(): number {
+    const mine = this.getMyOverallByTrack();
+    if (!mine) return 0;
+    let best = 0;
+    for (const [tid, lap] of Object.entries(mine)) {
+      if (lap > 0 && (best === 0 || lap < mine[best])) best = Number(tid);
+    }
+    return best;
+  }
+  getOverallMedal(): string {
+    if (this.overallLeaderboardUserRank === 1) return '🥇';
+    if (this.overallLeaderboardUserRank === 2) return '🥈';
+    if (this.overallLeaderboardUserRank === 3) return '🥉';
+    return this.overallLeaderboardUserRank > 0 ? '🎖️' : '🏁';
+  }
+  getOverallStandingText(): string {
+    const total = this.overallLeaderboardTotal;
+    const rank = this.overallLeaderboardUserRank;
+    if (rank > 0) {
+      let text = `#${rank} of ${total} overall`;
+      const leader = this.overallLeaderboardBestLap;
+      const myBest = this.getMyOverallBest();
+      if (rank > 1 && leader > 0 && myBest > 0 && myBest > leader) {
+        text += ` · ${this.formatLapGap(myBest - leader)} behind 1st`;
+      }
+      return text;
+    }
+    return total > 0 ? `No lap yet — ${total} racers overall` : 'No laps recorded yet';
+  }
+  // Name of the circuit a row's overall best was set on.
+  getOverallRowTrack(r: RaceResult): string {
+    const track = this.trackDefs.find(t => t.id === r.trackId);
+    return track ? `${this.getTrackFlag(track)} ${track.name}` : '—';
+  }
+  // Per-track chips for an overall row, fastest first.
+  getOverallChips(r: RaceResult): { flag: string; name: string; lap: number }[] {
+    const byTrack = this.overallPerTrack.get(r.playerId);
+    if (!byTrack) return [];
+    return Object.entries(byTrack)
+      .map(([tid, lap]) => {
+        const track = this.trackDefs.find(t => t.id === Number(tid));
+        return { flag: track ? this.getTrackFlag(track) : '🏁', name: track ? track.name : 'Track', lap };
+      })
+      .filter(c => c.lap > 0)
+      .sort((a, b) => a.lap - b.lap);
+  }
+  getOverallGapText(r: RaceResult): string {
+    if (!r.lapTime || r.lapTime <= 0) return '';
+    const leader = this.overallLeaderboardBestLap;
+    if (leader > 0) {
+      return r.lapTime <= leader ? 'PACE' : `${this.formatLapGap(r.lapTime - leader)} vs 1st`;
+    }
+    return '';
   }
   // Name of the circuit a leaderboard row belongs to. Rows are filtered to the
   // selected track server-side, but we resolve per-row (via r.trackId when the
@@ -3300,6 +3492,20 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
   closeLoginPanel() {
     this.gameState = 'menu';
+  }
+  toggleOptions() {
+    if (this._destroyed) return;
+    this.showOptions = !this.showOptions;
+  }
+  toggleCameraShake() {
+    if (this._destroyed) return;
+    this.cameraShakeOn = !this.cameraShakeOn;
+    try { localStorage.setItem('gp_shake', this.cameraShakeOn ? '1' : '0'); } catch { }
+  }
+  toggleSpeedFov() {
+    if (this._destroyed) return;
+    this.speedFovOn = !this.speedFovOn;
+    try { localStorage.setItem('gp_fov', this.speedFovOn ? '1' : '0'); } catch { }
   }
   toggleSound() {
     if (this._destroyed) return;

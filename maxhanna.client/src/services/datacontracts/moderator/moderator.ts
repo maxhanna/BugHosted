@@ -72,3 +72,18 @@ export interface ChatBanAppeal {
   resolvedBy?: number | null;
   resolution?: string | null;
 }
+
+/** A user's request to become a moderator of a chat room, resolved by that
+ * chat's moderators (or an admin). Shows up in the moderator panel's requests. */
+export interface ModeratorRequest {
+  id: number;
+  chatId: number;
+  userId: number;
+  username?: string | null;
+  chatName?: string | null;
+  requestText?: string | null;
+  createdAt?: Date;
+  resolvedAt?: Date | null;
+  resolvedBy?: number | null;
+  resolution?: string | null;
+}

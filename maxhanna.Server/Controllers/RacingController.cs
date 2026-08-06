@@ -810,6 +810,89 @@ namespace maxhanna.Server.Controllers
 			}
 			catch { return Ok(new { results = new List<LeaderboardEntry>(), totalCount = 0, userRank = 0, bestLap = 0.0 }); }
 		}
+
+		// High-scores view across ALL circuits: every player's fastest lap anywhere
+		// (with the circuit it was set on + their full per-track breakdown), so the
+		// Best Laps panel can rank the whole field like a championship table.
+		[HttpGet("leaderboard-overall")]
+		public async Task<IActionResult> GetOverallLeaderboard([FromQuery] int userId = 0)
+		{
+			try
+			{
+				var perUser = new Dictionary<int, Dictionary<int, double>>();
+				var names = new Dictionary<int, string>();
+				var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna");
+				if (!string.IsNullOrEmpty(connStr))
+				{
+					using var conn = new MySqlConnection(connStr);
+					await conn.OpenAsync();
+					using var cmd = new MySqlCommand(@"
+						SELECT user_id, track_id, lap_time, player_name FROM (
+							SELECT r.user_id, r.track_id, r.lap_time AS lap_time,
+							       COALESCE(NULLIF(r.player_name, ''), u.username, 'Unknown') AS player_name
+							FROM racing_results r
+							LEFT JOIN users u ON r.user_id = u.id
+							WHERE r.lap_time > 0 AND r.user_id > 0
+							UNION ALL
+							SELECT bl.user_id, bl.track_id, bl.best_lap AS lap_time,
+							       COALESCE(NULLIF(c.player_name, ''), u.username, 'Unknown') AS player_name
+							FROM racing_best_laps bl
+							LEFT JOIN racing_player_car c ON c.user_id = bl.user_id
+							LEFT JOIN users u ON bl.user_id = u.id
+							WHERE bl.best_lap > 0 AND bl.user_id > 0
+						) t", conn);
+					// Reader disposed before any second query on the same connection.
+					using (var rdr = await cmd.ExecuteReaderAsync())
+					{
+						while (await rdr.ReadAsync())
+						{
+							int uid = rdr.GetInt32(0);
+							int tid = rdr.GetInt32(1);
+							double lap = rdr.GetDouble(2);
+							// Humans only — bot results (non-positive user ids) must never
+							// rank on the high-scores board or inflate totals/ranks.
+							if (uid <= 0 || lap <= 0) continue;
+							if (!perUser.TryGetValue(uid, out var byTrack))
+							{
+								byTrack = new Dictionary<int, double>();
+								perUser[uid] = byTrack;
+							}
+							if (!byTrack.TryGetValue(tid, out var existing) || lap < existing) byTrack[tid] = lap;
+							names[uid] = rdr.IsDBNull(3) ? "Unknown" : rdr.GetString(3);
+						}
+					}
+				}
+				// Aggregate: each player's overall best (fastest lap on any circuit) + the
+				// circuit it was set on, plus the full per-track breakdown for the row chips.
+				var ranked = perUser
+					.Select(kv =>
+					{
+						double overall = kv.Value.Values.Min();
+						int trackId = kv.Value.First(p => p.Value == overall).Key;
+						return new
+					{
+							playerId = kv.Key,
+							playerName = names.TryGetValue(kv.Key, out var n) ? n : "Unknown",
+							lapTime = overall,
+							trackId,
+							bestLapsByTrack = kv.Value
+					};
+					})
+					.OrderBy(e => e.lapTime)
+					.Take(100)
+					.ToList();
+				int totalCount = perUser.Count;
+				int userRank = 0;
+				if (userId > 0 && perUser.TryGetValue(userId, out var mine))
+				{
+					double myBest = mine.Values.Min();
+					userRank = 1 + perUser.Count(kv => kv.Value.Values.Min() < myBest);
+				}
+				double bestLap = ranked.Count > 0 ? ranked[0].lapTime : 0;
+				return Ok(new { results = ranked, totalCount, userRank, bestLap });
+			}
+			catch { return Ok(new { results = new List<object>(), totalCount = 0, userRank = 0, bestLap = 0.0 }); }
+		}
 		private static UpgradeDef? GetUpgradeDef(int id)
 		{
 			return id switch

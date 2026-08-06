@@ -87,6 +87,9 @@ namespace maxhanna.Server.Hubs
                         // broadcast the classification now instead of stalling.
                         await TryBroadcastStandingsAsync(racer.LobbyId, lobby);
                     }
+                    // The departed player may be in other lobbies — recompute their
+                    // IN RACE badge there (clears if this was their racing seat).
+                    _ = RecomputeInRaceForAsync(racer.LobbyId, Context.ConnectionId, racer.PlayerId);
                 }
             }
             await base.OnDisconnectedAsync(exception);
@@ -150,6 +153,10 @@ namespace maxhanna.Server.Hubs
                 SkinId = 1
             };
             lobby.Players.Add(lp);
+            // Recompute every member's "in another race" flag — the joiner may
+            // already be racing elsewhere, and the roster they receive must be
+            // accurate the moment it renders.
+            RefreshLobbyInRaceFlags(lobby);
 
             // Track this connection's lobby
             _racers[Context.ConnectionId] = new RacerState
@@ -169,7 +176,8 @@ namespace maxhanna.Server.Hubs
                 playerName,
                 playerId,
                 isHost = lp.IsHost,
-                skinId = lp.SkinId
+                skinId = lp.SkinId,
+                inRace = lp.InRace
             });
 
             // Start auto-start timer if this is the first player
@@ -208,7 +216,8 @@ namespace maxhanna.Server.Hubs
                     p.PlayerId,
                     p.IsHost,
                     p.Ready,
-                    p.SkinId
+                    p.SkinId,
+                    p.InRace
                 }).ToList(),
                 isHost = lp.IsHost,
                 autoStartRemaining = lobby.RaceStatus == "lobby" ? lobby.AutoStartRemaining : 0
@@ -244,6 +253,10 @@ namespace maxhanna.Server.Hubs
 
                 await Clients.Group(lobbyId).SendAsync("OnPlayerLeft", p?.PlayerName ?? "Unknown");
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, lobbyId);
+
+                // The leaver may be sitting in other lobbies — recompute their
+                // IN RACE badge there (clears if this was their racing seat).
+                _ = RecomputeInRaceForAsync(lobbyId, Context.ConnectionId, p?.PlayerId ?? 0);
 
                 if (lobby.Players.Count == 0)
                 {
@@ -319,6 +332,10 @@ namespace maxhanna.Server.Hubs
             CancelAutoStartTimer(lobby);
 
             lobby.RaceStatus = "countdown";
+            // These players are now committed to this race — from any other lobby
+            // they sit in, they should show as IN RACE.
+            RefreshLobbyInRaceFlags(lobby);
+            _ = BroadcastInRaceUpdatesAsync(lobby);
 
             // Broadcast the race start timestamp ONCE. The client drives its own
             // start-light countdown locally from startTime (now + 10s), so a
@@ -370,11 +387,80 @@ namespace maxhanna.Server.Hubs
             });
         }
 
+        // A lobby member is "in a game" when the same connection (or player id)
+        // holds a live seat in ANOTHER lobby whose race is running or in its 10s
+        // start lights. Same-lobby races never count — everyone there is in the
+        // same game already.
+        private bool IsInAnotherRace(LobbyState lobby, LobbyPlayer p)
+        {
+            foreach (var other in _lobbies)
+            {
+                if (other.Key == lobby.LobbyId) continue;
+                if (other.Value.RaceStatus != "countdown" && other.Value.RaceStatus != "racing") continue;
+                // Snapshot: this runs from fire-and-forget broadcasts that overlap
+                // with hub calls mutating the same Players list (Add/RemoveAll).
+                if (other.Value.Players.ToList().Any(x => x.ConnectionId == p.ConnectionId || (p.PlayerId > 0 && x.PlayerId == p.PlayerId)))
+                    return true;
+            }
+            return false;
+        }
+
+        private void RefreshLobbyInRaceFlags(LobbyState lobby)
+        {
+            foreach (var p in lobby.Players) p.InRace = IsInAnotherRace(lobby, p);
+        }
+
+        // After a lobby's race status changes (started, finished, or a player
+        // left), tell OTHER lobbies that share players so their rosters can flip
+        // the IN RACE badge without a full rejoin. Uses the local lobby reference
+        // even if it was just removed from _lobbies (removal itself means those
+        // players are no longer racing, which IsInAnotherRace already reflects).
+        private async Task BroadcastInRaceUpdatesAsync(LobbyState lobby)
+        {
+            foreach (var other in _lobbies)
+            {
+                if (other.Key == lobby.LobbyId) continue;
+                foreach (var p in other.Value.Players.ToList())
+                {
+                    bool shared = lobby.Players.ToList().Any(x => x.ConnectionId == p.ConnectionId || (p.PlayerId > 0 && x.PlayerId == p.PlayerId));
+                    if (!shared) continue;
+                    bool inRace = IsInAnotherRace(other.Value, p);
+                    if (p.InRace == inRace) continue;
+                    p.InRace = inRace;
+                    try { await Clients.Group(other.Key).SendAsync("OnLobbyRosterUpdate", new { connectionId = p.ConnectionId, inRace }); } catch { }
+                }
+            }
+        }
+
+        // After a player leaves/removes their seat in one lobby, recompute their
+        // IN RACE badge on every OTHER lobby roster they still sit in (their
+        // racing status may have changed — either cleared or still racing in a
+        // third lobby). Only sends when the flag actually flips.
+        private async Task RecomputeInRaceForAsync(string excludeLobbyId, string connectionId, int playerId)
+        {
+            foreach (var other in _lobbies)
+            {
+                if (other.Key == excludeLobbyId) continue;
+                foreach (var p in other.Value.Players.ToList())
+                {
+                    if (p.ConnectionId != connectionId && !(playerId > 0 && p.PlayerId == playerId)) continue;
+                    bool inRace = IsInAnotherRace(other.Value, p);
+                    if (p.InRace != inRace)
+                    {
+                        p.InRace = inRace;
+                        try { await Clients.Group(other.Key).SendAsync("OnLobbyRosterUpdate", new { connectionId = p.ConnectionId, inRace }); } catch { }
+                    }
+                }
+            }
+        }
+
         private void ResetLobby(LobbyState lobby)
         {
             CancelAutoStartTimer(lobby);
             CancelStandingsReset(lobby);
             lobby.RaceStatus = "lobby";
+            RefreshLobbyInRaceFlags(lobby);
+            _ = BroadcastInRaceUpdatesAsync(lobby);
             lobby.FinishedConnections.Clear();
             lobby.FinishedResults.Clear();
             lobby.RaceDist.Clear();
@@ -414,6 +500,8 @@ namespace maxhanna.Server.Hubs
                         // Auto-start the race — broadcast the authoritative start
                         // timestamp once; the client counts the lights down locally.
                         lobby.RaceStatus = "countdown";
+                        RefreshLobbyInRaceFlags(lobby);
+                        _ = BroadcastInRaceUpdatesAsync(lobby);
                         var startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + COUNTDOWN_MS;
                         await Clients.Group(lobbyId).SendAsync("OnRaceStarted", new
                         {
@@ -820,6 +908,10 @@ namespace maxhanna.Server.Hubs
             public bool IsHost { get; set; }
             public bool Ready { get; set; }
             public int SkinId { get; set; }
+            // True when this member holds a live seat in ANOTHER lobby whose race
+            // is running (or in its 10s start lights) — i.e. they're already in a
+            // game elsewhere. Drives the "🏁 IN RACE" badge on lobby rosters.
+            public bool InRace { get; set; }
         }
 
         private class RacerState

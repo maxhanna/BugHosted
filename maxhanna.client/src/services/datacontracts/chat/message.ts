@@ -16,6 +16,10 @@ export class Message {
   editDate?: Date;
   polls?: Poll[];
   decrypted?: string;
+  /** Pre-rendered innerHTML (see chat getMessageHistory) so change detection
+   *  re-reads a cached property instead of rebuilding HTML every tick. */
+  // Transient client-side cache of the rendered row HTML (never serialized).
+  domHtml?: any;
 
   constructor(id: number, chatId: number, sender: User, receiver: User[], content: string, timestamp: Date, 
     reactions?: Reaction[], files?: FileEntry[], seen?: string, editDate?: Date) {

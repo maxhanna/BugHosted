@@ -39,6 +39,36 @@
   align-items: center;
 }
 
+.groupModRequestPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  border-radius: 8px;
+  background: var(--main-background-color);
+  border: 1px solid var(--main-border-color);
+}
+
+.groupModRequestTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--main-border-color);
+  background: var(--main-background-color);
+  color: var(--main-font-color);
+  font-size: 14px;
+  resize: vertical;
+}
+
+.groupModRequestActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .groupInfoEditPanel {
   display: flex;
   flex-direction: column;
