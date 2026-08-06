@@ -29,6 +29,7 @@ export interface GTHighScoreEntry {
   kills: number;
   deaths: number;
   money: number;
+  moneyEarned: number; // lifetime cumulative money earned
 }
 
 export interface GTJumpRamp {

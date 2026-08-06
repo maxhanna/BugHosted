@@ -122,13 +122,9 @@
 .navSearchClear:hover {
   opacity: 1;
 }
-
-/* ── Type-ahead suggestions popup ────────────────────────────────────
-   Anchored above the search pill, stacked over the app icons. Grouped by
-   content type (files, posts, comments, news, favourites) with hover
-   highlighting and keyboard-scrollable content. */
+ 
 .navSuggestPopup {
-  position: absolute;
+  position: relative;
   bottom: calc(100% + 8px);
   left: 0;
   right: 0;

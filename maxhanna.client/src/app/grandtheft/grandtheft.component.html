@@ -158,6 +158,7 @@
           <button class="lb-sort" [class.active]="hsSort === 'kills'" (click)="setHsSort('kills')">Kills</button>
           <button class="lb-sort" [class.active]="hsSort === 'deaths'" (click)="setHsSort('deaths')">Deaths</button>
           <button class="lb-sort" [class.active]="hsSort === 'money'" (click)="setHsSort('money')">Money</button>
+          <button class="lb-sort" [class.active]="hsSort === 'earned'" (click)="setHsSort('earned')">Earned</button>
           <span class="lb-sort-hint" *ngIf="hsLoading">loading…</span>
         </div>
         <div class="lb-row lb-header-row">
@@ -166,6 +167,7 @@
           <span class="lb-stat">Kills</span>
           <span class="lb-stat">Deaths</span>
           <span class="lb-stat">Money</span>
+          <span class="lb-stat">Earned</span>
         </div>
         <div class="lb-rows">
           <div class="lb-row" *ngFor="let h of highScores; let i = index; trackBy: trackByHighScore"
@@ -178,6 +180,7 @@
             <span class="lb-stat">{{ h.kills }}</span>
             <span class="lb-stat">{{ h.deaths }}</span>
             <span class="lb-stat">${{ h.money }}</span>
+            <span class="lb-stat">${{ h.moneyEarned }}</span>
           </div>
           <div class="lb-empty" *ngIf="!hsLoading && highScores.length === 0">No scores yet — go cause some trouble!</div>
         </div>

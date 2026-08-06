@@ -10,6 +10,11 @@ const CHUNK_SIZE = 80;
 const CAR_HEIGHT = 0.4;
 const JUMP_GRAVITY = 18;
 const JUMP_MIN_DIST = 8;
+// Stunt bonus thresholds: landing at or above this launch speed (ground car
+// top speed is ~35) earns distance-scaled cash even without a record, capped
+// well below the record reward so records stay the big prize.
+const JUMP_BONUS_MIN_SPEED = 20;
+const JUMP_BONUS_MAX = 500;
 // Fixed jump ramps (ids must match the server's JumpRamps list). yaw follows
 // the car-forward convention (sin yaw, cos yaw) so the lip points down the road.
 const JUMP_RAMPS = [
@@ -166,7 +171,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   showWeaponWheel = false;
   showLeaderboard = false;
   lbTab: 'live' | 'scores' | 'jumps' = 'live';
-  hsSort: 'kills' | 'deaths' | 'money' = 'kills';
+  hsSort: 'kills' | 'deaths' | 'money' | 'earned' = 'kills';
   highScores: any[] = [];
   hsTotal = 0;
   hsUserRank = 0;
@@ -185,6 +190,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   jumpReadout = '';
   jumpToast = '';
   jumpRampData: any[] = [];
+  // Launch speed at ramp trigger — used to gate the non-record stunt bonus.
+  jumpLaunchSpeed = 0;
+  // Ramps whose once-per-session stunt bonus has already been claimed.
+  // In-memory = one claim per ramp per page-load session, exactly the 'once
+  // per ramp per session' rule the user asked for.
+  jumpBonusClaimed: Set<number> = new Set();
   private _jumpToastTimer: any = null;
   otherPlayers: OtherPlayerState[] = [];
   tracers: Tracer[] = [];
@@ -3245,7 +3256,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
         const landDist = Math.hypot(this.carX - this.jumpLaunchX, this.carZ - this.jumpLaunchZ);
         if (landDist >= JUMP_MIN_DIST && this.jumpRampId > 0) {
-          this.submitJump(this.jumpRampId, landDist, this.jumpPeak);
+          this.submitJump(this.jumpRampId, landDist, this.jumpPeak, this.jumpLaunchSpeed);
         }
         this.jumpRampId = 0;
         this.jumpPeak = 0;
@@ -3275,6 +3286,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.jumpRampId = r.id;
           this.jumpLaunchX = this.carX;
           this.jumpLaunchZ = this.carZ;
+          this.jumpLaunchSpeed = spd;
           this.jumpVy = Math.min(5 + spd * 0.18, 12);
           this.jumpPeak = 0;
           this.jumpAirtime = 0;
@@ -3285,7 +3297,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
 
-  private async submitJump(rampId: number, distance: number, height: number) {
+  private async submitJump(rampId: number, distance: number, height: number, launchSpeed: number) {
     const uid = this.getUserId();
     if (!uid) return;
     const res: any = await this.gtService.submitJump(uid, rampId, Math.round(distance * 10) / 10, Math.round(height * 10) / 10);
@@ -3295,7 +3307,19 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.showJumpToast(`🏆 JUMP RECORD! ${res.distance}m (+$${res.reward})`);
       if (this.lbTab === 'jumps') this.loadJumps();
     } else if (res && res.ok) {
-      this.showJumpToast(`JUMP ${distance}m · best ${res.bestDistance}m`);
+      // Non-record stunt bonus: a high-speed landing still pays distance-scaled
+      // cash, but only once per ramp per session so it can't be farmed.
+      const bonus = launchSpeed >= JUMP_BONUS_MIN_SPEED && !this.jumpBonusClaimed.has(rampId)
+        ? Math.min(25 + Math.round(distance * 2), JUMP_BONUS_MAX)
+        : 0;
+      if (bonus > 0) {
+        this.jumpBonusClaimed.add(rampId);
+        this.money += bonus;
+        this.moneyStacks.push({ x: this.carX, z: this.carZ, amount: bonus, yaw: 0, age: 0, lifetime: 5 });
+        this.showJumpToast(`🛹 STUNT BONUS! ${Math.round(distance)}m (+$${bonus})`);
+      } else {
+        this.showJumpToast(`JUMP ${distance}m · best ${res.bestDistance}m`);
+      }
     }
   }
 
@@ -5222,6 +5246,28 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText('R', rx, ry + 12);
+      }
+    }
+
+    // Jump ramps — pulsing 🛹 markers so players can spot the stunt locations
+    // on the map and head over for a high-score jump.
+    if (JUMP_RAMPS.length) {
+      for (const jr of JUMP_RAMPS) {
+        const mx = cx + (jr.x - this.carX) * scale;
+        const my = cy + (jr.z - this.carZ) * scale;
+        if (mx < -20 || mx > 320 || my < -20 || my > 320) continue; // off-map cull
+        const pulse = 6 + Math.sin(now / 350 + jr.id) * 2;
+        ctx.fillStyle = 'rgba(0, 210, 255, 0.25)';
+        ctx.beginPath(); ctx.arc(mx, my, pulse, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(0, 210, 255, 0.9)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(mx, my, pulse, 0, Math.PI * 2); ctx.stroke();
+        ctx.font = '13px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🛹', mx, my);
+        ctx.textAlign = 'start';
+        ctx.textBaseline = 'alphabetic';
       }
     }
   }
