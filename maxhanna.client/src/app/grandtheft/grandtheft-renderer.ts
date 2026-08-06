@@ -1,49 +1,42 @@
 ﻿import { CityMesh, CityChunk, GltfAnimation, BuildingPlacement } from "../../services/grandtheft.service";
-
 const CHUNK_SIZE = 80;
 const GRID_PITCH = 80;
 const BLOCK_SIZE = 30;
 const SIDEWALK_SIZE = 48;
-const ROAD_HALF_WIDTH = (GRID_PITCH - SIDEWALK_SIZE) / 2; // 16
+const ROAD_HALF_WIDTH = (GRID_PITCH - SIDEWALK_SIZE) / 2; 
 const BIOME_RADIUS_MOUNTAIN = 30;
 const BRIDGE_DECK_Y = 12.0;
-
 interface IslandDef {
   cx: number; cz: number;
   cityR: number;
   suburbR: number;
   ruralR: number;
 }
-
 const ISLANDS: IslandDef[] = [
-  { cx: 0, cz: 0, cityR: 2.5, suburbR: 3.5, ruralR: 3.5 },     // Island 1 (Home/Spawn)
-  { cx: 10, cz: 0, cityR: 5, suburbR: 7, ruralR: 8 },           // Island 2 (Downtown)
-  { cx: 24, cz: 0, cityR: 3, suburbR: 6, ruralR: 8 },           // Island 3 (Suburbs)
-  { cx: 41, cz: 0, cityR: 5, suburbR: 8, ruralR: 10 },          // Island 4 (Beach Resort)
-  { cx: -10, cz: 0, cityR: 0, suburbR: 0, ruralR: 6 },          // Rural West
-  { cx: 61, cz: 0, cityR: 0, suburbR: 0, ruralR: 10 },          // Rural East
-  { cx: -18, cz: 0, cityR: 0, suburbR: 0, ruralR: 5 },          // Rural Far West
-  { cx: 75, cz: 0, cityR: 0, suburbR: 0, ruralR: 7 },           // Rural Far East
+  { cx: 0, cz: 0, cityR: 2.5, suburbR: 3.5, ruralR: 3.5 },     
+  { cx: 10, cz: 0, cityR: 5, suburbR: 7, ruralR: 8 },           
+  { cx: 24, cz: 0, cityR: 3, suburbR: 6, ruralR: 8 },           
+  { cx: 41, cz: 0, cityR: 5, suburbR: 8, ruralR: 10 },          
+  { cx: -10, cz: 0, cityR: 0, suburbR: 0, ruralR: 6 },          
+  { cx: 61, cz: 0, cityR: 0, suburbR: 0, ruralR: 10 },          
+  { cx: -18, cz: 0, cityR: 0, suburbR: 0, ruralR: 5 },          
+  { cx: 75, cz: 0, cityR: 0, suburbR: 0, ruralR: 7 },           
 ];
-
 interface BridgeDef {
   startCx: number; endCx: number; startCz: number; endCz: number;
 }
-
 const BRIDGES: BridgeDef[] = [
-  { startCx: 4, endCx: 5, startCz: 0, endCz: 0 },     // Island 1 ↔ Island 2
-  { startCx: 16, endCx: 17, startCz: 0, endCz: 0 },   // Island 2 ↔ Island 3
-  { startCx: 31, endCx: 32, startCz: 0, endCz: 0 },   // Island 3 ↔ Island 4
+  { startCx: 4, endCx: 5, startCz: 0, endCz: 0 },     
+  { startCx: 16, endCx: 17, startCz: 0, endCz: 0 },   
+  { startCx: 31, endCx: 32, startCz: 0, endCz: 0 },   
 ];
-
 const BRIDGE_CONNECTORS: { cx: number; cz: number }[] = [];
 for (const br of BRIDGES) {
   BRIDGE_CONNECTORS.push({ cx: br.startCx - 1, cz: br.startCz });
   BRIDGE_CONNECTORS.push({ cx: br.endCx + 1, cz: br.endCz });
 }
-
 function getBridgeAtWorldPos(x: number, z: number): BridgeDef | null {
-  const bridgeW = (ROAD_HALF_WIDTH * 2) + 10; // 42
+  const bridgeW = (ROAD_HALF_WIDTH * 2) + 10; 
   for (const br of BRIDGE_RANGES) {
     const roadCenterZ = br.startCz * 80;
     if (Math.abs(z - roadCenterZ) > bridgeW / 2) continue;
@@ -54,7 +47,6 @@ function getBridgeAtWorldPos(x: number, z: number): BridgeDef | null {
   }
   return null;
 }
-
 function isNearBridgeRoad(x: number, z: number, margin: number): boolean {
   const bridgeW = (ROAD_HALF_WIDTH * 2) + 10;
   for (const br of BRIDGE_RANGES) {
@@ -67,7 +59,6 @@ function isNearBridgeRoad(x: number, z: number, margin: number): boolean {
   }
   return false;
 }
-
 function isInAnyIsland(cx: number, cz: number): boolean {
   for (const isl of ISLANDS) {
     const dx = cx - isl.cx, dz = cz - isl.cz;
@@ -75,36 +66,24 @@ function isInAnyIsland(cx: number, cz: number): boolean {
   }
   return false;
 }
-
 export function getBiome(cx: number, cz: number): string {
-  // Airports take priority (must stay in sync with server)
   if (cx >= 0 && cx <= 3 && cz >= -3 && cz <= -1) return 'aeroport';
   if (cx >= 8 && cx <= 15 && cz >= -6 && cz <= -4) return 'aeroport';
   if (cx >= 22 && cx <= 30 && cz >= -8 && cz <= -6) return 'aeroport';
   if (cx >= 36 && cx <= 46 && cz >= -11 && cz <= -9) return 'aeroport';
   if (cx >= 33 && cx <= 46 && cz >= 12 && cz <= 16) return 'aeroport';
-
-  // Bridges
   for (const br of BRIDGES) {
     if (cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz) return 'bridge';
   }
-
-  // Bridge connectors — dedicated road cells at each end
   for (const conn of BRIDGE_CONNECTORS) {
     if (cx === conn.cx && cz === conn.cz) return 'bridge_connector';
   }
-
-  // Water under bridges: chunks directly below bridge decks are ocean
   if (isBridgeChunk(cx, cz + 1)) return 'ocean';
   if (isBridgeChunk(cx, cz - 1)) return 'ocean';
-
-  // Parking-lot patch helper (deterministic, mirrors server)
   const isParkingPatch = () => {
     const h = ((Math.imul(cx, 100003) + Math.imul(cz, 70001)) >>> 0);
     return (h % 9) === 0;
   };
-
-  // Find nearest island within its rural radius
   let bestIsl: IslandDef | null = null;
   let bestDist = Infinity;
   for (const isl of ISLANDS) {
@@ -113,15 +92,10 @@ export function getBiome(cx: number, cz: number): string {
     if (dist < isl.ruralR && dist < bestDist) { bestIsl = isl; bestDist = dist; }
   }
   if (!bestIsl) return 'ocean';
-
   const isl = bestIsl;
   const dist = bestDist;
-
-  // Beach: land chunk at shoreline — at least one cardinal neighbor is ocean
   if (!isInAnyIsland(cx + 1, cz) || !isInAnyIsland(cx - 1, cz) ||
     !isInAnyIsland(cx, cz + 1) || !isInAnyIsland(cx, cz - 1)) return 'beach';
-
-  // Determine biome by distance ring
   if (dist < isl.cityR) {
     return isParkingPatch() ? 'parking_lot' : 'city';
   } else if (dist < isl.suburbR) {
@@ -136,7 +110,6 @@ export function getBiome(cx: number, cz: number): string {
     return 'rural_desert';
   }
 }
-
 export function isAeroportParkingChunk(cx: number, cz: number): boolean {
   if (cx >= 0 && cx <= 3 && cz === -3) return true;
   if (cx >= 8 && cx <= 15 && cz === -6) return true;
@@ -145,18 +118,14 @@ export function isAeroportParkingChunk(cx: number, cz: number): boolean {
   if (cx >= 33 && cx <= 46 && cz === 16) return true;
   return false;
 }
-
 function isBridgeChunk(cx: number, cz: number): boolean {
   for (const br of BRIDGES) {
     if (cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz) return true;
   }
   return false;
 }
-
 const BRIDGE_RANGES = BRIDGES;
-
 const SIDEWALK_RAISE = 0.3;
-
 /** Sidewalk zone: inner 55×55 of each 80×80 block in applicable biomes. */
 function isOnSidewalk(x: number, z: number): boolean {
   const cx = Math.floor(x / 80);
@@ -165,7 +134,7 @@ function isOnSidewalk(x: number, z: number): boolean {
   if (biome === 'beach' || biome === 'aeroport' || biome === 'bridge' || biome === 'bridge_connector' || biome === 'rural_farm' || biome === 'rural_hills' || biome === 'rural_mountain' || biome === 'rural_lakes' || biome === 'rural_desert') return false;
   const localX = ((x - cx * 80) + 80) % 80;
   const localZ = ((z - cz * 80) + 80) % 80;
-  const halfRoad = (80 - 55) / 2; // 12.5 — road width on each side
+  const halfRoad = (80 - 55) / 2; 
   return localX >= halfRoad && localX < 80 - halfRoad &&
     localZ >= halfRoad && localZ < 80 - halfRoad;
 }
@@ -174,11 +143,9 @@ function bridgeYAt(x: number, br: BridgeDef): number {
   const rampEndX = (br.endCx + 2) * 80;
   const deckStartX = br.startCx * 80;
   const deckEndX = (br.endCx + 1) * 80;
-
   if (x <= rampStartX) return 0;
   if (x >= rampEndX) return 0;
   if (x >= deckStartX && x <= deckEndX) return BRIDGE_DECK_Y;
-
   if (x < deckStartX) {
     const t = (x - rampStartX) / (deckStartX - rampStartX);
     return t * t * (3 - 2 * t) * BRIDGE_DECK_Y;
@@ -187,7 +154,6 @@ function bridgeYAt(x: number, br: BridgeDef): number {
     return t * t * (3 - 2 * t) * BRIDGE_DECK_Y;
   }
 }
-
 function getBeachHeight(x: number, z: number): number {
   const cx = Math.floor(x / 80);
   const cz = Math.floor(z / 80);
@@ -206,7 +172,6 @@ function getBeachHeight(x: number, z: number): number {
   const t = Math.max(0, Math.min(1, minDist / CHUNK));
   return -2.5 * (1 - t);
 }
-
 function isOnRoadGrid(x: number, z: number): boolean {
   const roadHalf = ROAD_HALF_WIDTH;
   const grid = GRID_PITCH;
@@ -216,46 +181,37 @@ function isOnRoadGrid(x: number, z: number): boolean {
   };
   return nearGrid(x) || nearGrid(z);
 }
-
 export function getTerrainHeight(x: number, z: number): number {
   const bridgeHit = getBridgeAtWorldPos(x, z);
   if (bridgeHit) {
     return bridgeYAt(x, bridgeHit);
   }
-
   const cx = Math.floor(x / 80);
   const cz = Math.floor(z / 80);
   const biome = getBiome(cx, cz);
-
   if (biome === 'bridge') {
-    if (isOnRoadGrid(x, z)) return 0.0;  // road grid through bridge chunk
-    return -2.5;       // off-deck: water
+    if (isOnRoadGrid(x, z)) return 0.0;  
+    return -2.5;       
   }
   if (biome === 'bridge_connector') return 0.0;
   if (biome === 'ocean') {
-    if (isOnRoadGrid(x, z)) return 0.0;  // road surfaces through ocean barrier gaps
+    if (isOnRoadGrid(x, z)) return 0.0;  
     return -2.5;
   }
-  // Road surfaces are at y=0 on the grid lines — return 0 so players
-  // don't fall through when walking on road extensions in beach/rural areas
   if ((biome === 'beach' || biome.startsWith('rural')) && isOnRoadGrid(x, z)) return 0.0;
   if (biome === 'beach') {
     const base = getBeachHeight(x, z);
     if (isOnSidewalk(x, z)) return Math.max(base + SIDEWALK_RAISE, 0);
-    return Math.max(base, 0);  // clamp to 0 — visual sand plane is always at y=0
+    return Math.max(base, 0);  
   }
   if (isOnSidewalk(x, z)) return SIDEWALK_RAISE;
   return 0.0;
 }
-
 export function isBoulevard(gridCoord: number): boolean {
   return ((gridCoord % 4) + 4) % 4 === 0;
 }
-
 export interface RoadNode { x: number; z: number; }
 export interface RoadEdge { from: number; to: number; }
-
-// --- Minimal Matrix Math Utilities ---
 const mat4 = {
   create: () => new Float32Array(16),
   identity: (m: Float32Array) => {
@@ -434,8 +390,6 @@ const mat4 = {
     return out;
   }
 };
-
-// Quaternion to 4x4 rotation matrix (column-major, as used by mat4)
 function quatToMat4(q: number[], out: Float32Array): void {
   const qx = q[0], qy = q[1], qz = q[2], qw = q[3];
   const xx = qx * qx, yy = qy * qy, zz = qz * qz;
@@ -455,7 +409,6 @@ function quatToMat4(q: number[], out: Float32Array): void {
   out[11] = 0;
   out[12] = 0; out[13] = 0; out[14] = 0; out[15] = 1;
 }
-// Quaternion + translation + scale to 4x4 matrix
 function quatPosScaleToMat4(q: number[], t: number[], s: number[], out: Float32Array): void {
   const qx = q[0], qy = q[1], qz = q[2], qw = q[3];
   const sx = s[0], sy = s[1], sz = s[2];
@@ -476,11 +429,6 @@ function quatPosScaleToMat4(q: number[], t: number[], s: number[], out: Float32A
   out[11] = 0;
   out[12] = t[0]; out[13] = t[1]; out[14] = t[2]; out[15] = 1;
 }
-
-// Deterministic integer hash for skin/mesh selection.
-// Used so that all clients pick the same skin for a given entity id,
-// regardless of when they receive the entity update from the server.
-// fmix32 finalizer from MurmurHash3 — good distribution for small inputs.
 function hashSeed(s: number | string): number {
   let h: number;
   if (typeof s === 'number') {
@@ -496,14 +444,12 @@ function hashSeed(s: number | string): number {
   h = (h ^ (h >>> 16)) >>> 0;
   return h;
 }
-
 export interface EntityAnimator {
-  currentAnimation: string;        // name of the active animation
-  time: number;                    // current playback time (seconds)
-  loop: boolean;                   // whether to loop
-  speed: number;                   // playback speed multiplier
+  currentAnimation: string;        
+  time: number;                    
+  loop: boolean;                   
+  speed: number;                   
 }
-
 export interface EntityAnimatorSkeleton {
   boneParents: Int32Array;
   boneLocalMatrices: Float32Array;
@@ -513,7 +459,6 @@ export interface EntityAnimatorSkeleton {
   boneCount: number;
   nodeNames: string[];
 }
-
 export class GrandTheftRenderer {
   private gl: WebGL2RenderingContext;
   private program: WebGLProgram;
@@ -526,18 +471,13 @@ export class GrandTheftRenderer {
   private viewPosLoc: WebGLUniformLocation | null = null;
   private textureLoc: WebGLUniformLocation | null = null;
   private useTextureLoc: WebGLUniformLocation | null = null;
-
   private lightColorLoc: WebGLUniformLocation | null = null;
   private ambientColorLoc: WebGLUniformLocation | null = null;
   private fogColorLoc: WebGLUniformLocation | null = null;
   private lightSpaceLoc: WebGLUniformLocation | null = null;
   private shadowMapLoc: WebGLUniformLocation | null = null;
-
-  // Point Lights
   private numPointLightsLoc: WebGLUniformLocation | null = null;
   private pointLightPosLoc: WebGLUniformLocation | null = null;
-
-  // Skybox
   private skyProgram!: WebGLProgram;
   private skyVao!: WebGLVertexArrayObject;
   private gltfSkyProgram!: WebGLProgram;
@@ -557,7 +497,6 @@ export class GrandTheftRenderer {
   public skyboxMesh: CityMesh[] | null = null;
   private skyStarryTexture: WebGLTexture | null = null;
   private defaultTexture: WebGLTexture;
-
   viewMatrix = mat4.create();
   projMatrix = mat4.create();
   private modelMatrix = mat4.create();
@@ -642,7 +581,6 @@ export class GrandTheftRenderer {
   public deadChickens: Set<string> = new Set();
   static readonly GAS_STATION_COOLDOWN = 300000;
   public supermarketLastPayout: Map<string, number> = new Map();
-
   getNearbyBarrels(x: number, z: number, radius: number): { x: number; z: number }[] {
     const result: { x: number; z: number }[] = [];
     const pcx = Math.floor(x / CHUNK_SIZE);
@@ -662,7 +600,6 @@ export class GrandTheftRenderer {
     }
     return result;
   }
-
   getNearbyChickens(x: number, z: number, radius: number): { x: number; z: number }[] {
     const result: { x: number; z: number }[] = [];
     const pcx = Math.floor(x / CHUNK_SIZE);
@@ -682,7 +619,6 @@ export class GrandTheftRenderer {
     }
     return result;
   }
-
   getNearbySupermarkets(x: number, z: number, radius: number): { x: number; z: number; yaw: number }[] {
     const result: { x: number; z: number; yaw: number }[] = [];
     const pcx = Math.floor(x / CHUNK_SIZE);
@@ -700,7 +636,6 @@ export class GrandTheftRenderer {
     }
     return result;
   }
-
   getNearbyGasStations(x: number, z: number, radius: number): { x: number; z: number }[] {
     const result: { x: number; z: number }[] = [];
     const pcx = Math.floor(x / CHUNK_SIZE);
@@ -722,7 +657,6 @@ export class GrandTheftRenderer {
     }
     return result;
   }
-
   getGasStationAtPoint(x: number, z: number): { x: number; z: number } | null {
     const pcx = Math.floor(x / CHUNK_SIZE);
     const pcz = Math.floor(z / CHUNK_SIZE);
@@ -735,7 +669,6 @@ export class GrandTheftRenderer {
           if (this.explodedGasStations.has(key)) continue;
           if (!bld.model || bld.model.length === 0) continue;
           if (!bld.model[0].carName || !bld.model[0].carName.includes('gas_station')) continue;
-          // Compute world-space AABB of this gas station building
           let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
           const meshes = Array.isArray(bld.model) ? bld.model : [bld.model];
           for (const m of meshes) {
@@ -766,19 +699,17 @@ export class GrandTheftRenderer {
   public currentModelUrl: string | null = null;
   public droppedWeapons: any[] = [];
   public carFireElapsed = 0;
-  // --- First-person weapon system ---
   public firstPersonArmsMesh: CityMesh[] | null = null;
   public firstPersonArmsSkeleton: {
     boneParents: Int32Array;
-    boneLocalMatrices: Float32Array;      // bind-pose local matrices
+    boneLocalMatrices: Float32Array;      
     inverseBindMatrices: Float32Array;
     skinRootWorld: Float32Array;
     nodeToBoneIdx: Map<number, number>;
     boneCount: number;
-    nodeNames: string[];                  // json.nodes[i].name (for targeted bone overrides)
+    nodeNames: string[];                  
   } | null = null;
   public firstPersonArmsAnimations: GltfAnimation[] | null = null;
-
   public mark23Mesh: CityMesh[] | null = null;
   public mark23Skeleton: {
     boneParents: Int32Array;
@@ -790,16 +721,10 @@ export class GrandTheftRenderer {
     nodeNames: string[];
   } | null = null;
   public mark23Animations: GltfAnimation[] | null = null;
-  // Mark23 pistol animation timers
   private _mark23AnimTime = 0;
   private _mark23AnimName = '';
-
-  // ── Animation state machine for NPCs, pedestrians, and player models ──
   public entityAnimators: Map<number, EntityAnimator> = new Map();
-  // Per-mesh animation data cache: maps a mesh identity to its shared skeleton + animations
   private _meshAnimData: WeakMap<CityMesh, { animations: GltfAnimation[] | null; skeleton: EntityAnimatorSkeleton | null }> = new WeakMap();
-
-  // Skeleton data for CPU skinning (used by Franklin model)
   public skelBoneParents: Int32Array | null = null;
   public skelBoneLocalMatrices: Float32Array | null = null;
   public skelInverseBindMatrices: Float32Array | null = null;
@@ -826,8 +751,6 @@ export class GrandTheftRenderer {
   public walkSpeed = 0;
   public walkTime = 0;
   public punchTime = 0;
-
-  // Static daytime (day/night cycle removed for performance)
   private sunDir = [0.3, 0.8, 0.3];
   private moonDir = [0, -1, 0];
   private dayBlend = 1.0;
@@ -835,7 +758,6 @@ export class GrandTheftRenderer {
   private ambientColor = [0.3, 0.3, 0.35];
   private skyColor = [0.7, 0.8, 0.9];
   private dayBlendLoc: WebGLUniformLocation | null = null;
-
   public isMobile = false;
   private shadowMapSize = 2048;
   reduceShadowMap() { this.shadowMapSize = 1024; this.setupShadowFBO(); }
@@ -862,19 +784,16 @@ export class GrandTheftRenderer {
   private lightProj = mat4.create();
   private lightView = mat4.create();
   private lightSpaceMatrix = mat4.create();
-
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl2', { antialias: true });
     if (!gl) throw new Error('WebGL2 not supported');
     this.gl = gl;
-
     const whiteTex = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, whiteTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, 1, 1, 0, gl.RGB, gl.UNSIGNED_BYTE, new Uint8Array([128, 150, 180]));
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     this.defaultTexture = whiteTex;
-
     const vs = `#version 300 es
 in vec3 aPos;
 in vec3 aNormal;
@@ -921,22 +840,17 @@ uniform vec3 uLightColor;
 uniform vec3 uAmbientColor;
 uniform vec3 uFogColor;
 uniform sampler2D uShadowMap;
-
 #define MAX_POINT_LIGHTS 16
 uniform int uNumPointLights;
 uniform vec3 uPointLightPos[MAX_POINT_LIGHTS];
 uniform float uDayBlend; 
-
 void main() {
   vec4 baseColor = vColor;
   if (uHasTexture) {
     baseColor *= texture(uTexture, vUV);
   }
-  
   vec3 N = normalize(vNormal);
   vec3 V = normalize(uViewPos - vWorldPos);
-  
-  // Soft Shadow calculation (PCF)
   vec3 projCoords = vLightSpacePos.xyz / vLightSpacePos.w;
   projCoords = projCoords * 0.5 + 0.5;
   float shadow = 0.0;
@@ -953,43 +867,31 @@ void main() {
     }
     shadow /= 9.0;
   }
-  
-  // Directional Sun Light
   vec3 L = normalize(uLightDir);
   float diff = max(dot(N, L), 0.0);
   vec3 R = reflect(-L, N);
   float spec = pow(max(dot(R, V), 0.0), 32.0);
-  
   vec3 ambient = uAmbientColor * baseColor.rgb;
   vec3 diffuse = (1.0 - shadow) * diff * uLightColor * baseColor.rgb;
   vec3 specular = (1.0 - shadow) * spec * uLightColor * vec3(0.6);
-  
-   // Point Lights (Street Lamps)
   vec3 pointLightContribution = vec3(0.0);
   for(int i = 0; i < MAX_POINT_LIGHTS; i++) {
     if(i >= uNumPointLights) break;
     vec3 lightVec = uPointLightPos[i] - vWorldPos;
     float dist = length(lightVec);
-
     if(dist < 80.0) {
       float atten = 1.0 - (dist / 80.0);
-      atten = atten * atten; // Quadratic falloff
-
+      atten = atten * atten; 
       vec3 pL = lightVec / dist;
       float pDiff = max(dot(N, pL), 0.0);
-
       pointLightContribution += pDiff * vec3(1.0, 0.85, 0.5) * atten * baseColor.rgb * 0.5;
-
       vec3 pR = reflect(-pL, N);
       float pSpec = pow(max(dot(pR, V), 0.0), 16.0);
       pointLightContribution += pSpec * vec3(1.0, 0.85, 0.5) * atten * 0.8;
     }
   }
-  
   vec3 color = ambient + diffuse + specular + pointLightContribution;
   float fog = clamp((vDepth - 80.0) / 250.0, 0.0, 1.0);
-
-  // Lamp bulb glow at night
   if (uDayBlend < 0.5) {
     for(int i = 0; i < MAX_POINT_LIGHTS; i++) {
       if(i >= uNumPointLights) break;
@@ -1001,12 +903,10 @@ void main() {
       }
     }
   }
-
   vec3 finalColor = mix(color, uFogColor, fog * vColor.a);
   FragColor = vec4(finalColor, vColor.a);
 }
 `;
-
     this.program = this.createProgram(vs, fs);
     gl.useProgram(this.program);
     this.projLoc = gl.getUniformLocation(this.program, 'uProj')!;
@@ -1018,7 +918,6 @@ void main() {
     this.viewPosLoc = gl.getUniformLocation(this.program, 'uViewPos');
     this.textureLoc = gl.getUniformLocation(this.program, 'uTexture');
     this.useTextureLoc = gl.getUniformLocation(this.program, 'uHasTexture');
-
     this.lightColorLoc = gl.getUniformLocation(this.program, 'uLightColor');
     this.ambientColorLoc = gl.getUniformLocation(this.program, 'uAmbientColor');
     this.fogColorLoc = gl.getUniformLocation(this.program, 'uFogColor');
@@ -1027,14 +926,11 @@ void main() {
     this.numPointLightsLoc = gl.getUniformLocation(this.program, 'uNumPointLights');
     this.dayBlendLoc = gl.getUniformLocation(this.program, 'uDayBlend');
     this.pointLightPosLoc = gl.getUniformLocation(this.program, 'uPointLightPos[0]');
-
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.CULL_FACE);
     gl.cullFace(gl.BACK);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
-    // Depth Shader for Shadow Map
     const depthVs = `#version 300 es
 in vec3 aPos;
 uniform mat4 uLightSpaceMatrix;
@@ -1049,12 +945,9 @@ void main() { }`;
     this.depthProgram = this.createProgram(depthVs, depthFs);
     this.depthLightSpaceLoc = gl.getUniformLocation(this.depthProgram, 'uLightSpaceMatrix')!;
     this.depthModelLoc = gl.getUniformLocation(this.depthProgram, 'uModel')!;
-
     this.setupShadowFBO();
-
     this.initSkybox();
   }
-
   private initSkybox() {
     const gl = this.gl;
     const skyVs = `#version 300 es
@@ -1078,51 +971,40 @@ uniform float uDayBlend;
 uniform float uTime;
 uniform sampler2D uDaySky;
 uniform sampler2D uNightSky;
-
 vec2 dirToUV(vec3 dir) {
     float u = 0.5 - atan(dir.z, dir.x) / 6.283185;
     float v = acos(clamp(dir.y, -1.0, 1.0)) / 3.141592;
     return vec2(u, v);
 }
-
 void main() {
     vec3 dir = normalize(vWorldDir);
     vec2 uv = dirToUV(dir);
-    
     vec3 dayTex = texture(uDaySky, uv).rgb;
     vec3 nightTex = texture(uNightSky, uv).rgb;
     vec3 texColor = mix(nightTex, dayTex, uDayBlend);
-    
     float h = dir.y;
     float t = max(0.0, min(1.0, h * 0.5 + 0.5));
-    
     vec3 nightZenith = vec3(0.01, 0.02, 0.05);
     vec3 nightHorizon = vec3(0.03, 0.04, 0.08);
     vec3 dayZenith = vec3(0.2, 0.4, 0.8);
     vec3 dayHorizon = vec3(0.7, 0.8, 0.9);
-    
     vec3 zenithColor = mix(nightZenith, dayZenith, uDayBlend);
     vec3 horizonColor = mix(nightHorizon, dayHorizon, uDayBlend);
     vec3 gradColor = mix(horizonColor, zenithColor, pow(t, 0.8));
-    
     float horizonFactor = pow(max(0.0, 1.0 - abs(dir.y)), 4.0);
     vec3 skyColor = mix(texColor, gradColor, horizonFactor * 0.3);
-    
     float sunDot = max(dot(dir, uSunDir), 0.0);
     vec3 sunColor = mix(vec3(1.0, 0.4, 0.1), vec3(1.0, 0.95, 0.8), uDayBlend);
     float sunDisk = smoothstep(0.997, 0.999, sunDot);
     float sunGlow = pow(sunDot, 16.0) * 0.5 + pow(sunDot, 4.0) * 0.2;
     skyColor += sunColor * (sunDisk * 2.0 + sunGlow * uDayBlend);
-    
     float moonDot = max(dot(dir, uMoonDir), 0.0);
     float moonDisk = smoothstep(0.997, 0.999, moonDot);
     float moonGlow = pow(moonDot, 32.0) * 0.3;
     skyColor += vec3(0.8, 0.85, 0.95) * (moonDisk * 1.5 + moonGlow * (1.0 - uDayBlend));
-    
     float sunInfluence = max(dot(dir, uSunDir), 0.0);
     vec3 hazeColor = mix(vec3(0.8, 0.4, 0.1), vec3(0.9, 0.7, 0.5), uDayBlend);
     skyColor += hazeColor * horizonFactor * pow(sunInfluence, 2.0) * (uDayBlend * 0.5 + 0.5);
-    
     FragColor = vec4(skyColor, 1.0);
 }`;
     this.skyProgram = this.createProgram(skyVs, skyFs);
@@ -1134,10 +1016,7 @@ void main() {
     this.skyTimeLoc = gl.getUniformLocation(this.skyProgram, 'uTime')!;
     this.skyDayTexLoc = gl.getUniformLocation(this.skyProgram, 'uDaySky')!;
     this.skyNightTexLoc = gl.getUniformLocation(this.skyProgram, 'uNightSky')!;
-
-    // this.loadTexture('assets/grandtheft/sky_cloudy.png').then(t => this.skyCloudyTexture = t);
     this.loadTexture('assets/grandtheft/sky_starry.png').then(t => this.skyStarryTexture = t);
-
     const verts = new Float32Array([
       -1, -1, 1, 1, -1, 1, 1, 1, 1, -1, -1, 1, 1, 1, 1, -1, 1, 1,
       1, -1, -1, -1, -1, -1, -1, 1, -1, 1, -1, -1, -1, 1, -1, 1, 1, -1,
@@ -1154,7 +1033,6 @@ void main() {
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 12, 0);
     gl.bindVertexArray(null);
-
     const gVs = `#version 300 es
 in vec3 aPos;
 in vec3 aNormal;
@@ -1183,7 +1061,6 @@ void main() {
     this.gltfSkyModelLoc = gl.getUniformLocation(this.gltfSkyProgram, 'uModel')!;
     this.gltfSkyTexLoc = gl.getUniformLocation(this.gltfSkyProgram, 'uTexture')!;
   }
-
   private renderSkybox() {
     const gl = this.gl;
     gl.depthMask(false);
@@ -1196,22 +1073,18 @@ void main() {
     gl.uniform3f(this.skyMoonDirLoc, this.moonDir[0], this.moonDir[1], this.moonDir[2]);
     gl.uniform1f(this.skyDayBlendLoc, this.dayBlend);
     gl.uniform1f(this.skyTimeLoc, performance.now() / 1000);
-
     gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_2D, this.skyCloudyTexture || this.defaultTexture);
     gl.uniform1i(this.skyDayTexLoc, 2);
     gl.activeTexture(gl.TEXTURE3);
     gl.bindTexture(gl.TEXTURE_2D, this.skyStarryTexture || this.defaultTexture);
     gl.uniform1i(this.skyNightTexLoc, 3);
-
     gl.bindVertexArray(this.skyVao);
     gl.drawArrays(gl.TRIANGLES, 0, 36);
     gl.bindVertexArray(null);
-
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(true);
   }
-
   async initPlayerModel(modelUrl?: string, needsFlip: boolean = true): Promise<void> {
     this.currentModelUrl = modelUrl || null;
     if (modelUrl) {
@@ -1239,35 +1112,26 @@ void main() {
     },
     outLocal: Float32Array
   ): void {
-    // Start from bind pose
     outLocal.set(skeleton.boneLocalMatrices);
-
-    // Loop the animation
     let time = t;
     if (anim.duration > 0) time = time % anim.duration;
-
     for (const ch of anim.channels) {
       const boneIdx = skeleton.nodeToBoneIdx.get(ch.nodeIndex);
       if (boneIdx === undefined) continue;
       const s = ch.sampler;
       const n = s.input.length;
       if (n === 0) continue;
-
-      // Find keyframe interval [i, i+1]
       let i = 0;
       while (i < n - 1 && s.input[i + 1] <= time) i++;
-
       const comp = ch.path === 'rotation' ? 4 : 3;
       const interp = s.interpolation;
-      const cubic = interp === 'CUBICSPLINE';   // each keyframe has in-tangent, value, out-tangent
+      const cubic = interp === 'CUBICSPLINE';   
       const stride = cubic ? comp * 3 : comp;
-
       let frac = 0;
       if (i < n - 1) {
         const t0 = s.input[i], t1 = s.input[i + 1];
         if (t1 > t0) frac = Math.min(1, Math.max(0, (time - t0) / (t1 - t0)));
       }
-
       const base = i * stride;
       const v0 = s.output.subarray(base + (cubic ? comp : 0), base + (cubic ? comp * 2 : comp));
       let v1: Float32Array;
@@ -1275,13 +1139,9 @@ void main() {
         const b1 = (i + 1) * stride;
         v1 = s.output.subarray(b1 + (cubic ? comp : 0), b1 + (cubic ? comp * 2 : comp));
       } else {
-        v1 = v0;   // hold last
+        v1 = v0;   
       }
-
-      // Build a fresh local matrix from the bind-pose one then overwrite TRS
       const mOff = boneIdx * 16;
-      // copy current (bind) so scale/translation not touched by other channels stays
-      // (we already set outLocal = bind above, so just patch the channel's path)
       if (ch.path === 'translation') {
         let x = v0[0], y = v0[1], z = v0[2];
         if (interp !== 'STEP') {
@@ -1299,15 +1159,12 @@ void main() {
           y += (v1[1] - y) * frac;
           z += (v1[2] - z) * frac;
         }
-        // Patch scale into the existing 3x3 (keep rotation/translation)
-        // For simplicity assume no rotation channel conflicts; re-normalize axes.
         outLocal[mOff + 0] = x;
         outLocal[mOff + 5] = y;
         outLocal[mOff + 10] = z;
       } else if (ch.path === 'rotation') {
         let qx = v0[0], qy = v0[1], qz = v0[2], qw = v0[3];
         if (interp !== 'STEP') {
-          // SLERP
           let dot = qx * v1[0] + qy * v1[1] + qz * v1[2] + qw * v1[3];
           let q2x = v1[0], q2y = v1[1], q2z = v1[2], q2w = v1[3];
           if (dot < 0) { q2x = -q2x; q2y = -q2y; q2z = -q2z; q2w = -q2w; dot = -dot; }
@@ -1322,7 +1179,6 @@ void main() {
             qx = qx * w0 + q2x * w1; qy = qy * w0 + q2y * w1; qz = qz * w0 + q2z * w1; qw = qw * w0 + q2w * w1;
           }
         }
-        // Write rotation into the 3x3 of the local matrix, preserving translation/scale
         const tx = outLocal[mOff + 12], ty = outLocal[mOff + 13], tz = outLocal[mOff + 14];
         quatToMat4([qx, qy, qz, qw], new Float32Array(outLocal.buffer, mOff * 4, 16));
         outLocal[mOff + 12] = tx; outLocal[mOff + 13] = ty; outLocal[mOff + 14] = tz;
@@ -1341,9 +1197,8 @@ void main() {
       inverseBindMatrices: Float32Array;
     },
     localMatrices: Float32Array,
-    outJoint: Float32Array        // length boneCount*16
+    outJoint: Float32Array        
   ): void {
-    // Forward kinematics: jointWorld[b] = parentWorld * local[b]
     for (let b = 0; b < skeleton.boneCount; b++) {
       if (skeleton.boneParents[b] < 0) {
         mat4.multiply(
@@ -1363,7 +1218,6 @@ void main() {
         );
       }
     }
-    // Multiply by inverse bind
     for (let b = 0; b < skeleton.boneCount; b++) {
       mat4.multiply(
         new Float32Array(outJoint.buffer, b * 16 * 4, 16),
@@ -1379,14 +1233,10 @@ void main() {
   ): void {
     const gl = this.gl;
     for (const mesh of meshes) {
-      // Skip meshes that aren't skinnable OR don't have a bind-pose snapshot
       if (!mesh.restPositions || !mesh.jointIndices || !mesh.jointWeights || !mesh.vertexCount) continue;
       if (!mesh.originalVBO) continue;
-
       const vCount = mesh.vertexCount;
-      // Always start from the bind-pose snapshot — never from the live VBO.
       const newData = new Float32Array(mesh.originalVBO);
-
       for (let i = 0; i < vCount; i++) {
         const px = mesh.restPositions[i * 3];
         const py = mesh.restPositions[i * 3 + 1];
@@ -1404,7 +1254,6 @@ void main() {
         newData[i * 12 + 0] = sx;
         newData[i * 12 + 1] = sy;
         newData[i * 12 + 2] = sz;
-
         if (mesh.restNormals) {
           const nx = mesh.restNormals[i * 3];
           const ny = mesh.restNormals[i * 3 + 1];
@@ -1423,40 +1272,30 @@ void main() {
           newData[i * 12 + 5] = snz / l;
         }
       }
-
       gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vbo);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, newData);
     }
   }
-
-  // ── Animation State Machine ──
-
   /** Find the best animation matching a desired state (idle, walk, run) */
   matchAnimationName(animations: GltfAnimation[], state: 'idle' | 'walk' | 'run' | 'drive'): string | null {
     if (!animations || animations.length === 0) return null;
-
     const keywords: Record<string, string[]> = {
       idle: ['idle', 'idle_', '_idle', 'standing', 'breathing'],
       walk: ['walk', 'walking', 'walk_', '_walk', 'jog', 'jogging'],
       run: ['run', 'running', 'sprint', 'sprinting'],
       drive: ['drive', 'driving', 'steer', 'steering'],
     };
-
     const targets = keywords[state];
     const lowerTargets = targets.map(t => t.toLowerCase());
-
-    // Score each animation: exact name match > prefix match > contains match
     let best: { name: string; score: number } | null = null;
     for (const anim of animations) {
       const name = anim.name.toLowerCase();
-      // Exact match of full animation name to a target keyword
       for (let i = 0; i < lowerTargets.length; i++) {
         if (name === lowerTargets[i]) {
           const score = 100 - i;
           if (!best || score > best.score) best = { name: anim.name, score };
         }
       }
-      // Animation name contains the target keyword
       for (let i = 0; i < lowerTargets.length; i++) {
         if (name.includes(lowerTargets[i])) {
           const score = 50 - i;
@@ -1464,15 +1303,11 @@ void main() {
         }
       }
     }
-
-    // Fallback: return first animation if nothing matched (default to it)
     if (!best && animations.length > 0) {
       best = { name: animations[0].name, score: 0 };
     }
-
     return best ? best.name : null;
   }
-
   /**
    * Update an entity's animation state and CPU-skin its mesh.
    * Returns true if the mesh was skinned (caller should then drawMesh).
@@ -1487,8 +1322,6 @@ void main() {
   ): boolean {
     const meshes = Array.isArray(entityMesh) ? entityMesh : [entityMesh];
     if (meshes.length === 0) return false;
-
-    // Get or discover animation data from the first mesh
     let animData = this._meshAnimData.get(meshes[0]);
     if (!animData) {
       const src = meshes.find(m => m.skeleton && m.animations && m.animations.length > 0);
@@ -1496,49 +1329,32 @@ void main() {
       animData = { animations: src.animations ?? null, skeleton: src.skeleton ?? null };
       meshes.forEach(m => this._meshAnimData.set(m, animData!));
     }
-
     const { animations, skeleton } = animData;
     if (!animations || !skeleton || skeleton.boneCount === 0) return false;
-
-    // Determine desired animation name
     const desiredAnim = this.matchAnimationName(animations, state);
     if (!desiredAnim) return false;
-
-    // Get or create animator for this entity
     let animator = this.entityAnimators.get(entityId);
     if (!animator) {
       animator = { currentAnimation: desiredAnim, time: 0, loop: true, speed: 1 };
       this.entityAnimators.set(entityId, animator);
     }
-
-    // Switch animation if state changed
     if (animator.currentAnimation !== desiredAnim) {
       animator.currentAnimation = desiredAnim;
       animator.time = 0;
     }
-
-    // Find the animation object
     const anim = animations.find(a => a.name === desiredAnim);
     if (!anim || anim.duration <= 0) return false;
-
-    // Advance time
     animator.time += dt * speed;
     if (animator.loop && anim.duration > 0) {
       animator.time = animator.time % anim.duration;
     }
-
-    // Sample animation into local matrices
     const localMatrices = new Float32Array(skeleton.boneCount * 16);
     this.sampleAnimation(anim, animator.time, skeleton, localMatrices);
-
-    // Compute joint matrices and skin all meshes in one batch
     const jointMatrices = new Float32Array(skeleton.boneCount * 16);
     this.computeJointMatrices(skeleton, localMatrices, jointMatrices);
     this.skinMeshGeneric(meshes, skeleton, jointMatrices);
-
     return true;
   }
-
   /** Prune animators for entities no longer in the active set. Call periodically. */
   cleanupAnimators(activeEntityIds: Set<number>) {
     for (const id of this.entityAnimators.keys()) {
@@ -1547,36 +1363,28 @@ void main() {
       }
     }
   }
-
-  // CPU skinning: compute bone transforms, blend vertices, update VBO
   skinPlayerMesh(meshes: CityMesh | CityMesh[], dt: number = 0): void {
     try {
       const skel = this;
       if (!skel.skelBoneParents || !skel.skelBoneLocalMatrices || !skel.skelInverseBindMatrices || !skel.skelSkinRootWorld) return;
-
       const gl = this.gl;
       const numBones = skel.skelBoneCount;
       const parents = skel.skelBoneParents;
       const invBind = skel.skelInverseBindMatrices;
       const jointMat = skel.skelJointMatrices!;
-
       const animLocal = new Float32Array(skel.skelBoneLocalMatrices);
-
       if (this.walkSpeed > 0.1 && numBones > 63) {
         this.applyWalkAnimation(animLocal);
         this.walkTime += dt * Math.min(this.walkSpeed * 0.15, 2.0);
       }
-
       if (numBones > 35) {
         if (this.armOverrideActive) {
           const m33 = new Float32Array(animLocal.buffer, 33 * 16 * 4, 16);
           quatToMat4([0, 0.7071068, 0, 0.7071068], m33);
           m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
-
           const m34 = new Float32Array(animLocal.buffer, 34 * 16 * 4, 16);
           quatToMat4([0, 0, 0, 1], m34);
           m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
-
           const m35 = new Float32Array(animLocal.buffer, 35 * 16 * 4, 16);
           quatToMat4([0.5, 0, 0, 0.8660254], m35);
           m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
@@ -1584,21 +1392,17 @@ void main() {
           const t = this.punchTime / 0.3;
           const punchAmount = t < 0.5 ? t * 2 : 2 - t * 2;
           const extendAngle = -0.8 * punchAmount;
-
           const m33 = new Float32Array(animLocal.buffer, 33 * 16 * 4, 16);
           quatToMat4([Math.sin(extendAngle / 2), 0, 0, Math.cos(extendAngle / 2)], m33);
           m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
-
           const m34 = new Float32Array(animLocal.buffer, 34 * 16 * 4, 16);
           quatToMat4([0, 0, 0, 1], m34);
           m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
-
           const m35 = new Float32Array(animLocal.buffer, 35 * 16 * 4, 16);
           quatToMat4([0, 0, 0, 1], m35);
           m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
         }
       }
-
       for (let b = 0; b < numBones; b++) {
         if (parents[b] < 0) {
           mat4.multiply(
@@ -1617,7 +1421,6 @@ void main() {
           );
         }
       }
-
       const tempMat = new Float32Array(16);
       for (let b = 0; b < numBones; b++) {
         const wOff = b * 16;
@@ -1626,22 +1429,18 @@ void main() {
         mat4.multiply(tempMat, w, ib);
         for (let i = 0; i < 16; i++) w[i] = tempMat[i];
       }
-
       const meshList = Array.isArray(meshes) ? meshes : [meshes];
       for (const mesh of meshList) {
         if (!mesh.jointIndices || !mesh.jointWeights || !mesh.restPositions || !mesh.restNormals || !mesh.vbo) continue;
         const vCount = mesh.vertexCount || 0;
         if (vCount === 0) continue;
-
         gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vbo);
         const bufferSize = gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE) as number;
         const vboVertexCount = Math.floor(bufferSize / (12 * 4));
         const safeVCount = Math.min(vCount, vboVertexCount);
         if (safeVCount === 0) continue;
-
-        const existing = new Float32Array(mesh.originalVBO!);  // always start from rest pose
+        const existing = new Float32Array(mesh.originalVBO!);  
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, existing);
-
         if (existing[9] === 0 && existing[6] === 0 && existing[7] === 0 && existing[8] === 0) {
           let allZero = true;
           for (let i = 6; i < Math.min(60, safeVCount * 12); i++) {
@@ -1653,12 +1452,10 @@ void main() {
             continue;
           }
         }
-
         const ji = mesh.jointIndices;
         const jw = mesh.jointWeights;
         const rp = mesh.restPositions;
         const rn = mesh.restNormals;
-
         const needsRotation = this.skelNeedsRotation;
         const cosX = this.skelCosX, sinX = this.skelSinX;
         const needsYFlip = this.skelNeedsYFlip;
@@ -1667,52 +1464,39 @@ void main() {
         const cx = this.skelCenterX, cy = this.skelCenterY, cz = this.skelCenterZ;
         const sf = this.skelScaleFactor;
         const ex = this.skelExtraScale[0], ey = this.skelExtraScale[1], ez = this.skelExtraScale[2];
-
         for (let v = 0; v < safeVCount; v++) {
           let px = 0, py = 0, pz = 0;
           let nx = 0, ny = 0, nz = 0;
           const rpx = rp[v * 3], rpy = rp[v * 3 + 1], rpz = rp[v * 3 + 2];
           const rnx = rn[v * 3], rny = rn[v * 3 + 1], rnz = rn[v * 3 + 2];
-
           for (let j = 0; j < 4; j++) {
             const w = jw[v * 4 + j];
             if (w === 0) continue;
             let boneIdx = ji[v * 4 + j];
-            // FIX: Prevent NaN from out-of-bounds bone indices (e.g. 255 padding in UNSIGNED_BYTE)
             if (boneIdx >= numBones) boneIdx = 0;
             const bi = boneIdx * 16;
-
             const m00 = jointMat[bi], m01 = jointMat[bi + 4], m02 = jointMat[bi + 8], m03 = jointMat[bi + 12];
             const m10 = jointMat[bi + 1], m11 = jointMat[bi + 5], m12 = jointMat[bi + 9], m13 = jointMat[bi + 13];
             const m20 = jointMat[bi + 2], m21 = jointMat[bi + 6], m22 = jointMat[bi + 10], m23 = jointMat[bi + 14];
-
             px += w * (m00 * rpx + m01 * rpy + m02 * rpz + m03);
             py += w * (m10 * rpx + m11 * rpy + m12 * rpz + m13);
             pz += w * (m20 * rpx + m21 * rpy + m22 * rpz + m23);
-
             nx += w * (m00 * rnx + m01 * rny + m02 * rnz);
             ny += w * (m10 * rnx + m11 * rny + m12 * rnz);
             nz += w * (m20 * rnx + m21 * rny + m22 * rnz);
           }
-          // FIX: Safety check — if animation produces NaN/Infinity (e.g. from
-          // bad bone indices or corrupted joint matrices), fall back to the
-          // rest position instead of corrupting the VBO with NaN vertices
-          // (which would make the mesh permanently invisible).
           if (!isFinite(px) || !isFinite(py) || !isFinite(pz)) {
             px = rpx; py = rpy; pz = rpz;
             nx = rnx; ny = rny; nz = rnz;
           }
-
           const nlen = Math.hypot(nx, ny, nz);
           if (!nlen || isNaN(nlen)) {
             nx = 0; ny = 1; nz = 0;
           } else {
             nx /= nlen; ny /= nlen; nz /= nlen;
           }
-
           let fx = px, fy = py, fz = pz;
           let fnx = nx, fny = ny, fnz = nz;
-
           if (needsRotation) {
             let ty = fy * cosX - fz * sinX;
             let tz = fy * sinX + fz * cosX;
@@ -1727,7 +1511,6 @@ void main() {
             const tx = fx; fx = fz; fz = -tx;
             const tnx = fnx; fnx = fnz; fnz = -tnx;
           }
-
           const dst = v * 12;
           existing[dst] = (fx - cx) * sf * ex;
           existing[dst + 1] = (fy - cy) * sf * ey;
@@ -1736,7 +1519,6 @@ void main() {
           existing[dst + 4] = fny;
           existing[dst + 5] = fnz;
         }
-
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, existing);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
       }
@@ -1744,34 +1526,26 @@ void main() {
       console.error('skinPlayerMesh error', e);
     }
   }
-
   private applyWalkAnimation(animLocal: Float32Array): void {
     const t = this.walkTime;
     const HIPS = 1, LEFT_ARM = 9, LEFT_FOREARM = 10, RIGHT_ARM = 33, RIGHT_FOREARM = 34;
     const LEFT_THIGH = 56, LEFT_KNEE = 57, LEFT_FOOT = 58;
     const RIGHT_THIGH = 61, RIGHT_KNEE = 62, RIGHT_FOOT = 63;
-
-    // FIX: Guard against skeletons that don't have these bone indices.
-    // Applying rotations to wrong bones can severely distort or break the mesh.
     const numBones = animLocal.length / 16;
-    if (numBones <= RIGHT_FOOT) return; // skeleton too small for walk anim
-
+    if (numBones <= RIGHT_FOOT) return; 
     const LEG_SWING = 0.5, KNEE_BEND = 0.3, ARM_SWING = 0.4, ELBOW_BEND = 0.15, HIP_BOB = 0.08;
     const leftPhase = t, rightPhase = t + Math.PI;
     const temp = new Float32Array(16), rot = new Float32Array(16);
-
     const applyRotX = (bone: number, angle: number) => {
       const m = new Float32Array(animLocal.buffer, bone * 16 * 4, 16);
       mat4.identity(rot); mat4.rotateX(rot, rot, angle);
       mat4.multiply(temp, m, rot);
       for (let i = 0; i < 16; i++) m[i] = temp[i];
     };
-
     applyRotX(LEFT_THIGH, Math.sin(leftPhase) * LEG_SWING);
     applyRotX(LEFT_KNEE, Math.abs(Math.sin(leftPhase)) * -KNEE_BEND);
     applyRotX(RIGHT_THIGH, Math.sin(rightPhase) * LEG_SWING);
     applyRotX(RIGHT_KNEE, Math.abs(Math.sin(rightPhase)) * -KNEE_BEND);
-
     if (!this.armOverrideActive && this.punchTime <= 0) {
       applyRotX(LEFT_ARM, Math.sin(leftPhase + Math.PI) * ARM_SWING);
       applyRotX(LEFT_FOREARM, Math.abs(Math.sin(leftPhase + Math.PI)) * -ELBOW_BEND);
@@ -1781,20 +1555,17 @@ void main() {
       applyRotX(LEFT_ARM, Math.sin(leftPhase + Math.PI) * ARM_SWING);
       applyRotX(LEFT_FOREARM, Math.abs(Math.sin(leftPhase + Math.PI)) * -ELBOW_BEND);
     }
-
     const hips = new Float32Array(animLocal.buffer, HIPS * 16 * 4, 16);
     hips[13] += Math.abs(Math.sin(t)) * -HIP_BOB;
     mat4.identity(rot); mat4.rotateY(rot, rot, Math.sin(t) * 0.05);
     mat4.multiply(temp, hips, rot);
     for (let i = 0; i < 16; i++) hips[i] = temp[i];
   }
-
   resize(w: number, h: number) {
     this.gl.canvas.width = w;
     this.gl.canvas.height = h;
     this.gl.viewport(0, 0, w, h);
   }
-
   private createShader(type: number, source: string): WebGLShader | null {
     const shader = this.gl.createShader(type);
     if (!shader) { console.error('Failed to create shader'); return null; }
@@ -1807,7 +1578,6 @@ void main() {
     }
     return shader;
   }
-
   private createProgram(vs: string, fs: string): WebGLProgram {
     const program = this.gl.createProgram()!;
     const vsh = this.createShader(this.gl.VERTEX_SHADER, vs);
@@ -1820,12 +1590,10 @@ void main() {
     }
     this.gl.attachShader(program, vsh);
     this.gl.attachShader(program, fsh);
-
     this.gl.bindAttribLocation(program, 0, 'aPos');
     this.gl.bindAttribLocation(program, 1, 'aNormal');
     this.gl.bindAttribLocation(program, 2, 'aColor');
     this.gl.bindAttribLocation(program, 3, 'aUV');
-
     this.gl.linkProgram(program);
     if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
       const info = this.gl.getProgramInfoLog(program);
@@ -1835,7 +1603,6 @@ void main() {
     }
     return program;
   }
-
   private mulberry32(seed: number) {
     return function () {
       let t = seed += 0x6D2B79F5;
@@ -1850,15 +1617,12 @@ void main() {
     const vbo = gl.createBuffer()!;
     const ibo = gl.createBuffer()!;
     gl.bindVertexArray(vao);
-
     let maxIndex = 0;
     for (let i = 0; i < indices.length; i++) if (indices[i] > maxIndex) maxIndex = indices[i];
     const vertexCount = maxIndex + 1;
     let floatsPerVertex = Math.round(verts.length / vertexCount) || 7;
-
     const targetFloats = 12;
     const interleaved = new Float32Array(vertexCount * targetFloats);
-
     if (floatsPerVertex === 7) {
       const positions = new Float32Array(vertexCount * 3);
       const colors = new Float32Array(vertexCount * 4);
@@ -1913,35 +1677,26 @@ void main() {
     } else if (floatsPerVertex === 12) {
       interleaved.set(verts);
     }
-
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bufferData(gl.ARRAY_BUFFER, interleaved, gl.STATIC_DRAW);
-
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-
     const useUint32 = maxIndex > 0xffff;
     if (useUint32) gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(indices), gl.STATIC_DRAW);
     else gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
-
     const stride = targetFloats * 4;
     const posLoc = 0;
     gl.enableVertexAttribArray(posLoc);
     gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, stride, 0);
-
     const normalLoc = 1;
     gl.enableVertexAttribArray(normalLoc);
     gl.vertexAttribPointer(normalLoc, 3, gl.FLOAT, false, stride, 12);
-
     const colorLoc = 2;
     gl.enableVertexAttribArray(colorLoc);
     gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, stride, 24);
-
     const uvLoc = 3;
     gl.enableVertexAttribArray(uvLoc);
     gl.vertexAttribPointer(uvLoc, 2, gl.FLOAT, false, stride, 40);
-
     gl.bindVertexArray(null);
-    // Compute bounds so buildings can be used for collision
     let meshMinY = 0, meshMaxY = 0;
     let meshMinX = Infinity, meshMaxX = -Infinity;
     let meshMinZ = Infinity, meshMaxZ = -Infinity;
@@ -1956,11 +1711,8 @@ void main() {
       if (z < meshMinZ) meshMinZ = z;
       if (z > meshMaxZ) meshMaxZ = z;
     }
-
     gl.bindVertexArray(null);
-
     const originalVBO = storeOriginal ? new Float32Array(interleaved) : undefined;
-
     return {
       vao, vbo, ibo,
       indexCount: indices.length,
@@ -1975,7 +1727,6 @@ void main() {
       originalVBO
     };
   }
-
   private computeNormalMatrix(out: Float32Array, m: Float32Array) {
     const m00 = m[0], m01 = m[1], m02 = m[2];
     const m10 = m[4], m11 = m[5], m12 = m[6];
@@ -1991,7 +1742,6 @@ void main() {
     out[6] = (m01 * m12 - m02 * m11) * invDet; out[7] = (m02 * m10 - m00 * m12) * invDet; out[8] = (m00 * m11 - m01 * m10) * invDet;
     return out;
   }
-
   private addBox(verts: number[], indices: number[], x: number, y: number, z: number, w: number, h: number, d: number, r: number, g: number, b: number, a: number, idxOffset: number) {
     const hw = w / 2, hh = h / 2, hd = d / 2;
     const faces = [
@@ -2013,7 +1763,6 @@ void main() {
       indices.push(i + idxOffset, i + 1 + idxOffset, i + 2 + idxOffset, i + idxOffset, i + 2 + idxOffset, i + 3 + idxOffset);
     }
   }
-
   private addPlane(verts: number[], indices: number[], x: number, y: number, z: number, w: number, d: number, r: number, g: number, b: number, a: number, idxOffset: number) {
     verts.push(
       x - w / 2, y, z - d / 2, r, g, b, a,
@@ -2023,11 +1772,9 @@ void main() {
     );
     indices.push(idxOffset, idxOffset + 2, idxOffset + 1, idxOffset, idxOffset + 3, idxOffset + 2);
   }
-
   getCityChunk(cx: number, cz: number): CityChunk {
     const key = `${cx},${cz}`;
     if (this.chunkCache.has(key)) return this.chunkCache.get(key)!;
-
     const verts: number[] = [];
     const indices: number[] = [];
     let idxOffset = 0;
@@ -2042,22 +1789,17 @@ void main() {
     const lighthouses: { x: number; z: number; yaw: number }[] = [];
     const tropicalShops: { x: number; z: number; yaw: number }[] = [];
     const decorativeAircraft: { x: number; z: number; yaw: number; type: string; model?: CityMesh | CityMesh[] }[] = [];
-
     const worldOriginX = cx * CHUNK_SIZE;
     const worldOriginZ = cz * CHUNK_SIZE;
     const biome = getBiome(cx, cz);
     const seed = (cx * 100003 + cz * 70001) >>> 0;
     const rng = this.mulberry32(seed);
-
-    // ── OCEAN ──────────────────────────────────────────────
     if (biome === 'ocean') {
       const cx2 = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
       const cz2 = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
-      // Layered water — three translucent planes give depth gradient & subtle motion look
       this.addPlane(verts, indices, cx2, -2.5, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.0, 0.10, 0.30, 0.85, idxOffset); idxOffset += 4;
       this.addPlane(verts, indices, cx2, -2.2, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.05, 0.25, 0.45, 0.55, idxOffset); idxOffset += 4;
       this.addPlane(verts, indices, cx2, -1.9, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.15, 0.40, 0.60, 0.40, idxOffset); idxOffset += 4;
-      // Marina boats under bridges
       if ((isBridgeChunk(cx, cz + 1) || isBridgeChunk(cx, cz - 1)) && this.boatMeshes.length > 0) {
         for (let bi = 0; bi < 2; bi++) {
           const boatModel = this.boatMeshes[Math.floor(rng() * this.boatMeshes.length)];
@@ -2072,7 +1814,6 @@ void main() {
       this.chunkCache.set(key, chunk);
       return chunk;
     }
-
     const isWaterAdjacent = () => {
       for (let dz = -1; dz <= 1; dz++)
         for (let dx = -1; dx <= 1; dx++) {
@@ -2081,7 +1822,6 @@ void main() {
         }
       return false;
     };
-
     const isBeach = biome === 'beach';
     const isSuburb = biome === 'suburb';
     const isCity = biome === 'city';
@@ -2096,12 +1836,8 @@ void main() {
     const isRuralLakes = biome === 'rural_lakes';
     const isRuralDesert = biome === 'rural_desert';
     const isRural = isRuralFarm || isRuralHills || isRuralMountain || isRuralLakes || isRuralDesert;
-
     const blocksPerChunk = CHUNK_SIZE / GRID_PITCH;
-
-    // ── GROUND PLANE ───────────────────────────────────────
     if (isBeach) {
-      // Sand with subtle color noise
       const sr = 0.76 + (rng() - 0.5) * 0.05;
       const sg = 0.70 + (rng() - 0.5) * 0.05;
       const sb = 0.50 + (rng() - 0.5) * 0.05;
@@ -2109,10 +1845,8 @@ void main() {
       if (isWaterAdjacent()) {
         const cx2 = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
         const cz2 = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
-        // Layered water on the ocean side
         this.addPlane(verts, indices, cx2, -2.5, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.0, 0.10, 0.30, 0.85, idxOffset); idxOffset += 4;
         this.addPlane(verts, indices, cx2, -2.0, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.10, 0.30, 0.50, 0.55, idxOffset); idxOffset += 4;
-        // Smooth beach-to-water transition — all ocean-adjacent sides
         const dirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
         const oceanSides: [number, number][] = [];
         const slopeW = 8;
@@ -2130,7 +1864,6 @@ void main() {
             this.addBox(verts, indices, sx, sy, sz, w, 0.3, d, shade, shade * 0.92, shade * 0.7, 1.0, idxOffset); idxOffset += 24;
           }
         }
-        // Corner rounding: diagonal boxes at L-shaped outer corners
         for (let i = 0; i < oceanSides.length; i++) {
           for (let j = i + 1; j < oceanSides.length; j++) {
             const [dx1, dz1] = oceanSides[i];
@@ -2152,22 +1885,16 @@ void main() {
       }
     }
     else if (isBridge) {
-      // Water under bridge
       const cx2 = cx * CHUNK_SIZE + CHUNK_SIZE / 2;
       const cz2 = cz * CHUNK_SIZE + CHUNK_SIZE / 2;
       this.addPlane(verts, indices, cx2, -2.5, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.0, 0.10, 0.30, 0.85, idxOffset); idxOffset += 4;
       this.addPlane(verts, indices, cx2, -2.0, cz2, CHUNK_SIZE, CHUNK_SIZE, 0.10, 0.30, 0.50, 0.55, idxOffset); idxOffset += 4;
-
-      // Find which bridge this chunk belongs to
       const bridge = BRIDGE_RANGES.find(br => cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz);
       if (bridge) {
         const roadCenterZ = cz * CHUNK_SIZE;
-        const roadW = ROAD_HALF_WIDTH * 2;       // Match street road width
-        const bridgeW = roadW + 10; // Road + walkway clearance
-        // Surface Y at any X position on this chunk — use same Hermite interpolation as connectors
+        const roadW = ROAD_HALF_WIDTH * 2;       
+        const bridgeW = roadW + 10; 
         const surfaceYAt = (x: number) => bridgeYAt(x, bridge);
-
-        // Build ramp/deck in slices so road surface and rails follow the slope
         const numSlices = 20;
         const sliceW = CHUNK_SIZE / numSlices;
         const overlap = 1.4;
@@ -2178,58 +1905,40 @@ void main() {
           const nextY = surfaceYAt(nextX);
           const avgY = (surfY + nextY) / 2;
           const pillarH = Math.max(surfY, nextY);
-
-          // Perpendicular support beams every 4 slices
           if (si % 4 === 0) {
             const waterY = -2.5;
-            const beamW = 1.5; // Thin in X (along the bridge)
-
-            // Pillars down to water
+            const beamW = 1.5; 
             for (const pz of [-bridgeW / 2 + 4, 0, bridgeW / 2 - 4]) {
               this.addBox(verts, indices, sx, (pillarH - waterY) / 2 + waterY, roadCenterZ + pz, beamW, pillarH - waterY, 2.0, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
             }
-            // Perpendicular cross-beam under the deck
             this.addBox(verts, indices, sx, pillarH - 1.0, roadCenterZ, beamW, 1.5, bridgeW, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
           }
-          // Asphalt road surface
           this.addBox(verts, indices, sx, avgY + 0.08, roadCenterZ, sliceW * overlap, 0.12, roadW, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
-          // Dashed lane markings (center line) — one direction flow indicator
           if (si % 2 === 0) {
             this.addBox(verts, indices, sx, avgY + 0.15, roadCenterZ, sliceW * 0.7, 0.02, 0.3, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
           }
-          // Center divider (enforces one-directional flow per side)
           this.addBox(verts, indices, sx, avgY + 0.18, roadCenterZ, sliceW * overlap, 0.3, 0.3, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
-
-          // Guard rails close to road edge on both sides (follow ramp slope)
           for (const side of [-1, 1]) {
             const rz = roadCenterZ + side * (roadW / 2 + 0.5);
-            // Top rail
             this.addBox(verts, indices, sx, avgY + 1.0, rz, sliceW * overlap, 0.15, 0.15, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
-            // Mid rail
             this.addBox(verts, indices, sx, avgY + 0.5, rz, sliceW * overlap, 0.12, 0.12, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
-            // Posts every other slice
             if (si % 2 === 0) {
               this.addBox(verts, indices, sx, avgY + 0.6, rz, 0.18, 1.2, 0.18, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
             }
           }
         }
-
-        // Suspension towers — centered on road, at 1/4 and 3/4 of chunk X
         for (const tx of [worldOriginX + 16, worldOriginX + CHUNK_SIZE - 16]) {
           const tz = roadCenterZ;
           const baseY = surfaceYAt(tx);
           const towerH = 28;
-          // A-frame legs
           this.addBox(verts, indices, tx - 1.5, baseY + towerH / 2, tz - 2, 1, towerH, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
           this.addBox(verts, indices, tx + 1.5, baseY + towerH / 2, tz - 2, 1, towerH, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
           this.addBox(verts, indices, tx - 1.5, baseY + towerH / 2, tz + 2, 1, towerH, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
           this.addBox(verts, indices, tx + 1.5, baseY + towerH / 2, tz + 2, 1, towerH, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
-          // Cross-braces
           for (let by = 6; by < towerH; by += 7) {
             this.addBox(verts, indices, tx, baseY + by, tz - 2, 4, 0.6, 1, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
             this.addBox(verts, indices, tx, baseY + by, tz + 2, 4, 0.6, 1, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
           }
-          // Suspension cables
           for (const sign of [-1, 1]) {
             this.addBox(verts, indices, tx + sign * 8, baseY + 10, tz, 16, 0.3, 0.3, 0.25, 0.25, 0.27, 1.0, idxOffset); idxOffset += 24;
           }
@@ -2237,11 +1946,8 @@ void main() {
       }
     }
     else if (isBridgeConnector) {
-      // Green ground
       const gv = (rng() - 0.5) * 0.08;
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.30 + gv, 0.52 + gv, 0.13 + gv, 1.0, idxOffset); idxOffset += 4;
-
-      // Paint the bridge ramp mesh
       const bridge = BRIDGE_RANGES.find(br =>
         (cx === br.startCx - 1 && cz === br.startCz) ||
         (cx === br.endCx + 1 && cz === br.endCz)
@@ -2250,27 +1956,18 @@ void main() {
         const roadCenterZ = cz * CHUNK_SIZE;
         const roadW = ROAD_HALF_WIDTH * 2;
         const bridgeW = roadW + 10; 
-
-        const segments = 8; // Smooth curve approximation
+        const segments = 8; 
         const segW = CHUNK_SIZE / segments;
         for (let s = 0; s < segments; s++) {
           let x1 = worldOriginX + s * segW;
           let x2 = worldOriginX + (s + 1) * segW;
           const y1 = bridgeYAt(x1, bridge);
           const y2 = bridgeYAt(x2, bridge);
-
-          // Asphalt road surface
           this.addRamp(verts, indices, x1, y1 + 0.08, x2, y2 + 0.08, roadCenterZ, roadW, 0.12, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
-
-          // Dashed lane markings
           if (s % 2 === 0) {
             this.addRamp(verts, indices, x1, y1 + 0.15, x2, y2 + 0.15, roadCenterZ, 0.3, 0.02, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
           }
-
-          // Center divider
           this.addRamp(verts, indices, x1, y1 + 0.18, x2, y2 + 0.18, roadCenterZ, 0.3, 0.3, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
-
-          // Guard rails close to road edge
           for (const side of [-1, 1]) {
             const rz = roadCenterZ + side * (roadW / 2 + 0.5);
             this.addRamp(verts, indices, x1, y1 + 1.0, x2, y2 + 1.0, rz, 0.15, 0.15, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
@@ -2281,8 +1978,6 @@ void main() {
     }
     else if (isAeroport) {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.22, 0.22, 0.24, 1.0, idxOffset); idxOffset += 4;
-
-      // Paint entry road flush with city roads
       for (const entry of GrandTheftRenderer.AIRPORT_ENTRY_ROADS) {
         const minGz = Math.min(entry.gzStart, entry.gzEnd);
         const maxGz = Math.max(entry.gzStart, entry.gzEnd);
@@ -2294,7 +1989,6 @@ void main() {
     }
     else if (isParkingLot) {
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, 0.10, 0.10, 0.11, 1.0, idxOffset); idxOffset += 4;
-      // Paint grid roads
       for (const gridX of [cx, cx + 1]) {
         const worldX = gridX * GRID_PITCH;
         this.addBox(verts, indices, worldX, 0.04, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2, 0.08, CHUNK_SIZE, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
@@ -2305,7 +1999,6 @@ void main() {
       }
     }
     else if (isRural) {
-      // Rural ground — varies by sub-biome
       const gv = (rng() - 0.5) * 0.08;
       let gr = 0.30, gg = 0.50, gb = 0.13;
       if (isRuralFarm) { gr = 0.25 + gv; gg = 0.55 + gv; gb = 0.12 + gv; }
@@ -2314,16 +2007,13 @@ void main() {
       else if (isRuralLakes) { gr = 0.20 + gv; gg = 0.45 + gv; gb = 0.18 + gv; }
       else if (isRuralDesert) { gr = 0.72 + gv * 0.5; gg = 0.65 + gv * 0.5; gb = 0.35 + gv * 0.5; }
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, gr, gg, gb, 1.0, idxOffset); idxOffset += 4;
-      // Lakes get water planes
       if (isRuralLakes) {
         this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, -1.5, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE * 0.5, CHUNK_SIZE * 0.5, 0.05, 0.30, 0.55, 0.75, idxOffset); idxOffset += 4;
         this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, -1.2, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE * 0.4, CHUNK_SIZE * 0.4, 0.10, 0.40, 0.60, 0.50, idxOffset); idxOffset += 4;
       }
     } else {
-      // City / Suburb ground (dark asphalt)
       const groundShade = isSuburb ? 0.12 : 0.08;
       this.addPlane(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.0, worldOriginZ + CHUNK_SIZE / 2, CHUNK_SIZE, CHUNK_SIZE, groundShade, groundShade, groundShade, 1.0, idxOffset); idxOffset += 4;
-      // Paint grid roads
       for (const gridX of [cx, cx + 1]) {
         const worldX = gridX * GRID_PITCH;
         this.addBox(verts, indices, worldX, 0.04, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2, 0.08, CHUNK_SIZE, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
@@ -2333,10 +2023,6 @@ void main() {
         this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.04, worldZ, CHUNK_SIZE, 0.08, ROAD_HALF_WIDTH * 2, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
       }
     }
-
-    // ── ROAD EXTENSION at beach/rural boundaries ──
-    // Beach and rural chunks don't draw grid roads, so they leave a
-    // missing-lane gap where they border road-enabled or bridge chunks.
     if (isBeach || isRural) {
       const nb = (dx: number, dz: number) => getBiome(cx + dx, cz + dz);
       const isRoad = (b: string) => b === 'city' || b === 'suburb' || b === 'parking_lot' || b === 'bridge' || b === 'bridge_connector';
@@ -2353,23 +2039,17 @@ void main() {
         this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.04, (cz + 1) * GRID_PITCH, CHUNK_SIZE, 0.08, ROAD_HALF_WIDTH * 2, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
       }
     }
-
-    // ── OCEAN BARRIER WALLS (where land chunks meet ocean along roads) ──
     if (!isBeach && !isBridge && !isBridgeConnector && !isAeroport) {
-      const gap = ROAD_HALF_WIDTH + 1; // 17u gap for the road
-      const segLen = CHUNK_SIZE - (gap * 2); // Wall segment length
-
+      const gap = ROAD_HALF_WIDTH + 1; 
+      const segLen = CHUNK_SIZE - (gap * 2); 
       for (const [ddx, ddz] of [[0, 1], [0, -1], [1, 0], [-1, 0]] as const) {
         if (getBiome(cx + ddx, cz + ddz) !== 'ocean') continue;
-
         let isNearBridge = false;
         for (const br of BRIDGES) {
           if (Math.abs(cx - br.startCx) <= 2 && Math.abs(cz - br.startCz) <= 2) isNearBridge = true;
           if (Math.abs(cx - br.endCx) <= 2 && Math.abs(cz - br.endCz) <= 2) isNearBridge = true;
         }
-
         if (isNearBridge) continue;
-
         if (ddx !== 0) {
           const wx = (cx + 0.5 + ddx * 0.49) * CHUNK_SIZE;
           this.addBox(verts, indices, wx, 1.25, worldOriginZ + CHUNK_SIZE / 2, 2, 2.5, segLen, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
@@ -2379,45 +2059,33 @@ void main() {
         }
       }
     }
-
-    // ── PER-BLOCK DETAIL ───────────────────────────────────
     for (let by = 0; by < blocksPerChunk; by++) {
       for (let bx = 0; bx < blocksPerChunk; bx++) {
         const gx = cx * blocksPerChunk + bx;
         const gz = cz * blocksPerChunk + by;
         const blockWorldX = gx * GRID_PITCH + GRID_PITCH / 2;
         const blockWorldZ = gz * GRID_PITCH + GRID_PITCH / 2;
-
-        // Parking lot blocks — paint stripes instead of buildings
         if (isParkingLot) {
-          // Rows of parking spaces (two rows with driving aisle between)
           const rowSpacing = 6;
           const stallW = 3, stallD = 5;
           for (let row = 0; row < 5; row++) {
             const rz = blockWorldZ - 14 + row * rowSpacing;
-            // Skip middle row to leave an aisle
             if (row === 2) continue;
             for (let col = 0; col < 7; col++) {
               const rx = blockWorldX - 9 + col * 3;
-              // White stall lines (two side stripes + back)
               this.addBox(verts, indices, rx - stallW / 2, 0.02, rz, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
               this.addBox(verts, indices, rx + stallW / 2, 0.02, rz, 0.15, 0.04, stallD, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
               this.addBox(verts, indices, rx, 0.02, rz - stallD / 2, stallW, 0.04, 0.15, 0.9, 0.9, 0.9, 1.0, idxOffset); idxOffset += 24;
             }
           }
-          // Curbs around perimeter
           this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ - 18, 38, 0.2, 0.6, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
           this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ + 18, 38, 0.2, 0.6, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
           continue;
         }
-
-        // Sidewalk slab (skip for beach/aeroport/bridge/bridge_connector/rural)
         if (!isBeach && !isAeroport && !isBridge && !isBridgeConnector && !isRural) {
           const swShade = 0.38 + (rng() * 0.08);
           const swHalf = SIDEWALK_SIZE / 2;
-          // Main walking surface
           this.addBox(verts, indices, blockWorldX, 0.15, blockWorldZ, SIDEWALK_SIZE, 0.3, SIDEWALK_SIZE, swShade, swShade, swShade, 1.0, idxOffset); idxOffset += 24;
-          // Outer curb (road-facing edge)
           const curbH = 0.1, curbW = 0.6;
           const roadDist = GRID_PITCH / 2 - swHalf;
           for (const side of [-1, 1]) {
@@ -2429,12 +2097,9 @@ void main() {
             this.addBox(verts, indices, cx_, 0.35, blockWorldZ, curbW, curbH, SIDEWALK_SIZE, 0.5 + swShade * 0.3, 0.5 + swShade * 0.3, 0.5 + swShade * 0.3, 1.0, idxOffset); idxOffset += 24;
           }
         }
-
-        // ── BEACH block: palms, umbrellas, lifeguard tower ──
         if (isBeach) {
           this.addPlane(verts, indices, blockWorldX, 0.03, blockWorldZ, BLOCK_SIZE, BLOCK_SIZE, 0.82, 0.75, 0.55, 1.0, idxOffset); idxOffset += 4;
           const halfSW = SIDEWALK_SIZE / 2;
-          // Palms scattered across the block, away from tatami
           const tatamiPositions: { x: number; z: number }[] = [];
           for (const t of tatami) tatamiPositions.push({ x: t.x, z: t.z });
           for (let i = 0; i < 4; i++) {
@@ -2457,31 +2122,27 @@ void main() {
               this.addBox(verts, indices, px, ph + 0.5, pz, 3, 0.6, 3, 0.1, 0.45, 0.05, 1.0, idxOffset); idxOffset += 24;
             }
           }
-          // Beach umbrellas — colorful discs
           for (let i = 0; i < 3; i++) {
             if (rng() < 0.6) {
               const ux = blockWorldX - 12 + rng() * 24;
               const uz = blockWorldZ - 12 + rng() * 24;
               const palette = [[1, 0.2, 0.2], [0.2, 0.5, 1], [1, 1, 0.2], [0.9, 0.4, 0.7]];
               const col = palette[Math.floor(rng() * palette.length)];
-              this.addBox(verts, indices, ux, 1.5, uz, 0.1, 2.5, 0.1, 0.4, 0.3, 0.2, 1.0, idxOffset); idxOffset += 24; // pole
-              this.addBox(verts, indices, ux, 2.6, uz, 3, 0.2, 3, col[0], col[1], col[2], 1.0, idxOffset); idxOffset += 24; // canopy
+              this.addBox(verts, indices, ux, 1.5, uz, 0.1, 2.5, 0.1, 0.4, 0.3, 0.2, 1.0, idxOffset); idxOffset += 24; 
+              this.addBox(verts, indices, ux, 2.6, uz, 3, 0.2, 3, col[0], col[1], col[2], 1.0, idxOffset); idxOffset += 24; 
             }
           }
-          // Lifeguard chair (one per block, low probability)
           if (rng() < 0.3) {
             const lx = blockWorldX + halfSW - 5;
             const lz = blockWorldZ + halfSW - 5;
-            this.addBox(verts, indices, lx, 1.0, lz, 1.2, 0.15, 1.2, 0.7, 0.5, 0.3, 1.0, idxOffset); idxOffset += 24; // seat
-            this.addBox(verts, indices, lx, 2.0, lz - 0.5, 0.15, 2, 0.15, 0.7, 0.5, 0.3, 1.0, idxOffset); idxOffset += 24; // front leg
-            this.addBox(verts, indices, lx, 0.8, lz + 0.5, 0.15, 1.6, 0.15, 0.7, 0.5, 0.3, 1.0, idxOffset); idxOffset += 24; // back leg
-            this.addBox(verts, indices, lx, 2.2, lz, 0.15, 0.8, 1.2, 0.7, 0.5, 0.3, 1.0, idxOffset); idxOffset += 24; // backrest
+            this.addBox(verts, indices, lx, 1.0, lz, 1.2, 0.15, 1.2, 0.7, 0.5, 0.3, 1.0, idxOffset); idxOffset += 24; 
+            this.addBox(verts, indices, lx, 2.0, lz - 0.5, 0.15, 2, 0.15, 0.7, 0.5, 0.3, 1.0, idxOffset); idxOffset += 24; 
+            this.addBox(verts, indices, lx, 0.8, lz + 0.5, 0.15, 1.6, 0.15, 0.7, 0.5, 0.3, 1.0, idxOffset); idxOffset += 24; 
+            this.addBox(verts, indices, lx, 2.2, lz, 0.15, 0.8, 1.2, 0.7, 0.5, 0.3, 1.0, idxOffset); idxOffset += 24; 
           }
-          // A couple of benches (properly sparse — max 1 per beach block)
           if (rng() < 0.4) {
             benches.push({ x: blockWorldX, z: blockWorldZ + halfSW - 3, yaw: Math.PI });
           }
-          // Tatami dressing rooms along the inland edge
           if (this.tatamiRoomMesh) {
             for (let i = 0; i < 2; i++) {
               if (rng() < 0.5) {
@@ -2491,19 +2152,16 @@ void main() {
               }
             }
           }
-          // Wooden cabin near the water edge
           if (this.woodenCabineMesh && rng() < 0.4) {
             const cx = blockWorldX + (rng() - 0.5) * 20;
             const cz = blockWorldZ + halfSW - 5;
             cabins.push({ x: cx, z: cz, yaw: rng() > 0.5 ? 0 : Math.PI });
           }
-          // Tropical shop — rare on beaches
           if (this.tropicalShopMesh && rng() < 0.15) {
             const sx = blockWorldX + (rng() - 0.5) * 22;
             const sz = blockWorldZ + halfSW - 4;
             tropicalShops.push({ x: sx, z: sz, yaw: rng() > 0.5 ? 0 : Math.PI });
           }
-          // Lighthouse at a beach corner — extremely rare
           if (this.cylindricalTowerMesh && rng() < 0.03) {
             const corner = Math.floor(rng() * 4);
             const cx = corner < 2 ? blockWorldX - halfSW + 2 : blockWorldX + halfSW - 2;
@@ -2512,13 +2170,9 @@ void main() {
           }
           continue;
         }
-
-        // ── AEROPORT block: runway + hangars + planes + helipads ──
         if (isAeroport) {
           const isParkingZone = isAeroportParkingChunk(cx, cz);
-
           if (isParkingZone) {
-            // Parking lot — no runway/hangars, just stalls and parked cars
             const rowSpacing = 6;
             const stallW = 3, stallD = 5;
             for (let row = 0; row < 5; row++) {
@@ -2536,8 +2190,6 @@ void main() {
             }
             this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ - 18, 38, 0.2, 0.6, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
             this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ + 18, 38, 0.2, 0.6, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
-
-            // Barrier wall at boundary with next aeroport chunk
             const dCz = (cx >= 33 && cx <= 46 && cz >= 10) ? 1 : -1;
             const nextCz = cz + dCz;
             const biomeNext = getBiome(cx, nextCz);
@@ -2545,51 +2197,37 @@ void main() {
               const wallZ = dCz > 0 ? blockWorldZ + GRID_PITCH / 2 : blockWorldZ - GRID_PITCH / 2;
               const entryRoad = GrandTheftRenderer.AIRPORT_ENTRY_ROADS.find(e => e.gx === gx);
               if (entryRoad) {
-                // Entry gate — align gap with the entry road position
                 const roadX = entryRoad.gx * GRID_PITCH;
                 const entryGap = 20;
                 const halfSpan = GRID_PITCH / 2;
                 const segWidth = halfSpan - entryGap / 2;
-                // Left wall segment
                 this.addBox(verts, indices, roadX - entryGap / 2 - segWidth / 2, 1.5, wallZ, segWidth, 3, 0.4, 0.35, 0.35, 0.37, 1.0, idxOffset); idxOffset += 24;
-                // Right wall segment
                 this.addBox(verts, indices, roadX + entryGap / 2 + segWidth / 2, 1.5, wallZ, segWidth, 3, 0.4, 0.35, 0.35, 0.37, 1.0, idxOffset); idxOffset += 24;
-                // Gate pillars
                 const pillarH = 6, pillarW = 1;
                 this.addBox(verts, indices, roadX - entryGap / 2 - pillarW / 2, pillarH / 2, wallZ, pillarW, pillarH, pillarW, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
                 this.addBox(verts, indices, roadX + entryGap / 2 + pillarW / 2, pillarH / 2, wallZ, pillarW, pillarH, pillarW, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
-                // Gate arch (top beam connecting pillars)
                 this.addBox(verts, indices, roadX, pillarH - 0.3, wallZ, entryGap + pillarW * 2, 0.6, 0.8, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
-                // Guard booths on each side
                 const boothW = 2, boothD = 2.5, boothH = 2.5;
                 this.addBox(verts, indices, roadX - entryGap / 2 - 2, 0.05, wallZ - 5, boothW, 0.1, boothD, 0.25, 0.25, 0.27, 1.0, idxOffset); idxOffset += 24;
                 this.addBox(verts, indices, roadX - entryGap / 2 - 2, boothH / 2, wallZ - 5, boothW, boothH, boothD, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
-                // Booth window strip
                 this.addBox(verts, indices, roadX - entryGap / 2 - 2, boothH * 0.55, wallZ - 5, boothW * 0.9, boothH * 0.35, boothD * 0.05, 0.6, 0.8, 1.0, 0.6, idxOffset); idxOffset += 24;
-                // Right booth
                 this.addBox(verts, indices, roadX + entryGap / 2 + 2, 0.05, wallZ - 5, boothW, 0.1, boothD, 0.25, 0.25, 0.27, 1.0, idxOffset); idxOffset += 24;
                 this.addBox(verts, indices, roadX + entryGap / 2 + 2, boothH / 2, wallZ - 5, boothW, boothH, boothD, 0.3, 0.3, 0.32, 1.0, idxOffset); idxOffset += 24;
                 this.addBox(verts, indices, roadX + entryGap / 2 + 2, boothH * 0.55, wallZ - 5, boothW * 0.9, boothH * 0.35, boothD * 0.05, 0.6, 0.8, 1.0, 0.6, idxOffset); idxOffset += 24;
               } else {
-                // Solid wall — no entry road passes through this block
                 this.addBox(verts, indices, blockWorldX, 1.5, wallZ, GRID_PITCH, 3, 0.4, 0.35, 0.35, 0.37, 1.0, idxOffset); idxOffset += 24;
               }
             }
             continue;
           }
-
-          // Runway strip (always down the center)
           this.addBox(verts, indices, blockWorldX, 0.1, blockWorldZ, 8, 0.2, GRID_PITCH, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
           for (let dz = -GRID_PITCH / 2 + 4; dz < GRID_PITCH / 2; dz += 8) {
             this.addBox(verts, indices, blockWorldX, 0.11, blockWorldZ + dz, 0.5, 0.05, 3, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
           }
-
-          // Deterministic chunk role — 2% terminal, 30% helipad, 68% hangar
           const aRole = rng();
           const hasTerminal = aRole < 0.02;
           const hasHelipad = aRole >= 0.02 && aRole < 0.32;
           const HS = 2.5;
-
           if (hasTerminal && this.airportBuildingMeshes.length > 0) {
             const term = this.airportBuildingMeshes[Math.floor(rng() * this.airportBuildingMeshes.length)];
             const bMinY = this.getModelMinY(term);
@@ -2652,8 +2290,6 @@ void main() {
               }
             }
           }
-
-          // Retaining wall where aeroport meets ocean
           for (const [ddx, ddz] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
             if (getBiome(cx + ddx, cz + ddz) !== 'ocean') continue;
             const wallLen = ddx !== 0 ? 2 : GRID_PITCH;
@@ -2664,16 +2300,12 @@ void main() {
           }
           continue;
         }
-
-        // ── RURAL block: scattered houses, cabins, trees, chickens ──
         if (isRural) {
-          // Mountains: gentle hills (wide, low boxes), clear corridor at road grid lines
           if (isRuralMountain) {
             const roadClear = 14;
             for (let hi = 0; hi < 4 + Math.floor(rng() * 4); hi++) {
               const hx = blockWorldX + (rng() - 0.5) * 55;
               const hz = blockWorldZ + (rng() - 0.5) * 55;
-              // Keep clear of road grid lines (chunk boundaries at cx*80 / (cx+1)*80)
               const distGX = Math.min(Math.abs(hx - cx * CHUNK_SIZE), Math.abs(hx - (cx + 1) * CHUNK_SIZE));
               const distGZ = Math.min(Math.abs(hz - cz * CHUNK_SIZE), Math.abs(hz - (cz + 1) * CHUNK_SIZE));
               if (distGX < roadClear || distGZ < roadClear) continue;
@@ -2694,12 +2326,10 @@ void main() {
               }
             }
           }
-          // Desert: sand, cacti, sparse buildings
           else if (isRuralDesert) {
             for (let ci = 0; ci < 4 + Math.floor(rng() * 4); ci++) {
               const cx = blockWorldX + (rng() - 0.5) * 55;
               const cz = blockWorldZ + (rng() - 0.5) * 55;
-              // Cactus-like columns
               const ch = 2 + rng() * 3;
               this.addBox(verts, indices, cx, ch / 2, cz, 0.3, ch, 0.3, 0.15, 0.40, 0.08, 1.0, idxOffset); idxOffset += 24;
               if (rng() < 0.4) {
@@ -2713,7 +2343,6 @@ void main() {
               buildings.push({ model: this.ruralShopMesh, x: bx, y: -bMinY * 2.5 + 0.15, z: bz, yaw: Math.floor(rng() * 4) * Math.PI / 2, scale: [2.5, 2.5, 2.5] });
             }
           }
-          // Lakes: water in center, sparse trees, no buildings
           else if (isRuralLakes) {
             for (let ti = 0; ti < 3 + Math.floor(rng() * 4); ti++) {
               if (this.palmTreeMesh) {
@@ -2724,7 +2353,6 @@ void main() {
               }
             }
           }
-          // Hills and Farm: existing behavior
           else {
             const hasBuilding = rng() < 0.35;
             if (hasBuilding) {
@@ -2751,7 +2379,6 @@ void main() {
                 }
               }
             }
-            // Scattered trees
             for (let ti = 0; ti < 8 + Math.floor(rng() * 6); ti++) {
               if (this.palmTreeMesh && rng() < 0.7) {
                 const tx = blockWorldX + (rng() - 0.5) * 60;
@@ -2759,7 +2386,6 @@ void main() {
                 trees.push({ x: tx, z: tz, yaw: rng() * 0.3, scale: 2.4 + rng() * 1.8 });
               }
             }
-            // Farm crop rows
             if (isRuralFarm && rng() < 0.6) {
               for (let ri = 0; ri < 4 + Math.floor(rng() * 4); ri++) {
                 const cx = blockWorldX + (rng() - 0.5) * 50;
@@ -2767,30 +2393,21 @@ void main() {
                 this.addBox(verts, indices, cx, 0.15, cz, 1.5 + rng() * 3, 0.3 + rng() * 0.2, 0.5, 0.6 + rng() * 0.3, 0.5 + rng() * 0.2, 0.1, 1.0, idxOffset); idxOffset += 24;
               }
             }
-            // Random free-range chickens
             if (rng() < 0.4) {
               chickens.push({ x: blockWorldX + (rng() - 0.5) * 50, z: blockWorldZ + (rng() - 0.5) * 50, yaw: rng() * Math.PI * 2 });
             }
           }
           continue;
         }
-
         if (isBridge || isBridgeConnector) continue;
-
-        // ── CITY / SUBURB block ──
         const grassG = isSuburb ? 0.42 : 0.10;
         this.addBox(verts, indices, blockWorldX, 0.075, blockWorldZ, BLOCK_SIZE, 0.15, BLOCK_SIZE, 0.08, grassG, 0.08, 1.0, idxOffset); idxOffset += 24;
-
-        // Skip home-base blocks
         if ((cx === 0 && cz === 0) || (cx === 1 && cz === 0)) continue;
-
         const halfSW = SIDEWALK_SIZE / 2;
         const edges = [
           { dx: 0, dz: 1 }, { dx: 0, dz: -1 },
           { dx: 1, dz: 0 }, { dx: -1, dz: 0 }
         ];
-
-        // Track placed building footprints for overlap prevention
         const placedAABBs: { minX: number; maxX: number; minZ: number; maxZ: number }[] = [];
         const modelWorldAABB = (model: CityMesh | CityMesh[], px: number, pz: number, scale: [number, number, number], yaw: number): { minX: number; maxX: number; minZ: number; maxZ: number } | null => {
           const arr = Array.isArray(model) ? model : [model];
@@ -2824,9 +2441,7 @@ void main() {
           placedAABBs.push(bb);
           return true;
         };
-
         if (isSuburb) {
-          // 1 in 4 suburb blocks gets a POI (storefront)
           if (rng() < 0.25 && this.suburbBuildingMeshes.length > 0) {
             const poiModels = this.suburbBuildingMeshes.filter((_, i) => i % 3 === 0);
             if (poiModels.length > 0) {
@@ -2840,10 +2455,9 @@ void main() {
               }
             }
           }
-
           for (const edge of edges) {
             const numHouses = 1 + Math.floor(rng() * 2);
-            const houseWidth = (SIDEWALK_SIZE - 12) / numHouses; // leave 6u corner gap each end
+            const houseWidth = (SIDEWALK_SIZE - 12) / numHouses; 
             for (let i = 0; i < numHouses; i++) {
               if (rng() >= 0.7) continue;
               const w = houseWidth;
@@ -2892,24 +2506,18 @@ void main() {
               }
             }
           }
-          // Backyard chickens (suburb only)
           if (rng() < 0.3) {
             chickens.push({ x: blockWorldX + (rng() - 0.5) * 20, z: blockWorldZ + (rng() - 0.5) * 20, yaw: rng() * Math.PI * 2 });
           }
         } else {
-          // ── CITY: storefronts with alley gaps ──
-          const isBoulevardEdgeX = isBoulevard(gx);    // road running N-S at this grid line
-          const isBoulevardEdgeZ = isBoulevard(gz);    // road running E-W
-
+          const isBoulevardEdgeX = isBoulevard(gx);    
+          const isBoulevardEdgeZ = isBoulevard(gz);    
           for (const edge of edges) {
             const numStores = 2 + Math.floor(rng() * 2);
-            // Leave 4u gap at each end → no corner collision
             const storeWidth = (SIDEWALK_SIZE - 8) / numStores;
             for (let i = 0; i < numStores; i++) {
               if (rng() >= 0.78) {
-                // Empty slot — becomes an alleyway
                 if (rng() < 0.4) {
-                  // Dumpster in alley
                   const alleyX = edge.dx === 0 ? blockWorldX - halfSW + 4 + storeWidth / 2 + i * storeWidth : blockWorldX + edge.dx * (halfSW - 2);
                   const alleyZ = edge.dz === 0 ? blockWorldZ - halfSW + 4 + storeWidth / 2 + i * storeWidth : blockWorldZ + edge.dz * (halfSW - 2);
                   this.addBox(verts, indices, alleyX, 0.7, alleyZ, 1.6, 1.4, 1.2, 0.2, 0.45, 0.2, 1.0, idxOffset); idxOffset += 24;
@@ -2931,7 +2539,6 @@ void main() {
               const models = this.cityBuildingMeshes;
               if (models.length > 0) {
                 const model = models[Math.floor(rng() * models.length)];
-                // Scale model so its width fills the storefront, keeping front face flush with sidewalk edge
                 let nativeMinX = 0, nativeMaxX = 1, nativeMinZ = 0, nativeMaxZ = 1;
                 { let mnX = Infinity, mxX = -Infinity, mnZ = Infinity, mxZ = -Infinity;
                   for (const m of (Array.isArray(model) ? model : [model])) {
@@ -2945,7 +2552,6 @@ void main() {
                 let scVal = nativeWidth > 0.01 ? w / nativeWidth : 1;
                 if (model.length > 0 && model[0].carName && model[0].carName.includes('skyscraper')) scVal *= 10;
                 const actualDepth = nativeDepth * scVal;
-                // Reposition so front face is exactly at sidewalk edge (halfSW - 1)
                 if (edge.dx === 0) {
                   px = blockWorldX - halfSW + 4 + storeWidth / 2 + i * storeWidth;
                   pz = blockWorldZ + edge.dz * (halfSW - 1 - actualDepth / 2);
@@ -2965,29 +2571,23 @@ void main() {
                 const r = 0.4 + rng() * 0.4, g = 0.4 + rng() * 0.4, b = 0.4 + rng() * 0.4;
                 const h = 12 + rng() * 35;
                 this.addBox(verts, indices, px, h / 2 + 0.04, pz, w, h, d, r, g, b, 1.0, idxOffset); idxOffset += 24;
-                // Window glow strip
                 if (rng() < 0.4) {
                   this.addBox(verts, indices, px, h * 0.6, pz + edge.dz * (d / 2 + 0.05), w * 0.7, h * 0.2, 0.1, 1.0, 0.9, 0.4, 0.7, idxOffset); idxOffset += 24;
                 }
               }
             }
           }
-          // Alleyway connection — narrow gap between two blocks
           if ((isBoulevardEdgeX || isBoulevardEdgeZ) && rng() < 0.5) {
-            // No geometry, just leave the corner clear — already handled by 4u gap
           }
         }
       }
     }
-
-    // ── BOULEVARD MEDIAN + PALM TREES + LIGHTS ─────────────
     const INTERSECTION_CLEAR_RADIUS = ROAD_HALF_WIDTH + 2;
     const distanceToNearestGridNode = (x: number, z: number) => {
       const nx = Math.round(x / 80) * 80;
       const nz = Math.round(z / 80) * 80;
       return Math.hypot(x - nx, z - nz);
     };
-
     if (!isBeach && !isAeroport && !isBridge && !isBridgeConnector && !isParkingLot) {
       for (const gridX of [cx, cx + 1]) {
         if (!isBoulevard(gridX)) continue;
@@ -2995,7 +2595,6 @@ void main() {
         const gap = INTERSECTION_CLEAR_RADIUS;
         const segLen = CHUNK_SIZE - (gap * 2);
         this.addBox(verts, indices, worldX, 0.15, worldOriginZ + CHUNK_SIZE / 2, 6, 0.3, segLen, 0.12, 0.30, 0.10, 1.0, idxOffset); idxOffset += 24;
-
         for (let z = worldOriginZ + gap; z < worldOriginZ + CHUNK_SIZE - gap; z += 16) {
           if (distanceToNearestGridNode(worldX, z) < gap) continue;
           if (this.cityTreeMesh && Math.floor((z - worldOriginZ) / 16) % 3 === 0) {
@@ -3006,7 +2605,6 @@ void main() {
             this.addBox(verts, indices, worldX, 3, z, 0.4, 6, 0.4, 0.3, 0.18, 0.05, 1.0, idxOffset); idxOffset += 24;
             this.addBox(verts, indices, worldX, 6.2, z, 3, 0.7, 3, 0.1, 0.45, 0.05, 1.0, idxOffset); idxOffset += 24;
           }
-          // Benches pushed to sidewalk (18u away from center)
           if (Math.floor((z - worldOriginZ) / 16) % 2 === 0) {
             if (distanceToNearestGridNode(worldX + 18, z) < gap) continue;
             benches.push({ x: worldX + 18, z, yaw: Math.PI / 2 });
@@ -3019,7 +2617,6 @@ void main() {
         const gap = INTERSECTION_CLEAR_RADIUS;
         const segLen = CHUNK_SIZE - (gap * 2);
         this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.15, worldZ, segLen, 0.3, 6, 0.12, 0.30, 0.10, 1.0, idxOffset); idxOffset += 24;
-
         for (let x = worldOriginX + gap; x < worldOriginX + CHUNK_SIZE - gap; x += 16) {
           if (distanceToNearestGridNode(x, worldZ) < gap) continue;
           if (this.cityTreeMesh && Math.floor((x - worldOriginX) / 16) % 3 === 0) {
@@ -3037,8 +2634,6 @@ void main() {
         }
       }
     }
-
-    // ── ROAD LANE STRIPES (only on non-boulevards to keep boulevards clean) ──
     if (!isMountain && !isBeach && !isAeroport && !isBridge && !isBridgeConnector && !isParkingLot && !isRural) {
       const dashLen = 1.5, dashWid = 0.3, dashH = 0.02, dashSpacing = 4, dashOffset = 2;
       for (let ri = 0; ri < 2; ri++) {
@@ -3056,22 +2651,16 @@ void main() {
         }
       }
     }
-
-    // ── MOUNTAIN ROAD: asphalt surface with guardrails, clear path through hills ──
     if (isRuralMountain) {
       const roadW = 14;
       const roadHalf = roadW / 2;
-      // Asphalt road surface flush with terrain
       for (const ri of [0, 1]) {
         const roadZ = cz * CHUNK_SIZE + ri * GRID_PITCH;
         this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.02, roadZ, CHUNK_SIZE, 0.04, roadW, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
-        // Dashed center line
         for (let x = cx * CHUNK_SIZE + 2; x <= (cx + 1) * CHUNK_SIZE - 2; x += 4) {
           this.addBox(verts, indices, x, 0.05, roadZ, 1.5, 0.02, 0.3, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
         }
-        // Center divider
         this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.06, roadZ, CHUNK_SIZE, 0.12, 0.3, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
-        // Guardrails on both sides
         for (const side of [-1, 1]) {
           const rz = roadZ + side * (roadHalf + 0.5);
           this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.5, rz, CHUNK_SIZE, 0.12, 0.12, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
@@ -3098,15 +2687,9 @@ void main() {
         }
       }
     }
-
-    // ── PARKING LOT LIGHTS ──
     if (isParkingLot) {
-      // Already handled via lamps array below
     }
-
     const mesh = this.createMesh(verts, indices);
-
-    // ── LAMPS + HYDRANTS ──
     const lamps: { x: number; z: number }[] = [];
     const hydrants: { x: number; z: number }[] = [];
     if (!isMountain && !isBeach && !isAeroport && !isBridge && !isBridgeConnector && !isRuralMountain) {
@@ -3122,7 +2705,6 @@ void main() {
           if (hydrantRng() < 0.33) hydrants.push({ x: lxPos + 1.5, z: lzPos + 1.5 });
         }
       }
-      // Extra boulevard lights
       if (isCity || isSuburb) {
         for (const gridX of [cx, cx + 1]) {
           if (!isBoulevard(gridX)) continue;
@@ -3141,7 +2723,6 @@ void main() {
           }
         }
       }
-      // Parking lot floodlights
       if (isParkingLot) {
         for (let i = 0; i < 4; i++) {
           const fx = worldOriginX + 15 + (i % 2) * 50;
@@ -3150,9 +2731,6 @@ void main() {
         }
       }
     }
-
-    // ── PROPS — strictly limited counts to kill lag ──
-    // Barrels: max 2 per chunk, skip near bridge connectors to avoid blocking approach roads
     const isBridgeConnectorAdjacent = () => {
       for (const conn of BRIDGE_CONNECTORS) if (Math.abs(cx - conn.cx) <= 1 && cz === conn.cz) return true;
       return false;
@@ -3163,12 +2741,9 @@ void main() {
         barrels.push({ x: worldOriginX + 6 + rng() * (CHUNK_SIZE - 12), z: worldOriginZ + 6 + rng() * (CHUNK_SIZE - 12), yaw: rng() * Math.PI * 2 });
       }
     }
-    // Chickens: suburb only, max 1 per chunk
     if (isSuburb && rng() < 0.3) {
       chickens.push({ x: worldOriginX + 5 + rng() * (CHUNK_SIZE - 10), z: worldOriginZ + 5 + rng() * (CHUNK_SIZE - 10), yaw: rng() * Math.PI * 2 });
     }
-
-    // Force one supermarket per city chunk if we have the model
     if ((isCity || isSuburb) && this.cityBuildingMeshes.length > 0) {
       const smModel = this.cityBuildingMeshes.find(m => m.length > 0 && m[0].carName && m[0].carName.includes('supermarket'));
       if (smModel && supermarkets.length < 1 && rng() < 0.20) {
@@ -3176,8 +2751,6 @@ void main() {
         const blockWorldZ = worldOriginZ + 40;
         const halfSW = SIDEWALK_SIZE / 2;
         const setback = 8;
-
-        // Re-declare edges here because the previous one is out of scope
         const edges = [
           { dx: 0, dz: 1 }, { dx: 0, dz: -1 },
           { dx: 1, dz: 0 }, { dx: -1, dz: 0 }
@@ -3201,8 +2774,6 @@ void main() {
         supermarkets.push({ x: px, z: pz, yaw });
       }
     }
-
-    // Airport entry road visual — wide dual-lane road with gate approach markings
     for (const entry of GrandTheftRenderer.AIRPORT_ENTRY_ROADS) {
       const minGz = Math.min(entry.gzStart, entry.gzEnd);
       const maxGz = Math.max(entry.gzStart, entry.gzEnd);
@@ -3210,35 +2781,27 @@ void main() {
       const roadX = entry.gx * GRID_PITCH;
       const roadW = 20;
       const halfW = roadW / 2;
-      // Asphalt strip
       this.addBox(verts, indices, roadX, 0.05, worldOriginZ + CHUNK_SIZE / 2, roadW, 0.1, CHUNK_SIZE, 0.15, 0.15, 0.16, 1.0, idxOffset); idxOffset += 24;
-      // White center divider (solid line — no crossing)
       this.addBox(verts, indices, roadX, 0.06, worldOriginZ + CHUNK_SIZE / 2, 0.3, 0.05, CHUNK_SIZE - 2, 1, 1, 1, 0.9, idxOffset); idxOffset += 24;
-      // Dashed lane markings on each side of center
       for (const side of [-4.5, 4.5]) {
         for (let dz = -CHUNK_SIZE / 2 + 4; dz < CHUNK_SIZE / 2; dz += 10) {
           this.addBox(verts, indices, roadX + side, 0.06, worldOriginZ + CHUNK_SIZE / 2 + dz, 0.3, 0.05, 4, 1, 1, 1, 0.7, idxOffset); idxOffset += 24;
         }
       }
-      // Concrete curbs on both edges
       this.addBox(verts, indices, roadX - halfW + 0.3, 0.3, worldOriginZ + CHUNK_SIZE / 2, 0.6, 0.6, CHUNK_SIZE, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
       this.addBox(verts, indices, roadX + halfW - 0.3, 0.3, worldOriginZ + CHUNK_SIZE / 2, 0.6, 0.6, CHUNK_SIZE, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
     }
-
     const chunk: CityChunk = { mesh, cx, cz, lamps, hydrants, buildings, benches, barrels, chickens, trees, supermarkets, tatami, cabins, lighthouses, tropicalShops, decorativeAircraft };
     this.chunkCache.set(key, chunk);
     return chunk;
   }
-
   static readonly AIRPORT_ENTRY_ROADS: { gx: number; gzStart: number; gzEnd: number }[] = [
-    { gx: 2, gzStart: -1, gzEnd: -3 },   // Zone 1 (cx 0-3, cz -3..-1)
-    { gx: 12, gzStart: -4, gzEnd: -6 },  // Zone 2 (cx 8-15, cz -6..-4)
-    { gx: 26, gzStart: -7, gzEnd: -8 },  // Zone 3 (cx 22-30, cz -8..-6)
-    { gx: 41, gzStart: -7, gzEnd: -11 }, // Zone 4 (cx 36-46, cz -11..-9)
-    { gx: 39, gzStart: 7, gzEnd: 16 },   // Zone 5 (cx 33-46, cz 12-16)
+    { gx: 2, gzStart: -1, gzEnd: -3 },   
+    { gx: 12, gzStart: -4, gzEnd: -6 },  
+    { gx: 26, gzStart: -7, gzEnd: -8 },  
+    { gx: 41, gzStart: -7, gzEnd: -11 }, 
+    { gx: 39, gzStart: 7, gzEnd: 16 },   
   ];
-
-
   isRoadNode(gx: number, gz: number): boolean {
     const cx = Math.floor(gx * GRID_PITCH / CHUNK_SIZE);
     const cz = Math.floor(gz * GRID_PITCH / CHUNK_SIZE);
@@ -3250,7 +2813,6 @@ void main() {
     }
     return true;
   }
-
   getRoadNodesInRadius(cx: number, cz: number, radius: number): { x: number; z: number }[] {
     const nodes: { x: number; z: number }[] = [];
     const seen = new Set<string>();
@@ -3259,7 +2821,6 @@ void main() {
     const startGz = Math.floor((cz * CHUNK_SIZE) / GRID_PITCH) - radius;
     const endGx = Math.ceil((cx * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
     const endGz = Math.ceil((cz * CHUNK_SIZE + CHUNK_SIZE) / GRID_PITCH) + radius;
-
     for (let gx = startGx; gx <= endGx; gx++) {
       for (let gz = startGz; gz <= endGz; gz++) {
         if (!this.isRoadNode(gx, gz)) continue;
@@ -3271,7 +2832,6 @@ void main() {
     }
     return nodes;
   }
-
   getRoadEdges(nodes: { x: number; z: number }[]): [number, number][] {
     const edges: [number, number][] = [];
     for (let i = 0; i < nodes.length; i++) {
@@ -3285,7 +2845,6 @@ void main() {
     }
     return edges;
   }
-
   getLampsNear(x: number, z: number, radius: number): { x: number; z: number }[] {
     const lamps: { x: number; z: number }[] = [];
     const cx = Math.floor(x / CHUNK_SIZE);
@@ -3303,13 +2862,11 @@ void main() {
     }
     return lamps;
   }
-
   getPlayerMesh(color: [number, number, number]): CityMesh {
     const key = `player_${color.join(',')}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [];
     const indices: number[] = [];
-
     const addSphere = (cx: number, cy: number, cz: number, radius: number, stacks: number, slices: number, r: number, g: number, b: number, a: number) => {
       const startIndex = verts.length / 10;
       for (let i = 0; i <= stacks; i++) {
@@ -3334,7 +2891,6 @@ void main() {
         }
       }
     };
-
     const addCylinder = (cx: number, cy: number, cz: number, radius: number, height: number, slices: number, r: number, g: number, b: number, a: number) => {
       const startIndex = verts.length / 10;
       for (let i = 0; i <= 1; i++) {
@@ -3353,7 +2909,6 @@ void main() {
         indices.push(aI, bI, aI + 1, bI, bI + 1, aI + 1);
       }
     };
-
     addCylinder(0, 0.9, 0, 0.28, 0.9, 18, color[0], color[1], color[2], 1.0);
     addSphere(0, 1.6, 0, 0.18, 10, 18, color[0] * 0.9, color[1] * 0.9, color[2] * 0.9, 1.0);
     addSphere(0, 0.45, 0, 0.2, 8, 16, color[0], color[1], color[2], 1.0);
@@ -3365,14 +2920,11 @@ void main() {
     addCylinder(0.18, -0.6, 0, 0.11, 1.2, 16, color[0], color[1], color[2], 1.0);
     addSphere(-0.18, -1.2, 0, 0.11, 6, 12, color[0], color[1], color[2], 1.0);
     addSphere(0.18, -1.2, 0, 0.11, 6, 12, color[0], color[1], color[2], 1.0);
-
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set(key, mesh);
     return mesh;
   }
-
   getOtherPlayerMesh(color: [number, number, number]): CityMesh { return this.getPlayerMesh(color); }
-
   getPedestrianMesh(gender: string, seed: number | string = 0): CityMesh | CityMesh[] {
     if (gender === 'hooker') {
       return this.getHookerMesh();
@@ -3382,7 +2934,6 @@ void main() {
       return this.npcMeshes[hashSeed(seed) % this.npcMeshes.length];
     }
     if (this.npcMesh) return this.npcMesh;
-
     const color: [number, number, number] = gender === 'female' ? [0.85, 0.45, 0.85] : [0.45, 0.55, 0.85];
     const key = `ped_${gender}_${color.join(',')}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
@@ -3390,7 +2941,6 @@ void main() {
     this.meshCache.set(key, mesh);
     return mesh;
   }
-
   getBoatMesh(seed: number | string = 0): CityMesh | CityMesh[] {
     if (this.boatMeshes.length > 0) {
       if (this.boatMeshes.length === 1) return this.boatMeshes[0];
@@ -3398,7 +2948,6 @@ void main() {
     }
     return this.getNPCCarMesh([0.5, 0.5, 0.5], seed);
   }
-
   getHelicopterMesh(seed: number | string = 0): CityMesh | CityMesh[] {
     if (this.helicopterMeshes.length > 0) {
       if (this.helicopterMeshes.length === 1) return this.helicopterMeshes[0];
@@ -3406,7 +2955,6 @@ void main() {
     }
     return this.getNPCCarMesh([0.5, 0.5, 0.5], seed);
   }
-
   getPlaneMesh(seed: number | string = 0): CityMesh | CityMesh[] {
     if (this.planeMeshes.length > 0) {
       if (this.planeMeshes.length === 1) return this.planeMeshes[0];
@@ -3414,7 +2962,6 @@ void main() {
     }
     return this.getNPCCarMesh([0.5, 0.5, 0.5], seed);
   }
-
   getNPCCarMesh(color: [number, number, number], seed: number | string = 0): CityMesh | CityMesh[] {
     if (this.busMesh && (hashSeed(seed) % 10) < 1) {
       return this.busMesh;
@@ -3441,7 +2988,6 @@ void main() {
     this.meshCache.set(key, mesh);
     return mesh;
   }
-
   getMotorcycleMesh(color: [number, number, number], seed: number | string = 0): CityMesh | CityMesh[] {
     if (this.motorcycleMeshes.length > 0) {
       if (this.motorcycleMeshes.length === 1) return this.motorcycleMeshes[0];
@@ -3461,7 +3007,6 @@ void main() {
     this.meshCache.set(key, mesh);
     return mesh;
   }
-
   getTaxiMesh(): CityMesh | CityMesh[] {
     if (this.taxiMesh) return this.taxiMesh;
     const key = 'taxi_fallback';
@@ -3483,7 +3028,6 @@ void main() {
     this.meshCache.set(key, fm);
     return fm;
   }
-
   getHookerMesh(): CityMesh | CityMesh[] {
     if (this.hookerMesh) return this.hookerMesh;
     const key = 'hooker_fallback';
@@ -3499,7 +3043,6 @@ void main() {
     this.meshCache.set(key, fm);
     return fm;
   }
-
   getHailMarkerMesh(): CityMesh {
     if (this.meshCache.has('hail_marker')) return this.meshCache.get('hail_marker')!;
     const verts: number[] = [];
@@ -3528,7 +3071,6 @@ void main() {
     this.meshCache.set('hail_marker', mesh);
     return mesh;
   }
-
   getDestinationMarkerMesh(): CityMesh {
     if (this.meshCache.has('dest_marker')) return this.meshCache.get('dest_marker')!;
     const verts: number[] = [];
@@ -3551,7 +3093,6 @@ void main() {
     this.meshCache.set('dest_marker', mesh);
     return mesh;
   }
-
   getPickupMesh(): CityMesh {
     if (this.meshCache.has('pickup')) return this.meshCache.get('pickup')!;
     const verts: number[] = [];
@@ -3563,7 +3104,6 @@ void main() {
     this.meshCache.set('pickup', mesh);
     return mesh;
   }
-
   getDestinationBeamMesh(): CityMesh {
     if (this.meshCache.has('dest_beam')) return this.meshCache.get('dest_beam')!;
     const verts: number[] = [];
@@ -3587,7 +3127,6 @@ void main() {
     this.meshCache.set('dest_beam', mesh);
     return mesh;
   }
-
   projectToScreen(wx: number, wy: number, wz: number, canvasW: number, canvasH: number): { x: number; y: number } | null {
     const vp = mat4.create();
     mat4.multiply(vp, this.projMatrix, this.viewMatrix);
@@ -3598,7 +3137,6 @@ void main() {
     if (w <= 0) return null;
     return { x: (x / w + 1) / 2 * canvasW, y: (1 - y / w) / 2 * canvasH };
   }
-
   clearCache() {
     this.chunkCache.clear();
     this.meshCache.clear();
@@ -3613,17 +3151,13 @@ void main() {
     pitch: number = 0,
     roll: number = 0
   ) {
-    const meshes = Array.isArray(mesh) ? mesh : [mesh];  // check ONCE
-
-    // Build model matrix using scratch (no allocation)
+    const meshes = Array.isArray(mesh) ? mesh : [mesh];  
     mat4.identity(this.modelMatrix);
     this._scratchTranslate[0] = x; this._scratchTranslate[1] = y; this._scratchTranslate[2] = z;
     mat4.translate(this.modelMatrix, this.modelMatrix, this._scratchTranslate);
     if (roll) mat4.rotateZ(this.modelMatrix, this.modelMatrix, roll);
     if (pitch) mat4.rotateX(this.modelMatrix, this.modelMatrix, pitch);
     mat4.rotateY(this.modelMatrix, this.modelMatrix, yaw);
-
-    // Pre-compute once instead of reduce()
     let yo = 0;
     let needsFlip = false;
     let isMotorcycle = false;
@@ -3633,22 +3167,18 @@ void main() {
       if (!yo && m.yawOffset) yo = m.yawOffset;
       if (!needsFlip && m.needsFlip) needsFlip = true;
       if (!isMotorcycle && m.texture) {
-        // cache this as a boolean flag on the mesh at load time instead!
-        // For now, check a pre-computed flag:
         isMotorcycle = (m as any)._isMotorcycle || false;
       }
       const rs = m.renderScale ?? 1;
       if (rs > maxRenderScale) maxRenderScale = rs;
     }
-
     if (yo) mat4.rotateY(this.modelMatrix, this.modelMatrix, yo);
     if (needsFlip) {
       mat4.rotateX(this.modelMatrix, this.modelMatrix, Math.PI);
       mat4.rotateY(this.modelMatrix, this.modelMatrix, Math.PI);
-      mat4.translate(this.modelMatrix, this.modelMatrix, [0, -2, 0]); // rare, keep alloc
+      mat4.translate(this.modelMatrix, this.modelMatrix, [0, -2, 0]); 
     }
     if (isMotorcycle) mat4.rotateY(this.modelMatrix, this.modelMatrix, Math.PI);
-
     if (maxRenderScale !== 1) {
       this._scratchScale[0] = scale[0] * maxRenderScale;
       this._scratchScale[1] = scale[1] * maxRenderScale;
@@ -3657,7 +3187,6 @@ void main() {
     } else {
       mat4.scale(this.modelMatrix, this.modelMatrix, scale);
     }
-
     if (isShadowPass) {
       this.gl.uniformMatrix4fv(this.depthModelLoc, false, this.modelMatrix);
     } else {
@@ -3668,7 +3197,6 @@ void main() {
         this.gl.uniformMatrix3fv(this.normalMatrixLoc, false, this._scratchNormalMat);
       }
     }
-
     for (let i = 0; i < meshes.length; i++) {
       const m = meshes[i];
       if (!isShadowPass) {
@@ -3685,7 +3213,6 @@ void main() {
       this.gl.drawElements(this.gl.TRIANGLES, m.indexCount, m.indexType || this.gl.UNSIGNED_SHORT, 0);
     }
   }
-
   render(
     camX: number, camY: number, camZ: number, camYaw: number, camPitch: number, aspect: number,
     targetX: number, targetY: number, targetZ: number, carYaw: number,
@@ -3713,43 +3240,32 @@ void main() {
     const PICKUP_SCALE = 0.2;
     const PICKUP_SPIN_SPEED = 1.5;
     const pickupYaw = (now / 1000) * PICKUP_SPIN_SPEED;
-    // FIX: Declare these outside the shadow pass so the main pass can use them!
     const pcx = Math.floor(camX / CHUNK_SIZE);
     const pcz = Math.floor(camZ / CHUNK_SIZE);
     const nearbyLamps: { x: number; y: number; z: number }[] = [];
-
-    // 1. Shadow Pass
     if (enableShadows) {
       const shadowDist = 80.0;
       mat4.ortho(this.lightProj, -shadowDist, shadowDist, -shadowDist, shadowDist, -shadowDist, shadowDist * 2);
       const sunPos = [camX - this.sunDir[0] * 50, camY - this.sunDir[1] * 50, camZ - this.sunDir[2] * 50];
       mat4.lookAt(this.lightView, sunPos, [camX, camY, camZ], [0, 1, 0]);
       mat4.multiply(this.lightSpaceMatrix, this.lightProj, this.lightView);
-
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowFBO);
       gl.viewport(0, 0, this.shadowMapSize, this.shadowMapSize);
       gl.clear(gl.DEPTH_BUFFER_BIT);
       gl.useProgram(this.depthProgram);
       gl.uniformMatrix4fv(this.depthLightSpaceLoc, false, this.lightSpaceMatrix);
-
       gl.enable(gl.POLYGON_OFFSET_FILL);
       gl.polygonOffset(2.0, 2.0);
-
       for (let dz = -1; dz <= 1; dz++) {
         for (let dx = -1; dx <= 1; dx++) {
           const chunk = this.getCityChunk(pcx + dx, pcz + dz);
-
-          // Simple distance-based cull — skip chunks behind camera
           const chunkCenterX = (pcx + dx) * CHUNK_SIZE + CHUNK_SIZE / 2;
           const chunkCenterZ = (pcz + dz) * CHUNK_SIZE + CHUNK_SIZE / 2;
           const ddx = chunkCenterX - camX, ddz = chunkCenterZ - camZ;
           const distSq = ddx * ddx + ddz * ddz;
-          if (distSq > 200 * 200) continue;  // beyond view distance
-
-          // Dot with camera forward to skip behind-camera chunks
+          if (distSq > 200 * 200) continue;  
           const fwdX = Math.sin(camYaw), fwdZ = Math.cos(camYaw);
-          if (ddx * fwdX + ddz * fwdZ < -CHUNK_SIZE) continue; // behind camera
-
+          if (ddx * fwdX + ddz * fwdZ < -CHUNK_SIZE) continue; 
           this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1]);
           for (const bld of chunk.buildings) {
             this.drawMesh(bld.model, bld.x, bld.y, bld.z, bld.yaw, bld.scale, [1, 1, 1, 1], true);
@@ -3762,12 +3278,6 @@ void main() {
           }
         }
       }
-      // for (const pc of parkedCars) this.drawMesh(pc.mesh, pc.x, pc.y ?? (pc as any)._expY ?? 0, pc.z, pc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-      // for (const npc of serverNPCs) {
-      //   const vy = (npc.type === 'helicopter' || npc.type === 'plane') ? (npc.y || 0) : 0;
-      //   this.drawMesh(npc.mesh, npc.x, vy, npc.z, npc.yaw, [1, 1, 1], [1, 1, 1, 1], true);
-      // }
-     // for (const ped of serverPedestrians) this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, [1, 1, 1], [1, 1, 1, 1], true);
       for (const p of otherPlayers) {
         if (p.passengerOfUserId && p.passengerOfUserId > 0) continue;
         if (p.isInCar) {
@@ -3797,64 +3307,36 @@ void main() {
       if (playerMesh) {
         this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], true, 0, carRoll);
       }
-      // for (const db of deadBodies) {
-      //   const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
-      //   const dbPitch = isHuman ? -Math.PI / 2 : 0;
-      //   this.drawMesh(db.mesh, db.x, 0.02, db.z, db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, 1], true, dbPitch);
-      // }
-
-      // for (const w of this.droppedWeapons) {
-      //   if (w == null || w.weaponType == null) continue;
-      //   this.drawMesh(
-      //     this.getWeaponPickupMesh(w.weaponType),
-      //     w.posX, 1.0, w.posZ,
-      //     pickupYaw,
-      //     [PICKUP_SCALE, PICKUP_SCALE, PICKUP_SCALE],
-      //     [1, 1, 1, 1],
-      //     true
-      //   );
-      // }
-
       gl.disable(gl.POLYGON_OFFSET_FILL);
     } else {
-      // Mobile shadow optimization. Clear the depth buffer so the shader 
-      // evaluates to 0.0 (no shadow), skipping the second mesh render pass.
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowFBO);
       gl.viewport(0, 0, this.shadowMapSize, this.shadowMapSize);
       gl.clear(gl.DEPTH_BUFFER_BIT);
     }
-
-    // 2. Main Pass
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.clearColor(0, 0, 0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
     mat4.perspective(this.projMatrix, Math.PI / 4, aspect, 0.1, farPlane ?? 500.0);
     const dirX = Math.sin(camYaw) * Math.cos(camPitch);
     const dirY = -Math.sin(camPitch);
     const dirZ = Math.cos(camYaw) * Math.cos(camPitch);
     mat4.lookAt(this.viewMatrix, [camX, camY, camZ], [camX + dirX, camY + dirY, camZ + dirZ], [0, 1, 0]);
-
     gl.enable(gl.BLEND);
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(true);
-
     gl.useProgram(this.program);
     gl.uniformMatrix4fv(this.projLoc, false, this.projMatrix);
     gl.uniformMatrix4fv(this.viewLoc, false, this.viewMatrix);
-
     gl.uniform3f(this.lightDirLoc, this.sunDir[0], this.sunDir[1], this.sunDir[2]);
     gl.uniform3f(this.lightColorLoc, this.lightColor[0], this.lightColor[1], this.lightColor[2]);
     gl.uniform3f(this.ambientColorLoc, this.ambientColor[0], this.ambientColor[1], this.ambientColor[2]);
     gl.uniform3f(this.fogColorLoc, this.skyColor[0], this.skyColor[1], this.skyColor[2]);
     gl.uniformMatrix4fv(this.lightSpaceLoc, false, this.lightSpaceMatrix);
-
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, this.shadowTexture);
     gl.uniform1i(this.shadowMapLoc, 1);
-
     nearbyLamps.sort((a, b) => (a.x - camX) ** 2 + (a.z - camZ) ** 2 - ((b.x - camX) ** 2 + (b.z - camZ) ** 2));
     const pointLights = nearbyLamps.slice(0, 16);
     const pointLightPositions = new Float32Array(16 * 3);
@@ -3864,16 +3346,13 @@ void main() {
       pointLightPositions[i * 3 + 1] = pointLights[i].y;
       pointLightPositions[i * 3 + 2] = pointLights[i].z;
     }
-
     gl.uniform1f(this.dayBlendLoc, this.dayBlend);
     gl.uniform1i(this.numPointLightsLoc, this.dayBlend < 0.5 ? numLights : 0);
     gl.uniform3fv(this.pointLightPosLoc, pointLightPositions);
-
     for (let dz = -1; dz <= 1; dz++) {
       for (let dx = -1; dx <= 1; dx++) {
         const chunk = this.getCityChunk(pcx + dx, pcz + dz);
         this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1]);
-
         if (this.lampMesh) {
           const lampModels = Array.isArray(this.lampMesh) ? this.lampMesh : [this.lampMesh];
           for (const lamp of chunk.lamps) {
@@ -3949,15 +3428,12 @@ void main() {
         }
       }
     }
-
-    // Clean up expired gas station timers to prevent memory leaks
     for (const [k, t] of this.explodedGasStationTimers) {
       if (now - t >= GrandTheftRenderer.GAS_STATION_COOLDOWN) {
         this.explodedGasStations.delete(k);
         this.explodedGasStationTimers.delete(k);
       }
     }
-
     if (trafficNodes) {
       const lightPhase = Math.floor(performance.now() / 6000) % 2;
       const sidewalkOffset = 22;
@@ -4014,16 +3490,13 @@ void main() {
         }
       }
     }
-
     for (const pc of parkedCars) {
       const biome = getBiome(Math.floor(pc.x / 80), Math.floor(pc.z / 80));
       const isBoat = pc.type === 'boat';
       const submergeY = biome === 'ocean' ? (isBoat ? 0 : -1.5) : getTerrainHeight(pc.x, pc.z);
       this.drawMesh(pc.mesh, pc.x, pc.y ?? (pc as any)._expY ?? submergeY, pc.z, pc.yaw);
     }
-
     for (const npc of serverNPCs) {
-      // Animate skinned NPCs (pedestrians with skeletons, not rigid vehicles)
       const npcSpeed = npc.speed ?? 0;
       const npcState = npcSpeed > 0.5 ? 'walk' : 'idle';
       this.animateAndSkinEntity(npc.id, npc.mesh, npcState, dt, Math.max(1, npcSpeed));
@@ -4032,21 +3505,16 @@ void main() {
       const isAircraft = npc.type === 'helicopter' || npc.type === 'plane';
       const terrainY = submerged ? -1.5 : getTerrainHeight(npc.x, npc.z);
       const expY = isAircraft ? (npc.y || 0) : (npc as any)._expY ?? terrainY;
-
-      // ── Helicopter rotor spin ──
       if (npc.type === 'helicopter') {
-        // Draw the body normally first
         this.drawMesh(npc.mesh, npc.x, expY, npc.z, npc.yaw);
-        // Draw procedural spinning rotor blades on top
         const rotorMesh = this.getRotorBladeMesh();
         const now = performance.now() / 1000;
-        const mainRotorY = expY + 2.5;  // above the helicopter body
-        const mainSpin = now * 20;       // ~3.2 rev/sec — fast enough to look like a disc
+        const mainRotorY = expY + 2.5;  
+        const mainSpin = now * 20;       
         this.drawMesh(rotorMesh, npc.x, mainRotorY, npc.z, npc.yaw + mainSpin, [1, 1, 1], [0.55, 0.55, 0.55, 0.5]);
-        // Tail rotor — offset BEHIND the helicopter
         const tailOffX = -Math.sin(npc.yaw) * 3.5;
         const tailOffZ = -Math.cos(npc.yaw) * 3.5;
-        const tailSpin = now * 55;       // ~8.7 rev/sec — faster for smaller rotor
+        const tailSpin = now * 55;       
         this.drawMesh(rotorMesh, npc.x + tailOffX, mainRotorY - 0.8, npc.z + tailOffZ, npc.yaw + tailSpin, [0.35, 0.35, 0.35], [0.4, 0.4, 0.4, 0.45]);
       } else {
         this.drawMesh(npc.mesh, npc.x, expY, npc.z, npc.yaw);
@@ -4075,23 +3543,19 @@ void main() {
         this.drawMesh(this.getBoxMesh(0.4, 0.2, 0.3), npc.x, 1.0, npc.z, npc.yaw, [1, 1, 1], [1, 0, 0, 1]);
       }
     }
-
     for (const ped of serverPedestrians) {
       const pedSpeed = ped.speed ?? 0;
       const pedState = pedSpeed > 0.3 ? 'walk' : 'idle';
       this.animateAndSkinEntity(ped.id, ped.mesh, pedState, dt, Math.max(1, pedSpeed * 2));
       this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw);
     }
-
-    // Periodic cleanup of stale animators for despawned entities
     if (dt > 0 && Math.random() < 0.05) {
       const activeIds = new Set<number>();
-      activeIds.add(-1); // player mesh
+      activeIds.add(-1); 
       for (const npc of serverNPCs) activeIds.add(npc.id);
       for (const ped of serverPedestrians) activeIds.add(ped.id);
       this.cleanupAnimators(activeIds);
     }
-
     for (const p of otherPlayers) {
       if (p.passengerOfUserId && p.passengerOfUserId > 0) {
         const host = otherPlayers.find(h => h.userId === p.passengerOfUserId);
@@ -4127,11 +3591,8 @@ void main() {
         this.drawMesh(p.mesh, p.posX, p.posY, p.posZ, p.yaw);
       }
     }
-
     if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15]);
     if (this.homeBaseMesh) this.drawMesh(this.homeBaseMesh, 120, 0, 40, 0, [10, 10, 10]);
-
-    // Jump ramps (fixed world props) — distance-culled like other props.
     if (this.jumpRamps.length) {
       if (!this.jumpRampMesh) this.getJumpRampMesh();
       if (this.jumpRampMesh) {
@@ -4143,19 +3604,16 @@ void main() {
       }
     }
     if (this.garageCarMesh) this.drawMesh(this.garageCarMesh, 120, 0, 42, 0);
-
     if (this.vendingMachineMesh) {
       for (const vm of vendingMachines) {
         this.drawMesh(this.vendingMachineMesh, vm.x, 0, vm.z, vm.yaw);
       }
     }
-
     if (playerMesh) {
       const playerState = this.walkSpeed > 0.3 ? (this.walkSpeed > 2 ? 'run' : 'walk') : 'idle';
       this.animateAndSkinEntity(-1, playerMesh, playerState, dt, Math.max(1, this.walkSpeed * 2));
       this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], false, 0, carRoll);
     }
-
     if (attachedMeshes && attachedMeshes.length > 0) {
       const sinY = Math.sin(carYaw), cosY = Math.cos(carYaw);
       for (const am of attachedMeshes) {
@@ -4165,7 +3623,6 @@ void main() {
         this.drawMesh(am.mesh, wx, targetY + am.offsetY, wz, carYaw + am.yaw, [s, s, s]);
       }
     }
-
     gl.disable(gl.DEPTH_TEST);
     for (const b of bloodSplats) {
       const t = b.age / b.lifetime;
@@ -4174,7 +3631,6 @@ void main() {
       const tint = 0.85 - t * 0.25;
       this.drawMesh(this.getBloodMesh(), b.x, b.y, b.z, 0, [sz, sz, sz], [tint, 0.0, 0.0, alpha]);
     }
-
     const smokeMesh = this.getSphereMesh(0.5);
     for (const s of bulletSmoke) {
       const t = s.age / s.lifetime;
@@ -4186,13 +3642,11 @@ void main() {
       const t = s.age / s.lifetime;
       const alpha = (1.0 - t) * 0.45;
       const sz = s.size;
-      // Optional per-particle tint (tire smoke is light gray, engine smoke dark).
       const sr = s.colorR ?? 0.25;
       const sg = s.colorG ?? 0.25;
       const sb = s.colorB ?? 0.28;
       this.drawMesh(smokeMesh, s.x, s.y, s.z, 0, [sz, sz, sz], [sr, sg, sb, alpha]);
     }
-
     gl.enable(gl.DEPTH_TEST);
     gl.depthMask(false);
     for (const bp of bloodPools) {
@@ -4213,7 +3667,6 @@ void main() {
       }
     }
     gl.depthMask(true);
-
     for (const db of deadBodies) {
       const isHuman = db.type === 'player' || db.type === 'ped_male' || db.type === 'ped_female' || db.type === 'cop';
       const dbPitch = isHuman ? -Math.PI / 2 : 0;
@@ -4221,7 +3674,6 @@ void main() {
       const fadeAlpha = Math.max(0.4, 1.0 - elapsed / 30);
       this.drawMesh(db.mesh, db.x, 0.02, db.z, -db.yaw, [1, 1, 1], [0.4, 0.4, 0.4, fadeAlpha], false, dbPitch);
     }
-
     gl.disable(gl.DEPTH_TEST);
     for (const t of tracers) {
       const alpha = 1.0 - (t.age / t.lifetime);
@@ -4267,7 +3719,6 @@ void main() {
       const s = weaponScale * (0.9 + 0.2 * Math.sin(t * 40));
       this.drawMesh(this.getMuzzleFlashMesh(), flashX, flashY, flashZ, 0, [s, s, s], [1.0, 1.0, 1.0, alpha]);
     }
-
     if (markers && markers.length > 0) {
       const markerDistSq = 150 * 150;
       const markerFadeDistSq = 100 * 100;
@@ -4285,7 +3736,6 @@ void main() {
         }
       }
       gl.depthMask(true);
-
       gl.disable(gl.DEPTH_TEST);
       for (const m of markers) {
         if (m.type === 'hail') {
@@ -4307,8 +3757,6 @@ void main() {
       gl.enable(gl.DEPTH_TEST);
       gl.enable(gl.CULL_FACE);
     }
-
-    // Draw car fires (reuse explosion fire sphere on hood)
     const fireMesh = this.getExplosionMesh();
     const fireColor: [number, number, number, number] = [1, 0.5, 0.0, 0.9];
     const fireScale = 0.6;
@@ -4341,8 +3789,6 @@ void main() {
       const s = fireScale * 2.5 * growth * pulse * flicker;
       this.drawMesh(fireMesh, fx, 0.8, fz, 0, [s, s, s], fireColor);
     }
-
-    // Health bars above damaged NPC cars so every player sees each vehicle's state
     const hpMesh = this.getHpBarMesh();
     const hpMaxDistSq = 150 * 150;
     const drawBar = (bx: number, by: number, bz: number, hp: number, maxHp: number) => {
@@ -4370,9 +3816,7 @@ void main() {
       const hp = (pc as any).health ?? maxHp;
       if (hp > 0 && hp < maxHp) drawBar(pc.x, 2.6, pc.z, hp, maxHp);
     }
-
     gl.enable(gl.DEPTH_TEST);
-    // Draw dropped weapons as rotating pickups (real weapon models)
     if (this.droppedWeapons && this.droppedWeapons.length > 0) {
       for (const dw of this.droppedWeapons) {
         if (dw == null || dw.weaponType == null) continue;
@@ -4387,10 +3831,6 @@ void main() {
       }
     }
     gl.enable(gl.DEPTH_TEST);
-
-    // ── Skybox (post-scene) ──────────────────────────────
-    // Render AFTER the scene so it only fills pixels where
-    // depth is still 1.0 (no scene geometry).
     if (this.skyboxMesh) {
       gl.useProgram(this.gltfSkyProgram);
       gl.uniformMatrix4fv(this.gltfSkyProjLoc, false, this.projMatrix);
@@ -4423,9 +3863,6 @@ void main() {
       gl.depthMask(true);
     }
   }
-
-
-
   private getTracerMesh(): CityMesh {
     if (this.meshCache.has('tracer')) return this.meshCache.get('tracer')!;
     const verts: number[] = [], indices: number[] = [];
@@ -4434,7 +3871,6 @@ void main() {
     this.meshCache.set('tracer', mesh);
     return mesh;
   }
-
   private getRocketMesh(): CityMesh | CityMesh[] {
     if (this.rocketMesh) return this.rocketMesh;
     if (this.meshCache.has('rocket')) return this.meshCache.get('rocket')!;
@@ -4444,7 +3880,6 @@ void main() {
     this.meshCache.set('rocket', mesh);
     return mesh;
   }
-
   private getExplosionMesh(): CityMesh {
     if (this.meshCache.has('explosion')) return this.meshCache.get('explosion')!;
     const verts: number[] = [], indices: number[] = [];
@@ -4479,7 +3914,6 @@ void main() {
     this.meshCache.set('explosion', mesh);
     return mesh;
   }
-
   private getMuzzleFlashMesh(): CityMesh {
     if (this.meshCache.has('muzzle_flash')) return this.meshCache.get('muzzle_flash')!;
     const verts: number[] = [], indices: number[] = [];
@@ -4491,7 +3925,6 @@ void main() {
     this.meshCache.set('muzzle_flash', mesh);
     return mesh;
   }
-
   private getBloodMesh(): CityMesh {
     if (this.meshCache.has('blood')) return this.meshCache.get('blood')!;
     const verts: number[] = [], indices: number[] = [];
@@ -4519,7 +3952,6 @@ void main() {
     this.meshCache.set('blood', mesh);
     return mesh;
   }
-
   private getBloodPoolMesh(variant: number = 0): CityMesh {
     const key = `bloodpool_${variant}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
@@ -4557,7 +3989,6 @@ void main() {
     this.meshCache.set(key, mesh);
     return mesh;
   }
-
   getMoneyStackMesh(): CityMesh {
     if (this.meshCache.has('moneyStack')) return this.meshCache.get('moneyStack')!;
     const verts: number[] = [], indices: number[] = [];
@@ -4568,19 +3999,16 @@ void main() {
     this.meshCache.set('moneyStack', mesh);
     return mesh;
   }
-
   /** Procedural rotor blade - a flat elongated diamond shape that spins on Y axis */
   getRotorBladeMesh(): CityMesh {
     if (this.meshCache.has('rotor_blade')) return this.meshCache.get('rotor_blade')!;
     const verts: number[] = [], indices: number[] = [];
-    // Two crossing long flat boxes to look like a 2-blade rotor
     this.addBox(verts, indices, 0, 0, 0, 5.0, 0.08, 0.5, 0.15, 0.15, 0.15, 0.9, 0);
     this.addBox(verts, indices, 0, 0, 0, 0.5, 0.08, 5.0, 0.15, 0.15, 0.15, 0.9, 24);
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set('rotor_blade', mesh);
     return mesh;
   }
-
   private getBoxMesh(w: number, h: number, d: number): CityMesh {
     const key = `box_${w}_${h}_${d}`;
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
@@ -4670,7 +4098,6 @@ void main() {
       img.src = (url.startsWith('blob:') || url.startsWith('data:')) ? url : url;
     });
   }
-
   renderFirstPersonWeapon(
     camX: number, camY: number, camZ: number,
     camYaw: number, camPitch: number,
@@ -4679,23 +4106,18 @@ void main() {
     dt: number
   ): void {
     const gl = this.gl;
-
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.BLEND);
     const fx = Math.sin(camYaw) * Math.cos(camPitch);
     const fy = -Math.sin(camPitch);
     const fz = Math.cos(camYaw) * Math.cos(camPitch);
     const rightX = Math.cos(camYaw), rightZ = -Math.sin(camYaw);
-
-    // ── Draw first-person arms (static — draw before skinning to avoid VBO corruption) ──
     if (this.firstPersonArmsMesh) {
       const ax = camX + fx * 0.2 + rightX * 0.06;
       const ay = camY + fy * 0.2 - 1.5;
       const az = camZ + fz * 1.2 + rightZ * 0.06;
       this.drawMesh(this.firstPersonArmsMesh, ax, ay, az, camYaw + Math.PI, [0.6, 0.6, 0.6], [1, 1, 1, 1]);
     }
-
-    // ── Animate and skin mark23 (pistol) ──
     if (weapon === 1 && this.mark23Mesh) {
       if (this.mark23Animations && this.mark23Skeleton) {
         const skel = this.mark23Skeleton;
@@ -4721,11 +4143,9 @@ void main() {
       const mz = camZ + fz * 3.4 + rightZ * 0.06;
       this.drawMesh(this.mark23Mesh, mx, my, mz, camYaw, [1, 1, 1], [1, 1, 1, 1]);
     }
-
     gl.enable(gl.BLEND);
     gl.enable(gl.DEPTH_TEST);
   }
-
   private extractGltfAnimations(json: any, buffers: ArrayBuffer[]): GltfAnimation[] | null {
     if (!json.animations || !json.accessors || !json.bufferViews) return null;
     const out: GltfAnimation[] = [];
@@ -4735,32 +4155,25 @@ void main() {
       for (const ch of anim.channels || []) {
         const samplerDef = anim.samplers[ch.sampler];
         if (!samplerDef) continue;
-
         const inAcc = json.accessors[samplerDef.input];
         const inBV = json.bufferViews[inAcc.bufferView];
         const inBuf = buffers[inBV.buffer];
         const inOff = (inBV.byteOffset || 0) + (inAcc.byteOffset || 0);
         const inCount = inAcc.count;
         const inView = new Float32Array(inBuf, inOff, inCount);
-        const times = new Float32Array(inView);   // copy (slice may not align)
+        const times = new Float32Array(inView);   
         for (let i = 0; i < inCount; i++) if (times[i] > maxTime) maxTime = times[i];
-
         const outAcc = json.accessors[samplerDef.output];
         const outBV = json.bufferViews[outAcc.bufferView];
         const outBuf = buffers[outBV.buffer];
         const outOff = (outBV.byteOffset || 0) + (outAcc.byteOffset || 0);
-
-        // component count per keyframe:
-        //   translation/scale = 3, rotation = 4, weights = N morph targets (skip)
         let comp = 3;
         if (ch.path === 'rotation') comp = 4;
-        if (ch.path === 'weights') continue;                 // morph targets not supported
+        if (ch.path === 'weights') continue;                 
         const totalCount = outAcc.count * comp;
         const output = new Float32Array(outBuf, outOff, totalCount);
-
         const interpolation = (samplerDef.interpolation || 'LINEAR') as
           'LINEAR' | 'STEP' | 'CUBICSPLINE';
-
         channels.push({
           nodeIndex: ch.target.node,
           path: ch.target.path as 'translation' | 'rotation' | 'scale',
@@ -4775,7 +4188,6 @@ void main() {
     }
     return out.length > 0 ? out : null;
   }
-
   private extractGltfSkeleton(json: any, buffers: ArrayBuffer[]) {
     if (!json.skins || json.skins.length === 0) return null;
     const skin = json.skins[0];
@@ -4783,14 +4195,11 @@ void main() {
     const numBones = jointNodes.length;
     const nodeToBoneIdx = new Map<number, number>();
     for (let b = 0; b < numBones; b++) nodeToBoneIdx.set(jointNodes[b], b);
-
     const ibmAcc = json.accessors[skin.inverseBindMatrices];
     const ibmBV = json.bufferViews[ibmAcc.bufferView];
     const ibmBuf = buffers[ibmBV.buffer];
     const ibmOff = (ibmBV.byteOffset || 0) + (ibmAcc.byteOffset || 0);
     const inverseBindMatrices = new Float32Array(ibmBuf, ibmOff, numBones * 16);
-
-    // Build parents + local matrices (same algorithm as loadGLTF)
     const boneLocalTf = new Float32Array(numBones * 16);
     const parents = new Int32Array(numBones);
     parents.fill(-1);
@@ -4823,7 +4232,6 @@ void main() {
     if (skeletonRootNodeIdx >= 0) {
       const rootParentIdx = json.nodes[skeletonRootNodeIdx].parent ?? -1;
       if (rootParentIdx >= 0) {
-        // recompute world transforms
         const nodeWorld = new Map<number, Float32Array>();
         const trav = (ni: number, pw: Float32Array) => {
           const n = json.nodes[ni];
@@ -4853,7 +4261,6 @@ void main() {
       nodeNames,
     };
   }
-
   async loadGLTF(
     url: string,
     storeSkeleton: boolean = true,
@@ -4873,10 +4280,8 @@ void main() {
     try {
       const isGLB = url.endsWith('.glb');
       let raw = await (await fetch(url)).arrayBuffer();
-
       let json: any;
       let binBuffer: ArrayBuffer | null = null;
-
       if (isGLB) {
         const header = new Uint32Array(raw, 0, 3);
         const version = header[1];
@@ -4899,9 +4304,7 @@ void main() {
         const decoder = new TextDecoder();
         json = JSON.parse(decoder.decode(new Uint8Array(raw)));
       }
-
       if (!json) return null;
-
       const base = url.substring(0, url.lastIndexOf('/') + 1);
       let buffers: ArrayBuffer[] = [];
       if (json.buffers) {
@@ -4924,15 +4327,12 @@ void main() {
       } else if (binBuffer) {
         buffers.push(binBuffer);
       }
-
       const meshes: CityMesh[] = [];
       let primitiveData: { verts: number[]; indices: number[]; texture: WebGLTexture | null; restPos?: Float32Array; restNrm?: Float32Array; jointIdx?: Uint16Array; jointWgt?: Float32Array; vCount: number; isSkinned?: boolean; meshName?: string }[] = [];
-
       let globalMinX = Infinity, globalMaxX = -Infinity;
       let globalMinY = Infinity, globalMaxY = -Infinity;
       let globalMinZ = Infinity, globalMaxZ = -Infinity;
       const textureCache = new Map<number, WebGLTexture | null>();
-
       const entries: { meshIndex: number; transform: Float32Array; nodeIndex: number; nodeName?: string }[] = [];
       if (json.nodes && json.nodes.length > 0 && json.scenes) {
         const identity = mat4.identity(mat4.create());
@@ -4962,7 +4362,6 @@ void main() {
           entries.push({ meshIndex: mi, transform: identity, nodeIndex: -1 });
         }
       }
-
       let isSkinnedModel = false;
       let boneParents: Int32Array | null = null;
       let boneLocalMatrices: Float32Array | null = null;
@@ -4971,31 +4370,26 @@ void main() {
       let skeletonRootNodeIdx = -1;
       let skinRootWorld: Float32Array | null = null;
       let rootBoneWorld: Float32Array | null = null;
-
       if (json.skins && json.skins.length > 0) {
         const skin = json.skins[0];
         const jointNodes: number[] = skin.joints;
         const numBones = jointNodes.length;
         nodeToBoneIdx = new Map();
         for (let b = 0; b < numBones; b++) nodeToBoneIdx.set(jointNodes[b], b);
-
         const ibmAcc = json.accessors[skin.inverseBindMatrices];
         const ibmBufView = json.bufferViews[ibmAcc.bufferView];
         const ibmBuf = buffers[ibmBufView.buffer];
         const ibmByteOff = (ibmBufView.byteOffset || 0) + (ibmAcc.byteOffset || 0);
         inverseBindMatrices = new Float32Array(ibmBuf, ibmByteOff, numBones * 16);
-
         const boneLocalTf = new Float32Array(numBones * 16);
         const parents = new Int32Array(numBones);
         parents.fill(-1);
-
         const nodeWorldTransforms = new Map<number, Float32Array>();
         const addParents = (nodeIdx: number, parentIdx: number) => {
           json.nodes[nodeIdx].parent = parentIdx;
           for (const child of (json.nodes[nodeIdx].children || [])) addParents(child, nodeIdx);
         };
         for (const rootIdx of (json.scenes[json.scene ?? 0]?.nodes || [])) addParents(rootIdx, -1);
-
         const traverseNodes = (nodeIdx: number, parentWorld: Float32Array) => {
           const node = json.nodes[nodeIdx];
           const local = mat4.identity(mat4.create());
@@ -5014,7 +4408,6 @@ void main() {
         for (const rootIdx of (json.scenes[json.scene ?? 0]?.nodes || [])) {
           traverseNodes(rootIdx, mat4.identity(mat4.create()));
         }
-
         for (let b = 0; b < numBones; b++) {
           const nodeIdx = jointNodes[b];
           const node = json.nodes[nodeIdx];
@@ -5034,7 +4427,6 @@ void main() {
           }
           for (let i = 0; i < 16; i++) boneLocalTf[b * 16 + i] = local[i];
         }
-
         if (skeletonRootNodeIdx >= 0) {
           const rootNode = json.nodes[skeletonRootNodeIdx];
           const rootParentIdx = rootNode.parent ?? -1;
@@ -5043,7 +4435,6 @@ void main() {
         } else {
           skinRootWorld = mat4.identity(mat4.create());
         }
-
         let rootBoneIdx = -1;
         for (let b = 0; b < numBones; b++) {
           if (parents[b] < 0) { rootBoneIdx = b; break; }
@@ -5056,11 +4447,9 @@ void main() {
             new Float32Array(boneLocalTf.buffer, rootBoneIdx * 16 * 4, 16)
           );
         }
-
         boneParents = parents;
         boneLocalMatrices = boneLocalTf;
         isSkinnedModel = true;
-
         if (storeSkeleton) {
           this.skelBoneParents = parents;
           this.skelBoneLocalMatrices = boneLocalTf;
@@ -5071,7 +4460,6 @@ void main() {
           this.skelSkinRootWorld = skinRootWorld ? new Float32Array(skinRootWorld) : null;
           this.skelIsReady = false;
         }
-
         if (storeSkeleton) {
           this.skelBindWorldMatrices = new Float32Array(numBones * 16);
           for (let b = 0; b < numBones; b++) {
@@ -5093,7 +4481,6 @@ void main() {
               );
             }
           }
-
           this.skelBindJointMatrices = new Float32Array(numBones * 16);
           for (let b = 0; b < numBones; b++) {
             const bindWorld = new Float32Array(this.skelBindWorldMatrices.buffer, b * 16 * 4, 16);
@@ -5106,7 +4493,6 @@ void main() {
           }
         }
       }
-
       for (const entry of entries) {
         const meshDef = json.meshes[entry.meshIndex];
         if (!meshDef) continue;
@@ -5115,10 +4501,8 @@ void main() {
           && tf[1] === 0 && tf[2] === 0 && tf[3] === 0 && tf[4] === 0
           && tf[6] === 0 && tf[7] === 0 && tf[8] === 0 && tf[9] === 0
           && tf[11] === 0 && tf[12] === 0 && tf[13] === 0 && tf[14] === 0;
-
         const entryNode = json.nodes[entry.nodeIndex];
         const isSkinned = isSkinnedModel && entryNode && entryNode.skin !== undefined;
-
         for (const prim of meshDef.primitives || []) {
           let skipMesh = false;
           if (prim.material !== undefined && json.materials[prim.material]) {
@@ -5133,17 +4517,14 @@ void main() {
             skipMesh = true;
           }
           if (skipMesh) continue;
-
           const verts: number[] = [];
           const indices: number[] = [];
-
           if (prim.indices !== undefined) {
             const idxAcc = json.accessors[prim.indices];
             const idxBufView = json.bufferViews[idxAcc.bufferView];
             const buf = buffers[idxBufView.buffer];
             const count = idxAcc.count;
             const idxByteOffset = (idxBufView.byteOffset || 0) + (idxAcc.byteOffset || 0);
-
             if (idxAcc.componentType === 5125) {
               const view = new Uint32Array(buf, idxByteOffset, count);
               for (let i = 0; i < count; i++) indices.push(view[i]);
@@ -5158,15 +4539,12 @@ void main() {
             const posAcc = json.accessors[prim.attributes.POSITION];
             for (let i = 0; i < posAcc.count; i++) indices.push(i);
           }
-
           const posAcc = json.accessors[prim.attributes.POSITION];
           const posBufView = json.bufferViews[posAcc.bufferView];
           const posBuf = buffers[posBufView.buffer];
-
           const posStride = (posBufView.byteStride || 12) / 4;
           const posOffset = (posBufView.byteOffset || 0) + (posAcc.byteOffset || 0);
           const posData = new Float32Array(posBuf, 0, posBuf.byteLength / 4);
-
           let normData: Float32Array | null = null;
           let normStride = 3, normOffset = 0;
           if (prim.attributes.NORMAL !== undefined) {
@@ -5177,7 +4555,6 @@ void main() {
             normOffset = (normBufView.byteOffset || 0) + (normAcc.byteOffset || 0);
             normData = new Float32Array(normBuf, 0, normBuf.byteLength / 4);
           }
-
           let uvData: Float32Array | null = null;
           let uvStride = 2, uvOffset = 0;
           if (prim.attributes.TEXCOORD_0 !== undefined) {
@@ -5188,14 +4565,11 @@ void main() {
             uvOffset = (uvBufView.byteOffset || 0) + (uvAcc.byteOffset || 0);
             uvData = new Float32Array(uvBuf, 0, uvBuf.byteLength / 4);
           }
-
           const vCount = posAcc.count;
-
           let restPos: Float32Array | undefined;
           let restNrm: Float32Array | undefined;
           let jointIdx: Uint16Array | undefined;
           let jointWgt: Float32Array | undefined;
-
           if (isSkinned && prim.attributes.JOINTS_0 !== undefined && prim.attributes.WEIGHTS_0 !== undefined) {
             restPos = new Float32Array(vCount * 3);
             for (let i = 0; i < vCount; i++) {
@@ -5221,7 +4595,6 @@ void main() {
             const jiByteOff = (jiBufView.byteOffset || 0) + (jiAcc.byteOffset || 0);
             const jiStride = jiBufView.byteStride || 8;
             jointIdx = new Uint16Array(vCount * 4);
-
             if (jiAcc.componentType === 5123) {
               const jiView = new Uint16Array(jiBuf, 0, jiBuf.byteLength / 2);
               const start = jiByteOff / 2;
@@ -5262,8 +4635,6 @@ void main() {
             const wgtByteOff = (wgtBufView.byteOffset || 0) + (wgtAcc.byteOffset || 0);
             const wgtStride = wgtBufView.byteStride || 16;
             jointWgt = new Float32Array(vCount * 4);
-
-            // Optimized weight extraction
             const wgtView = new Float32Array(wgtBuf, 0, wgtBuf.byteLength / 4);
             const wgtStart = wgtByteOff / 4;
             const wgtStep = wgtStride / 4;
@@ -5275,11 +4646,9 @@ void main() {
               jointWgt[i * 4 + 3] = wgtView[offset + 3];
             }
           }
-
           for (let i = 0; i < vCount; i++) {
             const pi = (posOffset / 4) + i * posStride;
             let x = posData[pi], y = posData[pi + 1], z = posData[pi + 2];
-
             if (!isSkinned && !identityTf) {
               let w = tf[3] * x + tf[7] * y + tf[11] * z + tf[15];
               let invW = w !== 0 ? 1 / w : 1;
@@ -5289,11 +4658,9 @@ void main() {
               x = nx; y = ny; z = nz;
             }
             verts.push(x, y, z);
-
             if (x < globalMinX) globalMinX = x; if (x > globalMaxX) globalMaxX = x;
             if (y < globalMinY) globalMinY = y; if (y > globalMaxY) globalMaxY = y;
             if (z < globalMinZ) globalMinZ = z; if (z > globalMaxZ) globalMaxZ = z;
-
             if (normData) {
               const ni = (normOffset / 4) + i * normStride;
               let nx = normData[ni], ny = normData[ni + 1], nz = normData[ni + 2];
@@ -5311,7 +4678,6 @@ void main() {
               verts.push(0, 1, 0);
             }
             verts.push(1, 1, 1, 1);
-
             if (uvData) {
               const ui = (uvOffset / 4) + i * uvStride;
               verts.push(uvData[ui], uvData[ui + 1]);
@@ -5319,7 +4685,6 @@ void main() {
               verts.push(0, 0);
             }
           }
-
           let texture: WebGLTexture | null = null;
           if (json.materials && json.textures && json.images) {
             const matIndex = prim.material;
@@ -5329,7 +4694,6 @@ void main() {
               } else {
                 const mat = json.materials[matIndex];
                 let texInfo = null;
-
                 if (mat.pbrMetallicRoughness) {
                   texInfo = mat.pbrMetallicRoughness.baseColorTexture;
                 }
@@ -5342,7 +4706,6 @@ void main() {
                 if (!texInfo && mat.emissiveTexture) {
                   texInfo = mat.emissiveTexture;
                 }
-
                 if (texInfo) {
                   const textureIndex = texInfo.index;
                   if (json.textures[textureIndex] && json.images[json.textures[textureIndex].source]) {
@@ -5371,16 +4734,13 @@ void main() {
               }
             }
           }
-
           primitiveData.push({ verts, indices, texture, restPos, restNrm, jointIdx, jointWgt, vCount, isSkinned, meshName: meshDef.name || '' });
         }
       }
-
       if (primitiveData.length === 0) return null;
       const dimX = globalMaxX - globalMinX;
       const dimY = globalMaxY - globalMinY;
       const dimZ = globalMaxZ - globalMinZ;
-
       let needsRotation = false;
       if (url.includes('citylight') || url.includes('jillValentine') || url.includes('maleNPC') || url.includes('redneck')) {
         if (dimY < dimX || dimY < dimZ) {
@@ -5391,23 +4751,19 @@ void main() {
         || url.includes('taxi') || url.includes('hilux') || url.includes("toyota_corsa_b");
       const needsY90 = url.includes('pizzaMoped');
       const needsYFlipMoped = url.includes('pizzaMoped');
-
       const angleX = needsRotation
         ? (url.includes('redneck') ? Math.PI / 2 : -Math.PI / 2)
         : 0;
       const cosX = Math.cos(angleX);
       const sinX = Math.sin(angleX);
-
       let rotMinX = Infinity, rotMaxX = -Infinity;
       let rotMinY = Infinity, rotMaxY = -Infinity;
       let rotMinZ = Infinity, rotMaxZ = -Infinity;
-
       for (const p of primitiveData) {
         for (let i = 0; i < p.verts.length; i += 12) {
           let x = p.verts[i];
           let y = p.verts[i + 1];
           let z = p.verts[i + 2];
-
           if (needsRotation) {
             let y2 = y * cosX - z * sinX;
             let z2 = y * sinX + z * cosX;
@@ -5422,22 +4778,18 @@ void main() {
             x = -x;
             z = -z;
           }
-
           if (x < rotMinX) rotMinX = x; if (x > rotMaxX) rotMaxX = x;
           if (y < rotMinY) rotMinY = y; if (y > rotMaxY) rotMaxY = y;
           if (z < rotMinZ) rotMinZ = z; if (z > rotMaxZ) rotMaxZ = z;
         }
       }
-
       const finalHeight = rotMaxY - rotMinY;
       const targetHeight = url.includes('citylight') ? 5.0 : 2.0;
       const scaleFactor = targetHeight / Math.max(0.001, finalHeight);
       const centerX = (rotMinX + rotMaxX) / 2;
       const centerY = rotMinY;
       const centerZ = (rotMinZ + rotMaxZ) / 2;
-
       const extraScale: [number, number, number] = url.includes('/bus/') ? [2, 2, 2] : [1, 1, 1];
-
       if (isSkinnedModel && storeSkeleton) {
         this.skelNeedsRotation = needsRotation;
         this.skelAngleX = angleX;
@@ -5452,20 +4804,17 @@ void main() {
         this.skelScaleFactor = scaleFactor;
         this.skelExtraScale = extraScale;
       }
-
       for (const p of primitiveData) {
         const { verts, indices, texture, restPos, restNrm, jointIdx, jointWgt, vCount, isSkinned } = p;
         for (let i = 0; i < verts.length; i += 12) {
           let x = verts[i];
           let y = verts[i + 1];
           let z = verts[i + 2];
-
           if (needsRotation) {
             let y2 = y * cosX - z * sinX;
             let z2 = y * sinX + z * cosX;
             y = y2;
             z = z2;
-
             let nx = verts[i + 3];
             let ny = verts[i + 4];
             let nz = verts[i + 5];
@@ -5499,12 +4848,10 @@ void main() {
             verts[i + 3] = verts[i + 5];
             verts[i + 5] = -ntmpX;
           }
-
           verts[i] = (x - centerX) * scaleFactor * extraScale[0];
           verts[i + 1] = (y - centerY) * scaleFactor * extraScale[1];
           verts[i + 2] = (z - centerZ) * scaleFactor * extraScale[2];
         }
-
         const mesh = this.createMesh(verts, indices, texture, isSkinned);
         mesh.meshName = p.meshName || '';
         if (isSkinned && restPos && restNrm && jointIdx && jointWgt) {
@@ -5525,7 +4872,6 @@ void main() {
           for (const m of meshes) (m as any)._isMotorcycle = true;
         }
       }
-      // Extract animations and skeleton once, store to both out param and first mesh
       const anims = this.extractGltfAnimations(json, buffers);
       const skel = this.extractGltfSkeleton(json, buffers);
       if (out) {
@@ -5536,21 +4882,17 @@ void main() {
         if (anims) meshes[0].animations = anims;
         if (skel) meshes[0].skeleton = skel;
       }
-
       json = null;
       buffers = [];
       raw = new ArrayBuffer;
       binBuffer = null;
       primitiveData = [];
-
       return meshes.length > 0 ? meshes : null;
     } catch (e) {
       console.error('Failed to load glTF', url, e);
       return null;
     }
   }
-  // Builds a standalone jump-ramp wedge (local +z is the launch lip, +x is
-  // the left/right width axis). Reused at every fixed ramp position.
   private getJumpRampMesh(): CityMesh | null {
     if (this.jumpRampMesh) return this.jumpRampMesh;
     const L = 5, W = 2, H = 1.3;
@@ -5566,13 +4908,11 @@ void main() {
       for (const p of pts) verts.push(p[0], p[1], p[2], cr, cg, cb, 1);
       idx.push(base, base + 1, base + 2);
     };
-    // Top slope: low edge at z=-L (y=0) rises to the launch lip at z=+L (y=H).
     addFace([[-W, 0, -L], [W, 0, -L], [W, H, L], [-W, H, L]], 0.95, 0.5, 0.12);
     addFace([[-W, 0, -L], [W, 0, -L], [W, 0, L], [-W, 0, L]], 0.3, 0.3, 0.32);
     addFace([[-W, H, L], [W, H, L], [W, 0, L], [-W, 0, L]], 0.7, 0.36, 0.1);
     addTri([[-W, 0, -L], [-W, H, L], [-W, 0, L]], 0.65, 0.32, 0.08);
     addTri([[W, 0, -L], [W, 0, L], [W, H, L]], 0.65, 0.32, 0.08);
-    // Hazard stripe just above the slope near the lip.
     const z1 = L - 1.6, z2 = L - 0.1;
     const y1 = H * (z1 + L) / (2 * L) + 0.02;
     const y2 = H * (z2 + L) / (2 * L) + 0.02;
@@ -5580,7 +4920,6 @@ void main() {
     this.jumpRampMesh = this.createMesh(verts, idx);
     return this.jumpRampMesh;
   }
-
   private addRamp(
     verts: number[], indices: number[],
     x1: number, y1: number, x2: number, y2: number,
@@ -5591,9 +4930,6 @@ void main() {
     const z2 = z + width / 2;
     const y1b = y1 - thickness;
     const y2b = y2 - thickness;
-
-    // 6 faces, 24 vertices total (same structure as addBox)
-    // Top
     verts.push(
       x1, y1, z1, r * 0.8, g * 0.8, b * 0.8, a,
       x2, y2, z1, r * 0.8, g * 0.8, b * 0.8, a,
@@ -5601,8 +4937,6 @@ void main() {
       x1, y1, z2, r * 0.8, g * 0.8, b * 0.8, a
     );
     indices.push(idxOffset, idxOffset + 1, idxOffset + 2, idxOffset, idxOffset + 2, idxOffset + 3);
-
-    // Bottom
     verts.push(
       x1, y1b, z1, r * 0.6, g * 0.6, b * 0.6, a,
       x2, y2b, z1, r * 0.6, g * 0.6, b * 0.6, a,
@@ -5610,8 +4944,6 @@ void main() {
       x1, y1b, z2, r * 0.6, g * 0.6, b * 0.6, a
     );
     indices.push(idxOffset + 4, idxOffset + 6, idxOffset + 5, idxOffset + 4, idxOffset + 7, idxOffset + 6);
-
-    // Front (Z1)
     verts.push(
       x1, y1, z1, r * 0.7, g * 0.7, b * 0.7, a,
       x2, y2, z1, r * 0.7, g * 0.7, b * 0.7, a,
@@ -5619,8 +4951,6 @@ void main() {
       x1, y1b, z1, r * 0.7, g * 0.7, b * 0.7, a
     );
     indices.push(idxOffset + 8, idxOffset + 11, idxOffset + 10, idxOffset + 8, idxOffset + 10, idxOffset + 9);
-
-    // Back (Z2)
     verts.push(
       x1, y1, z2, r * 0.7, g * 0.7, b * 0.7, a,
       x2, y2, z2, r * 0.7, g * 0.7, b * 0.7, a,
@@ -5628,8 +4958,6 @@ void main() {
       x1, y1b, z2, r * 0.7, g * 0.7, b * 0.7, a
     );
     indices.push(idxOffset + 12, idxOffset + 14, idxOffset + 15, idxOffset + 12, idxOffset + 13, idxOffset + 14);
-
-    // Left (X1)
     verts.push(
       x1, y1, z1, r * 0.9, g * 0.9, b * 0.9, a,
       x1, y1, z2, r * 0.9, g * 0.9, b * 0.9, a,
@@ -5637,8 +4965,6 @@ void main() {
       x1, y1b, z1, r * 0.9, g * 0.9, b * 0.9, a
     );
     indices.push(idxOffset + 16, idxOffset + 18, idxOffset + 19, idxOffset + 16, idxOffset + 17, idxOffset + 18);
-
-    // Right (X2)
     verts.push(
       x2, y2, z1, r * 0.9, g * 0.9, b * 0.9, a,
       x2, y2, z2, r * 0.9, g * 0.9, b * 0.9, a,
@@ -5650,13 +4976,11 @@ void main() {
   clearChunkCache() {
     this.chunkCache.clear();
   }
-
   getWeaponPickupMesh(weaponType: number): CityMesh | CityMesh[] {
-    if (weaponType === 1 && this.coltMesh) return this.coltMesh;             // Pistol
-    if (weaponType === 2 && this.m4a1Mesh) return this.m4a1Mesh;             // Rifle (M4A1)
-    if (weaponType === 3 && this.shotgunMesh) return this.shotgunMesh;       // Shotgun
-    if (weaponType === 4 && this.rocketLauncherMesh) return this.rocketLauncherMesh; // Rocket Launcher
-    // Log once per missing type so you can see why a pickup is a box
+    if (weaponType === 1 && this.coltMesh) return this.coltMesh;             
+    if (weaponType === 2 && this.m4a1Mesh) return this.m4a1Mesh;             
+    if (weaponType === 3 && this.shotgunMesh) return this.shotgunMesh;       
+    if (weaponType === 4 && this.rocketLauncherMesh) return this.rocketLauncherMesh; 
     if (!this._warnedPickups) this._warnedPickups = new Set();
     if (!this._warnedPickups.has(weaponType)) {
       console.warn('[PICKUP] No GLTF model for weaponType', weaponType,
@@ -5665,7 +4989,7 @@ void main() {
         'rocketLauncher=' + !!this.rocketLauncherMesh + ')');
       this._warnedPickups.add(weaponType);
     }
-    return this.getPickupMesh();                                             // Shotgun / fallback
+    return this.getPickupMesh();                                             
   }
   private getModelMinY(meshes: CityMesh[]): number {
     let minY = 0;
@@ -5678,17 +5002,14 @@ void main() {
     const verts: number[] = [];
     const indices: number[] = [];
     const col: [number, number, number] = [0.2, 0.8, 1.0];
-
     this.addBox(verts, indices, 0, 0.5, 0, 0.7, 0.8, 0.4, col[0], col[1], col[2], 1.0, 0);
     this.addBox(verts, indices, 0, 1.15, 0, 0.4, 0.3, 0.4, col[0] * 0.9, col[1] * 0.9, col[2] * 0.9, 1.0, verts.length / 7);
     this.addBox(verts, indices, -0.55, 0.7, 0, 0.2, 0.6, 0.2, col[0] * 0.8, col[1] * 0.8, col[2] * 0.8, 1.0, verts.length / 7);
     this.addBox(verts, indices, 0.55, 0.7, 0, 0.2, 0.6, 0.2, col[0] * 0.8, col[1] * 0.8, col[2] * 0.8, 1.0, verts.length / 7);
     this.addBox(verts, indices, -0.2, 0.05, 0, 0.2, 0.5, 0.2, col[0] * 0.7, col[1] * 0.7, col[2] * 0.7, 1.0, verts.length / 7);
     this.addBox(verts, indices, 0.2, 0.05, 0, 0.2, 0.5, 0.2, col[0] * 0.7, col[1] * 0.7, col[2] * 0.7, 1.0, verts.length / 7);
-
     return this.createMesh(verts, indices);
   }
-
   clearGltfCache() {
     this.gltfCache.clear();
   }

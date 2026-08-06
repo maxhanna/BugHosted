@@ -1,4 +1,3 @@
-/* ─── Container ─── */
 #race-container {
   position: relative;
   width: 100vw;
@@ -8,7 +7,6 @@
   background: #000;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
-
 #race-canvas {
   display: block;
   width: 100%;
@@ -16,8 +14,6 @@
   touch-action: none;
   -webkit-touch-callout: none;
 }
-
-/* ─── Loading ─── */
 #race-loading {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -32,7 +28,6 @@
   text-transform: uppercase;
   gap: 20px;
 }
-
 .race-spinner {
   width: 48px; height: 48px;
   border: 3px solid rgba(255, 255, 255, 0.1);
@@ -40,18 +35,10 @@
   border-radius: 50%;
   animation: race-spin 0.8s linear infinite;
 }
-
 @keyframes race-spin { to { transform: rotate(360deg); } }
-
-/* ─── Menu ─── */
 #race-menu {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  /* F1 photo stretched to cover the whole lobby, buried under a dark overlay
-     so the colorful artwork never fights the menu text or UI. Layers stack
-     top-first: main dark veil → spotlight contrast boost → base gradient →
-     photo. The base gradient must stay semi-transparent so the photo beneath
-     is actually visible (an opaque layer above it would paint it out). */
   background:
     linear-gradient(180deg, rgba(6, 6, 12, 0.88) 0%, rgba(8, 8, 16, 0.72) 35%, rgba(8, 8, 16, 0.72) 65%, rgba(6, 6, 12, 0.92) 100%),
     linear-gradient(180deg, rgba(5, 5, 10, 0.35) 0%, rgba(5, 5, 10, 0) 30%, rgba(5, 5, 10, 0) 60%, rgba(5, 5, 10, 0.45) 100%),
@@ -64,7 +51,6 @@
   overflow-y: auto;
   gap: 16px;
 }
-
 .race-title {
   position: relative;
   display: inline-block;
@@ -72,7 +58,6 @@
   filter: drop-shadow(0 0 30px rgba(229, 57, 53, 0.4));
   user-select: none;
 }
-
 .race-title-emoji {
   position: absolute;
   left: 50%;
@@ -88,9 +73,6 @@
   pointer-events: none;
   z-index: 0;
 }
-
-/* Checkered flag sits behind the race car, peeking out slightly larger and
-   more faded so the layered emblem reads as flag → car. */
 .race-title-flag {
   position: absolute;
   font-size: 1.18em;
@@ -101,33 +83,25 @@
   transform-origin: 12% 82%;
   animation: race-flag-sway 5.5s ease-in-out infinite;
 }
-
 .race-title-car {
   position: relative;
   z-index: 1;
   animation: race-emblem-pulse 6s ease-in-out infinite;
 }
-
-/* Gentle life for the title emblem: the whole mark breathes slowly while the
-   flag sways behind the car. Both are subtle on purpose — the emblem sits
-   ghosted behind the GRAND PRIX text. */
 @keyframes race-flag-sway {
   0%, 100% { transform: translate(4%, 9%) rotate(3deg) skewX(0deg); }
   50%      { transform: translate(4%, 9%) rotate(-2deg) skewX(-2.5deg); }
 }
-
 @keyframes race-emblem-pulse {
   0%, 100% { transform: scale(1); }
   50%      { transform: scale(1.035); }
 }
-
 @media (prefers-reduced-motion: reduce) {
   .race-title-flag,
   .race-title-car {
     animation: none;
   }
 }
-
 .race-title-text {
   position: relative;
   z-index: 1;
@@ -141,7 +115,6 @@
   text-transform: uppercase;
   text-shadow: none;
 }
-
 .race-subtitle {
   color: rgba(255, 255, 255, 0.5);
   font-size: 14px;
@@ -149,7 +122,6 @@
   text-transform: uppercase;
   margin-top: -10px;
 }
-
 .race-player-info {
   display: flex;
   gap: 30px;
@@ -161,8 +133,6 @@
   border-radius: 8px;
   padding: 10px 24px;
 }
-
-/* Racer name row — sits under the cash/wins strip on the menu */
 .race-player-name-label {
   color: rgba(255, 255, 255, 0.6);
   font-size: 11px;
@@ -170,7 +140,6 @@
   text-transform: uppercase;
   white-space: nowrap;
 }
-
 .race-player-name-input {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -184,21 +153,17 @@
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
-
 .race-player-name-input:focus {
   border-color: rgba(229, 57, 53, 0.7);
   box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.15);
 }
-
 .race-player-name-input::placeholder {
   color: rgba(255, 255, 255, 0.35);
 }
-
 .race-player-name-hint {
   color: rgba(255, 255, 255, 0.3);
   font-size: 11px;
 }
-
 .race-menu-tracks {
   width: 100%;
   max-width: 700px;
@@ -206,7 +171,6 @@
   flex-direction: column;
   gap: 6px;
 }
-
 .menu-section-title {
   color: rgba(255, 255, 255, 0.4);
   font-size: 11px;
@@ -214,14 +178,12 @@
   text-transform: uppercase;
   margin-bottom: 4px;
 }
-
 .race-track-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 10px;
   width: 100%;
 }
-
 .race-track-card {
   position: relative;
   border-radius: 12px;
@@ -237,37 +199,31 @@
   border: 2px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
-
 .race-track-card:hover {
   transform: translateY(-4px) scale(1.02);
   border-color: rgba(229, 57, 53, 0.6);
   box-shadow: 0 8px 30px rgba(229, 57, 53, 0.2);
 }
-
 .race-track-card.race-track-selected {
   border-color: #ffd600;
   box-shadow: 0 0 0 2px rgba(255, 214, 0, 0.3), 0 8px 30px rgba(255, 214, 0, 0.15);
 }
-
 .race-track-card-overlay {
   position: absolute;
   inset: 0;
   background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.65) 60%, rgba(0,0,0,0.85) 100%);
   pointer-events: none;
 }
-
 .race-track-locked {
   opacity: 0.5;
   cursor: not-allowed;
   filter: grayscale(0.6);
 }
-
 .race-track-locked:hover {
   transform: none;
   border-color: rgba(255, 255, 255, 0.08);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
-
 .race-track-card-content {
   position: relative;
   z-index: 1;
@@ -276,20 +232,17 @@
   flex-direction: column;
   gap: 4px;
 }
-
 .race-track-card-top {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 4px;
 }
-
 .race-track-flag {
   font-size: 24px;
   line-height: 1;
   filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5));
 }
-
 .race-track-diff-badge {
   font-size: 9px;
   font-weight: 800;
@@ -298,25 +251,21 @@
   border-radius: 4px;
   text-transform: uppercase;
 }
-
 .race-track-diff-badge.easy {
   background: rgba(76, 175, 80, 0.2);
   color: #4caf50;
   border: 1px solid rgba(76, 175, 80, 0.3);
 }
-
 .race-track-diff-badge.medium {
   background: rgba(255, 152, 0, 0.2);
   color: #ff9800;
   border: 1px solid rgba(255, 152, 0, 0.3);
 }
-
 .race-track-diff-badge.hard {
   background: rgba(229, 57, 53, 0.2);
   color: #e53935;
   border: 1px solid rgba(229, 57, 53, 0.3);
 }
-
 .race-track-join-hint {
   margin-left: auto;
   font-size: 10px;
@@ -328,7 +277,6 @@
   border-radius: 4px;
   border: 1px solid rgba(76, 175, 80, 0.3);
 }
-
 .race-track-join-hint.locked {
   color: rgba(255,255,255,0.3);
   background: transparent;
@@ -336,7 +284,6 @@
   font-size: 16px;
   padding: 0;
 }
-
 .race-track-name {
   color: #fff;
   font-size: 20px;
@@ -345,26 +292,22 @@
   text-shadow: 0 2px 8px rgba(0,0,0,0.6);
   line-height: 1.2;
 }
-
 .race-track-stats {
   display: flex;
   gap: 12px;
   margin-top: 2px;
 }
-
 .race-track-stat {
   font-size: 11px;
   color: rgba(255,255,255,0.6);
   font-weight: 600;
 }
-
 .race-track-desc {
   color: rgba(255, 255, 255, 0.5);
   font-size: 11px;
   margin-top: 2px;
   line-height: 1.3;
 }
-
 .race-track-card-bottom {
   display: flex;
   gap: 12px;
@@ -372,13 +315,11 @@
   padding-top: 8px;
   border-top: 1px solid rgba(255,255,255,0.08);
 }
-
 .race-track-card-fee {
   display: flex;
   flex-direction: column;
   gap: 1px;
 }
-
 .race-fee-label {
   font-size: 8px;
   letter-spacing: 1px;
@@ -386,13 +327,11 @@
   text-transform: uppercase;
   font-weight: 600;
 }
-
 .race-fee-amount {
   font-size: 16px;
   font-weight: 800;
   color: #ffd600;
 }
-
 .race-track-card-prize {
   display: flex;
   flex-direction: column;
@@ -400,7 +339,6 @@
   margin-left: auto;
   text-align: right;
 }
-
 .race-prize-label {
   font-size: 8px;
   letter-spacing: 1px;
@@ -408,13 +346,11 @@
   text-transform: uppercase;
   font-weight: 600;
 }
-
 .race-prize-amount {
   font-size: 16px;
   font-weight: 800;
   color: #ffd700;
 }
-
 .race-menu-actions {
   display: flex;
   gap: 12px;
@@ -422,11 +358,9 @@
   flex-wrap: wrap;
   justify-content: center;
 }
-
 .race-menu-actions .race-garage-btn {
   margin-top: 0;
 }
-
 .race-garage-btn {
   padding: 12px 36px;
   border: 2px solid rgba(255, 255, 255, 0.2);
@@ -439,37 +373,31 @@
   cursor: pointer;
   transition: all 0.2s;
 }
-
 .race-sound-btn {
   letter-spacing: 1px;
   font-size: 14px;
   color: rgba(255, 255, 255, 0.6);
   border-color: rgba(255, 255, 255, 0.15);
 }
-
 .race-sound-btn.on {
   color: #4caf50;
   border-color: rgba(76, 175, 80, 0.6);
   background: rgba(76, 175, 80, 0.1);
 }
-
 .race-garage-btn:hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.4);
 }
-
 .race-options-btn {
   letter-spacing: 1px;
   font-size: 14px;
   color: rgba(255, 255, 255, 0.6);
   border-color: rgba(255, 255, 255, 0.15);
 }
-
 .race-options-btn:hover {
   color: #fff;
   border-color: rgba(255, 255, 255, 0.4);
 }
-
 .race-options-overlay {
   position: fixed;
   inset: 0;
@@ -481,7 +409,6 @@
   justify-content: center;
   padding: 16px;
 }
-
 .race-options-popup {
   background: linear-gradient(160deg, rgba(28, 28, 34, 0.98), rgba(14, 14, 18, 0.98));
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -494,13 +421,11 @@
   flex-direction: column;
   gap: 16px;
 }
-
 .race-options-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-
 .race-options-title {
   font-size: 18px;
   font-weight: 800;
@@ -508,7 +433,6 @@
   text-transform: uppercase;
   color: #fff;
 }
-
 .race-options-close {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -520,18 +444,15 @@
   cursor: pointer;
   transition: all 0.2s;
 }
-
 .race-options-close:hover {
   background: rgba(229, 57, 53, 0.25);
   color: #fff;
 }
-
 .race-options-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-
 .race-options-sub {
   color: rgba(255, 255, 255, 0.4);
   font-size: 11px;
@@ -539,7 +460,6 @@
   text-transform: uppercase;
   margin-bottom: 2px;
 }
-
 .race-option-row {
   display: flex;
   align-items: center;
@@ -552,18 +472,15 @@
   cursor: pointer;
   transition: background 0.2s, border-color 0.2s;
 }
-
 .race-option-row:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.2);
 }
-
 .race-option-label {
   color: rgba(255, 255, 255, 0.85);
   font-size: 14px;
   font-weight: 600;
 }
-
 .race-option-check {
   width: 18px;
   height: 18px;
@@ -571,14 +488,11 @@
   cursor: pointer;
   flex-shrink: 0;
 }
-
 .race-options-hint {
   color: rgba(255, 255, 255, 0.3);
   font-size: 11px;
   text-align: center;
 }
-
-/* ─── Garage (Pimp My Ride) ─── */
 #race-garage {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -589,8 +503,6 @@
   z-index: 15;
   overflow: hidden;
 }
-
-/* ── Garage Top Bar ── */
 .garage-top-bar {
   display: flex;
   justify-content: space-between;
@@ -600,7 +512,6 @@
   flex-shrink: 0;
   gap: 16px;
 }
-
 .garage-return-btn {
   display: flex;
   flex-direction: column;
@@ -617,13 +528,11 @@
   letter-spacing: 1px;
   transition: all 0.2s;
 }
-
 .garage-return-btn:hover {
   background: linear-gradient(135deg, #4a4a6a, #5a5a7a);
   border-color: #ffc107;
   color: #fff;
 }
-
 .garage-countdown {
   font-size: 11px;
   font-weight: 700;
@@ -631,16 +540,12 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-
-/* Depleting auto-start progress bar (same treatment as the standings bar,
-   compact so it fits the garage return button + lobby widget head). */
 .garage-countdown-wrap {
   display: flex;
   flex-direction: column;
   gap: 2px;
   align-items: stretch;
 }
-
 .garage-countdown-bar {
   display: block;
   height: 2px;
@@ -649,7 +554,6 @@
   overflow: hidden;
   min-width: 64px;
 }
-
 .garage-countdown-bar-fill {
   display: block;
   height: 100%;
@@ -658,33 +562,26 @@
   box-shadow: 0 0 4px rgba(255, 193, 7, 0.5);
   transition: width 0.5s linear;
 }
-
-/* Final 3s of the auto-start — red/urgent like the standings low state. */
 .garage-countdown-bar-fill.garage-countdown-bar-fill-low {
   background: linear-gradient(90deg, #ff5722, #ffc107);
 }
-
 @media (prefers-reduced-motion: no-preference) {
   .garage-countdown-bar-fill.garage-countdown-bar-fill-low {
     animation: gp-garage-countdown-pulse 1s ease-in-out infinite;
   }
-
   @keyframes gp-garage-countdown-pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.45; }
   }
 }
-
 @media (prefers-reduced-motion: reduce) {
   .garage-countdown-bar-fill.garage-countdown-bar-fill-low {
     animation: none;
   }
-
   .garage-countdown-bar-fill {
     transition: none;
   }
 }
-
 .garage-title {
   font-size: 22px;
   font-weight: 900;
@@ -696,7 +593,6 @@
   margin: 0;
   text-transform: uppercase;
 }
-
 .garage-money {
   color: #ffd600;
   font-size: 22px;
@@ -708,7 +604,6 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-
 .garage-back-btn {
   padding: 8px 20px;
   border: 1px solid rgba(255,255,255,0.12);
@@ -721,15 +616,10 @@
   letter-spacing: 2px;
   transition: all 0.2s;
 }
-
 .garage-back-btn:hover {
   background: rgba(255,255,255,0.08);
   color: #fff;
 }
-
-/* ── Garage Floating Multiplayer Lobby Widget ──
-   Compact card pinned to the top-right of the garage: live roster, ready
-   count, start countdown, and a READY toggle — all without leaving. */
 .garage-mp-widget {
   position: absolute;
   top: 14px;
@@ -747,25 +637,19 @@
   box-shadow: 0 8px 24px rgba(0,0,0,0.55);
   backdrop-filter: blur(6px);
 }
-
 .garage-mp-widget-head {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
-
-/* Rematch imminent — the standings window is under 3s, so the widget border
-   pulses amber to warn that the lobby auto-starts the rematch any second. */
 .garage-mp-widget.garage-mp-widget-low {
   border-color: rgba(255, 193, 7, 0.85);
 }
-
 @media (prefers-reduced-motion: no-preference) {
   .garage-mp-widget.garage-mp-widget-low {
     animation: gp-garage-widget-amber 1s ease-in-out infinite;
   }
-
   @keyframes gp-garage-widget-amber {
     0%, 100% {
       box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.0), 0 8px 24px rgba(0, 0, 0, 0.55);
@@ -775,14 +659,12 @@
     }
   }
 }
-
 @media (prefers-reduced-motion: reduce) {
   .garage-mp-widget.garage-mp-widget-low {
     animation: none;
     box-shadow: 0 0 6px 1px rgba(255, 193, 7, 0.35);
   }
 }
-
 .garage-mp-widget .garage-standings-countdown {
   margin-top: 0;
   text-align: left;
@@ -791,14 +673,12 @@
   padding: 2px 0 4px;
   border-bottom: 1px dashed rgba(255,255,255,0.08);
 }
-
 .garage-mp-widget-title {
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 1.5px;
   color: rgba(255,255,255,0.85);
 }
-
 .garage-ready-btn {
   width: 100%;
   background: linear-gradient(135deg, #2a3a2a, #3a4a3a);
@@ -812,20 +692,17 @@
   letter-spacing: 1px;
   transition: all 0.2s;
 }
-
 .garage-ready-btn:hover {
   background: linear-gradient(135deg, #3a4a3a, #4a5a4a);
   border-color: #8bc34a;
   color: #fff;
 }
-
 .garage-ready-btn.garage-ready-on {
   background: linear-gradient(135deg, #2e7d32, #43a047);
   border-color: #8bc34a;
   color: #fff;
   box-shadow: 0 0 12px rgba(139,195,74,0.35);
 }
-
 .garage-ready-count {
   color: #8bc34a;
   font-size: 13px;
@@ -834,7 +711,6 @@
   white-space: nowrap;
   margin-left: auto;
 }
-
 .garage-mp-roster {
   display: flex;
   flex-direction: column;
@@ -843,11 +719,9 @@
   overflow-y: auto;
   padding-right: 2px;
 }
-
 .garage-mp-roster::-webkit-scrollbar { width: 4px; }
 .garage-mp-roster::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
 .garage-mp-roster::-webkit-scrollbar-track { background: transparent; }
-
 .garage-mp-roster-row {
   display: flex;
   align-items: center;
@@ -860,12 +734,10 @@
   font-weight: 600;
   transition: all 0.2s;
 }
-
 .garage-mp-roster-row.garage-mp-row-me {
   border-color: #ffc107;
   background: rgba(255,193,7,0.1);
 }
-
 .garage-mp-row-name {
   white-space: nowrap;
   flex: 1;
@@ -873,7 +745,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
 .garage-mp-empty {
   color: rgba(255,255,255,0.45);
   font-size: 12px;
@@ -882,16 +753,12 @@
   text-align: center;
   padding: 4px 0;
 }
-
-/* ── Garage Layout (Car Preview + Catalog) ── */
 .garage-layout {
   display: flex;
   flex: 1;
   min-height: 0;
   gap: 0;
 }
-
-/* ── Left: Car Preview ── */
 .garage-preview {
   flex: 0 0 45%;
   display: flex;
@@ -903,7 +770,6 @@
   overflow: hidden;
   border-right: 1px solid rgba(255,255,255,0.05);
 }
-
 .garage-car-stage {
   width: 100%;
   flex: 1;
@@ -913,8 +779,6 @@
   position: relative;
   min-height: 240px;
 }
-
-/* Spotlight effect */
 .garage-spotlight {
   position: absolute;
   top: -50%; left: 50%;
@@ -925,12 +789,10 @@
   pointer-events: none;
   animation: spot-glow 3s ease-in-out infinite;
 }
-
 @keyframes spot-glow {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; }
 }
-
 .garage-car-label {
   display: flex;
   flex-direction: column;
@@ -943,13 +805,11 @@
   margin-top: 8px;
   text-transform: uppercase;
 }
-
 .garage-car-actions {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-
 .garage-rotate-hint {
   font-size: 10px;
   font-weight: 500;
@@ -958,7 +818,6 @@
   text-transform: none;
   animation: hint-pulse 2.5s ease-in-out infinite;
 }
-
 .garage-reset-view {
   border: 1px solid rgba(255,255,255,0.15);
   border-radius: 50%;
@@ -974,20 +833,16 @@
   justify-content: center;
   transition: all 0.2s;
 }
-
 .garage-reset-view:hover {
   background: rgba(255,255,255,0.12);
   color: #fff;
   border-color: rgba(255,255,255,0.35);
 }
-
-/* Zoom in/out controls — round −/＋ pair with a live % readout */
 .garage-zoom-cluster {
   display: flex;
   align-items: center;
   gap: 4px;
 }
-
 .garage-zoom-btn {
   border: 1px solid rgba(255,255,255,0.15);
   border-radius: 50%;
@@ -1004,17 +859,14 @@
   justify-content: center;
   transition: all 0.2s;
 }
-
 .garage-zoom-btn:hover {
   background: rgba(255,255,255,0.14);
   color: #fff;
   border-color: rgba(255,255,255,0.35);
 }
-
 .garage-zoom-btn:active {
   transform: scale(0.92);
 }
-
 .garage-zoom-level {
   font-size: 10px;
   font-weight: 600;
@@ -1024,19 +876,16 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-
 @keyframes hint-pulse {
   0%, 100% { opacity: 0.35; }
   50% { opacity: 0.8; }
 }
-
 .garage-stats-quick {
   display: flex;
   gap: 16px;
   margin-top: 6px;
   font-size: 11px;
 }
-
 .garage-stats-quick span {
   color: rgba(255,255,255,0.45);
   font-weight: 600;
@@ -1046,8 +895,6 @@
   border-radius: 4px;
   padding: 3px 10px;
 }
-
-/* ── F1 Car Preview Model (real 3D, draggable) ── */
 .car-3d-wrap {
   perspective: 900px;
   width: 100%;
@@ -1056,7 +903,6 @@
   align-items: center;
   justify-content: center;
 }
-
 .car-preview-container {
   position: relative;
   width: 300px;
@@ -1068,32 +914,23 @@
   user-select: none;
   -webkit-user-select: none;
 }
-
 .car-preview-container.car-dragging {
   cursor: grabbing;
 }
-
-/* −/＋ zoom buttons ease the scale in instead of jumping; the class is toggled
-   by zoomCar(…, true) and removed after the transition (or when a drag starts,
-   so drags stay 1:1). Scroll-wheel zooms never animate. */
 .car-preview-container.car-zoom-anim {
   transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
-
 @media (prefers-reduced-motion: reduce) {
   .car-preview-container.car-zoom-anim {
     transition: none;
   }
 }
-
 .car-body-scale {
   position: absolute;
   inset: 0;
   transform-style: preserve-3d;
   transform: scale3d(1, 1, 2.25);
 }
-
-/* ── 3D box primitive: center (--x,--y,--z), size (--w,--h,--d) ── */
 .b3d {
   position: absolute;
   left: 0; top: 0;
@@ -1143,8 +980,6 @@
   margin-top: calc(var(--h) / -2);
   transform: rotateY(180deg) translateZ(calc(var(--d) / 2));
 }
-
-/* ── Face materials ── */
 .carbo {
   background: linear-gradient(135deg, #1c1c20, #0d0d10);
   box-shadow: inset 0 2px 3px rgba(255,255,255,0.08), inset 0 -3px 6px rgba(0,0,0,0.55);
@@ -1153,20 +988,12 @@
   background: #0a0a0c;
 }
 .skin {
-  /* Glossy clearcoat: a bright highlight along the top-left of every face plus
-     a soft bottom shade, so the paint reads as curved reflective panels. */
   box-shadow: inset 3px -4px 6px rgba(255,255,255,0.22), inset -3px 4px 8px rgba(0,0,0,0.32),
     inset 0 1px 2px rgba(255,255,255,0.18);
 }
-
-/* ── Rounded surfacing ──
-   Border-radius on the horizontal top faces makes the CSS car read as sculpted
-   instead of a stack of flat boxes (matches the smooth lofted WebGL hull). */
 .round-top { border-radius: 26px; }
 .nose-top { border-radius: 12px; }
 .halo-bar { border-radius: 50%; }
-
-/* Driver helmet — a rounded dome peeking out of the cockpit opening */
 .helmet-dome {
   border-radius: 50% 50% 45% 45%;
   background: radial-gradient(circle at 50% 35%, #ffffff 0 28%, #f0f0f4 45%, #c9c9d2 72%, #9a9aa4 100%);
@@ -1175,8 +1002,6 @@
 .helmside {
   background: linear-gradient(180deg, #d8d8de 0%, #a8a8b2 60%, #7e7e88 100%);
 }
-
-/* Ground shadow — flat ellipse just below the undertray so the whole shape reads */
 .car-shadow {
   position: absolute;
   left: 50%; top: 152px;
@@ -1185,11 +1010,6 @@
   background: radial-gradient(ellipse, rgba(0,0,0,0.6), transparent 68%);
   filter: blur(4px);
 }
-
-/* Neon glow pool — bright colored puddle/reflection of light on the floor
-   under the car, filled with the selected glow colour and softly pulsing so
-   the parked car reads as lit from below like the racing renderer's neon.
-   Screen blending makes the colour pop against the dark garage floor. */
 .car-glow-pool {
   position: absolute;
   left: 50%; top: 152px;
@@ -1198,8 +1018,6 @@
   border-radius: 50%;
   pointer-events: none;
   mix-blend-mode: screen;
-  /* Intensity: --glow-intensity is bound by the preview container
-     (0.05 subtle → 2.25 blinding, 1.0 ≈ the original default). */
   filter: brightness(calc(0.45 + var(--glow-intensity, 1) * 0.5));
   transition: all 0.3s;
 }
@@ -1210,26 +1028,20 @@
 .car-glow-pool.glow-cyan { background: radial-gradient(ellipse, rgba(0,230,230,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(0,230,230,0.55); }
 .car-glow-pool.glow-red { background: radial-gradient(ellipse, rgba(255,40,40,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(255,40,40,0.6); }
 .car-glow-pool.glow-gold { background: radial-gradient(ellipse, rgba(255,190,30,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(255,190,30,0.6); }
-
 @media (prefers-reduced-motion: no-preference) {
   .car-glow-pool {
     animation: glow-pool-pulse 3.2s ease-in-out infinite;
   }
-
   @keyframes glow-pool-pulse {
     0%, 100% { opacity: 0.72; }
     50% { opacity: 1; }
   }
 }
-
 @media (prefers-reduced-motion: reduce) {
   .car-glow-pool {
     animation: none;
   }
 }
-
-/* Neon underglow — colored glow pool under the undertray (matches the racing
-   renderer's underglow plane; the glow color classes drive box-shadow). */
 .car-underglow {
   position: absolute;
   left: 50%; top: 153px;
@@ -1248,16 +1060,12 @@
 .car-underglow.glow-cyan { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(0,230,230,0.5); }
 .car-underglow.glow-red { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(255,40,40,0.55); }
 .car-underglow.glow-gold { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(255,190,30,0.55); }
-
-/* Cockpit opening (thin dark plate on the body top) */
 .cockpit {
   background: #07070a;
   border-radius: 50% 50% 6px 6px;
   border: 2px solid rgba(0,0,0,0.7);
   box-shadow: inset 0 3px 8px rgba(0,0,0,0.9);
 }
-
-/* Decal overlay (thin plate on the body top) */
 .decal { border-radius: 6px; }
 .decal-stripes {
   background: repeating-linear-gradient(
@@ -1287,8 +1095,6 @@
   text-shadow: 0 2px 4px rgba(0,0,0,0.6);
   letter-spacing: 2px;
 }
-
-/* ── More decal wraps ── */
 .decal-checkered {
   background: repeating-conic-gradient(rgba(0,0,0,0.55) 0deg 90deg, rgba(255,255,255,0.55) 90deg 180deg);
   background-size: 12px 12px;
@@ -1336,8 +1142,6 @@
 .decal-sponsor {
   background: repeating-linear-gradient(90deg, rgba(255,255,255,0.7) 0 14px, rgba(0,0,0,0.55) 14px 28px, rgba(255,255,255,0.7) 28px 42px, rgba(200,30,30,0.75) 42px 56px);
 }
-
-/* Livery accent — thin stripe plates on the body top + sidepods */
 .accent { border-radius: 2px; transition: all 0.3s; }
 .accent-white { background: #e8e8ea; box-shadow: 0 0 8px rgba(255,255,255,0.45); }
 .accent-gold { background: #e6c200; box-shadow: 0 0 8px rgba(230,194,0,0.5); }
@@ -1345,8 +1149,6 @@
 .accent-red { background: #d32f2f; box-shadow: 0 0 8px rgba(211,47,47,0.5); }
 .accent-blue { background: #1e88e5; box-shadow: 0 0 8px rgba(30,136,229,0.5); }
 .accent-black { background: #16161a; box-shadow: 0 0 8px rgba(0,0,0,0.6); }
-
-/* ── Wheels (3D coins: two discs + tread band) ── */
 .wheel3d {
   position: absolute;
   left: 0; top: 0;
@@ -1355,12 +1157,6 @@
   transform: translate3d(var(--wx), var(--wy), var(--wz));
 }
 .wheel3d i { position: absolute; display: block; }
-
-/* Idle wheel crawl — spins the whole 3D coin about its hub (origin 0,0) so
-   the tires slowly roll even while the car is parked in the garage. Uses the
-   same negative-rotation-for-forward convention as the racing renderer's
-   integrated wheel spin; a long 14s cycle reads as a subtle "slow crawl"
-   instead of a distracting fast spin. */
 .wheel-crawl {
   position: absolute;
   left: 0; top: 0;
@@ -1403,8 +1199,6 @@
   background: linear-gradient(180deg, #1c1c1f, #0a0a0c);
   transform: rotateY(90deg);
 }
-
-/* Rim variants (outer disc) */
 .rim-alloy {
   border-color: #888 !important;
   box-shadow: inset 0 2px 4px rgba(255,255,255,0.2), 0 0 10px rgba(136,136,136,0.3), 0 2px 6px rgba(0,0,0,0.5) !important;
@@ -1453,8 +1247,6 @@
   box-shadow: inset 0 2px 4px rgba(255,255,255,0.25), 0 0 14px rgba(30,136,229,0.45), 0 2px 6px rgba(0,0,0,0.5) !important;
 }
 .rim-blue::before { background: #42a5f5 !important; border-color: #1e88e5 !important; }
-
-/* Spoiler upgrade (thin wing above the engine cover) */
 .spoiler {
   background: #1a1a1a;
   border-radius: 2px;
@@ -1504,8 +1296,6 @@
   background: linear-gradient(135deg, #0d2a55, #1e5aa8 60%, #0d2a55) !important;
   box-shadow: 0 2px 12px rgba(30,90,168,0.4), 0 0 6px rgba(255,255,255,0.08) !important;
 }
-
-/* Exhaust upgrade (twin pipes at the back) */
 .exhaust {
   background: linear-gradient(180deg, #777, #444);
   border-radius: 2px;
@@ -1531,7 +1321,6 @@
   background: repeating-linear-gradient(135deg, #1a1a1e 0 2px, #2c2c32 2px 4px) !important;
   box-shadow: 0 1px 4px rgba(0,0,0,0.5), 0 0 8px rgba(255,120,40,0.3) !important;
 }
-/* ── Right: Upgrade Catalog ── */
 .garage-catalog {
   flex: 1;
   display: flex;
@@ -1540,8 +1329,6 @@
   padding: 8px 16px 0;
   overflow: hidden;
 }
-
-/* Catalog Tabs */
 .garage-tabs {
   display: flex;
   gap: 2px;
@@ -1550,7 +1337,6 @@
   border-bottom: 1px solid rgba(255,255,255,0.06);
   padding-bottom: 0;
 }
-
 .garage-tab {
   padding: 10px 20px;
   border: none;
@@ -1564,19 +1350,15 @@
   transition: all 0.25s;
   text-transform: uppercase;
 }
-
 .garage-tab:hover {
   color: rgba(255,255,255,0.7);
   border-bottom-color: rgba(255,255,255,0.2);
 }
-
 .garage-tab.active {
   color: #e53935;
   border-bottom-color: #e53935;
   text-shadow: 0 0 8px rgba(229,57,53,0.3);
 }
-
-/* Scrollable Catalog Area */
 .garage-catalog-scroll {
   flex: 1;
   overflow-y: auto;
@@ -1584,16 +1366,12 @@
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.1) transparent;
 }
-
 .garage-catalog-scroll::-webkit-scrollbar { width: 4px; }
 .garage-catalog-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
 .garage-catalog-scroll::-webkit-scrollbar-track { background: transparent; }
-
-/* Category Group */
 .garage-cat-group {
   margin-bottom: 12px;
 }
-
 .garage-cat-title {
   display: flex;
   justify-content: space-between;
@@ -1607,7 +1385,6 @@
   font-weight: 700;
   border-bottom: 1px solid rgba(255,255,255,0.04);
 }
-
 .garage-cat-level {
   color: #4caf50;
   font-size: 10px;
@@ -1616,8 +1393,6 @@
   padding: 2px 8px;
   border-radius: 3px;
 }
-
-/* Upgrade Card */
 .garage-upgrade-card {
   display: flex;
   align-items: center;
@@ -1631,33 +1406,27 @@
   transition: all 0.2s;
   position: relative;
 }
-
 .garage-upgrade-card:hover {
   background: rgba(255,255,255,0.04);
   border-color: rgba(255,255,255,0.12);
 }
-
 .card-left { flex: 1; min-width: 0; }
-
 .card-name {
   font-size: 13px;
   font-weight: 700;
   color: #fff;
 }
-
 .card-desc {
   font-size: 10px;
   color: rgba(255,255,255,0.35);
   margin-top: 1px;
 }
-
 .card-right {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
 }
-
 .card-cost {
   font-size: 13px;
   font-weight: 700;
@@ -1666,7 +1435,6 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-
 .card-buy-btn {
   padding: 6px 14px;
   border: 1px solid rgba(255,214,0,0.3);
@@ -1681,15 +1449,11 @@
   text-transform: uppercase;
   white-space: nowrap;
 }
-
 .card-buy-btn:hover:not(:disabled) {
   background: rgba(255,214,0,0.18);
   border-color: rgba(255,214,0,0.6);
   box-shadow: 0 0 10px rgba(255,214,0,0.1);
 }
-
-/* While a purchase is in flight the buy buttons are locked so rapid clicks
-   can't double-buy. Dim them and kill the pointer affordance. */
 .card-buy-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -1697,12 +1461,10 @@
   transform: none;
   animation: card-buy-pulse 1.2s ease-in-out infinite;
 }
-
 @keyframes card-buy-pulse {
   0%, 100% { opacity: 0.45; }
   50% { opacity: 0.75; }
 }
-
 .garage-appearance-card.buying-disabled,
 .garage-skin-card.buying-disabled {
   opacity: 0.55;
@@ -1711,7 +1473,6 @@
   transform: none !important;
   box-shadow: none !important;
 }
-
 .card-equip-btn {
   padding: 6px 14px;
   border: 1px solid rgba(76,175,80,0.3);
@@ -1726,41 +1487,31 @@
   text-transform: uppercase;
   white-space: nowrap;
 }
-
 .card-equip-btn:hover {
   background: rgba(76,175,80,0.18);
   border-color: rgba(76,175,80,0.6);
   box-shadow: 0 0 10px rgba(76,175,80,0.1);
 }
-
-/* Card States */
 .card-owned {
   opacity: 0.45;
   border-color: rgba(76,175,80,0.15);
   background: rgba(76,175,80,0.03);
 }
-
 .card-owned .card-name { color: rgba(255,255,255,0.5); }
-
 .card-next {
   border-color: rgba(255,214,0,0.2);
   background: rgba(255,214,0,0.03);
   animation: card-glow 2.5s ease-in-out infinite;
 }
-
 @keyframes card-glow {
   0%, 100% { box-shadow: 0 0 0px rgba(255,214,0,0); }
   50% { box-shadow: 0 0 12px rgba(255,214,0,0.08); }
 }
-
 .card-locked {
   opacity: 0.25;
   pointer-events: none;
 }
-
 .card-locked .card-name { color: rgba(255,255,255,0.25); }
-
-/* Stat Preview Popup (on hover) */
 .card-stat-preview {
   display: flex;
   align-items: center;
@@ -1778,24 +1529,19 @@
   z-index: 5;
   animation: stat-fade-in 0.15s ease-out;
 }
-
 @keyframes stat-fade-in {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
-
 .stat-before { color: rgba(255,255,255,0.5); }
 .stat-arrow { color: rgba(255,255,255,0.3); }
 .stat-after { color: #4caf50; font-weight: 700; }
-
-/* ── Skins Grid (Paint tab) ── */
 .garage-skin-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 8px;
   padding-bottom: 16px;
 }
-
 .garage-skin-card {
   border: 2px solid rgba(255,255,255,0.08);
   border-radius: 8px;
@@ -1806,20 +1552,17 @@
   background: rgba(255,255,255,0.02);
   position: relative;
 }
-
 .garage-skin-card:hover {
   border-color: rgba(255,255,255,0.25);
   background: rgba(255,255,255,0.06);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
-
 .garage-skin-active {
   border-color: #ffd600 !important;
   box-shadow: 0 0 16px rgba(255,214,0,0.25) !important;
   background: rgba(255,214,0,0.06) !important;
 }
-
 .garage-skin-active::before {
   content: '✓';
   position: absolute;
@@ -1829,7 +1572,6 @@
   font-weight: 900;
   color: #ffd600;
 }
-
 .garage-skin-preview {
   width: 100%;
   height: 32px;
@@ -1837,33 +1579,27 @@
   margin-bottom: 4px;
   box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
 }
-
 .garage-skin-name {
   font-size: 10px;
   font-weight: 600;
   color: rgba(255,255,255,0.75);
   line-height: 1.2;
 }
-
 .garage-skin-cost {
   font-size: 10px;
   color: #ffd600;
   margin-top: 1px;
   font-weight: 700;
 }
-
 .garage-skin-owned {
   color: #4caf50;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 1px;
 }
-
-/* ── Appearance Parts Grid ── */
 .garage-appearance-section {
   margin-bottom: 12px;
 }
-
 .garage-appearance-label {
   font-size: 10px;
   letter-spacing: 3px;
@@ -1874,14 +1610,11 @@
   font-weight: 700;
   border-bottom: 1px solid rgba(255,255,255,0.04);
 }
-
 .garage-appearance-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 6px;
 }
-
-/* Neon intensity slider — tunes the underglow from subtle to blinding. */
 .garage-glow-intensity {
   margin-top: 14px;
   padding: 10px 12px;
@@ -1889,21 +1622,18 @@
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.25);
 }
-
 .garage-glow-intensity-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
-
 .garage-glow-intensity-title {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--third-font-color, cornflowerblue);
 }
-
 .garage-glow-intensity-value {
   font-size: 12px;
   font-weight: 700;
@@ -1911,19 +1641,16 @@
   opacity: 0.9;
   white-space: nowrap;
 }
-
 .garage-glow-intensity-value.glow-blinding {
   color: var(--main-link-color, chartreuse);
   text-shadow: 0 0 8px rgb(from var(--main-link-color, chartreuse) r g b / 60%);
 }
-
 .garage-glow-intensity-slider {
   width: 100%;
   margin: 8px 0 2px;
   accent-color: var(--main-link-color, chartreuse);
   cursor: pointer;
 }
-
 .garage-glow-intensity-scale {
   display: flex;
   justify-content: space-between;
@@ -1931,7 +1658,6 @@
   color: var(--third-font-color, cornflowerblue);
   opacity: 0.75;
 }
-
 .garage-appearance-card {
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: 6px;
@@ -1944,19 +1670,16 @@
   flex-direction: column;
   gap: 3px;
 }
-
 .garage-appearance-card:hover {
   border-color: rgba(255,255,255,0.2);
   background: rgba(255,255,255,0.05);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
-
 .garage-appearance-card.appearance-equipped {
   border-color: rgba(76,175,80,0.4);
   background: rgba(76,175,80,0.05);
 }
-
 .garage-appearance-card.appearance-equipped::after {
   content: '✓ EQUIPPED';
   position: absolute;
@@ -1967,7 +1690,6 @@
   color: #4caf50;
   letter-spacing: 1px;
 }
-
 .garage-appearance-preview {
   width: 100%;
   height: 24px;
@@ -1980,7 +1702,6 @@
   color: rgba(255,255,255,0.3);
   letter-spacing: 1px;
 }
-
 .garage-appearance-preview.prev-spoiler-carbon { border: 2px solid #333; background: repeating-linear-gradient(45deg, #1a1a1a, #1a1a1a 3px, #2a2a2a 3px, #2a2a2a 6px); }
 .garage-appearance-preview.prev-spoiler-dual { border: 2px solid #444; background: linear-gradient(180deg, #222 30%, #1a1a1a 30%, #1a1a1a 50%, #2a2a2a 50%, #2a2a2a 70%, #1a1a1a 70%); }
 .garage-appearance-preview.prev-spoiler-drs { border: 2px solid #555; background: linear-gradient(180deg, #111, #333, #111); box-shadow: 0 0 6px rgba(200,50,50,0.2); }
@@ -2033,26 +1754,21 @@
 .garage-appearance-preview.prev-accent-red { background: #d32f2f; box-shadow: 0 0 8px rgba(211,47,47,0.5); }
 .garage-appearance-preview.prev-accent-blue { background: #1e88e5; box-shadow: 0 0 8px rgba(30,136,229,0.5); }
 .garage-appearance-preview.prev-accent-black { background: #16161a; box-shadow: 0 0 8px rgba(0,0,0,0.6); }
-
 .garage-appearance-name {
   font-size: 11px;
   font-weight: 600;
   color: rgba(255,255,255,0.8);
 }
-
 .garage-appearance-desc {
   font-size: 9px;
   color: rgba(255,255,255,0.3);
 }
-
 .garage-appearance-cost {
   font-size: 10px;
   font-weight: 700;
   color: #ffd600;
   margin-top: 2px;
 }
-
-/* ── Responsive: Mobile Garage ── */
 @media (max-width: 768px), (pointer: coarse) {
   .garage-mp-widget {
     top: 8px;
@@ -2061,32 +1777,23 @@
     padding: 8px 10px;
     max-height: calc(100% - 90px);
   }
-
-  /* On narrow screens the standings countdown takes its own full-width line
-     (below the head row) instead of squeezing beside the ready count —
-     slightly smaller text so '⏳ Results shown for 0:04' fits cleanly. */
   .garage-mp-widget .garage-standings-countdown {
     font-size: 10px;
     letter-spacing: 0.2px;
   }
-
   .garage-mp-widget .garage-countdown-wrap {
     min-width: 0;
   }
-
   .garage-mp-widget .garage-countdown-bar {
     min-width: 0;
     width: 100%;
   }
-
   .garage-mp-roster {
     max-height: 30%;
   }
-
   .garage-layout {
     flex-direction: column;
   }
-
   .garage-preview {
     flex: 0 0 auto;
     height: 40%;
@@ -2095,49 +1802,36 @@
     border-bottom: 1px solid rgba(255,255,255,0.05);
     padding: 12px;
   }
-
   .car-3d-wrap {
     transform: scale(0.78);
   }
-
   .garage-catalog {
     flex: 1;
     padding: 4px 8px 0;
   }
-
   .garage-tab {
     padding: 8px 14px;
     font-size: 10px;
     letter-spacing: 1px;
   }
-
   .garage-top-bar {
     padding: 10px 14px 8px;
   }
-
   .garage-title {
     font-size: 16px;
     letter-spacing: 3px;
   }
-
   .garage-money {
     font-size: 16px;
     padding: 4px 12px;
   }
-
   .garage-appearance-grid {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   }
-
   .garage-skin-grid {
     grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
   }
 }
-
-/* ─── Countdown (F1 start lights) ─── */
-/* The overlay is now nearly transparent so the player can see the other cars
-   in their peripheral vision during the start sequence — only the gantry
-   itself has a dark backdrop. */
 #race-countdown {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -2150,7 +1844,6 @@
   z-index: 20;
   pointer-events: none;
 }
-
 .race-start-gantry {
   display: flex;
   gap: 22px;
@@ -2160,7 +1853,6 @@
   border-radius: 18px;
   box-shadow: 0 0 60px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
-
 .race-start-light {
   width: 84px;
   height: 84px;
@@ -2172,33 +1864,27 @@
   transform: scale(0.92);
   transition: opacity 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
 }
-
 .race-start-light.lit {
   opacity: 1;
   transform: scale(1);
   animation: race-light-breathe 1s ease-in-out infinite;
 }
-
 .race-start-light.lit.red {
   background: radial-gradient(circle at 50% 40%, #ff8a80 0%, #e53935 55%, #8e1010 100%);
   box-shadow: 0 0 45px rgba(229, 57, 53, 0.95), inset 0 2px 10px rgba(255, 255, 255, 0.35);
 }
-
 .race-start-light.lit.yellow {
   background: radial-gradient(circle at 50% 40%, #fff176 0%, #ffd600 55%, #9e7a00 100%);
   box-shadow: 0 0 45px rgba(255, 214, 0, 0.95), inset 0 2px 10px rgba(255, 255, 255, 0.35);
 }
-
 .race-start-light.lit.green {
   background: radial-gradient(circle at 50% 40%, #a5ff9d 0%, #2ecc40 55%, #0c6b1c 100%);
   box-shadow: 0 0 45px rgba(46, 204, 64, 0.95), inset 0 2px 10px rgba(255, 255, 255, 0.35);
 }
-
 @keyframes race-light-breathe {
   0%, 100% { filter: brightness(1); }
   50% { filter: brightness(1.35); }
 }
-
 .race-countdown-label {
   display: flex;
   flex-direction: column;
@@ -2208,8 +1894,6 @@
   text-transform: uppercase;
   color: #fff;
 }
-
-/* Big numeric timer — sits under the F1 start lights so players see both */
 .race-countdown-num {
   font-size: 118px;
   line-height: 1;
@@ -2218,7 +1902,6 @@
   text-shadow: 0 0 34px rgba(255, 255, 255, 0.35), 0 0 70px rgba(0, 0, 0, 0.9);
   animation: race-countdown-pop 1s ease-in-out infinite;
 }
-
 .race-countdown-go {
   font-size: 96px;
   letter-spacing: 14px;
@@ -2226,16 +1909,12 @@
   text-shadow: 0 0 45px rgba(255, 214, 0, 0.85);
   animation: race-countdown-go-pulse 0.6s ease-in-out infinite;
 }
-
 .race-countdown-caption {
   font-size: 20px;
   letter-spacing: 8px;
   color: rgba(255, 255, 255, 0.65);
   text-shadow: 0 0 18px rgba(0, 0, 0, 0.9);
 }
-
-/* Thin depleting bar under the start lights — drains as the 10s countdown
-   runs down so players can see the start approaching at a glance. */
 .race-countdown-bar {
   display: block;
   width: 260px;
@@ -2245,7 +1924,6 @@
   overflow: hidden;
   margin-top: 10px;
 }
-
 .race-countdown-bar-fill {
   display: block;
   height: 100%;
@@ -2254,52 +1932,40 @@
   box-shadow: 0 0 8px rgba(255, 193, 7, 0.6);
   transition: width 0.9s linear;
 }
-
 .race-countdown-bar-fill.race-countdown-bar-go {
   background: linear-gradient(90deg, #4caf50, #8bc34a);
   box-shadow: 0 0 10px rgba(76, 175, 80, 0.7);
   transition: none;
 }
-
 @media (prefers-reduced-motion: reduce) {
   .race-countdown-bar-fill {
     transition: none;
   }
 }
-
 @media (max-width: 480px) {
   .race-countdown-bar {
     width: 200px;
   }
 }
-
 @keyframes race-countdown-pop {
   0%, 100% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.1); opacity: 0.85; }
 }
-
 @keyframes race-countdown-go-pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.08); }
 }
-
-/* ─── Racing HUD / F1 Cockpit ─── */
 #race-hud {
   position: absolute;
   bottom: 0; left: 0; right: 0; top: 0;
   pointer-events: none;
   z-index: 10;
 }
-
-/* ── Cockpit Surround — carbon fiber frame + tinted visor ── */
 #race-hud {
   background: 
-    /* Carbon weave texture (thin crosshatch — only visible on pillars) */
     repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.008) 2px, rgba(255,255,255,0.008) 3px),
     repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(255,255,255,0.006) 3px, rgba(255,255,255,0.006) 4px),
-    /* Top tinted visor strip (aerodynamic shade) */
     linear-gradient(180deg, rgba(2,2,4,0.95) 0%, rgba(3,3,6,0.7) 30%, rgba(6,6,10,0.2) 70%, transparent 100%) 0 0 / 100% 9% no-repeat,
-    /* Left A-pillar: carbon-fiber look with inner bevel */
     linear-gradient(90deg, 
       rgba(2,2,4,0.98) 0%, 
       rgba(4,4,6,0.85) 15%, 
@@ -2307,9 +1973,7 @@
       rgba(8,8,10,0.12) 70%,
       transparent 100%
     ) 0 0 / 12% 100% no-repeat,
-    /* Left pillar inner highlight (beveled edge) */
     linear-gradient(90deg, transparent 88%, rgba(60,60,70,0.08) 92%, rgba(80,80,90,0.04) 96%, transparent 100%) 0 0 / 12% 100% no-repeat,
-    /* Right A-pillar: carbon-fiber look */
     linear-gradient(270deg, 
       rgba(2,2,4,0.98) 0%, 
       rgba(4,4,6,0.85) 15%, 
@@ -2317,20 +1981,15 @@
       rgba(8,8,10,0.12) 70%,
       transparent 100%
     ) 100% 0 / 12% 100% no-repeat,
-    /* Right pillar inner highlight */
     linear-gradient(270deg, transparent 88%, rgba(60,60,70,0.08) 92%, rgba(80,80,90,0.04) 96%, transparent 100%) 100% 0 / 12% 100% no-repeat;
 }
-
-/* ── Dashboard Frame — brushed aluminum + carbon ── */
 .cockpit-dash {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
   height: 64%;
-  /* Brushed metal base with carbon weave overlay */
   background: 
-    /* Carbon weave pattern */
     repeating-linear-gradient(
       45deg,
       transparent,
@@ -2338,14 +1997,12 @@
       rgba(255,255,255,0.015) 1px,
       rgba(255,255,255,0.015) 2px
     ),
-    /* Brushed aluminum vertical grain */
     repeating-linear-gradient(
       0deg,
       rgba(18,18,24,0.5) 0px,
       rgba(22,22,28,0.5) 1px,
       rgba(18,18,24,0.5) 2px
     ),
-    /* Base dark gradient */
     linear-gradient(0deg, 
       rgba(2,2,5,1) 0%, 
       rgba(5,5,10,0.99) 15%,
@@ -2360,17 +2017,12 @@
   justify-content: space-between;
   padding: 0 3% 2.5% 3%;
   box-sizing: border-box;
-  /* Top edge: anodized aluminum trim with specular highlight */
   border-top: 1px solid rgba(180,180,190,0.15);
   box-shadow: 
     0 -1px 0 rgba(255,255,255,0.04),
-    /* Inner shadow for depth */
     inset 0 2px 12px rgba(0,0,0,0.6),
-    /* Outer glow from below */
     0 -15px 50px rgba(0,0,0,0.7);
 }
-
-/* Dashboard top trim — aluminum accent strip */
 .cockpit-dash::before {
   content: '';
   position: absolute;
@@ -2387,16 +2039,12 @@
   );
   box-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
-
-/* ── Side Panels — machined aluminum bezels ── */
 .cockpit-panel {
   width: 24%;
   max-width: 340px;
   min-width: 180px;
   padding: 14px 18px;
-  /* Dark anodized bezel with inner bevel */
   background: 
-    /* Machined circular grain */
     radial-gradient(ellipse at 30% 20%, rgba(40,40,50,0.3) 0%, transparent 70%),
     linear-gradient(135deg, rgba(20,20,26,0.95), rgba(8,8,12,0.98));
   border: 1px solid rgba(140,140,150,0.12);
@@ -2407,11 +2055,8 @@
     inset 0 1px 0 rgba(255,255,255,0.04),
     inset 0 -1px 0 rgba(0,0,0,0.4),
     0 2px 8px rgba(0,0,0,0.5);
-  /* Screw heads in corners */
   --screw-color: rgba(80,80,90,0.6);
 }
-
-/* Screw heads */
 .cockpit-panel::before {
   content: '';
   position: absolute;
@@ -2425,7 +2070,6 @@
   pointer-events: none;
   z-index: 2;
 }
-
 .panel-title {
   font-size: 9px;
   letter-spacing: 4px;
@@ -2437,7 +2081,6 @@
   font-weight: 800;
   text-shadow: 0 0 8px rgba(229,57,53,0.2);
 }
-
 .panel-row {
   display: flex;
   align-items: center;
@@ -2445,7 +2088,6 @@
   margin-bottom: 3px;
   font-size: 10px;
 }
-
 .panel-label {
   color: rgba(255,255,255,0.25);
   letter-spacing: 1.5px;
@@ -2453,7 +2095,6 @@
   min-width: 44px;
   font-size: 8px;
 }
-
 .panel-val {
   color: #e8e8f0;
   font-weight: 700;
@@ -2461,32 +2102,25 @@
   flex: 1;
   text-shadow: 0 0 4px rgba(200,200,220,0.15);
 }
-
-/* Live pace readout — green glow when the current lap is at/better than the
-   track's pace-setter, amber otherwise. */
 .panel-val.panel-val-pace-ahead {
   color: #4ade80;
   text-shadow: 0 0 6px rgba(74, 222, 128, 0.35);
 }
 .panel-val.panel-val-pace-ahead + .panel-unit,
 .panel-val-pace-ahead { letter-spacing: 0.5px; }
-
 .panel-val-big {
   font-size: 24px;
   font-weight: 900;
   color: #f0f0ff;
   font-variant-numeric: tabular-nums;
   line-height: 1;
-  /* Digital display glow */
   text-shadow: 0 0 10px rgba(100,180,255,0.3), 0 0 2px rgba(100,180,255,0.15);
 }
-
 .panel-unit {
   color: rgba(255,255,255,0.22);
   font-size: 8px;
   letter-spacing: 1px;
 }
-
 .panel-bonus {
   color: #4caf50;
   font-size: 9px;
@@ -2494,19 +2128,12 @@
   letter-spacing: 0.5px;
   text-shadow: 0 0 4px rgba(76,175,80,0.2);
 }
-
-/* ── Brake-temp gauge ──────────────────────────────────────────────
-   Fills with disc heat (0..1.35 — same sim as the brake glow and fade).
-   The gradient mirrors the heat ramp: cool green → amber → hot red,
-   so the color at the fill's right edge reads the current temp. The gold
-   notch marks the hottest braking point reached on the current lap. */
 .panel-row-temp {
   gap: 8px;
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid rgba(255,255,255,0.05);
 }
-
 .brake-temp-gauge {
   position: relative;
   flex: 1;
@@ -2515,30 +2142,26 @@
   border-radius: 4px;
   box-shadow: inset 0 1px 2px rgba(0,0,0,0.6);
 }
-
 .brake-temp-fill {
   height: 100%;
-  width: 0; /* starts empty — the render loop drives it per frame */
+  width: 0;
   border-radius: 4px;
   background: linear-gradient(90deg, #22c55e 0%, #f59e0b 55%, #ef4444 75%, #fef3c7 100%);
   box-shadow: 0 0 6px rgba(34,197,94,0.35);
   transition: width 0.06s linear;
 }
-
 .brake-temp-gauge.brake-temp-warm .brake-temp-fill {
   box-shadow: 0 0 8px rgba(245,158,11,0.55);
 }
-
 .brake-temp-gauge.brake-temp-hot .brake-temp-fill {
   box-shadow: 0 0 10px rgba(239,68,68,0.7);
 }
-
 .brake-temp-peak {
   position: absolute;
   top: -2px;
   bottom: -2px;
   width: 2px;
-  left: 0; /* starts at the left edge — the render loop drives it per frame */
+  left: 0;
   margin-left: -1px;
   background: #ffd600;
   border-radius: 1px;
@@ -2546,7 +2169,6 @@
   transition: left 0.06s linear;
   pointer-events: none;
 }
-
 .brake-temp-state {
   min-width: 26px;
   text-align: right;
@@ -2555,14 +2177,10 @@
   font-weight: 700;
   letter-spacing: 1px;
 }
-
 .brake-temp-state.brake-temp-state-hot {
   color: #ef4444;
   text-shadow: 0 0 6px rgba(239,68,68,0.6);
 }
-
-/* Wheel-lock LEDs: a 2×2 plan view of the car next to the brake gauge. The
-   front pair's opacity is driven per frame (0 = fully locked), rears stay lit. */
 .wheel-status {
   display: grid;
   grid-template-columns: 5px 5px;
@@ -2575,7 +2193,6 @@
   border-radius: 3px;
   transform: rotate(45deg);
 }
-
 .wheel-led {
   width: 5px;
   height: 5px;
@@ -2584,17 +2201,14 @@
   box-shadow: 0 0 5px rgba(74,222,128,0.9);
   transition: opacity 0.05s linear;
 }
-
 .panel-row-top {
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid rgba(255,255,255,0.05);
 }
-
 .panel-row-pos {
   margin-bottom: 8px;
 }
-
 .panel-pos-big {
   font-size: 28px;
   font-weight: 900;
@@ -2602,8 +2216,6 @@
   text-shadow: 0 0 16px rgba(255,214,0,0.35), 0 0 4px rgba(255,214,0,0.2);
   line-height: 1;
 }
-
-/* LED indicator row below panels */
 .cockpit-panel::after {
   content: '';
   position: absolute;
@@ -2619,8 +2231,6 @@
   pointer-events: none;
   z-index: 2;
 }
-
-/* ── Track-line Minimap (top of screen) ── */
 .track-line-minimap {
   position: absolute;
   top: 0;
@@ -2630,7 +2240,6 @@
   z-index: 12;
   pointer-events: none;
 }
-
 .tl-track {
   position: relative;
   width: 100%;
@@ -2639,7 +2248,6 @@
   border-radius: 2px;
   margin: 6px 0 10px;
 }
-
 .tl-start-marker {
   position: absolute;
   top: -8px;
@@ -2649,7 +2257,6 @@
   letter-spacing: 1px;
   white-space: nowrap;
 }
-
 .tl-dot {
   position: absolute;
   top: 50%;
@@ -2662,7 +2269,6 @@
   z-index: 1;
   transition: left 0.08s linear;
 }
-
 .tl-dot-player {
   width: 10px;
   height: 10px;
@@ -2671,7 +2277,6 @@
   z-index: 3;
   border: 1px solid rgba(255,255,255,0.5);
 }
-
 .tl-label {
   position: absolute;
   top: -16px;
@@ -2686,14 +2291,11 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
 .tl-dot-player .tl-label {
   color: #00e5ff;
   font-weight: 700;
   font-size: 9px;
 }
-
-/* ── Steering Wheel Area ── */
 .cockpit-wheel-area {
   position: relative;
   display: flex;
@@ -2704,7 +2306,6 @@
   max-width: 520px;
   height: 100%;
 }
-
 .steering-column {
   width: 3px;
   flex: 1;
@@ -2713,7 +2314,6 @@
   border-radius: 2px;
   margin-bottom: -2px;
 }
-
 .steering-wheel {
   position: relative;
   width: min(360px, 60vw);
@@ -2722,8 +2322,6 @@
   transform-origin: center center;
   filter: drop-shadow(0 4px 20px rgba(0,0,0,0.5));
 }
-
-/* ── Wheel Rim (flat-bottom F1 style) ── */
 .wheel-rim {
   position: absolute;
   top: 5%; left: 5%; right: 5%; bottom: 15%;
@@ -2738,44 +2336,36 @@
     0 0 0 8px rgba(20,20,20,0.4),
     0 2px 15px rgba(0,0,0,0.6);
 }
-
 .wheel-grip {
   position: absolute;
   background: linear-gradient(180deg, #222, #181818, #222);
   border: 1px solid #333;
 }
-
 .wheel-grip-top {
   top: -3px; left: 20%; right: 20%; height: 14px;
   border-radius: 8px 8px 2px 2px;
   background: linear-gradient(180deg, #2a2520, #1a1510);
 }
-
 .wheel-grip-left {
   top: 20%; left: -5px; bottom: 30%; width: 14px;
   border-radius: 8px 2px 2px 8px;
   background: linear-gradient(90deg, #2a2520, #1a1510);
 }
-
 .wheel-grip-right {
   top: 20%; right: -5px; bottom: 30%; width: 14px;
   border-radius: 2px 8px 8px 2px;
   background: linear-gradient(90deg, #1a1510, #2a2520);
 }
-
 .wheel-grip-bot-left {
   bottom: -3px; left: 5%; right: 55%; height: 14px;
   border-radius: 2px 2px 8px 8px;
   background: linear-gradient(180deg, #1a1510, #2a2520);
 }
-
 .wheel-grip-bot-right {
   bottom: -3px; left: 45%; right: 5%; height: 14px;
   border-radius: 2px 2px 8px 8px;
   background: linear-gradient(180deg, #1a1510, #2a2520);
 }
-
-/* ── Wheel Center Display ── */
 .wheel-center {
   position: absolute;
   top: 18%; left: 18%; right: 18%; bottom: 28%;
@@ -2787,12 +2377,10 @@
   justify-content: center;
   box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
 }
-
 .wheel-display {
   text-align: center;
   width: 100%;
 }
-
 .wheel-speed {
   font-size: 38px;
   font-weight: 900;
@@ -2803,14 +2391,12 @@
   font-variant-numeric: tabular-nums;
   letter-spacing: 2px;
 }
-
 .wheel-speed-unit {
   font-size: 9px;
   color: rgba(0,229,255,0.5);
   letter-spacing: 2px;
   margin-top: 1px;
 }
-
 .wheel-rpm-bar {
   width: 80%;
   height: 3px;
@@ -2819,30 +2405,25 @@
   margin: 4px auto 0;
   overflow: hidden;
 }
-
 .wheel-rpm-fill {
   height: 100%;
   background: linear-gradient(90deg, #4caf50 60%, #ff9800 80%, #e53935 95%);
   border-radius: 2px;
   transition: width 0.05s;
 }
-
 .wheel-rpm-fill.rpm-high {
   background: linear-gradient(90deg, #ff9800, #e53935);
   box-shadow: 0 0 6px rgba(229,57,53,0.5);
 }
-
 .wheel-rpm-fill.rpm-redline {
   background: #e53935;
   box-shadow: 0 0 10px rgba(229,57,53,0.8);
   animation: rpm-blink 0.15s ease-in-out infinite alternate;
 }
-
 @keyframes rpm-blink {
   from { opacity: 1; }
   to { opacity: 0.6; }
 }
-
 .wheel-gear {
   font-size: 20px;
   font-weight: 900;
@@ -2852,32 +2433,26 @@
   margin-top: 2px;
   letter-spacing: 2px;
 }
-
-/* ── Driver Hands / Gloves ── */
 .driver-hand {
   position: absolute;
   pointer-events: none;
   z-index: 10;
 }
-
 .hand-left {
   top: 25%;
   left: -6%;
   transform: rotate(-15deg);
 }
-
 .hand-right {
   top: 25%;
   right: -6%;
   transform: rotate(15deg);
 }
-
 .glove {
   position: relative;
   width: 38px;
   height: 56px;
 }
-
 .glove-cuff {
   position: absolute;
   bottom: 0;
@@ -2889,7 +2464,6 @@
   border: 1px solid #d32f2f;
   box-shadow: 0 2px 4px rgba(0,0,0,0.4);
 }
-
 .glove-palm {
   position: absolute;
   bottom: 14px;
@@ -2900,7 +2474,6 @@
   border-radius: 5px 5px 3px 3px;
   border: 1px solid #ef5350;
 }
-
 .glove-thumb {
   position: absolute;
   top: 6px;
@@ -2912,13 +2485,11 @@
   border: 1px solid #ef5350;
   transform: rotate(-20deg);
 }
-
 .hand-right .glove-thumb {
   left: auto;
   right: -6px;
   transform: rotate(20deg);
 }
-
 .glove-finger {
   position: absolute;
   top: -2px;
@@ -2928,13 +2499,10 @@
   border-radius: 3px 3px 2px 2px;
   border: 1px solid #ef5350;
 }
-
 .glove-finger.f1 { left: 2px; }
 .glove-finger.f2 { left: 10px; }
 .glove-finger.f3 { left: 18px; }
 .glove-finger.f4 { left: 25px; }
-
-/* ── Glove texture detail ── */
 .glove-palm::after {
   content: '';
   position: absolute;
@@ -2946,8 +2514,6 @@
     repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(255,255,255,0.05) 3px, rgba(255,255,255,0.05) 4px);
   border-radius: 2px;
 }
-
-/* ── Mobile: reduce cockpit surround pillars ── */
 @media (max-width: 768px), (pointer: coarse) {
   #race-hud {
     background:
@@ -2955,69 +2521,55 @@
       linear-gradient(90deg, rgba(4,4,6,0.7) 0%, transparent 100%) 0 0 / 4% 100% no-repeat,
       linear-gradient(270deg, rgba(4,4,6,0.7) 0%, transparent 100%) 100% 0 / 4% 100% no-repeat;
   }
-
   .cockpit-dash {
     height: 55%;
     padding: 0 2% 2% 2%;
   }
-
   .cockpit-panel {
     width: 20%;
     min-width: 0;
     padding: 6px 8px;
     border-radius: 6px;
   }
-
   .cockpit-panel-left,
   .cockpit-panel-right {
     font-size: 8px;
   }
-
   .cockpit-wheel-area {
     max-width: 280px;
   }
-
   .steering-wheel {
     width: min(220px, 48vw);
     height: min(210px, 46vw);
   }
-
   .wheel-speed {
     font-size: 24px;
   }
-
   .wheel-gear {
     font-size: 14px;
   }
-
   .panel-title {
     font-size: 7px;
     letter-spacing: 1px;
   }
-
   .panel-row {
     gap: 2px;
     margin-bottom: 1px;
     font-size: 7px;
   }
-
   .panel-label {
     min-width: 28px;
     font-size: 6px;
   }
-
   .panel-val {
     font-size: 7px;
   }
-
   .panel-val-big {
     font-size: 14px;
   }
-
   .panel-pos-big {
     font-size: 16px;
   }
-
   .hand-left { left: -4%; }
   .hand-right { right: -4%; }
   .glove { width: 24px; height: 36px; }
@@ -3026,24 +2578,18 @@
   .glove-finger.f2 { left: 7px; }
   .glove-finger.f3 { left: 13px; }
   .glove-finger.f4 { left: 18px; }
-
   .track-line-minimap {
     top: 3%;
     padding: 0 8px;
   }
-
   .tl-label {
     font-size: 6px;
   }
 }
-
-/* Keep old keyframes */
 @keyframes race-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
 }
-
-/* Messages */
 .race-messages {
   position: absolute;
   top: 80px;
@@ -3054,7 +2600,6 @@
   align-items: center;
   gap: 4px;
 }
-
 .race-msg {
   background: rgba(0, 0, 0, 0.6);
   color: #fff;
@@ -3064,13 +2609,10 @@
   font-weight: 600;
   animation: race-msg-in 0.3s ease-out;
 }
-
 @keyframes race-msg-in {
   from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }
 }
-
-/* New track record toast — celebratory gold flash over the HUD */
 .record-toast {
   position: absolute;
   top: 128px;
@@ -3120,9 +2662,6 @@
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-4px); }
 }
-
-/* Beat-your-best-friend variant — blue rivalry flash, stacked under the gold
-   record toast when both fire from the same lap. */
 .record-toast.beat-toast {
   top: 182px;
   background: linear-gradient(135deg, rgba(74, 144, 217, 0.28), rgba(126, 87, 194, 0.12));
@@ -3135,8 +2674,6 @@
 .record-toast.beat-toast .beat-toast-title {
   color: #b7e3ff;
 }
-
-/* Off-track warning */
 .race-offtrack {
   position: absolute;
   top: 50%;
@@ -3149,8 +2686,6 @@
   text-shadow: 0 0 20px rgba(229, 57, 53, 0.6);
   animation: race-pulse 0.5s ease-in-out infinite;
 }
-
-/* Wrong-way warning — flashing red banner, sits just above center */
 .race-wrongway {
   position: absolute;
   top: 42%;
@@ -3170,13 +2705,10 @@
   animation: race-wrongway-flash 0.5s ease-in-out infinite;
   z-index: 12;
 }
-
 @keyframes race-wrongway-flash {
   0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
   50% { opacity: 0.35; transform: translate(-50%, -50%) scale(0.96); }
 }
-
-/* Pause */
 #race-pause {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -3188,21 +2720,17 @@
   z-index: 30;
   cursor: pointer;
 }
-
 .race-pause-text {
   font-size: 48px;
   font-weight: 900;
   color: #fff;
   letter-spacing: 8px;
 }
-
 .race-pause-hint {
   color: rgba(255, 255, 255, 0.4);
   font-size: 14px;
   margin-top: 10px;
 }
-
-/* ─── Podium / Results ─── */
 #race-finished {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -3210,15 +2738,11 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  /* Translucent so the cinematic race replay shows through behind the score;
-     the blur keeps the panel text readable over the moving action. */
   background: linear-gradient(180deg, rgba(0,0,0,0.32), rgba(14,7,16,0.52));
   backdrop-filter: blur(2.5px);
   -webkit-backdrop-filter: blur(2.5px);
   z-index: 25;
 }
-
-/* Replay caption — bottom-center, small, non-interactive. */
 .race-replay-badge {
   position: absolute;
   bottom: 14px;
@@ -3233,18 +2757,12 @@
   border-radius: 999px;
   border: 1px solid rgba(255,255,255,0.14);
   text-shadow: 0 1px 3px rgba(0,0,0,0.6);
-  /* A long driver name on the LEADER CAM label must never push the pill off
-     screen — clamp and ellipsize instead. */
   max-width: 92vw;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   pointer-events: none;
 }
-
-/* Replay scrubber — a thin draggable timeline just above the badge. The
-   bar-row shows the current vs total race time; the fill + knob track the
-   replay clock. touch-action: none lets pointer drags work on touch screens. */
 .race-replay-controls {
   position: absolute;
   bottom: 46px;
@@ -3281,7 +2799,7 @@
 }
 .race-replay-timeline {
   flex: 1;
-  height: 18px;             /* generous hit area around the 4px track */
+  height: 18px;            
   display: flex;
   align-items: center;
   cursor: pointer;
@@ -3312,7 +2830,7 @@
   border: 2px solid #ff7043;
   transform: translate(-50%, -50%);
   box-shadow: 0 0 8px rgba(255,112,67,0.7);
-  pointer-events: none;      /* drags land on the timeline, not the knob */
+  pointer-events: none;     
 }
 .race-replay-hint {
   font-size: 10px;
@@ -3321,14 +2839,10 @@
   text-shadow: 0 1px 3px rgba(0,0,0,0.7);
   white-space: nowrap;
 }
-
-/* On narrow screens the badge's static prefix would make the pill overflow —
-   keep just the live camera name, tighter letter-spacing. */
 @media (max-width: 520px) {
   .race-replay-badge .race-replay-badge-static { display: none; }
   .race-replay-badge { letter-spacing: 2px; }
 }
-
 .gp-podium {
   display: flex;
   flex-direction: column;
@@ -3336,12 +2850,10 @@
   gap: 8px;
   animation: gp-podium-in 0.5s ease-out;
 }
-
 @keyframes gp-podium-in {
   from { opacity: 0; transform: translateY(30px) scale(0.9); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
-
 .gp-podium-title {
   font-size: 36px;
   font-weight: 900;
@@ -3350,10 +2862,6 @@
   text-shadow: 0 0 20px rgba(255,255,255,0.2);
   margin-bottom: 4px;
 }
-
-/* Layered 🏁🏎️ emblem above RACE RESULTS — same flag-sway / pulse as the
-   menu title but smaller and fully visible (the podium has a dark backdrop
-   so it doesn't need the ghosted treatment). */
 .gp-podium-emblem {
   position: relative;
   display: flex;
@@ -3364,7 +2872,6 @@
   filter: drop-shadow(0 0 18px rgba(255, 111, 0, 0.35));
   margin-bottom: 2px;
 }
-
 .gp-podium-emblem .race-title-flag {
   position: absolute;
   font-size: 1.18em;
@@ -3374,29 +2881,21 @@
   transform-origin: 12% 82%;
   animation: race-flag-sway 5.5s ease-in-out infinite;
 }
-
 .gp-podium-emblem .race-title-car {
   position: relative;
   z-index: 1;
   animation: race-emblem-pulse 6s ease-in-out infinite;
 }
-
-/* Winner flourish — plays once when the results appear after a win: a brief
-   gold glow-flash with a quick scale-up on the car, then the steady pulse
-   resumes. The flash is listed last so it wins the transform/filter during
-   its run, then hands back to the pulse. */
 .gp-podium-emblem .race-title-car.gp-emblem-winner {
   animation: race-emblem-pulse 6s ease-in-out infinite,
     race-winner-flash 1.2s ease-out 1;
 }
-
 @keyframes race-winner-flash {
   0%   { transform: scale(1);   filter: drop-shadow(0 0 0px rgba(255, 214, 0, 0)); }
   30%  { transform: scale(1.3); filter: drop-shadow(0 0 30px rgba(255, 214, 0, 0.95)); }
   60%  { transform: scale(1.12); filter: drop-shadow(0 0 14px rgba(255, 214, 0, 0.7)); }
   100% { transform: scale(1);   filter: drop-shadow(0 0 0px rgba(255, 214, 0, 0)); }
 }
-
 @media (prefers-reduced-motion: reduce) {
   .gp-podium-emblem .race-title-flag,
   .gp-podium-emblem .race-title-car,
@@ -3404,70 +2903,59 @@
     animation: none;
   }
 }
-
 .gp-podium-step {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
 }
-
 .gp-podium-crown {
   font-size: 64px;
   animation: gp-bounce 1s ease-in-out infinite;
 }
-
 @keyframes gp-bounce {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
 }
-
 .gp-podium-pos {
   font-size: 48px;
   font-weight: 900;
   color: #ffd600;
   text-shadow: 0 0 30px rgba(255, 214, 0, 0.5);
 }
-
 .gp-podium-label {
   font-size: 24px;
   font-weight: 700;
   color: #4caf50;
   letter-spacing: 4px;
 }
-
 .gp-podium-time {
   font-size: 20px;
   font-variant-numeric: tabular-nums;
   color: rgba(255,255,255,0.7);
 }
-
 .gp-podium-row {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
 }
-
 .gp-podium-pos-sm {
   font-size: 36px;
   font-weight: 900;
   color: #ffd600;
 }
-
 .gp-podium-label-sm {
   font-size: 18px;
   font-weight: 600;
   color: rgba(255,255,255,0.6);
   letter-spacing: 3px;
 }
-
 .gp-podium-time-sm {
   font-size: 16px;
   color: rgba(255,255,255,0.5);
   font-variant-numeric: tabular-nums;
 }
-
 .gp-podium-stats {
   display: flex;
   flex-direction: column;
@@ -3479,24 +2967,20 @@
   padding: 10px 20px;
   min-width: 240px;
 }
-
 .gp-stat-row {
   display: flex;
   justify-content: space-between;
   gap: 20px;
   font-size: 13px;
 }
-
 .gp-stat-label {
   color: rgba(255,255,255,0.4);
 }
-
 .gp-stat-val {
   color: #fff;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
-
 .gp-podium-money-row {
   display: flex;
   flex-direction: column;
@@ -3504,7 +2988,6 @@
   gap: 2px;
   margin-top: 8px;
 }
-
 .gp-standings {
   margin-top: 12px;
   width: min(420px, 92vw);
@@ -3515,7 +2998,6 @@
   border-radius: 10px;
   padding: 8px 12px;
 }
-
 .gp-standings-full {
   font-size: 11px;
   opacity: 0.75;
@@ -3523,10 +3005,6 @@
   padding-bottom: 4px;
   letter-spacing: 0.3px;
 }
-
-/* Previous-race results panel in the multiplayer lobby — shown when a player
-   joins while the last race's classification is still on display, and cleared
-   when the lobby resets to ready-up (OnRematch). */
 .gp-lobby-results {
   margin: 10px 0 4px;
   padding: 10px 12px;
@@ -3536,7 +3014,6 @@
   max-height: 30vh;
   overflow-y: auto;
 }
-
 .gp-standings-countdown {
   margin-top: 6px;
   font-size: 11px;
@@ -3545,11 +3022,9 @@
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
-
 .gp-standings-countdown-text {
   display: block;
 }
-
 .gp-standings-bar {
   display: block;
   height: 3px;
@@ -3558,7 +3033,6 @@
   background: rgba(255, 255, 255, 0.12);
   overflow: hidden;
 }
-
 .gp-standings-bar-fill {
   display: block;
   height: 100%;
@@ -3567,52 +3041,40 @@
   box-shadow: 0 0 6px rgba(255, 193, 7, 0.45);
   transition: width 0.5s linear;
 }
-
 .gp-standings-countdown.gp-standings-low .gp-standings-bar-fill {
   background: linear-gradient(90deg, #ff5722, #ffc107);
 }
-
-/* One-beat amber border flash synced to each final-3s tick (the panel border
-   lights up the moment the audible tick fires, then fades back). An outline
-   (not border) so toggling the class never shifts the layout. */
 .gp-standings-countdown.gp-standings-flash {
   outline: 1px solid rgba(255, 193, 7, 0.9);
   outline-offset: -1px;
   box-shadow: 0 0 10px rgba(255, 193, 7, 0.45);
 }
-
 @media (prefers-reduced-motion: no-preference) {
   .gp-standings-countdown.gp-standings-flash {
     animation: gp-standings-flash 0.3s ease-out;
   }
-
   @keyframes gp-standings-flash {
     0% { box-shadow: 0 0 14px rgba(255, 193, 7, 0.7); }
     100% { box-shadow: 0 0 0 rgba(255, 193, 7, 0); }
   }
 }
-
 @media (prefers-reduced-motion: no-preference) {
   .gp-standings-countdown.gp-standings-low .gp-standings-countdown-text {
     animation: gp-standings-pulse 1s ease-in-out infinite;
   }
-
   .gp-standings-countdown.gp-standings-low .gp-standings-bar-fill {
     animation: gp-standings-pulse 1s ease-in-out infinite;
   }
 }
-
 @keyframes gp-standings-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.45; }
 }
-
 @media (prefers-reduced-motion: reduce) {
   .gp-standings-bar-fill {
     transition: none;
   }
 }
-
 .gp-standings-row {
   display: flex;
   align-items: center;
@@ -3622,7 +3084,6 @@
   font-size: 13px;
   color: rgba(255,255,255,0.85);
 }
-
 .gp-standings-row.gp-standings-head {
   font-size: 11px;
   text-transform: uppercase;
@@ -3630,16 +3091,12 @@
   color: rgba(255,255,255,0.4);
   padding-bottom: 2px;
 }
-
 .gp-standings-row.gp-standings-me {
   background: rgba(255, 215, 0, 0.12);
   border: 1px solid rgba(255, 215, 0, 0.35);
   color: #fff;
   font-weight: 600;
 }
-
-/* Retired racers (disconnected mid-race) — muted and struck through so DNF
-   rows read as retired rather than as a position. */
 .gp-standings-row.gp-standings-dnf {
   opacity: 0.55;
 }
@@ -3651,14 +3108,12 @@
   font-weight: 700;
   color: #ff5252;
 }
-
 .gp-standings-pos {
   width: 22px;
   text-align: right;
   font-variant-numeric: tabular-nums;
   opacity: 0.7;
 }
-
 .gp-standings-name {
   flex: 1;
   display: flex;
@@ -3669,7 +3124,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 .gp-standings-clickable {
   cursor: pointer;
   border-radius: 6px;
@@ -3677,13 +3131,11 @@
   margin-left: -5px;
   transition: background 0.15s ease, color 0.15s ease;
 }
-
 .gp-standings-clickable:hover {
   background: var(--main-highlight-color-quarter-opacity, rgba(74, 158, 255, 0.16));
   color: var(--main-font-color);
   text-decoration: underline;
 }
-
 .gp-standings-dot {
   width: 10px;
   height: 10px;
@@ -3691,29 +3143,22 @@
   flex-shrink: 0;
   box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
 }
-
 .gp-standings-you {
   font-size: 11px;
   opacity: 0.7;
 }
-
 .gp-standings-laps {
   font-variant-numeric: tabular-nums;
   opacity: 0.7;
   min-width: 34px;
   text-align: right;
 }
-
-/* Total race time column — real for racers who finished, '—' otherwise. */
 .gp-standings-time {
   font-variant-numeric: tabular-nums;
   min-width: 56px;
   text-align: right;
   opacity: 0.8;
 }
-
-/* Gap behind the race leader — computed from the same total times as Time,
-   shown in a warm amber so the deficit reads at a glance. */
 .gp-standings-gap {
   font-variant-numeric: tabular-nums;
   min-width: 46px;
@@ -3721,10 +3166,6 @@
   opacity: 0.75;
   color: rgba(255, 200, 120, 0.85);
 }
-
-/* Collapsible standings header (podium + lobby previous-race list) — the whole
-   title is a button so tapping it folds/unfolds the classification. The
-   countdown stays visible above the fold regardless of collapse state. */
 .gp-standings-toggle {
   display: flex;
   align-items: center;
@@ -3745,20 +3186,14 @@
   color: rgba(255,255,255,0.9);
   transition: color 0.15s ease;
 }
-
 .gp-standings-toggle:hover { color: #fff; }
-
 .gp-standings-chevron {
   font-size: 10px;
   line-height: 1;
   opacity: 0.6;
   transition: transform 0.2s ease;
 }
-
 .gp-standings-chevron.closed { transform: rotate(180deg); }
-
-/* Mobile: compact standings rows, and the podium scrolls instead of
-   overflowing the viewport. */
 @media (max-width: 768px) {
   .gp-podium {
     max-height: 94vh;
@@ -3780,13 +3215,11 @@
   .gp-standings-time { min-width: 52px; font-size: 12px; }
   .gp-standings-laps { min-width: 28px; font-size: 12px; }
 }
-
 .gp-money-prize {
   font-size: 28px;
   font-weight: 900;
   color: #ffd600;
 }
-
 .gp-money-label {
   font-size: 11px;
   color: rgba(255,255,255,0.3);
@@ -3804,27 +3237,20 @@
     padding: 10px 22px;
   }
   .gp-podium-auto {
-
   font-size: 12px;
   color: rgba(255,255,255,0.2);
   margin-top: 12px;
   animation: race-pulse 2s ease-in-out infinite;
 }
-
-/* The solo "Back to Menu" button sits inside .gp-podium-auto — keep it
-   steady instead of inheriting the pulsing text animation. */
 .gp-podium-auto .race-mp-btn {
   animation: none;
   color: #fff;
 }
-
-/* ─── Menu Tabs ─── */
 .race-menu-tabs {
   display: flex;
   gap: 4px;
   margin-bottom: 16px;
 }
-
 .race-menu-tab {
   padding: 8px 24px;
   border: 1px solid rgba(255,255,255,0.1);
@@ -3838,19 +3264,15 @@
   text-transform: uppercase;
   font-weight: 700;
 }
-
 .race-menu-tab:hover {
   background: rgba(255,255,255,0.08);
   color: #fff;
 }
-
 .race-menu-tab.active {
   background: rgba(229,57,53,0.2);
   border-color: #e53935;
   color: #e53935;
 }
-
-/* ─── Multiplayer Lobby ─── */
 .race-mp-lobby {
   width: 100%;
   max-width: 600px;
@@ -3858,14 +3280,13 @@
   flex-direction: column;
   gap: 10px;
 }
-
 .race-mp-error {
   color: #e53935;
   font-size: 13px;
   display: flex;
   align-items: center;
   gap: 10px;
-}  /* Live lobby status row */
+} 
   .race-mp-status-row {
     display: flex;
     align-items: center;
@@ -3887,7 +3308,6 @@
     box-shadow: 0 0 6px rgba(76, 175, 80, 0.8);
   }
   .race-mp-retry {
-
   padding: 4px 12px;
   border: 1px solid rgba(229,57,53,0.4);
   border-radius: 4px;
@@ -3896,7 +3316,6 @@
   cursor: pointer;
   font-size: 12px;
 }
-
 .race-mp-track-info {
   text-align: center;
   padding: 8px;
@@ -3904,19 +3323,16 @@
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 6px;
 }
-
 .race-mp-track-name {
   color: #fff;
   font-size: 16px;
   font-weight: 700;
 }
-
 .race-mp-track-diff {
   font-size: 12px;
   color: rgba(255,255,255,0.4);
   letter-spacing: 2px;
 }
-
 .race-mp-players {
   display: flex;
   flex-direction: column;
@@ -3924,7 +3340,6 @@
   max-height: 200px;
   overflow-y: auto;
 }
-
 .mp-player-row {
   display: flex;
   justify-content: space-between;
@@ -3934,7 +3349,6 @@
   border-radius: 4px;
   border-left: 3px solid rgba(255,255,255,0.2);
 }
-
 .mp-player-name {
   font-size: 14px;
   font-weight: 600;
@@ -3943,7 +3357,6 @@
   align-items: center;
   gap: 8px;
 }
-
 .mp-in-race {
   font-size: 10px;
   padding: 1px 6px;
@@ -3972,28 +3385,23 @@
   letter-spacing: 1px;
   font-weight: 700;
 }
-
 .mp-player-status {
   font-size: 11px;
   letter-spacing: 1px;
   font-weight: 700;
 }
-
 .mp-ready-yes {
   color: #4caf50;
 }
-
 .mp-ready-no {
   color: rgba(255,255,255,0.3);
 }
-
 .race-mp-actions {
   display: flex;
   gap: 8px;
   justify-content: center;
   margin-top: 4px;
 }
-
 .race-mp-btn {
   padding: 10px 24px;
   border: 1px solid rgba(255,255,255,0.2);
@@ -4014,36 +3422,28 @@
     background: rgba(255, 82, 82, 0.3);
   }
   .race-mp-btn:hover {
-
   background: rgba(255,255,255,0.1);
 }
-
 .race-mp-ready {
   background: rgba(76,175,80,0.2);
   border-color: #4caf50;
   color: #4caf50;
 }
-
 .race-mp-start {
   background: rgba(229,57,53,0.2);
   border-color: #e53935;
   color: #e53935;
 }
-
 .race-mp-start:hover {
   background: rgba(229,57,53,0.3);
 }
-
 .race-mp-disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
-
 .race-mp-disabled:hover {
   background: rgba(229,57,53,0.2);
 }
-
-/* ─── Multiplayer Chat ─── */
 .race-mp-countdown {
   text-align: center;
   padding: 8px;
@@ -4055,7 +3455,6 @@
   border-radius: 6px;
   margin-top: 8px;
 }
-
 .race-mp-chat {
   display: flex;
   flex-direction: column;
@@ -4065,7 +3464,6 @@
   border-radius: 6px;
   padding: 8px;
 }
-
 .race-mp-chat-title {
   font-size: 11px;
   letter-spacing: 2px;
@@ -4073,7 +3471,6 @@
   text-transform: uppercase;
   margin-bottom: 2px;
 }
-
 .race-mp-chat-msgs {
   max-height: 100px;
   overflow-y: auto;
@@ -4081,27 +3478,22 @@
   flex-direction: column;
   gap: 2px;
 }
-
 .race-mp-chat-msg {
   font-size: 12px;
   line-height: 1.4;
 }
-
 .race-mp-chat-name {
   font-weight: 700;
   color: rgba(255,255,255,0.7);
   margin-right: 4px;
 }
-
 .race-mp-chat-text {
   color: rgba(255,255,255,0.5);
 }
-
 .race-mp-chat-input-row {
   display: flex;
   gap: 4px;
 }
-
 .race-mp-chat-input {
   flex: 1;
   padding: 6px 10px;
@@ -4112,11 +3504,9 @@
   font-size: 12px;
   outline: none;
 }
-
 .race-mp-chat-input:focus {
   border-color: rgba(229,57,53,0.5);
 }
-
 .race-mp-chat-send {
   padding: 6px 14px;
   border: 1px solid rgba(229,57,53,0.4);
@@ -4128,12 +3518,9 @@
   font-weight: 700;
   letter-spacing: 1px;
 }
-
 .race-mp-chat-send:hover {
   background: rgba(229,57,53,0.2);
 }
-
-/* ─── Lobby UX: steps, roster, join badges, hints ─── */
 .race-mp-step-title {
   font-size: 12px;
   letter-spacing: 3px;
@@ -4142,18 +3529,15 @@
   font-weight: 800;
   margin: 4px 0 2px;
 }
-
 .race-mp-step-hint {
   font-size: 12px;
   color: rgba(255,255,255,0.55);
   margin-bottom: 8px;
   line-height: 1.4;
 }
-
 .race-mp-track-card {
   flex-wrap: wrap;
 }
-
 .race-mp-join-badge {
   flex-basis: 100%;
   margin-top: 8px;
@@ -4169,49 +3553,41 @@
   white-space: nowrap;
   transition: all 0.2s;
 }
-
 .race-track-card:not(.race-track-locked):hover .race-mp-join-badge {
   background: rgba(229,57,53,0.3);
   color: #fff;
 }
-
 .race-mp-join-badge.locked {
   background: rgba(255,255,255,0.05);
   border-color: rgba(255,255,255,0.15);
   color: rgba(255,255,255,0.4);
 }
-
 .race-mp-roster-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-top: 4px;
 }
-
 .race-mp-roster-label {
   font-size: 11px;
   letter-spacing: 2px;
   color: rgba(255,255,255,0.4);
   font-weight: 700;
 }
-
 .race-mp-ready-count {
   font-size: 11px;
   color: #ffd600;
   font-weight: 700;
 }
-
 .mp-player-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
-
 .mp-player-me {
   background: rgba(76,175,80,0.08);
 }
-
 .mp-you-badge {
   font-size: 10px;
   padding: 1px 6px;
@@ -4221,7 +3597,6 @@
   letter-spacing: 1px;
   font-weight: 700;
 }
-
 .race-mp-empty {
   font-size: 12px;
   color: rgba(255,255,255,0.45);
@@ -4230,40 +3605,32 @@
   border: 1px dashed rgba(255,255,255,0.15);
   border-radius: 6px;
 }
-
 .race-mp-hint {
   font-size: 11px;
   color: rgba(255,255,255,0.45);
   text-align: center;
   line-height: 1.4;
 }
-
 .race-mp-chat-own .race-mp-chat-name {
   color: #4caf50;
 }
-
 .race-mp-chat-own {
   background: rgba(76,175,80,0.06);
   border-radius: 4px;
   padding: 2px 6px;
 }
-
 .race-mp-chat-empty {
   font-size: 12px;
   color: rgba(255,255,255,0.3);
   font-style: italic;
   padding: 4px 0;
 }
-
-/* Minimap remote cars */
 .race-minimap-remote {
   width: 5px;
   height: 5px;
   opacity: 0.8;
   z-index: 1;
 }
-
-/* ─── Leaderboard ─── */
 #race-leaderboard {
   position: absolute;
   top: 50%; left: 50%;
@@ -4277,7 +3644,6 @@
   color: #fff;
   pointer-events: auto;
 }
-
 .race-lb-title {
   text-align: center;
   font-size: 20px;
@@ -4287,7 +3653,6 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   margin-bottom: 8px;
 }
-
 .race-lb-row {
   display: flex;
   gap: 8px;
@@ -4295,14 +3660,12 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   font-size: 13px;
 }
-
 .race-lb-header {
   color: rgba(255, 255, 255, 0.4);
   font-size: 11px;
   letter-spacing: 1px;
   text-transform: uppercase;
 }
-
 .race-lb-row span { flex: 1; }
 .race-lb-row span:first-child { width: 30px; flex: none; }
 .race-lb-race {
@@ -4312,8 +3675,6 @@
   font-size: 12px;
   opacity: 0.85;
 }
-
-/* Best Laps popup mode toggle: This Track / All Races */
 .race-lb-modes {
   display: flex;
   justify-content: center;
@@ -4341,9 +3702,6 @@
   color: #fff;
   font-weight: 700;
 }
-
-/* All-races high-scores rows — chips for the per-track breakdown wrap onto
-   their own line under the lap/gap columns. */
 .race-lb-row-overall {
   flex-wrap: wrap;
   align-items: center;
@@ -4375,8 +3733,6 @@
   opacity: 0.9;
   white-space: nowrap;
 }
-
-/* Highlight the current player's own row on the best-laps board */
 .race-lb-row.race-lb-me {
   background: rgba(229, 57, 53, 0.12);
   border-color: rgba(229, 57, 53, 0.4);
@@ -4384,9 +3740,6 @@
   color: #ffd600;
   font-weight: 700;
 }
-
-/* Podium rows — gold/silver/bronze tint so the top-3 stand out at a glance.
-   The rank cell keeps a fixed slot so the trophy never shifts the columns. */
 .race-lb-row.race-lb-podium {
   font-weight: 800;
   border-radius: 6px;
@@ -4416,8 +3769,6 @@
 .race-lb-row.race-lb-gold .race-lb-trophy { filter: drop-shadow(0 0 6px rgba(255, 200, 0, 0.55)); }
 .race-lb-row.race-lb-silver .race-lb-trophy { filter: drop-shadow(0 0 6px rgba(200, 210, 220, 0.45)); }
 .race-lb-row.race-lb-bronze .race-lb-trophy { filter: drop-shadow(0 0 6px rgba(205, 127, 50, 0.5)); }
-
-/* Clickable racer name → profile popup */
 .race-lb-name {
   cursor: pointer;
   font-weight: 700;
@@ -4432,8 +3783,6 @@
   text-shadow: 0 0 8px rgba(126, 200, 255, 0.5);
   text-decoration: underline;
 }
-
-/* ── Racer profile popup ── */
 .racer-popup-overlay {
   position: fixed;
   inset: 0;
@@ -4569,7 +3918,6 @@
   filter: brightness(1.12);
   transform: translateY(-1px);
 }
-
 .race-lb-empty {
   text-align: center;
   font-size: 12px;
@@ -4577,7 +3925,6 @@
   padding: 18px 0;
   font-style: italic;
 }
-
 .race-lb-close {
   text-align: center;
   font-size: 11px;
@@ -4587,12 +3934,9 @@
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   cursor: pointer;
 }
-
 .race-lb-close:hover {
   color: #fff;
 }
-
-/* ─── Mobile (virtual joystick) ─── */
 #race-mobile {
   position: absolute;
   bottom: 0;
@@ -4603,7 +3947,6 @@
   z-index: 20;
   touch-action: none;
 }
-
 .race-joy-zone {
   position: absolute;
   left: 24px;
@@ -4616,7 +3959,6 @@
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
-
 .race-joy-base {
   position: relative;
   width: 168px;
@@ -4630,7 +3972,6 @@
   box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.06) inset,
     0 8px 24px rgba(0, 0, 0, 0.45);
 }
-
 .race-joy-ring {
   position: absolute;
   top: 50%;
@@ -4641,7 +3982,6 @@
   transform: translate(-50%, -50%);
   border: 2px dashed rgba(255, 255, 255, 0.18);
 }
-
 .race-joy-thumb {
   position: absolute;
   top: 50%;
@@ -4662,7 +4002,6 @@
   align-items: center;
   justify-content: center;
 }
-
 .race-joy-thumb-grip {
   width: 26px;
   height: 26px;
@@ -4672,12 +4011,10 @@
     rgba(255, 255, 255, 0.35) 60%);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
-
 .race-joy-axis {
   position: absolute;
   pointer-events: none;
 }
-
 .race-joy-axis-h {
   top: 50%;
   left: 0;
@@ -4687,7 +4024,6 @@
   justify-content: space-between;
   padding: 0 10px;
 }
-
 .joy-hint {
   font-size: 11px;
   font-weight: 800;
@@ -4695,7 +4031,6 @@
   color: rgba(255, 255, 255, 0.55);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
 }
-
 .race-joy-label {
   position: absolute;
   top: 172px;
@@ -4708,8 +4043,6 @@
   color: rgba(255, 255, 255, 0.45);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
 }
-
-/* Pedal buttons — gas/brake are separate from the steering joystick */
 .race-pedals {
   position: absolute;
   right: 24px;
@@ -4722,7 +4055,6 @@
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
-
 .race-pedal {
   width: 88px;
   height: 128px;
@@ -4738,32 +4070,27 @@
   font-family: inherit;
   -webkit-tap-highlight-color: transparent;
 }
-
 .race-pedal:active {
   transform: translateY(3px) scale(0.97);
   filter: brightness(1.35);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 22px currentColor;
 }
-
 .race-pedal-brake {
   background: radial-gradient(circle at 50% 30%,
     rgba(229, 57, 53, 0.55) 0%,
     rgba(120, 20, 20, 0.75) 100%);
   color: #ff8a80;
 }
-
 .race-pedal-gas {
   background: radial-gradient(circle at 50% 30%,
     rgba(76, 175, 80, 0.55) 0%,
     rgba(20, 90, 30, 0.78) 100%);
   color: #a5f3a8;
 }
-
 .race-pedal-icon {
   font-size: 30px;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
 }
-
 .race-pedal-label {
   font-size: 12px;
   font-weight: 800;
@@ -4771,7 +4098,6 @@
   color: rgba(255, 255, 255, 0.92);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
-
 @media (orientation: landscape) and (pointer: coarse) {
   app-title-bar { display: none !important; }
   #race-container { height: 100vh !important; height: 100dvh !important; }
@@ -4782,7 +4108,6 @@
   justify-content: center;
   margin-bottom: 4px;
 }
-
 .shift-led {
   width: 8px;
   height: 8px;
@@ -4791,30 +4116,25 @@
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
   transition: background 0.05s, box-shadow 0.05s;
 }
-
 .shift-led.led-green {
   background: #4caf50;
   box-shadow: 0 0 6px rgba(76, 175, 80, 0.8);
 }
-
 .shift-led.led-amber {
   background: #ff9800;
   box-shadow: 0 0 6px rgba(255, 152, 0, 0.8);
 }
-
 .shift-led.led-red {
   background: #e53935;
   box-shadow: 0 0 8px rgba(229, 57, 53, 0.9);
   animation: rpm-blink 0.15s ease-in-out infinite alternate;
 }
-
 .gauge-analog {
   position: relative;
   width: 46px;
   height: 46px;
   margin: 2px auto 0;
 }
-
 .gauge-face {
   position: absolute;
   inset: 0;
@@ -4829,7 +4149,6 @@
   -webkit-mask: radial-gradient(circle, transparent 62%, black 63%);
   opacity: 0.85;
 }
-
 .gauge-needle {
   position: absolute;
   left: 50%;
@@ -4842,7 +4161,6 @@
   transform-origin: bottom center;
   transition: transform 0.05s linear;
 }
-
 .drs-badge {
   margin-top: 4px;
   text-align: center;
@@ -4854,14 +4172,12 @@
   border-radius: 3px;
   padding: 1px 0;
 }
-
 .drs-badge.drs-on {
   color: #4caf50;
   border-color: rgba(76, 175, 80, 0.6);
   background: rgba(76, 175, 80, 0.12);
   box-shadow: 0 0 8px rgba(76, 175, 80, 0.3);
 }
-/* ─── Track card "your best" badge ─── */
 .race-track-your-best {
   margin-top: 6px;
   font-size: 11px;
@@ -4875,8 +4191,6 @@
   letter-spacing: 0.4px;
   text-shadow: 0 1px 2px rgba(0,0,0,0.6);
 }
-
-/* ─── Garage per-track records ─── */
 .garage-records-hint {
   font-size: 11px;
   color: rgba(255,255,255,0.45);
@@ -4956,8 +4270,6 @@
   color: rgba(255,255,255,0.35);
   font-style: italic;
 }
-
-/* 'ahead of N friends' summary badge on each RECORDS card (vs-friends mode) */
 .garage-record-friends {
   font-size: 10px;
   font-weight: 800;
@@ -4970,7 +4282,6 @@
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   white-space: nowrap;
 }
-/* ── Top-5 pace mini-table inside each record card ── */
 .garage-top5 {
   border-top: 1px dashed rgba(255,255,255,0.1);
   padding-top: 6px;
@@ -5023,8 +4334,6 @@
   font-style: italic;
   padding: 2px 4px;
 }
-
-/* ── 'vs friends' toggle + per-track friend comparison rows ── */
 .garage-friends-toggle-row {
   display: flex;
   align-items: center;
@@ -5128,8 +4437,6 @@
   border: 1px dashed rgba(255,255,255,0.12);
   border-radius: 10px;
 }
-
-/* ─── Leaderboard gap column ─── */
 .race-lb-gap {
   font-size: 11px;
   font-weight: 600;
@@ -5154,8 +4461,6 @@
 .race-lb-me .race-lb-gap {
   color: #ffd600;
 }
-
-/* ─── Leaderboard standings summary row ─── */
 .race-lb-standings {
   display: flex;
   align-items: center;
