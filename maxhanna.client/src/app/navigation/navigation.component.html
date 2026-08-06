@@ -232,6 +232,9 @@
         </ng-container>
       </div>
     </div>
+    <div class="navSearchMatchCount" *ngIf="navSearchTerm.trim().length">
+      {{ navSearchMatchLabel }}
+    </div>
   </div>
   <button *ngIf="!showNavSearch" class="navSearchToggle navSearchToggleFloating" (click)="toggleNavSearch()"
     title="Show search" aria-label="Show search">🔍</button>

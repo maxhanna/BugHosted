@@ -71,7 +71,7 @@
                 item.ownership) }}</span>
               <div *ngIf="isEditing.includes(item)" [class.blocked]="isLoading">
                 Text: <textarea [value]="item.todo" id="todoEditingTextarea" style="width:calc(100% - 10px)"
-                  (input)="hasEditedTodo = true"></textarea>
+                  (input)="onTodoTextInput($event)"></textarea>
               </div>
               <div *ngIf="isEditing.includes(item)" [class.blocked]="isLoading">
                 URL: <textarea *ngIf="isEditing.includes(item)" [value]="item.url" id="todoEditingUrlTextarea"

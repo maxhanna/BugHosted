@@ -424,6 +424,8 @@ namespace maxhanna.Server.Services
                 catch (Exception ex) { _ = _log.Db("Error in DeleteOldFollowNotifications: " + ex.Message, null, "SYSTEM", outputToConsole: true); }
                 try { await _dbQueue.EnqueueAsync(async () => { await DeleteInvalidBenchmarks(); }); }
                 catch (Exception ex) { _ = _log.Db($"Error in DeleteInvalidBenchmarks: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
+                try { await _dbQueue.EnqueueAsync(async () => { await DeduplicateBenchmarks(); }); }
+                catch (Exception ex) { _ = _log.Db($"Error in DeduplicateBenchmarks: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
                 _ = Task.Run(async () => { try { await _log.BackupDatabase(); } catch (Exception ex) { _ = _log.Db($"Error in BackupDatabase: {ex.Message}", null, "SYSTEM", outputToConsole: true); } });
             }
             finally
@@ -2556,6 +2558,44 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
             catch (Exception ex)
             {
                 _ = _log.Db("CleanupOldFavourites failure: " + ex.Message, null, "SYSTEM", true);
+            }
+        }
+        /// <summary>
+        /// Daily cleanup: deduplicate benchmark submissions that are identical —
+        /// same user, benchmark name, duration and model — and landed within a
+        /// 24-hour grace window (retries / double-submits). Keeps only the newest
+        /// row; legitimate re-runs spaced further apart are preserved. Runs after
+        /// DeleteInvalidBenchmarks so broken rows are gone before grouping.
+        /// </summary>
+        private async Task DeduplicateBenchmarks()
+        {
+            Console.WriteLine("Deduplicating Benchmarks");
+            try
+            {
+                await using var conn = new MySqlConnection(_connectionString);
+                await conn.OpenAsync();
+                // Delete every row that has a newer identical row (by user, name,
+                // duration and model) submitted within 24 hours of it. Chains of
+                // duplicates collapse onto the newest row; COALESCE keeps NULL
+                // values from silently skipping the match.
+                const string sql = @"DELETE b1 FROM maxhanna.weaver_benchmark_data b1
+          INNER JOIN maxhanna.weaver_benchmark_data b2
+             ON b2.user_id = b1.user_id
+            AND COALESCE(b2.benchmark_name, '') = COALESCE(b1.benchmark_name, '')
+            AND COALESCE(b2.duration, '') = COALESCE(b1.duration, '')
+            AND COALESCE(b2.model, '') = COALESCE(b1.model, '')
+            AND b2.id > b1.id
+            AND b2.date <= DATE_ADD(b1.date, INTERVAL 24 HOUR);";
+                await using var cmd = new MySqlCommand(sql, conn);
+                int deleted = Convert.ToInt32(await cmd.ExecuteNonQueryAsync());
+                if (deleted > 0)
+                {
+                    _ = _log.Db($"DeduplicateBenchmarks removed {deleted} duplicate benchmark rows", null, "SYSTEM", outputToConsole: true);
+                }
+            }
+            catch (Exception ex)
+            {
+                _ = _log.Db("DeduplicateBenchmarks failure: " + ex.Message, null, "SYSTEM", true);
             }
         }
         /// <summary>

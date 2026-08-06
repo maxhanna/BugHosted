@@ -237,7 +237,7 @@
           </div>
           <ng-container *ngIf="!standingsCollapsed">
             <div class="gp-standings-row gp-standings-head">
-              <span class="gp-standings-pos">#</span><span>Driver</span><span class="gp-standings-time">Time</span><span class="gp-standings-laps">Laps</span>
+              <span class="gp-standings-pos">#</span><span>Driver</span><span class="gp-standings-time">Time</span><span class="gp-standings-gap">Gap</span><span class="gp-standings-laps">Laps</span>
             </div>
             <div class="gp-standings-row" *ngFor="let s of finalStandings"
               [class.gp-standings-dnf]="s.isDnf">
@@ -247,6 +247,7 @@
                 {{ s.name }}<span *ngIf="s.isPlayer" class="gp-standings-you"> (You)</span>
               </span>
               <span class="gp-standings-time">{{ getStandingsTime(s) }}</span>
+              <span class="gp-standings-gap">{{ getStandingsGap(s) }}</span>
               <span class="gp-standings-laps">{{ s.isDnf ? '—' : s.laps + '/' + selectedTrack.laps }}</span>
             </div>
           </ng-container>
@@ -362,7 +363,7 @@
             <div class="car-3d-wrap">
               <div class="car-preview-container" [style.transform]="getCarTransform()"
                 [style.--glow-intensity]="glowIntensityVar"
-                [class.car-dragging]="isCarDragging" (pointerdown)="onCarPointerDown($event)"
+                [class.car-dragging]="isCarDragging" [class.car-zoom-anim]="carZoomAnim" (pointerdown)="onCarPointerDown($event)"
                 (pointermove)="onCarPointerMove($event)" (pointerup)="onCarPointerUp()"
                 (pointercancel)="onCarPointerUp()" (pointerleave)="onCarPointerUp()"
                 (wheel)="onCarWheel($event)" title="Drag to rotate · scroll to zoom">
@@ -601,9 +602,9 @@
             <div class="garage-car-actions">
               <span class="garage-rotate-hint">🔄 drag to rotate · scroll to zoom</span>
               <div class="garage-zoom-cluster">
-                <button class="garage-zoom-btn" (click)="zoomCar(-0.15)" title="Zoom out">−</button>
+                <button class="garage-zoom-btn" (click)="zoomCar(-0.15, true)" title="Zoom out">−</button>
                 <span class="garage-zoom-level">{{ (carZoom * 100).toFixed(0) }}%</span>
-                <button class="garage-zoom-btn" (click)="zoomCar(0.15)" title="Zoom in">＋</button>
+                <button class="garage-zoom-btn" (click)="zoomCar(0.15, true)" title="Zoom in">＋</button>
               </div>
               <button class="garage-reset-view" (click)="resetCarView()" title="Reset car view">⟲</button>
             </div>
@@ -1064,7 +1065,7 @@
           <ng-container *ngIf="!standingsCollapsed">
             <div class="gp-standings-full" *ngIf="serverStandings">Full lobby results — all racers finished</div>
             <div class="gp-standings-row gp-standings-head">
-              <span class="gp-standings-pos">#</span><span>Driver</span><span class="gp-standings-time">Time</span><span class="gp-standings-laps">Laps</span>
+              <span class="gp-standings-pos">#</span><span>Driver</span><span class="gp-standings-time">Time</span><span class="gp-standings-gap">Gap</span><span class="gp-standings-laps">Laps</span>
             </div>
             <div class="gp-standings-row" *ngFor="let s of finalStandings"
               [class.gp-standings-me]="s.isPlayer"
@@ -1078,6 +1079,7 @@
                 {{ s.name }}<span *ngIf="s.isPlayer" class="gp-standings-you"> (You)</span>
               </span>
               <span class="gp-standings-time">{{ getStandingsTime(s) }}</span>
+              <span class="gp-standings-gap">{{ getStandingsGap(s) }}</span>
               <span class="gp-standings-laps">{{ s.isDnf ? '—' : s.laps + '/' + totalLaps }}</span>
             </div>
           </ng-container>

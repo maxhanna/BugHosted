@@ -965,6 +965,19 @@
   cursor: grabbing;
 }
 
+/* −/＋ zoom buttons ease the scale in instead of jumping; the class is toggled
+   by zoomCar(…, true) and removed after the transition (or when a drag starts,
+   so drags stay 1:1). Scroll-wheel zooms never animate. */
+.car-preview-container.car-zoom-anim {
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .car-preview-container.car-zoom-anim {
+    transition: none;
+  }
+}
+
 .car-body-scale {
   position: absolute;
   inset: 0;
@@ -3472,6 +3485,16 @@
   min-width: 56px;
   text-align: right;
   opacity: 0.8;
+}
+
+/* Gap behind the race leader — computed from the same total times as Time,
+   shown in a warm amber so the deficit reads at a glance. */
+.gp-standings-gap {
+  font-variant-numeric: tabular-nums;
+  min-width: 46px;
+  text-align: right;
+  opacity: 0.75;
+  color: rgba(255, 200, 120, 0.85);
 }
 
 /* Collapsible standings header (podium + lobby previous-race list) — the whole

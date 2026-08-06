@@ -107,17 +107,56 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
   cancelRename(type: string) {
     this.isRenaming = this.isRenaming.filter(x => x != type);
   }
+
+  // Textarea input: flag the edit and auto-grow the box with its content.
+  onTodoTextInput(e: Event) {
+    this.hasEditedTodo = true;
+    this.autoGrowTextarea(e.target as HTMLTextAreaElement | null);
+  }
+
+  // Auto-grow the todo edit textarea up to a max height, so long todos never
+  // need scrolling while typing. Still user-resizable via the drag knob.
+  autoGrowTextarea(el: HTMLTextAreaElement | null) {
+    if (!el) return;
+    const MAX = 320;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, MAX) + 'px';
+    el.style.overflowY = el.scrollHeight > MAX ? 'auto' : 'hidden';
+  }
   // The Edit Lists panel only manages custom lists — the built-in defaults
   // (Todo, Work, Shopping, ...) can't be renamed or deleted, so they're left out.
   get customTodoTypes(): string[] {
     return this.todoTypes.filter(t => !this.defaultTodoTypes.includes(t));
   }
   renameColumn(oldColumnName: string, newName: string) {
-    this.todoService.renameColumn(oldColumnName, newName).then(res => { 
-      const column = this.sharedColumns.find(c => c === oldColumnName);
-      if (column) {
-        column.columnName = newName;
-      } 
+    const clean = (newName ?? '').trim();
+    // Close the rename row on submit; nothing to do for empty/unchanged names.
+    this.isRenaming = this.isRenaming.filter(x => x !== oldColumnName);
+    if (!clean || clean === oldColumnName) return;
+    if (this.todoTypes.includes(clean)) {
+      this.parentRef?.showNotification?.('A list with that name already exists');
+      return;
+    }
+    this.todoService.renameColumn(oldColumnName, clean).then(res => {
+      if (!res || !res.ok) {
+        this.parentRef?.showNotification?.('Rename failed — try again');
+        return;
+      }
+      // Apply the new name in place so the dropdown and the Edit Lists panel
+      // don't show the stale name until a reload.
+      this.todoTypes = this.todoTypes.map(t => t === oldColumnName ? clean : t);
+      // Keep share metadata pointing at the renamed column.
+      for (const sc of this.sharedColumns) {
+        const colName = sc.columnName ?? sc.column_name ?? sc.ColumnName;
+        if (colName === oldColumnName) sc.columnName = clean;
+      }
+      // If the renamed list is the one being viewed, point the select at the
+      // new name and reload so the header and list update immediately.
+      if (this.selectedType?.nativeElement && this.selectedType.nativeElement.value === oldColumnName) {
+        this.selectedType.nativeElement.value = clean;
+        this.setTodoDropdownPlaceholder();
+        this.getTodoInfo();
+      }
     });
   }
 
@@ -640,6 +679,10 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       this.isEditing.push(todo);
       this.pauseSharedPollingForEdit();
       setTimeout(() => {
+        // Grow every open edit textarea to fit its pre-filled text once the
+        // popups render (ids repeat per row, so a global id lookup could hit
+        // the wrong one when several rows are being edited at once).
+        document.querySelectorAll('#todoEditingTextarea').forEach(ta => this.autoGrowTextarea(ta as HTMLTextAreaElement));
         if (todo.fileId) {
           const fileEntry = { id: todo.fileId } as FileEntry;
           this.todoEditingFile.selectFile(fileEntry);

@@ -67,6 +67,9 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   showAddBlockedUserPopup = false;
   cachedSecurityQuestions?: Array<{ question: string; answer?: string }> = undefined;
   displayProfileLocation = true;
+  // Mirrors the 'show_nav_search' user setting — discoverable here in Settings
+  // as well as via the 🔍 toggle on the navigation page itself.
+  showNavSearch = true;
   userSettings: UserSettings | null = null;
   app?: any;
   messaging?: any;
@@ -88,6 +91,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   @ViewChild('weatherLocationCityInput') weatherLocationCityInput!: ElementRef<HTMLInputElement>;
   @ViewChild('weatherLocationCountryInput') weatherLocationCountryInput!: ElementRef<HTMLInputElement>;
   @ViewChild('displayProfileLocationCheckmark') displayProfileLocationCheckmark!: ElementRef<HTMLInputElement>;
+  @ViewChild('navSearchCheckmark') navSearchCheckmark!: ElementRef<HTMLInputElement>;
   @ViewChild('nsfwCheckmark') nsfwCheckmark!: ElementRef<HTMLInputElement>;
   @ViewChild('pushNotificationsCheckmark') pushNotificationsCheckmark!: ElementRef<HTMLInputElement>;
 
@@ -136,8 +140,12 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
           this.displayProfileLocation = res.displayProfileLocation ?? true;
           this.followPushEnabled = res.followPushEnabled ?? true;
           this.followEmailEnabled = res.followEmailEnabled ?? false;
+          this.showNavSearch = res.showNavSearch ?? true;
           if (this.displayProfileLocationCheckmark?.nativeElement) {
             this.displayProfileLocationCheckmark.nativeElement.checked = this.displayProfileLocation;
+          }
+          if (this.navSearchCheckmark?.nativeElement) {
+            this.navSearchCheckmark.nativeElement.checked = this.showNavSearch;
           }
         }
       });
@@ -661,6 +669,19 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     if (!user || !user.id) return alert("You must be logged in to save your settings.");
     const isChecked = this.displayProfileLocationCheckmark.nativeElement.checked;
     this.userService.updateUserSettings(user.id, [{ settingName: 'display_profile_location', value: isChecked }]).then(res => {
+      if (res) {
+        parent.showNotification(res);
+      }
+    });
+  }
+
+  async updateNavSearch() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user || !user.id) return alert("You must be logged in to save your settings.");
+    const isChecked = this.navSearchCheckmark.nativeElement.checked;
+    this.showNavSearch = isChecked;
+    this.userService.updateUserSettings(user.id, [{ settingName: 'show_nav_search', value: isChecked }]).then(res => {
       if (res) {
         parent.showNotification(res);
       }

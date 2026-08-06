@@ -804,6 +804,35 @@
   to { transform: translateX(-50%) scale(1) rotate(0deg); opacity: 1; }
 }
 
+#gt-missionfailed {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 31;
+  background: linear-gradient(135deg, rgba(60, 0, 0, 0.92), rgba(100, 10, 10, 0.88));
+  border: 2px solid rgba(255, 60, 60, 0.9);
+  border-radius: 10px;
+  color: #ff5252;
+  font-size: 17px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  padding: 10px 24px;
+  text-transform: uppercase;
+  text-shadow: 0 0 12px rgba(255, 40, 40, 0.85), 0 1px 2px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 26px rgba(255, 0, 0, 0.4), 0 4px 20px rgba(0, 0, 0, 0.5);
+  animation: gt-missionfail-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+@keyframes gt-missionfail-in {
+  from { transform: translateX(-50%) scale(0.6); opacity: 0; }
+  60% { transform: translateX(-50%) scale(1.06); opacity: 1; }
+  to { transform: translateX(-50%) scale(1); opacity: 1; }
+}
+
 #gt-passenger-prompt {
   position: absolute;
   bottom: 220px;

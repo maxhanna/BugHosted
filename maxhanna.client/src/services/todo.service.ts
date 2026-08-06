@@ -80,7 +80,9 @@ export class TodoService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ OldName: oldName, NewName: newName })
       });
-      return await response.json();
+      // The endpoint returns an empty Ok() on success, so a plain
+      // response.json() would throw and hide the result — surface ok instead.
+      return { ok: response.ok };
     } catch (error) {
       return null;
     }

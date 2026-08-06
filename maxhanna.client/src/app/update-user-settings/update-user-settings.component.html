@@ -355,6 +355,14 @@
       </div>
     </div>
     <div *ngIf="showOnlySelectableMenuItems || isMenuIconsToggled" class="sectionDescriptionDiv">
+      <div class="sectionDescriptionSection" *ngIf="!showOnlySelectableMenuItems">
+        <div>Show nav search bar: </div>
+        <div>
+          <input type="checkbox" #navSearchCheckmark [checked]="showNavSearch"
+            (click)="updateNavSearch()" />
+          <span class="xSmallFont">Show the search bar on the navigation page. If unchecked, it stays hidden until you tap the 🔍 button in the corner.</span>
+        </div>
+      </div>
       <div class="menuSearchBox">
         <input type="text" class="menuSearchInput" placeholder="🔍 Search apps…"
           [(ngModel)]="menuSearchQuery" />

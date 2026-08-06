@@ -31,6 +31,9 @@ export interface RemoteCarPosition {
   distance: number;
   currentLap: number;
   isOffTrack: boolean;
+  // Total length of the circuit (0 until the track is loaded). The server
+  // uses it to track cumulative distance and derive laps/positions itself.
+  totalTrackDist?: number;
 }
 
 export interface PlayerFinishedEvent {
@@ -188,10 +191,10 @@ export class RacingHubService implements OnDestroy {
     this.hub = null;
   }
 
-  async joinLobby(trackId: string, playerName: string, playerId: number, laps = 3): Promise<LobbyState | null> {
+  async joinLobby(trackId: string, playerName: string, playerId: number, laps = 3, totalTrackDist = 0): Promise<LobbyState | null> {
     try {
       if (!this.connected) await this.connect();
-      return await this.hub!.invoke<LobbyState>('JoinLobby', trackId, playerName, playerId, laps);
+      return await this.hub!.invoke<LobbyState>('JoinLobby', trackId, playerName, playerId, laps, totalTrackDist);
     } catch (err) {
       console.error('JoinLobby failed:', err);
       return null;
@@ -215,9 +218,9 @@ export class RacingHubService implements OnDestroy {
     try { await this.hub!.invoke('UpdateSkin', trackId, skinId); } catch { }
   }
 
-  async startRace(trackId: string, laps = 3): Promise<void> {
+  async startRace(trackId: string, laps = 3, totalTrackDist = 0): Promise<void> {
     if (!this.connected) return;
-    try { await this.hub!.invoke('StartRace', trackId, laps); } catch { }
+    try { await this.hub!.invoke('StartRace', trackId, laps, totalTrackDist); } catch { }
   }
 
   async rematch(trackId: string): Promise<void> {

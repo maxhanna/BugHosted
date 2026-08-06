@@ -27,6 +27,7 @@
    Mobile: a full-width, thumb-friendly bar with a bigger hit target. */
 .navSearchBar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   padding: 6px 14px 14px;
@@ -74,6 +75,16 @@
   position: relative;
   flex: 1 1 auto;
   max-width: 420px;
+}
+
+.navSearchMatchCount {
+  flex: 0 0 100%;
+  font-size: calc(var(--main-font-size, 14px) * 0.85);
+  color: var(--third-font-color, cornflowerblue);
+  opacity: 0.85;
+  padding: 2px 14px 0;
+  text-align: center;
+  user-select: none;
 }
 
 .navSearchInput {

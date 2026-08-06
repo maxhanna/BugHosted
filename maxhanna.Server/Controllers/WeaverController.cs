@@ -650,13 +650,21 @@ namespace maxhanna.Server.Controllers
 			using var conn = new MySqlConnection(cs);
 			await conn.OpenAsync();
 
+			// Reject only true duplicates: an identical submission (same user,
+			// benchmark name, duration and model) within the 24h grace window the
+			// daily dedup uses. Older identical rows are legitimate re-runs, so a
+			// fresh submission is allowed and the newest is kept.
 			string checkSql = @"
 				SELECT COUNT(1) FROM maxhanna.weaver_benchmark_data
-				WHERE user_id = @UserId AND benchmark_name = @BenchmarkName AND duration = @Duration";
+				WHERE user_id = @UserId AND benchmark_name = @BenchmarkName
+				  AND COALESCE(duration, '') = COALESCE(@Duration, '')
+				  AND COALESCE(model, '') = COALESCE(@Model, '')
+				  AND date >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 24 HOUR)";
 			using var checkCmd = new MySqlCommand(checkSql, conn);
 			checkCmd.Parameters.AddWithValue("@UserId", userId);
 			checkCmd.Parameters.AddWithValue("@BenchmarkName", benchmark.Benchmark);
-			checkCmd.Parameters.AddWithValue("@Duration", benchmark.Duration ?? "");
+			checkCmd.Parameters.AddWithValue("@Duration", benchmark.Duration);
+			checkCmd.Parameters.AddWithValue("@Model", benchmark.Model);
 			var count = Convert.ToInt32(await checkCmd.ExecuteScalarAsync());
 			if (count > 0)
 				return Conflict(new { error = "Benchmark data already exists" });

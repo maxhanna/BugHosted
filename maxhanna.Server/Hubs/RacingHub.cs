@@ -53,7 +53,11 @@ namespace maxhanna.Server.Hubs
                                 PlayerName = racer.PlayerName,
                                 PlayerId = racer.PlayerId,
                                 Position = -1,
-                                IsDnf = true
+                                IsDnf = true,
+                                // Show how far they got before dropping out, from
+                                // the hub's tracked cumulative distance.
+                                RaceDist = lobby.RaceDist.TryGetValue(Context.ConnectionId, out var dnfDist) ? dnfDist : 0,
+                                Laps = lobby.TotalTrackDist > 0 ? (int)Math.Floor(dnfDist / lobby.TotalTrackDist) : 0
                             });
                         }
                     }
@@ -92,7 +96,7 @@ namespace maxhanna.Server.Hubs
         /// Create or join a lobby for the given track.
         /// Returns full lobby state to caller and broadcasts join to others.
         /// </summary>
-        public async Task<object> JoinLobby(string trackId, string playerName, int playerId, int laps = 3)
+        public async Task<object> JoinLobby(string trackId, string playerName, int playerId, int laps = 3, double totalTrackDist = 0)
         {
             var lobbyId = $"racing_{trackId}";
 
@@ -108,6 +112,11 @@ namespace maxhanna.Server.Hubs
             // Store the track's real lap count so StartRace and auto-start
             // broadcast it instead of a hardcoded 3.
             lobby.TotalLaps = laps;
+            // If the joining client already has the circuit loaded, record its
+            // length so the hub can derive laps/positions from its own distance
+            // tracking. SyncPosition re-reports it anyway once racing, so a
+            // zero here is harmless.
+            if (totalTrackDist > 0) lobby.TotalTrackDist = totalTrackDist;
 
             // Duplicate-join guard: drop any stale seat for this connection
             // (double-click) or this player id (reconnect) before adding, so
@@ -286,7 +295,7 @@ namespace maxhanna.Server.Hubs
         /// Host starts the race — triggers countdown for all players.
         /// Can be called at any time, even with only 1 player. Cancels auto-start timer.
         /// </summary>
-        public Task StartRace(string trackId, int laps = 3)
+        public Task StartRace(string trackId, int laps = 3, double totalTrackDist = 0)
         {
             var lobbyId = $"racing_{trackId}";
             if (!_lobbies.TryGetValue(lobbyId, out var lobby)) return Task.CompletedTask;
@@ -296,6 +305,11 @@ namespace maxhanna.Server.Hubs
             if (lobby.RaceStatus == "racing" || lobby.RaceStatus == "countdown") return Task.CompletedTask;
 
             lobby.TotalLaps = laps;
+            if (totalTrackDist > 0) lobby.TotalTrackDist = totalTrackDist;
+            // Fresh race, fresh progress tracking: cumulative distance starts
+            // over so an earlier race's recorded progress can't leak into the
+            // next classification.
+            lobby.RaceDist.Clear();
             lobby.FinishedConnections.Clear();
             lobby.FinishedResults.Clear();
             lobby.StandingsSent = false;
@@ -363,6 +377,7 @@ namespace maxhanna.Server.Hubs
             lobby.RaceStatus = "lobby";
             lobby.FinishedConnections.Clear();
             lobby.FinishedResults.Clear();
+            lobby.RaceDist.Clear();
             lobby.StandingsSent = false;
             foreach (var p in lobby.Players) p.Ready = false;
             lobby.AutoStartRemaining = AUTO_START_SECONDS;
@@ -411,6 +426,7 @@ namespace maxhanna.Server.Hubs
                             lobby.RaceStatus = "racing";
                             lobby.FinishedConnections.Clear();
                             lobby.FinishedResults.Clear();
+                            lobby.RaceDist.Clear();
                             lobby.StandingsSent = false;
                             CancelStandingsReset(lobby);
                         }
@@ -437,15 +453,45 @@ namespace maxhanna.Server.Hubs
         public async Task SyncPosition(string trackId, CarPositionData data)
         {
             var lobbyId = $"racing_{trackId}";
+            var connId = Context.ConnectionId;
+            var currentLap = data.CurrentLap;
+            if (_lobbies.TryGetValue(lobbyId, out var lobby))
+            {
+                // Any client that has the circuit loaded reports its length
+                // (join/start can fire before the track finishes loading).
+                if (data.TotalTrackDist > 0) lobby.TotalTrackDist = data.TotalTrackDist;
+
+                // Accumulate a cumulative, wrap-aware race distance per
+                // connection — the same treatment the client applies to its
+                // local bots: a lap crossing (distance dropping back near zero)
+                // is corrected by one track length, while genuinely reversing
+                // yields a negative delta that subtracts progress instead of
+                // adding it. Positive deltas are capped so a single inflated
+                // report can't farm laps, keeping the hub's own numbers the
+                // source of truth for laps and finish positions.
+                if (lobby.TotalTrackDist > 0)
+                {
+                    var td = lobby.TotalTrackDist;
+                    var prev = lobby.RaceDist.TryGetValue(connId, out var p) ? p : data.Distance;
+                    var delta = data.Distance - prev;
+                    if (delta < -td * 0.5) delta += td;
+                    else if (delta > td * 0.5) delta -= td;
+                    if (delta > td * 0.15) delta = td * 0.15;
+                    var raceDist = Math.Max(0, prev + delta);
+                    lobby.RaceDist[connId] = raceDist;
+                    currentLap = (int)Math.Floor(raceDist / td);
+                }
+            }
+
             await Clients.OthersInGroup(lobbyId).SendAsync("OnCarPositionUpdate", new
             {
-                connectionId = Context.ConnectionId,
+                connectionId = connId,
                 x = data.X,
                 z = data.Z,
                 yaw = data.Yaw,
                 speed = data.Speed,
                 distance = data.Distance,
-                currentLap = data.CurrentLap,
+                currentLap,
                 isOffTrack = data.IsOffTrack
             });
         }
@@ -457,20 +503,44 @@ namespace maxhanna.Server.Hubs
         {
             var lobbyId = $"racing_{trackId}";
             _racers.TryGetValue(Context.ConnectionId, out var racer);
+            _lobbies.TryGetValue(lobbyId, out var lobby);
+
+            // When the circuit length is known, ignore the client-reported
+            // finish position and laps and derive them from the hub's own
+            // cumulative distance instead, so a client can't fake a podium
+            // spot by reporting one. Every racer the server has measured ahead
+            // ranks above this finisher, everyone else ranks below.
+            var finishPos = position;
+            var finishLaps = laps;
+            var finishDist = 0.0;
+            if (lobby != null && lobby.TotalTrackDist > 0)
+            {
+                lobby.RaceDist.TryGetValue(Context.ConnectionId, out var myDist);
+                finishDist = myDist;
+                // Snapshot the roster like TryBroadcastStandingsAsync does — a
+                // concurrent disconnect mutates Players and would otherwise
+                // trip "Collection was modified" mid-enumeration.
+                var players = lobby.Players.ToList();
+                var ahead = players.Count(p =>
+                    p.ConnectionId != Context.ConnectionId &&
+                    lobby.RaceDist.TryGetValue(p.ConnectionId, out var d) && d > myDist);
+                finishPos = ahead + 1;
+                finishLaps = (int)Math.Floor(myDist / lobby.TotalTrackDist);
+            }
 
             await Clients.Group(lobbyId).SendAsync("OnPlayerFinished", new
             {
                 connectionId = Context.ConnectionId,
                 playerName = racer?.PlayerName ?? "Unknown",
-                position,
+                position = finishPos,
                 totalTimeMs
             });
 
             // When every remaining player has crossed the line, broadcast the
-            // authoritative final classification — built from each player's own
-            // reported position — so the whole lobby sees the same standings
-            // instead of each client's local snapshot of the finish moment.
-            if (_lobbies.TryGetValue(lobbyId, out var lobby) && lobby.RaceStatus == "racing")
+            // authoritative lobby-wide classification — built from the server's
+            // own derived positions — so the whole lobby sees the same
+            // standings instead of each client's local snapshot.
+            if (lobby != null && lobby.RaceStatus == "racing")
             {
                 lobby.FinishedConnections.Add(Context.ConnectionId);
                 // Replace any earlier finish report for this connection (a
@@ -481,9 +551,10 @@ namespace maxhanna.Server.Hubs
                     ConnectionId = Context.ConnectionId,
                     PlayerName = racer?.PlayerName ?? "Unknown",
                     PlayerId = racer?.PlayerId ?? 0,
-                    Position = position,
+                    Position = finishPos,
                     TotalTimeMs = totalTimeMs,
-                    Laps = laps
+                    Laps = finishLaps,
+                    RaceDist = finishDist
                 });
                 // The all-finished check lives in TryBroadcastStandingsAsync so
                 // the disconnect path can reuse it — a racer leaving mid-race no
@@ -644,7 +715,15 @@ namespace maxhanna.Server.Hubs
         /// </summary>
         private List<object> BuildStandingsPayload(LobbyState lobby) =>
             lobby.FinishedResults
-                .OrderBy(r => r.IsDnf).ThenBy(r => r.Position)
+                // Authoritative order: DNF last, then the hub's measured
+                // cumulative distance (descending) — falling back to the
+                // reported position only when the circuit length was never
+                // known. This makes the final classification follow the
+                // server's own numbers, not a chain of finish-moment
+                // snapshots, so reversing or faking can't reorder it.
+                .OrderBy(r => r.IsDnf)
+                .ThenByDescending(r => r.RaceDist)
+                .ThenBy(r => r.Position)
                 .Select(r => (object)new
                 {
                     r.ConnectionId,
@@ -662,7 +741,8 @@ namespace maxhanna.Server.Hubs
         private object? BuildWinnerPayload(LobbyState lobby) =>
             lobby.FinishedResults
                 .Where(r => !r.IsDnf)
-                .OrderBy(r => r.Position)
+                .OrderByDescending(r => r.RaceDist)
+                .ThenBy(r => r.Position)
                 .Select(r => (object)new
                 {
                     r.ConnectionId,
@@ -693,6 +773,18 @@ namespace maxhanna.Server.Hubs
             public string HostConnectionId { get; set; } = "";
             public string RaceStatus { get; set; } = "lobby";
             public int TotalLaps { get; set; } = 3;
+            // Total length of the circuit, reported by whichever client has it
+            // loaded. Zero until the first report. When known, the hub derives
+            // laps and finish positions from its own cumulative per-connection
+            // distance instead of the client's reported numbers, so reversing
+            // or faking position can't be gamed.
+            public double TotalTrackDist { get; set; }
+            // Cumulative wrap-aware race distance per connection, accumulated
+            // in SyncPosition exactly like the client does for its bots — the
+            // treatment that makes reversing subtract progress instead of
+            // adding it. Concurrent because every connection's SyncPosition
+            // (10Hz) mutates it in parallel.
+            public ConcurrentDictionary<string, double> RaceDist { get; set; } = new();
             public List<LobbyPlayer> Players { get; set; } = new();
             public HashSet<string> FinishedConnections { get; set; } = new();
             public List<RacerFinish> FinishedResults { get; set; } = new();
@@ -714,6 +806,10 @@ namespace maxhanna.Server.Hubs
             public int TotalTimeMs { get; set; }
             public int Laps { get; set; }
             public bool IsDnf { get; set; }
+            // Cumulative distance the hub measured for this racer (0 when the
+            // circuit length was never reported — fallback mode ordering by
+            // reported position).
+            public double RaceDist { get; set; }
         }
 
         private class LobbyPlayer
@@ -744,5 +840,8 @@ namespace maxhanna.Server.Hubs
         public float Distance { get; set; }
         public int CurrentLap { get; set; }
         public bool IsOffTrack { get; set; }
+        // Total length of the circuit (0 until the client has it loaded). Lets
+        // the hub activate server-side cumulative distance tracking.
+        public double TotalTrackDist { get; set; }
     }
 }

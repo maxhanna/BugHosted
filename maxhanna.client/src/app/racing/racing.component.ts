@@ -40,6 +40,14 @@ const LAT_ACCEL = 30;
 const MAX_RACK_YAW = 2.6;
 const SLIP_FULL = 0.45;
 const SLIP_DRAG = 1.8;
+// Wrong-way auto-slide: once the game confirms the player is driving against
+// the circuit, it bleeds their speed toward zero, rotates them toward the
+// racing line and pulls them back to the centreline — so wrong-way driving
+// (e.g. reversing past the finish line) costs time instead of requiring the
+// player to manually spin back around.
+const WRONG_WAY_SPEED_DRAIN = 60;  // stronger than max acceleration, so wrong-way driving can't gain speed
+const WRONG_WAY_YAW_RATE = 1.9;    // rad/s — a slide, not a snap (~1.7s for a full U-turn)
+const WRONG_WAY_PULL_SPEED = 5;    // units/s back toward the centreline
 const SLIP_GRIP_CUT = 0.65;
 const AI_LOOKAHEAD = 3;
 const CAR_RADIUS = 1.1;
@@ -134,6 +142,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   wrongWay = false;
   private _wrongWayTimer = 0;
   private _wrongWayShown = false;
+  // Latched once wrong-way is confirmed: keeps the auto-slide correcting until
+  // the car is actually facing forward again (the speed bleed would otherwise
+  // drop the car below the wrong-way detection threshold mid-turn and abandon
+  // the driver half-spun).
+  private _wrongWaySliding = false;
   private _wasOnWall = false;
   private _carImpactCooldown = 0;
   private _botImpactCooldown = 0;
@@ -302,7 +315,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   podiumData: { playerName: string; totalTime: number; moneyEarned: number }[] = [];
   // Full final standings shown on the results screen: every bot, remote player
   // and the local player ordered by total distance at the moment the race ended.
-  finalStandings: { position: number; name: string; playerId: number; isBot: boolean; isPlayer: boolean; isDnf: boolean; color: string; laps: number; totalTimeMs: number }[] = [];
+  finalStandings: { position: number; name: string; playerId: number; isBot: boolean; isPlayer: boolean; isDnf: boolean; isEstimated: boolean; color: string; laps: number; totalTimeMs: number }[] = [];
   // Standings panel collapse state (podium + lobby previous-race list). Starts
   // collapsed on small screens so the results fit without scrolling.
   standingsCollapsed = false;
@@ -344,6 +357,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (typeof window !== 'undefined' && window.innerWidth < 768) this.standingsCollapsed = true;
     this.loadPlayerCar();
     try { this.soundOn = localStorage.getItem('gp_sound') === '1'; } catch { }
+    // Restore the player's saved garage camera (orbit + zoom) from localStorage.
+    this.restoreGarageCam();
     this.userEventService.insertUserEvent(
       this.parentRef?.user?.id ?? 0, "racing", "Started Racing!", undefined, "Racing"
     );
@@ -664,6 +679,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this._recordToastTimer) clearTimeout(this._recordToastTimer);
     if (this._beatFriendToastTimer) clearTimeout(this._beatFriendToastTimer);
     if (this._glowIntensitySaveTimer) clearTimeout(this._glowIntensitySaveTimer);
+    if (this._carZoomAnimTimer) clearTimeout(this._carZoomAnimTimer);
     if (this._mpLobbyTrackId) {
       this.racingHub.leaveLobby(this._mpLobbyTrackId);
     }
@@ -676,7 +692,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     document.removeEventListener('keyup', this._onKeyUp);
     document.removeEventListener('click', this._initAudio);
     document.removeEventListener('keydown', this._initAudio);
-    this.renderer?.clearCache();
+    // Release the WebGL context (not just clearCache's few FBOs) so GPU memory
+    // doesn't accumulate across many open/close cycles of the racing app.
+    this.renderer?.dispose();
+    this.renderer = null!;
     this.remove_me("RacingComponent");
   }
   private async loadPlayerCar() {
@@ -808,7 +827,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const tid = track.id.toString();
     this.trackIdStr = tid;
     this._mpLobbyTrackId = tid;
-    const state = await this.racingHub.joinLobby(tid, username, userId, track.laps);
+    const state = await this.racingHub.joinLobby(tid, username, userId, track.laps, this.renderer?.totalTrackDist || 0);
     if (state) {
       this.lobbyPlayers = state.players;
       this.isLobbyHost = state.isHost;
@@ -885,7 +904,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (!this._mpLobbyTrackId || !this.isLobbyHost) return;
     this.countdownTimer = 10;
     this.gameState = 'countdown';
-    await this.racingHub.startRace(this._mpLobbyTrackId, this.selectedTrack?.laps ?? 3);
+    await this.racingHub.startRace(this._mpLobbyTrackId, this.selectedTrack?.laps ?? 3, this.renderer?.totalTrackDist || 0);
   }
   private stopMpStartCountdown() {
     if (this._mpStartCountdownTimer) {
@@ -1030,6 +1049,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.wrongWay = false;
     this._wrongWayTimer = 0;
     this._wrongWayShown = false;
+    this._wrongWaySliding = false;
     this.messages = [];
     this.finalStandings = [];
     this.serverStandings = null;
@@ -1096,6 +1116,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   openGarage() {
     this.selectedTab = 'upgrades';
     this.gameState = 'garage';
+    // Re-apply the saved camera whenever the garage opens so the view persists
+    // across races and sessions (saved on every drag/zoom/reset).
+    this.restoreGarageCam();
   }
   backToMenu() {
     this.gameState = 'menu';
@@ -1124,6 +1147,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   carRotateX = 20;
   carRotateY = -40;
   carZoom = 1;
+  // True briefly after a −/＋ zoom click so the container eases to the new
+  // scale instead of jumping. Cleared after the transition (or on drag start).
+  carZoomAnim = false;
+  private _carZoomAnimTimer: any = null;
   isCarDragging = false;
   private _carDragStart: { x: number; y: number; rotX: number; rotY: number } | null = null;
   getCarTransform(): string {
@@ -1131,6 +1158,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return `scale(${this.carZoom}) rotateX(${this.carRotateX}deg) rotateY(${this.carRotateY}deg)`;
   }
   onCarPointerDown(e: PointerEvent) {
+    // Cancel any lingering zoom ease so a drag is 1:1 from the first pixel.
+    this.carZoomAnim = false;
+    if (this._carZoomAnimTimer) { clearTimeout(this._carZoomAnimTimer); this._carZoomAnimTimer = null; }
     this._carDragStart = { x: e.clientX, y: e.clientY, rotX: this.carRotateX, rotY: this.carRotateY };
     this.isCarDragging = true;
     try { (e.target as HTMLElement)?.setPointerCapture?.(e.pointerId); } catch { }
@@ -1142,14 +1172,26 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const dy = e.clientY - this._carDragStart.y;
     this.carRotateY = this._carDragStart.rotY + dx * 0.45;
     this.carRotateX = Math.max(-70, Math.min(70, this._carDragStart.rotX - dy * 0.45));
+    this.saveGarageCam();
   }
   onCarPointerUp() {
     this._carDragStart = null;
     this.isCarDragging = false;
   }
-  zoomCar(dir: number) {
+  zoomCar(dir: number, animate = false) {
     // 0.55x .. 2.2x — keeps the car readable at any garage size.
     this.carZoom = Math.max(0.55, Math.min(2.2, Math.round((this.carZoom + dir) * 100) / 100));
+    // Button zooms ease to the new scale; scroll-wheel zooms snap (repeated
+    // wheel events would restart the transition on every notch).
+    if (animate) {
+      this.carZoomAnim = true;
+      if (this._carZoomAnimTimer) clearTimeout(this._carZoomAnimTimer);
+      this._carZoomAnimTimer = setTimeout(() => {
+        this.carZoomAnim = false;
+        this._carZoomAnimTimer = null;
+      }, 300);
+    }
+    this.saveGarageCam();
   }
   onCarWheel(e: WheelEvent) {
     e.preventDefault();
@@ -1159,6 +1201,40 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.carRotateX = 20;
     this.carRotateY = -40;
     this.carZoom = 1;
+    this.saveGarageCam();
+  }
+
+  // ── Garage camera persistence (per-user localStorage) ──────────────────
+  // The garage's orbit (rotX/rotY) and zoom are remembered so players don't
+  // have to re-frame the car every time they open the garage. Saved on every
+  // drag/zoom/reset and restored on boot and whenever the garage opens.
+  private garageCamStorageKey(): string {
+    return 'gp_garage_cam_' + (this.parentRef?.user?.id ?? 0);
+  }
+
+  private saveGarageCam() {
+    try {
+      localStorage.setItem(this.garageCamStorageKey(), JSON.stringify({
+        rotX: this.carRotateX,
+        rotY: this.carRotateY,
+        zoom: this.carZoom,
+      }));
+    } catch { /* localStorage unavailable */ }
+  }
+
+  private restoreGarageCam() {
+    try {
+      const raw = localStorage.getItem(this.garageCamStorageKey());
+      if (!raw) return;
+      const cam = JSON.parse(raw);
+      if (typeof cam === 'object' && cam !== null) {
+        // Clamp to the same bounds the controls enforce, so a hand-edited or
+        // stale value can never put the camera out of range.
+        if (typeof cam.rotX === 'number' && isFinite(cam.rotX)) this.carRotateX = Math.max(-70, Math.min(70, cam.rotX));
+        if (typeof cam.rotY === 'number' && isFinite(cam.rotY)) this.carRotateY = cam.rotY;
+        if (typeof cam.zoom === 'number' && isFinite(cam.zoom)) this.carZoom = Math.max(0.55, Math.min(2.2, cam.zoom));
+      }
+    } catch { /* localStorage unavailable or corrupt */ }
   }
   getPlayerColor(connectionId: string): string {
     const colors = ['#e53935', '#4a9eff', '#4caf50', '#ffd600', '#9c27b0', '#ff9800', '#00bcd4', '#e91e63'];
@@ -1227,6 +1303,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.wrongWay = false;
     this._wrongWayTimer = 0;
     this._wrongWayShown = false;
+    this._wrongWaySliding = false;
     this.messages = [];
     this.finalStandings = [];
     this.serverStandings = null;
@@ -1345,6 +1422,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
             yaw: this.carYaw, speed: this.carSpeed,
             distance: this.carDist, currentLap: this.currentLap,
             isOffTrack: this.isOffTrack,
+            totalTrackDist: this.renderer?.totalTrackDist || 0,
           });
         }
       }
@@ -1565,9 +1643,46 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.wrongWay = this._wrongWayTimer > 0.7;
     if (this.wrongWay && !wasWrong && !this._wrongWayShown) {
       this._wrongWayShown = true;
-      this.addMessage('⚠️ WRONG WAY! Turn around!');
+      this.addMessage('⚠️ WRONG WAY! Correcting…');
     }
     if (!this.wrongWay && this._wrongWayShown) this._wrongWayShown = false;
+    // Auto-slide wrong-way drivers back onto the forward racing line, like
+    // real racing games. Once the debounced wrongWay flag confirms the player
+    // is driving against the circuit, the car bleeds speed, rotates toward the
+    // track's direction and is pulled gently back to the centreline — wrong-way
+    // driving costs time instead of requiring manual re-correction. The slide
+    // stays latched until the car faces forward again, so it completes the
+    // U-turn even after the speed bleed drops the car below the wrong-way
+    // detection threshold.
+    const offForward = Math.abs(headingDiff) > Math.PI / 2;
+    if (this.wrongWay) this._wrongWaySliding = true;
+    if (this._wrongWaySliding && offForward) {
+      // Bleed wrong-way speed toward zero so it can't build momentum.
+      if (Math.abs(this.carSpeed) > 1) {
+        this.carSpeed -= WRONG_WAY_SPEED_DRAIN * dt * Math.sign(this.carSpeed);
+      }
+      // Rotate toward the forward track direction at a limited rate.
+      const targetYaw = expectedDir;
+      let yawDiff = this.carYaw - targetYaw;
+      while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+      while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+      this.carYaw += Math.max(-WRONG_WAY_YAW_RATE * dt, Math.min(WRONG_WAY_YAW_RATE * dt, -yawDiff));
+      let dirDiff = this.carDir - targetYaw;
+      while (dirDiff > Math.PI) dirDiff -= Math.PI * 2;
+      while (dirDiff < -Math.PI) dirDiff += Math.PI * 2;
+      this.carDir += Math.max(-WRONG_WAY_YAW_RATE * dt, Math.min(WRONG_WAY_YAW_RATE * dt, -dirDiff));
+      // Gently pull the car back onto the racing line.
+      const pullX = tp.x - this.carX;
+      const pullZ = tp.z - this.carZ;
+      const pullLen = Math.hypot(pullX, pullZ);
+      if (pullLen > 0.0001) {
+        const step = Math.min(pullLen, WRONG_WAY_PULL_SPEED * dt);
+        this.carX += (pullX / pullLen) * step;
+        this.carZ += (pullZ / pullLen) * step;
+      }
+    } else if (!offForward) {
+      this._wrongWaySliding = false;
+    }
     const dxTrack = this.carX - tp.x;
     const dzTrack = this.carZ - tp.z;
     const distFromCenter = Math.hypot(dxTrack, dzTrack);
@@ -1980,7 +2095,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     // retired, after every finisher regardless of how far they'd driven.
     const dnfRows = this.dnfRacers.map(d => ({
       position: -1, name: d.name, playerId: d.playerId,
-      isBot: false, isPlayer: false, isDnf: true,
+      isBot: false, isPlayer: false, isDnf: true, isEstimated: false,
       color: d.color || '#9e9e9e', laps: 0, totalTimeMs: 0,
     }));
     this.finalStandings = [
@@ -1995,6 +2110,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         totalTimeMs: r.isPlayer
           ? this._lastRaceTotalTime
           : this.estimateStandingsTime(r.dist, this._lastRaceTotalTime, playerDist),
+        // Real for the player; '~' marks the pace-projected totals of racers
+        // who hadn't crossed the line yet when the race ended.
+        isEstimated: !r.isPlayer,
       })),
       ...dnfRows,
     ];
@@ -2015,9 +2133,24 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   /** Formatted total race time for a standings row — '—' for DNF or unfinished. */
-  getStandingsTime(s: { totalTimeMs: number; isDnf: boolean }): string {
+  getStandingsTime(s: { totalTimeMs: number; isDnf: boolean; isEstimated?: boolean }): string {
     if (s.isDnf || !s.totalTimeMs || s.totalTimeMs <= 0) return '—';
-    return this.formatTime(s.totalTimeMs);
+    const time = this.formatTime(s.totalTimeMs);
+    // '~' prefix distinguishes pace-projected totals (bots / remote racers
+    // extrapolated to the line) from real recorded times.
+    return s.isEstimated ? '~' + time : time;
+  }
+
+  /** Gap behind the race leader for a standings row ('+4.2s'), computed from
+   *  the same total times as the Time column — '—' for the leader (or a tie),
+   *  DNF rows, and racers without a recorded total. */
+  getStandingsGap(s: { totalTimeMs: number; isDnf: boolean }): string {
+    if (s.isDnf || !s.totalTimeMs || s.totalTimeMs <= 0) return '—';
+    const leader = this.finalStandings.find(f => !f.isDnf && f.totalTimeMs > 0);
+    if (!leader) return '—';
+    const gapMs = s.totalTimeMs - leader.totalTimeMs;
+    if (gapMs <= 0.5) return '—';
+    return '+' + (gapMs / 1000).toFixed(1) + 's';
   }
 
   // Opens the same racer profile popup the leaderboard uses, from a final
@@ -2105,7 +2238,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const bots = inRace ? this.bots.filter(b => b.alive).slice().sort((a, b) => b.raceDist - a.raceDist) : [];
     const total = bots.length + finishers.length;
     let botIdx = 0;
-    const result: { position: number; name: string; playerId: number; isBot: boolean; isPlayer: boolean; isDnf: boolean; color: string; laps: number; totalTimeMs: number }[] = [];
+    const result: { position: number; name: string; playerId: number; isBot: boolean; isPlayer: boolean; isDnf: boolean; isEstimated: boolean; color: string; laps: number; totalTimeMs: number }[] = [];
     for (let pos = 1; pos <= total; pos++) {
       const p = claimed.has(pos) ? finishers.find(x => x.position === pos) : undefined;
       if (p) {
@@ -2115,14 +2248,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           : this.getPlayerColor(p.connectionId);
         result.push({
           position: pos, name: p.playerName, playerId: p.playerId,
-          isBot: false, isPlayer: p.playerId > 0 && p.playerId === myId, isDnf: false,
+          isBot: false, isPlayer: p.playerId > 0 && p.playerId === myId, isDnf: false, isEstimated: false,
           color, laps: Math.min(p.laps || 0, this.totalLaps),
           totalTimeMs: p.totalTimeMs || 0,
         });
       } else if (botIdx < bots.length) {
         const b = bots[botIdx++];
         result.push({
-          position: pos, name: b.name, playerId: 0, isBot: true, isPlayer: false, isDnf: false,
+          position: pos, name: b.name, playerId: 0, isBot: true, isPlayer: false, isDnf: false, isEstimated: true,
           color: palette[b.color % palette.length],
           laps: Math.min(b.lap, this.totalLaps),
           totalTimeMs: winTime > 0 ? this.estimateStandingsTime(b.raceDist, winTime, winDist) : 0,
@@ -2136,7 +2269,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         const rc = this.remoteCars.get(p.connectionId);
         result.push({
           position: result.length + 1, name: p.playerName, playerId: p.playerId,
-          isBot: false, isPlayer: p.playerId > 0 && p.playerId === myId, isDnf: false,
+          isBot: false, isPlayer: p.playerId > 0 && p.playerId === myId, isDnf: false, isEstimated: false,
           color: rc
             ? `rgb(${Math.round(rc.colorR * 255)}, ${Math.round(rc.colorG * 255)}, ${Math.round(rc.colorB * 255)})`
             : this.getPlayerColor(p.connectionId),
@@ -2150,7 +2283,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       const rc = this.remoteCars.get(p.connectionId);
       result.push({
         position: -1, name: p.playerName, playerId: p.playerId,
-        isBot: false, isPlayer: p.playerId > 0 && p.playerId === myId, isDnf: true,
+        isBot: false, isPlayer: p.playerId > 0 && p.playerId === myId, isDnf: true, isEstimated: false,
         color: rc
           ? `rgb(${Math.round(rc.colorR * 255)}, ${Math.round(rc.colorG * 255)}, ${Math.round(rc.colorB * 255)})`
           : '#9e9e9e',
@@ -3623,7 +3756,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   hideLoginPopup() { this.parentRef?.closeOverlay(); }
   trackDefs: TrackDefinition[] = TRACKS as TrackDefinition[];
   /** Maps a track id to its environment theme (rendered by RacingRenderer). */
-  private themeForTrack(trackId: number): 'miami' | 'mountain' | 'city' | 'default' | 'alpine' | 'desert' | 'monaco' | 'montreal' | 'italy' {
+  private themeForTrack(trackId: number): 'miami' | 'mountain' | 'city' | 'default' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' {
     if (trackId === 1) return 'miami';
     if (trackId === 2) return 'mountain';
     if (trackId === 3) return 'city';
@@ -3632,6 +3765,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (trackId === 6) return 'monaco';
     if (trackId === 7) return 'montreal';
     if (trackId === 8) return 'italy';
+    if (trackId === 9) return 'monaco-night';
     return 'default';
   }
   get UPGRADE_DEFS() { return UPGRADE_DEFS; }
@@ -3791,7 +3925,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
   getTrackFlag(track: TrackDefinition): string {
     const flags: Record<number, string> = {
-      1: '🇺🇸', 2: '🏔️', 3: '🏙️', 4: '🏔️', 5: '🇲🇦', 6: '🇲🇨', 7: '🇨🇦', 8: '🇮🇹',
+      1: '🇺🇸', 2: '🏔️', 3: '🏙️', 4: '🏔️', 5: '🇲🇦', 6: '🇲🇨', 7: '🇨🇦', 8: '🇮🇹', 9: '🌙',
     };
     return flags[track.id] || '🏁';
   }
@@ -3806,6 +3940,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       6: 'linear-gradient(135deg, #1a5276 0%, #2e86c1 30%, #85c1e9 70%, #f9e79f 100%)',
       7: 'linear-gradient(135deg, #1b4332 0%, #2d6a4f 30%, #52b788 70%, #a5d6a5 100%)',
       8: 'linear-gradient(135deg, #1a1a2e 0%, #6b1d1d 30%, #e74c3c 70%, #f39c12 100%)',
+      9: 'linear-gradient(135deg, #020318 0%, #0b1030 35%, #1a2a5e 60%, #4a5fa8 100%)',
     };
     return bgs[track.id] || 'linear-gradient(135deg, #2c3e50, #4ca1af)';
   }

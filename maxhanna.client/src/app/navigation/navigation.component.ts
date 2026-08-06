@@ -198,12 +198,16 @@ export class NavigationComponent implements OnInit, OnDestroy {
     } catch (e) {
       console.error('Error loading nav search preference:', e);
     }
+    // Reopen the nav page with whatever app search term was last used — the
+    // user id is guaranteed here, so the per-user key is always correct.
+    this.restoreNavSearchTerm();
   }
 
   toggleNavSearch() {
     this.showNavSearch = !this.showNavSearch;
     if (!this.showNavSearch) {
       this.navSearchTerm = '';
+      this.persistNavSearchTerm('');
     }
     const userId = this.user?.id ?? this._parent?.user?.id;
     if (userId) {
@@ -226,6 +230,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   onNavSearchInput() {
     if (this._navSuggestDebounce) clearTimeout(this._navSuggestDebounce);
     const term = this.navSearchTerm.trim();
+    this.persistNavSearchTerm(term);
     this.navSuggestIndex = -1;
     if (term.length < 2) {
       this.navSuggestions = null;
@@ -254,10 +259,53 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   clearNavSearch() {
     this.navSearchTerm = '';
+    this.persistNavSearchTerm('');
     this.navSuggestions = null;
     this.navSuggestionsLoading = false;
     this.navSuggestionsOpen = false;
     this.navSuggestIndex = -1;
+  }
+
+  // '12 of 40 apps' — how many of the currently visible nav items match the
+  // active search term (same visibility filter the navLinkDiv *ngIf uses).
+  get navSearchMatchLabel(): string {
+    const items = this._parent?.navigationItems;
+    if (!items || !items.length || !this.navSearchTerm.trim()) return '';
+    let total = 0;
+    let match = 0;
+    for (const item of items) {
+      // navbarCollapsed is always false here — the whole search bar is hidden
+      // when the nav is collapsed.
+      if (!this.menuIconsIncludes(item.title)
+        && item.title !== 'User' && item.title !== 'UpdateUserSettings') continue;
+      total++;
+      if (this.matchesNavSearch(item.title)) match++;
+    }
+    return `${match} of ${total} apps`;
+  }
+
+  // The nav app-search term is remembered per-user in localStorage so reopening
+  // the nav page restores what you were searching for.
+  private navSearchTermStorageKey(): string {
+    return 'bh_nav_search_term_' + this.navUserId();
+  }
+
+  private persistNavSearchTerm(term: string) {
+    try {
+      const t = (term || '').trim();
+      if (t) {
+        localStorage.setItem(this.navSearchTermStorageKey(), t);
+      } else {
+        localStorage.removeItem(this.navSearchTermStorageKey());
+      }
+    } catch { }
+  }
+
+  private restoreNavSearchTerm() {
+    try {
+      const saved = localStorage.getItem(this.navSearchTermStorageKey());
+      if (saved) this.navSearchTerm = saved;
+    } catch { }
   }
 
   // The popup opens on focus even with an empty term: load the user's recents

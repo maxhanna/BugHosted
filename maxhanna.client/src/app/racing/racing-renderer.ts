@@ -29,6 +29,24 @@ export interface CrowdPerson {
   flag?: boolean;      // true = holds a small waving Moroccan flag (red field, green star)
 }
 
+// A flag cloth animated in its own per-frame pass (like the crowd) so the
+// fabric flutters instead of sitting still. `kind` is 'rect' (national/team
+// flag — 3 undulating cloth strips, optionally a centre emblem) or 'tri'
+// (bunting pennant — a triangle whose tip sways). Poles stay in the static
+// scenery mesh; only the cloth is dynamic.
+interface WavingFlag {
+  x: number; z: number;          // cloth anchor (pole base in the XZ plane)
+  dirX: number; dirZ: number;    // cloth extends outward along this direction
+  anchorY: number;               // cloth top edge height
+  w: number; h: number;          // cloth width (along dir) and height
+  kind: 'rect' | 'tri';
+  colors: [number, number, number][]; // strip colours ('rect': 1..3, 'tri': 1)
+  emblem?: 'maple' | 'cross';    // centre emblem for the national flags
+  phase: number;                 // per-flag animation phase
+  speed: number;                 // wave speed multiplier
+  amp: number;                   // wave amplitude
+}
+
 export class RacingRenderer {
   private gl: WebGL2RenderingContext;
   private prog!: WebGLProgram;
@@ -45,6 +63,8 @@ export class RacingRenderer {
   private useVertexColor!: WebGLUniformLocation;
   private lightMatrixLoc!: WebGLUniformLocation;
   private sunColorLoc!: WebGLUniformLocation;
+  private emissiveLoc!: WebGLUniformLocation;
+  private skyNightLoc!: WebGLUniformLocation;
   private envTopLoc!: WebGLUniformLocation;
   private envBottomLoc!: WebGLUniformLocation;
   private envStrengthLoc!: WebGLUniformLocation;
@@ -68,6 +88,14 @@ export class RacingRenderer {
   private _cloudVbo: WebGLBuffer | null = null;
   private _cloudIbo: WebGLBuffer | null = null;
   private _cloudCount = 0;
+  // Drifting clouds — each cloud orbits the circuit at its own tiny speed; the
+  // draw pass translates it per-frame from its baked base position (wrap-around
+  // is free since the orbit angle is periodic). No vertex data is rebuilt.
+  private _clouds: { ang: number; va: number; radius: number; bx: number; bz: number }[] = [];
+  private _cloudRanges: { start: number; count: number }[] = [];
+  private _cloudCenterX = 0;
+  private _cloudCenterZ = 0;
+  private _cloudAlpha = 0.6;
   private alphaLoc!: WebGLUniformLocation;
   private carVao!: WebGLVertexArrayObject;
   private carCount = 0;
@@ -102,6 +130,12 @@ export class RacingRenderer {
   private glowVao!: WebGLVertexArrayObject;
   private glowCount = 0;
   private glowHaloVao!: WebGLVertexArrayObject;
+  // Monaco night — static additive VAO of emissive lights (windows, street
+  // lights, moonglade) plus the per-car headlight pool VAO.
+  private nightVao!: WebGLVertexArrayObject;
+  private nightCount = 0;
+  private headlightVao!: WebGLVertexArrayObject;
+  private headlightCount = 0;
   private glowHaloCount = 0;
 
   private whiteTex!: WebGLTexture;
@@ -136,7 +170,10 @@ export class RacingRenderer {
 
   // Per-track environment theme (set before each race via setTheme). Drives the
   // sky palette, lighting and the scenery kit (ocean/beach/city buildings).
-  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'montreal' | 'italy' = 'default';
+  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' = 'default';
+  // True while the Monaco night variant is active — drives the starfield sky,
+  // emissive window/streetlight glows and per-car headlight pools.
+  night = false;
   // Sky palette (top / horizon / bottom) used by the sky shader.
   skyTop: [number, number, number] = [0.1, 0.2, 0.5];
   skyHorizon: [number, number, number] = [0.7, 0.75, 0.85];
@@ -204,12 +241,20 @@ export class RacingRenderer {
   private _heatMaskTex: WebGLTexture | null = null;
   private heatViewProjLoc!: WebGLUniformLocation;
   private heatVulturesLoc!: WebGLUniformLocation;
+  private heatCamPosLoc!: WebGLUniformLocation;
+  private heatCamRightLoc!: WebGLUniformLocation;
+  private heatCamUpLoc!: WebGLUniformLocation;
+  private heatCamFwdLoc!: WebGLUniformLocation;
+  private heatTanHalfFovLoc!: WebGLUniformLocation;
   private _heatViewProj = new Float32Array(16);
+  private _scratchMvp = new Float32Array(16);
   // Desert vultures for the heat-shimmer silhouettes — world-anchored around
   // the circuit and projected through the camera each frame, so they sit in
   // the background instead of drifting with the screen.
   private _vultures: { ang: number; radius: number; alt: number; speed: number; phase: number }[] = [];
-  private _vultureWorld = new Float32Array(12);
+  // vec4 per vulture: xyz = world position, w = bank angle (lazy roll into and
+  // out of the turn so the silhouettes read as riding thermals, not fixed dots).
+  private _vultureWorld = new Float32Array(16);
   private _heatMaskFBO: WebGLFramebuffer | null = null;
   private _heatMaskW = 0;
   private _heatMaskH = 0;
@@ -255,6 +300,7 @@ export class RacingRenderer {
     this.buildTrackMesh();
     this.buildScenery();
     this.buildCarMesh();
+    this.buildSnowCap();
   }
 
   private makeTex(w: number, h: number, data: Uint8Array): WebGLTexture {
@@ -426,6 +472,7 @@ uniform vec3 uEnvTop;
 uniform vec3 uEnvBottom;
 uniform float uEnvStrength;
 uniform float uAlpha;
+uniform float uEmissive;
 
 // Soft 3x3 PCF directional shadow. sp is light-space UV/depth (0..1).
 // Outside the ortho frustum (which only wraps +-80m around the camera) -> lit.
@@ -505,6 +552,11 @@ void main() {
 
   vec3 color = amb + diffColor + specColor + fillColor + refl + rimColor;
 
+  // Emissive surfaces (night windows, streetlights, headlight pools) — added
+  // after lighting so they read as true light sources against the dark ambient.
+  // Zero on every normal draw; set to 1 only while drawing the additive glows.
+  color += uEmissive * base.rgb;
+
   // Brake-disc heat — blackbody temperature ramp: dull red at low heat, bright
   // orange in the mid, white-hot as uHeatGlow peaks (hard braking). The ramp is
   // normalized across the 0..1.35 range the CPU emits; the white cap only
@@ -554,6 +606,7 @@ void main() {
     this.rimTintLoc = gl.getUniformLocation(this.prog, 'uRimTint')!;
     this.rimStrengthLoc = gl.getUniformLocation(this.prog, 'uRimStrength')!;
     this.alphaLoc = gl.getUniformLocation(this.prog, 'uAlpha')!;
+    this.emissiveLoc = gl.getUniformLocation(this.prog, 'uEmissive')!;
     gl.uniform1i(this.useVertexColor, 1);
     gl.uniform1f(this.alphaLoc, 1);
     gl.uniform1f(this.heatGlowLoc, 0);
@@ -634,6 +687,7 @@ uniform vec3 uBottom;
 uniform vec3 uSunColor;
 uniform vec3 uGlowColor;
 uniform float uTime;
+uniform float uNight;
 void main() {
   vec3 d = normalize(vDir);
   float h = d.y * 0.5 + 0.5;
@@ -648,6 +702,16 @@ void main() {
   sky += uSunColor * sun * 0.9;
   float sunGlow = pow(max(sunDot, 0.0), 12.0);
   sky += uGlowColor * sunGlow * 0.18;
+  // Procedural starfield for night themes — hash-based points above the
+  // horizon, twinkling slowly. Multiplied by uNight so day skies stay clean.
+  if (uNight > 0.5 && d.y > 0.08) {
+    vec2 cell = floor(d.xz * 240.0);
+    float h1 = fract(sin(dot(cell, vec2(127.1, 311.7))) * 43758.5453);
+    float h2 = fract(sin(dot(cell, vec2(269.5, 183.3))) * 28001.8384);
+    float starv = smoothstep(0.9, 0.98, h1);
+    float tw = 0.55 + 0.45 * sin(uTime * 1.6 + h2 * 6.2831);
+    sky += vec3(starv * tw * smoothstep(0.08, 0.4, d.y)) * uNight;
+  }
   FragColor = vec4(clamp(sky, 0.0, 1.0), 1.0);
 }`;
     this.skyProg = this.createProgram(svs, sfs);
@@ -660,6 +724,7 @@ void main() {
     this.skyBottomLoc = gl.getUniformLocation(this.skyProg, 'uBottom')!;
     this.skySunColorLoc = gl.getUniformLocation(this.skyProg, 'uSunColor')!;
     this.skyGlowColorLoc = gl.getUniformLocation(this.skyProg, 'uGlowColor')!;
+    this.skyNightLoc = gl.getUniformLocation(this.skyProg, 'uNight')!;
 
     // Full cube: 6 faces × 2 triangles × 3 verts = 36 verts
     const c = 1;
@@ -829,8 +894,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
 
   /** Applies the environment theme for the selected track and rebuilds the
    *  scenery geometry. Call before each race (both solo and multiplayer). */
-  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'montreal' | 'italy') {
+  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy') {
     this.theme = theme;
+    // Monaco night: starfield sky, emissive glows and headlight pools.
+    this.night = theme === 'monaco-night';
     // Marrakech: enable the heat-shimmer post pass over the sand.
     this.heatShimmer = theme === 'desert';
     // Each race (theme set) can celebrate its winner once.
@@ -913,6 +980,16 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.sunColor = [1.0, 0.95, 0.85];
         this.ambientColor = [0.25, 0.26, 0.3];
         this.fogColor = [0.4, 0.45, 0.5];
+        break;
+      case 'monaco-night':
+        // Monaco after dark — moonlit canyon, starfield sky, cold blue shadows.
+        this.skyTop = [0.004, 0.008, 0.04];
+        this.skyHorizon = [0.07, 0.09, 0.15];
+        this.skyBottom = [0.03, 0.04, 0.06];
+        this.sunDir = [0.38, 0.45, 0.32];   // low moon — long, cool shadows
+        this.sunColor = [0.5, 0.56, 0.72];  // pale moonlight
+        this.ambientColor = [0.045, 0.055, 0.09];
+        this.fogColor = [0.03, 0.04, 0.08];
         break;
       default:
         this.skyTop = [0.1, 0.2, 0.5];
@@ -1451,6 +1528,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this._cloudVbo) { try { gl.deleteBuffer(this._cloudVbo); } catch { } }
     if (this._cloudIbo) { try { gl.deleteBuffer(this._cloudIbo); } catch { } }
     this._cloudCount = 0;
+    this._clouds = [];
+    this._cloudRanges = [];
     if (this._birdsVao) { try { gl.deleteVertexArray(this._birdsVao); } catch { } }
     if (this._animalsVao) { try { gl.deleteVertexArray(this._animalsVao); } catch { } }
     if (this._animalsBuf) { try { gl.deleteBuffer(this._animalsBuf); } catch { } }
@@ -1465,13 +1544,21 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this._windSmokeBuf) { try { gl.deleteBuffer(this._windSmokeBuf); } catch { } }
     if (this._crowdVao) { try { gl.deleteVertexArray(this._crowdVao); } catch { } }
     if (this._crowdBuf) { try { gl.deleteBuffer(this._crowdBuf); } catch { } }
+    if (this._flagVao) { try { gl.deleteVertexArray(this._flagVao); } catch { } }
+    if (this._flagBuf) { try { gl.deleteBuffer(this._flagBuf); } catch { } }
     if (this._confettiVao) { try { gl.deleteVertexArray(this._confettiVao); } catch { } }
     if (this._confettiBuf) { try { gl.deleteBuffer(this._confettiBuf); } catch { } }
+    if (this.nightVao) { try { gl.deleteVertexArray(this.nightVao); } catch { } }
+    this.nightCount = 0;
     // Kill any stale winner-trail so a rematch/new race never inherits it.
     this._winTrailStartedAt = -1;
     this._crowdPeople = [];
+    this._flags = [];
     this._palmCrowns.length = 0;
     this._oasisPools.length = 0;
+    // Reset the desert vulture perch targets with every rebuild so a stale
+    // mesa set can never leak into a different theme's scenery pass.
+    this._desertPerchSpots = [];
     const pts = this._trackPoints;
     const verts: number[] = [];
     const idxs: number[] = [];
@@ -1492,7 +1579,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       // Wide sandy apron under everything, then the dunes/mesas/oases on top.
       this.addDesertGround(verts, idxs);
       this.addDesertScenery(verts, idxs);
-    } else if (this.theme === 'monaco') {
+    } else if (this.theme === 'monaco' || this.theme === 'monaco-night') {
       this.addMonacoScenery(verts, idxs);
     } else if (this.theme === 'montreal') {
       this.addMontrealScenery(verts, idxs);
@@ -1635,6 +1722,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
     }
 
+    // All flags have been registered into `_flags` by the scenery builders —
+    // size the animated flag pass buffer to them before the static mesh is
+    // uploaded (the poles are part of the static scenery; only cloth moves).
+    this.buildFlagBuffers();
+
     const vertArray = new Float32Array(verts);
     // Dense themes (Miami skyline + clouds + trees) can exceed 65 535 indices,
     // so scenery uses 32-bit indices (WebGL2 supports gl.UNSIGNED_INT natively).
@@ -1659,6 +1751,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.enableVertexAttribArray(3);
     gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
+
+    // Monaco night: bake the emissive light set (windows, streetlights,
+    // moonglade) into a static additive VAO. No-op during the day.
+    this.buildNightGlow();
 
     // Animated sky objects (birds + balloons) get rebuilt alongside the theme
     // so their positions orbit the freshly generated circuit.
@@ -1753,7 +1849,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const rockLight = [0.45, 0.43, 0.40];
     const rockDark = [0.22, 0.20, 0.18];
     const snow = [0.85, 0.88, 0.92];
-    const pine = [0.04, 0.22, 0.05];
 
     // The circuit is a loop around the origin, so all distant scenery must sit
     // beyond the track's outer edge. The old code scattered peaks from pts[0]
@@ -1815,7 +1910,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
     }
 
-    // ── Alpine pines scattered among the rocks ──
+    // ── Spruce pines scattered among the rocks ──
+    // Same layered multi-tier conifer treatment as the alpine theme, so both
+    // snow circuits share the realistic tall spruce treeline (the builder adds
+    // its own trunk + snow-dusted tiers). Mountain placement stays a touch
+    // sparser and further out — the pines nestle between the granite peaks
+    // rather than forming the dense forest edge the alpine circuit gets.
     let pineIdx = 0;
     for (let i = 0; i < pts.length; i += 4) {
       const p = pts[i];
@@ -1825,11 +1925,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const dist = p.width / 2 + 26 + Math.random() * 20;
         const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 10;
         const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 10;
-        const th = 1.0 + Math.random() * 1.8;
-        this.addCylinder(verts, idxs, tx, 0, tz, 0.08, th, 5, [0.3, 0.15, 0.05]);
-        // Scraggy alpine pine: narrow cone, dark green
-        this.addCone(verts, idxs, tx, th - 0.2, tz, 0.4 + Math.random() * 0.5, 0.6 + Math.random() * 0.5, 8, pine);
-        this.addCone(verts, idxs, tx, th - 0.1, tz, 0.3 + Math.random() * 0.3, 0.4 + Math.random() * 0.3, 8, [0.06, 0.28, 0.06]);
+        // Scale trimmed so the tallest spruces stay around the granite peak
+        // line (the peaks top out ~8.4) while keeping the layered tall look.
+        this.addAlpineConifer(verts, idxs, tx, tz, 0.5 + Math.random() * 0.45);
         if (pineIdx++ > 100) break;
       }
       if (pineIdx > 100) break;
@@ -1866,7 +1964,28 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const r = Math.hypot(p.x, p.z) + p.width / 2;
       if (r > outer) outer = r;
     }
-    const count = this.theme === 'miami' ? 9 : this.theme === 'mountain' || this.theme === 'alpine' ? 8 : 6;
+    // Per-theme cloud personality — coverage (puff count), altitude band, size
+    // scale and opacity, so each circuit's sky reads differently: dense low
+    // stratus decks over the snowy mountains, sparse high cirrus wisps over
+    // the desert, a few fat festive puffs over Miami, thin haze in the city.
+    let count: number;
+    let altMin: number;
+    let altMax: number;
+    let sizeScale: number;
+    switch (this.theme) {
+      case 'miami': count = 9; altMin = 40; altMax = 75; sizeScale = 1.0; this._cloudAlpha = 0.6; break;
+      // Dense low decks that drape over the treeline but leave the summits
+      // clear (band raised so the puffs don't haze the theme's peaks).
+      case 'mountain':
+      case 'alpine': count = 12; altMin = 32; altMax = 52; sizeScale = 1.1; this._cloudAlpha = 0.5; break;
+      case 'desert': count = 4; altMin = 110; altMax = 165; sizeScale = 0.55; this._cloudAlpha = 0.4; break;
+      case 'city': count = 6; altMin = 55; altMax = 90; sizeScale = 0.8; this._cloudAlpha = 0.55; break;
+      case 'monaco':
+      case 'monaco-night': count = 6; altMin = 50; altMax = 80; sizeScale = 0.85; this._cloudAlpha = 0.55; break;
+      case 'montreal': count = 7; altMin = 48; altMax = 78; sizeScale = 0.9; this._cloudAlpha = 0.6; break;
+      case 'italy': count = 7; altMin = 50; altMax = 85; sizeScale = 0.95; this._cloudAlpha = 0.6; break;
+      default: count = 6; altMin = 55; altMax = 90; sizeScale = 1; this._cloudAlpha = 0.6; break;
+    }
     const base = this.theme === 'city'
       ? [0.16, 0.17, 0.2]
       : this.theme === 'mountain' || this.theme === 'alpine'
@@ -1875,13 +1994,18 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const verts: number[] = [];
     const idxs: number[] = [];
     const seg = 9; // Denser mesh than the old 7-ring spheres — more polygons.
+    this._cloudCenterX = cx;
+    this._cloudCenterZ = cz;
+    this._clouds = [];
+    this._cloudRanges = [];
     for (let i = 0; i < count; i++) {
       const a = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
       const dist = outer + 30 + Math.random() * 140;
       const px = cx + Math.cos(a) * dist;
       const pz = cz + Math.sin(a) * dist;
-      const py = 55 + Math.random() * 35;
-      const r = 9 + Math.random() * 7;
+      const s0 = idxs.length;
+      const py = altMin + Math.random() * (altMax - altMin);
+      const r = (9 + Math.random() * 7) * sizeScale;
       const dim = 0.9 + Math.random() * 0.1;
       const col = [base[0] * dim, base[1] * dim, base[2] * dim];
       // A proper cumulus: wide squat base pancakes + 4-6 heaped lobes of varied
@@ -1897,6 +2021,17 @@ void main() { FragColor = texture(uTex, vUV); }`;
       // Wispy crown bits.
       this.addEllipsoid(verts, idxs, px + r * 0.2, py + r * 0.52, pz + r * 0.1, r * 0.32, r * 0.3, r * 0.3, seg, col);
       this.addEllipsoid(verts, idxs, px - r * 0.15, py + r * 0.6, pz - r * 0.05, r * 0.24, r * 0.24, r * 0.24, seg, col);
+      // Record this cloud's vertex range + a tiny orbital velocity so the draw
+      // pass can translate it per-frame (wrap-around is free — the angle is
+      // periodic around the circuit).
+      this._cloudRanges.push({ start: s0, count: idxs.length - s0 });
+      this._clouds.push({
+        ang: a,
+        va: (Math.random() < 0.5 ? 1 : -1) * (0.004 + Math.random() * 0.012),
+        radius: dist,
+        bx: px,
+        bz: pz,
+      });
     }
     this._cloudCount = idxs.length;
     if (this._cloudCount === 0) return;
@@ -2375,6 +2510,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
 
   private addDesertScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
+    // Rebuild the vulture perch targets (flat-topped mesa caps) with the theme.
+    this._desertPerchSpots = [];
     const sand = [0.82, 0.72, 0.52];
     const sandLight = [0.92, 0.84, 0.62];
     const sandDark = [0.66, 0.56, 0.4];
@@ -2434,6 +2571,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
         // Flat-topped mesa: broad cone + squared-off box cap.
         this.addCone(verts, idxs, mx, 0, mz, s, h, 8, rock);
         this.addBox(verts, idxs, mx, h - 1.5, mz, s * 0.55, 2.2, s * 0.55, rockDark);
+        // Register the cap as a vulture perch spot — a small epsilon above the
+        // box top (h - 0.4) so the perched silhouette never z-fights with it.
+        this._desertPerchSpots.push({ x: mx, y: h - 0.25, z: mz });
       } else if (roll < 0.75) {
         // Jagged cliff: two stacked offset cones.
         this.addCone(verts, idxs, mx, -0.15, mz, s, h, 7, rock);
@@ -2773,9 +2913,33 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
     const domeAng = Math.random() * Math.PI * 2;
     const domeDist = outer + 40 + Math.random() * 45;
-    this.addGeodesicDome(verts, idxs,
-      cx + Math.cos(domeAng) * domeDist, 0.35, cz + Math.sin(domeAng) * domeDist,
-      7.5 + Math.random() * 3);
+    const domeR = 7.5 + Math.random() * 3;
+    const domeX = cx + Math.cos(domeAng) * domeDist;
+    const domeZ = cz + Math.sin(domeAng) * domeDist;
+    this.addGeodesicDome(verts, idxs, domeX, 0.35, domeZ, domeR);
+
+    // Causeway from the dome's island back to the main island — a low deck
+    // with side rails just above the water, so the dome reads as part of the
+    // park instead of a floating blob. Runs from the island shore toward the
+    // track centre and lands at the park's outer edge (a park road the cars
+    // never reach).
+    const ux = -Math.cos(domeAng);  // dome → main island direction
+    const uz = -Math.sin(domeAng);
+    // Start the deck just inside the pedestal ring edge (ring radius 0.98r)
+    // so it tucks into the island instead of hovering beside it.
+    const shore = domeR * 0.95;
+    const bridgeLen = Math.max(12, domeDist - shore - (outer - 8));
+    const mx = domeX + ux * (shore + bridgeLen / 2);
+    const mz = domeZ + uz * (shore + bridgeLen / 2);
+    // Deck (just above the water, below the island top).
+    this.addOrientedBox(verts, idxs, mx, 0.2, mz, bridgeLen, 0.14, 2.2, ux, uz, [0.55, 0.56, 0.6]);
+    // Side rails along both long edges (perpendicular to the causeway).
+    const px = -uz;
+    const pz = ux;
+    for (const s of [-1, 1]) {
+      this.addOrientedBox(verts, idxs, mx + px * (1.15 * s), 0.42, mz + pz * (1.15 * s),
+        bridgeLen, 0.05, 0.08, ux, uz, [0.42, 0.43, 0.47]);
+    }
 
     // Foreground forest: maples and round park trees hugging the track.
     let treeIdx = 0;
@@ -2823,23 +2987,27 @@ void main() { FragColor = texture(uTex, vUV); }`;
       if (bIdx > 32) break;
     }
 
-    // Flower beds right beside the barrier — bright island gardens.
+    // Flower beds right beside the barrier — bright island gardens. Trimmed
+    // ~30% (sparser beds, same cluster look) so weaker GPUs don't choke on the
+    // dense bloom geometry.
     let flowerIdx = 0;
-    for (let i = 0; i < pts.length; i += 12) {
+    for (let i = 0; i < pts.length; i += 16) {
       const p = pts[i];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
-      const side = (i / 12) % 2 === 0 ? -1 : 1;
+      const side = (i / 16) % 2 === 0 ? -1 : 1;
       const dist = p.width / 2 + 2.6 + Math.random() * 4;
       const fx = p.x + ppx * dist * side + (Math.random() - 0.5) * 2;
       const fz = p.z + ppz * dist * side + (Math.random() - 0.5) * 2;
       this.addFlowerCluster(verts, idxs, fx, fz, 0.7 + Math.random() * 0.5);
-      if (flowerIdx++ > 42) break;
+      if (flowerIdx++ > 30) break;
     }
 
     // Quebec & Canada flags waving along the whole lap, just off the road.
+    // Trimmed ~30% (wider spacing, same alternating poles) — the cloth is an
+    // animated per-frame pass, so fewer flags means real per-frame savings.
     let flagIdx = 0;
-    for (let i = 0; i < pts.length; i += 18) {
+    for (let i = 0; i < pts.length; i += 26) {
       const p = pts[i];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
@@ -2849,9 +3017,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const fz = p.z + ppz * dist * side;
         this.addFlagOnPole(verts, idxs, fx, fz, p.dirX, p.dirZ,
           (flagIdx + side) % 2 === 0 ? 'quebec' : 'canada', 3.1, 1);
-        if (flagIdx++ > 62) break;
+        if (flagIdx++ > 44) break;
       }
-      if (flagIdx > 62) break;
+      if (flagIdx > 44) break;
     }
 
     // Extra packed bleachers on the OPPOSITE side to the main grandstands,
@@ -2912,9 +3080,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
   }
 
-  // A waving flag on a pole: the cloth is three slightly-twisted segments so it
-  // reads as fluttering in the breeze. Two variants — Canada (red/white/red +
-  // maple leaf) and Quebec (blue field, white cross, corner fleurs).
+  // A waving flag on a pole: the pole stays in the static scenery; the cloth
+  // is registered in the animated flag pass so it flutters per-frame. Two
+  // variants — Canada (red/white/red + maple leaf) and Quebec (blue field,
+  // white cross).
   private addFlagOnPole(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, kind: 'canada' | 'quebec', poleH: number, size: number) {
     this.addCylinder(verts, idxs, x, 0, z, 0.05 * size, poleH, 6, [0.55, 0.55, 0.58]);
     const w = 1.15 * size;   // flag width, from the pole outward
@@ -2923,53 +3092,16 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const red: [number, number, number] = [0.82, 0.1, 0.12];
     const white: [number, number, number] = [0.95, 0.95, 0.95];
     const blue: [number, number, number] = [0.05, 0.2, 0.62];
-    const segW = w / 3;
-    const twists = [0.1, 0, -0.1];
-    const drops = [0, 0.05, 0.02];
-    let segOff = 0;
-    for (let seg = 0; seg < 3; seg++) {
-      const ta = twists[seg];
-      const cdirX = dirX * Math.cos(ta) - dirZ * Math.sin(ta);
-      const cdirZ = dirX * Math.sin(ta) + dirZ * Math.cos(ta);
-      const segX = x + dirX * (segOff + segW / 2);
-      const segZ = z + dirZ * (segOff + segW / 2);
-      const segY = topY - drops[seg] - h / 2;
-      const cxFrac = (segOff + segW / 2) / w - 0.5; // -0.5..0.5 across the flag
-      let col: number[];
-      if (kind === 'canada') {
-        col = Math.abs(cxFrac) < 0.17 ? white : red;
-      } else {
-        col = blue;
-      }
-      this.addOrientedBox(verts, idxs, segX, segY, segZ, segW - 0.02, h, 0.02, cdirX, cdirZ, col);
-      segOff += segW;
-    }
-    // Emblems at the cloth centre, slightly thicker so they sit proud of the
-    // folds (no z-fight with the fabric).
-    const cxf = x + dirX * (w / 2);
-    const czf = z + dirZ * (w / 2);
-    const cyf = topY - h / 2;
-    if (kind === 'canada') {
-      // Maple leaf: a centre stem plus two crossed diagonal lobes.
-      this.addOrientedBox(verts, idxs, cxf, cyf, czf, 0.05, h * 0.42, 0.035, dirX, dirZ, red);
-      const d1x = dirX * Math.cos(0.55) - dirZ * Math.sin(0.55);
-      const d1z = dirX * Math.sin(0.55) + dirZ * Math.cos(0.55);
-      const d2x = dirX * Math.cos(-0.55) - dirZ * Math.sin(-0.55);
-      const d2z = dirX * Math.sin(-0.55) + dirZ * Math.cos(-0.55);
-      this.addOrientedBox(verts, idxs, cxf, cyf, czf, 0.05, h * 0.4, 0.035, d1x, d1z, red);
-      this.addOrientedBox(verts, idxs, cxf, cyf, czf, 0.05, h * 0.4, 0.035, d2x, d2z, red);
-    } else {
-      // Quebec: white cross + four corner fleur-de-lis hints.
-      this.addOrientedBox(verts, idxs, cxf, cyf, czf, 0.1, h, 0.035, dirX, dirZ, white);
-      this.addOrientedBox(verts, idxs, cxf, cyf, czf, w, 0.13, 0.035, dirX, dirZ, white);
-      for (const qx of [-1, 1]) {
-        for (const qy of [-1, 1]) {
-          const ox = qx * w * 0.24;
-          const oy = qy * h * 0.26;
-          this.addOrientedBox(verts, idxs, cxf + dirX * ox, cyf + oy, czf + dirZ * ox, 0.09, 0.09, 0.035, dirX, dirZ, white);
-        }
-      }
-    }
+    this._flags.push({
+      x, z, dirX, dirZ,
+      anchorY: topY, w, h,
+      kind: 'rect',
+      colors: kind === 'canada' ? [red, white, red] : [blue, blue, blue],
+      emblem: kind === 'canada' ? 'maple' : 'cross',
+      phase: Math.random() * Math.PI * 2,
+      speed: 4 + Math.random() * 1.5,
+      amp: 0.9 + Math.random() * 0.3,
+    });
   }
 
   // Expo 67 geodesic dome — a flat-shaded icosahedron half-shell (silver
@@ -3032,6 +3164,182 @@ void main() { FragColor = texture(uTex, vUV); }`;
         if (treeIdx++ > 150) break;
       }
       if (treeIdx > 150) break;
+    }
+
+    // ── Packed Monza treatment ─────────────────────────────────────────────
+    // Detect the circuit's corners with the same heading-change test the base
+    // corner furniture uses, then dress every apex like the Royal Park: the
+    // outside band banks up toward the barrier (real Monza banking), red/white
+    // sausage kerbs sit on the inside of the apex, and a packed grandstand
+    // towers behind the tire stack — the Lesmos S-bend feel, all lap long.
+    const turns: { i: number; t: number; s: number }[] = [];
+    for (let i = 1; i < pts.length; i++) {
+      const p0 = pts[i - 1];
+      const p1 = pts[i];
+      const cross = p0.dirX * p1.dirZ - p0.dirZ * p1.dirX;
+      const dot = p0.dirX * p1.dirX + p0.dirZ * p1.dirZ;
+      const t = Math.abs(Math.atan2(cross, dot));
+      if (t > 0.04) turns.push({ i, t, s: cross > 0 ? -1 : 1 });
+    }
+    turns.sort((a, b) => b.t - a.t);
+    // Skip corners that would land on one of the 8 fixed base grandstands
+    // (1/8-lap fractions) so the stands never double up.
+    const baseGs = [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875].map(f => Math.floor(f * pts.length));
+    const picked: typeof turns = [];
+    for (const c of turns) {
+      if (picked.length >= 10) break;
+      if (picked.every(p => {
+        const d = Math.abs(p.i - c.i);
+        return Math.min(d, pts.length - d) > 18;  // match the base tire-barrier dedupe
+      }) && baseGs.every(g => {
+        const d = Math.abs(g - c.i);
+        return Math.min(d, pts.length - d) > 10;
+      })) picked.push(c);
+    }
+    for (const c of picked) {
+      const p = pts[c.i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const hw = p.width / 2;
+      const ox = ppx * c.s;
+      const oz = ppz * c.s;
+
+      // Banked runoff ramp on the outside of the corner — the outer band rises
+      // from the road edge up past the barrier wall, peaking at the apex. Pure
+      // scenery: physics/collision are unchanged.
+      const span = 2;
+      const rise = 0.4;
+      const rampPts: { ix: number; iz: number; oxx: number; ozz: number; y: number }[] = [];
+      for (let k = -span; k <= span; k++) {
+        const i = (c.i + k + pts.length) % pts.length;
+        const pp = pts[i];
+        const qx = -pp.dirZ;
+        const qz = pp.dirX;
+        const hh = pp.width / 2;
+        const y = rise * (1 - Math.abs(k) / (span + 1));
+        rampPts.push({
+          ix: pp.x + qx * (hh + 0.1) * c.s,
+          iz: pp.z + qz * (hh + 0.1) * c.s,
+          oxx: pp.x + qx * (hh + 2.6) * c.s,
+          ozz: pp.z + qz * (hh + 2.6) * c.s,
+          y,
+        });
+      }
+      for (let k = 0; k < rampPts.length - 1; k++) {
+        const a = rampPts[k];
+        const b = rampPts[k + 1];
+        // Inboard edge sits at 0.03 (above the flat kerb strips' 0.02) so the
+        // low end of the banking never z-fights with the kerbs.
+        this.pushRampQuad(verts, idxs,
+          [a.ix, 0.03, a.iz], [b.ix, 0.03, b.iz], [a.oxx, a.y, a.ozz], [b.oxx, b.y, b.ozz]);
+      }
+
+      // Red/white sausage kerbs on the INSIDE of the apex (flat kerb band).
+      for (let k = -1; k <= 1; k++) {
+        const i = (c.i + k + pts.length) % pts.length;
+        const pp = pts[i];
+        const qx = -pp.dirZ;
+        const qz = pp.dirX;
+        const hh = pp.width / 2;
+        const kx = pp.x + qx * (hh + 0.75) * -c.s;
+        const kz = pp.z + qz * (hh + 0.75) * -c.s;
+        const red = (i + c.i) % 2 === 0;
+        this.addOrientedBox(verts, idxs, kx, 0.09, kz, 0.55, 0.18, 1.4, qx, qz,
+          red ? [0.85, 0.1, 0.08] : [0.92, 0.92, 0.92]);
+      }
+
+      // Packed grandstand on the runoff side, just behind the tire stack.
+      this.addGrandstand(verts, idxs,
+        p.x + ox * (hw + 9), p.z + oz * (hw + 9), p.dirX, p.dirZ, 3.5, 3);
+    }
+
+    // Extra packed bleachers opposite the base stands — Monza is wall-to-wall.
+    this.addExtraBleachers(verts, idxs);
+
+    // Red-flag bunting strung along both barrier walls for the whole lap:
+    // little red pennants (an occasional white one) hanging from the wall cap,
+    // drawn double-sided so they read from the cockpit at speed. The cloth is
+    // registered in the animated flag pass so the pennants flutter in the breeze.
+    const buntingCols: [number, number, number][] = [[0.85, 0.12, 0.1], [0.92, 0.9, 0.88]];
+    let buntingIdx = 0;
+    for (let i = 0; i < pts.length; i += 2) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const hw2 = p.width / 2;
+      for (const side of [-1, 1]) {
+        const wx = p.x + ppx * (hw2 + 1.72) * side;
+        const wz = p.z + ppz * (hw2 + 1.72) * side;
+        const col = buntingCols[(buntingIdx + (side === 1 ? 0 : 1)) % 6 === 0 ? 1 : 0];
+        this._flags.push({
+          x: wx, z: wz,
+          dirX: ppx * side, dirZ: ppz * side,
+          anchorY: 0.85, w: 0.2, h: 0.28,
+          kind: 'tri',
+          colors: [col],
+          phase: Math.random() * Math.PI * 2,
+          speed: 6 + Math.random() * 3,
+          amp: 0.9 + Math.random() * 0.4,
+        });
+        buntingIdx++;
+      }
+    }
+
+    // Red-flag bunting sagging across the start gantry pillars (the classic
+    // Italian flag chain over the line).
+    const sf = pts[0];
+    this.addGantryBunting(sf.x, sf.z, sf.dirX, sf.dirZ, sf.width);
+  }
+
+  // A sloped quad for the Monza banked runoffs — same vertex layout & winding
+  // as the proven face-up kerb strips, with a geometric normal forced to face
+  // upward so the banking reads from the cockpit.
+  private pushRampQuad(verts: number[], idxs: number[],
+    a: number[], b: number[], c: number[], d: number[]) {
+    let nx = (c[1] - a[1]) * (b[2] - a[2]) - (c[2] - a[2]) * (b[1] - a[1]);
+    let ny = (c[2] - a[2]) * (b[0] - a[0]) - (c[0] - a[0]) * (b[2] - a[2]);
+    let nz = (c[0] - a[0]) * (b[1] - a[1]) - (c[1] - a[1]) * (b[0] - a[0]);
+    const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+    nx /= len; ny /= len; nz /= len;
+    if (ny < 0) { nx = -nx; ny = -ny; nz = -nz; }
+    const base = verts.length / 11;
+    for (const p of [a, b, c, d]) {
+      verts.push(p[0], p[1], p[2], nx, ny, nz, 0.78, 0.74, 0.66, 0, 0);
+    }
+    idxs.push(base, base + 2, base + 1);
+    idxs.push(base + 1, base + 2, base + 3);
+  }
+
+  // Red bunting pennants sagging between the start gantry pillars — Monza's
+  // start-line flag chain, alternating red/white like an Italian tricolour run.
+  // All pennants are registered in the animated flag pass (no static verts).
+  private addGantryBunting(x: number, z: number, dirX: number, dirZ: number, width: number) {
+    const ppx = -dirZ;
+    const ppz = dirX;
+    const span = width / 2 + 1.3;   // pillar offsets (match addStartGantry)
+    const anchorY = 4.4;
+    const sag = 1.1;
+    const steps = 8;
+    const red: [number, number, number] = [0.85, 0.12, 0.1];
+    const white: [number, number, number] = [0.92, 0.9, 0.88];
+    for (let s = 0; s <= steps; s++) {
+      const f = s / steps;
+      const wireY = anchorY - sag * 4 * f * (1 - f);
+      const bx = x - ppx * span + ppx * (2 * span) * f;
+      const bz = z - ppz * span + ppz * (2 * span) * f;
+      const col = s % 2 === 0 ? red : white;
+      // Pennant hangs from the sagging wire — registered in the animated flag
+      // pass so the whole gantry chain flutters over the line.
+      this._flags.push({
+        x: bx, z: bz,
+        dirX: ppx, dirZ: ppz,
+        anchorY: wireY, w: 0.2, h: 0.32,
+        kind: 'tri',
+        colors: [col],
+        phase: Math.random() * Math.PI * 2,
+        speed: 6 + Math.random() * 3,
+        amp: 1,
+      });
     }
   }
 
@@ -3219,6 +3527,65 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
 
   // ─── Car Mesh ───
+  // Thin white snow-cap layer that piles up on the car's flat-ish top surfaces
+  // (engine cover, wings, halo, nose, sidepods) while racing through the
+  // blizzard. A single static mesh shared by every car — drawn in renderCar
+  // with the body transform, then uniformly lifted as each car's snow amount
+  // climbs, so the layer visibly thickens without reallocating per car.
+  private buildSnowCap() {
+    const gl = this.gl;
+    const verts: number[] = [];
+    const idxs: number[] = [];
+    const snow = [0.97, 0.98, 1.0];
+    // Slabs sit a hair above each surface's top (local car space, pre-0.8
+    // scale; loft heights are FULL heights). Panels the snow settles on:
+    this.addBox(verts, idxs, -0.27, 0.43, 0, 0.30, 0.03, 0.40, snow);    // engine cover hump
+    this.addBox(verts, idxs, -1.02, 0.47, 0, 0.38, 0.03, 1.00, snow);   // rear wing main plane
+    this.addBox(verts, idxs, -1.02, 0.52, 0, 0.26, 0.03, 0.90, snow);   // DRS flap
+    this.addBox(verts, idxs, -1.02, 0.38, 0, 0.30, 0.03, 0.80, snow);   // beam wing
+    this.addBox(verts, idxs, 1.22, 0.075, 0, 0.36, 0.03, 1.40, snow);   // front wing main plane
+    this.addBox(verts, idxs, 0.40, 0.455, 0, 0.20, 0.03, 0.46, snow);   // halo bar
+    this.addBox(verts, idxs, 1.20, 0.145, 0, 0.36, 0.03, 0.16, snow);   // nose (peeks at the tip)
+    this.addBox(verts, idxs, 0.30, 0.33, 0.50, 0.50, 0.03, 0.32, snow); // sidepod tops
+    this.addBox(verts, idxs, 0.30, 0.33, -0.50, 0.50, 0.03, 0.32, snow);
+    this.addBox(verts, idxs, -0.48, 0.50, 0, 0.55, 0.03, 0.05, snow);   // shark fin + T-cam
+    this.addBox(verts, idxs, -1.04, 0.30, 0, 0.14, 0.03, 0.45, snow);   // monkey seat
+
+    const vertArray = new Float32Array(verts);
+    const idxArray = new Uint16Array(idxs);
+    this._snowCapCount = idxArray.length;
+    this._snowCapVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this._snowCapVao);
+    const vbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, vertArray, gl.STATIC_DRAW);
+    const ibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idxArray, gl.STATIC_DRAW);
+    const stride = 11 * 4;
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+  }
+
+  // Snow cap accumulation (0..1): builds while racing through the blizzard
+  // (alpine/mountain themes), melts off everywhere else. Piles fastest flat
+  // out — the same speed ramp that drives the blizzard's flake density.
+  private updateSnowCap(cur: number, dt: number, speed: number): number {
+    const snowing = this.theme === 'alpine' || this.theme === 'mountain';
+    if (!snowing) {
+      return Math.max(0, cur - 0.5 * dt);
+    }
+    const rate = 0.04 + Math.min(Math.abs(speed) / 10, 1) * 0.10;
+    return Math.min(1, cur + rate * dt);
+  }
+
   private buildCarMesh() {
     const gl = this.gl;
     const verts: number[] = [];
@@ -3688,6 +4055,168 @@ void main() { FragColor = texture(uTex, vUV); }`;
 
     // Build wheel mesh
     this.buildWheelMesh();
+    // Monaco night — a single VAO with twin headlight pools ahead of the nose
+    // (local +X), drawn with the car's body transform in renderCar.
+    this.buildHeadlightQuads();
+  }
+
+  // Monaco night — the emissive light set baked into a static additive VAO:
+  // warm window grids on the canyon towers, glowing streetlight lamps with
+  // pools thrown onto the road, and a moonlit shimmer on the bay. Drawn with
+  // uEmissive so every light reads as a true source against the dark ambient.
+  private buildNightGlow() {
+    const gl = this.gl;
+    if (this.nightVao) { try { gl.deleteVertexArray(this.nightVao); } catch { } }
+    this.nightCount = 0;
+    if (!this.night) return;
+    const pts = this._trackPoints;
+    if (!pts.length) return;
+    const verts: number[] = [];
+    const idxs: number[] = [];
+    const warm: [number, number, number] = [1.0, 0.8, 0.42];
+    const lampWarm: [number, number, number] = [1.0, 0.9, 0.6];
+
+    // Window grids on both canyon walls — small warm rectangles clustered on
+    // the lower storeys of the near towers, facing the track (culling is off
+    // for the whole main pass, so orientation is only for the lighting normal).
+    let winIdx = 0;
+    for (let i = 0; i < pts.length; i += 2) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        if (Math.random() < 0.4) continue;
+        const dist = p.width / 2 + 15 + Math.random() * 12;
+        const wx = p.x + ppx * dist * side;
+        const wz = p.z + ppz * dist * side;
+        const n = 2 + Math.floor(Math.random() * 3);
+        for (let k = 0; k < n; k++) {
+          const wy = 3 + Math.random() * 5;
+          const w = 0.35 + Math.random() * 0.25;
+          const h = 0.5 + Math.random() * 0.35;
+          this.addQuad(verts, idxs,
+            [wx - p.dirX * w, wy, wz - p.dirZ * w],
+            [wx + p.dirX * w, wy, wz + p.dirZ * w],
+            [wx + p.dirX * w, wy + h, wz + p.dirZ * w],
+            [wx - p.dirX * w, wy + h, wz - p.dirZ * w],
+            Math.random() < 0.7 ? warm : [0.16, 0.2, 0.35]);
+        }
+        if (winIdx++ > 220) break;
+      }
+      if (winIdx > 220) break;
+    }
+
+    // Streetlights — bright lamp head at the pole top plus a warm pool of
+    // light thrown onto the asphalt under each pole (poles are every 20
+    // segments, matching the base light-pole pass).
+    for (let i = 0; i < pts.length; i += 20) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const lx = p.x + ppx * (p.width / 2 + 1) * side;
+        const lz = p.z + ppz * (p.width / 2 + 1) * side;
+        // Lamp glow — bright vertical quad at the pole head.
+        this.addQuad(verts, idxs,
+          [lx - 0.22, 2.7, lz],
+          [lx + 0.22, 2.7, lz],
+          [lx + 0.22, 3.3, lz],
+          [lx - 0.22, 3.3, lz],
+          lampWarm);
+        // Pool on the asphalt — a wide warm lozenge along the road.
+        const fx = p.dirX, fz = p.dirZ;
+        this.addQuad(verts, idxs,
+          [lx - fx * 2.4, 0.035, lz - fz * 2.4],
+          [lx + fx * 2.4, 0.035, lz + fz * 2.4],
+          [lx + fx * 2.4 + ppx * 1.9 * side, 0.035, lz + fz * 2.4 + ppz * 1.9 * side],
+          [lx - fx * 2.4 + ppx * 1.9 * side, 0.035, lz - fz * 2.4 + ppz * 1.9 * side],
+          [0.9, 0.72, 0.4]);
+      }
+    }
+
+    // Moonglade on the bay — a couple of wide cool shimmer bands on the water
+    // beyond the outer tower ring, so the sea catches the moon.
+    let outer = 0;
+    for (const p of pts) { const r = Math.hypot(p.x, p.z) + p.width / 2; if (r > outer) outer = r; }
+    for (let k = 0; k < 3; k++) {
+      const ang = -0.6 + k * 0.5;
+      const dx = Math.cos(ang), dz = Math.sin(ang);
+      const tx = -dz, tz = dx; // tangent
+      const mx = dx * (outer + 8);
+      const mz = dz * (outer + 8);
+      this.addQuad(verts, idxs,
+        [mx - tx * 9, 0.05, mz - tz * 9],
+        [mx + tx * 9, 0.05, mz + tz * 9],
+        [mx + tx * 9 + dx * 3.2, 0.05, mz + tz * 9 + dz * 3.2],
+        [mx - tx * 9 + dx * 3.2, 0.05, mz - tz * 9 + dz * 3.2],
+        [0.45, 0.55, 0.85]);
+    }
+
+    if (!idxs.length) return;
+    const vao = gl.createVertexArray()!;
+    gl.bindVertexArray(vao);
+    const vbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+    const ibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idxs), gl.STATIC_DRAW);
+    const stride = 11 * 4;
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+    this.nightVao = vao;
+    this.nightCount = idxs.length;
+  }
+
+  // Twin elongated headlight pools ahead of the car nose (local +X, y -0.11
+  // like the underglow). One VAO with both pools, drawn with the car's body
+  // transform bound in renderCar so they ride the car's position, heading and
+  // scale — and never z-fight (they sit just above the asphalt).
+  private buildHeadlightQuads() {
+    const gl = this.gl;
+    if (this.headlightVao) { try { gl.deleteVertexArray(this.headlightVao); } catch { } }
+    const gv: number[] = [];
+    const gi: number[] = [];
+    const gy = -0.10; // a hair above the underglow pools so they never z-fight
+    const x0 = 1.7, x1 = 5.3;                 // ahead of the nose
+    const zLo = -1.9, zMid = -0.35, zHi = 0.35, zOut = 1.9; // twin pools
+    const pushQuad = (ax: number, az: number, bx: number, bz: number,
+      cx: number, cz: number, dx: number, dz: number) => {
+      const b = gv.length / 11;
+      for (const [px, pz] of [[ax, az], [bx, bz], [cx, cz], [dx, dz]]) {
+        gv.push(px, gy, pz, 0, 1, 0, 1, 1, 1, 0, 0);
+      }
+      gi.push(b, b + 1, b + 2, b + 2, b + 3, b);
+    };
+    pushQuad(x0, zLo, x1, zLo, x1, zMid, x0, zMid); // left pool
+    pushQuad(x0, zHi, x1, zHi, x1, zOut, x0, zOut); // right pool
+    const vao = gl.createVertexArray()!;
+    gl.bindVertexArray(vao);
+    const vbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(gv), gl.STATIC_DRAW);
+    const ibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(gi), gl.STATIC_DRAW);
+    const stride = 11 * 4;
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+    this.headlightVao = vao;
+    this.headlightCount = gi.length;
   }
 
   private buildWheelMesh() {
@@ -4337,12 +4866,24 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
     // Team flags on poles at each end — flown in the circuit's two most
     // iconic colors (e.g. Italian red/green at Monza, blue/white in Montreal).
+    // The cloth is registered in the animated flag pass so it flutters.
     for (const side of [-1, 1]) {
       const fx = gx + ppx * 0.6 * side;
       const fz = gz + ppz * 0.6 * side;
       this.addCylinder(verts, idxs, fx, 0, fz, 0.045, 2.4, 6, [0.55, 0.55, 0.58]);
       const flagCols = this.themeFlagColors();
-      this.addBox(verts, idxs, fx + ppx * 0.55 * side, 1.8, fz + ppz * 0.55 * side, 0.02, 0.55, 0.35, flagCols[side === 1 ? 0 : 1]);
+      const col = flagCols[side === 1 ? 0 : 1];
+      // Anchor a third of the way out so the cloth flies proud of the pole.
+      this._flags.push({
+        x: fx + ppx * 0.35 * side, z: fz + ppz * 0.35 * side,
+        dirX: ppx * side, dirZ: ppz * side,
+        anchorY: 2.08, w: 0.35, h: 0.55,
+        kind: 'rect',
+        colors: [col, col, col],
+        phase: Math.random() * Math.PI * 2,
+        speed: 5 + Math.random() * 1.5,
+        amp: 0.85 + Math.random() * 0.3,
+      });
     }
   }
 
@@ -4418,6 +4959,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
         return [[0.1, 0.3, 0.8], [0.9, 0.9, 0.95], [0.05, 0.2, 0.6],
           [0.95, 0.3, 0.3], [0.7, 0.85, 1], [0.1, 0.25, 0.7]];
       case 'monaco':
+      case 'monaco-night':
         // Riviera — red & white, casino gold.
         return [[0.8, 0.1, 0.1], [0.9, 0.9, 0.95], [0.7, 0.12, 0.12],
           [0.85, 0.85, 0.9], [0.9, 0.75, 0.25], [0.95, 0.95, 0.98]];
@@ -4446,7 +4988,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     switch (this.theme) {
       case 'italy': return [[0.8, 0.1, 0.1], [0, 0.55, 0.15]];   // red + green
       case 'montreal': return [[0.1, 0.3, 0.8], [0.9, 0.9, 0.95]]; // blue + white
-      case 'monaco': return [[0.8, 0.1, 0.1], [0.9, 0.9, 0.95]];   // red + white
+      case 'monaco': case 'monaco-night': return [[0.8, 0.1, 0.1], [0.9, 0.9, 0.95]];   // red + white
       case 'desert': return [[0.75, 0.1, 0.1], [0, 0.45, 0.15]];   // red + green
       case 'mountain': case 'alpine': return [[0.1, 0.5, 0.7], [0.9, 0.9, 0.95]];
       case 'miami': return [[0.95, 0.45, 0.6], [0.2, 0.7, 0.75]];  // pink + aqua
@@ -4595,7 +5137,17 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const px = x + ppx * 0.9 * side;
     const pz = z + ppz * 0.9 * side;
     this.addCylinder(verts, idxs, px, 0, pz, 0.035, 2.4, 6, [0.55, 0.55, 0.58]);
-    this.addBox(verts, idxs, px + ppx * 0.6 * side, 1.9, pz + ppz * 0.6 * side, 0.02, 0.6, 0.35, [1, 0.85, 0.15]);
+    // Yellow warning flag — cloth registered in the animated flag pass.
+    this._flags.push({
+      x: px, z: pz,
+      dirX: ppx * side, dirZ: ppz * side,
+      anchorY: 2.2, w: 0.35, h: 0.6,
+      kind: 'rect',
+      colors: [[1, 0.85, 0.15], [1, 0.85, 0.15], [1, 0.85, 0.15]],
+      phase: Math.random() * Math.PI * 2,
+      speed: 5 + Math.random() * 2,
+      amp: 0.9,
+    });
   }
 
   // Braking distance board: red panel with a white stripe on a post just off
@@ -5019,12 +5571,21 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private static readonly EAGLE_STOOP_MS = 5200;   // full dive + wheel-up cycle
   private static readonly EAGLE_STOOP_MIN_GAP = 11;  // seconds between stoops
   private static readonly EAGLE_STOOP_MAX_GAP = 26;
+  // Desert vultures occasionally swoop down to PERCH on a mesa top — a longer
+  // cycle than the eagle stoop (swoop in, sit folded on the cap, lift off).
+  private static readonly VULTURE_PERCH_MS = 9000;   // swoop + perch + takeoff
+  private static readonly VULTURE_PERCH_MIN_GAP = 14; // seconds between perches
+  private static readonly VULTURE_PERCH_MAX_GAP = 30;
   private _birdsVao!: WebGLVertexArrayObject;
   private _birdsBuf!: WebGLBuffer;
   private _birds: {
     phase: number; speed: number; radius: number; alt: number; ang: number; dir: number; size: number; shade: number;
     eagle?: boolean; diveT: number; diveNext: number; diveX: number; diveZ: number;
+    perch?: boolean; perchT: number; perchNext: number; perchX: number; perchY: number; perchZ: number;
   }[] = [];
+  // Flat-topped mesa caps in the desert theme — vulture perch targets, filled
+  // by addDesertScenery (which runs before initSkyObjects picks the perchers).
+  private _desertPerchSpots: { x: number; y: number; z: number }[] = [];
   // Falling confetti — small camera-facing squares tumbling over the start/
   // finish line and grandstands (drawn per-frame like the birds, culled by
   // distance so far stands cost nothing).
@@ -5061,6 +5622,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // 6 boxes/person × 36 verts = 216 verts, each 11 floats.
   private _crowdData!: Float32Array;
   private _crowdPeople: CrowdPerson[] = [];
+  // Animated flags (registered while the scenery is built; cloth rebuilt each
+  // frame so it flutters — same dynamic-buffer pattern as the crowd).
+  private _flags: WavingFlag[] = [];
+  private _flagVao!: WebGLVertexArrayObject;
+  private _flagBuf!: WebGLBuffer;
+  private _flagData!: Float32Array;
   // 0..1 crowd reaction level — spikes when a car roars past a grandstand and
   // decays over a few seconds. Amplifies bob/sway/wave in drawCrowd so the
   // crowd visibly cheers harder in sync with the audio reaction moment.
@@ -5136,6 +5703,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
         diveNext: eagle ? 8 + Math.random() * 16 : Number.MAX_SAFE_INTEGER,
         diveX: diveTarget?.x ?? cx,
         diveZ: diveTarget?.z ?? cz,
+        // A few desert vultures (the first three) occasionally stoop down to
+        // perch on a mesa cap — staggered first perches so they don't land in
+        // lockstep. Guarded on perch spots being available (desert only).
+        perch: vulture && i < 6 && this._desertPerchSpots.length > 0,
+        perchT: 0,
+        perchNext: vulture && i < 6 && this._desertPerchSpots.length > 0
+          ? 10 + Math.random() * 18 : Number.MAX_SAFE_INTEGER,
+        perchX: 0, perchY: 0, perchZ: 0,
       });
     }
 
@@ -5685,11 +6260,32 @@ void main() { FragColor = texture(uTex, vUV); }`;
             }
           }
         }
+        // Vulture perch state machine — waiting (perchNext>0, perchT=0) →
+        // swoop/perch/lift cycle (perchT>0, perchNext pinned at MAX so the
+        // cycle can never re-chain) → waiting again. Mirrors the eagle stoop.
+        if (b.perch) {
+          if (b.perchT <= 0 && b.perchNext > 0) {
+            b.perchNext -= dt;
+            if (b.perchNext <= 0) {
+              b.perchT = RacingRenderer.VULTURE_PERCH_MS / 1000;
+              b.perchNext = Number.MAX_SAFE_INTEGER;
+              const spot = this._desertPerchSpots[Math.floor(Math.random() * this._desertPerchSpots.length)];
+              if (spot) { b.perchX = spot.x; b.perchY = spot.y; b.perchZ = spot.z; }
+            }
+          } else if (b.perchT > 0) {
+            b.perchT -= dt;
+            if (b.perchT <= 0) {
+              b.perchT = 0;
+              b.perchNext = RacingRenderer.VULTURE_PERCH_MIN_GAP + Math.random() * (RacingRenderer.VULTURE_PERCH_MAX_GAP - RacingRenderer.VULTURE_PERCH_MIN_GAP);
+            }
+          }
+        }
         const orbX = cx + Math.cos(b.ang) * b.radius;
         const orbZ = cz + Math.sin(b.ang) * b.radius;
         const orbY = b.alt + Math.sin(t * 0.7 + b.phase) * 2.5;
         let bx = orbX, bz = orbZ, by = orbY;
         let flapFreq = b.size >= 1.5 ? 5.5 : 9;
+        let perched = false;
         if (b.eagle && b.diveT > 0) {
           const k = 1 - b.diveT / stoopMs;      // 0 → 1 through the stoop
           // Descent eases in over the first ~60%, climb eases out after — the
@@ -5707,15 +6303,41 @@ void main() { FragColor = texture(uTex, vUV); }`;
           // Tucked, fast wingbeat while stooping; wide, slow wings wheeling up.
           flapFreq = k < 0.6 ? 7.5 : 4.2;
         }
+        // Vulture perch blend: swoop in from the orbit to the mesa cap (first
+        // 30% of the cycle), sit folded on it (next 30%), then lift back off to
+        // the orbit (last 40%) — each phase eased so the transitions read soft.
+        if (b.perch && b.perchT > 0) {
+          const pk = 1 - b.perchT / (RacingRenderer.VULTURE_PERCH_MS / 1000);
+          if (pk < 0.3) {
+            const d = pk / 0.3;
+            const eased = d * d * (3 - 2 * d);
+            by = orbY * (1 - eased) + b.perchY * eased;
+            bx = orbX + (b.perchX - orbX) * eased;
+            bz = orbZ + (b.perchZ - orbZ) * eased;
+            flapFreq = 7.5;
+          } else if (pk < 0.6) {
+            bx = b.perchX; by = b.perchY; bz = b.perchZ;
+            perched = true;
+          } else {
+            const d = (pk - 0.6) / 0.4;
+            const eased = d * d * (3 - 2 * d);
+            by = b.perchY * (1 - eased) + orbY * eased;
+            bx = b.perchX + (orbX - b.perchX) * eased;
+            bz = b.perchZ + (orbZ - b.perchZ) * eased;
+            flapFreq = 4.2;
+          }
+        }
         // Big eagles flap slower and deeper; small seagulls flutter fast.
-        const flap = Math.sin(t * flapFreq + b.phase) * 0.22 * (b.size >= 1.5 ? 0.8 : 1) * (b.eagle && b.diveT > 0 ? 0.45 : 1);
+        // Perched vultures sit still with wings folded — no flap.
+        const flap = Math.sin(t * flapFreq + b.phase) * 0.22 * (b.size >= 1.5 ? 0.8 : 1) * (b.eagle && b.diveT > 0 ? 0.45 : 1) * (perched ? 0 : 1);
         // Flight direction + perpendicular for wing spread (scaled by size)
         const dx = Math.cos(b.ang + Math.PI / 2) * b.dir;
         const dz = Math.sin(b.ang + Math.PI / 2) * b.dir;
         const px = -dz, pz = dx;
         const shade = b.shade;
         const bodyF = 0.16 * b.size;
-        const wing = 0.9 * b.size;
+        // Wings fold in close to the body while perched.
+        const wing = 0.9 * b.size * (perched ? 0.16 : 1);
         // Vertex layout matches the scenery VAO: pos(3) normal(3) color(3) uv(2)
         const mk = (x: number, y: number, z: number) => {
           data.push(x, y, z, 0, 1, 0, shade, shade, shade + 0.01, 0, 0);
@@ -6114,18 +6736,18 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.viewport(0, 0, this._heatW, this._heatH);
       gl.clearColor(0.4, 0.45, 0.5, 1);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      this.drawWorldScene(this.projMatrix, this.viewMatrix, eye as number[], cars, dt, isRaining, true);
+      this.drawWorldScene(this.projMatrix, this.viewMatrix, eye as number[], cars, dt, isRaining, true, speedRatio);
       // Rasterize the asphalt + finish mesh into a mask texture so the heat
       // shader can keep the racing surface distortion-free (only the sand
       // beyond the track shimmers).
       this.buildHeatMask(this.projMatrix, this.viewMatrix, this._heatW, this._heatH, false);
-      this.drawHeatShimmer(heatStrength);
+      this.drawHeatShimmer(heatStrength, eye as number[], this.projMatrix, this.viewMatrix);
     } else {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
       gl.clearColor(0.4, 0.45, 0.5, 1);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-      this.drawWorldScene(this.projMatrix, this.viewMatrix, eye as number[], cars, dt, isRaining, true);
+      this.drawWorldScene(this.projMatrix, this.viewMatrix, eye as number[], cars, dt, isRaining, true, speedRatio);
     }
 
     // ─── Rear-view mirror (a second camera looking back, blitted on top) ───
@@ -6175,6 +6797,136 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // the per-frame rebuild cost only covers the crowd you can actually see
   // (this halves the cost again in the rear-view mirror pass, which reuses it).
   private static CROWD_CULL_DIST = 80;
+  // Size the animated-flag pass buffer to the flags registered while the
+  // scenery was built (poles stay in the static mesh — only the cloth moves).
+  private buildFlagBuffers() {
+    const gl = this.gl;
+    if (!this._flags.length) { this._flagData = new Float32Array(0); return; }
+    let cap = 0;
+    for (const f of this._flags) {
+      cap += f.kind === 'tri' ? 6 : (3 + (f.emblem ? 3 : 0)) * 36;
+    }
+    this._flagData = new Float32Array(cap * 11);
+    this._flagVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this._flagVao);
+    this._flagBuf = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._flagBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, this._flagData, gl.DYNAMIC_DRAW);
+    const stride = 11 * 4;
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+  }
+
+  // One double-sided triangle (6 verts, same 11-float layout) for a pennant.
+  private pushTriVerts(d: Float32Array, wi: number, a: number[], b: number[], c: number[],
+    r: number, g: number, bl: number): number {
+    let nx = (b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]);
+    let ny = (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]);
+    let nz = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+    const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+    nx /= len; ny /= len; nz /= len;
+    const push = (p: number[]) => {
+      d[wi++] = p[0]; d[wi++] = p[1]; d[wi++] = p[2];
+      d[wi++] = nx; d[wi++] = ny; d[wi++] = nz;
+      d[wi++] = r; d[wi++] = g; d[wi++] = bl;
+      d[wi++] = 0; d[wi++] = 0;
+    };
+    push(a); push(b); push(c); push(a); push(c); push(b);
+    return wi;
+  }
+
+  // Animated flags — cloth rebuilt every frame into the preallocated dynamic
+  // buffer so it flutters: national/team flags roll as three out-of-phase
+  // strips (a travelling wave down the cloth, biggest at the free end), and
+  // bunting pennants sway their tips. Culled to the same ~80m radius as the
+  // crowd, and drawn in both the main pass and the rear-view mirror.
+  private drawFlags(eye: number[]) {
+    const gl = this.gl;
+    if (!this._flagVao || !this._flagData || !this._flags.length) return;
+    gl.useProgram(this.prog);
+    const t = this.elapsed;
+    const data = this._flagData;
+    const cull2 = RacingRenderer.CROWD_CULL_DIST * RacingRenderer.CROWD_CULL_DIST;
+    const ex = eye[0];
+    const ez = eye[2];
+    let w = 0;
+    for (const f of this._flags) {
+      const dx = f.x - ex;
+      const dz = f.z - ez;
+      if (dx * dx + dz * dz > cull2) continue;
+      // Perpendicular to the cloth direction (the pennant base-edge axis).
+      const ppx = -f.dirZ;
+      const ppz = f.dirX;
+      if (f.kind === 'tri') {
+        // Pennant: top edge pinned to the wall/wire, tip sways + bobs.
+        const sway = Math.sin(t * f.speed + f.phase) * 0.07 * f.amp;
+        const bob = Math.sin(t * f.speed * 0.8 + f.phase * 1.3) * 0.05 * f.amp;
+        const [r, g, b] = f.colors[0];
+        const halfW = f.w * 0.5;
+        const b0 = [f.x - ppx * halfW, f.anchorY, f.z - ppz * halfW];
+        const b1 = [f.x + ppx * halfW, f.anchorY, f.z + ppz * halfW];
+        const tip = [f.x + f.dirX * f.w + ppx * sway, f.anchorY - f.h + bob, f.z + f.dirZ * f.w + ppz * sway];
+        w = this.pushTriVerts(data, w, b0, b1, tip, r, g, b);
+      } else {
+        // Rectangular cloth: three strips riding a travelling wave. The strip
+        // at the pole barely moves; the free end whips around the most.
+        const sw = Math.sin(t * f.speed * 0.6 + f.phase * 1.3) * 0.06 * f.amp;
+        const segW = f.w / 3;
+        let segOff = 0;
+        for (let k = 0; k < 3; k++) {
+          const grow = (k + 1) / 3;
+          const dy = Math.sin(t * f.speed + f.phase + k * 1.1) * 0.055 * f.amp * grow;
+          const roll = Math.sin(t * f.speed + f.phase * 1.7 + k * 1.7) * 0.05 * f.amp * grow;
+          const [r, g, b] = f.colors[k % f.colors.length];
+          // Sway + roll both push along the cloth's perpendicular so the
+          // flutter reads the same no matter which way the flag points.
+          w = this.pushBoxVerts(data, w,
+            f.x + f.dirX * (segOff + segW / 2) + ppx * (sw + roll),
+            f.anchorY - f.h / 2 + dy,
+            f.z + f.dirZ * (segOff + segW / 2) + ppz * (sw + roll),
+            segW - 0.02, f.h, 0.02, r, g, b);
+          segOff += segW;
+        }
+        // Centre emblem rides the middle strip's wave, pushed slightly forward
+        // of the cloth so it never z-fights the fabric.
+        if (f.emblem) {
+          const midRoll = Math.sin(t * f.speed + f.phase * 1.7 + 1.7) * 0.05 * f.amp * (2 / 3);
+          const midWave = Math.sin(t * f.speed + f.phase + 1.1) * 0.055 * f.amp * (2 / 3);
+          const cx = f.x + f.dirX * (f.w / 2) + ppx * midRoll;
+          const cy = f.anchorY - f.h / 2 + midWave;
+          const cz = f.z + f.dirZ * (f.w / 2) + ppz * midRoll;
+          if (f.emblem === 'maple') {
+            // Maple leaf: centre stem + two diagonal lobes.
+            w = this.pushBoxVerts(data, w, cx, cy, cz + 0.02, 0.06, f.h * 0.42, 0.035, 0.82, 0.1, 0.12);
+            w = this.pushBoxVerts(data, w, cx - f.dirZ * 0.08, cy, cz + f.dirX * 0.08 + 0.02, 0.05, f.h * 0.36, 0.035, 0.82, 0.1, 0.12);
+            w = this.pushBoxVerts(data, w, cx + f.dirZ * 0.08, cy, cz - f.dirX * 0.08 + 0.02, 0.05, f.h * 0.36, 0.035, 0.82, 0.1, 0.12);
+          } else {
+            // Quebec: white cross.
+            w = this.pushBoxVerts(data, w, cx, cy, cz + 0.02, 0.1, f.h, 0.035, 0.95, 0.95, 0.95);
+            w = this.pushBoxVerts(data, w, cx, cy, cz + 0.02, f.w, 0.12, 0.035, 0.95, 0.95, 0.95);
+          }
+        }
+      }
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._flagBuf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
+    gl.bindVertexArray(this._flagVao);
+    gl.uniform1i(this.hasTexLoc, 0);
+    gl.uniform3f(this.colorLoc, 1, 1, 1);
+    this.mat4Identity(this.modelMatrix);
+    gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+    this.setNormalMatrix(this.modelMatrix);
+    gl.drawArrays(gl.TRIANGLES, 0, w / 11);
+    gl.bindVertexArray(null);
+  }
+
   private drawCrowd(eye: number[]) {
     const gl = this.gl;
     if (!this._crowdVao || !this._crowdBuf || !this._crowdData || !this._crowdPeople.length) return;
@@ -6284,7 +7036,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // `drawRain` is false for the mirror so rain particles aren't drawn twice.
   private drawWorldScene(proj: Float32Array, view: Float32Array, eye: number[],
     cars: (RacingCarAppearance & { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number; accel?: number; spin?: number; slide?: number; id?: string })[],
-    dt: number, isRaining: boolean, drawRain: boolean) {
+    dt: number, isRaining: boolean, drawRain: boolean, playerSpeedRatio: number = 0) {
     const gl = this.gl;
 
     // Sky — fill the background with depth testing OFF and no depth writes so the
@@ -6302,6 +7054,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.uniform3fv(this.skyBottomLoc, this.skyBottom);
     gl.uniform3fv(this.skySunColorLoc, this.sunColor);
     gl.uniform3fv(this.skyGlowColorLoc, [this.sunColor[0] * 0.85, this.sunColor[1] * 0.75, this.sunColor[2] * 0.6]);
+    gl.uniform1f(this.skyNightLoc, this.night ? 1 : 0);
     gl.bindVertexArray(this.skyVao);
     gl.drawArrays(gl.TRIANGLES, 0, 36);
     gl.bindVertexArray(null);
@@ -6323,6 +7076,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // Main program
     gl.useProgram(this.prog);
     gl.uniform1f(this.alphaLoc, 1);
+    gl.uniform1f(this.emissiveLoc, 0);
     gl.uniformMatrix4fv(this.projLoc, false, proj);
     gl.uniformMatrix4fv(this.viewLoc, false, view);
     gl.uniform3fv(this.lightDirLoc, this.sunDir);
@@ -6404,21 +7158,74 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // solid balls. Runs in the main view, the mirror and the heat pass alike
     // (drawWorldScene is shared), with a slightly fainter cloud on the bright
     // white mountain skies where solid geometry reads harshest.
-    if (this._cloudCount > 0) {
-      gl.uniform1f(this.alphaLoc, this.theme === 'mountain' || this.theme === 'alpine' ? 0.5 : 0.6);
+    if (this._cloudCount > 0 && this._clouds.length > 0) {
+      gl.uniform1f(this.alphaLoc, this._cloudAlpha);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
       gl.uniform1i(this.hasTexLoc, 1);
-      this.mat4Identity(this.modelMatrix);
-      gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
-      gl.uniform3f(this.colorLoc, 1, 1, 1);
-      this.setNormalMatrix(this.modelMatrix);
       gl.bindVertexArray(this._cloudVao);
-      gl.drawElements(gl.TRIANGLES, this._cloudCount, gl.UNSIGNED_INT, 0);
+      // Per-cloud drift: each cloud orbits the circuit at its own tiny speed
+      // (model translate = current orbital position − baked base position), so
+      // the sky feels alive like the birds without rebuilding any geometry.
+      const t = this.elapsed;
+      // Sun-side tint — clouds facing the sun warm to peach/gold, the far side
+      // cools to grey-blue, so the puffs catch the same light as the sky
+      // gradient. colorLoc multiplies the baked cloud colour; the sun's height
+      // scales how dramatic the warm/cool split is (low sun/moon → stronger).
+      const sdLen = Math.hypot(this.sunDir[0], this.sunDir[2]) || 1;
+      const sdx = this.sunDir[0] / sdLen;
+      const sdz = this.sunDir[2] / sdLen;
+      // Sun height scales how dramatic the warm/cool split is (low sun/moon →
+      // stronger). The warmth factor follows the light source's own hue — a
+      // warm afternoon sun tints clouds peach/gold, while the cool moon at
+      // night leaves them pale on the lit side and deep blue in shade.
+      const range = 0.5 + 0.5 * (1 - Math.min(1, Math.max(0, this.sunDir[1])));
+      const warmth = Math.max(0.2, Math.min(1, 0.4 + (this.sunColor[0] - this.sunColor[2]) * 1.5));
+      for (let ci = 0; ci < this._clouds.length; ci++) {
+        const c = this._clouds[ci];
+        const a = c.ang + c.va * t;
+        const cxp = this._cloudCenterX + Math.cos(a) * c.radius;
+        const czp = this._cloudCenterZ + Math.sin(a) * c.radius;
+        // Warm/cool factor: 1 = sun-facing, 0 = shade side. The cloud orbits
+        // at fixed radius, so its direction is exactly (cos a, sin a).
+        const side = Math.max(0, Math.min(1, 0.5 + 0.5 * (Math.cos(a) * sdx + Math.sin(a) * sdz)));
+        gl.uniform3f(this.colorLoc,
+          1 + (side - 0.5) * 0.28 * range * warmth,
+          1 + (side - 0.5) * 0.14 * range * warmth,
+          1 - (side - 0.5) * 0.2 * range);
+        this.mat4Identity(this.modelMatrix);
+        this.mat4Translate(this.modelMatrix, [cxp - c.bx, 0, czp - c.bz]);
+        gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+        this.setNormalMatrix(this.modelMatrix);
+        const r = this._cloudRanges[ci];
+        gl.drawElements(gl.TRIANGLES, r.count, gl.UNSIGNED_INT, r.start * 4);
+      }
       gl.bindVertexArray(null);
       gl.uniform1f(this.alphaLoc, 1);
     }
     gl.bindVertexArray(null);
+
+    // Monaco night — emissive lights (windows, streetlights, moonglade). Drawn
+    // additively after the scenery so they glow over the buildings and the
+    // track, but before the cars so vehicles drive over the light pools. The
+    // mirror pass renders the same lights, so the rear-view matches the view.
+    if (this.night && this.nightCount > 0) {
+      gl.uniform1f(this.emissiveLoc, 1);
+      gl.uniform1f(this.alphaLoc, 1);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      gl.bindVertexArray(this.nightVao);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
+      gl.uniform1i(this.hasTexLoc, 0);
+      this.mat4Identity(this.modelMatrix);
+      gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+      gl.uniform3f(this.colorLoc, 1, 1, 1);
+      this.setNormalMatrix(this.modelMatrix);
+      gl.drawElements(gl.TRIANGLES, this.nightCount, gl.UNSIGNED_SHORT, 0);
+      gl.bindVertexArray(null);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.uniform1f(this.emissiveLoc, 0);
+    }
 
     // Marrakech mirage lake — a shimmering pool on the track ahead, drawn
     // right after the scenery so falling petals/confetti render ON TOP of the
@@ -6487,6 +7294,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
         if (!h) { h = [0, 0, 0, 0]; this._carHeat.set(car.id, h); }
         this.updateBrakeHeat(h, dt, car.speed ?? 0, car.accel ?? 0);
         this._carLock.set(car.id, this.updateWheelLock(this._carLock.get(car.id) ?? 0, dt, car.speed ?? 0, car.accel ?? 0));
+        // Snow cap: accumulate once per frame per car (main pass only, mirror
+        // skips so the cap grows exactly once per frame like the other FX).
+        this._carSnow.set(car.id, this.updateSnowCap(this._carSnow.get(car.id) ?? 0, dt, car.speed ?? 0));
       }
     }
     // Cars boosted uEnvStrength to paint level — drop it back to the scenery
@@ -6504,6 +7314,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // Culled to the ~80m radius around the camera so distant spectators cost
     // nothing to rebuild (matters even more in the mirror pass).
     this.drawCrowd(eye);
+    // Animated flag cloth (registered per theme — national flags, team flags,
+    // bunting pennants) fluttering in the same per-frame dynamic pass, in both
+    // the main view and the mirror.
+    this.drawFlags(eye);
 
     // ─── Rain Particles (if enabled and requested) ───
     if (drawRain && isRaining) {
@@ -6546,14 +7360,26 @@ void main() { FragColor = texture(uTex, vUV); }`;
       if (this._snowCount > 0) {
         const snow = this._snowParticles;
         const snowData: number[] = [];
-        // Rolling gust front: bursts of sideways push that ease off, so the
-        // blizzard breathes instead of drifting uniformly.
-        const gust = 1 + 0.9 * Math.sin(this.elapsed * 0.5) * Math.sin(this.elapsed * 0.13);
-        for (let i = 0; i < snow.length; i++) {
+        // Blizzard intensity follows the player's speed (0..1, speed / max
+        // speed): flat out → a dense, howling wall of flakes whipping across
+        // the screen; pit crawl → a light dusting that barely drifts. The
+        // smooth ramp makes the weather breathe with the throttle.
+        const intensity = Math.max(0, Math.min(1, playerSpeedRatio));
+        // Draw every flake at speed, a light subset when calm (the buffer is
+        // preallocated at full blizzard density — drawing fewer streaks reads
+        // as thinner snow without reallocating). snow.length is fixed at 3500,
+        // so this spans ~1050 (calm) … 3500 (flat out).
+        const drawCount = Math.round(snow.length * (0.3 + 0.7 * intensity));
+        // Rolling gust front: bursts of sideways push that ease off, scaled by
+        // intensity so the storm howls flat out and barely breathes in the pits.
+        const gust = (1 + 0.9 * Math.sin(this.elapsed * 0.5) * Math.sin(this.elapsed * 0.13)) * (0.35 + 0.65 * intensity);
+        const flakeBoost = 0.45 + 0.55 * intensity;
+        for (let i = 0; i < drawCount; i++) {
           const f = snow[i];
-          f.y -= f.fall * dt;
-          const vx = f.wind * 0.3 * gust + Math.sin(this.elapsed * 0.9 + f.phase) * 0.7;
-          const vz = f.wind * 0.13 * gust + Math.cos(this.elapsed * 0.7 + f.phase) * 0.5;
+          // Faster fall + harder sideways drift the faster you go.
+          f.y -= f.fall * dt * (1 + 0.8 * intensity);
+          const vx = f.wind * 0.3 * gust * flakeBoost + Math.sin(this.elapsed * 0.9 + f.phase) * 0.7 * flakeBoost;
+          const vz = f.wind * 0.13 * gust * flakeBoost + Math.cos(this.elapsed * 0.7 + f.phase) * 0.5 * flakeBoost;
           f.x += vx * dt;
           f.z += vz * dt;
           if (f.y < -2) {
@@ -6562,7 +7388,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
             f.z = eye[2] + (Math.random() - 0.5) * 260;
           }
           // Tilt the streak toward the wind so flakes read as blowing, not
-          // falling straight down while drifting sideways.
+          // falling straight down while drifting sideways — the tilt grows
+          // with the stronger gusts at speed.
           const vlen = Math.hypot(vx, vz) || 1;
           const sx = (vx / vlen) * 0.1;
           const sz = (vz / vlen) * 0.1;
@@ -6579,7 +7406,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
         gl.uniform3f(this.colorLoc, 1, 1, 1);
         this.mat4Identity(this.modelMatrix);
         gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
-        gl.drawArrays(gl.LINES, 0, this._snowCount);
+        gl.drawArrays(gl.LINES, 0, drawCount * 2);
         gl.bindVertexArray(null);
         gl.depthMask(true);
         gl.enable(gl.CULL_FACE);
@@ -6627,6 +7454,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // cool like everyone else's.
     this.updateBrakeHeat(this._playerHeat, dt, playerSpeed, playerAccel);
     this._playerLock = this.updateWheelLock(this._playerLock, dt, playerSpeed, playerAccel);
+    this._playerSnow = this.updateSnowCap(this._playerSnow, dt, playerSpeed);
     const pa = playerAppearance ?? {};
     this.renderCar(eyeX, 0.1, eyeZ, yaw,
       pa.skin?.[0] ?? 0.85, pa.skin?.[1] ?? 0.06, pa.skin?.[2] ?? 0.06,
@@ -6681,10 +7509,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, this._mirrorMaskTex);
       gl.uniform1f(this.heatTimeLoc, this.elapsed);
-      gl.uniform1f(this.heatHorizonLoc, 0.42);
       // Half-strength variant of the speed-scaled main strength, so the small
       // mirror stays readable while matching the main view's turbulence.
       gl.uniform1f(this.heatStrengthLoc, 0.5 * heatStrength);
+      // Same world anchoring as the main pass, from the mirror's own camera.
+      this.setHeatCamera(mEye[0], mEye[1], mEye[2], this.mirrorProj, this.mirrorView, this.heatHorizonRow(mEye[0], mEye[2], this.mirrorProj, this.mirrorView));
       // Same world-anchored vultures, projected through the mirror camera so
       // they sit correctly in the rear-view background too.
       this.mat4Multiply(this._heatViewProj, this.mirrorProj, this.mirrorView);
@@ -6724,6 +7553,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // glow lingers after a braking zone instead of snapping off with speed.
   private _carHeat: Map<string, number[]> = new Map();
   private _playerHeat: number[] = [0, 0, 0, 0];
+  // Per-car snow-cap accumulation (0..1) — built in the blizzard, melted off
+  // elsewhere. Same per-car pattern as brake heat; the player's own cap (their
+  // car isn't in `cars`) uses _playerSnow, updated in the mirror pass.
+  private _carSnow: Map<string, number> = new Map();
+  private _playerSnow = 0;
+  private _snowCapVao!: WebGLVertexArrayObject;
+  private _snowCapCount = 0;
   // Front-wheel lockup: a smoothed 0..1 factor per car (same id keying as the
   // heat map). Under hard braking the fronts' visual spin scrubs toward zero
   // while the car skids, then releases as the brakes ease off — pairing with
@@ -6821,6 +7657,34 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.bindVertexArray(this.accentVao);
     gl.drawElements(gl.TRIANGLES, this.accentCount, gl.UNSIGNED_SHORT, 0);
 
+    // Snow cap — a thin white layer that accumulates on the roof, wings, halo
+    // and nose while racing through the blizzard (alpine/mountain), melting off
+    // elsewhere. Same body transform, then uniformly lifted as the cap piles
+    // up so the snow visibly thickens instead of a constant thin skin.
+    const snowAmt = appearance?.id ? (this._carSnow.get(appearance.id) ?? 0) : this._playerSnow;
+    if (snowAmt > 0.02) {
+      const lift = 1 + snowAmt * 0.06;
+      this.mat4Identity(this.modelMatrix);
+      this.mat4Translate(this.modelMatrix, [x, y + 0.15, z]);
+      this.mat4RotateY(this.modelMatrix, yaw - Math.PI / 2);
+      this.mat4Scale(this.modelMatrix, [0.8, 0.8, 0.8]);
+      this.mat4Scale(this.modelMatrix, [lift, lift, lift]);
+      gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+      this.setNormalMatrix(this.modelMatrix);
+      // Matte, softly-lit snow — no paint sheen, rim tint, or decal color.
+      gl.uniform1f(this.metallicLoc, 0);
+      gl.uniform1f(this.rimStrengthLoc, 0);
+      gl.uniform1f(this.envStrengthLoc, 0.14);
+      gl.uniform3f(this.colorLoc, 0.97, 0.98, 1.0);
+      gl.bindVertexArray(this._snowCapVao);
+      gl.drawElements(gl.TRIANGLES, this._snowCapCount, gl.UNSIGNED_SHORT, 0);
+      // Restore the paint-finish uniforms so the underglow and wheels below
+      // keep their normal gloss (snow must not dim the rest of the car).
+      gl.uniform1f(this.metallicLoc, app.metallic ?? 0.45);
+      gl.uniform1f(this.rimStrengthLoc, 0);
+      gl.uniform1f(this.envStrengthLoc, 0.22 + (app.metallic ?? 0.45) * 0.75);
+    }
+
     // Neon underglow — layered additive pools of light beneath the car: a wide
     // soft halo (dim) plus a bright core, so the neon pops even on sunny tracks.
     // Drawn while the body transform is still bound (before wheels overwrite it).
@@ -6856,6 +7720,22 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.drawElements(gl.TRIANGLES, this.glowCount, gl.UNSIGNED_SHORT, 0);
       gl.bindVertexArray(null);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    }
+
+    // Monaco night — every car throws two warm headlight pools ahead of the
+    // nose (the car mesh points along local +X, so 'ahead' is +X in the still
+    // bound body transform). Additive + emissive so they read as real light on
+    // the dark asphalt; drawn before the wheels overwrite the transform.
+    if (this.night && this.headlightCount > 0) {
+      gl.uniform1f(this.emissiveLoc, 1);
+      gl.uniform1f(this.heatGlowLoc, 0);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      gl.uniform3f(this.colorLoc, 1.0, 0.92, 0.62);
+      gl.bindVertexArray(this.headlightVao);
+      gl.drawElements(gl.TRIANGLES, this.headlightCount, gl.UNSIGNED_SHORT, 0);
+      gl.bindVertexArray(null);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      gl.uniform1f(this.emissiveLoc, 0);
     }
 
     // Wheels
@@ -7263,11 +8143,38 @@ void main() {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
+  /** Screen Y (0..1) of the true horizon for a camera: projects a far point on
+   *  the ground plane straight ahead of it, so the shimmer band rides the real
+   *  sand/sky line as the camera pitches instead of a fixed screen row. */
+  private heatHorizonRow(camX: number, camZ: number, proj: Float32Array, view: Float32Array): number {
+    const far = 1e4;
+    const fx = camX - view[8] * far;
+    const fz = camZ - view[10] * far;
+    this.mat4Multiply(this._scratchMvp, proj, view);
+    const cw = this._scratchMvp[3] * fx + this._scratchMvp[11] * fz + this._scratchMvp[15];
+    if (cw <= 0.001) return 0.42;
+    const cy = this._scratchMvp[1] * fx + this._scratchMvp[9] * fz + this._scratchMvp[13];
+    return Math.max(0.12, Math.min(0.9, (cy / cw) * 0.5 + 0.5));
+  }
+
+  /** Uploads the camera position, world-space basis and focal lengths so the
+   *  heat shader can reconstruct the ground-plane point each fragment looks at
+   *  (anchoring the shimmer to the sand), and sets the horizon row for the band. */
+  private setHeatCamera(camX: number, camY: number, camZ: number, proj: Float32Array, view: Float32Array, horizonY: number) {
+    const gl = this.gl;
+    gl.uniform3f(this.heatCamPosLoc, camX, camY, camZ);
+    gl.uniform3f(this.heatCamRightLoc, view[0], view[1], view[2]);
+    gl.uniform3f(this.heatCamUpLoc, view[4], view[5], view[6]);
+    gl.uniform3f(this.heatCamFwdLoc, -view[8], -view[9], -view[10]);
+    gl.uniform2f(this.heatTanHalfFovLoc, 1 / proj[0], 1 / proj[5]);
+    gl.uniform1f(this.heatHorizonLoc, horizonY);
+  }
+
   // Fullscreen mirage: samples the just-rendered scene texture with a flowing,
   // time-animated UV distortion that peaks around the horizon line (distant
   // sand/dunes), so the desert visibly shimmers above the ground. Strength
   // scales with car speed (see render()).
-  private drawHeatShimmer(strength: number) {
+  private drawHeatShimmer(strength: number, eye: number[], proj: Float32Array, view: Float32Array) {
     const gl = this.gl;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -7288,11 +8195,14 @@ void main() {
     // Unbound (or missing) mask samples black → mask 0 → full shimmer as before.
     gl.bindTexture(gl.TEXTURE_2D, this._heatMaskTex);
     gl.uniform1f(this.heatTimeLoc, this.elapsed);
-    gl.uniform1f(this.heatHorizonLoc, 0.42);
     gl.uniform1f(this.heatStrengthLoc, strength);
+    // Anchor the haze band to the true horizon and the noise to the sand
+    // beneath it — neither should drift with the viewport (same treatment as
+    // the world-anchored vultures).
+    this.setHeatCamera(eye[0], eye[1], eye[2], proj, view, this.heatHorizonRow(eye[0], eye[2], proj, view));
     // Project the world-anchored vultures through the current camera so they
-    // stay in the background (projMatrix/viewMatrix hold the main view).
-    this.mat4Multiply(this._heatViewProj, this.projMatrix, this.viewMatrix);
+    // stay in the background (the same proj/view this pass was called with).
+    this.mat4Multiply(this._heatViewProj, proj, view);
     gl.uniformMatrix4fv(this.heatViewProjLoc, false, this._heatViewProj);
     this.uploadVultures();
     gl.bindVertexArray(this.heatVao);
@@ -7303,28 +8213,43 @@ void main() {
     gl.enable(gl.CULL_FACE);
   }
 
-  /** Advances the desert vultures' slow orbit around the circuit (elapsed-driven
-   *  so the main view and mirror stay in sync) and uploads their world positions
-   *  to the heat shader's uVultures uniform. */
+  /** Advances the desert vultures' lazy thermal orbit around the circuit
+   *  (elapsed-driven so the main view and mirror stay in sync) and uploads
+   *  their world positions plus bank angle to the heat shader's uVultures
+   *  uniform. Each bird breathes its orbit radius, rides a long altitude wave
+   *  and rolls gently into/out of the turn — a loose thermal spiral instead of
+   *  a fixed circle. */
   private uploadVultures() {
     const gl = this.gl;
     const t = this.elapsed;
     const cx = this._trackCenterX, cz = this._trackCenterZ;
-    // Guard: with no vultures defined (non-desert theme), clear the uniform so
-    // a stale position can never draw silhouettes at the world origin.
+    // Guard: with no vultures defined (non-desert theme), park them far above
+    // the camera so a stale position can never project a silhouette into the
+    // frame (fill(0) would sit them at the world origin instead).
     if (this._vultures.length === 0) {
       this._vultureWorld.fill(0);
-      gl.uniform3fv(this.heatVulturesLoc, this._vultureWorld);
+      this._vultureWorld[1] = 1e9; this._vultureWorld[5] = 1e9;
+      this._vultureWorld[9] = 1e9; this._vultureWorld[13] = 1e9;
+      gl.uniform4fv(this.heatVulturesLoc, this._vultureWorld);
       return;
     }
     for (let i = 0; i < this._vultures.length && i < 4; i++) {
       const v = this._vultures[i];
       const ang = v.ang + v.speed * t;
-      this._vultureWorld[i * 3] = cx + Math.cos(ang) * v.radius;
-      this._vultureWorld[i * 3 + 1] = v.alt + Math.sin(t * 0.5 + v.phase) * 3;
-      this._vultureWorld[i * 3 + 2] = cz + Math.sin(ang) * v.radius;
+      // Thermal drift: the orbit radius breathes and the altitude rides a long
+      // slow wave, so each bird spirals on a loose updraft instead of tracing
+      // a perfect circle.
+      const rad = v.radius * (1 + Math.sin(t * 0.16 + v.phase * 1.3) * 0.06);
+      const alt = v.alt + Math.sin(t * 0.5 + v.phase) * 3 + Math.sin(t * 0.09 + v.phase * 2.1) * 6;
+      // Lazy bank wobble — a slow ±20° roll into and out of the turn, carried
+      // in the vec4's w so the shader can tilt the silhouette.
+      const bank = Math.sin(t * 0.4 + v.phase) * 0.35;
+      this._vultureWorld[i * 4] = cx + Math.cos(ang) * rad;
+      this._vultureWorld[i * 4 + 1] = alt;
+      this._vultureWorld[i * 4 + 2] = cz + Math.sin(ang) * rad;
+      this._vultureWorld[i * 4 + 3] = bank;
     }
-    gl.uniform3fv(this.heatVulturesLoc, this._vultureWorld);
+    gl.uniform4fv(this.heatVulturesLoc, this._vultureWorld);
   }
 
   private initHeatPass() {
@@ -7345,7 +8270,18 @@ uniform float uStrength;
 // World-anchored desert vultures — projected through the camera below so they
 // stay in the background as the car drives, instead of drifting on the screen.
 uniform mat4 uViewProj;
-uniform vec3 uVultures[4];
+// vec4 per vulture: xyz = world position, w = bank angle (roll of the
+// silhouette so they read as riding thermals while they circle).
+uniform vec4 uVultures[4];
+// World anchoring for the shimmer itself — camera position, world-space basis
+// and focal lengths let each fragment reconstruct the ground-plane point its
+// ray hits, so the mirage pattern sticks to the sand instead of drifting with
+// the viewport (the same treatment that keeps the vultures world-anchored).
+uniform vec3 uCamPos;
+uniform vec3 uCamRight;
+uniform vec3 uCamUp;
+uniform vec3 uCamFwd;
+uniform vec2 uTanHalfFov;   // x = tan(fovX/2), y = tan(fovY/2)
 // Capsule SDF: distance to a line segment of radius r.
 float sdSegment(vec2 p, vec2 a, vec2 b, float r) {
   vec2 pa = p - a, ba = b - a;
@@ -7368,10 +8304,20 @@ void main() {
   // Track mask (white = asphalt/finish): keep the racing surface completely
   // clear — the mirage distortion only bends the sand outside the circuit.
   heat *= 1.0 - texture(uMask, vUV).r;
-  // Two flowing noise octaves — horizontal scroll + rising vertical wobble.
-  float n1 = sin(vUV.x * 150.0 + uTime * 2.4);
-  float n2 = sin(vUV.x * 41.0 - uTime * 1.5 + sin(vUV.y * 70.0 + uTime * 1.2) * 2.5);
-  float n3 = sin(vUV.y * 55.0 - uTime * 2.8 + vUV.x * 26.0);
+  // Reconstruct the ground-plane point this fragment's ray hits (world XZ) so
+  // the shimmer is anchored to the sand, not the viewport — as the car drives,
+  // the mirage pattern scrolls past with the dunes instead of being glued to
+  // fixed screen pixels. Rays above the horizon clamp to the camera's own
+  // footprint (heat is ~0 there anyway); tHit is capped so far sand can't alias.
+  vec2 ndc = vUV * 2.0 - 1.0;
+  vec3 ray = normalize(uCamFwd + uCamRight * (ndc.x * uTanHalfFov.x) + uCamUp * (ndc.y * uTanHalfFov.y));
+  float tHit = -uCamPos.y / max(ray.y, 0.0001);
+  vec2 wxz = uCamPos.xz + ray.xz * clamp(tHit, 0.0, 2500.0);
+  // Flowing noise octaves — horizontal scroll + rising vertical wobble, now
+  // driven by world coordinates so the pattern stays put on the sand.
+  float n1 = sin(wxz.x * 0.55 + uTime * 2.4);
+  float n2 = sin(wxz.x * 0.15 - uTime * 1.5 + sin(wxz.y * 0.26 + uTime * 1.2) * 2.5);
+  float n3 = sin(wxz.y * 0.2 - uTime * 2.8 + wxz.x * 0.1);
   float dx = (n1 * 0.55 + n2 * 0.45) * 0.0055;
   float dy = (n3 * 0.65 + n1 * 0.35) * 0.004;
   vec2 uv = vUV + vec2(dx, dy) * heat * uStrength;
@@ -7381,7 +8327,9 @@ void main() {
   // screen. Birds behind the camera or far outside the frame are skipped.
   float dark = 0.0;
   for (int i = 0; i < 4; i++) {
-    vec4 w = vec4(uVultures[i], 1.0);
+    vec3 vp = uVultures[i].xyz;
+    float bank = uVultures[i].w;
+    vec4 w = vec4(vp, 1.0);
     vec4 clip = uViewProj * w;
     if (clip.w <= 0.001) continue;
     vec2 suv = (clip.xy / clip.w) * 0.5 + 0.5;
@@ -7389,6 +8337,11 @@ void main() {
     // Perspective size: silhouettes shrink with distance (~180m reference).
     float sc = max(0.02, (0.05 + float(i) * 0.018) * (180.0 / clip.w));
     vec2 q = (vUV - suv) / sc;
+    // Bank the silhouette as it circles — a gentle roll into and out of the
+    // turn so the birds read as riding thermals rather than fixed dots.
+    // mat2 is column-major, so this builds [[cs,-sn],[sn,cs]] — a +bank roll.
+    float cs = cos(bank), sn = sin(bank);
+    q = mat2(cs, sn, -sn, cs) * q;
     float flap = sin(uTime * 1.2 + float(i) * 2.6) * 0.06;
     float d = vultureShape(q, flap);
     float a = 1.0 - smoothstep(-0.02, 0.035, d);
@@ -7407,6 +8360,11 @@ void main() {
     this.heatStrengthLoc = gl.getUniformLocation(this.heatProg, 'uStrength')!;
     this.heatViewProjLoc = gl.getUniformLocation(this.heatProg, 'uViewProj')!;
     this.heatVulturesLoc = gl.getUniformLocation(this.heatProg, 'uVultures')!;
+    this.heatCamPosLoc = gl.getUniformLocation(this.heatProg, 'uCamPos')!;
+    this.heatCamRightLoc = gl.getUniformLocation(this.heatProg, 'uCamRight')!;
+    this.heatCamUpLoc = gl.getUniformLocation(this.heatProg, 'uCamUp')!;
+    this.heatCamFwdLoc = gl.getUniformLocation(this.heatProg, 'uCamFwd')!;
+    this.heatTanHalfFovLoc = gl.getUniformLocation(this.heatProg, 'uTanHalfFov')!;
     this.heatVao = gl.createVertexArray()!;
     gl.bindVertexArray(this.heatVao);
     const hbuf = gl.createBuffer()!;
@@ -7427,6 +8385,8 @@ void main() {
     this._scrubLast.clear();
     this._carHeat.clear();
     this._carLock.clear();
+    this._carSnow.clear();
+    this._playerSnow = 0;
     this._playerHeat = [0, 0, 0, 0];
     this._playerLock = 0;
   }
@@ -7434,6 +8394,8 @@ void main() {
   clearCache() {
     this._carHeat.clear();
     this._carLock.clear();
+    this._carSnow.clear();
+    this._playerSnow = 0;
     this._scrubMarks = [];
     this._scrubLast.clear();
     if (this._heatFBO) {
@@ -7468,6 +8430,27 @@ void main() {
       this._heatMaskInitialized = false;
     }
     this._trackPoints = [];
+  }
+
+  /**
+   * Release the WebGL context and every GPU resource it owns. Called once at
+   * teardown (component ngOnDestroy) so GPU memory doesn't accumulate across
+   * open/close cycles — clearCache only frees the few FBOs/textures it tracks,
+   * while loseContext() hands ALL of the context's buffers, VAOs, programs and
+   * textures back to the browser in one call (the canonical way to drop a WebGL
+   * context). Safe to call once; afterwards the renderer must not draw again.
+   */
+  dispose() {
+    const gl = this.gl;
+    if (!gl) return;
+    // Free the transient FBOs/textures clearCache knows about first (best-effort
+    // — these deletes need a live context, so they must run before losing it).
+    try { this.clearCache(); } catch { }
+    // ?. handles browsers without the extension; loseContext doesn't throw.
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    // Drop the handle so nothing can touch the dead context. The component
+    // cancels its RAF loop before dispose, so no frame will draw on it.
+    this.gl = null!;
   }
 
   // ─── Matrix Helpers ───

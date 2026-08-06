@@ -204,6 +204,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   // 🏆 NEW HIGH SCORE toasts — personal-best balance and kill milestones.
   trophyToast = '';
   private _trophyToastTimer: any = null;
+  // ❌ Red 'Mission failed' toast shown on death while a mission was active.
+  missionFailedToast = '';
+  private _missionFailedToastTimer: any = null;
   // Last kill milestone toasted (1st kill, then every 10) so we never spam
   // the same milestone twice.
   private _lastTrophyKillMilestone = 0;
@@ -642,6 +645,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.stopHsRefresh();
     if (this._jumpToastTimer) { clearTimeout(this._jumpToastTimer); this._jumpToastTimer = null; }
     if (this._trophyToastTimer) { clearTimeout(this._trophyToastTimer); this._trophyToastTimer = null; }
+    if (this._missionFailedToastTimer) { clearTimeout(this._missionFailedToastTimer); this._missionFailedToastTimer = null; }
     cancelAnimationFrame(this.animFrameId);
     const canvas = this.canvasRef.nativeElement;
     canvas.removeEventListener('click', this.onCanvasClick);
@@ -1270,10 +1274,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.stopHeliAudio();
     this.currentCarId = 0;
     this.camDist = 4; this.camHeight = 2;
-    this.taxiMission = null;
-    this.taxiMarkers = [];
-    this.taxiAttachedMeshes = [];
-    this.taxiSearchTimer = 0;
+    // Deliberately stepping out of the taxi mid-fare abandons the fare.
+    if (this.taxiMission) this.abortTaxiFare();
     this.stopRadio();
   }
 
@@ -3035,8 +3037,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.taxiRideTaxi = null;
         this.taxiRideHidePlayer = false;
         this.showTaxiDestinations = false;
-        // Cancel all active missions (car theft, taxi driver, police).
+        // Cancel all active missions (car theft, taxi driver, police) — and
+        // tell the player their job just died with them.
+        const hadMission = !!(this.taxiMission || this.dealershipMission || this.policeMode);
         this.cancelAllMissions();
+        if (hadMission) this.showMissionFailedToast('❌ MISSION FAILED');
       }
       if (this._wasDead && !this._respawnTimer) {
         this._respawnTimer = setTimeout(() => {
@@ -3459,6 +3464,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.trophyToast = msg;
     if (this._trophyToastTimer) clearTimeout(this._trophyToastTimer);
     this._trophyToastTimer = setTimeout(() => { this.trophyToast = ''; }, 5000);
+  }
+
+  private showMissionFailedToast(msg: string) {
+    this.missionFailedToast = msg;
+    if (this._missionFailedToastTimer) clearTimeout(this._missionFailedToastTimer);
+    this._missionFailedToastTimer = setTimeout(() => { this.missionFailedToast = ''; }, 5000);
   }
 
   private async loadJumps() {
@@ -4673,14 +4684,43 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.camDist = 4; this.camHeight = 2;
   }
 
+  // Abandoning a taxi fare: the passenger hops out and walks off (mirroring
+  // the delivery path), the fare is failed, and the mission toast shows.
+  private abortTaxiFare() {
+    const m = this.taxiMission;
+    if (m && m.passengerMesh) {
+      const walkAngle = Math.random() * Math.PI * 2;
+      const walkDist = 20;
+      const pedId = --this.pedIdCounter;
+      this.stolenNpcIds.add(pedId);
+      this.localPedestrians.push({
+        id: pedId,
+        x: this.carX, z: this.carZ,
+        yaw: walkAngle,
+        gender: m.passengerGender || 'female',
+        mesh: m.passengerMesh,
+        health: 100,
+        targetX: this.carX + Math.sin(walkAngle) * walkDist,
+        targetZ: this.carZ + Math.cos(walkAngle) * walkDist,
+        waitTimer: 0,
+      });
+      this.stolenNpcIds.delete(m.passengerId);
+    }
+    this.taxiMission = null;
+    this.taxiMarkers = [];
+    this.taxiAttachedMeshes = [];
+    this.taxiSearchTimer = 0;
+    this.showMissionFailedToast('❌ MISSION FAILED');
+  }
+
   private updateTaxiMission(dt: number) {
     this.taxiMode = this.isInCar && this.vehicleType === 'taxi';
 
     if (!this.taxiMode) {
-      this.taxiMission = null;
-      this.taxiMarkers = [];
-      this.taxiAttachedMeshes = [];
-      this.taxiSearchTimer = 0;
+      // No longer in a taxi — fare aborted (deliberate exit, or the taxi was
+      // destroyed). exitCar already handles the manual-exit path; this
+      // catches every other way of leaving the taxi.
+      if (this.taxiMission) this.abortTaxiFare();
       return;
     }
 
@@ -5137,6 +5177,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
     if (m.state === 'return') {
       this.dealershipMarkers.push({ type: 'beam', x: m.npcX, z: m.npcZ });
+      // Hopping out of the stolen car mid-return (or switching vehicles)
+      // abandons the heist — fail it instead of leaving it hanging forever.
+      if (!this.isInCar || this.currentCarId !== m.targetCarId) {
+        this.dealershipMission = null;
+        this.dealershipTargetCar = null;
+        this.parkedCars = this.parkedCars.filter(p => p.id !== m.targetCarId);
+        this.dealershipMarkers = [];
+        this.showMissionFailedToast('❌ MISSION FAILED');
+        return;
+      }
       const dx = m.npcX - this.carX, dz = m.npcZ - this.carZ;
       if (this.isInCar && this.currentCarId === m.targetCarId && Math.hypot(dx, dz) < 6) {
         this.money += m.payout;
