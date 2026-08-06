@@ -4324,6 +4324,35 @@ void main() {
       this.drawMesh(fireMesh, fx, 0.8, fz, 0, [s, s, s], fireColor);
     }
 
+    // Health bars above damaged NPC cars so every player sees each vehicle's state
+    const hpMesh = this.getHpBarMesh();
+    const hpMaxDistSq = 150 * 150;
+    const drawBar = (bx: number, by: number, bz: number, hp: number, maxHp: number) => {
+      const ratio = Math.max(0, Math.min(1, hp / Math.max(1, maxHp)));
+      if (ratio >= 1 || ratio <= 0) return;
+      const dx = bx - camX, dz = bz - camZ;
+      if (dx * dx + dz * dz > hpMaxDistSq) return;
+      const yawTo = Math.atan2(dx, dz);
+      const pitchTo = Math.atan2(camY - by, Math.hypot(dx, dz));
+      const BAR_W = 2.2;
+      this.drawMesh(hpMesh, bx, by, bz, yawTo, [BAR_W, 1, 1], [0, 0, 0, 0.55], false, pitchTo);
+      const off = -(1 - ratio) * BAR_W / 2;
+      this.drawMesh(hpMesh, bx + Math.cos(yawTo) * off, by, bz - Math.sin(yawTo) * off, yawTo,
+        [BAR_W * ratio, 1, 1], [Math.min(1, (1 - ratio) * 2.2), Math.min(1, ratio * 1.6), 0.08, 0.9], false, pitchTo);
+    };
+    for (const npc of serverNPCs) {
+      if (npc.type === 'helicopter' || npc.type === 'plane') continue;
+      const maxHp = (npc as any).maxHealth || 200;
+      const hp = (npc as any).health ?? maxHp;
+      if (hp > 0 && hp < maxHp) drawBar(npc.x, (npc.y || 0) + 2.6, npc.z, hp, maxHp);
+    }
+    for (const pc of parkedCars) {
+      if (pc.type === 'helicopter' || pc.type === 'plane' || pc.type === 'boat') continue;
+      const maxHp = (pc as any).maxHealth || 200;
+      const hp = (pc as any).health ?? maxHp;
+      if (hp > 0 && hp < maxHp) drawBar(pc.x, 2.6, pc.z, hp, maxHp);
+    }
+
     gl.enable(gl.DEPTH_TEST);
     // Draw dropped weapons as rotating pickups (real weapon models)
     if (this.droppedWeapons && this.droppedWeapons.length > 0) {
@@ -4567,6 +4596,15 @@ void main() {
         indices.push(aI, bI, aI + 1, bI, bI + 1, aI + 1);
       }
     }
+    const mesh = this.createMesh(verts, indices);
+    this.meshCache.set(key, mesh);
+    return mesh;
+  }
+  private getHpBarMesh(): CityMesh {
+    const key = 'hpbar';
+    if (this.meshCache.has(key)) return this.meshCache.get(key)!;
+    const verts: number[] = [], indices: number[] = [];
+    this.addBox(verts, indices, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0);
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set(key, mesh);
     return mesh;

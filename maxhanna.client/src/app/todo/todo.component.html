@@ -114,13 +114,15 @@
 <div class="popupPanel" *ngIf="isEditListPanelOpen">
   <div class="popupPanelTitle">Edit Lists</div>
   <div>
-    <div *ngFor="let type of todoTypes">
+    <div *ngIf="customTodoTypes.length === 0" class="smallFont">No custom lists yet. Add one below!</div>
+    <div *ngFor="let type of customTodoTypes">
       {{type}}
       <button class="cursorPointer" (click)="hideColumn(type)">❌</button>
       <button class="cursorPointer" (click)="rename(type)">Rename</button>
-      <div *ngIf="!defaultTodoTypes.includes(type) && isRenaming.includes(type)">
+      <div *ngIf="isRenaming.includes(type)">
         <input type="text" #newColumnName placeholder="New column name" />
         <button (click)="renameColumn(type, newColumnName.value)">Rename</button>
+        <button class="cursorPointer" (click)="cancelRename(type)">Cancel</button>
       </div>
     </div>
   </div>

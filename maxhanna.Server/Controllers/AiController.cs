@@ -34,7 +34,7 @@ namespace maxhanna.Server.Controllers
       _krakenService = krakenService;
       _httpClient = new HttpClient
       {
-        Timeout = TimeSpan.FromMinutes(5)
+        Timeout = TimeSpan.FromMinutes(20)
       };
 
       _maxVisionThumbnails = _config.GetValue<int?>("Ai:MaxVisionThumbnails") ?? 5;

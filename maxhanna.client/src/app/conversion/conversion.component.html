@@ -112,6 +112,11 @@
         </button>
         <span *ngIf="isUploading" class="busy-hint">Uploading…</span>
       </div>
+      <div *ngIf="isRunningVision" class="help-text">{{ visionStatusText }}</div>
+      <div *ngIf="visionError" class="result-box result-error">
+        <span class="result-icon">⚠️</span>
+        <span class="help-text">{{ visionError }}</span>
+      </div>
       <div *ngIf="visionReport" class="result-box vision-report">{{ visionReport }}</div>
     </ng-container>
   </section>

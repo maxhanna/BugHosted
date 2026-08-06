@@ -26,6 +26,7 @@ namespace maxhanna.Server.Controllers
     private bool _ffmpegAvailable;
 
     private static readonly ConcurrentDictionary<Guid, YoutubeDownloadJob> _youtubeJobs = new();
+    private static readonly ConcurrentDictionary<Guid, VisionReportJob> _visionJobs = new();
 
     private static readonly string[] ImageTargetFormats = { "png", "jpg", "jpeg", "webp", "bmp", "gif", "tiff", "tga", "qoi", "pbm", "pnm", "pgm", "ppm" };
 
@@ -250,35 +251,91 @@ namespace maxhanna.Server.Controllers
       }
     }
 
-    /// <summary>Runs the vision model over an image and returns a text report.</summary>
+    /// <summary>Runs the vision model over an image as a background job and returns a text report.</summary>
+    /// <remarks>Returns immediately with a job id; poll /Conversion/VisionReportStatus until it completes.
+    /// Runs as a job so slow model inference (which can take many minutes) can never be cut by a
+    /// proxy/client request timeout - the poll requests are tiny.</remarks>
     [HttpPost("/Conversion/VisionReport", Name = "Conversion_VisionReport")]
-    public async Task<IActionResult> VisionReport([FromBody] VisionReportRequest request)
+    public IActionResult VisionReport([FromBody] VisionReportRequest request)
     {
-      try
-      {
-        if (request == null || request.FileId <= 0) return BadRequest("Invalid request.");
-        var source = await ResolveSourceFile(request.FileId);
-        if (source == null) return NotFound("Source file not found.");
+      if (request == null || request.FileId <= 0) return BadRequest("Invalid request.");
 
-        byte[] imageBytes = await System.IO.File.ReadAllBytesAsync(source.Value.fullPath);
-        string b64;
-        using (var image = await SixLabors.ImageSharp.Image.LoadAsync<Rgba32>(new MemoryStream(imageBytes)))
+      var job = new VisionReportJob();
+      _visionJobs[job.Id] = job;
+      PurgeOldVisionJobs();
+
+      // Hard cap so a wedged model never hangs the job forever.
+      var tokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(15));
+      _ = Task.Run(async () =>
+      {
+        try
         {
-          b64 = Convert.ToBase64String(EncodePng(image, 768));
+          job.Status = "running";
+          job.ProgressText = "Reading image…";
+          var source = await ResolveSourceFile(request.FileId);
+          if (source == null)
+          {
+            job.Status = "failed";
+            job.Error = "Source file not found.";
+            return;
+          }
+
+          byte[] imageBytes = await System.IO.File.ReadAllBytesAsync(source.Value.fullPath, tokenSource.Token);
+          string b64;
+          using (var image = await SixLabors.ImageSharp.Image.LoadAsync<Rgba32>(new MemoryStream(imageBytes)))
+          {
+            b64 = Convert.ToBase64String(EncodePng(image, 768));
+          }
+
+          string prompt = string.IsNullOrWhiteSpace(request.Prompt)
+            ? "Describe this image in detail. What is it, what does it look like, and what can be improved?"
+            : request.Prompt;
+
+          job.ProgressText = "Asking the vision model…";
+          var report = await _aiController.SendVisionBase64Async(prompt, new[] { b64 }, temperature: 0.3, ct: tokenSource.Token);
+          job.Report = report ?? "The vision model did not return a response.";
+          job.Status = "completed";
+          job.ProgressText = "Complete";
+          _ = _log.Db($"Vision report generated for file {request.FileId}", request.UserId ?? 0, "CONVERSION", true);
         }
+        catch (OperationCanceledException)
+        {
+          job.Status = "failed";
+          job.Error = "Vision report timed out - the model took too long. Try a smaller image.";
+          _ = _log.Db("VisionReport timed out after 15 minutes.", request.UserId ?? 0, "CONVERSION", true);
+        }
+        catch (Exception ex)
+        {
+          job.Status = "failed";
+          job.Error = ex.Message;
+          _ = _log.Db("VisionReport error: " + ex.Message, request.UserId ?? 0, "CONVERSION", true);
+        }
+      }, tokenSource.Token);
 
-        string prompt = string.IsNullOrWhiteSpace(request.Prompt)
-          ? "Describe this image in detail. What is it, what does it look like, and what can be improved?"
-          : request.Prompt;
+      return Ok(new VisionReportJobResult { JobId = job.Id, Status = job.Status });
+    }
 
-        var report = await _aiController.SendVisionBase64Async(prompt, new[] { b64 }, temperature: 0.3);
-        _ = _log.Db($"Vision report generated for file {request.FileId}", request.UserId ?? 0, "CONVERSION", true);
-        return Ok(new VisionReportResult { Report = report ?? "The vision model did not return a response." });
-      }
-      catch (Exception ex)
+    /// <summary>Returns the current state of a vision report job started via /Conversion/VisionReport.</summary>
+    [HttpGet("/Conversion/VisionReportStatus", Name = "Conversion_VisionReportStatus")]
+    public IActionResult VisionReportStatus([FromQuery] Guid jobId)
+    {
+      if (!_visionJobs.TryGetValue(jobId, out var job)) return NotFound("Job not found.");
+      return Ok(new VisionReportStatusResult
       {
-        _ = _log.Db("VisionReport error: " + ex.Message, request?.UserId ?? 0, "CONVERSION", true);
-        return StatusCode(500, "Vision report failed: " + ex.Message);
+        JobId = job.Id,
+        Status = job.Status,
+        ProgressText = job.ProgressText,
+        Report = job.Status == "completed" ? job.Report : null,
+        Error = job.Error
+      });
+    }
+
+    private static void PurgeOldVisionJobs()
+    {
+      var cutoff = DateTime.UtcNow.AddMinutes(-30);
+      foreach (var kv in _visionJobs)
+      {
+        if (kv.Value.CreatedUtc < cutoff) _visionJobs.TryRemove(kv.Key, out _);
       }
     }
 
@@ -617,6 +674,31 @@ namespace maxhanna.Server.Controllers
   public class VisionReportResult
   {
     public string? Report { get; set; }
+  }
+
+  public class VisionReportJobResult
+  {
+    public Guid JobId { get; set; }
+    public string? Status { get; set; }
+  }
+
+  public class VisionReportStatusResult
+  {
+    public Guid JobId { get; set; }
+    public string? Status { get; set; }
+    public string? ProgressText { get; set; }
+    public string? Report { get; set; }
+    public string? Error { get; set; }
+  }
+
+  public class VisionReportJob
+  {
+    public Guid Id { get; } = Guid.NewGuid();
+    public string Status { get; set; } = "queued";
+    public string? ProgressText { get; set; }
+    public string? Report { get; set; }
+    public string? Error { get; set; }
+    public DateTime CreatedUtc { get; } = DateTime.UtcNow;
   }
 
   public class YoutubeDownloadRequest

@@ -19,6 +19,8 @@ export interface GTNPCData {
   passengerCount?: number;
   isShootingAt?: boolean;
   isBurning?: boolean;
+  isSmoking?: boolean;
+  maxHealth?: number;
 }
 
 export interface DeadBodyData {
@@ -100,6 +102,7 @@ export interface ParkedCar {
   health: number;
   isBurning?: boolean;
   isSmoking?: boolean;
+  maxHealth?: number;
   smokeStarted?: number;
   fireStarted?: number;
   carFireX?: number; carFireZ?: number; carFireYaw?: number;

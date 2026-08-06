@@ -34,7 +34,7 @@ const WEAPON_DAMAGES = [10, 15, 25, 45, 100];
 const PLAYER_POLL_FAST_MS = 200;
 const PLAYER_POLL_SLOW_MS = 1000;
 const ENTER_CAR_DIST = 4;
-const HOOKER_SECLUDED_RADIUS = 15;
+const HOOKER_SECLUDED_RADIUS = 7;
 const HOOKER_HEAL_PER_SEC = 5;
 const HOOKER_MONEY_PER_SEC = 1;
 const HOOKER_MAX_MONEY = 80;
@@ -92,7 +92,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   camHeight = 2;
   firstPerson = false;
   private isPointerLocked = false;
-  serverNPCs: { id: number; x: number; y: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean; isBurning?: boolean }[] = [];
+  serverNPCs: { id: number; x: number; y: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean; isBurning?: boolean; isSmoking?: boolean; maxHealth?: number }[] = [];
   serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
@@ -137,6 +137,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   _carSmokeTimer = 0;
   _carSmokeStarted = 0;
   _parkedSmokeTimers: { [id: number]: number } = {};
+  private _npcSmokeTimers: { [id: number]: number } = {};
+  private _npcSmokeStarted: { [id: number]: number } = {};
   private _respawnTimer: any = null;
   private _justRespawned = false;
   // True once the server has returned its authoritative weapon/ammo state and we
@@ -1403,9 +1405,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           passengerCount: c.passengerCount ?? 0,
           isShootingAt: c.isShootingAt || false,
           isBurning: c.isBurning || false,
+          isSmoking: c.isSmoking || false,
+          maxHealth: c.maxHealth || 200,
           ...interp
         };
       });
+
+    // Prune per-car smoke throttle/anchor timers once a car leaves the world or stops smoking
+    for (const k of Object.keys(this._npcSmokeTimers)) {
+      const kid = Number(k);
+      if (!this.serverNPCs.some(v => v.id === kid && v.isSmoking)) {
+        delete (this._npcSmokeTimers as any)[k];
+        delete (this._npcSmokeStarted as any)[k];
+      }
+    }
 
     this.serverPedestrians = data.pedestrians
       .filter(p => !this.deadNPCIds.has(p.id))
@@ -1462,6 +1475,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const health = localHp !== undefined ? Math.min(localHp, serverHp) : serverHp;
         if (existing) {
           existing.x = pc.posX; existing.z = pc.posZ; existing.yaw = pc.yaw; existing.health = health; existing.isBurning = pc.isBurning || false;
+          existing.isSmoking = pc.isSmoking || false;
+          existing.maxHealth = pc.maxHealth || 200;
+          // "Recent fires" timer: anchor the burn start once so the client's
+          // 10s burn-out timer actually runs for server-synced parked cars.
+          if (existing.isBurning && !existing.fireStarted) existing.fireStarted = performance.now() / 1000;
+          if (!existing.isBurning) existing.fireStarted = undefined;
+          // "Recent smokes" timer: anchor smoke start once so the parked-car
+          // 10s emission cap below can stop the particles.
+          if (existing.isSmoking && !existing.smokeStarted) existing.smokeStarted = performance.now() / 1000;
+          if (!existing.isSmoking) existing.smokeStarted = undefined;
           return existing;
         }
         let parkedMesh: CityMesh | CityMesh[];
@@ -1477,6 +1500,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           id: pc.id, x: pc.posX, z: pc.posZ, yaw: pc.yaw,
           type: pc.type || 'car', health,
           isBurning: pc.isBurning || false,
+          isSmoking: pc.isSmoking || false,
+          maxHealth: pc.maxHealth || 200,
+          fireStarted: pc.isBurning ? performance.now() / 1000 : undefined,
+          smokeStarted: pc.isSmoking ? performance.now() / 1000 : undefined,
           colorR: pc.colorR, colorG: pc.colorG, colorB: pc.colorB,
           mesh: parkedMesh,
         };
@@ -2751,7 +2778,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (pc.isBurning) {
         const elapsed = now - (pc.fireStarted ?? now);
         if (elapsed >= 10.0) {
-          this.spawnExplosion(pc.x, 0.5, pc.z);
+          if (!this.deadNPCIds.has(pc.id)) {
+            this.deadNPCIds.add(pc.id);
+            this.spawnExplosion(pc.x, 0.5, pc.z);
+          }
           this.parkedCars.splice(i, 1);
           continue;
         }
@@ -2781,6 +2811,38 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
 
+    // Smoke from damaged NPC cars (server-synced health/isSmoking) — per-car
+    // throttle timer so effects don't re-trigger every poll ("recent smokes").
+    const npcNow = performance.now() / 1000;
+    for (const v of this.serverNPCs) {
+      if (!v.isSmoking || v.isBurning || v.health <= 0) {
+        // Not smoking anymore — drop the anchor so a future smoke phase restarts fresh
+        delete (this._npcSmokeStarted as any)[v.id];
+        continue;
+      }
+      // "Recent smokes" timer: once smoke appears on a car, cap particle
+      // emission at 10s — lingering smoke is heavy to render.
+      if (this._npcSmokeStarted[v.id] === undefined) this._npcSmokeStarted[v.id] = npcNow;
+      if (npcNow - this._npcSmokeStarted[v.id] >= 10) continue;
+      if ((this._npcSmokeTimers?.[v.id] ?? 0) >= npcNow - 0.15) continue;
+      (this._npcSmokeTimers ??= {})[v.id] = npcNow;
+      const sinY = Math.sin(v.yaw), cosY = Math.cos(v.yaw);
+      const sx = v.x + cosY * 0.8;
+      const sz = v.z + sinY * 0.8;
+      const smokeY = (v.type === 'helicopter' || v.type === 'plane') ? (v.y || 0) + 0.6 : 0.6;
+      this.carSmoke.push({
+        x: sx + (Math.random() - 0.5) * 0.6,
+        y: smokeY + Math.random() * 0.4,
+        z: sz + (Math.random() - 0.5) * 0.6,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: 0.3 + Math.random() * 0.4,
+        vz: (Math.random() - 0.5) * 0.5,
+        size: 0.4 + Math.random() * 0.5,
+        age: 0,
+        lifetime: 2.0 + Math.random() * 1.5,
+      });
+    }
+
     if (this.health <= 0) {
       if (!this._wasDead) {
         this._wasDead = true;
@@ -2797,6 +2859,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.taxiRideTaxi = null;
         this.taxiRideHidePlayer = false;
         this.showTaxiDestinations = false;
+        // Cancel all active missions (car theft, taxi driver, police).
+        this.cancelAllMissions();
       }
       if (this._wasDead && !this._respawnTimer) {
         this._respawnTimer = setTimeout(() => {
@@ -4667,6 +4731,26 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.parkedCars = this.parkedCars.filter(p => p.id !== this.dealershipTargetCar!.id);
       this.dealershipTargetCar = null;
     }
+  }
+
+  // Aborts every active mission at once (used on death — you can't finish a
+  // job while dead). Clears the taxi driver mission, the car-theft dealership
+  // mission, and the police mission with all its spawned thugs.
+  private cancelAllMissions() {
+    this.taxiMission = null;
+    this.taxiMarkers = [];
+    this.taxiAttachedMeshes = [];
+    this.taxiSearchTimer = 0;
+    this.stopDealershipMission();
+    this.dealershipMarkers = [];
+    this.policeMode = false;
+    this.policeModeThugCars = [];
+    this.policeModeThugPeds = [];
+    this.policeModeSpawnsRemaining = 0;
+    this.policeModeRoundDelay = 0;
+    this.policeModeSpawnTimer = 0;
+    this.policeRound = 0;
+    this.policeModeKills = 0;
   }
 
   startDealershipMission() {

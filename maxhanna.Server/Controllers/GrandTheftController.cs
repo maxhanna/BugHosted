@@ -978,6 +978,7 @@ namespace maxhanna.Server.Controllers
 			public int MaxHealth { get; set; } = 100;
 			public bool OnFire { get; set; } = false;
 			public DateTime? FireStartedAt { get; set; } = null;
+			public bool IsSmoking { get; set; } = false;
 			public DateTime LastUpdate { get; set; }
 			public int TargetUserId { get; set; } = 0;
 			public DateTime? DeadAt { get; set; } = null;
@@ -1388,8 +1389,9 @@ namespace maxhanna.Server.Controllers
 						{
 							int cx = (int)Math.Floor(npc.X / CityLayout.CHUNK_SIZE);
 							int cz = (int)Math.Floor(npc.Z / CityLayout.CHUNK_SIZE);
-							if (!npc.OnFire && CityLayout.GetBiome(cx, cz) == "ocean") { npc.OnFire = true; npc.FireStartedAt = now; }
-							int fireThreshold = Math.Max(80, npc.MaxHealth / 5);
+						if (!npc.OnFire && CityLayout.GetBiome(cx, cz) == "ocean") { npc.OnFire = true; npc.FireStartedAt = now; }
+						npc.IsSmoking = npc.Health > 0 && npc.Health <= npc.MaxHealth * 0.6;
+						int fireThreshold = Math.Max(80, npc.MaxHealth / 5);
 							if (npc.Health <= fireThreshold && !npc.OnFire) { npc.OnFire = true; npc.FireStartedAt = now; }
 							if (npc.OnFire && npc.FireStartedAt.HasValue && (now - npc.FireStartedAt.Value).TotalSeconds >= 10.0)
 							{
@@ -1562,7 +1564,7 @@ namespace maxhanna.Server.Controllers
 
 				if (distSq > 40000f) continue;
 
-				if (npc.IsParked) { parkedCars.Add(new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = 0f, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, health = npc.Health, isBurning = npc.OnFire }); continue; }
+				if (npc.IsParked) { parkedCars.Add(new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = 0f, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, health = npc.Health, isBurning = npc.OnFire, maxHealth = npc.MaxHealth, isSmoking = npc.IsSmoking }); continue; }
 
 				float tdx = npc.TargetX - npc.X;
 				float tdz = npc.TargetZ - npc.Z;
@@ -1578,8 +1580,9 @@ namespace maxhanna.Server.Controllers
 					{
 						int cxc = (int)Math.Floor(npc.X / CityLayout.CHUNK_SIZE);
 						int czc = (int)Math.Floor(npc.Z / CityLayout.CHUNK_SIZE);
-						if (!npc.OnFire && CityLayout.GetBiome(cxc, czc) == "ocean") { npc.OnFire = true; npc.FireStartedAt = now; }
-						int fireThreshold = Math.Max(80, npc.MaxHealth / 5);
+					if (!npc.OnFire && CityLayout.GetBiome(cxc, czc) == "ocean") { npc.OnFire = true; npc.FireStartedAt = now; }
+					npc.IsSmoking = npc.Health > 0 && npc.Health <= npc.MaxHealth * 0.6;
+					int fireThreshold = Math.Max(80, npc.MaxHealth / 5);
 						if (npc.Health <= fireThreshold && !npc.OnFire) { npc.OnFire = true; npc.FireStartedAt = now; }
 						if (npc.OnFire && npc.FireStartedAt.HasValue && (now - npc.FireStartedAt.Value).TotalSeconds >= 10.0)
 						{
@@ -1990,7 +1993,7 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				var entry = new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount, isShootingAt = npc.IsShootingAt, isBurning = npc.OnFire };
+				var entry = new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount, isShootingAt = npc.IsShootingAt, isBurning = npc.OnFire, maxHealth = npc.MaxHealth, isSmoking = npc.IsSmoking };
 				if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") pedestrians.Add(entry);
 				else if (npc.Type == "helicopter" || npc.Type == "plane") aircraft.Add(entry);
 				else cars.Add(entry);

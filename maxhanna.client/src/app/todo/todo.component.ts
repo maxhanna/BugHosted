@@ -104,6 +104,14 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       this.isRenaming.push(type);
     }
   }
+  cancelRename(type: string) {
+    this.isRenaming = this.isRenaming.filter(x => x != type);
+  }
+  // The Edit Lists panel only manages custom lists — the built-in defaults
+  // (Todo, Work, Shopping, ...) can't be renamed or deleted, so they're left out.
+  get customTodoTypes(): string[] {
+    return this.todoTypes.filter(t => !this.defaultTodoTypes.includes(t));
+  }
   renameColumn(oldColumnName: string, newName: string) {
     this.todoService.renameColumn(oldColumnName, newName).then(res => { 
       const column = this.sharedColumns.find(c => c === oldColumnName);

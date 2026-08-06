@@ -22,6 +22,19 @@ export interface VisionReportResult {
   report: string;
 }
 
+export interface VisionReportJobInfo {
+  jobId: string;
+  status: string;
+}
+
+export interface VisionReportStatusResult {
+  jobId: string;
+  status: string;
+  progressText: string;
+  report?: string;
+  error?: string;
+}
+
 export interface YoutubeDownloadResult {
   fileId: number;
   fileName: string;
@@ -93,7 +106,7 @@ export class ConversionService {
     }).catch(() => null);
   }
 
-  visionReport(fileId: number, prompt: string | undefined, userId: number | undefined): Promise<VisionReportResult | null> {
+  startVisionReport(fileId: number, prompt: string | undefined, userId: number | undefined): Promise<VisionReportJobInfo | null> {
     return fetch('/conversion/visionreport', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -102,6 +115,14 @@ export class ConversionService {
       if (!res.ok) return null;
       return await res.json();
     }).catch(() => null);
+  }
+
+  getVisionReportStatus(jobId: string): Promise<VisionReportStatusResult | null> {
+    return fetch(`/conversion/visionreportstatus?jobId=${encodeURIComponent(jobId)}`)
+      .then(async (res) => {
+        if (!res.ok) return null;
+        return await res.json();
+      }).catch(() => null);
   }
 
   startYoutubeDownload(url: string, format: string, userId: number | undefined): Promise<YoutubeDownloadJobInfo | null> {

@@ -35,6 +35,8 @@ export class ConversionComponent extends ChildComponent {
 
   visionPrompt = '';
   isRunningVision = false;
+  visionStatusText = '';
+  visionError = '';
   visionReport?: string;
 
   youtubeUrl = '';
@@ -45,7 +47,7 @@ export class ConversionComponent extends ChildComponent {
   youtubeError = '';
   youtubeResult?: YoutubeDownloadResult;
 
-  asciiStyles = ['Blocks', 'Solid', 'Dots', 'Hash'];
+  asciiStyles = ['Blocks', 'Solid', 'Dots', 'Hash', 'Slash', 'Backslash', 'Bars', 'Stars', 'Dashes', 'Outline', 'Bubbles', 'Sparkle', 'Shade', 'Dither', 'Checker', 'Fade'];
   asciiText = '';
   asciiStyle = 'Blocks';
   asciiScale = 1;
@@ -196,10 +198,36 @@ export class ConversionComponent extends ChildComponent {
     if (!this.selectedFileEntry) return;
 
     this.isRunningVision = true;
+    this.visionReport = undefined;
+    this.visionError = '';
+    this.visionStatusText = 'Starting analysis…';
     try {
-      const result = await this.conversionService.visionReport(this.selectedFileEntry.id, this.visionPrompt || undefined, this.parentRef?.user?.id);
-      this.visionReport = result?.report;
-      if (!this.visionReport) this.parentRef?.showNotification('Vision report failed.');
+      const started = await this.conversionService.startVisionReport(this.selectedFileEntry.id, this.visionPrompt || undefined, this.parentRef?.user?.id);
+      if (!started?.jobId) { this.parentRef?.showNotification('Could not start the analysis.'); return; }
+
+      const jobId = started.jobId;
+      let status = await this.conversionService.getVisionReportStatus(jobId);
+      // Model inference can be slow - give it up to 16 minutes before giving up.
+      const maxWaitMs = 16 * 60 * 1000;
+      const pollIntervalMs = 3000;
+      const startedAt = Date.now();
+
+      while (status && status.status !== 'completed' && status.status !== 'failed' && Date.now() - startedAt < maxWaitMs) {
+        this.visionStatusText = status.progressText || 'Asking the vision model…';
+        await new Promise(r => setTimeout(r, pollIntervalMs));
+        status = await this.conversionService.getVisionReportStatus(jobId);
+      }
+
+      if (status?.status === 'completed') {
+        this.visionReport = status.report;
+        if (!this.visionReport) this.parentRef?.showNotification('The vision model returned no report.');
+      } else if (status?.status === 'failed') {
+        this.visionError = status.error || 'Vision report failed.';
+        this.parentRef?.showNotification('Vision report failed.');
+      } else {
+        this.visionError = 'The analysis is still running - check back in a minute.';
+        this.parentRef?.showNotification('Analysis still in progress.');
+      }
     } finally {
       this.isRunningVision = false;
     }
