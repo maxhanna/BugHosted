@@ -4186,7 +4186,11 @@ void main() {
       const t = s.age / s.lifetime;
       const alpha = (1.0 - t) * 0.45;
       const sz = s.size;
-      this.drawMesh(smokeMesh, s.x, s.y, s.z, 0, [sz, sz, sz], [0.25, 0.25, 0.28, alpha]);
+      // Optional per-particle tint (tire smoke is light gray, engine smoke dark).
+      const sr = s.colorR ?? 0.25;
+      const sg = s.colorG ?? 0.25;
+      const sb = s.colorB ?? 0.28;
+      this.drawMesh(smokeMesh, s.x, s.y, s.z, 0, [sz, sz, sz], [sr, sg, sb, alpha]);
     }
 
     gl.enable(gl.DEPTH_TEST);

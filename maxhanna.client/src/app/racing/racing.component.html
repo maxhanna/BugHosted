@@ -696,7 +696,7 @@
                 </span>
               </div>
               <input class="garage-glow-intensity-slider" type="range" min="0" max="100" step="1"
-                [value]="playerCar.glowIntensity ?? 50" (input)="setGlowIntensity($event)"
+                [value]="playerCar.glowIntensity" (input)="setGlowIntensity($event)"
                 [attr.aria-label]="'Neon glow intensity'" />
               <div class="garage-glow-intensity-scale">
                 <span>Subtle</span>

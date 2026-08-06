@@ -20,6 +20,7 @@ export interface GTNPCData {
   isShootingAt?: boolean;
   isBurning?: boolean;
   isSmoking?: boolean;
+  isFleeing?: boolean;
   maxHealth?: number;
 }
 
@@ -30,6 +31,7 @@ export interface GTHighScoreEntry {
   deaths: number;
   money: number;
   moneyEarned: number; // lifetime cumulative money earned
+  score: number;       // composite ranking: kills * 100 + money
 }
 
 export interface GTJumpRamp {
@@ -100,6 +102,8 @@ export interface GTUpdatePositionResponse {
   droppedWeapons?: any[];
   ammo?:any;
   chatMessages?: { userId: number; username: string; message: string; timestamp: string }[];
+  yourKills?: number;
+  newMoneyRecord?: boolean;
 }
 
 export interface DeadBody {
@@ -371,7 +375,7 @@ export class GrandtheftService {
     }
   }
 
-  async getHighScores(sort: string = 'kills', userId: number = 0, limit: number = 50): Promise<{ results: GTHighScoreEntry[]; totalCount: number; userRank: number; sort: string } | null> {
+  async getHighScores(sort: string = 'score', userId: number = 0, limit: number = 50): Promise<{ results: GTHighScoreEntry[]; totalCount: number; userRank: number; sort: string } | null> {
     try {
       const data: any = await this.http.get(`${this.baseUrl}/highscores?sort=${sort}&userId=${userId}&limit=${limit}`).toPromise();
       return data ?? null;

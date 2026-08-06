@@ -111,6 +111,7 @@
 
     <div id="gt-jumpreadout" *ngIf="jumpReadout">{{ jumpReadout }}</div>
     <div id="gt-jumptoast" *ngIf="jumpToast">{{ jumpToast }}</div>
+    <div id="gt-trophytoast" *ngIf="trophyToast">{{ trophyToast }}</div>
 
     <div id="gt-map" *ngIf="showMap">
       <canvas #gtMapCanvas width="300" height="300"></canvas>
@@ -155,6 +156,7 @@
 
       <ng-container *ngIf="lbTab === 'scores'">
         <div class="lb-sorts">
+          <button class="lb-sort" [class.active]="hsSort === 'score'" (click)="setHsSort('score')">Score</button>
           <button class="lb-sort" [class.active]="hsSort === 'kills'" (click)="setHsSort('kills')">Kills</button>
           <button class="lb-sort" [class.active]="hsSort === 'deaths'" (click)="setHsSort('deaths')">Deaths</button>
           <button class="lb-sort" [class.active]="hsSort === 'money'" (click)="setHsSort('money')">Money</button>
@@ -164,6 +166,7 @@
         <div class="lb-row lb-header-row">
           <span class="lb-rank">#</span>
           <span class="lb-player">Player</span>
+          <span class="lb-stat">Score</span>
           <span class="lb-stat">Kills</span>
           <span class="lb-stat">Deaths</span>
           <span class="lb-stat">Money</span>
@@ -177,6 +180,7 @@
               <app-user-tag [userId]="h.playerId" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
                 [hideName]="false"></app-user-tag>
             </span>
+            <span class="lb-stat">{{ h.score }}</span>
             <span class="lb-stat">{{ h.kills }}</span>
             <span class="lb-stat">{{ h.deaths }}</span>
             <span class="lb-stat">${{ h.money }}</span>

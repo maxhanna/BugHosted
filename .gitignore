@@ -377,3 +377,7 @@ maxhanna.client/bughosted_com.key
 maxhanna.client/src/assets/ender/*
 /maxhanna.client/src/assets/emulatorjs/data/cores/*
 maxhanna.Server/maxhanna.Server.csproj.lscache
+
+## Ignore temporary files, build results, diffs
+**/.freebuff/ 
+**/data/undo/*

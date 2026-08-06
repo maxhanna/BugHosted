@@ -684,6 +684,9 @@ namespace maxhanna.Server.Controllers
 		// per user used to compute those deltas (session baseline on first report).
 		private static readonly ConcurrentDictionary<int, int> _playerMoneyEarned = new();
 		private static readonly ConcurrentDictionary<int, int> _lastReportedMoney = new();
+		// Highest balance the player has ever held — personal-best money record
+		// for the NEW HIGH SCORE toast.
+		private static readonly ConcurrentDictionary<int, int> _playerMoneyPeak = new();
 		private static readonly ConcurrentDictionary<int, int> _playerKills = new();
 		private static readonly ConcurrentDictionary<int, int> _playerDeaths = new();
 		private static readonly ConcurrentDictionary<int, bool> _playerInCar = new();
@@ -734,6 +737,8 @@ namespace maxhanna.Server.Controllers
 			// Lifetime cumulative money earned (accumulated from reported balance
 			// increases) — the 4th sortable leaderboard column.
 			public int MoneyEarned;
+			// Composite ranking = kills * 100 + money — the default leaderboard sort.
+			public int Score;
 		}
 		// Fixed jump ramps (ids must match the client's JUMP_RAMPS list).
 		private static readonly (int Id, string Name)[] JumpRamps = new[]
@@ -830,9 +835,9 @@ namespace maxhanna.Server.Controllers
 						ammoJson = JsonSerializer.Serialize((int[])paj.Clone());
 
 					using var cmd = new MySqlCommand(@"
-					INSERT INTO maxhanna.grandtheft_player_state (user_id, world_id, pos_x, pos_y, pos_z, yaw, pitch, car_yaw, car_speed, health, weapon, weapons_json, ammo_json, money, money_earned, kills, deaths, last_seen)
-					VALUES (@uid, @wid, @px, @py, @pz, @y, @p, @cy, @cs, @h, @w, @weaponsJson, @ammoJson, @money, @earned, @kills, @deaths, UTC_TIMESTAMP())
-					ON DUPLICATE KEY UPDATE pos_x = @px, pos_y = @py, pos_z = @pz, yaw = @y, pitch = @p, car_yaw = @cy, car_speed = @cs, health = @h, weapon = @w, weapons_json = @weaponsJson, ammo_json = @ammoJson, money = @money, money_earned = @earned, kills = @kills, deaths = @deaths, last_seen = UTC_TIMESTAMP()", conn);
+					INSERT INTO maxhanna.grandtheft_player_state (user_id, world_id, pos_x, pos_y, pos_z, yaw, pitch, car_yaw, car_speed, health, weapon, weapons_json, ammo_json, money, money_earned, money_peak, kills, deaths, last_seen)
+					VALUES (@uid, @wid, @px, @py, @pz, @y, @p, @cy, @cs, @h, @w, @weaponsJson, @ammoJson, @money, @earned, @peak, @kills, @deaths, UTC_TIMESTAMP())
+					ON DUPLICATE KEY UPDATE pos_x = @px, pos_y = @py, pos_z = @pz, yaw = @y, pitch = @p, car_yaw = @cy, car_speed = @cs, health = @h, weapon = @w, weapons_json = @weaponsJson, ammo_json = @ammoJson, money = @money, money_earned = @earned, money_peak = @peak, kills = @kills, deaths = @deaths, last_seen = UTC_TIMESTAMP()", conn);
 					cmd.Parameters.AddWithValue("@uid", uid);
 					cmd.Parameters.AddWithValue("@wid", wid);
 					cmd.Parameters.AddWithValue("@px", px);
@@ -849,6 +854,8 @@ namespace maxhanna.Server.Controllers
 					cmd.Parameters.AddWithValue("@money", money);
 					_playerMoneyEarned.TryGetValue(uid, out var earnedMoney);
 					cmd.Parameters.AddWithValue("@earned", earnedMoney);
+					_playerMoneyPeak.TryGetValue(uid, out var peakMoney);
+					cmd.Parameters.AddWithValue("@peak", peakMoney);
 					_playerKills.TryGetValue(uid, out var kills);
 					_playerDeaths.TryGetValue(uid, out var deaths);
 					cmd.Parameters.AddWithValue("@kills", kills);
@@ -867,7 +874,7 @@ namespace maxhanna.Server.Controllers
 			{
 				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				conn.Open();
-				using var cmd = new MySqlCommand("SELECT s.user_id, s.world_id, s.pos_x, s.pos_y, s.pos_z, s.yaw, s.pitch, s.car_yaw, s.car_speed, s.health, s.weapon, s.weapons_json, s.ammo_json, s.money, s.money_earned, s.kills, s.deaths, s.last_seen, u.username FROM maxhanna.grandtheft_player_state s JOIN maxhanna.users u ON s.user_id = u.id WHERE s.user_id = @uid", conn);
+				using var cmd = new MySqlCommand("SELECT s.user_id, s.world_id, s.pos_x, s.pos_y, s.pos_z, s.yaw, s.pitch, s.car_yaw, s.car_speed, s.health, s.weapon, s.weapons_json, s.ammo_json, s.money, s.money_earned, s.money_peak, s.kills, s.deaths, s.last_seen, u.username FROM maxhanna.grandtheft_player_state s JOIN maxhanna.users u ON s.user_id = u.id WHERE s.user_id = @uid", conn);
 				cmd.Parameters.AddWithValue("@uid", userId);
 				using var rdr = cmd.ExecuteReader();
 				if (rdr.Read())
@@ -883,6 +890,7 @@ namespace maxhanna.Server.Controllers
 					_playerHealth[userId] = rdr.GetInt32("health");
 					_playerMoney[userId] = rdr.GetInt32("money");
 					_playerMoneyEarned[userId] = rdr.IsDBNull(rdr.GetOrdinal("money_earned")) ? 0 : rdr.GetInt32("money_earned");
+					_playerMoneyPeak[userId] = rdr.IsDBNull(rdr.GetOrdinal("money_peak")) ? 0 : rdr.GetInt32("money_peak");
 					_lastReportedMoney[userId] = _playerMoney[userId];
 					_playerKills[userId] = rdr.IsDBNull(rdr.GetOrdinal("kills")) ? 0 : rdr.GetInt32("kills");
 					_playerDeaths[userId] = rdr.IsDBNull(rdr.GetOrdinal("deaths")) ? 0 : rdr.GetInt32("deaths");
@@ -953,9 +961,9 @@ namespace maxhanna.Server.Controllers
 							alter.ExecuteNonQuery();
 						}
 					}
-					// High-scores counters (kills / deaths / money_earned) — lifetime
-					// totals for the leaderboard.
-					foreach (var col in new[] { "kills", "deaths", "money_earned" })
+					// High-scores counters (kills / deaths / money_earned / money_peak) —
+					// lifetime totals for the leaderboard + personal-best record toast.
+					foreach (var col in new[] { "kills", "deaths", "money_earned", "money_peak" })
 					{
 						using var check2 = new MySqlCommand(
 							"SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'grandtheft_player_state' AND COLUMN_NAME = @col", conn);
@@ -1054,6 +1062,10 @@ namespace maxhanna.Server.Controllers
 			public bool OnFire { get; set; } = false;
 			public DateTime? FireStartedAt { get; set; } = null;
 			public bool IsSmoking { get; set; } = false;
+			// Set while a shot car has floored it to flee (panic flee after being
+			// shot) — the client uses it to show tire smoke + screech, then clears
+			// once the panic ends.
+			public bool IsFleeing { get; set; } = false;
 			public DateTime LastUpdate { get; set; }
 			public int TargetUserId { get; set; } = 0;
 			public DateTime? DeadAt { get; set; } = null;
@@ -1143,10 +1155,23 @@ namespace maxhanna.Server.Controllers
 				// balance (spending and drops never subtract). First report of a
 				// session sets the baseline so the opening balance isn't double-counted.
 				int reportedMoney = Math.Max(0, req.Money);
+				bool firstMoneyReport = !_lastReportedMoney.ContainsKey(req.UserId);
 				int prevReported = _lastReportedMoney.GetOrAdd(req.UserId, reportedMoney);
+				bool moneyRecord = false;
 				if (reportedMoney > prevReported)
 				{
-					_playerMoneyEarned[req.UserId] = _playerMoneyEarned.GetOrAdd(req.UserId, 0) + (reportedMoney - prevReported);
+					// Clamp so a cheated near-int.MaxValue balance can never overflow
+					// the lifetime total into a negative leaderboard entry.
+					_playerMoneyEarned[req.UserId] = Math.Min(
+						_playerMoneyEarned.GetOrAdd(req.UserId, 0) + (reportedMoney - prevReported),
+						2_000_000_000);
+					// Personal-best balance record (skips the opening balance of a
+					// fresh session so reconnecting never false-celebrates).
+					if (reportedMoney > _playerMoneyPeak.GetOrAdd(req.UserId, reportedMoney))
+					{
+						_playerMoneyPeak[req.UserId] = reportedMoney;
+						moneyRecord = !firstMoneyReport;
+					}
 				}
 				_lastReportedMoney[req.UserId] = reportedMoney;
 				int lastClientHp = _lastClientHealth.GetOrAdd(req.UserId, req.Health);
@@ -1514,7 +1539,8 @@ namespace maxhanna.Server.Controllers
 				var pwArr = _playerWeapons[req.UserId];
 				var paArr = _playerAmmo[req.UserId];
 				var dw = BuildDroppedWeapons();
-				return Ok(new { ok = true, players, wantedLevel, evicted, yourHealth, respawnAtHome, chatMessages, droppedWeapons = dw, ownedWeapons = pwArr, ammo = paArr });
+				int yourKills = _playerKills.TryGetValue(req.UserId, out var yk) ? yk : 0;
+				return Ok(new { ok = true, players, wantedLevel, evicted, yourHealth, respawnAtHome, chatMessages, droppedWeapons = dw, ownedWeapons = pwArr, ammo = paArr, yourKills, newMoneyRecord = moneyRecord });
 			}
 			catch (Exception ex)
 			{
@@ -1708,6 +1734,7 @@ namespace maxhanna.Server.Controllers
 					else
 					{
 						// Once the panic ends, settle back to the car's original cruise speed.
+						npc.IsFleeing = false;
 						if (npc.PrePanicSpeed > 0)
 						{
 							npc.Speed = npc.PrePanicSpeed;
@@ -2139,7 +2166,7 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 
-				var entry = new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount, isShootingAt = npc.IsShootingAt, isBurning = npc.OnFire, maxHealth = npc.MaxHealth, isSmoking = npc.IsSmoking };
+				var entry = new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount,					isShootingAt = npc.IsShootingAt, isBurning = npc.OnFire, maxHealth = npc.MaxHealth, isSmoking = npc.IsSmoking, isFleeing = npc.IsFleeing };
 				if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") pedestrians.Add(entry);
 				else if (npc.Type == "helicopter" || npc.Type == "plane") aircraft.Add(entry);
 				else cars.Add(entry);
@@ -2395,9 +2422,12 @@ namespace maxhanna.Server.Controllers
 		// Lifetime high scores: kills / deaths / current money, persisted across
 		// restarts via grandtheft_player_state (dumped every 30s + on shutdown).
 		[HttpGet("highscores")]
-		public async Task<IActionResult> GetHighScores([FromQuery] string sort = "kills", [FromQuery] int limit = 50, [FromQuery] int userId = 0)
+		public async Task<IActionResult> GetHighScores([FromQuery] string sort = "score", [FromQuery] int limit = 50, [FromQuery] int userId = 0)
 		{
-			string col = sort == "deaths" ? "deaths" : sort == "money" ? "money" : sort == "earned" ? "money_earned" : "kills";
+			// Composite 'score' (kills*100 + money) is the default ranking;
+			// kills/deaths/money/lifetime-earned stay sortable.
+			string key = sort == "deaths" ? "deaths" : sort == "money" ? "money" : sort == "earned" ? "money_earned" : sort == "score" ? "score" : "kills";
+			string sqlOrder = key == "score" ? "(s.kills * 100 + s.money)" : $"s.{key}";
 			try
 			{
 				var rows = new List<HighScoreEntry>();
@@ -2407,11 +2437,11 @@ namespace maxhanna.Server.Controllers
 					using var conn = new MySqlConnection(connStr);
 					await conn.OpenAsync();
 					using var cmd = new MySqlCommand($@"
-						SELECT s.user_id, COALESCE(u.username, 'Unknown') AS player_name, s.kills, s.deaths, s.money, s.money_earned
+						SELECT s.user_id, COALESCE(u.username, 'Unknown') AS player_name, s.kills, s.deaths, s.money, s.money_earned, (s.kills * 100 + s.money) AS score
 						FROM maxhanna.grandtheft_player_state s
 						LEFT JOIN maxhanna.users u ON s.user_id = u.id
 						WHERE s.kills > 0 OR s.deaths > 0 OR s.money > 0 OR s.money_earned > 0
-						ORDER BY s.{col} DESC, s.kills DESC
+						ORDER BY {sqlOrder} DESC, s.kills DESC
 						LIMIT 1000", conn);
 					using var rdr = await cmd.ExecuteReaderAsync();
 					while (await rdr.ReadAsync())
@@ -2423,7 +2453,8 @@ namespace maxhanna.Server.Controllers
 							Kills = rdr.GetInt32(2),
 							Deaths = rdr.GetInt32(3),
 							Money = rdr.GetInt32(4),
-							MoneyEarned = rdr.IsDBNull(5) ? 0 : rdr.GetInt32(5)
+							MoneyEarned = rdr.IsDBNull(5) ? 0 : rdr.GetInt32(5),
+							Score = rdr.IsDBNull(6) ? 0 : (int)Math.Min(2_000_000_000, rdr.GetInt64(6))
 						});
 					}
 				}
@@ -2436,9 +2467,13 @@ namespace maxhanna.Server.Controllers
 					if (_playerMoney.TryGetValue(r.PlayerId, out var m)) r.Money = m;
 					if (_playerMoneyEarned.TryGetValue(r.PlayerId, out var me)) r.MoneyEarned = me;
 				}
+				// Recompute the composite after overlaying live in-memory stats.
+				// Long arithmetic + clamp so a cheated near-int.MaxValue kill count
+				// can never overflow into a negative/absurd leaderboard score.
+				foreach (var r in rows) r.Score = (int)Math.Min(2_000_000_000, (long)r.Kills * 100 + r.Money);
 
 				int totalCount = rows.Count;
-				rows = rows.OrderByDescending(r => col == "deaths" ? r.Deaths : col == "money" ? r.Money : col == "money_earned" ? r.MoneyEarned : r.Kills).ToList();
+				rows = rows.OrderByDescending(r => key == "deaths" ? r.Deaths : key == "money" ? r.Money : key == "money_earned" ? r.MoneyEarned : key == "score" ? r.Score : r.Kills).ToList();
 
 				int userRank = 0;
 				if (userId > 0)
@@ -2448,11 +2483,11 @@ namespace maxhanna.Server.Controllers
 				}
 
 				rows = rows.Take(Math.Min(Math.Max(1, limit), 100)).ToList();
-				return Ok(new { results = rows, totalCount, userRank, sort = col });
+				return Ok(new { results = rows, totalCount, userRank, sort = key });
 			}
 			catch
 			{
-				return Ok(new { results = new List<HighScoreEntry>(), totalCount = 0, userRank = 0, sort = col });
+				return Ok(new { results = new List<HighScoreEntry>(), totalCount = 0, userRank = 0, sort = key });
 			}
 		}
 
@@ -3164,22 +3199,24 @@ namespace maxhanna.Server.Controllers
 						bool attackerOnFoot = !(_playerInCar.TryGetValue(req.AttackerId, out var attackerInCar) && attackerInCar);
 						if (!attackerOnFoot || Random.Shared.NextDouble() < 0.5)
 						{
-							// Floor it and run — panic flee uses Speed * 1.5, so bump it high.
-							kv.Value.PrePanicSpeed = kv.Value.Speed;
-							kv.Value.PanicUntil = DateTime.UtcNow.AddSeconds(8);
-							kv.Value.PanicFromX = req.AttackerX;
-							kv.Value.PanicFromZ = req.AttackerZ;
-							kv.Value.Speed = Math.Max(kv.Value.Speed, 14f);
-							kv.Value.PathIndices = null;
+						// Floor it and run — panic flee uses Speed * 1.5, so bump it high.
+						kv.Value.PrePanicSpeed = kv.Value.Speed;
+						kv.Value.PanicUntil = DateTime.UtcNow.AddSeconds(8);
+						kv.Value.PanicFromX = req.AttackerX;
+						kv.Value.PanicFromZ = req.AttackerZ;
+						kv.Value.Speed = Math.Max(kv.Value.Speed, 14f);
+						kv.Value.PathIndices = null;
+						kv.Value.IsFleeing = true;
 						}
 							else
 							{
 								// Driver bails: the car parks where it is and the driver sprints at the shooter.
-								kv.Value.IsParked = true;
-								kv.Value.HasDriver = false;
-								kv.Value.Speed = 0;
-								kv.Value.PathIndices = null;
-								kv.Value.PanicUntil = null;
+							kv.Value.IsParked = true;
+							kv.Value.HasDriver = false;
+							kv.Value.Speed = 0;
+							kv.Value.PathIndices = null;
+							kv.Value.PanicUntil = null;
+							kv.Value.IsFleeing = false;
 								float bailX = kv.Value.X - (float)Math.Cos(kv.Value.Yaw) * 2.5f;
 								float bailZ = kv.Value.Z - (float)Math.Sin(kv.Value.Yaw) * 2.5f;
 								long bailerId = GetNextNpcId();

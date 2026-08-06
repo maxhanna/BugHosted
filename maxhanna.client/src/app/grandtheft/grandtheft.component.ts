@@ -106,7 +106,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   camHeight = 2;
   firstPerson = false;
   private isPointerLocked = false;
-  serverNPCs: { id: number; x: number; y: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean; isBurning?: boolean; isSmoking?: boolean; maxHealth?: number }[] = [];
+  serverNPCs: { id: number; x: number; y: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean; isBurning?: boolean; isSmoking?: boolean; isFleeing?: boolean; maxHealth?: number }[] = [];
   serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
@@ -153,6 +153,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   _parkedSmokeTimers: { [id: number]: number } = {};
   private _npcSmokeTimers: { [id: number]: number } = {};
   private _npcSmokeStarted: { [id: number]: number } = {};
+  private _npcFleeTimers: { [id: number]: number } = {};
+  private _npcFleeStarted: { [id: number]: number } = {};
+  private _screechCtx: AudioContext | null = null;
+  private _lastScreechTime = 0;
   private _respawnTimer: any = null;
   private _justRespawned = false;
   // True once the server has returned its authoritative weapon/ammo state and we
@@ -171,7 +175,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   showWeaponWheel = false;
   showLeaderboard = false;
   lbTab: 'live' | 'scores' | 'jumps' = 'live';
-  hsSort: 'kills' | 'deaths' | 'money' | 'earned' = 'kills';
+  hsSort: 'kills' | 'deaths' | 'money' | 'earned' | 'score' = 'score';
   highScores: any[] = [];
   hsTotal = 0;
   hsUserRank = 0;
@@ -197,6 +201,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   // per ramp per session' rule the user asked for.
   jumpBonusClaimed: Set<number> = new Set();
   private _jumpToastTimer: any = null;
+  // 🏆 NEW HIGH SCORE toasts — personal-best balance and kill milestones.
+  trophyToast = '';
+  private _trophyToastTimer: any = null;
+  // Last kill milestone toasted (1st kill, then every 10) so we never spam
+  // the same milestone twice.
+  private _lastTrophyKillMilestone = 0;
+  // True once the first poll reported yourKills — that report only baselines
+  // the persisted total so returning players don't get a toast for kills
+  // earned in previous sessions.
+  private _killsBaselineSet = false;
   otherPlayers: OtherPlayerState[] = [];
   tracers: Tracer[] = [];
   muzzleFlashes: MuzzleFlash[] = [];
@@ -205,7 +219,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   bloodSplats: BloodSplat[] = [];
   bloodPools: BloodPool[] = [];
   bulletSmoke: { x: number; y: number; z: number; vx: number; vy: number; vz: number; size: number; age: number; lifetime: number }[] = [];
-  carSmoke: { x: number; y: number; z: number; vx: number; vy: number; vz: number; size: number; age: number; lifetime: number }[] = [];
+  carSmoke: { x: number; y: number; z: number; vx: number; vy: number; vz: number; size: number; age: number; lifetime: number; colorR?: number; colorG?: number; colorB?: number }[] = [];
   deadBodies: DeadBody[] = [];
   deadNPCIds: Set<number> = new Set();
   stolenNpcIds: Set<number> = new Set();
@@ -627,6 +641,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this._destroyed = true;
     this.stopHsRefresh();
     if (this._jumpToastTimer) { clearTimeout(this._jumpToastTimer); this._jumpToastTimer = null; }
+    if (this._trophyToastTimer) { clearTimeout(this._trophyToastTimer); this._trophyToastTimer = null; }
     cancelAnimationFrame(this.animFrameId);
     const canvas = this.canvasRef.nativeElement;
     canvas.removeEventListener('click', this.onCanvasClick);
@@ -650,6 +665,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.stopAutoFire();
     if (this.policeSirenSound) { this.policeSirenSound.pause(); this.policeSirenSound = null; }
     this.stopHeliAudio();
+    if (this._screechCtx) { try { this._screechCtx.close(); } catch { } this._screechCtx = null; }
     this.renderer?.clearCache();
     clearTimeout(this._chatClearTimer);
     this.remove_me("GrandTheftComponent")
@@ -1450,6 +1466,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           isShootingAt: c.isShootingAt || false,
           isBurning: c.isBurning || false,
           isSmoking: c.isSmoking || false,
+          isFleeing: c.isFleeing || false,
           maxHealth: c.maxHealth || 200,
           ...interp
         };
@@ -1461,6 +1478,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (!this.serverNPCs.some(v => v.id === kid && v.isSmoking)) {
         delete (this._npcSmokeTimers as any)[k];
         delete (this._npcSmokeStarted as any)[k];
+      }
+    }
+    // Same pruning for the flee-effect anchors — a car destroyed, despawned or
+    // stolen mid-flee never hits the game-loop delete, so clear it here.
+    for (const k of Object.keys(this._npcFleeTimers)) {
+      const kid = Number(k);
+      if (!this.serverNPCs.some(v => v.id === kid && v.isFleeing)) {
+        delete (this._npcFleeTimers as any)[k];
+        delete (this._npcFleeStarted as any)[k];
       }
     }
 
@@ -1773,6 +1799,37 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.money = res.yourMoney;
     }
 
+    // 🏆 NEW HIGH SCORE toasts: the server reports a new all-time balance
+    // peak (newMoneyRecord) and the running kill total; toast on records and
+    // kill milestones without spamming.
+    if (res) {
+      const trophyMsgs: string[] = [];
+      if (res.newMoneyRecord && res.yourMoney !== undefined) {
+        trophyMsgs.push(`🏆 NEW MONEY RECORD! $${res.yourMoney}`);
+      }
+      if (res.yourKills !== undefined) {
+        const k = res.yourKills;
+        if (!this._killsBaselineSet) {
+          // First report just baselines the persisted kill total so previous
+          // sessions' kills never celebrate on page load.
+          this._killsBaselineSet = true;
+          this._lastTrophyKillMilestone = k >= 10 ? Math.floor(k / 10) * 10 : k >= 1 ? 1 : 0;
+        } else {
+          const milestone = k >= 1 && k < 10 ? 1 : k >= 10 ? Math.floor(k / 10) * 10 : 0;
+          if (milestone > 0 && milestone !== this._lastTrophyKillMilestone) {
+            this._lastTrophyKillMilestone = milestone;
+            trophyMsgs.push(`🏆 NEW KILL RECORD! ${k} kills`);
+          }
+        }
+      }
+      if (trophyMsgs.length > 0) {
+        // Both can fire on the same poll (a kill reward that crosses the
+        // balance peak) — show them stacked in one toast instead of the second
+        // overwriting the first.
+        this.showTrophyToast(trophyMsgs.join('\n'));
+      }
+    }
+
     const existingDeadIds = new Set(this.deadBodies.map(d => d.id));
     if (res && res.deadBodies) {
       for (const db of res.deadBodies) {
@@ -1879,6 +1936,40 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const clone = base.cloneNode(true) as HTMLAudioElement;
       clone.volume = vol * this.sfxVolume;
       clone.play().catch(() => { });
+    } catch (e) { }
+  }
+
+  // Short procedural tire-screech: white noise through a bandpass swept from
+  // ~1600Hz down to ~650Hz with a fast attack and ~0.6s decay — no audio asset
+  // needed. Throttled by the caller so a fleeing car doesn't spam it.
+  private playTireScreech() {
+    if (this.sfxVolume <= 0) return;
+    try {
+      if (!this._screechCtx) {
+        this._screechCtx = new AudioContext();
+        if (this._screechCtx.state === 'suspended') { try { this._screechCtx.resume(); } catch { } }
+      }
+      const ctx = this._screechCtx;
+      if (ctx.state === 'suspended') { try { ctx.resume(); } catch { } }
+      const dur = 0.6;
+      const len = Math.floor(ctx.sampleRate * dur);
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 1.2;
+      bp.frequency.setValueAtTime(1600, ctx.currentTime);
+      bp.frequency.exponentialRampToValueAtTime(650, ctx.currentTime + dur);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.35 * this.sfxVolume, ctx.currentTime + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+      src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+      src.start();
+      src.stop(ctx.currentTime + dur);
     } catch (e) { }
   }
 
@@ -2893,6 +2984,41 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       });
     }
 
+    // Fleeing shot cars: tire screech + rear-wheel smoke for the first ~2.5s
+    // of the panic, so the player hears and sees the getaway launch.
+    for (const v of this.serverNPCs) {
+      if (!v.isFleeing || v.health <= 0) {
+        delete (this._npcFleeStarted as any)[v.id];
+        continue;
+      }
+      if (this._npcFleeStarted[v.id] === undefined) this._npcFleeStarted[v.id] = npcNow;
+      if (npcNow - this._npcFleeStarted[v.id] >= 2.5) continue;
+      if ((this._npcFleeTimers?.[v.id] ?? 0) < npcNow - 0.12) {
+        (this._npcFleeTimers ??= {})[v.id] = npcNow;
+        const sinY = Math.sin(v.yaw), cosY = Math.cos(v.yaw);
+        // Two puffs, one per rear wheel: back along the car + lateral spread.
+        for (const side of [-0.7, 0.7]) {
+          this.carSmoke.push({
+            x: v.x - cosY * 1.3 - sinY * side + (Math.random() - 0.5) * 0.4,
+            y: 0.25 + Math.random() * 0.25,
+            z: v.z - sinY * 1.3 + cosY * side + (Math.random() - 0.5) * 0.4,
+            vx: -cosY * (0.6 + Math.random() * 0.5) + (Math.random() - 0.5) * 0.3,
+            vy: 0.25 + Math.random() * 0.35,
+            vz: -sinY * (0.6 + Math.random() * 0.5) + (Math.random() - 0.5) * 0.3,
+            size: 0.35 + Math.random() * 0.45,
+            age: 0,
+            lifetime: 0.9 + Math.random() * 0.8,
+            // Light gray so it reads as fresh tire smoke, not dark engine smoke.
+            colorR: 0.8, colorG: 0.8, colorB: 0.82,
+          });
+        }
+        if (npcNow - this._lastScreechTime > 0.7) {
+          this._lastScreechTime = npcNow;
+          this.playTireScreech();
+        }
+      }
+    }
+
     if (this.health <= 0) {
       if (!this._wasDead) {
         this._wasDead = true;
@@ -3327,6 +3453,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.jumpToast = msg;
     if (this._jumpToastTimer) clearTimeout(this._jumpToastTimer);
     this._jumpToastTimer = setTimeout(() => { this.jumpToast = ''; }, 4500);
+  }
+
+  private showTrophyToast(msg: string) {
+    this.trophyToast = msg;
+    if (this._trophyToastTimer) clearTimeout(this._trophyToastTimer);
+    this._trophyToastTimer = setTimeout(() => { this.trophyToast = ''; }, 5000);
   }
 
   private async loadJumps() {
@@ -4371,7 +4503,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.otherPlayers.some(p => isNear(p.posX, p.posZ));
 
     if (hasNearbyNPCs) {
-      this.carRockPhase = 0;
+      if (this.hookerMoneyDrained > 0) {
+        // Someone entered the 7m seclusion radius mid-session — hard-interrupt:
+        // the hooker hops out and wanders off instead of pausing-and-resuming
+        // once the area clears. Same radius as the start gate.
+        this.dropPassenger(this.carX, this.carZ, this.carYaw);
+        this.hookerMoneyDrained = 0;
+      } else {
+        // Not secluded yet — block the service from starting, keep the hooker
+        // waiting in the car.
+        this.carRockPhase = 0;
+      }
       return;
     }
 
@@ -5327,7 +5469,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     else if (tab === 'jumps') this.loadJumps();
   }
 
-  setHsSort(sort: 'kills' | 'deaths' | 'money') {
+  setHsSort(sort: 'kills' | 'deaths' | 'money' | 'earned' | 'score') {
     if (this.hsSort === sort) return;
     this.hsSort = sort;
     this.loadHighScores();
