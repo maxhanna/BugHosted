@@ -197,6 +197,17 @@ export class RacingRenderer {
   readonly TRACK_SEGMENTS = 200;
   readonly TRACK_WIDTH = 16;
   readonly TRACK_LENGTH = 2000;
+  // Corner direction signs: the tighter bends on every circuit get an arrow
+  // board on both sides of the track showing which way to turn. Corners are
+  // detected from the net heading change over a ~45-unit arc; each corner gets
+  // a sign at its apex plus an early-warning sign ~60 units before it.
+  private readonly SIGN_TURN_WINDOW = 45;    // arc length used to measure sharpness
+  private readonly SIGN_TURN_MIN = 0.5;      // min net turn (rad) over the window
+  private readonly SIGN_APPROACH_DIST = 60;  // early sign placed this far before the apex
+  private readonly SIGN_BOARD_W = 2.6;       // board width along the track
+  private readonly SIGN_BOARD_H = 1.7;       // board height
+  private readonly SIGN_OFFSET_CLEAR = 3.4;  // board centreline offset beyond the barrier wall
+  private readonly SIGN_BOTTOM_Y = 0.75;     // board bottom height
 
   // Car state for rendering
   carX = 0; carY = 0.3; carZ = 0;
@@ -1026,6 +1037,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.fogColor = [0.4, 0.45, 0.5];
         break;
     }
+    // Rubber-trace tint: darker on Miami's fresh asphalt, gray on the desert sand.
+    this._scrubColor = theme === 'desert' ? [0.11, 0.105, 0.1] : theme === 'miami' ? [0.028, 0.026, 0.024] : [0.05, 0.045, 0.04];
     this.buildScenery();
   }
 
@@ -1097,6 +1110,116 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // ─── Track Mesh Building ───
   // Split into THREE buffers so each pass can set the right lighting/texture mode:
   //  - trackVao  → asphalt road + grass shoulders (textured)
+  // ─── Corner direction signs ───
+  // Detects the tighter bends from the smoothed track curvature (net heading
+  // change over a ~45-unit arc) and appends arrow boards to the barrier buffer.
+  // Sign of the net turn tells left vs right: +heading-rotation = left-hander
+  // (the +perp side is the driver's right, so the chevron head direction on
+  // each board is `turnDir * sideCode`, i.e. the arrow points the way to turn
+  // as the driver looks at the board).
+  private buildCornerSigns(pts: TrackPoint[], barVerts: number[], barIdxs: number[]) {
+    const N = pts.length;
+    if (N < 8) return;
+    const theta: number[] = [];
+    let totalLen = 0;
+    for (let i = 0; i < N; i++) {
+      const a = pts[i], b = pts[(i + 1) % N];
+      theta.push(Math.atan2(a.dirX * b.dirZ - a.dirZ * b.dirX, a.dirX * b.dirX + a.dirZ * b.dirZ));
+      totalLen += Math.hypot(b.x - a.x, b.z - a.z);
+    }
+    const avgSeg = totalLen / N;
+    const win = Math.max(3, Math.min(12, Math.round(this.SIGN_TURN_WINDOW / avgSeg)));
+    // Net turn over a trailing window — a bend, not per-segment noise.
+    const turn: number[] = new Array(N).fill(0);
+    for (let i = 0; i < N; i++) {
+      let s = 0;
+      for (let j = 0; j < win; j++) s += theta[(i - j + N) % N];
+      turn[i] = s;
+    }
+    // Greedy pick: sharpest bends first, spaced far enough apart that a corner
+    // only gets one apex sign (handles wrap-around and S-bends).
+    const sep = Math.max(4, Math.round(win * 1.5));
+    const order = Array.from({ length: N }, (_, i) => i)
+      .sort((x, y) => Math.abs(turn[y]) - Math.abs(turn[x]));
+    const apexes: number[] = [];
+    for (const i of order) {
+      if (Math.abs(turn[i]) < this.SIGN_TURN_MIN) break;
+      if (apexes.some(a => {
+        const d = Math.abs(a - i);
+        return Math.min(d, N - d) < sep;
+      })) continue;
+      apexes.push(i);
+    }
+    const approachSegs = Math.max(2, Math.round(this.SIGN_APPROACH_DIST / avgSeg));
+    for (const i of apexes) {
+      const dir = turn[i] > 0 ? 1 : -1;
+      this.addCornerSign(pts, i, dir, barVerts, barIdxs);
+      this.addCornerSign(pts, (i - approachSegs + N) % N, dir, barVerts, barIdxs);
+    }
+  }
+
+  // A single sign = two boards (one each side of the track) facing the racing
+  // line. Each board: a dark border frame, a white face, and a red chevron
+  // arrow built from a head triangle + shaft quad, offset along the face
+  // normal so the coplanar parts never z-fight. 11-float verts (x y z | nx ny
+  // nz | r g b | u v) matching the barrier buffer, flat colors (uHasTexture=0).
+  private addCornerSign(pts: TrackPoint[], idx: number, turnDir: number, barVerts: number[], barIdxs: number[]) {
+    const pt = pts[idx];
+    const hx = pt.dirX, hz = pt.dirZ;   // heading along the track
+    const px = -pt.dirZ, pz = pt.dirX;  // +perp side (driver's right)
+    const halfW = this.SIGN_BOARD_W / 2;
+    // Outboard of the barrier wall (wall face sits at width/2 + 1.5, cap + 0.3)
+    // so the boards never sit on the racing line.
+    const off = pt.width / 2 + 1.8 + this.SIGN_OFFSET_CLEAR;
+    const bottom = this.SIGN_BOTTOM_Y;
+    const top = bottom + this.SIGN_BOARD_H;
+    const mid = (bottom + top) / 2;
+    for (const sideCode of [1, -1]) {
+      const sx = px * sideCode, sz = pz * sideCode;  // side offset direction
+      const cx = pt.x + sx * off;
+      const cz = pt.z + sz * off;
+      const nx = -sx, nz = -sz;                      // face normal → toward the track
+      const headDir = turnDir * sideCode;            // arrow points +H or -H on the face
+      const base = barVerts.length / 11;
+      const V = (u: number, v: number, e: number, r: number, g: number, b: number) => {
+        barVerts.push(cx + u * hx + nx * e, v, cz + u * hz + nz * e, nx, 0, nz, r, g, b, 0, 0);
+      };
+      const quad = (b00: number, b01: number, b10: number, b11: number) => {
+        barIdxs.push(b00, b01, b10);
+        barIdxs.push(b01, b11, b10);
+      };
+      // Dark border frame (slightly larger, sits behind the white face).
+      V(-halfW - 0.12, bottom - 0.12, -0.01, 0.1, 0.1, 0.1);
+      V(halfW + 0.12, bottom - 0.12, -0.01, 0.1, 0.1, 0.1);
+      V(-halfW - 0.12, top + 0.12, -0.01, 0.1, 0.1, 0.1);
+      V(halfW + 0.12, top + 0.12, -0.01, 0.1, 0.1, 0.1);
+      quad(base, base + 1, base + 2, base + 3);
+      // White face.
+      const b2 = base + 4;
+      V(-halfW, bottom, 0.01, 0.93, 0.93, 0.93);
+      V(halfW, bottom, 0.01, 0.93, 0.93, 0.93);
+      V(-halfW, top, 0.01, 0.93, 0.93, 0.93);
+      V(halfW, top, 0.01, 0.93, 0.93, 0.93);
+      quad(b2, b2 + 1, b2 + 2, b2 + 3);
+      // Red chevron arrow: head triangle + shaft, pointing toward headDir.
+      const b3 = base + 8;
+      const headBaseU = headDir * halfW * 0.32;
+      V(headDir * (halfW - 0.18), mid, 0.03, 0.92, 0.16, 0.14);        // apex
+      V(headBaseU, mid - this.SIGN_BOARD_H * 0.48, 0.03, 0.92, 0.16, 0.14);
+      V(headBaseU, mid + this.SIGN_BOARD_H * 0.48, 0.03, 0.92, 0.16, 0.14);
+      barIdxs.push(b3, b3 + 1, b3 + 2);
+      // Shaft from the head base toward the opposite end.
+      const b4 = base + 11;
+      const shaftEndU = -headDir * halfW * 0.45;
+      const sh = this.SIGN_BOARD_H * 0.15;
+      V(headBaseU, mid - sh, 0.03, 0.92, 0.16, 0.14);
+      V(shaftEndU, mid - sh, 0.03, 0.92, 0.16, 0.14);
+      V(headBaseU, mid + sh, 0.03, 0.92, 0.16, 0.14);
+      V(shaftEndU, mid + sh, 0.03, 0.92, 0.16, 0.14);
+      quad(b4, b4 + 1, b4 + 2, b4 + 3);
+    }
+  }
+
   //  - barrierVao → red/white barrier walls (flat vertex colors, uHasTexture=0)
   //  - finishVao → start/finish checkerboard quad (flat colors, drawn ONCE per lap)
   private buildTrackMesh() {
@@ -1260,6 +1383,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
         barIdxs.push(bTop + 1, bTop + 3, bTop + 2);
       }
     }
+
+    // Corner direction signs — appended to the barrier buffer so they draw in
+    // the main and mirror passes with the same flat-color program.
+    this.buildCornerSigns(pts, barVerts, barIdxs);
 
     const vertArray = new Float32Array(verts);
     const idxArray = new Uint16Array(idxs);
@@ -5282,8 +5409,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private _scrubMarks: { x: number; z: number; yaw: number; len: number; wid: number; life: number; maxLife: number; alphaBase: number }[] = [];
   private _scrubVao: WebGLVertexArrayObject | null = null;
   private _scrubBuf: WebGLBuffer | null = null;
-  private _scrubMax = 900;
+  private _scrubMax = 1200;
   private _scrubInitialized = false;
+  // Rubber-trace tint per surface — near-black on asphalt, neutral gray on
+  // sand so the marks read on the light desert floor. Set in setTheme().
+  private _scrubColor: [number, number, number] = [0.05, 0.045, 0.04];
   // Last mark position per side (`<carKey>:L` / `:R`) — the throttle keeps each
   // front wheel's streaks overlapping (len >= spacing) into clean rubber lines.
   private _scrubLast: Map<string, { x: number; z: number }> = new Map();
@@ -5447,33 +5577,52 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this._scrubBuf = buf;
   }
 
-  // Lay rubber streaks at each FRONT wheel (the locked fronts are what scrub)
-  // once that side has travelled far enough since its last mark. Per-side
-  // throttle keeps len >= spacing, so each side forms one continuous line.
-  // When the pool is full, the oldest (faintest) mark is dropped so busy
-  // multi-car braking events keep laying fresh rubber instead of stalling.
+  // Lay rubber streaks under hard braking at all four wheels — the locked
+  // FRONTS scrub the most, and the rears leave their own traces behind them,
+  // so heavy braking paints the full four-tread pattern like a real racecar.
+  // Each wheel gets its own per-side spacing throttle (front/rear × left/right
+  // keys) so the streaks stay evenly spaced and form continuous lines. When
+  // the pool is full, the oldest (faintest) mark is dropped so busy multi-car
+  // braking events keep laying fresh rubber instead of stalling. `keyPrefix`
+  // is the car id (or 'player'); rear streaks are slightly wider, like F1
+  // rubber.
+  // Brake-fade coupling: once the discs pass SCRUB_FADE_ON (same thresholds as
+  // the physics fade, heat cap 1.35 from updateBrakeHeat), the brakes lose bite
+  // and the streaks get patchier and fainter — the asphalt shows the fade.
   private emitScrubMarks(x: number, z: number, yaw: number, brake: number, speed: number, keyPrefix: string) {
+    const heatArr = keyPrefix === 'player' ? this._playerHeat : this._carHeat.get(keyPrefix);
+    let fade = 1;
+    if (heatArr) {
+      const heat = Math.max(...heatArr);
+      if (heat > this._brakeHeatFadeOn) {
+        const t = Math.min(1, (heat - this._brakeHeatFadeOn) / (this._brakeHeatCap - this._brakeHeatFadeOn));
+        fade = 1 - this._brakeHeatFadeAmount * t;   // full bite → down to 20% at white-hot
+      }
+    }
     const intensity = Math.min(brake, 1);
     if (intensity <= 0) return;
-    const spacing = 1.5 + Math.abs(speed) * 0.03;
+    // Patchier as the fade deepens — up to ~1.8× wider gaps between streaks.
+    const spacing = (1.5 + Math.abs(speed) * 0.03) * (2 - fade);
     const sinY = Math.sin(yaw), cosY = Math.cos(yaw);
-    for (const side of [-1, 1]) {
-      const key = keyPrefix + (side > 0 ? ':R' : ':L');
-      const last = this._scrubLast.get(key) ?? null;
-      const moved = last ? Math.hypot(x - last.x, z - last.z) : Infinity;
-      if (moved < spacing) continue;
-      this._scrubLast.set(key, { x, z });
-      if (this._scrubMarks.length >= this._scrubMax) this._scrubMarks.shift();
-      this._scrubMarks.push({
-        x: x + 0.62 * sinY - side * 0.60 * cosY,
-        z: z + 0.62 * cosY + side * 0.60 * sinY,
-        yaw,
-        len: 2.1 + Math.abs(speed) * 0.04,
-        wid: 0.34 + Math.random() * 0.12,
-        life: 0,
-        maxLife: 4 + Math.random() * 2,
-        alphaBase: 0.2 + intensity * 0.12
-      });
+    for (const axle of [0.62, -0.62]) {
+      for (const side of [-1, 1]) {
+        const key = keyPrefix + (axle > 0 ? 'F' : 'R') + (side > 0 ? 'R' : 'L');
+        const last = this._scrubLast.get(key) ?? null;
+        const moved = last ? Math.hypot(x - last.x, z - last.z) : Infinity;
+        if (moved < spacing) continue;
+        this._scrubLast.set(key, { x, z });
+        if (this._scrubMarks.length >= this._scrubMax) this._scrubMarks.shift();
+        this._scrubMarks.push({
+          x: x + axle * sinY - side * (axle < 0 ? 0.68 : 0.60) * cosY,
+          z: z + axle * cosY + side * (axle < 0 ? 0.68 : 0.60) * sinY,
+          yaw,
+          len: 2.1 + Math.abs(speed) * 0.04,
+          wid: ((axle < 0 ? 0.42 : 0.34) + Math.random() * 0.12) * (0.5 + 0.5 * fade),
+          life: 0,
+          maxLife: 4 + Math.random() * 2,
+          alphaBase: (0.2 + intensity * 0.12) * fade
+        });
+      }
     }
   }
 
@@ -5507,7 +5656,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const hx = sx * mk.len * 0.5, hz = cz * mk.len * 0.5;
       const wx = cz * mk.wid * 0.5, wz = -sx * mk.wid * 0.5;
       const y = 0.02;
-      const p = (px: number, pz: number) => data.push(px, y, pz, 0.05, 0.045, 0.04, alpha);
+      const p = (px: number, pz: number) => data.push(px, y, pz, this._scrubColor[0], this._scrubColor[1], this._scrubColor[2], alpha);
       p(mk.x - hx - wx, mk.z - hz - wz);
       p(mk.x + hx - wx, mk.z + hz - wz);
       p(mk.x + hx + wx, mk.z + hz + wz);
@@ -7571,6 +7720,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
 
   // ─── Persistent brake-disc heat ───
+  // Shared constants for the disc-heat sim and the scrub-mark fade coupling
+  // (thresholds mirror the component's BRAKE_HEAT_FADE_ON/TOP physics fade).
+  private readonly _brakeHeatCap = 1.35;      // disc heat ceiling (white-hot)
+  private readonly _brakeHeatFadeOn = 0.85;   // heat at which bite starts to drop
+  private readonly _brakeHeatFadeAmount = 0.8; // max fade applied to rubber marks
   // Per-wheel heat values (4 wheels) keyed by the car's stable id ('b<idx>' for
   // bots, 'r<connectionId>' for remotes), plus a dedicated tracker for the
   // player's own car (only ever drawn in the mirror pass). Updated once per
@@ -7603,7 +7757,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
         // real F1 brake bias. Faster with braking force and road speed.
         const frontBias = wi < 2 ? 1.12 : 1.0;
         v += (0.9 + 0.85 * force) * (0.35 + 0.65 * speedFactor) * frontBias * dt;
-        v = Math.min(v, 1.35);
+        v = Math.min(v, this._brakeHeatCap);
       } else {
         // Exponential cool-down: the glow lingers a few seconds after the
         // braking zone, then fades to black.
@@ -7633,6 +7787,23 @@ void main() { FragColor = texture(uTex, vUV); }`;
    */
   getPlayerBrakeHeat(): number {
     return Math.max(this._playerHeat[0], this._playerHeat[1], this._playerHeat[2], this._playerHeat[3]);
+  }
+
+  /** Hottest brake-disc heat for an AI/remote car (keyed by the same stable id
+   *  the per-car heat sim uses, e.g. 'b0') — read back by the bot AI so
+   *  over-braking degrades their late-race pace just like the player's. */
+  getCarBrakeHeat(carId: string): number {
+    const h = this._carHeat.get(carId);
+    if (!h) return 0;
+    return Math.max(h[0], h[1], h[2], h[3]);
+  }
+
+  /** Front-wheel lock factor (0..1) for the local player — the same smoothed
+   *  state that scrubs the fronts' visual spin under hard braking, read back
+   *  by the audio so the brake squeal swells and detunes with the actual
+   *  lockup rather than raw brake input. */
+  getPlayerLock(): number {
+    return this._playerLock;
   }
 
   renderCar(x: number, y: number, z: number, yaw: number, r: number, g: number, b: number, speed: number = 0, accel: number = 0, spin?: number, slide: number = 0, appearance?: RacingCarAppearance) {

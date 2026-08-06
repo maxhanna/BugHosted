@@ -32,6 +32,14 @@
   gap: 10px;
   padding: 6px 14px 14px;
   transition: opacity 0.25s ease, transform 0.25s ease;
+  width: calc(100vw - 50px);
+  width: calc(100dvw - 50px);
+}
+
+@media (min-width: 768px) {
+  .navSearchBar {
+    justify-content: center;
+  }
 }
 
 .navSearchBar.hidden {
@@ -133,13 +141,15 @@
 .navSearchClear:hover {
   opacity: 1;
 }
- 
+
 .navSuggestPopup {
   position: relative;
   bottom: calc(100% + 8px);
   left: 0;
   right: 0;
   max-height: 320px;
+  max-width: calc(100vw - 50px);
+  max-width: calc(100dvw - 50px);
   overflow-y: auto;
   background: var(--component-background-color, #202020);
   border: 1px solid var(--main-highlight-color, #3a3a3a);
@@ -171,7 +181,9 @@
 }
 
 @keyframes navSuggestSpin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .navSuggestGroup {
@@ -486,14 +498,14 @@ a {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px; 
+  gap: 8px;
   padding: 16px;
   z-index: 1000;
   cursor: pointer;
 }
 
-.navLink:hover { 
-  z-index: 2; 
+.navLink:hover {
+  z-index: 2;
 }
 
 .app-selection-help {
@@ -510,7 +522,7 @@ a {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-} 
+}
 
 /* Header */
 .help-header {
@@ -523,6 +535,7 @@ a {
   margin: 0;
   font-size: 1.6rem;
 }
+
 .help-title-since {
   margin: 0;
   font-size: xx-small;
@@ -589,8 +602,8 @@ a {
   background: var(--component-background-color);
 }
 
-.okBtn { 
+.okBtn {
   padding-left: 10px;
   padding-right: 10px;
-  font-size: 1rem;   
-} 
+  font-size: 1rem;
+}

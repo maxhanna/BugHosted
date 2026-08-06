@@ -964,6 +964,15 @@
               <div class="brake-temp-peak" #brakePeak></div>
             </div>
             <span class="brake-temp-state" #brakeState></span>
+            <!-- Wheel-lock LEDs: a tiny plan view of the car — the two front
+                 LEDs dim as the fronts lock, rears stay lit. Driven directly
+                 per frame in the render loop like the gauge above. -->
+            <div class="wheel-status" #wheelLeds title="Wheel lock — front LEDs dim as the fronts lock">
+              <div class="wheel-led wheel-led-front" #wheelLedFL></div>
+              <div class="wheel-led wheel-led-front" #wheelLedFR></div>
+              <div class="wheel-led wheel-led-rear" #wheelLedRL></div>
+              <div class="wheel-led wheel-led-rear" #wheelLedRR></div>
+            </div>
           </div>
         </div>
       </div>
@@ -1007,7 +1016,28 @@
     <!-- ─── Finished / Podium ─── -->
     <div id="race-finished" *ngIf="gameState === 'finished'">
       <!-- The race replays behind this translucent overlay on an orbit camera -->
-      <div class="race-replay-badge">🎬 RACE REPLAY</div>
+      <div class="race-replay-badge"><span class="race-replay-badge-static">🎬 RACE REPLAY ·</span> {{ replayDuration > 0 ? replayCamName : '' }}</div>
+      <!-- Thin replay scrubber: drag/click the bar to jump anywhere in the
+           recorded race; hold ◀ ▶ or Space for keys. -->
+      <div class="race-replay-controls" *ngIf="replayDuration > 0">
+        <div class="race-replay-bar-row">
+          <span class="race-replay-status" [title]="replayPaused ? 'Paused (Space)' : 'Playing'">{{ replayScrubIcon }}</span>
+          <span class="race-replay-time">{{ replayTimeLabel }}</span>
+          <div class="race-replay-timeline"
+               (pointerdown)="onReplayScrubStart($event)"
+               (pointermove)="onReplayScrubMove($event)"
+               (pointerup)="onReplayScrubEnd()"
+               (pointercancel)="onReplayScrubEnd()"
+               title="Hold ◀ ▶ to scrub · drag to seek · Space to pause">
+            <div class="race-replay-track">
+              <div class="race-replay-progress" [style.width.%]="replayProgressPct"></div>
+              <div class="race-replay-knob" [style.left.%]="replayKnobLeft"></div>
+            </div>
+          </div>
+          <span class="race-replay-time">{{ replayDurationLabel }}</span>
+        </div>
+        <div class="race-replay-hint">Hold ◀ ▶ to scrub · drag the bar · Space to pause</div>
+      </div>
       <div class="gp-podium">
         <div class="gp-podium-emblem" aria-hidden="true">
           <span class="race-title-flag">🏁</span>

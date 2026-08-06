@@ -2453,6 +2453,30 @@
   text-shadow: 0 0 6px rgba(239,68,68,0.6);
 }
 
+/* Wheel-lock LEDs: a 2×2 plan view of the car next to the brake gauge. The
+   front pair's opacity is driven per frame (0 = fully locked), rears stay lit. */
+.wheel-status {
+  display: grid;
+  grid-template-columns: 5px 5px;
+  grid-template-rows: 5px 5px;
+  gap: 2px;
+  margin-left: 7px;
+  padding: 2px;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 3px;
+  transform: rotate(45deg);
+}
+
+.wheel-led {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 5px rgba(74,222,128,0.9);
+  transition: opacity 0.05s linear;
+}
+
 .panel-row-top {
   margin-top: 8px;
   padding-top: 8px;
@@ -3101,7 +3125,100 @@
   border-radius: 999px;
   border: 1px solid rgba(255,255,255,0.14);
   text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  /* A long driver name on the LEADER CAM label must never push the pill off
+     screen — clamp and ellipsize instead. */
+  max-width: 92vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   pointer-events: none;
+}
+
+/* Replay scrubber — a thin draggable timeline just above the badge. The
+   bar-row shows the current vs total race time; the fill + knob track the
+   replay clock. touch-action: none lets pointer drags work on touch screens. */
+.race-replay-controls {
+  position: absolute;
+  bottom: 46px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(480px, 74vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  z-index: 26;
+}
+.race-replay-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.race-replay-time {
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255,255,255,0.8);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+  white-space: nowrap;
+}
+.race-replay-status {
+  width: 16px;
+  font-size: 11px;
+  text-align: center;
+  color: rgba(255,255,255,0.85);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+  flex-shrink: 0;
+}
+.race-replay-timeline {
+  flex: 1;
+  height: 18px;             /* generous hit area around the 4px track */
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+}
+.race-replay-track {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.race-replay-progress {
+  position: absolute;
+  left: 0; top: 0;
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #ffd54f, #ff7043);
+}
+.race-replay-knob {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #ff7043;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 8px rgba(255,112,67,0.7);
+  pointer-events: none;      /* drags land on the timeline, not the knob */
+}
+.race-replay-hint {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.5);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+  white-space: nowrap;
+}
+
+/* On narrow screens the badge's static prefix would make the pill overflow —
+   keep just the live camera name, tighter letter-spacing. */
+@media (max-width: 520px) {
+  .race-replay-badge .race-replay-badge-static { display: none; }
+  .race-replay-badge { letter-spacing: 2px; }
 }
 
 .gp-podium {
