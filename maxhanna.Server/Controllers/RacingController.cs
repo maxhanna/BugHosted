@@ -95,7 +95,6 @@ namespace maxhanna.Server.Controllers
 		{
 			_config = config;
 			_connStrCache ??= config.GetValue<string>("ConnectionStrings:maxhanna");
-			EnsureSchema();
 			int interval = _persistIntervalSeconds;
 			_persistIntervalSeconds = Math.Max(5, interval);
 			_ = _persistTimer.Value;
@@ -112,52 +111,7 @@ namespace maxhanna.Server.Controllers
 			}
 			RegisterShutdownDump(appLifetime);
 		}
-		
-		// Adds appearance columns (glow_id, accent_id) to racing_player_car if
-		// missing — runs once per process before any load/dump touches the table.
-		private static void EnsureSchema()
-		{
-			if (_schemaEnsured) return;
-			lock (_persistLock)
-			{
-				if (_schemaEnsured) return;
-				_schemaEnsured = true;
-				try
-				{
-					var connStr = GetConnStr();
-					if (string.IsNullOrEmpty(connStr)) return;
-					using var conn = new MySqlConnection(connStr);
-					conn.Open();
-					foreach (var col in new[] { (Name: "glow_id", Def: "INT NOT NULL DEFAULT 0"), (Name: "accent_id", Def: "INT NOT NULL DEFAULT 0"), (Name: "glow_intensity", Def: "INT NOT NULL DEFAULT 50") })
-					{
-						using (var check = new MySqlCommand(
-							"SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'racing_player_car' AND COLUMN_NAME = @col", conn))
-						{
-							check.Parameters.AddWithValue("@col", col.Name);
-							if (Convert.ToInt32(check.ExecuteScalar()) > 0) continue;
-						}
-						using var alter = new MySqlCommand($"ALTER TABLE racing_player_car ADD COLUMN {col.Name} {col.Def};", conn);
-						alter.ExecuteNonQuery();
-						Console.WriteLine($"[Racing] Schema: added racing_player_car.{col.Name}.");
-					}
-					// owned_parts_json: the full set of appearance part ids the player owns.
-					using (var check = new MySqlCommand(
-						"SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'racing_player_car' AND COLUMN_NAME = 'owned_parts_json'", conn))
-					{
-						if (Convert.ToInt32(check.ExecuteScalar()) == 0)
-						{
-							using var alter = new MySqlCommand("ALTER TABLE racing_player_car ADD COLUMN owned_parts_json TEXT NULL;", conn);
-							alter.ExecuteNonQuery();
-							Console.WriteLine("[Racing] Schema: added racing_player_car.owned_parts_json.");
-						}
-					}
-				}
-				catch (Exception ex)
-				{
-					Console.WriteLine($"[Racing] Schema ensure failed: {ex.Message}");
-				}
-			}
-		}
+		 
 		private static string? GetConnStr()
 		{
 			if (!string.IsNullOrEmpty(_connStrCache)) return _connStrCache;

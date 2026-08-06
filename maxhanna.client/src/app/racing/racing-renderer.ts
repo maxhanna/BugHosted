@@ -29,6 +29,20 @@ export interface CrowdPerson {
   flag?: boolean;      // true = holds a small waving Moroccan flag (red field, green star)
 }
 
+// Per-camera state for the heat mask cache: the mask is a camera-projected
+// raster of the static asphalt + finish meshes, and rebuilding it costs two
+// full-resolution track draws every frame. The cache remembers the camera
+// (view translation + rotation basis, and the size it was rasterized at) so a
+// rebuild only happens when the camera actually moved enough to matter.
+interface MaskCamCache {
+  valid: boolean;
+  eyeX: number; eyeY: number; eyeZ: number;  // view translation (view[12..14])
+  r0: number; r1: number; r2: number;        // view right   (view[0..2])
+  f0: number; f1: number; f2: number;        // view forward (-view[8..10])
+  p0: number; p5: number;                    // proj focal lengths (proj[0], proj[5]) — FOV/aspect
+  w: number; h: number;                      // size the mask was rasterized at
+}
+
 // A flag cloth animated in its own per-frame pass (like the crowd) so the
 // fabric flutters instead of sitting still. `kind` is 'rect' (national/team
 // flag — 3 undulating cloth strips, optionally a centre emblem) or 'tri'
@@ -264,6 +278,17 @@ export class RacingRenderer {
   private _heatMaskProjLoc: WebGLUniformLocation | null = null;
   private _heatMaskViewLoc: WebGLUniformLocation | null = null;
   private _heatMaskInitialized = false;
+  // The heat mask is re-rasterized per camera — cached so it only rebuilds
+  // when the camera actually moved enough to matter (see heatMaskNeedsRebuild).
+  // The translation tolerance is safe because the heat shader's distortion is
+  // negligible near the car (where small eye deltas are visible) and sub-pixel
+  // at the horizon (where it's strongest); rotation is tracked tightly so a
+  // yaw/pitch swing never leaves shimmer sitting on the distant track. A
+  // canvas resize (w/h change) also forces a rebuild.
+  private static readonly MASK_CAM_MOVE_SQ = 4;      // ~2.0 world units of eye travel (absorbs ±0.5 screen shake)
+  private static readonly MASK_CAM_ROT_EPS = 0.006;  // ~0.35° per view-basis component
+  private _mainMaskCache: MaskCamCache = { valid: false, eyeX: 0, eyeY: 0, eyeZ: 0, r0: 0, r1: 0, r2: 0, f0: 0, f1: 0, f2: 0, p0: 0, p5: 0, w: 0, h: 0 };
+  private _mirrorMaskCache: MaskCamCache = { valid: false, eyeX: 0, eyeY: 0, eyeZ: 0, r0: 0, r1: 0, r2: 0, f0: 0, f1: 0, f2: 0, p0: 0, p5: 0, w: 0, h: 0 };
   // Mirror heat pass — an intermediate mirror-sized scene texture the rear
   // view renders into on Marrakech, so the same heat shader (at reduced
   // strength) can post-process it into the visible mirror texture and the
@@ -8093,8 +8118,46 @@ void main() {
   // driving surface) using the SAME camera as the scene it masks, so the heat
   // shader can leave the racetrack undistorted. Masks are created lazily per
   // size (canvas-sized for the main pass, mirror-sized for the rear view).
+  /** Returns true when the given camera's mask must be (re)rasterized, and
+   *  records the camera it just rasterized for. Compares the view matrix's
+   *  translation (eye, incl. screen shake) and rotation basis against the last
+   *  build, plus the projection's focal lengths (the speed-based FOV zoom and
+   *  aspect live there, independent of the view), and the raster size. The
+   *  mask is only sampled through a LINEAR-filtered texture, so a few units of
+   *  camera travel inside the tolerance are visually indistinguishable. */
+  private heatMaskNeedsRebuild(proj: Float32Array, view: Float32Array, w: number, h: number, cache: MaskCamCache): boolean {
+    const dx = view[12] - cache.eyeX, dy = view[13] - cache.eyeY, dz = view[14] - cache.eyeZ;
+    const moved = dx * dx + dy * dy + dz * dz > RacingRenderer.MASK_CAM_MOVE_SQ;
+    const e = RacingRenderer.MASK_CAM_ROT_EPS;
+    const rotated =
+      Math.abs(view[0] - cache.r0) > e || Math.abs(view[1] - cache.r1) > e || Math.abs(view[2] - cache.r2) > e ||
+      Math.abs(-view[8] - cache.f0) > e || Math.abs(-view[9] - cache.f1) > e || Math.abs(-view[10] - cache.f2) > e;
+    // FOV zoom is applied to the projection each frame (fovZoom scales with
+    // speed) — a 15% zoom with a barely-moving eye would leave the mask
+    // aligned to the old projection, so a relative delta on the focal lengths
+    // forces a rebuild too.
+    const projChanged =
+      Math.abs(proj[0] - cache.p0) > Math.abs(proj[0]) * 1e-4 ||
+      Math.abs(proj[5] - cache.p5) > Math.abs(proj[5]) * 1e-4;
+    if (!cache.valid || moved || rotated || projChanged || cache.w !== w || cache.h !== h) {
+      cache.valid = true;
+      cache.eyeX = view[12]; cache.eyeY = view[13]; cache.eyeZ = view[14];
+      cache.r0 = view[0]; cache.r1 = view[1]; cache.r2 = view[2];
+      cache.f0 = -view[8]; cache.f1 = -view[9]; cache.f2 = -view[10];
+      cache.p0 = proj[0]; cache.p5 = proj[5];
+      cache.w = w; cache.h = h;
+      return true;
+    }
+    return false;
+  }
+
   private buildHeatMask(proj: Float32Array, view: Float32Array, w: number, h: number, mirror: boolean) {
     const gl = this.gl;
+    // Per-camera cache: skip the rasterization entirely when this camera
+    // hasn't moved enough to change the mask visibly (see heatMaskNeedsRebuild)
+    // — saves two full-resolution track draws on every non-rebuilt frame.
+    const cache = mirror ? this._mirrorMaskCache : this._mainMaskCache;
+    if (!this.heatMaskNeedsRebuild(proj, view, w, h, cache)) return;
     if (!this._heatMaskInitialized) {
       this._heatMaskInitialized = true;
       const vs = `#version 300 es\nin vec3 aPos;\nuniform mat4 uProj;\nuniform mat4 uView;\nvoid main() { gl_Position = uProj * uView * vec4(aPos, 1.0); }`;
@@ -8103,7 +8166,12 @@ void main() {
       this._heatMaskProjLoc = gl.getUniformLocation(this._heatMaskProg, 'uProj');
       this._heatMaskViewLoc = gl.getUniformLocation(this._heatMaskProg, 'uView');
     }
-    if (!this._heatMaskProg) return;
+    if (!this._heatMaskProg) {
+      // Program creation failed (context loss) — re-arm the cache so the next
+      // frame retries the init instead of trusting a never-rasterized mask.
+      cache.valid = false;
+      return;
+    }
     const sizeOk = mirror
       ? !!this._mirrorMaskTex && !!this._mirrorMaskFBO
       : !!this._heatMaskTex && !!this._heatMaskFBO && this._heatMaskW === w && this._heatMaskH === h;
@@ -8428,6 +8496,10 @@ void main() {
       }
       // Program is context-lifetime; just force a fresh rebuild next frame.
       this._heatMaskInitialized = false;
+      // Drop the caches too, so the first frame of the next session (or after
+      // a theme switch) re-rasterizes rather than trusting a dead texture.
+      this._mainMaskCache.valid = false;
+      this._mirrorMaskCache.valid = false;
     }
     this._trackPoints = [];
   }
