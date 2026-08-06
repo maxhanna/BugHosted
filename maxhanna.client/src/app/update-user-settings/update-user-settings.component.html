@@ -303,6 +303,35 @@
        </div>
      </div>
 
+    <!-- TIMEZONE -->
+    <div (click)="isTimezoneToggled = !isTimezoneToggled"
+      *ngIf="!showOnlyAccountSection && !showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlySelectableMenuItems"
+      class="sectionHeaderDiv">
+      <div class="sectionHeaderLabel popupPanelTitle">
+        <div>
+          <span class="helperSpanTitle" title="Calendar notifications (15 min / 1 hr before an event) are scheduled using your local timezone. Keep this in sync with where you are."></span>
+        </div>
+        <div class="settingsSectionHeaderTitle">Timezone</div>
+      </div>
+      <div style="text-align:right;">
+        <button (click)="updateTimezone()" title="Update settings" [disabled]="!isTimezoneToggled"
+          *ngIf="isTimezoneToggled">💾Save Timezone</button>
+      </div>
+    </div>
+    <div *ngIf="isTimezoneToggled" class="sectionDescriptionDiv">
+      <div class="sectionDescriptionSection">
+        <div>Timezone: </div>
+        <div><input type="text" placeholder="e.g. America/New_York" [(ngModel)]="timezone" /></div>
+      </div>
+      <div class="sectionDescriptionSection">
+        <div>Detect: </div>
+        <div>
+          <button (click)="detectTimezone()" title="Use your browser's clock to find your timezone">📡 Detect</button>
+          <span class="xSmallFont">Calendar notifications are sent using your local timezone (e.g. 15 min before, 1 hr before), not the server's.</span>
+        </div>
+      </div>
+    </div>
+
     <!-- BLOCKED USERS -->
     <div (click)="isBlockedUsersToggled = !isBlockedUsersToggled; getBlockedUsers()"
       *ngIf="!showOnlyAccountSection && !showOnlyNicehashApiKeys && !showOnlyKrakenApiKeys && !showOnlySelectableMenuItems && !showOnlyWeatherLocation"

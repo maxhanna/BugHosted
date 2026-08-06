@@ -250,6 +250,16 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private _onKeyDown: (e: KeyboardEvent) => void = () => { };
   private _onKeyUp: (e: KeyboardEvent) => void = () => { };
   private _initAudio: () => void = () => { };
+  // Mobile gesture blockers: swallow pinch-zoom, double-tap zoom and long-press
+  // callouts that would otherwise zoom/select the page while the game is open.
+  // Bound to this component's host element, active only on touch devices, and
+  // removed in ngOnDestroy so nothing leaks after closing the game.
+  private _raceRootEl: HTMLElement | null = null;
+  private _onGestureStart: (e: Event) => void = () => { };
+  private _onGestureChange: (e: Event) => void = () => { };
+  private _onGestureEnd: (e: Event) => void = () => { };
+  private _onDblClick: (e: Event) => void = () => { };
+  private _onContextMenu: (e: Event) => void = () => { };
   private _subOsc: OscillatorNode | null = null;
   private _engineOsc: OscillatorNode | null = null;
   private _engineOsc2: OscillatorNode | null = null;
@@ -322,6 +332,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     private racingHub: RacingHubService,
     private userEventService: UserEventService,
     private ngZone: NgZone,
+    private el: ElementRef,
   ) { super(); }
   ngOnInit() {
     if (typeof window !== 'undefined' && window.innerWidth < 768) this.standingsCollapsed = true;
@@ -635,6 +646,41 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     };
     document.addEventListener('click', this._initAudio);
     document.addEventListener('keydown', this._initAudio);
+    this.setupMobileGestureBlocking();
+  }
+  /** Mobile: swallow pinch-zoom (gesturestart/change/end), double-tap zoom and
+   *  long-press callouts on the whole game. Double-tap / long-press stay enabled
+   *  inside text fields so selection, copy and paste still work. Removed in
+   *  ngOnDestroy via teardownMobileGestureBlocking. */
+  private setupMobileGestureBlocking() {
+    if (!this.isMobile) return;
+    const root = this.el?.nativeElement as HTMLElement | undefined;
+    if (!root) return;
+    this._raceRootEl = root;
+    this._onGestureStart = (e: Event) => e.preventDefault();
+    this._onGestureChange = (e: Event) => e.preventDefault();
+    this._onGestureEnd = (e: Event) => e.preventDefault();
+    this._onDblClick = (e: Event) => { if (!this.isEditableGestureTarget(e)) e.preventDefault(); };
+    this._onContextMenu = (e: Event) => { if (!this.isEditableGestureTarget(e)) e.preventDefault(); };
+    root.addEventListener('gesturestart', this._onGestureStart);
+    root.addEventListener('gesturechange', this._onGestureChange);
+    root.addEventListener('gestureend', this._onGestureEnd);
+    root.addEventListener('dblclick', this._onDblClick);
+    root.addEventListener('contextmenu', this._onContextMenu);
+  }
+  private isEditableGestureTarget(e: Event): boolean {
+    const t = e.target as HTMLElement | null;
+    return !!t && (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t.isContentEditable);
+  }
+  private teardownMobileGestureBlocking() {
+    const root = this._raceRootEl;
+    if (!root) return;
+    root.removeEventListener('gesturestart', this._onGestureStart);
+    root.removeEventListener('gesturechange', this._onGestureChange);
+    root.removeEventListener('gestureend', this._onGestureEnd);
+    root.removeEventListener('dblclick', this._onDblClick);
+    root.removeEventListener('contextmenu', this._onContextMenu);
+    this._raceRootEl = null;
   }
   ngOnDestroy() {
     this._destroyed = true;
@@ -659,6 +705,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     document.removeEventListener('keyup', this._onKeyUp);
     document.removeEventListener('click', this._initAudio);
     document.removeEventListener('keydown', this._initAudio);
+    this.teardownMobileGestureBlocking();
     this.renderer?.dispose();
     this.renderer = null!;
     this.remove_me("RacingComponent");

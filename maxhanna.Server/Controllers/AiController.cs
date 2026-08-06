@@ -18,6 +18,11 @@ namespace maxhanna.Server.Controllers
     private readonly IConfiguration _config;
     private readonly KrakenService _krakenService;
     private readonly HttpClient _httpClient;
+    // Vision inference can run much longer than ordinary chat completions, so
+    // it gets its own client with a longer timeout (the shared client stays at
+    // 20 minutes to keep other AI calls bounded). Must stay above the vision
+    // job's cancellation cap in ConversionController.
+    private readonly HttpClient _visionHttpClient;
     private static readonly SemaphoreSlim _analyzeLock = new SemaphoreSlim(1, 1);
     private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
     private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
@@ -35,6 +40,10 @@ namespace maxhanna.Server.Controllers
       _httpClient = new HttpClient
       {
         Timeout = TimeSpan.FromMinutes(20)
+      };
+      _visionHttpClient = new HttpClient
+      {
+        Timeout = TimeSpan.FromMinutes(40)
       };
 
       _maxVisionThumbnails = _config.GetValue<int?>("Ai:MaxVisionThumbnails") ?? 5;
@@ -920,7 +929,7 @@ namespace maxhanna.Server.Controllers
       string? responseBody = null;
       try
       {
-        resp = await _httpClient.SendAsync(req, ct);
+        resp = await _visionHttpClient.SendAsync(req, ct);
       }
       catch (HttpRequestException hre)
       {

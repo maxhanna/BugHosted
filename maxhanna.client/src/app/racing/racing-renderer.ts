@@ -1143,15 +1143,18 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const segLen = Math.hypot(n.x - p.x, n.z - p.z) || 1;
     const nx = (n.x - p.x) / segLen;
     const nz = (n.z - p.z) / segLen;
-    const bandLen = Math.min(9, segLen * 3);
-    const bandStart = -bandLen / 2;
+    // Longer, forward-biased band so the checker line reads clearly ahead of
+    // the parked car during the countdown instead of being hidden under it.
+    // Back edge stays at -4.5 so the first grid slots (-5..) sit behind the line.
+    const bandLen = Math.min(13, segLen * 3.5);
+    const bandStart = -4.5;
     const verts: number[] = [];
     const idxs: number[] = [];
-    const cols = 12, rows = 6;
+    const cols = 12, rows = 8;
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const white = (r + c) % 2 === 0;
-        const col = white ? 0.95 : 0.08;
+        const col = white ? 1.0 : 0.07;
         const f0 = bandStart + (r / rows) * bandLen;
         const f1 = bandStart + ((r + 1) / rows) * bandLen;
         const x0 = p.x + ppx * (c / cols * 2 - 1) * hw + nx * f0;

@@ -34,5 +34,11 @@
         // Whether the search bar on the navigation page (top nav) is visible.
         [Newtonsoft.Json.JsonProperty("showNavSearch")]
         public bool ShowNavSearch { get; set; } = true;
+
+        // IANA timezone id of the user's browser (e.g. "America/New_York").
+        // Used by SystemBackgroundService so calendar notifications fire
+        // relative to the user's local clock, not the server's.
+        [Newtonsoft.Json.JsonProperty("timezone")]
+        public string? Timezone { get; set; }
     }
 }

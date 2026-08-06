@@ -264,8 +264,10 @@ namespace maxhanna.Server.Controllers
       _visionJobs[job.Id] = job;
       PurgeOldVisionJobs();
 
-      // Hard cap so a wedged model never hangs the job forever.
-      var tokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(15));
+      // Hard cap so a wedged model never hangs the job forever. Vision
+      // inference is slow - 30 minutes of headroom (the dedicated vision HTTP
+      // client in AiController allows 40, so the cap governs the job).
+      var tokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(30));
       _ = Task.Run(async () =>
       {
         try
@@ -302,7 +304,7 @@ namespace maxhanna.Server.Controllers
         {
           job.Status = "failed";
           job.Error = "Vision report timed out - the model took too long. Try a smaller image.";
-          _ = _log.Db("VisionReport timed out after 15 minutes.", request.UserId ?? 0, "CONVERSION", true);
+          _ = _log.Db("VisionReport timed out after 30 minutes.", request.UserId ?? 0, "CONVERSION", true);
         }
         catch (Exception ex)
         {
@@ -332,7 +334,8 @@ namespace maxhanna.Server.Controllers
 
     private static void PurgeOldVisionJobs()
     {
-      var cutoff = DateTime.UtcNow.AddMinutes(-30);
+      // Longer than the 30-minute job cap so a job is never purged mid-flight.
+      var cutoff = DateTime.UtcNow.AddMinutes(-45);
       foreach (var kv in _visionJobs)
       {
         if (kv.Value.CreatedUtc < cutoff) _visionJobs.TryRemove(kv.Key, out _);

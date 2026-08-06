@@ -207,8 +207,9 @@ export class ConversionComponent extends ChildComponent {
 
       const jobId = started.jobId;
       let status = await this.conversionService.getVisionReportStatus(jobId);
-      // Model inference can be slow - give it up to 16 minutes before giving up.
-      const maxWaitMs = 16 * 60 * 1000;
+      // Model inference can be slow - poll for 31 minutes so the client always
+      // outlasts the server's 30-minute job cap and sees the final result.
+      const maxWaitMs = 31 * 60 * 1000;
       const pollIntervalMs = 3000;
       const startedAt = Date.now();
 

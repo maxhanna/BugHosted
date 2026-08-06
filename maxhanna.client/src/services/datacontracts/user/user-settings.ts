@@ -25,4 +25,5 @@ export class UserSettings {
   followPushEnabled?: boolean;
   followEmailEnabled?: boolean;
   showNavSearch?: boolean;
+  timezone?: string;
 }

@@ -14,6 +14,30 @@
   touch-action: none;
   -webkit-touch-callout: none;
 }
+/* Mobile-friendly: kill double-tap zoom, long-press callouts and text
+   selection across the whole racing app. The canvas, joystick and pedals keep
+   their stricter touch-action: none below (declared later, same-or-higher
+   specificity), and inputs stay fully editable/selectable so paste works.
+   The selection/callout rules are scoped to touch devices so desktop mouse
+   users keep normal text selection (the JS gesture blockers are mobile-gated
+   too). */
+.racing-root {
+  touch-action: manipulation;
+}
+@media (hover: none), (pointer: coarse) {
+  .racing-root {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .racing-root input,
+  .racing-root textarea {
+    user-select: text;
+    -webkit-user-select: text;
+    -webkit-touch-callout: default;
+  }
+}
 #race-loading {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -1840,7 +1864,10 @@
   align-items: center;
   justify-content: center;
   gap: 18px;
-  background: radial-gradient(ellipse at center, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.45) 75%, rgba(0,0,0,0.6) 100%);
+  /* Keep the vignette around the lights but leave the road + start/finish
+     line visible below the middle — the old full-screen gradient washed the
+     checker strip out during the countdown. */
+  background: radial-gradient(ellipse 140% 80% at 50% 38%, rgba(0,0,0,0.14) 0%, rgba(0,0,0,0.34) 68%, rgba(0,0,0,0.5) 100%);
   z-index: 20;
   pointer-events: none;
 }

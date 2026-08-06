@@ -3249,16 +3249,17 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
             await conn.OpenAsync();
         
             var sql = @"
-        SELECT u.user_id, ce.type, ce.date, ce.note, ce.reminder
+        SELECT u.user_id, ce.type, ce.date, ce.note, ce.reminder, u.timezone
         FROM user_settings u
         INNER JOIN calendar ce ON u.user_id = ce.ownership
         WHERE u.calendar_notifications_enabled = 1
         UNION
-        SELECT u.user_id, 'Birthday', ua.birthday, ua.description, NULL
+        SELECT u.user_id, 'Birthday', ua.birthday, ua.description, NULL, u.timezone
         FROM user_settings u
         INNER JOIN user_about ua ON ua.user_id = u.user_id
         WHERE u.calendar_notifications_enabled = 1 AND ua.birthday IS NOT NULL";
             var eventsByUser = new Dictionary<int, List<(string Type, DateTime Date, string Note, int? Reminder)>>();
+            var userTimezones = new Dictionary<int, string>();
             await using (var cmd = new MySqlCommand(sql, conn))
             await using (var reader = await cmd.ExecuteReaderAsync())
             {
@@ -3269,6 +3270,10 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
                     var date = reader.GetDateTime("date");
                     var note = reader.IsDBNull(reader.GetOrdinal("note")) ? "" : reader.GetString("note");
                     var reminder = reader.IsDBNull(reader.GetOrdinal("reminder")) ? (int?)null : reader.GetInt32("reminder");
+                    if (!reader.IsDBNull(reader.GetOrdinal("timezone")))
+                    {
+                        userTimezones[userId] = reader.GetString("timezone");
+                    }
                     if (!eventsByUser.TryGetValue(userId, out var list))
                     {
                         eventsByUser[userId] = list = new List<(string, DateTime, string, int?)>();
@@ -3280,17 +3285,25 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
             foreach (var kvp in eventsByUser)
             {
                 var userId = kvp.Key;
+                var tz = ResolveTimeZone(userTimezones.TryGetValue(userId, out var tzId) ? tzId : null);
+                var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(now, tz);
                 var pending = new List<CalendarEntry>(); 
                 foreach (var (type, date, note, reminder) in kvp.Value)
                 {
-                    var occ = NextOccurrenceAfter(now, type, date);
-                    if (occ == null || occ.Value <= now) continue;
+                    // The stored date is a UTC wall-clock instant. Anchor it to
+                    // the user's local wall clock so recurring events keep the
+                    // same local time (DST-safe) and the lead window is computed
+                    // in the user's timezone rather than the server's.
+                    var localTemplate = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(date, DateTimeKind.Utc), tz);
+                    var occLocal = NextOccurrenceAfter(nowLocal, type, localTemplate);
+                    if (occLocal == null || occLocal <= nowLocal) continue;
+                    var occUtc = TimeZoneInfo.ConvertTimeToUtc(occLocal.Value, tz);
                     // Per-event lead time: notify `reminder` minutes before the
                     // event (default 60 minutes when unset, preserving the old
                     // fixed 1-hour window). Fire only once the lead window opens.
                     var lead = reminder ?? 60;
-                    if (now < occ.Value.AddMinutes(-lead)) continue;
-                    pending.Add(new CalendarEntry(1, type, note, occ.Value, userId.ToString(), lead));
+                    if (now < occUtc.AddMinutes(-lead)) continue;
+                    pending.Add(new CalendarEntry(1, type, note, occUtc, userId.ToString(), lead));
                 }
                 // Per-occurrence dedupe: skip occurrences already notified (keyed
                 // on user_id + calendar_date), so one event's notification never
@@ -3311,7 +3324,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
                     .Where(e => e.Date.HasValue && !notifiedOccurrences.Contains(e.Date.Value.ToString("yyyy-MM-dd HH:mm:ss")))
                     .ToList();
                 if (upcoming.Count == 0) continue;
-                var eventList = string.Join(", ", upcoming.Select(e => $"{e.Type} {e.Note} at {e.Date:yyyy-MM-dd HH:mm}"));
+                var eventList = string.Join(", ", upcoming.Select(e => $"{e.Type} {e.Note} at {FormatLocal(e.Date!.Value, tz)}"));
                 var message = $"Upcoming events: {eventList}";
                 await firebaseService.SendFirebaseNotification(userId, message);
                 await using var conn2 = new MySqlConnection(_connectionString);
@@ -3328,6 +3341,24 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
                 usersWithEvents[userId.ToString()] = upcoming;
             }
             return usersWithEvents;
+        }
+        /// Resolves a stored IANA timezone id to a TimeZoneInfo, falling back
+        /// to UTC when unset or invalid (legacy behaviour: stored dates were
+        /// treated as UTC wall-clock).
+        private static TimeZoneInfo ResolveTimeZone(string? id)
+        {
+            if (string.IsNullOrWhiteSpace(id)) return TimeZoneInfo.Utc;
+            try { return TimeZoneInfo.FindSystemTimeZoneById(id); }
+            catch { return TimeZoneInfo.Utc; }
+        }
+        /// Formats a UTC instant in the user's timezone for notification text,
+        /// e.g. "2026-08-06 14:30 (UTC+2)".
+        private static string FormatLocal(DateTime utc, TimeZoneInfo tz)
+        {
+            var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), tz);
+            var offset = tz.GetUtcOffset(local);
+            var sign = offset >= TimeSpan.Zero ? "+" : "-";
+            return $"{local:yyyy-MM-dd HH:mm} (UTC{sign}{Math.Abs(offset.Hours):00}:{Math.Abs(offset.Minutes):00})";
         }
         /// <summary>
         /// Projects the next real occurrence of a calendar event on/after

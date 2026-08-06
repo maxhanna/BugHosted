@@ -102,8 +102,6 @@ namespace maxhanna.Server.Controllers
 						return BadRequest("Either file_id, story_id, recipe_id, or comment_id must be provided.");
 					}
 
-					await EnsureRecipeIdColumnAsync(conn);
-
 					var columnsSql = ", " + string.Join(", ", columns);
 					var paramsSql = ", " + string.Join(", ", paramNames);
 
@@ -169,36 +167,7 @@ namespace maxhanna.Server.Controllers
 				_ = _log.Db("An error occurred while processing the PostComment request. " + ex.Message, request.UserId, "COMMENT", true);
 				return StatusCode(500, "An error occurred while processing the request.");
 			}
-		}
-
-		private static bool _recipeIdColumnEnsured = false;
-		private static readonly object _recipeIdColumnLock = new object();
-		private async Task EnsureRecipeIdColumnAsync(MySqlConnection conn)
-		{
-			if (_recipeIdColumnEnsured) return;
-			try
-			{
-				string checkSql = "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'comments' AND COLUMN_NAME = 'recipe_id';";
-				using (var checkCmd = new MySqlCommand(checkSql, conn))
-				{
-					if (Convert.ToInt32(await checkCmd.ExecuteScalarAsync()) == 0)
-					{
-						using (var alterCmd = new MySqlCommand("ALTER TABLE comments ADD COLUMN recipe_id INT NULL AFTER story_id;", conn))
-						{
-							await alterCmd.ExecuteNonQueryAsync();
-						}
-					}
-					lock (_recipeIdColumnLock)
-					{
-						_recipeIdColumnEnsured = true;
-					}
-				}
-			}
-			catch (Exception ex)
-			{
-				_ = _log.Db("EnsureRecipeIdColumnAsync error: " + ex.Message, null, "COMMENT", true);
-			}
-		}
+		} 
 
 		[HttpPost("/Comment/DeleteComment", Name = "DeleteComment")]
 		public async Task<IActionResult> DeleteComment([FromBody] DeleteCommentRequest request)
@@ -302,8 +271,6 @@ namespace maxhanna.Server.Controllers
 				using (var conn = new MySqlConnection(connectionString))
 				{
 					await conn.OpenAsync();
-
-					await EnsureRecipeIdColumnAsync(conn);
 
 					string sql = @"
 						WITH RECURSIVE comment_tree (id, depth) AS (
@@ -558,8 +525,6 @@ namespace maxhanna.Server.Controllers
 				using (var conn = new MySqlConnection(connectionString))
 				{
 					await conn.OpenAsync();
-
-					await EnsureRecipeIdColumnAsync(conn);
 
 					string whereClause;
 					string paramName;

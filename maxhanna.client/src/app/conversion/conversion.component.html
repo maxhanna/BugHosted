@@ -1,4 +1,8 @@
-<div class="conversion-shell">
+<div class="componentMain">
+  <app-title-bar [title]="'Conversion'" (closeClicked)="remove_me('ConversionComponent');">
+  </app-title-bar>
+
+  <div class="conversion-shell">
   <header class="conversion-hero">
     <div>
       <p class="eyebrow">Conversion Studio</p>
@@ -185,4 +189,5 @@
       </div>
     </div>
   </section>
+  </div>
 </div>

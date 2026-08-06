@@ -87,7 +87,23 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       const userSettings = await this.userService.getUserSettings(this.parentRef?.user?.id) as UserSettings | undefined;
       if (userSettings) {
         this.calendarNotificationsEnabled = userSettings.calendarNotificationsEnabled ?? false;
+        // Seed the timezone from the browser when unset so calendar
+        // notifications fire relative to the user's local clock (15 min / 1 hr
+        // before), not the server's. Only auto-writes when the user hasn't
+        // deliberately set one (e.g. planning events for another zone).
+        const browserTz = this.getBrowserTimezone();
+        if (browserTz && !userSettings.timezone) {
+          this.userService.updateUserSettings(this.parentRef.user.id, [{ settingName: 'timezone', value: browserTz }]);
+        }
       }
+    }
+  }
+
+  private getBrowserTimezone(): string {
+    try {
+      return (Intl.DateTimeFormat().resolvedOptions() as any).timeZone ?? '';
+    } catch {
+      return '';
     }
   }
 

@@ -293,20 +293,33 @@ export class NavigationComponent implements OnInit, OnDestroy {
   }
 
   // Add an unadded app to the user's nav (persisted via the same endpoint the
-  // settings' add-menu-items section uses) and open it immediately.
+  // settings' add-menu-items section uses) and open it immediately. Mirrors
+  // update-user-settings' selectMenuIcon so both surfaces behave identically.
   openUnaddedApp(item: MenuItem) {
     const parent = this._parent;
     const term = this.navSearchTerm.trim();
     this.recordNavSearch(term);
-    if (parent) {
-      if (parent.user?.id) {
-        parent.userSelectedNavigationItems.push(new MenuItem(parent.user.id, item.title));
-        this.userService.addMenuItem(parent.user.id, [item.title]).then(res => {
-          if (res) parent.showNotification(res);
-        });
-      }
-      parent.createComponent(item.title);
+    if (!parent) {
+      this.clearNavSearch();
+      return;
     }
+    // Guard against double-click / double-add before the popup re-renders.
+    const alreadyAdded = parent.userSelectedNavigationItems.some(x => x.title === item.title);
+    if (!alreadyAdded) {
+      parent.userSelectedNavigationItems.push(new MenuItem(parent.user?.id ?? 0, item.title));
+    }
+    if (!parent.user || !parent.user.id) {
+      // Same parity as the settings' app selection: keep it for this session
+      // but tell the user it won't persist until they log in.
+      if (!alreadyAdded) {
+        parent.showNotification("You must be logged in to persist menu selections.");
+      }
+    } else if (!alreadyAdded) {
+      this.userService.addMenuItem(parent.user.id, [item.title]).then(res => {
+        if (res) parent.showNotification(res);
+      });
+    }
+    parent.createComponent(item.title);
     this.clearNavSearch();
   }
 

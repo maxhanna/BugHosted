@@ -70,6 +70,10 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   // Mirrors the 'show_nav_search' user setting — discoverable here in Settings
   // as well as via the 🔍 toggle on the navigation page itself.
   showNavSearch = true;
+  // IANA timezone id of the browser, used so calendar notifications fire
+  // relative to the user's local clock rather than the server's.
+  timezone = '';
+  isTimezoneToggled = false;
   userSettings: UserSettings | null = null;
   app?: any;
   messaging?: any;
@@ -141,6 +145,7 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
           this.followPushEnabled = res.followPushEnabled ?? true;
           this.followEmailEnabled = res.followEmailEnabled ?? false;
           this.showNavSearch = res.showNavSearch ?? true;
+          this.timezone = res.timezone ?? '';
           if (this.displayProfileLocationCheckmark?.nativeElement) {
             this.displayProfileLocationCheckmark.nativeElement.checked = this.displayProfileLocation;
           }
@@ -686,6 +691,33 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
         parent.showNotification(res);
       }
     });
+  }
+
+  async updateTimezone() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user || !user.id) return alert("You must be logged in to save your settings.");
+    if (!this.timezone || !this.timezone.trim()) return alert("Enter a timezone (e.g. America/New_York) or use 📡 Detect.");
+    this.timezone = this.timezone.trim();
+    this.userService.updateUserSettings(user.id, [{ settingName: 'timezone', value: this.timezone }]).then(res => {
+      if (res) {
+        parent.showNotification(res);
+      }
+    });
+  }
+
+  detectTimezone(): void {
+    try {
+      const tz = (Intl.DateTimeFormat().resolvedOptions() as any).timeZone ?? '';
+      if (!tz) {
+        this.parentRef?.showNotification('Could not detect your timezone in this browser.');
+        return;
+      }
+      this.timezone = tz;
+      this.parentRef?.showNotification(`Detected timezone: ${tz} — press 💾 Save Timezone to keep it.`);
+    } catch {
+      this.parentRef?.showNotification('Could not detect your timezone in this browser.');
+    }
   }
   
   async updateNSFW() {

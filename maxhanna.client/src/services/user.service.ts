@@ -1058,4 +1058,5 @@ export type UserSettingName =
   | "weekly_digest_enabled"
   | "follow_notifications_push"
   | "follow_notifications_email"
-  | "show_nav_search";
+  | "show_nav_search"
+  | "timezone";
