@@ -109,6 +109,9 @@
       </div>
     </div>
 
+    <div id="gt-jumpreadout" *ngIf="jumpReadout">{{ jumpReadout }}</div>
+    <div id="gt-jumptoast" *ngIf="jumpToast">{{ jumpToast }}</div>
+
     <div id="gt-map" *ngIf="showMap">
       <canvas #gtMapCanvas width="300" height="300"></canvas>
     </div>
@@ -121,26 +124,93 @@
     </div>
 
     <div id="gt-leaderboard" *ngIf="showLeaderboard">
-      <div class="lb-header">Leaderboard</div>
-      <div class="lb-row lb-header-row">
-        <span class="lb-rank">#</span>
-        <span class="lb-player">Player</span>
-        <span class="lb-stat">Money</span>
-        <span class="lb-stat">Health</span>
-        <span class="lb-stat">Speed</span>
+      <div class="lb-header">Grand Theft · High Scores</div>
+      <div class="lb-tabs">
+        <button class="lb-tab" [class.active]="lbTab === 'live'" (click)="setLbTab('live')">Live</button>
+        <button class="lb-tab" [class.active]="lbTab === 'scores'" (click)="setLbTab('scores')">High Scores</button>
+        <button class="lb-tab" [class.active]="lbTab === 'jumps'" (click)="setLbTab('jumps')">Jumps</button>
       </div>
-      <div class="lb-rows">
-        <div class="lb-row" *ngFor="let p of leaderboardData; let i = index; trackBy: trackByLeaderboard">
-          <span class="lb-rank">{{ i + 1 }}</span>
-          <span class="lb-player">
-            <app-user-tag [userId]="p.userId" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
-              [hideName]="false"></app-user-tag>
-          </span>
-          <span class="lb-stat">${{ p.money }}</span>
-          <span class="lb-stat">{{ p.health }}%</span>
-          <span class="lb-stat">{{ p.carSpeed | number:'1.0-0' }} km/h</span>
+
+      <ng-container *ngIf="lbTab === 'live'">
+        <div class="lb-row lb-header-row">
+          <span class="lb-rank">#</span>
+          <span class="lb-player">Player</span>
+          <span class="lb-stat">Money</span>
+          <span class="lb-stat">Health</span>
+          <span class="lb-stat">Speed</span>
         </div>
-      </div>
+        <div class="lb-rows">
+          <div class="lb-row" *ngFor="let p of leaderboardData; let i = index; trackBy: trackByLeaderboard">
+            <span class="lb-rank">{{ i + 1 }}</span>
+            <span class="lb-player">
+              <app-user-tag [userId]="p.userId" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
+                [hideName]="false"></app-user-tag>
+            </span>
+            <span class="lb-stat">${{ p.money }}</span>
+            <span class="lb-stat">{{ p.health }}%</span>
+            <span class="lb-stat">{{ p.carSpeed | number:'1.0-0' }} km/h</span>
+          </div>
+        </div>
+      </ng-container>
+
+      <ng-container *ngIf="lbTab === 'scores'">
+        <div class="lb-sorts">
+          <button class="lb-sort" [class.active]="hsSort === 'kills'" (click)="setHsSort('kills')">Kills</button>
+          <button class="lb-sort" [class.active]="hsSort === 'deaths'" (click)="setHsSort('deaths')">Deaths</button>
+          <button class="lb-sort" [class.active]="hsSort === 'money'" (click)="setHsSort('money')">Money</button>
+          <span class="lb-sort-hint" *ngIf="hsLoading">loading…</span>
+        </div>
+        <div class="lb-row lb-header-row">
+          <span class="lb-rank">#</span>
+          <span class="lb-player">Player</span>
+          <span class="lb-stat">Kills</span>
+          <span class="lb-stat">Deaths</span>
+          <span class="lb-stat">Money</span>
+        </div>
+        <div class="lb-rows">
+          <div class="lb-row" *ngFor="let h of highScores; let i = index; trackBy: trackByHighScore"
+            [class.lb-me]="h.playerId === getUserId()">
+            <span class="lb-rank">{{ i + 1 }}</span>
+            <span class="lb-player">
+              <app-user-tag [userId]="h.playerId" [inputtedParentRef]="parentRef" [displayMiniTag]="true"
+                [hideName]="false"></app-user-tag>
+            </span>
+            <span class="lb-stat">{{ h.kills }}</span>
+            <span class="lb-stat">{{ h.deaths }}</span>
+            <span class="lb-stat">${{ h.money }}</span>
+          </div>
+          <div class="lb-empty" *ngIf="!hsLoading && highScores.length === 0">No scores yet — go cause some trouble!</div>
+        </div>
+        <div class="lb-rankline" *ngIf="hsUserRank > 0">You are #{{ hsUserRank }} of {{ hsTotal }}</div>
+        <div class="lb-rankline" *ngIf="hsUserRank === 0 && hsTotal > 0">{{ hsTotal }} ranked players</div>
+      </ng-container>
+
+      <ng-container *ngIf="lbTab === 'jumps'">
+        <div class="lb-sorts">
+          <span class="lb-sort-hint">Find the orange ramps on the streets — cash for beating your best!</span>
+        </div>
+        <div class="lb-row lb-header-row">
+          <span class="lb-rank">#</span>
+          <span class="lb-player">Ramp</span>
+          <span class="lb-stat">Your best</span>
+          <span class="lb-stat">Height</span>
+          <span class="lb-stat">Earned</span>
+        </div>
+        <div class="lb-rows">
+          <div class="lb-row" *ngFor="let j of jumpRampData; let i = index; trackBy: trackByJump">
+            <span class="lb-rank">{{ i + 1 }}</span>
+            <span class="lb-player">
+              <span class="jump-name">🛹 {{ j.name }}</span>
+              <span class="jump-holder" *ngIf="j.globalHolder">🏆 {{ j.globalHolder }} · {{ j.globalBest }}m</span>
+            </span>
+            <span class="lb-stat">{{ j.userBest > 0 ? j.userBest + 'm' : '—' }}</span>
+            <span class="lb-stat">{{ j.userHeight > 0 ? j.userHeight + 'm' : '—' }}</span>
+            <span class="lb-stat">${{ j.userReward }}</span>
+          </div>
+          <div class="lb-empty" *ngIf="jumpRampData.length === 0">No jump data yet — hit a ramp!</div>
+        </div>
+      </ng-container>
+
       <div class="lb-footer">Press L to close</div>
     </div>
 

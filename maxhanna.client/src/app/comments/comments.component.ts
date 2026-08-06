@@ -373,7 +373,6 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
   }
 
   private scrollRootSectionToBottom() {
-    console.log("FIRED scrollRootSectionToBottom");
     if (!this.rootCommentsSection) return;
     try {
       const div = this.rootCommentsSection.nativeElement;
@@ -606,10 +605,54 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     } else {
       if (!parentComment.comments) { parentComment.comments = []; }
       parentComment.comments.push(commentAdded);
+      // Make sure the sub-commentary for this reply is open so the new
+      // comment actually appears there — a collapsed sub-commentary would
+      // otherwise leave the reply hidden under the post's Reply button.
+      if (this.minimizedComments.has(parentComment.id)) {
+        this.minimizedComments.delete(parentComment.id);
+      }
     }
     this.replyingToCommentId = undefined;
     this.replyingToCommentEvent.emit(this.replyingToCommentId);
     this.scheduleCommentPollRender();
+    // After the DOM renders the new comment, scroll it into the sub-commentary
+    // so the poster sees it (and not the closed reply area under the post).
+    setTimeout(() => this.scrollCommentIntoView(commentAdded.id), 120);
+  }
+
+  // Scrolls the newly-added comment into view with an anchored scroll: the
+  // comment is always appended to the end of the list, so scrolling the
+  // comments-section container to its bottom reveals it without ever fighting
+  // other scroll containers on the page (scrollIntoView would also scroll
+  // every ancestor container). Nested .comments-section containers are forced
+  // overflow-y: visible by CSS, so the walk finds the top-level scrollable one.
+  private scrollCommentIntoView(commentId: number) {
+    try {
+      let el = document.getElementById('commentText' + commentId);
+      if (!el) {
+        el = document.getElementById('subComment' + commentId);
+      }
+      if (!el) return;
+      // Walk up from the target to the nearest scrollable .comments-section
+      // (only the outermost one can scroll) and anchor it to its bottom.
+      let node: HTMLElement | null = el;
+      while (node && node !== document.body) {
+        if (node.classList && node.classList.contains('comments-section')) {
+          const style = getComputedStyle(node);
+          const canScroll = (style.overflowY === 'auto' || style.overflowY === 'scroll') && node.scrollHeight > node.clientHeight;
+          if (canScroll) {
+            node.scrollTop = node.scrollHeight;
+            break;
+          }
+        }
+        node = node.parentElement;
+      }
+      // Re-focus the newly added comment's text so it reads as 'visited'.
+      el.classList?.add('justPostedComment');
+      // Drop the highlight class once the flash has played so it never
+      // re-triggers on later interactions with the same element.
+      setTimeout(() => el.classList?.remove('justPostedComment'), 2600);
+    } catch { }
   }
 
   private scheduleCommentPollRender() {

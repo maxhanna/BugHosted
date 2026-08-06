@@ -361,12 +361,17 @@
             <div class="garage-spotlight"></div>
             <div class="car-3d-wrap">
               <div class="car-preview-container" [style.transform]="getCarTransform()"
+                [style.--glow-intensity]="glowIntensityVar"
                 [class.car-dragging]="isCarDragging" (pointerdown)="onCarPointerDown($event)"
                 (pointermove)="onCarPointerMove($event)" (pointerup)="onCarPointerUp()"
                 (pointercancel)="onCarPointerUp()" (pointerleave)="onCarPointerUp()"
                 (wheel)="onCarWheel($event)" title="Drag to rotate · scroll to zoom">
                 <!-- Ground shadow (flat ellipse on the floor) -->
                 <div class="car-shadow"></div>
+                <!-- Neon glow pool — bright colored puddle/reflection on the
+                     floor in the selected glow colour, so the parked car reads
+                     as lit from below (matches the racing renderer's neon). -->
+                <div class="car-glow-pool" *ngIf="playerCar.glowId" [ngClass]="getGlowStyle()"></div>
                 <!-- Neon underglow (livery accent glow below the undertray) -->
                 <div class="car-underglow" *ngIf="playerCar.glowId" [ngClass]="getGlowStyle()"></div>
 
@@ -679,6 +684,23 @@
                     <span *ngIf="!isAppearanceOwned(p)">${{ p.cost | number:'1.0-0' }}</span>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <!-- Neon intensity slider — only shown once a glow is equipped. -->
+            <div class="garage-glow-intensity" *ngIf="playerCar.glowId">
+              <div class="garage-glow-intensity-header">
+                <span class="garage-glow-intensity-title">💡 NEON INTENSITY</span>
+                <span class="garage-glow-intensity-value" [class.glow-blinding]="glowIntensityLabel === 'Blinding'">
+                  {{ glowIntensityLabel }} · {{ playerCar.glowIntensity }}%
+                </span>
+              </div>
+              <input class="garage-glow-intensity-slider" type="range" min="0" max="100" step="1"
+                [value]="playerCar.glowIntensity ?? 50" (input)="setGlowIntensity($event)"
+                [attr.aria-label]="'Neon glow intensity'" />
+              <div class="garage-glow-intensity-scale">
+                <span>Subtle</span>
+                <span>Blinding</span>
               </div>
             </div>
           </div>

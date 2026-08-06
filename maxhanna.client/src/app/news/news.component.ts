@@ -40,7 +40,18 @@ export class NewsComponent extends ChildComponent implements OnInit {
   }
   async ngOnInit() {
     let preventLoadNews = false;
-    if (this.parentRef?.user?.id) {
+    // When opened from the nav search suggestions, the caller passes the term
+    // directly — no need to fetch the user's saved default search.
+    if (this.defaultSearch && this.defaultSearch.trim()) {
+      const term = this.defaultSearch.trim();
+      setTimeout(() => {
+        if (this.searchKeywords?.nativeElement) {
+          this.searchKeywords.nativeElement.value = term;
+        }
+        this.searchByKeyword();
+      }, 30);
+      preventLoadNews = true;
+    } else if (this.parentRef?.user?.id) {
       try {
         this.newsService.getDefaultSearch(this.parentRef.user.id).then(
           res => {

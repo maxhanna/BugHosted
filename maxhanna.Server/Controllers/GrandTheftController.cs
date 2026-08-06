@@ -679,6 +679,8 @@ namespace maxhanna.Server.Controllers
 		private const float COP_DETECTION_RANGE_SQ = COP_DETECTION_RANGE * COP_DETECTION_RANGE;
 		private static readonly ConcurrentDictionary<int, double> _lastPoliceDamageTime = new();
 		private static readonly ConcurrentDictionary<int, int> _playerMoney = new();
+		private static readonly ConcurrentDictionary<int, int> _playerKills = new();
+		private static readonly ConcurrentDictionary<int, int> _playerDeaths = new();
 		private static readonly ConcurrentDictionary<int, bool> _playerInCar = new();
 		private static readonly ConcurrentDictionary<int, DateTime> _playerInCarTime = new();
 		private static readonly ConcurrentDictionary<int, bool> _evictedPlayers = new();
@@ -717,6 +719,31 @@ namespace maxhanna.Server.Controllers
 			public bool IsHomeBase { get; set; }
 			public DateTime DroppedAt { get; set; }
 		}
+		private sealed class HighScoreEntry
+		{
+			public int PlayerId;
+			public string PlayerName = "";
+			public int Kills;
+			public int Deaths;
+			public int Money;
+		}
+		// Fixed jump ramps (ids must match the client's JUMP_RAMPS list).
+		private static readonly (int Id, string Name)[] JumpRamps = new[]
+		{
+			(1, "Home Straight"),
+			(2, "Boulevard Blast"),
+			(3, "Crossroads Launch")
+		};
+		private sealed class JumpScore
+		{
+			public int UserId;
+			public int RampId;
+			public double BestDistance;
+			public double BestHeight;
+			public int RewardTotal;
+		}
+		private static readonly ConcurrentDictionary<long, JumpScore> _jumpScores = new();
+		private static long JumpKey(int userId, int rampId) => ((long)userId << 20) | (uint)rampId;
 		private static readonly ConcurrentDictionary<int, bool[]> _playerWeapons = new();
 		private static readonly ConcurrentDictionary<int, int[]> _playerAmmo = new();
 		private static readonly bool[] _homeBaseWeaponCollected = new bool[5];
@@ -795,9 +822,9 @@ namespace maxhanna.Server.Controllers
 						ammoJson = JsonSerializer.Serialize((int[])paj.Clone());
 
 					using var cmd = new MySqlCommand(@"
-						INSERT INTO maxhanna.grandtheft_player_state (user_id, world_id, pos_x, pos_y, pos_z, yaw, pitch, car_yaw, car_speed, health, weapon, weapons_json, ammo_json, money, last_seen)
-						VALUES (@uid, @wid, @px, @py, @pz, @y, @p, @cy, @cs, @h, @w, @weaponsJson, @ammoJson, @money, UTC_TIMESTAMP())
-						ON DUPLICATE KEY UPDATE pos_x = @px, pos_y = @py, pos_z = @pz, yaw = @y, pitch = @p, car_yaw = @cy, car_speed = @cs, health = @h, weapon = @w, weapons_json = @weaponsJson, ammo_json = @ammoJson, money = @money, last_seen = UTC_TIMESTAMP()", conn);
+						INSERT INTO maxhanna.grandtheft_player_state (user_id, world_id, pos_x, pos_y, pos_z, yaw, pitch, car_yaw, car_speed, health, weapon, weapons_json, ammo_json, money, kills, deaths, last_seen)
+						VALUES (@uid, @wid, @px, @py, @pz, @y, @p, @cy, @cs, @h, @w, @weaponsJson, @ammoJson, @money, @kills, @deaths, UTC_TIMESTAMP())
+						ON DUPLICATE KEY UPDATE pos_x = @px, pos_y = @py, pos_z = @pz, yaw = @y, pitch = @p, car_yaw = @cy, car_speed = @cs, health = @h, weapon = @w, weapons_json = @weaponsJson, ammo_json = @ammoJson, money = @money, kills = @kills, deaths = @deaths, last_seen = UTC_TIMESTAMP()", conn);
 					cmd.Parameters.AddWithValue("@uid", uid);
 					cmd.Parameters.AddWithValue("@wid", wid);
 					cmd.Parameters.AddWithValue("@px", px);
@@ -812,6 +839,10 @@ namespace maxhanna.Server.Controllers
 					cmd.Parameters.AddWithValue("@weaponsJson", weaponsJson);
 					cmd.Parameters.AddWithValue("@ammoJson", ammoJson);
 					cmd.Parameters.AddWithValue("@money", money);
+					_playerKills.TryGetValue(uid, out var kills);
+					_playerDeaths.TryGetValue(uid, out var deaths);
+					cmd.Parameters.AddWithValue("@kills", kills);
+					cmd.Parameters.AddWithValue("@deaths", deaths);
 					cmd.ExecuteNonQuery();
 				}
 			}
@@ -826,7 +857,7 @@ namespace maxhanna.Server.Controllers
 			{
 				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				conn.Open();
-				using var cmd = new MySqlCommand("SELECT s.user_id, s.world_id, s.pos_x, s.pos_y, s.pos_z, s.yaw, s.pitch, s.car_yaw, s.car_speed, s.health, s.weapon, s.weapons_json, s.ammo_json, s.money, s.last_seen, u.username FROM maxhanna.grandtheft_player_state s JOIN maxhanna.users u ON s.user_id = u.id WHERE s.user_id = @uid", conn);
+				using var cmd = new MySqlCommand("SELECT s.user_id, s.world_id, s.pos_x, s.pos_y, s.pos_z, s.yaw, s.pitch, s.car_yaw, s.car_speed, s.health, s.weapon, s.weapons_json, s.ammo_json, s.money, s.kills, s.deaths, s.last_seen, u.username FROM maxhanna.grandtheft_player_state s JOIN maxhanna.users u ON s.user_id = u.id WHERE s.user_id = @uid", conn);
 				cmd.Parameters.AddWithValue("@uid", userId);
 				using var rdr = cmd.ExecuteReader();
 				if (rdr.Read())
@@ -841,6 +872,8 @@ namespace maxhanna.Server.Controllers
 					_playerCarSpeed[userId] = rdr.GetFloat("car_speed");
 					_playerHealth[userId] = rdr.GetInt32("health");
 					_playerMoney[userId] = rdr.GetInt32("money");
+					_playerKills[userId] = rdr.IsDBNull(rdr.GetOrdinal("kills")) ? 0 : rdr.GetInt32("kills");
+					_playerDeaths[userId] = rdr.IsDBNull(rdr.GetOrdinal("deaths")) ? 0 : rdr.GetInt32("deaths");
 					_playerWorldId[userId] = rdr.GetInt32("world_id");
 					_playerUsername[userId] = rdr.GetString("username");
 					// Restore the full weapon/ammo arrays (previously only the single
@@ -908,6 +941,31 @@ namespace maxhanna.Server.Controllers
 							alter.ExecuteNonQuery();
 						}
 					}
+					// High-scores counters (kills / deaths) — lifetime totals for the leaderboard.
+					foreach (var col in new[] { "kills", "deaths" })
+					{
+						using var check2 = new MySqlCommand(
+							"SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'grandtheft_player_state' AND COLUMN_NAME = @col", conn);
+						check2.Parameters.AddWithValue("@col", col);
+						if (Convert.ToInt32(check2.ExecuteScalar()) == 0)
+						{
+							using var alter2 = new MySqlCommand(
+								$"ALTER TABLE maxhanna.grandtheft_player_state ADD COLUMN {col} INT NOT NULL DEFAULT 0;", conn);
+							alter2.ExecuteNonQuery();
+						}
+					}
+					// Jump high scores: per-ramp best distance/height per user + cash earned.
+					using var jumpTable = new MySqlCommand(@"
+						CREATE TABLE IF NOT EXISTS maxhanna.grandtheft_jump_scores (
+							user_id INT NOT NULL,
+							ramp_id INT NOT NULL,
+							best_distance DOUBLE NOT NULL DEFAULT 0,
+							best_height DOUBLE NOT NULL DEFAULT 0,
+							reward_total INT NOT NULL DEFAULT 0,
+							updated_at DATETIME NULL,
+							PRIMARY KEY (user_id, ramp_id)
+						)", conn);
+					jumpTable.ExecuteNonQuery();
 					_schemaEnsured = true;
 				}
 				catch { }
@@ -920,6 +978,9 @@ namespace maxhanna.Server.Controllers
 
 			var messages = _worldChatMessages.GetOrAdd(worldId, _ => new List<ChatMessageEntry>());
 			_playerDeathBroadcasted[playerId] = true;
+
+			// Lifetime death count for the high-scores leaderboard (once per death).
+			_playerDeaths[playerId] = (_playerDeaths.TryGetValue(playerId, out var deathCount) ? deathCount : 0) + 1;
 			lock (messages)
 			{
 				string msg = $"{killerName} killed {victimName} {cause}";
@@ -969,6 +1030,7 @@ namespace maxhanna.Server.Controllers
 			public float Y { get; set; } = 0f;
 			public float Yaw { get; set; }
 			public float Speed { get; set; }
+			public float PrePanicSpeed { get; set; } = 0f;
 			public float TargetX { get; set; }
 			public float TargetZ { get; set; }
 			public float Cr { get; set; }
@@ -1001,6 +1063,9 @@ namespace maxhanna.Server.Controllers
 			public DateTime? PanicUntil { get; set; } = null;
 			public float PanicFromX { get; set; } = 0f;
 			public float PanicFromZ { get; set; } = 0f;
+			// When set (and not expired) the ped chases + punches the player who
+			// hit them unarmed (fight-back). Cops never get this — they don't brawl.
+			public DateTime? FightBackUntil { get; set; } = null;
 			// Aircraft phase state machine: "parked" | "taxiing" | "taking_off" | "flying" | "landing"
 			public string AircraftPhase { get; set; } = "flying";
 			public DateTime PhaseStartedAt { get; set; } = DateTime.UtcNow;
@@ -1619,6 +1684,13 @@ namespace maxhanna.Server.Controllers
 					}
 					else
 					{
+						// Once the panic ends, settle back to the car's original cruise speed.
+						if (npc.PrePanicSpeed > 0)
+						{
+							npc.Speed = npc.PrePanicSpeed;
+							npc.PrePanicSpeed = 0;
+						}
+
 						int npcCX = (int)Math.Floor(npc.X / CityLayout.CHUNK_SIZE);
 						int npcCZ = (int)Math.Floor(npc.Z / CityLayout.CHUNK_SIZE);
 
@@ -1934,13 +2006,63 @@ namespace maxhanna.Server.Controllers
 				}
 				else
 				{
-					// Pedestrian movement
-					if (distToTarget < 2.0f)
+					// Melee fight-back: when punched (unarmed), the ped chases the
+					// attacker and punches back — except cops, who don't brawl.
+					if (npc.FightBackUntil.HasValue && now < npc.FightBackUntil.Value && npc.TargetUserId > 0 && _playerX.TryGetValue(npc.TargetUserId, out var fbx) && _playerZ.TryGetValue(npc.TargetUserId, out var fbz))
 					{
-						GetRandomSidewalkPointNearPlayer(posX, posZ, out float targetX, out float targetZ, rng);
-						npc.TargetX = targetX;
-						npc.TargetZ = targetZ;
+						// Reset the punch flag each pass (like cops do) so it only reads
+						// true during the pass where a punch actually lands.
+						npc.IsShootingAt = false;
+						float fdx = fbx - npc.X;
+						float fdz = fbz - npc.Z;
+						float fdist = (float)Math.Sqrt(fdx * fdx + fdz * fdz);
+						const float PUNCH_RANGE = 1.7f;
+						if (fdist > PUNCH_RANGE)
+						{
+							float chaseSpeed = npc.Speed * 1.6f;
+							float mX = (fdx / fdist) * chaseSpeed * 0.5f;
+							float mZ = (fdz / fdist) * chaseSpeed * 0.5f;
+							float nX = npc.X + mX;
+							float nZ = npc.Z + mZ;
+							int fcX = (int)Math.Floor(nX / CityLayout.CHUNK_SIZE);
+							int fcZ = (int)Math.Floor(nZ / CityLayout.CHUNK_SIZE);
+							string fb = CityLayout.GetBiome(fcX, fcZ);
+							if (fb != "ocean" && fb != "beach" && !CityLayout.IsBuildingAt(nX, nZ)) { npc.X = nX; npc.Z = nZ; }
+							npc.Yaw = (float)Math.Atan2(mX, mZ);
+						}
+						else
+						{
+							npc.Yaw = (float)Math.Atan2(fdx, fdz);
+							var nowMs = now.Ticks / TimeSpan.TicksPerMillisecond;
+							if (npc.LastShotTime == 0 || (nowMs - npc.LastShotTime) > 700)
+							{
+								npc.LastShotTime = nowMs;
+								npc.IsShootingAt = true;
+								if (_playerHealth.TryGetValue(npc.TargetUserId, out var ph))
+								{
+									int nh = Math.Max(0, ph - 4);
+									_playerHealth[npc.TargetUserId] = nh;
+									if (nh <= 0)
+										BroadcastDeathMessage(npc.TargetUserId, _playerX[npc.TargetUserId], _playerZ[npc.TargetUserId], null, 1, "ped", _playerUsername[npc.TargetUserId], "");
+								}
+							}
+						}
 					}
+					else
+					{
+						if (npc.FightBackUntil.HasValue && now >= npc.FightBackUntil.Value)
+						{
+							npc.FightBackUntil = null;
+							npc.TargetUserId = 0;
+							npc.IsShootingAt = false;
+						}
+						// Pedestrian movement
+						if (distToTarget < 2.0f)
+						{
+							GetRandomSidewalkPointNearPlayer(posX, posZ, out float targetX, out float targetZ, rng);
+							npc.TargetX = targetX;
+							npc.TargetZ = targetZ;
+						}
 					else
 					{
 						float moveX = (tdx / distToTarget) * npc.Speed * 0.5f;
@@ -1990,6 +2112,7 @@ namespace maxhanna.Server.Controllers
 						string pedBiome = CityLayout.GetBiome(pedCX, pedCZ);
 						if (pedBiome != "ocean" && pedBiome != "beach" && !CityLayout.IsBuildingAt(nextX, nextZ)) { npc.X = nextX; npc.Z = nextZ; }
 						npc.Yaw = (float)Math.Atan2(moveX, moveZ);
+					}
 					}
 				}
 
@@ -2244,6 +2367,174 @@ namespace maxhanna.Server.Controllers
 			}
 
 			return Ok(activePlayers);
+		}
+
+		// Lifetime high scores: kills / deaths / current money, persisted across
+		// restarts via grandtheft_player_state (dumped every 30s + on shutdown).
+		[HttpGet("highscores")]
+		public async Task<IActionResult> GetHighScores([FromQuery] string sort = "kills", [FromQuery] int limit = 50, [FromQuery] int userId = 0)
+		{
+			string col = sort == "deaths" ? "deaths" : sort == "money" ? "money" : "kills";
+			try
+			{
+				var rows = new List<HighScoreEntry>();
+				var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna");
+				if (!string.IsNullOrEmpty(connStr))
+				{
+					using var conn = new MySqlConnection(connStr);
+					await conn.OpenAsync();
+					using var cmd = new MySqlCommand($@"
+						SELECT s.user_id, COALESCE(u.username, 'Unknown') AS player_name, s.kills, s.deaths, s.money
+						FROM maxhanna.grandtheft_player_state s
+						LEFT JOIN maxhanna.users u ON s.user_id = u.id
+						WHERE s.kills > 0 OR s.deaths > 0 OR s.money > 0
+						ORDER BY s.{col} DESC, s.kills DESC
+						LIMIT 1000", conn);
+					using var rdr = await cmd.ExecuteReaderAsync();
+					while (await rdr.ReadAsync())
+					{
+						rows.Add(new HighScoreEntry
+						{
+							PlayerId = rdr.GetInt32(0),
+							PlayerName = rdr.GetString(1),
+							Kills = rdr.GetInt32(2),
+							Deaths = rdr.GetInt32(3),
+							Money = rdr.GetInt32(4)
+						});
+					}
+				}
+
+				// Overlay fresher in-memory stats for anyone currently connected.
+				foreach (var r in rows)
+				{
+					if (_playerKills.TryGetValue(r.PlayerId, out var k)) r.Kills = k;
+					if (_playerDeaths.TryGetValue(r.PlayerId, out var d)) r.Deaths = d;
+					if (_playerMoney.TryGetValue(r.PlayerId, out var m)) r.Money = m;
+				}
+
+				int totalCount = rows.Count;
+				rows = rows.OrderByDescending(r => col == "deaths" ? r.Deaths : col == "money" ? r.Money : r.Kills).ToList();
+
+				int userRank = 0;
+				if (userId > 0)
+				{
+					for (int i = 0; i < rows.Count; i++)
+						if (rows[i].PlayerId == userId) { userRank = i + 1; break; }
+				}
+
+				rows = rows.Take(Math.Min(Math.Max(1, limit), 100)).ToList();
+				return Ok(new { results = rows, totalCount, userRank, sort = col });
+			}
+			catch
+			{
+				return Ok(new { results = new List<HighScoreEntry>(), totalCount = 0, userRank = 0, sort = col });
+			}
+		}
+
+		// Jump ramp records: global best distance + holder per ramp, and the
+		// caller's own best distance / height / total cash earned per ramp.
+		[HttpGet("jumps")]
+		public async Task<IActionResult> GetJumps([FromQuery] int userId = 0)
+		{
+			try
+			{
+				var ramps = new List<object>();
+				var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna");
+				foreach (var r in JumpRamps)
+				{
+					double globalBest = 0; string globalHolder = "";
+					double userBest = 0, userHeight = 0; int userReward = 0;
+					if (!string.IsNullOrEmpty(connStr))
+					{
+						using var conn = new MySqlConnection(connStr);
+						await conn.OpenAsync();
+						using (var cmd = new MySqlCommand(@"
+							SELECT s.best_distance, COALESCE(u.username, 'Unknown')
+							FROM maxhanna.grandtheft_jump_scores s
+							LEFT JOIN maxhanna.users u ON s.user_id = u.id
+							WHERE s.ramp_id = @rid
+							ORDER BY s.best_distance DESC LIMIT 1", conn))
+						{
+							cmd.Parameters.AddWithValue("@rid", r.Id);
+							using var rdr = await cmd.ExecuteReaderAsync();
+							if (await rdr.ReadAsync()) { globalBest = rdr.GetDouble(0); globalHolder = rdr.GetString(1); }
+						}
+						if (userId > 0)
+						{
+							using (var cmd2 = new MySqlCommand(@"
+								SELECT best_distance, best_height, reward_total
+								FROM maxhanna.grandtheft_jump_scores
+								WHERE user_id = @uid AND ramp_id = @rid", conn))
+							{
+								cmd2.Parameters.AddWithValue("@uid", userId);
+								cmd2.Parameters.AddWithValue("@rid", r.Id);
+								using var rdr2 = await cmd2.ExecuteReaderAsync();
+								if (await rdr2.ReadAsync()) { userBest = rdr2.GetDouble(0); userHeight = rdr2.GetDouble(1); userReward = rdr2.GetInt32(2); }
+							}
+						}
+					}
+					ramps.Add(new { id = r.Id, name = r.Name, globalBest = Math.Round(globalBest, 1), globalHolder, userBest = Math.Round(userBest, 1), userHeight = Math.Round(userHeight, 1), userReward });
+				}
+				return Ok(new { ramps });
+			}
+			catch { return Ok(new { ramps = new List<object>() }); }
+		}
+
+		// Records a jump landing. Cash is only paid when the distance beats the
+		// player's previous best on that ramp (authoritative so it can't be farmed).
+		[HttpPost("jump")]
+		public async Task<IActionResult> SubmitJump([FromBody] GTJumpRequest req)
+		{
+			if (req.UserId <= 0 || req.RampId <= 0 || !JumpRamps.Any(r => r.Id == req.RampId) || req.Distance < 8 || req.Distance > 2000) return Ok(new { ok = false });
+			try
+			{
+				var key = JumpKey(req.UserId, req.RampId);
+				if (!_jumpScores.TryGetValue(key, out var score))
+				{
+					score = new JumpScore { UserId = req.UserId, RampId = req.RampId };
+					var connStr0 = _config.GetValue<string>("ConnectionStrings:maxhanna");
+					if (!string.IsNullOrEmpty(connStr0))
+					{
+						using var conn = new MySqlConnection(connStr0);
+						await conn.OpenAsync();
+						using var cmd = new MySqlCommand("SELECT best_distance, best_height, reward_total FROM maxhanna.grandtheft_jump_scores WHERE user_id = @uid AND ramp_id = @rid", conn);
+						cmd.Parameters.AddWithValue("@uid", req.UserId);
+						cmd.Parameters.AddWithValue("@rid", req.RampId);
+						using var rdr = await cmd.ExecuteReaderAsync();
+						if (await rdr.ReadAsync()) { score.BestDistance = rdr.GetDouble(0); score.BestHeight = rdr.GetDouble(1); score.RewardTotal = rdr.GetInt32(2); }
+					}
+					_jumpScores[key] = score;
+				}
+
+				double prevBest = score.BestDistance;
+				bool isRecord = req.Distance > prevBest;
+				int reward = 0;
+				if (isRecord)
+				{
+					score.BestDistance = req.Distance;
+					if (req.Height > score.BestHeight) score.BestHeight = req.Height;
+					reward = Math.Min(50 + (int)(req.Distance * 3), 1000);
+					score.RewardTotal += reward;
+					var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna");
+					if (!string.IsNullOrEmpty(connStr))
+					{
+						using var conn = new MySqlConnection(connStr);
+						await conn.OpenAsync();
+						using var cmd = new MySqlCommand(@"
+							INSERT INTO maxhanna.grandtheft_jump_scores (user_id, ramp_id, best_distance, best_height, reward_total, updated_at)
+							VALUES (@uid, @rid, @dist, @hgt, @rew, UTC_TIMESTAMP())
+							ON DUPLICATE KEY UPDATE best_distance = @dist, best_height = @hgt, reward_total = @rew, updated_at = UTC_TIMESTAMP()", conn);
+						cmd.Parameters.AddWithValue("@uid", req.UserId);
+						cmd.Parameters.AddWithValue("@rid", req.RampId);
+						cmd.Parameters.AddWithValue("@dist", req.Distance);
+						cmd.Parameters.AddWithValue("@hgt", req.Height);
+						cmd.Parameters.AddWithValue("@rew", score.RewardTotal);
+						await cmd.ExecuteNonQueryAsync();
+					}
+				}
+				return Ok(new { ok = true, isRecord, reward, distance = req.Distance, height = req.Height, prevBest = Math.Round(prevBest, 1), bestDistance = Math.Round(score.BestDistance, 1) });
+			}
+			catch { return Ok(new { ok = false }); }
 		}
 
 		private List<object> BuildDroppedWeapons()
@@ -2762,6 +3053,37 @@ namespace maxhanna.Server.Controllers
 			return Ok(new { ok = true, id });
 		}
 
+		// Spawns a moving NPC taxi (used when a taxi passenger ride ends — the
+		// ride taxi "becomes" a regular NPC taxi and drives away via the road sim).
+		[HttpPost("spawntaxi")]
+		public IActionResult SpawnTaxi([FromBody] GTSpawnTaxiRequest req)
+		{
+			if (!_worldNpcs.ContainsKey(req.WorldId)) _worldNpcs[req.WorldId] = new ConcurrentDictionary<long, NpcState>();
+			var npcs = _worldNpcs[req.WorldId];
+			long id = GetNextNpcId();
+			npcs[id] = new NpcState
+			{
+				Id = id,
+				Type = "taxi",
+				IsParked = false,
+				X = req.PosX,
+				Z = req.PosZ,
+				Yaw = req.Yaw,
+				TargetX = req.PosX,
+				TargetZ = req.PosZ,
+				Speed = 8f,
+				Health = 200,
+				MaxHealth = 200,
+				Cr = 1f,
+				Cg = 0.85f,
+				Cb = 0.1f,
+				HasDriver = true,
+				PassengerCount = 0,
+				Gender = "male"
+			};
+			return Ok(new { ok = true, id });
+		}
+
 		[HttpPost("hit")]
 		public IActionResult Hit([FromBody] GTHitRequest req)
 		{
@@ -2795,9 +3117,75 @@ namespace maxhanna.Server.Controllers
 							}
 						}
 						targetHealthResult = kv.Value.Health;
-						kv.Value.PanicUntil = DateTime.UtcNow.AddSeconds(5);
-						kv.Value.PanicFromX = req.AttackerX;
-						kv.Value.PanicFromZ = req.AttackerZ;
+						// Credit an NPC kill toward the shooter's high score.
+						if (targetDied && req.AttackerId > 0)
+							_playerKills[req.AttackerId] = (_playerKills.TryGetValue(req.AttackerId, out var npcKills) ? npcKills : 0) + 1;
+						// Unarmed hits make a civilian fight back with punches instead of
+						// fleeing (cops don't brawl — they keep their usual behavior).
+						bool isPedTarget = kv.Value.Type == "ped_male" || kv.Value.Type == "ped_female";
+						bool isCopTarget = kv.Value.Type == "cop" || kv.Value.Type == "police";
+						bool isAircraftTarget = kv.Value.Type == "helicopter" || kv.Value.Type == "plane";
+						if (req.Weapon == 0 && isPedTarget && !isCopTarget && req.AttackerId > 0)
+						{
+							kv.Value.TargetUserId = req.AttackerId;
+							kv.Value.FightBackUntil = DateTime.UtcNow.AddSeconds(8);
+							kv.Value.PanicUntil = null;
+						}
+					else if (isVehicle && !isAircraftTarget && !isCopTarget && !kv.Value.IsParked && kv.Value.HasDriver && kv.Value.Speed <= 5.0f && req.AttackerId > 0)
+					{
+						// A slow/stopped car that gets shot reacts: half the time the driver
+						// floors it and flees, half the time they bail out — and when the
+						// shooter is on foot, the driver chases them and fights unarmed.
+						bool attackerOnFoot = !(_playerInCar.TryGetValue(req.AttackerId, out var attackerInCar) && attackerInCar);
+						if (!attackerOnFoot || Random.Shared.NextDouble() < 0.5)
+						{
+							// Floor it and run — panic flee uses Speed * 1.5, so bump it high.
+							kv.Value.PrePanicSpeed = kv.Value.Speed;
+							kv.Value.PanicUntil = DateTime.UtcNow.AddSeconds(8);
+							kv.Value.PanicFromX = req.AttackerX;
+							kv.Value.PanicFromZ = req.AttackerZ;
+							kv.Value.Speed = Math.Max(kv.Value.Speed, 14f);
+							kv.Value.PathIndices = null;
+						}
+							else
+							{
+								// Driver bails: the car parks where it is and the driver sprints at the shooter.
+								kv.Value.IsParked = true;
+								kv.Value.HasDriver = false;
+								kv.Value.Speed = 0;
+								kv.Value.PathIndices = null;
+								kv.Value.PanicUntil = null;
+								float bailX = kv.Value.X - (float)Math.Cos(kv.Value.Yaw) * 2.5f;
+								float bailZ = kv.Value.Z - (float)Math.Sin(kv.Value.Yaw) * 2.5f;
+								long bailerId = GetNextNpcId();
+								string bailerGender = string.IsNullOrEmpty(kv.Value.Gender) ? "male" : kv.Value.Gender!;
+								npcs[bailerId] = new NpcState
+								{
+									Id = bailerId,
+									Type = "ped_" + bailerGender,
+									Gender = bailerGender,
+									X = bailX,
+									Z = bailZ,
+									TargetX = req.AttackerX,
+									TargetZ = req.AttackerZ,
+									Yaw = (float)Math.Atan2(req.AttackerX - bailX, req.AttackerZ - bailZ),
+									Speed = 2.0f,
+									Health = 50,
+									MaxHealth = 50,
+									Cr = 0.4f,
+									Cg = 0.4f,
+									Cb = 0.4f,
+									TargetUserId = req.AttackerId,
+									FightBackUntil = DateTime.UtcNow.AddSeconds(10)
+								};
+							}
+						}
+						else
+						{
+							kv.Value.PanicUntil = DateTime.UtcNow.AddSeconds(5);
+							kv.Value.PanicFromX = req.AttackerX;
+							kv.Value.PanicFromZ = req.AttackerZ;
+						}
 						break;
 					}
 				}
@@ -2807,7 +3195,7 @@ namespace maxhanna.Server.Controllers
 					float panicRadiusSq = panicRadius * panicRadius;
 					foreach (var kv in npcs)
 					{
-						if (kv.Value.DeadAt.HasValue || kv.Value.PanicUntil.HasValue) continue;
+						if (kv.Value.DeadAt.HasValue || kv.Value.PanicUntil.HasValue || kv.Value.FightBackUntil.HasValue || kv.Value.IsParked) continue;
 						float pdx = kv.Value.X - req.AttackerX;
 						float pdz = kv.Value.Z - req.AttackerZ;
 						if (pdx * pdx + pdz * pdz < panicRadiusSq)
@@ -2845,6 +3233,8 @@ namespace maxhanna.Server.Controllers
 						string victimName = _playerUsername.GetOrAdd(playerTargetId, $"Player{playerTargetId}");
 						string killerName = _playerUsername.GetOrAdd(req.AttackerId, $"Player{req.AttackerId}");
 						BroadcastDeathMessage(playerTargetId, deathX, deathZ, null, req.WorldId, killerName, victimName, " with a weapon");
+						// Credit the player-versus-player kill on the high-scores leaderboard.
+						_playerKills[req.AttackerId] = (_playerKills.TryGetValue(req.AttackerId, out var pvpKills) ? pvpKills : 0) + 1;
 					} 
 				}
 			}
@@ -2973,7 +3363,9 @@ namespace maxhanna.Server.Controllers
 	public class GrandTheftScoreRequest { public int UserId { get; set; } public int Score { get; set; } }
 	public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string? ModelUrl { get; set; } public int Money { get; set; } = 0; public bool IsInCar { get; set; } public string? VehicleType { get; set; } public float CarColorR { get; set; } = 1f; public float CarColorG { get; set; } = 1f; public float CarColorB { get; set; } = 1f; public int PassengerOfUserId { get; set; } = 0; public string? ChatMessage { get; set; } public bool Respawned { get; set; } public bool[]? OwnedWeapons { get; set; } public int[]? Ammo { get; set; } }
 	public class GTShootRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public int Weapon { get; set; } = 0; public float OriginX { get; set; } public float OriginY { get; set; } public float OriginZ { get; set; } public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } }
-	public class GTHitRequest { public int AttackerId { get; set; } public long TargetId { get; set; } public int WorldId { get; set; } = 1; public int Damage { get; set; } = 10; public float AttackerX { get; set; } public float AttackerZ { get; set; } }
+	public class GTHitRequest { public int AttackerId { get; set; } public long TargetId { get; set; } public int WorldId { get; set; } = 1; public int Damage { get; set; } = 10; public int Weapon { get; set; } = -1; public float AttackerX { get; set; } public float AttackerZ { get; set; } }
+	public class GTSpawnTaxiRequest { public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } }
+	public class GTJumpRequest { public int UserId { get; set; } public int RampId { get; set; } public double Distance { get; set; } public double Height { get; set; } }
 	public class GTStealCarRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; }
 	public class GTParkCarRequest { public int WorldId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float ColorR { get; set; } public float ColorG { get; set; } public float ColorB { get; set; } public string? VehicleType { get; set; } }
 	public class GTGarageRequest { public int UserId { get; set; } public string? VehicleType { get; set; } public float ColorR { get; set; } = 1f; public float ColorG { get; set; } = 1f; public float ColorB { get; set; } = 1f; public float Yaw { get; set; } = 0f; }

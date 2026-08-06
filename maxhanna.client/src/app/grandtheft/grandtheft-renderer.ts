@@ -625,6 +625,8 @@ export class GrandTheftRenderer {
   public hydrantMesh: CityMesh[] | null = null;
   public benchMeshes: CityMesh[][] = [];
   public barrelMesh: CityMesh[] | null = null;
+  public jumpRampMesh: CityMesh | null = null;
+  public jumpRamps: { id: number; x: number; z: number; yaw: number }[] = [];
   public chickenMesh: CityMesh[] | null = null;
   public palmTreeMesh: CityMesh[] | null = null;
   public cityTreeMesh: CityMesh[] | null = null;
@@ -4128,6 +4130,18 @@ void main() {
 
     if (this.hospitalMesh) this.drawMesh(this.hospitalMesh, 40, 0.06, 40, 0, [15, 10, 15]);
     if (this.homeBaseMesh) this.drawMesh(this.homeBaseMesh, 120, 0, 40, 0, [10, 10, 10]);
+
+    // Jump ramps (fixed world props) — distance-culled like other props.
+    if (this.jumpRamps.length) {
+      if (!this.jumpRampMesh) this.getJumpRampMesh();
+      if (this.jumpRampMesh) {
+        for (const jr of this.jumpRamps) {
+          const jdx = jr.x - camX, jdz = jr.z - camZ;
+          if (jdx * jdx + jdz * jdz > 300 * 300) continue;
+          this.drawMesh(this.jumpRampMesh, jr.x, 0, jr.z, jr.yaw, [1, 1, 1], [1, 1, 1, 1]);
+        }
+      }
+    }
     if (this.garageCarMesh) this.drawMesh(this.garageCarMesh, 120, 0, 42, 0);
 
     if (this.vendingMachineMesh) {
@@ -5531,6 +5545,38 @@ void main() {
       return null;
     }
   }
+  // Builds a standalone jump-ramp wedge (local +z is the launch lip, +x is
+  // the left/right width axis). Reused at every fixed ramp position.
+  private getJumpRampMesh(): CityMesh | null {
+    if (this.jumpRampMesh) return this.jumpRampMesh;
+    const L = 5, W = 2, H = 1.3;
+    const verts: number[] = [];
+    const idx: number[] = [];
+    const addFace = (pts: number[][], cr: number, cg: number, cb: number) => {
+      const base = verts.length / 7;
+      for (const p of pts) verts.push(p[0], p[1], p[2], cr, cg, cb, 1);
+      idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    };
+    const addTri = (pts: number[][], cr: number, cg: number, cb: number) => {
+      const base = verts.length / 7;
+      for (const p of pts) verts.push(p[0], p[1], p[2], cr, cg, cb, 1);
+      idx.push(base, base + 1, base + 2);
+    };
+    // Top slope: low edge at z=-L (y=0) rises to the launch lip at z=+L (y=H).
+    addFace([[-W, 0, -L], [W, 0, -L], [W, H, L], [-W, H, L]], 0.95, 0.5, 0.12);
+    addFace([[-W, 0, -L], [W, 0, -L], [W, 0, L], [-W, 0, L]], 0.3, 0.3, 0.32);
+    addFace([[-W, H, L], [W, H, L], [W, 0, L], [-W, 0, L]], 0.7, 0.36, 0.1);
+    addTri([[-W, 0, -L], [-W, H, L], [-W, 0, L]], 0.65, 0.32, 0.08);
+    addTri([[W, 0, -L], [W, 0, L], [W, H, L]], 0.65, 0.32, 0.08);
+    // Hazard stripe just above the slope near the lip.
+    const z1 = L - 1.6, z2 = L - 0.1;
+    const y1 = H * (z1 + L) / (2 * L) + 0.02;
+    const y2 = H * (z2 + L) / (2 * L) + 0.02;
+    addFace([[-W, y1, z1], [W, y1, z1], [W, y2, z2], [-W, y2, z2]], 0.95, 0.95, 0.9);
+    this.jumpRampMesh = this.createMesh(verts, idx);
+    return this.jumpRampMesh;
+  }
+
   private addRamp(
     verts: number[], indices: number[],
     x1: number, y1: number, x2: number, y2: number,

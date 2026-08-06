@@ -35,6 +35,7 @@ export interface RacingCarAppearance {
   accent?: [number, number, number];
   decalStyle?: number;          // APPEARANCE_PARTS decal id
   glow?: [number, number, number];
+  glowIntensity?: number;       // 0 (subtle) .. 100 (blinding) — scales the neon underglow
   metallic?: number;            // 0 matte .. 1 mirror polish (from skin finish)
   skin?: [number, number, number]; // paint rgb (used for the player's own car in the mirror)
 }
@@ -107,6 +108,7 @@ export interface RacingPlayerCar {
   decalId: number;
   glowId: number;
   accentId: number;
+  glowIntensity: number; // 0 (subtle) .. 100 (blinding) neon underglow strength
   totalRaces: number;
   wins: number;
   money: number;

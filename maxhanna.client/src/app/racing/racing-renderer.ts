@@ -101,6 +101,8 @@ export class RacingRenderer {
   private decalCount = 0;
   private glowVao!: WebGLVertexArrayObject;
   private glowCount = 0;
+  private glowHaloVao!: WebGLVertexArrayObject;
+  private glowHaloCount = 0;
 
   private whiteTex!: WebGLTexture;
   private asphaltTex!: WebGLTexture;
@@ -3642,38 +3644,47 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
 
-    // Underglow quad — a flat pool under the car drawn with additive blending,
-    // tinted by the per-car neon color. Sits just above the road (the body
-    // translate is +0.15, so local y -0.13 lands ~0.046 above the asphalt).
-    const gv: number[] = [];
-    const gi: number[] = [];
-    const glowL = 1.5, glowW = 0.72;
-    const gy = -0.13;
-    gv.push(-glowL, gy, -glowW, 0, 1, 0, 1, 1, 1, 0, 0);
-    gv.push(glowL, gy, -glowW, 0, 1, 0, 1, 1, 1, 1, 0);
-    gv.push(glowL, gy, glowW, 0, 1, 0, 1, 1, 1, 1, 1);
-    gv.push(-glowL, gy, -glowW, 0, 1, 0, 1, 1, 1, 0, 0);
-    gv.push(glowL, gy, glowW, 0, 1, 0, 1, 1, 1, 1, 1);
-    gv.push(-glowL, gy, glowW, 0, 1, 0, 1, 1, 1, 0, 1);
-    gi.push(0, 1, 2, 3, 4, 5);
-    this.glowCount = gi.length;
-    this.glowVao = gl.createVertexArray()!;
-    gl.bindVertexArray(this.glowVao);
-    const gvbo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ARRAY_BUFFER, gvbo);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(gv), gl.STATIC_DRAW);
-    const gibo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gibo);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(gi), gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
-    gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
-    gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
-    gl.enableVertexAttribArray(3);
-    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
-    gl.bindVertexArray(null);
+    // Underglow pools — two flat quads under the car drawn with additive
+    // blending, tinted by the per-car neon color: a wide soft halo plus a
+    // bright core, so the neon reads clearly even on bright asphalt. They sit
+    // just above the road (the body translate is +0.15, so local y -0.11 lands
+    // ~0.06 above the asphalt).
+    const buildGlowQuad = (glowL: number, glowW: number): { vao: WebGLVertexArrayObject; count: number } => {
+      const gv: number[] = [];
+      const gi: number[] = [];
+      const gy = -0.11;
+      gv.push(-glowL, gy, -glowW, 0, 1, 0, 1, 1, 1, 0, 0);
+      gv.push(glowL, gy, -glowW, 0, 1, 0, 1, 1, 1, 1, 0);
+      gv.push(glowL, gy, glowW, 0, 1, 0, 1, 1, 1, 1, 1);
+      gv.push(-glowL, gy, -glowW, 0, 1, 0, 1, 1, 1, 0, 0);
+      gv.push(glowL, gy, glowW, 0, 1, 0, 1, 1, 1, 1, 1);
+      gv.push(-glowL, gy, glowW, 0, 1, 0, 1, 1, 1, 0, 1);
+      gi.push(0, 1, 2, 3, 4, 5);
+      const vao = gl.createVertexArray()!;
+      gl.bindVertexArray(vao);
+      const gvbo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, gvbo);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(gv), gl.STATIC_DRAW);
+      const gibo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gibo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(gi), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+      gl.enableVertexAttribArray(3);
+      gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+      gl.bindVertexArray(null);
+      return { vao, count: gi.length };
+    };
+    const core = buildGlowQuad(1.7, 0.9);
+    this.glowVao = core.vao;
+    this.glowCount = core.count;
+    const halo = buildGlowQuad(2.7, 1.35);
+    this.glowHaloVao = halo.vao;
+    this.glowHaloCount = halo.count;
 
     // Build wheel mesh
     this.buildWheelMesh();
@@ -6810,13 +6821,37 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.bindVertexArray(this.accentVao);
     gl.drawElements(gl.TRIANGLES, this.accentCount, gl.UNSIGNED_SHORT, 0);
 
-    // Neon underglow — additive pool of light beneath the car, drawn while the
-    // body transform is still bound (before the wheels overwrite the matrix).
+    // Neon underglow — layered additive pools of light beneath the car: a wide
+    // soft halo (dim) plus a bright core, so the neon pops even on sunny tracks.
+    // Drawn while the body transform is still bound (before wheels overwrite it).
     if (app.glow) {
       const g = app.glow;
-      const pulse = 0.75 + 0.25 * Math.sin(this.elapsed * 3 + z * 0.6);
+      // Rev-synced pulse: the neon throbs with the engine instead of a fixed
+      // sine. Rev rate climbs with road speed (idle tick at rest → flat-out
+      // thrum), amplitude grows once rolling, and flooring the throttle spikes
+      // the intensity briefly. The per-car z offset keeps the grid from
+      // pulsing in lock-step.
+      const revHz = 1.4 + Math.min(Math.abs(speed) / 12, 1) * 4.2;
+      const revWave = 0.5 + 0.5 * Math.sin(this.elapsed * revHz * Math.PI * 2 + z * 2.4);
+      const rolling = Math.min(Math.abs(speed) / 6, 1);
+      const throttleSpike = 1 + Math.max(accel, 0) * 0.3;
+      const pulse = (0.68 + 0.24 * revWave * (0.3 + 0.7 * rolling)) * throttleSpike;
+      // Zero any stale brake-heat uniform so the glow pool never inherits a
+      // heat tint from the previous car's rotor pass.
+      gl.uniform1f(this.heatGlowLoc, 0);
       gl.blendFunc(gl.ONE, gl.ONE);
-      gl.uniform3f(this.colorLoc, g[0] * pulse, g[1] * pulse, g[2] * pulse);
+      // Neon intensity (0 subtle .. 100 blinding) scales the whole underglow:
+      // 0.3x at min → 2.2x at max, ~1.0x at the 50 default. The garage's
+      // slider writes glowIntensity, saved with the player's appearance.
+      const gi = (app.glowIntensity ?? 50) / 100;
+      const intensity = 0.3 + gi * 1.9;
+      // Wide halo — subtle colour wash around the whole chassis.
+      gl.uniform3f(this.colorLoc, g[0] * 0.5 * pulse * intensity, g[1] * 0.5 * pulse * intensity, g[2] * 0.5 * pulse * intensity);
+      gl.bindVertexArray(this.glowHaloVao);
+      gl.drawElements(gl.TRIANGLES, this.glowHaloCount, gl.UNSIGNED_SHORT, 0);
+      // Bright core — the visible neon pool under the floor (2.2x so the
+      // additive colour clamps toward white-hot on bright asphalt).
+      gl.uniform3f(this.colorLoc, g[0] * 2.2 * pulse * intensity, g[1] * 2.2 * pulse * intensity, g[2] * 2.2 * pulse * intensity);
       gl.bindVertexArray(this.glowVao);
       gl.drawElements(gl.TRIANGLES, this.glowCount, gl.UNSIGNED_SHORT, 0);
       gl.bindVertexArray(null);

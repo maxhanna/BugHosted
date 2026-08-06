@@ -43,6 +43,13 @@ namespace maxhanna.Server.Controllers
 			public int DecalId = 0;
 			public int GlowId = 0;
 			public int AccentId = 0;
+			// Neon underglow intensity, 0 (subtle) .. 100 (blinding). Saved with
+			// the rest of the appearance so the garage + in-race neon match.
+			public int GlowIntensity = 50;
+			// Appearance parts the player has bought (APPEARANCE_PARTS ids) — kept
+			// separate from the currently-equipped slot so a part stays owned even
+			// when it isn't equipped, and re-equipping never re-charges.
+			public HashSet<int> OwnedParts = new();
 			public int TotalRaces = 0;
 			public int Wins = 0;
 			public int Money = 500;
@@ -121,7 +128,7 @@ namespace maxhanna.Server.Controllers
 					if (string.IsNullOrEmpty(connStr)) return;
 					using var conn = new MySqlConnection(connStr);
 					conn.Open();
-					foreach (var col in new[] { (Name: "glow_id", Def: "INT NOT NULL DEFAULT 0"), (Name: "accent_id", Def: "INT NOT NULL DEFAULT 0") })
+					foreach (var col in new[] { (Name: "glow_id", Def: "INT NOT NULL DEFAULT 0"), (Name: "accent_id", Def: "INT NOT NULL DEFAULT 0"), (Name: "glow_intensity", Def: "INT NOT NULL DEFAULT 50") })
 					{
 						using (var check = new MySqlCommand(
 							"SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'racing_player_car' AND COLUMN_NAME = @col", conn))
@@ -132,6 +139,17 @@ namespace maxhanna.Server.Controllers
 						using var alter = new MySqlCommand($"ALTER TABLE racing_player_car ADD COLUMN {col.Name} {col.Def};", conn);
 						alter.ExecuteNonQuery();
 						Console.WriteLine($"[Racing] Schema: added racing_player_car.{col.Name}.");
+					}
+					// owned_parts_json: the full set of appearance part ids the player owns.
+					using (var check = new MySqlCommand(
+						"SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'racing_player_car' AND COLUMN_NAME = 'owned_parts_json'", conn))
+					{
+						if (Convert.ToInt32(check.ExecuteScalar()) == 0)
+						{
+							using var alter = new MySqlCommand("ALTER TABLE racing_player_car ADD COLUMN owned_parts_json TEXT NULL;", conn);
+							alter.ExecuteNonQuery();
+							Console.WriteLine("[Racing] Schema: added racing_player_car.owned_parts_json.");
+						}
 					}
 				}
 				catch (Exception ex)
@@ -169,7 +187,7 @@ namespace maxhanna.Server.Controllers
 				conn.Open();
 				using var cmd = new MySqlCommand(@"
 					SELECT upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id, glow_id, accent_id,
-					       total_races, wins, money, best_lap, total_earnings, player_name
+					       total_races, wins, money, best_lap, total_earnings, player_name, owned_parts_json, glow_intensity
 					FROM racing_player_car WHERE user_id = @uid", conn);
 				cmd.Parameters.AddWithValue("@uid", userId);
 				using (var rdr = cmd.ExecuteReader())
@@ -191,6 +209,16 @@ namespace maxhanna.Server.Controllers
 						st.BestLap = rdr.IsDBNull(11) ? 0 : rdr.GetDouble(11);
 						st.TotalEarnings = rdr.IsDBNull(12) ? 0 : rdr.GetInt32(12);
 						st.PlayerName = rdr.IsDBNull(13) ? "" : rdr.GetString(13);
+						if (!rdr.IsDBNull(14) && rdr.GetString(14) is { Length: > 0 } oj)
+						{
+							try
+							{
+								var parsed = JsonSerializer.Deserialize<List<int>>(oj);
+								if (parsed != null) st.OwnedParts = new HashSet<int>(parsed);
+							}
+							catch { }
+						}
+						st.GlowIntensity = rdr.IsDBNull(15) ? 50 : Math.Clamp(rdr.GetInt32(15), 0, 100);
 					}
 				}
 				// The reader above is disposed by the using block; it is safe to run
@@ -218,7 +246,7 @@ namespace maxhanna.Server.Controllers
 				conn.Open();
 				using var cmd = new MySqlCommand(@"
 					SELECT user_id, upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id, glow_id, accent_id,
-					       total_races, wins, money, best_lap, total_earnings, player_name
+					       total_races, wins, money, best_lap, total_earnings, player_name, owned_parts_json, glow_intensity
 					FROM racing_player_car", conn);
 				int loaded = 0;
 				using (var rdr = cmd.ExecuteReader())
@@ -241,6 +269,16 @@ namespace maxhanna.Server.Controllers
 						st.BestLap = rdr.IsDBNull(12) ? 0 : rdr.GetDouble(12);
 						st.TotalEarnings = rdr.IsDBNull(13) ? 0 : rdr.GetInt32(13);
 						st.PlayerName = rdr.IsDBNull(14) ? "" : rdr.GetString(14);
+						if (!rdr.IsDBNull(15) && rdr.GetString(15) is { Length: > 0 } oj)
+						{
+							try
+							{
+								var parsed = JsonSerializer.Deserialize<List<int>>(oj);
+								if (parsed != null) st.OwnedParts = new HashSet<int>(parsed);
+							}
+							catch { }
+						}
+						st.GlowIntensity = rdr.IsDBNull(16) ? 50 : Math.Clamp(rdr.GetInt32(16), 0, 100);
 						_cars[st.UserId] = st;
 						loaded++;
 					}
@@ -278,20 +316,23 @@ namespace maxhanna.Server.Controllers
 		}
 		private static object ToCarJson(RacingCarState st)
 		{
-			int userId, skinId, spoilerId, rimId, exhaustId, decalId, glowId, accentId, totalRaces, wins, money, totalEarnings;
+			int userId, skinId, spoilerId, rimId, exhaustId, decalId, glowId, accentId, glowIntensity, totalRaces, wins, money, totalEarnings;
 			double bestLap;
 			string playerName;
 			List<object> upgrades;
 			Dictionary<int, double> bestLapsByTrack;
+			List<int> ownedParts;
 			lock (st)
 			{
 				userId = st.UserId;
 				upgrades = new List<object>(st.Upgrades);
 				skinId = st.SkinId; spoilerId = st.SpoilerId; rimId = st.RimId;
 				exhaustId = st.ExhaustId; decalId = st.DecalId; glowId = st.GlowId; accentId = st.AccentId;
+				glowIntensity = st.GlowIntensity;
 				totalRaces = st.TotalRaces; wins = st.Wins; money = st.Money;
 				bestLap = st.BestLap; totalEarnings = st.TotalEarnings;
 				bestLapsByTrack = new Dictionary<int, double>(st.BestLapsByTrack);
+				ownedParts = st.OwnedParts.OrderBy(x => x).ToList();
 				playerName = st.PlayerName;
 			}
 			return new
@@ -306,6 +347,8 @@ namespace maxhanna.Server.Controllers
 				DecalId = decalId,
 				GlowId = glowId,
 				AccentId = accentId,
+				GlowIntensity = glowIntensity,
+				OwnedParts = ownedParts,
 				TotalRaces = totalRaces,
 				Wins = wins,
 				Money = money,
@@ -343,12 +386,12 @@ namespace maxhanna.Server.Controllers
 					if (!st.Dirty) continue;
 					int version;
 					using (var cmd = new MySqlCommand(@"
-						INSERT INTO racing_player_car (user_id, player_name, upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id, glow_id, accent_id, total_races, wins, money, best_lap, total_earnings)
-						VALUES (@uid, @name, @upgrades, @skin, @sp, @rm, @ex, @dc, @glow, @acc, @races, @wins, @money, @best, @earnings)
-						ON DUPLICATE KEY UPDATE
-							player_name = @name, upgrades_json = @upgrades, skin_id = @skin, spoiler_id = @sp, rim_id = @rm,
-							exhaust_id = @ex, decal_id = @dc, glow_id = @glow, accent_id = @acc, total_races = @races, wins = @wins,
-							money = @money, best_lap = @best, total_earnings = @earnings", conn))
+					INSERT INTO racing_player_car (user_id, player_name, upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id, glow_id, accent_id, total_races, wins, money, best_lap, total_earnings, owned_parts_json, glow_intensity)
+					VALUES (@uid, @name, @upgrades, @skin, @sp, @rm, @ex, @dc, @glow, @acc, @races, @wins, @money, @best, @earnings, @owned, @gi)
+					ON DUPLICATE KEY UPDATE
+						player_name = @name, upgrades_json = @upgrades, skin_id = @skin, spoiler_id = @sp, rim_id = @rm,
+						exhaust_id = @ex, decal_id = @dc, glow_id = @glow, accent_id = @acc, total_races = @races, wins = @wins,
+						money = @money, best_lap = @best, total_earnings = @earnings, owned_parts_json = @owned, glow_intensity = @gi", conn))
 					{
 						lock (st)
 						{
@@ -360,13 +403,15 @@ namespace maxhanna.Server.Controllers
 							cmd.Parameters.AddWithValue("@rm", st.RimId);
 							cmd.Parameters.AddWithValue("@ex", st.ExhaustId);
 							cmd.Parameters.AddWithValue("@dc", st.DecalId);
-							cmd.Parameters.AddWithValue("@glow", st.GlowId);
-							cmd.Parameters.AddWithValue("@acc", st.AccentId);
+						cmd.Parameters.AddWithValue("@glow", st.GlowId);
+						cmd.Parameters.AddWithValue("@acc", st.AccentId);
+						cmd.Parameters.AddWithValue("@gi", st.GlowIntensity);
 							cmd.Parameters.AddWithValue("@races", st.TotalRaces);
 							cmd.Parameters.AddWithValue("@wins", st.Wins);
 							cmd.Parameters.AddWithValue("@money", st.Money);
 							cmd.Parameters.AddWithValue("@best", st.BestLap);
 							cmd.Parameters.AddWithValue("@earnings", st.TotalEarnings);
+							cmd.Parameters.AddWithValue("@owned", JsonSerializer.Serialize(st.OwnedParts.OrderBy(x => x).ToList()));
 							version = st.Version;
 						}
 						cmd.ExecuteNonQuery(); 
@@ -529,6 +574,7 @@ namespace maxhanna.Server.Controllers
 					if (body.TryGetProperty("decalId", out var dc)) st.DecalId = dc.GetInt32();
 					if (body.TryGetProperty("glowId", out var gl)) st.GlowId = gl.GetInt32();
 					if (body.TryGetProperty("accentId", out var ac)) st.AccentId = ac.GetInt32();
+					if (body.TryGetProperty("glowIntensity", out var gi)) st.GlowIntensity = Math.Clamp(gi.GetInt32(), 0, 100);
 					if (body.TryGetProperty("totalRaces", out var tr)) st.TotalRaces = tr.GetInt32();
 					if (body.TryGetProperty("wins", out var w)) st.Wins = w.GetInt32();
 					if (body.TryGetProperty("money", out var m))
@@ -557,6 +603,15 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 					if (body.TryGetProperty("totalEarnings", out var te)) st.TotalEarnings = te.GetInt32();
+					if (body.TryGetProperty("ownedParts", out var op) && op.ValueKind == JsonValueKind.Array)
+					{
+						try
+						{
+							var parsed = JsonSerializer.Deserialize<List<int>>(op.GetRawText());
+							if (parsed != null) st.OwnedParts = new HashSet<int>(parsed.Where(x => x > 0));
+						}
+						catch { }
+					}
 					st.Dirty = true;
 					st.Version++;
 				}

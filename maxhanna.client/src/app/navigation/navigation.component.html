@@ -103,10 +103,134 @@
       [title]="showNavSearch ? 'Hide search' : 'Show search'"
       [attr.aria-label]="showNavSearch ? 'Hide search' : 'Show search'">🔍</button>
     <div class="navSearchInputWrap">
-      <input class="navSearchInput" type="text" [(ngModel)]="navSearchTerm"
+      <input #navSearchInputEl class="navSearchInput" type="text" [(ngModel)]="navSearchTerm" (ngModelChange)="onNavSearchInput()"
+        (keydown)="onNavSearchKeydown($event)" (focus)="onNavSearchFocus()" (blur)="onNavSearchBlur()"
         placeholder="Search apps..." autocomplete="off" spellcheck="false" />
-      <button *ngIf="navSearchTerm" class="navSearchClear" (click)="navSearchTerm = ''"
+      <button *ngIf="navSearchTerm" class="navSearchClear" (click)="clearNavSearch()"
         title="Clear search" aria-label="Clear search">✕</button>
+      <!-- Type-ahead suggestions: files, posts, comments, news & favourites -->
+      <div *ngIf="navSuggestionsOpen" class="navSuggestPopup"
+        (mousedown)="onNavSuggestPopupPointerDown()" (mouseup)="onNavSuggestPopupPointerUp()"
+        (mouseleave)="onNavSuggestPopupPointerUp()">
+        <!-- Focused-but-empty: surface recent + trending search terms -->
+        <ng-container *ngIf="navSearchTerm.trim().length === 0">
+          <div *ngIf="navRecentSearches.length" class="navSuggestGroup">
+            <div class="navSuggestGroupTitle navSuggestGroupTitleRow">
+              <span>🕘 Recent</span>
+              <button class="navSuggestGroupAction" (click)="clearNavRecentSearches($event)"
+                title="Clear recent searches" aria-label="Clear recent searches">✕</button>
+            </div>
+            <button class="navSuggestItem" *ngFor="let r of navRecentSearches; let i = index"
+              [class.navSuggestActive]="navSuggestIndex === i"
+              [id]="'navSuggestItem' + i"
+              (mouseenter)="navSuggestIndex = i"
+              (click)="applyNavTerm(r)">
+              <span class="navSuggestItemIcon">🕘</span>
+              <span class="navSuggestItemText">
+                <span class="navSuggestItemTitle">{{ r }}</span>
+                <span class="navSuggestItemSub">Search again</span>
+              </span>
+            </button>
+          </div>
+          <div *ngIf="navTrendingSearches.length" class="navSuggestGroup">
+            <div class="navSuggestGroupTitle">🔥 Trending on BugHosted</div>
+            <button class="navSuggestItem" *ngFor="let t of navTrendingSearches; let i = index"
+              [class.navSuggestActive]="navSuggestIndex === navRecentSearches.length + i"
+              [id]="'navSuggestItem' + (navRecentSearches.length + i)"
+              (mouseenter)="navSuggestIndex = navRecentSearches.length + i"
+              (click)="applyNavTerm(t)">
+              <span class="navSuggestItemIcon">🔥</span>
+              <span class="navSuggestItemText">
+                <span class="navSuggestItemTitle">{{ t }}</span>
+                <span class="navSuggestItemSub">Search</span>
+              </span>
+            </button>
+          </div>
+          <div class="navSuggestEmpty"
+            *ngIf="!navRecentSearches.length && !navTrendingSearches.length">
+            Type to search apps, files, posts &amp; more…
+          </div>
+        </ng-container>
+        <div *ngIf="navSuggestionsLoading" class="navSuggestLoading">
+          <span class="navSuggestSpinner"></span> Searching…
+        </div>
+        <ng-container *ngIf="!navSuggestionsLoading && navSuggestions">
+          <div class="navSuggestGroup" *ngIf="navSuggestions.files.length">
+            <div class="navSuggestGroupTitle">📁 Files</div>
+            <button class="navSuggestItem" *ngFor="let f of navSuggestions.files; let i = index"
+              [class.navSuggestActive]="navSuggestIndex === navSuggestGroupOffset('files') + i"
+              [id]="'navSuggestItem' + (navSuggestGroupOffset('files') + i)"
+              (mouseenter)="navSuggestIndex = navSuggestGroupOffset('files') + i"
+              (click)="openSuggestion('file', f)">
+              <span class="navSuggestItemIcon">📄</span>
+              <span class="navSuggestItemText">
+                <span class="navSuggestItemTitle">{{ f.name }}</span>
+                <span class="navSuggestItemSub">{{ f.description || f.folderPath || f.fileType }}</span>
+              </span>
+            </button>
+          </div>
+          <div class="navSuggestGroup" *ngIf="navSuggestions.posts.length">
+            <div class="navSuggestGroupTitle">📣 Posts</div>
+            <button class="navSuggestItem" *ngFor="let p of navSuggestions.posts; let i = index"
+              [class.navSuggestActive]="navSuggestIndex === navSuggestGroupOffset('posts') + i"
+              [id]="'navSuggestItem' + (navSuggestGroupOffset('posts') + i)"
+              (mouseenter)="navSuggestIndex = navSuggestGroupOffset('posts') + i"
+              (click)="openSuggestion('post', p)">
+              <span class="navSuggestItemIcon">💬</span>
+              <span class="navSuggestItemText">
+                <span class="navSuggestItemTitle">{{ p.text | slice:0:60 }}</span>
+                <span class="navSuggestItemSub">by {{ p.username }}</span>
+              </span>
+            </button>
+          </div>
+          <div class="navSuggestGroup" *ngIf="navSuggestions.comments.length">
+            <div class="navSuggestGroupTitle">🗨️ Comments</div>
+            <button class="navSuggestItem" *ngFor="let c of navSuggestions.comments; let i = index"
+              [class.navSuggestActive]="navSuggestIndex === navSuggestGroupOffset('comments') + i"
+              [id]="'navSuggestItem' + (navSuggestGroupOffset('comments') + i)"
+              (mouseenter)="navSuggestIndex = navSuggestGroupOffset('comments') + i"
+              (click)="openSuggestion('comment', c)">
+              <span class="navSuggestItemIcon">💭</span>
+              <span class="navSuggestItemText">
+                <span class="navSuggestItemTitle">{{ c.text | slice:0:60 }}</span>
+                <span class="navSuggestItemSub">by {{ c.username }}</span>
+              </span>
+            </button>
+          </div>
+          <div class="navSuggestGroup" *ngIf="navSuggestions.news.length">
+            <div class="navSuggestGroupTitle">📰 News</div>
+            <button class="navSuggestItem" *ngFor="let n of navSuggestions.news; let i = index"
+              [class.navSuggestActive]="navSuggestIndex === navSuggestGroupOffset('news') + i"
+              [id]="'navSuggestItem' + (navSuggestGroupOffset('news') + i)"
+              (mouseenter)="navSuggestIndex = navSuggestGroupOffset('news') + i"
+              (click)="openSuggestion('news', n)">
+              <span class="navSuggestItemIcon">📰</span>
+              <span class="navSuggestItemText">
+                <span class="navSuggestItemTitle">{{ n.title | slice:0:60 }}</span>
+                <span class="navSuggestItemSub">{{ n.description | slice:0:50 }}</span>
+              </span>
+            </button>
+          </div>
+          <div class="navSuggestGroup" *ngIf="navSuggestions.favourites.length">
+            <div class="navSuggestGroupTitle">⭐ Favourites</div>
+            <button class="navSuggestItem" *ngFor="let fa of navSuggestions.favourites; let i = index"
+              [class.navSuggestActive]="navSuggestIndex === navSuggestGroupOffset('favourites') + i"
+              [id]="'navSuggestItem' + (navSuggestGroupOffset('favourites') + i)"
+              (mouseenter)="navSuggestIndex = navSuggestGroupOffset('favourites') + i"
+              (click)="openSuggestion('favourite', fa)">
+              <span class="navSuggestItemIcon">🔖</span>
+              <span class="navSuggestItemText">
+                <span class="navSuggestItemTitle">{{ fa.name || fa.url }}</span>
+                <span class="navSuggestItemSub">{{ fa.url }}</span>
+              </span>
+            </button>
+          </div>
+          <div class="navSuggestEmpty"
+            *ngIf="!navSuggestions.files.length && !navSuggestions.posts.length && !navSuggestions.comments.length && !navSuggestions.news.length && !navSuggestions.favourites.length">
+            No matches for “{{ navSearchTerm }}”
+          </div>
+        </ng-container>
+      </div>
     </div>
   </div>
   <button *ngIf="!showNavSearch" class="navSearchToggle navSearchToggleFloating" (click)="toggleNavSearch()"

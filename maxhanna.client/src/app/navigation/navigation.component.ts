@@ -11,7 +11,7 @@ import { MiningRig } from '../../services/datacontracts/crypto/mining-rig';
 import { NotificationService } from '../../services/notification.service';
 import { UserNotification } from '../../services/datacontracts/notification/user-notification';
 import { UserService } from '../../services/user.service';
-import { FileService } from '../../services/file.service';
+import { FileService, SearchSuggestions } from '../../services/file.service';
 import { ExchangeRate } from '../../services/datacontracts/crypto/exchange-rate';
 import { MenuItem } from '../../services/datacontracts/user/menu-item';
 import { EnderService } from '../../services/ender.service';
@@ -39,6 +39,7 @@ import { RacingService } from '../../services/racing.service';
 export class NavigationComponent implements OnInit, OnDestroy {
   @ViewChild('navbar') navbar!: ElementRef<HTMLElement>;
   @ViewChild('toggleNavButton') toggleNavButton!: ElementRef<HTMLElement>;
+  @ViewChild('navSearchInputEl') navSearchInputEl?: ElementRef<HTMLInputElement>;
 
   @Input() user?: User;
 
@@ -85,6 +86,25 @@ export class NavigationComponent implements OnInit, OnDestroy {
   // (show_nav_search), defaulting to visible.
   navSearchTerm = '';
   showNavSearch = true;
+  // Type-ahead suggestions popup: while the search bar has a term, a debounced
+  // call to /search/suggest returns files, posts, comments, news and favourites
+  // rendered as grouped suggestions above the bar.
+  navSuggestions: SearchSuggestions | null = null;
+  navSuggestionsLoading = false;
+  navSuggestionsOpen = false;
+  // Index into the flattened suggestion list (files → posts → comments →
+  // news → favourites) of the keyboard-highlighted row. -1 = nothing selected.
+  navSuggestIndex = -1;
+  // Empty-focused state: when the search bar is focused but empty we surface
+  // the user's own recent searches (per-user localStorage) and the site's
+  // trending searches (from search_queries) instead of nothing.
+  navSearchFocused = false;
+  navRecentSearches: string[] = [];
+  navTrendingSearches: string[] = [];
+  private _navTrendingFetchedAt = 0;
+  private _navPointerDownInPopup = false;
+  private _navSuggestDebounce: any = null;
+  private _navSuggestSeq = 0;
   isBTCRising = true;
   isLoadingNotifications = false;
   isLoadingTheme = false;
@@ -198,6 +218,273 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (!term) return true;
     return title.toLowerCase().includes(term)
       || this.cleanItemTitle(title).toLowerCase().includes(term);
+  }
+
+  // Debounced suggestion fetch — fires ~250ms after the user stops typing, and
+  // only for terms of 2+ characters. A sequence counter drops stale responses
+  // so a slow older request can never overwrite a newer one.
+  onNavSearchInput() {
+    if (this._navSuggestDebounce) clearTimeout(this._navSuggestDebounce);
+    const term = this.navSearchTerm.trim();
+    this.navSuggestIndex = -1;
+    if (term.length < 2) {
+      this.navSuggestions = null;
+      this.navSuggestionsLoading = false;
+      // An empty/too-short term falls back to the recent + trending view while
+      // the input still has focus; otherwise the popup just closes.
+      this.navSuggestionsOpen = this.navSearchFocused;
+      if (term.length === 0 && this.navSearchFocused) {
+        this.ensureEmptySuggestions();
+      }
+      return;
+    }
+    this.navSuggestionsOpen = true;
+    this.navSuggestionsLoading = true;
+    const seq = ++this._navSuggestSeq;
+    this._navSuggestDebounce = setTimeout(async () => {
+      const userId = this.user?.id ?? this._parent?.user?.id ?? 0;
+      const result = await this.fileService.suggest(this.navSearchTerm.trim(), userId);
+      if (seq !== this._navSuggestSeq) return; // stale response — ignore
+      this.navSuggestions = result;
+      this.navSuggestionsLoading = false;
+      this.navSuggestionsOpen = true;
+      this.navSuggestIndex = -1;
+    }, 250);
+  }
+
+  clearNavSearch() {
+    this.navSearchTerm = '';
+    this.navSuggestions = null;
+    this.navSuggestionsLoading = false;
+    this.navSuggestionsOpen = false;
+    this.navSuggestIndex = -1;
+  }
+
+  // The popup opens on focus even with an empty term: load the user's recents
+  // (instant, localStorage) and fetch site trending (cached ~5 min).
+  onNavSearchFocus() {
+    this.navSearchFocused = true;
+    if (this.navSearchTerm.trim().length === 0) {
+      this.navSuggestionsOpen = true;
+      this.navSuggestions = null;
+      this.navSuggestionsLoading = false;
+      this.ensureEmptySuggestions();
+    }
+  }
+
+  onNavSearchBlur() {
+    this.navSearchFocused = false;
+    // Give an in-popup mousedown → click time to land before closing. The
+    // pointer flag (set on popup mousedown/mouseup) keeps the popup open while
+    // interacting with it without blocking scrollbar drags or text selection.
+    setTimeout(() => {
+      if (!this.navSearchFocused && !this._navPointerDownInPopup) {
+        this.closeNavSuggestions();
+      }
+    }, 120);
+  }
+
+  onNavSuggestPopupPointerDown() {
+    this._navPointerDownInPopup = true;
+  }
+
+  onNavSuggestPopupPointerUp() {
+    this._navPointerDownInPopup = false;
+  }
+
+  private ensureEmptySuggestions() {
+    this.loadNavRecentSearches();
+    this.loadNavTrending();
+  }
+
+  private navUserId(): number {
+    return this.user?.id ?? this._parent?.user?.id ?? 0;
+  }
+
+  private loadNavRecentSearches() {
+    try {
+      const raw = localStorage.getItem('bh_nav_recent_searches_' + this.navUserId());
+      const list = raw ? JSON.parse(raw) : [];
+      this.navRecentSearches = Array.isArray(list)
+        ? list.filter((s: any) => typeof s === 'string' && s.trim().length > 0)
+        : [];
+    } catch {
+      this.navRecentSearches = [];
+    }
+  }
+
+  private saveNavRecentSearches() {
+    try {
+      localStorage.setItem('bh_nav_recent_searches_' + this.navUserId(), JSON.stringify(this.navRecentSearches));
+    } catch { }
+  }
+
+  // Commit a search term: bump it to the top of the user's recents (deduped,
+  // capped at 10) and record it server-side so it feeds the site's trending.
+  private recordNavSearch(term: string) {
+    const t = (term || '').trim();
+    if (!t) return;
+    this.navRecentSearches = [t, ...this.navRecentSearches.filter(x => x.toLowerCase() !== t.toLowerCase())].slice(0, 10);
+    this.saveNavRecentSearches();
+    this.fileService.recordSearch(t, 'nav', this.navUserId() || undefined);
+  }
+
+  clearNavRecentSearches(event?: Event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    this.navRecentSearches = [];
+    this.saveNavRecentSearches();
+    // Keep focus in the box so the (now smaller) popup stays visible instead
+    // of letting the pending blur timeout close it.
+    this.navSearchInputEl?.nativeElement.focus();
+  }
+
+  private async loadNavTrending() {
+    const now = Date.now();
+    if (this._navTrendingFetchedAt && now - this._navTrendingFetchedAt < 5 * 60 * 1000 && this.navTrendingSearches.length) return;
+    try {
+      const res = await this.fileService.getTrending(undefined, 6);
+      this.navTrendingSearches = Array.isArray(res)
+        ? res.map((r: any) => r?.query).filter((q: any) => typeof q === 'string' && q.trim().length > 0)
+        : [];
+      this._navTrendingFetchedAt = Date.now();
+    } catch {
+      this.navTrendingSearches = [];
+    }
+  }
+
+  // Pick a recent/trending term: record it, fill the input and let the
+  // type-ahead take over, keeping focus in the box so the user can refine.
+  applyNavTerm(term: string) {
+    const t = (term || '').trim();
+    if (!t) return;
+    this.recordNavSearch(t);
+    this.navSearchTerm = t;
+    this.navSuggestIndex = -1;
+    this.onNavSearchInput();
+    this.navSearchInputEl?.nativeElement.focus();
+  }
+
+  private closeNavSuggestions() {
+    this.navSuggestionsOpen = false;
+    this.navSuggestIndex = -1;
+  }
+
+  // Flat list of the empty-focused suggestions (recents first, then trending)
+  // so keyboard navigation can address them with the same single index.
+  getNavEmptyFlat(): string[] {
+    return [...this.navRecentSearches, ...this.navTrendingSearches];
+  }
+
+  // Flat, display-ordered list of every current suggestion so keyboard
+  // navigation can address them with a single index across all groups.
+  private getNavSuggestFlat(): { type: 'file' | 'post' | 'comment' | 'news' | 'favourite', item: any }[] {
+    const out: { type: 'file' | 'post' | 'comment' | 'news' | 'favourite', item: any }[] = [];
+    if (!this.navSuggestions) return out;
+    for (const f of this.navSuggestions.files) out.push({ type: 'file', item: f });
+    for (const p of this.navSuggestions.posts) out.push({ type: 'post', item: p });
+    for (const c of this.navSuggestions.comments) out.push({ type: 'comment', item: c });
+    for (const n of this.navSuggestions.news) out.push({ type: 'news', item: n });
+    for (const fa of this.navSuggestions.favourites) out.push({ type: 'favourite', item: fa });
+    return out;
+  }
+
+  // Base index (in the flat list) where the given group starts, so the
+  // template can compute each row's global index: offset + row index.
+  navSuggestGroupOffset(group: 'files' | 'posts' | 'comments' | 'news' | 'favourites'): number {
+    if (!this.navSuggestions) return 0;
+    switch (group) {
+      case 'files': return 0;
+      case 'posts': return this.navSuggestions.files.length;
+      case 'comments': return this.navSuggestions.files.length + this.navSuggestions.posts.length;
+      case 'news': return this.navSuggestions.files.length + this.navSuggestions.posts.length + this.navSuggestions.comments.length;
+      case 'favourites': return this.navSuggestions.files.length + this.navSuggestions.posts.length + this.navSuggestions.comments.length + this.navSuggestions.news.length;
+    }
+    return 0;
+  }
+
+  // Keyboard controls for the suggestions popup: ↑/↓ move the highlighted
+  // row (wrapping at the ends), Enter opens the highlighted row (or picks a
+  // recent/trending term in the empty view), and Esc closes the popup while
+  // keeping the typed query intact.
+  onNavSearchKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      if (this.navSuggestionsOpen) {
+        event.preventDefault();
+        this.closeNavSuggestions();
+      }
+      return;
+    }
+    if (!this.navSuggestionsOpen || this.navSuggestionsLoading) return;
+    const emptyMode = this.navSearchTerm.trim().length === 0;
+    const flat: any[] = emptyMode ? this.getNavEmptyFlat() : this.getNavSuggestFlat();
+    if (flat.length === 0) return;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      this.navSuggestIndex = this.navSuggestIndex < flat.length - 1 ? this.navSuggestIndex + 1 : 0;
+      this.scrollNavActiveIntoView();
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      this.navSuggestIndex = this.navSuggestIndex > 0 ? this.navSuggestIndex - 1 : flat.length - 1;
+      this.scrollNavActiveIntoView();
+    } else if (event.key === 'Enter') {
+      const entry = flat[this.navSuggestIndex];
+      if (entry !== undefined && entry !== null) {
+        event.preventDefault();
+        if (emptyMode) {
+          this.applyNavTerm(entry as string);
+        } else {
+          this.openSuggestion(entry.type, entry.item);
+        }
+      } else if (!emptyMode) {
+        // Enter with a typed term but no row selected — treat it as a
+        // committed search so it feeds recents + the site's trending.
+        const t = this.navSearchTerm.trim();
+        if (t.length >= 2) {
+          event.preventDefault();
+          this.recordNavSearch(t);
+          this.closeNavSuggestions();
+        }
+      }
+    }
+  }
+
+  // Keeps the keyboard-highlighted row visible inside the popup's own scroll
+  // area without scrolling anything outside of it.
+  private scrollNavActiveIntoView() {
+    try {
+      const el = document.getElementById('navSuggestItem' + this.navSuggestIndex);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch { }
+  }
+
+  // Open a suggestion in its home app. Files open straight in the standalone
+  // media viewer / file detail (not just the Files listing); posts/comments
+  // open Social, news opens News, favourites open the Favourites app with the
+  // query pre-filled.
+  openSuggestion(type: 'file' | 'post' | 'comment' | 'news' | 'favourite', item: any) {
+    const term = this.navSearchTerm.trim();
+    this.recordNavSearch(term);
+    if (type === 'file') {
+      // Same view the /media/<id> URL route uses: the media viewer resolves
+      // the bare fileId into the full file and shows it with its information.
+      this._parent.createComponent('MediaViewer', { fileId: item.id, isLoadedFromURL: true });
+    } else if (type === 'post') {
+      this._parent.createComponent('Social', { storyId: item.id });
+    } else if (type === 'comment') {
+      if (item.storyId) {
+        this._parent.createComponent('Social', { storyId: item.storyId });
+      } else if (item.fileId) {
+        this._parent.createComponent('Files', { fileId: item.fileId });
+      }
+    } else if (type === 'news') {
+      this._parent.createComponent('News', { defaultSearch: term });
+    } else if (type === 'favourite') {
+      this._parent.createComponent('Favourites', { inputSearchTerm: term });
+    }
+    this.clearNavSearch();
   }
 
   ngOnDestroy() {

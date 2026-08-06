@@ -1065,6 +1065,48 @@
   filter: blur(4px);
 }
 
+/* Neon glow pool — bright colored puddle/reflection of light on the floor
+   under the car, filled with the selected glow colour and softly pulsing so
+   the parked car reads as lit from below like the racing renderer's neon.
+   Screen blending makes the colour pop against the dark garage floor. */
+.car-glow-pool {
+  position: absolute;
+  left: 50%; top: 152px;
+  width: 245px; height: 98px;
+  transform: translate(-50%, -50%) rotateX(90deg);
+  border-radius: 50%;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  /* Intensity: --glow-intensity is bound by the preview container
+     (0.05 subtle → 2.25 blinding, 1.0 ≈ the original default). */
+  filter: brightness(calc(0.45 + var(--glow-intensity, 1) * 0.5));
+  transition: all 0.3s;
+}
+.car-glow-pool.glow-blue { background: radial-gradient(ellipse, rgba(0,120,255,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(0,120,255,0.6); }
+.car-glow-pool.glow-green { background: radial-gradient(ellipse, rgba(0,230,80,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(0,230,80,0.55); }
+.car-glow-pool.glow-purple { background: radial-gradient(ellipse, rgba(170,60,255,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(170,60,255,0.6); }
+.car-glow-pool.glow-pink { background: radial-gradient(ellipse, rgba(255,40,190,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(255,40,190,0.6); }
+.car-glow-pool.glow-cyan { background: radial-gradient(ellipse, rgba(0,230,230,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(0,230,230,0.55); }
+.car-glow-pool.glow-red { background: radial-gradient(ellipse, rgba(255,40,40,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(255,40,40,0.6); }
+.car-glow-pool.glow-gold { background: radial-gradient(ellipse, rgba(255,190,30,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(255,190,30,0.6); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .car-glow-pool {
+    animation: glow-pool-pulse 3.2s ease-in-out infinite;
+  }
+
+  @keyframes glow-pool-pulse {
+    0%, 100% { opacity: 0.72; }
+    50% { opacity: 1; }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .car-glow-pool {
+    animation: none;
+  }
+}
+
 /* Neon underglow — colored glow pool under the undertray (matches the racing
    renderer's underglow plane; the glow color classes drive box-shadow). */
 .car-underglow {
@@ -1074,16 +1116,17 @@
   transform: translate(-50%, -50%) rotateX(90deg);
   border-radius: 50%;
   background: radial-gradient(ellipse, rgba(255,255,255,0.22), transparent 62%);
-  opacity: 0.85;
+  filter: brightness(calc(0.6 + var(--glow-intensity, 1) * 0.45));
+  opacity: calc(0.5 + var(--glow-intensity, 1) * 0.3);
   transition: all 0.3s;
 }
-.car-underglow.glow-blue { box-shadow: 0 0 42px 16px rgba(0,120,255,0.55); }
-.car-underglow.glow-green { box-shadow: 0 0 42px 16px rgba(0,230,80,0.5); }
-.car-underglow.glow-purple { box-shadow: 0 0 42px 16px rgba(170,60,255,0.55); }
-.car-underglow.glow-pink { box-shadow: 0 0 42px 16px rgba(255,40,190,0.55); }
-.car-underglow.glow-cyan { box-shadow: 0 0 42px 16px rgba(0,230,230,0.5); }
-.car-underglow.glow-red { box-shadow: 0 0 42px 16px rgba(255,40,40,0.55); }
-.car-underglow.glow-gold { box-shadow: 0 0 42px 16px rgba(255,190,30,0.55); }
+.car-underglow.glow-blue { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(0,120,255,0.55); }
+.car-underglow.glow-green { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(0,230,80,0.5); }
+.car-underglow.glow-purple { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(170,60,255,0.55); }
+.car-underglow.glow-pink { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(255,40,190,0.55); }
+.car-underglow.glow-cyan { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(0,230,230,0.5); }
+.car-underglow.glow-red { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(255,40,40,0.55); }
+.car-underglow.glow-gold { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(255,190,30,0.55); }
 
 /* Cockpit opening (thin dark plate on the body top) */
 .cockpit {
@@ -1715,6 +1758,57 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 6px;
+}
+
+/* Neon intensity slider — tunes the underglow from subtle to blinding. */
+.garage-glow-intensity {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--main-highlight-color, #3a3a3a);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.garage-glow-intensity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.garage-glow-intensity-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--third-font-color, cornflowerblue);
+}
+
+.garage-glow-intensity-value {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--secondary-font-color, #fff);
+  opacity: 0.9;
+  white-space: nowrap;
+}
+
+.garage-glow-intensity-value.glow-blinding {
+  color: var(--main-link-color, chartreuse);
+  text-shadow: 0 0 8px rgb(from var(--main-link-color, chartreuse) r g b / 60%);
+}
+
+.garage-glow-intensity-slider {
+  width: 100%;
+  margin: 8px 0 2px;
+  accent-color: var(--main-link-color, chartreuse);
+  cursor: pointer;
+}
+
+.garage-glow-intensity-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--third-font-color, cornflowerblue);
+  opacity: 0.75;
 }
 
 .garage-appearance-card {

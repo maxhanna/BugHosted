@@ -123,6 +123,155 @@
   opacity: 1;
 }
 
+/* ── Type-ahead suggestions popup ────────────────────────────────────
+   Anchored above the search pill, stacked over the app icons. Grouped by
+   content type (files, posts, comments, news, favourites) with hover
+   highlighting and keyboard-scrollable content. */
+.navSuggestPopup {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--component-background-color, #202020);
+  border: 1px solid var(--main-highlight-color, #3a3a3a);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  z-index: 1200;
+  padding: 6px 0;
+  font-size: var(--main-font-size, 13px);
+  text-align: left;
+}
+
+.navSuggestLoading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  color: var(--third-font-color, cornflowerblue);
+  opacity: 0.85;
+}
+
+.navSuggestSpinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--main-highlight-color, #3a3a3a);
+  border-top-color: var(--main-link-color, chartreuse);
+  border-radius: 50%;
+  animation: navSuggestSpin 0.8s linear infinite;
+  flex: 0 0 auto;
+}
+
+@keyframes navSuggestSpin {
+  to { transform: rotate(360deg); }
+}
+
+.navSuggestGroup {
+  padding: 2px 0;
+}
+
+.navSuggestGroupTitle {
+  padding: 6px 14px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--third-font-color, cornflowerblue);
+  opacity: 0.9;
+}
+
+.navSuggestGroupTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.navSuggestGroupAction {
+  border: none;
+  background: transparent;
+  color: var(--third-font-color, cornflowerblue);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px 4px;
+  opacity: 0.7;
+  transition: opacity 0.12s ease;
+}
+
+.navSuggestGroupAction:hover {
+  opacity: 1;
+}
+
+.navSuggestItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  color: var(--secondary-font-color, #fff);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
+}
+
+.navSuggestItem:hover {
+  background: rgb(from var(--main-highlight-color) r g b / 30%);
+}
+
+/* Keyboard-highlighted row — stronger than hover so the active selection
+   reads clearly while arrow-key navigating. */
+.navSuggestItem.navSuggestActive {
+  background: rgb(from var(--main-highlight-color) r g b / 55%);
+  box-shadow: inset 3px 0 0 var(--main-link-color, chartreuse);
+  outline: none;
+}
+
+.navSuggestItemIcon {
+  flex: 0 0 auto;
+  font-size: 16px;
+}
+
+.navSuggestItemText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.navSuggestItemTitle {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.navSuggestItemSub {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  opacity: 0.65;
+}
+
+.navSuggestEmpty {
+  padding: 12px 14px;
+  color: var(--third-font-color, cornflowerblue);
+  opacity: 0.8;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .navSuggestPopup {
+    max-height: min(260px, 60vh);
+    left: 0;
+    right: 0;
+  }
+}
+
 /* Mobile: the search takes the full width with a taller, easier-to-tap
    field and the toggle button tucks in beside it. */
 @media (max-width: 768px) {

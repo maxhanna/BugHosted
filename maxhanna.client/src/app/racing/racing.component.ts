@@ -115,7 +115,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   totalRacers = 1;
   playerCar: RacingPlayerCar = {
     userId: 0, playerName: '', upgrades: [], skinId: 1, spoilerId: 0, rimId: 0, exhaustId: 0, decalId: 0,
-    glowId: 0, accentId: 0,
+    glowId: 0, accentId: 0, glowIntensity: 50,
     totalRaces: 0, wins: 0, money: 500, bestLap: 0, totalEarnings: 0
   };
   carX = 0; carZ = 0; carYaw = 0; carSpeed = 0;
@@ -663,6 +663,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.msgTimer) clearTimeout(this.msgTimer);
     if (this._recordToastTimer) clearTimeout(this._recordToastTimer);
     if (this._beatFriendToastTimer) clearTimeout(this._beatFriendToastTimer);
+    if (this._glowIntensitySaveTimer) clearTimeout(this._glowIntensitySaveTimer);
     if (this._mpLobbyTrackId) {
       this.racingHub.leaveLobby(this._mpLobbyTrackId);
     }
@@ -2559,6 +2560,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       decalStyle: decalIds[(hash * 3 + i) % decalIds.length],
       accent: ACCENT_COLORS[accentIds[(hash + i * 2) % accentIds.length]],
       glow: (hash + i) % 5 === 0 ? GLOW_COLORS[glowIds[(hash + i) % glowIds.length]] : undefined,
+      glowIntensity: 30 + ((hash + i * 17) % 5) * 15,
       metallic: 0.3 + ((hash + i * 3) % 6) / 10,
     };
   }
@@ -2671,10 +2673,40 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       accent: ACCENT_COLORS[this.playerCar.accentId] ?? undefined,
       decalStyle: this.playerCar.decalId,
       glow: GLOW_COLORS[this.playerCar.glowId] ?? undefined,
+      glowIntensity: this.playerCar.glowIntensity ?? 50,
       metallic: SKIN_FINISH_FACTOR[skin.finish] ?? 0.45,
       skin: this.hexToRgb(skin.color),
     };
   }
+  private _glowIntensitySaveTimer: any = null;
+
+  // Neon intensity slider (0 subtle .. 100 blinding). Updates the garage pool
+  // live via the --glow-intensity CSS var and debounce-saves so dragging the
+  // slider doesn't fire a save per pixel.
+  setGlowIntensity(event: Event) {
+    const target = event.target as HTMLInputElement;
+    const v = Math.max(0, Math.min(100, Math.round(Number(target?.value) || 0)));
+    if (this.playerCar) this.playerCar.glowIntensity = v;
+    if (this._glowIntensitySaveTimer) clearTimeout(this._glowIntensitySaveTimer);
+    this._glowIntensitySaveTimer = setTimeout(() => this.saveCar(), 400);
+  }
+
+  // The CSS custom property consumed by .car-glow-pool / .car-underglow:
+  // 0.05 (subtle) → 2.25 (blinding), 1.0 ≈ the original default brightness.
+  get glowIntensityVar(): number {
+    const v = this.playerCar?.glowIntensity ?? 50;
+    return 0.05 + (v / 100) * 2.2;
+  }
+
+  get glowIntensityLabel(): string {
+    const v = this.playerCar?.glowIntensity ?? 50;
+    if (v < 25) return 'Subtle';
+    if (v < 50) return 'Soft';
+    if (v < 75) return 'Bright';
+    if (v < 95) return 'Vivid';
+    return 'Blinding';
+  }
+
   hoveredUpgrade: any = null;
   getStatPreview(u: any): { before: number; after: number; label: string } {
     const current = this.getUpgradeLevel(u.category);

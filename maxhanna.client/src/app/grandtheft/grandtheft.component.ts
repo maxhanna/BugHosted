@@ -8,6 +8,15 @@ import { FileService } from '../../services/file.service';
 
 const CHUNK_SIZE = 80;
 const CAR_HEIGHT = 0.4;
+const JUMP_GRAVITY = 18;
+const JUMP_MIN_DIST = 8;
+// Fixed jump ramps (ids must match the server's JumpRamps list). yaw follows
+// the car-forward convention (sin yaw, cos yaw) so the lip points down the road.
+const JUMP_RAMPS = [
+  { id: 1, name: 'Home Straight', x: 80, z: 20, yaw: 0 },
+  { id: 2, name: 'Boulevard Blast', x: 120, z: 80, yaw: Math.PI / 2 },
+  { id: 3, name: 'Crossroads Launch', x: 160, z: 80, yaw: 0 },
+];
 
 const WEAPON_NAMES = ['Unarmed', 'Pistol', 'Rifle', 'Shotgun', 'Rocket Launcher'];
 const WEAPON_COOLDOWNS = [400, 300, 150, 800, 1500];
@@ -156,6 +165,27 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   showMap = false;
   showWeaponWheel = false;
   showLeaderboard = false;
+  lbTab: 'live' | 'scores' | 'jumps' = 'live';
+  hsSort: 'kills' | 'deaths' | 'money' = 'kills';
+  highScores: any[] = [];
+  hsTotal = 0;
+  hsUserRank = 0;
+  hsLoading = false;
+  private _hsTimer: any = null;
+  private _hsReqId = 0;
+  // Jump ramps
+  jumpActive = false;
+  jumpRampId = 0;
+  jumpLaunchX = 0;
+  jumpLaunchZ = 0;
+  jumpVy = 0;
+  jumpPeak = 0;
+  jumpAirtime = 0;
+  jumpCooldown = 0;
+  jumpReadout = '';
+  jumpToast = '';
+  jumpRampData: any[] = [];
+  private _jumpToastTimer: any = null;
   otherPlayers: OtherPlayerState[] = [];
   tracers: Tracer[] = [];
   muzzleFlashes: MuzzleFlash[] = [];
@@ -326,6 +356,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       canvas.height = window.innerHeight;
     }
     this.renderer = new GrandTheftRenderer(canvas);
+    this.renderer.jumpRamps = JUMP_RAMPS;
     this.renderer.isMobile = this.isMobile;
     if (this.isMobile) this.renderer.reduceShadowMap();
 
@@ -583,6 +614,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   ngOnDestroy() {
     this._destroyed = true;
+    this.stopHsRefresh();
+    if (this._jumpToastTimer) { clearTimeout(this._jumpToastTimer); this._jumpToastTimer = null; }
     cancelAnimationFrame(this.animFrameId);
     const canvas = this.canvasRef.nativeElement;
     canvas.removeEventListener('click', this.onCanvasClick);
@@ -1549,7 +1582,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   private startAutoFire() { this.stopAutoFire(); this.autoFireTimer = setInterval(() => this.shoot(), 50); }
   private stopAutoFire() { this.isShooting = false; if (this.autoFireTimer) { clearInterval(this.autoFireTimer); this.autoFireTimer = null; } }
-  private getUserId(): number { return (this.parentRef as any)?.user?.id ?? 0; }
+  getUserId(): number { return (this.parentRef as any)?.user?.id ?? 0; }
 
   private async pollMultiplayer(): Promise<void> {
     if (this._destroyed) return;
@@ -1857,12 +1890,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           const dmg = WEAPON_DAMAGES[this.currentWeapon];
           if (isPlayer) {
             t.health = Math.max(0, (t.health ?? 100) - dmg);
-            this.gtService.hit(this.getUserId(), t.userId, 1, dmg, ox, oz).then((res: any) => {
+            this.gtService.hit(this.getUserId(), t.userId, 1, dmg, ox, oz, this.currentWeapon).then((res: any) => {
               if (res && res.targetHealth !== undefined) t.health = res.targetHealth;
             });
           } else {
             t.health = (t.health ?? 100) - dmg;
-            this.gtService.hit(this.getUserId(), t.id, 1, dmg, ox, oz);
+            this.gtService.hit(this.getUserId(), t.id, 1, dmg, ox, oz, this.currentWeapon);
             this.score += 10;
           }
           return true;
@@ -2775,7 +2808,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (let i = this.parkedCars.length - 1; i >= 0; i--) {
       const pc = this.parkedCars[i];
       const now = performance.now() / 1000;
-      if (pc.isBurning) {
+      // Server-synced parked cars burn out on the server (health → 0 → the
+      // dead-NPC loop explodes them exactly once). Only locally-held parked
+      // cars (negative ids) get a client-side 10s burn timer, so synced cars
+      // never vanish/re-appear in a splice + re-add flicker.
+      if (pc.isBurning && pc.id < 0) {
         const elapsed = now - (pc.fireStarted ?? now);
         if (elapsed >= 10.0) {
           if (!this.deadNPCIds.has(pc.id)) {
@@ -2786,7 +2823,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           continue;
         }
       }
-      if (pc.isSmoking && !pc.isBurning) {
+      // Smoke on ANY damaged parked car — including burning ones — so
+      // low-health parked cars visibly smoke (plus fire) instead of nothing.
+      if (pc.isSmoking) {
         if (pc.smokeStarted && now - pc.smokeStarted >= 10.0) {
           pc.isSmoking = false;
           continue;
@@ -2815,7 +2854,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // throttle timer so effects don't re-trigger every poll ("recent smokes").
     const npcNow = performance.now() / 1000;
     for (const v of this.serverNPCs) {
-      if (!v.isSmoking || v.isBurning || v.health <= 0) {
+      if (!v.isSmoking || v.health <= 0) {
         // Not smoking anymore — drop the anchor so a future smoke phase restarts fresh
         delete (this._npcSmokeStarted as any)[v.id];
         continue;
@@ -3177,9 +3216,105 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carSpeed = fwdSpeed;
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
-    this.carY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
+    this.updateJumpPhysics(dt);
     this.pushOutOfBuildings();
     this.checkPropCollision();
+  }
+
+  // ── Jump ramps: drive over a ramp at speed to go airborne; landing scores ──
+  private updateJumpPhysics(dt: number) {
+    const groundY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
+    if (this.jumpActive) {
+      this.jumpAirtime += dt;
+      this.jumpVy -= JUMP_GRAVITY * dt;
+      this.carY += this.jumpVy * dt;
+      const aboveGround = this.carY - (CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ));
+      if (aboveGround > this.jumpPeak) this.jumpPeak = aboveGround;
+      const dist = Math.hypot(this.carX - this.jumpLaunchX, this.carZ - this.jumpLaunchZ);
+      const readout = `AIRBORNE ${Math.max(0, Math.floor(dist))}m · ${Math.max(0, Math.floor(this.jumpPeak * 10) / 10)}m up`;
+      if (readout !== this.jumpReadout) {
+        this.jumpReadout = readout;
+        this.ngZone.run(() => this.cdr.detectChanges());
+      }
+      if (this.carY <= groundY) {
+        this.carY = groundY;
+        this.jumpActive = false;
+        if (this.jumpReadout !== '') {
+          this.jumpReadout = '';
+          this.ngZone.run(() => this.cdr.detectChanges());
+        }
+        const landDist = Math.hypot(this.carX - this.jumpLaunchX, this.carZ - this.jumpLaunchZ);
+        if (landDist >= JUMP_MIN_DIST && this.jumpRampId > 0) {
+          this.submitJump(this.jumpRampId, landDist, this.jumpPeak);
+        }
+        this.jumpRampId = 0;
+        this.jumpPeak = 0;
+        this.jumpAirtime = 0;
+        this.jumpVy = 0;
+      }
+      return;
+    }
+    // On the ground: keep following terrain (critical — don't early-return
+    // before setting carY, or cars stop tracking sidewalks/bridges/beaches).
+    this.carY = groundY;
+    if (this.jumpReadout !== '') {
+      this.jumpReadout = '';
+      this.ngZone.run(() => this.cdr.detectChanges());
+    }
+    const spd = Math.hypot(this.carVx, this.carVz);
+    if (this.jumpCooldown > 0) { this.jumpCooldown -= dt; return; }
+    if (spd < 8) return;
+    for (const r of JUMP_RAMPS) {
+      const sinY = Math.sin(r.yaw), cosY = Math.cos(r.yaw);
+      const along = (this.carX - r.x) * sinY + (this.carZ - r.z) * cosY;
+      const lat = (this.carX - r.x) * cosY - (this.carZ - r.z) * sinY;
+      if (Math.abs(along) < 6.5 && Math.abs(lat) < 3.5) {
+        const alongVel = this.carVx * sinY + this.carVz * cosY;
+        if (alongVel >= 8) {
+          this.jumpActive = true;
+          this.jumpRampId = r.id;
+          this.jumpLaunchX = this.carX;
+          this.jumpLaunchZ = this.carZ;
+          this.jumpVy = Math.min(5 + spd * 0.18, 12);
+          this.jumpPeak = 0;
+          this.jumpAirtime = 0;
+          this.jumpCooldown = 1.5;
+        }
+        break;
+      }
+    }
+  }
+
+  private async submitJump(rampId: number, distance: number, height: number) {
+    const uid = this.getUserId();
+    if (!uid) return;
+    const res: any = await this.gtService.submitJump(uid, rampId, Math.round(distance * 10) / 10, Math.round(height * 10) / 10);
+    if (res && res.ok && res.isRecord && res.reward > 0) {
+      this.money += res.reward;
+      this.moneyStacks.push({ x: this.carX, z: this.carZ, amount: res.reward, yaw: 0, age: 0, lifetime: 5 });
+      this.showJumpToast(`🏆 JUMP RECORD! ${res.distance}m (+$${res.reward})`);
+      if (this.lbTab === 'jumps') this.loadJumps();
+    } else if (res && res.ok) {
+      this.showJumpToast(`JUMP ${distance}m · best ${res.bestDistance}m`);
+    }
+  }
+
+  private showJumpToast(msg: string) {
+    this.jumpToast = msg;
+    if (this._jumpToastTimer) clearTimeout(this._jumpToastTimer);
+    this._jumpToastTimer = setTimeout(() => { this.jumpToast = ''; }, 4500);
+  }
+
+  private async loadJumps() {
+    if (this._destroyed) return;
+    const reqId = ++this._hsReqId;
+    const res = await this.gtService.getJumps(this.getUserId());
+    if (this._destroyed || reqId !== this._hsReqId) return;
+    this.jumpRampData = res?.ramps ?? [];
+  }
+
+  trackByJump(index: number, item: { id: number }): number {
+    return item ? item.id : index;
   }
 
   private checkPropCollision() {
@@ -3940,28 +4075,34 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
 
   private updateCopShooting() {
     const checkNPC = (npc: any) => {
-      if (npc.type !== 'cop' && npc.type !== 'police') return;
+      if (npc.type !== 'cop' && npc.type !== 'police' && npc.type !== 'ped_male' && npc.type !== 'ped_female') return;
       if (!npc.isShootingAt) return;
       const dx = this.carX - npc.x;
       const dz = this.carZ - npc.z;
       const targetY = this.carY + 1.0;
       const dy = targetY - 1.2;
       const d3 = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      if (d3 > 0.01) {
-        this.tracers.push({
-          originX: npc.x, originY: 1.2, originZ: npc.z,
-          dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3,
-          age: 0, lifetime: 0.1
-        });
-        this.muzzleFlashes.push({
-          x: npc.x, y: 1.2, z: npc.z,
-          dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3,
-          weapon: 0, age: 0, lifetime: 0.08
-        });
-        this.spawnBulletSmoke(npc.x, 1.2, npc.z, dx / d3, dy / d3, dz / d3, 1);
-        this.spawnBulletTrail(npc.x, 1.2, npc.z, dx / d3, dy / d3, dz / d3, 1);
+      if (npc.type === 'cop' || npc.type === 'police') {
+        if (d3 > 0.01) {
+          this.tracers.push({
+            originX: npc.x, originY: 1.2, originZ: npc.z,
+            dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3,
+            age: 0, lifetime: 0.1
+          });
+          this.muzzleFlashes.push({
+            x: npc.x, y: 1.2, z: npc.z,
+            dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3,
+            weapon: 0, age: 0, lifetime: 0.08
+          });
+          this.spawnBulletSmoke(npc.x, 1.2, npc.z, dx / d3, dy / d3, dz / d3, 1);
+          this.spawnBulletTrail(npc.x, 1.2, npc.z, dx / d3, dy / d3, dz / d3, 1);
+        }
+        this.playWeaponSound(0);
+      } else if (d3 > 0.01) {
+        // Melee fight-back: a punched ped lands a punch on the player —
+        // splash blood on the player so the hit reads.
+        this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, dx / d3, dy / d3, dz / d3);
       }
-      this.playWeaponSound(0);
       npc.isShootingAt = false;
     };
     for (const npc of this.serverNPCs) checkNPC(npc);
@@ -4348,7 +4489,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const ease = t * t; // accelerate away
       taxi.x = this.taxiRideStopX + Math.sin(taxi.yaw) * 90 * ease;
       taxi.z = this.taxiRideStopZ + Math.cos(taxi.yaw) * 90 * ease;
-      if (t >= 1) this.endTaxiRide();
+      if (t >= 1) {
+        // Hand the taxi off to the server so it becomes a real NPC taxi that
+        // keeps driving away (visible to everyone) instead of just vanishing.
+        this.gtService.spawnTaxi(1, taxi.x, taxi.z, taxi.yaw);
+        this.endTaxiRide();
+      }
     }
   }
 
@@ -5116,6 +5262,66 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     await this.ngOnInit();
   }
 
+  // ── High-scores leaderboard (persistent kills / deaths / money) ────────────
+  private toggleLeaderboard() {
+    this.showLeaderboard = !this.showLeaderboard;
+    if (this.showLeaderboard) {
+      if (this.lbTab === 'scores') this.loadHighScores();
+      else if (this.lbTab === 'jumps') this.loadJumps();
+      this.startHsRefresh();
+    } else {
+      this.stopHsRefresh();
+    }
+  }
+
+  setLbTab(tab: 'live' | 'scores' | 'jumps') {
+    this.lbTab = tab;
+    if (!this.showLeaderboard) return;
+    if (tab === 'scores') this.loadHighScores();
+    else if (tab === 'jumps') this.loadJumps();
+  }
+
+  setHsSort(sort: 'kills' | 'deaths' | 'money') {
+    if (this.hsSort === sort) return;
+    this.hsSort = sort;
+    this.loadHighScores();
+  }
+
+  private startHsRefresh() {
+    this.stopHsRefresh();
+    this._hsTimer = setInterval(() => {
+      if (!this.showLeaderboard) { this.stopHsRefresh(); return; }
+      if (this.lbTab === 'scores') this.loadHighScores();
+      else if (this.lbTab === 'jumps') this.loadJumps();
+    }, 30000);
+  }
+
+  private stopHsRefresh() {
+    if (this._hsTimer) { clearInterval(this._hsTimer); this._hsTimer = null; }
+  }
+
+  private async loadHighScores() {
+    if (this._destroyed) return;
+    // Request token: rapid sort/tab switches must not let a stale response win.
+    const reqId = ++this._hsReqId;
+    this.hsLoading = true;
+    try {
+      const res = await this.gtService.getHighScores(this.hsSort, this.getUserId());
+      if (this._destroyed || reqId !== this._hsReqId) return;
+      if (res) {
+        this.highScores = res.results ?? [];
+        this.hsTotal = res.totalCount ?? 0;
+        this.hsUserRank = res.userRank ?? 0;
+      }
+    } finally {
+      if (reqId === this._hsReqId) this.hsLoading = false;
+    }
+  }
+
+  trackByHighScore(index: number, item: { playerId: number }): number {
+    return item ? item.playerId : index;
+  }
+
   trackByLeaderboard(index: number, item: { userId: number }): number {
     return item.userId;
   }
@@ -5265,7 +5471,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (e.code === 'KeyR' && this.isInCar && this.vehicleType === 'police') this.togglePoliceMode();
     if (e.code === 'KeyV') this.toggleView();
     if (e.code === 'KeyM') this.toggleMap();
-    if (e.code === 'KeyL') this.showLeaderboard = !this.showLeaderboard;
+    if (e.code === 'KeyL') this.toggleLeaderboard();
     if (this.isInCar && !this.isMobile) {
       if (e.code === 'ArrowUp') { e.preventDefault(); this.stopRadio(); }
       if (e.code === 'ArrowDown') { e.preventDefault(); this.randomRadio(); }
@@ -5287,6 +5493,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (e.code === 'Escape') {
       this.showWeaponWheel = false;
       this.showLeaderboard = false;
+      this.stopHsRefresh();
     }
   };
 

@@ -23,6 +23,24 @@ export interface GTNPCData {
   maxHealth?: number;
 }
 
+export interface GTHighScoreEntry {
+  playerId: number;
+  playerName: string;
+  kills: number;
+  deaths: number;
+  money: number;
+}
+
+export interface GTJumpRamp {
+  id: number;
+  name: string;
+  globalBest: number;
+  globalHolder: string;
+  userBest: number;
+  userHeight: number;
+  userReward: number;
+}
+
 export interface DeadBodyData {
   id: number;
   posX: number;
@@ -274,6 +292,17 @@ export class GrandtheftService {
     }
   }
 
+  // Spawns a moving NPC taxi on the server so a finished taxi ride "becomes"
+  // a real taxi that drives away normally (visible to all nearby players).
+  async spawnTaxi(worldId: number, posX: number, posZ: number, yaw: number): Promise<{ ok: boolean; id?: number } | null> {
+    try {
+      return await this.http.post<{ ok: boolean; id?: number }>(`${this.baseUrl}/spawntaxi`, { worldId, posX, posZ, yaw }).toPromise() ?? null;
+    } catch (e) {
+      console.error('Error spawning taxi', e);
+      return null;
+    }
+  }
+
   async updatePosition(
     userId: number, worldId: number,
     posX: number, posY: number, posZ: number,
@@ -340,10 +369,39 @@ export class GrandtheftService {
       return null;
     }
   }
-  
-  async hit(attackerId: number, targetId: number, worldId: number, damage: number, attackerX: number = 0, attackerZ: number = 0): Promise<any> {
+
+  async getHighScores(sort: string = 'kills', userId: number = 0, limit: number = 50): Promise<{ results: GTHighScoreEntry[]; totalCount: number; userRank: number; sort: string } | null> {
     try {
-      return await this.http.post(`${this.baseUrl}/hit`, { attackerId, targetId, worldId, damage, attackerX, attackerZ }).toPromise();
+      const data: any = await this.http.get(`${this.baseUrl}/highscores?sort=${sort}&userId=${userId}&limit=${limit}`).toPromise();
+      return data ?? null;
+    } catch (e) {
+      console.error('Error fetching high scores', e);
+      return null;
+    }
+  }
+
+  async getJumps(userId: number = 0): Promise<{ ramps: GTJumpRamp[] } | null> {
+    try {
+      const data: any = await this.http.get(`${this.baseUrl}/jumps?userId=${userId}`).toPromise();
+      return data ?? null;
+    } catch (e) {
+      console.error('Error fetching jumps', e);
+      return null;
+    }
+  }
+
+  async submitJump(userId: number, rampId: number, distance: number, height: number): Promise<any> {
+    try {
+      return await this.http.post(`${this.baseUrl}/jump`, { userId, rampId, distance, height }).toPromise();
+    } catch (e) {
+      console.error('Error submitting jump', e);
+      return null;
+    }
+  }
+  
+  async hit(attackerId: number, targetId: number, worldId: number, damage: number, attackerX: number = 0, attackerZ: number = 0, weapon: number = -1): Promise<any> {
+    try {
+      return await this.http.post(`${this.baseUrl}/hit`, { attackerId, targetId, worldId, damage, weapon, attackerX, attackerZ }).toPromise();
     } catch (e) {
       console.error('Error registering hit', e);
       return null;

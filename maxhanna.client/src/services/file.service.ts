@@ -9,6 +9,56 @@ import { FileNote } from './datacontracts/file/file-note';
 import { Core, CoreDescriptor, System, SystemCandidate } from '../app/emulator/emulator-types';
 import { DirectoryResults } from './datacontracts/file/directory-results';
 
+// One suggestion row returned by /search/suggest for the nav search popup.
+export interface SearchSuggestionFile {
+  id: number;
+  name: string;
+  description: string;
+  folderPath: string;
+  fileType: string;
+  isPublic: boolean;
+  userId: number;
+}
+export interface SearchSuggestionPost {
+  id: number;
+  text: string;
+  date: string | null;
+  city: string;
+  country: string;
+  username: string;
+}
+export interface SearchSuggestionComment {
+  id: number;
+  text: string;
+  date: string | null;
+  userId: number;
+  fileId: number | null;
+  storyId: number | null;
+  username: string;
+}
+export interface SearchSuggestionNews {
+  id: number;
+  title: string;
+  description: string;
+  url: string;
+  imageUrl: string;
+  publishedAt: string | null;
+}
+export interface SearchSuggestionFavourite {
+  id: number;
+  name: string;
+  url: string;
+  imageUrl: string;
+  createdBy: number | null;
+}
+export interface SearchSuggestions {
+  files: SearchSuggestionFile[];
+  posts: SearchSuggestionPost[];
+  comments: SearchSuggestionComment[];
+  news: SearchSuggestionNews[];
+  favourites: SearchSuggestionFavourite[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -876,6 +926,20 @@ export class FileService {
       });
     } catch (e) {
       console.error('Failed to record search', e);
+    }
+  }
+
+  // Aggregated type-ahead suggestions for the nav search bar — files, posts,
+  // comments, news and favourites all matched against the term at once.
+  async suggest(query: string, userId: number = 0): Promise<SearchSuggestions | null> {
+    try {
+      const url = `/search/suggest?query=${encodeURIComponent(query)}&userId=${userId}`;
+      const res = await fetch(url, { method: 'GET' });
+      if (!res.ok) return null;
+      return await res.json() as SearchSuggestions;
+    } catch (e) {
+      console.error('Failed to fetch suggestions', e);
+      return null;
     }
   }
 

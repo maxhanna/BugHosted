@@ -2604,6 +2604,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     this.rot = this.mul3(this.mul3(Ry, Rx), this.rot) as Float32Array<ArrayBuffer>;
   }
 
+  // Drag pan sensitivity. From the start of the satellite zoom range the
+  // globe turns more slowly so the pointer can stay on target; in the deepest
+  // 2–3 zoom tiers (tile zooms 17–19, where detail tiles are also densest) the
+  // movement eases down to about 1/10 of the base rate so fine adjustments
+  // don't overshoot — previously it dropped to ~1/20 and felt frozen.
   private getDragSensitivityScale(): number {
     const tileZoom = this.camDistToTileZoom();
     if (tileZoom < this.SATELLITE_ZOOM_MIN) return 1;
@@ -2612,9 +2617,11 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
       1,
       (tileZoom - this.SATELLITE_ZOOM_MIN) / (this.SATELLITE_ZOOM_MAX - this.SATELLITE_ZOOM_MIN)
     );
-    const surfaceT = 1 - Math.min(1, Math.max(0, (this.camDist - this.CAM_MIN) / 0.08));
-    const closeScale = 0.16 - 0.11 * Math.max(zoomT, surfaceT);
-    return Math.max(0.035, closeScale);
+    // Deep-zoom easing: smooth 1 -> 0.1 across the satellite range, weighted
+    // toward the deepest tiers (17–19) so the 2–3 last tiers feel ~10x slower.
+    const deepT = Math.min(1, Math.max(0, (tileZoom - 16) / 3));
+    const closeScale = 1 - 0.9 * (0.35 * zoomT + 0.65 * deepT);
+    return Math.max(0.1, closeScale);
   }
 
   private checkPinHover(e: MouseEvent): void {

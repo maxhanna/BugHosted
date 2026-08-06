@@ -308,6 +308,19 @@
   padding-left: 10px;
 }
 
+/* Brief attention glow on the comment you just posted — makes the newly added
+   sub-comment pop in the sub-commentary instead of blending in quietly. */
+.commentTextDiv.justPostedComment {
+  animation: justPostedFlash 2.2s ease-out 1;
+  border-radius: 6px;
+}
+
+@keyframes justPostedFlash {
+  0% { background-color: rgb(from var(--main-link-color) r g b / 45%); box-shadow: 0 0 12px rgb(from var(--main-link-color) r g b / 35%); }
+  60% { background-color: rgb(from var(--main-link-color) r g b / 22%); box-shadow: 0 0 8px rgb(from var(--main-link-color) r g b / 20%); }
+  100% { background-color: transparent; box-shadow: none; }
+}
+
 .toggle-subcomments {
   cursor: pointer;
   padding: 2px 5px;

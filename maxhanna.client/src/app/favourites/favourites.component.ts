@@ -20,6 +20,9 @@ export class FavouritesComponent extends ChildComponent implements OnInit, After
   @ViewChild('editingImageUrlInput') editingImageUrlInput!: ElementRef<HTMLInputElement>;
   @ViewChild('editingNameInput') editingNameInput!: ElementRef<HTMLInputElement>;
 
+  // Search term passed in by the caller (e.g. the nav search bar) — pre-fills
+  // the favourites list so a suggestion lands the user on the matching links.
+  inputSearchTerm?: string;
   favorites: Favourite[] = []; // Single array for all favorites
   editingFavourite?: Favourite;
   showNameImageInput = false;
@@ -62,7 +65,8 @@ export class FavouritesComponent extends ChildComponent implements OnInit, After
       this.currentOrder = 'visited';
       this.currentVisibility = 'yours';
       this.showingLatestLinks = false;
-      this.loadFavorites();
+      // Pre-fill with the caller-provided search term (nav search suggestions).
+      this.loadFavorites(this.inputSearchTerm ?? '');
     } else {
       // not logged in -> default to showing all favourites (others)
       this.currentVisibility = 'others';
