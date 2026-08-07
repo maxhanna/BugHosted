@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ComponentRef, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ComponentRef, OnInit, Type, ViewChild, ViewContainerRef, createNgModuleRef } from '@angular/core';
 import { NavigationEnd, Router, RouterEvent, RouterOutlet } from '@angular/router';
 import { Location } from '@angular/common';
 import { CalendarComponent } from './calendar/calendar.component';
@@ -11,7 +11,6 @@ import { NotepadComponent } from './notepad/notepad.component';
 import { MusicComponent } from './music/music.component';
 import { UserComponent } from './user/user.component';
 import { MenuItem } from '../services/datacontracts/user/menu-item';
-import { ChatComponent } from './chat/chat.component';
 import { MemeComponent } from './meme/meme.component';
 import { SocialComponent } from './social/social.component';
 import { NewsComponent } from './news/news.component';
@@ -25,7 +24,6 @@ import { User } from '../services/datacontracts/user/user';
 import { ModalComponent } from './modal/modal.component';
 import { NotificationsComponent } from './notifications/notifications.component';
 import { UserService } from '../services/user.service';
-import { CryptoHubComponent } from './crypto-hub/crypto-hub.component';
 import { HostAiComponent } from './host-ai/host-ai.component';
 import { DomSanitizer, Meta, Title } from '@angular/platform-browser';
 import { MediaViewerComponent } from './media-viewer/media-viewer.component';
@@ -41,20 +39,16 @@ import { MastermindComponent } from './mastermind/mastermind.component';
 import { ArtComponent } from './art/art.component';
 import { EnderComponent } from './ender/ender.component';
 import { BonesComponent } from './bones/bones.component';
-import { DigCraftComponent } from './digcraft/digcraft.component';
-import { EmulatorComponent } from './emulator/emulator.component';
 import { YoutubeVideo } from '../services/datacontracts/youtube';
 import { SigIntComponent } from './sig-int/sig-int.component';
 import { UserEventsComponent } from './user-events/user-events.component';
 import { PlanterComponent } from './planter/planter.component';
 import { WeaverComponent } from './weaver/weaver.component';
 import { WeaverGuideComponent } from './weaver-guide/weaver-guide.component';
-import { GrandTheftComponent } from './grandtheft/grandtheft.component';
 import { RecipeComponent } from './recipe/recipe.component';
 import { PaintComponent } from './paint/paint.component';
 import { ModeratorComponent } from './moderator/moderator.component';
 import { UserEventService } from '../services/user-event.service';
-import { RacingComponent } from './racing/racing.component';
 import { ConversionComponent } from './conversion/conversion.component';
 import { ChatService } from '../services/chat.service';
 import { PublicChatInfo } from '../services/datacontracts/moderator/moderator';
@@ -470,7 +464,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Music": MusicComponent,
     "Notepad": NotepadComponent,
     "Contacts": ContactsComponent,
-    "Emulator": EmulatorComponent,
     "Array": ArrayComponent,
     "Bug-Wars": NexusComponent,
     "Meta-Bots": MetaComponent,
@@ -479,9 +472,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Art": ArtComponent,
     "SigInt": SigIntComponent,
     "News": NewsComponent,
-    "Crypto-Hub": CryptoHubComponent,
     "User": UserComponent,
-    "Chat": ChatComponent,
     "Social": SocialComponent,
     "HostAi": HostAiComponent,
     "Theme": ThemesComponent,
@@ -491,13 +482,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Top100": TopComponent,
     "Ender": EnderComponent,
     "Bones": BonesComponent,
-    "DigCraft": DigCraftComponent,
-    "GrandTheft": GrandTheftComponent,
     "Planter": PlanterComponent,
     "Weaver": WeaverComponent,
     "WeaverGuide": WeaverGuideComponent,
     "Recipe": RecipeComponent,
-    "Racing": RacingComponent,
     "Notifications": NotificationsComponent,
     "UpdateUserSettings": UpdateUserSettingsComponent,
     "User-Events": UserEventsComponent,
@@ -505,6 +493,22 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Moderator": ModeratorComponent,
     "Conversion": ConversionComponent,
   };
+  /**
+   * Lazily-loaded apps: each entry is a dynamic import so its code (and any
+   * exclusive dependencies like renderers, chart.js or firebase) is split into a
+   * separate chunk fetched only when the app is first opened — keeping the
+   * initial main.js payload small.
+   */
+  private componentLoaders: { [key: string]: () => Promise<Type<any> | { type: Type<any>; module: Type<any>; }> } = {
+    "Emulator": () => import('./emulator/emulator.component').then(m => m.EmulatorComponent),
+    "Chat": () => import('./chat/chat.component').then(m => m.ChatComponent),
+    "DigCraft": () => import('./digcraft/digcraft.component').then(m => m.DigCraftComponent),
+    "GrandTheft": () => import('./grandtheft/grandtheft.component').then(m => m.GrandTheftComponent),
+    "Racing": () => import('./racing/racing.component').then(m => m.RacingComponent),
+    "Crypto-Hub": () => import('./crypto-hub/crypto-hub.module').then(m => ({ type: m.CryptoHubComponent, module: m.CryptoModule })),
+  };
+  /** Guards against a slow lazy chunk resolving after a newer navigation superseded it. */
+  private _createSeq = 0;
   userSelectedNavigationItems: Array<MenuItem> = [];
   constructor(private router: Router,
     private userService: UserService,
@@ -787,7 +791,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     }
   }
 
-  createComponent(componentType: string, inputs?: { [key: string]: any; }, previousComponentParameters?: { [key: string]: any; }, skipHistoryPush: boolean = false) {
+  async createComponent(componentType: string, inputs?: { [key: string]: any; }, previousComponentParameters?: { [key: string]: any; }, skipHistoryPush: boolean = false) {
     //console.log("in create component : " + componentType);
     this.navigationComponent?.minimizeNav();
     this.closeOverlay();
@@ -799,7 +803,28 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       return;
     }
 
-    const componentClass = this.componentMap[componentType];
+    const seq = ++this._createSeq;
+    const eagerClass = this.componentMap[componentType];
+    const loader = this.componentLoaders[componentType];
+    if (!eagerClass && !loader) {
+      this.navigationComponent?.maximizeNav();
+      this.showNotification("Invalid component type received. Returned to menu.");
+      return;
+    }
+
+    let componentClass: Type<any> = eagerClass;
+    let moduleRef: any = undefined;
+    if (loader) {
+      const loaded = await loader();
+      // A newer navigation happened while this chunk was loading — bail out.
+      if (seq !== this._createSeq) return;
+      if (loaded && (loaded as any).module) {
+        moduleRef = createNgModuleRef((loaded as any).module, this.VCR.injector);
+        componentClass = (loaded as any).type;
+      } else {
+        componentClass = loaded as Type<any>;
+      }
+    }
     if (!componentClass) {
       this.navigationComponent?.maximizeNav();
       this.showNotification("Invalid component type received. Returned to menu.");
@@ -819,7 +844,9 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       }
     }
 
-    const childComponentRef = this.VCR.createComponent(componentClass);
+    const childComponentRef = moduleRef
+      ? this.VCR.createComponent(componentClass, { environmentInjector: moduleRef.injector })
+      : this.VCR.createComponent(componentClass);
     let childComponent: any = childComponentRef.instance;
     childComponent.unique_key = ++this.child_unique_key;
     childComponent.parentRef = this;

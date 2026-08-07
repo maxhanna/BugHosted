@@ -1,12 +1,13 @@
 import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild, ChangeDetectorRef } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { AppModule } from '../app.module';
 import { ChildComponent } from '../child.component';
 import { ChatService } from '../../services/chat.service';
 import { Message } from '../../services/datacontracts/chat/message';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { User } from '../../services/datacontracts/user/user';
 import { AppComponent } from '../app.component';
-import { initializeApp } from 'firebase/app';
-import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging";
 import { NotificationService } from '../../services/notification.service';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { UserService } from '../../services/user.service';
@@ -22,7 +23,8 @@ import { Subscription } from 'rxjs';
   selector: 'app-chat',
   templateUrl: './chat.component.html',
   styleUrl: './chat.component.css',
-  standalone: false
+  standalone: true,
+  imports: [AppModule, CommonModule, FormsModule]
 })
 export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   showMiniTag: boolean = true;
@@ -1015,6 +1017,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       return;
     }
     try {
+      // Firebase is dynamically imported so the messaging SDK stays out of the
+      // initial main.js bundle and loads only when push notifications are used.
+      const { initializeApp } = await import('firebase/app');
+      const { getMessaging, getToken } = await import('firebase/messaging');
       const firebaseConfig = {
         apiKey: "AIzaSyAR5AbDVyw2RmW4MCLL2aLVa2NLmf3W-Xc",
         authDomain: "bughosted.firebaseapp.com",

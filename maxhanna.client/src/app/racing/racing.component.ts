@@ -1,4 +1,7 @@
 import { AfterViewInit, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { AppModule } from '../app.module';
 import { ChildComponent } from '../child.component';
 import { RacingRenderer, TrackPoint, DECAL_LAYOUTS, getAccentSegsForStyle } from './racing-renderer';
 import { RacingService } from '../../services/racing.service';
@@ -109,7 +112,8 @@ interface RemoteCarVisual {
   selector: 'app-racing',
   templateUrl: './racing.component.html',
   styleUrl: './racing.component.css',
-  standalone: false,
+  standalone: true,
+  imports: [AppModule, CommonModule, FormsModule],
 })
 export class RacingComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('raceCanvas', { static: false }) canvasRef!: ElementRef<HTMLCanvasElement>;

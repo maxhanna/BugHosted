@@ -1,6 +1,9 @@
 import {
   AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectorRef
 } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { AppModule } from '../app.module';
 import { ChildComponent } from '../child.component';
 import { DigcraftService } from '../../services/digcraft.service';
 import {
@@ -50,7 +53,8 @@ type DCPlayerSnapshot = {
   selector: 'app-digcraft',
   templateUrl: './digcraft.component.html',
   styleUrl: './digcraft.component.css',
-  standalone: false,
+  standalone: true,
+  imports: [AppModule, CommonModule, FormsModule],
 })
 export class DigCraftComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('gameCanvas', { static: false }) canvasRef!: ElementRef<HTMLCanvasElement>;

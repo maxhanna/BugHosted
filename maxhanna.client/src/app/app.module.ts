@@ -5,10 +5,6 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
-import {
-  provideCharts,
-  withDefaultRegisterables,
-} from 'ng2-charts';
 
 import { AppRoutingModule } from './app-routing.module';
 import { CalendarComponent } from './calendar/calendar.component';
@@ -17,14 +13,11 @@ import { NavigationMenuComponent } from './navigation-menu/navigation-menu.compo
 import { FavouritesComponent } from './favourites/favourites.component';
 import { WeatherComponent } from './weather/weather.component';
 import { FileComponent } from './file/file.component';
-import { MiningRigsComponent } from './mining-rigs/mining-rigs.component';
 import { TodoComponent } from './todo/todo.component';
 import { NotepadComponent } from './notepad/notepad.component';
 import { MusicComponent } from './music/music.component';
 import { ContactsComponent } from './contacts/contacts.component';
-import { CryptoHubComponent } from './crypto-hub/crypto-hub.component';
 import { UserComponent } from './user/user.component';
-import { ChatComponent } from './chat/chat.component';
 import { UserListComponent } from './user-list/user-list.component';
 import { MemeComponent } from './meme/meme.component';
 import { SocialComponent } from './social/social.component';
@@ -40,7 +33,6 @@ import { UpdateUserSettingsComponent } from './update-user-settings/update-user-
 import { CommentsComponent } from './comments/comments.component';
 import { UserTagComponent } from './user-tag/user-tag.component';
 import { ChatTagComponent } from './chat-tag/chat-tag.component';
-import { LineGraphComponent } from './line-graph/line-graph.component';
 import { ReactionComponent } from './reaction/reaction.component';
 import { ArrayComponent } from './array/array.component';
 import { NexusComponent } from './nexus/nexus.component';
@@ -68,23 +60,10 @@ import { NexusMovementComponent } from './nexus-movement/nexus-movement.componen
 import { CurrencyShortenPipe } from './currency-shorten';
 import { CountShortenPipe } from './count-shorten.pipe';
 import { CurrencySymbolPipe } from './currency-symbol';
-import { CryptoCalendarComponent } from './crypto-calendar/crypto-calendar.component';
-import { CryptoFearAndGreedComponent } from './crypto-fear-and-greed/crypto-fear-and-greed.component';
-import { CryptoGlobalStatsComponent } from './crypto-global-stats/crypto-global-stats.component';
-import { CryptoBotConfigurationComponent } from './crypto-bot-configuration/crypto-bot-configuration.component';
-import { CryptoMarketCapsComponent } from './crypto-market-caps/crypto-market-caps.component';
 import { UserTrophiesComponent } from './user-trophies/user-trophies.component';
 import { YoutubeSearchComponent } from './youtube-search/youtube-search.component';
 import { DecodeHtmlPipe } from './decode-html.pipe';
 import { PascalCasePipe } from './pascal-case.pipe';
-import { CryptoTradebotInformationComponent } from './crypto-tradebot-information/crypto-tradebot-information.component';
-import { CryptoBitcoinPerformanceComponent } from './crypto-bitcoin-performance/crypto-bitcoin-performance.component';
-import { CryptoWalletsComponent } from './crypto-wallets/crypto-wallets.component';
-import { CryptoTradeHistoryComponent } from './crypto-trade-history/crypto-trade-history.component';
-import { CryptoTradeLogsComponent } from './crypto-trade-logs/crypto-trade-logs.component';
-import { CryptoCoinGraphViewerComponent } from './crypto-coin-graph-viewer/crypto-coin-graph-viewer.component';
-import { CryptoCoinVolumeGraphViewerComponent } from './crypto-coin-volume-graph-viewer/crypto-coin-volume-graph-viewer.component';
-import { CryptoLiveTradeViewComponent } from './crypto-live-trade-view/crypto-live-trade-view.component';
 import { TextFormattingToolbarComponent } from './text-formatting-toolbar/text-formatting-toolbar.component';
 import { TextInputComponent } from './text-input/text-input.component';
 import { ClickableUrlsPipe } from './clickable-url.pipe';
@@ -94,13 +73,9 @@ import { MastermindScoresComponent } from './mastermind-scores/mastermind-scores
 import { ShareButtonComponent } from './share-button/share-button.component';
 import { EnderComponent } from './ender/ender.component';
 import { EnderHighScoresComponent } from './ender-high-scores/ender-high-scores.component';
-import { CryptoTopTradersComponent } from './crypto-top-traders/crypto-top-traders.component';
 import { WordlerHighScoresComponent } from './wordler-high-scores/wordler-high-scores.component';
-import { CryptoNewsArticlesComponent } from './crypto-news-articles/crypto-news-articles.component';
 import { AppMenuItemComponent } from './app-menu-item/app-menu-item.component';
 import { BonesComponent } from './bones/bones.component';
-import { DigCraftComponent } from './digcraft/digcraft.component';
-import { GrandTheftComponent } from './grandtheft/grandtheft.component';
 import { DailyMusicComponent } from './daily-music/daily-music.component';
 import { ProfileWidgetsComponent } from './profile-widgets/profile-widgets.component';
 import { BonesHighScoresComponent } from './bones-high-scores/bones-high-scores.component';
@@ -108,7 +83,6 @@ import { NewUsersComponent } from './new-users/new-users.component';
 import { OnlineUsersComponent } from './online-users/online-users.component';
 import { UserEventsComponent } from './user-events/user-events.component';
 import { CurrentlyPlayingComponent } from './currently-playing/currently-playing.component';
-import { EmulatorComponent } from './emulator/emulator.component';
 import { TitleBarComponent } from './title-bar/title-bar.component';
 import { RatingStarsComponent } from './rating-stars/rating-stars.component';
 import { SigIntComponent } from './sig-int/sig-int.component';
@@ -122,7 +96,6 @@ import { RecipeComponent } from './recipe/recipe.component';
 import { CrawlerSearchResultsComponent } from './crawler-search-results/crawler-search-results.component';
 import { ModeratorComponent } from './moderator/moderator.component';
 import { PaintComponent } from './paint/paint.component';
-import { RacingComponent } from './racing/racing.component';
 import { ConversionComponent } from './conversion/conversion.component';
 
 @NgModule({
@@ -134,14 +107,11 @@ import { ConversionComponent } from './conversion/conversion.component';
     FavouritesComponent,
     WeatherComponent,
     FileComponent,
-    MiningRigsComponent,
     TodoComponent,
     NotepadComponent,
     MusicComponent,
     ContactsComponent,
-    CryptoHubComponent,
     UserComponent,
-    ChatComponent,
     UserListComponent,
     MemeComponent,
     SocialComponent,
@@ -150,11 +120,11 @@ import { ConversionComponent } from './conversion/conversion.component';
     NewsComponent,
     TopicsComponent,
     WordlerComponent,
-    FileSearchComponent,
     MediaViewerComponent,
+    FileSearchComponent,
+    MediaSelectorComponent,
     UpdateUserSettingsComponent,
     CommentsComponent,
-    MediaSelectorComponent,
     UserTagComponent,
     ChatTagComponent,
     ReactionComponent,
@@ -172,8 +142,6 @@ import { ConversionComponent } from './conversion/conversion.component';
     MetaComponent,
     BonesComponent,
     BonesHighScoresComponent,
-    DigCraftComponent,
-    GrandTheftComponent,
     ClickableUrlsPipe,
     CurrencyFlagPipe,
     CurrencyShortenPipe,
@@ -184,19 +152,8 @@ import { ConversionComponent } from './conversion/conversion.component';
     SpeechRecognitionComponent,
     TopComponent,
     NexusMovementComponent,
-    CryptoCalendarComponent,
-    CryptoBotConfigurationComponent,
-    CryptoMarketCapsComponent,
     UserTrophiesComponent,
     YoutubeSearchComponent,
-    CryptoTradebotInformationComponent,
-    CryptoBitcoinPerformanceComponent,
-    CryptoWalletsComponent,
-    CryptoTradeHistoryComponent,
-    CryptoTradeLogsComponent,
-    CryptoCoinGraphViewerComponent,
-    CryptoCoinVolumeGraphViewerComponent,
-    CryptoLiveTradeViewComponent,
     TextFormattingToolbarComponent,
     TextInputComponent,
     MastermindComponent,
@@ -205,12 +162,9 @@ import { ConversionComponent } from './conversion/conversion.component';
     ShareButtonComponent,
     EnderComponent,
     EnderHighScoresComponent,
-    CryptoTopTradersComponent,
-    CryptoNewsArticlesComponent,
     WordlerHighScoresComponent,
     DailyMusicComponent,
     ProfileWidgetsComponent,
-    EmulatorComponent,
     NewUsersComponent,
     OnlineUsersComponent,
     UserEventsComponent,
@@ -229,7 +183,6 @@ import { ConversionComponent } from './conversion/conversion.component';
     CrawlerSearchResultsComponent,
     ModeratorComponent,
     PaintComponent,
-    RacingComponent,
     ConversionComponent,
   ],
   bootstrap: [AppComponent],
@@ -238,33 +191,114 @@ import { ConversionComponent } from './conversion/conversion.component';
     CommonModule,
     FormsModule,
     AppMenuItemComponent,
-    LineGraphComponent,
     TimeFormatPipe,
     TimeSincePipe,
     FileSizePipe,
     AppLoadingSpinnerComponent,
     AppRoutingModule,
-    CryptoFearAndGreedComponent,
     CurrencySymbolPipe,
     DecodeHtmlPipe,
     PascalCasePipe,
-    CryptoGlobalStatsComponent
   ],
   exports: [
+    // Everything declared/imported here is exported so lazily-loaded standalone
+    // apps (racing, digcraft, grandtheft, emulator, chat, crypto-hub) can use the
+    // shared components/pipes/directives in their templates by importing AppModule.
+    AppComponent,
+    CalendarComponent,
+    NavigationComponent,
+    NavigationMenuComponent,
+    FavouritesComponent,
+    WeatherComponent,
+    FileComponent,
+    TodoComponent,
+    NotepadComponent,
+    MusicComponent,
+    ContactsComponent,
+    UserComponent,
+    UserListComponent,
+    MemeComponent,
+    SocialComponent,
+    SocialPostComponent,
+    FileUploadComponent,
+    NewsComponent,
+    TopicsComponent,
+    WordlerComponent,
+    MediaViewerComponent,
+    FileSearchComponent,
+    MediaSelectorComponent,
+    UpdateUserSettingsComponent,
+    CommentsComponent,
+    UserTagComponent,
+    ChatTagComponent,
+    ReactionComponent,
+    ArrayComponent,
+    NexusComponent,
+    NexusMapComponent,
+    NexusBaseUnitsComponent,
+    NexusAttackScreenComponent,
+    NexusReportsComponent,
+    NexusBasesComponent,
+    ModalComponent,
+    NexusSupportScreenComponent,
+    NotificationsComponent,
     InViewDirective,
-    CurrentlyPlayingComponent,
-    TimeFormatPipe,
-    TimeSincePipe,
-    PascalCasePipe,
+    MetaComponent,
+    BonesComponent,
+    BonesHighScoresComponent,
+    ClickableUrlsPipe,
     CurrencyFlagPipe,
     CurrencyShortenPipe,
     CountShortenPipe,
+    HostAiComponent,
+    ThemesComponent,
+    CrawlerComponent,
+    SpeechRecognitionComponent,
+    TopComponent,
+    NexusMovementComponent,
+    UserTrophiesComponent,
+    YoutubeSearchComponent,
+    TextFormattingToolbarComponent,
+    TextInputComponent,
+    MastermindComponent,
+    ArtComponent,
+    MastermindScoresComponent,
+    ShareButtonComponent,
+    EnderComponent,
+    EnderHighScoresComponent,
+    WordlerHighScoresComponent,
+    DailyMusicComponent,
+    ProfileWidgetsComponent,
+    NewUsersComponent,
+    OnlineUsersComponent,
+    UserEventsComponent,
+    CurrentlyPlayingComponent,
+    TitleBarComponent,
+    RatingStarsComponent,
+    PromptComponent,
+    SigIntComponent,
+    GlobeComponent,
+    StarryBackgroundComponent,
+    PlanterComponent,
+    WeaverComponent,
+    WeaverGuideComponent,
+    MiniCalendarComponent,
+    RecipeComponent,
+    CrawlerSearchResultsComponent,
+    ModeratorComponent,
+    PaintComponent,
+    ConversionComponent,
+    AppMenuItemComponent,
+    TimeFormatPipe,
+    TimeSincePipe,
+    FileSizePipe,
+    AppLoadingSpinnerComponent,
     CurrencySymbolPipe,
-    FileSizePipe
+    DecodeHtmlPipe,
+    PascalCasePipe,
   ],
   providers: [
     provideHttpClient(withInterceptorsFromDi()),
-    provideCharts(withDefaultRegisterables()),
   ]
 })
 export class AppModule { }

@@ -3,8 +3,6 @@ import { NotificationService } from '../../services/notification.service';
 import { ChildComponent } from '../child.component';
 import { UserNotification } from '../../services/datacontracts/notification/user-notification';
 import { AppComponent } from '../app.component';
-import { initializeApp } from 'firebase/app';
-import { getMessaging, getToken } from "firebase/messaging";
 
 @Component({
   selector: 'app-notifications',
@@ -470,6 +468,10 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
   }
   async requestNotificationPermission() {
     try {
+      // Firebase is dynamically imported so the messaging SDK stays out of the
+      // initial main.js bundle and loads only when push notifications are used.
+      const { initializeApp } = await import('firebase/app');
+      const { getMessaging, getToken } = await import('firebase/messaging');
       const firebaseConfig = {
         apiKey: "AIzaSyAR5AbDVyw2RmW4MCLL2aLVa2NLmf3W-Xc",
         authDomain: "bughosted.firebaseapp.com",

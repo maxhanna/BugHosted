@@ -1,4 +1,7 @@
 ﻿import { AfterViewInit, ChangeDetectorRef, Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { AppModule } from '../app.module';
 import { ChildComponent } from '../child.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { RomService, PendingShare } from '../../services/rom.service';
@@ -18,7 +21,8 @@ import { User } from '../../services/datacontracts/user/user';
   selector: 'app-emulator',
   templateUrl: './emulator.component.html',
   styleUrls: ['./emulator.component.css'],
-  standalone: false
+  standalone: true,
+  imports: [AppModule, CommonModule, FormsModule]
 })
 export class EmulatorComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild(FileSearchComponent) fileSearchComponent?: FileSearchComponent;

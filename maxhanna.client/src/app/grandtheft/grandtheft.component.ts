@@ -1,4 +1,7 @@
 ﻿import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, NgZone, ChangeDetectorRef } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { AppModule } from '../app.module';
 import { ChildComponent } from '../child.component';
 import { GrandTheftRenderer, getBiome, getTerrainHeight } from './grandtheft-renderer';
 import { BloodPool, BloodSplat, CityMesh, DeadBody, Explosion, GrandtheftService, MuzzleFlash, OtherPlayerState, ParkedCar, Rocket, Tracer, TrafficLane, VendingMachine } from '../../services/grandtheft.service';
@@ -52,7 +55,8 @@ const HOOKER_MAX_MONEY = 80;
   selector: 'app-grandtheft',
   templateUrl: './grandtheft.component.html',
   styleUrl: './grandtheft.component.css',
-  standalone: false,
+  standalone: true,
+  imports: [AppModule, CommonModule, FormsModule],
 })
 export class GrandTheftComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('gtCanvas', { static: false }) canvasRef!: ElementRef<HTMLCanvasElement>;

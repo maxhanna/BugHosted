@@ -17,8 +17,6 @@ import { CoinValueService } from '../../services/coin-value.service';
 import { TradeService } from '../../services/trade.service';
 import { UserSettings } from '../../services/datacontracts/user/user-settings';
 import { NotificationService } from '../../services/notification.service';
-import { initializeApp } from 'firebase/app';
-import { getMessaging, getToken } from "firebase/messaging";
 
 @Component({
   selector: 'app-update-user-settings',
@@ -780,6 +778,10 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
       return;
     }
     try {
+      // Firebase is dynamically imported so the messaging SDK stays out of the
+      // initial main.js bundle and loads only when push notifications are used.
+      const { initializeApp } = await import('firebase/app');
+      const { getMessaging, getToken } = await import('firebase/messaging');
       const firebaseConfig = {
         apiKey: "AIzaSyAR5AbDVyw2RmW4MCLL2aLVa2NLmf3W-Xc",
         authDomain: "bughosted.firebaseapp.com",

@@ -109,15 +109,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer");
     clearInterval(this.indexUpdateTimer);
     this.stopLoading();
-  }
-
-  // onKeywordsInput() {
-  //   try {
-  //     const val = this.keywordsInput?.nativeElement?.value ?? '';
-  //     this.isUrlDisabled = !!(val && val.trim().length > 0);
-  //     if (!this.isUrlDisabled) this.isKeywordsDisabled = false;
-  //   } catch (e) { }
-  // }
+  } 
 
   visitExternalLink(data?: {url: string; imageUrl?: string; title?: string}) {
     const url = typeof data === 'string' ? data : data?.url;
@@ -162,10 +154,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     this.isFavouritedByPanelOpen = false;
     this.favouritedByList = [];
   }
-
-  // Domain/protocol queries (e.g. "example.com", "https://x") are direct URL
-  // lookups — AI answers don't apply, so the AI button is disabled and any open
-  // AI panel is dropped for them.
+ 
   private isDomainOrUrlQuery(query: string): boolean {
     const q = (query ?? '').trim();
     if (!q) return false;
@@ -190,10 +179,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     }
     return 'Ask HostAI to answer your query';
   }
-
-  // Remount the embedded HostAI so its preloadedMessage is re-sent with the new
-  // query. app-host-ai only auto-sends in ngAfterViewInit, so toggling the panel
-  // off→on on the next tick forces a brand-new answer for the current search.
+ 
   private remountAiSearch(kw: string) {
     this.aiQuery = kw;
     this.showAiPopup = false;
@@ -221,8 +207,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   openAiSearch() {
     const kw = this.keywordsInput?.nativeElement?.value?.trim();
     if (!kw) return;
-    if (this.isDomainOrUrlQuery(kw)) return;
-    // AI only: hide the web/yt/reddit/x/imdb results and show the answer alone.
+    if (this.isDomainOrUrlQuery(kw)) return; 
     this.clearAllResults();
     this.remountAiSearch(kw);
   }
@@ -235,6 +220,9 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   async searchUrl(skipScrape?: boolean) {
     const raw = this.keywordsInput.nativeElement.value?.trim();
     if (!raw) return;
+    if (document.getElementById("crawlerContainer")) {
+      (document.getElementById("crawlerContainer") as HTMLDivElement)?.classList.remove("centeredContainer");
+    }
     if (raw.startsWith('site:')) { await this.doSearch(raw, false, skipScrape); return; }
     if (raw === '*') { await this.doSearch(raw, false, skipScrape); return; }
     let url = raw;
