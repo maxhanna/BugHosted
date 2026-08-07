@@ -1917,7 +1917,6 @@ void main() {
           if (si % 2 === 0) {
             this.addBox(verts, indices, sx, avgY + 0.15, roadCenterZ, sliceW * 0.7, 0.02, 0.3, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
           }
-          this.addBox(verts, indices, sx, avgY + 0.18, roadCenterZ, sliceW * overlap, 0.3, 0.3, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
           for (const side of [-1, 1]) {
             const rz = roadCenterZ + side * (roadW / 2 + 0.5);
             this.addBox(verts, indices, sx, avgY + 1.0, rz, sliceW * overlap, 0.15, 0.15, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
@@ -1965,9 +1964,8 @@ void main() {
           const y2 = bridgeYAt(x2, bridge);
           this.addRamp(verts, indices, x1, y1 + 0.08, x2, y2 + 0.08, roadCenterZ, roadW, 0.12, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
           if (s % 2 === 0) {
-            this.addRamp(verts, indices, x1, y1 + 0.15, x2, y2 + 0.15, roadCenterZ, 0.3, 0.02, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
+            this.addRamp(verts, indices, x1, y1 + 0.10, x2, y2 + 0.10, roadCenterZ, 0.3, 0.02, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
           }
-          this.addRamp(verts, indices, x1, y1 + 0.18, x2, y2 + 0.18, roadCenterZ, 0.3, 0.3, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
           for (const side of [-1, 1]) {
             const rz = roadCenterZ + side * (roadW / 2 + 0.5);
             this.addRamp(verts, indices, x1, y1 + 1.0, x2, y2 + 1.0, rz, 0.15, 0.15, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
@@ -2660,7 +2658,6 @@ void main() {
         for (let x = cx * CHUNK_SIZE + 2; x <= (cx + 1) * CHUNK_SIZE - 2; x += 4) {
           this.addBox(verts, indices, x, 0.05, roadZ, 1.5, 0.02, 0.3, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
         }
-        this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.06, roadZ, CHUNK_SIZE, 0.12, 0.3, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
         for (const side of [-1, 1]) {
           const rz = roadZ + side * (roadHalf + 0.5);
           this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.5, rz, CHUNK_SIZE, 0.12, 0.12, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
@@ -2676,7 +2673,6 @@ void main() {
         for (let z = cz * CHUNK_SIZE + 2; z <= (cz + 1) * CHUNK_SIZE - 2; z += 4) {
           this.addBox(verts, indices, roadX, 0.05, z, 0.3, 0.02, 1.5, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
         }
-        this.addBox(verts, indices, roadX, 0.06, worldOriginZ + CHUNK_SIZE / 2, 0.3, 0.12, CHUNK_SIZE, 0.15, 0.15, 0.15, 1.0, idxOffset); idxOffset += 24;
         for (const side of [-1, 1]) {
           const rx = roadX + side * (roadHalf + 0.5);
           this.addBox(verts, indices, rx, 0.5, worldOriginZ + CHUNK_SIZE / 2, 0.12, 0.12, CHUNK_SIZE, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
@@ -2736,9 +2732,17 @@ void main() {
       return false;
     };
     if (!isMountain && !isAeroport && !isBridge && !isBridgeConnector && !isBridgeConnectorAdjacent()) {
+      // Never place explosive barrels on the street itself — reject any spot
+      // that falls inside a road strip (within ROAD_HALF_WIDTH of a grid line).
       const barrelCount = 1 + Math.floor(rng() * 2);
-      for (let i = 0; i < barrelCount; i++) {
-        barrels.push({ x: worldOriginX + 6 + rng() * (CHUNK_SIZE - 12), z: worldOriginZ + 6 + rng() * (CHUNK_SIZE - 12), yaw: rng() * Math.PI * 2 });
+      let barrelPlaced = 0;
+      let barrelGuard = 0;
+      while (barrelPlaced < barrelCount && barrelGuard++ < 12) {
+        const bx = worldOriginX + 6 + rng() * (CHUNK_SIZE - 12);
+        const bz = worldOriginZ + 6 + rng() * (CHUNK_SIZE - 12);
+        if (isOnRoadGrid(bx, bz)) continue;
+        barrels.push({ x: bx, z: bz, yaw: rng() * Math.PI * 2 });
+        barrelPlaced++;
       }
     }
     if (isSuburb && rng() < 0.3) {

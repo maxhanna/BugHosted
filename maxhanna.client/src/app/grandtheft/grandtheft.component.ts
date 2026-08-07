@@ -18,11 +18,18 @@ const JUMP_MIN_DIST = 8;
 const JUMP_BONUS_MIN_SPEED = 20;
 const JUMP_BONUS_MAX = 500;
 // Fixed jump ramps (ids must match the server's JumpRamps list). yaw follows
-// the car-forward convention (sin yaw, cos yaw) so the lip points down the road.
+// the car-forward convention (sin yaw, cos yaw) so the lip points down the
+// launch line. Every ramp sits OFF the street grid (well away from the road
+// strips on the 80-unit grid lines) in flat, drivable open ground: the beach
+// ramps launch toward the sea, and the farm/hill/mountain ramps are long
+// backcountry runs on the eastern islands.
 const JUMP_RAMPS = [
-  { id: 1, name: 'Home Straight', x: 80, z: 20, yaw: 0 },
-  { id: 2, name: 'Boulevard Blast', x: 120, z: 80, yaw: Math.PI / 2 },
-  { id: 3, name: 'Crossroads Launch', x: 160, z: 80, yaw: 0 },
+  { id: 1, name: 'Beachfront Blast', x: 40, z: 260, yaw: 0 },
+  { id: 2, name: 'Harbor Hop', x: 265, z: 120, yaw: Math.PI / 2 },
+  { id: 3, name: 'Boardwalk Boost', x: 840, z: 580, yaw: 0 },
+  { id: 4, name: 'Country Mile', x: 1860, z: 540, yaw: 0 },
+  { id: 5, name: 'Hill Country', x: 2020, z: 540, yaw: 0 },
+  { id: 6, name: 'Mountain Mayhem', x: 3060, z: 700, yaw: 0 },
 ];
 const WEAPON_NAMES = ['Unarmed', 'Pistol', 'Rifle', 'Shotgun', 'Rocket Launcher'];
 const WEAPON_COOLDOWNS = [400, 300, 150, 800, 1500];
@@ -569,6 +576,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     });
     this.initTraffic();
     setTimeout(() => this.trySpawnAirportLotCars(), 2000);
+    setTimeout(() => this.trySpawnHospitalParkingCars(), 2500);
   }
   // Background asset streaming — runs after the critical assets let the game
   // start, filling in NPC variety, extra vehicles, special meshes and the rest
@@ -4025,6 +4033,50 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           mesh: this.renderer.getNPCCarMesh([color[0], color[1], color[2]], parkedId),
           colorR: color[0], colorG: color[1], colorB: color[2],
         });
+      }
+    }
+  }
+  // The hospital sits on a painted parking_lot chunk, with a second painted lot
+  // just across the road to the west — but parking lots never spawn cars, so the
+  // stalls stayed empty while cars clustered on the surrounding roads. Fill the
+  // lot next to the hospital with client-side parked cars: negative ids survive
+  // the server's parked-car merge each poll and they can be stolen like any
+  // other parked car (dealership cars use the same pattern).
+  private trySpawnHospitalParkingCars() {
+    if (this._destroyed) return;
+    if (this.renderer.carMeshes.length === 0) {
+      setTimeout(() => this.trySpawnHospitalParkingCars(), 1000);
+      return;
+    }
+    this.fillParkingLotChunk(-1, 0); // the painted lot across the road west of the hospital
+  }
+  // Parks cars on a parking_lot chunk's painted stalls, mirroring the renderer's
+  // stall grid: 5 rows (the middle row is the drive aisle), 7 stalls per row,
+  // stall 3 wide x 5 deep, rows spaced 6 apart.
+  private fillParkingLotChunk(gx: number, gz: number) {
+    const blockWorldX = gx * 80 + 40;
+    const blockWorldZ = gz * 80 + 40;
+    const baseId = -Date.now();
+    let n = 0;
+    for (let row = 0; row < 5; row++) {
+      if (row === 2) continue; // center aisle — keep it driveable
+      const rz = blockWorldZ - 14 + row * 6;
+      for (let col = 0; col < 7; col++) {
+        if (Math.random() < 0.45) continue; // ~55% occupancy looks lived-in
+        const rx = blockWorldX - 9 + col * 3;
+        const color = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
+        const parkedId = baseId - n;
+        this.parkedCars.push({
+          id: parkedId,
+          x: rx,
+          z: rz,
+          yaw: row < 2 ? 0 : Math.PI, // both rows nose into the center aisle
+          type: 'car',
+          health: 1000,
+          mesh: this.renderer.getNPCCarMesh([color[0], color[1], color[2]], parkedId),
+          colorR: color[0], colorG: color[1], colorB: color[2],
+        });
+        n++;
       }
     }
   }

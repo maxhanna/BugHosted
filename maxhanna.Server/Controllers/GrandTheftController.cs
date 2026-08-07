@@ -655,9 +655,12 @@ namespace maxhanna.Server.Controllers
 		}
 		private static readonly (int Id, string Name)[] JumpRamps = new[]
 		{
-			(1, "Home Straight"),
-			(2, "Boulevard Blast"),
-			(3, "Crossroads Launch")
+			(1, "Beachfront Blast"),
+			(2, "Harbor Hop"),
+			(3, "Boardwalk Boost"),
+			(4, "Country Mile"),
+			(5, "Hill Country"),
+			(6, "Mountain Mayhem")
 		};
 		private sealed class JumpScore
 		{
