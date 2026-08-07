@@ -1827,7 +1827,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         : 0;
       const lookDist = bot.dist + AI_LOOKAHEAD * 5 * (1 + heatPenalty * 0.4);
       const target = this.renderer.getTrackPointAlong(lookDist);
-      const baseSpeed = bot.config.speedBase * bot.pace * (1 + this.getSpeedBonus() / 200);
+      // Hard bots track the player's engine upgrades at full rate (bonus/100) so
+      // they always press the ~95% max-speed cap below and stay a challenge for
+      // fully-upgraded players; easy/medium only get half the player's boost
+      // (bonus/200) so they remain beatable at every upgrade level.
+      const upgradeScale = bot.config.difficulty === 'hard' ? 100 : 200;
+      const baseSpeed = bot.config.speedBase * bot.pace * (1 + this.getSpeedBonus() / upgradeScale);
       const maxBotSpeed = Math.min(baseSpeed + bot.config.speedVariance, this.getMaxSpeed() * 0.95 * (0.9 + bot.pace * 0.1));
       const pdxP = this.carX - bot.x;
       const pdzP = this.carZ - bot.z;
@@ -3138,6 +3143,22 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return 'Blinding';
   }
   hoveredUpgrade: any = null;
+  // Per-card marginal top speed in km/h: before = top speed with all lower
+  // engine stages but not this one, after = top speed including this stage's
+  // statBonus. Engine statBonuses are per-stage additive (getSpeedBonus sums
+  // owned stages), so we sum the lower-level defs for the 'before' value.
+  // Mirrors getMaxSpeed() exactly (weight included) so numbers match the HUD.
+  getEngineStageKph(u: any): { before: number; after: number } {
+    const wt = 1 - this.getWeightBonus() / 200;
+    let prev = 0;
+    for (const d of UPGRADE_DEFS) {
+      if (d.category === 'engine' && d.level < u.level) prev += d.statBonus;
+    }
+    return {
+      before: Math.round(MAX_SPEED_BASE * (1 + prev / 100) * wt * 3.6),
+      after: Math.round(MAX_SPEED_BASE * (1 + (prev + u.statBonus) / 100) * wt * 3.6),
+    };
+  }
   getStatPreview(u: any): { before: number; after: number; label: string } {
     const current = this.getUpgradeLevel(u.category);
     const bonus = u.statBonus;

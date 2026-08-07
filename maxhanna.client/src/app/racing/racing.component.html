@@ -677,9 +677,18 @@
                 <div class="card-left">
                   <div class="card-name">{{ u.name }}</div>
                   <div class="card-desc">{{ u.description }}</div>
+                  <div class="card-kph" *ngIf="cat === 'engine'">
+                    <ng-container *ngIf="getEngineStageKph(u) as k">
+                      <span class="kph-label">TOP SPEED</span>
+                      <span class="stat-before">{{ k.before }}</span>
+                      <span class="stat-arrow">→</span>
+                      <span class="stat-after">{{ k.after }}</span>
+                      <span class="kph-unit">km/h</span>
+                    </ng-container>
+                  </div>
                 </div>
                 <div class="card-right">
-                  <div class="card-stat-preview" *ngIf="hoveredUpgrade === u && getUpgradeLevel(cat) + 1 === u.level">
+                  <div class="card-stat-preview" *ngIf="cat !== 'engine' && hoveredUpgrade === u && getUpgradeLevel(cat) + 1 === u.level">
                     <ng-container *ngIf="getStatPreview(u) as p">
                       <span class="stat-before">{{ p.label }}: {{ p.before }}</span>
                       <span class="stat-arrow">→</span>
