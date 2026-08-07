@@ -1772,6 +1772,25 @@
   margin-bottom: 4px;
   box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
 }
+.garage-skin-finish {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(255,255,255,0.14);
+  pointer-events: none;
+  z-index: 1;
+}
+.garage-skin-finish.finish-gloss { color: #e8ecf2; }
+.garage-skin-finish.finish-metallic { color: #ffd966; }
+.garage-skin-finish.finish-pearl { color: #f3c6d8; }
+.garage-skin-finish.finish-matte { color: #b0b4bc; }
 .garage-skin-name {
   font-size: 10px;
   font-weight: 600;
@@ -1873,6 +1892,34 @@
   border-color: rgba(76,175,80,0.4);
   background: rgba(76,175,80,0.05);
 }
+.garage-appearance-card.appearance-previewing {
+  border-color: #4fc3f7 !important;
+  box-shadow: 0 0 12px rgba(79,195,247,0.25) !important;
+  background: rgba(79,195,247,0.06) !important;
+}
+.garage-preview-banner {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #4fc3f7;
+  background: rgba(0,0,0,0.72);
+  border: 1px solid rgba(79,195,247,0.4);
+  border-radius: 4px;
+  padding: 4px 10px;
+  white-space: nowrap;
+  max-width: calc(100% - 16px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  animation: stat-fade-in 0.15s ease-out;
+}
+.garage-preview-banner strong { color: #fff; font-weight: 800; }
+.garage-preview-banner span { color: rgba(255,255,255,0.55); }
 .garage-appearance-card.appearance-equipped::after {
   content: '✓ EQUIPPED';
   position: absolute;
@@ -1916,6 +1963,10 @@
 .garage-appearance-preview.prev-rim-white { border-radius: 50%; width: 24px; height: 24px; border: 3px solid #f2f2f4; background: radial-gradient(circle at 35% 35%, #fff, #b8b8c0); margin: 0 auto; }
 .garage-appearance-preview.prev-rim-black { border-radius: 50%; width: 26px; height: 26px; border: 4px solid #0c0c0e; background: radial-gradient(circle at 35% 35%, #26262b, #050506); margin: 0 auto; box-shadow: 0 0 8px rgba(0,0,0,0.7); }
 .garage-appearance-preview.prev-rim-blue { border-radius: 50%; width: 24px; height: 24px; border: 3px solid #1e88e5; background: radial-gradient(circle at 35% 35%, #42a5f5, #0d47a1); margin: 0 auto; box-shadow: 0 0 8px rgba(30,136,229,0.5); }
+.garage-appearance-preview.prev-rim-emerald { border-radius: 50%; width: 24px; height: 24px; border: 3px solid #0d7a3e; background: radial-gradient(circle at 35% 35%, #20b05f, #064a24); margin: 0 auto; box-shadow: 0 0 8px rgba(13,122,62,0.5); }
+.garage-appearance-preview.prev-rim-violet { border-radius: 50%; width: 24px; height: 24px; border: 3px solid #7b1fa2; background: radial-gradient(circle at 35% 35%, #9c4dcc, #4a1270); margin: 0 auto; box-shadow: 0 0 8px rgba(123,31,162,0.5); }
+.garage-appearance-preview.prev-rim-crimson { border-radius: 50%; width: 24px; height: 24px; border: 3px solid #c62828; background: radial-gradient(circle at 35% 35%, #e5554d, #8e1a1a); margin: 0 auto; box-shadow: 0 0 8px rgba(198,40,40,0.5); }
+.garage-appearance-preview.prev-rim-sunset { border-radius: 50%; width: 24px; height: 24px; border: 3px solid #ef6c00; background: radial-gradient(circle at 35% 35%, #ffa040, #b23c00); margin: 0 auto; box-shadow: 0 0 8px rgba(239,108,0,0.5); }
 .garage-appearance-preview.prev-exhaust-twin { border-radius: 50%; width: 16px; height: 12px; background: linear-gradient(90deg, #999 0 40%, #333 40% 60%, #999 60% 100%); margin: 0 auto; }
 .garage-appearance-preview.prev-exhaust-quad { border-radius: 4px; width: 20px; height: 10px; background: linear-gradient(90deg, #bbb 0 22%, #444 22% 28%, #bbb 28% 50%, #444 50% 56%, #bbb 56% 78%, #444 78% 84%, #bbb 84% 100%); margin: 0 auto; }
 .garage-appearance-preview.prev-exhaust-carbon { border-radius: 50%; width: 14px; height: 14px; background: repeating-linear-gradient(135deg, #1a1a1e 0 2px, #2c2c32 2px 4px); margin: 0 auto; }
@@ -1981,6 +2032,12 @@
 .garage-appearance-preview.prev-accent-red { background: #d32f2f; box-shadow: 0 0 8px rgba(211,47,47,0.5); }
 .garage-appearance-preview.prev-accent-blue { background: #1e88e5; box-shadow: 0 0 8px rgba(30,136,229,0.5); }
 .garage-appearance-preview.prev-accent-black { background: #16161a; box-shadow: 0 0 8px rgba(0,0,0,0.6); }
+.garage-appearance-preview.prev-accent-green { background: #2e9e4f; box-shadow: 0 0 8px rgba(46,158,79,0.5); }
+.garage-appearance-preview.prev-accent-orange { background: #f57c00; box-shadow: 0 0 8px rgba(245,124,0,0.5); }
+.garage-appearance-preview.prev-accent-purple { background: #8e24aa; box-shadow: 0 0 8px rgba(142,36,170,0.5); }
+.garage-appearance-preview.prev-accent-pink { background: #ec407a; box-shadow: 0 0 8px rgba(236,64,122,0.5); }
+.garage-appearance-preview.prev-accent-cyan { background: #00acc1; box-shadow: 0 0 8px rgba(0,172,193,0.5); }
+.garage-appearance-preview.prev-accent-lime { background: #9ccc3c; box-shadow: 0 0 8px rgba(156,204,60,0.5); }
 .garage-appearance-name {
   font-size: 11px;
   font-weight: 600;

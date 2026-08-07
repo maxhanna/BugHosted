@@ -2736,6 +2736,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       104: 'prev-spoiler-gurney', 105: 'prev-spoiler-whale', 106: 'prev-spoiler-biplane', 107: 'prev-spoiler-aero',
       201: 'prev-rim-alloy', 202: 'prev-rim-deep', 203: 'prev-rim-gold',
       204: 'prev-rim-chrome', 205: 'prev-rim-bronze', 206: 'prev-rim-white', 207: 'prev-rim-black', 208: 'prev-rim-blue',
+      209: 'prev-rim-emerald', 210: 'prev-rim-violet', 211: 'prev-rim-crimson', 212: 'prev-rim-sunset',
       301: 'prev-exhaust-sport', 302: 'prev-exhaust-titanium', 303: 'prev-exhaust-twin', 304: 'prev-exhaust-quad', 305: 'prev-exhaust-carbon',
       401: 'prev-decal-stripes', 402: 'prev-decal-flame', 403: 'prev-decal-carbon', 404: 'prev-decal-number',
       405: 'prev-decal-checkered', 406: 'prev-decal-lightning', 407: 'prev-decal-skull', 408: 'prev-decal-lion',
@@ -2752,6 +2753,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       520: 'prev-glow-ice', 521: 'prev-glow-bronze', 522: 'prev-glow-indigo', 523: 'prev-glow-silver',
       601: 'prev-accent-white', 602: 'prev-accent-gold', 603: 'prev-accent-silver', 604: 'prev-accent-red',
       605: 'prev-accent-blue', 606: 'prev-accent-black',
+      607: 'prev-accent-green', 608: 'prev-accent-orange', 609: 'prev-accent-purple', 610: 'prev-accent-pink',
+      611: 'prev-accent-cyan', 612: 'prev-accent-lime',
     };
     return previews[p.id] ?? '';
   }
@@ -2768,6 +2771,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
   isAppearanceOwned(part: RacingAppearancePart): boolean {
     return part.owned || this.getEquippedAppearance(part.category) === part.id;
+  }
+  /** Equipped id for a category, or the hovered part's id while it is being
+   *  previewed — lets the car render an upgrade before it is bought. */
+  previewOrEquipped(cat: string): number {
+    if (this.appearancePreview && this.appearancePreview.category === cat) return this.appearancePreview.id;
+    return this.getEquippedAppearance(cat);
   }
   async buyAppearancePart(part: RacingAppearancePart) {
     if (this.isBuying || this.playerCar.money < part.cost) return;
@@ -2798,7 +2807,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
   getSpoilerStyle(): string {
-    const id = this.playerCar.spoilerId;
+    const id = this.previewOrEquipped('spoiler');
     if (id === 101) return 'spoiler-carbon';
     if (id === 102) return 'spoiler-dual';
     if (id === 103) return 'spoiler-drs';
@@ -2809,7 +2818,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return '';
   }
   getRimStyle(): string {
-    const id = this.playerCar.rimId;
+    const id = this.previewOrEquipped('rims');
     if (id === 201) return 'rim-alloy';
     if (id === 202) return 'rim-deep';
     if (id === 203) return 'rim-gold';
@@ -2821,7 +2830,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return '';
   }
   getExhaustStyle(): string {
-    const id = this.playerCar.exhaustId;
+    const id = this.previewOrEquipped('exhaust');
     if (id === 301) return 'exhaust-sport';
     if (id === 302) return 'exhaust-titanium';
     if (id === 303) return 'exhaust-twin';
@@ -2830,7 +2839,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return '';
   }
   getDecalStyle(): string {
-    const id = this.playerCar.decalId;
+    const id = this.previewOrEquipped('decal');
     if (id === 401) return 'decal-stripes';
     if (id === 402) return 'decal-flame';
     if (id === 403) return 'decal-carbon';
@@ -2862,7 +2871,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return '';
   }
   getGlowStyle(): string {
-    const id = this.playerCar.glowId;
+    const id = this.previewOrEquipped('glow');
     if (id === 501) return 'glow-blue';
     if (id === 502) return 'glow-green';
     if (id === 503) return 'glow-purple';
@@ -2889,7 +2898,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return '';
   }
   getAccentStyle(): string {
-    const id = this.playerCar.accentId;
+    const id = this.previewOrEquipped('accent');
     if (id === 601) return 'accent-white';
     if (id === 602) return 'accent-gold';
     if (id === 603) return 'accent-silver';
@@ -3143,6 +3152,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return 'Blinding';
   }
   hoveredUpgrade: any = null;
+  /** Appearance part hovered in the catalog — previewed on the garage car
+   *  without buying (cleared on mouse leave). */
+  appearancePreview: RacingAppearancePart | null = null;
   // Per-card marginal top speed in km/h: before = top speed with all lower
   // engine stages but not this one, after = top speed including this stage's
   // statBonus. Engine statBonuses are per-stage additive (getSpeedBonus sums
@@ -4031,6 +4043,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       });
     }
     return result;
+  }
+  showCallersTrackboard(id: number): boolean {
+    return this.getTrackBoardUserLap(id) > 0 && !this.getTrackBoardVisibleRows(id).some(r => r.playerId === (this.parentRef?.user?.id ?? 0));
   }
   hideLoginPopup() { this.parentRef?.closeOverlay(); }
   trackDefs: TrackDefinition[] = TRACKS as TrackDefinition[];

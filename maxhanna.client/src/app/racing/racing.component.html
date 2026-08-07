@@ -391,6 +391,9 @@
       <div class="garage-layout">
         <!-- Left: Car Preview -->
         <div class="garage-preview">
+          <div class="garage-preview-banner" *ngIf="appearancePreview">
+            👁 PREVIEW <strong>{{ appearancePreview.name }}</strong><span> · click to {{ isAppearanceOwned(appearancePreview) ? 'equip' : 'buy' }}</span>
+          </div>
           <div class="garage-car-stage">
             <div class="garage-spotlight"></div>
             <div class="car-3d-wrap">
@@ -405,9 +408,9 @@
                 <!-- Neon glow pool — bright colored puddle/reflection on the
                      floor in the selected glow colour, so the parked car reads
                      as lit from below (matches the racing renderer's neon). -->
-                <div class="car-glow-pool" *ngIf="playerCar.glowId" [ngClass]="getGlowStyle()"></div>
+                <div class="car-glow-pool" *ngIf="previewOrEquipped('glow')" [ngClass]="getGlowStyle()"></div>
                 <!-- Neon underglow (livery accent glow below the undertray) -->
-                <div class="car-underglow" *ngIf="playerCar.glowId" [ngClass]="getGlowStyle()"></div>
+                <div class="car-underglow" *ngIf="previewOrEquipped('glow')" [ngClass]="getGlowStyle()"></div>
 
                 <!-- Car body wrapper: scales the width (Z axis) 2.25x (3x from
                      the original thin sliver, then trimmed to 3/4) so the car
@@ -487,15 +490,15 @@
                     <i class="lft helmside"></i><i class="rgt helmside"></i>
                   </div>
                   <!-- Livery accent stripes (thin plates on the body top + sidepods) -->
-                  <div class="b3d" *ngIf="playerCar.accentId"
+                  <div class="b3d" *ngIf="previewOrEquipped('accent')"
                     style="--x:185px; --y:117.2px; --z:0px; --w:96px; --h:0.7px; --d:30px;">
                     <i class="top accent" [ngClass]="getAccentStyle()"></i>
                   </div>
-                  <div class="b3d" *ngIf="playerCar.accentId"
+                  <div class="b3d" *ngIf="previewOrEquipped('accent')"
                     style="--x:170px; --y:132.4px; --z:26px; --w:70px; --h:3px; --d:0.8px;">
                     <i class="lft accent" [ngClass]="getAccentStyle()"></i>
                   </div>
-                  <div class="b3d" *ngIf="playerCar.accentId"
+                  <div class="b3d" *ngIf="previewOrEquipped('accent')"
                     style="--x:170px; --y:132.4px; --z:-26px; --w:70px; --h:3px; --d:0.8px;">
                     <i class="rgt accent" [ngClass]="getAccentStyle()"></i>
                   </div>
@@ -545,7 +548,7 @@
                   </div>
 
                   <!-- Decal overlay (on the body top, below the cockpit opening) -->
-                  <div class="b3d" *ngIf="playerCar.decalId"
+                  <div class="b3d" *ngIf="previewOrEquipped('decal')"
                     style="--x:185px; --y:116.8px; --z:0px; --w:128px; --h:0.8px; --d:36px;">
                     <i class="top decal" [ngClass]="getDecalStyle()"></i>
                   </div>
@@ -598,13 +601,13 @@
                   </div>
 
                   <!-- Spoiler upgrade (wing above engine cover, ahead of the rear wing) -->
-                  <div class="b3d" *ngIf="playerCar.spoilerId"
+                  <div class="b3d" *ngIf="previewOrEquipped('spoiler')"
                     style="--x:225px; --y:103px; --z:0px; --w:56px; --h:2px; --d:30px;">
                     <i class="top spoiler" [ngClass]="getSpoilerStyle()"></i>
                   </div>
 
                   <!-- Exhaust upgrade (twin pipes at the very back, below the rear wing) -->
-                  <div class="b3d" *ngIf="playerCar.exhaustId"
+                  <div class="b3d" *ngIf="previewOrEquipped('exhaust')"
                     style="--x:270px; --y:136px; --z:0px; --w:4px; --h:8px; --d:16px;">
                     <i class="fnt exhaust" [ngClass]="getExhaustStyle()"></i><i class="bak exhaust"></i>
                   </div>
@@ -717,7 +720,9 @@
               <div class="garage-appearance-grid">
                 <div class="garage-appearance-card" *ngFor="let p of cat.parts"
                   [class.appearance-equipped]="getEquippedAppearance(p.category) === p.id"
-                  [class.buying-disabled]="isBuying" (click)="buyAppearancePart(p)">
+                  [class.appearance-previewing]="appearancePreview === p"
+                  [class.buying-disabled]="isBuying" (click)="buyAppearancePart(p)"
+                  (mouseenter)="appearancePreview = p" (mouseleave)="appearancePreview = null">
                   <div class="garage-appearance-preview" [class]="getAppearancePreviewClass(p)"></div>
                   <div class="garage-appearance-name">{{ p.name }}</div>
                   <div class="garage-appearance-desc">{{ p.description }}</div>
@@ -828,6 +833,8 @@
                 [class.garage-skin-active]="playerCar.skinId === s.id" [class.buying-disabled]="isBuying"
                 (click)="selectSkin(s)">
                 <div class="garage-skin-preview" [style.background]="s.color"></div>
+                <div class="garage-skin-finish" [ngClass]="'finish-' + s.finish"
+                  [title]="s.finish + ' finish shader'">{{ s.finish }}</div>
                 <div class="garage-skin-name">{{ s.name }}</div>
                 <div class="garage-skin-cost">
                   <span *ngIf="playerCar.skinId === s.id" class="garage-skin-owned">✓ ACTIVE</span>
@@ -1190,7 +1197,7 @@
         <div class="race-lb-alltracks-loading" *ngIf="allTracksLoading">Loading circuits…</div>
         <div class="race-lb-search">
           <input type="text" class="race-lb-search-input" placeholder="🔍 Search circuits…"
-            [value]="trackSearch" (input)="onTrackSearchChange(($event.target as HTMLInputElement).value)" />
+            [value]="trackSearch" (input)="onTrackSearchChange($event.target.value)" />
           <button *ngIf="trackSearch" class="race-lb-search-clear" (click)="onTrackSearchChange('')"
             title="Clear search">✕</button>
         </div>
@@ -1226,11 +1233,11 @@
                  view instead of disappearing (they're in the full 20-row payload
                  but not on screen). -->
             <div class="race-lb-row race-lb-me race-lb-row-you"
-              *ngIf="getTrackBoardUserLap(t.id) > 0 && !getTrackBoardVisibleRows(t.id).some(r => r.playerId === (parentRef?.user?.id ?? 0))">
+              *ngIf="showCallersTrackboard(t.id)">
               <span class="race-lb-rank">#{{ getTrackBoardUserRank(t.id) }}</span>
               <span class="race-lb-name">You</span>
               <span>{{ formatTime(getTrackBoardUserLap(t.id)) }}</span>
-              <span class="race-lb-gap">{{ getTrackBoardGap({ lapTime: getTrackBoardUserLap(t.id) } as RaceResult, t.id) }}</span>
+              <span class="race-lb-gap">{{ getTrackBoardGap({ lapTime: getTrackBoardUserLap(t.id) }, t.id) }}</span>
             </div>
             <div class="race-lb-empty" *ngIf="getTrackBoardRows(t.id).length === 0 && getTrackBoardUserLap(t.id) <= 0">
               No laps on this circuit yet

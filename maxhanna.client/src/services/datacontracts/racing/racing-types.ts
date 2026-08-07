@@ -50,6 +50,10 @@ export const RIM_TINTS: Record<number, [number, number, number]> = {
   206: [0.9, 0.9, 0.88],    // White OZ
   207: [0.15, 0.15, 0.17],  // Black steel
   208: [0.22, 0.38, 0.9],   // Blue forged
+  209: [0.1, 0.75, 0.35],   // Emerald
+  210: [0.55, 0.25, 0.95],  // Violet
+  211: [0.9, 0.12, 0.18],   // Crimson
+  212: [1.0, 0.5, 0.1],     // Sunset orange
 };
 
 // Decal id -> stripe/livery color painted onto the engine-cover decal mesh.
@@ -119,6 +123,12 @@ export const ACCENT_COLORS: Record<number, [number, number, number]> = {
   604: [0.9, 0.15, 0.1],   // red
   605: [0.2, 0.4, 0.95],   // blue
   606: [0.05, 0.05, 0.07], // black
+  607: [0.2, 0.8, 0.35],   // green
+  608: [1.0, 0.55, 0.15],  // orange
+  609: [0.65, 0.25, 1.0],  // purple
+  610: [1.0, 0.35, 0.7],   // pink
+  611: [0.2, 0.9, 1.0],    // cyan
+  612: [0.7, 1.0, 0.2],    // lime
 };
 
 // Paint finish -> specular/metallic factor for the 3D shader.
@@ -315,6 +325,10 @@ export const APPEARANCE_PARTS: RacingAppearancePart[] = [
   { id: 206, name: 'White OZ', category: 'rims', cost: 4500, owned: false, description: 'White-painted rally-style wheels' },
   { id: 207, name: 'Black Steel', category: 'rims', cost: 2500, owned: false, description: 'Sleek matte black steelies' },
   { id: 208, name: 'Blue Forged', category: 'rims', cost: 7000, owned: false, description: 'Anodized blue forged wheels' },
+  { id: 209, name: 'Emerald Forged', category: 'rims', cost: 4500, owned: false, description: 'Anodized emerald green wheels' },
+  { id: 210, name: 'Violet Forged', category: 'rims', cost: 5500, owned: false, description: 'Deep violet anodized wheels' },
+  { id: 211, name: 'Crimson Forged', category: 'rims', cost: 6000, owned: false, description: 'Hot crimson race wheels' },
+  { id: 212, name: 'Sunset Forged', category: 'rims', cost: 6500, owned: false, description: 'Blazing sunset orange wheels' },
   // Exhaust
   { id: 301, name: 'Sport Exhaust', category: 'exhaust', cost: 600, owned: false, description: 'Chrome-tipped sport exhaust' },
   { id: 302, name: 'Titanium Tips', category: 'exhaust', cost: 2500, owned: false, description: 'Titanium blue-burn tips' },
@@ -381,4 +395,10 @@ export const APPEARANCE_PARTS: RacingAppearancePart[] = [
   { id: 604, name: 'Red Accent', category: 'accent', cost: 300, owned: false, description: 'Red livery stripe & trim' },
   { id: 605, name: 'Blue Accent', category: 'accent', cost: 500, owned: false, description: 'Blue livery stripe & trim' },
   { id: 606, name: 'Black Accent', category: 'accent', cost: 300, owned: false, description: 'Black livery stripe & trim' },
+  { id: 607, name: 'Green Accent', category: 'accent', cost: 600, owned: false, description: 'Green livery stripe & trim' },
+  { id: 608, name: 'Orange Accent', category: 'accent', cost: 800, owned: false, description: 'Orange livery stripe & trim' },
+  { id: 609, name: 'Purple Accent', category: 'accent', cost: 900, owned: false, description: 'Purple livery stripe & trim' },
+  { id: 610, name: 'Pink Accent', category: 'accent', cost: 1000, owned: false, description: 'Hot pink livery stripe & trim' },
+  { id: 611, name: 'Cyan Accent', category: 'accent', cost: 1100, owned: false, description: 'Cyan livery stripe & trim' },
+  { id: 612, name: 'Lime Accent', category: 'accent', cost: 1200, owned: false, description: 'Acid lime livery stripe & trim' },
 ];
