@@ -47,7 +47,7 @@ export class ConversionComponent extends ChildComponent {
   youtubeError = '';
   youtubeResult?: YoutubeDownloadResult;
 
-  asciiStyles = ['Blocks', 'Solid', 'Dots', 'Hash', 'Slash', 'Backslash', 'Bars', 'Stars', 'Dashes', 'Outline', 'Bubbles', 'Sparkle', 'Shade', 'Dither', 'Checker', 'Fade'];
+  asciiStyles = ['Blocks', 'Solid', 'Dots', 'Hash', 'Slash', 'Backslash', 'Bars', 'Stars', 'Dashes', 'Outline', 'Bubbles', 'Sparkle', 'Shade', 'Dither', 'Checker', 'Fade', '3D', 'Neon', 'Graffiti', 'Italic', 'Sideways', 'Flip', 'Bubble', 'Wave', 'Confetti', 'Stencil', 'Chrome', 'Negative', 'Halo', 'Mirror', 'Zigzag', 'Hatch', 'Deep', 'Aura', 'Gradient'];
   asciiText = '';
   asciiStyle = 'Blocks';
   asciiScale = 1;

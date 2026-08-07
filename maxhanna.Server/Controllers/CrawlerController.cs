@@ -1215,6 +1215,245 @@ namespace maxhanna.Server.Controllers
       return results;
     }
 
+    private async Task<List<Metadata>> TryFindDuckDuckGoUrlsAsync(string keyword, CancellationToken ct, int limit = 8)
+    {
+      var results = new List<Metadata>();
+      try
+      {
+        var apiKey = GetConfiguredSearchApiKey();
+        var provider = GetConfiguredSearchProvider();
+
+        if (!string.IsNullOrWhiteSpace(apiKey) && provider.Equals("serpapi", StringComparison.OrdinalIgnoreCase))
+        {
+          if (IsSerpApiLookupDuplicate("duckduckgo", keyword))
+          {
+            _ = _log.Db($"[Search Debug] Skipping duplicate SerpAPI (DuckDuckGo) lookup for keyword '{keyword}'", null, "CRAWLERCTRL", true);
+            return results;
+          }
+          using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+
+          string url = $"https://serpapi.com/search.json?engine=duckduckgo"
+                     + $"&q={Uri.EscapeDataString(keyword)}"
+                     + $"&api_key={Uri.EscapeDataString(apiKey)}";
+
+          _ = _log.Db($"[Search Debug] Using SerpAPI (DuckDuckGo) for keyword '{keyword}'", null, "CRAWLERCTRL", true);
+          using var resp = await http.GetAsync(url, ct);
+          if (resp.IsSuccessStatusCode)
+          {
+            var json = await resp.Content.ReadAsStringAsync(ct);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+
+            if (doc.RootElement.TryGetProperty("organic_results", out var items)
+                && items.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+              foreach (var item in items.EnumerateArray().Take(limit))
+              {
+                string? urlValue = item.TryGetProperty("link", out var u) ? u.GetString() : null;
+                string? title = item.TryGetProperty("title", out var t) ? t.GetString() : null;
+                string? snippet = item.TryGetProperty("snippet", out var s) ? s.GetString() : null;
+
+                if (string.IsNullOrWhiteSpace(urlValue)) continue;
+
+                results.Add(new Metadata
+                {
+                  Url = urlValue,
+                  Title = title ?? "DuckDuckGo result",
+                  Description = snippet ?? "",
+                  Author = "DuckDuckGo",
+                  Keywords = keyword
+                });
+              }
+            }
+          }
+          else
+          {
+            _ = _log.Db($"[Search Debug] SerpAPI DuckDuckGo lookup failed with {(int)resp.StatusCode}", null, "CRAWLERCTRL", true);
+          }
+
+          if (results.Count > 0)
+          {
+            // Drop any results the local index already knows about so the external
+            // engine output doesn't duplicate what the crawler's own search returns.
+            results = await FilterOutIndexedUrlsAsync(results);
+            foreach (var result in results.Where(r => !string.IsNullOrWhiteSpace(r.Url)))
+            {
+              // Persist the API metadata (title, description, author, keywords) so the
+              // search_results row is populated even if the page scrape is blocked or slow.
+              if (!string.IsNullOrWhiteSpace(result.Title) && !result.Title.EndsWith(" result", StringComparison.OrdinalIgnoreCase))
+              {
+                await _webCrawler.SaveSearchResult(result.Url!, result);
+              }
+              _ = _webCrawler.StartScrapingAsync(result.Url!);
+            }
+            return results;
+          }
+        }
+
+        _ = _log.Db("[Search Debug] No configured search API available; skipping DuckDuckGo search fallback.", null, "CRAWLERCTRL", true);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"[Search Debug] DuckDuckGo exception: {ex.Message}", null, "CRAWLERCTRL", true);
+      }
+      return results;
+    }
+
+    private async Task<List<Metadata>> TryFindYahooUrlsAsync(string keyword, CancellationToken ct, int limit = 8)
+    {
+      var results = new List<Metadata>();
+      try
+      {
+        var apiKey = GetConfiguredSearchApiKey();
+        var provider = GetConfiguredSearchProvider();
+
+        if (!string.IsNullOrWhiteSpace(apiKey) && provider.Equals("serpapi", StringComparison.OrdinalIgnoreCase))
+        {
+          if (IsSerpApiLookupDuplicate("yahoo", keyword))
+          {
+            _ = _log.Db($"[Search Debug] Skipping duplicate SerpAPI (Yahoo) lookup for keyword '{keyword}'", null, "CRAWLERCTRL", true);
+            return results;
+          }
+          using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+
+          string url = $"https://serpapi.com/search.json?engine=yahoo"
+                     + $"&p={Uri.EscapeDataString(keyword)}"
+                     + $"&api_key={Uri.EscapeDataString(apiKey)}"
+                     + $"&hl=en&gl=us";
+
+          _ = _log.Db($"[Search Debug] Using SerpAPI (Yahoo) for keyword '{keyword}'", null, "CRAWLERCTRL", true);
+          using var resp = await http.GetAsync(url, ct);
+          if (resp.IsSuccessStatusCode)
+          {
+            var json = await resp.Content.ReadAsStringAsync(ct);
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+
+            if (doc.RootElement.TryGetProperty("organic_results", out var items)
+                && items.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+              foreach (var item in items.EnumerateArray().Take(limit))
+              {
+                string? urlValue = item.TryGetProperty("link", out var u) ? u.GetString() : null;
+                string? title = item.TryGetProperty("title", out var t) ? t.GetString() : null;
+                string? snippet = item.TryGetProperty("snippet", out var s) ? s.GetString() : null;
+
+                if (string.IsNullOrWhiteSpace(urlValue)) continue;
+
+                results.Add(new Metadata
+                {
+                  Url = urlValue,
+                  Title = title ?? "Yahoo result",
+                  Description = snippet ?? "",
+                  Author = "Yahoo",
+                  Keywords = keyword
+                });
+              }
+            }
+          }
+          else
+          {
+            _ = _log.Db($"[Search Debug] SerpAPI Yahoo lookup failed with {(int)resp.StatusCode}", null, "CRAWLERCTRL", true);
+          }
+
+          if (results.Count > 0)
+          {
+            // Drop any results the local index already knows about so the external
+            // engine output doesn't duplicate what the crawler's own search returns.
+            results = await FilterOutIndexedUrlsAsync(results);
+            foreach (var result in results.Where(r => !string.IsNullOrWhiteSpace(r.Url)))
+            {
+              if (!string.IsNullOrWhiteSpace(result.Title) && !result.Title.EndsWith(" result", StringComparison.OrdinalIgnoreCase))
+              {
+                await _webCrawler.SaveSearchResult(result.Url!, result);
+              }
+              _ = _webCrawler.StartScrapingAsync(result.Url!);
+            }
+            return results;
+          }
+        }
+
+        _ = _log.Db("[Search Debug] No configured search API available; skipping Yahoo search fallback.", null, "CRAWLERCTRL", true);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"[Search Debug] Yahoo exception: {ex.Message}", null, "CRAWLERCTRL", true);
+      }
+      return results;
+    }
+
+    /// <summary>
+    /// Removes engine results whose URLs already exist in search_results, so external
+    /// search results never duplicate pages the local index already covers. Matching is
+    /// scheme-insensitive (http/https) and ignores a trailing slash.
+    /// </summary>
+    private async Task<List<Metadata>> FilterOutIndexedUrlsAsync(List<Metadata> results)
+    {
+      if (results == null || results.Count == 0) return results;
+      string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      if (string.IsNullOrEmpty(connectionString)) return results;
+
+      static string Normalize(string url)
+      {
+        return (url ?? "").Trim().ToLowerInvariant().TrimEnd('/');
+      }
+
+      // Expand each candidate with its http/https counterpart so a page indexed under
+      // one scheme is still caught when the engine returns the other.
+      var candidates = new List<string>();
+      var seen = new HashSet<string>(StringComparer.Ordinal);
+      foreach (var r in results)
+      {
+        if (string.IsNullOrWhiteSpace(r.Url)) continue;
+        var u = Normalize(r.Url!);
+        if (u.Length == 0 || seen.Contains(u)) continue;
+        seen.Add(u);
+        candidates.Add(u);
+        if (u.StartsWith("https://", StringComparison.Ordinal))
+          candidates.Add("http://" + u.Substring(8));
+        else if (u.StartsWith("http://", StringComparison.Ordinal))
+          candidates.Add("https://" + u.Substring(7));
+      }
+      if (candidates.Count == 0) return results;
+
+      var indexed = new HashSet<string>(StringComparer.Ordinal);
+      try
+      {
+        await using var conn = new MySqlConnection(connectionString);
+        await conn.OpenAsync();
+        var names = candidates.Select((_, i) => "@u" + i).ToList();
+        string sql = "SELECT url FROM search_results WHERE url IN (" + string.Join(",", names) + ")";
+        await using var cmd = new MySqlCommand(sql, conn) { CommandTimeout = 30 };
+        for (int i = 0; i < candidates.Count; i++)
+          cmd.Parameters.AddWithValue("@u" + i, candidates[i]);
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+          if (!reader.IsDBNull(0))
+          {
+            var u = Normalize(reader.GetString(0));
+            if (u.Length > 0)
+            {
+              indexed.Add(u);
+              // Mirror the candidate expansion so scheme-swapped engine URLs are
+              // also caught by the final Contains check, not just the SQL query.
+              if (u.StartsWith("https://", StringComparison.Ordinal))
+                indexed.Add("http://" + u.Substring(8));
+              else if (u.StartsWith("http://", StringComparison.Ordinal))
+                indexed.Add("https://" + u.Substring(7));
+            }
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"FilterOutIndexedUrlsAsync error: {ex.Message}", null, "CRAWLERCTRL", true);
+        // On DB trouble, return unfiltered rather than dropping the engine results.
+        return results;
+      }
+
+      return results.Where(r =>
+        !string.IsNullOrWhiteSpace(r.Url) && !indexed.Contains(Normalize(r.Url!))).ToList();
+    }
+
     private async Task<LightweightSearchResult> SaveAndGetLightweightResultAsync(Metadata meta, string connectionString)
     {
       var light = new LightweightSearchResult { Id = meta.Id, Url = meta.Url, Title = meta.Title };
@@ -1690,6 +1929,46 @@ namespace maxhanna.Server.Controllers
       {
         await _log.Db($"Error in XLookup: {ex.Message}", null, "CRAWLER", true);
         return StatusCode(503, "X search is currently unavailable from this server.");
+      }
+    }
+
+    [HttpPost("/Crawler/DuckDuckGoLookup", Name = "DuckDuckGoLookup")]
+    public async Task<IActionResult> DuckDuckGoLookup([FromBody] RedditLookupRequest request)
+    {
+      if (string.IsNullOrWhiteSpace(request.Keyword)) return BadRequest("Keyword is required.");
+      try
+      {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var results = await TryFindDuckDuckGoUrlsAsync(request.Keyword, cts.Token, 8);
+        if (results == null || results.Count == 0)
+          return StatusCode(503, "DuckDuckGo search is currently unavailable from this server.");
+
+        return Ok(results);
+      }
+      catch (Exception ex)
+      {
+        await _log.Db($"Error in DuckDuckGoLookup: {ex.Message}", null, "CRAWLER", true);
+        return StatusCode(503, "DuckDuckGo search is currently unavailable from this server.");
+      }
+    }
+
+    [HttpPost("/Crawler/YahooLookup", Name = "YahooLookup")]
+    public async Task<IActionResult> YahooLookup([FromBody] RedditLookupRequest request)
+    {
+      if (string.IsNullOrWhiteSpace(request.Keyword)) return BadRequest("Keyword is required.");
+      try
+      {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var results = await TryFindYahooUrlsAsync(request.Keyword, cts.Token, 8);
+        if (results == null || results.Count == 0)
+          return StatusCode(503, "Yahoo search is currently unavailable from this server.");
+
+        return Ok(results);
+      }
+      catch (Exception ex)
+      {
+        await _log.Db($"Error in YahooLookup: {ex.Message}", null, "CRAWLER", true);
+        return StatusCode(503, "Yahoo search is currently unavailable from this server.");
       }
     }
 

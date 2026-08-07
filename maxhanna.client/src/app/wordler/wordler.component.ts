@@ -20,6 +20,8 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   feedback: string[][] = [];
   currentAttempt: number = 0;
   gameStarted = false;
+  hasWon = false;
+  hasLost = false;
   showExitGameButton = false;
   numberOfTries: number = 6;
   scores: WordlerScore[] = [];
@@ -34,6 +36,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   guessAttempts: string[] = [];
   totalEnterPresses: number = 0;
   isMenuPanelOpen = false;
+  showExitConfirmPanel = false;
   definition?: string;
 
   // userWordlerScores are handled by the WordlerHighScores component
@@ -135,6 +138,8 @@ export class WordlerComponent extends ChildComponent implements OnInit {
     }
     this.definition = undefined;
     this.disableAllInputs = false;
+    this.hasWon = false;
+    this.hasLost = false;
     this.showExitGameButton = true;
     this.selectedDifficulty = parseInt(this.difficultySelect.nativeElement.value);
 
@@ -196,6 +201,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
                   }
                   this.currentAttempt++;
                   if (numberOfGreens >= this.selectedDifficulty && !skipChecks) {
+                    this.hasWon = true;
                     setTimeout(() => {
                       // alert(`Congratulations, you have defeated the Wordler!`);
                       //const mode = this.selectedDifficulty == '4' ?
@@ -214,6 +220,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
                     this.disableAllInputs = true;
                   }
                   if (this.currentAttempt >= this.numberOfTries && !skipChecks) {
+                    this.hasLost = true;
                     this.parentRef?.showNotification(`Game over! The word was: ${this.wordToGuess}. Try another difficulty?`);
                     this.showScores = true;
                     alert(`Game over! The word was: ${this.wordToGuess}. Try another difficulty?`);
@@ -307,6 +314,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
           setTimeout(() => document.getElementById("inputIdRow" + this.currentAttempt + "Letter0")?.focus(), 1);
         }
       } else {
+        this.hasLost = true;
         this.stopTimer();
         const message = `Game over! The word was: ${this.wordToGuess}; Time elapsed: ${this.elapsedTime}`;
         this.parentRef?.showNotification(message);
@@ -328,6 +336,7 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   async winningScenario(guess: string) {
     this.startLoading();
     this.stopTimer();
+    this.hasWon = true;
     const difficulty = this.getDifficultyByValue(this.selectedDifficulty);
     const guessCount = this.currentAttempt;
     const computedScore = this.calculateScore(guessCount, this.elapsedTime, this.selectedDifficulty);
@@ -457,17 +466,35 @@ export class WordlerComponent extends ChildComponent implements OnInit {
   }
 
   giveUp() {
-    if (confirm("Are you sure ?")) {
-      this.wordlerService.deletePendingScore(this.parentRef?.user?.id ?? 0, this.selectedDifficulty);
-      this.showScores = true;
-      this.gameStarted = false;
-      this.currentAttempt = 0;
-      this.wordToGuess = '';
-      this.stopTimer();
-      this.disableAllInputs = true;
-      this.showExitGameButton = false;
-      this.definition = undefined;
+    // If the game is already decided (won or lost), exiting is harmless — do it directly.
+    if (this.hasWon || this.hasLost) {
+      this.confirmExit();
+      return;
     }
+    // Otherwise ask first, with an in-app panel instead of a browser confirm().
+    this.showExitConfirmPanel = true;
+    if (this.parentRef) this.parentRef.showOverlay();
+  }
+
+  confirmExit() {
+    this.showExitConfirmPanel = false;
+    if (this.parentRef) this.parentRef.closeOverlay();
+    this.wordlerService.deletePendingScore(this.parentRef?.user?.id ?? 0, this.selectedDifficulty);
+    this.showScores = true;
+    this.gameStarted = false;
+    this.hasWon = false;
+    this.hasLost = false;
+    this.currentAttempt = 0;
+    this.wordToGuess = '';
+    this.stopTimer();
+    this.disableAllInputs = true;
+    this.showExitGameButton = false;
+    this.definition = undefined;
+  }
+
+  cancelExit() {
+    this.showExitConfirmPanel = false;
+    if (this.parentRef) this.parentRef.closeOverlay();
   }
 
   private _syncPendingScore() {

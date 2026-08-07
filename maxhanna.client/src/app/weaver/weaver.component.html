@@ -980,6 +980,8 @@
             <div class="benchmark-header">
               <span class="benchmark-name">{{ b.benchmark }}</span>
               <span class="benchmark-date">{{ b.date }}</span>
+              <app-user-tag *ngIf="b.userId" [userId]="b.userId" [inputtedParentRef]="inputtedParentRef ?? parentRef"
+                [displayMiniTag]="true" [displayHoverPicture]="true"></app-user-tag>
             </div>
             <div class="benchmark-details">
               <span *ngIf="b.status" class="benchmark-badge" [class.benchmark-pass]="b.status === 'pass'"

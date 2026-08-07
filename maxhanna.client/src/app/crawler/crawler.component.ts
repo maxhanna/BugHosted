@@ -56,6 +56,12 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   isSearchingImdb: boolean = false
   imdbResults: MetaData[] = [];
   imdbDisplayLimit: number = 1;
+  isSearchingDuckDuckGo: boolean = false
+  duckDuckGoResults: MetaData[] = [];
+  duckDuckGoDisplayLimit: number = 1;
+  isSearchingYahoo: boolean = false
+  yahooResults: MetaData[] = [];
+  yahooDisplayLimit: number = 1;
   private socialDomains = ['reddit.com', 'www.reddit.com', 'twitter.com', 'www.twitter.com', 'x.com', 'www.x.com', 'facebook.com', 'www.facebook.com'];
 
   @ViewChild('pageSizeDropdown') pageSizeDropdown!: ElementRef<HTMLSelectElement>;
@@ -202,6 +208,8 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     this.redditResults = [];
     this.xResults = [];
     this.imdbResults = [];
+    this.duckDuckGoResults = [];
+    this.yahooResults = [];
     this.socialResults = [];
     this.error = '';
     this.totalResults = 0;
@@ -280,10 +288,29 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
         this.imdbDisplayLimit = 1;
         this.mergeSocialResults();
       });
+
+      console.log('searching DuckDuckGo');
+      this.isSearchingDuckDuckGo = true;
+      this.crawlerService.searchDuckDuckGo(this.keywordsInput.nativeElement.value.trim()).then(response => {
+        this.duckDuckGoResults = response ?? [];
+        this.isSearchingDuckDuckGo = false;
+        this.duckDuckGoDisplayLimit = 1;
+      });
+
+      console.log('searching Yahoo');
+      this.isSearchingYahoo = true;
+      this.crawlerService.searchYahoo(this.keywordsInput.nativeElement.value.trim()).then(response => {
+        this.yahooResults = response ?? [];
+        this.isSearchingYahoo = false;
+        this.yahooDisplayLimit = 1;
+      });
     } else {
       this.youtubeResults = [];
       this.redditResults = [];
       this.xResults = [];
+      this.imdbResults = [];
+      this.duckDuckGoResults = [];
+      this.yahooResults = [];
     }
 
     if (keywords.split(' ').length > 0 || !keywords.includes('.') || !keywords.includes('http')) {
@@ -508,6 +535,22 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
           this.imdbDisplayLimit = 1;
     } else {
           this.imdbDisplayLimit = Math.min(this.imdbResults.length, this.imdbDisplayLimit +5);
+    }
+  }
+
+  showMoreDuckDuckGo() {
+    if (this.duckDuckGoDisplayLimit > 1) {
+      this.duckDuckGoDisplayLimit = 1;
+    } else {
+      this.duckDuckGoDisplayLimit = Math.min(this.duckDuckGoResults.length, this.duckDuckGoDisplayLimit + 5);
+    }
+  }
+
+  showMoreYahoo() {
+    if (this.yahooDisplayLimit > 1) {
+      this.yahooDisplayLimit = 1;
+    } else {
+      this.yahooDisplayLimit = Math.min(this.yahooResults.length, this.yahooDisplayLimit + 5);
     }
   }
 

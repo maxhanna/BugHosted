@@ -243,15 +243,6 @@ namespace maxhanna.Server.Services
                     });
                 }
                 catch (Exception ex) { _ = _log.Db($"Error in UpdateWalletInDB: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
-                lastWasCrypto = !lastWasCrypto;
-                try
-                {
-                    await _dbQueue.EnqueueAsync(async () =>
-                    {
-                        await ScrapeNews();
-                    });
-                }
-                catch (Exception ex) { _ = _log.Db($"Error in ScrapeNews: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
                 try
                 {
                     await _dbQueue.EnqueueAsync(async () =>
@@ -376,6 +367,9 @@ namespace maxhanna.Server.Services
                 catch (Exception ex) { _ = _log.Db($"Error in DeleteOldTradeVolumesSixMonths: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
                 try { await _dbQueue.EnqueueAsync(async () => { await _romEnrichmentService.RunAsync(); }); }
                 catch (Exception ex) { _ = _log.Db($"Error in RomEnrichmentService: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
+                lastWasCrypto = !lastWasCrypto;
+                try { await _dbQueue.EnqueueAsync(async () => { await ScrapeNews(); }); }
+                catch (Exception ex) { _ = _log.Db($"Error in ScrapeNews: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
             }
             finally
             {
@@ -3134,10 +3128,10 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
                     if (affectedA > 0)
                     {
                         await _log.Db($"Phase A: deleted {affectedA} rows > 6 months.", null, "SYSTEM", true);
-                        continue;  
+                        continue;
                     }
                     break;
-                } 
+                }
                 var dupCheckSql = @"
                     SELECT EXISTS (
                         SELECT 1
@@ -3247,7 +3241,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
             var now = DateTime.UtcNow;
             await using var conn = new MySqlConnection(_connectionString);
             await conn.OpenAsync();
-        
+
             var sql = @"
         SELECT u.user_id, ce.type, ce.date, ce.note, ce.reminder, u.timezone
         FROM user_settings u
@@ -3287,7 +3281,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
                 var userId = kvp.Key;
                 var tz = ResolveTimeZone(userTimezones.TryGetValue(userId, out var tzId) ? tzId : null);
                 var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(now, tz);
-                var pending = new List<CalendarEntry>(); 
+                var pending = new List<CalendarEntry>();
                 foreach (var (type, date, note, reminder) in kvp.Value)
                 {
                     // The stored date is a UTC wall-clock instant. Anchor it to
@@ -3520,10 +3514,6 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
                 try { _fileCleanLock.Release(); } catch { }
             }
         }
-        /// <summary>
-        /// Local copy of your sanitize logic (stem only). If you already moved this to
-        /// a shared helper, reference that instead.
-        /// </summary>
         private static string SanitizeFileNameSafe(string name, string extension)
         {
             if (string.IsNullOrWhiteSpace(name))

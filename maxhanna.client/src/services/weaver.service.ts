@@ -69,6 +69,7 @@ export interface IdeTab {
 
 export interface BenchmarkEntry {
   id: number;
+  userId: number;
   date: string;
   benchmark: string;
   steps: number;
@@ -251,7 +252,7 @@ export class WeaverService {
     return res.json();
   }
 
-  async addBenchmark(token: string, benchmark: any): Promise<{ message: string }> {
+  async addBenchmark(token: string, benchmark: any): Promise<{ message: string; userId: number }> {
     const res = await fetch('/weaver/addbenchmark', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

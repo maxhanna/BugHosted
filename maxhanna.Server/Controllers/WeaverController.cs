@@ -688,7 +688,7 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				await cmd.ExecuteNonQueryAsync();
-				return Ok(new { message = "Benchmark added successfully" });
+				return Ok(new { message = "Benchmark added successfully", userId });
 			}
 			catch (Exception ex)
 			{
@@ -708,7 +708,7 @@ namespace maxhanna.Server.Controllers
 			await conn.OpenAsync();
 
 			string sql = @"
-		    SELECT id, date, benchmark_name, steps, score, status, duration, model, os, cpu, ram, gpu
+		    SELECT id, user_id, date, benchmark_name, steps, score, status, duration, model, os, cpu, ram, gpu
 		    FROM maxhanna.weaver_benchmark_data
 		    ORDER BY date DESC
 		    ";
@@ -719,6 +719,7 @@ namespace maxhanna.Server.Controllers
 			while (await reader.ReadAsync())
 			{
 				BenchmarkDataDTO bench = new BenchmarkDataDTO();
+				bench.UserId = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id");
 				bench.Date = reader.GetDateTime("date").ToString("yyyy-MM-dd HH:mm:ss");
 				bench.Benchmark = reader.GetString("benchmark_name");
 				bench.Steps = reader.IsDBNull(reader.GetOrdinal("steps")) ? "0" : reader.GetString("steps");
@@ -910,21 +911,20 @@ namespace maxhanna.Server.Controllers
 	{
 		public string Token { get; set; } = "";
 		public List<object>? Hints { get; set; }
-	}
-
-	public class BenchmarkDataDTO
-	{
-		public string? Token { get; set; }
-		public string? Date { get; set; }
-		public string? Benchmark { get; set; }
-		public string? Steps { get; set; }
-		public float? Score { get; set; }
-		public string? Status { get; set; }
-		public string? Duration { get; set; }
-		public string? Model { get; set; }
-		public string? OS { get; set; }
-		public string? CPU { get; set; }
-		public string? RAM { get; set; }
-		public string? GPU { get; set; }
-	}
+	}  public class BenchmarkDataDTO
+  {
+    public string? Token { get; set; }
+    public int? UserId { get; set; }
+    public string? Date { get; set; }
+    public string? Benchmark { get; set; }
+    public string? Steps { get; set; }
+    public float? Score { get; set; }
+    public string? Status { get; set; }
+    public string? Duration { get; set; }
+    public string? Model { get; set; }
+    public string? OS { get; set; }
+    public string? CPU { get; set; }
+    public string? RAM { get; set; }
+    public string? GPU { get; set; }
+  }
 }

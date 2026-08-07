@@ -109,10 +109,24 @@
       {{wordToGuess}}: {{definition}}
     </div>
 
-    <app-wordler-high-scores [mode]="'today'" [userId]="parentRef?.user?.id" #todayScores
+    <app-wordler-high-scores [mode]="['today', 'user']" [userId]="parentRef?.user?.id" #todayScores
       [inputtedParentRef]="parentRef" [headerClickable]="true" [displayWordlerInHeader]="false"
       [showHeaderTitles]="true"></app-wordler-high-scores>
   </div>
+</div>
+
+<!-- Exit Confirmation Popup -->
+<div class="popupPanel" *ngIf="showExitConfirmPanel" style="max-width: 400px;">
+  <div class="popupPanelTitle mainPopupTitle">Exit Game?</div>
+  <div class="wordlerPopupPanelSection" style="text-align: center;">
+    Your progress in this game will be lost.
+    <div class="smallFont">Your score is only saved once you defeat the Wordler.</div>
+  </div>
+  <div style="display: flex; gap: 12px; justify-content: center;">
+    <button class="exitConfirmButton" (click)="confirmExit()">Exit Game</button>
+    <button class="exitConfirmCancel" (click)="cancelExit()">Keep Playing</button>
+  </div>
+  <button id="closeOverlay" class="closeButton" (click)="cancelExit()">Close</button>
 </div>
 
 <!-- Menu Popup -->

@@ -210,6 +210,37 @@ input.present {
   text-align: center;
 }
 
+.exitConfirmButton,
+.exitConfirmCancel {
+  border-radius: 6px;
+  padding: 8px 18px;
+  cursor: pointer;
+  border: var(--main-border);
+  color: var(--main-font-color);
+  background: var(--secondary-component-background-color);
+  transition: transform 0.15s ease, filter 0.15s ease, background 0.15s ease;
+}
+
+.exitConfirmButton {
+  background: #b02a1e;
+  border-color: #b02a1e;
+  color: #ffffff;
+}
+
+.exitConfirmButton:hover {
+  background: #d13423;
+  transform: translateY(-1px);
+}
+
+.exitConfirmButton:active {
+  transform: translateY(0);
+}
+
+.exitConfirmCancel:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
 .instructionTitle {
     margin-bottom: 10px;
     text-align: center;

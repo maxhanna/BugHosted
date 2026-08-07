@@ -1566,6 +1566,12 @@
   white-space: nowrap;
 }
 
+.benchmark-header app-user-tag {
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: default;
+}
+
 .benchmark-details {
   display: flex;
   gap: 8px;

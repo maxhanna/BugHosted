@@ -79,6 +79,9 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
           allScores = res as WordlerScore[];
         } else {
           allScores = [];
+          // The service returns the error message string on failure — surface it
+          // instead of silently showing an empty table.
+          if (typeof res === 'string' && res.trim()) this.error = res;
         }
       }
       if (modes.includes('all')) {
@@ -89,13 +92,22 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
         this.groupedByMode.best = { 999: topAcrossAll };
       }
       if (modes.includes('today')) {
+        // The server stores submitted as DateTime.UtcNow and serializes it without
+        // timezone info, so treat it as UTC here. "Today" is the user's LOCAL
+        // calendar day (local midnight → next local midnight) — comparing local
+        // midnight bounds against UTC-parsed stamps keeps scores from evening
+        // sessions from being filtered out (previously they landed "tomorrow").
         const now = new Date();
-        const utcStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-        const utcEnd = utcStart + 24 * 60 * 60 * 1000;
+        const localStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const localEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        const startMs = localStart.getTime();
+        const endMs = localEnd.getTime();
         const todays = (allScores || []).filter(s => {
           if (!s.submitted) return false;
-          const t = new Date(s.submitted).getTime();
-          return t >= utcStart && t < utcEnd;
+          const d = this.parseServerDateUtc(s.submitted);
+          if (!d) return false;
+          const t = d.getTime();
+          return t >= startMs && t < endMs;
         });
         this.groupedByMode.today = this.groupScores(todays);
       }
@@ -109,6 +121,7 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
             this.groupedByMode.user = this.groupScores(userScores || []);
           } else {
             this.groupedByMode.user = {};
+            if (typeof userRes === 'string' && userRes.trim() && !this.error) this.error = userRes;
           }
         }
       }
@@ -132,6 +145,24 @@ export class WordlerHighScoresComponent implements OnInit, OnChanges {
       } catch { }
     }
   }
+  // Parses a server-returned date. DateTimes from the server are UTC but are
+  // serialized without a timezone marker (e.g. "2026-08-07T00:00:00"), so
+  // TZ-less ISO strings are interpreted as UTC — matching the timeSince pipe's
+  // isUTC=true handling used to render the Date column.
+  private parseServerDateUtc(value: Date | string): Date | null {
+    if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    if (/^0001-01-01/.test(trimmed)) return null; // SQL min date sentinel
+    if (/[Zz]|[+\-]\d{2}:\d{2}$/.test(trimmed)) {
+      const d = new Date(trimmed);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    const isoNoTz = /^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}(:\d{2}(\.\d{1,7})?)?$/;
+    const d = isoNoTz.test(trimmed) ? new Date(trimmed + 'Z') : new Date(trimmed);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
   private applyHeadersCollapsed() {
     if (this.headersCollapsed) {
       for (const m of this.modesSelected) {

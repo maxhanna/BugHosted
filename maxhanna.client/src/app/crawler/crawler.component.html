@@ -12,6 +12,8 @@
     <span class="stat-badge" *ngIf="redditResults.length">Reddit: <span class="stat-value">{{redditResults.length}}</span></span>
     <span class="stat-badge" *ngIf="xResults.length">X: <span class="stat-value">{{xResults.length}}</span></span>
     <span class="stat-badge" *ngIf="imdbResults.length">IMDB: <span class="stat-value">{{imdbResults.length}}</span></span>
+    <span class="stat-badge" *ngIf="duckDuckGoResults.length">DuckDuckGo: <span class="stat-value">{{duckDuckGoResults.length}}</span></span>
+    <span class="stat-badge" *ngIf="yahooResults.length">Yahoo: <span class="stat-value">{{yahooResults.length}}</span></span>
   </div>
 
   <div class="crawler-container" [style.position]="onlySearch ? 'relative' : ''" [style.top]="onlySearch ? '-30px' : ''">
@@ -46,6 +48,10 @@
       Reddit</app-loading-spinner></div>
   <div *ngIf="isSearchingX" class="loadingNotificationDiv"><app-loading-spinner [icon]="'🐦'">Crawling
       X</app-loading-spinner></div>
+  <div *ngIf="isSearchingDuckDuckGo" class="loadingNotificationDiv"><app-loading-spinner [icon]="'🦆'">Crawling
+      DuckDuckGo</app-loading-spinner></div>
+  <div *ngIf="isSearchingYahoo" class="loadingNotificationDiv"><app-loading-spinner [icon]="'🔮'">Crawling
+      Yahoo</app-loading-spinner></div>
      </div>
   
     <div *ngIf="error" class="error-message">{{ error }}</div>
@@ -104,6 +110,50 @@
       </div>
       <div class="more-btn-row" *ngIf="imdbResults.length > 1">
         <button (click)="showMoreImdb()">{{ imdbDisplayLimit > 1 ? 'Show less' : 'Show all ' + imdbResults.length + ' IMDB results' }}</button>
+      </div>
+    </div>
+
+    <!-- DuckDuckGo Results -->
+    <div *ngIf="duckDuckGoResults.length" class="metadataSearchWrapper" [style.opacity]="isSearchingDuckDuckGo ? 0.5 : 1" [style.max-Height]="onlySearch ? '30vh' : ''">
+      <div class="metadataSearchDiv gradientBackground">
+        <div class="groupDomainTitle">🦆 DuckDuckGo Results</div>
+        <div *ngFor="let result of duckDuckGoResults.slice(0, duckDuckGoDisplayLimit)" class="groupLinkWrapperDiv">
+          <div class="groupLinkDataWrapperDiv">
+            <a class="pageTitleLink" [attr.href]="result.url" target="_blank">{{ result.title }}</a>
+            <div class="metadataTitleLinkFavouriteWrapper">
+              <a [attr.href]="result.url" target="_blank">{{ result.url }}</a>
+            </div>
+            <div *ngIf="result.description" class="descriptClass" [title]="result.description">{{ result.description }}</div>
+          </div>
+          <div class="imageUrlPictureDiv">
+            <img *ngIf="result.imageUrl" [src]="result.imageUrl" loading="lazy" [title]="result.title" (error)="result.imageUrl = ''" />
+          </div>
+        </div>
+      </div>
+      <div class="more-btn-row" *ngIf="duckDuckGoResults.length > 1">
+        <button (click)="showMoreDuckDuckGo()">{{ duckDuckGoDisplayLimit > 1 ? 'Show less' : 'Show all ' + duckDuckGoResults.length + ' DuckDuckGo results' }}</button>
+      </div>
+    </div>
+
+    <!-- Yahoo Results -->
+    <div *ngIf="yahooResults.length" class="metadataSearchWrapper" [style.opacity]="isSearchingYahoo ? 0.5 : 1" [style.max-Height]="onlySearch ? '30vh' : ''">
+      <div class="metadataSearchDiv gradientBackground">
+        <div class="groupDomainTitle">🔮 Yahoo Results</div>
+        <div *ngFor="let result of yahooResults.slice(0, yahooDisplayLimit)" class="groupLinkWrapperDiv">
+          <div class="groupLinkDataWrapperDiv">
+            <a class="pageTitleLink" [attr.href]="result.url" target="_blank">{{ result.title }}</a>
+            <div class="metadataTitleLinkFavouriteWrapper">
+              <a [attr.href]="result.url" target="_blank">{{ result.url }}</a>
+            </div>
+            <div *ngIf="result.description" class="descriptClass" [title]="result.description">{{ result.description }}</div>
+          </div>
+          <div class="imageUrlPictureDiv">
+            <img *ngIf="result.imageUrl" [src]="result.imageUrl" loading="lazy" [title]="result.title" (error)="result.imageUrl = ''" />
+          </div>
+        </div>
+      </div>
+      <div class="more-btn-row" *ngIf="yahooResults.length > 1">
+        <button (click)="showMoreYahoo()">{{ yahooDisplayLimit > 1 ? 'Show less' : 'Show all ' + yahooResults.length + ' Yahoo results' }}</button>
       </div>
     </div>
 
