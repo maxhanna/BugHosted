@@ -693,26 +693,16 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     // card's completion summary as context (bounded so the text stays readable).
     if (summary) {
       const trimmed = summary.length > 2000 ? summary.slice(0, 2000) + '…' : summary;
-      contextBlock = '[CONTEXT — ' + srcRef + ' — completion summary of the source task]
-' +
-        trimmed + '
-[/CONTEXT]
-
-';
+      contextBlock = '[CONTEXT — ' + srcRef + ' — completion summary of the source task]\n' +
+        trimmed + '\n[/CONTEXT]\n\n';
     } else if (sourceCard.text) {
       const srcText = sourceCard.text.length > 300 ? sourceCard.text.slice(0, 300) + '…' : sourceCard.text;
-      contextBlock = '[CONTEXT — ' + srcRef + ' — follows up on the completed source task]
-\ +
-        srcText + \n[/CONTEXT]
-
-';
+      contextBlock = '[CONTEXT — ' + srcRef + ' — follows up on the completed source task]\n' +
+        srcText + '\n[/CONTEXT]\n\n';
     }
     // The suggestion itself may name the other card/feature it builds on.
     if (suggestion.connection) {
-      contextBlock += '[CONTEXT — builds on: ' + suggestion.connection + ']
-[/CONTEXT]
-
-';
+      contextBlock += '[CONTEXT — builds on: ' + suggestion.connection + ']\n[/CONTEXT]\n\n';
     }
     const newCard: any = {
       id: Math.random().toString(36).slice(2, 9),
