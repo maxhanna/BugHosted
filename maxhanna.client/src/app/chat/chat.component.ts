@@ -347,6 +347,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   private pushRefreshTimer: any = null;
+  // Last-rendered signature per poll componentId — updateChatPollsInDOM runs
+  // on every history poll, so skip the innerHTML rebuild (and the reflow it
+  // causes) when a poll's state hasn't actually changed.
+  private _pollRenderSignatures = new Map<string, string>();
   private refreshAfterPush() {
     if (this.pushRefreshTimer) clearTimeout(this.pushRefreshTimer);
     this.pushRefreshTimer = setTimeout(() => {
@@ -454,6 +458,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           this.chatHistory = merged.filter(
             (m: Message) => m.id > 0 || Date.now() - Math.abs(m.id) < 30000
           );
+          // Precompute per-row display values (mine / day / time / divider)
+          // once here instead of re-running that logic in the template on
+          // every change-detection tick.
+          this.annotateMessages(this.chatHistory);
           this.updateSeenStatus(res);
           if (!this.isChangingPage) {
             this.playSoundIfNewMessage(newMessages);
@@ -552,6 +560,18 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         if (!poll || !poll.componentId) continue;
         if (!poll.componentId.startsWith('messageText') && !poll.componentId.startsWith('chatMessage')) continue;
 
+        // Skip polls whose state hasn't changed since the last render pass —
+        // this runs on every history poll and would otherwise rebuild the poll
+        // DOM (innerHTML + reflow) every few seconds in chats with polls.
+        // Per-option voteCounts are in the signature so a vote switch (same
+        // total voters, different tallies) still re-renders.
+        const optionTallies = (poll.options ?? [])
+          .map((o: any) => `${o.id}:${o.voteCount ?? 0}`)
+          .join(',');
+        const signature = `${poll.componentId}|${optionTallies}|${poll.userVotes?.length ?? 0}|${poll.question ?? ''}`;
+        if (this._pollRenderSignatures.get(poll.componentId) === signature) continue;
+        this._pollRenderSignatures.set(poll.componentId, signature);
+
         const tgt = document.getElementById(poll.componentId);
         if (!tgt) continue;
 
@@ -634,6 +654,9 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
   async openChat(users?: User[]) {
     if (!users) { return; }
+    // Message ids can repeat across chats — reset the poll-render cache so a
+    // previously seen componentId doesn't skip rendering in this room.
+    this._pollRenderSignatures.clear();
     // capture existing theme state so we can restore it when leaving the chat
     try {
       const container = document.querySelector('.chatArea') as HTMLElement | null;
@@ -859,6 +882,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         if (res && res.messages) {
           const newMessages = (res.messages as Message[]).reverse();
           this.chatHistory = [...newMessages, ...this.chatHistory]; // Prepend new messages
+          // Prepend path bypasses getMessageHistory, so annotate the merged
+          // list here too — otherwise older rows would render blank timestamps
+          // and no day dividers (their display fields are precomputed).
+          this.annotateMessages(this.chatHistory);
           this.pageNumber = res.currentPage;
           this.totalPages = res.totalPages;
           this.totalPagesArray = Array(this.totalPages).fill(0).map((_, i) => i + 1);
@@ -1510,6 +1537,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.chatHistory = [...this.chatHistory, optimistic].sort(
         (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
+      this.annotateMessages(this.chatHistory);
       this.scrollToBottomIfNeeded();
     }
 
@@ -1528,6 +1556,23 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       m.domHtml = this.getTextForDOM(text, 'messageText' + m.id);
     }
     return m.domHtml;
+  }
+
+  // Precompute per-row display values once when the history is assembled (and
+  // whenever rows are added), so Angular change detection only re-reads cached
+  // properties instead of re-running date formatting / identity checks for
+  // every message on every tick (typing, polling and hub pushes all trigger CD).
+  private annotateMessages(messages: Message[]): void {
+    let lastDay = '';
+    for (let i = 0; i < messages.length; i++) {
+      const m = messages[i];
+      const day = m.timestamp ? new Date(m.timestamp).toDateString() : '';
+      m._showDivider = day !== lastDay;
+      m._dayLabel = this.getDayLabel(m);
+      m._timeLabel = this.getUtcTimestampString(m.timestamp);
+      m._mine = this.isMyMessage(m);
+      lastDay = day;
+    }
   }
 
   // Stable row identity — stops Angular from rebuilding every message row when

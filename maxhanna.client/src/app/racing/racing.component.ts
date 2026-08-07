@@ -1,6 +1,6 @@
 import { AfterViewInit, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { RacingRenderer, TrackPoint, DECAL_LAYOUTS } from './racing-renderer';
+import { RacingRenderer, TrackPoint, DECAL_LAYOUTS, getAccentSegsForStyle } from './racing-renderer';
 import { RacingService } from '../../services/racing.service';
 import { RacingHubService, LobbyPlayer, RemoteCarPosition, RaceStandingsRow } from '../../services/racing-hub.service';
 import {
@@ -2805,6 +2805,72 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
     this._decalRectCache.set(p.id, rects);
     return rects;
+  }
+  private _accentRectCache = new Map<number, { left: string; top: string; width: string; height: string }[]>();
+  /**
+   * Top-down rects for the accent side-pod stripes that survive alongside this
+   * decal style, drawn from the SAME getAccentSegsForStyle() filter the 3D car
+   * uses — so the card previews the exact combined accent + decal livery.
+   * Mirrors each segment to ±z like the mesh does.
+   */
+  getAccentPlateRects(p: RacingAppearancePart): { left: string; top: string; width: string; height: string }[] {
+    const cached = this._accentRectCache.get(p.id);
+    if (cached) return cached;
+    const segs = getAccentSegsForStyle(p.id);
+    const xMin = -1.5, xMax = 1.5, zMin = -0.62, zMax = 0.62;
+    const xSpan = xMax - xMin, zSpan = zMax - zMin;
+    const rects: { left: string; top: string; width: string; height: string }[] = [];
+    const push = (cx: number, cz: number, l: number, d: number) => {
+      rects.push({
+        left: `${((cx - l / 2 - xMin) / xSpan) * 100}%`,
+        width: `${(l / xSpan) * 100}%`,
+        top: `${((cz - d / 2 - zMin) / zSpan) * 100}%`,
+        height: `${(d / zSpan) * 100}%`,
+      });
+    };
+    for (const [cx, , l, , d, z] of segs) {
+      push(cx, z, l, d);
+      push(cx, -z, l, d);
+    }
+    this._accentRectCache.set(p.id, rects);
+    return rects;
+  }
+  private _accentColorCache = new Map<number, string>();
+  /** Accent stripe colour for the map — the player's equipped accent tint, so
+   *  the preview shows their actual accent; floors dark accents so they stay
+   *  visible against the silhouette. */
+  getAccentPlateColor(accentId: number): string {
+    const cached = this._accentColorCache.get(accentId);
+    if (cached) return cached;
+    const c = ACCENT_COLORS[accentId];
+    const to255 = (v: number) => Math.max(52, Math.round(v * 255));
+    const col = c ? `rgb(${to255(c[0])}, ${to255(c[1])}, ${to255(c[2])})` : '#9aa0aa';
+    this._accentColorCache.set(accentId, col);
+    return col;
+  }
+  private _accentFitCache = new Map<number, { clean: boolean; kept: number; total: number; text: string }>();
+  /**
+   * 'Fits with' note for a decal card. All accent styles share one pod-stripe
+   * layout (only the colour differs via ACCENT_COLORS), so the fit verdict is
+   * decal-determined: a decal either keeps all 5 accent stripes (pairs cleanly
+   * with every one of the 12 accents) or hides some. The count comes from the
+   * SAME getAccentSegsForStyle() filter the 3D car and the card's map use, so
+   * the note always matches what the player will actually see.
+   */
+  getAccentFitNote(p: RacingAppearancePart): { clean: boolean; kept: number; total: number; text: string } {
+    const cached = this._accentFitCache.get(p.id);
+    if (cached) return cached;
+    const total = 5;
+    const kept = getAccentSegsForStyle(p.id).length;
+    const clean = kept === total;
+    const accentCount = APPEARANCE_PARTS.filter(a => a.category === 'accent').length;
+    const note = clean
+      ? { clean, kept, total, text: `Fits with all ${accentCount} accent styles` }
+      : kept === 0
+        ? { clean, kept, total, text: 'Covers every accent stripe' }
+        : { clean, kept, total, text: `Hides ${total - kept}/${total} accent stripes with any accent` };
+    this._accentFitCache.set(p.id, note);
+    return note;
   }
   getEquippedAppearance(cat: string): number {
     switch (cat) {

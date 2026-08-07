@@ -20,6 +20,13 @@ export class Message {
    *  re-reads a cached property instead of rebuilding HTML every tick. */
   // Transient client-side cache of the rendered row HTML (never serialized).
   domHtml?: any;
+  // Transient display caches (never serialized) — precomputed once when the
+  // history is assembled so change detection reads properties instead of
+  // re-running date/identity logic for every message on every CD tick.
+  _mine?: boolean;
+  _timeLabel?: string | Date;
+  _dayLabel?: string;
+  _showDivider?: boolean;
 
   constructor(id: number, chatId: number, sender: User, receiver: User[], content: string, timestamp: Date, 
     reactions?: Reaction[], files?: FileEntry[], seen?: string, editDate?: Date) {

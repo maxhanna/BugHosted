@@ -99,6 +99,7 @@
             <div>Type: <select id="calendarEditingType" [(ngModel)]="cal.type" name="calEditType"
                 (ngModelChange)="hasEditedCalendarEntry = true">
                 <option *ngFor="let t of getEventTypes()" [ngValue]="t">{{t}}</option>
+                <option *ngIf="cal.type && !getEventTypes().includes(cal.type)" [ngValue]="cal.type">{{ cal.type }}</option>
               </select></div>
             <div *ngIf="calendarNotificationsEnabled">Notify me:
               <input id="calendarEditingReminder" type="number" min="0" step="5"

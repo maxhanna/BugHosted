@@ -1,4 +1,4 @@
-﻿import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { WeaverService, WeaverCard, WeaverProject, KanbanPayload, IdeFileEntry, IdeTab, EditorState, BenchmarkEntry, AddCommandResult } from '../../services/weaver.service';
 import { AppComponent } from '../app.component';
 import { ChildComponent } from '../child.component';
@@ -540,6 +540,10 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     return card.id;
   }
 
+  trackBySuggestionId(_: number, s: any): string {
+    return s && s.id != null ? String(s.id) : String(_);
+  }
+
   // --- Remote command sending with optimistic local push ---
   private async sendRemoteCommand(command: string, params?: any): Promise<AddCommandResult | null> {
     const result = await this.weaverService.addCommand(this.token, command, params);
@@ -668,6 +672,123 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
           cardElement.focus();
         } catch (e) { /* ignore errors from focusing */ }
       }, 50);
+    }
+  }
+
+  // ── Suggestion → To Do card ─────────────────────────────────────────────
+  // Clicking a suggestion in the Done column queues it as a new To Do card via
+  // the remote Weaver (optimistic local push + addCard command), carrying the
+  // suggestion's file attachments and the source card's completion summary so
+  // the agent has context. Mirrors the local Weaver's vm.suggestionToCard.
+  async suggestionToCard(sourceCard: any, suggestion: any) {
+    if (!sourceCard || !suggestion) return;
+    if (suggestion._queued) return;
+    if (!this.state || !this.state.todo) return;
+    suggestion._queued = true;
+    const files = Array.isArray(suggestion.files) ? suggestion.files.slice() : [];
+    const summary = (sourceCard.agentAnalysis && sourceCard.agentAnalysis.summary) || '';
+    const srcRef = 'Source card #' + (String(sourceCard.id || '').slice(0, 6) || '?');
+    let contextBlock = '';
+    // The suggestion often builds on the finished work, so prepend the source
+    // card's completion summary as context (bounded so the text stays readable).
+    if (summary) {
+      const trimmed = summary.length > 2000 ? summary.slice(0, 2000) + '…' : summary;
+      contextBlock = '[CONTEXT — ' + srcRef + ' — completion summary of the source task]
+' +
+        trimmed + '
+[/CONTEXT]
+
+';
+    } else if (sourceCard.text) {
+      const srcText = sourceCard.text.length > 300 ? sourceCard.text.slice(0, 300) + '…' : sourceCard.text;
+      contextBlock = '[CONTEXT — ' + srcRef + ' — follows up on the completed source task]
+\ +
+        srcText + \n[/CONTEXT]
+
+';
+    }
+    // The suggestion itself may name the other card/feature it builds on.
+    if (suggestion.connection) {
+      contextBlock += '[CONTEXT — builds on: ' + suggestion.connection + ']
+[/CONTEXT]
+
+';
+    }
+    const newCard: any = {
+      id: Math.random().toString(36).slice(2, 9),
+      text: contextBlock + (suggestion.description || ''),
+      filePath: sourceCard.filePath || sourceCard.FilePath || this.selectedProjectPath,
+      createdAt: new Date().toISOString(),
+      priority: 'medium',
+      attached: files,
+      selfImproving: false,
+      _fromSuggestion: true,
+      _suggestionSourceCardId: sourceCard.id,
+    };
+    this.state.todo.push(newCard);
+    this.recentlyCreatedCardIds.add(newCard.id);
+    this.cardCreatedAt[newCard.id] = Date.now();
+    this.commandResult = '💡 Suggestion queued as a To Do card' +
+      (files.length ? ' (' + files.length + ' file(s) attached)' : '');
+    const result = await this.sendRemoteCommand('addCard', {
+      cardId: newCard.id,
+      text: newCard.text,
+      project: newCard.filePath,
+    });
+    if (result?.id) this.cardCommandMap[newCard.id] = result.id;
+    // The local Weaver's addCard creates the card with empty attachments, so a
+    // follow-up updateCard attaches the suggestion's files to the board card.
+    if (files.length) {
+      await this.sendRemoteCommand('updateCard', { cardId: newCard.id, attached: files });
+    }
+    setTimeout(() => {
+      const el = document.getElementById('card-' + newCard.id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 150);
+  }
+
+  // ── Jump to the card a suggestion's connection references ─────────────
+  // Suggestion connections name the other card/feature they build on (e.g.
+  // "notification system built in card #a1b2c3"). Resolves the #id prefix
+  // across every column, opens a collapsed owner column, scrolls the card into
+  // view and flashes it.
+  jumpToConnectionCard(conn: string) {
+    if (!conn) return;
+    const m = String(conn).match(/#([a-zA-Z0-9]+)/);
+    if (!m) return;
+    const prefix = m[1].toLowerCase();
+    const cols = ['todo', 'doing', 'done', 'archived', 'selfImproving'];
+    let target: any = null;
+    let targetCol = '';
+    for (const col of cols) {
+      const cards: any[] = (this.state as any)[col] || [];
+      for (const c of cards) {
+        if (c.id && String(c.id).toLowerCase().indexOf(prefix) === 0) { target = c; targetCol = col; break; }
+      }
+      if (target) break;
+    }
+    if (!target) {
+      this.commandResult = '🔗 The card this suggestion builds on is no longer on the board';
+      return;
+    }
+    if (this.collapsedColumns[targetCol]) this.collapsedColumns[targetCol] = false;
+    setTimeout(() => {
+      const el = document.getElementById('card-' + target.id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        el.classList.add('flash-target');
+        setTimeout(() => el.classList.remove('flash-target'), 1600);
+      }
+    }, 100);
+    this.commandResult = '🔗 Jumped to ' + String(target.text || '').slice(0, 60);
+  }
+
+  suggestionTrackBy(_: number, s: any): string { return s && s.id; }
+
+  onSuggestionKeydown(event: KeyboardEvent, card: any, suggestion: any) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      this.suggestionToCard(card, suggestion);
     }
   }
 

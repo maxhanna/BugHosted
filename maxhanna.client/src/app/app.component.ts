@@ -1,4 +1,4 @@
-﻿import { AfterViewInit, ChangeDetectorRef, Component, ComponentRef, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ComponentRef, OnInit, ViewChild, ViewContainerRef } from '@angular/core';
 import { NavigationEnd, Router, RouterEvent, RouterOutlet } from '@angular/router';
 import { Location } from '@angular/common';
 import { CalendarComponent } from './calendar/calendar.component';
@@ -48,6 +48,7 @@ import { SigIntComponent } from './sig-int/sig-int.component';
 import { UserEventsComponent } from './user-events/user-events.component';
 import { PlanterComponent } from './planter/planter.component';
 import { WeaverComponent } from './weaver/weaver.component';
+import { WeaverGuideComponent } from './weaver-guide/weaver-guide.component';
 import { GrandTheftComponent } from './grandtheft/grandtheft.component';
 import { RecipeComponent } from './recipe/recipe.component';
 import { PaintComponent } from './paint/paint.component';
@@ -494,6 +495,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "GrandTheft": GrandTheftComponent,
     "Planter": PlanterComponent,
     "Weaver": WeaverComponent,
+    "WeaverGuide": WeaverGuideComponent,
     "Recipe": RecipeComponent,
     "Racing": RacingComponent,
     "Notifications": NotificationsComponent,
@@ -715,6 +717,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         else if (this.router.url.toLowerCase().includes('conversion')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Conversion');
+        }
+        else if (this.router.url.toLowerCase().includes('weaverhelp')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('WeaverGuide');
         }
         else if (!this.user) {
           this.createComponent('User');

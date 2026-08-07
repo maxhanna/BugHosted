@@ -503,8 +503,21 @@
                   <div class="garage-appearance-preview" *ngIf="!isDecalPart(p)" [class]="getAppearancePreviewClass(p)"></div>
                   <div class="garage-decal-map" *ngIf="isDecalPart(p)">
                     <div class="garage-decal-car"></div>
+                    <!-- Accent pod stripes that survive this decal style (same
+                         filter as the 3D car), so the card previews the full
+                         combined accent + decal livery. -->
+                    <div class="garage-decal-accent" *ngFor="let r of getAccentPlateRects(p)"
+                      [ngStyle]="{ 'left': r.left, 'top': r.top, 'width': r.width, 'height': r.height, 'background': getAccentPlateColor(getEquippedAppearance('accent')) }"></div>
                     <div class="garage-decal-plate" *ngFor="let r of getDecalPlateRects(p)"
                       [ngStyle]="{ 'left': r.left, 'top': r.top, 'width': r.width, 'height': r.height, 'background': getDecalPlateColor(p.id) }"></div>
+                  </div>
+                  <!-- Accent pairing: clean when the decal keeps all accent pod
+                       stripes (then it fits every accent style), warn when some
+                       get hidden. -->
+                  <div class="garage-decal-fit" *ngIf="isDecalPart(p)"
+                    [class.fit-clean]="getAccentFitNote(p).clean"
+                    [class.fit-warn]="!getAccentFitNote(p).clean">
+                    {{ getAccentFitNote(p).text }}
                   </div>
                   <div class="garage-appearance-name">{{ p.name }}</div>
                   <div class="garage-appearance-desc">{{ p.description }}</div>

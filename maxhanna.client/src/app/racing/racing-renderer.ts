@@ -150,6 +150,57 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
     center: [[0.68, 0.225, 0.16, 0.06, 0.09], [1.22, 0.13, 0.06, 0.05, 0.05]],
   },
 };
+export type AccentSeg = [number, number, number, number, number, number]; // cx, cy, l, h, d, z
+// Accent side-pod stripe segments (z > 0; mirrored to -z at build/draw time).
+const ACCENT_SEGS: AccentSeg[] = [
+  [0.62, 0.31, 0.26, 0.03, 0.06, 0.46],
+  [0.24, 0.31, 0.26, 0.03, 0.06, 0.46],
+  [-0.14, 0.29, 0.24, 0.03, 0.06, 0.46],
+  [-0.50, 0.24, 0.20, 0.03, 0.06, 0.46],
+  [-0.74, 0.19, 0.16, 0.03, 0.06, 0.42],
+];
+const overlap1D = (a0: number, a1: number, b0: number, b1: number) => a0 < b1 && b0 < a1;
+// A flank plate counts as "outboard" when its outer z-edge reaches at least
+// roughly halfway across the body shoulder (body half-width is ~0.19-0.25,
+// so halfway is ~0.10-0.12; the pods sit further out at z = 0.42-0.46).
+// Shoulder artwork (racing stripes, tiger slashes, cheetah spots) crosses
+// this; flame tongues and number discs, which stay mid-body, no longer
+// crowd the pod stripes.
+const ACCENT_SHOULDER_Z = 0.10;
+/**
+ * Accent side-pod stripe segments that survive for a given decal style id
+ * (0 = no decal equipped → all segments). The z-aware collision filter is the
+ * single source of truth shared by the 3D car mesh (buildCarMesh) and the
+ * garage top-down preview, so both show the same combined accent + decal
+ * layout.
+ */
+export function getAccentSegsForStyle(styleKey: number): AccentSeg[] {
+  const decal = DECAL_LAYOUTS[styleKey];
+  if (!decal) return ACCENT_SEGS;
+  const out: AccentSeg[] = [];
+  for (const [cx, cy, l, h, d, z] of ACCENT_SEGS) {
+    const x0 = cx - l / 2, x1 = cx + l / 2;
+    const az = Math.abs(z);
+    const aZ0 = az - d / 2, aZ1 = az + d / 2;
+    // Flank plates (mirrored to ±z): drop only when the artwork is actually
+    // outboard (outer edge at/above ACCENT_SHOULDER_Z) or its z-extent
+    // overlaps the accent's pod band, in addition to x overlap.
+    const flankCollides = decal.flank.some(([dcx, , dl, , dd, dz]) => {
+      const pz = Math.abs(dz);
+      const pZ0 = pz - dd / 2, pZ1 = pz + dd / 2;
+      return overlap1D(x0, x1, dcx - dl / 2, dcx + dl / 2) &&
+        (pZ1 >= ACCENT_SHOULDER_Z || overlap1D(aZ0, aZ1, pZ0, pZ1));
+    });
+    // Centerline plates (z = 0): require genuine overlap in BOTH x and z, so
+    // centreline emblems never erase the pod stripes.
+    const centerCollides = decal.center.some(([dcx, , dl, , dd]) =>
+      overlap1D(x0, x1, dcx - dl / 2, dcx + dl / 2) &&
+      overlap1D(aZ0, aZ1, -dd / 2, dd / 2)
+    );
+    if (!flankCollides && !centerCollides) out.push([cx, cy, l, h, d, z]);
+  }
+  return out;
+}
 export interface TrackPoint {
   x: number; z: number;
   dirX: number; dirZ: number;
@@ -3318,35 +3369,17 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addCylinder(accFixedVerts, accFixedIdxs, -0.70, 0.28, 0.18, 0.025, 0.02, 8, dark);
     this.addCylinder(accFixedVerts, accFixedIdxs, -0.70, 0.28, -0.18, 0.025, 0.02, 8, dark);
     // Accent side-pod stripes — segmented racing stripes along the side-pod
-    // flanks (mirroring the decal treatment). To keep combined accent + decal
-    // liveries from colliding visually, the accent geometry is built once PER
-    // decal style: any accent segment whose x-range overlaps a plate of the
-    // equipped decal style (from DECAL_LAYOUTS) is dropped, so accent only
-    // paints the gaps the decal leaves free. Fixed accent bits (mirrors,
-    // engine-cover cylinders) are always included. Each plate is tinted by
-    // ACCENT_COLORS at draw time.
-    const accentSegs: Array<[number, number, number, number, number, number]> = [
-      [0.62, 0.31, 0.26, 0.03, 0.06, 0.46],
-      [0.24, 0.31, 0.26, 0.03, 0.06, 0.46],
-      [-0.14, 0.29, 0.24, 0.03, 0.06, 0.46],
-      [-0.50, 0.24, 0.20, 0.03, 0.06, 0.46],
-      [-0.74, 0.19, 0.16, 0.03, 0.06, 0.42],
-    ];
-    const overlapX = (a0: number, a1: number, b0: number, b1: number) => a0 < b1 && b0 < a1;
+    // flanks (mirroring the decal treatment). The z-aware collision filter
+    // (which segments survive a given decal style) lives in the shared
+    // getAccentSegsForStyle() helper so the garage preview and the 3D mesh
+    // always agree. Fixed accent bits (mirrors, engine-cover cylinders) are
+    // always included. Each plate is tinted by ACCENT_COLORS at draw time.
     const accentGeoms = new Map<number, { v: number[]; i: number[] }>();
     // Key 0 = no decal equipped (all accent segments shown).
     for (const styleKey of [0, ...Object.keys(DECAL_LAYOUTS).map(Number)]) {
       const gv: number[] = [...accFixedVerts];
       const gi: number[] = [...accFixedIdxs];
-      const decal = DECAL_LAYOUTS[styleKey];
-      for (const [cx, cy, l, h, d, z] of accentSegs) {
-        if (decal) {
-          const x0 = cx - l / 2, x1 = cx + l / 2;
-          const collides =
-            decal.flank.some(([dcx, , dl]) => overlapX(x0, x1, dcx - dl / 2, dcx + dl / 2)) ||
-            decal.center.some(([dcx, , dl]) => overlapX(x0, x1, dcx - dl / 2, dcx + dl / 2));
-          if (collides) continue;
-        }
+      for (const [cx, cy, l, h, d, z] of getAccentSegsForStyle(styleKey)) {
         this.addBox(gv, gi, cx, cy, z, l, h, d, [1, 1, 1]);
         this.addBox(gv, gi, cx, cy, -z, l, h, d, [1, 1, 1]);
       }

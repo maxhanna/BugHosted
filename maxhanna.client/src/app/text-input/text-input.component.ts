@@ -343,16 +343,28 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
           content = await this.createChatMessage(files);
           originalContent = content.originalContent;
           derivedIds = {};
+          // Optimistic chat send: paint the bubble and clear the composer
+          // immediately — the network round-trip runs in the background and the
+          // chat component reconciles ids/ordering via its history refetch. The
+          // old flow only cleared the input after the server responded, which
+          // made sends feel laggy and left the text stuck on slower links.
+          this.contentPosted.emit({ results: true, content: content, originalContent: originalContent });
+          this.clearInputs();
+          this.showPostInput = false;
           results = await this.chatService.sendMessage(user?.id ?? 0, content.chatUsersIdsArray, this.chatId, content.msg, files);
+          if (results && !skipNotifications && !this.skipSendingNotifications) {
+            this.createNotifications({ results: results, originalContent: originalContent }, derivedIds);
+          }
         }
 
-        if (results || this.type == "Notepad") {
+        const isNotepad = this.type === "Notepad";
+        if ((results || isNotepad) && this.type !== "Chat") {
           const resultData = { results: results, content: content, originalContent: originalContent };
           this.contentPosted.emit(resultData);
           if (!skipNotifications && !this.skipSendingNotifications) {
             this.createNotifications(resultData, derivedIds);
           }
-        } else {
+        } else if (!results && !isNotepad) {
           parent?.showNotification("Error: No response from server.");
         }
       }

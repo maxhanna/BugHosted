@@ -93,11 +93,11 @@
           <span>Current Page: {{pageNumber}}</span><span *ngIf="isLoadingPreviousPage">{{" "}}Loading...</span>
         </div>
 
-        <ng-container *ngFor="let message of chatHistory; let i = index; trackBy: trackByMessage">
-          <div *ngIf="showDayDivider(message, i)" class="chatDayDivider">{{ getDayLabel(message) }}</div>
+        <ng-container *ngFor="let message of chatHistory; trackBy: trackByMessage">
+          <div *ngIf="message._showDivider" class="chatDayDivider">{{ message._dayLabel }}</div>
 
           <div [attr.id]="'messageText' + message.id" class="messageRow"
-            [class.mine]="isMyMessage(message)" [class.otherPersonsMessage]="!isMyMessage(message)">
+            [class.mine]="message._mine" [class.otherPersonsMessage]="!message._mine">
             <div class="profileTag">
               <div class="usernameProfileLink">
                 <app-user-tag [user]="message.sender" [inputtedParentRef]="parentRef"
@@ -161,7 +161,7 @@
               </div>
               <div class="messageMeta">
                 <span class="messageTimestamp">
-                  {{ getUtcTimestampString(message.timestamp) }}
+                  {{ message._timeLabel }}
                 </span>
                 <span class="userSeen" *ngIf="message.seen" [title]="'Seen by:' + message.seen">👀</span>
               </div>

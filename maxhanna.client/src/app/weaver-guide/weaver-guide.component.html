@@ -1,0 +1,941 @@
+<div class="wg-guide">
+<!-- ══════════ BRAND HEADER (gold skulltula × weaver, from README + app logo) ══════════ -->
+  <header class="wg-brand">
+    <svg class="wg-brand-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Gold Skulltula (Zelda 64) × weaver spider — web rings -->
+      <circle class="wg-brand-ring" cx="12" cy="12" r="8" fill="none" stroke="#d4af37" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.45" />
+      <circle class="wg-brand-ring" cx="12" cy="12" r="6" fill="none" stroke="#d4af37" stroke-width="0.5" stroke-dasharray="2,2" opacity="0.45" />
+      <circle class="wg-brand-ring" cx="12" cy="12" r="10" fill="none" stroke="#d4af37" stroke-width="0.3" stroke-dasharray="1,3" opacity="0.3" />
+      <circle class="wg-brand-ring" cx="12" cy="12" r="12" fill="none" stroke="#d4af37" stroke-width="0.3" stroke-dasharray="1,3" opacity="0.3" />
+      <g stroke="#d4af37" stroke-width="0.3" opacity="0.35">
+        <line x1="12" y1="12" x2="12" y2="3" /><line x1="12" y1="12" x2="12" y2="21" />
+        <line x1="12" y1="12" x2="3" y2="12" /><line x1="12" y1="12" x2="21" y2="12" />
+        <line x1="12" y1="12" x2="7.5" y2="7.5" /><line x1="12" y1="12" x2="16.5" y2="16.5" />
+        <line x1="12" y1="12" x2="7.5" y2="16.5" /><line x1="12" y1="12" x2="16.5" y2="7.5" />
+      </g>
+      <!-- Eight jointed skulltula legs (weaver's breathing animation preserved) -->
+      <g class="wg-brand-leg" stroke="#d4af37" stroke-width="1.3" stroke-linecap="round" fill="none">
+        <path d="M7.6 7.4 L4.4 4.6 L2.6 6.4" /><path d="M6.4 9.2 L2.8 8.2 L1.8 10.6" />
+        <path d="M6.2 12.2 L2.8 12.6 L1.8 15" /><path d="M7.2 15 L4.6 17.4 L3 19.8" />
+        <path d="M16.4 7.4 L19.6 4.6 L21.4 6.4" /><path d="M17.6 9.2 L21.2 8.2 L22.2 10.6" />
+        <path d="M17.8 12.2 L21.2 12.6 L22.2 15" /><path d="M16.8 15 L19.4 17.4 L21 19.8" />
+      </g>
+      <!-- Skull abdomen (the gold skulltula's back) -->
+      <path d="M7.6 10.6 C7.6 6.8 9.5 5 12 5 C14.5 5 16.4 6.8 16.4 10.6 C16.4 12.6 15.6 13.8 14.5 14.6 L14.9 16.3 C14.2 17.4 13.4 17.9 12 17.9 C10.6 17.9 9.8 17.4 9.1 16.3 L9.5 14.6 C8.4 13.8 7.6 12.6 7.6 10.6 Z" fill="#d4af37" stroke="#8a6a17" stroke-width="0.4" />
+      <path d="M8.8 7.4 C9.4 6.2 10.4 5.6 11.6 5.4" stroke="#f7dd86" stroke-width="0.6" fill="none" stroke-linecap="round" opacity="0.9" />
+      <!-- Eye sockets with amber glow -->
+      <circle cx="10.1" cy="10.3" r="1.75" fill="#241703" /><circle cx="13.9" cy="10.3" r="1.75" fill="#241703" />
+      <circle cx="10.3" cy="10.5" r="0.65" fill="#ffd54f" /><circle cx="13.7" cy="10.5" r="0.65" fill="#ffd54f" />
+      <circle cx="10.55" cy="10.3" r="0.2" fill="#fff3c4" /><circle cx="13.95" cy="10.3" r="0.2" fill="#fff3c4" />
+      <!-- Nasal cavity -->
+      <path d="M12 11.4 L11.45 12.7 L12.55 12.7 Z" fill="#241703" />
+      <!-- Teeth -->
+      <rect x="10.15" y="15.3" width="0.8" height="1.5" rx="0.25" fill="#f6e7b5" />
+      <rect x="11.3" y="15.3" width="0.8" height="1.7" rx="0.25" fill="#f6e7b5" />
+      <rect x="12.45" y="15.3" width="0.8" height="1.7" rx="0.25" fill="#f6e7b5" />
+      <rect x="13.6" y="15.3" width="0.8" height="1.5" rx="0.25" fill="#f6e7b5" />
+      <!-- Spinnerets -->
+      <circle cx="11.3" cy="19.4" r="0.7" fill="#d4af37" stroke="#8a6a17" stroke-width="0.3" />
+      <circle cx="12.7" cy="19.4" r="0.7" fill="#d4af37" stroke="#8a6a17" stroke-width="0.3" />
+      <circle cx="11.3" cy="19.4" r="0.28" fill="#f7dd86" /><circle cx="12.7" cy="19.4" r="0.28" fill="#f7dd86" />
+      <!-- Fangs -->
+      <path d="M10 17.6 L9 18.7" stroke="#f2d16b" stroke-width="0.7" stroke-linecap="round" fill="none" />
+      <path d="M14 17.6 L15 18.7" stroke="#f2d16b" stroke-width="0.7" stroke-linecap="round" fill="none" />
+    </svg>
+    <pre class="wg-brand-ascii">░█░█░█▀▀░█▀█░█░█░█▀▀░█▀▄
+░█▄█░█▀▀░█▀█░▀▄▀░█▀▀░█▀▄
+░▀░▀░▀▀▀░▀░▀░░▀░░▀▀▀░▀░▀</pre>
+    <p class="wg-brand-tagline">The complete guide — every feature, panel, setting, and workflow in Weaver, your agent-driven development environment.</p>
+  </header>
+
+  <div class="wg-layout">
+    <!-- ══════════ SIDEBAR NAV ══════════ -->
+    <nav class="wg-sidebar" aria-label="Documentation sections">
+      <input class="wg-search" id="wgSearch" type="search" placeholder="Filter sections…" />
+      <button class="wg-mobile-toggle" id="wgNavToggle" aria-expanded="false">☰ Contents</button>
+      <div class="wg-nav" id="wgNav">
+        <div class="wg-nav-group">Getting Started</div>
+        <a href="#overview" (click)="scrollToSection($event, 'overview')">Overview</a>
+        <a href="#quickstart" (click)="scrollToSection($event, 'quickstart')">Quick Start</a>
+        <a href="#projects" (click)="scrollToSection($event, 'projects')">Projects</a>
+
+        <div class="wg-nav-group">Guides</div>
+        <a href="#guide-basics" (click)="scrollToSection($event, 'guide-basics')">Using Weaver (No Code)</a>
+        <a href="#guide-workflows" (click)="scrollToSection($event, 'guide-workflows')">Everyday Workflows</a>
+
+        <div class="wg-nav-group">Core Workspace</div>
+        <a href="#kanban" (click)="scrollToSection($event, 'kanban')">Kanban Board</a>
+        <a href="#agent" (click)="scrollToSection($event, 'agent')">Agent Pipeline</a>
+        <a href="#askai" (click)="scrollToSection($event, 'askai')">Ask AI</a>
+        <a href="#ide" (click)="scrollToSection($event, 'ide')">IDE</a>
+        <a href="#terminal" (click)="scrollToSection($event, 'terminal')">Terminal</a>
+        <a href="#notes" (click)="scrollToSection($event, 'notes')">Notes</a>
+        <a href="#meeting" (click)="scrollToSection($event, 'meeting')">Meeting View</a>
+
+        <div class="wg-nav-group">Automation &amp; Intelligence</div>
+        <a href="#calendar" (click)="scrollToSection($event, 'calendar')">Calendar &amp; Cron</a>
+        <a href="#suggestions" (click)="scrollToSection($event, 'suggestions')">Suggestions</a>
+        <a href="#benchmarks" (click)="scrollToSection($event, 'benchmarks')">Benchmarks</a>
+        <a href="#ranks" (click)="scrollToSection($event, 'ranks')">Ranks</a>
+        <a href="#voice" (click)="scrollToSection($event, 'voice')">Voice Input</a>
+        <a href="#git" (click)="scrollToSection($event, 'git')">Git &amp; PRs</a>
+
+        <div class="wg-nav-group">Configuration</div>
+        <a href="#settings" (click)="scrollToSection($event, 'settings')">Settings Reference</a>
+        <a href="#endpoints" (click)="scrollToSection($event, 'endpoints')">LLM Endpoints</a>
+        <a href="#integrations" (click)="scrollToSection($event, 'integrations')">Integrations</a>
+        <a href="#filehints" (click)="scrollToSection($event, 'filehints')">File Hints</a>
+        <a href="#themes" (click)="scrollToSection($event, 'themes')">Themes</a>
+        <a href="#security" (click)="scrollToSection($event, 'security')">Terminal Security</a>
+
+        <div class="wg-nav-group">For Developers</div>
+        <a href="#architecture" (click)="scrollToSection($event, 'architecture')">Architecture</a>
+        <a href="#api" (click)="scrollToSection($event, 'api')">API Reference</a>
+        <a href="#testing" (click)="scrollToSection($event, 'testing')">Testing</a>
+        <a href="#build" (click)="scrollToSection($event, 'build')">Build &amp; Publish</a>
+
+        <div class="wg-nav-group">Advanced</div>
+        <a href="#troubleshooting" (click)="scrollToSection($event, 'troubleshooting')">Troubleshooting</a>
+        <a href="#faq" (click)="scrollToSection($event, 'faq')">FAQ</a>
+      </div>
+    </nav>
+
+    <!-- ══════════ CONTENT ══════════ -->
+    <main class="wg-content">
+
+      <!-- OVERVIEW -->
+      <section class="wg-section" id="overview">
+        <h2><span class="wg-emoji">🐝</span>Overview</h2>
+        <p class="wg-lead">Weaver is an intelligent, agent-driven development environment that can modify your entire project from a single natural-language prompt.</p>
+        <p>Weaver understands your codebase, plans multi-step edits, applies atomic diffs, verifies its own results, runs terminal commands, searches the web, manages Git operations, and schedules recurring work — all from one integrated desktop application. It is designed to work with <strong>any OpenAI-compatible LLM backend</strong> — a local <code>llama.cpp</code> server, Ollama, or a hosted OpenAI-compatible API — and its iterative, verify-as-it-goes pipeline yields similar quality across small and large models alike.</p>
+
+        <div class="wg-grid-2">
+          <div class="wg-card">
+            <h4>🧠 Core Capabilities</h4>
+            <ul>
+              <li>One prompt → whole-project updates</li>
+              <li>Multi-file, multi-language edits (25+ languages)</li>
+              <li>Atomic, reviewable diffs with preview &amp; Apply</li>
+              <li>Self-verification with an automated repair loop</li>
+              <li>Real web search + URL fetch as agent tools</li>
+              <li>Terminal control with an approval system</li>
+            </ul>
+          </div>
+          <div class="wg-card">
+            <h4>🗂 Built-in Panels</h4>
+            <ul>
+              <li>Kanban board (To Do / Doing / Done / Archived / Self-Improving)</li>
+              <li>In-browser IDE with file explorer &amp; diff viewer</li>
+              <li>Calendar with cron automation</li>
+              <li>AI chat, Notes, Terminal, Meeting view</li>
+              <li>Benchmarks, rank ladder, suggestion engine</li>
+              <li>Voice-to-text input</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="wg-callout gold">👋 <strong>New to Weaver and not a programmer?</strong> Jump straight to the <a href="#guide-basics" (click)="scrollToSection($event, 'guide-basics')">Using Weaver Without Writing Code</a> guide and the <a href="#guide-workflows" (click)="scrollToSection($event, 'guide-workflows')">Everyday Workflows</a> recipes — email, web search, and scheduled cron jobs are covered step by step.</div>
+
+        <h3>Where everything lives</h3>
+        <table>
+          <tr><th>Thing</th><th>Where</th><th>Notes</th></tr>
+          <tr><td>App settings</td><td>⚙ Settings panel (top-right <strong>Options → Settings</strong>)</td><td>Persisted in <code>data/weaver.db</code> (<code>weaver_config</code> table) — there is no <code>weaverconfig.json</code> anymore</td></tr>
+          <tr><td>Kanban data</td><td>Board state on each card + server board data</td><td>Cards, columns, suggestions and cron stamps all persist across reloads</td></tr>
+          <tr><td>Projects</td><td>Options → Edit Projects</td><td>Each project points at a folder on disk</td></tr>
+          <tr><td>Static UI</td><td><code>wwwroot/</code></td><td>Served by the Weaver backend (usually <code>http://localhost:5000</code>)</td></tr>
+        </table>
+      </section>
+
+      <!-- QUICK START -->
+      <section class="wg-section" id="quickstart">
+        <h2><span class="wg-emoji">🚀</span>Quick Start</h2>
+        <ol>
+          <li><strong>Run Weaver</strong> — launch <code>Weaver.exe</code> or run <code>dotnet run</code> from the repository root. Open the URL printed in the console (usually <code>http://localhost:5000</code>).</li>
+          <li><strong>Point it at an LLM</strong> — open <strong>Options → Settings → 🤖 Agent</strong> and set your default endpoint. Out of the box it expects an OpenAI-compatible server at <code>http://localhost:8080</code> (llama.cpp or Ollama).</li>
+          <li><strong>Add a project</strong> — <strong>Options → ✎ Edit Projects</strong>, give it a name and the folder path of the codebase you want to work on. Make it the default if you like.</li>
+          <li><strong>Create a task</strong> — in the Kanban board, add a card to <strong>To Do</strong>, write what you want, optionally attach files for context, and press <strong>Start</strong>.</li>
+          <li><strong>Watch it work</strong> — the Agent panel streams the plan, each edit, command, and verification live. Any diff it proposes can be previewed and applied or rejected.</li>
+        </ol>
+        <div class="wg-callout gold">
+          💡 <strong>Tip:</strong> phrase tasks as what you want done, not how — "Fix the README to add a section about forced edits" is a great starter task. If a task is purely about changing a file, prefixing with <strong>"Fix the …"</strong> reliably routes it through the file-edit pipeline.
+        </div>
+      </section>
+
+      <!-- PROJECTS -->
+      <section class="wg-section" id="projects">
+        <h2><span class="wg-emoji">📁</span>Projects</h2>
+        <p>Projects map a friendly name to a folder on your machine. Everything the agent does — discovery, edits, commands, git — runs inside the selected project's root.</p>
+        <ul>
+          <li><strong>Add / edit / delete</strong> — via <strong>Options → ✎ Edit Projects</strong>. Each project can have a description and its own build command.</li>
+          <li><strong>Default project</strong> — chosen in the Edit Projects panel; the app selects it on load.</li>
+          <li><strong>Per-project configuration</strong> — build commands, file hints, and ignored directories are scoped per project.</li>
+          <li><strong>Switching</strong> — use the project picker in the header; the board, IDE, and calendar all follow the selected project.</li>
+        </ul>
+        <p>A project description is shown next to the picker so you can tell projects apart at a glance.</p>
+      </section>
+
+      <!-- KANBAN -->
+      <section class="wg-section" id="kanban">
+        <h2><span class="wg-emoji">📋</span>Kanban Board</h2>
+        <p class="wg-lead">The kanban is the heart of Weaver: cards represent tasks, and each card can be run by the agent.</p>
+
+        <h3>Columns</h3>
+        <table>
+          <tr><th>Column</th><th>Purpose</th></tr>
+          <tr><td><strong>To Do</strong></td><td>Tasks awaiting execution. Cards with <span class="wg-chip cyan">READY</span> are queued for the agent.</td></tr>
+          <tr><td><strong>Doing</strong></td><td>Cards currently being executed by an agent run.</td></tr>
+          <tr><td><strong>Done</strong></td><td>Completed work. Finished cards automatically generate improvement suggestions (💡).</td></tr>
+          <tr><td><strong>Archived</strong></td><td>Historical cards — count toward your rank score.</td></tr>
+          <tr><td><strong>Self-Improving</strong></td><td>Cards that round-robin back for continuous improvement, refining themselves after each run.</td></tr>
+        </table>
+
+        <h3>Cards</h3>
+        <ul>
+          <li><strong>Text</strong> — the task. Cards often include completion summaries and context from their source (suggestion cards, cron cards).</li>
+          <li><strong>Priority</strong> — low / medium / high, color-coded.</li>
+          <li><strong>Attached files</strong> — provide discovery context for the agent.</li>
+          <li><strong>Auto toggles</strong> — auto-queue, auto-test, auto-PR per card.</li>
+          <li><strong>Tags</strong> — <span class="wg-chip gold">⏰ SCHEDULED</span> (came from a calendar cron), <span class="wg-chip violet">💡 SUGGESTION</span> (came from the suggestion engine), READY, QUEUED, and benchmark tags.</li>
+        </ul>
+
+        <h3>Running a card</h3>
+        <p>Select a card and press <strong>Start</strong>. The Agent panel streams everything live: thinking, the step-by-step plan, each edit or command, verification results, and a final summary. Multiple agents can run concurrently — each run shows its own header with endpoint, task, progress, and log.</p>
+
+        <h3>Meta-plans &amp; diffs</h3>
+        <ul>
+          <li>Complex tasks get a <strong>meta-plan</strong> (sub-plans with file chips) rendered on the card.</li>
+          <li>Edits appear in the plan with <strong>diff previews</strong> — you can preview, <strong>Apply</strong>, delete, or open each diff in the IDE before or after the run.</li>
+          <li>The plan list marks each step ✅/⬜ as the agent works through it.</li>
+        </ul>
+
+        <div class="wg-callout">
+          💾 Your board is saved automatically — cards, tags, and logs survive reloads.
+        </div>
+      </section>
+
+      <!-- AGENT -->
+      <section class="wg-section" id="agent">
+        <h2><span class="wg-emoji">🤖</span>Agent Pipeline</h2>
+        <p class="wg-lead">Weaver runs a verify-as-you-go loop: discover → plan → execute → verify → repair, one atomic step at a time.</p>
+
+        <h3>Phase 1 — Discover</h3>
+        <p>The agent enumerates the project tree, indexes files, and uses <strong>BM25 scoring</strong> to auto-read the files most relevant to your task. It may also consult <strong>file hints</strong> (keyword → file mappings) and your card's attached files. Discovery runs inside a dedicated sandbox (when active) and produces a project skeleton summary.</p>
+
+        <h3>Context review</h3>
+        <p>Before planning, the agent reviews what it discovered and shows a <strong>context review</strong> — you can auto-confirm or add guidance (steering) before the plan begins.</p>
+
+        <h3>Phase 2 — Plan &amp; Execute (interleaved)</h3>
+        <p>Rather than planning everything upfront, Weaver plans <strong>one atomic step at a time</strong>, executes it, verifies it, and only then plans the next step. Each step is one of the enabled <strong>agent tools</strong>:</p>
+        <table>
+          <tr><th>Tool</th><th>What it does</th></tr>
+          <tr><td><code>_explore</code></td><td>Read specific files for reference</td></tr>
+          <tr><td><code>_discover</code></td><td>Project-wide context search (BM25 + AI)</td></tr>
+          <tr><td><code>_command</code></td><td>Run terminal commands (subject to approval rules)</td></tr>
+          <tr><td><code>_create_file</code></td><td>Create new files</td></tr>
+          <tr><td><code>_sql_migration</code></td><td>Generate SQL migration files</td></tr>
+          <tr><td><code>_web_search</code></td><td>Search the web</td></tr>
+          <tr><td><code>_web_fetch</code></td><td>Fetch a URL's contents</td></tr>
+          <tr><td><code>_git</code></td><td>Git operations (commit, push, PR)</td></tr>
+          <tr><td><code>_rename_file</code></td><td>Rename files</td></tr>
+          <tr><td><code>_delete_file</code></td><td>Delete files</td></tr>
+          <tr><td><code>_show</code></td><td>Display text to the user</td></tr>
+        </table>
+        <p>You can disable any tool in Settings → Agent → Agent Tools. <span class="wg-callout warn" style="display:inline-block;margin:4px 0;padding:6px 10px;">⚠ Disabling <code>edit</code>, <code>create</code>, or <code>explore</code> makes the agent unable to change or inspect files — most tasks will stall.</span></p>
+
+        <h3>Thinking &amp; complexity</h3>
+        <ul>
+          <li>Each step shows <strong>pre-plan reasoning</strong> and streaming "extended thinking".</li>
+          <li>A <strong>complexity score</strong> (0–100) is computed per task — it labels the task (Simple / Moderate / Complex…), caps thinking tokens, and estimates the number of atomic steps. Simpler tasks are solved with fewer, cheaper cycles.</li>
+        </ul>
+
+        <h3>Verification &amp; repair</h3>
+        <ul>
+          <li><strong>Between steps</strong>: the loop assesses whether each step actually landed (e.g. the file changed as planned) and re-plans if not.</li>
+          <li><strong>Post-execution</strong>: a dedicated verifier checks the finished work against the task's explicit requirements and lists concrete issues.</li>
+          <li><strong>Repair loop</strong>: up to 3 repair passes re-plan for unmet requirements. If a repair recycles a completed step, the loop re-proposes with corrective feedback naming the verifier's concrete unmet requirement.</li>
+          <li><strong>Verifier triage</strong>: speculative or "phantom" complaints (symbols that actually exist, "might/could" wording) are filtered out and not fed back to the replanner.</li>
+        </ul>
+
+        <h3>Steering</h3>
+        <p>While a run is active (or before it), type guidance into the <strong>Steer the agent</strong> box — e.g. "prefer the existing utility module" or "don't touch the API routes". Steering is fed into the next LLM call.</p>
+
+        <h3>Logs &amp; output</h3>
+        <ul>
+          <li>The <strong>Log</strong> panel keeps a timestamped activity log with levels (info / step / success / warn / error / metric) and expandable raw details with diagnostics.</li>
+          <li><strong>LLM Streaming</strong> shows the raw token stream, with font-size controls.</li>
+          <li><strong>Commands</strong> lists every executed step with side-by-side diffs for edits.</li>
+          <li><strong>Files changed</strong> chips track what the run touched.</li>
+        </ul>
+
+        <div class="wg-callout gold">
+          🧵 <strong>Resume &amp; orchestrate:</strong> completed plan steps are persisted on the card. If verification found unmet requirements, resuming re-plans for those instead of declaring done.
+        </div>
+      </section>
+
+      <!-- ASK AI -->
+      <section class="wg-section" id="askai">
+        <h2><span class="wg-emoji">💬</span>Ask AI</h2>
+        <p>The <strong>Ask AI</strong> panel is a chat with the agent, with two modes:</p>
+        <ul>
+          <li><strong>Ask</strong> — ask questions about the project; the agent can explore files to answer.</li>
+          <li><strong>Build</strong> — a tool palette of quick actions that inject hints into your prompt for common operations (create files, fix formatting, add tests, and more).</li>
+        </ul>
+        <p>Use it to ideate, get explanations, or kick off work without creating a kanban card first.</p>
+      </section>
+
+      <!-- IDE -->
+      <section class="wg-section" id="ide">
+        <h2><span class="wg-emoji">📝</span>IDE</h2>
+        <p class="wg-lead">A full in-browser IDE with a file explorer, multi-tab editor, and git tools — everything the agent edits is right here for you to inspect.</p>
+        <ul>
+          <li><strong>File explorer</strong> — tree navigation with search; build/vendor folders (<code>node_modules</code>, <code>bin</code>, <code>obj</code>, <code>.git</code>, …) are hidden by default and can be revealed. Ignored dirs are configurable (<code>Editor:IgnoreDirs</code>, entries prefixed <code>-</code> un-hide a default).</li>
+          <li><strong>Multi-tab editor</strong> — syntax highlighting for 25+ languages (C#, Java, C/C++, JS, TS, JSX/TSX, HTML, XML, SVG, CSS, SCSS, LESS, JSON, SQL, Python, Ruby, PHP, Go, Rust, Swift, Markdown, YAML, Shell, PowerShell, Kotlin…).</li>
+          <li><strong>Dirty-state tracking</strong> and <strong>external-change detection</strong> (files changed outside the app are flagged).</li>
+          <li><strong>Conflict detection</strong> — including BugHosted shared-editing indicators.</li>
+          <li><strong>Search-in-file</strong> with match navigation.</li>
+          <li><strong>Side-by-side diff viewer</strong> for reviewing agent edits.</li>
+          <li><strong>Git integration</strong> — commit, push, and PR creation from the IDE.</li>
+        </ul>
+        <p>The IDE is a floating panel — drag it by its header, resize from the edges/corner, and it remembers its geometry across reloads.</p>
+      </section>
+
+      <!-- TERMINAL -->
+      <section class="wg-section" id="terminal">
+        <h2><span class="wg-emoji">💻</span>Terminal</h2>
+        <p>Weaver can run terminal commands — for builds, tests, package installs, and anything the agent needs. Command execution is gated by the <strong>terminal approval system</strong> (see <a href="#security" (click)="scrollToSection($event, 'security')">Terminal Security</a>).</p>
+        <ul>
+          <li>Type commands manually, or let the agent run them as <code>_command</code> steps.</li>
+          <li>Pending commands appear in an <strong>approval queue</strong> — approve once, approve the root command forever, approve all, or reject.</li>
+          <li>Output streams into the panel; the refresh button restarts the session.</li>
+        </ul>
+        <div class="wg-callout danger">
+          ⛔ In <strong>Approve all</strong> mode the agent runs any command without asking — destructive commands like <code>rm -rf</code>, <code>git push</code>, or <code>DROP TABLE</code> execute immediately. Keep an eye on what the agent is doing.
+        </div>
+      </section>
+
+      <!-- NOTES -->
+      <section class="wg-section" id="notes">
+        <h2><span class="wg-emoji">📒</span>Notes</h2>
+        <p>A floating note-taking panel for jotting context, TODOs, or scratch content alongside your work. Like the IDE, it persists its position and size.</p>
+      </section>
+
+      <!-- MEETING -->
+      <section class="wg-section" id="meeting">
+        <h2><span class="wg-emoji">🕷️</span>Meeting View</h2>
+        <p>A playful visualization of the agent's live run: <strong>domain spiders</strong> (planner, editor, verifier, …) animate across an office scene — climbing with rejected edits, cooling with success. The complexity spider's <strong>rage</strong> rises with every rejected edit, the verifier's <strong>smugness</strong> climbs with the same rejections, and each spider lights up in its role color once its grump crosses 50%.</p>
+        <ul>
+          <li>Voiceover chatter is generated per role ("A QA spider walks into a bar…").</li>
+          <li>A 🔊 volume slider over the office window controls the sound level.</li>
+          <li>It's pure fun, but it genuinely reflects pipeline activity — planning, editing, verifying.</li>
+        </ul>
+      </section>
+
+      <!-- CALENDAR & CRON -->
+      <section class="wg-section" id="calendar">
+        <h2><span class="wg-emoji">📅</span>Calendar &amp; Cron</h2>
+        <p class="wg-lead">Schedule tasks on a calendar, or set recurring cron jobs that auto-create To Do cards and start them.</p>
+
+        <h3>Cards on the calendar</h3>
+        <ul>
+          <li>Each entry has a <strong>date</strong>, optional <strong>time</strong>, <strong>task text</strong>, <strong>project</strong>, <strong>priority</strong> (color-coded), and an optional <strong>cron expression</strong>.</li>
+          <li><strong>Schedule label</strong> (optional, e.g. "Morning standup") — a short name that appears on the ⏰ chip and tooltips so recurring jobs are recognizable on the board.</li>
+          <li>One-off cards fire when their date (and time) arrives; a live preview under the cron input shows the exact next fire moment as you type.</li>
+        </ul>
+
+        <h3>Cron presets</h3>
+        <p>35 presets grouped into 8 categories — Frequency, Daily, Weekdays (Mon–Fri), Weekend, Specific day, Monthly, Yearly, Other. Interval presets (<code>*/15</code>, every hour) install recurring schedules; time-of-day presets clicked when a card already has a date become a <strong>one-off fire</strong> at that time on that date instead.</p>
+
+        <h3>Cron syntax</h3>
+        <p>Standard 5-field cron: <code>minute hour day-of-month month weekday</code>. Supports <code>*</code>, <code>*/n</code>, ranges <code>a-b</code>, and lists <code>a,b</code>.</p>
+        <table>
+          <tr><th>Example</th><th>Meaning</th></tr>
+          <tr><td><code>0 9 * * 1-5</code></td><td>Weekdays at 9:00 AM</td></tr>
+          <tr><td><code>0 18 * * 1-5</code></td><td>Weekdays at 6:00 PM</td></tr>
+          <tr><td><code>0 0 * * 0</code></td><td>Every Sunday at midnight</td></tr>
+          <tr><td><code>0 0 1 * *</code></td><td>First day of the month</td></tr>
+          <tr><td><code>*/15 * * * *</code></td><td>Every 15 minutes</td></tr>
+          <tr><td><code>0 9 1,15 * *</code></td><td>1st &amp; 15th at 9 AM</td></tr>
+        </table>
+
+        <h3>Next-fire hints</h3>
+        <p>Day cells show a subtle amber ⏰ when a schedule lands on them (with a count badge if several fire the same day), computed from the cron expression with the same semantics the processor uses — day-of-month <em>and</em> day-of-week must both match, so the hint always reflects reality.</p>
+
+        <h3>Run now</h3>
+        <p>The card edit popup has a <strong>▶ Run now</strong> button that fires the card immediately — creates the To Do card and starts it, so you can test a schedule without waiting.</p>
+
+        <h3>Fired cards on the board</h3>
+        <p>Every fired card lands in To Do with <span class="wg-chip gold">⏰ SCHEDULED</span> (showing its schedule label when set) and the schedule name/expression in its tooltip. If the agent is busy, the card sits READY and the queue picks it up when a run finishes.</p>
+      </section>
+
+      <!-- SUGGESTIONS -->
+      <section class="wg-section" id="suggestions">
+        <h2><span class="wg-emoji">💡</span>Suggestions</h2>
+        <p class="wg-lead">When a card finishes successfully, Weaver generates 0–3 concrete improvement suggestions for the work.</p>
+        <ul>
+          <li>Suggestions are generated from the completed card's task, summary, and edited files — plus a <strong>broader view of the whole app</strong>: the full project skeleton and the kanban's history (so a suggestion can connect features, e.g. "banning should notify users" after a notifications system was built).</li>
+          <li>Each suggestion carries <strong>file attachments</strong> (real project paths) as discovery context and a <strong>connection</strong> line describing which other card/feature it builds on.</li>
+          <li>Suggestions persist on the card and render in the <strong>Done</strong> column.</li>
+          <li>Clicking a suggestion creates a <strong>To Do card</strong> pre-filled with the suggestion text (tagged <span class="wg-chip violet">💡 SUGGESTION</span>), its file attachments, and the source card's completion summary so the agent has full context.</li>
+        </ul>
+        <p>How much whole-app context the suggestion engine sends is a per-project setting — skeleton only, skeleton + board history, or everything including git history (default: full depth).</p>
+      </section>
+
+      <!-- BENCHMARKS -->
+      <section class="wg-section" id="benchmarks">
+        <h2><span class="wg-emoji">📊</span>Benchmarks</h2>
+        <p class="wg-lead">Automated test harnesses that run real agent tasks against your configured endpoint to measure capability, reliability, and speed.</p>
+
+        <h3>How they work</h3>
+        <ul>
+          <li>Each benchmark is a realistic task (create a folder + files, web-search facts, cross-check consistency, call a REST API, etc.) with <strong>acceptance checks</strong> evaluated against the actual artifacts.</li>
+          <li>Runs are scored with points and a percentage; scores are stored and ranked.</li>
+          <li><strong>Benchmark All</strong> runs every level in sequence; the run cards appear on the board with live logs.</li>
+          <li>Levels are served dynamically — new benchmarks appear automatically in the plans list.</li>
+        </ul>
+
+        <h3>Selected levels</h3>
+        <table>
+          <tr><th>Level</th><th>Task</th><th>Checks</th></tr>
+          <tr><td>16</td><td>Pokémon data fetch</td><td>CSV with ids/stats/types + freshness timestamp</td></tr>
+          <tr><td>17</td><td>Web Search 1: sequential facts</td><td>Multiple independent searches, each written to file + freshness</td></tr>
+          <tr><td>18</td><td>Web Search 2: cross-check consistency</td><td>Reconcile facts across searches into a verdict</td></tr>
+          <tr><td>19</td><td>Data Fetch 2: REST weather API</td><td>Real cities + JSON fields + freshness (JSON-aware marker)</td></tr>
+        </table>
+
+        <h3>Fetch freshness</h3>
+        <p>Data-fetch levels demand a <strong>run-time timestamp</strong> (<code>FETCHED_AT: YYYY-MM-DD</code>, or a JSON <code>"fetched_at"</code> field). A check passes only if the embedded date is within ±1 day of the file's write time <em>and</em> within the freshness window of today — so cached or fabricated runs get flagged, and a hardcoded old date can't slip through.</p>
+
+        <div class="wg-callout">
+          💡 Benchmarks are the best way to compare endpoints: run the same level against a local llama.cpp server and a hosted API and compare scores side by side.
+        </div>
+      </section>
+
+      <!-- RANKS -->
+      <section class="wg-section" id="ranks">
+        <h2><span class="wg-emoji">🏅</span>Ranks</h2>
+        <p>The rank system gamifies your usage. You earn <strong>points</strong> from completed cards, benchmarks, projects, and archived work, and climb a ladder of titled ranks.</p>
+        <ul>
+          <li>Click your rank in the header to open the <strong>rank stats popup</strong> — progress bar to the next rung, your current score, and the full <strong>rank ladder</strong>.</li>
+          <li>Each rung has lore (click or press Enter/Space to expand it — rows are keyboard-accessible).</li>
+          <li>An explicit ✕ closes the popup; it also closes on outside blur.</li>
+          <li>Stats include cards done, done this week, daily streak 🔥, best benchmark score, and archived count.</li>
+          <li>Your grade is shown with chevrons/stars on the header badge.</li>
+        </ul>
+      </section>
+
+      <!-- VOICE -->
+      <section class="wg-section" id="voice">
+        <h2><span class="wg-emoji">🎤</span>Voice Input</h2>
+        <ul>
+          <li>Continuous speech recognition with auto-append into the card text field.</li>
+          <li>A recording indicator with a timer while you speak.</li>
+          <li>Auto-restarts on disconnect so long dictation keeps flowing.</li>
+        </ul>
+      </section>
+
+      <!-- GIT & PR -->
+      <section class="wg-section" id="git">
+        <h2><span class="wg-emoji">🔀</span>Git &amp; PRs</h2>
+        <ul>
+          <li><strong>Git operations</strong> are a first-class agent tool (<code>_git</code>) — commit, push, and branch work.</li>
+          <li><strong>Auto-PR</strong> can be toggled per card: when the card completes, Weaver creates a pull request from the changes.</li>
+          <li>The IDE exposes commit/push/PR actions directly.</li>
+          <li>All git commands still respect the terminal approval rules unless approved.</li>
+        </ul>
+        <div class="wg-callout warn">
+          ⚠ Weaver never pushes to remote or creates PRs without the relevant approvals in place — but with <strong>Approve all</strong> + auto-PR enabled, completion of a card can push code. Review the settings if you share a repo.
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section class="wg-section" id="settings">
+        <h2><span class="wg-emoji">⚙</span>Settings Reference</h2>
+        <p class="wg-lead">Open <strong>Options → ⚙ Settings</strong>. Settings are organized into six tabs. Most take effect on Save; appearance/panel toggles apply immediately and persist.</p>
+
+        <h3>🎨 Appearance</h3>
+        <ul>
+          <li><strong>IDE Editor Theme</strong> — searchable grid of CodeMirror editor themes; click to apply instantly.</li>
+          <li><strong>Overall App Theme</strong> — preset theme cards, a color-diff preview (exactly which variables a preset/import changes), saved-theme management (save / rename / delete), JSON import &amp; export, and drag-and-drop theme import.</li>
+        </ul>
+
+        <h3>🤖 Agent</h3>
+        <ul>
+          <li><strong>Default LLM Endpoint</strong> — the OpenAI-compatible base URL the agent uses.</li>
+          <li><strong>Additional LLM Endpoints</strong> — add several endpoints (name, URL, model); each shows a live health badge. Endpoints power concurrent runs and let you compare models.</li>
+          <li><strong>Context Size Limits</strong>:
+            <ul>
+              <li><strong>Max File Context Chars</strong> — how much of a single file the agent reads (4k–64k).</li>
+              <li><strong>Max Full File Tokens</strong> — files larger than this are truncated before the agent sees them; keep it high enough for your largest files or edits can miss code.</li>
+              <li><strong>Max Context Chars</strong> — total per-request budget; too low and the agent forgets earlier steps mid-task.</li>
+            </ul>
+          </li>
+          <li><strong>Agent Tools</strong> — checkboxes enabling/disabling each step type (explore, discover, command, create, SQL migration, web search, web fetch, git, rename, delete, show).</li>
+        </ul>
+
+        <h3>🖥 Panels</h3>
+        <ul>
+          <li>Toggles for Ask AI, Terminal, Kanban, Calendar, IDE, Notes, and Meeting view.</li>
+          <li><strong>Panel Options</strong> — floating-panel geometry, IDE minimap &amp; hidden-files display, and persisted workspace layout (column widths + panel positions restored on reload).</li>
+        </ul>
+
+        <h3>🔗 Integrations</h3>
+        <ul>
+          <li><strong>Email (IMAP)</strong> — add IMAP accounts (server, port, SSL, username, app password) with a per-account label; test the connection before saving.</li>
+          <li><strong>BugHosted.com (Remote Dashboard)</strong> — login/logout with heartbeat for remote control of the app from BugHosted, remote command polling, shared-editing indicators, and remote file sync.</li>
+        </ul>
+
+        <h3>🛡 Security</h3>
+        <ul>
+          <li><strong>Terminal Approval</strong> — see <a href="#security" (click)="scrollToSection($event, 'security')">Terminal Security</a> below.</li>
+        </ul>
+
+        <h3>📁 Files</h3>
+        <ul>
+          <li><strong>File Hints</strong> — per project: map comma-separated keywords to file paths so discovery knows where to look (see <a href="#filehints" (click)="scrollToSection($event, 'filehints')">File Hints</a>).</li>
+        </ul>
+      </section>
+
+      <!-- ENDPOINTS -->
+      <section class="wg-section" id="endpoints">
+        <h2><span class="wg-emoji">🔌</span>LLM Endpoints</h2>
+        <p>Weaver speaks the OpenAI-compatible chat API, so it works with <strong>llama.cpp</strong>, <strong>Ollama</strong>, LM Studio, or any compatible server — local or hosted.</p>
+        <ul>
+          <li><strong>Default:</strong> <code>http://localhost:8080</code> (adjust in Settings → Agent).</li>
+          <li><strong>Multiple endpoints</strong>: add several and they appear as options for runs; the header shows the active endpoint with a live health badge (🟢/🟡/🔴).</li>
+          <li><strong>Concurrency</strong>: with multiple endpoints, several agent runs can execute at once, each on its own endpoint.</li>
+          <li>If your endpoint is unreachable, run cards fail fast with a connectivity message; the app caches health checks.</li>
+        </ul>
+        <div class="wg-callout gold">
+          💡 Smaller local models benefit from the iterative verify-as-you-go loop — the bigger models simply converge in fewer cycles.
+        </div>
+      </section>
+
+      <!-- INTEGRATIONS -->
+      <section class="wg-section" id="integrations">
+        <h2><span class="wg-emoji">🔗</span>Integrations</h2>
+        <h3>Email (IMAP)</h3>
+        <p>Connect email accounts so Weaver can read mail (e.g. for triage or notification flows). Each account: <code>imapServer</code>, <code>imapPort</code> (default 993), SSL toggle, username, and an app password. The <strong>Test Connection</strong> button verifies credentials before you save.</p>
+        <h3>BugHosted.com</h3>
+        <p>Remote collaboration: log in with your BugHosted account (heartbeat keeps the session alive), then control this Weaver instance remotely — command polling, shared file-edit indicators, remote file sync, and conflict detection. This is how Weaver works from Bughosted.com/Weaver.</p>
+        <h3>Push notifications</h3>
+        <p>The backend includes push-notification support (service worker on the frontend), so long-running agent results can notify you.</p>
+      </section>
+
+      <!-- FILE HINTS -->
+      <section class="wg-section" id="filehints">
+        <h2><span class="wg-emoji">📇</span>File Hints</h2>
+        <p>File hints teach discovery where things live. For each project, create mappings:</p>
+        <pre><code>Keywords: auth, login, session
+Files: Controllers/AuthController.cs, Services/AuthService.cs</code></pre>
+        <p>When the agent's BM25 discovery runs, hints with matching keywords steer it toward the listed files — invaluable for projects with non-obvious naming or framework conventions. Hints are saved with the <strong>Save File Hints</strong> button.</p>
+      </section>
+
+      <!-- THEMES -->
+      <section class="wg-section" id="themes">
+        <h2><span class="wg-emoji">🎨</span>Themes</h2>
+        <ul>
+          <li><strong>Presets</strong> — one-click theme cards for quick restyling.</li>
+          <li><strong>Color diff</strong> — applying a preset/import shows exactly which color variables change (from → to), so nothing surprises you.</li>
+          <li><strong>Saved themes</strong> — save your current colors, rename, delete, and switch between saved themes.</li>
+          <li><strong>JSON import/export</strong> — copy your theme as JSON or paste one in; drag-and-drop a JSON file onto the panel also imports it.</li>
+          <li>Editor themes and app themes are separate: change the IDE's CodeMirror theme independently of the chrome colors.</li>
+        </ul>
+      </section>
+
+      <!-- SECURITY -->
+      <section class="wg-section" id="security">
+        <h2><span class="wg-emoji">🛡</span>Terminal Security</h2>
+        <p>The approval system sits between the agent and your shell. Three modes:</p>
+        <table>
+          <tr><th>Mode</th><th>Behavior</th><th>Use when</th></tr>
+          <tr><td><strong>Approve every command</strong></td><td>Every command waits for your click</td><td>You want maximum control (default-safe)</td></tr>
+          <tr><td><strong>Approve command roots</strong></td><td>Only exact executables in <em>Approved Roots</em> run unprompted; everything else asks</td><td>A balance of speed + safety</td></tr>
+          <tr><td><strong>Approve all</strong></td><td>Everything runs without asking</td><td>Trusted, low-risk sandboxes only</td></tr>
+        </table>
+        <p><strong>Approved Roots</strong> / <strong>Disallowed Roots</strong> — comma-separated executables (e.g. <code>git, dotnet, rg, npm</code>). Approved roots bypass the prompt in root mode; disallowed roots are always rejected. Pending commands show an approval card where you can approve once, approve the root, approve all, or reject.</p>
+      </section>
+
+      <!-- GUIDE: NO-CODE BASICS -->
+      <section class="wg-section" id="guide-basics">
+        <h2><span class="wg-emoji">🧭</span>Using Weaver Without Writing Code</h2>
+        <p class="wg-lead">You don't need to be a programmer to use Weaver. Think of it as a very capable assistant living inside an app that can read and edit your files, search the web, send email, and run tasks on a schedule — you just describe what you want.</p>
+
+        <h3>The mental model</h3>
+        <ol>
+          <li><strong>Cards are tasks.</strong> Everything starts as a card on the kanban board. Write what you want in plain English.</li>
+          <li><strong>The agent does the work.</strong> When you press Start, the agent reads your request, explores the project, plans, edits files / searches the web / sends email, and verifies its own work.</li>
+          <li><strong>You stay in control.</strong> The agent's every step is visible in the log, and anything risky (terminal commands) waits for your approval.</li>
+        </ol>
+
+        <h3>Your first task, step by step</h3>
+        <ol>
+          <li>Make sure Weaver is running and connected to an AI endpoint (see <a href="#endpoints" (click)="scrollToSection($event, 'endpoints')">LLM Endpoints</a>).</li>
+          <li>In the <strong>To Do</strong> column, click to add a card.</li>
+          <li>Type something simple: <em>"Create a folder called notes and put a text file in it listing my top 3 goals"</em>.</li>
+          <li>Press <strong>Start</strong> and watch the Agent panel stream the plan and steps.</li>
+          <li>When it finishes, check the result in the IDE (left panel) or your filesystem, then move the card to Done.</li>
+        </ol>
+
+        <h3>Safety, in plain English</h3>
+        <p>Weaver can run commands on your computer. By default it <strong>asks you before running anything</strong>. In <strong>Options → Settings → Security</strong> you can change this — but if you're not a developer, leave it on <strong>Approve every command</strong>. When a command asks for approval, read it and click <strong>Approve once</strong> only if it makes sense (something like <code>npm install</code> or a build is normal; something deleting files is not).</p>
+
+        <h3>Plain-English glossary</h3>
+        <table>
+          <tr><th>Term</th><th>What it means</th></tr>
+          <tr><td>Card</td><td>A task — the thing you ask the agent to do.</td></tr>
+          <tr><td>Column</td><td>A stage: To Do (waiting), Doing (running now), Done (finished), Archived (history).</td></tr>
+          <tr><td>Agent</td><td>The AI that reads your card and does the work.</td></tr>
+          <tr><td>Endpoint / LLM</td><td>The AI brain Weaver talks to (a local or hosted model). You configure it once in Settings.</td></tr>
+          <tr><td>Attached files</td><td>Files you pin to a card so the agent reads them as context.</td></tr>
+          <tr><td>Steering</td><td>A note you type to guide the agent mid-run (e.g. "don't touch the readme").</td></tr>
+          <tr><td>Cron</td><td>A schedule like "every weekday at 9am" that auto-creates and starts cards.</td></tr>
+          <tr><td>IMAP</td><td>The standard way apps read email; you enter your email server details once in Settings → Integrations.</td></tr>
+          <tr><td>Web search</td><td>The agent can search the internet for facts and write them into files.</td></tr>
+          <tr><td>Benchmark</td><td>A built-in practice task that tests whether your setup works.</td></tr>
+          <tr><td>Rank</td><td>Your point score — you earn points for finishing cards, benchmarks, and projects.</td></tr>
+        </table>
+      </section>
+
+      <!-- GUIDE: WORKFLOWS -->
+      <section class="wg-section" id="guide-workflows">
+        <h2><span class="wg-emoji">📋</span>Everyday Workflows</h2>
+        <p class="wg-lead">Real-world recipes for the things non-programmers ask for most: email, web research, and scheduled tasks.</p>
+
+        <h3>✉️ Recipe 1 — Send an email with the agent</h3>
+        <ol>
+          <li><strong>Connect your mailbox:</strong> Options → Settings → 🔗 Integrations → Email (IMAP). Add your email server (for Gmail: <code>imap.gmail.com</code>, port <code>993</code>, SSL on), your full address, and an <strong>app password</strong> (generate one in your email provider's security settings — not your normal password). Click <strong>Test Connection</strong> until it passes, then Save.</li>
+          <li><strong>Create a card</strong> in To Do, e.g. <em>"Send an email to sam&#64;example.com summarizing this week's progress notes"</em>.</li>
+          <li>Attach any files you want included, press <strong>Start</strong>, and approve any command it asks for.</li>
+        </ol>
+        <div class="wg-callout gold">💡 Emails are composed and sent by the agent through your connected account — always read what it wrote before sending important mail.</div>
+
+        <h3>📅 Recipe 2 — Set up a recurring task (cron)</h3>
+        <ol>
+          <li>Open the <strong>Calendar</strong> (Options → 📅 Calendar, or the header button).</li>
+          <li>Click <strong>+ Add Card</strong>, pick a date, write the task (e.g. <em>"Back up my documents folder"</em>), and pick a project.</li>
+          <li>Give it a <strong>Schedule label</strong> like <em>"Weekly backup"</em> so you can spot it on the board.</li>
+          <li>Pick a <strong>cron preset</strong> — e.g. <span class="wg-chip gold">Weekdays at 9am</span> or <span class="wg-chip gold">Every Sunday</span> — and watch the live preview confirm the next fire time.</li>
+          <li>Save. At the scheduled moment Weaver creates a To Do card (<span class="wg-chip gold">⏰ SCHEDULED</span>) and starts it automatically.</li>
+        </ol>
+        <p>To test a schedule immediately, open the card and press <strong>▶ Run now</strong>.</p>
+
+        <h3>🌐 Recipe 3 — Research the web and save the results</h3>
+        <ol>
+          <li>Create a card: <em>"Search the web for the latest news about [topic], then write a summary file with 5 facts"</em>.</li>
+          <li>Press Start. The agent performs <strong>real web searches</strong> (a <code>_web_search</code> step) and writes the answer into a file it creates.</li>
+          <li>Open the file in the IDE to read the result.</li>
+        </ol>
+
+        <h3>☀️ Recipe 4 — A daily digest, fully automatic</h3>
+        <ol>
+          <li>Calendar → Add Card → task: <em>"Search the web for today's top AI news and email me a 3-bullet summary"</em>.</li>
+          <li>Schedule label: <em>"Morning digest"</em>; preset: <span class="wg-chip gold">Weekdays at 9am</span>.</li>
+          <li>Save, then press <strong>▶ Run now</strong> once to test it end to end (email + web search both need to be configured).</li>
+        </ol>
+        <p>From then on it runs itself every weekday morning — card created, researched, and emailed without you touching anything.</p>
+
+        <h3>🗒 Recipe 5 — Take notes by voice</h3>
+        <p>Open the <strong>Notes</strong> panel, and use the 🎤 voice button to dictate — Weaver transcribes continuously and appends to the note. Great for capturing thoughts while you work.</p>
+
+        <h3>✅ Recipe 6 — Check that everything works (benchmarks)</h3>
+        <p>Options → 📊 Benchmarks → <strong>Benchmark All</strong>. Weaver runs a set of practice tasks (create files, fetch web facts, call a weather API) and scores them. If they pass, your setup is healthy — calendar, web search, and file creation will all work.</p>
+
+        <div class="wg-callout warn">⚠ <strong>Non-programmer safety checklist:</strong> keep Terminal Approval on <strong>Approve every command</strong>; read every approval prompt; never approve a command you don't understand; review emails before they send; and keep your data-folder backups — your cards and settings live in <code>data/weaver.db</code> next to the app.</div>
+      </section>
+
+      <!-- ARCHITECTURE -->
+      <section class="wg-section" id="architecture">
+        <h2><span class="wg-emoji">🏗</span>Project Architecture</h2>
+        <p class="wg-lead">A developer's tour of how Weaver is put together: an ASP.NET Core backend serving a static AngularJS frontend, with the agent pipeline split across a family of partial classes and focused services.</p>
+
+        <h3>Top-level layout</h3>
+        <table>
+          <tr><th>Path</th><th>What lives there</th></tr>
+          <tr><td><code>Program.cs</code></td><td>App bootstrap: UTF-8 console, <code>--self-check</code> native-lib probe, embedded <code>appsettings.json</code> fallback, data-folder writability guard, startup log, host build.</td></tr>
+          <tr><td><code>Controllers/</code></td><td>HTTP API — one controller per domain, plus <code>AgentController.*.cs</code> partial classes splitting the agent engine by concern.</td></tr>
+          <tr><td><code>Services/</code></td><td>Shared engines: SQLite storage, board/calendar persistence, AST editing, code formatting, BM25 discovery, git, terminal, email, push, benchmarks, LLM plumbing.</td></tr>
+          <tr><td><code>DataContracts/</code></td><td>Typed request/response models (Agent plan steps, edit actions, questions, build checks, …).</td></tr>
+          <tr><td><code>Hubs/</code></td><td>SignalR hub for real-time shared editing (<code>CoEditHub</code>).</td></tr>
+          <tr><td><code>wwwroot/</code></td><td>The entire UI: <code>index.html</code> + AngularJS panels (<code>kanban.html</code>, <code>ide.html</code>, <code>notes.html</code>, <code>meeting.html</code>, <code>calendar.html</code>) and controllers/mixins (<code>app.js</code>, <code>agent.js</code>, <code>settings.js</code>, <code>calendar.js</code>, <code>filetree.js</code>), styles, service worker, <code>docs.html</code>.</td></tr>
+          <tr><td><code>tests/UnitTests/</code></td><td>xUnit tests that compile <em>into</em> the main project and run via <code>dotnet test</code> (see <a href="#testing" (click)="scrollToSection($event, 'testing')">Testing</a>).</td></tr>
+          <tr><td><code>tests/js/</code></td><td>Dependency-free Node unit tests for frontend JS modules (<code>error-core</code>, <code>meeting-ticker</code>).</td></tr>
+        </table>
+
+        <h3>Backend bootstrap (Program.cs)</h3>
+        <ul>
+          <li><strong><code>--self-check</code></strong> — verifies the bundled native libraries (SQLite + tree-sitter) actually load, exits 0/1. The in-app updater runs a freshly downloaded <code>Weaver.exe</code> with this flag before replacing the running copy, rejecting broken publishes.</li>
+          <li><strong>Embedded appsettings</strong> — single-file publish bundles <code>appsettings.json</code> inside the exe; when no on-disk file exists, the embedded copy is loaded (an on-disk file, when present, wins).</li>
+          <li><strong>Data folder</strong> — <code>data/weaver.db</code> next to the exe; the app refuses to start with a clear message if that folder isn't writable (e.g. inside Program Files).</li>
+          <li><strong>Startup log</strong> — every console line mirrors to <code>data/weaver-startup.log</code> (or <code>%LOCALAPPDATA%/Weaver/</code> if the data folder is unwritable) for post-crash inspection.</li>
+          <li>UTF-8 console encoding is forced so the welcome banner and emoji log lines render on Windows.</li>
+        </ul>
+
+        <h3>The AgentController partial-class map</h3>
+        <p>One class split across files, each owning a pipeline concern:</p>
+        <table>
+          <tr><th>Partial file</th><th>Responsibility</th></tr>
+          <tr><td><code>AgentController.cs</code></td><td>HTTP surface: execute (streaming &amp; one-shot), apply/diff endpoints, questions, context-review confirm, cancel-step, endpoint health, improvement suggestions.</td></tr>
+          <tr><td><code>Discovery.cs</code></td><td>Phase 1: enumerate files, index, BM25 relevance scoring, bootstrap file reads, skeleton generation.</td></tr>
+          <tr><td><code>Planning.cs</code></td><td>Interleaved plan→execute→verify loop, step regeneration with feedback, plan persistence, completion detection.</td></tr>
+          <tr><td><code>Pipeline.cs</code></td><td>Post-execution verification and the repair loop; persist-verification-issues + resume re-planning.</td></tr>
+          <tr><td><code>Execution.cs</code></td><td>Running steps: edits, commands, creates, renames, deletes; result capture and step-status streaming.</td></tr>
+          <tr><td><code>Steps.cs</code> / <code>StepExploration.cs</code></td><td>Step shaping, atomic-step estimation, and on-demand file exploration mid-step.</td></tr>
+          <tr><td><code>EditPipeline.cs</code> / <code>EditPhases.cs</code> / <code>EditResolution.cs</code> / <code>ApplyEdit.cs</code></td><td>The edit engine: classify intent, resolve strategy, apply diffs/edits safely (AST-assisted old-string extraction, focused replacement).</td></tr>
+          <tr><td><code>Formatting.cs</code></td><td>Code formatting passes (indentation, FORMAT C/D payloads, SQL migrations, CSS cleaning).</td></tr>
+          <tr><td><code>CommandPipeline.cs</code> / <code>Terminal.cs</code></td><td>Terminal command execution, approval flow, transient-failure retries.</td></tr>
+          <tr><td><code>Complexity.cs</code></td><td>Heuristic complexity scoring → thinking caps and step estimates.</td></tr>
+          <tr><td><code>Repair.cs</code></td><td>Repair-pass replanning with verifier feedback and recycled-step detection.</td></tr>
+          <tr><td><code>Llm.cs</code></td><td>OpenAI-compatible calls, streaming, retries, endpoint health, infinite timeout handling.</td></tr>
+          <tr><td><code>Prompts.cs</code></td><td>Prompt templates: planning, verification, repair, requirements checklists, suggestion generation.</td></tr>
+          <tr><td><code>Constants.cs</code></td><td>Pipeline constants (limits, defaults, step budgets).</td></tr>
+        </table>
+
+        <h3>Services map</h3>
+        <table>
+          <tr><th>Service</th><th>Purpose</th></tr>
+          <tr><td><code>DatabaseService</code></td><td>SQLite (e_sqlite3) — owns schema creation and the core tables (see below).</td></tr>
+          <tr><td><code>BoardDataService</code> / <code>CalendarService</code></td><td>Load/save kanban board and calendar JSON blobs.</td></tr>
+          <tr><td><code>AgentDiscovery</code> / <code>Bm25Scorer</code></td><td>File enumeration + BM25 relevance scoring for discovery.</td></tr>
+          <tr><td><code>AstCodeEditorService</code> / <code>HtmlDomEditor</code></td><td>AST-driven method/symbol extraction and HTML DOM surgery for precise edits.</td></tr>
+          <tr><td><code>CodeFormatterService</code> / <code>LlmCssCleaner</code> / <code>CssRegionFormatter</code></td><td>Language-aware formatting and CSS hygiene (LLM-assisted cleanup).</td></tr>
+          <tr><td><code>EditClassifier</code> / <code>EditIntentClassifier</code> / <code>EditStrategyResolver</code> / <code>EditKnowledgeService</code> / <code>DeterministicEditGenerator</code></td><td>The edit-brain: classify the requested change, pick a strategy, apply deterministic edits where possible.</td></tr>
+          <tr><td><code>GitService</code></td><td>git commit/push/PR operations used by the agent and IDE.</td></tr>
+          <tr><td><code>TerminalService</code></td><td>Command execution, isolation, output capture, approvals.</td></tr>
+          <tr><td><code>EmailService</code></td><td>IMAP account management and mail operations.</td></tr>
+          <tr><td><code>PushNotificationService</code></td><td>Web push (VAPID keys) for notifications.</td></tr>
+          <tr><td><code>BenchmarkService</code></td><td>Benchmark level definitions + acceptance-check evaluation (including fetch-freshness checks).</td></tr>
+          <tr><td><code>EndpointHealthService</code> / <code>TransientFailureDetector</code> / <code>VerifierIssueTriage</code></td><td>LLM endpoint health badges, transient retry decisions, and verifier-complaint filtering.</td></tr>
+          <tr><td><code>FileHintsManager</code> / <code>ConfigFileService</code> / <code>SqlMigrationService</code></td><td>Keyword→file hints, config persistence, SQL migration scaffolding.</td></tr>
+        </table>
+
+        <h3>Database schema</h3>
+        <p>SQLite at <code>data/weaver.db</code>, created idempotently on startup:</p>
+        <table>
+          <tr><th>Table</th><th>Stores</th></tr>
+          <tr><td><code>weaver_config</code></td><td>App settings (LLM endpoints, limits, approval mode, theme, panel toggles, …).</td></tr>
+          <tr><td><code>board_data</code></td><td>Kanban columns + cards (including tags like <code>_fromCron</code>, <code>_fromSuggestion</code>, suggestions, logs).</td></tr>
+          <tr><td><code>calendar_data</code></td><td>Calendar cards (date, time, cron, schedule label, project, priority).</td></tr>
+          <tr><td><code>file_hints</code></td><td>Per-project keyword→file mappings.</td></tr>
+          <tr><td><code>vapid_keys</code></td><td>Web-push VAPID keypair.</td></tr>
+          <tr><td><code>benchmark_scores</code></td><td>Historical benchmark results.</td></tr>
+          <tr><td><code>system_info</code></td><td>Runtime/system details for the benchmarks panel.</td></tr>
+          <tr><td><code>improvement_data</code></td><td>Generated improvement suggestions.</td></tr>
+          <tr><td><code>edit_knowledge</code></td><td>Learned edit strategies / knowledge used by the edit engine.</td></tr>
+        </table>
+
+        <h3>Frontend architecture</h3>
+        <ul>
+          <li><strong>AngularJS 1.8</strong> single-page app: <code>index.html</code> hosts the chrome (header, agent panel, terminal), and feature views are included as separate templates (<code>kanban.html</code>, <code>ide.html</code>, <code>notes.html</code>, <code>meeting.html</code>, <code>calendar.html</code>).</li>
+          <li><strong>Controller mixins</strong> — <code>app.js</code> (core/main), <code>settings.js</code> (settings + workspace persistence), <code>agent.js</code> (agent run + kanban orchestration), <code>calendar.js</code> (calendar UI + the cron processor with <code>cronMatches</code>/<code>nextCronFire</code>), <code>filetree.js</code> (IDE explorer).</li>
+          <li><strong>Live streaming</strong> — the agent streams progress over SSE (plan events, steps, logs, verify results) into the Agent panel; diffs are previewable and applyable inline.</li>
+          <li><strong>Real-time collaboration</strong> — SignalR <code>CoEditHub</code> broadcasts shared-edit indicators for BugHosted sessions.</li>
+          <li><strong>Service worker</strong> — <code>service-worker.js</code> + <code>error-core.js</code> for push notifications and resilient error handling.</li>
+          <li><strong>Persistence</strong> — settings/panel geometry in <code>localStorage</code>, board/calendar/scores on the backend DB; a hard refresh keeps everything.</li>
+        </ul>
+
+        <h3>The agent pipeline, deep dive</h3>
+        <ol>
+          <li><strong>Discover (Phase 1)</strong> — enumerate the project, index files, run BM25 to score relevance against the task, auto-read the top files, consult file hints and attached files, and produce a project skeleton. Runs in an isolated sandbox when enabled.</li>
+          <li><strong>Context review</strong> — the agent summarizes what it found; you can auto-confirm (5s) or steer.</li>
+          <li><strong>Plan &amp; execute (interleaved)</strong> — one atomic step at a time: propose → pre-validate → execute → between-steps verify → next. Step proposals are rejected with feedback (e.g. duplicate-file guard: <em>"index.html already exists at benchmark_test_4 — target that path"</em>) and re-proposed.</li>
+          <li><strong>Post-execution verification</strong> — a verifier checks the finished work against the explicit requirement checklist and returns concrete issues; speculative complaints are triaged out.</li>
+          <li><strong>Repair loop</strong> — up to 3 passes re-plan for unmet requirements; if the replanner recycles a completed step, corrective feedback names the verifier's concrete unmet requirement instead of burning a pass.</li>
+          <li><strong>Resume</strong> — completed plan steps persist on the card; resuming re-plans for unmet requirements instead of declaring done.</li>
+        </ol>
+      </section>
+
+      <!-- API REFERENCE -->
+      <section class="wg-section" id="api">
+        <h2><span class="wg-emoji">🔌</span>API Reference</h2>
+        <p class="wg-lead">The HTTP surface, grouped by controller. All routes are relative to the app root (usually <code>http://localhost:5000</code>).</p>
+
+        <h3>Agent — <code>/api/agent</code></h3>
+        <table>
+          <tr><th>Route</th><th>Method</th><th>Purpose</th></tr>
+          <tr><td><code>execute</code> / <code>execute-stream</code></td><td>POST</td><td>Run a card — one-shot, or streaming SSE for live plan/step/log events.</td></tr>
+          <tr><td><code>apply</code> / <code>apply-diff</code> / <code>diff-content</code> / <code>delete-diff</code> / <code>verify-diffs</code></td><td>POST/GET</td><td>Apply, preview, delete, or verify proposed diffs.</td></tr>
+          <tr><td><code>questions/pending</code> / <code>questions/answer</code></td><td>GET/POST</td><td>Clarifying questions the agent asks mid-task.</td></tr>
+          <tr><td><code>context-review/confirm</code></td><td>POST</td><td>Confirm or steer the pre-plan context review.</td></tr>
+          <tr><td><code>cancel-step</code></td><td>POST</td><td>Stop a running step by index.</td></tr>
+          <tr><td><code>endpoint-health</code> / <code>llm-reachable</code></td><td>GET</td><td>LLM endpoint health checks (header badges).</td></tr>
+          <tr><td><code>suggest-improvements</code></td><td>POST</td><td>Generate 0–3 improvement suggestions for a completed card (with file attachments + connection).</td></tr>
+        </table>
+
+        <h3>Workspace &amp; files</h3>
+        <table>
+          <tr><th>Controller</th><th>Routes</th></tr>
+          <tr><td><code>/api/board</code></td><td><code>load</code> (GET), <code>save</code> (POST) — kanban board blob.</td></tr>
+          <tr><td><code>/api/calendar</code></td><td><code>load</code> (GET), <code>save</code> (POST) — calendar cards.</td></tr>
+          <tr><td><code>/api/config</code></td><td><code>projects/add</code>, <code>projects/remove</code>, <code>save</code>, <code>open-in-vscode</code>, <code>default-project</code>.</td></tr>
+          <tr><td><code>/api/fileedit</code></td><td><code>list</code>, <code>content</code>, <code>snippet</code>, <code>check-modified</code>, <code>save</code>, <code>write</code>, <code>projects</code>, plus git: <code>git-diff</code>, <code>git-diff-file</code>, <code>git-commit</code>, <code>git-push</code>, <code>git-pr</code>.</td></tr>
+          <tr><td><code>/api/ai</code></td><td><code>generate</code>, <code>proxy</code>, <code>ping</code> — the Ask AI chat panel.</td></tr>
+          <tr><td><code>/api/notes</code> / <code>/api/filehints</code> / <code>/api/improvementdata</code></td><td>Notes, per-project file hints, and improvement data persistence.</td></tr>
+        </table>
+
+        <h3>Automation &amp; integrations</h3>
+        <table>
+          <tr><th>Controller</th><th>Routes</th></tr>
+          <tr><td><code>/api/benchmark</code></td><td><code>scores</code>, <code>info</code>, <code>plans</code>, <code>save-score</code>, <code>system-info</code> (GET/POST).</td></tr>
+          <tr><td><code>/api/terminal</code></td><td><code>start</code>, <code>exec</code>, <code>exec-isolated</code>, <code>output</code>, <code>install-package</code>, <code>git</code>, <code>approvals/pending</code>, <code>approvals/approve</code>, <code>approvals/reject</code>, <code>ping</code>.</td></tr>
+          <tr><td><code>/api/email</code></td><td><code>test</code>, <code>test-saved</code> — validate IMAP account credentials.</td></tr>
+          <tr><td><code>/api/pr</code></td><td><code>start</code>, <code>finish</code> — PR lifecycle.</td></tr>
+          <tr><td><code>/api/push</code></td><td><code>vapid-public-key</code> (GET), <code>subscribe</code> (POST) — web push.</td></tr>
+          <tr><td><code>/api/bughosted</code></td><td><code>login</code>, <code>heartbeat</code>, <code>settings</code>, <code>version</code>, <code>update</code>, <code>update-progress</code>, <code>commands</code>, <code>events</code>, <code>fs/list</code>, <code>fs/content</code>, <code>fs/save</code> — remote dashboard control.</td></tr>
+          <tr><td><code>/hubs/coedit</code> (SignalR)</td><td>Real-time shared-editing indicators across BugHosted sessions.</td></tr>
+        </table>
+      </section>
+
+      <!-- TESTING -->
+      <section class="wg-section" id="testing">
+        <h2><span class="wg-emoji">🧪</span>Testing</h2>
+        <p class="wg-lead">Weaver ships with a substantial automated suite — 700+ xUnit tests plus frontend Node tests — covering the edit engine, formatters, discovery, the pipeline, and benchmarks.</p>
+
+        <h3>Run the full suite</h3>
+        <pre><code>dotnet test</code></pre>
+        <p>Tests live in <code>tests/UnitTests/</code> and compile <strong>into the main project</strong> (no separate test csproj) — the xUnit packages are private references in <code>Weaver.csproj</code>, and the SDK's default globs pick up every <code>*Tests.cs</code> file automatically. <code>dotnet test</code> discovers and runs them all.</p>
+        <div class="wg-callout warn">⚠ <strong>While the app is running</strong>, <code>Weaver.exe</code> locks the build output. Run tests with a separate output dir to avoid the lock:<br><code>dotnet test -o .test-out</code></div>
+
+        <h3>Run a subset</h3>
+        <p>Use xUnit's <code>--filter</code> against the class name:</p>
+        <pre><code>dotnet test --filter "FullyQualifiedName~CodeFormatterServiceTests"
+dotnet test --filter "FullyQualifiedName~BenchmarkFreshnessTests"
+dotnet test -o .test-out --filter "FullyQualifiedName~FormatCEditTests"</code></pre>
+
+        <h3>What the suite covers</h3>
+        <table>
+          <tr><th>Area</th><th>Test files</th></tr>
+          <tr><td><strong>Agent pipeline</strong> (planning, between-steps + post-execute verification, repair, complexity, streaming recovery, retries, endpoint health, suggestion engine)</td><td><code>PipelineTests</code>, <code>BetweenStepsVerificationTests</code>, <code>PostExecuteVerifyTests</code>, <code>PlanningTokenCapTests</code>, <code>HeuristicComplexityScoreTests</code>, <code>StreamRecoveryRetryTests</code>, <code>LlmRetryDisableTests</code>, <code>TerminalTransientRetryTests</code>, <code>EndpointHealthTests</code>, <code>ImprovementSuggestionsTests</code></td></tr>
+          <tr><td><strong>Edit engine</strong> (AST editing, formatting, HTML DOM, CSS cleaner, SQL migrations, classifiers, deterministic edits, signature normalization, indentation)</td><td><code>AstCodeEditorServiceTests</code>, <code>CodeFormatterServiceTests</code>, <code>HtmlDomEditorTests</code>, <code>LlmCssCleanerTests</code>, <code>LlmCssCleanerPipelineTests</code>, <code>SqlMigrationServiceTests</code>, <code>EditClassifierTests</code>, <code>EditIntentClassifierTests</code>, <code>EditStrategyResolverTests</code>, <code>DeterministicEditGeneratorTests</code>, <code>DeterministicBatchIntegrationTests</code>, <code>TryNormalizeSignatureTests</code>, <code>SnippetReindentTests</code>, <code>TsJsIndentationTests</code>, <code>ReindentSnippetFuzzCorpusTests</code></td></tr>
+          <tr><td><strong>Discovery &amp; context</strong> (BM25 scoring, file-tree order independence, ignore lists, member inventory, create-file guards)</td><td><code>Bm25ScoringTests</code>, <code>FileTreeOrderIndependenceTests</code>, <code>FileIgnoreListTests</code>, <code>ExtractMemberInventoryTests</code>, <code>CreateFileConflictGuardTests</code>, <code>CreateFilePathScopingTests</code>, <code>AgentUtilitiesEdgeCasesTests</code>, <code>DebugSkeletonTests</code></td></tr>
+          <tr><td><strong>Corpus &amp; fuzz</strong> (real-world edit payloads verified end-to-end; randomized fuzz harnesses)</td><td><code>BatchEditCorpusTests</code>, <code>CreateFileCorpusTests</code>, <code>DeleteCorpusTests</code>, <code>FormatCCorpusTests</code>, <code>FormatCEditTests</code>, <code>FormatCSqlEditTests</code>, <code>FormatDPayloadCorpusTests</code>, <code>FuzzHarness</code></td></tr>
+          <tr><td><strong>Data &amp; benchmarks</strong></td><td><code>DatabaseServiceTests</code>, <code>BenchmarkFreshnessTests</code></td></tr>
+        </table>
+
+        <h3>Frontend JS tests</h3>
+        <p>Dependency-free Node test runners for frontend modules (no npm install needed):</p>
+        <pre><code>node tests/js/error-core.test.js
+node tests/js/meeting-ticker.test.js</code></pre>
+
+        <h3>Writing a new test</h3>
+        <ol>
+          <li>Add a file <code>tests/UnitTests/YourThingTests.cs</code> using xUnit (<code>[Fact]</code> / <code>[Theory]</code>) and the <code>Weaver</code> namespaces.</li>
+          <li>It compiles automatically — no project file edits needed.</li>
+          <li>Run it with the filter above. Follow the existing style: pure unit tests on services where possible (constructor stubs for <code>DatabaseService</code> take <code>(ILogger, options, …)</code> — check an existing test for the shape).</li>
+          <li>For edit-engine behavior, add a corpus-style test that runs a realistic edit payload and asserts the exact resulting file content.</li>
+        </ol>
+        <div class="wg-callout">💡 The corpus and fuzz tests are the highest-value targets when you change the edit pipeline — they pin real-world behavior so refactors can't silently regress formatting or edit application.</div>
+      </section>
+
+      <!-- TROUBLESHOOTING -->
+      <section class="wg-section" id="troubleshooting">
+        <h2><span class="wg-emoji">🔧</span>Troubleshooting</h2>
+        <h3>Agent says it can't reach the LLM</h3>
+        <ul>
+          <li>Confirm your llama.cpp / Ollama server is running at the configured URL.</li>
+          <li>Check the endpoint's health badge in the header — 🟡/🔴 means unreachable.</li>
+          <li>Verify the endpoint speaks the OpenAI-compatible API (model name may matter).</li>
+        </ul>
+        <h3>Edits are wrong or incomplete</h3>
+        <ul>
+          <li>Raise <strong>Max Full File Tokens</strong> — truncated files cause incomplete edits.</li>
+          <li>Raise <strong>Max File Context Chars</strong> if large files matter to the task.</li>
+          <li>Attach relevant files to the card or add <strong>file hints</strong> so discovery reads the right code.</li>
+          <li>Use steering to correct the agent mid-run.</li>
+        </ul>
+        <h3>A card is stuck in Doing</h3>
+        <ul>
+          <li>If the stream died without a done event, the card is marked <strong>interrupted</strong> (amber) rather than "running" — just restart it.</li>
+          <li>Stop the run from the agent panel if it's looping, then re-run the card.</li>
+        </ul>
+        <h3>The backend won't close</h3>
+        <p>Close the website/tab first — the backend process can remain active after the tab closes. Explicitly closing the interface helps terminate the backend properly.</p>
+        <h3>Verification keeps failing on a file that looks fine</h3>
+        <p>The verifier is intentionally strict and checks the explicit requirement list. Speculative complaints ("might/could") are already triaged out. Check the file for hidden issues (whitespace, casing) and re-run — the repair loop gives 3 passes.</p>
+      </section>
+
+      <!-- BUILD -->
+      <section class="wg-section" id="build">
+        <h2><span class="wg-emoji">🛠</span>Build &amp; Publish</h2>
+        <p class="wg-lead">Everything a developer needs to restore, build, run, test, debug, and ship Weaver — including the single-file publish gotchas.</p>
+
+        <h3>Requirements</h3>
+        <ul>
+          <li><strong>.NET 10 SDK</strong> (or a compatible runtime for running the published exe)</li>
+          <li>An OpenAI-compatible LLM endpoint (llama.cpp / Ollama / hosted) — optional for building, required for agent features</li>
+          <li>Git Bash (Windows) for <code>./publish.sh</code>; PowerShell for <code>publish.ps1</code></li>
+        </ul>
+
+        <h3>Restore, build, run</h3>
+        <pre><code>dotnet restore
+dotnet build
+dotnet run</code></pre>
+        <p>Weaver is a standard ASP.NET Core web app: the backend serves the <code>wwwroot/</code> static UI and the JSON API on the console-printed URL (usually <code>http://localhost:5000</code>). Debug with <code>dotnet run</code> and attach your debugger, or <code>dotnet watch run</code> for live reload while iterating on <code>wwwroot/</code> files.</p>
+
+        <h3>Tests</h3>
+        <pre><code>dotnet test</code></pre>
+        <p>700+ xUnit tests in <code>tests/UnitTests/</code> compile into the main project (see <a href="#testing" (click)="scrollToSection($event, 'testing')">Testing</a>). While the app is running, use <code>dotnet test -o .test-out</code> to sidestep the exe file lock.</p>
+
+        <h3>Publish a standalone EXE</h3>
+        <pre><code>dotnet publish -c Release -r win-x64</code></pre>
+        <p>Configured in <code>Weaver.csproj</code>: single-file, self-contained, with the native libraries (<code>e_sqlite3</code>, tree-sitter) and the web UI bundled <strong>inside</strong> <code>Weaver.exe</code>. Everything extracts to <code>%TEMP%/.net/Weaver/</code> on first launch, and the app creates its <code>data/weaver.db</code> next to the exe — so the folder must be writable.</p>
+        <ul>
+          <li><strong>Recommended one-command flow:</strong> <code>./publish.sh</code> (Git Bash) or <code>publish.ps1</code> (PowerShell). It publishes, <strong>fails if any native DLL was left beside the exe</strong>, smoke-tests the lone exe from an empty temp folder (server must stay up and log the welcome banner), and prints the <strong>SHA-256</strong> ready for upload.</li>
+          <li><strong>Don't use</strong> <code>/p:PublishSingleFile=true</code> on the CLI — MSYS in Git Bash rewrites <code>/p:</code> paths; the flag is already in the csproj.</li>
+          <li><strong>Keep trimming off.</strong> The exe is ~200 MB on purpose: tree-sitter, AngleSharp, and MailKit are reflection-heavy and break under <code>PublishTrimmed</code>.</li>
+        </ul>
+
+        <h3>Sanity-check a build: <code>--self-check</code></h3>
+        <pre><code>Weaver.exe --self-check</code></pre>
+        <p>Loads the bundled native libraries (SQLite + tree-sitter) and exits <code>0</code> on success or <code>1</code> on failure. The in-app updater runs a freshly downloaded <code>Weaver.exe</code> with this flag before replacing the running copy — a stale partial publish (natives not bundled) fails here and is rejected instead of being shipped.</p>
+
+        <h3>Runtime configuration</h3>
+        <p><code>appsettings.json</code> is embedded in the published exe (an on-disk copy, when present, wins). The keys the app reads:</p>
+        <table>
+          <tr><th>Key</th><th>Default</th><th>Purpose</th></tr>
+          <tr><td><code>Editor:WorkspaceRoot</code></td><td><code>..</code></td><td>Default workspace root for the file explorer.</td></tr>
+          <tr><td><code>Editor:ShowDeleteConfirmation</code></td><td><code>true</code></td><td>Confirm before deleting files in the IDE.</td></tr>
+          <tr><td><code>Editor:PopupBlurBackground</code></td><td><code>true</code></td><td>Dim the app behind popups.</td></tr>
+          <tr><td><code>Editor:DisableLLMRetries</code></td><td><code>false</code></td><td>Turn off automatic LLM retries (diagnostics).</td></tr>
+          <tr><td><code>Editor:IgnoreDirs</code></td><td>built-ins</td><td>Extra dirs to hide in the explorer; <code>-name</code> entries un-hide defaults.</td></tr>
+        </table>
+        <p>User settings (endpoints, limits, theme, approvals) live in the <code>weaver_config</code> table of <code>data/weaver.db</code> — there is no <code>weaverconfig.json</code> anymore.</p>
+
+        <h3>Logs &amp; troubleshooting</h3>
+        <ul>
+          <li><strong>Startup log:</strong> <code>data/weaver-startup.log</code> (mirrors the console; falls back to <code>%LOCALAPPDATA%/Weaver/</code> when the data folder is unwritable).</li>
+          <li>If the app flashes and exits, the folder next to the exe is likely unwritable — move it somewhere writable.</li>
+        </ul>
+
+        <div class="wg-callout warn">
+          ⚠ The exe must remain untrimmed and must bundle its natives — the <code>publish.sh</code> / <code>publish.ps1</code> scripts enforce both, and <code>--self-check</code> verifies them at runtime.
+        </div>
+      </section>
+
+      <!-- FAQ -->
+      <section class="wg-section" id="faq">
+        <h2><span class="wg-emoji">❓</span>FAQ</h2>
+        <h3>Where do I start?</h3>
+        <p>Open <strong>Options</strong> (top right), configure a project and the LLM endpoint, add a card to the kanban, attach files for context, and press Start.</p>
+        <h3>Why is my task routed to chat instead of edits?</h3>
+        <p>Use "Fix the …" phrasing to force the standard file-edit pipeline. Example: <em>"Fix the README.md file to add a new section about forced edits"</em>.</p>
+        <h3>What happens when I click a suggestion on a Done card?</h3>
+        <p>A new To Do card is created, tagged 💡 SUGGESTION, pre-loaded with the suggestion text, its file attachments, and the source card's completion summary.</p>
+        <h3>Can I make the agent work overnight?</h3>
+        <p>Yes — the auto-queue keeps pulling READY cards, self-improving cards round-robin, and calendar cron jobs create and start cards on schedule.</p>
+        <h3>Is my data stored locally?</h3>
+        <p>Yes — the database, settings, board data, and your projects live on your machine. Only optional features (BugHosted, version checks, push) talk to the network.</p>
+        <h3>Why is there a gold spider on my screen?</h3>
+        <p>That's the Weaver skulltula — the app's mascot, and the same logo adorns this documentation. It breathes while the agent thinks. 🕷️</p>
+      </section>
+
+      <footer class="wg-footer">
+        <div class="wg-ascii-mini">░█░█░█▀▀░█▀█░█░█░█▀▀░█▀▄
+░█▄█░█▀▀░█▀█░▀▄▀░█▀▀░█▀▄
+░▀░▀░▀▀▀░▀░▀░░▀░░▀▀▀░▀░▀</div>
+        <p>Weaver Documentation · Since May 21st, 2026 · <a href="/">← Back to bughosted.com</a></p>
+      </footer>
+    </main>
+  </div>
+
+  <button class="wg-top" id="wgTop" title="Back to top">↑</button>
+</div>

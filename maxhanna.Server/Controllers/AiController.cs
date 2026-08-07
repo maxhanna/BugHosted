@@ -1142,7 +1142,7 @@ Constraints:
                   )
                 )
                 
-                OR REGEXP_LIKE(file_name, '^(FB_IMG_|IMG_|VID_|RDT_)', 'i')
+                OR REGEXP_LIKE(file_name, '^(FB_IMG_|IMG_|VID_|RDT_|IMG-|VID-|Screenshot_)', 'i')
               )
             ORDER BY RAND()
 						LIMIT 1;";
