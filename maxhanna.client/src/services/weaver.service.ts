@@ -26,6 +26,12 @@ export interface WeaverCard {
   agentThinking?: string;
   agentSummary?: string;
   _plan?: { summary?: string; items?: { file: string; change: string; done: boolean }[] };
+  _fromSuggestion?: boolean;
+  _suggestionSourceCardId?: string;
+  _suggestions?: any[];
+  _suggestionsRequested?: boolean;
+  _suggestionsGenerating?: boolean;
+  _suggestionsError?: string;
 }
 
 export interface WeaverHeartbeatStatus {

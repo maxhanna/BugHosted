@@ -5148,6 +5148,17 @@
   padding: 18px 0;
   font-style: italic;
 }
+.race-lb-unavailable {
+  margin: 6px 0 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 170, 40, 0.45);
+  border-radius: 8px;
+  background: rgba(255, 170, 40, 0.08);
+  color: #ffc46b;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
 
 /* All-circuits breakdown cards */
 .race-lb-alltracks-loading {

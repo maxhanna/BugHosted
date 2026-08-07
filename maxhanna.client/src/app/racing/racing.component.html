@@ -977,6 +977,11 @@
       <!-- All-circuits breakdown: every track's top laps + your lap/rank vs the field -->
       <ng-container>
         <div class="race-lb-alltracks-loading" *ngIf="allTracksLoading">Loading circuits…</div>
+        <div class="race-lb-unavailable" *ngIf="leaderboardDataUnavailable && !allTracksLoading">
+          ⚠️ Couldn't load lap data right now — the server didn't return any
+          leaderboard results. Try again in a moment; your laps will show up
+          here once the racing service responds.
+        </div>
         <div class="race-lb-search">
           <input type="text" class="race-lb-search-input" placeholder="🔍 Search circuits…"
             [value]="trackSearch" (input)="onTrackSearchChange($event)" />

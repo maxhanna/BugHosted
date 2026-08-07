@@ -82,6 +82,9 @@ export class RacingService {
 
   // Per-circuit breakdown for the Best Laps panel — every track's top laps by
   // players plus the caller's own best lap and rank on each circuit.
+  // Returns null when the response doesn't look like the expected shape (e.g. a
+  // test/mock backend returning {} for this route) so the panel can tell the
+  // user the data is unavailable instead of implying no laps exist.
   async getAllTrackLeaderboards(userId: number = 0): Promise<{
     tracks: {
       trackId: number;
@@ -91,11 +94,14 @@ export class RacingService {
       userRank: number;
       results: RaceResult[];
     }[];
-  }> {
+  } | null> {
     try {
       const data: any = await this.http.get(`${this.baseUrl}/leaderboard-by-track?userId=${userId}`).toPromise();
-      return { tracks: data?.tracks ?? [] };
-    } catch { return { tracks: [] }; }
+      if (data === null || typeof data !== 'object' || !Array.isArray(data.tracks)) {
+        return null;
+      }
+      return { tracks: data.tracks };
+    } catch { return null; }
   }
 
   // High-scores view across ALL circuits — every player's fastest lap anywhere,

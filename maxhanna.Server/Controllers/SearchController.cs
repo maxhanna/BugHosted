@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using MySqlConnector;
 using System.Data;

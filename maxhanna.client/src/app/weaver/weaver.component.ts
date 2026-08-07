@@ -720,16 +720,24 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     this.cardCreatedAt[newCard.id] = Date.now();
     this.commandResult = '💡 Suggestion queued as a To Do card' +
       (files.length ? ' (' + files.length + ' file(s) attached)' : '');
-    const result = await this.sendRemoteCommand('addCard', {
-      cardId: newCard.id,
-      text: newCard.text,
-      project: newCard.filePath,
-    });
-    if (result?.id) this.cardCommandMap[newCard.id] = result.id;
-    // The local Weaver's addCard creates the card with empty attachments, so a
-    // follow-up updateCard attaches the suggestion's files to the board card.
-    if (files.length) {
-      await this.sendRemoteCommand('updateCard', { cardId: newCard.id, attached: files });
+    try {
+      const result = await this.sendRemoteCommand('addCard', {
+        cardId: newCard.id,
+        text: newCard.text,
+        project: newCard.filePath,
+      });
+      if (result?.id) this.cardCommandMap[newCard.id] = result.id;
+      // The local Weaver's addCard creates the card with empty attachments, so a
+      // follow-up updateCard attaches the suggestion's files to the board card.
+      if (files.length) {
+        await this.sendRemoteCommand('updateCard', { cardId: newCard.id, attached: files });
+      }
+    } catch (e) {
+      // Remote delivery failed — keep the card local so the work isn't lost,
+      // but un-stick the suggestion so the user can retry the queue.
+      suggestion._queued = false;
+      this.commandResult = '💡 Queued locally, but remote Weaver sync failed: ' +
+        ((e && (e as any).message) || 'unknown error');
     }
     setTimeout(() => {
       const el = document.getElementById('card-' + newCard.id);

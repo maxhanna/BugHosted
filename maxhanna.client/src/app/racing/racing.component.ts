@@ -210,6 +210,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     userLap: number; userRank: number; results: RaceResult[];
   }[] = [];
   allTracksLoading = false;
+  // True when the leaderboard endpoints answered with an unexpected shape and
+  // no fallback produced data (e.g. a mock/test backend without those routes) —
+  // the panel shows a clear notice instead of implying no laps exist.
+  leaderboardDataUnavailable = false;
   // All Circuits cards: per-track collapse + 'show top 20' state.
   collapsedTrackBoards: Set<number> = new Set();
   trackBoardShowTop20: Set<number> = new Set();
@@ -2440,7 +2444,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const uid = this.parentRef?.user?.id ?? 0;
     this.allTracksLoading = true;
     try {
-      let boards = (await this.racingService.getAllTrackLeaderboards(uid))?.tracks ?? [];
+      // null means the endpoint returned an unexpected shape (e.g. a mock/test
+      // backend with no leaderboard routes) — keep that around so the panel can
+      // say data is unavailable instead of pretending no laps exist.
+      const byTrack = await this.racingService.getAllTrackLeaderboards(uid);
+      let boards = byTrack ? byTrack.tracks : [];
       // Fallback: if the by-track endpoint returns nothing (older deployed
       // server without it, or a query hiccup), build the per-circuit boards
       // from the per-track leaderboard endpoint so the panel always shows data.
@@ -2462,6 +2470,38 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         }));
         boards = per.filter((b): b is NonNullable<typeof b> => b !== null);
       }
+      // Last-resort fallback: the aggregate endpoints are unavailable, but the
+      // player's own per-track bests (from /car) are still worth showing — at
+      // minimum the panel reflects their own recorded laps on each circuit.
+      if (boards.length === 0 && this.playerCar?.bestLapsByTrack) {
+        const myLaps = this.playerCar.bestLapsByTrack;
+        const seeded: {
+          trackId: number; totalCount: number; bestLap: number;
+          userLap: number; userRank: number; results: RaceResult[];
+        }[] = [];
+        for (const t of this.trackDefs) {
+          const lap = myLaps[t.id];
+          if (lap && lap > 0) {
+            seeded.push({
+              trackId: t.id,
+              totalCount: 1,
+              bestLap: lap,
+              userLap: lap,
+              userRank: 1,
+              results: [{
+                playerId: uid,
+                playerName: this.parentRef?.user?.username ?? 'You',
+                lapTime: lap,
+                isBot: false,
+              } as RaceResult],
+            });
+          }
+        }
+        boards = seeded;
+      }
+      // The by-track route answered with an unexpected shape AND no fallback
+      // produced data → surface that instead of 'no laps on this circuit yet'.
+      this.leaderboardDataUnavailable = byTrack === null && boards.length === 0;
       this.allTrackBoards = boards;
       // On small screens default every card to collapsed so the panel stays
       // compact; users can expand individual circuits as needed. Only seed the
@@ -2477,7 +2517,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       const leader = this.getTrackBoardBest(tid);
       if (leader > 0) this.leaderboardBestLap = leader;
     } catch {
+      // The load failed outright — surface the unavailable notice rather than
+      // implying the circuits have no laps.
       this.allTrackBoards = [];
+      this.leaderboardDataUnavailable = true;
     } finally {
       this.allTracksLoading = false;
     }
