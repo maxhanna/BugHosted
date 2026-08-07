@@ -7,8 +7,7 @@ const { spawnSync, spawn } = require('child_process');
 const frontendPath = path.resolve(__dirname);
 const prodServerPath = path.join(frontendPath, 'prod-server.js');
 const distRoot = path.join(frontendPath, 'dist', 'maxhanna.client');
-const browserIndex = path.join(distRoot, 'browser', 'index.html');
-const launcherLog = path.join(frontendPath, 'launcher.log');
+const browserIndex = path.join(distRoot, 'browser', 'index.html'); 
 
 function writeLog(...parts) {
   try {
@@ -16,36 +15,12 @@ function writeLog(...parts) {
     const ts = now.toISOString();
     const localTime = now.toLocaleTimeString();
     const msg = parts.map(p => (typeof p === 'string' ? p : JSON.stringify(p))).join(' ');
-    fs.appendFileSync(launcherLog, `${ts} ${localTime} ${msg}\n`);
     console.log(`[LOG] ${localTime} ${msg}`); // Also log to console
   } catch (e) {
     // ignore logging errors
   }
 }
-
-function writeDebugFileToDesktop(errorOutput) {
-  try {
-    const desktopDir = path.join(require('os').homedir(), 'Desktop');
-    const debugPath = path.join(desktopDir, 'debug.txt');
-    let msg = errorOutput;
-    if (typeof msg !== 'string') {
-      try {
-        msg = JSON.stringify(msg, null, 2);
-      } catch { msg = String(errorOutput); }
-    }
-    // Append if file exists, else write
-    if (fs.existsSync(debugPath)) {
-      fs.appendFileSync(debugPath, `\n${msg}\n`, { encoding: 'utf8' });
-    } else {
-      fs.writeFileSync(debugPath, msg, { encoding: 'utf8' });
-    }
-  } catch (e) {
-    const now = new Date();
-    const localTime = now.toLocaleTimeString();
-    console.log(`[LOG] ${localTime} Failed to write debug file: ${e.message}`); // Also log to console 
-  }
-}
-
+ 
 // Log startup info
 writeLog('=== Launcher Started ===');
 writeLog('Frontend path:', frontendPath);
@@ -74,12 +49,7 @@ function findIndexRecursive(dir) {
 
 if (!fs.existsSync(prodServerPath)) {
   const errorMsg = `ERROR: prod-server.js not found at ${prodServerPath}`;
-  console.error(errorMsg);
-  try {
-    writeDebugFileToDesktop(errorMsg);
-  } catch (e) {
-    writeLog('Failed to write debug file:', e && e.message ? e.message : e);
-  }
+  console.error(errorMsg); 
   process.exit(1);
 }
 
@@ -317,22 +287,12 @@ async function runBuildIfNeeded() {
       require(prodServerPath);
     } catch (err) {
       const errorMsg = 'Failed to require/start prod server in-process: ' + (err && err.stack ? err.stack : err);
-      writeLog(errorMsg);
-      try {
-        writeDebugFileToDesktop(errorMsg);
-      } catch (e) {
-        writeLog('Failed to write debug file:', e && e.message ? e.message : e);
-      }
+      writeLog(errorMsg); 
       process.exit(1);
     }
   } catch (err) {
     const errorMsg = 'Error preparing frontend: ' + (err && err.stack ? err.stack : err);
-    writeLog(errorMsg);
-    try {
-      writeDebugFileToDesktop(errorMsg);
-    } catch (e) {
-      writeLog('Failed to write debug file:', e && e.message ? e.message : e);
-    }
+    writeLog(errorMsg); 
     process.exit(1);
   }
 })();
