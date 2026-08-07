@@ -670,21 +670,9 @@ app.get('*', (req, res) => {
   }
 
   // Diagnostic fallback - render an informative HTML page showing the
-  // resolved dist path, the files that exist there (if any), and the tail
-  // of the launcher log (if present). This helps debugging when builds
+  // resolved dist path, the files that exist there (if any), this helps debugging when builds
   // are missing or a different output folder was used.
-  console.error(chalk.red(`[404] index.html not found at ${indexPath}`));
-
-  function safeReadTail(filePath, lines = 200) {
-    try {
-      if (!fs.existsSync(filePath)) return '';
-      const data = fs.readFileSync(filePath, { encoding: 'utf8' });
-      const chunks = data.replace(/\r\n/g, '\n').split('\n');
-      return chunks.slice(-lines).join('\n');
-    } catch (e) {
-      return `Could not read ${filePath}: ${e.message}`;
-    }
-  }
+  console.error(chalk.red(`[404] index.html not found at ${indexPath}`)); 
 
   const listing = (() => {
     try {
@@ -696,9 +684,7 @@ app.get('*', (req, res) => {
       return `Error listing ${config.distPath}: ${e.message}`;
     }
   })();
-
-  const launcherLogPath = path.join(__dirname, 'launcher.log');
-  const launcherTail = safeReadTail(launcherLogPath, 200);
+ 
 
   const html = `<!doctype html>
   <html>
@@ -716,14 +702,11 @@ app.get('*', (req, res) => {
       <li><b>Dist root:</b> <code>${config._distRoot}</code></li>
     </ul>
     <h2>Directory Listing (${config.distPath})</h2>
-    <pre>${listing}</pre>
-    <h2>Launcher Log (tail)</h2>
-    <pre>${launcherTail || '(no launcher log found)'}</pre>
+    <pre>${listing}</pre> 
     <h2>Next Steps</h2>
     <ol>
       <li>Ensure you ran <code>npm run build -- --configuration production</code> in <code>maxhanna.client</code>.</li>
-      <li>Confirm <code>index.html</code> exists under the dist output. The server prefers <code>dist/maxhanna.client/browser</code>.</li>
-      <li>Check the launcher log above for build errors.</li>
+      <li>Confirm <code>index.html</code> exists under the dist output. The server prefers <code>dist/maxhanna.client/browser</code>.</li> 
     </ol>
   </body>
   </html>`;
