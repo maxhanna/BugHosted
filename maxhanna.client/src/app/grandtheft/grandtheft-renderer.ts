@@ -619,8 +619,26 @@ export class GrandTheftRenderer {
     }
     return result;
   }
-  getNearbySupermarkets(x: number, z: number, radius: number): { x: number; z: number; yaw: number }[] {
-    const result: { x: number; z: number; yaw: number }[] = [];
+  /**
+   * Street-facing half-depth (world units) of a supermarket building, used to
+   * place its front door. Matches the component's building-collision extents.
+   */
+  private supermarketHalfDepth(model: CityMesh[], scale: [number, number, number], yaw: number): number {
+    let mx = 0, mz = 0;
+    for (const m of model) {
+      if (m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined) continue;
+      mx = Math.max(mx, (m.maxX - m.minX) / 2);
+      mz = Math.max(mz, (m.maxZ - m.minZ) / 2);
+    }
+    const rs = model.length > 0 ? (model[0].renderScale ?? 1) : 1;
+    const hw = mx * (scale[0] ?? 1) * rs;
+    const hd = mz * (scale[2] ?? 1) * rs;
+    const rot = ((yaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    const swap = Math.abs(rot - Math.PI / 2) < 0.01 || Math.abs(rot - Math.PI * 3 / 2) < 0.01;
+    return swap ? hw : hd;
+  }
+  getNearbySupermarkets(x: number, z: number, radius: number): { x: number; z: number; yaw: number; hd: number }[] {
+    const result: { x: number; z: number; yaw: number; hd: number }[] = [];
     const pcx = Math.floor(x / CHUNK_SIZE);
     const pcz = Math.floor(z / CHUNK_SIZE);
     for (let dz = -1; dz <= 1; dz++) {
@@ -1783,7 +1801,7 @@ void main() {
     const barrels: { x: number; z: number; yaw: number }[] = [];
     const chickens: { x: number; z: number; yaw: number }[] = [];
     const trees: { x: number; z: number; yaw: number; scale: number }[] = [];
-    const supermarkets: { x: number; z: number; yaw: number }[] = [];
+    const supermarkets: { x: number; z: number; yaw: number; hd: number }[] = [];
     const tatami: { x: number; z: number; yaw: number }[] = [];
     const cabins: { x: number; z: number; yaw: number }[] = [];
     const lighthouses: { x: number; z: number; yaw: number }[] = [];
@@ -2562,7 +2580,7 @@ void main() {
                 if (tryPlace(model, px, pz, sc, yaw)) {
                   buildings.push({ model, x: px, y: -cityMinY * scVal + 0.15, z: pz, yaw, scale: sc });
                   if (model.length > 0 && model[0].carName && model[0].carName.includes('supermarket')) {
-                    supermarkets.push({ x: px, z: pz, yaw });
+                    supermarkets.push({ x: px, z: pz, yaw, hd: this.supermarketHalfDepth(model, sc, yaw) });
                   }
                 }
               } else {
@@ -2774,8 +2792,9 @@ void main() {
         }
         const scale = Math.max(w, d) / 18 * 3.5;
         const cityMinY = this.getModelMinY(smModel);
-        buildings.push({ model: smModel, x: px, y: -cityMinY * scale + 0.15, z: pz, yaw, scale: [scale, scale, scale] });
-        supermarkets.push({ x: px, z: pz, yaw });
+        const scArr: [number, number, number] = [scale, scale, scale];
+        buildings.push({ model: smModel, x: px, y: -cityMinY * scale + 0.15, z: pz, yaw, scale: scArr });
+        supermarkets.push({ x: px, z: pz, yaw, hd: this.supermarketHalfDepth(smModel, scArr, yaw) });
       }
     }
     for (const entry of GrandTheftRenderer.AIRPORT_ENTRY_ROADS) {
@@ -3795,6 +3814,8 @@ void main() {
     }
     const hpMesh = this.getHpBarMesh();
     const hpMaxDistSq = 150 * 150;
+    // Thin billboard bars — draw double-sided so they never vanish from the back.
+    gl.disable(gl.CULL_FACE);
     const drawBar = (bx: number, by: number, bz: number, hp: number, maxHp: number) => {
       const ratio = Math.max(0, Math.min(1, hp / Math.max(1, maxHp)));
       if (ratio >= 1 || ratio <= 0) return;
@@ -3820,6 +3841,7 @@ void main() {
       const hp = (pc as any).health ?? maxHp;
       if (hp > 0 && hp < maxHp) drawBar(pc.x, 2.6, pc.z, hp, maxHp);
     }
+    gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
     if (this.droppedWeapons && this.droppedWeapons.length > 0) {
       for (const dw of this.droppedWeapons) {
@@ -4054,7 +4076,9 @@ void main() {
     const key = 'hpbar';
     if (this.meshCache.has(key)) return this.meshCache.get(key)!;
     const verts: number[] = [], indices: number[] = [];
-    this.addBox(verts, indices, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0);
+    // A proper flat, thin health bar (1 wide x 0.12 tall x 0.03 deep). The old
+    // 1x1x1 cube scaled 2.2x1x1 read as a weird floating box over damaged cars.
+    this.addBox(verts, indices, 0, 0, 0, 1, 0.12, 0.03, 1, 1, 1, 1, 0);
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set(key, mesh);
     return mesh;
@@ -4753,8 +4777,12 @@ void main() {
       }
       const needsYFlip = url.includes("crownVic") || url.includes("maleNPC")
         || url.includes('taxi') || url.includes('hilux') || url.includes("toyota_corsa_b");
+      // pizzaMoped raw model faces +X. The 90° Y rotation below (needsY90) plus the
+      // shared motorcycle 180° draw-time flip in drawMesh orient it to face +Z
+      // (the game's forward axis). A second load-time flip previously lived here,
+      // which net-rotated the model 180° so the moped drove backwards — removed.
       const needsY90 = url.includes('pizzaMoped');
-      const needsYFlipMoped = url.includes('pizzaMoped');
+      const needsYFlipMoped = false;
       const angleX = needsRotation
         ? (url.includes('redneck') ? Math.PI / 2 : -Math.PI / 2)
         : 0;
@@ -4775,10 +4803,6 @@ void main() {
             z = z2;
           }
           if (needsYFlip) {
-            x = -x;
-            z = -z;
-          }
-          if (needsYFlipMoped) {
             x = -x;
             z = -z;
           }
@@ -4829,14 +4853,6 @@ void main() {
             verts[i + 5] = nz2;
           }
           if (needsYFlip) {
-            x = -x;
-            z = -z;
-            const nx = verts[i + 3];
-            const nz = verts[i + 5];
-            verts[i + 3] = -nx;
-            verts[i + 5] = -nz;
-          }
-          if (needsYFlipMoped) {
             x = -x;
             z = -z;
             const nx = verts[i + 3];

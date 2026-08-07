@@ -41,6 +41,7 @@ const HOSPITAL_SPAWN_YAW = Math.PI;
 const HOME_BASE_X = 120;
 const HOME_BASE_Z = 40;
 const HOME_BASE_YAW = 0;
+const GT_WORLD_STATE_KEY = 'gt_world_state_v1';
 const GARAGE_ENTRANCE_X = 120;
 const GARAGE_ENTRANCE_Z = 52;
 const GARAGE_INTERIOR_X = 120;
@@ -50,6 +51,14 @@ const GARAGE_DOOR_OPEN_SPEED = 3;
 const VENDING_MACHINE_INTERVAL = 10;
 const VENDING_MACHINE_HEAL_DIST = 4;
 const VENDING_MACHINE_OFFSET = 12;
+// Grocery-store interiors: walk in through the front door, stick up the register.
+const STORE_LOOK_RADIUS = 14;       // how close you must be to a supermarket to detect its door
+const STORE_ENTER_DIST = 2.6;       // distance to the door point (outside) to enter
+const STORE_EXIT_DIST = 3.4;        // distance to the door point (inside) to leave
+const STORE_REGISTER_DIST = 4.5;    // distance to the register (store centre) to rob
+const STORE_ROB_COOLDOWN_MS = 600000; // shared with the look-at supermarket robbery (10 min)
+const STORE_INTERIOR_CAM_DIST = 2.2;  // tight camera so the view stays inside the building
+const STORE_INTERIOR_CAM_HEIGHT = 1.6;
 const WEAPON_DAMAGES = [10, 15, 25, 45, 100];
 const PLAYER_POLL_FAST_MS = 200;
 const PLAYER_POLL_SLOW_MS = 1000;
@@ -113,13 +122,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
+  // World persistence: throttled snapshot of player position + nearby local
+  // parked cars so a refresh drops you back where you were, cars included.
+  private _worldSaveTimer = 0;
+  private onWorldSave = () => this.saveWorldState();
   trafficCars: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; path: number[]; pathIdx: number; state: 'drive' | 'stop'; stopTimer: number; nextYaw: number; laneOffsetX: number; laneOffsetZ: number; hasDriver?: boolean; gender?: string; passengerCount?: number; speed: number }[] = [];
   private trafficNodes: { x: number; z: number }[] = [];
   private trafficEdges: [number, number][] = [];
   private trafficLanes: TrafficLane[] = [];
   private trafficNodeIdCounter = 10000;
   private trafficSpawnTimer = 0;
-  localPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; targetX: number; targetZ: number; waitTimer: number }[] = [];
+  localPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; targetX: number; targetZ: number; waitTimer: number; fightBackUntil?: number; punchTimer?: number }[] = [];
   private pedSpawnTimer = 0;
   private pedIdCounter = 20000;
   airportLotCars: { x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; phase: number; dir: number; speed: number; p0: { x: number; z: number }; p1: { x: number; z: number } }[] = [];
@@ -159,6 +172,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _npcFleeTimers: { [id: number]: number } = {};
   private _npcFleeStarted: { [id: number]: number } = {};
   private _screechCtx: AudioContext | null = null;
+  // Procedural car SFX: engine drone, crash thuds, and NPC-collision sounds.
+  private _engineCtx: AudioContext | null = null;
+  private _engineOsc: OscillatorNode | null = null;
+  private _engineOsc2: OscillatorNode | null = null;
+  private _engineFilter: BiquadFilterNode | null = null;
+  private _engineGain: GainNode | null = null;
+  private _engineLevel = 0;
+  private _crashCtx: AudioContext | null = null;
+  private _lastBrakeScreech = 0;
+  private _lastCrashTime = 0;
+  private _lastWallCrashTime = 0;
+  private _npcCrashCooldowns: Map<string, number> = new Map();
   private _lastScreechTime = 0;
   private _respawnTimer: any = null;
   private _justRespawned = false;
@@ -231,6 +256,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   stolenNpcIds: Set<number> = new Set();
   vendingMachines: VendingMachine[] = [];
   nearVendingMachine = false;
+  // Grocery-store entry: outside the front door, at the register, or at the exit.
+  nearStoreDoor = false;
+  nearStoreRegister = false;
+  nearStoreExit = false;
+  inStore: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string } | null = null;
+  private _nearStore: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string } | null = null;
+  storeToast = '';
+  private _storeToastTimer: any = null;
+  private _savedCamDist = 0;
+  private _savedCamHeight = 0;
+  private _storeLeaveUntil = 0;
   private _hudUpdateTimer = 0;
   taxiMission: { state: 'pickup' | 'deliver'; passengerId: number; passengerGender: string; passengerMesh: CityMesh | CityMesh[]; passengerX: number; passengerZ: number; destinationX: number; destinationZ: number; fare: number; phase: number; timer: number } | null = null;
   private taxiSearchTimer = 0;
@@ -239,6 +275,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   taxiSearchCountdown = 0;
   // Taxi passenger ride: pick a destination, a taxi drives in, you step out.
   nearTaxi = false;
+  // Which half of the taxi the player is beside: front doors = steal, back doors = hail.
+  taxiEntrySide: 'front' | 'back' | null = null;
   showTaxiDestinations = false;
   taxiDestinations: { name: string; icon: string; x: number; z: number; yaw: number }[] = [];
   taxiRideActive = false;
@@ -528,6 +566,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (batch.length === 0) {
         // Critical assets are in — start the game NOW.
         this.renderer.clearChunkCache();
+        this.restoreWorldState();
         this.isLoaded = true;
         this.loadingAssets = 0;
         this.deferredRemaining = deferredTasks.length;
@@ -552,6 +591,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       document.addEventListener('pointerlockchange', this.onPointerLockChange);
     }
     window.addEventListener('resize', this.onResize);
+    window.addEventListener('pagehide', this.onWorldSave);
+    window.addEventListener('beforeunload', this.onWorldSave);
     this.initRadio();
     document.addEventListener('keydown', this.onKeyDown);
     document.addEventListener('keyup', this.onKeyUp);
@@ -622,6 +663,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     canvas.removeEventListener('click', this.onCanvasClick);
     document.removeEventListener('pointerlockchange', this.onPointerLockChange);
     window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('pagehide', this.onWorldSave);
+    window.removeEventListener('beforeunload', this.onWorldSave);
     document.removeEventListener('keydown', this.onKeyDown);
     document.removeEventListener('keyup', this.onKeyUp);
     document.removeEventListener('mousemove', this.onMouseMove);
@@ -639,7 +682,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.stopAutoFire();
     if (this.policeSirenSound) { this.policeSirenSound.pause(); this.policeSirenSound = null; }
     this.stopHeliAudio();
+    this.stopEngineAudio();
     if (this._screechCtx) { try { this._screechCtx.close(); } catch { } this._screechCtx = null; }
+    if (this._crashCtx) { try { this._crashCtx.close(); } catch { } this._crashCtx = null; }
+    this._npcCrashCooldowns.clear();
     this.renderer?.clearCache();
     clearTimeout(this._chatClearTimer);
     this.remove_me("GrandTheftComponent")
@@ -715,6 +761,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   toggleWeaponWheel() { this.showWeaponWheel = !this.showWeaponWheel; }
   toggleCar() {
+    // Inside a store: rob the register, or leave through the door.
+    if (this.inStore) {
+      if (this.nearStoreRegister) { this.robStore(); return; }
+      if (this.nearStoreExit) { this.leaveStore(); return; }
+      return;
+    }
+    if (this.nearStoreDoor && !this.isInCar && !this.isPassenger) {
+      if (this._nearStore) { this.enterStore(this._nearStore); return; }
+    }
     if (this.isPassenger) {
       this.exitPassenger();
       return;
@@ -725,7 +780,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
       this.exitCar();
     } else if (this.nearTaxi) {
-      this.openTaxiDestinations();
+      // Front doors (driver or passenger) let you steal the taxi and drive off;
+      // the back doors put you inside as a passenger with a destination picker.
+      if (this.taxiEntrySide === 'front') {
+        const taxi = this.getNearbyTaxi();
+        if (taxi) this.enterCar(taxi.id);
+      } else {
+        this.openTaxiDestinations();
+      }
     } else if (this.nearCar) {
       this.enterCar();
     } else {
@@ -839,12 +901,24 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     });
     this.passenger = null;
   }
-  private enterCar() {
+  /** Nearest drivable taxi within reach (NPC or parked), or null. */
+  private getNearbyTaxi(): { id: number; x: number; z: number; yaw: number } | null {
+    let best: { id: number; x: number; z: number; yaw: number } | null = null;
+    let bestDist = ENTER_CAR_DIST;
+    for (const v of [...this.serverNPCs, ...this.parkedCars]) {
+      if (v.type !== 'taxi' || v.health <= 0) continue;
+      const d = Math.sqrt((v.x - this.carX) ** 2 + (v.z - this.carZ) ** 2);
+      if (d < bestDist) { bestDist = d; best = { id: v.id, x: v.x, z: v.z, yaw: v.yaw }; }
+    }
+    return best;
+  }
+  private enterCar(onlyId?: number) {
     const userId = this.getUserId();
     if (!userId) return;
     const tryEnter = (list: any[], isParked: boolean = false) => {
       for (const v of list) {
         if (v.health <= 0) continue;
+        if (onlyId !== undefined && v.id !== onlyId) continue;
         const dx = v.x - this.carX;
         const dz = v.z - this.carZ;
         if (Math.sqrt(dx * dx + dz * dz) < ENTER_CAR_DIST) {
@@ -1677,7 +1751,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         };
         for (const npc of this.serverNPCs) checkShooter(npc);
         for (const ped of this.serverPedestrians) checkShooter(ped);
-        if (foundShooter) this.playWeaponSound(0);
+        // NPC gunfire uses the rifle shot (weapon 2); weapon 0 is Unarmed and silent.
+        if (foundShooter) this.playWeaponSound(2);
       }
       // Ignore stale server health (0) right after local respawn to avoid re-death
       if (!this._justRespawned || res.yourHealth > 0) {
@@ -1852,6 +1927,168 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       src.stop(ctx.currentTime + dur);
     } catch (e) { }
   }
+  // ---- Car engine audio (procedural Web Audio) ----
+  // A sawtooth + sub-octave square through a lowpass. RPM climbs with throttle
+  // and speed, the filter opens under load, and the level idles softly, rises
+  // with speed, and fades to silence when you're not driving. Motorcycles run a
+  // higher pitch band.
+  private initEngineAudio() {
+    if (this._engineCtx) return;
+    try {
+      const ctx = new AudioContext();
+      if (ctx.state === 'suspended') { try { ctx.resume(); } catch { } }
+      this._engineCtx = ctx;
+      this._engineFilter = ctx.createBiquadFilter();
+      this._engineFilter.type = 'lowpass';
+      this._engineFilter.frequency.value = 300;
+      this._engineFilter.Q.value = 1.2;
+      this._engineGain = ctx.createGain();
+      this._engineGain.gain.value = 0;
+      this._engineFilter.connect(this._engineGain);
+      this._engineGain.connect(ctx.destination);
+      this._engineOsc = ctx.createOscillator();
+      this._engineOsc.type = 'sawtooth';
+      this._engineOsc.frequency.value = 55;
+      this._engineOsc.connect(this._engineFilter);
+      this._engineOsc2 = ctx.createOscillator();
+      this._engineOsc2.type = 'square';
+      this._engineOsc2.frequency.value = 27.5;
+      this._engineOsc2.detune.value = 7;
+      const o2g = ctx.createGain();
+      o2g.gain.value = 0.5;
+      this._engineOsc2.connect(o2g);
+      o2g.connect(this._engineFilter);
+      this._engineOsc.start();
+      this._engineOsc2.start();
+    } catch (e) {
+      this._engineCtx = null;
+    }
+  }
+  private updateEngineAudio(dt: number) {
+    if (!this._engineCtx) {
+      if (!this.isInCar) return;
+      const t = this.vehicleType;
+      if (t === 'boat' || t === 'helicopter' || t === 'plane') return;
+      this.initEngineAudio();
+      if (!this._engineCtx) return;
+    }
+    if (this._engineCtx.state === 'suspended') { try { this._engineCtx.resume(); } catch { } }
+    const driving = this.isInCar && this.vehicleType !== 'boat' && this.vehicleType !== 'helicopter' && this.vehicleType !== 'plane';
+    if (!driving) {
+      // On foot / passenger / dead — let the engine fade out.
+      this._engineLevel *= Math.max(0, 1 - 6 * dt);
+      if (this._engineGain) this._engineGain.gain.value = this._engineLevel * this.sfxVolume;
+      return;
+    }
+    const isBike = this.vehicleType === 'motorcycle';
+    const speed = Math.abs(this.carSpeed);
+    const throttle = this.keys.has('KeyW') || (this.isMobile && this.joystickActive && this.joystickY > 0.1) ? 1 : 0;
+    const braking = (this.keys.has('KeyS') || this.keys.has('Space')) && speed > 2 ? 1 : 0;
+    const base = isBike ? 100 : 55;
+    const top = isBike ? 340 : 155;
+    const speedNorm = Math.min(1, speed / (isBike ? 70 : 55));
+    const rpm = base + (top - base) * Math.min(1, 0.30 + speedNorm * 0.55 + throttle * 0.25 - braking * 0.12);
+    const level = 0.055 + speedNorm * 0.10 + throttle * 0.05 + braking * 0.02;
+    this._engineLevel += (level - this._engineLevel) * Math.min(1, 7 * dt);
+    if (this._engineOsc) this._engineOsc.frequency.value = rpm;
+    if (this._engineOsc2) this._engineOsc2.frequency.value = rpm * 0.5;
+    if (this._engineFilter) this._engineFilter.frequency.value = 240 + this._engineLevel * 800 + throttle * 400;
+    if (this._engineGain) this._engineGain.gain.value = this._engineLevel * this.sfxVolume * (isBike ? 0.75 : 1);
+  }
+  private stopEngineAudio() {
+    try {
+      for (const o of [this._engineOsc, this._engineOsc2]) {
+        if (o) { try { o.stop(); } catch { } try { o.disconnect(); } catch { } }
+      }
+      if (this._engineGain) { try { this._engineGain.disconnect(); } catch { } }
+      if (this._engineFilter) { try { this._engineFilter.disconnect(); } catch { } }
+      if (this._engineCtx) { try { this._engineCtx.close(); } catch { } }
+    } catch (e) { }
+    this._engineCtx = null; this._engineOsc = null; this._engineOsc2 = null;
+    this._engineFilter = null; this._engineGain = null; this._engineLevel = 0;
+  }
+  // Short procedural metal-crunch for collisions: noise through a bandpass swept
+  // down + a low sine thud. Severity (0..1) scales loudness and length, and the
+  // global throttle stops a grinding overlap from firing every frame.
+  private playCrashSound(severity: number) {
+    if (this.sfxVolume <= 0 || severity <= 0) return;
+    const now = performance.now();
+    if (now - this._lastCrashTime < 350) return;
+    this._lastCrashTime = now;
+    try {
+      if (!this._crashCtx) {
+        this._crashCtx = new AudioContext();
+        if (this._crashCtx.state === 'suspended') { try { this._crashCtx.resume(); } catch { } }
+      }
+      const ctx = this._crashCtx;
+      if (ctx.state === 'suspended') { try { ctx.resume(); } catch { } }
+      const dur = 0.22 + severity * 0.3;
+      const len = Math.floor(ctx.sampleRate * dur);
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 0.9;
+      bp.frequency.setValueAtTime(1400 + 600 * severity, ctx.currentTime);
+      bp.frequency.exponentialRampToValueAtTime(240, ctx.currentTime + dur);
+      const g = ctx.createGain();
+      const vol = 0.5 * severity * this.sfxVolume;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(vol, ctx.currentTime + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+      src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+      src.start();
+      src.stop(ctx.currentTime + dur);
+      // Low impact thud layered under the crunch.
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(120 + 60 * severity, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(38, ctx.currentTime + 0.25);
+      const og = ctx.createGain();
+      og.gain.setValueAtTime(0.0001, ctx.currentTime);
+      og.gain.exponentialRampToValueAtTime(0.45 * severity * this.sfxVolume, ctx.currentTime + 0.02);
+      og.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
+      osc.connect(og); og.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+    } catch (e) { }
+  }
+  // Distant traffic crashes: NPC cars bumping into each other or parked cars
+  // near the player. Runs at 10 Hz; per-pair cooldown stops repeats.
+  private updateNPCCrashSounds() {
+    if (this.sfxVolume <= 0) return;
+    const now = performance.now();
+    const moving = [...this.serverNPCs, ...this.trafficCars];
+    if (moving.length === 0) return;
+    const check = (a: any, b: any) => {
+      const dx = a.x - b.x, dz = a.z - b.z;
+      const d = Math.hypot(dx, dz);
+      // Tight gate so traffic merely passing curb-parked cars doesn't thud
+      // constantly: real impacts need close contact and a solid speed gap.
+      if (d < 2.6 && d > 0.1) {
+        const relSpeed = Math.abs((a.speed || 0) - (b.speed || 0));
+        if (relSpeed >= 8) {
+          const key = `${a.id}:${b.id}`;
+          const last = this._npcCrashCooldowns.get(key) || 0;
+          if (now - last > 800) {
+            this._npcCrashCooldowns.set(key, now);
+            if (this._npcCrashCooldowns.size > 120) this._npcCrashCooldowns.clear();
+            const dist = Math.hypot(a.x - this.carX, a.z - this.carZ);
+            if (dist < 45) this.playCrashSound(Math.min(1, relSpeed / 25) * (1 - dist / 50));
+          }
+        }
+      }
+    };
+    for (let i = 0; i < moving.length; i++) {
+      for (let j = i + 1; j < moving.length; j++) check(moving[i], moving[j]);
+      for (const p of this.parkedCars) {
+        if (p.health > 0) check(moving[i], p);
+      }
+    }
+  }
   private checkBulletHit(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxRange: number = 50) {
     const checkTargets = (list: any[], isPlayer: boolean) => {
       for (const t of list) {
@@ -1872,9 +2109,22 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               if (res && res.targetHealth !== undefined) t.health = res.targetHealth;
             });
           } else {
+            const wasAlive = (t.health ?? 100) > 0;
             t.health = (t.health ?? 100) - dmg;
             this.gtService.hit(this.getUserId(), t.id, 1, dmg, ox, oz, this.currentWeapon);
             this.score += 10;
+            // Local peds have no server presence (ids the server never sees) —
+            // mirror the server's FightBackUntil logic so the crowd retaliates
+            // with unarmed punches when provoked with bare fists.
+            if (list === this.localPedestrians && this.currentWeapon === 0 && t.health > 0) {
+              t.fightBackUntil = performance.now() / 1000 + 8;
+              t.punchTimer = 0;
+            }
+            // Report the killing blow of a client-local NPC so the murder still
+            // draws police heat and counts toward kill stats.
+            if (list === this.localPedestrians && wasAlive && t.health <= 0) {
+              this.gtService.hit(this.getUserId(), t.id, 1, dmg, ox, oz, this.currentWeapon, true);
+            }
           }
           return true;
         }
@@ -2475,6 +2725,35 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (Math.abs(ped.x - this.carX) > 300 || Math.abs(ped.z - this.carZ) > 300) {
         this.localPedestrians.splice(i, 1); continue;
       }
+      // Provoked peds chase the player and throw punches — client mirror of the
+      // server's FightBackUntil (8s window, 1.6x run speed, 1.7 range, 700ms
+      // swing cooldown, 4 dmg). They give up if you get in a car or die.
+      if (ped.fightBackUntil) {
+        const nowSec = performance.now() / 1000;
+        if (nowSec >= ped.fightBackUntil) {
+          ped.fightBackUntil = undefined;
+          ped.punchTimer = undefined;
+        } else if (!this.isInCar && !this.taxiRideActive && this.health > 0) {
+          const pdx = this.carX - ped.x;
+          const pdz = this.carZ - ped.z;
+          const pdist = Math.hypot(pdx, pdz);
+          ped.yaw = Math.atan2(pdx, pdz);
+          if (pdist > 1.7) {
+            const chaseSpeed = 2 * 1.6;
+            ped.x += Math.sin(ped.yaw) * chaseSpeed * dt;
+            ped.z += Math.cos(ped.yaw) * chaseSpeed * dt;
+          } else if (!ped.punchTimer || nowSec - ped.punchTimer > 0.7) {
+            ped.punchTimer = nowSec;
+            this.spawnBlood(this.carX, 1.2, this.carZ, pdx / pdist, 0, pdz / pdist);
+            // Report as an anonymous NPC hit so the damage survives the next
+            // health poll sync (server _playerHealth is authoritative), without
+            // raising the player's own wanted level.
+            this.gtService.hit(0, this.getUserId(), 1, 4, this.carX, this.carZ, 0);
+            this.health = Math.max(0, this.health - 4);
+          }
+          continue;
+        }
+      }
       if (ped.waitTimer > 0) {
         ped.waitTimer -= dt;
         continue;
@@ -2521,6 +2800,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private gameLoop = (now: number) => {
     const dt = Math.min((now - this.lastTime) / 1000, 0.05);
     this.lastTime = now;
+    this._worldSaveTimer += dt;
+    if (this._worldSaveTimer >= 3) {
+      this._worldSaveTimer = 0;
+      this.saveWorldState();
+    }
     if (!this.isLoaded) {
       this._hudUpdateTimer += dt;
       if (this._hudUpdateTimer > 0.1) {
@@ -2545,6 +2829,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     else if (this.isInCar && this.vehicleType === 'motorcycle') this.updateMotorcycle(dt);
     else if (this.isInCar) this.updateCar(dt);
     else this.updateWalking(dt);
+    this.updateEngineAudio(dt);
     this.updateCamera(dt);
     this.updateScore(dt);
     this.updateProjectiles(dt);
@@ -2556,8 +2841,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this._collisionTimer = 0;
       this.checkNearCar();
       this.checkNearVendingMachine();
+      this.checkNearStore();
       this.checkNearOtherPlayerCar();
       this.updateVendingMachines();
+      this.updateNPCCrashSounds();
     }
     this.showPassengerPrompt = this.canPickupPassenger();
     this.showPolicePrompt = this.isMobile && this.isInCar && this.vehicleType === 'police' && !this.policeMode;
@@ -2838,6 +3125,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.carSpeed = 0;
           this.camYaw = HOSPITAL_SPAWN_YAW;
           this.camPitch = 0.2;
+          this.camDist = 4;
+          this.camHeight = 2;
+          this.inStore = null;
+          this.nearStoreRegister = false;
+          this.nearStoreExit = false;
+          this.nearStoreDoor = false;
           this._wasDead = false;
           this.wastedTimer = 0;
           this._respawnTimer = null;
@@ -3091,6 +3384,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.carVz = (this.carVz / currentSpd) * maxSpd;
     }
     this.carSpeed = fwdSpeed;
+    // Hard braking or handbrake at speed → tire screech (throttled).
+    if ((this.keys.has('KeyS') || this.keys.has('Space')) && Math.abs(this.carSpeed) > 8) {
+      const nowT = performance.now();
+      if (nowT - this._lastBrakeScreech > 550) {
+        this._lastBrakeScreech = nowT;
+        this.playTireScreech();
+      }
+    }
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
     this.updateJumpPhysics(dt);
@@ -3277,6 +3578,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.carVz = (this.carVz / currentSpd) * maxSpd;
     }
     this.carSpeed = fwdSpeed;
+    // Hard braking or handbrake at speed → tire screech (throttled).
+    if ((this.keys.has('KeyS') || this.keys.has('Space')) && Math.abs(this.carSpeed) > 8) {
+      const nowT = performance.now();
+      if (nowT - this._lastBrakeScreech > 550) {
+        this._lastBrakeScreech = nowT;
+        this.playTireScreech();
+      }
+    }
     this.carX += this.carVx * dt;
     this.carZ += this.carVz * dt;
     this.carY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
@@ -3475,20 +3784,33 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carYaw += bankFactor * turnSpeed * dt * Math.min(1, this.carSpeed / 20);
     const sinPitch = Math.sin(this.carPitch);
     const cosPitch = Math.cos(this.carPitch);
+    // No auto-throttle: the plane only starts moving when the player gives
+    // input (W/S pitch, Space/Shift climb, or the joystick). Parked on the
+    // runway it sits still until you press up.
+    const hasInput = this.altUpPressed || this.altDownPressed
+      || this.keys.has('KeyW') || this.keys.has('KeyS')
+      || (this.isMobile && this.joystickActive);
     const targetSpeed = maxSpeed * (0.5 + 0.5 * cosPitch);
-    if (this.carSpeed < targetSpeed) this.carSpeed = Math.min(this.carSpeed + 12 * dt, targetSpeed);
-    else if (this.carSpeed > targetSpeed) this.carSpeed = Math.max(this.carSpeed - 8 * dt, targetSpeed);
-    if (this.altUpPressed) {
-      this.carVy = Math.min(this.carVy + altClimbRate * dt, 10);
-    } else if (this.altDownPressed) {
-      this.carVy = Math.max(this.carVy - altClimbRate * dt, -10);
+    if (hasInput) {
+      if (this.carSpeed < targetSpeed) this.carSpeed = Math.min(this.carSpeed + 12 * dt, targetSpeed);
+      else if (this.carSpeed > targetSpeed) this.carSpeed = Math.max(this.carSpeed - 8 * dt, targetSpeed);
+      if (this.altUpPressed) {
+        this.carVy = Math.min(this.carVy + altClimbRate * dt, 10);
+      } else if (this.altDownPressed) {
+        this.carVy = Math.max(this.carVy - altClimbRate * dt, -10);
+      } else {
+        const speed = this.carSpeed;
+        const lift = speed * speed * cosPitch * 0.006;
+        const thrustVy = speed * sinPitch * 0.3;
+        this.carVy += (lift + thrustVy - 5 - this.carVy * 0.5) * dt;
+      }
     } else {
-      const speed = this.carSpeed;
-      const lift = speed * speed * cosPitch * 0.006;
-      const dragForce = speed * 0.02;
-      const thrustVy = speed * sinPitch * 0.3;
-      this.carVy += (lift + thrustVy - 5 - this.carVy * 0.5) * dt;
-      this.carSpeed -= dragForce * dt;
+      // Idle: hold the current airspeed and ease vertical speed to zero so the
+      // plane cruises level instead of falling — no need to hold it up.
+      this.carVy *= Math.max(0, 1 - 2.0 * dt);
+      // Slow planes settle: decay toward a stop so landing is possible without
+      // a brake key (glide in slow, release, roll to a halt).
+      if (this.carSpeed < 15) this.carSpeed = Math.max(0, this.carSpeed - 10 * dt);
     }
     if (this.carSpeed < minSpeed && this.carPitch < -0.05) {
       this.carVy += (-5 * 1.5) * dt;
@@ -3544,6 +3866,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private checkBuildingsInChunk(chunkCX: number, chunkCZ: number, margin: number) {
     const chunk = this.renderer.getCityChunk(chunkCX, chunkCZ);
     for (const bld of chunk.buildings) {
+      // Don't shove the player out of the store they're currently inside.
+      if (this.inStore && bld.x === this.inStore.x && bld.z === this.inStore.z) continue;
       const models = Array.isArray(bld.model) ? bld.model : [bld.model];
       for (const m of models) {
         if (m.minX === undefined || m.maxX === undefined || m.minZ === undefined || m.maxZ === undefined) continue;
@@ -3559,6 +3883,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const dx = this.carX - bld.x;
         const dz = this.carZ - bld.z;
         if (Math.abs(dx) < ehw && Math.abs(dz) < ehd && this.carY < 15) {
+          if (this.isInCar) {
+            const wallSpd = Math.hypot(this.carVx, this.carVz);
+            const nowW = performance.now();
+            if (wallSpd >= 9 && nowW - this._lastWallCrashTime > 450) {
+              this._lastWallCrashTime = nowW;
+              this.playCrashSound(Math.min(1, wallSpd / 28));
+            }
+          }
           const overlapX = ehw - Math.abs(dx), overlapZ = ehd - Math.abs(dz);
           if (overlapX < overlapZ) { this.carX += dx > 0 ? overlapX : -overlapX; this.carVx *= -0.3; }
           else { this.carZ += dz > 0 ? overlapZ : -overlapZ; this.carVz *= -0.3; }
@@ -3568,6 +3900,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
   private getBuildingRoofY(x: number, z: number): number {
+    // Inside a store you walk on the floor, never up onto the roof.
+    if (this.inStore) return -Infinity;
     const cx = Math.floor(x / CHUNK_SIZE), cz = Math.floor(z / CHUNK_SIZE);
     let roofY = -Infinity;
     for (let dz = -1; dz <= 1; dz++) {
@@ -3627,6 +3961,125 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     );
   }
   /**
+   * Grocery-store entry: while inside, the register is at the store centre and
+   * the exit is at the front door. Outside, detect the closest supermarket's
+   * front door (models face -Z, so the street side is -sin(yaw), -cos(yaw)).
+   */
+  private checkNearStore() {
+    if (this.isInCar || this.isPassenger) {
+      this.nearStoreDoor = false;
+      this.nearStoreRegister = false;
+      this.nearStoreExit = false;
+      return;
+    }
+    if (this.inStore) {
+      const st = this.inStore;
+      const regDx = this.carX - st.x, regDz = this.carZ - st.z;
+      const distToCenter = Math.sqrt(regDx * regDx + regDz * regDz);
+      // Wandered out of the building (e.g. past the door while walking): exit in
+      // place so store mode can't soft-lock the player with a tight camera.
+      if (distToCenter > st.hd + 6) {
+        this.leaveStoreInPlace();
+        return;
+      }
+      this.nearStoreRegister = distToCenter < STORE_REGISTER_DIST;
+      const exDx = this.carX - st.doorX, exDz = this.carZ - st.doorZ;
+      this.nearStoreExit = Math.sqrt(exDx * exDx + exDz * exDz) < STORE_EXIT_DIST;
+      this.nearStoreDoor = false;
+      return;
+    }
+    this.nearStoreRegister = false;
+    this.nearStoreExit = false;
+    // Freshly left a store: don't immediately re-offer entry at the door.
+    if (Date.now() < this._storeLeaveUntil) {
+      this.nearStoreDoor = false;
+      this._nearStore = null;
+      return;
+    }
+    let best: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string } | null = null;
+    let bestD = Infinity;
+    for (const sm of this.renderer.getNearbySupermarkets(this.carX, this.carZ, STORE_LOOK_RADIUS)) {
+      const frontX = -Math.sin(sm.yaw), frontZ = -Math.cos(sm.yaw);
+      const doorX = sm.x + frontX * (sm.hd + 1.4);
+      const doorZ = sm.z + frontZ * (sm.hd + 1.4);
+      const d = Math.hypot(doorX - this.carX, doorZ - this.carZ);
+      if (d < bestD) {
+        bestD = d;
+        best = { x: sm.x, z: sm.z, yaw: sm.yaw, hd: sm.hd, doorX, doorZ, key: `${sm.x},${sm.z}` };
+      }
+    }
+    this._nearStore = best;
+    this.nearStoreDoor = !!best && bestD < STORE_ENTER_DIST;
+  }
+  private enterStore(sm: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string }) {
+    if (this.isInCar || this.isPassenger) return;
+    const frontX = -Math.sin(sm.yaw), frontZ = -Math.cos(sm.yaw);
+    // Step in and stand ~1.8 units off the back wall, facing the register.
+    this.inStore = sm;
+    this.carX = sm.x - frontX * Math.max(1.2, sm.hd - 1.8);
+    this.carZ = sm.z - frontZ * Math.max(1.2, sm.hd - 1.8);
+    this.carYaw = sm.yaw;
+    this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+    this._savedCamDist = this.camDist;
+    this._savedCamHeight = this.camHeight;
+    this.camDist = STORE_INTERIOR_CAM_DIST;
+    this.camHeight = STORE_INTERIOR_CAM_HEIGHT;
+    this.nearStoreDoor = false;
+    this.nearStoreExit = false;
+  }
+  private leaveStore() {
+    if (!this.inStore) return;
+    const st = this.inStore;
+    this.inStore = null;
+    this.carX = st.doorX - Math.sin(st.yaw) * 1.5;
+    this.carZ = st.doorZ - Math.cos(st.yaw) * 1.5;
+    this.carYaw = st.yaw + Math.PI; // face the street
+    this._storeLeaveUntil = Date.now() + 1500;
+    this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+    this.camDist = this._savedCamDist || 4;
+    this.camHeight = this._savedCamHeight || 2;
+    this.nearStoreRegister = false;
+    this.nearStoreExit = false;
+    this.nearStoreDoor = false;
+    this._nearStore = null;
+  }
+  private leaveStoreInPlace() {
+    if (!this.inStore) return;
+    this.inStore = null;
+    this.camDist = this._savedCamDist || 4;
+    this.camHeight = this._savedCamHeight || 2;
+    this.nearStoreRegister = false;
+    this.nearStoreExit = false;
+    this.nearStoreDoor = false;
+    this._nearStore = null;
+    this._storeLeaveUntil = Date.now() + 1500;
+  }
+  private robStore() {
+    if (!this.inStore) return;
+    if (this.currentWeapon <= 0) {
+      this.showStoreToast('🔫 Pull out a weapon to stick up the register');
+      return;
+    }
+    const key = this.inStore.key;
+    const now = Date.now();
+    const last = this.renderer.supermarketLastPayout.get(key) || 0;
+    if (now - last < STORE_ROB_COOLDOWN_MS) {
+      const mins = Math.ceil((STORE_ROB_COOLDOWN_MS - (now - last)) / 60000);
+      this.showStoreToast(`🕐 Register's already cleaned out — come back in ${mins} min`);
+      return;
+    }
+    this.renderer.supermarketLastPayout.set(key, now);
+    const payout = 5000 + Math.floor(Math.random() * 5001);
+    this.money += payout;
+    this.moneyStacks.push({ x: this.inStore.x, z: this.inStore.z, amount: payout, yaw: 0, age: 0, lifetime: 5 });
+    this.showStoreToast(`💰 STUCK UP! +$${payout.toLocaleString()}`);
+  }
+  private showStoreToast(msg: string) {
+    this.storeToast = msg;
+    if (this._storeToastTimer) clearTimeout(this._storeToastTimer);
+    this._storeToastTimer = setTimeout(() => { this.storeToast = ''; }, 4500);
+  }
+  /**
    * Entry distance for a decorative aircraft (plane/helicopter). These are also
    * registered as buildings for collision, and the collision box is derived from
    * the model bounds × renderScale — which is much wider than ENTER_CAR_DIST for
@@ -3648,10 +4101,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     return Math.max(ENTER_CAR_DIST, maxHalf + 1.5);
   }
   private checkNearCar() {
-    if (this.isInCar) { this.nearCar = false; this.nearTaxi = false; return; }
+    if (this.isInCar) { this.nearCar = false; this.nearTaxi = false; this.taxiEntrySide = null; return; }
     this.nearCar = [...this.serverNPCs, ...this.parkedCars].some(v => v.health > 0 && Math.sqrt((v.x - this.carX) ** 2 + (v.z - this.carZ) ** 2) < ENTER_CAR_DIST);
-    // Standing next to a taxi lets you ride it as a passenger.
-    this.nearTaxi = [...this.serverNPCs, ...this.parkedCars].some(v => v.type === 'taxi' && v.health > 0 && Math.sqrt((v.x - this.carX) ** 2 + (v.z - this.carZ) ** 2) < ENTER_CAR_DIST);
+    // Standing next to a taxi: the front doors (driver/passenger) steal it,
+    // the back doors hail it as a passenger ride.
+    const nearbyTaxi = this.getNearbyTaxi();
+    this.nearTaxi = nearbyTaxi !== null;
+    this.taxiEntrySide = nearbyTaxi
+      ? ((this.carX - nearbyTaxi.x) * Math.sin(nearbyTaxi.yaw) + (this.carZ - nearbyTaxi.z) * Math.cos(nearbyTaxi.yaw)) > 0 ? 'front' : 'back'
+      : null;
     if (!this.nearCar) {
       const cxa = Math.floor(this.carX / 80), cza = Math.floor(this.carZ / 80);
       for (let dza = -1; dza <= 1; dza++) {
@@ -3713,8 +4171,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.lookTargetHealth = bestHealth;
     this.lookTargetName = bestName;
-    // Check supermarket robbery
-    if (this.currentWeapon > 0 && !this.isInCar) {
+    // Check supermarket robbery (outside only — inside is handled by the register)
+    if (this.currentWeapon > 0 && !this.isInCar && !this.inStore) {
       const sms = this.renderer.getNearbySupermarkets(ox, oz, maxDist);
       for (const sm of sms) {
         const vx = sm.x - ox, vz = sm.z - oz;
@@ -3750,6 +4208,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const dist = Math.sqrt(dx * dx + dz * dz);
       const minDist = carRadius * 2;
       if (dist < minDist && dist > 0.01) {
+        if (actualSpeed >= 6) this.playCrashSound(Math.min(1, actualSpeed / 28));
         const overlap = minDist - dist;
         const nx = dx / dist;
         this.carX += nx * overlap * 0.5;
@@ -3765,6 +4224,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const dz = this.carZ - ped.z;
       const dist = Math.sqrt(dx * dx + dz * dz);
       if (dist < 2.0) {
+        if (actualSpeed >= 4) this.playCrashSound(0.22);
         const impactForce = Math.max(2, actualSpeed * 0.5);
         const angle = Math.atan2(ped.z - this.carZ, ped.x - this.carX);
         ped.x += Math.cos(angle) * impactForce;
@@ -3927,7 +4387,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.spawnBulletSmoke(npc.x, 1.2, npc.z, dx / d3, dy / d3, dz / d3, 1);
           this.spawnBulletTrail(npc.x, 1.2, npc.z, dx / d3, dy / d3, dz / d3, 1);
         }
-        this.playWeaponSound(0);
+        // NPC gunfire uses the rifle shot (weapon 2); weapon 0 is Unarmed and silent.
+        this.playWeaponSound(2);
       } else if (d3 > 0.01) {
         // Melee fight-back: a punched ped lands a punch on the player —
         // splash blood on the player so the hit reads.
@@ -4021,12 +4482,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         lotGz: dl.gz,
       });
       for (let di = 0; di < 3; di++) {
+        const sx = lotX + (di - 1) * 9;
+        const sz = lotZ + 18;
+        if (this.isSpotOccupied(sx, sz)) continue; // restored car already there
         const color = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
         const parkedId = --this.pedIdCounter;
         this.parkedCars.push({
           id: parkedId,
-          x: lotX + (di - 1) * 9,
-          z: lotZ + 18,
+          x: sx,
+          z: sz,
           yaw: 0,
           type: 'car',
           health: 1000,
@@ -4064,6 +4528,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       for (let col = 0; col < 7; col++) {
         if (Math.random() < 0.45) continue; // ~55% occupancy looks lived-in
         const rx = blockWorldX - 9 + col * 3;
+        if (this.isSpotOccupied(rx, rz)) continue; // restored car already there
         const color = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
         const parkedId = baseId - n;
         this.parkedCars.push({
@@ -4079,6 +4544,112 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         n++;
       }
     }
+  }
+  // World persistence: save the player position + nearby local parked cars
+  // (negative ids — server cars come back via the poll on their own) so a
+  // page refresh drops the player back where they were, cars included.
+  private saveWorldState() {
+    if (this._destroyed || !this.isLoaded || !this.renderer) return;
+    const nearby = this.parkedCars
+      .filter(p => p.id < 0 && p.health > 0 && Math.hypot(p.x - this.carX, p.z - this.carZ) < 90)
+      .slice(0, 24)
+      .map(p => ({
+        id: p.id, x: p.x, z: p.z, y: p.y, yaw: p.yaw,
+        type: p.type, health: p.health,
+        colorR: p.colorR, colorG: p.colorG, colorB: p.colorB,
+      }));
+    const state = {
+      v: 1,
+      savedAt: Date.now(),
+      x: this.carX, z: this.carZ, y: this.carY, yaw: this.carYaw,
+      wasInCar: this.isInCar,
+      vehType: this.isInCar ? this.vehicleType : undefined,
+      vehColor: this.isInCar ? this.playerVehicleColor : undefined,
+      vehHealth: this.isInCar ? this.carHealth : undefined,
+      parked: nearby,
+    };
+    try { localStorage.setItem(GT_WORLD_STATE_KEY, JSON.stringify(state)); } catch { }
+  }
+  // Restore a saved world snapshot right before the game loop starts. The
+  // player respawns on foot at the saved spot; the vehicle they were driving
+  // is parked beside them; nearby local parked cars come back in place.
+  private restoreWorldState() {
+    if (this._destroyed) return;
+    if (this.renderer.carMeshes.length === 0) {
+      setTimeout(() => this.restoreWorldState(), 500);
+      return;
+    }
+    let raw: string | null = null;
+    try { raw = localStorage.getItem(GT_WORLD_STATE_KEY); } catch { }
+    if (!raw) return;
+    let state: any = null;
+    try { state = JSON.parse(raw); } catch { }
+    if (!state || typeof state.x !== 'number' || typeof state.z !== 'number' || isNaN(state.x) || isNaN(state.z)) return;
+    this.carX = state.x;
+    this.carZ = state.z;
+    // Spawn on foot at the local terrain surface: cap the saved altitude so a
+    // refresh mid-flight can't park a plane in the sky or drop the player from
+    // height. Rooftop stands (a few units up) are still preserved.
+    const groundY = CAR_HEIGHT + getTerrainHeight(this.carX, this.carZ);
+    const savedY = typeof state.y === 'number' && !isNaN(state.y) ? state.y : CAR_HEIGHT;
+    this.carY = Math.min(savedY, groundY + 6);
+    this.carYaw = typeof state.yaw === 'number' && !isNaN(state.yaw) ? state.yaw : this.carYaw;
+    this.camYaw = this.carYaw;
+    // Interiors aren't persisted — restore the default walk camera so a refresh
+    // inside a store doesn't leave the tight interior view stuck on.
+    this.camDist = 4;
+    this.camHeight = 2;
+    if (state.wasInCar && state.vehType) {
+      const color: [number, number, number] = Array.isArray(state.vehColor) && state.vehColor.length === 3
+        ? [state.vehColor[0], state.vehColor[1], state.vehColor[2]] : [0.5, 0.5, 0.5];
+      const vehId = -Date.now();
+      this.parkedCars.push({
+        id: vehId,
+        x: this.carX, z: this.carZ, y: this.carY, yaw: this.carYaw,
+        type: state.vehType,
+        health: typeof state.vehHealth === 'number' ? state.vehHealth : 1000,
+        mesh: this.makeParkedMesh(state.vehType, color, vehId),
+        colorR: color[0], colorG: color[1], colorB: color[2],
+      });
+      const a = this.carYaw + Math.PI / 2;
+      this.carX = state.x + Math.sin(a) * 2.4;
+      this.carZ = state.z + Math.cos(a) * 2.4;
+    }
+    for (const pc of (state.parked || [])) {
+      if (typeof pc.id !== 'number' || typeof pc.x !== 'number' || typeof pc.z !== 'number') continue;
+      const col: [number, number, number] = [pc.colorR ?? 0.5, pc.colorG ?? 0.5, pc.colorB ?? 0.5];
+      const carGroundY = CAR_HEIGHT + getTerrainHeight(pc.x, pc.z);
+      const carY = typeof pc.y === 'number' && !isNaN(pc.y) ? Math.min(pc.y, carGroundY + 6) : carGroundY;
+      this.parkedCars.push({
+        id: pc.id,
+        x: pc.x, z: pc.z, y: carY, yaw: pc.yaw ?? 0,
+        type: pc.type || 'car',
+        health: typeof pc.health === 'number' ? pc.health : 1000,
+        mesh: this.makeParkedMesh(pc.type || 'car', col, pc.id),
+        colorR: col[0], colorG: col[1], colorB: col[2],
+      });
+    }
+  }
+  // Type-aware parked-vehicle mesh, mirroring the poll's parked-car creation
+  // so restored cars render with the right model for their type.
+  private makeParkedMesh(type: string, color: [number, number, number], id: number): CityMesh | CityMesh[] {
+    if (type === 'motorcycle') return this.renderer.getMotorcycleMesh(color, id);
+    if (type === 'taxi') return this.renderer.getTaxiMesh();
+    if (type === 'police') return this.renderer.getPoliceCarMesh();
+    if (type === 'bus') return this.renderer.busMesh || this.renderer.getNPCCarMesh(color, id);
+    if (type === 'helicopter') return this.renderer.getHelicopterMesh(id);
+    if (type === 'plane') return this.renderer.getPlaneMesh(id);
+    if (type === 'boat') return this.renderer.getBoatMesh(id);
+    return this.renderer.getNPCCarMesh(color, id);
+  }
+  // True when a parked car already sits at/near a spot (used by the fixed lot
+  // fillers so restored cars are never duplicated by a fresh spawn).
+  private isSpotOccupied(x: number, z: number, radius = 2.2): boolean {
+    for (const p of this.parkedCars) {
+      if (p.health <= 0) continue;
+      if (Math.hypot(p.x - x, p.z - z) < radius) return true;
+    }
+    return false;
   }
   private updateAirportLotCars(dt: number) {
     for (const ac of this.airportLotCars) {

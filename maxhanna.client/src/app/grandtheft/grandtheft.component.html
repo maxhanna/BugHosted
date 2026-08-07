@@ -56,7 +56,17 @@
     </div>
 
     <div id="gt-taxi-hail-prompt" *ngIf="nearTaxi && !taxiRideActive && !showTaxiDestinations" [style.pointer-events]="isMobile ? 'auto' : null" (click)="toggleCar()" (touchend)="$event.preventDefault(); toggleCar()">
-      {{ isMobile ? '🚕 Tap to hail taxi' : '🚕 Press E to hail taxi' }}
+      {{ isMobile ? (taxiEntrySide === 'front' ? '🚕 Tap to steal taxi' : '🚕 Tap to hail taxi') : (taxiEntrySide === 'front' ? '🚕 Press E to steal taxi' : '🚕 Press E to hail taxi') }}
+    </div>
+
+    <div id="gt-store-enter-prompt" *ngIf="nearStoreDoor" [style.pointer-events]="isMobile ? 'auto' : null" (click)="toggleCar()" (touchend)="$event.preventDefault(); toggleCar()">
+      {{ isMobile ? '🏪 Tap to enter store' : '🏪 Press E to enter store' }}
+    </div>
+    <div id="gt-store-rob-prompt" *ngIf="nearStoreRegister" [style.pointer-events]="isMobile ? 'auto' : null" (click)="toggleCar()" (touchend)="$event.preventDefault(); toggleCar()">
+      {{ isMobile ? '💰 Tap to stick up the register' : '💰 Press E to stick up the register' }}
+    </div>
+    <div id="gt-store-exit-prompt" *ngIf="nearStoreExit && !nearStoreRegister" [style.pointer-events]="isMobile ? 'auto' : null" (click)="toggleCar()" (touchend)="$event.preventDefault(); toggleCar()">
+      {{ isMobile ? '🚪 Tap to leave store' : '🚪 Press E to leave store' }}
     </div>
 
     <div id="gt-taxi-destinations" *ngIf="showTaxiDestinations" (click)="showTaxiDestinations = false">
@@ -113,6 +123,7 @@
     <div id="gt-jumptoast" *ngIf="jumpToast">{{ jumpToast }}</div>
     <div id="gt-trophytoast" *ngIf="trophyToast">{{ trophyToast }}</div>
     <div id="gt-missionfailed" *ngIf="missionFailedToast">{{ missionFailedToast }}</div>
+    <div id="gt-storetoast" *ngIf="storeToast">{{ storeToast }}</div>
 
     <div id="gt-map" *ngIf="showMap">
       <canvas #gtMapCanvas width="300" height="300"></canvas>

@@ -224,7 +224,7 @@ export interface CityChunk {
   barrels: { x: number; z: number; yaw: number }[];
   chickens: { x: number; z: number; yaw: number }[];
   trees: { x: number; z: number; yaw: number; scale: number }[];
-  supermarkets: { x: number; z: number; yaw: number }[];
+  supermarkets: { x: number; z: number; yaw: number; hd: number }[];
   tatami: { x: number; z: number; yaw: number }[];
   cabins: { x: number; z: number; yaw: number }[];
   lighthouses: { x: number; z: number; yaw: number }[];
@@ -404,9 +404,9 @@ export class GrandtheftService {
     }
   }
   
-  async hit(attackerId: number, targetId: number, worldId: number, damage: number, attackerX: number = 0, attackerZ: number = 0, weapon: number = -1): Promise<any> {
+  async hit(attackerId: number, targetId: number, worldId: number, damage: number, attackerX: number = 0, attackerZ: number = 0, weapon: number = -1, npcKill: boolean = false): Promise<any> {
     try {
-      return await this.http.post(`${this.baseUrl}/hit`, { attackerId, targetId, worldId, damage, weapon, attackerX, attackerZ }).toPromise();
+      return await this.http.post(`${this.baseUrl}/hit`, { attackerId, targetId, worldId, damage, weapon, attackerX, attackerZ, npcKill }).toPromise();
     } catch (e) {
       console.error('Error registering hit', e);
       return null;
