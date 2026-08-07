@@ -529,7 +529,11 @@
                   </div>
                   <div *ngIf="card._suggestionsError" class="suggest-error">💡 {{ card._suggestionsError }}</div>
                   <div *ngIf="card._suggestions && (card._suggestions.length || card._suggestionsRequested)" class="card-section-suggestions">
-                    <div class="section-suggest-title">💡 Suggestions ({{ card._suggestions.length }})</div>
+                    <div class="section-suggest-title">💡 Suggestions ({{ card._suggestions.length }})
+                      <a *ngIf="card._suggestions.length < 3 && !card._suggestionsGenerating" class="suggest-more"
+                        (click)="moreLikeThis(card); $event.stopPropagation()"
+                        title="Generate more suggestions in the same vein — topped up to 3">More like this…</a>
+                    </div>
                     <div class="suggestion-body">
                       <div *ngIf="!card._suggestions.length" class="suggestion suggestion-empty">No suggestions yet.</div>
                       <div *ngFor="let s of card._suggestions; trackBy: trackBySuggestionId" class="suggestion"

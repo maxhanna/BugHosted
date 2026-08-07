@@ -745,6 +745,35 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     }, 150);
   }
 
+  // ── More like this (top up suggestions to the cap of 3) ────────────────
+  // Sends a remote 'suggestMore' command to the local Weaver, which re-runs
+  // the suggestion generator with topup context and persists the topped-up
+  // list back onto the card. The card's _suggestionsGenerating flag is set
+  // optimistically here so the spinner shows immediately; the next heartbeat
+  // delivers the refreshed card (with new suggestions) and clears the flag.
+  async moreLikeThis(card: any) {
+    if (!card) return;
+    if (!Array.isArray(card._suggestions) || card._suggestions.length >= 3 || card._suggestionsGenerating) return;
+    card._suggestionsGenerating = true;
+    card._suggestionsError = undefined;
+    try {
+      // sendRemoteCommand returns null on HTTP failure (it doesn't throw), so
+      // check the result explicitly — otherwise the spinner would linger until
+      // the next heartbeat silently clears it.
+      const result = await this.sendRemoteCommand('suggestMore', {
+        cardId: card.id,
+        project: card.filePath || card.FilePath || this.selectedProjectPath,
+      });
+      if (!result) {
+        card._suggestionsGenerating = false;
+        card._suggestionsError = 'Failed to request more suggestions (remote sync unavailable)';
+      }
+    } catch (e) {
+      card._suggestionsGenerating = false;
+      card._suggestionsError = ((e && (e as any).message) || 'Failed to request more suggestions');
+    }
+  }
+
   // ── Jump to the card a suggestion's connection references ─────────────
   // Suggestion connections name the other card/feature they build on (e.g.
   // "notification system built in card #a1b2c3"). Resolves the #id prefix

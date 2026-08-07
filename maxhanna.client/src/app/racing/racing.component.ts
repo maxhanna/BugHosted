@@ -44,6 +44,14 @@ const WRONG_WAY_PULL_SPEED = 5;
 const SLIP_GRIP_CUT = 0.65;
 const AI_LOOKAHEAD = 3;
 const CAR_RADIUS = 1.1;
+// How long an NPC's pace stays dented after being hit by another car, and the
+// shared bot paint palette (kept in sync with the inline palette used when
+// building the render car list) so paint chips match the car they flew off.
+const HIT_SLOW_MAX = 1.5;
+const BOT_PAINT: [number, number, number][] = [
+  [0.8, 0.2, 0.2], [0.2, 0.4, 0.9], [0.1, 0.7, 0.1],
+  [0.9, 0.7, 0.1], [0.7, 0.2, 0.7], [1.0, 0.5, 0],
+];
 interface BotCar {
   id: string;   
   dist: number;
@@ -69,6 +77,8 @@ interface BotCar {
   crashTimer: number;
   crashSpinDir: number;
   crashDuration: number;
+  // Seconds of pace loss after being hit by another car (recovers to full).
+  hitSlowTimer: number;
 }
 interface RemoteAudioVoice {
   engineOsc: OscillatorNode;
@@ -1232,6 +1242,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const idx = this.lobbyPlayers.findIndex(p => p.connectionId === connectionId);
     return colors[Math.abs(idx) % colors.length];
   }
+  private getBotColorRGB(color: number): [number, number, number] {
+    return BOT_PAINT[color % BOT_PAINT.length];
+  }
   private spawnBots(count: number) {
     this.bots = [];
     const botNames = ['Speed Racer', 'Lightning', 'Nitro', 'Tornado', 'Blitz', 'Storm', 'Vortex', 'Phantom'];
@@ -1274,6 +1287,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         crashTimer: 0,
         crashSpinDir: 1,
         crashDuration: 0,
+        hitSlowTimer: 0,
       });
     }
   }
@@ -1472,11 +1486,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         dt > 0 ? (obj.speed - prev) / dt : 0;
       const wheelRate = (spd: number) => Math.min(Math.abs(spd) / 0.17, 40) * (spd < 0 ? 1 : -1);
       const carList = this.bots.map((b, i) => {
-        const colors = [
-          [0.8, 0.2, 0.2], [0.2, 0.4, 0.9], [0.1, 0.7, 0.1],
-          [0.9, 0.7, 0.1], [0.7, 0.2, 0.7], [1.0, 0.5, 0]
-        ];
-        const c = colors[b.color % colors.length];
+        const c = this.getBotColorRGB(b.color);
         const prev = this._prevBotSpeeds.get(b) ?? b.speed;
         this._prevBotSpeeds.set(b, b.speed);
         const spin = (this._botSpins.get(b) ?? 0) + wheelRate(b.speed) * dt;
@@ -1769,16 +1779,33 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           const myVz = Math.cos(this.carDir) * mySpeed;
           const theirVx = Math.sin(other.yaw) * other.speed;
           const theirVz = Math.cos(other.yaw) * other.speed;
+          // relV > 0 = the player is closing into the other car; relV < 0 = the
+          // other car rear-ends/side-swipes the player. Either way the NPC eats
+          // the bump: an immediate speed cut plus a recovery timer so its pace
+          // stays dented for a moment instead of snapping straight back.
           const relV = (myVx - theirVx) * pushX + (myVz - theirVz) * pushZ;
-          if (relV > 0 && this._carImpactCooldown <= 0) {
+          const impact = Math.abs(relV);
+          if (impact > 1 && this._carImpactCooldown <= 0) {
             this._carImpactCooldown = 0.3;
-            const hit = Math.min(relV * 0.35, 8);
-            this.carSpeed -= hit;
-            if (other.isBot) other.ref.speed += hit * 0.3;
+            const hit = Math.min(impact * 0.35, 8);
+            if (relV > 0) this.carSpeed -= hit * 0.7;
+            if (other.isBot) {
+              other.ref.speed -= hit * 0.5;
+              other.ref.hitSlowTimer = Math.max(other.ref.hitSlowTimer, Math.min(HIT_SLOW_MAX, 0.45 + impact * 0.055));
+            }
             this.carYaw += (Math.random() - 0.5) * 0.02;
             if (other.isBot) other.ref.yaw += (Math.random() - 0.5) * 0.02;
-            this.screenShake = Math.max(0.02, Math.min(0.08, relV * 0.01));
-            this.playImpactSound(Math.min(1, relV / 20), 1);
+            this.screenShake = Math.max(0.02, Math.min(0.08, impact * 0.01));
+            // Paint flecks fly off the bodywork at the contact point, coloured
+            // like the car that got hit (bot paint or the remote player's).
+            const chipCol: [number, number, number] = other.isBot
+              ? this.getBotColorRGB(other.ref.color)
+              : [other.ref.colorR ?? 0.85, other.ref.colorG ?? 0.06, other.ref.colorB ?? 0.06];
+            this.renderer?.emitPaintChips(
+              (this.carX + other.x) / 2, (this.carZ + other.z) / 2,
+              Math.atan2(other.x - this.carX, other.z - this.carZ),
+              chipCol, Math.min(1, impact / 20));
+            this.playImpactSound(Math.min(1, impact / 20), 1);
           }
         }
       }
@@ -1798,6 +1825,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.isOffTrack = false;
       this.offTrackTimer = 0;
     }
+    // Japan touge: gentle gravity assist while dropping into the valley, mild
+    // drag while climbing back out — makes the downhill pass actually feel it.
+    const grade = this.renderer?.getTrackGrade(trackDist) ?? 0;
+    if (grade !== 0) this.carSpeed += grade * 1.3 * dt;
     this.carDist = trackDist;
     if (Math.abs(this.keyboardSteerCurrent) < 0.1) {
       let yawDiff = expectedDir - this.carYaw;
@@ -1900,10 +1931,19 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         bot.rimBumpTimer -= dt;
         bot.slide = Math.max(bot.slide, 0.4);
       }
+      if (bot.hitSlowTimer > 0) bot.hitSlowTimer = Math.max(0, bot.hitSlowTimer - dt);
+      // Collision knock: pace stays dented while the recovery timer drains,
+      // easing back to full speed — so a bump visibly costs the bot a moment.
+      const hitSlow = bot.hitSlowTimer > 0
+        ? 0.4 + 0.6 * (1 - Math.min(1, bot.hitSlowTimer / HIT_SLOW_MAX))
+        : 1;
       const cornerSlow = Math.max(0.4, 1 - cornerSharpness * 0.8);
       const rimSlow = rimBumping ? 0.62 : 1;
       const crashSlow = crashing ? 0.35 : 1;
-      const targetSpeed = maxBotSpeed * cornerSlow * defensiveBrake * (1 - bot.config.mistakeChance * 0.3) * rimSlow * crashSlow;
+      // Bots ride the same downhill/uphill grade as the player so the touge
+      // stays fair — they gain on the drop and lose a touch on the climb.
+      const grade = this.renderer?.getTrackGrade(bot.dist) ?? 0;
+      const targetSpeed = maxBotSpeed * cornerSlow * defensiveBrake * (1 - bot.config.mistakeChance * 0.3) * rimSlow * crashSlow * hitSlow * (1 + grade * 0.06);
       if (bot.mistakeTimer > 0) {
         bot.mistakeTimer -= dt;
         bot.speed *= 0.95;
@@ -1987,10 +2027,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           a.x -= nx * push; a.z -= nz * push;
           b.x += nx * push; b.z += nz * push;
           if (abd < minD * 0.65) {
-            a.speed *= 0.98;
-            b.speed *= 0.98;
+            a.speed *= 0.97;
+            b.speed *= 0.97;
             a.yaw += (Math.random() - 0.5) * 0.08;
             b.yaw += (Math.random() - 0.5) * 0.08;
+            // NPC-on-NPC bumps dent both cars' pace and throw paint chips too.
+            const knock = Math.min(1.2, (minD - abd) * 1.2);
+            a.hitSlowTimer = Math.max(a.hitSlowTimer, Math.min(HIT_SLOW_MAX, 0.4 + knock));
+            b.hitSlowTimer = Math.max(b.hitSlowTimer, Math.min(HIT_SLOW_MAX, 0.4 + knock));
             if (this._botImpactCooldown <= 0) {
               this._botImpactCooldown = 0.25;
               const mx = (a.x + b.x) * 0.5;
@@ -1999,6 +2043,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
               const reach = RacingComponent.REMOTE_AUDIBLE;
               const att = dist >= reach ? 0 : Math.pow(1 - dist / reach, 2);
               if (att > 0.02) this.playImpactSound(0.6, att * 0.5);
+              const atan = Math.atan2(b.x - a.x, b.z - a.z);
+              this.renderer?.emitPaintChips(mx, mz, atan, this.getBotColorRGB(a.color), 0.4);
+              this.renderer?.emitPaintChips(mx, mz, atan + Math.PI, this.getBotColorRGB(b.color), 0.4);
             }
           }
         }
@@ -4136,6 +4183,30 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       const subGain = ctx.createGain();
       subGain.gain.setValueAtTime(peak * 1.4, t);
       subGain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      // Sharp sheet-metal smack layered on the thump so a car-vs-car hit reads
+      // as a proper collision instead of a muffled bump.
+      const clickDur = 0.06;
+      const clickLen = Math.floor(ctx.sampleRate * clickDur);
+      const cb = ctx.createBuffer(1, clickLen, ctx.sampleRate);
+      const cd = cb.getChannelData(0);
+      for (let i = 0; i < clickLen; i++) {
+        const env = Math.pow(1 - i / clickLen, 2.5);
+        cd[i] = (Math.random() * 2 - 1) * env;
+      }
+      const clickSrc = ctx.createBufferSource();
+      clickSrc.buffer = cb;
+      const clickFilter = ctx.createBiquadFilter();
+      clickFilter.type = 'bandpass';
+      clickFilter.frequency.value = 2400;
+      clickFilter.Q.value = 3.5;
+      const clickGain = ctx.createGain();
+      clickGain.gain.setValueAtTime(peak * 0.9, t);
+      clickGain.gain.exponentialRampToValueAtTime(0.001, t + clickDur);
+      clickSrc.connect(clickFilter);
+      clickFilter.connect(clickGain);
+      clickGain.connect(ctx.destination);
+      clickSrc.start(t);
+      clickSrc.stop(t + clickDur + 0.02);
       src.connect(filter);
       filter.connect(gain);
       gain.connect(ctx.destination);
@@ -4250,7 +4321,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   hideLoginPopup() { this.parentRef?.closeOverlay(); }
   trackDefs: TrackDefinition[] = TRACKS as TrackDefinition[];
   /** Maps a track id to its environment theme (rendered by RacingRenderer). */
-  private themeForTrack(trackId: number): 'miami' | 'mountain' | 'city' | 'default' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' {
+  private themeForTrack(trackId: number): 'miami' | 'mountain' | 'city' | 'default' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' {
     if (trackId === 1) return 'miami';
     if (trackId === 2) return 'mountain';
     if (trackId === 3) return 'city';
@@ -4260,6 +4331,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (trackId === 7) return 'montreal';
     if (trackId === 8) return 'italy';
     if (trackId === 9) return 'monaco-night';
+    if (trackId === 10) return 'japan';
     return 'default';
   }
   get UPGRADE_DEFS() { return UPGRADE_DEFS; }
@@ -4397,7 +4469,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
   getTrackFlag(track: TrackDefinition): string {
     const flags: Record<number, string> = {
-      1: '🇺🇸', 2: '🏔️', 3: '🏙️', 4: '🏔️', 5: '🇲🇦', 6: '🇲🇨', 7: '🇨🇦', 8: '🇮🇹', 9: '🌙',
+      1: '🇺🇸', 2: '🏔️', 3: '🏙️', 4: '🏔️', 5: '🇲🇦', 6: '🇲🇨', 7: '🇨🇦', 8: '🇮🇹', 9: '🌙', 10: '🇯🇵',
     };
     return flags[track.id] || '🏁';
   }
@@ -4413,6 +4485,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       7: 'linear-gradient(135deg, #1b4332 0%, #2d6a4f 30%, #52b788 70%, #a5d6a5 100%)',
       8: 'linear-gradient(135deg, #1a1a2e 0%, #6b1d1d 30%, #e74c3c 70%, #f39c12 100%)',
       9: 'linear-gradient(135deg, #020318 0%, #0b1030 35%, #1a2a5e 60%, #4a5fa8 100%)',
+      10: 'linear-gradient(135deg, #17301f 0%, #2e5d3a 25%, #6f9e7f 55%, #cfe3d0 78%, #f2ead6 100%)',
     };
     return bgs[track.id] || 'linear-gradient(135deg, #2c3e50, #4ca1af)';
   }

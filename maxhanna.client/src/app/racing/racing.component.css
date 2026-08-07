@@ -2718,34 +2718,27 @@
   left: 0;
   right: 0;
   height: 64%;
-  background:
-    repeating-linear-gradient(45deg,
-      transparent,
-      transparent 1px,
-      rgba(255, 255, 255, 0.015) 1px,
-      rgba(255, 255, 255, 0.015) 2px),
-    repeating-linear-gradient(0deg,
-      rgba(18, 18, 24, 0.5) 0px,
-      rgba(22, 22, 28, 0.5) 1px,
-      rgba(18, 18, 24, 0.5) 2px),
-    linear-gradient(0deg,
-      rgba(2, 2, 5, 1) 0%,
-      rgba(5, 5, 10, 0.99) 15%,
-      rgba(8, 8, 15, 0.94) 35%,
-      rgba(12, 12, 20, 0.78) 55%,
-      rgba(16, 16, 26, 0.38) 75%,
-      rgba(20, 20, 30, 0.08) 92%,
-      transparent 100%);
+  /* No more full-screen 'window' tint — the old heavy translucent black
+     gradient (100%→78% opacity across the bottom half) blocked the track
+     colours in front of the player. Now only a soft fade hugging the very
+     bottom keeps the panels + wheel readable; the racetrack stays clear
+     above it. The panels bring their own solid backgrounds. */
+  background: linear-gradient(0deg,
+    rgba(3, 3, 6, 0.82) 0%,
+    rgba(6, 6, 12, 0.55) 8%,
+    rgba(10, 10, 18, 0.28) 16%,
+    rgba(14, 14, 24, 0.1) 26%,
+    transparent 38%);
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   padding: 0 3% 2.5% 3%;
   box-sizing: border-box;
-  border-top: 1px solid rgba(180, 180, 190, 0.15);
+  border-top: 1px solid rgba(180, 180, 190, 0.1);
   box-shadow:
-    0 -1px 0 rgba(255, 255, 255, 0.04),
-    inset 0 2px 12px rgba(0, 0, 0, 0.6),
-    0 -15px 50px rgba(0, 0, 0, 0.7);
+    0 -1px 0 rgba(255, 255, 255, 0.03),
+    inset 0 2px 8px rgba(0, 0, 0, 0.4),
+    0 -8px 28px rgba(0, 0, 0, 0.28);
 }
 
 .cockpit-dash::before {
@@ -3077,73 +3070,179 @@
   filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.5));
 }
 
+/* Carbon gear-shift paddles sticking out behind the wheel at 9-3 */
+.shift-paddle {
+  position: absolute;
+  top: 22%;
+  width: 24px;
+  height: 72px;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, #15181d, #2e343d 35%, #1b1e24 70%, #12151a);
+  border: 1px solid #06070a;
+  border-radius: 5px 5px 9px 9px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+.shift-paddle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 6px;
+  width: 10px;
+  height: 3px;
+  transform: translateX(-50%);
+  border-radius: 2px;
+  background: #e53935;
+  box-shadow: 0 0 6px rgba(229, 57, 53, 0.5);
+}
+.shift-paddle-left {
+  left: -0.5%;
+  transform: rotate(-13deg);
+}
+.shift-paddle-right {
+  right: -0.5%;
+  transform: rotate(13deg);
+}
+
 .wheel-rim {
   position: absolute;
   top: 5%;
   left: 5%;
   right: 5%;
   bottom: 15%;
-  border: 5px solid #2a2a2a;
+  border: 6px solid #232527;
   border-radius: 50% 50% 40% 40%;
   background:
-    radial-gradient(ellipse at center, #1a1a1a 0%, #111 60%, #0a0a0a 100%);
+    radial-gradient(ellipse at 50% 40%, #23262d 0%, #14161b 55%, #0a0b0f 100%);
   box-shadow:
-    inset 0 2px 8px rgba(255, 255, 255, 0.03),
-    0 0 0 2px rgba(0, 0, 0, 0.5),
-    0 0 0 7px rgba(30, 30, 30, 0.6),
-    0 0 0 8px rgba(20, 20, 20, 0.4),
-    0 2px 15px rgba(0, 0, 0, 0.6);
+    inset 0 2px 10px rgba(255, 255, 255, 0.04),
+    inset 0 -8px 20px rgba(0, 0, 0, 0.65),
+    0 0 0 2px rgba(0, 0, 0, 0.55),
+    0 0 0 9px rgba(38, 38, 42, 0.9),
+    0 0 0 11px rgba(16, 16, 18, 0.65),
+    0 4px 24px rgba(0, 0, 0, 0.6);
 }
 
+/* Curved light sheen across the upper rim face so it reads as a cylinder */
+.wheel-rim::before {
+  content: '';
+  position: absolute;
+  top: 1%;
+  left: 9%;
+  right: 9%;
+  height: 32%;
+  border-radius: 50% 50% 30% 30%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.025) 55%, transparent 100%);
+  pointer-events: none;
+}
+
+/* Faint carbon-weave cross-hatch over the wheel face */
+.wheel-rim::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    repeating-linear-gradient(45deg, transparent 0 5px, rgba(255, 255, 255, 0.014) 5px 6px),
+    repeating-linear-gradient(-45deg, transparent 0 5px, rgba(255, 255, 255, 0.014) 5px 6px);
+  pointer-events: none;
+}
+
+/* Alcantara grip zones — dark suede with a subtle weave and a red double
+   stitch line running down the centre, like a real F1 wheel's thumb grips. */
 .wheel-grip {
   position: absolute;
-  background: linear-gradient(180deg, #222, #181818, #222);
-  border: 1px solid #333;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.3) 0 2px, transparent 2px 4px),
+    linear-gradient(180deg, #2a2420, #16100c 55%, #2a2420);
+  border: 1px solid #0c0907;
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.09),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.6),
+    0 2px 5px rgba(0, 0, 0, 0.5);
+}
+
+.wheel-grip::before,
+.wheel-grip::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  top: 50%;
+  height: 1px;
+  margin-top: -2px;
+  border-radius: 1px;
+  background: repeating-linear-gradient(90deg, rgba(235, 90, 80, 0.5) 0 3px, transparent 3px 7px);
+  pointer-events: none;
+}
+.wheel-grip::after {
+  margin-top: 2px;
+}
+
+/* Vertical grips get a vertical stitch run instead. */
+.wheel-grip-left::before,
+.wheel-grip-left::after,
+.wheel-grip-right::before,
+.wheel-grip-right::after {
+  left: 50%;
+  right: auto;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  height: auto;
+  margin: 0;
+  transform: translateX(-2px);
+  background: repeating-linear-gradient(180deg, rgba(235, 90, 80, 0.5) 0 3px, transparent 3px 7px);
+}
+.wheel-grip-left::after,
+.wheel-grip-right::after {
+  transform: translateX(2px);
 }
 
 .wheel-grip-top {
   top: -3px;
   left: 20%;
   right: 20%;
-  height: 14px;
-  border-radius: 8px 8px 2px 2px;
-  background: linear-gradient(180deg, #2a2520, #1a1510);
+  height: 15px;
+  border-radius: 9px 9px 3px 3px;
 }
 
 .wheel-grip-left {
   top: 20%;
-  left: -5px;
+  left: -6px;
   bottom: 30%;
-  width: 14px;
-  border-radius: 8px 2px 2px 8px;
-  background: linear-gradient(90deg, #2a2520, #1a1510);
+  width: 15px;
+  border-radius: 9px 3px 3px 9px;
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.3) 0 2px, transparent 2px 4px),
+    linear-gradient(90deg, #2c2621, #17110c 55%, #2c2621);
 }
 
 .wheel-grip-right {
   top: 20%;
-  right: -5px;
+  right: -6px;
   bottom: 30%;
-  width: 14px;
-  border-radius: 2px 8px 8px 2px;
-  background: linear-gradient(90deg, #1a1510, #2a2520);
+  width: 15px;
+  border-radius: 3px 9px 9px 3px;
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.3) 0 2px, transparent 2px 4px),
+    linear-gradient(90deg, #17110c, #2c2621);
 }
 
 .wheel-grip-bot-left {
   bottom: -3px;
   left: 5%;
   right: 55%;
-  height: 14px;
-  border-radius: 2px 2px 8px 8px;
-  background: linear-gradient(180deg, #1a1510, #2a2520);
+  height: 15px;
+  border-radius: 3px 3px 9px 9px;
 }
 
 .wheel-grip-bot-right {
   bottom: -3px;
   left: 45%;
   right: 5%;
-  height: 14px;
-  border-radius: 2px 2px 8px 8px;
-  background: linear-gradient(180deg, #1a1510, #2a2520);
+  height: 15px;
+  border-radius: 3px 3px 9px 9px;
 }
 
 .wheel-center {
@@ -3152,13 +3251,77 @@
   left: 18%;
   right: 18%;
   bottom: 28%;
-  background: #0a0a0c;
-  border: 2px solid #222;
-  border-radius: 6px;
+  background:
+    repeating-linear-gradient(45deg, transparent 0 6px, rgba(255, 255, 255, 0.012) 6px 7px),
+    repeating-linear-gradient(-45deg, transparent 0 6px, rgba(255, 255, 255, 0.012) 6px 7px),
+    linear-gradient(160deg, #191c22, #0a0b10 60%, #14161c);
+  border: 2px solid #262a31;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    inset 0 0 26px rgba(0, 0, 0, 0.65),
+    inset 0 1px 2px rgba(255, 255, 255, 0.06),
+    0 8px 20px rgba(0, 0, 0, 0.55);
+}
+
+/* Bezel ring around the screen */
+.wheel-center::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+/* Thumb-rest bumps at the sides of the hub */
+.wheel-hub-grip {
+  position: absolute;
+  top: 12%;
+  bottom: 18%;
+  width: 7px;
+  pointer-events: none;
+  background: linear-gradient(90deg, #101217, #2a2f38 45%, #0e1014);
+  border-radius: 4px;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08);
+}
+.wheel-hub-grip-left {
+  left: 2px;
+}
+.wheel-hub-grip-right {
+  right: 2px;
+}
+
+/* F1 wheel buttons — carbon knobs, one red accent */
+.wheel-button {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  pointer-events: none;
+  border: 1px solid #06070a;
+  background: radial-gradient(circle at 35% 30%, #59606c, #1a1d23 75%);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.14), 0 1px 2px rgba(0, 0, 0, 0.65);
+}
+.wheel-btn-a {
+  left: 6px;
+  top: 6px;
+}
+.wheel-btn-b {
+  right: 6px;
+  top: 6px;
+}
+.wheel-btn-c {
+  left: 6px;
+  bottom: 6px;
+}
+.wheel-btn-d {
+  right: 6px;
+  bottom: 6px;
+  background: radial-gradient(circle at 35% 30%, #e25a50, #7c1510 75%);
 }
 
 .wheel-display {
@@ -3238,72 +3401,221 @@
 }
 
 .hand-left {
-  top: 25%;
+  top: 24%;
   left: -6%;
-  transform: rotate(-15deg);
+  transform: rotate(15deg);
 }
 
 .hand-right {
-  top: 25%;
+  top: 24%;
   right: -6%;
-  transform: rotate(15deg);
+  transform: rotate(-15deg);
+}
+
+/* Fire-suit sleeve running down toward the cockpit floor behind the hand.
+   It sits behind the glove via DOM order (it precedes .glove, both are
+   positioned within the hand's z-index:10 stacking context), so no negative
+   z-index is needed. */
+.hand-arm {
+  position: absolute;
+  top: 88%;
+  left: 50%;
+  width: 30px;
+  height: 110px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, #101318, #20242b 40%, #0c0f13);
+  border-radius: 7px 7px 3px 3px;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.05), 0 3px 8px rgba(0, 0, 0, 0.45);
+}
+.hand-arm::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 7px;
+  right: 7px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.1);
+}
+.hand-arm::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 4px;
+  right: 4px;
+  bottom: 3px;
+  border: 1px dashed rgba(255, 255, 255, 0.05);
+  border-radius: 5px;
 }
 
 .glove {
   position: relative;
-  width: 38px;
-  height: 56px;
+  width: 42px;
+  height: 66px;
 }
 
+/* Dual-strap velcro cuff */
 .glove-cuff {
   position: absolute;
   bottom: 0;
-  left: -3px;
-  right: -3px;
-  height: 16px;
-  background: linear-gradient(180deg, #c62828, #8e0000);
-  border-radius: 3px 3px 6px 6px;
-  border: 1px solid #d32f2f;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  left: -4px;
+  right: -4px;
+  height: 19px;
+  background: linear-gradient(180deg, #961312, #520707 60%, #380404);
+  border-radius: 4px 4px 8px 8px;
+  border: 1px solid #b01817;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+}
+.glove-strap {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  top: 3px;
+  height: 5px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #c32522, #7a0d0c);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.22), inset 0 -1px 1px rgba(0, 0, 0, 0.5);
+}
+.glove-strap-2 {
+  top: auto;
+  bottom: 3px;
+  background: linear-gradient(180deg, #9a1211, #5c0808);
+}
+
+/* Knuckle guard band where the fingers attach */
+.glove-knuckle {
+  position: absolute;
+  top: 3px;
+  left: 0;
+  right: 0;
+  height: 13px;
+  border-radius: 6px 6px 2px 2px;
+  border: 1px solid #d83a32;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.045) 0 2px, transparent 2px 4px),
+    linear-gradient(180deg, #c22a24, #8a1010);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.14), 0 2px 4px rgba(0, 0, 0, 0.45);
 }
 
 .glove-palm {
   position: absolute;
-  bottom: 14px;
-  left: 2px;
-  right: 2px;
-  top: 10px;
-  background: linear-gradient(180deg, #e53935, #b71c1c);
-  border-radius: 5px 5px 3px 3px;
-  border: 1px solid #ef5350;
+  bottom: 17px;
+  left: 1px;
+  right: 1px;
+  top: 12px;
+  border-radius: 6px 6px 4px 4px;
+  border: 1px solid #ff6a5e;
+  background:
+    radial-gradient(ellipse at 30% 18%, rgba(255, 255, 255, 0.18), transparent 55%),
+    radial-gradient(ellipse at 72% 82%, rgba(0, 0, 0, 0.38), transparent 60%),
+    linear-gradient(180deg, #ea4c43, #a81212 70%, #7a0b0b);
+  box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.35), inset 0 2px 3px rgba(255, 255, 255, 0.16);
 }
 
+/* Palm crease lines */
+.glove-palm::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  top: 52%;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(96, 0, 0, 0.4);
+  box-shadow: 0 5px 0 rgba(96, 0, 0, 0.22);
+}
+
+/* Fine woven texture over the palm */
+.glove-palm::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  border-radius: 3px;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255, 255, 255, 0.03) 3px 4px),
+    repeating-linear-gradient(90deg, transparent 0 3px, rgba(255, 255, 255, 0.03) 3px 4px);
+}
+
+/* Thumb wrapping the rim, with a jointed tip */
 .glove-thumb {
   position: absolute;
-  top: 6px;
-  left: -6px;
-  width: 10px;
-  height: 18px;
-  background: linear-gradient(180deg, #e53935, #b71c1c);
-  border-radius: 4px;
-  border: 1px solid #ef5350;
-  transform: rotate(-20deg);
+  top: 1px;
+  left: -9px;
+  width: 14px;
+  height: 24px;
+  border-radius: 6px 6px 5px 5px;
+  border: 1px solid #ff6a5e;
+  background: linear-gradient(180deg, #ea4c43, #a81212);
+  transform: rotate(-30deg);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2), 0 2px 4px rgba(0, 0, 0, 0.45);
 }
-
 .hand-right .glove-thumb {
   left: auto;
-  right: -6px;
-  transform: rotate(20deg);
+  right: -9px;
+  transform: rotate(30deg);
+}
+.glove-thumb-seg {
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: -11px;
+  height: 12px;
+  border-radius: 5px 5px 4px 4px;
+  border: 1px solid #ff7a6e;
+  background: linear-gradient(180deg, #f25a50, #c32a24);
+  box-shadow: inset 0 -1px 1px rgba(255, 255, 255, 0.18);
+}
+.glove-thumb::after {
+  content: '';
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  top: 58%;
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(96, 0, 0, 0.42);
 }
 
+/* Fingers — two segments each so the tips read as curled over the rim */
 .glove-finger {
   position: absolute;
-  top: -2px;
-  width: 7px;
-  height: 16px;
-  background: linear-gradient(180deg, #e53935, #b71c1c);
-  border-radius: 3px 3px 2px 2px;
-  border: 1px solid #ef5350;
+  bottom: 47px;
+  width: 8px;
+  height: 18px;
+  border-radius: 3px 3px 4px 4px;
+  border: 1px solid #ff6a5e;
+  background: linear-gradient(180deg, #d63a34, #a81212);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2), inset 0 -2px 3px rgba(0, 0, 0, 0.32);
+}
+.glove-finger-seg {
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: -11px;
+  height: 12px;
+  border-radius: 4px 4px 3px 3px;
+  border: 1px solid #ff7a6e;
+  background: linear-gradient(180deg, #f25a50, #c22a24);
+  box-shadow: inset 0 -1px 1px rgba(255, 255, 255, 0.18);
+  transform-origin: bottom center;
+  transform: rotate(10deg);
+}
+.hand-right .glove-finger-seg {
+  transform: rotate(-10deg);
+}
+
+/* Fingertip sheen */
+.glove-finger-seg::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  top: 2px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .glove-finger.f1 {
@@ -3311,27 +3623,15 @@
 }
 
 .glove-finger.f2 {
-  left: 10px;
+  left: 11px;
 }
 
 .glove-finger.f3 {
-  left: 18px;
+  left: 20px;
 }
 
 .glove-finger.f4 {
-  left: 25px;
-}
-
-.glove-palm::after {
-  content: '';
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  right: 4px;
-  bottom: 4px;
-  background:
-    repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(255, 255, 255, 0.05) 3px, rgba(255, 255, 255, 0.05) 4px);
-  border-radius: 2px;
+  left: 29px;
 }
 
 @media (max-width: 768px),
@@ -3411,30 +3711,77 @@
     right: -4%;
   }
 
+  .hand-arm {
+    width: 20px;
+    height: 70px;
+  }
+
   .glove {
-    width: 24px;
-    height: 36px;
+    width: 26px;
+    height: 42px;
+  }
+
+  .glove-cuff {
+    height: 12px;
+  }
+
+  .glove-knuckle {
+    top: 2px;
+    height: 8px;
+  }
+
+  .glove-palm {
+    top: 8px;
+    bottom: 11px;
+  }
+
+  .glove-thumb {
+    width: 9px;
+    height: 15px;
+    left: -6px;
+  }
+
+  .hand-right .glove-thumb {
+    left: auto;
+    right: -6px;
+  }
+
+  .glove-thumb-seg {
+    top: -7px;
+    height: 8px;
   }
 
   .glove-finger {
+    bottom: 30px;
     width: 5px;
-    height: 10px;
+    height: 11px;
+  }
+
+  .glove-finger-seg {
+    top: -7px;
+    height: 8px;
   }
 
   .glove-finger.f1 {
-    left: 1px;
+    left: 2px;
   }
 
   .glove-finger.f2 {
-    left: 7px;
+    left: 8px;
   }
 
   .glove-finger.f3 {
-    left: 13px;
+    left: 14px;
   }
 
   .glove-finger.f4 {
-    left: 18px;
+    left: 20px;
+  }
+
+  .shift-paddle {
+    width: 16px;
+    height: 46px;
+    top: 24%;
   }
 
   .track-line-minimap {

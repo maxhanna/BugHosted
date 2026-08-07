@@ -715,6 +715,10 @@
         <!-- Center: Steering Wheel -->
         <div class="cockpit-wheel-area">
           <div class="steering-wheel" #steerWheel>
+            <!-- Carbon shift paddles (behind the wheel face, poking out at 9-3) -->
+            <div class="shift-paddle shift-paddle-left" title="Downshift"></div>
+            <div class="shift-paddle shift-paddle-right" title="Upshift"></div>
+
             <!-- Wheel rim -->
             <div class="wheel-rim">
               <div class="wheel-grip wheel-grip-top"></div>
@@ -723,8 +727,14 @@
               <div class="wheel-grip wheel-grip-bot-left"></div>
               <div class="wheel-grip wheel-grip-bot-right"></div>
 
-              <!-- Wheel center display -->
+              <!-- Wheel center hub: F1-style display with carbon corner buttons -->
               <div class="wheel-center">
+                <div class="wheel-hub-grip wheel-hub-grip-left"></div>
+                <div class="wheel-hub-grip wheel-hub-grip-right"></div>
+                <div class="wheel-button wheel-btn-a" title="Pit limiter"></div>
+                <div class="wheel-button wheel-btn-b" title="DRS"></div>
+                <div class="wheel-button wheel-btn-c" title="Radio"></div>
+                <div class="wheel-button wheel-btn-d" title="Power"></div>
                 <div class="wheel-display">
                   <div class="wheel-speed" #wheelSpeed>{{ hudSpeed | number:'1.0-0' }}</div>
                   <div class="wheel-speed-unit">KM/H</div>
@@ -740,27 +750,37 @@
                 </div>
               </div>
 
-              <!-- Driver hands on the wheel -->
+              <!-- Driver hands on the wheel: fire-suit sleeves + detailed racing gloves -->
               <div class="driver-hand hand-left">
+                <div class="hand-arm"></div>
                 <div class="glove">
-                  <div class="glove-cuff"></div>
+                  <div class="glove-cuff">
+                    <div class="glove-strap"></div>
+                    <div class="glove-strap glove-strap-2"></div>
+                  </div>
+                  <div class="glove-knuckle"></div>
                   <div class="glove-palm"></div>
-                  <div class="glove-thumb"></div>
-                  <div class="glove-finger f1"></div>
-                  <div class="glove-finger f2"></div>
-                  <div class="glove-finger f3"></div>
-                  <div class="glove-finger f4"></div>
+                  <div class="glove-thumb"><span class="glove-thumb-seg"></span></div>
+                  <div class="glove-finger f1"><span class="glove-finger-seg"></span></div>
+                  <div class="glove-finger f2"><span class="glove-finger-seg"></span></div>
+                  <div class="glove-finger f3"><span class="glove-finger-seg"></span></div>
+                  <div class="glove-finger f4"><span class="glove-finger-seg"></span></div>
                 </div>
               </div>
               <div class="driver-hand hand-right">
+                <div class="hand-arm"></div>
                 <div class="glove">
-                  <div class="glove-cuff"></div>
+                  <div class="glove-cuff">
+                    <div class="glove-strap"></div>
+                    <div class="glove-strap glove-strap-2"></div>
+                  </div>
+                  <div class="glove-knuckle"></div>
                   <div class="glove-palm"></div>
-                  <div class="glove-thumb"></div>
-                  <div class="glove-finger f1"></div>
-                  <div class="glove-finger f2"></div>
-                  <div class="glove-finger f3"></div>
-                  <div class="glove-finger f4"></div>
+                  <div class="glove-thumb"><span class="glove-thumb-seg"></span></div>
+                  <div class="glove-finger f1"><span class="glove-finger-seg"></span></div>
+                  <div class="glove-finger f2"><span class="glove-finger-seg"></span></div>
+                  <div class="glove-finger f3"><span class="glove-finger-seg"></span></div>
+                  <div class="glove-finger f4"><span class="glove-finger-seg"></span></div>
                 </div>
               </div>
             </div>

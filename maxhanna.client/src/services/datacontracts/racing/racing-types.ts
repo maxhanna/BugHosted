@@ -253,6 +253,7 @@ export const TRACKS: TrackDefinition[] = [
   { id: 7, name: 'Circuit Montreal', difficulty: 'medium', laps: 4, length: 2100, description: 'Riverside circuit with fast chicanes and island park', entryFee: 1500, prizePool: 5000, bestTime: 0 },
   { id: 8, name: 'Monza', difficulty: 'hard', laps: 5, length: 2800, description: 'Temple of speed — long straights, chicanes, and curva grande', entryFee: 4000, prizePool: 15000, bestTime: 0 },
   { id: 9, name: 'Monte Carlo — Night', difficulty: 'hard', laps: 5, length: 2600, description: 'Monaco after dark — moonlit bay, glowing canyon towers and streetlit straights', entryFee: 3000, prizePool: 14000, bestTime: 0 },
+  { id: 10, name: 'Japan Pass', difficulty: 'hard', laps: 4, length: 2200, description: 'Initial D style downhill touge — cedar forests, hairpins and a misty valley drop', entryFee: 2500, prizePool: 10000, bestTime: 0 },
 ];
 
 export const CAR_SKINS: RacingCarSkin[] = [

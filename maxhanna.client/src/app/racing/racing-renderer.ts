@@ -324,6 +324,7 @@ export class RacingRenderer {
   private asphaltTex!: WebGLTexture;
   private grassTex!: WebGLTexture;
   private trackTex!: WebGLTexture;
+  private glowTex!: WebGLTexture;
   viewMatrix = new Float32Array(16);
   projMatrix = new Float32Array(16);
   modelMatrix = new Float32Array(16);
@@ -344,7 +345,7 @@ export class RacingRenderer {
   ambientColor: [number, number, number] = [0.25, 0.25, 0.3];
   fogColor: [number, number, number] = [0.4, 0.45, 0.5];
   elapsed = 0;
-  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' = 'default';
+  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' = 'default';
   night = false;
   skyTop: [number, number, number] = [0.1, 0.2, 0.5];
   skyHorizon: [number, number, number] = [0.7, 0.75, 0.85];
@@ -352,13 +353,22 @@ export class RacingRenderer {
   readonly TRACK_SEGMENTS = 200;
   readonly TRACK_WIDTH = 16;
   readonly TRACK_LENGTH = 2000;
+  // Corner direction boards: SIGN_TURN_MIN is the accumulated heading change
+  // (radians) over the detection window that qualifies a bend as a "tight
+  // corner". The procedurally generated circuit peaks at ~0.44 rad over a
+  // 45-unit window, so a threshold of 0.5 (the original value) matched zero
+  // corners and no signs ever appeared. 0.23 marks every bend sharper than a
+  // ~190-unit radius — roughly a dozen corners per lap, each getting a board
+  // at the apex and one 60 units before it, on both sides of the track.
   private readonly SIGN_TURN_WINDOW = 45;
-  private readonly SIGN_TURN_MIN = 0.5;
+  private readonly SIGN_TURN_MIN = 0.23;
   private readonly SIGN_APPROACH_DIST = 60;
-  private readonly SIGN_BOARD_W = 2.6;
-  private readonly SIGN_BOARD_H = 1.7;
+  private readonly SIGN_BOARD_W = 3.0;
+  private readonly SIGN_BOARD_H = 1.9;
   private readonly SIGN_OFFSET_CLEAR = 3.4;
   private readonly SIGN_BOTTOM_Y = 0.75;
+  // Japan touge: where the valley-drop arc starts (fraction of the lap).
+  private _japanValleyFrac = 0.6;
   carX = 0; carY = 0.3; carZ = 0;
   carYaw = 0; carPitch = 0; carRoll = 0;
   carSpeed = 0;
@@ -436,6 +446,7 @@ export class RacingRenderer {
     this.grassTex = this.makeGrassTex();
     this.trackTex = this.makeTrackMarkingsTex();
     this.tireBrandTex = this.makeTireBrandTex();
+    this.glowTex = this.makeGlowTex();
     this.initShader();
     this.initShadow();
     this.initSky();
@@ -543,6 +554,39 @@ export class RacingRenderer {
       }
     }
     return this.makeTex(size, size, data);
+  }
+  /**
+   * Soft spotlight-pool mask for the neon underglow. A circle in UV space that
+   * becomes an ellipse once stretched over the non-square glow quad, with a
+   * quartic (1-t²)² falloff that reaches exactly zero at ~55% of the quad — so
+   * the glow reads as an oval pool fading at the edges instead of a hard
+   * rectangle. rgb = alpha (white mask) so additive blending fades colour with
+   * the shape, while alpha carries the falloff for the garage contact shadow.
+   */
+  private makeGlowTex(): WebGLTexture {
+    const gl = this.gl;
+    const size = 128;
+    const data = new Uint8Array(size * size * 4);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const dx = (x + 0.5) / size - 0.5;
+        const dy = (y + 0.5) / size - 0.5;
+        const r = Math.sqrt(dx * dx + dy * dy) * 2; // 0 centre -> 1 corner
+        const t = Math.min(r / 0.55, 1);            // falloff ends inside the quad
+        const a = (1 - t * t) * (1 - t * t);
+        const v = Math.round(a * 255);
+        const i = (y * size + x) * 4;
+        data[i] = v; data[i + 1] = v; data[i + 2] = v; data[i + 3] = v;
+      }
+    }
+    const t = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, size, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return t;
   }
   private vsSrc = `#version 300 es
 in vec3 aPos;
@@ -656,7 +700,7 @@ void main() {
   color = mix(color, uFogColor, fog * vColor.a * uAlpha);
   color = clamp(color, 0.0, 1.0);
   color = (color * (2.51 * color + 0.03)) / (color * (2.43 * color + 0.59) + 0.14);
-  FragColor = vec4(color, vColor.a * uAlpha);
+  FragColor = vec4(color, base.a * uAlpha);
 }`;
   private initShader() {
     const gl = this.gl;
@@ -929,9 +973,23 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.trackLen = smoothPts.length;
   }
   getTrackLength(): number { return this.totalTrackDist; }
+  /** Downhill-touge grade for the Japan circuit: +1 while dropping into the
+   *  valley arc, -1 while climbing back out, 0 elsewhere. Symmetric, so a full
+   *  lap nets exactly zero — lap times stay fair for the player and bots. */
+  getTrackGrade(dist: number): number {
+    if (this.theme !== 'japan') return 0;
+    const D = this.totalTrackDist;
+    if (D <= 0) return 0;
+    const t = (((dist % D) + D) % D) / D;
+    const w = 0.3; // valley arc width as a fraction of the lap
+    const h = w / 2;
+    const x = (t - this._japanValleyFrac + 1) % 1;
+    if (x >= w) return 0;
+    return x < h ? (1 - x / h) : -(1 - (x - h) / h);
+  }
   /** Applies the environment theme for the selected track and rebuilds the
    *  scenery geometry. Call before each race (both solo and multiplayer). */
-  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy') {
+  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan') {
     this.theme = theme;
     this.night = theme === 'monaco-night';
     this.heatShimmer = theme === 'desert';
@@ -1018,6 +1076,17 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.sunColor = [0.5, 0.56, 0.72];
         this.ambientColor = [0.045, 0.055, 0.09];
         this.fogColor = [0.03, 0.04, 0.08];
+        break;
+      case 'japan':
+        // Early-morning mountain pass: pale blue sky, low golden sun through
+        // cedar mist, hazy valley air.
+        this.skyTop = [0.12, 0.26, 0.48];
+        this.skyHorizon = [0.88, 0.83, 0.74];
+        this.skyBottom = [0.55, 0.62, 0.6];
+        this.sunDir = [0.5, 0.38, 0.45];
+        this.sunColor = [1.0, 0.92, 0.78];
+        this.ambientColor = [0.3, 0.32, 0.32];
+        this.fogColor = [0.55, 0.58, 0.6];
         break;
       default:
         this.skyTop = [0.1, 0.2, 0.5];
@@ -1131,6 +1200,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const bottom = this.SIGN_BOTTOM_Y;
     const top = bottom + this.SIGN_BOARD_H;
     const mid = (bottom + top) / 2;
+    // Classic racing-yellow direction board: black frame, yellow face, black
+    // arrow that points across the track into the corner (headDir picks the
+    // sign so both roadside boards show the same turn direction to the driver).
+    const RIM: [number, number, number] = [0.05, 0.05, 0.05];
+    const FACE: [number, number, number] = [0.97, 0.8, 0.05];
+    const INK: [number, number, number] = [0.05, 0.05, 0.05];
+    const POST: [number, number, number] = [0.14, 0.14, 0.14];
     for (const sideCode of [1, -1]) {
       const sx = px * sideCode, sz = pz * sideCode;
       const cx = pt.x + sx * off;
@@ -1145,30 +1221,44 @@ void main() { FragColor = texture(uTex, vUV); }`;
         barIdxs.push(b00, b01, b10);
         barIdxs.push(b01, b11, b10);
       };
-      V(-halfW - 0.12, bottom - 0.12, -0.01, 0.1, 0.1, 0.1);
-      V(halfW + 0.12, bottom - 0.12, -0.01, 0.1, 0.1, 0.1);
-      V(-halfW - 0.12, top + 0.12, -0.01, 0.1, 0.1, 0.1);
-      V(halfW + 0.12, top + 0.12, -0.01, 0.1, 0.1, 0.1);
-      quad(base, base + 1, base + 2, base + 3);
-      const b2 = base + 4;
-      V(-halfW, bottom, 0.01, 0.93, 0.93, 0.93);
-      V(halfW, bottom, 0.01, 0.93, 0.93, 0.93);
-      V(-halfW, top, 0.01, 0.93, 0.93, 0.93);
-      V(halfW, top, 0.01, 0.93, 0.93, 0.93);
+      // Support post down to the ground so the board reads as a sign post.
+      const p1 = base;
+      const postHalf = 0.09;
+      V(-postHalf, 0, -0.01, ...POST);
+      V(postHalf, 0, -0.01, ...POST);
+      V(-postHalf, bottom, -0.01, ...POST);
+      V(postHalf, bottom, -0.01, ...POST);
+      quad(p1, p1 + 1, p1 + 2, p1 + 3);
+      // Black border frame.
+      const b1 = base + 4;
+      V(-halfW - 0.14, bottom - 0.14, -0.01, ...RIM);
+      V(halfW + 0.14, bottom - 0.14, -0.01, ...RIM);
+      V(-halfW - 0.14, top + 0.14, -0.01, ...RIM);
+      V(halfW + 0.14, top + 0.14, -0.01, ...RIM);
+      quad(b1, b1 + 1, b1 + 2, b1 + 3);
+      // Yellow face.
+      const b2 = base + 8;
+      V(-halfW, bottom, 0.01, ...FACE);
+      V(halfW, bottom, 0.01, ...FACE);
+      V(-halfW, top, 0.01, ...FACE);
+      V(halfW, top, 0.01, ...FACE);
       quad(b2, b2 + 1, b2 + 2, b2 + 3);
-      const b3 = base + 8;
-      const headBaseU = headDir * halfW * 0.32;
-      V(headDir * (halfW - 0.18), mid, 0.03, 0.92, 0.16, 0.14);
-      V(headBaseU, mid - this.SIGN_BOARD_H * 0.48, 0.03, 0.92, 0.16, 0.14);
-      V(headBaseU, mid + this.SIGN_BOARD_H * 0.48, 0.03, 0.92, 0.16, 0.14);
+      // Black arrowhead pointing into the corner.
+      const b3 = base + 12;
+      const headBaseU = headDir * halfW * 0.34;
+      const headHalf = this.SIGN_BOARD_H * 0.3;
+      V(headDir * (halfW - 0.2), mid, 0.03, ...INK);
+      V(headBaseU, mid - headHalf, 0.03, ...INK);
+      V(headBaseU, mid + headHalf, 0.03, ...INK);
       barIdxs.push(b3, b3 + 1, b3 + 2);
-      const b4 = base + 11;
-      const shaftEndU = -headDir * halfW * 0.45;
-      const sh = this.SIGN_BOARD_H * 0.15;
-      V(headBaseU, mid - sh, 0.03, 0.92, 0.16, 0.14);
-      V(shaftEndU, mid - sh, 0.03, 0.92, 0.16, 0.14);
-      V(headBaseU, mid + sh, 0.03, 0.92, 0.16, 0.14);
-      V(shaftEndU, mid + sh, 0.03, 0.92, 0.16, 0.14);
+      // Black arrow shaft.
+      const b4 = base + 15;
+      const shaftEndU = -headDir * halfW * 0.48;
+      const sh = this.SIGN_BOARD_H * 0.26;
+      V(headBaseU, mid - sh, 0.03, ...INK);
+      V(shaftEndU, mid - sh, 0.03, ...INK);
+      V(headBaseU, mid + sh, 0.03, ...INK);
+      V(shaftEndU, mid + sh, 0.03, ...INK);
       quad(b4, b4 + 1, b4 + 2, b4 + 3);
     }
   }
@@ -1602,6 +1692,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addMontrealScenery(verts, idxs);
     } else if (this.theme === 'italy') {
       this.addItalyScenery(verts, idxs);
+    } else if (this.theme === 'japan') {
+      this.addJapanScenery(verts, idxs);
     } else {
       this.addForestScenery(verts, idxs);
     }
@@ -1880,6 +1972,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       case 'monaco-night': count = 6; altMin = 50; altMax = 80; sizeScale = 0.85; this._cloudAlpha = 0.55; break;
       case 'montreal': count = 7; altMin = 48; altMax = 78; sizeScale = 0.9; this._cloudAlpha = 0.6; break;
       case 'italy': count = 7; altMin = 50; altMax = 85; sizeScale = 0.95; this._cloudAlpha = 0.6; break;
+      case 'japan': count = 6; altMin = 60; altMax = 100; sizeScale = 1.0; this._cloudAlpha = 0.55; break;
       default: count = 6; altMin = 55; altMax = 90; sizeScale = 1; this._cloudAlpha = 0.6; break;
     }
     const base = this.theme === 'city'
@@ -2932,6 +3025,206 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const sf = pts[0];
     this.addGantryBunting(sf.x, sf.z, sf.dirX, sf.dirZ, sf.width);
   }
+  private addJapanScenery(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    const N = pts.length;
+    // Valley arc: one stretch of the pass where the ground falls away into a
+    // misty valley (the downhill drop) with a river and a small town far below,
+    // then the road climbs back up the far side.
+    const valleyStart = Math.floor(N * 0.6);
+    const valleyEnd = Math.floor(N * 0.9);
+    this._japanValleyFrac = 0.6;
+    const slopeW = 36;
+    const floorW = 72;
+    const floorY = -15;
+    const dropSide = (p: TrackPoint) => {
+      const latX = -p.dirZ, latZ = p.dirX;
+      return (latX * p.x + latZ * p.z) >= 0 ? 1 : -1;
+    };
+    // Forest-floor shoulder band around the circuit, skipping the side that
+    // falls away into the valley (the escarpment replaces it there).
+    for (let i = 0; i < N; i += 2) {
+      const p = pts[i];
+      const n = pts[(i + 1) % N];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const npx = -n.dirZ, npz = n.dirX;
+      const inner = p.width / 2 + 14;
+      const outer = p.width / 2 + 46;
+      for (const side of [-1, 1]) {
+        if (i >= valleyStart && i < valleyEnd && side === dropSide(p)) continue;
+        this.addGroundQuad(verts, idxs,
+          [p.x + ppx * inner * side, 0, p.z + ppz * inner * side],
+          [n.x + npx * inner * side, 0, n.z + npz * inner * side],
+          [n.x + npx * outer * side, 0, n.z + npz * outer * side],
+          [p.x + ppx * outer * side, 0, p.z + ppz * outer * side],
+          [0.1, 0.24, 0.1]);
+      }
+    }
+    for (let i = valleyStart; i < valleyEnd; i++) {
+      const p = pts[i];
+      const n = pts[(i + 1) % N];
+      const s = dropSide(p);
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const npx = -n.dirZ, npz = n.dirX;
+      const ox = ppx * s, oz = ppz * s;
+      const nox = npx * s, noz = npz * s;
+      const hw = p.width / 2 + 1.7;
+      const hwn = n.width / 2 + 1.7;
+      const e1 = [p.x + ox * hw, 0, p.z + oz * hw];
+      const e2 = [n.x + nox * hwn, 0, n.z + noz * hwn];
+      const s1 = [p.x + ox * (hw + slopeW), floorY, p.z + oz * (hw + slopeW)];
+      const s2 = [n.x + nox * (hwn + slopeW), floorY, n.z + noz * (hwn + slopeW)];
+      // Sloped escarpment dropping from the track edge to the valley floor.
+      this.addQuad(verts, idxs, e1, e2, s2, s1, [0.13, 0.2, 0.12]);
+      // Valley floor.
+      const f1 = [p.x + ox * (hw + slopeW + floorW), floorY, p.z + oz * (hw + slopeW + floorW)];
+      const f2 = [n.x + nox * (hwn + slopeW + floorW), floorY, n.z + noz * (hwn + slopeW + floorW)];
+      this.addQuad(verts, idxs, s1, s2, f2, f1, [0.3, 0.37, 0.33]);
+      // Winding river glinting on the floor.
+      const wave = Math.sin(i * 0.3) * 6;
+      const rw = 3.6;
+      const r1 = [p.x + ox * (hw + slopeW + floorW * 0.55) + ox * wave, floorY + 0.05, p.z + oz * (hw + slopeW + floorW * 0.55) + oz * wave];
+      const r2 = [n.x + nox * (hwn + slopeW + floorW * 0.55) + nox * wave, floorY + 0.05, n.z + noz * (hwn + slopeW + floorW * 0.55) + noz * wave];
+      this.addQuad(verts, idxs, r1, r2,
+        [r2[0] + nox * rw, floorY + 0.05, r2[2] + noz * rw],
+        [r1[0] + ox * rw, floorY + 0.05, r1[2] + oz * rw],
+        [0.24, 0.42, 0.45]);
+      // Red/white touge guardrail posts along the drop edge plus a white rail.
+      if (i % 2 === 0) {
+        this.addOrientedBox(verts, idxs,
+          (e1[0] + e2[0]) / 2 - ox * 0.35, 0.42, (e1[2] + e2[2]) / 2 - oz * 0.35,
+          0.34, 0.84, 0.16, p.dirX, p.dirZ,
+          Math.floor(i / 2) % 2 === 0 ? [0.85, 0.1, 0.08] : [0.93, 0.93, 0.95]);
+      }
+      const railLen = Math.hypot(e2[0] - e1[0], e2[2] - e1[2]) + 0.25;
+      this.addOrientedBox(verts, idxs,
+        (e1[0] + e2[0]) / 2, 0.66, (e1[2] + e2[2]) / 2,
+        railLen, 0.15, 0.11, p.dirX, p.dirZ, [0.93, 0.93, 0.95]);
+    }
+    // Small riverside town on the valley floor (lit warm windows).
+    let townIdx = 0;
+    for (let i = valleyStart; i < valleyEnd; i += 3) {
+      const p = pts[i];
+      const s = dropSide(p);
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const ox = ppx * s, oz = ppz * s;
+      const off = 0.55 + Math.random() * 0.35;
+      const bx = p.x + ox * (p.width / 2 + slopeW + floorW * off) + (Math.random() - 0.5) * 10;
+      const bz = p.z + oz * (p.width / 2 + slopeW + floorW * off) + (Math.random() - 0.5) * 10;
+      const bh = 1.1 + Math.random() * 1.7;
+      const warm = Math.random() < 0.7;
+      this.addOrientedBox(verts, idxs, bx, floorY + bh / 2, bz,
+        1.9 + Math.random() * 1.6, bh, 1.9 + Math.random() * 1.6,
+        ppx, ppz, warm ? [0.85, 0.68, 0.42] : [0.36, 0.42, 0.52]);
+      if (townIdx++ > 26) break;
+    }
+    // Distant blue ridges rising out of the valley haze.
+    for (let i = valleyStart; i < valleyEnd; i += 5) {
+      const p = pts[i];
+      const s = dropSide(p);
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const ox = ppx * s, oz = ppz * s;
+      const mx = p.x + ox * (p.width / 2 + slopeW + floorW + 16 + Math.random() * 26);
+      const mz = p.z + oz * (p.width / 2 + slopeW + floorW + 16 + Math.random() * 26);
+      const mh = 16 + Math.random() * 24;
+      const mw = 24 + Math.random() * 20;
+      this.addCone(verts, idxs, mx, floorY, mz, mw, mh, 7, [0.4, 0.48, 0.53]);
+      this.addCone(verts, idxs, mx, floorY + mh * 0.62, mz, mw * 0.32, mh * 0.42, 6, [0.56, 0.62, 0.64]);
+    }
+    // Dense cedar forest on the mountain side (and both sides outside the
+    // valley arc) — trees skip the side that falls away into the valley.
+    let treeIdx = 0;
+    for (let i = 0; i < N; i += 3) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const inValley = i >= valleyStart && i < valleyEnd;
+      const s = dropSide(p);
+      for (const side of [-1, 1]) {
+        if (inValley && side === s) continue;
+        const dist = p.width / 2 + 24 + Math.random() * 20;
+        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
+        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
+        this.addJapaneseCedar(verts, idxs, tx, tz, 0.8 + Math.random() * 0.7);
+        if (treeIdx++ > 150) break;
+      }
+      if (treeIdx > 150) break;
+    }
+    // A few sakura trees near the start/finish for the Japan flavour.
+    for (const fi of [0, Math.floor(N * 0.03), Math.floor(N / 2), Math.floor(N / 2) + Math.floor(N * 0.03)]) {
+      const p = pts[fi];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const sx2 = p.x + ppx * (p.width / 2 + 6 + Math.random() * 4) * side;
+        const sz2 = p.z + ppz * (p.width / 2 + 6 + Math.random() * 4) * side;
+        this.addSakura(verts, idxs, sx2, sz2, 0.85 + Math.random() * 0.45);
+      }
+    }
+    // Red torii gates at the two sharpest corners of the valley arc.
+    const turns: { i: number; t: number }[] = [];
+    for (let i = valleyStart + 2; i < valleyEnd - 2; i++) {
+      const a = pts[i - 1], b = pts[i];
+      const cross = a.dirX * b.dirZ - a.dirZ * b.dirX;
+      const dot = a.dirX * b.dirX + a.dirZ * b.dirZ;
+      turns.push({ i, t: Math.abs(Math.atan2(cross, dot)) });
+    }
+    turns.sort((a, b) => b.t - a.t);
+    let toriiCount = 0;
+    for (const c of turns) {
+      if (toriiCount >= 2) break;
+      const p = pts[c.i];
+      const s = dropSide(p);
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const inX = ppx * -s, inZ = ppz * -s;
+      this.addTorii(verts, idxs, p.x + inX * (p.width / 2 + 3.5), p.z + inZ * (p.width / 2 + 3.5), 1, ppx, ppz);
+      toriiCount++;
+    }
+    this.addExtraBleachers(verts, idxs);
+  }
+  private addJapaneseCedar(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    const h = (5 + Math.random() * 8) * s;
+    const trunkH = h * 0.08;
+    this.addCylinder(verts, idxs, x, 0, z, 0.15 * s, trunkH, 6, [0.33, 0.2, 0.09]);
+    const greens: [number, number, number][] = [
+      [0.02, 0.18, 0.07], [0.03, 0.22, 0.08], [0.015, 0.14, 0.05], [0.04, 0.26, 0.09],
+    ];
+    const tiers = 5 + Math.floor(Math.random() * 2);
+    const baseR = (0.7 + Math.random() * 0.35) * s;
+    let lastTop = trunkH;
+    for (let t = 0; t < tiers; t++) {
+      const frac = t / tiers;
+      const ty = trunkH + frac * h * 0.85;
+      const tr = baseR * (1 - frac * 0.85);
+      const th = h * (0.24 - frac * 0.1);
+      this.addCone(verts, idxs, x, ty, z, tr, th, 8, greens[t % greens.length]);
+      lastTop = ty + th;
+    }
+    this.addCone(verts, idxs, x, lastTop - h * 0.02, z, baseR * 0.12, h * 0.18, 6, greens[3]);
+  }
+  private addSakura(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    const h = (3 + Math.random() * 2) * s;
+    this.addCylinder(verts, idxs, x, 0, z, 0.11 * s, h, 6, [0.3, 0.18, 0.1]);
+    const pinks: [number, number, number][] = [
+      [0.95, 0.62, 0.72], [0.93, 0.55, 0.66], [1.0, 0.72, 0.8],
+    ];
+    const canopy = 2 + Math.floor(Math.random() * 2);
+    for (let c = 0; c < canopy; c++) {
+      const ty = h - 0.3 * s * (c + 1);
+      this.addCone(verts, idxs,
+        x + (Math.random() - 0.5) * 0.5 * s, ty, z + (Math.random() - 0.5) * 0.5 * s,
+        0.8 * s, 0.7 * s, 6, pinks[c % pinks.length]);
+    }
+  }
+  private addTorii(verts: number[], idxs: number[], x: number, z: number, s: number, dirX: number, dirZ: number) {
+    const red = [0.8, 0.09, 0.08];
+    const dark = [0.5, 0.06, 0.06];
+    const legH = 3.2 * s;
+    const span = 2.7 * s;
+    this.addOrientedBox(verts, idxs, x - dirX * span * 0.55, legH / 2, z - dirZ * span * 0.55, 0.2 * s, legH, 0.2 * s, dirX, dirZ, red);
+    this.addOrientedBox(verts, idxs, x + dirX * span * 0.55, legH / 2, z + dirZ * span * 0.55, 0.2 * s, legH, 0.2 * s, dirX, dirZ, red);
+    this.addOrientedBox(verts, idxs, x, legH + 0.22 * s, z, span + 0.5 * s, 0.24 * s, 0.3 * s, dirX, dirZ, red);
+    this.addOrientedBox(verts, idxs, x, legH - 0.5 * s, z, span + 0.25 * s, 0.16 * s, 0.2 * s, dirX, dirZ, dark);
+    this.addOrientedBox(verts, idxs, x, legH - 0.18 * s, z, 0.42 * s, 0.55 * s, 0.06, dirX, dirZ, [0.1, 0.1, 0.12]);
+  }
   private pushRampQuad(verts: number[], idxs: number[],
     a: number[], b: number[], c: number[], d: number[]) {
     let nx = (c[1] - a[1]) * (b[2] - a[2]) - (c[2] - a[2]) * (b[1] - a[1]);
@@ -3522,10 +3815,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.bindVertexArray(null);
       return { vao, count: gi.length };
     };
-    const core = buildGlowQuad(1.7, 0.9);
+    const core = buildGlowQuad(2.0, 1.0);
     this.glowVao = core.vao;
     this.glowCount = core.count;
-    const halo = buildGlowQuad(2.7, 1.35);
+    const halo = buildGlowQuad(3.0, 1.5);
     this.glowHaloVao = halo.vao;
     this.glowHaloCount = halo.count;
     this.buildWheelMesh();
@@ -4277,6 +4570,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
       case 'italy':
         return [[0.8, 0.1, 0.1], [0, 0.55, 0.15], [0.9, 0.9, 0.9],
         [0.7, 0.1, 0.1], [0, 0.45, 0.12], [0.85, 0.85, 0.85]];
+      case 'japan':
+        return [[0.85, 0.12, 0.12], [0.95, 0.95, 0.98], [0.95, 0.6, 0.72],
+        [0.25, 0.5, 0.35], [0.9, 0.9, 0.92], [0.8, 0.25, 0.3]];
       case 'montreal':
         return [[0.1, 0.3, 0.8], [0.9, 0.9, 0.95], [0.05, 0.2, 0.6],
         [0.95, 0.3, 0.3], [0.7, 0.85, 1], [0.1, 0.25, 0.7]];
@@ -4302,6 +4598,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private themeFlagColors(): [number, number, number][] {
     switch (this.theme) {
       case 'italy': return [[0.8, 0.1, 0.1], [0, 0.55, 0.15]];
+      case 'japan': return [[0.9, 0.08, 0.08], [0.94, 0.94, 0.96]];
       case 'montreal': return [[0.1, 0.3, 0.8], [0.9, 0.9, 0.95]];
       case 'monaco': case 'monaco-night': return [[0.8, 0.1, 0.1], [0.9, 0.9, 0.95]];
       case 'desert': return [[0.75, 0.1, 0.1], [0, 0.45, 0.15]];
@@ -4504,7 +4801,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.bindVertexArray(null);
     this._snowBuf = buf;
   }
-  private _smokeParticles: { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; maxLife: number; size: number; color?: [number, number, number] }[] = [];
+  private _smokeParticles: { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; maxLife: number; size: number; color?: [number, number, number]; chip?: boolean }[] = [];
   private _smokeVao!: WebGLVertexArrayObject;
   private _smokeBuf!: WebGLBuffer;
   private _smokeMax = 220;
@@ -4667,6 +4964,40 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
     }
   }
+  /** Paint-debris flecks kicked off the bodywork at a car-vs-car contact
+   *  point. Reuses the smoke particle pool with a `chip` mode: gravity, a soft
+   *  ground bounce and shrink-over-life so they read as solid little shards of
+   *  paint (plus a few dark carbon bits) instead of smoke puffs. `impact` is a
+   *  0..1 strength that scales the burst size and throw speed. */
+  emitPaintChips(x: number, z: number, yaw: number, paint: [number, number, number], impact: number = 0.5) {
+    if (this._smokeParticles.length >= this._smokeMax) return;
+    const count = 4 + Math.round(impact * 8) + Math.floor(Math.random() * 3);
+    const sinY = Math.sin(yaw), cosY = Math.cos(yaw);
+    for (let i = 0; i < count; i++) {
+      if (this._smokeParticles.length >= this._smokeMax) return;
+      const dark = Math.random() < 0.35;
+      const col: [number, number, number] = dark
+        ? [0.12 + Math.random() * 0.1, 0.11 + Math.random() * 0.1, 0.1 + Math.random() * 0.1]
+        : [
+            paint[0] * (0.8 + Math.random() * 0.4),
+            paint[1] * (0.8 + Math.random() * 0.4),
+            paint[2] * (0.8 + Math.random() * 0.4),
+          ];
+      this._smokeParticles.push({
+        x: x + (Math.random() - 0.5) * 0.6,
+        y: 0.25 + Math.random() * 0.35,
+        z: z + (Math.random() - 0.5) * 0.6,
+        vx: (sinY * (1.5 + Math.random() * 3) + (Math.random() - 0.5) * 4) * (0.5 + impact),
+        vy: (2 + Math.random() * 3.5) * (0.6 + impact),
+        vz: (cosY * (1.5 + Math.random() * 3) + (Math.random() - 0.5) * 4) * (0.5 + impact),
+        life: 0,
+        maxLife: 0.45 + Math.random() * 0.45,
+        size: 0.07 + Math.random() * 0.1,
+        color: col,
+        chip: true,
+      });
+    }
+  }
   private initScrub() {
     if (this._scrubInitialized) return;
     this._scrubInitialized = true;
@@ -4770,8 +5101,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
       p.life += dt;
       if (p.life >= p.maxLife) { parts.splice(i, 1); continue; }
       p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
-      p.vy *= (1 - 0.4 * dt);
-      p.vx *= (1 - 0.6 * dt); p.vz *= (1 - 0.6 * dt);
+      if (p.chip) {
+        // Paint chips are ballistic: strong gravity with a soft ground bounce.
+        p.vy -= 9.8 * 2.2 * dt;
+        if (p.y <= 0) { p.y = 0; p.vy = -p.vy * 0.35; p.vx *= 0.7; p.vz *= 0.7; }
+      } else {
+        p.vy *= (1 - 0.4 * dt);
+        p.vx *= (1 - 0.6 * dt); p.vz *= (1 - 0.6 * dt);
+      }
     }
   }
   private drawSmoke(proj: Float32Array, view: Float32Array) {
@@ -4784,12 +5121,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const data: number[] = [];
     for (const p of parts) {
       const t = p.life / p.maxLife;
-      const s = p.size * (0.5 + t * 1.8);
-      const alpha = Math.max(0, 0.5 * (1 - t));
+      // Chips shrink and stay opaque-ish (solid flecks); smoke grows and fades.
+      const s = p.chip ? p.size * (1 - t) : p.size * (0.5 + t * 1.8);
+      const alpha = p.chip ? 0.85 * (1 - t) : Math.max(0, 0.5 * (1 - t));
       const gray = 0.5 + t * 0.15;
-      const cr = p.color ? p.color[0] * (0.75 + 0.4 * t) : gray;
-      const cg = p.color ? p.color[1] * (0.75 + 0.4 * t) : gray;
-      const cb = p.color ? p.color[2] * (0.75 + 0.4 * t) : gray + 0.03;
+      const cr = p.color ? (p.chip ? p.color[0] : p.color[0] * (0.75 + 0.4 * t)) : gray;
+      const cg = p.color ? (p.chip ? p.color[1] : p.color[1] * (0.75 + 0.4 * t)) : gray;
+      const cb = p.color ? (p.chip ? p.color[2] : p.color[2] * (0.75 + 0.4 * t)) : gray + 0.03;
       const hx = rx * s, hy = ry * s, hz = rz * s;
       const wx = ux * s, wy = uy * s, wz = uz * s;
       const cx = p.x, cy = p.y, cz = p.z;
@@ -5766,8 +6104,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
     gl.uniform1i(this.shadowMapLoc, 1);
     gl.activeTexture(gl.TEXTURE0);
-    gl.uniform1i(this.hasTexLoc, 0);
-    gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
+    gl.uniform1i(this.hasTexLoc, 1);
+    gl.bindTexture(gl.TEXTURE_2D, this.glowTex);
     // Soft floor shadow under the parked car (dark ellipse blob, same glow quad).
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -6470,6 +6808,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const pulse = (0.68 + 0.24 * revWave * (0.3 + 0.7 * rolling)) * throttleSpike;
       gl.uniform1f(this.heatGlowLoc, 0);
       gl.blendFunc(gl.ONE, gl.ONE);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.glowTex);
+      gl.uniform1i(this.hasTexLoc, 1);
       const gi = (app.glowIntensity ?? 50) / 100;
       const intensity = 0.3 + gi * 1.9;
       gl.uniform3f(this.colorLoc, g[0] * 0.5 * pulse * intensity, g[1] * 0.5 * pulse * intensity, g[2] * 0.5 * pulse * intensity);
@@ -6479,6 +6820,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.bindVertexArray(this.glowVao);
       gl.drawElements(gl.TRIANGLES, this.glowCount, gl.UNSIGNED_SHORT, 0);
       gl.bindVertexArray(null);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
+      gl.uniform1i(this.hasTexLoc, 0);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     }
     if (this.night && this.headlightCount > 0) {
