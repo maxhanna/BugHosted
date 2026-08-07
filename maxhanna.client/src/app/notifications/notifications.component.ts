@@ -417,6 +417,10 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
         this.parentRef.navigationComponent.tradeNotifsCount--;
       }
     }
+    if (notification.route === 'myappeals') {
+      this.createComponent('Moderator', { initialTab: 'myappeals' });
+      return;
+    }
     else if (notification?.text?.toLowerCase().includes('you were slain by') || notification?.text?.toLowerCase().includes('you died') || notification?.text?.toLowerCase().includes('you killed')) {
       this.parentRef?.createComponent('Bones');
     }

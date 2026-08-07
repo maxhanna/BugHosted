@@ -13,6 +13,9 @@ import { Topic } from '../../services/datacontracts/topics/topic';
   styleUrl: './moderator.component.css'
 })
 export class ModeratorComponent extends ChildComponent {
+  // Optional deep-link tab set via createComponent(..., { initialTab }) — e.g. a
+  // 'myappeals' notification route. Takes precedence over the moderator default.
+  initialTab?: 'myappeals' | 'moderators' | 'chatmod' | 'logs' | 'appeals';
   activeTab: 'myappeals' | 'moderators' | 'chatmod' | 'logs' | 'appeals' = 'myappeals';
 
   appeals: any[] = [];
@@ -101,8 +104,11 @@ export class ModeratorComponent extends ChildComponent {
       this.myChatRoles = myRoles.filter(r => r.role === 'chat_moderator' && r.targetType === 'chat' && !!r.targetId);
     }
     this.isModerator = isLegacyMod || this.isChatModerator;
+    if (this.initialTab) {
+      this.activeTab = this.initialTab;
+    }
     await this.loadMyRequests();
-    if (this.isModerator) {
+    if (this.isModerator && !this.initialTab) {
       this.activeTab = 'moderators';
       if (this.isChatModerator && this.myChatRoles.length > 0) {
         this.selectedManagedChat = this.myChatRoles[0].targetId ?? 0;

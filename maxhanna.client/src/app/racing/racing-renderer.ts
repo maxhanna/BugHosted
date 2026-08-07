@@ -1,4 +1,155 @@
 import { RIM_TINTS, DECAL_COLORS, RacingCarAppearance } from '../../services/datacontracts/racing/racing-types';
+
+// Per-decal placement variants — each decal style id gets its own layout so
+// different decals put their artwork in different spots on the car instead of
+// all sharing one geometry. `flank` plates are mirrored to ±z; `center` plates
+// sit on the centreline (z = 0) and are added once. Coordinates hug the body
+// loft's tapered top surface (front is +x), matching the values verified for
+// the original stripe segments.
+export interface DecalLayoutDef {
+  flank: Array<[number, number, number, number, number, number]>; // cx, cy, l, h, d, z
+  center: Array<[number, number, number, number, number]>;        // cx, cy, l, h, d
+}
+export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
+  // Full-length segmented racing stripes (original look).
+  401: {
+    flank: [[-0.72, 0.235, 0.50, 0.05, 0.09, 0.05], [-0.16, 0.385, 0.34, 0.05, 0.09, 0.05], [0.60, 0.235, 0.42, 0.05, 0.09, 0.05], [1.02, 0.160, 0.34, 0.05, 0.08, 0.045], [-0.16, 0.395, 0.34, 0.05, 0.06, 0.13], [0.60, 0.225, 0.40, 0.05, 0.06, 0.13]],
+    center: [[0.68, 0.225, 0.30, 0.05, 0.10], [1.22, 0.13, 0.14, 0.05, 0.10]],
+  },
+  // Flames sweep back from the nose across the hood.
+  402: {
+    flank: [[1.15, 0.145, 0.22, 0.05, 0.08, 0.05], [0.95, 0.17, 0.26, 0.05, 0.08, 0.07], [0.72, 0.205, 0.24, 0.05, 0.07, 0.06], [0.50, 0.24, 0.20, 0.05, 0.06, 0.05]],
+    center: [[1.28, 0.125, 0.12, 0.05, 0.08], [0.68, 0.225, 0.16, 0.05, 0.08]],
+  },
+  // Full-body scattered patches.
+  403: {
+    flank: [[-0.80, 0.22, 0.14, 0.04, 0.06, 0.05], [-0.55, 0.29, 0.14, 0.04, 0.06, 0.08], [-0.30, 0.40, 0.12, 0.04, 0.06, 0.05], [-0.05, 0.34, 0.12, 0.04, 0.06, 0.08], [0.20, 0.30, 0.14, 0.04, 0.06, 0.05], [0.45, 0.25, 0.14, 0.04, 0.06, 0.08], [0.70, 0.22, 0.12, 0.04, 0.06, 0.05], [0.95, 0.17, 0.12, 0.04, 0.05, 0.05], [1.15, 0.145, 0.10, 0.04, 0.05, 0.04]],
+    center: [[0.68, 0.225, 0.16, 0.04, 0.08], [1.25, 0.13, 0.10, 0.04, 0.06]],
+  },
+  // Big number plates on the nose and flanks.
+  404: {
+    flank: [[0.85, 0.19, 0.14, 0.05, 0.05, 0.08], [0.50, 0.24, 0.12, 0.05, 0.05, 0.07], [-0.10, 0.38, 0.12, 0.05, 0.05, 0.06], [-0.45, 0.36, 0.12, 0.05, 0.05, 0.06]],
+    center: [[1.25, 0.13, 0.18, 0.06, 0.09], [0.68, 0.225, 0.14, 0.06, 0.08]],
+  },
+  // Checkered bands across the nose and rear deck.
+  405: {
+    flank: [[0.85, 0.19, 0.12, 0.05, 0.06, 0.07], [-0.20, 0.40, 0.12, 0.05, 0.06, 0.07]],
+    center: [[1.15, 0.145, 0.26, 0.05, 0.14], [-0.60, 0.29, 0.26, 0.05, 0.14], [0.68, 0.225, 0.12, 0.05, 0.08]],
+  },
+  // Zigzag lightning slashes down the flanks.
+  406: {
+    flank: [[1.10, 0.15, 0.10, 0.05, 0.04, 0.05], [0.90, 0.175, 0.10, 0.05, 0.04, 0.09], [0.70, 0.21, 0.10, 0.05, 0.04, 0.05], [0.50, 0.24, 0.10, 0.05, 0.04, 0.09], [0.30, 0.29, 0.10, 0.05, 0.04, 0.05], [0.05, 0.33, 0.10, 0.05, 0.04, 0.09], [-0.20, 0.40, 0.10, 0.05, 0.04, 0.05]],
+    center: [[0.68, 0.225, 0.10, 0.05, 0.06]],
+  },
+  // Large centered emblem on the engine cover.
+  407: {
+    flank: [[0.85, 0.19, 0.08, 0.05, 0.05, 0.08], [-0.10, 0.38, 0.08, 0.05, 0.05, 0.07]],
+    center: [[0.68, 0.225, 0.30, 0.06, 0.13], [1.25, 0.13, 0.12, 0.05, 0.08], [-0.45, 0.36, 0.14, 0.05, 0.10]],
+  },
+  // Crest emblem, engine-cover dominant.
+  408: {
+    flank: [[0.50, 0.24, 0.10, 0.05, 0.05, 0.07]],
+    center: [[0.68, 0.225, 0.26, 0.06, 0.12], [1.22, 0.13, 0.10, 0.05, 0.08]],
+  },
+  // Racing number plates.
+  409: {
+    flank: [[0.85, 0.19, 0.14, 0.05, 0.05, 0.08], [0.50, 0.24, 0.12, 0.05, 0.05, 0.07], [-0.10, 0.38, 0.12, 0.05, 0.05, 0.06], [-0.45, 0.36, 0.12, 0.05, 0.05, 0.06]],
+    center: [[1.25, 0.13, 0.18, 0.06, 0.09], [0.68, 0.225, 0.14, 0.06, 0.08]],
+  },
+  410: {
+    flank: [[0.85, 0.19, 0.14, 0.05, 0.05, 0.08], [0.50, 0.24, 0.12, 0.05, 0.05, 0.07], [-0.10, 0.38, 0.12, 0.05, 0.05, 0.06], [-0.45, 0.36, 0.12, 0.05, 0.05, 0.06]],
+    center: [[1.25, 0.13, 0.18, 0.06, 0.09], [0.68, 0.225, 0.14, 0.06, 0.08]],
+  },
+  411: {
+    flank: [[0.85, 0.19, 0.14, 0.05, 0.05, 0.08], [0.50, 0.24, 0.12, 0.05, 0.05, 0.07], [-0.10, 0.38, 0.12, 0.05, 0.05, 0.06], [-0.45, 0.36, 0.12, 0.05, 0.05, 0.06]],
+    center: [[1.25, 0.13, 0.18, 0.06, 0.09], [0.68, 0.225, 0.14, 0.06, 0.08]],
+  },
+  // Thin sponsor side stripes.
+  412: {
+    flank: [[-0.55, 0.29, 0.40, 0.04, 0.05, 0.06], [-0.20, 0.40, 0.30, 0.04, 0.05, 0.06], [0.15, 0.31, 0.30, 0.04, 0.05, 0.06], [0.50, 0.24, 0.30, 0.04, 0.05, 0.06], [0.85, 0.19, 0.24, 0.04, 0.05, 0.06]],
+    center: [[1.25, 0.13, 0.10, 0.04, 0.06]],
+  },
+  // Full-body scattered patches.
+  413: {
+    flank: [[-0.80, 0.22, 0.14, 0.04, 0.06, 0.05], [-0.55, 0.29, 0.14, 0.04, 0.06, 0.08], [-0.30, 0.40, 0.12, 0.04, 0.06, 0.05], [-0.05, 0.34, 0.12, 0.04, 0.06, 0.08], [0.20, 0.30, 0.14, 0.04, 0.06, 0.05], [0.45, 0.25, 0.14, 0.04, 0.06, 0.08], [0.70, 0.22, 0.12, 0.04, 0.06, 0.05], [0.95, 0.17, 0.12, 0.04, 0.05, 0.05], [1.15, 0.145, 0.10, 0.04, 0.05, 0.04]],
+    center: [[0.68, 0.225, 0.16, 0.04, 0.08], [1.25, 0.13, 0.10, 0.04, 0.06]],
+  },
+  // Cheetah spots scattered across the body.
+  414: {
+    flank: [[0.95, 0.17, 0.06, 0.04, 0.05, 0.05], [0.70, 0.21, 0.06, 0.04, 0.05, 0.09], [0.45, 0.25, 0.06, 0.04, 0.05, 0.06], [0.15, 0.31, 0.06, 0.04, 0.05, 0.09], [-0.15, 0.38, 0.06, 0.04, 0.05, 0.05], [-0.45, 0.36, 0.06, 0.04, 0.05, 0.08], [-0.70, 0.25, 0.06, 0.04, 0.05, 0.05]],
+    center: [[0.68, 0.225, 0.08, 0.04, 0.05], [1.20, 0.13, 0.06, 0.04, 0.05]],
+  },
+  // Rising-sun disc on the rear deck.
+  415: {
+    flank: [[-0.30, 0.40, 0.10, 0.05, 0.05, 0.06]],
+    center: [[-0.60, 0.29, 0.24, 0.06, 0.12], [0.68, 0.225, 0.16, 0.05, 0.08]],
+  },
+  // Circuit-board traces along the flanks.
+  416: {
+    flank: [[1.10, 0.15, 0.10, 0.05, 0.04, 0.05], [0.90, 0.175, 0.10, 0.05, 0.04, 0.09], [0.70, 0.21, 0.10, 0.05, 0.04, 0.05], [0.50, 0.24, 0.10, 0.05, 0.04, 0.09], [0.30, 0.29, 0.10, 0.05, 0.04, 0.05], [0.05, 0.33, 0.10, 0.05, 0.04, 0.09], [-0.20, 0.40, 0.10, 0.05, 0.04, 0.05]],
+    center: [[0.68, 0.225, 0.10, 0.05, 0.06]],
+  },
+  // Bullseye target on the engine cover.
+  417: {
+    flank: [[0.50, 0.24, 0.08, 0.05, 0.05, 0.08]],
+    center: [[0.68, 0.225, 0.22, 0.06, 0.11], [1.20, 0.13, 0.10, 0.05, 0.07]],
+  },
+  // Union Jack on the rear deck.
+  418: {
+    flank: [[-0.30, 0.40, 0.10, 0.05, 0.05, 0.06], [0.30, 0.29, 0.10, 0.05, 0.05, 0.06]],
+    center: [[-0.60, 0.29, 0.26, 0.06, 0.13], [0.68, 0.225, 0.20, 0.05, 0.10], [1.20, 0.13, 0.10, 0.05, 0.06]],
+  },
+  // Cyber grid on the nose and engine cover.
+  419: {
+    flank: [[1.00, 0.16, 0.10, 0.05, 0.04, 0.05], [0.75, 0.20, 0.10, 0.05, 0.04, 0.08], [0.45, 0.25, 0.10, 0.05, 0.04, 0.05], [0.15, 0.31, 0.10, 0.05, 0.04, 0.08]],
+    center: [[0.68, 0.225, 0.14, 0.05, 0.07], [1.25, 0.13, 0.10, 0.05, 0.06]],
+  },
+  // Zen kanji on the engine cover.
+  420: {
+    flank: [],
+    center: [[0.68, 0.225, 0.18, 0.06, 0.10], [1.22, 0.13, 0.08, 0.05, 0.06]],
+  },
+  // Dragon flames, front-heavy.
+  421: {
+    flank: [[1.15, 0.145, 0.22, 0.05, 0.08, 0.05], [0.95, 0.17, 0.26, 0.05, 0.08, 0.07], [0.72, 0.205, 0.24, 0.05, 0.07, 0.06], [0.50, 0.24, 0.20, 0.05, 0.06, 0.05]],
+    center: [[1.28, 0.125, 0.12, 0.05, 0.08], [0.68, 0.225, 0.16, 0.05, 0.08]],
+  },
+  // Bee stripes: full-length segmented stripes.
+  422: {
+    flank: [[-0.72, 0.235, 0.50, 0.05, 0.09, 0.05], [-0.16, 0.385, 0.34, 0.05, 0.09, 0.05], [0.60, 0.235, 0.42, 0.05, 0.09, 0.05], [1.02, 0.160, 0.34, 0.05, 0.08, 0.045], [-0.16, 0.395, 0.34, 0.05, 0.06, 0.13], [0.60, 0.225, 0.40, 0.05, 0.06, 0.13]],
+    center: [[0.68, 0.225, 0.30, 0.05, 0.10], [1.22, 0.13, 0.14, 0.05, 0.10]],
+  },
+  // Tiger stripes: angled flank slashes.
+  423: {
+    flank: [[0.95, 0.17, 0.10, 0.05, 0.04, 0.06], [0.75, 0.20, 0.10, 0.05, 0.04, 0.10], [0.55, 0.24, 0.10, 0.05, 0.04, 0.06], [0.35, 0.28, 0.10, 0.05, 0.04, 0.10], [0.10, 0.32, 0.10, 0.05, 0.04, 0.06], [-0.15, 0.38, 0.10, 0.05, 0.04, 0.10], [-0.40, 0.36, 0.10, 0.05, 0.04, 0.06]],
+    center: [[0.68, 0.225, 0.12, 0.05, 0.06]],
+  },
+  // Starburst rays from the nose.
+  424: {
+    flank: [[1.00, 0.16, 0.08, 0.05, 0.05, 0.05], [0.85, 0.19, 0.08, 0.05, 0.05, 0.09], [0.70, 0.21, 0.08, 0.05, 0.05, 0.05], [0.55, 0.24, 0.08, 0.05, 0.05, 0.09]],
+    center: [[1.22, 0.13, 0.14, 0.06, 0.09], [0.68, 0.225, 0.10, 0.05, 0.06]],
+  },
+  // Heart emblem on the engine cover.
+  425: {
+    flank: [[0.50, 0.24, 0.06, 0.05, 0.05, 0.08]],
+    center: [[0.68, 0.225, 0.16, 0.06, 0.09], [1.22, 0.13, 0.06, 0.05, 0.05]],
+  },
+  // Arrow chevrons on the flanks.
+  426: {
+    flank: [[-0.55, 0.29, 0.40, 0.04, 0.05, 0.06], [-0.20, 0.40, 0.30, 0.04, 0.05, 0.06], [0.15, 0.31, 0.30, 0.04, 0.05, 0.06], [0.50, 0.24, 0.30, 0.04, 0.05, 0.06], [0.85, 0.19, 0.24, 0.04, 0.05, 0.06]],
+    center: [[1.25, 0.13, 0.10, 0.04, 0.06]],
+  },
+  // Ocean wave along the flanks.
+  427: {
+    flank: [[-0.55, 0.29, 0.16, 0.05, 0.06, 0.06], [-0.20, 0.40, 0.16, 0.05, 0.06, 0.06], [0.15, 0.31, 0.16, 0.05, 0.06, 0.06], [0.50, 0.24, 0.16, 0.05, 0.06, 0.06]],
+    center: [[0.68, 0.225, 0.14, 0.05, 0.07]],
+  },
+  // Crescent moon on the engine cover.
+  428: {
+    flank: [[0.50, 0.24, 0.06, 0.05, 0.05, 0.08]],
+    center: [[0.68, 0.225, 0.16, 0.06, 0.09], [1.22, 0.13, 0.06, 0.05, 0.05]],
+  },
+};
 export interface TrackPoint {
   x: number; z: number;
   dirX: number; dirZ: number;
@@ -108,10 +259,8 @@ export class RacingRenderer {
   private barrierCount = 0;
   private finishVao!: WebGLVertexArrayObject;
   private finishCount = 0;
-  private accentVao!: WebGLVertexArrayObject;
-  private accentCount = 0;
-  private decalVao!: WebGLVertexArrayObject;
-  private decalCount = 0;
+  private accentVaos = new Map<number, { vao: WebGLVertexArrayObject; count: number }>();
+  private decalVaos = new Map<number, { vao: WebGLVertexArrayObject; count: number }>();
   private glowVao!: WebGLVertexArrayObject;
   private glowCount = 0;
   private glowHaloVao!: WebGLVertexArrayObject;
@@ -2972,15 +3121,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const gl = this.gl;
     const verts: number[] = [];
     const idxs: number[] = [];
-    const accVerts: number[] = [];
-    const accIdxs: number[] = [];
-    const decVerts: number[] = [];
-    const decIdxs: number[] = [];
+    const accFixedVerts: number[] = [];
+    const accFixedIdxs: number[] = [];
     const [cr, cg, cb] = [0.85, 0.06, 0.06];
     const carbon = [0.12, 0.12, 0.14];
     const dark = [0.08, 0.08, 0.10];
     const grey = [0.22, 0.22, 0.24];
-    const [mrl, mgl, mbl] = [0.95, 0.95, 0.98];
+    const hel = [1.0, 1.0, 1.02];  // driver helmet shell (tinted by the car colour)
     this.addBox(verts, idxs, -0.1, 0.02, 0, 2.6, 0.03, 1.05, dark);
     this.addBox(verts, idxs, 0.1, 0.06, 0.53, 1.4, 0.07, 0.02, carbon);
     this.addBox(verts, idxs, 0.1, 0.06, -0.53, 1.4, 0.07, 0.02, carbon);
@@ -3019,7 +3166,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
     ], 20, dark, false);
     this.addBox(verts, idxs, 0.26, 0.27, 0, 0.18, 0.07, 0.20, [cr, cg, cb]);
     this.addBox(verts, idxs, 0.29, 0.30, 0, 0.12, 0.05, 0.18, [0.1, 0.1, 0.12]);
-    this.addSphere(verts, idxs, 0.40, 0.315, 0, 0.09, 14, [mrl, mgl, mbl]);
+    // Driver helmet: smooth white dome + dark visor band + neck, replacing the
+    // old faceted white blob so the cockpit reads as a racer head.
+    this.addEllipsoid(verts, idxs, 0.40, 0.335, 0, 0.085, 0.075, 0.095, 18, hel);
+    this.addBox(verts, idxs, 0.478, 0.335, 0, 0.02, 0.052, 0.10, [0.015, 0.015, 0.035]);
+    this.addBox(verts, idxs, 0.40, 0.27, 0, 0.075, 0.035, 0.08, [0.13, 0.13, 0.16]);
     this.addBox(verts, idxs, 0.45, 0.315, 0, 0.04, 0.05, 0.12, dark);
     this.addBox(verts, idxs, 0.47, 0.315, 0, 0.02, 0.03, 0.08, [0.02, 0.02, 0.04]);
     this.addBox(verts, idxs, 0.40, 0.265, 0, 0.06, 0.03, 0.08, [0.2, 0.2, 0.22]);
@@ -3154,18 +3305,53 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addBox(verts, idxs, 0.67, 0.12, -0.62, 0.02, 0.06, 0.04, dark);
     this.addStrut(verts, idxs, 0.62, 0.12, 0.62, 0.72, 0.06, 0.72, 0.015, grey);
     this.addStrut(verts, idxs, 0.62, 0.12, -0.62, 0.72, 0.06, -0.72, 0.015, grey);
-    this.addBox(accVerts, accIdxs, -0.1, 0.30, 0.505, 0.5, 0.02, 0.005, [1, 1, 1]);
-    this.addBox(accVerts, accIdxs, -0.1, 0.30, -0.505, 0.5, 0.02, 0.005, [1, 1, 1]);
+    this.addBox(accFixedVerts, accFixedIdxs, -0.1, 0.30, 0.505, 0.5, 0.02, 0.005, [1, 1, 1]);
+    this.addBox(accFixedVerts, accFixedIdxs, -0.1, 0.30, -0.505, 0.5, 0.02, 0.005, [1, 1, 1]);
     this.addBox(verts, idxs, 0.35, 0.30, 0.60, 0.10, 0.05, 0.07, grey);
     this.addBox(verts, idxs, 0.35, 0.30, -0.60, 0.10, 0.05, 0.07, grey);
     this.addStrut(verts, idxs, 0.30, 0.24, 0.52, 0.35, 0.30, 0.60, 0.02, carbon);
     this.addStrut(verts, idxs, 0.30, 0.24, -0.52, 0.35, 0.30, -0.60, 0.02, carbon);
     this.addBox(verts, idxs, 0.40, 0.30, 0.60, 0.02, 0.03, 0.05, [0.6, 0.65, 0.7]);
     this.addBox(verts, idxs, 0.40, 0.30, -0.60, 0.02, 0.03, 0.05, [0.6, 0.65, 0.7]);
-    this.addCylinder(accVerts, accIdxs, -0.72, 0.28, 0.18, 0.04, 0.07, 10, [1, 1, 1]);
-    this.addCylinder(accVerts, accIdxs, -0.72, 0.28, -0.18, 0.04, 0.07, 10, [1, 1, 1]);
-    this.addCylinder(accVerts, accIdxs, -0.70, 0.28, 0.18, 0.025, 0.02, 8, dark);
-    this.addCylinder(accVerts, accIdxs, -0.70, 0.28, -0.18, 0.025, 0.02, 8, dark);
+    this.addCylinder(accFixedVerts, accFixedIdxs, -0.72, 0.28, 0.18, 0.04, 0.07, 10, [1, 1, 1]);
+    this.addCylinder(accFixedVerts, accFixedIdxs, -0.72, 0.28, -0.18, 0.04, 0.07, 10, [1, 1, 1]);
+    this.addCylinder(accFixedVerts, accFixedIdxs, -0.70, 0.28, 0.18, 0.025, 0.02, 8, dark);
+    this.addCylinder(accFixedVerts, accFixedIdxs, -0.70, 0.28, -0.18, 0.025, 0.02, 8, dark);
+    // Accent side-pod stripes — segmented racing stripes along the side-pod
+    // flanks (mirroring the decal treatment). To keep combined accent + decal
+    // liveries from colliding visually, the accent geometry is built once PER
+    // decal style: any accent segment whose x-range overlaps a plate of the
+    // equipped decal style (from DECAL_LAYOUTS) is dropped, so accent only
+    // paints the gaps the decal leaves free. Fixed accent bits (mirrors,
+    // engine-cover cylinders) are always included. Each plate is tinted by
+    // ACCENT_COLORS at draw time.
+    const accentSegs: Array<[number, number, number, number, number, number]> = [
+      [0.62, 0.31, 0.26, 0.03, 0.06, 0.46],
+      [0.24, 0.31, 0.26, 0.03, 0.06, 0.46],
+      [-0.14, 0.29, 0.24, 0.03, 0.06, 0.46],
+      [-0.50, 0.24, 0.20, 0.03, 0.06, 0.46],
+      [-0.74, 0.19, 0.16, 0.03, 0.06, 0.42],
+    ];
+    const overlapX = (a0: number, a1: number, b0: number, b1: number) => a0 < b1 && b0 < a1;
+    const accentGeoms = new Map<number, { v: number[]; i: number[] }>();
+    // Key 0 = no decal equipped (all accent segments shown).
+    for (const styleKey of [0, ...Object.keys(DECAL_LAYOUTS).map(Number)]) {
+      const gv: number[] = [...accFixedVerts];
+      const gi: number[] = [...accFixedIdxs];
+      const decal = DECAL_LAYOUTS[styleKey];
+      for (const [cx, cy, l, h, d, z] of accentSegs) {
+        if (decal) {
+          const x0 = cx - l / 2, x1 = cx + l / 2;
+          const collides =
+            decal.flank.some(([dcx, , dl]) => overlapX(x0, x1, dcx - dl / 2, dcx + dl / 2)) ||
+            decal.center.some(([dcx, , dl]) => overlapX(x0, x1, dcx - dl / 2, dcx + dl / 2));
+          if (collides) continue;
+        }
+        this.addBox(gv, gi, cx, cy, z, l, h, d, [1, 1, 1]);
+        this.addBox(gv, gi, cx, cy, -z, l, h, d, [1, 1, 1]);
+      }
+      accentGeoms.set(styleKey, { v: gv, i: gi });
+    }
     this.addBox(verts, idxs, -1.035, 0.52, 0, 0.05, 0.07, 0.06, [1, 0.15, 0.15]);
     this.addBox(verts, idxs, -1.03, 0.52, 0.02, 0.01, 0.03, 0.01, [1, 0.5, 0.5]);
     this.addBox(verts, idxs, -1.03, 0.52, -0.02, 0.01, 0.03, 0.01, [1, 0.5, 0.5]);
@@ -3173,9 +3359,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addBox(verts, idxs, -0.20, 0.50, 0, 0.04, 0.05, 0.05, [1.0, 0.9, 0.2]);
     this.addCylinder(verts, idxs, -0.60, 0.39, 0, 0.008, 0.30, 8, grey);
     this.addBox(verts, idxs, -0.55, 0.40, 0, 0.50, 0.16, 0.015, carbon);
-    this.addBox(decVerts, decIdxs, -0.3, 0.375, 0.06, 1.0, 0.01, 0.09, [1, 1, 1]);
-    this.addBox(decVerts, decIdxs, -0.3, 0.375, -0.06, 1.0, 0.01, 0.09, [1, 1, 1]);
-    this.addBox(decVerts, decIdxs, 1.12, 0.12, 0, 0.10, 0.14, 0.012, [1, 1, 1]);
+    // Per-style livery decals — geometry is built per style id below, once
+    // `stride` is in scope (see the VAO loop after the car buffer setup).
     this.addStrut(verts, idxs, 0.58, 0.16, 0.22, 0.72, 0.06, 0.72, 0.025, carbon);
     this.addStrut(verts, idxs, 0.58, 0.16, -0.22, 0.72, 0.06, -0.72, 0.025, carbon);
     this.addStrut(verts, idxs, 0.54, 0.16, 0.22, 0.68, 0.06, 0.72, 0.025, carbon);
@@ -3217,46 +3402,63 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.enableVertexAttribArray(3);
     gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
-    const accArray = new Float32Array(accVerts);
-    const accIdxArray = new Uint16Array(accIdxs);
-    this.accentCount = accIdxArray.length;
-    this.accentVao = gl.createVertexArray()!;
-    gl.bindVertexArray(this.accentVao);
-    const avbo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ARRAY_BUFFER, avbo);
-    gl.bufferData(gl.ARRAY_BUFFER, accArray, gl.STATIC_DRAW);
-    const aibo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, aibo);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, accIdxArray, gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
-    gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
-    gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
-    gl.enableVertexAttribArray(3);
-    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    // Per-style livery decals — one VAO per decal style id, each with its own
+    // placement layout (see DECAL_LAYOUTS) so stripes, flames, emblems, number
+    // plates etc. put their artwork in different spots on the car. Plates hug
+    // the local body surface (the loft's top tapers toward nose and tail) and
+    // are tinted by DECAL_COLORS at draw time.
+    for (const styleIdStr of Object.keys(DECAL_LAYOUTS)) {
+      const styleId = Number(styleIdStr);
+      const layout = DECAL_LAYOUTS[styleId] ?? DECAL_LAYOUTS[401];
+      const gv: number[] = [];
+      const gi: number[] = [];
+      for (const [cx, cy, l, h, d, z] of layout.flank) {
+        this.addBox(gv, gi, cx, cy, z, l, h, d, [1, 1, 1]);
+        this.addBox(gv, gi, cx, cy, -z, l, h, d, [1, 1, 1]);
+      }
+      for (const [cx, cy, l, h, d] of layout.center) {
+        this.addBox(gv, gi, cx, cy, 0, l, h, d, [1, 1, 1]);
+      }
+      const decVao = gl.createVertexArray()!;
+      gl.bindVertexArray(decVao);
+      const dvbo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, dvbo);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(gv), gl.STATIC_DRAW);
+      const dibo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, dibo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(gi), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+      gl.enableVertexAttribArray(3);
+      gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+      this.decalVaos.set(styleId, { vao: decVao, count: gi.length });
+    }
     gl.bindVertexArray(null);
-    const decArray = new Float32Array(decVerts);
-    const decIdxArray = new Uint16Array(decIdxs);
-    this.decalCount = decIdxArray.length;
-    this.decalVao = gl.createVertexArray()!;
-    gl.bindVertexArray(this.decalVao);
-    const dvbo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ARRAY_BUFFER, dvbo);
-    gl.bufferData(gl.ARRAY_BUFFER, decArray, gl.STATIC_DRAW);
-    const dibo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, dibo);
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, decIdxArray, gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
-    gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
-    gl.enableVertexAttribArray(2);
-    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
-    gl.enableVertexAttribArray(3);
-    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    for (const [styleKey, geom] of accentGeoms) {
+      const accVao = gl.createVertexArray()!;
+      gl.bindVertexArray(accVao);
+      const avbo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, avbo);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geom.v), gl.STATIC_DRAW);
+      const aibo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, aibo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(geom.i), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+      gl.enableVertexAttribArray(3);
+      gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+      this.accentVaos.set(styleKey, { vao: accVao, count: geom.i.length });
+    }
     gl.bindVertexArray(null);
+
     const buildGlowQuad = (glowL: number, glowW: number): { vao: WebGLVertexArrayObject; count: number } => {
       const gv: number[] = [];
       const gi: number[] = [];
@@ -5486,6 +5688,76 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.renderMirror(eyeX, eyeY, eyeZ, yaw, cars, dt, isRaining, playerSpeed, playerAccel, playerSpin, playerSlide, playerAppearance, heatStrength);
     }
   }
+  /** Turntable view of the real race car (same mesh + appearance as on track) for
+   *  the garage. `vp` is the canvas-pixel rectangle of the preview stage so the
+   *  car fills exactly the preview column on desktop and the top strip on mobile. */
+  renderGarage(rotY: number, rotX: number, zoom: number, appearance: RacingCarAppearance,
+    vp: { x: number; y: number; w: number; h: number }, dt: number = 0) {
+    const gl = this.gl;
+    this.elapsed += dt;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.clearColor(0.028, 0.028, 0.055, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.enable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE);
+    const w = Math.max(1, Math.round(vp.w));
+    const h = Math.max(1, Math.round(vp.h));
+    gl.viewport(Math.round(vp.x), Math.round(vp.y), w, h);
+    const aspect = w / h;
+    const dist = 4.1 / Math.max(0.45, zoom);
+    const yaw = (rotY * Math.PI) / 180;
+    const pitch = Math.min(1.15, Math.max(-0.25, (rotX * Math.PI) / 180));
+    const eyeX = Math.sin(yaw) * Math.cos(pitch) * dist;
+    const eyeY = Math.sin(pitch) * dist + 0.28;
+    const eyeZ = Math.cos(yaw) * Math.cos(pitch) * dist;
+    this.mat4Perspective(this.projMatrix, 1.0, aspect, 0.5, 100);
+    this.mat4LookAt(this.viewMatrix, [eyeX, eyeY, eyeZ], [0, 0.18, 0], [0, 1, 0]);
+    gl.useProgram(this.prog);
+    gl.uniformMatrix4fv(this.projLoc, false, this.projMatrix);
+    gl.uniformMatrix4fv(this.viewLoc, false, this.viewMatrix);
+    gl.uniform3fv(this.lightDirLoc, this.sunDir);
+    gl.uniform3fv(this.envTopLoc, this.skyTop);
+    gl.uniform3fv(this.envBottomLoc, this.skyBottom);
+    gl.uniform1f(this.envStrengthLoc, 0.4);
+    gl.uniform3fv(this.sunColorLoc, this.sunColor);
+    gl.uniform3fv(this.ambientLoc, this.ambientColor);
+    gl.uniform3fv(this.fogColorLoc, this.fogColor);
+    gl.uniform3f(this.viewPosLoc, eyeX, eyeY, eyeZ);
+    gl.uniform1f(this.alphaLoc, 1);
+    gl.uniform1f(this.emissiveLoc, 0);
+    this.mat4Identity(this.lightSpace);
+    gl.uniformMatrix4fv(this.lightMatrixLoc, false, this.lightSpace);
+    gl.uniform1f(this.shadowTexelLoc, 1 / this.shadowSize);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
+    gl.uniform1i(this.shadowMapLoc, 1);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.uniform1i(this.hasTexLoc, 0);
+    gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
+    // Soft floor shadow under the parked car (dark ellipse blob, same glow quad).
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    this.mat4Identity(this.modelMatrix);
+    this.mat4Scale(this.modelMatrix, [1.3, 1.3, 1.3]);
+    gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+    this.setNormalMatrix(this.modelMatrix);
+    gl.uniform3f(this.colorLoc, 0, 0, 0);
+    gl.uniform1f(this.alphaLoc, 0.32);
+    gl.uniform1f(this.metallicLoc, 0);
+    gl.uniform1f(this.rimStrengthLoc, 0);
+    gl.bindVertexArray(this.glowHaloVao);
+    gl.drawElements(gl.TRIANGLES, this.glowHaloCount, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(null);
+    gl.uniform1f(this.alphaLoc, 1);
+    gl.disable(gl.BLEND);
+    // The real race car — same draw path as on track, so garage == racing model.
+    const skin = appearance.skin ?? [0.85, 0.06, 0.06];
+    this.renderCar(0, 0, 0, 0, skin[0], skin[1], skin[2], 0, 0, 0, 0, appearance);
+    gl.bindVertexArray(null);
+    gl.enable(gl.CULL_FACE);
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+  }
   private pushBoxVerts(d: (number[] | Float32Array), wi: number, cx: number, cy: number, cz: number,
     l: number, h: number, w: number, r: number, g: number, b: number): number {
     const hx = l / 2, hy = h / 2, hz = w / 2;
@@ -6123,13 +6395,19 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (app.decalStyle && DECAL_COLORS[app.decalStyle]) {
       const dc = DECAL_COLORS[app.decalStyle];
       gl.uniform3f(this.colorLoc, dc[0], dc[1], dc[2]);
-      gl.bindVertexArray(this.decalVao);
-      gl.drawElements(gl.TRIANGLES, this.decalCount, gl.UNSIGNED_SHORT, 0);
+      const decal = this.decalVaos.get(app.decalStyle);
+      if (decal) {
+        gl.bindVertexArray(decal.vao);
+        gl.drawElements(gl.TRIANGLES, decal.count, gl.UNSIGNED_SHORT, 0);
+      }
     }
     const acc = app.accent ?? [0.16, 0.16, 0.2];
     gl.uniform3f(this.colorLoc, acc[0], acc[1], acc[2]);
-    gl.bindVertexArray(this.accentVao);
-    gl.drawElements(gl.TRIANGLES, this.accentCount, gl.UNSIGNED_SHORT, 0);
+    const accDecal = this.accentVaos.get(app.decalStyle ?? 0) ?? this.accentVaos.get(0);
+    if (accDecal) {
+      gl.bindVertexArray(accDecal.vao);
+      gl.drawElements(gl.TRIANGLES, accDecal.count, gl.UNSIGNED_SHORT, 0);
+    }
     const snowAmt = appearance?.id ? (this._carSnow.get(appearance.id) ?? 0) : this._playerSnow;
     if (snowAmt > 0.02) {
       const lift = 1 + snowAmt * 0.06;

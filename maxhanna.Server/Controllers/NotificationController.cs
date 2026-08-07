@@ -77,6 +77,15 @@ namespace maxhanna.Server.Controllers
 			return Ok(notifications);
 		}
 
+		private static string? GetRoute(MySqlDataReader reader)
+		{
+			try
+			{
+				return reader.IsDBNull(reader.GetOrdinal("route")) ? null : reader.GetString("route");
+			}
+			catch { return null; } // Column absent on pre-migration DBs.
+		}
+
 		private UserNotification MapReaderToNotification(MySqlDataReader reader)
 		{
 			int? displayPicId = reader.IsDBNull(reader.GetOrdinal("user_display_picture")) ? null : reader.GetInt32("user_display_picture");
@@ -110,6 +119,8 @@ namespace maxhanna.Server.Controllers
 				UserProfileId = reader.IsDBNull(reader.GetOrdinal("user_profile_id")) ? null : reader.GetInt32("user_profile_id"),
 				Text = reader.IsDBNull(reader.GetOrdinal("text")) ? null : reader.GetString("text"),
 				IsRead = reader.IsDBNull(reader.GetOrdinal("is_read")) ? null : reader.GetBoolean("is_read"),
+				// Guarded so a pre-migration DB (no route column yet) still maps cleanly.
+				Route = GetRoute(reader),
 			};
 		}
 

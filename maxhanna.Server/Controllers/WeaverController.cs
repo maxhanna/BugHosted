@@ -728,9 +728,23 @@ namespace maxhanna.Server.Controllers
 			await conn.OpenAsync();
 
 			string sql = @"
-		    SELECT id, user_id, date, benchmark_name, steps, score, status, duration, model, os, cpu, ram, gpu
-		    FROM maxhanna.weaver_benchmark_data
-		    ORDER BY date DESC
+				SELECT
+					w.id,
+					w.user_id,
+					u.username,
+					w.date,
+					w.benchmark_name,
+					w.steps,
+					w.score,
+					w.status, w.duration,
+					w.model,
+					w.os,
+					w.cpu, 
+					w.ram,
+					w.gpu
+				FROM maxhanna.weaver_benchmark_data AS w
+				LEFT JOIN maxhanna.users AS u ON w.user_id = u.id
+				ORDER BY date DESC;
 		    ";
 			using var cmd = new MySqlCommand(sql, conn);
 			using var reader = await cmd.ExecuteReaderAsync();
@@ -740,6 +754,7 @@ namespace maxhanna.Server.Controllers
 			{
 				BenchmarkDataDTO bench = new BenchmarkDataDTO();
 				bench.UserId = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id");
+				bench.UserName = reader.IsDBNull(reader.GetOrdinal("username")) ? "" : reader.GetString("username");
 				bench.Date = reader.GetDateTime("date").ToString("yyyy-MM-dd HH:mm:ss");
 				bench.Benchmark = reader.GetString("benchmark_name");
 				bench.Steps = reader.IsDBNull(reader.GetOrdinal("steps")) ? "0" : reader.GetString("steps");
@@ -931,20 +946,22 @@ namespace maxhanna.Server.Controllers
 	{
 		public string Token { get; set; } = "";
 		public List<object>? Hints { get; set; }
-	}  public class BenchmarkDataDTO
-  {
-    public string? Token { get; set; }
-    public int? UserId { get; set; }
-    public string? Date { get; set; }
-    public string? Benchmark { get; set; }
-    public string? Steps { get; set; }
-    public float? Score { get; set; }
-    public string? Status { get; set; }
-    public string? Duration { get; set; }
-    public string? Model { get; set; }
-    public string? OS { get; set; }
-    public string? CPU { get; set; }
-    public string? RAM { get; set; }
-    public string? GPU { get; set; }
-  }
+	}
+	public class BenchmarkDataDTO
+	{
+		public string? Token { get; set; }
+		public int? UserId { get; set; }
+		public string? UserName { get; set; }
+		public string? Date { get; set; }
+		public string? Benchmark { get; set; }
+		public string? Steps { get; set; }
+		public float? Score { get; set; }
+		public string? Status { get; set; }
+		public string? Duration { get; set; }
+		public string? Model { get; set; }
+		public string? OS { get; set; }
+		public string? CPU { get; set; }
+		public string? RAM { get; set; }
+		public string? GPU { get; set; }
+	}
 }

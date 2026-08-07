@@ -15,5 +15,7 @@ namespace maxhanna.Server.Controllers.DataContracts.Wordler
 		public string? Text { get; set; }
 		public DateTime? Date { get; set; }
 		public Boolean? IsRead { get; set; }
+		// Deep-link route payload (e.g. "myappeals" opens the moderator panel's My Appeals tab).
+		public string? Route { get; set; }
 	}
 }

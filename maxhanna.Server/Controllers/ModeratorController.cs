@@ -1,5 +1,6 @@
 ﻿using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Users;
+using FirebaseAdmin.Messaging;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Data;
@@ -791,6 +792,7 @@ namespace maxhanna.Server.Controllers
           insertCmd.Parameters.AddWithValue("@RequestText", (request.RequestText ?? "").Trim());
           await insertCmd.ExecuteNonQueryAsync();
           _ = _log.Db($"User {request.UserId} requested topic moderator status for topic #{topicId}", request.UserId, "MODERATOR", true);
+          await NotifyModeratorsOfNewRequestAsync(conn, request.UserId, topicId, 0);
           return Ok(new { message = "Moderator request submitted to the topic's moderators." });
         }
         string chatSql = "SELECT COUNT(*) FROM maxhanna.chat_rooms WHERE chat_id = @ChatId;";
@@ -820,6 +822,7 @@ namespace maxhanna.Server.Controllers
         cmd.Parameters.AddWithValue("@RequestText", (request.RequestText ?? "").Trim());
         await cmd.ExecuteNonQueryAsync();
         _ = _log.Db($"User {request.UserId} requested moderator status in chat #{chatId}", request.UserId, "MODERATOR", true);
+        await NotifyModeratorsOfNewRequestAsync(conn, request.UserId, 0, chatId);
         return Ok(new { message = "Moderator request submitted to the chat's moderators." });
       }
       catch (Exception ex)
@@ -1082,12 +1085,15 @@ namespace maxhanna.Server.Controllers
           string notifText = resolution == "approved"
             ? $"✅ Your moderator request for {scopeName} was approved — you're now a moderator!"
             : $"Your moderator request for {scopeName} was denied.";
-          string notifSql = "INSERT INTO maxhanna.notifications (user_id, from_user_id, text, date, is_read) VALUES (@UserId, @FromUserId, @Text, UTC_TIMESTAMP(), 0);";
+          string notifSql = "INSERT INTO maxhanna.notifications (user_id, from_user_id, text, date, is_read, route) VALUES (@UserId, @FromUserId, @Text, UTC_TIMESTAMP(), 0, @Route);";
           using var notifCmd = new MySqlCommand(notifSql, conn);
           notifCmd.Parameters.AddWithValue("@UserId", requesterId);
           notifCmd.Parameters.AddWithValue("@FromUserId", request.CallerUserId);
           notifCmd.Parameters.AddWithValue("@Text", notifText);
+          notifCmd.Parameters.AddWithValue("@Route", "myappeals");
           await notifCmd.ExecuteNonQueryAsync();
+          // Mirror the story-post push pattern so the applicant gets a push even when the app is closed.
+          await SendModeratorRequestPushAsync(requesterId, request.CallerUserId, scopeName, resolution, topicId, chatId);
         }
         _ = _log.Db($"Moderator {request.CallerUserId} resolved moderator request {request.RequestId} as '{resolution}' for chat #{chatId}", request.CallerUserId, "MODERATOR", true);
         return Ok(new { message = resolution == "approved" ? "Request approved — user is now a chat moderator." : "Request denied." });
@@ -1096,6 +1102,111 @@ namespace maxhanna.Server.Controllers
       {
         _ = _log.Db("Error in ResolveModeratorRequest: " + ex.Message, request.CallerUserId, "MODERATOR", true);
         return StatusCode(500, "Failed to resolve moderator request.");
+      }
+    }
+    /// <summary>
+    /// Notifies the relevant moderators (global admins/moderators plus the scope's own
+    /// topic/chat moderators, excluding the requester) that a new moderator request
+    /// was submitted, so appeals get acted on faster.
+    /// </summary>
+    private async Task NotifyModeratorsOfNewRequestAsync(MySqlConnection conn, int requesterId, int topicId, int chatId)
+    {
+      try
+      {
+        string scopeName = "";
+        if (topicId > 0)
+        {
+          string nameSql = "SELECT topic FROM maxhanna.topics WHERE id = @TopicId LIMIT 1;";
+          using var nameCmd = new MySqlCommand(nameSql, conn);
+          nameCmd.Parameters.AddWithValue("@TopicId", topicId);
+          var name = await nameCmd.ExecuteScalarAsync();
+          scopeName = name == null || name == DBNull.Value ? $"topic #{topicId}" : name.ToString()!;
+        }
+        else
+        {
+          string nameSql = "SELECT name FROM maxhanna.chat_rooms WHERE chat_id = @ChatId LIMIT 1;";
+          using var nameCmd = new MySqlCommand(nameSql, conn);
+          nameCmd.Parameters.AddWithValue("@ChatId", chatId);
+          var name = await nameCmd.ExecuteScalarAsync();
+          scopeName = name == null || name == DBNull.Value ? $"chat #{chatId}" : name.ToString()!;
+        }
+        string sql = @"SELECT DISTINCT user_id FROM (
+            SELECT user_id FROM maxhanna.moderator_roles WHERE role = 'admin' AND target_type = 'global'
+            UNION ALL
+            SELECT user_id FROM maxhanna.user_roles WHERE role = 'moderator'
+            UNION ALL
+            SELECT user_id FROM maxhanna.moderator_roles WHERE role = 'moderator' AND target_type = 'global'";
+        if (topicId > 0)
+          sql += @"
+            UNION ALL
+            SELECT user_id FROM maxhanna.moderator_roles WHERE role = 'topic_moderator' AND target_type = 'topic' AND target_id = @ScopeId";
+        else
+          sql += @"
+            UNION ALL
+            SELECT user_id FROM maxhanna.moderator_roles WHERE role = 'chat_moderator' AND target_type = 'chat' AND target_id = @ScopeId";
+        sql += ") t WHERE user_id <> @RequesterId;";
+        using var listCmd = new MySqlCommand(sql, conn);
+        listCmd.Parameters.AddWithValue("@ScopeId", topicId > 0 ? topicId : chatId);
+        listCmd.Parameters.AddWithValue("@RequesterId", requesterId);
+        string notifText = $"📨 New moderator request for {scopeName} — review it in the moderator panel.";
+        using var reader = await listCmd.ExecuteReaderAsync();
+        var targets = new List<int>();
+        while (await reader.ReadAsync())
+          targets.Add(reader.GetInt32("user_id"));
+        reader.Close();
+        string insertSql = "INSERT INTO maxhanna.notifications (user_id, from_user_id, text, date, is_read, route) VALUES (@UserId, @FromUserId, @Text, UTC_TIMESTAMP(), 0, @Route);";
+        foreach (int targetId in targets)
+        {
+          using var notifCmd = new MySqlCommand(insertSql, conn);
+          notifCmd.Parameters.AddWithValue("@UserId", targetId);
+          notifCmd.Parameters.AddWithValue("@FromUserId", requesterId);
+          notifCmd.Parameters.AddWithValue("@Text", notifText);
+          notifCmd.Parameters.AddWithValue("@Route", "myappeals");
+          await notifCmd.ExecuteNonQueryAsync();
+          await SendModeratorRequestPushAsync(targetId, requesterId, scopeName, "new", topicId, chatId);
+        }
+      }
+      catch { /* notification is best-effort — the request itself already succeeded */ }
+    }
+
+    /// <summary>
+    /// Sends a Firebase push to <paramref name="userId"/>'s notification{userId} topic using the
+    /// same pattern as story posts (type in the Data payload), so moderator-request outcomes
+    /// reach the user even when the app is closed. Best-effort: never fails the caller.
+    /// </summary>
+    private async Task SendModeratorRequestPushAsync(int userId, int fromUserId, string scopeName, string resolution, int topicId, int chatId)
+    {
+      try
+      {
+        string body = resolution == "new"
+          ? $"📨 New moderator request for {scopeName} — review it in the moderator panel."
+          : resolution == "approved"
+            ? $"✅ Your moderator request for {scopeName} was approved — you're now a moderator!"
+            : $"Your moderator request for {scopeName} was denied.";
+        var message = new Message()
+        {
+          Notification = new FirebaseAdmin.Messaging.Notification()
+          {
+            Title = resolution == "new" ? "New moderator request" : "Moderator request update",
+            Body = body,
+            ImageUrl = "https://www.bughosted.com/assets/logo.jpg"
+          },
+          Data = new Dictionary<string, string>
+          {
+            { "url", "https://bughosted.com" },
+            { "type", "moderator_request" },
+            { "fromUserId", fromUserId.ToString() },
+            { "topicId", topicId.ToString() },
+            { "chatId", chatId.ToString() },
+            { "resolution", resolution }
+          },
+          Topic = $"notification{userId}"
+        };
+        await FirebaseMessaging.DefaultInstance.SendAsync(message);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("An error occurred while sending Firebase push for moderator request. " + ex.Message, userId, "MODERATOR", true);
       }
     }
     public static async Task<bool> IsChatModeratorAsync(IConfiguration config, int userId, int chatId)

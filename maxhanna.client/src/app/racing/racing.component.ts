@@ -1,6 +1,6 @@
 import { AfterViewInit, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
-import { RacingRenderer, TrackPoint } from './racing-renderer';
+import { RacingRenderer, TrackPoint, DECAL_LAYOUTS } from './racing-renderer';
 import { RacingService } from '../../services/racing.service';
 import { RacingHubService, LobbyPlayer, RemoteCarPosition, RaceStandingsRow } from '../../services/racing-hub.service';
 import {
@@ -103,6 +103,7 @@ interface RemoteCarVisual {
 })
 export class RacingComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('raceCanvas', { static: false }) canvasRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('garageStage', { static: false }) garageStageEl?: ElementRef<HTMLDivElement>;
   renderer!: RacingRenderer;
   private animId = 0;
   private lastTime = 0;
@@ -204,7 +205,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   leaderboardTotal = 0;
   leaderboardUserRank = 0;
   leaderboardBestLap = 0;
-  leaderboardMode: 'track' | 'overall' | 'alltracks' = 'alltracks';
   allTrackBoards: {
     trackId: number; totalCount: number; bestLap: number;
     userLap: number; userRank: number; results: RaceResult[];
@@ -715,7 +715,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this._recordToastTimer) clearTimeout(this._recordToastTimer);
     if (this._beatFriendToastTimer) clearTimeout(this._beatFriendToastTimer);
     if (this._glowIntensitySaveTimer) clearTimeout(this._glowIntensitySaveTimer);
-    if (this._carZoomAnimTimer) clearTimeout(this._carZoomAnimTimer);
     if (this._mpLobbyTrackId) {
       this.racingHub.leaveLobby(this._mpLobbyTrackId);
     }
@@ -1166,16 +1165,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   carRotateX = 20;
   carRotateY = -40;
   carZoom = 1;
-  carZoomAnim = false;
-  private _carZoomAnimTimer: any = null;
   isCarDragging = false;
   private _carDragStart: { x: number; y: number; rotX: number; rotY: number } | null = null;
-  getCarTransform(): string {
-    return `scale(${this.carZoom}) rotateX(${this.carRotateX}deg) rotateY(${this.carRotateY}deg)`;
-  }
   onCarPointerDown(e: PointerEvent) {
-    this.carZoomAnim = false;
-    if (this._carZoomAnimTimer) { clearTimeout(this._carZoomAnimTimer); this._carZoomAnimTimer = null; }
     this._carDragStart = { x: e.clientX, y: e.clientY, rotX: this.carRotateX, rotY: this.carRotateY };
     this.isCarDragging = true;
     try { (e.target as HTMLElement)?.setPointerCapture?.(e.pointerId); } catch { }
@@ -1193,16 +1185,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._carDragStart = null;
     this.isCarDragging = false;
   }
-  zoomCar(dir: number, animate = false) {
+  zoomCar(dir: number) {
     this.carZoom = Math.max(0.55, Math.min(2.2, Math.round((this.carZoom + dir) * 100) / 100));
-    if (animate) {
-      this.carZoomAnim = true;
-      if (this._carZoomAnimTimer) clearTimeout(this._carZoomAnimTimer);
-      this._carZoomAnimTimer = setTimeout(() => {
-        this.carZoomAnim = false;
-        this._carZoomAnimTimer = null;
-      }, 300);
-    }
     this.saveGarageCam();
   }
   onCarWheel(e: WheelEvent) {
@@ -1460,6 +1444,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.renderer && this.isLoaded) {
       if (this.gameState === 'finished' && this._replayFrames.length > 1) {
         this.renderReplay(dt);
+        return;
+      }
+      if (this.gameState === 'garage') {
+        const vp = this.getGarageStageViewport();
+        if (vp) {
+          this.renderer.renderGarage(this.carRotateY, this.carRotateX, this.carZoom,
+            this.getPreviewAppearance(), vp, dt);
+        }
         return;
       }
       const aspect = this.canvasRef.nativeElement.width / this.canvasRef.nativeElement.height;
@@ -2438,25 +2430,39 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   async toggleLeaderboard() {
     this.showLeaderboard = !this.showLeaderboard;
     if (this.showLeaderboard) {
-      if (this.leaderboardMode === 'overall') await this.loadOverallLeaderboard();
-      else if (this.leaderboardMode === 'alltracks') await this.loadAllTrackLeaderboards();
-      else await this.loadLeaderboard();
-    }
-  }
-  async setLeaderboardMode(mode: 'track' | 'overall' | 'alltracks') {
-    this.leaderboardMode = mode;
-    if (mode === 'overall') {
-      await this.loadOverallLeaderboard();
-    } else if (mode === 'alltracks') {
+      this.parentRef?.showOverlay();
       await this.loadAllTrackLeaderboards();
+    } else {
+      this.parentRef?.closeOverlay();
     }
   }
   async loadAllTrackLeaderboards() {
     const uid = this.parentRef?.user?.id ?? 0;
     this.allTracksLoading = true;
     try {
-      const data = await this.racingService.getAllTrackLeaderboards(uid);
-      this.allTrackBoards = data?.tracks ?? [];
+      let boards = (await this.racingService.getAllTrackLeaderboards(uid))?.tracks ?? [];
+      // Fallback: if the by-track endpoint returns nothing (older deployed
+      // server without it, or a query hiccup), build the per-circuit boards
+      // from the per-track leaderboard endpoint so the panel always shows data.
+      if (boards.length === 0) {
+        const per = await Promise.all(this.trackDefs.map(async t => {
+          try {
+            const d = await this.racingService.getLeaderboard(t.id, uid);
+            if (!d || d.results.length === 0) return null;
+            const mine = d.results.find(r => r.playerId === uid);
+            return {
+              trackId: t.id,
+              totalCount: d.totalCount,
+              bestLap: d.bestLap,
+              userLap: mine?.lapTime ?? 0,
+              userRank: d.userRank,
+              results: d.results,
+            };
+          } catch { return null; }
+        }));
+        boards = per.filter((b): b is NonNullable<typeof b> => b !== null);
+      }
+      this.allTrackBoards = boards;
       // On small screens default every card to collapsed so the panel stays
       // compact; users can expand individual circuits as needed. Only seed the
       // collapsed set once so revisiting the view doesn't wipe manual expansions.
@@ -2739,13 +2745,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       204: 'prev-rim-chrome', 205: 'prev-rim-bronze', 206: 'prev-rim-white', 207: 'prev-rim-black', 208: 'prev-rim-blue',
       209: 'prev-rim-emerald', 210: 'prev-rim-violet', 211: 'prev-rim-crimson', 212: 'prev-rim-sunset',
       301: 'prev-exhaust-sport', 302: 'prev-exhaust-titanium', 303: 'prev-exhaust-twin', 304: 'prev-exhaust-quad', 305: 'prev-exhaust-carbon',
-      401: 'prev-decal-stripes', 402: 'prev-decal-flame', 403: 'prev-decal-carbon', 404: 'prev-decal-number',
-      405: 'prev-decal-checkered', 406: 'prev-decal-lightning', 407: 'prev-decal-skull', 408: 'prev-decal-lion',
-      409: 'prev-decal-number7', 410: 'prev-decal-number27', 411: 'prev-decal-number99', 412: 'prev-decal-sponsor',
-      413: 'prev-decal-camo', 414: 'prev-decal-cheetah', 415: 'prev-decal-rising-sun', 416: 'prev-decal-circuit',
-      417: 'prev-decal-bullseye', 418: 'prev-decal-union', 419: 'prev-decal-grid', 420: 'prev-decal-kanji',
-      421: 'prev-decal-dragon', 422: 'prev-decal-bee', 423: 'prev-decal-tiger', 424: 'prev-decal-starburst',
-      425: 'prev-decal-heart', 426: 'prev-decal-arrow', 427: 'prev-decal-wave', 428: 'prev-decal-moon',
+      // Decals (401-428) render the top-down placement map instead of a swatch.
       501: 'prev-glow-blue', 502: 'prev-glow-green', 503: 'prev-glow-purple', 504: 'prev-glow-pink',
       505: 'prev-glow-cyan', 506: 'prev-glow-red', 507: 'prev-glow-gold',
       508: 'prev-glow-orange', 509: 'prev-glow-white', 510: 'prev-glow-uv', 511: 'prev-glow-lime',
@@ -2758,6 +2758,53 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       611: 'prev-accent-cyan', 612: 'prev-accent-lime',
     };
     return previews[p.id] ?? '';
+  }
+  /** True for decal parts — they get a top-down placement map instead of a swatch. */
+  isDecalPart(p: RacingAppearancePart): boolean {
+    return p.category === 'decal';
+  }
+  private _decalColorCache = new Map<number, string>();
+  /** Decal colour as an rgb() string for the placement map plates, floored so dark wraps stay visible on the silhouette. */
+  getDecalPlateColor(id: number): string {
+    const cached = this._decalColorCache.get(id);
+    if (cached) return cached;
+    const c = DECAL_COLORS[id];
+    const to255 = (v: number) => Math.max(52, Math.round(v * 255));
+    const col = c ? `rgb(${to255(c[0])}, ${to255(c[1])}, ${to255(c[2])})` : '#888';
+    this._decalColorCache.set(id, col);
+    return col;
+  }
+  /**
+   * Top-down placement rects for a decal card, derived from DECAL_LAYOUTS so the
+   * preview shows exactly where the artwork lands on the car (front is +x, nose
+   * points right). Returns percentage strings ready for [ngStyle].
+   */
+  private _decalRectCache = new Map<number, { left: string; top: string; width: string; height: string }[]>();
+  getDecalPlateRects(p: RacingAppearancePart): { left: string; top: string; width: string; height: string }[] {
+    const cached = this._decalRectCache.get(p.id);
+    if (cached) return cached;
+    const layout = DECAL_LAYOUTS[p.id];
+    if (!layout) return [];
+    const xMin = -1.5, xMax = 1.5, zMin = -0.62, zMax = 0.62;
+    const xSpan = xMax - xMin, zSpan = zMax - zMin;
+    const rects: { left: string; top: string; width: string; height: string }[] = [];
+    const push = (cx: number, cz: number, l: number, d: number) => {
+      rects.push({
+        left: `${((cx - l / 2 - xMin) / xSpan) * 100}%`,
+        width: `${(l / xSpan) * 100}%`,
+        top: `${((cz - d / 2 - zMin) / zSpan) * 100}%`,
+        height: `${(d / zSpan) * 100}%`,
+      });
+    };
+    for (const [cx, , l, , d, z] of layout.flank) {
+      push(cx, z, l, d);
+      push(cx, -z, l, d);
+    }
+    for (const [cx, , l, , d] of layout.center) {
+      push(cx, 0, l, d);
+    }
+    this._decalRectCache.set(p.id, rects);
+    return rects;
   }
   getEquippedAppearance(cat: string): number {
     switch (cat) {
@@ -3132,6 +3179,41 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       skin: this.hexToRgb(skin.color),
     };
   }
+  /** Equipped appearance merged with the catalog part currently hovered, so the
+   *  WebGL garage car previews rims/accent/decal/glow exactly like the old CSS
+   *  preview did. */
+  getPreviewAppearance(): RacingCarAppearance {
+    const base = this.getPlayerAppearance();
+    const p = this.appearancePreview;
+    if (!p) return base;
+    const out: RacingCarAppearance = { ...base };
+    switch (p.category) {
+      case 'rims': out.rimStyle = p.id; break;
+      case 'accent': out.accent = ACCENT_COLORS[p.id] ?? base.accent; break;
+      case 'decal': out.decalStyle = p.id; break;
+      case 'glow': out.glow = GLOW_COLORS[p.id] ?? base.glow; break;
+    }
+    return out;
+  }
+  /** Maps the garage car-stage DOM rect into canvas pixels so renderGarage fills
+   *  exactly the preview column (desktop) or top strip (mobile). Returns null
+   *  while the garage stage isn't rendered yet. */
+  private getGarageStageViewport(): { x: number; y: number; w: number; h: number } | null {
+    const stage = this.garageStageEl?.nativeElement as HTMLElement | null;
+    const canvas = this.canvasRef?.nativeElement;
+    if (!stage || !canvas) return null;
+    const cr = canvas.getBoundingClientRect();
+    const sr = stage.getBoundingClientRect();
+    if (cr.width <= 0 || cr.height <= 0 || sr.width <= 0 || sr.height <= 0) return null;
+    const sx = canvas.width / cr.width;
+    const sy = canvas.height / cr.height;
+    return {
+      x: (sr.left - cr.left) * sx,
+      y: (sr.top - cr.top) * sy,
+      w: sr.width * sx,
+      h: sr.height * sy,
+    };
+  }
   private _glowIntensitySaveTimer: any = null;
   setGlowIntensity(event: Event) {
     const target = event.target as HTMLInputElement;
@@ -3358,6 +3440,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
   closeLoginPanel() {
     this.gameState = 'menu';
+  }
+  closeLeaderboard() {
+    this.showLeaderboard = false;
+    this.parentRef?.closeOverlay();
   }
   toggleOptions() {
     if (this._destroyed) return;

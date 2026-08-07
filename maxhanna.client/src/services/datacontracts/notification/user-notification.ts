@@ -12,4 +12,5 @@ export class UserNotification {
   isRead?: boolean | undefined;
   text?: string | undefined;
   date?: Date | undefined;
+  route?: string | undefined;
 } 
