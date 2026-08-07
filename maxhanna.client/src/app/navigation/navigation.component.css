@@ -64,6 +64,18 @@
   display: none;
 }
 
+/* Scrolled away (mobile app-bar style): slides fully below the viewport and
+   fades out while the app grid is scrolled down; scrolling back up restores
+   it via the base transition. Visibility is deferred so the bar can't be
+   tab-focused while off-screen. */
+.navSearchBar.scrolled-away {
+  transform: translateY(100%);
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 0.25s ease, transform 0.25s ease, visibility 0s linear 0.25s;
+}
+
 .navSearchToggle {
   background: var(--main-highlight-color, #3a3a3a);
   border: 1px solid var(--main-highlight-color, #3a3a3a);

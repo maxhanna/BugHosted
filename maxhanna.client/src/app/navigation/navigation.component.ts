@@ -57,7 +57,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   nexusUserRank: { rank?: number | null, baseCount?: number | null, totalPlayers?: number | null } | null = null;
   private nexusInterval: any;
   metaActivePlayers: number | null = null;
- private grandtheftInterval: any;
+  private grandtheftInterval: any;
   metaUserRank: { rank?: number | null, level?: number | null, totalPlayers?: number | null } | null = null;
   private metaInterval: any;
   musicTodoCount: number | null = null;
@@ -72,7 +72,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
   private time20Secs = 20 * 1000;
   private time60Secs = 60 * 1000;
   private time20Mins = 20 * 60 * 1000;
-  private time60Mins = 60 * 60 * 1000; 
+  private time60Mins = 60 * 60 * 1000;
   private _abortController = new AbortController();
   private _gamepadPollActive = false;
   private _gamepadLastButtonStates: boolean[][] = [];
@@ -81,24 +81,16 @@ export class NavigationComponent implements OnInit, OnDestroy {
   tradeNotifsCount = 0;
   navbarReady = false;
   navbarCollapsed: boolean = false;
-  // Search bar at the bottom of the nav page — filters the nav items as you
-  // type. Show/hide is a per-user preference persisted via user settings
-  // (show_nav_search), defaulting to visible.
   navSearchTerm = '';
   showNavSearch = true;
-  // Type-ahead suggestions popup: while the search bar has a term, a debounced
-  // call to /search/suggest returns files, posts, comments, news and favourites
-  // rendered as grouped suggestions above the bar.
   navSuggestions: SearchSuggestions | null = null;
   navSuggestionsLoading = false;
   navSuggestionsOpen = false;
-  // Index into the flattened suggestion list (files → posts → comments →
-  // news → favourites) of the keyboard-highlighted row. -1 = nothing selected.
   navSuggestIndex = -1;
-  // Empty-focused state: when the search bar is focused but empty we surface
-  // the user's own recent searches (per-user localStorage) and the site's
-  // trending searches (from search_queries) instead of nothing.
   navSearchFocused = false;
+  navSearchScrolledAway = false;
+  private _navLastScrollY = 0;
+  private _navScrollHandler: (() => void) | null = null;
   navRecentSearches: string[] = [];
   navTrendingSearches: string[] = [];
   private _navTrendingFetchedAt = 0;
@@ -176,13 +168,32 @@ export class NavigationComponent implements OnInit, OnDestroy {
     private newsService: NewsService) { }
 
   async ngOnInit() {
-    this.navbarReady = true; 
+    this.navbarReady = true;
     // Fetch notifications immediately when component initializes
-   // this.getNotifications();
-    this.displayAppSelectionHelp();  
+    // this.getNotifications();
+    this.displayAppSelectionHelp();
     // Gamepad polling setup
     this._gamepadLastButtonStates = [];
     this.loadNavSearchPreference();
+    // Auto-hide/reveal the fixed search bar as the app grid scrolls.
+    this._navScrollHandler = () => this.onNavPageScroll();
+    window.addEventListener('scroll', this._navScrollHandler, { passive: true });
+  }
+
+  // Scroll-up reveals the bar, scroll-down hides it (past a small threshold),
+  // matching mobile app-bar behaviour. The bar stays put while the user is
+  // typing or has the suggestion popup open.
+  private onNavPageScroll() {
+    if (this.navbarCollapsed) return;
+    const y = window.scrollY;
+    const delta = y - this._navLastScrollY;
+    this._navLastScrollY = y;
+    if (this.navSearchFocused || this.navSuggestionsOpen) {
+      this.navSearchScrolledAway = false;
+      return;
+    }
+    if (Math.abs(delta) < 10) return;
+    this.navSearchScrolledAway = delta > 0 && y > 80;
   }
 
   // Restore the user's show/hide preference for the nav search bar from their
@@ -205,6 +216,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   toggleNavSearch() {
     this.showNavSearch = !this.showNavSearch;
+    this.navSearchScrolledAway = false;
     if (!this.showNavSearch) {
       this.navSearchTerm = '';
       this.persistNavSearchTerm('');
@@ -423,9 +435,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
       localStorage.setItem('bh_nav_recent_searches_' + this.navUserId(), JSON.stringify(this.navRecentSearches));
     } catch { }
   }
-
-  // Commit a search term: bump it to the top of the user's recents (deduped,
-  // capped at 10) and record it server-side so it feeds the site's trending.
   private recordNavSearch(term: string) {
     const t = (term || '').trim();
     if (!t) return;
@@ -441,8 +450,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     this.navRecentSearches = [];
     this.saveNavRecentSearches();
-    // Keep focus in the box so the (now smaller) popup stays visible instead
-    // of letting the pending blur timeout close it.
     this.navSearchInputEl?.nativeElement.focus();
   }
 
@@ -460,8 +467,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Pick a recent/trending term: record it, fill the input and let the
-  // type-ahead take over, keeping focus in the box so the user can refine.
   applyNavTerm(term: string) {
     const t = (term || '').trim();
     if (!t) return;
@@ -512,10 +517,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     return 0;
   }
 
-  // Keyboard controls for the suggestions popup: ↑/↓ move the highlighted
-  // row (wrapping at the ends), Enter opens the highlighted row (or picks a
-  // recent/trending term in the empty view), and Esc closes the popup while
-  // keeping the typed query intact.
+
   onNavSearchKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
       if (this.navSuggestionsOpen) {
@@ -546,8 +548,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
           this.openSuggestion(entry.type, entry.item);
         }
       } else if (!emptyMode) {
-        // Enter with a typed term but no row selected — treat it as a
-        // committed search so it feeds recents + the site's trending.
         const t = this.navSearchTerm.trim();
         if (t.length >= 2) {
           event.preventDefault();
@@ -558,8 +558,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
   }
 
-  // Keeps the keyboard-highlighted row visible inside the popup's own scroll
-  // area without scrolling anything outside of it.
   private scrollNavActiveIntoView() {
     try {
       const el = document.getElementById('navSuggestItem' + this.navSuggestIndex);
@@ -567,13 +565,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     } catch { }
   }
 
-  // Open a suggestion in its home app. Files open straight in the standalone
-  // media viewer / file detail (not just the Files listing); posts/comments
-  // open Social, news opens News, favourites open the Favourites app with the
-  // query pre-filled.
   openSuggestion(type: 'file' | 'post' | 'comment' | 'news' | 'favourite' | 'app', item: any) {
-    // App suggestions add the app to the user's nav and open it — that path
-    // records the search and clears the popup itself.
     if (type === 'app') {
       this.openUnaddedApp(item as MenuItem);
       return;
@@ -581,8 +573,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
     const term = this.navSearchTerm.trim();
     this.recordNavSearch(term);
     if (type === 'file') {
-      // Same view the /media/<id> URL route uses: the media viewer resolves
-      // the bare fileId into the full file and shows it with its information.
       this._parent.createComponent('MediaViewer', { fileId: item.id, isLoadedFromURL: true });
     } else if (type === 'post') {
       this._parent.createComponent('Social', { storyId: item.id });
@@ -605,22 +595,20 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.showAppSelectionHelp = false;
     this.stopNotifications();
 
-    // Stop gamepad polling
     this._gamepadPollActive = false;
     cancelAnimationFrame(this._gamepadPollingInterval);
-  } 
+
+    if (this._navScrollHandler) {
+      window.removeEventListener('scroll', this._navScrollHandler);
+      this._navScrollHandler = null;
+    }
+  }
 
 
-  /**
-   * Explicitly fetches fresh counts for all navigation items 
-   * This is called when component is reopened or when counts need immediate refresh
-   */
   async refreshCounts() {
     console.log("Refreshing navigation counts immediately");
-    // Cancel any existing notifications timers to prevent conflicts
     this.clearAllNotificationTimers();
 
-    // Reset loading states to ensure UI updates
     this.isLoadingNotifications = false;
     this.isLoadingTheme = false;
     this.isLoadingCryptoHub = false;
@@ -642,15 +630,12 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.isLoadingWeather = false;
     this.isLoadingArray = false;
 
-    // Reset last run timestamps to force fetching of fresh data
     this.resetLastRunTimestamps();
 
-    // Fetch all notifications and counts immediately
     await this.getNotifications();
   }
 
   private resetLastRunTimestamps() {
-    // Reset key timestamps to ensure immediate refresh
     const keysToReset = [
       'notificationInfo', 'weatherInfo', 'cryptoHub', 'calendarInfo',
       'wordler', 'ender', 'bones', 'digcraft', 'nexus', 'meta',
@@ -686,16 +671,16 @@ export class NavigationComponent implements OnInit, OnDestroy {
   async getNotifications() {
     if (this.notificationsServerDown || this.preventFetchNotifs) {
       console.warn('Skipping notification fetch because server is down or fetch is currently prevented');
-      return; // when server down for notifications, skip fetching
+      return;
     }
     if (!this._parent) {
       console.warn('Skipping notification fetch because user is not logged in');
       return;
-    } 
+    }
     if (this._parent.isUploadingFile) {
       return;
     }
-    console.log("fetch notifications"); 
+    console.log("fetch notifications");
     this._parent.notificationsActive = true;
 
     const tasks: Promise<unknown>[] = [
@@ -721,7 +706,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
       Promise.resolve(this.getRacingPlayerInfo()),
       Promise.resolve(this.getDigcraftPlayerInfo())
     ].map(p =>
-      // Isolate failures so one error doesn't prevent others
       p.catch(err => {
         console.error('Concurrent task failed:', err);
       })
@@ -729,7 +713,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
     await Promise.allSettled(tasks);
 
-    // If notifications were paused, shift last-run timestamps forward by the paused duration
     if (this._parent.notificationsPausedAt) {
       const pausedDuration = Date.now() - this._parent.notificationsPausedAt;
       try {
@@ -747,7 +730,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
       this._startGamepadPolling();
     }
 
-    // Schedule recurring tasks using scheduler that accounts for elapsed pause time
     this.scheduleRecurring('notificationInfo', () => { if (this._parent.notificationsActive) this.getNotificationInfo(); }, this.time20Secs);
     this.scheduleRecurring('weatherInfo', () => { if (this._parent.notificationsActive) this.getCurrentWeatherInfo(); }, this.time20Mins);
     this.scheduleRecurring('cryptoHub', () => { if (this._parent.notificationsActive) this.getCryptoHubInfo(); }, this.time20Mins);
@@ -863,7 +845,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   restartNotifications() {
     // Reset any notification timers to restart fresh
-    this.clearAllNotificationTimers(); 
+    this.clearAllNotificationTimers();
     this.stopNotifications();
     // Fetch fresh data immediately to ensure no stale values
     this.refreshCounts();
@@ -983,7 +965,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.notificationsServerDown = true;
     this.preventFetchNotifs = true;
     // show server down message in UI and as a transient notification
-    if (!this._parent.isUploadingFile && !this._parent.preventShowSecurityPopup) { 
+    if (!this._parent.isUploadingFile && !this._parent.preventShowSecurityPopup) {
       this._parent.showNotification('Server down');
     }
 
@@ -1065,7 +1047,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (sig.aborted) return;
     if (this._parent.lastRunTimestamps['calendarInfo']
       && Date.now() - this._parent.lastRunTimestamps['calendarInfo'] < this.time20Mins) {
-        console.log('Calendar info fetched recently, skipping fetch');
+      console.log('Calendar info fetched recently, skipping fetch');
       return;
     }
     if (!this._parent.user?.id) {
@@ -1148,8 +1130,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['weatherInfo'] < this.time20Mins) {
       return;
     }
-    if (!this._parent.user?.id || !this.hasUserSelectedNavItem("Weather")) { 
-      return; 
+    if (!this._parent.user?.id || !this.hasUserSelectedNavItem("Weather")) {
+      return;
     }
     this.isLoadingWeather = true;
     try {
@@ -1184,7 +1166,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     const isCHSelected = this.hasUserSelectedNavItem("Crypto-Hub");
     const userId = this._parent?.user?.id;
 
-    if (!isCHSelected || !nav || !userId) { 
+    if (!isCHSelected || !nav || !userId) {
       return;
     }
 
@@ -1208,9 +1190,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
       const ceRes = await this.coinValueService.getLatestCurrencyValuesByName(userCurrency, sig) as ExchangeRate;
       if (ceRes) {
         latestCurrencyPriceRespectToCAD = ceRes.rate;
-      } 
+      }
     } catch (error) {
-      console.error('Error fetching Crypto Hub data:', error); 
+      console.error('Error fetching Crypto Hub data:', error);
     }
     try {
       const result = await this.coinValueService.getLatestCoinValuesByName("Bitcoin", sig);
@@ -1245,7 +1227,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       clearInterval(this.enderInterval);
       return;
     }
-    this.isLoadingEnder = true; 
+    this.isLoadingEnder = true;
     if (this._parent?.navigationItems) {
       const enderNav = this._parent.navigationItems.find(x => x.title === 'Ender');
       if (enderNav && this.hasUserSelectedNavItem('Ender')) {
@@ -1255,7 +1237,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
         } catch (e) {
           this.enderActivePlayers = null;
           console.error('Error fetching Ender player data:', e);
-        } 
+        }
         try {
           const userId = this._parent.user?.id ?? 0;
           if (userId) {
@@ -1290,7 +1272,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['nexus'] < this.time60Secs) {
       return;
     }
-    this.isLoadingNexus = true; 
+    this.isLoadingNexus = true;
     if (this._parent?.navigationItems) {
       const nexusNav = this._parent.navigationItems.find(x => x.title === 'Bug-Wars');
       if (nexusNav && this.hasUserSelectedNavItem('Bug-Wars')) {
@@ -1389,7 +1371,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       if (grandTheftNav && this.hasUserSelectedNavItem('GrandTheft')) {
         try {
           const res: any = await this.grandTheftService.getActivePlayers(sig);
-          if (res) { 
+          if (res) {
             this.grandtheftActivePlayers = (res as User[]).length;
           }
         } catch (e) {
@@ -1453,10 +1435,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
           this.digcraftActivePlayers = null;
           console.error('Error fetching DigCraft player data:', e);
         }
-       
+
         const parts: string[] = [];
         if (this.digcraftActivePlayers != null) parts.push(this.digcraftActivePlayers.toString());
-         digcraftNav.content = parts.join('\n');
+        digcraftNav.content = parts.join('\n');
       }
     }
     this.isLoadingDigcraft = false;
@@ -1474,7 +1456,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['meta'] < this.time60Secs) {
       return;
     }
-    this.isLoadingMeta = true; 
+    this.isLoadingMeta = true;
     if (this._parent?.navigationItems) {
       const metaNav = this._parent.navigationItems.find(x => x.title === 'Meta-Bots');
       if (metaNav && this.hasUserSelectedNavItem('Meta-Bots')) {
@@ -1517,7 +1499,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['music'] < this.time60Mins) {
       return;
     }
-    this.isLoadingMusic = true; 
+    this.isLoadingMusic = true;
     if (this._parent?.navigationItems) {
       const musicNav = this._parent.navigationItems.find(x => x.title === 'Music');
       if (musicNav && this.hasUserSelectedNavItem('Music')) {
@@ -1548,10 +1530,10 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     if (this._parent.lastRunTimestamps['todo']
       && Date.now() - this._parent.lastRunTimestamps['todo'] < this.time60Mins) {
-        console.log('Todo info fetched recently, skipping fetch');
+      console.log('Todo info fetched recently, skipping fetch');
       return;
     }
-    this.isLoadingTodo = true; 
+    this.isLoadingTodo = true;
     if (this._parent?.navigationItems) {
       const todoNav = this._parent.navigationItems.find(x => x.title === 'Todo');
       if (todoNav && this.hasUserSelectedNavItem('Todo')) {
@@ -1582,15 +1564,15 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['array'] < this.time60Secs) {
       return;
     }
-    this.isLoadingArray = true; 
+    this.isLoadingArray = true;
     if (this._parent?.navigationItems) {
       const arrayNav = this._parent.navigationItems.find(x => x.title === 'Array');
       if (arrayNav && this.hasUserSelectedNavItem('Array')) {
         try {
           const res: any = await this.arrayService.getActivePlayers(2, sig);
           this.arrayActivePlayers = res?.count ?? null;
-        } catch (error) { 
-          this.arrayActivePlayers = null; 
+        } catch (error) {
+          this.arrayActivePlayers = null;
           console.error('Error fetching array player data:', error);
         }
         try {
@@ -1603,8 +1585,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
               this.arrayUserRank = { rank: null, level: null, totalPlayers: rankRes?.totalPlayers ?? null };
             }
           }
-        } catch (error) { 
-          this.arrayUserRank = null; 
+        } catch (error) {
+          this.arrayUserRank = null;
           console.error('Error fetching array user rank:', error);
         }
         const parts: string[] = [];
@@ -1625,15 +1607,15 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['emulator'] < this.time60Secs) {
       return;
     }
-    this.isLoadingEmulator = true; 
+    this.isLoadingEmulator = true;
     if (this._parent?.navigationItems) {
       const emuNav = this._parent.navigationItems.find(x => x.title === 'Emulator');
       if (emuNav && this.hasUserSelectedNavItem('Emulator')) {
         try {
           const res: any = await this.romService.getActivePlayers(2, sig);
           this.emulatorActivePlayers = res?.count ?? null;
-        } catch (error) { 
-          this.emulatorActivePlayers = null; 
+        } catch (error) {
+          this.emulatorActivePlayers = null;
           console.error('Error fetching emulator player data:', error);
         }
         emuNav.content = this.emulatorActivePlayers != null ? this.emulatorActivePlayers.toString() : '';
@@ -1651,15 +1633,15 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['social'] < this.time60Mins) {
       return;
     }
-    this.isLoadingSocial = true; 
+    this.isLoadingSocial = true;
     if (this._parent?.navigationItems) {
       const socialNav = this._parent.navigationItems.find(x => x.title === 'Social');
       if (socialNav && this.hasUserSelectedNavItem('Social')) {
         try {
           const res: any = await this.socialService.getTotalPosts(sig);
           this.socialTotalPosts = res?.count ?? null;
-        } catch (error) { 
-          this.socialTotalPosts = null; 
+        } catch (error) {
+          this.socialTotalPosts = null;
           console.error('Error fetching social post data:', error);
         }
         socialNav.content = this.socialTotalPosts != null ? this.socialTotalPosts.toString() : '';
@@ -1677,7 +1659,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       && Date.now() - this._parent.lastRunTimestamps['crawler'] < this.time60Mins) {
       return;
     }
-    this.isLoadingCrawler = true; 
+    this.isLoadingCrawler = true;
     if (this._parent?.navigationItems) {
       const crawlerNav = this._parent.navigationItems.find(x => x.title === 'Crawler');
       if (crawlerNav && this.hasUserSelectedNavItem('Crawler')) {
@@ -1685,8 +1667,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
           const res: any = await this.crawlerService.indexCount(sig);
           const parsed = parseInt(res, 10);
           this.crawlerIndexCount = !isNaN(parsed) ? parsed : null;
-        } catch (error) { 
-          this.crawlerIndexCount = null; 
+        } catch (error) {
+          this.crawlerIndexCount = null;
           console.error('Error fetching crawler index count:', error);
         }
         crawlerNav.content = this.crawlerIndexCount != null ? this.crawlerIndexCount.toString() : '';
@@ -1718,9 +1700,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
           }
           artNav.content = this.artTotalSubmissions != null ? this.artTotalSubmissions.toString() : '';
         }
-      } 
+      }
     }
-   
+
     this.isLoadingArt = false;
     this.updateLastRunTimestamp('art');
   }
@@ -1734,7 +1716,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       return;
     }
     if (!this._parent.user?.id || !this.hasUserSelectedNavItem("Wordler")) {
-      return; 
+      return;
     }
     this.isLoadingWordlerStreak = true;
     try {
@@ -1948,7 +1930,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     if (num >= thousand) return format(num / thousand, 'K');
     return num.toFixed(0);
   }
-  
+
   private _startGamepadPolling() {
     if (!this.hasUserSelectedNavItem('Emulator')) {
       return;
@@ -1971,10 +1953,9 @@ export class NavigationComponent implements OnInit, OnDestroy {
         for (let b = 0; b < gp.buttons.length; b++) {
           const wasPressed = this._gamepadLastButtonStates[i][b];
           const isPressed = gp.buttons[b].pressed;
-          if (!wasPressed && isPressed) { 
-            if (!this.navbarCollapsed) { 
+          if (!wasPressed && isPressed) {
+            if (!this.navbarCollapsed) {
               this._parent.createComponent('Emulator');
-              // Prevent spamming: stop polling for 2s
               this._gamepadPollActive = false;
               setTimeout(() => {
                 this._gamepadPollActive = true;
@@ -2030,7 +2011,6 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255);
     const aa = a.toString(16).padStart(2, '0');
-    // Normalize to #RRGGBB first
     let h = hex.replace('#', '').trim();
     if (h.length === 3) h = h.split('').map(c => c + c).join('');
     if (h.length !== 6) throw new Error(`Invalid hex color: ${hex}`);

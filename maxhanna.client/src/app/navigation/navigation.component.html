@@ -98,7 +98,8 @@
      show/hide state is remembered per-user via user settings (show_nav_search).
      Hidden entirely when the nav is minimized (navbarCollapsed). -->
 <div *ngIf="!navbarCollapsed">
-  <div class="navSearchBar" [class.hidden]="!showNavSearch">
+  <div class="navSearchBar" [class.hidden]="!showNavSearch"
+    [class.scrolled-away]="showNavSearch && navSearchScrolledAway">
     <button class="navSearchToggle" (click)="toggleNavSearch()"
       [title]="showNavSearch ? 'Hide search' : 'Show search'"
       [attr.aria-label]="showNavSearch ? 'Hide search' : 'Show search'">🔍</button>
