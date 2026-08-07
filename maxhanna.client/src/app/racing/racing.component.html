@@ -1197,8 +1197,8 @@
         <div class="race-lb-alltracks-loading" *ngIf="allTracksLoading">Loading circuits…</div>
         <div class="race-lb-search">
           <input type="text" class="race-lb-search-input" placeholder="🔍 Search circuits…"
-            [value]="trackSearch" (input)="onTrackSearchChange($event.target.value)" />
-          <button *ngIf="trackSearch" class="race-lb-search-clear" (click)="onTrackSearchChange('')"
+            [value]="trackSearch" (input)="onTrackSearchChange($event)" />
+          <button *ngIf="trackSearch" class="race-lb-search-clear" (click)="onTrackSearchChange()"
             title="Clear search">✕</button>
         </div>
         <div class="race-lb-trackboard" *ngFor="let t of getFilteredTrackDefs()">
@@ -1237,7 +1237,7 @@
               <span class="race-lb-rank">#{{ getTrackBoardUserRank(t.id) }}</span>
               <span class="race-lb-name">You</span>
               <span>{{ formatTime(getTrackBoardUserLap(t.id)) }}</span>
-              <span class="race-lb-gap">{{ getTrackBoardGap({ lapTime: getTrackBoardUserLap(t.id) }, t.id) }}</span>
+              <span class="race-lb-gap">{{ getTrackBoardGapForTrackId(t.id) }}</span>
             </div>
             <div class="race-lb-empty" *ngIf="getTrackBoardRows(t.id).length === 0 && getTrackBoardUserLap(t.id) <= 0">
               No laps on this circuit yet

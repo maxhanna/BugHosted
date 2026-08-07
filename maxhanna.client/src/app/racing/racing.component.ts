@@ -2506,7 +2506,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.getTrackFlag(t).toLowerCase().includes(q)
     );
   }
-  onTrackSearchChange(value: string) {
+  onTrackSearchChange(event?: any) {
+    const value = event ? event.target?.value : '';
     const wasEmpty = !this.trackSearch.trim();
     const isNowEmpty = !value.trim();
     this.trackSearch = value;
@@ -4046,6 +4047,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
   showCallersTrackboard(id: number): boolean {
     return this.getTrackBoardUserLap(id) > 0 && !this.getTrackBoardVisibleRows(id).some(r => r.playerId === (this.parentRef?.user?.id ?? 0));
+  }
+  getTrackBoardGapForTrackId(id: number) {
+    const raceResult = { lapTime: this.getTrackBoardUserLap(id) } as RaceResult;
+    return this.getTrackBoardGap(raceResult, id);
   }
   hideLoginPopup() { this.parentRef?.closeOverlay(); }
   trackDefs: TrackDefinition[] = TRACKS as TrackDefinition[];
