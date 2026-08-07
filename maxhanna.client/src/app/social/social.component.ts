@@ -103,6 +103,16 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   boardThemes: any[] = [];
   currentBoardThemeId: number | null = null;
   isLoadingBoardTheme = false;
+  // Topic moderators for the menu popup (general moderators when no topic selected)
+  topicModerators: any[] = [];
+  topicModeratorsLoading = false;
+  isTopicModerator = false;
+  showTopicModRequestBox = false;
+  topicModRequestText = '';
+  isSubmittingTopicModRequest = false;
+  hasPendingTopicModRequest = false;
+  topicModRequestMessage = '';
+  topicModRequestMessageIsError = false;
   private roomCreatedBy?: number;
   private chatService = undefined as any;
 
@@ -683,7 +693,88 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.isMenuPanelOpen = true;
     const parent = this.parent ?? this.parentRef;
     parent?.showOverlay();
+    this.loadTopicModerators();
   }
+  /** The topic the menu's moderator section targets — the most recently
+   *  selected filter topic, or null for general moderators. */
+  get currentModeratorTopic(): Topic | null {
+    return this.attachedTopics && this.attachedTopics.length > 0
+      ? this.attachedTopics[this.attachedTopics.length - 1]
+      : null;
+  }
+
+  /** Load the topic's moderators (or general moderators) + the caller's own
+   *  topic-mod status/pending request for the menu popup. */
+  async loadTopicModerators() {
+    const me = this.parentRef?.user?.id ?? this.user?.id ?? 0;
+    if (!me) return;
+    const topic = this.currentModeratorTopic;
+    this.topicModeratorsLoading = true;
+    try {
+      const { ModeratorService } = await import('../../services/moderator.service');
+      const moderatorService = new (ModeratorService as any)();
+      const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+      this.topicModerators = await moderatorService.getModeratorsFor(me, topic?.id ?? 0, sessionToken);
+
+      const roles = await moderatorService.getMyRoles(me, sessionToken);
+      this.isTopicModerator = roles.some((r: any) =>
+        (r.targetType === 'topic' && r.role === 'topic_moderator' && topic && r.targetId === topic.id) ||
+        (r.targetType === 'global' && (r.role === 'admin' || r.role === 'moderator')) || me === 1
+      );
+      this.hasPendingTopicModRequest = false;
+      if (!this.isTopicModerator && topic) {
+        const pending = await moderatorService.getMyModeratorRequest(0, me, sessionToken, topic.id);
+        this.hasPendingTopicModRequest = !!pending;
+      }
+    } catch (ex) {
+      this.topicModerators = [];
+      this.isTopicModerator = false;
+      this.hasPendingTopicModRequest = false;
+    } finally {
+      this.topicModeratorsLoading = false;
+    }
+  }
+
+  toggleTopicModRequestBox() {
+    this.showTopicModRequestBox = !this.showTopicModRequestBox;
+    this.topicModRequestMessage = '';
+  }
+
+  async submitTopicModRequest() {
+    const me = this.parentRef?.user?.id ?? this.user?.id ?? 0;
+    const topic = this.currentModeratorTopic;
+    const text = (this.topicModRequestText || '').trim();
+    if (!me || !topic) {
+      this.topicModRequestMessage = 'Pick a topic to filter by first, then request to moderate it.';
+      this.topicModRequestMessageIsError = true;
+      return;
+    }
+    if (!text) {
+      this.topicModRequestMessage = 'Please write a short note about why you want to moderate this topic.';
+      this.topicModRequestMessageIsError = true;
+      return;
+    }
+    this.isSubmittingTopicModRequest = true;
+    try {
+      const { ModeratorService } = await import('../../services/moderator.service');
+      const moderatorService = new (ModeratorService as any)();
+      const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+      const res = await moderatorService.requestModerator(0, me, text, sessionToken, topic.id);
+      if (res.ok) {
+        this.hasPendingTopicModRequest = true;
+        this.showTopicModRequestBox = false;
+        this.topicModRequestText = '';
+        this.topicModRequestMessage = res.message;
+        this.topicModRequestMessageIsError = false;
+      } else {
+        this.topicModRequestMessage = res.message;
+        this.topicModRequestMessageIsError = true;
+      }
+    } finally {
+      this.isSubmittingTopicModRequest = false;
+    }
+  }
+
   closeMenuPanel() {
     this.isMenuPanelOpen = false;
     const parent = this.parent ?? this.parentRef;

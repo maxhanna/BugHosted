@@ -573,11 +573,11 @@ namespace maxhanna.Server.Controllers
           cmd.Parameters.AddWithValue("@id", mediaFile.Id);
           await cmd.ExecuteNonQueryAsync();
           await UpdateSitemapEntry(mediaFile.Id, newName, newName);
-        //  _ = _log.Db($"Changed filename: {mediaFile.FileName} → {newName}", null, "AiController", true);
+          Console.WriteLine($"Changed filename: {mediaFile.FileName} → {newName}");
           return newName;
         }
 
-    // _ = _log.Db($"Media analysis returned: {description}.", null, "AiController", true);
+        Console.WriteLine($"Media analysis returned: {description}.");
         return description;
       }
       catch (Exception ex)
@@ -1116,7 +1116,7 @@ Constraints:
       }
       try
       {
-       // _ = _log.Db("Analyzing and renaming a random file.", null, "AiController", true);
+        Console.WriteLine("AI Analyzing and renaming a random file.");
 
         // Get random file meeting criteria
         FileEntry? fileToRename = null;
@@ -1164,7 +1164,7 @@ Constraints:
         }
         if (fileToRename == null)
         {
-         // _ = _log.Db("No suitable files to rename. Aborted.", null, "AiController", true);
+          Console.WriteLine("No suitable files to rename. Aborting.");
           return Ok(new { Message = "No suitable files found for renaming." });
         }
 

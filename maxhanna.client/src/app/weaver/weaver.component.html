@@ -935,8 +935,9 @@
       <!-- Remote commands section -->
       <div class="commands-section">
         <details>
-          <summary>📡 Remote Commands ({{ commands.length }} pending) {{ lastHeartbeat ? 'Last sync: ' +
-            convertUtcToLocalTimeString(lastHeartbeat) : '' }} ({{getUtcTimeSince(lastHeartbeat)}})</summary>
+          <summary>📡 Remote Commands ({{ pendingCommandCount }} pending{{ doneCommandCount > 0 ? ' · ' + doneCommandCount +
+            ' done' : '' }}{{ failedCommands.length > 0 ? ' · ' + failedCommands.length + ' failed' : '' }})
+            {{ lastHeartbeat ? 'Last sync: ' + convertUtcToLocalTimeString(lastHeartbeat) : '' }} ({{getUtcTimeSince(lastHeartbeat)}})</summary>
           <div class="command-builder">
             <select (change)="onCommandTypeChange($event)" class="weaver-select">
               <option value="">Select command…</option>
@@ -960,14 +961,35 @@
               [disabled]="commandSending || !newCommandType">Send</button>
           </div>
           <div *ngFor="let cmd of commands" class="command-item" [class.selected]="selectedCommand?.id === cmd.id"
-            (click)="selectCommand(cmd)">
+            [class.command-done]="isCommandDone(cmd)" (click)="selectCommand(cmd)">
             <div class="cmd-info">
-              <span class="cmd-name">{{ cmd.command }}</span>
+              <span class="cmd-name">{{ cmd.command }}
+                <span *ngIf="isCommandDone(cmd)" class="cmd-badge"
+                  [class.badge-cancelled]="cmd.status === 'cancelled'">{{ cmd.status }}</span>
+              </span>
               <span class="cmd-time">{{ cmd.createdAt | date:"MM/dd/y" }}</span>
             </div>
-            <span class="cmd-expand">{{ selectedCommand?.id === cmd.id ? '▼' : '▶' }}</span>
+            <div class="cmd-actions">
+              <button *ngIf="isCommandRetryable(cmd)" (click)="retryCommand(cmd); $event.stopPropagation()"
+                class="cmd-retry" title="Re-send this command">↻ Retry</button>
+              <span class="cmd-expand">{{ selectedCommand?.id === cmd.id ? '▼' : '▶' }}</span>
+            </div>
           </div>
-          <div *ngIf="commands.length === 0" class="col-empty">No pending commands</div>
+          <div *ngFor="let cmd of failedCommands" class="command-item command-failed" [class.selected]="selectedCommand?.id === cmd.id"
+            (click)="selectCommand(cmd)">
+            <div class="cmd-info">
+              <span class="cmd-name">{{ cmd.command }}
+                <span class="cmd-badge badge-failed">{{ cmd.status }}</span>
+              </span>
+              <span class="cmd-time">{{ cmd.createdAt | date:"MM/dd/y" }}</span>
+            </div>
+            <div class="cmd-actions">
+              <button (click)="retryCommand(cmd); $event.stopPropagation()" class="cmd-retry" title="Re-send this command">↻
+                Retry</button>
+              <span class="cmd-expand">{{ selectedCommand?.id === cmd.id ? '▼' : '▶' }}</span>
+            </div>
+          </div>
+          <div *ngIf="commands.length === 0 && failedCommands.length === 0" class="col-empty">No commands sent yet</div>
         </details>
       </div>
 
@@ -1011,11 +1033,18 @@
           selectedCommand.command }}</span></div>
       <div class="detail-row"><span class="detail-label">Created</span><span class="detail-value">{{
           selectedCommand.createdAt }}</span></div>
+      <div class="detail-row" *ngIf="selectedCommand.status"><span class="detail-label">Status</span>
+        <span class="detail-value"><span class="cmd-badge" [class.badge-cancelled]="selectedCommand.status === 'cancelled'"
+            [class.badge-failed]="selectedCommand.status === 'failed'">{{ selectedCommand.status }}</span></span></div>
       <div class="detail-row" *ngIf="selectedCommand.parameters"><span class="detail-label">Parameters</span>
         <pre class="detail-params">{{ selectedCommand.parameters }}</pre>
       </div>
-      <button (click)="cancelCommand(selectedCommand); closeCommandPopup();" class="btn btn-sm btn-danger"
-        style="margin-top:8px;">Cancel command</button>
+      <div style="margin-top:8px; display:flex; gap:8px;">
+        <button *ngIf="isCommandRetryable(selectedCommand)" (click)="retryCommand(selectedCommand); closeCommandPopup();"
+          class="btn btn-sm btn-primary">↻ Re-send</button>
+        <button *ngIf="!isCommandDone(selectedCommand) && !isCommandFailed(selectedCommand)"
+          (click)="cancelCommand(selectedCommand); closeCommandPopup();" class="btn btn-sm btn-danger">Cancel command</button>
+      </div>
     </div>
     <button id="closeOverlay" (click)="closeCommandPopup()" class="closeButton"></button>
   </div>

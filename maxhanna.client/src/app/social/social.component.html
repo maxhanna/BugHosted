@@ -204,6 +204,48 @@
         </label>
       </div>
 
+      <!-- Moderators for the current topic (or general moderators) -->
+      <div class="menuPopupSection">
+        <div class="menuPopupTitle">
+          🛡️ Moderators
+          <span class="xxSmallFont thirdFontColor">
+            {{ currentModeratorTopic ? '— topic “' + currentModeratorTopic.topicText + '”' : '— general moderators' }}
+          </span>
+        </div>
+        <div *ngIf="topicModeratorsLoading" class="xxSmallFont thirdFontColor">Loading…</div>
+        <div *ngIf="!topicModeratorsLoading && topicModerators.length === 0" class="xxSmallFont thirdFontColor">
+          No moderators {{ currentModeratorTopic ? 'for this topic' : 'yet' }}.
+        </div>
+        <div *ngIf="!topicModeratorsLoading && topicModerators.length > 0" class="topicModeratorList">
+          <div *ngFor="let mod of topicModerators" class="topicModeratorRow">
+            <app-user-tag [userId]="mod.userId" [inputtedParentRef]="parentRef ?? parent"
+              [displayMiniTag]="true" [displayHoverPicture]="true"></app-user-tag>
+            <span class="topicModeratorRole xxSmallFont thirdFontColor">{{ (mod.role || 'moderator').split('_').join(' ') | titlecase }}</span>
+          </div>
+        </div>
+
+        <!-- Self-enroll as a topic moderator (lands in the moderator panel) -->
+        <div *ngIf="parentRef?.user?.id && currentModeratorTopic && !isTopicModerator" class="topicModRequestBox">
+          <button class="coloredBgButton" (click)="toggleTopicModRequestBox()"
+            [disabled]="isSubmittingTopicModRequest"
+            [title]="hasPendingTopicModRequest ? 'Your request is pending review' : 'Apply to moderate this topic'">
+            {{ hasPendingTopicModRequest ? '⏳ Request pending' : (showTopicModRequestBox ? 'Cancel' : '🙋 Request to moderate') }}
+          </button>
+          <div *ngIf="showTopicModRequestBox && !hasPendingTopicModRequest" class="topicModRequestPanel">
+            <textarea class="groupModRequestTextarea" [(ngModel)]="topicModRequestText" maxlength="500"
+              placeholder="Tell the topic's moderators why you'd make a good moderator…"></textarea>
+            <div class="groupModRequestActions">
+              <button class="coloredBgButton" (click)="submitTopicModRequest()"
+                [disabled]="isSubmittingTopicModRequest || !topicModRequestText.trim()">
+                {{ isSubmittingTopicModRequest ? 'Sending…' : 'Submit request' }}
+              </button>
+              <span *ngIf="topicModRequestMessage" class="smallFont" [class.error]="topicModRequestMessageIsError"
+                [class.thirdFontColor]="!topicModRequestMessageIsError">{{ topicModRequestMessage }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="menuPopupSection xxSmallFont thirdFontColor"> We take your privacy seriously. Every message you send
         is
         encrypted before it leaves your device or our servers and remains encrypted until it reaches its intended

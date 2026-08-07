@@ -3340,6 +3340,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
       for (const side of [-1, 1]) {
         const lx = p.x + ppx * (p.width / 2 + 1) * side;
         const lz = p.z + ppz * (p.width / 2 + 1) * side;
+        // Lamp pole (grounds the head so it doesn't float over the street).
+        // Drawn in the additive night pass, so keep it near-black — it adds a
+        // faint dark stick under the glowing head instead of a new glow streak.
+        this.addQuad(verts, idxs,
+          [lx - 0.05, -0.2, lz],
+          [lx + 0.05, -0.2, lz],
+          [lx + 0.05, 2.7, lz],
+          [lx - 0.05, 2.7, lz],
+          [0.03, 0.035, 0.05]);
         this.addQuad(verts, idxs,
           [lx - 0.22, 2.7, lz],
           [lx + 0.22, 2.7, lz],
@@ -3347,11 +3356,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
           [lx - 0.22, 3.3, lz],
           lampWarm);
         const fx = p.dirX, fz = p.dirZ;
+        // Ground light pool sits AT street height (the shoulder plane is -0.2,
+        // the racing surface is 0) so it hugs the sidewalk instead of hovering.
+        // The track's depth edge naturally clips the part under the asphalt,
+        // keeping the racing line clean.
         this.addQuad(verts, idxs,
-          [lx - fx * 2.4, 0.035, lz - fz * 2.4],
-          [lx + fx * 2.4, 0.035, lz + fz * 2.4],
-          [lx + fx * 2.4 + ppx * 1.9 * side, 0.035, lz + fz * 2.4 + ppz * 1.9 * side],
-          [lx - fx * 2.4 + ppx * 1.9 * side, 0.035, lz - fz * 2.4 + ppz * 1.9 * side],
+          [lx - fx * 2.4, -0.18, lz - fz * 2.4],
+          [lx + fx * 2.4, -0.18, lz + fz * 2.4],
+          [lx + fx * 2.4 + ppx * 1.9 * side, -0.18, lz + fz * 2.4 + ppz * 1.9 * side],
+          [lx - fx * 2.4 + ppx * 1.9 * side, -0.18, lz - fz * 2.4 + ppz * 1.9 * side],
           [0.9, 0.72, 0.4]);
       }
     }
@@ -3364,10 +3377,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const mx = dx * (outer + 8);
       const mz = dz * (outer + 8);
       this.addQuad(verts, idxs,
-        [mx - tx * 9, 0.05, mz - tz * 9],
-        [mx + tx * 9, 0.05, mz + tz * 9],
-        [mx + tx * 9 + dx * 3.2, 0.05, mz + tz * 9 + dz * 3.2],
-        [mx - tx * 9 + dx * 3.2, 0.05, mz - tz * 9 + dz * 3.2],
+        [mx - tx * 9, -0.18, mz - tz * 9],
+        [mx + tx * 9, -0.18, mz + tz * 9],
+        [mx + tx * 9 + dx * 3.2, -0.18, mz + tz * 9 + dz * 3.2],
+        [mx - tx * 9 + dx * 3.2, -0.18, mz - tz * 9 + dz * 3.2],
         [0.45, 0.55, 0.85]);
     }
     if (!idxs.length) return;
@@ -3398,8 +3411,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const gv: number[] = [];
     const gi: number[] = [];
     const gy = -0.10;
-    const x0 = 1.7, x1 = 5.3;
-    const zLo = -1.9, zMid = -0.35, zHi = 0.35, zOut = 1.9;
+    // Headlight pools are trapezoids (conical): narrow right at the car,
+    // flaring outward as they reach forward, instead of flat rectangles.
+    const x0 = 1.7, x1 = 5.3;                 // near (at bumper) .. far (ahead)
+    const zMid = -0.55, zHi = 0.55;           // inner edges start at the lamps, diverge outward
+    const zLoNear = -1.05, zLoFar = -2.6;     // left outer edge: flares outward
+    const zHiNear = 1.05, zHiFar = 2.6;       // right outer edge: flares outward
     const pushQuad = (ax: number, az: number, bx: number, bz: number,
       cx: number, cz: number, dx: number, dz: number) => {
       const b = gv.length / 11;
@@ -3408,8 +3425,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
       gi.push(b, b + 1, b + 2, b + 2, b + 3, b);
     };
-    pushQuad(x0, zLo, x1, zLo, x1, zMid, x0, zMid);
-    pushQuad(x0, zHi, x1, zHi, x1, zOut, x0, zOut);
+    pushQuad(x0, zLoNear, x1, zLoFar, x1, zMid, x0, zMid);
+    pushQuad(x0, zHi, x1, zHi, x1, zHiFar, x0, zHiNear);
     const vao = gl.createVertexArray()!;
     gl.bindVertexArray(vao);
     const vbo = gl.createBuffer()!;
@@ -4378,6 +4395,40 @@ void main() { FragColor = texture(uTex, vUV); }`;
             color: [0.38, 0.33, 0.29]
           });
         }
+      }
+    }
+  }
+  /** Big one-shot spin-out burst: dense gray tire smoke kicked up around all four
+   *  wheels when a car loses it in a corner. Heavier, longer-lived and wider than
+   *  the drift smoke, so a crash reads instantly on screen. speed (m/s) scales the
+   *  burst so a high-speed bin throws a much bigger cloud. */
+  emitCrashSmoke(x: number, z: number, yaw: number, speed: number = 0) {
+    if (this._smokeParticles.length >= this._smokeMax) return;
+    const speedF = Math.min(Math.abs(speed) / 55, 1);
+    const scale = 0.65 + speedF * 0.85;
+    const sinY = Math.sin(yaw), cosY = Math.cos(yaw);
+    const grayColors: [number, number, number][] = [
+      [0.55, 0.55, 0.56], [0.62, 0.62, 0.64], [0.48, 0.48, 0.5], [0.68, 0.68, 0.7],
+    ];
+    for (const side of [-1, 1]) {
+      const wx = x - 0.55 * sinY - side * 0.62 * cosY;
+      const wz = z - 0.55 * cosY + side * 0.62 * sinY;
+      const count = Math.round((6 + Math.random() * 4) * scale);
+      for (let i = 0; i < count; i++) {
+        if (this._smokeParticles.length >= this._smokeMax) return;
+        const col = grayColors[Math.floor(Math.random() * grayColors.length)];
+        this._smokeParticles.push({
+          x: wx + (Math.random() - 0.5) * 0.5 * scale,
+          y: 0.18 + Math.random() * 0.3,
+          z: wz + (Math.random() - 0.5) * 0.5 * scale,
+          vx: (-sinY * (1.2 + Math.random() * 1.6) + (Math.random() - 0.5) * 1.8) * scale,
+          vy: (1.6 + Math.random() * 2.2) * (0.8 + speedF * 0.5),
+          vz: (-cosY * (1.2 + Math.random() * 1.6) + (Math.random() - 0.5) * 1.8) * scale,
+          life: 0,
+          maxLife: (1.1 + Math.random() * 1.0) * (0.8 + speedF * 0.6),
+          size: (0.4 + Math.random() * 0.25) * (0.85 + speedF * 0.6),
+          color: col,
+        });
       }
     }
   }

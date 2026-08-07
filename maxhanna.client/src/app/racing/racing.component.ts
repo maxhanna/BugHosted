@@ -63,6 +63,12 @@ interface BotCar {
   pace: number;
   slide: number;
   brakeCommitment?: number;
+  // Rim bumps: brief hard curb slowdown when drifting wide, then re-center.
+  rimBumpTimer: number;
+  // Catastrophic corner crashes: rare loss-of-control spin, then recovery.
+  crashTimer: number;
+  crashSpinDir: number;
+  crashDuration: number;
 }
 interface RemoteAudioVoice {
   engineOsc: OscillatorNode;
@@ -111,6 +117,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private _replayFrames: ReplayFrame[] = [];
   private _replayTime = 0;   
   private _replaySpins = new Map<string, number>();
+  // Exact appearance each recorded car wore during the live race, keyed by replay id
+  // ('b<idx>' for bots, 'r<connectionId>' for remotes) — used so playback shows the
+  // same livery instead of re-seeding a different look from the id string.
+  private _replayAppearances = new Map<string, RacingCarAppearance>();
   private _replayTrailArmed = false;
   replayPaused = false;
   replayScrubDir = 0;               
@@ -194,7 +204,18 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   leaderboardTotal = 0;
   leaderboardUserRank = 0;
   leaderboardBestLap = 0;
-  leaderboardMode: 'track' | 'overall' = 'track';
+  leaderboardMode: 'track' | 'overall' | 'alltracks' = 'alltracks';
+  allTrackBoards: {
+    trackId: number; totalCount: number; bestLap: number;
+    userLap: number; userRank: number; results: RaceResult[];
+  }[] = [];
+  allTracksLoading = false;
+  // All Circuits cards: per-track collapse + 'show top 20' state.
+  collapsedTrackBoards: Set<number> = new Set();
+  trackBoardShowTop20: Set<number> = new Set();
+  trackSearch = '';
+  private preSearchCollapsed: Set<number> | null = null;
+  private _lastBotCrashCheer: number | null = null;
   overallLeaderboard: RaceResult[] = [];
   overallLeaderboardTotal = 0;
   overallLeaderboardUserRank = 0;
@@ -1054,6 +1075,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._replayFrames = [];
     this._replayTime = 0;
     this._replaySpins.clear();
+    this._replayAppearances.clear();
     this.replayPaused = false;
     this.replayScrubDir = 0;
     this._replayDragging = false;
@@ -1260,6 +1282,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         raceDist: offset,
         pace: 0.88 + Math.random() * 0.24,
         slide: 0,
+        rimBumpTimer: 0,
+        crashTimer: 0,
+        crashSpinDir: 1,
+        crashDuration: 0,
       });
     }
   }
@@ -1297,6 +1323,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._replayFrames = [];
     this._replayTime = 0;
     this._replaySpins.clear();
+    this._replayAppearances.clear();
     this.replayPaused = false;
     this.replayScrubDir = 0;
     this._replayDragging = false;
@@ -1369,19 +1396,32 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.bots.forEach((b, bi) => {
         const pc = recColors[b.color % recColors.length];
         const prev = this._prevBotSpeeds.get(b) ?? b.speed;
+        // Record the exact livery the bot wore live (same formula as the live render
+        // loop: botAppearanceFor(index, color)) so the replay matches the race.
+        const appId = 'b' + bi;
+        if (!this._replayAppearances.has(appId)) {
+          this._replayAppearances.set(appId, this.botAppearanceFor(bi, b.color));
+        }
         rcars.push({
           x: b.x, z: b.z, yaw: b.yaw, speed: b.speed,
           accel: dt > 0 ? (b.speed - prev) / dt : 0, slide: b.slide,
-          id: 'b' + bi, r: pc[0], g: pc[1], b: pc[2],
+          id: appId, r: pc[0], g: pc[1], b: pc[2],
           dist: b.raceDist, name: b.name
         });
       });
       this.remoteCars.forEach((rc) => {
         const prev = this._prevRemoteSpeeds.get(rc.connectionId) ?? rc.speed;
+        // Remote cars: persist the same seeded appearance the live renderer uses
+        // (seed from connectionId chars) so playback is identical.
+        const appId = 'r' + rc.connectionId;
+        if (!this._replayAppearances.has(appId)) {
+          const seed = rc.connectionId.split('').reduce((a, ch) => a + ch.charCodeAt(0), 0);
+          this._replayAppearances.set(appId, this.botAppearanceFor(seed % 1000, seed));
+        }
         rcars.push({
           x: rc.x, z: rc.z, yaw: rc.yaw, speed: rc.speed,
           accel: dt > 0 ? (rc.speed - prev) / dt : 0, slide: rc.slide,
-          id: 'r' + rc.connectionId, r: rc.colorR, g: rc.colorG, b: rc.colorB,
+          id: appId, r: rc.colorR, g: rc.colorG, b: rc.colorB,
           dist: rc.lap * this.renderer.totalTrackDist + rc.distance, name: rc.playerName
         });
       });
@@ -1820,10 +1860,49 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
       while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
       const cornerSharpness = Math.abs(yawDiff);
-      bot.yaw += yawDiff * bot.config.cornerSkill * 0.1;
-      bot.yaw += (Math.random() - 0.5) * (1 - bot.config.cornerSkill) * 0.02 * (0.3 + cornerSharpness);
+      // Rare catastrophic corner crash: only in real corners, scaled by how
+      // careless the bot is — skilled bots almost never lose it.
+      if (bot.crashTimer <= 0 && bot.rimBumpTimer <= 0 && bot.mistakeTimer <= 0 && cornerSharpness > 0.25 && bot.speed > maxBotSpeed * 0.2) {
+        // Events per second while in a corner; a floor keeps even skilled bots
+        // from literally never crashing (rate below is ~1/min at the floor).
+        const crashChance = Math.max(0.0012, bot.config.mistakeChance * 0.012 * (1 - bot.config.cornerSkill * 0.7));
+        if (Math.random() < crashChance * dt * 60) {
+          bot.crashTimer = 1.2 + Math.random() * 1.4;
+          bot.crashSpinDir = Math.random() < 0.5 ? -1 : 1;
+          bot.crashDuration = bot.crashTimer;
+          // Visible spin-out: dense tire-smoke burst at the car plus a brief crowd
+          // reaction (audible applause + animated frenzy) at the moment of impact.
+          this.renderer?.emitCrashSmoke(bot.x, bot.z, bot.yaw, bot.speed);
+          this.renderer?.exciteCrowd(0.6);
+          // Cooldown so a pileup doesn't stack overlapping applause buffers.
+          const now = performance.now();
+          if (now - (this._lastBotCrashCheer ?? 0) > 1500) {
+            this._lastBotCrashCheer = now;
+            this.playCrowdCheer('applause', 0.45);
+          }
+        }
+      }
+      const crashing = bot.crashTimer > 0;
+      if (crashing) {
+        // Loss of control: hard spin + heavy speed bleed — the bot veers off line.
+        bot.crashTimer -= dt;
+        const spinT = Math.max(0.15, bot.crashTimer / Math.max(0.001, bot.crashDuration));
+        bot.yaw += bot.crashSpinDir * (0.8 + (1 - spinT) * 1.6) * dt * (1 - bot.config.cornerSkill * 0.3);
+        bot.speed *= Math.pow(0.6, dt * 60);
+        bot.slide = Math.max(bot.slide, 0.95);
+      } else {
+        bot.yaw += yawDiff * bot.config.cornerSkill * 0.1;
+        bot.yaw += (Math.random() - 0.5) * (1 - bot.config.cornerSkill) * 0.02 * (0.3 + cornerSharpness);
+      }
+      const rimBumping = bot.rimBumpTimer > 0;
+      if (rimBumping) {
+        bot.rimBumpTimer -= dt;
+        bot.slide = Math.max(bot.slide, 0.4);
+      }
       const cornerSlow = Math.max(0.4, 1 - cornerSharpness * 0.8);
-      const targetSpeed = maxBotSpeed * cornerSlow * defensiveBrake * (1 - bot.config.mistakeChance * 0.3);
+      const rimSlow = rimBumping ? 0.62 : 1;
+      const crashSlow = crashing ? 0.35 : 1;
+      const targetSpeed = maxBotSpeed * cornerSlow * defensiveBrake * (1 - bot.config.mistakeChance * 0.3) * rimSlow * crashSlow;
       if (bot.mistakeTimer > 0) {
         bot.mistakeTimer -= dt;
         bot.speed *= 0.95;
@@ -1856,7 +1935,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       const ppz = curTP.dirX;
       const laneX = curTP.x + ppx * effLane;
       const laneZ = curTP.z + ppz * effLane;
-      const snap = 0.05 + bot.config.cornerSkill * 0.08;
+      // While losing control the bot barely pulls back to the line (so the
+      // spin/veer reads visually); once recovered the snap returns and it
+      // re-centers cleanly on the racing line.
+      const snap = crashing ? 0.012 : 0.05 + bot.config.cornerSkill * 0.08;
       bot.x += (laneX - bot.x) * snap;
       bot.z += (laneZ - bot.z) * snap;
       const botDxT = bot.x - curTP.x;
@@ -1874,6 +1956,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       } else if (botOff > botHalf) {
         bot.speed *= Math.pow(CURB_DRAG, dt * 60);
         bot.slide = Math.max(bot.slide, 0.35);
+        // The rim occasionally bites hard — a brief sharp slowdown, then the
+        // bot backs off and re-centers on its line.
+        if (bot.rimBumpTimer <= 0 && bot.crashTimer <= 0 && Math.random() < dt * 0.3 * (0.3 + bot.config.mistakeChance * 2)) {
+          bot.rimBumpTimer = 0.5 + Math.random() * 0.8;
+        }
       }
       let delta = bot.dist - prevBotDist;
       if (delta < -this.renderer.totalTrackDist * 0.5) delta += this.renderer.totalTrackDist;
@@ -2347,14 +2434,111 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.showLeaderboard = !this.showLeaderboard;
     if (this.showLeaderboard) {
       if (this.leaderboardMode === 'overall') await this.loadOverallLeaderboard();
+      else if (this.leaderboardMode === 'alltracks') await this.loadAllTrackLeaderboards();
       else await this.loadLeaderboard();
     }
   }
-  async setLeaderboardMode(mode: 'track' | 'overall') {
+  async setLeaderboardMode(mode: 'track' | 'overall' | 'alltracks') {
     this.leaderboardMode = mode;
     if (mode === 'overall') {
       await this.loadOverallLeaderboard();
+    } else if (mode === 'alltracks') {
+      await this.loadAllTrackLeaderboards();
     }
+  }
+  async loadAllTrackLeaderboards() {
+    const uid = this.parentRef?.user?.id ?? 0;
+    this.allTracksLoading = true;
+    try {
+      const data = await this.racingService.getAllTrackLeaderboards(uid);
+      this.allTrackBoards = data?.tracks ?? [];
+      // On small screens default every card to collapsed so the panel stays
+      // compact; users can expand individual circuits as needed. Only seed the
+      // collapsed set once so revisiting the view doesn't wipe manual expansions.
+      if (window.innerWidth < 768 && this.collapsedTrackBoards.size === 0) {
+        this.collapsedTrackBoards = new Set(this.allTrackBoards.map(b => b.trackId));
+      }
+      // Keep the in-race HUD pace readout fed: the alltracks payload already
+      // carries each circuit's leader lap, so mirror it into leaderboardBestLap
+      // for the currently selected track (loadLeaderboard may never run now
+      // that All Circuits is the opening view).
+      const tid = this.selectedTrack?.id ?? 1;
+      const leader = this.getTrackBoardBest(tid);
+      if (leader > 0) this.leaderboardBestLap = leader;
+    } catch {
+      this.allTrackBoards = [];
+    } finally {
+      this.allTracksLoading = false;
+    }
+  }
+  getTrackBoard(trackId: number) {
+    return this.allTrackBoards.find(b => b.trackId === trackId);
+  }
+  getTrackBoardRows(trackId: number): RaceResult[] {
+    return this.getTrackBoard(trackId)?.results ?? [];
+  }
+  getTrackBoardVisibleRows(trackId: number): RaceResult[] {
+    const rows = this.getTrackBoardRows(trackId);
+    return this.trackBoardShowTop20.has(trackId) ? rows : rows.slice(0, 10);
+  }
+  isTrackBoardCollapsed(trackId: number): boolean {
+    return this.collapsedTrackBoards.has(trackId);
+  }
+  toggleTrackBoard(trackId: number) {
+    if (this.collapsedTrackBoards.has(trackId)) this.collapsedTrackBoards.delete(trackId);
+    else this.collapsedTrackBoards.add(trackId);
+  }
+  toggleTrackBoardTop20(trackId: number) {
+    if (this.trackBoardShowTop20.has(trackId)) this.trackBoardShowTop20.delete(trackId);
+    else this.trackBoardShowTop20.add(trackId);
+  }
+  getFilteredTrackDefs(): TrackDefinition[] {
+    const q = this.trackSearch.trim().toLowerCase();
+    if (!q) return this.trackDefs;
+    return this.trackDefs.filter(t =>
+      t.name.toLowerCase().includes(q) ||
+      t.id.toString().includes(q) ||
+      this.getTrackFlag(t).toLowerCase().includes(q)
+    );
+  }
+  onTrackSearchChange(value: string) {
+    const wasEmpty = !this.trackSearch.trim();
+    const isNowEmpty = !value.trim();
+    this.trackSearch = value;
+    if (isNowEmpty && this.preSearchCollapsed) {
+      // Search cleared — restore the collapse state from before searching so the
+      // compact layout (e.g. mobile default-collapsed) isn't lost.
+      this.collapsedTrackBoards = new Set(this.preSearchCollapsed);
+      this.preSearchCollapsed = null;
+      return;
+    }
+    if (wasEmpty && !isNowEmpty) {
+      // First non-empty query — snapshot the current collapse state.
+      this.preSearchCollapsed = new Set(this.collapsedTrackBoards);
+    }
+    // Expanding matches makes the search visibly 'jump' to the circuit.
+    for (const t of this.getFilteredTrackDefs()) {
+      if (this.collapsedTrackBoards.has(t.id)) this.collapsedTrackBoards.delete(t.id);
+    }
+  }
+  getTrackBoardCount(trackId: number): number {
+    return this.getTrackBoard(trackId)?.totalCount ?? 0;
+  }
+  getTrackBoardBest(trackId: number): number {
+    return this.getTrackBoard(trackId)?.bestLap ?? 0;
+  }
+  getTrackBoardUserLap(trackId: number): number {
+    return this.getTrackBoard(trackId)?.userLap ?? 0;
+  }
+  getTrackBoardUserRank(trackId: number): number {
+    return this.getTrackBoard(trackId)?.userRank ?? 0;
+  }
+  getTrackBoardGap(r: RaceResult, trackId: number): string {
+    const leader = this.getTrackBoardBest(trackId);
+    if (leader > 0 && r.lapTime > 0) {
+      return r.lapTime <= leader ? 'PACE' : this.formatLapGap(r.lapTime - leader);
+    }
+    return '';
   }
   async loadOverallLeaderboard() {
     const uid = this.parentRef?.user?.id ?? 0;
@@ -2551,8 +2735,16 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       401: 'prev-decal-stripes', 402: 'prev-decal-flame', 403: 'prev-decal-carbon', 404: 'prev-decal-number',
       405: 'prev-decal-checkered', 406: 'prev-decal-lightning', 407: 'prev-decal-skull', 408: 'prev-decal-lion',
       409: 'prev-decal-number7', 410: 'prev-decal-number27', 411: 'prev-decal-number99', 412: 'prev-decal-sponsor',
+      413: 'prev-decal-camo', 414: 'prev-decal-cheetah', 415: 'prev-decal-rising-sun', 416: 'prev-decal-circuit',
+      417: 'prev-decal-bullseye', 418: 'prev-decal-union', 419: 'prev-decal-grid', 420: 'prev-decal-kanji',
+      421: 'prev-decal-dragon', 422: 'prev-decal-bee', 423: 'prev-decal-tiger', 424: 'prev-decal-starburst',
+      425: 'prev-decal-heart', 426: 'prev-decal-arrow', 427: 'prev-decal-wave', 428: 'prev-decal-moon',
       501: 'prev-glow-blue', 502: 'prev-glow-green', 503: 'prev-glow-purple', 504: 'prev-glow-pink',
       505: 'prev-glow-cyan', 506: 'prev-glow-red', 507: 'prev-glow-gold',
+      508: 'prev-glow-orange', 509: 'prev-glow-white', 510: 'prev-glow-uv', 511: 'prev-glow-lime',
+      512: 'prev-glow-teal', 513: 'prev-glow-magenta', 514: 'prev-glow-yellow', 515: 'prev-glow-cobalt',
+      516: 'prev-glow-emerald', 517: 'prev-glow-crimson', 518: 'prev-glow-mint', 519: 'prev-glow-orchid',
+      520: 'prev-glow-ice', 521: 'prev-glow-bronze', 522: 'prev-glow-indigo', 523: 'prev-glow-silver',
       601: 'prev-accent-white', 602: 'prev-accent-gold', 603: 'prev-accent-silver', 604: 'prev-accent-red',
       605: 'prev-accent-blue', 606: 'prev-accent-black',
     };
@@ -2646,6 +2838,22 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (id === 410) return 'decal-number27';
     if (id === 411) return 'decal-number99';
     if (id === 412) return 'decal-sponsor';
+    if (id === 413) return 'decal-camo';
+    if (id === 414) return 'decal-cheetah';
+    if (id === 415) return 'decal-rising-sun';
+    if (id === 416) return 'decal-circuit';
+    if (id === 417) return 'decal-bullseye';
+    if (id === 418) return 'decal-union';
+    if (id === 419) return 'decal-grid';
+    if (id === 420) return 'decal-kanji';
+    if (id === 421) return 'decal-dragon';
+    if (id === 422) return 'decal-bee';
+    if (id === 423) return 'decal-tiger';
+    if (id === 424) return 'decal-starburst';
+    if (id === 425) return 'decal-heart';
+    if (id === 426) return 'decal-arrow';
+    if (id === 427) return 'decal-wave';
+    if (id === 428) return 'decal-moon';
     return '';
   }
   getGlowStyle(): string {
@@ -2657,6 +2865,22 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (id === 505) return 'glow-cyan';
     if (id === 506) return 'glow-red';
     if (id === 507) return 'glow-gold';
+    if (id === 508) return 'glow-orange';
+    if (id === 509) return 'glow-white';
+    if (id === 510) return 'glow-uv';
+    if (id === 511) return 'glow-lime';
+    if (id === 512) return 'glow-teal';
+    if (id === 513) return 'glow-magenta';
+    if (id === 514) return 'glow-yellow';
+    if (id === 515) return 'glow-cobalt';
+    if (id === 516) return 'glow-emerald';
+    if (id === 517) return 'glow-crimson';
+    if (id === 518) return 'glow-mint';
+    if (id === 519) return 'glow-orchid';
+    if (id === 520) return 'glow-ice';
+    if (id === 521) return 'glow-bronze';
+    if (id === 522) return 'glow-indigo';
+    if (id === 523) return 'glow-silver';
     return '';
   }
   getAccentStyle(): string {
@@ -2764,6 +2988,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       if (this._replayTime > last.t) {
         this._replayTime = 0;
         this._replaySpins.clear();
+        // NOTE: _replayAppearances is intentionally NOT cleared here — the record
+        // loop only runs during racing, so wiping it at the replay wrap-around would
+        // make bots fall back to re-seeded looks on the second playback loop.
         this._replayTrailArmed = false;
       }
     }
@@ -2852,10 +3079,17 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this._replaySpins.set(id, spin);
       const seedId = id.startsWith('r') ? id.slice(1) : id;
       const seed = seedId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+      // The player's own car must keep its REAL appearance (neon underglow,
+      // decal, paint) — botAppearanceFor() would otherwise swap in a random
+      // bot livery (and often no glow at all) on the replay of your car.
+      const isPlayerCar = id === 'replay-player';
+      // Use the livery captured from the live race so bots/remotes keep their exact
+      // look; fall back to the seeded formula only if an appearance wasn't recorded.
+      const recordedApp = this._replayAppearances.get(id);
       carList.push({
         x: c.x, y: 0.1, z: c.z, yaw: c.yaw, r: c.r, g: c.g, b: c.b,
         speed: c.speed, accel: c.accel, spin, slide: c.slide, id: c.id,
-        ...this.botAppearanceFor(seed % 1000, seed)
+        ...(isPlayerCar ? pa : (recordedApp ?? this.botAppearanceFor(seed % 1000, seed)))
       });
     });
     const maxSpd = this.getMaxSpeed();

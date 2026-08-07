@@ -895,6 +895,80 @@
   border-bottom: none;
 }
 
+.command-item.command-done {
+  opacity: 0.55;
+}
+
+.command-item.command-done:hover {
+  opacity: 0.85;
+}
+
+.command-item.command-done .cmd-name {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: rgba(255, 255, 255, 0.25);
+}
+
+.cmd-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  vertical-align: middle;
+  background: #1b5e20;
+  color: #a5d6a7;
+  border: 1px solid #2e7d32;
+}
+
+.cmd-badge.badge-cancelled {
+  background: #4e342e;
+  color: #ffab91;
+  border-color: #6d4c41;
+}
+
+.cmd-badge.badge-failed {
+  background: #7f1d1d;
+  color: #ffcdd2;
+  border-color: #b71c1c;
+}
+
+.command-item.command-failed {
+  border-left: 3px solid #b71c1c;
+  padding-left: 6px;
+}
+
+.command-item.command-failed .cmd-name {
+  color: #ef9a9a;
+}
+
+.cmd-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.cmd-retry {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--accent, #64b5f6);
+  border-radius: 5px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.cmd-retry:hover {
+  background: rgba(100, 181, 246, 0.15);
+  border-color: var(--accent, #64b5f6);
+  transform: translateY(-1px);
+}
+
 .cmd-expand {
   font-size: 10px;
   color: var(--muted);

@@ -81,9 +81,10 @@
         (click)="isEditingEntry.includes(cal) ? '' : editCalendarEntry(cal)">
         <div>{{cal.date | date:'shortTime'}}</div>
         <div>
-          <div *ngIf="!isEditingEntry.includes(cal)">{{ cal.type !== "Milestone" && cal.type !== "Anniversary" ?
-            cal.note : (cal.type === "Anniversary" ? formatAnniversaryDisplay(cal) : (cal.date ? '(' +
-            cal.date.toString().substring(0, cal.date.toString().indexOf('-')) + ') ' + cal.note : cal.note)) }}</div>
+          <div *ngIf="!isEditingEntry.includes(cal)" class="calEntryInfo">
+            <span class="calEntryTypeChip" title="Event type">{{ eventSymbolMap[cal.type!] || '📌' }} {{ cal.type }}</span>
+            <span>{{ cal.type !== "Milestone" && cal.type !== "Anniversary" ? cal.note : (cal.type === "Anniversary" ? formatAnniversaryDisplay(cal) : (cal.date ? '(' + cal.date.toString().substring(0, cal.date.toString().indexOf('-')) + ') ' + cal.note : cal.note)) }}</span>
+          </div>
           <div *ngIf="isEditingEntry.includes(cal)">
             Time: <input id="calendarEditingTime" type="time" [value]="(cal.date | date:'HH:mm')"
               (input)="hasEditedCalendarEntry = true" />
@@ -92,11 +93,12 @@
               ({{ tzOffsetLabel(cal.date) }})
             </span>
             <div>Note:
-              <textarea id="calendarEditingNote" rows="4" cols="50" [value]="cal.note"
-                (input)="hasEditedCalendarEntry = true"></textarea>
+              <textarea id="calendarEditingNote" rows="4" cols="50" [(ngModel)]="cal.note" name="calEditNote"
+                (ngModelChange)="hasEditedCalendarEntry = true"></textarea>
             </div>
-            <div>Type: <select id="calendarEditingType" (change)="hasEditedCalendarEntry = true">
-                <option *ngFor="let t of getEventTypes()" [selected]="t === cal.type">{{t}}</option>
+            <div>Type: <select id="calendarEditingType" [(ngModel)]="cal.type" name="calEditType"
+                (ngModelChange)="hasEditedCalendarEntry = true">
+                <option *ngFor="let t of getEventTypes()" [ngValue]="t">{{t}}</option>
               </select></div>
             <div *ngIf="calendarNotificationsEnabled">Notify me:
               <input id="calendarEditingReminder" type="number" min="0" step="5"

@@ -66,6 +66,22 @@ export const DECAL_COLORS: Record<number, [number, number, number]> = {
   410: [0.95, 0.95, 0.95],  // #27
   411: [0.95, 0.95, 0.95],  // #99
   412: [0.85, 0.85, 0.9],   // sponsor stripes
+  413: [0.5, 0.55, 0.35],   // camo wrap
+  414: [0.95, 0.75, 0.2],   // cheetah spots
+  415: [0.9, 0.15, 0.1],    // rising sun
+  416: [0.2, 0.8, 0.6],     // circuit board
+  417: [0.95, 0.25, 0.2],   // bullseye
+  418: [0.2, 0.35, 0.8],    // union jack
+  419: [0.25, 1.0, 0.9],    // cyber grid
+  420: [0.95, 0.95, 0.95],  // zen kanji
+  421: [0.85, 0.15, 0.1],   // dragon flame
+  422: [0.95, 0.8, 0.1],    // bumble bee stripes
+  423: [1.0, 0.5, 0.1],     // tiger stripes
+  424: [1.0, 0.85, 0.2],    // starburst
+  425: [1.0, 0.25, 0.5],    // heart
+  426: [0.95, 0.95, 0.95],  // arrow chevrons
+  427: [0.2, 0.6, 1.0],     // ocean wave
+  428: [0.95, 0.9, 0.85],   // crescent moon
 };
 
 // Neon underglow id -> additive glow color.
@@ -77,6 +93,22 @@ export const GLOW_COLORS: Record<number, [number, number, number]> = {
   505: [0.3, 1.0, 1.0],
   506: [1.0, 0.25, 0.1],
   507: [1.0, 0.8, 0.2],
+  508: [1.0, 0.45, 0.05],
+  509: [0.95, 0.95, 1.0],
+  510: [0.5, 0.15, 1.0],
+  511: [0.7, 1.0, 0.1],
+  512: [0.1, 0.9, 0.7],
+  513: [1.0, 0.1, 0.6],
+  514: [1.0, 0.9, 0.15],
+  515: [0.15, 0.3, 1.0],
+  516: [0.05, 0.9, 0.5],
+  517: [0.85, 0.05, 0.2],
+  518: [0.5, 1.0, 0.7],
+  519: [0.85, 0.5, 1.0],
+  520: [0.5, 0.8, 1.0],
+  521: [0.85, 0.6, 0.25],
+  522: [0.3, 0.15, 0.85],
+  523: [0.75, 0.8, 0.9],
 };
 
 // Livery accent id -> stripe/trim color (painted on sidepod stripes + exhaust).
@@ -182,11 +214,11 @@ export const BOT_CONFIGS: Record<string, RacingBotConfig> = {
 };
 
 export const UPGRADE_DEFS: RacingCarUpgrade[] = [
-  { id: 1, name: 'Stage 1 Engine', category: 'engine', level: 1, maxLevel: 5, cost: 500, description: '+10% Top Speed', statBonus: 10 },
-  { id: 2, name: 'Stage 2 Engine', category: 'engine', level: 2, maxLevel: 5, cost: 1500, description: '+20% Top Speed', statBonus: 20 },
-  { id: 3, name: 'Stage 3 Engine', category: 'engine', level: 3, maxLevel: 5, cost: 4000, description: '+30% Top Speed', statBonus: 30 },
-  { id: 4, name: 'Stage 4 Engine', category: 'engine', level: 4, maxLevel: 5, cost: 10000, description: '+40% Top Speed', statBonus: 40 },
-  { id: 5, name: 'Stage 5 Engine', category: 'engine', level: 5, maxLevel: 5, cost: 25000, description: '+50% Top Speed', statBonus: 50 },
+  { id: 1, name: 'Stage 1 Engine', category: 'engine', level: 1, maxLevel: 5, cost: 250, description: '+5% Top Speed', statBonus: 5 },
+  { id: 2, name: 'Stage 2 Engine', category: 'engine', level: 2, maxLevel: 5, cost: 750, description: '+10% Top Speed', statBonus: 10 },
+  { id: 3, name: 'Stage 3 Engine', category: 'engine', level: 3, maxLevel: 5, cost: 2000, description: '+15% Top Speed', statBonus: 15 },
+  { id: 4, name: 'Stage 4 Engine', category: 'engine', level: 4, maxLevel: 5, cost: 6000, description: '+20% Top Speed', statBonus: 20 },
+  { id: 5, name: 'Stage 5 Engine', category: 'engine', level: 5, maxLevel: 5, cost: 18000, description: '+25% Top Speed', statBonus: 25 },
   { id: 6, name: 'Sport Tires', category: 'tires', level: 1, maxLevel: 4, cost: 300, description: '+5% Grip', statBonus: 5 },
   { id: 7, name: 'Racing Tires', category: 'tires', level: 2, maxLevel: 4, cost: 800, description: '+12% Grip', statBonus: 12 },
   { id: 8, name: 'Slick Tires', category: 'tires', level: 3, maxLevel: 4, cost: 2000, description: '+20% Grip', statBonus: 20 },
@@ -241,6 +273,28 @@ export const CAR_SKINS: RacingCarSkin[] = [
   { id: 22, name: 'Titanium Grey', color: '#6b7280', cost: 8000, owned: false, finish: 'metallic' },
   { id: 23, name: 'Star Sapphire', color: '#0b2e59', cost: 9000, owned: false, finish: 'pearl' },
   { id: 24, name: 'Obsidian Chrome', color: '#111114', cost: 12000, owned: false, finish: 'metallic' },
+  // ── New: 8 more paints ──
+  { id: 25, name: 'Speed Yellow', color: '#ffe800', cost: 3000, owned: false, finish: 'gloss' },
+  { id: 26, name: 'Lime Burst', color: '#aaff00', cost: 4000, owned: false, finish: 'gloss' },
+  { id: 27, name: 'Deep Teal', color: '#00695c', cost: 4000, owned: false, finish: 'gloss' },
+  { id: 28, name: 'Racing Orange', color: '#ff6d00', cost: 5000, owned: false, finish: 'metallic' },
+  { id: 29, name: 'Sky Pearl', color: '#64b5f6', cost: 5500, owned: false, finish: 'pearl' },
+  { id: 30, name: 'Burgundy Wine', color: '#880e4f', cost: 6000, owned: false, finish: 'gloss' },
+  { id: 31, name: 'Gunmetal Stealth', color: '#37474f', cost: 7500, owned: false, finish: 'matte' },
+  { id: 32, name: 'Spectral Violet', color: '#6200ea', cost: 10000, owned: false, finish: 'metallic' },
+  // ── New: 12 more paints ──
+  { id: 33, name: 'Titanium Silver', color: '#c0c0c8', cost: 8500, owned: false, finish: 'metallic' },
+  { id: 34, name: 'Mint Frost', color: '#98ff98', cost: 6500, owned: false, finish: 'gloss' },
+  { id: 35, name: 'Amethyst Pearl', color: '#9b59b6', cost: 9500, owned: false, finish: 'pearl' },
+  { id: 36, name: 'Amber Glow', color: '#ffbf00', cost: 6000, owned: false, finish: 'gloss' },
+  { id: 37, name: 'Black Pearl', color: '#0d0d12', cost: 11000, owned: false, finish: 'pearl' },
+  { id: 38, name: 'Coral Reef', color: '#ff7f50', cost: 7000, owned: false, finish: 'gloss' },
+  { id: 39, name: 'Racing Grey', color: '#a8a8ad', cost: 5500, owned: false, finish: 'matte' },
+  { id: 40, name: 'Electric Blue', color: '#00bfff', cost: 8000, owned: false, finish: 'metallic' },
+  { id: 41, name: 'Champagne', color: '#f7e7ce', cost: 9000, owned: false, finish: 'pearl' },
+  { id: 42, name: 'Inferno Orange', color: '#ff4500', cost: 7500, owned: false, finish: 'metallic' },
+  { id: 43, name: 'Frozen White', color: '#f0f4f8', cost: 6500, owned: false, finish: 'matte' },
+  { id: 44, name: 'Deep Forest', color: '#0b3d2e', cost: 8500, owned: false, finish: 'gloss' },
 ];
 
 export const APPEARANCE_PARTS: RacingAppearancePart[] = [
@@ -280,6 +334,22 @@ export const APPEARANCE_PARTS: RacingAppearancePart[] = [
   { id: 410, name: '#27 Number', category: 'decal', cost: 600, owned: false, description: 'Race number 27 plate' },
   { id: 411, name: '#99 Number', category: 'decal', cost: 700, owned: false, description: 'Race number 99 plate' },
   { id: 412, name: 'Sponsor Stripes', category: 'decal', cost: 1200, owned: false, description: 'Pro sponsor livery bands' },
+  { id: 413, name: 'Camo Wrap', category: 'decal', cost: 3500, owned: false, description: 'Military jungle camo wrap' },
+  { id: 414, name: 'Cheetah Spots', category: 'decal', cost: 2500, owned: false, description: 'Golden cheetah spot graphics' },
+  { id: 415, name: 'Rising Sun', category: 'decal', cost: 1800, owned: false, description: 'Red rising-sun disc emblem' },
+  { id: 416, name: 'Circuit Board', category: 'decal', cost: 3000, owned: false, description: 'Glowing PCB trace graphics' },
+  { id: 417, name: 'Bullseye', category: 'decal', cost: 1600, owned: false, description: 'Concentric target rings' },
+  { id: 418, name: 'Union Jack', category: 'decal', cost: 2200, owned: false, description: 'Crossed-flag livery stripes' },
+  { id: 419, name: 'Cyber Grid', category: 'decal', cost: 3800, owned: false, description: 'Tron-style glowing grid' },
+  { id: 420, name: 'Zen Kanji', category: 'decal', cost: 5000, owned: false, description: 'White kanji calligraphy emblem' },
+  { id: 421, name: 'Dragon Flame', category: 'decal', cost: 4200, owned: false, description: 'Fiery red dragon swoosh' },
+  { id: 422, name: 'Bumble Bee', category: 'decal', cost: 1900, owned: false, description: 'Black & gold bee stripes' },
+  { id: 423, name: 'Tiger Fury', category: 'decal', cost: 2800, owned: false, description: 'Orange tiger stripe livery' },
+  { id: 424, name: 'Starburst', category: 'decal', cost: 2100, owned: false, description: 'Golden star burst burst' },
+  { id: 425, name: 'Heartbreaker', category: 'decal', cost: 1700, owned: false, description: 'Hot pink heart emblem' },
+  { id: 426, name: 'Arrow Chevrons', category: 'decal', cost: 2400, owned: false, description: 'Speed chevron arrows' },
+  { id: 427, name: 'Ocean Wave', category: 'decal', cost: 2600, owned: false, description: 'Blue wave crest graphic' },
+  { id: 428, name: 'Crescent Moon', category: 'decal', cost: 3600, owned: false, description: 'Night-sky crescent emblem' },
   // Glow (neon underglow)
   { id: 501, name: 'Neon Blue', category: 'glow', cost: 1500, owned: false, description: 'Electric blue underglow' },
   { id: 502, name: 'Neon Green', category: 'glow', cost: 1500, owned: false, description: 'Alien green underglow' },
@@ -288,6 +358,22 @@ export const APPEARANCE_PARTS: RacingAppearancePart[] = [
   { id: 505, name: 'Neon Cyan', category: 'glow', cost: 2000, owned: false, description: 'Cyan ice underglow' },
   { id: 506, name: 'Lava Red', category: 'glow', cost: 2000, owned: false, description: 'Molten red underglow' },
   { id: 507, name: 'Gold Chrome', category: 'glow', cost: 3500, owned: false, description: 'Golden underglow' },
+  { id: 508, name: 'Neon Orange', category: 'glow', cost: 2500, owned: false, description: 'Blazing orange underglow' },
+  { id: 509, name: 'White Ice', category: 'glow', cost: 3000, owned: false, description: 'Crisp cold-white underglow' },
+  { id: 510, name: 'Ultraviolet', category: 'glow', cost: 3000, owned: false, description: 'Deep UV violet underglow' },
+  { id: 511, name: 'Neon Lime', category: 'glow', cost: 2500, owned: false, description: 'Electric lime underglow' },
+  { id: 512, name: 'Aqua Teal', category: 'glow', cost: 3000, owned: false, description: 'Tropical aqua underglow' },
+  { id: 513, name: 'Hot Magenta', category: 'glow', cost: 3500, owned: false, description: 'Vivid magenta underglow' },
+  { id: 514, name: 'Sun Yellow', category: 'glow', cost: 3000, owned: false, description: 'Solar yellow underglow' },
+  { id: 515, name: 'Cobalt Blue', category: 'glow', cost: 3500, owned: false, description: 'Deep cobalt underglow' },
+  { id: 516, name: 'Emerald', category: 'glow', cost: 3500, owned: false, description: 'Vivid emerald underglow' },
+  { id: 517, name: 'Crimson', category: 'glow', cost: 3000, owned: false, description: 'Dark crimson underglow' },
+  { id: 518, name: 'Mint Frost', category: 'glow', cost: 2800, owned: false, description: 'Soft mint underglow' },
+  { id: 519, name: 'Orchid', category: 'glow', cost: 3800, owned: false, description: 'Bright orchid underglow' },
+  { id: 520, name: 'Ice Blue', category: 'glow', cost: 3200, owned: false, description: 'Pale ice-blue underglow' },
+  { id: 521, name: 'Bronze', category: 'glow', cost: 3400, owned: false, description: 'Warm bronze underglow' },
+  { id: 522, name: 'Indigo', category: 'glow', cost: 3600, owned: false, description: 'Deep indigo underglow' },
+  { id: 523, name: 'Slate Silver', category: 'glow', cost: 3000, owned: false, description: 'Cool slate-silver underglow' },
   // Accent (livery stripe + trim color)
   { id: 601, name: 'White Accent', category: 'accent', cost: 300, owned: false, description: 'White livery stripe & trim' },
   { id: 602, name: 'Gold Accent', category: 'accent', cost: 1000, owned: false, description: 'Gold livery stripe & trim' },

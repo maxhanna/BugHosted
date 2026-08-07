@@ -43,6 +43,7 @@ export interface WeaverHeartbeatStatus {
 export interface WeaverRemoteCommand {
   id: number;
   command: string;
+  status?: string;
   params?: any;
   parameters?: string;
   createdAt: string;

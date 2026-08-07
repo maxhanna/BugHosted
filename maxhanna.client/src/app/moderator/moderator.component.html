@@ -3,24 +3,58 @@
 
   <div *ngIf="!parentRef?.user" class="smallFont">You must be logged in to access this panel.</div>
 
-  <div *ngIf="parentRef?.user && !isModerator" class="smallFont">Access denied. Only moderators can use this panel.
-  </div>
-
-  <div *ngIf="parentRef?.user && isModerator" class="modPanel">
+  <div *ngIf="parentRef?.user" class="modPanel">
     <!-- Tab bar -->
     <div class="modTabs">
-      <button class="modTab" [class.active]="activeTab === 'moderators'" (click)="setTab('moderators')">
+      <button class="modTab" [class.active]="activeTab === 'myappeals'" (click)="setTab('myappeals')">
+        🙋 My Appeals
+      </button>
+      <button *ngIf="isModerator" class="modTab" [class.active]="activeTab === 'moderators'" (click)="setTab('moderators')">
         👮 Moderators
       </button>
       <button *ngIf="isChatModerator || isAdmin" class="modTab" [class.active]="activeTab === 'chatmod'" (click)="setTab('chatmod')">
         💬 Chat Mods <span *ngIf="selectedManagedChat && chatAppeals.length > 0" class="tabCount">{{ chatAppeals.length }}</span>
       </button>
-      <button class="modTab" [class.active]="activeTab === 'logs'" (click)="setTab('logs')">
+      <button *ngIf="isModerator" class="modTab" [class.active]="activeTab === 'logs'" (click)="setTab('logs')">
         📜 Logs
       </button>
       <button *ngIf="isAdmin" class="modTab" [class.active]="activeTab === 'appeals'" (click)="setTab('appeals')">
         ⚖️ Appeals <span *ngIf="appeals.length > 0" class="tabCount">{{ appeals.length }}</span>
       </button>
+    </div>
+
+    <!-- ── MY APPEALS TAB (any user — their own moderator requests) ── -->
+    <div *ngIf="activeTab === 'myappeals'" class="modSection">
+      <div class="card">
+        <div class="cardTitle">🙋 My Appeals</div>
+        <div class="xSmallFont secondaryFontColor">
+          Your moderator requests (chat rooms & topics) — a moderator can approve or deny each one.
+        </div>
+        <div *ngIf="myRequestsLoading" class="searchHint">Loading…</div>
+        <div *ngIf="!myRequestsLoading && myRequests.length === 0" class="searchHint">You have no moderator requests yet.</div>
+        <table *ngIf="!myRequestsLoading && myRequests.length > 0" class="contentTable">
+          <thead>
+            <tr>
+              <th>Target</th>
+              <th>Request Text</th>
+              <th>Created</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of myRequests">
+              <td class="nowrap">{{ r.topicName ? ('🗂️ ' + r.topicName) : (r.chatName ? ('💬 ' + r.chatName) : ('#' + (r.chatId || r.topicId || ''))) }}</td>
+              <td class="smallFont">{{ r.requestText || '—' }}</td>
+              <td class="nowrap">{{ r.createdAt | date:'y/MM/d HH:mm' }}</td>
+              <td>
+                <span *ngIf="!r.resolution" class="statusPending">⏳ Pending</span>
+                <span *ngIf="r.resolution === 'approved'" class="statusApproved">✅ Approved</span>
+                <span *ngIf="r.resolution === 'denied'" class="statusDenied">❌ Denied</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <!-- ── CHAT MODERATION TAB (low-level chat room moderators) ── -->
@@ -206,10 +240,10 @@
           </div>
           <div *ngIf="selectedTargetType === 'topic'" class="fieldRow">
             <label>Topic</label>
-            <select [(ngModel)]="selectedTargetId" class="modSelect">
-              <option [ngValue]="0" disabled>Select a topic…</option>
-              <option *ngFor="let t of topicTargets" [ngValue]="t.id">{{ t.name }}</option>
-            </select>
+            <app-topics [isDropdown]="true" [user]="parentRef?.user" [parent]="parentRef"
+              [attachedTopics]="selectedAttachedTopics" (topicAdded)="onSelectedTopicsChanged($event)"
+              (topicClicked)="onSelectedTopicsChanged($event)">
+            </app-topics>
           </div>
           <div class="fieldRow">
             <button class="assignBtn" (click)="addModerators()" [disabled]="modActionLoading || !canAssign()">
@@ -247,8 +281,44 @@
                   title="Protected: you can't remove your own admin role, and the last admin can't be demoted.">🔒</span>
               </ng-container>
             </div>
-            <button *ngIf="isAdmin && m.user?.id !== 1" class="removeModBtn" (click)="removeModerator(m.user!)"
-              [disabled]="modActionLoading">Remove all roles</button>
+            <div *ngIf="isAdmin && m.user?.id !== 1" class="modRowActions">
+              <button class="addRoleBtn" (click)="openAddRoleFor(m.user?.id ?? 0)"
+                [disabled]="modActionLoading || rowActionLoading"
+                title="Add another role to this moderator">
+                {{ addRoleForUserId === m.user?.id ? '✕ Cancel' : '＋ Add role' }}
+              </button>
+              <button class="removeModBtn" (click)="removeModerator(m.user!)"
+                [disabled]="modActionLoading || rowActionLoading">Remove all roles</button>
+            </div>
+
+            <!-- Inline add-role picker for this moderator -->
+            <div *ngIf="addRoleForUserId === m.user?.id" class="addRolePicker">
+              <div class="fieldRow">
+                <label>Role</label>
+                <select [(ngModel)]="rowRole" (ngModelChange)="onRowRoleSelectionChange()" class="modSelect">
+                  <option *ngFor="let r of roleCatalog" [value]="r.role">{{ r.label }}</option>
+                </select>
+              </div>
+              <div *ngIf="rowTargetType === 'chat'" class="fieldRow">
+                <label>Chat</label>
+                <select [(ngModel)]="rowTargetId" class="modSelect">
+                  <option [ngValue]="0" disabled>Select a chat…</option>
+                  <option *ngFor="let c of chatTargets" [ngValue]="c.id">{{ c.name }}</option>
+                </select>
+              </div>
+              <div *ngIf="rowTargetType === 'topic'" class="fieldRow">
+                <label>Topic</label>
+                <app-topics [isDropdown]="true" [user]="parentRef?.user" [parent]="parentRef"
+                  [attachedTopics]="rowAttachedTopics" (topicAdded)="onRowTopicsChanged($event)"
+                  (topicClicked)="onRowTopicsChanged($event)">
+                </app-topics>
+              </div>
+              <button class="assignBtn" (click)="addRoleToModerator(m.user!)"
+                [disabled]="rowActionLoading || !canAssignRowRole()">
+                {{ rowActionLoading ? 'Saving…' : '✅ Assign Role' }}
+              </button>
+              <div *ngIf="rowMessage" class="modMsg" [class.error]="rowMessageIsError">{{ rowMessage }}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -323,7 +393,7 @@
           <tbody>
             <tr *ngFor="let r of modRequests">
               <td>{{ r.username || 'User #' + r.userId }}</td>
-              <td>{{ r.chatName || ('Chat #' + r.chatId) }}</td>
+              <td>{{ r.topicName ? ('🗂️ ' + r.topicName) : (r.chatName || ('Chat #' + r.chatId)) }}</td>
               <td class="smallFont">{{ r.requestText || '—' }}</td>
               <td class="nowrap">{{ r.createdAt | date:'y/MM/d HH:mm' }}</td>
               <td>

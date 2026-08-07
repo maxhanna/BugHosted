@@ -79,6 +79,45 @@
   border: 1px solid var(--main-border-color);
 }
 
+/* Topic moderators section in the menu popup */
+.menuPopupTitle {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.topicModeratorList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.topicModeratorRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: var(--main-background-color);
+}
+
+.topicModeratorRole {
+  white-space: nowrap;
+}
+
+.topicModRequestBox {
+  margin-top: 8px;
+}
+
+.topicModRequestPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 .groupInfoEditTitle {
   font-size: 15px;
   font-weight: 700;

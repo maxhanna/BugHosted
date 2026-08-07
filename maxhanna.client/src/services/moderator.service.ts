@@ -184,12 +184,13 @@ export class ModeratorService {
   }
 
   /** Lets a chat member request moderator status for that room. */
-  async requestModerator(chatId: number, userId: number, requestText: string, sessionToken: string): Promise<{ ok: boolean; message: string }> {
+  /** Request moderator status — for a chat room or, when topicId is given, a topic. */
+  async requestModerator(chatId: number, userId: number, requestText: string, sessionToken: string, topicId?: number): Promise<{ ok: boolean; message: string }> {
     try {
       const response = await fetch('/moderator/requestmoderator', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
-        body: JSON.stringify({ ChatId: chatId, UserId: userId, RequestText: requestText }),
+        body: JSON.stringify({ ChatId: chatId, TopicId: topicId, UserId: userId, RequestText: requestText }),
       });
       let data: any = null;
       const body = await response.text();
@@ -202,13 +203,13 @@ export class ModeratorService {
     }
   }
 
-  /** The caller's own pending moderator request for a chat (id 0 when none). */
-  async getMyModeratorRequest(chatId: number, userId: number, sessionToken: string): Promise<ModeratorRequest | null> {
+  /** The caller's own pending moderator request for a chat or topic (id 0 when none). */
+  async getMyModeratorRequest(chatId: number, userId: number, sessionToken: string, topicId?: number): Promise<ModeratorRequest | null> {
     try {
       const response = await fetch('/moderator/getmymoderatorrequest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
-        body: JSON.stringify({ ChatId: chatId, UserId: userId }),
+        body: JSON.stringify({ ChatId: chatId, TopicId: topicId, UserId: userId }),
       });
       if (!response.ok) return null;
       const data = await response.json();
@@ -216,6 +217,38 @@ export class ModeratorService {
     } catch (error) {
       console.error('Error checking moderator request:', error);
       return null;
+    }
+  }
+
+  /** Any logged-in user can list the moderators of a topic (0 = general moderators). */
+  async getModeratorsFor(callerUserId: number, topicId: number, sessionToken: string): Promise<any[]> {
+    try {
+      const response = await fetch('/moderator/getmoderatorsfor', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify({ CallerUserId: callerUserId, TopicId: topicId }),
+      });
+      if (!response.ok) return [];
+      return await response.json() as any[];
+    } catch (error) {
+      console.error('Error fetching moderators for topic:', error);
+      return [];
+    }
+  }
+
+  /** All of the caller's own moderator requests (chat + topic, pending + resolved). */
+  async getMyModeratorRequests(userId: number, sessionToken: string): Promise<any[]> {
+    try {
+      const response = await fetch('/moderator/getmymoderatorrequests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify(userId),
+      });
+      if (!response.ok) return [];
+      return await response.json() as any[];
+    } catch (error) {
+      console.error('Error fetching my moderator requests:', error);
+      return [];
     }
   }
 

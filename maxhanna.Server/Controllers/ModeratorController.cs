@@ -232,6 +232,91 @@ namespace maxhanna.Server.Controllers
       }
     }
 
+    /// <summary>Public listing of moderators for a topic (or the general
+    /// moderators/admins when TopicId is 0) — any logged-in user may view it.</summary>
+    [HttpPost("/Moderator/GetModeratorsFor", Name = "GetModeratorsFor")]
+    public async Task<IActionResult> GetModeratorsFor(
+      [FromBody] GetModeratorsForRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (request == null || request.CallerUserId <= 0) return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(request.CallerUserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        string sql;
+        if (request.TopicId > 0)
+        {
+          sql = @"
+            SELECT u.id AS user_id, u.username, udp.file_id AS display_file_id, mr.role, mr.target_type, mr.target_id
+            FROM maxhanna.moderator_roles mr
+            JOIN maxhanna.users u ON u.id = mr.user_id
+            LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
+            WHERE mr.target_type = 'topic' AND mr.target_id = @TopicId
+            UNION ALL
+            SELECT u.id AS user_id, u.username, udp.file_id AS display_file_id, mr.role, mr.target_type, mr.target_id
+            FROM maxhanna.moderator_roles mr
+            JOIN maxhanna.users u ON u.id = mr.user_id
+            LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
+            WHERE mr.target_type = 'global'
+            UNION ALL
+            SELECT u.id AS user_id, u.username, udp.file_id AS display_file_id, ur.role, 'global' AS target_type, NULL AS target_id
+            FROM maxhanna.user_roles ur
+            JOIN maxhanna.users u ON u.id = ur.user_id
+            LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
+            WHERE ur.role = 'moderator';"
+            + (request.CallerUserId != 1
+              ? " UNION ALL SELECT 1, 'Owner', NULL, 'admin', 'global', NULL"
+              : "");
+        }
+        else
+        {
+          sql = @"
+            SELECT u.id AS user_id, u.username, udp.file_id AS display_file_id, mr.role, mr.target_type, mr.target_id
+            FROM maxhanna.moderator_roles mr
+            JOIN maxhanna.users u ON u.id = mr.user_id
+            LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
+            WHERE mr.target_type = 'global'
+            UNION ALL
+            SELECT u.id AS user_id, u.username, udp.file_id AS display_file_id, ur.role, 'global' AS target_type, NULL AS target_id
+            FROM maxhanna.user_roles ur
+            JOIN maxhanna.users u ON u.id = ur.user_id
+            LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
+            WHERE ur.role = 'moderator';"
+            + (request.CallerUserId != 1
+              ? " UNION ALL SELECT 1, 'Owner', NULL, 'admin', 'global', NULL"
+              : "");
+        }
+        using var cmd = new MySqlCommand(sql, conn);
+        if (request.TopicId > 0) cmd.Parameters.AddWithValue("@TopicId", request.TopicId);
+        var byUser = new Dictionary<int, object>();
+        var order = new List<int>();
+        using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+          int userId = reader.GetInt32("user_id");
+          if (byUser.ContainsKey(userId)) continue;
+          byUser[userId] = new
+          {
+            userId,
+            username = reader.GetString("username"),
+            displayFileId = reader.IsDBNull(reader.GetOrdinal("display_file_id")) ? (int?)null : reader.GetInt32("display_file_id"),
+            role = reader.IsDBNull(reader.GetOrdinal("role")) ? null : reader.GetString("role")
+          };
+          order.Add(userId);
+        }
+        return Ok(order.Select(id => byUser[id]));
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in GetModeratorsFor: " + ex.Message, request.CallerUserId, "MODERATOR", true);
+        return StatusCode(500, "Failed to get moderators.");
+      }
+    }
+
     [HttpPost("/Moderator/SetRole", Name = "SetScopedRole")]
     public async Task<IActionResult> SetRole(
       [FromBody] SetScopedRoleRequest request,
@@ -803,7 +888,10 @@ namespace maxhanna.Server.Controllers
       [FromBody] ModeratorRequestRequest request,
       [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
     {
-      if (request == null || request.ChatId <= 0 || request.UserId <= 0) return BadRequest("Invalid request.");
+      if (request == null || request.UserId <= 0) return BadRequest("Invalid request.");
+      int topicId = request.TopicId ?? 0;
+      int chatId = topicId > 0 ? 0 : request.ChatId;
+      if (chatId <= 0 && topicId <= 0) return BadRequest("Invalid request — a chat or topic is required.");
       if (!await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
 
       string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
@@ -812,29 +900,68 @@ namespace maxhanna.Server.Controllers
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
 
+        if (topicId > 0)
+        {
+          await EnsureTopicRequestColumnAsync(conn);
+
+          // The topic must exist.
+          string topicSql = "SELECT COUNT(*) FROM maxhanna.topics WHERE id = @TopicId;";
+          using (var topicCmd = new MySqlCommand(topicSql, conn))
+          {
+            topicCmd.Parameters.AddWithValue("@TopicId", topicId);
+            if (Convert.ToInt32(await topicCmd.ExecuteScalarAsync()) == 0)
+              return NotFound("Topic not found.");
+          }
+
+          // No point requesting when you already moderate it (or everything).
+          if (request.UserId == 1 || await IsGlobalModeratorAsync(request.UserId)
+            || await IsTopicModeratorForTopicAsync(_config, request.UserId, topicId))
+            return BadRequest("You are already a moderator of this topic.");
+
+          // One open request at a time per topic + user.
+          string topicOpenSql = "SELECT COUNT(*) FROM maxhanna.moderator_request WHERE chat_id = 0 AND topic_id = @TopicId AND user_id = @UserId AND resolved_at IS NULL;";
+          using (var topicOpenCmd = new MySqlCommand(topicOpenSql, conn))
+          {
+            topicOpenCmd.Parameters.AddWithValue("@TopicId", topicId);
+            topicOpenCmd.Parameters.AddWithValue("@UserId", request.UserId);
+            if (Convert.ToInt32(await topicOpenCmd.ExecuteScalarAsync()) > 0)
+              return BadRequest("You already have a pending moderator request for this topic.");
+          }
+
+          string insertSql = "INSERT INTO maxhanna.moderator_request (user_id, chat_id, topic_id, request_text, created_at) VALUES (@UserId, 0, @TopicId, @RequestText, UTC_TIMESTAMP());";
+          using var insertCmd = new MySqlCommand(insertSql, conn);
+          insertCmd.Parameters.AddWithValue("@UserId", request.UserId);
+          insertCmd.Parameters.AddWithValue("@TopicId", topicId);
+          insertCmd.Parameters.AddWithValue("@RequestText", (request.RequestText ?? "").Trim());
+          await insertCmd.ExecuteNonQueryAsync();
+          _ = _log.Db($"User {request.UserId} requested topic moderator status for topic #{topicId}", request.UserId, "MODERATOR", true);
+          return Ok(new { message = "Moderator request submitted to the topic's moderators." });
+        }
+
+        // ── Chat-scoped request (existing behavior) ──
         // The chat must exist.
         string chatSql = "SELECT COUNT(*) FROM maxhanna.chat_rooms WHERE chat_id = @ChatId;";
         using (var chatCmd = new MySqlCommand(chatSql, conn))
         {
-          chatCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+          chatCmd.Parameters.AddWithValue("@ChatId", chatId);
           if (Convert.ToInt32(await chatCmd.ExecuteScalarAsync()) == 0)
             return NotFound("Chat not found.");
         }
 
         // A banned user can't request to moderate the room that banned them.
-        if (await IsChatUserBannedAsync(conn, request.ChatId, request.UserId))
+        if (await IsChatUserBannedAsync(conn, chatId, request.UserId))
           return BadRequest("You are banned from this chat and cannot request moderator status.");
 
         // No point requesting when you already moderate it (or everything).
         if (request.UserId == 1 || await IsGlobalModeratorAsync(request.UserId)
-          || await IsChatModeratorAsync(_config, request.UserId, request.ChatId))
+          || await IsChatModeratorAsync(_config, request.UserId, chatId))
           return BadRequest("You are already a moderator of this chat.");
 
         // One open request at a time per chat + user.
         string openSql = "SELECT COUNT(*) FROM maxhanna.moderator_request WHERE chat_id = @ChatId AND user_id = @UserId AND resolved_at IS NULL;";
         using (var openCmd = new MySqlCommand(openSql, conn))
         {
-          openCmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+          openCmd.Parameters.AddWithValue("@ChatId", chatId);
           openCmd.Parameters.AddWithValue("@UserId", request.UserId);
           if (Convert.ToInt32(await openCmd.ExecuteScalarAsync()) > 0)
             return BadRequest("You already have a pending moderator request for this chat.");
@@ -843,10 +970,10 @@ namespace maxhanna.Server.Controllers
         string sql = "INSERT INTO maxhanna.moderator_request (user_id, chat_id, request_text, created_at) VALUES (@UserId, @ChatId, @RequestText, UTC_TIMESTAMP());";
         using var cmd = new MySqlCommand(sql, conn);
         cmd.Parameters.AddWithValue("@UserId", request.UserId);
-        cmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+        cmd.Parameters.AddWithValue("@ChatId", chatId);
         cmd.Parameters.AddWithValue("@RequestText", (request.RequestText ?? "").Trim());
         await cmd.ExecuteNonQueryAsync();
-        _ = _log.Db($"User {request.UserId} requested moderator status in chat #{request.ChatId}", request.UserId, "MODERATOR", true);
+        _ = _log.Db($"User {request.UserId} requested moderator status in chat #{chatId}", request.UserId, "MODERATOR", true);
         return Ok(new { message = "Moderator request submitted to the chat's moderators." });
       }
       catch (Exception ex)
@@ -856,14 +983,17 @@ namespace maxhanna.Server.Controllers
       }
     }
 
-    /// <summary>Returns the caller's own pending moderator request for a chat
-    /// (id 0 when none) so the chat/social UI can show a pending state.</summary>
+    /// <summary>Returns the caller's own pending moderator request for a chat or
+    /// topic (id 0 when none) so the chat/social UI can show a pending state.</summary>
     [HttpPost("/Moderator/GetMyModeratorRequest", Name = "GetMyModeratorRequest")]
     public async Task<IActionResult> GetMyModeratorRequest(
       [FromBody] ModeratorRequestRequest request,
       [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
     {
-      if (request == null || request.ChatId <= 0 || request.UserId <= 0) return BadRequest("Invalid request.");
+      if (request == null || request.UserId <= 0) return BadRequest("Invalid request.");
+      int topicId = request.TopicId ?? 0;
+      int chatId = topicId > 0 ? 0 : request.ChatId;
+      if (chatId <= 0 && topicId <= 0) return BadRequest("Invalid request — a chat or topic is required.");
       if (!await _log.ValidateUserLoggedIn(request.UserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
 
       string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
@@ -871,11 +1001,19 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
-        string sql = @"SELECT id, request_text, created_at FROM maxhanna.moderator_request
-          WHERE chat_id = @ChatId AND user_id = @UserId AND resolved_at IS NULL
-          ORDER BY created_at DESC LIMIT 1;";
+        await EnsureTopicRequestColumnAsync(conn);
+        string sql;
+        if (topicId > 0)
+          sql = @"SELECT id, request_text, created_at FROM maxhanna.moderator_request
+            WHERE chat_id = 0 AND topic_id = @TopicId AND user_id = @UserId AND resolved_at IS NULL
+            ORDER BY created_at DESC LIMIT 1;";
+        else
+          sql = @"SELECT id, request_text, created_at FROM maxhanna.moderator_request
+            WHERE chat_id = @ChatId AND user_id = @UserId AND resolved_at IS NULL
+            ORDER BY created_at DESC LIMIT 1;";
         using var cmd = new MySqlCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@ChatId", request.ChatId);
+        if (topicId > 0) cmd.Parameters.AddWithValue("@TopicId", topicId);
+        else cmd.Parameters.AddWithValue("@ChatId", chatId);
         cmd.Parameters.AddWithValue("@UserId", request.UserId);
         using var reader = await cmd.ExecuteReaderAsync();
         if (await reader.ReadAsync())
@@ -883,7 +1021,8 @@ namespace maxhanna.Server.Controllers
           return Ok(new
           {
             id = reader.GetInt32("id"),
-            chatId = request.ChatId,
+            chatId = topicId > 0 ? 0 : chatId,
+            topicId = topicId > 0 ? topicId : (int?)null,
             requestText = reader.IsDBNull(reader.GetOrdinal("request_text")) ? null : reader.GetString("request_text"),
             createdAt = reader.GetDateTime("created_at")
           });
@@ -894,6 +1033,58 @@ namespace maxhanna.Server.Controllers
       {
         _ = _log.Db("Error in GetMyModeratorRequest: " + ex.Message, request.UserId, "MODERATOR", true);
         return StatusCode(500, "Failed to check moderator request.");
+      }
+    }
+
+    /// <summary>Returns ALL of the caller's own moderator requests (chat + topic,
+    /// pending and resolved) so any user can review their own appeals.</summary>
+    [HttpPost("/Moderator/GetMyModeratorRequests", Name = "GetMyModeratorRequests")]
+    public async Task<IActionResult> GetMyModeratorRequests(
+      [FromBody] int userId,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (userId <= 0) return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        await EnsureTopicRequestColumnAsync(conn);
+        string sql = @"
+          SELECT mr.id, mr.chat_id, mr.topic_id, mr.request_text, mr.created_at, mr.resolved_at, mr.resolution,
+                 cr.name AS chat_name, t.topic AS topic_name
+          FROM maxhanna.moderator_request mr
+          LEFT JOIN maxhanna.chat_rooms cr ON cr.chat_id = mr.chat_id
+          LEFT JOIN maxhanna.topics t ON t.id = mr.topic_id
+          WHERE mr.user_id = @UserId
+          ORDER BY mr.created_at DESC;";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@UserId", userId);
+        var list = new List<object>();
+        using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+          list.Add(new
+          {
+            id = reader.GetInt32("id"),
+            chatId = reader.IsDBNull(reader.GetOrdinal("chat_id")) ? 0 : reader.GetInt32("chat_id"),
+            topicId = reader.IsDBNull(reader.GetOrdinal("topic_id")) ? (int?)null : reader.GetInt32("topic_id"),
+            chatName = reader.IsDBNull(reader.GetOrdinal("chat_name")) ? null : reader.GetString("chat_name"),
+            topicName = reader.IsDBNull(reader.GetOrdinal("topic_name")) ? null : reader.GetString("topic_name"),
+            requestText = reader.IsDBNull(reader.GetOrdinal("request_text")) ? null : reader.GetString("request_text"),
+            createdAt = reader.GetDateTime("created_at"),
+            resolvedAt = reader.IsDBNull(reader.GetOrdinal("resolved_at")) ? (DateTime?)null : reader.GetDateTime("resolved_at"),
+            resolution = reader.IsDBNull(reader.GetOrdinal("resolution")) ? null : reader.GetString("resolution")
+          });
+        }
+        return Ok(list);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in GetMyModeratorRequests: " + ex.Message, userId, "MODERATOR", true);
+        return StatusCode(500, "Failed to get your moderator requests.");
       }
     }
 
@@ -917,15 +1108,17 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
+        await EnsureTopicRequestColumnAsync(conn);
         string sql;
         MySqlCommand cmd;
         if (isAdmin || isGlobalMod)
         {
-          sql = @"SELECT mr.id, mr.chat_id, mr.user_id, mr.request_text, mr.created_at,
-                 u.username, cr.name AS chat_name
+          sql = @"SELECT mr.id, mr.chat_id, mr.topic_id, mr.user_id, mr.request_text, mr.created_at,
+                 u.username, cr.name AS chat_name, t.topic AS topic_name
                FROM maxhanna.moderator_request mr
                LEFT JOIN maxhanna.users u ON u.id = mr.user_id
                LEFT JOIN maxhanna.chat_rooms cr ON cr.chat_id = mr.chat_id
+               LEFT JOIN maxhanna.topics t ON t.id = mr.topic_id
                WHERE mr.resolved_at IS NULL
                ORDER BY mr.created_at DESC;";
           cmd = new MySqlCommand(sql, conn);
@@ -933,14 +1126,15 @@ namespace maxhanna.Server.Controllers
         else
         {
           // Chat moderators: only requests for the rooms they moderate.
-          sql = @"SELECT mr.id, mr.chat_id, mr.user_id, mr.request_text, mr.created_at,
-                 u.username, cr.name AS chat_name
+          sql = @"SELECT mr.id, mr.chat_id, mr.topic_id, mr.user_id, mr.request_text, mr.created_at,
+                 u.username, cr.name AS chat_name, t.topic AS topic_name
                FROM maxhanna.moderator_request mr
                LEFT JOIN maxhanna.users u ON u.id = mr.user_id
                LEFT JOIN maxhanna.chat_rooms cr ON cr.chat_id = mr.chat_id
+               LEFT JOIN maxhanna.topics t ON t.id = mr.topic_id
                JOIN maxhanna.moderator_roles mine ON mine.target_type = 'chat' AND mine.target_id = mr.chat_id
                  AND mine.user_id = @CallerUserId AND mine.role = 'chat_moderator'
-               WHERE mr.resolved_at IS NULL
+               WHERE mr.resolved_at IS NULL AND mr.chat_id > 0
                ORDER BY mr.created_at DESC;";
           cmd = new MySqlCommand(sql, conn);
           cmd.Parameters.AddWithValue("@CallerUserId", request.CallerUserId);
@@ -953,9 +1147,11 @@ namespace maxhanna.Server.Controllers
           {
             id = reader.GetInt32("id"),
             chatId = reader.GetInt32("chat_id"),
+            topicId = reader.IsDBNull(reader.GetOrdinal("topic_id")) ? (int?)null : reader.GetInt32("topic_id"),
             userId = reader.GetInt32("user_id"),
             username = reader.IsDBNull(reader.GetOrdinal("username")) ? null : reader.GetString("username"),
             chatName = reader.IsDBNull(reader.GetOrdinal("chat_name")) ? null : reader.GetString("chat_name"),
+            topicName = reader.IsDBNull(reader.GetOrdinal("topic_name")) ? null : reader.GetString("topic_name"),
             requestText = reader.IsDBNull(reader.GetOrdinal("request_text")) ? null : reader.GetString("request_text"),
             createdAt = reader.GetDateTime("created_at")
           });
@@ -987,10 +1183,12 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
+        await EnsureTopicRequestColumnAsync(conn);
 
-        // Load the request to find its chat, then verify the caller may act on it.
-        string getSql = "SELECT chat_id, user_id FROM maxhanna.moderator_request WHERE id = @RequestId AND resolved_at IS NULL;";
+        // Load the request to find its chat/topic, then verify the caller may act on it.
+        string getSql = "SELECT chat_id, topic_id, user_id FROM maxhanna.moderator_request WHERE id = @RequestId AND resolved_at IS NULL;";
         int chatId = 0;
+        int topicId = 0;
         int requesterId = 0;
         using (var getCmd = new MySqlCommand(getSql, conn))
         {
@@ -999,26 +1197,48 @@ namespace maxhanna.Server.Controllers
           if (await reader.ReadAsync())
           {
             chatId = reader.GetInt32("chat_id");
+            topicId = reader.IsDBNull(reader.GetOrdinal("topic_id")) ? 0 : reader.GetInt32("topic_id");
             requesterId = reader.GetInt32("user_id");
           }
         }
-        if (chatId <= 0) return NotFound("Request not found.");
+        if (chatId <= 0 && topicId <= 0) return NotFound("Request not found.");
 
         bool isAdmin = request.CallerUserId == 1 || await IsAdminAsync(request.CallerUserId);
         bool isGlobalMod = await IsGlobalModeratorAsync(request.CallerUserId);
-        if (!isAdmin && !isGlobalMod && !await IsChatModeratorAsync(_config, request.CallerUserId, chatId))
+        if (topicId > 0)
+        {
+          if (!isAdmin && !isGlobalMod && !await IsTopicModeratorForTopicAsync(_config, request.CallerUserId, topicId))
+            return Unauthorized("Only that topic's moderators can resolve requests.");
+        }
+        else if (!isAdmin && !isGlobalMod && !await IsChatModeratorAsync(_config, request.CallerUserId, chatId))
+        {
           return Unauthorized("Only that chat room's moderators can resolve requests.");
+        }
 
         if (resolution == "approved")
         {
-          string upsertSql = @"INSERT INTO maxhanna.moderator_roles (user_id, role, target_type, target_id, assigned_by, assigned_at)
-            VALUES (@UserId, 'chat_moderator', 'chat', @ChatId, @AssignedBy, UTC_TIMESTAMP())
-            ON DUPLICATE KEY UPDATE assigned_by = @AssignedBy, assigned_at = UTC_TIMESTAMP();";
-          using var upsCmd = new MySqlCommand(upsertSql, conn);
-          upsCmd.Parameters.AddWithValue("@UserId", requesterId);
-          upsCmd.Parameters.AddWithValue("@ChatId", chatId);
-          upsCmd.Parameters.AddWithValue("@AssignedBy", request.CallerUserId);
-          await upsCmd.ExecuteNonQueryAsync();
+          if (topicId > 0)
+          {
+            string upsertSql = @"INSERT INTO maxhanna.moderator_roles (user_id, role, target_type, target_id, assigned_by, assigned_at)
+              VALUES (@UserId, 'topic_moderator', 'topic', @TopicId, @AssignedBy, UTC_TIMESTAMP())
+              ON DUPLICATE KEY UPDATE assigned_by = @AssignedBy, assigned_at = UTC_TIMESTAMP();";
+            using var upsCmd = new MySqlCommand(upsertSql, conn);
+            upsCmd.Parameters.AddWithValue("@UserId", requesterId);
+            upsCmd.Parameters.AddWithValue("@TopicId", topicId);
+            upsCmd.Parameters.AddWithValue("@AssignedBy", request.CallerUserId);
+            await upsCmd.ExecuteNonQueryAsync();
+          }
+          else
+          {
+            string upsertSql = @"INSERT INTO maxhanna.moderator_roles (user_id, role, target_type, target_id, assigned_by, assigned_at)
+              VALUES (@UserId, 'chat_moderator', 'chat', @ChatId, @AssignedBy, UTC_TIMESTAMP())
+              ON DUPLICATE KEY UPDATE assigned_by = @AssignedBy, assigned_at = UTC_TIMESTAMP();";
+            using var upsCmd = new MySqlCommand(upsertSql, conn);
+            upsCmd.Parameters.AddWithValue("@UserId", requesterId);
+            upsCmd.Parameters.AddWithValue("@ChatId", chatId);
+            upsCmd.Parameters.AddWithValue("@AssignedBy", request.CallerUserId);
+            await upsCmd.ExecuteNonQueryAsync();
+          }
         }
 
         string resolveSql = "UPDATE maxhanna.moderator_request SET resolved_at = UTC_TIMESTAMP(), resolved_by = @By, resolution = @Resolution WHERE id = @RequestId;";
@@ -1054,6 +1274,50 @@ namespace maxhanna.Server.Controllers
         return Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
       }
       catch { return false; }
+    }
+
+    /// <summary>True when the user holds the topic_moderator role for a specific topic.</summary>
+    public static async Task<bool> IsTopicModeratorForTopicAsync(IConfiguration config, int userId, int topicId)
+    {
+      if (userId == 1) return true;
+      try
+      {
+        string connStr = config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        string sql = "SELECT COUNT(*) FROM maxhanna.moderator_roles WHERE user_id = @UserId AND role = 'topic_moderator' AND target_type = 'topic' AND target_id = @TopicId;";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@UserId", userId);
+        cmd.Parameters.AddWithValue("@TopicId", topicId);
+        return Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
+      }
+      catch { return false; }
+    }
+
+    private static bool _topicRequestColumnEnsured = false;
+
+    /// <summary>Idempotently adds the topic_id column to moderator_request (the
+    /// deployed table predates topic-scoped requests; this self-heals on first use).
+    /// Non-1060 failures (e.g. no ALTER privileges on the DB account) are logged and
+    /// swallowed — the queries that need the column will surface the real error, and
+    /// an admin can add the column manually.</summary>
+    private static async Task EnsureTopicRequestColumnAsync(MySqlConnection conn)
+    {
+      if (_topicRequestColumnEnsured) return;
+      try
+      {
+        using var cmd = new MySqlCommand("ALTER TABLE maxhanna.moderator_request ADD COLUMN topic_id INT NULL AFTER chat_id;", conn);
+        await cmd.ExecuteNonQueryAsync();
+      }
+      catch (MySqlException ex) when (ex.Number == 1060)
+      {
+        // Duplicate column — already present.
+      }
+      catch (Exception ex)
+      {
+        System.Diagnostics.Debug.WriteLine("EnsureTopicRequestColumnAsync: " + ex.Message);
+      }
+      _topicRequestColumnEnsured = true;
     }
 
     /// <summary>Public helper used by other controllers to check topic moderation.</summary>
@@ -1151,7 +1415,14 @@ namespace maxhanna.Server.Controllers
   {
     public int UserId { get; set; }
     public int ChatId { get; set; }
+    public int? TopicId { get; set; }
     public string? RequestText { get; set; }
+  }
+
+  public class GetModeratorsForRequest
+  {
+    public int CallerUserId { get; set; }
+    public int TopicId { get; set; }
   }
 
   public class GetModeratorRequestsRequest

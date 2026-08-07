@@ -1052,6 +1052,22 @@
 .car-glow-pool.glow-cyan { background: radial-gradient(ellipse, rgba(0,230,230,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(0,230,230,0.55); }
 .car-glow-pool.glow-red { background: radial-gradient(ellipse, rgba(255,40,40,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(255,40,40,0.6); }
 .car-glow-pool.glow-gold { background: radial-gradient(ellipse, rgba(255,190,30,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(255,190,30,0.6); }
+.car-glow-pool.glow-orange { background: radial-gradient(ellipse, rgba(255,110,20,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(255,110,20,0.6); }
+.car-glow-pool.glow-white { background: radial-gradient(ellipse, rgba(230,235,255,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(230,235,255,0.6); }
+.car-glow-pool.glow-uv { background: radial-gradient(ellipse, rgba(120,40,255,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(120,40,255,0.6); }
+.car-glow-pool.glow-lime { background: radial-gradient(ellipse, rgba(180,255,25,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(180,255,25,0.55); }
+.car-glow-pool.glow-teal { background: radial-gradient(ellipse, rgba(25,230,180,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(25,230,180,0.55); }
+.car-glow-pool.glow-magenta { background: radial-gradient(ellipse, rgba(255,25,150,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(255,25,150,0.6); }
+.car-glow-pool.glow-yellow { background: radial-gradient(ellipse, rgba(255,230,40,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(255,230,40,0.55); }
+.car-glow-pool.glow-cobalt { background: radial-gradient(ellipse, rgba(40,80,255,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(40,80,255,0.6); }
+.car-glow-pool.glow-emerald { background: radial-gradient(ellipse, rgba(15,230,130,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(15,230,130,0.55); }
+.car-glow-pool.glow-crimson { background: radial-gradient(ellipse, rgba(220,20,55,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(220,20,55,0.6); }
+.car-glow-pool.glow-mint { background: radial-gradient(ellipse, rgba(130,255,180,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(130,255,180,0.5); }
+.car-glow-pool.glow-orchid { background: radial-gradient(ellipse, rgba(220,130,255,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(220,130,255,0.55); }
+.car-glow-pool.glow-ice { background: radial-gradient(ellipse, rgba(130,205,255,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(130,205,255,0.5); }
+.car-glow-pool.glow-bronze { background: radial-gradient(ellipse, rgba(220,150,65,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(220,150,65,0.55); }
+.car-glow-pool.glow-indigo { background: radial-gradient(ellipse, rgba(80,40,220,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(80,40,220,0.6); }
+.car-glow-pool.glow-silver { background: radial-gradient(ellipse, rgba(195,205,230,0.55), transparent 66%); box-shadow: 0 0 calc(52px * var(--glow-intensity, 1)) calc(21px * var(--glow-intensity, 1)) rgba(195,205,230,0.5); }
 @media (prefers-reduced-motion: no-preference) {
   .car-glow-pool {
     animation: glow-pool-pulse 3.2s ease-in-out infinite;
@@ -1084,6 +1100,22 @@
 .car-underglow.glow-cyan { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(0,230,230,0.5); }
 .car-underglow.glow-red { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(255,40,40,0.55); }
 .car-underglow.glow-gold { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(255,190,30,0.55); }
+.car-underglow.glow-orange { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(255,110,20,0.55); }
+.car-underglow.glow-white { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(230,235,255,0.55); }
+.car-underglow.glow-uv { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(120,40,255,0.55); }
+.car-underglow.glow-lime { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(180,255,25,0.5); }
+.car-underglow.glow-teal { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(25,230,180,0.5); }
+.car-underglow.glow-magenta { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(255,25,150,0.55); }
+.car-underglow.glow-yellow { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(255,230,40,0.5); }
+.car-underglow.glow-cobalt { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(40,80,255,0.55); }
+.car-underglow.glow-emerald { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(15,230,130,0.5); }
+.car-underglow.glow-crimson { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(220,20,55,0.55); }
+.car-underglow.glow-mint { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(130,255,180,0.45); }
+.car-underglow.glow-orchid { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(220,130,255,0.5); }
+.car-underglow.glow-ice { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(130,205,255,0.45); }
+.car-underglow.glow-bronze { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(220,150,65,0.5); }
+.car-underglow.glow-indigo { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(80,40,220,0.55); }
+.car-underglow.glow-silver { box-shadow: 0 0 calc(36px * var(--glow-intensity, 1)) calc(14px * var(--glow-intensity, 1)) rgba(195,205,230,0.45); }
 .cockpit {
   background: #07070a;
   border-radius: 50% 50% 6px 6px;
@@ -1165,6 +1197,123 @@
 .decal-number99::after { content: '99'; }
 .decal-sponsor {
   background: repeating-linear-gradient(90deg, rgba(255,255,255,0.7) 0 14px, rgba(0,0,0,0.55) 14px 28px, rgba(255,255,255,0.7) 28px 42px, rgba(200,30,30,0.75) 42px 56px);
+}
+.decal-camo {
+  background: radial-gradient(ellipse at 22% 30%, rgba(120,130,80,0.7) 0 12px, transparent 13px),
+    radial-gradient(ellipse at 68% 20%, rgba(70,85,50,0.7) 0 14px, transparent 15px),
+    radial-gradient(ellipse at 80% 65%, rgba(140,150,90,0.7) 0 13px, transparent 14px),
+    radial-gradient(ellipse at 35% 78%, rgba(55,65,40,0.7) 0 12px, transparent 13px),
+    radial-gradient(ellipse at 12% 58%, rgba(120,130,80,0.6) 0 10px, transparent 11px),
+    linear-gradient(135deg, rgba(90,105,60,0.5), rgba(60,70,40,0.5));
+}
+.decal-cheetah {
+  background: radial-gradient(circle at 18% 30%, rgba(30,25,15,0.8) 0 4px, transparent 5px),
+    radial-gradient(circle at 38% 62%, rgba(30,25,15,0.8) 0 4px, transparent 5px),
+    radial-gradient(circle at 62% 26%, rgba(30,25,15,0.8) 0 4px, transparent 5px),
+    radial-gradient(circle at 80% 70%, rgba(30,25,15,0.8) 0 4px, transparent 5px),
+    radial-gradient(circle at 90% 32%, rgba(30,25,15,0.8) 0 4px, transparent 5px),
+    radial-gradient(circle at 50% 48%, rgba(30,25,15,0.7) 0 4px, transparent 5px),
+    rgba(230,175,60,0.5);
+}
+.decal-rising-sun {
+  background: rgba(220,230,235,0.08);
+}
+.decal-rising-sun::before {
+  content: '';
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 26px; height: 26px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(220,30,20,0.95) 0 60%, rgba(255,80,30,0.9) 61% 78%, rgba(255,120,40,0.75) 79% 100%);
+  box-shadow: 0 0 10px rgba(255,60,20,0.5);
+}
+.decal-circuit {
+  background: linear-gradient(90deg, transparent 46%, rgba(30,230,170,0.85) 47% 49%, transparent 50%, transparent 71%, rgba(30,230,170,0.85) 72% 74%, transparent 75%),
+    linear-gradient(180deg, transparent 30%, rgba(30,230,170,0.85) 31% 33%, transparent 34%, transparent 60%, rgba(30,230,170,0.85) 61% 63%, transparent 64%),
+    radial-gradient(circle at 34% 42%, rgba(30,230,170,0.7) 0 2px, transparent 3px),
+    radial-gradient(circle at 66% 66%, rgba(30,230,170,0.7) 0 2px, transparent 3px),
+    rgba(8,30,28,0.55);
+}
+.decal-bullseye {
+  background: radial-gradient(circle, rgba(220,30,30,0.9) 0 16%, rgba(245,245,245,0.85) 17% 30%, rgba(220,30,30,0.85) 31% 46%, rgba(245,245,245,0.8) 47% 62%, rgba(220,30,30,0.75) 63% 100%);
+}
+.decal-union {
+  background: linear-gradient(90deg, transparent 44%, rgba(30,60,200,0.9) 45% 50%, transparent 51%, transparent 73%, rgba(30,60,200,0.9) 74% 79%, transparent 80%),
+    linear-gradient(180deg, transparent 44%, rgba(30,60,200,0.9) 45% 50%, transparent 51%),
+    linear-gradient(45deg, transparent 44%, rgba(220,30,30,0.85) 45% 50%, transparent 51%),
+    linear-gradient(-45deg, transparent 44%, rgba(220,30,30,0.85) 45% 50%, transparent 51%),
+    rgba(240,240,245,0.12);
+}
+.decal-grid {
+  background: repeating-linear-gradient(90deg, transparent 0 7px, rgba(60,240,220,0.8) 7px 8px, transparent 8px 14px),
+    repeating-linear-gradient(180deg, transparent 0 7px, rgba(60,240,220,0.8) 7px 8px, transparent 8px 14px),
+    radial-gradient(circle at 50% 50%, rgba(60,240,220,0.5) 0 1px, transparent 2px),
+    rgba(10,20,30,0.6);
+}
+.decal-kanji::after {
+  content: '駆';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 22px;
+  font-weight: 900;
+  color: rgba(255,255,255,0.85);
+  text-shadow: 0 2px 5px rgba(0,0,0,0.7);
+}
+.decal-dragon {
+  background: linear-gradient(120deg, rgba(210,30,20,0.85) 0 34%, rgba(255,140,20,0.7) 35% 52%, rgba(210,30,20,0.8) 53% 100%),
+    linear-gradient(45deg, rgba(255,200,60,0.5) 0 6px, transparent 6px 12px),
+    rgba(22,8,8,0.65);
+}
+.decal-bee {
+  background: repeating-linear-gradient(45deg, rgba(30,25,15,0.9) 0 7px, rgba(255,205,20,0.85) 7px 14px);
+}
+.decal-tiger {
+  background: repeating-linear-gradient(100deg, transparent 0 12px, rgba(255,110,10,0.85) 12px 17px, transparent 17px 30px, rgba(30,18,8,0.75) 30px 35px),
+    rgba(255,175,50,0.55);
+}
+.decal-starburst {
+  background: radial-gradient(circle at 18% 30%, rgba(255,235,130,0.95) 0 4px, transparent 5px),
+    radial-gradient(circle at 38% 66%, rgba(255,235,130,0.9) 0 3px, transparent 4px),
+    radial-gradient(circle at 64% 24%, rgba(255,235,130,0.95) 0 4px, transparent 5px),
+    radial-gradient(circle at 84% 60%, rgba(255,235,130,0.9) 0 3px, transparent 4px),
+    radial-gradient(circle at 50% 84%, rgba(255,235,130,0.85) 0 3px, transparent 4px),
+    rgba(12,12,34,0.6);
+}
+.decal-heart {
+  background: linear-gradient(180deg, rgba(255,40,130,0.85), rgba(160,10,70,0.85));
+}
+.decal-heart::after {
+  content: '♥';
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  color: rgba(255,120,180,0.95);
+  text-shadow: 0 2px 6px rgba(120,0,50,0.8);
+}
+.decal-arrow {
+  background: linear-gradient(45deg, transparent 0 40%, rgba(255,255,255,0.9) 41% 46%, transparent 47% 100%),
+    linear-gradient(-45deg, transparent 0 40%, rgba(255,255,255,0.9) 41% 46%, transparent 47% 100%),
+    linear-gradient(45deg, transparent 0 64%, rgba(230,60,40,0.9) 65% 70%, transparent 71% 100%),
+    linear-gradient(-45deg, transparent 0 64%, rgba(230,60,40,0.9) 65% 70%, transparent 71% 100%),
+    rgba(14,14,20,0.6);
+}
+.decal-wave {
+  background: radial-gradient(ellipse at 25% 30%, rgba(60,170,255,0.85) 0 18%, transparent 19%),
+    radial-gradient(ellipse at 45% 55%, rgba(40,120,240,0.85) 0 22%, transparent 23%),
+    radial-gradient(ellipse at 65% 30%, rgba(90,190,255,0.8) 0 16%, transparent 17%),
+    radial-gradient(ellipse at 85% 60%, rgba(30,100,220,0.8) 0 20%, transparent 21%),
+    rgba(10,20,45,0.6);
+}
+.decal-moon {
+  background: radial-gradient(circle at 60% 40%, rgba(235,235,235,0.95) 0 34%, transparent 35%),
+    radial-gradient(circle at 56% 37%, rgba(18,22,48,0.95) 0 30%, transparent 31%),
+    radial-gradient(circle at 24% 70%, rgba(255,255,255,0.9) 0 2px, transparent 3px),
+    radial-gradient(circle at 38% 22%, rgba(255,255,255,0.85) 0 2px, transparent 3px),
+    radial-gradient(circle at 78% 78%, rgba(255,255,255,0.8) 0 2px, transparent 3px),
+    rgba(14,16,40,0.85);
 }
 .accent { border-radius: 2px; transition: all 0.3s; }
 .accent-white { background: #e8e8ea; box-shadow: 0 0 8px rgba(255,255,255,0.45); }
@@ -1765,6 +1914,24 @@
 .garage-appearance-preview.prev-decal-number27::after { content: '27'; }
 .garage-appearance-preview.prev-decal-number99::after { content: '99'; }
 .garage-appearance-preview.prev-decal-sponsor { background: repeating-linear-gradient(90deg, rgba(255,255,255,0.7) 0 8px, rgba(0,0,0,0.55) 8px 16px, rgba(255,255,255,0.7) 16px 24px, rgba(200,30,30,0.75) 24px 32px); }
+.garage-appearance-preview.prev-decal-camo { background: radial-gradient(ellipse at 25% 35%, #6b7a45 0 9px, transparent 10px), radial-gradient(ellipse at 70% 25%, #46552f 0 10px, transparent 11px), radial-gradient(ellipse at 80% 70%, #7d8a52 0 9px, transparent 10px), radial-gradient(ellipse at 35% 80%, #39472a 0 9px, transparent 10px), linear-gradient(135deg, #55663a, #3c4a2c); }
+.garage-appearance-preview.prev-decal-cheetah { background: radial-gradient(circle at 20% 30%, #221c10 0 3px, transparent 4px), radial-gradient(circle at 45% 65%, #221c10 0 3px, transparent 4px), radial-gradient(circle at 70% 28%, #221c10 0 3px, transparent 4px), radial-gradient(circle at 88% 72%, #221c10 0 3px, transparent 4px), radial-gradient(circle at 60% 55%, #221c10 0 3px, transparent 4px), #e6b23c; }
+.garage-appearance-preview.prev-decal-rising-sun { background: radial-gradient(circle at 50% 50%, #dc1e14 0 34%, #ff501e 35% 50%, #ff7828 51% 64%, rgba(255,120,40,0.4) 65% 100%), rgba(235,240,245,0.15); }
+.garage-appearance-preview.prev-decal-circuit { background: linear-gradient(90deg, transparent 44%, #1ee6aa 45% 47%, transparent 48%, transparent 70%, #1ee6aa 71% 73%, transparent 74%), linear-gradient(180deg, transparent 28%, #1ee6aa 29% 31%, transparent 32%, transparent 58%, #1ee6aa 59% 61%, transparent 62%), radial-gradient(circle at 32% 40%, #1ee6aa 0 2px, transparent 3px), radial-gradient(circle at 68% 68%, #1ee6aa 0 2px, transparent 3px), #0c1f1c; }
+.garage-appearance-preview.prev-decal-bullseye { background: radial-gradient(circle, #dc1e1e 0 16%, #f5f5f5 17% 31%, #dc1e1e 32% 47%, #f5f5f5 48% 63%, #dc1e1e 64% 100%); }
+.garage-appearance-preview.prev-decal-union { background: linear-gradient(90deg, transparent 44%, #1e3cc8 45% 50%, transparent 51%, transparent 72%, #1e3cc8 73% 78%, transparent 79%), linear-gradient(180deg, transparent 44%, #1e3cc8 45% 50%, transparent 51%), linear-gradient(45deg, transparent 44%, #dc1e1e 45% 50%, transparent 51%), linear-gradient(-45deg, transparent 44%, #dc1e1e 45% 50%, transparent 51%), #eef0f5; }
+.garage-appearance-preview.prev-decal-grid { background: repeating-linear-gradient(90deg, transparent 0 7px, #3cf0dc 7px 8px, transparent 8px 15px), repeating-linear-gradient(180deg, transparent 0 7px, #3cf0dc 7px 8px, transparent 8px 15px), radial-gradient(circle at 50% 50%, #3cf0dc 0 2px, transparent 3px), #0a141e; }
+.garage-appearance-preview.prev-decal-kanji { background: #1a1a1e; color: #fff; font-size: 20px; font-weight: 900; text-align: center; line-height: 44px; }
+.garage-appearance-preview.prev-decal-kanji::after { content: '駆'; }
+.garage-appearance-preview.prev-decal-dragon { background: linear-gradient(120deg, #d21e14 0 34%, #ff8c14 35% 52%, #d21e14 53% 100%), linear-gradient(45deg, #ffc83c 0 5px, transparent 5px 10px), #160808; }
+.garage-appearance-preview.prev-decal-bee { background: repeating-linear-gradient(45deg, #1e190f 0 7px, #ffcd14 7px 14px); }
+.garage-appearance-preview.prev-decal-tiger { background: repeating-linear-gradient(100deg, transparent 0 12px, #ff6e0a 12px 17px, transparent 17px 30px, #1e1208 30px 35px), #ffaf32; }
+.garage-appearance-preview.prev-decal-starburst { background: radial-gradient(circle at 18% 30%, #ffeb82 0 3px, transparent 4px), radial-gradient(circle at 38% 66%, #ffeb82 0 2px, transparent 3px), radial-gradient(circle at 64% 24%, #ffeb82 0 3px, transparent 4px), radial-gradient(circle at 84% 60%, #ffeb82 0 2px, transparent 3px), radial-gradient(circle at 50% 84%, #ffeb82 0 2px, transparent 3px), #0c0c22; }
+.garage-appearance-preview.prev-decal-heart { background: linear-gradient(180deg, #ff2882, #a00a46); color: #ff78b4; font-size: 20px; font-weight: 900; text-align: center; line-height: 44px; }
+.garage-appearance-preview.prev-decal-heart::after { content: '♥'; }
+.garage-appearance-preview.prev-decal-arrow { background: linear-gradient(45deg, transparent 0 40%, #ffffff 41% 46%, transparent 47% 100%), linear-gradient(-45deg, transparent 0 40%, #ffffff 41% 46%, transparent 47% 100%), linear-gradient(45deg, transparent 0 64%, #e63c28 65% 70%, transparent 71% 100%), linear-gradient(-45deg, transparent 0 64%, #e63c28 65% 70%, transparent 71% 100%), #0e0e14; }
+.garage-appearance-preview.prev-decal-wave { background: radial-gradient(ellipse at 25% 30%, #3caaff 0 18%, transparent 19%), radial-gradient(ellipse at 45% 55%, #2878f0 0 22%, transparent 23%), radial-gradient(ellipse at 65% 30%, #5abfff 0 16%, transparent 17%), radial-gradient(ellipse at 85% 60%, #1e64dc 0 20%, transparent 21%), #0a142d; }
+.garage-appearance-preview.prev-decal-moon { background: radial-gradient(circle at 60% 40%, #ebebeb 0 34%, transparent 35%), radial-gradient(circle at 56% 37%, #121630 0 30%, transparent 31%), radial-gradient(circle at 24% 70%, #ffffff 0 2px, transparent 3px), radial-gradient(circle at 38% 22%, #ffffff 0 2px, transparent 3px), radial-gradient(circle at 78% 78%, #ffffff 0 2px, transparent 3px), #0e1028; }
 .garage-appearance-preview.prev-glow-blue { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(0,120,255,0.2); box-shadow: 0 0 18px 6px rgba(0,120,255,0.55); }
 .garage-appearance-preview.prev-glow-green { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(0,230,80,0.2); box-shadow: 0 0 18px 6px rgba(0,230,80,0.5); }
 .garage-appearance-preview.prev-glow-purple { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(170,60,255,0.2); box-shadow: 0 0 18px 6px rgba(170,60,255,0.55); }
@@ -1772,6 +1939,22 @@
 .garage-appearance-preview.prev-glow-cyan { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(0,230,230,0.2); box-shadow: 0 0 18px 6px rgba(0,230,230,0.5); }
 .garage-appearance-preview.prev-glow-red { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(255,40,40,0.2); box-shadow: 0 0 18px 6px rgba(255,40,40,0.55); }
 .garage-appearance-preview.prev-glow-gold { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(255,190,30,0.2); box-shadow: 0 0 18px 6px rgba(255,190,30,0.55); }
+.garage-appearance-preview.prev-glow-orange { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(255,110,20,0.2); box-shadow: 0 0 18px 6px rgba(255,110,20,0.55); }
+.garage-appearance-preview.prev-glow-white { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(235,240,255,0.25); box-shadow: 0 0 18px 6px rgba(235,240,255,0.6); }
+.garage-appearance-preview.prev-glow-uv { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(120,40,255,0.2); box-shadow: 0 0 18px 6px rgba(120,40,255,0.55); }
+.garage-appearance-preview.prev-glow-lime { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(180,255,25,0.2); box-shadow: 0 0 18px 6px rgba(180,255,25,0.5); }
+.garage-appearance-preview.prev-glow-teal { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(25,230,180,0.2); box-shadow: 0 0 18px 6px rgba(25,230,180,0.5); }
+.garage-appearance-preview.prev-glow-magenta { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(255,25,150,0.2); box-shadow: 0 0 18px 6px rgba(255,25,150,0.55); }
+.garage-appearance-preview.prev-glow-yellow { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(255,230,40,0.2); box-shadow: 0 0 18px 6px rgba(255,230,40,0.5); }
+.garage-appearance-preview.prev-glow-cobalt { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(40,80,255,0.2); box-shadow: 0 0 18px 6px rgba(40,80,255,0.55); }
+.garage-appearance-preview.prev-glow-emerald { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(15,230,130,0.2); box-shadow: 0 0 18px 6px rgba(15,230,130,0.5); }
+.garage-appearance-preview.prev-glow-crimson { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(220,20,55,0.2); box-shadow: 0 0 18px 6px rgba(220,20,55,0.55); }
+.garage-appearance-preview.prev-glow-mint { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(130,255,180,0.2); box-shadow: 0 0 18px 6px rgba(130,255,180,0.45); }
+.garage-appearance-preview.prev-glow-orchid { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(220,130,255,0.2); box-shadow: 0 0 18px 6px rgba(220,130,255,0.5); }
+.garage-appearance-preview.prev-glow-ice { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(130,205,255,0.2); box-shadow: 0 0 18px 6px rgba(130,205,255,0.45); }
+.garage-appearance-preview.prev-glow-bronze { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(220,150,65,0.2); box-shadow: 0 0 18px 6px rgba(220,150,65,0.5); }
+.garage-appearance-preview.prev-glow-indigo { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(80,40,220,0.2); box-shadow: 0 0 18px 6px rgba(80,40,220,0.55); }
+.garage-appearance-preview.prev-glow-silver { border-radius: 50%; width: 24px; height: 24px; margin: 0 auto; background: rgba(195,205,230,0.2); box-shadow: 0 0 18px 6px rgba(195,205,230,0.45); }
 .garage-appearance-preview.prev-accent-white { background: #e8e8ea; box-shadow: 0 0 8px rgba(255,255,255,0.45); }
 .garage-appearance-preview.prev-accent-gold { background: #e6c200; box-shadow: 0 0 8px rgba(230,194,0,0.5); }
 .garage-appearance-preview.prev-accent-silver { background: #b9bec7; box-shadow: 0 0 8px rgba(200,210,225,0.4); }
@@ -3667,6 +3850,9 @@
   border-radius: 8px;
   padding: 20px;
   min-width: 350px;
+  max-width: 92vw;
+  max-height: 82vh;
+  overflow-y: auto;
   z-index: 40;
   color: #fff;
   pointer-events: auto;
@@ -3951,6 +4137,123 @@
   color: rgba(255, 255, 255, 0.35);
   padding: 18px 0;
   font-style: italic;
+}
+
+/* All-circuits breakdown cards */
+.race-lb-alltracks-loading {
+  text-align: center;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  padding: 14px 0;
+}
+.race-lb-search {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin-bottom: 10px;
+  padding: 6px 2px;
+  background: rgba(13, 13, 18, 0.92);
+  border-radius: 8px;
+}
+.race-lb-search-input {
+  width: 100%;
+  padding: 8px 30px 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--text, #fff);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.race-lb-search-input:focus {
+  border-color: var(--main-link-color, chartreuse);
+  box-shadow: 0 0 0 2px rgba(141, 255, 82, 0.15);
+}
+.race-lb-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+.race-lb-search-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.race-lb-search-clear:hover {
+  color: var(--main-link-color, chartreuse);
+  background: rgba(255, 255, 255, 0.08);
+}
+.race-lb-trackboard {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 8px 10px 6px;
+  margin-bottom: 12px;
+}
+.race-lb-trackboard-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 2px 6px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+  user-select: none;
+}
+.race-lb-trackboard-head:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.race-lb-trackboard-head:focus-visible {
+  outline: 2px solid var(--main-link-color, chartreuse);
+  outline-offset: 2px;
+}
+.race-lb-trackboard-name {
+  font-weight: 700;
+  font-size: 13px;
+}
+.race-lb-chevron {
+  display: inline-block;
+  width: 14px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  transition: transform 0.15s;
+}
+.race-lb-trackboard-count {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+}
+.race-lb-trackboard-toggle {
+  text-align: center;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  padding: 4px 0 2px;
+  margin-top: 4px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+  user-select: none;
+}
+.race-lb-trackboard-toggle:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--main-link-color, chartreuse);
+}
+.race-lb-trackboard-toggle:focus-visible {
+  outline: 2px solid var(--main-link-color, chartreuse);
+  outline-offset: 2px;
+}
+.race-lb-row-you {
+  border-left: 2px solid var(--main-link-color, chartreuse);
+  margin-top: 2px;
 }
 .race-lb-close {
   text-align: center;

@@ -6,6 +6,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 namespace maxhanna.Server.Controllers
@@ -148,7 +149,10 @@ namespace maxhanna.Server.Controllers
 					if (rdr.Read())
 					{
 						if (!rdr.IsDBNull(0) && rdr.GetString(0) is { Length: > 0 } j)
+						{
 							st.Upgrades = JsonSerializer.Deserialize<List<object>>(j) ?? new List<object>();
+							if (NormalizeEngineUpgradeBonuses(st.Upgrades)) st.Dirty = true;
+						}
 						st.SkinId = rdr.IsDBNull(1) ? 1 : rdr.GetInt32(1);
 						st.SpoilerId = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2);
 						st.RimId = rdr.IsDBNull(3) ? 0 : rdr.GetInt32(3);
@@ -208,7 +212,10 @@ namespace maxhanna.Server.Controllers
 					{
 						var st = new RacingCarState { UserId = rdr.GetInt32(0) };
 						if (!rdr.IsDBNull(1) && rdr.GetString(1) is { Length: > 0 } j)
+						{
 							st.Upgrades = JsonSerializer.Deserialize<List<object>>(j) ?? new List<object>();
+							if (NormalizeEngineUpgradeBonuses(st.Upgrades)) st.Dirty = true;
+						}
 						st.SkinId = rdr.IsDBNull(2) ? 1 : rdr.GetInt32(2);
 						st.SpoilerId = rdr.IsDBNull(3) ? 0 : rdr.GetInt32(3);
 						st.RimId = rdr.IsDBNull(4) ? 0 : rdr.GetInt32(4);
@@ -810,6 +817,114 @@ namespace maxhanna.Server.Controllers
 			catch { return Ok(new { results = new List<LeaderboardEntry>(), totalCount = 0, userRank = 0, bestLap = 0.0 }); }
 		}
 
+		// Per-circuit breakdown for the Best Laps panel: every track's top laps by
+		// players plus the caller's own best lap and rank on that circuit, so the
+		// panel shows the whole field across all tracks at once.
+		[HttpGet("leaderboard-by-track")]
+		public async Task<IActionResult> GetAllTrackLeaderboards([FromQuery] int userId = 0)
+		{
+			try
+			{
+				var perTrack = new Dictionary<int, Dictionary<int, double>>();
+				var names = new Dictionary<int, string>();
+				var connStr = _config.GetValue<string>("ConnectionStrings:maxhanna");
+				if (!string.IsNullOrEmpty(connStr))
+				{
+					using var conn = new MySqlConnection(connStr);
+					await conn.OpenAsync();
+					using var cmd = new MySqlCommand(@"
+						SELECT track_id, user_id, lap_time, player_name FROM (
+							SELECT r.track_id, r.user_id, r.lap_time AS lap_time,
+							       COALESCE(NULLIF(r.player_name, ''), u.username, 'Unknown') AS player_name
+							FROM racing_results r
+							LEFT JOIN users u ON r.user_id = u.id
+							WHERE r.lap_time > 0 AND r.user_id > 0
+							UNION ALL
+							SELECT bl.track_id, bl.user_id, bl.best_lap AS lap_time,
+							       COALESCE(NULLIF(c.player_name, ''), u.username, 'Unknown') AS player_name
+							FROM racing_best_laps bl
+							LEFT JOIN racing_player_car c ON c.user_id = bl.user_id
+							LEFT JOIN users u ON bl.user_id = u.id
+							WHERE bl.best_lap > 0 AND bl.user_id > 0
+						) t", conn);
+					using (var rdr = await cmd.ExecuteReaderAsync())
+					{
+						while (await rdr.ReadAsync())
+						{
+							int uid = rdr.GetInt32(1);
+							int tid = rdr.GetInt32(0);
+							double lap = rdr.GetDouble(2);
+							if (uid <= 0 || lap <= 0) continue;
+							if (!perTrack.TryGetValue(tid, out var byUser))
+							{
+								byUser = new Dictionary<int, double>();
+								perTrack[tid] = byUser;
+							}
+							if (!byUser.TryGetValue(uid, out var existing) || lap < existing) byUser[uid] = lap;
+							names[uid] = rdr.IsDBNull(3) ? "Unknown" : rdr.GetString(3);
+						}
+					}
+				}
+				// Merge pending in-memory results not yet dumped to the DB.
+				foreach (var r in _pendingResults)
+				{
+					if (r.LapTime <= 0 || r.UserId <= 0) continue;
+					if (!perTrack.TryGetValue(r.TrackId, out var byUser))
+					{
+						byUser = new Dictionary<int, double>();
+						perTrack[r.TrackId] = byUser;
+					}
+					if (!byUser.TryGetValue(r.UserId, out var existing) || r.LapTime < existing)
+						byUser[r.UserId] = r.LapTime;
+					if (!names.ContainsKey(r.UserId)) names[r.UserId] = r.PlayerName;
+				}
+				var tracks = new List<object>();
+				foreach (var kv in perTrack)
+				{
+					var ranked = kv.Value
+						.Select(p => new
+					{
+							playerId = p.Key,
+							playerName = names.TryGetValue(p.Key, out var n) ? n : "Unknown",
+							lapTime = p.Value
+						})
+						.OrderBy(e => e.lapTime)
+						.ToList();
+					// Return up to 20 so the client can offer a 'show top 20' toggle per card.
+					var top = ranked.Take(20)
+						.Select(e => new LeaderboardEntry
+					{
+							PlayerId = e.playerId,
+							PlayerName = e.playerName,
+							LapTime = e.lapTime,
+							TotalTime = 0,
+							Position = 0,
+							MoneyEarned = 0,
+							IsBot = false
+						})
+						.ToList();
+					double userLap = 0;
+					int userRank = 0;
+					if (userId > 0 && kv.Value.TryGetValue(userId, out var mine))
+					{
+						userLap = mine;
+						userRank = 1 + ranked.Count(e => e.lapTime < mine);
+					}
+					tracks.Add(new
+					{
+						trackId = kv.Key,
+						totalCount = ranked.Count,
+						bestLap = ranked.Count > 0 ? ranked[0].lapTime : 0.0,
+						userLap,
+						userRank,
+						results = top
+					});
+				}
+				return Ok(new { tracks });
+			}
+			catch { return Ok(new { tracks = new List<object>() }); }
+		}
+
 		// High-scores view across ALL circuits: every player's fastest lap anywhere
 		// (with the circuit it was set on + their full per-track breakdown), so the
 		// Best Laps panel can rank the whole field like a championship table.
@@ -892,15 +1007,49 @@ namespace maxhanna.Server.Controllers
 			}
 			catch { return Ok(new { results = new List<object>(), totalCount = 0, userRank = 0, bestLap = 0.0 }); }
 		}
+		// Rewrites already-owned engine upgrades to the current (halved) speed
+		// bonus so players who bought stages before the speed nerf get the same
+		// values as new buyers. Returns true when anything changed so the caller
+		// can flag the car dirty and persist the corrected upgrades_json.
+		private static bool NormalizeEngineUpgradeBonuses(List<object> upgrades)
+		{
+			bool changed = false;
+			if (upgrades == null) return false;
+			// Stored upgrade JSON is always camelCase: BuyUpgrade serializes defs
+			// with the camelCase policy, and JsonObject round-trips keep that casing.
+			for (int i = 0; i < upgrades.Count; i++)
+			{
+				if (upgrades[i] is not JsonElement je) continue;
+				if (!je.TryGetProperty("category", out var cat) || cat.GetString() != "engine") continue;
+				if (!je.TryGetProperty("id", out var idProp) || !idProp.TryGetInt32(out int id)) continue;
+				var def = GetUpgradeDef(id);
+				if (def == null) continue;
+				bool bonusMatches = je.TryGetProperty("statBonus", out var sb) && sb.TryGetInt32(out int cur) && cur == def.StatBonus;
+				bool costMatches = je.TryGetProperty("cost", out var cp) && cp.TryGetInt32(out int storedCost) && storedCost == def.Cost;
+				if (bonusMatches && costMatches) continue;
+				try
+				{
+					var obj = JsonSerializer.Deserialize<JsonObject>(je.GetRawText());
+					if (obj == null) continue;
+					obj["statBonus"] = def.StatBonus;
+					obj["description"] = def.Description;
+					obj["cost"] = def.Cost;
+					upgrades[i] = obj;
+					changed = true;
+				}
+				catch { }
+			}
+			return changed;
+		}
 		private static UpgradeDef? GetUpgradeDef(int id)
 		{
 			return id switch
 			{
-				1 => new UpgradeDef { Id = 1, Name = "Stage 1 Engine", Category = "engine", Level = 1, MaxLevel = 5, Cost = 500, Description = "+10% Top Speed", StatBonus = 10 },
-				2 => new UpgradeDef { Id = 2, Name = "Stage 2 Engine", Category = "engine", Level = 2, MaxLevel = 5, Cost = 1500, Description = "+20% Top Speed", StatBonus = 20 },
-				3 => new UpgradeDef { Id = 3, Name = "Stage 3 Engine", Category = "engine", Level = 3, MaxLevel = 5, Cost = 4000, Description = "+30% Top Speed", StatBonus = 30 },
-				4 => new UpgradeDef { Id = 4, Name = "Stage 4 Engine", Category = "engine", Level = 4, MaxLevel = 5, Cost = 10000, Description = "+40% Top Speed", StatBonus = 40 },
-				5 => new UpgradeDef { Id = 5, Name = "Stage 5 Engine", Category = "engine", Level = 5, MaxLevel = 5, Cost = 25000, Description = "+50% Top Speed", StatBonus = 50 },
+				1 => new UpgradeDef { Id = 1, Name = "Stage 1 Engine", Category = "engine", Level = 1, MaxLevel = 5, Cost = 250, Description = "+5% Top Speed", StatBonus = 5 },
+				2 => new UpgradeDef { Id = 2, Name = "Stage 2 Engine", Category = "engine", Level = 2, MaxLevel = 5, Cost = 750, Description = "+10% Top Speed", StatBonus = 10 },
+				3 => new UpgradeDef { Id = 3, Name = "Stage 3 Engine", Category = "engine", Level = 3, MaxLevel = 5, Cost = 2000, Description = "+15% Top Speed", StatBonus = 15 },
+				4 => new UpgradeDef { Id = 4, Name = "Stage 4 Engine", Category = "engine", Level = 4, MaxLevel = 5, Cost = 6000, Description = "+20% Top Speed", StatBonus = 20 },
+				5 => new UpgradeDef { Id = 5, Name = "Stage 5 Engine", Category = "engine", Level = 5, MaxLevel = 5, Cost = 18000, Description = "+25% Top Speed", StatBonus = 25 },
 				6 => new UpgradeDef { Id = 6, Name = "Sport Tires", Category = "tires", Level = 1, MaxLevel = 4, Cost = 300, Description = "+5% Grip", StatBonus = 5 },
 				7 => new UpgradeDef { Id = 7, Name = "Racing Tires", Category = "tires", Level = 2, MaxLevel = 4, Cost = 800, Description = "+12% Grip", StatBonus = 12 },
 				8 => new UpgradeDef { Id = 8, Name = "Slick Tires", Category = "tires", Level = 3, MaxLevel = 4, Cost = 2000, Description = "+20% Grip", StatBonus = 20 },

@@ -21,12 +21,17 @@ namespace maxhanna.Server.Services
       "Outline", "Bubbles", "Sparkle", "Shade",
       "Dither", "Checker", "Fade",
       "3D", "Neon", "Graffiti", "Italic", "Sideways", "Flip", "Bubble", "Wave", "Confetti",
-      "Stencil", "Chrome", "Negative", "Halo", "Mirror", "Zigzag", "Hatch", "Deep", "Aura", "Gradient"
+      "Stencil", "Chrome", "Negative", "Halo", "Mirror", "Zigzag", "Hatch", "Deep", "Aura", "Gradient",
+      "Fence", "Emboss", "Cave", "Grid", "Slice", "Dust", "Chocolate", "Mosaic", "Ember", "Melt",
+      "Jagged", "GlowStencil", "Blurred", "Rose", "Gothic", "Crypt", "Grave", "Oldpaper", "Statement",
+      "Prism", "Illusion", "Brushed", "Slate", "CutGlass", "Parchment", "Tattoo", "Viscous", "Lantern",
+      "Candy", "Sunny", "Party"
     };
 
     private static readonly string FadeRamp = "#@*|-=!";
     private static readonly string ChromeRamp = "▀█▄";
     private static readonly char[] Confetti = { '*', '+', 'o', '.', '~', 'x' };
+    private static readonly char[] MosaicRamp = { '#', '▓', '░', '▒', '█', '·' };
 
     private static readonly Dictionary<char, string[]> Glyphs = BuildGlyphs();
     private static readonly string[] Blank = new[] { "00000", "00000", "00000", "00000", "00000", "00000", "00000" };
@@ -147,7 +152,12 @@ namespace maxhanna.Server.Services
 
       // Thick-stroke fonts: dilate every pixel into its neighbours so strokes
       // get real interiors (this is what makes hollow stencils visible).
-      if (style == "Stencil" || style == "Chrome" || style == "Aura") glyph = Dilate(glyph);
+if (style == "Stencil" || style == "Chrome" || style == "Aura" ||
+          style == "Fence" || style == "Emboss" || style == "Cave" || style == "Chocolate" ||
+          style == "Mosaic" || style == "Slice" || style == "Gothic" ||
+          style == "Statement" || style == "Grave" ||
+          style == "Illusion" || style == "Oldpaper" || style == "Slate" ||
+          style == "Lantern" || style == "Rose" || style == "CutGlass") glyph = Dilate(glyph);
 
       int gRows = glyph.Length, gCols = glyph[0].Length;
       var result = new string[gRows];
@@ -266,6 +276,43 @@ namespace maxhanna.Server.Services
         case "Aura": return FadeRamp[Math.Min(r, FadeRamp.Length - 1)];
         case "Hatch": return ((r + c) & 1) == 0 ? '/' : '\\';
 
+        // 2026-08 wild additions — big, blocky, artful
+        case "Fence": return ((r % 2 == 0) && (c % 2 == 0)) ? '#' : (edge ? '#' : '·');
+        case "Emboss": return edge ? (r < c ? '░' : '▒') : (r < c ? '▓' : '█');
+        case "Cave": return edge ? '#' : (((r * 5 + c * 3) % 9 == 0) ? '.' : '▒');
+        case "Grid": return (r % 4 == 0 || c % 4 == 0) ? '▓' : '#';
+        case "Slice": int sliceD = (r + c) % 6; return sliceD < 2 ? '/' : (sliceD < 4 ? '\\' : '#');
+        case "Dust": return ((r * 5 + c * 7) % 6 == 0) ? '.' : '*';
+        case "Chocolate": int choc = Math.Min(r, 6); return choc < 3 ? '#' : (choc < 5 ? '▓' : '░');
+        case "Mosaic": return MosaicRamp[(r * 3 + c) % MosaicRamp.Length];
+        case "Ember": return edge ? (r % 2 == 0 ? '#' : '*') : (r < 4 ? '▒' : '·');
+        case "Melt": return r < 3 ? '#' : '~';
+
+        // 2026-08 mood fleet — gothic, shadowy, scary, pop, happy
+        case "Oldpaper": return edge ? '#' : ':';
+        case "Crypt": return (r + c) % 5 == 0 ? '#' : '░';
+        case "Grave": return edge ? 'o' : '#';
+        case "Statement": return edge ? '#' : '@';
+        case "Tattoo": return ((r * 7 + c * 3) % 5 == 0) ? '*' : '#';
+        case "Gothic": return edge ? '#' : '▓';
+        case "Rose": return (r % 2 == 0 && c % 2 == 1) ? 'o' : '#';
+        case "Brushed": return '▓';
+        case "Lantern": return edge ? '#' : '░';
+        case "Slate": return (edge ? '#' : '▓');
+        case "Jagged": return edge ? '/' : '#';
+        case "GlowStencil": return edge ? '#' : ' ';
+        case "Blurred": return '#';
+        case "Viscous": return '#';
+        case "Prism": return ((r + c) % 2 == 0) ? '#' : '░';
+        case "Illusion": return (Math.Abs(r - 4) + Math.Abs(c - 3)) % 3 == 0 ? '#' : '░';
+        case "Parchment": return '~';
+        case "CutGlass": return ((r / 2 + c / 2) % 2 == 0) ? '#' : '&';
+
+        // 2026-08 poppy & happy — bright stripe candy, sun rays, confetti burst
+        case "Candy": return (c % 3 == 0) ? '#' : '.';
+        case "Sunny": return '·';
+        case "Party": return (r * 5 + c * 3) % 4 == 0 ? '*' : '#';
+
         // Hollow / edge styles — only the outline of each letter is drawn.
         case "Outline": return edge ? '#' : ' ';
         case "Bubbles": return edge ? 'o' : ' ';
@@ -303,6 +350,13 @@ namespace maxhanna.Server.Services
           var highlighted = HighlightTopEdges(skewed, '▀');
           return Shadow(highlighted, 1, 1, '░');
         case "Gradient": return Gradient(art);
+        case "Melt": return Melt(art);
+        case "Jagged": return Wave(art, Math.PI / 1.5, 1.0);
+        case "GlowStencil": return Glow(art, '·');
+        case "Blurred": return Blur(art);
+        case "Viscous": return Viscous(art);
+        case "Brushed": return Brushed(art);
+        case "Sunny": return Sunny(art);
         default: return art;
       }
     }
@@ -394,6 +448,134 @@ namespace maxhanna.Server.Services
           }
           sb.Append(ch);
         }
+        result.Add(sb.ToString());
+      }
+      return result;
+    }
+
+    /// <summary>Melts the letters downward: drips of ~ hang under each glyph.</summary>
+    private static List<string> Melt(List<string> art)
+    {
+      int rows = art.Count, cols = art[0].Length;
+      var result = new List<string>(rows + 1);
+      var drips = new char[cols];
+      bool any = false;
+      for (int r = 0; r < rows; r++)
+      {
+        var sb = new StringBuilder(cols);
+        for (int c = 0; c < cols; c++)
+        {
+          char cur = art[r][c];
+          sb.Append(cur);
+          if (cur != ' ') { drips[c] = '~'; any = true; }
+        }
+        result.Add(sb.ToString());
+      }
+      if (any)
+      {
+        result.Add(new string(drips));
+      }
+      return result;
+    }
+
+    /// <summary>Adds an outer glow ring of char around every filled cell.</summary>
+    private static List<string> Glow(List<string> art, char ch)
+    {
+      int rows = art.Count, cols = art[0].Length;
+      var result = new List<string>(rows);
+      for (int r = 0; r < rows; r++)
+      {
+        var sb = new StringBuilder(cols);
+        for (int c = 0; c < cols; c++)
+        {
+          if (art[r][c] != ' ' || HasNeighbor(art, r, c)) sb.Append(ch);
+          else sb.Append(' ');
+        }
+        result.Add(sb.ToString());
+      }
+      return result;
+    }
+
+    private static bool HasNeighbor(List<string> art, int r, int c)
+    {
+      for (int dr = -1; dr <= 1; dr++)
+        for (int dc = -1; dc <= 1; dc++)
+        {
+          if (dr == 0 && dc == 0) continue;
+          int nr = r + dr, nc = c + dc;
+          if (nr >= 0 && nr < art.Count && nc >= 0 && nc < art[0].Length && art[nr][nc] != ' ') return true;
+        }
+      return false;
+    }
+
+    /// <summary>Smears every glyph to the right like a long-exposure blur.</summary>
+    private static List<string> Blur(List<string> art)
+    {
+      int rows = art.Count, cols = art[0].Length;
+      var result = new List<string>(rows);
+      for (int r = 0; r < rows; r++)
+      {
+        var chars = art[r].ToCharArray();
+        for (int c = cols - 1; c > 0; c--)
+        {
+          if (chars[c] == ' ' && chars[c - 1] != ' ') chars[c] = '░';
+          if (chars[c] == '░' && c > 1 && chars[c - 2] != ' ') chars[c - 1] = '▒';
+        }
+        result.Add(new string(chars));
+      }
+      return result;
+    }
+
+    /// <summary>Thick ropy drips: double melt, taller pools at the bottom.</summary>
+    private static List<string> Viscous(List<string> art)
+    {
+      var m = Melt(Melt(art));
+      int rows = m.Count, cols = m[0].Length;
+      var result = new List<string>(rows);
+      for (int r = 0; r < rows; r++)
+      {
+        var sb = new StringBuilder(cols + 2);
+        bool had = false;
+        foreach (char c in m[r])
+        {
+          sb.Append(c);
+          if (c == '~') had = true;
+        }
+        if (had) sb.Append("~~");
+        result.Add(sb.ToString());
+      }
+      return result;
+    }
+
+    /// <summary>Fast brush strokes: thickens downward, chalk on the bottom.</summary>
+    private static List<string> Brushed(List<string> art)
+    {
+      int cols = art[0].Length;
+      var result = new List<string>();
+      foreach (var row in art)
+      {
+        var sb = new StringBuilder(cols);
+        bool saw = false;
+        foreach (char c in row)
+        {
+          if (c != ' ') { sb.Append('▓'); saw = true; }
+          else sb.Append(saw ? '·' : ' ');
+        }
+        result.Add(sb.ToString());
+      }
+      return result;
+    }
+
+    /// <summary>Bursts soft sun rays ( · ) outward from every carved cell.</summary>
+    private static List<string> Sunny(List<string> art)
+    {
+      int cols = art[0].Length;
+      var result = new List<string>();
+      foreach (var row in art)
+      {
+        var sb = new StringBuilder(cols + 2);
+        foreach (char c in row) sb.Append(c);
+        sb.Append("··");
         result.Add(sb.ToString());
       }
       return result;

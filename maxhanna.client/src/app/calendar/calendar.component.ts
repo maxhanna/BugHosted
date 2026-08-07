@@ -187,14 +187,17 @@ export class CalendarComponent extends ChildComponent implements OnInit {
       this.isEditingEntry.push(entry);
       return;
     } else {
-      // read values from DOM textarea/select inputs and send update
+      // read values from the entry (kept in sync via [(ngModel)]) with the
+      // DOM inputs as a fallback, then send the update
       const timeElem = document.getElementById('calendarEditingTime') as HTMLInputElement;
       const noteElem = document.getElementById('calendarEditingNote') as HTMLInputElement;
       const typeElem = document.getElementById('calendarEditingType') as HTMLSelectElement;
       const reminderElem = document.getElementById('calendarEditingReminder') as HTMLInputElement;
-      const time = timeElem?.value ?? '00:00';
-      const note = noteElem?.value ?? '';
-      const type = typeElem?.value ?? entry.type;
+      const entryDate = entry.date ? new Date(entry.date) : null;
+      const time = timeElem?.value
+        ?? (entryDate ? `${String(entryDate.getHours()).padStart(2, '0')}:${String(entryDate.getMinutes()).padStart(2, '0')}` : '00:00');
+      const note = entry.note ?? noteElem?.value ?? '';
+      const type = entry.type ?? typeElem?.value ?? 'Event';
       const reminder = reminderElem?.value !== undefined && reminderElem.value !== '' ? Math.max(0, parseInt(reminderElem.value, 10) || 0) : undefined;
 
       // build updated CalendarEntry

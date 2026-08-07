@@ -81,6 +81,8 @@ export interface ModeratorRequest {
   userId: number;
   username?: string | null;
   chatName?: string | null;
+  topicId?: number | null;
+  topicName?: string | null;
   requestText?: string | null;
   createdAt?: Date;
   resolvedAt?: Date | null;

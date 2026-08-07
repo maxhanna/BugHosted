@@ -3063,12 +3063,24 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
             {
                 await using var conn = new MySqlConnection(_connectionString);
                 await conn.OpenAsync();
-                const string deleteSql = @"DELETE FROM weaver_remote_command WHERE status = 'executed';";
+                // Keep recently executed commands (last 24h) so the weaver UI can show
+                // a command history; only purge older ones to keep the table bounded.
+                const string deleteSql = @"DELETE FROM weaver_remote_command WHERE status IN ('executed','cancelled') AND created_at < UTC_TIMESTAMP() - INTERVAL 1 DAY;";
                 await using var cmd = new MySqlCommand(deleteSql, conn);
                 int rowsAffected = await cmd.ExecuteNonQueryAsync();
                 if (rowsAffected > 0)
                 {
                     _ = _log.Db($"Deleted {rowsAffected} executed weaver remote commands.");
+                }
+
+                // Purge pending commands the agent never picked up (e.g. offline for a
+                // long stretch) so they can't accumulate forever.
+                const string staleSql = @"DELETE FROM weaver_remote_command WHERE status = 'pending' AND created_at < UTC_TIMESTAMP() - INTERVAL 7 DAY;";
+                await using var staleCmd = new MySqlCommand(staleSql, conn);
+                int staleRows = await staleCmd.ExecuteNonQueryAsync();
+                if (staleRows > 0)
+                {
+                    _ = _log.Db($"Deleted {staleRows} stale pending weaver remote commands.");
                 }
             }
             catch (Exception ex)

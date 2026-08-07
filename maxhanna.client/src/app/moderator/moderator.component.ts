@@ -4,6 +4,7 @@ import { UserService } from '../../services/user.service';
 import { ModeratorService } from '../../services/moderator.service';
 import { User } from '../../services/datacontracts/user/user';
 import { ChatBan, ChatBanAppeal, ModeratorInfo, ModeratorLog, ModeratorRequest, ModeratorRole, RoleDefinition } from '../../services/datacontracts/moderator/moderator';
+import { Topic } from '../../services/datacontracts/topics/topic';
 
 @Component({
   selector: 'app-moderator',
@@ -12,10 +13,13 @@ import { ChatBan, ChatBanAppeal, ModeratorInfo, ModeratorLog, ModeratorRequest, 
   styleUrl: './moderator.component.css'
 })
 export class ModeratorComponent extends ChildComponent {
-  activeTab: 'moderators' | 'chatmod' | 'logs' | 'appeals' = 'moderators';
+  activeTab: 'myappeals' | 'moderators' | 'chatmod' | 'logs' | 'appeals' = 'myappeals';
 
   appeals: any[] = [];
   modRequests: ModeratorRequest[] = [];
+  // Any user's own moderator requests (chat + topic, pending + resolved)
+  myRequests: any[] = [];
+  myRequestsLoading = false;
   loading = false;
   isModerator = false;
   // Admin is a moderator role with extra privileges — only admins can add
@@ -34,11 +38,21 @@ export class ModeratorComponent extends ChildComponent {
   selectedTargetType = 'global';
   selectedTargetId = 0;
   chatTargets: { id: number; name: string }[] = [];
-  topicTargets: { id: number; name: string }[] = [];
+  selectedAttachedTopics: Topic[] = [];
   modActionLoading = false;
   modMessage = '';
   modMessageIsError = false;
   private searchDebounce: any;
+
+  // Per-moderator add-role flow (inline picker inside an expanded moderator row)
+  addRoleForUserId = 0; // moderator row currently showing the add-role picker (0 = none)
+  rowRole = '';
+  rowTargetType = 'global';
+  rowTargetId = 0;
+  rowActionLoading = false;
+  rowMessage = '';
+  rowMessageIsError = false;
+  rowAttachedTopics: Topic[] = [];
 
   expandedUserIds: number[] = [];
 
@@ -87,7 +101,9 @@ export class ModeratorComponent extends ChildComponent {
       this.myChatRoles = myRoles.filter(r => r.role === 'chat_moderator' && r.targetType === 'chat' && !!r.targetId);
     }
     this.isModerator = isLegacyMod || this.isChatModerator;
+    await this.loadMyRequests();
     if (this.isModerator) {
+      this.activeTab = 'moderators';
       if (this.isChatModerator && this.myChatRoles.length > 0) {
         this.selectedManagedChat = this.myChatRoles[0].targetId ?? 0;
       }
@@ -103,10 +119,31 @@ export class ModeratorComponent extends ChildComponent {
     }
   }
 
-  setTab(tab: 'moderators' | 'chatmod' | 'logs' | 'appeals') {
+  setTab(tab: 'myappeals' | 'moderators' | 'chatmod' | 'logs' | 'appeals') {
     this.activeTab = tab;
+    if (tab !== 'moderators') {
+      this.addRoleForUserId = 0;
+    }
     if (tab === 'chatmod' && !this.selectedManagedChat) {
       this.selectedManagedChat = this.myChatRoles[0]?.targetId ?? 0;
+    }
+    if (tab === 'myappeals' && this.myRequests.length === 0) {
+      this.loadMyRequests();
+    }
+  }
+
+  /** Loads the caller's own moderator requests for the My Appeals view. */
+  async loadMyRequests() {
+    const userId = this.parentRef?.user?.id;
+    if (!userId) return;
+    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+    this.myRequestsLoading = true;
+    try {
+      this.myRequests = await this.moderatorService.getMyModeratorRequests(userId, sessionToken);
+    } catch (e) {
+      this.myRequests = [];
+    } finally {
+      this.myRequestsLoading = false;
     }
   }
 
@@ -130,9 +167,14 @@ export class ModeratorComponent extends ChildComponent {
   }
 
   async loadTargets() {
+    await this.loadTargetsFor(this.selectedTargetType);
+  }
+
+  /** Load the chat target list (topics are picked via the app-topics dropdown). */
+  private async loadTargetsFor(targetType: string) {
     const userId = this.parentRef?.user?.id;
     if (!userId) return;
-    if (this.selectedTargetType === 'chat') {
+    if (targetType === 'chat') {
       try {
         if (this.chatTargets.length === 0) {
           const response = await fetch('/chat/getgroupchats', {
@@ -149,18 +191,6 @@ export class ModeratorComponent extends ChildComponent {
       } catch (e) {
         this.chatTargets = [];
       }
-    } else if (this.selectedTargetType === 'topic') {
-      try {
-        const response = await fetch('/topic/get', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ UserId: userId, Topic: null }),
-        });
-        const topics: any[] = await response.json() ?? [];
-        this.topicTargets = topics.map(t => ({ id: t.id, name: t.topicText ?? t.topic ?? 'Topic ' + t.id }));
-      } catch (e) {
-        this.topicTargets = [];
-      }
     }
   }
 
@@ -168,7 +198,17 @@ export class ModeratorComponent extends ChildComponent {
     const def = this.roleCatalog.find(r => r.role === this.selectedRole);
     this.selectedTargetType = def?.targetType ?? 'global';
     this.selectedTargetId = 0;
+    this.selectedAttachedTopics = [];
     this.loadTargets();
+  }
+
+  /** app-topics dropdown for the top add-role card — keep the newest topic as the target. */
+  onSelectedTopicsChanged(topics: Topic[]) {
+    this.selectedTargetId = this.topicTargetId(topics);
+  }
+
+  private topicTargetId(topics: Topic[]): number {
+    return topics && topics.length ? topics[topics.length - 1].id : 0;
   }
 
   async loadAppeals() {
@@ -380,6 +420,67 @@ export class ModeratorComponent extends ChildComponent {
     await this.moderatorService.setRole(targetUser.id, 'moderator', userId, true, sessionToken, 'global');
     await Promise.all([this.loadModerators(), this.loadModeratorLogs()]);
     this.modActionLoading = false;
+  }
+
+  // ─── Per-moderator add role (inline picker in the expanded moderator row) ───
+
+  /** Toggle the inline add-role picker for a moderator row. */
+  openAddRoleFor(userId: number) {
+    if (this.addRoleForUserId === userId) {
+      this.addRoleForUserId = 0;
+      return;
+    }
+    this.addRoleForUserId = userId;
+    this.rowRole = this.roleCatalog[0]?.role ?? '';
+    this.rowTargetType = this.roleCatalog[0]?.targetType ?? 'global';
+    this.rowTargetId = 0;
+    this.rowMessage = '';
+    this.rowAttachedTopics = [];
+    this.loadRowTargets();
+  }
+
+  onRowRoleSelectionChange() {
+    const def = this.roleCatalog.find(r => r.role === this.rowRole);
+    this.rowTargetType = def?.targetType ?? 'global';
+    this.rowTargetId = 0;
+    this.rowAttachedTopics = [];
+    this.loadRowTargets();
+  }
+
+  /** app-topics dropdown in the per-row picker — keep the newest topic as the target. */
+  onRowTopicsChanged(topics: Topic[]) {
+    this.rowTargetId = this.topicTargetId(topics);
+  }
+
+  canAssignRowRole(): boolean {
+    if (!this.addRoleForUserId || !this.rowRole) return false;
+    if (this.rowTargetType === 'chat' && !this.rowTargetId) return false;
+    if (this.rowTargetType === 'topic' && !this.rowTargetId) return false;
+    return true;
+  }
+
+  async addRoleToModerator(targetUser: User) {
+    const userId = this.parentRef?.user?.id;
+    if (!userId || !targetUser.id || !this.canAssignRowRole()) return;
+    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+    this.rowActionLoading = true;
+    this.rowMessage = '';
+    const ok = await this.moderatorService.setRole(targetUser.id, this.rowRole, userId, false, sessionToken, this.rowTargetType, this.rowTargetId || undefined);
+    this.rowActionLoading = false;
+    if (ok) {
+      this.rowMessage = `✅ Assigned '${this.roleLabel(this.rowRole)}' to ${targetUser.username ?? ('User #' + targetUser.id)}.`;
+      this.rowMessageIsError = false;
+      this.addRoleForUserId = 0;
+      await Promise.all([this.loadModerators(), this.loadModeratorLogs()]);
+    } else {
+      this.rowMessage = '❌ Failed to assign the role. Please try again.';
+      this.rowMessageIsError = true;
+    }
+  }
+
+  /** Load the chat/topic target list for the inline row picker. */
+  private loadRowTargets() {
+    return this.loadTargetsFor(this.rowTargetType);
   }
 
   // ─── Chat-scoped moderation ────────────────────────────────────────────────

@@ -80,6 +80,24 @@ export class RacingService {
     } catch { return { results: [], totalCount: 0, userRank: 0, bestLap: 0 }; }
   }
 
+  // Per-circuit breakdown for the Best Laps panel — every track's top laps by
+  // players plus the caller's own best lap and rank on each circuit.
+  async getAllTrackLeaderboards(userId: number = 0): Promise<{
+    tracks: {
+      trackId: number;
+      totalCount: number;
+      bestLap: number;
+      userLap: number;
+      userRank: number;
+      results: RaceResult[];
+    }[];
+  }> {
+    try {
+      const data: any = await this.http.get(`${this.baseUrl}/leaderboard-by-track?userId=${userId}`).toPromise();
+      return { tracks: data?.tracks ?? [] };
+    } catch { return { tracks: [] }; }
+  }
+
   // High-scores view across ALL circuits — every player's fastest lap anywhere,
   // the circuit it was set on, and their per-track breakdown.
   async getOverallLeaderboard(userId: number = 0): Promise<{

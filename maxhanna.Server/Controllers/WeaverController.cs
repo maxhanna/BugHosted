@@ -256,7 +256,9 @@ namespace maxhanna.Server.Controllers
 			using var conn = new MySqlConnection(cs);
 			await conn.OpenAsync();
 
-			string sql = "SELECT id, command, params, created_at FROM maxhanna.weaver_remote_command WHERE user_id = @UserId AND status = 'pending' ORDER BY id ASC";
+			string sql = "SELECT id, command, params, status, created_at FROM maxhanna.weaver_remote_command " +
+				"WHERE user_id = @UserId AND (status = 'pending' OR created_at >= UTC_TIMESTAMP() - INTERVAL 1 DAY) " +
+				"ORDER BY (status = 'pending') DESC, id ASC LIMIT 200";
 			using var cmd = new MySqlCommand(sql, conn);
 			cmd.Parameters.AddWithValue("@UserId", session.UserId);
 			using var reader = await cmd.ExecuteReaderAsync();
@@ -268,6 +270,7 @@ namespace maxhanna.Server.Controllers
 				{
 					id = reader.GetInt32("id"),
 					command = reader.GetString("command"),
+					status = reader.GetString("status"),
 					parameters = reader.IsDBNull(reader.GetOrdinal("params")) ? null : reader.GetString("params"),
 					createdAt = reader.GetDateTime("created_at").ToString("O")
 				});
@@ -324,6 +327,23 @@ namespace maxhanna.Server.Controllers
 			cmd.Parameters.AddWithValue("@Params", req.Params ?? "");
 			await cmd.ExecuteNonQueryAsync();
 			int id = (int)cmd.LastInsertedId;
+
+			// Per-user cap: keep only the newest 200 rows so rapid card edits can't
+			// grow the table unbounded. Pending commands are never deleted (the agent
+			// must still see them); only stale executed/cancelled history is trimmed.
+			// Best-effort maintenance: a cap failure must never fail the insert above.
+			try
+			{
+				string capSql = @"DELETE FROM maxhanna.weaver_remote_command
+					WHERE user_id = @UserId
+					  AND status IN ('executed','cancelled')
+					  AND id <= (SELECT cutoff FROM (SELECT id AS cutoff FROM maxhanna.weaver_remote_command
+						WHERE user_id = @UserId ORDER BY id DESC LIMIT 1 OFFSET 199) c)";
+				using var capCmd = new MySqlCommand(capSql, conn);
+				capCmd.Parameters.AddWithValue("@UserId", session.UserId);
+				await capCmd.ExecuteNonQueryAsync();
+			}
+			catch { /* cap is best-effort; ignore */ }
 
 			return Ok(new { id, status = "pending" });
 		}

@@ -12,7 +12,9 @@
   /* overflow: auto; */
   gap: 14px;
   transition: transform 0.3s ease;
-  padding: 12px;
+  /* Leave room for the fixed bottom search bar (and match-count line) so
+     the last row of app icons stays fully visible above it. */
+  padding: 12px 12px 96px;
 }
 
 /* Hidden while the user is typing in the nav search bar — keeps the page tidy
@@ -22,18 +24,34 @@
 }
 
 /* ── Nav page search bar ───────────────────────────────────────────────
-   Sits at the bottom of the navigation page (the top nav, not the left
-   pane). Desktop: a compact rounded pill, centered under the app icons.
-   Mobile: a full-width, thumb-friendly bar with a bigger hit target. */
+   Pinned to the bottom of the viewport (fixed) so it stays reachable while
+   scrolling the app grid. Desktop: a compact rounded pill, centered under
+   the app icons. Mobile: a full-width, thumb-friendly bar with a bigger
+   hit target. The suggestion popup opens upward from the input, so the
+   fixed bottom bar never clips it. */
 .navSearchBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1100;
+  box-sizing: border-box;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  padding: 6px 14px 14px;
+  padding: 6px 14px calc(14px + env(safe-area-inset-bottom, 0px));
   transition: opacity 0.25s ease, transform 0.25s ease;
-  width: calc(100vw - 50px);
-  width: calc(100dvw - 50px);
+  width: 100%;
+  background: var(--background-color, #1a1a1a);
+  box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.3);
+}
+
+@supports (background: rgb(from red r g b)) {
+  .navSearchBar {
+    background: rgb(from var(--background-color) r g b / 92%);
+    backdrop-filter: blur(8px);
+  }
 }
 
 @media (min-width: 768px) {
@@ -74,9 +92,11 @@
 }
 
 .navSearchToggleFloating {
-  position: relative;
+  position: fixed;
   left: 14px;
-  margin-bottom: 14px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 1100;
+  margin-bottom: 0;
 }
 
 .navSearchInputWrap {
@@ -318,7 +338,7 @@
    field and the toggle button tucks in beside it. */
 @media (max-width: 768px) {
   .navSearchBar {
-    padding: 4px 10px 12px;
+    padding: 4px 10px calc(12px + env(safe-area-inset-bottom, 0px));
     gap: 8px;
   }
 

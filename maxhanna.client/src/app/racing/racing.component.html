@@ -5,7 +5,7 @@
        returns to the lobby instead of bailing out to singleplayer. -->
   <app-title-bar [title]="'Grand Prix'" [hasMenu]="true" [badge]="garageCountdownDisplay"
     [badgeTitle]="'Multiplayer race starting soon — returning keeps you in the lobby'"
-    (menuClicked)="backToMenu()" (closeClicked)="remove_me('RacingComponent');">
+    (menuClicked)="toggleOptions()" (closeClicked)="remove_me('RacingComponent');">
   </app-title-bar>
 
   <div class="popupPanel" *ngIf="!parentRef?.user?.id">
@@ -1165,6 +1165,9 @@
     <div id="race-leaderboard" *ngIf="showLeaderboard">
       <div class="race-lb-title">🏆 BEST LAPS{{ selectedTrack ? ' — ' + getTrackFlag(selectedTrack) + ' ' + selectedTrack.name : '' }}</div>
       <div class="race-lb-modes">
+        <button class="race-lb-mode" [class.active]="leaderboardMode === 'alltracks'" (click)="setLeaderboardMode('alltracks')">
+          🗺️ All Circuits
+        </button>
         <button class="race-lb-mode" [class.active]="leaderboardMode === 'track'" (click)="setLeaderboardMode('track')">
           🏁 This Track
         </button>
@@ -1172,6 +1175,68 @@
           🏆 All Races
         </button>
       </div>
+
+      <!-- All-circuits breakdown: every track's top laps + your lap/rank vs the field -->
+      <ng-container *ngIf="leaderboardMode === 'alltracks'">
+        <div class="race-lb-alltracks-loading" *ngIf="allTracksLoading">Loading circuits…</div>
+        <div class="race-lb-search">
+          <input type="text" class="race-lb-search-input" placeholder="🔍 Search circuits…"
+            [value]="trackSearch" (input)="onTrackSearchChange(($event.target as HTMLInputElement).value)" />
+          <button *ngIf="trackSearch" class="race-lb-search-clear" (click)="onTrackSearchChange('')"
+            title="Clear search">✕</button>
+        </div>
+        <div class="race-lb-trackboard" *ngFor="let t of getFilteredTrackDefs()">
+          <div class="race-lb-trackboard-head" (click)="toggleTrackBoard(t.id)" role="button"
+            [attr.aria-expanded]="!isTrackBoardCollapsed(t.id)" tabindex="0"
+            (keydown.enter)="toggleTrackBoard(t.id)">
+            <span class="race-lb-trackboard-name">
+              <span class="race-lb-chevron">{{ isTrackBoardCollapsed(t.id) ? '▶' : '▼' }}</span>
+              {{ getTrackFlag(t) }} {{ t.name }}
+            </span>
+            <span class="race-lb-trackboard-count" *ngIf="getTrackBoardCount(t.id) > 0">
+              {{ getTrackBoardCount(t.id) }} racer{{ getTrackBoardCount(t.id) !== 1 ? 's' : '' }}
+            </span>
+          </div>
+          <ng-container *ngIf="!isTrackBoardCollapsed(t.id)">
+            <div class="race-lb-row race-lb-header">
+              <span>#</span><span>Player</span><span>Best Lap</span><span>Gap</span>
+            </div>
+            <div class="race-lb-row" *ngFor="let r of getTrackBoardVisibleRows(t.id); let i = index"
+              [class.race-lb-me]="r.playerId === (parentRef?.user?.id ?? 0)"
+              [class.race-lb-podium]="i < 3" [class.race-lb-gold]="i === 0"
+              [class.race-lb-silver]="i === 1" [class.race-lb-bronze]="i === 2">
+              <span class="race-lb-rank"><span *ngIf="i < 3" class="race-lb-trophy">🏆</span>{{ i + 1 }}</span>
+              <span class="race-lb-name" *ngIf="r.playerId > 0 && !r.isBot" title="View racer records"
+                (click)="openRacerProfile(r)">{{ r.playerName }} 👤</span>
+              <span *ngIf="r.playerId <= 0 || r.isBot">{{ r.playerName }}</span>
+              <span>{{ formatTime(r.lapTime) }}</span>
+              <span class="race-lb-gap">{{ getTrackBoardGap(r, t.id) }}</span>
+            </div>
+            <!-- The caller's own lap on this circuit, pinned after the top rows.
+                 Check against the VISIBLE slice so ranks 11-20 pin in the top-10
+                 view instead of disappearing (they're in the full 20-row payload
+                 but not on screen). -->
+            <div class="race-lb-row race-lb-me race-lb-row-you"
+              *ngIf="getTrackBoardUserLap(t.id) > 0 && !getTrackBoardVisibleRows(t.id).some(r => r.playerId === (parentRef?.user?.id ?? 0))">
+              <span class="race-lb-rank">#{{ getTrackBoardUserRank(t.id) }}</span>
+              <span class="race-lb-name">You</span>
+              <span>{{ formatTime(getTrackBoardUserLap(t.id)) }}</span>
+              <span class="race-lb-gap">{{ getTrackBoardGap({ lapTime: getTrackBoardUserLap(t.id) } as RaceResult, t.id) }}</span>
+            </div>
+            <div class="race-lb-empty" *ngIf="getTrackBoardRows(t.id).length === 0 && getTrackBoardUserLap(t.id) <= 0">
+              No laps on this circuit yet
+            </div>
+            <div class="race-lb-trackboard-toggle" *ngIf="getTrackBoardRows(t.id).length > 10"
+              (click)="toggleTrackBoardTop20(t.id); $event.stopPropagation()" role="button" tabindex="0"
+              (keydown.enter)="toggleTrackBoardTop20(t.id)">
+              {{ trackBoardShowTop20.has(t.id) ? '▲ Show top 10' : '▼ Show top 20' }}
+            </div>
+          </ng-container>
+        </div>
+        <div class="race-lb-empty" *ngIf="!allTracksLoading && getFilteredTrackDefs().length === 0">
+          No circuits match “{{ trackSearch }}”
+        </div>
+      </ng-container>
 
       <!-- Per-track leaderboard -->
       <ng-container *ngIf="leaderboardMode === 'track'">

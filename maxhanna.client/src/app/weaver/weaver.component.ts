@@ -1,5 +1,5 @@
 ﻿import { Component, Input, OnDestroy, OnInit } from '@angular/core';
-import { WeaverService, WeaverCard, WeaverProject, KanbanPayload, IdeFileEntry, IdeTab, EditorState, BenchmarkEntry } from '../../services/weaver.service';
+import { WeaverService, WeaverCard, WeaverProject, KanbanPayload, IdeFileEntry, IdeTab, EditorState, BenchmarkEntry, AddCommandResult } from '../../services/weaver.service';
 import { AppComponent } from '../app.component';
 import { ChildComponent } from '../child.component';
 import { UserEventService } from '../../services/user-event.service';
@@ -43,7 +43,9 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   lastCommandExecution = '';
 
   commands: any[] = [];
+  failedCommands: any[] = [];
   cardCommandMap: { [cardId: string]: number } = {};
+  pendingCardText: { [cardId: string]: string } = {};
   dirtyCardText: { [cardId: string]: string } = {};
   deletedCardIds: Set<string> = new Set();
   focusedCardId: string | null = null;
@@ -138,6 +140,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.cardCommandMap[cardId] !== undefined) return true;
     if (this.recentlyCreatedCardIds.has(cardId)) return true;
     return this.commands.some(cmd => {
+      if (this.isCommandDone(cmd)) return false;
       const raw = cmd.parameters || cmd.params || '{}';
       try {
         const p = typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -213,6 +216,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
       this.projects = [];
       this.state = { todo: [], doing: [], done: [], archived: [], selfImproving: [] };
       this.commands = [];
+      this.failedCommands = [];
       window.localStorage.removeItem(this.TOKEN_KEY);
     }, 50);
   }
@@ -325,6 +329,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
             const stillDeleted: string[] = [];
             for (const cardId of this.deletedCardIds) {
               const hasPending = this.commands.some(c => {
+                if (this.isCommandDone(c)) return false;
                 if (c.command !== 'deleteCard') return false;
                 const raw = c.parameters || c.params || '{}';
                 try {
@@ -416,10 +421,14 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
       }
       // Load benchmarks
       this.loadBenchmarks();
-      // Clean up cardCommandMap for commands no longer pending
+      // Clean up cardCommandMap for commands that are no longer pending (executed or
+      // gone), but keep entries for freshly created cards whose addCard may still be
+      // in flight — saveCardText needs the mapping to fold text in.
       for (const cardId in this.cardCommandMap) {
         const cmdId = this.cardCommandMap[cardId];
-        if (!this.commands.some(c => c.id === cmdId)) {
+        if (this.recentlyCreatedCardIds.has(cardId)) continue;
+        const cmd = this.commands.find(c => c.id === cmdId);
+        if (!cmd || this.isCommandDone(cmd)) {
           delete this.cardCommandMap[cardId];
         }
       }
@@ -531,16 +540,69 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     return card.id;
   }
 
+  // --- Remote command sending with optimistic local push ---
+  private async sendRemoteCommand(command: string, params?: any): Promise<AddCommandResult | null> {
+    const result = await this.weaverService.addCommand(this.token, command, params);
+    if (result?.id && !this.commands.some(c => c.id === result.id)) {
+      this.commands = [
+        {
+          id: result.id,
+          command,
+          status: 'pending',
+          parameters: params ? JSON.stringify(params) : '',
+          createdAt: new Date().toISOString(),
+        },
+        ...this.commands,
+      ];
+    } else if (!result?.id) {
+      // Send failed — keep a local record so the user can retry it.
+      this.failedCommands = [
+        {
+          id: 'failed-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+          command,
+          status: 'failed',
+          parameters: params ? JSON.stringify(params) : '',
+          createdAt: new Date().toISOString(),
+        },
+        ...this.failedCommands,
+      ];
+    }
+    return result;
+  }
+
   // --- Card text saving on blur ---
   async saveCardText(card: WeaverCard) {
     const text = this.getCardText(card);
     const cmdId = this.cardCommandMap[card.id];
-    if (cmdId && this.commands.some(c => c.id === cmdId)) {
-      const ok = await this.weaverService.updateCommandParams(this.token, cmdId, { cardId: card.id, text, project: card.filePath || this.selectedProjectPath });
-      if (ok) return; // addCard still pending — params updated inline
+    if (cmdId) {
+      if (this.commands.some(c => c.id === cmdId)) {
+        const ok = await this.weaverService.updateCommandParams(this.token, cmdId, { cardId: card.id, text, project: card.filePath || this.selectedProjectPath });
+        // Fold the text into the still-pending addCard when it succeeds, but ALSO send
+        // a dedicated changeCardText so the text lands even if the agent already
+        // fetched the addCard with its original (empty) params.
+        if (text && ok) {
+          await this.sendRemoteCommand('changeCardText', { cardId: card.id, text });
+          return;
+        }
+        if (ok) return; // addCard still pending, text folded in
+      }
+      // addCard already processed or update failed — send a dedicated changeCardText command
+      await this.sendRemoteCommand('changeCardText', { cardId: card.id, text });
+      return;
     }
-    // addCard already processed or update failed — send a dedicated updateCard command
-    await this.weaverService.addCommand(this.token, 'updateCard', { cardId: card.id, text });
+    // addCard command still in flight (user typed before it resolved) — stash the text
+    // and flush it onto the command once it exists, so nothing is lost.
+    if (this.recentlyCreatedCardIds.has(card.id)) {
+      if (this.cardCommandMap[card.id]) {
+        // addCard resolved but dropped from the visible list — sending changeCardText
+        // now is safe because addCard has a lower id and executes first.
+        await this.sendRemoteCommand('changeCardText', { cardId: card.id, text });
+      } else {
+        this.pendingCardText[card.id] = text;
+      }
+      return;
+    }
+    await this.sendRemoteCommand('changeCardText', { cardId: card.id, text });
   }
 
   // --- Add card: local + remote ---
@@ -568,14 +630,25 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
       "weaver_card_created",
       "New card created in Weaver."
     );
-    const result = await this.weaverService.addCommand(this.token, 'addCard', {
+    const result = await this.sendRemoteCommand('addCard', {
       cardId: card.id,
-      text: '',
+      text: this.pendingCardText[card.id] || '',
       project: this.selectedProjectPath,
       selfImproving: selfImproving || false,
     });
     if (result?.id) {
       this.cardCommandMap[card.id] = result.id;
+      // If the user already typed text before addCard resolved, fold it in now.
+      const pending = this.pendingCardText[card.id];
+      if (pending) {
+        delete this.pendingCardText[card.id];
+        const ok = await this.weaverService.updateCommandParams(this.token, result.id, {
+          cardId: card.id, text: pending, project: this.selectedProjectPath });
+        // Same belt-and-suspenders as saveCardText: even when the fold succeeds, the
+        // agent may have already fetched the addCard with its original (empty) params,
+        // so send a dedicated changeCardText to guarantee the text lands.
+        await this.sendRemoteCommand('changeCardText', { cardId: card.id, text: pending });
+      }
     }
     this.focusOnAddedCard(card.id);
 
@@ -602,19 +675,19 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   async toggleCardReady(card: WeaverCard) {
     card.ready = !card.ready;
     if (card.ready) {
-      await this.weaverService.addCommand(this.token, 'startAgent', { cardId: card.id });
+      await this.sendRemoteCommand('startAgent', { cardId: card.id });
       this.commandResult = 'Agent start command sent';
     }
   }
 
   async togglePr(card: WeaverCard) {
     card.autoPr = !card.autoPr;
-    await this.weaverService.addCommand(this.token, 'updateCard', { cardId: card.id, autoPr: card.autoPr });
+    await this.sendRemoteCommand('updateCard', { cardId: card.id, autoPr: card.autoPr });
     this.commandResult = card.autoPr ? 'PR enabled' : 'PR disabled';
   }
 
   async onMiniCalendarCommand(event: { command: string; params: any }) {
-    await this.weaverService.addCommand(this.token, event.command, event.params);
+    await this.sendRemoteCommand(event.command, event.params);
     this.commandResult = 'Calendar ' + event.command + ' sent';
   }
 
@@ -629,7 +702,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     const idx = (this.state as any)[fromCol].findIndex((c: WeaverCard) => c.id === cardId);
     (this.state as any)[fromCol].splice(idx, 1);
     (this.state as any)[toCol].push(card);
-    await this.weaverService.addCommand(this.token, 'moveCard', { cardId, status: toCol });
+    await this.sendRemoteCommand('moveCard', { cardId, status: toCol });
     this.commandResult = 'Card moved';
   }
 
@@ -638,7 +711,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     if (idx === -1) return;
     const card = (this.state as any)[col].splice(idx, 1)[0];
     this.state.archived.push(card);
-    await this.weaverService.addCommand(this.token, 'archiveCard', { cardId });
+    await this.sendRemoteCommand('archiveCard', { cardId });
     this.commandResult = 'Card archived';
   }
 
@@ -651,7 +724,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   async startAgent(cardId: string) {
-    await this.weaverService.addCommand(this.token, 'startAgent', { cardId });
+    await this.sendRemoteCommand('startAgent', { cardId });
     this.commandResult = 'Agent start command sent';
   }
 
@@ -816,7 +889,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   // --- End IDE methods ---
 
   async stopAgent() {
-    await this.weaverService.addCommand(this.token, 'stopAgent', {});
+    await this.sendRemoteCommand('stopAgent', {});
     this.commandResult = 'Stop command sent';
   }
 
@@ -853,7 +926,8 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     this.deletedCardIds.add(id);
     delete this.cardCommandMap[id];
     delete this.dirtyCardText[id];
-    await this.weaverService.addCommand(this.token, 'deleteCard', { cardId: id });
+    delete this.pendingCardText[id];
+    await this.sendRemoteCommand('deleteCard', { cardId: id });
     this.commandResult = 'Card deleted';
   }
 
@@ -928,7 +1002,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     if (card) {
       card.attached = this.pickerSelected.slice();
     }
-    await this.weaverService.addCommand(this.token, 'updateCard', {
+    await this.sendRemoteCommand('updateCard', {
       cardId: this.pickerCardId,
       attached: this.pickerSelected,
     });
@@ -1053,8 +1127,8 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
 
   async cancelCommand(cmd: any) {
     await this.weaverService.cancelCommand(this.token, cmd.id);
-    this.commands = this.commands.filter(c => c.id !== cmd.id);
-    if (this.selectedCommand?.id === cmd.id) this.selectedCommand = null;
+    const idx = this.commands.findIndex(c => c.id === cmd.id);
+    if (idx !== -1) this.commands[idx] = { ...this.commands[idx], status: 'cancelled' };
     this.commandResult = 'Command cancelled';
   }
 
@@ -1065,8 +1139,52 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.newCommandType === 'executeTask' && this.newCommandText.trim()) {
       params = { text: this.newCommandText.trim(), project: this.selectedProjectPath };
     }
-    const result = await this.weaverService.addCommand(this.token, this.newCommandType, params);
+    const result = await this.sendRemoteCommand(this.newCommandType, params);
     this.commandResult = result ? `Sent (id: ${result.id})` : 'Failed to send';
+    this.commandSending = false;
+  }
+
+  get pendingCommandCount(): number {
+    return this.commands.filter(c => !c.status || c.status === 'pending').length;
+  }
+
+  get doneCommandCount(): number {
+    return this.commands.length - this.pendingCommandCount;
+  }
+
+  isCommandDone(cmd: any): boolean {
+    return !!cmd.status && cmd.status !== 'pending';
+  }
+
+  isCommandFailed(cmd: any): boolean {
+    return cmd?.status === 'failed';
+  }
+
+  isCommandRetryable(cmd: any): boolean {
+    return cmd?.status === 'failed' || cmd?.status === 'cancelled';
+  }
+
+  async retryCommand(cmd: any) {
+    if (!cmd?.command) return;
+    if (this.commandSending) return; // guard against double-clicks
+    this.commandSending = true;
+    // Re-parse the stored params so the same payload is re-sent.
+    let params: any = {};
+    const raw = cmd.parameters || cmd.params;
+    if (raw) {
+      try { params = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { params = {}; }
+    }
+    const result = await this.sendRemoteCommand(cmd.command, params);
+    if (result?.id) {
+      // Sent OK — the new optimistic pending entry is the retry's visible result.
+      // Drop the failed placeholder; leave cancelled server rows as-is (accurate history).
+      if (this.isCommandFailed(cmd)) {
+        this.failedCommands = this.failedCommands.filter(c => c.id !== cmd.id);
+      }
+      this.commandResult = `Command re-sent (id: ${result.id})`;
+    } else {
+      this.commandResult = 'Re-send failed — try again';
+    }
     this.commandSending = false;
   }
 
@@ -1109,7 +1227,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
 
   async saveSettingsRemote() {
     this.sendingSettings = true;
-    await this.weaverService.addCommand(this.token, 'updateSettings', this.editSettings);
+    await this.sendRemoteCommand('updateSettings', this.editSettings);
     await this.saveFileHintsRemote();
     this.commandResult = 'Settings update command sent';
     this.sendingSettings = false;
