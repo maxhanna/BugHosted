@@ -1,4 +1,4 @@
-<div class="componentMain" id="crawlerContainer">
+﻿<div class="componentMain" id="crawlerContainer">
   <app-title-bar [title]="!onlySearch ? 'Crawler' : ''" [showTitle]="!onlySearch" [hasMenu]="!onlySearch"
     [showMenu]="!onlySearch" [hasClose]="!onlySearch" [showClose]="!onlySearch" (menuClicked)="showMenuPanel()"
     (closeClicked)="remove_me('Crawler');">
@@ -6,7 +6,7 @@
 
   <!-- Stats Bar -->
   <div class="stats-bar nbDiv" [style.margin-Top]="onlySearch ? '-16px' : ''">
-    <span class="stat-badge" *ngIf="!onlySearch">Total: <span class="stat-value">{{indexCount}}</span> indexed</span>
+    <span class="stat-badge" *ngIf="!onlySearch">Total: <span class="stat-value">{{indexCount | number:'1.0-0'}}</span> indexed</span>
     <span class="stat-badge" *ngIf="searchResults.length">Results: <span class="stat-value">{{totalResults}}</span></span>
     <span class="stat-badge" *ngIf="youtubeResults.length">YouTube: <span class="stat-value">{{youtubeResults.length}}</span></span>
     <span class="stat-badge" *ngIf="redditResults.length">Reddit: <span class="stat-value">{{redditResults.length}}</span></span>
