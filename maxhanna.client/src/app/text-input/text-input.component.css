@@ -8,6 +8,13 @@ input {
     border-radius: 2px;
 }
 
+/* Hidden helper: both the single-line input and the textarea stay mounted so
+   the swap never destroys the focused element (which closed/reopened the mobile
+   keyboard). The inactive one is hidden with a class instead of *ngIf. */
+.input-hidden {
+    display: none !important;
+}
+
 /* Resizable textarea grip — make the drag-to-resize knob stand out */
 textarea::-webkit-resizer {
     width: 18px;

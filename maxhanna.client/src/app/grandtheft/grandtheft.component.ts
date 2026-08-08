@@ -42,6 +42,7 @@ const HOME_BASE_X = 120;
 const HOME_BASE_Z = 40;
 const HOME_BASE_YAW = 0;
 const GT_WORLD_STATE_KEY = 'gt_world_state_v1';
+const GT_PLAYER_STATE_KEY = 'gt_player_state_v1';
 const GARAGE_ENTRANCE_X = 120;
 const GARAGE_ENTRANCE_Z = 52;
 const GARAGE_INTERIOR_X = 120;
@@ -305,6 +306,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private taxiRideStopZ = 0;
   private taxiRideHidePlayer = false;
   taxiAttachedMeshes: { mesh: CityMesh | CityMesh[]; offsetX: number; offsetY: number; offsetZ: number; yaw: number; scale?: number }[] = [];
+  // Refresh-resume grace: the player respawns on foot next to their vehicle, so
+  // an on-foot taxi/police mission gets a few seconds to re-enter the car before
+  // aborting (climbing into a *different* vehicle still ends it instantly).
+  private _missionRestoreGrace = 0;
+  // After a refresh the taxi passenger (a server ped) reappears with the first
+  // poll — wait briefly for it before giving up on a restored fare.
+  private _taxiReacquireGrace = 0;
   private driverInCarMesh: { mesh: CityMesh | CityMesh[]; offsetX: number; offsetY: number; offsetZ: number; yaw: number; scale?: number } | null = null;
   passenger: {
     kind: 'npc' | 'player';
@@ -429,6 +437,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     private ngZone: NgZone,
     private cdr: ChangeDetectorRef) { super(); }
   ngOnInit() {
+    // Restore persisted money / wanted level / weapons before the first poll so
+    // a refresh continues the session instead of resetting it.
+    this.restorePlayerState();
     this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, "grandtheft", "Started playing Grand Theft!", undefined, "GrandTheft");
   }
   ngAfterViewInit() {
@@ -590,7 +601,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (batch.length === 0) {
         // Critical assets are in — start the game NOW.
         this.renderer.clearChunkCache();
-        this.restoreWorldState();
+        // Respawn at the saved spot (on foot, vehicle parked beside the player),
+        // then rebuild any mission that was active when the world was saved.
+        if (this.restoreWorldState()) this.restoreMissionState();
         this.isLoaded = true;
         this.loadingAssets = 0;
         this.deferredRemaining = deferredTasks.length;
@@ -1541,7 +1554,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     const serverParked = data.parkedCars;
     const serverParkedIds = new Set(serverParked.map(p => p.id));
-    const localOnlyParked = this.parkedCars.filter(p => !serverParkedIds.has(p.id) && p.id < 0);
+    // Local parked cars (negative ids) survive the merge — plus the dealership
+    // heist target, so it stays enterable until the player grabs it.
+    const localOnlyParked = this.parkedCars.filter(p =>
+      !serverParkedIds.has(p.id) &&
+      (p.id < 0 || (this.dealershipMission && p.id === this.dealershipMission.targetCarId)));
     this.parkedCars = [...serverParked
       .filter(pc => !this.stolenNpcIds.has(pc.id))
       .map(pc => {
@@ -1645,7 +1662,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       chatMsg,
       this._justRespawned,
       this.weaponsSynced ? this.ownedWeapons : undefined,
-      this.weaponsSynced ? this.ammo : undefined
+      this.weaponsSynced ? this.ammo : undefined,
+      this.wantedLevel
     );
     if (res && res.evicted && this.isInCar) {
       this.exitCar();
@@ -1800,6 +1818,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (res && res.yourMoney !== undefined) {
       this.money = res.yourMoney;
     }
+    // Persist the authoritative state right away so a refresh mid-session keeps
+    // money / wanted / weapons (≤1s staleness on the poll cadence).
+    if (res) this.savePlayerState();
     // 🏆 NEW HIGH SCORE toasts: the server reports a new all-time balance
     // peak (newMoneyRecord) and the running kill total; toast on records and
     // kill milestones without spamming.
@@ -3122,6 +3143,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this._worldSaveTimer >= 3) {
       this._worldSaveTimer = 0;
       this.saveWorldState();
+      this.savePlayerState();
     }
     if (!this.isLoaded) {
       this._hudUpdateTimer += dt;
@@ -3431,6 +3453,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const hadMission = !!(this.taxiMission || this.dealershipMission || this.policeMode);
         this.cancelAllMissions();
         if (hadMission) this.showMissionFailedToast('❌ MISSION FAILED');
+        // Persist the reset right away (missions included) so a refresh during
+        // the death-cam window can't resurrect money, weapons or a dead job.
+        this.savePlayerState();
       }
       if (this._wasDead && !this._respawnTimer) {
         this._respawnTimer = setTimeout(() => {
@@ -4988,21 +5013,184 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     };
     try { localStorage.setItem(GT_WORLD_STATE_KEY, JSON.stringify(state)); } catch { }
   }
-  // Restore a saved world snapshot right before the game loop starts. The
-  // player respawns on foot at the saved spot; the vehicle they were driving
-  // is parked beside them; nearby local parked cars come back in place.
-  private restoreWorldState() {
+  // Persist the player's money, wanted level, owned weapons and ammo so a
+  // refresh continues the session instead of resetting it. Called on the world
+  // save tick and right after each poll adopts the server's authoritative state.
+  private savePlayerState() {
     if (this._destroyed) return;
-    if (this.renderer.carMeshes.length === 0) {
-      setTimeout(() => this.restoreWorldState(), 500);
-      return;
-    }
+    try {
+      localStorage.setItem(GT_PLAYER_STATE_KEY, JSON.stringify({
+        v: 1,
+        money: this.money,
+        wantedLevel: this.wantedLevel,
+        ownedWeapons: this.ownedWeapons,
+        ammo: this.ammo,
+        mission: this.captureMission()
+      }));
+    } catch { }
+  }
+  // Restore the persisted player state. Weapons/ammo are display-only until the
+  // first poll returns the server's authoritative (DB-backed) loadout, which
+  // overwrites these — weaponsSynced stays false so we never send a stale array.
+  private restorePlayerState() {
+    if (this._destroyed) return;
     let raw: string | null = null;
-    try { raw = localStorage.getItem(GT_WORLD_STATE_KEY); } catch { }
+    try { raw = localStorage.getItem(GT_PLAYER_STATE_KEY); } catch { }
     if (!raw) return;
     let state: any = null;
     try { state = JSON.parse(raw); } catch { }
-    if (!state || typeof state.x !== 'number' || typeof state.z !== 'number' || isNaN(state.x) || isNaN(state.z)) return;
+    if (!state) return;
+    if (typeof state.money === 'number' && isFinite(state.money) && state.money >= 0) this.money = Math.floor(state.money);
+    if (typeof state.wantedLevel === 'number' && isFinite(state.wantedLevel)) this.wantedLevel = Math.min(5, Math.max(0, Math.floor(state.wantedLevel)));
+    if (Array.isArray(state.ownedWeapons) && state.ownedWeapons.length === 5) {
+      this.ownedWeapons = state.ownedWeapons.map((v: any) => !!v);
+    }
+    if (Array.isArray(state.ammo) && state.ammo.length === 5) {
+      this.ammo = state.ammo.map((v: any) => Math.max(0, Math.floor(Number(v) || 0)));
+    }
+  }
+  // Serialize the currently active mission (taxi fare / dealership heist /
+  // police job) so a refresh mid-mission can resume it. Meshes are regenerated
+  // deterministically from the saved ids on restore — never serialized.
+  private captureMission(): any {
+    if (this.taxiMission) {
+      const m = this.taxiMission;
+      return { kind: 'taxi', state: m.state, passengerId: m.passengerId, passengerGender: m.passengerGender,
+        passengerX: m.passengerX, passengerZ: m.passengerZ, destinationX: m.destinationX, destinationZ: m.destinationZ,
+        fare: m.fare, phase: m.phase, timer: m.timer };
+    }
+    if (this.dealershipMission && this.dealershipTargetCar) {
+      const m = this.dealershipMission;
+      const c = this.dealershipTargetCar;
+      return { kind: 'dealership', npcX: m.npcX, npcZ: m.npcZ, state: m.state, payout: m.payout,
+        carX: c.x, carZ: c.z, carYaw: c.yaw, carHealth: c.health, colorR: c.colorR, colorG: c.colorG, colorB: c.colorB };
+    }
+    if (this.policeMode) {
+      return { kind: 'police', policeRound: this.policeRound, policeModeKills: this.policeModeKills,
+        policeModeSpawnsRemaining: this.policeModeSpawnsRemaining, policeModeSpawnTimer: this.policeModeSpawnTimer,
+        policeModeRoundDelay: this.policeModeRoundDelay,
+        thugCars: this.policeModeThugCars.map(t => ({ id: t.id, x: t.x, z: t.z, yaw: t.yaw, health: t.health, speed: t.speed, colorR: t.colorR, colorG: t.colorG, colorB: t.colorB })),
+        thugPeds: this.policeModeThugPeds.map(t => ({ id: t.id, x: t.x, z: t.z, yaw: t.yaw, health: t.health, shootTimer: t.shootTimer })) };
+    }
+    return null;
+  }
+  // Rebuild a saved mission after a refresh — called once the renderer is ready,
+  // right after restoreWorldState (the player is on foot next to their vehicle).
+  private restoreMissionState() {
+    if (this._destroyed) return;
+    let raw: string | null = null;
+    try { raw = localStorage.getItem(GT_PLAYER_STATE_KEY); } catch { }
+    if (!raw) return;
+    let state: any = null;
+    try { state = JSON.parse(raw); } catch { }
+    const mis = state?.mission;
+    if (!mis) return;
+    const num = (v: any, def: number) => (typeof v === 'number' && isFinite(v)) ? v : def;
+    if (mis.kind === 'taxi') {
+      const passengerId = Math.floor(num(mis.passengerId, 0));
+      if (!passengerId) return;
+      this.taxiMission = {
+        state: mis.state === 'deliver' ? 'deliver' : 'pickup',
+        passengerId,
+        passengerGender: mis.passengerGender === 'female' ? 'female' : 'male',
+        passengerMesh: null as any, // re-linked per frame (pickup) / regenerated below (deliver)
+        passengerX: num(mis.passengerX, 0),
+        passengerZ: num(mis.passengerZ, 0),
+        destinationX: num(mis.destinationX, 0),
+        destinationZ: num(mis.destinationZ, 0),
+        fare: Math.max(0, num(mis.fare, 100)),
+        phase: num(mis.phase, 0),
+        timer: Math.max(0, num(mis.timer, 90)),
+      };
+      if (this.taxiMission.state === 'deliver') {
+        // The passenger is already in the taxi — regenerate their mesh (the ped
+        // was removed from the world at pickup) and re-attach them.
+        this.taxiMission.passengerMesh = this.renderer.getPedestrianMesh(this.taxiMission.passengerGender, passengerId);
+        this.stolenNpcIds.add(passengerId);
+        this.taxiAttachedMeshes = [{
+          mesh: this.taxiMission.passengerMesh,
+          offsetX: 0.3, offsetY: -0.3, offsetZ: -1.0, yaw: 0, scale: 0.7,
+        }];
+      } else {
+        this._taxiReacquireGrace = 8; // wait for the server ped to reappear
+      }
+      this._missionRestoreGrace = 5;
+      return;
+    }
+    if (mis.kind === 'dealership') {
+      const carX = num(mis.carX, this.carX), carZ = num(mis.carZ, this.carZ);
+      // Only when the player was DRIVING the target at save time ('return') does
+      // the world-state restore re-park a duplicate beside them — drop just that
+      // one before adding the real target. In 'search' the car sits out in the
+      // world, so leave any nearby parked cars alone.
+      if (mis.state === 'return') {
+        this.parkedCars = this.parkedCars.filter(p => Math.hypot(p.x - carX, p.z - carZ) >= 3);
+      }
+      const color: [number, number, number] = [num(mis.colorR, 0.5), num(mis.colorG, 0.5), num(mis.colorB, 0.5)];
+      const newId = -Date.now(); // negative = local-only, survives the poll merge
+      const mesh = this.renderer.getNPCCarMesh(color, newId);
+      this.dealershipTargetCar = {
+        id: newId, x: carX, z: carZ, yaw: num(mis.carYaw, 0), mesh,
+        health: Math.max(1, num(mis.carHealth, 1000)),
+        colorR: color[0], colorG: color[1], colorB: color[2], type: 'car',
+      };
+      this.parkedCars.push(this.dealershipTargetCar);
+      this.dealershipMission = {
+        npcX: num(mis.npcX, this.carX), npcZ: num(mis.npcZ, this.carZ),
+        // Re-entering the parked target car flips it back to 'return'; restoring
+        // the 'return' state on foot would instantly fail the heist.
+        state: 'search',
+        payout: Math.max(0, num(mis.payout, 5000)),
+        targetCarId: newId,
+        targetCarMesh: mesh,
+      };
+      return;
+    }
+    if (mis.kind === 'police') {
+      this.policeMode = true;
+      this.policeRound = Math.max(1, Math.floor(num(mis.policeRound, 1)));
+      this.policeModeKills = Math.max(0, Math.floor(num(mis.policeModeKills, 0)));
+      this.policeModeSpawnsRemaining = Math.max(0, Math.floor(num(mis.policeModeSpawnsRemaining, 0)));
+      this.policeModeSpawnTimer = Math.max(0, num(mis.policeModeSpawnTimer, 0));
+      this.policeModeRoundDelay = Math.max(0, num(mis.policeModeRoundDelay, 0));
+      let minClientId = 20000;
+      this.policeModeThugCars = (Array.isArray(mis.thugCars) ? mis.thugCars : []).map((t: any) => {
+        const col: [number, number, number] = [num(t.colorR, 0.2), num(t.colorG, 0.2), num(t.colorB, 0.2)];
+        const id = Math.floor(num(t.id, 0)) || (--this.pedIdCounter);
+        const mesh = this.renderer.getNPCCarMesh(col, id);
+        if (id > 0 && id < 20000) minClientId = Math.min(minClientId, id);
+        return { id, x: num(t.x, this.carX), z: num(t.z, this.carZ), yaw: num(t.yaw, 0), mesh,
+          health: Math.max(1, num(t.health, 500)), speed: num(t.speed, 10),
+          colorR: col[0], colorG: col[1], colorB: col[2] };
+      });
+      this.policeModeThugPeds = (Array.isArray(mis.thugPeds) ? mis.thugPeds : []).map((t: any) => {
+        const id = Math.floor(num(t.id, 0)) || (--this.pedIdCounter);
+        const mesh = this.renderer.getPedestrianMesh('male', id);
+        if (id > 0 && id < 20000) minClientId = Math.min(minClientId, id);
+        return { id, x: num(t.x, this.carX), z: num(t.z, this.carZ), yaw: num(t.yaw, 0), mesh,
+          health: Math.max(1, num(t.health, 100)), shootTimer: num(t.shootTimer, 0.5) };
+      });
+      // Keep new local spawns below every restored thug id to avoid collisions.
+      if (minClientId < 20000) this.pedIdCounter = Math.min(this.pedIdCounter, minClientId);
+      this._missionRestoreGrace = 5;
+      return;
+    }
+  }
+  // Restore a saved world snapshot right before the game loop starts. The
+  // player respawns on foot at the saved spot; the vehicle they were driving
+  // is parked beside them; nearby local parked cars come back in place.
+  private restoreWorldState(): boolean {
+    if (this._destroyed) return false;
+    if (this.renderer.carMeshes.length === 0) {
+      setTimeout(() => this.restoreWorldState(), 500);
+      return false;
+    }
+    let raw: string | null = null;
+    try { raw = localStorage.getItem(GT_WORLD_STATE_KEY); } catch { }
+    if (!raw) return false;
+    let state: any = null;
+    try { state = JSON.parse(raw); } catch { }
+    if (!state || typeof state.x !== 'number' || typeof state.z !== 'number' || isNaN(state.x) || isNaN(state.z)) return false;
     this.carX = state.x;
     this.carZ = state.z;
     // Spawn on foot at the local terrain surface: cap the saved altitude so a
@@ -5047,6 +5235,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         colorR: col[0], colorG: col[1], colorB: col[2],
       });
     }
+    return true;
   }
   // Type-aware parked-vehicle mesh, mirroring the poll's parked-car creation
   // so restored cars render with the right model for their type.
@@ -5384,12 +5573,19 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private updateTaxiMission(dt: number) {
     this.taxiMode = this.isInCar && this.vehicleType === 'taxi';
     if (!this.taxiMode) {
+      // Right after a refresh the player is on foot next to the taxi — give
+      // them a few seconds to hop back in before the fare aborts.
+      if (!this.isInCar && this._missionRestoreGrace > 0) {
+        this._missionRestoreGrace -= dt;
+        return;
+      }
       // No longer in a taxi — fare aborted (deliberate exit, or the taxi was
       // destroyed). exitCar already handles the manual-exit path; this
       // catches every other way of leaving the taxi.
       if (this.taxiMission) this.abortTaxiFare();
       return;
     }
+    this._missionRestoreGrace = 0;
     if (this.taxiMission === null) {
       this.taxiSearchTimer += dt;
       this.taxiSearchCountdown = Math.max(0, Math.ceil(4 - this.taxiSearchTimer));
@@ -5467,11 +5663,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const ped = this.serverPedestrians.find(p => p.id === m.passengerId)
           ?? this.localPedestrians.find(p => p.id === m.passengerId);
         if (!ped) {
+          // After a refresh the passenger (a server ped) reappears with the
+          // first poll — wait briefly before giving up on a restored fare.
+          if (this._taxiReacquireGrace > 0) { this._taxiReacquireGrace -= dt; return; }
           this.taxiMission = null;
           this.taxiMarkers = [];
           this.taxiAttachedMeshes = [];
           return;
         }
+        this._taxiReacquireGrace = 0;
         m.passengerX = ped.x;
         m.passengerZ = ped.z;
         m.passengerMesh = ped.mesh;
@@ -5617,9 +5817,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private updatePoliceMode(dt: number) {
     if (!this.policeMode) return;
     if (!this.isInCar || this.vehicleType !== 'police') {
+      // Refresh-resume grace: on foot next to the parked cruiser, wait a few
+      // seconds for the player to climb back in before ending the job.
+      if (!this.isInCar && this._missionRestoreGrace > 0) {
+        this._missionRestoreGrace -= dt;
+        return;
+      }
       this.togglePoliceMode();
       return;
     }
+    this._missionRestoreGrace = 0;
     if (this.policeModeSpawnsRemaining > 0) {
       this.policeModeSpawnTimer += dt;
       if (this.policeModeSpawnTimer >= 1.0) {
@@ -5749,6 +5956,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.policeModeSpawnTimer = 0;
     this.policeRound = 0;
     this.policeModeKills = 0;
+    this._missionRestoreGrace = 0;
+    this._taxiReacquireGrace = 0;
   }
   startDealershipMission() {
     const npc = this.dealershipNPCs.find(n => {

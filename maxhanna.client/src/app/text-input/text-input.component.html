@@ -2,7 +2,7 @@
     <input type="text" 
       #postInput 
       id="postInput"
-      *ngIf="!showPostInput" 
+      [class.input-hidden]="showPostInput"
       [placeholder]="placeholderText ?? (isReplyingToSubComment ? 'Drop a crumb…' : 'What’s crawling your mind?')" 
       [disabled]="isLoading || _isPosting"
       [draggable]="!isFocused"
@@ -12,7 +12,7 @@
       (blur)="onTextBlur()" 
       (dragstart)="onDragStart($event)" />
     <textarea #postTextArea 
-      *ngIf="showPostInput"
+      [class.input-hidden]="!showPostInput"
       [placeholder]="placeholderText ?? (isReplyingToSubComment ? 'Drop a crumb…' : 'What’s crawling your mind?')" 
       class="foodForThought" 
       id="postTextArea" 

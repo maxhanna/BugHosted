@@ -388,10 +388,13 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
 
   get textarea(): HTMLTextAreaElement | HTMLInputElement {
     let element: HTMLTextAreaElement | HTMLInputElement | null = null;
-
-    element = this.postTextArea?.nativeElement;
+    // Both fields stay mounted (visibility is CSS-toggled), so return whichever
+    // is the ACTIVE one — reading the hidden sibling would see stale/empty text.
+    if (this.showPostInput) {
+      element = this.postTextArea?.nativeElement ?? null;
+    }
     if (!element) {
-      element = this.postInput?.nativeElement;
+      element = this.postInput?.nativeElement ?? null;
     }
 
     if (!element) {
@@ -749,15 +752,38 @@ export class TextInputComponent extends ChildComponent implements OnInit, OnChan
   }
   prepPostTextArea() {
     clearTimeout(this.debounceTimer);
-    this.debounceTimer = setTimeout(() => {
-      const savedVal = this.textarea.value;
-      this.showPostInput = true;
-      setTimeout(() => {
-        this.textarea.focus();
-        this.textarea.value = savedVal;
-      }, 100);
-    }, 10);
-
+    if (this.showPostInput) return; // already expanded — focus/click can double-fire
+    // Snapshot what the user typed in the currently visible field, reveal the
+    // textarea, and carry the text + focus across. Both fields stay mounted
+    // (CSS-toggled) so focus moves without destroying the element — which is
+    // what used to close/reopen the mobile keyboard twice per tap.
+    const savedVal = this.textarea.value ?? '';
+    // Reveal the textarea and move focus onto it BEFORE Angular hides the
+    // single-line input on the next change-detection tick. The focused element
+    // therefore never becomes display:none — which is what used to close the
+    // mobile keyboard and make the drawer pop open twice per tap.
+    const target = this.postTextArea?.nativeElement;
+    const source = this.postInput?.nativeElement;
+    if (target) {
+      target.classList.remove('input-hidden');
+      target.value = savedVal;
+    }
+    // The single-line input is never destroyed now (CSS-toggled), so clear it
+    // after the copy — otherwise its stale text resurfaces on the next expand.
+    if (source) source.value = '';
+    this.showPostInput = true;
+    if (target && target.isConnected) {
+      target.focus();
+      target.scrollTop = target.scrollHeight;
+      // Insurance: some mobile browsers drop a programmatic focus issued
+      // synchronously inside another element's focus dispatch — if so, retry
+      // on the next frame (the textarea is already visible by then).
+      if (document.activeElement !== target) {
+        requestAnimationFrame(() => {
+          if (target.isConnected) target.focus();
+        });
+      }
+    }
   }
 
   // Workaround for Firefox dragging interference: when textarea is focused, disable dragstart so text selection works.

@@ -4013,6 +4013,11 @@
   backdrop-filter: blur(2.5px);
   -webkit-backdrop-filter: blur(2.5px);
   z-index: 25;
+  /* The podium can outgrow short (phone) viewports — scroll instead of
+     clipping so the exit/rematch button is always reachable. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .race-replay-badge {
@@ -4137,6 +4142,9 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  /* Centers when it fits the viewport; collapses to 0 when it overflows so
+     the top stays reachable and the overlay scrolls instead of clipping. */
+  margin: auto;
   animation: gp-podium-in 0.5s ease-out;
 }
 
@@ -4641,6 +4649,86 @@
   .gp-standings-laps {
     min-width: 28px;
     font-size: 12px;
+  }
+}
+
+/* ── Finish screen: mobile layout ────────────────────────────────────────────
+   Compact the podium so it fits small viewports, keep the replay scrubber /
+   badge clear of the action buttons, and make exit/rematch big tap targets. */
+@media (max-width: 768px) {
+  #race-finished {
+    justify-content: flex-start;
+  }
+
+  .gp-podium {
+    gap: 6px;
+    /* Top padding for the notch; bottom padding lifts the exit/rematch
+       buttons above the replay scrubber + badge that sit at the bottom. */
+    padding: max(14px, env(safe-area-inset-top)) 10px
+      calc(132px + env(safe-area-inset-bottom));
+  }
+
+  .gp-podium-title {
+    font-size: 22px;
+    letter-spacing: 5px;
+    margin-bottom: 2px;
+  }
+
+  .gp-podium-emblem {
+    font-size: 30px;
+    margin-bottom: 0;
+  }
+
+  .gp-podium-crown {
+    font-size: 40px;
+  }
+
+  .gp-podium-pos {
+    font-size: 32px;
+  }
+
+  .gp-podium-label {
+    font-size: 18px;
+    letter-spacing: 3px;
+  }
+
+  .gp-podium-time {
+    font-size: 15px;
+  }
+
+  .gp-podium-pos-sm {
+    font-size: 26px;
+  }
+
+  .gp-podium-label-sm {
+    font-size: 14px;
+  }
+
+  .gp-podium-time-sm {
+    font-size: 13px;
+  }
+
+  .gp-podium-stats {
+    margin-top: 4px;
+  }
+
+  /* Keep the standings card inside the podium's padded content box on
+     narrow phones (96vw alone would overflow by a few px). */
+  .gp-standings {
+    width: min(calc(100vw - 24px), 380px);
+  }
+
+  .gp-podium-auto {
+    margin-top: 10px;
+  }
+
+  /* Thumb-friendly exit / rematch buttons. */
+  .gp-podium-auto .race-mp-btn,
+  .gp-podium-rematch .race-mp-btn {
+    min-height: 50px;
+    width: min(92vw, 360px);
+    font-size: 15px;
+    letter-spacing: 3px;
   }
 }
 

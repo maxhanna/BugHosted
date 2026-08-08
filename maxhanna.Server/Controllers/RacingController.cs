@@ -69,15 +69,19 @@ namespace maxhanna.Server.Controllers
 			public int MoneyEarned;
 			public int TrackId = 1;
 		}
+		// NOTE: must be PROPERTIES (not fields) — the API serializes with
+		// System.Text.Json defaults, which ignores public fields, so a
+		// field-only DTO made every leaderboard result an empty {} object
+		// and the Best Laps panel showed no other players' scores.
 		private sealed class LeaderboardEntry
 		{
-			public int PlayerId;
-			public string PlayerName = "";
-			public int Position;
-			public double LapTime;
-			public double TotalTime;
-			public int MoneyEarned;
-			public bool IsBot = false;
+			public int PlayerId { get; set; }
+			public string PlayerName { get; set; } = "";
+			public int Position { get; set; }
+			public double LapTime { get; set; }
+			public double TotalTime { get; set; }
+			public int MoneyEarned { get; set; }
+			public bool IsBot { get; set; } = false;
 		}
 		private sealed class UpgradeDef
 		{

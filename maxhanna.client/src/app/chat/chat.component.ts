@@ -341,10 +341,13 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           return;
         }
         if (this.chatHub.connected) return;
+        // Skip round-trips while the tab is hidden — nothing visible needs
+        // updating, and the next interaction repolls anyway.
+        if (typeof document !== 'undefined' && document.hidden) return;
         if (this.currentChatUsers) {
           await this.getMessageHistory(this.pageNumber, this.pageSize);
         }
-      }, 5000);
+      }, 10000);
     }
   }
 
@@ -357,13 +360,28 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (this.pushRefreshTimer) clearTimeout(this.pushRefreshTimer);
     this.pushRefreshTimer = setTimeout(() => {
       if (this.currentChatUsers) {
-        this.getMessageHistory(this.pageNumber, this.pageSize);
+        // User just sent — force the scroll so the new message is visible even
+        // though the composer is still focused.
+        this.getMessageHistory(this.pageNumber, this.pageSize, true);
       }
     }, 150);
   }
 
-  scrollToBottomIfNeeded() {
-    if (this.chatWindow) {
+  // A background poll must never yank the scroll while the user is typing in
+  // the composer — that made the view jump and recalculate on mobile on every
+  // poll. Pass force=true for user-initiated flows (send, opening a chat) so
+  // the new message still scrolls into view.
+  private composerOrInputFocused(): boolean {
+    const ae = document.activeElement as HTMLElement | null;
+    if (!ae) return false;
+    // The shared app-text-input composer/editor fields use these fixed ids.
+    if (ae.id === 'postInput' || ae.id === 'postTextArea') return true;
+    const t = ae.tagName;
+    if ((t === 'INPUT' || t === 'TEXTAREA') && ae.closest('.chatArea')) return true;
+    return false;
+  }
+  scrollToBottomIfNeeded(force = false) {
+    if (this.chatWindow && (force || !this.composerOrInputFocused())) {
       const chatWindow = this.chatWindow.nativeElement;
       requestAnimationFrame(() => {
         setTimeout(() => {
@@ -374,7 +392,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       });
     }
   }
-  async getMessageHistory(pageNumber?: number, pageSize: number = 10) {
+  async getMessageHistory(pageNumber?: number, pageSize: number = 10, forceScroll = false) {
     if (!this.currentChatUsers) return;
     try {
       const user = this.parentRef?.user ? this.parentRef.user : new User(0, "Anonymous");
@@ -488,7 +506,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
               // Clear firstMessageDetails after processing
               this.firstMessageDetails = null;
           }
-          this.scrollToBottomIfNeeded();
+          this.scrollToBottomIfNeeded(forceScroll);
         }
         this.checkChatBanStatus();
         // A chatId may have just been discovered (e.g. the first message created
@@ -1544,7 +1562,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
       this.annotateMessages(this.chatHistory);
-      this.scrollToBottomIfNeeded();
+      this.scrollToBottomIfNeeded(true);
     }
 
     // Don't block the send on the refetch — the optimistic row already

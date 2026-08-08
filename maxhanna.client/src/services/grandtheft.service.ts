@@ -321,7 +321,8 @@ export class GrandtheftService {
     chatMessage?: string,
     respawned?: boolean,
     ownedWeapons?: boolean[],
-    ammo?: number[]
+    ammo?: number[],
+    wantedLevel?: number
   ): Promise<GTUpdatePositionResponse | null> {
     try {
       const body: any = { userId, worldId, posX, posY, posZ, yaw, pitch, carYaw, carSpeed, health, weapon, isShooting };
@@ -337,6 +338,7 @@ export class GrandtheftService {
       if (respawned !== undefined) body.respawned = respawned;
       if (ownedWeapons) body.ownedWeapons = ownedWeapons;
       if (ammo) body.ammo = ammo;
+      if (wantedLevel !== undefined) body.wantedLevel = wantedLevel;
       return await this.http.post<GTUpdatePositionResponse>(`${this.baseUrl}/updateposition`, body).toPromise() ?? null;
     } catch (e) {
       console.error('Error updating position', e);

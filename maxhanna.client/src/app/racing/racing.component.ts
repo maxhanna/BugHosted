@@ -651,7 +651,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const canvas = this.canvasRef.nativeElement;
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    this.renderer = new RacingRenderer(canvas);
+    // Mobile / low-core devices get the trimmed scenery tier (fewer conifers,
+    // capped snow, smaller mirror) so the mountain & alpine circuits stay smooth.
+    const lowQuality = this.isMobile || ((navigator.hardwareConcurrency ?? 8) <= 4);
+    this.renderer = new RacingRenderer(canvas, lowQuality);
     this.isLoaded = true;
     this._onKeyDown = (e: KeyboardEvent) => {
       if (this._destroyed) return;
@@ -2491,6 +2494,26 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.parentRef?.closeOverlay();
     }
   }
+  // Drop degenerate rows (missing lap or name — e.g. an older server that
+  // serialized the leaderboard DTO as empty {} objects) and empty boards, so a
+  // partially-populated payload never renders blank lines and never suppresses
+  // the fallback data sources.
+  private sanitizeTrackBoards(
+    boards: {
+      trackId: number; totalCount: number; bestLap: number;
+      userLap: number; userRank: number; results: RaceResult[];
+    }[]
+  ): {
+    trackId: number; totalCount: number; bestLap: number;
+    userLap: number; userRank: number; results: RaceResult[];
+  }[] {
+    return boards
+      .map(b => ({
+        ...b,
+        results: (b.results || []).filter(r => r.lapTime > 0 && r.playerName)
+      }))
+      .filter(b => b.results.length > 0 || b.userLap > 0);
+  }
   async loadAllTrackLeaderboards() {
     const uid = this.parentRef?.user?.id ?? 0;
     this.allTracksLoading = true;
@@ -2499,7 +2522,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       // backend with no leaderboard routes) — keep that around so the panel can
       // say data is unavailable instead of pretending no laps exist.
       const byTrack = await this.racingService.getAllTrackLeaderboards(uid);
-      let boards = byTrack ? byTrack.tracks : [];
+      let boards = this.sanitizeTrackBoards(byTrack ? byTrack.tracks : []);
       // Fallback: if the by-track endpoint returns nothing (older deployed
       // server without it, or a query hiccup), build the per-circuit boards
       // from the per-track leaderboard endpoint so the panel always shows data.
@@ -2519,7 +2542,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
             };
           } catch { return null; }
         }));
-        boards = per.filter((b): b is NonNullable<typeof b> => b !== null);
+        boards = this.sanitizeTrackBoards(per.filter((b): b is NonNullable<typeof b> => b !== null));
       }
       // Last-resort fallback: the aggregate endpoints are unavailable, but the
       // player's own per-track bests (from /car) are still worth showing — at
@@ -2549,10 +2572,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           }
         }
         boards = seeded;
-      }
-      // The by-track route answered with an unexpected shape AND no fallback
-      // produced data → surface that instead of 'no laps on this circuit yet'.
-      this.leaderboardDataUnavailable = byTrack === null && boards.length === 0;
+      }					// The by-track route answered with an unexpected shape, or answered but
+					// every row was unsanitizable (e.g. an older server that serialized the
+					// DTO as empty objects) → surface that instead of 'no laps on this
+					// circuit yet'.
+					this.leaderboardDataUnavailable = boards.length === 0 &&
+						(byTrack === null || (byTrack.tracks?.length ?? 0) > 0);
       this.allTrackBoards = boards;
       // On small screens default every card to collapsed so the panel stays
       // compact; users can expand individual circuits as needed. Only seed the

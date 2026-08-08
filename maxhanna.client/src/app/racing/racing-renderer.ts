@@ -346,6 +346,10 @@ export class RacingRenderer {
   fogColor: [number, number, number] = [0.4, 0.45, 0.5];
   elapsed = 0;
   theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' = 'default';
+  // Device-quality tier: set by the component for mobile / low-end GPUs. Trims
+  // the heaviest scenery (conifer counts and mesh density) and per-frame effects
+  // (snow flake count) so the mountain and alpine circuits stay smooth on phones.
+  lowQuality = false;
   night = false;
   skyTop: [number, number, number] = [0.1, 0.2, 0.5];
   skyHorizon: [number, number, number] = [0.7, 0.75, 0.85];
@@ -437,7 +441,8 @@ export class RacingRenderer {
   private _mirrorSceneDepth: WebGLRenderbuffer | null = null;
   private mirrorProj!: Float32Array;
   private mirrorView!: Float32Array;
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, lowQuality = false) {
+    this.lowQuality = lowQuality;
     const gl = canvas.getContext('webgl2', { antialias: true, alpha: false });
     if (!gl) throw new Error('WebGL2 not supported');
     this.gl = gl;
@@ -447,6 +452,14 @@ export class RacingRenderer {
     this.trackTex = this.makeTrackMarkingsTex();
     this.tireBrandTex = this.makeTireBrandTex();
     this.glowTex = this.makeGlowTex();
+    if (lowQuality) {
+      // The shadow pass re-renders the full scenery every frame — quartering its
+      // resolution on weak GPUs cuts that fill cost 4x (and the mirror pixels
+      // too) while staying visually close on phones.
+      this.shadowSize = 512;
+      this.mirrorW = 384;
+      this.mirrorH = 216;
+    }
     this.initShader();
     this.initShadow();
     this.initSky();
@@ -1926,6 +1939,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
     }
     let pineIdx = 0;
+    const pineCap = this.lowQuality ? 55 : 100;
     for (let i = 0; i < pts.length; i += 4) {
       const p = pts[i];
       const ppx = -p.dirZ;
@@ -1935,9 +1949,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 10;
         const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 10;
         this.addAlpineConifer(verts, idxs, tx, tz, 0.5 + Math.random() * 0.45);
-        if (pineIdx++ > 100) break;
+        if (pineIdx++ > pineCap) break;
       }
-      if (pineIdx > 100) break;
+      if (pineIdx > pineCap) break;
     }
     for (let i = 0; i < 36; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -2302,9 +2316,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
         const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
         this.addAlpineConifer(verts, idxs, tx, tz, 0.8 + Math.random() * 0.7);
-        if (treeIdx++ > 140) break;
+        if (treeIdx++ > (this.lowQuality ? 75 : 140)) break;
       }
-      if (treeIdx > 140) break;
+      if (treeIdx > (this.lowQuality ? 75 : 140)) break;
     }
     for (let i = 0; i < pts.length; i += 6) {
       const p = pts[i];
@@ -2352,7 +2366,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       [0.02, 0.16, 0.06], [0.03, 0.2, 0.07], [0.02, 0.13, 0.05],
     ];
     const snow = [0.92, 0.94, 0.98];
-    const tiers = 5 + Math.floor(Math.random() * 2);
+    const tiers = this.lowQuality ? 4 : 5 + Math.floor(Math.random() * 2);
+    const sideN = this.lowQuality ? 6 : 8;
     const baseR = (0.75 + Math.random() * 0.35) * s;
     let lastTop = trunkH;
     for (let t = 0; t < tiers; t++) {
@@ -2360,7 +2375,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const ty = trunkH + frac * h * 0.85;
       const tr = baseR * (1 - frac * 0.82);
       const th = h * (0.22 - frac * 0.1);
-      this.addCone(verts, idxs, x, ty, z, tr, th, 8, greens[t % greens.length]);
+      this.addCone(verts, idxs, x, ty, z, tr, th, sideN, greens[t % greens.length]);
       this.addCone(verts, idxs, x, ty + th * 0.72, z, tr * 0.34, th * 0.28, 6, snow);
       lastTop = ty + th;
     }
@@ -4740,6 +4755,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private _snowVao!: WebGLVertexArrayObject;
   private _snowBuf!: WebGLBuffer;
   private _snowCount = 0;
+  // Reused per-frame write buffer — avoids allocating a new array + Float32Array
+  // every frame (the main mobile cost of the snowfall effect).
+  private _snowData: Float32Array | null = null;
   private _snowInitialized = false;
   private initRainParticles() {
     if (this._rainInitialized) return;
@@ -4772,7 +4790,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this._snowInitialized) return;
     this._snowInitialized = true;
     const gl = this.gl;
-    const count = 3500;
+    const count = this.lowQuality ? 1200 : 3500;
     const verts: number[] = [];
     this._snowParticles = [];
     for (let i = 0; i < count; i++) {
@@ -4789,6 +4807,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       verts.push(f.x, f.y - 0.16, f.z, 0.97, 0.98, 1, 0.9);
     }
     this._snowCount = count * 2;
+    this._snowData = new Float32Array(count * 2 * 7);
     this._snowVao = gl.createVertexArray()!;
     gl.bindVertexArray(this._snowVao);
     const buf = gl.createBuffer()!;
@@ -6554,9 +6573,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.initSnowParticles();
       if (this._snowCount > 0) {
         const snow = this._snowParticles;
-        const snowData: number[] = [];
+        const data = this._snowData!;
+        let w = 0;
         const intensity = Math.max(0, Math.min(1, playerSpeedRatio));
-        const drawCount = Math.round(snow.length * (0.3 + 0.7 * intensity));
+        // Cap the per-frame flake count on weak GPUs — the draw is also scaled
+        // by speed, so cruising still reads as light snowfall.
+        const maxDraw = this.lowQuality ? 900 : snow.length;
+        const drawCount = Math.min(maxDraw, Math.round(snow.length * (0.3 + 0.7 * intensity)));
         const gust = (1 + 0.9 * Math.sin(this.elapsed * 0.5) * Math.sin(this.elapsed * 0.13)) * (0.35 + 0.65 * intensity);
         const flakeBoost = 0.45 + 0.55 * intensity;
         for (let i = 0; i < drawCount; i++) {
@@ -6574,11 +6597,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
           const vlen = Math.hypot(vx, vz) || 1;
           const sx = (vx / vlen) * 0.1;
           const sz = (vz / vlen) * 0.1;
-          snowData.push(f.x, f.y, f.z, 0.97, 0.98, 1, 0.9);
-          snowData.push(f.x + sx, f.y - 0.16, f.z + sz, 0.97, 0.98, 1, 0.9);
+          data[w++] = f.x; data[w++] = f.y; data[w++] = f.z; data[w++] = 0.97; data[w++] = 0.98; data[w++] = 1; data[w++] = 0.9;
+          data[w++] = f.x + sx; data[w++] = f.y - 0.16; data[w++] = f.z + sz; data[w++] = 0.97; data[w++] = 0.98; data[w++] = 1; data[w++] = 0.9;
         }
         gl.bindBuffer(gl.ARRAY_BUFFER, this._snowBuf);
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(snowData));
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, w));
         gl.useProgram(this.prog);
         gl.disable(gl.CULL_FACE);
         gl.depthMask(false);
@@ -6587,7 +6610,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
         gl.uniform3f(this.colorLoc, 1, 1, 1);
         this.mat4Identity(this.modelMatrix);
         gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
-        gl.drawArrays(gl.LINES, 0, drawCount * 2);
+        gl.drawArrays(gl.LINES, 0, w / 7);
         gl.bindVertexArray(null);
         gl.depthMask(true);
         gl.enable(gl.CULL_FACE);

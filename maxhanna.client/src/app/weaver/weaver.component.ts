@@ -1,4 +1,4 @@
-import { Component, Input, OnDestroy, OnInit } from '@angular/core';
+﻿import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { WeaverService, WeaverCard, WeaverProject, KanbanPayload, IdeFileEntry, IdeTab, EditorState, BenchmarkEntry, AddCommandResult } from '../../services/weaver.service';
 import { AppComponent } from '../app.component';
 import { ChildComponent } from '../child.component';
@@ -1084,10 +1084,11 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     this.pickerCardId = card.id;
     this.pickerSelected = this.getAttachedFiles(card).slice();
     this.pickerTree = this.buildFileTree();
+    this.pickerSearchFilter = '';
     this.pickerOpen = true;
     setTimeout(() => {
       const input = document.getElementById('pickerSearchInput');
-      if (input) {
+      if(input) {
         input.focus();
       }
     }, 0);

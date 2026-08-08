@@ -613,6 +613,14 @@ namespace maxhanna.Server.Controllers
 		private const int COP_SEARCH_STEPS = 12;                     // waypoints per search lap (alternating rim/center)
 		private const float COP_SEARCH_TIMEOUT_SECONDS = 12f;        // searching a spot before giving up
 		private const float COP_LAST_KNOWN_MAX_AGE_SECONDS = 120f;   // how long a sighting stays dispatchable
+		// Search-helicopter pursuit: when ground units lose the player, a heli is
+		// dispatched to sweep the last known area from above and can re-spot them.
+		private const float HELI_SEARCH_RADIUS = 34f;                // orbit radius around the last known spot
+		private const float HELI_SEARCH_TIMEOUT_SECONDS = 50f;       // sweeping (from arrival) before standing down
+		private const float HELI_SPOT_RADIUS = 42f;                  // horizontal distance at which the heli re-spots from above
+		private const float HELI_DISPATCH_DISTANCE = 150f;           // spawn offset so it visibly flies in
+		private const float HELI_DISPATCH_COOLDOWN_SECONDS = 75f;    // min gap between dispatches while heat remains
+		private static readonly ConcurrentDictionary<int, DateTime> _lastHeliDispatch = new();
 		private static readonly ConcurrentDictionary<int, (float X, float Z, long AtMs)> _playerLastKnown = new();
 		private static readonly ConcurrentDictionary<int, double> _lastPoliceDamageTime = new();
 		private static readonly ConcurrentDictionary<int, int> _playerMoney = new();
@@ -644,6 +652,7 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, float> _playerCarSpeed = new();
 		private static readonly ConcurrentDictionary<int, int> _playerWorldId = new();
 		private static Timer? _persistTimer;
+		private static Timer? _cleanupTimer;
 		private static readonly object _persistLock = new();
 		private static readonly ConcurrentDictionary<long, DroppedWeapon> _droppedWeapons = new();
 		private static long _nextDropId = 1000000;
@@ -699,6 +708,9 @@ namespace maxhanna.Server.Controllers
 		static GrandTheftController()
 		{
 			_persistTimer = new Timer(PersistAllToDb, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+			// Periodic memory management: recycle world NPCs nobody can see and drop
+			// per-user state for long-gone players so the server stays lean.
+			_cleanupTimer = new Timer(RunMemoryCleanup, null, TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(2));
 		}
 		private static bool _shutdownHooksRegistered;
 		private static void RegisterShutdownDump(IHostApplicationLifetime? appLifetime)
@@ -787,6 +799,144 @@ namespace maxhanna.Server.Controllers
 			}
 			catch { }
 			finally { Monitor.Exit(_persistLock); }
+		}
+		// Cull radius for world NPCs: beyond this distance from every active player
+		// an NPC is invisible to everyone, so it's safe to recycle.
+		private const float WORLD_NPC_CULL_DIST = 300f;
+		private static bool IsNearAnyPlayer(List<(float X, float Z)> activePlayers, float x, float z)
+		{
+			foreach (var (px, pz) in activePlayers)
+			{
+				float dx = px - x, dz = pz - z;
+				if (dx * dx + dz * dz < WORLD_NPC_CULL_DIST * WORLD_NPC_CULL_DIST) return true;
+			}
+			return false;
+		}
+		// Periodic memory management (every 2 minutes): anything outside every
+		// active player's field of vision is recycled, and per-user state for
+		// long-gone players is dropped (their progress is already in the DB via
+		// the 30s persist timer, which saves everyone seen within 5 minutes).
+		private static void RunMemoryCleanup(object? state)
+		{
+			try
+			{
+				var now = DateTime.UtcNow;
+				var activeCutoff = now.AddSeconds(-60);
+				var emptyWorldCutoff = now.AddMinutes(-10);
+				foreach (var worldKv in _worldNpcs)
+				{
+					int worldId = worldKv.Key;
+					var npcs = worldKv.Value;
+					var players = new List<(float X, float Z)>();
+					bool anyRecent = false;
+					foreach (var pkv in _playerWorldId)
+					{
+						if (pkv.Value != worldId) continue;
+						if (!_lastSeen.TryGetValue(pkv.Key, out var seen)) continue;
+						if (seen >= emptyWorldCutoff) anyRecent = true;
+						if (seen < activeCutoff) continue;
+						if (!_playerX.TryGetValue(pkv.Key, out var px) || !_playerZ.TryGetValue(pkv.Key, out var pz)) continue;
+						players.Add((px, pz));
+					}
+					if (!anyRecent)
+					{
+						// Nobody has touched this world in 10 minutes — drop the whole
+						// thing (NPCs + chat). It re-creates and re-seeds on the next
+						// player's first poll, so nothing is permanently lost.
+						_worldNpcs.TryRemove(worldId, out _);
+						_worldChatMessages.TryRemove(worldId, out _);
+						continue;
+					}
+					var toRemove = new List<long>();
+					foreach (var kv in npcs)
+					{
+						var npc = kv.Value;
+						// Dead NPCs are aged out by polls too, but sweep here so bodies
+						// can't linger when nobody is polling nearby.
+						if (npc.DeadAt != null)
+						{
+							if ((now - npc.DeadAt.Value).TotalSeconds > DEAD_BODY_TIMEOUT_SECONDS) toRemove.Add(kv.Key);
+							continue;
+						}
+						if (npc.IsParked) continue; // player-parked fixtures persist
+						if (!IsNearAnyPlayer(players, npc.X, npc.Z)) toRemove.Add(kv.Key);
+					}
+					foreach (var id in toRemove) npcs.TryRemove(id, out _);
+				}
+				// Per-user state for players who've been gone long enough that the
+				// persist timer has their progress safely in the DB — the next connect
+				// reloads it via EnsurePlayerLoaded.
+				var userCutoff = now.AddMinutes(-10);
+				var staleUsers = new List<int>();
+				foreach (var kv in _lastSeen) if (kv.Value < userCutoff) staleUsers.Add(kv.Key);
+				foreach (var uid in staleUsers) RemoveUserState(uid);
+				// The jump-score cache is keyed by a (user, ramp) composite, so
+				// RemoveUserState can't reach it — evict stale users' entries here
+				// (DB-backed; reloaded on demand in SubmitJump).
+				if (staleUsers.Count > 0)
+				{
+					var staleSet = new HashSet<int>(staleUsers);
+					var staleJumpKeys = new List<long>();
+					foreach (var kv in _jumpScores) if (staleSet.Contains(kv.Value.UserId)) staleJumpKeys.Add(kv.Key);
+					foreach (var k in staleJumpKeys) _jumpScores.TryRemove(k, out _);
+				}
+				// Ephemeral world objects (mirrors the per-poll prunes, guaranteed to
+				// run even when no one is actively polling).
+				var deadBodies = new List<int>();
+				foreach (var kv in _deadPlayerBodies) if ((now - kv.Value.DiedAt).TotalSeconds > DEAD_BODY_TIMEOUT_SECONDS) deadBodies.Add(kv.Key);
+				foreach (var pid in deadBodies) _deadPlayerBodies.TryRemove(pid, out _);
+				var dropped = new List<long>();
+				foreach (var kv in _droppedWeapons) if ((now - kv.Value.DroppedAt).TotalSeconds > 30) dropped.Add(kv.Key);
+				foreach (var k in dropped) _droppedWeapons.TryRemove(k, out _);
+				var shooters = new List<int>();
+				foreach (var kv in _shootingPlayers) if ((now - kv.Value.LastUpdated).TotalSeconds > 10) shooters.Add(kv.Key);
+				foreach (var s in shooters) _shootingPlayers.TryRemove(s, out _);
+			}
+			catch { }
+		}
+		// Drops every per-user in-memory entry for a userId. Safe because the
+		// 30s persist timer upserts each active player's full state (position,
+		// money, weapons, kills...) to the DB within 5 minutes of last activity.
+		private static void RemoveUserState(int userId)
+		{
+			_playerHealth.TryRemove(userId, out _);
+			_lastClientHealth.TryRemove(userId, out _);
+			_playerX.TryRemove(userId, out _);
+			_playerZ.TryRemove(userId, out _);
+			_playerPosY.TryRemove(userId, out _);
+			_playerYaw.TryRemove(userId, out _);
+			_playerPitch.TryRemove(userId, out _);
+			_playerCarYaw.TryRemove(userId, out _);
+			_playerCarSpeed.TryRemove(userId, out _);
+			_playerModelUrls.TryRemove(userId, out _);
+			_lastDamageTime.TryRemove(userId, out _);
+			_playerWantedLevels.TryRemove(userId, out _);
+			_lastUndetectedTime.TryRemove(userId, out _);
+			_lastHeliDispatch.TryRemove(userId, out _);
+			_playerLastKnown.TryRemove(userId, out _);
+			_lastPoliceDamageTime.TryRemove(userId, out _);
+			_playerMoney.TryRemove(userId, out _);
+			_playerMoneyEarned.TryRemove(userId, out _);
+			_lastReportedMoney.TryRemove(userId, out _);
+			_playerMoneyPeak.TryRemove(userId, out _);
+			_playerKills.TryRemove(userId, out _);
+			_playerDeaths.TryRemove(userId, out _);
+			_playerInCar.TryRemove(userId, out _);
+			_playerInCarTime.TryRemove(userId, out _);
+			_evictedPlayers.TryRemove(userId, out _);
+			_playerVehicleType.TryRemove(userId, out _);
+			_playerCarColorR.TryRemove(userId, out _);
+			_playerCarColorG.TryRemove(userId, out _);
+			_playerCarColorB.TryRemove(userId, out _);
+			_playerPassengerOf.TryRemove(userId, out _);
+			_deadPlayerBodies.TryRemove(userId, out _);
+			_playerUsername.TryRemove(userId, out _);
+			_playerDeathBroadcasted.TryRemove(userId, out _);
+			_lastSeen.TryRemove(userId, out _);
+			_playerWorldId.TryRemove(userId, out _);
+			_playerWeapons.TryRemove(userId, out _);
+			_playerAmmo.TryRemove(userId, out _);
+			_shootingPlayers.TryRemove(userId, out _);
 		}
 		private void EnsurePlayerLoaded(int userId)
 		{
@@ -987,6 +1137,7 @@ namespace maxhanna.Server.Controllers
 			public DateTime? SearchStartedAt { get; set; } = null;
 			public int SearchStep { get; set; } = 0;
 			public bool IsSearching { get; set; } = false;
+			public bool IsPoliceHeli { get; set; } = false;   // pursuit heli sweeping a player's last known spot
 			public string AircraftPhase { get; set; } = "flying";
 			public DateTime PhaseStartedAt { get; set; } = DateTime.UtcNow;
 		}
@@ -1040,6 +1191,14 @@ namespace maxhanna.Server.Controllers
 				_playerWorldId[req.UserId] = req.WorldId;
 				_lastSeen[req.UserId] = DateTime.UtcNow;
 				_playerMoney[req.UserId] = Math.Max(0, req.Money);
+				// The client persists its wanted level locally and reports it here, so
+				// a server restart doesn't wipe the session's heat. Only adopt it on
+				// first contact (no server record yet); once present the server stays
+				// authoritative so decay and re-crime keep working as before.
+				if (!_playerWantedLevels.ContainsKey(req.UserId) && req.WantedLevel > 0)
+				{
+					_playerWantedLevels[req.UserId] = Math.Min(5, req.WantedLevel);
+				}
 				int reportedMoney = Math.Max(0, req.Money);
 				bool firstMoneyReport = !_lastReportedMoney.ContainsKey(req.UserId);
 				int prevReported = _lastReportedMoney.GetOrAdd(req.UserId, reportedMoney);
@@ -1169,7 +1328,20 @@ namespace maxhanna.Server.Controllers
 							var npc = kv.Value;
 							if (npc.DeadAt != null || npc.Health <= 0) continue;
 							if (npc.TargetUserId != req.UserId) continue;
-							if ((npc.Type != "police" && npc.Type != "cop")) continue;
+							if (npc.Type == "helicopter")
+							{
+								// A search heli re-spots the player from above within its sweep
+								// radius — altitude line of sight is effectively unobstructed —
+								// and radios the live position so ground units re-converge.
+								if (npc.IsPoliceHeli && npc.IsSearching &&
+									(npc.X - px) * (npc.X - px) + (npc.Z - pz) * (npc.Z - pz) < HELI_SPOT_RADIUS * HELI_SPOT_RADIUS)
+								{
+									detected = true;
+									_playerLastKnown[req.UserId] = (px, pz, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+								}
+								continue;
+							}
+							if (npc.Type != "police" && npc.Type != "cop") continue;
 							// A cop only counts as "detected" if it can actually see the player
 							// (vision cone + line of sight), so sneaking behind a cop starts
 							// the hidden clock instead of a telepathic 25-unit radius.
@@ -1199,7 +1371,16 @@ namespace maxhanna.Server.Controllers
 							}
 							if (drops > 0)
 							{
-								_playerWantedLevels[req.UserId] = Math.Max(0, wantedLevel - drops);
+								int newWanted = Math.Max(0, wantedLevel - drops);
+								_playerWantedLevels[req.UserId] = newWanted;
+								// Fully clean — drop the hidden-time anchor so a later crime
+								// never inherits this episode's hidden seconds, and stand down
+								// any search heli still sweeping the area.
+								if (newWanted == 0)
+								{
+									_lastUndetectedTime.TryRemove(req.UserId, out _);
+									ReleaseSearchHelicopters(req.UserId, req.WorldId);
+								}
 							}
 						}
 					}
@@ -1207,6 +1388,9 @@ namespace maxhanna.Server.Controllers
 					{
 						_lastUndetectedTime[req.UserId] = DateTime.UtcNow;
 					}
+					// When ground pursuit is broken, a heli is dispatched to sweep the
+					// last known area from above — it can still re-spot the player.
+					if (!detected) MaybeDispatchSearchHelicopter(req.UserId, req.WorldId, DateTime.UtcNow);
 					// Reflect any decayed value in this poll's response so the client's
 					// HUD stars tick down immediately rather than a poll later.
 					if (_playerWantedLevels.TryGetValue(req.UserId, out var w2)) wantedLevel = w2;
@@ -1394,6 +1578,7 @@ namespace maxhanna.Server.Controllers
 							// state was cleaned up — restore them fully.
 							_playerHealth[req.UserId] = 100;
 							_playerWantedLevels[req.UserId] = 0;
+							_lastUndetectedTime.TryRemove(req.UserId, out _);
 							_deadPlayerBodies.TryRemove(req.UserId, out _);
 							yourHealth = 100;
 						}
@@ -1447,6 +1632,18 @@ namespace maxhanna.Server.Controllers
 			int nearbyPeds = 0;
 			int wantedLevel = 0;
 			if (userId > 0 && _playerWantedLevels.TryGetValue(userId, out var w)) wantedLevel = w;
+			// Positions of active players in this world — culling must consider ALL
+			// of them, not just the requesting player, so two players far apart
+			// don't wipe each other's NPCs (shared world consistency).
+			var activeCutoff = now.AddSeconds(-60);
+			var activePlayers = new List<(float X, float Z)>();
+			foreach (var pkv in _playerWorldId)
+			{
+				if (pkv.Value != worldId) continue;
+				if (!_lastSeen.TryGetValue(pkv.Key, out var pseen) || pseen < activeCutoff) continue;
+				if (!_playerX.TryGetValue(pkv.Key, out var apx) || !_playerZ.TryGetValue(pkv.Key, out var apz)) continue;
+				activePlayers.Add((apx, apz));
+			}
 			foreach (var kv in npcs)
 			{
 				var npc = kv.Value;
@@ -1616,7 +1813,13 @@ namespace maxhanna.Server.Controllers
 				float dx = npc.X - posX;
 				float dz = npc.Z - posZ;
 				float distSq = dx * dx + dz * dz;
-				if (distSq > 90000f && !npc.IsParked) { deadIds.Add(kv.Key); continue; }
+				// Cull only NPCs nobody in the world is near — removing based on the
+				// requesting player alone would delete the scenery around other players.
+				if (!npc.IsParked && !IsNearAnyPlayer(activePlayers, npc.X, npc.Z))
+				{
+					deadIds.Add(kv.Key);
+					continue;
+				}
 				if (distSq < 22500f)
 				{
 					if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") nearbyPeds++;
@@ -2816,6 +3019,51 @@ namespace maxhanna.Server.Controllers
 							CityLayout.GetRandomAeroportWorldPoint(rng, out float lx, out float lz);
 							npc.TargetX = lx;
 							npc.TargetZ = lz;
+						}				}
+				break;
+				case "search":
+					{
+						// Pursuit heli sweeping the player's last known spot: hold
+						// altitude, fly in, then orbit with a sawtooth radius.
+						npc.Y += (30f - npc.Y) * 0.03f;
+						npc.IsParked = false;
+						float sdx = npc.TargetX - npc.X;
+						float sdz = npc.TargetZ - npc.Z;
+						float sDist = (float)Math.Sqrt(sdx * sdx + sdz * sdz);
+						if (sDist > 8f)
+						{
+							float ms = npc.Speed * 0.1f;
+							npc.X += (sdx / sDist) * ms;
+							npc.Z += (sdz / sDist) * ms;
+							npc.Yaw = (float)Math.Atan2(sdx, sdz);
+						}
+						else
+						{
+							// Arrived over the search area — start the orbit clock and
+							// hop between rim/center waypoints for a full sweep.
+							if (!npc.SearchStartedAt.HasValue)
+							{
+								npc.SearchStartedAt = now;
+								npc.PhaseStartedAt = now;
+							}
+							float ang = npc.SearchStep * (float)(Math.PI / 3.0);
+							float rad = (npc.SearchStep % 2 == 0) ? HELI_SEARCH_RADIUS : HELI_SEARCH_RADIUS * 0.45f;
+							npc.TargetX = npc.LastKnownX + (float)Math.Cos(ang) * rad;
+							npc.TargetZ = npc.LastKnownZ + (float)Math.Sin(ang) * rad;
+							npc.SearchStep = (npc.SearchStep + 1) % 12;
+						}
+						// Sweep finished — stand down and fly off as a regular heli.
+						if (npc.SearchStartedAt.HasValue && (now - npc.PhaseStartedAt).TotalSeconds > HELI_SEARCH_TIMEOUT_SECONDS)
+						{
+							npc.AircraftPhase = "flying";
+							npc.PhaseStartedAt = now;
+							npc.IsPoliceHeli = false;
+							npc.IsSearching = false;
+							npc.TargetUserId = 0;
+							npc.SearchStartedAt = null;
+							GetRandomAeroportOrDistantPoint(npc.X, npc.Z, out float tx, out float tz, rng);
+							npc.TargetX = tx;
+							npc.TargetZ = tz;
 						}
 					}
 					break;
@@ -2842,6 +3090,83 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 					break;
+			}
+		}
+		// Dispatches a pursuit helicopter when the player has broken ground pursuit
+		// while still wanted. The heli sweeps the last known sighting from above and
+		// can re-spot the player (and radio the live position to ground units).
+		private static void MaybeDispatchSearchHelicopter(int userId, int worldId, DateTime now)
+		{
+			if (!_playerWantedLevels.TryGetValue(userId, out var wanted) || wanted <= 0) return;
+			if (!_worldNpcs.TryGetValue(worldId, out var npcs)) return;
+			// A search heli is already on station for this user (only a live one —
+			// a shot-down heli must not block re-dispatch).
+			foreach (var kv in npcs)
+			{
+				if (kv.Value.Type == "helicopter" && kv.Value.IsPoliceHeli && kv.Value.TargetUserId == userId &&
+					kv.Value.DeadAt == null && kv.Value.Health > 0) return;
+			}
+			// Respect the re-dispatch cooldown so a long hideout doesn't get a fresh
+			// heli every poll after the previous one stands down.
+			if (_lastHeliDispatch.TryGetValue(userId, out var lastDispatch) &&
+				(now - lastDispatch).TotalSeconds < HELI_DISPATCH_COOLDOWN_SECONDS) return;
+			_lastHeliDispatch[userId] = now;
+			// Search the last known sighting, never the live position — no telepathic
+			// spawns on the hideout.
+			float sx, sz;
+			if (!_playerX.TryGetValue(userId, out var px) || !_playerZ.TryGetValue(userId, out var pz)) return;
+			sx = px; sz = pz;
+			if (_playerLastKnown.TryGetValue(userId, out var lk))
+			{
+				long nowMs = ((DateTimeOffset)now).ToUnixTimeMilliseconds();
+				if (nowMs - lk.AtMs < COP_LAST_KNOWN_MAX_AGE_SECONDS * 1000) { sx = lk.X; sz = lk.Z; }
+			}
+			var rng = new Random();
+			float ang = (float)(rng.NextDouble() * Math.PI * 2.0);
+			float hx = sx + (float)Math.Cos(ang) * HELI_DISPATCH_DISTANCE;
+			float hz = sz + (float)Math.Sin(ang) * HELI_DISPATCH_DISTANCE;
+			long id = GetNextNpcId();
+			npcs[id] = new NpcState
+			{
+				Id = id,
+				Type = "helicopter",
+				X = hx,
+				Y = 35f,
+				Z = hz,
+				TargetX = sx,
+				TargetZ = sz,
+				Yaw = (float)Math.Atan2(sx - hx, sz - hz),
+				Speed = 12f,
+				Health = 300,
+				MaxHealth = 300,
+				Cr = 0.35f,
+				Cg = 0.4f,
+				Cb = 0.55f,
+				AircraftPhase = "search",
+				PhaseStartedAt = now,
+				TargetUserId = userId,
+				IsPoliceHeli = true,
+				IsSearching = true,
+				SearchStep = 0,
+				LastKnownX = sx,
+				LastKnownZ = sz
+			};
+		}
+		// Releases any search heli sweeping for a user (e.g. heat fully cleared),
+		// so it returns to normal flight and flies off instead of hovering forever.
+		private static void ReleaseSearchHelicopters(int userId, int worldId)
+		{
+			if (!_worldNpcs.TryGetValue(worldId, out var npcs)) return;
+			foreach (var kv in npcs)
+			{
+				var h = kv.Value;
+				if (h.Type != "helicopter" || !h.IsPoliceHeli || h.TargetUserId != userId) continue;
+				h.AircraftPhase = "flying";
+				h.PhaseStartedAt = DateTime.UtcNow;
+				h.IsPoliceHeli = false;
+				h.IsSearching = false;
+				h.TargetUserId = 0;
+				h.SearchStartedAt = null;
 			}
 		}
 		private void GetRandomAeroportOrDistantPoint(float px, float pz, out float x, out float z, Random rng)
@@ -3278,8 +3603,7 @@ namespace maxhanna.Server.Controllers
 		}
 	}
 	public class GrandTheftSaveRequest { public int UserId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } public int Score { get; set; } }
-	public class GrandTheftScoreRequest { public int UserId { get; set; } public int Score { get; set; } }
-	public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string? ModelUrl { get; set; } public int Money { get; set; } = 0; public bool IsInCar { get; set; } public string? VehicleType { get; set; } public float CarColorR { get; set; } = 1f; public float CarColorG { get; set; } = 1f; public float CarColorB { get; set; } = 1f; public int PassengerOfUserId { get; set; } = 0; public string? ChatMessage { get; set; } public bool Respawned { get; set; } public bool[]? OwnedWeapons { get; set; } public int[]? Ammo { get; set; } }
+	public class GrandTheftScoreRequest { public int UserId { get; set; } public int Score { get; set; } }		public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string? ModelUrl { get; set; } public int Money { get; set; } = 0; public bool IsInCar { get; set; } public string? VehicleType { get; set; } public float CarColorR { get; set; } = 1f; public float CarColorG { get; set; } = 1f; public float CarColorB { get; set; } = 1f; public int PassengerOfUserId { get; set; } = 0; public string? ChatMessage { get; set; } public bool Respawned { get; set; } public bool[]? OwnedWeapons { get; set; } public int[]? Ammo { get; set; } public int WantedLevel { get; set; } = 0; }
 	public class GTShootRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public int Weapon { get; set; } = 0; public float OriginX { get; set; } public float OriginY { get; set; } public float OriginZ { get; set; } public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } }
 	public class GTHitRequest { public int AttackerId { get; set; } public long TargetId { get; set; } public int WorldId { get; set; } = 1; public int Damage { get; set; } = 10; public int Weapon { get; set; } = -1; public float AttackerX { get; set; } public float AttackerZ { get; set; } public bool NpcKill { get; set; } = false; }
 	public class GTRobberyRequest { public int UserId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } }
