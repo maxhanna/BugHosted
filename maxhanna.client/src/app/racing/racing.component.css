@@ -3012,7 +3012,6 @@
   overflow: hidden;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.25s linear;
 }
 .speed-lines.speed-lines-off {
   opacity: 0 !important;
