@@ -1279,6 +1279,31 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   cleanStoryText(text: string) {
     return text?.replace(/\[\/?[^]\]/g, '')?.replace(/https?:\/\/[^\s]+/g, '');
   }
+  /** Cached <meta> element references + last-written content, so meta updates
+   *  never re-run the Meta service's querySelector per tag. Each unique
+   *  selector is resolved once and written to directly afterwards; unchanged
+   *  values skip the DOM write entirely (replacePageTitleAndDescription is
+   *  called on navigations too). */
+  private _metaEls = new Map<string, HTMLMetaElement>();
+  private _metaLast = new Map<string, string>();
+  private setMeta(selector: string, content: string) {
+    if (this._metaLast.get(selector) === content) return;
+    let el = this._metaEls.get(selector);
+    if (!el) {
+      el = this.meta.getTag(selector) ?? undefined;
+      if (!el) {
+        const attr = selector.startsWith('name=') ? 'name' : selector.startsWith('property=') ? 'property' : 'itemprop';
+        const val = selector.replace(/^(name|property|itemprop)=\s*["']?|["']?\s*$/g, '');
+        const created = document.createElement('meta');
+        created.setAttribute(attr, val);
+        document.head.appendChild(created);
+        el = created as HTMLMetaElement;
+      }
+      this._metaEls.set(selector, el);
+    }
+    el.setAttribute('content', content);
+    this._metaLast.set(selector, content);
+  }
   replacePageTitleAndDescription(title: string, description: string, image?: string) {
     let tmpTitle = title;
     let tmpDescription = description;
@@ -1294,44 +1319,44 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     this.title.setTitle(tmpTitle);
 
     // Update the description meta tag
-    this.meta.updateTag({ name: 'description', content: tmpDescription ?? tmpTitle });
+    this.setMeta('name="description"', tmpDescription ?? tmpTitle);
 
     // Open Graph (Facebook) Meta Tags
-    this.meta.updateTag({ property: 'og:title', content: tmpTitle });
-    this.meta.updateTag({ property: 'og:description', content: tmpDescription ?? tmpTitle });
+    this.setMeta('property="og:title"', tmpTitle);
+    this.setMeta('property="og:description"', tmpDescription ?? tmpTitle);
 
     if (fileIsVideo) {
       // Video meta tags for Open Graph
-      this.meta.updateTag({ property: 'og:type', content: 'video.other' });
-      this.meta.updateTag({ property: 'og:video', content: tmpImage });
-      this.meta.updateTag({ property: 'og:video:type', content: `video/${tmpImageExtension}` });
+      this.setMeta('property="og:type"', 'video.other');
+      this.setMeta('property="og:video"', tmpImage);
+      this.setMeta('property="og:video:type"', `video/${tmpImageExtension}`);
     } else {
       // Image meta tags for Open Graph
-      this.meta.updateTag({ property: 'og:image', content: tmpImage });
-      this.meta.updateTag({ property: 'og:image:secure_url', content: tmpImage });
-      this.meta.updateTag({ property: 'og:image:type', content: `image/${tmpImageExtension}` });
+      this.setMeta('property="og:image"', tmpImage);
+      this.setMeta('property="og:image:secure_url"', tmpImage);
+      this.setMeta('property="og:image:type"', `image/${tmpImageExtension}`);
     }
 
     // Twitter Meta Tags
-    this.meta.updateTag({ name: 'twitter:title', content: tmpTitle });
-    this.meta.updateTag({ name: 'twitter:description', content: tmpDescription ?? tmpTitle });
-    this.meta.updateTag({ name: 'twitter:image', content: tmpImage });
-    this.meta.updateTag({ name: 'twitter:card', content: 'summary_large_image' });
+    this.setMeta('name="twitter:title"', tmpTitle);
+    this.setMeta('name="twitter:description"', tmpDescription ?? tmpTitle);
+    this.setMeta('name="twitter:image"', tmpImage);
+    this.setMeta('name="twitter:card"', 'summary_large_image');
 
     // Google+ Meta Tags (deprecated, but some systems may still check)
-    this.meta.updateTag({ itemprop: 'name', content: tmpTitle });
-    this.meta.updateTag({ itemprop: 'description', content: tmpDescription ?? tmpTitle });
-    this.meta.updateTag({ itemprop: 'image', content: tmpImage });
+    this.setMeta('itemprop="name"', tmpTitle);
+    this.setMeta('itemprop="description"', tmpDescription ?? tmpTitle);
+    this.setMeta('itemprop="image"', tmpImage);
 
     // LinkedIn Meta Tags
-    this.meta.updateTag({ property: 'og:title', content: tmpTitle });
-    this.meta.updateTag({ property: 'og:description', content: tmpDescription ?? tmpTitle });
-    this.meta.updateTag({ property: 'og:image', content: tmpImage });
+    this.setMeta('property="og:title"', tmpTitle);
+    this.setMeta('property="og:description"', tmpDescription ?? tmpTitle);
+    this.setMeta('property="og:image"', tmpImage);
 
     // Schema.org (for SEO purposes)
-    this.meta.updateTag({ itemprop: 'name', content: tmpTitle });
-    this.meta.updateTag({ itemprop: 'description', content: tmpDescription ?? tmpTitle });
-    this.meta.updateTag({ itemprop: 'image', content: tmpImage });
+    this.setMeta('itemprop="name"', tmpTitle);
+    this.setMeta('itemprop="description"', tmpDescription ?? tmpTitle);
+    this.setMeta('itemprop="image"', tmpImage);
 
     return {
       title: tmpTitle,
@@ -1427,6 +1452,12 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     return this.sanitizer.bypassSecurityTrustHtml(text);
   }
 
+  /** Interactive poll state saved when processPolls renders an un-voted poll,
+   *  keyed by componentId: the regenerable interactive HTML (so 'Back to
+   *  voting' can restore it without re-parsing raw text) and the current
+   *  result signature (so the chat poll tick doesn't instantly overwrite the
+   *  restored view). 'View results' peeks at tallies without voting. */
+  private _pollVoteData = new Map<string, { interactiveHtml: string; signature: string; viewingResults?: boolean }>();
   private processPolls(text: string, component_id: any): string {
     const pollRegex = /\[Poll\](.*?)\[\/Poll\]/gs;
     const normalizeComponentId = (comp: any) => {
@@ -1501,7 +1532,20 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         }
       });
 
-      pollHtml += `</div></div>`;
+      pollHtml += `</div>`;
+      if (!hasVoted) {
+        // 'View results' lets a user peek at tallies without voting (and the
+        // results view offers 'Back to voting', so the poll never freezes).
+        // The parsed question/options are stashed so the interactive view can
+        // be restored exactly without re-parsing raw text.
+        const safeQ = this.htmlEncodeForInput(question);
+        pollHtml += `<div class="poll-controls"><button type="button" class="poll-view-results" onclick="document.getElementById('pollComponentId').value='${normalizedComponentId}';document.getElementById('pollQuestion').value='${safeQ}';document.getElementById('pollViewResultsButton').click()">View results</button></div>`;
+        this._pollVoteData.set(normalizedComponentId, {
+          interactiveHtml: pollHtml + '</div>',
+          signature: '',
+        });
+      }
+      pollHtml += `</div>`;
 
       return pollHtml.replace(/\n/g, '');
     });
@@ -1940,6 +1984,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           };
           this.renderPollIntoElement(targetId, mapped, { includeVoters: true, includeDelete: true, safeQuestion: pollQuestion || '' });
         }
+        // A vote resolves the peek — clear the viewing flag so the chat tick
+        // resumes updating this poll normally.
+        const vPrev = this._pollVoteData.get(targetId);
+        if (vPrev) this._pollVoteData.set(targetId, { interactiveHtml: vPrev.interactiveHtml, signature: vPrev.signature });
         this.changeDetectorRef.detectChanges();
       } catch (error) {
         console.error("Error updating poll:", error);
@@ -1967,6 +2015,70 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         this.isPollLoading = false;
       }
     }, 100);
+  }
+
+  // 'View results' — peek at a poll's tallies WITHOUT voting. Fetches the
+  // live results and renders them in place with a 'Back to voting' button,
+  // so the interactive poll is never frozen by an unrelated vote. The chat
+  // poll tick is told to leave this poll alone (viewing flag) until the user
+  // votes or goes back.
+  async handlePollViewResultsClicked() {
+    if (this.isPollLoading) return;
+    this.isPollLoading = true;
+    const componentId = (document.getElementById("pollComponentId") as HTMLInputElement)?.value ?? '';
+    const question = (document.getElementById("pollQuestion") as HTMLInputElement)?.value ?? '';
+    try {
+      const res = await this.pollService.getResults(componentId);
+      if (!componentId || !res) return;
+      this.pollResults = res;
+      this.pollQuestion = question;
+      const total = res.totalVoters ?? res.totalVotes ?? 0;
+      const mapped = {
+        componentId,
+        question: question || '',
+        options: (res.options ?? []).map((o: any) => {
+          const voteCount = o.voteCount ?? o.VoteCount ?? 0;
+          return {
+            id: o.id ?? o.value ?? o.Value ?? '',
+            text: o.text ?? o.value ?? o.Value ?? '',
+            voteCount,
+            percentage: o.percentage ?? (total > 0 ? Math.round((voteCount / total) * 100) : 0),
+          };
+        }),
+        userVotes: res.userVotes ?? [],
+        totalVotes: total,
+      };
+      // Remember we're peeking so the chat tick leaves this poll alone.
+      const prev = this._pollVoteData.get(componentId);
+      this._pollVoteData.set(componentId, { interactiveHtml: prev?.interactiveHtml ?? '', signature: prev?.signature ?? '', viewingResults: true });
+      this.renderPollIntoElement(componentId, mapped, { includeVoters: true, backToVoting: true, safeQuestion: question || '' });
+    } catch (e) {
+      console.error('Error viewing poll results', e);
+    } finally {
+      this.isPollLoading = false;
+    }
+  }
+
+  /** True while a poll is being peeked at via 'View results' (user hasn't
+   *  voted yet). The chat poll tick skips re-rendering these so the peeked
+   *  results aren't instantly replaced by the interactive view. */
+  isPollViewingResults(componentId: string): boolean {
+    return !!this._pollVoteData.get(componentId)?.viewingResults;
+  }
+
+  // 'Back to voting' — restore the interactive options of a poll whose results
+  // were peeked at (or after voting), clearing the peek flag so the chat tick
+  // resumes updating the poll normally.
+  handlePollBackToVoting() {
+    const componentId = (document.getElementById("pollComponentId") as HTMLInputElement)?.value ?? '';
+    const saved = this._pollVoteData.get(componentId);
+    if (saved?.interactiveHtml) {
+      const container = this.getPollRenderTarget(componentId);
+      if (container) this.setPollContainerHtml(container, saved.interactiveHtml);
+    }
+    const prev = this._pollVoteData.get(componentId);
+    if (prev) this._pollVoteData.set(componentId, { interactiveHtml: prev.interactiveHtml, signature: prev.signature });
+    this.pollResults = null;
   }
 
   // Close the poll popup and replace the original poll in the DOM with a completed-render version
@@ -2062,7 +2174,18 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       }
     });
 
-    html += `</div><div class="poll-total">Total Votes: ${total}</div></div>`;
+    html += `</div>`;
+    if (!userHasVoted) {
+      // Same 'View results' affordance as processPolls — peek at tallies
+      // without voting; the interactive HTML is saved so it can be restored.
+      const safeQ = this.htmlEncodeForInput(question);
+      html += `<div class="poll-controls"><button type="button" class="poll-view-results" onclick="document.getElementById('pollComponentId').value='${componentId}';document.getElementById('pollQuestion').value='${safeQ}';document.getElementById('pollViewResultsButton').click()">View results</button></div>`;
+      this._pollVoteData.set(componentId, {
+        interactiveHtml: html + '</div>',
+        signature: '',
+      });
+    }
+    html += `<div class="poll-total">Total Votes: ${total}</div></div>`;
     return html;
   }
 
@@ -2113,7 +2236,14 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
             const uname = v.username || v.Username || (v.user && v.user.username) || '';
             if (!uname) continue;
             const safeName = ('' + uname).replace(/'/g, "");
-            voters.push(`<span class=\"userMentionSpan\" onClick=\"document.getElementById('userMentionInput').value='${safeName}';document.getElementById('userMentionButton').click()\">@${safeName}</span>`);
+            // Avatar chip when /Poll/Results returned a display picture — the
+            // path is '{folder}/{filename}' and is served from the uploads root
+            // (same direct-link format used across the app).
+            const dp = v.displayPicture || v.DisplayPicture || (v.user && (v.user.displayPicture || v.user.DisplayPicture)) || '';
+            const avatar = dp
+              ? `<img class=\"poll-voter-avatar\" src=\"https://bughosted.com/assets/Uploads/${encodeURIComponent(dp)}\" alt=\"\" loading=\"lazy\">`
+              : '';
+            voters.push(`<span class=\"poll-voter\">${avatar}<span class=\"userMentionSpan\" onClick=\"document.getElementById('userMentionInput').value='${safeName}';document.getElementById('userMentionButton').click()\">@${safeName}</span></span>`);
           } catch { continue; }
         }
         votersHtml += voters.join(' ') + `</div>`;
@@ -2124,6 +2254,12 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       if (options?.includeDelete) {
         const safeQuestion = options?.safeQuestion ?? '';
         container.insertAdjacentHTML('beforeend', `<div class="pollControls"><button onclick="document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${componentId}';document.getElementById('pollDeleteButton').click();">Delete vote</button></div>`);
+      }
+      // Append 'Back to voting' when the results were peeked at without voting
+      // (or right after voting), so the poll never freezes on the results.
+      if (options?.backToVoting) {
+        const safeQuestion = options?.safeQuestion ?? '';
+        container.insertAdjacentHTML('beforeend', `<div class="poll-controls"><button type="button" class="poll-back-to-voting" onclick="document.getElementById('pollQuestion').value='${safeQuestion}';document.getElementById('pollComponentId').value='${componentId}';document.getElementById('pollBackToVotingButton').click()">Back to voting</button></div>`);
       }
     } catch (err) {
       console.error('Error in renderPollIntoElement', err);

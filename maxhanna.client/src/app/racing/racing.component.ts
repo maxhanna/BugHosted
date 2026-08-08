@@ -1591,10 +1591,18 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         return;
       }
       const aspect = this.canvasRef.nativeElement.width / this.canvasRef.nativeElement.height;
-      const eyeY = 0.5;
       const eyeX = this.carX;
       const eyeZ = this.carZ;
-      const pitch = -0.05 + (this.carSpeed / this.getMaxSpeed()) * 0.03;
+      // Camera rides the terrain: eye height = road elevation + 0.5, and the
+      // pitch noses up/down with the grade so climbs and descents read live.
+      const pElev = this.renderer.getTrackElevation(this.carDist);
+      const pBank = this.renderer.getTrackBank(this.carDist);
+      const pLat = this.renderer.getTrackLateralInfo(this.carX, this.carZ).lateral;
+      const grade = this.renderer.getTrackGrade(this.carDist);
+      // Camera rides the bank too: on a banked corner it sits up/down with the
+      // lateral tilt so the world reads as tilted, not the car.
+      const eyeY = pElev + pBank * pLat + 0.5;
+      const pitch = -0.05 + (this.carSpeed / this.getMaxSpeed()) * 0.03 + grade * 0.06;
       const yaw = this.carYaw;
       const speedRatio = Math.abs(this.carSpeed) / this.getMaxSpeed();
       const fovZoom = this.speedFovOn ? 1.0 - speedRatio * 0.15 : 1.0;
@@ -1610,9 +1618,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         const spin = (this._botSpins.get(b) ?? 0) + wheelRate(b.speed) * dt;
         this._botSpins.set(b, spin);
         const botAccel = b.brakeCommitment !== undefined ? -b.brakeCommitment : accelFor(b, prev);
+        const bBank = this.renderer.getTrackBank(b.dist);
         return {
-          x: b.x, y: 0.1, z: b.z, yaw: b.yaw, r: c[0], g: c[1], b: c[2], speed: b.speed, accel: botAccel, spin, slide: b.slide,
-          id: b.id, 
+          x: b.x, y: this.renderer.getTrackElevation(b.dist) + bBank * this.renderer.getTrackLateralInfo(b.x, b.z).lateral + 0.1, z: b.z, yaw: b.yaw, r: c[0], g: c[1], b: c[2], speed: b.speed, accel: botAccel, spin, slide: b.slide,
+          id: b.id, bank: bBank,
           ...this.botAppearanceFor(i, b.color)
         };
       });
@@ -1623,20 +1632,22 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         this._remoteSpins.set(rc.connectionId, spin);
         const seed = rc.connectionId.split('').reduce((a, ch) => a + ch.charCodeAt(0), 0);
         const i = seed % 1000;
+        const rcDist = rc.lap * this.renderer.totalTrackDist + (rc.distance ?? 0);
+        const rcBank = this.renderer.getTrackBank(rcDist);
         carList.push({
-          x: rc.x, y: 0.1, z: rc.z,
+          x: rc.x, y: this.renderer.getTrackElevation(rcDist) + rcBank * this.renderer.getTrackLateralInfo(rc.x, rc.z).lateral + 0.1, z: rc.z,
           yaw: rc.yaw,
           r: rc.colorR, g: rc.colorG, b: rc.colorB,
           speed: rc.speed,
           accel: accelFor(rc, prev),
           spin,
           slide: rc.slide,
-          id: 'r' + rc.connectionId, 
+          id: 'r' + rc.connectionId, bank: rcBank,
           ...this.botAppearanceFor(i, seed)
         });
       });
       this._playerSpin += wheelRate(this.carSpeed) * dt;
-      this.renderer.render(eyeX, eyeY, eyeZ, yaw, pitch, aspect, carList, dt, fovZoom, shakeX, shakeY, this.isRaining, speedRatio, this.carSpeed, this.carAccel, this._playerSpin, this._playerSlide, this.getPlayerAppearance());
+      this.renderer.render(eyeX, eyeY, eyeZ, yaw, pitch, aspect, carList, dt, fovZoom, shakeX, shakeY, this.isRaining, speedRatio, this.carSpeed, this.carAccel, this._playerSpin, this._playerSlide, this.getPlayerAppearance(), false, this.steerSmoothed / 90);
       this.hudSpeed = Math.abs(this.carSpeed * 3.6);
       this.hudRPM = Math.min(1, Math.abs(this.carSpeed) / this.getMaxSpeed() * 1.1);
       this.hudBrakeHeat = this.renderer?.getPlayerBrakeHeat() ?? 0;
@@ -1710,8 +1721,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const maxSpeed = this.getMaxSpeed();
     const grip = 0.85 + this.getGripBonus() / 100;
     // Downforce (spoiler) adds to cornering grip the same way suspension does,
-    // so a taller/multi-element wing measurably improves handling.
-    const corner = 0.8 + (this.getCornerBonus() + this.getDownforceBonus()) / 100;
+    // so a taller/multi-element wing measurably improves handling. Banked
+    // corners give a free lateral-support bonus, so fast sweepers genuinely
+    // reward holding the racing line like Monza.
+    const corner = 0.8 + (this.getCornerBonus() + this.getDownforceBonus()) / 100
+      + Math.abs(this.renderer?.getTrackBank(this.carDist) ?? 0) * 0.7;
     const brakeUpgrade = 1 + this.getBrakeBonus() / 100;
     let heatFade = 1;
     const discHeat = this.renderer?.getPlayerBrakeHeat() ?? 0;
@@ -1945,8 +1959,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.isOffTrack = false;
       this.offTrackTimer = 0;
     }
-    // Japan touge: gentle gravity assist while dropping into the valley, mild
-    // drag while climbing back out — makes the downhill pass actually feel it.
+    // Terrain grade: gentle gravity assist on descents, mild drag on climbs —
+    // every circuit's elevation profile now physically pulls or holds the car.
     const grade = this.renderer?.getTrackGrade(trackDist) ?? 0;
     if (grade !== 0) this.carSpeed += grade * 1.3 * dt;
     this.carDist = trackDist;
@@ -2060,8 +2074,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       const cornerSlow = Math.max(0.4, 1 - cornerSharpness * 0.8);
       const rimSlow = rimBumping ? 0.62 : 1;
       const crashSlow = crashing ? 0.35 : 1;
-      // Bots ride the same downhill/uphill grade as the player so the touge
-      // stays fair — they gain on the drop and lose a touch on the climb.
+      // Bots ride the same downhill/uphill grade as the player so hilly
+      // circuits stay fair — they gain on the drop and lose a touch on the climb.
       const grade = this.renderer?.getTrackGrade(bot.dist) ?? 0;
       const targetSpeed = maxBotSpeed * cornerSlow * defensiveBrake * (1 - bot.config.mistakeChance * 0.3) * rimSlow * crashSlow * hitSlow * (1 + grade * 0.06);
       if (bot.mistakeTimer > 0) {
@@ -3384,6 +3398,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         : c);
     }
     const pdist = lerp(a.pdist, b.pdist);
+    // Replay cameras and cars ride the same terrain as the live race.
+    const pElev = this.renderer.getTrackElevation(pdist);
     const pa = this.getPlayerAppearance();
     const skin = pa.skin ?? [0.85, 0.06, 0.06];
     grid.set('replay-player', { x: px, z: pz, yaw: pyaw, speed: pspd, accel: pacc, slide: pslid, id: 'replay-player', r: skin[0], g: skin[1], b: skin[2], dist: pdist, name: this.myLobbyName });
@@ -3395,6 +3411,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const leader = grid.get(leadId);
     const lx = leader ? leader.x : px;
     const lz = leader ? leader.z : pz;
+    const lElev = this.renderer.getTrackElevation(leadDist);
     this.replayLeadName = leader && leader.name ? leader.name : this.myLobbyName;
     const camIdx = Math.floor(this._replayTime / RacingComponent.REPLAY_CAM_MS) % 4;
     this.replayCam = camIdx;
@@ -3407,41 +3424,41 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       const bob = Math.sin(this._replayTime * 0.0031) * 0.22;
       eyeX = px - fwdX * 7.5 + sideX * (2.4 + sway);
       eyeZ = pz - fwdZ * 7.5 + sideZ * (2.4 + sway);
-      eyeY = 1.55 + bob + Math.abs(pspd) * 0.012;
+      eyeY = pElev + 1.55 + bob + Math.abs(pspd) * 0.012;
       const tx = px + fwdX * 5, tz = pz + fwdZ * 5;
       camYaw = Math.atan2(tx - eyeX, tz - eyeZ);
-      camPitch = Math.atan2(eyeY - 0.85, Math.hypot(tx - eyeX, tz - eyeZ));
+      camPitch = Math.atan2(eyeY - (pElev + 0.85), Math.hypot(tx - eyeX, tz - eyeZ));
     } else if (camIdx === 2) {
       const ang = this._replayTime * 0.00022;
       eyeX = px + Math.cos(ang) * 13;
       eyeZ = pz + Math.sin(ang) * 13;
-      eyeY = 15 + Math.sin(this._replayTime * 0.0004) * 2;
+      eyeY = pElev + 15 + Math.sin(this._replayTime * 0.0004) * 2;
       const toX = px - eyeX, toZ = pz - eyeZ;
       camYaw = Math.atan2(toX, toZ);
-      camPitch = Math.atan2(eyeY - 0.6, Math.hypot(toX, toZ));
+      camPitch = Math.atan2(eyeY - (pElev + 0.6), Math.hypot(toX, toZ));
     } else if (camIdx === 3) {
       const orbit = this._replayTime * 0.00045;
       const r = 10.5;
       eyeX = lx + Math.cos(orbit) * r;
       eyeZ = lz + Math.sin(orbit) * r;
-      eyeY = 4.2 + Math.sin(this._replayTime * 0.0006) * 0.9;
+      eyeY = lElev + 4.2 + Math.sin(this._replayTime * 0.0006) * 0.9;
       const toX = lx - eyeX;
       const toZ = lz - eyeZ;
       camYaw = Math.atan2(toX, toZ);
-      camPitch = Math.atan2(eyeY - 0.6, Math.hypot(toX, toZ));
+      camPitch = Math.atan2(eyeY - (lElev + 0.6), Math.hypot(toX, toZ));
     } else {
       const orbit = this._replayTime * 0.00045;
       const r = 8.2;
       eyeX = px + Math.cos(orbit) * r;
       eyeZ = pz + Math.sin(orbit) * r;
-      eyeY = 3.0 + Math.sin(this._replayTime * 0.0006) * 0.8;
+      eyeY = pElev + 3.0 + Math.sin(this._replayTime * 0.0006) * 0.8;
       const toX = px - eyeX;
       const toZ = pz - eyeZ;
       camYaw = Math.atan2(toX, toZ);
-      camPitch = Math.atan2(eyeY - 0.6, Math.hypot(toX, toZ));
+      camPitch = Math.atan2(eyeY - (pElev + 0.6), Math.hypot(toX, toZ));
     }
     const wheelRate = (spd: number) => Math.min(Math.abs(spd) / 0.17, 40) * (spd < 0 ? 1 : -1);
-    const carList: (RacingCarAppearance & { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed: number; accel: number; spin: number; slide: number; id: string })[] = [];
+    const carList: (RacingCarAppearance & { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed: number; accel: number; spin: number; slide: number; id: string; bank?: number })[] = [];
     grid.forEach((c, id) => {
       const spin = (this._replaySpins.get(id) ?? 0) + wheelRate(c.speed) * dt * timeDir;
       this._replaySpins.set(id, spin);
@@ -3454,9 +3471,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       // Use the livery captured from the live race so bots/remotes keep their exact
       // look; fall back to the seeded formula only if an appearance wasn't recorded.
       const recordedApp = this._replayAppearances.get(id);
+      const rBank = this.renderer.getTrackBank(c.dist);
       carList.push({
-        x: c.x, y: 0.1, z: c.z, yaw: c.yaw, r: c.r, g: c.g, b: c.b,
-        speed: c.speed, accel: c.accel, spin, slide: c.slide, id: c.id,
+        x: c.x, y: this.renderer.getTrackElevation(c.dist) + rBank * this.renderer.getTrackLateralInfo(c.x, c.z).lateral + 0.1, z: c.z, yaw: c.yaw, r: c.r, g: c.g, b: c.b,
+        speed: c.speed, accel: c.accel, spin, slide: c.slide, id: c.id, bank: rBank,
         ...(isPlayerCar ? pa : (recordedApp ?? this.botAppearanceFor(seed % 1000, seed)))
       });
     });

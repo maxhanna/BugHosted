@@ -856,6 +856,59 @@ fieldset {
   cursor: pointer;
 }
 
+.poll-controls {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  width: 100%;
+  margin: 4px 0 10px;
+}
+
+.poll-controls .poll-view-results,
+.poll-controls .poll-back-to-voting {
+  padding: 4px 14px;
+  background-color: var(--component-background-color);
+  border: var(--main-border);
+  color: var(--main-font-color);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0.85;
+  transition: opacity 0.2s;
+}
+
+.poll-controls .poll-view-results:hover,
+.poll-controls .poll-back-to-voting:hover {
+  opacity: 1;
+}
+
+.poll-voters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin: 2px 0 10px;
+  font-size: 12px;
+  color: var(--secondary-font-color);
+}
+
+.poll-voter {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.poll-voter-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  flex: 0 0 auto;
+}
+
 .poll-stats {
   position: relative;
   font-size: 12px;

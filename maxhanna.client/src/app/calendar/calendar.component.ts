@@ -374,7 +374,9 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     try {
       const from = new Date(Date.UTC(this.now.getUTCFullYear(), this.now.getUTCMonth(), 1, 0, 0, 0, 0));
       const to = new Date(Date.UTC(this.now.getUTCFullYear(), this.now.getUTCMonth() + 1, 0, 0, 0, 0, 0));
-      this.calendarEntries = await this.calendarService.getCalendarEntries(this.parentRef?.user?.id, from, to);
+      // Null-coalesce: a failed/skipped fetch returns null from the service and
+      // setCalendarDates() calls calendarEntries.forEach — that would throw.
+      this.calendarEntries = (await this.calendarService.getCalendarEntries(this.parentRef?.user?.id, from, to)) ?? [];
     } catch (error) {
       const msg = this.formatError(error);
       console.error("Error fetching calendar entries:", msg);
@@ -509,9 +511,15 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   // Human timezone label for a calendar date, e.g. 'UTC+2', 'UTC-5',
   // 'UTC+5:30' or 'UTC' at zero offset. Computed for THAT date (not today) so
   // DST transitions don't label an event with the current offset.
-  tzOffsetLabel(date?: Date): string {
+  // NOTE: server dates arrive as ISO strings (raw response.json()), so this
+  // must normalize before calling any Date method — it runs inside the edit
+  // panel's template, where a throw would abort change detection and leave the
+  // note/type inputs empty (the time input rendered, everything after failed).
+  tzOffsetLabel(date?: Date | string): string {
     if (!date) return '';
-    const m = -date.getTimezoneOffset();
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return '';
+    const m = -d.getTimezoneOffset();
     if (m === 0) return 'UTC';
     const sign = m > 0 ? '+' : '-';
     const abs = Math.abs(m);

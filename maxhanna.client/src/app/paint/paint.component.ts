@@ -716,7 +716,15 @@ export class PaintComponent extends ChildComponent {
   }
 
   toggleMenuPanel() {
-    this.showMenuPanel = !this.showMenuPanel;
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(async () => {
+      this.showMenuPanel = !this.showMenuPanel;
+      if (this.showMenuPanel) {
+        this.parentRef?.showOverlay();
+      } else {
+        this.parentRef?.closeOverlay();
+      }
+    }, 50); 
   }
 
   applySize(w: string, h: string) {

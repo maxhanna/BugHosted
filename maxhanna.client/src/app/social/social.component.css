@@ -308,6 +308,9 @@
 singleAttachment {
   max-width: calc(100% - 20px);
   max-height: 525px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
 }
 
 .multipleAttachments {
@@ -553,7 +556,7 @@ singleAttachment {
   margin-top: 5px;
   margin-bottom: 5px;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: baseline;
   justify-content: center;
 }
 

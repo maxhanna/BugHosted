@@ -637,6 +637,12 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           .join(',');
         const signature = `${p.componentId}|${optionTallies}|${p.userVotes?.length ?? 0}|${p.question ?? ''}`;
         if (this._pollRenderSignatures.get(p.componentId) === signature) continue;
+        // If the user is peeking at this poll's results without voting ('View
+        // results'), leave the peeked view alone until they vote or go back.
+        if (this.parentRef && typeof this.parentRef.isPollViewingResults === 'function' && this.parentRef.isPollViewingResults(p.componentId)) {
+          this._pollRenderSignatures.set(p.componentId, signature);
+          continue;
+        }
         this._pollRenderSignatures.set(p.componentId, signature);
 
         const tgt = document.getElementById(p.componentId);
