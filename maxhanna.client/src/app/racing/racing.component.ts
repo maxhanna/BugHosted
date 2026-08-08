@@ -280,6 +280,34 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   liveLapTime = 0;
   @ViewChild('steerWheel') steerWheelEl?: ElementRef<HTMLDivElement>;
   @ViewChild('wheelSpeed') wheelSpeedEl?: ElementRef<HTMLDivElement>;
+  @ViewChild('speedLinesEl') speedLinesEl?: ElementRef<HTMLDivElement>;
+  /** Screen-edge speed streaks (one span per entry). Position/rotation are
+   *  static; length, flow speed and opacity are driven per-frame from the
+   *  car's speed AND the track grade (downhill flares, uphill calms). */
+  speedLineDefs: { t: string; l: string; rot: number; delay: number }[] = [
+    { t: '6%', l: '8%', rot: 20, delay: -0.1 },
+    { t: '6%', l: '24%', rot: 10, delay: -0.5 },
+    { t: '7%', l: '40%', rot: 4, delay: -0.9 },
+    { t: '8%', l: '56%', rot: -4, delay: -0.3 },
+    { t: '7%', l: '72%', rot: -12, delay: -0.7 },
+    { t: '6%', l: '86%', rot: -20, delay: -0.2 },
+    { t: '92%', l: '6%', rot: -20, delay: -0.6 },
+    { t: '93%', l: '22%', rot: -10, delay: -0.4 },
+    { t: '92%', l: '38%', rot: -4, delay: -0.8 },
+    { t: '93%', l: '54%', rot: 4, delay: -0.1 },
+    { t: '92%', l: '70%', rot: 10, delay: -0.5 },
+    { t: '93%', l: '86%', rot: 18, delay: -0.9 },
+    { t: '16%', l: '3%', rot: 82, delay: -0.2 },
+    { t: '32%', l: '3%', rot: 88, delay: -0.7 },
+    { t: '50%', l: '4%', rot: 92, delay: -0.3 },
+    { t: '66%', l: '3%', rot: 86, delay: -0.8 },
+    { t: '82%', l: '3%', rot: 80, delay: -0.4 },
+    { t: '16%', l: '94%', rot: -85, delay: -0.5 },
+    { t: '32%', l: '95%', rot: -90, delay: -0.1 },
+    { t: '48%', l: '95%', rot: -92, delay: -0.6 },
+    { t: '64%', l: '95%', rot: -88, delay: -0.2 },
+    { t: '80%', l: '95%', rot: -84, delay: -0.7 },
+  ];
   @ViewChild('wheelRpm') wheelRpmEl?: ElementRef<HTMLDivElement>;
   @ViewChild('wheelGear') wheelGearEl?: ElementRef<HTMLDivElement>;
   @ViewChild('brakeFill') brakeFillEl?: ElementRef<HTMLDivElement>;
@@ -1153,11 +1181,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     // Server-authoritative grid: place the player by their slot (least upgraded
     // on pole, most upgraded at the back), then pre-place the other lobby cars
     // on their grid spots so the field is visibly lined up from the flag drop
-    // instead of everyone stacked on the start line.
-    this.placePlayerOnGrid();
+    // instead of everyone stacked on the start line. setTheme regenerates the
+    // circuit geometry, so the grid must be placed against the fresh start line.
     if (this.selectedTrack) {
       this.renderer.setTheme(this.themeForTrack(this.selectedTrack.id));
     }
+    this.placePlayerOnGrid();
     this.spawnBots(4);
     this.totalRacers = this.bots.length + this.lobbyPlayers.length;
     this.preplaceRemotesOnGrid();
@@ -1455,9 +1484,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._mpWinnerCelebrated = false;
     // F1-style grid: the player takes pole (slot 0), bots fill the pairs
     // behind them via spawnBots. Distance tracking starts at 0 on the line.
+    // setTheme regenerates the circuit geometry, so the grid is placed after
+    // it so cars line up on the freshly built start line.
+    this.renderer.setTheme(this.themeForTrack(track.id));
     this.placePlayerOnGrid();
     this.carDist = 0;
-    this.renderer.setTheme(this.themeForTrack(track.id));
     this.spawnBots(4);
     this.totalRacers = 1 + this.bots.length;
     this._countdownInterval = setInterval(() => {
@@ -1605,7 +1636,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       const pitch = -0.05 + (this.carSpeed / this.getMaxSpeed()) * 0.03 + grade * 0.06;
       const yaw = this.carYaw;
       const speedRatio = Math.abs(this.carSpeed) / this.getMaxSpeed();
-      const fovZoom = this.speedFovOn ? 1.0 - speedRatio * 0.15 : 1.0;
+      // FOV rides the grade too: descents open the view up (faster feel),
+      // climbs pull it in — the road itself keeps pitching on top of that.
+      const fovZoom = this.speedFovOn
+        ? Math.max(0.8, Math.min(1.2, 1.0 - speedRatio * 0.15 - grade * 0.12))
+        : 1.0;
       const shakeX = this.cameraShakeOn ? this.screenShake * (Math.random() - 0.5) * 2 : 0;
       const shakeY = this.cameraShakeOn ? this.screenShake * (Math.random() - 0.5) * 2 : 0;
       const accelFor = (obj: { speed: number }, prev: number) =>
@@ -1661,6 +1696,17 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       }
       if (this.wheelSpeedEl?.nativeElement) {
         this.wheelSpeedEl.nativeElement.textContent = Math.round(this.hudSpeed).toString();
+      }
+      if (this.speedLinesEl?.nativeElement) {
+        const slEl = this.speedLinesEl.nativeElement;
+        // Speed streaks fade in above ~30% speed; the grade scales them so a
+        // descent flares harder and an ascent calms them, selling the hill.
+        const slSpeed = Math.max(0, (speedRatio - 0.3) / 0.7);
+        const slGrade = 1 - Math.max(-1, Math.min(1, grade)) * 0.55;
+        slEl.style.opacity = Math.max(0, Math.min(1, slSpeed * slGrade)).toFixed(3);
+        slEl.style.setProperty('--sl-len', (70 + speedRatio * 150) + 'px');
+        slEl.style.setProperty('--sl-dur', (1.1 - speedRatio * 0.75) + 's');
+        slEl.classList.toggle('speed-lines-off', !this.speedFovOn);
       }
       if (this.wheelRpmEl?.nativeElement) {
         const rpm = Math.round(this.hudRPM * 100);
@@ -4113,6 +4159,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       harmMult = 2.3;        // more inharmonic rasp harmonic
       detune = 10;           // more saw-beat crackle
     }
+    // Grade pitch bend: the engine revs freer (brighter, higher) on descents
+    // and strains (duller, lower) on climbs, so hills are audible too, not
+    // just a physics assist. The bright tail note follows partway.
+    const gr = Math.max(-1, Math.min(1, this.renderer?.getTrackGrade(this.carDist) ?? 0));
+    baseFreq *= 1 + gr * 0.8;
+    filterFreq *= 1 + gr * 0.45;
     if (this._subOsc) this._subOsc.frequency.setTargetAtTime(baseFreq * 0.5, t, 0.05);
     if (this._engineOsc) this._engineOsc.frequency.setTargetAtTime(baseFreq, t, 0.05);
     if (this._engineOsc2) {

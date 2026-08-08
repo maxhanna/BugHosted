@@ -364,6 +364,8 @@ export class RacingRenderer {
   private rimTintLoc!: WebGLUniformLocation;
   private rimStrengthLoc!: WebGLUniformLocation;
   private trackVao!: WebGLVertexArrayObject;
+  private trackVbo!: WebGLBuffer;
+  private trackIbo!: WebGLBuffer;
   private trackCount = 0;
   private sceneryVao!: WebGLVertexArrayObject;
   private sceneryVbo!: WebGLBuffer;
@@ -449,8 +451,12 @@ export class RacingRenderer {
   private _exhHeatHeatLoc: WebGLUniformLocation | null = null;
   private _exhHeatInitialized = false;
   private barrierVao!: WebGLVertexArrayObject;
+  private barrierVbo!: WebGLBuffer;
+  private barrierIbo!: WebGLBuffer;
   private barrierCount = 0;
   private finishVao!: WebGLVertexArrayObject;
+  private finishVbo!: WebGLBuffer;
+  private finishIbo!: WebGLBuffer;
   private finishCount = 0;
   private accentVaos = new Map<number, { vao: WebGLVertexArrayObject; count: number }>();
   private decalVaos = new Map<number, { vao: WebGLVertexArrayObject; count: number }>();
@@ -1476,6 +1482,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
         break;
     }
     this._scrubColor = theme === 'desert' ? [0.11, 0.105, 0.1] : theme === 'miami' ? [0.028, 0.026, 0.024] : [0.05, 0.045, 0.04];
+    // Regenerate the circuit geometry for this theme — each track is its own
+    // shape with its own elevation profile and banking, so switching circuits
+    // must rebuild the ribbon/barriers/finish line before the scenery.
+    this.generateTrack();
+    this.buildTrackMesh();
     this.buildScenery();
   }
   getTrackPointAlong(dist: number): TrackPoint {
@@ -1647,8 +1658,19 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
   }
   private buildTrackMesh() {
-    const pts = this._trackPoints;
     const gl = this.gl;
+    // Rebuild path (setTheme regenerates per circuit) — drop the previous
+    // track/barrier/finish GL objects so race-to-race switching doesn't leak.
+    if (this.trackVao) { try { gl.deleteVertexArray(this.trackVao); } catch { } }
+    if (this.trackVbo) { try { gl.deleteBuffer(this.trackVbo); } catch { } }
+    if (this.trackIbo) { try { gl.deleteBuffer(this.trackIbo); } catch { } }
+    if (this.barrierVao) { try { gl.deleteVertexArray(this.barrierVao); } catch { } }
+    if (this.barrierVbo) { try { gl.deleteBuffer(this.barrierVbo); } catch { } }
+    if (this.barrierIbo) { try { gl.deleteBuffer(this.barrierIbo); } catch { } }
+    if (this.finishVao) { try { gl.deleteVertexArray(this.finishVao); } catch { } }
+    if (this.finishVbo) { try { gl.deleteBuffer(this.finishVbo); } catch { } }
+    if (this.finishIbo) { try { gl.deleteBuffer(this.finishIbo); } catch { } }
+    const pts = this._trackPoints;
     const verts: number[] = [];
     const idxs: number[] = [];
     const barVerts: number[] = [];
@@ -1792,11 +1814,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.trackCount = idxArray.length;
     this.trackVao = gl.createVertexArray()!;
     gl.bindVertexArray(this.trackVao);
-    const vbo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    this.trackVbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.trackVbo);
     gl.bufferData(gl.ARRAY_BUFFER, vertArray, gl.STATIC_DRAW);
-    const ibo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+    this.trackIbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.trackIbo);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idxArray, gl.STATIC_DRAW);
     const stride = 11 * 4;
     gl.enableVertexAttribArray(0);
@@ -1813,11 +1835,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.barrierCount = barIdxArray.length;
     this.barrierVao = gl.createVertexArray()!;
     gl.bindVertexArray(this.barrierVao);
-    const bvbo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ARRAY_BUFFER, bvbo);
+    this.barrierVbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.barrierVbo);
     gl.bufferData(gl.ARRAY_BUFFER, barArray, gl.STATIC_DRAW);
-    const bibo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bibo);
+    this.barrierIbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.barrierIbo);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, barIdxArray, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
@@ -1876,11 +1898,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.finishCount = fIdxArray.length;
     this.finishVao = gl.createVertexArray()!;
     gl.bindVertexArray(this.finishVao);
-    const fvbo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ARRAY_BUFFER, fvbo);
+    this.finishVbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.finishVbo);
     gl.bufferData(gl.ARRAY_BUFFER, fArray, gl.STATIC_DRAW);
-    const fibo = gl.createBuffer()!;
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, fibo);
+    this.finishIbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.finishIbo);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, fIdxArray, gl.STATIC_DRAW);
     const stride = 11 * 4;
     gl.enableVertexAttribArray(0);

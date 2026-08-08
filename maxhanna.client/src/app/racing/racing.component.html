@@ -709,6 +709,13 @@
       </div>
     </div>
     <div id="race-hud" *ngIf="gameState === 'racing' || gameState === 'paused'">
+      <!-- Speed streaks: edge bars that flare with speed and grade (downhill =
+           faster feel, uphill = calmer). Driven per-frame via direct DOM so
+           the HUD stays change-detection-light. -->
+      <div class="speed-lines" #speedLinesEl>
+        <span class="sl-bar" *ngFor="let sl of speedLineDefs"
+          [ngStyle]="{ 'top': sl.t, 'left': sl.l, 'transform': 'rotate(' + sl.rot + 'deg)', 'animation-delay': sl.delay + 's' }"></span>
+      </div>
       <!-- ── Dashboard Frame ── -->
       <div class="cockpit-dash">
         <!-- Left panel: Car Upgrades -->
