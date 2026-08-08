@@ -404,6 +404,15 @@ export class GrandtheftService {
     }
   }
   
+  async reportRobbery(userId: number, posX: number, posZ: number): Promise<any> {
+    try {
+      return await this.http.post(`${this.baseUrl}/robbery`, { userId, posX, posZ }).toPromise();
+    } catch (e) {
+      console.error('Error reporting robbery', e);
+      return null;
+    }
+  }
+
   async hit(attackerId: number, targetId: number, worldId: number, damage: number, attackerX: number = 0, attackerZ: number = 0, weapon: number = -1, npcKill: boolean = false): Promise<any> {
     try {
       return await this.http.post(`${this.baseUrl}/hit`, { attackerId, targetId, worldId, damage, weapon, attackerX, attackerZ, npcKill }).toPromise();

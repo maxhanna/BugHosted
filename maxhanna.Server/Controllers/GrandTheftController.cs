@@ -597,13 +597,18 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, double> _lastDamageTime = new();
 		private static readonly ConcurrentDictionary<int, int> _playerWantedLevels = new();
 		private static readonly ConcurrentDictionary<int, DateTime> _lastUndetectedTime = new();
-		private const float COP_DETECTION_RANGE = 25f;
-		private const float COP_DETECTION_RANGE_SQ = COP_DETECTION_RANGE * COP_DETECTION_RANGE;
+		// Wanted-level decay: after breaking sight, the heat burns off star by star.
+		// Each star drops faster than the last (low wanted levels clear quickly),
+		// so clean getaways reward staying hidden and unseen.
+		private const double WANTED_DECAY_GRACE_SECONDS = 4.0;   // no decay right after breaking sight
+		private static readonly double[] WANTED_STAR_SECONDS = { 3, 5, 8, 11, 15 }; // index = level-1: time for that star to drop
 		// Police pursuit model: cops only chase what they can see and converge on
 		// the player's last known sighting, so hiding behind buildings or outrunning
 		// the search breaks pursuit instead of the cops telepathically homing in.
 		private const float COP_VISION_RANGE = 60f;                  // max sight distance (clear line of sight)
 		private const float COP_VISION_CLOSE = 15f;                  // within this, always spotted (peripheral/instinct)
+		private const float COP_VISION_CONE_COS = 0.5f;              // ~120° forward cone (cos 60°): blind behind the cop
+		private const float COP_MODEL_YAW_OFFSET = -(float)Math.PI / 2f; // visual yaw offset for cop models; vision undoes it
 		private const float COP_SEARCH_RADIUS = 16f;                 // patrol radius around the last known spot
 		private const int COP_SEARCH_STEPS = 12;                     // waypoints per search lap (alternating rim/center)
 		private const float COP_SEARCH_TIMEOUT_SECONDS = 12f;        // searching a spot before giving up
@@ -887,8 +892,10 @@ namespace maxhanna.Server.Controllers
 			_playerAmmo[playerId] = new int[5];
 			_playerHealth[playerId] = 0;
 		}
-		// Vision check for a cop: sees the player if they're close enough and no
-		// building footprint blocks the line of sight (sampled along the segment).
+		// Vision check for a cop: the player is spotted if within the always-seen
+		// close radius, or if they're inside the cop's ~120° forward-facing cone
+		// (so sneaking past from behind works) and no building footprint blocks
+		// the line of sight (sampled along the segment).
 		private static bool CopSeesPlayer(NpcState npc, float playerX, float playerZ)
 		{
 			float dx = npc.X - playerX;
@@ -897,6 +904,28 @@ namespace maxhanna.Server.Controllers
 			if (distSq < COP_VISION_CLOSE * COP_VISION_CLOSE) return true;
 			if (distSq > COP_VISION_RANGE * COP_VISION_RANGE) return false;
 			float dist = (float)Math.Sqrt(distSq);
+			// Facing = where the cop is heading (its target); fall back to the model
+			// yaw (undoing the -90° offset) when it's standing still.
+			float fwdX, fwdZ;
+			float tx = npc.TargetX - npc.X;
+			float tz = npc.TargetZ - npc.Z;
+			float tLenSq = tx * tx + tz * tz;
+			if (tLenSq > 0.25f)
+			{
+				float tLen = (float)Math.Sqrt(tLenSq);
+				fwdX = tx / tLen;
+				fwdZ = tz / tLen;
+			}
+			else
+			{
+				// npc.Yaw carries COP_MODEL_YAW_OFFSET for simulated cops — undo it for the world-facing yaw.
+				float facing = npc.Yaw - COP_MODEL_YAW_OFFSET;
+				fwdX = (float)Math.Sin(facing);
+				fwdZ = (float)Math.Cos(facing);
+			}
+			float toX = (playerX - npc.X) / dist;
+			float toZ = (playerZ - npc.Z) / dist;
+			if (toX * fwdX + toZ * fwdZ < COP_VISION_CONE_COS) return false;
 			int steps = Math.Max(2, (int)(dist / 5f));
 			for (int i = 1; i < steps; i++)
 			{
@@ -1141,8 +1170,10 @@ namespace maxhanna.Server.Controllers
 							if (npc.DeadAt != null || npc.Health <= 0) continue;
 							if (npc.TargetUserId != req.UserId) continue;
 							if ((npc.Type != "police" && npc.Type != "cop")) continue;
-							float dx = npc.X - px, dz = npc.Z - pz;
-							if (dx * dx + dz * dz < COP_DETECTION_RANGE_SQ) { detected = true; break; }
+							// A cop only counts as "detected" if it can actually see the player
+							// (vision cone + line of sight), so sneaking behind a cop starts
+							// the hidden clock instead of a telepathic 25-unit radius.
+							if (CopSeesPlayer(npc, px, pz)) { detected = true; break; }
 						}
 					}
 					if (detected)
@@ -1151,15 +1182,34 @@ namespace maxhanna.Server.Controllers
 					}
 					else if (_lastUndetectedTime.TryGetValue(req.UserId, out var last))
 					{
-						if ((DateTime.UtcNow - last).TotalSeconds >= 60)
+						// Accelerating decay: the longer the player stays hidden and
+						// unseen, the faster each remaining star ticks down.
+						double hidden = (DateTime.UtcNow - last).TotalSeconds - WANTED_DECAY_GRACE_SECONDS;
+						if (hidden > 0)
 						{
-							_playerWantedLevels[req.UserId] = 0;
+							int lvl = wantedLevel;
+							double need = 0;
+							int drops = 0;
+							while (lvl > 0)
+							{
+								need += WANTED_STAR_SECONDS[lvl - 1];
+								if (hidden < need) break;
+								drops++;
+								lvl--;
+							}
+							if (drops > 0)
+							{
+								_playerWantedLevels[req.UserId] = Math.Max(0, wantedLevel - drops);
+							}
 						}
 					}
 					else
 					{
 						_lastUndetectedTime[req.UserId] = DateTime.UtcNow;
 					}
+					// Reflect any decayed value in this poll's response so the client's
+					// HUD stars tick down immediately rather than a poll later.
+					if (_playerWantedLevels.TryGetValue(req.UserId, out var w2)) wantedLevel = w2;
 				}
 				var players = new List<object>();
 				var cutoffTime = DateTime.UtcNow.AddSeconds(-INACTIVITY_TIMEOUT_SECONDS);
@@ -1319,8 +1369,8 @@ namespace maxhanna.Server.Controllers
 							int cx = (int)Math.Floor(npc.X / CityLayout.CHUNK_SIZE);
 							int cz = (int)Math.Floor(npc.Z / CityLayout.CHUNK_SIZE);
 							if (!npc.OnFire && CityLayout.GetBiome(cx, cz) == "ocean") { npc.OnFire = true; npc.FireStartedAt = now; }
-							npc.IsSmoking = npc.Health > 0 && npc.Health <= npc.MaxHealth * 0.6;
-							int fireThreshold = Math.Max(80, npc.MaxHealth / 5);
+							npc.IsSmoking = npc.Health > 0 && npc.Health <= npc.MaxHealth * 0.5;
+							int fireThreshold = Math.Max(2, npc.MaxHealth / 100);
 							if (npc.Health <= fireThreshold && !npc.OnFire) { npc.OnFire = true; npc.FireStartedAt = now; }
 							if (npc.OnFire && npc.FireStartedAt.HasValue && (now - npc.FireStartedAt.Value).TotalSeconds >= 10.0)
 							{
@@ -1587,8 +1637,8 @@ namespace maxhanna.Server.Controllers
 						int cxc = (int)Math.Floor(npc.X / CityLayout.CHUNK_SIZE);
 						int czc = (int)Math.Floor(npc.Z / CityLayout.CHUNK_SIZE);
 						if (!npc.OnFire && CityLayout.GetBiome(cxc, czc) == "ocean") { npc.OnFire = true; npc.FireStartedAt = now; }
-						npc.IsSmoking = npc.Health > 0 && npc.Health <= npc.MaxHealth * 0.6;
-						int fireThreshold = Math.Max(80, npc.MaxHealth / 5);
+						npc.IsSmoking = npc.Health > 0 && npc.Health <= npc.MaxHealth * 0.5;
+						int fireThreshold = Math.Max(2, npc.MaxHealth / 100);
 						if (npc.Health <= fireThreshold && !npc.OnFire) { npc.OnFire = true; npc.FireStartedAt = now; }
 						if (npc.OnFire && npc.FireStartedAt.HasValue && (now - npc.FireStartedAt.Value).TotalSeconds >= 10.0)
 						{
@@ -1924,12 +1974,11 @@ namespace maxhanna.Server.Controllers
 									_lastPoliceDamageTime[userId] = nowMs;
 								}
 							}
-						}
-						const float copModelOffset = -(float)Math.PI / 2f;
-						if (npc.TargetUserId == userId && wantedLevel > 0 && CopSeesPlayer(npc, posX, posZ))
-							npc.Yaw = (float)Math.Atan2(posX - npc.X, posZ - npc.Z) + copModelOffset;
-						else
-							npc.Yaw = (float)Math.Atan2(tdx, tdz) + copModelOffset;
+						}							const float copModelOffset = COP_MODEL_YAW_OFFSET;
+							if (npc.TargetUserId == userId && wantedLevel > 0 && CopSeesPlayer(npc, posX, posZ))
+								npc.Yaw = (float)Math.Atan2(posX - npc.X, posZ - npc.Z) + copModelOffset;
+							else
+								npc.Yaw = (float)Math.Atan2(tdx, tdz) + copModelOffset;
 					}
 				}
 				else
@@ -3110,6 +3159,21 @@ namespace maxhanna.Server.Controllers
 			}
 			return Ok(new { ok = true, hit = hitAnything, targetHealth = targetHealthResult, targetDied = targetDied });
 		}
+		[HttpPost("robbery")]
+		public IActionResult Robbery([FromBody] GTRobberyRequest req)
+		{
+			if (req.UserId <= 0) return BadRequest(new { ok = false, message = "invalid user" });
+			// An armed stick-up is a witnessed crime: raise the wanted level and
+			// record the store as the last known sighting so dispatched units
+			// roll up on the scene (same dispatch path as any other heat).
+			if (_playerWantedLevels.TryGetValue(req.UserId, out var w))
+				_playerWantedLevels[req.UserId] = Math.Min(5, w + 2);
+			else
+				_playerWantedLevels[req.UserId] = 2;
+			_lastUndetectedTime[req.UserId] = DateTime.UtcNow;
+			_playerLastKnown[req.UserId] = (req.PosX, req.PosZ, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+			return Ok(new { ok = true, wantedLevel = _playerWantedLevels[req.UserId] });
+		}
 		[HttpPost("pickup")]
 		public IActionResult Pickup([FromBody] GTPickupRequest req)
 		{
@@ -3218,6 +3282,7 @@ namespace maxhanna.Server.Controllers
 	public class GTUpdatePositionRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosY { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } public float Pitch { get; set; } public float CarYaw { get; set; } public float CarSpeed { get; set; } public int Health { get; set; } = 100; public int Weapon { get; set; } = 0; public bool IsShooting { get; set; } public string? ModelUrl { get; set; } public int Money { get; set; } = 0; public bool IsInCar { get; set; } public string? VehicleType { get; set; } public float CarColorR { get; set; } = 1f; public float CarColorG { get; set; } = 1f; public float CarColorB { get; set; } = 1f; public int PassengerOfUserId { get; set; } = 0; public string? ChatMessage { get; set; } public bool Respawned { get; set; } public bool[]? OwnedWeapons { get; set; } public int[]? Ammo { get; set; } }
 	public class GTShootRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; public int Weapon { get; set; } = 0; public float OriginX { get; set; } public float OriginY { get; set; } public float OriginZ { get; set; } public float DirX { get; set; } public float DirY { get; set; } public float DirZ { get; set; } }
 	public class GTHitRequest { public int AttackerId { get; set; } public long TargetId { get; set; } public int WorldId { get; set; } = 1; public int Damage { get; set; } = 10; public int Weapon { get; set; } = -1; public float AttackerX { get; set; } public float AttackerZ { get; set; } public bool NpcKill { get; set; } = false; }
+	public class GTRobberyRequest { public int UserId { get; set; } public float PosX { get; set; } public float PosZ { get; set; } }
 	public class GTSpawnTaxiRequest { public int WorldId { get; set; } = 1; public float PosX { get; set; } public float PosZ { get; set; } public float Yaw { get; set; } }
 	public class GTJumpRequest { public int UserId { get; set; } public int RampId { get; set; } public double Distance { get; set; } public double Height { get; set; } }
 	public class GTStealCarRequest { public int UserId { get; set; } public int WorldId { get; set; } = 1; }

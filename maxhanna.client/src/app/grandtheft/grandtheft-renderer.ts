@@ -769,6 +769,11 @@ export class GrandTheftRenderer {
   public walkSpeed = 0;
   public walkTime = 0;
   public punchTime = 0;
+  public playerCarSpeed = 0;
+  public playerSteerInput = 0;
+  private _mopedWheelMesh: CityMesh | null = null;
+  private _mopedSpin = 0;
+  private _mopedFrontSteer = 0;
   private sunDir = [0.3, 0.8, 0.3];
   private moonDir = [0, -1, 0];
   private dayBlend = 1.0;
@@ -3236,6 +3241,66 @@ void main() {
       this.gl.drawElements(this.gl.TRIANGLES, m.indexCount, m.indexType || this.gl.UNSIGNED_SHORT, 0);
     }
   }
+  // A chunky pizza-moped wheel: a flat disc (rim ring + spokes + hub) in the YZ plane so it
+  // spins around the X axle via the pitch argument, and turns with the front yaw offset.
+  getMopedWheelMesh(): CityMesh {
+    if (this._mopedWheelMesh) return this._mopedWheelMesh;
+    const verts: number[] = [];
+    const indices: number[] = [];
+    const R = 0.44;
+    const T = 0.1;
+    const N = 14;
+    const push = (x: number, y: number, z: number, nx: number, ny: number, nz: number, r: number, g: number, b: number) => {
+      verts.push(x, y, z, nx, ny, nz, r, g, b, 1);
+    };
+    // rim ring (tire side walls, closed cylinder so it reads from both sides)
+    for (let i = 0; i <= N; i++) {
+      const a = (i / N) * Math.PI * 2;
+      push(-T / 2, Math.cos(a) * R, Math.sin(a) * R, Math.cos(a), 0, Math.sin(a), 0.05, 0.05, 0.06);
+      push(T / 2, Math.cos(a) * R, Math.sin(a) * R, Math.cos(a), 0, Math.sin(a), 0.05, 0.05, 0.06);
+    }
+    for (let i = 0; i < N; i++) {
+      const a = i * 2;
+      const b = a + 1;
+      const c = a + 2;
+      const d = a + 3;
+      indices.push(a, c, b, b, c, d);
+    }
+    // Spokes radiating from the hub so rotation is clearly visible, both faces.
+    const addFace = (sign: number) => {
+      const x = sign * T / 2;
+      const spokeCount = 5;
+      for (let s = 0; s < spokeCount; s++) {
+        const a0 = (s / spokeCount) * Math.PI * 2;
+        const a1 = a0 + 0.14;
+        const inner = 0.1;
+        const outer = R - 0.02;
+        const v = verts.length / 10;
+        push(x, Math.cos(a0) * inner, Math.sin(a0) * inner, sign, 0, 0, 0.5, 0.45, 0.4);
+        push(x, Math.cos(a1) * inner, Math.sin(a1) * inner, sign, 0, 0, 0.5, 0.45, 0.4);
+        push(x, Math.cos(a1) * outer, Math.sin(a1) * outer, sign, 0, 0, 0.5, 0.45, 0.4);
+        push(x, Math.cos(a0) * outer, Math.sin(a0) * outer, sign, 0, 0, 0.5, 0.45, 0.4);
+        if (sign > 0) indices.push(v, v + 1, v + 2, v, v + 2, v + 3);
+        else indices.push(v, v + 3, v + 2, v, v + 2, v + 1);
+      }
+      // Solid hub cap covering the spoke centre.
+      const base = verts.length / 10;
+      push(x, 0, 0, sign, 0, 0, 0.3, 0.28, 0.25);
+      for (let i = 0; i <= N; i++) {
+        const a = (i / N) * Math.PI * 2;
+        push(x, Math.cos(a) * 0.14, Math.sin(a) * 0.14, sign, 0, 0, 0.3, 0.28, 0.25);
+      }
+      for (let i = 0; i < N; i++) {
+        if (sign > 0) indices.push(base, base + 1 + i, base + 2 + i);
+        else indices.push(base, base + 2 + i, base + 1 + i);
+      }
+    };
+    addFace(1);
+    addFace(-1);
+    const mesh = this.createMesh(verts, indices);
+    this._mopedWheelMesh = mesh;
+    return mesh;
+  }
   render(
     camX: number, camY: number, camZ: number, camYaw: number, camPitch: number, aspect: number,
     targetX: number, targetY: number, targetZ: number, carYaw: number,
@@ -3637,6 +3702,27 @@ void main() {
       this.animateAndSkinEntity(-1, playerMesh, playerState, dt, Math.max(1, this.walkSpeed * 2));
       this.drawMesh(playerMesh, targetX, targetY, targetZ, carYaw, [1, 1, 1], [1, 1, 1, 1], false, 0, carRoll);
     }
+    // Moped wheel animation: rear wheel spins with speed, front wheel also steers.
+    const mopedArr = Array.isArray(playerMesh) ? playerMesh : (playerMesh ? [playerMesh] : []);
+    if (mopedArr.length > 0 && (mopedArr[0] as any)._isMotorcycle) {
+      if (dt > 0) {
+        this._mopedSpin += this.playerCarSpeed * dt * 2.4;
+        this._mopedFrontSteer += (this.playerSteerInput - this._mopedFrontSteer) * Math.min(1, 10 * dt);
+      }
+      const wm = this.getMopedWheelMesh();
+      const sinY = Math.sin(carYaw), cosY = Math.cos(carYaw);
+      // Wheel centre sits at the tire radius above the ground (baked tire bottoms at y=0).
+      const wy = targetY + 0.44;
+      const d = 0.97;
+      // Draw over the baked GLTF wheels: depth-test on, but depth-write off so the thin disc
+      // never z-fights the baked sidewall and always reads as the spinning tire.
+      gl.depthMask(false);
+      // rear wheel
+      this.drawMesh(wm, targetX - d * sinY, wy, targetZ - d * cosY, carYaw, [1, 1, 1], [1, 1, 1, 1], false, this._mopedSpin, carRoll);
+      // front wheel (spins + steers)
+      this.drawMesh(wm, targetX + d * sinY, wy, targetZ + d * cosY, carYaw + this._mopedFrontSteer * 0.45, [1, 1, 1], [1, 1, 1, 1], false, this._mopedSpin, carRoll);
+      gl.depthMask(true);
+    }
     if (attachedMeshes && attachedMeshes.length > 0) {
       const sinY = Math.sin(carYaw), cosY = Math.cos(carYaw);
       for (const am of attachedMeshes) {
@@ -3812,37 +3898,6 @@ void main() {
       const s = fireScale * 2.5 * growth * pulse * flicker;
       this.drawMesh(fireMesh, fx, 0.8, fz, 0, [s, s, s], fireColor);
     }
-    const hpMesh = this.getHpBarMesh();
-    const hpMaxDistSq = 150 * 150;
-    // Thin billboard bars — draw double-sided so they never vanish from the back.
-    gl.disable(gl.CULL_FACE);
-    const drawBar = (bx: number, by: number, bz: number, hp: number, maxHp: number) => {
-      const ratio = Math.max(0, Math.min(1, hp / Math.max(1, maxHp)));
-      if (ratio >= 1 || ratio <= 0) return;
-      const dx = bx - camX, dz = bz - camZ;
-      if (dx * dx + dz * dz > hpMaxDistSq) return;
-      const yawTo = Math.atan2(dx, dz);
-      const pitchTo = Math.atan2(camY - by, Math.hypot(dx, dz));
-      const BAR_W = 2.2;
-      this.drawMesh(hpMesh, bx, by, bz, yawTo, [BAR_W, 1, 1], [0, 0, 0, 0.55], false, pitchTo);
-      const off = -(1 - ratio) * BAR_W / 2;
-      this.drawMesh(hpMesh, bx + Math.cos(yawTo) * off, by, bz - Math.sin(yawTo) * off, yawTo,
-        [BAR_W * ratio, 1, 1], [Math.min(1, (1 - ratio) * 2.2), Math.min(1, ratio * 1.6), 0.08, 0.9], false, pitchTo);
-    };
-    for (const npc of serverNPCs) {
-      if (npc.type === 'helicopter' || npc.type === 'plane') continue;
-      const maxHp = (npc as any).maxHealth || 200;
-      const hp = (npc as any).health ?? maxHp;
-      if (hp > 0 && hp < maxHp) drawBar(npc.x, (npc.y || 0) + 2.6, npc.z, hp, maxHp);
-    }
-    for (const pc of parkedCars) {
-      if (pc.type === 'helicopter' || pc.type === 'plane' || pc.type === 'boat') continue;
-      const maxHp = (pc as any).maxHealth || 200;
-      const hp = (pc as any).health ?? maxHp;
-      if (hp > 0 && hp < maxHp) drawBar(pc.x, 2.6, pc.z, hp, maxHp);
-    }
-    gl.enable(gl.CULL_FACE);
-    gl.enable(gl.DEPTH_TEST);
     if (this.droppedWeapons && this.droppedWeapons.length > 0) {
       for (const dw of this.droppedWeapons) {
         if (dw == null || dw.weaponType == null) continue;
@@ -4068,17 +4123,6 @@ void main() {
         indices.push(aI, bI, aI + 1, bI, bI + 1, aI + 1);
       }
     }
-    const mesh = this.createMesh(verts, indices);
-    this.meshCache.set(key, mesh);
-    return mesh;
-  }
-  private getHpBarMesh(): CityMesh {
-    const key = 'hpbar';
-    if (this.meshCache.has(key)) return this.meshCache.get(key)!;
-    const verts: number[] = [], indices: number[] = [];
-    // A proper flat, thin health bar (1 wide x 0.12 tall x 0.03 deep). The old
-    // 1x1x1 cube scaled 2.2x1x1 read as a weird floating box over damaged cars.
-    this.addBox(verts, indices, 0, 0, 0, 1, 0.12, 0.03, 1, 1, 1, 1, 0);
     const mesh = this.createMesh(verts, indices);
     this.meshCache.set(key, mesh);
     return mesh;

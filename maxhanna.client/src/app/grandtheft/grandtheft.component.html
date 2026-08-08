@@ -30,7 +30,7 @@
       <span class="gt-deferred-spinner"></span>
       Loading more content… {{ deferredRemaining }} left
     </div>
-    <div id="gt-wanted" *ngIf="wantedLevel > 0">
+    <div id="gt-wanted" *ngIf="wantedLevel > 0" [class.gt-pop]="wantedPopTimer > 0">
       <span *ngFor="let star of [1,2,3,4,5]" [class.active]="star <= wantedLevel">★</span>
     </div>
 
@@ -39,6 +39,8 @@
       {{ lookTargetName }} {{ lookTargetHealth | number: '1.0-0' }}%
     </div>
     <div id="gt-damage-overlay" *ngIf="damageAlpha > 0" [style.opacity]="damageAlpha"></div>
+    <div id="gt-murder-flash" *ngIf="murderFlashAlpha > 0" [style.opacity]="murderFlashAlpha"></div>
+    <div id="gt-murder-text" *ngIf="murderFlashTimer > 0" [style.opacity]="murderFlashAlpha">MURDER</div>
     <div id="gt-wasted" *ngIf="wastedTimer > 0">WASTED</div>
     <div id="gt-vehicle-banner" *ngIf="vehicleBannerTimer > 0">{{ vehicleName }}</div>
 
@@ -358,10 +360,16 @@
   <div class="popupPanelTitle">Settings</div>
   <div class="gt-settings-body">
     <label class="gt-setting-row">
-      <span>SFX Volume</span>
+      <span>Combat SFX Volume</span>
       <input type="range" min="0" max="100" [value]="sfxVolume * 100"
         (input)="sfxVolume = $any($event.target).value / 100" />
       <span class="gt-setting-value">{{ sfxVolume * 100 | number:'1.0-0' }}%</span>
+    </label>
+    <label class="gt-setting-row">
+      <span>Car SFX Volume</span>
+      <input type="range" min="0" max="100" [value]="carSfxVolume * 100"
+        (input)="carSfxVolume = $any($event.target).value / 100" />
+      <span class="gt-setting-value">{{ carSfxVolume * 100 | number:'1.0-0' }}%</span>
     </label>
     <label class="gt-setting-row">
       <span>View Distance</span>

@@ -132,7 +132,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private trafficLanes: TrafficLane[] = [];
   private trafficNodeIdCounter = 10000;
   private trafficSpawnTimer = 0;
-  localPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; targetX: number; targetZ: number; waitTimer: number; fightBackUntil?: number; punchTimer?: number }[] = [];
+  localPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; targetX: number; targetZ: number; waitTimer: number; fightBackUntil?: number; punchTimer?: number; panicUntil?: number; panicFromX?: number; panicFromZ?: number }[] = [];
   private pedSpawnTimer = 0;
   private pedIdCounter = 20000;
   airportLotCars: { x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; phase: number; dir: number; speed: number; p0: { x: number; z: number }; p1: { x: number; z: number } }[] = [];
@@ -179,7 +179,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _engineFilter: BiquadFilterNode | null = null;
   private _engineGain: GainNode | null = null;
   private _engineLevel = 0;
+  private _trafficCtx: AudioContext | null = null;
+  private _trafficOsc: OscillatorNode | null = null;
+  private _trafficOsc2: OscillatorNode | null = null;
+  private _trafficFilter: BiquadFilterNode | null = null;
+  private _trafficGain: GainNode | null = null;
+  private _trafficPan: StereoPannerNode | null = null;
+  private _trafficLevel = 0;
   private _crashCtx: AudioContext | null = null;
+  private _punchCtx: AudioContext | null = null;
+  private _lastPunchTime = 0;
+  private _cashCtx: AudioContext | null = null;
+  private _lastCashTime = 0;
+  private _ricochetCtx: AudioContext | null = null;
+  private _lastRicochetTime = 0;
   private _lastBrakeScreech = 0;
   private _lastCrashTime = 0;
   private _lastWallCrashTime = 0;
@@ -262,6 +275,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   nearStoreExit = false;
   inStore: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string } | null = null;
   private _nearStore: { x: number; z: number; yaw: number; hd: number; doorX: number; doorZ: number; key: string } | null = null;
+  // The grocery-store cashier: idles at the register, bolts for the door when
+  // the register is stuck up. Client-local like localPedestrians.
+  storeCashier: { id: number; x: number; z: number; yaw: number; gender: string; mesh: CityMesh | CityMesh[]; speed: number; panicUntil: number; doorX: number; doorZ: number } | null = null;
   storeToast = '';
   private _storeToastTimer: any = null;
   private _savedCamDist = 0;
@@ -342,6 +358,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   isShooting = false;
   showMenuPanel = false;
   sfxVolume = 1.0;
+  carSfxVolume = 1.0;
   viewDistance = 500;
   private uziSound: HTMLAudioElement | null = null;
   private rocketSound: HTMLAudioElement | null = null;
@@ -358,6 +375,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   vehicleName = '';
   vehicleBannerTimer = 0;
   wastedTimer = 0;
+  murderFlashAlpha = 0;
+  murderFlashTimer = 0;
+  wantedPopTimer = 0;
+  private crashShake = 0;
+  private timeScale = 1;
+  private slowMoTimer = 0;
   // Death-cam anchor: where the player died, so the camera can pan away into
   // the sky without following a drifting car/body.
   private _deathCamX = 0;
@@ -383,6 +406,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private joystickActive = false;
   private joystickId = -1;
   private joystickX = 0;
+  private _lastSteerInput = 0;
   private joystickY = 0;
   private touchCamId = -1;
   private touchCamLastX = 0;
@@ -683,8 +707,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.policeSirenSound) { this.policeSirenSound.pause(); this.policeSirenSound = null; }
     this.stopHeliAudio();
     this.stopEngineAudio();
+    this.stopTrafficAudio();
     if (this._screechCtx) { try { this._screechCtx.close(); } catch { } this._screechCtx = null; }
     if (this._crashCtx) { try { this._crashCtx.close(); } catch { } this._crashCtx = null; }
+    if (this._punchCtx) { try { this._punchCtx.close(); } catch { } this._punchCtx = null; }
+    if (this._cashCtx) { try { this._cashCtx.close(); } catch { } this._cashCtx = null; }
+    if (this._ricochetCtx) { try { this._ricochetCtx.close(); } catch { } this._ricochetCtx = null; }
     this._npcCrashCooldowns.clear();
     this.renderer?.clearCache();
     clearTimeout(this._chatClearTimer);
@@ -1725,6 +1753,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (res.yourHealth < this.health) {
         this.damageAlpha = 0.4;
         let foundShooter = false;
+        let nearestShotDist = Infinity;
+        let shotX = 0, shotZ = 0;
         const checkShooter = (npc: any) => {
           if (npc.type !== 'cop' && npc.type !== 'police') return;
           const dx = this.carX - npc.x;
@@ -1742,17 +1772,22 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             this.muzzleFlashes.push({
               x: npc.x, y: 1.2, z: npc.z,
               dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3,
-              weapon: 0, age: 0, lifetime: 0.08
+              weapon: 2, age: 0, lifetime: 0.08
             });
             this.spawnBulletSmoke(npc.x, 1.2, npc.z, dx / d3, dy / d3, dz / d3, 1);
             this.spawnBulletTrail(npc.x, 1.2, npc.z, dx / d3, dy / d3, dz / d3, 1);
             foundShooter = true;
+            // Volume follows the nearest shooter so a nearby cop's shots dominate.
+            if (dist < nearestShotDist) {
+              nearestShotDist = dist;
+              shotX = npc.x; shotZ = npc.z;
+            }
           }
         };
         for (const npc of this.serverNPCs) checkShooter(npc);
         for (const ped of this.serverPedestrians) checkShooter(ped);
         // NPC gunfire uses the rifle shot (weapon 2); weapon 0 is Unarmed and silent.
-        if (foundShooter) this.playWeaponSound(2);
+        if (foundShooter) this.playWeaponSound(2, this.getShotVolumeScale(shotX, shotZ));
       }
       // Ignore stale server health (0) right after local respawn to avoid re-death
       if (!this._justRespawned || res.yourHealth > 0) {
@@ -1875,7 +1910,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       });
     } catch (e) { }
   }
-  private playWeaponSound(weapon: number) {
+  /** Fade gunfire with distance: full volume up close, faint past ~60 units. */
+  private getShotVolumeScale(x: number, z: number): number {
+    const dist = Math.hypot(x - this.carX, z - this.carZ);
+    return Math.max(0.1, 1 - dist / 60);
+  }
+  private playWeaponSound(weapon: number, volumeScale: number = 1) {
     if (weapon === 0) return;
     try {
       let base: HTMLAudioElement | null = null;
@@ -1890,7 +1930,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
       if (!base) return;
       const clone = base.cloneNode(true) as HTMLAudioElement;
-      clone.volume = vol * this.sfxVolume;
+      clone.volume = vol * this.sfxVolume * volumeScale;
       clone.play().catch(() => { });
     } catch (e) { }
   }
@@ -1898,7 +1938,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   // ~1600Hz down to ~650Hz with a fast attack and ~0.6s decay — no audio asset
   // needed. Throttled by the caller so a fleeing car doesn't spam it.
   private playTireScreech() {
-    if (this.sfxVolume <= 0) return;
+    if (this.carSfxVolume <= 0) return;
     try {
       if (!this._screechCtx) {
         this._screechCtx = new AudioContext();
@@ -1920,7 +1960,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       bp.frequency.exponentialRampToValueAtTime(650, ctx.currentTime + dur);
       const g = ctx.createGain();
       g.gain.setValueAtTime(0.0001, ctx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.35 * this.sfxVolume, ctx.currentTime + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.35 * this.carSfxVolume, ctx.currentTime + 0.05);
       g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
       src.connect(bp); bp.connect(g); g.connect(ctx.destination);
       src.start();
@@ -1977,7 +2017,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (!driving) {
       // On foot / passenger / dead — let the engine fade out.
       this._engineLevel *= Math.max(0, 1 - 6 * dt);
-      if (this._engineGain) this._engineGain.gain.value = this._engineLevel * this.sfxVolume;
+      if (this._engineGain) this._engineGain.gain.value = this._engineLevel * this.carSfxVolume;
       return;
     }
     const isBike = this.vehicleType === 'motorcycle';
@@ -1993,7 +2033,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this._engineOsc) this._engineOsc.frequency.value = rpm;
     if (this._engineOsc2) this._engineOsc2.frequency.value = rpm * 0.5;
     if (this._engineFilter) this._engineFilter.frequency.value = 240 + this._engineLevel * 800 + throttle * 400;
-    if (this._engineGain) this._engineGain.gain.value = this._engineLevel * this.sfxVolume * (isBike ? 0.75 : 1);
+    if (this._engineGain) this._engineGain.gain.value = this._engineLevel * this.carSfxVolume * (isBike ? 0.75 : 1);
   }
   private stopEngineAudio() {
     try {
@@ -2007,11 +2047,109 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this._engineCtx = null; this._engineOsc = null; this._engineOsc2 = null;
     this._engineFilter = null; this._engineGain = null; this._engineLevel = 0;
   }
+  /** One shared soft hum for nearby moving NPC traffic, panned to where the cars are. */
+  private initTrafficAudio() {
+    if (this._trafficCtx) return;
+    try {
+      const ctx = new AudioContext();
+      if (ctx.state === 'suspended') { try { ctx.resume(); } catch { } }
+      this._trafficCtx = ctx;
+      this._trafficFilter = ctx.createBiquadFilter();
+      this._trafficFilter.type = 'lowpass';
+      this._trafficFilter.frequency.value = 220;
+      this._trafficFilter.Q.value = 1.0;
+      this._trafficGain = ctx.createGain();
+      this._trafficGain.gain.value = 0;
+      this._trafficPan = ctx.createStereoPanner();
+      this._trafficPan.pan.value = 0;
+      this._trafficFilter.connect(this._trafficGain);
+      this._trafficGain.connect(this._trafficPan);
+      this._trafficPan.connect(ctx.destination);
+      this._trafficOsc = ctx.createOscillator();
+      this._trafficOsc.type = 'sawtooth';
+      this._trafficOsc.frequency.value = 60;
+      this._trafficOsc.connect(this._trafficFilter);
+      this._trafficOsc2 = ctx.createOscillator();
+      this._trafficOsc2.type = 'triangle';
+      this._trafficOsc2.frequency.value = 30;
+      const o2g = ctx.createGain();
+      o2g.gain.value = 0.6;
+      this._trafficOsc2.connect(o2g);
+      o2g.connect(this._trafficFilter);
+      this._trafficOsc.start();
+      this._trafficOsc2.start();
+    } catch (e) {
+      this._trafficCtx = null;
+    }
+  }
+  private updateTrafficAudio(dt: number) {
+    let loud = 0, maxSpeed = 0, panNum = 0, panDen = 0;
+    for (const v of [...this.serverNPCs, ...this.trafficCars]) {
+      if ((v.health ?? 0) <= 0) continue;
+      const spd = Math.abs(v.speed ?? 0);
+      if (spd < 1) continue; // parked / stopped cars stay quiet
+      const dx = v.x - this.carX, dz = v.z - this.carZ;
+      const dist = Math.hypot(dx, dz);
+      if (dist > 45) continue;
+      const speedNorm = Math.min(1, spd / 40);
+      const c = speedNorm * Math.max(0, 1 - dist / 45);
+      if (c < 0.02) continue;
+      loud += c;
+      if (spd > maxSpeed) maxSpeed = spd;
+      const relAngle = Math.atan2(dx, dz) - this.camYaw;
+      const pan = Math.sin(relAngle);
+      panNum += pan * c;
+      panDen += c;
+    }
+    if (loud <= 0) {
+      // No nearby traffic — fade the drone out (idle context stays silent).
+      this._trafficLevel *= Math.max(0, 1 - 5 * dt);
+      if (this._trafficGain) this._trafficGain.gain.value = this._trafficLevel * this.carSfxVolume * 0.28;
+      return;
+    }
+    if (!this._trafficCtx) {
+      this.initTrafficAudio();
+      if (!this._trafficCtx) return;
+    }
+    if (this._trafficCtx.state === 'suspended') { try { this._trafficCtx.resume(); } catch { } }
+    const targetLevel = Math.min(0.8, loud * 0.4);
+    const rpm = 58 + Math.min(1, maxSpeed / 45) * 110;
+    this._trafficLevel += (targetLevel - this._trafficLevel) * Math.min(1, 4 * dt);
+    if (this._trafficOsc) this._trafficOsc.frequency.value = rpm;
+    if (this._trafficOsc2) this._trafficOsc2.frequency.value = rpm * 0.5;
+    if (this._trafficFilter) this._trafficFilter.frequency.value = 180 + this._trafficLevel * 500;
+    if (this._trafficGain) this._trafficGain.gain.value = this._trafficLevel * this.carSfxVolume * 0.28;
+    // Smooth the pan too, so cars entering range don't yank the stereo image.
+    const targetPan = panDen > 0.001 ? Math.max(-1, Math.min(1, panNum / panDen)) : 0;
+    if (this._trafficPan) this._trafficPan.pan.value += (targetPan - this._trafficPan.pan.value) * Math.min(1, 4 * dt);
+  }
+  private stopTrafficAudio() {
+    try {
+      for (const o of [this._trafficOsc, this._trafficOsc2]) {
+        if (o) { try { o.stop(); } catch { } try { o.disconnect(); } catch { } }
+      }
+      if (this._trafficGain) { try { this._trafficGain.disconnect(); } catch { } }
+      if (this._trafficPan) { try { this._trafficPan.disconnect(); } catch { } }
+      if (this._trafficFilter) { try { this._trafficFilter.disconnect(); } catch { } }
+      if (this._trafficCtx) { try { this._trafficCtx.close(); } catch { } }
+    } catch (e) { }
+    this._trafficCtx = null; this._trafficOsc = null; this._trafficOsc2 = null;
+    this._trafficFilter = null; this._trafficGain = null; this._trafficPan = null; this._trafficLevel = 0;
+  }
   // Short procedural metal-crunch for collisions: noise through a bandpass swept
   // down + a low sine thud. Severity (0..1) scales loudness and length, and the
   // global throttle stops a grinding overlap from firing every frame.
+  /** Impact feedback: decaying camera shake, plus brief slow-mo on hard hits. */
+  private applyCrashImpact(severity: number) {
+    if (severity <= 0) return;
+    this.crashShake = Math.min(1.4, Math.max(this.crashShake, severity * 1.1));
+    if (severity >= 0.6) {
+      this.timeScale = Math.min(this.timeScale, 0.35);
+      this.slowMoTimer = 0.3 + severity * 0.25;
+    }
+  }
   private playCrashSound(severity: number) {
-    if (this.sfxVolume <= 0 || severity <= 0) return;
+    if (this.carSfxVolume <= 0 || severity <= 0) return;
     const now = performance.now();
     if (now - this._lastCrashTime < 350) return;
     this._lastCrashTime = now;
@@ -2035,7 +2173,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       bp.frequency.setValueAtTime(1400 + 600 * severity, ctx.currentTime);
       bp.frequency.exponentialRampToValueAtTime(240, ctx.currentTime + dur);
       const g = ctx.createGain();
-      const vol = 0.5 * severity * this.sfxVolume;
+      const vol = 0.5 * severity * this.carSfxVolume;
       g.gain.setValueAtTime(0.0001, ctx.currentTime);
       g.gain.exponentialRampToValueAtTime(vol, ctx.currentTime + 0.02);
       g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
@@ -2049,17 +2187,141 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       osc.frequency.exponentialRampToValueAtTime(38, ctx.currentTime + 0.25);
       const og = ctx.createGain();
       og.gain.setValueAtTime(0.0001, ctx.currentTime);
-      og.gain.exponentialRampToValueAtTime(0.45 * severity * this.sfxVolume, ctx.currentTime + 0.02);
+      og.gain.exponentialRampToValueAtTime(0.45 * severity * this.carSfxVolume, ctx.currentTime + 0.02);
       og.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
       osc.connect(og); og.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 0.35);
     } catch (e) { }
   }
+  /** Short dull body-blow thud for unarmed fight-back punches. */
+  private playPunchThud() {
+    if (this.sfxVolume <= 0) return;
+    const now = performance.now();
+    if (now - this._lastPunchTime < 150) return;
+    this._lastPunchTime = now;
+    try {
+      if (!this._punchCtx) {
+        this._punchCtx = new AudioContext();
+        if (this._punchCtx.state === 'suspended') { try { this._punchCtx.resume(); } catch { } }
+      }
+      const ctx = this._punchCtx;
+      if (ctx.state === 'suspended') { try { ctx.resume(); } catch { } }
+      const dur = 0.13;
+      const len = Math.floor(ctx.sampleRate * dur);
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      // Muffled lowpass (no metallic crunch) — a fist on the jaw, not sheet metal.
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(500, ctx.currentTime);
+      lp.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + dur);
+      const g = ctx.createGain();
+      const vol = 0.42 * this.sfxVolume;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(vol, ctx.currentTime + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+      src.connect(lp); lp.connect(g); g.connect(ctx.destination);
+      src.start();
+      src.stop(ctx.currentTime + dur);
+      // Low body-thump layered underneath.
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(95, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(42, ctx.currentTime + 0.18);
+      const og = ctx.createGain();
+      og.gain.setValueAtTime(0.0001, ctx.currentTime);
+      og.gain.exponentialRampToValueAtTime(0.4 * this.sfxVolume, ctx.currentTime + 0.012);
+      og.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.2);
+      osc.connect(og); og.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.22);
+    } catch (e) { }
+  }
+  /** Bright cash-register 'ching' played when a money stack is collected. */
+  private playCashPickup() {
+    if (this.sfxVolume <= 0) return;
+    const now = performance.now();
+    if (now - this._lastCashTime < 90) return;
+    this._lastCashTime = now;
+    try {
+      if (!this._cashCtx) {
+        this._cashCtx = new AudioContext();
+        if (this._cashCtx.state === 'suspended') { try { this._cashCtx.resume(); } catch { } }
+      }
+      const ctx = this._cashCtx;
+      if (ctx.state === 'suspended') { try { ctx.resume(); } catch { } }
+      const vol = 0.3 * this.sfxVolume;
+      // Two quick ascending sine blips — the classic cash-register 'ching'.
+      for (const [freq, delay] of [[1760, 0], [2637, 0.09]] as [number, number][]) {
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const g = ctx.createGain();
+        const t0 = ctx.currentTime + delay;
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(vol, t0 + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18);
+        osc.connect(g); g.connect(ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + 0.2);
+      }
+    } catch (e) { }
+  }
+  /** Bullet ricochet 'zing' for NPC shots whizzing past the player. */
+  private playRicochetZing(volumeScale: number = 1) {
+    if (this.sfxVolume <= 0) return;
+    const now = performance.now();
+    if (now - this._lastRicochetTime < 300) return;
+    this._lastRicochetTime = now;
+    try {
+      if (!this._ricochetCtx) {
+        this._ricochetCtx = new AudioContext();
+        if (this._ricochetCtx.state === 'suspended') { try { this._ricochetCtx.resume(); } catch { } }
+      }
+      const ctx = this._ricochetCtx;
+      if (ctx.state === 'suspended') { try { ctx.resume(); } catch { } }
+      const t0 = ctx.currentTime;
+      const dur = 0.22;
+      // Descending sine whistle — the classic ricochet zing.
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(3400, t0);
+      osc.frequency.exponentialRampToValueAtTime(900, t0 + dur);
+      const g = ctx.createGain();
+      const vol = 0.16 * this.sfxVolume * volumeScale;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(vol, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      // Subtle metallic noise sparkle layered on the front of the zing.
+      const len = Math.floor(ctx.sampleRate * 0.09);
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 6;
+      bp.frequency.value = 4200;
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(vol * 0.7, t0);
+      ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.09);
+      src.connect(bp); bp.connect(ng); ng.connect(ctx.destination);
+      src.start(t0);
+      src.stop(t0 + 0.09);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + dur);
+    } catch (e) { }
+  }
   // Distant traffic crashes: NPC cars bumping into each other or parked cars
   // near the player. Runs at 10 Hz; per-pair cooldown stops repeats.
   private updateNPCCrashSounds() {
-    if (this.sfxVolume <= 0) return;
+    if (this.carSfxVolume <= 0) return;
     const now = performance.now();
     const moving = [...this.serverNPCs, ...this.trafficCars];
     if (moving.length === 0) return;
@@ -2088,6 +2350,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (p.health > 0) check(moving[i], p);
       }
     }
+  }
+  /** Brief 'MURDER' HUD flash + wanted-star pop when a local-NPC kill draws heat. */
+  private showMurderFlash() {
+    this.murderFlashAlpha = 0.75;
+    this.murderFlashTimer = 0.9;
+    this.wantedPopTimer = 0.7;
   }
   private checkBulletHit(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number, maxRange: number = 50) {
     const checkTargets = (list: any[], isPlayer: boolean) => {
@@ -2119,11 +2387,24 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             if (list === this.localPedestrians && this.currentWeapon === 0 && t.health > 0) {
               t.fightBackUntil = performance.now() / 1000 + 8;
               t.punchTimer = 0;
+              t.panicUntil = undefined; // standing your ground beats running
+              // Nearby local peds panic and flee from the fight (mirror of the
+              // server's panic radius) — except the one throwing down.
+              const nowSec = performance.now() / 1000;
+              for (const other of this.localPedestrians) {
+                if (other === t || other.fightBackUntil) continue;
+                if (Math.hypot(other.x - t.x, other.z - t.z) < 10) {
+                  other.panicUntil = nowSec + 5;
+                  other.panicFromX = t.x;
+                  other.panicFromZ = t.z;
+                }
+              }
             }
             // Report the killing blow of a client-local NPC so the murder still
             // draws police heat and counts toward kill stats.
             if (list === this.localPedestrians && wasAlive && t.health <= 0) {
               this.gtService.hit(this.getUserId(), t.id, 1, dmg, ox, oz, this.currentWeapon, true);
+              this.showMurderFlash();
             }
           }
           return true;
@@ -2419,9 +2700,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           }
           this.gtService.hit(this.getUserId(), t.id, 1, dmg, this.carX, this.carZ);
         } else {
+          const wasAlive = (t.health ?? 100) > 0;
           t.health = (t.health ?? 100) - dmg;
           this.spawnBlood(tx, 1.0, tz, dx, 0, dz);
           this.gtService.hit(this.getUserId(), t.id, 1, dmg, this.carX, this.carZ);
+          // Report the killing blow of a client-local NPC so explosions on the
+          // crowd draw police heat and count toward kill stats.
+          if (list === this.localPedestrians && wasAlive && t.health <= 0) {
+            this.gtService.hit(this.getUserId(), t.id, 1, dmg, this.carX, this.carZ, -1, true);
+            this.showMurderFlash();
+          }
         }
       }
     };
@@ -2750,7 +3038,28 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             // raising the player's own wanted level.
             this.gtService.hit(0, this.getUserId(), 1, 4, this.carX, this.carZ, 0);
             this.health = Math.max(0, this.health - 4);
+            // Immediate red hurt flash (the server health sync confirms later)
+            // plus a dull body-blow thud so the retaliation reads clearly.
+            this.damageAlpha = 0.45;
+            this.playPunchThud();
           }
+          continue;
+        }
+      }
+      // Panicking peds sprint away from the fight for ~5s, then resume their
+      // sidewalk routine.
+      if (ped.panicUntil) {
+        const nowSec = performance.now() / 1000;
+        if (nowSec >= ped.panicUntil) {
+          ped.panicUntil = undefined;
+        } else {
+          const pdx = ped.x - (ped.panicFromX ?? ped.x);
+          const pdz = ped.z - (ped.panicFromZ ?? ped.z);
+          const pdist = Math.hypot(pdx, pdz) || 0.01;
+          ped.yaw = Math.atan2(pdx, pdz);
+          const panicSpeed = 3.4;
+          ped.x += Math.sin(ped.yaw) * panicSpeed * dt;
+          ped.z += Math.cos(ped.yaw) * panicSpeed * dt;
           continue;
         }
       }
@@ -2798,8 +3107,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     return bestIdx;
   }
   private gameLoop = (now: number) => {
-    const dt = Math.min((now - this.lastTime) / 1000, 0.05);
+    const rawDt = Math.min((now - this.lastTime) / 1000, 0.05);
     this.lastTime = now;
+    // Brief slow-motion after a hard impact, easing back to real time.
+    if (this.slowMoTimer > 0) {
+      this.slowMoTimer -= rawDt;
+      if (this.slowMoTimer <= 0) this.slowMoTimer = 0; // easing below ramps it back up
+    } else {
+      this.timeScale += (1 - this.timeScale) * Math.min(1, rawDt * 5);
+    }
+    const dt = rawDt * this.timeScale;
+    if (this.crashShake > 0) this.crashShake = Math.max(0, this.crashShake - rawDt * 2.2);
     this._worldSaveTimer += dt;
     if (this._worldSaveTimer >= 3) {
       this._worldSaveTimer = 0;
@@ -2830,6 +3148,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     else if (this.isInCar) this.updateCar(dt);
     else this.updateWalking(dt);
     this.updateEngineAudio(dt);
+    this.updateTrafficAudio(dt);
+    this.updateStoreCashier(dt);
     this.updateCamera(dt);
     this.updateScore(dt);
     this.updateProjectiles(dt);
@@ -2876,6 +3196,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.vehicleBannerTimer > 0) this.vehicleBannerTimer -= dt;
     if (this.wastedTimer > 0) this.wastedTimer -= dt;
     if (this.damageAlpha > 0) this.damageAlpha = Math.max(0, this.damageAlpha - dt * 0.5);
+    if (this.murderFlashTimer > 0) this.murderFlashTimer -= dt;
+    if (this.murderFlashAlpha > 0) this.murderFlashAlpha = Math.max(0, this.murderFlashAlpha - dt * 1.4);
+    if (this.wantedPopTimer > 0) this.wantedPopTimer -= dt;
     for (const v of [...this.serverNPCs, ...this.parkedCars, ...this.trafficCars]) {
       if (v.health <= 0 && !this.deadNPCIds.has(v.id)) {
         this.deadNPCIds.add(v.id);
@@ -2930,15 +3253,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
       } else {
         if (this._carSubmerged) { this._carSubmerged = false; this.carY = CAR_HEIGHT; }
-        if (this.carHealth > 30) { this._carSmoking = false; this._carSmokeStarted = 0; }
-        if (this.carHealth > 10) { this._carOnFire = false; this._carFireStarted = 0; }
+        if (this.carHealth > 100) { this._carSmoking = false; this._carSmokeStarted = 0; }
+        if (this.carHealth > 2) { this._carOnFire = false; this._carFireStarted = 0; }
       }
     }
-    if (this.isInCar && this.carHealth > 0 && this.carHealth <= 30 && !this._carSmoking && !this._carOnFire) {
+    if (this.isInCar && this.carHealth > 0 && this.carHealth <= 100 && !this._carSmoking && !this._carOnFire) {
       this._carSmoking = true;
       this._carSmokeStarted = performance.now() / 1000;
     }
-    if (this.isInCar && this.carHealth > 0 && !this._carSubmerged && this.carHealth <= 10 && !this._carOnFire) {
+    if (this.isInCar && this.carHealth > 0 && !this._carSubmerged && this.carHealth <= 2 && !this._carOnFire) {
       this._carOnFire = true;
       this._carFireStarted = performance.now() / 1000;
     }
@@ -3149,6 +3472,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (Math.hypot(dx, dz) < 1.5) {
         this.money += s.amount;
         this.moneyStacks.splice(i, 1);
+        this.playCashPickup();
       }
     }
     if (this.showMap) this.drawMap();
@@ -3171,9 +3495,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       effectiveDist = 0; effectiveHeight = 0;
       targetY = this.carY + (this.isInCar ? 0.3 : 1.5);
     }
-    const camX = targetX - Math.sin(this.camYaw) * effectiveDist;
-    const camZ = targetZ - Math.cos(this.camYaw) * effectiveDist;
-    const camY = targetY + effectiveHeight;
+    // Decaying random camera shake after a hard impact.
+    const shake = this.crashShake;
+    const camX = targetX - Math.sin(this.camYaw) * effectiveDist + (Math.random() * 2 - 1) * shake * 0.9;
+    const camZ = targetZ - Math.cos(this.camYaw) * effectiveDist + (Math.random() * 2 - 1) * shake * 0.9;
+    const camY = targetY + effectiveHeight + (Math.random() * 2 - 1) * shake * 0.7;
     const renderMesh = this.isInCar ? this.playerVehicleMesh
       : ((this.firstPerson || (this.taxiRideActive && this.taxiRideHidePlayer)) ? null : this.renderer.playerMesh);
     this._allNPCs.length = 0;
@@ -3186,6 +3512,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     for (const p of this.serverPedestrians) this._allPeds.push(p);
     for (const p of this.localPedestrians) this._allPeds.push(p);
     for (const p of this.policeModeThugPeds) this._allPeds.push(p);
+    if (this.storeCashier) this._allPeds.push(this.storeCashier);
     const rockOffset = this.getCarRockOffset();
     const carRoll = this.getCarRockRoll();
     if (this.pickupCooldown > 0) this.pickupCooldown -= dt;
@@ -3212,6 +3539,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.renderer.garageCarMesh = this.garageCarMesh;
     this.renderer.armOverrideActive = (this.currentWeapon === 1) && !this.firstPerson;
     this.renderer.walkSpeed = this.isInCar ? 0 : this.carSpeed;
+    this.renderer.playerCarSpeed = this.isInCar ? this.carSpeed : 0;
+    this.renderer.playerSteerInput = this._lastSteerInput;
     this.renderer.punchTime = this.punchTimer;
     if (this.punchTimer > 0) this.punchTimer = Math.max(0, this.punchTimer - dt);
     // Fix Y for on-foot other players so they stand on building roofs when applicable
@@ -3362,6 +3691,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     const speedFactor = Math.min(1, Math.abs(this.carSpeed) / 5);
     const steerDir = this.carSpeed < -0.5 ? -1 : 1;
+    this._lastSteerInput = steer;
     this.carYaw += steer * 2.5 * dt * speedFactor * steerDir;
     if (accelForce !== 0) {
       this.carVx += Math.sin(this.carYaw) * accelForce * dt;
@@ -3558,6 +3888,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     const speedFactor = Math.min(1, Math.abs(this.carSpeed) / 3);
     const steerDir = this.carSpeed < -0.5 ? -1 : 1;
+    this._lastSteerInput = steer;
     this.carYaw += steer * 3.0 * dt * speedFactor * steerDir;
     if (accelForce !== 0) {
       this.carVx += Math.sin(this.carYaw) * accelForce * dt;
@@ -3742,7 +4073,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this._heliOsc) this._heliOsc.frequency.value = 22 + s * 24;
     if (this._heliOsc2) this._heliOsc2.frequency.value = 44 + s * 48;
     if (this._heliFilter) this._heliFilter.frequency.value = 140 + s * 400;
-    if (this._heliGain) this._heliGain.gain.value = s * 0.09;
+    if (this._heliGain) this._heliGain.gain.value = s * 0.09 * this.carSfxVolume;
     if (this._heliLfo) this._heliLfo.frequency.value = 5 + s * 5;
     if (this._heliLfoGain) this._heliLfoGain.gain.value = s * 0.03;
   }
@@ -3888,7 +4219,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             const nowW = performance.now();
             if (wallSpd >= 9 && nowW - this._lastWallCrashTime > 450) {
               this._lastWallCrashTime = nowW;
-              this.playCrashSound(Math.min(1, wallSpd / 28));
+              const wallSeverity = Math.min(1, wallSpd / 28);
+              this.playCrashSound(wallSeverity);
+              this.applyCrashImpact(wallSeverity);
             }
           }
           const overlapX = ehw - Math.abs(dx), overlapZ = ehd - Math.abs(dz);
@@ -4026,11 +4359,28 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.camHeight = STORE_INTERIOR_CAM_HEIGHT;
     this.nearStoreDoor = false;
     this.nearStoreExit = false;
+    // Spawn the cashier behind the register, facing the player. It stays put
+    // until the register is stuck up, then sprints for the door.
+    const cashierId = --this.pedIdCounter;
+    const cashierGender = Math.random() < 0.5 ? 'female' : 'male';
+    this.storeCashier = {
+      id: cashierId,
+      x: sm.x,
+      z: sm.z,
+      yaw: sm.yaw + Math.PI,
+      gender: cashierGender,
+      mesh: this.renderer.getPedestrianMesh(cashierGender, cashierId),
+      speed: 0,
+      panicUntil: 0,
+      doorX: sm.doorX,
+      doorZ: sm.doorZ,
+    };
   }
   private leaveStore() {
     if (!this.inStore) return;
     const st = this.inStore;
     this.inStore = null;
+    this.storeCashier = null;
     this.carX = st.doorX - Math.sin(st.yaw) * 1.5;
     this.carZ = st.doorZ - Math.cos(st.yaw) * 1.5;
     this.carYaw = st.yaw + Math.PI; // face the street
@@ -4046,6 +4396,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private leaveStoreInPlace() {
     if (!this.inStore) return;
     this.inStore = null;
+    this.storeCashier = null;
     this.camDist = this._savedCamDist || 4;
     this.camHeight = this._savedCamHeight || 2;
     this.nearStoreRegister = false;
@@ -4070,9 +4421,50 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.renderer.supermarketLastPayout.set(key, now);
     const payout = 5000 + Math.floor(Math.random() * 5001);
-    this.money += payout;
-    this.moneyStacks.push({ x: this.inStore.x, z: this.inStore.z, amount: payout, yaw: 0, age: 0, lifetime: 5 });
-    this.showStoreToast(`💰 STUCK UP! +$${payout.toLocaleString()}`);
+    // No instant wallet credit — the cash spills onto the floor as pickup-able
+    // stacks (walk over them to collect, ching on pickup).
+    this.dropMoneyAt(this.inStore.x, this.inStore.z, payout);
+    // The cashier panics and sprints out the front door.
+    if (this.storeCashier) {
+      this.storeCashier.panicUntil = performance.now() / 1000 + 6;
+    }
+    // An armed stick-up is a witnessed crime — raise the wanted level so cops
+    // dispatch to the store (server records the store as last known sighting).
+    this.gtService.reportRobbery(this.getUserId(), this.inStore.x, this.inStore.z).then((res: any) => {
+      if (res && res.wantedLevel !== undefined) {
+        this.wantedLevel = res.wantedLevel;
+        this.wantedPopTimer = 0.7; // wanted-star pop
+      }
+    });
+    this.showStoreToast(`💰 STUCK UP! $${payout.toLocaleString()} spilled — grab it!`);
+  }
+  /** Moves the store cashier: idle at the register, sprint to the door when panicked. */
+  private updateStoreCashier(dt: number) {
+    const c = this.storeCashier;
+    if (!c) return;
+    const nowSec = performance.now() / 1000;
+    if (c.panicUntil > 0 && nowSec < c.panicUntil) {
+      const dx = c.doorX - c.x;
+      const dz = c.doorZ - c.z;
+      const dist = Math.hypot(dx, dz);
+      c.yaw = Math.atan2(dx, dz);
+      const runSpeed = 4.2;
+      c.speed = runSpeed;
+      if (dist < 1.0) {
+        // Reached the door — ran out of the store.
+        this.storeCashier = null;
+        return;
+      }
+      c.x += Math.sin(c.yaw) * runSpeed * dt;
+      c.z += Math.cos(c.yaw) * runSpeed * dt;
+      return;
+    }
+    if (c.panicUntil > 0) {
+      // Panic window ended without reaching the door — despawn.
+      this.storeCashier = null;
+      return;
+    }
+    c.speed = 0;
   }
   private showStoreToast(msg: string) {
     this.storeToast = msg;
@@ -4186,8 +4578,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           if (now - last >= 600000) {
             this.renderer.supermarketLastPayout.set(key, now);
             const payout = 5000 + Math.floor(Math.random() * 5001);
-            this.money += payout;
-            this.moneyStacks.push({ x: sm.x, z: sm.z, amount: payout, yaw: 0, age: 0, lifetime: 5 });
+            // Same floor-spill behavior as the interior register stick-up.
+            this.dropMoneyAt(sm.x, sm.z, payout);
           }
         }
       }
@@ -4208,7 +4600,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const dist = Math.sqrt(dx * dx + dz * dz);
       const minDist = carRadius * 2;
       if (dist < minDist && dist > 0.01) {
-        if (actualSpeed >= 6) this.playCrashSound(Math.min(1, actualSpeed / 28));
+        if (actualSpeed >= 6) {
+          const impactSeverity = Math.min(1, actualSpeed / 28);
+          this.playCrashSound(impactSeverity);
+          this.applyCrashImpact(impactSeverity);
+        }
         const overlap = minDist - dist;
         const nx = dx / dist;
         this.carX += nx * overlap * 0.5;
@@ -4218,12 +4614,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.carHealth -= collisionDamage * 0.5;
       }
     }
-    for (const ped of this.serverPedestrians) {
+    const runOverSeen = new Set<number>();
+    for (const ped of [...this.serverPedestrians, ...this.localPedestrians]) {
       if (ped.health <= 0) continue;
-      const dx = this.carX - ped.x;
-      const dz = this.carZ - ped.z;
-      const dist = Math.sqrt(dx * dx + dz * dz);
-      if (dist < 2.0) {
+      if (runOverSeen.has(ped.id)) continue;
+      runOverSeen.add(ped.id);
+      const isLocal = (ped as any).waitTimer !== undefined;
+      const pdx = this.carX - ped.x;
+      const pdz = this.carZ - ped.z;
+      const pdist = Math.sqrt(pdx * pdx + pdz * pdz);
+      // Same height guard as the car-vs-car loop — peds are on the ground, so
+      // aircraft flying overhead can't 'run over' crowds below.
+      const dy = Math.abs(this.carY - ((ped as any).posY ?? 0));
+      if (dy > 3) continue;
+      if (pdist < 2.0) {
         if (actualSpeed >= 4) this.playCrashSound(0.22);
         const impactForce = Math.max(2, actualSpeed * 0.5);
         const angle = Math.atan2(ped.z - this.carZ, ped.x - this.carX);
@@ -4232,19 +4636,29 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         ped.health -= 25;
         this.spawnBlood(ped.x, 1.0, ped.z);
         this.score += 10;
+        // Report the hit (weapon 0 = vehicle) so server peds track the damage
+        // and every lethal run-over draws heat; local peds need the kill flag
+        // since the server never registered them.
+        this.gtService.hit(this.getUserId(), ped.id, 1, 25, this.carX, this.carZ, 0);
+        if (isLocal && ped.health <= 0) {
+          this.gtService.hit(this.getUserId(), ped.id, 1, 25, this.carX, this.carZ, 0, true);
+          this.showMurderFlash();
+        }
         if (ped.health <= 0) {
-          this.deadNPCIds.add(ped.id);
-          this.deadBodies.push({
-            id: ped.id,
-            x: ped.x, z: ped.z, yaw: ped.yaw,
-            type: ped.type || 'ped_male',
-            gender: ped.gender,
-            mesh: ped.mesh,
-            deathTime: performance.now() / 1000,
-            lifetime: 30,
-          });
-          this.bloodPools.push({ x: ped.x, z: ped.z - 1.0, age: 0, lifetime: 30, maxRadius: 3, variant: Math.floor(Math.random() * 4) });
-          this.dropMoneyAt(ped.x, ped.z, 50 + Math.floor(Math.random() * 150));
+          if (!isLocal) {
+            this.deadNPCIds.add(ped.id);
+            this.deadBodies.push({
+              id: ped.id,
+              x: ped.x, z: ped.z, yaw: ped.yaw,
+              type: ped.type || 'ped_male',
+              gender: ped.gender,
+              mesh: ped.mesh,
+              deathTime: performance.now() / 1000,
+              lifetime: 30,
+            });
+            this.bloodPools.push({ x: ped.x, z: ped.z - 1.0, age: 0, lifetime: 30, maxRadius: 3, variant: Math.floor(Math.random() * 4) });
+            this.dropMoneyAt(ped.x, ped.z, 50 + Math.floor(Math.random() * 150));
+          }
         }
       }
     }
@@ -4345,7 +4759,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           vx: rdirX * 40, vy: rdirY * 40, vz: rdirZ * 40,
           age: 0, lifetime: 3
         });
-        this.playWeaponSound(4);
+        this.playWeaponSound(4, this.getShotVolumeScale(p.posX, p.posZ));
       } else {
         this.tracers.push({
           originX: p.posX, originY, originZ: p.posZ,
@@ -4359,7 +4773,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         });
         this.spawnBulletSmoke(p.posX, originY, p.posZ, rdirX, rdirY, rdirZ, p.weapon);
         this.spawnBulletTrail(p.posX, originY, p.posZ, rdirX, rdirY, rdirZ, p.weapon);
-        this.playWeaponSound(p.weapon);
+        this.playWeaponSound(p.weapon, this.getShotVolumeScale(p.posX, p.posZ));
       }
     }
   }
@@ -4382,13 +4796,17 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.muzzleFlashes.push({
             x: npc.x, y: 1.2, z: npc.z,
             dirX: dx / d3, dirY: dy / d3, dirZ: dz / d3,
-            weapon: 0, age: 0, lifetime: 0.08
+            weapon: 2, age: 0, lifetime: 0.08
           });
           this.spawnBulletSmoke(npc.x, 1.2, npc.z, dx / d3, dy / d3, dz / d3, 1);
           this.spawnBulletTrail(npc.x, 1.2, npc.z, dx / d3, dy / d3, dz / d3, 1);
         }
         // NPC gunfire uses the rifle shot (weapon 2); weapon 0 is Unarmed and silent.
-        this.playWeaponSound(2);
+        this.playWeaponSound(2, this.getShotVolumeScale(npc.x, npc.z));
+        // Occasionally a round whizzes past — the ricochet zing sells the danger.
+        // Distant shooters zing less often as well as quieter.
+        const zingScale = this.getShotVolumeScale(npc.x, npc.z);
+        if (Math.random() < 0.4 * zingScale) this.playRicochetZing(zingScale);
       } else if (d3 > 0.01) {
         // Melee fight-back: a punched ped lands a punch on the player —
         // splash blood on the player so the hit reads.
@@ -5241,7 +5659,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.gtService.hit(0, this.getUserId(), 1, 8, thug.x, thug.z).then((res: any) => {
             if (res && res.targetHealth !== undefined) this.health = res.targetHealth;
           });
-          this.playWeaponSound(2);
+          this.playWeaponSound(2, this.getShotVolumeScale(thug.x, thug.z));
+          // Thugs spray fast, so keep the zing a sparse accent.
+          const zingScale = this.getShotVolumeScale(thug.x, thug.z);
+          if (Math.random() < 0.25 * zingScale) this.playRicochetZing(zingScale);
         }
       }
     }
