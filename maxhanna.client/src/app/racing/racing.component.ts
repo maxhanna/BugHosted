@@ -5,11 +5,12 @@ import { AppModule } from '../app.module';
 import { ChildComponent } from '../child.component';
 import { RacingRenderer, TrackPoint, DECAL_LAYOUTS, getAccentSegsForStyle } from './racing-renderer';
 import { RacingService } from '../../services/racing.service';
-import { RacingHubService, LobbyPlayer, RemoteCarPosition, RaceStandingsRow } from '../../services/racing-hub.service';
+import { RacingHubService, LobbyPlayer, RemoteCarPosition, RaceStandingsRow, RaceGridSlot } from '../../services/racing-hub.service';
 import {
   RacingPlayerCar, RaceResult, RacingAppearancePart,
   TRACKS, UPGRADE_DEFS, CAR_SKINS, BOT_CONFIGS, APPEARANCE_PARTS, TrackDefinition,
-  RIM_TINTS, DECAL_COLORS, GLOW_COLORS, ACCENT_COLORS, SKIN_FINISH_FACTOR, RacingCarAppearance
+  RIM_TINTS, DECAL_COLORS, GLOW_COLORS, ACCENT_COLORS, SKIN_FINISH_FACTOR, RacingCarAppearance,
+  SPOILER_DOWNFORCE, SPOILER_DRAG
 } from '../../services/datacontracts/racing/racing-types';
 import { UserEventService } from '../../services/user-event.service';
 import { Subscription } from 'rxjs';
@@ -107,6 +108,7 @@ interface RemoteCarVisual {
   colorB: number;
   lap: number;
   slide: number;
+  raceDist?: number;
 }
 @Component({
   selector: 'app-racing',
@@ -197,6 +199,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private _mpSubs: Subscription[] = [];
   private _positionSyncTimer = 0;
   private _mpLobbyTrackId = '';
+  // Server-authoritative F1 starting grid for the current multiplayer race
+  // (slot 0 = pole, least upgraded car; most upgraded starts at the back).
+  private _mpGrid: RaceGridSlot[] = [];
   private _mpFinished = false;
   private _mpWinnerCelebrated = false;
   keys = new Set<string>();
@@ -366,6 +371,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   showOptions = false;
   cameraShakeOn = true;
   speedFovOn = true;
+  /** Garage live-preview toggle: when on, hovering an appearance part (accent,
+   *  decal, rims, glow, …) applies it to the 3D car in real time before buying.
+   *  Off keeps the car on the equipped look while browsing. Persisted. */
+  garageLivePreview = true;
   constructor(
     private racingService: RacingService,
     private racingHub: RacingHubService,
@@ -379,6 +388,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     try { this.soundOn = localStorage.getItem('gp_sound') === '1'; } catch { }
     try { this.cameraShakeOn = localStorage.getItem('gp_shake') !== '0'; } catch { }
     try { this.speedFovOn = localStorage.getItem('gp_fov') !== '0'; } catch { }
+    try { this.garageLivePreview = localStorage.getItem('gp_livepreview') !== '0'; } catch { }
     this.restoreGarageCam();
     this.userEventService.insertUserEvent(
       this.parentRef?.user?.id ?? 0, "racing", "Started Racing!", undefined, "Racing"
@@ -468,12 +478,18 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.racingHub.raceStarted$.subscribe(data => {
         this.ngZone.run(() => {
           this.totalLaps = data.totalLaps;
+          this._mpGrid = data.grid ?? [];
           const startAt = data.startTime;
           this.closeGarageForRaceStart();
           if (startAt && startAt > Date.now()) {
             this._mpRaceStartAt = startAt;
             this.countdownTimer = Math.max(0, Math.ceil((startAt - Date.now()) / 1000));
             this.gameState = 'countdown';
+            // Line the field up on the grid the moment the lights appear, so
+            // everyone sees the F1-style formation (pairs, staggered rows)
+            // during the countdown instead of cars parked wherever they were.
+            this.placePlayerOnGrid();
+            this.preplaceRemotesOnGrid();
             this.stopMpStartCountdown();
             this._mpStartCountdownTimer = setInterval(() => {
               const remain = Math.max(0, Math.ceil((this._mpRaceStartAt - Date.now()) / 1000));
@@ -511,6 +527,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           if (data.currentLap > oldLap) existing.lap = data.currentLap;
           else if (data.distance < 50 && oldDist > 100) existing.lap++;
           existing.distance = data.distance;
+          if (typeof data.raceDist === 'number') existing.raceDist = data.raceDist;
         } else {
           const player = this.lobbyPlayers.find(p => p.connectionId === data.connectionId);
           this.remoteCars.set(data.connectionId, {
@@ -523,6 +540,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
             colorR: 0.9, colorG: 0.3, colorB: 0.3,
             lap: data.currentLap || 0,
             slide: 0,
+            raceDist: typeof data.raceDist === 'number' ? data.raceDist : undefined,
           });
           this.totalRacers = this.bots.length + this.lobbyPlayers.length;
         }
@@ -803,6 +821,32 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
     return bonus;
   }
+  /** Downforce bonus (%) from the equipped spoiler — taller/multi-element wings
+   *  press harder. Feeds the cornering factor alongside suspension, so aero
+   *  upgrades visibly improve handling. 0 when no spoiler is equipped. */
+  getDownforceBonus(): number {
+    return this.playerCar.spoilerId ? (SPOILER_DOWNFORCE[this.playerCar.spoilerId] ?? 0) : 0;
+  }
+  /** Top-speed drag penalty (%) from the equipped spoiler — the cost of big
+   *  aero. 0 when no spoiler is equipped. */
+  getDragPenalty(): number {
+    return this.playerCar.spoilerId ? (SPOILER_DRAG[this.playerCar.spoilerId] ?? 0) : 0;
+  }
+  /** Multiplier applied to top speed (1 - drag/100). */
+  private getDragFactor(): number {
+    return 1 - this.getDragPenalty() / 100;
+  }
+  /** Spoiler card stat: current equipped downforce -> this part's downforce,
+   *  plus this wing's drag penalty (0 = none). */
+  getSpoilerStatPreview(p: RacingAppearancePart): { before: number; after: number; drag: number } | null {
+    if (p.category !== 'spoiler') return null;
+    const current = this.getEquippedAppearance('spoiler');
+    return {
+      before: current ? (SPOILER_DOWNFORCE[current] ?? 0) : 0,
+      after: SPOILER_DOWNFORCE[p.id] ?? 0,
+      drag: SPOILER_DRAG[p.id] ?? 0,
+    };
+  }
   getBrakeBonus(): number {
     let bonus = 0;
     for (const u of this.playerCar.upgrades) {
@@ -818,7 +862,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return bonus;
   }
   getMaxSpeed(): number {
-    return MAX_SPEED_BASE * (1 + this.getSpeedBonus() / 100) * (1 - this.getWeightBonus() / 200);
+    // Drag from big aero (whale tail / bi-plane) caps top speed — the tradeoff
+    // for their cornering gain, visible in the HUD and on the upgrade cards.
+    return MAX_SPEED_BASE * (1 + this.getSpeedBonus() / 100) * (1 - this.getWeightBonus() / 200) * this.getDragFactor();
   }
   getSkinColor(): string {
     const skin = CAR_SKINS.find(s => s.id === this.playerCar.skinId) || CAR_SKINS[0];
@@ -888,7 +934,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const tid = track.id.toString();
     this.trackIdStr = tid;
     this._mpLobbyTrackId = tid;
-    const state = await this.racingHub.joinLobby(tid, username, userId, track.laps, this.renderer?.totalTrackDist || 0);
+    const upgradeLevel = this.playerCar.upgrades.reduce((sum, u) => sum + (u.level || 0), 0);
+    const state = await this.racingHub.joinLobby(tid, username, userId, track.laps, this.renderer?.totalTrackDist || 0, upgradeLevel);
     if (state) {
       this.lobbyPlayers = state.players;
       this.isLobbyHost = state.isHost;
@@ -1103,17 +1150,17 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.replayLeadName = '';
     this._mpFinished = false;
     this._mpWinnerCelebrated = false;
-    const startP = this.renderer.getTrackPointAlong(0);
-    this.carX = startP.x;
-    this.carZ = startP.z;
-    this.carYaw = Math.atan2(startP.dirX, startP.dirZ);
-    this.carDir = this.carYaw;
-    this.slipAngle = 0;
+    // Server-authoritative grid: place the player by their slot (least upgraded
+    // on pole, most upgraded at the back), then pre-place the other lobby cars
+    // on their grid spots so the field is visibly lined up from the flag drop
+    // instead of everyone stacked on the start line.
+    this.placePlayerOnGrid();
     if (this.selectedTrack) {
       this.renderer.setTheme(this.themeForTrack(this.selectedTrack.id));
     }
     this.spawnBots(4);
     this.totalRacers = this.bots.length + this.lobbyPlayers.length;
+    this.preplaceRemotesOnGrid();
     if (this.selectedTrack) {
       this.playerCar.money -= this.selectedTrack.entryFee;
       this.saveCar();
@@ -1252,6 +1299,71 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private getBotColorRGB(color: number): [number, number, number] {
     return BOT_PAINT[color % BOT_PAINT.length];
   }
+  /** F1-style grid slot -> track offset + lateral lane. Slots fill in pairs:
+   *  row = floor(slot/2), lanes alternate right/left per row, and rows are
+   *  7.5m apart so the field looks like a real starting grid, not a line. */
+  private gridPlaceForSlot(slot: number): { offset: number; lane: number } {
+    const row = Math.floor(slot / 2);
+    const lane = slot % 2 === 0 ? 1.2 : -1.2;
+    return { offset: -row * 7.5, lane };
+  }
+
+  /** World x/z/yaw for a grid slot on the current track (car-local lane offset
+   *  applied perpendicular to the racing line, like spawnBots does). Falls back
+   *  to the start line itself if the circuit isn't measured yet. */
+  private gridSlotPosition(slot: number): { x: number; z: number; yaw: number } {
+    const gp = this.gridPlaceForSlot(slot);
+    const tt = this.renderer.totalTrackDist;
+    if (tt <= 0) {
+      const bp = this.renderer.getTrackPointAlong(0);
+      return { x: bp.x, z: bp.z, yaw: Math.atan2(bp.dirX, bp.dirZ) };
+    }
+    const d = ((gp.offset % tt) + tt) % tt;
+    const bp = this.renderer.getTrackPointAlong(d);
+    return {
+      x: bp.x + -bp.dirZ * gp.lane,
+      z: bp.z + bp.dirX * gp.lane,
+      yaw: Math.atan2(bp.dirX, bp.dirZ),
+    };
+  }
+
+  /** Place the player's car on their grid slot (server order for MP, pole in
+   *  solo) so the field is lined up from the lights, not stacked on the line. */
+  private placePlayerOnGrid() {
+    const myId = this.parentRef?.user?.id ?? 0;
+    const myConn = this.racingHub.myConnectionId || '';
+    const mySlot = this._mpGrid.find(g => g.playerId === myId || g.connectionId === myConn)?.slot ?? 0;
+    const g0 = this.gridSlotPosition(mySlot);
+    this.carX = g0.x;
+    this.carZ = g0.z;
+    this.carYaw = g0.yaw;
+    this.carDir = this.carYaw;
+    this.slipAngle = 0;
+  }
+
+  /** Pre-place the other lobby cars on their grid slots so everyone is visible
+   *  from the flag drop, before their 10Hz position syncs start arriving. */
+  private preplaceRemotesOnGrid() {
+    const myId = this.parentRef?.user?.id ?? 0;
+    const myConn = this.racingHub.myConnectionId || '';
+    for (const g of this._mpGrid) {
+      if (g.playerId === myId || g.connectionId === myConn) continue;
+      if (this.remoteCars.has(g.connectionId)) continue;
+      const pos = this.gridSlotPosition(g.slot);
+      this.remoteCars.set(g.connectionId, {
+        connectionId: g.connectionId,
+        playerName: g.playerName,
+        playerId: g.playerId,
+        x: pos.x, z: pos.z, yaw: pos.yaw,
+        speed: 0, distance: 0, currentLap: 0, isOffTrack: false,
+        colorR: 0.9, colorG: 0.3, colorB: 0.3,
+        lap: 0, slide: 0,
+        raceDist: this.gridPlaceForSlot(g.slot).offset,
+      });
+      this.totalRacers = this.bots.length + this.lobbyPlayers.length;
+    }
+  }
+
   private spawnBots(count: number) {
     this.bots = [];
     const botNames = ['Speed Racer', 'Lightning', 'Nitro', 'Tornado', 'Blitz', 'Storm', 'Vortex', 'Phantom'];
@@ -1266,16 +1378,17 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       [diffPool[i], diffPool[j]] = [diffPool[j], diffPool[i]];
     }
     for (let i = 0; i < count; i++) {
-      const offset = -5 - i * 4;
-      const bp = this.renderer.getTrackPointAlong(((offset % this.renderer.totalTrackDist) + this.renderer.totalTrackDist) % this.renderer.totalTrackDist);
-      const laneOffsets = [0, 2.5, -2.5, 1.8, -1.8, 3];
-      const laneOffset = laneOffsets[i % laneOffsets.length];
+      // Bots fill the grid behind the player (slot 0): pairs side by side,
+      // staggered rows, instead of the old single-file line.
+      const gp = this.gridPlaceForSlot(i + 1);
+      const laneOffset = gp.lane;
+      const bp = this.renderer.getTrackPointAlong(((gp.offset % this.renderer.totalTrackDist) + this.renderer.totalTrackDist) % this.renderer.totalTrackDist);
       const ppx = -bp.dirZ;
       const ppz = bp.dirX;
       const config = BOT_CONFIGS[diffPool[i]];
       this.bots.push({
         id: 'b' + i,
-        dist: ((offset % this.renderer.totalTrackDist) + this.renderer.totalTrackDist) % this.renderer.totalTrackDist,
+        dist: ((gp.offset % this.renderer.totalTrackDist) + this.renderer.totalTrackDist) % this.renderer.totalTrackDist,
         speed: 0,
         yaw: Math.atan2(bp.dirX, bp.dirZ),
         x: bp.x + ppx * laneOffset, z: bp.z + ppz * laneOffset,
@@ -1287,7 +1400,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         hasMistake: false,
         alive: true,
         laneOffset,
-        raceDist: offset,
+        raceDist: gp.offset,
         pace: 0.88 + Math.random() * 0.24,
         slide: 0,
         rimBumpTimer: 0,
@@ -1340,12 +1453,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.replayLeadName = '';
     this._mpFinished = false;
     this._mpWinnerCelebrated = false;
-    const startP = this.renderer.getTrackPointAlong(0);
-    this.carX = startP.x;
-    this.carZ = startP.z;
-    this.carYaw = Math.atan2(startP.dirX, startP.dirZ);
-    this.carDir = this.carYaw;
-    this.slipAngle = 0;
+    // F1-style grid: the player takes pole (slot 0), bots fill the pairs
+    // behind them via spawnBots. Distance tracking starts at 0 on the line.
+    this.placePlayerOnGrid();
     this.carDist = 0;
     this.renderer.setTheme(this.themeForTrack(track.id));
     this.spawnBots(4);
@@ -1457,6 +1567,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
             distance: this.carDist, currentLap: this.currentLap,
             isOffTrack: this.isOffTrack,
             totalTrackDist: this.renderer?.totalTrackDist || 0,
+            raceDist: this._playerRaceDist,
           });
         }
       }
@@ -1598,7 +1709,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private updatePhysics(dt: number) {
     const maxSpeed = this.getMaxSpeed();
     const grip = 0.85 + this.getGripBonus() / 100;
-    const corner = 0.8 + this.getCornerBonus() / 100;
+    // Downforce (spoiler) adds to cornering grip the same way suspension does,
+    // so a taller/multi-element wing measurably improves handling.
+    const corner = 0.8 + (this.getCornerBonus() + this.getDownforceBonus()) / 100;
     const brakeUpgrade = 1 + this.getBrakeBonus() / 100;
     let heatFade = 1;
     const discHeat = this.renderer?.getPlayerBrakeHeat() ?? 0;
@@ -2098,10 +2211,13 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       isPlayer: false
     }));
     this.remoteCars.forEach(rc => {
-      allRacers.push({
-        dist: rc.distance + rc.lap * this.renderer.totalTrackDist,
-        isPlayer: false
-      });
+      // Cumulative race distance (sent by the remote) ranks correctly from the
+      // flag drop even for back-of-grid cars; fall back to the lap+distance
+      // estimate when a remote hasn't reported one yet.
+      const dist = typeof rc.raceDist === 'number'
+        ? rc.raceDist
+        : rc.distance + rc.lap * this.renderer.totalTrackDist;
+      allRacers.push({ dist, isPlayer: false });
     });
     allRacers.push({ dist: playerDist, isPlayer: true });
     allRacers.sort((a, b) => b.dist - a.dist);
@@ -2863,6 +2979,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       201: 'prev-rim-alloy', 202: 'prev-rim-deep', 203: 'prev-rim-gold',
       204: 'prev-rim-chrome', 205: 'prev-rim-bronze', 206: 'prev-rim-white', 207: 'prev-rim-black', 208: 'prev-rim-blue',
       209: 'prev-rim-emerald', 210: 'prev-rim-violet', 211: 'prev-rim-crimson', 212: 'prev-rim-sunset',
+      213: 'prev-rim-copper', 214: 'prev-rim-teal', 215: 'prev-rim-whitegold', 216: 'prev-rim-mattegrey',
       301: 'prev-exhaust-sport', 302: 'prev-exhaust-titanium', 303: 'prev-exhaust-twin', 304: 'prev-exhaust-quad', 305: 'prev-exhaust-carbon',
       // Decals (401-428) render the top-down placement map instead of a swatch.
       501: 'prev-glow-blue', 502: 'prev-glow-green', 503: 'prev-glow-purple', 504: 'prev-glow-pink',
@@ -2871,6 +2988,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       512: 'prev-glow-teal', 513: 'prev-glow-magenta', 514: 'prev-glow-yellow', 515: 'prev-glow-cobalt',
       516: 'prev-glow-emerald', 517: 'prev-glow-crimson', 518: 'prev-glow-mint', 519: 'prev-glow-orchid',
       520: 'prev-glow-ice', 521: 'prev-glow-bronze', 522: 'prev-glow-indigo', 523: 'prev-glow-silver',
+      524: 'prev-glow-copper', 525: 'prev-glow-teal', 526: 'prev-glow-burgundy', 527: 'prev-glow-navy',
+      528: 'prev-glow-mint', 529: 'prev-glow-coral', 530: 'prev-glow-champagne', 531: 'prev-glow-gunmetal',
       601: 'prev-accent-white', 602: 'prev-accent-gold', 603: 'prev-accent-silver', 604: 'prev-accent-red',
       605: 'prev-accent-blue', 606: 'prev-accent-black',
       607: 'prev-accent-green', 608: 'prev-accent-orange', 609: 'prev-accent-purple', 610: 'prev-accent-pink',
@@ -3380,6 +3499,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       out.skin = this.hexToRgb(this.skinPreview.color);
       out.metallic = SKIN_FINISH_FACTOR[this.skinPreview.finish] ?? 0.45;
     }
+    // The live-preview toggle gates hover-preview: when off, the 3D car keeps
+    // the equipped livery while browsing the catalog.
+    if (p && !this.garageLivePreview) return out;
     if (!p) return out;
     switch (p.category) {
       case 'rims': out.rimStyle = p.id; break;
@@ -3479,9 +3601,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     for (const d of UPGRADE_DEFS) {
       if (d.category === 'engine' && d.level < u.level) prev += d.statBonus;
     }
+    const df = this.getDragFactor();
     return {
-      before: Math.round(MAX_SPEED_BASE * (1 + prev / 100) * wt * 3.6),
-      after: Math.round(MAX_SPEED_BASE * (1 + (prev + u.statBonus) / 100) * wt * 3.6),
+      before: Math.round(MAX_SPEED_BASE * (1 + prev / 100) * wt * df * 3.6),
+      after: Math.round(MAX_SPEED_BASE * (1 + (prev + u.statBonus) / 100) * wt * df * 3.6),
     };
   }
   getStatPreview(u: any): { before: number; after: number; label: string } {
@@ -3499,7 +3622,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     afterVal = beforeVal + (cat === 'body' ? bonus : Math.round(bonus * (cat === 'engine' ? 0.55 : cat === 'tires' ? 1 : cat === 'suspension' ? 1 : 1.3)));
     if (cat === 'engine') {
       const tempBonus = this.getSpeedBonus() + bonus;
-      afterVal = Math.round(MAX_SPEED_BASE * (1 + tempBonus / 100) * (1 - this.getWeightBonus() / 200) * 3.6);
+      afterVal = Math.round(MAX_SPEED_BASE * (1 + tempBonus / 100) * (1 - this.getWeightBonus() / 200) * this.getDragFactor() * 3.6);
     }
     return { before: beforeVal, after: afterVal, label };
   }
@@ -3688,6 +3811,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this._destroyed) return;
     this.speedFovOn = !this.speedFovOn;
     try { localStorage.setItem('gp_fov', this.speedFovOn ? '1' : '0'); } catch { }
+  }
+  toggleGarageLivePreview() {
+    if (this._destroyed) return;
+    this.garageLivePreview = !this.garageLivePreview;
+    try { localStorage.setItem('gp_livepreview', this.garageLivePreview ? '1' : '0'); } catch { }
+    if (!this.garageLivePreview) { this.appearancePreview = null; this.skinPreview = null; }
   }
   toggleSound() {
     if (this._destroyed) return;
@@ -3945,12 +4074,35 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const speed = Math.abs(this.carSpeed);
     const maxSpd = this.getMaxSpeed();
     const rpm = Math.max(0.3, Math.min(1.25, speed / maxSpd * 1.35 + 0.3));
-    const baseFreq = 52 + rpm * 140;
+    // Exhaust upgrades shape the engine's voice: quad barrels (Twin Tips / Quad)
+    // drop the pitch and roll off the highs for a deep rumble; twin tips
+    // (Sport / Titanium / Carbon) sharpen the pitch, brighten the cutoff and
+    // push the rasp harmonic for a higher, raspier note. Stock has no exhaustId.
+    const exhId = this.playerCar.exhaustId;
+    const exhQuad = exhId === 303 || exhId === 304;
+    const exhRasp = exhId === 301 || exhId === 302 || exhId === 305;
+    let baseFreq = 52 + rpm * 140;
+    let filterFreq = 350 + rpm * 900;
+    let harmMult = 2;
+    let detune = 6;
+    if (exhQuad) {
+      baseFreq *= 0.85;      // deeper rumble
+      filterFreq *= 0.78;    // muffled, throaty tail note
+      detune = 2;            // less saw-beat, solid tone
+    } else if (exhRasp) {
+      baseFreq *= 1.06;      // sharper pitch
+      filterFreq *= 1.18;    // brighter, raspier tail note
+      harmMult = 2.3;        // more inharmonic rasp harmonic
+      detune = 10;           // more saw-beat crackle
+    }
     if (this._subOsc) this._subOsc.frequency.setTargetAtTime(baseFreq * 0.5, t, 0.05);
     if (this._engineOsc) this._engineOsc.frequency.setTargetAtTime(baseFreq, t, 0.05);
-    if (this._engineOsc2) this._engineOsc2.frequency.setTargetAtTime(baseFreq, t, 0.05);
-    if (this._harmOsc) this._harmOsc.frequency.setTargetAtTime(baseFreq * 2, t, 0.05);
-    this._engineFilter.frequency.setTargetAtTime(350 + rpm * 900, t, 0.08);
+    if (this._engineOsc2) {
+      this._engineOsc2.frequency.setTargetAtTime(baseFreq, t, 0.05);
+      this._engineOsc2.detune.setTargetAtTime(detune, t, 0.08);
+    }
+    if (this._harmOsc) this._harmOsc.frequency.setTargetAtTime(baseFreq * harmMult, t, 0.05);
+    this._engineFilter.frequency.setTargetAtTime(filterFreq, t, 0.08);
     this._engineGain.gain.setTargetAtTime(0.04 + rpm * 0.05, t, 0.08);
     const speedRatio = Math.min(1, speed / maxSpd);
     if (this._windFilter) this._windFilter.frequency.setTargetAtTime(400 + speedRatio * 2200, t, 0.15);
@@ -4332,6 +4484,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const lvl = this.bodyLevel;
     if (lvl >= 2) return 'AERO';
     if (lvl >= 1) return 'CARBON';
+    return 'STOCK';
+  }
+  get spoilerName(): string {
+    const id = this.playerCar.spoilerId;
+    if (id) {
+      const part = APPEARANCE_PARTS.find(p => p.id === id && p.category === 'spoiler');
+      if (part) return part.name.toUpperCase();
+    }
     return 'STOCK';
   }
   get maxSpeedKmh(): number { return Math.round(this.getMaxSpeed() * 3.6); }

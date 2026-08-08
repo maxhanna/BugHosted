@@ -29,7 +29,7 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
   // Big number plates on the nose and flanks.
   404: {
     flank: [[0.85, 0.19, 0.14, 0.05, 0.05, 0.08], [0.50, 0.24, 0.12, 0.05, 0.05, 0.07], [-0.10, 0.38, 0.12, 0.05, 0.05, 0.06], [-0.45, 0.36, 0.12, 0.05, 0.05, 0.06]],
-    center: [[1.25, 0.13, 0.18, 0.06, 0.09], [0.68, 0.225, 0.14, 0.06, 0.08]],
+    center: [[1.28, 0.115, 0.24, 0.06, 0.09], [0.68, 0.225, 0.14, 0.06, 0.08]],
   },
   // Checkered bands across the nose and rear deck.
   405: {
@@ -44,25 +44,25 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
   // Large centered emblem on the engine cover.
   407: {
     flank: [[0.85, 0.19, 0.08, 0.05, 0.05, 0.08], [-0.10, 0.38, 0.08, 0.05, 0.05, 0.07]],
-    center: [[0.68, 0.225, 0.30, 0.06, 0.13], [1.25, 0.13, 0.12, 0.05, 0.08], [-0.45, 0.36, 0.14, 0.05, 0.10]],
+    center: [[0.68, 0.225, 0.30, 0.06, 0.13], [1.29, 0.115, 0.18, 0.05, 0.08], [-0.45, 0.36, 0.14, 0.05, 0.10]],
   },
   // Crest emblem, engine-cover dominant.
   408: {
     flank: [[0.50, 0.24, 0.10, 0.05, 0.05, 0.07]],
-    center: [[0.68, 0.225, 0.26, 0.06, 0.12], [1.22, 0.13, 0.10, 0.05, 0.08]],
+    center: [[0.68, 0.225, 0.26, 0.06, 0.12], [1.29, 0.115, 0.16, 0.05, 0.08]],
   },
   // Racing number plates.
   409: {
     flank: [[0.85, 0.19, 0.14, 0.05, 0.05, 0.08], [0.50, 0.24, 0.12, 0.05, 0.05, 0.07], [-0.10, 0.38, 0.12, 0.05, 0.05, 0.06], [-0.45, 0.36, 0.12, 0.05, 0.05, 0.06]],
-    center: [[1.25, 0.13, 0.18, 0.06, 0.09], [0.68, 0.225, 0.14, 0.06, 0.08]],
+    center: [[1.28, 0.115, 0.24, 0.06, 0.09], [0.68, 0.225, 0.14, 0.06, 0.08]],
   },
   410: {
     flank: [[0.85, 0.19, 0.14, 0.05, 0.05, 0.08], [0.50, 0.24, 0.12, 0.05, 0.05, 0.07], [-0.10, 0.38, 0.12, 0.05, 0.05, 0.06], [-0.45, 0.36, 0.12, 0.05, 0.05, 0.06]],
-    center: [[1.25, 0.13, 0.18, 0.06, 0.09], [0.68, 0.225, 0.14, 0.06, 0.08]],
+    center: [[1.28, 0.115, 0.24, 0.06, 0.09], [0.68, 0.225, 0.14, 0.06, 0.08]],
   },
   411: {
     flank: [[0.85, 0.19, 0.14, 0.05, 0.05, 0.08], [0.50, 0.24, 0.12, 0.05, 0.05, 0.07], [-0.10, 0.38, 0.12, 0.05, 0.05, 0.06], [-0.45, 0.36, 0.12, 0.05, 0.05, 0.06]],
-    center: [[1.25, 0.13, 0.18, 0.06, 0.09], [0.68, 0.225, 0.14, 0.06, 0.08]],
+    center: [[1.28, 0.115, 0.24, 0.06, 0.09], [0.68, 0.225, 0.14, 0.06, 0.08]],
   },
   // Thin sponsor side stripes.
   412: {
@@ -132,7 +132,7 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
   // Heart emblem on the engine cover.
   425: {
     flank: [[0.50, 0.24, 0.06, 0.05, 0.05, 0.08]],
-    center: [[0.68, 0.225, 0.16, 0.06, 0.09], [1.22, 0.13, 0.06, 0.05, 0.05]],
+    center: [[0.68, 0.225, 0.16, 0.06, 0.09], [1.30, 0.115, 0.12, 0.05, 0.05]],
   },
   // Arrow chevrons on the flanks.
   426: {
@@ -147,7 +147,7 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
   // Crescent moon on the engine cover.
   428: {
     flank: [[0.50, 0.24, 0.06, 0.05, 0.05, 0.08]],
-    center: [[0.68, 0.225, 0.16, 0.06, 0.09], [1.22, 0.13, 0.06, 0.05, 0.05]],
+    center: [[0.68, 0.225, 0.16, 0.06, 0.09], [1.30, 0.115, 0.12, 0.05, 0.05]],
   },
 };
 export type AccentSeg = [number, number, number, number, number, number]; // cx, cy, l, h, d, z
@@ -261,8 +261,27 @@ function loftTopY(stations: LoftStation[], x: number, z: number): number {
   const t = Math.pow(dz / hw, 4);
   return y + hh * Math.pow(1 - t, 0.25);
 }
-/** Highest painted surface at (x, z): the main body or the cockpit hump. */
-const carBodyTopY = (x: number, z: number) => Math.max(loftTopY(BODY_LOFT, x, z), loftTopY(HUMP_LOFT, x, z));
+/** Highest painted surface at (x, z): the main body or the cockpit hump. The
+ *  hump only exists between its own stations — past them its clamped loft would
+ *  report a flat phantom height and float plates in the air, so it's excluded
+ *  there. Beyond the last body station the surface wraps down over the rounded
+ *  nose tip, letting number plates and emblems curve over the front instead of
+ *  ending flat at the tip. */
+const carBodyTopY = (x: number, z: number) => {
+  // The cockpit hump is a small dome (x 0.13..0.47, |z| <= half-width) — only
+  // sample it where it physically exists, or plates near it would sit on a flat
+  // phantom height and float above the body.
+  const inHump = x >= HUMP_LOFT[0].x && x <= HUMP_LOFT[HUMP_LOFT.length - 1].x && Math.abs(z) <= HUMP_LOFT[0].w / 2;
+  const humpY = inHump ? loftTopY(HUMP_LOFT, x, z) : -Infinity;
+  let bodyY = loftTopY(BODY_LOFT, x, z);
+  const last = BODY_LOFT[BODY_LOFT.length - 1];
+  if (x > last.x) {
+    const t = Math.min(1, (x - last.x) / 0.12);
+    const tipTop = last.y + last.h / 2;
+    bodyY = Math.min(bodyY, tipTop - t * (tipTop - 0.045));
+  }
+  return Math.max(bodyY, humpY);
+};
 /** Side-pod top surface (symmetric about z=0). */
 const carPodTopY = (x: number, z: number) => loftTopY(POD_LOFT, x, Math.abs(z));
 
@@ -382,6 +401,28 @@ export class RacingRenderer {
   private tireWear = 0;
   private _bakedTireWear = -1;
   private _tireDist = 0;
+  /** Hot-exhaust effect: additive glow sprites baked at each exhaust variant's
+   *  tip positions, plus a wavy heat-haze quad behind the barrels, both driven
+   *  by revs/throttle. */
+  private exhaustGlowVaos = new Map<number, { vao: WebGLVertexArrayObject; count: number }>();
+  /** Animated aero elements for the spoiler variants — baked geometry plus a
+   *  per-frame pivot transform driven by speed/steering (DRS flap raises at
+   *  speed, Aero DRS+ banks with steering, etc). Purely visual, no physics. */
+  private spoilerAnimVaos = new Map<number, {
+    vao: WebGLVertexArrayObject; count: number;
+    pivot: [number, number, number];
+    kind: 'pitch' | 'pitchlift' | 'drs' | 'throttle' | 'roll';
+  }>();
+  private _animM = new Float32Array(16);
+  private _animTmp = new Float32Array(16);
+  private _exhHeatProg: WebGLProgram | null = null;
+  private _exhHeatVao: WebGLVertexArrayObject | null = null;
+  private _exhHeatProjLoc: WebGLUniformLocation | null = null;
+  private _exhHeatViewLoc: WebGLUniformLocation | null = null;
+  private _exhHeatModelLoc: WebGLUniformLocation | null = null;
+  private _exhHeatTimeLoc: WebGLUniformLocation | null = null;
+  private _exhHeatHeatLoc: WebGLUniformLocation | null = null;
+  private _exhHeatInitialized = false;
   private barrierVao!: WebGLVertexArrayObject;
   private barrierCount = 0;
   private finishVao!: WebGLVertexArrayObject;
@@ -3942,6 +3983,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // made all seven look the same. Colours are baked; the draw sets uColor to
     // white so they show as-is.
     const spoilerGeoms = new Map<number, { v: number[]; i: number[] }>();
+    // Animated aero: an element that moves per-frame (DRS flap, tilting
+    // stacks…) is collected separately with its pivot + motion kind, then
+    // drawn after the static spoiler with a small composed transform.
+    const animGeoms = new Map<number, {
+      v: number[]; i: number[]; pivot: [number, number, number];
+      kind: 'pitch' | 'pitchlift' | 'drs' | 'throttle' | 'roll';
+    }>();
     {
       const carbon = [0.10, 0.10, 0.12];
       const silver = [0.72, 0.74, 0.80];
@@ -3970,52 +4018,72 @@ void main() { FragColor = texture(uTex, vUV); }`;
         fn(gv, gi);
         spoilerGeoms.set(id, { v: gv, i: gi });
       };
+      const buildAnim = (id: number, pivot: [number, number, number], kind: 'pitch' | 'pitchlift' | 'drs' | 'throttle' | 'roll', fn: (gv: number[], gi: number[]) => void) => {
+        const gv: number[] = [];
+        const gi: number[] = [];
+        fn(gv, gi);
+        animGeoms.set(id, { v: gv, i: gi, pivot, kind });
+      };
       build(101, (gv, gi) => { // Carbon Wing — single tall element, gloss black.
-        plane(gv, gi, 0.62, 1.00, 0.18, carbon);
         endplate(gv, gi, 0.54, 0.70, silver);
         pylon(gv, gi, 0.30, 0.62, carbon); pylon(gv, gi, -0.30, 0.62, carbon);
       });
+      buildAnim(101, [-0.93, 0.62, 0], 'pitch', (gv, gi) => { // main plane, AoA with speed
+        plane(gv, gi, 0.62, 1.00, 0.18, carbon);
+      });
       build(102, (gv, gi) => { // Dual Wing — silver stacked elements, wide.
         plane(gv, gi, 0.56, 1.06, 0.14, silver);
-        plane(gv, gi, 0.70, 1.16, 0.20, silver);
         endplate(gv, gi, 0.54, 0.76, carbon);
         pylon(gv, gi, 0.30, 0.70, silver); pylon(gv, gi, -0.30, 0.70, silver);
       });
+      buildAnim(102, [-0.92, 0.70, 0], 'pitch', (gv, gi) => { // top element, AoA with speed
+        plane(gv, gi, 0.70, 1.16, 0.20, silver);
+      });
       build(103, (gv, gi) => { // DRS Wing — titanium split main plane + narrow nose.
-        this.addBox(gv, gi, -1.02, 0.68, -0.28, 0.20, 0.028, 0.40, titanium);
-        this.addBox(gv, gi, -1.02, 0.68, 0.28, 0.20, 0.028, 0.40, titanium);
-        plane(gv, gi, 0.58, 0.24, 0.14, titanium);
         endplate(gv, gi, 0.56, 0.74, titanium);
         pylon(gv, gi, 0.30, 0.68, titanium); pylon(gv, gi, -0.30, 0.68, titanium);
       });
+      buildAnim(103, [-0.92, 0.66, 0], 'drs', (gv, gi) => { // DRS flap — raises at speed
+        this.addBox(gv, gi, -1.02, 0.68, -0.28, 0.20, 0.028, 0.40, titanium);
+        this.addBox(gv, gi, -1.02, 0.68, 0.28, 0.20, 0.028, 0.40, titanium);
+        plane(gv, gi, 0.58, 0.24, 0.14, titanium);
+      });
       build(104, (gv, gi) => { // Gurney Flap — white low plane + tall trailing lip.
         plane(gv, gi, 0.56, 1.10, 0.16, white);
-        this.addBox(gv, gi, -1.12, 0.60, 0, 0.02, 0.10, 1.06, red);
         endplate(gv, gi, 0.54, 0.66, white);
         pylon(gv, gi, 0.30, 0.56, white); pylon(gv, gi, -0.30, 0.56, white);
       });
+      buildAnim(104, [-1.12, 0.60, 0], 'pitchlift', (gv, gi) => { // trailing lip lifts at speed
+        this.addBox(gv, gi, -1.12, 0.60, 0, 0.02, 0.10, 1.06, red);
+      });
       build(105, (gv, gi) => { // Whale Tail — gold long swept wide plane.
-        plane(gv, gi, 0.58, 1.24, 0.30, gold);
         this.addBox(gv, gi, -1.13, 0.62, 0, 0.16, 0.03, 1.20, gold);
         endplate(gv, gi, 0.56, 0.70, gold);
         pylon(gv, gi, 0.30, 0.58, gold); pylon(gv, gi, -0.30, 0.58, gold);
       });
+      buildAnim(105, [-0.87, 0.58, 0], 'pitch', (gv, gi) => { // long plane, AoA with speed
+        plane(gv, gi, 0.58, 1.24, 0.30, gold);
+      });
       build(106, (gv, gi) => { // Bi-Plane — red double-deck with cross struts.
         plane(gv, gi, 0.56, 0.92, 0.16, red);
-        plane(gv, gi, 0.74, 1.02, 0.16, red);
         this.addStrut(gv, gi, -1.02, 0.56, 0, -1.02, 0.74, 0, 0.022, carbon);
         this.addStrut(gv, gi, -1.02, 0.56, 0.30, -1.02, 0.74, 0.30, 0.022, carbon);
         this.addStrut(gv, gi, -1.02, 0.56, -0.30, -1.02, 0.74, -0.30, 0.022, carbon);
         endplate(gv, gi, 0.56, 0.78, carbon);
         pylon(gv, gi, 0.30, 0.74, red); pylon(gv, gi, -0.30, 0.74, red);
       });
+      buildAnim(106, [-0.94, 0.74, 0], 'throttle', (gv, gi) => { // top deck dives under braking
+        plane(gv, gi, 0.74, 1.02, 0.16, red);
+      });
       build(107, (gv, gi) => { // Aero DRS+ — teal triple stacked element.
         plane(gv, gi, 0.56, 0.94, 0.12, teal);
+        endplate(gv, gi, 0.56, 0.84, carbon);
+        pylon(gv, gi, 0.30, 0.78, teal); pylon(gv, gi, -0.30, 0.78, teal);
+      });
+      buildAnim(107, [-1.02, 0.73, 0], 'roll', (gv, gi) => { // upper stack banks with steering
         this.addBox(gv, gi, -1.02, 0.68, -0.26, 0.16, 0.024, 0.32, teal);
         this.addBox(gv, gi, -1.02, 0.68, 0.26, 0.16, 0.024, 0.32, teal);
         plane(gv, gi, 0.78, 1.08, 0.18, teal);
-        endplate(gv, gi, 0.56, 0.84, carbon);
-        pylon(gv, gi, 0.30, 0.78, teal); pylon(gv, gi, -0.30, 0.78, teal);
       });
     }
     // Exhaust upgrades — tail tips poking out of the rear deck, one VAO per id.
@@ -4093,8 +4161,43 @@ void main() { FragColor = texture(uTex, vUV); }`;
       return { vao, count: geom.i.length };
     };
     for (const [id, geom] of spoilerGeoms) this.spoilerVaos.set(id, buildPartVao(geom));
+    for (const [id, geom] of animGeoms) {
+      const built = buildPartVao(geom);
+      this.spoilerAnimVaos.set(id, { vao: built.vao, count: built.count, pivot: geom.pivot, kind: geom.kind });
+    }
     gl.bindVertexArray(null);
     for (const [id, geom] of exhaustGeoms) this.exhaustVaos.set(id, buildPartVao(geom));
+    gl.bindVertexArray(null);
+    // Hot-exhaust glow sprites — soft additive blooms baked at each exhaust
+    // variant's tip positions (car-local, facing the rear like the tips). Id 0
+    // covers the stock tail pipes in the body mesh so every car gets the heat.
+    const exhaustGlowGeoms = new Map<number, { v: number[]; i: number[] }>();
+    {
+      const hs = 0.11;
+      const addSprite = (gv: number[], gi: number[], cx: number, cy: number, cz: number) => {
+        const base = gv.length / 11;
+        gv.push(cx, cy - hs, cz - hs, -1, 0, 0, 1, 1, 1, 0, 0);
+        gv.push(cx, cy - hs, cz + hs, -1, 0, 0, 1, 1, 1, 1, 0);
+        gv.push(cx, cy + hs, cz + hs, -1, 0, 0, 1, 1, 1, 1, 1);
+        gv.push(cx, cy - hs, cz - hs, -1, 0, 0, 1, 1, 1, 0, 0);
+        gv.push(cx, cy + hs, cz + hs, -1, 0, 0, 1, 1, 1, 1, 1);
+        gv.push(cx, cy + hs, cz - hs, -1, 0, 0, 1, 1, 1, 0, 1);
+        gi.push(base, base + 1, base + 2, base + 3, base + 4, base + 5);
+      };
+      const make = (zs: number[], cx: number, cy: number): { v: number[]; i: number[] } => {
+        const gv: number[] = [];
+        const gi: number[] = [];
+        for (const z of zs) addSprite(gv, gi, cx, cy, z);
+        return { v: gv, i: gi };
+      };
+      exhaustGlowGeoms.set(0, make([-0.1, 0.1, -0.3, 0.3], -1.16, 0.10)); // stock pipes
+      exhaustGlowGeoms.set(301, make([-0.14, 0.14], -1.14, 0.14));
+      exhaustGlowGeoms.set(302, make([-0.14, 0.14], -1.14, 0.14));
+      exhaustGlowGeoms.set(303, make([-0.09, 0.09, -0.19, 0.19], -1.14, 0.14));
+      exhaustGlowGeoms.set(304, make([-0.09, 0.09, -0.19, 0.19], -1.14, 0.14));
+      exhaustGlowGeoms.set(305, make([-0.14, 0.14], -1.14, 0.14));
+    }
+    for (const [id, geom] of exhaustGlowGeoms) this.exhaustGlowVaos.set(id, buildPartVao(geom));
     gl.bindVertexArray(null);
     // Stock rear wing — separate VAO so an equipped spoiler replaces it.
     const baseWingVao = buildPartVao({ v: baseWingVerts, i: baseWingIdxs });
@@ -4633,7 +4736,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
    * body's slope and curvature instead of poking out as a solid block. */
   private addSurfacePlate(verts: number[], idxs: number[], cx: number, cz: number, l: number, d: number, topY: (x: number, z: number) => number, color: number[], lift = 0.006) {
     const hl = l / 2, hd = d / 2;
-    const cols = 6, rows = 2;
+    // Adaptive subdivision: bigger plates (number plates, emblems) get more
+    // segments so they follow the loft's curvature over the nose and side pods
+    // instead of rendering as a few flat facets.
+    const cols = Math.max(6, Math.ceil(l / 0.025));
+    const rows = Math.max(2, Math.ceil(d / 0.035));
     for (let ci = 0; ci < cols; ci++) {
       for (let ri = 0; ri < rows; ri++) {
         const x0 = cx - hl + (l / cols) * ci;
@@ -7161,12 +7268,22 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.drawElements(gl.TRIANGLES, this.carCount, gl.UNSIGNED_SHORT, 0);
     if (app.decalStyle && DECAL_COLORS[app.decalStyle]) {
       const dc = DECAL_COLORS[app.decalStyle];
+      // Vinyl-wrap sheen: decal plates are drawn glossier than the base paint
+      // (clear-coated wrap), so graphics catch the env reflection and specular
+      // highlight as the car/turntable turns. Adaptive — a matte/satin paint
+      // still gets a glossy wrap, but an already-glossy finish isn't dulled.
+      const dm = Math.max(0.72, app.metallic ?? 0.45);
+      gl.uniform1f(this.metallicLoc, dm);
+      gl.uniform1f(this.envStrengthLoc, 0.22 + dm * 0.75);
       gl.uniform3f(this.colorLoc, dc[0], dc[1], dc[2]);
       const decal = this.decalVaos.get(app.decalStyle);
       if (decal) {
         gl.bindVertexArray(decal.vao);
         gl.drawElements(gl.TRIANGLES, decal.count, gl.UNSIGNED_SHORT, 0);
       }
+      // Restore the base paint's finish for everything drawn after.
+      gl.uniform1f(this.metallicLoc, app.metallic ?? 0.45);
+      gl.uniform1f(this.envStrengthLoc, 0.22 + (app.metallic ?? 0.45) * 0.75);
     }
     const acc = app.accent ?? [0.16, 0.16, 0.2];
     gl.uniform3f(this.colorLoc, acc[0], acc[1], acc[2]);
@@ -7187,11 +7304,103 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.bindVertexArray(this.baseWingVao);
       gl.drawElements(gl.TRIANGLES, this.baseWingCount, gl.UNSIGNED_SHORT, 0);
     }
+    // Animated aero on the spoiler's moving element (purely visual). Driven by
+    // speed/steering/throttle — DRS flap raises at speed, the Aero DRS+ stack
+    // banks with steering (slide), the bi-plane deck dives under braking, and
+    // the single-element wings subtly change angle of attack with speed.
+    const anim = app.spoilerId ? this.spoilerAnimVaos.get(app.spoilerId) : undefined;
+    if (anim) {
+      const speedRatio = Math.min(Math.abs(speed) / 12, 1);
+      let pitch = 0, roll = 0, lift = 0;
+      switch (anim.kind) {
+        case 'pitch':
+          pitch = -0.045 * speedRatio; // flatten AoA slightly at speed
+          break;
+        case 'pitchlift':
+          pitch = -0.05 * speedRatio;
+          lift = 0.018 * speedRatio;
+          break;
+        case 'drs': {
+          const open = Math.max(0, Math.min(1, (speedRatio - 0.72) / 0.28)); // opens above ~72%
+          pitch = -0.10 * open;
+          lift = 0.05 * open;
+          break;
+        }
+        case 'throttle':
+          pitch = -Math.max(-1, Math.min(1, accel * 1.2)) * 0.05; // dives under braking
+          break;
+        case 'roll':
+          roll = Math.max(-1, Math.min(1, slide)) * 0.065; // banks with steering load
+          break;
+      }
+      if (Math.abs(pitch) < 0.001 && Math.abs(roll) < 0.001 && Math.abs(lift) < 0.001) {
+        gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+      } else {
+        const [px, py, pz] = anim.pivot;
+        // final = model * T(pivot) * Rx(roll) * Rz(pitch) * T(-pivot + lift)
+        this._animTmp.set(this.modelMatrix);
+        this.mat4Identity(this._animM);
+        this.mat4Translate(this._animM, [px, py, pz]);
+        this.mat4Multiply(this._animTmp, this._animTmp, this._animM);
+        if (roll !== 0) this.mat4RotateX(this._animTmp, roll);
+        if (pitch !== 0) this.mat4RotateZ(this._animTmp, pitch);
+        this.mat4Translate(this._animTmp, [-px, -py + lift, -pz]);
+        gl.uniformMatrix4fv(this.modelLoc, false, this._animTmp);
+      }
+      gl.bindVertexArray(anim.vao);
+      gl.drawElements(gl.TRIANGLES, anim.count, gl.UNSIGNED_SHORT, 0);
+      // Restore the car matrix for everything drawn after (exhaust, glow…).
+      gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+    }
     const exhaust = app.exhaustId ? this.exhaustVaos.get(app.exhaustId) : undefined;
     if (exhaust) {
       gl.uniform3f(this.colorLoc, 1, 1, 1);
       gl.bindVertexArray(exhaust.vao);
       gl.drawElements(gl.TRIANGLES, exhaust.count, gl.UNSIGNED_SHORT, 0);
+    }
+    // Hot exhaust — glowing tips + wavy heat haze when revving or on throttle.
+    // Driven by the same rev wave the underglow uses, plus a throttle kick, so
+    // the tips flare as the engine loads up and settle at idle.
+    const exhId = app.exhaustId && this.exhaustGlowVaos.has(app.exhaustId) ? app.exhaustId : 0;
+    const exhGlow = this.exhaustGlowVaos.get(exhId);
+    if (exhGlow) {
+      const revHzE = 1.4 + Math.min(Math.abs(speed) / 12, 1) * 4.2;
+      const revWaveE = 0.5 + 0.5 * Math.sin(this.elapsed * revHzE * Math.PI * 2 + 1.3);
+      const throttleE = Math.max(0, Math.min(1, accel * 1.4));
+      const rollingE = Math.min(Math.abs(speed) / 6, 1);
+      const hot = 0.08 + revWaveE * 0.14 + throttleE * 0.55 + rollingE * 0.15;
+      const blendWas = gl.isEnabled(gl.BLEND);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.glowTex);
+      gl.uniform1i(this.hasTexLoc, 1);
+      gl.uniform1f(this.heatGlowLoc, 0);
+      const hotColor = [0.95 * hot, (0.30 + hot * 0.45) * hot, (0.05 + hot * 0.28) * hot];
+      gl.uniform3f(this.colorLoc, hotColor[0], hotColor[1], hotColor[2]);
+      gl.bindVertexArray(exhGlow.vao);
+      gl.drawElements(gl.TRIANGLES, exhGlow.count, gl.UNSIGNED_SHORT, 0);
+      gl.bindVertexArray(null);
+      // Heat haze — additive wavy shimmer behind the barrels, visible once hot.
+      if (hot > 0.35 && this.ensureExhaustHeat()) {
+        gl.useProgram(this._exhHeatProg!);
+        gl.uniformMatrix4fv(this._exhHeatProjLoc!, false, this.projMatrix);
+        gl.uniformMatrix4fv(this._exhHeatViewLoc!, false, this.viewMatrix);
+        gl.uniformMatrix4fv(this._exhHeatModelLoc!, false, this.modelMatrix);
+        gl.uniform1f(this._exhHeatTimeLoc!, this.elapsed);
+        gl.uniform1f(this._exhHeatHeatLoc!, Math.min(1, (hot - 0.35) / 0.65));
+        gl.depthMask(false);
+        gl.bindVertexArray(this._exhHeatVao);
+        gl.drawArrays(gl.TRIANGLES, 0, 6);
+        gl.bindVertexArray(null);
+        gl.depthMask(true);
+        gl.useProgram(this.prog);
+      }
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
+      gl.uniform1i(this.hasTexLoc, 0);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      if (!blendWas) gl.disable(gl.BLEND);
     }
     const snowAmt = appearance?.id ? (this._carSnow.get(appearance.id) ?? 0) : this._playerSnow;
     if (snowAmt > 0.02) {
@@ -7314,6 +7523,58 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.uniform1f(this.heatGlowLoc, 0);
     gl.bindVertexArray(null);
     gl.enable(gl.CULL_FACE);
+  }
+  /** Lazy-built heat-haze pass: a wavy additive shimmer quad behind the exhaust
+   *  barrels, in car-local space so it follows the car. Built once on first use. */
+  private ensureExhaustHeat(): boolean {
+    if (this._exhHeatInitialized) return !!this._exhHeatProg;
+    this._exhHeatInitialized = true;
+    const gl = this.gl;
+    const vs = `#version 300 es
+in vec3 aPos;
+out vec3 vWorld;
+uniform mat4 uProj;
+uniform mat4 uView;
+uniform mat4 uModel;
+void main() {
+  vWorld = (uModel * vec4(aPos, 1.0)).xyz;
+  gl_Position = uProj * uView * vec4(vWorld, 1.0);
+}`;
+    const fs = `#version 300 es
+precision highp float;
+in vec3 vWorld;
+out vec4 FragColor;
+uniform float uTime;
+uniform float uHeat;
+void main() {
+  float n1 = sin(vWorld.y * 3.2 + uTime * 9.0) + sin(vWorld.z * 2.4 - uTime * 7.0);
+  float n2 = sin((vWorld.y + vWorld.z) * 1.8 + uTime * 5.0);
+  float ripple = clamp(n1 * 0.5 + n2 * 0.5, -1.0, 1.0);
+  float a = uHeat * (0.10 + 0.07 * ripple);
+  vec3 col = vec3(1.0, 0.55, 0.18) * a;
+  FragColor = vec4(col, a);
+}`;
+    this._exhHeatProg = this.createProgram(vs, fs);
+    this._exhHeatProjLoc = gl.getUniformLocation(this._exhHeatProg, 'uProj');
+    this._exhHeatViewLoc = gl.getUniformLocation(this._exhHeatProg, 'uView');
+    this._exhHeatModelLoc = gl.getUniformLocation(this._exhHeatProg, 'uModel');
+    this._exhHeatTimeLoc = gl.getUniformLocation(this._exhHeatProg, 'uTime');
+    this._exhHeatHeatLoc = gl.getUniformLocation(this._exhHeatProg, 'uHeat');
+    this._exhHeatVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this._exhHeatVao);
+    const buf = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    // Wavy shimmer quad behind the barrels (car-local, facing rear -x).
+    const hx = -1.38, hy0 = 0.05, hy = 0.40, hw = 0.46;
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      hx, hy0, -hw,  hx, hy0 + hy, -hw,  hx, hy0 + hy, hw,
+      hx, hy0, -hw,  hx, hy0 + hy, hw,  hx, hy0, hw,
+    ]), gl.STATIC_DRAW);
+    const posLoc = gl.getAttribLocation(this._exhHeatProg, 'aPos');
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 12, 0);
+    gl.bindVertexArray(null);
+    return !!this._exhHeatProg;
   }
   private renderCarShadow(x: number, y: number, z: number, yaw: number, speed: number = 0, spin?: number, slide: number = 0) {
     const gl = this.gl;

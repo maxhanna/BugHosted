@@ -442,6 +442,14 @@
             <button class="garage-tab" [class.active]="selectedTab === 'records'"
               (click)="openRecordsTab()">🏆 RECORDS</button>
           </div>
+          <div class="garage-live-preview-row">
+            <button class="garage-live-preview-toggle" [class.on]="garageLivePreview"
+              (click)="toggleGarageLivePreview()" title="Live-preview appearance upgrades on the 3D car while browsing">
+              <span class="g-tgl-track"><span class="g-tgl-knob"></span></span>
+              <span class="g-tgl-label">LIVE PREVIEW</span>
+              <span class="g-tgl-state" [class.on]="garageLivePreview">{{ garageLivePreview ? 'ON' : 'OFF' }}</span>
+            </button>
+          </div>
 
           <!-- Performance Upgrades -->
           <div class="garage-catalog-scroll" *ngIf="selectedTab === 'upgrades'">
@@ -522,6 +530,29 @@
                   </div>
                   <div class="garage-appearance-name">{{ p.name }}</div>
                   <div class="garage-appearance-desc">{{ p.description }}</div>
+                  <!-- Downforce + drag stats on spoiler cards: downforce shows the
+                       current equipped wing's value -> this wing's value, and the
+                       drag line appears on big wings that cap top speed. -->
+                  <ng-container *ngIf="p.category === 'spoiler' && getSpoilerStatPreview(p) as s">
+                    <div class="garage-appearance-stat">
+                      <span class="stat-label">DOWNFORCE</span>
+                      <span *ngIf="getEquippedAppearance('spoiler') !== p.id" class="stat-inline">
+                        <span class="stat-before">{{ s.before }}%</span>
+                        <span class="stat-arrow">→</span>
+                        <span class="stat-after">{{ s.after }}%</span>
+                      </span>
+                      <span *ngIf="getEquippedAppearance('spoiler') === p.id" class="stat-inline stat-current">
+                        <span class="stat-after">{{ s.after }}%</span>
+                      </span>
+                    </div>
+                    <div class="garage-appearance-stat garage-appearance-drag" *ngIf="s.drag > 0">
+                      <span class="stat-label">DRAG</span>
+                      <span class="stat-inline">
+                        <span class="drag-val">−{{ s.drag }}%</span>
+                        <span class="drag-unit">TOP SPD</span>
+                      </span>
+                    </div>
+                  </ng-container>
                   <div class="garage-appearance-cost">
                     <span *ngIf="getEquippedAppearance(p.category) === p.id">✓ EQUIPPED</span>
                     <span *ngIf="getEquippedAppearance(p.category) !== p.id && isAppearanceOwned(p)">EQUIP</span>
@@ -697,6 +728,12 @@
             <span class="panel-label">SUSP</span>
             <span class="panel-val">{{suspName}}</span>
             <span class="panel-bonus">+{{getCornerBonus()}}%</span>
+          </div>
+          <div class="panel-row">
+            <span class="panel-label">AERO</span>
+            <span class="panel-val">{{spoilerName}}</span>
+            <span class="panel-bonus">+{{getDownforceBonus()}}%</span>
+            <span class="panel-bonus panel-drag" *ngIf="getDragPenalty() > 0">−{{getDragPenalty()}}%</span>
           </div>
           <div class="panel-row">
             <span class="panel-label">BRAKES</span>

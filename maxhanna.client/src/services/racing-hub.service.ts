@@ -36,6 +36,17 @@ export interface RemoteCarPosition {
   // Total length of the circuit (0 until the track is loaded). The server
   // uses it to track cumulative distance and derive laps/positions itself.
   totalTrackDist?: number;
+  // Cumulative wrap-aware race distance (negative while a grid-staggered
+  // starter is still behind the line). Lets receivers rank remotes correctly
+  // from the flag drop instead of from the wrapped per-frame distance.
+  raceDist?: number;
+}
+
+export interface RaceGridSlot {
+  connectionId: string;
+  playerId: number;
+  playerName: string;
+  slot: number;
 }
 
 export interface PlayerFinishedEvent {
@@ -82,7 +93,7 @@ export class RacingHubService implements OnDestroy {
   readonly playerReadyChanged$ = new Subject<{ connectionId: string; ready: boolean }>();
   readonly playerSkinChanged$ = new Subject<{ connectionId: string; skinId: number }>();
   readonly raceCountdown$ = new Subject<number>();
-  readonly raceStarted$ = new Subject<{ startTime: number; totalLaps: number }>();
+  readonly raceStarted$ = new Subject<{ startTime: number; totalLaps: number; grid?: RaceGridSlot[] }>();
   readonly carPositionUpdate$ = new Subject<RemoteCarPosition>();
   readonly playerFinished$ = new Subject<PlayerFinishedEvent>();
   readonly raceStandings$ = new Subject<RaceStandingsRow[]>();
@@ -138,7 +149,7 @@ export class RacingHubService implements OnDestroy {
         this.raceCountdown$.next(count);
       });
 
-      this.hub.on('OnRaceStarted', (data: { startTime: number; totalLaps: number }) => {
+      this.hub.on('OnRaceStarted', (data: { startTime: number; totalLaps: number; grid?: RaceGridSlot[] }) => {
         this.raceStarted$.next(data);
       });
 
@@ -199,10 +210,10 @@ export class RacingHubService implements OnDestroy {
     this.hub = null;
   }
 
-  async joinLobby(trackId: string, playerName: string, playerId: number, laps = 3, totalTrackDist = 0): Promise<LobbyState | null> {
+  async joinLobby(trackId: string, playerName: string, playerId: number, laps = 3, totalTrackDist = 0, upgradeLevel = 0): Promise<LobbyState | null> {
     try {
       if (!this.connected) await this.connect();
-      return await this.hub!.invoke<LobbyState>('JoinLobby', trackId, playerName, playerId, laps, totalTrackDist);
+      return await this.hub!.invoke<LobbyState>('JoinLobby', trackId, playerName, playerId, laps, totalTrackDist, upgradeLevel);
     } catch (err) {
       console.error('JoinLobby failed:', err);
       return null;

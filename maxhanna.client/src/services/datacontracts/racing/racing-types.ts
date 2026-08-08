@@ -56,6 +56,10 @@ export const RIM_TINTS: Record<number, [number, number, number]> = {
   210: [0.55, 0.25, 0.95],  // Violet
   211: [0.9, 0.12, 0.18],   // Crimson
   212: [1.0, 0.5, 0.1],     // Sunset orange
+  213: [0.8, 0.5, 0.25],    // Copper
+  214: [0.05, 0.7, 0.7],    // Teal
+  215: [0.95, 0.9, 0.75],   // White gold
+  216: [0.45, 0.48, 0.52],  // Matte grey
 };
 
 // Decal id -> stripe/livery color painted onto the engine-cover decal mesh.
@@ -115,6 +119,15 @@ export const GLOW_COLORS: Record<number, [number, number, number]> = {
   521: [0.85, 0.6, 0.25],
   522: [0.3, 0.15, 0.85],
   523: [0.75, 0.8, 0.9],
+  // Accent-matched neon (pairs with accent ids 613-620 so livery + glow match).
+  524: [0.95, 0.55, 0.22], // copper
+  525: [0.05, 0.85, 0.85], // teal
+  526: [0.75, 0.1, 0.3],   // burgundy
+  527: [0.1, 0.2, 0.75],   // navy
+  528: [0.4, 1.0, 0.75],   // mint
+  529: [1.0, 0.5, 0.4],    // coral
+  530: [1.0, 0.9, 0.65],   // champagne
+  531: [0.5, 0.6, 0.7],    // gunmetal
 };
 
 // Livery accent id -> stripe/trim color (painted on sidepod stripes + exhaust).
@@ -318,6 +331,34 @@ export const CAR_SKINS: RacingCarSkin[] = [
   { id: 44, name: 'Deep Forest', color: '#0b3d2e', cost: 8500, owned: false, finish: 'gloss' },
 ];
 
+// Downforce bonus (%) granted by each spoiler variant — roughly ordered by the
+// wing's height/element count (taller, stacked wings press harder). Folded into
+// the cornering factor alongside suspension, so buying aero visibly improves
+// handling. 0 = no spoiler equipped (stock wing adds nothing).
+export const SPOILER_DOWNFORCE: Record<number, number> = {
+  101: 8,   // Carbon Wing — single tall element
+  102: 10,  // Dual Wing — two stacked elements
+  103: 4,   // DRS Wing — low-downforce split plane
+  104: 7,   // Gurney Flap — trailing lip
+  105: 12,  // Whale Tail — long swept chord
+  106: 15,  // Bi-Plane — double deck
+  107: 18,  // Aero DRS+ — triple stack, top tier
+};
+
+// Top-speed drag penalty (%) per spoiler — the gameplay cost of big aero.
+// Whale tail and bi-plane cap top speed noticeably, the active DRS+ a little
+// (its DRS opens at speed), and the DRS wing none at all (low drag is its
+// whole point). Multiplied into getMaxSpeed so the HUD reflects it.
+export const SPOILER_DRAG: Record<number, number> = {
+  101: 0,   // Carbon Wing — modest single element
+  102: 1,   // Dual Wing — stacked elements catch a little air
+  103: 0,   // DRS Wing — low drag by design
+  104: 0,   // Gurney Flap — trailing lip, no frontal area
+  105: 4,   // Whale Tail — big swept plank = real drag
+  106: 5,   // Bi-Plane — double deck = most drag
+  107: 2.5, // Aero DRS+ — active aero opens up at speed
+};
+
 export const APPEARANCE_PARTS: RacingAppearancePart[] = [
   // Spoilers
   { id: 101, name: 'Carbon Wing', category: 'spoiler', cost: 2000, owned: false, description: 'Aggressive carbon-fiber rear wing' },
@@ -340,6 +381,10 @@ export const APPEARANCE_PARTS: RacingAppearancePart[] = [
   { id: 210, name: 'Violet Forged', category: 'rims', cost: 5500, owned: false, description: 'Deep violet anodized wheels' },
   { id: 211, name: 'Crimson Forged', category: 'rims', cost: 6000, owned: false, description: 'Hot crimson race wheels' },
   { id: 212, name: 'Sunset Forged', category: 'rims', cost: 6500, owned: false, description: 'Blazing sunset orange wheels' },
+  { id: 213, name: 'Copper Forged', category: 'rims', cost: 7000, owned: false, description: 'Warm copper forged wheels — pairs with Copper Accent' },
+  { id: 214, name: 'Teal Forged', category: 'rims', cost: 7200, owned: false, description: 'Deep teal anodized wheels — pairs with Teal Accent' },
+  { id: 215, name: 'White Gold', category: 'rims', cost: 7500, owned: false, description: 'Elegant white-gold race wheels — pairs with Champagne Accent' },
+  { id: 216, name: 'Matte Grey', category: 'rims', cost: 5500, owned: false, description: 'Flat gunmetal-grey wheels — pairs with Gunmetal Accent' },
   // Exhaust
   { id: 301, name: 'Sport Exhaust', category: 'exhaust', cost: 600, owned: false, description: 'Chrome-tipped sport exhaust' },
   { id: 302, name: 'Titanium Tips', category: 'exhaust', cost: 2500, owned: false, description: 'Titanium blue-burn tips' },
@@ -399,6 +444,14 @@ export const APPEARANCE_PARTS: RacingAppearancePart[] = [
   { id: 521, name: 'Bronze', category: 'glow', cost: 3400, owned: false, description: 'Warm bronze underglow' },
   { id: 522, name: 'Indigo', category: 'glow', cost: 3600, owned: false, description: 'Deep indigo underglow' },
   { id: 523, name: 'Slate Silver', category: 'glow', cost: 3000, owned: false, description: 'Cool slate-silver underglow' },
+  { id: 524, name: 'Copper Neon', category: 'glow', cost: 3600, owned: false, description: 'Warm copper underglow — pairs with Copper Accent' },
+  { id: 525, name: 'Teal Neon', category: 'glow', cost: 3600, owned: false, description: 'Deep teal underglow — pairs with Teal Accent' },
+  { id: 526, name: 'Burgundy Neon', category: 'glow', cost: 3600, owned: false, description: 'Rich burgundy underglow — pairs with Burgundy Accent' },
+  { id: 527, name: 'Navy Neon', category: 'glow', cost: 3600, owned: false, description: 'Dark navy underglow — pairs with Navy Accent' },
+  { id: 528, name: 'Mint Neon', category: 'glow', cost: 3600, owned: false, description: 'Fresh mint underglow — pairs with Mint Accent' },
+  { id: 529, name: 'Coral Neon', category: 'glow', cost: 3600, owned: false, description: 'Vivid coral underglow — pairs with Coral Accent' },
+  { id: 530, name: 'Champagne Neon', category: 'glow', cost: 3600, owned: false, description: 'Elegant champagne underglow — pairs with Champagne Accent' },
+  { id: 531, name: 'Gunmetal Neon', category: 'glow', cost: 3600, owned: false, description: 'Steel gunmetal underglow — pairs with Gunmetal Accent' },
   // Accent (livery stripe + trim color)
   { id: 601, name: 'White Accent', category: 'accent', cost: 300, owned: false, description: 'White livery stripe & trim' },
   { id: 602, name: 'Gold Accent', category: 'accent', cost: 1000, owned: false, description: 'Gold livery stripe & trim' },

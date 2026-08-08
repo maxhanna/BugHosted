@@ -1173,6 +1173,78 @@
   border-bottom-color: rgba(255, 255, 255, 0.2);
 }
 
+.garage-live-preview-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: -4px 0 8px;
+}
+
+.garage-live-preview-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  transition: all 0.25s;
+  user-select: none;
+}
+
+.garage-live-preview-toggle:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.garage-live-preview-toggle .g-tgl-track {
+  width: 26px;
+  height: 14px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.12);
+  position: relative;
+  transition: background 0.25s;
+  flex-shrink: 0;
+}
+
+.garage-live-preview-toggle .g-tgl-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  transition: left 0.25s, background 0.25s;
+}
+
+.garage-live-preview-toggle.on .g-tgl-track {
+  background: rgba(0, 200, 255, 0.45);
+}
+
+.garage-live-preview-toggle.on .g-tgl-knob {
+  left: 14px;
+  background: #8ee8ff;
+  box-shadow: 0 0 6px rgba(0, 200, 255, 0.8);
+}
+
+.garage-live-preview-toggle .g-tgl-label {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.garage-live-preview-toggle .g-tgl-state {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.garage-live-preview-toggle .g-tgl-state.on {
+  color: #8ee8ff;
+}
+
 .garage-tab.active {
   color: #e53935;
   border-bottom-color: #e53935;
@@ -1993,6 +2065,46 @@
   box-shadow: 0 0 8px rgba(239, 108, 0, 0.5);
 }
 
+.garage-appearance-preview.prev-rim-copper {
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  border: 3px solid #8d5a2b;
+  background: radial-gradient(circle at 35% 35%, #d9955a, #7a4a1f);
+  margin: 0 auto;
+  box-shadow: 0 0 8px rgba(190, 120, 55, 0.5);
+}
+
+.garage-appearance-preview.prev-rim-teal {
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  border: 3px solid #007070;
+  background: radial-gradient(circle at 35% 35%, #28c4c4, #00504f);
+  margin: 0 auto;
+  box-shadow: 0 0 8px rgba(0, 160, 160, 0.5);
+}
+
+.garage-appearance-preview.prev-rim-whitegold {
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  border: 3px solid #d4c890;
+  background: radial-gradient(circle at 35% 35%, #f5ecc8, #b8a96f);
+  margin: 0 auto;
+  box-shadow: 0 0 8px rgba(212, 200, 144, 0.5);
+}
+
+.garage-appearance-preview.prev-rim-mattegrey {
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  border: 3px solid #5a6066;
+  background: radial-gradient(circle at 35% 35%, #8a9199, #3a3e43);
+  margin: 0 auto;
+  box-shadow: 0 0 8px rgba(90, 96, 102, 0.5);
+}
+
 .garage-appearance-preview.prev-exhaust-twin {
   border-radius: 50%;
   width: 16px;
@@ -2355,6 +2467,78 @@
   box-shadow: 0 0 18px 6px rgba(195, 205, 230, 0.45);
 }
 
+.garage-appearance-preview.prev-glow-copper {
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  margin: 0 auto;
+  background: rgba(255, 130, 40, 0.22);
+  box-shadow: 0 0 18px 6px rgba(255, 130, 40, 0.6);
+}
+
+.garage-appearance-preview.prev-glow-teal {
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  margin: 0 auto;
+  background: rgba(0, 200, 200, 0.22);
+  box-shadow: 0 0 18px 6px rgba(0, 200, 200, 0.6);
+}
+
+.garage-appearance-preview.prev-glow-burgundy {
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  margin: 0 auto;
+  background: rgba(180, 30, 70, 0.24);
+  box-shadow: 0 0 18px 6px rgba(180, 30, 70, 0.6);
+}
+
+.garage-appearance-preview.prev-glow-navy {
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  margin: 0 auto;
+  background: rgba(20, 40, 200, 0.24);
+  box-shadow: 0 0 18px 6px rgba(20, 40, 200, 0.6);
+}
+
+.garage-appearance-preview.prev-glow-mint {
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  margin: 0 auto;
+  background: rgba(60, 230, 170, 0.22);
+  box-shadow: 0 0 18px 6px rgba(60, 230, 170, 0.6);
+}
+
+.garage-appearance-preview.prev-glow-coral {
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  margin: 0 auto;
+  background: rgba(255, 110, 90, 0.22);
+  box-shadow: 0 0 18px 6px rgba(255, 110, 90, 0.6);
+}
+
+.garage-appearance-preview.prev-glow-champagne {
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  margin: 0 auto;
+  background: rgba(255, 230, 165, 0.2);
+  box-shadow: 0 0 18px 6px rgba(255, 230, 165, 0.55);
+}
+
+.garage-appearance-preview.prev-glow-gunmetal {
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  margin: 0 auto;
+  background: rgba(130, 150, 180, 0.2);
+  box-shadow: 0 0 18px 6px rgba(130, 150, 180, 0.5);
+}
+
 .garage-appearance-preview.prev-accent-white {
   background: #e8e8ea;
   box-shadow: 0 0 8px rgba(255, 255, 255, 0.45);
@@ -2488,6 +2672,68 @@
 .garage-appearance-desc {
   font-size: 9px;
   color: rgba(255, 255, 255, 0.3);
+}
+
+/* Downforce stat on spoiler cards — mirrors the upgrade-card stat styling so
+   buying aero reads like a real handling upgrade, not just a cosmetic part. */
+.garage-appearance-stat {
+  margin-top: 3px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  background: rgba(80, 200, 255, 0.08);
+  border: 1px solid rgba(80, 200, 255, 0.18);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.garage-appearance-stat .stat-label {
+  color: rgba(120, 220, 255, 0.85);
+}
+.garage-appearance-stat .stat-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: rgba(255, 255, 255, 0.75);
+}
+.garage-appearance-stat .stat-before {
+  color: rgba(255, 255, 255, 0.4);
+}
+.garage-appearance-stat .stat-arrow {
+  color: rgba(255, 255, 255, 0.35);
+}
+.garage-appearance-stat .stat-after {
+  color: #4fc3f7;
+}
+.garage-appearance-stat .stat-current {
+  color: #81c784;
+}
+/* Drag tradeoff on big wings — red-tinted so the cost reads against the
+   blue downforce chip on the same card. */
+.garage-appearance-stat.garage-appearance-drag {
+  margin-top: 2px;
+  background: rgba(255, 90, 70, 0.08);
+  border-color: rgba(255, 110, 90, 0.22);
+}
+.garage-appearance-stat.garage-appearance-drag .stat-label {
+  color: rgba(255, 140, 120, 0.9);
+}
+.garage-appearance-stat.garage-appearance-drag .drag-val {
+  color: #ff8a80;
+}
+.garage-appearance-stat.garage-appearance-drag .drag-unit {
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 600;
+}
+/* Drag penalty in the CAR STATUS AERO row. */
+.panel-drag {
+  color: #ff8a80;
+  margin-left: 4px;
 }
 
 .garage-appearance-cost {

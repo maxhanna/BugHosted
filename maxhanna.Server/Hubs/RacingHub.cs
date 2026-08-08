@@ -99,7 +99,7 @@ namespace maxhanna.Server.Hubs
         /// Create or join a lobby for the given track.
         /// Returns full lobby state to caller and broadcasts join to others.
         /// </summary>
-        public async Task<object> JoinLobby(string trackId, string playerName, int playerId, int laps = 3, double totalTrackDist = 0)
+        public async Task<object> JoinLobby(string trackId, string playerName, int playerId, int laps = 3, double totalTrackDist = 0, int upgradeLevel = 0)
         {
             var lobbyId = $"racing_{trackId}";
 
@@ -150,7 +150,8 @@ namespace maxhanna.Server.Hubs
                 PlayerId = playerId,
                 IsHost = Context.ConnectionId == lobby.HostConnectionId,
                 Ready = false,
-                SkinId = 1
+                SkinId = 1,
+                UpgradeLevel = upgradeLevel
             };
             lobby.Players.Add(lp);
             // Recompute every member's "in another race" flag — the joiner may
@@ -341,12 +342,15 @@ namespace maxhanna.Server.Hubs
             // start-light countdown locally from startTime (now + 10s), so a
             // dropped message or a stuck background loop can never freeze the
             // lights or stall the race — the countdown can't get stuck waiting
-            // on 11 separate per-second tick messages.
+            // on 11 separate per-second tick messages. The grid (F1-style slots,
+            // least upgraded on pole) rides along so every client lines up the
+            // same way.
             var startTime = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + COUNTDOWN_MS;
             _ = Clients.Group(lobbyId).SendAsync("OnRaceStarted", new
             {
                 startTime,
-                totalLaps = lobby.TotalLaps
+                totalLaps = lobby.TotalLaps,
+                grid = BuildGrid(lobby)
             });
 
             // Flip the server-side lobby state after the lights finish. No
@@ -506,7 +510,8 @@ namespace maxhanna.Server.Hubs
                         await Clients.Group(lobbyId).SendAsync("OnRaceStarted", new
                         {
                             startTime,
-                            totalLaps = lobby.TotalLaps
+                            totalLaps = lobby.TotalLaps,
+                            grid = BuildGrid(lobby)
                         });
                         try { await Task.Delay(COUNTDOWN_MS, token); } catch { return; }
                         if (!token.IsCancellationRequested)
@@ -523,6 +528,29 @@ namespace maxhanna.Server.Hubs
                 catch (TaskCanceledException) { }
                 catch { }
             }, token);
+        }
+
+        /// <summary>
+        /// F1-style starting grid: least upgraded car takes pole, the most
+        /// upgraded starts at the back so a fully-tuned car has to fight through
+        /// the field. Slot 0 is the front row (pairs alternate left/right from
+        /// there — the client maps slot -> row/lane + track position). Ties are
+        /// broken by join order so the grid is stable across broadcasts.
+        /// </summary>
+        private static List<object> BuildGrid(LobbyState lobby)
+        {
+            return lobby.Players
+                .Select((p, i) => new { p, i })
+                .OrderBy(x => x.p.UpgradeLevel)
+                .ThenBy(x => x.i)
+                .Select((x, slot) => (object)new
+                {
+                    connectionId = x.p.ConnectionId,
+                    playerId = x.p.PlayerId,
+                    playerName = x.p.PlayerName,
+                    slot
+                })
+                .ToList();
         }
 
         private void CancelAutoStartTimer(LobbyState lobby)
@@ -560,7 +588,16 @@ namespace maxhanna.Server.Hubs
                 if (lobby.TotalTrackDist > 0)
                 {
                     var td = lobby.TotalTrackDist;
-                    var prev = lobby.RaceDist.TryGetValue(connId, out var p) ? p : data.Distance;
+                    // Seed from the client's cumulative race distance when it
+                    // reports one — it starts negative for cars placed behind
+                    // the start line on the grid, so the wrapped per-frame
+                    // distance (trackLen - offset before the first crossing)
+                    // can't mis-rank a staggered starter as nearly a lap ahead.
+                    // (A negative report is the pre-line case; otherwise the
+                    // wrapped distance is a fine seed since Math.Max below
+                    // clamps everything to >= 0.)
+                    var prev = lobby.RaceDist.TryGetValue(connId, out var p) ? p
+                        : (data.RaceDist < 0 ? data.RaceDist : data.Distance);
                     var delta = data.Distance - prev;
                     if (delta < -td * 0.5) delta += td;
                     else if (delta > td * 0.5) delta -= td;
@@ -580,7 +617,11 @@ namespace maxhanna.Server.Hubs
                 speed = data.Speed,
                 distance = data.Distance,
                 currentLap,
-                isOffTrack = data.IsOffTrack
+                isOffTrack = data.IsOffTrack,
+                // Forward the sender's cumulative race distance so receivers can
+                // rank correctly from the flag drop (negative for grid-staggered
+                // starters still behind the line).
+                raceDist = data.RaceDist
             });
         }
 
@@ -908,6 +949,10 @@ namespace maxhanna.Server.Hubs
             public bool IsHost { get; set; }
             public bool Ready { get; set; }
             public int SkinId { get; set; }
+            // Total purchased upgrade levels across all categories. Determines
+            // the starting grid order: least upgraded on pole, most upgraded at
+            // the back, so a fully-tuned car has to fight through the field.
+            public int UpgradeLevel { get; set; }
             // True when this member holds a live seat in ANOTHER lobby whose race
             // is running (or in its 10s start lights) — i.e. they're already in a
             // game elsewhere. Drives the "🏁 IN RACE" badge on lobby rosters.
@@ -935,5 +980,9 @@ namespace maxhanna.Server.Hubs
         // Total length of the circuit (0 until the client has it loaded). Lets
         // the hub activate server-side cumulative distance tracking.
         public double TotalTrackDist { get; set; }
+        // Cumulative wrap-aware race distance from the client (negative while a
+        // grid-staggered starter is still behind the line). Used to seed the
+        // hub's own RaceDist so back-of-grid cars aren't mis-ranked.
+        public double RaceDist { get; set; }
     }
 }

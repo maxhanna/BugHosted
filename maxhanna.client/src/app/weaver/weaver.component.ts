@@ -76,15 +76,25 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   fileHintsLoading = false;
 
   benchmarks: BenchmarkEntry[] = [];
+  // Memoized grouping: the getter runs on every change-detection digest, so the map is
+  // built once and reused until loadBenchmarks() replaces the source array (the only place
+  // benchmarks is reassigned). A stable reference also lets Angular's pure keyvalue pipe
+  // skip re-transforming on every digest.
+  private _groupedBenchmarks: { [key: string]: BenchmarkEntry[] } = {};
+  private _groupedBenchmarksDirty = true;
   get groupedBenchmarks(): { [key: string]: BenchmarkEntry[] } {
-    const groups: { [key: string]: BenchmarkEntry[] } = {};
-    this.benchmarks.forEach(benchmark => {
-      if(!groups[benchmark.benchmark]) {
-        groups[benchmark.benchmark] = [];
-      }
-      groups[benchmark.benchmark].push(benchmark);
-    });
-    return groups;
+    if (this._groupedBenchmarksDirty) {
+      const groups: { [key: string]: BenchmarkEntry[] } = {};
+      this.benchmarks.forEach(benchmark => {
+        if (!groups[benchmark.benchmark]) {
+          groups[benchmark.benchmark] = [];
+        }
+        groups[benchmark.benchmark].push(benchmark);
+      });
+      this._groupedBenchmarks = groups;
+      this._groupedBenchmarksDirty = false;
+    }
+    return this._groupedBenchmarks;
   }
   benchmarkPanelOpen = false;
 
@@ -1472,6 +1482,8 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     if (!this.token) return;
     try {
       this.benchmarks = await this.weaverService.getBenchmarks(this.token);
+      // The grouped cache is stale now — rebuild lazily on the next template access.
+      this._groupedBenchmarksDirty = true;
     } catch { }
   }
 

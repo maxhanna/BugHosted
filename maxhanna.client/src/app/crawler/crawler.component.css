@@ -1,4 +1,4 @@
-.componentMain {
+﻿.componentMain {
   max-height: calc(100vh - 60px);
   max-height: calc(100dvh - 60px);
   overflow: auto;
@@ -151,6 +151,7 @@
   justify-content: center;
   align-items: center;
   gap: 20px;
+  flex-wrap: wrap;
 }
 .loadingNotificationDiv {
   margin: 24px;
