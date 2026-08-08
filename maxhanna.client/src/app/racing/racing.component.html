@@ -229,7 +229,7 @@
           </div>
           <ng-container *ngIf="!standingsCollapsed">
             <div class="gp-standings-row gp-standings-head">
-              <span class="gp-standings-pos">#</span><span>Driver</span><span class="gp-standings-time">Time</span><span class="gp-standings-gap">Gap</span><span class="gp-standings-laps">Laps</span>
+              <span class="gp-standings-pos">#</span><span class="gp-standings-name">Driver</span><span class="gp-standings-time">Time</span><span class="gp-standings-gap">Gap</span><span class="gp-standings-laps">Laps</span>
             </div>
             <div class="gp-standings-row" *ngFor="let s of finalStandings"
               [class.gp-standings-dnf]="s.isDnf">
@@ -392,9 +392,9 @@
       <div class="garage-layout">
         <!-- Left: Car Preview -->
         <div class="garage-preview">
-          <div class="garage-preview-banner" *ngIf="appearancePreview || skinPreview"
+          <div class="garage-preview-banner" *ngIf="appearancePreview || skinPreview || pendingBuyPart"
             role="button" tabindex="0" (click)="previewBuy()" (keydown.enter)="previewBuy()">
-            👁 PREVIEW <strong>{{ (appearancePreview || skinPreview).name }}</strong><span> · tap to {{ previewActionText }}</span>
+            👁 PREVIEW <strong>{{ previewBannerName }}</strong><span> · tap to {{ previewActionText }}</span>
           </div>
           <div class="garage-car-stage" #garageStage>
             <div class="garage-spotlight"></div>
@@ -508,7 +508,7 @@
                   [class.appearance-equipped]="getEquippedAppearance(p.category) === p.id"
                   [class.appearance-previewing]="appearancePreview === p"
                   [class.buying-disabled]="isBuying" (click)="onAppearanceCardClick(p)"
-                  (mouseenter)="appearancePreview = p" (mouseleave)="appearancePreview = null">
+                  (mouseenter)="onAppearanceCardHover(p)" (mouseleave)="onAppearanceCardHover(null)">
                   <div class="garage-appearance-preview" *ngIf="!isDecalPart(p)" [class]="getAppearancePreviewClass(p)"></div>
                   <div class="garage-decal-map" *ngIf="isDecalPart(p)">
                     <div class="garage-decal-car"></div>
@@ -708,7 +708,9 @@
         </div>
       </div>
     </div>
-    <div id="race-hud" *ngIf="gameState === 'racing' || gameState === 'paused'">
+    <!-- Dashboard is live from the moment the countdown starts so players can
+         rev their engines on the grid and see the field before lights out. -->
+    <div id="race-hud" *ngIf="gameState === 'countdown' || gameState === 'racing' || gameState === 'paused'">
       <!-- Speed streaks: edge bars that flare with speed and grade (downhill =
            faster feel, uphill = calmer). Driven per-frame via direct DOM so
            the HUD stays change-detection-light. -->
@@ -761,6 +763,11 @@
 
         <!-- Center: Steering Wheel -->
         <div class="cockpit-wheel-area">
+          <!-- 3D tilt wrapper: the wheel leans back toward the cockpit like a
+               real F1 wheel (JS steering rotation stays on #steerWheel inside,
+               so it turns in the wheel's own plane while the whole assembly
+               keeps the tilted cockpit perspective). -->
+          <div class="wheel-3d-tilt">
           <div class="steering-wheel" #steerWheel>
             <!-- Carbon shift paddles (behind the wheel face, poking out at 9-3) -->
             <div class="shift-paddle shift-paddle-left" title="Downshift"></div>
@@ -774,13 +781,20 @@
               <div class="wheel-grip wheel-grip-bot-left"></div>
               <div class="wheel-grip wheel-grip-bot-right"></div>
 
-              <!-- Wheel center hub: F1-style display with carbon corner buttons -->
+              <!-- Shift-light LED strip across the top of the rim, like a real
+                   F1 wheel's light bar (green→amber→red as revs climb). -->
+              <div class="wheel-led-strip">
+                <span class="wheel-led" *ngFor="let i of [0,1,2,3,4,5,6,7]" [ngClass]="getShiftLedClass(i)"></span>
+              </div>
+
+              <!-- Wheel center hub: F1-style display with carbon corner buttons
+                   and rotary dials -->
               <div class="wheel-center">
                 <div class="wheel-hub-grip wheel-hub-grip-left"></div>
                 <div class="wheel-hub-grip wheel-hub-grip-right"></div>
                 <div class="wheel-button wheel-btn-a" title="Pit limiter"></div>
-                <div class="wheel-button wheel-btn-b" title="DRS"></div>
-                <div class="wheel-button wheel-btn-c" title="Radio"></div>
+                <div class="wheel-dial wheel-dial-left" title="Brake bias"></div>
+                <div class="wheel-dial wheel-dial-right" title="Engine mode"></div>
                 <div class="wheel-button wheel-btn-d" title="Power"></div>
                 <div class="wheel-display">
                   <div class="wheel-speed" #wheelSpeed>{{ hudSpeed | number:'1.0-0' }}</div>
@@ -831,6 +845,7 @@
                 </div>
               </div>
             </div>
+          </div>
           </div>
         </div>
 
@@ -927,6 +942,10 @@
     <div id="race-finished" *ngIf="gameState === 'finished'">
       <!-- The race replays behind this translucent overlay on an orbit camera -->
       <div class="race-replay-badge"><span class="race-replay-badge-static">🎬 RACE REPLAY ·</span> {{ replayDuration > 0 ? replayCamName : '' }}</div>
+      <div class="race-replay-follow" *ngIf="isFollowingRacer" (click)="clearReplayFollow()"
+        title="Stop following — camera back to your car">
+        📌 Watching: {{ replayFollowName }} <span class="race-replay-follow-x">✕</span>
+      </div>
       <!-- Thin replay scrubber: drag/click the bar to jump anywhere in the
            recorded race; hold ◀ ▶ or Space for keys. -->
       <div class="race-replay-controls" *ngIf="replayDuration > 0">
@@ -1005,18 +1024,21 @@
           <ng-container *ngIf="!standingsCollapsed">
             <div class="gp-standings-full" *ngIf="serverStandings">Full lobby results — all racers finished</div>
             <div class="gp-standings-row gp-standings-head">
-              <span class="gp-standings-pos">#</span><span>Driver</span><span class="gp-standings-time">Time</span><span class="gp-standings-gap">Gap</span><span class="gp-standings-laps">Laps</span>
+              <span class="gp-standings-pos">#</span><span class="gp-standings-name">Driver</span><span class="gp-standings-time">Time</span><span class="gp-standings-gap">Gap</span><span class="gp-standings-laps">Laps</span>
             </div>
             <div class="gp-standings-row" *ngFor="let s of finalStandings"
               [class.gp-standings-me]="s.isPlayer"
-              [class.gp-standings-dnf]="s.isDnf">
+              [class.gp-standings-dnf]="s.isDnf"
+              [class.gp-standings-following]="s.replayId && s.replayId === replayFollowId">
               <span class="gp-standings-pos">{{ s.isDnf ? 'DNF' : s.position }}</span>
               <span class="gp-standings-name"
-                [class.gp-standings-clickable]="!s.isBot && s.playerId > 0"
-                [title]="(!s.isBot && s.playerId > 0) ? 'View profile' : ''"
-                (click)="!s.isBot && s.playerId > 0 && openStandingsProfile(s)">
+                [class.gp-standings-clickable]="!!s.replayId"
+                [title]="s.replayId ? 'Watch this racer in the replay' : ''"
+                (click)="watchStandingsRacer(s)">
                 <span class="gp-standings-dot" [style.background]="s.color"></span>
                 {{ s.name }}<span *ngIf="s.isPlayer" class="gp-standings-you"> (You)</span>
+                <a *ngIf="!s.isBot && s.playerId > 0" class="gp-standings-profile" href="javascript:void(0)"
+                  title="View profile" (click)="$event.stopPropagation(); openStandingsProfile(s)">↗</a>
               </span>
               <span class="gp-standings-time">{{ getStandingsTime(s) }}</span>
               <span class="gp-standings-gap">{{ getStandingsGap(s) }}</span>

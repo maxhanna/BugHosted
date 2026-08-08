@@ -1209,10 +1209,18 @@ void main() { FragColor = texture(uTex, vUV); }`;
     return this.trackElev(t);
   }
   /** Signed banking slope at a travelled distance (positive = the +lateral
-   *  side is up). Cars sit on it and roll with it. */
+   *  side is up). Cars sit on it and roll with it. Inlined interpolation (no
+   *  TrackPoint object) since this runs for every car on every frame. */
   getTrackBank(dist: number): number {
-    if (!this._trackPoints.length) return 0;
-    return this.getTrackPointAlong(dist).bank ?? 0;
+    const pts = this._trackPoints;
+    if (!pts.length || this.totalTrackDist <= 0) return 0;
+    const t = ((dist % this.totalTrackDist) / this.totalTrackDist) * this.trackLen;
+    const idx = Math.floor(t) % this.trackLen;
+    const frac = t - Math.floor(t);
+    const pi = pts[idx];
+    const ni = pts[(idx + 1) % this.trackLen];
+    if (!pi || !ni) return 0;
+    return (pi.bank ?? 0) + ((ni.bank ?? 0) - (pi.bank ?? 0)) * frac;
   }
   /** Grade (-1..1) of the terrain at a distance: positive = climbing. */
   getTrackGrade(dist: number): number {
@@ -1507,15 +1515,19 @@ void main() { FragColor = texture(uTex, vUV); }`;
     };
   }
   getDistFromPoint(wx: number, wz: number): number {
-    let bestDist = Infinity;
+    const pts = this._trackPoints;
+    let bestDistSq = Infinity;
     let bestIdx = 0;
-    for (let i = 0; i < this._trackPoints.length; i++) {
-      const p = this._trackPoints[i];
-      const d = Math.hypot(p.x - wx, p.z - wz);
-      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    // Squared distances — the caller only needs the nearest index (Math.hypot
+    // is ~3x slower than dx*dx+dz*dz, and this scans every point per frame).
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      const dx = p.x - wx, dz = p.z - wz;
+      const d = dx * dx + dz * dz;
+      if (d < bestDistSq) { bestDistSq = d; bestIdx = i; }
     }
-    const p = this._trackPoints[bestIdx];
-    const n = this._trackPoints[(bestIdx + 1) % this._trackPoints.length];
+    const p = pts[bestIdx];
+    const n = pts[(bestIdx + 1) % pts.length];
     const ax = wx - p.x, az = wz - p.z;
     const sx = n.x - p.x, sz = n.z - p.z;
     const segLenSq = sx * sx + sz * sz;
@@ -1528,13 +1540,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
   getTrackLateralInfo(wx: number, wz: number): { lateral: number; width: number } {
     if (!this._trackPoints.length) return { lateral: 0, width: 16 };
     let bestIdx = 0, bestDist = Infinity;
-    for (let i = 0; i < this._trackPoints.length; i++) {
-      const p = this._trackPoints[i];
+    const pts = this._trackPoints;
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
       const d = (p.x - wx) * (p.x - wx) + (p.z - wz) * (p.z - wz);
       if (d < bestDist) { bestDist = d; bestIdx = i; }
     }
-    const p = this._trackPoints[bestIdx];
-    const n = this._trackPoints[(bestIdx + 1) % this._trackPoints.length];
+    const p = pts[bestIdx];
+    const n = pts[(bestIdx + 1) % pts.length];
     const sx = n.x - p.x, sz = n.z - p.z;
     const segLenSq = sx * sx + sz * sz;
     let t = segLenSq > 0.0001 ? ((wx - p.x) * sx + (wz - p.z) * sz) / segLenSq : 0;
@@ -1545,6 +1558,27 @@ void main() { FragColor = texture(uTex, vUV); }`;
       lateral: (sx * (wz - pz) - sz * (wx - px)) / segLen,
       width: (p.width + n.width) / 2,
     };
+  }
+  /** Allocation-free variant of getTrackLateralInfo for the per-frame hot path
+   *  (car placement + camera) where only the signed lateral is needed. */
+  getTrackLateral(wx: number, wz: number): number {
+    const pts = this._trackPoints;
+    if (!pts.length) return 0;
+    let bestIdx = 0, bestDist = Infinity;
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      const d = (p.x - wx) * (p.x - wx) + (p.z - wz) * (p.z - wz);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    }
+    const p = pts[bestIdx];
+    const n = pts[(bestIdx + 1) % pts.length];
+    const sx = n.x - p.x, sz = n.z - p.z;
+    const segLenSq = sx * sx + sz * sz;
+    let t = segLenSq > 0.0001 ? ((wx - p.x) * sx + (wz - p.z) * sz) / segLenSq : 0;
+    t = Math.max(0, Math.min(1, t));
+    const px = p.x + sx * t, pz = p.z + sz * t;
+    const segLen = Math.sqrt(segLenSq) || 1;
+    return (sx * (wz - pz) - sz * (wx - px)) / segLen;
   }
   private buildCornerSigns(pts: TrackPoint[], barVerts: number[], barIdxs: number[]) {
     const N = pts.length;
@@ -5618,6 +5652,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private _scrubVao: WebGLVertexArrayObject | null = null;
   private _scrubBuf: WebGLBuffer | null = null;
   private _scrubMax = 1200;
+  // Reusable per-frame vertex scratch for scrub marks/smoke (no per-frame alloc).
+  private _scrubScratch: Float32Array | null = null;
+  private _smokeScratch: Float32Array | null = null;
   private _scrubInitialized = false;
   private _scrubColor: [number, number, number] = [0.05, 0.045, 0.04];
   private _scrubLast: Map<string, { x: number; z: number }> = new Map();
@@ -5870,7 +5907,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const marks = this._scrubMarks;
     if (marks.length === 0) return;
     this.initScrub();
-    const data: number[] = [];
+    // Reusable scratch buffer — allocating a fresh Float32Array per frame (up
+    // to ~50k floats while heavy braking) churned the GC exactly when cornering.
+    const cap = this._scrubMax * 6 * 7;
+    if (!this._scrubScratch || this._scrubScratch.length < cap) this._scrubScratch = new Float32Array(cap);
+    const buf = this._scrubScratch;
+    let o = 0;
+    const col = this._scrubColor;
     for (const mk of marks) {
       const ex = mk.x - eye[0], ez = mk.z - eye[2];
       if (ex * ex + ez * ez > 130 * 130) continue;
@@ -5881,7 +5924,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const hx = sx * mk.len * 0.5, hz = cz * mk.len * 0.5;
       const wx = cz * mk.wid * 0.5, wz = -sx * mk.wid * 0.5;
       const y = 0.02;
-      const p = (px: number, pz: number) => data.push(px, y, pz, this._scrubColor[0], this._scrubColor[1], this._scrubColor[2], alpha);
+      const p = (px: number, pz: number) => {
+        buf[o++] = px; buf[o++] = y; buf[o++] = pz;
+        buf[o++] = col[0]; buf[o++] = col[1]; buf[o++] = col[2]; buf[o++] = alpha;
+      };
       p(mk.x - hx - wx, mk.z - hz - wz);
       p(mk.x + hx - wx, mk.z + hz - wz);
       p(mk.x + hx + wx, mk.z + hz + wz);
@@ -5889,16 +5935,16 @@ void main() { FragColor = texture(uTex, vUV); }`;
       p(mk.x + hx + wx, mk.z + hz + wz);
       p(mk.x - hx + wx, mk.z - hz + wz);
     }
-    if (data.length === 0) return;
+    if (o === 0) return;
     gl.useProgram(this.smokeProg);
     gl.uniformMatrix4fv(this.smokeProjLoc, false, proj);
     gl.uniformMatrix4fv(this.smokeViewLoc, false, view);
     gl.bindVertexArray(this._scrubVao);
     gl.bindBuffer(gl.ARRAY_BUFFER, this._scrubBuf);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, buf.subarray(0, o));
     gl.depthMask(false);
     gl.disable(gl.CULL_FACE);
-    gl.drawArrays(gl.TRIANGLES, 0, data.length / 7);
+    gl.drawArrays(gl.TRIANGLES, 0, o / 7);
     gl.enable(gl.CULL_FACE);
     gl.depthMask(true);
     gl.bindVertexArray(null);
@@ -5925,9 +5971,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const parts = this._smokeParticles;
     if (parts.length === 0) return;
     this.initSmoke();
+    // Reusable scratch buffer — smoke only exists while sliding/braking hard
+    // (cornering), so a per-frame Float32Array alloc used to spike exactly there.
+    const cap = this._smokeMax * 6 * 7;
+    if (!this._smokeScratch || this._smokeScratch.length < cap) this._smokeScratch = new Float32Array(cap);
+    const buf = this._smokeScratch;
+    let o = 0;
     const rx = view[0], ry = view[4], rz = view[8];
     const ux = view[1], uy = view[5], uz = view[9];
-    const data: number[] = [];
     for (const p of parts) {
       const t = p.life / p.maxLife;
       // Chips shrink and stay opaque-ish (solid flecks); smoke grows and fades.
@@ -5940,22 +5991,22 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const hx = rx * s, hy = ry * s, hz = rz * s;
       const wx = ux * s, wy = uy * s, wz = uz * s;
       const cx = p.x, cy = p.y, cz = p.z;
-      data.push(cx - hx + wx, cy - hy + wy, cz - hz + wz, cr, cg, cb, alpha);
-      data.push(cx + hx + wx, cy + hy + wy, cz + hz + wz, cr, cg, cb, alpha);
-      data.push(cx + hx - wx, cy + hy - wy, cz + hz - wz, cr, cg, cb, alpha);
-      data.push(cx - hx + wx, cy - hy + wy, cz - hz + wz, cr, cg, cb, alpha);
-      data.push(cx + hx - wx, cy + hy - wy, cz + hz - wz, cr, cg, cb, alpha);
-      data.push(cx - hx - wx, cy - hy - wy, cz - hz - wz, cr, cg, cb, alpha);
+      buf[o++] = cx - hx + wx; buf[o++] = cy - hy + wy; buf[o++] = cz - hz + wz; buf[o++] = cr; buf[o++] = cg; buf[o++] = cb; buf[o++] = alpha;
+      buf[o++] = cx + hx + wx; buf[o++] = cy + hy + wy; buf[o++] = cz + hz + wz; buf[o++] = cr; buf[o++] = cg; buf[o++] = cb; buf[o++] = alpha;
+      buf[o++] = cx + hx - wx; buf[o++] = cy + hy - wy; buf[o++] = cz + hz - wz; buf[o++] = cr; buf[o++] = cg; buf[o++] = cb; buf[o++] = alpha;
+      buf[o++] = cx - hx + wx; buf[o++] = cy - hy + wy; buf[o++] = cz + hz + wz; buf[o++] = cr; buf[o++] = cg; buf[o++] = cb; buf[o++] = alpha;
+      buf[o++] = cx + hx - wx; buf[o++] = cy + hy - wy; buf[o++] = cz + hz - wz; buf[o++] = cr; buf[o++] = cg; buf[o++] = cb; buf[o++] = alpha;
+      buf[o++] = cx - hx - wx; buf[o++] = cy - hy - wy; buf[o++] = cz - hz - wz; buf[o++] = cr; buf[o++] = cg; buf[o++] = cb; buf[o++] = alpha;
     }
     gl.useProgram(this.smokeProg);
     gl.uniformMatrix4fv(this.smokeProjLoc, false, proj);
     gl.uniformMatrix4fv(this.smokeViewLoc, false, view);
     gl.bindVertexArray(this._smokeVao);
     gl.bindBuffer(gl.ARRAY_BUFFER, this._smokeBuf);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, buf.subarray(0, o));
     gl.depthMask(false);
     gl.disable(gl.CULL_FACE);
-    gl.drawArrays(gl.TRIANGLES, 0, data.length / 7);
+    gl.drawArrays(gl.TRIANGLES, 0, o / 7);
     gl.enable(gl.CULL_FACE);
     gl.depthMask(true);
     gl.bindVertexArray(null);
@@ -7443,7 +7494,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const pDist = this.getDistFromPoint(eyeX, eyeZ);
     const pElev = this.getTrackElevation(pDist);
     const pBank = this.getTrackBank(pDist);
-    const pLat = this.getTrackLateralInfo(eyeX, eyeZ).lateral;
+    const pLat = this.getTrackLateral(eyeX, eyeZ);
     const pa = playerAppearance ?? {};
     this.renderCar(eyeX, pElev + pBank * pLat + 0.1, eyeZ, yaw,
       pa.skin?.[0] ?? 0.85, pa.skin?.[1] ?? 0.06, pa.skin?.[2] ?? 0.06,

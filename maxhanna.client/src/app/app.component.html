@@ -170,6 +170,12 @@
         <div class="seperatedUserHeader smallFont" *ngIf="popupUserTagUser.about?.currency">
           {{ (popupUserTagUser.about?.currency ?? '') | currencyFlag }}
         </div>
+        <div class="seperatedUserHeader smallFont">
+          <span class="cursorPointer userTagProfileLink" (click)="openUserTagProfile($event)"
+            [title]="'Open profile of ' + (popupUserTagUser?.username ?? 'user') + ' in a new tab'">
+            🔗 View profile
+          </span>
+        </div>
       </div>
     </div>
   </div>

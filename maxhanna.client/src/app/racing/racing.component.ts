@@ -56,6 +56,14 @@ const BOT_PAINT: [number, number, number][] = [
   [0.8, 0.2, 0.2], [0.2, 0.4, 0.9], [0.1, 0.7, 0.1],
   [0.9, 0.7, 0.1], [0.7, 0.2, 0.7], [1.0, 0.5, 0],
 ];
+// Hoisted ONCE at module load. botAppearanceFor runs per bot/remote/replay car
+// EVERY frame, and Object.keys(...).map(Number) on these large catalogs (16-31
+// entries each) allocated ~48 arrays per frame of pure GC churn — a real
+// frame-time tax on mobile. The id lists never change, so compute them once.
+const RIM_TINT_IDS = Object.keys(RIM_TINTS).map(Number);
+const DECAL_COLOR_IDS = Object.keys(DECAL_COLORS).map(Number);
+const ACCENT_COLOR_IDS = Object.keys(ACCENT_COLORS).map(Number);
+const GLOW_COLOR_IDS = Object.keys(GLOW_COLORS).map(Number);
 interface BotCar {
   id: string;   
   dist: number;
@@ -139,6 +147,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   // same livery instead of re-seeding a different look from the id string.
   private _replayAppearances = new Map<string, RacingCarAppearance>();
   private _replayTrailArmed = false;
+  // Appearance-seed caches (computed once, not per frame): remote seeds derive
+  // from the connectionId (immutable), replay seeds from the replay car id.
+  private _remoteSeedCache = new Map<string, number>();
+  private _replaySeedCache = new Map<string, number>();
   replayPaused = false;
   replayScrubDir = 0;               
   private _replayDragging = false;
@@ -152,7 +164,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   replayLeadName = '';
   get replayCamName(): string {
     const base = ['ORBIT CAM', 'CHASE CAM', 'AERIAL CAM', 'LEADER CAM'][this.replayCam] ?? '';
-    return this.replayCam === 3 && this.replayLeadName ? `${base} · ${this.replayLeadName}` : base;
+    if (this.replayCam === 3 && this.replayLeadName) return `${base} · ${this.replayLeadName}`;
+    // Standings-selected follow target (cams 0-2 chase that racer instead).
+    if (this.isFollowingRacer) return `${base} · ${this.replayFollowName}`;
+    return base;
   }
   racePosition = 1;
   totalRacers = 1;
@@ -370,12 +385,19 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private _squealRingOsc: OscillatorNode | null = null;
   private _squealRingGain: GainNode | null = null;
   private _playerSlide = 0;
+  // Grid rev during the start countdown (0..1): the throttle revs the engine
+  // (audio + RPM gauge + exhaust glow) without moving the parked car.
+  private _countdownRev = 0;
   private _remoteVoices: RemoteAudioVoice[] = [];
   private static readonly REMOTE_AUDIBLE = 55;
   private static readonly MAX_REMOTE_VOICES = 10;
   podiumData: { playerName: string; totalTime: number; moneyEarned: number }[] = [];
-  finalStandings: { position: number; name: string; playerId: number; isBot: boolean; isPlayer: boolean; isDnf: boolean; isEstimated: boolean; color: string; laps: number; totalTimeMs: number }[] = [];
+  finalStandings: { position: number; name: string; playerId: number; isBot: boolean; isPlayer: boolean; isDnf: boolean; isEstimated: boolean; color: string; laps: number; totalTimeMs: number; replayId?: string }[] = [];
   standingsCollapsed = false;
+  /** Replay follow target: replay car id ('b<i>' bot, 'r<conn>' remote,
+   *  'replay-player') selected from the final standings. Null = follow yourself. */
+  replayFollowId: string | null = null;
+  replayFollowName = '';
   private _lastRaceTotalTime = 0;
   serverStandings: RaceStandingsRow[] | null = null;
   /** Live 'Results shown for 0:04' countdown text while the standings window is open. */
@@ -1176,6 +1198,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._replayDragging = false;
     this.replayCam = 0;
     this.replayLeadName = '';
+    this.replayFollowId = null;
+    this.replayFollowName = '';
+    this._countdownRev = 0;
     this._mpFinished = false;
     this._mpWinnerCelebrated = false;
     // Server-authoritative grid: place the player by their slot (least upgraded
@@ -1480,6 +1505,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._replayDragging = false;
     this.replayCam = 0;
     this.replayLeadName = '';
+    this.replayFollowId = null;
+    this.replayFollowName = '';
+    this._countdownRev = 0;
     this._mpFinished = false;
     this._mpWinnerCelebrated = false;
     // F1-style grid: the player takes pole (slot 0), bots fill the pairs
@@ -1516,6 +1544,16 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.lastTime = time;
     if (this.gameState === 'racing') {
       this.processInput(dt);
+    } else if (this.gameState === 'countdown') {
+      // Let players rev their engines on the grid while the lights count down:
+      // throttle ramps the rev (audio + RPM + exhaust glow) but the car stays
+      // parked — updatePhysics only runs once the race starts.
+      this.processInput(dt);
+      if (this.carAccel > 0) {
+        this._countdownRev = Math.min(1, this._countdownRev + dt * 1.6);
+      } else {
+        this._countdownRev = Math.max(0, this._countdownRev - dt * 2.2);
+      }
     }
     if (this.gameState === 'finished' && this._raceFinished && this.racePosition === 1) {
       const grip = 0.85 + this.getGripBonus() / 100;
@@ -1565,7 +1603,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         // (seed from connectionId chars) so playback is identical.
         const appId = 'r' + rc.connectionId;
         if (!this._replayAppearances.has(appId)) {
-          const seed = rc.connectionId.split('').reduce((a, ch) => a + ch.charCodeAt(0), 0);
+          const seed = this.remoteSeed(rc.connectionId);
           this._replayAppearances.set(appId, this.botAppearanceFor(seed % 1000, seed));
         }
         rcars.push({
@@ -1628,7 +1666,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       // pitch noses up/down with the grade so climbs and descents read live.
       const pElev = this.renderer.getTrackElevation(this.carDist);
       const pBank = this.renderer.getTrackBank(this.carDist);
-      const pLat = this.renderer.getTrackLateralInfo(this.carX, this.carZ).lateral;
+      const pLat = this.renderer.getTrackLateral(this.carX, this.carZ);
       const grade = this.renderer.getTrackGrade(this.carDist);
       // Camera rides the bank too: on a banked corner it sits up/down with the
       // lateral tilt so the world reads as tilted, not the car.
@@ -1655,7 +1693,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         const botAccel = b.brakeCommitment !== undefined ? -b.brakeCommitment : accelFor(b, prev);
         const bBank = this.renderer.getTrackBank(b.dist);
         return {
-          x: b.x, y: this.renderer.getTrackElevation(b.dist) + bBank * this.renderer.getTrackLateralInfo(b.x, b.z).lateral + 0.1, z: b.z, yaw: b.yaw, r: c[0], g: c[1], b: c[2], speed: b.speed, accel: botAccel, spin, slide: b.slide,
+          x: b.x, y: this.renderer.getTrackElevation(b.dist) + bBank * this.renderer.getTrackLateral(b.x, b.z) + 0.1, z: b.z, yaw: b.yaw, r: c[0], g: c[1], b: c[2], speed: b.speed, accel: botAccel, spin, slide: b.slide,
           id: b.id, bank: bBank,
           ...this.botAppearanceFor(i, b.color)
         };
@@ -1665,12 +1703,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         this._prevRemoteSpeeds.set(rc.connectionId, rc.speed);
         const spin = (this._remoteSpins.get(rc.connectionId) ?? 0) + wheelRate(rc.speed) * dt;
         this._remoteSpins.set(rc.connectionId, spin);
-        const seed = rc.connectionId.split('').reduce((a, ch) => a + ch.charCodeAt(0), 0);
+        const seed = this.remoteSeed(rc.connectionId);
         const i = seed % 1000;
         const rcDist = rc.lap * this.renderer.totalTrackDist + (rc.distance ?? 0);
         const rcBank = this.renderer.getTrackBank(rcDist);
         carList.push({
-          x: rc.x, y: this.renderer.getTrackElevation(rcDist) + rcBank * this.renderer.getTrackLateralInfo(rc.x, rc.z).lateral + 0.1, z: rc.z,
+          x: rc.x, y: this.renderer.getTrackElevation(rcDist) + rcBank * this.renderer.getTrackLateral(rc.x, rc.z) + 0.1, z: rc.z,
           yaw: rc.yaw,
           r: rc.colorR, g: rc.colorG, b: rc.colorB,
           speed: rc.speed,
@@ -1684,7 +1722,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this._playerSpin += wheelRate(this.carSpeed) * dt;
       this.renderer.render(eyeX, eyeY, eyeZ, yaw, pitch, aspect, carList, dt, fovZoom, shakeX, shakeY, this.isRaining, speedRatio, this.carSpeed, this.carAccel, this._playerSpin, this._playerSlide, this.getPlayerAppearance(), false, this.steerSmoothed / 90);
       this.hudSpeed = Math.abs(this.carSpeed * 3.6);
-      this.hudRPM = Math.min(1, Math.abs(this.carSpeed) / this.getMaxSpeed() * 1.1);
+      this.hudRPM = this.gameState === 'countdown'
+        ? Math.min(1, this._countdownRev * 1.2)
+        : Math.min(1, Math.abs(this.carSpeed) / this.getMaxSpeed() * 1.1);
       this.hudBrakeHeat = this.renderer?.getPlayerBrakeHeat() ?? 0;
       if (this.hudBrakeHeat > this._brakePeakThisLap) this._brakePeakThisLap = this.hudBrakeHeat;
       this.hudWheelLock = this.renderer?.getPlayerLock() ?? 0;
@@ -2344,7 +2384,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const trackLen = this.renderer.totalTrackDist;
     const playerDist = this.currentLap * trackLen + this.carDist;
     const palette = ['#e53935', '#4a9eff', '#4caf50', '#ffd600', '#9c27b0', '#ff9800', '#00bcd4', '#e91e63'];
-    const racers: { name: string; playerId: number; isBot: boolean; isPlayer: boolean; color: string; dist: number; laps: number }[] = [];
+    const racers: { name: string; playerId: number; isBot: boolean; isPlayer: boolean; color: string; dist: number; laps: number; replayId?: string }[] = [];
     for (const b of this.bots) {
       if (!b.alive) continue;
       racers.push({
@@ -2352,6 +2392,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         color: palette[b.color % palette.length],
         dist: b.raceDist,
         laps: b.lap,
+        replayId: b.id,
       });
     }
     this.remoteCars.forEach(rc => {
@@ -2360,6 +2401,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         color: `rgb(${Math.round(rc.colorR * 255)}, ${Math.round(rc.colorG * 255)}, ${Math.round(rc.colorB * 255)})`,
         dist: rc.lap * trackLen + rc.distance,
         laps: rc.lap,
+        replayId: 'r' + rc.connectionId,
       });
     });
     racers.push({
@@ -2368,13 +2410,22 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       isBot: false, isPlayer: true, color: '#ffffff',
       dist: this.currentLap * trackLen + this.carDist,
       laps: this.currentLap,
+      replayId: 'replay-player',
     });
     racers.sort((a, b) => b.dist - a.dist);
-    const dnfRows = this.dnfRacers.map(d => ({
-      position: -1, name: d.name, playerId: d.playerId,
-      isBot: false, isPlayer: false, isDnf: true, isEstimated: false,
-      color: d.color || '#9e9e9e', laps: 0, totalTimeMs: 0,
-    }));
+    const dnfRows = this.dnfRacers.map(d => {
+      let replayId: string | undefined;
+      const rc = [...this.remoteCars.values()].find(v => v.playerName === d.name);
+      if (rc) replayId = 'r' + rc.connectionId;
+      const bot = this.bots.find(b => b.name === d.name);
+      if (bot) replayId = bot.id;
+      return {
+        position: -1, name: d.name, playerId: d.playerId,
+        isBot: !replayId || replayId.startsWith('b'), isPlayer: false, isDnf: true, isEstimated: false,
+        color: d.color || '#9e9e9e', laps: 0, totalTimeMs: 0,
+        replayId,
+      };
+    });
     this.finalStandings = [
       ...racers.map((r, i) => ({
         position: i + 1, name: r.name, playerId: r.playerId,
@@ -2385,6 +2436,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           ? this._lastRaceTotalTime
           : this.estimateStandingsTime(r.dist, this._lastRaceTotalTime, playerDist),
         isEstimated: !r.isPlayer,
+        replayId: r.replayId,
       })),
       ...dnfRows,
     ];
@@ -2424,6 +2476,26 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       position: 0, playerId: s.playerId, playerName: s.name,
       lapTime: 0, totalTime: 0, moneyEarned: 0, isBot: false,
     });
+  }
+  /** Points the replay cameras at the clicked standings racer instead of
+   *  yourself. Falls back to the player when no replay is available or the
+   *  row has no recorded car (server-only rows). */
+  watchStandingsRacer(s: { name: string; replayId?: string; isBot: boolean; playerId: number }): void {
+    if (!s || !s.replayId || !this.renderer || this._replayFrames.length < 2) return;
+    this.replayFollowId = s.replayId;
+    this.replayFollowName = s.name;
+    // Close the standings panel so the replayed car is actually visible.
+    if (!this.standingsCollapsed) this.standingsCollapsed = true;
+    if (this.replayPaused) this.replayPaused = false;
+  }
+  /** Stops following a specific racer and goes back to your own car. */
+  clearReplayFollow(): void {
+    this.replayFollowId = null;
+    this.replayFollowName = '';
+  }
+  /** True while a non-self racer is selected as the replay camera target. */
+  get isFollowingRacer(): boolean {
+    return !!this.replayFollowId && this.replayFollowId !== 'replay-player';
   }
   /** Rebuild the final standings from the server's authoritative classification
    *  once every multiplayer racer has finished. Player rows come from the hub
@@ -2484,7 +2556,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const bots = inRace ? this.bots.filter(b => b.alive).slice().sort((a, b) => b.raceDist - a.raceDist) : [];
     const total = bots.length + finishers.length;
     let botIdx = 0;
-    const result: { position: number; name: string; playerId: number; isBot: boolean; isPlayer: boolean; isDnf: boolean; isEstimated: boolean; color: string; laps: number; totalTimeMs: number }[] = [];
+    const result: { position: number; name: string; playerId: number; isBot: boolean; isPlayer: boolean; isDnf: boolean; isEstimated: boolean; color: string; laps: number; totalTimeMs: number; replayId?: string }[] = [];
     for (let pos = 1; pos <= total; pos++) {
       const p = claimed.has(pos) ? finishers.find(x => x.position === pos) : undefined;
       if (p) {
@@ -2497,6 +2569,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           isBot: false, isPlayer: p.playerId > 0 && p.playerId === myId, isDnf: false, isEstimated: false,
           color, laps: Math.min(p.laps || 0, this.totalLaps),
           totalTimeMs: p.totalTimeMs || 0,
+          replayId: 'r' + p.connectionId,
         });
       } else if (botIdx < bots.length) {
         const b = bots[botIdx++];
@@ -2505,6 +2578,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           color: palette[b.color % palette.length],
           laps: Math.min(b.lap, this.totalLaps),
           totalTimeMs: winTime > 0 ? this.estimateStandingsTime(b.raceDist, winTime, winDist) : 0,
+          replayId: b.id,
         });
       }
     }
@@ -2519,6 +2593,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
             : this.getPlayerColor(p.connectionId),
           laps: Math.min(p.laps || 0, this.totalLaps),
           totalTimeMs: p.totalTimeMs || 0,
+          replayId: 'r' + p.connectionId,
         });
       }
     }
@@ -2531,6 +2606,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           ? `rgb(${Math.round(rc.colorR * 255)}, ${Math.round(rc.colorG * 255)}, ${Math.round(rc.colorB * 255)})`
           : '#9e9e9e',
         laps: 0, totalTimeMs: 0,
+        replayId: 'r' + p.connectionId,
       });
     }
     this.finalStandings = result;
@@ -3193,7 +3269,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return this.getEquippedAppearance(cat);
   }
   async buyAppearancePart(part: RacingAppearancePart) {
-    if (this.isBuying || this.playerCar.money < part.cost) return;
+    if (this.isBuying) return;
+    if (this.playerCar.money < part.cost) {
+      this.addMessage(`Not enough money for ${part.name} — need $${part.cost.toLocaleString()}.`);
+      return;
+    }
     if (this.isAppearanceOwned(part)) {
       this.equipAppearance(part);
       this.saveCar();
@@ -3328,19 +3408,28 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
   }
   private botAppearanceFor(i: number, seed: number): RacingCarAppearance {
-    const rimIds = Object.keys(RIM_TINTS).map(Number);
-    const decalIds = Object.keys(DECAL_COLORS).map(Number);
-    const accentIds = Object.keys(ACCENT_COLORS).map(Number);
-    const glowIds = Object.keys(GLOW_COLORS).map(Number);
+    // Uses the module-level hoisted id arrays — never Object.keys here, this
+    // runs for every bot/remote/replay car on every frame.
     const hash = (i * 7 + seed * 13) & 0xffff;
     return {
-      rimStyle: rimIds[(hash + i) % rimIds.length],
-      decalStyle: decalIds[(hash * 3 + i) % decalIds.length],
-      accent: ACCENT_COLORS[accentIds[(hash + i * 2) % accentIds.length]],
-      glow: (hash + i) % 5 === 0 ? GLOW_COLORS[glowIds[(hash + i) % glowIds.length]] : undefined,
+      rimStyle: RIM_TINT_IDS[(hash + i) % RIM_TINT_IDS.length],
+      decalStyle: DECAL_COLOR_IDS[(hash * 3 + i) % DECAL_COLOR_IDS.length],
+      accent: ACCENT_COLORS[ACCENT_COLOR_IDS[(hash + i * 2) % ACCENT_COLOR_IDS.length]],
+      glow: (hash + i) % 5 === 0 ? GLOW_COLORS[GLOW_COLOR_IDS[(hash + i) % GLOW_COLOR_IDS.length]] : undefined,
       glowIntensity: 30 + ((hash + i * 17) % 5) * 15,
       metallic: 0.3 + ((hash + i * 3) % 6) / 10,
     };
+  }
+  /** Stable per-connectionId appearance seed, computed once and cached — the
+   *  connectionId never changes, so the split/reduce only runs on first use
+   *  instead of every frame per remote car. */
+  private remoteSeed(connectionId: string): number {
+    let s = this._remoteSeedCache.get(connectionId);
+    if (s === undefined) {
+      s = connectionId.split('').reduce((a, ch) => a + ch.charCodeAt(0), 0);
+      this._remoteSeedCache.set(connectionId, s);
+    }
+    return s;
   }
   private lerpAngle(a: number, b: number, t: number): number {
     let d = b - a;
@@ -3445,7 +3534,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
     const pdist = lerp(a.pdist, b.pdist);
     // Replay cameras and cars ride the same terrain as the live race.
-    const pElev = this.renderer.getTrackElevation(pdist);
     const pa = this.getPlayerAppearance();
     const skin = pa.skin ?? [0.85, 0.06, 0.06];
     grid.set('replay-player', { x: px, z: pz, yaw: pyaw, speed: pspd, accel: pacc, slide: pslid, id: 'replay-player', r: skin[0], g: skin[1], b: skin[2], dist: pdist, name: this.myLobbyName });
@@ -3462,26 +3550,37 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const camIdx = Math.floor(this._replayTime / RacingComponent.REPLAY_CAM_MS) % 4;
     this.replayCam = camIdx;
     let eyeX: number, eyeY: number, eyeZ: number, camYaw: number, camPitch: number;
-    const fwdX = Math.sin(pyaw), fwdZ = Math.cos(pyaw);
+    // Follow target from the standings: the selected racer's interpolated
+    // frame position, or the player when nothing is selected / not found.
+    const followCar = this.replayFollowId && this.replayFollowId !== 'replay-player'
+      ? (grid.get(this.replayFollowId) ?? null)
+      : null;
+    const fx = followCar ? followCar.x : px;
+    const fz = followCar ? followCar.z : pz;
+    const fyaw = followCar ? followCar.yaw : pyaw;
+    const fspd = followCar ? followCar.speed : pspd;
+    const fdist = followCar ? followCar.dist : pdist;
+    const fElev = this.renderer.getTrackElevation(fdist);
+    const ffwdX = Math.sin(fyaw), ffwdZ = Math.cos(fyaw);
     if (camIdx === 1) {
-      const sideX = Math.cos(pyaw), sideZ = -Math.sin(pyaw);
-      const speedF = Math.min(1, Math.abs(pspd) / this.getMaxSpeed());
+      const sideX = Math.cos(fyaw), sideZ = -Math.sin(fyaw);
+      const speedF = Math.min(1, Math.abs(fspd) / this.getMaxSpeed());
       const sway = Math.sin(this._replayTime * 0.0022) * (0.25 + speedF * 0.65);
       const bob = Math.sin(this._replayTime * 0.0031) * 0.22;
-      eyeX = px - fwdX * 7.5 + sideX * (2.4 + sway);
-      eyeZ = pz - fwdZ * 7.5 + sideZ * (2.4 + sway);
-      eyeY = pElev + 1.55 + bob + Math.abs(pspd) * 0.012;
-      const tx = px + fwdX * 5, tz = pz + fwdZ * 5;
+      eyeX = fx - ffwdX * 7.5 + sideX * (2.4 + sway);
+      eyeZ = fz - ffwdZ * 7.5 + sideZ * (2.4 + sway);
+      eyeY = fElev + 1.55 + bob + Math.abs(fspd) * 0.012;
+      const tx = fx + ffwdX * 5, tz = fz + ffwdZ * 5;
       camYaw = Math.atan2(tx - eyeX, tz - eyeZ);
-      camPitch = Math.atan2(eyeY - (pElev + 0.85), Math.hypot(tx - eyeX, tz - eyeZ));
+      camPitch = Math.atan2(eyeY - (fElev + 0.85), Math.hypot(tx - eyeX, tz - eyeZ));
     } else if (camIdx === 2) {
       const ang = this._replayTime * 0.00022;
-      eyeX = px + Math.cos(ang) * 13;
-      eyeZ = pz + Math.sin(ang) * 13;
-      eyeY = pElev + 15 + Math.sin(this._replayTime * 0.0004) * 2;
-      const toX = px - eyeX, toZ = pz - eyeZ;
+      eyeX = fx + Math.cos(ang) * 13;
+      eyeZ = fz + Math.sin(ang) * 13;
+      eyeY = fElev + 15 + Math.sin(this._replayTime * 0.0004) * 2;
+      const toX = fx - eyeX, toZ = fz - eyeZ;
       camYaw = Math.atan2(toX, toZ);
-      camPitch = Math.atan2(eyeY - (pElev + 0.6), Math.hypot(toX, toZ));
+      camPitch = Math.atan2(eyeY - (fElev + 0.6), Math.hypot(toX, toZ));
     } else if (camIdx === 3) {
       const orbit = this._replayTime * 0.00045;
       const r = 10.5;
@@ -3495,13 +3594,13 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     } else {
       const orbit = this._replayTime * 0.00045;
       const r = 8.2;
-      eyeX = px + Math.cos(orbit) * r;
-      eyeZ = pz + Math.sin(orbit) * r;
-      eyeY = pElev + 3.0 + Math.sin(this._replayTime * 0.0006) * 0.8;
-      const toX = px - eyeX;
-      const toZ = pz - eyeZ;
+      eyeX = fx + Math.cos(orbit) * r;
+      eyeZ = fz + Math.sin(orbit) * r;
+      eyeY = fElev + 3.0 + Math.sin(this._replayTime * 0.0006) * 0.8;
+      const toX = fx - eyeX;
+      const toZ = fz - eyeZ;
       camYaw = Math.atan2(toX, toZ);
-      camPitch = Math.atan2(eyeY - (pElev + 0.6), Math.hypot(toX, toZ));
+      camPitch = Math.atan2(eyeY - (fElev + 0.6), Math.hypot(toX, toZ));
     }
     const wheelRate = (spd: number) => Math.min(Math.abs(spd) / 0.17, 40) * (spd < 0 ? 1 : -1);
     const carList: (RacingCarAppearance & { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed: number; accel: number; spin: number; slide: number; id: string; bank?: number })[] = [];
@@ -3509,7 +3608,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       const spin = (this._replaySpins.get(id) ?? 0) + wheelRate(c.speed) * dt * timeDir;
       this._replaySpins.set(id, spin);
       const seedId = id.startsWith('r') ? id.slice(1) : id;
-      const seed = seedId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+      let seed = this._replaySeedCache.get(id);
+      if (seed === undefined) {
+        seed = seedId.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+        this._replaySeedCache.set(id, seed);
+      }
       // The player's own car must keep its REAL appearance (neon underglow,
       // decal, paint) — botAppearanceFor() would otherwise swap in a random
       // bot livery (and often no glow at all) on the replay of your car.
@@ -3519,7 +3622,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       const recordedApp = this._replayAppearances.get(id);
       const rBank = this.renderer.getTrackBank(c.dist);
       carList.push({
-        x: c.x, y: this.renderer.getTrackElevation(c.dist) + rBank * this.renderer.getTrackLateralInfo(c.x, c.z).lateral + 0.1, z: c.z, yaw: c.yaw, r: c.r, g: c.g, b: c.b,
+        x: c.x, y: this.renderer.getTrackElevation(c.dist) + rBank * this.renderer.getTrackLateral(c.x, c.z) + 0.1, z: c.z, yaw: c.yaw, r: c.r, g: c.g, b: c.b,
         speed: c.speed, accel: c.accel, spin, slide: c.slide, id: c.id, bank: rBank,
         ...(isPlayerCar ? pa : (recordedApp ?? this.botAppearanceFor(seed % 1000, seed)))
       });
@@ -3620,6 +3723,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   /** Appearance part hovered in the catalog — previewed on the garage car
    *  without buying (cleared on mouse leave). */
   appearancePreview: RacingAppearancePart | null = null;
+  /** Last hovered/tapped appearance part the banner would buy. Kept separate
+   *  from appearancePreview because the card's mouseleave clears the visual
+   *  preview — without this, moving the pointer toward the banner wiped the
+   *  target before the click landed and 'tap to buy' silently did nothing. */
+  pendingBuyPart: RacingAppearancePart | null = null;
   /** Paint / skin hovered in the skins tab — previewed on the garage car
    *  (colour + finish shader) without buying (cleared on mouse leave). */
   skinPreview: any = null;
@@ -3627,8 +3735,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
    *  only previews it (like desktop hover) and the preview banner becomes the
    *  buy/equip button. Desktop keeps hover-preview + click-to-buy on the card. */
   onAppearanceCardClick(part: RacingAppearancePart) {
-    if (this.isMobile) { this.appearancePreview = part; return; }
+    if (this.isMobile) { this.appearancePreview = part; this.pendingBuyPart = part; return; }
     this.buyAppearancePart(part);
+  }
+  onAppearanceCardHover(part: RacingAppearancePart | null) {
+    this.appearancePreview = part;
+    if (part) this.pendingBuyPart = part;
   }
   onSkinCardClick(skin: any) {
     if (this.isMobile) { this.skinPreview = skin; return; }
@@ -3637,17 +3749,22 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   /** Commits the currently previewed item — the preview banner's buy/equip tap. */
   previewBuy() {
     if (this.isBuying) return;
-    const p = this.appearancePreview;
+    const p = this.appearancePreview ?? this.pendingBuyPart;
     const s = this.skinPreview;
     this.appearancePreview = null;
+    this.pendingBuyPart = null;
     this.skinPreview = null;
     if (s) { this.selectSkin(s); return; }
     if (p) { this.buyAppearancePart(p); }
   }
+  /** Banner title: the part (or skin) the banner would buy/equip right now. */
+  get previewBannerName(): string {
+    return (this.appearancePreview ?? this.pendingBuyPart ?? this.skinPreview)?.name ?? '';
+  }
   /** Banner action text: 'equip'/'buy' for appearance parts, 'equip'/'select'/
    *  'buy' for paint skins. */
   get previewActionText(): string {
-    const p = this.appearancePreview;
+    const p = this.appearancePreview ?? this.pendingBuyPart;
     if (p) return this.isAppearanceOwned(p) ? 'equip' : 'buy';
     const s = this.skinPreview;
     if (!s) return 'select';
@@ -4119,7 +4236,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private updateEngineAudio() {
     if (this._destroyed || !this.soundOn || !this._audioCtx || !this._engineOsc || !this._engineFilter || !this._engineGain) return;
     const t = this._audioCtx.currentTime;
-    if (this.gameState !== 'racing') {
+    if (this.gameState !== 'racing' && this.gameState !== 'countdown') {
       if (this._engineOsc) this._engineOsc.frequency.setTargetAtTime(70, t, 0.15);
       if (this._engineOsc2) this._engineOsc2.frequency.setTargetAtTime(70, t, 0.15);
       if (this._subOsc) this._subOsc.frequency.setTargetAtTime(35, t, 0.15);
@@ -4137,7 +4254,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
     const speed = Math.abs(this.carSpeed);
     const maxSpd = this.getMaxSpeed();
-    const rpm = Math.max(0.3, Math.min(1.25, speed / maxSpd * 1.35 + 0.3));
+    // On the grid the car is parked, so the throttle drives a virtual "rev"
+    // speed instead — the engine winds up and the gauges climb, but nothing
+    // moves until the race starts.
+    const revving = this.gameState === 'countdown';
+    const revSpeed = revving ? this._countdownRev * maxSpd : speed;
+    const rpm = Math.max(0.3, Math.min(1.25, revSpeed / maxSpd * 1.35 + 0.3));
     // Exhaust upgrades shape the engine's voice: quad barrels (Twin Tips / Quad)
     // drop the pitch and roll off the highs for a deep rumble; twin tips
     // (Sport / Titanium / Carbon) sharpen the pitch, brighten the cutoff and
@@ -4174,9 +4296,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this._harmOsc) this._harmOsc.frequency.setTargetAtTime(baseFreq * harmMult, t, 0.05);
     this._engineFilter.frequency.setTargetAtTime(filterFreq, t, 0.08);
     this._engineGain.gain.setTargetAtTime(0.04 + rpm * 0.05, t, 0.08);
-    const speedRatio = Math.min(1, speed / maxSpd);
+    const speedRatio = Math.min(1, revSpeed / maxSpd);
+    // No wind noise while parked on the grid — only the revved engine.
     if (this._windFilter) this._windFilter.frequency.setTargetAtTime(400 + speedRatio * 2200, t, 0.15);
-    if (this._windGain) this._windGain.gain.setTargetAtTime(speedRatio * speedRatio * 0.05, t, 0.15);
+    if (this._windGain) this._windGain.gain.setTargetAtTime(revving ? 0 : speedRatio * speedRatio * 0.05, t, 0.15);
     const slide = Math.min(1, this._playerSlide);
     if (this._screechGain) {
       this._screechGain.gain.setTargetAtTime(slide * 0.055, t, 0.05);

@@ -898,6 +898,7 @@ fieldset {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  cursor: pointer;
 }
 
 .poll-voter-avatar {
@@ -907,6 +908,17 @@ fieldset {
   object-fit: cover;
   border: 1px solid rgba(255, 255, 255, 0.15);
   flex: 0 0 auto;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.poll-voter:hover .poll-voter-avatar {
+  filter: brightness(1.3);
+  transform: scale(1.15);
+}
+
+.userTagProfileLink {
+  color: var(--main-highlight-color);
+  text-decoration: underline;
 }
 
 .poll-stats {

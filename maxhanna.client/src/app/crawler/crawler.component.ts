@@ -62,6 +62,9 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   isSearchingYahoo: boolean = false
   yahooResults: MetaData[] = [];
   yahooDisplayLimit: number = 1;
+  // Guards the async external-engine responses: only the search that STARTED
+  // them may apply their results (stale slow responses are dropped).
+  private _searchToken = '';
   private socialDomains = ['reddit.com', 'www.reddit.com', 'twitter.com', 'www.twitter.com', 'x.com', 'www.x.com', 'facebook.com', 'www.facebook.com'];
 
   @ViewChild('pageSizeDropdown') pageSizeDropdown!: ElementRef<HTMLSelectElement>;
@@ -234,17 +237,40 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   async searchKeywords(skipScrape?: boolean) {
     const keywords = this.keywordsInput.nativeElement.value;
     console.log("searching keywords", keywords);
+    // Token-guard the async external-engine responses below: a slow response
+    // from an earlier search must never overwrite a newer search's results.
+    const searchToken = (keywords ?? '').trim();
+    this._searchToken = searchToken;
     // Keep the AI answer relevant to THIS search: refresh it for keyword
     // queries, or drop it entirely for domain/protocol lookups.
     if (keywords && !this.isDomainOrUrlQuery(keywords)) {
-      this.remountAiSearch(keywords.trim());
+      this.remountAiSearch(searchToken);
     } else {
       this.closeAiSearch();
     }
     if (keywords) {
+      // Wipe the previous search's external-engine + social results BEFORE the
+      // new fetches start. Otherwise the old entries stay on screen while the
+      // new ones stream in, and the incremental mergeSocialResults() calls mix
+      // stale + fresh results in the same div.
+      this.youtubeResults = [];
+      this.redditResults = [];
+      this.xResults = [];
+      this.imdbResults = [];
+      this.duckDuckGoResults = [];
+      this.yahooResults = [];
+      this.socialResults = [];
+      this.youtubeDisplayLimit = 1;
+      this.redditDisplayLimit = 1;
+      this.xDisplayLimit = 1;
+      this.imdbDisplayLimit = 1;
+      this.duckDuckGoDisplayLimit = 1;
+      this.yahooDisplayLimit = 1;
+      this.socialDisplayLimit = 1;
       console.log('searching youtube');
       this.isSearchingYoutube = true;
       this.crawlerService.searchYoutube(this.keywordsInput.nativeElement.value.trim()).then(response => {
+        if (this._searchToken !== searchToken) { this.isSearchingYoutube = false; return; }
         this.youtubeResults = response ?? [];
         this.isSearchingYoutube = false;
         this.youtubeDisplayLimit = 1;
@@ -253,6 +279,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       console.log('searching reddit');
       this.isSearchingReddit = true;
       this.crawlerService.searchReddit(this.keywordsInput.nativeElement.value.trim()).then(response => {
+        if (this._searchToken !== searchToken) { this.isSearchingReddit = false; return; }
         this.redditResults = response ?? [];
         this.isSearchingReddit = false;
         this.redditDisplayLimit = 1;
@@ -262,6 +289,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       console.log('searching X');
       this.isSearchingX = true;
       this.crawlerService.searchX(this.keywordsInput.nativeElement.value.trim()).then(response => {
+        if (this._searchToken !== searchToken) { this.isSearchingX = false; return; }
         this.xResults = response ?? [];
         this.isSearchingX = false;
         this.xDisplayLimit = 1;
@@ -271,6 +299,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       console.log('searching IMDB');
       this.isSearchingImdb = true;
       this.crawlerService.searchIMDb(this.keywordsInput.nativeElement.value.trim()).then(response => {
+        if (this._searchToken !== searchToken) { this.isSearchingImdb = false; return; }
         this.imdbResults = response ?? [];
         this.isSearchingImdb = false;
         this.imdbDisplayLimit = 1;
@@ -280,6 +309,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       console.log('searching DuckDuckGo');
       this.isSearchingDuckDuckGo = true;
       this.crawlerService.searchDuckDuckGo(this.keywordsInput.nativeElement.value.trim()).then(response => {
+        if (this._searchToken !== searchToken) { this.isSearchingDuckDuckGo = false; return; }
         this.duckDuckGoResults = response ?? [];
         this.isSearchingDuckDuckGo = false;
         this.duckDuckGoDisplayLimit = 1;
@@ -288,6 +318,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
       console.log('searching Yahoo');
       this.isSearchingYahoo = true;
       this.crawlerService.searchYahoo(this.keywordsInput.nativeElement.value.trim()).then(response => {
+        if (this._searchToken !== searchToken) { this.isSearchingYahoo = false; return; }
         this.yahooResults = response ?? [];
         this.isSearchingYahoo = false;
         this.yahooDisplayLimit = 1;

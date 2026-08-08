@@ -1140,6 +1140,58 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.isShowingUserTagPopup = true;
     }, 500);
   }
+
+  // Hover card for the inline poll voter avatars. Reuses the exact app-user-tag
+  // hover-picture plumbing (hidden showUserTagX/Y/UserId inputs + the hidden
+  // show/hide buttons) so voters get the same profile preview card that every
+  // other user tag shows, including the 'View profile' link.
+  private _voterHoverUserId = 0;
+  private _voterHoverTimer: any;
+
+  showVoterUserTag(event: MouseEvent, userId: number) {
+    if (!userId) return;
+    this._voterHoverUserId = userId;
+    clearTimeout(this._voterHoverTimer);
+
+    const btn = document.getElementById("showUserTagButton");
+    const inputX = document.getElementById("showUserTagX") as HTMLInputElement;
+    const inputY = document.getElementById("showUserTagY") as HTMLInputElement;
+    const inputId = document.getElementById("showUserTagUserId") as HTMLInputElement;
+    if (!btn || !inputX || !inputY || !inputId) return;
+
+    inputId.value = userId.toString();
+    let newX = event.clientX + 150;
+    let newY = event.clientY + 30;
+    const tagWidth = 200;
+    const tagHeight = 80;
+    const offset = 5;
+    if (newX + tagWidth > window.innerWidth) newX = event.clientX - tagWidth;
+    if (newY + tagHeight > window.innerHeight) newY = event.clientY - tagHeight - offset;
+    if (newX < 0) newX = offset;
+    if (newY < 0) newY = offset;
+    inputX.value = newX.toString();
+    inputY.value = newY.toString();
+    btn.click();
+
+    this._voterHoverTimer = setTimeout(() => {
+      if (this._voterHoverUserId !== userId) {
+        this.hideVoterUserTagNow();
+      }
+    }, 1000);
+  }
+
+  hideVoterUserTag() {
+    this._voterHoverUserId = 0;
+    setTimeout(() => {
+      if (!this._voterHoverUserId) this.hideVoterUserTagNow();
+    }, 500);
+  }
+
+  hideVoterUserTagNow() {
+    clearTimeout(this._voterHoverTimer);
+    const btn = document.getElementById("hideUserTagButton");
+    if (btn) btn.click();
+  }
   showChatTagPopup() {
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(async () => {
@@ -2240,14 +2292,29 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
             // path is '{folder}/{filename}' and is served from the uploads root
             // (same direct-link format used across the app).
             const dp = v.displayPicture || v.DisplayPicture || (v.user && (v.user.displayPicture || v.user.DisplayPicture)) || '';
+            // The voter's user id (when the results endpoint returns one) powers
+            // the hover card attached below.
+            const uid = v.userId || v.UserId || (v.user && (v.user.id || v.user.Id)) || 0;
             const avatar = dp
               ? `<img class=\"poll-voter-avatar\" src=\"https://bughosted.com/assets/Uploads/${encodeURIComponent(dp)}\" alt=\"\" loading=\"lazy\">`
               : '';
-            voters.push(`<span class=\"poll-voter\">${avatar}<span class=\"userMentionSpan\" onClick=\"document.getElementById('userMentionInput').value='${safeName}';document.getElementById('userMentionButton').click()\">@${safeName}</span></span>`);
+            voters.push(`<span class=\"poll-voter\"${uid ? ` data-user-id=\"${uid}\"` : ''}>${avatar}<span class=\"userMentionSpan\" onClick=\"document.getElementById('userMentionInput').value='${safeName}';document.getElementById('userMentionButton').click()\">@${safeName}</span></span>`);
           } catch { continue; }
         }
         votersHtml += voters.join(' ') + `</div>`;
         container.insertAdjacentHTML('beforeend', votersHtml);
+        // Hover card on each voter chip — reuses the app-user-tag hover-picture
+        // plumbing (showUserTagButton + hidden X/Y/UserId inputs) so hovering a
+        // voter avatar opens the same profile preview card, with a link to the
+        // voter's profile.
+        try {
+          container.querySelectorAll<HTMLElement>('.poll-voter[data-user-id]').forEach((el) => {
+            const voterId = parseInt(el.getAttribute('data-user-id') || '0', 10);
+            if (!voterId) return;
+            el.addEventListener('mouseenter', (e) => this.showVoterUserTag(e as MouseEvent, voterId));
+            el.addEventListener('mouseleave', () => this.hideVoterUserTag());
+          });
+        } catch { /* non-fatal */ }
       }
 
       // Append delete control if requested
@@ -2378,6 +2445,22 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     setTimeout(() => {
       this.userTagPopupMediaViewer?.reloadMedia(true);
     }, 50);
+  }
+
+  // 'View profile' link on the hover card — opens the user's page in a new
+  // tab, matching app-user-tag's openToUserUrl behavior.
+  openUserTagProfile(event?: Event) {
+    event?.stopPropagation();
+    const input = document.getElementById("showUserTagUserId") as HTMLInputElement | null;
+    const id = this.popupUserTagUser?.id ?? (input ? this.parseInteger(input.value) : 0);
+    if (id && id !== 0) {
+      const url = `https://bughosted.com/User/${id}`;
+      try {
+        window.open(url, '_blank', 'noopener');
+      } catch (e) {
+        window.location.href = url;
+      }
+    }
   }
   chatTagLoaded(chat?: PublicChatInfo) {
     this.popupChatTag = chat;

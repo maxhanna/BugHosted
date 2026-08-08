@@ -499,6 +499,15 @@ export class NavigationComponent implements OnInit, OnDestroy {
     return this.navSuggestions?.files?.filter(f => this.isRomSuggestion(f)) ?? [];
   }
 
+  /** Actual console icon for an emulation suggestion (the NES/SNES/GBA badge,
+   *  etc.) derived from the ROM's file extension — shared mapping with the
+   *  emulator and file search. Falls back to the generic joystick. */
+  getEmulationIcon(g: any): string | undefined {
+    if (!g) return undefined;
+    const name = g.name || g.title || '';
+    return this.fileService.getSystemIconUrl(this.fileService.getFileExtension(name));
+  }
+
   // Flat, display-ordered list of every current suggestion so keyboard
   // navigation can address them with a single index across all groups.
   private getNavSuggestFlat(): { type: 'file' | 'post' | 'comment' | 'news' | 'favourite' | 'app' | 'emulation', item: any }[] {

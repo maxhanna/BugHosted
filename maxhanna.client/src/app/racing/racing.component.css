@@ -2788,6 +2788,40 @@
     transform: scale(0.78);
   }
 
+  /* Keep the 3D car inside the top strip: the stage's desktop min-height
+     (240px) plus label + stats can exceed the strip's 40%/200px on short
+     viewports, and the overflow shoved the car (drawn at the stage's real
+     rect) down behind the catalog. Let the stage shrink and compact the
+     label/actions so the car stays centered at the top. */
+  .garage-car-stage {
+    min-height: 0;
+  }
+
+  .garage-car-label {
+    margin-top: 4px;
+    gap: 2px;
+    font-size: 11px;
+    letter-spacing: 2px;
+  }
+
+  .garage-car-actions {
+    gap: 4px;
+  }
+
+  .garage-rotate-hint {
+    font-size: 9px;
+  }
+
+  .garage-stats-quick {
+    margin-top: 4px;
+    gap: 8px;
+  }
+
+  .garage-stats-quick span {
+    padding: 2px 8px;
+    font-size: 10px;
+  }
+
   .garage-catalog {
     flex: 1;
     padding: 4px 8px 0;
@@ -3000,7 +3034,10 @@
   right: 0;
   top: 0;
   pointer-events: none;
-  z-index: 10;
+  /* Above the countdown overlay's vignette (z 20) so the dashboard stays
+     fully readable while revving on the grid, but below the pause overlay
+     (z 30) so pausing still dims the whole cockpit as before. */
+  z-index: 25;
 }
 /* Screen-edge speed streaks — opacity, streak length (--sl-len) and flow
    speed (--sl-dur) are driven per-frame from car speed and track grade, so
@@ -3389,6 +3426,22 @@
   flex: 1;
   max-width: 520px;
   height: 100%;
+  /* Viewing distance for the cockpit wheel — lets the wheel lean back in
+     space (top away from camera) like a real F1 cockpit shot. */
+  perspective: 1000px;
+}
+
+/* Tilts the whole wheel assembly back toward the cockpit. The steering
+   rotation is applied by JS to #steerWheel (its child) as a plain rotate,
+   which composes in the wheel's own tilted plane — so turning the wheel
+   stays in-plane while the assembly keeps the 3D perspective. */
+.wheel-3d-tilt {
+  /* Negative rotateX with a bottom origin: the top of the wheel leans toward
+     the driver (face angled up toward the camera) while the bottom stays put,
+     so the rim reads as an ellipse arcing up toward the cockpit — the classic
+     F1 onboard framing. */
+  transform: rotateX(-52deg);
+  transform-origin: 50% 100%;
 }
 
 .steering-wheel {
@@ -3442,13 +3495,15 @@
   left: 5%;
   right: 5%;
   bottom: 15%;
-  border: 6px solid #232527;
-  border-radius: 50% 50% 40% 40%;
+  border: 7px solid #232527;
+  /* F1 wheel silhouette: a squircle (rounded rectangle) rather than a plain
+     circle — flatter top/bottom, curved sides where the hands grip. */
+  border-radius: 30% 30% 26% 26%;
   background:
-    radial-gradient(ellipse at 50% 40%, #23262d 0%, #14161b 55%, #0a0b0f 100%);
+    radial-gradient(ellipse at 50% 38%, #262a32 0%, #15181e 52%, #0a0b0f 100%);
   box-shadow:
-    inset 0 2px 10px rgba(255, 255, 255, 0.04),
-    inset 0 -8px 20px rgba(0, 0, 0, 0.65),
+    inset 0 2px 12px rgba(255, 255, 255, 0.05),
+    inset 0 -10px 24px rgba(0, 0, 0, 0.7),
     0 0 0 2px rgba(0, 0, 0, 0.55),
     0 0 0 9px rgba(38, 38, 42, 0.9),
     0 0 0 11px rgba(16, 16, 18, 0.65),
@@ -3468,15 +3523,18 @@
   pointer-events: none;
 }
 
-/* Faint carbon-weave cross-hatch over the wheel face */
+/* Carbon-weave cross-hatch over the wheel face — kept subtle but visible so
+   the rim reads as real twill-woven carbon instead of flat grey. */
 .wheel-rim::after {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
   background:
-    repeating-linear-gradient(45deg, transparent 0 5px, rgba(255, 255, 255, 0.014) 5px 6px),
-    repeating-linear-gradient(-45deg, transparent 0 5px, rgba(255, 255, 255, 0.014) 5px 6px);
+    repeating-linear-gradient(45deg, transparent 0 5px, rgba(255, 255, 255, 0.02) 5px 6px),
+    repeating-linear-gradient(-45deg, transparent 0 5px, rgba(255, 255, 255, 0.02) 5px 6px),
+    repeating-linear-gradient(45deg, transparent 0 11px, rgba(0, 0, 0, 0.18) 11px 12px),
+    repeating-linear-gradient(-45deg, transparent 0 11px, rgba(0, 0, 0, 0.18) 11px 12px);
   pointer-events: none;
 }
 
@@ -3575,6 +3633,85 @@
   right: 5%;
   height: 15px;
   border-radius: 3px 3px 9px 9px;
+}
+
+/* Shift-light LED bar arcing across the top of the rim — same green→amber→red
+   classes the in-display lights use, so it follows the actual RPM. */
+.wheel-led-strip {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 3px;
+  z-index: 3;
+  padding: 1px 3px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.7);
+}
+
+.wheel-led {
+  width: 8px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.6);
+  transition: background 0.08s ease, box-shadow 0.08s ease;
+}
+
+.wheel-led.led-green {
+  background: #2ecc40;
+  box-shadow: 0 0 7px rgba(46, 204, 64, 0.85);
+}
+
+.wheel-led.led-amber {
+  background: #ffd600;
+  box-shadow: 0 0 7px rgba(255, 214, 0, 0.85);
+}
+
+.wheel-led.led-red {
+  background: #ff2d2d;
+  box-shadow: 0 0 9px rgba(255, 45, 45, 0.95);
+  animation: rpm-blink 0.12s ease-in-out infinite alternate;
+}
+
+/* Rotary knobs (brake bias / engine mode) — knurled dials with a pointer tick,
+   like the rotaries on a real F1 wheel. */
+.wheel-dial {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  pointer-events: none;
+  border: 1px solid #06070a;
+  background:
+    repeating-conic-gradient(rgba(255, 255, 255, 0.05) 0 7deg, transparent 7deg 14deg),
+    radial-gradient(circle at 35% 30%, #6a7180, #23262d 70%, #0c0e13);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.18), 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+.wheel-dial::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 1px;
+  width: 2px;
+  height: 4px;
+  transform: translateX(-50%);
+  border-radius: 1px;
+  background: #ffd600;
+  box-shadow: 0 0 4px rgba(255, 214, 0, 0.7);
+}
+
+.wheel-dial-left {
+  left: 5px;
+  top: 6px;
+}
+
+.wheel-dial-right {
+  right: 5px;
+  bottom: 6px;
 }
 
 .wheel-center {
@@ -3837,10 +3974,10 @@
   border-radius: 6px 6px 4px 4px;
   border: 1px solid #ff6a5e;
   background:
-    radial-gradient(ellipse at 30% 18%, rgba(255, 255, 255, 0.18), transparent 55%),
-    radial-gradient(ellipse at 72% 82%, rgba(0, 0, 0, 0.38), transparent 60%),
-    linear-gradient(180deg, #ea4c43, #a81212 70%, #7a0b0b);
-  box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.35), inset 0 2px 3px rgba(255, 255, 255, 0.16);
+    radial-gradient(ellipse at 30% 14%, rgba(255, 255, 255, 0.24), transparent 52%),
+    radial-gradient(ellipse at 70% 80%, rgba(0, 0, 0, 0.42), transparent 62%),
+    linear-gradient(180deg, #ef5047, #b01413 72%, #7a0b0b);
+  box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.35), inset 0 2px 3px rgba(255, 255, 255, 0.18);
 }
 
 /* Palm crease lines */
@@ -3870,18 +4007,21 @@
     repeating-linear-gradient(90deg, transparent 0 3px, rgba(255, 255, 255, 0.03) 3px 4px);
 }
 
-/* Thumb wrapping the rim, with a jointed tip */
+/* Thumb wrapping the rim, with a jointed tip — arched over the grip like a
+   real F1 driver's thumb hooking the alcantara. */
 .glove-thumb {
   position: absolute;
   top: 1px;
   left: -9px;
   width: 14px;
   height: 24px;
-  border-radius: 6px 6px 5px 5px;
+  border-radius: 7px 7px 6px 6px;
   border: 1px solid #ff6a5e;
-  background: linear-gradient(180deg, #ea4c43, #a81212);
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(255, 255, 255, 0.22), transparent 55%),
+    linear-gradient(180deg, #ea4c43, #a81212);
   transform: rotate(-30deg);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2), 0 2px 4px rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25), 0 2px 4px rgba(0, 0, 0, 0.45);
 }
 .hand-right .glove-thumb {
   left: auto;
@@ -3910,7 +4050,10 @@
   background: rgba(96, 0, 0, 0.42);
 }
 
-/* Fingers — two segments each so the tips read as curled over the rim */
+/* Fingers — two segments each so the tips read as curled over the rim. The
+   base tapers toward the tip (narrower where the fingertip joins) and carries
+   a knuckle crease + stitch line so they read as real articulated digits
+   rather than flat boxes. */
 .glove-finger {
   position: absolute;
   bottom: 47px;
@@ -3920,7 +4063,35 @@
   border: 1px solid #ff6a5e;
   background: linear-gradient(180deg, #d63a34, #a81212);
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2), inset 0 -2px 3px rgba(0, 0, 0, 0.32);
+  clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%);
 }
+
+/* Knuckle crease where the fingertip segment joins the finger base */
+.glove-finger::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  top: 5px;
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(96, 0, 0, 0.5);
+  box-shadow: 0 6px 0 rgba(96, 0, 0, 0.22);
+}
+
+/* Centre stitch seam running down each finger */
+.glove-finger::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  bottom: 2px;
+  width: 1px;
+  transform: translateX(-50%);
+  opacity: 0.45;
+  background: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.22) 0 2px, transparent 2px 4px);
+}
+
 .glove-finger-seg {
   position: absolute;
   left: -1px;
@@ -3933,12 +4104,13 @@
   box-shadow: inset 0 -1px 1px rgba(255, 255, 255, 0.18);
   transform-origin: bottom center;
   transform: rotate(10deg);
+  clip-path: polygon(18% 0, 82% 0, 100% 100%, 0 100%);
 }
 .hand-right .glove-finger-seg {
   transform: rotate(-10deg);
 }
 
-/* Fingertip sheen */
+/* Fingertip sheen + tip stitch */
 .glove-finger-seg::after {
   content: '';
   position: absolute;
@@ -4371,6 +4543,40 @@
   overflow: hidden;
   text-overflow: ellipsis;
   pointer-events: none;
+}
+
+/* Standings-selected follow target — click to stop following (back to you). */
+.race-replay-follow {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: #bfe0ff;
+  background: rgba(13, 30, 48, 0.8);
+  border: 1px solid rgba(74, 158, 255, 0.55);
+  padding: 4px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  z-index: 27;
+  max-width: 88vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  transition: background 0.15s ease;
+}
+
+.race-replay-follow:hover {
+  background: rgba(20, 46, 74, 0.9);
+}
+
+.race-replay-follow-x {
+  margin-left: 6px;
+  color: #7fb8ff;
+  font-weight: 900;
 }
 
 .race-replay-controls {
@@ -4854,6 +5060,40 @@
   background: var(--main-highlight-color-quarter-opacity, rgba(74, 158, 255, 0.16));
   color: var(--main-font-color);
   text-decoration: underline;
+}
+
+/* Row currently being followed in the replay — highlighted so the target stays
+   visible while the standings panel is open. */
+.gp-standings-row.gp-standings-following {
+  background: rgba(74, 158, 255, 0.18);
+  border: 1px solid rgba(74, 158, 255, 0.45);
+  box-shadow: 0 0 10px rgba(74, 158, 255, 0.25) inset;
+}
+
+.gp-standings-row.gp-standings-following .gp-standings-name::after {
+  content: '● REC';
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: #4a9eff;
+  margin-left: auto;
+  padding-left: 8px;
+  flex-shrink: 0;
+}
+
+.gp-standings-profile {
+  margin-left: 2px;
+  font-size: 12px;
+  color: var(--main-highlight-color, #4a9eff);
+  text-decoration: none;
+  padding: 0 3px;
+  border-radius: 4px;
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.gp-standings-profile:hover {
+  opacity: 1;
+  background: rgba(74, 158, 255, 0.2);
 }
 
 .gp-standings-dot {

@@ -184,6 +184,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     clearInterval(this.pollingInterval);
     clearInterval(this.inviewDebounceTimeout);
     if (this.pushRefreshTimer) clearTimeout(this.pushRefreshTimer);
+    if (this._reconcileTimer) clearTimeout(this._reconcileTimer);
     if (this.currentChatId) this.chatHub.leaveChat(this.currentChatId);
     this.chatHub.disconnect();
     this._chatHubSubs.forEach(s => s.unsubscribe());
@@ -354,6 +355,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   }
 
   private pushRefreshTimer: any = null;
+  // One-shot re-reconcile for a just-sent message whose refetch raced the send.
+  private _reconcileTimer: any = null;
   // Last-rendered signature per poll componentId — updateChatPollsInDOM runs
   // on every history poll, so skip the innerHTML rebuild (and the reflow it
   // causes) when a poll's state hasn't actually changed.
@@ -362,6 +365,10 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   // a poll — avoids hammering /Poll/Results on every 10s history poll while
   // still picking up new votes (and the user's own vote after a reload).
   private _pollFetchedSignatures = new Map<string, string>();
+  // Retry bookkeeping for polls whose message row wasn't committed to the DOM
+  // yet when the refresh ran (first paint after a reload) — results should
+  // always catch up once the row renders, not be dropped by one missed lookup.
+  private _pollRetryCount = new Map<string, number>();
 
   /** Merges live poll results (tallies + the voter list) into the server-
    *  attached poll payload so an already-voted poll renders results even when
@@ -452,9 +459,13 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       );
       this.setServerDown(res);
       if (res && res.status && res.status == "404") {
-        if (this.chatHistory.length > 0) {
-          this.chatHistory = [];
-        }
+        // 404 = the chat/messages don't exist yet. Only drop the rows that
+        // came from the server — keep fresh optimistic rows (negative id) from
+        // a just-sent message, since the send itself races this refetch and the
+        // message will be committed (and reconciled) moments later.
+        this.chatHistory = this.chatHistory.filter(
+          (m: Message) => m.id < 0 && Date.now() - Math.abs(m.id) < 30000
+        );
         return;
       }
       if (res) {
@@ -643,10 +654,25 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
           this._pollRenderSignatures.set(p.componentId, signature);
           continue;
         }
-        this._pollRenderSignatures.set(p.componentId, signature);
 
         const tgt = document.getElementById(p.componentId);
-        if (!tgt) continue;
+        if (!tgt) {
+          // The message row may not be committed to the DOM yet (first paint
+          // right after a reload/open) — retry a few times instead of dropping
+          // the poll, so results always catch up once the row renders. The
+          // render signature is only stored on success, so a later attempt
+          // isn't skipped.
+          const attempts = this._pollRetryCount.get(p.componentId) ?? 0;
+          if (attempts < 15) {
+            this._pollRetryCount.set(p.componentId, attempts + 1);
+            setTimeout(() => { this.updateChatPollsInDOM([poll]); }, 500);
+          } else {
+            this._pollRetryCount.delete(p.componentId);
+          }
+          continue;
+        }
+        this._pollRetryCount.delete(p.componentId);
+        this._pollRenderSignatures.set(p.componentId, signature);
 
         // Build poll container similar to SocialComponent.updatePollsInDOM
         // Ensure the global hidden pollQuestion is set to this poll's question when interacting with this poll
@@ -1619,26 +1645,61 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     }
 
     // Optimistic append: paint the sent message instantly instead of waiting
-    // for a full history round trip. The background refetch below reconciles
-    // ids, ordering and the temp row (negative id) in getMessageHistory.
+    // for a full history round trip. Paints for new chats too (chatId is
+    // resolved on the refetch) — the background refetch below reconciles ids,
+    // ordering and the temp row (negative id) in getMessageHistory.
     const user = this.parentRef?.user ? this.parentRef.user : new User(0, 'Anonymous');
     const plain = event?.originalContent ?? '';
-    if (this.currentChatId && plain.trim()) {
+    if (plain.trim()) {
       const tempId = -Date.now();
-      const optimistic = new Message(tempId, this.currentChatId, user, this.currentChatUsers ?? [], this.encryptContent(plain), new Date());
+      const optimistic = new Message(tempId, this.currentChatId ?? 0, user, this.currentChatUsers ?? [], this.encryptContent(plain), new Date());
       optimistic.decrypted = plain;
       optimistic.domHtml = this.getTextForDOM(plain, 'messageText' + tempId);
       this.chatHistory = [...this.chatHistory, optimistic].sort(
         (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
       );
       this.annotateMessages(this.chatHistory);
-      this.scrollToBottomIfNeeded(true);
+      this.hardScrollChatToBottom();
     }
 
     // Don't block the send on the refetch — the optimistic row already
     // painted, so reconcile quietly in the background (no 250ms scroll hack).
     await this.getMessageHistory();
+    // The refetch races the actual send (the server write starts after this
+    // event fires), so the message may not be committed yet. If the temp row is
+    // still pending, reconcile once more after the write lands.
+    this.reconcilePendingTempRow();
+    this.hardScrollChatToBottom();
     this.checkChatBanStatus();
+  }
+  /** One short-delay re-reconcile if the just-sent optimistic row is still
+   *  waiting on the server (the refetch raced the send), so the real message
+   *  replaces the temp row without waiting for the 10s poll. */
+  private reconcilePendingTempRow() {
+    const hasPending = this.chatHistory.some(
+      (m: Message) => m.id < 0 && Date.now() - Math.abs(m.id) < 30000
+    );
+    if (!hasPending || this._reconcileTimer) return;
+    this._reconcileTimer = setTimeout(() => {
+      this._reconcileTimer = null;
+      const stillPending = this.chatHistory.some(
+        (m: Message) => m.id < 0 && Date.now() - Math.abs(m.id) < 30000
+      );
+      if (stillPending) this.getMessageHistory();
+    }, 800);
+  }
+  /** Force the chat window to the newest message — the send path must always
+   *  reveal what the user just typed, overriding the focus/manual-scroll gates
+   *  that normally keep the view pinned. */
+  private hardScrollChatToBottom() {
+    if (!this.chatWindow) return;
+    const el = this.chatWindow.nativeElement;
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        el.scrollTop = el.scrollHeight;
+        this.hasManuallyScrolled = false;
+      }, 0);
+    });
   }
 
   // Rendered HTML for a message row — computed once when the history loads and
@@ -1648,6 +1709,16 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     if (!m.domHtml) {
       const text = m.decrypted ?? this.decryptContent(m.content);
       m.domHtml = this.getTextForDOM(text, 'messageText' + m.id);
+      // First-paint poll refresh: the openChat/history refresh timers can be
+      // missed on a reload (component teardown, slow decrypt, DOM timing), so
+      // also ask for a poll refresh the moment a message row renders. The
+      // render + fetch signature short-circuits make this a no-op once the
+      // results are already in place, and the missing-row retry in
+      // updateChatPollsInDOM covers the few ms before the row is committed.
+      const firstPaintPolls = m.polls;
+      if (firstPaintPolls && firstPaintPolls.length) {
+        setTimeout(() => { this.updateChatPollsInDOM(firstPaintPolls as any[]); }, 0);
+      }
     }
     return m.domHtml;
   }

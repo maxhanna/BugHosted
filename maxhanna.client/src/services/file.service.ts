@@ -808,6 +808,54 @@ export class FileService {
     return file.lastIndexOf('.') !== -1 ? file.split('.').pop() ?? '' : '';
   }
 
+  /** Console icon for a ROM file extension (e.g. 'nes' -> /assets/nesicon.png).
+   *  Shared by the emulator, file search and nav suggestions so every surface
+   *  shows the actual system icon for a game. Returns undefined for non-ROM
+   *  extensions. */
+  getSystemIconUrl(extension: string): string | undefined {
+    if (!extension) return undefined;
+    const base = '/assets/';
+    const iconMap: { [key: string]: string } = {
+      'n64': base + 'n64Icon.png',
+      'z64': base + 'n64Icon.png',
+      'v64': base + 'n64Icon.png',
+      'a78': base + 'atariicon.png',
+      '2600': base + 'atariicon.png',
+      '5200': base + 'atariicon.png',
+      '7800': base + 'atariicon.png',
+      'lynx': base + 'atariicon.png',
+      'jag': base + 'atariicon.png',
+      'smd': base + 'segaicon.png',
+      'gen': base + 'segaicon.png',
+      '32x': base + 'segaicon.png',
+      'gg': base + 'segaicon.png',
+      'sms': base + 'segaicon.png',
+      'md': base + 'segaicon.png',
+      'snes': base + 'snesicon.png',
+      'fig': base + 'snesicon.png',
+      'smc': base + 'snesicon.png',
+      'sfc': base + 'snesicon.png',
+      'nds': base + 'ndsicon.png',
+      '3ds': base + 'ndsicon.png',
+      'nes': base + 'nesicon.png',
+      'ps1': base + 'ps1icon.png',
+      'psp': base + 'pspicon.png',
+      'pbp': base + 'pspicon.png',
+      'psx': base + 'ps1icon.png',
+      'playstation': base + 'ps1icon.png',
+      'saturn': base + 'saturnicon.png',
+      'dreamcast': base + 'dreamcasticon.png',
+      'genesis': base + 'segaicon.png',
+      'gamecube': base + 'gcicon.png',
+      'gc': base + 'gcicon.png',
+      'sega': base + 'segaicon.png',
+      'gb': base + 'gbicon.png',
+      'gbc': base + 'gbicon.png',
+      'gba': base + 'gbaicon.png',
+    };
+    return iconMap[extension.toLowerCase()] ?? undefined;
+  }
+
   /** Returns the file name without its extension (without the dot) */
   getFileWithoutExtension(file: string) {
     if (file) {

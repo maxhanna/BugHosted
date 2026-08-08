@@ -195,7 +195,11 @@
               [id]="'navSuggestItem' + (navSuggestGroupOffset('emulation') + i)"
               (mouseenter)="navSuggestIndex = navSuggestGroupOffset('emulation') + i"
               (click)="openSuggestion('emulation', g)">
-              <span class="navSuggestItemIcon">🕹️</span>
+              <span class="navSuggestItemIcon">
+                <img *ngIf="getEmulationIcon(g) as iconUrl" [src]="iconUrl" class="navSuggestSystemIcon"
+                  alt="System icon" loading="lazy" />
+                <span *ngIf="!getEmulationIcon(g)">🕹️</span>
+              </span>
               <span class="navSuggestItemText">
                 <span class="navSuggestItemTitle">{{ g.name }}</span>
                 <span class="navSuggestItemSub">Launch in Emulator</span>

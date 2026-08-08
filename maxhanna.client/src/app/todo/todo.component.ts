@@ -474,6 +474,7 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     this.selectedFile = selectedFile[0];
   }
   visitUrl(url: string) {
+    if (!url || url === 'undefined') return;
     this.parentRef?.visitExternalLink(url);
   }
   openShareListPanel() {
@@ -692,7 +693,11 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       return;
     } else {
       const text = (document.getElementById("todoEditingTextarea") as HTMLTextAreaElement).value.trim();
-      const url = (document.getElementById('todoEditingUrlTextarea') as HTMLTextAreaElement).value.trim();
+      const urlRaw = (document.getElementById('todoEditingUrlTextarea') as HTMLTextAreaElement).value.trim();
+      // Older todos have their URL stored as the literal string "undefined"
+      // (an Angular [value]="item.url" coercion bug when the URL was empty) —
+      // treat it as no URL so saving cleans the row instead of re-persisting it.
+      const url = urlRaw === 'undefined' ? '' : urlRaw;
       const fileId = this.todoEditingFile.selectedFiles[0]?.id ?? undefined;
       this.isEditing = this.isEditing.filter(x => x.id !== id);
       const original = {

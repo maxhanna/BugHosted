@@ -2315,8 +2315,8 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         'flycast': base + 'dreamcasticon.png',
         'picodrive': base + 'segaicon.png',
         'opera': base + 'ps1icon.png',
-        'mupen64plus_next': base + 'n64icon.png',
-        'parallel_n64': base + 'n64icon.png',
+        'mupen64plus_next': base + 'n64Icon.png',
+        'parallel_n64': base + 'n64Icon.png',
         'melonds': base + 'ndsicon.png',
         'mgba': base + 'gbaicon.png',
         'gambatte': base + 'gbicon.png',
@@ -2332,7 +2332,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
         'saturn': base + 'saturnicon.png',
         'gamecube': base + 'gcicon.png',
         'dolphin': base + 'gcicon.png',
-        'n64': base + 'n64icon.png',
+        'n64': base + 'n64Icon.png',
         'ps1': base + 'ps1icon.png',
         'gba': base + 'gbaicon.png',
         '3ds': base + 'ndsicon.png',
@@ -2347,51 +2347,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       if (mapped) return mapped;
     }
     if (!extension) return undefined;
-
-    const iconMap: { [key: string]: string } = {
-      'n64': base + 'n64icon.png',
-      'z64': base + 'n64icon.png',
-      'v64': base + 'n64icon.png',
-      'a78': base + 'atariicon.png',
-      '2600': base + 'atariicon.png',
-      '5200': base + 'atariicon.png',
-      '7800': base + 'atariicon.png',
-      'lynx': base + 'atariicon.png',
-      'jag': base + 'atariicon.png',
-      'smd': base + 'segaicon.png',
-      'gen': base + 'segaicon.png',
-      '32x': base + 'segaicon.png',
-      'gg': base + 'segaicon.png',
-      'sms': base + 'segaicon.png',
-      'md': base + 'segaicon.png',
-      'snes': base + 'snesicon.png',
-      'fig': base + 'snesicon.png',
-      'smc': base + 'snesicon.png',
-      'sfc': base + 'snesicon.png',
-      'nds': base + 'ndsicon.png',
-      '3ds': base + 'ndsicon.png',
-      'nes': base + 'nesicon.png',
-      'ps1': base + 'ps1icon.png',
-      'psp': base + 'pspicon.png',
-      'pbp': base + 'pspicon.png',
-      'psx': base + 'ps1icon.png',
-      'playstation': base + 'ps1icon.png',
-      'saturn': base + 'saturnicon.png',
-      'dreamcast': base + 'dreamcasticon.png',
-      'genesis': base + 'segaicon.png',
-      'gamecube': base + 'gcicon.png',
-      'gc': base + 'gcicon.png',
-      'sega': base + 'segaicon.png',
-      'gb': base + 'gbicon.png',
-      'gbc': base + 'gbicon.png',
-      'gba': base + 'gbaicon.png'
-    };
-
-    if (iconMap[extension.toLowerCase()]) {
-      return iconMap[extension.toLowerCase()];
-    } else {
-      return undefined;
-    }
+    // Extension -> console icon lives on the shared FileService so the emulator,
+    // file search and nav suggestions all show the same system icon.
+    return this.fileService.getSystemIconUrl(extension);
   }
 
   getSystemEmoji(fileName?: string, styling?: string, actualSystem?: string): SafeHtml | string {
