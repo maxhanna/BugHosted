@@ -3437,10 +3437,12 @@
    stays in-plane while the assembly keeps the 3D perspective. */
 .wheel-3d-tilt {
   /* Negative rotateX with a bottom origin: the top of the wheel leans toward
-     the driver (face angled up toward the camera) while the bottom stays put,
-     so the rim reads as an ellipse arcing up toward the cockpit — the classic
-     F1 onboard framing. */
-  transform: rotateX(-52deg);
+     the driver (face angled up toward the camera) while the bottom stays put.
+     The rim reads as an ellipse arcing up toward the cockpit, the top rim's
+     shift-light strip faces the camera, and the side grips — with the driver's
+     hands — stay at 9-3: the classic F1 onboard framing. ~38° keeps the wheel
+     substantial on screen instead of shrinking it away. */
+  transform: rotateX(-38deg);
   transform-origin: 50% 100%;
 }
 
