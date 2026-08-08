@@ -3,6 +3,15 @@ import { Injectable } from '@angular/core';
 import { Todo } from './datacontracts/todo';
 import { MusicPlaylist } from './datacontracts/music-playlist';
 
+// Canonical stored values returned by /todo/edit after a successful save, so the
+// caller can finalize (sanitize) its optimistic edit with what actually persisted.
+export interface TodoEditResult {
+  success: boolean;
+  content?: string;
+  url?: string | null;
+  fileId?: number | null;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -102,7 +111,7 @@ export class TodoService {
       return null;
     }
   }
-  async editTodo(id: number, content: string, url?: string, fileId?: number) {
+  async editTodo(id: number, content: string, url?: string, fileId?: number): Promise<TodoEditResult | null> {
     try {
       const response = await fetch('/todo/edit', {
         method: 'POST',
@@ -117,7 +126,14 @@ export class TodoService {
       if (!response.ok) {
         return null;
       }
-      return await response.text();
+      const text = await response.text();
+      try {
+        return JSON.parse(text) as TodoEditResult;
+      } catch {
+        // Legacy plain-text response ('Edit successful.') — treat as success
+        // with no canonical payload; the caller keeps the optimistic value.
+        return { success: true, content };
+      }
     } catch (error) {
       return null;
     }

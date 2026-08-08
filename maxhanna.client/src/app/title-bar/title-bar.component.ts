@@ -47,6 +47,11 @@ export class TitleBarComponent implements OnInit, OnChanges {
   numberOfItems = 1 as SlotNumber;
   classes = "";
   fullyLoaded = false;
+  // Last title value pushed to the document <head>. ngOnChanges fires on EVERY
+  // input change (some parents rebind fresh arrays/strings each CD tick), and
+  // replacePageTitleAndDescription performs ~16 querySelector meta updates per
+  // call — so only touch <head> when the title text actually changed.
+  private _lastMetaTitle: string | null = null;
 
   ngOnInit(): void {
     this.initialize();
@@ -96,7 +101,10 @@ export class TitleBarComponent implements OnInit, OnChanges {
     this.classes = "";
 
     if (this.inputtedParentRef && this.title) {
-      setTimeout(() => { if (this.inputtedParentRef && this.title) { this.inputtedParentRef.replacePageTitleAndDescription(this.title, this.title); } }, 1);
+      if (this.title !== this._lastMetaTitle) {
+        this._lastMetaTitle = this.title;
+        setTimeout(() => { if (this.inputtedParentRef && this.title) { this.inputtedParentRef.replacePageTitleAndDescription(this.title, this.title); } }, 1);
+      }
     }
   }
 

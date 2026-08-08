@@ -1488,6 +1488,12 @@
   background: rgba(255, 214, 0, 0.06) !important;
 }
 
+.garage-skin-card.appearance-previewing {
+  border-color: #4fc3f7 !important;
+  box-shadow: 0 0 12px rgba(79, 195, 247, 0.25) !important;
+  background: rgba(79, 195, 247, 0.06) !important;
+}
+
 .garage-skin-active::before {
   content: '✓';
   position: absolute;
@@ -1679,8 +1685,15 @@
   max-width: calc(100% - 16px);
   overflow: hidden;
   text-overflow: ellipsis;
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: pointer;
   animation: stat-fade-in 0.15s ease-out;
+}
+
+.garage-preview-banner:hover {
+  border-color: rgba(79, 195, 247, 0.9);
+  background: rgba(10, 20, 30, 0.85);
+  box-shadow: 0 0 12px rgba(79, 195, 247, 0.35);
 }
 
 .garage-preview-banner strong {
@@ -1788,19 +1801,19 @@
 }
 
 .garage-appearance-preview.prev-spoiler-carbon {
-  border: 2px solid #333;
-  background: repeating-linear-gradient(45deg, #1a1a1a, #1a1a1a 3px, #2a2a2a 3px, #2a2a2a 6px);
+  border: 2px solid #555;
+  background: repeating-linear-gradient(45deg, #1a1a1a, #1a1a1a 3px, #26262a 3px, #26262a 6px);
 }
 
 .garage-appearance-preview.prev-spoiler-dual {
-  border: 2px solid #444;
-  background: linear-gradient(180deg, #222 30%, #1a1a1a 30%, #1a1a1a 50%, #2a2a2a 50%, #2a2a2a 70%, #1a1a1a 70%);
+  border: 2px solid #888;
+  background: linear-gradient(180deg, #c9ccd4 30%, #8f939c 30%, #8f939c 50%, #d4d7de 50%, #d4d7de 70%, #8f939c 70%);
 }
 
 .garage-appearance-preview.prev-spoiler-drs {
-  border: 2px solid #555;
-  background: linear-gradient(180deg, #111, #333, #111);
-  box-shadow: 0 0 6px rgba(200, 50, 50, 0.2);
+  border: 2px solid #4a7fd4;
+  background: linear-gradient(180deg, #2a4a7d, #5a8fd4, #2a4a7d);
+  box-shadow: 0 0 6px rgba(70, 130, 230, 0.5);
 }
 
 .garage-appearance-preview.prev-rim-alloy {
@@ -1869,25 +1882,27 @@
 }
 
 .garage-appearance-preview.prev-spoiler-gurney {
-  border: 2px solid #444;
-  background: linear-gradient(180deg, #2a2a30, #101014);
+  border: 2px solid #bbb;
+  background: linear-gradient(180deg, #e8e8ee 60%, #d2d2da 60%, #a8a8b2 100%);
+  box-shadow: inset 0 -6px 0 #d43028;
 }
 
 .garage-appearance-preview.prev-spoiler-whale {
-  border: 2px solid #555;
-  background: linear-gradient(180deg, #3a3a40, #0c0c0f);
+  border: 2px solid #c9a437;
+  background: linear-gradient(180deg, #e8c54d, #b8860b);
+  box-shadow: 0 0 8px rgba(232, 197, 77, 0.45);
 }
 
 .garage-appearance-preview.prev-spoiler-biplane {
-  border: 2px solid #3a3a40;
-  background: linear-gradient(180deg, #16161a, #26262c);
-  box-shadow: inset 0 -4px 0 #101014;
+  border: 2px solid #d43028;
+  background: linear-gradient(180deg, #e8503c 45%, #1a1a20 45%, #1a1a20 55%, #e8503c 55%);
+  box-shadow: 0 0 8px rgba(212, 48, 40, 0.4);
 }
 
 .garage-appearance-preview.prev-spoiler-aero {
-  border: 2px solid #1e5aa8;
-  background: linear-gradient(135deg, #0d2a55, #1e5aa8);
-  box-shadow: 0 0 8px rgba(30, 90, 168, 0.5);
+  border: 2px solid #17b8c4;
+  background: linear-gradient(180deg, #0d5560, #2ec2ce, #0d5560);
+  box-shadow: 0 0 8px rgba(46, 194, 206, 0.55);
 }
 
 .garage-appearance-preview.prev-rim-chrome {
@@ -2398,6 +2413,46 @@
 .garage-appearance-preview.prev-accent-lime {
   background: #9ccc3c;
   box-shadow: 0 0 8px rgba(156, 204, 60, 0.5);
+}
+
+.garage-appearance-preview.prev-accent-copper {
+  background: #c4712e;
+  box-shadow: 0 0 8px rgba(196, 113, 46, 0.5);
+}
+
+.garage-appearance-preview.prev-accent-teal {
+  background: #149e9e;
+  box-shadow: 0 0 8px rgba(20, 158, 158, 0.5);
+}
+
+.garage-appearance-preview.prev-accent-burgundy {
+  background: #8c0d33;
+  box-shadow: 0 0 8px rgba(140, 13, 51, 0.5);
+}
+
+.garage-appearance-preview.prev-accent-navy {
+  background: #121f6b;
+  box-shadow: 0 0 8px rgba(18, 31, 107, 0.5);
+}
+
+.garage-appearance-preview.prev-accent-mint {
+  background: #59e6b2;
+  box-shadow: 0 0 8px rgba(89, 230, 178, 0.5);
+}
+
+.garage-appearance-preview.prev-accent-coral {
+  background: #ff7359;
+  box-shadow: 0 0 8px rgba(255, 115, 89, 0.5);
+}
+
+.garage-appearance-preview.prev-accent-champagne {
+  background: #f2d999;
+  box-shadow: 0 0 8px rgba(242, 217, 153, 0.5);
+}
+
+.garage-appearance-preview.prev-accent-gunmetal {
+  background: #596b80;
+  box-shadow: 0 0 8px rgba(89, 107, 128, 0.5);
 }
 
 .garage-appearance-name {

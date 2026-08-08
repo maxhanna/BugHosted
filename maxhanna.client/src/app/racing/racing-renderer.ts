@@ -201,6 +201,71 @@ export function getAccentSegsForStyle(styleKey: number): AccentSeg[] {
   }
   return out;
 }
+// ── Car loft surface sampling ────────────────────────────────────────────────
+// The body, engine-cover hump and side pods are smooth lofts (superellipse
+// cross-sections, n=4) built in buildCarMesh. These station tables mirror that
+// geometry so livery plates can be built as flat quads that hug the paint
+// surface like real tattoos/wraps instead of chunky boxes poking out of the
+// chassis.
+interface LoftStation { x: number; y: number; h: number; w: number; cz?: number }
+const BODY_LOFT: LoftStation[] = [
+  { x: -1.06, y: 0.10, h: 0.17, w: 0.28 },
+  { x: -0.90, y: 0.11, h: 0.19, w: 0.32 },
+  { x: -0.74, y: 0.13, h: 0.22, w: 0.36 },
+  { x: -0.58, y: 0.16, h: 0.26, w: 0.40 },
+  { x: -0.42, y: 0.20, h: 0.32, w: 0.44 },
+  { x: -0.26, y: 0.22, h: 0.38, w: 0.47 },
+  { x: -0.10, y: 0.21, h: 0.34, w: 0.50 },
+  { x: 0.06, y: 0.19, h: 0.28, w: 0.52 },
+  { x: 0.22, y: 0.18, h: 0.24, w: 0.51 },
+  { x: 0.38, y: 0.17, h: 0.21, w: 0.47 },
+  { x: 0.54, y: 0.15, h: 0.18, w: 0.40 },
+  { x: 0.70, y: 0.14, h: 0.16, w: 0.34 },
+  { x: 0.86, y: 0.12, h: 0.14, w: 0.28 },
+  { x: 1.04, y: 0.10, h: 0.11, w: 0.21 },
+  { x: 1.22, y: 0.09, h: 0.08, w: 0.14 },
+  { x: 1.38, y: 0.09, h: 0.06, w: 0.08 },
+];
+const HUMP_LOFT: LoftStation[] = [
+  { x: 0.13, y: 0.30, h: 0.035, w: 0.26 },
+  { x: 0.47, y: 0.30, h: 0.035, w: 0.26 },
+];
+const POD_LOFT: LoftStation[] = [
+  { x: 0.58, y: 0.17, cz: 0.48, h: 0.28, w: 0.34 },
+  { x: 0.34, y: 0.18, cz: 0.50, h: 0.27, w: 0.38 },
+  { x: 0.08, y: 0.18, cz: 0.50, h: 0.25, w: 0.37 },
+  { x: -0.18, y: 0.17, cz: 0.49, h: 0.22, w: 0.33 },
+  { x: -0.42, y: 0.16, cz: 0.47, h: 0.18, w: 0.28 },
+  { x: -0.64, y: 0.14, cz: 0.44, h: 0.14, w: 0.22 },
+  { x: -0.84, y: 0.12, cz: 0.38, h: 0.10, w: 0.14 },
+];
+/** Top-surface height of a superellipse loft (n=4) at (x, z), mirroring the
+ * cross-section math in addSmoothLoft. */
+function loftTopY(stations: LoftStation[], x: number, z: number): number {
+  let s0 = stations[0], s1 = stations[stations.length - 1];
+  if (x <= s0.x) { s1 = s0; }
+  else if (x >= s1.x) { s0 = s1; }
+  else {
+    for (let i = 0; i < stations.length - 1; i++) {
+      if (x >= stations[i].x && x <= stations[i + 1].x) { s0 = stations[i]; s1 = stations[i + 1]; break; }
+    }
+  }
+  const f = s1.x === s0.x ? 0 : (x - s0.x) / (s1.x - s0.x);
+  const y = s0.y + (s1.y - s0.y) * f;
+  const h = s0.h + (s1.h - s0.h) * f;
+  const w = s0.w + (s1.w - s0.w) * f;
+  const cz = (s0.cz ?? 0) + ((s1.cz ?? 0) - (s0.cz ?? 0)) * f;
+  const hw = w / 2, hh = h / 2;
+  const dz = Math.abs(z - cz);
+  if (dz >= hw) return y;
+  const t = Math.pow(dz / hw, 4);
+  return y + hh * Math.pow(1 - t, 0.25);
+}
+/** Highest painted surface at (x, z): the main body or the cockpit hump. */
+const carBodyTopY = (x: number, z: number) => Math.max(loftTopY(BODY_LOFT, x, z), loftTopY(HUMP_LOFT, x, z));
+/** Side-pod top surface (symmetric about z=0). */
+const carPodTopY = (x: number, z: number) => loftTopY(POD_LOFT, x, Math.abs(z));
+
 export interface TrackPoint {
   x: number; z: number;
   dirX: number; dirZ: number;
@@ -303,15 +368,32 @@ export class RacingRenderer {
   private rearBrakeCount = 0;
   private rimFaceVao!: WebGLVertexArrayObject;
   private rimFaceCount = 0;
+  private rimFaceVaoL!: WebGLVertexArrayObject;
+  private rimFaceCountL = 0;
   private rearRimFaceVao!: WebGLVertexArrayObject;
   private rearRimFaceCount = 0;
+  private rearRimFaceVaoL!: WebGLVertexArrayObject;
+  private rearRimFaceCountL = 0;
   private tireBrandTex!: WebGLTexture;
+  /** Tire-wear baking: the sidewall brand texture is redrawn progressively
+   *  darker as race distance piles up, so worn tires read as used. */
+  private _tireBrandCanvas: HTMLCanvasElement | null = null;
+  private _tireBrandCtx: CanvasRenderingContext2D | null = null;
+  private tireWear = 0;
+  private _bakedTireWear = -1;
+  private _tireDist = 0;
   private barrierVao!: WebGLVertexArrayObject;
   private barrierCount = 0;
   private finishVao!: WebGLVertexArrayObject;
   private finishCount = 0;
   private accentVaos = new Map<number, { vao: WebGLVertexArrayObject; count: number }>();
   private decalVaos = new Map<number, { vao: WebGLVertexArrayObject; count: number }>();
+  private spoilerVaos = new Map<number, { vao: WebGLVertexArrayObject; count: number }>();
+  /** Stock rear wing, drawn only when no spoiler upgrade is equipped so the
+   *  spoiler replaces it instead of stacking on top. */
+  private baseWingVao!: WebGLVertexArrayObject;
+  private baseWingCount = 0;
+  private exhaustVaos = new Map<number, { vao: WebGLVertexArrayObject; count: number }>();
   private glowVao!: WebGLVertexArrayObject;
   private glowCount = 0;
   private glowHaloVao!: WebGLVertexArrayObject;
@@ -505,13 +587,18 @@ export class RacingRenderer {
     }
     return this.makeTex(size, size, data);
   }
-  private makeTireBrandTex(): WebGLTexture {
-    const gl = this.gl;
+  /** Draws the sidewall brand into the cached canvas; `wear` (0..1) darkens
+   *  the rubber and dims the markings so tires read as used mid-race. */
+  private drawTireBrand(wear: number): HTMLCanvasElement {
     const size = 256;
-    const c = document.createElement('canvas');
-    c.width = size;
-    c.height = size;
-    const g = c.getContext('2d')!;
+    if (!this._tireBrandCanvas) {
+      this._tireBrandCanvas = document.createElement('canvas');
+      this._tireBrandCanvas.width = size;
+      this._tireBrandCanvas.height = size;
+      this._tireBrandCtx = this._tireBrandCanvas.getContext('2d')!;
+    }
+    const c = this._tireBrandCanvas;
+    const g = this._tireBrandCtx!;
     g.fillStyle = '#141416';
     g.fillRect(0, 0, size, size);
     g.strokeStyle = '#26262a';
@@ -523,23 +610,43 @@ export class RacingRenderer {
     const cx = size / 2;
     const cy = size / 2;
     const radius = size * 0.34;
-    g.font = 'bold 44px Arial, sans-serif';
+    g.font = 'bold 40px Arial, sans-serif';
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     g.fillStyle = '#e8e8ea';
-    const startAng = -Math.PI / 2 - 0.5;
-    const step = 0.16;
+    // Place each glyph along the arc using its measured width so letters never
+    // overlap (the old fixed 0.16-rad step squeezed ~26px glyphs into ~14px of
+    // arc at this radius, which made 'BHOSTED' read as one smooshed blob).
+    // The whole word is centred on top of the wheel and reads clockwise over
+    // the crown, like real sidewall branding.
+    const widths = text.split('').map(ch => g.measureText(ch).width * 1.06);
+    const totalArc = widths.reduce((a, b) => a + b, 0) / radius;
+    let ang = -Math.PI / 2 - totalArc / 2;
     for (let i = 0; i < text.length; i++) {
-      const a = startAng + i * step;
+      const a = ang + widths[i] / (2 * radius);
       g.save();
       g.translate(cx + Math.cos(a) * radius, cy + Math.sin(a) * radius);
       g.rotate(a + Math.PI / 2);
       g.fillText(text[i], 0, 0);
       g.restore();
+      ang += widths[i] / radius;
     }
     g.font = 'bold 15px Arial, sans-serif';
     g.fillStyle = '#6a6a70';
     g.fillText('GRAND PRIX', cx, cy + 3);
+    // Tire wear: a dark translucent pass over the whole sidewall darkens the
+    // rubber and dims the brand. Wear tops out at ~42% black so it stays
+    // subtle, and it's only re-drawn when the wear bucket changes (see
+    // updateTireBrandWear), so per-frame cost stays zero.
+    if (wear > 0.01) {
+      g.fillStyle = `rgba(5, 6, 8, ${(0.42 * wear).toFixed(3)})`;
+      g.fillRect(0, 0, size, size);
+    }
+    return c;
+  }
+  private makeTireBrandTex(): WebGLTexture {
+    const gl = this.gl;
+    const c = this.drawTireBrand(0);
     const t = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, t);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
@@ -548,6 +655,17 @@ export class RacingRenderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     return t;
+  }
+  /** Re-bakes the brand texture when race wear crosses a 5% bucket. */
+  private updateTireBrandWear() {
+    const step = Math.floor(this.tireWear * 20);
+    if (step === this._bakedTireWear) return;
+    this._bakedTireWear = step;
+    if (!this._tireBrandCanvas) return;
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.tireBrandTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.drawTireBrand(this.tireWear));
+    gl.bindTexture(gl.TEXTURE_2D, null);
   }
   private makeTrackMarkingsTex(): WebGLTexture {
     const size = 128;
@@ -1004,6 +1122,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
    *  scenery geometry. Call before each race (both solo and multiplayer). */
   setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan') {
     this.theme = theme;
+    // Fresh tyres every race — reset the wear that darkened the sidewalls.
+    this._tireDist = 0;
+    this.tireWear = 0;
+    this._bakedTireWear = -1;
     this.night = theme === 'monaco-night';
     this.heatShimmer = theme === 'desert';
     this._winnerCelebrated = false;
@@ -3480,9 +3602,17 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const gl = this.gl;
     const verts: number[] = [];
     const idxs: number[] = [];
+    // Stock rear wing lives in its own mesh so an equipped spoiler replaces it
+    // (renderCar skips baseWingVao when app.spoilerId is set).
+    const baseWingVerts: number[] = [];
+    const baseWingIdxs: number[] = [];
     const accFixedVerts: number[] = [];
     const accFixedIdxs: number[] = [];
-    const [cr, cg, cb] = [0.85, 0.06, 0.06];
+    // Paint surfaces are baked pure white: renderCar tints them with uColor =
+    // the equipped skin, so the paint shows its true colour. Baking a tinted
+    // base here would multiply into every skin (red base = every paint reads
+    // dark/muddy), which is why the garage paint preview looked broken.
+    const [cr, cg, cb] = [1, 1, 1];
     const carbon = [0.12, 0.12, 0.14];
     const dark = [0.08, 0.08, 0.10];
     const grey = [0.22, 0.22, 0.24];
@@ -3501,48 +3631,60 @@ void main() { FragColor = texture(uTex, vUV); }`;
     for (const dz of [-0.3, -0.1, 0.1, 0.3]) {
       this.addBox(verts, idxs, -1.15, 0.07, dz, 0.3, 0.08, 0.02, carbon);
     }
-    this.addSmoothLoft(verts, idxs, [
-      { x: -1.06, y: 0.10, cz: 0, h: 0.17, w: 0.28 },
-      { x: -0.90, y: 0.11, cz: 0, h: 0.19, w: 0.32 },
-      { x: -0.74, y: 0.13, cz: 0, h: 0.22, w: 0.36 },
-      { x: -0.58, y: 0.16, cz: 0, h: 0.26, w: 0.40 },
-      { x: -0.42, y: 0.20, cz: 0, h: 0.32, w: 0.44 },
-      { x: -0.26, y: 0.22, cz: 0, h: 0.38, w: 0.47 },
-      { x: -0.10, y: 0.21, cz: 0, h: 0.34, w: 0.50 },
-      { x: 0.06, y: 0.19, cz: 0, h: 0.28, w: 0.52 },
-      { x: 0.22, y: 0.18, cz: 0, h: 0.24, w: 0.51 },
-      { x: 0.38, y: 0.17, cz: 0, h: 0.21, w: 0.47 },
-      { x: 0.54, y: 0.15, cz: 0, h: 0.18, w: 0.40 },
-      { x: 0.70, y: 0.14, cz: 0, h: 0.16, w: 0.34 },
-      { x: 0.86, y: 0.12, cz: 0, h: 0.14, w: 0.28 },
-      { x: 1.04, y: 0.10, cz: 0, h: 0.11, w: 0.21 },
-      { x: 1.22, y: 0.09, cz: 0, h: 0.08, w: 0.14 },
-      { x: 1.38, y: 0.09, cz: 0, h: 0.06, w: 0.08 },
-    ], 30, [cr, cg, cb], true);
-    this.addSmoothLoft(verts, idxs, [
-      { x: 0.13, y: 0.30, cz: 0, h: 0.035, w: 0.26 },
-      { x: 0.47, y: 0.30, cz: 0, h: 0.035, w: 0.26 },
-    ], 20, dark, false);
+    this.addSmoothLoft(verts, idxs, BODY_LOFT.map(s => ({ ...s, cz: s.cz ?? 0 })), 30, [cr, cg, cb], true);
+    this.addSmoothLoft(verts, idxs, HUMP_LOFT.map(s => ({ ...s, cz: s.cz ?? 0 })), 20, dark, false);
     this.addBox(verts, idxs, 0.26, 0.27, 0, 0.18, 0.07, 0.20, [cr, cg, cb]);
     this.addBox(verts, idxs, 0.29, 0.30, 0, 0.12, 0.05, 0.18, [0.1, 0.1, 0.12]);
-    // Driver helmet: smooth white dome + dark visor band + neck, replacing the
-    // old faceted white blob so the cockpit reads as a racer head.
-    this.addEllipsoid(verts, idxs, 0.40, 0.335, 0, 0.085, 0.075, 0.095, 18, hel);
-    this.addBox(verts, idxs, 0.478, 0.335, 0, 0.02, 0.052, 0.10, [0.015, 0.015, 0.035]);
-    this.addBox(verts, idxs, 0.40, 0.27, 0, 0.075, 0.035, 0.08, [0.13, 0.13, 0.16]);
-    this.addBox(verts, idxs, 0.45, 0.315, 0, 0.04, 0.05, 0.12, dark);
-    this.addBox(verts, idxs, 0.47, 0.315, 0, 0.02, 0.03, 0.08, [0.02, 0.02, 0.04]);
-    this.addBox(verts, idxs, 0.40, 0.265, 0, 0.06, 0.03, 0.08, [0.2, 0.2, 0.22]);
-    this.addBox(verts, idxs, 0.47, 0.315, 0.06, 0.01, 0.01, 0.01, [0.6, 0.6, 0.6]);
-    this.addBox(verts, idxs, 0.47, 0.315, -0.06, 0.01, 0.01, 0.01, [0.6, 0.6, 0.6]);
-    this.addBox(verts, idxs, 0.50, 0.27, 0, 0.02, 0.02, 0.14, dark);
-    this.addBox(verts, idxs, 0.50, 0.27, 0.07, 0.02, 0.025, 0.02, [0.15, 0.15, 0.16]);
-    this.addBox(verts, idxs, 0.50, 0.27, -0.07, 0.02, 0.025, 0.02, [0.15, 0.15, 0.16]);
-    this.addBox(verts, idxs, 0.52, 0.28, 0, 0.01, 0.03, 0.06, [0.0, 0.3, 0.6]);
-    this.addBox(verts, idxs, 0.50, 0.285, 0.04, 0.01, 0.01, 0.01, [1, 0, 0]);
-    this.addBox(verts, idxs, 0.50, 0.285, -0.04, 0.01, 0.01, 0.01, [0, 0.5, 0]);
-    this.addBox(verts, idxs, 0.50, 0.285, 0.08, 0.01, 0.01, 0.01, [0, 0.4, 1]);
-    this.addBox(verts, idxs, 0.50, 0.285, -0.08, 0.01, 0.01, 0.01, [1, 0.8, 0]);
+    // ── Driver: detailed helmet (dome + curved visor + crown vents +
+    // tear-off posts), HANS collar, suit shoulders + arms, gloved hands and a
+    // proper F1 steering wheel with a centre screen and buttons.
+    // The dome is sized to tuck just under the halo bar (y≈0.40) so the crown
+    // never z-fights the halo, which is what made the old head look broken
+    // from the garage's orbit camera.
+    const shell = hel;                        // paint-tinted helmet shell
+    const visorDark = [0.02, 0.02, 0.05];     // visor opening
+    const visorSheen = [0.22, 0.3, 0.42];     // visor reflection strip
+    const suitC = [0.14, 0.05, 0.05];         // race suit (tinted by paint)
+    const hansC = [0.9, 0.9, 0.93];           // HANS collar (tinted bright)
+    const gloveC = [0.95, 0.95, 0.97];        // gloves (tinted)
+    const wheelFace = [0.05, 0.05, 0.07];     // wheel body
+    // Helmet shell — smooth dome, lowered so it clears the halo bar above.
+    this.addEllipsoid(verts, idxs, 0.40, 0.335, 0, 0.088, 0.062, 0.10, 20, shell);
+    // Curved visor opening across the front of the dome (its full ellipsoid
+    // back half hides inside the shell; only the front band shows).
+    this.addEllipsoid(verts, idxs, 0.48, 0.332, 0, 0.016, 0.04, 0.09, 14, visorDark);
+    // Visor reflection sheen — a lighter strip just forward of the opening.
+    this.addEllipsoid(verts, idxs, 0.495, 0.338, 0, 0.004, 0.016, 0.07, 12, visorSheen);
+    // Tear-off posts / visor mounts — silver dots on both sides.
+    this.addBox(verts, idxs, 0.48, 0.362, 0.084, 0.013, 0.013, 0.013, [0.7, 0.7, 0.75]);
+    this.addBox(verts, idxs, 0.48, 0.362, -0.084, 0.013, 0.013, 0.013, [0.7, 0.7, 0.75]);
+    // Crown air vents — two small slots on top of the dome, tucked below the
+    // halo bar (y 0.40) so they never clip into it.
+    this.addBox(verts, idxs, 0.385, 0.392, 0.04, 0.035, 0.010, 0.013, [0.05, 0.05, 0.07]);
+    this.addBox(verts, idxs, 0.385, 0.392, -0.04, 0.035, 0.010, 0.013, [0.05, 0.05, 0.07]);
+    // Neck / HANS collar — bright ring around the base of the helmet.
+    this.addBox(verts, idxs, 0.40, 0.272, 0, 0.095, 0.026, 0.108, hansC);
+    // Race suit shoulders peeking out of the cockpit opening.
+    this.addBox(verts, idxs, 0.315, 0.295, 0.085, 0.17, 0.034, 0.095, suitC);
+    this.addBox(verts, idxs, 0.315, 0.295, -0.085, 0.17, 0.034, 0.095, suitC);
+    // Arms reaching from the shoulders to the wheel.
+    this.addStrut(verts, idxs, 0.34, 0.29, 0.085, 0.525, 0.278, 0.068, 0.024, suitC);
+    this.addStrut(verts, idxs, 0.34, 0.29, -0.085, 0.525, 0.278, -0.068, 0.024, suitC);
+    // Steering wheel — wide flat face angled toward the driver, centre
+    // screen, coloured buttons and outer grips.
+    this.addBox(verts, idxs, 0.545, 0.285, 0, 0.016, 0.05, 0.115, wheelFace);
+    this.addBox(verts, idxs, 0.553, 0.285, 0, 0.005, 0.03, 0.052, [0.05, 0.45, 0.85]);
+    this.addBox(verts, idxs, 0.553, 0.307, 0.047, 0.004, 0.012, 0.012, [1, 0.15, 0.15]);
+    this.addBox(verts, idxs, 0.553, 0.307, -0.047, 0.004, 0.012, 0.012, [0.15, 0.55, 0.15]);
+    this.addBox(verts, idxs, 0.553, 0.263, 0.047, 0.004, 0.012, 0.012, [0.12, 0.45, 1]);
+    this.addBox(verts, idxs, 0.553, 0.263, -0.047, 0.004, 0.012, 0.012, [1, 0.5, 0.05]);
+    this.addBox(verts, idxs, 0.553, 0.285, 0.088, 0.004, 0.009, 0.012, [0.85, 0.85, 0.9]);
+    this.addBox(verts, idxs, 0.553, 0.285, -0.088, 0.004, 0.009, 0.012, [0.85, 0.85, 0.9]);
+    // Gloved hands gripping the wheel sides.
+    this.addEllipsoid(verts, idxs, 0.532, 0.276, 0.066, 0.022, 0.031, 0.027, 10, gloveC);
+    this.addEllipsoid(verts, idxs, 0.532, 0.276, -0.066, 0.022, 0.031, 0.027, 10, gloveC);
+    // Steering column behind the wheel.
+    this.addBox(verts, idxs, 0.50, 0.278, 0, 0.035, 0.02, 0.03, carbon);
     this.addCylinder(verts, idxs, 0.05, 0.25, 0, 0.025, 0.18, 10, carbon);
     this.addBox(verts, idxs, 0.4, 0.42, 0, 0.2, 0.04, 0.52, carbon);
     this.addCylinder(verts, idxs, 0.4, 0.40, 0.26, 0.022, 0.05, 10, carbon);
@@ -3590,15 +3732,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addBox(verts, idxs, 1.22, 0.08, 0.16, 0.12, 0.05, 0.04, carbon);
     this.addBox(verts, idxs, 1.22, 0.08, -0.16, 0.12, 0.05, 0.04, carbon);
     for (const sgn of [1, -1]) {
-      this.addSmoothLoft(verts, idxs, [
-        { x: 0.58, y: 0.17, cz: 0.48 * sgn, h: 0.28, w: 0.34 },
-        { x: 0.34, y: 0.18, cz: 0.50 * sgn, h: 0.27, w: 0.38 },
-        { x: 0.08, y: 0.18, cz: 0.50 * sgn, h: 0.25, w: 0.37 },
-        { x: -0.18, y: 0.17, cz: 0.49 * sgn, h: 0.22, w: 0.33 },
-        { x: -0.42, y: 0.16, cz: 0.47 * sgn, h: 0.18, w: 0.28 },
-        { x: -0.64, y: 0.14, cz: 0.44 * sgn, h: 0.14, w: 0.22 },
-        { x: -0.84, y: 0.12, cz: 0.38 * sgn, h: 0.10, w: 0.14 },
-      ], 22, [cr, cg, cb], true);
+      this.addSmoothLoft(verts, idxs, POD_LOFT.map(s => ({ ...s, cz: s.cz! * sgn })), 22, [cr, cg, cb], true);
     }
     this.addBox(verts, idxs, 0.585, 0.19, 0.5, 0.02, 0.14, 0.28, dark);
     this.addBox(verts, idxs, 0.585, 0.19, -0.5, 0.02, 0.14, 0.28, dark);
@@ -3628,22 +3762,22 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const t1 = Math.abs(z1) / (el.span / 2);
         const y0 = el.y + t0 * t0 * el.lift;
         const y1 = el.y + t1 * t1 * el.lift;
-        this.addBox(verts, idxs, el.x, (y0 + y1) / 2, (z0 + z1) / 2, el.l, el.h, (z1 - z0) * 1.15, carbon);
+        this.addBox(baseWingVerts, baseWingIdxs, el.x, (y0 + y1) / 2, (z0 + z1) / 2, el.l, el.h, (z1 - z0) * 1.15, carbon);
       }
     }
-    this.addBox(verts, idxs, -1.02, 0.42, 0.54, 0.38, 0.28, 0.045, carbon);
-    this.addBox(verts, idxs, -1.02, 0.42, -0.54, 0.38, 0.28, 0.045, carbon);
-    this.addBox(verts, idxs, -1.02, 0.38, 0.54, 0.02, 0.08, 0.025, dark);
-    this.addBox(verts, idxs, -1.02, 0.38, -0.54, 0.02, 0.08, 0.025, dark);
-    this.addBox(verts, idxs, -0.83, 0.42, 0.54, 0.03, 0.28, 0.02, carbon);
-    this.addBox(verts, idxs, -0.83, 0.42, -0.54, 0.03, 0.28, 0.02, carbon);
-    this.addBox(verts, idxs, -0.85, 0.40, 0, 0.10, 0.05, 0.08, grey);
-    this.addBox(verts, idxs, -0.92, 0.32, 0.22, 0.10, 0.16, 0.04, grey);
-    this.addBox(verts, idxs, -0.92, 0.32, -0.22, 0.10, 0.16, 0.04, grey);
-    this.addBox(verts, idxs, -0.95, 0.30, 0.15, 0.06, 0.06, 0.03, carbon);
-    this.addBox(verts, idxs, -0.95, 0.30, -0.15, 0.06, 0.06, 0.03, carbon);
-    this.addBox(verts, idxs, -1.02, 0.45, 0, 0.06, 0.04, 0.92, carbon);
-    this.addBox(verts, idxs, -1.04, 0.28, 0, 0.12, 0.02, 0.50, carbon);
+    this.addBox(baseWingVerts, baseWingIdxs, -1.02, 0.42, 0.54, 0.38, 0.28, 0.045, carbon);
+    this.addBox(baseWingVerts, baseWingIdxs, -1.02, 0.42, -0.54, 0.38, 0.28, 0.045, carbon);
+    this.addBox(baseWingVerts, baseWingIdxs, -1.02, 0.38, 0.54, 0.02, 0.08, 0.025, dark);
+    this.addBox(baseWingVerts, baseWingIdxs, -1.02, 0.38, -0.54, 0.02, 0.08, 0.025, dark);
+    this.addBox(baseWingVerts, baseWingIdxs, -0.83, 0.42, 0.54, 0.03, 0.28, 0.02, carbon);
+    this.addBox(baseWingVerts, baseWingIdxs, -0.83, 0.42, -0.54, 0.03, 0.28, 0.02, carbon);
+    this.addBox(baseWingVerts, baseWingIdxs, -0.85, 0.40, 0, 0.10, 0.05, 0.08, grey);
+    this.addBox(baseWingVerts, baseWingIdxs, -0.92, 0.32, 0.22, 0.10, 0.16, 0.04, grey);
+    this.addBox(baseWingVerts, baseWingIdxs, -0.92, 0.32, -0.22, 0.10, 0.16, 0.04, grey);
+    this.addBox(baseWingVerts, baseWingIdxs, -0.95, 0.30, 0.15, 0.06, 0.06, 0.03, carbon);
+    this.addBox(baseWingVerts, baseWingIdxs, -0.95, 0.30, -0.15, 0.06, 0.06, 0.03, carbon);
+    this.addBox(baseWingVerts, baseWingIdxs, -1.02, 0.45, 0, 0.06, 0.04, 0.92, carbon);
+    this.addBox(baseWingVerts, baseWingIdxs, -1.04, 0.28, 0, 0.12, 0.02, 0.50, carbon);
     this.addBox(verts, idxs, 0.55, 0.10, 0.33, 0.30, 0.12, 0.02, carbon);
     this.addBox(verts, idxs, 0.55, 0.10, -0.33, 0.30, 0.12, 0.02, carbon);
     this.addBox(verts, idxs, 0.55, 0.07, 0.38, 0.26, 0.08, 0.015, carbon);
@@ -3687,9 +3821,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     for (const styleKey of [0, ...Object.keys(DECAL_LAYOUTS).map(Number)]) {
       const gv: number[] = [...accFixedVerts];
       const gi: number[] = [...accFixedIdxs];
-      for (const [cx, cy, l, h, d, z] of getAccentSegsForStyle(styleKey)) {
-        this.addBox(gv, gi, cx, cy, z, l, h, d, [1, 1, 1]);
-        this.addBox(gv, gi, cx, cy, -z, l, h, d, [1, 1, 1]);
+      for (const [cx, , l, , d, z] of getAccentSegsForStyle(styleKey)) {
+        this.addSurfacePlate(gv, gi, cx, z, l, d, carPodTopY, [1, 1, 1]);
+        this.addSurfacePlate(gv, gi, cx, -z, l, d, carPodTopY, [1, 1, 1]);
       }
       accentGeoms.set(styleKey, { v: gv, i: gi });
     }
@@ -3753,12 +3887,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const layout = DECAL_LAYOUTS[styleId] ?? DECAL_LAYOUTS[401];
       const gv: number[] = [];
       const gi: number[] = [];
-      for (const [cx, cy, l, h, d, z] of layout.flank) {
-        this.addBox(gv, gi, cx, cy, z, l, h, d, [1, 1, 1]);
-        this.addBox(gv, gi, cx, cy, -z, l, h, d, [1, 1, 1]);
+      for (const [cx, , l, , d, z] of layout.flank) {
+        this.addSurfacePlate(gv, gi, cx, z, l, d, carBodyTopY, [1, 1, 1]);
+        this.addSurfacePlate(gv, gi, cx, -z, l, d, carBodyTopY, [1, 1, 1]);
       }
-      for (const [cx, cy, l, h, d] of layout.center) {
-        this.addBox(gv, gi, cx, cy, 0, l, h, d, [1, 1, 1]);
+      for (const [cx, , l, , d] of layout.center) {
+        this.addSurfacePlate(gv, gi, cx, 0, l, d, carBodyTopY, [1, 1, 1]);
       }
       const decVao = gl.createVertexArray()!;
       gl.bindVertexArray(decVao);
@@ -3798,6 +3932,174 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
       this.accentVaos.set(styleKey, { vao: accVao, count: geom.i.length });
     }
+    gl.bindVertexArray(null);
+
+    // Spoiler upgrades — extra rear-wing elements stacked above the base wing,
+    // one VAO per spoiler id. Each variant gets its OWN baked colour and a
+    // clearly different silhouette (height, span, element count) so the garage
+    // preview actually changes between upgrades — the old build used one
+    // near-black colour and nearly-identical thin planes for every id, which
+    // made all seven look the same. Colours are baked; the draw sets uColor to
+    // white so they show as-is.
+    const spoilerGeoms = new Map<number, { v: number[]; i: number[] }>();
+    {
+      const carbon = [0.10, 0.10, 0.12];
+      const silver = [0.72, 0.74, 0.80];
+      const titanium = [0.45, 0.62, 0.90];
+      const gold = [0.92, 0.72, 0.18];
+      const red = [0.85, 0.16, 0.14];
+      const white = [0.88, 0.88, 0.92];
+      const teal = [0.10, 0.72, 0.78];
+      const plane = (gv: number[], gi: number[], y: number, span: number, chord: number, c: number[]) => {
+        this.addBox(gv, gi, -1.02, y, 0, chord, 0.025, span, c);
+      };
+      // The stock rear wing is removed when a spoiler is equipped (renderCar
+      // skips baseWingVao), so the spoiler's own supports must reach down to
+      // the rear bodywork (~0.22) instead of starting at the old wing base.
+      const endplate = (gv: number[], gi: number[], _yb: number, yTop: number, c: number[]) => {
+        const yb = 0.24;
+        this.addBox(gv, gi, -1.02, (yb + yTop) / 2, 0.54, 0.22, yTop - yb, 0.028, c);
+        this.addBox(gv, gi, -1.02, (yb + yTop) / 2, -0.54, 0.22, yTop - yb, 0.028, c);
+      };
+      const pylon = (gv: number[], gi: number[], z: number, yTop: number, c: number[]) => {
+        this.addStrut(gv, gi, -1.02, 0.22, z, -1.02, yTop, z, 0.028, c);
+      };
+      const build = (id: number, fn: (gv: number[], gi: number[]) => void) => {
+        const gv: number[] = [];
+        const gi: number[] = [];
+        fn(gv, gi);
+        spoilerGeoms.set(id, { v: gv, i: gi });
+      };
+      build(101, (gv, gi) => { // Carbon Wing — single tall element, gloss black.
+        plane(gv, gi, 0.62, 1.00, 0.18, carbon);
+        endplate(gv, gi, 0.54, 0.70, silver);
+        pylon(gv, gi, 0.30, 0.62, carbon); pylon(gv, gi, -0.30, 0.62, carbon);
+      });
+      build(102, (gv, gi) => { // Dual Wing — silver stacked elements, wide.
+        plane(gv, gi, 0.56, 1.06, 0.14, silver);
+        plane(gv, gi, 0.70, 1.16, 0.20, silver);
+        endplate(gv, gi, 0.54, 0.76, carbon);
+        pylon(gv, gi, 0.30, 0.70, silver); pylon(gv, gi, -0.30, 0.70, silver);
+      });
+      build(103, (gv, gi) => { // DRS Wing — titanium split main plane + narrow nose.
+        this.addBox(gv, gi, -1.02, 0.68, -0.28, 0.20, 0.028, 0.40, titanium);
+        this.addBox(gv, gi, -1.02, 0.68, 0.28, 0.20, 0.028, 0.40, titanium);
+        plane(gv, gi, 0.58, 0.24, 0.14, titanium);
+        endplate(gv, gi, 0.56, 0.74, titanium);
+        pylon(gv, gi, 0.30, 0.68, titanium); pylon(gv, gi, -0.30, 0.68, titanium);
+      });
+      build(104, (gv, gi) => { // Gurney Flap — white low plane + tall trailing lip.
+        plane(gv, gi, 0.56, 1.10, 0.16, white);
+        this.addBox(gv, gi, -1.12, 0.60, 0, 0.02, 0.10, 1.06, red);
+        endplate(gv, gi, 0.54, 0.66, white);
+        pylon(gv, gi, 0.30, 0.56, white); pylon(gv, gi, -0.30, 0.56, white);
+      });
+      build(105, (gv, gi) => { // Whale Tail — gold long swept wide plane.
+        plane(gv, gi, 0.58, 1.24, 0.30, gold);
+        this.addBox(gv, gi, -1.13, 0.62, 0, 0.16, 0.03, 1.20, gold);
+        endplate(gv, gi, 0.56, 0.70, gold);
+        pylon(gv, gi, 0.30, 0.58, gold); pylon(gv, gi, -0.30, 0.58, gold);
+      });
+      build(106, (gv, gi) => { // Bi-Plane — red double-deck with cross struts.
+        plane(gv, gi, 0.56, 0.92, 0.16, red);
+        plane(gv, gi, 0.74, 1.02, 0.16, red);
+        this.addStrut(gv, gi, -1.02, 0.56, 0, -1.02, 0.74, 0, 0.022, carbon);
+        this.addStrut(gv, gi, -1.02, 0.56, 0.30, -1.02, 0.74, 0.30, 0.022, carbon);
+        this.addStrut(gv, gi, -1.02, 0.56, -0.30, -1.02, 0.74, -0.30, 0.022, carbon);
+        endplate(gv, gi, 0.56, 0.78, carbon);
+        pylon(gv, gi, 0.30, 0.74, red); pylon(gv, gi, -0.30, 0.74, red);
+      });
+      build(107, (gv, gi) => { // Aero DRS+ — teal triple stacked element.
+        plane(gv, gi, 0.56, 0.94, 0.12, teal);
+        this.addBox(gv, gi, -1.02, 0.68, -0.26, 0.16, 0.024, 0.32, teal);
+        this.addBox(gv, gi, -1.02, 0.68, 0.26, 0.16, 0.024, 0.32, teal);
+        plane(gv, gi, 0.78, 1.08, 0.18, teal);
+        endplate(gv, gi, 0.56, 0.84, carbon);
+        pylon(gv, gi, 0.30, 0.78, teal); pylon(gv, gi, -0.30, 0.78, teal);
+      });
+    }
+    // Exhaust upgrades — tail tips poking out of the rear deck, one VAO per id.
+    const exhaustGeoms = new Map<number, { v: number[]; i: number[] }>();
+    {
+      // The body loft's rear face sits at x = -1.06 with the deck ~0.19 high;
+      // the rear wing starts above y ≈ 0.35 and the diffuser tops out at
+      // ~0.10. Tips are placed in the clear band behind the bodywork (x ≈
+      // -1.12, y ≈ 0.14) so they visibly protrude from the tail instead of
+      // being buried inside the shell — this is what made every exhaust look
+      // identical (invisible) in the garage before.
+      const silver = [0.8, 0.82, 0.88];
+      const titanium = [0.42, 0.62, 0.95];
+      const carbon = [0.12, 0.12, 0.14];
+      const tip = (gv: number[], gi: number[], z: number, h: number, w: number, c: number[]) => {
+        this.addBox(gv, gi, -1.12, 0.14, z, 0.16, h, w, c);
+      };
+      const surround = (gv: number[], gi: number[], z: number, h: number, w: number) => {
+        this.addBox(gv, gi, -1.09, 0.14, z, 0.08, h + 0.02, w + 0.02, carbon);
+      };
+      const build = (id: number, fn: (gv: number[], gi: number[]) => void) => {
+        const gv: number[] = [];
+        const gi: number[] = [];
+        fn(gv, gi);
+        exhaustGeoms.set(id, { v: gv, i: gi });
+      };
+      build(301, (gv, gi) => { // Sport Exhaust — twin chrome tips.
+        tip(gv, gi, 0.14, 0.06, 0.06, silver);
+        tip(gv, gi, -0.14, 0.06, 0.06, silver);
+      });
+      build(302, (gv, gi) => { // Titanium Tips — blue-burn tips.
+        tip(gv, gi, 0.14, 0.06, 0.06, titanium);
+        tip(gv, gi, -0.14, 0.06, 0.06, titanium);
+      });
+      build(303, (gv, gi) => { // Twin Exhaust — four chrome tips.
+        tip(gv, gi, 0.09, 0.05, 0.05, silver);
+        tip(gv, gi, 0.19, 0.05, 0.05, silver);
+        tip(gv, gi, -0.09, 0.05, 0.05, silver);
+        tip(gv, gi, -0.19, 0.05, 0.05, silver);
+      });
+      build(304, (gv, gi) => { // Quad — four large tips with carbon surround.
+        surround(gv, gi, 0.09, 0.065, 0.06);
+        surround(gv, gi, 0.19, 0.065, 0.06);
+        surround(gv, gi, -0.09, 0.065, 0.06);
+        surround(gv, gi, -0.19, 0.065, 0.06);
+        tip(gv, gi, 0.09, 0.065, 0.06, silver);
+        tip(gv, gi, 0.19, 0.065, 0.06, silver);
+        tip(gv, gi, -0.09, 0.065, 0.06, silver);
+        tip(gv, gi, -0.19, 0.065, 0.06, silver);
+      });
+      build(305, (gv, gi) => { // Carbon Exhaust — dark tips.
+        surround(gv, gi, 0.14, 0.06, 0.06);
+        surround(gv, gi, -0.14, 0.06, 0.06);
+        tip(gv, gi, 0.14, 0.06, 0.06, carbon);
+        tip(gv, gi, -0.14, 0.06, 0.06, carbon);
+      });
+    }
+    const buildPartVao = (geom: { v: number[]; i: number[] }): { vao: WebGLVertexArrayObject; count: number } => {
+      const vao = gl.createVertexArray()!;
+      gl.bindVertexArray(vao);
+      const vbo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geom.v), gl.STATIC_DRAW);
+      const ibo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(geom.i), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+      gl.enableVertexAttribArray(3);
+      gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+      return { vao, count: geom.i.length };
+    };
+    for (const [id, geom] of spoilerGeoms) this.spoilerVaos.set(id, buildPartVao(geom));
+    gl.bindVertexArray(null);
+    for (const [id, geom] of exhaustGeoms) this.exhaustVaos.set(id, buildPartVao(geom));
+    gl.bindVertexArray(null);
+    // Stock rear wing — separate VAO so an equipped spoiler replaces it.
+    const baseWingVao = buildPartVao({ v: baseWingVerts, i: baseWingIdxs });
+    this.baseWingVao = baseWingVao.vao;
+    this.baseWingCount = baseWingVao.count;
     gl.bindVertexArray(null);
 
     const buildGlowQuad = (glowL: number, glowW: number): { vao: WebGLVertexArrayObject; count: number } => {
@@ -4002,8 +4304,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const fbi: number[] = [];
     const frf: number[] = [];
     const frfi: number[] = [];
+    const frfL: number[] = [];
+    const frfiL: number[] = [];
     this.addCylinder(fvRim, fiRim, 0, 0, 0, 0.165, 0.15, 18, [1, 1, 1]);
     this.addRimRing(frf, frfi, 0, 0.152, 0, 0.135, 0.065, [1, 1, 1]);
+    this.addRimRing(frfL, frfiL, 0, 0.152, 0, 0.135, 0.065, [1, 1, 1], true);
     this.addCylinder(fv, fi, 0, 0, 0, 0.17, 0.12, 18, [0.13, 0.13, 0.14]);
     for (let k = 0; k < 4; k++) {
       const a = (k / 4) * Math.PI * 2 + 0.2;
@@ -4093,6 +4398,24 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.enableVertexAttribArray(3);
     gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
+    this.rimFaceCountL = frfiL.length;
+    this.rimFaceVaoL = gl.createVertexArray()!;
+    gl.bindVertexArray(this.rimFaceVaoL);
+    const rflbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, rflbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(frfL), gl.STATIC_DRAW);
+    const rflibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, rflibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(frfiL), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
     const rv: number[] = [];
     const ri: number[] = [];
     const rvRim: number[] = [];
@@ -4101,8 +4424,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const rbi: number[] = [];
     const rrf: number[] = [];
     const rrfi: number[] = [];
+    const rrfL: number[] = [];
+    const rrfiL: number[] = [];
     this.addCylinder(rvRim, riRim, 0, 0, 0, 0.175, 0.18, 18, [1, 1, 1]);
     this.addRimRing(rrf, rrfi, 0, 0.182, 0, 0.145, 0.07, [1, 1, 1]);
+    this.addRimRing(rrfL, rrfiL, 0, 0.182, 0, 0.145, 0.07, [1, 1, 1], true);
     this.addCylinder(rv, ri, 0, 0, 0, 0.18, 0.15, 18, [0.13, 0.13, 0.14]);
     for (let k = 0; k < 4; k++) {
       const a = (k / 4) * Math.PI * 2 + 0.2;
@@ -4192,23 +4518,42 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.enableVertexAttribArray(3);
     gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
+    this.rearRimFaceCountL = rrfiL.length;
+    this.rearRimFaceVaoL = gl.createVertexArray()!;
+    gl.bindVertexArray(this.rearRimFaceVaoL);
+    const rrlbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, rrlbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(rrfL), gl.STATIC_DRAW);
+    const rrlibo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, rrlibo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(rrfiL), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
   }
-  private addRimRing(verts: number[], idxs: number[], cx: number, cy: number, cz: number, outerRadius: number, innerRadius: number, color: number[]) {
+  private addRimRing(verts: number[], idxs: number[], cx: number, cy: number, cz: number, outerRadius: number, innerRadius: number, color: number[], flipU = false) {
     const [r, g, b] = color;
     const segments = 28;
     const baseIdx = verts.length / 11;
+    const uOf = (x: number) => 0.5 + (flipU ? -1 : 1) * x / (outerRadius * 2);
     for (let i = 0; i <= segments; i++) {
       const a = (i / segments) * Math.PI * 2;
       const x = Math.cos(a) * innerRadius;
       const z = Math.sin(a) * innerRadius;
-      verts.push(cx + x, cy, cz + z, 0, 1, 0, r, g, b, 0.5 + x / (outerRadius * 2), 0.5 + z / (outerRadius * 2));
+      verts.push(cx + x, cy, cz + z, 0, 1, 0, r, g, b, uOf(x), 0.5 + z / (outerRadius * 2));
     }
     const innerStart = baseIdx;
     for (let i = 0; i <= segments; i++) {
       const a = (i / segments) * Math.PI * 2;
       const x = Math.cos(a) * outerRadius;
       const z = Math.sin(a) * outerRadius;
-      verts.push(cx + x, cy, cz + z, 0, 1, 0, r, g, b, 0.5 + x / (outerRadius * 2), 0.5 + z / (outerRadius * 2));
+      verts.push(cx + x, cy, cz + z, 0, 1, 0, r, g, b, uOf(x), 0.5 + z / (outerRadius * 2));
     }
     const outerStart = innerStart + segments + 1;
     for (let i = 0; i < segments; i++) {
@@ -4281,6 +4626,27 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addQuad(verts, idxs, c01, c11, c13, c03, color);
     this.addQuad(verts, idxs, c00, c01, c03, c02, color);
     this.addQuad(verts, idxs, c10, c12, c13, c11, color);
+  }
+  /** Flat livery plate that hugs a loft's top surface like a tattoo/wrap.
+   * Corners are sampled on the surface (with a tiny lift so the plate never
+   * z-fights the paint beneath), and the quad is split 6×2 so it follows the
+   * body's slope and curvature instead of poking out as a solid block. */
+  private addSurfacePlate(verts: number[], idxs: number[], cx: number, cz: number, l: number, d: number, topY: (x: number, z: number) => number, color: number[], lift = 0.006) {
+    const hl = l / 2, hd = d / 2;
+    const cols = 6, rows = 2;
+    for (let ci = 0; ci < cols; ci++) {
+      for (let ri = 0; ri < rows; ri++) {
+        const x0 = cx - hl + (l / cols) * ci;
+        const x1 = x0 + l / cols;
+        const z0 = cz - hd + (d / rows) * ri;
+        const z1 = z0 + d / rows;
+        const p00 = [x0, topY(x0, z0) + lift, z0];
+        const p10 = [x1, topY(x1, z0) + lift, z0];
+        const p11 = [x1, topY(x1, z1) + lift, z1];
+        const p01 = [x0, topY(x0, z1) + lift, z1];
+        this.addQuad(verts, idxs, p00, p01, p11, p10, color);
+      }
+    }
   }
   private addQuad(verts: number[], idxs: number[], a: number[], b: number[], c: number[], d: number[], color: number[]) {
     const [r, g, bl] = color;
@@ -6015,6 +6381,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
     skipMirror: boolean = false) {
     const gl = this.gl;
     this.elapsed += dt;
+    // Tire wear — accumulate race distance and darken the sidewall brand as
+    // the stint goes on (full wear after ~4 laps of the current circuit). The
+    // texture is only re-baked when wear crosses a 5% bucket, so this costs
+    // nothing per frame.
+    this._tireDist += Math.abs(playerSpeed) * dt;
+    const wearTarget = Math.min(1, this._tireDist / Math.max(1, this.totalTrackDist * 4));
+    if (wearTarget !== this.tireWear) { this.tireWear = wearTarget; this.updateTireBrandWear(); }
     if (this._winTrailStartedAt >= 0) {
       this._winTrailSpeed = Math.abs(playerSpeed);
     }
@@ -6802,6 +7175,24 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.bindVertexArray(accDecal.vao);
       gl.drawElements(gl.TRIANGLES, accDecal.count, gl.UNSIGNED_SHORT, 0);
     }
+    // Spoiler / exhaust upgrades — baked colours, so uColor must be white.
+    const spoiler = app.spoilerId ? this.spoilerVaos.get(app.spoilerId) : undefined;
+    if (spoiler) {
+      gl.uniform3f(this.colorLoc, 1, 1, 1);
+      gl.bindVertexArray(spoiler.vao);
+      gl.drawElements(gl.TRIANGLES, spoiler.count, gl.UNSIGNED_SHORT, 0);
+    } else {
+      // No spoiler equipped — keep the stock rear wing (replaces, not stacks).
+      gl.uniform3f(this.colorLoc, 1, 1, 1);
+      gl.bindVertexArray(this.baseWingVao);
+      gl.drawElements(gl.TRIANGLES, this.baseWingCount, gl.UNSIGNED_SHORT, 0);
+    }
+    const exhaust = app.exhaustId ? this.exhaustVaos.get(app.exhaustId) : undefined;
+    if (exhaust) {
+      gl.uniform3f(this.colorLoc, 1, 1, 1);
+      gl.bindVertexArray(exhaust.vao);
+      gl.drawElements(gl.TRIANGLES, exhaust.count, gl.UNSIGNED_SHORT, 0);
+    }
     const snowAmt = appearance?.id ? (this._carSnow.get(appearance.id) ?? 0) : this._playerSnow;
     if (snowAmt > 0.02) {
       const lift = 1 + snowAmt * 0.06;
@@ -6824,6 +7215,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
     if (app.glow) {
       const g = app.glow;
+      const blendWas = gl.isEnabled(gl.BLEND);
+      gl.enable(gl.BLEND);
       const revHz = 1.4 + Math.min(Math.abs(speed) / 12, 1) * 4.2;
       const revWave = 0.5 + 0.5 * Math.sin(this.elapsed * revHz * Math.PI * 2 + z * 2.4);
       const rolling = Math.min(Math.abs(speed) / 6, 1);
@@ -6847,10 +7240,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
       gl.uniform1i(this.hasTexLoc, 0);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      if (!blendWas) gl.disable(gl.BLEND);
     }
     if (this.night && this.headlightCount > 0) {
       gl.uniform1f(this.emissiveLoc, 1);
       gl.uniform1f(this.heatGlowLoc, 0);
+      const headBlendWas = gl.isEnabled(gl.BLEND);
+      gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE);
       gl.uniform3f(this.colorLoc, 1.0, 0.92, 0.62);
       gl.bindVertexArray(this.headlightVao);
@@ -6858,6 +7254,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.bindVertexArray(null);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       gl.uniform1f(this.emissiveLoc, 0);
+      if (!headBlendWas) gl.disable(gl.BLEND);
     }
     gl.bindVertexArray(this.wheelVao);
     const wheelPositions = [
@@ -6873,15 +7270,21 @@ void main() { FragColor = texture(uTex, vUV); }`;
     for (let wi = 0; wi < wheelPositions.length; wi++) {
       const wp = wheelPositions[wi];
       const rear = wi >= 2;
+      // Wheels on the driver's left (negative z in car-local space) are
+      // mirrored so the branded sidewall faces outward like the right side;
+      // the ring UVs are flipped (rimFaceVaoL) so 'BHOSTED' still reads
+      // correctly, and the spin sign flips with the mirror.
+      const leftSide = wp[2] < 0;
       this.mat4Identity(this.modelMatrix);
       this.mat4Translate(this.modelMatrix, [x, y + 0.17, z]);
       this.mat4RotateY(this.modelMatrix, yaw - Math.PI / 2);
       this.mat4Translate(this.modelMatrix, wp);
+      if (leftSide) this.mat4Scale(this.modelMatrix, [1, 1, -1]);
       const slipFactor = Math.max(0, 1 - Math.min(slide, 1) * 0.75);
       const lockF = wi < 2 ? (appearance?.id ? (this._carLock.get(appearance.id) ?? 0) : this._playerLock) : 0;
       const wheelSpin = (spin !== undefined
         ? spin * slipFactor
-        : this.elapsed * Math.min(Math.abs(speed) / 0.17, 40) * (speed < 0 ? 1 : -1) * slipFactor) * (1 - lockF);
+        : this.elapsed * Math.min(Math.abs(speed) / 0.17, 40) * (speed < 0 ? 1 : -1) * slipFactor) * (1 - lockF) * (leftSide ? -1 : 1);
       this.mat4RotateZ(this.modelMatrix, wheelSpin);
       this.mat4RotateX(this.modelMatrix, Math.PI / 2);
       gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
@@ -6893,8 +7296,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.bindTexture(gl.TEXTURE_2D, this.tireBrandTex);
       gl.uniform1i(this.hasTexLoc, 1);
       gl.uniform3f(this.colorLoc, 1, 1, 1);
-      gl.bindVertexArray(rear ? this.rearRimFaceVao : this.rimFaceVao);
-      gl.drawElements(gl.TRIANGLES, rear ? this.rearRimFaceCount : this.rimFaceCount, gl.UNSIGNED_SHORT, 0);
+      gl.bindVertexArray(leftSide ? (rear ? this.rearRimFaceVaoL : this.rimFaceVaoL) : (rear ? this.rearRimFaceVao : this.rimFaceVao));
+      gl.drawElements(gl.TRIANGLES, leftSide ? (rear ? this.rearRimFaceCountL : this.rimFaceCountL) : (rear ? this.rearRimFaceCount : this.rimFaceCount), gl.UNSIGNED_SHORT, 0);
       gl.bindVertexArray(rear ? this.rearWheelRimVao : this.wheelRimVao);
       gl.drawElements(gl.TRIANGLES, rear ? this.rearWheelRimCount : this.wheelRimCount, gl.UNSIGNED_SHORT, 0);
       gl.uniform1f(this.rimStrengthLoc, 0);

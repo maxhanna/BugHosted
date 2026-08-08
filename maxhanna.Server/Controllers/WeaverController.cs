@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Caching.Memory;
 
 // Shared pending-requests dictionary for command/ack long-polling.
 // BughostedController creates entries; WeaverController.AckCommand completes them.
@@ -22,6 +23,9 @@ namespace maxhanna.Server.Controllers
 		private readonly IConfiguration _config;
 		private static readonly ConcurrentDictionary<string, WeaverSession> _sessions = new();
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
+		private static readonly MemoryCache _rankingsCache = new(new MemoryCacheOptions());
+		private const string RankingsCacheKey = "weaver_rankings_v1";
+		private const int RankingsCacheTtlMinutes = 30;
 
 		public WeaverController(IConfiguration config)
 		{
@@ -643,56 +647,70 @@ namespace maxhanna.Server.Controllers
 					return Unauthorized(new { error = "Invalid token" });
 
 				string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-				using var conn = new MySqlConnection(cs);
-				await conn.OpenAsync();
 
-				// Latest heartbeat per user, joined with usernames. The weaver client
-				// reports its rank score/title inside the kanban_data JSON (userScore,
-				// rankTitle) so the leaderboard reflects each user's own rank ladder.
-				string sql = @"
-					SELECT h.user_id, u.username, h.client_id, h.status, h.last_heartbeat, h.kanban_data
-					FROM maxhanna.weaver_heartbeat h
-					INNER JOIN (
-						SELECT user_id, MAX(last_heartbeat) AS last_hb
-						FROM maxhanna.weaver_heartbeat
-						GROUP BY user_id
-					) latest ON latest.user_id = h.user_id AND latest.last_hb = h.last_heartbeat
-					INNER JOIN maxhanna.users u ON u.id = h.user_id";
-
-				using var cmd = new MySqlCommand(sql, conn);
-				cmd.CommandTimeout = 45;
-				using var reader = await cmd.ExecuteReaderAsync();
-
-				var entries = new List<WeaverRankingEntry>();
-				var seen = new HashSet<int>();
-				while (await reader.ReadAsync())
+				// The heavy part (latest-per-user query + parsing every kanban_data row)
+				// is cached for a few minutes so the leaderboard doesn't re-read the whole
+				// heartbeat table on every request. Freshness of the online dots and the
+				// last-seen column is overlaid per request with one cheap query instead,
+				// so the board stays live even inside the cache window.
+				List<WeaverRankingEntry> entries;
+				if (!_rankingsCache.TryGetValue(RankingsCacheKey, out entries))
 				{
-					int userId = reader.GetInt32("user_id");
-					if (!seen.Add(userId)) continue; // dedupe ties on identical timestamps
+					using var conn = new MySqlConnection(cs);
+					await conn.OpenAsync();
 
-					var entry = new WeaverRankingEntry
+					// Latest heartbeat per user, joined with usernames. The weaver client
+					// reports its rank score/title inside the kanban_data JSON (userScore,
+					// rankTitle) so the leaderboard reflects each user's own rank ladder.
+					string sql = @"
+						SELECT h.user_id, u.username, h.client_id, h.status, h.last_heartbeat, h.kanban_data
+						FROM maxhanna.weaver_heartbeat h
+						INNER JOIN (
+							SELECT user_id, MAX(last_heartbeat) AS last_hb
+							FROM maxhanna.weaver_heartbeat
+							GROUP BY user_id
+						) latest ON latest.user_id = h.user_id AND latest.last_hb = h.last_heartbeat
+						INNER JOIN maxhanna.users u ON u.id = h.user_id";
+
+					using var cmd = new MySqlCommand(sql, conn);
+					cmd.CommandTimeout = 45;
+					using var reader = await cmd.ExecuteReaderAsync();
+
+					entries = new List<WeaverRankingEntry>();
+					var seen = new HashSet<int>();
+					while (await reader.ReadAsync())
 					{
-						UserId = userId,
-						Username = reader.GetString("username"),
-						ClientId = reader.IsDBNull(reader.GetOrdinal("client_id")) ? "" : reader.GetString("client_id"),
-						Status = reader.IsDBNull(reader.GetOrdinal("status")) ? "" : reader.GetString("status"),
-						LastHeartbeat = reader.GetDateTime("last_heartbeat").ToString("O")
-					};
-					if (!reader.IsDBNull(reader.GetOrdinal("kanban_data")))
-					{
-						try
+						int userId = reader.GetInt32("user_id");
+						if (!seen.Add(userId)) continue; // dedupe ties on identical timestamps
+
+						var entry = new WeaverRankingEntry
 						{
-							using var doc = JsonDocument.Parse(reader.GetString("kanban_data"));
-							if (doc.RootElement.TryGetProperty("userScore", out var scoreEl) && scoreEl.TryGetInt32(out var score))
-								entry.Score = score;
-							if (doc.RootElement.TryGetProperty("rankTitle", out var titleEl))
-								entry.RankTitle = titleEl.GetString() ?? "";
+							UserId = userId,
+							Username = reader.GetString("username"),
+							ClientId = reader.IsDBNull(reader.GetOrdinal("client_id")) ? "" : reader.GetString("client_id"),
+							Status = reader.IsDBNull(reader.GetOrdinal("status")) ? "" : reader.GetString("status"),
+							LastHeartbeat = reader.GetDateTime("last_heartbeat").ToString("O")
+						};
+						if (!reader.IsDBNull(reader.GetOrdinal("kanban_data")))
+						{
+							try
+							{
+								using var doc = JsonDocument.Parse(reader.GetString("kanban_data"));
+								if (doc.RootElement.TryGetProperty("userScore", out var scoreEl) && scoreEl.TryGetInt32(out var score))
+									entry.Score = score;
+								if (doc.RootElement.TryGetProperty("rankTitle", out var titleEl))
+									entry.RankTitle = titleEl.GetString() ?? "";
+							}
+							catch { /* malformed kanban_data — score stays 0 */ }
 						}
-						catch { /* malformed kanban_data — score stays 0 */ }
+						entries.Add(entry);
 					}
-					entries.Add(entry);
+					reader.Close();
+
+					_rankingsCache.Set(RankingsCacheKey, entries, TimeSpan.FromMinutes(RankingsCacheTtlMinutes));
 				}
-				reader.Close();
+
+				await OverlayFreshHeartbeats(cs, entries);
 
 				var ordered = entries.OrderByDescending(e => e.Score).ToList();
 				var result = new List<object>(ordered.Count);
@@ -714,6 +732,37 @@ namespace maxhanna.Server.Controllers
 			catch (Exception ex)
 			{
 				return StatusCode(500, new { error = ex.Message });
+			}
+		}
+
+		// Refresh last_heartbeat for users active in the last 10 minutes (anyone
+		// older is definitely offline given the client's 6-minute online window), so
+		// online dots and last-seen stay accurate between cache refreshes.
+		private async Task OverlayFreshHeartbeats(string cs, List<WeaverRankingEntry> entries)
+		{
+			if (entries.Count == 0) return;
+			using var conn = new MySqlConnection(cs);
+			await conn.OpenAsync();
+			string sql = @"
+				SELECT user_id, MAX(last_heartbeat) AS last_hb
+				FROM maxhanna.weaver_heartbeat
+				WHERE last_heartbeat >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE)
+				GROUP BY user_id";
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.CommandTimeout = 30;
+			using var reader = await cmd.ExecuteReaderAsync();
+			var fresh = new Dictionary<int, string>();
+			while (await reader.ReadAsync())
+			{
+				int uid = reader.GetInt32("user_id");
+				if (!fresh.ContainsKey(uid))
+					fresh[uid] = reader.GetDateTime("last_hb").ToString("O");
+			}
+			reader.Close();
+			for (int i = 0; i < entries.Count; i++)
+			{
+				if (fresh.TryGetValue(entries[i].UserId, out var hb))
+					entries[i].LastHeartbeat = hb;
 			}
 		}
 

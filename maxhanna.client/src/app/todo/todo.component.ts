@@ -316,22 +316,22 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
 
   async getTodoInfo() {
     if (!this.parentRef?.user?.id) return;
+    // Never clobber the list (or touch the loading state) while an edit popup is
+    // open — an in-flight poll must not flash Loading or block the editor.
+    if (this.isEditing?.length) return;
     try {
       this.startLoading();
-
-      if (!this.isEditing?.length) {
-        const terms = this.searchInput ? this.searchInput.nativeElement.value : "";
-        const search = (!terms || terms.trim() == "") ? undefined : terms;
-        const type = this.selectedType?.nativeElement.value || this.todoTypes[0];
-        const res = await this.todoService.getTodo(this.parentRef.user.id, type, search);
-        this.todos = res;
-        this.todoCount = this.todos?.length;
-        this.stopLoading();
-        this.startSharedPolling();
-      }
-
+      const terms = this.searchInput ? this.searchInput.nativeElement.value : "";
+      const search = (!terms || terms.trim() == "") ? undefined : terms;
+      const type = this.selectedType?.nativeElement.value || this.todoTypes[0];
+      const res = await this.todoService.getTodo(this.parentRef.user.id, type, search);
+      this.todos = res;
+      this.todoCount = this.todos?.length;
+      this.stopLoading();
+      this.startSharedPolling();
     } catch (error) {
       console.error("Error fetching calendar entries:", error);
+      this.stopLoading();
     }
   }
   async addTodo() {
@@ -710,7 +710,16 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
       // The service never throws (returns null on failure), so no try/catch needed.
       const res = await this.todoService.editTodo(id, text, url, fileId);
       if (res) {
-        this.parentRef?.showNotification(res);
+        // Sanitize the optimistic edit with the server's canonical stored values
+        // (e.g. an emptied URL or removed file becomes null/undefined in the UI,
+        // matching what the server actually persisted).
+        const saved = this.todos.find(t => t.id === id);
+        if (saved) {
+          if (typeof res.content === 'string') saved.todo = res.content;
+          saved.url = res.url ?? undefined;
+          saved.fileId = res.fileId ?? undefined;
+        }
+        this.parentRef?.showNotification('Todo updated');
         this.parentRef?.closeOverlay(false);
         this.isExpandedEditFile = false;
       } else {

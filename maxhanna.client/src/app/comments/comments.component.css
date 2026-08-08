@@ -406,3 +406,58 @@
   align-items: center;
   gap: 12px;
 }
+
+/* Discard draft confirmation */
+.discardConfirmOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: discardFadeIn 0.15s ease-out;
+}
+
+.discardConfirmPanel {
+  background: var(--secondary-component-background-color, #1e1e1e);
+  border: var(--main-border, 1px solid #444);
+  border-radius: 8px;
+  padding: 22px;
+  max-width: min(420px, calc(100vw - 40px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+}
+
+.discardConfirmTitle {
+  font-family: var(--section-font-family);
+  font-size: x-large;
+  font-weight: 600;
+}
+
+.discardConfirmText {
+  color: var(--muted, #aaa);
+  font-size: 14px;
+}
+
+.discardConfirmButtons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.discardConfirmDiscardBtn {
+  background: #c0392b !important;
+  color: #fff !important;
+}
+
+@keyframes discardFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

@@ -257,7 +257,16 @@ namespace maxhanna.Server.Controllers
                 object fileIdValue = req.fileId == null ? DBNull.Value : req.fileId;
                 cmd.Parameters.AddWithValue("@FileId", fileIdValue);
                 var result = await cmd.ExecuteScalarAsync();
-                return Ok($"Edit successful.");
+                // Return the canonical stored values so the client can finalize its
+                // optimistic edit after the response — e.g. an emptied URL or removed
+                // file becomes null exactly as the CASE expressions above stored it.
+                return Ok(new
+                {
+                    success = true,
+                    content = req.content ?? "",
+                    url = string.IsNullOrEmpty(req.url) ? null : req.url,
+                    fileId = req.fileId == null ? null : req.fileId
+                });
             }
             catch (Exception ex)
             {

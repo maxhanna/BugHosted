@@ -174,11 +174,26 @@ namespace maxhanna.Server.Controllers
         FROM poll_votes 
         WHERE component_id = @componentId";
 
+			// Who voted (joined with users + display pictures, mirroring the chat
+			// history poll query) so every consumer of /Poll/Results can render
+			// the voter list, not just the tallies.
+			string votersSql = @"
+        SELECT pv.id, pv.user_id, pv.component_id, pv.value, pv.timestamp, u.username,
+               udpfu.folder_path AS display_picture_folder,
+               udpfu.file_name AS display_picture_filename
+        FROM poll_votes pv
+        JOIN users u ON pv.user_id = u.id
+        LEFT JOIN user_display_pictures udp ON udp.user_id = u.id
+        LEFT JOIN file_uploads udpfu ON udp.file_id = udpfu.id
+        WHERE pv.component_id = @componentId
+        ORDER BY pv.timestamp DESC";
+
 			var response = new
 			{
 				ComponentId = componentId,
 				Options = new List<object>(),
-				TotalVoters = 0
+				TotalVoters = 0,
+				UserVotes = new List<object>()
 			};
 
 			// Get vote counts per value
@@ -202,7 +217,8 @@ namespace maxhanna.Server.Controllers
 					{
 						ComponentId = componentId,
 						Options = options,
-						response.TotalVoters
+						response.TotalVoters,
+						response.UserVotes
 					};
 				}
 			}
@@ -215,8 +231,45 @@ namespace maxhanna.Server.Controllers
 				{
 					response.ComponentId,
 					response.Options,
-					TotalVoters = Convert.ToInt32(await cmd.ExecuteScalarAsync())
+					TotalVoters = Convert.ToInt32(await cmd.ExecuteScalarAsync()),
+					response.UserVotes
 				};
+			}
+
+			// Fetch the voter list
+			using (var cmd = new MySqlCommand(votersSql, conn))
+			{
+				cmd.Parameters.AddWithValue("@componentId", componentId);
+
+				using (var reader = await cmd.ExecuteReaderAsync())
+				{
+					var userVotes = new List<object>();
+					while (await reader.ReadAsync())
+					{
+						string? displayPicPath = null;
+						if (!reader.IsDBNull(reader.GetOrdinal("display_picture_folder")) && !reader.IsDBNull(reader.GetOrdinal("display_picture_filename")))
+						{
+							displayPicPath = $"{reader.GetString("display_picture_folder")}/{reader.GetString("display_picture_filename")}";
+						}
+						userVotes.Add(new
+						{
+							Id = reader.GetInt32("id"),
+							UserId = reader.GetInt32("user_id"),
+							ComponentId = reader.GetString("component_id"),
+							Value = reader.GetString("value"),
+							Timestamp = reader.GetDateTime("timestamp"),
+							Username = reader.GetString("username"),
+							DisplayPicture = displayPicPath
+						});
+					}
+					response = new
+					{
+						response.ComponentId,
+						response.Options,
+						response.TotalVoters,
+						UserVotes = userVotes
+					};
+				}
 			}
 
 			return Ok(response);

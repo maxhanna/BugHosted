@@ -2875,6 +2875,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       605: 'prev-accent-blue', 606: 'prev-accent-black',
       607: 'prev-accent-green', 608: 'prev-accent-orange', 609: 'prev-accent-purple', 610: 'prev-accent-pink',
       611: 'prev-accent-cyan', 612: 'prev-accent-lime',
+      613: 'prev-accent-copper', 614: 'prev-accent-teal', 615: 'prev-accent-burgundy', 616: 'prev-accent-navy',
+      617: 'prev-accent-mint', 618: 'prev-accent-coral', 619: 'prev-accent-champagne', 620: 'prev-accent-gunmetal',
     };
     return previews[p.id] ?? '';
   }
@@ -3356,6 +3358,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const skin = CAR_SKINS.find(s => s.id === this.playerCar.skinId) || CAR_SKINS[0];
     return {
       rimStyle: this.playerCar.rimId,
+      spoilerId: this.playerCar.spoilerId || undefined,
+      exhaustId: this.playerCar.exhaustId || undefined,
       accent: ACCENT_COLORS[this.playerCar.accentId] ?? undefined,
       decalStyle: this.playerCar.decalId,
       glow: GLOW_COLORS[this.playerCar.glowId] ?? undefined,
@@ -3366,14 +3370,21 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
   /** Equipped appearance merged with the catalog part currently hovered, so the
    *  WebGL garage car previews rims/accent/decal/glow exactly like the old CSS
-   *  preview did. */
+   *  preview did. Hovered paint (skinPreview) also swaps the paint + finish, so
+   *  anything that alters appearances can be previewed before buying. */
   getPreviewAppearance(): RacingCarAppearance {
     const base = this.getPlayerAppearance();
     const p = this.appearancePreview;
-    if (!p) return base;
     const out: RacingCarAppearance = { ...base };
+    if (this.skinPreview) {
+      out.skin = this.hexToRgb(this.skinPreview.color);
+      out.metallic = SKIN_FINISH_FACTOR[this.skinPreview.finish] ?? 0.45;
+    }
+    if (!p) return out;
     switch (p.category) {
       case 'rims': out.rimStyle = p.id; break;
+      case 'spoiler': out.spoilerId = p.id; break;
+      case 'exhaust': out.exhaustId = p.id; break;
       case 'accent': out.accent = ACCENT_COLORS[p.id] ?? base.accent; break;
       case 'decal': out.decalStyle = p.id; break;
       case 'glow': out.glow = GLOW_COLORS[p.id] ?? base.glow; break;
@@ -3423,6 +3434,40 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   /** Appearance part hovered in the catalog — previewed on the garage car
    *  without buying (cleared on mouse leave). */
   appearancePreview: RacingAppearancePart | null = null;
+  /** Paint / skin hovered in the skins tab — previewed on the garage car
+   *  (colour + finish shader) without buying (cleared on mouse leave). */
+  skinPreview: any = null;
+  /** Mobile garage flow: touch screens have no hover, so tapping a catalog card
+   *  only previews it (like desktop hover) and the preview banner becomes the
+   *  buy/equip button. Desktop keeps hover-preview + click-to-buy on the card. */
+  onAppearanceCardClick(part: RacingAppearancePart) {
+    if (this.isMobile) { this.appearancePreview = part; return; }
+    this.buyAppearancePart(part);
+  }
+  onSkinCardClick(skin: any) {
+    if (this.isMobile) { this.skinPreview = skin; return; }
+    this.selectSkin(skin);
+  }
+  /** Commits the currently previewed item — the preview banner's buy/equip tap. */
+  previewBuy() {
+    if (this.isBuying) return;
+    const p = this.appearancePreview;
+    const s = this.skinPreview;
+    this.appearancePreview = null;
+    this.skinPreview = null;
+    if (s) { this.selectSkin(s); return; }
+    if (p) { this.buyAppearancePart(p); }
+  }
+  /** Banner action text: 'equip'/'buy' for appearance parts, 'equip'/'select'/
+   *  'buy' for paint skins. */
+  get previewActionText(): string {
+    const p = this.appearancePreview;
+    if (p) return this.isAppearanceOwned(p) ? 'equip' : 'buy';
+    const s = this.skinPreview;
+    if (!s) return 'select';
+    if (this.playerCar?.skinId === s.id) return 'equip';
+    return !s.owned && s.cost > 0 ? 'buy' : 'select';
+  }
   // Per-card marginal top speed in km/h: before = top speed with all lower
   // engine stages but not this one, after = top speed including this stage's
   // statBonus. Engine statBonuses are per-stage additive (getSpeedBonus sums

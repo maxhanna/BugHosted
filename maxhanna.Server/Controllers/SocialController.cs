@@ -1719,9 +1719,24 @@ namespace maxhanna.Server.Controllers
         {
           await connection.OpenAsync();
 
-          // Create command with the query
+          // Create command with the query. Must only return ids that
+          // GetStoryById can actually serve: anonymous lookups exclude
+          // NSFW-tagged stories and stories attached to private chat boards,
+          // so mirror those filters here or the profile's "latest story"
+          // deep-links straight into a 404.
           using (var command = new MySqlCommand(
-            "SELECT id FROM maxhanna.stories WHERE profile_user_id IS NULL AND COALESCE(visibility, 'public') = 'public' ORDER BY id DESC LIMIT 1;",
+            @"SELECT id FROM maxhanna.stories
+               WHERE profile_user_id IS NULL
+                 AND COALESCE(visibility, 'public') = 'public'
+                 AND NOT EXISTS (
+                   SELECT 1 FROM story_topics st JOIN topics t ON st.topic_id = t.id
+                   WHERE st.story_id = maxhanna.stories.id AND t.topic = 'NSFW'
+                 )
+                 AND (chat_id IS NULL OR chat_id = 0 OR EXISTS (
+                   SELECT 1 FROM chat_rooms cr
+                   WHERE cr.chat_id = maxhanna.stories.chat_id AND cr.is_public = 1
+                 ))
+               ORDER BY id DESC LIMIT 1;",
             connection))
           {
             // Execute the query and get the result

@@ -488,14 +488,26 @@ export class NavigationComponent implements OnInit, OnDestroy {
     return [...this.navRecentSearches, ...this.navTrendingSearches];
   }
 
+  // A file suggestion that lives under the roms directory — surfaced as a
+  // separate 'emulation' suggestion so it can launch the emulator on that game
+  // while the plain file suggestion (MediaViewer) stays available.
+  isRomSuggestion(f: any): boolean {
+    return !!f && !!f.folderPath && f.folderPath.toLowerCase().includes('roms');
+  }
+
+  getEmulationFiles(): any[] {
+    return this.navSuggestions?.files?.filter(f => this.isRomSuggestion(f)) ?? [];
+  }
+
   // Flat, display-ordered list of every current suggestion so keyboard
   // navigation can address them with a single index across all groups.
-  private getNavSuggestFlat(): { type: 'file' | 'post' | 'comment' | 'news' | 'favourite' | 'app', item: any }[] {
-    const out: { type: 'file' | 'post' | 'comment' | 'news' | 'favourite' | 'app', item: any }[] = [];
+  private getNavSuggestFlat(): { type: 'file' | 'post' | 'comment' | 'news' | 'favourite' | 'app' | 'emulation', item: any }[] {
+    const out: { type: 'file' | 'post' | 'comment' | 'news' | 'favourite' | 'app' | 'emulation', item: any }[] = [];
     // Apps group sits first in the popup, so it leads the flat keyboard list.
     for (const a of this.navUnaddedApps) out.push({ type: 'app', item: a });
     if (!this.navSuggestions) return out;
     for (const f of this.navSuggestions.files) out.push({ type: 'file', item: f });
+    for (const g of this.getEmulationFiles()) out.push({ type: 'emulation', item: g });
     for (const p of this.navSuggestions.posts) out.push({ type: 'post', item: p });
     for (const c of this.navSuggestions.comments) out.push({ type: 'comment', item: c });
     for (const n of this.navSuggestions.news) out.push({ type: 'news', item: n });
@@ -505,14 +517,17 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   // Base index (in the flat list) where the given group starts, so the
   // template can compute each row's global index: offset + row index.
-  navSuggestGroupOffset(group: 'files' | 'posts' | 'comments' | 'news' | 'favourites'): number {
+  navSuggestGroupOffset(group: 'files' | 'posts' | 'comments' | 'news' | 'favourites' | 'emulation'): number {
     const apps = this.navUnaddedApps.length;
+    const files = this.navSuggestions?.files?.length ?? 0;
+    const emulation = this.getEmulationFiles().length;
     switch (group) {
       case 'files': return apps;
-      case 'posts': return apps + this.navSuggestions!.files.length;
-      case 'comments': return apps + this.navSuggestions!.files.length + this.navSuggestions!.posts.length;
-      case 'news': return apps + this.navSuggestions!.files.length + this.navSuggestions!.posts.length + this.navSuggestions!.comments.length;
-      case 'favourites': return apps + this.navSuggestions!.files.length + this.navSuggestions!.posts.length + this.navSuggestions!.comments.length + this.navSuggestions!.news.length;
+      case 'emulation': return apps + files;
+      case 'posts': return apps + files + emulation;
+      case 'comments': return apps + files + emulation + this.navSuggestions!.posts.length;
+      case 'news': return apps + files + emulation + this.navSuggestions!.posts.length + this.navSuggestions!.comments.length;
+      case 'favourites': return apps + files + emulation + this.navSuggestions!.posts.length + this.navSuggestions!.comments.length + this.navSuggestions!.news.length;
     }
     return 0;
   }
@@ -565,7 +580,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     } catch { }
   }
 
-  openSuggestion(type: 'file' | 'post' | 'comment' | 'news' | 'favourite' | 'app', item: any) {
+  openSuggestion(type: 'file' | 'post' | 'comment' | 'news' | 'favourite' | 'app' | 'emulation', item: any) {
     if (type === 'app') {
       this.openUnaddedApp(item as MenuItem);
       return;
@@ -574,6 +589,8 @@ export class NavigationComponent implements OnInit, OnDestroy {
     this.recordNavSearch(term);
     if (type === 'file') {
       this._parent.createComponent('MediaViewer', { fileId: item.id, isLoadedFromURL: true });
+    } else if (type === 'emulation') {
+      this._parent.createComponent('Emulator', { presetRomName: item.name, presetRomId: item.id });
     } else if (type === 'post') {
       this._parent.createComponent('Social', { storyId: item.id });
     } else if (type === 'comment') {

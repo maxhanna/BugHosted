@@ -17,6 +17,7 @@ import { UserTheme } from '../../services/datacontracts/chat/chat-theme';
 import { FileService } from '../../services/file.service';
 import { ChatHubService } from '../../services/chat-hub.service';
 import { ModeratorService } from '../../services/moderator.service';
+import { PollService } from '../../services/poll.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -115,7 +116,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     private encryptionService: EncryptionService,
     private fileService: FileService,
     private chatHub: ChatHubService,
-    private moderatorService: ModeratorService) {
+    private moderatorService: ModeratorService,
+    private pollService: PollService) {
     super();
     if (this.inputtedParentRef) {
       this.parentRef = this.inputtedParentRef;
@@ -356,6 +358,46 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   // on every history poll, so skip the innerHTML rebuild (and the reflow it
   // causes) when a poll's state hasn't actually changed.
   private _pollRenderSignatures = new Map<string, string>();
+  // Server-side payload signature at the time we last fetched live results for
+  // a poll — avoids hammering /Poll/Results on every 10s history poll while
+  // still picking up new votes (and the user's own vote after a reload).
+  private _pollFetchedSignatures = new Map<string, string>();
+
+  /** Merges live poll results (tallies + the voter list) into the server-
+   *  attached poll payload so an already-voted poll renders results even when
+   *  the message-history poll data lagged or was missing the vote. Keeps the
+   *  full option list and folds vote counts in by text match. */
+  private async mergeFreshPollData(poll: any): Promise<any> {
+    if (!poll || !poll.componentId) return poll;
+    try {
+      const pre = `${(poll.options ?? []).map((o: any) => `${o.id ?? o.text}:${o.voteCount ?? 0}`).join(',')}|${poll.userVotes?.length ?? 0}`;
+      if (this._pollFetchedSignatures.get(poll.componentId) === pre) return poll;
+      const fresh = await this.pollService.getResults(poll.componentId);
+      this._pollFetchedSignatures.set(poll.componentId, pre);
+      if (!fresh || !fresh.options || fresh.options.length === 0) return poll;
+      const total = fresh.totalVoters ?? fresh.totalVotes ?? poll.totalVotes ?? 0;
+      const existing = poll.options ?? [];
+      const mergedOptions = existing.map((opt: any) => {
+        const match = (fresh.options ?? []).find((o: any) =>
+          String(o.value ?? o.text ?? '').toLowerCase() === String(opt.text ?? opt.value ?? '').toLowerCase());
+        const voteCount = match ? (match.voteCount ?? 0) : (opt.voteCount ?? 0);
+        return {
+          ...opt,
+          id: opt.id ?? opt.text ?? '',
+          text: opt.text ?? opt.value ?? '',
+          voteCount,
+          percentage: match?.percentage ?? (total > 0 ? Math.round((voteCount / total) * 100) : opt.percentage ?? 0),
+        };
+      });
+      for (const o of fresh.options ?? []) {
+        const text = String(o.value ?? o.text ?? '');
+        if (!mergedOptions.some((m: any) => String(m.text ?? '').toLowerCase() === text.toLowerCase())) {
+          mergedOptions.push({ id: o.value ?? o.id ?? '', text, voteCount: o.voteCount ?? 0, percentage: o.percentage ?? 0 });
+        }
+      }
+      return { ...poll, options: mergedOptions, userVotes: fresh.userVotes ?? poll.userVotes ?? [], totalVotes: total };
+    } catch { return poll; }
+  }
   private refreshAfterPush() {
     if (this.pushRefreshTimer) clearTimeout(this.pushRefreshTimer);
     this.pushRefreshTimer = setTimeout(() => {
@@ -573,31 +615,36 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     });
   }
 
-  updateChatPollsInDOM(polls: any[]) {
+  async updateChatPollsInDOM(polls: any[]) {
     if (!polls || polls.length === 0) return;
     for (const poll of polls) {
       try {
         if (!poll || !poll.componentId) continue;
         if (!poll.componentId.startsWith('messageText') && !poll.componentId.startsWith('chatMessage')) continue;
 
+        // Refresh tallies + voter list from the live results endpoint so a poll
+        // the current user already answered always renders results (even right
+        // after a reload, when the history payload can be stale).
+        const p = await this.mergeFreshPollData(poll);
+
         // Skip polls whose state hasn't changed since the last render pass —
         // this runs on every history poll and would otherwise rebuild the poll
         // DOM (innerHTML + reflow) every few seconds in chats with polls.
         // Per-option voteCounts are in the signature so a vote switch (same
         // total voters, different tallies) still re-renders.
-        const optionTallies = (poll.options ?? [])
-          .map((o: any) => `${o.id}:${o.voteCount ?? 0}`)
+        const optionTallies = (p.options ?? [])
+          .map((o: any) => `${o.id ?? o.text}:${o.voteCount ?? 0}`)
           .join(',');
-        const signature = `${poll.componentId}|${optionTallies}|${poll.userVotes?.length ?? 0}|${poll.question ?? ''}`;
-        if (this._pollRenderSignatures.get(poll.componentId) === signature) continue;
-        this._pollRenderSignatures.set(poll.componentId, signature);
+        const signature = `${p.componentId}|${optionTallies}|${p.userVotes?.length ?? 0}|${p.question ?? ''}`;
+        if (this._pollRenderSignatures.get(p.componentId) === signature) continue;
+        this._pollRenderSignatures.set(p.componentId, signature);
 
-        const tgt = document.getElementById(poll.componentId);
+        const tgt = document.getElementById(p.componentId);
         if (!tgt) continue;
 
         // Build poll container similar to SocialComponent.updatePollsInDOM
         // Ensure the global hidden pollQuestion is set to this poll's question when interacting with this poll
-        const safeQuestion = (poll.question || '').toString().replace(/'/g, "");
+        const safeQuestion = (p.question || '').toString().replace(/'/g, "");
 
         // Determine whether the current user has already voted on this poll
         const currentUser = this.inputtedParentRef?.user ?? this.parentRef?.user;
@@ -605,8 +652,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         const currentUserName = currentUser?.username ?? '';
         let hasCurrentUserVoted = false;
         try {
-          if (poll.userVotes && poll.userVotes.length) {
-            for (const v of poll.userVotes) {
+          if (p.userVotes && p.userVotes.length) {
+            for (const v of p.userVotes) {
               if (!v) continue;
               // check multiple possible id/username shapes
               if (v.userId && +v.userId === +currentUserId) { hasCurrentUserVoted = true; break; }
@@ -622,15 +669,15 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
         // Delegate all poll rendering to the parent AppComponent to centralize behavior.
         try {
           if (this.parentRef && typeof this.parentRef.renderPollIntoElement === 'function') {
-            this.parentRef.renderPollIntoElement(poll.componentId, poll, { includeVoters: true, includeDelete: hasCurrentUserVoted, safeQuestion: safeQuestion });
+            this.parentRef.renderPollIntoElement(p.componentId, p, { includeVoters: true, includeDelete: hasCurrentUserVoted, safeQuestion: safeQuestion });
           } else if (this.parentRef && typeof this.parentRef.buildPollHtmlFromPollObject === 'function') {
-            const html = this.parentRef.buildPollHtmlFromPollObject(poll, poll.componentId);
+            const html = this.parentRef.buildPollHtmlFromPollObject(p, p.componentId);
             // The id lives on the outer message ROW; only replace the poll
             // container inside the bubble so the bubble markup survives.
             (tgt.querySelector('.poll-container') ?? tgt).innerHTML = html;
           } else {
             // As a last resort, render minimal container (shouldn't happen if AppComponent is present)
-            (tgt.querySelector('.poll-container') ?? tgt).innerHTML = `<div class="poll-container" data-component-id="${poll.componentId}"><div class="poll-question">${poll.question}</div></div>`;
+            (tgt.querySelector('.poll-container') ?? tgt).innerHTML = `<div class="poll-container" data-component-id="${p.componentId}"><div class="poll-question">${p.question}</div></div>`;
           }
           continue;
         } catch (e) {
@@ -814,6 +861,7 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
       this.currentChatUsers.push(user);
     }
     this.currentChatUsers = this.filterUniqueUsers(this.currentChatUsers);
+    this.refreshChatTitleUsers();
     return user;
   }
 
@@ -822,6 +870,8 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
     this.closeChatEvent.emit();
     this.hasManuallyScrolled = false;
     this.currentChatUsers = undefined;
+    this._cachedChatUsersKey = '';
+    this.chatTitleUsers = [];
     this.chatHistory = [];
     this.currentChatRoomName = '';
     this.currentChatIsPublic = false;
@@ -1437,6 +1487,20 @@ export class ChatComponent extends ChildComponent implements OnInit, OnDestroy {
   getChatUsersWithoutSelf() {
     const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
     return this.currentChatUsers?.filter(x => x.id != user?.id);
+  }
+  /** Cached title-bar user list. The template binds this instead of calling
+   *  getChatUsersWithoutSelf(), which returned a fresh array reference on every
+   *  change-detection tick — that fired title-bar ngOnChanges constantly and
+   *  cascaded into ~16 querySelector page-meta updates per tick (the chat lag
+   *  profiled as 96% scripting). Recomputed only when the member list changes. */
+  chatTitleUsers: User[] = [];
+  private _cachedChatUsersKey = '';
+  private refreshChatTitleUsers() {
+    const key = (this.currentChatUsers ?? []).map(u => u.id).join(',');
+    if (key === this._cachedChatUsersKey) return;
+    this._cachedChatUsersKey = key;
+    const user = this.inputtedParentRef?.user ?? this.parentRef?.user;
+    this.chatTitleUsers = (this.currentChatUsers ?? []).filter(x => x.id != user?.id);
   }
   async edit(message: Message) {
     if (!this.isEditing.some(id => id === message.id)) {

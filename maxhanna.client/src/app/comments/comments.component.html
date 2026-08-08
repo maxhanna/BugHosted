@@ -227,3 +227,15 @@
   <button title="Close the options panel" id="closeOverlay" (click)="closeOptionsPanel()" class="closeButton"
     style="margin-top:8px;">Close</button>
 </div>
+
+<!-- Discard draft confirmation -->
+<div class="discardConfirmOverlay" *ngIf="discardConfirmOpen" (click)="cancelDiscard()">
+  <div class="discardConfirmPanel" (click)="$event.stopPropagation()">
+    <div class="discardConfirmTitle">Discard post?</div>
+    <div class="discardConfirmText">You have unsaved text in the editor. Discard it and leave?</div>
+    <div class="discardConfirmButtons">
+      <button (click)="cancelDiscard()">Keep editing</button>
+      <button class="discardConfirmDiscardBtn" (click)="confirmDiscard()">Discard</button>
+    </div>
+  </div>
+</div>

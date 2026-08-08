@@ -188,6 +188,20 @@
               </span>
             </button>
           </div>
+          <div class="navSuggestGroup" *ngIf="getEmulationFiles().length">
+            <div class="navSuggestGroupTitle">🎮 Play</div>
+            <button class="navSuggestItem" *ngFor="let g of getEmulationFiles(); let i = index"
+              [class.navSuggestActive]="navSuggestIndex === navSuggestGroupOffset('emulation') + i"
+              [id]="'navSuggestItem' + (navSuggestGroupOffset('emulation') + i)"
+              (mouseenter)="navSuggestIndex = navSuggestGroupOffset('emulation') + i"
+              (click)="openSuggestion('emulation', g)">
+              <span class="navSuggestItemIcon">🕹️</span>
+              <span class="navSuggestItemText">
+                <span class="navSuggestItemTitle">{{ g.name }}</span>
+                <span class="navSuggestItemSub">Launch in Emulator</span>
+              </span>
+            </button>
+          </div>
           <div class="navSuggestGroup" *ngIf="navSuggestions.posts.length">
             <div class="navSuggestGroupTitle">📣 Posts</div>
             <button class="navSuggestItem" *ngFor="let p of navSuggestions.posts; let i = index"

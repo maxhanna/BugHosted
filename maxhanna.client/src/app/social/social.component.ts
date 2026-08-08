@@ -482,6 +482,67 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     } 
   }
 
+  // ── Unsaved-draft guard ──
+  // Blocks closing the component (✕) or navigating away while any app-text-input
+  // on this page still has content, showing a discard-confirmation popup first.
+  discardConfirmOpen = false;
+  private discardConfirmAction: (() => void) | null = null;
+
+  // Contract used by app.component before it tears components down on navigation.
+  hasUnsavedInput(): boolean {
+    return this.anyTextInputNonEmpty();
+  }
+
+  requestDiscardConfirm(onConfirmed: () => void) {
+    this.discardConfirmAction = onConfirmed;
+    this.discardConfirmOpen = true;
+    this.focusFirstTextInput();
+  }
+
+  override remove_me(componentTitle: string) {
+    if (this.anyTextInputNonEmpty()) {
+      this.discardConfirmAction = () => super.remove_me(componentTitle);
+      this.discardConfirmOpen = true;
+      this.focusFirstTextInput();
+      return;
+    }
+    super.remove_me(componentTitle);
+  }
+
+  confirmDiscard() {
+    const action = this.discardConfirmAction;
+    this.discardConfirmAction = null;
+    this.discardConfirmOpen = false;
+    this.clearAllTextInputs();
+    action?.();
+  }
+
+  cancelDiscard() {
+    this.discardConfirmAction = null;
+    this.discardConfirmOpen = false;
+    this.focusFirstTextInput();
+  }
+
+  private getVisibleTextInputFields(): HTMLInputElement[] {
+    const root = this.elementRef?.nativeElement as HTMLElement | undefined;
+    if (!root) return [];
+    return Array.from(root.querySelectorAll<HTMLInputElement>('app-text-input input, app-text-input textarea'))
+      .filter(el => el.getClientRects().length > 0);
+  }
+
+  private anyTextInputNonEmpty(): boolean {
+    return this.getVisibleTextInputFields().some(el => !!el.value?.trim());
+  }
+
+  private focusFirstTextInput() {
+    const first = this.getVisibleTextInputFields()[0];
+    first?.focus();
+  }
+
+  private clearAllTextInputs() {
+    this.getVisibleTextInputFields().forEach(el => { el.value = ''; });
+  }
+
   async ngAfterViewInit() {
     if (this.user) {
       this.userProfileId = this.user.id;

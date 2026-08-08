@@ -392,8 +392,9 @@
       <div class="garage-layout">
         <!-- Left: Car Preview -->
         <div class="garage-preview">
-          <div class="garage-preview-banner" *ngIf="appearancePreview">
-            👁 PREVIEW <strong>{{ appearancePreview.name }}</strong><span> · click to {{ isAppearanceOwned(appearancePreview) ? 'equip' : 'buy' }}</span>
+          <div class="garage-preview-banner" *ngIf="appearancePreview || skinPreview"
+            role="button" tabindex="0" (click)="previewBuy()" (keydown.enter)="previewBuy()">
+            👁 PREVIEW <strong>{{ (appearancePreview || skinPreview).name }}</strong><span> · tap to {{ previewActionText }}</span>
           </div>
           <div class="garage-car-stage" #garageStage>
             <div class="garage-spotlight"></div>
@@ -498,7 +499,7 @@
                 <div class="garage-appearance-card" *ngFor="let p of cat.parts"
                   [class.appearance-equipped]="getEquippedAppearance(p.category) === p.id"
                   [class.appearance-previewing]="appearancePreview === p"
-                  [class.buying-disabled]="isBuying" (click)="buyAppearancePart(p)"
+                  [class.buying-disabled]="isBuying" (click)="onAppearanceCardClick(p)"
                   (mouseenter)="appearancePreview = p" (mouseleave)="appearancePreview = null">
                   <div class="garage-appearance-preview" *ngIf="!isDecalPart(p)" [class]="getAppearancePreviewClass(p)"></div>
                   <div class="garage-decal-map" *ngIf="isDecalPart(p)">
@@ -626,7 +627,9 @@
             <div class="garage-skin-grid">
               <div class="garage-skin-card" *ngFor="let s of CAR_SKINS"
                 [class.garage-skin-active]="playerCar.skinId === s.id" [class.buying-disabled]="isBuying"
-                (click)="selectSkin(s)">
+                [class.appearance-previewing]="skinPreview === s"
+                (click)="onSkinCardClick(s)"
+                (mouseenter)="skinPreview = s" (mouseleave)="skinPreview = null">
                 <div class="garage-skin-preview" [style.background]="s.color"></div>
                 <div class="garage-skin-finish" [ngClass]="'finish-' + s.finish"
                   [title]="s.finish + ' finish shader'">{{ s.finish }}</div>

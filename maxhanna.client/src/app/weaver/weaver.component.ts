@@ -76,6 +76,16 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   fileHintsLoading = false;
 
   benchmarks: BenchmarkEntry[] = [];
+  get groupedBenchmarks(): { [key: string]: BenchmarkEntry[] } {
+    const groups: { [key: string]: BenchmarkEntry[] } = {};
+    this.benchmarks.forEach(benchmark => {
+      if(!groups[benchmark.benchmark]) {
+        groups[benchmark.benchmark] = [];
+      }
+      groups[benchmark.benchmark].push(benchmark);
+    });
+    return groups;
+  }
   benchmarkPanelOpen = false;
 
   // --- IDE state ---

@@ -32,6 +32,8 @@ export interface RacingAppearancePart {
 export interface RacingCarAppearance {
   id?: string;                  // stable car identity for per-car renderer state (brake heat)
   rimStyle?: number;            // APPEARANCE_PARTS rims id
+  spoilerId?: number;           // APPEARANCE_PARTS spoiler id (rear-wing element)
+  exhaustId?: number;           // APPEARANCE_PARTS exhaust id (tail tips)
   accent?: [number, number, number];
   decalStyle?: number;          // APPEARANCE_PARTS decal id
   glow?: [number, number, number];
@@ -129,6 +131,14 @@ export const ACCENT_COLORS: Record<number, [number, number, number]> = {
   610: [1.0, 0.35, 0.7],   // pink
   611: [0.2, 0.9, 1.0],    // cyan
   612: [0.7, 1.0, 0.2],    // lime
+  613: [0.78, 0.44, 0.18], // copper
+  614: [0.08, 0.62, 0.62], // teal
+  615: [0.55, 0.05, 0.2],  // burgundy
+  616: [0.07, 0.12, 0.42], // navy
+  617: [0.35, 0.9, 0.7],   // mint
+  618: [1.0, 0.45, 0.35],  // coral
+  619: [0.95, 0.85, 0.6],  // champagne
+  620: [0.35, 0.42, 0.5],  // gunmetal
 };
 
 // Paint finish -> specular/metallic factor for the 3D shader.
@@ -402,4 +412,12 @@ export const APPEARANCE_PARTS: RacingAppearancePart[] = [
   { id: 610, name: 'Pink Accent', category: 'accent', cost: 1000, owned: false, description: 'Hot pink livery stripe & trim' },
   { id: 611, name: 'Cyan Accent', category: 'accent', cost: 1100, owned: false, description: 'Cyan livery stripe & trim' },
   { id: 612, name: 'Lime Accent', category: 'accent', cost: 1200, owned: false, description: 'Acid lime livery stripe & trim' },
+  { id: 613, name: 'Copper Accent', category: 'accent', cost: 1400, owned: false, description: 'Warm copper livery stripe & trim' },
+  { id: 614, name: 'Teal Accent', category: 'accent', cost: 1500, owned: false, description: 'Deep teal livery stripe & trim' },
+  { id: 615, name: 'Burgundy Accent', category: 'accent', cost: 1300, owned: false, description: 'Rich burgundy livery stripe & trim' },
+  { id: 616, name: 'Navy Accent', category: 'accent', cost: 1400, owned: false, description: 'Dark navy livery stripe & trim' },
+  { id: 617, name: 'Mint Accent', category: 'accent', cost: 1600, owned: false, description: 'Fresh mint livery stripe & trim' },
+  { id: 618, name: 'Coral Accent', category: 'accent', cost: 1700, owned: false, description: 'Vivid coral livery stripe & trim' },
+  { id: 619, name: 'Champagne Accent', category: 'accent', cost: 1800, owned: false, description: 'Elegant champagne livery stripe & trim' },
+  { id: 620, name: 'Gunmetal Accent', category: 'accent', cost: 1900, owned: false, description: 'Steel gunmetal livery stripe & trim' },
 ];

@@ -509,6 +509,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   };
   /** Guards against a slow lazy chunk resolving after a newer navigation superseded it. */
   private _createSeq = 0;
+  /** Navigation deferred because the open component has unsaved text input. */
+  private _pendingNav: { componentType: string; inputs?: { [key: string]: any; }; previousComponentParameters?: { [key: string]: any; }; skipHistoryPush: boolean; popFirst?: boolean } | null = null;
   userSelectedNavigationItems: Array<MenuItem> = [];
   constructor(private router: Router,
     private userService: UserService,
@@ -836,6 +838,15 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       return;
     }
 
+    // If the open component has unsaved text (e.g. a draft post), ask it to
+    // confirm discarding before we tear everything down.
+    const unsavedBlocker = this.findUnsavedBlocker();
+    if (unsavedBlocker) {
+      this._pendingNav = { componentType, inputs, previousComponentParameters, skipHistoryPush, popFirst: false };
+      unsavedBlocker.requestDiscardConfirm(() => this.resumePendingNavigation());
+      return;
+    }
+
     this.removeAllComponents();
     if (!skipHistoryPush) {
       this.previousComponent.push({ componentType: componentType, inputs: inputs, previousComponentParameters: previousComponentParameters });
@@ -874,11 +885,48 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     if (this.previousComponent.length <= 1) {
       return;
     }
+    // If the open component has unsaved text, ask it to confirm discarding
+    // BEFORE we unwind history, so cancelling leaves the stack untouched.
+    const target = this.previousComponent[this.previousComponent.length - 2];
+    const unsavedBlocker = this.findUnsavedBlocker();
+    if (unsavedBlocker && target) {
+      this._pendingNav = { componentType: target.componentType, inputs: target.inputs, previousComponentParameters: target.previousComponentParameters, skipHistoryPush: true, popFirst: true };
+      unsavedBlocker.requestDiscardConfirm(() => this.resumePendingNavigation());
+      return;
+    }
     // Drop the entry we're leaving; the new top is where we're returning to.
     this.previousComponent.pop();
-    const target = this.previousComponent[this.previousComponent.length - 1];
-    if (!target) return;
-    this.createComponent(target.componentType, target.inputs, target.previousComponentParameters, true);
+    const t = this.previousComponent[this.previousComponent.length - 1];
+    if (!t) return;
+    this.createComponent(t.componentType, t.inputs, t.previousComponentParameters, true);
+  }
+
+  /**
+   * Top-most open component that has unsaved text-input content and supports the
+   * discard-confirmation contract (hasUnsavedInput + requestDiscardConfirm).
+   */
+  private findUnsavedBlocker(): any {
+    for (let i = this.componentsReferences.length - 1; i >= 0; i--) {
+      const inst: any = this.componentsReferences[i]?.instance;
+      if (inst
+        && typeof inst.hasUnsavedInput === 'function' && inst.hasUnsavedInput()
+        && typeof inst.requestDiscardConfirm === 'function') {
+        return inst;
+      }
+    }
+    return null;
+  }
+
+  /** Re-run the navigation that was deferred by a discard confirmation. */
+  resumePendingNavigation() {
+    const p = this._pendingNav;
+    this._pendingNav = null;
+    if (!p) return;
+    // A deferred goBack() must unwind history now that the user confirmed discard.
+    if (p.popFirst && this.previousComponent.length > 1) {
+      this.previousComponent.pop();
+    }
+    this.createComponent(p.componentType, p.inputs, p.previousComponentParameters, p.skipHistoryPush);
   }
   removeComponent(key: number) {
     if (!this.VCR || this.VCR.length < 1) return;
@@ -1868,12 +1916,31 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       try {
         const res = await this.pollService.vote(this.user?.id ?? 0, checkValue ?? '', componentId);
         this.pollResults = res;
-        this.pollChecked = true;
         this.pollQuestion = pollQuestion;
-        // Render results immediately in-place so users see results instead of clickable options
-        this.renderPollResultsInDom(componentId ?? initialComponentId ?? '', res, pollQuestion);
+        // Render results immediately in-place (bars + who voted + delete vote)
+        // instead of opening the results popup panel — the poll itself becomes
+        // the result view, shared across chat/socials/comments.
+        const targetId = componentId ?? initialComponentId ?? '';
+        if (targetId && res) {
+          const total = res.totalVoters ?? res.totalVotes ?? 0;
+          const mapped = {
+            componentId: targetId,
+            question: pollQuestion || '',
+            options: (res.options ?? []).map((o: any) => {
+              const voteCount = o.voteCount ?? o.VoteCount ?? 0;
+              return {
+                id: o.id ?? o.value ?? o.Value ?? '',
+                text: o.text ?? o.value ?? o.Value ?? '',
+                voteCount,
+                percentage: o.percentage ?? (total > 0 ? Math.round((voteCount / total) * 100) : 0),
+              };
+            }),
+            userVotes: res.userVotes ?? [],
+            totalVotes: total,
+          };
+          this.renderPollIntoElement(targetId, mapped, { includeVoters: true, includeDelete: true, safeQuestion: pollQuestion || '' });
+        }
         this.changeDetectorRef.detectChanges();
-        this.showOverlay();
       } catch (error) {
         console.error("Error updating poll:", error);
         alert("Failed to update poll. Please try again.");
