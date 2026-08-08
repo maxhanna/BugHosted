@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 
 // Shared pending-requests dictionary for command/ack long-polling.
 // BughostedController creates entries; WeaverController.AckCommand completes them.
@@ -633,6 +634,89 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+		[HttpGet("rankings")]
+		public async Task<IActionResult> GetRankings([FromQuery] string token)
+		{
+			try
+			{
+				if (string.IsNullOrWhiteSpace(token) || !_sessions.TryGetValue(token, out var session))
+					return Unauthorized(new { error = "Invalid token" });
+
+				string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+				using var conn = new MySqlConnection(cs);
+				await conn.OpenAsync();
+
+				// Latest heartbeat per user, joined with usernames. The weaver client
+				// reports its rank score/title inside the kanban_data JSON (userScore,
+				// rankTitle) so the leaderboard reflects each user's own rank ladder.
+				string sql = @"
+					SELECT h.user_id, u.username, h.client_id, h.status, h.last_heartbeat, h.kanban_data
+					FROM maxhanna.weaver_heartbeat h
+					INNER JOIN (
+						SELECT user_id, MAX(last_heartbeat) AS last_hb
+						FROM maxhanna.weaver_heartbeat
+						GROUP BY user_id
+					) latest ON latest.user_id = h.user_id AND latest.last_hb = h.last_heartbeat
+					INNER JOIN maxhanna.users u ON u.id = h.user_id";
+
+				using var cmd = new MySqlCommand(sql, conn);
+				cmd.CommandTimeout = 45;
+				using var reader = await cmd.ExecuteReaderAsync();
+
+				var entries = new List<WeaverRankingEntry>();
+				var seen = new HashSet<int>();
+				while (await reader.ReadAsync())
+				{
+					int userId = reader.GetInt32("user_id");
+					if (!seen.Add(userId)) continue; // dedupe ties on identical timestamps
+
+					var entry = new WeaverRankingEntry
+					{
+						UserId = userId,
+						Username = reader.GetString("username"),
+						ClientId = reader.IsDBNull(reader.GetOrdinal("client_id")) ? "" : reader.GetString("client_id"),
+						Status = reader.IsDBNull(reader.GetOrdinal("status")) ? "" : reader.GetString("status"),
+						LastHeartbeat = reader.GetDateTime("last_heartbeat").ToString("O")
+					};
+					if (!reader.IsDBNull(reader.GetOrdinal("kanban_data")))
+					{
+						try
+						{
+							using var doc = JsonDocument.Parse(reader.GetString("kanban_data"));
+							if (doc.RootElement.TryGetProperty("userScore", out var scoreEl) && scoreEl.TryGetInt32(out var score))
+								entry.Score = score;
+							if (doc.RootElement.TryGetProperty("rankTitle", out var titleEl))
+								entry.RankTitle = titleEl.GetString() ?? "";
+						}
+						catch { /* malformed kanban_data — score stays 0 */ }
+					}
+					entries.Add(entry);
+				}
+				reader.Close();
+
+				var ordered = entries.OrderByDescending(e => e.Score).ToList();
+				var result = new List<object>(ordered.Count);
+				for (int i = 0; i < ordered.Count; i++)
+				{
+					result.Add(new
+					{
+						rank = i + 1,
+						userId = ordered[i].UserId,
+						username = ordered[i].Username,
+						rankTitle = ordered[i].RankTitle,
+						score = ordered[i].Score,
+						lastHeartbeat = ordered[i].LastHeartbeat,
+						status = ordered[i].Status
+					});
+				}
+				return Ok(result);
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, new { error = ex.Message });
+			}
+		}
+
 		[HttpGet("fileHints")]
 		public async Task<IActionResult> GetFileHints([FromQuery] string token)
 		{
@@ -910,6 +994,17 @@ namespace maxhanna.Server.Controllers
 		public int UserId { get; set; }
 		public string Username { get; set; } = "";
 		public DateTime CreatedAt { get; set; }
+	}
+
+	public class WeaverRankingEntry
+	{
+		public int UserId { get; set; }
+		public string Username { get; set; } = "";
+		public string ClientId { get; set; } = "";
+		public string Status { get; set; } = "";
+		public string LastHeartbeat { get; set; } = "";
+		public string RankTitle { get; set; } = "";
+		public int Score { get; set; }
 	}
 
 	public class WeaverFulfillFileRequest

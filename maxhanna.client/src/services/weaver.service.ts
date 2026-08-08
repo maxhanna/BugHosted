@@ -46,6 +46,16 @@ export interface WeaverHeartbeatStatus {
   fileRequests?: any[];
 }
 
+export interface WeaverRanking {
+  rank: number;
+  userId: number;
+  username: string;
+  rankTitle: string;
+  score: number;
+  lastHeartbeat: string;
+  status: string;
+}
+
 export interface WeaverRemoteCommand {
   id: number;
   command: string;
@@ -138,6 +148,17 @@ export class WeaverService {
         throw new Error('UNAUTHORIZED');
       }
       throw new Error('Failed to fetch heartbeat status');
+    }
+    return res.json();
+  }
+
+  async getRankings(token: string): Promise<WeaverRanking[]> {
+    const res = await fetch(`/weaver/rankings?token=${encodeURIComponent(token)}`);
+    if (!res.ok) {
+      if (res.status === 401) {
+        throw new Error('UNAUTHORIZED');
+      }
+      throw new Error('Failed to fetch rankings');
     }
     return res.json();
   }

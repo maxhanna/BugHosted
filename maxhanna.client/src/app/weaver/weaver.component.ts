@@ -1,5 +1,5 @@
 ﻿import { Component, Input, OnDestroy, OnInit } from '@angular/core';
-import { WeaverService, WeaverCard, WeaverProject, KanbanPayload, IdeFileEntry, IdeTab, EditorState, BenchmarkEntry, AddCommandResult } from '../../services/weaver.service';
+import { WeaverService, WeaverCard, WeaverProject, KanbanPayload, IdeFileEntry, IdeTab, EditorState, BenchmarkEntry, AddCommandResult, WeaverRanking } from '../../services/weaver.service';
 import { AppComponent } from '../app.component';
 import { ChildComponent } from '../child.component';
 import { UserEventService } from '../../services/user-event.service';
@@ -95,6 +95,9 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   dragCardId: string | null = null;
 
   isMenuPanelOpen = false;
+  rankingsPanelOpen = false;
+  rankings: WeaverRanking[] = [];
+  rankingsLoading = false;
 
   voiceSupported = false;
   isRecording = false;
@@ -433,6 +436,8 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
         }
       }
       this.error = '';
+      // Keep the rankings panel fresh while it's open (silent — no spinner flash)
+      if (this.rankingsPanelOpen) this.loadRankings(true);
     } catch (e: any) {
       if (this.isLoggedIn) {
         if (e?.message === 'UNAUTHORIZED') {
@@ -1370,6 +1375,41 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
 
   closeSettingsPanel() {
     this.settingsPanelOpen = false;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (parent) { try { (parent as any).closeOverlay(); } catch { } }
+  }
+
+  // --- Rankings panel ---
+  async loadRankings(silent = false) {
+    if (!this.token) return;
+    if (!silent) this.rankingsLoading = true;
+    try {
+      this.rankings = await this.weaverService.getRankings(this.token);
+    } catch { /* keep previous list on failure */ }
+    this.rankingsLoading = false;
+  }
+
+  // The server persists heartbeats at most every 5 min, so a live weaver can be
+  // up to ~5 min stale — 6 min is a safe "online" window.
+  isUserOnline(lastHeartbeat: string): boolean {
+    if (!lastHeartbeat) return false;
+    const t = new Date(lastHeartbeat).getTime();
+    if (isNaN(t)) return false;
+    return Date.now() - t < 360000;
+  }
+
+  showRankingsPanel() {
+    this.closeMenuPanel();
+    setTimeout(() => {
+      this.rankingsPanelOpen = true;
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      if (parent) { try { (parent as any).showOverlay(); } catch { } }
+      this.loadRankings();
+    }, 50);
+  }
+
+  closeRankingsPanel() {
+    this.rankingsPanelOpen = false;
     const parent = this.inputtedParentRef ?? this.parentRef;
     if (parent) { try { (parent as any).closeOverlay(); } catch { } }
   }
