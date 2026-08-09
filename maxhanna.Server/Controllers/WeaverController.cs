@@ -653,8 +653,8 @@ namespace maxhanna.Server.Controllers
 				// heartbeat table on every request. Freshness of the online dots and the
 				// last-seen column is overlaid per request with one cheap query instead,
 				// so the board stays live even inside the cache window.
-				List<WeaverRankingEntry> entries;
-				if (!_rankingsCache.TryGetValue(RankingsCacheKey, out entries))
+				List<WeaverRankingEntry>? entries;
+				if (!_rankingsCache.TryGetValue(RankingsCacheKey, out entries) || entries == null)
 				{
 					using var conn = new MySqlConnection(cs);
 					await conn.OpenAsync();

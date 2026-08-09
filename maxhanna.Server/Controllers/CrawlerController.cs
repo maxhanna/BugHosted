@@ -1387,7 +1387,7 @@ namespace maxhanna.Server.Controllers
     /// </summary>
     private async Task<List<Metadata>> FilterOutIndexedUrlsAsync(List<Metadata> results)
     {
-      if (results == null || results.Count == 0) return results;
+      if (results == null || results.Count == 0) return results ?? new List<Metadata>();
       string connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
       if (string.IsNullOrEmpty(connectionString)) return results;
 

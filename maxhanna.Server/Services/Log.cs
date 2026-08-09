@@ -107,11 +107,11 @@ public class Log
       }
       if (hasFromDate)
       {
-        cmd.Parameters.Add("@FromDate", MySqlDbType.DateTime).Value = fromDate.Value;
+        cmd.Parameters.Add("@FromDate", MySqlDbType.DateTime).Value = fromDate!.Value;
       }
       if (hasToDate)
       {
-        cmd.Parameters.Add("@ToDate", MySqlDbType.DateTime).Value = toDate.Value;
+        cmd.Parameters.Add("@ToDate", MySqlDbType.DateTime).Value = toDate!.Value;
       }
       await using var reader = await cmd.ExecuteReaderAsync(CommandBehavior.SingleResult | CommandBehavior.SequentialAccess, ct);
 
@@ -196,11 +196,11 @@ public class Log
       }
       if (hasFromDate)
       {
-        cmd.Parameters.AddWithValue("@FromDate", fromDate.Value);
+        cmd.Parameters.AddWithValue("@FromDate", fromDate!.Value);
       }
       if (hasToDate)
       {
-        cmd.Parameters.AddWithValue("@ToDate", toDate.Value);
+        cmd.Parameters.AddWithValue("@ToDate", toDate!.Value);
       }
 
       var result = await cmd.ExecuteScalarAsync();
