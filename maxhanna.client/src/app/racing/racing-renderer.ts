@@ -1,22 +1,14 @@
 import { RIM_TINTS, DECAL_COLORS, RacingCarAppearance } from '../../services/datacontracts/racing/racing-types';
 
-// Per-decal placement variants — each decal style id gets its own layout so
-// different decals put their artwork in different spots on the car instead of
-// all sharing one geometry. `flank` plates are mirrored to ±z; `center` plates
-// sit on the centreline (z = 0) and are added once. Coordinates hug the body
-// loft's tapered top surface (front is +x), matching the values verified for
-// the original stripe segments.
 export interface DecalLayoutDef {
-  flank: Array<[number, number, number, number, number, number]>; // cx, cy, l, h, d, z
-  center: Array<[number, number, number, number, number]>;        // cx, cy, l, h, d
+  flank: Array<[number, number, number, number, number, number]>;
+  center: Array<[number, number, number, number, number]>;
 }
 export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
-  // Full-length segmented racing stripes (original look).
   401: {
     flank: [[-0.72, 0.235, 0.50, 0.05, 0.09, 0.05], [-0.16, 0.385, 0.34, 0.05, 0.09, 0.05], [0.60, 0.235, 0.42, 0.05, 0.09, 0.05], [1.02, 0.160, 0.34, 0.05, 0.08, 0.045], [-0.16, 0.395, 0.34, 0.05, 0.06, 0.13], [0.60, 0.225, 0.40, 0.05, 0.06, 0.13]],
     center: [[0.68, 0.225, 0.30, 0.05, 0.10], [1.22, 0.13, 0.14, 0.05, 0.10]],
   },
-  // Flames sweep back from the nose across the hood.
   402: {
     flank: [[1.15, 0.145, 0.22, 0.05, 0.08, 0.05], [0.95, 0.17, 0.26, 0.05, 0.08, 0.07], [0.72, 0.205, 0.24, 0.05, 0.07, 0.06], [0.50, 0.24, 0.20, 0.05, 0.06, 0.05]],
     center: [[1.28, 0.125, 0.12, 0.05, 0.08], [0.68, 0.225, 0.16, 0.05, 0.08]],
@@ -1283,15 +1275,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private bankFade(dist: number): number {
     return Math.max(0, Math.min(1, 1 - Math.max(0, dist - 12) / 18));
   }
-  /** Ground height a grounded object should sit at for its (x, z): the terrain
-   *  elevation plus the local banking tilt (bank slope x lateral offset). */
   private groundElev(wx: number, wz: number): number {
     const t = this.terrainAt(wx, wz);
     return t.elev * this.sceneryFade(t.dist) + t.bank * t.lateral * this.bankFade(t.dist);
   }
-  /** Lift scenery vertices onto the terrain (and banking). Water (ocean, valley
-   *  floors) stays flat: those verts all sit below -0.33, while land sits at
-   *  -0.26 and up. */
   private displaceVerts(verts: number[]) {
     const land = -0.33;
     for (let o = 0; o < verts.length; o += 11) {
@@ -3518,9 +3505,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private addJapanScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
     const N = pts.length;
-    // Valley arc: one stretch of the pass where the ground falls away into a
-    // misty valley (the downhill drop) with a river and a small town far below,
-    // then the road climbs back up the far side.
     const valleyStart = Math.floor(N * 0.6);
     const valleyEnd = Math.floor(N * 0.9);
     const slopeW = 36;
@@ -3530,8 +3514,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const latX = -p.dirZ, latZ = p.dirX;
       return (latX * p.x + latZ * p.z) >= 0 ? 1 : -1;
     };
-    // Forest-floor shoulder band around the circuit, skipping the side that
-    // falls away into the valley (the escarpment replaces it there).
     for (let i = 0; i < N; i += 2) {
       const p = pts[i];
       const n = pts[(i + 1) % N];
@@ -3563,13 +3545,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const e2 = [n.x + nox * hwn, 0, n.z + noz * hwn];
       const s1 = [p.x + ox * (hw + slopeW), floorY, p.z + oz * (hw + slopeW)];
       const s2 = [n.x + nox * (hwn + slopeW), floorY, n.z + noz * (hwn + slopeW)];
-      // Sloped escarpment dropping from the track edge to the valley floor.
       this.addQuad(verts, idxs, e1, e2, s2, s1, [0.13, 0.2, 0.12]);
-      // Valley floor.
       const f1 = [p.x + ox * (hw + slopeW + floorW), floorY, p.z + oz * (hw + slopeW + floorW)];
       const f2 = [n.x + nox * (hwn + slopeW + floorW), floorY, n.z + noz * (hwn + slopeW + floorW)];
       this.addQuad(verts, idxs, s1, s2, f2, f1, [0.3, 0.37, 0.33]);
-      // Winding river glinting on the floor.
       const wave = Math.sin(i * 0.3) * 6;
       const rw = 3.6;
       const r1 = [p.x + ox * (hw + slopeW + floorW * 0.55) + ox * wave, floorY + 0.05, p.z + oz * (hw + slopeW + floorW * 0.55) + oz * wave];
@@ -3578,7 +3557,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
         [r2[0] + nox * rw, floorY + 0.05, r2[2] + noz * rw],
         [r1[0] + ox * rw, floorY + 0.05, r1[2] + oz * rw],
         [0.24, 0.42, 0.45]);
-      // Red/white touge guardrail posts along the drop edge plus a white rail.
       if (i % 2 === 0) {
         this.addOrientedBox(verts, idxs,
           (e1[0] + e2[0]) / 2 - ox * 0.35, 0.42, (e1[2] + e2[2]) / 2 - oz * 0.35,
@@ -3590,7 +3568,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
         (e1[0] + e2[0]) / 2, 0.66, (e1[2] + e2[2]) / 2,
         railLen, 0.15, 0.11, p.dirX, p.dirZ, [0.93, 0.93, 0.95]);
     }
-    // Small riverside town on the valley floor (lit warm windows).
     let townIdx = 0;
     for (let i = valleyStart; i < valleyEnd; i += 3) {
       const p = pts[i];
@@ -4059,8 +4036,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addBox(verts, idxs, 0.92, 0.10, 0.13, 0.5, 0.05, 0.02, carbon);
     this.addBox(verts, idxs, 0.92, 0.10, -0.13, 0.5, 0.05, 0.02, carbon);
     this.addBox(verts, idxs, 0.85, 0.02, 0, 0.15, 0.02, 0.08, dark);
-    // Nose tip light + sensor sit ON the physical taper (the nose now reaches
-    // x=1.50), so they don't float in the air ahead of the body.
     this.addBox(verts, idxs, 1.46, 0.062, 0, 0.06, 0.012, 0.015, [0.3, 0.3, 0.35]);
     this.addBox(verts, idxs, 1.50, 0.045, 0, 0.02, 0.02, 0.02, [1, 0.1, 0.1]);
     const frontWingEls = [
@@ -4397,47 +4372,47 @@ void main() { FragColor = texture(uTex, vUV); }`;
         fn(gv, gi);
         animGeoms.set(id, { v: gv, i: gi, pivot, kind });
       };
-      build(101, (gv, gi) => { // Carbon Wing — single tall element, gloss black.
+      build(101, (gv, gi) => {
         endplate(gv, gi, 0.54, 0.70, silver);
         pylon(gv, gi, 0.30, 0.62, carbon); pylon(gv, gi, -0.30, 0.62, carbon);
       });
-      buildAnim(101, [-0.93, 0.62, 0], 'pitch', (gv, gi) => { // main plane, AoA with speed
+      buildAnim(101, [-0.93, 0.62, 0], 'pitch', (gv, gi) => {
         plane(gv, gi, 0.62, 1.00, 0.18, carbon);
       });
-      build(102, (gv, gi) => { // Dual Wing — silver stacked elements, wide.
+      build(102, (gv, gi) => {
         plane(gv, gi, 0.56, 1.06, 0.14, silver);
         endplate(gv, gi, 0.54, 0.76, carbon);
         pylon(gv, gi, 0.30, 0.70, silver); pylon(gv, gi, -0.30, 0.70, silver);
       });
-      buildAnim(102, [-0.92, 0.70, 0], 'pitch', (gv, gi) => { // top element, AoA with speed
+      buildAnim(102, [-0.92, 0.70, 0], 'pitch', (gv, gi) => {
         plane(gv, gi, 0.70, 1.16, 0.20, silver);
       });
-      build(103, (gv, gi) => { // DRS Wing — titanium split main plane + narrow nose.
+      build(103, (gv, gi) => {
         endplate(gv, gi, 0.56, 0.74, titanium);
         pylon(gv, gi, 0.30, 0.68, titanium); pylon(gv, gi, -0.30, 0.68, titanium);
       });
-      buildAnim(103, [-0.92, 0.66, 0], 'drs', (gv, gi) => { // DRS flap — raises at speed
+      buildAnim(103, [-0.92, 0.66, 0], 'drs', (gv, gi) => {
         this.addBox(gv, gi, -1.02, 0.68, -0.28, 0.20, 0.028, 0.40, titanium);
         this.addBox(gv, gi, -1.02, 0.68, 0.28, 0.20, 0.028, 0.40, titanium);
         plane(gv, gi, 0.58, 0.24, 0.14, titanium);
       });
-      build(104, (gv, gi) => { // Gurney Flap — white low plane + tall trailing lip.
+      build(104, (gv, gi) => {
         plane(gv, gi, 0.56, 1.10, 0.16, white);
         endplate(gv, gi, 0.54, 0.66, white);
         pylon(gv, gi, 0.30, 0.56, white); pylon(gv, gi, -0.30, 0.56, white);
       });
-      buildAnim(104, [-1.12, 0.60, 0], 'pitchlift', (gv, gi) => { // trailing lip lifts at speed
+      buildAnim(104, [-1.12, 0.60, 0], 'pitchlift', (gv, gi) => {
         this.addBox(gv, gi, -1.12, 0.60, 0, 0.02, 0.10, 1.06, red);
       });
-      build(105, (gv, gi) => { // Whale Tail — gold long swept wide plane.
+      build(105, (gv, gi) => {
         this.addBox(gv, gi, -1.13, 0.62, 0, 0.16, 0.03, 1.20, gold);
         endplate(gv, gi, 0.56, 0.70, gold);
         pylon(gv, gi, 0.30, 0.58, gold); pylon(gv, gi, -0.30, 0.58, gold);
       });
-      buildAnim(105, [-0.87, 0.58, 0], 'pitch', (gv, gi) => { // long plane, AoA with speed
+      buildAnim(105, [-0.87, 0.58, 0], 'pitch', (gv, gi) => {
         plane(gv, gi, 0.58, 1.24, 0.30, gold);
       });
-      build(106, (gv, gi) => { // Bi-Plane — red double-deck with cross struts.
+      build(106, (gv, gi) => {
         plane(gv, gi, 0.56, 0.92, 0.16, red);
         this.addStrut(gv, gi, -1.02, 0.56, 0, -1.02, 0.74, 0, 0.022, carbon);
         this.addStrut(gv, gi, -1.02, 0.56, 0.30, -1.02, 0.74, 0.30, 0.022, carbon);
@@ -4445,29 +4420,22 @@ void main() { FragColor = texture(uTex, vUV); }`;
         endplate(gv, gi, 0.56, 0.78, carbon);
         pylon(gv, gi, 0.30, 0.74, red); pylon(gv, gi, -0.30, 0.74, red);
       });
-      buildAnim(106, [-0.94, 0.74, 0], 'throttle', (gv, gi) => { // top deck dives under braking
+      buildAnim(106, [-0.94, 0.74, 0], 'throttle', (gv, gi) => {
         plane(gv, gi, 0.74, 1.02, 0.16, red);
       });
-      build(107, (gv, gi) => { // Aero DRS+ — teal triple stacked element.
+      build(107, (gv, gi) => {
         plane(gv, gi, 0.56, 0.94, 0.12, teal);
         endplate(gv, gi, 0.56, 0.84, carbon);
         pylon(gv, gi, 0.30, 0.78, teal); pylon(gv, gi, -0.30, 0.78, teal);
       });
-      buildAnim(107, [-1.02, 0.73, 0], 'roll', (gv, gi) => { // upper stack banks with steering
+      buildAnim(107, [-1.02, 0.73, 0], 'roll', (gv, gi) => {
         this.addBox(gv, gi, -1.02, 0.68, -0.26, 0.16, 0.024, 0.32, teal);
         this.addBox(gv, gi, -1.02, 0.68, 0.26, 0.16, 0.024, 0.32, teal);
         plane(gv, gi, 0.78, 1.08, 0.18, teal);
       });
     }
-    // Exhaust upgrades — tail tips poking out of the rear deck, one VAO per id.
     const exhaustGeoms = new Map<number, { v: number[]; i: number[] }>();
     {
-      // The body loft's rear face sits at x = -1.06 with the deck ~0.19 high;
-      // the rear wing starts above y ≈ 0.35 and the diffuser tops out at
-      // ~0.10. Tips are placed in the clear band behind the bodywork (x ≈
-      // -1.12, y ≈ 0.14) so they visibly protrude from the tail instead of
-      // being buried inside the shell — this is what made every exhaust look
-      // identical (invisible) in the garage before.
       const silver = [0.8, 0.82, 0.88];
       const titanium = [0.42, 0.62, 0.95];
       const carbon = [0.12, 0.12, 0.14];
@@ -4483,21 +4451,21 @@ void main() { FragColor = texture(uTex, vUV); }`;
         fn(gv, gi);
         exhaustGeoms.set(id, { v: gv, i: gi });
       };
-      build(301, (gv, gi) => { // Sport Exhaust — twin chrome tips.
+      build(301, (gv, gi) => {
         tip(gv, gi, 0.14, 0.06, 0.06, silver);
         tip(gv, gi, -0.14, 0.06, 0.06, silver);
       });
-      build(302, (gv, gi) => { // Titanium Tips — blue-burn tips.
+      build(302, (gv, gi) => {
         tip(gv, gi, 0.14, 0.06, 0.06, titanium);
         tip(gv, gi, -0.14, 0.06, 0.06, titanium);
       });
-      build(303, (gv, gi) => { // Twin Exhaust — four chrome tips.
+      build(303, (gv, gi) => {
         tip(gv, gi, 0.09, 0.05, 0.05, silver);
         tip(gv, gi, 0.19, 0.05, 0.05, silver);
         tip(gv, gi, -0.09, 0.05, 0.05, silver);
         tip(gv, gi, -0.19, 0.05, 0.05, silver);
       });
-      build(304, (gv, gi) => { // Quad — four large tips with carbon surround.
+      build(304, (gv, gi) => {
         surround(gv, gi, 0.09, 0.065, 0.06);
         surround(gv, gi, 0.19, 0.065, 0.06);
         surround(gv, gi, -0.09, 0.065, 0.06);
@@ -4507,7 +4475,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
         tip(gv, gi, -0.09, 0.065, 0.06, silver);
         tip(gv, gi, -0.19, 0.065, 0.06, silver);
       });
-      build(305, (gv, gi) => { // Carbon Exhaust — dark tips.
+      build(305, (gv, gi) => {
         surround(gv, gi, 0.14, 0.06, 0.06);
         surround(gv, gi, -0.14, 0.06, 0.06);
         tip(gv, gi, 0.14, 0.06, 0.06, carbon);
@@ -4541,9 +4509,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.bindVertexArray(null);
     for (const [id, geom] of exhaustGeoms) this.exhaustVaos.set(id, buildPartVao(geom));
     gl.bindVertexArray(null);
-    // Hot-exhaust glow sprites — soft additive blooms baked at each exhaust
-    // variant's tip positions (car-local, facing the rear like the tips). Id 0
-    // covers the stock tail pipes in the body mesh so every car gets the heat.
     const exhaustGlowGeoms = new Map<number, { v: number[]; i: number[] }>();
     {
       const hs = 0.11;
@@ -5850,11 +5815,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
     }
   }
-  /** Paint-debris flecks kicked off the bodywork at a car-vs-car contact
-   *  point. Reuses the smoke particle pool with a `chip` mode: gravity, a soft
-   *  ground bounce and shrink-over-life so they read as solid little shards of
-   *  paint (plus a few dark carbon bits) instead of smoke puffs. `impact` is a
-   *  0..1 strength that scales the burst size and throw speed. */
   emitPaintChips(x: number, z: number, yaw: number, paint: [number, number, number], impact: number = 0.5) {
     if (this._smokeParticles.length >= this._smokeMax) return;
     const count = 4 + Math.round(impact * 8) + Math.floor(Math.random() * 3);
@@ -5865,10 +5825,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const col: [number, number, number] = dark
         ? [0.12 + Math.random() * 0.1, 0.11 + Math.random() * 0.1, 0.1 + Math.random() * 0.1]
         : [
-            paint[0] * (0.8 + Math.random() * 0.4),
-            paint[1] * (0.8 + Math.random() * 0.4),
-            paint[2] * (0.8 + Math.random() * 0.4),
-          ];
+          paint[0] * (0.8 + Math.random() * 0.4),
+          paint[1] * (0.8 + Math.random() * 0.4),
+          paint[2] * (0.8 + Math.random() * 0.4),
+        ];
       this._smokeParticles.push({
         x: x + (Math.random() - 0.5) * 0.6,
         y: 0.25 + Math.random() * 0.35,
@@ -6966,9 +6926,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.renderMirror(eyeX, eyeY, eyeZ, yaw, cars, dt, isRaining, playerSpeed, playerAccel, playerSpin, playerSlide, playerAppearance, heatStrength, playerSteer);
     }
   }
-  /** Turntable view of the real race car (same mesh + appearance as on track) for
-   *  the garage. `vp` is the canvas-pixel rectangle of the preview stage so the
-   *  car fills exactly the preview column on desktop and the top strip on mobile. */
   renderGarage(rotY: number, rotX: number, zoom: number, appearance: RacingCarAppearance,
     vp: { x: number; y: number; w: number; h: number }, dt: number = 0) {
     const gl = this.gl;
@@ -6981,11 +6938,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.disable(gl.CULL_FACE);
     const w = Math.max(1, Math.round(vp.w));
     const h = Math.max(1, Math.round(vp.h));
-    // vp comes from getGarageStageViewport(), which measures the stage DOM rect
-    // with top-origin coordinates, but gl.viewport() takes bottom-origin pixels
-    // (y = distance from the framebuffer's bottom edge). Without the flip the
-    // car lands ~vp.y from the BOTTOM of the canvas — on portrait phones that
-    // shoves the garage car down to the bottom of the page behind the catalog.
     const vpY = Math.round(gl.canvas.height - vp.y - h);
     gl.viewport(Math.round(vp.x), vpY, w, h);
     const aspect = w / h;
@@ -7019,7 +6971,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform1i(this.hasTexLoc, 1);
     gl.bindTexture(gl.TEXTURE_2D, this.glowTex);
-    // Soft floor shadow under the parked car (dark ellipse blob, same glow quad).
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     this.mat4Identity(this.modelMatrix);
@@ -7035,7 +6986,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.bindVertexArray(null);
     gl.uniform1f(this.alphaLoc, 1);
     gl.disable(gl.BLEND);
-    // The real race car — same draw path as on track, so garage == racing model.
     const skin = appearance.skin ?? [0.85, 0.06, 0.06];
     this.renderCar(0, 0, 0, 0, skin[0], skin[1], skin[2], 0, 0, 0, 0, appearance);
     gl.bindVertexArray(null);
@@ -8118,8 +8068,8 @@ void main() {
     // Wavy shimmer quad behind the barrels (car-local, facing rear -x).
     const hx = -1.38, hy0 = 0.05, hy = 0.40, hw = 0.46;
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-      hx, hy0, -hw,  hx, hy0 + hy, -hw,  hx, hy0 + hy, hw,
-      hx, hy0, -hw,  hx, hy0 + hy, hw,  hx, hy0, hw,
+      hx, hy0, -hw, hx, hy0 + hy, -hw, hx, hy0 + hy, hw,
+      hx, hy0, -hw, hx, hy0 + hy, hw, hx, hy0, hw,
     ]), gl.STATIC_DRAW);
     const posLoc = gl.getAttribLocation(this._exhHeatProg, 'aPos');
     gl.enableVertexAttribArray(posLoc);
