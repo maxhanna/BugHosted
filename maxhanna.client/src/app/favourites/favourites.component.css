@@ -1,12 +1,11 @@
-.componentMain {
+﻿.componentMain {
   min-width: 300px;
 }
 
 .topLinks {
   align-content: center;
   text-align: center;
-  max-height: CALC(100vh - 185px);
-  max-height: CALC(100dvh - 185px);
+  max-height: calc(100vh - 185px);
   overflow: auto;
   border: var(--main-border);
   margin: 10px;
@@ -14,35 +13,29 @@
   background-color: var(--main-highlight-color);
 }
 
-@media only screen and (max-width : 330px) {
+@media only screen and (max-width: 330px) { 
   .topLinks {
-    max-height: CALC(100vh - 340px);
-    max-height: CALC(100dvh - 340px);
-  }
-} 
-
-@media only screen and (min-width: 330px) and (max-width : 345px) {
-  .topLinks {
-    max-height: CALC(100vh - 300px);
-    max-height: CALC(100dvh - 300px);
+    max-height: calc(100vh - 340px);
   }
 }
 
-@media only screen and (min-width: 345px) and (max-width : 445px) {
+@media only screen and (min-width: 330px) and (max-width: 345px) { 
   .topLinks {
-    max-height: CALC(100vh - 270px);
-    max-height: CALC(100dvh - 270px);
+    max-height: calc(100vh - 300px);
   }
 }
 
-@media only screen and (min-width: 445px) and (max-width : 815px) {
+@media only screen and (min-width: 345px) and (max-width: 445px) { 
   .topLinks {
-    max-height: CALC(100vh - 230px);
-    max-height: CALC(100dvh - 230px);
+    max-height: calc(100vh - 270px);
   }
-} 
+}
 
- 
+@media only screen and (min-width: 445px) and (max-width: 815px) { 
+  .topLinks {
+    max-height: calc(100vh - 230px);
+  }
+}
 
 .favouritesTitle {
   text-align: center;
@@ -93,16 +86,14 @@
   box-shadow: 3px 2px 6px var(--main-highlight-color-quarter-opacity);
 }
 
-.favouriteDiv img,
-.favImage {
+.favouriteDiv img, .favImage {
   max-width: 50px;
   max-height: 50px;
 }
 
 .favouriteDiv a {
   display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
+  flex-flow: column nowrap;
   align-content: center;
   justify-content: center;
   align-items: center;
@@ -112,12 +103,10 @@
   padding: 10px;
   min-height: 200px;
   display: flex;
-  column-gap: 40px;
-  flex-direction: row;
+  gap: 40px 10px;
+  flex-flow: row wrap;
   justify-content: center;
   align-items: center;
-  flex-wrap: wrap;
-  row-gap: 10px;
   align-content: center;
 }
 
@@ -167,7 +156,7 @@
   width: 15px;
   height: 15px;
   position: relative;
-  bottom: CALC(100% - 40px);
+  bottom: calc(100% - 40px);
   right: -30px;
   z-index: 1;
   color: var(--third-font-color);
@@ -184,7 +173,6 @@
 
 .specialStatsDiv {
   display: flex;
-  justify-content: space-evenly !important;
   text-align: left !important;
 }
 
@@ -195,6 +183,7 @@
 }
 
 /* Add to your component's CSS or global styles */
+
 .optionsStatsDescription input {
   padding-right: 30px;
   width: 100%;
@@ -210,11 +199,11 @@
   border: none;
   cursor: pointer;
   padding: 0;
-  color: #666;
+  color: rgba(102, 102, 102, 1);
 }
 
 .search-icon-button:hover {
-  color: #333;
+  color: rgba(51, 51, 51, 1);
 }
 
 .search-input-container {
@@ -222,9 +211,10 @@
   display: inline-block;
 }
 
+/* Make space for the search button */
+
 .search-input-container input {
   padding-right: 30px;
-  /* Make space for the search button */
 }
 
 .search-button {
@@ -236,11 +226,11 @@
   border: none;
   cursor: pointer;
   padding: 0;
-  color: #666;
+  color: rgba(102, 102, 102, 1);
 }
 
 .search-button:hover {
-  color: #333;
+  color: rgba(51, 51, 51, 1);
 }
 
 .search-button:disabled {
@@ -255,13 +245,37 @@
   display: block;
 }
 
+/* Ensure table doesn't exceed parent container */
+
 .favouritesTable {
   border-collapse: collapse;
   width: 100%;
+  max-width: 100%;
 }
 
 .favouritesTable tbody tr td {
-  transition: box-shadow .12s ease, text-decoration .12s ease;
+  transition: box-shadow0.12s ease, text-decoration0.12s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Apply consistent table cell truncation styling */
+
+.descriptionText {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Add ellipsis when truncated */
+
+/* Apply consistent table cell truncation styling */
+
+.favoritesTable tbody tr td .titleMain, .favouritesTable tbody tr td a {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .favouritesTable tbody tr:hover {
@@ -269,13 +283,13 @@
 }
 
 .favouritesTable tbody tr:hover td {
-  text-decoration: underline dotted;
+  text-decoration: dotted underline;
   box-shadow: 1px 1px 6px rgba(0, 0, 0, 0.12);
 }
 
 /* Prevent breaking inside words — only allow breaks on whitespace */
-.favouritesTable th,
-.favouritesTable td {
+
+.favouritesTable th, .favouritesTable td {
   word-break: normal;
   overflow-wrap: normal;
   white-space: normal;
@@ -286,6 +300,7 @@
 }
 
 /* Site icon in table rows */
+
 .siteIconCell {
   padding: 6px;
   vertical-align: middle;
@@ -303,8 +318,7 @@
 .titleCell .titleMain {
   font-weight: 600;
   font-size: x-large;
-  text-decoration: underline;
-  text-decoration-color: var(--main-link-color);
+  text-decoration: var(--main-link-color) underline;
   cursor: pointer;
   padding: 10px;
 }
@@ -319,6 +333,5 @@
 
 .stickyTableHeader {
   position: sticky;
-  top: 00;
   background: var(--gradient-background);
 }

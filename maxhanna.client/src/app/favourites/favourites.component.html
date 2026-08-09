@@ -1,4 +1,4 @@
-<div class="componentMain">
+﻿<div class="componentMain">
   <app-title-bar 
     [title]="'Favourites'"
     (menuClicked)="showMenuPanel()"
@@ -77,8 +77,8 @@
               </td>
               <td class="titleCell">
                 <div class="titleMain" (click)="$event.stopPropagation(); visitExternalLink(fav, true)">{{fav.name && fav.name.trim() ? fav.name : ''}}</div>
-                <div>
-                  <a href="{{fav.url}}" target="_blank" (click)="$event.stopPropagation(); visitExternalLink(fav)">{{fav.url}}</a>
+                <div class="descriptionText">
+                <a href="{{fav.url}}" target="_blank" (click)="$event.stopPropagation(); visitExternalLink(fav)">{{fav.url}}</a>
                 </div>
               </td> 
               <td *ngIf="!onMobile()">{{fav.userCount}}</td>

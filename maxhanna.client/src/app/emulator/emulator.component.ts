@@ -2144,22 +2144,22 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
      const gbABRule = (this.system === 'gba' || this.system === 'gb' || this.system === 'gbc')
        ? `
      .max-pill.is-a {
-       background-color: #e53935 !important;
-       border-color: #b71c1c !important;
+       background-color: #c3564a !important;
+       border-color: #8f362c !important;
        color: #fff !important;
        box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.35), inset 0 2px 3px rgba(255, 255, 255, 0.25);
      }
      .max-pill.is-a.ejs_virtualGamepad_button_down {
-       background-color: #c62828 !important;
+       background-color: #a6443a !important;
      }
      .max-pill.is-b {
-       background-color: #8e24aa !important;
-       border-color: #4a148c !important;
+       background-color: #8a4da3 !important;
+       border-color: #5a3370 !important;
        color: #fff !important;
        box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.35), inset 0 2px 3px rgba(255, 255, 255, 0.25);
      }
      .max-pill.is-b.ejs_virtualGamepad_button_down {
-       background-color: #6a1b9a !important;
+       background-color: #733f8a !important;
      }`
        : '';
 
