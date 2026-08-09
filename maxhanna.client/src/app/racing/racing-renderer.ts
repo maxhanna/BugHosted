@@ -6981,7 +6981,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.disable(gl.CULL_FACE);
     const w = Math.max(1, Math.round(vp.w));
     const h = Math.max(1, Math.round(vp.h));
-    gl.viewport(Math.round(vp.x), Math.round(vp.y), w, h);
+    // vp comes from getGarageStageViewport(), which measures the stage DOM rect
+    // with top-origin coordinates, but gl.viewport() takes bottom-origin pixels
+    // (y = distance from the framebuffer's bottom edge). Without the flip the
+    // car lands ~vp.y from the BOTTOM of the canvas — on portrait phones that
+    // shoves the garage car down to the bottom of the page behind the catalog.
+    const vpY = Math.round(gl.canvas.height - vp.y - h);
+    gl.viewport(Math.round(vp.x), vpY, w, h);
     const aspect = w / h;
     const dist = 4.1 / Math.max(0.45, zoom);
     const yaw = (rotY * Math.PI) / 180;
