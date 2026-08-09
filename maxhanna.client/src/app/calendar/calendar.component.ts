@@ -515,9 +515,9 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   // must normalize before calling any Date method — it runs inside the edit
   // panel's template, where a throw would abort change detection and leave the
   // note/type inputs empty (the time input rendered, everything after failed).
-  tzOffsetLabel(date?: Date | string): string {
-    if (!date) return '';
-    const d = typeof date === 'string' ? new Date(date) : date;
+  tzOffsetLabel(date?: Date | string | number | null): string {
+    if (date === null || date === undefined || date === '') return '';
+    const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
     if (isNaN(d.getTime())) return '';
     const m = -d.getTimezoneOffset();
     if (m === 0) return 'UTC';
@@ -526,6 +526,18 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     const h = Math.floor(abs / 60);
     const mm = abs % 60;
     return `UTC${sign}${h}${mm ? ':' + String(mm).padStart(2, '0') : ''}`;
+  }
+
+  // Safe HH:mm for the edit panel's <input type="time">. The raw `| date` pipe
+  // throws InvalidPipeArgument on unparseable dates, which aborts change
+  // detection and blanks everything below the time row (the note + type
+  // inputs) — so format here where any date shape (ISO string, Date, epoch
+  // number, null, malformed) degrades to '' instead of throwing.
+  editTimeValue(date?: Date | string | number | null): string {
+    if (date === null || date === undefined || date === '') return '';
+    const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return '';
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   }
   getEventTypes(): string[] {
     return Object.keys(this.eventSymbolMap);

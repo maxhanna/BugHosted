@@ -225,6 +225,12 @@ const BODY_LOFT: LoftStation[] = [
   { x: 1.04, y: 0.10, h: 0.11, w: 0.21 },
   { x: 1.22, y: 0.09, h: 0.08, w: 0.14 },
   { x: 1.38, y: 0.09, h: 0.06, w: 0.08 },
+  // Nose taper — real geometry that physically wraps down over the front so
+  // number plates and emblems curve over a surface that actually exists
+  // (station tops follow the old phantom wrap curve 0.12 → 0.045).
+  { x: 1.42, y: 0.07, h: 0.05, w: 0.05 },
+  { x: 1.46, y: 0.055, h: 0.03, w: 0.03 },
+  { x: 1.50, y: 0.04, h: 0.01, w: 0.012 },
 ];
 const HUMP_LOFT: LoftStation[] = [
   { x: 0.13, y: 0.30, h: 0.035, w: 0.26 },
@@ -264,24 +270,32 @@ function loftTopY(stations: LoftStation[], x: number, z: number): number {
 /** Highest painted surface at (x, z): the main body or the cockpit hump. The
  *  hump only exists between its own stations — past them its clamped loft would
  *  report a flat phantom height and float plates in the air, so it's excluded
- *  there. Beyond the last body station the surface wraps down over the rounded
- *  nose tip, letting number plates and emblems curve over the front instead of
- *  ending flat at the tip. */
+ *  there. The nose taper lives in BODY_LOFT itself, so plates curve over the
+ *  front onto geometry that physically exists instead of a phantom wrap. */
 const carBodyTopY = (x: number, z: number) => {
   // The cockpit hump is a small dome (x 0.13..0.47, |z| <= half-width) — only
   // sample it where it physically exists, or plates near it would sit on a flat
   // phantom height and float above the body.
   const inHump = x >= HUMP_LOFT[0].x && x <= HUMP_LOFT[HUMP_LOFT.length - 1].x && Math.abs(z) <= HUMP_LOFT[0].w / 2;
   const humpY = inHump ? loftTopY(HUMP_LOFT, x, z) : -Infinity;
-  let bodyY = loftTopY(BODY_LOFT, x, z);
-  const last = BODY_LOFT[BODY_LOFT.length - 1];
-  if (x > last.x) {
-    const t = Math.min(1, (x - last.x) / 0.12);
-    const tipTop = last.y + last.h / 2;
-    bodyY = Math.min(bodyY, tipTop - t * (tipTop - 0.045));
-  }
+  const bodyY = loftTopY(BODY_LOFT, x, z);
   return Math.max(bodyY, humpY);
 };
+/** Half-width of a loft at x (interpolated between stations) — used to clamp
+ *  plate z-extents to the physical surface so plates never float off the side
+ *  of the body where no mesh exists. */
+function loftHW(stations: LoftStation[], x: number): number {
+  let s0 = stations[0], s1 = stations[stations.length - 1];
+  if (x <= s0.x) { s1 = s0; }
+  else if (x >= s1.x) { s0 = s1; }
+  else {
+    for (let i = 0; i < stations.length - 1; i++) {
+      if (x >= stations[i].x && x <= stations[i + 1].x) { s0 = stations[i]; s1 = stations[i + 1]; break; }
+    }
+  }
+  const f = s1.x === s0.x ? 0 : (x - s0.x) / (s1.x - s0.x);
+  return (s0.w + (s1.w - s0.w) * f) / 2;
+}
 /** Side-pod top surface (symmetric about z=0). */
 const carPodTopY = (x: number, z: number) => loftTopY(POD_LOFT, x, Math.abs(z));
 
@@ -1630,8 +1644,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // shoulder so the post stays planted instead of sinking into the tilt.
     const bankOff = (pt.bank ?? 0) * off;
     // Classic racing-yellow direction board: black frame, yellow face, black
-    // arrow that points across the track into the corner (headDir picks the
-    // sign so both roadside boards show the same turn direction to the driver).
+    // arrow that points across the track into the corner. The board faces the
+    // oncoming driver (normal = -heading, so it reads from the approach) and
+    // spans laterally along the perpendicular; the arrow points along +perp
+    // for a left-hand bend (turnDir=+1) and -perp for a right-hand bend, so
+    // BOTH roadside boards show the same turn direction to the driver.
     const RIM: [number, number, number] = [0.05, 0.05, 0.05];
     const FACE: [number, number, number] = [0.97, 0.8, 0.05];
     const INK: [number, number, number] = [0.05, 0.05, 0.05];
@@ -1640,11 +1657,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const sx = px * sideCode, sz = pz * sideCode;
       const cx = pt.x + sx * off;
       const cz = pt.z + sz * off;
-      const nx = -sx, nz = -sz;
-      const headDir = turnDir * sideCode;
+      // Face the driver coming up the track instead of the side of the road,
+      // so the sign is readable head-on and the arrow's left/right reads true.
+      const nx = -hx, nz = -hz;
+      const headDir = turnDir;
       const base = barVerts.length / 11;
       const V = (u: number, v: number, e: number, r: number, g: number, b: number) => {
-        barVerts.push(cx + u * hx + nx * e, v + bankOff, cz + u * hz + nz * e, nx, 0, nz, r, g, b, 0, 0);
+        barVerts.push(cx + u * px + nx * e, v + bankOff, cz + u * pz + nz * e, nx, 0, nz, r, g, b, 0, 0);
       };
       const quad = (b00: number, b01: number, b10: number, b11: number) => {
         barIdxs.push(b00, b01, b10);
@@ -4040,8 +4059,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addBox(verts, idxs, 0.92, 0.10, 0.13, 0.5, 0.05, 0.02, carbon);
     this.addBox(verts, idxs, 0.92, 0.10, -0.13, 0.5, 0.05, 0.02, carbon);
     this.addBox(verts, idxs, 0.85, 0.02, 0, 0.15, 0.02, 0.08, dark);
-    this.addBox(verts, idxs, 1.40, 0.10, 0, 0.06, 0.015, 0.015, [0.3, 0.3, 0.35]);
-    this.addBox(verts, idxs, 1.44, 0.10, 0, 0.02, 0.02, 0.02, [1, 0.1, 0.1]);
+    // Nose tip light + sensor sit ON the physical taper (the nose now reaches
+    // x=1.50), so they don't float in the air ahead of the body.
+    this.addBox(verts, idxs, 1.46, 0.062, 0, 0.06, 0.012, 0.015, [0.3, 0.3, 0.35]);
+    this.addBox(verts, idxs, 1.50, 0.045, 0, 0.02, 0.02, 0.02, [1, 0.1, 0.1]);
     const frontWingEls = [
       { x: 1.22, y: 0.05, span: 1.55, l: 0.36, h: 0.025, lift: 0.025 },
       { x: 1.15, y: 0.09, span: 1.48, l: 0.22, h: 0.025, lift: 0.022 },
@@ -4273,12 +4294,19 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const layout = DECAL_LAYOUTS[styleId] ?? DECAL_LAYOUTS[401];
       const gv: number[] = [];
       const gi: number[] = [];
+      // Plates are clamped to the body's physical half-width so their outer
+      // edges hug the loft (narrowing with the nose taper) instead of hanging
+      // in the air past the surface.
+      const bodyClamp = (x: number): [number, number] => {
+        const hw = loftHW(BODY_LOFT, x);
+        return [-hw, hw];
+      };
       for (const [cx, , l, , d, z] of layout.flank) {
-        this.addSurfacePlate(gv, gi, cx, z, l, d, carBodyTopY, [1, 1, 1]);
-        this.addSurfacePlate(gv, gi, cx, -z, l, d, carBodyTopY, [1, 1, 1]);
+        this.addSurfacePlate(gv, gi, cx, z, l, d, carBodyTopY, [1, 1, 1], 0.006, bodyClamp);
+        this.addSurfacePlate(gv, gi, cx, -z, l, d, carBodyTopY, [1, 1, 1], 0.006, bodyClamp);
       }
       for (const [cx, , l, , d] of layout.center) {
-        this.addSurfacePlate(gv, gi, cx, 0, l, d, carBodyTopY, [1, 1, 1]);
+        this.addSurfacePlate(gv, gi, cx, 0, l, d, carBodyTopY, [1, 1, 1], 0.006, bodyClamp);
       }
       const decVao = gl.createVertexArray()!;
       gl.bindVertexArray(decVao);
@@ -5082,8 +5110,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
   /** Flat livery plate that hugs a loft's top surface like a tattoo/wrap.
    * Corners are sampled on the surface (with a tiny lift so the plate never
    * z-fights the paint beneath), and the quad is split 6×2 so it follows the
-   * body's slope and curvature instead of poking out as a solid block. */
-  private addSurfacePlate(verts: number[], idxs: number[], cx: number, cz: number, l: number, d: number, topY: (x: number, z: number) => number, color: number[], lift = 0.006) {
+   * body's slope and curvature instead of poking out as a solid block.
+   * clampZ (optional) caps the plate's z-extent to the loft's physical half-
+   * width per column, so plates narrow with the body and never float off the
+   * sides of the nose where no mesh exists. */
+  private addSurfacePlate(verts: number[], idxs: number[], cx: number, cz: number, l: number, d: number, topY: (x: number, z: number) => number, color: number[], lift = 0.006, clampZ?: (x: number) => [number, number]) {
     const hl = l / 2, hd = d / 2;
     // Adaptive subdivision: bigger plates (number plates, emblems) get more
     // segments so they follow the loft's curvature over the nose and side pods
@@ -5094,12 +5125,21 @@ void main() { FragColor = texture(uTex, vUV); }`;
       for (let ri = 0; ri < rows; ri++) {
         const x0 = cx - hl + (l / cols) * ci;
         const x1 = x0 + l / cols;
-        const z0 = cz - hd + (d / rows) * ri;
-        const z1 = z0 + d / rows;
-        const p00 = [x0, topY(x0, z0) + lift, z0];
-        const p10 = [x1, topY(x1, z0) + lift, z0];
-        const p11 = [x1, topY(x1, z1) + lift, z1];
-        const p01 = [x0, topY(x0, z1) + lift, z1];
+        const zBase0 = cz - hd + (d / rows) * ri;
+        const zBase1 = zBase0 + d / rows;
+        const clampAt = (px: number, pz: number) => {
+          if (!clampZ) return pz;
+          const [zMin, zMax] = clampZ(px);
+          return Math.max(zMin, Math.min(zMax, pz));
+        };
+        const z00 = clampAt(x0, zBase0);
+        const z10 = clampAt(x1, zBase0);
+        const z11 = clampAt(x1, zBase1);
+        const z01 = clampAt(x0, zBase1);
+        const p00 = [x0, topY(x0, z00) + lift, z00];
+        const p10 = [x1, topY(x1, z10) + lift, z10];
+        const p11 = [x1, topY(x1, z11) + lift, z11];
+        const p01 = [x0, topY(x0, z01) + lift, z01];
         this.addQuad(verts, idxs, p00, p01, p11, p10, color);
       }
     }

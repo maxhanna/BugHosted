@@ -252,13 +252,18 @@ export const UPGRADE_DEFS: RacingCarUpgrade[] = [
   { id: 3, name: 'Stage 3 Engine', category: 'engine', level: 3, maxLevel: 5, cost: 2000, description: '+15% Top Speed', statBonus: 15 },
   { id: 4, name: 'Stage 4 Engine', category: 'engine', level: 4, maxLevel: 5, cost: 6000, description: '+20% Top Speed', statBonus: 20 },
   { id: 5, name: 'Stage 5 Engine', category: 'engine', level: 5, maxLevel: 5, cost: 18000, description: '+25% Top Speed', statBonus: 25 },
-  { id: 6, name: 'Sport Tires', category: 'tires', level: 1, maxLevel: 4, cost: 300, description: '+5% Grip', statBonus: 5 },
-  { id: 7, name: 'Racing Tires', category: 'tires', level: 2, maxLevel: 4, cost: 800, description: '+12% Grip', statBonus: 12 },
-  { id: 8, name: 'Slick Tires', category: 'tires', level: 3, maxLevel: 4, cost: 2000, description: '+20% Grip', statBonus: 20 },
-  { id: 9, name: 'Hyper Tires', category: 'tires', level: 4, maxLevel: 4, cost: 6000, description: '+30% Grip', statBonus: 30 },
-  { id: 10, name: 'Sport Suspension', category: 'suspension', level: 1, maxLevel: 3, cost: 400, description: '+5% Cornering', statBonus: 5 },
-  { id: 11, name: 'Race Suspension', category: 'suspension', level: 2, maxLevel: 3, cost: 1200, description: '+12% Cornering', statBonus: 12 },
-  { id: 12, name: 'Pro Suspension', category: 'suspension', level: 3, maxLevel: 3, cost: 3500, description: '+20% Cornering', statBonus: 20 },
+  // Tire grip bonuses are deliberately half of what they used to be — the old
+  // +30% Hyper Tires pushed effective grip (0.85 base) to 1.15, which made a
+  // fully-upgraded car snap across the track from a small steering input.
+  { id: 6, name: 'Sport Tires', category: 'tires', level: 1, maxLevel: 4, cost: 300, description: '+2.5% Grip', statBonus: 2.5 },
+  { id: 7, name: 'Racing Tires', category: 'tires', level: 2, maxLevel: 4, cost: 800, description: '+6% Grip', statBonus: 6 },
+  { id: 8, name: 'Slick Tires', category: 'tires', level: 3, maxLevel: 4, cost: 2000, description: '+10% Grip', statBonus: 10 },
+  { id: 9, name: 'Hyper Tires', category: 'tires', level: 4, maxLevel: 4, cost: 6000, description: '+15% Grip', statBonus: 15 },
+  // Suspension cornering bonuses are halved like the tire grip curve above, so
+  // handling upgrades stay proportional to the new tire payoff.
+  { id: 10, name: 'Sport Suspension', category: 'suspension', level: 1, maxLevel: 3, cost: 400, description: '+2.5% Cornering', statBonus: 2.5 },
+  { id: 11, name: 'Race Suspension', category: 'suspension', level: 2, maxLevel: 3, cost: 1200, description: '+6% Cornering', statBonus: 6 },
+  { id: 12, name: 'Pro Suspension', category: 'suspension', level: 3, maxLevel: 3, cost: 3500, description: '+10% Cornering', statBonus: 10 },
   { id: 13, name: 'Stage 1 Brakes', category: 'brakes', level: 1, maxLevel: 3, cost: 250, description: '+10% Braking', statBonus: 10 },
   { id: 14, name: 'Stage 2 Brakes', category: 'brakes', level: 2, maxLevel: 3, cost: 700, description: '+20% Braking', statBonus: 20 },
   { id: 15, name: 'Stage 3 Brakes', category: 'brakes', level: 3, maxLevel: 3, cost: 1800, description: '+30% Braking', statBonus: 30 },

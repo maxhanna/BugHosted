@@ -48,7 +48,7 @@
       <h3>Convert to another format</h3>
       <span class="step-hint" *ngIf="selectedFile">{{ formatGroupLabel }}</span>
     </div>
-    <p class="help-text">Images convert in-browser on the server; audio and video use FFmpeg. Results land in your <strong>Files → Converted</strong> folder.</p>
+    <p class="help-text">Images convert in-browser on the server; audio and video use FFmpeg. Results land in your personal <strong>Files → Users → {{ parentRef?.user?.username || 'your folder' }}</strong> folder.</p>
     <div class="row">
       <select [(ngModel)]="targetFormat" [disabled]="!selectedFile || isConverting">
         <option *ngFor="let f of availableFormats" [value]="f">{{ f }}</option>

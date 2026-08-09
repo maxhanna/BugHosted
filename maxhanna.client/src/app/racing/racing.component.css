@@ -3038,6 +3038,9 @@
      fully readable while revving on the grid, but below the pause overlay
      (z 30) so pausing still dims the whole cockpit as before. */
   z-index: 25;
+  /* Fully clear vision: no full-screen tint, scanlines or top band — the
+     panels, wheel and minimap bring their own solid styling, and the race
+     view in front of the player stays unobstructed. */
 }
 /* Screen-edge speed streaks — opacity, streak length (--sl-len) and flow
    speed (--sl-dur) are driven per-frame from car speed and track grade, so
@@ -3071,59 +3074,21 @@
   100% { background-position: -130% 0; }
 }
 
-#race-hud {
-  /* No full-screen tint columns — those side 'window' overlays changed the
-     screen colour in the cockpit view. Just a faint scanline texture plus a
-     whisper-thin top band so the minimap stays legible over bright skies. */
-  background:
-    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255, 255, 255, 0.008) 2px, rgba(255, 255, 255, 0.008) 3px),
-    repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(255, 255, 255, 0.006) 3px, rgba(255, 255, 255, 0.006) 4px),
-    linear-gradient(180deg, rgba(2, 2, 4, 0.55) 0%, rgba(3, 3, 6, 0.3) 40%, transparent 100%) 0 0 / 100% 6% no-repeat;
-}
-
 .cockpit-dash {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
   height: 64%;
-  /* No more full-screen 'window' tint — the old heavy translucent black
-     gradient (100%→78% opacity across the bottom half) blocked the track
-     colours in front of the player. Now only a soft fade hugging the very
-     bottom keeps the panels + wheel readable; the racetrack stays clear
-     above it. The panels bring their own solid backgrounds. */
-  background: linear-gradient(0deg,
-    rgba(3, 3, 6, 0.82) 0%,
-    rgba(6, 6, 12, 0.55) 8%,
-    rgba(10, 10, 18, 0.28) 16%,
-    rgba(14, 14, 24, 0.1) 26%,
-    transparent 38%);
+  /* No tint over the track: the dashboard is a transparent flex container so
+     the player gets clear vision; the panels and wheel carry their own solid
+     backgrounds. No top border or ::before line — nothing to read as a bar
+     across the view. */
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   padding: 0 3% 2.5% 3%;
   box-sizing: border-box;
-  border-top: 1px solid rgba(180, 180, 190, 0.1);
-  box-shadow:
-    0 -1px 0 rgba(255, 255, 255, 0.03),
-    inset 0 2px 8px rgba(0, 0, 0, 0.4),
-    0 -8px 28px rgba(0, 0, 0, 0.28);
-}
-
-.cockpit-dash::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 3%;
-  right: 3%;
-  height: 1px;
-  background: linear-gradient(90deg,
-      transparent 0%,
-      rgba(200, 200, 210, 0.4) 5%,
-      rgba(200, 200, 210, 0.15) 50%,
-      rgba(200, 200, 210, 0.4) 95%,
-      transparent 100%);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .cockpit-panel {
@@ -4142,10 +4107,6 @@
 
 @media (max-width: 768px),
 (pointer: coarse) {
-  #race-hud {
-    background:
-      linear-gradient(180deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.5) 40%, transparent 100%) 0 0 / 100% 6% no-repeat;
-  }
 
   .cockpit-dash {
     height: 55%;

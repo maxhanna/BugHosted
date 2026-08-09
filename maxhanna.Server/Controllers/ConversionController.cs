@@ -119,6 +119,82 @@ namespace maxhanna.Server.Controllers
       return Regex.IsMatch(f, "^[a-z0-9]{1,10}$") ? f : "";
     }
 
+    /// <summary>Returns the personal Files folder for a user (Users/&lt;username&gt;), creating it and
+    /// its virtual folder row on demand. Falls back to the shared Converted folder when the user
+    /// can't be attributed (anonymous requests or DB failure) so conversions never break.</summary>
+    private async Task<string> GetUserOutputFolder(int userId)
+    {
+      string fallback = Path.Combine(_baseTarget, "Converted").Replace("\\", "/") + "/";
+      if (userId <= 0) return fallback;
+
+      // Resolve the username so converted files land in the user's personal Files
+      // folder (Users/<username>), mirroring how regular uploads are stored.
+      string username = userId.ToString();
+      try
+      {
+        using (var conn = new MySqlConnection(_connectionString))
+        {
+          await conn.OpenAsync();
+          var nameCmd = new MySqlCommand("SELECT username FROM maxhanna.users WHERE id = @uid LIMIT 1;", conn);
+          nameCmd.Parameters.AddWithValue("@uid", userId);
+          var nameResult = await nameCmd.ExecuteScalarAsync();
+          if (nameResult != null && !string.IsNullOrWhiteSpace(nameResult.ToString()))
+          {
+            username = nameResult.ToString()!;
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Conversion: failed to resolve username, falling back to userId: {ex.Message}", userId, "CONVERSION", true);
+      }
+
+      var usersRoot = Path.Combine(_baseTarget, "Users").Replace("\\", "/");
+      if (!usersRoot.EndsWith("/")) usersRoot += "/";
+      var userDir = Path.Combine(usersRoot, username).Replace("\\", "/");
+      if (!userDir.EndsWith("/")) userDir += "/";
+      try { Directory.CreateDirectory(userDir.Replace("/", Path.DirectorySeparatorChar.ToString())); } catch { }
+
+      // Mark the user folder private, matching the registration-time setup.
+      var marker = Path.Combine(userDir, ".private");
+      if (!System.IO.File.Exists(marker))
+      {
+        try { await System.IO.File.WriteAllTextAsync(marker, "private"); } catch { }
+      }
+
+      // Ensure the Users/<username> virtual folder row exists in file_uploads so
+      // the folder shows up in the file browser (mirror of UserController).
+      try
+      {
+        using (var folderConn = new MySqlConnection(_connectionString))
+        {
+          await folderConn.OpenAsync();
+          var folderExists = new MySqlCommand(
+            @"SELECT COUNT(*) FROM maxhanna.file_uploads WHERE user_id = @uid AND file_name = @fn AND folder_path = @fp AND is_folder = 1;", folderConn);
+          folderExists.Parameters.AddWithValue("@uid", userId);
+          folderExists.Parameters.AddWithValue("@fn", username);
+          folderExists.Parameters.AddWithValue("@fp", usersRoot);
+          var folderCount = Convert.ToInt32(await folderExists.ExecuteScalarAsync());
+          if (folderCount == 0)
+          {
+            var insertFolder = new MySqlCommand(
+              @"INSERT INTO maxhanna.file_uploads (user_id, upload_date, file_name, folder_path, is_public, is_folder)
+                VALUES (@uid, UTC_TIMESTAMP(), @fn, @fp, 0, 1);", folderConn);
+            insertFolder.Parameters.AddWithValue("@uid", userId);
+            insertFolder.Parameters.AddWithValue("@fn", username);
+            insertFolder.Parameters.AddWithValue("@fp", usersRoot);
+            await insertFolder.ExecuteNonQueryAsync();
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db($"Conversion: failed to ensure user folder row: {ex.Message}", userId, "CONVERSION", true);
+      }
+
+      return userDir;
+    }
+
     /// <summary>Generic file conversion (video/audio via FFmpeg, images via ImageSharp).</summary>
     [HttpPost("/Conversion/Convert", Name = "Conversion_Convert")]
     public async Task<IActionResult> ConvertFile([FromBody] ConversionRequest request)
@@ -132,10 +208,10 @@ namespace maxhanna.Server.Controllers
         var source = await ResolveSourceFile(request.FileId);
         if (source == null) return NotFound("Source file not found.");
 
+        int userId = request.UserId ?? 0;
         string originalName = Path.GetFileNameWithoutExtension(source.Value.fileName);
         string outputName = $"{originalName}.{format}";
-        string outputFolder = Path.Combine(_baseTarget, "Converted").Replace("\\", "/") + "/";
-        Directory.CreateDirectory(outputFolder.Replace("/", Path.DirectorySeparatorChar.ToString()));
+        string outputFolder = await GetUserOutputFolder(userId);
         string outputPath = Path.Combine(outputFolder, outputName).Replace("\\", "/");
 
         int? width = null, height = null;
@@ -165,7 +241,6 @@ namespace maxhanna.Server.Controllers
           fileSize = new FileInfo(outputPath).Length;
         }
 
-        int userId = request.UserId ?? 0;
         int newFileId = await InsertConvertedFile(userId, outputName, outputFolder, fileSize, width, height);
         _ = _log.Db($"Conversion completed: {source.Value.fileName} -> {outputName} (file {newFileId})", userId, "CONVERSION", true);
 
@@ -225,13 +300,11 @@ namespace maxhanna.Server.Controllers
 
         byte[] ttfBytes = maxhanna.Server.Services.FontBuilder.BuildTtf(familyName, glyphs);
 
+        int userId = request.UserId ?? 0;
         string outputName = $"{familyName}.ttf";
-        string outputFolder = Path.Combine(_baseTarget, "Converted").Replace("\\", "/") + "/";
-        Directory.CreateDirectory(outputFolder.Replace("/", Path.DirectorySeparatorChar.ToString()));
+        string outputFolder = await GetUserOutputFolder(userId);
         string outputPath = Path.Combine(outputFolder, outputName).Replace("\\", "/");
         await System.IO.File.WriteAllBytesAsync(outputPath, ttfBytes);
-
-        int userId = request.UserId ?? 0;
         int newFileId = await InsertConvertedFile(userId, outputName, outputFolder, ttfBytes.Length, null, null);
         _ = _log.Db($"Font conversion completed: {source.Value.fileName} -> {outputName} ({glyphs.Count} glyphs, file {newFileId})", userId, "CONVERSION", true);
 
@@ -575,8 +648,7 @@ namespace maxhanna.Server.Controllers
         string safeName = SanitizeFileName(request.Text.Length > 40 ? request.Text.Substring(0, 40) : request.Text);
         if (safeName.Length < 1) safeName = "ascii";
         string fileName = $"ascii_{safeName}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.txt";
-        string outputFolder = Path.Combine(_baseTarget, "Converted").Replace("\\", "/") + "/";
-        Directory.CreateDirectory(outputFolder.Replace("/", Path.DirectorySeparatorChar.ToString()));
+        string outputFolder = await GetUserOutputFolder(userId);
 
         var bytes = System.Text.Encoding.UTF8.GetBytes(art);
         await System.IO.File.WriteAllBytesAsync(Path.Combine(outputFolder, fileName).Replace("/", Path.DirectorySeparatorChar.ToString()), bytes);
