@@ -175,6 +175,23 @@
           (change)="toggleCalendarNotifications()" />
       </div>
     </div>
+    <div class="optionsStatsDiv" *ngIf="parentRef?.user?.id">
+      <div class="optionsStatsHeader cursorPointer" (click)="isTimezoneToggled = !isTimezoneToggled"
+        title="Calendar notifications (15 min / 1 hr before an event) are scheduled using your local timezone. Keep this in sync with where you are.">
+        Timezone : <span>{{ timezone || 'Not set' }}</span> <span class="xSmallFont secondaryFontColor">(edit)</span>
+      </div>
+      <div class="optionsStatsDescription" *ngIf="isTimezoneToggled">
+        <input type="text" placeholder="e.g. America/New_York" [(ngModel)]="timezone" name="calTimezone"
+          (keydown.enter)="updateTimezone()" style="width: 100%; box-sizing: border-box;" />
+        <div style="display:flex; gap:8px; margin-top:6px;">
+          <button (click)="detectTimezone()" title="Use your browser's clock to find your timezone">📡 Detect</button>
+          <button (click)="updateTimezone()" title="Save the timezone">💾 Save Timezone</button>
+        </div>
+        <div class="xSmallFont secondaryFontColor">
+          Calendar notifications are sent using your local timezone (e.g. 15 min before, 1 hr before), not the server's.
+        </div>
+      </div>
+    </div>
   </div>
   <div class="sentNotificationsSection" *ngIf="parentRef?.user?.id">
     <div class="optionsStatsHeader">

@@ -135,7 +135,7 @@ thead {
 /* Entry card info: type chip + note, stacked so the full entry is readable. */
 .calEntryInfo {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: flex-start;
   gap: 4px;
   min-width: 0;

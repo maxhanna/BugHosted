@@ -2127,7 +2127,45 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
      const mobileSegaAOffsetX = -5; // pixels left
      const mobileSegaAOffsetY = -5; // pixels up
 
+     // N64 only: shift the whole right control cluster. The injected
+     // stylesheet lives inside this system's vpad root, so this rule can
+     // never affect any other system's on-screen controls.
+     const n64RightRule = this.system === 'n64'
+       ? `
+     /* N64: shift the right control cluster */
+     .ejs_virtualGamepad_right {
+       right: -40px !important;
+     }`
+       : '';
+
+     // GBA/GB/GBC only: hardware-accurate A/B buttons — red A, purple B.
+     // The rule lives in this system's vpad stylesheet, so no other
+     // system's on-screen controls are affected.
+     const gbABRule = (this.system === 'gba' || this.system === 'gb' || this.system === 'gbc')
+       ? `
+     .max-pill.is-a {
+       background-color: #e53935 !important;
+       border-color: #b71c1c !important;
+       color: #fff !important;
+       box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.35), inset 0 2px 3px rgba(255, 255, 255, 0.25);
+     }
+     .max-pill.is-a.ejs_virtualGamepad_button_down {
+       background-color: #c62828 !important;
+     }
+     .max-pill.is-b {
+       background-color: #8e24aa !important;
+       border-color: #4a148c !important;
+       color: #fff !important;
+       box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.35), inset 0 2px 3px rgba(255, 255, 255, 0.25);
+     }
+     .max-pill.is-b.ejs_virtualGamepad_button_down {
+       background-color: #6a1b9a !important;
+     }`
+       : '';
+
      style.textContent = ` 
+     ${n64RightRule}
+     ${gbABRule}
      .ejs_netplay_header input {
      border: var(--main-border) !important;
    }
@@ -2343,10 +2381,14 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
 
-  twoButtonRight(): VPadItem[] {
+  twoButtonRight(stackedA = false): VPadItem[] {
     // Make B a bit left/below; A a bit right/above (classic layout)
     const B: VPadItem = { type: 'button', id: 'btnB', text: 'B', location: 'right', left: 20, top: 75, input_value: 0, bold: true };
-    const A: VPadItem = { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 10, input_value: 8, bold: true };
+    // GBA/GB/GBC stack A directly above B (left: 20, top: 0); all other
+    // two-button systems keep the classic offset layout.
+    const A: VPadItem = stackedA
+      ? { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 20, top: 0, input_value: 8, bold: true }
+      : { type: 'button', id: 'btnA', text: 'A', location: 'right', left: 40, top: 10, input_value: 8, bold: true };
     return [B, A];
   }
   genesisThreeRight(): VPadItem[] {
@@ -2496,15 +2538,19 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
         break;
 
       case 'gba':
-        items.push(...this.twoButtonRight());
+        items.push(...this.twoButtonRight(true));
         items.push(...this.shouldersTop(false));
         items.push(...this.startSelectRow());
         break;
 
       case 'nes':
+        items.push(...this.twoButtonRight());
+        items.push(...this.startSelectRow());
+        break;
+
       case 'gb':
       case 'gbc':
-        items.push(...this.twoButtonRight());
+        items.push(...this.twoButtonRight(true));
         items.push(...this.startSelectRow());
         break;
 

@@ -73,7 +73,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   @Input() url: string = '';
   @Input() onlySearch: boolean = false;
   @Input() inputtedParentRef?: AppComponent;
-  @Output() urlSelectedEvent = new EventEmitter<{url: string; imageUrl?: string; title?: string}>();
+  @Output() urlSelectedEvent = new EventEmitter<{ url: string; imageUrl?: string; title?: string }>();
   @Output() closeSearchEvent = new EventEmitter<void>();
 
   constructor(private sanitizer: DomSanitizer, private crawlerService: CrawlerService,
@@ -105,7 +105,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     }, 1);
     this.indexUpdateTimer = setInterval(() => {
       if (this.keywordsInput.nativeElement.value.trim() == '') {
-        this.crawlerService.indexCount().then(res => { if (res) { this.indexCount = parseInt(res); } });
+        this.crawlerService.indexCount().then(res => { if (res) { this.indexCount = parseInt(res); } }).catch(err => console.error('Failed to fetch index count:', err));
       }
     }, 60000);
   }
@@ -114,9 +114,9 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     (document.getElementsByClassName("componentContainer")[0] as HTMLDivElement)?.classList.remove("centeredContainer");
     clearInterval(this.indexUpdateTimer);
     this.stopLoading();
-  } 
+  }
 
-  visitExternalLink(data?: {url: string; imageUrl?: string; title?: string}) {
+  visitExternalLink(data?: { url: string; imageUrl?: string; title?: string }) {
     const url = typeof data === 'string' ? data : data?.url;
     if (!url) return;
     if (this.onlySearch) {
@@ -159,7 +159,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     this.isFavouritedByPanelOpen = false;
     this.favouritedByList = [];
   }
- 
+
   private isDomainOrUrlQuery(query: string): boolean {
     const q = (query ?? '').trim();
     if (!q) return false;
@@ -184,7 +184,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     }
     return 'Ask HostAI to answer your query';
   }
- 
+
   private remountAiSearch(kw: string) {
     this.aiQuery = kw;
     this.showAiPopup = false;
@@ -212,7 +212,7 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   openAiSearch() {
     const kw = this.keywordsInput?.nativeElement?.value?.trim();
     if (!kw) return;
-    if (this.isDomainOrUrlQuery(kw)) return; 
+    if (this.isDomainOrUrlQuery(kw)) return;
     this.clearAllResults();
     this.remountAiSearch(kw);
   }
@@ -441,6 +441,14 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
         state.favouriteCount = Math.max(0, (state.favouriteCount ?? 1) - 1);
       } else {
         await parent.addFavourite(url, imageUrl, title);
+        // Re-lookup so we capture the created favourite's id — otherwise the
+        // next click would re-add instead of removing (the cached state has no
+        // id after a fresh add).
+        const lookup2: any = await this.favouriteService.getFavourites(url, 1, 1, true, undefined, userId);
+        const favItem2 = lookup2?.items?.length
+          ? lookup2.items.find((f: any) => (f.url ?? '').toLowerCase() === key)
+          : null;
+        state.id = favItem2?.id;
         state.isUserFavourite = true;
         state.favouriteCount = (state.favouriteCount ?? 0) + 1;
       }
@@ -597,10 +605,10 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     this.socialDisplayLimit = this.socialDisplayLimit > 1 ? 1 : this.socialResults.length;
   }
   showMoreImdb() {
-      if (this.imdbDisplayLimit >1) {
-          this.imdbDisplayLimit = 1;
+    if (this.imdbDisplayLimit > 1) {
+      this.imdbDisplayLimit = 1;
     } else {
-          this.imdbDisplayLimit = Math.min(this.imdbResults.length, this.imdbDisplayLimit +5);
+      this.imdbDisplayLimit = Math.min(this.imdbResults.length, this.imdbDisplayLimit + 5);
     }
   }
 

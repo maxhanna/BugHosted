@@ -1,4 +1,4 @@
-/* ===== GLOBALS ===== */
+﻿/* ===== GLOBALS ===== */
 :host {
   --bg: var(--component-background-color);
   --surface: var(--main-highlight-color);
@@ -160,7 +160,7 @@
 .btn-danger:hover {
   background: #c62828;
 }
-  
+
 .btn-sm {
   padding: 5px 12px;
   font-size: 12px;
@@ -673,11 +673,11 @@
 .settings-edit-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .settings-edit-field label {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
   text-transform: uppercase;
   font-weight: 600;
@@ -694,8 +694,8 @@
 
 .settings-actions {
   display: flex;
-  gap: 10px;
-  margin-top: 8px;
+  gap: 8px;
+  margin-top: 4px;
   padding-top: 12px;
   border-top: 1px solid var(--border);
 }
@@ -863,25 +863,6 @@
   }
 }
 
-.settings-edit-field {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.settings-edit-field label {
-  font-size: 11px;
-  color: var(--muted);
-  text-transform: uppercase;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-}
-
-.settings-edit-field .weaver-input,
-.settings-edit-field .weaver-select {
-  width: 100%;
-}
-
 .settings-edit-field-checkbox label {
   display: flex;
   align-items: center;
@@ -889,12 +870,6 @@
   font-size: 12px;
   color: var(--text);
   cursor: pointer;
-}
-
-.settings-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 4px;
 }
 
 /* ===== TOOLBARS ===== */
@@ -968,6 +943,8 @@
   padding: 6px 0;
   border-bottom: 1px solid var(--border);
   font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
 }
 
 .command-item:last-child {
@@ -1002,11 +979,6 @@
 .cmd-time {
   color: var(--muted);
   font-size: 12px;
-}
-
-.command-item {
-  cursor: pointer;
-  transition: background 0.15s;
 }
 
 .command-item:hover {
@@ -1848,6 +1820,14 @@
   background: var(--gradient-background);
 }
 
+/* ===== KANBAN CARD ATTACHMENTS ===== */
+.kanban-card .attachments .attachment-item {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 100%;
+}
+
 .picker-panel h3 {
   margin: 0 0 4px;
   font-size: 15px;
@@ -1875,7 +1855,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 4px8px;
+  padding: 4px 8px;
   border-radius: 4px;
   cursor: pointer;
 }
@@ -2186,7 +2166,9 @@
 }
 
 @keyframes wg-suggest-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .tag-suggestion {
@@ -2204,9 +2186,20 @@
 }
 
 @keyframes wg-card-flash {
-  0% { outline: 2px solid rgba(56, 189, 248, 0.9); outline-offset: 3px; }
-  60% { outline: 2px solid rgba(56, 189, 248, 0.35); outline-offset: 3px; }
-  100% { outline: 2px solid rgba(56, 189, 248, 0); outline-offset: 3px; }
+  0% {
+    outline: 2px solid rgba(56, 189, 248, 0.9);
+    outline-offset: 3px;
+  }
+
+  60% {
+    outline: 2px solid rgba(56, 189, 248, 0.35);
+    outline-offset: 3px;
+  }
+
+  100% {
+    outline: 2px solid rgba(56, 189, 248, 0);
+    outline-offset: 3px;
+  }
 }
 
 .suggest-more {

@@ -1749,12 +1749,16 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const gr = 0.55, gg = 1.7, gb = 0.4;
       verts.push(p.x + ppx * hw, py - 0.2 + bank * hw, p.z + ppz * hw, 0, 1, 0, gr, gg, gb, su, 0.25);
       verts.push(n.x + npx * hwN, ny - 0.2 + bankN * hwN, n.z + npz * hwN, 0, 1, 0, gr, gg, gb, suN, 0.25);
-      verts.push(p.x + ppx * (hw + shoulderW), py - 0.2 + bank * (hw + shoulderW), p.z + ppz * (hw + shoulderW), 0, 1, 0, gr, gg, gb, su, 0.25);
-      verts.push(n.x + npx * (hwN + shoulderW), ny - 0.2 + bankN * (hwN + shoulderW), n.z + npz * (hwN + shoulderW), 0, 1, 0, gr, gg, gb, suN, 0.25);
+      // The shoulder follows the road's tilt only out to the road edge (hw) —
+      // beyond that it stays level with the edge instead of climbing to
+      // bank*(hw+shoulderW) ~ +7 units, which used to tower over the barrier
+      // and bury the outside of banked corners in a wall of grass.
+      verts.push(p.x + ppx * (hw + shoulderW), py - 0.2 + bank * hw, p.z + ppz * (hw + shoulderW), 0, 1, 0, gr, gg, gb, su, 0.25);
+      verts.push(n.x + npx * (hwN + shoulderW), ny - 0.2 + bankN * hwN, n.z + npz * (hwN + shoulderW), 0, 1, 0, gr, gg, gb, suN, 0.25);
       verts.push(p.x - ppx * hw, py - 0.2 - bank * hw, p.z - ppz * hw, 0, 1, 0, gr, gg, gb, su, 0.75);
       verts.push(n.x - npx * hwN, ny - 0.2 - bankN * hwN, n.z - npz * hwN, 0, 1, 0, gr, gg, gb, suN, 0.75);
-      verts.push(p.x - ppx * (hw + shoulderW), py - 0.2 - bank * (hw + shoulderW), p.z - ppz * (hw + shoulderW), 0, 1, 0, gr, gg, gb, su, 0.75);
-      verts.push(n.x - npx * (hwN + shoulderW), ny - 0.2 - bankN * (hwN + shoulderW), n.z - npz * (hwN + shoulderW), 0, 1, 0, gr, gg, gb, suN, 0.75);
+      verts.push(p.x - ppx * (hw + shoulderW), py - 0.2 - bank * hw, p.z - ppz * (hw + shoulderW), 0, 1, 0, gr, gg, gb, su, 0.75);
+      verts.push(n.x - npx * (hwN + shoulderW), ny - 0.2 - bankN * hwN, n.z - npz * (hwN + shoulderW), 0, 1, 0, gr, gg, gb, suN, 0.75);
       const si = pts.length * perSegVerts + i * 8;
       idxs.push(si, si + 1, si + 2);
       idxs.push(si + 2, si + 1, si + 3);
@@ -1892,6 +1896,42 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.bindVertexArray(null);
     this.buildFinishLine();
   }
+  /** Road surface elevation + bank at a signed distance from the start line
+   *  (negative = behind the line), interpolated exactly like the ribbon so the
+   *  checker strip hugs the banked road instead of lying flat and getting
+   *  buried under the tilted surface. */
+  private finishLineSurface(distFromStart: number): { y: number; bank: number } {
+    const pts = this._trackPoints;
+    const n = pts.length;
+    const start = pts[0];
+    if (!n) return { y: 0, bank: 0 };
+    if (distFromStart >= 0) {
+      let acc = 0;
+      for (let i = 0; i < n; i++) {
+        const a = pts[i];
+        const b = pts[(i + 1) % n];
+        const seg = Math.hypot(b.x - a.x, b.z - a.z) || 0.001;
+        if (acc + seg >= distFromStart) {
+          const f = (distFromStart - acc) / seg;
+          return { y: a.y + (b.y - a.y) * f, bank: (a.bank ?? 0) + ((b.bank ?? 0) - (a.bank ?? 0)) * f };
+        }
+        acc += seg;
+      }
+      return { y: start.y, bank: start.bank ?? 0 };
+    }
+    let d = -distFromStart;
+    for (let i = n - 1; i >= 0; i--) {
+      const a = pts[i];
+      const b = pts[(i + 1) % n];
+      const seg = Math.hypot(b.x - a.x, b.z - a.z) || 0.001;
+      if (seg >= d) {
+        const f = seg > 0.0001 ? d / seg : 0;
+        return { y: b.y + (a.y - b.y) * f, bank: (b.bank ?? 0) + ((a.bank ?? 0) - (b.bank ?? 0)) * f };
+      }
+      d -= seg;
+    }
+    return { y: start.y, bank: start.bank ?? 0 };
+  }
   private buildFinishLine() {
     const gl = this.gl;
     const p = this._trackPoints[0];
@@ -1911,24 +1951,28 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const idxs: number[] = [];
     const cols = 12, rows = 8;
     for (let r = 0; r < rows; r++) {
+      const f0 = bandStart + (r / rows) * bandLen;
+      const f1 = bandStart + ((r + 1) / rows) * bandLen;
+      const e0 = this.finishLineSurface(f0);
+      const e1 = this.finishLineSurface(f1);
       for (let c = 0; c < cols; c++) {
         const white = (r + c) % 2 === 0;
         const col = white ? 1.0 : 0.07;
-        const f0 = bandStart + (r / rows) * bandLen;
-        const f1 = bandStart + ((r + 1) / rows) * bandLen;
-        const x0 = p.x + ppx * (c / cols * 2 - 1) * hw + nx * f0;
-        const z0 = p.z + ppz * (c / cols * 2 - 1) * hw + nz * f0;
-        const x1 = p.x + ppx * ((c + 1) / cols * 2 - 1) * hw + nx * f0;
-        const z1 = p.z + ppz * ((c + 1) / cols * 2 - 1) * hw + nz * f0;
-        const x2 = p.x + ppx * ((c + 1) / cols * 2 - 1) * hw + nx * f1;
-        const z2 = p.z + ppz * ((c + 1) / cols * 2 - 1) * hw + nz * f1;
-        const x3 = p.x + ppx * (c / cols * 2 - 1) * hw + nx * f1;
-        const z3 = p.z + ppz * (c / cols * 2 - 1) * hw + nz * f1;
+        const lat0 = (c / cols * 2 - 1) * hw;
+        const lat1 = ((c + 1) / cols * 2 - 1) * hw;
+        const x0 = p.x + ppx * lat0 + nx * f0;
+        const z0 = p.z + ppz * lat0 + nz * f0;
+        const x1 = p.x + ppx * lat1 + nx * f0;
+        const z1 = p.z + ppz * lat1 + nz * f0;
+        const x2 = p.x + ppx * lat1 + nx * f1;
+        const z2 = p.z + ppz * lat1 + nz * f1;
+        const x3 = p.x + ppx * lat0 + nx * f1;
+        const z3 = p.z + ppz * lat0 + nz * f1;
         const b = verts.length / 11;
-        verts.push(x0, 0.02, z0, 0, 1, 0, col, col, col, 0, 0);
-        verts.push(x1, 0.02, z1, 0, 1, 0, col, col, col, 0, 0);
-        verts.push(x2, 0.02, z2, 0, 1, 0, col, col, col, 0, 0);
-        verts.push(x3, 0.02, z3, 0, 1, 0, col, col, col, 0, 0);
+        verts.push(x0, e0.y + e0.bank * lat0 + 0.02, z0, 0, 1, 0, col, col, col, 0, 0);
+        verts.push(x1, e0.y + e0.bank * lat1 + 0.02, z1, 0, 1, 0, col, col, col, 0, 0);
+        verts.push(x2, e1.y + e1.bank * lat1 + 0.02, z2, 0, 1, 0, col, col, col, 0, 0);
+        verts.push(x3, e1.y + e1.bank * lat0 + 0.02, z3, 0, 1, 0, col, col, col, 0, 0);
         idxs.push(b, b + 1, b + 2);
         idxs.push(b, b + 2, b + 3);
       }

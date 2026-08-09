@@ -215,7 +215,7 @@
     <span *ngIf="!onlySearch" (click)="seeNew()" class="cursorPointer linkTextDecoration">See the latest indexes.</span>
   </div>
 
-  <div *ngIf="!searchResults.length && indexCount" class="nbDiv">Total indexes: {{indexCount}}</div>
+  <div *ngIf="!searchResults.length && indexCount" class="nbDiv">Total indexes: {{indexCount | number:'1.0-0'}}</div>
 </div>
 
 <!-- Menu Popup -->
