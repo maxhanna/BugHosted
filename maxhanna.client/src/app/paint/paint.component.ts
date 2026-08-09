@@ -722,7 +722,7 @@ export class PaintComponent extends ChildComponent {
       if (this.showMenuPanel) {
         this.parentRef?.showOverlay();
       } else {
-        this.parentRef?.closeOverlay();
+        this.parentRef?.closeOverlay(false);
       }
     }, 50); 
   }
