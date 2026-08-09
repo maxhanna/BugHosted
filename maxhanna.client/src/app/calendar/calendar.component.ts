@@ -201,7 +201,11 @@ export class CalendarComponent extends ChildComponent implements OnInit {
         ?? (entryDate ? `${String(entryDate.getHours()).padStart(2, '0')}:${String(entryDate.getMinutes()).padStart(2, '0')}` : '00:00');
       const note = entry.note ?? noteElem?.value ?? '';
       const type = entry.type ?? typeElem?.value ?? 'Event';
-      const reminder = reminderElem?.value !== undefined && reminderElem.value !== '' ? Math.max(0, parseInt(reminderElem.value, 10) || 0) : undefined;
+      // The reminder input is hidden while notifications are disabled — keep the
+      // event's existing lead time, or assume the standard 60 minutes.
+      const reminder = this.calendarNotificationsEnabled
+        ? (reminderElem?.value !== undefined && reminderElem.value !== '' ? Math.max(0, parseInt(reminderElem.value, 10) || 0) : undefined)
+        : (entry.reminder ?? 60);
 
       // build updated CalendarEntry
       const updated = new (entry as any).constructor() as CalendarEntry;
@@ -437,7 +441,11 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     tmpCalendarEntry.note = this.calendarNoteEntry.nativeElement.value;
 
     const reminderValue = this.calendarReminderEntry?.nativeElement?.value;
-    tmpCalendarEntry.reminder = reminderValue !== undefined && reminderValue !== '' ? Math.max(0, parseInt(reminderValue, 10) || 0) : undefined;
+    // When notifications are disabled the reminder input is hidden — assume the
+    // standard 60-minute lead time so the event still notifies if re-enabled.
+    tmpCalendarEntry.reminder = this.calendarNotificationsEnabled
+      ? (reminderValue !== undefined && reminderValue !== '' ? Math.max(0, parseInt(reminderValue, 10) || 0) : undefined)
+      : 60;
 
     return tmpCalendarEntry;
   }
