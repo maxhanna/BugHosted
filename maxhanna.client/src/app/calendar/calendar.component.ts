@@ -44,6 +44,8 @@ export class CalendarComponent extends ChildComponent implements OnInit {
   selectedMonth?: string;
   selectedYear?: number;
   calendarNotificationsEnabled = false;
+  timezone = '';
+  isTimezoneToggled = false;
   sentNotifications: CalendarNotificationSent[] = [];
   sentNotificationsLoading = false;
   isMenuPanelOpen: boolean = false;
@@ -92,6 +94,7 @@ export class CalendarComponent extends ChildComponent implements OnInit {
         // before), not the server's. Only auto-writes when the user hasn't
         // deliberately set one (e.g. planning events for another zone).
         const browserTz = this.getBrowserTimezone();
+        this.timezone = userSettings.timezone ?? browserTz ?? '';
         if (browserTz && !userSettings.timezone) {
           this.userService.updateUserSettings(this.parentRef.user.id, [{ settingName: 'timezone', value: browserTz }]);
         }
@@ -585,6 +588,38 @@ export class CalendarComponent extends ChildComponent implements OnInit {
     this.calendarNotificationsEnabled = !this.calendarNotificationsEnabled;
     if (this.parentRef?.user?.id) {
       await this.userService.updateUserSettings(this.parentRef.user.id, [{ settingName: "calendar_notifications_enabled", value: this.calendarNotificationsEnabled }]);
+    }
+  }
+  /** Saves the displayed IANA timezone so calendar notifications (15 min / 1 hr
+   *  before an event) fire against the user's local clock, not the server's. */
+  async updateTimezone() {
+    if (!this.parentRef?.user?.id) return;
+    if (!this.timezone || !this.timezone.trim()) {
+      this.parentRef?.showNotification?.('Enter a timezone (e.g. America/New_York) or use 📡 Detect.');
+      return;
+    }
+    this.timezone = this.timezone.trim();
+    try {
+      await this.userService.updateUserSettings(this.parentRef.user.id, [{ settingName: 'timezone', value: this.timezone }]);
+      this.isTimezoneToggled = false;
+      this.parentRef?.showNotification?.('Timezone saved.');
+    } catch (error) {
+      console.error('Failed to save timezone:', this.formatError(error));
+      this.parentRef?.showNotification?.('Failed to save timezone.');
+    }
+  }
+  /** Uses the browser's clock to detect the IANA timezone (e.g. America/New_York). */
+  detectTimezone(): void {
+    try {
+      const tz = (Intl.DateTimeFormat().resolvedOptions() as any).timeZone ?? '';
+      if (!tz) {
+        this.parentRef?.showNotification?.('Could not detect your timezone in this browser.');
+        return;
+      }
+      this.timezone = tz;
+      this.parentRef?.showNotification?.(`Detected timezone: ${tz} — press 💾 Save Timezone to keep it.`);
+    } catch {
+      this.parentRef?.showNotification?.('Could not detect your timezone in this browser.');
     }
   }
 

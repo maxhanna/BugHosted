@@ -239,6 +239,22 @@
   text-decoration: underline;
   color: var(--link-color, #4a9eff);
 }
+.favouriteToggleButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 3px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border-radius: 6px;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.favouriteToggleButton:hover {
+  background: rgba(255, 105, 180, 0.08);
+}
 .descriptionDiv {
   font-size: 13px;
   line-height: 1.5;

@@ -1,6 +1,7 @@
 ﻿import { Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
 import { ChildComponent } from '../child.component';
 import { CrawlerService } from '../../services/crawler.service';
+import { FavouriteService } from '../../services/favourite.service';
 import { LightweightSearchResult, CrawlerSearchResponse, StorageStats } from '../../services/datacontracts/crawler';
 import { DomSanitizer } from '@angular/platform-browser';
 import { AppComponent } from '../app.component';
@@ -75,7 +76,8 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
   @Output() urlSelectedEvent = new EventEmitter<{url: string; imageUrl?: string; title?: string}>();
   @Output() closeSearchEvent = new EventEmitter<void>();
 
-  constructor(private sanitizer: DomSanitizer, private crawlerService: CrawlerService) { super(); }
+  constructor(private sanitizer: DomSanitizer, private crawlerService: CrawlerService,
+    private favouriteService: FavouriteService) { super(); }
 
   ngOnInit() {
     if (this.inputtedParentRef) {
@@ -400,6 +402,51 @@ export class CrawlerComponent extends ChildComponent implements OnInit, OnDestro
     setTimeout(() => {
       (document.getElementsByClassName("metadataSearchWrapper")[0] as HTMLElement).scrollTop = 0;
     }, 100);
+  }
+
+  /** Favourite state for external-engine results (YouTube, DuckDuckGo, Yahoo,
+   *  IMDB, social) keyed by lowercase URL, so the 💖 toggle reflects the user's
+   *  actual favourites without needing a local index row (those results have no
+   *  id for the normal detail-based favourite lookup). */
+  externalFavState: { [url: string]: { id?: number; isUserFavourite: boolean; favouriteCount: number } } = {};
+
+  favouriteStateFor(url?: string) {
+    if (!url) return undefined;
+    return this.externalFavState[url.toLowerCase()];
+  }
+
+  async toggleExternalFavourite(url?: string, title?: string, imageUrl?: string) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (!parent?.user?.id) return alert('You must be logged in to update favourites');
+    if (!url) return;
+    const userId = parent.user.id;
+    const key = url.toLowerCase();
+    let state = this.externalFavState[key];
+    try {
+      if (!state) {
+        const lookup: any = await this.favouriteService.getFavourites(url, 1, 1, true, undefined, userId);
+        const favItem = lookup?.items?.length
+          ? lookup.items.find((f: any) => (f.url ?? '').toLowerCase() === key)
+          : null;
+        state = this.externalFavState[key] = {
+          id: favItem?.id,
+          isUserFavourite: !!favItem,
+          favouriteCount: favItem?.favouriteCount ?? 0,
+        };
+      }
+      if (state.isUserFavourite && state.id) {
+        const r = await this.favouriteService.removeFavourite(userId, state.id);
+        parent.showNotification(r ?? '');
+        state.isUserFavourite = false;
+        state.favouriteCount = Math.max(0, (state.favouriteCount ?? 1) - 1);
+      } else {
+        await parent.addFavourite(url, imageUrl, title);
+        state.isUserFavourite = true;
+        state.favouriteCount = (state.favouriteCount ?? 0) + 1;
+      }
+    } catch (err) {
+      console.error('Failed to toggle favourite', err);
+    }
   }
 
   async addWithoutSearch() {

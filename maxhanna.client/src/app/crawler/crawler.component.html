@@ -76,6 +76,11 @@
             <a class="pageTitleLink" [attr.href]="video.url" target="_blank" (click)="openYoutubePopup($event, video.url)">{{ video.title }}</a>
             <div class="metadataTitleLinkFavouriteWrapper">
               <a [attr.href]="video.url" target="_blank" (click)="openYoutubePopup($event, video.url)">{{ video.url }}</a>
+              <button (click)="toggleExternalFavourite(video.url, video.title, video.thumbnailUrl)" title="Toggle Favourite" class="favouriteToggleButton">
+                <span *ngIf="favouriteStateFor(video.url)?.isUserFavourite">💖</span>
+                <span *ngIf="!favouriteStateFor(video.url)?.isUserFavourite">🤍</span>
+                <span class="smallFont" *ngIf="favouriteStateFor(video.url)?.favouriteCount">[{{favouriteStateFor(video.url)?.favouriteCount}}]</span>
+              </button>
             </div>
             <div *ngIf="video.description" class="descriptClass" [title]="video.description">{{ video.description }}</div>
           </div>
@@ -100,6 +105,11 @@
             <a class="pageTitleLink" [attr.href]="result.url" target="_blank">{{ result.title }}</a>
             <div class="metadataTitleLinkFavouriteWrapper">
               <a [attr.href]="result.url" target="_blank">{{ result.url }}</a>
+              <button (click)="toggleExternalFavourite(result.url, result.title, result.imageUrl)" title="Toggle Favourite" class="favouriteToggleButton">
+                <span *ngIf="favouriteStateFor(result.url)?.isUserFavourite">💖</span>
+                <span *ngIf="!favouriteStateFor(result.url)?.isUserFavourite">🤍</span>
+                <span class="smallFont" *ngIf="favouriteStateFor(result.url)?.favouriteCount">[{{favouriteStateFor(result.url)?.favouriteCount}}]</span>
+              </button>
             </div>
             <div *ngIf="result.description" class="descriptClass" [title]="result.description">{{ result.description }}</div>
           </div>
@@ -122,6 +132,11 @@
             <a class="pageTitleLink" [attr.href]="result.url" target="_blank">{{ result.title }}</a>
             <div class="metadataTitleLinkFavouriteWrapper">
               <a [attr.href]="result.url" target="_blank">{{ result.url }}</a>
+              <button (click)="toggleExternalFavourite(result.url, result.title, result.imageUrl)" title="Toggle Favourite" class="favouriteToggleButton">
+                <span *ngIf="favouriteStateFor(result.url)?.isUserFavourite">💖</span>
+                <span *ngIf="!favouriteStateFor(result.url)?.isUserFavourite">🤍</span>
+                <span class="smallFont" *ngIf="favouriteStateFor(result.url)?.favouriteCount">[{{favouriteStateFor(result.url)?.favouriteCount}}]</span>
+              </button>
             </div>
             <div *ngIf="result.description" class="descriptClass" [title]="result.description">{{ result.description }}</div>
           </div>
@@ -144,6 +159,11 @@
             <a class="pageTitleLink" [attr.href]="result.url" target="_blank">{{ result.title }}</a>
             <div class="metadataTitleLinkFavouriteWrapper">
               <a [attr.href]="result.url" target="_blank">{{ result.url }}</a>
+              <button (click)="toggleExternalFavourite(result.url, result.title, result.imageUrl)" title="Toggle Favourite" class="favouriteToggleButton">
+                <span *ngIf="favouriteStateFor(result.url)?.isUserFavourite">💖</span>
+                <span *ngIf="!favouriteStateFor(result.url)?.isUserFavourite">🤍</span>
+                <span class="smallFont" *ngIf="favouriteStateFor(result.url)?.favouriteCount">[{{favouriteStateFor(result.url)?.favouriteCount}}]</span>
+              </button>
             </div>
             <div *ngIf="result.description" class="descriptClass" [title]="result.description">{{ result.description }}</div>
           </div>
@@ -162,7 +182,12 @@
       <div class="metadataSearchDiv gradientBackground">
         <div class="groupDomainTitle">Reddit, X, Facebook Results</div>
         <div *ngFor="let result of socialResults.slice(0, socialDisplayLimit)" class="groupLinkWrapperDiv">
-          <app-crawler-search-results style="width:100%" [result]="result" [inputtedParentRef]="inputtedParentRef ?? parentRef" [onlySearch]="onlySearch" [hideStatus]="true" [displaySocialResults]="true" (urlSelectedEvent)="visitExternalLink($event)"></app-crawler-search-results>
+          <button (click)="toggleExternalFavourite(result.url, result.title)" title="Toggle Favourite" class="favouriteToggleButton" style="align-self:center;">
+            <span *ngIf="favouriteStateFor(result.url)?.isUserFavourite">💖</span>
+            <span *ngIf="!favouriteStateFor(result.url)?.isUserFavourite">🤍</span>
+            <span class="smallFont" *ngIf="favouriteStateFor(result.url)?.favouriteCount">[{{favouriteStateFor(result.url)?.favouriteCount}}]</span>
+          </button>
+          <app-crawler-search-results style="flex:1;min-width:0;width:auto" [result]="result" [inputtedParentRef]="inputtedParentRef ?? parentRef" [onlySearch]="onlySearch" [hideStatus]="true" [displaySocialResults]="true" (urlSelectedEvent)="visitExternalLink($event)"></app-crawler-search-results>
         </div>
       </div>
       <div class="more-btn-row" *ngIf="socialResults.length > 1">

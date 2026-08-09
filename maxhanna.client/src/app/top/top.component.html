@@ -120,7 +120,11 @@
 </div>
 
 <!-- Edit Popup Content -->
-<div class="popupPanel" style="transform:unset;" *ngIf="isEditPanelOpen" (click)="$event.stopPropagation()">
+<div class="popupPanel" 
+  style="transform:unset;" 
+  [style.left]="onMobile() ? 'unset' : ''"
+  [style.top.%]="onMobile() ? '25' : ''"
+  *ngIf="isEditPanelOpen" (click)="$event.stopPropagation()">
   <div class="popupPanelTitle">Edit Entry</div>
   <div class="edit-popup-body">
     <div class="form-group">
