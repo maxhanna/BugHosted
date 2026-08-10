@@ -313,6 +313,16 @@ namespace maxhanna.Server.Services
                 {
                     await _dbQueue.EnqueueAsync(async () =>
                     {
+                        // Same rollup pattern for the fiat graph's
+                        // exchange_rates table.
+                        await BuildExchangeRateRollups();
+                    });
+                }
+                catch (Exception ex) { _ = _log.Db($"Error in BuildExchangeRateRollups: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
+                try
+                {
+                    await _dbQueue.EnqueueAsync(async () =>
+                    {
                         // Drop expired session tokens (7-day sliding expiry) so the
                         // user_sessions table doesn't grow unbounded.
                         string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
@@ -3046,56 +3056,104 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
             }
         }
 
+        /// <summary>
+        /// Aggregates raw exchange_rates rows into the exchange_rates_1h / _1d
+        /// rollups so long-range fiat graph queries stay fast. Same newest-first
+        /// backfill strategy as BuildCoinValueRollups, with its own time budget.
+        /// </summary>
+        private async Task BuildExchangeRateRollups()
+        {
+            using (var conn = new MySqlConnection(_connectionString))
+            {
+                await conn.OpenAsync();
+                await CoinValueRollup.EnsureExchangeRateTablesAsync(conn);
+
+                DateTime nowUtc = DateTime.UtcNow;
+                DateTime target = new DateTime(nowUtc.Year, nowUtc.Month, nowUtc.Day, nowUtc.Hour, 0, 0, DateTimeKind.Utc); // last completed hour
+
+                DateTime? rawMin = null;
+                await using (var rawMinCmd = new MySqlCommand(
+                    "SELECT MIN(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(`timestamp`) / 3600) * 3600)) FROM maxhanna.exchange_rates;", conn))
+                {
+                    object? r = await rawMinCmd.ExecuteScalarAsync();
+                    if (r != null && r is not DBNull) rawMin = Convert.ToDateTime(r);
+                }
+                if (rawMin == null) return; // no data yet
+
+                DateTime? rollupMin = null;
+                await using (var rollupMinCmd = new MySqlCommand("SELECT MIN(ts_hour) FROM maxhanna.exchange_rates_1h;", conn))
+                {
+                    object? r = await rollupMinCmd.ExecuteScalarAsync();
+                    if (r != null && r is not DBNull) rollupMin = Convert.ToDateTime(r);
+                }
+
+                // Newest-first so recent fiat graph ranges become fast first;
+                // go one day OLDER than the oldest built day to keep progressing.
+                DateTime startDate = rollupMin == null ? rawMin.Value.Date : rollupMin.Value.Date.AddDays(-1);
+                if (startDate > target.Date) startDate = target.Date;
+
+                DateTime startedAt = DateTime.UtcNow;
+                int daysBuilt = 0;
+                for (DateTime d = target.Date; d >= startDate && (DateTime.UtcNow - startedAt).TotalSeconds < 180; d = d.AddDays(-1))
+                {
+                    await CoinValueRollup.AggregateExchangeRateDayAsync(conn, d);
+                    daysBuilt++;
+                }
+
+                if (daysBuilt > 0)
+                {
+                    _ = _log.Db($"Exchange rate rollup: aggregated {daysBuilt} day(s), now covered from {startDate:yyyy-MM-dd} UTC.", null, "SYSTEM", outputToConsole: true);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Culls fine-grained coin_value rows once they're no longer needed:
+        /// anything older than a month is served from the pre-aggregated rollup
+        /// tables, so the raw table can shrink back to just the recent window.
+        /// Safety: only rows the rollup ALREADY preserves are deleted (timestamp
+        /// >= the rollup's oldest hour), so no history is ever lost before the
+        /// backfill has covered it. Batched so a big backlog doesn't hold one
+        /// giant lock, capped per run and resumed on the next daily pass.
+        /// </summary>
         private async Task DeleteOldCoinValueEntries()
         {
             using (var conn = new MySqlConnection(_connectionString))
             {
                 await conn.OpenAsync();
-                var deleteSql = @"
-					DELETE FROM coin_value
-					WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
-					AND id NOT IN (
-						SELECT id
-						FROM (
-							SELECT id,
-								ROW_NUMBER() OVER (
-									PARTITION BY name, 
-									UNIX_TIMESTAMP(timestamp) DIV (5 * 60) 
-									ORDER BY timestamp
-								) AS rn
-							FROM coin_value
-							WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 YEAR)
-						) ranked
-						WHERE rn = 1
-					);";
-                using (var deleteCmd = new MySqlCommand(deleteSql, conn))
+                // The guard below depends on the rollup tables existing.
+                await CoinValueRollup.EnsureTablesAsync(conn);
+
+                const int batchSize = 5000;
+                const int maxBatches = 400; // up to ~2M rows per daily run
+                int totalDeleted = 0;
+                for (int batch = 0; batch < maxBatches; batch++)
                 {
-                    // Long-running query — increase timeout and guard against failure.
+                    var deleteSql = @"
+						DELETE FROM coin_value
+						WHERE `timestamp` < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MONTH)
+						  AND `timestamp` >= (
+						      SELECT COALESCE(MIN(ts_hour), UTC_TIMESTAMP())
+						      FROM maxhanna.coin_value_1h
+						  )
+						LIMIT 5000;";
+                    using var deleteCmd = new MySqlCommand(deleteSql, conn);
                     deleteCmd.CommandTimeout = 300; // seconds
                     try
                     {
-                        int rowsAffected = await deleteCmd.ExecuteNonQueryAsync();
-                        //      _ = _log.Db($"Deleted {rowsAffected} old coin value entries.");
+                        int n = await deleteCmd.ExecuteNonQueryAsync();
+                        totalDeleted += n;
+                        if (n < batchSize) break;
                     }
                     catch (Exception ex)
                     {
                         _ = _log.Db($"Failed to delete old coin value entries: {ex.Message}", null, "SYSTEM", true);
+                        break;
                     }
                 }
-                // Delete records older than 10 years
-                var deleteOldSql = "DELETE FROM coin_value WHERE timestamp < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 YEAR);";
-                using (var deleteOldCmd = new MySqlCommand(deleteOldSql, conn))
+                if (totalDeleted > 0)
                 {
-                    deleteOldCmd.CommandTimeout = 300;
-                    try
-                    {
-                        int rowsAffected = await deleteOldCmd.ExecuteNonQueryAsync();
-                        //     _ = _log.Db($"Deleted {rowsAffected} coin value entries older than 10 years.");
-                    }
-                    catch (Exception ex)
-                    {
-                        _ = _log.Db($"Failed to delete very old coin value entries: {ex.Message}", null, "SYSTEM", true);
-                    }
+                    _ = _log.Db($"Deleted {totalDeleted} old coin_value row(s) (fine-grained data older than 1 month, already preserved in the rollups).", null, "SYSTEM", outputToConsole: true);
                 }
             }
         }

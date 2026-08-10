@@ -27,6 +27,7 @@ namespace maxhanna.Server.Controllers
     // append-only, so results are stable within the TTL and re-zooming the
     // graph is instant instead of re-scanning the huge table every time.
     private static readonly ConcurrentDictionary<string, (DateTime ExpiresAt, List<CoinValue> Data)> _graphCache = new();
+    private static readonly ConcurrentDictionary<string, (DateTime ExpiresAt, List<ExchangeRate> Data)> _exchangeRateGraphCache = new();
     private static readonly TimeSpan GRAPH_CACHE_TTL = TimeSpan.FromSeconds(60);
 
     private static readonly HashSet<string> AllowedWalletTypes =
@@ -278,6 +279,49 @@ namespace maxhanna.Server.Controllers
       return rollupMin <= fromUtc && (toUtc - rollupMax).TotalHours <= 2.0;
     }
 
+    /// <summary>
+    /// Aggregated read from the exchange_rates rollup tables (same shape as
+    /// BuildRollupSql, but keyed by base/target currency with a single rate).
+    /// </summary>
+    private static string BuildExchangeRateRollupSql(string? currency, int bucketSeconds)
+    {
+      bool daily = bucketSeconds >= TRUNCATE_LONG_TERM;
+      string table = daily ? "maxhanna.exchange_rates_1d" : "maxhanna.exchange_rates_1h";
+      string tsCol = daily ? "ts_day" : "ts_hour";
+      return $@"
+					SELECT 
+						MIN(min_id) as id, 
+						base_currency, 
+						target_currency, 
+						AVG(avg_rate) as rate, 
+						FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP({tsCol}) / {bucketSeconds}) * {bucketSeconds}) as timestamp
+					FROM {table}
+					WHERE {tsCol} >= @From 
+					AND {tsCol} <= @To
+					{(currency != null ? " AND target_currency = @Currency " : "")}
+					GROUP BY base_currency, target_currency, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP({tsCol}) / {bucketSeconds}) * {bucketSeconds})
+					ORDER BY timestamp ASC;";
+    }
+
+    /// <summary>
+    /// True when the exchange_rates rollup covers the entire requested range
+    /// (allowing a 2h tolerance at the newest edge for the rolling hour).
+    /// </summary>
+    private static async Task<bool> ExchangeRateRollupCoversRangeAsync(MySqlConnection conn, string? currency, DateTime fromUtc, DateTime toUtc)
+    {
+      string sql = currency != null
+        ? "SELECT MIN(ts_hour), MAX(ts_hour) FROM maxhanna.exchange_rates_1h WHERE target_currency = @Currency;"
+        : "SELECT MIN(ts_hour), MAX(ts_hour) FROM maxhanna.exchange_rates_1h;";
+      await using var cmd = new MySqlCommand(sql, conn);
+      if (currency != null) cmd.Parameters.AddWithValue("@Currency", currency);
+      await using var reader = await cmd.ExecuteReaderAsync();
+      if (!await reader.ReadAsync() || reader.IsDBNull(0)) return false;
+      DateTime rollupMin = reader.GetDateTime(0);
+      if (reader.IsDBNull(1)) return false;
+      DateTime rollupMax = reader.GetDateTime(1);
+      return rollupMin <= fromUtc && (toUtc - rollupMax).TotalHours <= 2.0;
+    }
+
     private static string GraphCacheKey(string? currency, double hourRange, DateTime fromUtc)
     {
       var truncated = new DateTime(fromUtc.Year, fromUtc.Month, fromUtc.Day, fromUtc.Hour, 0, 0, DateTimeKind.Utc);
@@ -294,14 +338,33 @@ namespace maxhanna.Server.Controllers
       var actualFrom = request.From.Value.AddHours(-1 * (request.HourRange ?? 24));
       var actualTo = request.From.Value; // only the past is requested
       MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
+      double hourRange = request.HourRange ?? 24;
+      string? cacheKey = hourRange > 24 ? GraphCacheKey(request.Currency, hourRange, actualTo) : null;
+      if (cacheKey != null && _exchangeRateGraphCache.TryGetValue(cacheKey, out var cachedExr) && cachedExr.ExpiresAt > DateTime.UtcNow)
+      {
+        return cachedExr.Data;
+      }
       try
       {
         await conn.OpenAsync();
 
-        double hourRange = request.HourRange ?? 24;
         string sql;
-
-        if (hourRange > HOURS_IN_YEAR) // More than one year
+        // Long ranges read from pre-aggregated exchange_rates rollup tables
+        // (built hourly) instead of scanning the raw table.
+        bool useRollup = hourRange > HOURS_IN_WEEK;
+        if (useRollup)
+        {
+          await CoinValueRollup.EnsureExchangeRateTablesAsync(conn);
+          useRollup = await ExchangeRateRollupCoversRangeAsync(conn, request.Currency, actualFrom, actualTo);
+        }
+        if (useRollup)
+        {
+          int bucketSeconds = hourRange > HOURS_IN_YEAR ? TRUNCATE_LONG_TERM
+            : hourRange > HOURS_IN_MONTH ? TRUNCATE_YEAR
+            : TRUNCATE_MONTH;
+          sql = BuildExchangeRateRollupSql(request.Currency, bucketSeconds);
+        }
+        else if (hourRange > HOURS_IN_YEAR) // More than one year
         {
           sql = @$"
                 SELECT 
@@ -410,6 +473,10 @@ namespace maxhanna.Server.Controllers
         await conn.CloseAsync();
       }
 
+      if (cacheKey != null)
+      {
+        _exchangeRateGraphCache[cacheKey] = (DateTime.UtcNow.Add(GRAPH_CACHE_TTL), exchangeRates);
+      }
       return exchangeRates;
     }
 

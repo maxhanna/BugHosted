@@ -16,6 +16,7 @@ namespace maxhanna.Server.Services
   /// </summary>
   public static class CoinValueRollup
   { 
+
     /// Aggregates one UTC day of raw coin_value rows into coin_value_1h, then
     /// derives that day's coin_value_1d rows from the hourly rollup. Idempotent.
     /// Returns the number of hourly rollup rows written.
@@ -53,6 +54,49 @@ namespace maxhanna.Server.Services
           symbol = VALUES(symbol), min_id = VALUES(min_id),
           avg_cad = VALUES(avg_cad), avg_usd = VALUES(avg_usd),
           row_count = VALUES(row_count);", conn))
+      {
+        cmd.Parameters.AddWithValue("@DayStart", dayStartUtc);
+        cmd.Parameters.AddWithValue("@DayEnd", dayEndUtc);
+        cmd.CommandTimeout = 300;
+        await cmd.ExecuteNonQueryAsync();
+      }
+      return rows;
+    }
+
+     
+
+    /// Aggregates one UTC day of exchange_rates rows into exchange_rates_1h,
+    /// then derives that day's exchange_rates_1d. Idempotent.
+    public static async Task<int> AggregateExchangeRateDayAsync(MySqlConnection conn, DateTime dayStartUtc)
+    {
+      DateTime dayEndUtc = dayStartUtc.Date.AddDays(1);
+      int rows = 0;
+      await using (var cmd = new MySqlCommand(@"
+        INSERT INTO maxhanna.exchange_rates_1h (base_currency, target_currency, ts_hour, min_id, avg_rate, row_count)
+        SELECT base_currency, target_currency,
+               FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(`timestamp`) / 3600) * 3600),
+               MIN(id), AVG(rate), COUNT(*)
+        FROM maxhanna.exchange_rates
+        WHERE `timestamp` >= @DayStart AND `timestamp` < @DayEnd
+        GROUP BY base_currency, target_currency, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(`timestamp`) / 3600) * 3600)
+        ON DUPLICATE KEY UPDATE
+          min_id = VALUES(min_id), avg_rate = VALUES(avg_rate), row_count = VALUES(row_count);", conn))
+      {
+        cmd.Parameters.AddWithValue("@DayStart", dayStartUtc);
+        cmd.Parameters.AddWithValue("@DayEnd", dayEndUtc);
+        cmd.CommandTimeout = 300;
+        rows = await cmd.ExecuteNonQueryAsync();
+      }
+      await using (var cmd = new MySqlCommand(@"
+        INSERT INTO maxhanna.exchange_rates_1d (base_currency, target_currency, ts_day, min_id, avg_rate, row_count)
+        SELECT base_currency, target_currency,
+               FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(ts_hour) / 86400) * 86400),
+               MIN(min_id), AVG(avg_rate), SUM(row_count)
+        FROM maxhanna.exchange_rates_1h
+        WHERE ts_hour >= @DayStart AND ts_hour < @DayEnd
+        GROUP BY base_currency, target_currency, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(ts_hour) / 86400) * 86400)
+        ON DUPLICATE KEY UPDATE
+          min_id = VALUES(min_id), avg_rate = VALUES(avg_rate), row_count = VALUES(row_count);", conn))
       {
         cmd.Parameters.AddWithValue("@DayStart", dayStartUtc);
         cmd.Parameters.AddWithValue("@DayEnd", dayEndUtc);
