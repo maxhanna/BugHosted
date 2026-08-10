@@ -373,6 +373,10 @@ export class RacingRenderer {
   private trackVbo!: WebGLBuffer;
   private trackIbo!: WebGLBuffer;
   private trackCount = 0;
+  private shoulderVao!: WebGLVertexArrayObject;
+  private shoulderVbo!: WebGLBuffer;
+  private shoulderIbo!: WebGLBuffer;
+  private shoulderCount = 0;
   private sceneryVao!: WebGLVertexArrayObject;
   private sceneryVbo!: WebGLBuffer;
   private sceneryIbo!: WebGLBuffer;
@@ -654,12 +658,41 @@ export class RacingRenderer {
     return this.makeTex(size, size, data);
   }
   private makeGrassTex(): WebGLTexture {
-    const size = 64;
+    // Procedural turf: two octaves of mottle (mown patchwork), per-pixel blade
+    // speckle and the occasional dirt patch, so the runoff reads as real grass
+    // instead of a flat green slab.
+    const size = 128;
     const data = new Uint8Array(size * size * 3);
-    for (let i = 0; i < size * size; i++) {
-      const g = 60 + (i % 20);
-      const r = 20 + (i * 3 % 15);
-      data[i * 3] = r; data[i * 3 + 1] = g; data[i * 3 + 2] = 15 + (i % 10);
+    const hash = (x: number, y: number) => {
+      let n = (x * 374761393 + y * 668265263) | 0;
+      n = Math.imul(n ^ (n >>> 13), 1274126177);
+      n ^= n >>> 16;
+      return (n >>> 0) / 4294967296;
+    };
+    const noise = (x: number, y: number, cell: number) => {
+      const x0 = Math.floor(x / cell), y0 = Math.floor(y / cell);
+      const fx = x / cell - x0, fy = y / cell - y0;
+      const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+      const v00 = hash(x0, y0), v10 = hash(x0 + 1, y0), v01 = hash(x0, y0 + 1), v11 = hash(x0 + 1, y0 + 1);
+      const a = v00 + (v10 - v00) * sx;
+      const b = v01 + (v11 - v01) * sx;
+      return a + (b - a) * sy;
+    };
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 3;
+        const m1 = noise(x, y, 22), m2 = noise(x, y, 7);
+        let r = 32 + (m1 - 0.5) * 24 + (m2 - 0.5) * 14;
+        let g = 76 + (m1 - 0.5) * 40 + (m2 - 0.5) * 22;
+        let b = 24 + (m1 - 0.5) * 16 + (m2 - 0.5) * 10;
+        const h = hash(x, y);
+        if (h < 0.3) { g += 26; r += 7; b += 3; }        // sunlit blade tip
+        else if (h > 0.8) { g -= 20; r -= 5; b -= 3; }   // shadowed blade
+        if (noise(x, y, 28) > 0.86) { r += 14; g -= 26; b += 5; } // dirt patch
+        data[i] = Math.max(6, Math.min(190, r));
+        data[i + 1] = Math.max(10, Math.min(205, g));
+        data[i + 2] = Math.max(6, Math.min(150, b));
+      }
     }
     return this.makeTex(size, size, data);
   }
@@ -744,20 +777,54 @@ export class RacingRenderer {
     gl.bindTexture(gl.TEXTURE_2D, null);
   }
   private makeTrackMarkingsTex(): WebGLTexture {
-    const size = 128;
+    // Richer street markings: crisp painted edge lines, a dashed centre line
+    // and worn asphalt (fine grain, broad mottle/repairs, rubber dust on the
+    // racing line and at the edges). Tiled along the track every TRACK_MARK_TILE
+    // world units (see buildTrackMesh) so the dashes stay a sane size on the
+    // road instead of stretching into 40-unit streaks.
+    const size = 256;
     const data = new Uint8Array(size * size * 3);
+    const hash = (x: number, y: number) => {
+      let n = (x * 374761393 + y * 668265263) | 0;
+      n = Math.imul(n ^ (n >>> 13), 1274126177);
+      n ^= n >>> 16;
+      return (n >>> 0) / 4294967296;
+    };
+    const noise = (x: number, y: number, cell: number) => {
+      const x0 = Math.floor(x / cell), y0 = Math.floor(y / cell);
+      const fx = x / cell - x0, fy = y / cell - y0;
+      const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+      const v00 = hash(x0, y0), v10 = hash(x0 + 1, y0), v01 = hash(x0, y0 + 1), v11 = hash(x0 + 1, y0 + 1);
+      const a = v00 + (v10 - v00) * sx;
+      const b = v01 + (v11 - v01) * sx;
+      return a + (b - a) * sy;
+    };
+    const soft = (lo: number, hi: number, vy: number, falloff: number) =>
+      Math.max(0, Math.min(1, Math.min(vy - lo, hi - vy) / falloff));
     for (let y = 0; y < size; y++) {
+      const vy = y / size;
       for (let x = 0; x < size; x++) {
         const i = (y * size + x) * 3;
-        if (y < 2 || y > size - 3) {
-          data[i] = 215; data[i + 1] = 215; data[i + 2] = 212;
-        } else if (y > size / 2 - 2 && y < size / 2 + 2) {
-          if (x % 24 < 10) { data[i] = 205; data[i + 1] = 205; data[i + 2] = 201; }
-          else { data[i] = 62; data[i + 1] = 62; data[i + 2] = 64; }
-        } else {
-          const n = 56;
-          data[i] = n; data[i + 1] = n; data[i + 2] = n + 2;
-        }
+        // Base asphalt: mid gray with fine per-pixel grain.
+        let g = 55 + (hash(x, y) * 2 - 1) * 7;
+        // Broad mottling — darker repairs/stains, sun-bleached worn patches.
+        const m = noise(x, y, 26);
+        g += (m - 0.5) * 12;
+        if (m > 0.74) g -= (m - 0.74) * 90;
+        if (m < 0.24) g += (0.24 - m) * 36;
+        // Rubber laid down on the racing line (a soft band down the middle).
+        g -= Math.max(0, 1 - Math.abs(vy - 0.5) * 5.5) * 12;
+        // Rubber dust at the very edges where cars drop wheels off-line.
+        if (vy < 0.035) g -= (0.035 - vy) * 170;
+        if (vy > 0.965) g -= (vy - 0.965) * 170;
+        // Painted white edge lines, slightly inboard of the kerb.
+        const aEdge = Math.max(soft(0.03, 0.062, vy, 0.007), soft(0.938, 0.97, vy, 0.007));
+        g = g * (1 - aEdge) + 233 * aEdge;
+        // Dashed white centre line.
+        const aDash = soft(0.486, 0.514, vy, 0.007) * ((x % 56) < 22 ? 1 : 0);
+        g = g * (1 - aDash) + 226 * aDash;
+        g = Math.max(5, Math.min(250, g));
+        data[i] = g; data[i + 1] = g; data[i + 2] = g * 0.98 + 4;
       }
     }
     return this.makeTex(size, size, data);
@@ -1704,6 +1771,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this.trackVao) { try { gl.deleteVertexArray(this.trackVao); } catch { } }
     if (this.trackVbo) { try { gl.deleteBuffer(this.trackVbo); } catch { } }
     if (this.trackIbo) { try { gl.deleteBuffer(this.trackIbo); } catch { } }
+    if (this.shoulderVao) { try { gl.deleteVertexArray(this.shoulderVao); } catch { } }
+    if (this.shoulderVbo) { try { gl.deleteBuffer(this.shoulderVbo); } catch { } }
+    if (this.shoulderIbo) { try { gl.deleteBuffer(this.shoulderIbo); } catch { } }
     if (this.barrierVao) { try { gl.deleteVertexArray(this.barrierVao); } catch { } }
     if (this.barrierVbo) { try { gl.deleteBuffer(this.barrierVbo); } catch { } }
     if (this.barrierIbo) { try { gl.deleteBuffer(this.barrierIbo); } catch { } }
@@ -1715,6 +1785,23 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const idxs: number[] = [];
     const barVerts: number[] = [];
     const barIdxs: number[] = [];
+    const shVerts: number[] = [];
+    const shIdxs: number[] = [];
+    // Road markings tile every TRACK_MARK_TILE world units along the track and
+    // the grass shoulder every TRACK_GRASS_TILE — computed from arc length (not
+    // segment index) so the dashes/lines stay the same size on every circuit.
+    const TRACK_MARK_TILE = 24;
+    const TRACK_GRASS_TILE = 12;
+    const cumLen: number[] = [];
+    {
+      let acc = 0;
+      for (let i = 0; i < pts.length; i++) {
+        cumLen.push(acc);
+        const cp = pts[i];
+        const cn = pts[(i + 1) % pts.length];
+        acc += Math.hypot(cn.x - cp.x, cn.z - cp.z);
+      }
+    }
     const perSegVerts = 6;
     for (let i = 0; i < pts.length; i++) {
       const p = pts[i];
@@ -1725,45 +1812,48 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const npz = n.dirX;
       const hw = p.width / 2;
       const hwN = n.width / 2;
-      const segDist = i / pts.length;
+      const ui = cumLen[i] / TRACK_MARK_TILE;
+      const uiN = cumLen[(i + 1) % pts.length] / TRACK_MARK_TILE;
       // Road surface follows the terrain elevation (p.y / n.y) so the circuit
       // physically climbs and drops; the shoulder band drops slightly below it.
       // Banking tilts the whole cross-section sideways: the outside of a fast
       // corner rises by bank * offset, the inside sinks, the centreline stays.
       const py = p.y, ny = n.y;
       const bank = p.bank ?? 0, bankN = n.bank ?? 0;
-      verts.push(p.x + ppx * hw, py + bank * hw, p.z + ppz * hw, 0, 1, 0, 1, 1, 1, segDist * 4, 0);
-      verts.push(n.x + npx * hwN, ny + bankN * hwN, n.z + npz * hwN, 0, 1, 0, 1, 1, 1, (segDist + 1 / pts.length) * 4, 0);
-      verts.push(p.x, py, p.z, 0, 1, 0, 1, 1, 1, segDist * 4, 0.5);
-      verts.push(n.x, ny, n.z, 0, 1, 0, 1, 1, 1, (segDist + 1 / pts.length) * 4, 0.5);
-      verts.push(p.x - ppx * hw, py - bank * hw, p.z - ppz * hw, 0, 1, 0, 1, 1, 1, segDist * 4, 1);
-      verts.push(n.x - npx * hwN, ny - bankN * hwN, n.z - npz * hwN, 0, 1, 0, 1, 1, 1, (segDist + 1 / pts.length) * 4, 1);
+      verts.push(p.x + ppx * hw, py + bank * hw, p.z + ppz * hw, 0, 1, 0, 1, 1, 1, ui, 0);
+      verts.push(n.x + npx * hwN, ny + bankN * hwN, n.z + npz * hwN, 0, 1, 0, 1, 1, 1, uiN, 0);
+      verts.push(p.x, py, p.z, 0, 1, 0, 1, 1, 1, ui, 0.5);
+      verts.push(n.x, ny, n.z, 0, 1, 0, 1, 1, 1, uiN, 0.5);
+      verts.push(p.x - ppx * hw, py - bank * hw, p.z - ppz * hw, 0, 1, 0, 1, 1, 1, ui, 1);
+      verts.push(n.x - npx * hwN, ny - bankN * hwN, n.z - npz * hwN, 0, 1, 0, 1, 1, 1, uiN, 1);
       const vi = i * perSegVerts;
       idxs.push(vi, vi + 1, vi + 2);
       idxs.push(vi + 2, vi + 1, vi + 3);
       idxs.push(vi + 2, vi + 3, vi + 5);
       idxs.push(vi + 2, vi + 5, vi + 4);
       const shoulderW = 20;
-      const su = 0.3 + segDist * 0.4;
-      const suN = 0.3 + (segDist + 1 / pts.length) * 0.4;
-      const gr = 0.55, gg = 1.7, gb = 0.4;
-      verts.push(p.x + ppx * hw, py - 0.2 + bank * hw, p.z + ppz * hw, 0, 1, 0, gr, gg, gb, su, 0.25);
-      verts.push(n.x + npx * hwN, ny - 0.2 + bankN * hwN, n.z + npz * hwN, 0, 1, 0, gr, gg, gb, suN, 0.25);
-      // The shoulder follows the road's tilt only out to the road edge (hw) —
+      const gu = cumLen[i] / TRACK_GRASS_TILE;
+      const guN = cumLen[(i + 1) % pts.length] / TRACK_GRASS_TILE;
+      // The shoulder is a separate mesh drawn with its own grass texture (see
+      // drawWorldScene) so the runoff reads as turf, not asphalt-noise tinted
+      // green. It follows the road's tilt only out to the road edge (hw) —
       // beyond that it stays level with the edge instead of climbing to
       // bank*(hw+shoulderW) ~ +7 units, which used to tower over the barrier
-      // and bury the outside of banked corners in a wall of grass.
-      verts.push(p.x + ppx * (hw + shoulderW), py - 0.2 + bank * hw, p.z + ppz * (hw + shoulderW), 0, 1, 0, gr, gg, gb, su, 0.25);
-      verts.push(n.x + npx * (hwN + shoulderW), ny - 0.2 + bankN * hwN, n.z + npz * (hwN + shoulderW), 0, 1, 0, gr, gg, gb, suN, 0.25);
-      verts.push(p.x - ppx * hw, py - 0.2 - bank * hw, p.z - ppz * hw, 0, 1, 0, gr, gg, gb, su, 0.75);
-      verts.push(n.x - npx * hwN, ny - 0.2 - bankN * hwN, n.z - npz * hwN, 0, 1, 0, gr, gg, gb, suN, 0.75);
-      verts.push(p.x - ppx * (hw + shoulderW), py - 0.2 - bank * hw, p.z - ppz * (hw + shoulderW), 0, 1, 0, gr, gg, gb, su, 0.75);
-      verts.push(n.x - npx * (hwN + shoulderW), ny - 0.2 - bankN * hwN, n.z - npz * (hwN + shoulderW), 0, 1, 0, gr, gg, gb, suN, 0.75);
-      const si = pts.length * perSegVerts + i * 8;
-      idxs.push(si, si + 1, si + 2);
-      idxs.push(si + 2, si + 1, si + 3);
-      idxs.push(si + 4, si + 5, si + 6);
-      idxs.push(si + 6, si + 5, si + 7);
+      // and bury the outside of banked corners in a wall of grass. Vertex
+      // colour is white: the grass texture carries the full albedo.
+      shVerts.push(p.x + ppx * hw, py - 0.2 + bank * hw, p.z + ppz * hw, 0, 1, 0, 1, 1, 1, gu, 0);
+      shVerts.push(n.x + npx * hwN, ny - 0.2 + bankN * hwN, n.z + npz * hwN, 0, 1, 0, 1, 1, 1, guN, 0);
+      shVerts.push(p.x + ppx * (hw + shoulderW), py - 0.2 + bank * hw, p.z + ppz * (hw + shoulderW), 0, 1, 0, 1, 1, 1, gu, 2.5);
+      shVerts.push(n.x + npx * (hwN + shoulderW), ny - 0.2 + bankN * hwN, n.z + npz * (hwN + shoulderW), 0, 1, 0, 1, 1, 1, guN, 2.5);
+      shVerts.push(p.x - ppx * hw, py - 0.2 - bank * hw, p.z - ppz * hw, 0, 1, 0, 1, 1, 1, gu, 0);
+      shVerts.push(n.x - npx * hwN, ny - 0.2 - bankN * hwN, n.z - npz * hwN, 0, 1, 0, 1, 1, 1, guN, 0);
+      shVerts.push(p.x - ppx * (hw + shoulderW), py - 0.2 - bank * hw, p.z - ppz * (hw + shoulderW), 0, 1, 0, 1, 1, 1, gu, 2.5);
+      shVerts.push(n.x - npx * (hwN + shoulderW), ny - 0.2 - bankN * hwN, n.z - npz * (hwN + shoulderW), 0, 1, 0, 1, 1, 1, guN, 2.5);
+      const si = i * 8;
+      shIdxs.push(si, si + 1, si + 2);
+      shIdxs.push(si + 2, si + 1, si + 3);
+      shIdxs.push(si + 4, si + 5, si + 6);
+      shIdxs.push(si + 6, si + 5, si + 7);
       const barrierH = 0.85;
       const bw = hw + 1.5;
       const bwN = hwN + 1.5;
@@ -1865,6 +1955,26 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.trackIbo);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idxArray, gl.STATIC_DRAW);
     const stride = 11 * 4;
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+    const shArray = new Float32Array(shVerts);
+    const shIdxArray = new Uint16Array(shIdxs);
+    this.shoulderCount = shIdxArray.length;
+    this.shoulderVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.shoulderVao);
+    this.shoulderVbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.shoulderVbo);
+    gl.bufferData(gl.ARRAY_BUFFER, shArray, gl.STATIC_DRAW);
+    this.shoulderIbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.shoulderIbo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, shIdxArray, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
     gl.enableVertexAttribArray(1);
@@ -5717,7 +5827,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private _scrubMarks: { x: number; z: number; yaw: number; len: number; wid: number; life: number; maxLife: number; alphaBase: number }[] = [];
   private _scrubVao: WebGLVertexArrayObject | null = null;
   private _scrubBuf: WebGLBuffer | null = null;
-  private _scrubMax = 1200;
+  private _scrubMax = 400;
   // Reusable per-frame vertex scratch for scrub marks/smoke (no per-frame alloc).
   private _scrubScratch: Float32Array | null = null;
   private _smokeScratch: Float32Array | null = null;
@@ -7005,6 +7115,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.polygonOffset(2.0, 2.0);
     gl.bindVertexArray(this.trackVao);
     gl.drawElements(gl.TRIANGLES, this.trackCount, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(this.shoulderVao);
+    gl.drawElements(gl.TRIANGLES, this.shoulderCount, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(this.barrierVao);
     gl.drawElements(gl.TRIANGLES, this.barrierCount, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(this.finishVao);
@@ -7401,6 +7513,16 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.uniform3f(this.colorLoc, 1, 1, 1);
     this.setNormalMatrix(this.modelMatrix);
     gl.drawElements(gl.TRIANGLES, this.trackCount, gl.UNSIGNED_SHORT, 0);
+    // Grass shoulder — its own mesh + texture so the runoff reads as turf.
+    gl.bindVertexArray(this.shoulderVao);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.grassTex);
+    gl.uniform1i(this.hasTexLoc, 1);
+    this.mat4Identity(this.modelMatrix);
+    gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+    gl.uniform3f(this.colorLoc, 1, 1, 1);
+    this.setNormalMatrix(this.modelMatrix);
+    gl.drawElements(gl.TRIANGLES, this.shoulderCount, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(this.finishVao);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
@@ -7485,7 +7607,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.drawPalmFronds(eye);
     this.drawOasisWater(eye);
     this.drawAnimals(eye);
-    this.drawScrubMarks(proj, view, eye);
+    // Scrub marks are an effects pass, so they belong behind the drawRain gate
+    // like the smoke: the mirror (drawRain=false) used to re-draw all of them
+    // straight into its rear-view — and when grinding the gutter, the marks
+    // pile up right behind the car where the mirror stares, causing a heavy
+    // overdraw spike in that pass.
+    if (drawRain) {
+      this.drawScrubMarks(proj, view, eye);
+    }
     for (const car of cars) {
       this.renderCar(car.x, car.y, car.z, car.yaw, car.r, car.g, car.b, car.speed ?? 0, car.accel ?? 0, car.spin, car.slide ?? 0, car, 0, car.bank ?? 0);
       if (drawRain && (car.slide ?? 0) > 0.35) {
