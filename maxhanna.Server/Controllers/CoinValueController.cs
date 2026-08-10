@@ -127,8 +127,7 @@ namespace maxhanna.Server.Controllers
         // hourly background job) instead of scanning the raw table.
         bool useRollup = hourRange > HOURS_IN_WEEK;
         if (useRollup)
-        {
-          await CoinValueRollup.EnsureTablesAsync(conn);
+        { 
           // Only use the rollup when it fully covers the requested range;
           // otherwise fall back to raw so results stay complete.
           useRollup = await RollupCoversRangeAsync(conn, request.Currency, actualFrom, actualTo);
@@ -353,8 +352,7 @@ namespace maxhanna.Server.Controllers
         // (built hourly) instead of scanning the raw table.
         bool useRollup = hourRange > HOURS_IN_WEEK;
         if (useRollup)
-        {
-          await CoinValueRollup.EnsureExchangeRateTablesAsync(conn);
+        { 
           useRollup = await ExchangeRateRollupCoversRangeAsync(conn, request.Currency, actualFrom, actualTo);
         }
         if (useRollup)
