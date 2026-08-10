@@ -4,6 +4,6 @@ export class CalendarEntry {
   type?: string;
   note?: string;
   ownership?: string;
-  /** Minutes before the event to notify (undefined = use default). */
+  /** Minutes before the event to notify (undefined = default 60; 0 = never notify). */
   reminder?: number;
 }

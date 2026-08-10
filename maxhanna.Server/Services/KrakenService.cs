@@ -3802,7 +3802,14 @@ ON DUPLICATE KEY UPDATE
         var prettyPost = JsonConvert.SerializeObject(postData, Formatting.Indented);
 
         _ = _log.Db($"Kraken API error: {errorMessages}. Url: {urlPath}. Data: {prettyPost}. User: {userId}", userId, "TRADE", viewErrorDebugLogs);
-        await SetCooldown(userId, errorMessages);
+        // Attach the pair (coin) to the cooldown reason so the notification says WHICH
+        // coin failed (e.g. "volume minimum not met (pair: XBTUSDC)") instead of a bare error.
+        string cooldownReason = errorMessages;
+        if (postData.TryGetValue("pair", out var errorPair) && !string.IsNullOrWhiteSpace(errorPair))
+        {
+          cooldownReason += $" (pair: {errorPair})";
+        }
+        await SetCooldown(userId, cooldownReason);
         return null;
       }
       return responseObject;
@@ -4961,22 +4968,10 @@ ON DUPLICATE KEY UPDATE
 
       if (totalSellValue < _MinimumBTCTradeAmount)
       {
-        // Combined value is still too small to trade — close them all as invalid so they
-        // stop being retried (and stop spamming the log) every TTL cycle.
-        _ = _log.Db($"({coin}:{userId}:{strategy}) TTL bulk total {FormatBTC(totalSellValue)} {coin} below minimum ({FormatBTC(_MinimumBTCTradeAmount)}). Closing {sellableTrades.Count} expired trades as invalid.", userId, "TRADE", viewDebugLogs);
-        foreach (var (tradeId, _) in sellableTrades)
-        {
-          const string closeSql = @"
-            UPDATE trade_history
-            SET matching_trade_id = id
-            WHERE id = @TradeId AND matching_trade_id IS NULL;";
-          await using var closeCmd = new MySqlCommand(closeSql, conn);
-          closeCmd.Parameters.AddWithValue("@TradeId", tradeId);
-          await closeCmd.ExecuteNonQueryAsync();
-        }
-        // Let the user know these trades were invalidated so they can investigate.
-        string belowMinCoin = CoinNameMap.TryGetValue(coin, out var belowMinName) ? belowMinName : coin;
-        await SafeNotifyUser($"TTL bulk sell was force-closed: {sellableTrades.Count} expired {belowMinCoin} trade(s) totalling {FormatBTC(totalSellValue)} {belowMinCoin} are below the minimum trade amount ({FormatBTC(_MinimumBTCTradeAmount)}). Trades marked as invalid — please check your wallet balance.", userId, conn, coin, strategy);
+        // Combined batch is below the exchange minimum - do NOT sell and do NOT
+        // invalidate. Leave the trades open so a later TTL round can combine them
+        // with newly-expired orders and clear the minimum together.
+        _ = _log.Db($"({coin}:{userId}:{strategy}) TTL bulk total {FormatBTC(totalSellValue)} {coin} below minimum ({FormatBTC(_MinimumBTCTradeAmount)}) - leaving {sellableTrades.Count} expired trade(s) open for a future TTL round.", userId, "TRADE", viewDebugLogs);
         return false;
       }
 

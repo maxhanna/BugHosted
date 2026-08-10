@@ -3306,7 +3306,11 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
                     var occUtc = TimeZoneInfo.ConvertTimeToUtc(occLocal.Value, tz);
                     // Per-event lead time: notify `reminder` minutes before the
                     // event (default 60 minutes when unset, preserving the old
-                    // fixed 1-hour window). Fire only once the lead window opens.
+                    // fixed 1-hour window). `reminder = 0` means "never notify
+                    // for this event" (per-event opt-out), so it is skipped
+                    // entirely here rather than firing at the event time.
+                    // Fire only once the lead window opens.
+                    if (reminder == 0) continue;
                     var lead = reminder ?? 60;
                     if (now < occUtc.AddMinutes(-lead)) continue;
                     pending.Add(new CalendarEntry(1, type, note, occUtc, userId.ToString(), lead));

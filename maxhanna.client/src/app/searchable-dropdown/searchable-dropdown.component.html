@@ -1,0 +1,19 @@
+<div class="searchable-dropdown" [class.open]="open">
+  <button type="button" class="sdd-trigger" (click)="toggle()" [title]="selected || placeholder">
+    <span class="sdd-value">{{ selected || placeholder }}</span>
+    <span class="sdd-caret" [class.flipped]="open">▼</span>
+  </button>
+
+  <div class="sdd-panel" *ngIf="open">
+    <input class="sdd-search" type="text" [(ngModel)]="query" (input)="onSearchInput()"
+      (keydown)="onKeydown($event)" [placeholder]="searchPlaceholder" />
+    <ul class="sdd-list" role="listbox">
+      <li *ngFor="let item of filteredItems; let i = index" role="option"
+        [class.selected]="item === selected" [class.active]="i === activeIndex"
+        (mousedown)="select(item)" (mouseenter)="activeIndex = i">
+        {{ item }}
+      </li>
+      <li class="sdd-empty" *ngIf="filteredItems.length === 0">No matches</li>
+    </ul>
+  </div>
+</div>

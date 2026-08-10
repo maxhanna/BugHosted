@@ -2032,43 +2032,45 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const gl = this.gl;
     this.initOasisFx();
     const t = this.elapsed;
-    const verts: number[] = [];
-    const idxs: number[] = [];
+    if (!this._frondScratch) this._frondScratch = new Float32Array(220 * 7 * 6 * 11);
+    const data = this._frondScratch;
     const rnd = (i: number) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
     const frondCol = [0.06, 0.42, 0.1] as [number, number, number];
-    const maxVerts = 220 * 7 * 6;
-    let used = 0;
+    let o = 0;
+    const maxFloats = data.length;
     for (const c of crowns) {
-      if (used >= maxVerts) break;
+      if (o + 66 > maxFloats) break;
       const ddx = c.x - eye[0], ddz = c.z - eye[2];
       if (ddx * ddx + ddz * ddz > 450 * 450) continue;
       const sway = Math.sin(t * 0.9 + c.phase) * 0.18 + Math.sin(t * 0.4 + c.phase * 1.7) * 0.07;
       const droop = Math.abs(Math.sin(t * 0.8 + c.phase * 1.3)) * 0.14;
       for (let f = 0; f < 7; f++) {
-        if (used >= maxVerts) break;
+        if (o + 66 > maxFloats) break;
         const a = (f / 7) * Math.PI * 2 + c.lean * 0.3 + sway;
         const len = (1.6 + rnd(c.phase * 13 + f * 7) * 0.5) * c.s;
         const ex = c.x + Math.cos(a) * len;
         const ez = c.z + Math.sin(a) * len;
         const ey = c.y + 0.2 - rnd(c.phase * 29 + f * 3) * 0.7 - droop * 0.5;
-        this.addQuad(verts, idxs,
-          [c.x, c.y, c.z], [ex, ey, ez],
-          [c.x + Math.cos(a) * len * 0.95, ey - 0.15, c.z + Math.sin(a) * len * 0.95],
-          [c.x + Math.cos(a) * 0.3, c.y - 0.15, c.z + Math.sin(a) * 0.3],
-          frondCol);
-        used += 6;
+        // Frond quad corners (a = trunk top, b = tip, c = mid-tip, d = mid-
+        // base) — same values the old addQuad call got, written as scalars so
+        // no corner arrays are allocated either.
+        const ax = c.x, ay = c.y, az = c.z;
+        const bx = ex, by = ey, bz = ez;
+        const cx = c.x + Math.cos(a) * len * 0.95, cy = ey - 0.15, cz = c.z + Math.sin(a) * len * 0.95;
+        const dx = c.x + Math.cos(a) * 0.3, dy = c.y - 0.15, dz = c.z + Math.sin(a) * 0.3;
+        // Same normal as addQuad: (B−A) × (C−A).
+        let nx = (by - ay) * (cz - az) - (bz - az) * (cy - ay);
+        let ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az);
+        let nz = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+        const nl = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+        nx /= nl; ny /= nl; nz /= nl;
+        o = this.pushQuadVerts(data, o, ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz,
+          nx, ny, nz, frondCol[0], frondCol[1], frondCol[2]);
       }
     }
-    if (!idxs.length) return;
-    const tri: number[] = [];
-    for (const i of idxs) {
-      const o = i * 11;
-      tri.push(verts[o], verts[o + 1], verts[o + 2], verts[o + 3], verts[o + 4], verts[o + 5],
-        verts[o + 6], verts[o + 7], verts[o + 8], verts[o + 9], verts[o + 10]);
-    }
-    const data = new Float32Array(tri);
+    if (!o) return;
     gl.bindBuffer(gl.ARRAY_BUFFER, this._frondBuf);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, o));
     gl.useProgram(this.prog);
     gl.uniform1i(this.hasTexLoc, 0);
     gl.uniform3f(this.colorLoc, 1, 1, 1);
@@ -2076,7 +2078,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
     this.setNormalMatrix(this.modelMatrix);
     gl.bindVertexArray(this._frondVao);
-    gl.drawArrays(gl.TRIANGLES, 0, data.length / 11);
+    gl.drawArrays(gl.TRIANGLES, 0, o / 11);
     gl.bindVertexArray(null);
   }
   private drawOasisWater(eye: number[]) {
@@ -2085,11 +2087,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const gl = this.gl;
     this.initOasisFx();
     const t = this.elapsed;
-    const verts: number[] = [];
-    const maxVerts = 4 * 600;
-    let used = 0;
+    if (!this._waterScratch) this._waterScratch = new Float32Array(4 * 600 * 11);
+    const data = this._waterScratch;
+    let o = 0;
+    const maxFloats = data.length;
     for (const pool of pools) {
-      if (used >= maxVerts) break;
+      if (o + 66 > maxFloats) break;
       const ddx = pool.x - eye[0], ddz = pool.z - eye[2];
       if (ddx * ddx + ddz * ddz > 260 * 260) continue;
       const cells = 10;
@@ -2103,40 +2106,54 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const wave = Math.sin(wx * 0.8 + t * 1.3) * 0.012 + Math.cos(wz * 1.0 + t * 1.0) * 0.012;
         return Math.max(-0.255, -0.22 + baseY + ripple + wave);
       };
-      const gh: number[][] = [];
+      // Height field for this pool, in a flat preallocated scratch — the old
+      // code built a fresh number[][] (12 array allocs per pool) every frame.
+      const gh = this._waterHeightScratch;
+      const stride = cells + 1;
       for (let i = 0; i <= cells; i++) {
-        gh.push([]);
         for (let j = 0; j <= cells; j++) {
-          gh[i].push(H(pool.x - half + cell * i, pool.z - half + cell * j));
+          gh[i * stride + j] = H(pool.x - half + cell * i, pool.z - half + cell * j);
         }
       }
-      for (let i = 0; i < cells && used < maxVerts; i++) {
-        for (let j = 0; j < cells && used < maxVerts; j++) {
-          const corners: number[][] = [];
-          for (const [di, dj] of [[0, 0], [1, 0], [1, 1], [0, 1]] as const) {
-            const ci = i + di, cj = j + dj;
-            const wx = pool.x - half + cell * ci;
-            const wz = pool.z - half + cell * cj;
-            const hC = gh[ci][cj];
-            const slopeX = (gh[Math.min(cells, ci + 1)][cj] - gh[Math.max(0, ci - 1)][cj]) / (2 * cell);
-            const slopeZ = (gh[ci][Math.min(cells, cj + 1)] - gh[ci][Math.max(0, cj - 1)]) / (2 * cell);
-            let nx = -slopeX, ny = 1, nz = -slopeZ;
-            const nl = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
-            nx /= nl; ny /= nl; nz /= nl;
-            const wv = Math.max(0, (hC - -0.22) * 4);
-            corners.push([wx, hC, wz, nx, ny, nz, 0.11 + 0.06 * wv, 0.46 + 0.08 * wv, 0.44 + 0.07 * wv]);
-          }
-          const [a, b, c2, d] = corners;
-          for (const v of [a, b, c2]) verts.push(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], 0, 0);
-          for (const v of [a, c2, d]) verts.push(v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], 0, 0);
-          used += 6;
+      // Corner record (pos + normal + color) is computed into this small
+      // scratch so no per-cell arrays are allocated either.
+      const cs = this._waterCornerScratch;
+      const corner = (ci: number, cj: number) => {
+        const wx = pool.x - half + cell * ci;
+        const wz = pool.z - half + cell * cj;
+        const hC = gh[ci * stride + cj];
+        const slopeX = (gh[Math.min(cells, ci + 1) * stride + cj] - gh[Math.max(0, ci - 1) * stride + cj]) / (2 * cell);
+        const slopeZ = (gh[ci * stride + Math.min(cells, cj + 1)] - gh[ci * stride + Math.max(0, cj - 1)]) / (2 * cell);
+        let nx = -slopeX, ny = 1, nz = -slopeZ;
+        const nl = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+        nx /= nl; ny /= nl; nz /= nl;
+        const wv = Math.max(0, (hC - -0.22) * 4);
+        cs[0] = wx; cs[1] = hC; cs[2] = wz;
+        cs[3] = nx; cs[4] = ny; cs[5] = nz;
+        cs[6] = 0.11 + 0.06 * wv; cs[7] = 0.46 + 0.08 * wv; cs[8] = 0.44 + 0.07 * wv;
+      };
+      const put = () => {
+        data[o++] = cs[0]; data[o++] = cs[1]; data[o++] = cs[2];
+        data[o++] = cs[3]; data[o++] = cs[4]; data[o++] = cs[5];
+        data[o++] = cs[6]; data[o++] = cs[7]; data[o++] = cs[8];
+        data[o++] = 0; data[o++] = 0;
+      };
+      for (let i = 0; i < cells; i++) {
+        for (let j = 0; j < cells; j++) {
+          if (o + 66 > maxFloats) break;
+          // Two triangles per cell, same winding as the original: (a,b,c),(a,c,d).
+          corner(i, j); put();
+          corner(i + 1, j); put();
+          corner(i + 1, j + 1); put();
+          corner(i, j); put();
+          corner(i + 1, j + 1); put();
+          corner(i, j + 1); put();
         }
       }
     }
-    if (!verts.length) return;
-    const data = new Float32Array(verts);
+    if (!o) return;
     gl.bindBuffer(gl.ARRAY_BUFFER, this._waterBuf);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, o));
     gl.useProgram(this.prog);
     gl.uniform1i(this.hasTexLoc, 0);
     gl.uniform3f(this.colorLoc, 1, 1, 1);
@@ -2144,7 +2161,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
     this.setNormalMatrix(this.modelMatrix);
     gl.bindVertexArray(this._waterVao);
-    gl.drawArrays(gl.TRIANGLES, 0, data.length / 11);
+    gl.drawArrays(gl.TRIANGLES, 0, o / 11);
     gl.bindVertexArray(null);
   }
   private buildScenery() {
@@ -5704,6 +5721,24 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // Reusable per-frame vertex scratch for scrub marks/smoke (no per-frame alloc).
   private _scrubScratch: Float32Array | null = null;
   private _smokeScratch: Float32Array | null = null;
+  // Same zero-alloc pattern for the other always-on per-frame effects: birds,
+  // desert wind (tumbleweeds + dust devils), animals, rain, palm fronds and
+  // oasis water used to build a fresh number[] + Float32Array copy every
+  // frame — twice per frame (main view + mirror) — spiking the GC exactly
+  // while racing.
+  private _birdScratch: Float32Array | null = null;
+  private _ringScratch = new Float32Array(11 * 3);
+  private _windScratch: Float32Array | null = null;
+  private _windSmokeScratch: Float32Array | null = null;
+  private _animalScratch: Float32Array | null = null;
+  private _rainScratch: Float32Array | null = null;
+  private _frondScratch: Float32Array | null = null;
+  private _waterScratch: Float32Array | null = null;
+  // Oasis water height field (11×11 for the fixed 10×10 cell grid) and the
+  // per-cell corner record (pos + normal + color), so no arrays are allocated
+  // per pool or per cell either.
+  private _waterHeightScratch = new Float32Array(11 * 11);
+  private _waterCornerScratch = new Float32Array(9);
   private _scrubInitialized = false;
   private _scrubColor: [number, number, number] = [0.05, 0.045, 0.04];
   private _scrubLast: Map<string, { x: number; z: number }> = new Map();
@@ -6548,7 +6583,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const t = this.elapsed;
     const cx = this._trackCenterX, cz = this._trackCenterZ;
     if (this._birds.length && this._birdsBuf && this._birdsVao) {
-      const data: number[] = [];
+      const cap = this._birds.length * 6 * 11;
+      if (!this._birdScratch || this._birdScratch.length < cap) this._birdScratch = new Float32Array(cap);
+      const data = this._birdScratch;
+      let o = 0;
       const stoopMs = RacingRenderer.EAGLE_STOOP_MS / 1000;
       for (const b of this._birds) {
         b.ang += b.dir * b.speed * dt;
@@ -6633,7 +6671,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const bodyF = 0.16 * b.size;
         const wing = 0.9 * b.size * (perched ? 0.16 : 1);
         const mk = (x: number, y: number, z: number) => {
-          data.push(x, y, z, 0, 1, 0, shade, shade, shade + 0.01, 0, 0);
+          data[o++] = x; data[o++] = y; data[o++] = z;
+          data[o++] = 0; data[o++] = 1; data[o++] = 0;
+          data[o++] = shade; data[o++] = shade; data[o++] = shade + 0.01;
+          data[o++] = 0; data[o++] = 0;
         };
         mk(bx - dx * bodyF, by + flap, bz - dz * bodyF);
         mk(bx, by, bz);
@@ -6643,7 +6684,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
         mk(bx - px * wing, by - flap * 0.6, bz - pz * wing);
       }
       gl.bindBuffer(gl.ARRAY_BUFFER, this._birdsBuf);
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, o));
       gl.bindVertexArray(this._birdsVao);
       gl.uniform1i(this.hasTexLoc, 0);
       gl.uniform3f(this.colorLoc, 1, 1, 1);
@@ -6680,7 +6721,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const rx = view[0], ry = view[4], rz = view[8];
     const ux = view[1], uy = view[5], uz = view[9];
     if (this._tumbleweeds.length) {
-      const data: number[] = [];
+      const cap = this._tumbleweeds.length * 660;
+      if (!this._windScratch || this._windScratch.length < cap) this._windScratch = new Float32Array(cap);
+      const data = this._windScratch;
+      const ring = this._ringScratch;
+      let o = 0;
       for (const w of this._tumbleweeds) {
         if (advance) {
           w.x += w.vx * dt;
@@ -6700,34 +6745,47 @@ void main() { FragColor = texture(uTex, vUV); }`;
           const ca = Math.cos(w.phase + ang), sa = Math.sin(w.phase + ang);
           const ax = rx * ca + ux * sa, ay = ry * ca + uy * sa, az = rz * ca + uz * sa;
           const bx = -rx * sa + ux * ca, by = -ry * sa + uy * ca, bz = -rz * sa + uz * ca;
-          const ring: number[][] = [];
           for (let i = 0; i <= 10; i++) {
             const th = (i / 10) * Math.PI * 2;
             const ox = Math.cos(th) * s, oz = Math.sin(th) * s;
-            ring.push([w.x + ax * ox + bx * oz, 0.32 + ay * ox + by * oz, w.z + az * ox + bz * oz]);
+            ring[i * 3] = w.x + ax * ox + bx * oz;
+            ring[i * 3 + 1] = 0.32 + ay * ox + by * oz;
+            ring[i * 3 + 2] = w.z + az * ox + bz * oz;
           }
           for (let i = 0; i < 10; i++) {
-            data.push(w.x, 0.32, w.z, 0, 1, 0, col[0], col[1], col[2], 0, 0);
-            data.push(ring[i][0], ring[i][1], ring[i][2], 0, 1, 0, col[0], col[1], col[2], 0, 0);
-            data.push(ring[i + 1][0], ring[i + 1][1], ring[i + 1][2], 0, 1, 0, col[0], col[1], col[2], 0, 0);
+            data[o++] = w.x; data[o++] = 0.32; data[o++] = w.z;
+            data[o++] = 0; data[o++] = 1; data[o++] = 0;
+            data[o++] = col[0]; data[o++] = col[1]; data[o++] = col[2];
+            data[o++] = 0; data[o++] = 0;
+            data[o++] = ring[i * 3]; data[o++] = ring[i * 3 + 1]; data[o++] = ring[i * 3 + 2];
+            data[o++] = 0; data[o++] = 1; data[o++] = 0;
+            data[o++] = col[0]; data[o++] = col[1]; data[o++] = col[2];
+            data[o++] = 0; data[o++] = 0;
+            data[o++] = ring[i * 3 + 3]; data[o++] = ring[i * 3 + 4]; data[o++] = ring[i * 3 + 5];
+            data[o++] = 0; data[o++] = 1; data[o++] = 0;
+            data[o++] = col[0]; data[o++] = col[1]; data[o++] = col[2];
+            data[o++] = 0; data[o++] = 0;
           }
         }
       }
-      if (data.length) {
+      if (o > 0) {
         gl.bindBuffer(gl.ARRAY_BUFFER, this._windBuf);
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, o));
         gl.bindVertexArray(this._windVao);
         gl.uniform1i(this.hasTexLoc, 0);
         gl.uniform3f(this.colorLoc, 1, 1, 1);
         this.mat4Identity(this.modelMatrix);
         gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
         this.setNormalMatrix(this.modelMatrix);
-        gl.drawArrays(gl.TRIANGLES, 0, data.length / 11);
+        gl.drawArrays(gl.TRIANGLES, 0, o / 11);
         gl.bindVertexArray(null);
       }
     }
     if (this._dustDevils.length) {
-      const data: number[] = [];
+      const cap = this._dustDevils.length * 252;
+      if (!this._windSmokeScratch || this._windSmokeScratch.length < cap) this._windSmokeScratch = new Float32Array(cap);
+      const data = this._windSmokeScratch;
+      let o = 0;
       for (const d of this._dustDevils) {
         if (advance) {
           d.life += dt;
@@ -6759,27 +6817,30 @@ void main() { FragColor = texture(uTex, vUV); }`;
             const hw = (d.size * Math.max(0.35, 1 - cy / 3.4) * wf) / 2;
             const hh = 0.55 * (0.8 + cy * 0.35);
             const x0 = d.x, y0 = cy, z0 = d.z;
-            const p1 = [x0 + ax * hw, y0 + hh, z0 + az * hw];
-            const p2 = [x0 + ax * hw, y0 - hh, z0 + az * hw];
-            const p3 = [x0 - ax * hw, y0 - hh, z0 - az * hw];
-            const p4 = [x0 - ax * hw, y0 + hh, z0 - az * hw];
-            for (const [px, py, pz] of [p1, p2, p3, p1, p3, p4]) {
-              data.push(px, py, pz, 0.78, 0.64, 0.42, alpha);
-            }
+            const put = (px: number, py: number, pz: number) => {
+              data[o++] = px; data[o++] = py; data[o++] = pz;
+              data[o++] = 0.78; data[o++] = 0.64; data[o++] = 0.42; data[o++] = alpha;
+            };
+            put(x0 + ax * hw, y0 + hh, z0 + az * hw);
+            put(x0 + ax * hw, y0 - hh, z0 + az * hw);
+            put(x0 - ax * hw, y0 - hh, z0 - az * hw);
+            put(x0 + ax * hw, y0 + hh, z0 + az * hw);
+            put(x0 - ax * hw, y0 - hh, z0 - az * hw);
+            put(x0 - ax * hw, y0 + hh, z0 - az * hw);
           }
         }
       }
-      if (data.length) {
+      if (o > 0) {
         this.initSmoke();
         gl.bindBuffer(gl.ARRAY_BUFFER, this._windSmokeBuf);
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, o));
         gl.useProgram(this.smokeProg);
         gl.uniformMatrix4fv(this.smokeProjLoc, false, proj);
         gl.uniformMatrix4fv(this.smokeViewLoc, false, view);
         gl.bindVertexArray(this._windSmokeVao);
         gl.depthMask(false);
         gl.disable(gl.CULL_FACE);
-        gl.drawArrays(gl.TRIANGLES, 0, data.length / 7);
+        gl.drawArrays(gl.TRIANGLES, 0, o / 7);
         gl.bindVertexArray(null);
         gl.depthMask(true);
       }
@@ -6789,7 +6850,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const gl = this.gl;
     if (!this._animals.length || !this._animalsVao || !this._animalsBuf) return;
     const t = this.elapsed;
-    const data: number[] = [];
+    // Matches the animal GL buffer size (26 animals × 10 boxes × 36 floats) —
+    // the real worst case (13 deer + marmots) is far below this, so the scratch
+    // never reallocates after the first frame.
+    if (!this._animalScratch) this._animalScratch = new Float32Array(26 * 10 * 36 * 11);
+    const data = this._animalScratch;
     let w = 0;
     const cull2 = 90 * 90;
     for (const a of this._animals) {
@@ -6871,14 +6936,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, this._animalsBuf);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(data));
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, w));
     gl.bindVertexArray(this._animalsVao);
     gl.uniform1i(this.hasTexLoc, 0);
     gl.uniform3f(this.colorLoc, 1, 1, 1);
     this.mat4Identity(this.modelMatrix);
     gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
     this.setNormalMatrix(this.modelMatrix);
-    gl.drawArrays(gl.TRIANGLES, 0, data.length / 11);
+    gl.drawArrays(gl.TRIANGLES, 0, w / 11);
     gl.bindVertexArray(null);
   }
   /** Spikes the crowd animation into a cheering frenzy (used when a car
@@ -6957,7 +7022,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.clearColor(0.4, 0.45, 0.5, 1);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       this.drawWorldScene(this.projMatrix, this.viewMatrix, eye as number[], cars, dt, isRaining, true, speedRatio);
-      this.buildHeatMask(this.projMatrix, this.viewMatrix, this._heatW, this._heatH, false);
+      // The heat mask only gates where the shimmer distortion applies — a soft,
+      // blurred boundary — so bake it at half resolution (a quarter of the
+      // pixels) to cut the desert's extra full-screen pass. It is sampled with
+      // LINEAR filtering, so the band edge stays smooth.
+      this.buildHeatMask(this.projMatrix, this.viewMatrix, Math.max(320, this._heatW >> 1), Math.max(180, this._heatH >> 1), false);
       this.drawHeatShimmer(heatStrength, eye as number[], this.projMatrix, this.viewMatrix);
     } else {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -7098,6 +7167,28 @@ void main() { FragColor = texture(uTex, vUV); }`;
       d[wi++] = 0; d[wi++] = 0;
     };
     push(a); push(b); push(c); push(a); push(c); push(b);
+    return wi;
+  }
+  /** Scratch-friendly quad: writes the two triangles (a,b,c) and (c,d,a) —
+   *  the exact vertex order addQuad's index list produces — into a
+   *  preallocated Float32Array with a shared normal and color, so palm fronds
+   *  no longer allocate verts/idxs arrays plus a Float32Array copy per frame.
+   *  Returns the new write offset. */
+  private pushQuadVerts(d: Float32Array, wi: number,
+    ax: number, ay: number, az: number,
+    bx: number, by: number, bz: number,
+    cx: number, cy: number, cz: number,
+    dx: number, dy: number, dz: number,
+    nx: number, ny: number, nz: number,
+    r: number, g: number, bl: number): number {
+    const put = (x: number, y: number, z: number) => {
+      d[wi++] = x; d[wi++] = y; d[wi++] = z;
+      d[wi++] = nx; d[wi++] = ny; d[wi++] = nz;
+      d[wi++] = r; d[wi++] = g; d[wi++] = bl;
+      d[wi++] = 0; d[wi++] = 0;
+    };
+    put(ax, ay, az); put(bx, by, bz); put(cx, cy, cz);
+    put(cx, cy, cz); put(dx, dy, dz); put(ax, ay, az);
     return wi;
   }
   private drawFlags(eye: number[]) {
@@ -7431,18 +7522,21 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
     if (drawRain && this._rainCount > 0) {
       const rain = this._rainParticles;
-      const rainData: number[] = [];
+      const cap = this._rainCount * 7;
+      if (!this._rainScratch || this._rainScratch.length < cap) this._rainScratch = new Float32Array(cap);
+      const rainData = this._rainScratch;
+      let w = 0;
       const wind = Math.sin(this.elapsed * 0.3) * 5;
       for (let i = 0; i < rain.length; i++) {
         const r = rain[i];
         r.y -= r.speed * dt;
         r.x += wind * dt;
         if (r.y < -2) { r.y = 25 + Math.random() * 5; r.x = eye[0] + (Math.random() - 0.5) * 200; r.z = eye[2] + (Math.random() - 0.5) * 200; }
-        rainData.push(r.x, r.y, r.z, 0.5, 0.6, 0.8, 0.3);
-        rainData.push(r.x, r.y - 0.5, r.z, 0.5, 0.6, 0.8, 0.3);
+        rainData[w++] = r.x; rainData[w++] = r.y; rainData[w++] = r.z; rainData[w++] = 0.5; rainData[w++] = 0.6; rainData[w++] = 0.8; rainData[w++] = 0.3;
+        rainData[w++] = r.x; rainData[w++] = r.y - 0.5; rainData[w++] = r.z; rainData[w++] = 0.5; rainData[w++] = 0.6; rainData[w++] = 0.8; rainData[w++] = 0.3;
       }
       gl.bindBuffer(gl.ARRAY_BUFFER, this._rainBuf);
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(rainData));
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, rainData.subarray(0, w));
       gl.useProgram(this.prog);
       gl.disable(gl.CULL_FACE);
       gl.depthMask(false);

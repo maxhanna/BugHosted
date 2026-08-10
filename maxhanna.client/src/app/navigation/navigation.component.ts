@@ -663,7 +663,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
 
   private resetLastRunTimestamps() {
     const keysToReset = [
-      'notificationInfo', 'weatherInfo', 'cryptoHub', 'calendarInfo',
+      'notificationInfo', 'appealsInfo', 'weatherInfo', 'cryptoHub', 'calendarInfo',
       'wordler', 'ender', 'bones', 'digcraft', 'nexus', 'meta',
       'music', 'todo', 'array', 'emulation', 'social', 'art',
       'crawler', 'newsCount', 'theme', 'grandTheft', 'racing'
@@ -715,6 +715,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       Promise.resolve(this.getCryptoHubInfo()),
       Promise.resolve(this.getNewsCountInfo()),
       Promise.resolve(this.getNotificationInfo()),
+      Promise.resolve(this.getAppealsInfo()),
       Promise.resolve(this.getWordlerStreakInfo()),
       Promise.resolve(this.getEnderPlayerInfo()),
       Promise.resolve(this.getNexusPlayerInfo()),
@@ -757,6 +758,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
 
     this.scheduleRecurring('notificationInfo', () => { if (this._parent.notificationsActive) this.getNotificationInfo(); }, this.time20Secs);
+    this.scheduleRecurring('appealsInfo', () => { if (this._parent.notificationsActive) this.getAppealsInfo(); }, this.time20Secs);
     this.scheduleRecurring('weatherInfo', () => { if (this._parent.notificationsActive) this.getCurrentWeatherInfo(); }, this.time20Mins);
     this.scheduleRecurring('cryptoHub', () => { if (this._parent.notificationsActive) this.getCryptoHubInfo(); }, this.time20Mins);
     this.scheduleRecurring('calendarInfo', () => { if (this._parent.notificationsActive) this.getCalendarInfo(); }, this.time20Mins);
@@ -982,6 +984,31 @@ export class NavigationComponent implements OnInit, OnDestroy {
     }
     this.isLoadingNotifications = false;
     this.updateLastRunTimestamp('notificationInfo');
+  }
+
+  async getAppealsInfo() {
+    const sig = this._abortController.signal;
+    if (sig.aborted) return;
+    const user = this._parent?.user;
+    if (!user || this._parent.isUploadingFile || this.navbarCollapsed) return;
+    // Only admins/moderators have the Moderator panel — skip everyone else.
+    if (user.id !== 1 && user.role !== 'moderator') return;
+    if (this._parent.lastRunTimestamps['appealsInfo']
+      && Date.now() - this._parent.lastRunTimestamps['appealsInfo'] < this.time20Secs) {
+      return;
+    }
+    try {
+      const sessionToken = await this._parent.getSessionToken();
+      const appeals = await this.userService.getAppeals(user.id ?? 0, sessionToken);
+      const moderatorNavItem = this._parent.navigationItems.find(x => x.title === 'Moderator');
+      if (moderatorNavItem) {
+        const pendingCount = (appeals ?? []).filter((a: any) => !a.resolution).length;
+        moderatorNavItem.content = pendingCount > 0 ? pendingCount.toString() : '';
+      }
+    } catch (error) {
+      console.error('Error fetching appeals count:', error);
+    }
+    this.updateLastRunTimestamp('appealsInfo');
   }
 
   announceNotificationsServerDown() {

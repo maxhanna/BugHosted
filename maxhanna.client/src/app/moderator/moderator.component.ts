@@ -229,6 +229,15 @@ export class ModeratorComponent extends ChildComponent {
     this.appeals = appeals;
     this.modRequests = modRequests;
     this.loading = false;
+    this.updateNavAppealsBadge();
+  }
+
+  /** Mirrors the pending-appeal count onto the Moderator nav badge. */
+  private updateNavAppealsBadge() {
+    const moderatorNavItem = this.parentRef?.navigationItems?.find(x => x.title === 'Moderator');
+    if (!moderatorNavItem) return;
+    const pendingCount = (this.appeals ?? []).filter((a: any) => !a.resolution).length;
+    moderatorNavItem.content = pendingCount > 0 ? pendingCount.toString() : '';
   }
 
   async loadModeratorLogs() {

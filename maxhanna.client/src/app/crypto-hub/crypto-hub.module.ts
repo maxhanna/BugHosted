@@ -19,6 +19,7 @@ import { CryptoWalletsComponent } from '../crypto-wallets/crypto-wallets.compone
 import { CryptoTradeHistoryComponent } from '../crypto-trade-history/crypto-trade-history.component';
 import { CryptoTradeLogsComponent } from '../crypto-trade-logs/crypto-trade-logs.component';
 import { CryptoCoinGraphViewerComponent } from '../crypto-coin-graph-viewer/crypto-coin-graph-viewer.component';
+import { SearchableDropdownComponent } from '../searchable-dropdown/searchable-dropdown.component';
 import { CryptoCoinVolumeGraphViewerComponent } from '../crypto-coin-volume-graph-viewer/crypto-coin-volume-graph-viewer.component';
 import { CryptoLiveTradeViewComponent } from '../crypto-live-trade-view/crypto-live-trade-view.component';
 import { CryptoTopTradersComponent } from '../crypto-top-traders/crypto-top-traders.component';
@@ -53,6 +54,7 @@ import { MiningRigsComponent } from '../mining-rigs/mining-rigs.component';
     CommonModule,
     FormsModule,
     AppModule,
+    SearchableDropdownComponent,
     LineGraphComponent,
     CryptoGlobalStatsComponent,
     CryptoFearAndGreedComponent,

@@ -104,7 +104,7 @@
             <div *ngIf="calendarNotificationsEnabled">Notify me:
               <input id="calendarEditingReminder" type="number" min="0" step="5"
                 [value]="cal.reminder ?? 60" (input)="hasEditedCalendarEntry = true"
-                style="width:80px;" /> minutes before
+                style="width:80px;" title="Minutes before the event to send a notification (0 = don't notify)" /> minutes before
             </div>
           </div>
         </div>
@@ -130,7 +130,7 @@
         <input #calendarTimeEntry type="time" value="00:00" class="saveEntryInput" />
         <span class="saveEntryReminder" *ngIf="calendarNotificationsEnabled">Notify me
           <input #calendarReminderEntry type="number" min="0" step="5" value="60"
-            class="saveEntryInput saveEntryReminderInput" title="Minutes before the event to send a notification" />
+            class="saveEntryInput saveEntryReminderInput" title="Minutes before the event to send a notification (0 = don't notify)" />
           min before</span>
         <input type="button" (click)="validateNoteEntry()" value="💾" class="saveEntryButton" />
       </div>

@@ -296,6 +296,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   @ViewChild('steerWheel') steerWheelEl?: ElementRef<HTMLDivElement>;
   @ViewChild('wheelSpeed') wheelSpeedEl?: ElementRef<HTMLDivElement>;
   @ViewChild('speedLinesEl') speedLinesEl?: ElementRef<HTMLDivElement>;
+  @ViewChild('cockpitDash') cockpitDashEl?: ElementRef<HTMLDivElement>;
   /** Screen-edge speed streaks (one span per entry). Position/rotation are
    *  static; length, flow speed and opacity are driven per-frame from the
    *  car's speed AND the track grade (downhill flares, uphill calms). */
@@ -388,6 +389,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   // Grid rev during the start countdown (0..1): the throttle revs the engine
   // (audio + RPM gauge + exhaust glow) without moving the parked car.
   private _countdownRev = 0;
+  // Countdown cinematic: orbit the starting grid while the lights count down
+  // so the field stays visible, then blend back into the cockpit camera at GO.
+  private _countdownPanStartAt = 0;
+  private _lastPanCam: { eyeX: number; eyeY: number; eyeZ: number; yaw: number; pitch: number } | null = null;
+  private static readonly COUNTDOWN_PAN_MS = 10000;
   private _remoteVoices: RemoteAudioVoice[] = [];
   private static readonly REMOTE_AUDIBLE = 55;
   private static readonly MAX_REMOTE_VOICES = 10;
@@ -520,6 +526,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           if (count > 0 && this.gameState !== 'countdown') {
             this.closeGarageForRaceStart();
             this.gameState = 'countdown';
+            this._countdownPanStartAt = performance.now();
           }
         });
       })
@@ -540,6 +547,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
             // during the countdown instead of cars parked wherever they were.
             this.placePlayerOnGrid();
             this.preplaceRemotesOnGrid();
+            this._countdownPanStartAt = performance.now();
             this.stopMpStartCountdown();
             this._mpStartCountdownTimer = setInterval(() => {
               const remain = Math.max(0, Math.ceil((this._mpRaceStartAt - Date.now()) / 1000));
@@ -1516,6 +1524,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     // it so cars line up on the freshly built start line.
     this.renderer.setTheme(this.themeForTrack(track.id));
     this.placePlayerOnGrid();
+    this._countdownPanStartAt = performance.now();
     this.carDist = 0;
     this.spawnBots(4);
     this.totalRacers = 1 + this.bots.length;
@@ -1537,6 +1546,65 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   togglePause() {
     this.gameState = this.gameState === 'racing' ? 'paused' : 'racing';
   }
+
+  /** Cinematic camera for the start countdown. Orbits the starting grid so the
+   *  field stays visible while the lights count down, and after GO blends the
+   *  last pan position back into the cockpit camera over ~0.6s so the handoff
+   *  is smooth. Returns null once the race is fully underway (cockpit view). */
+  private countdownPanCamera(eyeX: number, eyeY: number, eyeZ: number, yaw: number, pitch: number):
+    { eyeX: number; eyeY: number; eyeZ: number; yaw: number; pitch: number } | null {
+    if (this.gameState === 'countdown') {
+      const elapsed = performance.now() - this._countdownPanStartAt;
+      const panT = Math.max(0, Math.min(1, 1 - elapsed / RacingComponent.COUNTDOWN_PAN_MS));
+      this._lastPanCam = this.buildCountdownPanCamera(panT);
+      return this._lastPanCam;
+    }
+    if (this.gameState === 'racing' && this._lastPanCam) {
+      const blend = Math.max(0, Math.min(1, (performance.now() - this.raceStartTime) / 600));
+      if (blend < 1) {
+        const t = blend * blend * (3 - 2 * blend);
+        const pan = this._lastPanCam;
+        return {
+          eyeX: eyeX + (pan.eyeX - eyeX) * (1 - t),
+          eyeY: eyeY + (pan.eyeY - eyeY) * (1 - t),
+          eyeZ: eyeZ + (pan.eyeZ - eyeZ) * (1 - t),
+          yaw: this.lerpAngle(yaw, pan.yaw, 1 - t),
+          pitch: pitch + (pan.pitch - pitch) * (1 - t),
+        };
+      }
+    }
+    this._lastPanCam = null;
+    return null;
+  }
+
+  /** Orbit camera around the grid center. `panT` runs 1 (lights appear) to 0
+   *  (GO): a full sweep that ends back behind the pack, with the radius and
+   *  height eased in/out so the countdown starts near the cockpit view and GO
+   *  hands off to it with barely any jump. Kept under the start gantry beam
+   *  (4.4m) so the camera never clips through it. */
+  private buildCountdownPanCamera(panT: number): { eyeX: number; eyeY: number; eyeZ: number; yaw: number; pitch: number } {
+    let gx = this.carX, gz = this.carZ, n = 1;
+    for (const b of this.bots) { gx += b.x; gz += b.z; n++; }
+    this.remoteCars.forEach(rc => { gx += rc.x; gz += rc.z; n++; });
+    gx /= n; gz /= n;
+    const gElev = this.renderer.getTrackElevation(this.renderer.getDistFromPoint(gx, gz));
+    const lookY = gElev + 0.6;
+    const ease = Math.sin(panT * Math.PI);
+    const angle = this.carYaw - Math.PI * 2 * (1 - panT);
+    const radius = 13 * (0.35 + 0.65 * ease);
+    const height = 2.8 + 1.0 * ease;
+    const eyeX = gx + Math.sin(angle) * radius;
+    const eyeZ = gz + Math.cos(angle) * radius;
+    const eyeY = this.renderer.getTrackElevation(this.renderer.getDistFromPoint(eyeX, eyeZ)) + height;
+    const dx = gx - eyeX, dz = gz - eyeZ;
+    const dist = Math.hypot(dx, dz) || 1;
+    return {
+      eyeX, eyeY, eyeZ,
+      yaw: Math.atan2(dx, dz),
+      pitch: Math.atan2(eyeY - lookY, dist),
+    };
+  }
+
   private gameLoop(time: number) {
     if (this._destroyed) return;
     this.animId = requestAnimationFrame((t) => this.gameLoop(t));
@@ -1660,8 +1728,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         return;
       }
       const aspect = this.canvasRef.nativeElement.width / this.canvasRef.nativeElement.height;
-      const eyeX = this.carX;
-      const eyeZ = this.carZ;
+      let eyeX = this.carX;
+      let eyeZ = this.carZ;
       // Camera rides the terrain: eye height = road elevation + 0.5, and the
       // pitch noses up/down with the grade so climbs and descents read live.
       const pElev = this.renderer.getTrackElevation(this.carDist);
@@ -1670,9 +1738,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       const grade = this.renderer.getTrackGrade(this.carDist);
       // Camera rides the bank too: on a banked corner it sits up/down with the
       // lateral tilt so the world reads as tilted, not the car.
-      const eyeY = pElev + pBank * pLat + 0.5;
-      const pitch = -0.05 + (this.carSpeed / this.getMaxSpeed()) * 0.03 + grade * 0.06;
-      const yaw = this.carYaw;
+      let eyeY = pElev + pBank * pLat + 0.5;
+      let pitch = -0.05 + (this.carSpeed / this.getMaxSpeed()) * 0.03 + grade * 0.06;
+      let yaw = this.carYaw;
       const speedRatio = Math.abs(this.carSpeed) / this.getMaxSpeed();
       // FOV rides the grade too: descents open the view up (faster feel),
       // climbs pull it in — the road itself keeps pitching on top of that.
@@ -1681,6 +1749,17 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         : 1.0;
       const shakeX = this.cameraShakeOn ? this.screenShake * (Math.random() - 0.5) * 2 : 0;
       const shakeY = this.cameraShakeOn ? this.screenShake * (Math.random() - 0.5) * 2 : 0;
+      // Countdown cinematic: orbit the starting grid while the lights count
+      // down, then blend back to the cockpit camera right after GO.
+      const panCam = this.countdownPanCamera(eyeX, eyeY, eyeZ, yaw, pitch);
+      if (panCam) {
+        eyeX = panCam.eyeX; eyeY = panCam.eyeY; eyeZ = panCam.eyeZ;
+        yaw = panCam.yaw; pitch = panCam.pitch;
+      }
+      const countdownPanActive = panCam !== null;
+      if (this.cockpitDashEl?.nativeElement) {
+        this.cockpitDashEl.nativeElement.classList.toggle('pan-hidden', countdownPanActive);
+      }
       const accelFor = (obj: { speed: number }, prev: number) =>
         dt > 0 ? (obj.speed - prev) / dt : 0;
       const wheelRate = (spd: number) => Math.min(Math.abs(spd) / 0.17, 40) * (spd < 0 ? 1 : -1);
@@ -1719,8 +1798,26 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           ...this.botAppearanceFor(i, seed)
         });
       });
+      // During the countdown pan the camera is away from the car, so add the
+      // player's own car to the scene — it is normally the camera host and
+      // therefore not rendered in the main view.
+      if (countdownPanActive) {
+        const pa = this.getPlayerAppearance();
+        const skin = pa.skin ?? [0.85, 0.06, 0.06];
+        const pBank = this.renderer.getTrackBank(this.carDist);
+        carList.push({
+          x: this.carX,
+          y: this.renderer.getTrackElevation(this.carDist) + pBank * this.renderer.getTrackLateral(this.carX, this.carZ) + 0.1,
+          z: this.carZ, yaw: this.carYaw,
+          r: skin[0], g: skin[1], b: skin[2],
+          speed: 0, accel: 0, spin: 0, slide: 0,
+          id: 'player', bank: pBank,
+          ...pa
+        });
+      }
       this._playerSpin += wheelRate(this.carSpeed) * dt;
-      this.renderer.render(eyeX, eyeY, eyeZ, yaw, pitch, aspect, carList, dt, fovZoom, shakeX, shakeY, this.isRaining, speedRatio, this.carSpeed, this.carAccel, this._playerSpin, this._playerSlide, this.getPlayerAppearance(), false, this.steerSmoothed / 90);
+      // The rear-view mirror is meaningless while the cinematic pan is active.
+      this.renderer.render(eyeX, eyeY, eyeZ, yaw, pitch, aspect, carList, dt, fovZoom, shakeX, shakeY, this.isRaining, speedRatio, this.carSpeed, this.carAccel, this._playerSpin, this._playerSlide, this.getPlayerAppearance(), countdownPanActive, this.steerSmoothed / 90);
       this.hudSpeed = Math.abs(this.carSpeed * 3.6);
       this.hudRPM = this.gameState === 'countdown'
         ? Math.min(1, this._countdownRev * 1.2)

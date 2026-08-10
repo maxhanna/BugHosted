@@ -2865,29 +2865,31 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 18px;
-  /* Keep the vignette around the lights but leave the road + start/finish
-     line visible below the middle — the old full-screen gradient washed the
-     checker strip out during the countdown. */
-  background: radial-gradient(ellipse 140% 80% at 50% 38%, rgba(0, 0, 0, 0.14) 0%, rgba(0, 0, 0, 0.34) 68%, rgba(0, 0, 0, 0.5) 100%);
+  /* Anchor the start lights high in the frame like the real overhead F1
+     gantry, so the road, start/finish line and the field stay fully visible
+     below them during the countdown — the old centered panel was a solid
+     dark wall covering the starting line. */
+  justify-content: flex-start;
+  padding-top: max(2.5vh, 18px);
+  gap: 14px;
+  background: radial-gradient(ellipse 130% 90% at 50% 26%, rgba(0, 0, 0, 0.10) 0%, rgba(0, 0, 0, 0.22) 68%, rgba(0, 0, 0, 0.34) 100%);
   z-index: 20;
   pointer-events: none;
 }
 
 .race-start-gantry {
   display: flex;
-  gap: 22px;
-  padding: 26px 34px;
+  gap: 14px;
+  padding: 16px 24px;
   background: linear-gradient(180deg, #1a1a22 0%, #0d0d13 100%);
   border: 2px solid rgba(255, 255, 255, 0.14);
-  border-radius: 18px;
-  box-shadow: 0 0 60px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 0 46px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .race-start-light {
-  width: 84px;
-  height: 84px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   background: radial-gradient(circle at 50% 40%, #33333c 0%, #16161c 60%, #0a0a0e 100%);
   border: 3px solid rgba(255, 255, 255, 0.09);
@@ -2941,24 +2943,24 @@
 }
 
 .race-countdown-num {
-  font-size: 118px;
+  font-size: 64px;
   line-height: 1;
   letter-spacing: 10px;
   font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 34px rgba(255, 255, 255, 0.35), 0 0 70px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 0 26px rgba(255, 255, 255, 0.35), 0 0 50px rgba(0, 0, 0, 0.9);
   animation: race-countdown-pop 1s ease-in-out infinite;
 }
 
 .race-countdown-go {
-  font-size: 96px;
+  font-size: 52px;
   letter-spacing: 14px;
   color: #ffd600;
-  text-shadow: 0 0 45px rgba(255, 214, 0, 0.85);
+  text-shadow: 0 0 34px rgba(255, 214, 0, 0.85);
   animation: race-countdown-go-pulse 0.6s ease-in-out infinite;
 }
 
 .race-countdown-caption {
-  font-size: 20px;
+  font-size: 15px;
   letter-spacing: 8px;
   color: rgba(255, 255, 255, 0.65);
   text-shadow: 0 0 18px rgba(0, 0, 0, 0.9);
@@ -3089,6 +3091,15 @@
   justify-content: space-between;
   padding: 0 3% 2.5% 3%;
   box-sizing: border-box;
+}
+
+/* Hidden while the countdown cinematic pans around the starting grid — the
+   wheel and panels would sit on top of the field view; they return as soon
+   as the camera settles back into the cockpit after GO. */
+.cockpit-dash.pan-hidden {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.4s ease, visibility 0.4s;
 }
 
 .cockpit-panel {

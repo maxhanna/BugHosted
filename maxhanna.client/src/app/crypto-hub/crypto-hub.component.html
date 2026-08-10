@@ -25,13 +25,8 @@
 
       <div class="BTCtoCADConversionWrapperDiv">
         <div class="BTCtoCADConversionDiv" *ngIf="coinNames">
-          <label for="convertBTCInput">
-            <select #btcConvertCoinSelect (change)="coinConvertSelectChange()" [title]="selectedCoinConversionName">
-              <option *ngFor="let name of coinNames" [selected]="selectedCoinConversionName == name" [value]="name">
-                {{name}}
-              </option>
-            </select>
-          </label>
+          <app-searchable-dropdown [items]="coinNames" [selected]="selectedCoinConversionName"
+            (selectionChange)="coinConvertSelectChange($event)"></app-searchable-dropdown>
           <input id="convertBTCInput" type="text" value="1" #convertBTCInput (input)="handleConversion('BTC')"
             placeholder="BTC amount" />
         </div>
@@ -42,20 +37,15 @@
             [placeholder]="selectedCurrency + ' amount'" />
         </div>
 
-        <div class="BTCtoCADConversionDiv" *ngIf="!isLoading && btcConvertCoinSelect?.nativeElement?.value == 'BTC'">
+        <div class="BTCtoCADConversionDiv" *ngIf="!isLoading && selectedCoinConversionName === 'BTC'">
           <label for="convertSATInput">SAT:</label>
           <input id="convertSATInput" type="text" #convertSATInput (input)="handleConversion('SAT')"
             placeholder="Satoshi amount" />
         </div>
 
         <div class="BTCtoCADConversionDiv" *ngIf="fiatNames && selectedFiatConversionName">
-          <label for="convertFIATInput">
-            <select #btcConvertFIATSelect (change)="fiatConvertSelectChange()">
-              <option *ngFor="let name of fiatNames" [selected]="selectedFiatConversionName == name" [value]="name">
-                {{name}}
-              </option>
-            </select>
-          </label>
+          <app-searchable-dropdown [items]="fiatNames" [selected]="selectedFiatConversionName"
+            (selectionChange)="fiatConvertSelectChange($event)"></app-searchable-dropdown>
           <input id="convertFIATInput" type="text" #convertFIATInput (input)="handleConversion('FIAT')"
             placeholder="Enter Fiat amount" />
         </div>
