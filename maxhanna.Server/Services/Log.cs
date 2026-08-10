@@ -219,26 +219,12 @@ public class Log
 
     try
     {
-      const string sql = "SELECT 1 FROM maxhanna.users WHERE id = @UserId AND LAST_SEEN > UTC_TIMESTAMP() - INTERVAL 60 MINUTE;";
-
-      using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
-      await conn.OpenAsync();
-
-      using var cmd = new MySqlCommand(sql, conn);
-      cmd.Parameters.AddWithValue("@UserId", userId);
-
-      using var reader = await cmd.ExecuteReaderAsync();
-      bool access = await reader.ReadAsync();
-      if (!access)
+      if (string.IsNullOrWhiteSpace(encryptedUserId)) return false;
+      string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      int? sessionUserId = await ValidateSessionUserId(cs, encryptedUserId);
+      if (sessionUserId == null || sessionUserId.Value != userId)
       {
-        _ = Db($"ValidateUserLoggedIn ACCESS DENIED userId:{userId}. User seen > 60 minutes.{(!string.IsNullOrEmpty(callingMethodName) ? " Calling method: " + callingMethodName : "")}", userId, "SYSTEM", true);
-        return false;
-      }
-      string ki = _config.GetValue<string>("Encryption:Key") ?? ""; 
-      int decryptedUserId = DecryptUserId(encryptedUserId, ki);
-      if (decryptedUserId != userId)
-      {
-        _ = Db($"ValidateUserLoggedIn ACCESS DENIED userId:{userId}. Decryption key mismatch.{(!string.IsNullOrEmpty(callingMethodName) ? " Calling method: " + callingMethodName : "")}", userId, "SYSTEM", true);
+        _ = Db($"ValidateUserLoggedIn ACCESS DENIED userId:{userId}. Invalid or expired session token.{(!string.IsNullOrEmpty(callingMethodName) ? " Calling method: " + callingMethodName : "")}", userId, "SYSTEM", true);
         return false;
       }
       return true;
@@ -247,6 +233,216 @@ public class Log
     {
       _ = Db("ValidateUserLoggedIn Exception: " + ex.Message + $".{(!string.IsNullOrEmpty(callingMethodName) ? " Calling method: " + callingMethodName : "")}", null, "SYSTEM", true);
       return false;
+    }
+  } 
+
+  public static string GenerateSessionToken()
+  {
+    return Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+      .Replace('+', '-').Replace('/', '_').TrimEnd('=');
+  }
+
+  /// Creates a session row for the user and returns the opaque token (or null on failure).
+  public static async Task<string?> CreateSession(string cs, int userId)
+  {
+    try
+    {
+      string token = GenerateSessionToken();
+      await using var conn = new MySqlConnection(cs);
+      await conn.OpenAsync();
+      // Opportunistic cleanup of this user's expired sessions.
+      await using var cleanup = new MySqlCommand(
+        "DELETE FROM maxhanna.user_sessions WHERE user_id = @UserId AND expires_at < UTC_TIMESTAMP();", conn);
+      cleanup.Parameters.AddWithValue("@UserId", userId);
+      await cleanup.ExecuteNonQueryAsync();
+      await using var cmd = new MySqlCommand(@"
+        INSERT INTO maxhanna.user_sessions (token, user_id, expires_at)
+        VALUES (@Token, @UserId, UTC_TIMESTAMP() + INTERVAL 7 DAY);", conn);
+      cmd.Parameters.AddWithValue("@Token", token);
+      cmd.Parameters.AddWithValue("@UserId", userId);
+      await cmd.ExecuteNonQueryAsync();
+      // Cap active sessions per user: a new login evicts the oldest sessions so
+      // repeated logins can't accumulate unbounded rows (the user_sessions table
+      // is also swept hourly by PurgeExpiredSessions for expired rows).
+      await using var capCmd = new MySqlCommand(@"
+        DELETE FROM maxhanna.user_sessions
+        WHERE user_id = @UserId
+          AND id NOT IN (
+            SELECT id FROM (
+              SELECT id FROM maxhanna.user_sessions
+              WHERE user_id = @UserId
+              ORDER BY id DESC
+              LIMIT " + SessionLimitPerUser + @"
+            ) keep
+          );", conn);
+      capCmd.Parameters.AddWithValue("@UserId", userId);
+      await capCmd.ExecuteNonQueryAsync();
+      return token;
+    }
+    catch (Exception ex)
+    {
+      Console.WriteLine("CreateSession Exception: " + ex.Message);
+      return null;
+    }
+  }
+
+  /// Returns the session's userId if the token is valid and unexpired, otherwise null.
+  /// Sliding expiry: a valid use renews the 7-day window.
+  public static async Task<int?> ValidateSessionUserId(string cs, string token)
+  {
+    if (string.IsNullOrWhiteSpace(token)) return null;
+    try
+    {
+      await using var conn = new MySqlConnection(cs);
+      await conn.OpenAsync();
+      await using var cmd = new MySqlCommand(@"
+        SELECT user_id FROM maxhanna.user_sessions
+        WHERE token = @Token AND expires_at > UTC_TIMESTAMP()
+        LIMIT 1;", conn);
+      cmd.Parameters.AddWithValue("@Token", token);
+      object? result = await cmd.ExecuteScalarAsync();
+      if (result == null || result is DBNull) return null;
+      int userId = Convert.ToInt32(result);
+      await using var slide = new MySqlCommand(@"
+        UPDATE maxhanna.user_sessions
+        SET expires_at = UTC_TIMESTAMP() + INTERVAL 7 DAY,
+            last_used_at = UTC_TIMESTAMP()
+        WHERE token = @Token;", conn);
+      slide.Parameters.AddWithValue("@Token", token);
+      await slide.ExecuteNonQueryAsync();
+      return userId;
+    }
+    catch (Exception ex)
+    {
+      Console.WriteLine("ValidateSessionUserId Exception: " + ex.Message);
+      return null;
+    }
+  }
+
+  /// Maximum simultaneous sessions kept per user; a new login evicts the oldest.
+  private const int SessionLimitPerUser = 5;
+
+  public class SessionInfo
+  {
+    public long Id { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime ExpiresAt { get; set; }
+    public DateTime LastUsedAt { get; set; }
+    public bool IsCurrent { get; set; }
+  }
+
+  /// Lists a user's active sessions, newest activity first, marking the session
+  /// matching the supplied token as the current device.
+  public static async Task<List<SessionInfo>> ListSessions(string cs, int userId, string currentToken)
+  {
+    var result = new List<SessionInfo>();
+    try
+    {
+      await using var conn = new MySqlConnection(cs);
+      await conn.OpenAsync();
+      long currentId = 0;
+      if (!string.IsNullOrWhiteSpace(currentToken))
+      {
+        await using var cur = new MySqlCommand(
+          "SELECT id FROM maxhanna.user_sessions WHERE token = @Token LIMIT 1;", conn);
+        cur.Parameters.AddWithValue("@Token", currentToken);
+        object? curResult = await cur.ExecuteScalarAsync();
+        if (curResult != null && curResult is not DBNull) currentId = Convert.ToInt64(curResult);
+      }
+      await using var cmd = new MySqlCommand(@"
+        SELECT id, created_at, expires_at, last_used_at
+        FROM maxhanna.user_sessions
+        WHERE user_id = @UserId
+        ORDER BY last_used_at DESC, id DESC;", conn);
+      cmd.Parameters.AddWithValue("@UserId", userId);
+      await using var reader = await cmd.ExecuteReaderAsync();
+      while (await reader.ReadAsync())
+      {
+        long id = reader.GetInt64("id");
+        result.Add(new SessionInfo
+        {
+          Id = id,
+          CreatedAt = reader.GetDateTime("created_at"),
+          ExpiresAt = reader.GetDateTime("expires_at"),
+          LastUsedAt = reader.GetDateTime("last_used_at"),
+          IsCurrent = id == currentId
+        });
+      }
+      return result;
+    }
+    catch (Exception ex)
+    {
+      Console.WriteLine("ListSessions Exception: " + ex.Message);
+      return result;
+    }
+  }
+
+  /// Revokes one of the user's sessions by id (the row must belong to the user).
+  public static async Task<bool> RevokeSession(string cs, int userId, long sessionId)
+  {
+    try
+    {
+      await using var conn = new MySqlConnection(cs);
+      await conn.OpenAsync();
+      await using var cmd = new MySqlCommand(
+        "DELETE FROM maxhanna.user_sessions WHERE id = @SessionId AND user_id = @UserId;", conn);
+      cmd.Parameters.AddWithValue("@SessionId", sessionId);
+      cmd.Parameters.AddWithValue("@UserId", userId);
+      return await cmd.ExecuteNonQueryAsync() > 0;
+    }
+    catch (Exception ex)
+    {
+      Console.WriteLine("RevokeSession Exception: " + ex.Message);
+      return false;
+    }
+  }
+
+  /// Deletes the session row (logout).
+  public static async Task<bool> InvalidateSession(string cs, string token)
+  {
+    if (string.IsNullOrWhiteSpace(token)) return false;
+    try
+    {
+      await using var conn = new MySqlConnection(cs);
+      await conn.OpenAsync();
+      await using var cmd = new MySqlCommand("DELETE FROM maxhanna.user_sessions WHERE token = @Token;", conn);
+      cmd.Parameters.AddWithValue("@Token", token);
+      await cmd.ExecuteNonQueryAsync();
+      return true;
+    }
+    catch (Exception ex)
+    {
+      Console.WriteLine("InvalidateSession Exception: " + ex.Message);
+      return false;
+    }
+  }
+
+  /// Deletes expired session rows so the table doesn't grow unbounded. Called by
+  /// the hourly background job; also keeps the validation lookup (token = unique
+  /// index) from scanning dead rows forever.
+  public static async Task<int> PurgeExpiredSessions(string cs, int maxRows = 5000, CancellationToken ct = default)
+  {
+    int totalDeleted = 0;
+    try
+    {
+      await using var conn = new MySqlConnection(cs);
+      await conn.OpenAsync(ct);
+
+      // Batched so a big backlog never holds one giant DELETE lock.
+      while (totalDeleted < maxRows)
+      {
+        await using var cmd = new MySqlCommand(
+          "DELETE FROM maxhanna.user_sessions WHERE expires_at < UTC_TIMESTAMP() LIMIT 1000;", conn);
+        int affected = await cmd.ExecuteNonQueryAsync(ct);
+        if (affected == 0) break;
+        totalDeleted += affected;
+      }
+      return totalDeleted;
+    }
+    catch (Exception ex)
+    {
+      Console.WriteLine("PurgeExpiredSessions Exception: " + ex.Message);
+      return 0;
     }
   }
   public async Task<bool> DeleteOldLogs(CancellationToken ct = default)
@@ -582,22 +778,6 @@ public class Log
     if (File.Exists(outputPath)) File.Delete(outputPath);
     File.Move(tmpPath, outputPath);
     return true;
-  }
-
-  public static int DecryptUserId(string base64Input, string ki)
-  {
-    byte[] combinedData = Convert.FromBase64String(base64Input); 
-    byte[] key = Encoding.UTF8.GetBytes(ki.PadRight(32, '_'));
-    byte[] iv = combinedData.Take(12).ToArray(); // AES-GCM IV is 12 bytes
-    byte[] ciphertext = combinedData.Skip(12).ToArray();
-
-    byte[] plaintextBytes = new byte[ciphertext.Length - 16]; // Last 16 bytes are the tag
-    byte[] tag = ciphertext.Skip(ciphertext.Length - 16).ToArray();
-    byte[] encryptedData = ciphertext.Take(ciphertext.Length - 16).ToArray();
-    using var aes = new AesGcm(key, 16);
-    aes.Decrypt(iv, encryptedData, tag, plaintextBytes);
-
-    return int.Parse(Encoding.UTF8.GetString(plaintextBytes));
   }
 
   public string GetTimeSince(object? input, bool isUtc = true, bool inputIsSeconds = false)

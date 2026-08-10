@@ -558,6 +558,28 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     } 
   } 
 
+  /**
+   * Re-activation hook: clicking Social in the nav while the feed is already
+   * open resets every filter and re-runs the search with none (a clean slate).
+   * Deep links (story/comment) while Social is open aren't a nav reset — the
+   * existing view is left untouched for those.
+   */
+  onReopen(inputs?: { [key: string]: any; }) {
+    if (inputs && (inputs['storyId'] || inputs['commentId'])) return;
+    if (this.search?.nativeElement) this.search.nativeElement.value = '';
+    this.userSearch = '';
+    this.attachedTopics = [];
+    this.attachedSearchTopics = [];
+    this.showPostsFromFilter = 'all';
+    this.filter.hidden = this.showHiddenFiles ? 'yes' : 'no';
+    if (this.searchIdInput?.nativeElement) this.searchIdInput.nativeElement.value = '';
+    this.storyId = undefined;
+    this.wasFromSearchId = false;
+    this.currentPage = 1;
+    this.cd.detectChanges();
+    this.searchStories();
+  }
+
   async searchStories(searchTopics?: Array<Topic>, debounced?: boolean) {
     let search = this.userSearch;
 

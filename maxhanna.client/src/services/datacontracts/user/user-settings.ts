@@ -26,4 +26,5 @@ export class UserSettings {
   followEmailEnabled?: boolean;
   showNavSearch?: boolean;
   timezone?: string;
+  emulatorLocalRomStorage?: boolean;
 }

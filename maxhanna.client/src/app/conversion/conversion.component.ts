@@ -54,6 +54,18 @@ export class ConversionComponent extends ChildComponent {
   asciiScaleOptions = [1, 2, 3];
   isGeneratingAscii = false;
   asciiResult?: TextToAsciiResult;
+  // Live preview of the currently selected style — refreshes (debounced) as the
+  // text/style/scale change, without saving a .txt like Generate does.
+  asciiPreview?: TextToAsciiResult;
+  private asciiPreviewTimer: any;
+  private asciiPreviewSeq = 0;
+  previewingAll = false;
+  allAsciiPreviews?: { style: string; art: string }[];
+  // Preview-all results cached by text+scale so re-clicking the button is
+  // instant instead of re-rendering all 64 styles. Bounded to the most recent
+  // combos (Map keeps insertion order, so the first key is the oldest).
+  private allAsciiPreviewCache = new Map<string, { style: string; art: string }[]>();
+  private readonly allAsciiPreviewCacheMax = 10;
 
   constructor(private conversionService: ConversionService, private fileService: FileService) {
     super();
@@ -244,6 +256,24 @@ export class ConversionComponent extends ChildComponent {
     a.click();
   }
 
+  /**
+   * Client-side .txt download for a single style from the preview-all grid.
+   * The art is already in the browser, so no server file-save is needed (the
+   * preview grid deliberately never writes files).
+   */
+  downloadAsciiArt(style: string, art: string) {
+    if (!art) return;
+    const blob = new Blob([art], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ascii-${style.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   async downloadYoutube() {
     const url = this.youtubeUrl.trim();
     if (!url) { this.parentRef?.showNotification('Paste a YouTube URL first.'); return; }
@@ -295,6 +325,51 @@ export class ConversionComponent extends ChildComponent {
       if (!this.asciiResult) this.parentRef?.showNotification('Could not render ASCII art.');
     } finally {
       this.isGeneratingAscii = false;
+    }
+  }
+
+  /** Debounced live preview: fires whenever text/style/scale change. */
+  queueAsciiPreview() {
+    if (this.asciiPreviewTimer) clearTimeout(this.asciiPreviewTimer);
+    this.asciiPreviewTimer = setTimeout(() => this.refreshAsciiPreview(), 400);
+  }
+
+  async refreshAsciiPreview() {
+    const text = this.asciiText.trim();
+    if (!text) { this.asciiPreview = undefined; return; }
+    const seq = ++this.asciiPreviewSeq;
+    // PreviewOnly=true: server returns the art without saving a .txt file, so
+    // typing can't litter the user's output folder.
+    const res = await this.conversionService.textToAscii(text, this.asciiStyle, this.asciiScale, this.parentRef?.user?.id, true);
+    if (seq !== this.asciiPreviewSeq) return; // a newer preview superseded this one
+    this.asciiPreview = res ?? undefined;
+  }
+
+  async previewAllAscii() {
+    const text = this.asciiText.trim();
+    if (!text) { this.parentRef?.showNotification('Type some text first.'); return; }
+    const cacheKey = `${text}\u0000${this.asciiScale}`;
+    const cached = this.allAsciiPreviewCache.get(cacheKey);
+    if (cached) {
+      // Same text+scale as a previous run — show the cached 64-style grid.
+      this.allAsciiPreviews = cached;
+      return;
+    }
+    this.previewingAll = true;
+    try {
+      this.allAsciiPreviews = (await this.conversionService.textToAsciiPreviewAll(text, this.asciiScale, this.parentRef?.user?.id)) ?? undefined;
+      if (!this.allAsciiPreviews?.length) {
+        this.parentRef?.showNotification('Could not render the style previews.');
+      } else {
+        this.allAsciiPreviewCache.set(cacheKey, this.allAsciiPreviews);
+        // Evict the oldest entry so the cache stays bounded.
+        if (this.allAsciiPreviewCache.size > this.allAsciiPreviewCacheMax) {
+          const oldestKey = this.allAsciiPreviewCache.keys().next().value;
+          if (oldestKey !== undefined) this.allAsciiPreviewCache.delete(oldestKey);
+        }
+      }
+    } finally {
+      this.previewingAll = false;
     }
   }
 

@@ -64,6 +64,9 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() massDeleteMode: boolean = false;
   @Input() disabled = false;
   @Input() searchButtonSlot = 2 as SlotNumber;
+  // File names (exact) that have a local copy on this device and can be
+  // played offline. When non-empty, matching rows get a small offline badge.
+  @Input() offlineFileNames: string[] = [];
   @Output() selectedForDeleteChange = new EventEmitter<number[]>();
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
@@ -1225,6 +1228,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
   getFileWithoutExtension(fileName: string) {
     return this.fileService.getFileWithoutExtension(fileName);
+  }
+
+  isOfflineFile(fileName?: string): boolean {
+    return !!fileName && this.offlineFileNames.includes(fileName);
   }
 
   getFileEmoji(fileName: string): string {

@@ -737,6 +737,11 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
 
   async logout() {
     if (this.parentRef) {
+      // Revoke the server-side session so the token can't be replayed, then
+      // clear the local session state.
+      const token = await this.parentRef.getSessionToken();
+      await this.userService.logout(token);
+      this.parentRef.sessionToken = undefined;
       this.parentRef.navigationItems = this.parentRef.navigationItems.filter(x => {
         const title = x.title.toLowerCase();
         title == "chat" || title == "meme" || title == "emulation" || title == "social" || title == "bug-wars" || title == "user" || title == "close menu"
@@ -746,6 +751,8 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
         title == "chat" || title == "meme" || title == "emulation" || title == "social" || title == "bug-wars" || title == "user" || title == "close menu"
       });
       this.parentRef.deleteCookie("user");
+      // The BHUserToken cookie is HttpOnly and server-managed — the logout
+      // endpoint already revoked the session and cleared it.
       this.parentRef.navigationComponent?.clearNotifications();
       this.parentRef.user = undefined;
     }

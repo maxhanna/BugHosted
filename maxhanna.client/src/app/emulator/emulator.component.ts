@@ -5,6 +5,7 @@ import { AppModule } from '../app.module';
 import { ChildComponent } from '../child.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { RomService, PendingShare } from '../../services/rom.service';
+import { LocalRomService, LocalRomEntry } from '../../services/local-rom.service';
 import { FileService } from '../../services/file.service';
 import { UserService } from '../../services/user.service';
 import { FileSearchComponent } from '../file-search/file-search.component';
@@ -66,6 +67,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   selectedSystemCore?: Core | null = null;
   displayAsTable = true;
   connectedGamepads =  GamepadInfoStore;
+  // Opt-in offline ROM storage — the preference lives in user_settings; the
+  // actual copies live on this device (chosen folder or browser storage).
+  localRomStorageEnabled = false;
+  fsAccessSupported = false;
+  localRomFolderName?: string;
+  localRoms: LocalRomEntry[] = [];
+  localRomNames: string[] = [];
+  localStorageTotalBytes = 0;
+  isLocalRomsPanelOpen = false;
   pendingShares: PendingShare[] = [];
   isSharedRomPromptVisible = false;
   selectedPendingShare: PendingShare | null = null;
@@ -88,6 +98,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   private _saveFn?: () => Promise<void>;
   private _lastSaveTime: number = 0;
   private _lastRomLoadTime: number = 0;
+  private _warnedLowQuota = false;
   private _saveInProgress: boolean = false;
   private _inFlightSavePromise?: Promise<boolean>;
   private _exiting = false;
@@ -107,6 +118,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   constructor(
     private romService: RomService,
+    private localRomService: LocalRomService,
     private fileService: FileService,
     private userService: UserService,
     private cdr: ChangeDetectorRef
@@ -122,6 +134,8 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (!this.parentRef?.user?.id) {
       this.autosave = false;
     }
+    this.fsAccessSupported = this.localRomService.supportsFileSystemAccess();
+    this.loadLocalStoragePreference();
     this.ensureLoadedViaRoute();
     if (this.parentRef) {
       this.parentRef.preventShowSecurityPopup = true;
@@ -406,18 +420,43 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.isSearchVisible = false;
     this.status = "Loading Rom - " + this.fileService.getFileWithoutExtension(fileName);
     this._lastRomLoadTime = new Date().getTime();
+    this._warnedLowQuota = false;
     this.cdr.detectChanges();
 
     const userId = this.parentRef?.user?.id;
 
-    // 1) Fetch ROM via your existing API AND fetch save state in parallel
-    const romPromise = this.romService.getRomFile(
-      fileName, userId, fileId,
-      (loaded, total) => {
-        this.displayRomUploadOrDownloadProgress(total, loaded, false, fileName);
-        this.cdr.detectChanges();
-      }
-    );
+    // 1) If a copy of this ROM is already on this device, load it from there
+    // instead of the server — instant, works offline, and independent of the
+    // opt-in flag (the flag only controls whether NEW downloads are saved).
+    let usedLocalRom = false;
+    let localRomBlob: Blob | null = null;
+    try {
+      localRomBlob = await this.localRomService.getRomBlob(fileName);
+      usedLocalRom = localRomBlob != null;
+    } catch { /* fall through to the server */ }
+
+    // 2) Fetch ROM via your existing API (unless loaded from disk) AND fetch
+    // save state in parallel
+    const romPromise = usedLocalRom
+      ? Promise.resolve(localRomBlob)
+      : this.romService.getRomFile(
+        fileName, userId, fileId,
+        (loaded, total) => {
+          this.displayRomUploadOrDownloadProgress(total, loaded, false, fileName);
+          this.cdr.detectChanges();
+          // Warn once, as soon as the ROM's size is known, when the copy would
+          // land in browser storage and the device looks too full to hold it.
+          // Folder copies bypass the web quota entirely, so no warning there.
+          if (this.localRomStorageEnabled && !this.localRomFolderName && total > 0 && !this._warnedLowQuota) {
+            this._warnedLowQuota = true;
+            this.localRomService.getStorageEstimate().then(est => {
+              if (est && est.quota - est.usage < total) {
+                this.parentRef?.showNotification('⚠️ This device is nearly out of storage — the local copy may not be saved.');
+              }
+            });
+          }
+        }
+      );
 
     let saveStatePromise: Promise<Blob | null> = Promise.resolve(null);
     if (this.selectedPendingShare && userId) {
@@ -446,9 +485,25 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     if (romBlobOrArray instanceof Blob) {
       romBlob = romBlobOrArray;
     } else {
-      this.stopLoading();
-      this.setTmpStatus("Could not retrieve the ROM file.");
-      throw new Error('getRomFile errored: expected Blob response');
+      // Server fetch failed (offline / file missing) — as a last resort boot
+      // from a local copy so offline play works end to end.
+      const rescue = await this.localRomService.getRomBlob(fileName).catch(() => null);
+      if (rescue) {
+        romBlob = rescue;
+        usedLocalRom = true;
+      } else {
+        this.stopLoading();
+        this.setTmpStatus("Could not retrieve the ROM file.");
+        throw new Error('getRomFile errored: expected Blob response');
+      }
+    }
+
+    // 2b) If the user opted in, keep a copy on this device for next time so
+    // subsequent loads come from disk instead of the server.
+    if (this.localRomStorageEnabled && !usedLocalRom) {
+      this.localRomService.saveRom(fileName, romBlob).then(where => {
+        if (where) this.refreshLocalRoms();
+      });
     }
 
     // 3) Create a blob: URL and remember it for cleanup
@@ -1068,6 +1123,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   }
 
   private async loadSaveStateFromDB(romFileName: string): Promise<Blob | null> {
+    // Offline convenience: prefer the save kept on this device (when one
+    // exists); the server copy remains the backup.
+    try {
+      const local = await this.localRomService.getSaveState(romFileName);
+      if (local && local.size > 0) return local;
+    } catch { /* fall through to server */ }
     if (!this.parentRef?.user?.id) {
       console.log('User not logged in; skipping load state from DB');
       return null;
@@ -1165,6 +1226,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       await this.trackInFlight((async () => {
         const ok = await this.uploadSaveBytes(u8);
         console.debug('[EMU DEBUG] onSaveState: uploadSaveBytes result', { ok });
+        if (ok && this.localRomStorageEnabled && this.romName) {
+          // Mirror the save locally (best-effort) so offline play keeps
+          // progress. The server copy is always written regardless.
+          this.localRomService.saveSaveState(this.romName, new Blob([u8 as BlobPart], { type: 'application/octet-stream' })).catch(() => { });
+        }
         if (ok) {
           if (this._pendingSaveResolve) { try { this._pendingSaveResolve(true); } catch { } this._pendingSaveResolve = undefined; }
           return true;
@@ -2507,6 +2573,123 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   
   shouldShowMenuContent(): boolean {
     return !this.isFaqOpen && !this.showGamepadDetails;
+  }
+
+  // ---------- Offline ROM storage (opt-in) ----------
+
+  private async loadLocalStoragePreference() {
+    const userId = this.parentRef?.user?.id;
+    if (!userId) return;
+    // Copies already on this device are discoverable without the server —
+    // refresh offline badges/totals even if the preference can't load (e.g.
+    // server unreachable; offline play must still work).
+    this.refreshLocalRoms();
+    try {
+      const settings = await this.userService.getUserSettings(userId);
+      this.localRomStorageEnabled = !!settings?.emulatorLocalRomStorage;
+      this.localRomFolderName = await this.localRomService.getFolderName() ?? undefined;
+      this.cdr.detectChanges();
+    } catch { /* server unreachable — local copies remain usable */ }
+  }
+
+  /** Flip the opt-in preference and persist it to the user_settings table. */
+  async toggleLocalRomStorage() {
+    const userId = this.parentRef?.user?.id;
+    if (!userId) {
+      this.parentRef?.showNotification('You must be logged in to save this preference.');
+      return;
+    }
+    this.localRomStorageEnabled = !this.localRomStorageEnabled;
+    const res = await this.userService.updateUserSettings(userId, [
+      { settingName: 'emulator_local_rom_storage', value: this.localRomStorageEnabled }
+    ]);
+    if (res !== 'Error') {
+      if (this.localRomStorageEnabled) {
+        this.localRomFolderName = await this.localRomService.getFolderName() ?? undefined;
+        this.refreshLocalRoms();
+        this.parentRef?.showNotification('ROMs will now be saved on this device.');
+      } else {
+        this.parentRef?.showNotification('Local ROM storage disabled — saves still always go to the server.');
+      }
+    } else {
+      this.localRomStorageEnabled = !this.localRomStorageEnabled; // revert
+      this.parentRef?.showNotification('Could not save that preference.');
+    }
+    this.cdr.detectChanges();
+  }
+
+  /** Let the user pick (or change) the folder ROM copies are written to. */
+  async chooseLocalRomFolder() {
+    if (!this.fsAccessSupported) {
+      this.parentRef?.showNotification('This browser can\u2019t access a real folder — copies are kept in browser storage instead.');
+      return;
+    }
+    try {
+      const handle = await this.localRomService.chooseFolder();
+      if (!handle) return; // user cancelled
+      this.localRomFolderName = handle.name;
+      this.refreshLocalRoms();
+      this.parentRef?.showNotification(`ROMs will be saved to \u201C${handle.name}\u201D.`);
+    } catch {
+      this.parentRef?.showNotification('Could not access that folder.');
+    }
+    this.cdr.detectChanges();
+  }
+
+  /** Stop using the chosen folder; copies fall back to browser storage. */
+  async clearLocalRomFolder() {
+    await this.localRomService.clearFolder();
+    this.localRomFolderName = undefined;
+    this.refreshLocalRoms();
+    this.parentRef?.showNotification('Folder unlinked — new copies go to browser storage.');
+    this.cdr.detectChanges();
+  }
+
+  async refreshLocalRoms() {
+    this.localRoms = await this.localRomService.listRoms();
+    this.localRomNames = this.localRoms.map(r => r.name);
+    this.localStorageTotalBytes = this.localRoms.reduce((sum, r) => sum + (r.size || 0), 0);
+    this.cdr.detectChanges();
+  }
+
+  /** Boot a ROM straight from its local copy (works with the server down). */
+  async playLocalRom(name: string) {
+    if (this.isLoading) return;
+    await this.loadRomThroughService(name);
+  }
+
+  async deleteLocalRom(name: string) {
+    await this.localRomService.deleteRom(name);
+    await this.refreshLocalRoms();
+  }
+
+  /** True when any local copy lives in browser storage (moveable to folder). */
+  hasBrowserStoredRoms(): boolean {
+    return this.localRoms.some(r => r.source === 'browser');
+  }
+
+  /** Migrate one browser-stored copy into the chosen folder. */
+  async moveLocalRomToFolder(name: string) {
+    const ok = await this.localRomService.moveToFolder(name);
+    if (ok) {
+      await this.refreshLocalRoms();
+      this.parentRef?.showNotification(`Moved \u201C${name}\u201D into the folder.`);
+    } else {
+      this.parentRef?.showNotification('Could not move this copy to the folder.');
+    }
+  }
+
+  async clearLocalRoms() {
+    if (!confirm('Delete ALL locally saved ROM copies? This does not remove them from the server.')) return;
+    await this.localRomService.clearRoms();
+    await this.refreshLocalRoms();
+    this.parentRef?.showNotification('Local ROM copies deleted.');
+  }
+
+  formatLocalSize(bytes: number): string {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   }
 
   private buildTouchLayout(

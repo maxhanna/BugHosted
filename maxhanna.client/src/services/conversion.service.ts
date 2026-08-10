@@ -144,11 +144,22 @@ export class ConversionService {
       }).catch(() => null);
   }
 
-  textToAscii(text: string, style: string, scale: number, userId: number | undefined): Promise<TextToAsciiResult | null> {
+  textToAscii(text: string, style: string, scale: number, userId: number | undefined, previewOnly: boolean = false): Promise<TextToAsciiResult | null> {
     return fetch('/conversion/texttoascii', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ Text: text, Style: style, Scale: scale, UserId: userId })
+      body: JSON.stringify({ Text: text, Style: style, Scale: scale, UserId: userId, PreviewOnly: previewOnly })
+    }).then(async (res) => {
+      if (!res.ok) return null;
+      return await res.json();
+    }).catch(() => null);
+  }
+
+  textToAsciiPreviewAll(text: string, scale: number, userId: number | undefined): Promise<{ style: string; art: string }[] | null> {
+    return fetch('/conversion/texttoasciipreviewall', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ Text: text, Scale: scale, UserId: userId })
     }).then(async (res) => {
       if (!res.ok) return null;
       return await res.json();

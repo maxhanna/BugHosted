@@ -35,6 +35,7 @@
       [displayRomMetadata]="true" 
       [displayRomMetadataDesktop]="true" 
       [displayRatings]="true"
+      [offlineFileNames]="localRomNames"
       [forceSearchSameDirectory]="true" 
       [maxResults]="10"
       (selectFileEvent)="onRomSelected($event)" 
@@ -148,6 +149,58 @@
       </div>
     </div>
   </div> 
+
+  <!-- Offline ROM Storage (opt-in) -->
+  <div *ngIf="shouldShowMenuContent() && parentRef?.user?.id" style="border-top:1px solid var(--main-highlight-color); margin-top:14px; padding-top:12px;">
+    <div class="popupPanelTitle" style="font-size:0.95rem;">💾 Offline ROM Storage</div>
+    <div class="xxSmallFont thirdFontColor" style="margin-bottom:8px;">
+      Keep a copy of downloaded ROMs on this device so they load instantly next time (and work offline). Saves always go to the server too.
+    </div>
+    <label style="display:flex; align-items:center; gap:8px; margin-bottom:8px; cursor:pointer;">
+      <input type="checkbox" [checked]="localRomStorageEnabled" (change)="toggleLocalRomStorage()" />
+      <span>Save ROMs to this device</span>
+    </label>
+    <div *ngIf="localRomStorageEnabled" style="display:flex; flex-direction:column; gap:6px;">
+      <div class="xxSmallFont" style="opacity:0.9;">
+        <ng-container *ngIf="localRomFolderName; else browserStorageNote">
+          📁 Folder: <b>{{ localRomFolderName }}</b>
+        </ng-container>
+        <ng-template #browserStorageNote>
+          Stored in browser storage{{ fsAccessSupported ? ' — pick a folder to save real files' : '' }}
+        </ng-template>
+      </div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;">
+        <button *ngIf="fsAccessSupported" (click)="chooseLocalRomFolder()" class="emuMenuButton squareButton" title="Choose where ROM copies are saved">
+          📁<div class="emuMenuButtonLabel">Choose Folder</div>
+        </button>
+        <button *ngIf="localRomFolderName" (click)="clearLocalRomFolder()" class="emuMenuButton squareButton" title="Stop using this folder">
+          🔗<div class="emuMenuButtonLabel">Unlink</div>
+        </button>
+        <button (click)="isLocalRomsPanelOpen = !isLocalRomsPanelOpen; refreshLocalRoms()" class="emuMenuButton squareButton" title="Manage locally saved ROM copies">
+          🗂️<div class="emuMenuButtonLabel">Local ({{ localRoms.length }}){{ localStorageTotalBytes ? ' · ' + formatLocalSize(localStorageTotalBytes) : '' }}</div>
+        </button>
+        <button *ngIf="localRoms.length" (click)="clearLocalRoms()" class="emuMenuButton squareButton" title="Delete all local ROM copies">
+          🗑️<div class="emuMenuButtonLabel">Clear All</div>
+        </button>
+      </div>
+      <div *ngIf="isLocalRomsPanelOpen" style="max-height:180px; overflow:auto;">
+        <div class="xxSmallFont thirdFontColor" style="margin-bottom:4px;">Total stored: {{ formatLocalSize(localStorageTotalBytes) }}</div>
+        <div *ngIf="localRomFolderName && hasBrowserStoredRoms()" class="xxSmallFont thirdFontColor" style="margin-bottom:4px;">
+          Device-stored copies can be moved into <b>{{ localRomFolderName }}</b>.
+        </div>
+        <div *ngFor="let r of localRoms" style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:4px 0; border-bottom:1px solid rgba(148,163,184,0.25);">
+          <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" [title]="r.name">{{ r.name }} <small>({{ formatLocalSize(r.size) }}{{ r.source === 'folder' ? ' · folder' : ' · device' }})</small></span>
+          <span style="display:flex; gap:4px; flex-shrink:0;">
+            <button *ngIf="!isLoading" (click)="playLocalRom(r.name)" title="Play from the local copy (works offline)">▶️</button>
+            <button *ngIf="r.source === 'browser' && localRomFolderName" (click)="moveLocalRomToFolder(r.name)" title="Move this copy into the folder">📁</button>
+            <button (click)="deleteLocalRom(r.name)" title="Delete this local copy">🗑️</button>
+          </span>
+        </div>
+        <div *ngIf="localRoms.length === 0" class="xxSmallFont thirdFontColor">No local copies yet — they appear here after you play a ROM.</div>
+      </div>
+    </div>
+  </div>
+
   <!-- FAQ Panel: when open, hide the rest of the menu -->
   <div *ngIf="isFaqOpen" style="max-height:60vh; overflow:auto; padding:6px 4px;">
     <div class="popupPanelTitle">Frequently Asked Questions</div>

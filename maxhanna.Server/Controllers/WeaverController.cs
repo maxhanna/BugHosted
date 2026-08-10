@@ -89,18 +89,20 @@ namespace maxhanna.Server.Controllers
 			if (!Request.Cookies.TryGetValue("BHUserToken", out var token) || string.IsNullOrWhiteSpace(token))
 				return Unauthorized(new { error = "No session token" });
 
-			int userId;
-			string ki = _config.GetValue<string>("Encryption:Key") ?? "";
-			try { userId = Log.DecryptUserId(token, ki); }
-			catch { return Unauthorized(new { error = "Invalid session token" }); }
-
+			// The BHUserToken cookie is now a server-issued session token (see
+			// Log.CreateSession), so validate it against the session store instead
+			// of decrypting a client-encrypted userId.
 			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			int? userId = await Log.ValidateSessionUserId(cs, token);
+			if (userId == null)
+				return Unauthorized(new { error = "Invalid session token" });
+
 			using var conn = new MySqlConnection(cs);
 			await conn.OpenAsync();
 
 			string sql = "SELECT id, username FROM maxhanna.users WHERE id = @UserId";
 			using var cmd = new MySqlCommand(sql, conn);
-			cmd.Parameters.AddWithValue("@UserId", userId);
+			cmd.Parameters.AddWithValue("@UserId", userId.Value);
 			using var reader = await cmd.ExecuteReaderAsync();
 
 			if (!reader.Read())
@@ -110,12 +112,12 @@ namespace maxhanna.Server.Controllers
 			string weaverToken = GenerateToken();
 			_sessions[weaverToken] = new WeaverSession
 			{
-				UserId = userId,
+				UserId = userId.Value,
 				Username = username,
 				CreatedAt = DateTime.UtcNow
 			};
 
-			return Ok(new { token = weaverToken, user = new { id = userId, username } });
+			return Ok(new { token = weaverToken, user = new { id = userId.Value, username } });
 		}
 
 		[HttpPost("heartbeat")]

@@ -98,6 +98,8 @@
                         class="romTitleText">
                         {{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}
                       </span>
+                      <span *ngIf="!file.isFolder && isOfflineFile(file.fileName)" class="offlineBadge"
+                        title="Saved on this device — playable offline">📴</span>
                     </span>
 
                     <!-- ✅ inline ROM thumbs: single thumb on mobile, full strip on desktop -->
@@ -214,6 +216,8 @@
                     <span class="placeholder-name">{{ file?.givenFileName ?? getFileWithoutExtension(file.fileName ?? '') }}</span>
                   </div>
                 </ng-container>
+                <span *ngIf="!file.isFolder && isOfflineFile(file.fileName)" class="offlineBadge"
+                  title="Saved on this device — playable offline">📴</span>
                 <!-- File type badge -->
                 <div class="file-type-badge" *ngIf="!file.isFolder && file.fileType">{{ file.fileType }}</div>
               </div>

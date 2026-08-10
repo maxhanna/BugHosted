@@ -301,6 +301,33 @@ namespace maxhanna.Server.Services
                 {
                     await _dbQueue.EnqueueAsync(async () =>
                     {
+                        // Pre-aggregate coin_value into hourly/daily rollups so
+                        // long-range crypto graph queries don't scan the huge
+                        // raw table. Self-healing: backfills newest-first, a
+                        // few days per run, until it catches up.
+                        await BuildCoinValueRollups();
+                    });
+                }
+                catch (Exception ex) { _ = _log.Db($"Error in BuildCoinValueRollups: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
+                try
+                {
+                    await _dbQueue.EnqueueAsync(async () =>
+                    {
+                        // Drop expired session tokens (7-day sliding expiry) so the
+                        // user_sessions table doesn't grow unbounded.
+                        string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+                        int purged = await Log.PurgeExpiredSessions(cs);
+                        if (purged > 0)
+                        {
+                            _ = _log.Db($"Purged {purged} expired user sessions.", null, "SYSTEM", outputToConsole: true);
+                        }
+                    });
+                }
+                catch (Exception ex) { _ = _log.Db($"Error in PurgeExpiredSessions: {ex.Message}", null, "SYSTEM", outputToConsole: true); }
+                try
+                {
+                    await _dbQueue.EnqueueAsync(async () =>
+                    {
                         await DeleteExpiredDigCraftDrops();
                     });
                 }
@@ -2964,6 +2991,61 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
             }
             return coinData;
         }
+        /// <summary>
+        /// Aggregates raw coin_value rows into the coin_value_1h / coin_value_1d
+        /// rollup tables so long-range graph queries stay fast on a huge table.
+        /// Backfills newest-first (recent zoom ranges become fast first) and is
+        /// capped by wall-clock time per run; the next hourly run resumes where
+        /// it left off. The current (partial) day is always refreshed.
+        /// </summary>
+        private async Task BuildCoinValueRollups()
+        {
+            using (var conn = new MySqlConnection(_connectionString))
+            {
+                await conn.OpenAsync();
+                await CoinValueRollup.EnsureTablesAsync(conn);
+
+                DateTime nowUtc = DateTime.UtcNow;
+                DateTime target = new DateTime(nowUtc.Year, nowUtc.Month, nowUtc.Day, nowUtc.Hour, 0, 0, DateTimeKind.Utc); // last completed hour
+
+                DateTime? rawMin = null;
+                await using (var rawMinCmd = new MySqlCommand(
+                    "SELECT MIN(FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(`timestamp`) / 3600) * 3600)) FROM maxhanna.coin_value;", conn))
+                {
+                    object? r = await rawMinCmd.ExecuteScalarAsync();
+                    if (r != null && r is not DBNull) rawMin = Convert.ToDateTime(r);
+                }
+                if (rawMin == null) return; // no data yet
+
+                DateTime? rollupMin = null;
+                await using (var rollupMinCmd = new MySqlCommand("SELECT MIN(ts_hour) FROM maxhanna.coin_value_1h;", conn))
+                {
+                    object? r = await rollupMinCmd.ExecuteScalarAsync();
+                    if (r != null && r is not DBNull) rollupMin = Convert.ToDateTime(r);
+                }
+
+                // Build days between the oldest not-yet-built day and today,
+                // newest first so recent graph ranges become fast immediately.
+                // When a rollup already exists, go one day OLDER than its
+                // oldest built day so each run actually progresses the backfill.
+                DateTime startDate = rollupMin == null ? rawMin.Value.Date : rollupMin.Value.Date.AddDays(-1);
+                if (startDate > target.Date) startDate = target.Date;
+
+                DateTime startedAt = DateTime.UtcNow;
+                int daysBuilt = 0;
+                for (DateTime d = target.Date; d >= startDate && (DateTime.UtcNow - startedAt).TotalSeconds < 180; d = d.AddDays(-1))
+                {
+                    await CoinValueRollup.AggregateDayAsync(conn, d);
+                    daysBuilt++;
+                }
+
+                if (daysBuilt > 0)
+                {
+                    _ = _log.Db($"Coin value rollup: aggregated {daysBuilt} day(s), now covered from {startDate:yyyy-MM-dd} UTC.", null, "SYSTEM", outputToConsole: true);
+                }
+            }
+        }
+
         private async Task DeleteOldCoinValueEntries()
         {
             using (var conn = new MySqlConnection(_connectionString))

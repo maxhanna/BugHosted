@@ -34,6 +34,8 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
   detectingLocation = false;
   isBlockedUsersToggled = false;
   isDeleteAccountToggled = false;
+  isSessionsToggled = false;
+  activeSessions: any[] = [];
   isBTCWalletAddressesToggled = false;
   isPushNotificationsToggled = false;
   isAboutToggled = false;
@@ -516,8 +518,60 @@ export class UpdateUserSettingsComponent extends ChildComponent implements OnIni
     } catch (error) {
       parent.showNotification(`Error updating user ${parent.user?.username}. Error: ${JSON.stringify(error)}`);
     }
-    parent.user = (await this.userService.login(username, password)) as any;
+    // Re-login after a username change to refresh the user object and mint a
+    // fresh server session token.
+    const loginData = await this.userService.login(username, password) as { user: User; sessionToken: string } | undefined;
+    if (loginData?.user) {
+      parent.user = loginData.user;
+      // Server also sets the token as an HttpOnly cookie (not JS-readable).
+      parent.sessionToken = loginData.sessionToken;
+    }
     this.stopLoading();
+  }
+
+  async toggleSessions() {
+    this.isSessionsToggled = !this.isSessionsToggled;
+    if (this.isSessionsToggled) await this.refreshSessions();
+  }
+
+  async refreshSessions() {
+    const parent = this.parentRef ?? this.inputtedParentRef;
+    if (!parent) return;
+    const sessionToken = await parent.getSessionToken();
+    if (!sessionToken) { this.activeSessions = []; return; }
+    this.activeSessions = (await this.userService.getSessions(sessionToken)) ?? [];
+  }
+
+  async revokeSession(sessionId: number, isCurrent: boolean) {
+    const parent = this.parentRef ?? this.inputtedParentRef;
+    if (!parent) return alert("Parent cannot be null");
+    const sessionToken = await parent.getSessionToken();
+    if (!sessionToken) return alert("You must be logged in first!");
+    const prompt = isCurrent
+      ? "This is the device you're on now. Revoking it will sign you out. Continue?"
+      : "Revoke this session? That device will be signed out.";
+    if (!confirm(prompt)) return;
+    const ok = await this.userService.revokeSession(sessionId, sessionToken);
+    if (ok) {
+      parent.showNotification(isCurrent ? "This device was signed out." : "Session revoked.");
+      if (isCurrent) {
+        parent.sessionToken = "";
+        // The cookie is HttpOnly so JS can't clear it — the Logout endpoint
+        // revokes the (already-deleted) session and clears it server-side.
+        await this.userService.logout(sessionToken);
+        window.location.reload();
+      } else {
+        await this.refreshSessions();
+      }
+    } else {
+      parent.showNotification("Failed to revoke session.");
+    }
+  }
+
+  formatSessionTime(value?: string): string {
+    if (!value) return "—";
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? "—" : d.toLocaleString();
   }
 
   async deleteUser() {

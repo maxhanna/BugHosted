@@ -107,6 +107,24 @@ app.UseHttpsRedirection();
 
 app.UseRouting();
 
+// Session-token cookie bridge: the server sets the session token in an
+// HttpOnly cookie at login. When a request arrives without the token in the
+// Encrypted-UserId header (or with an empty one — e.g. after a page reload,
+// when the client's in-memory copy is gone), inject the cookie value into the
+// header so the existing header-based validation flow works unchanged.
+app.Use(async (context, next) =>
+{
+	if (!context.Request.Headers.TryGetValue("Encrypted-UserId", out var headerToken) || string.IsNullOrWhiteSpace(headerToken.ToString()))
+	{
+		string? cookieToken = context.Request.Cookies["BHUserToken"];
+		if (!string.IsNullOrWhiteSpace(cookieToken))
+		{
+			context.Request.Headers["Encrypted-UserId"] = cookieToken;
+		}
+	}
+	await next();
+});
+
 app.UseAuthorization();
 
 app.MapControllers();

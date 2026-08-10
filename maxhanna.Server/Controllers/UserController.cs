@@ -34,15 +34,18 @@ namespace maxhanna.Server.Controllers
         "follow_notifications_push",
         "follow_notifications_email",
         "show_nav_search",
-        "timezone"
-    }; 
+        "timezone",
+        "emulator_local_rom_storage"
+    };
+
+    private static readonly ConcurrentDictionary<string, bool> _ensuredSettingColumns = new();
 
     private static readonly ConcurrentDictionary<int, LoginPinState> _loginPinStates = new();
 
     private class LoginPinState
     {
-        public int FailedAttempts { get; set; }
-        public string? RequiredPin { get; set; }
+      public int FailedAttempts { get; set; }
+      public string? RequiredPin { get; set; }
     }
 
     public UserController(IHttpClientFactory httpClientFactory, Log log, IConfiguration config, maxhanna.Server.Services.EmailService emailService)
@@ -1118,10 +1121,15 @@ namespace maxhanna.Server.Controllers
     }
 
     [HttpPost("/User/UpdateLastSeen", Name = "UpdateLastSeen")]
-    public async Task<IActionResult> UpdateLastSeen([FromBody] int userId, CancellationToken ct = default)
+    public async Task<IActionResult> UpdateLastSeen([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null, CancellationToken ct = default)
     {
       if (userId <= 0)
         return BadRequest("Invalid userId");
+
+      // Presence updates must come from a real session — otherwise anyone could
+      // keep any user's last_seen fresh.
+      if (string.IsNullOrWhiteSpace(encryptedUserIdHeader) || !await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader))
+        return Unauthorized("Access Denied.");
 
       // Cache your connection string in the constructor and use a field if possible.
       var cs = _config?.GetConnectionString("maxhanna");
@@ -1567,7 +1575,8 @@ namespace maxhanna.Server.Controllers
 
               string ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
-              if (userId != 1) {
+              if (userId != 1)
+              {
 
                 // Check if account is locked
                 string lockCheckSql = "SELECT id, locked_at, reason FROM maxhanna.user_account_lock WHERE user_id = @UserId AND unlocked_at IS NULL ORDER BY id DESC LIMIT 1;";
@@ -1662,7 +1671,8 @@ namespace maxhanna.Server.Controllers
                     await attemptCmd.ExecuteNonQueryAsync();
                   }
 
-                  if (userId != 1) { 
+                  if (userId != 1)
+                  {
                     // Count total unknown-IP attempts for this user
                     string countAttemptsSql = "SELECT COUNT(*) FROM maxhanna.user_unknown_ip_attempt WHERE user_id = @UserId;";
                     int attemptCount = 0;
@@ -1786,7 +1796,31 @@ namespace maxhanna.Server.Controllers
                         (DateTime)dataReader["last_seen"]
                     );
                     user.Role = dataReader.IsDBNull(dataReader.GetOrdinal("role")) ? null : dataReader.GetString("role");
-                    return Ok(user);
+                    // Issue a server-side session token (replaces the old client-encrypted
+                    // userId). The client stores it and sends it as the Encrypted-UserId
+                    // header; ValidateUserLoggedIn checks it against user_sessions.
+                    string sessionToken = await Log.CreateSession(connectionString, userId) ?? "";
+                    if (string.IsNullOrEmpty(sessionToken))
+                    {
+                      _ = _log.Db("Login succeeded but session creation failed for userId:" + userId, userId, "USER", true);
+                    }
+                    else
+                    {
+                      // Also deliver the token as an HttpOnly cookie so it never has to
+                      // live in JS-readable storage: the browser sends it automatically,
+                      // and a pipeline middleware bridges it into the Encrypted-UserId
+                      // header for requests that don't carry the in-memory copy (e.g.
+                      // after a page reload). The server still enforces the real expiry.
+                      Response.Cookies.Append("BHUserToken", sessionToken, new CookieOptions
+                      {
+                        HttpOnly = true,
+                        Secure = Request.IsHttps,
+                        SameSite = SameSiteMode.Lax,
+                        Path = "/",
+                        MaxAge = TimeSpan.FromDays(30)
+                      });
+                    }
+                    return Ok(new { user, sessionToken });
                   }
                 }
               }
@@ -1801,6 +1835,55 @@ namespace maxhanna.Server.Controllers
           return StatusCode(500, "An error occurred while processing the request.");
         }
       }
+    }
+
+    [HttpPost("/User/Logout", Name = "Logout")]
+    public async Task<IActionResult> Logout([FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+    {
+      // The token may arrive via the header (in-memory client copy) or the
+      // HttpOnly session cookie (after a reload) — revoke whichever is present.
+      string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      string token = string.IsNullOrWhiteSpace(encryptedUserIdHeader)
+        ? (Request.Cookies["BHUserToken"] ?? "")
+        : encryptedUserIdHeader;
+      bool ok = !string.IsNullOrWhiteSpace(token) && await Log.InvalidateSession(cs, token);
+      // Clear the HttpOnly session cookie so the browser stops sending it.
+      Response.Cookies.Delete("BHUserToken", new CookieOptions { Path = "/" });
+      return Ok(new { success = ok });
+    }
+
+    [HttpGet("/User/Sessions", Name = "Sessions")]
+    public async Task<IActionResult> Sessions([FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
+    {
+      // Validates the session token and slides its expiry (like every other
+      // authenticated endpoint). The listed user is derived from the token,
+      // never from a request body value.
+      string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      int? userId = await Log.ValidateSessionUserId(cs, encryptedUserIdHeader ?? "");
+      if (userId == null)
+        return Unauthorized("Invalid or expired session.");
+      var sessions = await Log.ListSessions(cs, userId.Value, encryptedUserIdHeader ?? "");
+      return Ok(sessions);
+    }
+
+    [HttpPost("/User/RevokeSession", Name = "RevokeSession")]
+    public async Task<IActionResult> RevokeSession([FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null, [FromBody] RevokeSessionRequest request = null!)
+    {
+      if (request == null || request.SessionId <= 0)
+        return BadRequest("Invalid session id.");
+      string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      int? userId = await Log.ValidateSessionUserId(cs, encryptedUserIdHeader ?? "");
+      if (userId == null)
+        return Unauthorized("Invalid or expired session.");
+      bool ok = await Log.RevokeSession(cs, userId.Value, request.SessionId);
+      if (!ok)
+        return NotFound("Session not found.");
+      return Ok(new { success = true });
+    }
+
+    public class RevokeSessionRequest
+    {
+      public long SessionId { get; set; }
     }
 
     [HttpPost("/User/Appeal", Name = "Appeal")]
@@ -2397,7 +2480,8 @@ namespace maxhanna.Server.Controllers
      IFNULL(follow_notifications_push,1) AS follow_notifications_push,
      IFNULL(follow_notifications_email,0) AS follow_notifications_email,
      IFNULL(show_nav_search,1) AS show_nav_search,
-     IFNULL(timezone,'') AS timezone
+     IFNULL(timezone,'') AS timezone,
+     IFNULL(emulator_local_rom_storage,0) AS emulator_local_rom_storage
      FROM maxhanna.user_settings 
      WHERE user_id = @userId;";
           MySqlCommand selectCmd = new MySqlCommand(selectSql, conn);
@@ -2436,6 +2520,7 @@ namespace maxhanna.Server.Controllers
               userSettings.FollowNotificationsEmail = !reader.IsDBNull(reader.GetOrdinal("follow_notifications_email")) && reader.GetInt32("follow_notifications_email") == 1;
               userSettings.ShowNavSearch = !reader.IsDBNull(reader.GetOrdinal("show_nav_search")) && reader.GetInt32("show_nav_search") == 1;
               userSettings.Timezone = reader.IsDBNull(reader.GetOrdinal("timezone")) ? null : reader.GetString("timezone");
+              userSettings.EmulatorLocalRomStorage = !reader.IsDBNull(reader.GetOrdinal("emulator_local_rom_storage")) && reader.GetInt32("emulator_local_rom_storage") == 1;
             }
           }
 
@@ -2490,7 +2575,6 @@ namespace maxhanna.Server.Controllers
         try
         {
           await conn.OpenAsync();
-          // Build dynamic SQL for all settings
           var columns = string.Join(", ", validSettings.Select(s => s.SettingName));
           var values = string.Join(", ", validSettings.Select((s, i) => $"@val{i}"));
           var updates = string.Join(", ", validSettings.Select(s => $"{s.SettingName} = VALUES({s.SettingName})"));

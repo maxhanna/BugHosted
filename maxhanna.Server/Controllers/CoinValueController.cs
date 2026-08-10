@@ -1,6 +1,8 @@
+using System.Collections.Concurrent;
 using System.Data;
 using maxhanna.Server.Controllers.DataContracts.Crypto;
 using maxhanna.Server.Controllers.DataContracts.Users;
+using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 
@@ -20,6 +22,12 @@ namespace maxhanna.Server.Controllers
     private const double HOURS_IN_MONTH = 720; // 30 days * 24 hours
     private const double HOURS_IN_YEAR = 8760; // 365 days * 24 hours
     private static readonly Dictionary<string, string> CoinNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { { "BTC", "Bitcoin" }, { "XBT", "Bitcoin" }, { "ETH", "Ethereum" }, { "XDG", "Dogecoin" }, { "SOL", "Solana" } };
+
+    // Short-lived cache for aggregated graph responses. coin_value is
+    // append-only, so results are stable within the TTL and re-zooming the
+    // graph is instant instead of re-scanning the huge table every time.
+    private static readonly ConcurrentDictionary<string, (DateTime ExpiresAt, List<CoinValue> Data)> _graphCache = new();
+    private static readonly TimeSpan GRAPH_CACHE_TTL = TimeSpan.FromSeconds(60);
 
     private static readonly HashSet<string> AllowedWalletTypes =
     new HashSet<string>(
@@ -95,82 +103,59 @@ namespace maxhanna.Server.Controllers
       MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
       if (request.From == null) { request.From = new DateTime(); }
 
+      double hourRange = request.HourRange ?? 24;
+      // Only the past is requested — the old code scanned 2x the window (the
+      // +hourRange future half always has no rows) which doubled the scan.
+      var actualFrom = request.From.Value.AddHours(-1 * hourRange);
+      var actualTo = request.From.Value;
+
+      // Aggregated responses are cacheable: coin_value is append-only, so a
+      // short TTL is safe, and the client re-requests on every zoom change.
+      bool cacheable = hourRange > 24;
+      string? cacheKey = cacheable ? GraphCacheKey(request.Currency, hourRange, actualTo) : null;
+      if (cacheKey != null && _graphCache.TryGetValue(cacheKey, out var cached) && cached.ExpiresAt > DateTime.UtcNow)
+      {
+        return cached.Data;
+      }
+
       try
       {
         await conn.OpenAsync();
 
-        var actualFrom = request.From.Value.AddHours(-1 * (request.HourRange ?? 24));
-        var actualTo = request.From.Value.AddHours(request.HourRange ?? 24);
-        double hourRange = request.HourRange ?? 24;
-        string sql;
+        // Long ranges read from pre-aggregated rollup tables (built by the
+        // hourly background job) instead of scanning the raw table.
+        bool useRollup = hourRange > HOURS_IN_WEEK;
+        if (useRollup)
+        {
+          await CoinValueRollup.EnsureTablesAsync(conn);
+          // Only use the rollup when it fully covers the requested range;
+          // otherwise fall back to raw so results stay complete.
+          useRollup = await RollupCoversRangeAsync(conn, request.Currency, actualFrom, actualTo);
+        }
 
-        if (hourRange > HOURS_IN_YEAR) // More than one year
+        string sql;
+        if (useRollup)
         {
-          sql = @$"
-						SELECT 
-							MIN(id) as id, 
-							symbol, 
-							name, 
-							AVG(value_cad) as value_cad, 
-							AVG(value_usd) as value_usd, 
-							FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_LONG_TERM}) * {TRUNCATE_LONG_TERM}) as timestamp
-						FROM coin_value
-						WHERE timestamp >= @From 
-						AND timestamp <= @To
-						{(request.Currency != null ? " AND name = @Name " : "")}
-						GROUP BY symbol, name, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_LONG_TERM}) * {TRUNCATE_LONG_TERM})
-						ORDER BY timestamp ASC;";
+          int bucketSeconds = hourRange > HOURS_IN_YEAR ? TRUNCATE_LONG_TERM
+            : hourRange > HOURS_IN_MONTH ? TRUNCATE_YEAR
+            : TRUNCATE_MONTH;
+          sql = BuildRollupSql(request.Currency, bucketSeconds);
         }
-        else if (hourRange > HOURS_IN_MONTH) // More than one month but less than or equal to one year
+        else if (hourRange > HOURS_IN_YEAR) // More than one year (raw fallback)
         {
-          sql = @$"
-						SELECT 
-							MIN(id) as id, 
-							symbol, 
-							name, 
-							AVG(value_cad) as value_cad, 
-							AVG(value_usd) as value_usd, 
-							FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_YEAR}) * {TRUNCATE_YEAR}) as timestamp
-						FROM coin_value
-						WHERE timestamp >= @From 
-						AND timestamp <= @To
-						{(request.Currency != null ? " AND name = @Name " : "")} 
-						GROUP BY symbol, name, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_YEAR}) * {TRUNCATE_YEAR})
-						ORDER BY timestamp ASC;";
+          sql = BuildRawAggregatedSql(request.Currency, TRUNCATE_LONG_TERM);
         }
-        else if (hourRange > HOURS_IN_WEEK) // More than one week but less than or equal to one month
+        else if (hourRange > HOURS_IN_MONTH) // More than one month but <= 1 year
         {
-          sql = @$"
-						SELECT 
-							MIN(id) as id, 
-							symbol, 
-							name, 
-							AVG(value_cad) as value_cad, 
-							AVG(value_usd) as value_usd, 
-							FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_MONTH}) * {TRUNCATE_MONTH}) as timestamp
-						FROM coin_value
-						WHERE timestamp >= @From 
-						AND timestamp <= @To						
-						{(request.Currency != null ? " AND name = @Name " : "")} 
-						GROUP BY symbol, name, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_MONTH}) * {TRUNCATE_MONTH})
-						ORDER BY timestamp ASC;";
+          sql = BuildRawAggregatedSql(request.Currency, TRUNCATE_YEAR);
         }
-        else if (hourRange > 24) // More than one day but less than or equal to one week
+        else if (hourRange > HOURS_IN_WEEK) // More than one week but <= 1 month
         {
-          sql = @$"
-						SELECT 
-							MIN(id) as id, 
-							symbol, 
-							name, 
-							AVG(value_cad) as value_cad, 
-							AVG(value_usd) as value_usd, 
-							FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_WEEK}) * {TRUNCATE_WEEK}) as timestamp
-						FROM coin_value
-						WHERE timestamp >= @From 
-						AND timestamp <= @To						
-						{(request.Currency != null ? " AND name = @Name " : "")} 
-						GROUP BY symbol, name, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {TRUNCATE_WEEK}) * {TRUNCATE_WEEK})
-						ORDER BY timestamp ASC;";
+          sql = BuildRawAggregatedSql(request.Currency, TRUNCATE_MONTH);
+        }
+        else if (hourRange > 24) // More than one day but <= 1 week (15-min buckets)
+        {
+          sql = BuildRawAggregatedSql(request.Currency, TRUNCATE_WEEK);
         }
         else // One day or less
         {
@@ -223,7 +208,81 @@ namespace maxhanna.Server.Controllers
         await conn.CloseAsync();
       }
 
+      if (cacheKey != null)
+      {
+        _graphCache[cacheKey] = (DateTime.UtcNow.Add(GRAPH_CACHE_TTL), coinValues);
+      }
       return coinValues;
+    }
+
+    /// <summary>Raw-table aggregation (fallback path, and 1-day..1-week).</summary>
+    private static string BuildRawAggregatedSql(string? currency, int bucketSeconds)
+    {
+      return $@"
+					SELECT 
+						MIN(id) as id, 
+						symbol, 
+						name, 
+						AVG(value_cad) as value_cad, 
+						AVG(value_usd) as value_usd, 
+						FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {bucketSeconds}) * {bucketSeconds}) as timestamp
+					FROM coin_value
+					WHERE timestamp >= @From 
+					AND timestamp <= @To
+					{(currency != null ? " AND name = @Name " : "")}
+					GROUP BY symbol, name, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP(timestamp) / {bucketSeconds}) * {bucketSeconds})
+					ORDER BY timestamp ASC;";
+    }
+
+    /// <summary>
+    /// Aggregated read from the pre-computed rollup tables: a few thousand rows
+    /// per coin regardless of how huge the raw table is.
+    /// </summary>
+    private static string BuildRollupSql(string? currency, int bucketSeconds)
+    {
+      bool daily = bucketSeconds >= TRUNCATE_LONG_TERM;
+      string table = daily ? "maxhanna.coin_value_1d" : "maxhanna.coin_value_1h";
+      string tsCol = daily ? "ts_day" : "ts_hour";
+      return $@"
+					SELECT 
+						MIN(min_id) as id, 
+						MAX(symbol) as symbol, 
+						name, 
+						AVG(avg_cad) as value_cad, 
+						AVG(avg_usd) as value_usd, 
+						FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP({tsCol}) / {bucketSeconds}) * {bucketSeconds}) as timestamp
+					FROM {table}
+					WHERE {tsCol} >= @From 
+					AND {tsCol} <= @To
+					{(currency != null ? " AND name = @Name " : "")}
+					GROUP BY name, FROM_UNIXTIME(FLOOR(UNIX_TIMESTAMP({tsCol}) / {bucketSeconds}) * {bucketSeconds})
+					ORDER BY timestamp ASC;";
+    }
+
+    /// <summary>
+    /// True when the rollup covers the entire requested range (allowing a 2h
+    /// tolerance at the newest edge for the still-rolling current hour).
+    /// </summary>
+    private static async Task<bool> RollupCoversRangeAsync(MySqlConnection conn, string? currency, DateTime fromUtc, DateTime toUtc)
+    {
+      string sql = currency != null
+        ? "SELECT MIN(ts_hour), MAX(ts_hour) FROM maxhanna.coin_value_1h WHERE name = @Name;"
+        : "SELECT MIN(ts_hour), MAX(ts_hour) FROM maxhanna.coin_value_1h;";
+      await using var cmd = new MySqlCommand(sql, conn);
+      if (currency != null) cmd.Parameters.AddWithValue("@Name", currency);
+      await using var reader = await cmd.ExecuteReaderAsync();
+      if (!await reader.ReadAsync() || reader.IsDBNull(0)) return false;
+      DateTime rollupMin = reader.GetDateTime(0);
+      if (reader.IsDBNull(1)) return false;
+      DateTime rollupMax = reader.GetDateTime(1);
+      return rollupMin <= fromUtc && (toUtc - rollupMax).TotalHours <= 2.0;
+    }
+
+    private static string GraphCacheKey(string? currency, double hourRange, DateTime fromUtc)
+    {
+      var truncated = new DateTime(fromUtc.Year, fromUtc.Month, fromUtc.Day, fromUtc.Hour, 0, 0, DateTimeKind.Utc);
+      long hourSlot = new DateTimeOffset(truncated).ToUnixTimeSeconds() / 3600;
+      return $"{currency ?? "*"}|{hourRange}|{hourSlot}";
     }
 
     [HttpPost("/CurrencyValue/GetAllForGraph", Name = "GetAllCurrencyValuesForGraph")]
@@ -233,7 +292,7 @@ namespace maxhanna.Server.Controllers
       if (request.From == null) { request.From = new DateTime(); }
 
       var actualFrom = request.From.Value.AddHours(-1 * (request.HourRange ?? 24));
-      var actualTo = request.From.Value.AddHours(request.HourRange ?? 24);
+      var actualTo = request.From.Value; // only the past is requested
       MySqlConnection conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
       try
       {

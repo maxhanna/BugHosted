@@ -835,6 +835,12 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     const existingComponent = this.componentsReferences.find(compRef => compRef.instance instanceof componentClass);
 
     if (componentType !== "User" && existingComponent) {
+      // Re-click on an already-open component: let it react (e.g. Social
+      // clears its filters and re-searches) instead of silently ignoring it.
+      const existingInstance: any = existingComponent.instance;
+      if (typeof existingInstance?.onReopen === 'function') {
+        existingInstance.onReopen(inputs);
+      }
       return;
     }
 
@@ -975,9 +981,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
   async resetUserCookie() {
     this.deleteCookie("user");
-    this.deleteCookie("BHUserToken");
     this.setCookie("user", JSON.stringify(this.user), 10);
-    this.setCookie("BHUserToken", await this.encryptNumber(this.user?.id ?? 0), 10);
   }
   deleteCookie(name: string) {
     this.setCookie(name, '', 1);
@@ -1007,35 +1011,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     return '';
   }
   async getSessionToken(): Promise<string> {
-    if (this.sessionToken) return this.sessionToken;
-    const ctoken = this.getCookie("BHUserToken");
-    if (ctoken) return ctoken;
-    this.sessionToken = await this.encryptNumber(this.user?.id ?? 0);
-    this.setCookie("BHUserToken", this.sessionToken, 10);
-    return this.sessionToken;
-  }
-  async encryptNumber(userId: number): Promise<string> {
-    const iv = crypto.getRandomValues(new Uint8Array(12)); // 12-byte IV for AES-GCM
-    const keyMaterial = await crypto.subtle.importKey(
-      "raw",
-      new TextEncoder().encode("BHSN123!@#33@!".padEnd(32, "_")), // pad to 32 bytes
-      "AES-GCM",
-      false,
-      ["encrypt"]
-    );
-
-    const encrypted = await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv },
-      keyMaterial,
-      new TextEncoder().encode(userId.toString())
-    );
-
-    // Combine IV + encrypted data as base64
-    const combined = new Uint8Array(iv.length + encrypted.byteLength);
-    combined.set(iv);
-    combined.set(new Uint8Array(encrypted), iv.length);
-
-    return btoa(String.fromCharCode(...combined));
+    // In-memory copy only — the persistent copy is an HttpOnly cookie the
+    // server sets at login and the browser sends automatically, so the token
+    // never lives in JS-readable storage. After a reload the header is omitted
+    // and the server bridges the cookie into the Encrypted-UserId header.
+    return this.sessionToken ?? '';
   }
 
   openModal(isModal?: boolean, hasGamingFont?: boolean) {
@@ -1263,26 +1243,30 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   }
 
   async login(username: string, password: string, fromUserCreation?: boolean, fromPasswordReset?: boolean, pin?: string) {
-    const tmpUser = await this.userService.login(username, password, pin) as User | { isLocked: boolean; lockedAt: string; reason: string; hasPendingAppeal: boolean } | { requirePin: true; pin: string };
-    if (tmpUser && 'isLocked' in tmpUser) {
-      this.loginLockData = tmpUser as { isLocked: boolean; lockedAt: string; reason: string; hasPendingAppeal: boolean };
+    const loginData = await this.userService.login(username, password, pin) as { user: User; sessionToken: string } | { isLocked: boolean; lockedAt: string; reason: string; hasPendingAppeal: boolean } | { requirePin: true; pin: string } | undefined;
+    if (loginData && 'isLocked' in loginData) {
+      this.loginLockData = loginData as { isLocked: boolean; lockedAt: string; reason: string; hasPendingAppeal: boolean };
       return undefined;
     }
-    if (tmpUser && 'requirePin' in tmpUser) {
-      this.loginPinData = tmpUser as { pin: string };
+    if (loginData && 'requirePin' in loginData) {
+      this.loginPinData = loginData as { pin: string };
       return undefined;
     }
-    const user = tmpUser as User | undefined;
+    const user = (loginData as { user: User; sessionToken: string } | undefined)?.user;
     if (user && user.username) {
       user.pass = undefined;
       this.user = user;
+      // The server minted this session token at login — keep it in memory
+      // for the Encrypted-UserId header flow. It also set the token as an
+      // HttpOnly cookie (not JS-readable), so auth survives reloads without
+      // any client-side token storage.
+      this.sessionToken = (loginData as { user: User; sessionToken: string }).sessionToken;
       setTimeout(() => {
         this?.navigationComponent?.getThemeInfo();
       }, 50);
       this.resetUserCookie();
       this.showNotification(`${fromUserCreation ? ('Welcome to BugHosted ' + this.user?.username) : this.getTimedGreetingMessage(this.user?.username || '')}.${fromPasswordReset ? ' Please set a new password.' : ''}`);
       this.getLocation();
-      this.getSessionToken();
       this.userSelectedNavigationItems = await this.userService.getUserMenu(user.id);
     }
     return this.user;
@@ -1855,8 +1839,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       if (this.lastLastSeenUpdate && (now - this.lastLastSeenUpdate) < 10000) {
         tmpUser.lastSeen = new Date();
       } else {
-        // perform server update and record timestamp
-        this.userService.updateLastSeen(tmpUser.id);
+        // perform server update and record timestamp (session token required)
+        this.userService.updateLastSeen(tmpUser.id, await this.getSessionToken());
         this.lastLastSeenUpdate = now;
         tmpUser.lastSeen = new Date();
       }

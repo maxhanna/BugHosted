@@ -64,7 +64,7 @@ export class UserService {
     }
   }
 
-  async login(username: string, password: string, pin?: string): Promise<User | { isLocked: boolean; lockedAt: string; reason: string; hasPendingAppeal: boolean } | { requirePin: true; pin: string } | undefined> {
+  async login(username: string, password: string, pin?: string): Promise<{ user: User; sessionToken: string } | { isLocked: boolean; lockedAt: string; reason: string; hasPendingAppeal: boolean } | { requirePin: true; pin: string } | undefined> {
     try {
       const body: any = { username, password };
       if (pin) { body.pin = pin; }
@@ -434,19 +434,67 @@ export class UserService {
     }
   }
 
-  async updateLastSeen(userId: number) {
+  async updateLastSeen(userId: number, sessionToken?: string) {
     try {
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (sessionToken) headers['Encrypted-UserId'] = sessionToken;
       const response = await fetch('/user/updatelastseen', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(userId),
       });
 
       return await response.json();
     } catch (error) {
       return null;
+    }
+  }
+
+  async logout(sessionToken?: string): Promise<void> {
+    try {
+      await fetch('/user/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionToken ? { 'Encrypted-UserId': sessionToken } : {}),
+        },
+      });
+    } catch (error) {
+      // Best-effort revoke — the client clears its local session regardless.
+    }
+  }
+
+  /** Active sessions for the logged-in user, newest activity first. */
+  async getSessions(sessionToken: string): Promise<any[] | null> {
+    try {
+      const response = await fetch('/user/sessions', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Encrypted-UserId': sessionToken,
+        },
+      });
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /** Revoke a specific session (device) for the logged-in user. */
+  async revokeSession(sessionId: number, sessionToken: string): Promise<boolean> {
+    try {
+      const response = await fetch('/user/revokesession', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Encrypted-UserId': sessionToken,
+        },
+        body: JSON.stringify({ SessionId: sessionId }),
+      });
+      return response.ok;
+    } catch (error) {
+      return false;
     }
   }
 
@@ -1059,4 +1107,5 @@ export type UserSettingName =
   | "follow_notifications_push"
   | "follow_notifications_email"
   | "show_nav_search"
-  | "timezone";
+  | "timezone"
+  | "emulator_local_rom_storage";

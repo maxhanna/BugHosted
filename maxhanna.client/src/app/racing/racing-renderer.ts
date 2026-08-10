@@ -6103,18 +6103,31 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const buf = this._scrubScratch;
     let o = 0;
     const col = this._scrubColor;
+    const markY = 0.02; 
+    const fwdX = -view[2], fwdY = -view[6], fwdZ = -view[10];
+    const rgtX = view[0], rgtY = view[4], rgtZ = view[8];
+    const upX = view[1], upY = view[5], upZ = view[9];
+    const tanHalfH = proj[0] !== 0 ? 1 / proj[0] : 1.0;
+    const tanHalfV = proj[5] !== 0 ? 1 / proj[5] : 0.55;
     for (const mk of marks) {
-      const ex = mk.x - eye[0], ez = mk.z - eye[2];
+      const ex = mk.x - eye[0], dy = markY - eye[1], ez = mk.z - eye[2];
       if (ex * ex + ez * ez > 130 * 130) continue;
+      const along = ex * fwdX + dy * fwdY + ez * fwdZ;
+      if (along < -2.5) continue;                  // behind the camera (grace = mark half-length)
+      const across = ex * rgtX + dy * rgtY + ez * rgtZ;
+      const halfW = along * tanHalfH + 3.5;        // + mark half-diagonal margin
+      if (across < -halfW || across > halfW) continue;
+      const upAlong = ex * upX + dy * upY + ez * upZ;
+      const halfV = along * tanHalfV + 2.0;        // + quad extent margin
+      if (upAlong < -halfV || upAlong > halfV) continue;
       const t = mk.life / mk.maxLife;
       const alpha = mk.alphaBase * Math.pow(1 - t, 1.6);
       if (alpha <= 0.003) continue;
       const sx = Math.sin(mk.yaw), cz = Math.cos(mk.yaw);
       const hx = sx * mk.len * 0.5, hz = cz * mk.len * 0.5;
       const wx = cz * mk.wid * 0.5, wz = -sx * mk.wid * 0.5;
-      const y = 0.02;
       const p = (px: number, pz: number) => {
-        buf[o++] = px; buf[o++] = y; buf[o++] = pz;
+        buf[o++] = px; buf[o++] = markY; buf[o++] = pz;
         buf[o++] = col[0]; buf[o++] = col[1]; buf[o++] = col[2]; buf[o++] = alpha;
       };
       p(mk.x - hx - wx, mk.z - hz - wz);

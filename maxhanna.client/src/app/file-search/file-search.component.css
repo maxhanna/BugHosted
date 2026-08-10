@@ -903,8 +903,15 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+ 
+.offlineBadge {
+  display: inline-block;
+  font-size: 0.8em;
+  margin-left: 5px;
+  vertical-align: middle;
+  cursor: default;
+}
 
-/* File type badge */
 .file-type-badge {
   position: absolute;
   bottom: 6px;

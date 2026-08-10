@@ -40,5 +40,11 @@
         // relative to the user's local clock, not the server's.
         [Newtonsoft.Json.JsonProperty("timezone")]
         public string? Timezone { get; set; }
+
+        // Opt-in preference: keep a copy of downloaded ROMs (and save states)
+        // in local device storage so the emulator can load them from disk
+        // instead of re-downloading from the server.
+        [Newtonsoft.Json.JsonProperty("emulatorLocalRomStorage")]
+        public bool EmulatorLocalRomStorage { get; set; }
     }
 }

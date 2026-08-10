@@ -644,17 +644,26 @@ namespace maxhanna.Server.Controllers
         var art = maxhanna.Server.Services.TextAsciiRenderer.Render(request.Text, request.Style, request.Scale ?? 1);
         if (string.IsNullOrWhiteSpace(art)) return BadRequest("Nothing to render - use letters or numbers.");
 
-        int userId = request.UserId ?? 0;
-        string safeName = SanitizeFileName(request.Text.Length > 40 ? request.Text.Substring(0, 40) : request.Text);
-        if (safeName.Length < 1) safeName = "ascii";
-        string fileName = $"ascii_{safeName}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.txt";
-        string outputFolder = await GetUserOutputFolder(userId);
+        // Preview mode just returns the rendered art — no .txt file, no DB row —
+        // so the live preview can run on every keystroke without filling the
+        // user's output folder.
+        int fileId = 0;
+        string fileName = "";
+        string outputFolder = "";
+        if (!request.PreviewOnly)
+        {
+          int userId = request.UserId ?? 0;
+          string safeName = SanitizeFileName(request.Text.Length > 40 ? request.Text.Substring(0, 40) : request.Text);
+          if (safeName.Length < 1) safeName = "ascii";
+          fileName = $"ascii_{safeName}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.txt";
+          outputFolder = await GetUserOutputFolder(userId);
 
-        var bytes = System.Text.Encoding.UTF8.GetBytes(art);
-        await System.IO.File.WriteAllBytesAsync(Path.Combine(outputFolder, fileName).Replace("/", Path.DirectorySeparatorChar.ToString()), bytes);
+          var bytes = System.Text.Encoding.UTF8.GetBytes(art);
+          await System.IO.File.WriteAllBytesAsync(Path.Combine(outputFolder, fileName).Replace("/", Path.DirectorySeparatorChar.ToString()), bytes);
 
-        int fileId = await InsertConvertedFile(userId, fileName, outputFolder, bytes.Length, null, null);
-        _ = _log.Db($"Text-to-ASCII art rendered ({art.Length} chars) -> {fileName} (file {fileId})", userId, "CONVERSION", true);
+          fileId = await InsertConvertedFile(userId, fileName, outputFolder, bytes.Length, null, null);
+          _ = _log.Db($"Text-to-ASCII art rendered ({art.Length} chars) -> {fileName} (file {fileId})", userId, "CONVERSION", true);
+        }
 
         return Ok(new TextToAsciiResult
         {
@@ -668,6 +677,32 @@ namespace maxhanna.Server.Controllers
       {
         _ = _log.Db("Text-to-ASCII error: " + ex.Message, request?.UserId ?? 0, "CONVERSION", true);
         return StatusCode(500, "Failed to render ASCII art: " + ex.Message);
+      }
+    }
+
+    /// <summary>Renders the text in every ASCII style (preview only — no files saved).</summary>
+    [HttpPost("/Conversion/TextToAsciiPreviewAll", Name = "Conversion_TextToAsciiPreviewAll")]
+    public async Task<IActionResult> TextToAsciiPreviewAll([FromBody] TextToAsciiRequest request)
+    {
+      try
+      {
+        if (request == null || string.IsNullOrWhiteSpace(request.Text)) return BadRequest("Enter some text first.");
+        if (request.Text.Length > 400) return BadRequest("Text too long (max 400 characters).");
+
+        int scale = request.Scale ?? 1;
+        var items = new List<TextToAsciiPreviewItem>();
+        foreach (var style in maxhanna.Server.Services.TextAsciiRenderer.StyleNames)
+        {
+          var art = maxhanna.Server.Services.TextAsciiRenderer.Render(request.Text, style, scale);
+          if (string.IsNullOrWhiteSpace(art)) continue;
+          items.Add(new TextToAsciiPreviewItem { Style = style, Art = art });
+        }
+        return Ok(items);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Text-to-ASCII preview-all error: " + ex.Message, request?.UserId ?? 0, "CONVERSION", true);
+        return StatusCode(500, "Failed to render ASCII previews: " + ex.Message);
       }
     }
 
@@ -824,6 +859,13 @@ namespace maxhanna.Server.Controllers
     public string? Style { get; set; }
     public int? Scale { get; set; }
     public int? UserId { get; set; }
+    public bool PreviewOnly { get; set; }
+  }
+
+  public class TextToAsciiPreviewItem
+  {
+    public string? Style { get; set; }
+    public string? Art { get; set; }
   }
 
   public class TextToAsciiResult

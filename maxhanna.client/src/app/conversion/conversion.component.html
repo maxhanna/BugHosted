@@ -167,18 +167,41 @@
     </div>
     <p class="help-text">Type anything (letters, numbers, punctuation). It renders as big block art you can copy or download as a .txt file.</p>
     <div class="row ascii-row">
-      <textarea [(ngModel)]="asciiText" rows="2" placeholder="Type something fun…" maxlength="400"></textarea>
+      <textarea [(ngModel)]="asciiText" (ngModelChange)="queueAsciiPreview()" rows="2" placeholder="Type something fun…" maxlength="400"></textarea>
       <div class="ascii-options">
-        <select [(ngModel)]="asciiStyle">
+        <select [(ngModel)]="asciiStyle" (ngModelChange)="queueAsciiPreview()">
           <option *ngFor="let s of asciiStyles" [value]="s">{{ s }}</option>
         </select>
-        <select [(ngModel)]="asciiScale">
+        <select [(ngModel)]="asciiScale" (ngModelChange)="queueAsciiPreview()">
           <option *ngFor="let s of asciiScaleOptions" [ngValue]="s">{{ s }}×</option>
         </select>
       </div>
       <button (click)="generateAscii()" [disabled]="isGeneratingAscii || !asciiText.trim()">
         {{ isGeneratingAscii ? 'Rendering…' : 'Generate' }}
       </button>
+      <button class="preview-all-btn" (click)="previewAllAscii()" [disabled]="previewingAll || !asciiText.trim()">
+        {{ previewingAll ? 'Previewing…' : '🎨 Preview all styles' }}
+      </button>
+    </div>
+    <div *ngIf="asciiPreview?.art" class="ascii-out ascii-live">
+      <div class="row ascii-preview-head">
+        <span class="ascii-badge">LIVE</span>
+        <span class="ascii-preview-label">{{ asciiStyle }} · {{ asciiScale }}× — updates as you type</span>
+      </div>
+      <pre>{{ asciiPreview?.art }}</pre>
+    </div>
+    <div *ngIf="allAsciiPreviews?.length" class="ascii-all">
+      <div class="row ascii-all-head">
+        <h4>All {{ allAsciiPreviews?.length }} styles</h4>
+        <button class="link" (click)="allAsciiPreviews = undefined">✕ Close</button>
+      </div>
+      <div class="ascii-all-grid">
+        <div class="ascii-card" *ngFor="let p of allAsciiPreviews">
+          <div class="ascii-card-name">{{ p.style }}</div>
+          <pre>{{ p.art }}</pre>
+          <button class="link ascii-card-download" (click)="downloadAsciiArt(p.style, p.art)" title="Save this style as a .txt file">⬇ Download .txt</button>
+        </div>
+      </div>
     </div>
     <div *ngIf="asciiResult?.art" class="ascii-out">
       <pre>{{ asciiResult?.art }}</pre>
