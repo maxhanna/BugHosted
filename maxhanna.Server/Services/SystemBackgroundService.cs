@@ -3013,7 +3013,6 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
             using (var conn = new MySqlConnection(_connectionString))
             {
                 await conn.OpenAsync();
-                await CoinValueRollup.EnsureTablesAsync(conn);
 
                 DateTime nowUtc = DateTime.UtcNow;
                 DateTime target = new DateTime(nowUtc.Year, nowUtc.Month, nowUtc.Day, nowUtc.Hour, 0, 0, DateTimeKind.Utc); // last completed hour
@@ -3065,8 +3064,7 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
         {
             using (var conn = new MySqlConnection(_connectionString))
             {
-                await conn.OpenAsync();
-                await CoinValueRollup.EnsureExchangeRateTablesAsync(conn);
+                await conn.OpenAsync(); 
 
                 DateTime nowUtc = DateTime.UtcNow;
                 DateTime target = new DateTime(nowUtc.Year, nowUtc.Month, nowUtc.Day, nowUtc.Hour, 0, 0, DateTimeKind.Utc); // last completed hour
@@ -3122,7 +3120,6 @@ To unsubscribe, visit Settings &gt; About You and uncheck the Weekly Email Diges
             {
                 await conn.OpenAsync();
                 // The guard below depends on the rollup tables existing.
-                await CoinValueRollup.EnsureTablesAsync(conn);
 
                 const int batchSize = 5000;
                 const int maxBatches = 400; // up to ~2M rows per daily run
