@@ -15,6 +15,7 @@ import { Todo } from '../../services/datacontracts/todo';
 import { TodoService } from '../../services/todo.service';
 import { RomService } from '../../services/rom.service';
 import { FollowService } from '../../services/follow.service';
+import { OfflineFileInfo } from '../../services/local-rom.service';
 import { FileAccessLog } from '../../services/datacontracts/file/file-access-log';
 import { FileNote } from '../../services/datacontracts/file/file-note';
 import { Core, CoreDescriptor } from '../emulator/emulator-types';
@@ -64,9 +65,10 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   @Input() massDeleteMode: boolean = false;
   @Input() disabled = false;
   @Input() searchButtonSlot = 2 as SlotNumber;
-  // File names (exact) that have a local copy on this device and can be
-  // played offline. When non-empty, matching rows get a small offline badge.
-  @Input() offlineFileNames: string[] = [];
+  // Local copies that can be played offline (exact file names), plus where
+  // each copy lives: a real file in the user's folder, or browser (IndexedDB)
+  // storage. Matching rows get a small badge showing the source.
+  @Input() offlineFiles: OfflineFileInfo[] = [];
   @Output() selectedForDeleteChange = new EventEmitter<number[]>();
   @Output() selectFileEvent = new EventEmitter<FileEntry>();
   @Output() currentDirectoryChangeEvent = new EventEmitter<string>();
@@ -1230,8 +1232,15 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     return this.fileService.getFileWithoutExtension(fileName);
   }
 
-  isOfflineFile(fileName?: string): boolean {
-    return !!fileName && this.offlineFileNames.includes(fileName);
+  /** Badge info for a file with a local copy, or null when none exists. */
+  offlineBadgeFor(fileName?: string): { icon: string; title: string; cls: string } | null {
+    if (!fileName) return null;
+    const info = this.offlineFiles.find(f => f.name === fileName);
+    if (!info) return null;
+    if (info.source === 'folder') {
+      return { icon: '💾', title: 'Real file in your ROM folder — playable offline', cls: 'offlineBadge offlineBadgeFolder' };
+    }
+    return { icon: '📴', title: 'Browser-stored copy (IndexedDB) — playable offline', cls: 'offlineBadge offlineBadgeBrowser' };
   }
 
   getFileEmoji(fileName: string): string {

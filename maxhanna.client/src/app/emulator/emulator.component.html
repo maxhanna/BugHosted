@@ -35,7 +35,7 @@
       [displayRomMetadata]="true" 
       [displayRomMetadataDesktop]="true" 
       [displayRatings]="true"
-      [offlineFileNames]="localRomNames"
+      [offlineFiles]="localOfflineFiles"
       [forceSearchSameDirectory]="true" 
       [maxResults]="10"
       (selectFileEvent)="onRomSelected($event)" 
@@ -169,6 +169,19 @@
           Stored in browser storage{{ fsAccessSupported ? ' — pick a folder to save real files' : '' }}
         </ng-template>
       </div>
+      <div *ngIf="localRomFolderNeedsReconnect" style="background:rgba(251,191,36,0.12); border:1px solid rgba(251,191,36,0.4); color:#fbbf24; padding:6px 8px; border-radius:4px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;" class="xxSmallFont">
+        ⚠️ Folder access was lost after a browser restart.
+        <span *ngIf="pendingFolderWrites > 0" style="opacity:0.95;">· {{ pendingFolderWrites }} {{ pendingFolderWrites === 1 ? 'copy' : 'copies' }} waiting to move to folder</span>
+        <button (click)="reconnectLocalRomFolder()" class="emuMenuButton squareButton" title="Re-grant access to this folder">
+          🔁<div class="emuMenuButtonLabel">Reconnect</div>
+        </button>
+        <button *ngIf="localRomFolderReconnectDenied" (click)="chooseLocalRomFolder()" class="emuMenuButton squareButton" title="Re-select the folder (opens the picker at the last folder)">
+          📁<div class="emuMenuButtonLabel">Choose Folder</div>
+        </button>
+      </div>
+      <div *ngIf="pendingFolderWrites > 0 && !localRomFolderNeedsReconnect" class="xxSmallFont" style="color:#fbbf24; opacity:0.9;">
+        ⏳ {{ pendingFolderWrites }} {{ pendingFolderWrites === 1 ? 'copy' : 'copies' }} waiting to move to the folder — they\u2019ll be promoted automatically when access is restored.
+      </div>
       <div style="display:flex; gap:6px; flex-wrap:wrap;">
         <button *ngIf="fsAccessSupported" (click)="chooseLocalRomFolder()" class="emuMenuButton squareButton" title="Choose where ROM copies are saved">
           📁<div class="emuMenuButtonLabel">Choose Folder</div>
@@ -186,10 +199,13 @@
       <div *ngIf="isLocalRomsPanelOpen" style="max-height:180px; overflow:auto;">
         <div class="xxSmallFont thirdFontColor" style="margin-bottom:4px;">Total stored: {{ formatLocalSize(localStorageTotalBytes) }}</div>
         <div *ngIf="localRomFolderName && hasBrowserStoredRoms()" class="xxSmallFont thirdFontColor" style="margin-bottom:4px;">
-          Device-stored copies can be moved into <b>{{ localRomFolderName }}</b>.
+          Browser-stored copies can be moved into <b>{{ localRomFolderName }}</b>.
+        </div>
+        <div *ngIf="hasMixedSourceRoms()" class="xxSmallFont thirdFontColor" style="margin-bottom:4px;">
+          💾 real file &nbsp;·&nbsp; 📴 browser copy
         </div>
         <div *ngFor="let r of localRoms" style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:4px 0; border-bottom:1px solid rgba(148,163,184,0.25);">
-          <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" [title]="r.name">{{ r.name }} <small>({{ formatLocalSize(r.size) }}{{ r.source === 'folder' ? ' · folder' : ' · device' }})</small></span>
+          <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" [title]="r.name">{{ r.name }} <small [title]="r.source === 'folder' ? 'Stored as a real file in your chosen folder' : 'Stored in this browser (IndexedDB)'">{{ formatLocalSize(r.size) }} {{ r.source === 'folder' ? '💾 real file' : '📴 browser copy' }}</small></span>
           <span style="display:flex; gap:4px; flex-shrink:0;">
             <button *ngIf="!isLoading" (click)="playLocalRom(r.name)" title="Play from the local copy (works offline)">▶️</button>
             <button *ngIf="r.source === 'browser' && localRomFolderName" (click)="moveLocalRomToFolder(r.name)" title="Move this copy into the folder">📁</button>

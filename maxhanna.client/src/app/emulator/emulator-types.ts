@@ -228,6 +228,21 @@ export const FAQ_ITEMS: { question: string; answerHtml: string; expanded: boolea
     question: 'Can I load ROMs from zip files?',
     answerHtml: `Currently, loading ROMs directly from .zip files is not supported. Please extract your ROM files before uploading or selecting them. Support for zip files may be added in the future.`,
     expanded: false
+  },
+  {
+    question: 'Why did my folder access drop after a browser restart, and what does "Allow on every visit" do?',
+    answerHtml:
+      `<strong>Why access drops:</strong> your browser keeps two separate things: the <em>folder location</em> (which folder you picked) and the <em>permission</em> to read and write it. The app remembers the location in browser storage, but the browser treats the permission as a temporary session grant — by design, it expires when you close the last tab of the site. So after a restart, the emulator still knows the folder but can't touch it until you confirm again.
+      <br/><br/><strong>What you'll see:</strong> an amber "Folder access was lost" banner with two options: <em>Reconnect</em> (re-requests permission without re-picking the folder) and <em>Choose Folder</em> (opens the picker already inside the same folder, so it's a single confirm). Copies that were saved to browser storage while the folder was unreachable are moved into the folder automatically once access is restored.
+      <br/><br/><strong>How "Allow on every visit" prevents it:</strong> Chrome and Edge (version 122 and newer) show a three-way prompt the first time you reconnect after a restart:
+      <ul>
+        <li><strong>Allow this time</strong> — session-only; the next restart drops access again.</li>
+        <li><strong>Allow on every visit</strong> — persistent; access survives restarts until you revoke it from the site's permission settings (the icon next to the address bar).</li>
+        <li><strong>Don't allow</strong> — the folder stays unlinked until you pick it again.</li>
+      </ul>
+      Choose <em>Allow on every visit</em> once, and offline boot, folder saves, and .state files keep working across restarts with no further prompts.
+      <br/><br/>Note: real-folder storage requires a Chromium browser (Chrome, Edge, Android Chrome). On Firefox and Safari, copies are kept in browser storage instead, which never needs this permission.`,
+    expanded: false
   }
 ];
 

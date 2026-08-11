@@ -5,7 +5,7 @@ import { AppModule } from '../app.module';
 import { ChildComponent } from '../child.component';
 import { FileEntry } from '../../services/datacontracts/file/file-entry';
 import { RomService, PendingShare } from '../../services/rom.service';
-import { LocalRomService, LocalRomEntry } from '../../services/local-rom.service';
+import { LocalRomService, LocalRomEntry, OfflineFileInfo } from '../../services/local-rom.service';
 import { FileService } from '../../services/file.service';
 import { UserService } from '../../services/user.service';
 import { FileSearchComponent } from '../file-search/file-search.component';
@@ -72,8 +72,13 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   localRomStorageEnabled = false;
   fsAccessSupported = false;
   localRomFolderName?: string;
+  localRomFolderNeedsReconnect = false;
+  localRomFolderReconnectDenied = false;
+  // Browser-stored copies waiting to be promoted to the folder once access
+  // is restored (e.g. writes that fell back while permission was lost).
+  pendingFolderWrites = 0;
   localRoms: LocalRomEntry[] = [];
-  localRomNames: string[] = [];
+  localOfflineFiles: OfflineFileInfo[] = [];
   localStorageTotalBytes = 0;
   isLocalRomsPanelOpen = false;
   pendingShares: PendingShare[] = [];
@@ -1136,6 +1141,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     try {
       const response = await this.romService.getEmulatorJSSaveState(romFileName, this.parentRef.user.id, this.selectedSystemCore ?? undefined);
       if (response instanceof Blob && response.size > 0) {
+        // Keep a local copy of the server save so next time it loads from
+        // the device (and survives going offline). Best-effort.
+        if (this.localRomStorageEnabled) {
+          this.localRomService.saveSaveState(romFileName, response).catch(() => { });
+        }
         return response;
       }
     } catch (err) {
@@ -1226,11 +1236,6 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       await this.trackInFlight((async () => {
         const ok = await this.uploadSaveBytes(u8);
         console.debug('[EMU DEBUG] onSaveState: uploadSaveBytes result', { ok });
-        if (ok && this.localRomStorageEnabled && this.romName) {
-          // Mirror the save locally (best-effort) so offline play keeps
-          // progress. The server copy is always written regardless.
-          this.localRomService.saveSaveState(this.romName, new Blob([u8 as BlobPart], { type: 'application/octet-stream' })).catch(() => { });
-        }
         if (ok) {
           if (this._pendingSaveResolve) { try { this._pendingSaveResolve(true); } catch { } this._pendingSaveResolve = undefined; }
           return true;
@@ -1389,6 +1394,19 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       console.warn('[EMU] uploadSaveBytes: no rom; skipping upload');
       this.setTmpStatus("ROM not identified; upload skipped.");
       return false;
+    }
+
+    // Mirror the save on this device FIRST (when opted in) — the local copy
+    // must exist even if the server is unreachable or rejects the upload.
+    // The server send below is best-effort on top of it. Every save path
+    // (EJS_onSaveState, the Save button, autosave) funnels through here, so
+    // this single spot covers them all.
+    if (this.localRomStorageEnabled) {
+      try {
+        await this.localRomService.saveSaveState(this.romName, new Blob([u8 as BlobPart], { type: 'application/octet-stream' }));
+      } catch (e) {
+        console.warn('[EMU] Local save-state mirror failed', e);
+      }
     }
 
     // Calculate MD5 of the save state
@@ -2590,6 +2608,40 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.localRomFolderName = await this.localRomService.getFolderName() ?? undefined;
       this.cdr.detectChanges();
     } catch { /* server unreachable — local copies remain usable */ }
+    // Folder access is device-side — check and re-arm it even when the
+    // server is down so offline boot never needs a manual re-grant.
+    await this.refreshFolderPermission();
+  }
+
+  /**
+   * Check the stored folder handle's permission and proactively re-arm it.
+   * On a fresh browser visit (access lost), the re-arm surfaces Chrome's
+   * persistent-permission prompt where the user can pick "Allow on every
+   * visit" so future boots skip the re-grant entirely.
+   */
+  private async refreshFolderPermission() {
+    this.localRomFolderName = await this.localRomService.getFolderName() ?? undefined;
+    this.localRomFolderNeedsReconnect = false;
+    this.localRomFolderReconnectDenied = false;
+    if (!this.fsAccessSupported || !this.localRomFolderName) {
+      this.cdr.detectChanges();
+      return;
+    }
+    const state = this.localRomStorageEnabled
+      ? await this.localRomService.ensureFolderPermission('readwrite')
+      : await this.localRomService.getFolderPermissionState('read');
+    this.localRomFolderNeedsReconnect = state !== 'granted';
+    // Access just came back (fresh visit re-grant) — promote any copies that
+    // silently fell back to browser storage while it was lost.
+    if (state === 'granted' && this.localRomStorageEnabled) {
+      const migrated = await this.localRomService.flushPendingFolderWrites();
+      this.pendingFolderWrites = await this.localRomService.getPendingFolderWriteCount();
+      if (migrated > 0) {
+        this.refreshLocalRoms();
+        this.parentRef?.showNotification(`${migrated} ${migrated === 1 ? 'copy' : 'copies'} moved to real files.`);
+      }
+    }
+    this.cdr.detectChanges();
   }
 
   /** Flip the opt-in preference and persist it to the user_settings table. */
@@ -2607,6 +2659,9 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       if (this.localRomStorageEnabled) {
         this.localRomFolderName = await this.localRomService.getFolderName() ?? undefined;
         this.refreshLocalRoms();
+        // Enabling is a natural moment to (re)arm folder access while the
+        // user's attention is on this setting.
+        void this.refreshFolderPermission();
         this.parentRef?.showNotification('ROMs will now be saved on this device.');
       } else {
         this.parentRef?.showNotification('Local ROM storage disabled — saves still always go to the server.');
@@ -2628,6 +2683,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       const handle = await this.localRomService.chooseFolder();
       if (!handle) return; // user cancelled
       this.localRomFolderName = handle.name;
+      this.localRomFolderNeedsReconnect = false; // picker just granted access
+      this.localRomFolderReconnectDenied = false;
+      // Access is back — promote every browser-stored copy into the folder:
+      // both tracked fallback writes and older copies saved before a folder
+      // was ever chosen.
+      const migrated = await this.localRomService.promoteAllBrowserCopies();
+      if (migrated > 0) {
+        this.parentRef?.showNotification(`${migrated} ${migrated === 1 ? 'copy' : 'copies'} moved to real files.`);
+      }
       this.refreshLocalRoms();
       this.parentRef?.showNotification(`ROMs will be saved to \u201C${handle.name}\u201D.`);
     } catch {
@@ -2636,10 +2700,35 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     this.cdr.detectChanges();
   }
 
+  /** Re-grant access to the folder after the browser dropped it. */
+  async reconnectLocalRomFolder() {
+    const { granted, migrated } = await this.localRomService.reconnectFolder();
+    this.localRomFolderNeedsReconnect = !granted;
+    if (granted) {
+      this.localRomFolderReconnectDenied = false;
+      this.localRomFolderName = await this.localRomService.getFolderName() ?? undefined;
+      this.refreshLocalRoms();
+      this.parentRef?.showNotification(
+        migrated > 0
+          ? `Folder reconnected — ${migrated} ${migrated === 1 ? 'copy' : 'copies'} moved to real files.`
+          : 'Folder reconnected — copies go back to real files.'
+      );
+    } else {
+      // The permission prompt was refused or unavailable — offer the folder
+      // picker directly so the user can re-select the same folder in one
+      // step instead of fighting the permission prompt again.
+      this.localRomFolderReconnectDenied = true;
+      this.parentRef?.showNotification('Could not reconnect the folder — pick it again with the button below.');
+    }
+    this.cdr.detectChanges();
+  }
+
   /** Stop using the chosen folder; copies fall back to browser storage. */
   async clearLocalRomFolder() {
     await this.localRomService.clearFolder();
     this.localRomFolderName = undefined;
+    this.localRomFolderNeedsReconnect = false;
+    this.localRomFolderReconnectDenied = false;
     this.refreshLocalRoms();
     this.parentRef?.showNotification('Folder unlinked — new copies go to browser storage.');
     this.cdr.detectChanges();
@@ -2647,9 +2736,15 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
   async refreshLocalRoms() {
     this.localRoms = await this.localRomService.listRoms();
-    this.localRomNames = this.localRoms.map(r => r.name);
+    this.localOfflineFiles = this.localRoms.map(r => ({ name: r.name, source: r.source }));
     this.localStorageTotalBytes = this.localRoms.reduce((sum, r) => sum + (r.size || 0), 0);
+    this.pendingFolderWrites = await this.localRomService.getPendingFolderWriteCount();
     this.cdr.detectChanges();
+  }
+
+  /** True when the panel holds both real files and browser-stored copies. */
+  hasMixedSourceRoms(): boolean {
+    return this.localRoms.some(r => r.source === 'folder') && this.localRoms.some(r => r.source === 'browser');
   }
 
   /** Boot a ROM straight from its local copy (works with the server down). */

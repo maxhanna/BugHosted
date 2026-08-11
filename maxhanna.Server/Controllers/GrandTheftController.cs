@@ -613,6 +613,10 @@ namespace maxhanna.Server.Controllers
 		private const int COP_SEARCH_STEPS = 12;                     // waypoints per search lap (alternating rim/center)
 		private const float COP_SEARCH_TIMEOUT_SECONDS = 12f;        // searching a spot before giving up
 		private const float COP_LAST_KNOWN_MAX_AGE_SECONDS = 120f;   // how long a sighting stays dispatchable
+		private const float FIGHT_JOIN_RADIUS = 14f;                 // bystanders within this range may pile on
+		private const double FIGHT_JOIN_CHANCE = 0.35;               // per-bystander odds of joining the brawl
+		private const int FIGHT_JOIN_MAX = 4;                        // cap per rally so streets don't empty
+		private const long FIGHT_RALLY_COOLDOWN_MS = 2500;           // min gap between a fighter's crowd rallies
 		// Search-helicopter pursuit: when ground units lose the player, a heli is
 		// dispatched to sweep the last known area from above and can re-spot them.
 		private const float HELI_SEARCH_RADIUS = 34f;                // orbit radius around the last known spot
@@ -1125,6 +1129,7 @@ namespace maxhanna.Server.Controllers
 			public int PassengerCount { get; set; } = 0;
 			public double StationaryTime { get; set; } = 0;
 			public long LastShotTime { get; set; } = 0;
+			public long LastRallyTime { get; set; } = 0;
 			public bool IsShootingAt { get; set; } = false;
 			public bool IsParked { get; set; } = false;
 			public DateTime? PanicUntil { get; set; } = null;
@@ -1553,7 +1558,7 @@ namespace maxhanna.Server.Controllers
 							int cx = (int)Math.Floor(npc.X / CityLayout.CHUNK_SIZE);
 							int cz = (int)Math.Floor(npc.Z / CityLayout.CHUNK_SIZE);
 							if (!npc.OnFire && CityLayout.GetBiome(cx, cz) == "ocean") { npc.OnFire = true; npc.FireStartedAt = now; }
-							npc.IsSmoking = npc.Health > 0 && npc.Health <= npc.MaxHealth * 0.5;
+							npc.IsSmoking = npc.Health > 0 && npc.Health <= npc.MaxHealth * 0.35;
 							int fireThreshold = Math.Max(2, npc.MaxHealth / 100);
 							if (npc.Health <= fireThreshold && !npc.OnFire) { npc.OnFire = true; npc.FireStartedAt = now; }
 							if (npc.OnFire && npc.FireStartedAt.HasValue && (now - npc.FireStartedAt.Value).TotalSeconds >= 10.0)
@@ -1840,7 +1845,7 @@ namespace maxhanna.Server.Controllers
 						int cxc = (int)Math.Floor(npc.X / CityLayout.CHUNK_SIZE);
 						int czc = (int)Math.Floor(npc.Z / CityLayout.CHUNK_SIZE);
 						if (!npc.OnFire && CityLayout.GetBiome(cxc, czc) == "ocean") { npc.OnFire = true; npc.FireStartedAt = now; }
-						npc.IsSmoking = npc.Health > 0 && npc.Health <= npc.MaxHealth * 0.5;
+						npc.IsSmoking = npc.Health > 0 && npc.Health <= npc.MaxHealth * 0.35;
 						int fireThreshold = Math.Max(2, npc.MaxHealth / 100);
 						if (npc.Health <= fireThreshold && !npc.OnFire) { npc.OnFire = true; npc.FireStartedAt = now; }
 						if (npc.OnFire && npc.FireStartedAt.HasValue && (now - npc.FireStartedAt.Value).TotalSeconds >= 10.0)
@@ -2214,14 +2219,21 @@ namespace maxhanna.Server.Controllers
 							{
 								npc.LastShotTime = nowMs;
 								npc.IsShootingAt = true;
-								if (_playerHealth.TryGetValue(npc.TargetUserId, out var ph))
-								{
-									int nh = Math.Max(0, ph - 4);
-									_playerHealth[npc.TargetUserId] = nh;
-									if (nh <= 0)
-										BroadcastDeathMessage(npc.TargetUserId, _playerX[npc.TargetUserId], _playerZ[npc.TargetUserId], null, 1, "ped", _playerUsername[npc.TargetUserId], "");
-								}
+							if (_playerHealth.TryGetValue(npc.TargetUserId, out var ph))
+							{
+								int nh = Math.Max(0, ph - 4);
+								_playerHealth[npc.TargetUserId] = nh;
+								if (nh <= 0)
+									BroadcastDeathMessage(npc.TargetUserId, _playerX[npc.TargetUserId], _playerZ[npc.TargetUserId], null, 1, "ped", _playerUsername[npc.TargetUserId], "");
 							}
+							// A pedestrian is attacking — bystanders may pile onto the
+							// fight's target (throttled so a brawl escalates gradually).
+							if (npc.LastRallyTime == 0 || (nowMs - npc.LastRallyTime) > FIGHT_RALLY_COOLDOWN_MS)
+							{
+								npc.LastRallyTime = nowMs;
+								RallyPedestriansAgainst(npcs, npc.TargetUserId, npc.X, npc.Z, now, npc.Id);
+							}
+						}
 						}
 					}
 					else
@@ -3316,6 +3328,33 @@ namespace maxhanna.Server.Controllers
 			};
 			return Ok(new { ok = true, id });
 		}
+		// Crowd combat: pedestrians near a fight may join in against the attacker.
+		// The attacker is always a player id (peds only ever target players), so this
+		// turns a single punch into an escalating street brawl — some witnesses flee,
+		// some turn around and pile on.
+		private static void RallyPedestriansAgainst(ConcurrentDictionary<long, NpcState> npcs, int attackerUserId, float attackerX, float attackerZ, DateTime now, long? excludeId = null)
+		{
+			if (attackerUserId <= 0) return;
+			float radiusSq = FIGHT_JOIN_RADIUS * FIGHT_JOIN_RADIUS;
+			int joined = 0;
+			foreach (var kv in npcs)
+			{
+				if (joined >= FIGHT_JOIN_MAX) break;
+				var ped = kv.Value;
+				if (ped.Id == excludeId || ped.DeadAt.HasValue || ped.FightBackUntil.HasValue) continue;
+				if (ped.Type != "ped_male" && ped.Type != "ped_female") continue;
+				float dx = ped.X - attackerX;
+				float dz = ped.Z - attackerZ;
+				if (dx * dx + dz * dz > radiusSq) continue;
+				if (Random.Shared.NextDouble() >= FIGHT_JOIN_CHANCE) continue;
+				ped.PanicUntil = null;
+				ped.PanicFromX = 0f;
+				ped.PanicFromZ = 0f;
+				ped.TargetUserId = attackerUserId;
+				ped.FightBackUntil = now.AddSeconds(10);
+				joined++;
+			}
+		}
 		[HttpPost("hit")]
 		public IActionResult Hit([FromBody] GTHitRequest req)
 		{
@@ -3329,6 +3368,7 @@ namespace maxhanna.Server.Controllers
 			if (_worldNpcs.ContainsKey(worldId))
 			{
 				var npcs = _worldNpcs[worldId];
+				bool victimIsPed = false;
 				foreach (var kv in npcs)
 				{
 					if (kv.Key == req.TargetId && kv.Value.Health > 0 && kv.Value.DeadAt == null)
@@ -3353,6 +3393,7 @@ namespace maxhanna.Server.Controllers
 						if (targetDied && req.AttackerId > 0)
 							_playerKills[req.AttackerId] = (_playerKills.TryGetValue(req.AttackerId, out var npcKills) ? npcKills : 0) + 1;
 						bool isPedTarget = kv.Value.Type == "ped_male" || kv.Value.Type == "ped_female";
+						victimIsPed = isPedTarget;
 						bool isCopTarget = kv.Value.Type == "cop" || kv.Value.Type == "police";
 						bool isAircraftTarget = kv.Value.Type == "helicopter" || kv.Value.Type == "plane";
 						if (req.Weapon == 0 && isPedTarget && !isCopTarget && req.AttackerId > 0)
@@ -3427,11 +3468,17 @@ namespace maxhanna.Server.Controllers
 						if (pdx * pdx + pdz * pdz < panicRadiusSq)
 						{
 							kv.Value.PanicUntil = DateTime.UtcNow.AddSeconds(5);
-							kv.Value.PanicFromX = req.AttackerX;
-							kv.Value.PanicFromZ = req.AttackerZ;
-						}
+						kv.Value.PanicFromX = req.AttackerX;
+						kv.Value.PanicFromZ = req.AttackerZ;
 					}
 				}
+				// A fistfight draws a crowd: bystanders may pile on the attacker
+				// instead of just fleeing (gunfire keeps the panic behavior).
+				if (victimIsPed && req.AttackerId > 0 && req.Weapon == 0)
+				{
+					RallyPedestriansAgainst(npcs, req.AttackerId, req.AttackerX, req.AttackerZ, DateTime.UtcNow);
+				}
+			}
 			}
 			int playerTargetId = (int)req.TargetId;
 			if (_playerHealth.TryGetValue(playerTargetId, out var hp))

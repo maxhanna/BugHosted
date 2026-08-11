@@ -474,6 +474,8 @@ export class GrandTheftRenderer {
   private lightColorLoc: WebGLUniformLocation | null = null;
   private ambientColorLoc: WebGLUniformLocation | null = null;
   private fogColorLoc: WebGLUniformLocation | null = null;
+  private fogStartLoc: WebGLUniformLocation | null = null;
+  private fogEndLoc: WebGLUniformLocation | null = null;
   private lightSpaceLoc: WebGLUniformLocation | null = null;
   private shadowMapLoc: WebGLUniformLocation | null = null;
   private numPointLightsLoc: WebGLUniformLocation | null = null;
@@ -862,6 +864,8 @@ uniform bool uHasTexture;
 uniform vec3 uLightColor;
 uniform vec3 uAmbientColor;
 uniform vec3 uFogColor;
+uniform float uFogStart;
+uniform float uFogEnd;
 uniform sampler2D uShadowMap;
 #define MAX_POINT_LIGHTS 16
 uniform int uNumPointLights;
@@ -914,7 +918,7 @@ void main() {
     }
   }
   vec3 color = ambient + diffuse + specular + pointLightContribution;
-  float fog = clamp((vDepth - 80.0) / 250.0, 0.0, 1.0);
+  float fog = clamp((vDepth - uFogStart) / max(uFogEnd - uFogStart, 1.0), 0.0, 1.0);
   if (uDayBlend < 0.5) {
     for(int i = 0; i < MAX_POINT_LIGHTS; i++) {
       if(i >= uNumPointLights) break;
@@ -944,6 +948,8 @@ void main() {
     this.lightColorLoc = gl.getUniformLocation(this.program, 'uLightColor');
     this.ambientColorLoc = gl.getUniformLocation(this.program, 'uAmbientColor');
     this.fogColorLoc = gl.getUniformLocation(this.program, 'uFogColor');
+    this.fogStartLoc = gl.getUniformLocation(this.program, 'uFogStart');
+    this.fogEndLoc = gl.getUniformLocation(this.program, 'uFogEnd');
     this.lightSpaceLoc = gl.getUniformLocation(this.program, 'uLightSpaceMatrix');
     this.shadowMapLoc = gl.getUniformLocation(this.program, 'uShadowMap');
     this.numPointLightsLoc = gl.getUniformLocation(this.program, 'uNumPointLights');
@@ -1795,6 +1801,15 @@ void main() {
     );
     indices.push(idxOffset, idxOffset + 2, idxOffset + 1, idxOffset, idxOffset + 3, idxOffset + 2);
   }
+  // Generate (and cache) every chunk in a square radius around a chunk
+  // coordinate so raising the view-distance slider doesn't hitch mid-frame.
+  prewarmChunks(cx: number, cz: number, radius: number) {
+    for (let dz = -radius; dz <= radius; dz++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        this.getCityChunk(cx + dx, cz + dz);
+      }
+    }
+  }
   getCityChunk(cx: number, cz: number): CityChunk {
     const key = `${cx},${cz}`;
     if (this.chunkCache.has(key)) return this.chunkCache.get(key)!;
@@ -1915,9 +1930,11 @@ void main() {
       const bridge = BRIDGE_RANGES.find(br => cx >= br.startCx && cx <= br.endCx && cz >= br.startCz && cz <= br.endCz);
       if (bridge) {
         const roadCenterZ = cz * CHUNK_SIZE;
-        const roadW = ROAD_HALF_WIDTH * 2;       
-        const bridgeW = roadW + 10; 
+        const roadW = ROAD_HALF_WIDTH * 2;       // 32 — two lanes
+        const bridgeW = roadW + 10;              // 42 — deck spans wider than the road
         const surfaceYAt = (x: number) => bridgeYAt(x, bridge);
+        const deckStartX = bridge.startCx * GRID_PITCH;
+        const deckEndX = (bridge.endCx + 1) * GRID_PITCH;
         const numSlices = 20;
         const sliceW = CHUNK_SIZE / numSlices;
         const overlap = 1.4;
@@ -1928,41 +1945,106 @@ void main() {
           const nextY = surfaceYAt(nextX);
           const avgY = (surfY + nextY) / 2;
           const pillarH = Math.max(surfY, nextY);
+          const sliceLen = sliceW * overlap;
           if (si % 4 === 0) {
             const waterY = -2.5;
-            const beamW = 1.5; 
-            for (const pz of [-bridgeW / 2 + 4, 0, bridgeW / 2 - 4]) {
+            const beamW = 1.5;
+            for (const pz of [-bridgeW / 2 + 5, 0, bridgeW / 2 - 5]) {
               this.addBox(verts, indices, sx, (pillarH - waterY) / 2 + waterY, roadCenterZ + pz, beamW, pillarH - waterY, 2.0, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
             }
             this.addBox(verts, indices, sx, pillarH - 1.0, roadCenterZ, beamW, 1.5, bridgeW, 0.32, 0.32, 0.34, 1.0, idxOffset); idxOffset += 24;
           }
-          this.addBox(verts, indices, sx, avgY + 0.08, roadCenterZ, sliceW * overlap, 0.12, roadW, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+          // Deck slab — full width with a visible underside so the deck reads
+          // as a real structure instead of a floating plate.
+          this.addBox(verts, indices, sx, avgY - 0.3, roadCenterZ, sliceLen, 0.7, bridgeW, 0.26, 0.26, 0.28, 1.0, idxOffset); idxOffset += 24;
+          // Road surface
+          this.addBox(verts, indices, sx, avgY + 0.07, roadCenterZ, sliceLen, 0.14, roadW, 0.13, 0.13, 0.14, 1.0, idxOffset); idxOffset += 24;
+          // Sidewalks between the road and the parapet, with a curb at the road edge
+          for (const side of [-1, 1]) {
+            const sz = roadCenterZ + side * (roadW / 2 + 2.5);
+            this.addBox(verts, indices, sx, avgY + 0.14, sz, sliceLen, 0.2, 5, 0.52, 0.52, 0.54, 1.0, idxOffset); idxOffset += 24;
+            const curbZ = roadCenterZ + side * (roadW / 2);
+            this.addBox(verts, indices, sx, avgY + 0.34, curbZ, sliceLen, 0.18, 0.14, 0.42, 0.42, 0.44, 1.0, idxOffset); idxOffset += 24;
+          }
+          // Lane markings — dashed yellow center line + solid white edge lines,
+          // so the two directions read as separate lanes.
           if (si % 2 === 0) {
-            this.addBox(verts, indices, sx, avgY + 0.15, roadCenterZ, sliceW * 0.7, 0.02, 0.3, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, sx, avgY + 0.16, roadCenterZ, sliceW * 0.7, 0.02, 0.3, 0.9, 0.75, 0.15, 1.0, idxOffset); idxOffset += 24;
           }
           for (const side of [-1, 1]) {
-            const rz = roadCenterZ + side * (roadW / 2 + 0.5);
-            this.addBox(verts, indices, sx, avgY + 1.0, rz, sliceW * overlap, 0.15, 0.15, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, sx, avgY + 0.5, rz, sliceW * overlap, 0.12, 0.12, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
-            if (si % 2 === 0) {
-              this.addBox(verts, indices, sx, avgY + 0.6, rz, 0.18, 1.2, 0.18, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
-            }
+            const lz = roadCenterZ + side * (roadW / 2 - 1.5);
+            this.addBox(verts, indices, sx, avgY + 0.16, lz, sliceLen, 0.02, 0.22, 0.85, 0.85, 0.85, 0.9, idxOffset); idxOffset += 24;
+          }
+          // Parapet guardrail walls along the deck edges
+          for (const side of [-1, 1]) {
+            const pz = roadCenterZ + side * (bridgeW / 2 - 0.45);
+            this.addBox(verts, indices, sx, avgY + 1.05, pz, sliceLen, 0.9, 0.5, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, sx, avgY + 1.62, pz, sliceLen, 0.1, 0.12, 0.68, 0.68, 0.7, 1.0, idxOffset); idxOffset += 24;
           }
         }
-        for (const tx of [worldOriginX + 16, worldOriginX + CHUNK_SIZE - 16]) {
+        // Suspension towers + cables — one tower pair per span end (not per
+        // chunk), with the main span cable sagging between them and back-stay
+        // cables down to the deck ends, so the bridge reads as a real
+        // suspension structure.
+        const towerXs = [deckStartX + 40, deckEndX - 40];
+        const spanCenterX = (deckStartX + deckEndX) / 2;
+        const deckY = BRIDGE_DECK_Y;
+        for (const tx of towerXs) {
+          if (Math.floor(tx / GRID_PITCH) !== cx) continue; // build each tower only in its own chunk
           const tz = roadCenterZ;
           const baseY = surfaceYAt(tx);
-          const towerH = 28;
-          this.addBox(verts, indices, tx - 1.5, baseY + towerH / 2, tz - 2, 1, towerH, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
-          this.addBox(verts, indices, tx + 1.5, baseY + towerH / 2, tz - 2, 1, towerH, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
-          this.addBox(verts, indices, tx - 1.5, baseY + towerH / 2, tz + 2, 1, towerH, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
-          this.addBox(verts, indices, tx + 1.5, baseY + towerH / 2, tz + 2, 1, towerH, 1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
-          for (let by = 6; by < towerH; by += 7) {
-            this.addBox(verts, indices, tx, baseY + by, tz - 2, 4, 0.6, 1, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
-            this.addBox(verts, indices, tx, baseY + by, tz + 2, 4, 0.6, 1, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
+          const towerH = 26;
+          const legZ = bridgeW / 2 - 2.2; // legs sit on the deck edges, clear of traffic
+          for (const lz of [tz - legZ, tz + legZ]) {
+            this.addBox(verts, indices, tx - 1.4, baseY + towerH / 2, lz, 1.1, towerH, 1.1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
+            this.addBox(verts, indices, tx + 1.4, baseY + towerH / 2, lz, 1.1, towerH, 1.1, 0.4, 0.4, 0.42, 1.0, idxOffset); idxOffset += 24;
+            for (let by = 7; by < towerH; by += 7) {
+              this.addBox(verts, indices, tx, baseY + by, lz, 4.2, 0.7, 1.1, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
+            }
+            this.addBox(verts, indices, tx, baseY + towerH + 1.0, lz, 4.2, 1.6, 1.1, 0.45, 0.45, 0.47, 1.0, idxOffset); idxOffset += 24;
           }
-          for (const sign of [-1, 1]) {
-            this.addBox(verts, indices, tx + sign * 8, baseY + 10, tz, 16, 0.3, 0.3, 0.25, 0.25, 0.27, 1.0, idxOffset); idxOffset += 24;
+          const topY = baseY + towerH;
+          // Main span cable: from this tower toward the span center (each
+          // tower builds its own half, so the span is never doubled).
+          const cableEndX = spanCenterX;
+          const cableSegs = 4;
+          for (let s = 0; s < cableSegs; s++) {
+            const t0 = s / cableSegs;
+            const t1 = (s + 1) / cableSegs;
+            const x0 = tx + (cableEndX - tx) * t0;
+            const x1 = tx + (cableEndX - tx) * t1;
+            const y0 = topY - 5.5 * (t0 * t0);
+            const y1 = topY - 5.5 * (t1 * t1);
+            for (const lz of [tz - legZ, tz + legZ]) {
+              this.addBox(verts, indices, (x0 + x1) / 2, (y0 + y1) / 2, lz, Math.abs(x1 - x0) + 0.4, 0.35, 0.35, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
+            }
+          }
+          // Back-stay cable: from the tower top down to the nearer deck end
+          const stayEndX = tx < spanCenterX ? deckStartX : deckEndX;
+          const staySegs = 3;
+          for (let s = 0; s < staySegs; s++) {
+            const t0 = s / staySegs;
+            const t1 = (s + 1) / staySegs;
+            const x0 = tx + (stayEndX - tx) * t0;
+            const x1 = tx + (stayEndX - tx) * t1;
+            const y0 = topY - (topY - deckY) * (t0 * t0);
+            const y1 = topY - (topY - deckY) * (t1 * t1);
+            for (const lz of [tz - legZ, tz + legZ]) {
+              this.addBox(verts, indices, (x0 + x1) / 2, (y0 + y1) / 2, lz, Math.abs(x1 - x0) + 0.4, 0.3, 0.3, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
+            }
+          }
+          // Hangers: thin verticals from the main cable down to the deck,
+          // only inside this chunk so neighboring chunks don't double them.
+          const hDir = cableEndX > tx ? 1 : -1;
+          for (let hi = 1; hi < 9; hi++) {
+            const hx = tx + hDir * hi * 10;
+            if ((hDir > 0 && hx >= cableEndX - 2) || (hDir < 0 && hx <= cableEndX + 2)) break;
+            if (hx < worldOriginX || hx >= worldOriginX + CHUNK_SIZE) continue;
+            const t = (hx - tx) / (cableEndX - tx);
+            const hy = topY - 5.5 * (t * t);
+            for (const lz of [tz - legZ, tz + legZ]) {
+              this.addBox(verts, indices, hx, (hy + deckY) / 2, lz, 0.16, Math.max(0.5, hy - deckY), 0.16, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
+            }
           }
         }
       }
@@ -1985,14 +2067,21 @@ void main() {
           let x2 = worldOriginX + (s + 1) * segW;
           const y1 = bridgeYAt(x1, bridge);
           const y2 = bridgeYAt(x2, bridge);
-          this.addRamp(verts, indices, x1, y1 + 0.08, x2, y2 + 0.08, roadCenterZ, roadW, 0.12, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+          // Deck slab under the ramp so the profile matches the raised deck
+          this.addRamp(verts, indices, x1, y1 - 0.3, x2, y2 - 0.3, roadCenterZ, bridgeW, 0.7, 0.26, 0.26, 0.28, 1.0, idxOffset); idxOffset += 24;
+          this.addRamp(verts, indices, x1, y1 + 0.08, x2, y2 + 0.08, roadCenterZ, roadW, 0.14, 0.13, 0.13, 0.14, 1.0, idxOffset); idxOffset += 24;
           if (s % 2 === 0) {
-            this.addRamp(verts, indices, x1, y1 + 0.10, x2, y2 + 0.10, roadCenterZ, 0.3, 0.02, 1, 1, 1, 0.8, idxOffset); idxOffset += 24;
+            this.addRamp(verts, indices, x1, y1 + 0.16, x2, y2 + 0.16, roadCenterZ, 0.3, 0.02, 0.9, 0.75, 0.15, 0.8, idxOffset); idxOffset += 24;
           }
           for (const side of [-1, 1]) {
-            const rz = roadCenterZ + side * (roadW / 2 + 0.5);
-            this.addRamp(verts, indices, x1, y1 + 1.0, x2, y2 + 1.0, rz, 0.15, 0.15, 0.6, 0.6, 0.62, 1.0, idxOffset); idxOffset += 24;
-            this.addRamp(verts, indices, x1, y1 + 0.5, x2, y2 + 0.5, rz, 0.12, 0.12, 0.55, 0.55, 0.57, 1.0, idxOffset); idxOffset += 24;
+            // Solid white edge line + sidewalk + parapet, matching the deck
+            const lz = roadCenterZ + side * (roadW / 2 - 1.5);
+            this.addRamp(verts, indices, x1, y1 + 0.16, x2, y2 + 0.16, lz, 0.22, 0.02, 0.85, 0.85, 0.85, 0.9, idxOffset); idxOffset += 24;
+            const sz = roadCenterZ + side * (roadW / 2 + 2.5);
+            this.addRamp(verts, indices, x1, y1 + 0.14, x2, y2 + 0.14, sz, 5, 0.2, 0.52, 0.52, 0.54, 1.0, idxOffset); idxOffset += 24;
+            const pz = roadCenterZ + side * (bridgeW / 2 - 0.45);
+            this.addRamp(verts, indices, x1, y1 + 1.05, x2, y2 + 1.05, pz, 0.5, 0.9, 0.5, 0.5, 0.52, 1.0, idxOffset); idxOffset += 24;
+            this.addRamp(verts, indices, x1, y1 + 1.62, x2, y2 + 1.62, pz, 0.12, 0.1, 0.68, 0.68, 0.7, 1.0, idxOffset); idxOffset += 24;
           }
         }
       }
@@ -2013,10 +2102,12 @@ void main() {
       for (const gridX of [cx, cx + 1]) {
         const worldX = gridX * GRID_PITCH;
         this.addBox(verts, indices, worldX, 0.04, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2, 0.08, CHUNK_SIZE, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+        idxOffset = this.addRoadMarkings(verts, indices, idxOffset, false, worldX, 0.10, worldOriginZ, worldOriginZ + CHUNK_SIZE);
       }
       for (const gridZ of [cz, cz + 1]) {
         const worldZ = gridZ * GRID_PITCH;
         this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.04, worldZ, CHUNK_SIZE, 0.08, ROAD_HALF_WIDTH * 2, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+        idxOffset = this.addRoadMarkings(verts, indices, idxOffset, true, worldZ, 0.10, worldOriginX, worldOriginX + CHUNK_SIZE);
       }
     }
     else if (isRural) {
@@ -2038,10 +2129,12 @@ void main() {
       for (const gridX of [cx, cx + 1]) {
         const worldX = gridX * GRID_PITCH;
         this.addBox(verts, indices, worldX, 0.04, worldOriginZ + CHUNK_SIZE / 2, ROAD_HALF_WIDTH * 2, 0.08, CHUNK_SIZE, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+        idxOffset = this.addRoadMarkings(verts, indices, idxOffset, false, worldX, 0.10, worldOriginZ, worldOriginZ + CHUNK_SIZE);
       }
       for (const gridZ of [cz, cz + 1]) {
         const worldZ = gridZ * GRID_PITCH;
         this.addBox(verts, indices, worldOriginX + CHUNK_SIZE / 2, 0.04, worldZ, CHUNK_SIZE, 0.08, ROAD_HALF_WIDTH * 2, 0.12, 0.12, 0.13, 1.0, idxOffset); idxOffset += 24;
+        idxOffset = this.addRoadMarkings(verts, indices, idxOffset, true, worldZ, 0.10, worldOriginX, worldOriginX + CHUNK_SIZE);
       }
     }
     if (isBeach || isRural) {
@@ -2873,6 +2966,41 @@ void main() {
     }
     return edges;
   }
+
+  /**
+   * Road lane markings: solid white edge lines plus a dashed yellow center
+   * line — the same language as the bridge decks, so the whole road network
+   * reads consistently. `runsAlongX` is true when the road follows the X
+   * axis (grid line in z); `grid` is the line the road is centered on;
+   * `start`/`end` bound the segment along the road within this chunk.
+   * Returns the updated index offset.
+   */
+  private addRoadMarkings(
+    verts: number[], indices: number[], idxOffset: number,
+    runsAlongX: boolean, grid: number, y: number, start: number, end: number
+  ): number {
+    const edgeOff = ROAD_HALF_WIDTH - 1.5;
+    const dashLen = 8;
+    const dashGap = 16;
+    if (runsAlongX) {
+      const midX = (start + end) / 2;
+      for (const side of [-1, 1]) {
+        this.addBox(verts, indices, midX, y, grid + side * edgeOff, end - start, 0.02, 0.22, 0.85, 0.85, 0.85, 0.9, idxOffset); idxOffset += 24;
+      }
+      for (let dx = start + dashLen / 2; dx < end; dx += dashGap) {
+        this.addBox(verts, indices, dx, y, grid, dashLen, 0.02, 0.3, 0.9, 0.75, 0.15, 1.0, idxOffset); idxOffset += 24;
+      }
+    } else {
+      const midZ = (start + end) / 2;
+      for (const side of [-1, 1]) {
+        this.addBox(verts, indices, grid + side * edgeOff, y, midZ, 0.22, 0.02, end - start, 0.85, 0.85, 0.85, 0.9, idxOffset); idxOffset += 24;
+      }
+      for (let dz = start + dashLen / 2; dz < end; dz += dashGap) {
+        this.addBox(verts, indices, grid, y, dz, 0.3, 0.02, dashLen, 0.9, 0.75, 0.15, 1.0, idxOffset); idxOffset += 24;
+      }
+    }
+    return idxOffset;
+  }
   getLampsNear(x: number, z: number, radius: number): { x: number; z: number }[] {
     const lamps: { x: number; z: number }[] = [];
     const cx = Math.floor(x / CHUNK_SIZE);
@@ -3405,7 +3533,8 @@ void main() {
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.clearColor(0, 0, 0, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-    mat4.perspective(this.projMatrix, Math.PI / 4, aspect, 0.1, farPlane ?? 500.0);
+    const far = farPlane ?? 500.0;
+    mat4.perspective(this.projMatrix, Math.PI / 4, aspect, 0.1, far);
     const dirX = Math.sin(camYaw) * Math.cos(camPitch);
     const dirY = -Math.sin(camPitch);
     const dirZ = Math.cos(camYaw) * Math.cos(camPitch);
@@ -3421,6 +3550,10 @@ void main() {
     gl.uniform3f(this.lightColorLoc, this.lightColor[0], this.lightColor[1], this.lightColor[2]);
     gl.uniform3f(this.ambientColorLoc, this.ambientColor[0], this.ambientColor[1], this.ambientColor[2]);
     gl.uniform3f(this.fogColorLoc, this.skyColor[0], this.skyColor[1], this.skyColor[2]);
+    // Fog tied to the view distance: starts at ~16% and is fully opaque at
+    // ~66% of the far plane (the old hardcoded 80->330 range at the 500 default).
+    gl.uniform1f(this.fogStartLoc, far * 0.16);
+    gl.uniform1f(this.fogEndLoc, far * 0.66);
     gl.uniformMatrix4fv(this.lightSpaceLoc, false, this.lightSpaceMatrix);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, this.shadowTexture);
@@ -3437,8 +3570,11 @@ void main() {
     gl.uniform1f(this.dayBlendLoc, this.dayBlend);
     gl.uniform1i(this.numPointLightsLoc, this.dayBlend < 0.5 ? numLights : 0);
     gl.uniform3fv(this.pointLightPosLoc, pointLightPositions);
-    for (let dz = -1; dz <= 1; dz++) {
-      for (let dx = -1; dx <= 1; dx++) {
+    // Draw chunks out to the configured view distance (capped so the far
+    // settings can't nuke the frame rate). The shadow pass stays 3x3.
+    const chunkRadius = Math.max(1, Math.min(4, Math.round(far / 250)));
+    for (let dz = -chunkRadius; dz <= chunkRadius; dz++) {
+      for (let dx = -chunkRadius; dx <= chunkRadius; dx++) {
         const chunk = this.getCityChunk(pcx + dx, pcz + dz);
         this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1]);
         if (this.lampMesh) {

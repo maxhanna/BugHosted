@@ -11,6 +11,12 @@ import { FileService } from '../../services/file.service';
 const CHUNK_SIZE = 80;
 const CAR_HEIGHT = 0.4;
 const JUMP_GRAVITY = 18;
+const CAR_MAX_HEALTH = 200;
+// Cars start smoking at 35% of max health and can smoke for at most
+// CAR_SMOKE_SECONDS per life; the budget re-arms when the car is repaired
+// above the smoke threshold or a fresh car is entered.
+const CAR_SMOKE_HEALTH = CAR_MAX_HEALTH * 0.35;
+const CAR_SMOKE_SECONDS = 10;
 const JUMP_MIN_DIST = 8;
 // Stunt bonus thresholds: landing at or above this launch speed (ground car
 // top speed is ~35) earns distance-scaled cash even without a record, capped
@@ -127,7 +133,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   // parked cars so a refresh drops you back where you were, cars included.
   private _worldSaveTimer = 0;
   private onWorldSave = () => this.saveWorldState();
-  trafficCars: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; path: number[]; pathIdx: number; state: 'drive' | 'stop'; stopTimer: number; nextYaw: number; laneOffsetX: number; laneOffsetZ: number; hasDriver?: boolean; gender?: string; passengerCount?: number; speed: number }[] = [];
+  trafficCars: { id: number; x: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; path: number[]; pathIdx: number; state: 'drive' | 'stop'; stopTimer: number; nextYaw: number; laneOffsetX: number; laneOffsetZ: number; hasDriver?: boolean; gender?: string; passengerCount?: number; speed: number; leadDist?: number; leadSpeed?: number; laneBias?: number; wanderPhase?: number; wanderFreq?: number; passing?: boolean; passTimer?: number; passCooldown?: number; passExtra?: number; blockTimer?: number }[] = [];
   private trafficNodes: { x: number; z: number }[] = [];
   private trafficEdges: [number, number][] = [];
   private trafficLanes: TrafficLane[] = [];
@@ -167,6 +173,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   _carSmoking = false;
   _carSmokeTimer = 0;
   _carSmokeStarted = 0;
+  _carSmokeBudget = CAR_SMOKE_SECONDS;
   _parkedSmokeTimers: { [id: number]: number } = {};
   private _npcSmokeTimers: { [id: number]: number } = {};
   private _npcSmokeStarted: { [id: number]: number } = {};
@@ -367,7 +374,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   showMenuPanel = false;
   sfxVolume = 1.0;
   carSfxVolume = 1.0;
+  radioVolume = 1.0;
   viewDistance = 500;
+  private _prewarmTimer: any = null;
   private uziSound: HTMLAudioElement | null = null;
   private rocketSound: HTMLAudioElement | null = null;
   private policeSirenSound: HTMLAudioElement | null = null;
@@ -976,6 +985,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this._carSmoking = false;
           this._carSmokeTimer = 0;
           this._carSmokeStarted = 0;
+          this._carSmokeBudget = CAR_SMOKE_SECONDS;
           this.playerVehicleMesh = v.mesh;
           this.playerVehicleColor = [v.colorR || 1, v.colorG || 1, v.colorB || 1];
           if (this.renderer.playerMesh) {
@@ -1048,6 +1058,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
               this._carSmoking = false;
               this._carSmokeTimer = 0;
               this._carSmokeStarted = 0;
+              this._carSmokeBudget = CAR_SMOKE_SECONDS;
               this.playerVehicleMesh = da.model || (da.type === 'helicopter' ? this.renderer.getHelicopterMesh(0) : this.renderer.getPlaneMesh(0));
               chunk.buildings = chunk.buildings.filter(b => Math.abs(b.x - da.x) > 0.1 || Math.abs(b.z - da.z) > 0.1);
               this.carY = da.type === 'helicopter' ? 5 : 3;
@@ -1273,6 +1284,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this._carSmoking = false;
     this._carSmokeTimer = 0;
     this._carSmokeStarted = 0;
+    this._carSmokeBudget = CAR_SMOKE_SECONDS;
     this.playerVehicleMesh = null;
     this.driverInCarMesh = null;
     if (this.isInGarageInterior()) {
@@ -1336,7 +1348,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         height: '0', width: '0',
         playerVars: { autoplay: 0, controls: 0, disablekb: 1, fs: 0, modestbranding: 1, playsinline: 1 },
         events: {
-          onReady: () => { },
+          onReady: () => { this.setRadioVolume(); },
           onStateChange: (e: any) => {
             if (e.data === 1) {
               this.ngZone.run(() => {
@@ -1371,9 +1383,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     try {
       this.ytPlayer.loadVideoById(id);
       this.radioOn = true;
+      this.setRadioVolume();
       this.ngZone.run(() => {
         this.radioSongTitle = this.ytPlayer?.getVideoData?.()?.title || '';
       });
+    } catch { }
+  }
+  setRadioVolume() {
+    if (!this.ytPlayer || typeof this.ytPlayer.setVolume !== 'function') return;
+    try {
+      this.ytPlayer.setVolume(Math.round(this.radioVolume * 100));
     } catch { }
   }
   nextRadio() {
@@ -2765,6 +2784,20 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
   }
+  /**
+   * Per-car lateral offset from the lane centerline: a stable driving-style
+   * bias plus a slow in-lane wander. Keeps cars in the same direction spread
+   * across the road instead of driving single-file.
+   */
+  private trafficLateralOffset(car: any, laneOffX: number, laneOffZ: number): { x: number; z: number } {
+    const perpLen = Math.hypot(laneOffX, laneOffZ);
+    if (perpLen <= 0) return { x: 0, z: 0 };
+    const now = performance.now() / 1000;
+    const lat = (car.laneBias ?? 0) + Math.sin(now * (car.wanderFreq ?? 0.7) + (car.wanderPhase ?? 0)) * 0.8
+      + (car.passExtra ?? 0); // emergency lane-change offset, eased by the loop
+    return { x: laneOffX / perpLen * lat, z: laneOffZ / perpLen * lat };
+  }
+
   private measureLead(car: any, ox: number, oz: number, oSpeed?: number) {
     const dx = ox - car.x;
     const dz = oz - car.z;
@@ -2772,6 +2805,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const carFwdZ = Math.cos(car.yaw);
     let ahead = dx * carFwdX + dz * carFwdZ;
     if (ahead <= 0) return;
+    // Only treat obstacles roughly in the car's own track as leads — with
+    // cars now spread laterally across the road, adjacent-track traffic
+    // shouldn't make this car brake.
+    const lateral = Math.abs(dx * carFwdZ - dz * carFwdX);
+    if (lateral > 3.0) return;
     const dist = Math.hypot(dx, dz);
     if (dist < car.leadDist) {
       car.leadDist = dist;
@@ -2793,6 +2831,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.trafficNodes = this.renderer.getRoadNodesInRadius(this._lastTrafficChunkX, this._lastTrafficChunkZ, 25);
       this.trafficEdges = this.renderer.getRoadEdges(this.trafficNodes);
       this.rebuildLanes();
+      // The node array was replaced — old paths hold stale indices that now
+      // point at different roads, so every car is re-routed from where it is.
+      this.repathAllTraffic();
     }
     for (let ci = this.trafficCars.length - 1; ci >= 0; ci--) {
       const car = this.trafficCars[ci];
@@ -2833,11 +2874,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const lane = this.trafficLanes.find(l => l.fromIdx === currIdx && l.toIdx === nextIdx);
       const laneOffX = lane ? lane.offsetX : 0;
       const laneOffZ = lane ? lane.offsetZ : 0;
-      const currLaneX = currNode.x + laneOffX;
-      const currLaneZ = currNode.z + laneOffZ;
+      const lateral = this.trafficLateralOffset(car, laneOffX, laneOffZ);
+      const currLaneX = currNode.x + laneOffX + lateral.x;
+      const currLaneZ = currNode.z + laneOffZ + lateral.z;
       const distToCurr = Math.hypot(currLaneX - car.x, currLaneZ - car.z);
-      const targetX = nextNode ? nextNode.x + laneOffX : currNode.x;
-      const targetZ = nextNode ? nextNode.z + laneOffZ : currNode.z;
+      const targetX = nextNode ? nextNode.x + laneOffX + lateral.x : currNode.x;
+      const targetZ = nextNode ? nextNode.z + laneOffZ + lateral.z : currNode.z;
       const distToTarget = Math.hypot(targetX - car.x, targetZ - car.z);
       let approachingTurn = false;
       if (nextNode && distToTarget < 14 && car.pathIdx + 2 < car.path.length) {
@@ -2881,8 +2923,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
       const carFwdX = Math.sin(car.yaw);
       const carFwdZ = Math.cos(car.yaw);
-      let leadDist = Infinity;
-      let leadSpeed = 12;
+      // Lead tracking lives on the car object (measureLead writes there) —
+      // reset it every frame so cars actually slow for traffic ahead instead
+      // of piling into stopped cars at full speed.
+      car.leadDist = Infinity;
+      car.leadSpeed = 12;
       for (const other of this.trafficCars) {
         if (other.id === car.id || other.health <= 0) continue;
         this.measureLead(car, other.x, other.z, other.speed);
@@ -2912,11 +2957,40 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.measureLead(car, op.posX, op.posZ, 12);
       }
       const followGain = 2.5;
-      const safeSpeed = leadDist < Infinity ? Math.min(leadDist * followGain, leadSpeed) : 12;
+      const safeSpeed = car.leadDist < Infinity ? Math.min(car.leadDist * followGain, car.leadSpeed) : 12;
+      // Emergency lane change: when a stopped vehicle has kept this car pinned
+      // in its track for a few seconds, swerve to the outer track (away from
+      // oncoming traffic), drive past, then ease back — instead of waiting
+      // behind it forever.
+      if ((car.passCooldown ?? 0) > 0) car.passCooldown = (car.passCooldown ?? 0) - dt;
+      if (car.passing) {
+        car.passTimer = (car.passTimer ?? 3.0) - dt;
+        if ((car.passTimer ?? 0) <= 0) {
+          car.passing = false;
+          car.passCooldown = 9; // don't re-trigger immediately in stop-and-go
+        }
+        car.passExtra = Math.min(6, (car.passExtra ?? 0) + Math.min(1, 5 * dt) * 6);
+      } else {
+        car.passExtra = Math.max(0, (car.passExtra ?? 0) - Math.min(1, 4 * dt) * 6);
+        if ((car.passCooldown ?? 0) <= 0 && car.leadDist < 6 && car.leadSpeed < 2) {
+          car.blockTimer = (car.blockTimer ?? 0) + dt;
+          if (car.blockTimer > 2.5) {
+            car.passing = true;
+            car.passTimer = 3.0;
+            car.blockTimer = 0;
+          }
+        } else {
+          car.blockTimer = 0;
+        }
+      }
       let redLight = false;
       if (nextNode && distToTarget < intersectionRadius) {
         const isHDir = Math.abs(nextNode.x - currNode.x) > Math.abs(nextNode.z - currNode.z);
-        if ((isHDir && isRedForX) || (!isHDir && !isRedForX)) redLight = true;
+        // Only town intersections have signals — bridges and rural crossings
+        // run free so cross-island traffic (the bridges) keeps moving.
+        const nb = getBiome(Math.floor(nextNode.x / 80), Math.floor(nextNode.z / 80));
+        const hasLight = nb === 'city' || nb === 'suburb' || nb === 'parking_lot';
+        if (hasLight && ((isHDir && isRedForX) || (!isHDir && !isRedForX))) redLight = true;
       }
       if (distToTarget < 2) {
         car.pathIdx++;
@@ -2929,7 +3003,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       let targetSpeed = safeSpeed;
       if (approachingTurn) targetSpeed = Math.min(targetSpeed, 4.5);
       if (crossBlocked) targetSpeed = Math.min(targetSpeed, 3.0);
-      if (redLight) targetSpeed = Math.min(targetSpeed, 1.0);
+      if (redLight) targetSpeed = 0; // full stop at the light — traffic behind queues
+      // Emergency pass: keep enough speed to slide around the disabled
+      // vehicle. A red light aborts the maneuver — the light clears on its
+      // own, so there's nothing to drive around.
+      if (car.passing && redLight) {
+        car.passing = false;
+        car.passCooldown = 5;
+      } else if (car.passing) {
+        targetSpeed = Math.max(targetSpeed, 4.5);
+      }
       const tdx = targetX - car.x;
       const tdz = targetZ - car.z;
       const targetYaw = Math.atan2(tdx, tdz);
@@ -3275,11 +3358,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         }
       } else {
         if (this._carSubmerged) { this._carSubmerged = false; this.carY = CAR_HEIGHT; }
-        if (this.carHealth > 100) { this._carSmoking = false; this._carSmokeStarted = 0; }
+        if (this.carHealth > CAR_SMOKE_HEALTH) { this._carSmoking = false; this._carSmokeStarted = 0; this._carSmokeBudget = CAR_SMOKE_SECONDS; }
         if (this.carHealth > 2) { this._carOnFire = false; this._carFireStarted = 0; }
       }
     }
-    if (this.isInCar && this.carHealth > 0 && this.carHealth <= 100 && !this._carSmoking && !this._carOnFire) {
+    if (this.isInCar && this.carHealth > 0 && this.carHealth <= CAR_SMOKE_HEALTH && !this._carSmoking && !this._carOnFire && this._carSmokeBudget > 0) {
       this._carSmoking = true;
       this._carSmokeStarted = performance.now() / 1000;
     }
@@ -3297,12 +3380,16 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
     if (this.isInCar && this._carSmoking && !this._carOnFire) {
-      if (this._carSmokeStarted > 0 && (performance.now() / 1000) - this._carSmokeStarted >= 10.0) {
+      // Total smoke budget: a car can emit smoke for at most 10 seconds per
+      // life. Decrementing the budget (instead of just timing the episode)
+      // stops the car from instantly re-triggering once the cap is reached.
+      this._carSmokeBudget = Math.max(0, this._carSmokeBudget - dt);
+      if (this._carSmokeBudget <= 0) {
         this._carSmoking = false;
         this._carSmokeStarted = 0;
       }
       this._carSmokeTimer += dt;
-      if (this._carSmokeTimer > 0.15) {
+      if (this._carSmoking && this._carSmokeTimer > 0.15) {
         this._carSmokeTimer = 0;
         const sinY = Math.sin(this.carYaw), cosY = Math.cos(this.carYaw);
         const sx = this.carX + cosY * 0.8;
@@ -5278,12 +5365,21 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     const startNode = this.trafficNodes[path[0]];
     const nextNode = this.trafficNodes[path[1]];
     const yaw = Math.atan2(nextNode.x - startNode.x, nextNode.z - startNode.z);
+    // Per-car driving style: a stable lateral bias (spreads cars across the
+    // road so both lanes visibly carry traffic) plus a slow in-lane wander.
+    const laneBias = (Math.random() - 0.5) * 4.5;
+    const wanderPhase = Math.random() * Math.PI * 2;
+    const wanderFreq = 0.4 + Math.random() * 0.6;
+    const laneLen = Math.hypot(lane.offsetX, lane.offsetZ);
+    const lat0 = laneBias + Math.sin(performance.now() / 1000 * wanderFreq + wanderPhase) * 0.8;
+    const biasX = laneLen > 0 ? lane.offsetX / laneLen * lat0 : 0;
+    const biasZ = laneLen > 0 ? lane.offsetZ / laneLen * lat0 : 0;
     const color = [0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5, 0.3 + Math.random() * 0.5];
     const trafficId = --this.trafficNodeIdCounter;
     this.trafficCars.push({
       id: trafficId,
-      x: startNode.x + lane.offsetX,
-      z: startNode.z + lane.offsetZ,
+      x: startNode.x + lane.offsetX + biasX,
+      z: startNode.z + lane.offsetZ + biasZ,
       yaw,
       type: 'traffic',
       mesh: this.renderer.getNPCCarMesh([color[0], color[1], color[2]], trafficId),
@@ -5291,6 +5387,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       path, pathIdx: 0,
       state: 'drive', stopTimer: 0, nextYaw: yaw,
       laneOffsetX: lane.offsetX, laneOffsetZ: lane.offsetZ,
+      laneBias, wanderPhase, wanderFreq,
       hasDriver: true, speed: 0,
       gender: Math.random() < 0.5 ? 'male' : 'female',
       passengerCount: Math.random() < 0.2 ? 1 : 0,
@@ -5334,6 +5431,29 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     return null;
   }
+  /**
+   * Re-route every traffic car after the road graph is rebuilt (the player
+   * crossed into a new chunk) — old path indices point into the replaced
+   * node array, so stale paths would send cars to wrong roads.
+   */
+  private repathAllTraffic() {
+    if (this.trafficNodes.length < 2) { this.trafficCars.length = 0; return; }
+    for (const car of this.trafficCars) {
+      const fromIdx = this.closestNode(car.x, car.z);
+      const toIdx = Math.floor(Math.random() * this.trafficNodes.length);
+      const newPath = this.findPath(fromIdx, toIdx);
+      if (newPath && newPath.length > 1) {
+        car.path = newPath;
+        car.pathIdx = 0;
+      } else {
+        // No route from here in the new graph — an empty path makes the main
+        // loop re-path (and eventually remove) the car.
+        car.path = [];
+        car.pathIdx = 0;
+      }
+    }
+  }
+
   private rebuildLanes() {
     this.trafficLanes = [];
     for (const edge of this.trafficEdges) {
@@ -6388,6 +6508,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   }
   setViewDistance(dist: number) {
     this.viewDistance = dist;
+    // Generate the newly-revealed chunks off to the side (debounced) so the
+    // first frame after raising the slider doesn't hitch while building them.
+    if (this._prewarmTimer) clearTimeout(this._prewarmTimer);
+    this._prewarmTimer = setTimeout(() => {
+      this._prewarmTimer = null;
+      const radius = Math.max(1, Math.min(4, Math.round(this.viewDistance / 250)));
+      this.renderer.prewarmChunks(Math.floor(this.carX / 80), Math.floor(this.carZ / 80), radius);
+    }, 200);
   }
   private onCanvasTouchStart = (e: TouchEvent) => {
     e.preventDefault();

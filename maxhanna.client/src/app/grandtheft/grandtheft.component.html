@@ -372,6 +372,12 @@
       <span class="gt-setting-value">{{ carSfxVolume * 100 | number:'1.0-0' }}%</span>
     </label>
     <label class="gt-setting-row">
+      <span>Radio Volume</span>
+      <input type="range" min="0" max="100" [value]="radioVolume * 100"
+        (input)="radioVolume = $any($event.target).value / 100; setRadioVolume()" />
+      <span class="gt-setting-value">{{ radioVolume * 100 | number:'1.0-0' }}%</span>
+    </label>
+    <label class="gt-setting-row">
       <span>View Distance</span>
       <input type="range" min="100" max="1000" [value]="viewDistance"
         (input)="viewDistance = $any($event.target).value; setViewDistance(viewDistance)" />
