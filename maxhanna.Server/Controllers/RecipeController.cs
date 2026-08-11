@@ -41,7 +41,7 @@ public class RecipeController : ControllerBase
 {
     private readonly string _connectionString;
     private readonly Log _log;
-    private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
+    internal static readonly SemaphoreSlim _sitemapLock = new(1, 1);
     private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
 
     public RecipeController(IConfiguration configuration, Log log)
@@ -284,7 +284,7 @@ public class RecipeController : ControllerBase
     /// metadata (up to three images) and video metadata (first YouTube link).
     /// Shared by single-entry appends and the full backfill.
     /// </summary>
-    private static XElement BuildSitemapUrlElement(string url, string name, string description, string lastMod,
+    internal static XElement BuildSitemapUrlElement(string url, string name, string description, string lastMod,
         List<int>? imageFileIds, List<string>? externalLinks,
         XNamespace ns, XNamespace imageNs, XNamespace videoNs)
     {
@@ -332,97 +332,10 @@ public class RecipeController : ControllerBase
     }
 
     /// <summary>
-    /// One-time backfill: write sitemap entries for every recipe in the DB so
-    /// recipes created before the sitemap feature (or before the metadata
-    /// work) get indexed. Idempotent — if the sitemap already contains
-    /// /recipe/ entries it does nothing, so it is safe to run on every boot.
-    /// Writes the whole batch in a single document pass (one load, one save).
-    /// </summary>
-    public async Task<int> BackfillSitemapAsync()
-    {
-        await _sitemapLock.WaitAsync();
-        try
-        {
-            if (System.IO.File.Exists(_sitemapPath))
-            {
-                var existing = XDocument.Load(_sitemapPath);
-                if (existing.Descendants().Any(x => x.Name.LocalName == "loc" && x.Value.Contains("/recipe/")))
-                {
-                    return 0; // already backfilled — nothing to do
-                }
-            }
-
-            var recipes = new List<RecipeDto>();
-            await using (var conn = new MySqlConnection(_connectionString))
-            {
-                await conn.OpenAsync();
-                const string query = @"SELECT r.id, r.name, r.description, r.image_file_ids, r.external_links
-                    FROM recipes r
-                    ORDER BY r.id";
-                await using var cmd = new MySqlCommand(query, conn);
-                await using var reader = await cmd.ExecuteReaderAsync();
-                while (await reader.ReadAsync())
-                {
-                    recipes.Add(new RecipeDto
-                    {
-                        Id = reader.GetInt32(reader.GetOrdinal("id")),
-                        Name = reader.GetString(reader.GetOrdinal("name")),
-                        Description = reader.IsDBNull(reader.GetOrdinal("description")) ? string.Empty : reader.GetString(reader.GetOrdinal("description")),
-                        ImageFileIds = ParseIntList(reader, "image_file_ids"),
-                        ExternalLinks = ParseList(reader, "external_links"),
-                    });
-                }
-            }
-
-            if (recipes.Count == 0) return 0;
-
-            XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
-            XNamespace imageNs = "http://www.google.com/schemas/sitemap-image/1.1";
-            XNamespace videoNs = "http://www.google.com/schemas/sitemap-video/1.1";
-            XDocument sitemap;
-            if (System.IO.File.Exists(_sitemapPath))
-            {
-                sitemap = XDocument.Load(_sitemapPath);
-            }
-            else
-            {
-                sitemap = new XDocument(new XElement(ns + "urlset"));
-            }
-            sitemap.Root?.SetAttributeValue(XNamespace.Xmlns + "image", imageNs);
-            sitemap.Root?.SetAttributeValue(XNamespace.Xmlns + "video", videoNs);
-
-            var lastMod = DateTime.UtcNow.ToString("yyyy-MM-dd");
-            var written = 0;
-            foreach (var r in recipes)
-            {
-                var url = $"https://bughosted.com/recipe/{r.Id}";
-                var existingEntry = sitemap.Descendants(ns + "url")
-                    .FirstOrDefault(x => x.Element(ns + "loc")?.Value == url);
-                existingEntry?.Remove();
-                sitemap.Root?.Add(BuildSitemapUrlElement(url, r.Name, r.Description, lastMod, r.ImageFileIds, r.ExternalLinks, ns, imageNs, videoNs));
-                written++;
-            }
-
-            sitemap.Save(_sitemapPath);
-            _ = _log.Db($"Sitemap backfill: wrote {written} recipe entr(ies).", null, "RECIPE", true);
-            return written;
-        }
-        catch (Exception ex)
-        {
-            _ = _log.Db($"Sitemap backfill failed: {ex.Message}", null, "RECIPE", true);
-            return 0;
-        }
-        finally
-        {
-            _sitemapLock.Release();
-        }
-    }
-
-    /// <summary>
     /// Pull the 11-character video id out of a YouTube link (watch, youtu.be,
     /// embed, or shorts forms), mirroring the client's parseYoutubeId.
     /// </summary>
-    private static string? ExtractYouTubeVideoId(string? url)
+    internal static string? ExtractYouTubeVideoId(string? url)
     {
         if (string.IsNullOrWhiteSpace(url)) return null;
         url = url.Trim();
@@ -454,13 +367,13 @@ public class RecipeController : ControllerBase
         return null;
     }
 
-    private static string Truncate(string value, int maxLength)
+    internal static string Truncate(string value, int maxLength)
     {
         if (string.IsNullOrEmpty(value)) return string.Empty;
         return value.Length <= maxLength ? value : value.Substring(0, maxLength);
     }
 
-    private static List<string> ParseList(MySqlDataReader reader, string columnName)
+    internal static List<string> ParseList(MySqlDataReader reader, string columnName)
     {
         var ordinal = reader.GetOrdinal(columnName);
         if (reader.IsDBNull(ordinal))
@@ -474,7 +387,7 @@ public class RecipeController : ControllerBase
             : raw.Split('|').Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
     }
 
-    private static List<int> ParseIntList(MySqlDataReader reader, string columnName)
+    internal static List<int> ParseIntList(MySqlDataReader reader, string columnName)
     {
         var ordinal = reader.GetOrdinal(columnName);
         if (reader.IsDBNull(ordinal))
