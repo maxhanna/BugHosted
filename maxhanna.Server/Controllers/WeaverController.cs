@@ -219,6 +219,35 @@ namespace maxhanna.Server.Controllers
 			}
 		}
 
+	 	[HttpPost("feedback")]
+		public async Task<IActionResult> SubmitFeedback([FromBody] WeaverFeedbackRequest req)
+		{
+			if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
+				return Unauthorized(new { error = "Invalid token" });
+			if (string.IsNullOrWhiteSpace(req.Message))
+				return BadRequest(new { error = "Feedback message required" });
+			try
+			{
+				var cs = _config.GetValue<string>("ConnectionStrings:maxhanna");
+				using var conn = new MySqlConnection(cs);
+				await conn.OpenAsync();
+			 
+				using var cmd = new MySqlCommand(@"
+					INSERT INTO maxhanna.weaver_feedback (user_id, username, card_id, card_text, message)
+					VALUES (@uid, @username, @cardId, @cardText, @message)", conn);
+				cmd.Parameters.AddWithValue("@uid", session.UserId);
+				cmd.Parameters.AddWithValue("@username", session.Username);
+				cmd.Parameters.AddWithValue("@cardId", (object?)req.CardId ?? DBNull.Value);
+				cmd.Parameters.AddWithValue("@cardText", (object?)req.CardText ?? DBNull.Value);
+				cmd.Parameters.AddWithValue("@message", req.Message);
+				await cmd.ExecuteNonQueryAsync();
+				return Ok(new { ok = true, id = cmd.LastInsertedId });
+			}
+			catch (Exception ex)
+			{
+				return StatusCode(500, new { error = ex.Message });
+			}
+		}
 
 		[HttpGet("commands/{id}")]
 		public async Task<IActionResult> GetCommandResult([FromRoute] int id, [FromQuery] string token)

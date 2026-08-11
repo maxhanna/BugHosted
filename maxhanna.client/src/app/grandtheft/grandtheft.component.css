@@ -528,6 +528,7 @@
 }
 .lb-rows {
   overflow-y: auto;
+  overflow-x: auto;
   flex: 1;
 }
 .lb-row {
@@ -1122,6 +1123,32 @@
 @keyframes gt-wasted-in {
   from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
   to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+#gt-busted-title {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #f00;
+  font-family: pricedown;
+  font-size: 72px;
+  font-weight: 900;
+  letter-spacing: 8px;
+  text-shadow: 0 0 20px rgba(255, 0, 0, 0.6), 0 0 40px rgba(255, 0, 0, 0.4);
+  z-index: 51;
+  pointer-events: none;
+  /* Slow dramatic zoom-in like the GTA busted screen, hold through the siren
+     sting, then ease out — synced to the 3.2s bustedTitleTimer window. */
+  animation: gt-busted-in 1.2s cubic-bezier(0.16, 1, 0.3, 1) both,
+             gt-busted-out 0.8s ease-in 2.4s forwards;
+}
+@keyframes gt-busted-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(2.2); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes gt-busted-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 #gt-dealer-hud {
   position: absolute;

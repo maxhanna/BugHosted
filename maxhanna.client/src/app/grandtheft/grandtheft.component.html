@@ -40,6 +40,7 @@
     </div>
     <div id="gt-damage-overlay" *ngIf="damageAlpha > 0" [style.opacity]="damageAlpha"></div>
     <div id="gt-busted-flash" *ngIf="bustedFlashAlpha > 0" [style.opacity]="bustedFlashAlpha"></div>
+    <div id="gt-busted-title" *ngIf="bustedTitleTimer > 0">BUSTED</div>
     <div id="gt-murder-flash" *ngIf="murderFlashAlpha > 0" [style.opacity]="murderFlashAlpha"></div>
     <div id="gt-murder-text" *ngIf="murderFlashTimer > 0" [style.opacity]="murderFlashAlpha">MURDER</div>
     <div id="gt-wasted" *ngIf="wastedTimer > 0">WASTED</div>
@@ -184,6 +185,8 @@
           <button class="lb-sort" [class.active]="hsSort === 'deaths'" (click)="setHsSort('deaths')">Deaths</button>
           <button class="lb-sort" [class.active]="hsSort === 'money'" (click)="setHsSort('money')">Money</button>
           <button class="lb-sort" [class.active]="hsSort === 'earned'" (click)="setHsSort('earned')">Earned</button>
+          <button class="lb-sort" [class.active]="hsSort === 'escapes'" (click)="setHsSort('escapes')">Escapes</button>
+          <button class="lb-sort" [class.active]="hsSort === 'busted'" (click)="setHsSort('busted')">Busted</button>
           <span class="lb-sort-hint" *ngIf="hsLoading">loading…</span>
         </div>
         <div class="lb-row lb-header-row">
@@ -192,6 +195,8 @@
           <span class="lb-stat">Score</span>
           <span class="lb-stat">Kills</span>
           <span class="lb-stat">Deaths</span>
+          <span class="lb-stat">Escapes</span>
+          <span class="lb-stat">Busted</span>
           <span class="lb-stat">Money</span>
           <span class="lb-stat">Earned</span>
         </div>
@@ -206,6 +211,8 @@
             <span class="lb-stat">{{ h.score }}</span>
             <span class="lb-stat">{{ h.kills }}</span>
             <span class="lb-stat">{{ h.deaths }}</span>
+            <span class="lb-stat">{{ h.escapes }}</span>
+            <span class="lb-stat">{{ h.busted }}</span>
             <span class="lb-stat">${{ h.money }}</span>
             <span class="lb-stat">${{ h.moneyEarned }}</span>
           </div>

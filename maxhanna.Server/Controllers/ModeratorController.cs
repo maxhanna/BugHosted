@@ -465,11 +465,20 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
+        int page = request.Page < 1 ? 1 : request.Page;
+        int pageSize = request.PageSize < 1 || request.PageSize > 100 ? 25 : request.PageSize;
+        int offset = (page - 1) * pageSize;
+        string countSql = "SELECT COUNT(*) FROM maxhanna.weaver_feedback;";
+        using var countCmd = new MySqlCommand(countSql, conn);
+        int total = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
         string sql = @"
           SELECT id, user_id, username, card_id, card_text, message, created_at
           FROM maxhanna.weaver_feedback
-          ORDER BY created_at DESC, id DESC";
+          ORDER BY created_at DESC, id DESC
+          LIMIT @Offset, @PageSize";
         using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Offset", offset);
+        cmd.Parameters.AddWithValue("@PageSize", pageSize);
         using var reader = await cmd.ExecuteReaderAsync();
         var items = new List<object>();
         while (await reader.ReadAsync())
@@ -485,7 +494,7 @@ namespace maxhanna.Server.Controllers
             createdAt = reader.GetDateTime("created_at").ToString("yyyy-MM-dd HH:mm:ss")
           });
         }
-        return Ok(items);
+        return Ok(new { items, total, page, pageSize });
       }
       catch (Exception ex)
       {
@@ -1380,6 +1389,8 @@ namespace maxhanna.Server.Controllers
   public class GetWeaverFeedbackRequest
   {
     public int CallerUserId { get; set; }
+    public int Page { get; set; } = 1;
+    public int PageSize { get; set; } = 25;
   }
   public class DeleteWeaverFeedbackRequest
   {

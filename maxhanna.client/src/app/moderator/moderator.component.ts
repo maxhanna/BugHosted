@@ -31,6 +31,10 @@ export class ModeratorComponent extends ChildComponent {
   // Weaver Admins — can view and delete weaver card feedback messages.
   isWeaverAdmin = false;
   weaverFeedback: any[] = [];
+  weaverFeedbackTotal = 0;
+  weaverFeedbackPage = 0;
+  weaverFeedbackPageSize = 25;
+  weaverFeedbackHasMore = false;
   weaverFeedbackLoading = false;
   moderators: ModeratorInfo[] = [];
   roleCatalog: RoleDefinition[] = [];
@@ -259,16 +263,26 @@ export class ModeratorComponent extends ChildComponent {
     this.logsLoading = false;
   }
 
-  /** Loads weaver card feedback, newest first (server-side ORDER BY created_at DESC). */
-  async loadWeaverFeedback() {
+  /** Loads weaver card feedback, newest first (server-side ORDER BY created_at DESC, paged).
+   *  reset=true starts from page 1; reset=false appends the next page (Load more). */
+  async loadWeaverFeedback(reset = true) {
     const userId = this.parentRef?.user?.id;
     if (!userId) return;
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
     this.weaverFeedbackLoading = true;
+    const page = reset ? 1 : this.weaverFeedbackPage + 1;
     try {
-      this.weaverFeedback = await this.moderatorService.getWeaverFeedback(userId, sessionToken);
+      const data = await this.moderatorService.getWeaverFeedback(userId, sessionToken, page, this.weaverFeedbackPageSize);
+      this.weaverFeedback = reset ? data.items : this.weaverFeedback.concat(data.items);
+      this.weaverFeedbackTotal = data.total;
+      this.weaverFeedbackPage = data.page;
+      this.weaverFeedbackHasMore = this.weaverFeedback.length < data.total;
     } catch (e) {
-      this.weaverFeedback = [];
+      if (reset) {
+        this.weaverFeedback = [];
+        this.weaverFeedbackTotal = 0;
+        this.weaverFeedbackHasMore = false;
+      }
     } finally {
       this.weaverFeedbackLoading = false;
     }
@@ -280,6 +294,8 @@ export class ModeratorComponent extends ChildComponent {
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
     if (await this.moderatorService.deleteWeaverFeedback(id, userId, sessionToken)) {
       this.weaverFeedback = this.weaverFeedback.filter(f => f.id !== id);
+      if (this.weaverFeedbackTotal > 0) this.weaverFeedbackTotal--;
+      this.weaverFeedbackHasMore = this.weaverFeedback.length < this.weaverFeedbackTotal;
     }
   }
 

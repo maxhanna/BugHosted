@@ -26,6 +26,39 @@ interface ReplayFrame {
   pdist: number; 
   cars: ReplayCar[];
 }
+// Replay frame storage as a fixed-capacity ring buffer: the old implementation
+// kept a plain array and shift()ed it once full (6000 frames), which is O(n)
+// per frame after ~100s of racing — a constant cost in the hot loop. push()
+// here is O(1) always: the oldest frame is simply overwritten.
+class ReplayFrameBuffer {
+  private readonly data: ReplayFrame[];
+  private head = 0;
+  private count = 0;
+  constructor(private readonly capacity: number) {
+    this.data = new Array<ReplayFrame>(capacity);
+  }
+  get length(): number { return this.count; }
+  /** Append a frame; when full, silently drops the oldest (keeps the last
+   *  `capacity` frames — same as the old shift-based cap). O(1). */
+  push(frame: ReplayFrame) {
+    this.data[this.head] = frame;
+    this.head = (this.head + 1) % this.capacity;
+    if (this.count < this.capacity) this.count++;
+  }
+  /** Frame at chronological index i (0 = oldest). Callers must keep i < length. */
+  at(i: number): ReplayFrame {
+    const idx = (this.head - this.count + i + this.capacity) % this.capacity;
+    return this.data[idx];
+  }
+  /** Most recent frame. */
+  last(): ReplayFrame {
+    return this.at(this.count - 1);
+  }
+  clear() {
+    this.count = 0;
+    this.head = 0;
+  }
+}
 const ACCEL = 35;
 const BRAKE_FORCE = 40;
 const BRAKE_HEAT_FADE_ON = 0.85;      
@@ -118,6 +151,17 @@ interface RemoteCarVisual {
   slide: number;
   raceDist?: number;
 }
+// Reused per-frame render slot — the live race carList used to build a fresh
+// object literal per bot/remote/player car (plus an appearance spread) every
+// frame, which churned the GC on mobile. Slots are filled in place and only
+// the filled ones are pushed as references; the renderer reads them
+// synchronously and never retains them.
+interface CarListSlot extends RacingCarAppearance {
+  x: number; y: number; z: number; yaw: number;
+  r: number; g: number; b: number;
+  speed: number; accel: number; spin: number; slide: number;
+  id: string; bank: number;
+}
 @Component({
   selector: 'app-racing',
   templateUrl: './racing.component.html',
@@ -139,7 +183,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   totalLaps = 3;
   countdownTimer = 0;
   private _raceFinished = false;
-  private _replayFrames: ReplayFrame[] = [];
+  private _replayFrames = new ReplayFrameBuffer(6000);
   private _replayTime = 0;   
   private _replaySpins = new Map<string, number>();
   // Exact appearance each recorded car wore during the live race, keyed by replay id
@@ -326,6 +370,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   ];
   @ViewChild('wheelRpm') wheelRpmEl?: ElementRef<HTMLDivElement>;
   @ViewChild('wheelGear') wheelGearEl?: ElementRef<HTMLDivElement>;
+  @ViewChild('thrFill') thrFillEl?: ElementRef<HTMLSpanElement>;
+  @ViewChild('brkFill') brkFillEl?: ElementRef<HTMLSpanElement>;
   @ViewChild('brakeFill') brakeFillEl?: ElementRef<HTMLDivElement>;
   @ViewChild('brakePeak') brakePeakEl?: ElementRef<HTMLDivElement>;
   @ViewChild('brakeGauge') brakeGaugeEl?: ElementRef<HTMLDivElement>;
@@ -373,6 +419,13 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private _lastTickSecond = -1;   
   private _lastStandingsTickSecond = -1; 
   private _prevBotSpeeds = new Map<BotCar, number>();
+  // Reused car-list array + slot pool for the live race frame (see CarListSlot).
+  private _carListArr: CarListSlot[] = [];
+  private _carSlots: CarListSlot[] = [];
+  // Reused collision-list slots — the player-car check used to build a fresh
+  // array + object per bot/remote EVERY frame (pure GC churn on mobile, in the
+  // exact cornering path where cars bunch up).
+  private _nearbyCarSlots: { x: number; z: number; yaw: number; speed: number; isBot: boolean; ref: any }[] = [];
   private _prevRemoteSpeeds = new Map<string, number>();
   private _botSpins = new Map<BotCar, number>();
   private _remoteSpins = new Map<string, number>();
@@ -389,6 +442,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   // Grid rev during the start countdown (0..1): the throttle revs the engine
   // (audio + RPM gauge + exhaust glow) without moving the parked car.
   private _countdownRev = 0;
+  // Perfect-launch timing: timestamp of the player's last gas press. A launch
+  // at the lights counts as "perfectly timed" when the throttle was (re-)engaged
+  // within a short window of GO while the engine was revved — holding gas the
+  // whole countdown never counts, so the GO flash is the real cue.
+  private _gasPressAt = 0;
+  private _launchBoostTimer = 0;
+  private _launchFlashTimer: any = undefined;
+  perfectLaunchFlash = 0;
   // Countdown cinematic: orbit the starting grid while the lights count down
   // so the field stays visible, then blend back into the cockpit camera at GO.
   private _countdownPanStartAt = 0;
@@ -427,6 +488,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   showOptions = false;
   cameraShakeOn = true;
   speedFovOn = true;
+  cornerRubberOn = true;
   /** Garage live-preview toggle: when on, hovering an appearance part (accent,
    *  decal, rims, glow, …) applies it to the 3D car in real time before buying.
    *  Off keeps the car on the equipped look while browsing. Persisted. */
@@ -444,6 +506,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     try { this.soundOn = localStorage.getItem('gp_sound') === '1'; } catch { }
     try { this.cameraShakeOn = localStorage.getItem('gp_shake') !== '0'; } catch { }
     try { this.speedFovOn = localStorage.getItem('gp_fov') !== '0'; } catch { }
+    try { this.cornerRubberOn = localStorage.getItem('gp_rubber') !== '0'; } catch { }
     try { this.garageLivePreview = localStorage.getItem('gp_livepreview') !== '0'; } catch { }
     this.restoreGarageCam();
     this.userEventService.insertUserEvent(
@@ -731,10 +794,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     // capped snow, smaller mirror) so the mountain & alpine circuits stay smooth.
     const lowQuality = this.isMobile || ((navigator.hardwareConcurrency ?? 8) <= 4);
     this.renderer = new RacingRenderer(canvas, lowQuality);
+    this.renderer.cornerRubber = this.cornerRubberOn;
     this.isLoaded = true;
     this._onKeyDown = (e: KeyboardEvent) => {
       if (this._destroyed) return;
       this.keys.add(e.code);
+      if (e.code === 'KeyW' || e.code === 'ArrowUp') this._gasPressAt = performance.now();
       if (e.code === 'KeyM' && this.gameState === 'racing') this.togglePause();
       if (e.code === 'KeyL') this.toggleLeaderboard();
       if (this.gameState === 'finished') {
@@ -1168,8 +1233,30 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this._autoStartTicker = null;
     }
   }
+  /** Judge the launch at lights-out: boost when the throttle was freshly
+   *  engaged (≤1.4s ago — the GO flash is the cue) with a revved engine.
+   *  Must run BEFORE the countdown rev is reset. */
+  private evaluatePerfectLaunch() {
+    const rev = this._countdownRev;
+    const pressAge = performance.now() - this._gasPressAt;
+    const gasNow = this.gasHeld || this.keys.has('KeyW') || this.keys.has('ArrowUp');
+    if (!gasNow || rev < 0.35 || pressAge > 1400) return;
+
+    // Nailed it — a revved, freshly-timed launch at the lights.
+    this._launchBoostTimer = 1.4;
+    this.perfectLaunchFlash = 1;
+    this.addMessage('🏁 PERFECT START! Launch boost!');
+    if (this._launchFlashTimer) clearTimeout(this._launchFlashTimer);
+    this._launchFlashTimer = setTimeout(() => { this.perfectLaunchFlash = 0; }, 1700);
+  }
+
   private beginRace() {
     this.playGoChime();
+    // Reset any stale launch state, then judge this race's launch while the
+    // countdown rev is still live (it's zeroed further down).
+    this._launchBoostTimer = 0;
+    this.perfectLaunchFlash = 0;
+    this.evaluatePerfectLaunch();
     this.gameState = 'racing';
     this.raceStartTime = performance.now();
     this.lapStartTime = this.raceStartTime;
@@ -1197,7 +1284,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.stopStandingsCountdown();
     this.dnfRacers = [];
     this._raceFinished = false;
-    this._replayFrames = [];
+    this._replayFrames.clear();
     this._replayTime = 0;
     this._replaySpins.clear();
     this._replayAppearances.clear();
@@ -1504,7 +1591,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.stopStandingsCountdown();
     this.dnfRacers = [];
     this._raceFinished = false;
-    this._replayFrames = [];
+    this._replayFrames.clear();
     this._replayTime = 0;
     this._replaySpins.clear();
     this._replayAppearances.clear();
@@ -1533,6 +1620,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       if (this.countdownTimer < 0) {
         clearInterval(this._countdownInterval);
         this.ngZone.run(() => {
+          // Judge the launch before the state flips (the countdown rev is still
+          // live here) — a timed, revved tap at the lights pays off.
+          this._launchBoostTimer = 0;
+          this.perfectLaunchFlash = 0;
+          this.evaluatePerfectLaunch();
           this.gameState = 'racing';
           this.raceStartTime = performance.now();
           this.lapStartTime = this.raceStartTime;
@@ -1643,7 +1735,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.checkLapCrossing();
       this.updateRacePosition();
       this.totalRaceTime += dt * 1000;
-      if (this._replayFrames.length >= 6000) this._replayFrames.shift();
+      // Ring buffer caps itself — no shift() tax once 6000 frames are in.
       const recColors = [
         [0.8, 0.2, 0.2], [0.2, 0.4, 0.9], [0.1, 0.7, 0.1],
         [0.9, 0.7, 0.1], [0.7, 0.2, 0.7], [1.0, 0.5, 0]
@@ -1763,7 +1855,13 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       const accelFor = (obj: { speed: number }, prev: number) =>
         dt > 0 ? (obj.speed - prev) / dt : 0;
       const wheelRate = (spd: number) => Math.min(Math.abs(spd) / 0.17, 40) * (spd < 0 ? 1 : -1);
-      const carList = this.bots.map((b, i) => {
+      // Reused per-frame car slots — the previous version built a fresh object
+      // literal (plus appearance spread) per car every frame; slots are filled
+      // in place and the array only holds references.
+      const carList = this._carListArr;
+      carList.length = 0;
+      for (let bi = 0; bi < this.bots.length; bi++) {
+        const b = this.bots[bi];
         const c = this.getBotColorRGB(b.color);
         const prev = this._prevBotSpeeds.get(b) ?? b.speed;
         this._prevBotSpeeds.set(b, b.speed);
@@ -1771,12 +1869,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         this._botSpins.set(b, spin);
         const botAccel = b.brakeCommitment !== undefined ? -b.brakeCommitment : accelFor(b, prev);
         const bBank = this.renderer.getTrackBank(b.dist);
-        return {
-          x: b.x, y: this.renderer.getTrackElevation(b.dist) + bBank * this.renderer.getTrackLateral(b.x, b.z) + 0.1, z: b.z, yaw: b.yaw, r: c[0], g: c[1], b: c[2], speed: b.speed, accel: botAccel, spin, slide: b.slide,
-          id: b.id, bank: bBank,
-          ...this.botAppearanceFor(i, b.color)
-        };
-      });
+        const s = this.carSlotAt(carList.length);
+        s.x = b.x; s.y = this.renderer.getTrackElevation(b.dist) + bBank * this.renderer.getTrackLateral(b.x, b.z) + 0.1; s.z = b.z; s.yaw = b.yaw;
+        s.r = c[0]; s.g = c[1]; s.b = c[2];
+        s.speed = b.speed; s.accel = botAccel; s.spin = spin; s.slide = b.slide;
+        s.id = b.id; s.bank = bBank;
+        this.fillBotAppearance(s, bi, b.color);
+        carList.push(s);
+      }
       this.remoteCars.forEach((rc) => {
         const prev = this._prevRemoteSpeeds.get(rc.connectionId) ?? rc.speed;
         this._prevRemoteSpeeds.set(rc.connectionId, rc.speed);
@@ -1786,38 +1886,40 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         const i = seed % 1000;
         const rcDist = rc.lap * this.renderer.totalTrackDist + (rc.distance ?? 0);
         const rcBank = this.renderer.getTrackBank(rcDist);
-        carList.push({
-          x: rc.x, y: this.renderer.getTrackElevation(rcDist) + rcBank * this.renderer.getTrackLateral(rc.x, rc.z) + 0.1, z: rc.z,
-          yaw: rc.yaw,
-          r: rc.colorR, g: rc.colorG, b: rc.colorB,
-          speed: rc.speed,
-          accel: accelFor(rc, prev),
-          spin,
-          slide: rc.slide,
-          id: 'r' + rc.connectionId, bank: rcBank,
-          ...this.botAppearanceFor(i, seed)
-        });
+        const s = this.carSlotAt(carList.length);
+        s.x = rc.x; s.y = this.renderer.getTrackElevation(rcDist) + rcBank * this.renderer.getTrackLateral(rc.x, rc.z) + 0.1; s.z = rc.z;
+        s.yaw = rc.yaw;
+        s.r = rc.colorR; s.g = rc.colorG; s.b = rc.colorB;
+        s.speed = rc.speed;
+        s.accel = accelFor(rc, prev);
+        s.spin = spin;
+        s.slide = rc.slide;
+        s.id = 'r' + rc.connectionId; s.bank = rcBank;
+        this.fillBotAppearance(s, i, seed);
+        carList.push(s);
       });
       // During the countdown pan the camera is away from the car, so add the
       // player's own car to the scene — it is normally the camera host and
       // therefore not rendered in the main view.
+      const pa = this.getPlayerAppearance();
       if (countdownPanActive) {
-        const pa = this.getPlayerAppearance();
         const skin = pa.skin ?? [0.85, 0.06, 0.06];
         const pBank = this.renderer.getTrackBank(this.carDist);
-        carList.push({
-          x: this.carX,
-          y: this.renderer.getTrackElevation(this.carDist) + pBank * this.renderer.getTrackLateral(this.carX, this.carZ) + 0.1,
-          z: this.carZ, yaw: this.carYaw,
-          r: skin[0], g: skin[1], b: skin[2],
-          speed: 0, accel: 0, spin: 0, slide: 0,
-          id: 'player', bank: pBank,
-          ...pa
-        });
+        const s = this.carSlotAt(carList.length);
+        s.x = this.carX;
+        s.y = this.renderer.getTrackElevation(this.carDist) + pBank * this.renderer.getTrackLateral(this.carX, this.carZ) + 0.1;
+        s.z = this.carZ; s.yaw = this.carYaw;
+        s.r = skin[0]; s.g = skin[1]; s.b = skin[2];
+        s.speed = 0; s.accel = 0; s.spin = 0; s.slide = 0;
+        s.id = 'player'; s.bank = pBank;
+        s.rimStyle = pa.rimStyle; s.spoilerId = pa.spoilerId; s.exhaustId = pa.exhaustId;
+        s.accent = pa.accent; s.decalStyle = pa.decalStyle; s.glow = pa.glow;
+        s.glowIntensity = pa.glowIntensity; s.metallic = pa.metallic; s.skin = pa.skin;
+        carList.push(s);
       }
       this._playerSpin += wheelRate(this.carSpeed) * dt;
       // The rear-view mirror is meaningless while the cinematic pan is active.
-      this.renderer.render(eyeX, eyeY, eyeZ, yaw, pitch, aspect, carList, dt, fovZoom, shakeX, shakeY, this.isRaining, speedRatio, this.carSpeed, this.carAccel, this._playerSpin, this._playerSlide, this.getPlayerAppearance(), countdownPanActive, this.steerSmoothed / 90);
+      this.renderer.render(eyeX, eyeY, eyeZ, yaw, pitch, aspect, carList, dt, fovZoom, shakeX, shakeY, this.isRaining, speedRatio, this.carSpeed, this.carAccel, this._playerSpin, this._playerSlide, pa, countdownPanActive, this.steerSmoothed / 90);
       this.hudSpeed = Math.abs(this.carSpeed * 3.6);
       this.hudRPM = this.gameState === 'countdown'
         ? Math.min(1, this._countdownRev * 1.2)
@@ -1853,6 +1955,16 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       }
       if (this.wheelGearEl?.nativeElement) {
         this.wheelGearEl.nativeElement.textContent = this.getGear();
+      }
+      // Pedal-state bars: mirror the gas/brake press onto the wheel face so
+      // the touch state reads even when the pedals sit low on screen (mobile).
+      // carAccel is ±1/0 from processInput, so the bars show binary press
+      // state — they fill during countdown revving too.
+      if (this.thrFillEl?.nativeElement && this.brkFillEl?.nativeElement) {
+        const thr = Math.max(0, this.carAccel);
+        const brk = Math.max(0, -this.carAccel);
+        this.thrFillEl.nativeElement.style.width = (thr * 100).toFixed(1) + '%';
+        this.brkFillEl.nativeElement.style.width = (brk * 100).toFixed(1) + '%';
       }
       if (this.brakeFillEl?.nativeElement && this.brakePeakEl?.nativeElement) {
         const state = this.getBrakeHeatState();
@@ -1955,7 +2067,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._playerSlide = slide;
     if (this.carAccel > 0) {
       const traction = 1 - 0.6 * slide;
-      this.carSpeed += ACCEL * (1 + this.getWeightBonus() / 200) * traction * dt;
+      // Perfect-launch bonus: a timed, revved launch at the lights gives a
+      // brief accel multiplier (a grip-rich hole-shot) — small but tangible.
+      const launch = this._launchBoostTimer > 0 ? 1.3 : 1;
+      if (this._launchBoostTimer > 0) this._launchBoostTimer -= dt;
+      this.carSpeed += ACCEL * (1 + this.getWeightBonus() / 200) * traction * launch * dt;
     } else if (this.carAccel < 0) {
       this.carSpeed -= brakeForce * dt;
     } else {
@@ -2069,15 +2185,24 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       const myX = this.carX, myZ = this.carZ, mySpeed = this.carSpeed;
       const minDist = CAR_RADIUS * 2;
       this._carImpactCooldown -= dt;
-      const nearbyCars: { x: number; z: number; yaw: number; speed: number; isBot: boolean; ref: any }[] = [];
+      // Reused slots — no fresh array/objects per frame (see _nearbyCarSlots).
+      const slots = this._nearbyCarSlots;
+      let nCars = 0;
       for (const bot of this.bots) {
         if (!bot.alive) continue;
-        nearbyCars.push({ x: bot.x, z: bot.z, yaw: bot.yaw, speed: bot.speed, isBot: true, ref: bot });
+        let s = slots[nCars];
+        if (!s) { s = { x: 0, z: 0, yaw: 0, speed: 0, isBot: true, ref: null }; slots[nCars] = s; }
+        s.x = bot.x; s.z = bot.z; s.yaw = bot.yaw; s.speed = bot.speed; s.isBot = true; s.ref = bot;
+        nCars++;
       }
       for (const [, rc] of this.remoteCars) {
-        nearbyCars.push({ x: rc.x, z: rc.z, yaw: rc.yaw, speed: rc.speed, isBot: false, ref: rc });
+        let s = slots[nCars];
+        if (!s) { s = { x: 0, z: 0, yaw: 0, speed: 0, isBot: false, ref: null }; slots[nCars] = s; }
+        s.x = rc.x; s.z = rc.z; s.yaw = rc.yaw; s.speed = rc.speed; s.isBot = false; s.ref = rc;
+        nCars++;
       }
-      for (const other of nearbyCars) {
+      for (let k = 0; k < nCars; k++) {
+        const other = slots[k];
         const dxC = myX - other.x;
         const dzC = myZ - other.z;
         const dist = Math.hypot(dxC, dzC);
@@ -2381,6 +2506,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const lapReached = trackLen > 0 ? Math.floor(this._playerRaceDist / trackLen) : 0;
     if (lapReached > this.currentLap) {
       this.currentLap = lapReached;
+      // Rubber-in resets per lap: last lap's braking marks fade out permanently.
+      this.renderer?.onLapCompleted();
       this._brakePeakThisLap = 0;
       if (this.currentLap >= this.totalLaps) {
         if (this.racePosition !== 1) this.playCrowdCheer('big', 1.5);
@@ -3504,18 +3631,38 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const n = parseInt(full, 16);
     return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
   }
-  private botAppearanceFor(i: number, seed: number): RacingCarAppearance {
+  /** Slot accessor — lazily grows the car-slot pool (bots + remotes + player). */
+  private carSlotAt(i: number): CarListSlot {
+    let s = this._carSlots[i];
+    if (!s) {
+      s = { x: 0, y: 0, z: 0, yaw: 0, r: 0, g: 0, b: 0, speed: 0, accel: 0, spin: 0, slide: 0, id: '', bank: 0 };
+      this._carSlots[i] = s;
+    }
+    return s;
+  }
+  /** Same computation as botAppearanceFor but writes into a reused slot — no
+   *  intermediate object. Runs for every bot/remote car on every frame. */
+  private fillBotAppearance(slot: CarListSlot, i: number, seed: number) {
     // Uses the module-level hoisted id arrays — never Object.keys here, this
     // runs for every bot/remote/replay car on every frame.
     const hash = (i * 7 + seed * 13) & 0xffff;
-    return {
-      rimStyle: RIM_TINT_IDS[(hash + i) % RIM_TINT_IDS.length],
-      decalStyle: DECAL_COLOR_IDS[(hash * 3 + i) % DECAL_COLOR_IDS.length],
-      accent: ACCENT_COLORS[ACCENT_COLOR_IDS[(hash + i * 2) % ACCENT_COLOR_IDS.length]],
-      glow: (hash + i) % 5 === 0 ? GLOW_COLORS[GLOW_COLOR_IDS[(hash + i) % GLOW_COLOR_IDS.length]] : undefined,
-      glowIntensity: 30 + ((hash + i * 17) % 5) * 15,
-      metallic: 0.3 + ((hash + i * 3) % 6) / 10,
-    };
+    slot.rimStyle = RIM_TINT_IDS[(hash + i) % RIM_TINT_IDS.length];
+    slot.decalStyle = DECAL_COLOR_IDS[(hash * 3 + i) % DECAL_COLOR_IDS.length];
+    slot.accent = ACCENT_COLORS[ACCENT_COLOR_IDS[(hash + i * 2) % ACCENT_COLOR_IDS.length]];
+    slot.glow = (hash + i) % 5 === 0 ? GLOW_COLORS[GLOW_COLOR_IDS[(hash + i) % GLOW_COLOR_IDS.length]] : undefined;
+    slot.glowIntensity = 30 + ((hash + i * 17) % 5) * 15;
+    slot.metallic = 0.3 + ((hash + i * 3) % 6) / 10;
+    // Bots/remotes never carry these player-only fields — clear them so a slot
+    // reused from a previous frame (e.g. the countdown player car) can't leak
+    // the player's spoiler/exhaust/paint onto an NPC.
+    slot.spoilerId = undefined;
+    slot.exhaustId = undefined;
+    slot.skin = undefined;
+  }
+  private botAppearanceFor(i: number, seed: number): RacingCarAppearance {
+    const s: CarListSlot = { x: 0, y: 0, z: 0, yaw: 0, r: 0, g: 0, b: 0, speed: 0, accel: 0, spin: 0, slide: 0, id: '', bank: 0 };
+    this.fillBotAppearance(s, i, seed);
+    return s;
   }
   /** Stable per-connectionId appearance seed, computed once and cached — the
    *  connectionId never changes, so the split/reduce only runs on first use
@@ -3537,7 +3684,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   /** Total recorded replay length (ms) — the last frame's timestamp. */
   get replayDuration(): number {
     const frames = this._replayFrames;
-    return frames.length > 1 ? frames[frames.length - 1].t : 0;
+    return frames.length > 1 ? frames.last().t : 0;
   }
   onReplayScrubStart(e: PointerEvent) {
     this._replayDragging = true;
@@ -3588,7 +3735,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
     const canvas = this.canvasRef.nativeElement;
     const aspect = canvas.width / canvas.height;
-    const last = frames[frames.length - 1];
+    const last = frames.last();
     const keyDir = (this.keys.has('ArrowLeft') ? -1 : 0) + (this.keys.has('ArrowRight') ? 1 : 0);
     this.replayScrubDir = keyDir;
     if (this._replayDragging) {
@@ -3610,9 +3757,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
     const timeDir = keyDir !== 0 ? Math.sign(keyDir) : (this.replayPaused ? 0 : 1);
     let i = 0;
-    while (i < frames.length - 2 && frames[i + 1].t < this._replayTime) i++;
-    const a = frames[i];
-    const b = frames[i + 1];
+    while (i < frames.length - 2 && frames.at(i + 1).t < this._replayTime) i++;
+    const a = frames.at(i);
+    const b = frames.at(i + 1);
     const frac = Math.min(1, Math.max(0, (this._replayTime - a.t) / Math.max(0.001, b.t - a.t)));
     const lerp = (x: number, y: number) => x + (y - x) * frac;
     const px = lerp(a.px, b.px);
@@ -3944,7 +4091,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.joyThumbEl.nativeElement.style.transform = 'translate(0px, 0px)';
     }
   }
-  gasDown() { this.gasHeld = true; }
+  gasDown() { this.gasHeld = true; this._gasPressAt = performance.now(); }
   gasUp() { this.gasHeld = false; }
   brakeDown() { this.brakeHeld = true; }
   brakeUp() { this.brakeHeld = false; }
@@ -4089,6 +4236,15 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this._destroyed) return;
     this.speedFovOn = !this.speedFovOn;
     try { localStorage.setItem('gp_fov', this.speedFovOn ? '1' : '0'); } catch { }
+  }
+  toggleCornerRubber() {
+    if (this._destroyed) return;
+    this.cornerRubberOn = !this.cornerRubberOn;
+    try { localStorage.setItem('gp_rubber', this.cornerRubberOn ? '1' : '0'); } catch { }
+    if (this.renderer) {
+      this.renderer.cornerRubber = this.cornerRubberOn;
+      if (!this.cornerRubberOn) this.renderer.clearScrubMarks();
+    }
   }
   toggleGarageLivePreview() {
     if (this._destroyed) return;

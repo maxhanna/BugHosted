@@ -707,6 +707,28 @@ export class GrandTheftRenderer {
     }
     return best;
   }
+  /** All police-station buildings within the radius (each with the building's
+   *  yaw and street-facing half-depth so callers can compute front-door
+   *  positions) — used for the ambient station-cop spawns. */
+  getPoliceStationsNear(x: number, z: number, radius: number): { x: number; z: number; yaw: number; hd: number }[] {
+    const result: { x: number; z: number; yaw: number; hd: number }[] = [];
+    const pcx = Math.floor(x / CHUNK_SIZE);
+    const pcz = Math.floor(z / CHUNK_SIZE);
+    const cr = Math.max(1, Math.ceil(radius / CHUNK_SIZE));
+    for (let dz = -cr; dz <= cr; dz++) {
+      for (let dx = -cr; dx <= cr; dx++) {
+        const chunk = this.getCityChunk(pcx + dx, pcz + dz);
+        if (!chunk) continue;
+        for (const bld of chunk.buildings) {
+          if (!bld.model || bld.model.length === 0) continue;
+          if (!bld.model[0].carName || !bld.model[0].carName.includes('police_station')) continue;
+          if (Math.hypot(bld.x - x, bld.z - z) > radius) continue;
+          result.push({ x: bld.x, z: bld.z, yaw: bld.yaw ?? 0, hd: this.supermarketHalfDepth(bld.model, bld.scale, bld.yaw ?? 0) });
+        }
+      }
+    }
+    return result;
+  }
   getGasStationAtPoint(x: number, z: number): { x: number; z: number } | null {
     const pcx = Math.floor(x / CHUNK_SIZE);
     const pcz = Math.floor(z / CHUNK_SIZE);

@@ -2956,7 +2956,8 @@
   letter-spacing: 14px;
   color: #ffd600;
   text-shadow: 0 0 34px rgba(255, 214, 0, 0.85);
-  animation: race-countdown-go-pulse 0.6s ease-in-out infinite;
+  /* One-shot pop when GO appears (the launch cue), then a steady pulse. */
+  animation: race-countdown-go-flash 0.55s ease-out 1, race-countdown-go-pulse 0.5s ease-in-out 0.55s infinite;
 }
 
 .race-countdown-caption {
@@ -3017,6 +3018,26 @@
   }
 }
 
+@keyframes race-countdown-go-flash {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+    filter: brightness(2.4);
+  }
+
+  40% {
+    transform: scale(1.35);
+    opacity: 1;
+    filter: brightness(1.6);
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    filter: brightness(1);
+  }
+}
+
 @keyframes race-countdown-go-pulse {
 
   0%,
@@ -3025,7 +3046,60 @@
   }
 
   50% {
-    transform: scale(1.08);
+    transform: scale(1.14);
+  }
+}
+
+/* Perfect-launch banner — green burst that pops in, holds, then fades out. */
+.perfect-launch-banner {
+  position: absolute;
+  top: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 26;
+  pointer-events: none;
+  animation: plb-pop 1.6s ease-out forwards;
+}
+
+.perfect-launch-banner .plb-title {
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: 6px;
+  color: #69f0ae;
+  text-shadow: 0 0 30px rgba(105, 240, 174, 0.9), 0 0 70px rgba(0, 255, 128, 0.45), 0 2px 8px rgba(0, 0, 0, 0.85);
+}
+
+.perfect-launch-banner .plb-sub {
+  margin-top: 6px;
+  font-size: 15px;
+  letter-spacing: 4px;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 0 14px rgba(0, 0, 0, 0.9);
+}
+
+@keyframes plb-pop {
+  0% {
+    transform: translateX(-50%) scale(0.3);
+    opacity: 0;
+  }
+
+  18% {
+    transform: translateX(-50%) scale(1.15);
+    opacity: 1;
+  }
+
+  30% {
+    transform: translateX(-50%) scale(1);
+  }
+
+  78% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0;
   }
 }
 
@@ -3841,6 +3915,58 @@
   letter-spacing: 2px;
 }
 
+/* Pedal-state bars on the wheel face — green THR fills with the gas pedal,
+   red BRK with the brake. Mirrors the mobile pedals (which sit low on
+   screen) onto the HUD where the driver is already looking. */
+.pedal-bars {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.pedal-bar {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.pedal-bar-label {
+  font-size: 7px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 1px;
+  width: 16px;
+  text-align: left;
+}
+
+.pedal-bar-track {
+  display: block;
+  width: 54px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+}
+
+.pedal-bar-fill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  transition: width 0.05s;
+}
+
+.pedal-fill-thr {
+  background: linear-gradient(90deg, #43a047, #66bb6a);
+  box-shadow: 0 0 6px rgba(102, 187, 106, 0.6);
+}
+
+.pedal-fill-brk {
+  background: linear-gradient(90deg, #d32f2f, #ef5350);
+  box-shadow: 0 0 6px rgba(239, 83, 80, 0.6);
+}
+
 .driver-hand {
   position: absolute;
   pointer-events: none;
@@ -4223,6 +4349,15 @@
 
   .wheel-gear {
     font-size: 14px;
+  }
+
+  .pedal-bar-track {
+    width: 38px;
+  }
+
+  .pedal-bars {
+    gap: 5px;
+    margin-top: 3px;
   }
 
   .panel-title {

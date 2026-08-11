@@ -523,6 +523,9 @@ export class RacingRenderer {
   // the heaviest scenery (conifer counts and mesh density) and per-frame effects
   // (snow flake count) so the mountain and alpine circuits stay smooth on phones.
   lowQuality = false;
+  // Corner-rubber toggle: when false, braking marks are skipped entirely so
+  // players who find the braking-zone rubber distracting can turn it off.
+  cornerRubber = true;
   night = false;
   skyTop: [number, number, number] = [0.1, 0.2, 0.5];
   skyHorizon: [number, number, number] = [0.7, 0.75, 0.85];
@@ -614,6 +617,12 @@ export class RacingRenderer {
   private mirrorView!: Float32Array;
   constructor(canvas: HTMLCanvasElement, lowQuality = false) {
     this.lowQuality = lowQuality;
+    // Mobile/weak GPUs get trimmed effect budgets: drift smoke and scrub marks
+    // are the two effects that spike exactly when cornering/sliding, so their
+    // caps are cut on phones to halve the particle churn + blended fill where
+    // it matters. All buffers/scratch derive from these caps, so sizing follows.
+    this._smokeMax = lowQuality ? 96 : 220;
+    this._scrubMax = lowQuality ? 200 : 400;
     const gl = canvas.getContext('webgl2', { antialias: true, alpha: false });
     if (!gl) throw new Error('WebGL2 not supported');
     this.gl = gl;
@@ -6000,6 +6009,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private _rainVao!: WebGLVertexArrayObject;
   private _rainCount = 0;
   private _rainInitialized = false;
+  // Reused uniforms scratch — the rain path used to allocate a fresh
+  // Float32Array per scene pass (3 per drawWorldScene call) every frame.
+  private _rainSunScratch = new Float32Array(3);
+  private _rainAmbScratch = new Float32Array([0.15, 0.15, 0.18]);
+  private _rainFogScratch = new Float32Array([0.2, 0.22, 0.25]);
   private _snowParticles: { x: number; y: number; z: number; fall: number; wind: number; phase: number }[] = [];
   private _snowVao!: WebGLVertexArrayObject;
   private _snowBuf!: WebGLBuffer;
@@ -6073,10 +6087,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private _smokeVao!: WebGLVertexArrayObject;
   private _smokeBuf!: WebGLBuffer;
   private _smokeMax = 220;
-  private _scrubMarks: { x: number; z: number; yaw: number; len: number; wid: number; life: number; maxLife: number; alphaBase: number }[] = [];
+  private _scrubMarks: { x: number; z: number; yaw: number; len: number; wid: number; life: number; maxLife: number; alphaBase: number; lap: number }[] = [];
   private _scrubVao: WebGLVertexArrayObject | null = null;
   private _scrubBuf: WebGLBuffer | null = null;
   private _scrubMax = 400;
+  // Lap counter for the rubber-in effect: marks persist through the lap they
+  // were laid in (life is a 0..1 fade progress), then permanently fade once
+  // the player completes the next lap (see onLapCompleted).
+  private _scrubLap = 0;
   // Reusable per-frame vertex scratch for scrub marks/smoke (no per-frame alloc).
   private _scrubScratch: Float32Array | null = null;
   private _smokeScratch: Float32Array | null = null;
@@ -6140,7 +6158,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     for (const side of [-1, 1]) {
       const wx = x - 0.55 * sinY - side * 0.60 * cosY;
       const wz = z - 0.55 * cosY + side * 0.60 * sinY;
-      const count = 1 + Math.floor(intensity * 2 + Math.random());
+      // Mobile: half the emission rate — the smoke still reads on screen, but
+      // the per-frame particle churn during a sustained slide drops with the
+      // weaker GPU instead of saturating the cap.
+      const count = 1 + Math.floor(intensity * (this.lowQuality ? 1 : 2) + Math.random());
       for (let i = 0; i < count; i++) {
         if (this._smokeParticles.length >= this._smokeMax) return;
         this._smokeParticles.push({
@@ -6298,7 +6319,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.bindVertexArray(null);
     this._scrubBuf = buf;
   }
+  /** Drop all visible braking marks (used when the corner-rubber option is
+   *  turned off mid-session). */
+  clearScrubMarks() {
+    this._scrubMarks = [];
+    this._scrubLast.clear();
+  }
   private emitScrubMarks(x: number, z: number, yaw: number, brake: number, speed: number, keyPrefix: string) {
+    if (!this.cornerRubber) return;
     const heatArr = keyPrefix === 'player' ? this._playerHeat : this._carHeat.get(keyPrefix);
     let fade = 1;
     if (heatArr) {
@@ -6309,8 +6337,17 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
     }
     const intensity = Math.min(brake, 1);
-    if (intensity <= 0) return;
-    const spacing = (1.5 + Math.abs(speed) * 0.03) * (2 - fade);
+    // Only heavy braking paints rubber — the old gate (brake > 0) let light
+    // brake taps lay faint marks all over the braking zone, which smeared
+    // into gray. 0.62 ≈ a committed braking press (accel ≤ ~-0.62); gentle
+    // taps still kick brake dust but leave the track clean.
+    if (intensity < 0.62) return;
+    // Spacing is deliberately WIDER than the mark length so streaks stay
+    // distinct — the old density (marks ~3.3 long laid every ~2.4 units) let
+    // every car's 4 wheels pile overlapping rubber onto the same braking line,
+    // welding into a gray sheet that hid the corner. Lower alpha + shorter
+    // life keep the effect as subtle rubber rather than a puddle.
+    const spacing = (3.4 + Math.abs(speed) * 0.045) * (2 - fade);
     const sinY = Math.sin(yaw), cosY = Math.cos(yaw);
     for (const axle of [0.62, -0.62]) {
       for (const side of [-1, 1]) {
@@ -6324,20 +6361,36 @@ void main() { FragColor = texture(uTex, vUV); }`;
           x: x + axle * sinY - side * (axle < 0 ? 0.68 : 0.60) * cosY,
           z: z + axle * cosY + side * (axle < 0 ? 0.68 : 0.60) * sinY,
           yaw,
-          len: 2.1 + Math.abs(speed) * 0.04,
+          len: 1.9 + Math.abs(speed) * 0.035,
           wid: ((axle < 0 ? 0.42 : 0.34) + Math.random() * 0.12) * (0.5 + 0.5 * fade),
+          // Rubber-in: marks persist for the lap they were laid in (life is a
+          // 0..1 fade progress used only when the lap ages out, see updateScrubMarks).
           life: 0,
-          maxLife: 4 + Math.random() * 2,
-          alphaBase: (0.2 + intensity * 0.12) * fade
+          maxLife: 1,
+          lap: this._scrubLap,
+          alphaBase: (0.08 + intensity * 0.06) * fade
         });
       }
     }
   }
+  /** Called when the player completes a lap: the previous lap's rubber fades
+   *  out permanently over the next ~1.5s, so each lap builds its own fresh
+   *  rubber-in line like a real F1 stint. */
+  onLapCompleted() {
+    this._scrubLap++;
+  }
   private updateScrubMarks(dt: number) {
     const marks = this._scrubMarks;
     for (let i = marks.length - 1; i >= 0; i--) {
-      marks[i].life += dt;
-      if (marks[i].life >= marks[i].maxLife) { marks.splice(i, 1); continue; }
+      const mk = marks[i];
+      const lapAge = this._scrubLap - mk.lap;
+      // Current-lap marks persist (rubber collects along the braking line);
+      // last lap's marks fade out permanently; older ones are gone.
+      if (lapAge >= 2) { marks.splice(i, 1); continue; }
+      if (lapAge === 1) {
+        mk.life += dt * (1 / 1.5);
+        if (mk.life >= 1) { marks.splice(i, 1); continue; }
+      }
     }
   }
   private drawScrubMarks(proj: Float32Array, view: Float32Array, eye: number[]) {
@@ -7083,6 +7136,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
     }
   }
+  // Hoisted once — the per-draw allocation of this small quad config array in
+  // the desert dust-devil pass was pure per-frame GC churn on mobile.
+  private static readonly DUST_DEVIL_QUADS: [number, number, number][] = [[0.35, 1.0, 0.26], [1.8, 0.8, 0.34], [3.1, 0.5, 0.16]];
   private drawDesertWind(dt: number, proj: Float32Array, view: Float32Array, eye: number[], advance: boolean) {
     if (this.theme !== 'desert') return;
     if (!this._tumbleweeds.length && !this._dustDevils.length) return;
@@ -7111,7 +7167,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const dx = w.x - eye[0], dz = w.z - eye[2];
         if (dx * dx + dz * dz > cull2) continue;
         const shade = 0.85 + Math.sin(t * 1.3 + w.phase) * 0.15;
-        const col = [0.5 * shade, 0.34 * shade, 0.17 * shade];
+        const cr = 0.5 * shade, cg = 0.34 * shade, cb = 0.17 * shade;
         const s = w.size;
         for (const ang of [0, Math.PI / 2]) {
           const ca = Math.cos(w.phase + ang), sa = Math.sin(w.phase + ang);
@@ -7127,15 +7183,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
           for (let i = 0; i < 10; i++) {
             data[o++] = w.x; data[o++] = 0.32; data[o++] = w.z;
             data[o++] = 0; data[o++] = 1; data[o++] = 0;
-            data[o++] = col[0]; data[o++] = col[1]; data[o++] = col[2];
+            data[o++] = cr; data[o++] = cg; data[o++] = cb;
             data[o++] = 0; data[o++] = 0;
             data[o++] = ring[i * 3]; data[o++] = ring[i * 3 + 1]; data[o++] = ring[i * 3 + 2];
             data[o++] = 0; data[o++] = 1; data[o++] = 0;
-            data[o++] = col[0]; data[o++] = col[1]; data[o++] = col[2];
+            data[o++] = cr; data[o++] = cg; data[o++] = cb;
             data[o++] = 0; data[o++] = 0;
             data[o++] = ring[i * 3 + 3]; data[o++] = ring[i * 3 + 4]; data[o++] = ring[i * 3 + 5];
             data[o++] = 0; data[o++] = 1; data[o++] = 0;
-            data[o++] = col[0]; data[o++] = col[1]; data[o++] = col[2];
+            data[o++] = cr; data[o++] = cg; data[o++] = cb;
             data[o++] = 0; data[o++] = 0;
           }
         }
@@ -7181,11 +7237,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const c1 = Math.cos(d.phase), s1 = Math.sin(d.phase);
         const a1x = rx * c1 + ux * s1, a1y = ry * c1 + uy * s1, a1z = rz * c1 + uz * s1;
         const b1x = -rx * s1 + ux * c1, b1y = -ry * s1 + uy * c1, b1z = -rz * s1 + uz * c1;
-        const quads: [number, number, number][] = [[0.35, 1.0, 0.26], [1.8, 0.8, 0.34], [3.1, 0.5, 0.16]];
         for (const rot of [0, Math.PI / 2]) {
           const cr = Math.cos(rot), sr = Math.sin(rot);
           const ax = a1x * cr + b1x * sr, ay = a1y * cr + b1y * sr, az = a1z * cr + b1z * sr;
-          for (const [cy, wf, alpha] of quads) {
+          for (const [cy, wf, alpha] of RacingRenderer.DUST_DEVIL_QUADS) {
             const hw = (d.size * Math.max(0.35, 1 - cy / 3.4) * wf) / 2;
             const hh = 0.55 * (0.8 + cy * 0.35);
             const x0 = d.x, y0 = cy, z0 = d.z;
@@ -7752,7 +7807,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.uniform3fv(this.envBottomLoc, this.skyBottom);
     gl.uniform1f(this.envStrengthLoc, 0.16);
     if (isRaining) {
-      gl.uniform3fv(this.sunColorLoc, new Float32Array([this.sunColor[0] * 0.5, this.sunColor[1] * 0.5, this.sunColor[2] * 0.55]));
+      this._rainSunScratch[0] = this.sunColor[0] * 0.5;
+      this._rainSunScratch[1] = this.sunColor[1] * 0.5;
+      this._rainSunScratch[2] = this.sunColor[2] * 0.55;
+      gl.uniform3fv(this.sunColorLoc, this._rainSunScratch);
     } else {
       gl.uniform3fv(this.sunColorLoc, this.sunColor);
     }
@@ -7763,8 +7821,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.uniform1i(this.shadowMapLoc, 1);
     gl.activeTexture(gl.TEXTURE0);
     if (isRaining) {
-      gl.uniform3fv(this.ambientLoc, new Float32Array([0.15, 0.15, 0.18]));
-      gl.uniform3fv(this.fogColorLoc, new Float32Array([0.2, 0.22, 0.25]));
+      gl.uniform3fv(this.ambientLoc, this._rainAmbScratch);
+      gl.uniform3fv(this.fogColorLoc, this._rainFogScratch);
     } else {
       gl.uniform3fv(this.ambientLoc, this.ambientColor);
       gl.uniform3fv(this.fogColorLoc, this.fogColor);
@@ -7908,7 +7966,17 @@ void main() { FragColor = texture(uTex, vUV); }`;
     for (const car of cars) {
       this.renderCar(car.x, car.y, car.z, car.yaw, car.r, car.g, car.b, car.speed ?? 0, car.accel ?? 0, car.spin, car.slide ?? 0, car, 0, car.bank ?? 0);
       if (drawRain && (car.slide ?? 0) > 0.35) {
-        this.emitSmoke(car.x, car.z, car.yaw, car.slide ?? 0);
+        // Drift smoke fades with camera distance: full emission within ~55
+        // units, ramping down to nothing past ~95. Distant bots sliding around
+        // a corner used to burn the particle budget (alloc + fill) on puffs
+        // the camera can barely see — probabilistic gating gives a natural
+        // falloff without a visible pop-in edge.
+        const sdx = car.x - eye[0], sdz = car.z - eye[2];
+        const sDist2 = sdx * sdx + sdz * sdz;
+        const smokeFade = Math.max(0, Math.min(1, (95 * 95 - sDist2) / (95 * 95 - 55 * 55)));
+        if (smokeFade > 0 && Math.random() < smokeFade) {
+          this.emitSmoke(car.x, car.z, car.yaw, car.slide ?? 0);
+        }
       }
       if (drawRain && this.theme === 'desert') {
         const off = this.getTrackLateralInfo(car.x, car.z);
@@ -9103,6 +9171,7 @@ void main() {
     this.winTrailAnchor = null;
     this._scrubMarks = [];
     this._scrubLast.clear();
+    this._scrubLap = 0;
     this._carHeat.clear();
     this._carLock.clear();
     this._carSnow.clear();
@@ -9117,6 +9186,7 @@ void main() {
     this._playerSnow = 0;
     this._scrubMarks = [];
     this._scrubLast.clear();
+    this._scrubLap = 0;
     if (this._heatFBO) {
       const gl = this.gl;
       gl.deleteFramebuffer(this._heatFBO);

@@ -96,6 +96,11 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   private locationSub?: SubscriptionLike;
   private radioAudioEl?: HTMLAudioElement;
   private screenLock?: any;
+  // How many consecutive failed hard rebuilds before we stop self-healing. The
+  // old code would destroy + recreate the player forever when construction kept
+  // failing (rare YouTube API glitch, ad-blocker, stale player registry), which
+  // looked like the video refreshing on a loop.
+  private static readonly MAX_YT_REBUILDS = 3;
   private readonly instance = Math.random().toString(16).slice(2);
   private mo?: MutationObserver;
   private ytHealthTimer?: number;
@@ -108,6 +113,12 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   private ytIds: string[] = [];
   private ytIndex = 0;
   private ytDeadCount = 0;
+  // Bounded self-heal budget (see MAX_YT_REBUILDS). Reset on a confirmed build
+  // (onReady / iframe appears) or on a fresh user-initiated rebuild.
+  private ytRebuildCount = 0;
+  // Consecutive onError events (broken/blocked videos) before auto-advance
+  // stops — prevents cycling a whole dead playlist forever.
+  private ytErrorStreak = 0;
 
   ytSearchTerm = '';
 
@@ -183,6 +194,17 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
     if (this.user) {
       this.componentMain.nativeElement.style.padding = 'unset';
     }
+    // The template hardcodes id="musicVideo", but YouTube registers players by
+    // the container element's id — and this component can be mounted twice on
+    // one page (the full Music view AND the profile small player). Two live
+    // instances (or a stale registry entry from a previous open) collide, so
+    // `new YT.Player(...)` throws "id must be unique", the iframe never
+    // appears, and the old code retried forever. Give each instance a unique
+    // container id so the registry can't collide.
+    try {
+      const el = this.musicVideo?.nativeElement as HTMLElement | undefined;
+      if (el && el.id === 'musicVideo') el.id = 'musicVideo-' + this.instance;
+    } catch { }
     await this.ensureYouTubeApi();
     if (!(window as any).YT?.Player) {
       console.error('[Music] YT still undefined after ensureYouTubeApi()');
@@ -787,7 +809,8 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   closeFullscreen() {
-    const youtubePopup = document.getElementById('musicVideo');
+    // Use the ViewChild ref — the container id is unique per instance now.
+    const youtubePopup = this.musicVideo?.nativeElement;
     if (youtubePopup) {
       if (document.fullscreenElement) {
         document.exitFullscreen();
@@ -1032,78 +1055,143 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
   }
 
   private hardRebuild(id: string) {
+    // Bounded self-heal: each failure path (iframe never appeared, health ping
+    // dead) funnels here. If construction keeps failing, destroy+rebuild would
+    // loop forever — after a few attempts we stop and surface a message.
+    this.ytRebuildCount++;
     this.destroyYTPlayer();
-    setTimeout(() => this.rebuildYTPlayer(id, [], 0), 100);
+    setTimeout(() => {
+      if (this.ytRebuildCount > MusicComponent.MAX_YT_REBUILDS) {
+        this.giveUpOnYtRebuilds(id);
+        return;
+      }
+      this.rebuildYTPlayer(id, [], 0, true);
+    }, 100);
+  }
+
+  private giveUpOnYtRebuilds(id?: string) {
+    this.stopYtHealthWatch();
+    if (this.iframeCheckTimer) {
+      try { clearInterval(this.iframeCheckTimer); } catch { }
+      this.iframeCheckTimer = undefined;
+    }
+    this.iframeCheckInProgress = false;
+    this.ytPlayer = undefined;
+    this.playerReady = false;
+    this.pendingPlay = undefined;
+    this.isMusicPlaying = false;
+    this.isMusicControlsDisplayed(false);
+    this.ytRebuildCount = 0;
+    console.error('[YT] giving up on player after repeated failed rebuilds' + (id ? ' (' + id + ')' : ''));
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    try {
+      parent?.showNotification?.('YouTube player failed to load — check your connection/ad-blocker, then reopen the music player.');
+    } catch { }
+    try { this.cdr.markForCheck(); } catch { }
   }
 
 
-  private rebuildYTPlayer(firstId: string, _unusedIds: string[], _unusedIndex: number) {
+  private rebuildYTPlayer(firstId: string, _unusedIds: string[], _unusedIndex: number, hardRetry = false) {
+    // A fresh, user-initiated build (reopen, tab switch) starts a new attempt
+    // budget; only the hard-rebuild retry chain keeps counting so the loop is
+    // actually bounded.
+    if (!hardRetry) this.ytRebuildCount = 0;
     if (!this.musicVideo?.nativeElement) return;
     this.playerReady = false;
+    this.ytErrorStreak = 0;
 
     try { this.ytPlayer?.destroy(); } catch { }
     this.ytPlayer = undefined;
 
     this.ngZone.runOutsideAngular(() => {
-      this.ytPlayer = new YT.Player(this.musicVideo.nativeElement, {
-        videoId: firstId,
-        playerVars: {
-          playsinline: 1,
-          rel: 0,
-          modestbranding: 1,
-          enablejsapi: 1,
-          origin: window.location.origin,
-          controls: 1,
-        },
-        events: {
-          onReady: () => {
-            this.playerReady = true;
+      let created: any;
+      try {
+        created = new YT.Player(this.musicVideo.nativeElement, {
+          videoId: firstId,
+          playerVars: {
+            playsinline: 1,
+            rel: 0,
+            modestbranding: 1,
+            enablejsapi: 1,
+            origin: window.location.origin,
+            controls: 1,
+          },
+          events: {
+            onReady: () => {
+              // Stale guard: onReady can fire after we've torn this player down
+              // (e.g. a rebuild raced it) — never mark a dead player ready.
+              if (this.ytPlayer !== created) return;
+              this.playerReady = true;
+              this.ytRebuildCount = 0;
 
-            // load current selection
-            try {
-              this.ytPlayer!.mute();
-              const firstId =
-                this.parseYoutubeId(this.pendingPlay?.url || this.songs[0]?.url || '');
-              if (firstId) {
-                this.ytPlayer!.loadVideoById(firstId);
-                this.ytPlayer!.playVideo(); // works while muted
-              }
-            } catch { }
-
-            // set attributes
-            try {
-              const iframe = this.ytPlayer!.getIframe() as HTMLIFrameElement;
-              iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
-              iframe.setAttribute('referrerpolicy', 'origin-when-cross-origin');
-              iframe.style.setProperty('max-width', '100%', 'important');
-              // If we previously requested a shuffled playlist, attempt to apply it
+              // load current selection
               try {
-                const anyPlayer = this.ytPlayer as any;
-                if (this.shouldShufflePlaylist && typeof anyPlayer.setShuffle === 'function') {
-                  anyPlayer.setShuffle(true);
+                this.ytPlayer!.mute();
+                const firstId =
+                  this.parseYoutubeId(this.pendingPlay?.url || this.songs[0]?.url || '');
+                if (firstId) {
+                  this.ytPlayer!.loadVideoById(firstId);
+                  this.ytPlayer!.playVideo(); // works while muted
                 }
               } catch { }
-            } catch { }
 
-            this.ngZone.run(() => this.startYtHealthWatch());
-          },
+              // set attributes
+              try {
+                const iframe = this.ytPlayer!.getIframe() as HTMLIFrameElement;
+                iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+                iframe.setAttribute('referrerpolicy', 'origin-when-cross-origin');
+                iframe.style.setProperty('max-width', '100%', 'important');
+                // If we previously requested a shuffled playlist, attempt to apply it
+                try {
+                  const anyPlayer = this.ytPlayer as any;
+                  if (this.shouldShufflePlaylist && typeof anyPlayer.setShuffle === 'function') {
+                    anyPlayer.setShuffle(true);
+                  }
+                } catch { }
+              } catch { }
 
-          onStateChange: (e: any) => {
-            if (e.data === YT.PlayerState.ENDED) this.playByIndex(this.ytIndex + 1);
-            if (e.data === YT.PlayerState.PLAYING) {
-              const vid = this.ytPlayer?.getVideoData()?.video_id;
-              if (vid) this.currentUrl = `https://www.youtube.com/watch?v=${vid}`;
-            }
-          },
+              this.ngZone.run(() => this.startYtHealthWatch());
+            },
 
-          onError: () => this.playByIndex(this.ytIndex + 1),
-        }
-      });
+            onStateChange: (e: any) => {
+              if (e.data === YT.PlayerState.ENDED) this.playByIndex(this.ytIndex + 1);
+              if (e.data === YT.PlayerState.PLAYING) {
+                this.ytErrorStreak = 0;
+                const vid = this.ytPlayer?.getVideoData()?.video_id;
+                if (vid) this.currentUrl = `https://www.youtube.com/watch?v=${vid}`;
+              }
+            },
+
+            onError: () => {
+              // Skip past a broken video — but if the whole list keeps failing
+              // (blocked/unavailable videos) stop cycling instead of reloading
+              // forever.
+              this.ytErrorStreak++;
+              if (this.ytErrorStreak >= Math.max(3, this.ytIds.length + 1)) {
+                this.ytErrorStreak = 0;
+                try { this.ytPlayer?.stopVideo(); } catch { }
+                this.isMusicPlaying = false;
+                this.isMusicControlsDisplayed(false);
+                const parent = this.inputtedParentRef ?? this.parentRef;
+                try { parent?.showNotification?.('These videos are unavailable — playback stopped.'); } catch { }
+                return;
+              }
+              this.playByIndex(this.ytIndex + 1);
+            },
+          }
+        });
+      } catch (e) {
+        // Construction can throw (e.g. YouTube registry id collision). Log it,
+        // leave ytPlayer undefined, and let the (bounded) iframe-check retry
+        // handle recovery instead of crashing or looping silently.
+        console.error('[YT] player construction failed', e);
+      }
+      this.ytPlayer = created;
     });
 
     // Start a short-lived poll to ensure the iframe actually appears in the DOM.
     // Some environments intermittently fail to inject the iframe; if that happens
-    // do a hard rebuild to force the player back into a working state.
+    // do a (bounded) hard rebuild to force the player back into a working state.
     this.scheduleIframeCheck(firstId);
   }
 
@@ -1128,6 +1216,7 @@ export class MusicComponent extends ChildComponent implements OnInit, OnDestroy,
 
       // If iframe was inserted or player is ready, cancel polling
       if (hasIframe || this.playerReady) {
+        this.ytRebuildCount = 0; // confirmed build — reset the retry budget
         try { clearInterval(this.iframeCheckTimer!); } catch { }
         this.iframeCheckTimer = undefined;
         this.iframeCheckInProgress = false;

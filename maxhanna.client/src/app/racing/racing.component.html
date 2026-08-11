@@ -331,6 +331,10 @@
             <span class="race-option-label">🔭 Speed zoom (FOV widens as you accelerate)</span>
             <input type="checkbox" class="race-option-check" [checked]="speedFovOn" (change)="toggleSpeedFov()">
           </label>
+          <label class="race-option-row">
+            <span class="race-option-label">🛞 Corner rubber (dark braking marks on the track)</span>
+            <input type="checkbox" class="race-option-check" [checked]="cornerRubberOn" (change)="toggleCornerRubber()">
+          </label>
         </div>
 
         <div class="race-options-hint">Settings are saved automatically on this device.</div>
@@ -808,6 +812,20 @@
                   </div>
                   <div class="drs-badge" [class.drs-on]="getDrsActive()">DRS</div>
                   <div class="wheel-gear" #wheelGear>{{ getGear() }}</div>
+                  <!-- Pedal-state bars: throttle (green) / brake (red) fill with
+                       the pedals — on mobile the pedals sit low on screen, so
+                       the wheel mirrors the press state where the eyes already
+                       are. Filled per-frame via direct DOM (no CD churn). -->
+                  <div class="pedal-bars">
+                    <div class="pedal-bar" title="Throttle">
+                      <span class="pedal-bar-label">THR</span>
+                      <span class="pedal-bar-track"><span class="pedal-bar-fill pedal-fill-thr" #thrFill></span></span>
+                    </div>
+                    <div class="pedal-bar" title="Brake">
+                      <span class="pedal-bar-label">BRK</span>
+                      <span class="pedal-bar-track"><span class="pedal-bar-fill pedal-fill-brk" #brkFill></span></span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -905,6 +923,14 @@
       <!-- Messages center -->
       <div class="race-messages">
         <div class="race-msg" *ngFor="let m of messages">{{ m }}</div>
+      </div>
+
+      <!-- Perfect-launch banner: a timed, revved launch at the lights pays off
+           with a brief grip boost — green burst so it reads like F1 launch
+           control. Fades itself out via CSS animation. -->
+      <div class="perfect-launch-banner" *ngIf="gameState === 'racing' && perfectLaunchFlash > 0">
+        <div class="plb-title">🏁 PERFECT START!</div>
+        <div class="plb-sub">Launch boost engaged</div>
       </div>
 
       <!-- New track record toast -->
@@ -1169,7 +1195,11 @@
     </div>
 
     <!-- ─── Mobile Controls (virtual joystick: steer left/right, push up for gas, down for brake) ─── -->
-    <div id="race-mobile" *ngIf="isMobile && (gameState === 'racing')">
+    <!-- Also live during the countdown so mobile players can rev the engine on
+         the grid: gas ramps the rev (audio + RPM + exhaust glow) while the car
+         stays parked until GO. The countdown gantry sits high in the frame, so
+         the bottom-anchored pedals don't cover the start lights. -->
+    <div id="race-mobile" *ngIf="isMobile && (gameState === 'racing' || gameState === 'countdown')">
       <div class="race-joy-zone" #joyZone (touchstart)="joyStart($event)" (touchmove)="joyMove($event)"
         (touchend)="joyEnd()" (touchcancel)="joyEnd()" (pointerdown)="joyStart($event)" (pointermove)="joyMove($event)"
         (pointerup)="joyEnd()" (pointercancel)="joyEnd()">

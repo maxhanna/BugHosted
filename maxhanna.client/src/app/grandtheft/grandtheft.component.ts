@@ -149,6 +149,19 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   localPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; targetX: number; targetZ: number; waitTimer: number; fightBackUntil?: number; punchTimer?: number; panicUntil?: number; panicFromX?: number; panicFromZ?: number }[] = [];
   private pedSpawnTimer = 0;
   private pedIdCounter = 20000;
+  // Occasional station cops: client-local ambience peds walking out of or into
+  // a police-station door so stations feel lived-in between arrests.
+  private stationCops: {
+    id: number; type: string; gender: string;
+    x: number; z: number; yaw: number;
+    mesh: CityMesh | CityMesh[];
+    health: number;
+    targetX: number; targetZ: number;
+    walkingIn: boolean;
+    linger: number;
+  }[] = [];
+  private stationCopSpawnTimer = 0;
+  private stationCopIdCounter = 40000;
   airportLotCars: { x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; phase: number; dir: number; speed: number; p0: { x: number; z: number }; p1: { x: number; z: number } }[] = [];
   hudSpeed = 0;
   score = 0;
@@ -193,6 +206,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _mapGasStations: { x: number; z: number }[] = [];
   private _mapGasCenterX = 0;
   private _mapGasCenterZ = 0;
+  // Minimap police-station icons (where a busted player respawns), cached the
+  // same way as the gas stations.
+  private _mapPoliceStations: { x: number; z: number; yaw: number; hd: number }[] = [];
+  private _mapPoliceCenterX = 0;
+  private _mapPoliceCenterZ = 0;
   _parkedSmokeTimers: { [id: number]: number } = {};
   private _npcSmokeTimers: { [id: number]: number } = {};
   private _npcSmokeStarted: { [id: number]: number } = {};
@@ -221,6 +239,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _ricochetCtx: AudioContext | null = null;
   private _lastRicochetTime = 0;
   private _bustedCtx: AudioContext | null = null;
+  private _wastedCtx: AudioContext | null = null;
+  private _radioCtx: AudioContext | null = null;
   private _lastBrakeScreech = 0;
   private _lastCrashTime = 0;
   private _lastWallCrashTime = 0;
@@ -244,7 +264,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   showWeaponWheel = false;
   showLeaderboard = false;
   lbTab: 'live' | 'scores' | 'jumps' = 'live';
-  hsSort: 'kills' | 'deaths' | 'money' | 'earned' | 'score' = 'score';
+  hsSort: 'kills' | 'deaths' | 'money' | 'earned' | 'score' | 'escapes' | 'busted' = 'score';
   highScores: any[] = [];
   hsTotal = 0;
   hsUserRank = 0;
@@ -417,6 +437,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   murderFlashAlpha = 0;
   murderFlashTimer = 0;
   bustedFlashAlpha = 0;
+  bustedTitleTimer = 0;
+  bustCamTimer = 0;
   wantedPopTimer = 0;
   private crashShake = 0;
   private timeScale = 1;
@@ -425,6 +447,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   // the sky without following a drifting car/body.
   private _deathCamX = 0;
   private _deathCamZ = 0;
+  // Bust release-pan anchor: the off-axis yaw the camera starts at when the
+  // player is released at the station door, easing back behind them.
+  private _bustCamStartYaw = 0;
   radioOn = false;
   radioSongs: string[] = [];
   altUpPressed = false;
@@ -1780,6 +1805,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.wantedPopTimer = 0.8;
       this.showStoreToast('🚨 RESISTING ARREST! Wanted level increased');
     }
+    if (res && res.arrestRegrabbed) {
+      this.wantedPopTimer = 0.8;
+      this.showStoreToast('🚨 THE COPS AREN\'T DONE WITH YOU — re-arrest attempt!');
+    }
     if (res && res.droppedWeapons) {
       this.droppedWeapons = res.droppedWeapons;
     }
@@ -2498,6 +2527,138 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       sub.connect(sg); sg.connect(ctx.destination);
       sub.start(t0 + 0.05);
       sub.stop(t0 + 1.0);
+    } catch (e) { }
+  }
+  /** GTA-style wasted sting: a heavy impact crack falling into a low descending
+   *  boom with a heartbeat double-pulse — the mirror of the busted sting, played
+   *  when the player dies and the WASTED screen appears. */
+  private playWastedSting() {
+    if (this.sfxVolume <= 0) return;
+    try {
+      if (!this._wastedCtx) {
+        this._wastedCtx = new AudioContext();
+        if (this._wastedCtx.state === 'suspended') { try { this._wastedCtx.resume(); } catch { } }
+      }
+      const ctx = this._wastedCtx;
+      if (ctx.state === 'suspended') { try { ctx.resume(); } catch { } }
+      const t0 = ctx.currentTime;
+      const vol = 0.28 * this.sfxVolume;
+      // Impact crack: a short low-passed noise burst — the "hit" of going down.
+      const len = Math.floor(ctx.sampleRate * 0.09);
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 380;
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(vol * 1.6, t0);
+      ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.09);
+      src.connect(lp); lp.connect(ng); ng.connect(ctx.destination);
+      src.start(t0);
+      src.stop(t0 + 0.09);
+      // Heavy descending boom — a low sine falling 90 → 45 Hz with a slow swell
+      // and a heartbeat double-pulse, the classic GTA wasted thud.
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(90, t0 + 0.01);
+      osc.frequency.exponentialRampToValueAtTime(45, t0 + 1.4);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(vol, t0 + 0.08);
+      g.gain.exponentialRampToValueAtTime(vol * 0.45, t0 + 0.22);
+      g.gain.exponentialRampToValueAtTime(vol * 0.9, t0 + 0.34);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.5);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(t0 + 0.01);
+      osc.stop(t0 + 1.5);
+      // A darker triangle layer an octave down adds weight without harshness.
+      const sub = ctx.createOscillator();
+      sub.type = 'triangle';
+      sub.frequency.setValueAtTime(55, t0 + 0.01);
+      sub.frequency.exponentialRampToValueAtTime(30, t0 + 1.3);
+      const sg = ctx.createGain();
+      sg.gain.setValueAtTime(0.0001, t0 + 0.01);
+      sg.gain.exponentialRampToValueAtTime(vol * 0.7, t0 + 0.1);
+      sg.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.4);
+      sub.connect(sg); sg.connect(ctx.destination);
+      sub.start(t0 + 0.01);
+      sub.stop(t0 + 1.4);
+    } catch (e) { }
+  }
+  /** Ambient police-radio chatter after a bust: a few seconds of garbled,
+   *  squelchy radio voices — two "officers" trading clipped transmissions — so
+   *  the station scene behind the BUSTED screen feels lived-in. Voice-ish noise
+   *  puffs through bandpass filters with wobbling center frequencies, plus
+   *  periodic squelch chirps as radios key up and down. */
+  private playStationRadioChatter() {
+    if (this.sfxVolume <= 0) return;
+    try {
+      if (!this._radioCtx) {
+        this._radioCtx = new AudioContext();
+        if (this._radioCtx.state === 'suspended') { try { this._radioCtx.resume(); } catch { } }
+      }
+      const ctx = this._radioCtx;
+      if (ctx.state === 'suspended') { try { ctx.resume(); } catch { } }
+      const t0 = ctx.currentTime;
+      const vol = 0.12 * this.sfxVolume;
+      // Two radio voices: different bandpass centers and cadences so they read
+      // as separate officers. The first transmission keys up right as the
+      // busted sting's siren wail dies (~0.9s in).
+      const voices = [
+        { freq: 850, q: 1.4, count: 7, minLen: 0.09, maxLen: 0.22, gapMin: 0.18, gapMax: 0.5, start: 0.9 },
+        { freq: 1250, q: 1.8, count: 5, minLen: 0.07, maxLen: 0.16, gapMin: 0.3, gapMax: 0.65, start: 1.3 },
+      ];
+      for (const v of voices) {
+        let t = t0 + v.start + Math.random() * 0.3;
+        for (let i = 0; i < v.count; i++) {
+          const lenSec = v.minLen + Math.random() * (v.maxLen - v.minLen);
+          const len = Math.max(1, Math.floor(ctx.sampleRate * lenSec));
+          const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+          const data = buf.getChannelData(0);
+          for (let s = 0; s < len; s++) data[s] = Math.random() * 2 - 1;
+          const src = ctx.createBufferSource();
+          src.buffer = buf;
+          const bp = ctx.createBiquadFilter();
+          bp.type = 'bandpass';
+          bp.Q.value = v.q;
+          // Wobble the center frequency mid-puff — the classic radio garble.
+          bp.frequency.setValueAtTime(v.freq, t);
+          bp.frequency.linearRampToValueAtTime(v.freq * (1.15 + Math.random() * 0.3), t + lenSec / 2);
+          bp.frequency.linearRampToValueAtTime(v.freq, t + lenSec);
+          const g = ctx.createGain();
+          // Sharp attack, exponential decay — clipped radio syllables.
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(vol * (0.5 + Math.random() * 0.8), t + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + lenSec);
+          src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+          src.start(t);
+          src.stop(t + lenSec);
+          t += lenSec + v.gapMin + Math.random() * (v.gapMax - v.gapMin);
+        }
+      }
+      // Periodic squelch chirps between transmissions, like radios keying up.
+      for (let i = 0; i < 3; i++) {
+        const ct = t0 + 1.2 + i * 1.5 + Math.random() * 0.2;
+        const len = Math.max(1, Math.floor(ctx.sampleRate * 0.04));
+        const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let s = 0; s < len; s++) data[s] = Math.random() * 2 - 1;
+        const src = ctx.createBufferSource();
+        src.buffer = buf;
+        const bp = ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.Q.value = 4;
+        bp.frequency.value = 1900;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(vol * 0.6, ct);
+        g.gain.exponentialRampToValueAtTime(0.0001, ct + 0.04);
+        src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+        src.start(ct);
+        src.stop(ct + 0.04);
+      }
     } catch (e) { }
   }
   // Distant traffic crashes: NPC cars bumping into each other or parked cars
@@ -3350,6 +3511,72 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       ped.z += Math.cos(ped.yaw) * speed * dt;
     }
   }
+  /** Occasional station cop traffic: a local cop walks out of a police-station
+   *  door toward the street, or in from the street to the door, so stations
+   *  feel lived-in between arrests. Purely visual (client-local like
+   *  localPedestrians) — they linger briefly on arrival, then despawn. */
+  private updateStationCops(dt: number) {
+    // Spawn: occasional cop traffic at a nearby station, skipped during the
+    // bust/death cinematics — those sequences already fill the scene.
+    this.stationCopSpawnTimer += dt;
+    if (this.stationCopSpawnTimer >= 9 + Math.random() * 7) {
+      this.stationCopSpawnTimer = 0;
+      if (this.stationCops.length < 3 && this.bustedTitleTimer <= 0 && this.wastedTimer <= 0) {
+        const stations = this.renderer.getPoliceStationsNear(this.carX, this.carZ, 260);
+        if (stations.length > 0) {
+          const st = stations[Math.floor(Math.random() * stations.length)];
+          const sx = Math.sin(st.yaw), sc = Math.cos(st.yaw); // street-facing direction
+          const doorX = st.x - sx * (st.hd + 1.4);
+          const doorZ = st.z - sc * (st.hd + 1.4);
+          const dist = 9 + Math.random() * 14;
+          const off = (Math.random() - 0.5) * 9; // lateral spread along the facade
+          const streetX = doorX + sx * dist - sc * off;
+          const streetZ = doorZ + sc * dist + sx * off;
+          const walkingIn = Math.random() < 0.5;
+          const startX = walkingIn ? streetX : doorX;
+          const startZ = walkingIn ? streetZ : doorZ;
+          const targetX = walkingIn ? doorX : streetX;
+          const targetZ = walkingIn ? doorZ : streetZ;
+          const id = --this.stationCopIdCounter;
+          this.stationCops.push({
+            id,
+            type: 'cop',
+            gender: 'male',
+            x: startX,
+            z: startZ,
+            yaw: Math.atan2(targetX - startX, targetZ - startZ),
+            mesh: this.renderer.copMesh || this.renderer.getPedestrianMesh('male', id),
+            health: 100,
+            targetX,
+            targetZ,
+            walkingIn,
+            linger: walkingIn ? 0.6 : 2 + Math.random() * 2,
+          });
+        }
+      }
+    }
+    // Walk: move toward the target, linger briefly on arrival, then despawn.
+    for (let i = this.stationCops.length - 1; i >= 0; i--) {
+      const c = this.stationCops[i];
+      if (Math.abs(c.x - this.carX) > 300 || Math.abs(c.z - this.carZ) > 300) { this.stationCops.splice(i, 1); continue; }
+      const dx = c.targetX - c.x;
+      const dz = c.targetZ - c.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist < 0.7) {
+        c.linger -= dt;
+        if (c.linger <= 0) this.stationCops.splice(i, 1);
+        continue;
+      }
+      const targetYaw = Math.atan2(dx, dz);
+      let yawDiff = targetYaw - c.yaw;
+      while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+      while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+      c.yaw += yawDiff * Math.min(1, 5 * dt);
+      const speed = c.walkingIn ? 1.7 : 1.4;
+      c.x += Math.sin(c.yaw) * speed * dt;
+      c.z += Math.cos(c.yaw) * speed * dt;
+    }
+  }
   private isAtAirportParkingSpot(x: number, z: number): boolean {
     for (const entry of GrandTheftRenderer.AIRPORT_ENTRY_ROADS) {
       const px = entry.gx * 80;
@@ -3445,6 +3672,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this._pedTimer += dt;
     if (this._pedTimer >= 0.033) { // ~30 FPS
       this.updatePedestrians(this._pedTimer);
+      this.updateStationCops(this._pedTimer);
       this._pedTimer = 0;
     }
     this.updateNPCInterpolation();
@@ -3456,12 +3684,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.updateAirportLotCars(dt);
     if (this.vehicleBannerTimer > 0) this.vehicleBannerTimer -= dt;
     if (this.wastedTimer > 0) this.wastedTimer -= dt;
+    if (this.bustCamTimer > 0) this.bustCamTimer -= dt;
     if (this.damageAlpha > 0) this.damageAlpha = Math.max(0, this.damageAlpha - dt * 0.5);
     if (this.bustedFlashAlpha > 0) {
       this.bustedFlashAlpha = Math.max(0, this.bustedFlashAlpha - dt * 2.5);
       // The white flash is an *ngIf overlay and this loop runs outside Angular's
       // zone — a CD pass per frame while the flash is alive keeps the fade visible.
       this.ngZone.run(() => this.cdr.detectChanges());
+    }
+    if (this.bustedTitleTimer > 0) {
+      this.bustedTitleTimer = Math.max(0, this.bustedTitleTimer - dt);
+      // Unmount the *ngIf title (and its CSS fade) once the window is over.
+      if (this.bustedTitleTimer === 0) this.ngZone.run(() => this.cdr.detectChanges());
     }
     if (this.murderFlashTimer > 0) this.murderFlashTimer -= dt;
     if (this.murderFlashAlpha > 0) this.murderFlashAlpha = Math.max(0, this.murderFlashAlpha - dt * 1.4);
@@ -3731,6 +3965,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       if (!this._wasDead) {
         this._wasDead = true;
         this.wastedTimer = 3;
+        // Cinematic death: the WASTED sting fires with the screen for symmetry
+        // with the busted sequence (siren + BUSTED title).
+        this.playWastedSting();
         this._deathCamX = this.carX;
         this._deathCamZ = this.carZ;
         this.dropMoneyAt(this.carX, this.carZ, this.money);
@@ -3776,6 +4013,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           this.nearStoreDoor = false;
           this._wasDead = false;
           this.wastedTimer = 0;
+          this.bustCamTimer = 0;
           this._respawnTimer = null;
           this._justRespawned = true;
           setTimeout(() => { this._justRespawned = false; }, 3000);
@@ -3811,6 +4049,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       targetY = this.carY + 0.5;             // keep the body in frame
       this.camPitch = 0.15 + 0.55 * eased;   // tilt down as we gain altitude
       this.camYaw += dt * 0.08;              // slow cinematic drift
+    } else if (this.bustCamTimer > 0) {
+      // Release pan from the station door: pull back, rise, and swing from the
+      // off-axis peek to the normal behind-the-player chase cam.
+      const panProgress = 1 - Math.max(0, this.bustCamTimer) / 1.8; // 0 → 1
+      const eased = 1 - Math.pow(1 - panProgress, 3); // ease-out settle
+      effectiveDist = 1.6 + (this.camDist - 1.6) * eased;     // back out of the door
+      effectiveHeight = 0.9 + (this.camHeight - 0.9) * eased; // rise to chase height
+      this.camPitch = 0.05 + (0.2 - 0.05) * eased;            // level → normal tilt
+      this.camYaw = this._bustCamStartYaw - 0.5 * eased;      // settle behind the player
     } else if (this.firstPerson) {
       effectiveDist = 0; effectiveHeight = 0;
       targetY = this.carY + (this.isInCar ? 0.3 : 1.5);
@@ -3831,6 +4078,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this._allPeds.length = 0;
     for (const p of this.serverPedestrians) this._allPeds.push(p);
     for (const p of this.localPedestrians) this._allPeds.push(p);
+    for (const c of this.stationCops) this._allPeds.push(c);
     for (const p of this.policeModeThugPeds) this._allPeds.push(p);
     if (this.storeCashier) this._allPeds.push(this.storeCashier);
     const rockOffset = this.getCarRockOffset();
@@ -3955,10 +4203,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.carHealth = 200;
     this.wantedLevel = 0;
     // Cinematic bust: a white camera flash pops, then the red vignette lingers
-    // while the siren sting plays — GTA-style busted screen.
+    // while the siren sting plays — GTA-style busted screen. The BUSTED title
+    // slow-zooms in over the sting and fades out before the respawn.
     this.bustedFlashAlpha = 1;
     this.damageAlpha = 0.9;
+    this.bustedTitleTimer = 3.2;
     this.playBustedSting();
+    // Ambient police-radio chatter keeps the station scene alive behind the
+    // sting — garbled voices trading transmissions for a few seconds.
+    this.playStationRadioChatter();
     if (this.isInCar) this.exitCar();
     if (this.isPassenger) this.exitPassenger();
     this.currentWeapon = 0;
@@ -3984,6 +4237,11 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.camPitch = 0.2;
     this.camDist = 4;
     this.camHeight = 2;
+    // Cinematic release: start close and low at the door, peeking slightly
+    // off-axis, then pull back, rise and settle behind the player — the
+    // respawn reads as a release instead of a teleport.
+    this.bustCamTimer = 1.8;
+    this._bustCamStartYaw = this.camYaw + 0.5;
     this._justRespawned = true;
     setTimeout(() => { this._justRespawned = false; }, 3000);
     const hadMission = !!(this.taxiMission || this.dealershipMission || this.policeMode);
@@ -6678,6 +6936,44 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       ctx.stroke();
       ctx.lineCap = 'butt';
     }
+    // Police stations — pulsing blue shield badges (where a busted player
+    // respawns), so players can find the nearest station after a bust.
+    if (Math.hypot(this.carX - this._mapPoliceCenterX, this.carZ - this._mapPoliceCenterZ) > 40 || this._mapPoliceStations.length === 0) {
+      this._mapPoliceCenterX = this.carX;
+      this._mapPoliceCenterZ = this.carZ;
+      this._mapPoliceStations = this.renderer.getPoliceStationsNear(this.carX, this.carZ, 310);
+    }
+    for (const ps of this._mapPoliceStations) {
+      const px = cx + (ps.x - this.carX) * scale;
+      const py = cy + (ps.z - this.carZ) * scale;
+      if (px < -10 || px > 310 || py < -10 || py > 310) continue;
+      const pulse = 5 + Math.sin(now / 300) * 1.2;
+      ctx.fillStyle = 'rgba(80, 140, 255, 0.22)';
+      ctx.beginPath(); ctx.arc(px, py, 7 + pulse, 0, Math.PI * 2); ctx.fill();
+      // Shield badge: pointed top, flared sides, rounded bottom.
+      ctx.fillStyle = '#4488ff';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(px, py - 5.5);
+      ctx.lineTo(px + 4.5, py - 2.5);
+      ctx.lineTo(px + 4, py + 3.5);
+      ctx.lineTo(px, py + 6);
+      ctx.lineTo(px - 4, py + 3.5);
+      ctx.lineTo(px - 4.5, py - 2.5);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      // Small white star on the badge.
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 === 0 ? 2.8 : 1.2;
+        const a = (i * Math.PI) / 5 - Math.PI / 2;
+        const sx = px + Math.cos(a) * r;
+        const sy = py + Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
+      }
+      ctx.closePath(); ctx.fill();
+    }
     if (this.taxiMission && this.taxiMission.state === 'deliver') {
       const m = this.taxiMission;
       const mx = cx + (m.destinationX - this.carX) * scale;
@@ -6839,7 +7135,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (tab === 'scores') this.loadHighScores();
     else if (tab === 'jumps') this.loadJumps();
   }
-  setHsSort(sort: 'kills' | 'deaths' | 'money' | 'earned' | 'score') {
+  setHsSort(sort: 'kills' | 'deaths' | 'money' | 'earned' | 'score' | 'escapes' | 'busted') {
     if (this.hsSort === sort) return;
     this.hsSort = sort;
     this.loadHighScores();

@@ -22,7 +22,7 @@
         ⚖️ Appeals <span *ngIf="appeals.length > 0" class="tabCount">{{ appeals.length }}</span>
       </button>
       <button *ngIf="isWeaverAdmin" class="modTab" [class.active]="activeTab === 'weaver'" (click)="setTab('weaver')">
-        🤖 Weaver Feedback <span *ngIf="weaverFeedback.length > 0" class="tabCount">{{ weaverFeedback.length }}</span>
+        🤖 Weaver Feedback <span *ngIf="weaverFeedbackTotal > 0" class="tabCount">{{ weaverFeedbackTotal }}</span>
       </button>
     </div>
 
@@ -67,8 +67,11 @@
         <div class="xSmallFont secondaryFontColor">
           Messages users sent from their Weaver instance about what went wrong during a card's execution.
         </div>
-        <div *ngIf="weaverFeedbackLoading" class="searchHint">Loading…</div>
+        <div *ngIf="weaverFeedbackLoading && weaverFeedback.length === 0" class="searchHint">Loading…</div>
         <div *ngIf="!weaverFeedbackLoading && weaverFeedback.length === 0" class="searchHint">No feedback messages yet.</div>
+        <div *ngIf="weaverFeedbackTotal > 0" class="xSmallFont secondaryFontColor">
+          Showing {{ weaverFeedback.length }} of {{ weaverFeedbackTotal }} message{{ weaverFeedbackTotal === 1 ? '' : 's' }}.
+        </div>
         <div *ngFor="let f of weaverFeedback" class="modRow">
           <div class="modRowBody" style="padding:6px 0;">
             <div class="modRowHead" style="cursor:default;">
@@ -81,6 +84,10 @@
             <div class="xSmallFont secondaryFontColor" *ngIf="f.cardText">Card: {{ f.cardText.length > 140 ? (f.cardText | slice:0:140) + '…' : f.cardText }}</div>
           </div>
         </div>
+        <div *ngIf="weaverFeedbackHasMore && !weaverFeedbackLoading" style="text-align:center;margin-top:10px;">
+          <button class="noBtn" (click)="loadWeaverFeedback(false)">Load more ({{ weaverFeedbackTotal - weaverFeedback.length }} remaining)</button>
+        </div>
+        <div *ngIf="weaverFeedbackLoading && weaverFeedback.length > 0" class="searchHint" style="text-align:center;">Loading more…</div>
       </div>
     </div>
 
