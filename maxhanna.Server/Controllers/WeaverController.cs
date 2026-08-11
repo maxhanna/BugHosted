@@ -231,27 +231,7 @@ namespace maxhanna.Server.Controllers
 				var cs = _config.GetValue<string>("ConnectionStrings:maxhanna");
 				using var conn = new MySqlConnection(cs);
 				await conn.OpenAsync();
-				// Self-bootstrapping table — created on first use so any install works
-				// without a manual DDL step (ModeratorController also self-heals older
-				// tables by adding the reply/resolved columns idempotently).
-				using (var ensure = new MySqlCommand(@"
-					CREATE TABLE IF NOT EXISTS maxhanna.weaver_feedback (
-						id INT AUTO_INCREMENT PRIMARY KEY,
-						user_id INT NOT NULL,
-						username VARCHAR(100) NOT NULL DEFAULT '',
-						card_id VARCHAR(255) NULL,
-						card_text TEXT NULL,
-						message TEXT NOT NULL,
-						created_at DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
-						reply TEXT NULL,
-						replied_at DATETIME NULL,
-						replied_by INT NULL,
-						resolved_at DATETIME NULL,
-						resolved_by INT NULL
-					) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", conn))
-				{
-					await ensure.ExecuteNonQueryAsync();
-				}
+			 
 				using var cmd = new MySqlCommand(@"
 					INSERT INTO maxhanna.weaver_feedback (user_id, username, card_id, card_text, message)
 					VALUES (@uid, @username, @cardId, @cardText, @message)", conn);
