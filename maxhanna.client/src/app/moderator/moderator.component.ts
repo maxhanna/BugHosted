@@ -36,6 +36,10 @@ export class ModeratorComponent extends ChildComponent {
   weaverFeedbackPageSize = 25;
   weaverFeedbackHasMore = false;
   weaverFeedbackLoading = false;
+  weaverReplyId = 0;
+  weaverReplyText = '';
+  weaverReplySaving = false;
+  weaverResolveSaving = 0;
   moderators: ModeratorInfo[] = [];
   roleCatalog: RoleDefinition[] = [];
 
@@ -296,6 +300,48 @@ export class ModeratorComponent extends ChildComponent {
       this.weaverFeedback = this.weaverFeedback.filter(f => f.id !== id);
       if (this.weaverFeedbackTotal > 0) this.weaverFeedbackTotal--;
       this.weaverFeedbackHasMore = this.weaverFeedback.length < this.weaverFeedbackTotal;
+      if (this.weaverReplyId === id) this.cancelWeaverReply();
+    }
+  }
+
+  startWeaverReply(f: any) {
+    this.weaverReplyId = f.id;
+    this.weaverReplyText = f.reply || '';
+  }
+
+  cancelWeaverReply() {
+    this.weaverReplyId = 0;
+    this.weaverReplyText = '';
+  }
+
+  async saveWeaverReply(f: any) {
+    const userId = this.parentRef?.user?.id;
+    if (!userId || !this.weaverReplyText.trim()) return;
+    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+    this.weaverReplySaving = true;
+    try {
+      if (await this.moderatorService.replyWeaverFeedback(f.id, this.weaverReplyText.trim(), userId, sessionToken)) {
+        f.reply = this.weaverReplyText.trim();
+        f.repliedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        this.cancelWeaverReply();
+      }
+    } finally {
+      this.weaverReplySaving = false;
+    }
+  }
+
+  async toggleResolveWeaverFeedback(f: any) {
+    const userId = this.parentRef?.user?.id;
+    if (!userId) return;
+    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+    const resolve = !f.resolvedAt;
+    this.weaverResolveSaving = f.id;
+    try {
+      if (await this.moderatorService.resolveWeaverFeedback(f.id, resolve, userId, sessionToken)) {
+        f.resolvedAt = resolve ? new Date().toISOString().slice(0, 19).replace('T', ' ') : null;
+      }
+    } finally {
+      this.weaverResolveSaving = 0;
     }
   }
 

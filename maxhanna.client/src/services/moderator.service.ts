@@ -125,6 +125,34 @@ export class ModeratorService {
     }
   }
 
+  async replyWeaverFeedback(id: number, reply: string, callerUserId: number, sessionToken: string): Promise<boolean> {
+    try {
+      const response = await fetch('/moderator/replyweaverfeedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify({ Id: id, Reply: reply, CallerUserId: callerUserId }),
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Error replying to weaver feedback:', error);
+      return false;
+    }
+  }
+
+  async resolveWeaverFeedback(id: number, resolve: boolean, callerUserId: number, sessionToken: string): Promise<boolean> {
+    try {
+      const response = await fetch('/moderator/resolveweaverfeedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify({ Id: id, Resolve: resolve, CallerUserId: callerUserId }),
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Error updating weaver feedback status:', error);
+      return false;
+    }
+  }
+
   async banChatUser(chatId: number, targetUserId: number, callerUserId: number, reason: string, sessionToken: string): Promise<boolean> {
     try {
       const response = await fetch('/moderator/banchatuser', {

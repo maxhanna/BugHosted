@@ -34,6 +34,8 @@ export interface GTHighScoreEntry {
   deaths: number;
   escapes: number;     // clean getaways (wanted burned fully off)
   busted: number;      // arrest bookings (weapons stripped, station respawn)
+  resists: number;     // lifetime resisted-arrest attempts
+  worstStreak: number; // longest resist run before a chase resolved
   money: number;
   moneyEarned: number; // lifetime cumulative money earned
   score: number;       // composite ranking: kills * 100 + money
@@ -107,6 +109,7 @@ export interface GTUpdatePositionResponse {
   arrestRespawn?: boolean;
   arrestResisted?: boolean;
   arrestRegrabbed?: boolean;
+  lethalForce?: boolean;
   ownedWeapons?: any[];
   droppedWeapons?: any[];
   ammo?:any;

@@ -609,10 +609,28 @@ namespace maxhanna.Server.Controllers
 		private const float ARREST_HOLD_SECONDS = 3.5f;          // grab hold before the player is booked
 		private const float RESIST_REGRAB_DELAY_SECONDS = 30f;  // the same cop returns this long after a resist
 		private const float RESIST_REGRAB_RANGE = 25f;          // must still be within this range to re-grab
-		private const float RESIST_REGRAB_COOLDOWN_SECONDS = 8f; // same cop won't instantly re-grab after a resist
+		private const float RESIST_REGRAB_COOLDOWN_SECONDS = 8f; // base — same cop won't instantly re-grab after a resist
+		private const float RESIST_REGRAB_COOLDOWN_STEP_SECONDS = 4f; // each resist lengthens the window by this much
+		private const float RESIST_REGRAB_COOLDOWN_MAX_SECONDS = 16f; // ceiling for the escalating cooldown
+		// Backup call: the fought-off cop radios for reinforcements during the
+		// re-grab cooldown — a new unit pulls up at the scene every few seconds,
+		// so the longer the player stalls, the more backup arrives (capped per
+		// resist cycle; each fresh resist restarts the wave).
+		private const float BACKUP_CALL_INTERVAL_SECONDS = 4f; // a new unit arrives every this long while stalling
+		private const int BACKUP_CALL_MAX_UNITS = 4;           // cap per resist cycle
+		// Lethal escalation: after the player has resisted twice, cops give up on
+		// grabbing entirely and switch to lethal force — shots hit harder and
+		// faster, so the escalation tops out in a shootout instead of another cuff.
+		private const int RESIST_LETHAL_AFTER = 2;       // resists before the cops go lethal
+		private const int COP_SHOT_DAMAGE = 5;           // normal officer shot
+		private const int COP_LETHAL_DAMAGE = 15;        // lethal-force shot
+		private const long COP_SHOT_INTERVAL_MS = 500;   // normal fire interval
+		private const long COP_LETHAL_INTERVAL_MS = 350; // lethal-force fire interval
 		private static readonly ConcurrentDictionary<int, ArrestState> _playerArrests = new();
 		private static readonly ConcurrentDictionary<int, (long CopId, int Count, DateTime LastResistAt)> _playerResists = new();
+		private static readonly ConcurrentDictionary<int, BackupCallState> _playerBackupCalls = new();
 		private static readonly ConcurrentDictionary<int, bool> _arrestRegrabNotified = new();
+		private static readonly ConcurrentDictionary<int, bool> _lethalForceNotified = new();
 		// Police pursuit model: cops only chase what they can see and converge on
 		// the player's last known sighting, so hiding behind buildings or outrunning
 		// the search breaks pursuit instead of the cops telepathically homing in.
@@ -657,6 +675,8 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, int> _playerDeaths = new();
 		private static readonly ConcurrentDictionary<int, int> _playerEscapes = new();   // clean getaways (wanted fully burned off)
 		private static readonly ConcurrentDictionary<int, int> _playerBusted = new();    // arrest bookings (weapons stripped, station respawn)
+		private static readonly ConcurrentDictionary<int, int> _playerResistsTotal = new();      // lifetime resisted-arrest attempts
+		private static readonly ConcurrentDictionary<int, int> _playerWorstResistStreak = new(); // longest resist run before a chase resolved
 		private static readonly ConcurrentDictionary<int, bool> _playerInCar = new();
 		private static readonly ConcurrentDictionary<int, DateTime> _playerInCarTime = new();
 		private static readonly ConcurrentDictionary<int, bool> _evictedPlayers = new();
@@ -703,6 +723,8 @@ namespace maxhanna.Server.Controllers
 			public int Deaths;
 			public int Escapes;
 			public int Busted;
+			public int Resists;
+			public int WorstStreak;
 			public int Money;
 			public int MoneyEarned;
 			public int Score;
@@ -763,14 +785,16 @@ namespace maxhanna.Server.Controllers
 				using var check = new MySqlCommand(@"
 					SELECT COUNT(*) FROM information_schema.COLUMNS
 					WHERE TABLE_SCHEMA = 'maxhanna' AND TABLE_NAME = 'grandtheft_player_state'
-					AND COLUMN_NAME IN ('escapes', 'busted')", conn);
+					AND COLUMN_NAME IN ('escapes', 'busted', 'resists', 'worst_streak')", conn);
 				long have = Convert.ToInt64(check.ExecuteScalar());
-				if (have < 2)
+				if (have < 4)
 				{
 					using var alter = new MySqlCommand(@"
 						ALTER TABLE maxhanna.grandtheft_player_state
 						ADD COLUMN escapes INT NOT NULL DEFAULT 0,
-						ADD COLUMN busted INT NOT NULL DEFAULT 0", conn);
+						ADD COLUMN busted INT NOT NULL DEFAULT 0,
+						ADD COLUMN resists INT NOT NULL DEFAULT 0,
+						ADD COLUMN worst_streak INT NOT NULL DEFAULT 0", conn);
 					alter.ExecuteNonQuery();
 				}
 				Volatile.Write(ref _chaseStatsSchemaReady, 1);
@@ -835,9 +859,9 @@ namespace maxhanna.Server.Controllers
 					if (_playerAmmo.TryGetValue(uid, out var paj) && paj != null)
 						ammoJson = JsonSerializer.Serialize((int[])paj.Clone());
 					using var cmd = new MySqlCommand(@"
-					INSERT INTO maxhanna.grandtheft_player_state (user_id, world_id, pos_x, pos_y, pos_z, yaw, pitch, car_yaw, car_speed, health, weapon, weapons_json, ammo_json, money, money_earned, money_peak, kills, deaths, escapes, busted, last_seen)
-					VALUES (@uid, @wid, @px, @py, @pz, @y, @p, @cy, @cs, @h, @w, @weaponsJson, @ammoJson, @money, @earned, @peak, @kills, @deaths, @escapes, @busted, UTC_TIMESTAMP())
-					ON DUPLICATE KEY UPDATE pos_x = @px, pos_y = @py, pos_z = @pz, yaw = @y, pitch = @p, car_yaw = @cy, car_speed = @cs, health = @h, weapon = @w, weapons_json = @weaponsJson, ammo_json = @ammoJson, money = @money, money_earned = @earned, money_peak = @peak, kills = @kills, deaths = @deaths, escapes = @escapes, busted = @busted, last_seen = UTC_TIMESTAMP()", conn);
+					INSERT INTO maxhanna.grandtheft_player_state (user_id, world_id, pos_x, pos_y, pos_z, yaw, pitch, car_yaw, car_speed, health, weapon, weapons_json, ammo_json, money, money_earned, money_peak, kills, deaths, escapes, busted, resists, worst_streak, last_seen)
+					VALUES (@uid, @wid, @px, @py, @pz, @y, @p, @cy, @cs, @h, @w, @weaponsJson, @ammoJson, @money, @earned, @peak, @kills, @deaths, @escapes, @busted, @resists, @worstStreak, UTC_TIMESTAMP())
+					ON DUPLICATE KEY UPDATE pos_x = @px, pos_y = @py, pos_z = @pz, yaw = @y, pitch = @p, car_yaw = @cy, car_speed = @cs, health = @h, weapon = @w, weapons_json = @weaponsJson, ammo_json = @ammoJson, money = @money, money_earned = @earned, money_peak = @peak, kills = @kills, deaths = @deaths, escapes = @escapes, busted = @busted, resists = @resists, worst_streak = @worstStreak, last_seen = UTC_TIMESTAMP()", conn);
 					cmd.Parameters.AddWithValue("@uid", uid);
 					cmd.Parameters.AddWithValue("@wid", wid);
 					cmd.Parameters.AddWithValue("@px", px);
@@ -860,10 +884,14 @@ namespace maxhanna.Server.Controllers
 					_playerDeaths.TryGetValue(uid, out var deaths);
 					_playerEscapes.TryGetValue(uid, out var escapes);
 					_playerBusted.TryGetValue(uid, out var busted);
+					_playerResistsTotal.TryGetValue(uid, out var resistsTotal);
+					_playerWorstResistStreak.TryGetValue(uid, out var worstStreak);
 					cmd.Parameters.AddWithValue("@kills", kills);
 					cmd.Parameters.AddWithValue("@deaths", deaths);
 					cmd.Parameters.AddWithValue("@escapes", escapes);
 					cmd.Parameters.AddWithValue("@busted", busted);
+					cmd.Parameters.AddWithValue("@resists", resistsTotal);
+					cmd.Parameters.AddWithValue("@worstStreak", worstStreak);
 					cmd.ExecuteNonQuery();
 				}
 			}
@@ -985,8 +1013,11 @@ namespace maxhanna.Server.Controllers
 			_playerWantedLevels.TryRemove(userId, out _);
 			_lastUndetectedTime.TryRemove(userId, out _);
 			_lastHeliDispatch.TryRemove(userId, out _);
+			ResolveResistStreak(userId);
 			_playerResists.TryRemove(userId, out _);
+			_playerBackupCalls.TryRemove(userId, out _);
 			_arrestRegrabNotified.TryRemove(userId, out _);
+			_lethalForceNotified.TryRemove(userId, out _);
 			_playerLastKnown.TryRemove(userId, out _);
 			_lastPoliceDamageTime.TryRemove(userId, out _);
 			_playerMoney.TryRemove(userId, out _);
@@ -994,9 +1025,10 @@ namespace maxhanna.Server.Controllers
 			_lastReportedMoney.TryRemove(userId, out _);
 			_playerMoneyPeak.TryRemove(userId, out _);
 			_playerKills.TryRemove(userId, out _);
-			_playerDeaths.TryRemove(userId, out _);
-			_playerEscapes.TryRemove(userId, out _);
-			_playerBusted.TryRemove(userId, out _);
+			_playerDeaths.TryRemove(userId, out _);				_playerEscapes.TryRemove(userId, out _);
+				_playerBusted.TryRemove(userId, out _);
+				_playerResistsTotal.TryRemove(userId, out _);
+				_playerWorstResistStreak.TryRemove(userId, out _);
 			_playerInCar.TryRemove(userId, out _);
 			_playerInCarTime.TryRemove(userId, out _);
 			_evictedPlayers.TryRemove(userId, out _);
@@ -1022,7 +1054,7 @@ namespace maxhanna.Server.Controllers
 				EnsureChaseStatsColumns();
 				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				conn.Open();
-				using var cmd = new MySqlCommand("SELECT s.user_id, s.world_id, s.pos_x, s.pos_y, s.pos_z, s.yaw, s.pitch, s.car_yaw, s.car_speed, s.health, s.weapon, s.weapons_json, s.ammo_json, s.money, s.money_earned, s.money_peak, s.kills, s.deaths, s.escapes, s.busted, s.last_seen, u.username FROM maxhanna.grandtheft_player_state s JOIN maxhanna.users u ON s.user_id = u.id WHERE s.user_id = @uid", conn);
+				using var cmd = new MySqlCommand("SELECT s.user_id, s.world_id, s.pos_x, s.pos_y, s.pos_z, s.yaw, s.pitch, s.car_yaw, s.car_speed, s.health, s.weapon, s.weapons_json, s.ammo_json, s.money, s.money_earned, s.money_peak, s.kills, s.deaths, s.escapes, s.busted, s.resists, s.worst_streak, s.last_seen, u.username FROM maxhanna.grandtheft_player_state s JOIN maxhanna.users u ON s.user_id = u.id WHERE s.user_id = @uid", conn);
 				cmd.Parameters.AddWithValue("@uid", userId);
 				using var rdr = cmd.ExecuteReader();
 				if (rdr.Read())
@@ -1044,6 +1076,8 @@ namespace maxhanna.Server.Controllers
 					_playerDeaths[userId] = rdr.IsDBNull(rdr.GetOrdinal("deaths")) ? 0 : rdr.GetInt32("deaths");
 					_playerEscapes[userId] = rdr.IsDBNull(rdr.GetOrdinal("escapes")) ? 0 : rdr.GetInt32("escapes");
 					_playerBusted[userId] = rdr.IsDBNull(rdr.GetOrdinal("busted")) ? 0 : rdr.GetInt32("busted");
+					_playerResistsTotal[userId] = rdr.IsDBNull(rdr.GetOrdinal("resists")) ? 0 : rdr.GetInt32("resists");
+					_playerWorstResistStreak[userId] = rdr.IsDBNull(rdr.GetOrdinal("worst_streak")) ? 0 : rdr.GetInt32("worst_streak");
 					_playerWorldId[userId] = rdr.GetInt32("world_id");
 					_playerUsername[userId] = rdr.GetString("username");
 					if (!_playerWeapons.ContainsKey(userId))
@@ -1206,9 +1240,80 @@ namespace maxhanna.Server.Controllers
 				keepCopId = prev.CopId;
 			}
 			_playerResists[userId] = (keepCopId, count, DateTime.UtcNow);
+			// Lifetime resisted-arrest counter — persisted chase stat.
+			_playerResistsTotal[userId] = (_playerResistsTotal.TryGetValue(userId, out var rt) ? rt : 0) + 1;
+			// A fresh resist restarts the backup wave — the new (longer) cooldown
+			// begins with a clean call timer so each escape cycle accrues its own
+			// reinforcements.
+			_playerBackupCalls[userId] = new BackupCallState { CopId = keepCopId, Units = 0, LastUnitAt = DateTime.UtcNow };
+			// Crossing the lethal threshold: one-shot heads-up that the cops have
+			// stopped trying to arrest and switched to lethal force.
+			if (count == RESIST_LETHAL_AFTER) _lethalForceNotified[userId] = true;
 			int rw = _playerWantedLevels.TryGetValue(userId, out var rwv) ? rwv : 0;
 			// +2 on the first resist, +3 on the second, +4 on the third…
 			_playerWantedLevels[userId] = Math.Min(5, rw + Math.Min(4, 1 + count));
+		}
+		// Escalating re-grab cooldown: 8s after the first resist, +4s per
+		// additional resist, capped at 16s — repeated escapes give the player
+		// longer windows to flee before the same cop can grab them again.
+		private static float ResistRegrabCooldown(int resistCount) =>
+			Math.Min(RESIST_REGRAB_COOLDOWN_MAX_SECONDS,
+				RESIST_REGRAB_COOLDOWN_SECONDS + Math.Max(0, resistCount - 1) * RESIST_REGRAB_COOLDOWN_STEP_SECONDS);
+		// After RESIST_LETHAL_AFTER resists the player is a lost cause for arrest —
+		// cops stop trying to grab and go straight to lethal force.
+		private static bool IsLethalForce(int userId) =>
+			_playerResists.TryGetValue(userId, out var r) && r.Count >= RESIST_LETHAL_AFTER;
+		// Chase resolved (escape, booking, or death respawn): fold the run of
+		// consecutive resists into the lifetime worst-streak stat. The current
+		// streak IS _playerResists.Count, which resets when the chase resolves.
+		private static void ResolveResistStreak(int userId)
+		{
+			if (_playerResists.TryGetValue(userId, out var rs) && rs.Count > 0)
+			{
+				int worst = _playerWorstResistStreak.TryGetValue(userId, out var ws) ? ws : 0;
+				if (rs.Count > worst) _playerWorstResistStreak[userId] = rs.Count;
+			}
+		}
+		// The fought-off cop radios for backup during the re-grab cooldown: every
+		// BACKUP_CALL_INTERVAL_SECONDS another cruiser keys onto the player and
+		// pulls up at the scene (a road point near the fight — never the player's
+		// live position), so stalling in the fight zone steadily brings more heat.
+		// The cadence resets on each resist; the wave is capped per cycle.
+		private void MaybeCallBackup(int userId, int worldId, long copId, float sceneX, float sceneZ, DateTime now, Random rng)
+		{
+			if (!_worldNpcs.TryGetValue(worldId, out var npcs)) return;
+			if (!_playerBackupCalls.TryGetValue(userId, out var st) || st.CopId != copId)
+			{
+				st = new BackupCallState { CopId = copId, Units = 0, LastUnitAt = now };
+				_playerBackupCalls[userId] = st;
+			}
+			if (st.Units >= BACKUP_CALL_MAX_UNITS) return;
+			if ((now - st.LastUnitAt).TotalSeconds < BACKUP_CALL_INTERVAL_SECONDS) return;
+			st.LastUnitAt = now;
+			st.Units++;
+			long id = GetNextNpcId();
+			GetRandomRoadPointNearPlayer(sceneX, sceneZ, out float x, out float z, rng, minDist: 80f);
+			float angle = (float)(rng.NextDouble() * Math.PI * 2.0);
+			npcs[id] = new NpcState
+			{
+				Id = id,
+				Type = "police",
+				X = x,
+				Z = z,
+				TargetX = x,
+				TargetZ = z,
+				Yaw = angle,
+				Speed = 17f,
+				Health = 200,
+				MaxHealth = 200,
+				Cr = 0.1f,
+				Cg = 0.1f,
+				Cb = 0.2f,
+				TargetUserId = userId,
+				ApproachAngle = angle,
+				LastKnownX = sceneX,
+				LastKnownZ = sceneZ
+			};
 		}
 		private class NpcState
 		{
@@ -1289,6 +1394,12 @@ namespace maxhanna.Server.Controllers
 			public long CopId { get; set; }
 			public bool Respawned { get; set; }
 		}
+		private class BackupCallState
+		{
+			public long CopId { get; set; }
+			public int Units { get; set; }
+			public DateTime LastUnitAt { get; set; }
+		}
 		private class DeadPlayerBody
 		{
 			public int UserId { get; set; }
@@ -1340,7 +1451,10 @@ namespace maxhanna.Server.Controllers
 					else if (DateTime.UtcNow >= arrest.Until)
 					{
 						_playerArrests.TryRemove(req.UserId, out _);
+						ResolveResistStreak(req.UserId);
 						_playerResists.TryRemove(req.UserId, out _);
+						_playerBackupCalls.TryRemove(req.UserId, out _);
+						_lethalForceNotified.TryRemove(req.UserId, out _);
 						_playerWeapons[req.UserId] = new bool[5] { true, false, false, false, false };
 						_playerAmmo[req.UserId] = new int[5];
 						_playerWantedLevels[req.UserId] = 0;
@@ -1824,7 +1938,8 @@ namespace maxhanna.Server.Controllers
 				var dw = BuildDroppedWeapons();
 				int yourKills = _playerKills.TryGetValue(req.UserId, out var yk) ? yk : 0;
 				bool arrestRegrabbed = _arrestRegrabNotified.TryRemove(req.UserId, out _);
-				return Ok(new { ok = true, players, wantedLevel, evicted, yourHealth, respawnAtHome, chatMessages, droppedWeapons = dw, ownedWeapons = pwArr, ammo = paArr, yourKills, newMoneyRecord = moneyRecord, arrested, arrestRespawn, arrestResisted, arrestRegrabbed });
+				bool lethalForce = _lethalForceNotified.TryRemove(req.UserId, out _);
+				return Ok(new { ok = true, players, wantedLevel, evicted, yourHealth, respawnAtHome, chatMessages, droppedWeapons = dw, ownedWeapons = pwArr, ammo = paArr, yourKills, newMoneyRecord = moneyRecord, arrested, arrestRespawn, arrestResisted, arrestRegrabbed, lethalForce });
 			}
 			catch (Exception ex)
 			{
@@ -2034,6 +2149,7 @@ namespace maxhanna.Server.Controllers
 					// attempt books faster and the next resist costs more wanted stars.
 					if (_playerResists.TryGetValue(userId, out var resist) && npc.Id == resist.CopId &&
 						npc.TargetUserId == userId && wantedLevel > 0 && !_playerArrests.ContainsKey(userId) &&
+						!IsLethalForce(userId) &&
 						(now - resist.LastResistAt).TotalSeconds >= RESIST_REGRAB_DELAY_SECONDS)
 					{
 						float rdx = npc.X - posX;
@@ -2528,9 +2644,21 @@ namespace maxhanna.Server.Controllers
 								// can't instantly re-grab a player who holsters a second later —
 								// he keeps shooting until the cooldown passes (the deterministic
 								// second attempt still fires via the 30s re-grab).
+								// Cooldown grows with each resist (8s → 12s → 16s), so repeated
+								// escapes buy the player increasingly longer windows to flee
+								// before the same cop can grab them again.
 								bool resistCooldown = _playerResists.TryGetValue(userId, out var r2) && npc.Id == r2.CopId &&
-									(now - r2.LastResistAt).TotalSeconds < RESIST_REGRAB_COOLDOWN_SECONDS;
-								if (!arrestActive && !resistCooldown && IsPlayerOnFists(userId))
+									(now - r2.LastResistAt).TotalSeconds < ResistRegrabCooldown(r2.Count);
+								if (resistCooldown)
+								{
+									// While the fought-off cop cools down he calls for backup —
+									// units pull up at the scene the longer the player stalls.
+									MaybeCallBackup(userId, worldId, npc.Id, npc.X, npc.Z, now, rng);
+								}
+								// After two resists the cops stop attempting arrests altogether —
+								// no grab, no re-grab; the player is a lethal-force target.
+								bool lethalForce = IsLethalForce(userId);
+								if (!arrestActive && !resistCooldown && !lethalForce && IsPlayerOnFists(userId))
 								{
 									_playerArrests[userId] = new ArrestState { Until = now.AddSeconds(ARREST_HOLD_SECONDS), X = posX, Z = posZ, CopId = npc.Id };
 									npc.IsArresting = true;
@@ -2541,11 +2669,13 @@ namespace maxhanna.Server.Controllers
 								else if (!arrestActive)
 								{
 									var nowMs = now.Ticks / TimeSpan.TicksPerMillisecond;
-									if (npc.LastShotTime == 0 || (nowMs - npc.LastShotTime) > 500)
+									// Lethal force: deadlier shots at a faster cadence.
+									long shotInterval = lethalForce ? COP_LETHAL_INTERVAL_MS : COP_SHOT_INTERVAL_MS;
+									if (npc.LastShotTime == 0 || (nowMs - npc.LastShotTime) > shotInterval)
 									{
 										npc.LastShotTime = nowMs;
 										npc.IsShootingAt = true;
-										var damageDealt = 5;
+										var damageDealt = lethalForce ? COP_LETHAL_DAMAGE : COP_SHOT_DAMAGE;
 										if (_playerHealth.TryGetValue(userId, out var hp))
 										{
 											_playerHealth[userId] = (hp - damageDealt) >= 0 ? (hp - damageDealt) : 0;
@@ -3018,7 +3148,7 @@ namespace maxhanna.Server.Controllers
 		[HttpGet("highscores")]
 		public async Task<IActionResult> GetHighScores([FromQuery] string sort = "score", [FromQuery] int limit = 50, [FromQuery] int userId = 0)
 		{
-			string key = sort == "deaths" ? "deaths" : sort == "money" ? "money" : sort == "earned" ? "money_earned" : sort == "escapes" ? "escapes" : sort == "busted" ? "busted" : sort == "score" ? "score" : "kills";
+			string key = sort == "deaths" ? "deaths" : sort == "money" ? "money" : sort == "earned" ? "money_earned" : sort == "escapes" ? "escapes" : sort == "busted" ? "busted" : sort == "resists" ? "resists" : sort == "worst_streak" ? "worst_streak" : sort == "score" ? "score" : "kills";
 			string sqlOrder = key == "score" ? "(s.kills * 100 + s.money)" : $"s.{key}";
 			try
 			{
@@ -3029,10 +3159,10 @@ namespace maxhanna.Server.Controllers
 					using var conn = new MySqlConnection(connStr);
 					await conn.OpenAsync();
 					using var cmd = new MySqlCommand($@"
-						SELECT s.user_id, COALESCE(u.username, 'Unknown') AS player_name, s.kills, s.deaths, s.money, s.money_earned, (s.kills * 100 + s.money) AS score, s.escapes, s.busted
+						SELECT s.user_id, COALESCE(u.username, 'Unknown') AS player_name, s.kills, s.deaths, s.money, s.money_earned, (s.kills * 100 + s.money) AS score, s.escapes, s.busted, s.resists, s.worst_streak
 						FROM maxhanna.grandtheft_player_state s
 						LEFT JOIN maxhanna.users u ON s.user_id = u.id
-						WHERE s.kills > 0 OR s.deaths > 0 OR s.money > 0 OR s.money_earned > 0 OR s.escapes > 0 OR s.busted > 0
+						WHERE s.kills > 0 OR s.deaths > 0 OR s.money > 0 OR s.money_earned > 0 OR s.escapes > 0 OR s.busted > 0 OR s.resists > 0 OR s.worst_streak > 0
 						ORDER BY {sqlOrder} DESC, s.kills DESC
 						LIMIT 1000", conn);
 					using var rdr = await cmd.ExecuteReaderAsync();
@@ -3048,7 +3178,9 @@ namespace maxhanna.Server.Controllers
 							MoneyEarned = rdr.IsDBNull(5) ? 0 : rdr.GetInt32(5),
 							Score = rdr.IsDBNull(6) ? 0 : (int)Math.Min(2_000_000_000, rdr.GetInt64(6)),
 							Escapes = rdr.IsDBNull(7) ? 0 : rdr.GetInt32(7),
-							Busted = rdr.IsDBNull(8) ? 0 : rdr.GetInt32(8)
+							Busted = rdr.IsDBNull(8) ? 0 : rdr.GetInt32(8),
+							Resists = rdr.IsDBNull(9) ? 0 : rdr.GetInt32(9),
+							WorstStreak = rdr.IsDBNull(10) ? 0 : rdr.GetInt32(10)
 						});
 					}
 				}
@@ -3058,12 +3190,14 @@ namespace maxhanna.Server.Controllers
 					if (_playerDeaths.TryGetValue(r.PlayerId, out var d)) r.Deaths = d;
 					if (_playerEscapes.TryGetValue(r.PlayerId, out var e)) r.Escapes = e;
 					if (_playerBusted.TryGetValue(r.PlayerId, out var b)) r.Busted = b;
+					if (_playerResistsTotal.TryGetValue(r.PlayerId, out var rt)) r.Resists = rt;
+					if (_playerWorstResistStreak.TryGetValue(r.PlayerId, out var ws)) r.WorstStreak = ws;
 					if (_playerMoney.TryGetValue(r.PlayerId, out var m)) r.Money = m;
 					if (_playerMoneyEarned.TryGetValue(r.PlayerId, out var me)) r.MoneyEarned = me;
 				}
 				foreach (var r in rows) r.Score = (int)Math.Min(2_000_000_000, (long)r.Kills * 100 + r.Money);
 				int totalCount = rows.Count;
-				rows = rows.OrderByDescending(r => key == "deaths" ? r.Deaths : key == "money" ? r.Money : key == "money_earned" ? r.MoneyEarned : key == "escapes" ? r.Escapes : key == "busted" ? r.Busted : key == "score" ? r.Score : r.Kills).ToList();
+				rows = rows.OrderByDescending(r => key == "deaths" ? r.Deaths : key == "money" ? r.Money : key == "money_earned" ? r.MoneyEarned : key == "escapes" ? r.Escapes : key == "busted" ? r.Busted : key == "resists" ? r.Resists : key == "worst_streak" ? r.WorstStreak : key == "score" ? r.Score : r.Kills).ToList();
 				int userRank = 0;
 				if (userId > 0)
 				{
@@ -3676,8 +3810,11 @@ namespace maxhanna.Server.Controllers
 			_playerLastKnown.TryRemove(userId, out _);
 			_lastUndetectedTime.TryRemove(userId, out _);
 			_lastHeliDispatch.TryRemove(userId, out _);
+			ResolveResistStreak(userId);
 			_playerResists.TryRemove(userId, out _);
+			_playerBackupCalls.TryRemove(userId, out _);
 			_arrestRegrabNotified.TryRemove(userId, out _);
+			_lethalForceNotified.TryRemove(userId, out _);
 			if (!_worldNpcs.TryGetValue(worldId, out var npcs)) return;
 			var lingerUntil = linger ? DateTime.UtcNow.AddSeconds(COP_LINGER_PATROL_SECONDS) : (DateTime?)null;
 			var rng = new Random();

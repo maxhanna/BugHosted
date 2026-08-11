@@ -264,7 +264,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   showWeaponWheel = false;
   showLeaderboard = false;
   lbTab: 'live' | 'scores' | 'jumps' = 'live';
-  hsSort: 'kills' | 'deaths' | 'money' | 'earned' | 'score' | 'escapes' | 'busted' = 'score';
+  hsSort: 'kills' | 'deaths' | 'money' | 'earned' | 'score' | 'escapes' | 'busted' | 'resists' | 'worstStreak' = 'score';
   highScores: any[] = [];
   hsTotal = 0;
   hsUserRank = 0;
@@ -1808,6 +1808,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (res && res.arrestRegrabbed) {
       this.wantedPopTimer = 0.8;
       this.showStoreToast('🚨 THE COPS AREN\'T DONE WITH YOU — re-arrest attempt!');
+    }
+    if (res && res.lethalForce) {
+      this.wantedPopTimer = 0.8;
+      this.showStoreToast('☠️ LETHAL FORCE — the cops have stopped trying to arrest you!');
     }
     if (res && res.droppedWeapons) {
       this.droppedWeapons = res.droppedWeapons;
@@ -7135,7 +7139,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (tab === 'scores') this.loadHighScores();
     else if (tab === 'jumps') this.loadJumps();
   }
-  setHsSort(sort: 'kills' | 'deaths' | 'money' | 'earned' | 'score' | 'escapes' | 'busted') {
+  setHsSort(sort: 'kills' | 'deaths' | 'money' | 'earned' | 'score' | 'escapes' | 'busted' | 'resists' | 'worstStreak') {
     if (this.hsSort === sort) return;
     this.hsSort = sort;
     this.loadHighScores();

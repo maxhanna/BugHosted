@@ -187,6 +187,8 @@
           <button class="lb-sort" [class.active]="hsSort === 'earned'" (click)="setHsSort('earned')">Earned</button>
           <button class="lb-sort" [class.active]="hsSort === 'escapes'" (click)="setHsSort('escapes')">Escapes</button>
           <button class="lb-sort" [class.active]="hsSort === 'busted'" (click)="setHsSort('busted')">Busted</button>
+          <button class="lb-sort" [class.active]="hsSort === 'resists'" (click)="setHsSort('resists')">Resists</button>
+          <button class="lb-sort" [class.active]="hsSort === 'worstStreak'" (click)="setHsSort('worstStreak')">Worst Streak</button>
           <span class="lb-sort-hint" *ngIf="hsLoading">loading…</span>
         </div>
         <div class="lb-row lb-header-row">
@@ -197,6 +199,8 @@
           <span class="lb-stat">Deaths</span>
           <span class="lb-stat">Escapes</span>
           <span class="lb-stat">Busted</span>
+          <span class="lb-stat">Resists</span>
+          <span class="lb-stat">Worst Streak</span>
           <span class="lb-stat">Money</span>
           <span class="lb-stat">Earned</span>
         </div>
@@ -213,6 +217,8 @@
             <span class="lb-stat">{{ h.deaths }}</span>
             <span class="lb-stat">{{ h.escapes }}</span>
             <span class="lb-stat">{{ h.busted }}</span>
+            <span class="lb-stat">{{ h.resists }}</span>
+            <span class="lb-stat">{{ h.worstStreak }}</span>
             <span class="lb-stat">${{ h.money }}</span>
             <span class="lb-stat">${{ h.moneyEarned }}</span>
           </div>

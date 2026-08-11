@@ -78,10 +78,26 @@
               <span class="smallFont secondaryFontColor">{{ f.username }}</span>
               <span class="smallFont secondaryFontColor" *ngIf="f.createdAt"> — {{ f.createdAt }}</span>
               <span class="smallFont secondaryFontColor" *ngIf="f.cardId"> · Card #{{ f.cardId }}</span>
-              <button class="noBtn" style="margin-left:auto;" (click)="deleteWeaverFeedback(f.id)" [disabled]="weaverFeedbackLoading">🗑 Delete</button>
+              <span *ngIf="f.resolvedAt" class="smallFont statusApproved" style="margin-left:8px;">✅ Resolved {{ f.resolvedAt }}</span>
+              <span *ngIf="!f.resolvedAt" class="smallFont statusPending" style="margin-left:8px;">⏳ Open</span>
+              <span style="margin-left:auto;"></span>
+              <button class="noBtn" (click)="toggleResolveWeaverFeedback(f)" [disabled]="weaverResolveSaving === f.id || weaverFeedbackLoading">{{ f.resolvedAt ? '↩️ Reopen' : '✅ Resolve' }}</button>
+              <button class="noBtn" (click)="weaverReplyId === f.id ? cancelWeaverReply() : startWeaverReply(f)" [disabled]="weaverReplySaving || weaverFeedbackLoading">💬 {{ f.reply ? 'Edit reply' : 'Reply' }}</button>
+              <button class="noBtn" (click)="deleteWeaverFeedback(f.id)" [disabled]="weaverFeedbackLoading">🗑 Delete</button>
             </div>
             <div class="smallFont" style="margin:4px 0;">{{ f.message }}</div>
             <div class="xSmallFont secondaryFontColor" *ngIf="f.cardText">Card: {{ f.cardText.length > 140 ? (f.cardText | slice:0:140) + '…' : f.cardText }}</div>
+            <div *ngIf="f.reply" style="margin:6px 0 0;padding:6px 8px;background:rgba(64,192,128,0.08);border-left:3px solid #40c080;border-radius:3px;">
+              <div class="xSmallFont" style="color:#40c080;font-weight:bold;">↩️ Admin reply{{ f.repliedAt ? ' · ' + f.repliedAt : '' }}</div>
+              <div class="smallFont" style="margin-top:2px;white-space:pre-wrap;">{{ f.reply }}</div>
+            </div>
+            <div *ngIf="weaverReplyId === f.id" style="margin-top:6px;">
+              <textarea class="modSelect" rows="2" style="width:100%;min-width:0;resize:vertical;" [(ngModel)]="weaverReplyText" placeholder="Reply to this feedback message…"></textarea>
+              <div style="margin-top:4px;">
+                <button class="noBtn" (click)="saveWeaverReply(f)" [disabled]="weaverReplySaving || !weaverReplyText.trim()">💾 Save reply</button>
+                <button class="noBtn" (click)="cancelWeaverReply()" [disabled]="weaverReplySaving">Cancel</button>
+              </div>
+            </div>
           </div>
         </div>
         <div *ngIf="weaverFeedbackHasMore && !weaverFeedbackLoading" style="text-align:center;margin-top:10px;">

@@ -465,6 +465,7 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
+        await EnsureWeaverFeedbackSchemaAsync(conn);
         int page = request.Page < 1 ? 1 : request.Page;
         int pageSize = request.PageSize < 1 || request.PageSize > 100 ? 25 : request.PageSize;
         int offset = (page - 1) * pageSize;
@@ -472,7 +473,8 @@ namespace maxhanna.Server.Controllers
         using var countCmd = new MySqlCommand(countSql, conn);
         int total = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
         string sql = @"
-          SELECT id, user_id, username, card_id, card_text, message, created_at
+          SELECT id, user_id, username, card_id, card_text, message, created_at,
+                 reply, replied_at, replied_by, resolved_at, resolved_by
           FROM maxhanna.weaver_feedback
           ORDER BY created_at DESC, id DESC
           LIMIT @Offset, @PageSize";
@@ -491,7 +493,12 @@ namespace maxhanna.Server.Controllers
             cardId = reader.IsDBNull(reader.GetOrdinal("card_id")) ? "" : reader.GetString("card_id"),
             cardText = reader.IsDBNull(reader.GetOrdinal("card_text")) ? null : reader.GetString("card_text"),
             message = reader.GetString("message"),
-            createdAt = reader.GetDateTime("created_at").ToString("yyyy-MM-dd HH:mm:ss")
+            createdAt = reader.GetDateTime("created_at").ToString("yyyy-MM-dd HH:mm:ss"),
+            reply = reader.IsDBNull(reader.GetOrdinal("reply")) ? null : reader.GetString("reply"),
+            repliedAt = reader.IsDBNull(reader.GetOrdinal("replied_at")) ? null : reader.GetDateTime("replied_at").ToString("yyyy-MM-dd HH:mm:ss"),
+            repliedBy = reader.IsDBNull(reader.GetOrdinal("replied_by")) ? 0 : reader.GetInt32("replied_by"),
+            resolvedAt = reader.IsDBNull(reader.GetOrdinal("resolved_at")) ? null : reader.GetDateTime("resolved_at").ToString("yyyy-MM-dd HH:mm:ss"),
+            resolvedBy = reader.IsDBNull(reader.GetOrdinal("resolved_by")) ? 0 : reader.GetInt32("resolved_by")
           });
         }
         return Ok(new { items, total, page, pageSize });
@@ -527,6 +534,113 @@ namespace maxhanna.Server.Controllers
       {
         _ = _log.Db("Error in DeleteWeaverFeedback: " + ex.Message, request.CallerUserId, "MODERATOR", true);
         return StatusCode(500, "Failed to delete weaver feedback.");
+      }
+    }
+    [HttpPost("/Moderator/ReplyWeaverFeedback", Name = "ReplyWeaverFeedback")]
+    public async Task<IActionResult> ReplyWeaverFeedback(
+      [FromBody] ReplyWeaverFeedbackRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (request == null || request.Id <= 0 || request.CallerUserId <= 0 || string.IsNullOrWhiteSpace(request.Reply))
+        return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(request.CallerUserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+      if (!await IsWeaverFeedbackModeratorAsync(request.CallerUserId)) return Unauthorized("Only weaver admins can reply to feedback.");
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        await EnsureWeaverFeedbackSchemaAsync(conn);
+        string sql = @"UPDATE maxhanna.weaver_feedback
+          SET reply = @Reply, replied_at = UTC_TIMESTAMP(), replied_by = @By
+          WHERE id = @Id";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Reply", request.Reply.Trim());
+        cmd.Parameters.AddWithValue("@By", request.CallerUserId);
+        cmd.Parameters.AddWithValue("@Id", request.Id);
+        int updated = await cmd.ExecuteNonQueryAsync();
+        if (updated == 0) return NotFound("Feedback not found.");
+        _ = _log.Db($"Weaver admin {request.CallerUserId} replied to feedback #{request.Id}", request.CallerUserId, "MODERATOR", false);
+        return Ok(new { status = "ok", id = request.Id, reply = request.Reply.Trim() });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in ReplyWeaverFeedback: " + ex.Message, request.CallerUserId, "MODERATOR", true);
+        return StatusCode(500, "Failed to reply to feedback.");
+      }
+    }
+    [HttpPost("/Moderator/ResolveWeaverFeedback", Name = "ResolveWeaverFeedback")]
+    public async Task<IActionResult> ResolveWeaverFeedback(
+      [FromBody] ResolveWeaverFeedbackRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (request == null || request.Id <= 0 || request.CallerUserId <= 0) return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(request.CallerUserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+      if (!await IsWeaverFeedbackModeratorAsync(request.CallerUserId)) return Unauthorized("Only weaver admins can resolve feedback.");
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        await EnsureWeaverFeedbackSchemaAsync(conn);
+        string sql = request.Resolve
+          ? "UPDATE maxhanna.weaver_feedback SET resolved_at = UTC_TIMESTAMP(), resolved_by = @By WHERE id = @Id"
+          : "UPDATE maxhanna.weaver_feedback SET resolved_at = NULL, resolved_by = NULL WHERE id = @Id";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@By", request.CallerUserId);
+        cmd.Parameters.AddWithValue("@Id", request.Id);
+        int updated = await cmd.ExecuteNonQueryAsync();
+        if (updated == 0) return NotFound("Feedback not found.");
+        _ = _log.Db($"Weaver admin {request.CallerUserId} {(request.Resolve ? "resolved" : "reopened")} feedback #{request.Id}", request.CallerUserId, "MODERATOR", false);
+        return Ok(new { status = "ok", id = request.Id, resolved = request.Resolve });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in ResolveWeaverFeedback: " + ex.Message, request.CallerUserId, "MODERATOR", true);
+        return StatusCode(500, "Failed to update feedback status.");
+      }
+    }
+    // Creates the weaver_feedback table on fresh installs and idempotently adds
+    // any missing reply/resolved columns to existing installs, so the hub works
+    // without a manual DDL step. The Weaver-side proxy (WeaverController.
+    // SubmitFeedback) also self-bootstraps the base table on first use.
+    private static async Task EnsureWeaverFeedbackSchemaAsync(MySqlConnection conn)
+    {
+      using (var ensure = new MySqlCommand(@"
+        CREATE TABLE IF NOT EXISTS maxhanna.weaver_feedback (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          user_id INT NOT NULL,
+          username VARCHAR(100) NOT NULL DEFAULT '',
+          card_id VARCHAR(255) NULL,
+          card_text TEXT NULL,
+          message TEXT NOT NULL,
+          created_at DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
+          reply TEXT NULL,
+          replied_at DATETIME NULL,
+          replied_by INT NULL,
+          resolved_at DATETIME NULL,
+          resolved_by INT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", conn))
+      {
+        await ensure.ExecuteNonQueryAsync();
+      }
+      var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+      using (var cols = new MySqlCommand(@"
+        SELECT COLUMN_NAME FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = 'maxhanna' AND TABLE_NAME = 'weaver_feedback'", conn))
+      using (var reader = await cols.ExecuteReaderAsync())
+        while (await reader.ReadAsync())
+          existing.Add(reader.GetString(0));
+      var alters = new List<string>();
+      if (!existing.Contains("reply")) alters.Add("ADD COLUMN reply TEXT NULL");
+      if (!existing.Contains("replied_at")) alters.Add("ADD COLUMN replied_at DATETIME NULL");
+      if (!existing.Contains("replied_by")) alters.Add("ADD COLUMN replied_by INT NULL");
+      if (!existing.Contains("resolved_at")) alters.Add("ADD COLUMN resolved_at DATETIME NULL");
+      if (!existing.Contains("resolved_by")) alters.Add("ADD COLUMN resolved_by INT NULL");
+      if (alters.Count > 0)
+      {
+        using var alterCmd = new MySqlCommand("ALTER TABLE maxhanna.weaver_feedback " + string.Join(", ", alters), conn);
+        await alterCmd.ExecuteNonQueryAsync();
       }
     }
     private async Task<bool> IsWeaverFeedbackModeratorAsync(int userId)
@@ -1395,6 +1509,18 @@ namespace maxhanna.Server.Controllers
   public class DeleteWeaverFeedbackRequest
   {
     public int Id { get; set; }
+    public int CallerUserId { get; set; }
+  }
+  public class ReplyWeaverFeedbackRequest
+  {
+    public int Id { get; set; }
+    public string Reply { get; set; } = "";
+    public int CallerUserId { get; set; }
+  }
+  public class ResolveWeaverFeedbackRequest
+  {
+    public int Id { get; set; }
+    public bool Resolve { get; set; }
     public int CallerUserId { get; set; }
   }
   public class GetModeratorLogsRequest
