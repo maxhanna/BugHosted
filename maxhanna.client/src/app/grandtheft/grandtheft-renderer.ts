@@ -4621,7 +4621,10 @@ void main() {
         if (pw) skinRootWorld = new Float32Array(pw);
       }
     }
-    const nodeNames: string[] = (json.nodes || []).map((n: any) => n.name || '');
+    // Bone-indexed joint names: json.nodes holds every scene node, but the
+    // skeleton only exposes bones 0..boneCount-1 in joint order, so map the
+    // joint node names directly (nodeNames[b] = name of bone b).
+    const nodeNames: string[] = jointNodes.map((j: number) => (json.nodes[j]?.name || ''));
     return {
       boneParents: parents,
       boneLocalMatrices: boneLocalTf,
