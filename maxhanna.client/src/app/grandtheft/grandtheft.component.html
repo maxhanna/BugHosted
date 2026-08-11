@@ -43,6 +43,14 @@
     <div id="gt-murder-text" *ngIf="murderFlashTimer > 0" [style.opacity]="murderFlashAlpha">MURDER</div>
     <div id="gt-wasted" *ngIf="wastedTimer > 0">WASTED</div>
     <div id="gt-vehicle-banner" *ngIf="vehicleBannerTimer > 0">{{ vehicleName }}</div>
+    <div id="gt-repair-hint" *ngIf="repairShopNearby && isInCar" [class.out-of-cash]="repairOutOfCash">
+      <ng-container *ngIf="repairOutOfCash; else repairingHint">
+        🔧 Service station — need ${{ repairRemainingCost }} to repair
+      </ng-container>
+      <ng-template #repairingHint>
+        🔧 Service station — repairing (${{ repairHpCost }}/HP · ~${{ repairRemainingCost }} remaining)
+      </ng-template>
+    </div>
 
     <div id="gt-passenger-prompt" *ngIf="showPassengerPrompt" [style.pointer-events]="isMobile ? 'auto' : null" (click)="toggleCar()" (touchend)="$event.preventDefault(); toggleCar()">
       {{ isMobile ? 'Tap to pick up passenger' : 'Press E to pick up passenger' }}
@@ -362,25 +370,25 @@
     <label class="gt-setting-row">
       <span>Combat SFX Volume</span>
       <input type="range" min="0" max="100" [value]="sfxVolume * 100"
-        (input)="sfxVolume = $any($event.target).value / 100" />
+        (input)="sfxVolume = $any($event.target).value / 100; saveGtSettings()" />
       <span class="gt-setting-value">{{ sfxVolume * 100 | number:'1.0-0' }}%</span>
     </label>
     <label class="gt-setting-row">
       <span>Car SFX Volume</span>
       <input type="range" min="0" max="100" [value]="carSfxVolume * 100"
-        (input)="carSfxVolume = $any($event.target).value / 100" />
+        (input)="carSfxVolume = $any($event.target).value / 100; saveGtSettings()" />
       <span class="gt-setting-value">{{ carSfxVolume * 100 | number:'1.0-0' }}%</span>
     </label>
     <label class="gt-setting-row">
       <span>Radio Volume</span>
       <input type="range" min="0" max="100" [value]="radioVolume * 100"
-        (input)="radioVolume = $any($event.target).value / 100; setRadioVolume()" />
+        (input)="radioVolume = $any($event.target).value / 100; setRadioVolume(); saveGtSettings()" />
       <span class="gt-setting-value">{{ radioVolume * 100 | number:'1.0-0' }}%</span>
     </label>
     <label class="gt-setting-row">
       <span>View Distance</span>
       <input type="range" min="100" max="1000" [value]="viewDistance"
-        (input)="viewDistance = $any($event.target).value; setViewDistance(viewDistance)" />
+        (input)="viewDistance = $any($event.target).value; setViewDistance(viewDistance); saveGtSettings()" />
       <span class="gt-setting-value">{{ viewDistance }}m</span>
     </label>
   </div>

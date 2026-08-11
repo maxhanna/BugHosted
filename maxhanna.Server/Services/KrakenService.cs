@@ -550,7 +550,7 @@ public class KrakenService
         decimal usdcValueToTrade = Math.Min(usdcBalance, _MaximumUSDCTradeAmount);
         usdcValueToTrade = await AdjustToPriors(userId, tmpCoin, usdcValueToTrade, "buy", strategy);
 
-        if (usdcValueToTrade > 0)
+        if (usdcValueToTrade > 0 && coinPriceUSDC > 0)
         {
           decimal coinAmount = usdcValueToTrade / coinPriceUSDC;
 
@@ -1082,7 +1082,8 @@ public class KrakenService
         else
         {
           //First check if above trade threshold.
-          decimal indSpread = (coinPriceUSDC - Convert.ToDecimal(lastTrade.coin_price_usdc)) / Convert.ToDecimal(lastTrade.coin_price_usdc);
+          decimal lastPriceInd = Convert.ToDecimal(lastTrade.coin_price_usdc);
+          decimal indSpread = lastPriceInd > 0 ? (coinPriceUSDC - lastPriceInd) / lastPriceInd : 0;
           if (indSpread > _TradeThreshold)
           {
             _ = _log.Db($"({tmpCoin.Replace("BTC", "XBT")}:{userId}:{strategy}) Profit threshold surpassed. " +
@@ -1475,7 +1476,7 @@ public class KrakenService
       return true;
     }
 
-    if (usdcBalance > _CoinReserveUSDCValue && _CoinReserveUSDCValue > 0)
+    if (usdcBalance > _CoinReserveUSDCValue && _CoinReserveUSDCValue > 0 && coinPriceUSDC > 0)
     {
       decimal amount = _CoinReserveUSDCValue / coinPriceUSDC;
       // Cap the reserve so it never pushes the balance past the configured max.
@@ -3614,7 +3615,7 @@ LIMIT @PageSize OFFSET @Offset;";
 
       // 1a) Latest table (fast path)
       const string latestSql = @"
-SELECT value_usd
+SELECT id, value_usd, `timestamp`
 FROM latest_coin_value
 WHERE name = @Name
   AND `timestamp` >= UTC_TIMESTAMP() - INTERVAL 10 SECOND
@@ -3622,17 +3623,24 @@ LIMIT 1;";
       await using (var latestCmd = new MySqlCommand(latestSql, conn) { CommandTimeout = 6 })
       {
         latestCmd.Parameters.Add("@Name", MySqlDbType.VarChar, 100).Value = normalizedName;
-        var obj = await latestCmd.ExecuteScalarAsync(ct);
-        if (obj != null && obj != DBNull.Value)
+        await using var rd = await latestCmd.ExecuteReaderAsync(ct);
+        if (await rd.ReadAsync())
         {
-          var dbPrice = Convert.ToDecimal(obj);
-          return dbPrice;
+          var dbPrice = rd.IsDBNull(rd.GetOrdinal("value_usd")) ? 0m : rd.GetDecimal(rd.GetOrdinal("value_usd"));
+          // A stored zero (or negative) price is garbage — skip the cache so
+          // the call falls through to the legacy table / Kraken API instead
+          // of poisoning the trade math with a 0 denominator. Log the exact
+          // source row so the corruption can be traced and fixed in the DB.
+          if (dbPrice > 0) return dbPrice;
+          long latestId = rd.IsDBNull(rd.GetOrdinal("id")) ? 0 : rd.GetInt64(rd.GetOrdinal("id"));
+          var latestTs = rd.IsDBNull(rd.GetOrdinal("timestamp")) ? (DateTime?)null : rd.GetDateTime(rd.GetOrdinal("timestamp"));
+          _ = _log.Db($"⚠️ Trade bot hit a corrupt price row in latest_coin_value: name={normalizedName} id={latestId} value_usd={dbPrice} ts={(latestTs?.ToString("yyyy-MM-dd HH:mm:ss") ?? "NULL")} — fix: DELETE FROM maxhanna.latest_coin_value WHERE id = {latestId};", userId, "TRADE", viewErrorDebugLogs);
         }
       }
 
       // 1b) Fallback to legacy table for cache
       const string legacySql = @"
-SELECT value_usd
+SELECT id, value_usd, `timestamp`
 FROM coin_value
 WHERE name = @Name
   AND `timestamp` >= UTC_TIMESTAMP() - INTERVAL 10 SECOND
@@ -3641,11 +3649,14 @@ LIMIT 1;";
       await using (var legacyCmd = new MySqlCommand(legacySql, conn) { CommandTimeout = 8 })
       {
         legacyCmd.Parameters.Add("@Name", MySqlDbType.VarChar, 100).Value = normalizedName;
-        var obj = await legacyCmd.ExecuteScalarAsync(ct);
-        if (obj != null && obj != DBNull.Value)
+        await using var rd = await legacyCmd.ExecuteReaderAsync(ct);
+        if (await rd.ReadAsync())
         {
-          var dbPrice = Convert.ToDecimal(obj);
-          return dbPrice;
+          var dbPrice = rd.IsDBNull(rd.GetOrdinal("value_usd")) ? 0m : rd.GetDecimal(rd.GetOrdinal("value_usd"));
+          if (dbPrice > 0) return dbPrice;
+          long legacyId = rd.IsDBNull(rd.GetOrdinal("id")) ? 0 : rd.GetInt64(rd.GetOrdinal("id"));
+          var legacyTs = rd.IsDBNull(rd.GetOrdinal("timestamp")) ? (DateTime?)null : rd.GetDateTime(rd.GetOrdinal("timestamp"));
+          _ = _log.Db($"⚠️ Trade bot hit a corrupt price row in coin_value: name={normalizedName} id={legacyId} value_usd={dbPrice} ts={(legacyTs?.ToString("yyyy-MM-dd HH:mm:ss") ?? "NULL")} — fix: DELETE FROM maxhanna.coin_value WHERE id = {legacyId};", userId, "TRADE", viewErrorDebugLogs);
         }
       }
     }
@@ -5115,7 +5126,7 @@ ON DUPLICATE KEY UPDATE
       }
       //Trade configured percentage % of USDC balance TO BTC 
       decimal usdcValueToTrade = Math.Min(_MaximumUSDCTradeAmount, usdcBalance);
-      if (usdcValueToTrade > 0)
+      if (usdcValueToTrade > 0 && coinPriceUSDC.Value > 0)
       {
         decimal btcAmount = usdcValueToTrade / coinPriceUSDC.Value;
 
@@ -6247,8 +6258,10 @@ ON DUPLICATE KEY UPDATE
 
     decimal currentPrice = coinPriceUSDC;
 
-    decimal spread = (isFirstTradeEver && strategy != "HFT") ? 0 : (currentPrice - lastPrice) / lastPrice;
-    decimal spread2 = firstPriceToday != null ? (currentPrice - firstPriceToday.Value) / firstPriceToday.Value : 0;
+    // Guard the denominators: a stored 0 price (bad row, stale cache) would
+    // otherwise throw DivideByZeroException on every bot tick.
+    decimal spread = (isFirstTradeEver && strategy != "HFT") ? 0 : (lastPrice > 0 ? (currentPrice - lastPrice) / lastPrice : 0);
+    decimal spread2 = (firstPriceToday.HasValue && firstPriceToday.Value > 0) ? (currentPrice - firstPriceToday.Value) / firstPriceToday.Value : 0;
 
     // Log spread calculation details for debugging
     //_ = _log.Db($"({tmpCoin}:{userId}:{strategy}) Spread calc: lastPrice={lastPrice}, currentPrice={currentPrice}, spread={spread:P}, spread2={spread2:P}, firstPriceToday={firstPriceToday}, lastCheckedPrice={lastCheckedPrice}", userId, "TRADE", viewDebugLogs);

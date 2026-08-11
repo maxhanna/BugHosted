@@ -387,8 +387,15 @@ namespace maxhanna.Server.Controllers
 		}
 
 		[HttpPost("/Nexus/Start", Name = "Start")]
-		public async Task<IActionResult> Start([FromBody] int userId)
+		public async Task<IActionResult> Start([FromBody] int userId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserId)
 		{
+			// This endpoint creates a base in the DB for the supplied userId, so it
+			// must only run for the session owner (the cookie/header is bridged by
+			// the session middleware after a page reload).
+			if (!await _log.ValidateUserLoggedIn(userId, encryptedUserId))
+			{
+				return StatusCode(401, "Access Denied. Please re-login.");
+			}
 			using MySqlConnection conn = new MySqlConnection(_connectionString);
 			try
 			{

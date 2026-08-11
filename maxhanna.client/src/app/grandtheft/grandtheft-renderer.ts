@@ -660,8 +660,11 @@ export class GrandTheftRenderer {
     const result: { x: number; z: number }[] = [];
     const pcx = Math.floor(x / CHUNK_SIZE);
     const pcz = Math.floor(z / CHUNK_SIZE);
-    for (let dz = -1; dz <= 1; dz++) {
-      for (let dx = -1; dx <= 1; dx++) {
+    // Scan every chunk that could fall inside the radius (the minimap queries
+    // a wide area, the repair scan a tight one — both share this method).
+    const cr = Math.max(1, Math.ceil(radius / CHUNK_SIZE));
+    for (let dz = -cr; dz <= cr; dz++) {
+      for (let dx = -cr; dx <= cr; dx++) {
         const chunk = this.getCityChunk(pcx + dx, pcz + dz);
         if (!chunk) continue;
         for (const bld of chunk.buildings) {
@@ -771,6 +774,8 @@ export class GrandTheftRenderer {
   public walkSpeed = 0;
   public walkTime = 0;
   public punchTime = 0;
+  /** Per-entity punch/swing timers (keyed by entity id, seconds remaining). */
+  public punchTimers = new Map<number, number>();
   public playerCarSpeed = 0;
   public playerSteerInput = 0;
   private _mopedWheelMesh: CityMesh | null = null;
@@ -1379,6 +1384,27 @@ void main() {
     }
     const localMatrices = new Float32Array(skeleton.boneCount * 16);
     this.sampleAnimation(anim, animator.time, skeleton, localMatrices);
+    // Visible punch/swing: when a ped throws a punch (triggerPunch), override the
+    // right arm with the same 0.3s extend-and-recover pose the player's punch uses,
+    // so a brawl reads as swings instead of just health loss.
+    const punchLeft = this.punchTimers.get(entityId) ?? 0;
+    if (punchLeft > 0) {
+      if (skeleton.boneCount > 35) {
+        const t = punchLeft / 0.3;
+        const punchAmount = t < 0.5 ? t * 2 : 2 - t * 2;
+        const extendAngle = -0.8 * punchAmount;
+        const m33 = new Float32Array(localMatrices.buffer, 33 * 16 * 4, 16);
+        quatToMat4([Math.sin(extendAngle / 2), 0, 0, Math.cos(extendAngle / 2)], m33);
+        m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
+        const m34 = new Float32Array(localMatrices.buffer, 34 * 16 * 4, 16);
+        quatToMat4([0, 0, 0, 1], m34);
+        m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
+        const m35 = new Float32Array(localMatrices.buffer, 35 * 16 * 4, 16);
+        quatToMat4([0, 0, 0, 1], m35);
+        m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
+      }
+      this.punchTimers.set(entityId, Math.max(0, punchLeft - dt));
+    }
     const jointMatrices = new Float32Array(skeleton.boneCount * 16);
     this.computeJointMatrices(skeleton, localMatrices, jointMatrices);
     this.skinMeshGeneric(meshes, skeleton, jointMatrices);
@@ -1391,6 +1417,15 @@ void main() {
         this.entityAnimators.delete(id);
       }
     }
+    for (const id of this.punchTimers.keys()) {
+      if (!activeEntityIds.has(id)) {
+        this.punchTimers.delete(id);
+      }
+    }
+  }
+  /** Queue a visible punch/swing animation for an entity (0.3s arm extend). */
+  triggerPunch(entityId: number): void {
+    this.punchTimers.set(entityId, 0.3);
   }
   skinPlayerMesh(meshes: CityMesh | CityMesh[], dt: number = 0): void {
     try {
@@ -3572,63 +3607,70 @@ void main() {
     gl.uniform3fv(this.pointLightPosLoc, pointLightPositions);
     // Draw chunks out to the configured view distance (capped so the far
     // settings can't nuke the frame rate). The shadow pass stays 3x3.
+    //
+    // Distance-based LOD: the near 3×3 ring keeps full detail (small props,
+    // trees, chickens — everything), the next ring keeps the skyline and
+    // mid-size structures but drops the tiny clutter, and the outer rings
+    // keep only the chunk ground/roads/water mesh plus large buildings, so
+    // the extra chunks at high view distance stay cheap on weaker machines.
     const chunkRadius = Math.max(1, Math.min(4, Math.round(far / 250)));
     for (let dz = -chunkRadius; dz <= chunkRadius; dz++) {
       for (let dx = -chunkRadius; dx <= chunkRadius; dx++) {
         const chunk = this.getCityChunk(pcx + dx, pcz + dz);
+        const ring = Math.max(Math.abs(dx), Math.abs(dz));
         this.drawMesh(chunk.mesh, 0, 0, 0, 0, [1, 1, 1], [1, 1, 1, 1]);
-        if (this.lampMesh) {
+        if (this.lampMesh && ring <= 1) {
           const lampModels = Array.isArray(this.lampMesh) ? this.lampMesh : [this.lampMesh];
           for (const lamp of chunk.lamps) {
             const mi = Math.abs(Math.floor(lamp.x * 7 + lamp.z * 13)) % lampModels.length;
             this.drawMesh(lampModels[mi], lamp.x, 0, lamp.z, 0, [1, 1, 1], [0.25, 0.3, 0.22, 1]);
           }
         }
-        if (this.hydrantMesh) {
+        if (this.hydrantMesh && ring <= 1) {
           for (const hydrant of chunk.hydrants) {
             this.drawMesh(this.hydrantMesh, hydrant.x, 0, hydrant.z, 0, [1, 1, 1], [1, 0, 0, 1]);
           }
         }
-        if (this.palmTreeMesh) {
+        if (this.palmTreeMesh && ring <= 1) {
           for (const tree of chunk.trees) {
             if (isNearBridgeRoad(tree.x, tree.z, tree.scale * 2)) continue;
             this.drawMesh(this.palmTreeMesh, tree.x, 0, tree.z, tree.yaw, [tree.scale, tree.scale, tree.scale], [1, 1, 1, 1]);
           }
         }
-        if (this.benchMeshes.length > 0) {
+        if (this.benchMeshes.length > 0 && ring <= 1) {
           for (const bench of chunk.benches) {
             const bm = this.benchMeshes[Math.abs((bench.x * 100 + bench.z) | 0) % this.benchMeshes.length];
             this.drawMesh(bm, bench.x, 0, bench.z, bench.yaw, [0.8, 0.8, 0.8], [1, 1, 1, 1]);
           }
         }
-        if (this.tatamiRoomMesh) {
+        if (this.tatamiRoomMesh && ring <= 1) {
           for (const t of chunk.tatami) {
             this.drawMesh(this.tatamiRoomMesh, t.x, 0, t.z, t.yaw, [1, 1, 1], [0.9, 0.8, 0.6, 1]);
           }
         }
-        if (this.woodenCabineMesh) {
+        if (this.woodenCabineMesh && ring <= 1) {
           for (const c of chunk.cabins) {
             this.drawMesh(this.woodenCabineMesh, c.x, 0, c.z, c.yaw, [2.5, 2.5, 2.5]);
           }
         }
-        if (this.cylindricalTowerMesh) {
+        if (this.cylindricalTowerMesh && ring <= 2) {
           for (const l of chunk.lighthouses) {
             this.drawMesh(this.cylindricalTowerMesh, l.x, 0, l.z, l.yaw, [1, 1, 1]);
           }
         }
-        if (this.tropicalShopMesh) {
+        if (this.tropicalShopMesh && ring <= 2) {
           for (const s of chunk.tropicalShops) {
             this.drawMesh(this.tropicalShopMesh, s.x, 0, s.z, s.yaw, [1, 1, 1]);
           }
         }
-        if (this.barrelMesh) {
+        if (this.barrelMesh && ring <= 1) {
           for (const barrel of chunk.barrels) {
             const key = `${barrel.x},${barrel.z}`;
             if (this.explodedBarrels.has(key)) continue;
             this.drawMesh(this.barrelMesh, barrel.x, 0, barrel.z, barrel.yaw, [0.5, 0.5, 0.5], [1, 1, 1, 1]);
           }
         }
-        if (this.chickenMesh) {
+        if (this.chickenMesh && ring <= 1) {
           for (const chicken of chunk.chickens) {
             const key = `${chicken.x},${chicken.z}`;
             if (this.deadChickens.has(key)) continue;
@@ -3648,6 +3690,16 @@ void main() {
             }
           }
           const isDome = bld.model && bld.model.length > 0 && bld.model[0].carName?.includes('domeStructure');
+          // Outer rings: skip small-footprint buildings — they're sub-pixel
+          // at this range and only bloat the draw call count. The large
+          // buildings (skyscrapers, hotels, supermarkets...) keep the skyline.
+          if (ring >= 3 && bld.model && bld.model.length > 0) {
+            const m0 = bld.model[0];
+            if (m0 && m0.minX !== undefined && m0.maxX !== undefined) {
+              const width = (m0.maxX - m0.minX) * (bld.scale[0] ?? 1) * (m0.renderScale ?? 1);
+              if (width < 8) continue;
+            }
+          }
           this.drawMesh(bld.model, bld.x, bld.y, bld.z, bld.yaw, bld.scale, isDome ? [0.25, 0.3, 0.22, 1] : [1, 1, 1, 1]);
         }
       }
@@ -3668,10 +3720,14 @@ void main() {
         [-sidewalkOffset, sidewalkOffset],
         [sidewalkOffset, sidewalkOffset],
       ];
+      // Traffic-light cull tracks the view distance (capped at the world-NPC
+      // cull) so distant intersections keep their lights on visible roads.
+      const lightCull = Math.min(far, 650);
+      const lightCullSq = lightCull * lightCull;
       if (this.trafficLightMesh) {
         for (const node of trafficNodes) {
           const ndx = node.x - camX, ndz = node.z - camZ;
-          if (ndx * ndx + ndz * ndz > 250 * 250) continue;
+          if (ndx * ndx + ndz * ndz > lightCullSq) continue;
           for (let ci = 0; ci < corners.length; ci++) {
             this.drawMesh(this.trafficLightMesh, node.x + corners[ci][0], 0, node.z + corners[ci][1], yawCorner[ci], [2, 2, 2], [0.25, 0.3, 0.22, 1]);
           }
@@ -3679,7 +3735,7 @@ void main() {
         const redOn = lightPhase === 0;
         for (const node of trafficNodes) {
           const ndx = node.x - camX, ndz = node.z - camZ;
-          if (ndx * ndx + ndz * ndz > 250 * 250) continue;
+          if (ndx * ndx + ndz * ndz > lightCullSq) continue;
           for (let ci = 0; ci < corners.length; ci++) {
             const lx = node.x + corners[ci][0];
             const lz = node.z + corners[ci][1];
@@ -3698,7 +3754,7 @@ void main() {
         }
         for (const node of trafficNodes) {
           const ndx = node.x - camX, ndz = node.z - camZ;
-          if (ndx * ndx + ndz * ndz > 250 * 250) continue;
+          if (ndx * ndx + ndz * ndz > lightCullSq) continue;
           for (let ci = 0; ci < corners.length; ci++) {
             const lx = node.x + corners[ci][0];
             const lz = node.z + corners[ci][1];
@@ -3723,7 +3779,14 @@ void main() {
     for (const npc of serverNPCs) {
       const npcSpeed = npc.speed ?? 0;
       const npcState = npcSpeed > 0.5 ? 'walk' : 'idle';
-      this.animateAndSkinEntity(npc.id, npc.mesh, npcState, dt, Math.max(1, npcSpeed));
+      // Animation LOD: entities beyond ~220 units keep their last-skinned pose
+      // (drawn as-is) instead of re-skinning every frame — with the cull radius
+      // now spanning the whole view distance, distant traffic/peds would
+      // otherwise burn the CPU on bone math for pixels you can barely see.
+      const npcDx = npc.x - camX, npcDz = npc.z - camZ;
+      if (npcDx * npcDx + npcDz * npcDz < 220 * 220) {
+        this.animateAndSkinEntity(npc.id, npc.mesh, npcState, dt, Math.max(1, npcSpeed));
+      }
       const biome = getBiome(Math.floor(npc.x / 80), Math.floor(npc.z / 80));
       const submerged = biome === 'ocean';
       const isAircraft = npc.type === 'helicopter' || npc.type === 'plane';
@@ -3770,8 +3833,14 @@ void main() {
     for (const ped of serverPedestrians) {
       const pedSpeed = ped.speed ?? 0;
       const pedState = pedSpeed > 0.3 ? 'walk' : 'idle';
-      this.animateAndSkinEntity(ped.id, ped.mesh, pedState, dt, Math.max(1, pedSpeed * 2));
-      this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw);
+      // Animation LOD — see the NPC loop above: skin only what's close enough
+      // to notice, draw the rest at their last pose.
+      const pedDx = ped.x - camX, pedDz = ped.z - camZ;
+      if (pedDx * pedDx + pedDz * pedDz < 220 * 220) {
+        this.animateAndSkinEntity(ped.id, ped.mesh, pedState, dt, Math.max(1, pedSpeed * 2));
+      }
+      // Ducking (gunfire reaction): crouched height reads as "hit the deck".
+      this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, ped.isDucking ? [0.9, 0.6, 0.9] : [1, 1, 1]);
     }
     if (dt > 0 && Math.random() < 0.05) {
       const activeIds = new Set<number>();

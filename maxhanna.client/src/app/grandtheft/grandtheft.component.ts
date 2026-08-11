@@ -17,6 +17,13 @@ const CAR_MAX_HEALTH = 200;
 // above the smoke threshold or a fresh car is entered.
 const CAR_SMOKE_HEALTH = CAR_MAX_HEALTH * 0.35;
 const CAR_SMOKE_SECONDS = 10;
+// Repair mechanics: idle regen after being out of combat for a while, and a
+// fast full restore while parked at a service station (gas-station building).
+const CAR_REGEN_DELAY = 6;     // seconds without damage before idle regen
+const CAR_REGEN_RATE = 12;     // HP/sec while out of combat
+const REPAIR_SHOP_RANGE = 14;  // pull-up distance to a service station
+const REPAIR_SHOP_RATE = 120;  // HP/sec while at a service station
+const REPAIR_SHOP_COST_PER_HP = 5; // money charged per HP restored at a service station
 const JUMP_MIN_DIST = 8;
 // Stunt bonus thresholds: landing at or above this launch speed (ground car
 // top speed is ~35) earns distance-scaled cash even without a record, capped
@@ -126,7 +133,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   firstPerson = false;
   private isPointerLocked = false;
   serverNPCs: { id: number; x: number; y: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean; isBurning?: boolean; isSmoking?: boolean; isFleeing?: boolean; maxHealth?: number }[] = [];
-  serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number }[] = [];
+  serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; isDucking?: boolean }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
   // World persistence: throttled snapshot of player position + nearby local
@@ -150,7 +157,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   moneyStacks: { x: number; z: number; amount: number; yaw: number; age: number; lifetime: number }[] = [];
   policeMode = false;
   policeRound = 0;
-  policeModeThugCars: { id: number; x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; health: number; speed: number; colorR: number; colorG: number; colorB: number }[] = [];
+  policeModeThugCars: { id: number; x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; health: number; maxHealth: number; speed: number; colorR: number; colorG: number; colorB: number; isSmoking?: boolean; smokeStarted?: number; smokeTimer?: number; isBurning?: boolean; fireStarted?: number; playerDamage?: number; killedByPlayer?: boolean }[] = [];
   policeModeThugPeds: { id: number; x: number; z: number; yaw: number; mesh: CityMesh | CityMesh[]; health: number; shootTimer: number }[] = [];
   policeModeSpawnTimer = 0;
   policeModeSpawnsRemaining = 0;
@@ -174,6 +181,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   _carSmokeTimer = 0;
   _carSmokeStarted = 0;
   _carSmokeBudget = CAR_SMOKE_SECONDS;
+  private _carLastDamageTime = 0;
+  private _lastCarHealth = CAR_MAX_HEALTH;
+  private _repairScanTimer = 0;
+  repairShopNearby = false;
+  repairHpCost = REPAIR_SHOP_COST_PER_HP;  // shown on the service-station hint
+  repairRemainingCost = 0;                 // est. $ to fully repair (hint)
+  repairOutOfCash = false;                 // hint state: parked but can't pay
+  // Minimap gas-station icons, cached by movement so the wide 9×9-chunk scan
+  // only reruns when the player actually travels.
+  private _mapGasStations: { x: number; z: number }[] = [];
+  private _mapGasCenterX = 0;
+  private _mapGasCenterZ = 0;
   _parkedSmokeTimers: { [id: number]: number } = {};
   private _npcSmokeTimers: { [id: number]: number } = {};
   private _npcSmokeStarted: { [id: number]: number } = {};
@@ -449,7 +468,35 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     // Restore persisted money / wanted level / weapons before the first poll so
     // a refresh continues the session instead of resetting it.
     this.restorePlayerState();
+    // Restore the settings sliders (view distance + volumes) so a reload keeps
+    // the player's tuned experience; the values are read per-frame / on the
+    // YouTube player's ready handler, so setting the fields here is enough.
+    this.restoreGtSettings();
     this.userEventService.insertUserEvent(this.parentRef?.user?.id ?? 0, "grandtheft", "Started playing Grand Theft!", undefined, "GrandTheft");
+  }
+
+  /** View distance + volume sliders, persisted to localStorage under one key. */
+  private readonly GT_SETTINGS_KEY = 'gt_settings';
+  private restoreGtSettings(): void {
+    try {
+      const raw = localStorage.getItem(this.GT_SETTINGS_KEY);
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      if (typeof s.sfxVolume === 'number') this.sfxVolume = Math.min(1, Math.max(0, s.sfxVolume));
+      if (typeof s.carSfxVolume === 'number') this.carSfxVolume = Math.min(1, Math.max(0, s.carSfxVolume));
+      if (typeof s.radioVolume === 'number') this.radioVolume = Math.min(1, Math.max(0, s.radioVolume));
+      if (typeof s.viewDistance === 'number') this.viewDistance = Math.min(1000, Math.max(100, s.viewDistance));
+    } catch { /* storage unavailable or corrupted — keep defaults */ }
+  }
+  saveGtSettings(): void {
+    try {
+      localStorage.setItem(this.GT_SETTINGS_KEY, JSON.stringify({
+        sfxVolume: this.sfxVolume,
+        carSfxVolume: this.carSfxVolume,
+        radioVolume: this.radioVolume,
+        viewDistance: this.viewDistance,
+      }));
+    } catch { /* storage full or unavailable */ }
   }
   ngAfterViewInit() {
     this.isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
@@ -1565,6 +1612,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           health,
           mesh,
           isShootingAt: p.isShootingAt || false,
+          isDucking: p.isDucking || false,
           ...interp
         };
       });
@@ -2419,6 +2467,13 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           } else {
             const wasAlive = (t.health ?? 100) > 0;
             t.health = (t.health ?? 100) - dmg;
+            // Track the player's damage contribution on thug cars so payouts
+            // scale with it and full payout requires the killing blow
+            // (anti-farm: half-killing and ignoring a convoy must not pay).
+            if (list === this.policeModeThugCars) {
+              t.playerDamage = Math.min(t.maxHealth, (t.playerDamage ?? 0) + dmg);
+              if (wasAlive && t.health <= 0) t.killedByPlayer = true;
+            }
             this.gtService.hit(this.getUserId(), t.id, 1, dmg, ox, oz, this.currentWeapon);
             this.score += 10;
             // Local peds have no server presence (ids the server never sees) —
@@ -2820,7 +2875,9 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.trafficSpawnTimer += dt;
     if (this.trafficSpawnTimer > 3) {
       this.trafficSpawnTimer = 0;
-      if (this.trafficCars.length < 15) this.spawnTrafficCar();
+      // Cap raised to fill the wider view distance — the road network already
+      // spans ~2km of nodes, so cars now stream in from further out too.
+      if (this.trafficCars.length < 25) this.spawnTrafficCar();
     }
     const lightPhase = Math.floor(performance.now() / 6000) % 2;
     const intersectionRadius = 14;
@@ -2837,7 +2894,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     for (let ci = this.trafficCars.length - 1; ci >= 0; ci--) {
       const car = this.trafficCars[ci];
-      if (Math.abs(car.x - this.carX) > 600 || Math.abs(car.z - this.carZ) > 600) {
+      // Despawn beyond the view distance (was 600 — the max view is ~640).
+      if (Math.abs(car.x - this.carX) > 750 || Math.abs(car.z - this.carZ) > 750) {
         this.trafficCars.splice(ci, 1);
         continue;
       }
@@ -3136,6 +3194,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
             ped.z += Math.cos(ped.yaw) * chaseSpeed * dt;
           } else if (!ped.punchTimer || nowSec - ped.punchTimer > 0.7) {
             ped.punchTimer = nowSec;
+            // Swing the arm so the retaliation reads as a punch, not just blood.
+            this.renderer.triggerPunch(ped.id);
             this.spawnBlood(this.carX, 1.2, this.carZ, pdx / pdist, 0, pdz / pdist);
             // Report as an anonymous NPC hit so the damage survives the next
             // health poll sync (server _playerHealth is authoritative), without
@@ -3406,6 +3466,52 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           lifetime: 2.0 + Math.random() * 1.5,
         });
       }
+    }
+    // Damage tracking: any drop in car health counts as combat and delays
+    // idle regen. Diffing health catches every damage source in one place.
+    if (this.isInCar && this.carHealth < this._lastCarHealth - 0.5) {
+      this._carLastDamageTime = performance.now() / 1000;
+    }
+    if (this.isInCar) this._lastCarHealth = this.carHealth;
+
+    // Repair shop: gas-station buildings act as service stations — pull up
+    // next to one and the car is restored fast (blowing one up removes that
+    // repair spot). Scanned on a short timer so the chunk query isn't run
+    // every frame; the flag persists between scans so healing is smooth and
+    // the hint doesn't flicker.
+    this._repairScanTimer += dt;
+    if (this._repairScanTimer >= 0.25) {
+      this._repairScanTimer = 0;
+      this.repairShopNearby = this.isInCar && this.carHealth > 0 && this.carHealth < CAR_MAX_HEALTH
+        && !this._carOnFire && !this._carSubmerged
+        && this.renderer.getNearbyGasStations(this.carX, this.carZ, REPAIR_SHOP_RANGE).length > 0;
+      if (!this.repairShopNearby) {
+        this.repairRemainingCost = 0;
+        this.repairOutOfCash = false;
+      }
+    }
+    if (this.repairShopNearby) {
+      // Repairs cost money per HP restored (drawn from the cash balance, same
+      // client-side pattern as the hooker drain). Out of cash, the wrench
+      // stops turning until the player tops up.
+      const missing = CAR_MAX_HEALTH - this.carHealth;
+      this.repairRemainingCost = Math.ceil(missing * REPAIR_SHOP_COST_PER_HP);
+      const heal = Math.min(missing, REPAIR_SHOP_RATE * dt);
+      const affordableHp = Math.floor(this.money / REPAIR_SHOP_COST_PER_HP);
+      const paid = Math.min(heal, affordableHp);
+      if (paid > 0) {
+        this.money -= Math.floor(paid * REPAIR_SHOP_COST_PER_HP);
+        this.carHealth = Math.min(CAR_MAX_HEALTH, this.carHealth + paid);
+      }
+      this.repairOutOfCash = paid <= 0 && this.carHealth < CAR_MAX_HEALTH;
+    }
+
+    // Idle regen: after a few seconds out of combat the car slowly heals.
+    // Crossing the smoke threshold re-arms the smoke budget (see the re-arm
+    // check above), so a smoked-out car recovers once the fight is over.
+    if (this.isInCar && this.carHealth > 0 && this.carHealth < CAR_MAX_HEALTH && !this._carOnFire && !this._carSubmerged
+      && (performance.now() / 1000) - this._carLastDamageTime > CAR_REGEN_DELAY) {
+      this.carHealth = Math.min(CAR_MAX_HEALTH, this.carHealth + CAR_REGEN_RATE * dt);
     }
     if (this.isInCar && this.carHealth <= 0) {
       this.spawnExplosion(this.carX, 0.5, this.carZ);
@@ -4921,7 +5027,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         if (Math.random() < 0.4 * zingScale) this.playRicochetZing(zingScale);
       } else if (d3 > 0.01) {
         // Melee fight-back: a punched ped lands a punch on the player —
-        // splash blood on the player so the hit reads.
+        // swing the arm and splash blood so the hit reads.
+        this.renderer.triggerPunch(npc.id);
         this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, dx / d3, dy / d3, dz / d3);
       }
       npc.isShootingAt = false;
@@ -5156,7 +5263,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       return { kind: 'police', policeRound: this.policeRound, policeModeKills: this.policeModeKills,
         policeModeSpawnsRemaining: this.policeModeSpawnsRemaining, policeModeSpawnTimer: this.policeModeSpawnTimer,
         policeModeRoundDelay: this.policeModeRoundDelay,
-        thugCars: this.policeModeThugCars.map(t => ({ id: t.id, x: t.x, z: t.z, yaw: t.yaw, health: t.health, speed: t.speed, colorR: t.colorR, colorG: t.colorG, colorB: t.colorB })),
+        thugCars: this.policeModeThugCars.map(t => ({ id: t.id, x: t.x, z: t.z, yaw: t.yaw, health: t.health, speed: t.speed, colorR: t.colorR, colorG: t.colorG, colorB: t.colorB, playerDamage: t.playerDamage ?? 0 })),
         thugPeds: this.policeModeThugPeds.map(t => ({ id: t.id, x: t.x, z: t.z, yaw: t.yaw, health: t.health, shootTimer: t.shootTimer })) };
     }
     return null;
@@ -5247,7 +5354,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const mesh = this.renderer.getNPCCarMesh(col, id);
         if (id > 0 && id < 20000) minClientId = Math.min(minClientId, id);
         return { id, x: num(t.x, this.carX), z: num(t.z, this.carZ), yaw: num(t.yaw, 0), mesh,
-          health: Math.max(1, num(t.health, 500)), speed: num(t.speed, 10),
+          health: Math.max(1, num(t.health, 500)), maxHealth: 500, speed: num(t.speed, 10),
+          playerDamage: num(t.playerDamage, 0),
           colorR: col[0], colorG: col[1], colorB: col[2] };
       });
       this.policeModeThugPeds = (Array.isArray(mis.thugPeds) ? mis.thugPeds : []).map((t: any) => {
@@ -5915,6 +6023,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       yaw: Math.atan2(this.carX - x, this.carZ - z),
       mesh: this.renderer.getNPCCarMesh(color, thugId),
       health: 500,
+      maxHealth: 500,
       speed: 10 + Math.random() * 10,
       colorR: color[0], colorG: color[1], colorB: color[2],
     });
@@ -6015,6 +6124,54 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         this.carHealth -= 8 * dt;
         this.spawnExplosion(car.x, 0.5, car.z);
       }
+      // Shared smoke rule for thug cars: start smoking at 35% health and
+      // emit for at most 10s per phase, mirroring NPC/parked cars.
+      const smokeNow = performance.now() / 1000;
+      if (car.health > car.maxHealth * 0.35 || car.health <= 0) {
+        car.isSmoking = false;
+        car.smokeStarted = undefined;
+        car.smokeTimer = 0;
+      } else {
+        if (!car.isSmoking) {
+          car.isSmoking = true;
+          car.smokeStarted = smokeNow;
+        }
+        if (smokeNow - car.smokeStarted! >= 10) {
+          car.isSmoking = false;
+        } else if ((car.smokeTimer ?? 0) < smokeNow - 0.15) {
+          car.smokeTimer = smokeNow;
+          const sinY = Math.sin(car.yaw), cosY = Math.cos(car.yaw);
+          const sx = car.x + cosY * 0.8;
+          const sz = car.z + sinY * 0.8;
+          this.carSmoke.push({
+            x: sx + (Math.random() - 0.5) * 0.6,
+            y: 0.6 + Math.random() * 0.4,
+            z: sz + (Math.random() - 0.5) * 0.6,
+            vx: (Math.random() - 0.5) * 0.5,
+            vy: 0.3 + Math.random() * 0.4,
+            vz: (Math.random() - 0.5) * 0.5,
+            size: 0.4 + Math.random() * 0.5,
+            age: 0,
+            lifetime: 2.0 + Math.random() * 1.5,
+          });
+        }
+      }
+      // Shared fire rule for thug cars: critically damaged (≤ max(2, 1% of
+      // maxHealth), mirroring the server's NPC threshold) cars catch fire and
+      // burn for 10 seconds before exploding — exactly like regular NPC and
+      // parked cars. The death sweep below turns health 0 into the explosion.
+      const fireThreshold = Math.max(2, car.maxHealth / 100);
+      if (car.health > fireThreshold || car.health <= 0) {
+        car.isBurning = false;
+        car.fireStarted = undefined;
+      } else {
+        if (!car.isBurning) {
+          car.isBurning = true;
+          car.fireStarted = performance.now() / 1000;
+        } else if (car.fireStarted && (performance.now() / 1000) - car.fireStarted >= 10) {
+          car.health = 0;
+        }
+      }
     }
     for (let i = this.policeModeThugPeds.length - 1; i >= 0; i--) {
       const thug = this.policeModeThugPeds[i];
@@ -6033,7 +6190,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       const car = this.policeModeThugCars[i];
       if (car.health <= 0) {
         this.spawnExplosion(car.x, 0.5, car.z);
-        const payout = 5000 + Math.floor(Math.random() * 5001);
+        const basePayout = 5000 + Math.floor(Math.random() * 5001);
+        const dmgFraction = Math.min(1, (car.playerDamage ?? 0) / car.maxHealth);
+        // Payout scales with the damage the player actually dealt. Full payout
+        // requires landing the killing blow; a car that burns out on its own
+        // (half-killed and ignored) only pays a small salvage fraction, so
+        // convoys can't be farmed by walking away mid-fight.
+        const payout = car.killedByPlayer
+          ? Math.round(basePayout * Math.max(0.25, dmgFraction))
+          : Math.round(basePayout * 0.1 * dmgFraction);
         this.dropMoneyAt(car.x, car.z, payout);
         this.money += payout;
         this.moneyStacks.push({ x: car.x, z: car.z, amount: payout, yaw: 0, age: 0, lifetime: 5 });
@@ -6299,6 +6464,43 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       ctx.fillText('H', hbx, hby);
       ctx.textAlign = 'start';
       ctx.textBaseline = 'alphabetic';
+    }
+    // Gas stations / repair shops — green wrench markers (exploded stations
+    // are skipped by the renderer, so the map only shows working shops).
+    // Re-scan when the player has traveled ~40 units since the last scan.
+    if (Math.hypot(this.carX - this._mapGasCenterX, this.carZ - this._mapGasCenterZ) > 40 || this._mapGasStations.length === 0) {
+      this._mapGasCenterX = this.carX;
+      this._mapGasCenterZ = this.carZ;
+      this._mapGasStations = this.renderer.getNearbyGasStations(this.carX, this.carZ, 310);
+    }
+    for (const gs of this._mapGasStations) {
+      const gx = cx + (gs.x - this.carX) * scale;
+      const gy = cy + (gs.z - this.carZ) * scale;
+      if (gx < -10 || gx > 310 || gy < -10 || gy > 310) continue;
+      const pulse = 5 + Math.sin(now / 300) * 1.2;
+      ctx.fillStyle = 'rgba(80, 220, 120, 0.22)';
+      ctx.beginPath(); ctx.arc(gx, gy, 7 + pulse, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#50dc78';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(gx, gy, 5.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      // Wrench glyph: short handle + open-jaw head
+      ctx.strokeStyle = '#ffffff';
+      ctx.fillStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(gx - 2.4, gy - 4.2);
+      ctx.lineTo(gx + 2.8, gy + 0.8);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(gx - 1.6, gy - 1.6, 2.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(gx - 2.6, gy - 2.6);
+      ctx.lineTo(gx - 0.4, gy - 0.4);
+      ctx.stroke();
+      ctx.lineCap = 'butt';
     }
     if (this.taxiMission && this.taxiMission.state === 'deliver') {
       const m = this.taxiMission;

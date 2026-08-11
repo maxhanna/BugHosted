@@ -27,4 +27,5 @@ export class UserSettings {
   showNavSearch?: boolean;
   timezone?: string;
   emulatorLocalRomStorage?: boolean;
+  emulatorLeftHanded?: boolean;
 }

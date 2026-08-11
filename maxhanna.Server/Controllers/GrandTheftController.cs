@@ -805,8 +805,10 @@ namespace maxhanna.Server.Controllers
 			finally { Monitor.Exit(_persistLock); }
 		}
 		// Cull radius for world NPCs: beyond this distance from every active player
-		// an NPC is invisible to everyone, so it's safe to recycle.
-		private const float WORLD_NPC_CULL_DIST = 300f;
+		// an NPC is invisible to everyone, so it's safe to recycle. Matches the
+		// client's max view distance (~4 chunks = 320 units per axis, ~450
+		// diagonal; 650 keeps the whole revealed area populated).
+		private const float WORLD_NPC_CULL_DIST = 650f;
 		private static bool IsNearAnyPlayer(List<(float X, float Z)> activePlayers, float x, float z)
 		{
 			foreach (var (px, pz) in activePlayers)
@@ -1135,6 +1137,11 @@ namespace maxhanna.Server.Controllers
 			public DateTime? PanicUntil { get; set; } = null;
 			public float PanicFromX { get; set; } = 0f;
 			public float PanicFromZ { get; set; } = 0f;
+			// Gunfire reaction: instead of always fleeing, a bystander may duck —
+			// freeze in place at reduced height until the coast is clear.
+			public bool IsDucking { get; set; } = false;
+			public DateTime? DuckUntil { get; set; } = null;
+			public float PreDuckSpeed { get; set; } = 1.5f;
 			public DateTime? FightBackUntil { get; set; } = null;
 			public float LastKnownX { get; set; }
 			public float LastKnownZ { get; set; }
@@ -1492,6 +1499,23 @@ namespace maxhanna.Server.Controllers
 							}
 							else
 							{
+								// Ducking (gunfire reaction): hold position — no walking,
+								// no new destination — until the duck timer expires.
+								if (npc.IsDucking)
+								{
+									if (npc.DuckUntil.HasValue && now < npc.DuckUntil.Value)
+									{
+										npc.Speed = 0;
+									}
+									else
+									{
+										npc.IsDucking = false;
+										npc.DuckUntil = null;
+										npc.Speed = npc.PreDuckSpeed;
+									}
+								}
+								if (!npc.IsDucking)
+								{
 								float dx = npc.TargetX - npc.X;
 								float dz = npc.TargetZ - npc.Z;
 								float dist = (float)Math.Sqrt(dx * dx + dz * dz);
@@ -1530,7 +1554,8 @@ namespace maxhanna.Server.Controllers
 								}
 							}
 						}
-						if (!npc.IsParked && (npc.Type == "helicopter" || npc.Type == "plane"))
+					}
+					if (!npc.IsParked && (npc.Type == "helicopter" || npc.Type == "plane"))
 						{
 							SimulateAircraft(npc, now, simRng);
 						}
@@ -1825,13 +1850,17 @@ namespace maxhanna.Server.Controllers
 					deadIds.Add(kv.Key);
 					continue;
 				}
-				if (distSq < 22500f)
+				// Replenishment counts over the populated band (out to ~450 units),
+				// not just the immediate ring, so distant roads stay alive.
+				if (distSq < 202500f)
 				{
 					if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") nearbyPeds++;
 					else if (npc.Type == "helicopter" || npc.Type == "plane") { }
 					else if (!npc.IsParked) nearbyCars++;
 				}
-				if (distSq > 40000f) continue;
+				// Send everything within the client's view distance (650 units) so
+				// distant roads carry cars and pedestrians, not just empty mesh.
+				if (distSq > 422500f) continue;
 				if (npc.IsParked) { parkedCars.Add(new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = 0f, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, health = npc.Health, isBurning = npc.OnFire, maxHealth = npc.MaxHealth, isSmoking = npc.IsSmoking }); continue; }
 				float tdx = npc.TargetX - npc.X;
 				float tdz = npc.TargetZ - npc.Z;
@@ -2296,7 +2325,7 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 				}
-				var entry = new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount, isShootingAt = npc.IsShootingAt, isBurning = npc.OnFire, maxHealth = npc.MaxHealth, isSmoking = npc.IsSmoking, isFleeing = npc.IsFleeing };
+				var entry = new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount, isShootingAt = npc.IsShootingAt, isBurning = npc.OnFire, maxHealth = npc.MaxHealth, isSmoking = npc.IsSmoking, isFleeing = npc.IsFleeing, isDucking = npc.IsDucking };
 				if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") pedestrians.Add(entry);
 				else if (npc.Type == "helicopter" || npc.Type == "plane") aircraft.Add(entry);
 				else cars.Add(entry);
@@ -2327,7 +2356,7 @@ namespace maxhanna.Server.Controllers
 				}
 			}
 			foreach (var pid in expiredPlayers) _deadPlayerBodies.TryRemove(pid, out _);
-			while (nearbyCars < 10)
+			while (nearbyCars < 22)
 			{
 				long id = GetNextNpcId();
 				var type = new[] { "car", "bus", "bike", "motorcycle", "taxi" }[rng.Next(5)];
@@ -2353,7 +2382,7 @@ namespace maxhanna.Server.Controllers
 				};
 				nearbyCars++;
 			}
-			while (nearbyPeds < 20)
+			while (nearbyPeds < 40)
 			{
 				long id = GetNextNpcId();
 				var type = new[] { "ped_male", "ped_female" }[rng.Next(2)];
@@ -3350,6 +3379,9 @@ namespace maxhanna.Server.Controllers
 				ped.PanicUntil = null;
 				ped.PanicFromX = 0f;
 				ped.PanicFromZ = 0f;
+				ped.IsDucking = false; // a ducking bystander gets up to throw down
+				ped.DuckUntil = null;
+				ped.Speed = ped.PreDuckSpeed;
 				ped.TargetUserId = attackerUserId;
 				ped.FightBackUntil = now.AddSeconds(10);
 				joined++;
@@ -3401,6 +3433,8 @@ namespace maxhanna.Server.Controllers
 							kv.Value.TargetUserId = req.AttackerId;
 							kv.Value.FightBackUntil = DateTime.UtcNow.AddSeconds(8);
 							kv.Value.PanicUntil = null;
+							kv.Value.IsDucking = false; // punched peds spring up and swing back
+							kv.Value.DuckUntil = null;
 						}
 						else if (isVehicle && !isAircraftTarget && !isCopTarget && !kv.Value.IsParked && kv.Value.HasDriver && kv.Value.Speed <= 5.0f && req.AttackerId > 0)
 						{
@@ -3460,16 +3494,36 @@ namespace maxhanna.Server.Controllers
 				{
 					float panicRadius = 15f;
 					float panicRadiusSq = panicRadius * panicRadius;
+					bool gunfire = req.Weapon != 0;
 					foreach (var kv in npcs)
 					{
-						if (kv.Value.DeadAt.HasValue || kv.Value.PanicUntil.HasValue || kv.Value.FightBackUntil.HasValue || kv.Value.IsParked) continue;
+						if (kv.Value.DeadAt.HasValue || kv.Value.PanicUntil.HasValue || kv.Value.FightBackUntil.HasValue || kv.Value.IsParked || kv.Value.IsDucking) continue;
 						float pdx = kv.Value.X - req.AttackerX;
 						float pdz = kv.Value.Z - req.AttackerZ;
 						if (pdx * pdx + pdz * pdz < panicRadiusSq)
 						{
-							kv.Value.PanicUntil = DateTime.UtcNow.AddSeconds(5);
-						kv.Value.PanicFromX = req.AttackerX;
-						kv.Value.PanicFromZ = req.AttackerZ;
+							// Weapon differentiation: gunfire scatters the crowd — some
+							// sprint away, some duck and hold position instead. Fists
+							// keep the all-flee panic (bystanders then pile into the
+							// brawl via RallyPedestriansAgainst).
+							bool isPed = kv.Value.Type == "ped_male" || kv.Value.Type == "ped_female";
+							if (gunfire && isPed && Random.Shared.NextDouble() < 0.35)
+							{
+								kv.Value.IsDucking = true;
+								kv.Value.DuckUntil = DateTime.UtcNow.AddSeconds(3.0 + Random.Shared.NextDouble() * 3.0);
+								kv.Value.PreDuckSpeed = kv.Value.Speed;
+								kv.Value.Speed = 0;
+								kv.Value.PanicUntil = null;
+								kv.Value.PanicFromX = 0f;
+								kv.Value.PanicFromZ = 0f;
+								kv.Value.IsFleeing = false;
+							}
+							else
+							{
+								kv.Value.PanicUntil = DateTime.UtcNow.AddSeconds(5);
+								kv.Value.PanicFromX = req.AttackerX;
+								kv.Value.PanicFromZ = req.AttackerZ;
+							}
 					}
 				}
 				// A fistfight draws a crowd: bystanders may pile on the attacker

@@ -377,6 +377,11 @@ export class RacingRenderer {
   private shoulderVbo!: WebGLBuffer;
   private shoulderIbo!: WebGLBuffer;
   private shoulderCount = 0;
+  private curbTex!: WebGLTexture;
+  private curbVao!: WebGLVertexArrayObject;
+  private curbVbo!: WebGLBuffer;
+  private curbIbo!: WebGLBuffer;
+  private curbCount = 0;
   private sceneryVao!: WebGLVertexArrayObject;
   private sceneryVbo!: WebGLBuffer;
   private sceneryIbo!: WebGLBuffer;
@@ -612,6 +617,7 @@ export class RacingRenderer {
     this.asphaltTex = this.makeAsphaltTex();
     this.grassTex = this.makeGrassTex();
     this.trackTex = this.makeTrackMarkingsTex();
+    this.curbTex = this.makeCurbTex();
     this.tireBrandTex = this.makeTireBrandTex();
     this.glowTex = this.makeGlowTex();
     if (lowQuality) {
@@ -825,6 +831,57 @@ export class RacingRenderer {
         g = g * (1 - aDash) + 226 * aDash;
         g = Math.max(5, Math.min(250, g));
         data[i] = g; data[i + 1] = g; data[i + 2] = g * 0.98 + 4;
+      }
+    }
+    return this.makeTex(size, size, data);
+  }
+  private makeCurbTex(): WebGLTexture {
+    // Red/white rumble strip + concrete gutter apron for the road edge, tiled
+    // along the track every CURB_TILE world units (see buildTrackMesh). The
+    // top ~half of the texture is the painted kerb (two blocks per tile -> 3
+    // world-unit blocks) with worn seams and rubber dust at the road-side lip;
+    // the bottom half is the concrete gutter with expansion joints aligned to
+    // the same blocks.
+    const size = 64;
+    const data = new Uint8Array(size * size * 3);
+    const hash = (x: number, y: number) => {
+      let n = (x * 374761393 + y * 668265263) | 0;
+      n = Math.imul(n ^ (n >>> 13), 1274126177);
+      n ^= n >>> 16;
+      return (n >>> 0) / 4294967296;
+    };
+    const rumbleH = 0.52;
+    for (let y = 0; y < size; y++) {
+      const vy = y / size;
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 3;
+        // Distance to the nearest seam (block boundary / expansion joint):
+        // x wraps every 32px so seams land at x=0 and x=32.
+        const d = Math.min(x % 32, 31 - (x % 32));
+        const seam = Math.max(0, 1 - d / 3.5) * 0.38;
+        if (vy < rumbleH) {
+          // Painted kerb blocks: alternate red / white, slightly worn.
+          let r = x < 32 ? 199 : 242;
+          let g = x < 32 ? 36 : 240;
+          let b = x < 32 ? 32 : 236;
+          const nz = (hash(x, y) * 2 - 1) * 6;
+          r += nz; g += nz; b += nz;
+          r *= 1 - seam; g *= 1 - seam; b *= 1 - seam;
+          // Rubber dust at the road-side lip of the kerb.
+          if (vy < 0.09) {
+            const t = (0.09 - vy) / 0.09;
+            r -= 28 * t; g -= 24 * t; b -= 20 * t;
+          }
+          data[i] = r; data[i + 1] = g; data[i + 2] = b;
+        } else {
+          // Concrete gutter: pale grey-blue with grain, expansion joints and
+          // the occasional water stain; grime gathers at the outer lip.
+          let v = 121 + (hash(x, y) * 2 - 1) * 5;
+          if (d < 2) v = 72;
+          if (hash(x, y) > 0.96) v -= 16;
+          if (vy > 0.965) v = v * 0.78 + 26;
+          data[i] = v + 2; data[i + 1] = v; data[i + 2] = v + 8;
+        }
       }
     }
     return this.makeTex(size, size, data);
@@ -1774,6 +1831,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this.shoulderVao) { try { gl.deleteVertexArray(this.shoulderVao); } catch { } }
     if (this.shoulderVbo) { try { gl.deleteBuffer(this.shoulderVbo); } catch { } }
     if (this.shoulderIbo) { try { gl.deleteBuffer(this.shoulderIbo); } catch { } }
+    if (this.curbVao) { try { gl.deleteVertexArray(this.curbVao); } catch { } }
+    if (this.curbVbo) { try { gl.deleteBuffer(this.curbVbo); } catch { } }
+    if (this.curbIbo) { try { gl.deleteBuffer(this.curbIbo); } catch { } }
     if (this.barrierVao) { try { gl.deleteVertexArray(this.barrierVao); } catch { } }
     if (this.barrierVbo) { try { gl.deleteBuffer(this.barrierVbo); } catch { } }
     if (this.barrierIbo) { try { gl.deleteBuffer(this.barrierIbo); } catch { } }
@@ -1787,6 +1847,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const barIdxs: number[] = [];
     const shVerts: number[] = [];
     const shIdxs: number[] = [];
+    const curbVerts: number[] = [];
+    const curbIdxs: number[] = [];
     // Road markings tile every TRACK_MARK_TILE world units along the track and
     // the grass shoulder every TRACK_GRASS_TILE — computed from arc length (not
     // segment index) so the dashes/lines stay the same size on every circuit.
@@ -1854,9 +1916,39 @@ void main() { FragColor = texture(uTex, vUV); }`;
       shIdxs.push(si + 2, si + 1, si + 3);
       shIdxs.push(si + 4, si + 5, si + 6);
       shIdxs.push(si + 6, si + 5, si + 7);
+      // Rumble strip + concrete gutter apron: a textured band hugging the
+      // road's outer edge. Its UV tiles by arc length (CURB_TILE world units)
+      // so the red/white kerb blocks and the gutter's expansion joints stay a
+      // sane ~3 units on every circuit. The barrier wall sits on the band's
+      // outer lip, so the kerb transition reads road -> red/white rumble ->
+      // concrete gutter -> wall -> grass, like a real street circuit.
+      const CURB_TILE = 6;
+      const rumbleW = 1.3;
+      const gutterW = 1.2;
+      const bandW = rumbleW + gutterW;
+      const bandTop = 0.02;
+      const cu = cumLen[i] / CURB_TILE;
+      const cuN = cumLen[(i + 1) % pts.length] / CURB_TILE;
+      const ci0 = curbVerts.length / 11;
+      const addBandSide = (side: 1 | -1) => {
+        const dx = side === 1 ? ppx : -ppx;
+        const dz = side === 1 ? ppz : -ppz;
+        const dxN = side === 1 ? npx : -npx;
+        const dzN = side === 1 ? npz : -npz;
+        curbVerts.push(p.x + dx * hw, py + bandTop + bank * side * hw, p.z + dz * hw, 0, 1, 0, 1, 1, 1, cu, 0);
+        curbVerts.push(n.x + dxN * hwN, ny + bandTop + bankN * side * hwN, n.z + dzN * hwN, 0, 1, 0, 1, 1, 1, cuN, 0);
+        curbVerts.push(p.x + dx * (hw + bandW), py + bandTop + bank * side * (hw + bandW), p.z + dz * (hw + bandW), 0, 1, 0, 1, 1, 1, cu, 1);
+        curbVerts.push(n.x + dxN * (hwN + bandW), ny + bandTop + bankN * side * (hwN + bandW), n.z + dzN * (hwN + bandW), 0, 1, 0, 1, 1, 1, cuN, 1);
+      };
+      addBandSide(1);
+      addBandSide(-1);
+      curbIdxs.push(ci0, ci0 + 1, ci0 + 2);
+      curbIdxs.push(ci0 + 2, ci0 + 1, ci0 + 3);
+      curbIdxs.push(ci0 + 4, ci0 + 5, ci0 + 6);
+      curbIdxs.push(ci0 + 6, ci0 + 5, ci0 + 7);
       const barrierH = 0.85;
-      const bw = hw + 1.5;
-      const bwN = hwN + 1.5;
+      const bw = hw + 2.5;
+      const bwN = hwN + 2.5;
       const striped = Math.floor(i / 4) % 2 === 0;
       const br = striped ? 0.95 : 0.8;
       const bg = striped ? 0.95 : 0.1;
@@ -1892,23 +1984,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
       barVerts.push(n.x - npx * bwN, ny - bankN * bwN + barrierH, n.z - npz * bwN, -npx, 0, -npz, br, bg, bb, 1, 1);
       barIdxs.push(rb, rb + 2, rb + 1);
       barIdxs.push(rb + 1, rb + 2, rb + 3);
-      const curbTop = 0.02;
-      const addCurb = (side: 1 | -1, checker: boolean) => {
-        const cRed = checker ? 0.93 : 0.85;
-        const cGrn = checker ? 0.93 : 0.08;
-        const cBlu = checker ? 0.93 : 0.08;
-        const dirX = side === 1 ? ppx : -ppx;
-        const dirZ = side === 1 ? ppz : -ppz;
-        const ci = barVerts.length / 11;
-        barVerts.push(p.x + dirX * hw, py + curbTop + bank * side * hw, p.z + dirZ * hw, 0, 1, 0, cRed, cGrn, cBlu, 0, 0);
-        barVerts.push(n.x + dirX * hwN, ny + curbTop + bankN * side * hwN, n.z + dirZ * hwN, 0, 1, 0, cRed, cGrn, cBlu, 1, 0);
-        barVerts.push(p.x + dirX * bw, py + curbTop + bank * side * bw, p.z + dirZ * bw, 0, 1, 0, cRed, cGrn, cBlu, 0, 1);
-        barVerts.push(n.x + dirX * bwN, ny + curbTop + bankN * side * bwN, n.z + dirZ * bwN, 0, 1, 0, cRed, cGrn, cBlu, 1, 1);
-        barIdxs.push(ci, ci + 2, ci + 1);
-        barIdxs.push(ci + 1, ci + 2, ci + 3);
-      };
-      addCurb(1, i % 2 === 0);
-      addCurb(-1, i % 2 === 1);
       const tcr = striped ? 0.8 : 0.65;
       const tcg = striped ? 0.8 : 0.08;
       const tcb = striped ? 0.8 : 0.06;
@@ -1975,6 +2050,26 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.shoulderIbo = gl.createBuffer()!;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.shoulderIbo);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, shIdxArray, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+    const cuArray = new Float32Array(curbVerts);
+    const cuIdxArray = new Uint16Array(curbIdxs);
+    this.curbCount = cuIdxArray.length;
+    this.curbVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.curbVao);
+    this.curbVbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.curbVbo);
+    gl.bufferData(gl.ARRAY_BUFFER, cuArray, gl.STATIC_DRAW);
+    this.curbIbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.curbIbo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cuIdxArray, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
     gl.enableVertexAttribArray(1);
@@ -7130,6 +7225,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.drawElements(gl.TRIANGLES, this.trackCount, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(this.shoulderVao);
     gl.drawElements(gl.TRIANGLES, this.shoulderCount, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(this.curbVao);
+    gl.drawElements(gl.TRIANGLES, this.curbCount, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(this.barrierVao);
     gl.drawElements(gl.TRIANGLES, this.barrierCount, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(this.finishVao);
@@ -7536,6 +7633,16 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.uniform3f(this.colorLoc, 1, 1, 1);
     this.setNormalMatrix(this.modelMatrix);
     gl.drawElements(gl.TRIANGLES, this.shoulderCount, gl.UNSIGNED_SHORT, 0);
+    // Rumble strip + concrete gutter - textured kerb band hugging the road edge.
+    gl.bindVertexArray(this.curbVao);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.curbTex);
+    gl.uniform1i(this.hasTexLoc, 1);
+    this.mat4Identity(this.modelMatrix);
+    gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+    gl.uniform3f(this.colorLoc, 1, 1, 1);
+    this.setNormalMatrix(this.modelMatrix);
+    gl.drawElements(gl.TRIANGLES, this.curbCount, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(this.finishVao);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);

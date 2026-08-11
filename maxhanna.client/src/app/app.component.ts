@@ -1840,12 +1840,44 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         tmpUser.lastSeen = new Date();
       } else {
         // perform server update and record timestamp (session token required)
-        this.userService.updateLastSeen(tmpUser.id, await this.getSessionToken());
+        const res = await this.userService.updateLastSeen(tmpUser.id, await this.getSessionToken());
         this.lastLastSeenUpdate = now;
         tmpUser.lastSeen = new Date();
+        // A 401 on the presence ping means the session died (expired or
+        // evicted by the per-user cap) even though the user is navigating.
+        // Auto-renew it — the server mints a fresh token/cookie — and retry
+        // the ping once so the 401 doesn't persist on the next request.
+        if (res?.status === 401) {
+          const renewed = await this.renewSessionIfDenied();
+          if (renewed) {
+            await this.userService.updateLastSeen(tmpUser.id, this.sessionToken);
+          }
+        }
       }
     }
     this.updateLastSeenPeriodically();
+  }
+
+  /**
+   * Attempt to refresh a dead session token server- and client-side. Safe to
+   * call from anywhere a 401 surfaces: the server checks the token's previous
+   * existence and the user's last_seen activity, replaces the HttpOnly cookie,
+   * and returns a fresh token that updates the in-memory copy.
+   */
+  private _renewingSession = false;
+  async renewSessionIfDenied(): Promise<boolean> {
+    if (!this.user?.id || this._renewingSession) return false;
+    this._renewingSession = true;
+    try {
+      const res = await this.userService.renewSession(this.sessionToken);
+      if (res?.sessionToken) {
+        this.sessionToken = res.sessionToken;
+        return true;
+      }
+      return false;
+    } finally {
+      this._renewingSession = false;
+    }
   }
   async isServerUp(): Promise<number> {
     const now = Date.now();

@@ -264,9 +264,15 @@ public class Log
       // Cap active sessions per user: a new login evicts the oldest sessions so
       // repeated logins can't accumulate unbounded rows (the user_sessions table
       // is also swept hourly by PurgeExpiredSessions for expired rows).
+      // Eviction force-expires instead of deleting so the session remains
+      // recoverable: if that device is still actively used (recent last_seen),
+      // RenewSession can mint a fresh token instead of stranding the browser in
+      // a 401 loop.
       await using var capCmd = new MySqlCommand(@"
-        DELETE FROM maxhanna.user_sessions
+        UPDATE maxhanna.user_sessions
+        SET expires_at = UTC_TIMESTAMP()
         WHERE user_id = @UserId
+          AND expires_at > UTC_TIMESTAMP()
           AND id NOT IN (
             SELECT id FROM (
               SELECT id FROM maxhanna.user_sessions
@@ -282,6 +288,40 @@ public class Log
     catch (Exception ex)
     {
       Console.WriteLine("CreateSession Exception: " + ex.Message);
+      return null;
+    }
+  }
+
+  /// Looks up a session row by token IGNORING expiry, joining the user's
+  /// last_seen so RenewSession can decide whether to auto-renew: a session that
+  /// expired or was force-expired (evicted by the per-user cap) is recoverable
+  /// only while the user is demonstrably active. Returns null when the token
+  /// was never issued (or was hard-deleted, e.g. logout).
+  public static async Task<(int UserId, DateTime LastSeen)?> FindSessionForRenewal(string cs, string token)
+  {
+    if (string.IsNullOrWhiteSpace(token)) return null;
+    try
+    {
+      await using var conn = new MySqlConnection(cs);
+      await conn.OpenAsync();
+      await using var cmd = new MySqlCommand(@"
+        SELECT s.user_id, u.last_seen
+        FROM maxhanna.user_sessions s
+        JOIN maxhanna.users u ON u.id = s.user_id
+        WHERE s.token = @Token
+        LIMIT 1;", conn);
+      cmd.Parameters.AddWithValue("@Token", token);
+      await using var reader = await cmd.ExecuteReaderAsync();
+      if (!await reader.ReadAsync()) return null;
+      int userId = reader.GetInt32(reader.GetOrdinal("user_id"));
+      DateTime lastSeen = reader.IsDBNull(reader.GetOrdinal("last_seen"))
+        ? DateTime.MinValue
+        : DateTime.SpecifyKind(reader.GetDateTime(reader.GetOrdinal("last_seen")), DateTimeKind.Utc);
+      return (userId, lastSeen);
+    }
+    catch (Exception ex)
+    {
+      Console.WriteLine("FindSessionForRenewal Exception: " + ex.Message);
       return null;
     }
   }

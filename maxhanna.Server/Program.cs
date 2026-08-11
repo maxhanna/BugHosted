@@ -44,6 +44,7 @@ builder.Services.AddHostedService<NexusUnitUpgradeBackgroundService>();
 builder.Services.AddHostedService<NexusBuildingUpgradeBackgroundService>();
 builder.Services.AddHostedService<NexusUnitBackgroundService>(); 
 builder.Services.AddHostedService<NexusDefenceBackgroundService>();
+builder.Services.AddHostedService<RecipeSitemapBackfillService>();
 builder.Services.AddHttpClient<KrakenService>();
 builder.Services.AddHttpClient<maxhanna.Server.Services.EmailService>();
 builder.Services.AddHttpClient<WebCrawler>();

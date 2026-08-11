@@ -443,7 +443,27 @@ export class UserService {
         headers,
         body: JSON.stringify(userId),
       });
+      const body = await response.json().catch(() => null);
+      return { status: response.status, ok: response.ok, body };
+    } catch (error) {
+      return null;
+    }
+  }
 
+  /**
+   * Ask the server to mint a fresh session for a dead-but-recently-active
+   * token. The cookie is replaced server-side; the returned token refreshes
+   * the client's in-memory copy. Returns null when renewal isn't possible.
+   */
+  async renewSession(sessionToken?: string): Promise<{ sessionToken: string; userId?: number } | null> {
+    try {
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (sessionToken) headers['Encrypted-UserId'] = sessionToken;
+      const response = await fetch('/user/renewsession', {
+        method: 'POST',
+        headers,
+      });
+      if (!response.ok) return null;
       return await response.json();
     } catch (error) {
       return null;
@@ -1108,4 +1128,5 @@ export type UserSettingName =
   | "follow_notifications_email"
   | "show_nav_search"
   | "timezone"
-  | "emulator_local_rom_storage";
+  | "emulator_local_rom_storage"
+  | "emulator_left_handed";

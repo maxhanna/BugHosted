@@ -104,6 +104,10 @@
         🎮<div class="emuMenuButtonLabel">Joystick</div>
         <span class="checkbox-indicator" [class.checked]="useJoystick" aria-hidden="true"></span>
       </button>
+      <button *ngIf="onMobile()" (click)="toggleLeftHanded()" class="emuMenuButton squareButton" [title]="'Mirror the on-screen controls for left-handed play (movement on the right)'">
+        🪞<div class="emuMenuButtonLabel">Left-Handed</div>
+        <span class="checkbox-indicator" [class.checked]="leftHandedMode" aria-hidden="true"></span>
+      </button>
       <button *ngIf="romName" (click)="toggleFullScreen()" class="emuMenuButton squareButton" title="Toggle Fullscreen Mode">
         ⛶<div class="emuMenuButtonLabel">Fullscreen</div>
       </button>

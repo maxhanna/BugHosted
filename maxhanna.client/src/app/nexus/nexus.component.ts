@@ -293,6 +293,12 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     if (!this.parentRef?.user?.id) { return alert("You must be logged in to play!"); }
     const startRes = await this.nexusService.start(this.parentRef.user.id);
 
+    // A non-object response is an error string (e.g. "Access Denied. Please
+    // re-login.") — surface it instead of treating it as a successful base.
+    if (typeof startRes !== 'object' || startRes === null) {
+      return alert(typeof startRes === 'string' ? startRes : "Failed to start. Please try again.");
+    }
+
     if (startRes) {
       if (this.nexusBase) {
         this.nexusBase.coordsX = startRes.x;

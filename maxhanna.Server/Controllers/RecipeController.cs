@@ -150,7 +150,7 @@ public class RecipeController : ControllerBase
         var insertedId = Convert.ToInt32(await command.ExecuteScalarAsync());
         recipe.Id = insertedId;
 
-        _ = AppendToSitemapAsync(insertedId, recipe.Name, recipe.Description);
+        _ = AppendToSitemapAsync(insertedId, recipe.Name, recipe.Description, recipe.ImageFileIds, recipe.ExternalLinks);
 
         return Ok(recipe);
     }
@@ -208,7 +208,7 @@ public class RecipeController : ControllerBase
         await using var reader = await getCmd.ExecuteReaderAsync();
         if (await reader.ReadAsync())
         {
-            return Ok(new RecipeDto
+            var recipeDto = new RecipeDto
             {
                 Id = reader.GetInt32(reader.GetOrdinal("id")),
                 UserId = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32(reader.GetOrdinal("user_id")),
@@ -224,15 +224,17 @@ public class RecipeController : ControllerBase
                 AverageRating = reader.IsDBNull(reader.GetOrdinal("average_rating")) ? 0 : Convert.ToDouble(reader["average_rating"]),
                 RatingCount = reader.IsDBNull(reader.GetOrdinal("rating_count")) ? 0 : reader.GetInt32(reader.GetOrdinal("rating_count")),
                 UserRating = reader.IsDBNull(reader.GetOrdinal("user_rating")) ? 0 : Convert.ToDouble(reader["user_rating"])
-            });
+            };
+            // Refresh the sitemap entry on every successful edit so a renamed
+            // recipe gets a fresh lastmod (and updated image/video metadata).
+            _ = AppendToSitemapAsync(id, recipeDto.Name, recipeDto.Description, recipeDto.ImageFileIds, recipeDto.ExternalLinks);
+            return Ok(recipeDto);
         }
-
-        _ = AppendToSitemapAsync(id, request.Name.Trim(), request.Description.Trim());
 
         return NotFound();
     }
 
-    private async Task AppendToSitemapAsync(int recipeId, string name, string description)
+    private async Task AppendToSitemapAsync(int recipeId, string name, string description, List<int>? imageFileIds = null, List<string>? externalLinks = null)
     {
         var url = $"https://bughosted.com/recipe/{recipeId}";
         var lastMod = DateTime.UtcNow.ToString("yyyy-MM-dd");
@@ -241,6 +243,8 @@ public class RecipeController : ControllerBase
         try
         {
             XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+            XNamespace imageNs = "http://www.google.com/schemas/sitemap-image/1.1";
+            XNamespace videoNs = "http://www.google.com/schemas/sitemap-video/1.1";
             XDocument sitemap;
 
             if (System.IO.File.Exists(_sitemapPath))
@@ -252,18 +256,17 @@ public class RecipeController : ControllerBase
                 sitemap = new XDocument(new XElement(ns + "urlset"));
             }
 
+            // The recipe entries carry image-sitemap metadata (image loc/title/
+            // caption), matching the media entries already in the file, plus
+            // video-sitemap metadata when the recipe embeds a YouTube video.
+            sitemap.Root?.SetAttributeValue(XNamespace.Xmlns + "image", imageNs);
+            sitemap.Root?.SetAttributeValue(XNamespace.Xmlns + "video", videoNs);
+
             var existingEntry = sitemap.Descendants(ns + "url")
                 .FirstOrDefault(x => x.Element(ns + "loc")?.Value == url);
             existingEntry?.Remove();
 
-            var urlElement = new XElement(ns + "url",
-                new XElement(ns + "loc", url),
-                new XElement(ns + "lastmod", lastMod),
-                new XElement(ns + "changefreq", "weekly"),
-                new XElement(ns + "priority", "0.6")
-            );
-
-            sitemap.Root?.Add(urlElement);
+            sitemap.Root?.Add(BuildSitemapUrlElement(url, name, description, lastMod, imageFileIds, externalLinks, ns, imageNs, videoNs));
             sitemap.Save(_sitemapPath);
         }
         catch (Exception ex)
@@ -274,6 +277,187 @@ public class RecipeController : ControllerBase
         {
             _sitemapLock.Release();
         }
+    }
+
+    /// <summary>
+    /// Build one recipe &lt;url&gt; element with the standard fields plus image
+    /// metadata (up to three images) and video metadata (first YouTube link).
+    /// Shared by single-entry appends and the full backfill.
+    /// </summary>
+    private static XElement BuildSitemapUrlElement(string url, string name, string description, string lastMod,
+        List<int>? imageFileIds, List<string>? externalLinks,
+        XNamespace ns, XNamespace imageNs, XNamespace videoNs)
+    {
+        var urlElement = new XElement(ns + "url",
+            new XElement(ns + "loc", url),
+            new XElement(ns + "lastmod", lastMod),
+            new XElement(ns + "changefreq", "weekly"),
+            new XElement(ns + "priority", "0.6")
+        );
+
+        // Attach up to three of the recipe's images; the recipe name and
+        // description ride along as the image title/caption so search
+        // engines associate the right metadata with the recipe page.
+        if (imageFileIds != null)
+        {
+            foreach (var imageId in imageFileIds.Where(id => id > 0).Take(3))
+            {
+                urlElement.Add(new XElement(imageNs + "image",
+                    new XElement(imageNs + "loc", $"https://bughosted.com/File/{imageId}"),
+                    new XElement(imageNs + "title", name),
+                    new XElement(imageNs + "caption", description)
+                ));
+            }
+        }
+
+        // When the recipe uses a YouTube video instead of (or alongside)
+        // images, attach Google's video-sitemap metadata: YouTube's own
+        // thumbnail as the video thumbnail and an embed player_loc so the
+        // video can surface in results. The title/description mirror the
+        // recipe page, truncated to Google's field limits.
+        var videoId = externalLinks?.Select(ExtractYouTubeVideoId).FirstOrDefault(id => !string.IsNullOrEmpty(id));
+        if (!string.IsNullOrEmpty(videoId))
+        {
+            urlElement.Add(new XElement(videoNs + "video",
+                new XElement(videoNs + "thumbnail_loc", $"https://i.ytimg.com/vi/{videoId}/hqdefault.jpg"),
+                new XElement(videoNs + "title", Truncate(name, 100)),
+                new XElement(videoNs + "description", Truncate(description ?? string.Empty, 2048)),
+                new XElement(videoNs + "player_loc",
+                    new XAttribute("allow_embed", "yes"),
+                    $"https://www.youtube.com/embed/{videoId}")
+            ));
+        }
+
+        return urlElement;
+    }
+
+    /// <summary>
+    /// One-time backfill: write sitemap entries for every recipe in the DB so
+    /// recipes created before the sitemap feature (or before the metadata
+    /// work) get indexed. Idempotent — if the sitemap already contains
+    /// /recipe/ entries it does nothing, so it is safe to run on every boot.
+    /// Writes the whole batch in a single document pass (one load, one save).
+    /// </summary>
+    public async Task<int> BackfillSitemapAsync()
+    {
+        await _sitemapLock.WaitAsync();
+        try
+        {
+            if (System.IO.File.Exists(_sitemapPath))
+            {
+                var existing = XDocument.Load(_sitemapPath);
+                if (existing.Descendants().Any(x => x.Name.LocalName == "loc" && x.Value.Contains("/recipe/")))
+                {
+                    return 0; // already backfilled — nothing to do
+                }
+            }
+
+            var recipes = new List<RecipeDto>();
+            await using (var conn = new MySqlConnection(_connectionString))
+            {
+                await conn.OpenAsync();
+                const string query = @"SELECT r.id, r.name, r.description, r.image_file_ids, r.external_links
+                    FROM recipes r
+                    ORDER BY r.id";
+                await using var cmd = new MySqlCommand(query, conn);
+                await using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    recipes.Add(new RecipeDto
+                    {
+                        Id = reader.GetInt32(reader.GetOrdinal("id")),
+                        Name = reader.GetString(reader.GetOrdinal("name")),
+                        Description = reader.IsDBNull(reader.GetOrdinal("description")) ? string.Empty : reader.GetString(reader.GetOrdinal("description")),
+                        ImageFileIds = ParseIntList(reader, "image_file_ids"),
+                        ExternalLinks = ParseList(reader, "external_links"),
+                    });
+                }
+            }
+
+            if (recipes.Count == 0) return 0;
+
+            XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
+            XNamespace imageNs = "http://www.google.com/schemas/sitemap-image/1.1";
+            XNamespace videoNs = "http://www.google.com/schemas/sitemap-video/1.1";
+            XDocument sitemap;
+            if (System.IO.File.Exists(_sitemapPath))
+            {
+                sitemap = XDocument.Load(_sitemapPath);
+            }
+            else
+            {
+                sitemap = new XDocument(new XElement(ns + "urlset"));
+            }
+            sitemap.Root?.SetAttributeValue(XNamespace.Xmlns + "image", imageNs);
+            sitemap.Root?.SetAttributeValue(XNamespace.Xmlns + "video", videoNs);
+
+            var lastMod = DateTime.UtcNow.ToString("yyyy-MM-dd");
+            var written = 0;
+            foreach (var r in recipes)
+            {
+                var url = $"https://bughosted.com/recipe/{r.Id}";
+                var existingEntry = sitemap.Descendants(ns + "url")
+                    .FirstOrDefault(x => x.Element(ns + "loc")?.Value == url);
+                existingEntry?.Remove();
+                sitemap.Root?.Add(BuildSitemapUrlElement(url, r.Name, r.Description, lastMod, r.ImageFileIds, r.ExternalLinks, ns, imageNs, videoNs));
+                written++;
+            }
+
+            sitemap.Save(_sitemapPath);
+            _ = _log.Db($"Sitemap backfill: wrote {written} recipe entr(ies).", null, "RECIPE", true);
+            return written;
+        }
+        catch (Exception ex)
+        {
+            _ = _log.Db($"Sitemap backfill failed: {ex.Message}", null, "RECIPE", true);
+            return 0;
+        }
+        finally
+        {
+            _sitemapLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Pull the 11-character video id out of a YouTube link (watch, youtu.be,
+    /// embed, or shorts forms), mirroring the client's parseYoutubeId.
+    /// </summary>
+    private static string? ExtractYouTubeVideoId(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return null;
+        url = url.Trim();
+        if (!url.Contains("://")) url = "https://" + url;
+        try
+        {
+            var uri = new Uri(url);
+            var host = uri.Host.StartsWith("www.", StringComparison.OrdinalIgnoreCase)
+                ? uri.Host.Substring(4)
+                : uri.Host;
+
+            if (host.Equals("youtu.be", StringComparison.OrdinalIgnoreCase))
+            {
+                var segment = uri.AbsolutePath.Trim('/');
+                var id = segment.Split('?')[0].Split('#')[0];
+                return System.Text.RegularExpressions.Regex.IsMatch(id, "^[a-zA-Z0-9_-]{11}$") ? id : null;
+            }
+
+            var queryMatch = System.Text.RegularExpressions.Regex.Match(uri.Query, "[?&]v=([a-zA-Z0-9_-]{11})");
+            if (queryMatch.Success) return queryMatch.Groups[1].Value;
+
+            var embed = System.Text.RegularExpressions.Regex.Match(uri.AbsolutePath, "/embed/([a-zA-Z0-9_-]{11})");
+            if (embed.Success) return embed.Groups[1].Value;
+
+            var shorts = System.Text.RegularExpressions.Regex.Match(uri.AbsolutePath, "/shorts/([a-zA-Z0-9_-]{11})");
+            if (shorts.Success) return shorts.Groups[1].Value;
+        }
+        catch { /* not a URL */ }
+        return null;
+    }
+
+    private static string Truncate(string value, int maxLength)
+    {
+        if (string.IsNullOrEmpty(value)) return string.Empty;
+        return value.Length <= maxLength ? value : value.Substring(0, maxLength);
     }
 
     private static List<string> ParseList(MySqlDataReader reader, string columnName)

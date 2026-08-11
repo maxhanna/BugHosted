@@ -59,6 +59,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
   autosaveIntervalTime: number = 180000; // 3 minutes 
   showControls = true;     // show/hide on-screen controls
   useJoystick = false;     // D-pad (false) vs analog "zone" (true)
+  leftHandedMode = false;  // mirror movement/action clusters for left-handed play
   segaShowLR = true;       // show L/R pills on Genesis when desired
   status: string = 'Idle';
   preferSixButtonGenesis: boolean = true;
@@ -140,6 +141,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.autosave = false;
     }
     this.fsAccessSupported = this.localRomService.supportsFileSystemAccess();
+    // Device-level fallback so the mirror sticks even when logged out; the
+    // server value (user_settings) wins and is applied on load.
+    try {
+      const saved = localStorage.getItem('emulatorLeftHanded');
+      if (saved !== null) this.leftHandedMode = saved === '1';
+    } catch { /* localStorage unavailable */ }
     this.loadLocalStoragePreference();
     this.ensureLoadedViaRoute();
     if (this.parentRef) {
@@ -2213,12 +2220,19 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
 
      // N64 only: shift the whole right control cluster. The injected
      // stylesheet lives inside this system's vpad root, so this rule can
-     // never affect any other system's on-screen controls.
+     // never affect any other system's on-screen controls. When the
+     // left-handed mirror is on, the clusters swap sides — neutralize the
+     // right-edge poke on the mirrored movement cluster so it sits cleanly
+     // at the right edge instead of poking off-screen.
      const n64RightRule = this.system === 'n64'
        ? `
      /* N64: shift the right control cluster */
      .ejs_virtualGamepad_right {
        right: -40px !important;
+     }
+     /* N64 + left-handed: undo the right-edge poke on the mirrored cluster */
+     .max-left-handed .ejs_virtualGamepad_right {
+       right: 10px !important;
      }`
        : '';
 
@@ -2383,6 +2397,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     // ensure our minimal stylesheet is present in the vpad root
     this.ensureVpadStyleSheet(root);
 
+    // Apply (or re-apply) the left-handed mirror — runs every time the vpad
+    // (re)appears, so mid-game toggles and reloads both land correctly.
+    this.applyLeftHandedVpad();
+
     // D-pad (all systems)
     const dpad = root.querySelector('.ejs_dpad, .ejs-dpad, [class*="dpad"]') as HTMLElement | null;
     if (dpad) dpad.classList.add('max-dpad');
@@ -2509,8 +2527,11 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       { type: 'button', id: 'n64Dd', text: '↓', location: 'left', left: 100, top: 45, input_value: 5, bold: true, fontSize: 12 },
       { type: 'button', id: 'n64Dl', text: '←', location: 'left', left: 55, top: 0, input_value: 6, bold: true, fontSize: 12 },
       { type: 'button', id: 'n64Dr', text: '→', location: 'left', left: 140, top: 9, input_value: 7, bold: true, fontSize: 12 },
-      // Analog stick below D-Pad (zone = virtual joystick)
-      { type: 'zone', location: 'left', left: '45%', top: '100%', joystickInput: true, color: 'grey', inputValues: [19, 18, 17, 16] },
+      // Analog stick below D-Pad (zone = virtual joystick). Centered on the
+      // D-pad's column (the left cluster is 125px wide; the D-pad buttons
+      // center at x≈122) and lifted slightly so the 100px stick circle
+      // doesn't sit flush against the screen bottom.
+      { type: 'zone', location: 'left', left: '98%', top: '97%', joystickInput: true, color: 'grey', inputValues: [19, 18, 17, 16] },
       // L shoulder at bottom-left
       { type: 'button', id: 'n64L', text: 'L', location: 'left', left: 0, top: -60, input_value: 10, bold: true, block: true },
       // C buttons diamond at top right
@@ -2605,6 +2626,7 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
     try {
       const settings = await this.userService.getUserSettings(userId);
       this.localRomStorageEnabled = !!settings?.emulatorLocalRomStorage;
+      this.leftHandedMode = !!settings?.emulatorLeftHanded;
       this.localRomFolderName = await this.localRomService.getFolderName() ?? undefined;
       this.cdr.detectChanges();
     } catch { /* server unreachable — local copies remain usable */ }
@@ -2671,6 +2693,53 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       this.parentRef?.showNotification('Could not save that preference.');
     }
     this.cdr.detectChanges();
+  }
+
+  /**
+   * Flip the left-handed mirror and persist it. Mirrors the on-screen control
+   * clusters (movement on the right, action buttons on the left). Persisted to
+   * user_settings when logged in, and to localStorage as a device fallback.
+   */
+  async toggleLeftHanded() {
+    this.leftHandedMode = !this.leftHandedMode;
+    try { localStorage.setItem('emulatorLeftHanded', this.leftHandedMode ? '1' : '0'); } catch { /* ignore */ }
+    this.applyLeftHandedVpad();
+
+    const userId = this.parentRef?.user?.id;
+    if (userId) {
+      const res = await this.userService.updateUserSettings(userId, [
+        { settingName: 'emulator_left_handed', value: this.leftHandedMode }
+      ]);
+      if (res !== 'Error') {
+        this.parentRef?.showNotification(this.leftHandedMode
+          ? 'Left-handed layout enabled — controls mirrored.'
+          : 'Left-handed layout disabled.');
+      }
+      // If the save failed, keep the local mirror anyway (device preference).
+    } else if (this.leftHandedMode) {
+      this.parentRef?.showNotification('Left-handed layout enabled — log in to save this preference across devices.');
+    }
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Mirror the on-screen control clusters by swapping their container classes
+   * (the same swap EmulatorJS's own left-handed toggle performs), and toggle a
+   * root class that lets the per-system stylesheet adjust mirrored offsets.
+   * Safe to call before the vpad exists (no-op) and any time after.
+   */
+  private applyLeftHandedVpad(): void {
+    const root = document.querySelector('.ejs_virtualGamepad_parent, .ejs-virtualGamepad-parent') as HTMLElement | null;
+    if (!root) return;
+    const left = root.querySelector('.ejs_virtualGamepad_left') as HTMLElement | null;
+    const right = root.querySelector('.ejs_virtualGamepad_right') as HTMLElement | null;
+    if (left && right) {
+      left.classList.toggle('ejs_virtualGamepad_left', !this.leftHandedMode);
+      left.classList.toggle('ejs_virtualGamepad_right', this.leftHandedMode);
+      right.classList.toggle('ejs_virtualGamepad_right', !this.leftHandedMode);
+      right.classList.toggle('ejs_virtualGamepad_left', this.leftHandedMode);
+    }
+    root.classList.toggle('max-left-handed', this.leftHandedMode);
   }
 
   /** Let the user pick (or change) the folder ROM copies are written to. */

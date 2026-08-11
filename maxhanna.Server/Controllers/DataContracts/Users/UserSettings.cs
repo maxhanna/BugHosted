@@ -46,5 +46,10 @@
         // instead of re-downloading from the server.
         [Newtonsoft.Json.JsonProperty("emulatorLocalRomStorage")]
         public bool EmulatorLocalRomStorage { get; set; }
+
+        // Mobile preference: mirror the on-screen control clusters (movement
+        // on the right, action buttons on the left) for left-handed play.
+        [Newtonsoft.Json.JsonProperty("emulatorLeftHanded")]
+        public bool EmulatorLeftHanded { get; set; }
     }
 }

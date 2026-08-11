@@ -35,7 +35,8 @@ namespace maxhanna.Server.Controllers
         "follow_notifications_email",
         "show_nav_search",
         "timezone",
-        "emulator_local_rom_storage"
+        "emulator_local_rom_storage",
+        "emulator_left_handed"
     };
 
     private static readonly ConcurrentDictionary<string, bool> _ensuredSettingColumns = new();
@@ -1852,6 +1853,49 @@ namespace maxhanna.Server.Controllers
       return Ok(new { success = ok });
     }
 
+    /// <summary>
+    /// Auto-renewal for sessions that died (expired or evicted by the per-user
+    /// cap) while the user is still actively navigating the site. The dead
+    /// token still proves a prior login; the activity gate (recent last_seen)
+    /// stops abandoned sessions from silently renewing. On success a fresh
+    /// token is minted, the old row is replaced, and a new HttpOnly cookie is
+    /// set — so the 401 loop heals without a manual re-login.
+    /// </summary>
+    [HttpPost("/User/RenewSession", Name = "RenewSession")]
+    public async Task<IActionResult> RenewSession()
+    {
+      string token = Request.Headers["Encrypted-UserId"].ToString();
+      if (string.IsNullOrWhiteSpace(token)) token = Request.Cookies["BHUserToken"] ?? "";
+      if (string.IsNullOrWhiteSpace(token))
+        return Unauthorized("Access Denied. Please log in again.");
+
+      string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      var session = await Log.FindSessionForRenewal(cs, token);
+      if (session == null)
+        return Unauthorized("Access Denied. Please log in again.");
+
+      // Activity gate: only auto-renew while the user is demonstrably active
+      // (navigated within the last half hour). Otherwise the session is
+      // genuinely abandoned and a normal login is required.
+      if (session.Value.LastSeen < DateTime.UtcNow.AddMinutes(-30))
+        return Unauthorized("Session expired. Please log in again.");
+
+      string newToken = await Log.CreateSession(cs, session.Value.UserId) ?? "";
+      if (string.IsNullOrEmpty(newToken))
+        return StatusCode(500, "Could not create a new session.");
+
+      Response.Cookies.Append("BHUserToken", newToken, new CookieOptions
+      {
+        HttpOnly = true,
+        Secure = Request.IsHttps,
+        SameSite = SameSiteMode.Lax,
+        Path = "/",
+        MaxAge = TimeSpan.FromDays(30)
+      });
+      _ = _log.Db($"Session auto-renewed for userId:{session.Value.UserId} (was expired/evicted, user still active).", session.Value.UserId, "USER", true);
+      return Ok(new { sessionToken = newToken, userId = session.Value.UserId });
+    }
+
     [HttpGet("/User/Sessions", Name = "Sessions")]
     public async Task<IActionResult> Sessions([FromHeader(Name = "Encrypted-UserId")] string? encryptedUserIdHeader = null)
     {
@@ -2481,7 +2525,8 @@ namespace maxhanna.Server.Controllers
      IFNULL(follow_notifications_email,0) AS follow_notifications_email,
      IFNULL(show_nav_search,1) AS show_nav_search,
      IFNULL(timezone,'') AS timezone,
-     IFNULL(emulator_local_rom_storage,0) AS emulator_local_rom_storage
+     IFNULL(emulator_local_rom_storage,0) AS emulator_local_rom_storage,
+     IFNULL(emulator_left_handed,0) AS emulator_left_handed
      FROM maxhanna.user_settings 
      WHERE user_id = @userId;";
           MySqlCommand selectCmd = new MySqlCommand(selectSql, conn);
@@ -2521,6 +2566,7 @@ namespace maxhanna.Server.Controllers
               userSettings.ShowNavSearch = !reader.IsDBNull(reader.GetOrdinal("show_nav_search")) && reader.GetInt32("show_nav_search") == 1;
               userSettings.Timezone = reader.IsDBNull(reader.GetOrdinal("timezone")) ? null : reader.GetString("timezone");
               userSettings.EmulatorLocalRomStorage = !reader.IsDBNull(reader.GetOrdinal("emulator_local_rom_storage")) && reader.GetInt32("emulator_local_rom_storage") == 1;
+              userSettings.EmulatorLeftHanded = !reader.IsDBNull(reader.GetOrdinal("emulator_left_handed")) && reader.GetInt32("emulator_left_handed") == 1;
             }
           }
 

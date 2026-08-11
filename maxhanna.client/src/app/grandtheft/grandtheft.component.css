@@ -1082,6 +1082,28 @@
   from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
   to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
+#gt-repair-hint {
+  position: absolute;
+  top: 58%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 40, 0, 0.85);
+  color: #7CFC7C;
+  font-size: 18px;
+  font-weight: 600;
+  padding: 8px 20px;
+  border-radius: 8px;
+  border: 2px solid rgba(124, 252, 124, 0.4);
+  letter-spacing: 1px;
+  z-index: 20;
+  pointer-events: none;
+  animation: gt-banner-in 0.2s ease-out;
+}
+#gt-repair-hint.out-of-cash {
+  background: rgba(60, 0, 0, 0.85);
+  color: #ff9a9a;
+  border-color: rgba(255, 154, 154, 0.45);
+}
 #gt-wasted {
   position: absolute;
   top: 50%;

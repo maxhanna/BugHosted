@@ -21,6 +21,7 @@ export interface GTNPCData {
   isBurning?: boolean;
   isSmoking?: boolean;
   isFleeing?: boolean;
+  isDucking?: boolean;
   maxHealth?: number;
 }
 
