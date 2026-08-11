@@ -764,43 +764,7 @@ namespace maxhanna.Server.Controllers
 			// Periodic memory management: recycle world NPCs nobody can see and drop
 			// per-user state for long-gone players so the server stays lean.
 			_cleanupTimer = new Timer(RunMemoryCleanup, null, TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(2));
-			EnsureChaseStatsColumns();
-		}
-		private static int _chaseStatsSchemaReady;
-		// The chase-stats counters (escapes, busted) live in two extra columns on
-		// grandtheft_player_state. Schema is normally managed out-of-band, so this
-		// self-heals a fresh/older database with an idempotent ALTER — additive and
-		// DEFAULT 0, so existing rows are untouched. Runs once per process; on DB
-		// failure it stays un-flagged so the next persist/poll retries.
-		private static void EnsureChaseStatsColumns()
-		{
-			if (Volatile.Read(ref _chaseStatsSchemaReady) == 1) return;
-			try
-			{
-				var connStr = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-					.GetValue<string>("ConnectionStrings:maxhanna");
-				if (string.IsNullOrEmpty(connStr)) return;
-				using var conn = new MySqlConnection(connStr);
-				conn.Open();
-				using var check = new MySqlCommand(@"
-					SELECT COUNT(*) FROM information_schema.COLUMNS
-					WHERE TABLE_SCHEMA = 'maxhanna' AND TABLE_NAME = 'grandtheft_player_state'
-					AND COLUMN_NAME IN ('escapes', 'busted', 'resists', 'worst_streak')", conn);
-				long have = Convert.ToInt64(check.ExecuteScalar());
-				if (have < 4)
-				{
-					using var alter = new MySqlCommand(@"
-						ALTER TABLE maxhanna.grandtheft_player_state
-						ADD COLUMN escapes INT NOT NULL DEFAULT 0,
-						ADD COLUMN busted INT NOT NULL DEFAULT 0,
-						ADD COLUMN resists INT NOT NULL DEFAULT 0,
-						ADD COLUMN worst_streak INT NOT NULL DEFAULT 0", conn);
-					alter.ExecuteNonQuery();
-				}
-				Volatile.Write(ref _chaseStatsSchemaReady, 1);
-			}
-			catch { }
-		}
+ 		} 
 		private static bool _shutdownHooksRegistered;
 		private static void RegisterShutdownDump(IHostApplicationLifetime? appLifetime)
 		{
@@ -834,7 +798,7 @@ namespace maxhanna.Server.Controllers
 				if (string.IsNullOrEmpty(connStr)) return;
 				using var conn = new MySqlConnection(connStr);
 				conn.Open();
-				EnsureChaseStatsColumns();
+				  
 				foreach (var uid in _playerX.Keys)
 				{
 					if (!force && (!_lastSeen.TryGetValue(uid, out var seen) || (DateTime.UtcNow - seen).TotalMinutes > 5)) continue;
@@ -1050,8 +1014,7 @@ namespace maxhanna.Server.Controllers
 		{
 			if (_lastSeen.ContainsKey(userId)) return;
 			try
-			{
-				EnsureChaseStatsColumns();
+			{ 
 				using var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna"));
 				conn.Open();
 				using var cmd = new MySqlCommand("SELECT s.user_id, s.world_id, s.pos_x, s.pos_y, s.pos_z, s.yaw, s.pitch, s.car_yaw, s.car_speed, s.health, s.weapon, s.weapons_json, s.ammo_json, s.money, s.money_earned, s.money_peak, s.kills, s.deaths, s.escapes, s.busted, s.resists, s.worst_streak, s.last_seen, u.username FROM maxhanna.grandtheft_player_state s JOIN maxhanna.users u ON s.user_id = u.id WHERE s.user_id = @uid", conn);

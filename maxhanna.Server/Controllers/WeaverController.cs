@@ -232,14 +232,16 @@ namespace maxhanna.Server.Controllers
 				using var conn = new MySqlConnection(cs);
 				await conn.OpenAsync();
 			 
-				using var cmd = new MySqlCommand(@"
-					INSERT INTO maxhanna.weaver_feedback (user_id, username, card_id, card_text, message)
-					VALUES (@uid, @username, @cardId, @cardText, @message)", conn);
+ 				using var cmd = new MySqlCommand(@"
+					INSERT INTO maxhanna.weaver_feedback (user_id, username, card_id, card_text, message, plan_summary, files_edited)
+					VALUES (@uid, @username, @cardId, @cardText, @message, @planSummary, @filesEdited)", conn);
 				cmd.Parameters.AddWithValue("@uid", session.UserId);
 				cmd.Parameters.AddWithValue("@username", session.Username);
 				cmd.Parameters.AddWithValue("@cardId", (object?)req.CardId ?? DBNull.Value);
 				cmd.Parameters.AddWithValue("@cardText", (object?)req.CardText ?? DBNull.Value);
 				cmd.Parameters.AddWithValue("@message", req.Message);
+				cmd.Parameters.AddWithValue("@planSummary", (object?)req.PlanSummary ?? DBNull.Value);
+				cmd.Parameters.AddWithValue("@filesEdited", req.FilesEdited != null ? (object)JsonSerializer.Serialize(req.FilesEdited) : DBNull.Value);
 				await cmd.ExecuteNonQueryAsync();
 				return Ok(new { ok = true, id = cmd.LastInsertedId });
 			}
@@ -742,6 +744,7 @@ namespace maxhanna.Server.Controllers
 				}
 
 				await OverlayFreshHeartbeats(cs, entries);
+				await OverlayShareFlags(cs, entries);
 
 				var ordered = entries.OrderByDescending(e => e.Score).ToList();
 				var result = new List<object>(ordered.Count);
@@ -754,6 +757,7 @@ namespace maxhanna.Server.Controllers
 						username = ordered[i].Username,
 						rankTitle = ordered[i].RankTitle,
 						score = ordered[i].Score,
+						sharesRank = ordered[i].SharesRank,
 						lastHeartbeat = ordered[i].LastHeartbeat,
 						status = ordered[i].Status
 					});
@@ -763,6 +767,41 @@ namespace maxhanna.Server.Controllers
 			catch (Exception ex)
 			{
 				return StatusCode(500, new { error = ex.Message });
+			}
+		}
+
+		// Weaver sends rank score/title as zeros when the user hasn't opted in to
+		// sharing ("Share my rank publicly on BugHosted servers" in Weaver settings), so
+		// a score of 0 is ambiguous: a real score vs. an opted-out user. The client's
+		// settings payload carries bughostedShareRank, so overlay the live opt-in state
+		// per request (cheap, and not affected by the 30-min score cache) to let the
+		// leaderboard show "not sharing" instead of a confusing 0.
+		private async Task OverlayShareFlags(string cs, List<WeaverRankingEntry> entries)
+		{
+			if (entries.Count == 0) return;
+			using var conn = new MySqlConnection(cs);
+			await conn.OpenAsync();
+			string sql = "SELECT user_id, settings_data FROM maxhanna.weaver_settings";
+			using var cmd = new MySqlCommand(sql, conn);
+			cmd.CommandTimeout = 30;
+			using var reader = await cmd.ExecuteReaderAsync();
+			var shares = new Dictionary<int, bool>();
+			while (await reader.ReadAsync())
+			{
+				int uid = reader.GetInt32("user_id");
+				if (reader.IsDBNull(reader.GetOrdinal("settings_data"))) continue;
+				try
+				{
+					using var doc = JsonDocument.Parse(reader.GetString("settings_data"));
+					if (doc.RootElement.TryGetProperty("bughostedShareRank", out var el) && el.ValueKind == JsonValueKind.True)
+						shares[uid] = true;
+				}
+				catch { /* malformed settings_data — treat as not sharing */ }
+			}
+			reader.Close();
+			for (int i = 0; i < entries.Count; i++)
+			{
+				entries[i].SharesRank = shares.ContainsKey(entries[i].UserId);
 			}
 		}
 
@@ -1086,6 +1125,7 @@ namespace maxhanna.Server.Controllers
 		public string LastHeartbeat { get; set; } = "";
 		public string RankTitle { get; set; } = "";
 		public int Score { get; set; }
+		public bool SharesRank { get; set; }
 	}
 
 	public class WeaverFulfillFileRequest
@@ -1130,6 +1170,10 @@ namespace maxhanna.Server.Controllers
 		public string? CardId { get; set; }
 		public string? CardText { get; set; }
 		public string Message { get; set; } = "";
+		/// <summary>The card's run plan summary (what the run was supposed to do).</summary>
+		public string? PlanSummary { get; set; }
+		/// <summary>Relative paths of the files the run actually edited.</summary>
+		public List<string>? FilesEdited { get; set; }
 	}
 	public class BenchmarkDataDTO
 	{

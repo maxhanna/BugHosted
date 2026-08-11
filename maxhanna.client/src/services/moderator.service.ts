@@ -90,24 +90,25 @@ export class ModeratorService {
 
   // ─── Chat-scoped bans & appeals (low-level chat room moderation) ───
 
-  async getWeaverFeedback(callerUserId: number, sessionToken: string, page = 1, pageSize = 25): Promise<{ items: any[]; total: number; page: number; pageSize: number }> {
+  async getWeaverFeedback(callerUserId: number, sessionToken: string, page = 1, pageSize = 25): Promise<{ items: any[]; total: number; openTotal: number; page: number; pageSize: number }> {
     try {
       const response = await fetch('/moderator/getweaverfeedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
         body: JSON.stringify({ CallerUserId: callerUserId, Page: page, PageSize: pageSize }),
       });
-      if (!response.ok) return { items: [], total: 0, page, pageSize };
+      if (!response.ok) return { items: [], total: 0, openTotal: 0, page, pageSize };
       const data = await response.json();
       return {
         items: Array.isArray(data?.items) ? data.items : [],
         total: typeof data?.total === 'number' ? data.total : 0,
+        openTotal: typeof data?.openTotal === 'number' ? data.openTotal : 0,
         page: typeof data?.page === 'number' ? data.page : page,
         pageSize: typeof data?.pageSize === 'number' ? data.pageSize : pageSize,
       };
     } catch (error) {
       console.error('Error fetching weaver feedback:', error);
-      return { items: [], total: 0, page, pageSize };
+      return { items: [], total: 0, openTotal: 0, page, pageSize };
     }
   }
 

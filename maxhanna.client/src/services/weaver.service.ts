@@ -52,6 +52,7 @@ export interface WeaverRanking {
   username: string;
   rankTitle: string;
   score: number;
+  sharesRank?: boolean;
   lastHeartbeat: string;
   status: string;
 }

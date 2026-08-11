@@ -4614,7 +4614,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     if (this.altUpPressed) this.carVy = Math.min(this.carVy + climbRate * dt, 10);
     else if (this.altDownPressed) this.carVy = Math.max(this.carVy - climbRate * dt, -10);
-    else this.carVy *= 0.92;
+    else {
+      // Idle at zero airspeed: no translational lift, so the rotor can't hold
+      // altitude — slowly and gradually settle toward the ground instead of
+      // hovering in place forever. Once grounded (or if input returns), the
+      // normal decay/clamp takes over.
+      const idleSpeed = Math.hypot(this.carVx, this.carVz);
+      if (idleSpeed < 1.0 && this.carY > heliMinY + 0.2) {
+        this.carVy = Math.max(this.carVy - 2.0 * dt, -2.5);
+      } else {
+        this.carVy *= 0.92;
+      }
+    }
     let fwdInput = 0;
     if (this.isMobile && this.joystickActive) {
       if (Math.abs(this.joystickY) > 0.1) fwdInput = this.joystickY;

@@ -87,6 +87,13 @@
             </div>
             <div class="smallFont" style="margin:4px 0;">{{ f.message }}</div>
             <div class="xSmallFont secondaryFontColor" *ngIf="f.cardText">Card: {{ f.cardText.length > 140 ? (f.cardText | slice:0:140) + '…' : f.cardText }}</div>
+            <div *ngIf="f.planSummary || (f.filesEdited && f.filesEdited.length)" class="weaver-feedback-outcome">
+              <div class="xSmallFont" *ngIf="f.planSummary"><strong>📋 Plan:</strong> {{ f.planSummary }}</div>
+              <div class="xSmallFont" *ngIf="f.filesEdited && f.filesEdited.length">
+                <strong>✏️ Files edited:</strong>
+                <span *ngFor="let p of f.filesEdited; let last = last">{{ p }}{{ last ? '' : ', ' }}</span>
+              </div>
+            </div>
             <div *ngIf="f.reply" style="margin:6px 0 0;padding:6px 8px;background:rgba(64,192,128,0.08);border-left:3px solid #40c080;border-radius:3px;">
               <div class="xSmallFont" style="color:#40c080;font-weight:bold;">↩️ Admin reply{{ f.repliedAt ? ' · ' + f.repliedAt : '' }}</div>
               <div class="smallFont" style="margin-top:2px;white-space:pre-wrap;">{{ f.reply }}</div>

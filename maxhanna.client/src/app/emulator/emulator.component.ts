@@ -2535,12 +2535,12 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       // L shoulder at bottom-left
       { type: 'button', id: 'n64L', text: 'L', location: 'left', left: 0, top: -60, input_value: 10, bold: true, block: true },
       // C buttons diamond at top right
-      { type: 'button', id: 'n64Cu', text: 'C↑', location: 'right', left: -90, top: -50, input_value: 12, bold: true, fontSize: 13 },
-      { type: 'button', id: 'n64Cl', text: 'C←', location: 'right', left: -130, top: 0, input_value: 14, bold: true, fontSize: 13 },
-      { type: 'button', id: 'n64Cr', text: 'C→', location: 'right', left: -50, top: 0, input_value: 15, bold: true, fontSize: 13 },
-      { type: 'button', id: 'n64Cd', text: 'C↓', location: 'right', left: -90, top: 46, input_value: 13, bold: true, fontSize: 13 },
+      { type: 'button', id: 'n64Cu', text: 'C↑', location: 'right', left: -70, top: -50, input_value: 12, bold: true, fontSize: 13 },
+      { type: 'button', id: 'n64Cl', text: 'C←', location: 'right', left: -100, top: 0, input_value: 14, bold: true, fontSize: 13 },
+      { type: 'button', id: 'n64Cr', text: 'C→', location: 'right', left: -40, top: 0, input_value: 15, bold: true, fontSize: 13 },
+      { type: 'button', id: 'n64Cd', text: 'C↓', location: 'right', left: -70, top: 46, input_value: 13, bold: true, fontSize: 13 },
       // A, B, Z below C buttons
-      { type: 'button', id: 'n64A', text: 'A', location: 'right', left: -18, top: 65, input_value: 0, bold: true, fontSize: 16 },
+      { type: 'button', id: 'n64A', text: 'A', location: 'right', left: -5, top: 65, input_value: 0, bold: true, fontSize: 16 },
       { type: 'button', id: 'n64B', text: 'B', location: 'right', left: -85, top: 115, input_value: 1, bold: true, fontSize: 16 },
       { type: 'button', id: 'n64Z', text: 'Z', location: 'right', left: 19, top: 165, input_value: 2, bold: true, fontSize: 16 },
       // R shoulder at bottom-right

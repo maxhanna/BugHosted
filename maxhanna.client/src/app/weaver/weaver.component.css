@@ -843,6 +843,25 @@
   padding: 16px 0;
 }
 
+.rankings-noshare {
+  color: var(--muted);
+  font-size: 12px;
+  font-style: italic;
+  font-weight: 400;
+  cursor: help;
+}
+
+.rankings-hint {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  border-radius: 8px;
+  background: rgba(250, 204, 21, 0.08);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 @media (max-width: 480px) {
   .rankings-popup-panel {
     max-width: 98vw;

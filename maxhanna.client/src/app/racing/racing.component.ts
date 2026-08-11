@@ -339,35 +339,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   liveLapTime = 0;
   @ViewChild('steerWheel') steerWheelEl?: ElementRef<HTMLDivElement>;
   @ViewChild('wheelSpeed') wheelSpeedEl?: ElementRef<HTMLDivElement>;
-  @ViewChild('speedLinesEl') speedLinesEl?: ElementRef<HTMLDivElement>;
   @ViewChild('cockpitDash') cockpitDashEl?: ElementRef<HTMLDivElement>;
-  /** Screen-edge speed streaks (one span per entry). Position/rotation are
-   *  static; length, flow speed and opacity are driven per-frame from the
-   *  car's speed AND the track grade (downhill flares, uphill calms). */
-  speedLineDefs: { t: string; l: string; rot: number; delay: number }[] = [
-    { t: '6%', l: '8%', rot: 20, delay: -0.1 },
-    { t: '6%', l: '24%', rot: 10, delay: -0.5 },
-    { t: '7%', l: '40%', rot: 4, delay: -0.9 },
-    { t: '8%', l: '56%', rot: -4, delay: -0.3 },
-    { t: '7%', l: '72%', rot: -12, delay: -0.7 },
-    { t: '6%', l: '86%', rot: -20, delay: -0.2 },
-    { t: '92%', l: '6%', rot: -20, delay: -0.6 },
-    { t: '93%', l: '22%', rot: -10, delay: -0.4 },
-    { t: '92%', l: '38%', rot: -4, delay: -0.8 },
-    { t: '93%', l: '54%', rot: 4, delay: -0.1 },
-    { t: '92%', l: '70%', rot: 10, delay: -0.5 },
-    { t: '93%', l: '86%', rot: 18, delay: -0.9 },
-    { t: '16%', l: '3%', rot: 82, delay: -0.2 },
-    { t: '32%', l: '3%', rot: 88, delay: -0.7 },
-    { t: '50%', l: '4%', rot: 92, delay: -0.3 },
-    { t: '66%', l: '3%', rot: 86, delay: -0.8 },
-    { t: '82%', l: '3%', rot: 80, delay: -0.4 },
-    { t: '16%', l: '94%', rot: -85, delay: -0.5 },
-    { t: '32%', l: '95%', rot: -90, delay: -0.1 },
-    { t: '48%', l: '95%', rot: -92, delay: -0.6 },
-    { t: '64%', l: '95%', rot: -88, delay: -0.2 },
-    { t: '80%', l: '95%', rot: -84, delay: -0.7 },
-  ];
   @ViewChild('wheelRpm') wheelRpmEl?: ElementRef<HTMLDivElement>;
   @ViewChild('wheelGear') wheelGearEl?: ElementRef<HTMLDivElement>;
   @ViewChild('thrFill') thrFillEl?: ElementRef<HTMLSpanElement>;
@@ -488,7 +460,16 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   showOptions = false;
   cameraShakeOn = true;
   speedFovOn = true;
-  cornerRubberOn = true;
+  // Corner rubber (dark braking marks) defaults OFF — the marks read as gray
+  // puddles on the track and add draw cost right where cars brake hardest.
+  cornerRubberOn = false;
+  /** Opt-in frame-budget profiler (?profile=1) — logs per-subsystem ms/frame
+   *  to the console every ~120 frames so a session can be driven through
+   *  corners and the hot costs measured. Off = one boolean check per mark. */
+  profile = false;
+  private _profTimes: { [key: string]: number } = {};
+  private _profFrames = 0;
+  private _pLast = 0;
   /** Garage live-preview toggle: when on, hovering an appearance part (accent,
    *  decal, rims, glow, …) applies it to the 3D car in real time before buying.
    *  Off keeps the car on the equipped look while browsing. Persisted. */
@@ -502,11 +483,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   ) { super(); }
   ngOnInit() {
     if (typeof window !== 'undefined' && window.innerWidth < 768) this.standingsCollapsed = true;
+    try { this.profile = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('profile'); } catch { }
     this.loadPlayerCar();
     try { this.soundOn = localStorage.getItem('gp_sound') === '1'; } catch { }
     try { this.cameraShakeOn = localStorage.getItem('gp_shake') !== '0'; } catch { }
     try { this.speedFovOn = localStorage.getItem('gp_fov') !== '0'; } catch { }
-    try { this.cornerRubberOn = localStorage.getItem('gp_rubber') !== '0'; } catch { }
+    try { this.cornerRubberOn = localStorage.getItem('gp_rubber') === '1'; } catch { }
     try { this.garageLivePreview = localStorage.getItem('gp_livepreview') !== '0'; } catch { }
     this.restoreGarageCam();
     this.userEventService.insertUserEvent(
@@ -795,6 +777,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const lowQuality = this.isMobile || ((navigator.hardwareConcurrency ?? 8) <= 4);
     this.renderer = new RacingRenderer(canvas, lowQuality);
     this.renderer.cornerRubber = this.cornerRubberOn;
+    this.renderer.profile = this.profile;
     this.isLoaded = true;
     this._onKeyDown = (e: KeyboardEvent) => {
       if (this._destroyed) return;
@@ -909,6 +892,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.playerCar.upgrades = [];
       this.playerCar.skinId = 1;
     }
+    this.invalidateUpgradeStats();
     this.playerNameDraft = this.playerCar.playerName || '';
     this.loadLeaderboard();
   }
@@ -921,40 +905,49 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       if (!this.playerCar.playerName) {
         this.playerCar.playerName = this.parentRef?.user?.username || '';
       }
+      this.invalidateUpgradeStats();
     }
   }
-  getSpeedBonus(): number {
-    let bonus = 0;
+  // Upgrade-derived stats are computed once and cached (invalidated whenever
+  // playerCar changes). The physics step, bot AI and HUD read them many times
+  // per frame, and each getter used to rescan the upgrades array on every call
+  // — a small but constant per-frame tax exactly when cornering matters.
+  private _upgradeStatsDirty = true;
+  private _upgradeStats: {
+    speedBonus: number; gripBonus: number; cornerBonus: number; downforceBonus: number;
+    dragPenalty: number; brakeBonus: number; weightBonus: number;
+  } | null = null;
+  private invalidateUpgradeStats() { this._upgradeStatsDirty = true; }
+  private upgradeStats() {
+    if (!this._upgradeStatsDirty && this._upgradeStats) return this._upgradeStats;
+    let speedBonus = 0, gripBonus = 0, cornerBonus = 0, brakeBonus = 0, weightBonus = 0;
     for (const u of this.playerCar.upgrades) {
-      if (u.category === 'engine') bonus += u.statBonus;
+      if (u.category === 'engine') speedBonus += u.statBonus;
+      else if (u.category === 'tires') gripBonus += u.statBonus;
+      else if (u.category === 'suspension') cornerBonus += u.statBonus;
+      else if (u.category === 'brakes') brakeBonus += u.statBonus;
+      else if (u.category === 'body') weightBonus += u.statBonus;
     }
-    return bonus;
+    const spoilerId = this.playerCar.spoilerId;
+    this._upgradeStats = {
+      speedBonus, gripBonus, cornerBonus,
+      downforceBonus: spoilerId ? (SPOILER_DOWNFORCE[spoilerId] ?? 0) : 0,
+      dragPenalty: spoilerId ? (SPOILER_DRAG[spoilerId] ?? 0) : 0,
+      brakeBonus, weightBonus,
+    };
+    this._upgradeStatsDirty = false;
+    return this._upgradeStats;
   }
-  getGripBonus(): number {
-    let bonus = 0;
-    for (const u of this.playerCar.upgrades) {
-      if (u.category === 'tires') bonus += u.statBonus;
-    }
-    return bonus;
-  }
-  getCornerBonus(): number {
-    let bonus = 0;
-    for (const u of this.playerCar.upgrades) {
-      if (u.category === 'suspension') bonus += u.statBonus;
-    }
-    return bonus;
-  }
+  getSpeedBonus(): number { return this.upgradeStats().speedBonus; }
+  getGripBonus(): number { return this.upgradeStats().gripBonus; }
+  getCornerBonus(): number { return this.upgradeStats().cornerBonus; }
   /** Downforce bonus (%) from the equipped spoiler — taller/multi-element wings
    *  press harder. Feeds the cornering factor alongside suspension, so aero
    *  upgrades visibly improve handling. 0 when no spoiler is equipped. */
-  getDownforceBonus(): number {
-    return this.playerCar.spoilerId ? (SPOILER_DOWNFORCE[this.playerCar.spoilerId] ?? 0) : 0;
-  }
+  getDownforceBonus(): number { return this.upgradeStats().downforceBonus; }
   /** Top-speed drag penalty (%) from the equipped spoiler — the cost of big
    *  aero. 0 when no spoiler is equipped. */
-  getDragPenalty(): number {
-    return this.playerCar.spoilerId ? (SPOILER_DRAG[this.playerCar.spoilerId] ?? 0) : 0;
-  }
+  getDragPenalty(): number { return this.upgradeStats().dragPenalty; }
   /** Multiplier applied to top speed (1 - drag/100). */
   private getDragFactor(): number {
     return 1 - this.getDragPenalty() / 100;
@@ -970,20 +963,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       drag: SPOILER_DRAG[p.id] ?? 0,
     };
   }
-  getBrakeBonus(): number {
-    let bonus = 0;
-    for (const u of this.playerCar.upgrades) {
-      if (u.category === 'brakes') bonus += u.statBonus;
-    }
-    return bonus;
-  }
-  getWeightBonus(): number {
-    let bonus = 0;
-    for (const u of this.playerCar.upgrades) {
-      if (u.category === 'body') bonus += u.statBonus;
-    }
-    return bonus;
-  }
+  getBrakeBonus(): number { return this.upgradeStats().brakeBonus; }
+  getWeightBonus(): number { return this.upgradeStats().weightBonus; }
   getMaxSpeed(): number {
     // Drag from big aero (whale tail / bi-plane) caps top speed — the tradeoff
     // for their cornering gain, visible in the HUD and on the upgrade cards.
@@ -1697,11 +1678,33 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     };
   }
 
+  private pMark(key: string) {
+    if (!this.profile) return;
+    const n = performance.now();
+    const d = n - this._pLast;
+    this._pLast = n;
+    if (d >= 0) this._profTimes[key] = (this._profTimes[key] || 0) + d;
+  }
+  private profileSample() {
+    const r = this.renderer;
+    const combined: { [key: string]: number } = {};
+    if (r) { for (const k in r.profileTimes) combined[k] = (combined[k] || 0) + r.profileTimes[k]; }
+    for (const k in this._profTimes) combined[k] = (combined[k] || 0) + this._profTimes[k];
+    const frames = Math.max(1, this._profFrames);
+    const keys = Object.keys(combined).sort((a, b) => (combined[b] || 0) - (combined[a] || 0));
+    const parts = keys.map(k => `${k}=${((combined[k] || 0) / frames).toFixed(3)}ms`);
+    const total = (combined['frame'] || 0) / frames;
+    console.log(`[racing-profile] ${frames} frames, total ${total.toFixed(2)}ms/frame — ${parts.join(', ')}`);
+    if (r) r.profileReset();
+    this._profTimes = {};
+    this._profFrames = 0;
+  }
   private gameLoop(time: number) {
     if (this._destroyed) return;
     this.animId = requestAnimationFrame((t) => this.gameLoop(t));
     const dt = Math.min((time - this.lastTime) / 1000, 0.05);
     this.lastTime = time;
+    if (this.profile) this._pLast = performance.now();
     if (this.gameState === 'racing') {
       this.processInput(dt);
     } else if (this.gameState === 'countdown') {
@@ -1729,9 +1732,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       while (dh < -Math.PI) dh += Math.PI * 2;
       this.carYaw += Math.max(-0.9 * dt, Math.min(0.9 * dt, dh * 1.2));
     }
+    if (this.profile) this.pMark('input');
     if (this.gameState === 'racing') {
       this.updatePhysics(dt);
+      if (this.profile) this.pMark('physics');
       this.updateBots(dt);
+      if (this.profile) this.pMark('bots');
       this.checkLapCrossing();
       this.updateRacePosition();
       this.totalRaceTime += dt * 1000;
@@ -1780,6 +1786,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         pdist: this._playerRaceDist,
         cars: rcars
       });
+      if (this.profile) this.pMark('replay');
       if (this.isOffTrack) {
         this.screenShake = Math.min(0.04, this.screenShake + dt * 0.02);
       } else {
@@ -1920,6 +1927,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this._playerSpin += wheelRate(this.carSpeed) * dt;
       // The rear-view mirror is meaningless while the cinematic pan is active.
       this.renderer.render(eyeX, eyeY, eyeZ, yaw, pitch, aspect, carList, dt, fovZoom, shakeX, shakeY, this.isRaining, speedRatio, this.carSpeed, this.carAccel, this._playerSpin, this._playerSlide, pa, countdownPanActive, this.steerSmoothed / 90);
+      if (this.profile) this.pMark('render');
       this.hudSpeed = Math.abs(this.carSpeed * 3.6);
       this.hudRPM = this.gameState === 'countdown'
         ? Math.min(1, this._countdownRev * 1.2)
@@ -1935,17 +1943,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       }
       if (this.wheelSpeedEl?.nativeElement) {
         this.wheelSpeedEl.nativeElement.textContent = Math.round(this.hudSpeed).toString();
-      }
-      if (this.speedLinesEl?.nativeElement) {
-        const slEl = this.speedLinesEl.nativeElement;
-        // Speed streaks fade in above ~30% speed; the grade scales them so a
-        // descent flares harder and an ascent calms them, selling the hill.
-        const slSpeed = Math.max(0, (speedRatio - 0.3) / 0.7);
-        const slGrade = 1 - Math.max(-1, Math.min(1, grade)) * 0.55;
-        slEl.style.opacity = Math.max(0, Math.min(1, slSpeed * slGrade)).toFixed(3);
-        slEl.style.setProperty('--sl-len', (70 + speedRatio * 150) + 'px');
-        slEl.style.setProperty('--sl-dur', (1.1 - speedRatio * 0.75) + 's');
-        slEl.classList.toggle('speed-lines-off', !this.speedFovOn);
       }
       if (this.wheelRpmEl?.nativeElement) {
         const rpm = Math.round(this.hudRPM * 100);
@@ -1990,6 +1987,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         this.wheelLedsEl?.nativeElement.setAttribute('title',
           `Front-wheel lock ${Math.round(this.hudWheelLock * 100)}% — fronts dim as they lock`);
       }
+    }
+    if (this.profile) {
+      this.pMark('frame');
+      this._profFrames++;
+      if (this._profFrames >= 120) this.profileSample();
     }
   }
   private processInput(dt: number) {
@@ -3287,6 +3289,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       const result = await this.racingService.buyUpgrade(userId, u.id);
       if (result) {
         this.playerCar = result;
+        this.invalidateUpgradeStats();
         this.addMessage(`Upgraded: ${u.name}!`);
       } else {
         this.addMessage(`Couldn't buy ${u.name} — purchase rejected.`);
@@ -3307,6 +3310,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         const result = await this.racingService.buySkin(userId, skin.id);
         if (result) {
           this.playerCar = result;
+          this.invalidateUpgradeStats();
           skin.owned = true;
         } else {
           this.addMessage(`Couldn't buy ${skin.name} — not enough money.`);
@@ -3318,6 +3322,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       }
     }
     this.playerCar.skinId = skin.id;
+    this.invalidateUpgradeStats();
     this.saveCar();
     this.addMessage(`Skin changed to: ${skin.name}!`);
   }
@@ -3523,6 +3528,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       case 'glow': this.playerCar.glowId = part.id; break;
       case 'accent': this.playerCar.accentId = part.id; break;
     }
+    this.invalidateUpgradeStats();
   }
   getSpoilerStyle(): string {
     const id = this.previewOrEquipped('spoiler');

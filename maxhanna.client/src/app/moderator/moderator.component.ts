@@ -32,6 +32,7 @@ export class ModeratorComponent extends ChildComponent {
   isWeaverAdmin = false;
   weaverFeedback: any[] = [];
   weaverFeedbackTotal = 0;
+  weaverFeedbackOpenTotal = 0; // unresolved (resolved_at IS NULL) feedback → Moderator nav badge
   weaverFeedbackPage = 0;
   weaverFeedbackPageSize = 25;
   weaverFeedbackHasMore = false;
@@ -247,14 +248,16 @@ export class ModeratorComponent extends ChildComponent {
     this.appeals = appeals;
     this.modRequests = modRequests;
     this.loading = false;
-    this.updateNavAppealsBadge();
+    this.updateNavBadge();
   }
 
-  /** Mirrors the pending-appeal count onto the Moderator nav badge. */
-  private updateNavAppealsBadge() {
+  /** Mirrors the pending counts onto the Moderator nav badge: open appeals + unread (unresolved) weaver feedback. */
+  private updateNavBadge() {
     const moderatorNavItem = this.parentRef?.navigationItems?.find(x => x.title === 'Moderator');
     if (!moderatorNavItem) return;
-    const pendingCount = (this.appeals ?? []).filter((a: any) => !a.resolution).length;
+    const pendingAppeals = (this.appeals ?? []).filter((a: any) => !a.resolution).length;
+    const openWeaverFeedback = this.isWeaverAdmin ? (this.weaverFeedbackOpenTotal ?? 0) : 0;
+    const pendingCount = pendingAppeals + openWeaverFeedback;
     moderatorNavItem.content = pendingCount > 0 ? pendingCount.toString() : '';
   }
 
@@ -279,17 +282,20 @@ export class ModeratorComponent extends ChildComponent {
       const data = await this.moderatorService.getWeaverFeedback(userId, sessionToken, page, this.weaverFeedbackPageSize);
       this.weaverFeedback = reset ? data.items : this.weaverFeedback.concat(data.items);
       this.weaverFeedbackTotal = data.total;
+      this.weaverFeedbackOpenTotal = data.openTotal ?? 0;
       this.weaverFeedbackPage = data.page;
       this.weaverFeedbackHasMore = this.weaverFeedback.length < data.total;
     } catch (e) {
       if (reset) {
         this.weaverFeedback = [];
         this.weaverFeedbackTotal = 0;
+        this.weaverFeedbackOpenTotal = 0;
         this.weaverFeedbackHasMore = false;
       }
     } finally {
       this.weaverFeedbackLoading = false;
     }
+    this.updateNavBadge();
   }
 
   async deleteWeaverFeedback(id: number) {
@@ -297,8 +303,11 @@ export class ModeratorComponent extends ChildComponent {
     if (!userId) return;
     const sessionToken = await this.parentRef?.getSessionToken() ?? '';
     if (await this.moderatorService.deleteWeaverFeedback(id, userId, sessionToken)) {
+      const removed = this.weaverFeedback.find(f => f.id === id) ?? null;
       this.weaverFeedback = this.weaverFeedback.filter(f => f.id !== id);
       if (this.weaverFeedbackTotal > 0) this.weaverFeedbackTotal--;
+      if (this.weaverFeedbackOpenTotal > 0 && (!removed || !removed.resolvedAt)) this.weaverFeedbackOpenTotal--;
+      this.updateNavBadge();
       this.weaverFeedbackHasMore = this.weaverFeedback.length < this.weaverFeedbackTotal;
       if (this.weaverReplyId === id) this.cancelWeaverReply();
     }
@@ -339,6 +348,8 @@ export class ModeratorComponent extends ChildComponent {
     try {
       if (await this.moderatorService.resolveWeaverFeedback(f.id, resolve, userId, sessionToken)) {
         f.resolvedAt = resolve ? new Date().toISOString().slice(0, 19).replace('T', ' ') : null;
+        this.weaverFeedbackOpenTotal = Math.max(0, this.weaverFeedbackOpenTotal + (resolve ? -1 : 1));
+        this.updateNavBadge();
       }
     } finally {
       this.weaverResolveSaving = 0;

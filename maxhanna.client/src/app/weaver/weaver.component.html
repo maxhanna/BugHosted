@@ -1093,7 +1093,7 @@
         </thead>
         <tbody>
           <tr *ngFor="let r of rankings"
-            [class.me]="r.userId === (parentRef?.user?.id ?? inputtedParentRef?.user?.id ?? 0)">
+            [class.me]="r.userId === currentUserId">
             <td class="rankings-rank">{{ r.rank }}</td>
             <td>
               <span class="rankings-dot" [class.online]="isUserOnline(r.lastHeartbeat)"
@@ -1101,13 +1101,25 @@
               {{ r.username }}
             </td>
             <td class="rankings-title">{{ r.rankTitle || 'Legend in Training' }}</td>
-            <td class="rankings-score">{{ r.score }}</td>
+            <td class="rankings-score">
+              <ng-container *ngIf="r.sharesRank === false; else scoreVal">
+                <span class="rankings-noshare"
+                  title="Rank sharing is off — the user hasn't enabled 'Share my rank' in Weaver settings">not sharing</span>
+              </ng-container>
+              <ng-template #scoreVal>{{ r.score }}</ng-template>
+            </td>
             <td>{{ r.lastHeartbeat ? (r.lastHeartbeat | date: 'MMM d, HH:mm') : '—' }}</td>
           </tr>
         </tbody>
       </table>
       <p *ngIf="!rankingsLoading && !rankings.length" class="rankings-empty">
         No rankings yet — run Weaver with BugHosted sync enabled to appear here.
+      </p>
+      <p *ngIf="currentUserRankHidden"
+        class="rankings-hint">
+        ⚙️ Your rank is hidden because “Share my rank publicly on BugHosted servers” is off.
+        Enable it in Weaver → Settings → BugHosted.com (Remote Dashboard), then reload Weaver
+        to appear here with your score.
       </p>
     </div>
     <button id="closeOverlay" class="closeButton" (click)="closeRankingsPanel()"></button>

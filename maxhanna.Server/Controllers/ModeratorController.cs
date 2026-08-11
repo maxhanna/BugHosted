@@ -465,15 +465,17 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
-        await EnsureWeaverFeedbackSchemaAsync(conn);
         int page = request.Page < 1 ? 1 : request.Page;
         int pageSize = request.PageSize < 1 || request.PageSize > 100 ? 25 : request.PageSize;
         int offset = (page - 1) * pageSize;
         string countSql = "SELECT COUNT(*) FROM maxhanna.weaver_feedback;";
         using var countCmd = new MySqlCommand(countSql, conn);
         int total = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+        string openCountSql = "SELECT COUNT(*) FROM maxhanna.weaver_feedback WHERE resolved_at IS NULL;";
+        using var openCountCmd = new MySqlCommand(openCountSql, conn);
+        int openTotal = Convert.ToInt32(await openCountCmd.ExecuteScalarAsync());
         string sql = @"
-          SELECT id, user_id, username, card_id, card_text, message, created_at,
+          SELECT id, user_id, username, card_id, card_text, plan_summary, files_edited, message, created_at,
                  reply, replied_at, replied_by, resolved_at, resolved_by
           FROM maxhanna.weaver_feedback
           ORDER BY created_at DESC, id DESC
@@ -492,6 +494,8 @@ namespace maxhanna.Server.Controllers
             username = reader.IsDBNull(reader.GetOrdinal("username")) ? "" : reader.GetString("username"),
             cardId = reader.IsDBNull(reader.GetOrdinal("card_id")) ? "" : reader.GetString("card_id"),
             cardText = reader.IsDBNull(reader.GetOrdinal("card_text")) ? null : reader.GetString("card_text"),
+            planSummary = reader.IsDBNull(reader.GetOrdinal("plan_summary")) ? null : reader.GetString("plan_summary"),
+            filesEdited = reader.IsDBNull(reader.GetOrdinal("files_edited")) ? null : ParseFilesEdited(reader.GetString("files_edited")),
             message = reader.GetString("message"),
             createdAt = reader.GetDateTime("created_at").ToString("yyyy-MM-dd HH:mm:ss"),
             reply = reader.IsDBNull(reader.GetOrdinal("reply")) ? null : reader.GetString("reply"),
@@ -501,7 +505,7 @@ namespace maxhanna.Server.Controllers
             resolvedBy = reader.IsDBNull(reader.GetOrdinal("resolved_by")) ? 0 : reader.GetInt32("resolved_by")
           });
         }
-        return Ok(new { items, total, page, pageSize });
+        return Ok(new { items, total, openTotal, page, pageSize });
       }
       catch (Exception ex)
       {
@@ -550,7 +554,6 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
-        await EnsureWeaverFeedbackSchemaAsync(conn);
         string sql = @"UPDATE maxhanna.weaver_feedback
           SET reply = @Reply, replied_at = UTC_TIMESTAMP(), replied_by = @By
           WHERE id = @Id";
@@ -582,7 +585,6 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
-        await EnsureWeaverFeedbackSchemaAsync(conn);
         string sql = request.Resolve
           ? "UPDATE maxhanna.weaver_feedback SET resolved_at = UTC_TIMESTAMP(), resolved_by = @By WHERE id = @Id"
           : "UPDATE maxhanna.weaver_feedback SET resolved_at = NULL, resolved_by = NULL WHERE id = @Id";
@@ -600,49 +602,20 @@ namespace maxhanna.Server.Controllers
         return StatusCode(500, "Failed to update feedback status.");
       }
     }
-    // Creates the weaver_feedback table on fresh installs and idempotently adds
-    // any missing reply/resolved columns to existing installs, so the hub works
-    // without a manual DDL step. The Weaver-side proxy (WeaverController.
-    // SubmitFeedback) also self-bootstraps the base table on first use.
-    private static async Task EnsureWeaverFeedbackSchemaAsync(MySqlConnection conn)
+    private static List<string>? ParseFilesEdited(string? json)
     {
-      using (var ensure = new MySqlCommand(@"
-        CREATE TABLE IF NOT EXISTS maxhanna.weaver_feedback (
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          user_id INT NOT NULL,
-          username VARCHAR(100) NOT NULL DEFAULT '',
-          card_id VARCHAR(255) NULL,
-          card_text TEXT NULL,
-          message TEXT NOT NULL,
-          created_at DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
-          reply TEXT NULL,
-          replied_at DATETIME NULL,
-          replied_by INT NULL,
-          resolved_at DATETIME NULL,
-          resolved_by INT NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", conn))
+      if (string.IsNullOrWhiteSpace(json)) return null;
+      try
       {
-        await ensure.ExecuteNonQueryAsync();
+        return System.Text.Json.JsonSerializer.Deserialize<List<string>>(json)
+               ?? new List<string>();
       }
-      var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-      using (var cols = new MySqlCommand(@"
-        SELECT COLUMN_NAME FROM information_schema.COLUMNS
-        WHERE TABLE_SCHEMA = 'maxhanna' AND TABLE_NAME = 'weaver_feedback'", conn))
-      using (var reader = await cols.ExecuteReaderAsync())
-        while (await reader.ReadAsync())
-          existing.Add(reader.GetString(0));
-      var alters = new List<string>();
-      if (!existing.Contains("reply")) alters.Add("ADD COLUMN reply TEXT NULL");
-      if (!existing.Contains("replied_at")) alters.Add("ADD COLUMN replied_at DATETIME NULL");
-      if (!existing.Contains("replied_by")) alters.Add("ADD COLUMN replied_by INT NULL");
-      if (!existing.Contains("resolved_at")) alters.Add("ADD COLUMN resolved_at DATETIME NULL");
-      if (!existing.Contains("resolved_by")) alters.Add("ADD COLUMN resolved_by INT NULL");
-      if (alters.Count > 0)
+      catch
       {
-        using var alterCmd = new MySqlCommand("ALTER TABLE maxhanna.weaver_feedback " + string.Join(", ", alters), conn);
-        await alterCmd.ExecuteNonQueryAsync();
+        return null;
       }
     }
+ 
     private async Task<bool> IsWeaverFeedbackModeratorAsync(int userId)
     {
       if (userId == 1) return true;

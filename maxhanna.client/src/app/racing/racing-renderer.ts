@@ -525,7 +525,9 @@ export class RacingRenderer {
   lowQuality = false;
   // Corner-rubber toggle: when false, braking marks are skipped entirely so
   // players who find the braking-zone rubber distracting can turn it off.
-  cornerRubber = true;
+  // Corner rubber (dark braking marks) is OFF by default — it read as gray
+  // puddles on the track and added draw cost exactly where cars brake hardest.
+  cornerRubber = false;
   night = false;
   skyTop: [number, number, number] = [0.1, 0.2, 0.5];
   skyHorizon: [number, number, number] = [0.7, 0.75, 0.85];
@@ -6083,6 +6085,22 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.bindVertexArray(null);
     this._snowBuf = buf;
   }
+  // --- Opt-in frame-budget profiler (enabled with ?profile=1) ---
+  // Accumulates per-frame subsystem timings so a session can be driven through
+  // corners and the averages dumped to the console. Off = one boolean check.
+  profile = false;
+  profileTimes: { [key: string]: number } = {};
+  private _pLast = 0;
+  profileStart() { if (!this.profile) return; this._pLast = performance.now(); }
+  private pMark(key: string) {
+    if (!this.profile) return;
+    const n = performance.now();
+    const d = n - this._pLast;
+    this._pLast = n;
+    if (d >= 0) this.profileTimes[key] = (this.profileTimes[key] || 0) + d;
+  }
+  profileReset() { this.profileTimes = {}; this._pLast = 0; }
+
   private _smokeParticles: { x: number; y: number; z: number; vx: number; vy: number; vz: number; life: number; maxLife: number; size: number; color?: [number, number, number]; chip?: boolean }[] = [];
   private _smokeVao!: WebGLVertexArrayObject;
   private _smokeBuf!: WebGLBuffer;
@@ -6111,6 +6129,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private _rainScratch: Float32Array | null = null;
   private _frondScratch: Float32Array | null = null;
   private _waterScratch: Float32Array | null = null;
+  private _mirageScratch: Float32Array | null = null;
   // Oasis water height field (11×11 for the fixed 10×10 cell grid) and the
   // per-cell corner record (pos + normal + color), so no arrays are allocated
   // per pool or per cell either.
@@ -6455,10 +6474,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
   private updateSmoke(dt: number) {
     const parts = this._smokeParticles;
-    for (let i = parts.length - 1; i >= 0; i--) {
+    // In-place compaction instead of splice-per-death: short-lived puffs die in
+    // batches while sliding, and each splice used to shift the whole tail — an
+    // O(n) tax per dead particle exactly when cornering hardest. Compacting
+    // keeps one linear pass per frame regardless of how many died.
+    let w = 0;
+    for (let i = 0; i < parts.length; i++) {
       const p = parts[i];
       p.life += dt;
-      if (p.life >= p.maxLife) { parts.splice(i, 1); continue; }
+      if (p.life >= p.maxLife) continue;
       p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt;
       if (p.chip) {
         // Paint chips are ballistic: strong gravity with a soft ground bounce.
@@ -6468,9 +6492,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
         p.vy *= (1 - 0.4 * dt);
         p.vx *= (1 - 0.6 * dt); p.vz *= (1 - 0.6 * dt);
       }
+      parts[w++] = p;
     }
+    if (w < parts.length) parts.length = w;
   }
-  private drawSmoke(proj: Float32Array, view: Float32Array) {
+  private drawSmoke(proj: Float32Array, view: Float32Array, eye: number[]) {
     const gl = this.gl;
     const parts = this._smokeParticles;
     if (parts.length === 0) return;
@@ -6484,6 +6510,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const rx = view[0], ry = view[4], rz = view[8];
     const ux = view[1], uy = view[5], uz = view[9];
     for (const p of parts) {
+      // Distance cull at draw time: emission is already gated for distant bots,
+      // but puffs that drift away (or the player's own cloud) can still sit far
+      // enough to be sub-pixel — skip the vertex fill + upload for them.
+      const pdx = p.x - eye[0], pdz = p.z - eye[2];
+      if (pdx * pdx + pdz * pdz > 130 * 130) continue;
       const t = p.life / p.maxLife;
       // Chips shrink and stay opaque-ish (solid flecks); smoke grows and fades.
       const s = p.chip ? p.size * (1 - t) : p.size * (0.5 + t * 1.8);
@@ -7391,6 +7422,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     playerSpeed: number = 0, playerAccel: number = 0, playerSpin: number = 0, playerSlide: number = 0, playerAppearance?: RacingCarAppearance,
     skipMirror: boolean = false, playerSteer: number = 0) {
     const gl = this.gl;
+    this.profileStart();
     this.elapsed += dt;
     // Tire wear — accumulate race distance and darken the sidewall brand as
     // the stint goes on (full wear after ~4 laps of the current circuit). The
@@ -7444,12 +7476,19 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.drawElements(gl.TRIANGLES, this.barrierCount, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(this.finishVao);
     gl.drawElements(gl.TRIANGLES, this.finishCount, gl.UNSIGNED_SHORT, 0);
-    gl.bindVertexArray(this.sceneryVao);
-    gl.drawElements(gl.TRIANGLES, this.sceneryCount, gl.UNSIGNED_INT, 0);
+    // The scenery mesh (forests, stands, buildings around the whole circuit)
+    // is the largest static draw and is re-rendered into the shadow map every
+    // frame. Mobile GPUs don't get tree shadows anyway at 512px — skip the
+    // mesh so the shadow pass stops paying the full-scenery vertex cost.
+    if (!this.lowQuality) {
+      gl.bindVertexArray(this.sceneryVao);
+      gl.drawElements(gl.TRIANGLES, this.sceneryCount, gl.UNSIGNED_INT, 0);
+    }
     for (const car of cars) {
       this.renderCarShadow(car.x, car.y, car.z, car.yaw, car.speed ?? 0, car.spin, car.slide ?? 0);
     }
     gl.disable(gl.POLYGON_OFFSET_FILL);
+    this.pMark('shadow');
     const heatStrength = 0.4 + 0.6 * Math.pow(Math.max(0, Math.min(1, speedRatio)), 1.5);
     if (this.heatShimmer && this.ensureHeatPass()) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, this._heatFBO);
@@ -7470,9 +7509,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       this.drawWorldScene(this.projMatrix, this.viewMatrix, eye as number[], cars, dt, isRaining, true, speedRatio);
     }
+    this.pMark('world-main');
     if (!skipMirror) {
       this.renderMirror(eyeX, eyeY, eyeZ, yaw, cars, dt, isRaining, playerSpeed, playerAccel, playerSpin, playerSlide, playerAppearance, heatStrength, playerSteer);
     }
+    this.pMark('mirror');
   }
   renderGarage(rotY: number, rotX: number, zoom: number, appearance: RacingCarAppearance,
     vp: { x: number; y: number; w: number; h: number }, dt: number = 0) {
@@ -7948,6 +7989,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (drawRain && this.theme === 'desert') {
       this.drawMirageLake(proj, view, eye);
     }
+    this.pMark('w-static');
     this.drawSkyObjects(dt);
     this.drawDesertWind(dt, proj, view, eye, drawRain);
     const camYaw = Math.atan2(-view[8], -view[10]);
@@ -7955,6 +7997,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.drawPalmFronds(eye);
     this.drawOasisWater(eye);
     this.drawAnimals(eye);
+    this.pMark('w-skyfx');
     // Scrub marks are an effects pass, so they belong behind the drawRain gate
     // like the smoke: the mirror (drawRain=false) used to re-draw all of them
     // straight into its rear-view — and when grinding the gutter, the marks
@@ -7996,14 +8039,17 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this._carSnow.set(car.id, this.updateSnowCap(this._carSnow.get(car.id) ?? 0, dt, car.speed ?? 0));
       }
     }
+    this.pMark('w-cars');
     gl.uniform1f(this.envStrengthLoc, 0.16);
     if (drawRain) {
       this.updateSmoke(dt);
       this.updateScrubMarks(dt);
-      this.drawSmoke(proj, view);
+      this.drawSmoke(proj, view, eye);
     }
+    this.pMark('w-smoke');
     this.drawCrowd(eye);
     this.drawFlags(eye);
+    this.pMark('w-crowd');
     if (drawRain && isRaining) {
       this.initRainParticles();
     }
@@ -8106,6 +8152,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.clearColor(0.4, 0.45, 0.5, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     this.drawWorldScene(this.mirrorProj, this.mirrorView, mEye, cars, dt, isRaining, false);
+    this.pMark('m-world');
     this.updateBrakeHeat(this._playerHeat, dt, playerSpeed, playerAccel);
     this._playerLock = this.updateWheelLock(this._playerLock, dt, playerSpeed, playerAccel);
     this._playerSnow = this.updateSnowCap(this._playerSnow, dt, playerSpeed);
@@ -8138,8 +8185,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
       mirrorPuffs = true;
     }
     if (mirrorPuffs) {
-      this.drawSmoke(this.mirrorProj, this.mirrorView);
+      this.drawSmoke(this.mirrorProj, this.mirrorView, mEye);
     }
+    this.pMark('m-smoke');
     if (useMirrorHeat) {
       this.buildHeatMask(this.mirrorProj, this.mirrorView, this.mirrorW, this.mirrorH, true);
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.mirrorFBO);
@@ -8821,12 +8869,12 @@ void main() {
     const len = 46, halfW = (center.width * 0.82) / 2;
     const px = -dZ, pz = dX;
     const cx = center.x, cz = center.z, cy = 0.09;
-    const c = [
-      cx - dX * len / 2 - px * halfW, cy, cz - dZ * len / 2 - pz * halfW,
-      cx - dX * len / 2 + px * halfW, cy, cz - dZ * len / 2 + pz * halfW,
-      cx + dX * len / 2 - px * halfW, cy, cz + dZ * len / 2 - pz * halfW,
-      cx + dX * len / 2 + px * halfW, cy, cz + dZ * len / 2 + pz * halfW,
-    ];
+    if (!this._mirageScratch) this._mirageScratch = new Float32Array(12);
+    const c = this._mirageScratch;
+    c[0] = cx - dX * len / 2 - px * halfW; c[1] = cy; c[2] = cz - dZ * len / 2 - pz * halfW;
+    c[3] = cx - dX * len / 2 + px * halfW; c[4] = cy; c[5] = cz - dZ * len / 2 + pz * halfW;
+    c[6] = cx + dX * len / 2 - px * halfW; c[7] = cy; c[8] = cz + dZ * len / 2 - pz * halfW;
+    c[9] = cx + dX * len / 2 + px * halfW; c[10] = cy; c[11] = cz + dZ * len / 2 + pz * halfW;
     gl.useProgram(this._mirageProg);
     gl.uniformMatrix4fv(this._mirageProjLoc, false, proj);
     gl.uniformMatrix4fv(this._mirageViewLoc, false, view);
@@ -8835,7 +8883,7 @@ void main() {
     gl.uniform3f(this._mirageSkyHorizonLoc, this.skyHorizon[0], this.skyHorizon[1], this.skyHorizon[2]);
     gl.uniform1f(this._mirageAlphaLoc, alpha);
     gl.bindBuffer(gl.ARRAY_BUFFER, this._mirageBuf);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, new Float32Array(c));
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, c);
     gl.bindVertexArray(this._mirageVao);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);

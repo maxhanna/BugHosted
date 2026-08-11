@@ -331,6 +331,15 @@
   white-space: nowrap;
 }
 
+
+.weaver-feedback-outcome {
+  margin: 6px 0 2px;
+  padding: 6px 8px;
+  background: rgba(70, 130, 255, 0.06);
+  border-left: 3px solid #4682ff;
+  border-radius: 3px;
+}
+
 .modRowBody {
   padding: 10px 12px 12px 38px;
   border-top: 1px dashed rgba(128, 128, 128, 0.3);
