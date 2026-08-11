@@ -22,6 +22,7 @@ export interface GTNPCData {
   isSmoking?: boolean;
   isFleeing?: boolean;
   isDucking?: boolean;
+  isArresting?: boolean;
   maxHealth?: number;
 }
 
@@ -99,6 +100,8 @@ export interface GTUpdatePositionResponse {
   deadBodies?: DeadBodyData[];
   evicted?: boolean;
   respawnAtHome?: boolean;
+  arrested?: boolean;
+  arrestRespawn?: boolean;
   ownedWeapons?: any[];
   droppedWeapons?: any[];
   ammo?:any;

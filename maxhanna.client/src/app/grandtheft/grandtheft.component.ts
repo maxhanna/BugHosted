@@ -132,8 +132,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   camHeight = 2;
   firstPerson = false;
   private isPointerLocked = false;
-  serverNPCs: { id: number; x: number; y: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean; isBurning?: boolean; isSmoking?: boolean; isFleeing?: boolean; maxHealth?: number }[] = [];
-  serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; isDucking?: boolean }[] = [];
+  serverNPCs: { id: number; x: number; y: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean; isBurning?: boolean; isSmoking?: boolean; isFleeing?: boolean; isArresting?: boolean; maxHealth?: number }[] = [];
+  serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; isDucking?: boolean; isArresting?: boolean }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
   // World persistence: throttled snapshot of player position + nearby local
@@ -390,6 +390,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   wantedLevel = 0;
   lastShootTime = 0;
   isShooting = false;
+  /** True while a cop is holding the player in an arrest — input is frozen. */
+  private _arrested = false;
   showMenuPanel = false;
   sfxVolume = 1.0;
   carSfxVolume = 1.0;
@@ -1555,6 +1557,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           hasDriver: c.hasDriver !== false,
           passengerCount: c.passengerCount ?? 0,
           isShootingAt: c.isShootingAt || false,
+          isArresting: c.isArresting || false,
           isBurning: c.isBurning || false,
           isSmoking: c.isSmoking || false,
           isFleeing: c.isFleeing || false,
@@ -1613,6 +1616,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           mesh,
           isShootingAt: p.isShootingAt || false,
           isDucking: p.isDucking || false,
+          isArresting: p.isArresting || false,
           ...interp
         };
       });
@@ -1748,6 +1752,18 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
       this.camYaw = HOME_BASE_YAW;
       this.camPitch = 0.2;
+    }
+    // Arrest: while a cop holds the player the server pins the position and we
+    // freeze input; when the booking is done the server sends arrestRespawn and
+    // the player wakes up weaponless at the nearest police station.
+    if (res && res.arrested) {
+      this._arrested = true;
+      if (this.isInCar) this.exitCar();
+      if (this.isPassenger) this.exitPassenger();
+      this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+    }
+    if (res && res.arrestRespawn) {
+      this.doArrestRespawn();
     }
     if (res && res.droppedWeapons) {
       this.droppedWeapons = res.droppedWeapons;
@@ -1943,6 +1959,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this._pollTimer = setTimeout(() => this.pollMultiplayer(), this.otherPlayers.length > 0 ? PLAYER_POLL_FAST_MS : PLAYER_POLL_SLOW_MS);
   }
   private shoot() {
+    if (this._arrested) return; // cuffed — can't fight back mid-arrest
     const now = performance.now();
     if (now - this.lastShootTime < WEAPON_COOLDOWNS[this.currentWeapon]) return;
     if (this.currentWeapon !== 0) {
@@ -2564,12 +2581,14 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       }
     }
   }
-  private spawnBlood(x: number, y: number, z: number, dirX: number = 0, dirY: number = 0, dirZ: number = 0) {
+  private spawnBlood(x: number, y: number, z: number, dirX: number = 0, dirY: number = 0, dirZ: number = 0, small = false) {
     const dirLen = Math.hypot(dirX, dirY, dirZ);
     const nx = dirLen > 0.0001 ? dirX / dirLen : 0;
     const ny = dirLen > 0.0001 ? dirY / dirLen : 0;
     const nz = dirLen > 0.0001 ? dirZ / dirLen : 0;
-    const PARTICLE_COUNT = 14;
+    // small = a punch-connect puff: fewer, smaller, faster particles and no
+    // persistent ground pool, vs. the full splash for gunfire/impacts.
+    const PARTICLE_COUNT = small ? 6 : 14;
     for (let i = 0; i < PARTICLE_COUNT; i++) {
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
@@ -2588,12 +2607,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.bloodSplats.push({
         x, y, z,
         vx, vy, vz,
-        size: 0.08 + Math.random() * 0.12,
+        size: small ? 0.05 + Math.random() * 0.06 : 0.08 + Math.random() * 0.12,
         age: 0,
-        lifetime: 0.6 + Math.random() * 0.5,
+        lifetime: small ? 0.35 + Math.random() * 0.3 : 0.6 + Math.random() * 0.5,
       });
     }
-    if (y < 1.6) {
+    if (!small && y < 1.6) {
       this.bloodPools.push({ x, z, age: 0, lifetime: 30, maxRadius: 1.5, variant: Math.floor(Math.random() * 4) });
     }
   }
@@ -3845,7 +3864,39 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
     this.animFrameId = requestAnimationFrame(this.gameLoop);
   };
+  /** Busted: a cop booked the player — weapons are confiscated and the player
+   *  wakes up at the nearest police station (home base if none is in range). */
+  private doArrestRespawn() {
+    this._arrested = false;
+    this.health = 100;
+    this.carHealth = 200;
+    this.wantedLevel = 0;
+    if (this.isInCar) this.exitCar();
+    if (this.isPassenger) this.exitPassenger();
+    this.currentWeapon = 0;
+    this.ownedWeapons = [true, false, false, false, false];
+    this.ammo = [0, 0, 0, 0, 0];
+    const station = this.renderer.getNearestPoliceStation(this.carX, this.carZ, 800);
+    this.carX = station ? station.x : HOME_BASE_X;
+    this.carZ = station ? station.z : HOME_BASE_Z;
+    this.carY = CAR_HEIGHT;
+    this.carYaw = HOME_BASE_YAW;
+    this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+    this.camYaw = HOME_BASE_YAW;
+    this.camPitch = 0.2;
+    this.camDist = 4;
+    this.camHeight = 2;
+    this._justRespawned = true;
+    setTimeout(() => { this._justRespawned = false; }, 3000);
+    const hadMission = !!(this.taxiMission || this.dealershipMission || this.policeMode);
+    this.cancelAllMissions();
+    if (hadMission) this.showMissionFailedToast('❌ MISSION FAILED');
+    this.showStoreToast('🚨 BUSTED! Cops booked you — weapons confiscated');
+    this.savePlayerState();
+  }
   private updateWalking(dt: number) {
+    // Busted: frozen in the cop's grip — no walking during the arrest hold.
+    if (this._arrested) { this.carVx = 0; this.carVz = 0; this.carSpeed = 0; return; }
     let moveX = 0, moveZ = 0;
     if (this.isMobile && this.joystickActive) {
       moveX -= this.joystickX;
@@ -3889,6 +3940,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (!this.isInCar) this.pushPedestrianOutOfCars();
   }
   private updateCar(dt: number) {
+    if (this._arrested) return; // can't drive away mid-arrest
     let accelForce = 0;
     let isReversing = false;
     if (this.keys.has('KeyW')) accelForce = 25;
@@ -5026,10 +5078,15 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const zingScale = this.getShotVolumeScale(npc.x, npc.z);
         if (Math.random() < 0.4 * zingScale) this.playRicochetZing(zingScale);
       } else if (d3 > 0.01) {
-        // Melee fight-back: a punched ped lands a punch on the player —
-        // swing the arm and splash blood so the hit reads.
+        // Melee fight-back: a punched ped lands a punch on the player — swing
+        // the arm, spawn a small blood puff at the hit point, flinch the
+        // player (hurt flash + camera jolt), and play the same body-blow thud
+        // as local-ped punches so the brawl reads like real hits.
         this.renderer.triggerPunch(npc.id);
-        this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, dx / d3, dy / d3, dz / d3);
+        this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, dx / d3, dy / d3, dz / d3, true);
+        this.damageAlpha = 0.45;
+        this.crashShake = Math.max(this.crashShake, 0.12);
+        this.playPunchThud();
       }
       npc.isShootingAt = false;
     };

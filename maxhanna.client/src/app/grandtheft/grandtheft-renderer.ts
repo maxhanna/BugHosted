@@ -680,6 +680,28 @@ export class GrandTheftRenderer {
     }
     return result;
   }
+  /** Nearest police-station building within the radius (or null) — used for
+   *  the arrest respawn so a busted player wakes up at the station. */
+  getNearestPoliceStation(x: number, z: number, radius: number): { x: number; z: number } | null {
+    let best: { x: number; z: number } | null = null;
+    let bestDist = Infinity;
+    const pcx = Math.floor(x / CHUNK_SIZE);
+    const pcz = Math.floor(z / CHUNK_SIZE);
+    const cr = Math.max(1, Math.ceil(radius / CHUNK_SIZE));
+    for (let dz = -cr; dz <= cr; dz++) {
+      for (let dx = -cr; dx <= cr; dx++) {
+        const chunk = this.getCityChunk(pcx + dx, pcz + dz);
+        if (!chunk) continue;
+        for (const bld of chunk.buildings) {
+          if (!bld.model || bld.model.length === 0) continue;
+          if (!bld.model[0].carName || !bld.model[0].carName.includes('police_station')) continue;
+          const d = Math.hypot(bld.x - x, bld.z - z);
+          if (d < bestDist) { bestDist = d; best = { x: bld.x, z: bld.z }; }
+        }
+      }
+    }
+    return best;
+  }
   getGasStationAtPoint(x: number, z: number): { x: number; z: number } | null {
     const pcx = Math.floor(x / CHUNK_SIZE);
     const pcz = Math.floor(z / CHUNK_SIZE);
@@ -776,6 +798,11 @@ export class GrandTheftRenderer {
   public punchTime = 0;
   /** Per-entity punch/swing timers (keyed by entity id, seconds remaining). */
   public punchTimers = new Map<number, number>();
+  /** Entities currently held in the arrest grab pose (arm extended toward the
+   *  victim while a foot cop books the caught player). */
+  public arrestingEntities = new Set<number>();
+  /** Ducking peds (gunfire reaction) held in the crouch-and-cover pose. */
+  public duckingEntities = new Set<number>();
   public playerCarSpeed = 0;
   public playerSteerInput = 0;
   private _mopedWheelMesh: CityMesh | null = null;
@@ -1405,6 +1432,53 @@ void main() {
       }
       this.punchTimers.set(entityId, Math.max(0, punchLeft - dt));
     }
+    // Arrest grab: while a cop holds a caught player, keep its arm fully
+    // extended toward the victim (the same straight-arm pose the punch uses at
+    // full extension) so the takedown reads as a grab, not a jab.
+    if (this.arrestingEntities.has(entityId) && skeleton.boneCount > 35) {
+      const m33 = new Float32Array(localMatrices.buffer, 33 * 16 * 4, 16);
+      quatToMat4([Math.sin(-0.8 / 2), 0, 0, Math.cos(-0.8 / 2)], m33);
+      m33[12] = 0; m33[13] = 0.709; m33[14] = 0;
+      const m34 = new Float32Array(localMatrices.buffer, 34 * 16 * 4, 16);
+      quatToMat4([0, 0, 0, 1], m34);
+      m34[12] = 0; m34[13] = 1.142; m34[14] = 0;
+      const m35 = new Float32Array(localMatrices.buffer, 35 * 16 * 4, 16);
+      quatToMat4([0, 0, 0, 1], m35);
+      m35[12] = 0; m35[13] = 1.434; m35[14] = 0;
+    }
+    // Crouch-and-cover: a ducking ped bends into a low stance instead of the
+    // generic idle — hips drop, thighs flex, knees bend deep. Bone indices vary
+    // per model (mixamorig:*, char29 L_Thigh, jessica Hips), so bones are
+    // matched by name and the pose degrades to the plain squash on skeletons
+    // with no recognizable leg bones.
+    if (this.duckingEntities.has(entityId)) {
+      const names = skeleton.nodeNames;
+      if (names && names.length === skeleton.boneCount) {
+        const thighs: number[] = [];
+        const calves: number[] = [];
+        let hips = -1;
+        for (let b = 0; b < names.length; b++) {
+          const n = names[b].toLowerCase();
+          if (hips < 0 && (n.includes('hip') || n.includes('pelvis'))) hips = b;
+          if (n.includes('thigh') || n.includes('upleg')) thighs.push(b);
+          else if (n.includes('calf') || (n.includes('leg') && !n.includes('toe'))) calves.push(b);
+        }
+        const temp = new Float32Array(16);
+        const rot = new Float32Array(16);
+        const applyRotX = (bone: number, angle: number) => {
+          const m = new Float32Array(localMatrices.buffer, bone * 16 * 4, 16);
+          mat4.identity(rot); mat4.rotateX(rot, rot, angle);
+          mat4.multiply(temp, m, rot);
+          for (let i = 0; i < 16; i++) m[i] = temp[i];
+        };
+        for (const t of thighs) applyRotX(t, 0.45);
+        for (const c of calves) applyRotX(c, -0.7);
+        if (hips >= 0) {
+          const hm = new Float32Array(localMatrices.buffer, hips * 16 * 4, 16);
+          hm[13] -= 0.22;
+        }
+      }
+    }
     const jointMatrices = new Float32Array(skeleton.boneCount * 16);
     this.computeJointMatrices(skeleton, localMatrices, jointMatrices);
     this.skinMeshGeneric(meshes, skeleton, jointMatrices);
@@ -1420,6 +1494,16 @@ void main() {
     for (const id of this.punchTimers.keys()) {
       if (!activeEntityIds.has(id)) {
         this.punchTimers.delete(id);
+      }
+    }
+    for (const id of this.arrestingEntities) {
+      if (!activeEntityIds.has(id)) {
+        this.arrestingEntities.delete(id);
+      }
+    }
+    for (const id of this.duckingEntities) {
+      if (!activeEntityIds.has(id)) {
+        this.duckingEntities.delete(id);
       }
     }
   }
@@ -3783,6 +3867,10 @@ void main() {
       // (drawn as-is) instead of re-skinning every frame — with the cull radius
       // now spanning the whole view distance, distant traffic/peds would
       // otherwise burn the CPU on bone math for pixels you can barely see.
+      if (npc.isArresting) this.arrestingEntities.add(npc.id);
+      else this.arrestingEntities.delete(npc.id);
+      if (npc.isDucking) this.duckingEntities.add(npc.id);
+      else this.duckingEntities.delete(npc.id);
       const npcDx = npc.x - camX, npcDz = npc.z - camZ;
       if (npcDx * npcDx + npcDz * npcDz < 220 * 220) {
         this.animateAndSkinEntity(npc.id, npc.mesh, npcState, dt, Math.max(1, npcSpeed));
@@ -3835,12 +3923,18 @@ void main() {
       const pedState = pedSpeed > 0.3 ? 'walk' : 'idle';
       // Animation LOD — see the NPC loop above: skin only what's close enough
       // to notice, draw the rest at their last pose.
+      if (ped.isArresting) this.arrestingEntities.add(ped.id);
+      else this.arrestingEntities.delete(ped.id);
+      if (ped.isDucking) this.duckingEntities.add(ped.id);
+      else this.duckingEntities.delete(ped.id);
       const pedDx = ped.x - camX, pedDz = ped.z - camZ;
       if (pedDx * pedDx + pedDz * pedDz < 220 * 220) {
         this.animateAndSkinEntity(ped.id, ped.mesh, pedState, dt, Math.max(1, pedSpeed * 2));
       }
-      // Ducking (gunfire reaction): crouched height reads as "hit the deck".
-      this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, ped.isDucking ? [0.9, 0.6, 0.9] : [1, 1, 1]);
+      // Ducking (gunfire reaction): the crouch-and-cover pose (bent legs, low
+      // hips) does the lowering — this mild squash is the fallback for distant
+      // peds that skip skinning, and keeps the "hit the deck" read.
+      this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, ped.isDucking ? [0.95, 0.75, 0.95] : [1, 1, 1]);
     }
     if (dt > 0 && Math.random() < 0.05) {
       const activeIds = new Set<number>();

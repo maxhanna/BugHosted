@@ -602,6 +602,12 @@ namespace maxhanna.Server.Controllers
 		// so clean getaways reward staying hidden and unseen.
 		private const double WANTED_DECAY_GRACE_SECONDS = 4.0;   // no decay right after breaking sight
 		private static readonly double[] WANTED_STAR_SECONDS = { 3, 5, 8, 11, 15 }; // index = level-1: time for that star to drop
+		// Arrest: a foot cop that catches an unarmed player up close grabs and
+		// books them instead of shooting — a short hold (grab pose) while the
+		// arrest plays out, then weapons are stripped and the player respawns
+		// from the nearest police station.
+		private const float ARREST_HOLD_SECONDS = 3.5f;          // grab hold before the player is booked
+		private static readonly ConcurrentDictionary<int, ArrestState> _playerArrests = new();
 		// Police pursuit model: cops only chase what they can see and converge on
 		// the player's last known sighting, so hiding behind buildings or outrunning
 		// the search breaks pursuit instead of the cops telepathically homing in.
@@ -1101,6 +1107,38 @@ namespace maxhanna.Server.Controllers
 			}
 			return true;
 		}
+
+		// Does any police unit (foot officer, or a patrol car with a driver) have a
+		// clear view of the given world position? Used to decide whether an assault
+		// was *witnessed*: attacking a pedestrian in front of an officer draws heat
+		// even though a bare-fisted brawl otherwise doesn't. Reuses the cop vision
+		// cone/range/line-of-sight logic (the officer must be facing the scene
+		// unless the crime happens inside the always-spotted close radius).
+		private static bool AnyCopSeesPosition(ConcurrentDictionary<long, NpcState> npcs, float posX, float posZ)
+		{
+			foreach (var kv in npcs)
+			{
+				var npc = kv.Value;
+				if (npc.DeadAt.HasValue) continue;
+				if (npc.Type != "cop" && npc.Type != "police") continue;
+				if (npc.Type == "police" && !npc.HasDriver) continue; // an empty cruiser doesn't witness
+				if (CopSeesPlayer(npc, posX, posZ)) return true;
+			}
+			return false;
+		}
+
+		// Unarmed = no weapon in the inventory has any ammo (index 0 is fists and is
+		// always owned). The client auto-drops empty weapons and forces the fists
+		// when ammo runs out, so this matches "the player can't fight back".
+		private static bool IsPlayerUnarmed(int userId)
+		{
+			if (!_playerWeapons.TryGetValue(userId, out var wp) || !_playerAmmo.TryGetValue(userId, out var am)) return true;
+			for (int i = 1; i < wp.Length; i++)
+			{
+				if (wp[i] && am[i] > 0) return false;
+			}
+			return true;
+		}
 		private class NpcState
 		{
 			public long Id { get; set; }
@@ -1142,6 +1180,9 @@ namespace maxhanna.Server.Controllers
 			public long LastShotTime { get; set; } = 0;
 			public long LastRallyTime { get; set; } = 0;
 			public bool IsShootingAt { get; set; } = false;
+			// Foot cop holding a caught player in the arrest grab pose.
+			public bool IsArresting { get; set; } = false;
+			public long ArrestTargetId { get; set; } = 0;
 			public bool IsParked { get; set; } = false;
 			public DateTime? PanicUntil { get; set; } = null;
 			public float PanicFromX { get; set; } = 0f;
@@ -1164,6 +1205,14 @@ namespace maxhanna.Server.Controllers
 			public bool IsPoliceHeli { get; set; } = false;   // pursuit heli sweeping a player's last known spot
 			public string AircraftPhase { get; set; } = "flying";
 			public DateTime PhaseStartedAt { get; set; } = DateTime.UtcNow;
+		}
+		private class ArrestState
+		{
+			public DateTime Until { get; set; }
+			public float X { get; set; }
+			public float Z { get; set; }
+			public long CopId { get; set; }
+			public bool Respawned { get; set; }
 		}
 		private class DeadPlayerBody
 		{
@@ -1191,6 +1240,31 @@ namespace maxhanna.Server.Controllers
 			{
 				EnsurePlayerLoaded(req.UserId);
 				bool respawnAtHome = false;
+				// Arrest: while a cop holds this player the position is server-pinned
+				// so they can't run (the client also freezes input on `arrested`).
+				// When the hold expires the booking happens — weapons stripped, wanted
+				// cleared — and the client respawns the player at a police station.
+				bool arrested = false;
+				bool arrestRespawn = false;
+				if (_playerArrests.TryGetValue(req.UserId, out var arrest))
+				{
+					if (DateTime.UtcNow >= arrest.Until)
+					{
+						_playerArrests.TryRemove(req.UserId, out _);
+						_playerWeapons[req.UserId] = new bool[5] { true, false, false, false, false };
+						_playerAmmo[req.UserId] = new int[5];
+						_playerWantedLevels[req.UserId] = 0;
+						arrestRespawn = true;
+					}
+					else
+					{
+						req.PosX = arrest.X;
+						req.PosZ = arrest.Z;
+						req.CarSpeed = 0;
+						req.IsInCar = false;
+						arrested = true;
+					}
+				}
 				if (_lastSeen.TryGetValue(req.UserId, out var lastSeenDt))
 				{
 					var inactiveMinutes = (DateTime.UtcNow - lastSeenDt.ToUniversalTime()).TotalMinutes;
@@ -1646,7 +1720,7 @@ namespace maxhanna.Server.Controllers
 				var paArr = _playerAmmo[req.UserId];
 				var dw = BuildDroppedWeapons();
 				int yourKills = _playerKills.TryGetValue(req.UserId, out var yk) ? yk : 0;
-				return Ok(new { ok = true, players, wantedLevel, evicted, yourHealth, respawnAtHome, chatMessages, droppedWeapons = dw, ownedWeapons = pwArr, ammo = paArr, yourKills, newMoneyRecord = moneyRecord });
+				return Ok(new { ok = true, players, wantedLevel, evicted, yourHealth, respawnAtHome, chatMessages, droppedWeapons = dw, ownedWeapons = pwArr, ammo = paArr, yourKills, newMoneyRecord = moneyRecord, arrested, arrestRespawn });
 			}
 			catch (Exception ex)
 			{
@@ -2111,6 +2185,13 @@ namespace maxhanna.Server.Controllers
 				}
 				else if (npc.Type == "cop")
 				{
+					// Drop the arrest grab pose once the booking is done (or the
+					// player escaped the hold) — the cop returns to normal duty.
+					if (npc.IsArresting && (!_playerArrests.ContainsKey((int)npc.ArrestTargetId) || wantedLevel == 0))
+					{
+						npc.IsArresting = false;
+						npc.ArrestTargetId = 0;
+					}
 					bool copReEntered = false;
 					if (npc.TargetUserId == 0 && npc.HomeVehicleId != 0 && npcs.TryGetValue(npc.HomeVehicleId, out var homeCar2) && homeCar2.IsParked)
 					{
@@ -2272,25 +2353,41 @@ namespace maxhanna.Server.Controllers
 							float sdistSq = sdx * sdx + sdz * sdz;
 							if (sdistSq < 625f)
 							{
-								var nowMs = now.Ticks / TimeSpan.TicksPerMillisecond;
-								if (npc.LastShotTime == 0 || (nowMs - npc.LastShotTime) > 500)
+								// Caught up close: an unarmed player gets grabbed and
+								// arrested (a short grab-hold, then booked — weapons
+								// stripped and respawn at the nearest police station).
+								// Armed players, or anyone already being held, get shot.
+								bool arrestActive = _playerArrests.ContainsKey(userId);
+								if (!arrestActive && IsPlayerUnarmed(userId))
 								{
-									npc.LastShotTime = nowMs;
-									npc.IsShootingAt = true;
-									var damageDealt = 5;
-									if (_playerHealth.TryGetValue(userId, out var hp))
+									_playerArrests[userId] = new ArrestState { Until = now.AddSeconds(ARREST_HOLD_SECONDS), X = posX, Z = posZ, CopId = npc.Id };
+									npc.IsArresting = true;
+									npc.ArrestTargetId = userId;
+									npc.TargetX = posX;
+									npc.TargetZ = posZ;
+								}
+								else if (!arrestActive)
+								{
+									var nowMs = now.Ticks / TimeSpan.TicksPerMillisecond;
+									if (npc.LastShotTime == 0 || (nowMs - npc.LastShotTime) > 500)
 									{
-										_playerHealth[userId] = (hp - damageDealt) >= 0 ? (hp - damageDealt) : 0;
+										npc.LastShotTime = nowMs;
+										npc.IsShootingAt = true;
+										var damageDealt = 5;
+										if (_playerHealth.TryGetValue(userId, out var hp))
+										{
+											_playerHealth[userId] = (hp - damageDealt) >= 0 ? (hp - damageDealt) : 0;
+										}
+										else
+										{
+											_playerHealth[userId] = Math.Max(0, 100 - damageDealt);
+										}
+										if (_playerHealth[userId] <= 0)
+										{
+											BroadcastDeathMessage(userId, _playerX[userId], _playerZ[userId], null, 1, "police", _playerUsername[userId], "");
+										}
+										_lastPoliceDamageTime[userId] = nowMs;
 									}
-									else
-									{
-										_playerHealth[userId] = Math.Max(0, 100 - damageDealt);
-									}
-									if (_playerHealth[userId] <= 0)
-									{
-										BroadcastDeathMessage(userId, _playerX[userId], _playerZ[userId], null, 1, "police", _playerUsername[userId], "");
-									}
-									_lastPoliceDamageTime[userId] = nowMs;
 								}
 							}
 						}							const float copModelOffset = COP_MODEL_YAW_OFFSET;
@@ -2407,7 +2504,7 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 				}
-				var entry = new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount, isShootingAt = npc.IsShootingAt, isBurning = npc.OnFire, maxHealth = npc.MaxHealth, isSmoking = npc.IsSmoking, isFleeing = npc.IsFleeing, isDucking = npc.IsDucking };
+				var entry = new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount, isShootingAt = npc.IsShootingAt, isBurning = npc.OnFire, maxHealth = npc.MaxHealth, isSmoking = npc.IsSmoking, isFleeing = npc.IsFleeing, isDucking = npc.IsDucking, isArresting = npc.IsArresting };
 				if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") pedestrians.Add(entry);
 				else if (npc.Type == "helicopter" || npc.Type == "plane") aircraft.Add(entry);
 				else cars.Add(entry);
@@ -3684,8 +3781,17 @@ namespace maxhanna.Server.Controllers
 			// A brawl with bare fists doesn't attract police attention — only the
 			// killing blow does. Weapon fire is a witnessed event that moves the
 			// dispatch point (last known sighting) to the shooter. PvP and
-			// local-NPC kills (NpcKill sets targetDied) still draw heat.
-			if (hitAnything && req.AttackerId > 0 && (req.Weapon != 0 || !hitNpc || targetDied))
+			// local-NPC kills (NpcKill sets targetDied) still draw heat. An
+			// assault in plain sight of an officer is also witnessed: even a
+			// bare-fisted non-lethal hit earns a wanted star when a cop has a
+			// clear view of the scene (melee keeps attacker and victim adjacent,
+			// so the attacker's position probes the cop's vision cone).
+			bool witnessedByCop = hitAnything && req.AttackerId > 0 && req.Weapon == 0 && !targetDied
+				&& _worldNpcs.TryGetValue(worldId, out var witnessNpcs)
+				&& witnessNpcs.TryGetValue(req.TargetId, out var witnessVictim)
+				&& (witnessVictim.Type == "ped_male" || witnessVictim.Type == "ped_female")
+				&& AnyCopSeesPosition(witnessNpcs, req.AttackerX, req.AttackerZ);
+			if (hitAnything && req.AttackerId > 0 && (req.Weapon != 0 || !hitNpc || targetDied || witnessedByCop))
 			{
 				if (_playerWantedLevels.TryGetValue(req.AttackerId, out var w))
 					_playerWantedLevels[req.AttackerId] = Math.Min(5, w + 1);
