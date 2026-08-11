@@ -623,6 +623,7 @@ namespace maxhanna.Server.Controllers
 		private const double FIGHT_JOIN_CHANCE = 0.35;               // per-bystander odds of joining the brawl
 		private const int FIGHT_JOIN_MAX = 4;                        // cap per rally so streets don't empty
 		private const long FIGHT_RALLY_COOLDOWN_MS = 2500;           // min gap between a fighter's crowd rallies
+		private const double FIGHT_PED_TARGET_CHANCE = 0.5;          // rally joiners who take on a fellow brawler (ped-vs-ped) vs the player
 		// Brawl intervention: patrol cops notice street fights, jog over ("pushing
 		// through the crowd"), and scatter the fighters instead of walking past.
 		// Cops already in a pursuit take priority and ignore brawls.
@@ -717,6 +718,7 @@ namespace maxhanna.Server.Controllers
 		private static long JumpKey(int userId, int rampId) => ((long)userId << 20) | (uint)rampId;
 		private static readonly ConcurrentDictionary<int, bool[]> _playerWeapons = new();
 		private static readonly ConcurrentDictionary<int, int[]> _playerAmmo = new();
+		private static readonly ConcurrentDictionary<int, int> _playerCurrentWeapon = new();
 		private static readonly bool[] _homeBaseWeaponCollected = new bool[5];
 		private static readonly DateTime[] _homeBaseWeaponRespawnAt = new DateTime[5];
 		private const int HOME_BASE_WEAPON_RESPAWN_SECONDS = 60;
@@ -1127,17 +1129,13 @@ namespace maxhanna.Server.Controllers
 			return false;
 		}
 
-		// Unarmed = no weapon in the inventory has any ammo (index 0 is fists and is
-		// always owned). The client auto-drops empty weapons and forces the fists
-		// when ammo runs out, so this matches "the player can't fight back".
-		private static bool IsPlayerUnarmed(int userId)
+		// On fists = the player's currently drawn weapon is 0 (Unarmed). This is
+		// the arrest gate: a cop only grabs someone who can't shoot right now —
+		// but a player with a holstered weapon can draw it mid-hold and resist,
+		// which aborts the booking and jumps the wanted level instead.
+		private static bool IsPlayerOnFists(int userId)
 		{
-			if (!_playerWeapons.TryGetValue(userId, out var wp) || !_playerAmmo.TryGetValue(userId, out var am)) return true;
-			for (int i = 1; i < wp.Length; i++)
-			{
-				if (wp[i] && am[i] > 0) return false;
-			}
-			return true;
+			return !_playerCurrentWeapon.TryGetValue(userId, out var w) || w == 0;
 		}
 		private class NpcState
 		{
@@ -1163,6 +1161,7 @@ namespace maxhanna.Server.Controllers
 			public bool IsFleeing { get; set; } = false;
 			public DateTime LastUpdate { get; set; }
 			public int TargetUserId { get; set; } = 0;
+			public long TargetNpcId { get; set; } = 0;   // FightBackUntil target when it's another NPC (ped-vs-ped brawls)
 			public DateTime? DeadAt { get; set; } = null;
 			public float ApproachAngle { get; set; } = 0f;
 			public long HomeVehicleId { get; set; } = 0;
@@ -1246,14 +1245,30 @@ namespace maxhanna.Server.Controllers
 				// cleared — and the client respawns the player at a police station.
 				bool arrested = false;
 				bool arrestRespawn = false;
+				bool arrestResisted = false;
 				if (_playerArrests.TryGetValue(req.UserId, out var arrest))
 				{
-					if (DateTime.UtcNow >= arrest.Until)
+					// Resisting arrest: drawing a weapon (or attacking) mid-hold
+					// aborts the booking — the cop releases the grab and opens
+					// fire instead, and the wanted level jumps by 2.
+					if (req.Weapon != 0 || req.IsShooting)
+					{
+						_playerArrests.TryRemove(req.UserId, out _);
+						int rw = _playerWantedLevels.TryGetValue(req.UserId, out var rwv) ? rwv : 0;
+						_playerWantedLevels[req.UserId] = Math.Min(5, rw + 2);
+						_lastUndetectedTime[req.UserId] = DateTime.UtcNow;
+						_playerLastKnown[req.UserId] = (req.PosX, req.PosZ, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+						arrestResisted = true;
+					}
+					else if (DateTime.UtcNow >= arrest.Until)
 					{
 						_playerArrests.TryRemove(req.UserId, out _);
 						_playerWeapons[req.UserId] = new bool[5] { true, false, false, false, false };
 						_playerAmmo[req.UserId] = new int[5];
 						_playerWantedLevels[req.UserId] = 0;
+						// Booking closes the case — forget the crime and stand the
+						// pursuit down so no unit lingers on a resolved bust.
+						ForgetPlayerCrime(req.UserId, req.WorldId);
 						arrestRespawn = true;
 					}
 					else
@@ -1333,6 +1348,7 @@ namespace maxhanna.Server.Controllers
 				}
 				_lastClientHealth[req.UserId] = req.Health;
 				_playerInCar[req.UserId] = req.IsInCar;
+				_playerCurrentWeapon[req.UserId] = req.Weapon;
 				_playerInCarTime[req.UserId] = DateTime.UtcNow;
 				if (!string.IsNullOrEmpty(req.VehicleType))
 					_playerVehicleType[req.UserId] = req.VehicleType!;
@@ -1474,11 +1490,14 @@ namespace maxhanna.Server.Controllers
 								// Fully clean — drop the hidden-time anchor so a later crime
 								// never inherits this episode's hidden seconds, and stand down
 								// any search heli still sweeping the area.
-								if (newWanted == 0)
-								{
-									_lastUndetectedTime.TryRemove(req.UserId, out _);
-									ReleaseSearchHelicopters(req.UserId, req.WorldId);
-								}
+							if (newWanted == 0)
+							{
+								// Full escape: line of sight broken and the last star burned
+								// off — the assault is forgotten. Drop the last-known anchor
+								// so nothing re-dispatches to the old scene, release any
+								// search heli, and stand every unit down to patrol.
+								ForgetPlayerCrime(req.UserId, req.WorldId);
+							}
 							}
 						}
 					}
@@ -1691,12 +1710,13 @@ namespace maxhanna.Server.Controllers
 						if (req.Respawned || !hasDeadBody)
 						{
 							// Player is back (hospital respawn) or the stale death
-							// state was cleaned up — restore them fully.
-							_playerHealth[req.UserId] = 100;
-							_playerWantedLevels[req.UserId] = 0;
-							_lastUndetectedTime.TryRemove(req.UserId, out _);
-							_deadPlayerBodies.TryRemove(req.UserId, out _);
-							yourHealth = 100;
+							// state was cleaned up — restore them fully.										_playerHealth[req.UserId] = 100;
+										_playerWantedLevels[req.UserId] = 0;
+										// The death was the end of the chase — forget the crime
+										// and stand the pursuit down along with the respawn.
+										ForgetPlayerCrime(req.UserId, req.WorldId);
+										_deadPlayerBodies.TryRemove(req.UserId, out _);
+										yourHealth = 100;
 						}
 						else
 						{
@@ -1720,7 +1740,7 @@ namespace maxhanna.Server.Controllers
 				var paArr = _playerAmmo[req.UserId];
 				var dw = BuildDroppedWeapons();
 				int yourKills = _playerKills.TryGetValue(req.UserId, out var yk) ? yk : 0;
-				return Ok(new { ok = true, players, wantedLevel, evicted, yourHealth, respawnAtHome, chatMessages, droppedWeapons = dw, ownedWeapons = pwArr, ammo = paArr, yourKills, newMoneyRecord = moneyRecord, arrested, arrestRespawn });
+				return Ok(new { ok = true, players, wantedLevel, evicted, yourHealth, respawnAtHome, chatMessages, droppedWeapons = dw, ownedWeapons = pwArr, ammo = paArr, yourKills, newMoneyRecord = moneyRecord, arrested, arrestRespawn, arrestResisted });
 			}
 			catch (Exception ex)
 			{
@@ -2275,6 +2295,7 @@ namespace maxhanna.Server.Controllers
 								float fdz = other.Z - npc.Z;
 								if (fdx * fdx + fdz * fdz > scatterSq) continue;
 								other.FightBackUntil = null;
+								other.TargetNpcId = 0;
 								other.TargetUserId = 0;
 								other.IsDucking = false;
 								other.DuckUntil = null;
@@ -2353,12 +2374,14 @@ namespace maxhanna.Server.Controllers
 							float sdistSq = sdx * sdx + sdz * sdz;
 							if (sdistSq < 625f)
 							{
-								// Caught up close: an unarmed player gets grabbed and
-								// arrested (a short grab-hold, then booked — weapons
+								// Caught up close with fists drawn: the cop grabs and
+								// arrests (a short grab-hold, then booked — weapons
 								// stripped and respawn at the nearest police station).
-								// Armed players, or anyone already being held, get shot.
+								// Anyone holding a gun, or already being held, gets
+								// shot. Drawing a weapon mid-hold resists the arrest
+								// instead (wanted +2, cop opens fire).
 								bool arrestActive = _playerArrests.ContainsKey(userId);
-								if (!arrestActive && IsPlayerUnarmed(userId))
+								if (!arrestActive && IsPlayerOnFists(userId))
 								{
 									_playerArrests[userId] = new ArrestState { Until = now.AddSeconds(ARREST_HOLD_SECONDS), X = posX, Z = posZ, CopId = npc.Id };
 									npc.IsArresting = true;
@@ -2444,11 +2467,77 @@ namespace maxhanna.Server.Controllers
 						}
 						}
 					}
+					else if (npc.FightBackUntil.HasValue && now < npc.FightBackUntil.Value && npc.TargetNpcId > 0
+						&& npcs.TryGetValue(npc.TargetNpcId, out var targetNpc) && targetNpc.DeadAt == null && targetNpc.Health > 0)
+					{
+						// Ped-on-ped: this ped is swinging at another ped, not the
+						// player. Same 1.7 range and 700ms cadence as the player
+						// fight-back; the victim fights back at the attacker, so
+						// brawls become genuine ped-vs-ped scuffles.
+						npc.IsShootingAt = false;
+						float fdx = targetNpc.X - npc.X;
+						float fdz = targetNpc.Z - npc.Z;
+						float fdist = (float)Math.Sqrt(fdx * fdx + fdz * fdz);
+						const float PUNCH_RANGE = 1.7f;
+						if (fdist > PUNCH_RANGE)
+						{
+							float chaseSpeed = npc.Speed * 1.6f;
+							float mX = (fdx / fdist) * chaseSpeed * 0.5f;
+							float mZ = (fdz / fdist) * chaseSpeed * 0.5f;
+							float nX = npc.X + mX;
+							float nZ = npc.Z + mZ;
+							int fcX = (int)Math.Floor(nX / CityLayout.CHUNK_SIZE);
+							int fcZ = (int)Math.Floor(nZ / CityLayout.CHUNK_SIZE);
+							string fb = CityLayout.GetBiome(fcX, fcZ);
+							if (fb != "ocean" && fb != "beach" && !CityLayout.IsBuildingAt(nX, nZ)) { npc.X = nX; npc.Z = nZ; }
+							npc.Yaw = (float)Math.Atan2(mX, mZ);
+						}
+						else
+						{
+							npc.Yaw = (float)Math.Atan2(fdx, fdz);
+							var nowMs = now.Ticks / TimeSpan.TicksPerMillisecond;
+							if (npc.LastShotTime == 0 || (nowMs - npc.LastShotTime) > 700)
+							{
+								npc.LastShotTime = nowMs;
+								npc.IsShootingAt = true;
+								targetNpc.Health = Math.Max(0, targetNpc.Health - 4);
+								if (targetNpc.Health <= 0)
+								{
+									targetNpc.DeadAt = now;
+									targetNpc.FightBackUntil = null;
+									targetNpc.TargetNpcId = 0;
+									targetNpc.TargetUserId = 0;
+									targetNpc.IsShootingAt = false;
+									// The winner stands down and resumes its sidewalk routine.
+									npc.FightBackUntil = null;
+									npc.TargetNpcId = 0;
+									npc.TargetUserId = 0;
+									npc.IsShootingAt = false;
+								}
+								else if (!targetNpc.IsDucking)
+								{
+									// The victim fights back at whoever just hit it (a
+									// ducking bystander stays down instead of swinging).
+									targetNpc.FightBackUntil = now.AddSeconds(10);
+									targetNpc.TargetNpcId = npc.Id;
+									targetNpc.TargetUserId = 0;
+								}
+								// A ped brawling with another ped pulls more bystanders
+								// into the scrum (throttled like the player rally).
+								if (npc.LastRallyTime == 0 || (nowMs - npc.LastRallyTime) > FIGHT_RALLY_COOLDOWN_MS)
+								{
+									npc.LastRallyTime = nowMs;
+									RallyPedestriansAgainstNpc(npcs, npc.Id, npc.X, npc.Z, now);
+								}
+							}
+						}
+					}
 					else
 					{
 						if (npc.FightBackUntil.HasValue && now >= npc.FightBackUntil.Value)
 						{
 							npc.FightBackUntil = null;
+							npc.TargetNpcId = 0;
 							npc.TargetUserId = 0;
 							npc.IsShootingAt = false;
 						}
@@ -2504,7 +2593,7 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 				}
-				var entry = new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount, isShootingAt = npc.IsShootingAt, isBurning = npc.OnFire, maxHealth = npc.MaxHealth, isSmoking = npc.IsSmoking, isFleeing = npc.IsFleeing, isDucking = npc.IsDucking, isArresting = npc.IsArresting };
+				var entry = new { id = npc.Id, posX = npc.X, posY = npc.Y, posZ = npc.Z, yaw = npc.Yaw, speed = npc.Speed, colorR = npc.Cr, colorG = npc.Cg, colorB = npc.Cb, type = npc.Type, gender = npc.Gender, health = npc.Health, hasDriver = npc.HasDriver, passengerCount = npc.PassengerCount, isShootingAt = npc.IsShootingAt, isBurning = npc.OnFire, maxHealth = npc.MaxHealth, isSmoking = npc.IsSmoking, isFleeing = npc.IsFleeing, isDucking = npc.IsDucking, isArresting = npc.IsArresting, targetNpcId = npc.TargetNpcId };
 				if (npc.Type == "ped_male" || npc.Type == "ped_female" || npc.Type == "cop") pedestrians.Add(entry);
 				else if (npc.Type == "helicopter" || npc.Type == "plane") aircraft.Add(entry);
 				else cars.Add(entry);
@@ -3418,6 +3507,72 @@ namespace maxhanna.Server.Controllers
 				h.SearchStartedAt = null;
 			}
 		}
+		// Cop-witnessed crime escape: once the player has broken line of sight and
+		// the wanted heat has fully decayed, the assault is forgotten. The
+		// last-known sighting anchor is dropped (so nothing re-dispatches to the
+		// old crime scene — no fresh cruisers or search helis for a stale crime),
+		// the heli-dispatch cooldown resets for a future crime, and every police
+		// unit still keyed to the player stands down immediately: chase state is
+		// scrubbed and they return to patrol, so no lingering witness remembers.
+		private void ForgetPlayerCrime(int userId, int worldId)
+		{
+			_playerLastKnown.TryRemove(userId, out _);
+			_lastUndetectedTime.TryRemove(userId, out _);
+			_lastHeliDispatch.TryRemove(userId, out _);
+			if (!_worldNpcs.TryGetValue(worldId, out var npcs)) return;
+			foreach (var kv in npcs)
+			{
+				var npc = kv.Value;
+				if (npc.Type == "helicopter" && npc.IsPoliceHeli && npc.TargetUserId == userId)
+				{
+					npc.AircraftPhase = "flying";
+					npc.PhaseStartedAt = DateTime.UtcNow;
+					npc.IsPoliceHeli = false;
+					npc.IsSearching = false;
+					npc.TargetUserId = 0;
+					npc.SearchStartedAt = null;
+					continue;
+				}
+				if ((npc.Type != "police" && npc.Type != "cop") || npc.TargetUserId != userId) continue;
+				// Scrub every piece of chase state so the unit fully forgets the
+				// player: no targeting, no search lap, no last-known spot, no sighting.
+				npc.TargetUserId = 0;
+				npc.IsSearching = false;
+				npc.SearchStartedAt = null;
+				npc.SearchStep = 0;
+				npc.LastSeenAt = null;
+				npc.LastKnownX = 0;
+				npc.LastKnownZ = 0;
+				// Return to normal duties: a cruiser with a home car heads back to it;
+				// a foot officer reverts to a civilian sidewalk stroll; a stray cruiser
+				// picks a fresh road point to cruise on to.
+				if (npc.HomeVehicleId != 0 && npcs.TryGetValue(npc.HomeVehicleId, out var homeCar) && homeCar.IsParked)
+				{
+					npc.TargetX = homeCar.X;
+					npc.TargetZ = homeCar.Z;
+				}
+				else
+				{
+					npc.HomeVehicleId = 0;
+					var rng = new Random();
+					if (npc.Type == "cop")
+					{
+						npc.Type = "ped_" + npc.Gender;
+						GetRandomSidewalkPointNearPlayer(npc.X, npc.Z, out float sx, out float sz, rng);
+						npc.TargetX = sx;
+						npc.TargetZ = sz;
+						npc.Speed = 2.0f;
+					}
+					else
+					{
+						GetRandomRoadPointNearPlayer(npc.X, npc.Z, out float rx, out float rz, rng, minDist: 60f);
+						npc.TargetX = rx;
+						npc.TargetZ = rz;
+						npc.Speed = 10f;
+					}
+				}
+			}
+		}
 		private void GetRandomAeroportOrDistantPoint(float px, float pz, out float x, out float z, Random rng)
 		{
 			if (rng.NextDouble() < 0.5)
@@ -3590,16 +3745,90 @@ namespace maxhanna.Server.Controllers
 				ped.IsDucking = false; // a ducking bystander gets up to throw down
 				ped.DuckUntil = null;
 				ped.Speed = ped.PreDuckSpeed;
+				// Genuine ped-on-ped brawls: roughly half the joiners square off
+				// against a fellow brawler already in the fight instead of piling
+				// onto the player, so a brawl spreads into a scrum of peds rather
+				// than a single-target pile-on. Falls back to the player target
+				// when no other brawler is in range yet.
+				if (Random.Shared.NextDouble() < FIGHT_PED_TARGET_CHANCE)
+				{
+					long victimNpcId = PickBrawlVictim(npcs, ped.X, ped.Z, excludeId);
+					if (victimNpcId > 0)
+					{
+						ped.TargetNpcId = victimNpcId;
+						ped.TargetUserId = 0;
+						ped.FightBackUntil = now.AddSeconds(10);
+						joined++;
+						continue;
+					}
+				}
+				ped.TargetNpcId = 0;
 				ped.TargetUserId = attackerUserId;
 				ped.FightBackUntil = now.AddSeconds(10);
 				joined++;
 			}
+		}
+
+		// Same rally, but the target is another *ped* — a ped throwing punches
+		// pulls bystanders into the scrum against the attacker, so ped-on-ped
+		// fights spread just like fights against the player.
+		private static void RallyPedestriansAgainstNpc(ConcurrentDictionary<long, NpcState> npcs, long attackerNpcId, float attackerX, float attackerZ, DateTime now)
+		{
+			if (attackerNpcId <= 0) return;
+			float radiusSq = FIGHT_JOIN_RADIUS * FIGHT_JOIN_RADIUS;
+			int joined = 0;
+			foreach (var kv in npcs)
+			{
+				if (joined >= FIGHT_JOIN_MAX) break;
+				var ped = kv.Value;
+				if (ped.Id == attackerNpcId || ped.DeadAt.HasValue || ped.FightBackUntil.HasValue) continue;
+				if (ped.Type != "ped_male" && ped.Type != "ped_female") continue;
+				float dx = ped.X - attackerX;
+				float dz = ped.Z - attackerZ;
+				if (dx * dx + dz * dz > radiusSq) continue;
+				if (Random.Shared.NextDouble() >= FIGHT_JOIN_CHANCE) continue;
+				ped.PanicUntil = null;
+				ped.PanicFromX = 0f;
+				ped.PanicFromZ = 0f;
+				ped.IsDucking = false;
+				ped.DuckUntil = null;
+				ped.Speed = ped.PreDuckSpeed;
+				ped.TargetNpcId = attackerNpcId;
+				ped.TargetUserId = 0;
+				ped.FightBackUntil = now.AddSeconds(10);
+				joined++;
+			}
+		}
+
+		// A random brawling ped (an active FightBackUntil) within the rally radius
+		// for a joiner to take on — the seed of a genuine ped-on-ped fight.
+		private static long PickBrawlVictim(ConcurrentDictionary<long, NpcState> npcs, float fromX, float fromZ, long? excludeId)
+		{
+			float radiusSq = FIGHT_JOIN_RADIUS * FIGHT_JOIN_RADIUS;
+			long[] candidates = npcs.Values
+				.Where(p => p.Id != excludeId && !p.DeadAt.HasValue && p.FightBackUntil.HasValue
+					&& (p.Type == "ped_male" || p.Type == "ped_female")
+					&& (p.X - fromX) * (p.X - fromX) + (p.Z - fromZ) * (p.Z - fromZ) < radiusSq)
+				.Select(p => p.Id)
+				.ToArray();
+			return candidates.Length == 0 ? 0 : candidates[Random.Shared.Next(candidates.Length)];
 		}
 		[HttpPost("hit")]
 		public IActionResult Hit([FromBody] GTHitRequest req)
 		{
 			if (req.TargetId <= 0) return BadRequest(new { ok = false });
 			var worldId = req.WorldId;
+			// Resisting arrest: attacking anyone while a cop holds you aborts
+			// the booking — the cop switches to shooting and the wanted level
+			// jumps by 2 (the client unfreezes on the next poll's arrested=false).
+			if (req.AttackerId > 0 && _playerArrests.ContainsKey(req.AttackerId))
+			{
+				_playerArrests.TryRemove(req.AttackerId, out _);
+				int rw = _playerWantedLevels.TryGetValue(req.AttackerId, out var rwv) ? rwv : 0;
+				_playerWantedLevels[req.AttackerId] = Math.Min(5, rw + 2);
+				_lastUndetectedTime[req.AttackerId] = DateTime.UtcNow;
+				_playerLastKnown[req.AttackerId] = (req.AttackerX, req.AttackerZ, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+			}
 			var hitAnything = false;
 			bool hitNpc = false;
 			bool targetDied = false;
@@ -3639,6 +3868,7 @@ namespace maxhanna.Server.Controllers
 						if (req.Weapon == 0 && isPedTarget && !isCopTarget && req.AttackerId > 0)
 						{
 							kv.Value.TargetUserId = req.AttackerId;
+							kv.Value.TargetNpcId = 0; // the punched ped now fights the player, not another ped
 							kv.Value.FightBackUntil = DateTime.UtcNow.AddSeconds(8);
 							kv.Value.PanicUntil = null;
 							kv.Value.IsDucking = false; // punched peds spring up and swing back

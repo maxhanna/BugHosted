@@ -21,6 +21,9 @@
       <button *ngIf="isAdmin" class="modTab" [class.active]="activeTab === 'appeals'" (click)="setTab('appeals')">
         ⚖️ Appeals <span *ngIf="appeals.length > 0" class="tabCount">{{ appeals.length }}</span>
       </button>
+      <button *ngIf="isWeaverAdmin" class="modTab" [class.active]="activeTab === 'weaver'" (click)="setTab('weaver')">
+        🤖 Weaver Feedback <span *ngIf="weaverFeedback.length > 0" class="tabCount">{{ weaverFeedback.length }}</span>
+      </button>
     </div>
 
     <!-- ── MY APPEALS TAB (any user — their own moderator requests) ── -->
@@ -54,6 +57,30 @@
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- ── WEAVER FEEDBACK TAB (weaver admins — messages about card runs) ── -->
+    <div *ngIf="activeTab === 'weaver'" class="modSection">
+      <div class="card">
+        <div class="cardTitle">🤖 Weaver Feedback</div>
+        <div class="xSmallFont secondaryFontColor">
+          Messages users sent from their Weaver instance about what went wrong during a card's execution.
+        </div>
+        <div *ngIf="weaverFeedbackLoading" class="searchHint">Loading…</div>
+        <div *ngIf="!weaverFeedbackLoading && weaverFeedback.length === 0" class="searchHint">No feedback messages yet.</div>
+        <div *ngFor="let f of weaverFeedback" class="modRow">
+          <div class="modRowBody" style="padding:6px 0;">
+            <div class="modRowHead" style="cursor:default;">
+              <span class="smallFont secondaryFontColor">{{ f.username }}</span>
+              <span class="smallFont secondaryFontColor" *ngIf="f.createdAt"> — {{ f.createdAt }}</span>
+              <span class="smallFont secondaryFontColor" *ngIf="f.cardId"> · Card #{{ f.cardId }}</span>
+              <button class="noBtn" style="margin-left:auto;" (click)="deleteWeaverFeedback(f.id)" [disabled]="weaverFeedbackLoading">🗑 Delete</button>
+            </div>
+            <div class="smallFont" style="margin:4px 0;">{{ f.message }}</div>
+            <div class="xSmallFont secondaryFontColor" *ngIf="f.cardText">Card: {{ f.cardText.length > 140 ? (f.cardText | slice:0:140) + '…' : f.cardText }}</div>
+          </div>
+        </div>
       </div>
     </div>
 

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using System.Collections.Concurrent;
 using System.IO.Compression;
@@ -904,6 +904,7 @@ namespace maxhanna.Server.Controllers
 				benchmarks.Add(bench);
 			}
 
+
 			return Ok(benchmarks);
 		}
 
@@ -1092,6 +1093,14 @@ namespace maxhanna.Server.Controllers
 	{
 		public string Token { get; set; } = "";
 		public List<object>? Hints { get; set; }
+	}
+
+	public class WeaverFeedbackRequest
+	{
+		public string Token { get; set; } = "";
+		public string? CardId { get; set; }
+		public string? CardText { get; set; }
+		public string Message { get; set; } = "";
 	}
 	public class BenchmarkDataDTO
 	{

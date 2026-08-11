@@ -132,8 +132,8 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   camHeight = 2;
   firstPerson = false;
   private isPointerLocked = false;
-  serverNPCs: { id: number; x: number; y: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean; isBurning?: boolean; isSmoking?: boolean; isFleeing?: boolean; isArresting?: boolean; maxHealth?: number }[] = [];
-  serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; isDucking?: boolean; isArresting?: boolean }[] = [];
+  serverNPCs: { id: number; x: number; y: number; z: number; yaw: number; type: string; mesh: CityMesh | CityMesh[]; health: number; colorR: number; colorG: number; colorB: number; remoteShootTimer?: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; gender?: string; hasDriver?: boolean; passengerCount?: number; isShootingAt?: boolean; isBurning?: boolean; isSmoking?: boolean; isFleeing?: boolean; isArresting?: boolean; meleeTargetId?: number; maxHealth?: number }[] = [];
+  serverPedestrians: { id: number; x: number; z: number; yaw: number; gender: string; type?: string; mesh: CityMesh | CityMesh[]; health: number; prevX: number; prevZ: number; prevYaw: number; targetX: number; targetZ: number; targetYaw: number; speed: number; lastUpdate: number; isDucking?: boolean; isArresting?: boolean; meleeTargetId?: number }[] = [];
   private npcPollTimer: any = null;
   parkedCars: ParkedCar[] = [];
   // World persistence: throttled snapshot of player position + nearby local
@@ -220,6 +220,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   private _lastCashTime = 0;
   private _ricochetCtx: AudioContext | null = null;
   private _lastRicochetTime = 0;
+  private _bustedCtx: AudioContext | null = null;
   private _lastBrakeScreech = 0;
   private _lastCrashTime = 0;
   private _lastWallCrashTime = 0;
@@ -415,6 +416,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
   wastedTimer = 0;
   murderFlashAlpha = 0;
   murderFlashTimer = 0;
+  bustedFlashAlpha = 0;
   wantedPopTimer = 0;
   private crashShake = 0;
   private timeScale = 1;
@@ -796,6 +798,10 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     }
   }
   selectWeapon(idx: number) {
+    // Drawing any weapon while cuffed is resisting arrest — the server aborts
+    // the booking on its next poll, so drop the freeze immediately to let the
+    // player fight back (the next poll confirms arrested=false).
+    if (this._arrested && idx !== 0) this._arrested = false;
     this.currentWeapon = idx;
     this.showWeaponWheel = false;
   }
@@ -1558,6 +1564,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           passengerCount: c.passengerCount ?? 0,
           isShootingAt: c.isShootingAt || false,
           isArresting: c.isArresting || false,
+          meleeTargetId: c.targetNpcId || 0,
           isBurning: c.isBurning || false,
           isSmoking: c.isSmoking || false,
           isFleeing: c.isFleeing || false,
@@ -1617,6 +1624,7 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
           isShootingAt: p.isShootingAt || false,
           isDucking: p.isDucking || false,
           isArresting: p.isArresting || false,
+          meleeTargetId: p.targetNpcId || 0,
           ...interp
         };
       });
@@ -1754,16 +1762,23 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       this.camPitch = 0.2;
     }
     // Arrest: while a cop holds the player the server pins the position and we
-    // freeze input; when the booking is done the server sends arrestRespawn and
-    // the player wakes up weaponless at the nearest police station.
-    if (res && res.arrested) {
-      this._arrested = true;
-      if (this.isInCar) this.exitCar();
-      if (this.isPassenger) this.exitPassenger();
-      this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+    // freeze input. The server always reports `arrested`, so a false value
+    // means the hold ended — either the booking (arrestRespawn) or a resist
+    // (arrestResisted, when the player drew a weapon or attacked mid-hold).
+    if (res && res.arrested !== undefined) {
+      this._arrested = res.arrested;
+      if (res.arrested) {
+        if (this.isInCar) this.exitCar();
+        if (this.isPassenger) this.exitPassenger();
+        this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
+      }
     }
     if (res && res.arrestRespawn) {
       this.doArrestRespawn();
+    }
+    if (res && res.arrestResisted) {
+      this.wantedPopTimer = 0.8;
+      this.showStoreToast('🚨 RESISTING ARREST! Wanted level increased');
     }
     if (res && res.droppedWeapons) {
       this.droppedWeapons = res.droppedWeapons;
@@ -2421,6 +2436,68 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
       osc.connect(g); g.connect(ctx.destination);
       osc.start(t0);
       osc.stop(t0 + dur);
+    } catch (e) { }
+  }
+  /** GTA-style busted sting: a radio squelch chirp keying up a two-tone police
+   *  wail, played when the booking completes so the bust reads cinematically. */
+  private playBustedSting() {
+    if (this.sfxVolume <= 0) return;
+    try {
+      if (!this._bustedCtx) {
+        this._bustedCtx = new AudioContext();
+        if (this._bustedCtx.state === 'suspended') { try { this._bustedCtx.resume(); } catch { } }
+      }
+      const ctx = this._bustedCtx;
+      if (ctx.state === 'suspended') { try { ctx.resume(); } catch { } }
+      const t0 = ctx.currentTime;
+      const vol = 0.2 * this.sfxVolume;
+      // Radio squelch chirp on key-up (brief noise burst before the wail).
+      const len = Math.floor(ctx.sampleRate * 0.05);
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const bp = ctx.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.Q.value = 4;
+      bp.frequency.value = 1900;
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(vol * 0.5, t0);
+      ng.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
+      src.connect(bp); bp.connect(ng); ng.connect(ctx.destination);
+      src.start(t0);
+      src.stop(t0 + 0.05);
+      // Two-tone police wail — three quick low→high sweeps, like a siren keying up.
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      const cycles = 3;
+      const cyc = 0.3;
+      for (let c = 0; c < cycles; c++) {
+        const cs = t0 + 0.05 + c * cyc;
+        osc.frequency.setValueAtTime(620, cs);
+        osc.frequency.linearRampToValueAtTime(830, cs + cyc / 2);
+        osc.frequency.linearRampToValueAtTime(620, cs + cyc);
+      }
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t0 + 0.05);
+      g.gain.exponentialRampToValueAtTime(vol, t0 + 0.09);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05 + cycles * cyc);
+      osc.connect(g); g.connect(ctx.destination);
+      osc.start(t0 + 0.05);
+      osc.stop(t0 + 0.05 + cycles * cyc);
+      // Low body thump under the wail so the sting has weight.
+      const sub = ctx.createOscillator();
+      sub.type = 'sine';
+      sub.frequency.setValueAtTime(120, t0 + 0.05);
+      sub.frequency.exponentialRampToValueAtTime(70, t0 + 0.95);
+      const sg = ctx.createGain();
+      sg.gain.setValueAtTime(0.0001, t0 + 0.05);
+      sg.gain.exponentialRampToValueAtTime(0.5 * this.sfxVolume, t0 + 0.1);
+      sg.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.0);
+      sub.connect(sg); sg.connect(ctx.destination);
+      sub.start(t0 + 0.05);
+      sub.stop(t0 + 1.0);
     } catch (e) { }
   }
   // Distant traffic crashes: NPC cars bumping into each other or parked cars
@@ -3380,6 +3457,12 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     if (this.vehicleBannerTimer > 0) this.vehicleBannerTimer -= dt;
     if (this.wastedTimer > 0) this.wastedTimer -= dt;
     if (this.damageAlpha > 0) this.damageAlpha = Math.max(0, this.damageAlpha - dt * 0.5);
+    if (this.bustedFlashAlpha > 0) {
+      this.bustedFlashAlpha = Math.max(0, this.bustedFlashAlpha - dt * 2.5);
+      // The white flash is an *ngIf overlay and this loop runs outside Angular's
+      // zone — a CD pass per frame while the flash is alive keeps the fade visible.
+      this.ngZone.run(() => this.cdr.detectChanges());
+    }
     if (this.murderFlashTimer > 0) this.murderFlashTimer -= dt;
     if (this.murderFlashAlpha > 0) this.murderFlashAlpha = Math.max(0, this.murderFlashAlpha - dt * 1.4);
     if (this.wantedPopTimer > 0) this.wantedPopTimer -= dt;
@@ -3871,18 +3954,33 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
     this.health = 100;
     this.carHealth = 200;
     this.wantedLevel = 0;
+    // Cinematic bust: a white camera flash pops, then the red vignette lingers
+    // while the siren sting plays — GTA-style busted screen.
+    this.bustedFlashAlpha = 1;
+    this.damageAlpha = 0.9;
+    this.playBustedSting();
     if (this.isInCar) this.exitCar();
     if (this.isPassenger) this.exitPassenger();
     this.currentWeapon = 0;
     this.ownedWeapons = [true, false, false, false, false];
     this.ammo = [0, 0, 0, 0, 0];
     const station = this.renderer.getNearestPoliceStation(this.carX, this.carZ, 800);
-    this.carX = station ? station.x : HOME_BASE_X;
-    this.carZ = station ? station.z : HOME_BASE_Z;
+    let spawnYaw = HOME_BASE_YAW;
+    if (station) {
+      // Spawn at the station's front door, facing the street — never inside
+      // the building footprint.
+      const frontX = -Math.sin(station.yaw), frontZ = -Math.cos(station.yaw);
+      this.carX = station.x + frontX * (station.hd + 1.4);
+      this.carZ = station.z + frontZ * (station.hd + 1.4);
+      spawnYaw = station.yaw;
+    } else {
+      this.carX = HOME_BASE_X;
+      this.carZ = HOME_BASE_Z;
+    }
     this.carY = CAR_HEIGHT;
-    this.carYaw = HOME_BASE_YAW;
+    this.carYaw = spawnYaw;
     this.carVx = 0; this.carVz = 0; this.carSpeed = 0;
-    this.camYaw = HOME_BASE_YAW;
+    this.camYaw = spawnYaw;
     this.camPitch = 0.2;
     this.camDist = 4;
     this.camHeight = 2;
@@ -5078,20 +5176,41 @@ export class GrandTheftComponent extends ChildComponent implements OnInit, OnDes
         const zingScale = this.getShotVolumeScale(npc.x, npc.z);
         if (Math.random() < 0.4 * zingScale) this.playRicochetZing(zingScale);
       } else if (d3 > 0.01) {
-        // Melee fight-back: a punched ped lands a punch on the player — swing
-        // the arm, spawn a small blood puff at the hit point, flinch the
-        // player (hurt flash + camera jolt), and play the same body-blow thud
-        // as local-ped punches so the brawl reads like real hits.
+        // Melee: a punched ped lands a punch. If it's swinging at another ped
+        // (targetNpcId set), the connect effects land on that ped — a small
+        // blood puff at its position and a flinch — so ped-on-ped brawls read
+        // visibly. Otherwise the target is the player: puff at the hit point
+        // plus the hurt flash and camera jolt, like local-ped punches.
         this.renderer.triggerPunch(npc.id);
-        this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, dx / d3, dy / d3, dz / d3, true);
-        this.damageAlpha = 0.45;
-        this.crashShake = Math.max(this.crashShake, 0.12);
-        this.playPunchThud();
+        const pedTarget = this.findServerPedById(npc.meleeTargetId);
+        if (pedTarget) {
+          const pdx = pedTarget.x - npc.x, pdz = pedTarget.z - npc.z;
+          const pd = Math.hypot(pdx, pdz) || 1;
+          this.spawnBlood(pedTarget.x, 1.2, pedTarget.z, pdx / pd, 0, pdz / pd, true);
+          this.renderer.triggerFlinch(pedTarget.id);
+        } else {
+          this.spawnBlood(this.carX, this.carY + 1.0, this.carZ, dx / d3, dy / d3, dz / d3, true);
+          this.damageAlpha = 0.45;
+          this.crashShake = Math.max(this.crashShake, 0.12);
+          // The damage vignette is an *ngIf overlay and this loop runs outside
+          // Angular's zone — without an explicit CD pass the flash decays to
+          // zero before any poll triggers change detection, so it never shows.
+          // Force it like the HUD throttle so the flash fires with the thud.
+          this.ngZone.run(() => { this.cdr.detectChanges(); });
+        }
+        // The body-blow thud only when the fight is near the player (a distant
+        // ped-on-ped scrum shouldn't thud at full volume from across town).
+        if (d3 < 30) this.playPunchThud();
       }
       npc.isShootingAt = false;
     };
     for (const npc of this.serverNPCs) checkNPC(npc);
     for (const ped of this.serverPedestrians) checkNPC(ped);
+  }
+  /** Look up a server-simulated ped by id in either list (for melee targets). */
+  private findServerPedById(id?: number): any {
+    if (!id) return null;
+    return this.serverNPCs.find(n => n.id === id) || this.serverPedestrians.find(p => p.id === id) || null;
   }
   private updatePoliceSiren() {
     const siren = this.policeSirenSound;

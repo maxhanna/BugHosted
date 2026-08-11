@@ -681,9 +681,11 @@ export class GrandTheftRenderer {
     return result;
   }
   /** Nearest police-station building within the radius (or null) — used for
-   *  the arrest respawn so a busted player wakes up at the station. */
-  getNearestPoliceStation(x: number, z: number, radius: number): { x: number; z: number } | null {
-    let best: { x: number; z: number } | null = null;
+   *  the arrest respawn so a busted player wakes up at the station. Includes
+   *  the building's yaw and street-facing half-depth so the caller can place
+   *  the spawn at the front door instead of the building's center. */
+  getNearestPoliceStation(x: number, z: number, radius: number): { x: number; z: number; yaw: number; hd: number } | null {
+    let best: { x: number; z: number; yaw: number; hd: number } | null = null;
     let bestDist = Infinity;
     const pcx = Math.floor(x / CHUNK_SIZE);
     const pcz = Math.floor(z / CHUNK_SIZE);
@@ -696,7 +698,10 @@ export class GrandTheftRenderer {
           if (!bld.model || bld.model.length === 0) continue;
           if (!bld.model[0].carName || !bld.model[0].carName.includes('police_station')) continue;
           const d = Math.hypot(bld.x - x, bld.z - z);
-          if (d < bestDist) { bestDist = d; best = { x: bld.x, z: bld.z }; }
+          if (d < bestDist) {
+            bestDist = d;
+            best = { x: bld.x, z: bld.z, yaw: bld.yaw ?? 0, hd: this.supermarketHalfDepth(bld.model, bld.scale, bld.yaw ?? 0) };
+          }
         }
       }
     }
@@ -803,6 +808,8 @@ export class GrandTheftRenderer {
   public arrestingEntities = new Set<number>();
   /** Ducking peds (gunfire reaction) held in the crouch-and-cover pose. */
   public duckingEntities = new Set<number>();
+  /** Per-entity flinch timers (a landed punch squashes the victim briefly). */
+  public flinchTimers = new Map<number, number>();
   public playerCarSpeed = 0;
   public playerSteerInput = 0;
   private _mopedWheelMesh: CityMesh | null = null;
@@ -1506,10 +1513,19 @@ void main() {
         this.duckingEntities.delete(id);
       }
     }
+    for (const id of this.flinchTimers.keys()) {
+      if (!activeEntityIds.has(id)) {
+        this.flinchTimers.delete(id);
+      }
+    }
   }
   /** Queue a visible punch/swing animation for an entity (0.3s arm extend). */
   triggerPunch(entityId: number): void {
     this.punchTimers.set(entityId, 0.3);
+  }
+  /** Brief recoil squash when an entity is hit (0.18s), read by the draw loops. */
+  triggerFlinch(entityId: number): void {
+    this.flinchTimers.set(entityId, 0.18);
   }
   skinPlayerMesh(meshes: CityMesh | CityMesh[], dt: number = 0): void {
     try {
@@ -3871,6 +3887,8 @@ void main() {
       else this.arrestingEntities.delete(npc.id);
       if (npc.isDucking) this.duckingEntities.add(npc.id);
       else this.duckingEntities.delete(npc.id);
+      const flinchLeft = this.flinchTimers.get(npc.id) ?? 0;
+      if (flinchLeft > 0) this.flinchTimers.set(npc.id, Math.max(0, flinchLeft - dt));
       const npcDx = npc.x - camX, npcDz = npc.z - camZ;
       if (npcDx * npcDx + npcDz * npcDz < 220 * 220) {
         this.animateAndSkinEntity(npc.id, npc.mesh, npcState, dt, Math.max(1, npcSpeed));
@@ -3892,7 +3910,7 @@ void main() {
         const tailSpin = now * 55;       
         this.drawMesh(rotorMesh, npc.x + tailOffX, mainRotorY - 0.8, npc.z + tailOffZ, npc.yaw + tailSpin, [0.35, 0.35, 0.35], [0.4, 0.4, 0.4, 0.45]);
       } else {
-        this.drawMesh(npc.mesh, npc.x, expY, npc.z, npc.yaw);
+        this.drawMesh(npc.mesh, npc.x, expY, npc.z, npc.yaw, flinchLeft > 0 ? [1.05, 0.88, 1.05] : [1, 1, 1]);
       }
       if (npc.hasDriver !== false && npc.type !== 'cop') {
         const dMesh = this.getPedestrianMesh(npc.gender || 'male', npc.id);
@@ -3927,14 +3945,19 @@ void main() {
       else this.arrestingEntities.delete(ped.id);
       if (ped.isDucking) this.duckingEntities.add(ped.id);
       else this.duckingEntities.delete(ped.id);
+      const pedFlinch = this.flinchTimers.get(ped.id) ?? 0;
+      if (pedFlinch > 0) this.flinchTimers.set(ped.id, Math.max(0, pedFlinch - dt));
       const pedDx = ped.x - camX, pedDz = ped.z - camZ;
       if (pedDx * pedDx + pedDz * pedDz < 220 * 220) {
         this.animateAndSkinEntity(ped.id, ped.mesh, pedState, dt, Math.max(1, pedSpeed * 2));
       }
       // Ducking (gunfire reaction): the crouch-and-cover pose (bent legs, low
       // hips) does the lowering — this mild squash is the fallback for distant
-      // peds that skip skinning, and keeps the "hit the deck" read.
-      this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, ped.isDucking ? [0.95, 0.75, 0.95] : [1, 1, 1]);
+      // peds that skip skinning, and keeps the "hit the deck" read. A flinching
+      // ped (a landed punch) gets an extra brief recoil squash on top.
+      let pedScale: [number, number, number] = ped.isDucking ? [0.95, 0.75, 0.95] : [1, 1, 1];
+      if (pedFlinch > 0) pedScale = [1.05, pedScale[1] * 0.92, 1.05];
+      this.drawMesh(ped.mesh, ped.x, 0, ped.z, ped.yaw, pedScale);
     }
     if (dt > 0 && Math.random() < 0.05) {
       const activeIds = new Set<number>();

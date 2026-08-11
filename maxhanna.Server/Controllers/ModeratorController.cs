@@ -1,4 +1,4 @@
-﻿using maxhanna.Server.Controllers.DataContracts.Files;
+using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using FirebaseAdmin.Messaging;
 using Microsoft.AspNetCore.Mvc;
@@ -64,6 +64,7 @@ namespace maxhanna.Server.Controllers
       catalog.Add(new RoleDefinition { Role = "chat_moderator", Label = "Chat Moderator", Description = "Can moderate a specific chat room.", TargetType = "chat" });
       catalog.Add(new RoleDefinition { Role = "topic_moderator", Label = "Topic Moderator", Description = "Can edit/delete posts in a specific topic.", TargetType = "topic" });
       catalog.Add(new RoleDefinition { Role = "admin", Label = "Admin", Description = "Admin — can add other moderators and manage appeals.", TargetType = "global" });
+      catalog.Add(new RoleDefinition { Role = "weaver_admin", Label = "Weaver Admin", Description = "Can view and delete Weaver feedback messages.", TargetType = "global" });
       catalog.ForEach(r => seen.Add(r.Role + "|" + (r.TargetType ?? "")));
       try
       {
@@ -451,7 +452,91 @@ namespace maxhanna.Server.Controllers
         return StatusCode(500, "Failed to get moderator logs.");
       }
     }
+    [HttpPost("/Moderator/GetWeaverFeedback", Name = "GetWeaverFeedback")]
+    public async Task<IActionResult> GetWeaverFeedback(
+      [FromBody] GetWeaverFeedbackRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (request == null || request.CallerUserId <= 0) return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(request.CallerUserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+      if (!await IsWeaverFeedbackModeratorAsync(request.CallerUserId)) return Unauthorized("Only weaver admins can view feedback.");
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        string sql = @"
+          SELECT id, user_id, username, card_id, card_text, message, created_at
+          FROM maxhanna.weaver_feedback
+          ORDER BY created_at DESC, id DESC";
+        using var cmd = new MySqlCommand(sql, conn);
+        using var reader = await cmd.ExecuteReaderAsync();
+        var items = new List<object>();
+        while (await reader.ReadAsync())
+        {
+          items.Add(new
+          {
+            id = reader.GetInt32("id"),
+            userId = reader.IsDBNull(reader.GetOrdinal("user_id")) ? 0 : reader.GetInt32("user_id"),
+            username = reader.IsDBNull(reader.GetOrdinal("username")) ? "" : reader.GetString("username"),
+            cardId = reader.IsDBNull(reader.GetOrdinal("card_id")) ? "" : reader.GetString("card_id"),
+            cardText = reader.IsDBNull(reader.GetOrdinal("card_text")) ? null : reader.GetString("card_text"),
+            message = reader.GetString("message"),
+            createdAt = reader.GetDateTime("created_at").ToString("yyyy-MM-dd HH:mm:ss")
+          });
+        }
+        return Ok(items);
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in GetWeaverFeedback: " + ex.Message, request.CallerUserId, "MODERATOR", true);
+        return StatusCode(500, "Failed to get weaver feedback.");
+      }
+    }
+    [HttpPost("/Moderator/DeleteWeaverFeedback", Name = "DeleteWeaverFeedback")]
+    public async Task<IActionResult> DeleteWeaverFeedback(
+      [FromBody] DeleteWeaverFeedbackRequest request,
+      [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+    {
+      if (request == null || request.Id <= 0 || request.CallerUserId <= 0) return BadRequest("Invalid request.");
+      if (!await _log.ValidateUserLoggedIn(request.CallerUserId, encryptedUserIdHeader)) return StatusCode(500, "Access Denied.");
+      if (!await IsWeaverFeedbackModeratorAsync(request.CallerUserId)) return Unauthorized("Only weaver admins can delete feedback.");
+      string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+      try
+      {
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        string sql = "DELETE FROM maxhanna.weaver_feedback WHERE id = @Id";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@Id", request.Id);
+        int removed = await cmd.ExecuteNonQueryAsync();
+        if (removed == 0) return NotFound("Feedback not found.");
+        _ = _log.Db("Deleted weaver feedback #" + request.Id + " by user " + request.CallerUserId, request.CallerUserId, "MODERATOR", false);
+        return Ok(new { status = "ok", deleted = request.Id });
+      }
+      catch (Exception ex)
+      {
+        _ = _log.Db("Error in DeleteWeaverFeedback: " + ex.Message, request.CallerUserId, "MODERATOR", true);
+        return StatusCode(500, "Failed to delete weaver feedback.");
+      }
+    }
+    private async Task<bool> IsWeaverFeedbackModeratorAsync(int userId)
+    {
+      if (userId == 1) return true;
+      try
+      {
+        string connStr = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+        using var conn = new MySqlConnection(connStr);
+        await conn.OpenAsync();
+        string sql = "SELECT COUNT(*) FROM maxhanna.moderator_roles WHERE user_id = @UserId AND target_type = 'global' AND role IN ('admin', 'weaver_admin');";
+        using var cmd = new MySqlCommand(sql, conn);
+        cmd.Parameters.AddWithValue("@UserId", userId);
+        return Convert.ToInt32(await cmd.ExecuteScalarAsync()) > 0;
+      }
+      catch { return false; }
+    }
     private async Task<bool> IsChatUserBannedAsync(MySqlConnection conn, int chatId, int userId)
+
     {
       string sql = "SELECT COUNT(*) FROM maxhanna.chat_bans WHERE chat_id = @ChatId AND user_id = @UserId AND lifted_at IS NULL;";
       using var cmd = new MySqlCommand(sql, conn);
@@ -1291,6 +1376,15 @@ namespace maxhanna.Server.Controllers
     public int? TargetId { get; set; }
     public int CallerUserId { get; set; }
     public bool Remove { get; set; }
+  }
+  public class GetWeaverFeedbackRequest
+  {
+    public int CallerUserId { get; set; }
+  }
+  public class DeleteWeaverFeedbackRequest
+  {
+    public int Id { get; set; }
+    public int CallerUserId { get; set; }
   }
   public class GetModeratorLogsRequest
   {

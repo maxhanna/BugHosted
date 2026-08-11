@@ -698,6 +698,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           this.checkAndClearRouterOutlet();
           this.createComponent('GrandTheft');
         }
+        else if (this.router.url.toLowerCase().includes('planter')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Planter');
+        }
         else if (this.router.url.toLowerCase().includes('paint')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Paint');

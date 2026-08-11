@@ -41,7 +41,7 @@ public class RecipeController : ControllerBase
 {
     private readonly string _connectionString;
     private readonly Log _log;
-    internal static readonly SemaphoreSlim _sitemapLock = new(1, 1);
+    private static readonly SemaphoreSlim _sitemapLock = new(1, 1);
     private readonly string _sitemapPath = Path.Combine(Directory.GetCurrentDirectory(), "../maxhanna.Client/src/sitemap.xml");
 
     public RecipeController(IConfiguration configuration, Log log)
@@ -284,7 +284,7 @@ public class RecipeController : ControllerBase
     /// metadata (up to three images) and video metadata (first YouTube link).
     /// Shared by single-entry appends and the full backfill.
     /// </summary>
-    internal static XElement BuildSitemapUrlElement(string url, string name, string description, string lastMod,
+    private static XElement BuildSitemapUrlElement(string url, string name, string description, string lastMod,
         List<int>? imageFileIds, List<string>? externalLinks,
         XNamespace ns, XNamespace imageNs, XNamespace videoNs)
     {
@@ -335,7 +335,7 @@ public class RecipeController : ControllerBase
     /// Pull the 11-character video id out of a YouTube link (watch, youtu.be,
     /// embed, or shorts forms), mirroring the client's parseYoutubeId.
     /// </summary>
-    internal static string? ExtractYouTubeVideoId(string? url)
+    private static string? ExtractYouTubeVideoId(string? url)
     {
         if (string.IsNullOrWhiteSpace(url)) return null;
         url = url.Trim();
@@ -367,13 +367,13 @@ public class RecipeController : ControllerBase
         return null;
     }
 
-    internal static string Truncate(string value, int maxLength)
+    private static string Truncate(string value, int maxLength)
     {
         if (string.IsNullOrEmpty(value)) return string.Empty;
         return value.Length <= maxLength ? value : value.Substring(0, maxLength);
     }
 
-    internal static List<string> ParseList(MySqlDataReader reader, string columnName)
+    private static List<string> ParseList(MySqlDataReader reader, string columnName)
     {
         var ordinal = reader.GetOrdinal(columnName);
         if (reader.IsDBNull(ordinal))
@@ -387,7 +387,7 @@ public class RecipeController : ControllerBase
             : raw.Split('|').Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
     }
 
-    internal static List<int> ParseIntList(MySqlDataReader reader, string columnName)
+    private static List<int> ParseIntList(MySqlDataReader reader, string columnName)
     {
         var ordinal = reader.GetOrdinal(columnName);
         if (reader.IsDBNull(ordinal))

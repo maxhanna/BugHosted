@@ -90,6 +90,35 @@ export class ModeratorService {
 
   // ─── Chat-scoped bans & appeals (low-level chat room moderation) ───
 
+  async getWeaverFeedback(callerUserId: number, sessionToken: string): Promise<any[]> {
+    try {
+      const response = await fetch('/moderator/getweaverfeedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify({ CallerUserId: callerUserId }),
+      });
+      if (!response.ok) return [];
+      return await response.json() as any[];
+    } catch (error) {
+      console.error('Error fetching weaver feedback:', error);
+      return [];
+    }
+  }
+
+  async deleteWeaverFeedback(id: number, callerUserId: number, sessionToken: string): Promise<boolean> {
+    try {
+      const response = await fetch('/moderator/deleteweaverfeedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
+        body: JSON.stringify({ Id: id, CallerUserId: callerUserId }),
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Error deleting weaver feedback:', error);
+      return false;
+    }
+  }
+
   async banChatUser(chatId: number, targetUserId: number, callerUserId: number, reason: string, sessionToken: string): Promise<boolean> {
     try {
       const response = await fetch('/moderator/banchatuser', {

@@ -15,8 +15,8 @@ import { Topic } from '../../services/datacontracts/topics/topic';
 export class ModeratorComponent extends ChildComponent {
   // Optional deep-link tab set via createComponent(..., { initialTab }) — e.g. a
   // 'myappeals' notification route. Takes precedence over the moderator default.
-  initialTab?: 'myappeals' | 'moderators' | 'chatmod' | 'logs' | 'appeals';
-  activeTab: 'myappeals' | 'moderators' | 'chatmod' | 'logs' | 'appeals' = 'myappeals';
+  initialTab?: 'myappeals' | 'moderators' | 'chatmod' | 'logs' | 'appeals' | 'weaver';
+  activeTab: 'myappeals' | 'moderators' | 'chatmod' | 'logs' | 'appeals' | 'weaver' = 'myappeals';
 
   appeals: any[] = [];
   modRequests: ModeratorRequest[] = [];
@@ -28,6 +28,10 @@ export class ModeratorComponent extends ChildComponent {
   // Admin is a moderator role with extra privileges — only admins can add
   // moderators or manage appeals (server-enforced, mirrored here for the UI).
   isAdmin = false;
+  // Weaver Admins — can view and delete weaver card feedback messages.
+  isWeaverAdmin = false;
+  weaverFeedback: any[] = [];
+  weaverFeedbackLoading = false;
   moderators: ModeratorInfo[] = [];
   roleCatalog: RoleDefinition[] = [];
 
@@ -102,12 +106,17 @@ export class ModeratorComponent extends ChildComponent {
       // access to this panel, scoped to the chats they moderate.
       this.isChatModerator = myRoles.some(r => r.role === 'chat_moderator' && r.targetType === 'chat' && !!r.targetId);
       this.myChatRoles = myRoles.filter(r => r.role === 'chat_moderator' && r.targetType === 'chat' && !!r.targetId);
+      this.isWeaverAdmin = myRoles.some(r => r.role === 'weaver_admin' && (!r.targetType || r.targetType === 'global'));
     }
+    this.isWeaverAdmin = this.isAdmin || this.isWeaverAdmin;
     this.isModerator = isLegacyMod || this.isChatModerator;
     if (this.initialTab) {
       this.activeTab = this.initialTab;
     }
     await this.loadMyRequests();
+    if (this.activeTab === 'weaver' && this.isWeaverAdmin) {
+      await this.loadWeaverFeedback();
+    }
     if (this.isModerator && !this.initialTab) {
       this.activeTab = 'moderators';
       if (this.isChatModerator && this.myChatRoles.length > 0) {
@@ -117,7 +126,8 @@ export class ModeratorComponent extends ChildComponent {
         this.loadModerators(),
         this.loadRoleCatalog(),
         this.loadModeratorLogs(),
-        this.isAdmin ? this.loadAppeals() : Promise.resolve()
+        this.isAdmin ? this.loadAppeals() : Promise.resolve(),
+        this.isWeaverAdmin ? this.loadWeaverFeedback() : Promise.resolve()
       ]);
       if (this.selectedManagedChat) {
         await this.loadChatModeration();
@@ -125,7 +135,7 @@ export class ModeratorComponent extends ChildComponent {
     }
   }
 
-  setTab(tab: 'myappeals' | 'moderators' | 'chatmod' | 'logs' | 'appeals') {
+  setTab(tab: 'myappeals' | 'moderators' | 'chatmod' | 'logs' | 'appeals' | 'weaver') {
     this.activeTab = tab;
     if (tab !== 'moderators') {
       this.addRoleForUserId = 0;
@@ -247,6 +257,30 @@ export class ModeratorComponent extends ChildComponent {
     this.logsLoading = true;
     this.modLogs = await this.moderatorService.getModeratorLogs(userId, sessionToken, 200);
     this.logsLoading = false;
+  }
+
+  /** Loads weaver card feedback, newest first (server-side ORDER BY created_at DESC). */
+  async loadWeaverFeedback() {
+    const userId = this.parentRef?.user?.id;
+    if (!userId) return;
+    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+    this.weaverFeedbackLoading = true;
+    try {
+      this.weaverFeedback = await this.moderatorService.getWeaverFeedback(userId, sessionToken);
+    } catch (e) {
+      this.weaverFeedback = [];
+    } finally {
+      this.weaverFeedbackLoading = false;
+    }
+  }
+
+  async deleteWeaverFeedback(id: number) {
+    const userId = this.parentRef?.user?.id;
+    if (!userId) return;
+    const sessionToken = await this.parentRef?.getSessionToken() ?? '';
+    if (await this.moderatorService.deleteWeaverFeedback(id, userId, sessionToken)) {
+      this.weaverFeedback = this.weaverFeedback.filter(f => f.id !== id);
+    }
   }
 
   async approveAppeal(appealId: number) {

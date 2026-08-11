@@ -23,6 +23,7 @@ export interface GTNPCData {
   isFleeing?: boolean;
   isDucking?: boolean;
   isArresting?: boolean;
+  targetNpcId?: number;
   maxHealth?: number;
 }
 
@@ -102,6 +103,7 @@ export interface GTUpdatePositionResponse {
   respawnAtHome?: boolean;
   arrested?: boolean;
   arrestRespawn?: boolean;
+  arrestResisted?: boolean;
   ownedWeapons?: any[];
   droppedWeapons?: any[];
   ammo?:any;
