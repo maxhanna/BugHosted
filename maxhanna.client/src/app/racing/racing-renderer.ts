@@ -382,6 +382,10 @@ export class RacingRenderer {
   private curbVbo!: WebGLBuffer;
   private curbIbo!: WebGLBuffer;
   private curbCount = 0;
+  private crosswalkVao!: WebGLVertexArrayObject;
+  private crosswalkVbo!: WebGLBuffer;
+  private crosswalkIbo!: WebGLBuffer;
+  private crosswalkCount = 0;
   private sceneryVao!: WebGLVertexArrayObject;
   private sceneryVbo!: WebGLBuffer;
   private sceneryIbo!: WebGLBuffer;
@@ -782,7 +786,19 @@ export class RacingRenderer {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.drawTireBrand(this.tireWear));
     gl.bindTexture(gl.TEXTURE_2D, null);
   }
+  private get isStreetTheme(): boolean {
+    return this.theme === 'monaco' || this.theme === 'monaco-night';
+  }
   private makeTrackMarkingsTex(): WebGLTexture {
+    // Markings vary per theme: street circuits (Monaco) get city-road paint
+    // (double-yellow centre line + crosswalks), while every other circuit
+    // keeps the racing style (painted white edge lines + dashed centre).
+    if (this.isStreetTheme) {
+      return this.makeStreetMarkingsTex();
+    }
+    return this.makeRacingMarkingsTex();
+  }
+  private makeRacingMarkingsTex(): WebGLTexture {
     // Richer street markings: crisp painted edge lines, a dashed centre line
     // and worn asphalt (fine grain, broad mottle/repairs, rubber dust on the
     // racing line and at the edges). Tiled along the track every TRACK_MARK_TILE
@@ -831,6 +847,56 @@ export class RacingRenderer {
         g = g * (1 - aDash) + 226 * aDash;
         g = Math.max(5, Math.min(250, g));
         data[i] = g; data[i + 1] = g; data[i + 2] = g * 0.98 + 4;
+      }
+    }
+    return this.makeTex(size, size, data);
+  }
+  private makeStreetMarkingsTex(): WebGLTexture {
+    // City-road surface for street circuits: darker asphalt with a white edge
+    // line and a double-yellow centre line (the classic no-overtaking street
+    // marking), with tyre rubber worn down the racing line. Crosswalks are a
+    // separate painted overlay (see buildCrosswalks).
+    const size = 256;
+    const data = new Uint8Array(size * size * 3);
+    const hash = (x: number, y: number) => {
+      let n = (x * 374761393 + y * 668265263) | 0;
+      n = Math.imul(n ^ (n >>> 13), 1274126177);
+      n ^= n >>> 16;
+      return (n >>> 0) / 4294967296;
+    };
+    const noise = (x: number, y: number, cell: number) => {
+      const x0 = Math.floor(x / cell), y0 = Math.floor(y / cell);
+      const fx = x / cell - x0, fy = y / cell - y0;
+      const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+      const v00 = hash(x0, y0), v10 = hash(x0 + 1, y0), v01 = hash(x0, y0 + 1), v11 = hash(x0 + 1, y0 + 1);
+      const a = v00 + (v10 - v00) * sx;
+      const b = v01 + (v11 - v01) * sx;
+      return a + (b - a) * sy;
+    };
+    const soft = (lo: number, hi: number, vy: number, falloff: number) =>
+      Math.max(0, Math.min(1, Math.min(vy - lo, hi - vy) / falloff));
+    for (let y = 0; y < size; y++) {
+      const vy = y / size;
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 3;
+        // Dark city asphalt with fine grain + broad mottle (repairs, stains).
+        let g = 42 + (hash(x, y) * 2 - 1) * 6;
+        const m = noise(x, y, 26);
+        g += (m - 0.5) * 10;
+        if (m > 0.74) g -= (m - 0.74) * 70;
+        if (m < 0.24) g += (0.24 - m) * 30;
+        // Tyre rubber down the racing line (centre of the road).
+        g -= Math.max(0, 1 - Math.abs(vy - 0.5) * 5.5) * 10;
+        let r = g, gg = g, b = g;
+        // White edge lines, slightly inboard of the kerb.
+        const aE = Math.max(soft(0.028, 0.058, vy, 0.007), soft(0.942, 0.972, vy, 0.007));
+        r = r * (1 - aE) + 233 * aE; gg = gg * (1 - aE) + 233 * aE; b = b * (1 - aE) + 233 * aE;
+        // Double-yellow centre line (two parallel painted lines).
+        const aY = Math.max(soft(0.474, 0.492, vy, 0.006), soft(0.508, 0.526, vy, 0.006));
+        r = r * (1 - aY) + 232 * aY; gg = gg * (1 - aY) + 213 * aY; b = b * (1 - aY) + 82 * aY;
+        data[i] = Math.max(5, Math.min(250, r));
+        data[i + 1] = Math.max(5, Math.min(250, gg));
+        data[i + 2] = Math.max(5, Math.min(250, b));
       }
     }
     return this.makeTex(size, size, data);
@@ -1615,6 +1681,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
         break;
     }
     this._scrubColor = theme === 'desert' ? [0.11, 0.105, 0.1] : theme === 'miami' ? [0.028, 0.026, 0.024] : [0.05, 0.045, 0.04];
+    // Markings are theme-specific (street paint vs racing paint), so swap the
+    // road texture now that the theme has been selected.
+    this.trackTex = this.makeTrackMarkingsTex();
     // Regenerate the circuit geometry for this theme — each track is its own
     // shape with its own elevation profile and banking, so switching circuits
     // must rebuild the ribbon/barriers/finish line before the scenery.
@@ -1834,6 +1903,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this.curbVao) { try { gl.deleteVertexArray(this.curbVao); } catch { } }
     if (this.curbVbo) { try { gl.deleteBuffer(this.curbVbo); } catch { } }
     if (this.curbIbo) { try { gl.deleteBuffer(this.curbIbo); } catch { } }
+    if (this.crosswalkVao) { try { gl.deleteVertexArray(this.crosswalkVao); } catch { } }
+    if (this.crosswalkVbo) { try { gl.deleteBuffer(this.crosswalkVbo); } catch { } }
+    if (this.crosswalkIbo) { try { gl.deleteBuffer(this.crosswalkIbo); } catch { } }
+    this.crosswalkCount = 0;
     if (this.barrierVao) { try { gl.deleteVertexArray(this.barrierVao); } catch { } }
     if (this.barrierVbo) { try { gl.deleteBuffer(this.barrierVbo); } catch { } }
     if (this.barrierIbo) { try { gl.deleteBuffer(this.barrierIbo); } catch { } }
@@ -2100,6 +2173,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
     this.buildFinishLine();
+    if (this.isStreetTheme) {
+      this.buildCrosswalks();
+    }
   }
   /** Road surface elevation + bank at a signed distance from the start line
    *  (negative = behind the line), interpolated exactly like the ribbon so the
@@ -2193,6 +2269,84 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.finishIbo = gl.createBuffer()!;
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.finishIbo);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, fIdxArray, gl.STATIC_DRAW);
+    const stride = 11 * 4;
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+    gl.enableVertexAttribArray(3);
+    gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+    gl.bindVertexArray(null);
+  }
+  private buildCrosswalks() {
+    // Zebra crossings painted on the road for street circuits (Monaco). They
+    // ride the surface (elevation + banking) like the finish line, at +0.02
+    // above the asphalt so they never z-fight the road texture, and repeat
+    // around the circuit every CROSSWALK_GAP world units.
+    const gl = this.gl;
+    const pts = this._trackPoints;
+    const n = pts.length;
+    const frameAt = (d: number) => {
+      let acc = 0;
+      for (let i = 0; i < n; i++) {
+        const a = pts[i];
+        const b = pts[(i + 1) % n];
+        const seg = Math.hypot(b.x - a.x, b.z - a.z) || 0.001;
+        if (acc + seg >= d) {
+          const f = (d - acc) / seg;
+          const tx = (b.x - a.x) / seg;
+          const tz = (b.z - a.z) / seg;
+          return {
+            x: a.x + (b.x - a.x) * f,
+            z: a.z + (b.z - a.z) * f,
+            px: -tz, pz: tx,
+            y: a.y + (b.y - a.y) * f,
+            bank: (a.bank ?? 0) + ((b.bank ?? 0) - (a.bank ?? 0)) * f,
+            hw: (a.width + (b.width - a.width) * f) / 2,
+          };
+        }
+        acc += seg;
+      }
+      return null;
+    };
+    const verts: number[] = [];
+    const idxs: number[] = [];
+    const CROSSWALK_GAP = 210;
+    const bandLen = 4.5;
+    const stripes = 9;
+    const total = this.totalTrackDist;
+    for (let d = CROSSWALK_GAP; d < total - CROSSWALK_GAP; d += CROSSWALK_GAP) {
+      const f0 = frameAt(d);
+      const f1 = frameAt(d + bandLen);
+      if (!f0 || !f1) continue;
+      for (let c = 0; c < stripes; c++) {
+        const white = c % 2 === 0;
+        const col = white ? 1.0 : 0.1;
+        const lat0 = (c / stripes * 2 - 1) * f0.hw;
+        const lat1 = ((c + 1) / stripes * 2 - 1) * f0.hw;
+        const b0 = verts.length / 11;
+        verts.push(f0.x + f0.px * lat0, f0.y + f0.bank * lat0 + 0.02, f0.z + f0.pz * lat0, 0, 1, 0, col, col, col, 0, 0);
+        verts.push(f0.x + f0.px * lat1, f0.y + f0.bank * lat1 + 0.02, f0.z + f0.pz * lat1, 0, 1, 0, col, col, col, 0, 0);
+        verts.push(f1.x + f1.px * lat1, f1.y + f1.bank * lat1 + 0.02, f1.z + f1.pz * lat1, 0, 1, 0, col, col, col, 0, 0);
+        verts.push(f1.x + f1.px * lat0, f1.y + f1.bank * lat0 + 0.02, f1.z + f1.pz * lat0, 0, 1, 0, col, col, col, 0, 0);
+        idxs.push(b0, b0 + 1, b0 + 2);
+        idxs.push(b0, b0 + 2, b0 + 3);
+      }
+    }
+    const cwArray = new Float32Array(verts);
+    const cwIdxArray = new Uint16Array(idxs);
+    this.crosswalkCount = cwIdxArray.length;
+    if (this.crosswalkCount === 0) return;
+    this.crosswalkVao = gl.createVertexArray()!;
+    gl.bindVertexArray(this.crosswalkVao);
+    this.crosswalkVbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.crosswalkVbo);
+    gl.bufferData(gl.ARRAY_BUFFER, cwArray, gl.STATIC_DRAW);
+    this.crosswalkIbo = gl.createBuffer()!;
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.crosswalkIbo);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cwIdxArray, gl.STATIC_DRAW);
     const stride = 11 * 4;
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
@@ -7227,6 +7381,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.drawElements(gl.TRIANGLES, this.shoulderCount, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(this.curbVao);
     gl.drawElements(gl.TRIANGLES, this.curbCount, gl.UNSIGNED_SHORT, 0);
+    if (this.crosswalkCount > 0) {
+      gl.bindVertexArray(this.crosswalkVao);
+      gl.drawElements(gl.TRIANGLES, this.crosswalkCount, gl.UNSIGNED_SHORT, 0);
+    }
     gl.bindVertexArray(this.barrierVao);
     gl.drawElements(gl.TRIANGLES, this.barrierCount, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(this.finishVao);
@@ -7623,6 +7781,18 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.uniform3f(this.colorLoc, 1, 1, 1);
     this.setNormalMatrix(this.modelMatrix);
     gl.drawElements(gl.TRIANGLES, this.trackCount, gl.UNSIGNED_SHORT, 0);
+    // Street-circuit zebra crossings painted on the road (Monaco).
+    if (this.crosswalkCount > 0) {
+      gl.bindVertexArray(this.crosswalkVao);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
+      gl.uniform1i(this.hasTexLoc, 0);
+      this.mat4Identity(this.modelMatrix);
+      gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+      gl.uniform3f(this.colorLoc, 1, 1, 1);
+      this.setNormalMatrix(this.modelMatrix);
+      gl.drawElements(gl.TRIANGLES, this.crosswalkCount, gl.UNSIGNED_SHORT, 0);
+    }
     // Grass shoulder — its own mesh + texture so the runoff reads as turf.
     gl.bindVertexArray(this.shoulderVao);
     gl.activeTexture(gl.TEXTURE0);

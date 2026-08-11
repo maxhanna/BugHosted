@@ -284,7 +284,7 @@
           selectedFlight.lastContact * 1000 | date:'medium' }}</span></div>
       <div class="detail-row" *ngIf="selectedFlight.lastUpdated"><span class="detail-label">Updated:</span><span>{{
           selectedFlight.lastUpdated | date:'medium' }}</span></div>
-      <div class="detail-group" *ngIf="selectedFlight.schedule?.length">
+      <div class="detail-group flight-schedules-container" *ngIf="selectedFlight.schedule?.length">
         <div class="detail-group-title">Schedule ({{ selectedFlight.schedule.length }} flight{{ selectedFlight.schedule.length !== 1 ? 's' : '' }})</div>
         <div *ngFor="let s of selectedFlight.schedule; let i = index" class="flight-schedule-entry" [class.schedule-entry-divider]="i > 0">
           <div class="detail-row" *ngIf="s.flight_date"><span class="detail-label">Date:</span><span>{{ s.flight_date | date:'mediumDate' }}</span></div>

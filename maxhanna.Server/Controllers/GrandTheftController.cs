@@ -617,6 +617,15 @@ namespace maxhanna.Server.Controllers
 		private const double FIGHT_JOIN_CHANCE = 0.35;               // per-bystander odds of joining the brawl
 		private const int FIGHT_JOIN_MAX = 4;                        // cap per rally so streets don't empty
 		private const long FIGHT_RALLY_COOLDOWN_MS = 2500;           // min gap between a fighter's crowd rallies
+		// Brawl intervention: patrol cops notice street fights, jog over ("pushing
+		// through the crowd"), and scatter the fighters instead of walking past.
+		// Cops already in a pursuit take priority and ignore brawls.
+		private const float COP_BREAKUP_SCAN_RADIUS = 30f;           // cop responds to fights within this range
+		private const float COP_BREAKUP_ARRIVE_DIST = 3.0f;          // within this of the fight, scatter everyone
+		private const float COP_BREAKUP_SCATTER_RADIUS = 14f;        // fighters within this of the cop get scattered
+		private const float COP_BREAKUP_JOG_SPEED = 3.0f;            // "push through the crowd" pace
+		private const float COP_BREAKUP_DURATION_SECONDS = 12f;      // before the cop gives up and walks on
+		private const int AMBIENT_PATROL_COPS = 2;                   // foot officers patrolling the streets
 		// Search-helicopter pursuit: when ground units lose the player, a heli is
 		// dispatched to sweep the last known area from above and can re-spot them.
 		private const float HELI_SEARCH_RADIUS = 34f;                // orbit radius around the last known spot
@@ -1143,6 +1152,9 @@ namespace maxhanna.Server.Controllers
 			public DateTime? DuckUntil { get; set; } = null;
 			public float PreDuckSpeed { get; set; } = 1.5f;
 			public DateTime? FightBackUntil { get; set; } = null;
+			// Brawl intervention: a foot cop jogging in to break up a street fight.
+			public bool IsBreakingUpFight { get; set; } = false;
+			public DateTime? BreakUpUntil { get; set; } = null;
 			public float LastKnownX { get; set; }
 			public float LastKnownZ { get; set; }
 			public DateTime? LastSeenAt { get; set; } = null;
@@ -2131,11 +2143,81 @@ namespace maxhanna.Server.Controllers
 							else
 								npc.StationaryTime = 0;
 						}
-						else
-							npc.StationaryTime = 0;
-						if (distToTarget < 2.0f)
+					else
+						npc.StationaryTime = 0;
+					// Brawl intervention: a free foot cop hears a fight nearby and jogs
+					// over — pushing straight through the crowd, no road checks — then
+					// scatters the fighters when it arrives. Pursuits take priority.
+					bool copChasing = npc.TargetUserId == userId && wantedLevel > 0;
+					bool breakingUp = npc.IsBreakingUpFight && npc.BreakUpUntil.HasValue && now < npc.BreakUpUntil.Value;
+					if (!copChasing && !breakingUp && npc.HomeVehicleId == 0)
+					{
+						int fighters = 0;
+						float fx = 0f, fz = 0f;
+						float scanSq = COP_BREAKUP_SCAN_RADIUS * COP_BREAKUP_SCAN_RADIUS;
+						foreach (var other in npcs.Values)
 						{
-							bool copSees = CopSeesPlayer(npc, posX, posZ);
+							if (other.Id == npc.Id || other.DeadAt.HasValue) continue;
+							if (other.Type != "ped_male" && other.Type != "ped_female") continue;
+							if (!other.FightBackUntil.HasValue || !(now < other.FightBackUntil.Value)) continue;
+							float fdx = other.X - npc.X;
+							float fdz = other.Z - npc.Z;
+							if (fdx * fdx + fdz * fdz > scanSq) continue;
+							fighters++;
+							fx += other.X;
+							fz += other.Z;
+						}
+						if (fighters > 0)
+						{
+							npc.IsBreakingUpFight = true;
+							npc.BreakUpUntil = now.AddSeconds(COP_BREAKUP_DURATION_SECONDS);
+							npc.TargetX = fx / fighters;
+							npc.TargetZ = fz / fighters;
+							npc.Speed = COP_BREAKUP_JOG_SPEED;
+						}
+					}
+					else if (!copChasing && breakingUp)
+					{
+						float bdx = npc.TargetX - npc.X;
+						float bdz = npc.TargetZ - npc.Z;
+						if (bdx * bdx + bdz * bdz < COP_BREAKUP_ARRIVE_DIST * COP_BREAKUP_ARRIVE_DIST)
+						{
+							// On the scene — every fighter in reach panics and sprints
+							// away from the officer, ending the fight.
+							float scatterSq = COP_BREAKUP_SCATTER_RADIUS * COP_BREAKUP_SCATTER_RADIUS;
+							foreach (var other in npcs.Values)
+							{
+								if (other.DeadAt.HasValue) continue;
+								if (other.Type != "ped_male" && other.Type != "ped_female") continue;
+								if (!other.FightBackUntil.HasValue || !(now < other.FightBackUntil.Value)) continue;
+								float fdx = other.X - npc.X;
+								float fdz = other.Z - npc.Z;
+								if (fdx * fdx + fdz * fdz > scatterSq) continue;
+								other.FightBackUntil = null;
+								other.TargetUserId = 0;
+								other.IsDucking = false;
+								other.DuckUntil = null;
+								other.PrePanicSpeed = other.Speed;
+								other.PanicUntil = now.AddSeconds(6);
+								other.PanicFromX = npc.X;
+								other.PanicFromZ = npc.Z;
+								other.Speed = Math.Max(other.Speed, 2.5f);
+							}
+							npc.IsBreakingUpFight = false;
+							npc.BreakUpUntil = null;
+							npc.Speed = 1.5f;
+						}
+						else if (npc.BreakUpUntil.HasValue && now >= npc.BreakUpUntil.Value)
+						{
+							// Never arrived (or the fight fizzled) — resume patrol.
+							npc.IsBreakingUpFight = false;
+							npc.BreakUpUntil = null;
+							npc.Speed = 1.5f;
+						}
+					}
+					if (distToTarget < 2.0f)
+					{
+						bool copSees = CopSeesPlayer(npc, posX, posZ);
 							if (npc.TargetUserId == userId && wantedLevel > 0 && copSees)
 							{
 								if (npc.StationaryTime < 3.5)
@@ -2404,6 +2486,35 @@ namespace maxhanna.Server.Controllers
 					Cb = 0.4f
 				};
 				nearbyPeds++;
+			}
+			// Street patrol: a couple of foot officers wander the city so there's
+			// always a cop nearby to break up brawls. They're pure patrol — they
+			// never chase (dispatched units handle pursuits) — but they do keep
+			// the player's heat from decaying while watching, like any cop.
+			int ambientCops = 0;
+			foreach (var kv in npcs) if (kv.Value.Type == "cop" && !kv.Value.DeadAt.HasValue && kv.Value.HomeVehicleId == 0) ambientCops++;
+			while (ambientCops < AMBIENT_PATROL_COPS)
+			{
+				long id = GetNextNpcId();
+				GetRandomSidewalkPointNearPlayer(posX, posZ, out float x, out float z, rng, minDist: 60f);
+				npcs[id] = new NpcState
+				{
+					Id = id,
+					Type = "cop",
+					Gender = "male",
+					X = x,
+					Z = z,
+					TargetX = x,
+					TargetZ = z,
+					Yaw = (float)(rng.NextDouble() * Math.PI * 2.0),
+					Speed = 1.5f,
+					Health = 100,
+					MaxHealth = 100,
+					Cr = 0.15f,
+					Cg = 0.15f,
+					Cb = 0.45f
+				};
+				ambientCops++;
 			}
 			int nearbyPolice = 0;
 			foreach (var kv in npcs) if ((kv.Value.Type == "police" || kv.Value.Type == "cop") && kv.Value.TargetUserId == userId) nearbyPolice++;

@@ -1,4 +1,4 @@
-.globe-wrapper {
+﻿.globe-wrapper {
   position: relative;
   width: 100%;
   height: 100%;
@@ -6,8 +6,10 @@
 
 .globe-canvas, .detail-canvas, .pin-canvas {
   position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   display: block;
 }
 
@@ -25,7 +27,7 @@
   left: 20px;
   z-index: 10;
   background: rgba(0, 0, 0, 0.6);
-  color: #fff;
+  color: rgba(255, 255, 255, 1);
   padding: 8px 12px;
   border-radius: 8px;
   font-family: monospace;
@@ -41,7 +43,7 @@
   align-items: center;
   gap: 8px;
   z-index: 10;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   border-radius: 20px;
   padding: 10px 8px;
 }
@@ -52,7 +54,7 @@
   width: 6px;
   height: 120px;
   cursor: pointer;
-  accent-color: #4af;
+  accent-color: rgba(68, 170, 255, 1);
 }
 
 .zoom-label {
@@ -61,6 +63,7 @@
 }
 
 /* Data Panel Backdrop */
+
 .data-panel-backdrop {
   position: fixed;
   top: 0;
@@ -72,6 +75,7 @@
 }
 
 /* Popup Panel Overrides */
+
 .data-popup-panel {
   width: 420px;
   max-width: calc(100vw - 40px);
@@ -90,7 +94,7 @@
   right: 16px;
   background: none;
   border: none;
-  color: #888;
+  color: rgba(136, 136, 136, 1);
   font-size: 22px;
   cursor: pointer;
   padding: 0;
@@ -99,53 +103,57 @@
 }
 
 .data-popup-panel .close-btn:hover {
-  color: #fff;
+  color: rgba(255, 255, 255, 1);
 }
 
 /* Tabs */
+
 .data-tabs {
   display: flex;
-  border-bottom: 1px solid #3a3a5a;
+  border-bottom: 1px solid rgba(58, 58, 90, 1);
   padding: 12px 16px 0;
   gap: 4px;
 }
 
 .tab-btn {
   padding: 8px 16px;
-  border: 1px solid transparent;
+  border-top: 1px solid rgba(0, 0, 0, 0);
+  border-right: 1px solid rgba(0, 0, 0, 0);
   border-bottom: none;
+  border-left: 1px solid rgba(0, 0, 0, 0);
   border-radius: 6px 6px 0 0;
-  background: transparent;
-  color: #888;
+  background: rgba(0, 0, 0, 0);
+  color: rgba(136, 136, 136, 1);
   cursor: pointer;
   font-size: 13px;
   transition: color 0.2s, background 0.2s;
 }
 
 .tab-btn:hover {
-  color: #ccc;
+  color: rgba(204, 204, 204, 1);
   background: rgba(40, 40, 60, 0.4);
 }
 
 .tab-btn.active {
-  color: #4af;
+  color: rgba(68, 170, 255, 1);
   background: rgba(40, 40, 60, 0.6);
-  border-color: #3a3a5a;
+  border-color: rgba(58, 58, 90, 1);
 }
 
 /* Data Content */
+
 .data-content {
   padding: 12px 16px 16px;
   overflow-y: auto;
   max-height: 60vh;
-  max-height: 60dvh;
   width: calc(100% - 50px);
 }
 
 /* Stories */
+
 .stories-filters {
   padding: 0 0 12px;
-  border-bottom: 1px solid #3a3a5a;
+  border-bottom: 1px solid rgba(58, 58, 90, 1);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -156,7 +164,7 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   padding: 0 0 10px;
-  border-bottom: 1px solid #3a3a5a;
+  border-bottom: 1px solid rgba(58, 58, 90, 1);
   margin-bottom: 12px;
 }
 
@@ -166,7 +174,7 @@
   border: 1px solid rgba(74, 170, 255, 0.7);
   border-radius: 6px;
   background: rgba(20, 35, 52, 0.9);
-  color: #fff;
+  color: rgba(255, 255, 255, 1);
   cursor: pointer;
   font-size: 12px;
 }
@@ -176,17 +184,17 @@
 }
 
 .stories-filters label {
-  color: #aaa;
+  color: rgba(170, 170, 170, 1);
   font-size: 12px;
 }
 
 .date-slider {
   width: 100%;
-  accent-color: #4af;
+  accent-color: rgba(68, 170, 255, 1);
 }
 
 .date-label {
-  color: #4af;
+  color: rgba(68, 170, 255, 1);
   font-size: 12px;
   text-align: right;
 }
@@ -210,30 +218,31 @@
 
 .story-user {
   font-weight: 600;
-  color: #4af;
+  color: rgba(68, 170, 255, 1);
   margin-bottom: 4px;
   display: flex;
 }
 
 .story-preview {
-  color: #ccc;
+  color: rgba(204, 204, 204, 1);
   font-size: 13px;
   margin-bottom: 4px;
 }
 
 .story-meta {
-  color: #777;
+  color: rgba(119, 119, 119, 1);
   font-size: 11px;
 }
 
 .no-stories {
   text-align: center;
-  color: #666;
+  color: rgba(102, 102, 102, 1);
   padding: 20px;
   font-size: 13px;
 }
 
 /* News List */
+
 .news-list {
   overflow-y: auto;
 }
@@ -253,20 +262,20 @@
 
 .news-title {
   font-weight: 600;
-  color: #4af;
+  color: rgba(68, 170, 255, 1);
   margin-bottom: 4px;
   font-size: 14px;
 }
 
 .news-description {
-  color: #ccc;
+  color: rgba(204, 204, 204, 1);
   font-size: 13px;
   margin-bottom: 4px;
 }
 
 .news-filters {
   padding: 0 0 12px;
-  border-bottom: 1px solid #3a3a5a;
+  border-bottom: 1px solid rgba(58, 58, 90, 1);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -274,34 +283,35 @@
 }
 
 .news-filters label {
-  color: #aaa;
+  color: rgba(170, 170, 170, 1);
   font-size: 12px;
 }
 
 .news-date-slider {
   width: 100%;
-  accent-color: #e8a838;
+  accent-color: rgba(232, 168, 56, 1);
 }
 
 .news-date-label {
-  color: #e8a838;
+  color: rgba(232, 168, 56, 1);
   font-size: 12px;
   text-align: right;
 }
 
 .news-meta {
-  color: #777;
+  color: rgba(119, 119, 119, 1);
   font-size: 11px;
 }
 
 .no-news {
   text-align: center;
-  color: #666;
+  color: rgba(102, 102, 102, 1);
   padding: 20px;
   font-size: 13px;
 }
 
 /* Top Right Data Toggle Button */
+
 .data-toggle-btn-top {
   position: absolute;
   top: 20px;
@@ -309,8 +319,8 @@
   z-index: 20;
   padding: 10px 16px;
   background: rgba(30, 30, 40, 0.9);
-  color: #fff;
-  border: 1px solid #4af;
+  color: rgba(255, 255, 255, 1);
+  border: 1px solid rgba(68, 170, 255, 1);
   border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
@@ -324,6 +334,7 @@
 }
 
 /* Add Flight Form */
+
 .add-flight-form {
   background: rgba(30, 30, 45, 0.6);
   border-radius: 8px;
@@ -337,30 +348,30 @@
 .form-title {
   font-size: 13px;
   font-weight: 600;
-  color: #4af;
+  color: rgba(68, 170, 255, 1);
   margin-bottom: 2px;
 }
 
 .flight-input {
   background: rgba(20, 20, 35, 0.8);
-  border: 1px solid #3a3a5a;
+  border: 1px solid rgba(58, 58, 90, 1);
   border-radius: 6px;
   padding: 8px 10px;
-  color: #fff;
+  color: rgba(255, 255, 255, 1);
   font-size: 13px;
   outline: none;
 }
 
 .flight-input:focus {
-  border-color: #4af;
+  border-color: rgba(68, 170, 255, 1);
 }
 
 .add-flight-btn {
   padding: 8px 12px;
-  border: 1px solid #00ddff;
+  border: 1px solid rgba(0, 221, 255, 1);
   border-radius: 6px;
   background: rgba(0, 221, 255, 0.15);
-  color: #00ddff;
+  color: rgba(0, 221, 255, 1);
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
@@ -371,6 +382,7 @@
 }
 
 /* Flights Tab Controls */
+
 .flights-content .flight-controls {
   display: flex;
   gap: 6px;
@@ -380,10 +392,10 @@
 .flights-content .flight-controls button {
   flex: 1;
   padding: 7px 8px;
-  border: 1px solid #4af;
+  border: 1px solid rgba(68, 170, 255, 1);
   border-radius: 6px;
   background: rgba(20, 35, 52, 0.9);
-  color: #fff;
+  color: rgba(255, 255, 255, 1);
   cursor: pointer;
   font-size: 12px;
 }
@@ -393,6 +405,7 @@
 }
 
 /* Flight List Items */
+
 .flight-item {
   display: flex;
   align-items: center;
@@ -419,17 +432,17 @@
 
 .flight-callsign {
   font-weight: 600;
-  color: #ffdd00;
+  color: rgba(255, 221, 0, 1);
   font-size: 13px;
 }
 
 .flight-route {
-  color: #888;
+  color: rgba(136, 136, 136, 1);
   font-size: 11px;
 }
 
 .flight-altitude, .flight-heading {
-  color: #666;
+  color: rgba(102, 102, 102, 1);
   font-size: 11px;
 }
 
@@ -454,7 +467,7 @@
 }
 
 .flight-remove {
-  color: #ff4444;
+  color: rgba(255, 68, 68, 1);
 }
 
 .flight-remove:hover {
@@ -463,12 +476,13 @@
 
 .no-flights {
   text-align: center;
-  color: #666;
+  color: rgba(102, 102, 102, 1);
   padding: 20px;
   font-size: 13px;
 }
 
 /* Users List */
+
 .users-list {
   overflow-y: auto;
 }
@@ -488,31 +502,32 @@
 
 .user-name {
   font-weight: 600;
-  color: #44ff88;
+  color: rgba(68, 255, 136, 1);
   margin-bottom: 4px;
   display: flex;
 }
 
 .user-location {
-  color: #777;
+  color: rgba(119, 119, 119, 1);
   font-size: 11px;
 }
 
 .no-users {
   text-align: center;
-  color: #666;
+  color: rgba(102, 102, 102, 1);
   padding: 20px;
   font-size: 13px;
 }
 
 /* Flight Detail Popup */
+
 .flight-detail-backdrop {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: transparent;
+  background: rgba(0, 0, 0, 0);
   z-index: 999;
 }
 
@@ -522,8 +537,8 @@
   left: 16px;
   transform: translateY(-50%);
   z-index: 1000;
-  background: #1a1a2e;
-  border: 1px solid #3a3a5a;
+  background: rgba(26, 26, 46, 1);
+  border: 1px solid rgba(58, 58, 90, 1);
   border-radius: 12px;
   padding: 0;
   width: 320px;
@@ -536,10 +551,10 @@
   justify-content: space-between;
   align-items: center;
   padding: 14px 16px;
-  border-bottom: 1px solid #3a3a5a;
+  border-bottom: 1px solid rgba(58, 58, 90, 1);
   font-weight: 600;
   font-size: 16px;
-  color: #00ddff;
+  color: rgba(0, 221, 255, 1);
 }
 
 .flight-detail-header .close-btn {
@@ -547,14 +562,14 @@
   font-size: 20px;
   background: none;
   border: none;
-  color: #888;
+  color: rgba(136, 136, 136, 1);
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
 }
 
 .flight-detail-header .close-btn:hover {
-  color: #fff;
+  color: rgba(255, 255, 255, 1);
 }
 
 .flight-detail-body {
@@ -564,12 +579,17 @@
   gap: 8px;
 }
 
+.flight-schedules-container {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
 .detail-group {
   display: flex;
   flex-direction: column;
   gap: 4px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #2a2a4a;
+  border-bottom: 1px solid rgba(42, 42, 74, 1);
 }
 
 .detail-group:last-of-type {
@@ -580,7 +600,7 @@
 .detail-group-title {
   font-size: 11px;
   font-weight: 600;
-  color: #666;
+  color: rgba(102, 102, 102, 1);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 2px;
@@ -594,12 +614,12 @@
 }
 
 .detail-label {
-  color: #888;
+  color: rgba(136, 136, 136, 1);
   flex-shrink: 0;
 }
 
 .detail-row span:last-child {
-  color: #fff;
+  color: rgba(255, 255, 255, 1);
   text-align: right;
 }
 
@@ -608,11 +628,11 @@
   margin-bottom: 6px;
   background: rgba(255, 255, 255, 0.04);
   border-radius: 6px;
-  border: 1px solid #2a2a4a;
+  border: 1px solid rgba(42, 42, 74, 1);
 }
 
 .schedule-entry-divider {
-  border-top: 1px dashed #3a3a5a;
+  border-top: 1px dashed rgba(58, 58, 90, 1);
   padding-top: 12px;
   margin-top: 4px;
 }
@@ -620,7 +640,7 @@
 .detail-sub-title {
   font-size: 12px;
   font-weight: 600;
-  color: #555;
+  color: rgba(85, 85, 85, 1);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-top: 4px;
@@ -634,30 +654,33 @@
   border-radius: 10px;
   text-transform: capitalize;
   background: rgba(255, 255, 255, 0.08);
-  color: #ccc;
+  color: rgba(204, 204, 204, 1);
 }
 
 .status-active {
   background: rgba(0, 200, 83, 0.2);
-  color: #00c853;
+  color: rgba(0, 200, 83, 1);
 }
 
 .status-landed {
   background: rgba(255, 180, 50, 0.2);
-  color: #ffb432;
+  color: rgba(255, 180, 50, 1);
 }
 
 .status-scheduled {
   background: rgba(74, 170, 255, 0.2);
-  color: #4af;
+  color: rgba(68, 170, 255, 1);
 }
 
 /* ---- News Article Popup ---- */
+
 .news-popup-backdrop {
   position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  background: rgba(0,0,0,0.5);
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
   z-index: 999;
 }
 
@@ -676,15 +699,14 @@
 }
 
 .news-popup-description {
-  color: #ccc;
+  color: rgba(204, 204, 204, 1);
   font-size: 14px;
   line-height: 1.5;
   margin: 0;
 }
 
-.news-popup-meta,
-.news-popup-date {
-  color: #888;
+.news-popup-meta, .news-popup-date {
+  color: rgba(136, 136, 136, 1);
   font-size: 12px;
   margin: 0;
 }
@@ -692,8 +714,8 @@
 .news-popup-open-btn {
   align-self: center;
   padding: 10px 24px;
-  background: #2a6ef0;
-  color: #fff;
+  background: rgba(42, 110, 240, 1);
+  color: rgba(255, 255, 255, 1);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -702,15 +724,18 @@
 }
 
 .news-popup-open-btn:hover {
-  background: #1a5ed8;
+  background: rgba(26, 94, 216, 1);
 }
 
 /* ---- Wikipedia Popup ---- */
+
 .wikipedia-backdrop {
   position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  background: rgba(0,0,0,0.5);
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
   z-index: 999;
 }
 
@@ -729,33 +754,33 @@
 }
 
 .wikipedia-popup-description {
-  color: #ccc;
+  color: rgba(204, 204, 204, 1);
   font-size: 14px;
   line-height: 1.5;
   margin: 0;
 }
 
 .wikipedia-popup-meta {
-  color: #888;
+  color: rgba(136, 136, 136, 1);
   font-size: 12px;
   margin: 0;
 }
 
 .wikipedia-popup-loading {
-  color: #aaa;
+  color: rgba(170, 170, 170, 1);
   font-style: italic;
 }
 
 .wikipedia-popup-notfound {
-  color: #aaa;
+  color: rgba(170, 170, 170, 1);
   font-size: 14px;
 }
 
 .wikipedia-popup-open-btn {
   align-self: center;
   padding: 10px 24px;
-  background: #2a6ef0;
-  color: #fff;
+  background: rgba(42, 110, 240, 1);
+  color: rgba(255, 255, 255, 1);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -764,15 +789,18 @@
 }
 
 .wikipedia-popup-open-btn:hover {
-  background: #1a5ed8;
+  background: rgba(26, 94, 216, 1);
 }
 
 /* ---- Story Post Popup ---- */
+
 .story-popup-backdrop {
   position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  background: rgba(0,0,0,0.5);
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
   z-index: 999;
 }
 
@@ -784,16 +812,15 @@
 }
 
 .story-popup-text {
-  color: #ccc;
+  color: rgba(204, 204, 204, 1);
   font-size: 14px;
   line-height: 1.5;
   margin: 0;
   word-wrap: break-word;
 }
 
-.story-popup-meta,
-.story-popup-date {
-  color: #888;
+.story-popup-meta, .story-popup-date {
+  color: rgba(136, 136, 136, 1);
   font-size: 12px;
   margin: 0;
 }
@@ -801,8 +828,8 @@
 .story-popup-open-btn {
   align-self: center;
   padding: 10px 24px;
-  background: #2a6ef0;
-  color: #fff;
+  background: rgba(42, 110, 240, 1);
+  color: rgba(255, 255, 255, 1);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -811,15 +838,18 @@
 }
 
 .story-popup-open-btn:hover {
-  background: #1a5ed8;
+  background: rgba(26, 94, 216, 1);
 }
 
 /* ---- Cluster Popup Panel ---- */
+
 .cluster-popup-backdrop {
   position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  background: rgba(0,0,0,0.5);
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
   z-index: 999;
 }
 
@@ -866,7 +896,7 @@
 
 .cluster-ping-label {
   font-weight: 600;
-  color: #fff;
+  color: rgba(255, 255, 255, 1);
   font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
@@ -874,16 +904,19 @@
 }
 
 .cluster-ping-source {
-  color: #888;
+  color: rgba(136, 136, 136, 1);
   font-size: 11px;
 }
 
 /* ---- User Popup Panel ---- */
+
 .user-popup-backdrop {
   position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  background: rgba(0,0,0,0.5);
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
   z-index: 999;
 }
 
@@ -918,19 +951,19 @@
 }
 
 .user-popup-row span:last-child {
-  color: #fff;
+  color: rgba(255, 255, 255, 1);
   text-align: right;
 }
 
 .user-popup-label {
-  color: #888;
+  color: rgba(136, 136, 136, 1);
   flex-shrink: 0;
 }
 
 .user-popup-profile-btn {
   padding: 10px 24px;
-  background: #2a6ef0;
-  color: #fff;
+  background: rgba(42, 110, 240, 1);
+  color: rgba(255, 255, 255, 1);
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -940,10 +973,11 @@
 }
 
 .user-popup-profile-btn:hover {
-  background: #1a5ed8;
+  background: rgba(26, 94, 216, 1);
 }
 
 /* Accordion Styles for Cluster Popup */
+
 .accordion {
   padding: 8px 0;
   max-height: 50vh;
@@ -955,7 +989,7 @@
   border-radius: 8px;
   overflow: hidden;
   background: rgba(30, 30, 45, 0.6);
-  border: 1px solid #3a3a5a;
+  border: 1px solid rgba(58, 58, 90, 1);
 }
 
 .accordion-header {
@@ -966,7 +1000,7 @@
   cursor: pointer;
   background: rgba(40, 40, 60, 0.7);
   transition: background 0.2s;
-  border-bottom: 1px solid #3a3a5a;
+  border-bottom: 1px solid rgba(58, 58, 90, 1);
 }
 
 .accordion-header:hover {
@@ -975,13 +1009,13 @@
 
 .accordion-title {
   font-weight: 600;
-  color: #fff;
+  color: rgba(255, 255, 255, 1);
   font-size: 14px;
 }
 
 .accordion-toggle {
   font-size: 18px;
-  color: #4af;
+  color: rgba(68, 170, 255, 1);
   transition: transform 0.2s;
 }
 
@@ -992,12 +1026,12 @@
 }
 
 /* Responsive adjustments */
-@media (max-width: 667px) {
-  .news-popup-panel.popupPanel,
-  .story-popup-panel.popupPanel {
+
+@media (max-width: 667px) { 
+  .news-popup-panel.popupPanel, .story-popup-panel.popupPanel {
     width: calc(100vw - 50px);
   }
-  
+
   .cluster-popup-panel.popupPanel {
     width: 90vw;
     max-width: 420px;
@@ -1005,9 +1039,10 @@
 }
 
 /* Pin Toggle Switch */
+
 .pin-toggle-row {
   padding: 0 0 12px;
-  border-bottom: 1px solid #3a3a5a;
+  border-bottom: 1px solid rgba(58, 58, 90, 1);
   margin-bottom: 12px;
 }
 
@@ -1020,7 +1055,7 @@
 }
 
 .pin-toggle-label {
-  color: #aaa;
+  color: rgba(170, 170, 170, 1);
   font-size: 13px;
   font-weight: 500;
 }
@@ -1033,55 +1068,59 @@
   position: relative;
   width: 40px;
   height: 22px;
-  background: #3a3a5a;
+  background: rgba(58, 58, 90, 1);
   border-radius: 11px;
   transition: background 0.2s;
   flex-shrink: 0;
 }
 
 .pin-toggle-slider::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 2px;
   left: 2px;
   width: 18px;
   height: 18px;
-  background: #fff;
+  background: rgba(255, 255, 255, 1);
   border-radius: 50%;
   transition: transform 0.2s;
 }
 
-.pin-toggle input:checked + .pin-toggle-slider {
-  background: #4af;
+.pin-toggle input:checked+.pin-toggle-slider {
+  background: rgba(68, 170, 255, 1);
 }
 
-.pin-toggle input:checked + .pin-toggle-slider::before {
+.pin-toggle input:checked+.pin-toggle-slider::before {
   transform: translateX(18px);
 }
 
 /* Flight tooltip */
+
 .flight-tooltip {
   position: absolute;
   background: rgba(0, 0, 0, 0.8);
-  color: #fff;
+  color: rgba(255, 255, 255, 1);
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 12px;
   pointer-events: none;
   z-index: 1000;
   white-space: nowrap;
-  border: 1px solid #4af;
+  border: 1px solid rgba(68, 170, 255, 1);
 }
+
 /* Refreshing message */
+
 .refreshing-message {
   text-align: center;
   padding: 20px;
-  color: #4af;
+  color: rgba(68, 170, 255, 1);
   font-style: italic;
   font-size: 14px;
 }
 
 /* Coordinate search */
+
 .coord-search-section {
   margin-top: 12px;
   border-top: 1px solid var(--border-color, #444);
@@ -1101,7 +1140,7 @@
 
 .coord-search-input:focus {
   outline: none;
-  border-color: #4af;
+  border-color: rgba(68, 170, 255, 1);
 }
 
 .coord-search-results {
@@ -1160,30 +1199,35 @@
 }
 
 /* City/country/town search inside coords edit popup */
+
 .location-search-results {
   max-height: 250px;
   overflow-y: auto;
-  border: 1px solid rgba(255,255,255,0.15);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 6px;
   margin-bottom: 10px;
-  background: rgba(0,0,0,0.3);
+  background: rgba(0, 0, 0, 0.3);
 }
+
 .location-search-item {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
   cursor: pointer;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   transition: background 0.15s ease;
   font-size: 13px;
 }
+
 .location-search-item:hover {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
 }
+
 .location-search-item:last-child {
   border-bottom: none;
 }
+
 .location-type-badge {
   flex-shrink: 0;
   display: inline-block;
@@ -1192,19 +1236,21 @@
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  color: #fff;
-  background: rgba(120,120,120,0.5);
+  color: rgba(255, 255, 255, 1);
+  background: rgba(120, 120, 120, 0.5);
 }
+
 .location-name {
   flex: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #ddd;
+  color: rgba(221, 221, 221, 1);
 }
+
 .location-coords {
   flex-shrink: 0;
-  color: #888;
+  color: rgba(136, 136, 136, 1);
   font-size: 11px;
   font-family: monospace;
 }
