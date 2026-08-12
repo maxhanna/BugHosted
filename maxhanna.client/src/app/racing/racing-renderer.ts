@@ -867,13 +867,8 @@ export class RacingRenderer {
       const vy = y / size;
       for (let x = 0; x < size; x++) {
         const i = (y * size + x) * 3;
-        // Base asphalt: mid gray with fine per-pixel grain.
+        // Base asphalt: mid gray with fine per-pixel grain (no mottled spots).
         let g = 55 + (hash(x, y) * 2 - 1) * 7;
-        // Broad mottling — darker repairs/stains, sun-bleached worn patches.
-        const m = noise(x, y, 26);
-        g += (m - 0.5) * 12;
-        if (m > 0.74) g -= (m - 0.74) * 90;
-        if (m < 0.24) g += (0.24 - m) * 36;
         // Rubber laid down on the racing line (a soft band down the middle).
         g -= Math.max(0, 1 - Math.abs(vy - 0.5) * 5.5) * 12;
         // Rubber dust at the very edges where cars drop wheels off-line.
@@ -919,12 +914,8 @@ export class RacingRenderer {
       const vy = y / size;
       for (let x = 0; x < size; x++) {
         const i = (y * size + x) * 3;
-        // Dark city asphalt with fine grain + broad mottle (repairs, stains).
+        // Dark city asphalt with fine grain (no mottled spots).
         let g = 42 + (hash(x, y) * 2 - 1) * 6;
-        const m = noise(x, y, 26);
-        g += (m - 0.5) * 10;
-        if (m > 0.74) g -= (m - 0.74) * 70;
-        if (m < 0.24) g += (0.24 - m) * 30;
         // Tyre rubber down the racing line (centre of the road).
         g -= Math.max(0, 1 - Math.abs(vy - 0.5) * 5.5) * 10;
         let r = g, gg = g, b = g;
