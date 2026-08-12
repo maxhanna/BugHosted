@@ -209,7 +209,7 @@
         <div class="menuPopupTitle">
           🛡️ Moderators
           <span class="xxSmallFont thirdFontColor">
-            {{ currentModeratorTopic ? '— topic “' + currentModeratorTopic.topicText + '”' : '— general moderators' }}
+            {{ currentModeratorTopic ? '— topic “' + currentModeratorTopic.topicText + '”' : (chatId ? '— board & general moderators' : '— general moderators') }}
           </span>
         </div>
         <div *ngIf="topicModeratorsLoading" class="xxSmallFont thirdFontColor">Loading…</div>
@@ -220,7 +220,7 @@
           <div *ngFor="let mod of topicModerators" class="topicModeratorRow">
             <app-user-tag [userId]="mod.userId" [inputtedParentRef]="parentRef ?? parent"
               [displayMiniTag]="true" [displayHoverPicture]="true"></app-user-tag>
-            <span class="topicModeratorRole xxSmallFont thirdFontColor">{{ (mod.role || 'moderator').split('_').join(' ') | titlecase }}</span>
+            <span [class]="'topicModeratorRole modRoleBadge ' + modBadgeClass(mod)">{{ getModRoleBadgeLabel(mod) }}</span>
           </div>
         </div>
 
@@ -259,7 +259,7 @@
     <!-- Story Input -->
     <div class="storyInputDiv" *ngIf="!showOnlyPost || user || chatId">
       <app-text-input [inputtedParentRef]="parentRef ?? parent" [type]="'Social'" [profileUser]="user" [chatId]="chatId"
-        [attachedTopics]="attachedTopics" (topicAdded)="searchStories($event)" (topicClicked)="topicClicked($event)"
+        [attachedTopics]="attachedTopics" (topicAdded)="onTopicAdded($event)" (topicClicked)="topicClicked($event)"
         (topicIgnored)="searchStories()" (contentPosted)="contentPosted($event)">
       </app-text-input>
     </div>

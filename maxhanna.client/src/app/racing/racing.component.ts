@@ -303,6 +303,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   overallLeaderboardUserRank = 0;
   overallLeaderboardBestLap = 0;
   overallPerTrack: Map<number, { [trackId: number]: number }> = new Map();
+  // Best Laps panel: which view is open ('overall' = every player's fastest
+  // lap anywhere, 'circuits' = per-track top boards) and its load state.
+  leaderboardView: 'overall' | 'circuits' = 'overall';
+  overallLoading = false;
+  overallDataUnavailable = false;
   rankMovement = 0;
   racerProfile: { playerId: number; playerName: string; car: RacingPlayerCar | null; loading: boolean } | null = null;
   showLeaderboard = false;
@@ -2967,10 +2972,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.showLeaderboard = !this.showLeaderboard;
     if (this.showLeaderboard) {
       this.parentRef?.showOverlay();
-      await this.loadAllTrackLeaderboards();
+      // Load both views up front so switching tabs is instant.
+      await Promise.all([this.loadAllTrackLeaderboards(), this.loadOverallLeaderboard()]);
     } else {
       this.parentRef?.closeOverlay();
     }
+  }
+  setLeaderboardView(view: 'overall' | 'circuits') {
+    this.leaderboardView = view;
   }
   // Drop degenerate rows (missing lap or name — e.g. an older server that
   // serialized the leaderboard DTO as empty {} objects) and empty boards, so a
@@ -3050,12 +3059,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           }
         }
         boards = seeded;
-      }					// The by-track route answered with an unexpected shape, or answered but
-					// every row was unsanitizable (e.g. an older server that serialized the
-					// DTO as empty objects) → surface that instead of 'no laps on this
-					// circuit yet'.
-					this.leaderboardDataUnavailable = boards.length === 0 &&
-						(byTrack === null || (byTrack.tracks?.length ?? 0) > 0);
+      }					// Honest state: when the by-track route failed outright (null), the
+					// own-laps fallback above still seeds boards — surface the notice
+					// alongside them instead of silently pretending the user's laps are
+					// the whole field. When it answered with rows but every one was
+					// unsanitizable (e.g. an older server that serialized the DTO as empty
+					// objects), also say data is unavailable rather than 'no laps yet'.
+					this.leaderboardDataUnavailable = byTrack === null ||
+						(boards.length === 0 && (byTrack.tracks?.length ?? 0) > 0);
       this.allTrackBoards = boards;
       // On small screens default every card to collapsed so the panel stays
       // compact; users can expand individual circuits as needed. Only seed the
@@ -3151,12 +3162,25 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
   async loadOverallLeaderboard() {
     const uid = this.parentRef?.user?.id ?? 0;
+    this.overallLoading = true;
+    this.overallDataUnavailable = false;
     try {
       const data = await this.racingService.getOverallLeaderboard(uid);
-      this.overallLeaderboard = data?.results ?? [];
-      this.overallLeaderboardTotal = data?.totalCount ?? 0;
-      this.overallLeaderboardUserRank = data?.userRank ?? 0;
-      this.overallLeaderboardBestLap = data?.bestLap ?? 0;
+      if (data === null) {
+        // The endpoint failed or answered with an unexpected shape — don't
+        // imply nobody has raced; say the data couldn't be loaded.
+        this.overallLeaderboard = [];
+        this.overallLeaderboardTotal = 0;
+        this.overallLeaderboardUserRank = 0;
+        this.overallLeaderboardBestLap = 0;
+        this.overallPerTrack = new Map();
+        this.overallDataUnavailable = true;
+        return;
+      }
+      this.overallLeaderboard = data.results ?? [];
+      this.overallLeaderboardTotal = data.totalCount ?? 0;
+      this.overallLeaderboardUserRank = data.userRank ?? 0;
+      this.overallLeaderboardBestLap = data.bestLap ?? 0;
       this.overallPerTrack = new Map();
       for (const r of this.overallLeaderboard) {
         const b = (r as any).bestLapsByTrack;
@@ -3182,6 +3206,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.overallLeaderboardTotal = 0;
       this.overallLeaderboardUserRank = 0;
       this.overallLeaderboardBestLap = 0;
+      this.overallDataUnavailable = true;
+    } finally {
+      this.overallLoading = false;
     }
   }
   private getMyOverallByTrack(): { [trackId: number]: number } | null {

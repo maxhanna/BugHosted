@@ -213,34 +213,34 @@ namespace maxhanna.Server.Controllers
       {
         using var conn = new MySqlConnection(connStr);
         await conn.OpenAsync();
-        string sql;
+        // Moderators shown for a board: its topic's moderators (when one is
+        // selected), the chat room's moderators (when the board is linked to a
+        // public chat room), then the general/global moderators, then the
+        // site owner. Each SELECT feeds the same UNION ALL so the list is one
+        // deduplicated set (first occurrence wins, so the most specific role
+        // — topic, then chat — takes precedence for users in multiple roles).
+        string sql = "";
         if (request.TopicId > 0)
         {
-          sql = @"
+          sql += @"
             SELECT u.id AS user_id, u.username, udp.file_id AS display_file_id, mr.role, mr.target_type, mr.target_id
             FROM maxhanna.moderator_roles mr
             JOIN maxhanna.users u ON u.id = mr.user_id
             LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
             WHERE mr.target_type = 'topic' AND mr.target_id = @TopicId
-            UNION ALL
-            SELECT u.id AS user_id, u.username, udp.file_id AS display_file_id, mr.role, mr.target_type, mr.target_id
-            FROM maxhanna.moderator_roles mr
-            JOIN maxhanna.users u ON u.id = mr.user_id
-            LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
-            WHERE mr.target_type = 'global'
-            UNION ALL
-            SELECT u.id AS user_id, u.username, udp.file_id AS display_file_id, ur.role, 'global' AS target_type, NULL AS target_id
-            FROM maxhanna.user_roles ur
-            JOIN maxhanna.users u ON u.id = ur.user_id
-            LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
-            WHERE ur.role = 'moderator';"
-            + (request.CallerUserId != 1
-              ? " UNION ALL SELECT 1, 'Owner', NULL, 'admin', 'global', NULL"
-              : "");
+            UNION ALL";
         }
-        else
+        if (request.ChatId is > 0)
         {
-          sql = @"
+          sql += @"
+            SELECT u.id AS user_id, u.username, udp.file_id AS display_file_id, mr.role, mr.target_type, mr.target_id
+            FROM maxhanna.moderator_roles mr
+            JOIN maxhanna.users u ON u.id = mr.user_id
+            LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
+            WHERE mr.target_type = 'chat' AND mr.target_id = @ChatId
+            UNION ALL";
+        }
+        sql += @"
             SELECT u.id AS user_id, u.username, udp.file_id AS display_file_id, mr.role, mr.target_type, mr.target_id
             FROM maxhanna.moderator_roles mr
             JOIN maxhanna.users u ON u.id = mr.user_id
@@ -251,13 +251,14 @@ namespace maxhanna.Server.Controllers
             FROM maxhanna.user_roles ur
             JOIN maxhanna.users u ON u.id = ur.user_id
             LEFT JOIN maxhanna.user_display_pictures udp ON udp.user_id = u.id
-            WHERE ur.role = 'moderator';"
-            + (request.CallerUserId != 1
-              ? " UNION ALL SELECT 1, 'Owner', NULL, 'admin', 'global', NULL"
-              : "");
+            WHERE ur.role = 'moderator'";
+        if (request.CallerUserId != 1)
+        {
+          sql += " UNION ALL SELECT 1, 'Owner', NULL, 'admin', 'global', NULL";
         }
         using var cmd = new MySqlCommand(sql, conn);
         if (request.TopicId > 0) cmd.Parameters.AddWithValue("@TopicId", request.TopicId);
+        if (request.ChatId is > 0) cmd.Parameters.AddWithValue("@ChatId", request.ChatId.Value);
         var byUser = new Dictionary<int, object>();
         var order = new List<int>();
         using var reader = await cmd.ExecuteReaderAsync();
@@ -270,7 +271,10 @@ namespace maxhanna.Server.Controllers
             userId,
             username = reader.GetString("username"),
             displayFileId = reader.IsDBNull(reader.GetOrdinal("display_file_id")) ? (int?)null : reader.GetInt32("display_file_id"),
-            role = reader.IsDBNull(reader.GetOrdinal("role")) ? null : reader.GetString("role")
+            role = reader.IsDBNull(reader.GetOrdinal("role")) ? null : reader.GetString("role"),
+            // Lets the client badge each moderator by scope: chat room, topic, or general.
+            targetType = reader.IsDBNull(reader.GetOrdinal("target_type")) ? null : reader.GetString("target_type"),
+            targetId = reader.IsDBNull(reader.GetOrdinal("target_id")) ? (int?)null : reader.GetInt32("target_id")
           };
           order.Add(userId);
         }
@@ -1536,6 +1540,9 @@ namespace maxhanna.Server.Controllers
   {
     public int CallerUserId { get; set; }
     public int TopicId { get; set; }
+    // When the board is linked to a public chat room, its chat moderators are
+    // included in the moderator list alongside the topic/general moderators.
+    public int? ChatId { get; set; }
   }
   public class GetModeratorRequestsRequest
   {

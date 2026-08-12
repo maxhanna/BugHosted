@@ -6061,6 +6061,28 @@
   align-items: center;
 }
 
+.race-lb-standing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 auto 12px;
+  padding: 8px 16px;
+  max-width: 520px;
+  border: 1px solid rgba(229, 57, 53, 0.45);
+  border-radius: 14px;
+  background: rgba(229, 57, 53, 0.1);
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffd600;
+  text-align: center;
+}
+
+.race-lb-standing-medal {
+  font-size: 20px;
+  line-height: 1;
+}
+
 .race-lb-best {
   font-weight: 700;
   color: #fff;

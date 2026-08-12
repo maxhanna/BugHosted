@@ -1265,6 +1265,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       // HttpOnly cookie (not JS-readable), so auth survives reloads without
       // any client-side token storage.
       this.sessionToken = (loginData as { user: User; sessionToken: string }).sessionToken;
+      // A fresh login means a future session expiry can redirect again.
+      this._sessionExpiryRedirected = false;
       setTimeout(() => {
         this?.navigationComponent?.getThemeInfo();
       }, 50);
@@ -1848,13 +1850,17 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         this.lastLastSeenUpdate = now;
         tmpUser.lastSeen = new Date();
         // A 401 on the presence ping means the session died (expired or
-        // evicted by the per-user cap) even though the user is navigating.
-        // Auto-renew it — the server mints a fresh token/cookie — and retry
-        // the ping once so the 401 doesn't persist on the next request.
+        // evicted by the per-user cap). First try to auto-renew — the server
+        // mints a fresh token/cookie only while the user is demonstrably
+        // active. If renewal is refused the session is genuinely dead: log
+        // out and redirect to login instead of leaving the user stuck in a
+        // 401 loop.
         if (res?.status === 401) {
           const renewed = await this.renewSessionIfDenied();
           if (renewed) {
             await this.userService.updateLastSeen(tmpUser.id, this.sessionToken);
+          } else {
+            await this.redirectToLoginAfterSessionExpiry();
           }
         }
       }
@@ -1883,6 +1889,34 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this._renewingSession = false;
     }
   }
+
+  /**
+   * A session that the server refused to renew is genuinely dead — clear the
+   * local session state and land the user on the login screen instead of
+   * leaving the presence ping stuck in a 401 loop.
+   */
+  private _sessionExpiryRedirected = false;
+  async redirectToLoginAfterSessionExpiry(): Promise<void> {
+    if (this._sessionExpiryRedirected) return;
+    this._sessionExpiryRedirected = true;
+    try {
+      // Best-effort revoke — the token is already dead, but this also clears
+      // the HttpOnly BHUserToken cookie so the browser stops sending it.
+      await this.userService.logout(this.sessionToken);
+    } catch {
+      // Ignore — the local cleanup below is what matters.
+    }
+    this.sessionToken = undefined;
+    this.deleteCookie("user");
+    this.navigationComponent?.clearNotifications();
+    this.user = undefined;
+    // Rebuild the nav for the logged-out (guest) view.
+    await this.getSelectedMenuItems();
+    this.showNotification("Your session has expired. Please log in again.");
+    this.checkAndClearRouterOutlet();
+    this.createComponent('User');
+  }
+
   async isServerUp(): Promise<number> {
     const now = Date.now();
     if (this._serverUpCache !== null && now - this._serverUpCacheTime < 20000) {

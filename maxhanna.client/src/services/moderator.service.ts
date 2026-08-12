@@ -284,13 +284,15 @@ export class ModeratorService {
     }
   }
 
-  /** Any logged-in user can list the moderators of a topic (0 = general moderators). */
-  async getModeratorsFor(callerUserId: number, topicId: number, sessionToken: string): Promise<any[]> {
+  /** Any logged-in user can list the moderators of a topic (0 = general
+   *  moderators). Pass a chatId when the board is linked to a public chat
+   *  room so that room's moderators are included in the list too. */
+  async getModeratorsFor(callerUserId: number, topicId: number, sessionToken: string, chatId?: number): Promise<any[]> {
     try {
       const response = await fetch('/moderator/getmoderatorsfor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Encrypted-UserId': sessionToken },
-        body: JSON.stringify({ CallerUserId: callerUserId, TopicId: topicId }),
+        body: JSON.stringify({ CallerUserId: callerUserId, TopicId: topicId, ChatId: chatId ?? null }),
       });
       if (!response.ok) return [];
       return await response.json() as any[];

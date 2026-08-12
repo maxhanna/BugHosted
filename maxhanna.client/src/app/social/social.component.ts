@@ -696,6 +696,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (topics) {
       this.currentPage = 1;
       this.attachedTopics = topics;
+      // Keep the menu's moderator list in sync with the newly picked topic(s)
+      // while it's open — the board's chat-room moderators ride along with
+      // every topic selection.
+      if (this.isMenuPanelOpen) this.loadTopicModerators();
       this.searchStories(topics);
       this.scrollToStory();
       this.closeMenuPanel();
@@ -704,6 +708,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   }
   removeTopic(topic: Topic) {
     this.attachedTopics = this.attachedTopics.filter(x => x.id != topic.id);
+    if (this.isMenuPanelOpen) this.loadTopicModerators();
     this.searchStories(this.attachedTopics);
     this.scrollToStory(); 
   }
@@ -797,7 +802,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       const { ModeratorService } = await import('../../services/moderator.service');
       const moderatorService = new (ModeratorService as any)();
       const sessionToken = await this.parentRef?.getSessionToken() ?? '';
-      this.topicModerators = await moderatorService.getModeratorsFor(me, topic?.id ?? 0, sessionToken);
+      // The board's chat room moderators ride along automatically — a public
+      // chat room linked to a board shares its moderators with that board.
+      this.topicModerators = await moderatorService.getModeratorsFor(me, topic?.id ?? 0, sessionToken, this.chatId);
 
       const roles = await moderatorService.getMyRoles(me, sessionToken);
       this.isTopicModerator = roles.some((r: any) =>
@@ -816,6 +823,22 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     } finally {
       this.topicModeratorsLoading = false;
     }
+  }
+
+  /** Badge label for a moderator in the menu list: scope + role, so chat-room
+   *  moderators read differently from general ones. */
+  getModRoleBadgeLabel(mod: any): string {
+    if (!mod) return 'Moderator';
+    if (mod.targetType === 'chat') return '🗨️ Chat Moderator';
+    if (mod.targetType === 'topic') return '📌 Topic Moderator';
+    if (mod.username === 'Owner') return '👑 Owner';
+    return '🌐 General';
+  }
+  modBadgeClass(mod: any): string {
+    if (!mod) return 'modRoleBadge-general';
+    if (mod.targetType === 'chat') return 'modRoleBadge-chat';
+    if (mod.targetType === 'topic') return 'modRoleBadge-topic';
+    return 'modRoleBadge-general';
   }
 
   toggleTopicModRequestBox() {

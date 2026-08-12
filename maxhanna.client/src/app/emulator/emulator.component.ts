@@ -2531,7 +2531,10 @@ export class EmulatorComponent extends ChildComponent implements OnInit, OnDestr
       // D-pad's column (the left cluster is 125px wide; the D-pad buttons
       // center at x≈122) and lifted slightly so the 100px stick circle
       // doesn't sit flush against the screen bottom.
-      { type: 'zone', location: 'left', left: '98%', top: '97%', joystickInput: true, color: 'grey', inputValues: [19, 18, 17, 16] },
+      // inputValues must stay in EmulatorJS zone order [xRight, xLeft, yUp,
+      // yDown] = [16, 17, 18, 19] — a reversed array crosses the axes (stick
+      // right fires STICK UP, etc.).
+      { type: 'zone', location: 'left', left: '98%', top: '97%', joystickInput: true, color: 'grey', inputValues: [16, 17, 18, 19] },
       // L shoulder at bottom-left
       { type: 'button', id: 'n64L', text: 'L', location: 'left', left: 0, top: -60, input_value: 10, bold: true, block: true },
       // C buttons diamond at top right

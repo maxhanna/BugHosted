@@ -106,21 +106,27 @@ export class RacingService {
 
   // High-scores view across ALL circuits — every player's fastest lap anywhere,
   // the circuit it was set on, and their per-track breakdown.
+  // Returns null when the response doesn't look like the expected shape (or the
+  // route is missing) so the panel can say data is unavailable instead of
+  // implying nobody has raced.
   async getOverallLeaderboard(userId: number = 0): Promise<{
     results: (RaceResult & { bestLapsByTrack?: { [trackId: number]: number } })[],
     totalCount: number;
     userRank: number;
     bestLap: number;
-  }> {
+  } | null> {
     try {
       const data: any = await this.http.get(`${this.baseUrl}/leaderboard-overall?userId=${userId}`).toPromise();
+      if (data === null || typeof data !== 'object' || !Array.isArray(data.results)) {
+        return null;
+      }
       return {
-        results: data?.results ?? [],
-        totalCount: data?.totalCount ?? 0,
-        userRank: data?.userRank ?? 0,
-        bestLap: data?.bestLap ?? 0,
+        results: data.results ?? [],
+        totalCount: data.totalCount ?? 0,
+        userRank: data.userRank ?? 0,
+        bestLap: data.bestLap ?? 0,
       };
-    } catch { return { results: [], totalCount: 0, userRank: 0, bestLap: 0 }; }
+    } catch { return null; }
   }
 
   async joinRace(userId: number, trackId: number): Promise<any> {

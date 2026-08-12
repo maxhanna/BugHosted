@@ -1184,6 +1184,22 @@ namespace maxhanna.Server.Controllers
           up.Parameters.Add("@UserId", MySqlDbType.Int32).Value = userId;
           await up.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         }
+
+        // 3) Presence-based sliding session: every successful presence ping
+        //    extends the current session token by 15 minutes, so the token
+        //    lives as long as the user is actively navigating and dies ~15
+        //    minutes after they stop. (Other authenticated calls still slide
+        //    the full window via ValidateSessionUserId, but the ping keeps the
+        //    countdown pinned to presence.)
+        await using (var slide = new MySqlCommand(@"
+          UPDATE maxhanna.user_sessions
+            SET expires_at   = UTC_TIMESTAMP() + INTERVAL 15 MINUTE,
+                last_used_at = UTC_TIMESTAMP()
+          WHERE token = @Token;", conn))
+        {
+          slide.Parameters.Add("@Token", MySqlDbType.VarChar).Value = encryptedUserIdHeader;
+          await slide.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        }
         return Ok();
       }
       catch (Exception ex)
@@ -1875,9 +1891,10 @@ namespace maxhanna.Server.Controllers
         return Unauthorized("Access Denied. Please log in again.");
 
       // Activity gate: only auto-renew while the user is demonstrably active
-      // (navigated within the last half hour). Otherwise the session is
+      // (presence ping within the last 15 minutes — the same window that
+      // UpdateLastSeen uses to keep the token alive). Otherwise the session is
       // genuinely abandoned and a normal login is required.
-      if (session.Value.LastSeen < DateTime.UtcNow.AddMinutes(-30))
+      if (session.Value.LastSeen < DateTime.UtcNow.AddMinutes(-15))
         return Unauthorized("Session expired. Please log in again.");
 
       string newToken = await Log.CreateSession(cs, session.Value.UserId) ?? "";
