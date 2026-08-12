@@ -1,12 +1,11 @@
+using System.Text.RegularExpressions;
+using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Comments;
 using maxhanna.Server.Controllers.DataContracts.Files;
-using maxhanna.Server.Controllers.DataContracts;
-using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Social;
+using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using System.Collections.Concurrent;
-using System.Text.RegularExpressions;
 
 namespace maxhanna.Server.Controllers
 {

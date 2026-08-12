@@ -1,5 +1,5 @@
-using MySqlConnector;
 using System.Text;
+using MySqlConnector;
 
 namespace maxhanna.Server.Services
 {

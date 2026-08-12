@@ -1,11 +1,6 @@
-using maxhanna.Server.Controllers.DataContracts;
-using maxhanna.Server.Controllers.DataContracts.Chat;
-using maxhanna.Server.Controllers.DataContracts.Files;
-using maxhanna.Server.Controllers.DataContracts.Users;
+using System.Data;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using System.Data;
-using static maxhanna.Server.Controllers.AiController;
 
 namespace maxhanna.Server.Controllers
 {

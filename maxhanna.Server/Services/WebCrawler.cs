@@ -1,15 +1,14 @@
-﻿using HtmlAgilityPack;
-using maxhanna.Server.Controllers.DataContracts.Metadata;
-using MySqlConnector;
-using System;
+﻿using System.Collections.Concurrent;
 using System.Data;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Collections.Concurrent;
 using System.Xml;
+using HtmlAgilityPack;
 using maxhanna.Infrastructure;
+using maxhanna.Server.Controllers.DataContracts.Metadata;
+using MySqlConnector;
 public class WebCrawler
 {
   private readonly HttpClient _httpClient;

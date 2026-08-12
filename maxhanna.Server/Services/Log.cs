@@ -1,13 +1,9 @@
-﻿using FirebaseAdmin.Messaging;
-using maxhanna.Infrastructure;
-using MySqlConnector;
-using System.Data;
+﻿using System.Data;
 using System.Diagnostics;
-using System.Diagnostics.Tracing;
-using System.IO.Compression;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using maxhanna.Infrastructure;
+using MySqlConnector;
 public class Log
 {
   private readonly IConfiguration _config;

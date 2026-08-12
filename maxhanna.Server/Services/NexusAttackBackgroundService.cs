@@ -1,10 +1,10 @@
-﻿using maxhanna.Infrastructure;
+﻿using System.Collections.Concurrent;
+using System.Threading.Channels;
+using maxhanna.Infrastructure;
 using maxhanna.Server.Controllers;
 using maxhanna.Server.Controllers.DataContracts.Nexus;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using MySqlConnector;
-using System.Collections.Concurrent;
-using System.Threading.Channels;
 
 namespace maxhanna.Server.Services
 {

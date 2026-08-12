@@ -1,13 +1,11 @@
+using System.Collections.ObjectModel;
+using System.Text.Json;
 using maxhanna.Server.Controllers.DataContracts.Crypto;
-using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.Helpers;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using SixLabors.ImageSharp.Formats.Bmp;
-using System.Collections.ObjectModel;
-using System.Text.Json;
 
 namespace maxhanna.Server.Controllers
 {

@@ -1,7 +1,7 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using MySqlConnector;
-using System.Net;
+﻿using System.Net;
 using maxhanna.Server.Controllers.DataContracts;
+using Microsoft.AspNetCore.Mvc;
+using MySqlConnector;
 namespace maxhanna.Server.Controllers
 {
   [ApiController]

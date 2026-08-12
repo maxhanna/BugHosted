@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace maxhanna.Server.Controllers.DataContracts.Bones
 {
 	public class UpdateHeroStatsRequest

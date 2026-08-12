@@ -1,8 +1,5 @@
-using System.Net.Http;
-using System.Net.Http.Json;
-using System.Web;
 using System.Text.Json;
-using System.Linq;
+using System.Web;
 using maxhanna.Server.Controllers.DataContracts.News;
 
 namespace maxhanna.Server.Helpers

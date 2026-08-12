@@ -1191,6 +1191,19 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
     }
   }
 
+  /** Called once a grid thumb's media actually renders (image load or
+   *  video/audio canplay). Records the natural proportions on the file entry
+   *  and reflows the grid, so the thumb cell adopts the real media shape
+   *  instead of the placeholder square/16:9 box. */
+  onGridMediaRendered(event: { fileId?: number; width?: number; height?: number }) {
+    if (!event || !event.fileId || !event.width || !event.height || !isFinite(event.width) || !isFinite(event.height)) return;
+    const file = this.directory?.data?.find(f => f.id === event.fileId);
+    if (!file) return;
+    // Clamp extreme panoramas/portraits so a single cell can't dominate its row.
+    file.mediaAspect = Math.min(2.2, Math.max(0.45, event.width / event.height));
+    try { this.changeDetectorRef.detectChanges(); } catch { }
+  }
+
   /** Formats a duration in seconds as m:ss (or h:mm:ss for long videos). */
   formatVideoDuration(seconds: number): string {
     if (!isFinite(seconds) || seconds <= 0) return '';

@@ -47,6 +47,10 @@ export class FileEntry {
   // UI-only derived fields
   romInlineThumbs?: string[];
   videoDuration?: number; 
+  /** Natural width/height ratio of the rendered media (set from the
+   *  media-viewer's mediaRenderedEvent so grids can size cells to the real
+   *  proportions once the media is visible). */
+  mediaAspect?: number;
 
 
   constructor(id: number, fileName?: string, directory?: string, visibility?: string, sharedWith?: string,

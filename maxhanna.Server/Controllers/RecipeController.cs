@@ -1,6 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Xml.Linq;
-using maxhanna.Server.Services;
+﻿using System.Xml.Linq;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 

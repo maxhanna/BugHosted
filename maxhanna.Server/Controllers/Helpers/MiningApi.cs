@@ -1,10 +1,9 @@
-﻿using maxhanna.Server.Controllers.DataContracts.Crypto;
-using maxhanna.Server.Controllers.DataContracts.Users;
+﻿using System.Text;
+using maxhanna.Server.Controllers.DataContracts.Crypto;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
 using RestSharp;
-using System.Text;
 
 namespace maxhanna.Server.Controllers.Helpers
 {

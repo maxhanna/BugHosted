@@ -1,16 +1,14 @@
+using System.Data;
+using System.Xml.Linq;
 using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Chat;
 using maxhanna.Server.Controllers.DataContracts.Files;
-using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Social;
+using maxhanna.Server.Controllers.DataContracts.Users;
+using maxhanna.Server.Hubs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
-using maxhanna.Server.Hubs;
 using MySqlConnector;
-using System.Data;
-using System.Xml.Linq;
-using System.Threading;
-using static maxhanna.Server.Controllers.AiController;
 
 namespace maxhanna.Server.Controllers
 {

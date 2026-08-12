@@ -59,6 +59,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Output() finishedLoadingEvent = new EventEmitter<void>();
   @Output() fileEntryFoundEvent = new EventEmitter<FileEntry>();
   @Output() videoMetadataEvent = new EventEmitter<{ fileId: number; duration: number }>();
+  /** Fired when the visible media element actually renders — image load,
+   *  video/audio canplay, or any of them erroring — carrying the file id and
+   *  the media's natural dimensions when available, so parent components can
+   *  run layout work (e.g. sizing grids) once the media is really on screen. */
+  @Output() mediaRenderedEvent = new EventEmitter<{ fileId?: number; width?: number; height?: number }>();
 
   @ViewChild('mediaContainer', { static: false }) mediaContainer?: ElementRef;
   @ViewChild('fullscreenOverlay', { static: false }) fullscreenOverlay?: ElementRef;
@@ -874,9 +879,9 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     this.videoMetadataEvent.emit({ fileId, duration: video.duration });
   }
 
-  onVideoCanPlay() {
+  onVideoCanPlay(event?: Event) {
     this.isVideoBuffering = false;
-    this.onMediaDisplayed();
+    this.onMediaDisplayed(event);
   }
 
   onVideoStalled() {
@@ -885,9 +890,22 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
   /** Called when the visible media element reports it can be shown — image
    *  load/error, video/audio canplay/error. Hides the showImageLoadingFetch
-   *  spinner. */
-  onMediaDisplayed() {
+   *  spinner and emits mediaRenderedEvent with the media's natural size so
+   *  parents can reflow layouts once the media is actually visible. */
+  onMediaDisplayed(event?: Event) {
     this.mediaDisplayed = true;
+    let width: number | undefined;
+    let height: number | undefined;
+    const target = event?.target as (HTMLImageElement | HTMLVideoElement) | null;
+    if (target) {
+      const w = 'naturalWidth' in target ? target.naturalWidth : (target as HTMLVideoElement).videoWidth;
+      const h = 'naturalHeight' in target ? target.naturalHeight : (target as HTMLVideoElement).videoHeight;
+      if (w && h && isFinite(w) && isFinite(h)) {
+        width = w;
+        height = h;
+      }
+    }
+    this.mediaRenderedEvent.emit({ fileId: this.fileId ?? this.selectedFile?.id, width, height });
     this.cdr.detectChanges();
   }
 

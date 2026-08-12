@@ -1,6 +1,4 @@
-﻿using maxhanna.Server.Controllers.DataContracts.Users;
-
-namespace maxhanna.Server.Controllers.DataContracts.Favourite
+﻿namespace maxhanna.Server.Controllers.DataContracts.Favourite
 {
 	public class AddFavouriteRequest
 	{ 

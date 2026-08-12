@@ -1,12 +1,12 @@
-using maxhanna.Server.Controllers.DataContracts.Files;
-using Microsoft.AspNetCore.Mvc;
-using MySqlConnector;
 using System.Diagnostics;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
 using System.Text;
 using System.Text.Json;
 using System.Xml.Linq;
+using maxhanna.Server.Controllers.DataContracts.Files;
+using Microsoft.AspNetCore.Mvc;
+using MySqlConnector;
+using SixLabors.ImageSharp;
+using SixLabors.ImageSharp.Processing;
 
 namespace maxhanna.Server.Controllers
 {

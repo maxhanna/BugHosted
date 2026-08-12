@@ -1,10 +1,5 @@
-﻿using MySqlConnector;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using System;
-using System.Diagnostics;
-using System.Threading;
-using System.Linq;
+﻿using System.Diagnostics;
+using MySqlConnector;
 
 namespace maxhanna.Server.Services
 {

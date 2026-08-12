@@ -1,5 +1,4 @@
-using System.Security.Cryptography;
-using maxhanna.Server.Controllers.DataContracts.Crypto;  
+using maxhanna.Server.Controllers.DataContracts.Crypto;
 using Microsoft.AspNetCore.Mvc;
 
 public class TradeController : ControllerBase

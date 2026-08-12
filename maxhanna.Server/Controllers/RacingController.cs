@@ -1,14 +1,8 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
-using MySqlConnector;
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Threading;
-using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using MySqlConnector;
 namespace maxhanna.Server.Controllers
 {
 	[ApiController]
@@ -18,11 +12,6 @@ namespace maxhanna.Server.Controllers
 		private static readonly ConcurrentDictionary<int, RacingCarState> _cars = new();
 		private static readonly ConcurrentQueue<PendingRaceResult> _pendingResults = new();
 		private static readonly object _persistLock = new();
-		// Backstop interval for the periodic DB dump. Persistence is primarily
-		// write-through (ScheduleFlush after every mutation), so this timer only
-		// catches anything missed — 15s keeps the loss window tiny even on a hard
-		// process kill (previously 600s meant up to 10 minutes of cash/upgrades/
-		// lap records vanished on every server restart).
 		private static int _persistIntervalSeconds = 15;
 		private static readonly Lazy<Timer> _persistTimer = new(() =>
 			new Timer(PersistAllToDb, null,
@@ -43,18 +32,13 @@ namespace maxhanna.Server.Controllers
 			public int DecalId = 0;
 			public int GlowId = 0;
 			public int AccentId = 0;
-			// Neon underglow intensity, 0 (subtle) .. 100 (blinding). Saved with
-			// the rest of the appearance so the garage + in-race neon match.
 			public int GlowIntensity = 50;
-			// Appearance parts the player has bought (APPEARANCE_PARTS ids) — kept
-			// separate from the currently-equipped slot so a part stays owned even
-			// when it isn't equipped, and re-equipping never re-charges.
 			public HashSet<int> OwnedParts = new();
 			public int TotalRaces = 0;
 			public int Wins = 0;
 			public int Money = 500;
-			public double BestLap = 0; // overall best across all tracks (legacy/display)
-			public Dictionary<int, double> BestLapsByTrack = new(); // trackId -> best lap ms
+			public double BestLap = 0; 
+			public Dictionary<int, double> BestLapsByTrack = new(); 
 			public int TotalEarnings = 0;
 			public bool Dirty = false;
 			public int Version = 0;
@@ -69,10 +53,6 @@ namespace maxhanna.Server.Controllers
 			public int MoneyEarned;
 			public int TrackId = 1;
 		}
-		// NOTE: must be PROPERTIES (not fields) — the API serializes with
-		// System.Text.Json defaults, which ignores public fields, so a
-		// field-only DTO made every leaderboard result an empty {} object
-		// and the Best Laps panel showed no other players' scores.
 		private sealed class LeaderboardEntry
 		{
 			public int PlayerId { get; set; }
@@ -115,7 +95,6 @@ namespace maxhanna.Server.Controllers
 			}
 			RegisterShutdownDump(appLifetime);
 		}
-		 
 		private static string? GetConnStr()
 		{
 			if (!string.IsNullOrEmpty(_connStrCache)) return _connStrCache;
@@ -182,9 +161,6 @@ namespace maxhanna.Server.Controllers
 						st.GlowIntensity = rdr.IsDBNull(15) ? 50 : Math.Clamp(rdr.GetInt32(15), 0, 100);
 					}
 				}
-				// The reader above is disposed by the using block; it is safe to run
-				// a second query on the same connection now (MySqlConnector forbids
-				// two open readers on one connection).
 				using var bestCmd = new MySqlCommand(@"
 					SELECT track_id, best_lap FROM racing_best_laps WHERE user_id = @uid AND best_lap > 0", conn);
 				bestCmd.Parameters.AddWithValue("@uid", userId);
@@ -247,7 +223,6 @@ namespace maxhanna.Server.Controllers
 						loaded++;
 					}
 				}
-				// First reader disposed above — safe to run the per-track query now.
 				using var bestCmd = new MySqlCommand(@"
 					SELECT user_id, track_id, best_lap FROM racing_best_laps WHERE best_lap > 0", conn);
 				using var bestRdr = bestCmd.ExecuteReader();
@@ -326,7 +301,7 @@ namespace maxhanna.Server.Controllers
 		private static void ScheduleFlush()
 		{
 			try { _ = Task.Run(PersistAllToDbBlocking); }
-			catch { /* fire-and-forget; the timer backstop will catch it */ }
+			catch { }
 		}
 		private static void PersistAllToDbCore(bool waitForLock)
 		{
@@ -433,10 +408,6 @@ namespace maxhanna.Server.Controllers
 			}
 			finally { Monitor.Exit(_persistLock); }
 		}
-		/// <summary>
-		/// Live count of players connected to racing lobbies (used by the
-		/// navigation icon badge, mirroring Grand Theft's player count).
-		/// </summary>
 		[HttpGet("activeplayers")]
 		public IActionResult GetActivePlayers()
 		{
@@ -464,10 +435,6 @@ namespace maxhanna.Server.Controllers
 			}
 			catch { return BadRequest(); }
 		}
-		// Friends' per-track best laps, for the garage RECORDS 'vs friends' toggle.
-		// Returns [{ userId, playerName, bestLapsByTrack }] — only friends who have
-		// at least one recorded lap. In-memory laps (not yet dumped) are merged so
-		// the comparison stays fresh between DB dumps.
 		[HttpGet("friends/{userId}")]
 		public IActionResult GetFriendRecords(int userId)
 		{
@@ -492,8 +459,6 @@ namespace maxhanna.Server.Controllers
 				var result = new List<object>();
 				foreach (var fid in friendIds)
 				{
-					// Prefer the live in-memory state (ensures the car is loaded), then
-					// fall back to a direct DB read of racing_best_laps if needed.
 					RacingCarState? st = null;
 					if (_cars.TryGetValue(fid, out var cached)) st = cached;
 					else
@@ -553,15 +518,12 @@ namespace maxhanna.Server.Controllers
 						var parsed = JsonSerializer.Deserialize<Dictionary<int, double>>(blt.GetRawText());
 						if (parsed != null)
 						{
-							// Merge, never regress: only a better (smaller) lap replaces the
-							// existing one, matching the LEAST() upsert semantics in the dump.
 							foreach (var kv in parsed)
 							{
 								if (kv.Value <= 0) continue;
 								if (!st.BestLapsByTrack.TryGetValue(kv.Key, out var existing) || kv.Value < existing)
 									st.BestLapsByTrack[kv.Key] = kv.Value;
 							}
-							// Keep the overall best lap in sync (smallest per-track lap).
 							var bests = st.BestLapsByTrack.Values.Where(v => v > 0).ToList();
 							if (bests.Count > 0) st.BestLap = bests.Min();
 						}
@@ -681,11 +643,6 @@ namespace maxhanna.Server.Controllers
 					MoneyEarned = result.TryGetProperty("moneyEarned", out var me) ? me.GetInt32() : 0,
 					TrackId = result.TryGetProperty("trackId", out var tk) ? tk.GetInt32() : 1,
 				});
-				// The full grid's bot laps ride along so the leaderboard shows the top
-				// times from every racer in the game, not just the submitting human. Bots
-				// carry stable NEGATIVE ids (one per bot name) so the per-track aggregation
-				// keeps each bot's best lap across races; negative ids never collide with
-				// real users and can't be spoofed into a profile link.
 				if (body.TryGetProperty("bots", out var bots) && bots.ValueKind == JsonValueKind.Array)
 				{
 					foreach (var b in bots.EnumerateArray())
@@ -741,8 +698,6 @@ namespace maxhanna.Server.Controllers
 						GROUP BY user_id, player_name
 						ORDER BY lap_time ASC LIMIT 100", conn);
 					cmd.Parameters.AddWithValue("@trackId", trackId);
-					// Reader disposed before any second query on the same connection
-					// (MySqlConnector forbids two open readers per connection).
 					using (var rdr = await cmd.ExecuteReaderAsync())
 					{
 						while (await rdr.ReadAsync())
@@ -785,8 +740,6 @@ namespace maxhanna.Server.Controllers
 					.OrderBy(e => e.LapTime)
 					.Take(50)
 					.ToList();
-				// ── Standing summary: total racers on this track + the caller's rank ──
-				// (rank 0 means the user has no recorded lap on this circuit yet).
 				int totalCount = 0;
 				int userRank = 0;
 				if (!string.IsNullOrEmpty(connStr) && userId > 0)
@@ -837,18 +790,11 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 				}
-				// Track's current pace-setter lap — the top row of the ordered results
-				// (results already include pending in-memory laps, so this is the true
-				// leader even before the next DB dump). 0 when nobody has a lap yet.
 				double bestLap = results.Count > 0 ? results[0].LapTime : 0;
 				return Ok(new { results, totalCount, userRank, bestLap });
 			}
 			catch { return Ok(new { results = new List<LeaderboardEntry>(), totalCount = 0, userRank = 0, bestLap = 0.0 }); }
 		}
-
-		// Per-circuit breakdown for the Best Laps panel: every track's top laps by
-		// players plus the caller's own best lap and rank on that circuit, so the
-		// panel shows the whole field across all tracks at once.
 		[HttpGet("leaderboard-by-track")]
 		public async Task<IActionResult> GetAllTrackLeaderboards([FromQuery] int userId = 0)
 		{
@@ -894,7 +840,6 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 				}
-				// Merge pending in-memory results not yet dumped to the DB.
 				foreach (var r in _pendingResults)
 				{
 					if (r.LapTime <= 0 || r.UserId == 0) continue;
@@ -919,7 +864,6 @@ namespace maxhanna.Server.Controllers
 						})
 						.OrderBy(e => e.lapTime)
 						.ToList();
-					// Return up to 20 so the client can offer a 'show top 20' toggle per card.
 					var top = ranked.Take(20)
 						.Select(e => new LeaderboardEntry
 					{
@@ -953,10 +897,6 @@ namespace maxhanna.Server.Controllers
 			}
 			catch { return Ok(new { tracks = new List<object>() }); }
 		}
-
-		// High-scores view across ALL circuits: every player's fastest lap anywhere
-		// (with the circuit it was set on + their full per-track breakdown), so the
-		// Best Laps panel can rank the whole field like a championship table.
 		[HttpGet("leaderboard-overall")]
 		public async Task<IActionResult> GetOverallLeaderboard([FromQuery] int userId = 0)
 		{
@@ -984,7 +924,6 @@ namespace maxhanna.Server.Controllers
 							LEFT JOIN users u ON bl.user_id = u.id
 							WHERE bl.best_lap > 0 AND bl.user_id > 0
 						) t", conn);
-					// Reader disposed before any second query on the same connection.
 					using (var rdr = await cmd.ExecuteReaderAsync())
 					{
 						while (await rdr.ReadAsync())
@@ -992,8 +931,6 @@ namespace maxhanna.Server.Controllers
 							int uid = rdr.GetInt32(0);
 							int tid = rdr.GetInt32(1);
 							double lap = rdr.GetDouble(2);
-							// Humans only — bot results (non-positive user ids) must never
-							// rank on the high-scores board or inflate totals/ranks.
 							if (uid <= 0 || lap <= 0) continue;
 							if (!perUser.TryGetValue(uid, out var byTrack))
 							{
@@ -1005,8 +942,6 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 				}
-				// Aggregate: each player's overall best (fastest lap on any circuit) + the
-				// circuit it was set on, plus the full per-track breakdown for the row chips.
 				var ranked = perUser
 					.Select(kv =>
 					{
@@ -1036,16 +971,10 @@ namespace maxhanna.Server.Controllers
 			}
 			catch { return Ok(new { results = new List<object>(), totalCount = 0, userRank = 0, bestLap = 0.0 }); }
 		}
-		// Rewrites already-owned engine upgrades to the current (halved) speed
-		// bonus so players who bought stages before the speed nerf get the same
-		// values as new buyers. Returns true when anything changed so the caller
-		// can flag the car dirty and persist the corrected upgrades_json.
 		private static bool NormalizeEngineUpgradeBonuses(List<object> upgrades)
 		{
 			bool changed = false;
 			if (upgrades == null) return false;
-			// Stored upgrade JSON is always camelCase: BuyUpgrade serializes defs
-			// with the camelCase policy, and JsonObject round-trips keep that casing.
 			for (int i = 0; i < upgrades.Count; i++)
 			{
 				if (upgrades[i] is not JsonElement je) continue;

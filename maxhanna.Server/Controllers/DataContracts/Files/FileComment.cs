@@ -1,5 +1,5 @@
-using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Social; // For Poll
+using maxhanna.Server.Controllers.DataContracts.Users;
 
 namespace maxhanna.Server.Controllers.DataContracts.Files
 {

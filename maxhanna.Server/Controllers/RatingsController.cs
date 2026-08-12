@@ -1,8 +1,7 @@
-using maxhanna.Server.Controllers.DataContracts.Users;
+using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Ratings;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using maxhanna.Server.Controllers.DataContracts.Files;
 
 namespace maxhanna.Server.Controllers
 {

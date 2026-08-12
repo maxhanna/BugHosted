@@ -1,8 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using maxhanna.Server.Controllers.DataContracts.Users;
-using maxhanna.Server.Controllers.DataContracts.Files;
-using System.Text.RegularExpressions;
 
 [ApiController]
 [Route("api/[controller]")]

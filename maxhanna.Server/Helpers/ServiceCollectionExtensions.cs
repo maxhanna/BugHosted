@@ -1,4 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
 using maxhanna.Infrastructure;
 
 namespace maxhanna.Api.Extensions

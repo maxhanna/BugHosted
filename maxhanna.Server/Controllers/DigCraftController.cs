@@ -1,9 +1,8 @@
-using Microsoft.AspNetCore.Mvc;
-using MySqlConnector;
-using maxhanna.Server.Controllers.DataContracts.DigCraft;
-using maxhanna.Server.Controllers.DataContracts.UserEvents;
 using System.Collections.Concurrent;
 using System.Text.Json.Serialization;
+using maxhanna.Server.Controllers.DataContracts.DigCraft;
+using Microsoft.AspNetCore.Mvc;
+using MySqlConnector;
 
 namespace maxhanna.Server.Controllers
 {

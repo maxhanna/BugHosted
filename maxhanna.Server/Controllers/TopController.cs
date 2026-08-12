@@ -1,18 +1,9 @@
-﻿using maxhanna.Server.Controllers.DataContracts;
-using maxhanna.Server.Controllers.DataContracts.Files;
+﻿using System.Data;
 using maxhanna.Server.Controllers.DataContracts.Top;
 using maxhanna.Server.Controllers.DataContracts.Topics;
-using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using Newtonsoft.Json;
 using SixLabors.ImageSharp;
-using System.Data;
-using System.Diagnostics;
-using System.Net;
-using System.Xml.Linq;
-using Xabe.FFmpeg;
-using static maxhanna.Server.Controllers.AiController;
 
 namespace maxhanna.Server.Controllers
 {

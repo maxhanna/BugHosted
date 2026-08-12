@@ -187,13 +187,15 @@
         <ng-template #gridView>
           <div class="file-grid">
             <div *ngFor="let file of directory.data" class="grid-item" [class.selected]="optionsFile?.id === file.id || selectedSharedFile?.id === file.id" [class.folder]="file.isFolder" [class.video]="!file.isFolder && isVideoFileOnly(file.fileName)" (click)="onGridItemClick(file)">
-              <div class="grid-thumb">
+              <div class="grid-thumb"
+                [style.aspect-ratio]="file.mediaAspect ? file.mediaAspect : null">
                 <!-- Show image thumbnail for image/media files -->
                 <ng-container *ngIf="!file.isFolder && isMediaFile(file.fileName)">
                   <app-media-viewer [fileId]="file.id" [displayExpander]="false" [displayExtraInfo]="false"
                     [displayLoading]="false" [showMediaLoading]="true" [autoplay]="false" [showCommentSection]="false"
                     [showTopics]="false" [blockExpand]="true" [inputtedParentRef]="inputtedParentRef ?? parentRef"
-                    (videoMetadataEvent)="onVideoMetadataEvent($event)">
+                    (videoMetadataEvent)="onVideoMetadataEvent($event)"
+                    (mediaRenderedEvent)="onGridMediaRendered($event)">
                   </app-media-viewer>
                 </ng-container>
                 <!-- Play badge overlay for video thumbs -->

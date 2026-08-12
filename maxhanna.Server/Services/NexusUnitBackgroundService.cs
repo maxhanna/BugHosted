@@ -1,5 +1,4 @@
 ﻿using maxhanna.Server.Controllers;
-using Microsoft.Extensions.DependencyInjection;
 namespace maxhanna.Server.Services
 {
 	public class NexusUnitBackgroundService : BackgroundService

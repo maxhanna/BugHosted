@@ -1,13 +1,12 @@
 ﻿using System.Collections.Concurrent;
+using System.Data;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using System.Data;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Png;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
-using System.Text;
-using System.Text.RegularExpressions;
 using Xabe.FFmpeg;
 using YoutubeExplode;
 using YoutubeExplode.Videos.Streams;

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using maxhanna.Server.Controllers.DataContracts.Files;
 
 namespace maxhanna.Server.Controllers.DataContracts.Comments

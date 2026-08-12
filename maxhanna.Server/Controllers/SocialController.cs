@@ -1,18 +1,17 @@
-﻿using FirebaseAdmin.Messaging;
-using HtmlAgilityPack;
-using maxhanna.Server.Services;
+﻿using System.Data;
+using System.Text;
+using System.Web;
+using System.Xml.Linq;
+using FirebaseAdmin.Messaging;
 using maxhanna.Server.Controllers.DataContracts;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Metadata;
 using maxhanna.Server.Controllers.DataContracts.Social;
 using maxhanna.Server.Controllers.DataContracts.Topics;
 using maxhanna.Server.Controllers.DataContracts.Users;
+using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using System.Data;
-using System.Text;
-using System.Web;
-using System.Xml.Linq;
 
 namespace maxhanna.Server.Controllers
 {

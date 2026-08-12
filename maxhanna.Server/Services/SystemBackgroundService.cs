@@ -1,4 +1,5 @@
-﻿using maxhanna.Infrastructure;
+﻿using System.Text;
+using maxhanna.Infrastructure;
 using maxhanna.Server.Controllers;
 using maxhanna.Server.Controllers.DataContracts.Calendar;
 using maxhanna.Server.Controllers.DataContracts.Crypto;
@@ -7,7 +8,6 @@ using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.Helpers;
 using MySqlConnector;
 using Newtonsoft.Json;
-using System.Text;
 namespace maxhanna.Server.Services
 {
     public class SystemBackgroundService : BackgroundService

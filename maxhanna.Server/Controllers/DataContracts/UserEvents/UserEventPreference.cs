@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace maxhanna.Server.Controllers.DataContracts.UserEvents
 {
     public class UserEventPreference

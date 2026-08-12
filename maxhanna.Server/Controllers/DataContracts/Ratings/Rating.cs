@@ -1,4 +1,3 @@
-using System;
 using maxhanna.Server.Controllers.DataContracts.Users;
 
 namespace maxhanna.Server.Controllers.DataContracts.Ratings

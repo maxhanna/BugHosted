@@ -1,7 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using maxhanna.Server.Controllers.DataContracts.Users;
 using MySqlConnector;
-using System.Data;
 
 namespace maxhanna.Server.Controllers
 {

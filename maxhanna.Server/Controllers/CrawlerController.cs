@@ -1,9 +1,9 @@
 ﻿
+using System.Data;
 using maxhanna.Server.Controllers.DataContracts.Crawler;
 using maxhanna.Server.Controllers.DataContracts.Metadata;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using System.Data;
 
 namespace maxhanna.Server.Controllers
 {

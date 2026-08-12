@@ -1,7 +1,4 @@
-using System;
-using System.Linq;
 using maxhanna.Server.Controllers.DataContracts.Calendar;
-using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 

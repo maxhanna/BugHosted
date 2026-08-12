@@ -1,8 +1,7 @@
 using maxhanna.Server.Controllers.DataContracts.Topics;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
- 
+
 namespace maxhanna.Server.Controllers
 {
 	[ApiController]

@@ -1,14 +1,13 @@
-﻿using maxhanna.Server.Controllers.DataContracts.News;
-using maxhanna.Server.Controllers.DataContracts.Metadata;
-using maxhanna.Server.Controllers;
-using maxhanna.Server.Controllers.DataContracts.UserEvents;
-using System.Web;
+﻿using System.Globalization;
 using System.Net;
-using MySqlConnector;
-using System.Text.RegularExpressions;
 using System.Text;
-using System.Globalization;
+using System.Text.RegularExpressions;
+using System.Web;
+using maxhanna.Server.Controllers;
+using maxhanna.Server.Controllers.DataContracts.Metadata;
+using maxhanna.Server.Controllers.DataContracts.News;
 using maxhanna.Server.Helpers;
+using MySqlConnector;
 
 public class NewsService
 {

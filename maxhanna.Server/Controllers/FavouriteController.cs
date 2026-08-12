@@ -1,6 +1,4 @@
-using FirebaseAdmin.Messaging;
 using maxhanna.Server.Controllers.DataContracts.Favourite;
-using maxhanna.Server.Controllers.DataContracts.UserEvents;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 

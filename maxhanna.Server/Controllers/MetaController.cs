@@ -1,12 +1,10 @@
-using maxhanna.Server.Controllers.DataContracts.Meta;
-using maxhanna.Server.Controllers.DataContracts.UserEvents;
-using maxhanna.Server.Controllers.DataContracts.Users;
-using maxhanna.Server.Controllers.DataContracts.Files;
-using Microsoft.AspNetCore.Mvc;
-using MySqlConnector;
-using System;
 using System.Text;
 using System.Text.Json;
+using maxhanna.Server.Controllers.DataContracts.Files;
+using maxhanna.Server.Controllers.DataContracts.Meta;
+using maxhanna.Server.Controllers.DataContracts.Users;
+using Microsoft.AspNetCore.Mvc;
+using MySqlConnector;
 
 namespace maxhanna.Server.Controllers
 {

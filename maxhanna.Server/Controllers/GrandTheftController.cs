@@ -1,10 +1,8 @@
-﻿using maxhanna.Server.Controllers.DataContracts.Users;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Hosting;
-using MySqlConnector;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Text.Json;
-using System.Threading;
+using maxhanna.Server.Controllers.DataContracts.Users;
+using Microsoft.AspNetCore.Mvc;
+using MySqlConnector;
 namespace maxhanna.Server.Controllers
 {
 	internal static class CityLayout

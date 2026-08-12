@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using System.Data;
 using maxhanna.Server.Controllers.DataContracts.Crypto;
 using maxhanna.Server.Controllers.DataContracts.Users;
-using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 

@@ -1,5 +1,3 @@
-using System;
-
 namespace maxhanna.Server.Controllers.DataContracts.Crypto
 {
     public class CoinResponse

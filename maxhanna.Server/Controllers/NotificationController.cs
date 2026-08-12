@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using FirebaseAdmin.Messaging;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Notification;
@@ -6,7 +7,6 @@ using maxhanna.Server.Controllers.DataContracts.Wordler;
 using maxhanna.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using System.Text.RegularExpressions;
 
 namespace maxhanna.Server.Controllers
 {

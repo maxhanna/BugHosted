@@ -1,9 +1,9 @@
+using System.Data;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Friends;
 using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using System.Data;
 
 namespace maxhanna.Server.Controllers
 {

@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using MySqlConnector; 
-using System.Net.Http;
+using MySqlConnector;
 
 [ApiController]
 [Route("[controller]")]

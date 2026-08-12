@@ -1,6 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using System.Data;
-using maxhanna.Server.Controllers.DataContracts.UserEvents;
 
 namespace maxhanna.Server.Controllers
 {

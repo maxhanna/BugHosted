@@ -1,17 +1,14 @@
+using System.Collections.Concurrent;
+using System.Data;
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using maxhanna.Server.Controllers;
 using maxhanna.Server.Controllers.DataContracts.Crypto;
 using maxhanna.Server.Services;
-using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using System.Collections.Concurrent;
-using System.Data;
-using System.Diagnostics;
-using System.Globalization;
-using System.Security.Cryptography;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
 
 public class KrakenService
 {

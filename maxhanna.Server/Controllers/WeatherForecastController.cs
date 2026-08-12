@@ -1,4 +1,3 @@
-using maxhanna.Server.Controllers.DataContracts.Users;
 using maxhanna.Server.Controllers.DataContracts.Weather;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;

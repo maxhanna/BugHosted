@@ -1,9 +1,9 @@
+using System.Data;
+using FirebaseAdmin.Messaging;
 using maxhanna.Server.Controllers.DataContracts.Files;
 using maxhanna.Server.Controllers.DataContracts.Users;
-using FirebaseAdmin.Messaging;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using System.Data;
 namespace maxhanna.Server.Controllers
 {
   [ApiController]

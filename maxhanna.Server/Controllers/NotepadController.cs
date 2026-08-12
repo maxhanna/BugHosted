@@ -1,8 +1,6 @@
 using maxhanna.Server.Controllers.DataContracts.Notepad;
-using maxhanna.Server.Controllers.DataContracts.Users;
 using Microsoft.AspNetCore.Mvc;
 using MySqlConnector;
-using static maxhanna.Server.Controllers.AiController;
 
 namespace maxhanna.Server.Controllers
 {

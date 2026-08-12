@@ -1,5 +1,3 @@
-using System;
-
 namespace maxhanna.Server.Controllers.DataContracts.Users
 {
     public class WalletInfo
