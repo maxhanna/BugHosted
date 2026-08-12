@@ -16,6 +16,7 @@ import { FileComponent } from './file/file.component';
 import { TodoComponent } from './todo/todo.component';
 import { NotepadComponent } from './notepad/notepad.component';
 import { MusicComponent } from './music/music.component';
+import { MovieComponent } from './movie/movie.component';
 import { ContactsComponent } from './contacts/contacts.component';
 import { UserComponent } from './user/user.component';
 import { UserListComponent } from './user-list/user-list.component';
@@ -110,6 +111,7 @@ import { ConversionComponent } from './conversion/conversion.component';
     TodoComponent,
     NotepadComponent,
     MusicComponent,
+    MovieComponent,
     ContactsComponent,
     UserComponent,
     UserListComponent,
@@ -214,6 +216,7 @@ import { ConversionComponent } from './conversion/conversion.component';
     TodoComponent,
     NotepadComponent,
     MusicComponent,
+    MovieComponent,
     ContactsComponent,
     UserComponent,
     UserListComponent,

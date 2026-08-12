@@ -2,6 +2,7 @@
 import { Injectable } from '@angular/core';
 import { Todo } from './datacontracts/todo';
 import { MusicPlaylist } from './datacontracts/music-playlist';
+import { MoviePlaylist } from './datacontracts/movie-playlist';
 
 // Canonical stored values returned by /todo/edit after a successful save, so the
 // caller can finalize (sanitize) its optimistic edit with what actually persisted.
@@ -501,6 +502,85 @@ export class TodoService {
       return response.ok;
     } catch (error) {
       return false;
+    }
+  }
+
+  // ───────────── Movie Playlists (public gallery) ─────────────
+
+  async getMoviePlaylists(): Promise<MoviePlaylist[] | null> {
+    try {
+      const response = await fetch('/todo/movieplaylist/getall', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      return await response.json();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async createMoviePlaylist(userId: number, name: string): Promise<string | null> {
+    try {
+      const response = await fetch('/todo/movieplaylist/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, name }),
+      });
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async deleteMoviePlaylist(userId: number, playlistId: number): Promise<string | null> {
+    try {
+      const response = await fetch('/todo/movieplaylist/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, playlistId }),
+      });
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async renameMoviePlaylist(userId: number, playlistId: number, name: string): Promise<string | null> {
+    try {
+      const response = await fetch('/todo/movieplaylist/rename', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, playlistId, name }),
+      });
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async saveMoviePlaylistEntries(userId: number, playlistId: number, todoIds: number[]): Promise<string | null> {
+    try {
+      const response = await fetch('/todo/movieplaylist/saveentries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, playlistId, todoIds }),
+      });
+      return await response.text();
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async getMoviePlaylistEntries(playlistId: number): Promise<Todo[] | null> {
+    try {
+      const response = await fetch('/todo/movieplaylist/getentries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playlistId }),
+      });
+      return await response.json();
+    } catch (error) {
+      return null;
     }
   }
 }

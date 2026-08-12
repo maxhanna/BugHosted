@@ -47,6 +47,7 @@ const routes: Routes = [
   { path: 'WeaverHelp', component: AppComponent },
   { path: 'Music/:shareToken', component: AppComponent },
   { path: 'Music', component: AppComponent },
+  { path: 'Movie', component: AppComponent },
   { path: 'GrandTheft', component: AppComponent }, 
   { path: 'Paint', component: AppComponent },
   { path: 'Racing', component: AppComponent },

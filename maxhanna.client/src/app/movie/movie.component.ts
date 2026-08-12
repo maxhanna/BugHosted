@@ -1,0 +1,1632 @@
+import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Input, NgZone, OnDestroy, OnInit, Output, ViewChild } from '@angular/core';
+import { Location } from '@angular/common';
+import { ChildComponent } from '../child.component';
+import { Todo } from '../../services/datacontracts/todo';
+import { MoviePlaylist } from '../../services/datacontracts/movie-playlist';
+import { TodoService } from '../../services/todo.service';
+import { RadioService, RadioCountry, RadioLanguage, RadioTag, RadioStation } from '../../services/radio.service';
+import { User } from '../../services/datacontracts/user/user';
+import { FileEntry } from '../../services/datacontracts/file/file-entry';
+import { MediaSelectorComponent } from '../media-selector/media-selector.component';
+import { MediaViewerComponent } from '../media-viewer/media-viewer.component';
+import { AppComponent } from '../app.component';
+import { SubscriptionLike } from 'rxjs';
+import { YoutubeSearchComponent } from '../youtube-search/youtube-search.component';
+import { YoutubeVideo } from '../../services/datacontracts/youtube';
+import { FileService } from '../../services/file.service';
+
+@Component({
+  selector: 'app-movie',
+  templateUrl: './movie.component.html',
+  styleUrl: './movie.component.css',
+  standalone: false,
+  changeDetection: ChangeDetectionStrategy.OnPush
+})
+
+export class MovieComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
+  @ViewChild('titleInput') titleInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('urlInput') urlInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('searchInput') searchInput!: ElementRef<HTMLInputElement>;
+  @ViewChild('musicVideo') musicVideo!: ElementRef<HTMLDivElement>;
+  @ViewChild('orderSelect') orderSelect!: ElementRef<HTMLSelectElement>;
+  @ViewChild('componentMain') componentMain!: ElementRef<HTMLDivElement>;
+  @ViewChild('mediaSelector') mediaSelector!: MediaSelectorComponent;
+  @ViewChild('fileMediaViewer') fileMediaViewer!: MediaViewerComponent;
+  @ViewChild('youtubeSearchComponent') youtubeSearchComponent!: YoutubeSearchComponent; 
+
+  @Input() user?: User;
+  @Input() smallPlayer = false;
+  @Input() inputtedParentRef?: AppComponent;
+  @Output() gotPlaylistEvent = new EventEmitter<Array<Todo>>(); 
+
+  songs: Array<Todo> = [];
+  fileSongs: Array<Todo> = [];
+  youtubeSongs: Array<Todo> = [];
+  paginatedSongs: Array<Todo> = [];
+  orders: Array<string> = ["Newest", "Oldest", "Alphanumeric ASC", "Alphanumeric DESC", "Random"];
+  isMusicPlaying = false;
+  selectedFile?: FileEntry;
+  fileIdPlaylist?: number[];
+  fileIdPlaying?: number;
+  currentPage = 1;
+  itemsPerPage = 50;
+  totalPages = 1;
+  isSongListCollapsed = false;
+  selectedType: 'youtube' | 'file' | 'radio' = 'youtube';
+  isEditing: number[] = [];
+  showHelpPopup = false;
+  isFullscreen = false;
+  isShowingYoutubeSearch = false;
+  hasEditedSong = false;
+
+  // Playlist properties — every movie playlist is PUBLIC by design: the
+  // dropdown lists everyone's playlists, and only the owner can manage one.
+  playlists: MoviePlaylist[] = [];
+  selectedPlaylistId: number | null = null;
+  isEditingPlaylist = false;
+  playlistSelectedSongIds: Set<number> = new Set();
+  allSongsCache: Array<Todo> = [];
+
+  // Radio properties
+  radioStations: RadioStation[] = [];
+  radioCountries: RadioCountry[] = [];
+  radioLanguages: RadioLanguage[] = [];
+  radioTags: RadioTag[] = [];
+  isLoadingRadio = false;
+  radioFilters = {
+    country: '',
+    language: '',
+    tag: ''
+  };
+  currentRadioStation?: RadioStation;
+  trackSong = (_: number, s: { id?: number }) => s.id ?? _;
+  private currentUrl?: string;
+  private currentFileId?: number | null;
+  private ytPlayer?: any;
+  private ytReady = false;
+  private pendingPlay?: { url?: string; fileId?: number | null }; // queue if API not ready yet
+  private ytApiPromise?: Promise<void>;
+  private shouldShufflePlaylist = false;
+  private locationSub?: SubscriptionLike;
+  private radioAudioEl?: HTMLAudioElement;
+  private screenLock?: any;
+  // How many consecutive failed hard rebuilds before we stop self-healing. The
+  // old code would destroy + recreate the player forever when construction kept
+  // failing (rare YouTube API glitch, ad-blocker, stale player registry), which
+  // looked like the video refreshing on a loop.
+  private static readonly MAX_YT_REBUILDS = 3;
+  private readonly instance = Math.random().toString(16).slice(2);
+  private mo?: MutationObserver;
+  private ytHealthTimer?: number;
+  private iframeCheckAttempts = 0;
+  private iframeCheckTimer?: number;
+  private iframeCheckInProgress = false;
+  private playerReady = false;
+  private firstGestureDone = false;
+  private lastPlaylistKey = '';
+  private ytIds: string[] = [];
+  private ytIndex = 0;
+  private ytDeadCount = 0;
+  // Bounded self-heal budget (see MAX_YT_REBUILDS). Reset on a confirmed build
+  // (onReady / iframe appears) or on a fresh user-initiated rebuild.
+  private ytRebuildCount = 0;
+  // Consecutive onError events (broken/blocked videos) before auto-advance
+  // stops — prevents cycling a whole dead playlist forever.
+  private ytErrorStreak = 0;
+
+  ytSearchTerm = '';
+
+  constructor(private todoService: TodoService,
+    private location: Location,
+    private radioService: RadioService,
+    private fileService: FileService,
+    private cdr: ChangeDetectorRef,
+    private ngZone: NgZone,
+  ) {
+    super();
+    this.locationSub = this.location.subscribe(() => {
+      if (this.isFullscreen) {
+        this.closeFullscreen();
+      }
+    });
+  }
+
+  @HostListener('document:click')
+  onAnyClick() {
+    if (this.firstGestureDone) return;
+    this.firstGestureDone = true;
+
+    try { this.ytPlayer?.unMute(); } catch { }
+
+    // If YouTube is paused after muted-autoplay, start it.
+    try { this.ytPlayer?.playVideo(); } catch { }
+  }
+
+
+  @HostListener('document:keydown.escape', ['$event'])
+  handleEscapeKey(event: KeyboardEvent) {
+    if (this.isFullscreen) {
+      this.closeFullscreen();
+      event.preventDefault();
+    }
+  }
+
+  @HostListener('document:visibilitychange')
+  onVisChange() {
+    if (document.visibilityState === 'visible') {
+      if (this.isMusicPlaying) {
+        try { this.ytPlayer?.playVideo(); } catch { }
+      }
+    }
+  }
+
+  async ngOnInit() {
+    await this.tryInitialLoad();
+  }
+
+  async ngAfterViewInit() {
+    if (this.user) {
+      this.componentMain.nativeElement.style.padding = 'unset';
+    }
+    // The template hardcodes id="musicVideo", but YouTube registers players by
+    // the container element's id — and this component can be mounted twice on
+    // one page (the full Music view AND the profile small player). Two live
+    // instances (or a stale registry entry from a previous open) collide, so
+    // `new YT.Player(...)` throws "id must be unique", the iframe never
+    // appears, and the old code retried forever. Give each instance a unique
+    // container id so the registry can't collide.
+    try {
+      const el = this.musicVideo?.nativeElement as HTMLElement | undefined;
+      if (el && el.id === 'musicVideo') el.id = 'musicVideo-' + this.instance;
+    } catch { }
+    await this.ensureYouTubeApi();
+    if (!(window as any).YT?.Player) {
+      console.error('[Music] YT still undefined after ensureYouTubeApi()');
+      return;
+    }
+
+    this.ytReady = true;
+
+    this.buildPlayerFromSongs();
+
+    if (!this.ytPlayer && this.pendingPlay?.url) {
+      this.consumePendingPlay();
+    }
+
+    this.observePlayerDom();
+  }
+
+  ngOnDestroy(): void {
+    this.destroyYTPlayer();
+    // Clear timers
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = undefined;
+    }
+
+    // Unsubscribe from Location (and any other RxJS subscriptions)
+    if (this.locationSub) {
+      try { this.locationSub.unsubscribe(); } catch { }
+      this.locationSub = undefined;
+    }
+
+    // Remove radio audio element
+    if (this.radioAudioEl) {
+      try { this.radioAudioEl.pause(); } catch { }
+      try { this.radioAudioEl.remove(); } catch { }
+      this.radioAudioEl = undefined;
+    }
+  }
+
+  private destroyYTPlayer() {
+    // stop health timers and observers
+    this.stopYtHealthWatch();
+    this.mo?.disconnect();
+
+    // stop playback
+    try { this.ytPlayer?.stopVideo(); } catch (e) {
+      console.error('[YT] stopVideo failed', e);
+    }
+
+    // destroy the YT player object
+    try { this.ytPlayer?.destroy(); } catch (e) {
+      console.error('[YT] destroy failed', e);
+    }
+
+    // remove any leftover iframe and clear container
+    try {
+      const container = this.musicVideo?.nativeElement;
+      if (container) {
+        const iframe = container.querySelector('iframe');
+        if (iframe && iframe.parentElement) iframe.parentElement.removeChild(iframe);
+        container.innerHTML = '';
+      }
+    } catch (e) { 
+      console.error('[YT] DOM cleanup failed', e); 
+    }
+
+    // important: clear the container contents
+    if (this.musicVideo?.nativeElement) {
+      this.musicVideo.nativeElement.innerHTML = '';
+    }
+    // clear references
+    this.ytPlayer = undefined;
+    this.playerReady = false;
+    this.pendingPlay = undefined;
+    this.ytDeadCount = 0;
+
+    // clear iframe-check timer
+    if (this.iframeCheckTimer) {
+      clearInterval(this.iframeCheckTimer);
+      this.iframeCheckTimer = undefined;
+    }
+    this.iframeCheckInProgress = false;
+  }
+
+
+  private async tryInitialLoad() {
+    // Movie playlists are all public — show the gallery right away.
+    await this.loadPlaylists();
+    await this.refreshPlaylist();
+    if (this.songs.length && this.songs[0]?.url) {
+      const url = this.songs[0].url!;
+      this.pendingPlay = { url, fileId: null };
+    }
+    this.buildPlayerFromSongs();
+  }
+
+  async next() { this.playByIndex(this.ytIndex + 1); }
+  async prev() { this.playByIndex(this.ytIndex - 1); }
+
+
+  private consumePendingPlay() {
+    if (this.pendingPlay?.url && this.ytReady) {
+      const { url } = this.pendingPlay;
+      this.pendingPlay = undefined;
+      if (url) {
+        this.play(url); 
+      }
+    }
+  }
+
+  /** Build the YT player from the current song list if both the API and songs are ready. */
+  private buildPlayerFromSongs() {
+    if (!this.ytReady || this.ytPlayer) return;
+    if (!this.songs.length || !this.songs[0]?.url) return;
+    if (!this.musicVideo?.nativeElement) return;
+
+    const ids = this.getYoutubeIdsInOrder();
+    const firstId = this.parseYoutubeId(this.songs[0].url!);
+    let index = ids.indexOf(firstId);
+    if (index < 0) { ids.unshift(firstId); index = 0; }
+
+    this.rebuildYTPlayer(firstId, ids, index);
+
+    // Reflect autoplay in UI state
+    this.currentUrl = this.songs[0].url;
+    this.isMusicPlaying = true;
+    this.isMusicControlsDisplayed(true);
+    this.cdr.markForCheck();
+  }
+
+
+  private ensureYouTubeApi(): Promise<void> {
+    if (this.ytApiPromise) return this.ytApiPromise;
+
+    this.ytApiPromise = new Promise<void>((resolve, reject) => {
+      const w = window as any;
+
+      // Already loaded?
+      if (w.YT?.Player) { resolve(); return; }
+
+      // Set the global ready callback BEFORE injecting the script (prevents race)
+      w.onYouTubeIframeAPIReady = () => resolve();
+
+      // Avoid duplicate script inserts
+      const existing = document.querySelector('script[src="https://www.youtube.com/iframe_api"]');
+      if (!existing) {
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        tag.async = true;
+        tag.onerror = () => reject(new Error('Failed to load YouTube IFrame API'));
+        document.head.appendChild(tag);
+      }
+    });
+
+    // ✅ Return the promise so `await` actually waits
+    return this.ytApiPromise;
+  }
+
+  private getYoutubeIdsInOrder(): string[] {
+    const ids: string[] = [];
+    for (const s of this.songs) {
+      if (s.url) {
+        const id = this.parseYoutubeId(s.url);
+        if (id) ids.push(id);
+      }
+    }
+    return ids;
+  }
+
+  async getSongList(playAfterLoad = true) {
+    this.startLoading();
+    try {
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      const user = this.user ?? parent?.user;
+      if (!parent) return;
+
+      const tmpSongs = await this.todoService.getTodo(user?.id ?? 0, 'Movie');
+
+      // Build fresh arrays (new references)
+      this.youtubeSongs = tmpSongs.filter((song: Todo) => parent.isYoutubeUrl(song.url));
+      this.fileSongs = tmpSongs.filter((song: Todo) => !parent.isYoutubeUrl(song.url));
+
+      this.songs = this.selectedType === 'file'
+        ? [...this.fileSongs]
+        : [...this.youtubeSongs];
+    } finally {
+      this.updatePaginatedSongs();   // ensures new reference for paginatedSongs
+      this.gotPlaylistEvent.emit([...this.songs]); // emit a new ref as well
+      if (this.selectedType === 'youtube' && playAfterLoad && this.songs[0]?.url) {
+        this.play(this.songs[0]?.url); // attempt to play first song (if any)
+      }
+      this.stopLoading();
+      this.cdr.markForCheck();
+    }
+  }
+
+  async searchForSong(passedValue?: string) {
+    const search = (typeof passedValue === 'string' ? passedValue : this.searchInput?.nativeElement.value) || '';
+    const user = this.user ?? this.parentRef?.user; 
+
+    this.startLoading();
+    if (!search) {
+      await this.getSongList(false);
+      this.rebuildLocalYtQueue();
+    } else {
+      const tmpSongs = await this.todoService.getTodo(user?.id ?? 0, "Movie", search);
+      this.youtubeSongs = tmpSongs.filter((song: Todo) => this.parentRef?.isYoutubeUrl(song.url));
+      this.fileSongs = tmpSongs.filter((song: Todo) => !this.parentRef?.isYoutubeUrl(song.url));
+      this.songs = this.selectedType === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
+      this.currentPage = 1; // Reset to first page on search
+      this.updatePaginatedSongs();
+    }
+    this.reorderTable(undefined, this.orderSelect?.nativeElement.value || 'Newest', false);
+    setTimeout(() => {
+      this.cdr.detectChanges();
+    }, 50);
+    this.stopLoading();
+  }
+
+  updatePaginatedSongs() {
+    this.totalPages = Math.ceil(this.songs.length / this.itemsPerPage) || 1;
+    const startIndex = (this.currentPage - 1) * this.itemsPerPage;
+
+    // Create a NEW array reference - this is key for OnPush + *ngFor
+    this.paginatedSongs = this.songs.slice(startIndex, startIndex + this.itemsPerPage);
+  }
+
+  goToPreviousPage() {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+      this.updatePaginatedSongs();
+      this.scrollToTop();
+    }
+  }
+
+  goToNextPage() {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+      this.updatePaginatedSongs();
+      this.scrollToTop();
+    }
+  }
+
+  toggleSongList() {
+    this.isSongListCollapsed = !this.isSongListCollapsed;
+  }
+
+  async addSong() {
+    if (this.user) {
+      alert("Can't add song on another person's list");
+      return;
+    }
+    const title = this.titleInput.nativeElement.value;
+    if (!title || title.trim() === "") {
+      alert("Title cannot be empty!");
+      return;
+    }
+    const url = this.extractYouTubeVideoId(this.urlInput.nativeElement.value);
+    if ((!url || url.trim() === '') && !this.selectedFile) {
+      alert("Invalid YouTube URL!");
+      return;
+    }
+    this.startLoading();
+    let tmpTodo = new Todo();
+    tmpTodo.type = "movie";
+    tmpTodo.url = url.trim();
+    tmpTodo.todo = title.trim();
+    tmpTodo.fileId = this.selectedFile?.id;
+    tmpTodo.date = new Date(); // Ensure date is set for sorting
+    const resTodo = await this.todoService.createTodo(this.parentRef?.user?.id ?? 0, tmpTodo);
+    if (resTodo) {
+      tmpTodo.id = parseInt(resTodo);
+      this.selectedFile = undefined;
+      this.songs.unshift(tmpTodo);
+      this.updateSongTypeArrays(tmpTodo);
+      this.updatePaginatedSongs();
+      this.titleInput.nativeElement.value = '';
+      this.urlInput.nativeElement.value = '';
+    }
+    this.cdr.detectChanges();
+    this.stopLoading();
+  }
+
+  async deleteSong(id?: number) {
+    if (!id) {
+      this.parentRef?.showNotification("Invalid song ID");
+      return;
+    }
+    if (!confirm("Deleting song. Are you sure?")) return;
+    this.startLoading();
+    await this.todoService.deleteTodo(this.parentRef?.user?.id ?? 0, id);
+    const index = this.songs.findIndex(song => song.id === id);
+    if (index !== -1) {
+      this.songs.splice(index, 1);
+      this.updateSongTypeArrays();
+      this.updatePaginatedSongs();
+    }
+    if (document.getElementById("songId" + id)) {
+      document.getElementById("songId" + id)!.style.textDecoration = "line-through";
+    }
+    this.clearInputs();
+    this.closeEditPopup(false);
+    this.cdr.detectChanges();
+    this.stopLoading();
+  }
+
+  async selectType(type: 'youtube' | 'file' | 'radio') {
+    this.selectedType = type;
+    setTimeout(() => {
+      try {
+        this.stopMusic();
+      } catch (e) {
+        console.error("Music Stop Failed", e);
+      }
+    }, 50);//allow for adjustment time
+
+    if (type != 'radio') {
+      const iframeDiv = document.getElementById('iframeDiv');
+      const existingAudio = iframeDiv?.querySelector('audio');
+      if (existingAudio) {
+        existingAudio.remove();
+      }
+      this.currentPage = 1;
+      await this.refreshPlaylist();
+      this.songs = type === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
+      this.fileIdPlaylist = type === 'file' ? this.fileSongs.map(song => song.fileId!).filter(id => id !== undefined) : undefined;
+    } else {
+      this.loadRadioData();
+    }
+
+    if (type != 'youtube') {
+      this.destroyYTPlayer();
+    } else {
+      this.buildPlayerFromSongs();
+    }
+
+    if (type != 'file') {
+      this.fileIdPlaying = undefined;
+      this.fileMediaViewer?.stopAllMedia();
+    }
+  }
+
+
+  play(url?: string, fileId?: number) {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    if (!url && !fileId) {
+      parent?.showNotification("Url/File can't be empty");
+      return;
+    }
+
+    if (url) {
+      const requestedId = this.parseYoutubeId(url);
+      const currentId = this.ytPlayer?.getVideoData()?.video_id || this.parseYoutubeId(this.currentUrl || '');
+      if (requestedId && currentId && requestedId === currentId) {
+        return; // actually same video
+      }
+    }
+
+    if (fileId != undefined && fileId === this.currentFileId) {
+      parent?.showNotification("Already playing this file");
+      return;
+    }
+
+    if (!this.ytReady && url) {
+      this.pendingPlay = { url, fileId: null };
+      console.warn("YT API not ready, queuing play for url:", url);
+      return;
+    }
+    this.startLoading();
+
+    if (fileId) {
+      this.fileIdPlaying = fileId;
+      setTimeout(async () => {
+        if (this.fileMediaViewer) {
+          this.fileMediaViewer.resetSelectedFile();
+          setTimeout(async () => {
+            await this.fileMediaViewer.setFileSrcById(fileId);
+            this.fileMediaViewer.unmuteAllMedia();
+            this.stopLoading();
+            this.cdr.markForCheck();
+          }, 50);
+        }
+      }, 10);
+      return;
+    }
+
+
+    const requestedId = this.parseYoutubeId(url!);
+    this.rebuildLocalYtQueue(); // ensure queue current
+    const idx = this.ytIds.indexOf(requestedId);
+    this.playByIndex(idx >= 0 ? idx : 0);
+
+    // Update UI state
+    this.currentUrl = url;
+    this.currentFileId = null;
+    this.isMusicPlaying = true;
+    this.setupMediaSession();
+    this.keepScreenAwake(true);
+    this.isMusicControlsDisplayed(true);
+    this.stopLoading();
+  }
+
+  randomSong() {
+    if (this.selectedType === 'file') {
+      const fileIds = (this.fileIdPlaylist || []).filter(id => id != null) as number[];
+      if (fileIds.length) {
+        const randomFileId = fileIds[Math.floor(Math.random() * fileIds.length)];
+        this.play(undefined, randomFileId);
+        return;
+      }
+    }
+
+    if (this.selectedType !== 'youtube') return;
+
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const randomSong = this.pickRandomSong(this.songs);
+    if (!randomSong) {
+      parent?.showNotification('No songs available');
+      return;
+    }
+
+    const ids = this.getYoutubeIdsInOrder();
+    const rndId = this.parseYoutubeId(randomSong.url || '');
+    if (!rndId || !ids.length) {
+      parent?.showNotification('Invalid YouTube ID');
+      return;
+    }
+
+    const rotated = this.rotatePlaylistFromId(ids, rndId);
+
+    // Update local queue so subsequent playlist navigation continues from the random pick
+    this.ytIds = rotated;
+    this.ytIndex = 0;
+    this.lastPlaylistKey = rotated.join(',');
+
+    // ❗USE ensureYTPlayerBuilt — do NOT rebuild
+    this.ensureYTPlayerBuilt(rotated[0], rotated, 0);
+
+    this.currentUrl = randomSong.url;
+    this.currentFileId = null;
+    this.isMusicPlaying = true;
+    this.isMusicControlsDisplayed(true);
+    this.cdr.markForCheck();
+  }
+
+  followLink() {
+    if (!this.currentUrl) {
+      alert("No currently selected song!");
+      return;
+    }
+    const currUrl = this.currentUrl;
+    const regex = /\/embed[^?]+\?playlist=/;
+    const newUrl = currUrl.replace(regex, "/watch_videos?video_ids=");
+    window.open(newUrl);
+    this.stopMusic();
+  }
+
+  reorderTable(event?: Event, targetOrder?: string, playAfterLoad = true) {
+    if (!this.songs || this.songs.length === 0) return;
+    const order = event ? (event.target as HTMLSelectElement).value : targetOrder;
+    // Track whether we want the YT player's playlist to be shuffled
+    this.shouldShufflePlaylist = order === 'Random';
+    const songsCopy = [...this.songs]; // Create a copy to avoid modifying original
+    switch (order) {
+      case "Alphanumeric ASC":
+        this.songs = songsCopy.sort((a, b) => (a.todo || '').localeCompare(b.todo || ''));
+        break;
+      case "Alphanumeric DESC":
+        this.songs = songsCopy.sort((a, b) => (b.todo || '').localeCompare(a.todo || ''));
+        break;
+      case "Newest":
+        this.songs = songsCopy.sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+        break;
+      case "Oldest":
+        this.songs = songsCopy.sort((a, b) => new Date(a.date || 0).getTime() - new Date(b.date || 0).getTime());
+        break;
+      case "Random":
+        this.shuffleSongs(songsCopy);
+        this.songs = songsCopy;
+        break;
+      default:
+        this.songs = songsCopy.sort((a, b) => (a.todo || '').localeCompare(b.todo || ''));
+    }
+    this.currentPage = 1; // Reset to first page on reorder
+    // If we're dealing with YouTube and want random order, refresh the local queue
+    // and reload the player's playlist so we can call setShuffle on it.
+    this.updatePaginatedSongs();
+    if (this.selectedType === 'youtube') {
+      this.rebuildLocalYtQueue();
+      // Only reload or switch the embedded player's playlist when explicitly
+      // requested (e.g. user selects a song or uses Random). Avoid mutating
+      // the player's playlist during passive operations such as search.
+      if (playAfterLoad) {
+        if (this.ytPlayer && this.playerReady && this.ytIds && this.ytIds.length) {
+          try {
+            this.switchWithinPlaylist(this.ytIds, 0, true);
+          } catch (e) { console.warn('[Music] reload playlist after reorder failed', e); }
+        }
+      }
+    }
+  }
+
+  getPlaylistForYoutubeUrl(url: string): string[] {
+    let playlist = [];
+    let offset = this.songs.indexOf(this.songs.find(x => x.url === url)!);
+    if (offset < 0) offset = 0;
+    for (let i = offset; i < this.songs.length; i++) {
+      playlist.push(this.parseYoutubeId(this.songs[i].url || ''));
+    }
+    for (let i = 0; i < offset; i++) {
+      playlist.push(this.parseYoutubeId(this.songs[i].url || ''));
+    }
+    return playlist;
+  }
+
+  private setupMediaSession() {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({ title: 'Movie', artist: '', album: '' });
+      navigator.mediaSession.playbackState = 'playing';
+      navigator.mediaSession.setActionHandler('nexttrack', () => this.next());
+      navigator.mediaSession.setActionHandler('previoustrack', () => this.prev());
+    }
+  }
+
+  async keepScreenAwake(keep: boolean) {
+    try {
+      if (keep) this.screenLock = await (navigator as any).wakeLock?.request('screen');
+      else await this.screenLock?.release();
+    } catch { }
+  }
+
+  clearInputs() {
+    if (this.searchInput) this.searchInput.nativeElement.value = "";
+    if (this.titleInput) this.titleInput.nativeElement.value = "";
+    if (this.urlInput) this.urlInput.nativeElement.value = "";
+  }
+
+  shuffleSongs(array: any[]) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+  }
+
+  pickRandomSong(array: Array<Todo>): Todo | undefined {
+    const idx = Math.floor(Math.random() * array.length);
+    return array[idx];
+  }
+
+  stopMusic() {
+    this.isMusicPlaying = false;
+    this.isMusicControlsDisplayed(false);
+
+    // Stop YT without unloading the iframe
+    try { this.ytPlayer?.stopVideo(); } catch { console.error("Error stopping YT video"); }
+
+    // Stop file playback
+    if (this.fileMediaViewer) {
+      this.fileMediaViewer.resetSelectedFile();
+    }
+    this.fileIdPlaying = undefined;
+    this.keepScreenAwake(false);
+  }
+
+
+  fullscreen() {
+    const el = document.getElementById('iframeDiv');
+    if (!el) return;
+
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      this.isFullscreen = true;
+      el.requestFullscreen().catch(err => console.error(err));
+    }
+  }
+
+  closeFullscreen() {
+    // Use the ViewChild ref — the container id is unique per instance now.
+    const youtubePopup = this.musicVideo?.nativeElement;
+    if (youtubePopup) {
+      if (document.fullscreenElement) {
+        document.exitFullscreen();
+      }
+    }
+    this.isFullscreen = false;
+    if (!this.smallPlayer) {
+      const parent = this.inputtedParentRef ?? this.parentRef;
+      parent?.closeOverlay();
+    }
+  }
+
+  isMusicControlsDisplayed(setter: boolean) {
+    const elements = [
+      document.getElementById("stopMusicButton"),
+      document.getElementById("followLinkButton"),
+      document.getElementById("openPlaylistButton"),
+      document.getElementById("fullscreenMusicButton"),
+    ];
+    elements.forEach(el => {
+      if (el) el.style.display = setter ? "inline-block" : "none";
+    });
+    this.cdr.markForCheck();
+  }
+
+  extractYouTubeVideoId(url: string) {
+    const id = this.parseYoutubeId(url);
+    return id ? `https://www.youtube.com/watch?v=${id}` : '';
+  }
+
+  private observePlayerDom() {
+    const el = this.musicVideo?.nativeElement;
+    if (!el) return;
+
+    this.mo = new MutationObserver(() => {
+      const iframe = el.querySelector('iframe');
+      if (!iframe) {
+        console.warn('[YT] iframe missing! DOM likely replaced/cleared');
+      }
+    });
+
+    this.mo.observe(el, { childList: true, subtree: true });
+  }
+
+  private rotatePlaylistFromId(allIds: string[], startId: string): string[] {
+    if (!allIds.length) return [];
+    const idx = Math.max(0, allIds.indexOf(startId));
+    return allIds.slice(idx).concat(allIds.slice(0, idx));
+  }
+
+  onSearchEnter() {
+    clearTimeout(this.debounceTimer);
+    this.ytSearchTerm = this.searchInput?.nativeElement.value || '';
+    this.debounceTimer = setTimeout(() => {
+      this.searchForSong(this.ytSearchTerm);
+    }, 100);
+  }
+
+  selectFile(fileEntry: FileEntry[]) {
+    this.selectedFile = fileEntry[0];
+  }
+
+   mediaEndedEvent() {
+     if (this.selectedType != "file") {
+       return;
+     }
+     const currentId = this.fileIdPlaying;
+     if (this.fileIdPlaylist && this.fileIdPlaylist.length > 0) {
+       const currentIndex = this.fileIdPlaylist.indexOf(currentId!);
+       if (currentIndex >= 0 && currentIndex < this.fileIdPlaylist.length - 1) {
+         const nextFileId = this.fileIdPlaylist[currentIndex + 1];
+         this.play(undefined, nextFileId);
+       } else {
+         // When we reach the end of the playlist, loop back to the beginning
+         if (this.fileIdPlaylist.length > 1) {
+           const nextFileId = this.fileIdPlaylist[0];
+           this.play(undefined, nextFileId);
+         } else {
+           const randomFileId = this.fileIdPlaylist[0];
+           this.play(undefined, randomFileId);
+         }
+       }
+     }
+   }
+
+  private updateSongTypeArrays(newSong?: Todo) {
+    if (newSong) {
+      if (this.parentRef?.isYoutubeUrl(newSong.url)) {
+        this.youtubeSongs.unshift(newSong);
+      } else {
+        this.fileSongs.unshift(newSong);
+      }
+    }
+    this.youtubeSongs = this.songs.filter(song => this.parentRef?.isYoutubeUrl(song.url));
+    this.fileSongs = this.songs.filter((song: Todo) => !this.parentRef?.isYoutubeUrl(song.url));
+  }
+
+  async editSong(id?: number) {
+    if (!id) return;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    this.hasEditedSong = false;
+    if (!this.isEditing.includes(id)) {
+      parent?.showOverlay();
+      this.isEditing.push(id);
+    } else {
+      const todoDiv = document.getElementById('songId' + id) as HTMLTableCellElement;
+      const textInput = document.getElementById("editSongNameInput") as HTMLInputElement;
+      const urlInput = document.getElementById("editSongUrlInput") as HTMLInputElement;
+
+      try {
+        await this.todoService.editTodoUrlAndTitle(id, textInput.value, urlInput?.value).then(res => {
+          if (res) {
+            parent?.showNotification(res);
+          }
+        });
+        const todoIndex = this.songs.findIndex(todo => todo.id === id);
+        if (todoIndex !== -1) {
+          this.songs[todoIndex].todo = textInput.value;
+        }
+        parent?.closeOverlay();
+        this.isEditing = this.isEditing.filter(x => x !== id);
+      } catch (error) {
+        console.error("Error updating todo:", error);
+        parent?.showNotification("Failed to update todo");
+      }
+    }
+  }
+
+  closeHelpPanel() {
+    this.showHelpPopup = false;
+    this.parentRef?.closeOverlay();
+  }
+  openHelpPanel() {
+    this.showHelpPopup = true;
+    this.parentRef?.showOverlay();
+  }
+  showYoutubeSearch() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const mainInputValue = this.searchInput?.nativeElement?.value ?? '';
+    const parentKeyword = parent?.getYoutubeSearchKeyword() ?? undefined;
+    if (parentKeyword && parentKeyword !== mainInputValue) {
+      parent?.clearYoutubeSearchResults();
+    }
+
+    setTimeout(() => {
+      const searchKeyword = this.parentYoutubeSearch ?? this.searchInput?.nativeElement?.value ?? '';
+      this.ytSearchTerm = searchKeyword;
+      if (this.youtubeSearchComponent) {
+        this.youtubeSearchComponent.videos = this.parentYoutubeVideos ?? [];
+        this.youtubeSearchComponent.keyword = searchKeyword;
+      }
+      this.cdr.markForCheck();
+    }, 300);
+    this.isShowingYoutubeSearch = true;
+    this.parentRef?.showOverlay();
+    this.cdr.markForCheck();
+  }
+  closeYoutubeSearch() {
+    this.isShowingYoutubeSearch = false;
+    this.parentRef?.closeOverlay();
+    this.cdr.markForCheck();
+  }
+  async selectYoutubeVideoEvent(video: YoutubeVideo) {
+    this.urlInput.nativeElement.value = video.url;
+    this.titleInput.nativeElement.value = this.unescapeYoutubeTitle(video.title);
+    await this.addSong();
+    this.closeYoutubeSearch();
+    this.cdr.markForCheck();
+  }
+
+  // Unescape common YouTube-escaped sequences (e.g. "\\u0026") then decode HTML entities
+  private unescapeYoutubeTitle(input?: string): string {
+    if (!input) return '';
+    try {
+      // Convert literal \uXXXX sequences to characters
+      const unicodeFixed = input.replace(/\\u([0-9a-fA-F]{4})/g, (_m, g1) => String.fromCharCode(parseInt(g1, 16)));
+      // Convert any remaining escaped slashes or quotes
+      const simpleUnescaped = unicodeFixed.replace(/\\([\\"\/bfnrt])/g, (_m, g1) => {
+        switch (g1) {
+          case '\\': return '\\';
+          case '"': return '"';
+          case '/': return '/';
+          case 'b': return '\b';
+          case 'f': return '\f';
+          case 'n': return '\n';
+          case 'r': return '\r';
+          case 't': return '\t';
+          default: return g1;
+        }
+      });
+      // Decode HTML entities
+      const txt = document.createElement('textarea');
+      txt.innerHTML = simpleUnescaped;
+      return txt.value;
+    } catch (e) {
+      return input;
+    }
+  }
+  closeEditPopup(editSong = true) {
+    clearTimeout(this.debounceTimer);
+    this.debounceTimer = setTimeout(async () => {
+      if (this.parentRef) {
+        this.parentRef.closeOverlay(false);
+      }
+      if (this.hasEditedSong && editSong) {
+        this.editSong(this.isEditing[0]);
+      }
+      this.isEditing = [];
+    }, 50);
+  }
+  scrollToTop() {
+    const div = document.getElementsByClassName("musicControls")[0] as HTMLDivElement;
+    if (div) {
+      div.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      console.error("Div not found!");
+    }
+  }
+
+  get parentYoutubeSearch(): string | undefined {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    return parent?.getYoutubeSearchKeyword();
+  }
+
+  get parentYoutubeVideos(): YoutubeVideo[] {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    return parent?.getYoutubeSearchResults() ?? [];
+  }
+
+  get playerClasses(): string {
+    const base = this.smallPlayer ? 'smallIframeDiv'
+      : this.onMobile() ? 'mobileIframeDiv'
+        : 'iframeDiv';
+    // apply popupPanel only when you actually need overlay behavior
+    const overlay = this.isFullscreen ? 'music-fullscreen' : '';
+    return `${base} ${overlay}`.trim();
+  }
+
+
+  get isVisible(): boolean {
+    return !!(this.songs && this.songs.length > 0 && this.isMusicPlaying);
+  }
+
+  private hardRebuild(id: string) {
+    // Bounded self-heal: each failure path (iframe never appeared, health ping
+    // dead) funnels here. If construction keeps failing, destroy+rebuild would
+    // loop forever — after a few attempts we stop and surface a message.
+    this.ytRebuildCount++;
+    this.destroyYTPlayer();
+    setTimeout(() => {
+      if (this.ytRebuildCount > MovieComponent.MAX_YT_REBUILDS) {
+        this.giveUpOnYtRebuilds(id);
+        return;
+      }
+      this.rebuildYTPlayer(id, [], 0, true);
+    }, 100);
+  }
+
+  private giveUpOnYtRebuilds(id?: string) {
+    this.stopYtHealthWatch();
+    if (this.iframeCheckTimer) {
+      try { clearInterval(this.iframeCheckTimer); } catch { }
+      this.iframeCheckTimer = undefined;
+    }
+    this.iframeCheckInProgress = false;
+    this.ytPlayer = undefined;
+    this.playerReady = false;
+    this.pendingPlay = undefined;
+    this.isMusicPlaying = false;
+    this.isMusicControlsDisplayed(false);
+    this.ytRebuildCount = 0;
+    console.error('[YT] giving up on player after repeated failed rebuilds' + (id ? ' (' + id + ')' : ''));
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    try {
+      parent?.showNotification?.('YouTube player failed to load — check your connection/ad-blocker, then reopen the movie player.');
+    } catch { }
+    try { this.cdr.markForCheck(); } catch { }
+  }
+
+
+  private rebuildYTPlayer(firstId: string, _unusedIds: string[], _unusedIndex: number, hardRetry = false) {
+    // A fresh, user-initiated build (reopen, tab switch) starts a new attempt
+    // budget; only the hard-rebuild retry chain keeps counting so the loop is
+    // actually bounded.
+    if (!hardRetry) this.ytRebuildCount = 0;
+    if (!this.musicVideo?.nativeElement) return;
+    this.playerReady = false;
+    this.ytErrorStreak = 0;
+
+    try { this.ytPlayer?.destroy(); } catch { }
+    this.ytPlayer = undefined;
+
+    this.ngZone.runOutsideAngular(() => {
+      let created: any;
+      try {
+        created = new YT.Player(this.musicVideo.nativeElement, {
+          videoId: firstId,
+          playerVars: {
+            playsinline: 1,
+            rel: 0,
+            modestbranding: 1,
+            enablejsapi: 1,
+            origin: window.location.origin,
+            controls: 1,
+          },
+          events: {
+            onReady: () => {
+              // Stale guard: onReady can fire after we've torn this player down
+              // (e.g. a rebuild raced it) — never mark a dead player ready.
+              if (this.ytPlayer !== created) return;
+              this.playerReady = true;
+              this.ytRebuildCount = 0;
+
+              // load current selection
+              try {
+                this.ytPlayer!.mute();
+                const firstId =
+                  this.parseYoutubeId(this.pendingPlay?.url || this.songs[0]?.url || '');
+                if (firstId) {
+                  this.ytPlayer!.loadVideoById(firstId);
+                  this.ytPlayer!.playVideo(); // works while muted
+                }
+              } catch { }
+
+              // set attributes
+              try {
+                const iframe = this.ytPlayer!.getIframe() as HTMLIFrameElement;
+                iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture');
+                iframe.setAttribute('referrerpolicy', 'origin-when-cross-origin');
+                iframe.style.setProperty('max-width', '100%', 'important');
+                // If we previously requested a shuffled playlist, attempt to apply it
+                try {
+                  const anyPlayer = this.ytPlayer as any;
+                  if (this.shouldShufflePlaylist && typeof anyPlayer.setShuffle === 'function') {
+                    anyPlayer.setShuffle(true);
+                  }
+                } catch { }
+              } catch { }
+
+              this.ngZone.run(() => this.startYtHealthWatch());
+            },
+
+            onStateChange: (e: any) => {
+              if (e.data === YT.PlayerState.ENDED) this.playByIndex(this.ytIndex + 1);
+              if (e.data === YT.PlayerState.PLAYING) {
+                this.ytErrorStreak = 0;
+                const vid = this.ytPlayer?.getVideoData()?.video_id;
+                if (vid) this.currentUrl = `https://www.youtube.com/watch?v=${vid}`;
+              }
+            },
+
+            onError: () => {
+              // Skip past a broken video — but if the whole list keeps failing
+              // (blocked/unavailable videos) stop cycling instead of reloading
+              // forever.
+              this.ytErrorStreak++;
+              if (this.ytErrorStreak >= Math.max(3, this.ytIds.length + 1)) {
+                this.ytErrorStreak = 0;
+                try { this.ytPlayer?.stopVideo(); } catch { }
+                this.isMusicPlaying = false;
+                this.isMusicControlsDisplayed(false);
+                const parent = this.inputtedParentRef ?? this.parentRef;
+                try { parent?.showNotification?.('These videos are unavailable — playback stopped.'); } catch { }
+                return;
+              }
+              this.playByIndex(this.ytIndex + 1);
+            },
+          }
+        });
+      } catch (e) {
+        // Construction can throw (e.g. YouTube registry id collision). Log it,
+        // leave ytPlayer undefined, and let the (bounded) iframe-check retry
+        // handle recovery instead of crashing or looping silently.
+        console.error('[YT] player construction failed', e);
+      }
+      this.ytPlayer = created;
+    });
+
+    // Start a short-lived poll to ensure the iframe actually appears in the DOM.
+    // Some environments intermittently fail to inject the iframe; if that happens
+    // do a (bounded) hard rebuild to force the player back into a working state.
+    this.scheduleIframeCheck(firstId);
+  }
+
+  private scheduleIframeCheck(firstId: string) {
+    // don't start another poller if one is already running
+    if (this.iframeCheckInProgress) return;
+    this.iframeCheckInProgress = true;
+    try {
+      if (this.iframeCheckTimer) {
+        clearInterval(this.iframeCheckTimer);
+        this.iframeCheckTimer = undefined;
+      }
+    } catch { }
+    this.iframeCheckAttempts = 0;
+    this.iframeCheckTimer = window.setInterval(() => {
+      this.iframeCheckAttempts++;
+
+      const el = this.musicVideo?.nativeElement as HTMLElement | undefined;
+      const domIframe = el && el.querySelector ? el.querySelector('iframe') : null;
+      const playerIframe = (this.ytPlayer && typeof (this.ytPlayer as any).getIframe === 'function') ? (this.ytPlayer as any).getIframe() : null;
+      const hasIframe = !!domIframe || !!playerIframe;
+
+      // If iframe was inserted or player is ready, cancel polling
+      if (hasIframe || this.playerReady) {
+        this.ytRebuildCount = 0; // confirmed build — reset the retry budget
+        try { clearInterval(this.iframeCheckTimer!); } catch { }
+        this.iframeCheckTimer = undefined;
+        this.iframeCheckInProgress = false;
+        return;
+      }
+
+      // after several attempts, give up and hard rebuild
+      if (this.iframeCheckAttempts >= 8) {
+        try { clearInterval(this.iframeCheckTimer!); } catch { }
+        this.iframeCheckTimer = undefined;
+        this.iframeCheckInProgress = false;
+        const id = firstId || this.parseYoutubeId(this.currentUrl || '') || this.ytIds[this.ytIndex];
+        console.warn('[YT] iframe never appeared after rebuild, forcing hardRebuild', id);
+        if (id) this.hardRebuild(id);
+      }
+    }, 300);
+  }
+
+  private ensureYTPlayerBuilt(firstId: string, songIds: string[], index: number) {
+    // Build if missing
+    if (!this.ytPlayer) {
+      this.rebuildYTPlayer(firstId, songIds, index);
+      return;
+    }
+
+    // Queue if player not ready yet
+    if (!this.playerReady) {
+      return;
+    }
+
+    // ✅ Switch immediately (no debounce timer)
+    this.switchWithinPlaylist(songIds, index);
+  }
+
+  private async forceSwitchToId(videoId: string) {
+    if (!this.ytPlayer) return;
+    try {
+      this.ytPlayer.loadVideoById(videoId);
+      this.ytPlayer.playVideo();
+    } catch (e) {
+      console.warn('[YT] forceSwitchToId failed, rebuilding', e);
+      this.rebuildYTPlayer(videoId, this.getYoutubeIdsInOrder(), 0);
+    }
+  }
+
+  private switchWithinPlaylist(ids: string[], index: number, playOnLoad = true) {
+    if (!this.ytPlayer) return;
+    const desiredId = ids[index];
+    try {
+      const key = ids.join(',');
+      const pl = this.ytPlayer.getPlaylist?.() || [];
+
+      if (this.lastPlaylistKey === key && pl.length) {
+        if (playOnLoad) {
+          this.ytPlayer.playVideoAt(index);
+          this.ytPlayer.playVideo();
+        }
+      } else {
+        this.lastPlaylistKey = key;
+        this.ytPlayer.loadPlaylist(ids, index, 0, 'small');
+        if (playOnLoad) {
+          this.ytPlayer.playVideo();
+        }
+        // Apply shuffle setting if requested and supported by the player API
+        try {
+          const anyPlayer = this.ytPlayer as any;
+          if (this.shouldShufflePlaylist && typeof anyPlayer.setShuffle === 'function') {
+            anyPlayer.setShuffle(true);
+          }
+        } catch (ex) { /* ignore */ }
+      }
+    } catch (e) {
+      console.warn('[YT] switchWithinPlaylist failed', e);
+      if (desiredId && playOnLoad) {
+        this.forceSwitchToId(desiredId);
+      }
+      return;
+    }
+
+    // ✅ Verify after a short moment: did the player actually change?
+    setTimeout(() => {
+      const afterId = this.ytPlayer?.getVideoData()?.video_id;
+      if (desiredId && afterId && afterId !== desiredId) {
+        console.warn('[YT] playlist command ignored, forcing loadVideoById', { desiredId, afterId });
+        this.forceSwitchToId(desiredId);
+      } else if (desiredId && !afterId) {
+        // sometimes videoData not ready yet, still force
+        this.forceSwitchToId(desiredId);
+      }
+    }, 250);
+  }
+
+  async loadRadioData() {
+    this.startLoading();
+    this.isLoadingRadio = true;
+    try {
+      await Promise.all([
+        this.fetchRadioCountries(),
+        this.fetchRadioLanguages(),
+        this.fetchRadioTags()
+      ]);
+      await this.fetchRadioStations();
+    } catch (error) {
+      console.error('Error loading radio data:', error);
+    } finally {
+      this.isLoadingRadio = false;
+      this.stopLoading();
+      this.cdr.markForCheck();
+    }
+  }
+
+  async fetchRadioCountries() {
+    this.radioCountries = await this.radioService.fetchCountries();
+  }
+
+  async fetchRadioLanguages() {
+    this.radioLanguages = await this.radioService.fetchLanguages();
+  }
+
+  async fetchRadioTags() {
+    this.radioTags = await this.radioService.fetchTags();
+  }
+
+  async fetchRadioStations() {
+    this.startLoading();
+    this.isLoadingRadio = true;
+    try {
+      this.radioStations = await this.radioService.fetchStations(this.radioFilters);
+    } finally {
+      this.isLoadingRadio = false;
+      this.stopLoading();
+    }
+  }
+
+  onRadioFilterChange(filterType: 'country' | 'language' | 'tag', event: Event) {
+    const value = (event.target as HTMLSelectElement).value;
+    this.radioFilters[filterType] = value;
+    this.fetchRadioStations();
+  }
+
+  private rebuildLocalYtQueue() {
+    this.ytIds = this.getYoutubeIdsInOrder();
+    // keep index aligned if something already playing
+    const current = this.ytPlayer?.getVideoData()?.video_id || this.parseYoutubeId(this.currentUrl || '');
+    const idx = current ? this.ytIds.indexOf(current) : -1;
+    if (idx >= 0) this.ytIndex = idx;
+  }
+
+  async playRadioStation(station: RadioStation) {
+    if (!station || !station.url_resolved) {
+      alert('Invalid radio station URL');
+      return;
+    }
+    this.startLoading();
+    const iframeDiv = document.getElementById('iframeDiv');
+    if (iframeDiv) {
+      // Remove any existing instance we created
+      if (this.radioAudioEl) {
+        try { this.radioAudioEl.pause(); } catch { }
+        this.radioAudioEl.remove();
+      }
+
+      this.currentRadioStation = station;
+      this.isMusicPlaying = true;
+
+      // Create an audio element to play the radio stream
+      const audioPlayer = document.createElement('audio');
+      audioPlayer.src = station.url_resolved;
+      audioPlayer.autoplay = true;
+      audioPlayer.controls = true;
+      audioPlayer.style.width = '100%';
+      audioPlayer.style.marginTop = '10px';
+
+      // Remove any existing audio players
+      const existingAudio = iframeDiv.querySelector('audio');
+      if (existingAudio) {
+        existingAudio.remove();
+      }
+      iframeDiv.appendChild(audioPlayer);
+    }
+
+    // Register click for popularity tracking
+    if (station.stationuuid) {
+      await this.radioService.registerStationClick(station.stationuuid);
+    }
+
+    this.isMusicControlsDisplayed(true);
+    this.stopLoading();
+    this.cdr.markForCheck();
+  }
+
+  mediaViewerFinishedLoading() {
+    this.cdr.markForCheck();
+  }
+
+  private startYtHealthWatch() {
+    this.stopYtHealthWatch();
+
+    this.ytHealthTimer = window.setInterval(() => {
+      if (!this.ytPlayer) return;
+
+      try {
+        // A lightweight call that should work if the bridge is alive
+        this.ytPlayer.getCurrentTime();
+        this.ytDeadCount = 0;
+      } catch {
+        this.ytDeadCount++;
+        console.warn('[YT] health ping failed', this.ytDeadCount);
+
+        // after a couple failures, rebuild
+        if (this.ytDeadCount >= 2) {
+          this.ytDeadCount = 0;
+
+          const id =
+            this.ytPlayer?.getVideoData()?.video_id ||
+            this.parseYoutubeId(this.currentUrl || '') ||
+            this.ytIds[this.ytIndex];
+
+          if (id) {
+            console.warn('[YT] rebuilding after suspected crash', id);
+            this.hardRebuild(id);
+          }
+        }
+      }
+    }, 4000);
+  }
+
+  private stopYtHealthWatch() {
+    if (this.ytHealthTimer) {
+      clearInterval(this.ytHealthTimer);
+      this.ytHealthTimer = undefined;
+    }
+  }
+
+  private parseYoutubeId(url: string): string {
+    return this.fileService.parseYoutubeId(url);
+  }
+
+  private playByIndex(index: number) {
+    if (!this.ytIds.length) return;
+
+    this.ytIndex = (index + this.ytIds.length) % this.ytIds.length;
+    const id = this.ytIds[this.ytIndex];
+
+    // update your URL state
+    this.currentUrl = `https://www.youtube.com/watch?v=${id}`;
+    this.currentFileId = null;
+    this.isMusicPlaying = true;
+
+    // If player not ready, queue it
+    if (!this.ytReady || !this.ytPlayer || !this.playerReady) {
+      this.pendingPlay = { url: this.currentUrl, fileId: null };
+      return;
+    }
+
+    // 🔥 Always direct-load the video 
+    this.ytPlayer.loadVideoById(id);
+    this.ytPlayer.playVideo();
+  }
+
+  async refreshDom() {
+    setTimeout(() => {
+      this.cdr.markForCheck();
+    }, 50);
+  }
+  async refreshPlaylist() {
+    await this.getSongList().then(() => {
+      this.updatePaginatedSongs();
+      this.cdr.markForCheck();
+    });
+    this.rebuildLocalYtQueue();
+  }
+
+  // ───────────── Playlist Management ─────────────
+
+  /** Loads the public gallery — everyone's movie playlists, no login needed. */
+  async loadPlaylists() {
+    const result = await this.todoService.getMoviePlaylists();
+    if (result) {
+      this.playlists = result;
+      this.cdr.markForCheck();
+    }
+  }
+
+  async onPlaylistChange(event: Event) {
+    const value = (event.target as HTMLSelectElement).value;
+    this.selectedPlaylistId = value ? parseInt(value, 10) : null;
+    this.isEditingPlaylist = false;
+    this.playlistSelectedSongIds.clear();
+
+    if (this.selectedPlaylistId) {
+      await this.loadPlaylistSongs();
+    } else {
+      await this.refreshPlaylist();
+    }
+  }
+
+  private async loadPlaylistSongs() {
+    if (!this.selectedPlaylistId) return;
+    const parent = this.inputtedParentRef ?? this.parentRef;
+
+    this.startLoading();
+    const entries = await this.todoService.getMoviePlaylistEntries(this.selectedPlaylistId);
+    if (entries) {
+      this.youtubeSongs = entries.filter((song: Todo) => parent?.isYoutubeUrl(song.url));
+      this.fileSongs = entries.filter((song: Todo) => !parent?.isYoutubeUrl(song.url));
+      this.songs = this.selectedType === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
+      this.currentPage = 1;
+      this.updatePaginatedSongs();
+      this.rebuildLocalYtQueue();
+      this.gotPlaylistEvent.emit([...this.songs]);
+    }
+    this.stopLoading();
+    this.cdr.markForCheck();
+  }
+
+  async createPlaylist() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user?.id) {
+      parent?.showNotification('You must be logged in to create a playlist.');
+      return;
+    }
+    const name = prompt('Enter playlist name:');
+    if (!name || !name.trim()) return;
+
+    const result = await this.todoService.createMoviePlaylist(user.id, name.trim());
+    if (result) {
+      await this.loadPlaylists();
+      // Auto-select the newly created playlist
+      const newId = parseInt(result, 10);
+      if (!isNaN(newId)) {
+        this.selectedPlaylistId = newId;
+      }
+      parent?.showNotification('Playlist created!');
+      this.cdr.markForCheck();
+    }
+  }
+
+  async deletePlaylist() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user?.id || !this.selectedPlaylistId) return;
+    if (!confirm('Delete this playlist? This cannot be undone.')) return;
+
+    await this.todoService.deleteMoviePlaylist(user.id, this.selectedPlaylistId);
+    this.selectedPlaylistId = null;
+    this.isEditingPlaylist = false;
+    this.playlistSelectedSongIds.clear();
+    await this.loadPlaylists();
+    await this.refreshPlaylist();
+    parent?.showNotification('Playlist deleted.');
+    this.cdr.markForCheck();
+  }
+
+  async renamePlaylist() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user?.id || !this.selectedPlaylistId) return;
+
+    const currentPlaylist = this.playlists.find(p => p.id === this.selectedPlaylistId);
+    const newName = prompt('New playlist name:', currentPlaylist?.name ?? '');
+    if (!newName || !newName.trim()) return;
+
+    await this.todoService.renameMoviePlaylist(user.id, this.selectedPlaylistId, newName.trim());
+    await this.loadPlaylists();
+    parent?.showNotification('Playlist renamed.');
+    this.cdr.markForCheck();
+  }
+
+  toggleEditPlaylist() {
+    if (!this.selectedPlaylistId) return;
+    this.isEditingPlaylist = !this.isEditingPlaylist;
+
+    if (this.isEditingPlaylist) {
+      // Cache all songs and pre-check songs already in the playlist
+      this.allSongsCache = [...this.songs];
+      // Load full song list so user can pick from all songs
+      this.loadAllSongsForPlaylistEdit();
+    } else {
+      this.playlistSelectedSongIds.clear();
+    }
+    this.cdr.markForCheck();
+  }
+
+  private async loadAllSongsForPlaylistEdit() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = this.user ?? parent?.user; 
+
+    this.startLoading();
+
+    // Get the full video list (all movies/TV entries)
+    const allSongs = await this.todoService.getTodo(user?.id ?? 0, 'Movie');
+    if (!allSongs) { this.stopLoading(); return; }
+
+    this.youtubeSongs = allSongs.filter((song: Todo) => parent?.isYoutubeUrl(song.url));
+    this.fileSongs = allSongs.filter((song: Todo) => !parent?.isYoutubeUrl(song.url));
+    this.songs = this.selectedType === 'file' ? [...this.fileSongs] : [...this.youtubeSongs];
+    this.currentPage = 1;
+    this.updatePaginatedSongs();
+
+    // Pre-check songs that are already in the playlist
+    if (this.selectedPlaylistId) {
+      const existing = await this.todoService.getMoviePlaylistEntries(this.selectedPlaylistId);
+      if (existing) {
+        this.playlistSelectedSongIds = new Set(existing.map((e: Todo) => e.id!).filter(id => id != null));
+      }
+    }
+
+    this.stopLoading();
+    this.cdr.markForCheck();
+  }
+
+  toggleSongInPlaylist(songId: number) {
+    if (this.playlistSelectedSongIds.has(songId)) {
+      this.playlistSelectedSongIds.delete(songId);
+    } else {
+      this.playlistSelectedSongIds.add(songId);
+    }
+    this.cdr.markForCheck();
+  }
+
+  isSongInPlaylist(songId: number): boolean {
+    return this.playlistSelectedSongIds.has(songId);
+  }
+
+  async savePlaylist() {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = parent?.user;
+    if (!user?.id || !this.selectedPlaylistId) return;
+
+    const todoIds = Array.from(this.playlistSelectedSongIds);
+    this.startLoading();
+    const result = await this.todoService.saveMoviePlaylistEntries(user.id, this.selectedPlaylistId, todoIds);
+    if (result) {
+      parent?.showNotification('Playlist saved!');
+    }
+    this.isEditingPlaylist = false;
+    this.playlistSelectedSongIds.clear();
+
+    // Reload the playlist songs
+    await this.loadPlaylistSongs();
+    this.stopLoading();
+    this.cdr.markForCheck();
+  }
+
+  get selectedPlaylistName(): string {
+    const pl = this.playlists.find(p => p.id === this.selectedPlaylistId);
+    return pl?.name ?? '';
+  }
+
+  /** Whether the logged-in user owns the selected playlist (only owners can edit). */
+  isPlaylistOwner(): boolean {
+    const parent = this.inputtedParentRef ?? this.parentRef;
+    const user = this.user ?? parent?.user;
+    if (!user?.id || !this.selectedPlaylistId) return false;
+    const pl = this.playlists.find(p => p.id === this.selectedPlaylistId);
+    return pl?.userId === user.id;
+  }
+
+  get selectedPlaylistOwner(): string {
+    const pl = this.playlists.find(p => p.id === this.selectedPlaylistId);
+    return pl?.ownerName || 'Unknown';
+  }
+}

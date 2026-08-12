@@ -1,0 +1,232 @@
+<div class="componentMain" #componentMain>
+  <app-title-bar
+    *ngIf="!smallPlayer"
+    [title]="!user ? 'Movie' : ''"
+    [hasMenu]="false"
+    [hasClose]="!!!user"
+    [hasHelp]="!!!user"
+    [showTitle]="!!!user"
+    (closeClicked)="remove_me('MovieComponent');"
+    (helpClicked)="openHelpPanel();">
+  </app-title-bar>
+
+  <div class="publicBanner" *ngIf="!user">
+    🌍 <strong>All movie playlists are public.</strong> Every playlist created here is visible to everyone — no sharing toggles needed.
+  </div>
+
+  <fieldset *ngIf="!user">
+    <legend title="Add to the movie list">Add to the movie list</legend>
+    <div class="addSongInputFieldset">
+      <input type="text" #titleInput placeholder="Movie / TV Show Title" (keyup.enter)="addSong()" />
+      <input type="text" #urlInput placeholder="YouTube URL" (keyup.enter)="addSong()" />
+      <app-media-selector #mediaSelector
+        [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
+        [user]="parentRef?.user"
+        [inputtedParentRef]="parentRef"
+        [maxSelectedFiles]="1"
+        [uploadButtonText]="''"
+        (expandFileSelectorEvent)="refreshDom()"
+        (selectFileEvent)="selectFile($event)"></app-media-selector>
+      <input type="submit" value="💾" (click)="addSong()" />
+    </div>
+  </fieldset>
+  <div id="moviePlayerDiv" [class]="smallPlayer ? 'smallSongList' : 'normalSongList'">
+    <div id="songlist">
+        <div class="playerStack">
+          <div id="musicVideo" #musicVideo [class.youtube-active]="selectedType === 'youtube' && !fileIdPlaying"
+            [class.youtube-inactive]="!(selectedType === 'youtube' && !fileIdPlaying)">
+          </div>
+          <app-media-viewer #fileMediaViewer [class.file-active]="fileIdPlaying" [class.file-inactive]="!fileIdPlaying"
+            [inputtedParentRef]="parentRef" [autoplay]="true" [autoload]="true" [loop]="false" [muted]="false"
+            [showTopics]="false" [showCommentSection]="false" [displayLoading]="true"
+            (mediaEndedEvent)="mediaEndedEvent()" (finishedLoadingEvent)="mediaViewerFinishedLoading()">
+          </app-media-viewer>
+        </div>
+        <button title="Shrink Fullscreen" (click)="closeFullscreen()" id="closeOverlay" *ngIf="isFullscreen">Shrink</button>
+        <div class="musicControls">
+          <label id="stopMusicButton" (click)="stopMusic()" title="Stop">🛑</label>
+          <label id="fullscreenMusicButton" (click)="fullscreen()" title="Expand Fullscreen">◼</label>
+          <label id="followLinkButton" *ngIf="!fileIdPlaylist" (click)="followLink()" title="Open in Youtube">🕸</label>
+          <label (click)="randomSong()" title="Random Video">⚡</label>
+        </div>
+
+      <div class="collapsible-header" (click)="toggleSongList()">
+        Total: ({{songs.length}})
+        <span class="collapse-icon">{{ isSongListCollapsed ? '▼' : '▲' }}</span>
+      </div>
+      <div *ngIf="!isSongListCollapsed">
+        <div class="listSelectors">
+          <div class="orderAndPlaylistSelectors">
+            <div class="selectorDiv">
+              Order:
+              <select id="orderSelect" (change)="reorderTable($event)" #orderSelect>
+                <option *ngFor="let order of orders" [value]="order">{{order}}</option>
+              </select>
+            </div>
+            <div class="selectorDiv">
+              Playlist (public):
+              <select id="playlistSelect" (change)="onPlaylistChange($event)">
+                <option value="">All Videos</option>
+                <option *ngFor="let pl of playlists" [value]="pl.id" [selected]="pl.id === selectedPlaylistId">
+                  {{pl.name}}{{pl.ownerName ? ' (' + pl.ownerName + ')' : ''}}
+                </option>
+              </select>
+              <button (click)="createPlaylist()" title="Create a New Public Playlist" class="playlistBtn">➕</button>
+              <div class="playlistActions" *ngIf="selectedPlaylistId && !user && isPlaylistOwner()">
+                <button (click)="toggleEditPlaylist()" class="playlistBtn" [title]="isEditingPlaylist ? 'Cancel Edit' : 'Edit Playlist'">{{isEditingPlaylist ? '❌Cancel' : '✏️'}}</button>
+                <button (click)="savePlaylist()" *ngIf="isEditingPlaylist" class="playlistBtn" title="Save Playlist">💾Save</button>
+                <button (click)="renamePlaylist()" class="playlistBtn" title="Rename Playlist" *ngIf="isEditingPlaylist">✏️Rename</button>
+                <button (click)="deletePlaylist()" class="playlistBtn" title="Delete Playlist" *ngIf="isEditingPlaylist">🗑️Delete</button>
+              </div>
+            </div>
+          </div>
+          <div class="selectorDiv">
+            Search:
+            <input placeholder="Keyword" #searchInput (keyup.enter)="onSearchEnter()" />
+            <button type="button" title="Search Movie List" (click)="searchForSong(searchInput?.value)">🔍</button>
+            <input type="button" value="▶️" title="Search YouTube" (click)="showYoutubeSearch()" *ngIf="selectedType === 'youtube'" />
+          </div>
+        </div>
+        <div class="musicTypeSelector">
+          <label class="smallFont">
+            <input type="radio" name="songType" (click)="selectType('youtube')" [checked]="selectedType == 'youtube'" />
+            YouTube
+          </label>
+          <label class="smallFont">
+            <input type="radio" name="songType" (click)="selectType('file')" [checked]="selectedType == 'file'" />
+            Files
+          </label>
+        </div>
+        <div class="mainTableContainer">
+          <table id="songListTable" [class]="isEditing.length ? '' : 'mainTable'" id="todoTable" *ngIf="paginatedSongs && paginatedSongs.length > 0">
+            <tbody>
+              <tr *ngFor="let song of paginatedSongs; trackBy: trackSong" id="songId{{song.id!}}" [class]="isEditing.includes(song.id ?? 0) ? 'popupPanel' : ''">
+                <td *ngIf="song.id && isEditingPlaylist" class="playlistCheckTd">
+                  <input type="checkbox" [checked]="isSongInPlaylist(song.id)" (change)="toggleSongInPlaylist(song.id)" (click)="$event.stopPropagation()" />
+                </td>
+                <td *ngIf="song.id" [style.width]="isEditing.includes(song.id) ? '' : '100%'">
+                  <span *ngIf="!isEditing.includes(song.id)" class="songTitle" (click)="play(song.url, song.fileId)">{{song.todo}}</span>
+                  <div *ngIf="isEditing.includes(song.id)" class="popupPanelTitle">Edit Movie / Episode</div>
+                  <div>
+                    <span *ngIf="isEditing.includes(song.id)">Title:&nbsp;</span>
+                    <textarea
+                      type=text
+                      id="editSongNameInput"
+                      *ngIf="isEditing.includes(song.id)"
+                      [value]="song.todo"
+                      style="width:100%"
+                      (click)="$event.stopPropagation()"
+                      (mousedown)="$event.stopPropagation()"
+                      (input)="hasEditedSong = true;"></textarea>
+                  </div>
+                  <div>
+                    <span *ngIf="isEditing.includes(song.id)">Url:&nbsp;</span>
+                    <textarea
+                    type=text
+                    id="editSongUrlInput"
+                      *ngIf="isEditing.includes(song.id)"
+                      [value]="song.url"
+                      style="width:100%"
+                      (click)="$event.stopPropagation()"
+                      (mousedown)="$event.stopPropagation()"
+                      (input)="hasEditedSong = true;"></textarea>
+                  </div>
+                </td>
+                <td class="actionTd" *ngIf="!user && song.id">
+                  <button (click)="editSong(song.id)" class="xxSmallFont cursorPointer" *ngIf="!isEditing.length">{{ isEditing.includes(song.id) ?
+                    '💾':'✏️'}}</button>
+                  <button
+                    (click)="closeEditPopup()"
+                    [title]="'Edit'"
+                    class="cursorPointer closeButton"
+                    [class.hidden-operable]="isEditing.includes(song.id) ? false : true"
+                    id="closeOverlay">
+                    💾Update
+                  </button>
+                  <button (click)="deleteSong(song.id)" class="cursorPointer" *ngIf="isEditing.includes(song.id)">❌Delete</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div *ngIf="isShowingYoutubeSearch" class="popupPanel">
+            <app-youtube-search #youtubeSearchComponent
+              [inputtedParentRef]="inputtedParentRef ?? parentRef"
+              [keyword]="parentYoutubeSearch ?? ytSearchTerm"
+              (selectVideoEvent)="selectYoutubeVideoEvent($event)"></app-youtube-search>
+            <button id="closeOverlay" (click)="closeYoutubeSearch()" style="margin-top:10px;">Close</button>
+          </div>
+        </div>
+        <div *ngIf="(paginatedSongs && paginatedSongs.length == 0) || searchInput.nativeElement?.value != ''" class="extraMainDataInfo">
+          <span *ngIf="paginatedSongs && paginatedSongs.length == 0">No movies added yet!</span>
+          <button (click)="showYoutubeSearch()">Search YouTube</button>
+        </div>
+      </div>
+    </div>
+  </div>
+      <div class="pagination-controls" *ngIf="songs.length > itemsPerPage">
+        <button [disabled]="currentPage === 1" (click)="goToPreviousPage()" class="pagination-button">
+          Previous
+        </button>
+        <span class="pagination-info">
+          Page {{ currentPage }} of {{ totalPages }}
+        </span>
+        <button [disabled]="currentPage === totalPages" (click)="goToNextPage()" class="pagination-button">
+          Next
+        </button>
+        <button (click)="scrollToTop()" class="pagination-button">
+          Scroll Up
+        </button>
+      </div>
+</div>
+
+<!-- Help Popup -->
+<div class="popupPanel" *ngIf="showHelpPopup">
+  <div class="popupPanelTitle" style="margin-bottom:15px;">
+    Movie Player Help
+  </div>
+  <div class="helpContent">
+    <h3>🎬 Movie Player Features</h3>
+
+    <h4>🔹 Adding Movies / TV Shows</h4>
+    <p>To add a video to the public list:</p>
+    <ol>
+      <li>Enter the movie or episode title</li>
+      <li>Either:
+        <ul>
+          <li>Paste a YouTube URL (full episodes, trailers, movies), OR</li>
+          <li>Pick a video file from the file explorer using the media selector</li>
+        </ul>
+      </li>
+      <li>Click the 💾 save button or press Enter</li>
+    </ol>
+
+    <h4>🔹 Playing Videos</h4>
+    <ul>
+      <li>Click any title in the list to play it</li>
+      <li>YouTube videos play in the embedded player</li>
+      <li>Uploaded files play in the video player</li>
+      <li>Click ◼ to expand fullscreen, 🛑 to stop playback</li>
+      <li>Click ⚡ to play a random video</li>
+      <li>Click 🕸 to open the current YouTube video in a new tab</li>
+    </ul>
+
+    <h4>🔹 Public Playlists</h4>
+    <ul>
+      <li><strong>Every playlist is public.</strong> Anyone can browse and play anyone else's list from the "Playlist (public)" dropdown — no login or share links needed.</li>
+      <li>The dropdown shows the owner's name next to each playlist.</li>
+      <li>Only the owner of a playlist can edit, rename, or delete it.</li>
+      <li>Create a new playlist with ➕ and add videos to it with ✏️ → checkboxes → 💾Save.</li>
+    </ul>
+
+    <h4>🔹 Managing Videos</h4>
+    <ul>
+      <li><strong>Edit:</strong> Click ✏️ to edit a title, then 💾 to save</li>
+      <li><strong>Delete:</strong> Click ❌ to remove a video</li>
+      <li><strong>Search:</strong> Use the search box or the YouTube search (▶️) button</li>
+      <li><strong>Sort:</strong> Newest / Oldest / Alphanumeric / Random</li>
+    </ul>
+
+    <p class="note">Note: You must be logged in to add or edit videos.</p>
+  </div>
+  <button id="closeOverlay" class="closeButton" (click)="closeHelpPanel()" style="margin-top:6px;">Close</button>
+</div>

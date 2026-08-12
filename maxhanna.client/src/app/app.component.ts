@@ -9,6 +9,7 @@ import { TodoComponent } from './todo/todo.component';
 import { ContactsComponent } from './contacts/contacts.component';
 import { NotepadComponent } from './notepad/notepad.component';
 import { MusicComponent } from './music/music.component';
+import { MovieComponent } from './movie/movie.component';
 import { UserComponent } from './user/user.component';
 import { MenuItem } from '../services/datacontracts/user/menu-item';
 import { MemeComponent } from './meme/meme.component';
@@ -148,6 +149,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "☀️", title: "Weather", content: '' },
     { ownership: 0, icon: "✔️", title: "Todo", content: undefined },
     { ownership: 0, icon: "🎵", title: "Music", content: undefined },
+    { ownership: 0, icon: "🎬", title: "Movie", content: undefined },
     { ownership: 0, icon: "🗒️", title: "Notepad", content: undefined },
     { ownership: 0, icon: "📇", title: "Contacts", content: undefined },
     { ownership: 0, icon: "📰", title: "News", content: undefined },
@@ -230,6 +232,12 @@ export class AppComponent implements OnInit, AfterViewInit {
       title: 'Music',
       content: `A music list to keep track of your favourite youtube songs! Once added, the songs are displayed and a
   playlist can be selected from your profile page!`
+    },
+    {
+      ownership: 0,
+      title: 'Movie',
+      content: `A public movie & TV playlist board! Add YouTube shows/movies or video files, and every playlist
+  created by anyone is publicly visible and playable by everyone — no sharing toggles needed.`
     },
     {
       ownership: 0,
@@ -462,6 +470,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Files": FileComponent,
     "Todo": TodoComponent,
     "Music": MusicComponent,
+    "Movie": MovieComponent,
     "Notepad": NotepadComponent,
     "Contacts": ContactsComponent,
     "Array": ArrayComponent,
@@ -600,6 +609,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           const shareToken = this.router.url.toLowerCase().split('music/')[1]?.split('?')[0];
           this.angLocation.replaceState(this.router.url.split('?')[0]);
           this.createComponent("Music", { "shareToken": shareToken });
+        }
+        else if (this.router.url.toLowerCase().includes('movie')) {
+          this.checkAndClearRouterOutlet();
+          this.angLocation.replaceState(this.router.url.split('?')[0]);
+          this.createComponent("Movie");
         }
         else if (this.router.url.toLowerCase().includes('emulator')) {
           try {
