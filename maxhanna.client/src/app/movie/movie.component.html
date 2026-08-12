@@ -156,7 +156,7 @@
             <button id="closeOverlay" (click)="closeYoutubeSearch()" style="margin-top:10px;">Close</button>
           </div>
         </div>
-        <div *ngIf="(paginatedSongs && paginatedSongs.length == 0) || searchInput.nativeElement?.value != ''" class="extraMainDataInfo">
+        <div *ngIf="(paginatedSongs && paginatedSongs.length == 0) || (searchInput && searchInput.value != '')" class="extraMainDataInfo">
           <span *ngIf="paginatedSongs && paginatedSongs.length == 0">No movies added yet!</span>
           <button (click)="showYoutubeSearch()">Search YouTube</button>
         </div>
