@@ -331,6 +331,10 @@
             <span class="race-option-label">🔭 Speed zoom (FOV widens as you accelerate)</span>
             <input type="checkbox" class="race-option-check" [checked]="speedFovOn" (change)="toggleSpeedFov()">
           </label>
+          <label class="race-option-row">
+            <span class="race-option-label">🧤 Driver grip animation (hands curl with steering)</span>
+            <input type="checkbox" class="race-option-check" [checked]="gloveGripOn" (change)="toggleGloveGrip()">
+          </label>
         </div>
 
         <div class="race-options-hint">Settings are saved automatically on this device.</div>
@@ -819,7 +823,7 @@
               </div>
 
               <!-- Driver hands on the wheel: fire-suit sleeves + detailed racing gloves -->
-              <div class="driver-hand hand-left">
+              <div class="driver-hand hand-left" #handLeft>
                 <div class="hand-arm"></div>
                 <div class="glove">
                   <div class="glove-cuff">
@@ -835,7 +839,7 @@
                   <div class="glove-finger f4"><span class="glove-finger-seg"></span></div>
                 </div>
               </div>
-              <div class="driver-hand hand-right">
+              <div class="driver-hand hand-right" #handRight>
                 <div class="hand-arm"></div>
                 <div class="glove">
                   <div class="glove-cuff">

@@ -116,6 +116,19 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   viewMediaFile = false;
   isEditing: number[] = [];
   editingTopics: number[] = [];
+  // Debounced natural-aspect application: while grid thumbs render in bursts
+  // (fast scrolling) their aspect ratios are collected and applied in a single
+  // reflow once the grid settles, instead of re-laying-out per image.
+  private pendingGridAspects = new Map<number, number>();
+  private gridAspectDebounceTimer: number | null = null;
+  private gridAspectFirstPendingAt = 0;
+  private readonly gridAspectDebounceMs = 300;
+  private readonly gridAspectMaxWaitMs = 1200;
+  // Persisted natural-aspect cache: revisited directories get correctly sized
+  // thumbs immediately, before their media loads and reports again.
+  private cachedMediaAspects: Record<string, number> | null = null;
+  private static readonly MEDIA_ASPECTS_STORAGE_KEY = 'fileSearchMediaAspects';
+  private static readonly MEDIA_ASPECTS_MAX_ENTRIES = 2000;
   openedFiles: number[] = [];
   searchTerms = ""
   tmpSearchTerms = ""
@@ -424,6 +437,11 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
       this.scrollWatchInterval = null;
     }
 
+    if (this.gridAspectDebounceTimer) {
+      clearTimeout(this.gridAspectDebounceTimer);
+      this.gridAspectDebounceTimer = null;
+    }
+
     this.getDirectoryAbortController?.abort();
   }
 
@@ -553,6 +571,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
             for (const f of newItems) { f.directory = res.currentDirectory; }
           }
           this.directory.data = this.directory.data.concat(newItems);
+          this.applyCachedMediaAspects();
           if (this.isInRomDirectory) {
             for (let x = 0; x < this.directory.data.length; x++) {
               if (this.directory.data[x].notes) { continue; }
@@ -574,6 +593,7 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
           }
         } else if (res) {
           this.directory = res;
+          this.applyCachedMediaAspects();
 
           if (this.shouldShowRomMetadata() && this.directory?.data?.length) {
             for (let x = 0; x < this.directory.data.length; x++) {
@@ -1192,17 +1212,107 @@ export class FileSearchComponent extends ChildComponent implements OnInit, After
   }
 
   /** Called once a grid thumb's media actually renders (image load or
-   *  video/audio canplay). Records the natural proportions on the file entry
-   *  and reflows the grid, so the thumb cell adopts the real media shape
-   *  instead of the placeholder square/16:9 box. */
+   *  video/audio canplay). Records the natural proportions per file, then
+   *  debounces the actual layout application: while thumbs stream in (fast
+   *  scrolling) the grid stays put, and all collected aspects are applied in
+   *  a single reflow once rendering settles (or after a max-wait so a long
+   *  scroll still updates periodically). */
   onGridMediaRendered(event: { fileId?: number; width?: number; height?: number }) {
     if (!event || !event.fileId || !event.width || !event.height || !isFinite(event.width) || !isFinite(event.height)) return;
-    const file = this.directory?.data?.find(f => f.id === event.fileId);
-    if (!file) return;
+    const first = this.pendingGridAspects.size === 0;
     // Clamp extreme panoramas/portraits so a single cell can't dominate its row.
-    file.mediaAspect = Math.min(2.2, Math.max(0.45, event.width / event.height));
-    try { this.changeDetectorRef.detectChanges(); } catch { }
+    this.pendingGridAspects.set(event.fileId, Math.min(2.2, Math.max(0.45, event.width / event.height)));
+    if (first) {
+      this.gridAspectFirstPendingAt = Date.now();
+    }
+    this.scheduleGridAspectApply();
   }
+
+  private scheduleGridAspectApply() {
+    if (this.gridAspectDebounceTimer) {
+      clearTimeout(this.gridAspectDebounceTimer);
+    }
+    // Fire on the quiet debounce window since the last render, or no later
+    // than the max-wait boundary since the first pending render — whichever
+    // comes first.
+    const sinceFirst = Date.now() - this.gridAspectFirstPendingAt;
+    const delay = Math.max(0, Math.min(this.gridAspectDebounceMs, this.gridAspectMaxWaitMs - sinceFirst));
+    this.gridAspectDebounceTimer = window.setTimeout(() => this.applyPendingGridAspects(), delay);
+  }
+
+  private applyPendingGridAspects() {
+    this.gridAspectDebounceTimer = null;
+    if (this.pendingGridAspects.size === 0) return;
+    const data = this.directory?.data;
+    if (data) {
+      let changed = false;
+      this.pendingGridAspects.forEach((aspect, fileId) => {
+        const file = data.find(f => f.id === fileId);
+        if (file && file.mediaAspect !== aspect) {
+          file.mediaAspect = aspect;
+          changed = true;
+        }
+      });
+      if (changed) {
+        // One reflow for the whole batch once the grid settles.
+        try { this.changeDetectorRef.detectChanges(); } catch { }
+      }
+    }    this.persistMediaAspects();
+    this.pendingGridAspects.clear();
+  }
+
+  private loadCachedMediaAspects(): Record<string, number> {
+    if (this.cachedMediaAspects) return this.cachedMediaAspects;
+    let loaded: Record<string, number> = {};
+    try {
+      const raw = localStorage.getItem(FileSearchComponent.MEDIA_ASPECTS_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      if (parsed && typeof parsed === 'object') loaded = parsed;
+    } catch { }
+    this.cachedMediaAspects = loaded;
+    return loaded;
+  }
+
+  /** Applies any persisted aspect ratios to the freshly loaded listing so
+   *  revisited directories render correctly sized thumbs immediately, without
+   *  waiting for each media element to load and report its size again. */
+  private applyCachedMediaAspects() {
+    const cache = this.loadCachedMediaAspects();
+    const data = this.directory?.data;
+    if (!data || Object.keys(cache).length === 0) return;
+    let changed = false;
+    for (const file of data) {
+      const aspect = cache[String(file.id)];
+      if (aspect && file.mediaAspect !== aspect) {
+        file.mediaAspect = aspect;
+        changed = true;
+      }
+    }
+    if (changed) {
+      try { this.changeDetectorRef.detectChanges(); } catch { }
+    }
+  }
+
+  private persistMediaAspects() {
+    if (this.pendingGridAspects.size === 0) return;
+    const cache = this.loadCachedMediaAspects();
+    this.pendingGridAspects.forEach((aspect, fileId) => {
+      cache[String(fileId)] = aspect;
+    });
+    // Cap the cache so it can't grow unbounded.
+    const keys = Object.keys(cache);
+    if (keys.length > FileSearchComponent.MEDIA_ASPECTS_MAX_ENTRIES) {
+      for (let i = 0; i < keys.length - FileSearchComponent.MEDIA_ASPECTS_MAX_ENTRIES; i++) {
+        delete cache[keys[i]];
+      }
+    }
+    try {
+      localStorage.setItem(FileSearchComponent.MEDIA_ASPECTS_STORAGE_KEY, JSON.stringify(cache));
+    } catch { }
+  }
+
+
+
 
   /** Formats a duration in seconds as m:ss (or h:mm:ss for long videos). */
   formatVideoDuration(seconds: number): string {

@@ -339,7 +339,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   hudWheelLock = 0;
   steerSmoothed = 0;
   liveLapTime = 0;
+  /** Last accent colour pushed to the cockpit HUD's --glove-accent var. */
+  private _lastGloveAccentCss = '';
   @ViewChild('steerWheel') steerWheelEl?: ElementRef<HTMLDivElement>;
+  @ViewChild('handLeft') handLeftEl?: ElementRef<HTMLDivElement>;
+  @ViewChild('handRight') handRightEl?: ElementRef<HTMLDivElement>;
   @ViewChild('wheelSpeed') wheelSpeedEl?: ElementRef<HTMLDivElement>;
   @ViewChild('cockpitDash') cockpitDashEl?: ElementRef<HTMLDivElement>;
   @ViewChild('wheelRpm') wheelRpmEl?: ElementRef<HTMLDivElement>;
@@ -462,6 +466,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   showOptions = false;
   cameraShakeOn = true;
   speedFovOn = true;
+  /** 3D driver's hands curl with steering input (grip animation). Off for
+   *  players who find it distracting. Persisted. */
+  gloveGripOn = true;
   /** Opt-in frame-budget profiler (?profile=1) — logs per-subsystem ms/frame
    *  to the console every ~120 frames so a session can be driven through
    *  corners and the hot costs measured. Off = one boolean check per mark. */
@@ -488,6 +495,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     try { this.cameraShakeOn = localStorage.getItem('gp_shake') !== '0'; } catch { }
     try { this.speedFovOn = localStorage.getItem('gp_fov') !== '0'; } catch { }
     try { this.garageLivePreview = localStorage.getItem('gp_livepreview') !== '0'; } catch { }
+    try { this.gloveGripOn = localStorage.getItem('gp_glovegrip') !== '0'; } catch { }
     this.restoreGarageCam();
     this.userEventService.insertUserEvent(
       this.parentRef?.user?.id ?? 0, "racing", "Started Racing!", undefined, "Racing"
@@ -775,6 +783,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const lowQuality = this.isMobile || ((navigator.hardwareConcurrency ?? 8) <= 4);
     this.renderer = new RacingRenderer(canvas, lowQuality);
     this.renderer.profile = this.profile;
+    this.renderer.gloveGripEnabled = this.gloveGripOn;
     this.isLoaded = true;
     this._onKeyDown = (e: KeyboardEvent) => {
       if (this._destroyed) return;
@@ -1943,6 +1952,27 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.steerSmoothed += (targetSteer - this.steerSmoothed) * Math.min(1, dt * 8);
       if (this.steerWheelEl?.nativeElement) {
         this.steerWheelEl.nativeElement.style.transform = `rotate(${this.steerSmoothed}deg)`;
+      }
+      // HUD hands follow the rim: each hand rotates a fraction of the wheel's
+      // turn (the driver re-grips, so they don't track it 1:1), preserving
+      // their base 9-3 grip offsets so they read as attached to the wheel.
+      const handTurn = this.steerSmoothed * 0.65;
+      if (this.handLeftEl?.nativeElement) {
+        this.handLeftEl.nativeElement.style.transform = `rotate(${14 + handTurn}deg)`;
+      }
+      if (this.handRightEl?.nativeElement) {
+        this.handRightEl.nativeElement.style.transform = `rotate(${-14 + handTurn}deg)`;
+      }
+      // The 2D HUD glove finger backs follow the equipped livery accent, so
+      // they match the 3D driver's gloves. Only re-write the var when it
+      // actually changes (accent is set in the garage).
+      const gloveAccent = ACCENT_COLORS[this.playerCar.accentId];
+      const gloveAccentCss = gloveAccent
+        ? `rgb(${Math.round(gloveAccent[0] * 255)}, ${Math.round(gloveAccent[1] * 255)}, ${Math.round(gloveAccent[2] * 255)})`
+        : '';
+      if (gloveAccentCss && gloveAccentCss !== this._lastGloveAccentCss && this.cockpitDashEl?.nativeElement) {
+        this._lastGloveAccentCss = gloveAccentCss;
+        this.cockpitDashEl.nativeElement.style.setProperty('--glove-accent', gloveAccentCss);
       }
       if (this.wheelSpeedEl?.nativeElement) {
         this.wheelSpeedEl.nativeElement.textContent = Math.round(this.hudSpeed).toString();
@@ -4174,6 +4204,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.garageLivePreview = !this.garageLivePreview;
     try { localStorage.setItem('gp_livepreview', this.garageLivePreview ? '1' : '0'); } catch { }
     if (!this.garageLivePreview) { this.appearancePreview = null; this.skinPreview = null; }
+  }
+  toggleGloveGrip() {
+    if (this._destroyed) return;
+    this.gloveGripOn = !this.gloveGripOn;
+    try { localStorage.setItem('gp_glovegrip', this.gloveGripOn ? '1' : '0'); } catch { }
+    this.renderer.gloveGripEnabled = this.gloveGripOn;
   }
   toggleSound() {
     if (this._destroyed) return;

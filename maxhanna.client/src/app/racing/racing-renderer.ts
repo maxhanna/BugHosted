@@ -430,14 +430,24 @@ export class RacingRenderer {
    *  corners while the suit/gloves stay put. */
   private helmetVao!: WebGLVertexArrayObject;
   private helmetCount = 0;
-  /** Glove meshes — one VAO per hand so renderCar can pivot each hand about
-   *  its wrist: the fingers curl tighter onto the wheel as steering input
-   *  grows (gripping) and relax on the straights (releasing), like the
-   *  helmet's head turn. */
-  private gloveLVao!: WebGLVertexArrayObject;
-  private gloveLCount = 0;
-  private gloveRVao!: WebGLVertexArrayObject;
-  private gloveRCount = 0;
+  /** Glove meshes — one VAO per hand per part so renderCar can pivot each
+   *  hand about its wrist (fingers curl with steering input, like the helmet
+   *  turn) and tint the finger backs with the car's equipped accent colour
+   *  while the palm stays light. gloveGripEnabled is set from the options
+   *  toggle; when false the hands are drawn with no grip animation. */
+  gloveGripEnabled = true;
+  private gloveLPalmVao!: WebGLVertexArrayObject;
+  private gloveLPalmCount = 0;
+  private gloveLFingersVao!: WebGLVertexArrayObject;
+  private gloveLFingersCount = 0;
+  private gloveRPalmVao!: WebGLVertexArrayObject;
+  private gloveRPalmCount = 0;
+  private gloveRFingersVao!: WebGLVertexArrayObject;
+  private gloveRFingersCount = 0;
+  private gloveLSeamsVao!: WebGLVertexArrayObject;
+  private gloveLSeamsCount = 0;
+  private gloveRSeamsVao!: WebGLVertexArrayObject;
+  private gloveRSeamsCount = 0;
   private wheelVao!: WebGLVertexArrayObject;
   private wheelCount = 0;
   private wheelRimVao!: WebGLVertexArrayObject;
@@ -4428,11 +4438,25 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const helmetVerts: number[] = [];
     const helmetIdxs: number[] = [];
     // Hands build into their own per-side meshes so renderCar can pivot each
-    // hand about its wrist — fingers grip/release with steering input.
-    const gloveLVerts: number[] = [];
-    const gloveLIdxs: number[] = [];
-    const gloveRVerts: number[] = [];
-    const gloveRIdxs: number[] = [];
+    // hand about its wrist — fingers grip/release with steering input. Each
+    // hand is split into a light palm mesh (fixed light) and a finger-back
+    // mesh baked white so renderCar can tint the finger backs with the car's
+    // equipped accent colour at draw time.
+    const gloveLPalmVerts: number[] = [];
+    const gloveLPalmIdxs: number[] = [];
+    const gloveRPalmVerts: number[] = [];
+    const gloveRPalmIdxs: number[] = [];
+    const gloveLFingersVerts: number[] = [];
+    const gloveLFingersIdxs: number[] = [];
+    const gloveRFingersVerts: number[] = [];
+    const gloveRFingersIdxs: number[] = [];
+    // Stitch seams + creases bake red into their own per-side mesh so they
+    // stay the classic racing-glove red regardless of the accent tint applied
+    // to the finger backs.
+    const gloveLSeamsVerts: number[] = [];
+    const gloveLSeamsIdxs: number[] = [];
+    const gloveRSeamsVerts: number[] = [];
+    const gloveRSeamsIdxs: number[] = [];
     // Paint surfaces are baked pure white: renderCar tints them with uColor =
     // the equipped skin, so the paint shows its true colour. Baking a tinted
     // base here would multiply into every skin (red base = every paint reads
@@ -4475,7 +4499,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const suitC = [0.14, 0.05, 0.05];         // race suit (fixed team maroon)
     const hansC = [0.9, 0.9, 0.93];           // HANS collar (fixed bright)
     const gloveC = [0.95, 0.95, 0.97];        // gloves palm (fixed light)
-    const gloveBack = [0.76, 0.17, 0.18];     // gloves finger backs (racing red)
+    const gloveBack = [1, 1, 1];              // gloves finger backs (baked white — tinted with the equipped accent at draw time)
+    const gloveStitch = [0.73, 0.12, 0.11];   // gloves stitch seams / creases (fixed red)
     const wheelFace = [0.05, 0.05, 0.07];     // wheel body
     // ── Helmet — rebuilt as a real F1 lid: an elongated ovoid shell (longer
     // fore-aft than wide, rounded crown), a distinct tinted visor band hugging
@@ -4533,20 +4558,43 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // about the wrist — fingers curl tighter with steering input.
     for (const sgn of [1, -1]) {
       const zs = (z: number) => z * sgn;
-      const gv = sgn === 1 ? gloveLVerts : gloveRVerts;
-      const gi = sgn === 1 ? gloveLIdxs : gloveRIdxs;
+      const pv = sgn === 1 ? gloveLPalmVerts : gloveRPalmVerts;
+      const pi = sgn === 1 ? gloveLPalmIdxs : gloveRPalmIdxs;
+      const fv = sgn === 1 ? gloveLFingersVerts : gloveRFingersVerts;
+      const fi = sgn === 1 ? gloveLFingersIdxs : gloveRFingersIdxs;
+      const sv = sgn === 1 ? gloveLSeamsVerts : gloveRSeamsVerts;
+      const si = sgn === 1 ? gloveLSeamsIdxs : gloveRSeamsIdxs;
       // Palm / back of hand — rounded light pad behind the wheel, merging with the arm.
-      this.addEllipsoid(gv, gi, 0.536, 0.277, zs(0.074), 0.020, 0.034, 0.024, 10, gloveC);
+      this.addEllipsoid(pv, pi, 0.536, 0.277, zs(0.074), 0.020, 0.034, 0.024, 10, gloveC);
       // Three fingers wrapped over the rim, tips curling toward the centre.
-      // The dorsal (outer) surface of each finger is the coloured back.
-      this.addStrut(gv, gi, 0.546, 0.305, zs(0.070), 0.554, 0.302, zs(0.048), 0.010, gloveBack);
-      this.addStrut(gv, gi, 0.546, 0.283, zs(0.076), 0.554, 0.281, zs(0.052), 0.010, gloveBack);
-      this.addStrut(gv, gi, 0.546, 0.261, zs(0.070), 0.553, 0.259, zs(0.048), 0.010, gloveBack);
+      // Baked white — the dorsal (outer) surface picks up the equipped accent
+      // colour at draw time so the gloves match the livery.
+      this.addStrut(fv, fi, 0.546, 0.305, zs(0.070), 0.554, 0.302, zs(0.048), 0.010, gloveBack);
+      this.addStrut(fv, fi, 0.546, 0.283, zs(0.076), 0.554, 0.281, zs(0.052), 0.010, gloveBack);
+      this.addStrut(fv, fi, 0.546, 0.261, zs(0.070), 0.553, 0.259, zs(0.048), 0.010, gloveBack);
       // Thumb resting on the front face, sweeping inward and slightly up — its
-      // visible dorsal surface takes the coloured back too.
-      this.addStrut(gv, gi, 0.549, 0.290, zs(0.062), 0.555, 0.298, zs(0.036), 0.009, gloveBack);
-      // Knuckle bulge where the fingers meet the palm — coloured like the back.
-      this.addEllipsoid(gv, gi, 0.551, 0.297, zs(0.062), 0.011, 0.013, 0.013, 8, gloveBack);
+      // visible dorsal surface takes the accent too.
+      this.addStrut(fv, fi, 0.549, 0.290, zs(0.062), 0.555, 0.298, zs(0.036), 0.009, gloveBack);
+      // Knuckle bulge where the fingers meet the palm — accent-tinted as well.
+      this.addEllipsoid(fv, fi, 0.551, 0.297, zs(0.062), 0.011, 0.013, 0.013, 8, gloveBack);
+      // ── Red stitch detailing (matches the 2D HUD gloves): a seam running
+      // down each finger's dorsal, a knuckle crease across each finger base
+      // and over the knuckle dome, and a joint crease across the thumb. Thin
+      // lines sit a hair proud of the finger surfaces so they never z-fight.
+      // Index finger seam.
+      this.addStrut(sv, si, 0.546, 0.3115, zs(0.070), 0.554, 0.3085, zs(0.048), 0.0016, gloveStitch);
+      // Middle finger seam.
+      this.addStrut(sv, si, 0.546, 0.2895, zs(0.076), 0.554, 0.2875, zs(0.052), 0.0016, gloveStitch);
+      // Ring finger seam.
+      this.addStrut(sv, si, 0.546, 0.2675, zs(0.070), 0.553, 0.2655, zs(0.048), 0.0016, gloveStitch);
+      // Knuckle creases across each finger base (top surface + a hair proud).
+      this.addStrut(sv, si, 0.5465, 0.311, zs(0.075), 0.5465, 0.311, zs(0.065), 0.0016, gloveStitch);
+      this.addStrut(sv, si, 0.5465, 0.289, zs(0.081), 0.5465, 0.289, zs(0.071), 0.0016, gloveStitch);
+      this.addStrut(sv, si, 0.5465, 0.267, zs(0.075), 0.5465, 0.267, zs(0.065), 0.0016, gloveStitch);
+      // Crease across the knuckle dome.
+      this.addStrut(sv, si, 0.548, 0.311, zs(0.050), 0.554, 0.311, zs(0.074), 0.0016, gloveStitch);
+      // Thumb joint crease (vertical bar across the thumb's middle).
+      this.addStrut(sv, si, 0.552, 0.299, zs(0.049), 0.552, 0.289, zs(0.049), 0.0016, gloveStitch);
     }
     // Steering column behind the wheel.
     this.addBox(verts, idxs, 0.50, 0.278, 0, 0.035, 0.02, 0.03, carbon);
@@ -4812,12 +4860,24 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.bindVertexArray(null);
       return { vao: gv, count: gidxs.length };
     };
-    const glL = makeGloveVao(gloveLVerts, gloveLIdxs);
-    this.gloveLVao = glL.vao;
-    this.gloveLCount = glL.count;
-    const glR = makeGloveVao(gloveRVerts, gloveRIdxs);
-    this.gloveRVao = glR.vao;
-    this.gloveRCount = glR.count;
+    const glLP = makeGloveVao(gloveLPalmVerts, gloveLPalmIdxs);
+    this.gloveLPalmVao = glLP.vao;
+    this.gloveLPalmCount = glLP.count;
+    const glLF = makeGloveVao(gloveLFingersVerts, gloveLFingersIdxs);
+    this.gloveLFingersVao = glLF.vao;
+    this.gloveLFingersCount = glLF.count;
+    const glRP = makeGloveVao(gloveRPalmVerts, gloveRPalmIdxs);
+    this.gloveRPalmVao = glRP.vao;
+    this.gloveRPalmCount = glRP.count;
+    const glRF = makeGloveVao(gloveRFingersVerts, gloveRFingersIdxs);
+    this.gloveRFingersVao = glRF.vao;
+    this.gloveRFingersCount = glRF.count;
+    const glLS = makeGloveVao(gloveLSeamsVerts, gloveLSeamsIdxs);
+    this.gloveLSeamsVao = glLS.vao;
+    this.gloveLSeamsCount = glLS.count;
+    const glRS = makeGloveVao(gloveRSeamsVerts, gloveRSeamsIdxs);
+    this.gloveRSeamsVao = glRS.vao;
+    this.gloveRSeamsCount = glRS.count;
     // Per-style livery decals — one VAO per decal style id, each with its own
     // placement layout (see DECAL_LAYOUTS) so stripes, flames, emblems, number
     // plates etc. put their artwork in different spots on the car. Plates hug
@@ -8381,20 +8441,49 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // straights, with a subtle idle sway so the grip breathes like the helmet
     // turn. Mirrored per hand (sgn flips z), so both hands tighten together;
     // the wrist pivot keeps the palms anchored to the arms behind the wheel.
-    const grip = 0.03 + Math.min(1, Math.abs(steer)) * 0.09 + Math.sin(this.elapsed * 0.7) * 0.012;
-    const drawGlove = (gvao: WebGLVertexArrayObject, gcount: number, wz: number, sgn: number) => {
-      this.mat4Identity(this._animTmp);
-      this.mat4Translate(this._animTmp, [0.525, 0.278, wz]);
-      this.mat4RotateY(this._animTmp, sgn * grip);
-      this.mat4Translate(this._animTmp, [-0.525, -0.278, -wz]);
-      this.mat4Multiply(this._animM, this.modelMatrix, this._animTmp);
-      gl.uniformMatrix4fv(this.modelLoc, false, this._animM);
-      this.setNormalMatrix(this._animM);
-      gl.bindVertexArray(gvao);
-      gl.drawElements(gl.TRIANGLES, gcount, gl.UNSIGNED_SHORT, 0);
+    // The light palm keeps its baked light colour, while the finger backs are
+    // tinted with the car's equipped accent so the gloves match the livery.
+    const gloveAcc = app.accent ?? [0.16, 0.16, 0.2];
+    const drawGlove = (palmVao: WebGLVertexArrayObject, palmCount: number,
+      fingerVao: WebGLVertexArrayObject, fingerCount: number,
+      seamVao: WebGLVertexArrayObject, seamCount: number, m: Float32Array) => {
+      gl.uniformMatrix4fv(this.modelLoc, false, m);
+      this.setNormalMatrix(m);
+      gl.uniform3f(this.colorLoc, 1, 1, 1);
+      gl.bindVertexArray(palmVao);
+      gl.drawElements(gl.TRIANGLES, palmCount, gl.UNSIGNED_SHORT, 0);
+      gl.uniform3f(this.colorLoc, gloveAcc[0], gloveAcc[1], gloveAcc[2]);
+      gl.bindVertexArray(fingerVao);
+      gl.drawElements(gl.TRIANGLES, fingerCount, gl.UNSIGNED_SHORT, 0);
+      // Red stitch seams + creases are baked red — drawn untinted so they stay
+      // the classic racing-glove red over any accent.
+      gl.uniform3f(this.colorLoc, 1, 1, 1);
+      gl.bindVertexArray(seamVao);
+      gl.drawElements(gl.TRIANGLES, seamCount, gl.UNSIGNED_SHORT, 0);
     };
-    drawGlove(this.gloveLVao, this.gloveLCount, 0.068, 1);
-    drawGlove(this.gloveRVao, this.gloveRCount, -0.068, -1);
+    if (this.gloveGripEnabled) {
+      const grip = 0.03 + Math.min(1, Math.abs(steer)) * 0.09 + Math.sin(this.elapsed * 0.7) * 0.012;
+      this.mat4Identity(this._animTmp);
+      this.mat4Translate(this._animTmp, [0.525, 0.278, 0.068]);
+      this.mat4RotateY(this._animTmp, grip);
+      this.mat4Translate(this._animTmp, [-0.525, -0.278, -0.068]);
+      this.mat4Multiply(this._animM, this.modelMatrix, this._animTmp);
+      drawGlove(this.gloveLPalmVao, this.gloveLPalmCount, this.gloveLFingersVao, this.gloveLFingersCount,
+        this.gloveLSeamsVao, this.gloveLSeamsCount, this._animM);
+      this.mat4Identity(this._animTmp);
+      this.mat4Translate(this._animTmp, [0.525, 0.278, -0.068]);
+      this.mat4RotateY(this._animTmp, -grip);
+      this.mat4Translate(this._animTmp, [-0.525, -0.278, 0.068]);
+      this.mat4Multiply(this._animM, this.modelMatrix, this._animTmp);
+      drawGlove(this.gloveRPalmVao, this.gloveRPalmCount, this.gloveRFingersVao, this.gloveRFingersCount,
+        this.gloveRSeamsVao, this.gloveRSeamsCount, this._animM);
+    } else {
+      // Setting off: hands stay fixed — draw with the base car matrix.
+      drawGlove(this.gloveLPalmVao, this.gloveLPalmCount, this.gloveLFingersVao, this.gloveLFingersCount,
+        this.gloveLSeamsVao, this.gloveLSeamsCount, this.modelMatrix);
+      drawGlove(this.gloveRPalmVao, this.gloveRPalmCount, this.gloveRFingersVao, this.gloveRFingersCount,
+        this.gloveRSeamsVao, this.gloveRSeamsCount, this.modelMatrix);
+    }
     // Restore the base model matrix + paint colour for the decal pass.
     gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
     this.setNormalMatrix(this.modelMatrix);

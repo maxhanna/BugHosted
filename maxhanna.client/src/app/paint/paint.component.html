@@ -4,13 +4,13 @@
     <div class="paintToolbar">
       <div class="toolGroup">
         <button *ngFor="let t of tools" class="toolBtn" [class.active]="currentTool === t.id"
-          (click)="currentTool = t.id" [title]="t.title">{{ t.label }}</button>
+          (click)="setTool(t.id)" [title]="t.title">{{ t.label }}</button>
         <button class="toolBtn" [disabled]="!isSelectionActive" (click)="cropImage()" title="Crop Image">✂️</button>
-        <button class="toolBtn" [class.active]="currentTool === 'select'" (click)="selectArea()" title="Select Area">⬜</button>
         <button class="toolBtn" (click)="undo()" title="Undo (Ctrl+Z)">↩️</button>
         <button class="toolBtn" (click)="redo()" title="Redo (Ctrl+Y)">↪️</button>
         <button class="toolBtn" (click)="clearCanvas()" title="Clear">🗑️</button>
         <button class="toolBtn" (click)="newCanvas()" title="New Canvas">🆕</button>
+        <button class="toolBtn" (click)="pasteFromClipboard()" title="Paste image from clipboard (Ctrl+V)">📋</button>
       </div>
       <div class="toolGroup">
         <label class="toolLabel">
@@ -19,6 +19,36 @@
             <option *ngFor="let s of brushSizes" [value]="s">{{ s }}px</option>
           </select>
         </label>
+      </div>
+      <div class="toolGroup" *ngIf="currentTool === 'gradient'">
+        <label class="toolLabel">
+          Type:
+          <select [(ngModel)]="gradientType" class="sizeSelect">
+            <option value="linear">Linear</option>
+            <option value="radial">Radial</option>
+          </select>
+        </label>
+        <label class="toolLabel">
+          End:
+          <input type="color" [value]="gradientEndColor" (input)="gradientEndColor = $any($event.target).value"
+            class="sizeInput" style="width:28px;height:22px;padding:0;border:none;background:none" />
+        </label>
+        <label class="toolLabel">
+          <input type="checkbox" [(ngModel)]="gradientEndTransparent" /> Transparent end
+        </label>
+      </div>
+      <div class="toolGroup" *ngIf="currentTool === 'wand'">
+        <label class="toolLabel">
+          Tolerance:
+          <input type="number" [(ngModel)]="wandTolerance" class="sizeInput" min="0" max="255" />
+        </label>
+      </div>
+      <div class="toolGroup" *ngIf="currentTool === 'pen'">
+        <button class="toolBtn" (click)="commitPen()" [disabled]="!penPoints.length" title="Rasterize the path (Enter)">✅ Commit</button>
+        <button class="toolBtn" (click)="cancelPen()" title="Cancel path (Esc)">❌</button>
+        <span class="toolLabel" style="font-size:11px;color:var(--text-muted, #888)">
+          Click to add points · click first point / double-click / Enter to commit · drag to move a point
+        </span>
       </div>
       <div class="toolGroup" *ngIf="currentTool === 'text'">
         <label class="toolLabel">
@@ -50,14 +80,58 @@
         </label>
       </div>
     </div>
-    <div class="canvasWrapper" [class.showPalette]="showColorPicker">
+    <div class="psMenuBar" (click)="$event.stopPropagation()">
+      <div class="psMenu" *ngFor="let m of psMenus">
+        <button class="psMenuBtn" [class.active]="openMenu === m.id" (click)="togglePsMenu(m.id)">{{ m.label }}</button>
+        <div class="psDropdown" *ngIf="openMenu === m.id">
+          <div *ngFor="let item of m.items" class="psMenuItemWrap">
+            <div *ngIf="item.header" class="psMenuHeader">{{ item.header }}</div>
+            <button *ngIf="item.action" class="psMenuItem" (click)="runMenuAction(item.action!)">{{ item.label }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <input #openInput id="paintOpenInput" type="file" accept="image/*" style="display:none" (change)="loadImageFromFile($event)" />
+    <div class="canvasWrapper" #canvasWrapper [class.showPalette]="showColorPicker">
       <div class="canvasArea">
-        <div class="canvasStage">
+        <div class="canvasStage" #stage [style.transform]="'scale(' + zoom + ')'">
           <canvas #paintCanvas class="paintCanvas" (pointerdown)="onPointerDown($event)"
             (pointermove)="onPointerMove($event)" (pointerup)="onPointerUp($event)"
             (pointerleave)="onPointerLeave($event)" (contextmenu)="$event.preventDefault()"></canvas>
           <canvas #overlayCanvas class="overlayCanvas"></canvas>
           <div class="resizeCorner" (pointerdown)="startResize($event)">↘</div>
+        </div>
+        <!-- Layers panel: stack is shown top-first. Click a row to paint on it;
+             use the buttons to add / reorder / duplicate / delete, the eye to
+             toggle visibility, and the slider for layer opacity. -->
+        <div class="layersPanel">
+          <div class="layersTitle">🧅 Layers</div>
+          <div class="layersActions">
+            <button class="layerActionBtn" (click)="addLayer()" title="Add an empty layer above the active one">➕ Layer</button>
+            <button class="layerActionBtn" (click)="layerImageInput.click()" title="Add an image as a new layer">🖼 Image</button>
+            <input #layerImageInput type="file" accept="image/*" (change)="addImageLayerFromFile($event)" style="display:none" />
+          </div>
+          <div class="layersList">
+            <div *ngFor="let l of topLayers" class="layerRow" [class.active]="l.id === activeLayerId"
+              (click)="setActiveLayer(l.id)" [title]="'Select layer to paint on — double-click the name to rename'">
+              <div class="layerTop">
+                <span class="layerEye" (click)="toggleLayerVisible(l.id); $event.stopPropagation()"
+                  [title]="l.visible ? 'Hide layer' : 'Show layer'">{{ l.visible ? '👁' : '🙈' }}</span>
+                <span class="layerName" (dblclick)="renameLayer(l.id)">{{ l.name }}</span>
+                <span class="layerOpacity">{{ opacityPct(l) }}%</span>
+              </div>
+              <div class="layerOps">
+                <button (click)="moveLayer(l.id, 1); $event.stopPropagation()" title="Move layer up">▲</button>
+                <button (click)="moveLayer(l.id, -1); $event.stopPropagation()" title="Move layer down">▼</button>
+                <button (click)="duplicateLayer(l.id); $event.stopPropagation()" title="Duplicate layer">📋</button>
+                <button (click)="deleteLayer(l.id); $event.stopPropagation()" title="Delete layer"
+                  [disabled]="layers.length <= 1">🗑</button>
+              </div>
+              <input class="layerOpacitySlider" type="range" min="0" max="100" [value]="opacityPct(l)"
+                (input)="setLayerOpacity(l.id, $any($event.target).value)" (click)="$event.stopPropagation()"
+                title="Layer opacity" />
+            </div>
+          </div>
         </div>
       </div>
       <div class="colorPalette" *ngIf="showColorPicker">
@@ -74,6 +148,7 @@
     </div>
     <div class="paintStatus">
       <span>Tool: {{ currentTool }}</span>
+      <span>Layer: {{ activeLayerName }}</span>
       <span>X: {{ cursorX }} Y: {{ cursorY }}</span>
       <span>Size: {{ canvasWidth }}×{{ canvasHeight }}</span>
       <span *ngIf="currentFileId">File #{{ currentFileId }}</span>
@@ -179,6 +254,49 @@
     <div class="dialogButtons">
       <button (click)="placeText()" [disabled]="!textInput.trim()">OK</button>
       <button (click)="cancelText()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="textDialog" *ngIf="showFilterDialog && filterDef">
+  <div class="textDialogContent filterDialog">
+    <div class="dialogTitle">🧪 {{ filterDef.label }}</div>
+    <label class="filterPreviewRow">
+      <input type="checkbox" [(ngModel)]="filterPreviewOn" (change)="onFilterParamChange()" /> Live preview
+    </label>
+    <div *ngFor="let prm of filterDef.params" class="filterParamRow">
+      <label>{{ prm.label }}: <span class="filterParamValue">{{ filterParams[prm.key] }}</span></label>
+      <input type="range" [min]="prm.min" [max]="prm.max" [step]="prm.step"
+        [(ngModel)]="filterParams[prm.key]" (input)="onFilterParamChange()" class="filterSlider" />
+    </div>
+    <div class="dialogButtons">
+      <button (click)="applyFilter()">Apply</button>
+      <button (click)="cancelFilter()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="textDialog" *ngIf="showFillDialog">
+  <div class="textDialogContent">
+    <div class="dialogTitle">🎨 Fill</div>
+    <label *ngFor="let o of fillOptions" class="fillOption">
+      <input type="radio" name="fillOpt" [(ngModel)]="fillOption" [value]="o.value" /> {{ o.label }}
+    </label>
+    <div class="dialogButtons">
+      <button (click)="doFill()">OK</button>
+      <button (click)="showFillDialog = false">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="textDialog" *ngIf="showHelpDialog">
+  <div class="textDialogContent">
+    <div class="dialogTitle">⌨️ Keyboard Shortcuts</div>
+    <div class="helpRow" *ngFor="let s of helpShortcuts">
+      <span>{{ s[0] }}</span><span>{{ s[1] }}</span>
+    </div>
+    <div class="dialogButtons">
+      <button (click)="showHelpDialog = false">Close</button>
     </div>
   </div>
 </div>

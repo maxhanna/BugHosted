@@ -127,14 +127,141 @@
   display: flex;
   align-items: flex-start;
   justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px;
   padding: 20px;
   position: relative;
   min-width: 0;
 }
 
+/* Layers panel — sits beside the canvas, wraps below it on narrow screens. */
+.layersPanel {
+  width: 220px;
+  max-width: 100%;
+  background: var(--panel-bg, #2d2d2d);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.layersTitle {
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.layersActions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.layerActionBtn {
+  flex: 1;
+  padding: 4px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border-color, #444);
+  background: var(--button-bg, #3a3a3a);
+  color: var(--text-color, #e0e0e0);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.layerActionBtn:hover {
+  filter: brightness(1.2);
+}
+
+.layersList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.layerRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--border-color, #444);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+}
+
+.layerRow.active {
+  border-color: var(--main-link-color, #4a9eff);
+  box-shadow: 0 0 0 1px var(--main-link-color, #4a9eff);
+  background: rgba(74, 158, 255, 0.08);
+}
+
+.layerTop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.layerEye {
+  cursor: pointer;
+  margin-right: 6px;
+}
+
+.layerName {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layerOpacity {
+  color: var(--text-dim, #999);
+  font-size: 10px;
+  margin-left: auto;
+}
+
+.layerOps {
+  display: flex;
+  gap: 3px;
+  margin-left: auto;
+}
+
+.layerOps button {
+  width: 24px;
+  height: 22px;
+  font-size: 11px;
+  line-height: 1;
+  padding: 0;
+  border-radius: 4px;
+  border: 1px solid var(--border-color, #444);
+  background: var(--button-bg, #3a3a3a);
+  color: var(--text-color, #e0e0e0);
+  cursor: pointer;
+}
+
+.layerOps button:hover:not(:disabled) {
+  filter: brightness(1.25);
+}
+
+.layerOps button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.layerOpacitySlider {
+  width: 100%;
+  accent-color: var(--main-link-color, #4a9eff);
+}
+
 .canvasStage {
   position: relative;
   display: inline-block;
+  transform-origin: 0 0;
+  will-change: transform;
 }
 
 .paintCanvas {
@@ -460,4 +587,145 @@
 
 .menuCloseRow button:hover {
   background: var(--btn-hover, #505050);
+}
+
+/* ── Photoshop-style menu bar ─────────────────────────────────────────── */
+.psMenuBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  padding: 2px 8px;
+  background: var(--panel-bg, #2d2d2d);
+  border-bottom: 1px solid var(--border-color, #444);
+  position: relative;
+  z-index: 20;
+  user-select: none;
+}
+
+.psMenu {
+  position: relative;
+}
+
+.psMenuBtn {
+  padding: 5px 12px;
+  border: none;
+  background: none;
+  color: var(--text-color, #e0e0e0);
+  cursor: pointer;
+  font-size: 13px;
+  border-radius: 4px;
+}
+
+.psMenuBtn:hover,
+.psMenuBtn.active {
+  background: rgba(74, 158, 255, 0.18);
+  color: var(--accent-color, #4a9eff);
+}
+
+.psDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 220px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--panel-bg, #2b2b2b);
+  border: 1px solid var(--border-color, #555);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  padding: 4px;
+  z-index: 999;
+}
+
+.psMenuHeader {
+  padding: 6px 10px 2px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent-color, #4a9eff);
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 2px;
+}
+
+.psMenuItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  color: var(--text-color, #e0e0e0);
+  cursor: pointer;
+  font-size: 13px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.psMenuItem:hover {
+  background: rgba(74, 158, 255, 0.18);
+  color: var(--accent-color, #4a9eff);
+}
+
+/* ── Filter / fill / help dialogs ─────────────────────────────────────── */
+.filterDialog {
+  min-width: 340px;
+  max-width: 90vw;
+}
+
+.filterPreviewRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-bottom: 10px;
+  color: var(--text-dim, #bbb);
+}
+
+.filterParamRow {
+  margin: 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.filterParamRow label {
+  display: flex;
+  justify-content: space-between;
+}
+
+.filterParamValue {
+  color: var(--accent-color, #4a9eff);
+  font-weight: 600;
+}
+
+.filterSlider {
+  width: 100%;
+  accent-color: var(--accent-color, #4a9eff);
+}
+
+.fillOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.helpRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 4px 0;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  min-width: 320px;
+}
+
+.helpRow span:first-child {
+  color: var(--accent-color, #4a9eff);
+  font-weight: 600;
+  white-space: nowrap;
 }

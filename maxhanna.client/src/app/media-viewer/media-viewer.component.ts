@@ -279,6 +279,7 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
     if (!this.autoload) return;
 
     this.isLoading = true;
+    this.cdr.detectChanges();
     await this.waitForPaint();
 
     // Direct fileSrc always overrides gating
@@ -301,8 +302,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         return;
       } else {
         this.debugLog('fetchFileSrc no cached value (indexed array access), proceeding to setFileSrcById');
+        // setFileSrcById manages isLoading itself (true during fetch + decode,
+        // false once the src is ready) — clearing it here would hide the
+        // spinner for the entire network fetch.
         this.setFileSrcById(this.selectedFile.id);
-        this.isLoading = false;
         return;
       }
     }
@@ -319,8 +322,8 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         return;
       } else {
         this.debugLog('fetchFileSrc no cached value for file object; calling setFileSrcById');
+        // setFileSrcById owns isLoading — do not clear it here (see above).
         this.setFileSrcById(fileId);
-        this.isLoading = false;
         return;
       }
     }
@@ -528,6 +531,10 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
           }
           this.finishedLoadingEvent.emit();
           this.isLoading = false;
+          // Push the src + hidden-fetch-spinner state immediately so the
+          // render-phase spinner (showImageLoadingFetch) paints while the
+          // image/video decodes.
+          this.cdr.detectChanges();
         };
 
         reader.readAsDataURL(blob);
@@ -537,9 +544,17 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
         console.error(error);
         this.emittedNotification.emit((error as Error).message);
         this.isLoading = false;
+      } else {
+        // Aborted (scrolled out of view / reloading) — don't leave the
+        // spinner stuck, but a fresh load will re-arm isLoading.
+        this.isLoading = false;
       }
     } finally {
-      this.isLoading = false;
+      // isLoading is deliberately NOT cleared here: the fetch + FileReader
+      // decode is still in flight at this point (this block runs as soon as
+      // the blob read starts), and clearing it would hide the spinner before
+      // the media src is ready. It's cleared at each real completion point
+      // above (response null / decode done / error).
       if (this.canScroll) {
         console.log("scrolling to fileIdName" + fileId);
         setTimeout(() => { document.getElementById('fileIdName' + fileId)?.scrollIntoView(); }, 100);
