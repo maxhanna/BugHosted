@@ -955,7 +955,7 @@ ORDER BY `timestamp` DESC, id DESC;";
           // Step 2b: Fallback to historical table
           const string fallbackLatestSql = @"
                 SELECT value_cad
-                FROM coin_value
+                FROM coin_value FORCE INDEX (ix_coin_value_name_ts)
                 WHERE name = 'Bitcoin'
                 ORDER BY `timestamp` DESC, id DESC
                 LIMIT 1;";
@@ -965,35 +965,64 @@ ORDER BY `timestamp` DESC, id DESC;";
         }
       }
 
-      // Step 3: Previous price (historical, day-ago) — separate query
+      // Step 3: Previous price (historical, day-ago) — read the tiny daily
+      // rollup table first (one row per coin per day); only fall back to the
+      // raw table (forced onto the name/ts index) when the rollup is empty.
       decimal previous;
       {
-        const string prevSql = @"
-            SELECT value_cad
-            FROM coin_value
+        const string prevRollupSql = @"
+            SELECT avg_cad
+            FROM maxhanna.coin_value_1d
             WHERE name = 'Bitcoin'
-              AND `timestamp` <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY)
-            ORDER BY `timestamp` DESC, id DESC
+              AND ts_day <= UTC_DATE() - INTERVAL 1 DAY
+            ORDER BY ts_day DESC, min_id DESC
             LIMIT 1;";
-        await using var prevCmd = new MySqlCommand(prevSql, conn) { CommandTimeout = 15 };
-        var prevObj = await prevCmd.ExecuteScalarAsync(ct);
-        previous = (prevObj != null && prevObj != DBNull.Value) ? Convert.ToDecimal(prevObj) : 0m;
+        await using var rollupCmd = new MySqlCommand(prevRollupSql, conn) { CommandTimeout = 8 };
+        var rollupObj = await rollupCmd.ExecuteScalarAsync(ct);
+        if (rollupObj != null && rollupObj != DBNull.Value)
+        {
+          previous = Convert.ToDecimal(rollupObj);
+        }
+        else
+        {
+          const string prevSql = @"
+                SELECT value_cad
+                FROM coin_value FORCE INDEX (ix_coin_value_name_ts)
+                WHERE name = 'Bitcoin'
+                  AND `timestamp` <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY)
+                ORDER BY `timestamp` DESC, id DESC
+                LIMIT 1;";
+          await using var prevCmd = new MySqlCommand(prevSql, conn) { CommandTimeout = 15 };
+          var prevObj = await prevCmd.ExecuteScalarAsync(ct);
+          previous = (prevObj != null && prevObj != DBNull.Value) ? Convert.ToDecimal(prevObj) : 0m;
+        }
       }
 
       var diff = latest - previous;
 
-      // Step 4: Update cache table (store difference too so we can short-circuit next time)
-      const string updateSql = @"
-        UPDATE btc_current_velocity_cache
-        SET latest_price = @latest,
-            previous_price = @previous, 
-            updated_at = UTC_TIMESTAMP()
-        WHERE id = 1;";
-      await using (var updateCmd = new MySqlCommand(updateSql, conn) { CommandTimeout = 10 })
+      // Step 4: Upsert the cache row (id = 1 is created on first use — a plain
+      // UPDATE silently affects 0 rows when the row doesn't exist, which keeps
+      // the cache permanently stale and re-runs the expensive path every call).
+      // The write is best-effort: a cache failure must not fail the request.
+      const string upsertSql = @"
+        INSERT INTO btc_current_velocity_cache (id, latest_price, previous_price, updated_at)
+        VALUES (1, @latest, @previous, UTC_TIMESTAMP())
+        ON DUPLICATE KEY UPDATE
+          latest_price = @latest,
+          previous_price = @previous,
+          updated_at = UTC_TIMESTAMP();";
+      await using (var updateCmd = new MySqlCommand(upsertSql, conn) { CommandTimeout = 10 })
       {
         updateCmd.Parameters.Add("@latest", MySqlDbType.NewDecimal).Value = latest;
         updateCmd.Parameters.Add("@previous", MySqlDbType.NewDecimal).Value = previous;
-        await updateCmd.ExecuteNonQueryAsync(ct);
+        try
+        {
+          await updateCmd.ExecuteNonQueryAsync(ct);
+        }
+        catch (Exception cacheEx)
+        {
+          _ = _log.Db("BTC velocity cache write failed (best-effort): " + cacheEx.Message, null, "COIN", true);
+        }
       }
 
       return (latest, previous, diff);

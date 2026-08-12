@@ -291,10 +291,26 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
 
   async start() {
     if (!this.parentRef?.user?.id) { return alert("You must be logged in to play!"); }
-    const startRes = await this.nexusService.start(this.parentRef.user.id);
+    const token = await this.parentRef.getSessionToken() ?? "";
+    let startRes = await this.nexusService.start(this.parentRef.user.id, token);
 
     // A non-object response is an error string (e.g. "Access Denied. Please
-    // re-login.") — surface it instead of treating it as a successful base.
+    // re-login.") — the session may have died while the page was open. Try the
+    // app-level auto-renew once (the server only mints a fresh token while the
+    // user is demonstrably active); if that fails, send them back to login.
+    if (typeof startRes === 'string' && /access denied|re-login|unauthorized/i.test(startRes)) {
+      const renewed = await this.parentRef?.renewSessionIfDenied();
+      if (renewed) {
+        const freshToken = await this.parentRef.getSessionToken() ?? "";
+        startRes = await this.nexusService.start(this.parentRef.user.id, freshToken);
+      } else {
+        await this.parentRef?.redirectToLoginAfterSessionExpiry();
+        return;
+      }
+    }
+
+    // A non-object response is an error string — surface it instead of
+    // treating it as a successful base.
     if (typeof startRes !== 'object' || startRes === null) {
       return alert(typeof startRes === 'string' ? startRes : "Failed to start. Please try again.");
     }

@@ -20,13 +20,15 @@ export class NexusService {
   private readonly cacheTtlMs = 60 * 60 * 1000;      // 60-min sliding TTL
   private beginnerCache = new Map<number, BeginnerCacheEntry>();
 
-  private async fetchData(url: string, body?: any, signal?: AbortSignal) {
+  private async fetchData(url: string, body?: any, signal?: AbortSignal, sessionToken?: string) {
     try {
+      const headers: any = {
+        'Content-Type': 'application/json',
+      };
+      if (sessionToken) headers['Encrypted-UserId'] = sessionToken;
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: body ? JSON.stringify(body) : body,
         signal
       });
@@ -101,8 +103,8 @@ export class NexusService {
     this.beginnerCache.set(userId, { value: result, fetchedAt: Date.now() });
     return result;
   }
-  async start(userId: number): Promise<any> {
-    return await this.fetchData('/nexus/start', userId);
+  async start(userId: number, sessionToken?: string): Promise<any> {
+    return await this.fetchData('/nexus/start', userId, undefined, sessionToken);
   }
   async getMinesInfo(nexus: NexusBase): Promise<any> {
     return await this.fetchData('/nexus/getminesinfo', { Nexus: nexus });

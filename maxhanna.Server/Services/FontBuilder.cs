@@ -97,14 +97,14 @@ namespace maxhanna.Server.Services
       var allPoints = new List<(int x, int y, bool on)>();
       foreach (var contour in validContours)
       {
-        // Alternate on/off so the curve renders as a smooth quadratic shape
-        // instead of sharp polygon segments.
-        bool firstOn = true;
+        // Pixel-art outlines must stay crisp: emit every traced point as an
+        // on-curve corner so consecutive points render as straight edges.
+        // Alternating on/off points would turn each 90-degree pixel corner
+        // into a smooth quadratic bulge, which is what made the output look
+        // like a generic rounded font instead of the source art.
         foreach (var p in contour)
         {
-          bool on = firstOn;
-          firstOn = !firstOn;
-          allPoints.Add(((int)Math.Round(p.X), (int)Math.Round(p.Y), on));
+          allPoints.Add(((int)Math.Round(p.X), (int)Math.Round(p.Y), true));
         }
       }
 

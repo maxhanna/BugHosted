@@ -4133,11 +4133,16 @@
    the rim's inner edge. Dark gaps between digits; light palm tips curl down
    over the rim face. Left hand: fingers angle right (toward the hub); right
    hand: mirrored. */
+/* ── Fingers: knuckle stubs wrapping the FAR side of the rim ──
+   The fingers curl around the back of the wheel (invisible from the cockpit
+   camera); only the knuckle bases show at the top of the dorsal, with the
+   dark rim face visible above them. No long digits / light tips. */
 .glove-finger {
   position: absolute;
-  top: 4px;
-  width: 14px;
-  border-radius: 7px 7px 8px 8px;
+  top: 32px;
+  width: 13px;
+  height: 15px;
+  border-radius: 6px 6px 4px 4px;
   border: 1px solid rgba(40, 6, 6, 0.8);
   background:
     linear-gradient(90deg, rgba(25, 3, 3, 0.5), transparent 30%, transparent 72%, rgba(25, 3, 3, 0.55)),
@@ -4146,52 +4151,47 @@
     inset 0 2px 2px rgba(255, 255, 255, 0.36),
     inset 0 -3px 4px rgba(25, 3, 3, 0.6),
     0 0 0 1px rgba(0, 0, 0, 0.4),
-    4px 3px 6px rgba(0, 0, 0, 0.55);
+    3px 3px 6px rgba(0, 0, 0, 0.55);
   transform-origin: 50% 100%;
 }
 
-/* Left hand: fingers curl toward the hub (right); right hand mirrored.
-   Index most upright, pinky curled deepest, middle longest. */
+/* Knuckle stubs fan gently toward the hub, index upright, pinky deepest. */
 .glove-finger.f1 {
   left: 5px;
-  height: 46px;
-  transform: rotate(6deg);
+  transform: rotate(4deg);
 }
 .glove-finger.f2 {
   left: 32px;
-  height: 52px;
-  transform: rotate(12deg);
+  transform: rotate(8deg);
 }
 .glove-finger.f3 {
   left: 59px;
-  height: 49px;
-  transform: rotate(18deg);
+  transform: rotate(12deg);
 }
 .glove-finger.f4 {
   left: 84px;
-  height: 44px;
-  transform: rotate(24deg);
+  transform: rotate(16deg);
 }
 .hand-right .glove-finger.f1 {
-  transform: rotate(-6deg);
+  transform: rotate(-4deg);
 }
 .hand-right .glove-finger.f2 {
-  transform: rotate(-12deg);
+  transform: rotate(-8deg);
 }
 .hand-right .glove-finger.f3 {
-  transform: rotate(-18deg);
+  transform: rotate(-12deg);
 }
 .hand-right .glove-finger.f4 {
-  transform: rotate(-24deg);
+  transform: rotate(-16deg);
 }
 
-/* Knuckle crease + red seam on each finger base */
+/* Knuckle crease + red seam on each knuckle base */
 .glove-finger::before {
   content: '';
   position: absolute;
   left: 2px;
   right: 2px;
-  top: 13px;
+  bottom: 1px;
   height: 2px;
   border-radius: 1px;
   background: rgba(50, 8, 8, 0.5);
@@ -4200,69 +4200,17 @@
   content: '';
   position: absolute;
   left: 50%;
-  top: 4px;
-  bottom: 42%;
+  top: 2px;
+  bottom: 4px;
   width: 1.5px;
   transform: translateX(-50%);
   opacity: 0.5;
   background: repeating-linear-gradient(180deg, rgba(190, 58, 46, 0.55) 0 3px, transparent 3px 6px);
 }
 
-/* Tip: light palm underside curling over the rim toward the camera */
+/* Fingertips wrap around the far side of the rim — hidden behind the wheel. */
 .glove-finger-seg {
-  position: absolute;
-  left: -2px;
-  right: -2px;
-  top: -21px;
-  height: 23px;
-  border-radius: 8px 8px 6px 6px;
-  border: 1px solid rgba(105, 90, 74, 0.55);
-  background:
-    linear-gradient(90deg, rgba(90, 78, 64, 0.3), transparent 30%, transparent 70%, rgba(90, 78, 64, 0.32)),
-    linear-gradient(180deg, #f5f1eb, #dcd6cb 60%, #a8a294);
-  box-shadow:
-    inset 0 2px 2px rgba(255, 255, 255, 0.55),
-    inset 0 -2px 3px rgba(95, 83, 68, 0.35),
-    0 3px 4px rgba(0, 0, 0, 0.4);
-  transform-origin: bottom center;
-}
-
-/* Tip hooks back down over the rim face */
-.glove-finger.f1 .glove-finger-seg {
-  transform: rotate(38deg);
-}
-.glove-finger.f2 .glove-finger-seg {
-  transform: rotate(42deg);
-}
-.glove-finger.f3 .glove-finger-seg {
-  transform: rotate(46deg);
-}
-.glove-finger.f4 .glove-finger-seg {
-  transform: rotate(50deg);
-}
-.hand-right .glove-finger.f1 .glove-finger-seg {
-  transform: rotate(-38deg);
-}
-.hand-right .glove-finger.f2 .glove-finger-seg {
-  transform: rotate(-42deg);
-}
-.hand-right .glove-finger.f3 .glove-finger-seg {
-  transform: rotate(-46deg);
-}
-.hand-right .glove-finger.f4 .glove-finger-seg {
-  transform: rotate(-50deg);
-}
-
-/* Fingertip sheen */
-.glove-finger-seg::after {
-  content: '';
-  position: absolute;
-  left: 3px;
-  right: 3px;
-  top: 3px;
-  height: 4px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.5);
+  display: none;
 }
 
 /* ── Thumb: hooks over the top of the grip, tip curling down the far side ── */
@@ -4474,85 +4422,49 @@
   }
 
   .glove-finger {
-    top: 3px;
+    top: 20px;
     width: 9px;
+    height: 10px;
   }
 
   .glove-finger-seg {
-    top: -13px;
-    height: 14px;
+    display: none;
   }
 
   .glove-finger.f1 {
     left: 3px;
-    height: 29px;
-    transform: rotate(6deg);
+    transform: rotate(4deg);
   }
 
   .glove-finger.f2 {
     left: 20px;
-    height: 32px;
-    transform: rotate(12deg);
+    transform: rotate(8deg);
   }
 
   .glove-finger.f3 {
     left: 37px;
-    height: 30px;
-    transform: rotate(18deg);
+    transform: rotate(12deg);
   }
 
   .glove-finger.f4 {
     left: 52px;
-    height: 27px;
-    transform: rotate(24deg);
+    transform: rotate(16deg);
   }
 
   .hand-right .glove-finger.f1 {
-    transform: rotate(-6deg);
+    transform: rotate(-4deg);
   }
 
   .hand-right .glove-finger.f2 {
-    transform: rotate(-12deg);
+    transform: rotate(-8deg);
   }
 
   .hand-right .glove-finger.f3 {
-    transform: rotate(-18deg);
+    transform: rotate(-12deg);
   }
 
   .hand-right .glove-finger.f4 {
-    transform: rotate(-24deg);
-  }
-
-  .glove-finger.f1 .glove-finger-seg {
-    transform: rotate(38deg);
-  }
-
-  .glove-finger.f2 .glove-finger-seg {
-    transform: rotate(42deg);
-  }
-
-  .glove-finger.f3 .glove-finger-seg {
-    transform: rotate(46deg);
-  }
-
-  .glove-finger.f4 .glove-finger-seg {
-    transform: rotate(50deg);
-  }
-
-  .hand-right .glove-finger.f1 .glove-finger-seg {
-    transform: rotate(-38deg);
-  }
-
-  .hand-right .glove-finger.f2 .glove-finger-seg {
-    transform: rotate(-42deg);
-  }
-
-  .hand-right .glove-finger.f3 .glove-finger-seg {
-    transform: rotate(-46deg);
-  }
-
-  .hand-right .glove-finger.f4 .glove-finger-seg {
-    transform: rotate(-50deg);
+    transform: rotate(-16deg);
   }
 
   .shift-paddle {

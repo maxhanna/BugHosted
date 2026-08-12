@@ -198,16 +198,74 @@ namespace maxhanna.Server.Services
       int h = mask.GetLength(0), w = mask.GetLength(1);
       var (minX, minY, maxX, maxY) = Bounds(component);
 
-      // Start pixel: topmost, then leftmost.
-      (int x, int y) start = component.OrderBy(p => p.y).ThenBy(p => p.x).First();
-
       bool IsFg(int x, int y) => x >= 0 && y >= 0 && x < w && y < h && mask[y, x];
+
+      // Outer boundary: walk the component's contour.
+      var outer = TraceBoundary(IsFg, component);
+      if (outer.Count < 3) return null;
+
+      // Holes: background pixels inside the glyph's bounding box that are NOT
+      // connected (4-neighbour) to the box border — i.e. enclosed counter
+      // regions. Without these, letters like A, B, O, P, 0, 6, 8 render as
+      // solid filled shapes.
+      var holes = FindHoles(mask, minX, minY, maxX, maxY);
+
+      // Normalize: flip Y (up is positive), baseline = lowest black pixel row (maxY).
+      float scale = CapHeight / Math.Max(1f, (float)(maxY - minY + 1));
+      int midX = (minX + maxX) / 2;
+
+      var contours = new List<List<PointF>>();
+      var outerFont = ToFontPoints(outer, midX, maxY, scale);
+      if (outerFont.Count < 3) return null;
+      outerFont.Add(outerFont[0]); // close the loop
+      contours.Add(outerFont);
+
+      foreach (var hole in holes)
+      {
+        // The hole is a region of background pixels; walk it as its own
+        // foreground (relative to the glyph) so we trace the counter's edge.
+        var holeSet = new HashSet<(int x, int y)>(hole);
+        bool IsHole(int x, int y) => holeSet.Contains((x, y));
+        var holeBoundary = TraceBoundary(IsHole, hole);
+        if (holeBoundary.Count < 3) continue;
+        var holeFont = ToFontPoints(holeBoundary, midX, maxY, scale);
+        if (holeFont.Count < 3) continue;
+        holeFont.Add(holeFont[0]);
+        // Holes must wind opposite the outer contour so the TrueType nonzero
+        // winding rule cuts them out rather than filling them.
+        if (SignedArea(holeFont) > 0 == SignedArea(outerFont) > 0) holeFont.Reverse();
+        contours.Add(holeFont);
+      }
+
+      float xMin = contours.SelectMany(c => c).Min(p => p.X), xMax = contours.SelectMany(c => c).Max(p => p.X);
+      float yMin = contours.SelectMany(c => c).Min(p => p.Y), yMax = contours.SelectMany(c => c).Max(p => p.Y);
+
+      return new GlyphResult
+      {
+        Character = '?',
+        Contours = contours,
+        AdvanceWidth = Math.Max(160f, (xMax - xMin) + CapHeight * 0.12f),
+        XMin = xMin,
+        YMin = yMin,
+        XMax = xMax,
+        YMax = yMax
+      };
+    }
+
+    /// <summary>
+    /// Moore-neighbour boundary walk over a region of foreground pixels,
+    /// returning the contour points in screen coordinates (y grows downward).
+    /// </summary>
+    private static List<(int x, int y)> TraceBoundary(Func<int, int, bool> IsFg, List<(int x, int y)> region)
+    {
+      // Start pixel: topmost, then leftmost.
+      (int x, int y) start = region.OrderBy(p => p.y).ThenBy(p => p.x).First();
 
       var contour = new List<(int x, int y)>();
       var seen = new HashSet<(int x, int y, int dir)>();
       (int x, int y) b = start;
       int backtrack = 4; // assume we entered from the west
-      int safety = component.Count * 8 + 1024;
+      int safety = region.Count * 8 + 1024;
 
       while (safety-- > 0)
       {
@@ -226,12 +284,84 @@ namespace maxhanna.Server.Services
         backtrack = (found + 4) % 8;
       }
 
-      if (contour.Count < 3) return null;
+      return contour;
+    }
 
-      // Normalize: flip Y (up is positive), baseline = lowest black pixel row (maxY).
-      float scale = CapHeight / Math.Max(1f, (float)(maxY - minY + 1));
-      int midX = (minX + maxX) / 2;
+    /// <summary>
+    /// Finds enclosed background (hole) regions within the given bounding box:
+    /// background pixels that are not 4-connected to the box border.
+    /// </summary>
+    private static List<List<(int x, int y)>> FindHoles(bool[,] mask, int minX, int minY, int maxX, int maxY)
+    {
+      int h = mask.GetLength(0), w = mask.GetLength(1);
+      var outside = new bool[h, w]; // background reachable from the box border
+      var queue = new Queue<(int x, int y)>();
 
+      bool IsBg(int x, int y) => x >= 0 && y >= 0 && x < w && y < h && !mask[y, x];
+
+      // Seed from every border cell that is background.
+      for (int x = minX; x <= maxX; x++)
+      {
+        if (IsBg(x, minY) && !outside[minY, x]) { outside[minY, x] = true; queue.Enqueue((x, minY)); }
+        if (IsBg(x, maxY) && !outside[maxY, x]) { outside[maxY, x] = true; queue.Enqueue((x, maxY)); }
+      }
+      for (int y = minY; y <= maxY; y++)
+      {
+        if (IsBg(minX, y) && !outside[y, minX]) { outside[y, minX] = true; queue.Enqueue((minX, y)); }
+        if (IsBg(maxX, y) && !outside[y, maxX]) { outside[y, maxX] = true; queue.Enqueue((maxX, y)); }
+      }
+
+      var dir4 = new[] { (1, 0), (-1, 0), (0, 1), (0, -1) };
+      while (queue.Count > 0)
+      {
+        var (cx, cy) = queue.Dequeue();
+        foreach (var (dx, dy) in dir4)
+        {
+          int nx = cx + dx, ny = cy + dy;
+          if (nx < minX || ny < minY || nx > maxX || ny > maxY) continue;
+          if (IsBg(nx, ny) && !outside[ny, nx])
+          {
+            outside[ny, nx] = true;
+            queue.Enqueue((nx, ny));
+          }
+        }
+      }
+
+      // Remaining background cells inside the box that aren't 'outside' are holes.
+      var visited = new bool[h, w];
+      var holes = new List<List<(int x, int y)>>();
+      for (int y = minY; y <= maxY; y++)
+      {
+        for (int x = minX; x <= maxX; x++)
+        {
+          if (!IsBg(x, y) || outside[y, x] || visited[y, x]) continue;
+          var hole = new List<(int x, int y)>();
+          var stack = new Stack<(int x, int y)>();
+          stack.Push((x, y));
+          visited[y, x] = true;
+          while (stack.Count > 0)
+          {
+            var (cx, cy) = stack.Pop();
+            hole.Add((cx, cy));
+            foreach (var (dx, dy) in dir4)
+            {
+              int nx = cx + dx, ny = cy + dy;
+              if (nx < minX || ny < minY || nx > maxX || ny > maxY) continue;
+              if (IsBg(nx, ny) && !outside[ny, nx] && !visited[ny, nx])
+              {
+                visited[ny, nx] = true;
+                stack.Push((nx, ny));
+              }
+            }
+          }
+          if (hole.Count >= 2) holes.Add(hole);
+        }
+      }
+      return holes;
+    }
+
+    private static List<PointF> ToFontPoints(List<(int x, int y)> contour, int midX, int maxY, float scale)
+    {
       var points = new List<PointF>();
       (int x, int y)? prev = null;
       foreach (var p in contour)
@@ -240,22 +370,17 @@ namespace maxhanna.Server.Services
         prev = p;
         points.Add(new PointF((p.x - midX) * scale, (maxY - p.y) * scale));
       }
-      if (points.Count < 3) return null;
-      points.Add(points[0]); // close the loop
+      return points;
+    }
 
-      float xMin = points.Min(p => p.X), xMax = points.Max(p => p.X);
-      float yMin = points.Min(p => p.Y), yMax = points.Max(p => p.Y);
-
-      return new GlyphResult
+    private static float SignedArea(List<PointF> pts)
+    {
+      float a = 0f;
+      for (int i = 0; i < pts.Count - 1; i++)
       {
-        Character = '?',
-        Contours = new List<List<PointF>> { points },
-        AdvanceWidth = Math.Max(160f, (xMax - xMin) + CapHeight * 0.12f),
-        XMin = xMin,
-        YMin = yMin,
-        XMax = xMax,
-        YMax = yMax
-      };
+        a += pts[i].X * pts[i + 1].Y - pts[i + 1].X * pts[i].Y;
+      }
+      return a / 2f;
     }
 
     private static (int minX, int minY, int maxX, int maxY) Bounds(List<(int x, int y)> component)
