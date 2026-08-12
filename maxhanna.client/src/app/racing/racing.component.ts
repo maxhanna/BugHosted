@@ -1662,16 +1662,13 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return null;
   }
 
-  /** Orbit camera around the grid center. `panT` runs 1 (lights appear) to 0
+  /** Orbit camera around the player's car. `panT` runs 1 (lights appear) to 0
    *  (GO): a full sweep that ends back behind the pack, with the radius and
    *  height eased in/out so the countdown starts near the cockpit view and GO
    *  hands off to it with barely any jump. Kept under the start gantry beam
    *  (4.4m) so the camera never clips through it. */
   private buildCountdownPanCamera(panT: number): { eyeX: number; eyeY: number; eyeZ: number; yaw: number; pitch: number } {
-    let gx = this.carX, gz = this.carZ, n = 1;
-    for (const b of this.bots) { gx += b.x; gz += b.z; n++; }
-    this.remoteCars.forEach(rc => { gx += rc.x; gz += rc.z; n++; });
-    gx /= n; gz /= n;
+    const gx = this.carX, gz = this.carZ;
     const gElev = this.renderer.getTrackElevation(this.renderer.getDistFromPoint(gx, gz));
     const lookY = gElev + 0.6;
     const ease = Math.sin(panT * Math.PI);

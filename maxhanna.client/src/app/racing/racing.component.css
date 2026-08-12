@@ -3941,18 +3941,18 @@
   z-index: 10;
   /* Seat the whole hand on the wheel — a soft shared shadow stops the glove
      reading as a flat sticker pasted over the rim. */
-  filter: drop-shadow(0 5px 9px rgba(0, 0, 0, 0.55));
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6));
 }
 
 .hand-left {
-  top: 22%;
-  left: -7%;
+  top: 8%;
+  left: -17%;
   transform: rotate(14deg);
 }
 
 .hand-right {
-  top: 22%;
-  right: -7%;
+  top: 8%;
+  right: -17%;
   transform: rotate(-14deg);
 }
 
@@ -3965,15 +3965,15 @@
   position: absolute;
   top: 88%;
   left: 50%;
-  width: 44px;
-  height: 190px;
+  width: 42px;
+  height: 150px;
   transform: translateX(-50%);
   background:
-    linear-gradient(90deg, rgba(0, 0, 0, 0.4), transparent 16%, rgba(255, 255, 255, 0.09) 40%, transparent 62%, rgba(0, 0, 0, 0.42)),
-    linear-gradient(90deg, #200c0b, #421711 40%, #180707 74%, #120606);
+    linear-gradient(90deg, rgba(0, 0, 0, 0.42), transparent 18%, rgba(255, 255, 255, 0.08) 42%, transparent 64%, rgba(0, 0, 0, 0.4)),
+    linear-gradient(90deg, #24100e, #451a14 42%, #1a0908 70%, #140707);
   border-radius: 10px 10px 4px 4px;
   clip-path: polygon(10% 0, 90% 0, 100% 100%, 0 100%);
-  box-shadow: inset 0 1px 3px rgba(255, 255, 255, 0.08), 0 4px 12px rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 1px 3px rgba(255, 255, 255, 0.07), 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 /* The arm falls away from the hand toward the driver's shoulder, so it leans
    slightly outward (away from the wheel centre) on each side. */
@@ -4005,104 +4005,81 @@
 
 .glove {
   position: relative;
-  width: 76px;
-  height: 120px;
+  width: 116px;
+  height: 150px;
 }
 
-/* Dual-strap velcro cuff — dark carbon with light straps and a red stitch
-   between them, like a real race glove's closure. */
+/* ── Cuff: gauntlet-style velcro closure, wider than the hand ── */
 .glove-cuff {
   position: absolute;
   bottom: 0;
-  left: -6px;
-  right: -6px;
-  height: 34px;
-  background: linear-gradient(180deg, #383940, #1a1b20 60%, #0d0d11);
-  border-radius: 8px 8px 14px 14px;
+  left: -10px;
+  right: -10px;
+  height: 40px;
+  border-radius: 10px 10px 16px 16px;
+  background: linear-gradient(180deg, #3a3b43, #1b1c22 55%, #0d0e12);
   border: 1px solid #0a0a0d;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6), inset 0 1px 2px rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 4px 10px rgba(0, 0, 0, 0.6),
+    inset 0 2px 3px rgba(255, 255, 255, 0.14),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.55);
 }
 .glove-strap {
   position: absolute;
-  left: 3px;
-  right: 3px;
-  top: 5px;
-  height: 9px;
-  border-radius: 4px;
-  background: linear-gradient(180deg, #bcb9b1, #6f6c64);
-  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.3), inset 0 -1px 1px rgba(0, 0, 0, 0.5);
+  left: 6px;
+  right: 6px;
+  top: 6px;
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #cfcbc2, #7a776e 60%, #57544c);
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.35),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.55);
 }
 .glove-strap-2 {
   top: auto;
-  bottom: 5px;
-  background: linear-gradient(180deg, #a9a69e, #5e5b54);
+  bottom: 6px;
+  background: linear-gradient(180deg, #bab6ad, #6a675f 60%, #4a4740);
 }
 /* Red stitch seam between the two straps */
 .glove-cuff::after {
   content: '';
   position: absolute;
-  left: 6px;
-  right: 6px;
+  left: 8px;
+  right: 8px;
   top: 50%;
   height: 2px;
   margin-top: -1px;
   border-radius: 1px;
-  background: repeating-linear-gradient(90deg, rgba(214, 76, 64, 0.55) 0 4px, transparent 4px 9px);
+  background: repeating-linear-gradient(90deg, rgba(214, 76, 64, 0.6) 0 4px, transparent 4px 9px);
 }
 
-/* Knuckle guard band where the fingers attach — racing red like the finger
-   backs (two-tone glove: light palm, coloured dorsal), with a fine weave and
-   a rounded top edge so it reads as the back of the hand. */
-.glove-knuckle {
-  position: absolute;
-  top: 5px;
-  left: 0;
-  right: 0;
-  height: 24px;
-  border-radius: 12px 12px 4px 4px;
-  border: 1px solid rgba(90, 20, 20, 0.55);
-  background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.09) 0 3px, transparent 3px 6px),
-    radial-gradient(ellipse at 28% 32%, rgba(255, 255, 255, 0.28), transparent 55%),
-    linear-gradient(180deg, var(--glove-accent, #d64545), color-mix(in srgb, var(--glove-accent, #d64545) 62%, #000));
-  box-shadow:
-    inset 0 2px 2px rgba(255, 255, 255, 0.45),
-    inset 0 -3px 6px rgba(40, 6, 6, 0.4),
-    0 3px 6px rgba(0, 0, 0, 0.3);
-}
-
+/* ── Dorsal (back of hand): the coloured leather panel facing the camera ──
+   Wider at the knuckles, tapering to the wrist, and narrower than the finger
+   spread above so the wheel's dark rim reads between the digits — that gap
+   is what sells a real 9-3 grip instead of a flat sticker. */
 .glove-palm {
   position: absolute;
-  bottom: 30px;
-  left: 2px;
-  right: 2px;
-  top: 22px;
-  border-radius: 12px 12px 8px 8px;
-  border: 1px solid rgba(125, 108, 90, 0.45);
+  bottom: 36px;
+  left: 16px;
+  right: 16px;
+  top: 58px;
+  border-radius: 18px 18px 12px 12px;
+  border: 1px solid rgba(90, 20, 20, 0.5);
   background:
-    radial-gradient(ellipse at 28% 12%, rgba(255, 255, 255, 0.45), transparent 46%),
-    radial-gradient(ellipse at 72% 88%, rgba(92, 80, 66, 0.36), transparent 58%),
-    linear-gradient(180deg, #f0ece6, #ddd8d0 68%, #b4afa5);
+    radial-gradient(ellipse at 32% 12%, rgba(255, 255, 255, 0.24), transparent 40%),
+    radial-gradient(ellipse at 68% 8%, rgba(255, 255, 255, 0.1), transparent 34%),
+    radial-gradient(ellipse at 50% 100%, rgba(30, 5, 5, 0.44), transparent 55%),
+    linear-gradient(180deg, var(--glove-accent, #d64545), color-mix(in srgb, var(--glove-accent, #d64545) 55%, #000));
   box-shadow:
-    inset 0 4px 8px rgba(255, 255, 255, 0.4),
-    inset 0 -5px 10px rgba(95, 83, 68, 0.3),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    inset 0 4px 8px rgba(255, 255, 255, 0.24),
+    inset 0 -6px 12px rgba(40, 6, 6, 0.5),
+    0 2px 6px rgba(0, 0, 0, 0.35);
+  /* Hand silhouette: rounded top, tapers toward the wrist */
+  clip-path: polygon(16% 0, 84% 0, 100% 18%, 100% 84%, 84% 100%, 16% 100%, 0 84%, 0 18%);
 }
 
-/* Palm crease lines — soft warm grey */
-.glove-palm::before {
-  content: '';
-  position: absolute;
-  left: 9px;
-  right: 9px;
-  top: 52%;
-  height: 3px;
-  border-radius: 3px;
-  background: rgba(110, 96, 80, 0.35);
-  box-shadow: 0 9px 0 rgba(110, 96, 80, 0.18);
-}
-
-/* Fine woven texture over the palm */
+/* Fine suede grain over the dorsal */
 .glove-palm::after {
   content: '';
   position: absolute;
@@ -4110,144 +4087,171 @@
   left: 5px;
   right: 5px;
   bottom: 5px;
-  border-radius: 6px;
+  border-radius: 13px 13px 9px 9px;
   background:
-    repeating-linear-gradient(0deg, transparent 0 4px, rgba(255, 255, 255, 0.05) 4px 5px),
-    repeating-linear-gradient(90deg, transparent 0 4px, rgba(255, 255, 255, 0.05) 4px 5px);
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255, 255, 255, 0.04) 3px 4px),
+    repeating-linear-gradient(90deg, transparent 0 3px, rgba(255, 255, 255, 0.04) 3px 4px);
 }
 
-/* Thumb hooking over the rim. In the 9-3 grip the thumb wraps the inside of
-   the wheel: it comes off the top corner of the hand and crosses the palm
-   toward the wheel centre, tip curling down around the grip. It's drawn
-   before the fingers so the finger bases tuck over its middle, leaving the
-   base and the curled tip visible — the way a real grip overlaps. */
-.glove-thumb {
-  position: absolute;
-  top: 18px;
-  left: -4px;
-  width: 60px;
-  height: 21px;
-  border-radius: 11px 15px 13px 11px;
-  border: 1px solid rgba(125, 108, 90, 0.5);
-  background:
-    radial-gradient(ellipse at 15% 40%, rgba(255, 255, 255, 0.5), transparent 56%),
-    linear-gradient(180deg, var(--glove-accent, #d64545), color-mix(in srgb, var(--glove-accent, #d64545) 60%, #000));
-  transform: rotate(28deg);
-  box-shadow:
-    inset 0 2px 2px rgba(255, 255, 255, 0.45),
-    inset 0 -3px 5px rgba(40, 6, 6, 0.4),
-    0 3px 7px rgba(0, 0, 0, 0.4);
-}
-.hand-right .glove-thumb {
-  left: auto;
-  right: -4px;
-  transform: rotate(-28deg);
-}
-
-/* Distal phalanx — the fingertip curls down over the rim edge. */
-.glove-thumb-seg {
-  position: absolute;
-  right: -19px;
-  top: 2px;
-  width: 23px;
-  height: 16px;
-  border-radius: 7px 13px 11px 7px;
-  border: 1px solid rgba(90, 20, 20, 0.5);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--glove-accent, #d64545) 88%, #fff), color-mix(in srgb, var(--glove-accent, #d64545) 70%, #000));
-  transform: rotate(20deg);
-  box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.4);
-}
-.hand-right .glove-thumb-seg {
-  right: auto;
-  left: -19px;
-  transform: rotate(-20deg);
-}
-
-/* Thumb joint crease where the tip joins the base */
-.glove-thumb::after {
+/* Dorsal stitching: metacarpal seams fanning from the wrist */
+.glove-palm::before {
   content: '';
   position: absolute;
-  left: 64%;
-  top: 2px;
-  bottom: 2px;
-  width: 3px;
-  border-radius: 2px;
-  background: rgba(110, 96, 80, 0.35);
-}
-.hand-right .glove-thumb::after {
-  left: 34%;
+  left: 10px;
+  right: 10px;
+  top: 38%;
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(80, 16, 16, 0.35);
+  box-shadow:
+    0 12px 0 rgba(80, 16, 16, 0.2),
+    0 24px 0 rgba(80, 16, 16, 0.12);
 }
 
-/* Fingers — two segments each so the tips read as curled over the rim. Each
-   digit gets side shading so it reads as rounded, with a knuckle crease + red
-   stitch seam, and the curl grows from index to pinky like a real grip. */
+/* ── Knuckle band: dark carbon transition under the finger bases ──
+   Its darkness makes each digit read separately instead of melting into the
+   dorsal. */
+.glove-knuckle {
+  position: absolute;
+  top: 46px;
+  left: 14px;
+  right: 14px;
+  height: 18px;
+  border-radius: 8px 8px 5px 5px;
+  border: 1px solid rgba(10, 8, 6, 0.8);
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 5px),
+    linear-gradient(180deg, #3a3230, #17120f 70%, #0d0a08);
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.18),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.7),
+    0 2px 5px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Fingers: four separate digits hooking over the rim ──
+   Each finger emerges from the knuckle and hooks back toward the camera over
+   the rim's inner edge. Dark gaps between digits; light palm tips curl down
+   over the rim face. Left hand: fingers angle right (toward the hub); right
+   hand: mirrored. */
 .glove-finger {
   position: absolute;
-  bottom: 85px;
-  width: 12px;
-  height: 33px;
-  border-radius: 6px 6px 7px 7px;
-  border: 1px solid rgba(125, 108, 90, 0.45);
+  top: 4px;
+  width: 14px;
+  border-radius: 7px 7px 8px 8px;
+  border: 1px solid rgba(40, 6, 6, 0.8);
   background:
-    linear-gradient(90deg, rgba(40, 8, 8, 0.34), transparent 30%, transparent 70%, rgba(40, 8, 8, 0.36)),
-    linear-gradient(180deg, var(--glove-accent, #d64545), color-mix(in srgb, var(--glove-accent, #d64545) 55%, #000));
-  box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.45), inset 0 -3px 4px rgba(40, 6, 6, 0.4);
-  clip-path: polygon(24% 0, 76% 0, 100% 100%, 0 100%);
+    linear-gradient(90deg, rgba(25, 3, 3, 0.5), transparent 30%, transparent 72%, rgba(25, 3, 3, 0.55)),
+    linear-gradient(180deg, color-mix(in srgb, var(--glove-accent, #d64545) 92%, #fff), color-mix(in srgb, var(--glove-accent, #d64545) 50%, #000));
+  box-shadow:
+    inset 0 2px 2px rgba(255, 255, 255, 0.36),
+    inset 0 -3px 4px rgba(25, 3, 3, 0.6),
+    0 0 0 1px rgba(0, 0, 0, 0.4),
+    4px 3px 6px rgba(0, 0, 0, 0.55);
+  transform-origin: 50% 100%;
 }
 
-/* Knuckle crease where the fingertip segment joins the finger base */
+/* Left hand: fingers curl toward the hub (right); right hand mirrored.
+   Index most upright, pinky curled deepest, middle longest. */
+.glove-finger.f1 {
+  left: 5px;
+  height: 46px;
+  transform: rotate(6deg);
+}
+.glove-finger.f2 {
+  left: 32px;
+  height: 52px;
+  transform: rotate(12deg);
+}
+.glove-finger.f3 {
+  left: 59px;
+  height: 49px;
+  transform: rotate(18deg);
+}
+.glove-finger.f4 {
+  left: 84px;
+  height: 44px;
+  transform: rotate(24deg);
+}
+.hand-right .glove-finger.f1 {
+  transform: rotate(-6deg);
+}
+.hand-right .glove-finger.f2 {
+  transform: rotate(-12deg);
+}
+.hand-right .glove-finger.f3 {
+  transform: rotate(-18deg);
+}
+.hand-right .glove-finger.f4 {
+  transform: rotate(-24deg);
+}
+
+/* Knuckle crease + red seam on each finger base */
 .glove-finger::before {
   content: '';
   position: absolute;
-  left: 3px;
-  right: 3px;
-  top: 9px;
-  height: 3px;
-  border-radius: 2px;
-  background: rgba(110, 96, 80, 0.4);
-  box-shadow: 0 11px 0 rgba(110, 96, 80, 0.16);
+  left: 2px;
+  right: 2px;
+  top: 13px;
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(50, 8, 8, 0.5);
 }
-
-/* Red stitch seam running down each finger */
 .glove-finger::after {
   content: '';
   position: absolute;
   left: 50%;
   top: 4px;
-  bottom: 4px;
-  width: 2px;
+  bottom: 42%;
+  width: 1.5px;
   transform: translateX(-50%);
-  opacity: 0.55;
-  background: repeating-linear-gradient(180deg, rgba(190, 58, 46, 0.5) 0 3px, transparent 3px 6px);
+  opacity: 0.5;
+  background: repeating-linear-gradient(180deg, rgba(190, 58, 46, 0.55) 0 3px, transparent 3px 6px);
 }
 
+/* Tip: light palm underside curling over the rim toward the camera */
 .glove-finger-seg {
   position: absolute;
-  left: -1px;
-  right: -1px;
-  top: -20px;
-  height: 21px;
-  border-radius: 7px 7px 6px 6px;
-  border: 1px solid rgba(125, 108, 90, 0.45);
+  left: -2px;
+  right: -2px;
+  top: -21px;
+  height: 23px;
+  border-radius: 8px 8px 6px 6px;
+  border: 1px solid rgba(105, 90, 74, 0.55);
   background:
-    linear-gradient(90deg, rgba(40, 8, 8, 0.26), transparent 30%, transparent 70%, rgba(40, 8, 8, 0.28)),
-    linear-gradient(180deg, color-mix(in srgb, var(--glove-accent, #d64545) 90%, #fff), color-mix(in srgb, var(--glove-accent, #d64545) 72%, #000));
-  box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.4);
+    linear-gradient(90deg, rgba(90, 78, 64, 0.3), transparent 30%, transparent 70%, rgba(90, 78, 64, 0.32)),
+    linear-gradient(180deg, #f5f1eb, #dcd6cb 60%, #a8a294);
+  box-shadow:
+    inset 0 2px 2px rgba(255, 255, 255, 0.55),
+    inset 0 -2px 3px rgba(95, 83, 68, 0.35),
+    0 3px 4px rgba(0, 0, 0, 0.4);
   transform-origin: bottom center;
-  transform: rotate(12deg);
-  clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%);
 }
 
-/* Curl grows toward the pinky so the grip reads as a real hand wrapping the
-   rim — index almost straight, pinky folded in furthest. */
-.glove-finger.f1 .glove-finger-seg { transform: rotate(6deg); }
-.glove-finger.f2 .glove-finger-seg { transform: rotate(9deg); }
-.glove-finger.f3 .glove-finger-seg { transform: rotate(12deg); }
-.glove-finger.f4 .glove-finger-seg { transform: rotate(15deg); }
-.hand-right .glove-finger.f1 .glove-finger-seg { transform: rotate(-6deg); }
-.hand-right .glove-finger.f2 .glove-finger-seg { transform: rotate(-9deg); }
-.hand-right .glove-finger.f3 .glove-finger-seg { transform: rotate(-12deg); }
-.hand-right .glove-finger.f4 .glove-finger-seg { transform: rotate(-15deg); }
+/* Tip hooks back down over the rim face */
+.glove-finger.f1 .glove-finger-seg {
+  transform: rotate(38deg);
+}
+.glove-finger.f2 .glove-finger-seg {
+  transform: rotate(42deg);
+}
+.glove-finger.f3 .glove-finger-seg {
+  transform: rotate(46deg);
+}
+.glove-finger.f4 .glove-finger-seg {
+  transform: rotate(50deg);
+}
+.hand-right .glove-finger.f1 .glove-finger-seg {
+  transform: rotate(-38deg);
+}
+.hand-right .glove-finger.f2 .glove-finger-seg {
+  transform: rotate(-42deg);
+}
+.hand-right .glove-finger.f3 .glove-finger-seg {
+  transform: rotate(-46deg);
+}
+.hand-right .glove-finger.f4 .glove-finger-seg {
+  transform: rotate(-50deg);
+}
 
 /* Fingertip sheen */
 .glove-finger-seg::after {
@@ -4256,31 +4260,83 @@
   left: 3px;
   right: 3px;
   top: 3px;
-  height: 5px;
+  height: 4px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.5);
 }
 
-/* Fingers vary slightly in length (middle longest, pinky shortest) and sit
-   with a clear gap so each digit reads separately. */
-.glove-finger.f1 {
-  left: 4px;
-  height: 33px;
+/* ── Thumb: hooks over the top of the grip, tip curling down the far side ── */
+.glove-thumb {
+  position: absolute;
+  top: -12px;
+  left: -18px;
+  width: 84px;
+  height: 24px;
+  border-radius: 12px 18px 15px 11px;
+  border: 1px solid rgba(50, 8, 8, 0.75);
+  background:
+    radial-gradient(ellipse at 22% 40%, rgba(255, 255, 255, 0.3), transparent 50%),
+    linear-gradient(180deg, var(--glove-accent, #d64545), color-mix(in srgb, var(--glove-accent, #d64545) 52%, #000));
+  transform: rotate(-8deg);
+  box-shadow:
+    inset 0 2px 2px rgba(255, 255, 255, 0.42),
+    inset 0 -3px 5px rgba(25, 3, 3, 0.55),
+    0 3px 6px rgba(0, 0, 0, 0.4);
+}
+.hand-right .glove-thumb {
+  left: auto;
+  right: -18px;
+  transform: rotate(8deg);
 }
 
-.glove-finger.f2 {
-  left: 20px;
-  height: 35px;
+/* Thumb tip curling down around the rim */
+.glove-thumb-seg {
+  position: absolute;
+  right: -22px;
+  top: 2px;
+  width: 30px;
+  height: 17px;
+  border-radius: 8px 14px 11px 7px;
+  border: 1px solid rgba(105, 90, 74, 0.5);
+  background:
+    linear-gradient(180deg, #f1ece4, #d6cfc2 60%, #a39b8c);
+  transform: rotate(30deg);
+  box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.45), 0 2px 3px rgba(0, 0, 0, 0.3);
+}
+.hand-right .glove-thumb-seg {
+  right: auto;
+  left: -22px;
+  transform: rotate(-30deg);
 }
 
-.glove-finger.f3 {
-  left: 36px;
-  height: 32px;
+/* Thumb joint crease */
+.glove-thumb::after {
+  content: '';
+  position: absolute;
+  left: 60%;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  border-radius: 2px;
+  background: rgba(50, 8, 8, 0.5);
+}
+.hand-right .glove-thumb::after {
+  left: 36%;
 }
 
-.glove-finger.f4 {
-  left: 52px;
-  height: 29px;
+/* Contact shadow where the hand meets the rim — grounds the glove in the
+   scene so it sits ON the wheel instead of floating above it. */
+.glove::before {
+  content: '';
+  position: absolute;
+  left: -18px;
+  right: -18px;
+  top: -8px;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.55), transparent 70%);
+  pointer-events: none;
+  z-index: -1;
 }
 
 @media (max-width: 768px),
@@ -4366,86 +4422,137 @@
   }
 
   .hand-arm {
-    width: 27px;
-    height: 118px;
+    width: 26px;
+    height: 93px;
   }
 
   .glove {
-    width: 47px;
-    height: 74px;
+    width: 72px;
+    height: 93px;
   }
 
   .glove-cuff {
-    height: 21px;
+    height: 25px;
   }
 
   .glove-knuckle {
-    top: 3px;
-    height: 15px;
+    top: 29px;
+    height: 11px;
   }
 
   .glove-palm {
-    top: 14px;
-    bottom: 19px;
+    top: 36px;
+    bottom: 22px;
   }
 
   .glove-thumb {
-    top: 11px;
-    left: -2px;
-    width: 37px;
-    height: 13px;
-    transform: rotate(28deg);
+    top: -8px;
+    left: -11px;
+    width: 52px;
+    height: 15px;
+    transform: rotate(-8deg);
   }
 
   .hand-right .glove-thumb {
     left: auto;
-    right: -2px;
-    transform: rotate(-28deg);
+    right: -11px;
+    transform: rotate(8deg);
   }
 
   .glove-thumb-seg {
-    right: -12px;
+    right: -14px;
     top: 1px;
-    width: 14px;
-    height: 10px;
-    transform: rotate(20deg);
+    width: 19px;
+    height: 11px;
+    transform: rotate(30deg);
   }
 
   .hand-right .glove-thumb-seg {
     right: auto;
-    left: -12px;
-    transform: rotate(-20deg);
+    left: -14px;
+    transform: rotate(-30deg);
   }
 
   .glove-finger {
-    bottom: 53px;
-    width: 7px;
-    height: 20px;
+    top: 3px;
+    width: 9px;
   }
 
   .glove-finger-seg {
     top: -13px;
-    height: 13px;
+    height: 14px;
   }
 
   .glove-finger.f1 {
-    left: 2px;
-    height: 20px;
+    left: 3px;
+    height: 29px;
+    transform: rotate(6deg);
   }
 
   .glove-finger.f2 {
-    left: 12px;
-    height: 22px;
+    left: 20px;
+    height: 32px;
+    transform: rotate(12deg);
   }
 
   .glove-finger.f3 {
-    left: 22px;
-    height: 20px;
+    left: 37px;
+    height: 30px;
+    transform: rotate(18deg);
   }
 
   .glove-finger.f4 {
-    left: 32px;
-    height: 18px;
+    left: 52px;
+    height: 27px;
+    transform: rotate(24deg);
+  }
+
+  .hand-right .glove-finger.f1 {
+    transform: rotate(-6deg);
+  }
+
+  .hand-right .glove-finger.f2 {
+    transform: rotate(-12deg);
+  }
+
+  .hand-right .glove-finger.f3 {
+    transform: rotate(-18deg);
+  }
+
+  .hand-right .glove-finger.f4 {
+    transform: rotate(-24deg);
+  }
+
+  .glove-finger.f1 .glove-finger-seg {
+    transform: rotate(38deg);
+  }
+
+  .glove-finger.f2 .glove-finger-seg {
+    transform: rotate(42deg);
+  }
+
+  .glove-finger.f3 .glove-finger-seg {
+    transform: rotate(46deg);
+  }
+
+  .glove-finger.f4 .glove-finger-seg {
+    transform: rotate(50deg);
+  }
+
+  .hand-right .glove-finger.f1 .glove-finger-seg {
+    transform: rotate(-38deg);
+  }
+
+  .hand-right .glove-finger.f2 .glove-finger-seg {
+    transform: rotate(-42deg);
+  }
+
+  .hand-right .glove-finger.f3 .glove-finger-seg {
+    transform: rotate(-46deg);
+  }
+
+  .hand-right .glove-finger.f4 .glove-finger-seg {
+    transform: rotate(-50deg);
   }
 
   .shift-paddle {

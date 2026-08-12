@@ -72,6 +72,10 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
 
   @Input() storyId: number | undefined = undefined;
   @Input() commentId: number | undefined = undefined;
+  /** Topic name(s) from a ?topic= deep link, e.g. "Weaver" or "Weaver,Cars".
+   *  Set by app.component when navigating to /Social?topic=... so the feed
+   *  pre-filters to those topics on load. */
+  @Input() topic: string | undefined = undefined;
   @Input() showTopicSelector: boolean = true;
   @Input() showOnlyPost: boolean = false;
   @Input() user?: User;
@@ -456,6 +460,11 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         console.warn('Error fetching deep-linked story by id, falling back to getStories', ex);
         await this.getStories();
       }
+    } else if (this.topic) {
+      // ?topic= deep link: resolve the topic name(s) to real Topic ids and
+      // pre-filter the feed, mirroring what the topic picker does. Skip the
+      // unfiltered first load — the topic search is the only fetch we need.
+      await this.applyTopicDeepLink(this.topic);
     } else {
       await this.getStories();
     }
@@ -463,7 +472,6 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.chatId) {
       await this.loadGroupInfo();
     }
-   
 
     this.parentRef?.getLocation().then(res => {
       if (res) {
@@ -577,6 +585,12 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.wasFromSearchId = false;
     this.currentPage = 1;
     this.cd.detectChanges();
+    // A ?topic= deep link while Social is already open filters the feed
+    // instead of clearing it (same as a fresh load).
+    if (inputs && inputs['topic']) {
+      this.applyTopicDeepLink(inputs['topic']);
+      return;
+    }
     this.searchStories();
   }
 
@@ -737,6 +751,47 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     this.onTopicAdded(this.attachedTopics);
     this.scrollToStory();
   }
+
+  /** Resolve a ?topic= deep link (comma-separated names) into real Topic ids
+   *  and pre-filter the feed. Unknown names are silently dropped; if none
+   *  resolve, falls back to the unfiltered feed. */
+  private async applyTopicDeepLink(topicParam: string) {
+    const names = topicParam.split(',').map(t => t.trim()).filter(Boolean);
+    if (names.length === 0) return;
+    const resolved: Topic[] = [];
+    for (const name of names) {
+      try {
+        const matches = await this.topicService.getTopics(name, this.parentRef?.user);
+        const list = Array.isArray(matches) ? matches : [];
+        const exact = list.find(t => t.topicText?.toLowerCase() === name.toLowerCase())
+          ?? list.find(t => t.topicText?.toLowerCase().includes(name.toLowerCase()));
+        if (exact && !resolved.some(t => t.id === exact.id)) {
+          resolved.push(exact);
+        }
+      } catch (ex) {
+        console.warn('Failed resolving deep-linked topic', name, ex);
+      }
+    }
+    if (resolved.length > 0) {
+      this.currentPage = 1;
+      this.attachedTopics = resolved;
+      if (this.isMenuPanelOpen) this.loadTopicModerators();
+      await this.searchStories(resolved);
+    } else {
+      await this.getStories();
+    }
+  }
+
+  /** Share link for the current feed view: the Social route plus any active
+   *  topic filter as a ?topic= param, e.g. "Social?topic=Weaver". */
+  getSocialShareLink(): string {
+    if (this.attachedTopics && this.attachedTopics.length > 0) {
+      const names = this.attachedTopics.map(t => encodeURIComponent(t.topicText)).join(',');
+      return `Social?topic=${names}`;
+    }
+    return 'Social';
+  }
+
   uploadInitiate() {
 
   }
