@@ -224,9 +224,13 @@ const BODY_LOFT: LoftStation[] = [
   { x: 1.46, y: 0.055, h: 0.03, w: 0.03 },
   { x: 1.50, y: 0.04, h: 0.01, w: 0.012 },
 ];
+// Cockpit cowl dome. The stations' base ring is sunk well below the body deck
+// (the deck drops to ~0.255 by x=0.47) so the whole solid sits embedded in the
+// body instead of hovering above it with a visible gap under the dome; only
+// the cap (top ≈ 0.3175) reads above the paint, keeping livery plates stuck.
 const HUMP_LOFT: LoftStation[] = [
-  { x: 0.13, y: 0.30, h: 0.035, w: 0.26 },
-  { x: 0.47, y: 0.30, h: 0.035, w: 0.26 },
+  { x: 0.13, y: 0.25, h: 0.135, w: 0.26 },
+  { x: 0.47, y: 0.25, h: 0.135, w: 0.26 },
 ];
 const POD_LOFT: LoftStation[] = [
   { x: 0.58, y: 0.17, cz: 0.48, h: 0.28, w: 0.34 },
@@ -238,14 +242,22 @@ const POD_LOFT: LoftStation[] = [
   { x: -0.84, y: 0.12, cz: 0.38, h: 0.10, w: 0.14 },
 ];
 /** Top-surface height of a superellipse loft (n=4) at (x, z), mirroring the
- * cross-section math in addSmoothLoft. */
+ * cross-section math in addSmoothLoft. Station lists may be ascending (body,
+ * hump) or descending (side pods); the interval containing x is found either
+ * way, and out-of-span x clamps to the matching end cap. */
 function loftTopY(stations: LoftStation[], x: number, z: number): number {
   let s0 = stations[0], s1 = stations[stations.length - 1];
-  if (x <= s0.x) { s1 = s0; }
-  else if (x >= s1.x) { s0 = s1; }
-  else {
+  const xMin = Math.min(stations[0].x, stations[stations.length - 1].x);
+  const xMax = Math.max(stations[0].x, stations[stations.length - 1].x);
+  if (x <= xMin) {
+    s0 = s1 = stations.find(s => s.x === xMin) ?? stations[0];
+  } else if (x >= xMax) {
+    s0 = s1 = stations.find(s => s.x === xMax) ?? stations[stations.length - 1];
+  } else {
     for (let i = 0; i < stations.length - 1; i++) {
-      if (x >= stations[i].x && x <= stations[i + 1].x) { s0 = stations[i]; s1 = stations[i + 1]; break; }
+      const a = stations[i], b = stations[i + 1];
+      const lo = Math.min(a.x, b.x), hi = Math.max(a.x, b.x);
+      if (x >= lo && x <= hi) { s0 = a; s1 = b; break; }
     }
   }
   const f = s1.x === s0.x ? 0 : (x - s0.x) / (s1.x - s0.x);
@@ -275,14 +287,20 @@ const carBodyTopY = (x: number, z: number) => {
 };
 /** Half-width of a loft at x (interpolated between stations) — used to clamp
  *  plate z-extents to the physical surface so plates never float off the side
- *  of the body where no mesh exists. */
+ *  of the body where no mesh exists. Direction-agnostic like loftTopY. */
 function loftHW(stations: LoftStation[], x: number): number {
   let s0 = stations[0], s1 = stations[stations.length - 1];
-  if (x <= s0.x) { s1 = s0; }
-  else if (x >= s1.x) { s0 = s1; }
-  else {
+  const xMin = Math.min(stations[0].x, stations[stations.length - 1].x);
+  const xMax = Math.max(stations[0].x, stations[stations.length - 1].x);
+  if (x <= xMin) {
+    s0 = s1 = stations.find(s => s.x === xMin) ?? stations[0];
+  } else if (x >= xMax) {
+    s0 = s1 = stations.find(s => s.x === xMax) ?? stations[stations.length - 1];
+  } else {
     for (let i = 0; i < stations.length - 1; i++) {
-      if (x >= stations[i].x && x <= stations[i + 1].x) { s0 = stations[i]; s1 = stations[i + 1]; break; }
+      const a = stations[i], b = stations[i + 1];
+      const lo = Math.min(a.x, b.x), hi = Math.max(a.x, b.x);
+      if (x >= lo && x <= hi) { s0 = a; s1 = b; break; }
     }
   }
   const f = s1.x === s0.x ? 0 : (x - s0.x) / (s1.x - s0.x);
@@ -412,6 +430,14 @@ export class RacingRenderer {
    *  corners while the suit/gloves stay put. */
   private helmetVao!: WebGLVertexArrayObject;
   private helmetCount = 0;
+  /** Glove meshes — one VAO per hand so renderCar can pivot each hand about
+   *  its wrist: the fingers curl tighter onto the wheel as steering input
+   *  grows (gripping) and relax on the straights (releasing), like the
+   *  helmet's head turn. */
+  private gloveLVao!: WebGLVertexArrayObject;
+  private gloveLCount = 0;
+  private gloveRVao!: WebGLVertexArrayObject;
+  private gloveRCount = 0;
   private wheelVao!: WebGLVertexArrayObject;
   private wheelCount = 0;
   private wheelRimVao!: WebGLVertexArrayObject;
@@ -523,11 +549,6 @@ export class RacingRenderer {
   // the heaviest scenery (conifer counts and mesh density) and per-frame effects
   // (snow flake count) so the mountain and alpine circuits stay smooth on phones.
   lowQuality = false;
-  // Corner-rubber toggle: when false, braking marks are skipped entirely so
-  // players who find the braking-zone rubber distracting can turn it off.
-  // Corner rubber (dark braking marks) is OFF by default — it read as gray
-  // puddles on the track and added draw cost exactly where cars brake hardest.
-  cornerRubber = false;
   night = false;
   skyTop: [number, number, number] = [0.1, 0.2, 0.5];
   skyHorizon: [number, number, number] = [0.7, 0.75, 0.85];
@@ -619,12 +640,10 @@ export class RacingRenderer {
   private mirrorView!: Float32Array;
   constructor(canvas: HTMLCanvasElement, lowQuality = false) {
     this.lowQuality = lowQuality;
-    // Mobile/weak GPUs get trimmed effect budgets: drift smoke and scrub marks
-    // are the two effects that spike exactly when cornering/sliding, so their
-    // caps are cut on phones to halve the particle churn + blended fill where
-    // it matters. All buffers/scratch derive from these caps, so sizing follows.
+    // Mobile/weak GPUs get trimmed effect budgets: drift smoke is the effect
+    // that spikes exactly when cornering/sliding, so its cap is cut on phones
+    // to halve the particle churn + blended fill where it matters.
     this._smokeMax = lowQuality ? 96 : 220;
-    this._scrubMax = lowQuality ? 200 : 400;
     const gl = canvas.getContext('webgl2', { antialias: true, alpha: false });
     if (!gl) throw new Error('WebGL2 not supported');
     this.gl = gl;
@@ -1691,7 +1710,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.fogColor = [0.4, 0.45, 0.5];
         break;
     }
-    this._scrubColor = theme === 'desert' ? [0.11, 0.105, 0.1] : theme === 'miami' ? [0.028, 0.026, 0.024] : [0.05, 0.045, 0.04];
     // Markings are theme-specific (street paint vs racing paint), so swap the
     // road texture now that the theme has been selected.
     this.trackTex = this.makeTrackMarkingsTex();
@@ -2965,6 +2983,38 @@ void main() { FragColor = texture(uTex, vUV); }`;
         idxs.push(a0, b0, c0);
         idxs.push(c0, b0, d0);
       }
+    }
+  }
+  /** Curved band hugging the front of an ellipsoid shell between two elevation
+   *  bounds (yTop..yBot, azimuth over the front hemisphere) — used for the
+   *  helmet visor + reflection strip so they read as real tinted bands instead
+   *  of barely-visible crescents. The band is drawn slightly proud of the
+   *  shell surface (proud) so it never z-fights the paint beneath. */
+  private addEllipsoidBand(verts: number[], idxs: number[], cx: number, cy: number, cz: number, rx: number, ry: number, rz: number, yTop: number, yBot: number, segs: number, color: number[], proud = 0.006) {
+    const [cr, cg, cb] = color;
+    const tTop = (yTop - cy) / ry, tBot = (yBot - cy) / ry;
+    const kTop = Math.sqrt(Math.max(0, 1 - tTop * tTop));
+    const kBot = Math.sqrt(Math.max(0, 1 - tBot * tBot));
+    const s = 1 + proud;
+    const base = verts.length / 11;
+    const stride = segs + 1;
+    const emit = (y: number, k: number, t: number) => {
+      for (let i = 0; i <= segs; i++) {
+        const a = -Math.PI / 2 + (i / segs) * Math.PI; // front hemisphere
+        const ca = Math.cos(a), sa = Math.sin(a);
+        let nx = (ca * k) / rx, ny = t / ry, nz = (sa * k) / rz;
+        const nl = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+        nx /= nl; ny /= nl; nz /= nl;
+        verts.push(cx + rx * k * ca * s, y, cz + rz * k * sa * s, nx, ny, nz, cr, cg, cb, i / segs, 0);
+      }
+    };
+    emit(yTop, kTop, tTop);
+    emit(yBot, kBot, tBot);
+    for (let i = 0; i < segs; i++) {
+      const t0 = base + i, t1 = t0 + 1;          // top ring
+      const b0 = base + stride + i, b1 = b0 + 1; // bottom ring
+      idxs.push(t0, t1, b0);
+      idxs.push(b1, b0, t1);
     }
   }
   private addCityScenery(verts: number[], idxs: number[]) {
@@ -4377,6 +4427,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // the head can pivot with steering while the suit stays put.
     const helmetVerts: number[] = [];
     const helmetIdxs: number[] = [];
+    // Hands build into their own per-side meshes so renderCar can pivot each
+    // hand about its wrist — fingers grip/release with steering input.
+    const gloveLVerts: number[] = [];
+    const gloveLIdxs: number[] = [];
+    const gloveRVerts: number[] = [];
+    const gloveRIdxs: number[] = [];
     // Paint surfaces are baked pure white: renderCar tints them with uColor =
     // the equipped skin, so the paint shows its true colour. Baking a tinted
     // base here would multiply into every skin (red base = every paint reads
@@ -4401,44 +4457,63 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addBox(verts, idxs, -1.15, 0.07, dz, 0.3, 0.08, 0.02, carbon);
     }
     this.addSmoothLoft(verts, idxs, BODY_LOFT.map(s => ({ ...s, cz: s.cz ?? 0 })), 30, [cr, cg, cb], true);
-    this.addSmoothLoft(verts, idxs, HUMP_LOFT.map(s => ({ ...s, cz: s.cz ?? 0 })), 20, dark, false);
+    // Caps closed so the cowl reads as a solid dome (the front cap is buried
+    // inside the body; the rear cap closes the visible end instead of showing
+    // a dark opening above the deck).
+    this.addSmoothLoft(verts, idxs, HUMP_LOFT.map(s => ({ ...s, cz: s.cz ?? 0 })), 20, dark, true);
     this.addBox(verts, idxs, 0.26, 0.27, 0, 0.18, 0.07, 0.20, [cr, cg, cb]);
     this.addBox(verts, idxs, 0.29, 0.30, 0, 0.12, 0.05, 0.18, [0.1, 0.1, 0.12]);
-    // ── Driver: detailed helmet (dome + curved visor + crown vents +
-    // tear-off posts), HANS collar, suit shoulders + arms, gloved hands and a
-    // proper F1 steering wheel with a centre screen and buttons.
-    // The dome is sized to tuck just under the halo bar (y≈0.40) so the crown
-    // never z-fights the halo, which is what made the old head look broken
-    // from the garage's orbit camera.
+    // ── Driver: detailed helmet (ovoid shell + tinted visor band + chin bar +
+    // crown vents + rear ducktail), HANS collar, suit shoulders + arms, gloved
+    // hands and a proper F1 steering wheel with a centre screen and buttons.
+    // The crown is sized to tuck just under the halo bar (y≈0.40) so it never
+    // z-fights the halo, which is what made the old head look broken from the
+    // garage's orbit camera.
     const shell = hel;                        // helmet shell (fixed white)
     const visorDark = [0.02, 0.02, 0.05];     // visor opening
     const visorSheen = [0.22, 0.3, 0.42];     // visor reflection strip
     const suitC = [0.14, 0.05, 0.05];         // race suit (fixed team maroon)
     const hansC = [0.9, 0.9, 0.93];           // HANS collar (fixed bright)
-    const gloveC = [0.95, 0.95, 0.97];        // gloves (fixed light)
+    const gloveC = [0.95, 0.95, 0.97];        // gloves palm (fixed light)
+    const gloveBack = [0.76, 0.17, 0.18];     // gloves finger backs (racing red)
     const wheelFace = [0.05, 0.05, 0.07];     // wheel body
-    // Helmet shell — smooth dome, lowered so it clears the halo bar above.
-    this.addEllipsoid(helmetVerts, helmetIdxs, 0.40, 0.335, 0, 0.088, 0.062, 0.10, 20, shell);
-    // Curved visor opening across the front of the dome (its full ellipsoid
-    // back half hides inside the shell; only the front band shows).
-    this.addEllipsoid(helmetVerts, helmetIdxs, 0.48, 0.332, 0, 0.016, 0.04, 0.09, 14, visorDark);
-    // Visor reflection sheen — a lighter strip just forward of the opening.
-    this.addEllipsoid(helmetVerts, helmetIdxs, 0.495, 0.338, 0, 0.004, 0.016, 0.07, 12, visorSheen);
-    // Tear-off posts / visor mounts — silver dots on both sides.
-    this.addBox(helmetVerts, helmetIdxs, 0.48, 0.362, 0.084, 0.013, 0.013, 0.013, [0.7, 0.7, 0.75]);
-    this.addBox(helmetVerts, helmetIdxs, 0.48, 0.362, -0.084, 0.013, 0.013, 0.013, [0.7, 0.7, 0.75]);
-    // Crown air vents — two small slots on top of the dome, tucked below the
-    // halo bar (y 0.40) so they never clip into it.
-    this.addBox(helmetVerts, helmetIdxs, 0.385, 0.392, 0.04, 0.035, 0.010, 0.013, [0.05, 0.05, 0.07]);
-    this.addBox(helmetVerts, helmetIdxs, 0.385, 0.392, -0.04, 0.035, 0.010, 0.013, [0.05, 0.05, 0.07]);
-    // Neck / HANS collar — bright ring around the base of the helmet.
-    this.addBox(driverVerts, driverIdxs, 0.40, 0.272, 0, 0.095, 0.026, 0.108, hansC);
-    // Race suit shoulders peeking out of the cockpit opening.
-    this.addBox(driverVerts, driverIdxs, 0.315, 0.295, 0.085, 0.17, 0.034, 0.095, suitC);
-    this.addBox(driverVerts, driverIdxs, 0.315, 0.295, -0.085, 0.17, 0.034, 0.095, suitC);
+    // ── Helmet — rebuilt as a real F1 lid: an elongated ovoid shell (longer
+    // fore-aft than wide, rounded crown), a distinct tinted visor band hugging
+    // the shell's front, a chin bar beneath it, crown vents and a rear
+    // ducktail spoiler. All pieces share the helmet pivot so the head still
+    // turns into corners with steering.
+    const hcx = 0.385, hcy = 0.322;           // shell centre (crown clears halo y≈0.40)
+    const hrx = 0.105, hry = 0.072, hrz = 0.095;
+    // Ovoid shell — elongated front-to-back, wider than it is tall.
+    this.addEllipsoid(helmetVerts, helmetIdxs, hcx, hcy, 0, hrx, hry, hrz, 20, shell);
+    // Chin bar / jaw — the lower-front bulge that gives the helmet a face
+    // instead of a plain ball.
+    this.addEllipsoid(helmetVerts, helmetIdxs, hcx + 0.088, hcy - 0.042, 0, 0.035, 0.045, 0.062, 14, shell);
+    // Visor band — a proper tinted strip wrapped around the shell's front
+    // (custom band mesh hugging the ellipsoid, so it reads as a real visor).
+    this.addEllipsoidBand(helmetVerts, helmetIdxs, hcx, hcy, 0, hrx, hry, hrz, hcy + 0.027, hcy - 0.027, 18, visorDark, 0.007);
+    // Visor reflection sheen — a lighter strip just below the opening.
+    this.addEllipsoidBand(helmetVerts, helmetIdxs, hcx, hcy, 0, hrx, hry, hrz, hcy + 0.008, hcy - 0.012, 14, visorSheen, 0.008);
+    // Tear-off posts / visor mounts — silver dots at the band's outer edges.
+    this.addBox(helmetVerts, helmetIdxs, hcx, hcy, hrz + 0.004, 0.012, 0.012, 0.012, [0.7, 0.7, 0.75]);
+    this.addBox(helmetVerts, helmetIdxs, hcx, hcy, -(hrz + 0.004), 0.012, 0.012, 0.012, [0.7, 0.7, 0.75]);
+    // Crown vents — a centre cooling channel plus two side slots, tucked below
+    // the halo bar (y 0.40) so they never clip into it.
+    this.addBox(helmetVerts, helmetIdxs, hcx + 0.005, hcy + hry - 0.001, 0, 0.045, 0.006, 0.02, [0.05, 0.05, 0.07]);
+    this.addBox(helmetVerts, helmetIdxs, hcx - 0.02, hcy + hry - 0.003, 0.045, 0.05, 0.006, 0.012, [0.05, 0.05, 0.07]);
+    this.addBox(helmetVerts, helmetIdxs, hcx - 0.02, hcy + hry - 0.003, -0.045, 0.05, 0.006, 0.012, [0.05, 0.05, 0.07]);
+    // Rear ducktail spoiler — the little wedge at the back of the helmet.
+    this.addTaperedBox(helmetVerts, helmetIdxs, hcx - 0.115, hcy + 0.02, 0, 0.045, 0.02, 0.035, 0.05, 0.07, dark);
+    // Neck / HANS collar — a bright ring hugging the helmet base (covers the
+    // shell's open neck area like the real harness collar).
+    this.addEllipsoid(driverVerts, driverIdxs, hcx - 0.005, hcy - 0.055, 0, 0.052, 0.032, 0.080, 16, hansC);
+    // Race suit shoulders peeking out of the cockpit opening — rounded caps
+    // instead of flat boxes so they read as shoulders.
+    this.addEllipsoid(driverVerts, driverIdxs, 0.315, 0.29, 0.085, 0.085, 0.035, 0.070, 12, suitC);
+    this.addEllipsoid(driverVerts, driverIdxs, 0.315, 0.29, -0.085, 0.085, 0.035, 0.070, 12, suitC);
     // Arms reaching from the shoulders to the wheel.
-    this.addStrut(driverVerts, driverIdxs, 0.34, 0.29, 0.085, 0.525, 0.278, 0.068, 0.024, suitC);
-    this.addStrut(driverVerts, driverIdxs, 0.34, 0.29, -0.085, 0.525, 0.278, -0.068, 0.024, suitC);
+    this.addStrut(driverVerts, driverIdxs, 0.34, 0.29, 0.085, 0.525, 0.278, 0.068, 0.028, suitC);
+    this.addStrut(driverVerts, driverIdxs, 0.34, 0.29, -0.085, 0.525, 0.278, -0.068, 0.028, suitC);
     // Steering wheel — wide flat face angled toward the driver, centre
     // screen, coloured buttons and outer grips.
     this.addBox(verts, idxs, 0.545, 0.285, 0, 0.016, 0.05, 0.115, wheelFace);
@@ -4449,9 +4524,30 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addBox(verts, idxs, 0.553, 0.263, -0.047, 0.004, 0.012, 0.012, [1, 0.5, 0.05]);
     this.addBox(verts, idxs, 0.553, 0.285, 0.088, 0.004, 0.009, 0.012, [0.85, 0.85, 0.9]);
     this.addBox(verts, idxs, 0.553, 0.285, -0.088, 0.004, 0.009, 0.012, [0.85, 0.85, 0.9]);
-    // Gloved hands gripping the wheel sides.
-    this.addEllipsoid(driverVerts, driverIdxs, 0.532, 0.276, 0.066, 0.022, 0.031, 0.027, 10, gloveC);
-    this.addEllipsoid(driverVerts, driverIdxs, 0.532, 0.276, -0.066, 0.022, 0.031, 0.027, 10, gloveC);
+    // Gloved hands gripping the wheel sides — rebuilt as actual hands: a palm
+    // behind the wheel, three fingers curling over the rim onto the front face
+    // and a thumb sweeping inward on the face, instead of two featureless
+    // blobs. Two-tone like real racing gloves: the palm stays light while the
+    // finger backs and knuckles are racing red. Mirrored per side (sgn flips
+    // z), and each hand builds into its own mesh so renderCar can pivot it
+    // about the wrist — fingers curl tighter with steering input.
+    for (const sgn of [1, -1]) {
+      const zs = (z: number) => z * sgn;
+      const gv = sgn === 1 ? gloveLVerts : gloveRVerts;
+      const gi = sgn === 1 ? gloveLIdxs : gloveRIdxs;
+      // Palm / back of hand — rounded light pad behind the wheel, merging with the arm.
+      this.addEllipsoid(gv, gi, 0.536, 0.277, zs(0.074), 0.020, 0.034, 0.024, 10, gloveC);
+      // Three fingers wrapped over the rim, tips curling toward the centre.
+      // The dorsal (outer) surface of each finger is the coloured back.
+      this.addStrut(gv, gi, 0.546, 0.305, zs(0.070), 0.554, 0.302, zs(0.048), 0.010, gloveBack);
+      this.addStrut(gv, gi, 0.546, 0.283, zs(0.076), 0.554, 0.281, zs(0.052), 0.010, gloveBack);
+      this.addStrut(gv, gi, 0.546, 0.261, zs(0.070), 0.553, 0.259, zs(0.048), 0.010, gloveBack);
+      // Thumb resting on the front face, sweeping inward and slightly up — its
+      // visible dorsal surface takes the coloured back too.
+      this.addStrut(gv, gi, 0.549, 0.290, zs(0.062), 0.555, 0.298, zs(0.036), 0.009, gloveBack);
+      // Knuckle bulge where the fingers meet the palm — coloured like the back.
+      this.addEllipsoid(gv, gi, 0.551, 0.297, zs(0.062), 0.011, 0.013, 0.013, 8, gloveBack);
+    }
     // Steering column behind the wheel.
     this.addBox(verts, idxs, 0.50, 0.278, 0, 0.035, 0.02, 0.03, carbon);
     this.addCylinder(verts, idxs, 0.05, 0.25, 0, 0.025, 0.18, 10, carbon);
@@ -4590,9 +4686,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
     for (const styleKey of [0, ...Object.keys(DECAL_LAYOUTS).map(Number)]) {
       const gv: number[] = [...accFixedVerts];
       const gi: number[] = [...accFixedIdxs];
+      // Accent stripes live on the side pods — clamp their x-extent to the
+      // pod's physical span so a stripe never hangs past the pod's front end.
+      const podXs = POD_LOFT.map(s => s.x);
+      const podXSpan: [number, number] = [Math.min(...podXs), Math.max(...podXs)];
       for (const [cx, , l, , d, z] of getAccentSegsForStyle(styleKey)) {
-        this.addSurfacePlate(gv, gi, cx, z, l, d, carPodTopY, [1, 1, 1]);
-        this.addSurfacePlate(gv, gi, cx, -z, l, d, carPodTopY, [1, 1, 1]);
+        this.addSurfacePlate(gv, gi, cx, z, l, d, carPodTopY, [1, 1, 1], 0.006, undefined, podXSpan);
+        this.addSurfacePlate(gv, gi, cx, -z, l, d, carPodTopY, [1, 1, 1], 0.006, undefined, podXSpan);
       }
       accentGeoms.set(styleKey, { v: gv, i: gi });
     }
@@ -4690,6 +4790,34 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.enableVertexAttribArray(3);
     gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
+    // Glove meshes — one VAO per hand so renderCar can pivot each hand about
+    // its wrist (fingers grip/release with steering input).
+    const makeGloveVao = (gverts: number[], gidxs: number[]) => {
+      const gv = gl.createVertexArray()!;
+      gl.bindVertexArray(gv);
+      const gvbo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, gvbo);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(gverts), gl.STATIC_DRAW);
+      const gibo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gibo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(gidxs), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+      gl.enableVertexAttribArray(3);
+      gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+      gl.bindVertexArray(null);
+      return { vao: gv, count: gidxs.length };
+    };
+    const glL = makeGloveVao(gloveLVerts, gloveLIdxs);
+    this.gloveLVao = glL.vao;
+    this.gloveLCount = glL.count;
+    const glR = makeGloveVao(gloveRVerts, gloveRIdxs);
+    this.gloveRVao = glR.vao;
+    this.gloveRCount = glR.count;
     // Per-style livery decals — one VAO per decal style id, each with its own
     // placement layout (see DECAL_LAYOUTS) so stripes, flames, emblems, number
     // plates etc. put their artwork in different spots on the car. Plates hug
@@ -5510,7 +5638,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
    * clampZ (optional) caps the plate's z-extent to the loft's physical half-
    * width per column, so plates narrow with the body and never float off the
    * sides of the nose where no mesh exists. */
-  private addSurfacePlate(verts: number[], idxs: number[], cx: number, cz: number, l: number, d: number, topY: (x: number, z: number) => number, color: number[], lift = 0.006, clampZ?: (x: number) => [number, number]) {
+  private addSurfacePlate(verts: number[], idxs: number[], cx: number, cz: number, l: number, d: number, topY: (x: number, z: number) => number, color: number[], lift = 0.006, clampZ?: (x: number) => [number, number], clampX?: [number, number]) {
     const hl = l / 2, hd = d / 2;
     // Adaptive subdivision: bigger plates (number plates, emblems) get more
     // segments so they follow the loft's curvature over the nose and side pods
@@ -5519,8 +5647,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const rows = Math.max(2, Math.ceil(d / 0.035));
     for (let ci = 0; ci < cols; ci++) {
       for (let ri = 0; ri < rows; ri++) {
-        const x0 = cx - hl + (l / cols) * ci;
-        const x1 = x0 + l / cols;
+        let x0 = cx - hl + (l / cols) * ci;
+        let x1 = x0 + l / cols;
+        if (clampX) {
+          const [xMin, xMax] = clampX;
+          x0 = Math.max(xMin, Math.min(xMax, x0));
+          x1 = Math.max(xMin, Math.min(xMax, x1));
+          if (x1 - x0 < 0.0001) continue;
+        }
         const zBase0 = cz - hd + (d / rows) * ri;
         const zBase1 = zBase0 + d / rows;
         const clampAt = (px: number, pz: number) => {
@@ -6105,16 +6239,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private _smokeVao!: WebGLVertexArrayObject;
   private _smokeBuf!: WebGLBuffer;
   private _smokeMax = 220;
-  private _scrubMarks: { x: number; z: number; yaw: number; len: number; wid: number; life: number; maxLife: number; alphaBase: number; lap: number }[] = [];
-  private _scrubVao: WebGLVertexArrayObject | null = null;
-  private _scrubBuf: WebGLBuffer | null = null;
-  private _scrubMax = 400;
-  // Lap counter for the rubber-in effect: marks persist through the lap they
-  // were laid in (life is a 0..1 fade progress), then permanently fade once
-  // the player completes the next lap (see onLapCompleted).
-  private _scrubLap = 0;
-  // Reusable per-frame vertex scratch for scrub marks/smoke (no per-frame alloc).
-  private _scrubScratch: Float32Array | null = null;
+  // Reusable per-frame vertex scratch for smoke (no per-frame alloc).
   private _smokeScratch: Float32Array | null = null;
   // Same zero-alloc pattern for the other always-on per-frame effects: birds,
   // desert wind (tumbleweeds + dust devils), animals, rain, palm fronds and
@@ -6135,9 +6260,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
   // per pool or per cell either.
   private _waterHeightScratch = new Float32Array(11 * 11);
   private _waterCornerScratch = new Float32Array(9);
-  private _scrubInitialized = false;
-  private _scrubColor: [number, number, number] = [0.05, 0.045, 0.04];
-  private _scrubLast: Map<string, { x: number; z: number }> = new Map();
   private _palmCrowns: { x: number; y: number; z: number; s: number; phase: number; lean: number }[] = [];
   private _oasisPools: { x: number; z: number; r: number; phase: number }[] = [];
   private _frondVao: WebGLVertexArrayObject | null = null;
@@ -6321,156 +6443,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
         chip: true,
       });
     }
-  }
-  private initScrub() {
-    if (this._scrubInitialized) return;
-    this._scrubInitialized = true;
-    const gl = this.gl;
-    this._scrubVao = gl.createVertexArray()!;
-    gl.bindVertexArray(this._scrubVao);
-    const buf = gl.createBuffer()!;
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, (this._scrubMax * 6 * 7 + 64) * 4, gl.DYNAMIC_DRAW);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 28, 0);
-    gl.enableVertexAttribArray(1);
-    gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 28, 12);
-    gl.bindVertexArray(null);
-    this._scrubBuf = buf;
-  }
-  /** Drop all visible braking marks (used when the corner-rubber option is
-   *  turned off mid-session). */
-  clearScrubMarks() {
-    this._scrubMarks = [];
-    this._scrubLast.clear();
-  }
-  private emitScrubMarks(x: number, z: number, yaw: number, brake: number, speed: number, keyPrefix: string) {
-    if (!this.cornerRubber) return;
-    const heatArr = keyPrefix === 'player' ? this._playerHeat : this._carHeat.get(keyPrefix);
-    let fade = 1;
-    if (heatArr) {
-      const heat = Math.max(...heatArr);
-      if (heat > this._brakeHeatFadeOn) {
-        const t = Math.min(1, (heat - this._brakeHeatFadeOn) / (this._brakeHeatCap - this._brakeHeatFadeOn));
-        fade = 1 - this._brakeHeatFadeAmount * t;
-      }
-    }
-    const intensity = Math.min(brake, 1);
-    // Only heavy braking paints rubber — the old gate (brake > 0) let light
-    // brake taps lay faint marks all over the braking zone, which smeared
-    // into gray. 0.62 ≈ a committed braking press (accel ≤ ~-0.62); gentle
-    // taps still kick brake dust but leave the track clean.
-    if (intensity < 0.62) return;
-    // Spacing is deliberately WIDER than the mark length so streaks stay
-    // distinct — the old density (marks ~3.3 long laid every ~2.4 units) let
-    // every car's 4 wheels pile overlapping rubber onto the same braking line,
-    // welding into a gray sheet that hid the corner. Lower alpha + shorter
-    // life keep the effect as subtle rubber rather than a puddle.
-    const spacing = (3.4 + Math.abs(speed) * 0.045) * (2 - fade);
-    const sinY = Math.sin(yaw), cosY = Math.cos(yaw);
-    for (const axle of [0.62, -0.62]) {
-      for (const side of [-1, 1]) {
-        const key = keyPrefix + (axle > 0 ? 'F' : 'R') + (side > 0 ? 'R' : 'L');
-        const last = this._scrubLast.get(key) ?? null;
-        const moved = last ? Math.hypot(x - last.x, z - last.z) : Infinity;
-        if (moved < spacing) continue;
-        this._scrubLast.set(key, { x, z });
-        if (this._scrubMarks.length >= this._scrubMax) this._scrubMarks.shift();
-        this._scrubMarks.push({
-          x: x + axle * sinY - side * (axle < 0 ? 0.68 : 0.60) * cosY,
-          z: z + axle * cosY + side * (axle < 0 ? 0.68 : 0.60) * sinY,
-          yaw,
-          len: 1.9 + Math.abs(speed) * 0.035,
-          wid: ((axle < 0 ? 0.42 : 0.34) + Math.random() * 0.12) * (0.5 + 0.5 * fade),
-          // Rubber-in: marks persist for the lap they were laid in (life is a
-          // 0..1 fade progress used only when the lap ages out, see updateScrubMarks).
-          life: 0,
-          maxLife: 1,
-          lap: this._scrubLap,
-          alphaBase: (0.08 + intensity * 0.06) * fade
-        });
-      }
-    }
-  }
-  /** Called when the player completes a lap: the previous lap's rubber fades
-   *  out permanently over the next ~1.5s, so each lap builds its own fresh
-   *  rubber-in line like a real F1 stint. */
-  onLapCompleted() {
-    this._scrubLap++;
-  }
-  private updateScrubMarks(dt: number) {
-    const marks = this._scrubMarks;
-    for (let i = marks.length - 1; i >= 0; i--) {
-      const mk = marks[i];
-      const lapAge = this._scrubLap - mk.lap;
-      // Current-lap marks persist (rubber collects along the braking line);
-      // last lap's marks fade out permanently; older ones are gone.
-      if (lapAge >= 2) { marks.splice(i, 1); continue; }
-      if (lapAge === 1) {
-        mk.life += dt * (1 / 1.5);
-        if (mk.life >= 1) { marks.splice(i, 1); continue; }
-      }
-    }
-  }
-  private drawScrubMarks(proj: Float32Array, view: Float32Array, eye: number[]) {
-    const gl = this.gl;
-    const marks = this._scrubMarks;
-    if (marks.length === 0) return;
-    this.initScrub();
-    // Reusable scratch buffer — allocating a fresh Float32Array per frame (up
-    // to ~50k floats while heavy braking) churned the GC exactly when cornering.
-    const cap = this._scrubMax * 6 * 7;
-    if (!this._scrubScratch || this._scrubScratch.length < cap) this._scrubScratch = new Float32Array(cap);
-    const buf = this._scrubScratch;
-    let o = 0;
-    const col = this._scrubColor;
-    const markY = 0.02; 
-    const fwdX = -view[2], fwdY = -view[6], fwdZ = -view[10];
-    const rgtX = view[0], rgtY = view[4], rgtZ = view[8];
-    const upX = view[1], upY = view[5], upZ = view[9];
-    const tanHalfH = proj[0] !== 0 ? 1 / proj[0] : 1.0;
-    const tanHalfV = proj[5] !== 0 ? 1 / proj[5] : 0.55;
-    for (const mk of marks) {
-      const ex = mk.x - eye[0], dy = markY - eye[1], ez = mk.z - eye[2];
-      if (ex * ex + ez * ez > 130 * 130) continue;
-      const along = ex * fwdX + dy * fwdY + ez * fwdZ;
-      if (along < -2.5) continue;                  // behind the camera (grace = mark half-length)
-      const across = ex * rgtX + dy * rgtY + ez * rgtZ;
-      const halfW = along * tanHalfH + 3.5;        // + mark half-diagonal margin
-      if (across < -halfW || across > halfW) continue;
-      const upAlong = ex * upX + dy * upY + ez * upZ;
-      const halfV = along * tanHalfV + 2.0;        // + quad extent margin
-      if (upAlong < -halfV || upAlong > halfV) continue;
-      const t = mk.life / mk.maxLife;
-      const alpha = mk.alphaBase * Math.pow(1 - t, 1.6);
-      if (alpha <= 0.003) continue;
-      const sx = Math.sin(mk.yaw), cz = Math.cos(mk.yaw);
-      const hx = sx * mk.len * 0.5, hz = cz * mk.len * 0.5;
-      const wx = cz * mk.wid * 0.5, wz = -sx * mk.wid * 0.5;
-      const p = (px: number, pz: number) => {
-        buf[o++] = px; buf[o++] = markY; buf[o++] = pz;
-        buf[o++] = col[0]; buf[o++] = col[1]; buf[o++] = col[2]; buf[o++] = alpha;
-      };
-      p(mk.x - hx - wx, mk.z - hz - wz);
-      p(mk.x + hx - wx, mk.z + hz - wz);
-      p(mk.x + hx + wx, mk.z + hz + wz);
-      p(mk.x - hx - wx, mk.z - hz - wz);
-      p(mk.x + hx + wx, mk.z + hz + wz);
-      p(mk.x - hx + wx, mk.z - hz + wz);
-    }
-    if (o === 0) return;
-    gl.useProgram(this.smokeProg);
-    gl.uniformMatrix4fv(this.smokeProjLoc, false, proj);
-    gl.uniformMatrix4fv(this.smokeViewLoc, false, view);
-    gl.bindVertexArray(this._scrubVao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._scrubBuf);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, buf.subarray(0, o));
-    gl.depthMask(false);
-    gl.disable(gl.CULL_FACE);
-    gl.drawArrays(gl.TRIANGLES, 0, o / 7);
-    gl.enable(gl.CULL_FACE);
-    gl.depthMask(true);
-    gl.bindVertexArray(null);
   }
   private updateSmoke(dt: number) {
     const parts = this._smokeParticles;
@@ -7998,14 +7970,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.drawOasisWater(eye);
     this.drawAnimals(eye);
     this.pMark('w-skyfx');
-    // Scrub marks are an effects pass, so they belong behind the drawRain gate
-    // like the smoke: the mirror (drawRain=false) used to re-draw all of them
-    // straight into its rear-view — and when grinding the gutter, the marks
-    // pile up right behind the car where the mirror stares, causing a heavy
-    // overdraw spike in that pass.
-    if (drawRain) {
-      this.drawScrubMarks(proj, view, eye);
-    }
     for (const car of cars) {
       this.renderCar(car.x, car.y, car.z, car.yaw, car.r, car.g, car.b, car.speed ?? 0, car.accel ?? 0, car.spin, car.slide ?? 0, car, 0, car.bank ?? 0);
       if (drawRain && (car.slide ?? 0) > 0.35) {
@@ -8029,7 +7993,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
       if (drawRain && (car.accel ?? 0) < -0.3) {
         this.emitBrakeDust(car.x, car.z, car.yaw, Math.min(1, -(car.accel ?? 0)), car.speed ?? 0);
-        this.emitScrubMarks(car.x, car.z, car.yaw, Math.min(1, -(car.accel ?? 0)), car.speed ?? 0, car.id ?? 'anon');
       }
       if (drawRain && car.id) {
         let h = this._carHeat.get(car.id);
@@ -8043,7 +8006,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.uniform1f(this.envStrengthLoc, 0.16);
     if (drawRain) {
       this.updateSmoke(dt);
-      this.updateScrubMarks(dt);
       this.drawSmoke(proj, view, eye);
     }
     this.pMark('w-smoke');
@@ -8181,7 +8143,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
     if (playerAccel < -0.3) {
       this.emitBrakeDust(eyeX, eyeZ, yaw, Math.min(1, -playerAccel), playerSpeed);
-      this.emitScrubMarks(eyeX, eyeZ, yaw, Math.min(1, -playerAccel), playerSpeed, 'player');
       mirrorPuffs = true;
     }
     if (mirrorPuffs) {
@@ -8407,14 +8368,33 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const helmT = Math.max(-1, Math.min(1, steer));
     const helmYaw = helmT * 0.09 + Math.max(-1, Math.min(1, slide)) * 0.03 + Math.sin(this.elapsed * 0.7) * 0.012;
     this.mat4Identity(this._animTmp);
-    this.mat4Translate(this._animTmp, [0.40, 0.335, 0]);
+    this.mat4Translate(this._animTmp, [0.385, 0.322, 0]);
     this.mat4RotateY(this._animTmp, helmYaw);
-    this.mat4Translate(this._animTmp, [-0.40, -0.335, 0]);
+    this.mat4Translate(this._animTmp, [-0.385, -0.322, 0]);
     this.mat4Multiply(this._animM, this.modelMatrix, this._animTmp);
     gl.uniformMatrix4fv(this.modelLoc, false, this._animM);
     this.setNormalMatrix(this._animM);
     gl.bindVertexArray(this.helmetVao);
     gl.drawElements(gl.TRIANGLES, this.helmetCount, gl.UNSIGNED_SHORT, 0);
+    // Glove grip — each hand pivots about its wrist so the fingers curl
+    // tighter onto the wheel as steering input grows and relax on the
+    // straights, with a subtle idle sway so the grip breathes like the helmet
+    // turn. Mirrored per hand (sgn flips z), so both hands tighten together;
+    // the wrist pivot keeps the palms anchored to the arms behind the wheel.
+    const grip = 0.03 + Math.min(1, Math.abs(steer)) * 0.09 + Math.sin(this.elapsed * 0.7) * 0.012;
+    const drawGlove = (gvao: WebGLVertexArrayObject, gcount: number, wz: number, sgn: number) => {
+      this.mat4Identity(this._animTmp);
+      this.mat4Translate(this._animTmp, [0.525, 0.278, wz]);
+      this.mat4RotateY(this._animTmp, sgn * grip);
+      this.mat4Translate(this._animTmp, [-0.525, -0.278, -wz]);
+      this.mat4Multiply(this._animM, this.modelMatrix, this._animTmp);
+      gl.uniformMatrix4fv(this.modelLoc, false, this._animM);
+      this.setNormalMatrix(this._animM);
+      gl.bindVertexArray(gvao);
+      gl.drawElements(gl.TRIANGLES, gcount, gl.UNSIGNED_SHORT, 0);
+    };
+    drawGlove(this.gloveLVao, this.gloveLCount, 0.068, 1);
+    drawGlove(this.gloveRVao, this.gloveRCount, -0.068, -1);
     // Restore the base model matrix + paint colour for the decal pass.
     gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
     this.setNormalMatrix(this.modelMatrix);
@@ -9217,9 +9197,6 @@ void main() {
   resetRaceFX() {
     this._smokeParticles = [];
     this.winTrailAnchor = null;
-    this._scrubMarks = [];
-    this._scrubLast.clear();
-    this._scrubLap = 0;
     this._carHeat.clear();
     this._carLock.clear();
     this._carSnow.clear();
@@ -9232,9 +9209,6 @@ void main() {
     this._carLock.clear();
     this._carSnow.clear();
     this._playerSnow = 0;
-    this._scrubMarks = [];
-    this._scrubLast.clear();
-    this._scrubLap = 0;
     if (this._heatFBO) {
       const gl = this.gl;
       gl.deleteFramebuffer(this._heatFBO);

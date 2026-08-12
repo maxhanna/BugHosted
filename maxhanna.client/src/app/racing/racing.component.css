@@ -4050,7 +4050,8 @@
   background: repeating-linear-gradient(90deg, rgba(214, 76, 64, 0.55) 0 4px, transparent 4px 9px);
 }
 
-/* Knuckle guard band where the fingers attach — light with a fine weave and
+/* Knuckle guard band where the fingers attach — racing red like the finger
+   backs (two-tone glove: light palm, coloured dorsal), with a fine weave and
    a rounded top edge so it reads as the back of the hand. */
 .glove-knuckle {
   position: absolute;
@@ -4059,14 +4060,14 @@
   right: 0;
   height: 24px;
   border-radius: 12px 12px 4px 4px;
-  border: 1px solid rgba(125, 108, 90, 0.5);
+  border: 1px solid rgba(90, 20, 20, 0.55);
   background:
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.06) 0 3px, transparent 3px 6px),
-    radial-gradient(ellipse at 28% 32%, rgba(255, 255, 255, 0.32), transparent 55%),
-    linear-gradient(180deg, #ece8e1, #c3beb4);
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.09) 0 3px, transparent 3px 6px),
+    radial-gradient(ellipse at 28% 32%, rgba(255, 255, 255, 0.28), transparent 55%),
+    linear-gradient(180deg, #d64545, #922222);
   box-shadow:
-    inset 0 2px 2px rgba(255, 255, 255, 0.55),
-    inset 0 -3px 6px rgba(95, 83, 68, 0.28),
+    inset 0 2px 2px rgba(255, 255, 255, 0.45),
+    inset 0 -3px 6px rgba(40, 6, 6, 0.4),
     0 3px 6px rgba(0, 0, 0, 0.3);
 }
 
@@ -4129,12 +4130,12 @@
   border-radius: 11px 15px 13px 11px;
   border: 1px solid rgba(125, 108, 90, 0.5);
   background:
-    radial-gradient(ellipse at 15% 40%, rgba(255, 255, 255, 0.62), transparent 56%),
-    linear-gradient(180deg, #f2eee7, #cfc9bf);
+    radial-gradient(ellipse at 15% 40%, rgba(255, 255, 255, 0.5), transparent 56%),
+    linear-gradient(180deg, #d64545, #962424);
   transform: rotate(28deg);
   box-shadow:
-    inset 0 2px 2px rgba(255, 255, 255, 0.55),
-    inset 0 -3px 5px rgba(95, 83, 68, 0.35),
+    inset 0 2px 2px rgba(255, 255, 255, 0.45),
+    inset 0 -3px 5px rgba(40, 6, 6, 0.4),
     0 3px 7px rgba(0, 0, 0, 0.4);
 }
 .hand-right .glove-thumb {
@@ -4151,10 +4152,10 @@
   width: 23px;
   height: 16px;
   border-radius: 7px 13px 11px 7px;
-  border: 1px solid rgba(125, 108, 90, 0.5);
-  background: linear-gradient(180deg, #ece7df, #c0bab0);
+  border: 1px solid rgba(90, 20, 20, 0.5);
+  background: linear-gradient(180deg, #dd5555, #a52b2b);
   transform: rotate(20deg);
-  box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.5);
+  box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.4);
 }
 .hand-right .glove-thumb-seg {
   right: auto;
@@ -4188,9 +4189,9 @@
   border-radius: 6px 6px 7px 7px;
   border: 1px solid rgba(125, 108, 90, 0.45);
   background:
-    linear-gradient(90deg, rgba(118, 103, 86, 0.34), transparent 30%, transparent 70%, rgba(118, 103, 86, 0.36)),
-    linear-gradient(180deg, #e9e5dd, #b6b1a7);
-  box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.5), inset 0 -3px 4px rgba(95, 83, 68, 0.3);
+    linear-gradient(90deg, rgba(40, 8, 8, 0.34), transparent 30%, transparent 70%, rgba(40, 8, 8, 0.36)),
+    linear-gradient(180deg, #d64545, #8f2121);
+  box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.45), inset 0 -3px 4px rgba(40, 6, 6, 0.4);
   clip-path: polygon(24% 0, 76% 0, 100% 100%, 0 100%);
 }
 
@@ -4229,9 +4230,9 @@
   border-radius: 7px 7px 6px 6px;
   border: 1px solid rgba(125, 108, 90, 0.45);
   background:
-    linear-gradient(90deg, rgba(118, 103, 86, 0.26), transparent 30%, transparent 70%, rgba(118, 103, 86, 0.28)),
-    linear-gradient(180deg, #f2eee7, #c8c3b9);
-  box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.45);
+    linear-gradient(90deg, rgba(40, 8, 8, 0.26), transparent 30%, transparent 70%, rgba(40, 8, 8, 0.28)),
+    linear-gradient(180deg, #e05a5a, #a52b2b);
+  box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.4);
   transform-origin: bottom center;
   transform: rotate(12deg);
   clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%);
@@ -6025,93 +6026,9 @@
   opacity: 0.85;
 }
 
-.race-lb-modes {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin: 10px 0 12px;
-}
-
-.race-lb-mode {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.75);
-  border-radius: 16px;
-  padding: 5px 14px;
-  font-size: 12px;
-  cursor: pointer;
-  letter-spacing: 0.5px;
-  transition: all 0.15s ease;
-}
-
-.race-lb-mode:hover {
-  border-color: rgba(255, 255, 255, 0.35);
-  color: #fff;
-}
-
-.race-lb-mode.active {
-  background: rgba(229, 57, 53, 0.55);
-  border-color: rgba(229, 57, 53, 0.8);
-  color: #fff;
-  font-weight: 700;
-}
-
-.race-lb-row-overall {
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.race-lb-standing {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin: 0 auto 12px;
-  padding: 8px 16px;
-  max-width: 520px;
-  border: 1px solid rgba(229, 57, 53, 0.45);
-  border-radius: 14px;
-  background: rgba(229, 57, 53, 0.1);
-  font-size: 13px;
-  font-weight: 700;
-  color: #ffd600;
-  text-align: center;
-}
-
-.race-lb-standing-medal {
-  font-size: 20px;
-  line-height: 1;
-}
-
 .race-lb-best {
   font-weight: 700;
   color: #fff;
-}
-
-.race-lb-overall-track {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 12px;
-  opacity: 0.9;
-}
-
-.race-lb-chips {
-  flex-basis: 100%;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding-left: 38px;
-}
-
-.race-lb-chip {
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  padding: 1px 8px;
-  font-size: 11px;
-  opacity: 0.9;
-  white-space: nowrap;
 }
 
 .race-lb-row.race-lb-me {

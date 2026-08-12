@@ -681,6 +681,31 @@ namespace maxhanna.Server.Controllers
 					MoneyEarned = result.TryGetProperty("moneyEarned", out var me) ? me.GetInt32() : 0,
 					TrackId = result.TryGetProperty("trackId", out var tk) ? tk.GetInt32() : 1,
 				});
+				// The full grid's bot laps ride along so the leaderboard shows the top
+				// times from every racer in the game, not just the submitting human. Bots
+				// carry stable NEGATIVE ids (one per bot name) so the per-track aggregation
+				// keeps each bot's best lap across races; negative ids never collide with
+				// real users and can't be spoofed into a profile link.
+				if (body.TryGetProperty("bots", out var bots) && bots.ValueKind == JsonValueKind.Array)
+				{
+					foreach (var b in bots.EnumerateArray())
+					{
+						if (b.ValueKind != JsonValueKind.Object) continue;
+						int bid = b.TryGetProperty("playerId", out var pid) ? pid.GetInt32() : 0;
+						double blat = b.TryGetProperty("lapTime", out var bl) ? bl.GetDouble() : 0;
+						if (bid >= 0 || blat <= 0) continue;
+						_pendingResults.Enqueue(new PendingRaceResult
+						{
+							UserId = bid,
+							PlayerName = b.TryGetProperty("playerName", out var bn) ? bn.GetString() ?? "" : "",
+							Position = b.TryGetProperty("position", out var bp) ? bp.GetInt32() : 0,
+							LapTime = blat,
+							TotalTime = 0,
+							MoneyEarned = 0,
+							TrackId = b.TryGetProperty("trackId", out var btk) ? btk.GetInt32() : 1,
+						});
+					}
+				}
 				ScheduleFlush();
 				return Ok(new { ok = true });
 			}
@@ -842,7 +867,7 @@ namespace maxhanna.Server.Controllers
 							       COALESCE(NULLIF(r.player_name, ''), u.username, 'Unknown') AS player_name
 							FROM racing_results r
 							LEFT JOIN users u ON r.user_id = u.id
-							WHERE r.lap_time > 0 AND r.user_id > 0
+							WHERE r.lap_time > 0 AND r.user_id != 0
 							UNION ALL
 							SELECT bl.track_id, bl.user_id, bl.best_lap AS lap_time,
 							       COALESCE(NULLIF(c.player_name, ''), u.username, 'Unknown') AS player_name
@@ -872,7 +897,7 @@ namespace maxhanna.Server.Controllers
 				// Merge pending in-memory results not yet dumped to the DB.
 				foreach (var r in _pendingResults)
 				{
-					if (r.LapTime <= 0 || r.UserId <= 0) continue;
+					if (r.LapTime <= 0 || r.UserId == 0) continue;
 					if (!perTrack.TryGetValue(r.TrackId, out var byUser))
 					{
 						byUser = new Dictionary<int, double>();

@@ -331,10 +331,6 @@
             <span class="race-option-label">🔭 Speed zoom (FOV widens as you accelerate)</span>
             <input type="checkbox" class="race-option-check" [checked]="speedFovOn" (change)="toggleSpeedFov()">
           </label>
-          <label class="race-option-row">
-            <span class="race-option-label">🛞 Corner rubber (dark braking marks on the track)</span>
-            <input type="checkbox" class="race-option-check" [checked]="cornerRubberOn" (change)="toggleCornerRubber()">
-          </label>
         </div>
 
         <div class="race-options-hint">Settings are saved automatically on this device.</div>
@@ -1082,49 +1078,10 @@
     <!-- ─── Leaderboard ─── -->
     <div id="race-leaderboard" *ngIf="showLeaderboard">
       <div class="race-lb-title">🏆 BEST LAPS{{ selectedTrack ? ' — ' + getTrackFlag(selectedTrack) + ' ' + selectedTrack.name : '' }}</div>
-      <div class="race-lb-modes">
-        <button class="race-lb-mode" [class.active]="leaderboardView === 'overall'"
-          (click)="setLeaderboardView('overall')">🌍 Overall</button>
-        <button class="race-lb-mode" [class.active]="leaderboardView === 'circuits'"
-          (click)="setLeaderboardView('circuits')">🗺️ All Circuits</button>
-      </div>
 
-      <!-- ── Overall view: every player's fastest lap anywhere + your standing ── -->
-      <ng-container *ngIf="leaderboardView === 'overall'">
-        <div class="race-lb-alltracks-loading" *ngIf="overallLoading">Loading overall standings…</div>
-        <div class="race-lb-unavailable" *ngIf="overallDataUnavailable && !overallLoading">
-          ⚠️ Couldn't load the overall standings right now — the server didn't return
-          any leaderboard results. Try again in a moment.
-        </div>
-        <div class="race-lb-standing" *ngIf="!overallDataUnavailable && !overallLoading">
-          <span class="race-lb-standing-medal">{{ getOverallMedal() }}</span>
-          <span>{{ getOverallStandingText() }}</span>
-        </div>
-        <div class="race-lb-row race-lb-header" *ngIf="!overallDataUnavailable && !overallLoading && overallLeaderboard.length > 0">
-          <span>#</span><span>Player</span><span>Best Lap</span><span>Track</span><span>Gap</span>
-        </div>
-        <div class="race-lb-row race-lb-row-overall" *ngFor="let r of overallLeaderboard; let i = index"
-          [class.race-lb-me]="r.playerId === (parentRef?.user?.id ?? 0)"
-          [class.race-lb-podium]="i < 3" [class.race-lb-gold]="i === 0"
-          [class.race-lb-silver]="i === 1" [class.race-lb-bronze]="i === 2">
-          <span class="race-lb-rank"><span *ngIf="i < 3" class="race-lb-trophy">🏆</span>{{ i + 1 }}</span>
-          <span class="race-lb-name" *ngIf="r.playerId > 0 && !r.isBot" title="View racer records"
-            (click)="openRacerProfile(r)">{{ r.playerName }}{{ r.playerId === (parentRef?.user?.id ?? 0) ? ' (You)' : '' }} 👤</span>
-          <span *ngIf="r.playerId <= 0 || r.isBot">{{ r.playerName }}</span>
-          <span class="race-lb-best">{{ formatTime(r.lapTime) }}</span>
-          <span class="race-lb-overall-track">{{ getOverallRowTrack(r) }}</span>
-          <span class="race-lb-gap">{{ getOverallGapText(r) }}</span>
-          <span class="race-lb-chips" *ngIf="getOverallChips(r).length > 0">
-            <span class="race-lb-chip" *ngFor="let c of getOverallChips(r)">{{ c.flag }} {{ c.name }} {{ formatTime(c.lap) }}</span>
-          </span>
-        </div>
-        <div class="race-lb-empty" *ngIf="!overallLoading && !overallDataUnavailable && overallLeaderboard.length === 0">
-          No laps recorded yet — be the first to set a time!
-        </div>
-      </ng-container>
-
-      <!-- All-circuits breakdown: every track's top laps + your lap/rank vs the field -->
-      <ng-container *ngIf="leaderboardView === 'circuits'">
+      <!-- All-circuits breakdown: every track's top laps (humans + the bot field)
+           with your own lap pinned after, in comparison -->
+      <ng-container>
         <div class="race-lb-alltracks-loading" *ngIf="allTracksLoading">Loading circuits…</div>
         <div class="race-lb-unavailable" *ngIf="leaderboardDataUnavailable && !allTracksLoading">
           ⚠️ Couldn't load lap data right now — the server didn't return any

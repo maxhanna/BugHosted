@@ -44,6 +44,11 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   @Input() isLoadedFromURL = false;
   @Input() showMediaInformation = false;
   @Input() showMediaLoading = false;
+  /** When true (default), shows a loading spinner from the moment a src is set
+   *  until the media element actually displays — the image's load event, or
+   *  the video/audio's canplay. Covers the render phase after the fetch, so
+   *  slow decodes still give feedback. */
+  @Input() showImageLoadingFetch = true;
   @Input() commentId?: number;
 
   @Output() emittedNotification = new EventEmitter<string>();
@@ -71,7 +76,22 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
   fileViewers?: FileAccessLog[] | undefined;
   fileFavouriters?: User[] | undefined;
   selectedFileExtension?: string = undefined;
-  selectedFileSrc?: string = undefined;
+  private _selectedFileSrc?: string = undefined;
+  /** Set once the actual media element displays: image load/error, or
+   *  video/audio canplay/error. Drives the showImageLoadingFetch spinner so it
+   *  covers the render phase (after the src is set), not just the fetch. */
+  mediaDisplayed = false;
+  get selectedFileSrc(): string | undefined {
+    return this._selectedFileSrc;
+  }
+  set selectedFileSrc(v: string | undefined) {
+    if (this._selectedFileSrc !== v) {
+      this._selectedFileSrc = v;
+      // A new src means a fresh media render — keep the spinner up until the
+      // element actually displays (or errors).
+      this.mediaDisplayed = false;
+    }
+  }
   selectedFile?: FileEntry;
   fileType = '';
   showThumbnail = false;
@@ -856,10 +876,32 @@ export class MediaViewerComponent extends ChildComponent implements OnInit, OnDe
 
   onVideoCanPlay() {
     this.isVideoBuffering = false;
+    this.onMediaDisplayed();
   }
 
   onVideoStalled() {
     this.isVideoBuffering = true;
+  }
+
+  /** Called when the visible media element reports it can be shown — image
+   *  load/error, video/audio canplay/error. Hides the showImageLoadingFetch
+   *  spinner. */
+  onMediaDisplayed() {
+    this.mediaDisplayed = true;
+    this.cdr.detectChanges();
+  }
+
+  /** True when the loaded file is actually displayable media (image, video or
+   *  audio), so the render spinner never spins forever on PDFs/zips/etc. */
+  isDisplayableMediaType(): boolean {
+    const ext = (this.selectedFileExtension ?? this.selectedFile?.fileType ?? '').toLowerCase();
+    if (!ext) {
+      return false;
+    }
+    if (ext.includes('image') || ext.includes('video') || ext.includes('audio')) {
+      return true;
+    }
+    return this.imageFileExtensionsIncludes(ext) || this.videoFileExtensionsIncludes(ext) || this.audioFileExtensionsIncludes(ext);
   }
   async toggleFavourite(file: FileEntry) {
     const parent = this.parentRef;

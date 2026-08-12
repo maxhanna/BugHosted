@@ -124,6 +124,13 @@ interface BotCar {
   crashDuration: number;
   // Seconds of pace loss after being hit by another car (recovers to full).
   hitSlowTimer: number;
+  // Leaderboard lap timing: stable negative player id (one per bot name, so the
+  // server aggregates each bot's best lap across races), the timestamp the current
+  // lap started, and the bot's best lap in ms — the race result carries the whole
+  // grid so the Best Laps panel shows the field, not just the human.
+  pid: number;
+  lapStart: number;
+  bestLap: number;
 }
 interface RemoteAudioVoice {
   engineOsc: OscillatorNode;
@@ -298,16 +305,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   trackSearch = '';
   private preSearchCollapsed: Set<number> | null = null;
   private _lastBotCrashCheer: number | null = null;
-  overallLeaderboard: RaceResult[] = [];
-  overallLeaderboardTotal = 0;
-  overallLeaderboardUserRank = 0;
-  overallLeaderboardBestLap = 0;
-  overallPerTrack: Map<number, { [trackId: number]: number }> = new Map();
-  // Best Laps panel: which view is open ('overall' = every player's fastest
-  // lap anywhere, 'circuits' = per-track top boards) and its load state.
-  leaderboardView: 'overall' | 'circuits' = 'overall';
-  overallLoading = false;
-  overallDataUnavailable = false;
   rankMovement = 0;
   racerProfile: { playerId: number; playerName: string; car: RacingPlayerCar | null; loading: boolean } | null = null;
   showLeaderboard = false;
@@ -465,9 +462,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   showOptions = false;
   cameraShakeOn = true;
   speedFovOn = true;
-  // Corner rubber (dark braking marks) defaults OFF — the marks read as gray
-  // puddles on the track and add draw cost right where cars brake hardest.
-  cornerRubberOn = false;
   /** Opt-in frame-budget profiler (?profile=1) — logs per-subsystem ms/frame
    *  to the console every ~120 frames so a session can be driven through
    *  corners and the hot costs measured. Off = one boolean check per mark. */
@@ -493,7 +487,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     try { this.soundOn = localStorage.getItem('gp_sound') === '1'; } catch { }
     try { this.cameraShakeOn = localStorage.getItem('gp_shake') !== '0'; } catch { }
     try { this.speedFovOn = localStorage.getItem('gp_fov') !== '0'; } catch { }
-    try { this.cornerRubberOn = localStorage.getItem('gp_rubber') === '1'; } catch { }
     try { this.garageLivePreview = localStorage.getItem('gp_livepreview') !== '0'; } catch { }
     this.restoreGarageCam();
     this.userEventService.insertUserEvent(
@@ -781,7 +774,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     // capped snow, smaller mirror) so the mountain & alpine circuits stay smooth.
     const lowQuality = this.isMobile || ((navigator.hardwareConcurrency ?? 8) <= 4);
     this.renderer = new RacingRenderer(canvas, lowQuality);
-    this.renderer.cornerRubber = this.cornerRubberOn;
     this.renderer.profile = this.profile;
     this.isLoaded = true;
     this._onKeyDown = (e: KeyboardEvent) => {
@@ -1543,6 +1535,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         crashSpinDir: 1,
         crashDuration: 0,
         hitSlowTimer: 0,
+        pid: -(i % 8) - 1,
+        lapStart: 0,
+        bestLap: 0,
       });
     }
   }
@@ -1614,6 +1609,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           this.gameState = 'racing';
           this.raceStartTime = performance.now();
           this.lapStartTime = this.raceStartTime;
+          // Bots start timing their laps from the lights-out moment too, so the
+          // submitted grid's best laps are comparable to the player's.
+          for (const b of this.bots) b.lapStart = this.raceStartTime;
           this.playCrowdCheer('big', 1.2);
         });
       }
@@ -2456,7 +2454,13 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       if (delta < -this.renderer.totalTrackDist * 0.5) delta += this.renderer.totalTrackDist;
       else if (delta > this.renderer.totalTrackDist * 0.5) delta -= this.renderer.totalTrackDist;
       bot.raceDist += delta;
+      const prevBotLap = bot.lap;
       bot.lap = Math.max(0, Math.floor(bot.raceDist / this.renderer.totalTrackDist));
+      if (bot.lap > prevBotLap && bot.lapStart > 0) {
+        const botLapMs = performance.now() - bot.lapStart;
+        if (botLapMs > 0 && (bot.bestLap === 0 || botLapMs < bot.bestLap)) bot.bestLap = botLapMs;
+        bot.lapStart = performance.now();
+      }
     }
     this._botImpactCooldown -= dt;
     for (let i = 0; i < this.bots.length; i++) {
@@ -2513,8 +2517,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const lapReached = trackLen > 0 ? Math.floor(this._playerRaceDist / trackLen) : 0;
     if (lapReached > this.currentLap) {
       this.currentLap = lapReached;
-      // Rubber-in resets per lap: last lap's braking marks fade out permanently.
-      this.renderer?.onLapCompleted();
       this._brakePeakThisLap = 0;
       if (this.currentLap >= this.totalLaps) {
         if (this.racePosition !== 1) this.playCrowdCheer('big', 1.5);
@@ -2605,7 +2607,18 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       isBot: !this._mpLobbyTrackId,
       trackId: this.selectedTrack?.id ?? 1,
     };
-    this.racingService.submitRaceResult(this.parentRef?.user?.id ?? 0, result);
+    // Carry the full grid's laps — bots that completed at least one timed lap —
+    // so the leaderboard reflects every racer's best time on the circuit.
+    const botResults = this.bots
+      .filter(b => b.alive && b.bestLap > 0)
+      .map(b => ({
+        playerId: b.pid,
+        playerName: b.name,
+        position: 0,
+        lapTime: b.bestLap,
+        trackId: this.selectedTrack?.id ?? 1,
+      }));
+    this.racingService.submitRaceResult(this.parentRef?.user?.id ?? 0, result, botResults);
     await this.loadLeaderboard();
     this.recordRankMovement();
   }
@@ -2972,14 +2985,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.showLeaderboard = !this.showLeaderboard;
     if (this.showLeaderboard) {
       this.parentRef?.showOverlay();
-      // Load both views up front so switching tabs is instant.
-      await Promise.all([this.loadAllTrackLeaderboards(), this.loadOverallLeaderboard()]);
+      await this.loadAllTrackLeaderboards();
     } else {
       this.parentRef?.closeOverlay();
     }
-  }
-  setLeaderboardView(view: 'overall' | 'circuits') {
-    this.leaderboardView = view;
   }
   // Drop degenerate rows (missing lap or name — e.g. an older server that
   // serialized the leaderboard DTO as empty {} objects) and empty boards, so a
@@ -3157,121 +3166,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const leader = this.getTrackBoardBest(trackId);
     if (leader > 0 && r.lapTime > 0) {
       return r.lapTime <= leader ? 'PACE' : this.formatLapGap(r.lapTime - leader);
-    }
-    return '';
-  }
-  async loadOverallLeaderboard() {
-    const uid = this.parentRef?.user?.id ?? 0;
-    this.overallLoading = true;
-    this.overallDataUnavailable = false;
-    try {
-      const data = await this.racingService.getOverallLeaderboard(uid);
-      if (data === null) {
-        // The endpoint failed or answered with an unexpected shape — don't
-        // imply nobody has raced; say the data couldn't be loaded.
-        this.overallLeaderboard = [];
-        this.overallLeaderboardTotal = 0;
-        this.overallLeaderboardUserRank = 0;
-        this.overallLeaderboardBestLap = 0;
-        this.overallPerTrack = new Map();
-        this.overallDataUnavailable = true;
-        return;
-      }
-      this.overallLeaderboard = data.results ?? [];
-      this.overallLeaderboardTotal = data.totalCount ?? 0;
-      this.overallLeaderboardUserRank = data.userRank ?? 0;
-      this.overallLeaderboardBestLap = data.bestLap ?? 0;
-      this.overallPerTrack = new Map();
-      for (const r of this.overallLeaderboard) {
-        const b = (r as any).bestLapsByTrack;
-        if (r.playerId > 0 && b) this.overallPerTrack.set(r.playerId, b);
-      }
-      if (uid && !this.overallLeaderboard.some(r => r.playerId === uid)) {
-        const myBest = this.getMyOverallBest();
-        if (myBest > 0) {
-          this.overallLeaderboard.push({
-            position: this.overallLeaderboard.length + 1,
-            playerId: uid,
-            playerName: this.playerCar.playerName?.trim() || this.parentRef?.user?.username || 'You',
-            lapTime: myBest,
-            totalTime: 0,
-            moneyEarned: 0,
-            isBot: false,
-            trackId: this.getMyOverallTrackId(),
-          });
-        }
-      }
-    } catch {
-      this.overallLeaderboard = [];
-      this.overallLeaderboardTotal = 0;
-      this.overallLeaderboardUserRank = 0;
-      this.overallLeaderboardBestLap = 0;
-      this.overallDataUnavailable = true;
-    } finally {
-      this.overallLoading = false;
-    }
-  }
-  private getMyOverallByTrack(): { [trackId: number]: number } | null {
-    const uid = this.parentRef?.user?.id ?? 0;
-    if (!uid) return null;
-    const mine = this.overallPerTrack.get(uid) ?? this.playerCar.bestLapsByTrack;
-    return mine && Object.keys(mine).length > 0 ? mine : null;
-  }
-  getMyOverallBest(): number {
-    const mine = this.getMyOverallByTrack();
-    if (!mine) return 0;
-    const vals = Object.values(mine).filter(v => v > 0);
-    return vals.length ? Math.min(...vals) : 0;
-  }
-  getMyOverallTrackId(): number {
-    const mine = this.getMyOverallByTrack();
-    if (!mine) return 0;
-    let best = 0;
-    for (const [tid, lap] of Object.entries(mine)) {
-      if (lap > 0 && (best === 0 || lap < mine[best])) best = Number(tid);
-    }
-    return best;
-  }
-  getOverallMedal(): string {
-    if (this.overallLeaderboardUserRank === 1) return '🥇';
-    if (this.overallLeaderboardUserRank === 2) return '🥈';
-    if (this.overallLeaderboardUserRank === 3) return '🥉';
-    return this.overallLeaderboardUserRank > 0 ? '🎖️' : '🏁';
-  }
-  getOverallStandingText(): string {
-    const total = this.overallLeaderboardTotal;
-    const rank = this.overallLeaderboardUserRank;
-    if (rank > 0) {
-      let text = `#${rank} of ${total} overall`;
-      const leader = this.overallLeaderboardBestLap;
-      const myBest = this.getMyOverallBest();
-      if (rank > 1 && leader > 0 && myBest > 0 && myBest > leader) {
-        text += ` · ${this.formatLapGap(myBest - leader)} behind 1st`;
-      }
-      return text;
-    }
-    return total > 0 ? `No lap yet — ${total} racers overall` : 'No laps recorded yet';
-  }
-  getOverallRowTrack(r: RaceResult): string {
-    const track = this.trackDefs.find(t => t.id === r.trackId);
-    return track ? `${this.getTrackFlag(track)} ${track.name}` : '—';
-  }
-  getOverallChips(r: RaceResult): { flag: string; name: string; lap: number }[] {
-    const byTrack = this.overallPerTrack.get(r.playerId);
-    if (!byTrack) return [];
-    return Object.entries(byTrack)
-      .map(([tid, lap]) => {
-        const track = this.trackDefs.find(t => t.id === Number(tid));
-        return { flag: track ? this.getTrackFlag(track) : '🏁', name: track ? track.name : 'Track', lap };
-      })
-      .filter(c => c.lap > 0)
-      .sort((a, b) => a.lap - b.lap);
-  }
-  getOverallGapText(r: RaceResult): string {
-    if (!r.lapTime || r.lapTime <= 0) return '';
-    const leader = this.overallLeaderboardBestLap;
-    if (leader > 0) {
-      return r.lapTime <= leader ? 'PACE' : `${this.formatLapGap(r.lapTime - leader)} vs 1st`;
     }
     return '';
   }
@@ -3898,10 +3792,15 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       // look; fall back to the seeded formula only if an appearance wasn't recorded.
       const recordedApp = this._replayAppearances.get(id);
       const rBank = this.renderer.getTrackBank(c.dist);
+      // Appearance spread FIRST, position fields after: botAppearanceFor()/
+      // recordedApp return a slot whose x/y/z/yaw/r/g/b defaults to 0 — spread
+      // last, they'd dump every NPC car at the world origin with black paint.
+      // The player's pa (pure appearance) has no position fields, so its own
+      // car was unaffected and only the field vanished in replays.
       carList.push({
+        ...(isPlayerCar ? pa : (recordedApp ?? this.botAppearanceFor(seed % 1000, seed))),
         x: c.x, y: this.renderer.getTrackElevation(c.dist) + rBank * this.renderer.getTrackLateral(c.x, c.z) + 0.1, z: c.z, yaw: c.yaw, r: c.r, g: c.g, b: c.b,
-        speed: c.speed, accel: c.accel, spin, slide: c.slide, id: c.id, bank: rBank,
-        ...(isPlayerCar ? pa : (recordedApp ?? this.botAppearanceFor(seed % 1000, seed)))
+        speed: c.speed, accel: c.accel, spin, slide: c.slide, id: c.id, bank: rBank
       });
     });
     const maxSpd = this.getMaxSpeed();
@@ -4269,15 +4168,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this._destroyed) return;
     this.speedFovOn = !this.speedFovOn;
     try { localStorage.setItem('gp_fov', this.speedFovOn ? '1' : '0'); } catch { }
-  }
-  toggleCornerRubber() {
-    if (this._destroyed) return;
-    this.cornerRubberOn = !this.cornerRubberOn;
-    try { localStorage.setItem('gp_rubber', this.cornerRubberOn ? '1' : '0'); } catch { }
-    if (this.renderer) {
-      this.renderer.cornerRubber = this.cornerRubberOn;
-      if (!this.cornerRubberOn) this.renderer.clearScrubMarks();
-    }
   }
   toggleGarageLivePreview() {
     if (this._destroyed) return;

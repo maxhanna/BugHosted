@@ -55,9 +55,12 @@ export class RacingService {
     } catch { return null; }
   }
 
-  async submitRaceResult(userId: number, result: RaceResult): Promise<any> {
+  async submitRaceResult(userId: number, result: RaceResult, bots: {
+    playerId: number; playerName: string; position: number;
+    lapTime: number; trackId: number;
+  }[] = []): Promise<any> {
     try {
-      return await this.http.post(`${this.baseUrl}/race/result`, { userId, result }).toPromise();
+      return await this.http.post(`${this.baseUrl}/race/result`, { userId, result, bots }).toPromise();
     } catch { return null; }
   }
 
