@@ -414,6 +414,11 @@ export class PaintComponent extends ChildComponent {
     this.activeLayerId = this.layers[0].id;
     this.compositeLayers();
     this.saveState();
+
+    // Fit the canvas to the window on open so the whole document — and any
+    // selection ants — is visible even for large canvases. Ctrl+1 returns to
+    // 100% and Ctrl+0 re-fits.
+    if (!this.onMobile()) this.zoomFit();
   }
 
   // ── Layers ──────────────────────────────────────────────────────────────
@@ -494,9 +499,9 @@ export class PaintComponent extends ChildComponent {
       return;
     }
 
-    // Marquee: click clears an existing selection, drag draws a new one.
+    // Marquee: dragging draws a new selection that replaces any existing one;
+    // a plain click (no drag) clears the current selection (see onPointerUp).
     if (this.currentTool === 'select') {
-      if (this.selectionMask) { this.clearSelection(); return; }
       this.selectionStartX = pos.x;
       this.selectionStartY = pos.y;
       this.selectionEndX = pos.x;
@@ -1401,6 +1406,7 @@ export class PaintComponent extends ChildComponent {
     overlay.width = this.canvasWidth;
     overlay.height = this.canvasHeight;
     this.overlayCtx = overlay.getContext('2d')!;
+    this.clearSelection();
     this.layers = [this.makeLayer('Background')];
     this.activeLayerId = this.layers[0].id;
     if (img) {
@@ -1468,6 +1474,7 @@ export class PaintComponent extends ChildComponent {
       overlay.height = this.canvasHeight;
       this.ctx = canvas.getContext('2d')!;
       this.overlayCtx = overlay.getContext('2d')!;
+      this.clearSelection();
       this.undoStack = [];
       this.redoStack = [];
       this.layers = [this.makeLayer('Background')];

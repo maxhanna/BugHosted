@@ -1,5 +1,16 @@
 ﻿<div class="componentMain">
   <app-title-bar [title]="'Paint'" (closeClicked)="remove_me('PaintComponent')" (menuClicked)="toggleMenuPanel()"></app-title-bar>
+  <div class="psMenuBar" (click)="$event.stopPropagation()">
+    <div class="psMenu" *ngFor="let m of psMenus">
+      <button class="psMenuBtn" [class.active]="openMenu === m.id" (click)="togglePsMenu(m.id)">{{ m.label }}</button>
+      <div class="psDropdown" *ngIf="openMenu === m.id">
+        <div *ngFor="let item of m.items" class="psMenuItemWrap">
+          <div *ngIf="item.header" class="psMenuHeader">{{ item.header }}</div>
+          <button *ngIf="item.action" class="psMenuItem" (click)="runMenuAction(item.action!)">{{ item.label }}</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="paintContainer">
     <div class="paintToolbar">
       <div class="toolGroup">
@@ -78,17 +89,6 @@
         <label class="toolLabel">
           <input type="checkbox" [(ngModel)]="showColorPicker" /> Palette
         </label>
-      </div>
-    </div>
-    <div class="psMenuBar" (click)="$event.stopPropagation()">
-      <div class="psMenu" *ngFor="let m of psMenus">
-        <button class="psMenuBtn" [class.active]="openMenu === m.id" (click)="togglePsMenu(m.id)">{{ m.label }}</button>
-        <div class="psDropdown" *ngIf="openMenu === m.id">
-          <div *ngFor="let item of m.items" class="psMenuItemWrap">
-            <div *ngIf="item.header" class="psMenuHeader">{{ item.header }}</div>
-            <button *ngIf="item.action" class="psMenuItem" (click)="runMenuAction(item.action!)">{{ item.label }}</button>
-          </div>
-        </div>
       </div>
     </div>
     <input #openInput id="paintOpenInput" type="file" accept="image/*" style="display:none" (change)="loadImageFromFile($event)" />

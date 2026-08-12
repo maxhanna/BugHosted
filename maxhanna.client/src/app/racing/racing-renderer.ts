@@ -7494,20 +7494,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.uniformMatrix4fv(this.shadowModelLoc, false, this.modelMatrix);
     gl.enable(gl.POLYGON_OFFSET_FILL);
     gl.polygonOffset(2.0, 2.0);
-    gl.bindVertexArray(this.trackVao);
-    gl.drawElements(gl.TRIANGLES, this.trackCount, gl.UNSIGNED_SHORT, 0);
-    gl.bindVertexArray(this.shoulderVao);
-    gl.drawElements(gl.TRIANGLES, this.shoulderCount, gl.UNSIGNED_SHORT, 0);
-    gl.bindVertexArray(this.curbVao);
-    gl.drawElements(gl.TRIANGLES, this.curbCount, gl.UNSIGNED_SHORT, 0);
-    if (this.crosswalkCount > 0) {
-      gl.bindVertexArray(this.crosswalkVao);
-      gl.drawElements(gl.TRIANGLES, this.crosswalkCount, gl.UNSIGNED_SHORT, 0);
-    }
+    // The flat ground planes (track, shoulder, curb, crosswalk, finish) are
+    // deliberately NOT rendered into the shadow map. They only need to RECEIVE
+    // shadows — casting their own depth back onto themselves self-shadows at
+    // the map's precision (512px on mobile), which read as gray blotches
+    // mottled across the whole landscape. Cars, barriers and the scenery still
+    // write depth, so their shadows keep landing on the ground normally.
     gl.bindVertexArray(this.barrierVao);
     gl.drawElements(gl.TRIANGLES, this.barrierCount, gl.UNSIGNED_SHORT, 0);
-    gl.bindVertexArray(this.finishVao);
-    gl.drawElements(gl.TRIANGLES, this.finishCount, gl.UNSIGNED_SHORT, 0);
     // The scenery mesh (forests, stands, buildings around the whole circuit)
     // is the largest static draw and is re-rendered into the shadow map every
     // frame. Mobile GPUs don't get tree shadows anyway at 512px — skip the

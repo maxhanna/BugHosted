@@ -1,4 +1,5 @@
 import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import { cronDayMatches } from './cron';
 
 export interface CalendarCard {
   id: string;
@@ -84,7 +85,15 @@ export class MiniCalendarComponent implements OnInit {
     for (let i = 0; i < cells.length; i += 7) {
       const week = cells.slice(i, i + 7);
       for (const cell of week) {
-        cell.cards = (this.cards || []).filter(c => c.date === cell.date);
+        // A card shows on its exact date, AND a cron card expands across the
+        // month onto every day its schedule fires (day-of-month/month/
+        // day-of-week fields) — so users can see how scheduled Weaver jobs
+        // will fire throughout the month, mirroring the main calendar's
+        // recurring-entry behavior.
+        const cellDate = new Date(cell.date + 'T12:00:00');
+        cell.cards = (this.cards || []).filter(c =>
+          c.date === cell.date ||
+          (c.cronExpression && cronDayMatches(c.cronExpression, cellDate)));
       }
       weeks.push(week);
     }

@@ -1010,6 +1010,14 @@
       <p class="picker-hint">Select files from other cards in this project:</p>
       <input #pickerSearchInput id="pickerSearchInput"[(ngModel)]="pickerSearchFilter" (input)="onPickerSearchFilterChange($event)" placeholder="Search files..."
       class="weaver-input weaver-input-sm" />
+      <div *ngIf="pickerSelected.length" class="picker-attached">
+        <div class="picker-attached-title">📎 Attached files ({{ pickerSelected.length }})</div>
+        <div *ngFor="let f of pickerSelected" class="picker-attached-item">
+          <span class="picker-attached-icon">📄</span>
+          <span class="picker-attached-path" title="{{ f }}">{{ f }}</span>
+          <button class="picker-attached-remove" title="Remove attachment" (click)="toggleFileSelect(f)">✖</button>
+        </div>
+      </div>
       <div class="picker-tree">
         <div *ngFor="let node of pickerTree" class="tree-node">
           <ng-container *ngTemplateOutlet="treeRecurse; context: { node: node, depth: 0 }"></ng-container>
@@ -1027,14 +1035,15 @@
   <ng-template #treeRecurse let-node="node" let-depth="depth">
     <div class="tree-item">
       <ng-container *ngIf="isTreeLeaf(node); else folder">
-        <label class="tree-file">
+        <label class="tree-file" [class.searching]="!!pickerSearchFilter" [title]="node.path">
           <input type="checkbox" [checked]="isFileSelected(node.path)" (change)="toggleFileSelect(node.path)" />
           <span class="tree-file-icon">📄</span>
           <span class="tree-file-name">{{ node.name }}</span>
+          <span class="tree-file-path" *ngIf="pickerSearchFilter">{{ node.path }}</span>
         </label>
       </ng-container>
       <ng-template #folder>
-        <details class="tree-folder">
+        <details class="tree-folder" [open]="pickerSearchFilter.length > 0">
           <summary>
             <span class="tree-folder-icon">📁</span>
             <span class="tree-folder-name">{{ node.name }}</span>
@@ -1101,25 +1110,13 @@
               {{ r.username }}
             </td>
             <td class="rankings-title">{{ r.rankTitle || 'Legend in Training' }}</td>
-            <td class="rankings-score">
-              <ng-container *ngIf="r.sharesRank === false; else scoreVal">
-                <span class="rankings-noshare"
-                  title="Rank sharing is off — the user hasn't enabled 'Share my rank' in Weaver settings">not sharing</span>
-              </ng-container>
-              <ng-template #scoreVal>{{ r.score }}</ng-template>
-            </td>
+            <td class="rankings-score">{{ r.score }}</td>
             <td>{{ r.lastHeartbeat ? (r.lastHeartbeat | date: 'MMM d, HH:mm') : '—' }}</td>
           </tr>
         </tbody>
       </table>
       <p *ngIf="!rankingsLoading && !rankings.length" class="rankings-empty">
-        No rankings yet — run Weaver with BugHosted sync enabled to appear here.
-      </p>
-      <p *ngIf="currentUserRankHidden"
-        class="rankings-hint">
-        ⚙️ Your rank is hidden because “Share my rank publicly on BugHosted servers” is off.
-        Enable it in Weaver → Settings → BugHosted.com (Remote Dashboard), then reload Weaver
-        to appear here with your score.
+        No rankings yet — run Weaver with BugHosted sync and rank sharing enabled (Settings → BugHosted.com) to appear here.
       </p>
     </div>
     <button id="closeOverlay" class="closeButton" (click)="closeRankingsPanel()"></button>

@@ -376,12 +376,14 @@ namespace maxhanna.Server.Controllers
 					}
 				}
 				var results = new List<PendingRaceResult>();
-				while (_pendingResults.TryDequeue(out var r)) results.Add(r);
-				int resultsWritten = 0;
+				while (_pendingResults.TryDequeue(out var r)) results.Add(r);				int resultsWritten = 0;
+				// Only real players' results are persisted — bot laps (negative user ids)
+				// are dropped so the leaderboard reflects human scores alone.
 				foreach (var r in results)
 				{
 					try
 					{
+						if (r.UserId < 0) { resultsWritten++; continue; }
 						using var cmd = new MySqlCommand(@"
 							INSERT INTO racing_results (user_id, player_name, position, lap_time, total_time, money_earned, track_id, raced_at)
 							VALUES (@uid, @name, @pos, @lap, @total, @money, @track, UTC_TIMESTAMP())", conn);
@@ -642,28 +644,7 @@ namespace maxhanna.Server.Controllers
 					TotalTime = result.TryGetProperty("totalTime", out var tt) ? tt.GetDouble() : 0,
 					MoneyEarned = result.TryGetProperty("moneyEarned", out var me) ? me.GetInt32() : 0,
 					TrackId = result.TryGetProperty("trackId", out var tk) ? tk.GetInt32() : 1,
-				});
-				if (body.TryGetProperty("bots", out var bots) && bots.ValueKind == JsonValueKind.Array)
-				{
-					foreach (var b in bots.EnumerateArray())
-					{
-						if (b.ValueKind != JsonValueKind.Object) continue;
-						int bid = b.TryGetProperty("playerId", out var pid) ? pid.GetInt32() : 0;
-						double blat = b.TryGetProperty("lapTime", out var bl) ? bl.GetDouble() : 0;
-						if (bid >= 0 || blat <= 0) continue;
-						_pendingResults.Enqueue(new PendingRaceResult
-						{
-							UserId = bid,
-							PlayerName = b.TryGetProperty("playerName", out var bn) ? bn.GetString() ?? "" : "",
-							Position = b.TryGetProperty("position", out var bp) ? bp.GetInt32() : 0,
-							LapTime = blat,
-							TotalTime = 0,
-							MoneyEarned = 0,
-							TrackId = b.TryGetProperty("trackId", out var btk) ? btk.GetInt32() : 1,
-						});
-					}
-				}
-				ScheduleFlush();
+				});					ScheduleFlush();
 				return Ok(new { ok = true });
 			}
 			catch { return BadRequest(); }
@@ -693,10 +674,9 @@ namespace maxhanna.Server.Controllers
 							FROM racing_best_laps bl
 							LEFT JOIN racing_player_car c ON c.user_id = bl.user_id
 							LEFT JOIN users u ON bl.user_id = u.id
-							WHERE bl.best_lap > 0 AND bl.track_id = @trackId
-						) t
-						GROUP BY user_id, player_name
-						ORDER BY lap_time ASC LIMIT 100", conn);
+							WHERE bl.best_lap > 0 AND bl.track_id = @trackId							) t
+							GROUP BY user_id, player_name
+							ORDER BY lap_time ASC LIMIT 100", conn);
 					cmd.Parameters.AddWithValue("@trackId", trackId);
 					using (var rdr = await cmd.ExecuteReaderAsync())
 					{
@@ -718,7 +698,7 @@ namespace maxhanna.Server.Controllers
 				var pendingBest = new Dictionary<int, LeaderboardEntry>();
 				foreach (var r in _pendingResults)
 				{
-					if (r.LapTime <= 0 || r.TrackId != trackId) continue;
+					if (r.LapTime <= 0 || r.UserId < 0 || r.TrackId != trackId) continue;
 					if (!pendingBest.TryGetValue(r.UserId, out var existing) || r.LapTime < existing.LapTime)
 					{
 						pendingBest[r.UserId] = new LeaderboardEntry
@@ -780,10 +760,10 @@ namespace maxhanna.Server.Controllers
 										SELECT r.user_id, r.lap_time AS lap_time FROM racing_results r
 										WHERE r.lap_time > 0 AND r.track_id = @trackId
 										UNION ALL
-										SELECT bl.user_id, bl.best_lap AS lap_time FROM racing_best_laps bl
-										WHERE bl.best_lap > 0 AND bl.track_id = @trackId
-									) u GROUP BY user_id
-								) t WHERE t.best < @myBest", conn2);
+									SELECT bl.user_id, bl.best_lap AS lap_time FROM racing_best_laps bl
+									WHERE bl.best_lap > 0 AND bl.track_id = @trackId
+								) u GROUP BY user_id
+							) t WHERE t.best < @myBest", conn2);
 							rankCmd.Parameters.AddWithValue("@trackId", trackId);
 							rankCmd.Parameters.AddWithValue("@myBest", Convert.ToDouble(myBest));
 							userRank = Convert.ToInt32(await rankCmd.ExecuteScalarAsync());
@@ -842,7 +822,7 @@ namespace maxhanna.Server.Controllers
 				}
 				foreach (var r in _pendingResults)
 				{
-					if (r.LapTime <= 0 || r.UserId == 0) continue;
+					if (r.LapTime <= 0 || r.UserId <= 0) continue;
 					if (!perTrack.TryGetValue(r.TrackId, out var byUser))
 					{
 						byUser = new Dictionary<int, double>();

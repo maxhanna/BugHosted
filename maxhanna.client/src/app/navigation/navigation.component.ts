@@ -1,4 +1,4 @@
-﻿import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { MiningService } from '../../services/mining.service';
 import { CalendarService } from '../../services/calendar.service';
 import { WeatherService } from '../../services/weather.service';
@@ -1143,8 +1143,7 @@ export class NavigationComponent implements OnInit, OnDestroy {
       this.isBiWeeklyEvent(type, entryDate, today) ||
       this.isMonthlyEvent(type, entryDate, today) ||
       this.isBiMonthlyEvent(type, entryDate, today) ||
-      this.isAnnualEvent(type, entryDate, today) ||
-      type === 'daily';
+      this.isAnnualEvent(type, entryDate, today)
   }
 
   // Simplified comparison functions

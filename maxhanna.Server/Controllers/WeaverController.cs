@@ -746,6 +746,13 @@ namespace maxhanna.Server.Controllers
 				await OverlayFreshHeartbeats(cs, entries);
 				await OverlayShareFlags(cs, entries);
 
+				// Privacy: users who haven't opted in to sharing their rank on
+				// BugHosted are omitted from the leaderboard entirely rather than
+				// shown as "not sharing". Opt-in state is overlaid per request
+				// (it is not part of the 30-min cache), so a user who enables
+				// sharing shows up on the next refresh without a cache reset.
+				entries = entries.Where(e => e.SharesRank).ToList();
+
 				var ordered = entries.OrderByDescending(e => e.Score).ToList();
 				var result = new List<object>(ordered.Count);
 				for (int i = 0; i < ordered.Count; i++)

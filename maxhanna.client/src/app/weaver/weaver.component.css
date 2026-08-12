@@ -1924,6 +1924,84 @@
   max-width: 100%;
 }
 
+/* During search, show the full path under each matched file and let rows wrap. */
+.tree-item .tree-file.searching {
+  flex-wrap: wrap;
+  white-space: normal;
+}
+
+.tree-file-path {
+  display: block;
+  width: 100%;
+  padding-left: 22px;
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Attached-files list at the top of the picker */
+.picker-attached {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  max-height: 30vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.picker-attached-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 2px;
+}
+
+.picker-attached-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.picker-attached-item:hover {
+  background: var(--surface2);
+}
+
+.picker-attached-icon {
+  color: var(--accent);
+}
+
+.picker-attached-path {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text, #e0e0e0);
+}
+
+.picker-attached-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--danger, #ff6b6b);
+  font-size: 13px;
+  line-height: 1;
+  padding: 0 4px;
+  border-radius: 4px;
+}
+
+.picker-attached-remove:hover {
+  background: rgba(255, 107, 107, 0.15);
+}
+
 .tree-item .tree-file input[type="checkbox"] {
   accent-color: var(--accent);
   margin-right: 4px;

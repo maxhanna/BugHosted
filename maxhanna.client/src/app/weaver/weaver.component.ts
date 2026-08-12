@@ -1406,10 +1406,6 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
 
   // True when the logged-in user appears on the board but hasn't opted in to
   // sharing their rank, so the UI can explain why their score shows as 0.
-  get currentUserRankHidden(): boolean {
-    return !!this.currentUserId && this.rankings.some(r => r.userId === this.currentUserId && r.sharesRank === false);
-  }
-
   async loadRankings(silent = false) {
     if (!this.token) return;
     if (!silent) this.rankingsLoading = true;
