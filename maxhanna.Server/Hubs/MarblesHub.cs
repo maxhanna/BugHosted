@@ -4,18 +4,19 @@ using Microsoft.AspNetCore.SignalR;
 namespace maxhanna.Server.Hubs
 {
     /// <summary>
-    /// SignalR hub for "Marbles" — a Lose-Your-Marbles-style match-3 game.
-    /// Players join a room, each plays their own board in a race to a target
-    /// score, and scores are broadcast in real time. The server owns the board
-    /// (single source of truth): clients send swap intents and the hub applies
-    /// them, resolves cascades, and returns the authoritative board + score.
+    /// SignalR hub for "Marbles" — a faithful remake of the classic 1997
+    /// "Lose Your Marbles" marble-dropper (SegaSoft).
+    ///
+    /// Each player has a 6×12 pegboard. Marbles drop one at a time into a
+    /// column of your choice; when 3+ same-colored marbles touch (orthogonally)
+    /// they pop, and each popped group of size N sends N−2 marbles raining onto
+    /// a random opponent's board. Whoever's columns fill up first loses.
     /// </summary>
     public class MarblesHub : Hub
     {
-        private const int BoardSize = 8;
+        private const int Cols = 6;
+        private const int Rows = 12;
         private const int ColorCount = 6;
-        private const int TargetScore = 1000;
-        private const int BasePointsPerMarble = 10;
 
         private static readonly Random _rng = new();
         private static readonly ConcurrentDictionary<string, Lobby> _lobbies = new();
@@ -36,8 +37,11 @@ namespace maxhanna.Server.Hubs
             public string PlayerName = "";
             public int PlayerId = 0;
             public bool Ready = false;
-            public int Score = 0;
-            public int[,] Board = new int[BoardSize, BoardSize];
+            public bool Alive = true;
+            public int Sent = 0;
+            public int CurrentColor = 0;
+            public int[] Heights = new int[Cols];
+            public int[][] Board = EmptyBoard();
         }
 
         /// <summary>Live player count across all lobbies (for the nav badge).</summary>
@@ -67,6 +71,7 @@ namespace maxhanna.Server.Hubs
 
             await Clients.Group(code).SendAsync("OnPlayerLeft", new { connectionId = Context.ConnectionId, playerName = departedName ?? "" });
             await BroadcastLobbyAsync(lobby);
+            await CheckGameOverAsync(lobby);
         }
 
         // ── Lobby lifecycle ────────────────────────────────────────────────
@@ -94,9 +99,6 @@ namespace maxhanna.Server.Hubs
                         PlayerName = string.IsNullOrWhiteSpace(playerName) ? "Player" : playerName,
                         PlayerId = playerId,
                     };
-                    // The newest player starts un-ready; when the room is fresh the
-                    // first joiner becomes host.
-                    player.Board = GenerateBoard();
                     if (lobby.Players.Count == 0)
                     {
                         lobby.HostConnectionId = Context.ConnectionId;
@@ -116,10 +118,10 @@ namespace maxhanna.Server.Hubs
                 code = code,
                 hostConnectionId = lobby.HostConnectionId,
                 status = lobby.Status,
-                targetScore = TargetScore,
                 players = lobby.Players.Select(p => PlayerView(p, lobby.HostConnectionId)).ToArray(),
-                myBoard = me == null ? ToJagged(new int[BoardSize, BoardSize]) : ToJagged(me.Board),
-                myScore = me?.Score ?? 0,
+                myBoard = me == null ? EmptyBoard() : me.Board,
+                myCurrentColor = me?.CurrentColor ?? 0,
+                mySent = me?.Sent ?? 0,
             };
         }
 
@@ -152,27 +154,21 @@ namespace maxhanna.Server.Hubs
                 lobby.Status = "playing";
                 foreach (var p in lobby.Players)
                 {
-                    p.Score = 0;
-                    p.Board = GenerateBoard();
                     p.Ready = false;
+                    p.Alive = true;
+                    p.Sent = 0;
+                    p.CurrentColor = _rng.Next(1, ColorCount + 1);
+                    p.Board = EmptyBoard();
                 }
                 players = new List<Player>(lobby.Players);
             }
             await Clients.Group(code).SendAsync("OnGameStarted", new
             {
-                targetScore = TargetScore,
                 players = players.Select(p => PlayerView(p, lobby.HostConnectionId)).ToArray(),
             });
-            // Each client gets its own authoritative starting board.
             foreach (var p in players)
             {
-                await Clients.Client(p.ConnectionId).SendAsync("OnBoardUpdate", new
-                {
-                    valid = true,
-                    board = ToJagged(p.Board),
-                    score = 0,
-                    gained = 0,
-                });
+                await Clients.Client(p.ConnectionId).SendAsync("OnBoardUpdate", MakeUpdate(p, null, 0, false, false));
             }
             await BroadcastLobbyAsync(lobby);
         }
@@ -186,51 +182,227 @@ namespace maxhanna.Server.Hubs
 
         // ── Gameplay ───────────────────────────────────────────────────────
 
-        public async Task<object?> Swap(string code, int r1, int c1, int r2, int c2)
+        /// <summary>
+        /// Drop your current marble into a column. The server owns the board:
+        /// it places the marble, resolves pops + cascades, rains N−2 marbles per
+        /// popped group onto a random alive opponent, and checks for overflow.
+        /// </summary>
+        public async Task<object?> Drop(string code, int col)
         {
             if (!_lobbies.TryGetValue(code, out var lobby)) return null;
-            Player? player;
+
+            var updates = new Dictionary<string, object?>();
+            var rainedBy = new Dictionary<string, int>();
+            string? winnerName = null;
             lock (lobby.Sync)
             {
                 if (lobby.Status != "playing") return null;
-                player = lobby.Players.Find(p => p.ConnectionId == Context.ConnectionId);
-                if (player == null) return null;
+                var player = lobby.Players.Find(p => p.ConnectionId == Context.ConnectionId);
+                if (player == null || !player.Alive) return null;
+                if (col < 0 || col >= Cols) return null;
+
+                if (player.Heights[col] >= Rows)
+                {
+                    // Dropping into a full column overflows your own board.
+                    player.Alive = false;
+                }
+                else
+                {
+                    var row = Rows - 1 - player.Heights[col];
+                    player.Board[row][col] = player.CurrentColor;
+                    player.Heights[col]++;
+                    player.CurrentColor = _rng.Next(1, ColorCount + 1);
+
+                    var result = ResolvePops(player.Board, player.Heights);
+                    player.Sent += result.Marbles.Count;
+
+                    // Rain the sent marbles onto a random alive opponent.
+                    var target = PickAliveOpponent(lobby, player);
+                    if (target != null && result.Marbles.Count > 0)
+                    {
+                        rainedBy[target.ConnectionId] = result.Marbles.Count;
+                        foreach (var color in result.Marbles)
+                        {
+                            RainOne(target, color);
+                        }
+                    }
+
+                    updates[player.ConnectionId] = MakeUpdate(player, result.Popped, 0, true, false);
+                }
+
+                // Build updates for everyone else (rain targets get their count).
+                foreach (var p in lobby.Players)
+                {
+                    if (updates.ContainsKey(p.ConnectionId)) continue;
+                    updates[p.ConnectionId] = MakeUpdate(p, null, rainedBy.GetValueOrDefault(p.ConnectionId), false, false);
+                }
             }
 
-            var board = player.Board;
-            if (!InBounds(r1, c1) || !InBounds(r2, c2)) return null;
-            if (board[r1, c1] == 0 || board[r2, c2] == 0) return null;
-            if (Math.Abs(r1 - r2) + Math.Abs(c1 - c2) != 1) return null;
+            // Winners are determined after the lock so broadcasts stay outside it.
+            winnerName = DetermineWinner(lobby);
 
-            // Try the swap; revert if it doesn't form a match.
-            (board[r1, c1], board[r2, c2]) = (board[r2, c2], board[r1, c1]);
-            if (!HasAnyMatch(board))
+            foreach (var kv in updates)
             {
-                (board[r1, c1], board[r2, c2]) = (board[r2, c2], board[r1, c1]);
-                return new { valid = false, board = ToJagged(player.Board), score = player.Score };
+                var payload = (Dictionary<string, object?>)kv.Value!;
+                if (winnerName != null)
+                {
+                    payload["winnerName"] = winnerName;
+                }
+                await Clients.Client(kv.Key).SendAsync("OnBoardUpdate", payload);
             }
 
-            // Resolve cascades: clear matches → gravity → refill, until stable.
-            var gained = ResolveCascades(board);
-            player.Score += gained;
-
-            var result = new
+            if (winnerName != null)
             {
-                valid = true,
-                board = ToJagged(player.Board),
-                score = player.Score,
-                gained,
-            };
-
-            await Clients.Client(Context.ConnectionId).SendAsync("OnBoardUpdate", result);
-            await Clients.Group(code).SendAsync("OnScoreUpdate", PlayerView(player, lobby.HostConnectionId));
-            if (player.Score >= TargetScore)
-            {
+                await Clients.Group(code).SendAsync("OnGameWon", new { winnerName });
                 lock (lobby.Sync) { lobby.Status = "lobby"; }
-                await Clients.Group(code).SendAsync("OnGameWon", PlayerView(player, lobby.HostConnectionId));
                 await BroadcastLobbyAsync(lobby);
             }
-            return result;
+            else
+            {
+                await BroadcastLobbyAsync(lobby);
+            }
+            return new { ok = true };
+        }
+
+        // ── Engine ─────────────────────────────────────────────────────────
+
+        private static void RainOne(Player target, int color)
+        {
+            // Random column; a marble landing in a full column overflows the board.
+            var col = _rng.Next(0, Cols);
+            if (target.Heights[col] >= Rows)
+            {
+                target.Alive = false;
+                return;
+            }
+            var row = Rows - 1 - target.Heights[col];
+            target.Board[row][col] = color;
+            target.Heights[col]++;
+        }
+
+        private static Player? PickAliveOpponent(Lobby lobby, Player self)
+        {
+            var others = lobby.Players.Where(p => p.ConnectionId != self.ConnectionId && p.Alive).ToList();
+            if (others.Count == 0) return null;
+            return others[_rng.Next(others.Count)];
+        }
+
+        private static string? DetermineWinner(Lobby lobby)
+        {
+            lock (lobby.Sync)
+            {
+                var alive = lobby.Players.Where(p => p.Alive).ToList();
+                if (alive.Count == 1) return alive[0].PlayerName;
+                if (alive.Count == 0) return lobby.Players.Count > 0 ? lobby.Players[0].PlayerName : null;
+                return null;
+            }
+        }
+
+        /// <summary>Popped group resolution + cascades with gravity. Returns sent marbles and cleared cells.</summary>
+        private static PopResult ResolvePops(int[][] board, int[] heights)
+        {
+            var marbles = new List<int>();
+            var popped = new List<object>();
+            for (;;)
+            {
+                var groups = FindGroups(board);
+                var toPop = groups.Where(g => g.Count >= 3).ToList();
+                if (toPop.Count == 0) break;
+
+                foreach (var g in toPop)
+                {
+                    var color = board[g[0].r][g[0].c];
+                    // A group of size N sends N−2 marbles to the opponent.
+                    for (var i = 0; i < g.Count - 2; i++) marbles.Add(color);
+                    foreach (var cell in g)
+                    {
+                        popped.Add(new { row = cell.r, col = cell.c, color });
+                        board[cell.r][cell.c] = 0;
+                    }
+                }
+                Gravity(board, heights);
+            }
+            return new PopResult { Marbles = marbles, Popped = popped };
+        }
+
+        private static List<List<(int r, int c)>> FindGroups(int[][] board)
+        {
+            var groups = new List<List<(int, int)>>();
+            var seen = new bool[Rows, Cols];
+            for (var r = 0; r < Rows; r++)
+            {
+                for (var c = 0; c < Cols; c++)
+                {
+                    if (seen[r, c] || board[r][c] == 0) continue;
+                    var color = board[r][c];
+                    var stack = new Stack<(int, int)>();
+                    stack.Push((r, c));
+                    seen[r, c] = true;
+                    var group = new List<(int, int)>();
+                    while (stack.Count > 0)
+                    {
+                        var (cr, cc) = stack.Pop();
+                        group.Add((cr, cc));
+                        foreach (var (dr, dc) in new[] { (0, 1), (0, -1), (1, 0), (-1, 0) })
+                        {
+                            var nr = cr + dr;
+                            var nc = cc + dc;
+                            if (nr < 0 || nr >= Rows || nc < 0 || nc >= Cols) continue;
+                            if (seen[nr, nc] || board[nr][nc] != color) continue;
+                            seen[nr, nc] = true;
+                            stack.Push((nr, nc));
+                        }
+                    }
+                    groups.Add(group);
+                }
+            }
+            return groups;
+        }
+
+        private static void Gravity(int[][] board, int[] heights)
+        {
+            for (var c = 0; c < Cols; c++)
+            {
+                var write = Rows - 1;
+                for (var r = Rows - 1; r >= 0; r--)
+                {
+                    if (board[r][c] != 0)
+                    {
+                        if (write != r)
+                        {
+                            board[write][c] = board[r][c];
+                            board[r][c] = 0;
+                        }
+                        write--;
+                    }
+                }
+                heights[c] = Rows - 1 - write;
+            }
+        }
+
+        private static int[][] EmptyBoard()
+        {
+            var board = new int[Rows][];
+            for (var r = 0; r < Rows; r++)
+            {
+                board[r] = new int[Cols];
+            }
+            return board;
+        }
+
+        private static Dictionary<string, object?> MakeUpdate(Player p, List<object>? popped, int rained, bool dropped, bool _)
+        {
+            return new Dictionary<string, object?>
+            {
+                ["board"] = p.Board,
+                ["currentColor"] = p.CurrentColor,
+                ["sent"] = p.Sent,
+                ["popped"] = popped ?? new List<object>(),
+                ["rained"] = rained,
+                ["dropped"] = dropped,
+                ["alive"] = p.Alive,
+                ["winnerName"] = (string?)null,
+            };
         }
 
         private async Task BroadcastLobbyAsync(Lobby lobby)
@@ -240,7 +412,6 @@ namespace maxhanna.Server.Hubs
                 code = lobby.Code,
                 hostConnectionId = lobby.HostConnectionId,
                 status = lobby.Status,
-                targetScore = TargetScore,
                 players = lobby.Players.Select(p => PlayerView(p, lobby.HostConnectionId)).ToArray(),
             };
             await Clients.Group(lobby.Code).SendAsync("OnLobbyState", view);
@@ -252,145 +423,19 @@ namespace maxhanna.Server.Hubs
             playerName = p.PlayerName,
             playerId = p.PlayerId,
             ready = p.Ready,
-            score = p.Score,
+            sent = p.Sent,
             isHost = p.ConnectionId == hostConnectionId,
+            alive = p.Alive,
+            heights = p.Heights,
         };
 
-        /// <summary>
-        /// Convert the server's rectangular board (int[,]) into a jagged array
-        /// (int[][]) so it serializes correctly over SignalR's JSON protocol.
-        /// System.Text.Json does not support multi-dimensional arrays.
-        /// </summary>
-        private static int[][] ToJagged(int[,] board)
+        private async Task CheckGameOverAsync(Lobby lobby)
         {
-            var rows = board.GetLength(0);
-            var cols = board.GetLength(1);
-            var jagged = new int[rows][];
-            for (var r = 0; r < rows; r++)
-            {
-                jagged[r] = new int[cols];
-                for (var c = 0; c < cols; c++) jagged[r][c] = board[r, c];
-            }
-            return jagged;
-        }
-
-        // ── Match-3 engine ─────────────────────────────────────────────────
-
-        private static bool InBounds(int r, int c) => r >= 0 && r < BoardSize && c >= 0 && c < BoardSize;
-
-        private static int[,] GenerateBoard()
-        {
-            var board = new int[BoardSize, BoardSize];
-            for (var r = 0; r < BoardSize; r++)
-            {
-                for (var c = 0; c < BoardSize; c++)
-                {
-                    int color;
-                    do
-                    {
-                        color = _rng.Next(1, ColorCount + 1);
-                    }
-                    while (FormsMatch(board, r, c, color));
-                    board[r, c] = color;
-                }
-            }
-            return board;
-        }
-
-        private static bool FormsMatch(int[,] board, int r, int c, int color)
-        {
-            if (r >= 2 && board[r - 1, c] == color && board[r - 2, c] == color) return true;
-            if (c >= 2 && board[r, c - 1] == color && board[r, c - 2] == color) return true;
-            return false;
-        }
-
-        private static bool HasAnyMatch(int[,] board)
-        {
-            for (var r = 0; r < BoardSize; r++)
-                for (var c = 0; c < BoardSize; c++)
-                {
-                    var color = board[r, c];
-                    if (color == 0) continue;
-                    if (c + 2 < BoardSize && board[r, c + 1] == color && board[r, c + 2] == color) return true;
-                    if (r + 2 < BoardSize && board[r + 1, c] == color && board[r + 2, c] == color) return true;
-                }
-            return false;
-        }
-
-        /// <summary>Clear matches, drop marbles, refill, and repeat. Returns points gained.</summary>
-        private static int ResolveCascades(int[,] board)
-        {
-            var total = 0;
-            var chain = 0;
-            while (true)
-            {
-                var matched = new bool[BoardSize, BoardSize];
-                var cleared = 0;
-                for (var r = 0; r < BoardSize; r++)
-                {
-                    for (var c = 0; c < BoardSize; c++)
-                    {
-                        var color = board[r, c];
-                        if (color == 0) continue;
-                        // horizontal runs
-                        var run = 1;
-                        while (c + run < BoardSize && board[r, c + run] == color) run++;
-                        if (run >= 3)
-                            for (var k = 0; k < run; k++) matched[r, c + k] = true;
-                        // vertical runs
-                        run = 1;
-                        while (r + run < BoardSize && board[r + run, c] == color) run++;
-                        if (run >= 3)
-                            for (var k = 0; k < run; k++) matched[r + k, c] = true;
-                    }
-                }
-
-                for (var r = 0; r < BoardSize; r++)
-                    for (var c = 0; c < BoardSize; c++)
-                        if (matched[r, c]) { board[r, c] = 0; cleared++; }
-
-                if (cleared == 0) break;
-
-                chain++;
-                total += cleared * BasePointsPerMarble * chain;
-                ApplyGravity(board);
-                Refill(board);
-            }
-            return total;
-        }
-
-        private static void ApplyGravity(int[,] board)
-        {
-            for (var c = 0; c < BoardSize; c++)
-            {
-                var write = BoardSize - 1;
-                for (var r = BoardSize - 1; r >= 0; r--)
-                {
-                    if (board[r, c] != 0)
-                    {
-                        board[write, c] = board[r, c];
-                        if (write != r) board[r, c] = 0;
-                        write--;
-                    }
-                }
-            }
-        }
-
-        private static void Refill(int[,] board)
-        {
-            for (var c = 0; c < BoardSize; c++)
-            {
-                for (var r = 0; r < BoardSize; r++)
-                {
-                    if (board[r, c] == 0)
-                    {
-                        int color;
-                        do { color = _rng.Next(1, ColorCount + 1); }
-                        while (FormsMatch(board, r, c, color));
-                        board[r, c] = color;
-                    }
-                }
-            }
+            var winner = DetermineWinner(lobby);
+            if (winner == null) return;
+            await Clients.Group(lobby.Code).SendAsync("OnGameWon", new { winnerName = winner });
+            lock (lobby.Sync) { lobby.Status = "lobby"; }
+            await BroadcastLobbyAsync(lobby);
         }
 
         private static string NewCode()
@@ -399,6 +444,12 @@ namespace maxhanna.Server.Hubs
             var chars = new char[4];
             for (var i = 0; i < chars.Length; i++) chars[i] = alphabet[_rng.Next(alphabet.Length)];
             return new string(chars);
+        }
+
+        private class PopResult
+        {
+            public List<int> Marbles = new();
+            public List<object> Popped = new();
         }
     }
 }

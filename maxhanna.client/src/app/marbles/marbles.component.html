@@ -1,68 +1,103 @@
 <div class="componentMain marbles-root">
   <app-title-bar [title]="'Marbles'" [hasMenu]="false" (closeClicked)="remove_me('MarblesComponent')"></app-title-bar>
 
-  <div class="marbles-stage">
-    <canvas #boardCanvas (pointerdown)="onPointerDown($event)"></canvas>
+  <div class="marbles-stage" (pointerdown)="onStageDown($event)" (pointermove)="onStageMove($event)">
+    <canvas #boardCanvas></canvas>
 
-    <!-- Menu -->
-    <div class="marbles-panel" *ngIf="status === 'menu'">
-      <h1 class="marbles-title">🔮 Marbles</h1>
-      <p class="marbles-sub">A match-3 race. Swap marbles to line up 3+ of a color, then chain the cascades. First to the target score wins.</p>
-      <div class="marbles-form">
-        <input class="marbles-input" [(ngModel)]="playerName" placeholder="Your name" maxlength="16" />
-        <button class="marbles-btn primary" (click)="hostGame()" [disabled]="!playerName.trim()">Create Room</button>
-        <div class="marbles-join-row">
-          <input class="marbles-input" [(ngModel)]="joinCode" placeholder="Room code" maxlength="16" />
-          <button class="marbles-btn" (click)="joinGame()" [disabled]="!playerName.trim() || !joinCode.trim()">Join</button>
+    <!-- ── Splash screen ─────────────────────────────────────────────── -->
+    <div class="marbles-splash" *ngIf="status === 'splash'" (click)="toMenu()">
+      <div class="splash-marble" aria-hidden="true">
+        <div class="splash-marble-inner"></div>
+      </div>
+      <h1 class="splash-title">
+        <span>LOSE</span> <span>YOUR</span> <span>MARBLES!</span>
+      </h1>
+      <p class="splash-tag">The classic 1997 marble-dropper — now online!</p>
+      <p class="splash-continue">Click anywhere to continue</p>
+    </div>
+
+    <!-- ── Main menu ─────────────────────────────────────────────────── -->
+    <div class="marbles-panel win98" *ngIf="status === 'menu' && !showHowTo">
+      <div class="win98-titlebar"><span>Lose Your Marbles</span></div>
+      <div class="win98-body">
+        <h2 class="marbles-title">🔮 Marbles</h2>
+        <p class="marbles-sub">Drop marbles one at a time. Match 3+ same-colored marbles to pop them — every match of 3 sends 1 marble raining onto your opponent, 4 sends 2, 5 sends 3. First to fill their board loses!</p>
+        <div class="marbles-form">
+          <input class="marbles-input" [(ngModel)]="playerName" placeholder="Your name" maxlength="16" />
+          <button class="win98-btn primary" (click)="hostGame()" [disabled]="!playerName.trim()">Play Online — Host a Room</button>
+          <div class="marbles-join-row">
+            <input class="marbles-input" [(ngModel)]="joinCode" placeholder="Room code" maxlength="16" />
+            <button class="win98-btn" (click)="joinGame()" [disabled]="!playerName.trim() || !joinCode.trim()">Join</button>
+          </div>
+          <button class="win98-btn" (click)="toggleHowTo()">How to Play</button>
         </div>
-        <div class="marbles-note">Rooms work across computers — share the 4-letter code with friends.</div>
+        <p class="marbles-note">Rooms work across computers — share the 4-letter code. Works on mobile &amp; desktop.</p>
       </div>
     </div>
 
-    <!-- Lobby -->
-    <div class="marbles-panel" *ngIf="status === 'lobby'">
-      <h2 class="marbles-title">Room <span class="marbles-code">{{ roomCode }}</span></h2>
-      <p class="marbles-sub">First to <strong>{{ targetScore }}</strong> points wins.</p>
-      <div class="marbles-players">
-        <div class="marbles-player" *ngFor="let p of lobby?.players">
-          <span class="marbles-player-name">{{ p.playerName }}</span>
-          <span *ngIf="p.isHost" class="marbles-crown">👑</span>
-          <span class="marbles-ready">{{ p.ready ? '✅ Ready' : '⏳ Waiting' }}</span>
-        </div>
+    <!-- ── How to play ───────────────────────────────────────────────── -->
+    <div class="marbles-panel win98" *ngIf="status === 'menu' && showHowTo">
+      <div class="win98-titlebar"><span>How to Play</span></div>
+      <div class="win98-body howto-body">
+        <ul class="howto-list">
+          <li>Marbles drop one at a time. <strong>Click a column</strong> (or press <strong>1–6</strong>, or <strong>arrows + space</strong>) to drop yours.</li>
+          <li>When <strong>3 or more</strong> same-colored marbles touch, they pop.</li>
+          <li>Every popped group of size N sends <strong>N − 2 marbles</strong> raining onto your opponent's board (3 → 1, 4 → 2, 5 → 3).</li>
+          <li>Sent marbles land at random columns — they can cascade your opponent into trouble, or help them.</li>
+          <li><strong>You lose</strong> when your columns fill to the top. Keep yours low and bury your rival!</li>
+        </ul>
+        <button class="win98-btn" (click)="toggleHowTo()">Back</button>
       </div>
-      <div class="marbles-actions">
-        <button class="marbles-btn" *ngIf="!isMeHost()" (click)="toggleReady()" [disabled]="(lobby?.players?.length ?? 0) < 2">Ready</button>
-        <button class="marbles-btn primary" *ngIf="isMeHost()" (click)="startGame()">Start Game</button>
-        <button class="marbles-btn" (click)="leaveToMenu()">Leave</button>
-      </div>
-      <div class="marbles-chat">
-        <div class="marbles-chat-log">
-          <div *ngFor="let m of chatMessages"><strong>{{ m.playerName }}:</strong> {{ m.message }}</div>
+    </div>
+
+    <!-- ── Lobby ─────────────────────────────────────────────────────── -->
+    <div class="marbles-panel win98" *ngIf="status === 'lobby'">
+      <div class="win98-titlebar"><span>Room {{ roomCode }}</span></div>
+      <div class="win98-body">
+        <h2 class="marbles-title">Room <span class="marbles-code">{{ roomCode }}</span></h2>
+        <p class="marbles-sub">Share this code so friends can join from anywhere.</p>
+        <div class="marbles-players">
+          <div class="marbles-player" *ngFor="let p of lobby?.players">
+            <span class="marbles-player-name">{{ p.playerName }}<span *ngIf="p.isHost" class="marbles-crown"> 👑</span></span>
+            <span class="marbles-ready">{{ p.ready ? '✅ Ready' : '⏳ Waiting' }}</span>
+          </div>
         </div>
-        <div class="marbles-chat-input">
-          <input class="marbles-input" [(ngModel)]="chatDraft" placeholder="Say something…" (keydown.enter)="sendChat()" />
-          <button class="marbles-btn" (click)="sendChat()">Send</button>
+        <div class="marbles-actions">
+          <button class="win98-btn" *ngIf="!isMeHost()" (click)="toggleReady()" [disabled]="(lobby?.players?.length ?? 0) < 2">Ready</button>
+          <button class="win98-btn primary" *ngIf="isMeHost()" (click)="startGame()" [disabled]="(lobby?.players?.length ?? 0) < 2">Start Game</button>
+          <button class="win98-btn" (click)="leaveToMenu()">Leave</button>
+        </div>
+        <div class="marbles-chat">
+          <div class="marbles-chat-log">
+            <div *ngFor="let m of chatMessages"><strong>{{ m.playerName }}:</strong> {{ m.message }}</div>
+          </div>
+          <div class="marbles-chat-input">
+            <input class="marbles-input" [(ngModel)]="chatDraft" placeholder="Say something…" (keydown.enter)="sendChat()" />
+            <button class="win98-btn" (click)="sendChat()">Send</button>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- In-game HUD -->
+    <!-- ── In-game HUD ───────────────────────────────────────────────── -->
     <div class="marbles-hud" *ngIf="status === 'playing' || status === 'won'">
-      <div class="marbles-score">You: <strong>{{ myScore }}</strong></div>
-      <div class="marbles-target">Target: {{ targetScore }}</div>
-      <div class="marbles-gain" *ngIf="gained > 0">+{{ gained }}</div>
-      <div class="marbles-opponents">
-        <div class="marbles-opponent" *ngFor="let p of lobby?.players">
-          <span>{{ p.playerName }}</span>
-          <strong>{{ p.score }}</strong>
-        </div>
+      <div class="hud-row">
+        <span class="hud-you">You</span>
+        <span class="hud-sent">🚀 {{ mySent }} sent</span>
       </div>
+      <div class="hud-opponent" *ngFor="let p of otherPlayers()">
+        <span class="hud-name">{{ p.playerName }}<span *ngIf="!p.alive" class="hud-out"> 💀</span></span>
+        <span class="hud-sent">🚀 {{ p.sent }} sent</span>
+        <div class="hud-fill"><div class="hud-fill-bar" [style.width.%]="fillPercent(p)"></div></div>
+      </div>
+      <div class="hud-hint" *ngIf="status === 'playing'">Drop your marble — match 3+ to send them over!</div>
     </div>
 
-    <!-- Winner banner -->
-    <div class="marbles-win" *ngIf="winner">
-      <div class="marbles-win-text">🎉 {{ winner.playerName }} wins!</div>
-      <button class="marbles-btn primary" (click)="leaveToMenu()">Back to Menu</button>
+    <!-- ── Winner banner ─────────────────────────────────────────────── -->
+    <div class="marbles-win" *ngIf="winnerName">
+      <div class="marbles-win-text">{{ winnerName }} wins!</div>
+      <p class="marbles-win-sub">The other board filled up first.</p>
+      <button class="win98-btn primary" (click)="leaveToMenu()">Back to Menu</button>
     </div>
   </div>
 </div>

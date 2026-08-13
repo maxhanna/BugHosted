@@ -7,32 +7,40 @@ export interface MarblesPlayer {
   playerName: string;
   playerId: number;
   ready: boolean;
-  score: number;
+  sent: number;
   isHost: boolean;
+  alive: boolean;
+  heights: number[];
 }
 
 export interface MarblesLobbyState {
   code: string;
   hostConnectionId: string;
   status: 'lobby' | 'playing';
-  targetScore: number;
   players: MarblesPlayer[];
 }
 
 export interface MarblesJoinResult extends MarblesLobbyState {
   myBoard: number[][];
-  myScore: number;
+  myCurrentColor: number;
+  mySent: number;
 }
 
 export interface MarblesBoardUpdate {
-  valid: boolean;
   board: number[][];
-  score: number;
-  gained: number;
+  currentColor: number;
+  sent: number;
+  /** Cells that popped this turn (for pop animation + sound). */
+  popped: { row: number; col: number; color: number }[];
+  /** How many marbles rained onto this board from an opponent. */
+  rained: number;
+  /** True when this update is the result of my own drop. */
+  dropped: boolean;
+  alive: boolean;
+  winnerName: string | null;
 }
 
 export interface MarblesGameStarted {
-  targetScore: number;
   players: MarblesPlayer[];
 }
 
@@ -45,8 +53,7 @@ export class MarblesHubService implements OnDestroy {
   readonly playerLeft$ = new Subject<{ connectionId: string; playerName: string }>();
   readonly gameStarted$ = new Subject<MarblesGameStarted>();
   readonly boardUpdate$ = new Subject<MarblesBoardUpdate>();
-  readonly scoreUpdate$ = new Subject<MarblesPlayer>();
-  readonly gameWon$ = new Subject<MarblesPlayer>();
+  readonly gameWon$ = new Subject<{ winnerName: string }>();
   readonly chatMessage$ = new Subject<{ playerName: string; message: string }>();
   readonly connectionError$ = new Subject<string>();
 
@@ -67,8 +74,7 @@ export class MarblesHubService implements OnDestroy {
       this.hub.on('OnPlayerLeft', (data: { connectionId: string; playerName: string }) => this.playerLeft$.next(data));
       this.hub.on('OnGameStarted', (data: MarblesGameStarted) => this.gameStarted$.next(data));
       this.hub.on('OnBoardUpdate', (data: MarblesBoardUpdate) => this.boardUpdate$.next(data));
-      this.hub.on('OnScoreUpdate', (data: MarblesPlayer) => this.scoreUpdate$.next(data));
-      this.hub.on('OnGameWon', (data: MarblesPlayer) => this.gameWon$.next(data));
+      this.hub.on('OnGameWon', (data: { winnerName: string }) => this.gameWon$.next(data));
       this.hub.on('OnChatMessage', (data: { playerName: string; message: string }) => this.chatMessage$.next(data));
 
       this.hub.onreconnecting(() => this.connectionError$.next('Reconnecting...'));
@@ -114,14 +120,10 @@ export class MarblesHubService implements OnDestroy {
     try { await this.hub!.invoke('StartGame', code); } catch { /* ignore */ }
   }
 
-  async swap(code: string, r1: number, c1: number, r2: number, c2: number): Promise<MarblesBoardUpdate | null> {
-    if (!this.connected) return null;
-    try {
-      return await this.hub!.invoke<MarblesBoardUpdate>('Swap', code, r1, c1, r2, c2);
-    } catch (err) {
-      console.error('Swap failed:', err);
-      return null;
-    }
+  /** Drop your current marble into a column (0..5). */
+  async drop(code: string, col: number): Promise<void> {
+    if (!this.connected) return;
+    try { await this.hub!.invoke('Drop', code, col); } catch { /* ignore */ }
   }
 
   async sendChat(code: string, message: string): Promise<void> {
