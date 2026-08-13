@@ -655,7 +655,12 @@ export class RacingRenderer {
     // phones (56 vs 220) — fewer blended billboards overdrawing the scene
     // precisely while the car is sliding through a turn.
     this._smokeMax = lowQuality ? 56 : 220;
-    const gl = canvas.getContext('webgl2', { antialias: true, alpha: false });
+    // `powerPreference: 'high-performance'` hints Chrome (and other browsers)
+    // to run this context on the discrete GPU. On dual-GPU laptops Chrome's
+    // default heuristic often leaves WebGL on the integrated chip — which
+    // shows up as lag/stutter here but not in Firefox — while the discrete
+    // GPU sails. The hint is ignored when there's only one GPU.
+    const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, powerPreference: 'high-performance' });
     if (!gl) throw new Error('WebGL2 not supported');
     this.gl = gl;
     this.whiteTex = this.makeTex(1, 1, new Uint8Array([255, 255, 255]));
@@ -693,7 +698,13 @@ export class RacingRenderer {
     const gl = this.gl;
     const t = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, t);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, w, h, 0, gl.RGB, gl.UNSIGNED_BYTE, data);
+    // Row data is tightly packed 3-byte RGB, so tell the driver not to pad to
+    // 4-byte rows (the default UNPACK_ALIGNMENT). With the default the 1x1
+    // white texture reads one byte past its 3-byte source. Sized RGB8 also
+    // avoids the unsized-format path that ANGLE (Chrome on Windows) converts
+    // 24-bit uploads through on a slower code path.
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB8, w, h, 0, gl.RGB, gl.UNSIGNED_BYTE, data);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);

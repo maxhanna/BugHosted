@@ -45,7 +45,6 @@ import { SigIntComponent } from './sig-int/sig-int.component';
 import { UserEventsComponent } from './user-events/user-events.component';
 import { PlanterComponent } from './planter/planter.component';
 import { WeaverComponent } from './weaver/weaver.component';
-import { WeaverGuideComponent } from './weaver-guide/weaver-guide.component';
 import { RecipeComponent } from './recipe/recipe.component';
 import { PaintComponent } from './paint/paint.component';
 import { ModeratorComponent } from './moderator/moderator.component';
@@ -449,6 +448,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   private isPollLoading = false;
   isShowingUserTagPopup = false;
   isShowingSecurityPopup = false;
+  isShowingLoginPrompt = false;
   preventShowSecurityPopup = false;
   isUploadingFile = false;
   popupUserTagUser?: User;
@@ -462,6 +462,18 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   loginPinData: { pin: string } | null = null;
   passwordResetResultSuccess = false;
   private securityTimeout: any = null;
+  /**
+   * Client-side mirror of when the current session token will expire, so the
+   * security popup can warn *before* expiry instead of after. The server
+   * windows it mirrors:
+   *  - login / RenewSession mint a token with a 7-day window (Log.CreateSession)
+   *  - UpdateLastSeen (presence ping) re-pins the token to +15 minutes
+   */
+  private readonly SESSION_FULL_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+  private readonly SESSION_PRESENCE_WINDOW_MS = 15 * 60 * 1000;
+  // Warn this far ahead of expiry so the user has leeway to refresh.
+  private readonly SECURITY_WARNING_LEEWAY_MS = 5 * 60 * 1000;
+  private sessionExpiresAt = 0;
   private componentMap: { [key: string]: any; } = {
     "Navigation": NavigationComponent,
     "Favourites": FavouritesComponent,
@@ -493,7 +505,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     "Bones": BonesComponent,
     "Planter": PlanterComponent,
     "Weaver": WeaverComponent,
-    "WeaverGuide": WeaverGuideComponent,
     "Recipe": RecipeComponent,
     "Notifications": NotificationsComponent,
     "UpdateUserSettings": UpdateUserSettingsComponent,
@@ -745,10 +756,6 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         else if (this.router.url.toLowerCase().includes('conversion')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Conversion');
-        }
-        else if (this.router.url.toLowerCase().includes('weaverhelp')) {
-          this.checkAndClearRouterOutlet();
-          this.createComponent('WeaverGuide');
         }
         else if (!this.user) {
           this.createComponent('User');
@@ -1283,6 +1290,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       // HttpOnly cookie (not JS-readable), so auth survives reloads without
       // any client-side token storage.
       this.sessionToken = (loginData as { user: User; sessionToken: string }).sessionToken;
+      this.sessionExpiresAt = Date.now() + this.SESSION_FULL_WINDOW_MS;
       // A fresh login means a future session expiry can redirect again.
       this._sessionExpiryRedirected = false;
       setTimeout(() => {
@@ -1840,20 +1848,56 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
     event?.stopPropagation();
   }
-  async updateLastSeenPeriodically() {
+  /**
+   * Schedules the security-token warning to fire *before* the token expires,
+   * with a leeway window so the user has time to refresh rather than being
+   * logged out mid-session. Re-armed on every presence ping / refresh; once
+   * inside the leeway window (e.g. after dismissing the popup) it re-warns
+   * at a gentle interval instead of spamming.
+   */
+  updateLastSeenPeriodically() {
     if (this.securityTimeout) {
       clearTimeout(this.securityTimeout);
+      this.securityTimeout = null;
     }
+    if (!this.user?.id || this.preventShowSecurityPopup) return;
+    // Fall back to a presence window if we don't know the exact expiry yet
+    // (e.g. just after a reload, where the token lives in the HttpOnly cookie).
+    if (!this.sessionExpiresAt) {
+      this.sessionExpiresAt = Date.now() + this.SESSION_PRESENCE_WINDOW_MS;
+    }
+    const remaining = this.sessionExpiresAt - Date.now();
+    const warnIn = Math.max(60 * 1000, remaining - this.SECURITY_WARNING_LEEWAY_MS);
     this.securityTimeout = setTimeout(() => {
       if (!this.preventShowSecurityPopup && !this.isUploadingFile) {
         this.isShowingSecurityPopup = true;
         this.showOverlay();
       }
-    }, 60 * 60 * 1000); // 1 hour
+    }, warnIn);
   }
   closeSecurityPopup() {
     this.isShowingSecurityPopup = false;
     this.closeOverlay();
+    // Re-arm the warning so the user keeps getting a chance to refresh before
+    // the token actually expires.
+    this.updateLastSeenPeriodically();
+  }
+  /**
+   * The Refresh action in the security popup: mint a fresh session token
+   * (full 7-day window) and bump presence so the idle countdown restarts.
+   * Falls back to a plain presence ping when renewal is refused, which lets
+   * the existing 401 flow auto-renew or redirect as appropriate.
+   */
+  async refreshSecurityToken() {
+    const renewed = await this.renewSessionIfDenied();
+    if (renewed) {
+      this.sessionExpiresAt = Date.now() + this.SESSION_FULL_WINDOW_MS;
+      await this.updateLastSeen();
+      this.showNotification('Security token refreshed. You\u2019re signed in for longer.');
+    } else {
+      await this.updateLastSeen();
+    }
+    this.closeSecurityPopup();
   }
   async updateLastSeen(user?: User) {
     const tmpUser = user ?? this.user;
@@ -1879,8 +1923,12 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
             await this.userService.updateLastSeen(tmpUser.id, this.sessionToken);
           } else {
             await this.redirectToLoginAfterSessionExpiry();
+            return;
           }
         }
+        // A successful presence ping re-pins the token to the presence window
+        // server-side — mirror it so the warning timer stays accurate.
+        this.sessionExpiresAt = now + this.SESSION_PRESENCE_WINDOW_MS;
       }
     }
     this.updateLastSeenPeriodically();
@@ -1900,6 +1948,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       const res = await this.userService.renewSession(this.sessionToken);
       if (res?.sessionToken) {
         this.sessionToken = res.sessionToken;
+        this.sessionExpiresAt = Date.now() + this.SESSION_FULL_WINDOW_MS;
         return true;
       }
       return false;
@@ -1910,8 +1959,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
 
   /**
    * A session that the server refused to renew is genuinely dead — clear the
-   * local session state and land the user on the login screen instead of
-   * leaving the presence ping stuck in a 401 loop.
+   * local session state and pop an in-place login prompt instead of yanking
+   * the user off their current view. Re-authenticating from the prompt mints
+   * a fresh token (via the normal login flow) and the user carries on where
+   * they were.
    */
   private _sessionExpiryRedirected = false;
   async redirectToLoginAfterSessionExpiry(): Promise<void> {
@@ -1925,14 +1976,21 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       // Ignore — the local cleanup below is what matters.
     }
     this.sessionToken = undefined;
+    this.sessionExpiresAt = 0;
     this.deleteCookie("user");
     this.navigationComponent?.clearNotifications();
     this.user = undefined;
     // Rebuild the nav for the logged-out (guest) view.
     await this.getSelectedMenuItems();
     this.showNotification("Your session has expired. Please log in again.");
-    this.checkAndClearRouterOutlet();
-    this.createComponent('User');
+    this.isShowingLoginPrompt = true;
+    this.showOverlay();
+  }
+
+  /** Close the session-expired login prompt (after re-login or dismissal). */
+  closeLoginPrompt() {
+    this.isShowingLoginPrompt = false;
+    this.closeOverlay();
   }
 
   async isServerUp(): Promise<number> {

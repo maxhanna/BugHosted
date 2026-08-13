@@ -183,11 +183,18 @@
 <!-- Security Alert POPUP PANEL -->
 <div class="popupPanel securityPopup" *ngIf="isShowingSecurityPopup">
   <div class="popupPanelTitle">Security Warning</div>
-  <div>The security token has expired. ⚠️<br>Would you like to refresh the security token?</div>
+  <div>Your security token will expire soon. ⚠️<br>Refresh it now to stay signed in without interruption.</div>
   <div style="margin-top: 10px; display: flex; gap: 15px">
-    <button class="closeButton" id="closeOverlay" (click)="closeSecurityPopup()">Close</button>
-    <button (click)="updateLastSeen(); closeSecurityPopup();">Refresh</button></div>
+    <button class="closeButton" id="closeOverlay" (click)="closeSecurityPopup()">Not now</button>
+    <button (click)="refreshSecurityToken()">Refresh token</button></div>
 </div>
+<!-- Session Expired Login POPUP PANEL -->
+<app-prompt [type]="'login'"
+  [message]="'Your session has expired. Sign in again to renew your token.'"
+  [inputtedParentRef]="this"
+  [visible]="isShowingLoginPrompt"
+  (close)="closeLoginPrompt()">
+</app-prompt>
 <!-- Password Reset Result POPUP PANEL -->
 <div class="popupPanel securityPopup" *ngIf="isShowingPasswordResetResult">
   <div class="popupPanelTitle">🔐 Password Reset</div>

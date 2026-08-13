@@ -44,7 +44,6 @@ const routes: Routes = [
   { path: 'Planter', component: AppComponent },
   { path: 'GrandTheft', component: AppComponent },
   { path: 'Weaver', component: AppComponent },
-  { path: 'WeaverHelp', component: AppComponent },
   { path: 'Music/:shareToken', component: AppComponent },
   { path: 'Music', component: AppComponent },
   { path: 'Movie', component: AppComponent },

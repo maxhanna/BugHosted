@@ -91,7 +91,6 @@ import { GlobeComponent } from './globe/globe.component';
 import { StarryBackgroundComponent } from './starry-background/starry-background.component';
 import { PlanterComponent } from './planter/planter.component';
 import { WeaverComponent } from './weaver/weaver.component';
-import { WeaverGuideComponent } from './weaver-guide/weaver-guide.component';
 import { MiniCalendarComponent } from './mini-calendar/mini-calendar.component';
 import { RecipeComponent } from './recipe/recipe.component';
 import { CrawlerSearchResultsComponent } from './crawler-search-results/crawler-search-results.component';
@@ -179,7 +178,6 @@ import { ConversionComponent } from './conversion/conversion.component';
     StarryBackgroundComponent,
     PlanterComponent,
     WeaverComponent,
-    WeaverGuideComponent,
     MiniCalendarComponent,
     RecipeComponent,
     CrawlerSearchResultsComponent,
@@ -284,7 +282,6 @@ import { ConversionComponent } from './conversion/conversion.component';
     StarryBackgroundComponent,
     PlanterComponent,
     WeaverComponent,
-    WeaverGuideComponent,
     MiniCalendarComponent,
     RecipeComponent,
     CrawlerSearchResultsComponent,
