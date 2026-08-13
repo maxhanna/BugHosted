@@ -34,6 +34,7 @@ interface Sprite {
   tCol: number; tRow: number;    // target position
   scale: number;
   roll: number;
+  stretch: number;               // horizontal squash-stretch while sliding (1 = rest)
   phase: SpritePhase;
   id: number;
 }
@@ -234,6 +235,13 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     return `radial-gradient(circle at 32% 28%, ${lighten(base, 0.55)}, rgb(${base[0]},${base[1]},${base[2]}) 55%, ${darken(base, 0.5)})`;
   }
 
+  /** A single shared pulse phase for the pitch-row highlight and the
+   *  hot-marble glow, so the match zone and the special colour breathe in
+   *  lockstep instead of drifting out of sync. */
+  private pulsePhase(): number {
+    return 0.5 + 0.5 * Math.sin(performance.now() * 0.007);
+  }
+
   // ── Hub events ──────────────────────────────────────────────────────────
 
   private onLobbyState(ls: MarblesLobbyState): void {
@@ -335,6 +343,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       tRow: toRow,
       scale: 1,
       roll: 0,
+      stretch: 1,
       phase: 'move',
     };
   }
@@ -409,18 +418,31 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         s.scale -= dt * 4.5;
         continue;
       }
-      // Move toward target with easing; roll while sliding.
+      // Move toward target; roll while sliding.
       const dc = s.tCol - s.col;
       const dr = s.tRow - s.row;
       const dist = Math.hypot(dc, dr);
       if (dist > 0.01) {
-        const step = Math.min(dist, dt * 9);
-        s.col += (dc / dist) * step;
-        s.row += (dr / dist) * step;
-        s.roll += step * 2.2;
+        // A pitch-row horizontal shift gets a distinct eased glide so the
+        // slide is obvious, plus a subtle squash-stretch along the motion.
+        const isRowSlide = Math.abs(dr) < 0.05 && Math.abs(s.row - PITCH_ROW) < 0.05 && Math.abs(dc) > 0.01;
+        if (isRowSlide) {
+          const step = Math.min(dist, Math.max(dist * 0.3, dt * 2.2));
+          s.col += (dc / dist) * step;
+          s.row += (dr / dist) * step;
+          s.roll += step * 2.2;
+          s.stretch = 1 + Math.min(0.22, dist * 0.16);
+        } else {
+          const step = Math.min(dist, dt * 9);
+          s.col += (dc / dist) * step;
+          s.row += (dr / dist) * step;
+          s.roll += step * 2.2;
+          s.stretch = 1;
+        }
       } else {
         s.col = s.tCol;
         s.row = s.tRow;
+        s.stretch = 1;
       }
     }
     this.sprites = this.sprites.filter(s => !(s.phase === 'pop' && s.scale <= 0.02));
@@ -451,7 +473,8 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.drawTrench(ctx, cell, ox, oy);
 
     // Pitch row highlight (the center row / match zone).
-    this.drawPitchHighlight(ctx, cell, ox, oy);
+    const oneAway = this.status === 'playing' && this.pitchOneAway();
+    this.drawPitchHighlight(ctx, cell, ox, oy, oneAway);
     // Row arrows on the pitch line edges (interactive board only).
     const py = oy + (PITCH_ROW + 0.5) * cell;
     ctx.fillStyle = 'rgba(255,255,255,0.9)';
@@ -467,7 +490,16 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       const py2 = oy + (s.row + 0.5) * cell;
       const radius = cell * 0.44 * Math.max(0, s.scale);
       if (radius <= 0) continue;
-      this.drawMarble(ctx, px, py2, radius, s.color, s.roll, s.id);
+      const stretch = s.stretch ?? 1;
+      if (stretch !== 1) {
+        ctx.save();
+        ctx.translate(px, py2);
+        ctx.scale(stretch, 1 / stretch);
+        this.drawMarble(ctx, 0, 0, radius, s.color, s.roll, s.id);
+        ctx.restore();
+      } else {
+        this.drawMarble(ctx, px, py2, radius, s.color, s.roll, s.id);
+      }
     }
 
     // Selected column marker (for ↑/↓ shifts).
@@ -490,12 +522,32 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     }
   }
 
-  private drawPitchHighlight(ctx: CanvasRenderingContext2D, cell: number, ox: number, oy: number): void {
+  private drawPitchHighlight(ctx: CanvasRenderingContext2D, cell: number, ox: number, oy: number, oneAway = false): void {
     // Two carved guide lines above and below the centre (pitch) row, like the
-    // original game — this is the only row whose marbles slide sideways.
+    // original game — this is the only row whose marbles slide sideways. The
+    // gap between the lines carries a soft vertical highlight so the active
+    // row reads at a glance, and it glows when a single slide would form a
+    // match ("one slide away").
     const overhang = cell * 0.6;
     const yTop = oy + PITCH_ROW * cell;
     const yBot = oy + (PITCH_ROW + 1) * cell;
+    const bandH = yBot - yTop;
+
+    // Vertical gap highlight across the pitch-row band.
+    const band = ctx.createLinearGradient(0, yTop, 0, yBot);
+    if (oneAway) {
+      const pulse = this.pulsePhase();
+      band.addColorStop(0, 'rgba(255,230,140,0)');
+      band.addColorStop(0.5, `rgba(255,230,140,${(0.32 + pulse * 0.3).toFixed(3)})`);
+      band.addColorStop(1, 'rgba(255,230,140,0)');
+    } else {
+      band.addColorStop(0, 'rgba(255,240,190,0)');
+      band.addColorStop(0.5, 'rgba(255,240,190,0.09)');
+      band.addColorStop(1, 'rgba(255,240,190,0)');
+    }
+    ctx.fillStyle = band;
+    ctx.fillRect(ox - overhang, yTop, cell * COLS + overhang * 2, bandH);
+
     ctx.lineCap = 'round';
     for (const y of [yTop, yBot]) {
       // Dark groove with a bright top edge.
@@ -505,13 +557,39 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       ctx.moveTo(ox - overhang, y);
       ctx.lineTo(ox + cell * COLS + overhang, y);
       ctx.stroke();
-      ctx.strokeStyle = 'rgba(255, 240, 160, 0.95)';
-      ctx.lineWidth = Math.max(1.5, cell * 0.09);
+      ctx.strokeStyle = oneAway ? 'rgba(255, 255, 200, 1)' : 'rgba(255, 240, 160, 0.95)';
+      ctx.lineWidth = Math.max(1.5, cell * (oneAway ? 0.13 : 0.09));
       ctx.beginPath();
       ctx.moveTo(ox - overhang, y - Math.max(1, cell * 0.07));
       ctx.lineTo(ox + cell * COLS + overhang, y - Math.max(1, cell * 0.07));
       ctx.stroke();
     }
+  }
+
+  /** True if a single legal slide (row ±1 or any column ±1) would form a
+   *  3+ same-color run in the pitch row — the "one slide away" glow trigger. */
+  private pitchOneAway(): boolean {
+    const board = this._board;
+    if (!board || board.length !== ROWS) return false;
+    const pitch = board[PITCH_ROW];
+    if (!pitch || pitch.length !== COLS) return false;
+
+    // Row shifts permute the pitch row.
+    for (const dir of [-1, 1]) {
+      const row = new Array<number>(COLS);
+      for (let c = 0; c < COLS; c++) row[c] = pitch[(c - dir + COLS) % COLS];
+      if (pitchHasRun(row)) return true;
+    }
+
+    // Column shifts change only the pitch-row cell of that column.
+    for (let c = 0; c < COLS; c++) {
+      for (const dir of [-1, 1]) {
+        const row = pitch.slice();
+        row[c] = board[(PITCH_ROW - dir + ROWS) % ROWS][c];
+        if (pitchHasRun(row)) return true;
+      }
+    }
+    return false;
   }
 
   /** Render the opponent's live board (no animations — just the static state). */
@@ -532,7 +610,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     const { cell, ox, oy } = this.boardLayout(canvas.width, canvas.height);
     this.drawBoardBackdrop(ctx, canvas.width, canvas.height);
     this.drawTrench(ctx, cell, ox, oy);
-    this.drawPitchHighlight(ctx, cell, ox, oy);
+    this.drawPitchHighlight(ctx, cell, ox, oy, false);
     for (let c = 0; c < COLS; c++) {
       for (let r = 0; r < ROWS; r++) {
         const color = board[r]?.[c] ?? 0;
@@ -667,7 +745,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     // only the ring outside the sphere stays visible.
     if (hotColor > 0 && colorId === hotColor) {
       const glow = COLORS[hotColor] ?? COLORS[1];
-      const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.006 + seed * 0.7);
+      const pulse = this.pulsePhase();
       const halo = ctx.createRadialGradient(x, y, r * 0.8, x, y, r * 1.7);
       halo.addColorStop(0, `rgba(${glow[0]},${glow[1]},${glow[2]},${(0.35 + pulse * 0.25).toFixed(3)})`);
       halo.addColorStop(1, `rgba(${glow[0]},${glow[1]},${glow[2]},0)`);
@@ -846,7 +924,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     // Bright rim for the hot colour so it pops against the other marbles.
     if (hotColor > 0 && colorId === hotColor) {
       const glow = COLORS[hotColor] ?? COLORS[1];
-      const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.006 + seed * 0.7);
+      const pulse = this.pulsePhase();
       ctx.strokeStyle = `rgba(${Math.min(255, glow[0] + 90)},${Math.min(255, glow[1] + 90)},${Math.min(255, glow[2] + 90)},${(0.7 + pulse * 0.3).toFixed(3)})`;
       ctx.lineWidth = Math.max(1.5, r * 0.14);
       ctx.beginPath();
@@ -931,6 +1009,20 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   private playLose(): void {
     [392, 330, 262, 196].forEach((f, i) => this.tone(f, 0.22, 'sawtooth', 0.08, i * 0.12, f * 0.92));
   }
+}
+
+/** True if a pitch-row array contains 3+ consecutive same-colour marbles. */
+function pitchHasRun(row: number[]): boolean {
+  let c = 0;
+  while (c < row.length) {
+    const color = row[c];
+    if (!color) { c++; continue; }
+    let end = c;
+    while (end < row.length && row[end] === color) end++;
+    if (end - c >= 3) return true;
+    c = end;
+  }
+  return false;
 }
 
 function lighten(c: [number, number, number], amt: number): string {
