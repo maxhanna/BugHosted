@@ -1756,13 +1756,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.updateRacePosition();
       this.totalRaceTime += dt * 1000;
       // Ring buffer caps itself — no shift() tax once 6000 frames are in.
-      const recColors = [
-        [0.8, 0.2, 0.2], [0.2, 0.4, 0.9], [0.1, 0.7, 0.1],
-        [0.9, 0.7, 0.1], [0.7, 0.2, 0.7], [1.0, 0.5, 0]
-      ];
+      // BOT_PAINT is the module-level palette — reuse it instead of rebuilding
+      // this 6-element color table every frame (pure GC churn while racing).
       const rcars: ReplayCar[] = [];
       this.bots.forEach((b, bi) => {
-        const pc = recColors[b.color % recColors.length];
+        const pc = BOT_PAINT[b.color % BOT_PAINT.length];
         const prev = this._prevBotSpeeds.get(b) ?? b.speed;
         // Record the exact livery the bot wore live (same formula as the live render
         // loop: botAppearanceFor(index, color)) so the replay matches the race.
