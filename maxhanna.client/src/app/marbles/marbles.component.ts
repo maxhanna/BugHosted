@@ -20,6 +20,12 @@ const COLORS: [number, number, number][] = [
   [142, 74, 196],  // purple
 ];
 
+/** Signature inner pattern per color id (1..6), so each colour family is
+ *  recognisable by shape rather than hue alone — important for colour-blind
+ *  players. 0 = swirl · 1 = flecked · 2 = cat's-eye · 3 = rings ·
+ *  4 = spiral · 5 = stripes. */
+const PATTERNS: number[] = [0, 0, 1, 2, 3, 4, 5];
+
 type SpritePhase = 'move' | 'pop';
 
 interface Sprite {
@@ -485,13 +491,27 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   }
 
   private drawPitchHighlight(ctx: CanvasRenderingContext2D, cell: number, ox: number, oy: number): void {
-    const py = oy + (PITCH_ROW + 0.5) * cell;
-    const grad = ctx.createLinearGradient(ox - cell, py - cell * 0.85, ox + cell * COLS, py + cell * 0.85);
-    grad.addColorStop(0, 'rgba(255, 240, 160, 0.0)');
-    grad.addColorStop(0.5, 'rgba(255, 240, 160, 0.45)');
-    grad.addColorStop(1, 'rgba(255, 240, 160, 0.0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(ox - cell * 0.5, py - cell * 0.8, cell * COLS + cell, cell * 1.6);
+    // Two carved guide lines above and below the centre (pitch) row, like the
+    // original game — this is the only row whose marbles slide sideways.
+    const overhang = cell * 0.6;
+    const yTop = oy + PITCH_ROW * cell;
+    const yBot = oy + (PITCH_ROW + 1) * cell;
+    ctx.lineCap = 'round';
+    for (const y of [yTop, yBot]) {
+      // Dark groove with a bright top edge.
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = Math.max(2.5, cell * 0.15);
+      ctx.beginPath();
+      ctx.moveTo(ox - overhang, y);
+      ctx.lineTo(ox + cell * COLS + overhang, y);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255, 240, 160, 0.95)';
+      ctx.lineWidth = Math.max(1.5, cell * 0.09);
+      ctx.beginPath();
+      ctx.moveTo(ox - overhang, y - Math.max(1, cell * 0.07));
+      ctx.lineTo(ox + cell * COLS + overhang, y - Math.max(1, cell * 0.07));
+      ctx.stroke();
+    }
   }
 
   /** Render the opponent's live board (no animations — just the static state). */
@@ -519,7 +539,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         if (!color) continue;
         const px = ox + (c + 0.5) * cell;
         const py = oy + (r + 0.5) * cell;
-        this.drawMarble(ctx, px, py, cell * 0.44, color, 0, r * COLS + c + 9000);
+        this.drawMarble(ctx, px, py, cell * 0.44, color, 0, r * COLS + c + 9000, this.opponent?.specialColor ?? 0);
       }
     }
   }
@@ -582,12 +602,13 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     }
   }
 
-  private drawMarble(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, colorId: number, roll: number, seed = 0): void {
+  private drawMarble(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, colorId: number, roll: number, seed = 0, hotColor = this.specialColor): void {
     const base = COLORS[colorId] ?? COLORS[1];
 
-    // Per-marble identity: a stable seed gives every marble its own tint,
-    // inner pattern style, swirl angle and highlight position, so no two
-    // marbles (even the same colour) look alike. The seed is deterministic,
+    // Per-marble identity: the seed gives every marble its own tint, pattern
+    // angle/thickness and highlight position, so no two marbles (even the same
+    // colour) look alike. The pattern *type* is fixed per colour family so it
+    // stays recognisable to colour-blind players. The seed is deterministic,
     // so a marble keeps its look while it slides around the board.
     const s0 = mhash(seed);
     const s1 = mhash(seed + 101);
@@ -600,7 +621,21 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       clamp255(base[1] * (1 + tilt)),
       clamp255(base[2] * (1 + tilt)),
     ];
-    const style = Math.floor(s1 * 4); // 0/3 swirl · 1 cat's-eye · 2 flecked
+    const style = PATTERNS[colorId] ?? 0;
+
+    // Hot-colour glow halo, drawn first so the glass body sits on top and
+    // only the ring outside the sphere stays visible.
+    if (hotColor > 0 && colorId === hotColor) {
+      const glow = COLORS[hotColor] ?? COLORS[1];
+      const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.006 + seed * 0.7);
+      const halo = ctx.createRadialGradient(x, y, r * 0.8, x, y, r * 1.7);
+      halo.addColorStop(0, `rgba(${glow[0]},${glow[1]},${glow[2]},${(0.35 + pulse * 0.25).toFixed(3)})`);
+      halo.addColorStop(1, `rgba(${glow[0]},${glow[1]},${glow[2]},0)`);
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(x, y, r * 1.7, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     // Glass body.
     const grad = ctx.createRadialGradient(x - r * 0.35, y - r * 0.38, r * 0.08, x, y, r);
@@ -621,55 +656,111 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     ctx.rotate(roll * 0.5 + s2 * Math.PI * 2);
     ctx.lineCap = 'round';
 
-    if (style === 0 || style === 3) {
-      // Swirl veins — classic marbled glass.
-      const veins = style === 3 ? 3 : 2;
-      for (let i = 0; i < veins; i++) {
-        const a = (i / veins) * Math.PI * 2 + s3 * Math.PI;
-        ctx.strokeStyle = i % 2 === 0 ? lighten(tinted, 0.45) : darken(tinted, 0.2);
-        ctx.lineWidth = r * (0.14 + s3 * 0.08);
+    switch (style) {
+      case 0: {
+        // Swirl veins — classic marbled glass.
+        const veins = 2;
+        for (let i = 0; i < veins; i++) {
+          const a = (i / veins) * Math.PI * 2 + s3 * Math.PI;
+          ctx.strokeStyle = i % 2 === 0 ? lighten(tinted, 0.45) : darken(tinted, 0.2);
+          ctx.lineWidth = r * (0.14 + s3 * 0.08);
+          ctx.beginPath();
+          ctx.arc(0, 0, r * (0.35 + s3 * 0.25), a, a + Math.PI * (0.8 + s2 * 0.4));
+          ctx.stroke();
+        }
+        break;
+      }
+      case 1: {
+        // Flecked — scattered darker/lighter inclusions.
+        ctx.fillStyle = darken(tinted, 0.32);
+        for (let i = 0; i < 4; i++) {
+          const a = s3 * Math.PI * 2 + i * 1.62;
+          const d = r * (0.15 + ((s2 * (i + 1)) % 1) * 0.5);
+          ctx.beginPath();
+          ctx.arc(Math.cos(a) * d, Math.sin(a) * d, r * (0.07 + s2 * 0.06), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.fillStyle = lighten(tinted, 0.5);
+        for (let i = 0; i < 2; i++) {
+          const a = s2 * Math.PI * 2 + i * 2.4;
+          const d = r * (0.1 + ((s3 * (i + 2)) % 1) * 0.5);
+          ctx.beginPath();
+          ctx.arc(Math.cos(a) * d, Math.sin(a) * d, r * 0.06, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        break;
+      }
+      case 2: {
+        // Cat's-eye band across the middle.
+        const a = s3 * Math.PI;
+        ctx.strokeStyle = lighten(tinted, 0.38);
+        ctx.lineWidth = r * 0.26;
         ctx.beginPath();
-        ctx.arc(0, 0, r * (0.35 + s3 * 0.25), a, a + Math.PI * (0.8 + s2 * 0.4));
+        ctx.arc(0, 0, r * 0.4, a, a + Math.PI * 0.55);
         ctx.stroke();
-      }
-    } else if (style === 1) {
-      // Cat's-eye band across the middle.
-      const a = s3 * Math.PI;
-      ctx.strokeStyle = lighten(tinted, 0.38);
-      ctx.lineWidth = r * 0.26;
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 0.4, a, a + Math.PI * 0.55);
-      ctx.stroke();
-      ctx.strokeStyle = darken(tinted, 0.28);
-      ctx.lineWidth = r * 0.12;
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 0.4, a + Math.PI * 0.12, a + Math.PI * 0.5);
-      ctx.stroke();
-    } else {
-      // Flecked — scattered darker/lighter inclusions.
-      ctx.fillStyle = darken(tinted, 0.32);
-      for (let i = 0; i < 4; i++) {
-        const a = s3 * Math.PI * 2 + i * 1.62;
-        const d = r * (0.15 + ((s2 * (i + 1)) % 1) * 0.5);
+        ctx.strokeStyle = darken(tinted, 0.28);
+        ctx.lineWidth = r * 0.12;
         ctx.beginPath();
-        ctx.arc(Math.cos(a) * d, Math.sin(a) * d, r * (0.07 + s2 * 0.06), 0, Math.PI * 2);
-        ctx.fill();
+        ctx.arc(0, 0, r * 0.4, a + Math.PI * 0.12, a + Math.PI * 0.5);
+        ctx.stroke();
+        break;
       }
-      ctx.fillStyle = lighten(tinted, 0.5);
-      for (let i = 0; i < 2; i++) {
-        const a = s2 * Math.PI * 2 + i * 2.4;
-        const d = r * (0.1 + ((s3 * (i + 2)) % 1) * 0.5);
+      case 3: {
+        // Concentric rings — a bullseye that reads at a glance.
+        ctx.strokeStyle = darken(tinted, 0.22);
+        for (let i = 0; i < 3; i++) {
+          ctx.lineWidth = r * (0.1 + i * 0.04);
+          ctx.beginPath();
+          ctx.arc(0, 0, r * (0.22 + i * 0.24), 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        break;
+      }
+      case 4: {
+        // Spiral — a single continuous curl.
+        ctx.strokeStyle = lighten(tinted, 0.4);
+        ctx.lineWidth = r * 0.12;
         ctx.beginPath();
-        ctx.arc(Math.cos(a) * d, Math.sin(a) * d, r * 0.06, 0, Math.PI * 2);
-        ctx.fill();
+        const turns = 2.5;
+        const segs = 40;
+        for (let i = 0; i <= segs; i++) {
+          const t = i / segs;
+          const a = s2 * Math.PI * 2 + t * turns * Math.PI * 2;
+          const rr = r * (0.06 + t * 0.55);
+          const px = Math.cos(a) * rr;
+          const py = Math.sin(a) * rr;
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+        break;
+      }
+      default: {
+        // Stripes — parallel bands across the sphere.
+        ctx.lineWidth = r * 0.11;
+        for (let i = -2; i <= 2; i++) {
+          ctx.strokeStyle = i % 2 === 0 ? lighten(tinted, 0.42) : darken(tinted, 0.24);
+          const off = i * r * 0.34;
+          ctx.beginPath();
+          ctx.moveTo(off, -r);
+          ctx.lineTo(off, r);
+          ctx.stroke();
+        }
+        break;
       }
     }
     ctx.restore();
 
-    // Specular highlight, slightly offset per marble.
-    const hx = x - r * (0.26 + s0 * 0.18);
-    const hy = y - r * (0.32 + s1 * 0.16);
-    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    // ── Specular highlight & roll-responsive reflection ──────────────
+    // The highlight drifts subtly as the marble rolls, and a faint glint
+    // sweeps across the glass with the rotation so it reads as a real
+    // rolling sphere instead of a flat disc.
+    const sway = Math.sin(roll) * r * 0.08;
+    const bob = Math.cos(roll * 0.8) * r * 0.06;
+    const hx = x - r * (0.26 + s0 * 0.18) + sway;
+    const hy = y - r * (0.32 + s1 * 0.16) + bob;
+
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
     ctx.beginPath();
     ctx.arc(hx, hy, r * 0.16, 0, Math.PI * 2);
     ctx.fill();
@@ -678,11 +769,50 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     ctx.arc(hx + r * 0.12, hy + r * 0.14, r * 0.07, 0, Math.PI * 2);
     ctx.fill();
 
+    // Rolling glint — a soft bright streak travelling with the roll,
+    // clipped to the sphere so it never pokes outside the glass.
+    const glint = roll * 1.9;
+    const gx = x + Math.cos(glint) * r * 0.5;
+    const gy = y + Math.sin(glint) * r * 0.5;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.94, 0, Math.PI * 2);
+    ctx.clip();
+    const gg = ctx.createRadialGradient(gx, gy, 0, gx, gy, r * 0.55);
+    gg.addColorStop(0, 'rgba(255,255,255,0.25)');
+    gg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gg;
+    ctx.beginPath();
+    ctx.arc(gx, gy, r * 0.55, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Bottom reflected rim — a faint bounce of light along the lower edge.
+    const rim = ctx.createLinearGradient(x, y + r * 0.4, x, y + r);
+    rim.addColorStop(0, 'rgba(255,255,255,0)');
+    rim.addColorStop(1, 'rgba(255,255,255,0.18)');
+    ctx.strokeStyle = rim;
+    ctx.lineWidth = r * 0.2;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.85, Math.PI * 0.22, Math.PI * 0.78);
+    ctx.stroke();
+    ctx.restore();
+
     ctx.strokeStyle = 'rgba(0,0,0,0.35)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.arc(x, y, r - 0.5, 0, Math.PI * 2);
     ctx.stroke();
+
+    // Bright rim for the hot colour so it pops against the other marbles.
+    if (hotColor > 0 && colorId === hotColor) {
+      const glow = COLORS[hotColor] ?? COLORS[1];
+      const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.006 + seed * 0.7);
+      ctx.strokeStyle = `rgba(${Math.min(255, glow[0] + 90)},${Math.min(255, glow[1] + 90)},${Math.min(255, glow[2] + 90)},${(0.7 + pulse * 0.3).toFixed(3)})`;
+      ctx.lineWidth = Math.max(1.5, r * 0.14);
+      ctx.beginPath();
+      ctx.arc(x, y, r - 0.5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
   }
 
   private roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
