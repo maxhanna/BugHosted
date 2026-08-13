@@ -1,8 +1,16 @@
 <div class="componentMain marbles-root">
-  <app-title-bar [title]="'Marbles'" [hasMenu]="false" (closeClicked)="remove_me('MarblesComponent')"></app-title-bar>
+  <app-title-bar [title]="'Marbles'" [showMenu]="status === 'playing'" (menuClicked)="showMenuPanel()" (closeClicked)="remove_me('MarblesComponent')"></app-title-bar>
 
-  <div class="marbles-stage" (pointerdown)="onStageDown($event)">
-    <canvas #boardCanvas></canvas>
+  <div class="marbles-stage">
+    <div class="marbles-boards">
+      <div class="board-slot board-mine" (pointerdown)="onStageDown($event)">
+        <canvas #boardCanvas></canvas>
+      </div>
+      <div class="board-slot board-opponent" *ngIf="status === 'playing' || status === 'won'">
+        <canvas #opponentCanvas></canvas>
+        <div class="board-label" *ngIf="opponent">{{ opponent.playerName }}</div>
+      </div>
+    </div>
 
     <!-- ── Splash screen ─────────────────────────────────────────────── -->
     <div class="marbles-splash" *ngIf="status === 'splash'" (click)="toMenu()">
@@ -104,24 +112,38 @@
       <div class="hud-hint" *ngIf="status === 'playing'">Slide 3+ together in the center row — 5+ dumps your reserve!</div>
     </div>
 
-    <!-- ── On-screen controls (mobile + desktop convenience) ─────────── -->
-    <div class="marbles-controls" *ngIf="status === 'playing'">
-      <div class="controls-col">
-        <span class="controls-label">Col {{ selectedCol + 1 }}</span>
-        <button class="ctrl-btn" (click)="shiftColumn(-1)">▲</button>
-        <button class="ctrl-btn" (click)="shiftColumn(1)">▼</button>
-      </div>
-      <div class="controls-row">
-        <button class="ctrl-btn" (click)="shiftRow(-1)">◀</button>
-        <button class="ctrl-btn wide" (click)="shiftRow(1)">▶</button>
-      </div>
-    </div>
-
     <!-- ── Winner banner ─────────────────────────────────────────────── -->
     <div class="marbles-win" *ngIf="winnerName">
       <div class="marbles-win-text">{{ winnerName }} wins!</div>
       <p class="marbles-win-sub">The other board filled up first.</p>
       <button class="win98-btn primary" (click)="leaveToMenu()">Back to Menu</button>
     </div>
+  </div>
+
+  <!-- ── Title-bar menu popup (game controls) ───────────────────────── -->
+  <div class="popupPanel marbles-menu-popup" *ngIf="isMenuPanelOpen">
+    <div class="popupPanelTitle">🎮 Marbles Controls</div>
+    <div class="marbles-menu-block">
+      <span class="marbles-menu-label">Column {{ selectedCol + 1 }}</span>
+      <div class="col-picker">
+        <button *ngFor="let i of [1, 2, 3, 4, 5, 6]" class="col-btn" [class.selected]="selectedCol === i - 1" (click)="selectColumn(i - 1)">{{ i }}</button>
+      </div>
+    </div>
+    <div class="marbles-menu-block">
+      <span class="marbles-menu-label">Shift column</span>
+      <div class="controls-row">
+        <button class="ctrl-btn" (click)="shiftColumn(-1)">▲</button>
+        <button class="ctrl-btn" (click)="shiftColumn(1)">▼</button>
+      </div>
+    </div>
+    <div class="marbles-menu-block">
+      <span class="marbles-menu-label">Shift center row</span>
+      <div class="controls-row">
+        <button class="ctrl-btn" (click)="shiftRow(-1)">◀</button>
+        <button class="ctrl-btn wide" (click)="shiftRow(1)">▶</button>
+      </div>
+    </div>
+    <p class="marbles-menu-tip">Line up 3+ of a color in the center row. A 5+ match dumps your reserve onto your opponent!</p>
+    <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
   </div>
 </div>

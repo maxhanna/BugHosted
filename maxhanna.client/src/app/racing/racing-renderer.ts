@@ -713,10 +713,17 @@ export class RacingRenderer {
     // 24-bit uploads through on a slower code path.
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB8, w, h, 0, gl.RGB, gl.UNSIGNED_BYTE, data);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    // Mipmapped trilinear filtering. Without mipmaps the high-contrast road
+    // detail (white dashes, painted lines, red/white kerbs) aliases when
+    // minified into a gray shimmer that reads as gray blotches/spots across
+    // the track — worst on Chrome/ANGLE, which samples the base level
+    // differently to Firefox. Mips average that detail at distance so the
+    // asphalt stays clean instead of speckling.
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.generateMipmap(gl.TEXTURE_2D);
     return t;
   }
   private makeAsphaltTex(): WebGLTexture {
@@ -861,89 +868,46 @@ export class RacingRenderer {
     return this.makeRacingMarkingsTex();
   }
   private makeRacingMarkingsTex(): WebGLTexture {
-    // Richer street markings: crisp painted edge lines, a dashed centre line
-    // and worn asphalt (fine grain, broad mottle/repairs, rubber dust on the
-    // racing line and at the edges). Tiled along the track every TRACK_MARK_TILE
-    // world units (see buildTrackMesh) so the dashes stay a sane size on the
-    // road instead of stretching into 40-unit streaks.
+    // Clean asphalt with crisp painted edge lines and a dashed centre line —
+    // no noise mottle and no baked-in rubber bands. Those read as gray
+    // blotches/spots on the track (especially on Chrome), so the surface is
+    // deliberately uniform and the only detail is the painted lines.
     const size = 256;
     const data = new Uint8Array(size * size * 3);
-    const hash = (x: number, y: number) => {
-      let n = (x * 374761393 + y * 668265263) | 0;
-      n = Math.imul(n ^ (n >>> 13), 1274126177);
-      n ^= n >>> 16;
-      return (n >>> 0) / 4294967296;
-    };
-    const noise = (x: number, y: number, cell: number) => {
-      const x0 = Math.floor(x / cell), y0 = Math.floor(y / cell);
-      const fx = x / cell - x0, fy = y / cell - y0;
-      const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
-      const v00 = hash(x0, y0), v10 = hash(x0 + 1, y0), v01 = hash(x0, y0 + 1), v11 = hash(x0 + 1, y0 + 1);
-      const a = v00 + (v10 - v00) * sx;
-      const b = v01 + (v11 - v01) * sx;
-      return a + (b - a) * sy;
-    };
     const soft = (lo: number, hi: number, vy: number, falloff: number) =>
       Math.max(0, Math.min(1, Math.min(vy - lo, hi - vy) / falloff));
     for (let y = 0; y < size; y++) {
       const vy = y / size;
       for (let x = 0; x < size; x++) {
         const i = (y * size + x) * 3;
-        // Base asphalt: mid gray with smooth low-frequency wear patches only.
-        // Per-pixel noise is deliberately avoided: with no mipmaps it aliases
-        // into shimmering gray blotches across the track (esp. minified at
-        // distance), which read as "gray spots" on the asphalt.
-        let g = 55 + (noise(x, y, 48) - 0.5) * 8;
-        // Rubber laid down on the racing line (a soft band down the middle).
-        g -= Math.max(0, 1 - Math.abs(vy - 0.5) * 5.5) * 12;
-        // Rubber dust at the very edges where cars drop wheels off-line.
-        if (vy < 0.035) g -= (0.035 - vy) * 170;
-        if (vy > 0.965) g -= (vy - 0.965) * 170;
+        let g = 62;
         // Painted white edge lines, slightly inboard of the kerb.
         const aEdge = Math.max(soft(0.03, 0.062, vy, 0.007), soft(0.938, 0.97, vy, 0.007));
         g = g * (1 - aEdge) + 233 * aEdge;
         // Dashed white centre line.
         const aDash = soft(0.486, 0.514, vy, 0.007) * ((x % 56) < 22 ? 1 : 0);
         g = g * (1 - aDash) + 226 * aDash;
-        g = Math.max(5, Math.min(250, g));
         data[i] = g; data[i + 1] = g; data[i + 2] = g * 0.98 + 4;
       }
     }
     return this.makeTex(size, size, data);
   }
   private makeStreetMarkingsTex(): WebGLTexture {
-    // City-road surface for street circuits: darker asphalt with a white edge
-    // line and a double-yellow centre line (the classic no-overtaking street
-    // marking), with tyre rubber worn down the racing line. Crosswalks are a
-    // separate painted overlay (see buildCrosswalks).
+    // City-road surface for street circuits: clean darker asphalt with a white
+    // edge line and a double-yellow centre line (the classic no-overtaking
+    // street marking). No noise mottle or baked-in rubber band — those read
+    // as gray blotches on the road. Crosswalks are a separate painted overlay
+    // (see buildCrosswalks).
     const size = 256;
     const data = new Uint8Array(size * size * 3);
-    const hash = (x: number, y: number) => {
-      let n = (x * 374761393 + y * 668265263) | 0;
-      n = Math.imul(n ^ (n >>> 13), 1274126177);
-      n ^= n >>> 16;
-      return (n >>> 0) / 4294967296;
-    };
-    const noise = (x: number, y: number, cell: number) => {
-      const x0 = Math.floor(x / cell), y0 = Math.floor(y / cell);
-      const fx = x / cell - x0, fy = y / cell - y0;
-      const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
-      const v00 = hash(x0, y0), v10 = hash(x0 + 1, y0), v01 = hash(x0, y0 + 1), v11 = hash(x0 + 1, y0 + 1);
-      const a = v00 + (v10 - v00) * sx;
-      const b = v01 + (v11 - v01) * sx;
-      return a + (b - a) * sy;
-    };
     const soft = (lo: number, hi: number, vy: number, falloff: number) =>
       Math.max(0, Math.min(1, Math.min(vy - lo, hi - vy) / falloff));
     for (let y = 0; y < size; y++) {
       const vy = y / size;
       for (let x = 0; x < size; x++) {
         const i = (y * size + x) * 3;
-        // Dark city asphalt with smooth low-frequency wear patches only (no
-        // per-pixel noise — it aliases into gray blotches when minified).
-        let g = 42 + (noise(x, y, 48) - 0.5) * 7;
-        // Tyre rubber down the racing line (centre of the road).
-        g -= Math.max(0, 1 - Math.abs(vy - 0.5) * 5.5) * 10;
+        // Uniform dark city asphalt — no wear patches or rubber band.
+        let g = 48;
         let r = g, gg = g, b = g;
         // White edge lines, slightly inboard of the kerb.
         const aE = Math.max(soft(0.028, 0.058, vy, 0.007), soft(0.942, 0.972, vy, 0.007));

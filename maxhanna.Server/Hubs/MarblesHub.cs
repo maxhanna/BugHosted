@@ -147,6 +147,9 @@ namespace maxhanna.Server.Hubs
                 mySpecialColor = me?.SpecialColor ?? 0,
                 myReserve = me?.Reserve ?? 0,
                 mySent = me?.Sent ?? 0,
+                opponents = lobby.Players
+                    .Where(o => o.ConnectionId != Context.ConnectionId)
+                    .Select(o => OpponentView(o)).ToArray(),
             };
         }
 
@@ -199,7 +202,7 @@ namespace maxhanna.Server.Hubs
             });
             foreach (var p in players)
             {
-                await Clients.Client(p.ConnectionId).SendAsync("OnBoardUpdate", MakeUpdate(p, null, 0, false));
+                await Clients.Client(p.ConnectionId).SendAsync("OnBoardUpdate", MakeUpdate(lobby, p, null, 0, false));
             }
             await BroadcastLobbyAsync(lobby);
 
@@ -270,7 +273,7 @@ namespace maxhanna.Server.Hubs
             });
             foreach (var p in players)
             {
-                if (!p.IsBot) await Clients.Client(p.ConnectionId).SendAsync("OnBoardUpdate", MakeUpdate(p, null, 0, false));
+                if (!p.IsBot) await Clients.Client(p.ConnectionId).SendAsync("OnBoardUpdate", MakeUpdate(lobby, p, null, 0, false));
             }
             await BroadcastLobbyAsync(lobby);
 
@@ -530,11 +533,11 @@ namespace maxhanna.Server.Hubs
                     }
                 }
 
-                updates[mover.ConnectionId] = MakeUpdate(mover, result.Popped, 0, false);
+                updates[mover.ConnectionId] = MakeUpdate(lobby, mover, result.Popped, 0, false);
                 foreach (var p in lobby.Players)
                 {
                     if (updates.ContainsKey(p.ConnectionId)) continue;
-                    updates[p.ConnectionId] = MakeUpdate(p, null, rainedBy.GetValueOrDefault(p.ConnectionId), false);
+                    updates[p.ConnectionId] = MakeUpdate(lobby, p, null, rainedBy.GetValueOrDefault(p.ConnectionId), false);
                 }
             }
 
@@ -590,14 +593,14 @@ namespace maxhanna.Server.Hubs
                                         p.Reserve = 0;
                                     }
                                 }
-                                updates[p.ConnectionId] = MakeUpdate(p, pop.Popped, 0, true);
+                                updates[p.ConnectionId] = MakeUpdate(lobby, p, pop.Popped, 0, true);
                             }
                         }
                         foreach (var p in lobby.Players)
                         {
                             if (!updates.ContainsKey(p.ConnectionId))
                             {
-                                updates[p.ConnectionId] = MakeUpdate(p, null, 0, false);
+                                updates[p.ConnectionId] = MakeUpdate(lobby, p, null, 0, false);
                             }
                         }
                     }
@@ -745,7 +748,7 @@ namespace maxhanna.Server.Hubs
             return board;
         }
 
-        private static Dictionary<string, object?> MakeUpdate(Player p, List<object>? popped, int rained, bool dropped)
+        private static Dictionary<string, object?> MakeUpdate(Lobby lobby, Player p, List<object>? popped, int rained, bool dropped)
         {
             return new Dictionary<string, object?>
             {
@@ -758,8 +761,24 @@ namespace maxhanna.Server.Hubs
                 ["dropped"] = dropped,
                 ["alive"] = p.Alive,
                 ["winnerName"] = (string?)null,
+                ["opponents"] = lobby.Players
+                    .Where(o => o.ConnectionId != p.ConnectionId)
+                    .Select(o => OpponentView(o)).ToArray(),
             };
         }
+
+        /// <summary>Public snapshot of another player's board (for the side-by-side / corner view).</summary>
+        private static object OpponentView(Player o) => new
+        {
+            connectionId = o.ConnectionId,
+            playerName = o.PlayerName,
+            board = o.Board,
+            specialColor = o.SpecialColor,
+            reserve = o.Reserve,
+            sent = o.Sent,
+            alive = o.Alive,
+            isBot = o.IsBot,
+        };
 
         private async Task BroadcastLobbyAsync(Lobby lobby)
         {

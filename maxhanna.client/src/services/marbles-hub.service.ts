@@ -20,11 +20,23 @@ export interface MarblesLobbyState {
   players: MarblesPlayer[];
 }
 
+export interface MarblesOpponentView {
+  connectionId: string;
+  playerName: string;
+  board: number[][];
+  specialColor: number;
+  reserve: number;
+  sent: number;
+  alive: boolean;
+  isBot: boolean;
+}
+
 export interface MarblesJoinResult extends MarblesLobbyState {
   myBoard: number[][];
   mySpecialColor: number;
   myReserve: number;
   mySent: number;
+  opponents: MarblesOpponentView[];
 }
 
 export interface MarblesBoardUpdate {
@@ -40,6 +52,8 @@ export interface MarblesBoardUpdate {
   dropped: boolean;
   alive: boolean;
   winnerName: string | null;
+  /** Other players' live boards (for the side-by-side / corner view). */
+  opponents: MarblesOpponentView[];
 }
 
 export interface MarblesGameStarted {

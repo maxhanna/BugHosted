@@ -14,14 +14,69 @@
   background: #8a5f38;
 }
 
-.marbles-stage canvas {
+.marbles-boards {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: row;
+}
+
+.board-slot {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
+.board-slot canvas {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   display: block;
+}
+
+.board-mine canvas {
   touch-action: none;
   cursor: pointer;
+}
+
+.board-label {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+/* Mobile: opponent's board tucks into the top-right corner */
+@media (max-width: 900px) {
+  .marbles-boards {
+    display: block;
+  }
+  .board-mine {
+    position: absolute;
+    inset: 0;
+    flex: none;
+  }
+  .board-opponent {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    flex: none;
+    height: min(30vh, 190px);
+    aspect-ratio: 6 / 12;
+    border: 2px solid rgba(0, 0, 0, 0.45);
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+    background: #8a5f38;
+  }
 }
 
 /* ── Splash screen ─────────────────────────────────────────────────── */
@@ -389,45 +444,64 @@
   box-shadow: 0 0 6px rgba(255, 220, 90, 0.9);
 }
 
-/* ── On-screen shift controls ─────────────────────────────────────── */
+/* ── Menu popup controls ─────────────────────────────────────────── */
 
-.marbles-controls {
-  position: absolute;
-  right: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 2;
+.marbles-menu-popup {
+  min-width: 300px;
+  max-width: 92vw;
+  gap: 16px;
+}
+
+.marbles-menu-popup .popupPanelTitle {
+  color: var(--secondary-font-color);
+}
+
+.marbles-menu-block {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  pointer-events: none;
+}
+
+.marbles-menu-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--third-font-color);
+}
+
+.col-picker {
+  display: flex;
+  gap: 6px;
+}
+
+.col-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  border: 2px solid #0a0a0a;
+  background: #e9e9e9;
+  color: #000;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.col-btn.selected {
+  background: #ffd15c;
+  border-color: #b98a1a;
+  box-shadow: 0 0 8px rgba(255, 209, 92, 0.9);
 }
 
 .controls-row {
   display: flex;
-  gap: 6px;
-  pointer-events: auto;
-}
-
-.controls-col {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: center;
-  pointer-events: auto;
-}
-
-.controls-label {
-  color: #fff;
-  font-size: 12px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
-  font-weight: 700;
+  gap: 8px;
 }
 
 .ctrl-btn {
-  width: 52px;
-  height: 52px;
+  width: 60px;
+  height: 54px;
   border-radius: 10px;
   border: 2px solid;
   border-color: #ffffff #0a0a0a #0a0a0a #ffffff;
@@ -445,17 +519,16 @@
 }
 
 .ctrl-btn.wide {
-  width: 110px;
+  width: 130px;
 }
 
-@media (max-width: 700px) {
-  .ctrl-btn {
-    width: 58px;
-    height: 58px;
-  }
-  .ctrl-btn.wide {
-    width: 122px;
-  }
+.marbles-menu-tip {
+  margin: 0;
+  font-size: 12px;
+  text-align: center;
+  color: var(--third-font-color);
+  line-height: 1.4;
+  max-width: 300px;
 }
 
 .hud-you {

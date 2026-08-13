@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AppModule } from '../app.module';
 import { ChildComponent } from '../child.component';
-import { MarblesHubService, MarblesLobbyState, MarblesPlayer, MarblesBoardUpdate } from '../../services/marbles-hub.service';
+import { MarblesHubService, MarblesLobbyState, MarblesPlayer, MarblesBoardUpdate, MarblesOpponentView } from '../../services/marbles-hub.service';
 
 const COLS = 6;
 const ROWS = 12;
@@ -41,6 +41,7 @@ interface Sprite {
 })
 export class MarblesComponent extends ChildComponent implements AfterViewInit, OnDestroy {
   @ViewChild('boardCanvas', { static: false }) canvasRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('opponentCanvas', { static: false }) opponentCanvasRef!: ElementRef<HTMLCanvasElement>;
 
   status: 'splash' | 'menu' | 'lobby' | 'playing' | 'won' = 'splash';
   playerName = '';
@@ -52,9 +53,11 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   specialColor = 0;
   winnerName: string | null = null;
   connected = false;
+  opponents: MarblesOpponentView[] = [];
   chatMessages: { playerName: string; message: string }[] = [];
   chatDraft = '';
   showHowTo = false;
+  isMenuPanelOpen = false;
 
   /** Currently selected column (for ↑/↓ column shifts). */
   selectedCol = 2;
@@ -82,8 +85,10 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.hub.gameStarted$.subscribe(() => this.ngZone.run(() => {
       this.status = 'playing';
       this.winnerName = null;
+      this.isMenuPanelOpen = false;
       this.sprites = [];
       this._board = [];
+      this.opponents = [];
       this.myReserve = 0;
       this.mySent = 0;
       this.cdr.detectChanges();
@@ -113,9 +118,20 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
   // ── Menu / lobby actions ────────────────────────────────────────────────
 
-  toMenu(): void { this.status = 'menu'; this.showHowTo = false; this.cdr.detectChanges(); }
+  toMenu(): void { this.status = 'menu'; this.showHowTo = false; this.isMenuPanelOpen = false; this.cdr.detectChanges(); }
   backToSplash(): void { this.status = 'splash'; this.cdr.detectChanges(); }
   toggleHowTo(): void { this.showHowTo = !this.showHowTo; this.playClick(); this.cdr.detectChanges(); }
+
+  showMenuPanel(): void {
+    if (this.isMenuPanelOpen) { this.closeMenuPanel(); return; }
+    this.isMenuPanelOpen = true;
+    this.playClick();
+    this.cdr.detectChanges();
+  }
+
+  closeMenuPanel(): void {
+    this.isMenuPanelOpen = false;
+  }
 
   async hostGame(): Promise<void> {
     await this.join('');
@@ -154,6 +170,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.mySent = res.mySent;
     this.myReserve = res.myReserve;
     this.specialColor = res.mySpecialColor;
+    this.opponents = res.opponents ?? [];
     if (this.status === 'playing') {
       this.applyBoard({ board: res.myBoard, popped: [], rained: 0, dropped: false, specialColor: res.mySpecialColor, reserve: res.myReserve, sent: res.mySent, alive: true, winnerName: null });
     }
@@ -177,8 +194,10 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.hub.disconnect();
     this.lobby = null;
     this.status = 'menu';
+    this.isMenuPanelOpen = false;
     this.sprites = [];
     this._board = [];
+    this.opponents = [];
     this.winnerName = null;
     this.cdr.detectChanges();
   }
@@ -199,6 +218,11 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     return (this.lobby?.players ?? []).filter(p => p.connectionId !== me);
   }
 
+  /** The opponent whose board is shown side-by-side / in the corner (first opponent). */
+  get opponent(): MarblesOpponentView | null {
+    return this.opponents[0] ?? null;
+  }
+
   hotColorCss(): string {
     const base = COLORS[this.specialColor] ?? COLORS[1];
     return `radial-gradient(circle at 32% 28%, ${lighten(base, 0.55)}, rgb(${base[0]},${base[1]},${base[2]}) 55%, ${darken(base, 0.5)})`;
@@ -217,6 +241,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.mySent = bu.sent;
     this.myReserve = bu.reserve;
     this.specialColor = bu.specialColor;
+    this.opponents = bu.opponents ?? [];
     if (bu.dropped) this.playDrop();
     if (bu.rained > 0) this.playRain(bu.rained);
     if ((bu.popped?.length ?? 0) > 0) this.playPop(bu.popped.length);
@@ -227,6 +252,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   private onGameWon(w: { winnerName: string }): void {
     this.winnerName = w.winnerName;
     this.status = 'won';
+    this.isMenuPanelOpen = false;
     const iWon = this.winnerName === (this.lobby?.players.find(p => p.connectionId === this.hub.myConnectionId)?.playerName ?? '');
     if (iWon) this.playWin(); else this.playLose();
     this.cdr.detectChanges();
@@ -367,6 +393,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     if (this.status === 'playing' || this.status === 'won') {
       this.update(dt);
       this.draw();
+      this.drawOpponent();
     }
   }
 
@@ -393,14 +420,18 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.sprites = this.sprites.filter(s => !(s.phase === 'pop' && s.scale <= 0.02));
   }
 
-  private layout(): { cell: number; ox: number; oy: number } {
-    const canvas = this.canvasRef?.nativeElement;
-    const w = canvas?.width ?? 300, h = canvas?.height ?? 400;
+  private boardLayout(w: number, h: number): { cell: number; ox: number; oy: number } {
     const availW = w * 0.86, availH = h * 0.88;
     const cell = Math.min(availW / COLS, availH / ROWS);
     const ox = (w - cell * COLS) / 2;
     const oy = (h - cell * ROWS) / 2;
     return { cell, ox, oy };
+  }
+
+  private layout(): { cell: number; ox: number; oy: number } {
+    const canvas = this.canvasRef?.nativeElement;
+    const w = canvas?.width ?? 300, h = canvas?.height ?? 400;
+    return this.boardLayout(w, h);
   }
 
   private draw(): void {
@@ -414,14 +445,9 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.drawPegboard(ctx, cell, ox, oy);
 
     // Pitch row highlight (the center row / match zone).
+    this.drawPitchHighlight(ctx, cell, ox, oy);
+    // Row arrows on the pitch line edges (interactive board only).
     const py = oy + (PITCH_ROW + 0.5) * cell;
-    const grad = ctx.createLinearGradient(ox - cell, py - cell * 0.85, ox + cell * COLS, py + cell * 0.85);
-    grad.addColorStop(0, 'rgba(255, 240, 160, 0.0)');
-    grad.addColorStop(0.5, 'rgba(255, 240, 160, 0.45)');
-    grad.addColorStop(1, 'rgba(255, 240, 160, 0.0)');
-    ctx.fillStyle = grad;
-    ctx.fillRect(ox - cell * 0.5, py - cell * 0.8, cell * COLS + cell, cell * 1.6);
-    // Row arrows on the pitch line edges.
     ctx.fillStyle = 'rgba(255,255,255,0.9)';
     ctx.font = `bold ${Math.max(12, cell * 0.5)}px 'Segoe UI', sans-serif`;
     ctx.textAlign = 'center';
@@ -435,7 +461,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       const py2 = oy + (s.row + 0.5) * cell;
       const radius = cell * 0.44 * Math.max(0, s.scale);
       if (radius <= 0) continue;
-      this.drawMarble(ctx, px, py2, radius, s.color, s.roll);
+      this.drawMarble(ctx, px, py2, radius, s.color, s.roll, s.id);
     }
 
     // Selected column marker (for ↑/↓ shifts).
@@ -455,6 +481,46 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       ctx.lineTo(sx, oy + cell * ROWS + cell * 0.6);
       ctx.closePath();
       ctx.fill();
+    }
+  }
+
+  private drawPitchHighlight(ctx: CanvasRenderingContext2D, cell: number, ox: number, oy: number): void {
+    const py = oy + (PITCH_ROW + 0.5) * cell;
+    const grad = ctx.createLinearGradient(ox - cell, py - cell * 0.85, ox + cell * COLS, py + cell * 0.85);
+    grad.addColorStop(0, 'rgba(255, 240, 160, 0.0)');
+    grad.addColorStop(0.5, 'rgba(255, 240, 160, 0.45)');
+    grad.addColorStop(1, 'rgba(255, 240, 160, 0.0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(ox - cell * 0.5, py - cell * 0.8, cell * COLS + cell, cell * 1.6);
+  }
+
+  /** Render the opponent's live board (no animations — just the static state). */
+  private drawOpponent(): void {
+    const canvas = this.opponentCanvasRef?.nativeElement;
+    const board = this.opponent?.board;
+    if (!canvas || !board) return;
+
+    // Keep the backing store in sync with the CSS box (slot appears mid-game).
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const cw = Math.max(1, Math.round(canvas.clientWidth * dpr));
+    const ch = Math.max(1, Math.round(canvas.clientHeight * dpr));
+    if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const { cell, ox, oy } = this.boardLayout(canvas.width, canvas.height);
+    this.drawBoardBackdrop(ctx, canvas.width, canvas.height);
+    this.drawPegboard(ctx, cell, ox, oy);
+    this.drawPitchHighlight(ctx, cell, ox, oy);
+    for (let c = 0; c < COLS; c++) {
+      for (let r = 0; r < ROWS; r++) {
+        const color = board[r]?.[c] ?? 0;
+        if (!color) continue;
+        const px = ox + (c + 0.5) * cell;
+        const py = oy + (r + 0.5) * cell;
+        this.drawMarble(ctx, px, py, cell * 0.44, color, 0, r * COLS + c + 9000);
+      }
     }
   }
 
@@ -516,42 +582,100 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     }
   }
 
-  private drawMarble(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, colorId: number, roll: number): void {
+  private drawMarble(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, colorId: number, roll: number, seed = 0): void {
     const base = COLORS[colorId] ?? COLORS[1];
 
+    // Per-marble identity: a stable seed gives every marble its own tint,
+    // inner pattern style, swirl angle and highlight position, so no two
+    // marbles (even the same colour) look alike. The seed is deterministic,
+    // so a marble keeps its look while it slides around the board.
+    const s0 = mhash(seed);
+    const s1 = mhash(seed + 101);
+    const s2 = mhash(seed + 203);
+    const s3 = mhash(seed + 307);
+
+    const tilt = (s0 - 0.5) * 0.18;
+    const tinted: [number, number, number] = [
+      clamp255(base[0] * (1 + tilt)),
+      clamp255(base[1] * (1 + tilt)),
+      clamp255(base[2] * (1 + tilt)),
+    ];
+    const style = Math.floor(s1 * 4); // 0/3 swirl · 1 cat's-eye · 2 flecked
+
+    // Glass body.
     const grad = ctx.createRadialGradient(x - r * 0.35, y - r * 0.38, r * 0.08, x, y, r);
-    grad.addColorStop(0, lighten(base, 0.62));
-    grad.addColorStop(0.45, `rgb(${base[0]},${base[1]},${base[2]})`);
-    grad.addColorStop(1, darken(base, 0.62));
+    grad.addColorStop(0, lighten(tinted, 0.62));
+    grad.addColorStop(0.45, `rgb(${tinted[0]},${tinted[1]},${tinted[2]})`);
+    grad.addColorStop(1, darken(tinted, 0.62));
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
 
+    // Inner detail (clipped to the sphere), rotating as the marble rolls.
     ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(roll);
-    for (const sign of [-1, 1]) {
-      ctx.strokeStyle = `rgba(255,255,255,${sign === 1 ? 0.4 : 0.16})`;
-      ctx.lineWidth = r * 0.22;
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 0.5, 0.25 * sign, 1.15 * sign);
-      ctx.stroke();
-    }
-    ctx.rotate(roll * 0.6);
-    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
     ctx.beginPath();
-    ctx.arc(0, 0, r * 0.62, 1.6, 2.6);
-    ctx.stroke();
+    ctx.arc(x, y, r * 0.92, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.translate(x, y);
+    ctx.rotate(roll * 0.5 + s2 * Math.PI * 2);
+    ctx.lineCap = 'round';
+
+    if (style === 0 || style === 3) {
+      // Swirl veins — classic marbled glass.
+      const veins = style === 3 ? 3 : 2;
+      for (let i = 0; i < veins; i++) {
+        const a = (i / veins) * Math.PI * 2 + s3 * Math.PI;
+        ctx.strokeStyle = i % 2 === 0 ? lighten(tinted, 0.45) : darken(tinted, 0.2);
+        ctx.lineWidth = r * (0.14 + s3 * 0.08);
+        ctx.beginPath();
+        ctx.arc(0, 0, r * (0.35 + s3 * 0.25), a, a + Math.PI * (0.8 + s2 * 0.4));
+        ctx.stroke();
+      }
+    } else if (style === 1) {
+      // Cat's-eye band across the middle.
+      const a = s3 * Math.PI;
+      ctx.strokeStyle = lighten(tinted, 0.38);
+      ctx.lineWidth = r * 0.26;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.4, a, a + Math.PI * 0.55);
+      ctx.stroke();
+      ctx.strokeStyle = darken(tinted, 0.28);
+      ctx.lineWidth = r * 0.12;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.4, a + Math.PI * 0.12, a + Math.PI * 0.5);
+      ctx.stroke();
+    } else {
+      // Flecked — scattered darker/lighter inclusions.
+      ctx.fillStyle = darken(tinted, 0.32);
+      for (let i = 0; i < 4; i++) {
+        const a = s3 * Math.PI * 2 + i * 1.62;
+        const d = r * (0.15 + ((s2 * (i + 1)) % 1) * 0.5);
+        ctx.beginPath();
+        ctx.arc(Math.cos(a) * d, Math.sin(a) * d, r * (0.07 + s2 * 0.06), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = lighten(tinted, 0.5);
+      for (let i = 0; i < 2; i++) {
+        const a = s2 * Math.PI * 2 + i * 2.4;
+        const d = r * (0.1 + ((s3 * (i + 2)) % 1) * 0.5);
+        ctx.beginPath();
+        ctx.arc(Math.cos(a) * d, Math.sin(a) * d, r * 0.06, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
     ctx.restore();
 
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    // Specular highlight, slightly offset per marble.
+    const hx = x - r * (0.26 + s0 * 0.18);
+    const hy = y - r * (0.32 + s1 * 0.16);
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
     ctx.beginPath();
-    ctx.arc(x - r * 0.34, y - r * 0.4, r * 0.17, 0, Math.PI * 2);
+    ctx.arc(hx, hy, r * 0.16, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.4)';
     ctx.beginPath();
-    ctx.arc(x - r * 0.2, y - r * 0.24, r * 0.08, 0, Math.PI * 2);
+    ctx.arc(hx + r * 0.12, hy + r * 0.14, r * 0.07, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.strokeStyle = 'rgba(0,0,0,0.35)';
@@ -644,4 +768,18 @@ function lighten(c: [number, number, number], amt: number): string {
 }
 function darken(c: [number, number, number], amt: number): string {
   return `rgb(${Math.round(c[0] * (1 - amt))},${Math.round(c[1] * (1 - amt))},${Math.round(c[2] * (1 - amt))})`;
+}
+
+/** Deterministic hash of an integer seed → [0,1). Stable across frames so a
+ *  marble's pattern never changes while it's on screen. */
+function mhash(n: number): number {
+  let s = (n | 0) >>> 0;
+  s = Math.imul(s ^ (s >>> 16), 0x45d9f3b) >>> 0;
+  s = Math.imul(s ^ (s >>> 16), 0x45d9f3b) >>> 0;
+  s = (s ^ (s >>> 16)) >>> 0;
+  return s / 4294967296;
+}
+
+function clamp255(v: number): number {
+  return v < 0 ? 0 : v > 255 ? 255 : v;
 }
