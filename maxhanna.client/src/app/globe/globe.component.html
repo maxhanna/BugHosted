@@ -64,8 +64,10 @@
       <div class="stories-list">
         <div class="story-item" *ngFor="let story of filteredStories"
           (click)="onStoryClick(story); showDataPanel = false">
-          <div class="story-user"><app-user-tag [user]="story.user" [inputtedParentRef]="inputtedParentRef"
-              [preventOpenProfile]="true" [displayMiniTag]="true"></app-user-tag></div>
+          <div class="story-user">
+            <app-user-tag [userId]="story.user.id" [inputtedParentRef]="inputtedParentRef"
+              [preventOpenProfile]="true" [displayMiniTag]="true"></app-user-tag>
+          </div>
           <div class="story-preview">{{ story.storyText | slice:0:50 }}{{ (story.storyText?.length || 0) > 50 ? '...' :
             '' }}</div>
           <div class="story-meta">{{ story.date | date:'shortDate' }} · {{ story.city || story.country || 'Unknown
@@ -117,7 +119,7 @@
           <div class="form-title">Track Flight</div>
           <input type="text" [(ngModel)]="newCallsign" placeholder="Callsign (e.g. LXJ269)" class="flight-input"
             (keyup.enter)="addFlight()">
-          <button type="button" (click)="addFlight()" class="add-flight-btn">✈ Track Flight</button>
+          <button type="button" (click)="addFlight()" class="add-flight-btn" [disabled]="isLoading">✈ Track Flight</button>
         </div>
         <div class="flight-controls">
           <button type="button" (click)="loadFlights()">Refresh Flights</button>
@@ -142,7 +144,7 @@
                 [title]="flight.enabled ? 'Hide' : 'Show'">
                 {{ flight.enabled ? '👁' : '👁‍🗨' }}
               </button>
-              <button type="button" class="flight-remove" (click)="removeFlight(flight.id)">×</button>
+              <button type="button" class="flight-remove" (click)="removeFlight(flight.id)" [disabled]="isLoading">×</button>
             </div>
           </div>
           <div class="no-flights" *ngIf="trackedFlights.length === 0 && !isRefreshingFlights">

@@ -413,13 +413,13 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
 
   async addFlight(): Promise<void> {
     const cs = this.newCallsign.trim().toUpperCase();
-    if (!cs) return;
-
+    if (!cs) { alert("Please enter a flight callsign."); return; }
     if (this.trackedFlights.some(f => f.callsign?.toUpperCase() === cs)) {
       alert('Flight already being tracked.');
       return;
     }
 
+    this.inputtedParentRef.startLoading();
     let resolvedCs = cs;
     try {
       const res = await fetch(`/flight/lookup?query=${encodeURIComponent(cs)}`);
@@ -503,11 +503,15 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
         data: { type: 'flight', callsign: cs },
       });
     }
+    this.inputtedParentRef.showNotification(`Flight ${resolvedCs} added to tracking list.`);
+    this.inputtedParentRef.stopLoading();
   }
 
   async removeFlight(id: string): Promise<void> {
+    this.inputtedParentRef.startLoading(); 
     this.trackedFlights = this.trackedFlights.filter(f => f.id !== id);
     await this.flightService.deleteTrackedFlight(Number(id), this.userId);
+    this.inputtedParentRef.stopLoading();
   }
 
   async toggleFlight(id: string): Promise<void> {

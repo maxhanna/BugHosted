@@ -663,6 +663,14 @@ export class RacingRenderer {
     const gl = canvas.getContext('webgl2', { antialias: true, alpha: false, powerPreference: 'high-performance' });
     if (!gl) throw new Error('WebGL2 not supported');
     this.gl = gl;
+    // Pin the drawing buffer + texture-upload color spaces to sRGB. These are
+    // the spec DEFAULTS, so on Chrome/stable Firefox this is a no-op — but it
+    // self-corrects Gecko builds (Firefox Nightly, Waterfox) that enable full
+    // color management and would otherwise interpret the canvas (and any
+    // 2D-canvas-uploaded textures, e.g. the tire sidewall) in a different
+    // space and shift the whole palette.
+    if ('drawingBufferColorSpace' in gl) { (gl as any).drawingBufferColorSpace = 'srgb'; }
+    if ('unpackColorSpace' in gl) { (gl as any).unpackColorSpace = 'srgb'; }
     this.whiteTex = this.makeTex(1, 1, new Uint8Array([255, 255, 255]));
     this.asphaltTex = this.makeAsphaltTex();
     this.grassTex = this.makeGrassTex();
@@ -4520,7 +4528,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const shell = hel;                        // helmet shell (fixed white)
     const visorDark = [0.02, 0.02, 0.05];     // visor opening
     const visorSheen = [0.22, 0.3, 0.42];     // visor reflection strip
-    const suitC = [0.14, 0.05, 0.05];         // race suit (fixed team maroon)
     const hansC = [0.9, 0.9, 0.93];           // HANS collar (fixed bright)
     const gloveC = [0.95, 0.95, 0.97];        // gloves palm (fixed light)
     const gloveBack = [1, 1, 1];              // gloves finger backs (baked white — tinted with the equipped accent at draw time)
@@ -4556,13 +4563,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // Neck / HANS collar — a bright ring hugging the helmet base (covers the
     // shell's open neck area like the real harness collar).
     this.addEllipsoid(driverVerts, driverIdxs, hcx - 0.005, hcy - 0.055, 0, 0.052, 0.032, 0.080, 16, hansC);
-    // Race suit shoulders peeking out of the cockpit opening — rounded caps
-    // instead of flat boxes so they read as shoulders.
-    this.addEllipsoid(driverVerts, driverIdxs, 0.315, 0.29, 0.085, 0.085, 0.035, 0.070, 12, suitC);
-    this.addEllipsoid(driverVerts, driverIdxs, 0.315, 0.29, -0.085, 0.085, 0.035, 0.070, 12, suitC);
-    // Arms reaching from the shoulders to the wheel.
-    this.addStrut(driverVerts, driverIdxs, 0.34, 0.29, 0.085, 0.525, 0.278, 0.068, 0.028, suitC);
-    this.addStrut(driverVerts, driverIdxs, 0.34, 0.29, -0.085, 0.525, 0.278, -0.068, 0.028, suitC);
+    // ── Minimal cockpit: the shoulders and forearms are deliberately omitted.
+    // The old suit-shoulder caps + arm struts read as stiff plastic tubes and
+    // drew attention in the cockpit camera. Dropping them leaves just the
+    // helmet, HANS collar and the gloved hands on the wheel — the classic
+    // "hands on the rim" cockpit shot where the body is left to imagination,
+    // and it removes a chunk of driver geometry from every frame.
     // Steering wheel — wide flat face angled toward the driver, centre
     // screen, coloured buttons and outer grips.
     this.addBox(verts, idxs, 0.545, 0.285, 0, 0.016, 0.05, 0.115, wheelFace);
