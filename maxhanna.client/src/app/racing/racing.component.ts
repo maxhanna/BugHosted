@@ -339,11 +339,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   hudWheelLock = 0;
   steerSmoothed = 0;
   liveLapTime = 0;
-  /** Last accent colour pushed to the cockpit HUD's --glove-accent var. */
-  private _lastGloveAccentCss = '';
   @ViewChild('steerWheel') steerWheelEl?: ElementRef<HTMLDivElement>;
-  @ViewChild('handLeft') handLeftEl?: ElementRef<HTMLDivElement>;
-  @ViewChild('handRight') handRightEl?: ElementRef<HTMLDivElement>;
   @ViewChild('wheelSpeed') wheelSpeedEl?: ElementRef<HTMLDivElement>;
   @ViewChild('cockpitDash') cockpitDashEl?: ElementRef<HTMLDivElement>;
   @ViewChild('wheelRpm') wheelRpmEl?: ElementRef<HTMLDivElement>;
@@ -1952,27 +1948,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       this.steerSmoothed += (targetSteer - this.steerSmoothed) * Math.min(1, dt * 8);
       if (this.steerWheelEl?.nativeElement) {
         this.steerWheelEl.nativeElement.style.transform = `rotate(${this.steerSmoothed}deg)`;
-      }
-      // HUD hands follow the rim: each hand rotates a fraction of the wheel's
-      // turn (the driver re-grips, so they don't track it 1:1), preserving
-      // their base 9-3 grip offsets so they read as attached to the wheel.
-      const handTurn = this.steerSmoothed * 0.65;
-      if (this.handLeftEl?.nativeElement) {
-        this.handLeftEl.nativeElement.style.transform = `rotate(${14 + handTurn}deg)`;
-      }
-      if (this.handRightEl?.nativeElement) {
-        this.handRightEl.nativeElement.style.transform = `rotate(${-14 + handTurn}deg)`;
-      }
-      // The 2D HUD glove finger backs follow the equipped livery accent, so
-      // they match the 3D driver's gloves. Only re-write the var when it
-      // actually changes (accent is set in the garage).
-      const gloveAccent = ACCENT_COLORS[this.playerCar.accentId];
-      const gloveAccentCss = gloveAccent
-        ? `rgb(${Math.round(gloveAccent[0] * 255)}, ${Math.round(gloveAccent[1] * 255)}, ${Math.round(gloveAccent[2] * 255)})`
-        : '';
-      if (gloveAccentCss && gloveAccentCss !== this._lastGloveAccentCss && this.cockpitDashEl?.nativeElement) {
-        this._lastGloveAccentCss = gloveAccentCss;
-        this.cockpitDashEl.nativeElement.style.setProperty('--glove-accent', gloveAccentCss);
       }
       if (this.wheelSpeedEl?.nativeElement) {
         this.wheelSpeedEl.nativeElement.textContent = Math.round(this.hudSpeed).toString();
