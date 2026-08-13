@@ -448,7 +448,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     this.drawBoardBackdrop(ctx, canvas.width, canvas.height);
-    this.drawPegboard(ctx, cell, ox, oy);
+    this.drawTrench(ctx, cell, ox, oy);
 
     // Pitch row highlight (the center row / match zone).
     this.drawPitchHighlight(ctx, cell, ox, oy);
@@ -531,7 +531,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const { cell, ox, oy } = this.boardLayout(canvas.width, canvas.height);
     this.drawBoardBackdrop(ctx, canvas.width, canvas.height);
-    this.drawPegboard(ctx, cell, ox, oy);
+    this.drawTrench(ctx, cell, ox, oy);
     this.drawPitchHighlight(ctx, cell, ox, oy);
     for (let c = 0; c < COLS; c++) {
       for (let r = 0; r < ROWS; r++) {
@@ -545,60 +545,94 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   }
 
   private drawBoardBackdrop(ctx: CanvasRenderingContext2D, w: number, h: number): void {
-    // Classic playground look: sky gradient + dirt ground.
-    const sky = ctx.createLinearGradient(0, 0, 0, h * 0.55);
-    sky.addColorStop(0, '#7ec8f7');
-    sky.addColorStop(1, '#cdeeff');
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, w, h * 0.55);
-
-    const ground = ctx.createLinearGradient(0, h * 0.45, 0, h);
-    ground.addColorStop(0, '#a9784a');
+    // Full dirt pit — the original board sits on packed earth, no sky.
+    const ground = ctx.createLinearGradient(0, 0, 0, h);
+    ground.addColorStop(0, '#9a6b3e');
     ground.addColorStop(0.5, '#8a5f38');
     ground.addColorStop(1, '#6f4a2b');
     ctx.fillStyle = ground;
-    ctx.fillRect(0, h * 0.45, w, h * 0.55);
+    ctx.fillRect(0, 0, w, h);
 
+    // Dirt speckle for texture.
     ctx.fillStyle = 'rgba(0,0,0,0.12)';
-    for (let i = 0; i < 26; i++) {
+    for (let i = 0; i < 60; i++) {
       const x = (i * 97.3) % w;
-      const y = h * 0.45 + ((i * 53.7) % (h * 0.55));
+      const y = (i * 53.7) % h;
       ctx.beginPath();
       ctx.arc(x, y, 1.5 + (i % 3), 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.fillStyle = 'rgba(255,225,180,0.08)';
+    for (let i = 0; i < 40; i++) {
+      const x = (i * 83.1) % w;
+      const y = (i * 47.9) % h;
+      ctx.beginPath();
+      ctx.arc(x, y, 1 + (i % 2), 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
-  private drawPegboard(ctx: CanvasRenderingContext2D, cell: number, ox: number, oy: number): void {
+  /** A recessed dirt trench carved into the ground — the original game's board
+   *  is a trough dug into the dirt with beveled edges, not a wooden pegboard. */
+  private drawTrench(ctx: CanvasRenderingContext2D, cell: number, ox: number, oy: number): void {
     const pad = cell * 0.5;
     const bw = cell * COLS + pad * 2;
     const bh = cell * ROWS + pad * 2;
     const bx = ox - pad, by = oy - pad - cell * 0.4;
 
-    const wood = ctx.createLinearGradient(bx, by, bx, by + bh);
-    wood.addColorStop(0, '#8b5a2b');
-    wood.addColorStop(0.5, '#7a4d24');
-    wood.addColorStop(1, '#5f3a1b');
-    ctx.fillStyle = wood;
-    this.roundRect(ctx, bx, by, bw, bh, cell * 0.25);
+    // Darker, recessed dirt interior.
+    const dirt = ctx.createLinearGradient(bx, by, bx, by + bh);
+    dirt.addColorStop(0, '#6e4726');
+    dirt.addColorStop(0.5, '#5c3a1f');
+    dirt.addColorStop(1, '#472c16');
+    ctx.fillStyle = dirt;
+    this.roundRect(ctx, bx, by, bw, bh, cell * 0.2);
     ctx.fill();
+
+    // Carved-edge bevel: light from top-left, so the inner top/left walls are
+    // in shadow and the inner bottom/right walls catch light — reads as dug in.
+    const inset = cell * 0.1;
+    ctx.lineCap = 'round';
     ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-    ctx.lineWidth = Math.max(1, cell * 0.06);
-    this.roundRect(ctx, bx, by, bw, bh, cell * 0.25);
+    ctx.lineWidth = cell * 0.24;
+    ctx.beginPath();
+    ctx.moveTo(bx + inset, by + inset);
+    ctx.lineTo(bx + bw - inset, by + inset);
+    ctx.moveTo(bx + inset, by + inset);
+    ctx.lineTo(bx + inset, by + bh - inset);
     ctx.stroke();
 
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        const px = ox + (c + 0.5) * cell;
-        const py = oy + (r + 0.5) * cell;
-        const grad = ctx.createRadialGradient(px - cell * 0.1, py - cell * 0.1, cell * 0.04, px, py, cell * 0.4);
-        grad.addColorStop(0, '#3a2410');
-        grad.addColorStop(1, '#1c1006');
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(px, py, cell * 0.38, 0, Math.PI * 2);
-        ctx.fill();
-      }
+    ctx.strokeStyle = 'rgba(255,222,168,0.30)';
+    ctx.lineWidth = cell * 0.22;
+    ctx.beginPath();
+    ctx.moveTo(bx + inset, by + bh - inset);
+    ctx.lineTo(bx + bw - inset, by + bh - inset);
+    ctx.moveTo(bx + bw - inset, by + inset);
+    ctx.lineTo(bx + bw - inset, by + bh - inset);
+    ctx.stroke();
+
+    // Lip of the trench — a light rim so the edge stands out from the dirt.
+    ctx.strokeStyle = 'rgba(255,205,140,0.22)';
+    ctx.lineWidth = Math.max(1, cell * 0.07);
+    this.roundRect(ctx, bx, by, bw, bh, cell * 0.2);
+    ctx.stroke();
+
+    // Subtle speckle so the trough floor still reads as dirt, not flat paint.
+    ctx.fillStyle = 'rgba(0,0,0,0.13)';
+    for (let i = 0; i < 56; i++) {
+      const x = bx + ((i * 61.7) % bw);
+      const y = by + ((i * 37.3) % bh);
+      ctx.beginPath();
+      ctx.arc(x, y, 1 + (i % 3) * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = 'rgba(255,232,190,0.10)';
+    for (let i = 0; i < 36; i++) {
+      const x = bx + ((i * 83.1) % bw);
+      const y = by + ((i * 47.9) % bh);
+      ctx.beginPath();
+      ctx.arc(x, y, 0.8 + (i % 2) * 0.55, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 
@@ -622,6 +656,12 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       clamp255(base[2] * (1 + tilt)),
     ];
     const style = PATTERNS[colorId] ?? 0;
+
+    // Soft contact shadow so each marble sits down into the dirt trench.
+    ctx.fillStyle = 'rgba(0,0,0,0.26)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + r * 0.72, r * 0.62, r * 0.2, 0, 0, Math.PI * 2);
+    ctx.fill();
 
     // Hot-colour glow halo, drawn first so the glass body sits on top and
     // only the ring outside the sphere stays visible.
