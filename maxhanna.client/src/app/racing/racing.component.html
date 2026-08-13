@@ -1092,6 +1092,11 @@
           leaderboard results. Try again in a moment; your laps will show up
           here once the racing service responds.
         </div>
+        <div class="race-lb-unavailable race-lb-onlyself"
+          *ngIf="!leaderboardDataUnavailable && !allTracksLoading && allTrackBoards.length > 0 && !leaderboardHasOtherRacers()">
+          ℹ️ No other racers have set a lap on this server yet — your own records
+          are shown below. Other players' best laps will appear here once they race.
+        </div>
         <div class="race-lb-search">
           <input type="text" class="race-lb-search-input" placeholder="🔍 Search circuits…"
             [value]="trackSearch" (input)="onTrackSearchChange($event)" />

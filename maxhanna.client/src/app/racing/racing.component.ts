@@ -3199,6 +3199,18 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
     return '';
   }
+  /** True when at least one loaded board has a lap from another real player.
+   *  Drives the "no other racers yet" notice so a solo server isn't mistaken
+   *  for a leaderboard that only ever shows the caller. */
+  leaderboardHasOtherRacers(): boolean {
+    const uid = this.parentRef?.user?.id ?? 0;
+    for (const b of this.allTrackBoards) {
+      for (const r of b.results) {
+        if (r.playerId > 0 && r.playerId !== uid) return true;
+      }
+    }
+    return false;
+  }
   getLeaderboardRaceName(r: RaceResult): string {
     const track = this.trackDefs.find(t => t.id === r.trackId) || this.selectedTrack;
     return track ? `${this.getTrackFlag(track)} ${track.name}` : 'Race';

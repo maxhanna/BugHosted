@@ -6290,6 +6290,12 @@
   text-align: center;
 }
 
+.race-lb-onlyself {
+  border: 1px solid rgba(90, 160, 255, 0.4);
+  background: rgba(90, 160, 255, 0.08);
+  color: #9cc4ff;
+}
+
 /* All-circuits breakdown cards */
 .race-lb-alltracks-loading {
   text-align: center;
