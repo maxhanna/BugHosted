@@ -2031,6 +2031,12 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     // reward holding the racing line like Monza.
     const corner = 0.8 + (this.getCornerBonus() + this.getDownforceBonus()) / 100
       + Math.abs(this.renderer?.getTrackBank(this.carDist) ?? 0) * 0.7;
+    // Steering *response* is deliberately decoupled from the grip factor above:
+    // upgrades buy cornering grip (a higher maxYawRate), not twitchiness. The
+    // rack gain grows only a little and asymptotically, so a fully-upgraded
+    // car turns smoothly instead of darting into corners.
+    const upgradeCorner = (this.getCornerBonus() + this.getDownforceBonus()) / 100;
+    const rackCorner = 0.8 + (upgradeCorner * 0.16) / (0.2 + upgradeCorner);
     const brakeUpgrade = 1 + this.getBrakeBonus() / 100;
     let heatFade = 1;
     const discHeat = this.renderer?.getPlayerBrakeHeat() ?? 0;
@@ -2051,7 +2057,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const effGrip = grip * brakeGrip * weatherGrip;
     const maxYawRate = (speedAbs > 0.5 ? (LAT_ACCEL * effGrip * (corner / 0.8)) / speedAbs : 99) * lockGrip;
     const slidePrev = Math.min(1, Math.abs(this.slipAngle) / SLIP_FULL);
-    const rackYawRate = this.carSteer * TURN_SPEED * turnFactor * speedFactor * corner * 60
+    const rackYawRate = this.carSteer * TURN_SPEED * turnFactor * speedFactor * rackCorner * 60
       * (1 - SLIP_GRIP_CUT * slidePrev) * lockGrip;
     const yawRate = Math.max(-MAX_RACK_YAW, Math.min(MAX_RACK_YAW, rackYawRate));
     if (this.carSpeed > 0.5) {

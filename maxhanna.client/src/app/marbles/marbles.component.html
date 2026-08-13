@@ -4,7 +4,7 @@
   <div class="marbles-stage">
     <div class="marbles-boards">
       <div class="board-slot board-mine" (pointerdown)="onStageDown($event)"
-        (pointermove)="onStageMove($event)" (pointerup)="onStageUp($event)" (pointercancel)="onStageUp($event)">
+        (pointermove)="onStageMove($event)" (pointerup)="onStageUp($event)" (pointercancel)="onStageCancel($event)">
         <canvas #boardCanvas></canvas>
       </div>
       <div class="board-slot board-opponent" *ngIf="status === 'playing' || status === 'won'">

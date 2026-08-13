@@ -421,11 +421,15 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     if (Math.abs(dy) >= threshold) this.drag.dir = dy < 0 ? -1 : 1;
   }
 
-  onStageUp(e: PointerEvent): void {
+  onStageUp(e: PointerEvent): void { this.finishDrag(e, true); }
+
+  onStageCancel(e: PointerEvent): void { this.finishDrag(e, false); }
+
+  private finishDrag(e: PointerEvent, commit: boolean): void {
     if (!this.drag.active || e.pointerId !== this.drag.pointerId) return;
     const d = this.drag;
     this.drag = { active: false, pointerId: -1, col: -1, row: -1, startY: 0, dir: 0 };
-    if (this.status !== 'playing') return;
+    if (!commit || this.status !== 'playing') return;
     const onBoard = d.col >= 0 && d.col < COLS;
     if (d.row === PITCH_ROW && d.dir !== 0 && onBoard) {
       // Drag up/down from the center row → shift that column.

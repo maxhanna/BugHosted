@@ -767,7 +767,9 @@ export class RacingRenderer {
         let r = 32 + (m1 - 0.5) * 24 + (m2 - 0.5) * 12;
         let g = 76 + (m1 - 0.5) * 40 + (m2 - 0.5) * 18;
         let b = 24 + (m1 - 0.5) * 16 + (m2 - 0.5) * 8;
-        if (noise(x, y, 28) > 0.86) { r += 14; g -= 26; b += 5; } // dirt patch
+        // Rare, faint dirt patch — keeps the turf varied without the frequent
+        // desaturated patches that read as gray spots across the runoff.
+        if (noise(x, y, 34) > 0.95) { r += 9; g -= 16; b += 3; }
         data[i] = Math.max(6, Math.min(190, r));
         data[i + 1] = Math.max(10, Math.min(205, g));
         data[i + 2] = Math.max(6, Math.min(150, b));
@@ -965,19 +967,13 @@ export class RacingRenderer {
           const nz = (noise(x, y, 20) - 0.5) * 6;
           r += nz; g += nz; b += nz;
           r *= 1 - seam; g *= 1 - seam; b *= 1 - seam;
-          // Rubber dust at the road-side lip of the kerb.
-          if (vy < 0.09) {
-            const t = (0.09 - vy) / 0.09;
-            r -= 28 * t; g -= 24 * t; b -= 20 * t;
-          }
           data[i] = r; data[i + 1] = g; data[i + 2] = b;
         } else {
-          // Concrete gutter: pale grey-blue with smooth wear, expansion
-          // joints and the occasional water stain; grime at the outer lip.
+          // Concrete gutter: clean pale grey with smooth wear and expansion
+          // joints only. No rubber-dust lip and no random dark stains — those
+          // read as gray spots along the walls when the kerb tile is minified.
           let v = 121 + (noise(x, y, 20) - 0.5) * 5;
-          if (d < 2) v = 72;
-          if (noise(x, y, 24) > 0.9) v -= 14;
-          if (vy > 0.965) v = v * 0.78 + 26;
+          if (d < 2) v = 82;
           data[i] = v + 2; data[i + 1] = v; data[i + 2] = v + 8;
         }
       }
