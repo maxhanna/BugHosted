@@ -132,6 +132,7 @@ app.MapControllers();
 app.MapHub<maxhanna.Server.Hubs.CoEditHub>("/hubs/coEdit");
 app.MapHub<maxhanna.Server.Hubs.RacingHub>("/hubs/racing");
 app.MapHub<maxhanna.Server.Hubs.ChatHub>("/hubs/chat");
+app.MapHub<maxhanna.Server.Hubs.MarblesHub>("/hubs/marbles");
 
 
 app.MapFallbackToFile("/index.html");

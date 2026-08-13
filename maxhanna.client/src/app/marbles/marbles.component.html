@@ -1,0 +1,68 @@
+<div class="componentMain marbles-root">
+  <app-title-bar [title]="'Marbles'" [hasMenu]="false" (closeClicked)="remove_me('MarblesComponent')"></app-title-bar>
+
+  <div class="marbles-stage">
+    <canvas #boardCanvas (pointerdown)="onPointerDown($event)"></canvas>
+
+    <!-- Menu -->
+    <div class="marbles-panel" *ngIf="status === 'menu'">
+      <h1 class="marbles-title">🔮 Marbles</h1>
+      <p class="marbles-sub">A match-3 race. Swap marbles to line up 3+ of a color, then chain the cascades. First to the target score wins.</p>
+      <div class="marbles-form">
+        <input class="marbles-input" [(ngModel)]="playerName" placeholder="Your name" maxlength="16" />
+        <button class="marbles-btn primary" (click)="hostGame()" [disabled]="!playerName.trim()">Create Room</button>
+        <div class="marbles-join-row">
+          <input class="marbles-input" [(ngModel)]="joinCode" placeholder="Room code" maxlength="16" />
+          <button class="marbles-btn" (click)="joinGame()" [disabled]="!playerName.trim() || !joinCode.trim()">Join</button>
+        </div>
+        <div class="marbles-note">Rooms work across computers — share the 4-letter code with friends.</div>
+      </div>
+    </div>
+
+    <!-- Lobby -->
+    <div class="marbles-panel" *ngIf="status === 'lobby'">
+      <h2 class="marbles-title">Room <span class="marbles-code">{{ roomCode }}</span></h2>
+      <p class="marbles-sub">First to <strong>{{ targetScore }}</strong> points wins.</p>
+      <div class="marbles-players">
+        <div class="marbles-player" *ngFor="let p of lobby?.players">
+          <span class="marbles-player-name">{{ p.playerName }}</span>
+          <span *ngIf="p.isHost" class="marbles-crown">👑</span>
+          <span class="marbles-ready">{{ p.ready ? '✅ Ready' : '⏳ Waiting' }}</span>
+        </div>
+      </div>
+      <div class="marbles-actions">
+        <button class="marbles-btn" *ngIf="!isMeHost()" (click)="toggleReady()" [disabled]="(lobby?.players?.length ?? 0) < 2">Ready</button>
+        <button class="marbles-btn primary" *ngIf="isMeHost()" (click)="startGame()">Start Game</button>
+        <button class="marbles-btn" (click)="leaveToMenu()">Leave</button>
+      </div>
+      <div class="marbles-chat">
+        <div class="marbles-chat-log">
+          <div *ngFor="let m of chatMessages"><strong>{{ m.playerName }}:</strong> {{ m.message }}</div>
+        </div>
+        <div class="marbles-chat-input">
+          <input class="marbles-input" [(ngModel)]="chatDraft" placeholder="Say something…" (keydown.enter)="sendChat()" />
+          <button class="marbles-btn" (click)="sendChat()">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- In-game HUD -->
+    <div class="marbles-hud" *ngIf="status === 'playing' || status === 'won'">
+      <div class="marbles-score">You: <strong>{{ myScore }}</strong></div>
+      <div class="marbles-target">Target: {{ targetScore }}</div>
+      <div class="marbles-gain" *ngIf="gained > 0">+{{ gained }}</div>
+      <div class="marbles-opponents">
+        <div class="marbles-opponent" *ngFor="let p of lobby?.players">
+          <span>{{ p.playerName }}</span>
+          <strong>{{ p.score }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Winner banner -->
+    <div class="marbles-win" *ngIf="winner">
+      <div class="marbles-win-text">🎉 {{ winner.playerName }} wins!</div>
+      <button class="marbles-btn primary" (click)="leaveToMenu()">Back to Menu</button>
+    </div>
+  </div>
+</div>

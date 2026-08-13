@@ -142,6 +142,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "⚔️", title: "Array", content: undefined },
     { ownership: 0, icon: "🧠", title: "Wordler", content: undefined },
     { ownership: 0, icon: "🎯", title: "Mastermind", content: undefined },
+    { ownership: 0, icon: "🔮", title: "Marbles", content: undefined },
     { ownership: 0, icon: "🖼️", title: "Art", content: undefined },
     { ownership: 0, icon: "📁", title: "Files", content: undefined },
     { ownership: 0, icon: "📅", title: "Calendar", content: undefined },
@@ -391,6 +392,11 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     },
     {
       ownership: 0,
+      title: 'Marbles',
+      content: `Your favourite marble game from windows 98, now playable with single and online multiplayer modes!`
+    },
+    {
+      ownership: 0,
       title: 'Array',
       content: `The Array transports users down a seemingly infinite array.
   The further you go down the array, the more experience you gain.
@@ -520,6 +526,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
    * initial main.js payload small.
    */
   private componentLoaders: { [key: string]: () => Promise<Type<any> | { type: Type<any>; module: Type<any>; }> } = {
+    "Marbles": () => import('./marbles/marbles.component').then(m => m.MarblesComponent),
     "Emulator": () => import('./emulator/emulator.component').then(m => m.EmulatorComponent),
     "Chat": () => import('./chat/chat.component').then(m => m.ChatComponent),
     "DigCraft": () => import('./digcraft/digcraft.component').then(m => m.DigCraftComponent),
@@ -731,6 +738,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
           this.checkAndClearRouterOutlet();
           this.createComponent('Planter');
         }
+        else if (this.router.url.toLowerCase().includes('marbles')) {
+          this.checkAndClearRouterOutlet();
+          this.createComponent('Marbles');
+        }
         else if (this.router.url.toLowerCase().includes('paint')) {
           this.checkAndClearRouterOutlet();
           this.createComponent('Paint');
@@ -770,6 +781,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         "Meme",
         "Chat",
         "Wordler",
+        "Marbles",
         "Emulator",
         "Files",
         "Crypto-Hub",
