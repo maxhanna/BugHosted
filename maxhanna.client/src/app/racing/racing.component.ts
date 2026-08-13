@@ -3199,6 +3199,16 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
     return '';
   }
+  /** Your deficit to the circuit leader, shown as a compact badge in the board header. */
+  getTrackBoardVsFirst(trackId: number): string {
+    const leader = this.getTrackBoardBest(trackId);
+    const mine = this.getTrackBoardUserLap(trackId);
+    if (leader <= 0 || mine <= 0) return '';
+    return mine <= leader ? 'PACE' : this.formatLapGap(mine - leader);
+  }
+  getTrackBoardVsFirstIsPace(trackId: number): boolean {
+    return this.getTrackBoardVsFirst(trackId) === 'PACE';
+  }
   /** True when at least one loaded board has a lap from another real player.
    *  Drives the "no other racers yet" notice so a solo server isn't mistaken
    *  for a leaderboard that only ever shows the caller. */
@@ -4963,7 +4973,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return result;
   }
   showCallersTrackboard(id: number): boolean {
-    return this.getTrackBoardUserLap(id) > 0 && !this.getTrackBoardVisibleRows(id).some(r => r.playerId === (this.parentRef?.user?.id ?? 0));
+    const userLap = this.getTrackBoardUserLap(id);
+    if (userLap <= 0) return false;
+    const uid = this.parentRef?.user?.id ?? 0;
+    // Not in the visible top rows → pin so the caller's time still shows.
+    if (!this.getTrackBoardVisibleRows(id).some(r => r.playerId === uid)) return true;
+    // Already in the top list → still pin for comparison against the field,
+    // but skip the duplicate when this board only holds the caller's own lap.
+    return this.getTrackBoardRows(id).some(r => r.playerId > 0 && r.playerId !== uid);
   }
   getTrackBoardGapForTrackId(id: number) {
     const raceResult = { lapTime: this.getTrackBoardUserLap(id) } as RaceResult;

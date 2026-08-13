@@ -1112,8 +1112,15 @@
               <span class="race-lb-chevron">{{ isTrackBoardCollapsed(t.id) ? '▶' : '▼' }}</span>
               {{ getTrackFlag(t) }} {{ t.name }}
             </span>
-            <span class="race-lb-trackboard-count" *ngIf="getTrackBoardCount(t.id) > 0">
-              {{ getTrackBoardCount(t.id) }} racer{{ getTrackBoardCount(t.id) !== 1 ? 's' : '' }}
+            <span class="race-lb-trackboard-meta">
+              <span class="race-lb-trackboard-count" *ngIf="getTrackBoardCount(t.id) > 0">
+                {{ getTrackBoardCount(t.id) }} racer{{ getTrackBoardCount(t.id) !== 1 ? 's' : '' }}
+              </span>
+              <span class="race-lb-vs-first" *ngIf="getTrackBoardVsFirst(t.id)"
+                [class.race-lb-vs-pace]="getTrackBoardVsFirstIsPace(t.id)"
+                title="Your gap to the circuit leader">
+                vs 1st {{ getTrackBoardVsFirst(t.id) }}
+              </span>
             </span>
           </div>
           <ng-container *ngIf="!isTrackBoardCollapsed(t.id)">
@@ -1138,7 +1145,7 @@
             <div class="race-lb-row race-lb-me race-lb-row-you"
               *ngIf="showCallersTrackboard(t.id)">
               <span class="race-lb-rank">#{{ getTrackBoardUserRank(t.id) }}</span>
-              <span class="race-lb-name">You</span>
+              <span class="race-lb-name">You <span class="race-lb-you-badge">YOU</span></span>
               <span>{{ formatTime(getTrackBoardUserLap(t.id)) }}</span>
               <span class="race-lb-gap">{{ getTrackBoardGapForTrackId(t.id) }}</span>
             </div>

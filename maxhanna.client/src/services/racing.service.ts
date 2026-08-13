@@ -72,7 +72,8 @@ export class RacingService {
 
   async getLeaderboard(trackId: number, userId: number = 0): Promise<{ results: RaceResult[]; totalCount: number; userRank: number; bestLap: number }> {
     try {
-      const data: any = await this.http.get(`${this.baseUrl}/leaderboard/${trackId}?userId=${userId}`).toPromise();
+      // Cache-bust so a reopen after a fresh race never serves a stale cached lap list.
+      const data: any = await this.http.get(`${this.baseUrl}/leaderboard/${trackId}?userId=${userId}&_=${Date.now()}`).toPromise();
       if (Array.isArray(data)) return { results: data, totalCount: data.length, userRank: 0, bestLap: 0 };
       return {
         results: data?.results ?? [],
@@ -99,7 +100,8 @@ export class RacingService {
     }[];
   } | null> {
     try {
-      const data: any = await this.http.get(`${this.baseUrl}/leaderboard-by-track?userId=${userId}`).toPromise();
+      // Cache-bust so a reopen after a fresh race never serves a stale cached lap list.
+      const data: any = await this.http.get(`${this.baseUrl}/leaderboard-by-track?userId=${userId}&_=${Date.now()}`).toPromise();
       if (data === null || typeof data !== 'object' || !Array.isArray(data.tracks)) {
         return null;
       }
@@ -119,7 +121,8 @@ export class RacingService {
     bestLap: number;
   } | null> {
     try {
-      const data: any = await this.http.get(`${this.baseUrl}/leaderboard-overall?userId=${userId}`).toPromise();
+      // Cache-bust so a reopen after a fresh race never serves a stale cached lap list.
+      const data: any = await this.http.get(`${this.baseUrl}/leaderboard-overall?userId=${userId}&_=${Date.now()}`).toPromise();
       if (data === null || typeof data !== 'object' || !Array.isArray(data.results)) {
         return null;
       }
