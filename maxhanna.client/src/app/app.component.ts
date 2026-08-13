@@ -1995,6 +1995,13 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     // Rebuild the nav for the logged-out (guest) view.
     await this.getSelectedMenuItems();
     this.showNotification("Your session has expired. Please log in again.");
+    // If the security-token warning is still on screen, dismiss it — the
+    // token has already expired, so only the login prompt should be visible.
+    this.isShowingSecurityPopup = false;
+    if (this.securityTimeout) {
+      clearTimeout(this.securityTimeout);
+      this.securityTimeout = null;
+    }
     this.isShowingLoginPrompt = true;
     this.showOverlay();
   }
