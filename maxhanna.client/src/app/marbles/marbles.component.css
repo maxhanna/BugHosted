@@ -188,6 +188,33 @@
   flex: 1;
 }
 
+.marbles-vsai {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 2px solid;
+  border-color: #ffffff #0a0a0a #0a0a0a #ffffff;
+  background: #d6d6d6;
+}
+
+.marbles-vsai-label {
+  font-size: 13px;
+  font-weight: bold;
+  color: #000;
+}
+
+.marbles-vsai-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.marbles-vsai-btns .win98-btn {
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
 .marbles-input {
   padding: 8px 10px;
   border-radius: 0;
@@ -338,6 +365,97 @@
   display: flex;
   gap: 10px;
   align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.hud-reserve {
+  color: #ffd15c;
+  font-weight: 700;
+}
+
+.hud-hot {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.hot-marble {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 6px rgba(255, 220, 90, 0.9);
+}
+
+/* ── On-screen shift controls ─────────────────────────────────────── */
+
+.marbles-controls {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.controls-row {
+  display: flex;
+  gap: 6px;
+  pointer-events: auto;
+}
+
+.controls-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.controls-label {
+  color: #fff;
+  font-size: 12px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  font-weight: 700;
+}
+
+.ctrl-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  border: 2px solid;
+  border-color: #ffffff #0a0a0a #0a0a0a #ffffff;
+  background: #c0c0c0;
+  color: #000;
+  font-size: 22px;
+  font-weight: 800;
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.ctrl-btn:active {
+  border-color: #0a0a0a #ffffff #ffffff #0a0a0a;
+}
+
+.ctrl-btn.wide {
+  width: 110px;
+}
+
+@media (max-width: 700px) {
+  .ctrl-btn {
+    width: 58px;
+    height: 58px;
+  }
+  .ctrl-btn.wide {
+    width: 122px;
+  }
 }
 
 .hud-you {

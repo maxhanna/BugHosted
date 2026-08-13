@@ -1,7 +1,7 @@
 <div class="componentMain marbles-root">
   <app-title-bar [title]="'Marbles'" [hasMenu]="false" (closeClicked)="remove_me('MarblesComponent')"></app-title-bar>
 
-  <div class="marbles-stage" (pointerdown)="onStageDown($event)" (pointermove)="onStageMove($event)">
+  <div class="marbles-stage" (pointerdown)="onStageDown($event)">
     <canvas #boardCanvas></canvas>
 
     <!-- ── Splash screen ─────────────────────────────────────────────── -->
@@ -12,7 +12,7 @@
       <h1 class="splash-title">
         <span>LOSE</span> <span>YOUR</span> <span>MARBLES!</span>
       </h1>
-      <p class="splash-tag">The classic 1997 marble-dropper — now online!</p>
+      <p class="splash-tag">The classic 1997 playground marble game — now online!</p>
       <p class="splash-continue">Click anywhere to continue</p>
     </div>
 
@@ -21,13 +21,21 @@
       <div class="win98-titlebar"><span>Lose Your Marbles</span></div>
       <div class="win98-body">
         <h2 class="marbles-title">🔮 Marbles</h2>
-        <p class="marbles-sub">Drop marbles one at a time. Match 3+ same-colored marbles to pop them — every match of 3 sends 1 marble raining onto your opponent, 4 sends 2, 5 sends 3. First to fill their board loses!</p>
+        <p class="marbles-sub">Slide marbles around the center row to line up 3+ of the same color. Every 5+ match dumps your reserve onto your opponent. First board to fill up loses!</p>
         <div class="marbles-form">
           <input class="marbles-input" [(ngModel)]="playerName" placeholder="Your name" maxlength="16" />
           <button class="win98-btn primary" (click)="hostGame()" [disabled]="!playerName.trim()">Play Online — Host a Room</button>
           <div class="marbles-join-row">
             <input class="marbles-input" [(ngModel)]="joinCode" placeholder="Room code" maxlength="16" />
             <button class="win98-btn" (click)="joinGame()" [disabled]="!playerName.trim() || !joinCode.trim()">Join</button>
+          </div>
+          <div class="marbles-vsai">
+            <div class="marbles-vsai-label">🤖 Play vs Computer</div>
+            <div class="marbles-vsai-btns">
+              <button class="win98-btn" (click)="playVsAI(0)" [disabled]="!playerName.trim()">Easy</button>
+              <button class="win98-btn" (click)="playVsAI(1)" [disabled]="!playerName.trim()">Medium</button>
+              <button class="win98-btn" (click)="playVsAI(2)" [disabled]="!playerName.trim()">Hard</button>
+            </div>
           </div>
           <button class="win98-btn" (click)="toggleHowTo()">How to Play</button>
         </div>
@@ -40,11 +48,13 @@
       <div class="win98-titlebar"><span>How to Play</span></div>
       <div class="win98-body howto-body">
         <ul class="howto-list">
-          <li>Marbles drop one at a time. <strong>Click a column</strong> (or press <strong>1–6</strong>, or <strong>arrows + space</strong>) to drop yours.</li>
-          <li>When <strong>3 or more</strong> same-colored marbles touch, they pop.</li>
-          <li>Every popped group of size N sends <strong>N − 2 marbles</strong> raining onto your opponent's board (3 → 1, 4 → 2, 5 → 3).</li>
-          <li>Sent marbles land at random columns — they can cascade your opponent into trouble, or help them.</li>
-          <li><strong>You lose</strong> when your columns fill to the top. Keep yours low and bury your rival!</li>
+          <li>The highlighted <strong>center row</strong> is the pitch line — the only place matches count.</li>
+          <li><strong>◀ / ▶</strong> (or <strong>←/→</strong>) shift the whole center row; marbles wrap around.</li>
+          <li>Pick a column (tap it, or press <strong>1–6</strong>) and use <strong>▲ / ▼</strong> (or <strong>↑/↓</strong>) to cycle that column's marbles up or down.</li>
+          <li>Slide 3+ same-colored marbles <strong>side by side in the center row</strong> — they pop and the ones above fall down.</li>
+          <li>A <strong>special color</strong> is hot each game: popping marbles of that color fills your <strong>reserve</strong>.</li>
+          <li>Pop a <strong>5+ match</strong> to dump your reserve onto your opponent's board.</li>
+          <li>New marbles rain in from the top — <strong>you lose when your columns fill up</strong>.</li>
         </ul>
         <button class="win98-btn" (click)="toggleHowTo()">Back</button>
       </div>
@@ -84,13 +94,27 @@
       <div class="hud-row">
         <span class="hud-you">You</span>
         <span class="hud-sent">🚀 {{ mySent }} sent</span>
+        <span class="hud-reserve">⭐ {{ myReserve }} reserve</span>
+        <span class="hud-hot" *ngIf="specialColor">Hot: <i class="hot-marble" [style.background]="hotColorCss()"></i></span>
       </div>
       <div class="hud-opponent" *ngFor="let p of otherPlayers()">
         <span class="hud-name">{{ p.playerName }}<span *ngIf="!p.alive" class="hud-out"> 💀</span></span>
         <span class="hud-sent">🚀 {{ p.sent }} sent</span>
-        <div class="hud-fill"><div class="hud-fill-bar" [style.width.%]="fillPercent(p)"></div></div>
       </div>
-      <div class="hud-hint" *ngIf="status === 'playing'">Drop your marble — match 3+ to send them over!</div>
+      <div class="hud-hint" *ngIf="status === 'playing'">Slide 3+ together in the center row — 5+ dumps your reserve!</div>
+    </div>
+
+    <!-- ── On-screen controls (mobile + desktop convenience) ─────────── -->
+    <div class="marbles-controls" *ngIf="status === 'playing'">
+      <div class="controls-col">
+        <span class="controls-label">Col {{ selectedCol + 1 }}</span>
+        <button class="ctrl-btn" (click)="shiftColumn(-1)">▲</button>
+        <button class="ctrl-btn" (click)="shiftColumn(1)">▼</button>
+      </div>
+      <div class="controls-row">
+        <button class="ctrl-btn" (click)="shiftRow(-1)">◀</button>
+        <button class="ctrl-btn wide" (click)="shiftRow(1)">▶</button>
+      </div>
     </div>
 
     <!-- ── Winner banner ─────────────────────────────────────────────── -->

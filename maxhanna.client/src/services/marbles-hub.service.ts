@@ -9,8 +9,8 @@ export interface MarblesPlayer {
   ready: boolean;
   sent: number;
   isHost: boolean;
+  isBot: boolean;
   alive: boolean;
-  heights: number[];
 }
 
 export interface MarblesLobbyState {
@@ -22,19 +22,21 @@ export interface MarblesLobbyState {
 
 export interface MarblesJoinResult extends MarblesLobbyState {
   myBoard: number[][];
-  myCurrentColor: number;
+  mySpecialColor: number;
+  myReserve: number;
   mySent: number;
 }
 
 export interface MarblesBoardUpdate {
   board: number[][];
-  currentColor: number;
+  specialColor: number;
+  reserve: number;
   sent: number;
   /** Cells that popped this turn (for pop animation + sound). */
   popped: { row: number; col: number; color: number }[];
   /** How many marbles rained onto this board from an opponent. */
   rained: number;
-  /** True when this update is the result of my own drop. */
+  /** True when this update was triggered by a marble drop from the top. */
   dropped: boolean;
   alive: boolean;
   winnerName: string | null;
@@ -120,10 +122,22 @@ export class MarblesHubService implements OnDestroy {
     try { await this.hub!.invoke('StartGame', code); } catch { /* ignore */ }
   }
 
-  /** Drop your current marble into a column (0..5). */
-  async drop(code: string, col: number): Promise<void> {
+  /** Start a single-player game vs the computer. Difficulty: 0 easy, 1 medium, 2 hard. */
+  async startVsAI(code: string, difficulty: number): Promise<void> {
     if (!this.connected) return;
-    try { await this.hub!.invoke('Drop', code, col); } catch { /* ignore */ }
+    try { await this.hub!.invoke('StartVsAI', code, difficulty); } catch { /* ignore */ }
+  }
+
+  /** Shift the center row: -1 = left, +1 = right (marbles wrap around). */
+  async shiftRow(code: string, dir: number): Promise<void> {
+    if (!this.connected) return;
+    try { await this.hub!.invoke('ShiftRow', code, dir); } catch { /* ignore */ }
+  }
+
+  /** Shift a column: -1 = up, +1 = down (marbles cycle through the column). */
+  async shiftColumn(code: string, col: number, dir: number): Promise<void> {
+    if (!this.connected) return;
+    try { await this.hub!.invoke('ShiftColumn', code, col, dir); } catch { /* ignore */ }
   }
 
   async sendChat(code: string, message: string): Promise<void> {

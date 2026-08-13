@@ -183,6 +183,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     'UpdateUserSettings': 'Settings',
     'User-Events': 'User Events',
     'Bug-Wars': 'Bug Wars',
+    'Marbles': 'Lose Your Marbles',
     'Racing': 'Grand Prix'
   }
   navigationItemDescriptions: MenuItem[] = [
