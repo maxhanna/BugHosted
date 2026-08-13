@@ -68,6 +68,8 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
   /** Currently selected column (for ↑/↓ column shifts). */
   selectedCol = 2;
+  /** In-flight pointer drag used to shift a center-row column up/down. */
+  private drag = { active: false, pointerId: -1, col: -1, row: -1, startY: 0, dir: 0 };
 
   private ctx!: CanvasRenderingContext2D;
   private sprites: Sprite[] = [];
@@ -379,21 +381,60 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     else if (k >= '1' && k <= '6') { this.selectColumn(+k - 1); }
   }
 
-  onStageDown(e: PointerEvent): void {
-    if (this.status !== 'playing') return;
+  /** Map a pointer event to board grid coordinates (handles DPR-scaled canvas). */
+  private pointerToCell(e: PointerEvent): { col: number; row: number; px: number; py: number } | null {
     const canvas = this.canvasRef?.nativeElement;
-    if (!canvas) return;
+    if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
     const { cell, ox, oy } = this.layout();
     const x = (e.clientX - rect.left) * (canvas.width / rect.width);
     const y = (e.clientY - rect.top) * (canvas.height / rect.height);
-    const col = Math.floor((x - ox) / cell);
-    const row = Math.floor((y - oy) / cell);
-    if (col >= 0 && col < COLS) this.selectedCol = col;
-    // Clicking the pitch row itself shifts it right (a convenient tap target).
-    if (row === PITCH_ROW && col >= 0 && col < COLS) {
+    return {
+      col: Math.floor((x - ox) / cell),
+      row: Math.floor((y - oy) / cell),
+      px: x,
+      py: y,
+    };
+  }
+
+  onStageDown(e: PointerEvent): void {
+    if (this.status !== 'playing') return;
+    const cell = this.pointerToCell(e);
+    if (!cell) return;
+    if (cell.col >= 0 && cell.col < COLS) this.selectedCol = cell.col;
+    this.drag = { active: true, pointerId: e.pointerId, col: cell.col, row: cell.row, startY: cell.py, dir: 0 };
+    // Capture the pointer so the move/up events keep firing even if the
+    // finger/cursor drifts off the board mid-drag.
+    try { (e.currentTarget as HTMLElement)?.setPointerCapture?.(e.pointerId); } catch { /* ignore */ }
+  }
+
+  onStageMove(e: PointerEvent): void {
+    if (!this.drag.active || e.pointerId !== this.drag.pointerId) return;
+    if (this.drag.row !== PITCH_ROW || this.drag.col < 0 || this.drag.col >= COLS) return;
+    const canvas = this.canvasRef?.nativeElement;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const { cell } = this.layout();
+    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+    const dy = y - this.drag.startY;
+    const threshold = Math.max(10, cell * 0.35);
+    if (Math.abs(dy) >= threshold) this.drag.dir = dy < 0 ? -1 : 1;
+  }
+
+  onStageUp(e: PointerEvent): void {
+    if (!this.drag.active || e.pointerId !== this.drag.pointerId) return;
+    const d = this.drag;
+    this.drag = { active: false, pointerId: -1, col: -1, row: -1, startY: 0, dir: 0 };
+    if (this.status !== 'playing') return;
+    const onBoard = d.col >= 0 && d.col < COLS;
+    if (d.row === PITCH_ROW && d.dir !== 0 && onBoard) {
+      // Drag up/down from the center row → shift that column.
+      this.selectedCol = d.col;
+      this.shiftColumn(d.dir);
+    } else if (d.row === PITCH_ROW && onBoard) {
+      // A tap on the center row still shifts the row right (existing shortcut).
       this.shiftRow(1);
-    } else {
+    } else if (onBoard) {
       this.playClick();
     }
   }
@@ -517,6 +558,25 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       ctx.moveTo(sx - cell * 0.28, oy + cell * ROWS + cell * 0.9);
       ctx.lineTo(sx + cell * 0.28, oy + cell * ROWS + cell * 0.9);
       ctx.lineTo(sx, oy + cell * ROWS + cell * 0.6);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Vertical-drag indicator: an amber arrow above/below the dragged column
+    // shows which way the column is about to shift.
+    if (this.drag.active && this.drag.dir !== 0 && this.drag.col >= 0 && this.drag.col < COLS) {
+      const dx = ox + (this.drag.col + 0.5) * cell;
+      ctx.fillStyle = 'rgba(255,214,0,0.9)';
+      ctx.beginPath();
+      if (this.drag.dir < 0) {
+        ctx.moveTo(dx - cell * 0.3, oy - cell * 0.95);
+        ctx.lineTo(dx + cell * 0.3, oy - cell * 0.95);
+        ctx.lineTo(dx, oy - cell * 1.3);
+      } else {
+        ctx.moveTo(dx - cell * 0.3, oy + cell * ROWS + cell * 0.55);
+        ctx.lineTo(dx + cell * 0.3, oy + cell * ROWS + cell * 0.55);
+        ctx.lineTo(dx, oy + cell * ROWS + cell * 0.9);
+      }
       ctx.closePath();
       ctx.fill();
     }
