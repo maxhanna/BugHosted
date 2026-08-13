@@ -651,9 +651,10 @@ export class RacingRenderer {
   constructor(canvas: HTMLCanvasElement, lowQuality = false) {
     this.lowQuality = lowQuality;
     // Mobile/weak GPUs get trimmed effect budgets: drift smoke is the effect
-    // that spikes exactly when cornering/sliding, so its cap is cut on phones
-    // to halve the particle churn + blended fill where it matters.
-    this._smokeMax = lowQuality ? 96 : 220;
+    // that spikes exactly when cornering/sliding, so its cap is cut hard on
+    // phones (56 vs 220) — fewer blended billboards overdrawing the scene
+    // precisely while the car is sliding through a turn.
+    this._smokeMax = lowQuality ? 56 : 220;
     const gl = canvas.getContext('webgl2', { antialias: true, alpha: false });
     if (!gl) throw new Error('WebGL2 not supported');
     this.gl = gl;
@@ -665,12 +666,13 @@ export class RacingRenderer {
     this.tireBrandTex = this.makeTireBrandTex();
     this.glowTex = this.makeGlowTex();
     if (lowQuality) {
-      // The shadow pass re-renders the full scenery every frame — quartering its
-      // resolution on weak GPUs cuts that fill cost 4x (and the mirror pixels
-      // too) while staying visually close on phones.
-      this.shadowSize = 512;
-      this.mirrorW = 384;
-      this.mirrorH = 216;
+      // Mobile GPUs are fill-rate bound, so every off-screen pass gets cut:
+      // the shadow map drops from 1024 to 384 (it was already 512 — but at
+      // 512 it cost more pixels than the whole main pass once the canvas is
+      // downscaled), and the rear-view mirror shrinks to a 288x162 inset.
+      this.shadowSize = 384;
+      this.mirrorW = 288;
+      this.mirrorH = 162;
     }
     this.initShader();
     this.initShadow();
@@ -731,13 +733,14 @@ export class RacingRenderer {
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
         const i = (y * size + x) * 3;
-        const m1 = noise(x, y, 22), m2 = noise(x, y, 7);
-        let r = 32 + (m1 - 0.5) * 24 + (m2 - 0.5) * 14;
-        let g = 76 + (m1 - 0.5) * 40 + (m2 - 0.5) * 22;
-        let b = 24 + (m1 - 0.5) * 16 + (m2 - 0.5) * 10;
-        const h = hash(x, y);
-        if (h < 0.3) { g += 26; r += 7; b += 3; }        // sunlit blade tip
-        else if (h > 0.8) { g -= 20; r -= 5; b -= 3; }   // shadowed blade
+        // Two octaves of mown patchwork plus the occasional dirt patch. The
+        // fine octave uses a 16-texel cell and there is NO per-pixel blade
+        // speckle: per-pixel noise (no mipmaps) aliases into blotches across
+        // the landscape at distance, which read as gray spots in the fog.
+        const m1 = noise(x, y, 22), m2 = noise(x, y, 16);
+        let r = 32 + (m1 - 0.5) * 24 + (m2 - 0.5) * 12;
+        let g = 76 + (m1 - 0.5) * 40 + (m2 - 0.5) * 18;
+        let b = 24 + (m1 - 0.5) * 16 + (m2 - 0.5) * 8;
         if (noise(x, y, 28) > 0.86) { r += 14; g -= 26; b += 5; } // dirt patch
         data[i] = Math.max(6, Math.min(190, r));
         data[i + 1] = Math.max(10, Math.min(205, g));
@@ -867,8 +870,11 @@ export class RacingRenderer {
       const vy = y / size;
       for (let x = 0; x < size; x++) {
         const i = (y * size + x) * 3;
-        // Base asphalt: mid gray with fine per-pixel grain (no mottled spots).
-        let g = 55 + (hash(x, y) * 2 - 1) * 7;
+        // Base asphalt: mid gray with smooth low-frequency wear patches only.
+        // Per-pixel noise is deliberately avoided: with no mipmaps it aliases
+        // into shimmering gray blotches across the track (esp. minified at
+        // distance), which read as "gray spots" on the asphalt.
+        let g = 55 + (noise(x, y, 48) - 0.5) * 8;
         // Rubber laid down on the racing line (a soft band down the middle).
         g -= Math.max(0, 1 - Math.abs(vy - 0.5) * 5.5) * 12;
         // Rubber dust at the very edges where cars drop wheels off-line.
@@ -914,8 +920,9 @@ export class RacingRenderer {
       const vy = y / size;
       for (let x = 0; x < size; x++) {
         const i = (y * size + x) * 3;
-        // Dark city asphalt with fine grain (no mottled spots).
-        let g = 42 + (hash(x, y) * 2 - 1) * 6;
+        // Dark city asphalt with smooth low-frequency wear patches only (no
+        // per-pixel noise — it aliases into gray blotches when minified).
+        let g = 42 + (noise(x, y, 48) - 0.5) * 7;
         // Tyre rubber down the racing line (centre of the road).
         g -= Math.max(0, 1 - Math.abs(vy - 0.5) * 5.5) * 10;
         let r = g, gg = g, b = g;
@@ -947,6 +954,17 @@ export class RacingRenderer {
       n ^= n >>> 16;
       return (n >>> 0) / 4294967296;
     };
+    // Smooth value noise (large cells only) so the concrete reads as a clean
+    // slab instead of aliasing into gray speckle/blotches when minified.
+    const noise = (x: number, y: number, cell: number) => {
+      const x0 = Math.floor(x / cell), y0 = Math.floor(y / cell);
+      const fx = x / cell - x0, fy = y / cell - y0;
+      const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+      const v00 = hash(x0, y0), v10 = hash(x0 + 1, y0), v01 = hash(x0, y0 + 1), v11 = hash(x0 + 1, y0 + 1);
+      const a = v00 + (v10 - v00) * sx;
+      const b = v01 + (v11 - v01) * sx;
+      return a + (b - a) * sy;
+    };
     const rumbleH = 0.52;
     for (let y = 0; y < size; y++) {
       const vy = y / size;
@@ -961,7 +979,7 @@ export class RacingRenderer {
           let r = x < 32 ? 199 : 242;
           let g = x < 32 ? 36 : 240;
           let b = x < 32 ? 32 : 236;
-          const nz = (hash(x, y) * 2 - 1) * 6;
+          const nz = (noise(x, y, 20) - 0.5) * 6;
           r += nz; g += nz; b += nz;
           r *= 1 - seam; g *= 1 - seam; b *= 1 - seam;
           // Rubber dust at the road-side lip of the kerb.
@@ -971,11 +989,11 @@ export class RacingRenderer {
           }
           data[i] = r; data[i + 1] = g; data[i + 2] = b;
         } else {
-          // Concrete gutter: pale grey-blue with grain, expansion joints and
-          // the occasional water stain; grime gathers at the outer lip.
-          let v = 121 + (hash(x, y) * 2 - 1) * 5;
+          // Concrete gutter: pale grey-blue with smooth wear, expansion
+          // joints and the occasional water stain; grime at the outer lip.
+          let v = 121 + (noise(x, y, 20) - 0.5) * 5;
           if (d < 2) v = 72;
-          if (hash(x, y) > 0.96) v -= 16;
+          if (noise(x, y, 24) > 0.9) v -= 14;
           if (vy > 0.965) v = v * 0.78 + 26;
           data[i] = v + 2; data[i + 1] = v; data[i + 2] = v + 8;
         }
@@ -1605,7 +1623,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.tireWear = 0;
     this._bakedTireWear = -1;
     this.night = theme === 'monaco-night';
-    this.heatShimmer = theme === 'desert';
+    // Heat shimmer re-renders the whole scene into an FBO plus a mask pass
+    // every frame — too expensive for the desert circuit on weak GPUs, so
+    // mobile drops it (the sun still shows, just without the wavy distortion).
+    this.heatShimmer = theme === 'desert' && !this.lowQuality;
     this._winnerCelebrated = false;
     this._confettiBurst.length = 0;
     switch (theme) {
@@ -2635,14 +2656,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const fenceHairs: [number, number, number][] = [
       [0.1, 0.08, 0.06], [0.55, 0.38, 0.18], [0.9, 0.85, 0.7], [0.18, 0.12, 0.08], [0.3, 0.2, 0.12],
     ];
-    for (let i = 0; i < pts.length; i += 16) {
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 32 : 16)) {
       const p = pts[i];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
       const side = (i / 16) % 2 === 0 ? -1 : 1;
       const baseX = p.x + ppx * (p.width / 2 + 2.8) * side;
       const baseZ = p.z + ppz * (p.width / 2 + 2.8) * side;
-      const n = 2 + Math.floor(Math.random() * 2);
+      // Fewer fence-liners on mobile (half the posts, 1-2 per post).
+      const n = this.lowQuality ? 1 + Math.floor(Math.random() * 2) : 2 + Math.floor(Math.random() * 2);
       for (let s = 0; s < n; s++) {
         const off = (s - n / 2) * 0.8;
         const cx = baseX + ppx * off;
@@ -5928,10 +5950,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const hairs: [number, number, number][] = [
       [0.1, 0.08, 0.06], [0.55, 0.38, 0.18], [0.9, 0.85, 0.7], [0.18, 0.12, 0.08], [0.3, 0.2, 0.12],
     ];
-    const standPeople: [number, number][] = [
+    const standPeopleAll: [number, number][] = [
       [-2, 0], [-1, 0], [0, 0], [1, 0], [2, 0],
       [-1.6, 1], [-0.6, 1], [0.4, 1], [1.4, 1], [2.4, 1],
     ];
+    // Mobile: every other seat — the stands keep reading as packed but the
+    // per-frame crowd fill (animated boxes + buffer upload) is halved.
+    const standPeople = this.lowQuality
+      ? standPeopleAll.filter((_, i) => i % 2 === 0)
+      : standPeopleAll;
     for (const [off, tier] of standPeople) {
       const bx = gx + ppx * (off * hw * 0.45 + tier * 0.9);
       const bz = gz + ppz * (off * hw * 0.35 + tier * 0.9);
@@ -6000,7 +6027,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       [-3.6, 1, 0.4], [-2.8, 1, 0], [-2, 1, 0.3],
       [2, 1, -0.3], [2.8, 1, 0], [3.6, 1, 0.4],
     ];
-    for (let i = 0; i < spots.length; i++) {
+    for (let i = 0; i < spots.length; i += (this.lowQuality ? 2 : 1)) {
       const [off, tier, stagger] = spots[i];
       const bx = start.x + ppx * (start.width / 2 + 3.2) + ppx * off;
       const bz = start.z + ppz * (start.width / 2 + 3.2) + ppz * off;
@@ -6213,7 +6240,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this._rainInitialized) return;
     this._rainInitialized = true;
     const gl = this.gl;
-    const count = 2000;
+    // Rain isn't trimmed by the scenery tier like snow is — 2000 streaks on a
+    // phone GPU is a per-frame bufferSubData + draw of 4000 verts on top of
+    // everything else. Cut it on weak GPUs like the snowfall cap.
+    const count = this.lowQuality ? 700 : 2000;
     const verts: number[] = [];
     this._rainParticles = [];
     for (let i = 0; i < count; i++) {
@@ -6365,7 +6395,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
           vz: -cosY * (0.5 + Math.random() * 0.8) + (Math.random() - 0.5) * 0.6,
           life: 0,
           maxLife: 0.45 + Math.random() * 0.4,
-          size: 0.15 + Math.random() * 0.1
+          // Slightly smaller puffs on mobile — fewer blended pixels per billboard.
+          size: this.lowQuality ? 0.11 + Math.random() * 0.07 : 0.15 + Math.random() * 0.1
         });
       }
     }
@@ -7818,7 +7849,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, this._crowdBuf);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
+    // Upload only the written slice — the old call pushed the whole preallocated
+    // 546k-float buffer to the GPU every frame (a ~2MB upload per frame on any
+    // device) even when most seats were culled.
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, w));
     gl.bindVertexArray(this._crowdVao);
     gl.uniform1i(this.hasTexLoc, 0);
     gl.uniform3f(this.colorLoc, 1, 1, 1);

@@ -776,8 +776,13 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   ngAfterViewInit() {
     this.isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
     const canvas = this.canvasRef.nativeElement;
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    // Phones are fill-rate bound: render the WebGL scene at 72% of the CSS
+    // size and let CSS stretch it — a ~48% pixel cut on every pass (main,
+    // shadow, mirror, rain/smoke fill) for a small amount of softness that
+    // phones barely notice. The DOM HUD (wheel, pedals) is unaffected.
+    const renderScale = this.isMobile ? 0.72 : 1;
+    canvas.width = Math.max(1, Math.round(window.innerWidth * renderScale));
+    canvas.height = Math.max(1, Math.round(window.innerHeight * renderScale));
     // Mobile / low-core devices get the trimmed scenery tier (fewer conifers,
     // capped snow, smaller mirror) so the mountain & alpine circuits stay smooth.
     const lowQuality = this.isMobile || ((navigator.hardwareConcurrency ?? 8) <= 4);
