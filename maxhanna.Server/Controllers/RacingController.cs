@@ -788,10 +788,10 @@ namespace maxhanna.Server.Controllers
 					using var conn = new MySqlConnection(connStr);
 					await conn.OpenAsync();
 					using var cmd = new MySqlCommand(@"
-						SELECT track_id, user_id, lap_time, player_name FROM (
-							SELECT r.track_id, r.user_id, r.lap_time AS lap_time,
-							       COALESCE(NULLIF(r.player_name, ''), u.username, 'Unknown') AS player_name
-							FROM racing_results r
+						SELECT id as track_id, user_id, lap_time, player_name FROM (
+							SELECT r.id, r.user_id, r.lap_time AS lap_time,
+							       COALESCE(u.username, 'Unknown') AS player_name
+							FROM racing_results r 
 							LEFT JOIN users u ON r.user_id = u.id
 							WHERE r.lap_time > 0 AND r.user_id != 0
 							UNION ALL
