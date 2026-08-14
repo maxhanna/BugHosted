@@ -335,8 +335,7 @@
 }
 
 singleAttachment {
-  max-width: calc(100% - 20px);
-  max-height: 525px;
+  max-width: calc(80% - 20px); 
   width: auto;
   height: auto;
   object-fit: contain;
