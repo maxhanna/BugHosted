@@ -80,6 +80,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
   showingFriendsList = true;
   isLoadingTopGamePlayed = false;
   isLoadingRomsUploaded = false;
+  isLoggingIn = false;
   friends: User[] = [];
   friendRequests: FriendRequest[] = [];
   friendRequestsSent: FriendRequest[] = [];
@@ -937,6 +938,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
 
   async login(guest?: string, fromUserCreation?: boolean) {
     this.startLoading();
+    this.isLoggingIn = true;
     if (this.parentRef?.user) {
       this.parentRef.user = undefined;
     }
@@ -979,6 +981,7 @@ export class UserComponent extends ChildComponent implements OnInit, AfterViewIn
         this.justLoggedIn = true;
         this.ngOnInit();
       }
+      this.isLoggingIn = false;
       this.stopLoading();
     }
   }
