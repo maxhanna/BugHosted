@@ -83,6 +83,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
   constructor(private hub: MarblesHubService, private ngZone: NgZone, private cdr: ChangeDetectorRef) {
     super();
+    this.playerName = this.parentRef?.user?.username ?? '';
   }
 
   ngAfterViewInit(): void {
