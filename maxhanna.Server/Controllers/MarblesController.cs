@@ -40,25 +40,7 @@ namespace maxhanna.Server.Controllers
 			try
 			{
 				using var conn = new MySqlConnection(connectionString);
-				await conn.OpenAsync();
-
-				// Make sure the table exists so scores are never silently lost
-				// if the deployment hasn't provisioned it yet.
-				using (var create = new MySqlCommand(@"
-					CREATE TABLE IF NOT EXISTS marbles_scores (
-						id INT AUTO_INCREMENT PRIMARY KEY,
-						user_id INT NOT NULL DEFAULT 0,
-						username VARCHAR(64) NULL,
-						score INT NOT NULL DEFAULT 0,
-						difficulty INT NOT NULL DEFAULT 0,
-						duration_seconds INT NOT NULL DEFAULT 0,
-						submitted DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
-						INDEX idx_marbles_scores_score (score DESC),
-						INDEX idx_marbles_scores_user (user_id)
-					);", conn))
-				{
-					await create.ExecuteNonQueryAsync();
-				}
+				await conn.OpenAsync(); 
 
 				using var cmd = new MySqlCommand(@"
 					INSERT INTO marbles_scores (user_id, username, score, difficulty, duration_seconds, submitted)
@@ -97,24 +79,7 @@ namespace maxhanna.Server.Controllers
 			{
 				var scores = new List<MarblesScore>();
 				using var conn = new MySqlConnection(connectionString);
-				await conn.OpenAsync();
-
-				// Ensure the table exists (first run or unprovisioned deployment).
-				using (var create = new MySqlCommand(@"
-					CREATE TABLE IF NOT EXISTS marbles_scores (
-						id INT AUTO_INCREMENT PRIMARY KEY,
-						user_id INT NOT NULL DEFAULT 0,
-						username VARCHAR(64) NULL,
-						score INT NOT NULL DEFAULT 0,
-						difficulty INT NOT NULL DEFAULT 0,
-						duration_seconds INT NOT NULL DEFAULT 0,
-						submitted DATETIME NOT NULL DEFAULT UTC_TIMESTAMP(),
-						INDEX idx_marbles_scores_score (score DESC),
-						INDEX idx_marbles_scores_user (user_id)
-					);", conn))
-				{
-					await create.ExecuteNonQueryAsync();
-				}
+				await conn.OpenAsync(); 
 
 				using (var cmd = new MySqlCommand(@"
 					SELECT ms.id, ms.user_id, ms.username, ms.score, ms.difficulty, ms.duration_seconds, ms.submitted,
