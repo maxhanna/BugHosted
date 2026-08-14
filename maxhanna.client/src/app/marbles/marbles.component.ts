@@ -292,6 +292,12 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
     // 2. Match surviving marbles to the new board by color, preferring
     //    shortest travel. Leftover new cells spawn from the top of their column.
+    //    IMPORTANT: a marble may only move within its own column (gravity /
+    //    column shifts) or along the pitch row (row shifts). It must NEVER
+    //    match across columns for anything else — otherwise a single new
+    //    marble dropping in could "steal" a same-colored marble from the
+    //    next column, whose cell then steals from the column after that,
+    //    and the whole board visibly shuffles sideways.
     const live = this.sprites.filter(s => s.phase !== 'pop');
     const used = new Set<Sprite>();
     const next: Sprite[] = [];
@@ -306,9 +312,10 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         let bestDist = Infinity;
         for (const s of live) {
           if (used.has(s) || s.color !== color) continue;
-          // Vertical moves are free-er than horizontal (gravity vs row shift).
           const dr = s.row - r;
           const dc = s.col - c;
+          // Same-column only, unless both ends are on the pitch row.
+          if (dc !== 0 && !(r === PITCH_ROW && s.row === PITCH_ROW)) continue;
           const dist = dr * dr + dc * dc * 3;
           if (dist < bestDist) { bestDist = dist; best = s; }
         }
@@ -474,11 +481,13 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         s.scale -= dt * 4.5;
         continue;
       }
-      // Move toward target; roll while sliding.
+      // Move toward target; roll while sliding. A marble rolls around the axis
+      // perpendicular to its motion, so the spin direction matches travel.
       const dc = s.tCol - s.col;
       const dr = s.tRow - s.row;
       const dist = Math.hypot(dc, dr);
       if (dist > 0.01) {
+        const dirSign = Math.abs(dc) >= Math.abs(dr) ? Math.sign(dc) : Math.sign(dr);
         // A pitch-row horizontal shift gets a distinct eased glide so the
         // slide is obvious, plus a subtle squash-stretch along the motion.
         const isRowSlide = Math.abs(dr) < 0.05 && Math.abs(s.row - PITCH_ROW) < 0.05 && Math.abs(dc) > 0.01;
@@ -486,13 +495,13 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
           const step = Math.min(dist, Math.max(dist * 0.3, dt * 2.2));
           s.col += (dc / dist) * step;
           s.row += (dr / dist) * step;
-          s.roll += step * 2.2;
+          s.roll += dirSign * step * 2.2;
           s.stretch = 1 + Math.min(0.22, dist * 0.16);
         } else {
           const step = Math.min(dist, dt * 9);
           s.col += (dc / dist) * step;
           s.row += (dr / dist) * step;
-          s.roll += step * 2.2;
+          s.roll += dirSign * step * 2.2;
           s.stretch = 1;
         }
       } else {
@@ -830,23 +839,26 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       ctx.fill();
     }
 
-    // Glass body.
-    const grad = ctx.createRadialGradient(x - r * 0.35, y - r * 0.38, r * 0.08, x, y, r);
-    grad.addColorStop(0, lighten(tinted, 0.62));
-    grad.addColorStop(0.45, `rgb(${tinted[0]},${tinted[1]},${tinted[2]})`);
-    grad.addColorStop(1, darken(tinted, 0.62));
+    // Glass body — richer 4-stop sphere gradient (light from top-left).
+    const grad = ctx.createRadialGradient(x - r * 0.35, y - r * 0.38, r * 0.05, x, y, r);
+    grad.addColorStop(0, lighten(tinted, 0.72));
+    grad.addColorStop(0.3, lighten(tinted, 0.3));
+    grad.addColorStop(0.62, `rgb(${tinted[0]},${tinted[1]},${tinted[2]})`);
+    grad.addColorStop(1, darken(tinted, 0.7));
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
 
     // Inner detail (clipped to the sphere), rotating as the marble rolls.
+    // A real rolling marble spins the surface at v/r — roll already carries
+    // the full v/r angle (see update()), so rotate by the full amount.
     ctx.save();
     ctx.beginPath();
     ctx.arc(x, y, r * 0.92, 0, Math.PI * 2);
     ctx.clip();
     ctx.translate(x, y);
-    ctx.rotate(roll * 0.5 + s2 * Math.PI * 2);
+    ctx.rotate(roll + s2 * Math.PI * 2);
     ctx.lineCap = 'round';
 
     switch (style) {
@@ -944,27 +956,50 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     }
     ctx.restore();
 
-    // ── Specular highlight & roll-responsive reflection ──────────────
-    // The highlight drifts subtly as the marble rolls, and a faint glint
-    // sweeps across the glass with the rotation so it reads as a real
-    // rolling sphere instead of a flat disc.
-    const sway = Math.sin(roll) * r * 0.08;
-    const bob = Math.cos(roll * 0.8) * r * 0.06;
-    const hx = x - r * (0.26 + s0 * 0.18) + sway;
-    const hy = y - r * (0.32 + s1 * 0.16) + bob;
+    // ── Sphere curvature shadow ────────────────────────────────────────
+    // A soft darkening toward the rim (except where the light hits) makes
+    // the flat pattern read as painted on a curved sphere instead of a
+    // printed disc. Light source is top-left, so darken the lower-right.
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.95, 0, Math.PI * 2);
+    ctx.clip();
+    const curve = ctx.createRadialGradient(x, y, r * 0.35, x, y, r * 1.05);
+    curve.addColorStop(0, 'rgba(0,0,0,0)');
+    curve.addColorStop(1, 'rgba(0,0,0,0.38)');
+    ctx.fillStyle = curve;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    const rimShade = ctx.createLinearGradient(x - r * 0.8, y - r * 0.8, x + r * 0.8, y + r * 0.8);
+    rimShade.addColorStop(0, 'rgba(0,0,0,0)');
+    rimShade.addColorStop(1, 'rgba(0,0,0,0.2)');
+    ctx.fillStyle = rimShade;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    ctx.restore();
 
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    // ── Specular highlight (FIXED to the light source) ─────────────────
+    // Real glass: the light reflection stays in one place while the pattern
+    // rolls beneath it. Any sway here would read as a spinning coin, not a
+    // rolling marble — so the highlight position only varies by marble seed.
+    const hx = x - r * (0.26 + s0 * 0.18);
+    const hy = y - r * (0.32 + s1 * 0.16);
+
+    // Crisp core + soft halo, both pegged to the fixed light position.
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
     ctx.beginPath();
-    ctx.arc(hx, hy, r * 0.16, 0, Math.PI * 2);
+    ctx.arc(hx, hy, r * 0.14, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
     ctx.beginPath();
-    ctx.arc(hx + r * 0.12, hy + r * 0.14, r * 0.07, 0, Math.PI * 2);
+    ctx.arc(hx, hy, r * 0.28, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.beginPath();
+    ctx.arc(hx, hy, r * 0.5, 0, Math.PI * 2);
     ctx.fill();
 
     // Rolling glint — a soft bright streak travelling with the roll,
     // clipped to the sphere so it never pokes outside the glass.
-    const glint = roll * 1.9;
+    const glint = roll;
     const gx = x + Math.cos(glint) * r * 0.5;
     const gy = y + Math.sin(glint) * r * 0.5;
     ctx.save();
@@ -972,7 +1007,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     ctx.arc(x, y, r * 0.94, 0, Math.PI * 2);
     ctx.clip();
     const gg = ctx.createRadialGradient(gx, gy, 0, gx, gy, r * 0.55);
-    gg.addColorStop(0, 'rgba(255,255,255,0.25)');
+    gg.addColorStop(0, 'rgba(255,255,255,0.2)');
     gg.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = gg;
     ctx.beginPath();
@@ -982,7 +1017,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     // Bottom reflected rim — a faint bounce of light along the lower edge.
     const rim = ctx.createLinearGradient(x, y + r * 0.4, x, y + r);
     rim.addColorStop(0, 'rgba(255,255,255,0)');
-    rim.addColorStop(1, 'rgba(255,255,255,0.18)');
+    rim.addColorStop(1, 'rgba(255,255,255,0.22)');
     ctx.strokeStyle = rim;
     ctx.lineWidth = r * 0.2;
     ctx.beginPath();
