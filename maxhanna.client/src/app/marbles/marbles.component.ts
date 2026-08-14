@@ -68,8 +68,8 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
   /** Currently selected column (for ↑/↓ column shifts). */
   selectedCol = 2;
-  /** In-flight pointer drag used to shift a center-row column up/down. */
-  private drag = { active: false, pointerId: -1, col: -1, row: -1, startY: 0, dir: 0 };
+  /** In-flight pointer drag: dir = vertical (column shift), hdir = horizontal (pitch-row shift). */
+  private drag = { active: false, pointerId: -1, col: -1, row: -1, startX: 0, startY: 0, dir: 0, hdir: 0 };
 
   private ctx!: CanvasRenderingContext2D;
   private sprites: Sprite[] = [];
@@ -402,7 +402,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     const cell = this.pointerToCell(e);
     if (!cell) return;
     if (cell.col >= 0 && cell.col < COLS) this.selectedCol = cell.col;
-    this.drag = { active: true, pointerId: e.pointerId, col: cell.col, row: cell.row, startY: cell.py, dir: 0 };
+    this.drag = { active: true, pointerId: e.pointerId, col: cell.col, row: cell.row, startX: cell.px, startY: cell.py, dir: 0, hdir: 0 };
     // Capture the pointer so the move/up events keep firing even if the
     // finger/cursor drifts off the board mid-drag.
     try { (e.currentTarget as HTMLElement)?.setPointerCapture?.(e.pointerId); } catch { /* ignore */ }
@@ -410,14 +410,19 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
   onStageMove(e: PointerEvent): void {
     if (!this.drag.active || e.pointerId !== this.drag.pointerId) return;
-    if (this.drag.row !== PITCH_ROW || this.drag.col < 0 || this.drag.col >= COLS) return;
+    // A vertical drag from ANY row shifts that whole column up/down.
+    if (this.drag.col < 0 || this.drag.col >= COLS) return;
     const canvas = this.canvasRef?.nativeElement;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
     const { cell } = this.layout();
+    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
     const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+    const dx = x - this.drag.startX;
     const dy = y - this.drag.startY;
     const threshold = Math.max(10, cell * 0.35);
+    // Horizontal drag along the pitch row shifts the whole row left/right.
+    if (this.drag.row === PITCH_ROW && Math.abs(dx) >= threshold) this.drag.hdir = dx < 0 ? -1 : 1;
     if (Math.abs(dy) >= threshold) this.drag.dir = dy < 0 ? -1 : 1;
   }
 
@@ -428,11 +433,17 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   private finishDrag(e: PointerEvent, commit: boolean): void {
     if (!this.drag.active || e.pointerId !== this.drag.pointerId) return;
     const d = this.drag;
-    this.drag = { active: false, pointerId: -1, col: -1, row: -1, startY: 0, dir: 0 };
+    this.drag = { active: false, pointerId: -1, col: -1, row: -1, startX: 0, startY: 0, dir: 0, hdir: 0 };
     if (!commit || this.status !== 'playing') return;
+    // Tap on the ◀ / ▶ arrows beside the pitch row → shift the row that way.
+    if (d.row === PITCH_ROW && d.col === -1) { this.shiftRow(-1); return; }
+    if (d.row === PITCH_ROW && d.col === COLS) { this.shiftRow(1); return; }
     const onBoard = d.col >= 0 && d.col < COLS;
-    if (d.row === PITCH_ROW && d.dir !== 0 && onBoard) {
-      // Drag up/down from the center row → shift that column.
+    if (d.hdir !== 0 && onBoard) {
+      // Horizontal drag along the center row → shift the whole row.
+      this.shiftRow(d.hdir);
+    } else if (d.dir !== 0 && onBoard) {
+      // Drag up/down from any row → shift that whole column.
       this.selectedCol = d.col;
       this.shiftColumn(d.dir);
     } else if (d.row === PITCH_ROW && onBoard) {
