@@ -298,6 +298,16 @@ input[type="submit"] {
   margin-bottom: 5px;
 }
 
+.movieMenuPanel {
+  max-width: min(90vw, 480px);
+}
+
+.menuContent {
+  padding: 0 15px;
+  margin-bottom: 15px;
+  color: var(--secondary-font-color);
+}
+
 .note {
   font-style: italic;
   color: var(--third-font-color);

@@ -6298,10 +6298,22 @@
 
 /* All-circuits breakdown cards */
 .race-lb-alltracks-loading {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.45);
   padding: 14px 0;
+}
+
+.race-lb-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-top-color: var(--main-link-color, chartreuse);
+  border-radius: 50%;
+  animation: race-spin 0.7s linear infinite;
 }
 
 .race-lb-search {

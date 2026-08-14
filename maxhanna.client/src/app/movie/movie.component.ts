@@ -55,6 +55,7 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
   selectedType: 'youtube' | 'file' | 'radio' = 'youtube';
   isEditing: number[] = [];
   showHelpPopup = false;
+  showMenuPanel = false;
   isFullscreen = false;
   isShowingYoutubeSearch = false;
   hasEditedSong = false;
@@ -893,6 +894,14 @@ export class MovieComponent extends ChildComponent implements OnInit, OnDestroy,
   }
   openHelpPanel() {
     this.showHelpPopup = true;
+    this.parentRef?.showOverlay();
+  }
+  closeMenuPanel() {
+    this.showMenuPanel = false;
+    this.parentRef?.closeOverlay();
+  }
+  openMenuPanel() {
+    this.showMenuPanel = true;
     this.parentRef?.showOverlay();
   }
   showYoutubeSearch() {

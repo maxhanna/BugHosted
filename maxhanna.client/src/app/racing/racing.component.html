@@ -1053,7 +1053,9 @@
       <!-- All-circuits breakdown: every track's top laps (humans + the bot field)
            with your own lap pinned after, in comparison -->
       <ng-container>
-        <div class="race-lb-alltracks-loading" *ngIf="allTracksLoading">Loading circuits…</div>
+        <div class="race-lb-alltracks-loading" *ngIf="allTracksLoading">
+          <span class="race-lb-spinner" aria-hidden="true"></span> Refreshing circuits…
+        </div>
         <div class="race-lb-unavailable" *ngIf="leaderboardDataUnavailable && !allTracksLoading">
           ⚠️ Couldn't load lap data right now — the server didn't return any
           leaderboard results. Try again in a moment; your laps will show up
