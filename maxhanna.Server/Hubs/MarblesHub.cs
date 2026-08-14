@@ -41,6 +41,7 @@ namespace maxhanna.Server.Hubs
         {
             public string Code = "";
             public string HostConnectionId = "";
+            public bool IsPublic = false; // public rooms appear in the open-room list and are 1:1
             public string Status = "lobby"; // "lobby" | "playing"
             public CancellationTokenSource? DropCts;
             public readonly List<Player> Players = new();
@@ -59,6 +60,7 @@ namespace maxhanna.Server.Hubs
             public int Sent = 0;
             public int Reserve = 0;
             public int SpecialColor = 0;
+            public int Score = 0; // marbles cleared this game (single-player high scores)
             public int[][] Board = EmptyBoard();
         }
 
@@ -100,16 +102,26 @@ namespace maxhanna.Server.Hubs
 
         // ── Lobby lifecycle ────────────────────────────────────────────────
 
-        public async Task<object?> JoinLobby(string code, string playerName, int playerId)
+        public async Task<object?> JoinLobby(string code, string playerName, int playerId, bool isPublic = false)
         {
             code = (code ?? "").Trim().ToUpperInvariant();
-            if (code.Length < 3 || code.Length > 16) code = NewCode();
+            var creating = code.Length < 3 || code.Length > 16;
+            if (creating) code = NewCode();
 
             var lobby = _lobbies.GetOrAdd(code, _ => new Lobby { Code = code });
 
             lock (lobby.Sync)
             {
+                // A freshly-created lobby takes its visibility from the host's
+                // choice; joining an existing room never changes it.
+                if (creating) lobby.IsPublic = isPublic;
+
                 var existing = lobby.Players.Find(p => p.ConnectionId == Context.ConnectionId);
+                if (existing == null && lobby.IsPublic && lobby.Players.Count >= 2)
+                {
+                    return new { error = "That public room is full." };
+                }
+
                 if (existing != null)
                 {
                     existing.PlayerName = playerName;
@@ -139,7 +151,9 @@ namespace maxhanna.Server.Hubs
             var me = lobby.Players.Find(p => p.ConnectionId == Context.ConnectionId);
             return new
             {
+                error = (string?)null,
                 code = code,
+                isPublic = lobby.IsPublic,
                 hostConnectionId = lobby.HostConnectionId,
                 status = lobby.Status,
                 players = lobby.Players.Select(p => PlayerView(p, lobby.HostConnectionId)).ToArray(),
@@ -147,10 +161,42 @@ namespace maxhanna.Server.Hubs
                 mySpecialColor = me?.SpecialColor ?? 0,
                 myReserve = me?.Reserve ?? 0,
                 mySent = me?.Sent ?? 0,
+                myScore = me?.Score ?? 0,
                 opponents = lobby.Players
                     .Where(o => o.ConnectionId != Context.ConnectionId)
                     .Select(o => OpponentView(o)).ToArray(),
             };
+        }
+
+        /// <summary>
+        /// Snapshot of the open public rooms (1:1 matches waiting for a
+        /// challenger). Rooms that are mid-game or full are left out — a
+        /// public room only shows up while a second player can still join.
+        /// </summary>
+        public Task<object> ListPublicRooms()
+        {
+            var rooms = _lobbies.Values
+                .Where(l => l.IsPublic && l.Status == "lobby")
+                .Select(l =>
+                {
+                    lock (l.Sync)
+                    {
+                        var host = l.Players.FirstOrDefault(p => p.ConnectionId == l.HostConnectionId)
+                                   ?? l.Players.FirstOrDefault();
+                        return new
+                        {
+                            code = l.Code,
+                            hostName = host?.PlayerName ?? "?",
+                            players = l.Players.Count(p => !p.IsBot),
+                            status = l.Status,
+                        };
+                    }
+                })
+                .Where(r => r.players < 2)
+                .OrderByDescending(r => r.players)
+                .ThenBy(r => r.code)
+                .ToArray();
+            return Task.FromResult<object>(new { rooms });
         }
 
         public async Task LeaveLobby(string code)
@@ -188,6 +234,7 @@ namespace maxhanna.Server.Hubs
                     p.Sent = 0;
                     p.Reserve = 0;
                     p.SpecialColor = _rng.Next(1, ColorCount + 1);
+                    p.Score = 0;
                     p.Board = GenerateStartBoard();
                 }
                 players = new List<Player>(lobby.Players);
@@ -258,6 +305,7 @@ namespace maxhanna.Server.Hubs
                     p.Sent = 0;
                     p.Reserve = 0;
                     p.SpecialColor = _rng.Next(1, ColorCount + 1);
+                    p.Score = 0;
                     p.Board = GenerateStartBoard();
                 }
                 players = new List<Player>(lobby.Players);
@@ -515,6 +563,7 @@ namespace maxhanna.Server.Hubs
                 // Resolve pitch-row matches (cascades included).
                 var result = ResolveMatches(mover);
                 if (result.ReserveGained > 0) mover.Reserve += result.ReserveGained;
+                mover.Score += result.PoppedCount;
 
                 // A 5+ match dumps the reserve onto a random alive opponent.
                 if (result.HasFivePlus)
@@ -582,6 +631,7 @@ namespace maxhanna.Server.Hubs
                                 // A drop landing in the pitch row can also pop.
                                 var pop = ResolveMatches(p);
                                 if (pop.ReserveGained > 0) p.Reserve += pop.ReserveGained;
+                                p.Score += pop.PoppedCount;
                                 if (pop.HasFivePlus)
                                 {
                                     var target = PickAliveOpponent(lobby, p);
@@ -756,6 +806,7 @@ namespace maxhanna.Server.Hubs
                 ["specialColor"] = p.SpecialColor,
                 ["reserve"] = p.Reserve,
                 ["sent"] = p.Sent,
+                ["score"] = p.Score,
                 ["popped"] = popped ?? new List<object>(),
                 ["rained"] = rained,
                 ["dropped"] = dropped,
@@ -785,6 +836,7 @@ namespace maxhanna.Server.Hubs
             var view = new
             {
                 code = lobby.Code,
+                isPublic = lobby.IsPublic,
                 hostConnectionId = lobby.HostConnectionId,
                 status = lobby.Status,
                 players = lobby.Players.Select(p => PlayerView(p, lobby.HostConnectionId)).ToArray(),

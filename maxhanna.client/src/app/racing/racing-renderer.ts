@@ -407,6 +407,15 @@ export class RacingRenderer {
   private sceneryVao!: WebGLVertexArrayObject;
   private sceneryVbo!: WebGLBuffer;
   private sceneryIbo!: WebGLBuffer;
+  // Flat water/ground planes (ocean, sand band) — their own mesh so they can
+  // be left out of the shadow pass: a flat plane casting its own depth back
+  // onto itself self-shadows at the shadow map's precision (512px on mobile),
+  // which reads as gray blotches mottled across the whole ocean on the coastal
+  // circuits. They still receive shadows normally.
+  private flatVao!: WebGLVertexArrayObject;
+  private flatVbo!: WebGLBuffer;
+  private flatIbo!: WebGLBuffer;
+  private flatCount = 0;
   private sceneryCount = 0;
   private _cloudVao: WebGLVertexArrayObject | null = null;
   private _cloudVbo: WebGLBuffer | null = null;
@@ -1345,6 +1354,31 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 8);
     gl.bindVertexArray(null);
   }
+  /** Fraction of the lap kept dead-flat and unbanked with zero wobble on each
+   *  side of the start/finish line — the painted band plus the whole starting
+   *  grid (rows sit 7.5m apart; 0.03 of a ~2000m lap ≈ 60m, enough for ~8
+   *  rows). If the start lands in a bend or on a slope the flat start-line
+   *  model clips through the banked road and the parked cars. */
+  readonly START_STRAIGHT_FRAC = 0.03;
+  /** Width of the smooth blend from the start straight back into the circuit
+   *  (0.05 ≈ 100m). The bend builds in gradually — zero slope at the edge so
+   *  there's no kink where the straight meets the first corner. */
+  readonly START_BLEND_FRAC = 0.05;
+  private smoothstep01(x: number): number {
+    const c = x < 0 ? 0 : x > 1 ? 1 : x;
+    return c * c * (3 - 2 * c);
+  }
+  /** Straight-straight mask over the lap: 0 across the start/finish area (both
+   *  ends of the lap), 1 through the circuit, with smoothstep transitions.
+   *  Multiplying the wobble and elevation by it carves a flat, straight launch
+   *  straight out of every circuit so the line model and parked cars all sit
+   *  on clean asphalt. */
+  private startStraightMask(t: number): number {
+    return Math.min(
+      this.smoothstep01((t - this.START_STRAIGHT_FRAC) / this.START_BLEND_FRAC),
+      this.smoothstep01(((1 - this.START_STRAIGHT_FRAC) - t) / this.START_BLEND_FRAC),
+    );
+  }
   /** Per-theme circuit identity — each track is a physically different shape
    *  with its own elevation profile instead of re-skinning the same oval. */
   private trackShape(): { radius: number; wobble: (t: number) => number; elev: (t: number) => number; width: (t: number) => number } {
@@ -1423,8 +1457,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private trackElev(t: number): number {
     const shape = this.trackShape();
     // Profiles are designed to start/end at 0 and stay >= 0; the clamp is a
-    // safety net so the road never buries itself under the ground plane.
-    return Math.max(0, shape.elev(((t % 1) + 1) % 1));
+    // safety net so the road never buries itself under the ground plane. The
+    // start-straight mask keeps the grid + launch straight dead-flat on every
+    // circuit — the painted line, gantry and parked cars all sit on level road.
+    const u = ((t % 1) + 1) % 1;
+    return Math.max(0, shape.elev(u)) * this.startStraightMask(u);
   }
   /** Terrain height at a travelled distance along the track. */
   getTrackElevation(dist: number): number {
@@ -1512,16 +1549,20 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const pts: TrackPoint[] = [];
     for (let i = 0; i < segs; i++) {
       const t = (i / segs) * Math.PI * 2;
-      const r = shape.radius + shape.wobble(t);
+      const frac = i / segs;
+      // Zero the wobble inside the start-straight window so the grid + launch
+      // straight have a constant radius (no turn, no banking) on every circuit.
+      const mask = this.startStraightMask(frac);
+      const r = shape.radius + shape.wobble(t) * mask;
       const x = Math.cos(t) * r;
       const z = Math.sin(t) * r;
       const dt = 0.001;
       const tn = t + dt;
-      const rn = shape.radius + shape.wobble(tn);
+      // The derivative probe is an epsilon ahead — reuse this point's mask.
+      const rn = shape.radius + shape.wobble(tn) * mask;
       const dx = Math.cos(tn) * rn - x;
       const dz = Math.sin(tn) * rn - z;
       const len = Math.hypot(dx, dz);
-      const frac = i / segs;
       pts.push({
         x, z,
         y: this.trackElev(frac),
@@ -2558,6 +2599,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this.sceneryVao) { try { gl.deleteVertexArray(this.sceneryVao); } catch { } }
     if (this.sceneryVbo) { try { gl.deleteBuffer(this.sceneryVbo); } catch { } }
     if (this.sceneryIbo) { try { gl.deleteBuffer(this.sceneryIbo); } catch { } }
+    if (this.flatVao) { try { gl.deleteVertexArray(this.flatVao); } catch { } }
+    if (this.flatVbo) { try { gl.deleteBuffer(this.flatVbo); } catch { } }
+    if (this.flatIbo) { try { gl.deleteBuffer(this.flatIbo); } catch { } }
+    this.flatCount = 0;
     if (this._cloudVao) { try { gl.deleteVertexArray(this._cloudVao); } catch { } }
     if (this._cloudVbo) { try { gl.deleteBuffer(this._cloudVbo); } catch { } }
     if (this._cloudIbo) { try { gl.deleteBuffer(this._cloudIbo); } catch { } }
@@ -2593,9 +2638,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const pts = this._trackPoints;
     const verts: number[] = [];
     const idxs: number[] = [];
+    // Flat water/ground planes build into their own mesh (flatVao) so they can
+    // be excluded from the shadow pass — see flatVao above.
+    const flatVerts: number[] = [];
+    const flatIdxs: number[] = [];
     if (this.theme === 'miami') {
-      this.addOceanPlane(verts, idxs);
-      this.addSandBand(verts, idxs);
+      this.addOceanPlane(flatVerts, flatIdxs);
+      this.addSandBand(flatVerts, flatIdxs);
       this.addMiamiScenery(verts, idxs);
     } else if (this.theme === 'city') {
       this.addCityScenery(verts, idxs);
@@ -2607,8 +2656,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addDesertGround(verts, idxs);
       this.addDesertScenery(verts, idxs);
     } else if (this.theme === 'monaco' || this.theme === 'monaco-night') {
+      this.addOceanPlane(flatVerts, flatIdxs);
       this.addMonacoScenery(verts, idxs);
     } else if (this.theme === 'montreal') {
+      this.addOceanPlane(flatVerts, flatIdxs);
       this.addMontrealScenery(verts, idxs);
     } else if (this.theme === 'italy') {
       this.addItalyScenery(verts, idxs);
@@ -2739,6 +2790,31 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.enableVertexAttribArray(3);
     gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
     gl.bindVertexArray(null);
+    // Flat water/ground planes (ocean, sand band) get the same vertex layout
+    // but live in their own mesh so the shadow pass can skip them — see the
+    // flatVao fields. The ocean sits below the shadow-relevant "land" level,
+    // but the sand band rides the terrain like the rest of the scenery.
+    if (flatIdxs.length > 0) {
+      this.displaceVerts(flatVerts);
+      this.flatCount = flatIdxs.length;
+      this.flatVao = gl.createVertexArray()!;
+      gl.bindVertexArray(this.flatVao);
+      this.flatVbo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.flatVbo);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(flatVerts), gl.STATIC_DRAW);
+      this.flatIbo = gl.createBuffer()!;
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.flatIbo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint32Array(flatIdxs), gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 3, gl.FLOAT, false, stride, 0);
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 3, gl.FLOAT, false, stride, 12);
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribPointer(2, 3, gl.FLOAT, false, stride, 24);
+      gl.enableVertexAttribArray(3);
+      gl.vertexAttribPointer(3, 2, gl.FLOAT, false, stride, 36);
+      gl.bindVertexArray(null);
+    }
     this.buildNightGlow();
     this.initSkyObjects();
     this.initConfetti();
@@ -3554,7 +3630,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
   private addMonacoScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
-    this.addOceanPlane(verts, idxs);
+    // Note: the bay's ocean plane is added to the flat mesh by buildScenery
+    // (kept out of the shadow pass), not here.
     let outer = 0;
     for (const p of pts) {
       const r = Math.hypot(p.x, p.z) + p.width / 2;
@@ -3677,7 +3754,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
   private addMontrealScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
-    this.addOceanPlane(verts, idxs);
+    // Note: the river's ocean plane is added to the flat mesh by buildScenery
+    // (kept out of the shadow pass), not here.
     let cx = 0, cz = 0;
     for (const p of pts) { cx += p.x; cz += p.z; }
     cx /= pts.length; cz /= pts.length;
@@ -7949,6 +8027,20 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.uniform3f(this.colorLoc, 1, 1, 1);
     this.setNormalMatrix(this.modelMatrix);
     gl.drawElements(gl.TRIANGLES, this.finishCount, gl.UNSIGNED_SHORT, 0);
+    // Flat water/ground planes (ocean, sand band) — drawn in the main pass but
+    // deliberately NOT in the shadow pass, so the flat surface never
+    // self-shadows into the gray blotches that mottled the coastal circuits.
+    if (this.flatCount > 0) {
+      gl.bindVertexArray(this.flatVao);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, this.whiteTex);
+      gl.uniform1i(this.hasTexLoc, 0);
+      this.mat4Identity(this.modelMatrix);
+      gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
+      gl.uniform3f(this.colorLoc, 1, 1, 1);
+      this.setNormalMatrix(this.modelMatrix);
+      gl.drawElements(gl.TRIANGLES, this.flatCount, gl.UNSIGNED_INT, 0);
+    }
     gl.bindVertexArray(this.barrierVao);
     this.mat4Identity(this.modelMatrix);
     gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);

@@ -17,7 +17,17 @@ export interface MarblesLobbyState {
   code: string;
   hostConnectionId: string;
   status: 'lobby' | 'playing';
+  /** True when this is a public room anyone can find and join (1:1). */
+  isPublic: boolean;
   players: MarblesPlayer[];
+}
+
+/** A public room waiting for a challenger, as shown in the open-room list. */
+export interface MarblesPublicRoom {
+  code: string;
+  hostName: string;
+  players: number;
+  status: string;
 }
 
 export interface MarblesOpponentView {
@@ -32,10 +42,13 @@ export interface MarblesOpponentView {
 }
 
 export interface MarblesJoinResult extends MarblesLobbyState {
+  /** Set when the join was rejected (e.g. a full public room). */
+  error?: string;
   myBoard: number[][];
   mySpecialColor: number;
   myReserve: number;
   mySent: number;
+  myScore: number;
   opponents: MarblesOpponentView[];
 }
 
@@ -44,6 +57,8 @@ export interface MarblesBoardUpdate {
   specialColor: number;
   reserve: number;
   sent: number;
+  /** Marbles cleared this game (single-player high scores). */
+  score: number;
   /** Cells that popped this turn (for pop animation + sound). */
   popped: { row: number; col: number; color: number }[];
   /** How many marbles rained onto this board from an opponent. */
@@ -111,12 +126,24 @@ export class MarblesHubService implements OnDestroy {
     this.hub = null;
   }
 
-  async joinLobby(code: string, playerName: string, playerId: number): Promise<MarblesJoinResult | null> {
+  async joinLobby(code: string, playerName: string, playerId: number, isPublic = false): Promise<MarblesJoinResult | null> {
     try {
       if (!this.connected) await this.connect();
-      return await this.hub!.invoke<MarblesJoinResult>('JoinLobby', code, playerName, playerId);
+      return await this.hub!.invoke<MarblesJoinResult>('JoinLobby', code, playerName, playerId, isPublic);
     } catch (err) {
       console.error('JoinLobby failed:', err);
+      return null;
+    }
+  }
+
+  /** Fetch the list of open public rooms (1:1 matches waiting for a challenger). */
+  async listPublicRooms(): Promise<MarblesPublicRoom[] | null> {
+    try {
+      if (!this.connected) await this.connect();
+      const res = await this.hub!.invoke<{ rooms: MarblesPublicRoom[] }>('ListPublicRooms');
+      return res?.rooms ?? [];
+    } catch (err) {
+      console.error('ListPublicRooms failed:', err);
       return null;
     }
   }

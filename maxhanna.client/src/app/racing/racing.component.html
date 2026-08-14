@@ -142,7 +142,7 @@
         <!-- Step 1 · Pick a track -->
         <div *ngIf="!selectedTrack">
           <div class="race-mp-step-title">STEP 1 · PICK A TRACK</div>
-          <div class="race-mp-step-hint">Tap a track to join its lobby. You'll see who's inside before the race starts.
+          <div class="race-mp-step-hint">Tap a track to join its lobby. Live player counts show who's waiting on each map.
           </div>
           <div class="race-track-card race-mp-track-card" *ngFor="let t of trackDefs"
             [class.race-track-locked]="playerCar.money < t.entryFee"
@@ -156,6 +156,10 @@
                 <span class="race-track-diff-badge" [class.easy]="t.difficulty === 'easy'"
                   [class.medium]="t.difficulty === 'medium'" [class.hard]="t.difficulty === 'hard'">
                   {{ t.difficulty | uppercase }}
+                </span>
+                <span class="race-track-lobby-count" *ngIf="getLobbyCount(t.id) > 0"
+                  title="{{ getLobbyCount(t.id) }} player{{ getLobbyCount(t.id) === 1 ? '' : 's' }} waiting in this track's lobby">
+                  👥 {{ getLobbyCount(t.id) }}
                 </span>
                 <span class="race-track-join-hint" *ngIf="playerCar.money >= t.entryFee">JOIN</span>
                 <span class="race-track-join-hint locked" *ngIf="playerCar.money < t.entryFee">🔒</span>

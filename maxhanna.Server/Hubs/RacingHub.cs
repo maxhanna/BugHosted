@@ -226,6 +226,27 @@ namespace maxhanna.Server.Hubs
         }
 
         /// <summary>
+        /// Snapshot of every non-empty track lobby — track id and how many
+        /// players are sitting in it (waiting to race or already racing). The
+        /// main menu shows these counts on each map card so players can see
+        /// where the action is before joining.
+        /// </summary>
+        public Task<object> ListLobbies()
+        {
+            var lobbies = _lobbies.Values
+                .Where(l => l.Players.Count > 0)
+                .Select(l => new
+                {
+                    trackId = l.TrackId,
+                    players = l.Players.Count,
+                    status = l.RaceStatus,
+                })
+                .OrderByDescending(l => l.players)
+                .ToArray();
+            return Task.FromResult<object>(new { lobbies });
+        }
+
+        /// <summary>
         /// Leave the current lobby.
         /// </summary>
         public async Task LeaveLobby(string trackId)

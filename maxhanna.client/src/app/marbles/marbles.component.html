@@ -33,7 +33,10 @@
         <p class="marbles-sub">Slide marbles around the center row to line up 3+ of the same color. Every 5+ match dumps your reserve onto your opponent. First board to fill up loses!</p>
         <div class="marbles-form">
           <input class="marbles-input" [(ngModel)]="playerName" placeholder="Your name" maxlength="16" />
-          <button class="win98-btn primary" (click)="hostGame()" [disabled]="!playerName.trim()">Play Online — Host a Room</button>
+          <div class="marbles-host-row">
+            <button class="win98-btn" (click)="hostGame(false)" [disabled]="!playerName.trim()">🔒 Private Room</button>
+            <button class="win98-btn primary" (click)="hostGame(true)" [disabled]="!playerName.trim()">🌍 Public Room</button>
+          </div>
           <div class="marbles-join-row">
             <input class="marbles-input" [(ngModel)]="joinCode" placeholder="Room code" maxlength="16" />
             <button class="win98-btn" (click)="joinGame()" [disabled]="!playerName.trim() || !joinCode.trim()">Join</button>
@@ -48,7 +51,34 @@
           </div>
           <button class="win98-btn" (click)="toggleHowTo()">How to Play</button>
         </div>
-        <p class="marbles-note">Rooms work across computers — share the 4-letter code. Works on mobile &amp; desktop.</p>
+
+        <div class="marbles-public" *ngIf="status === 'menu'">
+          <div class="marbles-public-title">🌍 Public rooms — jump into any open match</div>
+          <div class="marbles-public-list" *ngIf="publicRooms.length > 0">
+            <div class="marbles-public-row" *ngFor="let r of publicRooms">
+              <span class="marbles-public-host">{{ r.hostName }}</span>
+              <span class="marbles-public-count">{{ r.players }}/2</span>
+              <button class="win98-btn" (click)="joinPublicRoom(r)" [disabled]="!playerName.trim()">Join</button>
+            </div>
+          </div>
+          <p class="marbles-public-empty" *ngIf="publicRooms.length === 0">No open public rooms right now — host one and it shows up here for everyone.</p>
+        </div>
+
+        <div class="marbles-public" *ngIf="status === 'menu'">
+          <div class="marbles-public-title">🏆 High Scores <span class="marbles-hs-single">(single-player)</span></div>
+          <p class="marbles-hs-best" *ngIf="myBestScore">Your best: <strong>{{ myBestScore.score }}</strong> — {{ difficultyLabel(myBestScore.difficulty) }}</p>
+          <div class="marbles-public-list" *ngIf="!highScoresLoading && highScores.length > 0">
+            <div class="marbles-public-row" *ngFor="let s of highScores; let i = index">
+              <span class="marbles-hs-rank">{{ i + 1 }}.</span>
+              <span class="marbles-public-host">{{ s.username || 'Anonymous' }}</span>
+              <span class="marbles-hs-diff" *ngIf="s.difficulty">{{ difficultyLabel(s.difficulty) }}</span>
+              <span class="marbles-public-count">🏆 {{ s.score }}</span>
+            </div>
+          </div>
+          <p class="marbles-public-empty" *ngIf="highScoresLoading">Loading high scores…</p>
+          <p class="marbles-public-empty" *ngIf="!highScoresLoading && highScores.length === 0">No high scores yet — beat the computer and claim the top!</p>
+        </div>
+        <p class="marbles-note">Private rooms work across computers — share the 4-letter code. Public rooms are 1:1 matches anyone can find and join. Only single-player games count toward high scores. Works on mobile &amp; desktop.</p>
       </div>
     </div>
 
@@ -74,7 +104,8 @@
       <div class="win98-titlebar"><span>Room {{ roomCode }}</span></div>
       <div class="win98-body">
         <h2 class="marbles-title">Room <span class="marbles-code">{{ roomCode }}</span></h2>
-        <p class="marbles-sub">Share this code so friends can join from anywhere.</p>
+        <p class="marbles-sub" *ngIf="roomIsPublic">🌍 Public room — anyone can find this match in the room list and join. Fight to the first filled board!</p>
+        <p class="marbles-sub" *ngIf="!roomIsPublic">🔒 Private room — share this code so friends can join from anywhere.</p>
         <div class="marbles-players">
           <div class="marbles-player" *ngFor="let p of lobby?.players">
             <span class="marbles-player-name">{{ p.playerName }}<span *ngIf="p.isHost" class="marbles-crown"> 👑</span></span>
@@ -104,6 +135,7 @@
         <span class="hud-you">You</span>
         <span class="hud-sent">🚀 {{ mySent }} sent</span>
         <span class="hud-reserve">⭐ {{ myReserve }} reserve</span>
+        <span class="hud-score" *ngIf="isVsAI">🏆 {{ myScore }} cleared</span>
         <span class="hud-hot" *ngIf="specialColor">Hot: <i class="hot-marble" [style.background]="hotColorCss()"></i></span>
       </div>
       <div class="hud-opponent" *ngFor="let p of otherPlayers()">
@@ -116,7 +148,9 @@
     <!-- ── Winner banner ─────────────────────────────────────────────── -->
     <div class="marbles-win" *ngIf="winnerName">
       <div class="marbles-win-text">{{ winnerName }} wins!</div>
-      <p class="marbles-win-sub">The other board filled up first.</p>
+      <p class="marbles-win-sub" *ngIf="!lastGameVsAI">The other board filled up first.</p>
+      <p class="marbles-win-sub" *ngIf="lastGameVsAI && myScore > 0">You cleared {{ myScore }} marbles — saved to the high-score table!</p>
+      <p class="marbles-win-sub" *ngIf="lastGameVsAI && myScore <= 0">Your board filled up before you cleared any marbles — try again!</p>
       <button class="win98-btn primary" (click)="leaveToMenu()">Back to Menu</button>
     </div>
   </div>

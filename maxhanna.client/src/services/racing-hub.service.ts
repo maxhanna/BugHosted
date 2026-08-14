@@ -24,6 +24,13 @@ export interface LobbyState {
   autoStartRemaining?: number;
 }
 
+/** One row of the menu's live per-track lobby snapshot (ListLobbies). */
+export interface RacingLobbySummary {
+  trackId: string;
+  players: number;
+  status: string;
+}
+
 export interface RemoteCarPosition {
   connectionId: string;
   x: number;
@@ -225,6 +232,18 @@ export class RacingHubService implements OnDestroy {
       if (!this.connected) return;
       await this.hub!.invoke('LeaveLobby', trackId);
     } catch { }
+  }
+
+  /** Fetch how many players are waiting in each track's lobby (menu badge). */
+  async listLobbies(): Promise<RacingLobbySummary[] | null> {
+    try {
+      if (!this.connected) return null;
+      const res = await this.hub!.invoke<{ lobbies: RacingLobbySummary[] }>('ListLobbies');
+      return res?.lobbies ?? [];
+    } catch (err) {
+      console.error('ListLobbies failed:', err);
+      return null;
+    }
   }
 
   async toggleReady(trackId: string): Promise<void> {

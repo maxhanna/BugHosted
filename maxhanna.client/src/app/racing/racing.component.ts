@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AppModule } from '../app.module';
@@ -69,8 +69,12 @@ const BRAKE_LOCK_DECEL_LOSS = 0.1;
 const FRICTION = 0.97;
 const MAX_SPEED_BASE = 55;
 const TURN_SPEED = 0.38;
-const OFF_TRACK_DRAG = 0.92;
-const CURB_DRAG = 0.96;
+// Side penalties, tuned so they sting but never stop the car dead. At 60fps
+// these are: kerb ~45%/sec lost while riding it (brief brushes ~15%), grass
+// ~70%/sec — firm enough to punish cutting across the infield, gentle enough
+// to recover from a slightly wide line. Kerbs stay gentler than grass.
+const OFF_TRACK_DRAG = 0.98;
+const CURB_DRAG = 0.99;
 const LAT_ACCEL = 30;
 const MAX_RACK_YAW = 2.6;
 const SLIP_FULL = 0.45;
@@ -247,6 +251,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   bots: BotCar[] = [];
   private _countdownInterval: any = null;
   showMultiplayer = false;
+  /** Live "players waiting in this track's lobby" counts for the map cards. */
+  mapPlayerCounts: Record<string, number> = {};
+  private _lobbyCountsTimer: any = null;
   lobbyPlayers: LobbyPlayer[] = [];
   isLobbyHost = false;
   amReady = false;
@@ -482,6 +489,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     private userEventService: UserEventService,
     private ngZone: NgZone,
     private el: ElementRef,
+    private cdr: ChangeDetectorRef,
   ) { super(); }
   ngOnInit() {
     if (typeof window !== 'undefined' && window.innerWidth < 768) this.standingsCollapsed = true;
@@ -859,6 +867,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._destroyed = true;
     cancelAnimationFrame(this.animId);
     if (this._countdownInterval) clearInterval(this._countdownInterval);
+    this.stopLobbyCountsPolling();
     this.stopMpStartCountdown();
     this.stopAutoStartTicker();
     this.stopStandingsCountdown();
@@ -1011,6 +1020,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         this.selectedTrack = null;
         this.lobbyConnectionError = '';
       }
+      this.startLobbyCountsPolling();
+    } else {
+      this.stopLobbyCountsPolling();
     }
     if (!this.showMultiplayer) {
       if (this._mpLobbyTrackId) {
@@ -1326,6 +1338,37 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.selectedTrack = null;
     this.lobbyConnectionError = '';
     this.showMultiplayer = true;
+    // Back on the track picker — refresh the per-map lobby counts right away
+    // instead of waiting for the next poll tick.
+    this.refreshLobbyCounts();
+  }
+  private startLobbyCountsPolling() {
+    if (this._lobbyCountsTimer) return;
+    this.refreshLobbyCounts();
+    this._lobbyCountsTimer = setInterval(() => {
+      // Only poll while the track picker is visible (not inside a lobby/race).
+      if (this.showMultiplayer && !this.selectedTrack) this.refreshLobbyCounts();
+    }, 5000);
+  }
+  private stopLobbyCountsPolling() {
+    if (this._lobbyCountsTimer) {
+      clearInterval(this._lobbyCountsTimer);
+      this._lobbyCountsTimer = null;
+    }
+  }
+  /** Fetch how many players are waiting in each map's lobby and cache by trackId. */
+  private async refreshLobbyCounts() {
+    if (!this.racingHub.connected) return;
+    const lobbies = await this.racingHub.listLobbies();
+    if (!lobbies) return;
+    const counts: Record<string, number> = {};
+    for (const l of lobbies) counts[l.trackId] = l.players;
+    this.mapPlayerCounts = counts;
+    this.cdr.detectChanges();
+  }
+  /** Players currently sitting in the given track's lobby (0 = empty). */
+  getLobbyCount(trackId: number): number {
+    return this.mapPlayerCounts[trackId.toString()] ?? 0;
   }
   async kickPlayer(connectionId: string) {
     if (!this.isLobbyHost) return;
@@ -2288,18 +2331,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const grade = this.renderer?.getTrackGrade(trackDist) ?? 0;
     if (grade !== 0) this.carSpeed += grade * 1.3 * dt;
     this.carDist = trackDist;
-    if (Math.abs(this.keyboardSteerCurrent) < 0.1) {
-      let yawDiff = expectedDir - this.carYaw;
-      while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
-      while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
-      if (Math.abs(yawDiff) > 0.15) {
-        this.carYaw += Math.sign(yawDiff) * Math.min(Math.abs(yawDiff), 0.01);
-        let dirDiff = expectedDir - this.carDir;
-        while (dirDiff > Math.PI) dirDiff -= Math.PI * 2;
-        while (dirDiff < -Math.PI) dirDiff += Math.PI * 2;
-        this.carDir += Math.sign(dirDiff) * Math.min(Math.abs(dirDiff), 0.01);
-      }
-    }
+    // No steering assistance: the car only turns from input. (An older
+    // "straightener" nudged the car back toward the track direction whenever
+    // steering was released, which made it steer itself around corners —
+    // removed.)
   }
   private updateBots(dt: number) {
     for (const bot of this.bots) {

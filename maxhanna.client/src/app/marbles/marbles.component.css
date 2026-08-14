@@ -259,6 +259,107 @@
   flex: 1;
 }
 
+.marbles-host-row {
+  display: flex;
+  gap: 8px;
+}
+
+.marbles-host-row .win98-btn {
+  flex: 1;
+  padding: 10px 8px;
+  font-size: 14px;
+}
+
+.marbles-public {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 2px solid;
+  border-color: #ffffff #0a0a0a #0a0a0a #ffffff;
+  background: #d6d6d6;
+}
+
+.marbles-public-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: #000;
+}
+
+.marbles-public-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 130px;
+  overflow-y: auto;
+}
+
+.marbles-public-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 2px solid;
+  border-color: #ffffff #808080 #808080 #ffffff;
+  background: #d4d0c8;
+}
+
+.marbles-public-host {
+  flex: 1;
+  text-align: left;
+  font-weight: 600;
+  color: #000;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marbles-public-count {
+  font-size: 12px;
+  color: #005c00;
+  font-weight: 700;
+}
+
+.marbles-public-empty {
+  margin: 0;
+  font-size: 12px;
+  color: #555;
+}
+
+.marbles-public-row .win98-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.marbles-hs-single {
+  font-size: 11px;
+  font-weight: normal;
+  color: #555;
+}
+
+.marbles-hs-best {
+  margin: 0;
+  font-size: 12px;
+  color: #005c00;
+}
+
+.marbles-hs-rank {
+  width: 22px;
+  text-align: right;
+  font-weight: 700;
+  color: #00007f;
+}
+
+.marbles-hs-diff {
+  font-size: 11px;
+  color: #555;
+  font-weight: 600;
+  background: #c0c0c0;
+  border: 1px solid #808080;
+  padding: 1px 5px;
+}
+
 .marbles-vsai {
   display: flex;
   flex-direction: column;
@@ -441,6 +542,11 @@
 
 .hud-reserve {
   color: #ffd15c;
+  font-weight: 700;
+}
+
+.hud-score {
+  color: #7dff8e;
   font-weight: 700;
 }
 

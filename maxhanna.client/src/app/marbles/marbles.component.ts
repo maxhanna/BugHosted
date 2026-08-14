@@ -3,7 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AppModule } from '../app.module';
 import { ChildComponent } from '../child.component';
-import { MarblesHubService, MarblesLobbyState, MarblesPlayer, MarblesBoardUpdate, MarblesOpponentView } from '../../services/marbles-hub.service';
+import { MarblesHubService, MarblesLobbyState, MarblesPlayer, MarblesBoardUpdate, MarblesOpponentView, MarblesPublicRoom } from '../../services/marbles-hub.service';
+import { MarblesService, MarblesScore } from '../../services/marbles.service';
 
 const COLS = 6;
 const ROWS = 12;
@@ -65,6 +66,20 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   chatDraft = '';
   showHowTo = false;
   isMenuPanelOpen = false;
+  /** Open public rooms anyone can join (1:1 matches waiting for a challenger). */
+  publicRooms: MarblesPublicRoom[] = [];
+  /** All-time single-player high scores, best first. */
+  highScores: MarblesScore[] = [];
+  myBestScore: MarblesScore | null = null;
+  highScoresLoading = false;
+  /** Marbles cleared this game (from the server board updates). */
+  myScore = 0;
+  /** True while playing a single-player (vs Computer) game — only these count for high scores. */
+  isVsAI = false;
+  /** Set when the last finished game was single-player (for the win screen copy). */
+  lastGameVsAI = false;
+  private vsAIDifficulty = 0;
+  private gameStartTime = 0;
 
   /** Currently selected column (for ↑/↓ column shifts). */
   selectedCol = 2;
@@ -80,8 +95,9 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   private _spriteSeq = 1;
   private _onResize = () => this.resizeCanvas();
   private _audio: AudioContext | null = null;
+  private _publicRoomsTimer: ReturnType<typeof setInterval> | null = null;
 
-  constructor(private hub: MarblesHubService, private ngZone: NgZone, private cdr: ChangeDetectorRef) {
+  constructor(private hub: MarblesHubService, private ngZone: NgZone, private cdr: ChangeDetectorRef, private marbles: MarblesService) {
     super();
     this.playerName = this.parentRef?.user?.username ?? '';
   }
@@ -111,6 +127,13 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       this.cdr.detectChanges();
     }));
 
+    // Keep the public-room browser fresh while the menu is open.
+    this._publicRoomsTimer = setInterval(() => {
+      if (this.status === 'menu' || this.status === 'splash') this.refreshPublicRooms();
+    }, 4000);
+    this.refreshPublicRooms();
+    this.loadHighScores();
+
     this.ngZone.runOutsideAngular(() => {
       this.lastTime = performance.now();
       this.animId = requestAnimationFrame(t => this.loop(t));
@@ -120,31 +143,34 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   ngOnDestroy(): void {
     this._destroyed = true;
     cancelAnimationFrame(this.animId);
+    if (this._publicRoomsTimer) { clearInterval(this._publicRoomsTimer); this._publicRoomsTimer = null; }
     window.removeEventListener('resize', this._onResize);
     if (this.lobby) this.hub.leaveLobby(this.lobby.code);
     this.hub.disconnect();
     if (this._audio) { this._audio.close(); this._audio = null; }
   }
+  /** Host a new room. `publicRoom` = appear in the open-room list (1:1),
+   *  otherwise a private room joinable only by sharing the code. */
+  async hostGame(publicRoom: boolean): Promise<void> {
+    await this.join('', publicRoom);
+  }
 
-  // ── Menu / lobby actions ────────────────────────────────────────────────
-
-  toMenu(): void { this.status = 'menu'; this.showHowTo = false; this.isMenuPanelOpen = false; this.cdr.detectChanges(); }
-  backToSplash(): void { this.status = 'splash'; this.cdr.detectChanges(); }
-  toggleHowTo(): void { this.showHowTo = !this.showHowTo; this.playClick(); this.cdr.detectChanges(); }
-
-  showMenuPanel(): void {
-    if (this.isMenuPanelOpen) { this.closeMenuPanel(); return; }
-    this.isMenuPanelOpen = true;
-    this.playClick();
+  /** Refresh the list of open public rooms shown in the menu. */
+  async refreshPublicRooms(): Promise<void> {
+    const rooms = await this.hub.listPublicRooms();
+    if (rooms == null) return;
+    this.publicRooms = rooms;
     this.cdr.detectChanges();
   }
 
-  closeMenuPanel(): void {
-    this.isMenuPanelOpen = false;
+  /** Jump straight into an open public room from the browser list. */
+  async joinPublicRoom(room: MarblesPublicRoom): Promise<void> {
+    await this.join(room.code, false);
   }
 
-  async hostGame(): Promise<void> {
-    await this.join('');
+  /** True when the current room is a public one (vs a private code room). */
+  get roomIsPublic(): boolean {
+    return this.lobby?.isPublic ?? false;
   }
 
   /** Single-player: host a room, then immediately start vs the computer. */
@@ -153,6 +179,10 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.playerName = name;
     await this.join('');
     if (!this.connected || !this.roomCode) return;
+    this.isVsAI = true;
+    this.vsAIDifficulty = difficulty;
+    this.gameStartTime = Date.now();
+    this.myScore = 0;
     this.hub.startVsAI(this.roomCode, difficulty);
     this.status = 'playing';
     this.winnerName = null;
@@ -163,26 +193,31 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     await this.join(this.joinCode.trim());
   }
 
-  private async join(code: string): Promise<void> {
+  private async join(code: string, isPublic = false): Promise<void> {
     const name = this.playerName.trim() || 'Player';
     const userId = this.parentRef?.user?.id ?? 0;
-    const res = await this.hub.joinLobby(code, name, userId);
+    const res = await this.hub.joinLobby(code, name, userId, isPublic);
     if (!res) {
       this.parentRef?.showNotification('Could not reach the Marbles server.');
+      return;
+    }
+    if (res.error) {
+      this.parentRef?.showNotification(res.error);
       return;
     }
     this.connected = true;
     this.roomCode = res.code;
     this.status = res.status === 'playing' ? 'playing' : 'lobby';
     this.lobby = {
-      code: res.code, hostConnectionId: res.hostConnectionId, status: res.status, players: res.players,
+      code: res.code, hostConnectionId: res.hostConnectionId, status: res.status, isPublic: res.isPublic, players: res.players,
     };
     this.mySent = res.mySent;
     this.myReserve = res.myReserve;
     this.specialColor = res.mySpecialColor;
+    this.myScore = res.myScore ?? 0;
     this.opponents = res.opponents ?? [];
     if (this.status === 'playing') {
-      this.applyBoard({ board: res.myBoard, popped: [], rained: 0, dropped: false, specialColor: res.mySpecialColor, reserve: res.myReserve, sent: res.mySent, alive: true, winnerName: null });
+      this.applyBoard({ board: res.myBoard, popped: [], rained: 0, dropped: false, specialColor: res.mySpecialColor, reserve: res.myReserve, sent: res.mySent, score: res.myScore, alive: true, winnerName: null });
     }
     this.playClick();
     this.cdr.detectChanges();
@@ -209,7 +244,32 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this._board = [];
     this.opponents = [];
     this.winnerName = null;
+    this.isVsAI = false;
+    this.lastGameVsAI = false;
+    this.myScore = 0;
+    this.loadHighScores();
     this.cdr.detectChanges();
+  } 
+  
+  toMenu(): void {
+    this.status = 'menu';
+    this.showHowTo = false;
+    this.isMenuPanelOpen = false;
+    this.loadHighScores();
+    this.cdr.detectChanges();
+  }
+  backToSplash(): void { this.status = 'splash'; this.cdr.detectChanges(); }
+  toggleHowTo(): void { this.showHowTo = !this.showHowTo; this.playClick(); this.cdr.detectChanges(); }
+
+  showMenuPanel(): void {
+    if (this.isMenuPanelOpen) { this.closeMenuPanel(); return; }
+    this.isMenuPanelOpen = true;
+    this.playClick();
+    this.cdr.detectChanges();
+  }
+
+  closeMenuPanel(): void {
+    this.isMenuPanelOpen = false;
   }
 
   sendChat(): void {
@@ -258,6 +318,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.mySent = bu.sent;
     this.myReserve = bu.reserve;
     this.specialColor = bu.specialColor;
+    this.myScore = bu.score ?? this.myScore;
     this.opponents = bu.opponents ?? [];
     if (bu.dropped) this.playDrop();
     if (bu.rained > 0) this.playRain(bu.rained);
@@ -272,12 +333,53 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.isMenuPanelOpen = false;
     const iWon = this.winnerName === (this.lobby?.players.find(p => p.connectionId === this.hub.myConnectionId)?.playerName ?? '');
     if (iWon) this.playWin(); else this.playLose();
+    // Only single-player (vs Computer) games count toward the leaderboard.
+    this.lastGameVsAI = this.isVsAI;
+    if (this.isVsAI) {
+      this.submitScore();
+    }
     this.cdr.detectChanges();
+  }
+
+  /** Record the finished single-player game on the all-time leaderboard. */
+  private async submitScore(): Promise<void> {
+    const score = this.myScore;
+    const difficulty = this.vsAIDifficulty;
+    const durationSeconds = Math.max(0, Math.round((Date.now() - this.gameStartTime) / 1000));
+    this.isVsAI = false;
+    if (score <= 0) return;
+    const err = await this.marbles.addScore({
+      userId: this.parentRef?.user?.id ?? 0,
+      username: this.playerName,
+      score,
+      difficulty,
+      durationSeconds,
+    });
+    if (err) this.parentRef?.showNotification('Could not save your Marbles high score.');
+  }
+
+  /** Fetch the all-time single-player leaderboard (all players). */
+  async loadHighScores(): Promise<void> {
+    this.highScoresLoading = true;
+    const res = await this.marbles.getHighScores(this.parentRef?.user?.id ?? 0);
+    this.highScoresLoading = false;
+    if (!res) return;
+    this.highScores = res.scores ?? [];
+    this.myBestScore = res.myBest ?? null;
+    this.cdr.detectChanges();
+  }
+
+  difficultyLabel(d: number): string {
+    switch (d) {
+      case 1: return 'Medium';
+      case 2: return 'Hard';
+      default: return 'Easy';
+    }
   }
 
   // ── Board + sprites ─────────────────────────────────────────────────────
 
-  private applyBoard(bu: { board: number[][]; popped: { row: number; col: number; color: number }[]; rained?: number; dropped?: boolean; specialColor?: number; reserve?: number; sent?: number; alive?: boolean; winnerName?: string | null }): void {
+  private applyBoard(bu: { board: number[][]; popped: { row: number; col: number; color: number }[]; rained?: number; dropped?: boolean; specialColor?: number; reserve?: number; sent?: number; score?: number; alive?: boolean; winnerName?: string | null }): void {
     const newBoard = bu.board;
     const oldBoard = this._board;
     this._board = newBoard;
