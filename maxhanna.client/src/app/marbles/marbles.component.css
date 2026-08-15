@@ -72,7 +72,7 @@
     right: 10px;
     flex: none;
     height: min(30vh, 190px);
-    aspect-ratio: 6 / 12;
+    aspect-ratio: 5 / 12;
     border: 2px solid rgba(0, 0, 0, 0.45);
     border-radius: 6px;
     overflow: hidden;

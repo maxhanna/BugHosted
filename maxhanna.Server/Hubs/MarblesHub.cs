@@ -20,7 +20,7 @@ namespace maxhanna.Server.Hubs
     /// </summary>
     public class MarblesHub : Hub
     {
-        private const int Cols = 6;
+        private const int Cols = 5;
         private const int Rows = 12;
         private const int PitchRow = 5; // 0-indexed center row
         private const int ColorCount = 6;

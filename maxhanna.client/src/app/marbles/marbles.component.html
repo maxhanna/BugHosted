@@ -161,7 +161,7 @@
     <div class="marbles-menu-block">
       <span class="marbles-menu-label">Column {{ selectedCol + 1 }}</span>
       <div class="col-picker">
-        <button *ngFor="let i of [1, 2, 3, 4, 5, 6]" class="col-btn" [class.selected]="selectedCol === i - 1" (click)="selectColumn(i - 1)">{{ i }}</button>
+        <button *ngFor="let i of [1, 2, 3, 4, 5]" class="col-btn" [class.selected]="selectedCol === i - 1" (click)="selectColumn(i - 1)">{{ i }}</button>
       </div>
     </div>
     <div class="marbles-menu-block">

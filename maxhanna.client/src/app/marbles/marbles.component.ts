@@ -6,7 +6,7 @@ import { ChildComponent } from '../child.component';
 import { MarblesHubService, MarblesLobbyState, MarblesPlayer, MarblesBoardUpdate, MarblesOpponentView, MarblesPublicRoom } from '../../services/marbles-hub.service';
 import { MarblesService, MarblesScore } from '../../services/marbles.service';
 
-const COLS = 6;
+const COLS = 5;
 const ROWS = 12;
 const PITCH_ROW = 5;
 
@@ -123,6 +123,12 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   }
 
   ngAfterViewInit(): void {
+    // Default the player name to the logged-in user's username. `parentRef`
+    // (and its loaded `user`) is only assigned after construction, so read it
+    // here rather than in the constructor.
+    if (this.parentRef?.user?.username && !this.playerName) {
+      this.playerName = this.parentRef.user.username;
+    }
     this.resizeCanvas();
     this.initSplash();
     window.addEventListener('resize', this._onResize);
@@ -484,8 +490,9 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       }
     }
 
-    // 2. Match surviving marbles to the new board by color, preferring
-    //    shortest travel. Leftover new cells spawn from the top of their column.
+    // 2. Match surviving marbles to the new board. Movement is
+    //    order-preserving within a column (see phase 2), so the whole column
+    //    shifts/falls in unison. Newly added cells spawn as fresh marbles.
     //
     //    Movement rules: a marble may only move within its own column (gravity,
     //    column shifts, drops) — the only exception is a marble sliding ALONG
@@ -499,46 +506,83 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     const used = new Set<Sprite>();
     const next: Sprite[] = [];
 
-    for (let c = 0; c < COLS; c++) {
-      for (let r = ROWS - 1; r >= 0; r--) {
-        const color = newBoard[r]?.[c] ?? 0;
+    // Phase 1: on a real row shift, match the pitch-row cells to marbles that
+    // rotate into them horizontally (the whole row slides). Only these cells
+    // may be filled from a neighbor column.
+    const slideFilled = new Set<number>();
+    if (rowShifted !== 0) {
+      for (let c = 0; c < COLS; c++) {
+        const color = newBoard[PITCH_ROW]?.[c] ?? 0;
         if (!color) continue;
-
-        // Find the closest unused same-color marble that can legally reach
-        // this cell: same column always; pitch-row slide only on a real row
-        // shift (pitch row first so the rotation animates as a slide).
         let best: Sprite | null = null;
         let bestDist = Infinity;
-        if (r === PITCH_ROW && rowShifted !== 0) {
-          for (const s of live) {
-            if (used.has(s) || s.color !== color || s.row !== PITCH_ROW) continue;
-            // Steps along the rotation direction to reach this cell. In a
-            // clean ±1 rotation the arriving marble is exactly 1 step away;
-            // a marble already sitting here (0 steps) means a duplicate
-            // color — prefer the one that actually rotates into the cell so
-            // the row slides as a whole instead of crossing paths. Remap so
-            // "slides 1" ranks best and "stays put" ranks worst.
-            const steps = ((c - s.col) * rowShifted + COLS) % COLS;
-            const dist = (steps + COLS - 1) % COLS;
-            if (dist < bestDist) { bestDist = dist; best = s; }
-          }
-        }
-        if (!best) {
-          for (const s of live) {
-            if (used.has(s) || s.color !== color || s.col !== c) continue;
-            const dist = Math.abs(s.row - r);
-            if (dist < bestDist) { bestDist = dist; best = s; }
-          }
+        for (const s of live) {
+          if (used.has(s) || s.color !== color || s.row !== PITCH_ROW) continue;
+          // Steps along the rotation direction to reach this cell. In a
+          // clean ±1 rotation the arriving marble is exactly 1 step away;
+          // a marble already sitting here (0 steps) means a duplicate
+          // color — prefer the one that actually rotates into the cell so
+          // the row slides as a whole instead of crossing paths.
+          const steps = ((c - s.col) * rowShifted + COLS) % COLS;
+          const dist = (steps + COLS - 1) % COLS;
+          if (dist < bestDist) { bestDist = dist; best = s; }
         }
         if (best) {
           used.add(best);
           best.tCol = c;
-          best.tRow = r;
+          best.tRow = PITCH_ROW;
           best.phase = 'move';
           next.push(best);
-        } else {
-          const sprite = this.newSprite(color, c, r);
-          next.push(sprite);
+          slideFilled.add(c);
+        }
+      }
+    }
+
+    // Phase 2: vertical movement within each column. Marbles only ever travel
+    // straight up/down inside their own column (gravity, column shifts, drops)
+    // and the server preserves their relative order, so pair old marbles to
+    // new cells in the SAME order, matching from the bottom up. The old
+    // greedy closest-first search crossed two same-colored marbles — the
+    // second one slid 2-3 extra cells while the rest of the column moved in
+    // unison. Order-preserving pairing keeps a whole column shifting together.
+    for (let c = 0; c < COLS; c++) {
+      const colLive = live
+        .filter(s => s.col === c && !used.has(s))
+        .sort((a, b) => a.row - b.row); // top → bottom
+      const cells: { r: number; color: number }[] = [];
+      for (let r = 0; r < ROWS; r++) {
+        const color = newBoard[r]?.[c] ?? 0;
+        if (!color) continue;
+        if (r === PITCH_ROW && slideFilled.has(c)) continue;
+        cells.push({ r, color });
+      }
+      // Added marbles (drop/rain) stack above the column — unless the very
+      // top cell was already filled, in which case they fill from the bottom
+      // instead. Pick which end the new marbles occupy so existing marbles
+      // are never nudged out of place.
+      const excess = cells.length - colLive.length;
+      const dropAtBottom = excess > 0 && (oldBoard[0]?.[c] ?? 0) !== 0;
+      const matchCount = Math.min(colLive.length, cells.length);
+      const liveStart = dropAtBottom ? 0 : colLive.length - matchCount;
+      const cellStart = dropAtBottom ? 0 : cells.length - matchCount;
+      for (let i = 0; i < matchCount; i++) {
+        const s = colLive[liveStart + i];
+        const cell = cells[cellStart + i];
+        used.add(s);
+        s.tCol = c;
+        s.tRow = cell.r;
+        s.phase = 'move';
+        next.push(s);
+      }
+      // Spawn the freshly added cells — top ones normally, bottom ones when
+      // the stack already reached the top.
+      if (dropAtBottom) {
+        for (let i = matchCount; i < cells.length; i++) {
+          next.push(this.newSprite(cells[i].color, c, cells[i].r));
+        }
+      } else {
+        for (let i = 0; i < cellStart; i++) {
+          next.push(this.newSprite(cells[i].color, c, cells[i].r));
         }
       }
     }
@@ -596,7 +640,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     else if (k === 'ArrowUp') { e.preventDefault(); this.shiftColumn(-1); }
     else if (k === 'ArrowDown') { e.preventDefault(); this.shiftColumn(1); }
     else if (k === ' ') { e.preventDefault(); this.shiftRow(1); }
-    else if (k >= '1' && k <= '6') { this.selectColumn(+k - 1); }
+    else if (k >= '1' && k <= '5') { this.selectColumn(+k - 1); }
   }
 
   /** Map a pointer event to board grid coordinates (handles DPR-scaled canvas). */
@@ -745,6 +789,15 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   private draw(): void {
     const canvas = this.canvasRef?.nativeElement;
     if (!canvas || !this.ctx) return;
+    // Keep the backing store in sync with the CSS box every frame. The player
+    // slot shrinks to half width when the opponent's board appears (flex row),
+    // but resizeCanvas only runs on window resize — without this, the wider
+    // buffer gets stretched into the narrower box and the marbles look
+    // squished. Mirroring drawOpponent's per-frame sync fixes it.
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const cw = Math.max(1, Math.round(canvas.clientWidth * dpr));
+    const ch = Math.max(1, Math.round(canvas.clientHeight * dpr));
+    if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
     const { cell, ox, oy } = this.layout();
     const ctx = this.ctx;
     ctx.clearRect(0, 0, canvas.width, canvas.height);

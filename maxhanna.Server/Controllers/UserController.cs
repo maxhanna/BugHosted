@@ -1192,10 +1192,14 @@ namespace maxhanna.Server.Controllers
         //    the 1-hour expiry, so they never see a security prompt.
         await using (var slide = new MySqlCommand(@"
           UPDATE maxhanna.user_sessions
-            SET expires_at   = expires_at + INTERVAL 1 HOUR,
-                last_used_at = UTC_TIMESTAMP()
+          SET expires_at   = expires_at + INTERVAL TIMESTAMPDIFF(
+                                SECOND,
+                                expires_at,
+                                UTC_TIMESTAMP() + INTERVAL 6 HOUR
+                              ) SECOND,
+              last_used_at = UTC_TIMESTAMP()
           WHERE token = @Token
-            AND expires_at < UTC_TIMESTAMP() + INTERVAL 1 HOUR;", conn))
+            AND expires_at < UTC_TIMESTAMP() + INTERVAL 6 HOUR;", conn))
         {
           slide.Parameters.Add("@Token", MySqlDbType.VarChar).Value = encryptedUserIdHeader;
           await slide.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
