@@ -5443,7 +5443,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   hideLoginPopup() { this.parentRef?.closeOverlay(); }
   trackDefs: TrackDefinition[] = TRACKS as TrackDefinition[];
   /** Maps a track id to its environment theme (rendered by RacingRenderer). */
-  private themeForTrack(trackId: number): 'miami' | 'mountain' | 'city' | 'default' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' {
+  private themeForTrack(trackId: number): 'miami' | 'mountain' | 'city' | 'default' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' {
     if (trackId === 1) return 'miami';
     if (trackId === 2) return 'mountain';
     if (trackId === 3) return 'city';
@@ -5454,6 +5454,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (trackId === 8) return 'italy';
     if (trackId === 9) return 'monaco-night';
     if (trackId === 10) return 'japan';
+    if (trackId === 11) return 'neon';
+    if (trackId === 12) return 'volcano';
     return 'default';
   }
   get UPGRADE_DEFS() { return UPGRADE_DEFS; }
@@ -5591,7 +5593,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
   getTrackFlag(track: TrackDefinition): string {
     const flags: Record<number, string> = {
-      1: '🇺🇸', 2: '🏔️', 3: '🏙️', 4: '🏔️', 5: '🇲🇦', 6: '🇲🇨', 7: '🇨🇦', 8: '🇮🇹', 9: '🌙', 10: '🇯🇵',
+      1: '🇺🇸', 2: '🏔️', 3: '🏙️', 4: '🏔️', 5: '🇲🇦', 6: '🇲🇨', 7: '🇨🇦', 8: '🇮🇹', 9: '🌙', 10: '🇯🇵', 11: '🌆', 12: '🌋',
     };
     return flags[track.id] || '🏁';
   }
@@ -5608,6 +5610,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       8: 'linear-gradient(135deg, #1a1a2e 0%, #6b1d1d 30%, #e74c3c 70%, #f39c12 100%)',
       9: 'linear-gradient(135deg, #020318 0%, #0b1030 35%, #1a2a5e 60%, #4a5fa8 100%)',
       10: 'linear-gradient(135deg, #17301f 0%, #2e5d3a 25%, #6f9e7f 55%, #cfe3d0 78%, #f2ead6 100%)',
+      11: 'linear-gradient(135deg, #1a0533 0%, #5b0f8e 30%, #d61f9f 58%, #ff4fc3 78%, #ffe14d 100%)',
+      12: 'linear-gradient(135deg, #0b0504 0%, #3d0d06 30%, #9c2a10 60%, #e8631a 82%, #ffb52e 100%)',
     };
     return bgs[track.id] || 'linear-gradient(135deg, #2c3e50, #4ca1af)';
   }

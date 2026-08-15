@@ -464,6 +464,44 @@
   font-size: 13px;
 }
 
+.marbles-maps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.marbles-map-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border-radius: 0;
+  border: 2px solid;
+  border-color: #ffffff #0a0a0a #0a0a0a #ffffff;
+  background: #c0c0c0;
+  color: #000;
+  cursor: pointer;
+  box-shadow: 1px 1px 0 #808080;
+}
+
+.marbles-map-btn .marbles-map-emoji {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.marbles-map-btn .marbles-map-name {
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.marbles-map-btn.selected {
+  background: #7aa8ff;
+  border-color: #0a0a0a #ffffff #ffffff #0a0a0a;
+  box-shadow: none;
+}
+
 .marbles-input {
   padding: 8px 10px;
   border-radius: 0;

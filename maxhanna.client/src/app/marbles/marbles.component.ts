@@ -41,6 +41,52 @@ const SKINS: number[][] = [
   [5, 1, 0],    // purple: stripes, flecked, swirl
 ];
 
+/** A playable arena — changes the board's background, recessed pit, and
+ *  ambient decor. Purely cosmetic and client-side: pick your vibe in the
+ *  menu and both boards (yours + the opponent's) render on it. */
+interface BoardMapTheme {
+  id: string;
+  name: string;
+  emoji: string;
+  desc: string;
+  /** Backdrop gradient (top → bottom). */
+  bg: [string, string, string];
+  darkSpeckle: string;
+  lightSpeckle: string;
+  /** Recessed pit gradient (top → bottom). */
+  pit: [string, string, string];
+  bevelLight: string;
+  lip: string;
+  decor: 'dirt' | 'stars' | 'waves' | 'clouds' | 'neon' | 'lava' | 'snow' | 'cactus';
+}
+
+const BOARD_MAPS: BoardMapTheme[] = [
+  { id: 'classic', name: 'Dirt Pit', emoji: '🟤', desc: 'The original packed-earth playground.',
+    bg: ['#9a6b3e', '#8a5f38', '#6f4a2b'], darkSpeckle: 'rgba(0,0,0,0.12)', lightSpeckle: 'rgba(255,225,180,0.08)',
+    pit: ['#6e4726', '#5c3a1f', '#472c16'], bevelLight: 'rgba(255,222,168,0.30)', lip: 'rgba(255,205,140,0.22)', decor: 'dirt' },
+  { id: 'beach', name: 'Tropical Bay', emoji: '🏖️', desc: 'Warm sand with lazy waves rolling in.',
+    bg: ['#ecd7a2', '#dcc184', '#bc9452'], darkSpeckle: 'rgba(120,80,30,0.16)', lightSpeckle: 'rgba(255,246,214,0.32)',
+    pit: ['#c9a96b', '#a9894f', '#7d6537'], bevelLight: 'rgba(255,250,225,0.40)', lip: 'rgba(255,244,214,0.30)', decor: 'waves' },
+  { id: 'ice', name: 'Frosted Ice', emoji: '🧊', desc: 'A frozen lake — watch your marbles skid.',
+    bg: ['#d3f0f9', '#a9ddeb', '#6fb4cc'], darkSpeckle: 'rgba(30,90,120,0.14)', lightSpeckle: 'rgba(255,255,255,0.5)',
+    pit: ['#7fb8cc', '#5c96ad', '#3f7389'], bevelLight: 'rgba(255,255,255,0.5)', lip: 'rgba(235,250,255,0.35)', decor: 'snow' },
+  { id: 'space', name: 'Nebula', emoji: '🌌', desc: 'Match among the stars.',
+    bg: ['#171040', '#221a58', '#372a7d'], darkSpeckle: 'rgba(0,0,0,0.3)', lightSpeckle: 'rgba(200,180,255,0.25)',
+    pit: ['#251d54', '#1a1440', '#110c2d'], bevelLight: 'rgba(170,150,255,0.3)', lip: 'rgba(190,170,255,0.22)', decor: 'stars' },
+  { id: 'neon', name: 'Neon Grid', emoji: '🌃', desc: 'Synthwave streets, glowing in the dark.',
+    bg: ['#12121c', '#1c1228', '#2e1036'], darkSpeckle: 'rgba(0,0,0,0.35)', lightSpeckle: 'rgba(255,0,255,0.10)',
+    pit: ['#1d1128', '#150b1e', '#0d0613'], bevelLight: 'rgba(255,0,255,0.25)', lip: 'rgba(0,255,255,0.22)', decor: 'neon' },
+  { id: 'meadow', name: 'Meadow', emoji: '🌼', desc: 'Soft grass under a sunny sky.',
+    bg: ['#9ed083', '#80b961', '#5c9446'], darkSpeckle: 'rgba(30,80,20,0.15)', lightSpeckle: 'rgba(240,255,220,0.3)',
+    pit: ['#6ba04c', '#54883b', '#3d6a2a'], bevelLight: 'rgba(245,255,225,0.35)', lip: 'rgba(235,250,210,0.25)', decor: 'clouds' },
+  { id: 'desert', name: 'Dunes', emoji: '🏜️', desc: 'Rolling dunes under a scorching sun.',
+    bg: ['#e8c481', '#d5a960', '#aa803f'], darkSpeckle: 'rgba(110,70,20,0.16)', lightSpeckle: 'rgba(255,240,200,0.3)',
+    pit: ['#c69e53', '#a9803d', '#7e5b29'], bevelLight: 'rgba(255,240,200,0.35)', lip: 'rgba(255,236,190,0.28)', decor: 'cactus' },
+  { id: 'lava', name: 'Caldera', emoji: '🌋', desc: 'Glowing lava cracks around a volcanic pit.',
+    bg: ['#311b1a', '#3c2118', '#4c2913'], darkSpeckle: 'rgba(0,0,0,0.3)', lightSpeckle: 'rgba(255,140,60,0.14)',
+    pit: ['#251410', '#1b0f0c', '#110806'], bevelLight: 'rgba(255,150,60,0.28)', lip: 'rgba(255,120,40,0.22)', decor: 'lava' },
+];
+
 type SpritePhase = 'move' | 'pop';
 
 interface Sprite {
@@ -115,6 +161,17 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
   /** Currently selected column (for ↑/↓ column shifts). */
   selectedCol = 2;
+  /** Arena the boards render on (persisted per browser). */
+  selectedMapId = 'classic';
+  get boardMaps(): BoardMapTheme[] { return BOARD_MAPS; }
+  get boardMap(): BoardMapTheme { return BOARD_MAPS.find(m => m.id === this.selectedMapId) ?? BOARD_MAPS[0]; }
+  /** Switch the board arena and remember the choice for next time. */
+  selectMap(id: string): void {
+    this.selectedMapId = id;
+    try { localStorage.setItem('marbles.mapId', id); } catch { /* private mode etc. */ }
+    this.playClick();
+    this.cdr.detectChanges();
+  }
   /** In-flight pointer drag: dir = vertical (column shift), hdir = horizontal (pitch-row shift). */
   private drag = { active: false, pointerId: -1, col: -1, row: -1, startX: 0, startY: 0, dir: 0, hdir: 0 };
 
@@ -148,6 +205,10 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   constructor(private hub: MarblesHubService, private ngZone: NgZone, private cdr: ChangeDetectorRef, private marbles: MarblesService) {
     super();
     this.playerName = this.parentRef?.user?.username ?? '';
+    try {
+      const saved = localStorage.getItem('marbles.mapId');
+      if (saved && BOARD_MAPS.some(m => m.id === saved)) this.selectedMapId = saved;
+    } catch { /* storage unavailable */ }
   }
 
   ngAfterViewInit(): void {
@@ -1253,16 +1314,17 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   }
 
   private drawBoardBackdrop(ctx: CanvasRenderingContext2D, w: number, h: number): void {
-    // Full dirt pit — the original board sits on packed earth, no sky.
+    // Full-bleed arena floor — the board sits on the selected map's ground.
+    const map = this.boardMap;
     const ground = ctx.createLinearGradient(0, 0, 0, h);
-    ground.addColorStop(0, '#9a6b3e');
-    ground.addColorStop(0.5, '#8a5f38');
-    ground.addColorStop(1, '#6f4a2b');
+    ground.addColorStop(0, map.bg[0]);
+    ground.addColorStop(0.5, map.bg[1]);
+    ground.addColorStop(1, map.bg[2]);
     ctx.fillStyle = ground;
     ctx.fillRect(0, 0, w, h);
 
-    // Dirt speckle for texture.
-    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    // Ground speckle for texture.
+    ctx.fillStyle = map.darkSpeckle;
     for (let i = 0; i < 60; i++) {
       const x = (i * 97.3) % w;
       const y = (i * 53.7) % h;
@@ -1270,13 +1332,178 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       ctx.arc(x, y, 1.5 + (i % 3), 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.fillStyle = 'rgba(255,225,180,0.08)';
+    ctx.fillStyle = map.lightSpeckle;
     for (let i = 0; i < 40; i++) {
       const x = (i * 83.1) % w;
       const y = (i * 47.9) % h;
       ctx.beginPath();
       ctx.arc(x, y, 1 + (i % 2), 0, Math.PI * 2);
       ctx.fill();
+    }
+
+    this.drawBackdropDecor(ctx, w, h, map);
+  }
+
+  /** Ambient scenery for the arena: stars, waves, clouds, snow, neon grid,
+   *  lava cracks, cacti. Positions are deterministic per canvas size so the
+   *  scene never flickers; only the star twinkle animates. */
+  private drawBackdropDecor(ctx: CanvasRenderingContext2D, w: number, h: number, map: BoardMapTheme): void {
+    switch (map.decor) {
+      case 'dirt': {
+        // The classic pit needs no extra scenery.
+        return;
+      }
+      case 'stars': {
+        const neb = ctx.createRadialGradient(w * 0.3, h * 0.25, 0, w * 0.3, h * 0.25, Math.min(w, h) * 0.6);
+        neb.addColorStop(0, 'rgba(140,90,220,0.16)');
+        neb.addColorStop(1, 'rgba(140,90,220,0)');
+        ctx.fillStyle = neb;
+        ctx.fillRect(0, 0, w, h);
+        for (let i = 0; i < 80; i++) {
+          const x = (i * 173.3) % w;
+          const y = (i * 91.7) % h;
+          const r = 0.6 + (i % 3) * 0.7;
+          const tw = 0.5 + 0.5 * Math.sin(performance.now() / 900 + i * 1.7);
+          const tint = i % 5 === 0 ? '255,220,160' : (i % 4 === 0 ? '180,220,255' : '255,255,255');
+          ctx.fillStyle = `rgba(${tint},${(0.35 + 0.5 * tw).toFixed(3)})`;
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.fill();
+          if (i % 9 === 0) {
+            ctx.strokeStyle = `rgba(${tint},${(0.25 * tw).toFixed(3)})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x - r * 3, y); ctx.lineTo(x + r * 3, y);
+            ctx.moveTo(x, y - r * 3); ctx.lineTo(x, y + r * 3);
+            ctx.stroke();
+          }
+        }
+        return;
+      }
+      case 'waves': {
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+        ctx.lineWidth = Math.max(1.5, h * 0.008);
+        for (let band = 0; band < 3; band++) {
+          const y0 = h * (0.74 + band * 0.1);
+          for (let i = 0; i < 5; i++) {
+            const x = (i * w) / 5 + (band % 2) * (w / 10);
+            ctx.beginPath();
+            ctx.arc(x, y0, h * 0.045, Math.PI, 0);
+            ctx.stroke();
+          }
+        }
+        return;
+      }
+      case 'clouds': {
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        for (let i = 0; i < 5; i++) {
+          const x = (i * 211.7) % w;
+          const y = 14 + ((i * 97.3) % (h * 0.3));
+          const r = Math.min(w, h) * (0.05 + (i % 3) * 0.012);
+          ctx.beginPath();
+          ctx.ellipse(x, y, r * 1.8, r * 0.75, 0, 0, Math.PI * 2);
+          ctx.ellipse(x + r, y - r * 0.2, r * 1.1, r * 0.65, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        return;
+      }
+      case 'snow': {
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        for (let i = 0; i < 90; i++) {
+          const x = (i * 129.7) % w;
+          const y = (i * 61.3) % h;
+          const r = 0.8 + (i % 4) * 0.6;
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        return;
+      }
+      case 'neon': {
+        // Synthwave perspective grid on the lower half.
+        const horizon = h * 0.42;
+        ctx.strokeStyle = 'rgba(255,0,170,0.16)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 12; i++) {
+          const x = (i / 12) * w;
+          ctx.beginPath();
+          ctx.moveTo(x, horizon);
+          ctx.lineTo(w / 2, h);
+          ctx.stroke();
+        }
+        for (let i = 0; i <= 6; i++) {
+          const t = i / 6;
+          const y = horizon + (h - horizon) * t * t;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(w, y);
+          ctx.stroke();
+        }
+        // Retro sun half-disc on the horizon.
+        const sx = w * 0.72, sy = horizon, sr = Math.min(w, h) * 0.17;
+        const sun = ctx.createLinearGradient(0, sy - sr, 0, sy);
+        sun.addColorStop(0, 'rgba(255,80,120,0.9)');
+        sun.addColorStop(1, 'rgba(255,180,60,0.12)');
+        ctx.fillStyle = sun;
+        ctx.beginPath();
+        ctx.arc(sx, sy, sr, Math.PI, 0);
+        ctx.fill();
+        // Scattered neon dots up top.
+        ctx.fillStyle = 'rgba(0,255,255,0.5)';
+        for (let i = 0; i < 26; i++) {
+          const x = (i * 151.1) % w;
+          const y = (i * 79.7) % Math.max(1, horizon);
+          ctx.beginPath();
+          ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        return;
+      }
+      case 'lava': {
+        // Glowing cracks threading through the ground.
+        for (let i = 0; i < 7; i++) {
+          const x0 = (i * 143.9) % w;
+          const y0 = (i * 67.3) % h;
+          ctx.strokeStyle = i % 2 === 0 ? 'rgba(255,120,40,0.5)' : 'rgba(255,200,80,0.35)';
+          ctx.lineWidth = 2 + (i % 3);
+          ctx.beginPath();
+          ctx.moveTo(x0, y0);
+          let x = x0, y = y0;
+          for (let s = 1; s <= 4; s++) {
+            x += (i % 2 === 0 ? 1 : -1) * ((s * 37.1) % 60) + ((i * 19) % 20);
+            y += (s * 29.3) % 45;
+            ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+        // Ember glow pools.
+        for (let i = 0; i < 5; i++) {
+          const x = (i * 109.7) % w;
+          const y = (i * 47.9) % h;
+          const r = Math.min(w, h) * 0.05;
+          const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 3);
+          glow.addColorStop(0, 'rgba(255,120,40,0.5)');
+          glow.addColorStop(1, 'rgba(255,120,40,0)');
+          ctx.fillStyle = glow;
+          ctx.fillRect(x - r * 3, y - r * 3, r * 6, r * 6);
+        }
+        return;
+      }
+      case 'cactus': {
+        ctx.fillStyle = 'rgba(40,90,40,0.85)';
+        for (let i = 0; i < 6; i++) {
+          const x = (i * 263.3) % w;
+          const y = h - ((i * 71.9) % (h * 0.18));
+          const ch = h * (0.08 + (i % 3) * 0.02);
+          const cw = Math.max(3, h * 0.012);
+          ctx.fillRect(x, y - ch, cw, ch);
+          ctx.fillRect(x - cw * 2, y - ch * 0.62, cw * 0.8, ch * 0.38);
+          ctx.fillRect(x - cw * 2, y - ch * 0.62, cw * 2, cw * 0.8);
+          ctx.fillRect(x + cw * 1.2, y - ch * 0.5, cw * 0.8, ch * 0.3);
+          ctx.fillRect(x + cw * 1.2, y - ch * 0.5, cw, cw * 0.8);
+        }
+        return;
+      }
     }
   }
 
@@ -1288,11 +1515,12 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     const bh = cell * ROWS + pad * 2;
     const bx = ox - pad, by = oy - pad - cell * 0.4;
 
-    // Darker, recessed dirt interior.
+    // Darker, recessed pit interior (map-tinted).
+    const map = this.boardMap;
     const dirt = ctx.createLinearGradient(bx, by, bx, by + bh);
-    dirt.addColorStop(0, '#6e4726');
-    dirt.addColorStop(0.5, '#5c3a1f');
-    dirt.addColorStop(1, '#472c16');
+    dirt.addColorStop(0, map.pit[0]);
+    dirt.addColorStop(0.5, map.pit[1]);
+    dirt.addColorStop(1, map.pit[2]);
     ctx.fillStyle = dirt;
     this.roundRect(ctx, bx, by, bw, bh, cell * 0.2);
     ctx.fill();
@@ -1310,7 +1538,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     ctx.lineTo(bx + inset, by + bh - inset);
     ctx.stroke();
 
-    ctx.strokeStyle = 'rgba(255,222,168,0.30)';
+    ctx.strokeStyle = this.boardMap.bevelLight;
     ctx.lineWidth = cell * 0.22;
     ctx.beginPath();
     ctx.moveTo(bx + inset, by + bh - inset);
@@ -1319,8 +1547,8 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     ctx.lineTo(bx + bw - inset, by + bh - inset);
     ctx.stroke();
 
-    // Lip of the trench — a light rim so the edge stands out from the dirt.
-    ctx.strokeStyle = 'rgba(255,205,140,0.22)';
+    // Lip of the trench — a light rim so the edge stands out from the ground.
+    ctx.strokeStyle = this.boardMap.lip;
     ctx.lineWidth = Math.max(1, cell * 0.07);
     this.roundRect(ctx, bx, by, bw, bh, cell * 0.2);
     ctx.stroke();
@@ -1356,22 +1584,24 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     const s1 = mhash(seed + 101);
     const s2 = mhash(seed + 203);
     const s3 = mhash(seed + 307);
+    const s4 = mhash(seed + 409);
+    const s5 = mhash(seed + 509);
 
     // Per-marble glass identity: each channel jitters independently (subtle
-    // hue + value shift, not just brightness), the dominant channel is lifted
-    // for richer saturation, and a gloss factor varies the specular. All
-    // deterministic from the seed, so a marble keeps its look as it moves.
-    const t0 = clamp255(base[0] * (0.84 + s0 * 0.3));
-    const t1 = clamp255(base[1] * (0.84 + s1 * 0.3));
-    const t2 = clamp255(base[2] * (0.84 + s2 * 0.3));
+    // value shift), the dominant channel is lifted for richer saturation, and
+    // the whole colour is then hue-rotated a few degrees per marble — so two
+    // reds can lean coral or crimson, two blues can lean azure or indigo.
+    const t0 = clamp255(base[0] * (0.82 + s0 * 0.34));
+    const t1 = clamp255(base[1] * (0.82 + s1 * 0.34));
+    const t2 = clamp255(base[2] * (0.82 + s2 * 0.34));
     const maxI = t0 >= t1 && t0 >= t2 ? 0 : (t1 >= t2 ? 1 : 2);
-    const sat = 16 + s3 * 18;
-    const tinted: [number, number, number] = [
+    const sat = 14 + s3 * 20;
+    const tinted = rotateHue([
       maxI === 0 ? clamp255(t0 + sat) : t0,
       maxI === 1 ? clamp255(t1 + sat) : t1,
       maxI === 2 ? clamp255(t2 + sat) : t2,
-    ];
-    const gloss = 0.55 + s3 * 0.45; // per-marble shininess (0.55..1.0)
+    ], (s4 - 0.5) * 26);
+    const gloss = 0.5 + s5 * 0.5; // per-marble shininess (0.5..1.0)
     // Skin per colour: each color family has a set of pattern types; the
     // marble's seed picks which one, so the look is deterministic per marble
     // (it keeps the same skin while sliding around the board) yet varied.
@@ -1560,6 +1790,45 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     }
     ctx.restore();
 
+    // Secondary translucent swirl — a large, faint counter-rotating ribbon
+    // under the main pattern so even the simplest skins get layered depth.
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.9, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.translate(x, y);
+    ctx.rotate(-roll * 0.6 + s4 * Math.PI * 2);
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = `rgba(${tinted[0]},${tinted[1]},${tinted[2]},0.16)`;
+    ctx.lineWidth = r * 0.3;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * (0.5 + s5 * 0.2), s4 * Math.PI * 2, s4 * Math.PI * 2 + Math.PI * 1.4);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.09)';
+    ctx.lineWidth = r * 0.15;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * (0.28 + s4 * 0.32), s5 * Math.PI * 2 + Math.PI, s5 * Math.PI * 2 + Math.PI * 2.1);
+    ctx.stroke();
+    ctx.restore();
+
+    // Surface grain — a dusting of near-invisible specks that gives the glass
+    // a hand-blown, slightly imperfect texture. Deterministic per marble.
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.9, 0, Math.PI * 2);
+    ctx.clip();
+    for (let i = 0; i < 7; i++) {
+      const gx = x + (mhash(seed + 801 + i) - 0.5) * r * 1.7;
+      const gy = y + (mhash(seed + 901 + i) - 0.5) * r * 1.7;
+      const gr = r * (0.012 + mhash(seed + 1001 + i) * 0.03);
+      const bright = mhash(seed + 1101 + i) > 0.5;
+      ctx.fillStyle = bright ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+      ctx.beginPath();
+      ctx.arc(gx, gy, gr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
     // Interior bubbles — tiny glass inclusions that stay put while the
     // surface pattern rolls beneath them, like air pockets caught in the
     // glass near the viewer. Count, position and size all vary per marble.
@@ -1633,6 +1902,18 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     ctx.arc(hx + r * 0.16, hy + r * 0.2, r * 0.07, 0, Math.PI * 2);
     ctx.fill();
 
+    // Prismatic sheen — a faint cyan→magenta split across the specular halo,
+    // like light dispersing through the glass edge. Scaled by gloss so shiny
+    // marbles show it more.
+    const sheen = ctx.createLinearGradient(hx - r * 0.3, hy - r * 0.08, hx + r * 0.3, hy + r * 0.28);
+    sheen.addColorStop(0, `rgba(150,220,255,${(0.18 * gloss).toFixed(3)})`);
+    sheen.addColorStop(0.5, 'rgba(255,255,255,0)');
+    sheen.addColorStop(1, `rgba(255,140,230,${(0.16 * gloss).toFixed(3)})`);
+    ctx.fillStyle = sheen;
+    ctx.beginPath();
+    ctx.arc(hx, hy, r * 0.34, 0, Math.PI * 2);
+    ctx.fill();
+
     // Rolling glint — a soft bright streak travelling with the roll,
     // clipped to the sphere so it never pokes outside the glass.
     const glint = roll;
@@ -1670,6 +1951,18 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     ctx.beginPath();
     ctx.arc(x + r * 0.34, y + r * 0.42, r * 0.6, 0, Math.PI * 2);
     ctx.fill();
+
+    // Transmitted backlight along the far rim — light bleeding through the
+    // thin glass edge opposite the light source (upper-right), tinted by the
+    // marble's own colour.
+    const back = ctx.createLinearGradient(x + r * 0.3, y - r * 0.55, x + r * 0.6, y + r * 0.3);
+    back.addColorStop(0, 'rgba(0,0,0,0)');
+    back.addColorStop(1, `rgba(${Math.min(255, tinted[0] + 95)},${Math.min(255, tinted[1] + 95)},${Math.min(255, tinted[2] + 95)},0.34)`);
+    ctx.strokeStyle = back;
+    ctx.lineWidth = r * 0.12;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.85, Math.PI * 1.06, Math.PI * 1.46);
+    ctx.stroke();
     ctx.restore();
 
     ctx.strokeStyle = 'rgba(0,0,0,0.35)';
@@ -1829,4 +2122,35 @@ function mhash(n: number): number {
 
 function clamp255(v: number): number {
   return v < 0 ? 0 : v > 255 ? 255 : v;
+}
+
+/** Rotate an RGB colour's hue by `deg` degrees (RGB → HSL → shift → RGB).
+ *  Grey (max === min) passes through unchanged. */
+function rotateHue(c: [number, number, number], deg: number): [number, number, number] {
+  const r = c[0] / 255, g = c[1] / 255, b = c[2] / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return c;
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h: number;
+  if (max === r) h = ((g - b) / d) + (g < b ? 6 : 0);
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  h = (h * 60 + deg + 360) % 360;
+  const c2 = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c2 * (1 - Math.abs((h / 60) % 2 - 1));
+  const m = l - c2 / 2;
+  let rr = 0, gg = 0, bb = 0;
+  if (h < 60) { rr = c2; gg = x; }
+  else if (h < 120) { rr = x; gg = c2; }
+  else if (h < 180) { gg = c2; bb = x; }
+  else if (h < 240) { gg = x; bb = c2; }
+  else if (h < 300) { rr = x; bb = c2; }
+  else { rr = c2; bb = x; }
+  return [
+    clamp255(Math.round((rr + m) * 255)),
+    clamp255(Math.round((gg + m) * 255)),
+    clamp255(Math.round((bb + m) * 255)),
+  ];
 }

@@ -1189,7 +1189,7 @@ export class RacingRenderer {
   ambientColor: [number, number, number] = [0.25, 0.25, 0.3];
   fogColor: [number, number, number] = [0.4, 0.45, 0.5];
   elapsed = 0;
-  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' = 'default';
+  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' = 'default';
   // Device-quality tier: set by the component for mobile / low-end GPUs. Trims
   // the heaviest scenery (conifer counts and mesh density) and per-frame effects
   // (snow flake count) so the mountain and alpine circuits stay smooth on phones.
@@ -1498,9 +1498,16 @@ export class RacingRenderer {
   private makeTrackMarkingsTex(): WebGLTexture {
     // Markings vary per theme: street circuits (Monaco) get city-road paint
     // (double-yellow centre line + crosswalks), while every other circuit
-    // keeps the racing style (painted white edge lines + dashed centre).
+    // keeps the racing style (painted white edge lines + dashed centre). The
+    // neon and volcano circuits get their own glowing-colour paint jobs.
     if (this.isStreetTheme) {
       return this.makeStreetMarkingsTex();
+    }
+    if (this.theme === 'neon') {
+      return this.makeNeonMarkingsTex();
+    }
+    if (this.theme === 'volcano') {
+      return this.makeVolcanoMarkingsTex();
     }
     return this.makeRacingMarkingsTex();
   }
@@ -1525,6 +1532,66 @@ export class RacingRenderer {
         const aDash = soft(0.486, 0.514, vy, 0.007) * ((x % 56) < 22 ? 1 : 0);
         g = g * (1 - aDash) + 226 * aDash;
         data[i] = g; data[i + 1] = g; data[i + 2] = g * 0.98 + 4;
+      }
+    }
+    return this.makeTex(size, size, data);
+  }
+  private makeNeonMarkingsTex(): WebGLTexture {
+    // Near-black asphalt with glowing cyan edge lines and a magenta dashed
+    // centre line — the outrun paint job.
+    const size = 256;
+    const data = new Uint8Array(size * size * 3);
+    const soft = (lo: number, hi: number, vy: number, falloff: number) =>
+      Math.max(0, Math.min(1, Math.min(vy - lo, hi - vy) / falloff));
+    for (let y = 0; y < size; y++) {
+      const vy = y / size;
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 3;
+        let g = 20;
+        // Cyan edge lines.
+        const aEdge = Math.max(soft(0.03, 0.062, vy, 0.007), soft(0.938, 0.97, vy, 0.007));
+        g = g * (1 - aEdge) + 30 * aEdge;
+        let r = g * (1 - aEdge) + 30 * aEdge;
+        let gg = g * (1 - aEdge) + 240 * aEdge;
+        let b = g * (1 - aEdge) + 250 * aEdge;
+        // Magenta dashed centre line.
+        const aDash = soft(0.486, 0.514, vy, 0.007) * ((x % 56) < 22 ? 1 : 0);
+        r = r * (1 - aDash) + 250 * aDash;
+        gg = gg * (1 - aDash) + 55 * aDash;
+        b = b * (1 - aDash) + 200 * aDash;
+        data[i] = Math.max(5, Math.min(250, r));
+        data[i + 1] = Math.max(5, Math.min(250, gg));
+        data[i + 2] = Math.max(5, Math.min(250, b));
+      }
+    }
+    return this.makeTex(size, size, data);
+  }
+  private makeVolcanoMarkingsTex(): WebGLTexture {
+    // Warm dark asphalt with fiery orange edge lines and a brick-red dashed
+    // centre line, tinted by the magma glow.
+    const size = 256;
+    const data = new Uint8Array(size * size * 3);
+    const soft = (lo: number, hi: number, vy: number, falloff: number) =>
+      Math.max(0, Math.min(1, Math.min(vy - lo, hi - vy) / falloff));
+    for (let y = 0; y < size; y++) {
+      const vy = y / size;
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 3;
+        const baseR = 42, baseG = 34, baseB = 30;
+        let r = baseR, g = baseG, b = baseB;
+        // Orange edge lines.
+        const aEdge = Math.max(soft(0.03, 0.062, vy, 0.007), soft(0.938, 0.97, vy, 0.007));
+        r = r * (1 - aEdge) + 255 * aEdge;
+        g = g * (1 - aEdge) + 150 * aEdge;
+        b = b * (1 - aEdge) + 40 * aEdge;
+        // Brick-red dashed centre line.
+        const aDash = soft(0.486, 0.514, vy, 0.007) * ((x % 56) < 22 ? 1 : 0);
+        r = r * (1 - aDash) + 215 * aDash;
+        g = g * (1 - aDash) + 60 * aDash;
+        b = b * (1 - aDash) + 35 * aDash;
+        data[i] = Math.max(5, Math.min(250, r));
+        data[i + 1] = Math.max(5, Math.min(250, g));
+        data[i + 2] = Math.max(5, Math.min(250, b));
       }
     }
     return this.makeTex(size, size, data);
@@ -2071,6 +2138,18 @@ void main() { FragColor = texture(uTex, vUV); }`;
           elev: t => 1.4 * (1 - Math.cos(t * Math.PI * 6)) / 2,
           width: t => this.TRACK_WIDTH * 0.9 + Math.sin(t * 7) * 1.0,
         };
+      case 'neon':       // outrun ribbon — sweeping S curves, a low bowl dip
+        return {
+          radius: R * 0.92, wobble: t => Math.sin(t * 3.6) * 16 + Math.sin(t * 11) * 5 + Math.sin(t * 2.2) * 9,
+          elev: t => 1.8 * (1 - Math.cos(t * Math.PI * 5)) / 2,
+          width: t => this.TRACK_WIDTH + Math.sin(t * 6) * 1.4,
+        };
+      case 'volcano':    // caldera ring — tight switchback ess across a crater rim
+        return {
+          radius: R * 0.88, wobble: t => Math.sin(t * 4.4) * 15 + Math.sin(t * 13) * 5 + Math.sin(t * 2.6) * 8,
+          elev: t => 2.4 * (1 - Math.cos(t * Math.PI * 4)) / 2 + 0.7 * (1 - Math.cos(t * Math.PI * 7)) / 2,
+          width: t => this.TRACK_WIDTH * 0.95 + Math.sin(t * 5) * 1.3,
+        };
       default:           // miami + default — coastal, low and flat
         return {
           radius: R, wobble: t => Math.sin(t * 3) * 30 + Math.sin(t * 7) * 12 + Math.sin(t * 1.7) * 8,
@@ -2148,7 +2227,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
    *  centreline inherits. Coastal circuits fade out quickly so buildings by the
    *  water stay at sea level; inland circuits follow the hills all the way out. */
   private sceneryFade(dist: number): number {
-    const far = this.theme === 'monaco' || this.theme === 'monaco-night' || this.theme === 'montreal' ? 12 : 200;
+    const far = this.theme === 'monaco' || this.theme === 'monaco-night' || this.theme === 'montreal' || this.theme === 'neon' || this.theme === 'volcano' ? 12 : 200;
     return Math.max(0, Math.min(1, 1 - dist / far));
   }
   /** Banking fades out past the runoff so the infield and far scenery stay
@@ -2262,13 +2341,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
   getTrackLength(): number { return this.totalTrackDist; }
   /** Applies the environment theme for the selected track and rebuilds the
    *  scenery geometry. Call before each race (both solo and multiplayer). */
-  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan') {
+  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano') {
     this.theme = theme;
     // Fresh tyres every race — reset the wear that darkened the sidewalls.
     this._tireDist = 0;
     this.tireWear = 0;
     this._bakedTireWear = -1;
-    this.night = theme === 'monaco-night';
+    this.night = theme === 'monaco-night' || theme === 'neon' || theme === 'volcano';
     // Heat shimmer re-renders the whole scene into an FBO plus a mask pass
     // every frame — too expensive for the desert circuit on weak GPUs, so
     // mobile drops it (the sun still shows, just without the wavy distortion).
@@ -2372,6 +2451,29 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.sunColor = [1.0, 0.92, 0.78];
         this.ambientColor = [0.3, 0.32, 0.32];
         this.fogColor = [0.55, 0.58, 0.6];
+        break;
+      case 'neon':
+        // Retro synthwave / outrun dusk: deep purple sky, hot magenta-pink
+        // horizon glow, electric cyan fill. The whole world reads as a 1980s
+        // neon arcade poster.
+        this.skyTop = [0.09, 0.01, 0.26];
+        this.skyHorizon = [1.0, 0.22, 0.55];
+        this.skyBottom = [0.22, 0.04, 0.4];
+        this.sunDir = [0.3, 0.3, 0.42];
+        this.sunColor = [1.0, 0.9, 0.55];
+        this.ambientColor = [0.2, 0.12, 0.3];
+        this.fogColor = [0.16, 0.07, 0.24];
+        break;
+      case 'volcano':
+        // Active caldera at night: charcoal ash sky lit by the magma below,
+        // low red-orange sun through the plume, ember-lit fog.
+        this.skyTop = [0.02, 0.015, 0.03];
+        this.skyHorizon = [0.42, 0.16, 0.08];
+        this.skyBottom = [0.1, 0.05, 0.04];
+        this.sunDir = [0.25, 0.35, 0.4];
+        this.sunColor = [0.85, 0.3, 0.15];
+        this.ambientColor = [0.12, 0.06, 0.05];
+        this.fogColor = [0.08, 0.045, 0.035];
         break;
       default:
         this.skyTop = [0.1, 0.2, 0.5];
@@ -3296,6 +3398,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addItalyScenery(verts, idxs);
     } else if (this.theme === 'japan') {
       this.addJapanScenery(verts, idxs);
+    } else if (this.theme === 'neon') {
+      this.addNeonScenery(verts, idxs, flatVerts, flatIdxs);
+    } else if (this.theme === 'volcano') {
+      this.addVolcanoScenery(verts, idxs, flatVerts, flatIdxs);
     } else {
       this.addForestScenery(verts, idxs);
     }
@@ -3354,8 +3460,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
       for (const side of [-1, 1]) {
         const lx = p.x + ppx * (p.width / 2 + 1) * side;
         const lz = p.z + ppz * (p.width / 2 + 1) * side;
+        const lampHead = this.theme === 'neon'
+          ? (side === -1 ? [0.3, 1.0, 1.0] : [1.0, 0.25, 0.85])
+          : this.theme === 'volcano'
+            ? [1.0, 0.55, 0.2]
+            : this.theme === 'miami' ? [1, 0.9, 0.65] : [1, 0.95, 0.7];
         this.addCylinder(verts, idxs, lx, 0, lz, 0.08, 3, 6, [0.2, 0.2, 0.2]);
-        this.addSphere(verts, idxs, lx, 3, lz, 0.15, 6, this.theme === 'miami' ? [1, 0.9, 0.65] : [1, 0.95, 0.7]);
+        this.addSphere(verts, idxs, lx, 3, lz, 0.15, 6, lampHead);
       }
     }
     const sf = pts[0];
@@ -3510,6 +3621,43 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const dz = pts[0].z + Math.sin(a) * dist;
       this.addCone(verts, idxs, dx, 0, dz, 0.6 + Math.random() * 0.5, 1.0 + Math.random() * 0.8, 6, greenDark);
     }
+    // Woodland extras: mushrooms, fallen logs and wildflower clumps so the
+    // floor isn't just identical green cones.
+    let floorIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 12 : 6)) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 12 + Math.random() * 10;
+        const fx = p.x + ppx * dist * side + (Math.random() - 0.5) * 5;
+        const fz = p.z + ppz * dist * side + (Math.random() - 0.5) * 5;
+        const roll = Math.random();
+        if (roll < 0.3) {
+          // Mushroom cluster.
+          const n = 2 + Math.floor(Math.random() * 2);
+          for (let m = 0; m < n; m++) {
+            const mx = fx + (Math.random() - 0.5) * 0.6;
+            const mz = fz + (Math.random() - 0.5) * 0.6;
+            this.addCylinder(verts, idxs, mx, 0.08, mz, 0.035, 0.16, 4, [0.9, 0.9, 0.92]);
+            this.addCone(verts, idxs, mx, 0.18, mz, 0.13, 0.12, 6, Math.random() < 0.5 ? [0.85, 0.2, 0.18] : [0.9, 0.55, 0.2]);
+          }
+        } else if (roll < 0.6) {
+          // Fallen log.
+          this.addCylinder(verts, idxs, fx, 0.22, fz, 0.16, 0.4, 6, [0.45, 0.28, 0.14]);
+        } else {
+          // Wildflower patch.
+          for (let w = 0; w < 4; w++) {
+            const wx = fx + (Math.random() - 0.5) * 1.4;
+            const wz = fz + (Math.random() - 0.5) * 1.4;
+            this.addCylinder(verts, idxs, wx, 0.05, wz, 0.012, 0.24, 4, [0.15, 0.5, 0.15]);
+            this.addSphere(verts, idxs, wx, 0.3, wz, 0.045, 4, Math.random() < 0.5 ? [0.95, 0.9, 0.4] : [0.9, 0.4, 0.7]);
+          }
+        }
+        if (floorIdx++ > (this.lowQuality ? 40 : 90)) break;
+      }
+      if (floorIdx > (this.lowQuality ? 40 : 90)) break;
+    }
   }
   private addMountainScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
@@ -3580,6 +3728,38 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const sz = Math.sin(a) * dist;
       this.addSphere(verts, idxs, sx, 0.05, sz, 1.5 + Math.random() * 3.0, 6, snow);
     }
+    // High-country extras: a fire lookout, a couple of timber chalets and
+    // roadside boulders for the hairpins.
+    {
+      const p = pts[Math.floor(pts.length * 0.72)];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = p.width / 2 + 60 + Math.random() * 20;
+      this.addLookoutTower(verts, idxs, p.x + ppx * dist * side, p.z + ppz * dist * side, p.dirX, p.dirZ);
+    }
+    for (const fi of [0.15, 0.4, 0.62]) {
+      const p = pts[Math.floor(pts.length * fi)];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = p.width / 2 + 46 + Math.random() * 16;
+      this.addChalet(verts, idxs, p.x + ppx * dist * side + (Math.random() - 0.5) * 8, p.z + ppz * dist * side + (Math.random() - 0.5) * 8, p.dirX, p.dirZ, 1 + Math.random() * 0.5);
+    }
+    let boulderIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 14 : 7)) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 12 + Math.random() * 10;
+        const bx = p.x + ppx * dist * side + (Math.random() - 0.5) * 3;
+        const bz = p.z + ppz * dist * side + (Math.random() - 0.5) * 3;
+        this.addSphere(verts, idxs, bx, 0.25, bz, 0.5 + Math.random() * 0.9, 6, Math.random() < 0.5 ? rock : rockDark);
+        if (boulderIdx++ > (this.lowQuality ? 40 : 90)) break;
+      }
+      if (boulderIdx > (this.lowQuality ? 40 : 90)) break;
+    }
   }
   private addClouds() {
     const gl = this.gl;
@@ -3607,13 +3787,19 @@ void main() { FragColor = texture(uTex, vUV); }`;
       case 'montreal': count = 7; altMin = 48; altMax = 78; sizeScale = 0.9; this._cloudAlpha = 0.6; break;
       case 'italy': count = 7; altMin = 50; altMax = 85; sizeScale = 0.95; this._cloudAlpha = 0.6; break;
       case 'japan': count = 6; altMin = 60; altMax = 100; sizeScale = 1.0; this._cloudAlpha = 0.55; break;
+      case 'neon': count = 4; altMin = 52; altMax = 82; sizeScale = 0.8; this._cloudAlpha = 0.45; break;
+      case 'volcano': count = 3; altMin = 42; altMax = 72; sizeScale = 0.95; this._cloudAlpha = 0.6; break;
       default: count = 6; altMin = 55; altMax = 90; sizeScale = 1; this._cloudAlpha = 0.6; break;
     }
     const base = this.theme === 'city'
       ? [0.16, 0.17, 0.2]
       : this.theme === 'mountain' || this.theme === 'alpine'
         ? [0.95, 0.96, 0.99]
-        : [0.98, 0.98, 1.0];
+        : this.theme === 'neon'
+          ? [0.24, 0.09, 0.34]
+          : this.theme === 'volcano'
+            ? [0.3, 0.14, 0.1]
+            : [0.98, 0.98, 1.0];
     const verts: number[] = [];
     const idxs: number[] = [];
     const seg = 9;
@@ -3726,6 +3912,267 @@ void main() { FragColor = texture(uTex, vUV); }`;
       idxs.push(b1, b0, t1);
     }
   }
+  // ── Neon District (synthwave / outrun) ────────────────────────────────
+  private addNeonScenery(verts: number[], idxs: number[], flatVerts: number[], flatIdxs: number[]) {
+    const pts = this._trackPoints;
+    // Night paved plain — deep purple-black so the glowing grid pops.
+    this.addOceanPlane(flatVerts, flatIdxs, [0.05, 0.015, 0.11]);
+    // Synthwave ground grid: radial spokes + concentric rings in dark magenta.
+    const gridCol: [number, number, number] = [0.32, 0.04, 0.46];
+    const spokes = 26;
+    for (let k = 0; k < spokes; k++) {
+      const ang = (k / spokes) * Math.PI * 2 + 0.21;
+      const dx = Math.cos(ang), dz = Math.sin(ang);
+      const npx = -dz, npz = dx;
+      const w = 0.18;
+      for (let r = 1; r <= 5; r++) {
+        const near = 58 + r * 56;
+        const far = near + 132;
+        this.addQuad(verts, idxs,
+          [dx * near - npx * w, -0.24, dz * near - npz * w],
+          [dx * far - npx * w, -0.24, dz * far - npz * w],
+          [dx * far + npx * w, -0.24, dz * far + npz * w],
+          [dx * near + npx * w, -0.24, dz * near + npz * w],
+          gridCol);
+      }
+    }
+    for (let r = 1; r <= 4; r++) {
+      const radius = 92 + r * 82;
+      const segs = 56;
+      let lx = Math.cos(0) * radius, lz = Math.sin(0) * radius;
+      for (let s = 1; s <= segs; s++) {
+        const a = (s / segs) * Math.PI * 2;
+        const cx = Math.cos(a) * radius, cz = Math.sin(a) * radius;
+        const npx = -lz / radius, npz = lx / radius;
+        const w = 0.18;
+        this.addQuad(verts, idxs,
+          [lx - npx * w, -0.24, lz - npz * w],
+          [cx - npx * w, -0.24, cz - npz * w],
+          [cx + npx * w, -0.24, cz + npz * w],
+          [lx + npx * w, -0.24, lz + npz * w],
+          gridCol);
+        lx = cx; lz = cz;
+      }
+    }
+    // Neon towers — near-black bodies with blazing cyan/magenta window grids.
+    const palette: [number, number, number][] = [
+      [0.05, 0.02, 0.11], [0.04, 0.06, 0.13], [0.08, 0.02, 0.12],
+      [0.06, 0.04, 0.15], [0.03, 0.08, 0.11],
+    ];
+    const winColors: [number, number, number][] = [
+      [0.3, 1.0, 1.0], [1.0, 0.3, 0.9], [0.45, 0.4, 1.0], [1.0, 0.55, 0.25],
+    ];
+    let bIdx = 0;
+    for (let i = 0; i < pts.length; i += 4) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 46 + Math.random() * 30;
+        const bx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
+        const bz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
+        const h = 16 + Math.random() * 46;
+        const w = 4 + Math.random() * 4;
+        const d = 4 + Math.random() * 4;
+        const col = palette[Math.floor(Math.random() * palette.length)];
+        const win = winColors[Math.floor(Math.random() * winColors.length)];
+        this.addNeonTower(verts, idxs, bx, bz, h, w, d, col, win);
+        if (bIdx++ > 26) break;
+      }
+      if (bIdx > 26) break;
+    }
+    // Wireframe neon palms — dark silhouettes with one glowing neon frond.
+    let palmIdx = 0;
+    for (let i = 0; i < pts.length; i += 3) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        if (Math.random() < 0.3) continue;
+        const dist = p.width / 2 + 18 + Math.random() * 12;
+        const px = p.x + ppx * dist * side;
+        const pz = p.z + ppz * dist * side;
+        this.addNeonPalm(verts, idxs, px, pz, 0.9 + Math.random() * 0.5);
+        if (palmIdx++ > 26) break;
+      }
+      if (palmIdx > 26) break;
+    }
+    // Street-level neon: glowing sign pylons + parked retro cars.
+    const signCols: number[][] = [[0.3, 1, 1], [1, 0.3, 0.9], [1, 0.55, 0.25], [0.45, 0.4, 1]];
+    const carCols: number[][] = [[0.9, 0.15, 0.6], [0.2, 0.9, 1], [1, 0.6, 0.1], [0.4, 0.3, 1]];
+    let neonPropIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 14 : 7)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = (i / 7) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 7 + Math.random() * 5;
+      const px = p.x + ppx * dist * side + (Math.random() - 0.5) * 3;
+      const pz = p.z + ppz * dist * side + (Math.random() - 0.5) * 3;
+      if (Math.random() < 0.5) {
+        this.addNeonSignPylon(verts, idxs, px, pz, p.dirX, p.dirZ, signCols[Math.floor(Math.random() * signCols.length)]);
+      } else {
+        this.addRetroCar(verts, idxs, px, pz, p.dirX, p.dirZ, carCols[Math.floor(Math.random() * carCols.length)]);
+      }
+      if (neonPropIdx++ > (this.lowQuality ? 18 : 44)) break;
+    }
+  }
+  private addNeonTower(verts: number[], idxs: number[], bx: number, bz: number, h: number, w: number, d: number, col: number[], win: number[]) {
+    this.addBox(verts, idxs, bx, h / 2, bz, w, h, d, col);
+    const rows = Math.max(4, Math.floor(h / 3.2));
+    for (const sx of [-1, 1]) {
+      const zc = bz + sx * (d / 2 + 0.05);
+      for (let r = 0; r < rows; r++) {
+        const wy = 1.2 + r * (h - 2.4) / rows;
+        this.addWindowQuad(verts, idxs, bx - w * 0.26, wy, zc, 1.1, 1.1, 0, sx, win);
+        this.addWindowQuad(verts, idxs, bx + w * 0.26, wy, zc, 1.1, 1.1, 0, sx, win);
+      }
+    }
+    for (const sz of [-1, 1]) {
+      const xc = bx + sz * (w / 2 + 0.05);
+      for (let r = 0; r < rows; r++) {
+        const wy = 1.2 + r * (h - 2.4) / rows;
+        this.addWindowQuad(verts, idxs, xc, wy, bz - d * 0.26, 1.1, 1.1, sz, 0, win);
+        this.addWindowQuad(verts, idxs, xc, wy, bz + d * 0.26, 1.1, 1.1, sz, 0, win);
+      }
+    }
+    // Rooftop neon sign.
+    this.addBox(verts, idxs, bx, h + 0.5, bz, w * 0.7, 1.0, d * 0.7, [0.04, 0.04, 0.07]);
+    this.addBox(verts, idxs, bx, h + 1.1, bz, w * 0.5, 0.24, d * 0.5, win);
+  }
+  private addNeonPalm(verts: number[], idxs: number[], px: number, pz: number, s: number) {
+    const trunk = [0.02, 0.015, 0.05];
+    const frond = [0.03, 0.02, 0.06];
+    const accents: [number, number, number][] = [[0.3, 1.0, 1.0], [1.0, 0.3, 0.9]];
+    const th = (4.2 + Math.random() * 1.8) * s;
+    const lean = (Math.random() - 0.5) * 0.5;
+    this.addCylinder(verts, idxs, px, 0, pz, 0.16 * s, th, 5, trunk);
+    const topX = px + lean, topZ = pz;
+    const acc = accents[Math.floor(Math.random() * accents.length)];
+    const nFronds = 5 + Math.floor(Math.random() * 3);
+    for (let f = 0; f < nFronds; f++) {
+      const a = (f / nFronds) * Math.PI * 2 + Math.random() * 0.4;
+      const len = (2.6 + Math.random() * 1.4) * s;
+      const ex = topX + Math.cos(a) * len;
+      const ez = topZ + Math.sin(a) * len;
+      const ey = th + 0.6 + Math.random() * 1.2;
+      this.addStrut(verts, idxs, topX, th + 0.2, topZ, ex, ey, ez, 0.13 * s, frond);
+      if (f === 0) {
+        // One frond per palm is a glowing neon tube.
+        this.addStrut(verts, idxs, topX, th + 0.2, topZ, ex, ey, ez, 0.05 * s, acc);
+      }
+    }
+    this.addSphere(verts, idxs, topX, th + 0.4, topZ, 0.3 * s, 6, [0.04, 0.03, 0.07]);
+  }
+  // ── Caldera Rush (active volcano) ─────────────────────────────────────
+  private addVolcanoScenery(verts: number[], idxs: number[], flatVerts: number[], flatIdxs: number[]) {
+    const pts = this._trackPoints;
+    // Dark basalt plain.
+    this.addOceanPlane(flatVerts, flatIdxs, [0.1, 0.065, 0.07]);
+    const rock: [number, number, number][] = [
+      [0.16, 0.12, 0.11], [0.2, 0.14, 0.12], [0.13, 0.1, 0.1], [0.24, 0.17, 0.14],
+    ];
+    // Cinder cones — truncated cones with glowing lava craters.
+    let coneIdx = 0;
+    for (let i = 0; i < pts.length; i += 6) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        if (Math.random() < 0.3) continue;
+        const dist = p.width / 2 + 46 + Math.random() * 40;
+        const cx = p.x + ppx * dist * side;
+        const cz = p.z + ppz * dist * side;
+        const h = 5 + Math.random() * 9;
+        const r = 4 + Math.random() * 5;
+        this.addCone(verts, idxs, cx, 0, cz, r, h, 9, [0.22, 0.13, 0.1]);
+        const topR = r * 0.34;
+        this.addQuad(verts, idxs,
+          [cx - topR, h - 0.18, cz - topR], [cx + topR, h - 0.18, cz - topR],
+          [cx + topR, h - 0.18, cz + topR], [cx - topR, h - 0.18, cz + topR],
+          [1.0, 0.5, 0.18]);
+        if (coneIdx++ > 10) break;
+      }
+      if (coneIdx > 10) break;
+    }
+    // Basalt column clusters.
+    let colIdx = 0;
+    for (let i = 0; i < pts.length; i += 5) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        if (Math.random() < 0.4) continue;
+        const dist = p.width / 2 + 26 + Math.random() * 14;
+        const bx = p.x + ppx * dist * side;
+        const bz = p.z + ppz * dist * side;
+        const n = 3 + Math.floor(Math.random() * 4);
+        for (let k = 0; k < n; k++) {
+          const ox = bx + (Math.random() - 0.5) * 5;
+          const oz = bz + (Math.random() - 0.5) * 5;
+          const h = 3 + Math.random() * 6;
+          const c = rock[Math.floor(Math.random() * rock.length)];
+          this.addCylinder(verts, idxs, ox, 0, oz, 0.8 + Math.random() * 0.6, h, 6, c);
+          if (Math.random() < 0.5) {
+            this.addCylinder(verts, idxs, ox, h, oz, 0.9, 0.7, 6, [0.2, 0.15, 0.13]);
+          }
+        }
+        if (colIdx++ > 12) break;
+      }
+      if (colIdx > 12) break;
+    }
+    // Steam vents — pale columns breathing by the roadside.
+    let ventIdx = 0;
+    for (let i = 0; i < pts.length; i += 9) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        if (Math.random() < 0.5) continue;
+        const dist = p.width / 2 + 8 + Math.random() * 6;
+        const vx = p.x + ppx * dist * side;
+        const vz = p.z + ppz * dist * side;
+        this.addCylinder(verts, idxs, vx, 0.5, vz, 0.3, 1.2, 5, [0.5, 0.45, 0.42]);
+        this.addCylinder(verts, idxs, vx, 2.2, vz, 0.6, 2.6, 6, [0.68, 0.66, 0.64]);
+        if (ventIdx++ > 8) break;
+      }
+      if (ventIdx > 8) break;
+    }
+    // Scattered boulders.
+    for (let i = 0; i < 26; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const dist = 90 + Math.random() * 130;
+      const bx = Math.cos(a) * dist;
+      const bz = Math.sin(a) * dist;
+      this.addSphere(verts, idxs, bx, 0.3 + Math.random() * 0.3, bz, 0.7 + Math.random() * 1.4, 7, rock[Math.floor(Math.random() * rock.length)]);
+    }
+    // Caldera extras: dead trees, a wooden watchtower, and lava cracks
+    // seeping glow along the roadside.
+    let deadIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 18 : 9)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        if (Math.random() < 0.35) continue;
+        const dist = p.width / 2 + 12 + Math.random() * 8;
+        const dx = p.x + ppx * dist * side;
+        const dz = p.z + ppz * dist * side;
+        this.addDeadTree(verts, idxs, dx, dz, 0.7 + Math.random() * 0.8);
+        if (deadIdx++ > (this.lowQuality ? 16 : 34)) break;
+      }
+      if (deadIdx > (this.lowQuality ? 16 : 34)) break;
+    }
+    {
+      const p = pts[Math.floor(pts.length * 0.65)];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = p.width / 2 + 44 + Math.random() * 16;
+      this.addWatchtower(verts, idxs, p.x + ppx * dist * side, p.z + ppz * dist * side, p.dirX, p.dirZ);
+    }
+    let crackIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 20 : 10)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = (i / 10) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 2.4 + Math.random() * 2;
+      this.addLavaCrack(verts, idxs, p.x + ppx * dist * side, p.z + ppz * dist * side, ppx * side, ppz * side, 2 + Math.random() * 2.5);
+      if (crackIdx++ > (this.lowQuality ? 24 : 50)) break;
+    }
+  }
   private addCityScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
     const palette: [number, number, number][] = [
@@ -3782,6 +4229,42 @@ void main() { FragColor = texture(uTex, vUV); }`;
         if (benchIdx++ > 34) break;
       }
       if (benchIdx > 34) break;
+    }
+    // Street furniture: billboards, hydrants, traffic cones, dumpsters,
+    // bus shelters — cheap static boxes, keeps the canyon feel alive.
+    const adCols: number[][] = [[0.9, 0.3, 0.25], [0.2, 0.5, 0.85], [0.9, 0.7, 0.15], [0.2, 0.8, 0.4], [0.75, 0.3, 0.8]];
+    let propIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 16 : 8)) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = (i / 8) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 8 + Math.random() * 7;
+      const px = p.x + ppx * dist * side + (Math.random() - 0.5) * 4;
+      const pz = p.z + ppz * dist * side + (Math.random() - 0.5) * 4;
+      const roll = Math.random();
+      if (roll < 0.28) {
+        this.addBillboard(verts, idxs, px, pz, p.dirX, p.dirZ, adCols[Math.floor(Math.random() * adCols.length)]);
+      } else if (roll < 0.5) {
+        this.addDumpster(verts, idxs, px, pz, p.dirX, p.dirZ);
+      } else if (roll < 0.68) {
+        this.addBusShelter(verts, idxs, px, pz, p.dirX, p.dirZ);
+      } else if (roll < 0.84) {
+        this.addFireHydrant(verts, idxs, px, pz);
+      } else {
+        this.addTrafficCone(verts, idxs, px, pz);
+      }
+      if (propIdx++ > (this.lowQuality ? 24 : 60)) break;
+    }
+    // A few junction traffic lights.
+    let tlIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 60 : 30)) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = (i / 30) % 2 === 0 ? -1 : 1;
+      this.addTrafficLight(verts, idxs, p.x + ppx * (p.width / 2 + 1.2) * side, p.z + ppz * (p.width / 2 + 1.2) * side, p.dirX, p.dirZ);
+      if (tlIdx++ > 8) break;
     }
   }
   private addCityBuilding(verts: number[], idxs: number[], bx: number, bz: number, h: number, w: number, d: number, col: number[]) {
@@ -3932,6 +4415,356 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addBox(verts, idxs, bx + dirX * 0.7 * s, 0.25, bz + dirZ * 0.7 * s, 0.1, 0.5, 0.4, metal);
     }
   }
+  // ── Small static props (baked once, zero per-frame cost) ───────────────────
+  /** Wooden lifeguard tower — Miami boardwalk. */
+  private addLifeguardTower(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number) {
+    const wood: number[] = [0.62, 0.45, 0.25];
+    const white: number[] = [0.95, 0.95, 0.92];
+    const red: number[] = [0.85, 0.2, 0.2];
+    const ppx = -dirZ, ppz = dirX;
+    for (const s of [-1, 1]) {
+      this.addCylinder(verts, idxs, x + ppx * 0.6 * s, 0, z + ppz * 0.6 * s, 0.06, 1.1, 4, wood);
+    }
+    this.addBox(verts, idxs, x, 1.15, z, 2.2, 0.1, 2.2, white);
+    this.addBox(verts, idxs, x, 1.75, z, 2.0, 1.1, 2.0, white);
+    this.addCone(verts, idxs, x, 2.45, z, 1.6, 0.9, 4, red);
+    this.addBox(verts, idxs, x, 1.85, z, 0.5, 0.5, 2.2, red);
+  }
+  /** Small sailing boat bobbing in the bay (static hull + mast + sail). */
+  private addSailboat(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, s: number) {
+    const hull: number[] = [0.95, 0.95, 0.95];
+    const mast: number[] = [0.45, 0.3, 0.15];
+    const sail: number[] = [0.95, 0.95, 0.98];
+    const ppx = -dirZ, ppz = dirX;
+    this.addTaperedBox(verts, idxs, x, -0.08, z, 1.6 * s, 0.3 * s, 0.3 * s, 0.16 * s, 0.16 * s, hull);
+    this.addCylinder(verts, idxs, x, 0.15, z, 0.03 * s, 1.1 * s, 4, mast);
+    this.addQuad(verts, idxs,
+      [x + ppx * 0.2, 0.35, z + ppz * 0.2],
+      [x + ppx * 0.2, 1.15, z + ppz * 0.2],
+      [x - ppx * 0.55, 1.15, z - ppz * 0.55],
+      [x - ppx * 0.55, 0.35, z - ppz * 0.55], sail);
+  }
+  /** A-frame chalet with a snow-heavy gable roof. */
+  private addChalet(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, s: number) {
+    const wood: number[] = [0.42, 0.28, 0.14];
+    const roof: number[] = [0.55, 0.3, 0.18];
+    const snow: number[] = [0.94, 0.96, 1];
+    const ppx = -dirZ, ppz = dirX;
+    const h = 1.6 * s;
+    this.addBox(verts, idxs, x, h / 2, z, 2.4 * s, h, 1.8 * s, wood);
+    this.addBox(verts, idxs, x + ppx * 0.2, h + 0.12 * s, z + ppz * 0.2, 2.8 * s, 0.16 * s, 2.2 * s, roof);
+    this.addCone(verts, idxs, x, h + 0.5 * s, z, 1.5 * s, 1.1 * s, 4, snow);
+    this.addBox(verts, idxs, x - ppx * 0.9 * s, h * 0.5, z - ppz * 0.9 * s, 0.3 * s, 1.0 * s, 0.1, [0.25, 0.15, 0.08]);
+    this.addBox(verts, idxs, x + ppx * 0.5, h * 0.6, z + ppz * 0.5, 0.6 * s, 0.5 * s, 0.08, [0.6, 0.75, 0.9]);
+    this.addCylinder(verts, idxs, x, h + 0.9 * s, z, 0.02, 0.5 * s, 4, [0.4, 0.3, 0.2]);
+    this.addSphere(verts, idxs, x, h + 1.45 * s, z, 0.05, 4, snow);
+  }
+  /** Timber fire-lookout tower (mountain theme). */
+  private addLookoutTower(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number) {
+    const wood: number[] = [0.4, 0.28, 0.15];
+    const rail: number[] = [0.5, 0.38, 0.22];
+    const ppx = -dirZ, ppz = dirX;
+    const h = 5.2;
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      this.addCylinder(verts, idxs, x + ppx * sx * 0.9, 0, z + ppz * sz * 0.9, 0.08, h, 4, wood);
+    }
+    this.addBox(verts, idxs, x, h - 0.15, z, 2.6, 0.1, 2.6, wood);
+    for (const s of [-1, 1]) {
+      this.addBox(verts, idxs, x + ppx * 1.1 * s, h - 0.65, z + ppz * 1.1 * s, 0.12, 0.9, 0.12, rail);
+    }
+    this.addBox(verts, idxs, x, h + 0.5, z, 2.2, 1.2, 2.2, rail);
+    this.addCone(verts, idxs, x, h + 1.25, z, 1.5, 0.7, 4, [0.35, 0.25, 0.14]);
+  }
+  /** Fire hydrant — small static cylinder with a cap. */
+  private addFireHydrant(verts: number[], idxs: number[], x: number, z: number) {
+    const red: number[] = [0.8, 0.12, 0.1];
+    const dark: number[] = [0.45, 0.08, 0.06];
+    this.addCylinder(verts, idxs, x, 0.32, z, 0.16, 0.64, 6, red);
+    this.addSphere(verts, idxs, x, 0.68, z, 0.2, 6, dark);
+  }
+  /** Roadworks traffic cone. */
+  private addTrafficCone(verts: number[], idxs: number[], x: number, z: number) {
+    const orange: number[] = [0.95, 0.45, 0.08];
+    const white: number[] = [0.95, 0.95, 0.95];
+    this.addCone(verts, idxs, x, 0.65, z, 0.22, 0.65, 8, orange);
+    this.addCylinder(verts, idxs, x, 0.05, z, 0.34, 0.1, 8, orange);
+    this.addQuad(verts, idxs,
+      [x - 0.22, 0.28, z - 0.22], [x + 0.22, 0.28, z - 0.22],
+      [x + 0.22, 0.38, z + 0.22], [x - 0.22, 0.38, z + 0.22], white);
+  }
+  /** Freestanding billboard — two posts + a coloured ad panel. */
+  private addBillboard(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, ad: number[]) {
+    const steel: number[] = [0.3, 0.32, 0.36];
+    const ppx = -dirZ, ppz = dirX;
+    const h = 4.6;
+    for (const s of [-1, 1]) {
+      this.addCylinder(verts, idxs, x + ppx * 1.4 * s, 0, z + ppz * 1.4 * s, 0.07, h, 5, steel);
+    }
+    this.addOrientedBox(verts, idxs, x, h + 0.6, z, 3.6, 1.6, 0.18, ppx, ppz, steel);
+    this.addOrientedBox(verts, idxs, x, h + 0.6, z, 3.4, 1.4, 0.22, ppx, ppz, ad);
+  }
+  /** Glass bus shelter with a roof and bench. */
+  private addBusShelter(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number) {
+    const steel: number[] = [0.32, 0.34, 0.38];
+    const glass: number[] = [0.55, 0.7, 0.85];
+    const ppx = -dirZ, ppz = dirX;
+    this.addBox(verts, idxs, x, 0.28, z, 2.2, 0.12, 0.9, steel);
+    for (const s of [-1, 1]) {
+      this.addCylinder(verts, idxs, x + ppx * 1.0 * s, 0, z + ppz * 1.0 * s, 0.045, 2.2, 5, steel);
+    }
+    this.addOrientedBox(verts, idxs, x, 2.35, z, 2.6, 0.1, 1.3, ppx, ppz, [0.4, 0.45, 0.55]);
+    this.addQuad(verts, idxs,
+      [x - ppx * 1.0, 0.12, z - ppz * 1.0],
+      [x + ppx * 1.0, 0.12, z + ppz * 1.0],
+      [x + ppx * 1.0, 2.1, z + ppz * 1.0],
+      [x - ppx * 1.0, 2.1, z - ppz * 1.0], glass);
+  }
+  /** Skip/dumpster with a hinged lid. */
+  private addDumpster(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number) {
+    const body: number[] = [0.25, 0.4, 0.32];
+    const lid: number[] = [0.3, 0.5, 0.4];
+    const ppx = -dirZ, ppz = dirX;
+    this.addOrientedBox(verts, idxs, x, 0.6, z, 2.0, 1.1, 1.0, ppx, ppz, body);
+    this.addOrientedBox(verts, idxs, x, 1.3, z, 2.2, 0.12, 1.1, ppx, ppz, lid);
+  }
+  /** Ski-lift line: a run of pylons with cable + hanging chairs (static). */
+  private addSkiLift(verts: number[], idxs: number[], x0: number, z0: number, x1: number, z1: number) {
+    const steel: number[] = [0.35, 0.36, 0.4];
+    const chair: number[] = [0.9, 0.25, 0.2];
+    const dx = x1 - x0, dz = z1 - z0;
+    const len = Math.hypot(dx, dz) || 1;
+    const ux = dx / len, uz = dz / len;
+    const steps = this.lowQuality ? 5 : 9;
+    let prevX = x0, prevY = 5.4, prevZ = z0;
+    for (let i = 0; i <= steps; i++) {
+      const f = i / steps;
+      const px = x0 + ux * len * f;
+      const pz = z0 + uz * len * f;
+      const h = 3.2 + Math.sin(f * Math.PI) * 1.6;
+      this.addCylinder(verts, idxs, px, 0, pz, 0.09, h, 5, steel);
+      this.addStrut(verts, idxs, prevX, prevY, prevZ, px, h + 0.5, pz, 0.03, steel);
+      if (i > 0 && i % 2 === 0) {
+        this.addStrut(verts, idxs, px, h + 0.5, pz, px, h + 0.1, pz, 0.02, steel);
+        this.addBox(verts, idxs, px, h - 0.15, pz, 0.7, 0.14, 0.5, chair);
+      }
+      prevX = px; prevY = h + 0.5; prevZ = pz;
+    }
+  }
+  /** Frozen pond — a flattened pale-blue ellipsoid. */
+  private addFrozenPond(verts: number[], idxs: number[], x: number, z: number, rx: number, rz: number) {
+    this.addEllipsoid(verts, idxs, x, 0.02, z, rx, 0.12, rz, 8, [0.62, 0.78, 0.88]);
+  }
+  /** Rusty desert pickup truck. */
+  private addPickupTruck(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, s: number) {
+    const body: number[] = [0.7, 0.35, 0.15];
+    const cab: number[] = [0.55, 0.3, 0.12];
+    const glass: number[] = [0.5, 0.6, 0.7];
+    const tire: number[] = [0.1, 0.1, 0.1];
+    const ppx = -dirZ, ppz = dirX;
+    this.addOrientedBox(verts, idxs, x - dirX * 0.6 * s, 0.6 * s, z - dirZ * 0.6 * s, 1.4 * s, 0.55 * s, 1.1 * s, dirX, dirZ, body);
+    this.addOrientedBox(verts, idxs, x + dirX * 0.55 * s, 0.85 * s, z + dirZ * 0.55 * s, 0.9 * s, 0.6 * s, 1.1 * s, dirX, dirZ, cab);
+    this.addQuad(verts, idxs,
+      [x + dirX * 0.95 * s + ppx * 0.5 * s, 0.6 * s, z + dirZ * 0.95 * s + ppz * 0.5 * s],
+      [x + dirX * 0.95 * s + ppx * 0.5 * s, 1.1 * s, z + dirZ * 0.95 * s + ppz * 0.5 * s],
+      [x + dirX * 0.95 * s - ppx * 0.5 * s, 1.1 * s, z + dirZ * 0.95 * s - ppz * 0.5 * s],
+      [x + dirX * 0.95 * s - ppx * 0.5 * s, 0.6 * s, z + dirZ * 0.95 * s - ppz * 0.5 * s], glass);
+    for (const [ox, oz] of [[0.6, 0.5], [0.6, -0.5], [-0.6, 0.5], [-0.6, -0.5]]) {
+      this.addCylinder(verts, idxs, x + dirX * ox * s + ppx * oz * s, 0.16 * s, z + dirZ * ox * s + ppz * oz * s, 0.24 * s, 0.32 * s, 6, tire);
+    }
+  }
+  /** Stack of rusty barrels. */
+  private addBarrelStack(verts: number[], idxs: number[], x: number, z: number) {
+    const rust: number[] = [0.55, 0.32, 0.14];
+    const band: number[] = [0.35, 0.2, 0.1];
+    this.addCylinder(verts, idxs, x, 0.45, z, 0.3, 0.9, 8, rust);
+    this.addCylinder(verts, idxs, x + 0.45, 0.42, z + 0.15, 0.28, 0.85, 8, band);
+    this.addCylinder(verts, idxs, x - 0.5, 0.4, z - 0.1, 0.27, 0.8, 8, rust);
+    this.addCylinder(verts, idxs, x + 0.25, 0.95, z - 0.25, 0.27, 0.8, 8, band);
+  }
+  /** Dead tree — bare trunk + a few gnarled branches. */
+  private addDeadTree(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    const bark: number[] = [0.35, 0.27, 0.18];
+    const h = (2.4 + Math.random() * 1.4) * s;
+    this.addCylinder(verts, idxs, x, 0, z, 0.12 * s, h, 5, bark);
+    const n = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + Math.random() * 0.5;
+      const by = h * (0.45 + Math.random() * 0.4);
+      const bl = (0.4 + Math.random() * 0.7) * s;
+      this.addStrut(verts, idxs, x, by, z, x + Math.cos(a) * bl, by + bl * 0.3, z + Math.sin(a) * bl, 0.06 * s, bark);
+    }
+  }
+  /** Armco guardrail segment hugging the track edge. */
+  private addArmco(verts: number[], idxs: number[], x: number, z: number, ppx: number, ppz: number, len: number) {
+    const steel: number[] = [0.55, 0.57, 0.62];
+    const posts = Math.max(2, Math.floor(len / 1.6));
+    for (let i = 0; i <= posts; i++) {
+      const f = -0.5 + i / posts;
+      this.addCylinder(verts, idxs, x + ppx * len * f, 0, z + ppz * len * f, 0.045, 0.75, 5, steel);
+    }
+    this.addStrut(verts, idxs, x - ppx * len * 0.5, 0.5, z - ppz * len * 0.5, x + ppx * len * 0.5, 0.5, z + ppz * len * 0.5, 0.05, steel);
+    this.addStrut(verts, idxs, x - ppx * len * 0.5, 0.66, z - ppz * len * 0.5, x + ppx * len * 0.5, 0.66, z + ppz * len * 0.5, 0.04, steel);
+  }
+  /** Traffic light gantry arm at a junction. */
+  private addTrafficLight(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number) {
+    const pole: number[] = [0.3, 0.3, 0.32];
+    const ppx = -dirZ, ppz = dirX;
+    this.addCylinder(verts, idxs, x, 0, z, 0.06, 3.1, 5, pole);
+    this.addStrut(verts, idxs, x, 2.8, z, x + ppx * 0.9, 2.8, z + ppz * 0.9, 0.045, pole);
+    const hx = x + ppx * 1.05, hz = z + ppz * 1.05;
+    this.addBox(verts, idxs, hx, 2.9, hz, 0.28, 0.85, 0.3, [0.15, 0.15, 0.18]);
+    this.addSphere(verts, idxs, hx, 3.22, hz, 0.09, 6, [0.9, 0.15, 0.12]);
+    this.addSphere(verts, idxs, hx, 2.95, hz, 0.09, 6, [0.9, 0.75, 0.1]);
+    this.addSphere(verts, idxs, hx, 2.68, hz, 0.09, 6, [0.15, 0.8, 0.2]);
+  }
+  /** Small harbour buoy. */
+  private addBuoy(verts: number[], idxs: number[], x: number, z: number) {
+    this.addSphere(verts, idxs, x, -0.02, z, 0.28, 6, [0.9, 0.25, 0.2]);
+    this.addCylinder(verts, idxs, x, 0.3, z, 0.03, 0.55, 4, [0.3, 0.3, 0.3]);
+    this.addSphere(verts, idxs, x, 0.95, z, 0.09, 5, [1, 0.85, 0.2]);
+  }
+  /** Big ferris wheel (La Ronde). Static, low-poly. */
+  private addFerrisWheel(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, r: number) {
+    const steel: number[] = [0.45, 0.47, 0.55];
+    const gondola: number[] = [0.85, 0.2, 0.25];
+    const ppx = -dirZ, ppz = dirX;
+    for (const s of [-1, 1]) {
+      this.addCylinder(verts, idxs, x + ppx * 1.1 * s, 0, z + ppz * 1.1 * s, 0.12, 3.4, 6, steel);
+    }
+    this.addCylinder(verts, idxs, x, 3.4, z, 0.14, 0.5, 6, steel);
+    const segs = this.lowQuality ? 10 : 16;
+    const rim = 0.12;
+    for (let i = 0; i <= segs; i++) {
+      const a0 = (i / segs) * Math.PI * 2;
+      const a1 = ((i + 1) / segs) * Math.PI * 2;
+      const ax = x + ppx * Math.cos(a0) * r, az = z + ppz * Math.cos(a0) * r;
+      const ay = 3.65 + Math.sin(a0) * r;
+      const bx = x + ppx * Math.cos(a1) * r, bz = z + ppz * Math.cos(a1) * r;
+      const by = 3.65 + Math.sin(a1) * r;
+      this.addStrut(verts, idxs, ax, ay, az, bx, by, bz, rim, steel);
+      this.addStrut(verts, idxs, x, 3.65, z, ax, ay, az, 0.07, steel);
+      if (i % (segs / 8) === 0) {
+        this.addStrut(verts, idxs, ax, ay, az, ax, ay - 0.45, az, 0.03, steel);
+        this.addBox(verts, idxs, ax, ay - 0.7, az, 0.5, 0.5, 0.4, gondola);
+      }
+    }
+  }
+  /** Round hay bale at a corner. */
+  private addHayBale(verts: number[], idxs: number[], x: number, z: number) {
+    this.addEllipsoid(verts, idxs, x, 0.45, z, 0.55, 0.45, 0.55, 8, [0.82, 0.68, 0.3]);
+    this.addEllipsoid(verts, idxs, x + 0.55, 0.42, z + 0.2, 0.5, 0.42, 0.5, 8, [0.78, 0.64, 0.28]);
+  }
+  /** Low dry-stone wall segment. */
+  private addStoneWall(verts: number[], idxs: number[], x: number, z: number, ppx: number, ppz: number, len: number) {
+    const stone: number[] = [0.6, 0.57, 0.5];
+    const dark: number[] = [0.48, 0.45, 0.4];
+    const posts = Math.max(2, Math.floor(len / 1.3));
+    for (let i = 0; i < posts; i++) {
+      const f = -0.5 + i / posts;
+      const bx = x + ppx * len * f;
+      const bz = z + ppz * len * f;
+      this.addBox(verts, idxs, bx, 0.5, bz, 1.3, 1.0, 0.5, i % 2 === 0 ? stone : dark);
+    }
+  }
+  /** Small wayside chapel with a bell-cote. */
+  private addChapel(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number) {
+    const wall: number[] = [0.85, 0.78, 0.66];
+    const roof: number[] = [0.6, 0.3, 0.16];
+    const ppx = -dirZ, ppz = dirX;
+    this.addOrientedBox(verts, idxs, x, 1.2, z, 2.6, 2.4, 2.0, ppx, ppz, wall);
+    this.addCone(verts, idxs, x, 2.6, z, 1.9, 1.4, 4, roof);
+    this.addBox(verts, idxs, x, 3.0, z, 0.5, 0.9, 0.5, wall);
+    this.addCone(verts, idxs, x, 3.6, z, 0.35, 0.5, 4, roof);
+  }
+  /** Stone garden lantern (toro) — Japan. */
+  private addToroLantern(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    const stone: number[] = [0.55, 0.55, 0.5];
+    const dark: number[] = [0.42, 0.42, 0.38];
+    this.addCylinder(verts, idxs, x, 0.28 * s, z, 0.3 * s, 0.2 * s, 6, stone);
+    this.addCylinder(verts, idxs, x, 1.1 * s, z, 0.09 * s, 0.9 * s, 6, dark);
+    this.addBox(verts, idxs, x, 1.62 * s, z, 0.5 * s, 0.14 * s, 0.5 * s, stone);
+    this.addCone(verts, idxs, x, 1.95 * s, z, 0.38 * s, 0.4 * s, 6, dark);
+    this.addSphere(verts, idxs, x, 2.18 * s, z, 0.05 * s, 4, stone);
+  }
+  /** Glowing roadside vending machine — Japan. */
+  private addVendingMachine(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number) {
+    const body: number[] = [0.85, 0.2, 0.25];
+    const glow: number[] = [0.35, 0.8, 0.4];
+    const ppx = -dirZ, ppz = dirX;
+    this.addOrientedBox(verts, idxs, x, 1.0, z, 1.0, 2.0, 0.7, ppx, ppz, body);
+    this.addQuad(verts, idxs,
+      [x + ppx * 0.4, 0.35, z + ppz * 0.4],
+      [x + ppx * 0.4, 1.65, z + ppz * 0.4],
+      [x - ppx * 0.4, 1.65, z - ppz * 0.4],
+      [x - ppx * 0.4, 0.35, z - ppz * 0.4], glow);
+  }
+  /** Small five-storey pagoda landmark — Japan. */
+  private addPagoda(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    const wall: number[] = [0.8, 0.28, 0.24];
+    const roof: number[] = [0.2, 0.18, 0.24];
+    let y = 0;
+    for (let i = 0; i < 4; i++) {
+      const scale = 1 - i * 0.16;
+      this.addBox(verts, idxs, x, y + 0.7 * s * scale, z, 1.4 * s * scale, 1.4 * s * scale, 1.4 * s * scale, wall);
+      this.addCone(verts, idxs, x, y + 1.5 * s * scale, z, 1.6 * s * scale, 0.7 * s, 4, roof);
+      y += 1.9 * s * scale;
+    }
+    this.addCylinder(verts, idxs, x, y + 0.1, z, 0.04, 0.6 * s, 4, roof);
+  }
+  /** Low retro sports car (synthwave). */
+  private addRetroCar(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, col: number[]) {
+    const dark: number[] = [0.12, 0.1, 0.2];
+    const glass: number[] = [0.3, 0.9, 1];
+    const ppx = -dirZ, ppz = dirX;
+    this.addOrientedBox(verts, idxs, x, 0.32, z, 2.0, 0.4, 0.95, dirX, dirZ, col);
+    this.addOrientedBox(verts, idxs, x + dirX * 0.2, 0.62, z + dirZ * 0.2, 1.0, 0.35, 0.8, dirX, dirZ, glass);
+    this.addOrientedBox(verts, idxs, x - dirX * 0.3, 0.55, z - dirZ * 0.3, 0.6, 0.3, 0.8, dirX, dirZ, dark);
+    for (const [ox, oz] of [[0.6, 0.42], [0.6, -0.42], [-0.6, 0.42], [-0.6, -0.42]]) {
+      this.addCylinder(verts, idxs, x + dirX * ox + ppx * oz, 0.14, z + dirZ * ox + ppz * oz, 0.2, 0.28, 6, [0.08, 0.08, 0.1]);
+    }
+  }
+  /** Ground neon sign pylon (synthwave). */
+  private addNeonSignPylon(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, col: number[]) {
+    const dark: number[] = [0.05, 0.04, 0.09];
+    const ppx = -dirZ, ppz = dirX;
+    this.addCylinder(verts, idxs, x, 0, z, 0.07, 2.6, 5, dark);
+    this.addOrientedBox(verts, idxs, x, 3.0, z, 2.0, 1.0, 0.16, ppx, ppz, dark);
+    this.addOrientedBox(verts, idxs, x, 3.0, z, 1.8, 0.5, 0.2, ppx, ppz, col);
+    this.addOrientedBox(verts, idxs, x, 3.55, z, 0.8, 0.3, 0.18, ppx, ppz, col);
+  }
+  /** Watchtower overlooking the caldera. */
+  private addWatchtower(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number) {
+    const wood: number[] = [0.3, 0.24, 0.16];
+    const roof: number[] = [0.2, 0.16, 0.12];
+    const ppx = -dirZ, ppz = dirX;
+    const h = 6.5;
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      this.addCylinder(verts, idxs, x + ppx * sx * 0.8, 0, z + ppz * sz * 0.8, 0.09, h, 4, wood);
+    }
+    this.addBox(verts, idxs, x, h - 0.2, z, 2.4, 0.12, 2.4, wood);
+    this.addBox(verts, idxs, x, h + 0.6, z, 2.0, 1.3, 2.0, roof);
+    this.addCone(verts, idxs, x, h + 1.4, z, 1.6, 0.9, 4, [0.16, 0.13, 0.1]);
+  }
+  /** Glowing lava crack bleeding light beside the road. */
+  private addLavaCrack(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, len: number) {
+    const ppx = -dirZ, ppz = dirX;
+    const segs = 5;
+    for (let i = 0; i < segs; i++) {
+      const f0 = -0.5 + i / segs;
+      const f1 = -0.5 + (i + 1) / segs;
+      const w = 0.06 + Math.random() * 0.1;
+      const glow: number[] = [1.0, 0.4 + Math.random() * 0.25, 0.1];
+      const x0 = x + dirX * len * f0 + ppx * (Math.random() - 0.5) * 0.3;
+      const z0 = z + dirZ * len * f0 + ppz * (Math.random() - 0.5) * 0.3;
+      const x1 = x + dirX * len * f1 + ppx * (Math.random() - 0.5) * 0.3;
+      const z1 = z + dirZ * len * f1 + ppz * (Math.random() - 0.5) * 0.3;
+      this.addQuad(verts, idxs,
+        [x0 - ppx * w, 0.02, z0 - ppz * w],
+        [x1 - ppx * w, 0.02, z1 - ppz * w],
+        [x1 + ppx * w, 0.02, z1 + ppz * w],
+        [x0 + ppx * w, 0.02, z0 + ppz * w], glow);
+    }
+  }
   private addOceanPlane(verts: number[], idxs: number[], color: [number, number, number] = [0.05, 0.5, 0.55]) {
     const c = 900;
     this.addQuad(verts, idxs,
@@ -4033,6 +4866,33 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const mz = Math.sin(a) * dist;
       this.addCone(verts, idxs, mx, 0, mz, mw, mh, 8, [0.45, 0.5, 0.55]);
       this.addCone(verts, idxs, mx, mh * 0.7, mz, mw * 0.35, mh * 0.3, 6, [0.85, 0.88, 0.95]);
+    }
+    // Ski-lift line sweeping over a mid-circuit ridge + frozen ponds + a
+    // couple of chalets in the hamlet.
+    {
+      const a = Math.floor(pts.length * 0.18);
+      const b = Math.floor(pts.length * 0.52);
+      this.addSkiLift(verts, idxs,
+        pts[a].x + pts[a].width / 2 + 14, pts[a].z, pts[b].x + pts[b].width / 2 + 14, pts[b].z);
+    }
+    for (const fi of [0.08, 0.3, 0.7, 0.92]) {
+      const p = pts[Math.floor(pts.length * fi)];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = p.width / 2 + 40 + Math.random() * 16;
+      this.addFrozenPond(verts, idxs,
+        p.x + ppx * dist * side + (Math.random() - 0.5) * 8,
+        p.z + ppz * dist * side + (Math.random() - 0.5) * 8,
+        2.5 + Math.random() * 2.5, 1.8 + Math.random() * 2);
+    }
+    for (const fi of [0.05, 0.4, 0.85]) {
+      const p = pts[Math.floor(pts.length * fi)];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = p.width / 2 + 50 + Math.random() * 14;
+      this.addChalet(verts, idxs, p.x + ppx * dist * side + (Math.random() - 0.5) * 8, p.z + ppz * dist * side + (Math.random() - 0.5) * 8, p.dirX, p.dirZ, 1 + Math.random() * 0.4);
     }
   }
   private addAlpineConifer(verts: number[], idxs: number[], x: number, z: number, s: number) {
@@ -4254,6 +5114,27 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
       if (cactusIdx > 34) break;
     }
+    // Highway detritus: a rusted pickup, barrel stacks, dead trees and
+    // wind-blown warning boards along the route.
+    let wreckIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 26 : 13)) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = (i / 13) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 14 + Math.random() * 9;
+      const px = p.x + ppx * dist * side + (Math.random() - 0.5) * 4;
+      const pz = p.z + ppz * dist * side + (Math.random() - 0.5) * 4;
+      const roll = Math.random();
+      if (roll < 0.35) {
+        this.addPickupTruck(verts, idxs, px, pz, p.dirX, p.dirZ, 0.9 + Math.random() * 0.5);
+      } else if (roll < 0.6) {
+        this.addBarrelStack(verts, idxs, px, pz);
+      } else {
+        this.addDeadTree(verts, idxs, px, pz, 0.8 + Math.random() * 0.6);
+      }
+      if (wreckIdx++ > (this.lowQuality ? 14 : 30)) break;
+    }
   }
   private addCamel(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, s: number) {
     const body = [0.75, 0.6, 0.42];
@@ -4375,6 +5256,34 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const dx = Math.cos(yaw), dz = Math.sin(yaw);
       this.addOrientedBox(verts, idxs, yx, 0.15, yz, 2.5, 0.4, 1.0, dx, dz, [0.9, 0.9, 0.95]);
       this.addOrientedBox(verts, idxs, yx, 0.55, yz, 2.0, 0.8, 0.4, dx, dz, [0.8, 0.8, 0.85]);
+    }
+    // Street-circuit furniture: armco hugging the curbs, junction traffic
+    // lights, and harbour buoys in the bay.
+    let armcoIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 24 : 12)) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = (i / 12) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 2.1;
+      this.addArmco(verts, idxs, p.x + ppx * dist * side, p.z + ppz * dist * side, ppx * side, ppz * side, 4 + Math.random() * 2);
+      if (armcoIdx++ > (this.lowQuality ? 40 : 90)) break;
+    }
+    let tlIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 70 : 35)) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = (i / 35) % 2 === 0 ? -1 : 1;
+      this.addTrafficLight(verts, idxs, p.x + ppx * (p.width / 2 + 1.2) * side, p.z + ppz * (p.width / 2 + 1.2) * side, p.dirX, p.dirZ);
+      if (tlIdx++ > 8) break;
+    }
+    for (let i = 0; i < (this.lowQuality ? 6 : 14); i++) {
+      const a = Math.random() * Math.PI * 2;
+      const dist = 70 + Math.random() * 110;
+      const bx = pts[0].x + Math.cos(a) * dist;
+      const bz = pts[0].z + Math.sin(a) * dist;
+      this.addBuoy(verts, idxs, bx, bz);
     }
     this.addExtraBleachers(verts, idxs);
   }
@@ -4505,6 +5414,33 @@ void main() { FragColor = texture(uTex, vUV); }`;
         if (flagIdx++ > 44) break;
       }
       if (flagIdx > 44) break;
+    }
+    // Island-park detail: a big ferris wheel landmark, bus shelters and
+    // hydrants along the circuit.
+    {
+      const p = pts[Math.floor(pts.length * 0.35)];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = p.width / 2 + 55 + Math.random() * 18;
+      this.addFerrisWheel(verts, idxs, p.x + ppx * dist * side, p.z + ppz * dist * side, p.dirX, p.dirZ, 5 + Math.random() * 2);
+    }
+    let busIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 24 : 12)) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = (i / 12) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 7 + Math.random() * 5;
+      const bx = p.x + ppx * dist * side + (Math.random() - 0.5) * 3;
+      const bz = p.z + ppz * dist * side + (Math.random() - 0.5) * 3;
+      const roll = Math.random();
+      if (roll < 0.5) {
+        this.addBusShelter(verts, idxs, bx, bz, p.dirX, p.dirZ);
+      } else {
+        this.addFireHydrant(verts, idxs, bx, bz);
+      }
+      if (busIdx++ > (this.lowQuality ? 16 : 36)) break;
     }
     this.addExtraBleachers(verts, idxs);
   }
@@ -4871,6 +5807,35 @@ void main() { FragColor = texture(uTex, vUV); }`;
     }
     const sf = pts[0];
     this.addGantryBunting(sf.x, sf.z, sf.dirX, sf.dirZ, sf.width);
+    // Monza park detail: hay bales at the sharpest corners, dry-stone walls
+    // flanking the straights, and a little wayside chapel.
+    const corners = turns.slice(0, 6);
+    for (const c of corners) {
+      const p = pts[c.i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const dist = p.width / 2 + 3.2;
+      this.addHayBale(verts, idxs, p.x + ppx * dist * c.s, p.z + ppz * dist * c.s);
+      this.addHayBale(verts, idxs, p.x - ppx * dist * c.s, p.z - ppz * dist * c.s);
+    }
+    let wallIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 18 : 9)) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = (i / 9) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 6 + Math.random() * 4;
+      this.addStoneWall(verts, idxs, p.x + ppx * dist * side, p.z + ppz * dist * side, ppx * side, ppz * side, 4 + Math.random() * 3);
+      if (wallIdx++ > (this.lowQuality ? 24 : 56)) break;
+    }
+    {
+      const p = pts[Math.floor(pts.length * 0.28)];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = p.width / 2 + 30 + Math.random() * 12;
+      this.addChapel(verts, idxs, p.x + ppx * dist * side, p.z + ppz * dist * side, p.dirX, p.dirZ);
+    }
   }
   private addJapanScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
@@ -5013,6 +5978,32 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const inX = ppx * -s, inZ = ppz * -s;
       this.addTorii(verts, idxs, p.x + inX * (p.width / 2 + 3.5), p.z + inZ * (p.width / 2 + 3.5), 1, ppx, ppz);
       toriiCount++;
+    }
+    // Touge detail: stone lanterns + glowing vending machines hugging the
+    // roadside, and a small pagoda landmark on the ridgeline.
+    let lampIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 14 : 7)) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = (i / 7) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 8 + Math.random() * 5;
+      const px = p.x + ppx * dist * side + (Math.random() - 0.5) * 3;
+      const pz = p.z + ppz * dist * side + (Math.random() - 0.5) * 3;
+      if (Math.random() < 0.55) {
+        this.addToroLantern(verts, idxs, px, pz, 1 + Math.random() * 0.4);
+      } else {
+        this.addVendingMachine(verts, idxs, px, pz, p.dirX, p.dirZ);
+      }
+      if (lampIdx++ > (this.lowQuality ? 30 : 70)) break;
+    }
+    {
+      const p = pts[Math.floor(pts.length * 0.55)];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = p.width / 2 + 70 + Math.random() * 20;
+      this.addPagoda(verts, idxs, p.x + ppx * dist * side, p.z + ppz * dist * side, 1.1);
     }
     this.addExtraBleachers(verts, idxs);
   }
@@ -5214,6 +6205,26 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const bz = p.z + ppz * dist * side + (Math.random() - 0.5) * 5;
         this.addBench(verts, idxs, bx, bz, p.dirX, p.dirZ);
       }
+    }
+    // Boardwalk extras: lifeguard towers + sailboats out on the bay.
+    let guardIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 24 : 12)) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      const side = (i / 12) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 30 + Math.random() * 10;
+      const gx = p.x + ppx * dist * side + (Math.random() - 0.5) * 5;
+      const gz = p.z + ppz * dist * side + (Math.random() - 0.5) * 5;
+      this.addLifeguardTower(verts, idxs, gx, gz, p.dirX, p.dirZ);
+      if (guardIdx++ > (this.lowQuality ? 4 : 8)) break;
+    }
+    for (let i = 0; i < (this.lowQuality ? 3 : 6); i++) {
+      const a = Math.random() * Math.PI * 2;
+      const dist = 120 + Math.random() * 120;
+      const sx = pts[0].x + Math.cos(a) * dist;
+      const sz = pts[0].z + Math.sin(a) * dist;
+      this.addSailboat(verts, idxs, sx, sz, Math.cos(Math.random() * Math.PI * 2), Math.sin(Math.random() * Math.PI * 2), 1 + Math.random() * 0.6);
     }
   }
   private addPalmTree(verts: number[], idxs: number[], x: number, z: number, s: number) {
@@ -6096,6 +7107,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (this.nightVao) { try { gl.deleteVertexArray(this.nightVao); } catch { } }
     this.nightCount = 0;
     if (!this.night) return;
+    if (this.theme === 'neon') { this.buildNeonGlow(); return; }
+    if (this.theme === 'volcano') { this.buildLavaGlow(); return; }
     const pts = this._trackPoints;
     if (!pts.length) return;
     const verts: number[] = [];
@@ -6182,6 +7195,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // Street-level glow pools and lamp poles follow the terrain like the rest
     // of the night scenery; the floating windows sit far enough out that the
     // coastal fade leaves them where they are.
+    this.finishNightMesh(verts, idxs);
+  }
+  /** Commit an additive night-glow mesh (terrain-followed, static VAO). */
+  private finishNightMesh(verts: number[], idxs: number[]) {
+    const gl = this.gl;
+    if (!idxs.length) return;
     this.displaceVerts(verts);
     const vao = gl.createVertexArray()!;
     gl.bindVertexArray(vao);
@@ -6203,6 +7222,104 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.bindVertexArray(null);
     this.nightVao = vao;
     this.nightCount = idxs.length;
+  }
+  /** Neon District additive glow: cyan/magenta edge strips + tower halos. */
+  private buildNeonGlow() {
+    const pts = this._trackPoints;
+    if (!pts.length) return;
+    const verts: number[] = [];
+    const idxs: number[] = [];
+    const cyan: [number, number, number] = [0.35, 1.0, 1.0];
+    const magenta: [number, number, number] = [1.0, 0.3, 0.9];
+    const violet: [number, number, number] = [0.5, 0.35, 1.0];
+    // Continuous neon edge strips hugging both sides of the track for the
+    // whole lap — cyan on one flank, magenta on the other.
+    for (let i = 0; i < pts.length; i += 1) {
+      const p = pts[i];
+      const n = pts[(i + 1) % pts.length];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const npx = -n.dirZ, npz = n.dirX;
+      for (const side of [-1, 1]) {
+        const o = p.width / 2 + 0.9;
+        const q = n.width / 2 + 0.9;
+        this.addQuad(verts, idxs,
+          [p.x + ppx * o * side, -0.17, p.z + ppz * o * side],
+          [n.x + npx * q * side, -0.17, n.z + npz * q * side],
+          [n.x + npx * (q + 0.24) * side, -0.17, n.z + npz * (q + 0.24) * side],
+          [p.x + ppx * (o + 0.24) * side, -0.17, p.z + ppz * (o + 0.24) * side],
+          side === -1 ? cyan : magenta);
+      }
+    }
+    // Tower halos: a tall faint violet glow strip on the front faces so the
+    // towers read as lit billboards from the racing line.
+    let haloIdx = 0;
+    for (let i = 0; i < pts.length; i += 3) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        if (Math.random() < 0.4) continue;
+        const dist = p.width / 2 + 48 + Math.random() * 26;
+        const hx = p.x + ppx * dist * side;
+        const hz = p.z + ppz * dist * side;
+        const h = 18 + Math.random() * 34;
+        this.addQuad(verts, idxs,
+          [hx - ppx * 3.4, 0.5, hz - ppz * 3.4],
+          [hx + ppx * 3.4, 0.5, hz + ppz * 3.4],
+          [hx + ppx * 3.4, h, hz + ppz * 3.4],
+          [hx - ppx * 3.4, h, hz - ppz * 3.4],
+          Math.random() < 0.5 ? violet : cyan);
+        if (haloIdx++ > 18) break;
+      }
+      if (haloIdx > 18) break;
+    }
+    this.finishNightMesh(verts, idxs);
+  }
+  /** Caldera Rush additive glow: lava streams + crack pools. */
+  private buildLavaGlow() {
+    const pts = this._trackPoints;
+    if (!pts.length) return;
+    const verts: number[] = [];
+    const idxs: number[] = [];
+    const lavaCore: [number, number, number] = [1.0, 0.55, 0.18];
+    const lavaHot: [number, number, number] = [1.0, 0.85, 0.38];
+    // Molten streams snaking beside the track, alternating sides, following
+    // the terrain so they read as rivers of lava hugging the hills.
+    for (let i = 0; i < pts.length; i += 2) {
+      const p = pts[i];
+      const n = pts[(i + 1) % pts.length];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const npx = -n.dirZ, npz = n.dirX;
+      const side = (i / 2) % 2 === 0 ? -1 : 1;
+      const o = p.width / 2 + 5.4 + Math.random() * 1.4;
+      const q = n.width / 2 + 5.4 + Math.random() * 1.4;
+      const w = 1.5;
+      this.addQuad(verts, idxs,
+        [p.x + ppx * o * side, -0.16, p.z + ppz * o * side],
+        [n.x + npx * q * side, -0.16, n.z + npz * q * side],
+        [n.x + npx * (q + w) * side, -0.16, n.z + npz * (q + w) * side],
+        [p.x + ppx * (o + w) * side, -0.16, p.z + ppz * (o + w) * side],
+        ((i / 2) >> 1) % 2 === 1 ? lavaHot : lavaCore);
+    }
+    // Glowing crack pools scattered around the caldera floor.
+    let poolIdx = 0;
+    for (let i = 0; i < pts.length; i += 7) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        if (Math.random() < 0.45) continue;
+        const dist = p.width / 2 + 20 + Math.random() * 16;
+        const px = p.x + ppx * dist * side;
+        const pz = p.z + ppz * dist * side;
+        const s = 1.2 + Math.random() * 1.8;
+        this.addQuad(verts, idxs,
+          [px - s, -0.14, pz - s], [px + s, -0.14, pz - s],
+          [px + s, -0.14, pz + s], [px - s, -0.14, pz + s],
+          Math.random() < 0.5 ? lavaHot : lavaCore);
+        if (poolIdx++ > 26) break;
+      }
+      if (poolIdx > 26) break;
+    }
+    this.finishNightMesh(verts, idxs);
   }
   private buildHeadlightQuads() {
     const gl = this.gl;
@@ -6994,6 +8111,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
       case 'city':
         return [[0.5, 0.55, 0.6], [0.85, 0.3, 0.2], [0.2, 0.3, 0.45],
         [0.8, 0.8, 0.8], [0.35, 0.45, 0.55], [0.9, 0.75, 0.2]];
+      case 'neon':
+        return [[0.25, 0.9, 0.95], [1.0, 0.3, 0.9], [0.55, 0.4, 1.0],
+        [0.95, 0.95, 1.0], [0.3, 0.7, 1.0], [1.0, 0.6, 0.3]];
+      case 'volcano':
+        return [[0.95, 0.35, 0.2], [0.6, 0.2, 0.1], [0.4, 0.4, 0.42],
+        [0.85, 0.55, 0.25], [0.95, 0.7, 0.3], [0.5, 0.25, 0.2]];
       default:
         return [[0.7, 0.15, 0.15], [0.15, 0.3, 0.7], [0.8, 0.7, 0.1],
         [0.9, 0.9, 0.9], [0.15, 0.5, 0.2], [0.6, 0.2, 0.6], [0.1, 0.65, 0.65], [0.95, 0.5, 0.15]];
@@ -7008,6 +8131,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       case 'desert': return [[0.75, 0.1, 0.1], [0, 0.45, 0.15]];
       case 'mountain': case 'alpine': return [[0.1, 0.5, 0.7], [0.9, 0.9, 0.95]];
       case 'miami': return [[0.95, 0.45, 0.6], [0.2, 0.7, 0.75]];
+      case 'neon': return [[0.25, 0.9, 0.95], [1.0, 0.3, 0.9]];
+      case 'volcano': return [[0.95, 0.35, 0.2], [0.95, 0.7, 0.3]];
       default: return this.crowdShirtsForTheme().slice(0, 2);
     }
   }
@@ -7585,7 +8710,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const isMiami = this.theme === 'miami';
     const isHighCountry = this.theme === 'mountain' || this.theme === 'alpine';
     const isDesert = this.theme === 'desert';
-    const birdCount = isMiami ? 26 : isHighCountry ? 24 : isDesert ? 14 : 18;
+    const isNeon = this.theme === 'neon';
+    const isVolcano = this.theme === 'volcano';
+    const birdCount = isMiami ? 26 : isHighCountry ? 24 : isDesert ? 14 : isNeon ? 8 : isVolcano ? 0 : 18;
     for (let i = 0; i < birdCount; i++) {
       const eagle = isHighCountry && i % 2 === 0;
       const vulture = isDesert && i % 2 === 0;
@@ -9070,8 +10197,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.depthMask(true);
       gl.enable(gl.CULL_FACE);
     }
-    const snowing = this.theme === 'alpine' || this.theme === 'mountain';
-    if (drawRain && snowing) {
+    const isSnowing = this.theme === 'alpine' || this.theme === 'mountain';
+    const isEmbering = this.theme === 'volcano';
+    if (drawRain && (isSnowing || isEmbering)) {
       this.initSnowParticles();
       if (this._snowCount > 0) {
         const snow = this._snowParticles;
@@ -9084,23 +10212,43 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const drawCount = Math.min(maxDraw, Math.round(snow.length * (0.3 + 0.7 * intensity)));
         const gust = (1 + 0.9 * Math.sin(this.elapsed * 0.5) * Math.sin(this.elapsed * 0.13)) * (0.35 + 0.65 * intensity);
         const flakeBoost = 0.45 + 0.55 * intensity;
+        const emberPulse = 0.55 + 0.45 * Math.sin(this.elapsed * 2.1);
         for (let i = 0; i < drawCount; i++) {
           const f = snow[i];
-          f.y -= f.fall * dt * (1 + 0.8 * intensity);
-          const vx = f.wind * 0.3 * gust * flakeBoost + Math.sin(this.elapsed * 0.9 + f.phase) * 0.7 * flakeBoost;
-          const vz = f.wind * 0.13 * gust * flakeBoost + Math.cos(this.elapsed * 0.7 + f.phase) * 0.5 * flakeBoost;
-          f.x += vx * dt;
-          f.z += vz * dt;
-          if (f.y < -2) {
-            f.y = 30 + Math.random() * 12;
-            f.x = eye[0] + (Math.random() - 0.5) * 260;
-            f.z = eye[2] + (Math.random() - 0.5) * 260;
+          if (isEmbering) {
+            // Embers RISE from the caldera floor, shimmering like sparks.
+            f.y += f.fall * dt * (0.5 + 0.5 * intensity);
+            const evx = Math.sin(this.elapsed * 1.7 + f.phase) * 1.6 * flakeBoost;
+            const evz = Math.cos(this.elapsed * 1.3 + f.phase * 0.7) * 1.2 * flakeBoost;
+            f.x += evx * dt;
+            f.z += evz * dt;
+            if (f.y > 34) {
+              f.y = 0.4 + Math.random() * 2.5;
+              f.x = eye[0] + (Math.random() - 0.5) * 240;
+              f.z = eye[2] + (Math.random() - 0.5) * 240;
+            }
+            const er = 0.85 + 0.15 * emberPulse;
+            const eg = 0.34 + 0.16 * emberPulse;
+            const eb = 0.1;
+            data[w++] = f.x; data[w++] = f.y; data[w++] = f.z; data[w++] = er; data[w++] = eg; data[w++] = eb; data[w++] = 0.85;
+            data[w++] = f.x; data[w++] = f.y + 0.14; data[w++] = f.z; data[w++] = er; data[w++] = eg; data[w++] = eb; data[w++] = 0.85;
+          } else {
+            f.y -= f.fall * dt * (1 + 0.8 * intensity);
+            const vx = f.wind * 0.3 * gust * flakeBoost + Math.sin(this.elapsed * 0.9 + f.phase) * 0.7 * flakeBoost;
+            const vz = f.wind * 0.13 * gust * flakeBoost + Math.cos(this.elapsed * 0.7 + f.phase) * 0.5 * flakeBoost;
+            f.x += vx * dt;
+            f.z += vz * dt;
+            if (f.y < -2) {
+              f.y = 30 + Math.random() * 12;
+              f.x = eye[0] + (Math.random() - 0.5) * 260;
+              f.z = eye[2] + (Math.random() - 0.5) * 260;
+            }
+            const vlen = Math.hypot(vx, vz) || 1;
+            const sx = (vx / vlen) * 0.1;
+            const sz = (vz / vlen) * 0.1;
+            data[w++] = f.x; data[w++] = f.y; data[w++] = f.z; data[w++] = 0.97; data[w++] = 0.98; data[w++] = 1; data[w++] = 0.9;
+            data[w++] = f.x + sx; data[w++] = f.y - 0.16; data[w++] = f.z + sz; data[w++] = 0.97; data[w++] = 0.98; data[w++] = 1; data[w++] = 0.9;
           }
-          const vlen = Math.hypot(vx, vz) || 1;
-          const sx = (vx / vlen) * 0.1;
-          const sz = (vz / vlen) * 0.1;
-          data[w++] = f.x; data[w++] = f.y; data[w++] = f.z; data[w++] = 0.97; data[w++] = 0.98; data[w++] = 1; data[w++] = 0.9;
-          data[w++] = f.x + sx; data[w++] = f.y - 0.16; data[w++] = f.z + sz; data[w++] = 0.97; data[w++] = 0.98; data[w++] = 1; data[w++] = 0.9;
         }
         gl.bindBuffer(gl.ARRAY_BUFFER, this._snowBuf);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, w));

@@ -352,6 +352,8 @@ export const TRACKS: TrackDefinition[] = [
   { id: 8, name: 'Monza', difficulty: 'hard', laps: 5, length: 2800, description: 'Temple of speed — long straights, chicanes, and curva grande', entryFee: 4000, prizePool: 15000, bestTime: 0 },
   { id: 9, name: 'Monte Carlo — Night', difficulty: 'hard', laps: 5, length: 2600, description: 'Monaco after dark — moonlit bay, glowing canyon towers and streetlit straights', entryFee: 3000, prizePool: 14000, bestTime: 0 },
   { id: 10, name: 'Japan Pass', difficulty: 'hard', laps: 4, length: 2200, description: 'Initial D style downhill touge — cedar forests, hairpins and a misty valley drop', entryFee: 2500, prizePool: 10000, bestTime: 0 },
+  { id: 11, name: 'Neon District GP', difficulty: 'hard', laps: 4, length: 2400, description: 'Retro synthwave street circuit — neon towers, wireframe palms and a glowing outrun grid', entryFee: 3500, prizePool: 13000, bestTime: 0 },
+  { id: 12, name: 'Caldera Rush', difficulty: 'hard', laps: 4, length: 2300, description: 'A lap around an active volcano — lava rivers, basalt columns and rising embers', entryFee: 3500, prizePool: 13000, bestTime: 0 },
 ];
 
 export const CAR_SKINS: RacingCarSkin[] = [

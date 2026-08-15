@@ -58,6 +58,16 @@
               <button class="win98-btn" (click)="playVsAI(2)" [disabled]="!playerName.trim()">Hard</button>
             </div>
           </div>
+          <div class="marbles-vsai">
+            <div class="marbles-vsai-label">🗺️ Arena — the board's background</div>
+            <div class="marbles-maps">
+              <button type="button" class="marbles-map-btn" *ngFor="let m of boardMaps"
+                [class.selected]="m.id === selectedMapId" (click)="selectMap(m.id)" [attr.title]="m.desc">
+                <span class="marbles-map-emoji">{{ m.emoji }}</span>
+                <span class="marbles-map-name">{{ m.name }}</span>
+              </button>
+            </div>
+          </div>
           <button class="win98-btn" (click)="toggleHowTo()">How to Play</button>
         </div>
 
