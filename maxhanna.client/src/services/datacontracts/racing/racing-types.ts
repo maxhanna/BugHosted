@@ -95,6 +95,17 @@ export const DECAL_COLORS: Record<number, [number, number, number]> = {
   428: [0.95, 0.9, 0.85],   // crescent moon
   429: [0.05, 0.05, 0.06],  // zebra stripes (near-black)
   430: [0.38, 0.22, 0.08],  // leopard rosettes (dark brown)
+  431: [0.1, 0.1, 0.12],     // yin-yang (near-black)
+  432: [0.95, 0.55, 0.75],   // sakura blossom (cherry pink)
+  433: [0.9, 0.9, 0.95],     // eagle wings (silver-white)
+  434: [0.55, 0.65, 0.75],   // great white (steel blue-grey)
+  435: [0.5, 0.75, 0.3],     // cobra (serpent green)
+  436: [0.85, 0.2, 0.15],    // oni mask (crimson)
+  437: [1.0, 0.55, 0.1],     // phoenix (flame gold)
+  438: [0.8, 0.78, 0.72],    // crossed katanas (steel)
+  439: [0.85, 0.2, 0.15],    // torii gate (vermilion)
+  440: [0.25, 0.45, 0.85],   // mt. fuji (indigo)
+  441: [0.9, 0.86, 0.94],    // paw print (white-violet)
 };
 
 // Selectable decal tint swatches (id -> rgb) shown in the garage appearance
@@ -501,6 +512,17 @@ export const APPEARANCE_PARTS: RacingAppearancePart[] = [
   { id: 428, name: 'Crescent Moon', category: 'decal', cost: 3600, owned: false, description: 'Night-sky crescent emblem' },
   { id: 429, name: 'Zebra Wrap', category: 'decal', cost: 3200, owned: false, description: 'Black zebra stripe wrap' },
   { id: 430, name: 'Leopard Print', category: 'decal', cost: 3400, owned: false, description: 'Jungle leopard rosette wrap' },
+  { id: 431, name: 'Yin-Yang', category: 'decal', cost: 4500, owned: false, description: 'Balance disc with S-curve emblem' },
+  { id: 432, name: 'Sakura Blossom', category: 'decal', cost: 4200, owned: false, description: 'Pink cherry-blossom petals' },
+  { id: 433, name: 'Eagle Wings', category: 'decal', cost: 5200, owned: false, description: 'Spread eagle-wing livery' },
+  { id: 434, name: 'Great White', category: 'decal', cost: 4800, owned: false, description: 'Shark silhouette with teeth' },
+  { id: 435, name: 'Cobra Strike', category: 'decal', cost: 5000, owned: false, description: 'Coiled serpent with flared hood' },
+  { id: 436, name: 'Oni Mask', category: 'decal', cost: 5800, owned: false, description: 'Japanese demon face with horns' },
+  { id: 437, name: 'Phoenix Rising', category: 'decal', cost: 5500, owned: false, description: 'Flame-wreathed phoenix bird' },
+  { id: 438, name: 'Crossed Katanas', category: 'decal', cost: 5600, owned: false, description: 'Twin samurai blades emblem' },
+  { id: 439, name: 'Torii Gate', category: 'decal', cost: 4700, owned: false, description: 'Red shrine gate emblem' },
+  { id: 440, name: 'Mt. Fuji', category: 'decal', cost: 4900, owned: false, description: 'Rising sun over Fuji peak' },
+  { id: 441, name: 'Paw Print', category: 'decal', cost: 3600, owned: false, description: 'Street-animal paw marks' },
   // Glow (neon underglow)
   { id: 501, name: 'Neon Blue', category: 'glow', cost: 1500, owned: false, description: 'Electric blue underglow' },
   { id: 502, name: 'Neon Green', category: 'glow', cost: 1500, owned: false, description: 'Alien green underglow' },

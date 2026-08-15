@@ -298,6 +298,59 @@ function rectPath(w: number, h: number): Array<[number, number]> {
   return [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]];
 }
 
+/** Rotate a path outline by `ang` radians (positive = from +x toward +z). */
+function rotPath(pts: Array<[number, number]>, ang: number): Array<[number, number]> {
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const out: Array<[number, number]> = [];
+  for (const [x, z] of pts) out.push([x * c - z * s, x * s + z * c]);
+  return out;
+}
+
+/** Rounded lens petal, pointed at both x ends — for sakura/flower art. */
+function petalPath(r: number, w: number): Array<[number, number]> {
+  const N = 12;
+  const top: Array<[number, number]> = [];
+  const bot: Array<[number, number]> = [];
+  for (let i = 0; i <= N; i++) {
+    const t = (i / N) * Math.PI;
+    const x = Math.cos(t) * r;
+    const ww = Math.sin(t) * w;
+    top.push([x, ww]);
+    bot.push([x, -ww * 0.94]);
+  }
+  return [...top, ...bot.reverse()];
+}
+
+/** Closed sawtooth band running along x — shark teeth / spikes. */
+function zigzagPath(len: number, teeth: number, amp: number, thick: number): Array<[number, number]> {
+  const top: Array<[number, number]> = [];
+  const bot: Array<[number, number]> = [];
+  const x0 = -len / 2;
+  for (let i = 0; i <= teeth; i++) {
+    const x = x0 + (len * i) / teeth;
+    top.push([x, i % 2 === 0 ? amp : 0]);
+  }
+  for (let i = teeth; i >= 0; i--) {
+    const x = x0 + (len * i) / teeth;
+    bot.push([x, (i % 2 === 0 ? amp : 0) - thick]);
+  }
+  return [...top, ...bot];
+}
+
+/** Curved band following a circular arc (radius r, angles a0→a1, radial
+ *  thickness `thick`) — torii beams, hood fans, sun discs. */
+function arcBandPath(r: number, a0: number, a1: number, thick: number): Array<[number, number]> {
+  const N = 14;
+  const outA: Array<[number, number]> = [];
+  const outB: Array<[number, number]> = [];
+  for (let i = 0; i <= N; i++) {
+    const a = a0 + ((a1 - a0) * i) / N;
+    outA.push([Math.cos(a) * r, Math.sin(a) * r]);
+    outB.push([Math.cos(a) * (r - thick), Math.sin(a) * (r - thick)]);
+  }
+  return [...outA, ...outB.reverse()];
+}
+
 // ── Seven-segment race numbers (404 / 409 / 410 / 411) ─────────────────────
 // Blank plates were the one decal family that still looked like rectangles;
 // these spell the actual digits as painted 7-segment strokes.
@@ -429,6 +482,158 @@ function checkerShapeDefs(cx: number, cz: number, scale: number, cols: number, r
         path: rectPath(cell * 0.96, cell * 0.96), scale, lift: 0.007,
       });
     }
+  }
+  return out;
+}
+
+// ── Yin-yang (431): full disc, S-curve divider, opposing dots ─────────────
+function yinYangShapeDefs(cx: number, cz: number, scale: number): DecalShapeDef[] {
+  return [
+    { cx, cz, path: circlePath(26, 0.12), scale, lift: 0.005 },
+    { cx, cz, path: brushStrokePath([[-0.105, 0.0], [-0.04, 0.055], [0.04, -0.055], [0.105, 0.0]], 0.038), scale, lift: 0.007 },
+    { cx: cx - 0.06 * scale, cz, path: circlePath(10, 0.032), scale, lift: 0.008 },
+    { cx: cx + 0.06 * scale, cz, path: circlePath(10, 0.032), scale, lift: 0.008 },
+  ];
+}
+
+// ── Sakura blossom (432): five petals fanned around a stamen cluster ───────
+function sakuraShapeDefs(cx: number, cz: number, scale: number): DecalShapeDef[] {
+  const out: DecalShapeDef[] = [];
+  for (let k = 0; k < 5; k++) {
+    const ang = (k / 5) * TAU;
+    out.push({
+      cx: cx + Math.cos(ang) * 0.062 * scale,
+      cz: cz + Math.sin(ang) * 0.062 * scale,
+      path: rotPath(petalPath(0.062, 0.042), ang),
+      scale, lift: 0.006,
+    });
+  }
+  for (let s = 0; s < 5; s++) {
+    const a = (s / 5) * TAU;
+    out.push({ cx: cx + Math.cos(a) * 0.02 * scale, cz: cz + Math.sin(a) * 0.02 * scale, path: circlePath(7, 0.008), scale, lift: 0.008 });
+  }
+  return out;
+}
+
+// ── Eagle wings (433): layered feathers fanning out from the shoulder ──────
+function wingShapeDefs(cx: number, cz: number, scale: number, mirror = false): DecalShapeDef[] {
+  const m = mirror || undefined;
+  const out: DecalShapeDef[] = [];
+  const rows: Array<[number, number, number]> = [
+    [0.62, 0.13, 0.19],   // fx, fz, feather length
+    [0.58, 0.19, 0.15],
+    [0.53, 0.25, 0.11],
+    [0.47, 0.31, 0.09],
+  ];
+  for (let i = 0; i < rows.length; i++) {
+    const [fx, fz, fl] = rows[i];
+    out.push({
+      cx: cx + fx * scale, cz: cz + fz * scale,
+      path: rotPath(teardropPath(fl, 0.055), 0.15 + i * 0.22),
+      scale, lift: 0.005, mirror: m,
+    });
+  }
+  return out;
+}
+
+// ── Shark (434): body band, dorsal/pectoral/tail fins, gills + teeth ───────
+function sharkShapeDefs(cx: number, cz: number, scale: number): DecalShapeDef[] {
+  const out: DecalShapeDef[] = [
+    { cx, cz, path: brushStrokePath([[0.16, 0.008], [0.04, 0.026], [-0.10, 0.018], [-0.17, 0.004]], 0.048), scale, lift: 0.005 },
+    { cx: cx - 0.015 * scale, cz: cz + 0.055 * scale, path: [[-0.05, -0.012], [0.0, 0.055], [0.07, -0.012]], scale, lift: 0.007 },
+    { cx: cx - 0.165 * scale, cz: cz + 0.012 * scale, path: [[-0.055, 0.0], [-0.075, 0.06], [-0.01, 0.0]], scale, lift: 0.007 },
+    { cx: cx - 0.16 * scale, cz: cz - 0.012 * scale, path: [[-0.055, 0.0], [-0.07, -0.045], [-0.005, 0.0]], scale, lift: 0.007 },
+    { cx: cx + 0.03 * scale, cz: cz - 0.042 * scale, path: [[0.045, 0.0], [0.0, -0.042], [-0.03, 0.0]], scale, lift: 0.007 },
+  ];
+  for (let g = 0; g < 3; g++) {
+    const gx = 0.075 - g * 0.03;
+    out.push({ cx: cx + gx * scale, cz, path: brushStrokePath([[0.0, -0.02], [0.012, 0.02]], 0.008), scale, lift: 0.007 });
+  }
+  out.push({ cx: cx + 0.05 * scale, cz: cz - 0.018 * scale, path: zigzagPath(0.13, 5, 0.014, 0.01), scale, lift: 0.008 });
+  return out;
+}
+
+// ── Cobra (435): S-curve body, flared hood, eyes + forked tongue ───────────
+function cobraShapeDefs(cx: number, cz: number, scale: number): DecalShapeDef[] {
+  return [
+    { cx, cz, path: brushStrokePath([[0.12, -0.02], [0.04, 0.05], [-0.05, -0.05], [-0.12, 0.02]], 0.042), scale, lift: 0.005 },
+    { cx: cx + 0.095 * scale, cz: cz - 0.005 * scale, path: rotPath(crescentPath(0.075), -0.9), scale, lift: 0.006 },
+    { cx: cx + 0.108 * scale, cz: cz + 0.02 * scale, path: circlePath(8, 0.012), scale, lift: 0.008 },
+    { cx: cx + 0.085 * scale, cz: cz + 0.028 * scale, path: circlePath(8, 0.012), scale, lift: 0.008 },
+    { cx: cx + 0.145 * scale, cz: cz - 0.005 * scale, path: brushStrokePath([[0.0, 0.0], [0.035, 0.012]], 0.008), scale, lift: 0.008 },
+    { cx: cx + 0.145 * scale, cz: cz - 0.005 * scale, path: brushStrokePath([[0.0, 0.0], [0.035, -0.012]], 0.008), scale, lift: 0.008 },
+  ];
+}
+
+// ── Oni mask (436): demon face with horns, brows, eyes, fangs, mouth ──────
+function oniShapeDefs(cx: number, cz: number, scale: number): DecalShapeDef[] {
+  return [
+    { cx, cz, path: circlePath(16, 0.088), scale, lift: 0.005 },
+    { cx: cx - 0.055 * scale, cz: cz + 0.07 * scale, path: rotPath(crescentPath(0.048), 0.55), scale, lift: 0.007 },
+    { cx: cx + 0.055 * scale, cz: cz + 0.07 * scale, path: rotPath(crescentPath(0.048), -0.55), scale, lift: 0.007 },
+    { cx: cx - 0.03 * scale, cz: cz + 0.02 * scale, path: slashPath(0.07, 0.03, 0.035), scale, lift: 0.007 },
+    { cx: cx + 0.03 * scale, cz: cz + 0.02 * scale, path: slashPath(0.07, 0.03, -0.035), scale, lift: 0.007 },
+    { cx: cx - 0.032 * scale, cz: cz - 0.012 * scale, path: circlePath(9, 0.02), scale, lift: 0.008 },
+    { cx: cx + 0.032 * scale, cz: cz - 0.012 * scale, path: circlePath(9, 0.02), scale, lift: 0.008 },
+    { cx: cx - 0.025 * scale, cz: cz - 0.055 * scale, path: [[-0.014, 0.012], [0.0, -0.03], [0.014, 0.012]], scale, lift: 0.008 },
+    { cx: cx + 0.025 * scale, cz: cz - 0.055 * scale, path: [[-0.014, 0.012], [0.0, -0.03], [0.014, 0.012]], scale, lift: 0.008 },
+    { cx, cz: cz - 0.042 * scale, path: slashPath(0.1, 0.024, 0.01), scale, lift: 0.007 },
+  ];
+}
+
+// ── Phoenix (437): layered flame tail, body arc, wing, head + crest ────────
+function phoenixShapeDefs(cx: number, cz: number, scale: number): DecalShapeDef[] {
+  return [
+    { cx: cx + 0.01 * scale, cz: cz - 0.06 * scale, path: flamePath(0.2, 0.06, 1), scale, lift: 0.005 },
+    { cx: cx + 0.005 * scale, cz: cz - 0.045 * scale, path: flamePath(0.14, 0.045, 2), scale, lift: 0.006 },
+    { cx, cz: cz + 0.01 * scale, path: rotPath(crescentPath(0.06), -1.2), scale, lift: 0.006 },
+    { cx: cx + 0.035 * scale, cz: cz + 0.03 * scale, path: slashPath(0.09, 0.035, 0.05), scale, lift: 0.007 },
+    { cx: cx - 0.02 * scale, cz: cz + 0.065 * scale, path: circlePath(10, 0.02), scale, lift: 0.008 },
+    { cx: cx - 0.025 * scale, cz: cz + 0.095 * scale, path: flamePath(0.07, 0.03, 3), scale, lift: 0.008 },
+  ];
+}
+
+// ── Crossed katanas (438): two blades, guards, hilts ───────────────────────
+function katanaShapeDefs(cx: number, cz: number, scale: number): DecalShapeDef[] {
+  return [
+    { cx, cz, path: slashPath(0.34, 0.05, 0.15), scale, lift: 0.005 },
+    { cx, cz, path: slashPath(0.34, 0.05, -0.15), scale, lift: 0.005 },
+    { cx: cx - 0.13 * scale, cz: cz + 0.065 * scale, path: rectPath(0.05, 0.055), scale, lift: 0.007 },
+    { cx: cx - 0.13 * scale, cz: cz - 0.065 * scale, path: rectPath(0.05, 0.055), scale, lift: 0.007 },
+    { cx: cx - 0.19 * scale, cz: cz + 0.095 * scale, path: rectPath(0.028, 0.05), scale, lift: 0.007 },
+    { cx: cx - 0.19 * scale, cz: cz - 0.095 * scale, path: rectPath(0.028, 0.05), scale, lift: 0.007 },
+  ];
+}
+
+// ── Torii gate (439): twin pillars, two beams + curved top rail ────────────
+function toriiShapeDefs(cx: number, cz: number, scale: number): DecalShapeDef[] {
+  return [
+    { cx: cx - 0.062 * scale, cz, path: rectPath(0.034, 0.15), scale, lift: 0.005 },
+    { cx: cx + 0.062 * scale, cz, path: rectPath(0.034, 0.15), scale, lift: 0.005 },
+    { cx, cz: cz + 0.055 * scale, path: rectPath(0.155, 0.016), scale, lift: 0.006 },
+    { cx, cz: cz + 0.085 * scale, path: rectPath(0.16, 0.016), scale, lift: 0.006 },
+    { cx, cz: cz + 0.085 * scale, path: arcBandPath(0.085, Math.PI * 0.42, Math.PI * 0.58, 0.016), scale, lift: 0.007 },
+  ];
+}
+
+// ── Mt. Fuji (440): rising sun, mountain + snowcap ─────────────────────────
+function fujiShapeDefs(cx: number, cz: number, scale: number): DecalShapeDef[] {
+  return [
+    { cx: cx + 0.045 * scale, cz: cz + 0.02 * scale, path: circlePath(18, 0.045), scale, lift: 0.005 },
+    { cx, cz, path: [[-0.13, -0.055], [0.0, 0.14], [0.13, -0.055]], scale, lift: 0.006 },
+    { cx, cz, path: [[-0.048, 0.052], [0.0, 0.14], [0.052, 0.048], [0.014, 0.074], [-0.016, 0.074]], scale, lift: 0.008 },
+  ];
+}
+
+// ── Paw print (441): big pad + four toes on the flanks ─────────────────────
+function pawShapeDefs(cx: number, cz: number, scale: number, mirror = false): DecalShapeDef[] {
+  const m = mirror || undefined;
+  const out: DecalShapeDef[] = [
+    { cx: cx + 0.03 * scale, cz, path: blobPath(0.05, 7), scale, lift: 0.006, mirror: m },
+  ];
+  const toes: Array<[number, number]> = [[-0.14, 0.055], [-0.05, 0.095], [0.06, 0.095], [0.15, 0.055]];
+  for (const [tx, tz] of toes) {
+    out.push({ cx: cx + tx * scale, cz: cz + tz * scale, path: circlePath(9, 0.02), scale, lift: 0.007, mirror: m });
   }
   return out;
 }
@@ -751,6 +956,108 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
       { cx: 1.22, cz: 0, path: rosettePath(0.045, 9), lift: 0.005 },
       { cx: 0.20, cz: 0, path: circlePath(12, 0.03), lift: 0.005 },
       { cx: -0.20, cz: 0.10, mirror: true, path: circlePath(12, 0.028), lift: 0.005 },
+    ],
+  },
+  // Yin-yang: engine-cover disc + small nose emblem.
+  431: {
+    flank: [],
+    center: [],
+    shapes: [
+      ...yinYangShapeDefs(0.68, 0, 1),
+      ...yinYangShapeDefs(1.22, 0, 0.5),
+    ],
+  },
+  // Sakura blossom: petals on the engine cover, nose and flanks.
+  432: {
+    flank: [],
+    center: [],
+    shapes: [
+      ...sakuraShapeDefs(0.68, 0, 0.9),
+      ...sakuraShapeDefs(1.24, 0, 0.5),
+      ...sakuraShapeDefs(0.88, 0.12, 0.5),
+    ],
+  },
+  // Eagle wings: layered feathers fanning along both flanks.
+  433: {
+    flank: [],
+    center: [],
+    shapes: [
+      ...wingShapeDefs(0.05, 0, 1, true),
+      ...wingShapeDefs(-0.28, 0, 0.9, true),
+      { cx: 0.68, cz: 0, path: rotPath(teardropPath(0.11, 0.04), 0.45), lift: 0.006 },
+    ],
+  },
+  // Great white shark: engine cover + nose.
+  434: {
+    flank: [],
+    center: [],
+    shapes: [
+      ...sharkShapeDefs(0.68, 0, 1),
+      ...sharkShapeDefs(1.2, 0, 0.45),
+    ],
+  },
+  // Cobra: coiled serpent with flared hood.
+  435: {
+    flank: [],
+    center: [],
+    shapes: [
+      ...cobraShapeDefs(0.68, 0, 1),
+      ...cobraShapeDefs(1.2, 0, 0.5),
+    ],
+  },
+  // Oni mask: Japanese demon face.
+  436: {
+    flank: [],
+    center: [],
+    shapes: [
+      ...oniShapeDefs(0.68, 0, 1),
+      ...oniShapeDefs(1.22, 0, 0.55),
+    ],
+  },
+  // Phoenix rising: flame-wreathed bird.
+  437: {
+    flank: [],
+    center: [],
+    shapes: [
+      ...phoenixShapeDefs(0.68, 0, 1),
+      ...phoenixShapeDefs(1.22, 0, 0.55),
+    ],
+  },
+  // Crossed katanas: twin samurai blades.
+  438: {
+    flank: [],
+    center: [],
+    shapes: [
+      ...katanaShapeDefs(0.68, 0, 1),
+      ...katanaShapeDefs(1.22, 0, 0.55),
+    ],
+  },
+  // Torii gate: shrine gate emblem.
+  439: {
+    flank: [],
+    center: [],
+    shapes: [
+      ...toriiShapeDefs(0.68, 0, 1),
+      ...toriiShapeDefs(1.2, 0, 0.5),
+    ],
+  },
+  // Mt. Fuji: rising sun over the peak.
+  440: {
+    flank: [],
+    center: [],
+    shapes: [
+      ...fujiShapeDefs(0.68, 0, 1),
+      ...fujiShapeDefs(1.22, 0, 0.5),
+    ],
+  },
+  // Paw print: street-animal paw marks on flanks + cover.
+  441: {
+    flank: [],
+    center: [],
+    shapes: [
+      ...pawShapeDefs(0.6, 0.14, 1, true),
+      ...pawShapeDefs(0.1, 0.15, 0.85, true),
+      { cx: 0.68, cz: 0, path: blobPath(0.05, 7), lift: 0.006 },
     ],
   },
 };
@@ -2305,7 +2612,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
    *  centreline inherits. Coastal circuits fade out quickly so buildings by the
    *  water stay at sea level; inland circuits follow the hills all the way out. */
   private sceneryFade(dist: number): number {
-    const far = this.theme === 'monaco' || this.theme === 'monaco-night' || this.theme === 'montreal' || this.theme === 'neon' || this.theme === 'volcano' || this.theme === 'antarctica' ? 12 : 200;
+    const far = this.theme === 'monaco' || this.theme === 'monaco-night' || this.theme === 'montreal' || this.theme === 'neon' || this.theme === 'volcano' || this.theme === 'antarctica' || this.theme === 'pirate' ? 12 : 200;
     return Math.max(0, Math.min(1, 1 - dist / far));
   }
   /** Banking fades out past the runoff so the infield and far scenery stay
@@ -4488,6 +4795,233 @@ void main() { FragColor = texture(uTex, vUV); }`;
       [x + ppx * w / 2, 4, z + ppz * w / 2],
       [x + ppx * w / 2, h, z + ppz * w / 2],
       [x - ppx * w / 2, h, z - ppz * w / 2], tint);
+  }
+
+  // ── Pirate Treasure Cove (golden-hour lagoon) ─────────────────────────
+  private addPirateScenery(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    const sand: [number, number, number][] = [
+      [0.78, 0.66, 0.42], [0.72, 0.6, 0.38], [0.82, 0.7, 0.46], [0.68, 0.56, 0.36],
+    ];
+    // Beach ground band hugging the track (warm sand, slightly below the road).
+    for (let i = 0; i < pts.length; i += 4) {
+      const p = pts[i];
+      const n = pts[(i + 1) % pts.length];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const npx = -n.dirZ, npz = n.dirX;
+      const col = sand[i % sand.length];
+      const w0 = p.width / 2 + 3;
+      const w1 = n.width / 2 + 3;
+      this.addQuad(verts, idxs,
+        [p.x + ppx * w0, -0.22, p.z + ppz * w0],
+        [n.x + npx * w1, -0.22, n.z + npz * w1],
+        [n.x + npx * (w1 + 30), -0.22, n.z + npz * (w1 + 30)],
+        [p.x + ppx * (w0 + 30), -0.22, p.z + ppz * (w0 + 30)], col);
+    }
+    // Palm trees along the beach.
+    let palmIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 4 : 2)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        if (Math.random() < 0.45) continue;
+        const dist = p.width / 2 + 26 + Math.random() * 16;
+        const px = p.x + ppx * dist * side + (Math.random() - 0.5) * 6;
+        const pz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
+        this.addPalmTree(verts, idxs, px, pz, 0.9 + Math.random() * 0.6);
+        if (palmIdx++ > (this.lowQuality ? 34 : 70)) break;
+      }
+      if (palmIdx > (this.lowQuality ? 34 : 70)) break;
+    }
+    // Wooden docks / plank jetties poking into the lagoon.
+    let dockIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 16 : 8)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = (i / 8) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 6;
+      const dx = p.x + ppx * dist * side;
+      const dz = p.z + ppz * dist * side;
+      const len = 8 + Math.random() * 6;
+      this.addBox(verts, idxs, dx + ppx * len / 2 * side, -0.2, dz + ppz * len / 2 * side, len, 0.3, 2.4, [0.5, 0.36, 0.2]);
+      // A moored rowboat at the end.
+      this.addEllipsoid(verts, idxs, dx + ppx * len * side, -0.05, dz + ppz * len * side, 1.0, 0.3, 0.5, 6, [0.55, 0.32, 0.16]);
+      if (dockIdx++ > (this.lowQuality ? 4 : 10)) break;
+    }
+    // Treasure chests — glowing gold with dark iron bands.
+    let chestIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 16 : 8)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = (i / 8) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 9 + Math.random() * 5;
+      const cx = p.x + ppx * dist * side + (Math.random() - 0.5) * 3;
+      const cz = p.z + ppz * dist * side + (Math.random() - 0.5) * 3;
+      this.addTreasureChest(verts, idxs, cx, cz, p.dirX, p.dirZ);
+      if (chestIdx++ > (this.lowQuality ? 10 : 22)) break;
+    }
+    // A beached galleon — the centrepiece: hull, masts, sails, pirate flag.
+    {
+      const p = pts[Math.floor(pts.length * 0.4)];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = p.width / 2 + 44;
+      const sx = p.x + ppx * dist * side;
+      const sz = p.z + ppz * dist * side;
+      this.addGalleon(verts, idxs, sx, sz, ppx * side, ppz * side);
+    }
+    // Cannon forts — squat stone platforms with iron cannons aimed at the sea.
+    let fortIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 30 : 15)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = (i / 15) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 40 + Math.random() * 14;
+      const fx = p.x + ppx * dist * side;
+      const fz = p.z + ppz * dist * side;
+      this.addCannonFort(verts, idxs, fx, fz, ppx * side, ppz * side);
+      if (fortIdx++ > (this.lowQuality ? 3 : 7)) break;
+    }
+    // Skull rocks — pale boulders with glowing eye sockets on the headland.
+    let skullIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 24 : 12)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = (i / 12) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 52 + Math.random() * 20;
+      const kx = p.x + ppx * dist * side;
+      const kz = p.z + ppz * dist * side;
+      this.addSkullRock(verts, idxs, kx, kz, ppx * side, ppz * side);
+      if (skullIdx++ > (this.lowQuality ? 4 : 9)) break;
+    }
+    // Scattered treasure: coin piles + rum barrels by the docks.
+    for (let i = 0; i < (this.lowQuality ? 10 : 22); i++) {
+      const a = Math.random() * Math.PI * 2;
+      const dist = 110 + Math.random() * 90;
+      const gx = pts[0].x + Math.cos(a) * dist;
+      const gz = pts[0].z + Math.sin(a) * dist;
+      this.addCoinPile(verts, idxs, gx, gz);
+    }
+    let barrelIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 26 : 13)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = (i / 13) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 7 + Math.random() * 3;
+      const bx = p.x + ppx * dist * side;
+      const bz = p.z + ppz * dist * side;
+      this.addBarrelStack(verts, idxs, bx, bz);
+      if (barrelIdx++ > (this.lowQuality ? 8 : 18)) break;
+    }
+  }
+  private addTreasureChest(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number) {
+    const wood: number[] = [0.55, 0.38, 0.16];
+    const gold: number[] = [1.0, 0.78, 0.2];
+    const iron: number[] = [0.2, 0.18, 0.16];
+    const ppx = -dirZ, ppz = dirX;
+    this.addBox(verts, idxs, x, 0.35, z, 1.1, 0.7, 0.7, wood);
+    // Lid — a half-rounded bulge.
+    this.addEllipsoid(verts, idxs, x, 0.72, z, 0.55, 0.32, 0.35, 6, wood);
+    // Iron bands + lock.
+    this.addBox(verts, idxs, x, 0.55, z + ppz * 0.36, 1.12, 0.7, 0.06, iron);
+    this.addBox(verts, idxs, x, 0.55, z - ppz * 0.36, 1.12, 0.7, 0.06, iron);
+    this.addBox(verts, idxs, x + ppx * 0.3, 0.5, z + ppz * 0.3, 0.24, 0.4, 0.24, gold);
+    // Glowing crack of treasure light at the lid seam.
+    this.addQuad(verts, idxs,
+      [x - ppx * 0.5, 0.88, z - ppz * 0.5],
+      [x + ppx * 0.5, 0.88, z + ppz * 0.5],
+      [x + ppx * 0.5, 0.94, z + ppz * 0.5],
+      [x - ppx * 0.5, 0.94, z - ppz * 0.5], [1.0, 0.9, 0.35]);
+  }
+  private addGalleon(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number) {
+    const hull: number[] = [0.42, 0.24, 0.12];
+    const hullHi: number[] = [0.5, 0.3, 0.15];
+    const mast: number[] = [0.35, 0.22, 0.1];
+    const sail: number[] = [0.96, 0.93, 0.85];
+    const black: number[] = [0.12, 0.1, 0.08];
+    const ppx = -dirZ, ppz = dirX;
+    // Hull — long tapered body with a raised stern castle.
+    this.addTaperedBox(verts, idxs, x, 0.5, z, 7.5, 1.0, 1.0, 1.5, 1.5, hull);
+    this.addTaperedBox(verts, idxs, x, 1.15, z, 7.5, 0.5, 0.5, 1.3, 1.3, hullHi);
+    this.addBox(verts, idxs, x - ppx * 2.2, 1.7, z - ppz * 2.2, 2.4, 1.0, 1.5, hullHi);
+    // Three masts.
+    for (const off of [-2.2, 0, 2.2]) {
+      this.addCylinder(verts, idxs, x + ppx * off, 1.4, z + ppz * off, 0.09, 3.4, 5, mast);
+    }
+    // Sails — billowing quads billboarded to the track view.
+    const sailOffs = [-2.2, 0, 2.2];
+    for (let m = 0; m < 3; m++) {
+      const sx = x + ppx * sailOffs[m];
+      const sz = z + ppz * sailOffs[m];
+      const w = 2.0 - m * 0.25;
+      const h = 2.4 - m * 0.3;
+      this.addQuad(verts, idxs,
+        [sx - ppx * w, 1.6, sz - ppz * w],
+        [sx + ppx * w, 1.6, sz + ppz * w],
+        [sx + ppx * w, 1.6 + h, sz + ppz * w],
+        [sx - ppx * w, 1.6 + h, sz - ppz * w], sail);
+      // Belly curve — a second smaller quad forward for depth.
+      this.addQuad(verts, idxs,
+        [sx - ppx * w * 0.8, 1.7, sz - ppz * w * 0.8],
+        [sx + ppx * w * 0.8, 1.7, sz + ppz * w * 0.8],
+        [sx + ppx * w * 0.8, 1.6 + h * 0.92, sz + ppz * w * 0.8],
+        [sx - ppx * w * 0.8, 1.6 + h * 0.92, sz - ppz * w * 0.8], [0.9, 0.88, 0.8]);
+    }
+    // Jolly Roger on the tallest mast.
+    this.addQuad(verts, idxs,
+      [x + ppx * 2.2, 3.6, z + ppz * 2.2],
+      [x + ppx * 2.2 + ppz * 0.6, 3.6, z + ppz * 2.2 - ppx * 0.6],
+      [x + ppx * 2.2 + ppz * 0.6, 4.1, z + ppz * 2.2 - ppx * 0.6],
+      [x + ppx * 2.2, 4.1, z + ppz * 2.2], black);
+    // Bowsprit + figurehead hint.
+    this.addStrut(verts, idxs, x + ppx * 3.4, 1.1, z + ppz * 3.4, x + ppx * 4.4, 1.4, z + ppz * 4.4, 0.1, mast);
+  }
+  private addCannonFort(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number) {
+    const stone: number[] = [0.55, 0.52, 0.48];
+    const stoneDark: number[] = [0.45, 0.42, 0.38];
+    const iron: number[] = [0.25, 0.25, 0.28];
+    const ppx = -dirZ, ppz = dirX;
+    // Squat stone platform.
+    this.addBox(verts, idxs, x, 0.9, z, 4.5, 1.8, 3.4, stone);
+    this.addBox(verts, idxs, x, 2.0, z, 5.0, 0.5, 3.8, stoneDark);
+    // Crenellated parapet.
+    for (let k = -1; k <= 1; k++) {
+      this.addBox(verts, idxs, x + ppx * k * 1.3, 2.5, z + ppz * k * 1.3, 0.7, 0.8, 0.7, stoneDark);
+    }
+    // Cannons poking out the sea-facing wall.
+    for (const off of [-0.8, 0.8]) {
+      const cx = x + ppx * 2.4 + ppz * off;
+      const cz = z + ppz * 2.4 - ppx * off;
+      this.addCylinder(verts, idxs, cx, 1.15, cz, 0.22, 1.6, 7, iron);
+      this.addSphere(verts, idxs, cx + dirX * 0.9, 1.15, cz + dirZ * 0.9, 0.28, 6, iron);
+    }
+  }
+  private addSkullRock(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number) {
+    const bone: number[] = [0.85, 0.82, 0.75];
+    const boneDark: number[] = [0.62, 0.6, 0.55];
+    const ppx = -dirZ, ppz = dirX;
+    // Cranium + jaw boulders.
+    this.addSphere(verts, idxs, x, 1.0, z, 1.5, 8, bone);
+    this.addEllipsoid(verts, idxs, x, 0.35, z, 1.2, 0.55, 0.9, 7, boneDark);
+    // Glowing eye sockets — cyan pinpricks in the dark headland.
+    for (const side of [-1, 1]) {
+      const ex = x + ppz * side * 0.55;
+      const ez = z - ppx * side * 0.55;
+      this.addSphere(verts, idxs, ex, 1.25, ez, 0.16, 6, [0.4, 1.0, 0.9]);
+    }
+    // Nose notch.
+    this.addSphere(verts, idxs, x + dirX * 0.4, 0.8, z + dirZ * 0.4, 0.18, 5, boneDark);
+  }
+  private addCoinPile(verts: number[], idxs: number[], x: number, z: number) {
+    const gold: number[] = [1.0, 0.8, 0.25];
+    const goldDark: number[] = [0.8, 0.6, 0.18];
+    for (let k = 0; k < 4; k++) {
+      const ox = x + (Math.random() - 0.5) * 1.6;
+      const oz = z + (Math.random() - 0.5) * 1.6;
+      const r = 0.14 + Math.random() * 0.12;
+      this.addCylinder(verts, idxs, ox, r * 0.4 + k * 0.05, oz, r, r * 0.4, 8, k % 2 === 0 ? gold : goldDark);
+    }
+    this.addSphere(verts, idxs, x, 0.35, z, 0.34, 7, gold);
   }
   private addCityScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
