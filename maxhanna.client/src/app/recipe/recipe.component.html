@@ -173,7 +173,15 @@
   <div class="popupPanel" style="overflow: auto;" *ngIf="isMenuPanelOpen">
     <div class="popupPanelTitle">Recipes</div>
     <div class="popupPanelContents" style="padding:10px;">
-      <p>Recipe menu coming soon.</p>
+      <div class="recipe-menu-hero">
+        <p class="eyebrow">Community Cookbook</p>
+        <h2>Discover, share and save recipes</h2>
+        <p class="hero-copy">Upload mouth-watering photos, add ingredients, and let others search by flavor, meal type, or name.</p>
+        <div class="recipe-menu-actions">
+          <button class="primary-btn" (click)="openCreateForm(); closeMenuPanel();" *ngIf="editingRecipeId !== 0">+ Add a recipe</button>
+          <button class="cancel-btn" (click)="closeMenuPanel()">Browse recipes</button>
+        </div>
+      </div>
     </div>
     <button id="closeOverlay" class="closeButton" (click)="closeMenuPanel()">Close</button>
   </div>

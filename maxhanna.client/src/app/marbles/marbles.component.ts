@@ -44,6 +44,9 @@ interface Sprite {
   color: number;
   col: number; row: number;      // current visual position (grid units)
   tCol: number; tRow: number;    // target position
+  fromCol: number; fromRow: number; // start of the current move (for time-based interpolation)
+  moveT: number;                 // 0..1 progress through the current move
+  moveDur: number;               // ms for the move; 0 = legacy fixed-speed animation
   scale: number;
   roll: number;
   stretch: number;               // horizontal squash-stretch while sliding (1 = rest)
@@ -116,6 +119,11 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
    *  sprite pipeline so the computer's moves slide/pop instead of snapping). */
   private _oppSprites: Sprite[] = [];
   private _oppBoard: number[][] = [];
+  /** Timing for the opponent's board interpolation: arrival time of its last
+   *  update + a smoothed inter-update interval, so its marbles ease across
+   *  the gap between updates instead of lurching on network jitter. */
+  private _oppLastUpdateMs = 0;
+  private _oppIntervalMs = 0;
   private _spriteSeq = 1;
   private _onResize = () => this.resizeCanvas();
   private _audio: AudioContext | null = null;
@@ -147,6 +155,8 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       this._board = [];
       this._oppSprites = [];
       this._oppBoard = [];
+      this._oppLastUpdateMs = 0;
+      this._oppIntervalMs = 0;
       this.opponents = [];
       // Fresh look every game: the opponent's board draws its marbles with a
       // new random skin seed each match (stable within the match).
@@ -285,6 +295,8 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this._board = [];
     this._oppSprites = [];
     this._oppBoard = [];
+    this._oppLastUpdateMs = 0;
+    this._oppIntervalMs = 0;
     this.opponents = [];
     this.winnerName = null;
     this.isVsAI = false;
@@ -432,9 +444,15 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     if ((bu.popped?.length ?? 0) > 0) this.playPop(bu.popped.length);
     this.applyBoard(bu);
     // Animate the opponent's board with the same pipeline (its move metadata
-    // arrives in the opponent view from the server).
+    // arrives in the opponent view from the server) and echo its sounds
+    // quietly so both halves of the screen feel live.
     const opp = this.opponents[0];
-    if (opp) this.applyOpponentBoard(opp);
+    if (opp) {
+      this.applyOpponentBoard(opp);
+      if (opp.dropped) this.playDrop(true);
+      if (opp.rained > 0) this.playRain(opp.rained, true);
+      if ((opp.popped?.length ?? 0) > 0) this.playPop(opp.popped.length, true);
+    }
     this.cdr.detectChanges();
   }
 
@@ -497,11 +515,27 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   }
 
   /** Animate the opponent's board the same way as the player's: match the
-   *  previous sprites to the new board and slide/pop/spawn them. */
+   *  previous sprites to the new board and slide/pop/spawn them. The move
+   *  duration is derived from the measured interval between opponent updates
+   *  (EMA-smoothed, clamped) so its marbles ease across the gap between
+   *  updates and stay smooth under network jitter instead of lurching. */
   private applyOpponentBoard(opp: MarblesOpponentView): void {
     const oldBoard = this._oppBoard;
     this._oppBoard = opp.board;
-    this._oppSprites = this.matchSpritesToBoard(this._oppSprites, opp.board, oldBoard, opp.popped ?? [], opp.rowShifted ?? 0);
+
+    const now = performance.now();
+    if (this._oppLastUpdateMs > 0) {
+      const interval = Math.min(2000, Math.max(120, now - this._oppLastUpdateMs));
+      this._oppIntervalMs = this._oppIntervalMs > 0
+        ? this._oppIntervalMs * 0.55 + interval * 0.45
+        : interval;
+    }
+    this._oppLastUpdateMs = now;
+    // Fill most of the expected gap, but cap it so a slow AI (up to ~2s
+    // between moves) doesn't make a one-cell slide crawl.
+    const moveDur = Math.round(Math.min(700, Math.max(220, this._oppIntervalMs || 350)));
+
+    this._oppSprites = this.matchSpritesToBoard(this._oppSprites, opp.board, oldBoard, opp.popped ?? [], opp.rowShifted ?? 0, moveDur);
   }
 
   /** Match a set of sprites to a new board, producing the animated targets.
@@ -513,6 +547,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     oldBoard: number[][],
     popped: { row: number; col: number; color: number }[],
     rowShifted: number,
+    moveDur = 0,
   ): Sprite[] {
     // 1. Mark sprites sitting on popped cells → pop animation.
     const poppedKeys = new Set<string>();
@@ -561,9 +596,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         }
         if (best) {
           used.add(best);
-          best.tCol = c;
-          best.tRow = PITCH_ROW;
-          best.phase = 'move';
+          this.setTarget(best, c, PITCH_ROW, moveDur);
           next.push(best);
           slideFilled.add(c);
         }
@@ -601,20 +634,18 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         const s = colLive[liveStart + i];
         const cell = cells[cellStart + i];
         used.add(s);
-        s.tCol = c;
-        s.tRow = cell.r;
-        s.phase = 'move';
+        this.setTarget(s, c, cell.r, moveDur);
         next.push(s);
       }
       // Spawn the freshly added cells — top ones normally, bottom ones when
       // the stack already reached the top.
       if (dropAtBottom) {
         for (let i = matchCount; i < cells.length; i++) {
-          next.push(this.newSprite(cells[i].color, c, cells[i].r));
+          next.push(this.newSprite(cells[i].color, c, cells[i].r, moveDur));
         }
       } else {
         for (let i = 0; i < cellStart; i++) {
-          next.push(this.newSprite(cells[i].color, c, cells[i].r));
+          next.push(this.newSprite(cells[i].color, c, cells[i].r, moveDur));
         }
       }
     }
@@ -628,20 +659,40 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     return next;
   }
 
-  private newSprite(color: number, col: number, toRow: number): Sprite {
+  private newSprite(color: number, col: number, toRow: number, moveDur = 0): Sprite {
     // Spawn above the board and fall in.
+    const fromRow = -1 - (ROWS - 1 - toRow);
     return {
       id: this._spriteSeq++,
       color,
       col,
-      row: -1 - (ROWS - 1 - toRow),
+      row: fromRow,
       tCol: col,
       tRow: toRow,
+      fromCol: col,
+      fromRow,
+      moveT: 0,
+      moveDur,
       scale: 1,
       roll: 0,
       stretch: 1,
       phase: 'move',
     };
+  }
+
+  /** Point a sprite at a new target. With a timed move (moveDur > 0) the start
+   *  position and clock are captured so it eases from wherever it currently is;
+   *  without one it falls back to the legacy fixed-speed glide. */
+  private setTarget(s: Sprite, tCol: number, tRow: number, moveDur: number): void {
+    s.tCol = tCol;
+    s.tRow = tRow;
+    if (moveDur > 0) {
+      s.fromCol = s.col;
+      s.fromRow = s.row;
+      s.moveT = 0;
+      s.moveDur = moveDur;
+    }
+    s.phase = 'move';
   }
 
   // ── Controls ────────────────────────────────────────────────────────────
@@ -771,11 +822,18 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this._oppSprites = this.advanceSprites(this._oppSprites, dt);
   }
 
-  /** Advance one sprite list toward its targets (shared by player + opponent). */
+  /** Advance one sprite list toward its targets (shared by player + opponent).
+   *  Timed sprites (moveDur > 0, the opponent) ease along the gap between
+   *  updates; untimed sprites (the player) keep the legacy fixed-speed glide
+   *  for instant input feedback. */
   private advanceSprites(sprites: Sprite[], dt: number): Sprite[] {
     for (const s of sprites) {
       if (s.phase === 'pop') {
         s.scale -= dt * 4.5;
+        continue;
+      }
+      if (s.moveDur > 0) {
+        this.advanceTimedSprite(s, dt);
         continue;
       }
       // Move toward target; roll while sliding. A marble rolls around the axis
@@ -808,6 +866,43 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       }
     }
     return sprites.filter(s => !(s.phase === 'pop' && s.scale <= 0.02));
+  }
+
+  /** Time-based eased interpolation for a sprite toward its target. Uses the
+   *  stored start position + clock so retargeting mid-move (a new update
+   *  arriving early) just steers from the current spot — no snapping, no
+   *  stutter under jitter. */
+  private advanceTimedSprite(s: Sprite, dt: number): void {
+    s.moveT = Math.min(1, s.moveT + (dt * 1000) / s.moveDur);
+    const e = easeOutCubic(s.moveT);
+    const prevCol = s.col;
+    const prevRow = s.row;
+    s.col = s.fromCol + (s.tCol - s.fromCol) * e;
+    s.row = s.fromRow + (s.tRow - s.fromRow) * e;
+
+    const dc = s.col - prevCol;
+    const dr = s.row - prevRow;
+    const moved = Math.hypot(dc, dr);
+    if (moved > 0) {
+      const dirSign = Math.abs(dc) >= Math.abs(dr) ? Math.sign(dc) : Math.sign(dr);
+      s.roll += dirSign * moved * 2.2;
+    }
+
+    const isRowSlide = Math.abs(s.tRow - s.fromRow) < 0.05
+      && Math.abs(s.fromRow - PITCH_ROW) < 0.05
+      && Math.abs(s.tCol - s.fromCol) > 0.01;
+    if (isRowSlide) {
+      const remaining = Math.abs(s.tCol - s.col);
+      s.stretch = 1 + Math.min(0.22, remaining * 0.16);
+    } else {
+      s.stretch = 1;
+    }
+
+    if (s.moveT >= 1) {
+      s.col = s.tCol;
+      s.row = s.tRow;
+      s.stretch = 1;
+    }
   }
 
   private boardLayout(w: number, h: number): { cell: number; ox: number; oy: number } {
@@ -1446,22 +1541,27 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
   private playClick(): void { this.tone(720, 0.06, 'square', 0.07); }
 
-  private playDrop(): void {
-    this.tone(900, 0.07, 'triangle', 0.14, 0, 340);
-    this.tone(220, 0.05, 'sine', 0.1, 0.01, 140);
+  /** Gain multiplier for the opponent's board so its echoes stay in the
+   *  background while the player's own actions ring out clearly. */
+  private playDrop(quiet = false): void {
+    const v = quiet ? 0.4 : 1;
+    this.tone(900, 0.07, 'triangle', 0.14 * v, 0, 340);
+    this.tone(220, 0.05, 'sine', 0.1 * v, 0.01, 140);
   }
 
-  private playPop(count: number): void {
+  private playPop(count: number, quiet = false): void {
+    const v = quiet ? 0.4 : 1;
     const n = Math.min(count, 8);
     for (let i = 0; i < n; i++) {
-      this.tone(500 - i * 40, 0.12, 'square', 0.09, i * 0.05, 260 - i * 25);
+      this.tone(500 - i * 40, 0.12, 'square', 0.09 * v, i * 0.05, 260 - i * 25);
     }
   }
 
-  private playRain(count: number): void {
+  private playRain(count: number, quiet = false): void {
+    const v = quiet ? 0.4 : 1;
     const n = Math.min(count, 8);
     for (let i = 0; i < n; i++) {
-      this.tone(600 - i * 30, 0.06, 'square', 0.07, i * 0.05, 300 - i * 20);
+      this.tone(600 - i * 30, 0.06, 'square', 0.07 * v, i * 0.05, 300 - i * 20);
     }
   }
 
@@ -1472,6 +1572,12 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   private playLose(): void {
     [392, 330, 262, 196].forEach((f, i) => this.tone(f, 0.22, 'sawtooth', 0.08, i * 0.12, f * 0.92));
   }
+}
+
+/** Ease-out cubic: starts fast, settles softly — reads as a marble sliding
+ *  and resting rather than creeping at a constant rate. */
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
 }
 
 /** True if a pitch-row array contains 3+ consecutive same-colour marbles. */
