@@ -23,16 +23,27 @@ namespace maxhanna.Server.Controllers
 			if (reactionRequest == null || (reactionRequest.CommentId == null && reactionRequest.MessageId == null && reactionRequest.FileId == null && reactionRequest.StoryId == null))
 			{
 				return BadRequest("Invalid reaction request.");
-			}
-
-			try
-			{
-				using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+			}				try
 				{
-					await connection.OpenAsync();
+					using (var connection = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+					{
+						await connection.OpenAsync();
 
-					// Always insert a new reaction record (do not overwrite prior reactions by the same user)
-					var commandStr = @" INSERT INTO reactions (user_id, comment_id, story_id, message_id, file_id, timestamp, type)
+						// Story reactions follow the story's visibility with the real
+						// user (same rules as the feed): only the author, accepted
+						// followers ('following' posts) or anyone (public posts) may
+						// react — anonymous and unauthorized users can't react to
+						// non-public posts.
+						if (reactionRequest.StoryId != null)
+						{
+							if (!await SocialController.CanViewStoryAsync(connection, reactionRequest.StoryId.Value, reactionRequest.User?.Id ?? 0))
+							{
+								return NotFound("Story not found or not visible to you.");
+							}
+						}
+
+						// Always insert a new reaction record (do not overwrite prior reactions by the same user)
+						var commandStr = @" INSERT INTO reactions (user_id, comment_id, story_id, message_id, file_id, timestamp, type)
 		                            VALUES (@userId, @commentId, @storyId, @messageId, @fileId, UTC_TIMESTAMP(), @type);";
 
 					var command = new MySqlCommand(commandStr, connection);

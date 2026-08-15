@@ -95,6 +95,10 @@ export class CommentsComponent extends ChildComponent implements OnInit, AfterVi
     else if (this.recipeId) body.recipeId = this.recipeId;
     else if (this.fileId) body.fileId = this.fileId;
     else if (this.userProfileId || this.userProfile?.id) body.userProfileId = this.userProfileId || this.userProfile?.id;
+    // Viewer id so story comment threads honor the story's visibility (the
+    // author can load their own non-public posts' threads on their profile
+    // page; followers get 'following' threads; anonymous only public ones).
+    body.userId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id ?? 0;
 
     try {
       const response = await fetch('/comment/getcomments', {

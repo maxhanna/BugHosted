@@ -74,26 +74,59 @@ namespace maxhanna.Server.Controllers
     }
 
     /// <summary>
-    /// Whether a user may access a specific story. Stories on a private-chat board
-    /// are restricted to chat members; public-board and non-chat stories are open.
-    /// Enforced against the story's OWN chat_id so lookups by StoryId (e.g.
-    /// GetStoryById, edit, delete, comments) can't bypass the board membership check.
+    /// Whether a user may access a specific story — honors the story's
+    /// visibility (public / following / self) with the REAL viewer id, plus the
+    /// chat-board membership rule for stories on a private-chat board. This is
+    /// the same visibility logic the feed applies, shared so comment threads and
+    /// reactions follow the same rules as the post itself: the author can load
+    /// their own non-public posts' threads from their profile page, followers
+    /// can load 'following' threads, and anonymous viewers only ever see public
+    /// content. Enforced against the story's OWN chat_id so lookups by StoryId
+    /// (GetStoryById, edit, delete, comments) can't bypass the board check.
     /// </summary>
-    private async Task<bool> CanViewStoryAsync(MySqlConnection conn, int storyId, int userId)
+    public static async Task<bool> CanViewStoryAsync(MySqlConnection conn, int storyId, int userId)
     {
-      string chatSql = "SELECT chat_id FROM maxhanna.stories WHERE id = @StoryId LIMIT 1;";
+      string storySql = "SELECT user_id, visibility, chat_id FROM maxhanna.stories WHERE id = @StoryId LIMIT 1;";
+      int? authorId = null;
+      string? visibility = null;
       int? storyChatId = null;
-      using (var chatCmd = new MySqlCommand(chatSql, conn))
+      using (var storyCmd = new MySqlCommand(storySql, conn))
       {
-        chatCmd.Parameters.AddWithValue("@StoryId", storyId);
-        var result = await chatCmd.ExecuteScalarAsync();
-        if (result != null && result != DBNull.Value)
+        storyCmd.Parameters.AddWithValue("@StoryId", storyId);
+        using (var rdr = await storyCmd.ExecuteReaderAsync())
         {
-          storyChatId = Convert.ToInt32(result);
+          if (!await rdr.ReadAsync()) return false; // story doesn't exist
+          authorId = rdr.IsDBNull(0) ? (int?)null : rdr.GetInt32(0);
+          visibility = rdr.IsDBNull(1) ? null : rdr.GetString(1);
+          storyChatId = rdr.IsDBNull(2) ? (int?)null : rdr.GetInt32(2);
         }
       }
-      if (storyChatId == null || storyChatId == 0) return true;
-      return await CanViewChatBoardAsync(conn, storyChatId.Value, userId);
+      // Private-chat boards are member-only regardless of the visibility column.
+      if (storyChatId != null && storyChatId > 0)
+      {
+        if (!await CanViewChatBoardAsync(conn, storyChatId.Value, userId)) return false;
+      }
+      // Visibility rules, mirroring the feed: public to everyone, 'following' to
+      // the author + accepted friends, 'self' to the author only. Anonymous
+      // (userId 0) viewers only ever see public posts.
+      if (string.IsNullOrEmpty(visibility) || visibility == "public") return true;
+      if (userId <= 0) return false;
+      if (authorId != null && authorId.Value == userId) return true;
+      if (visibility == "self") return false;
+      if (visibility == "following")
+      {
+        string friendSql = @"SELECT COUNT(*) FROM maxhanna.friend_requests fr
+          WHERE fr.status = 'accepted'
+          AND ((fr.sender_id = @AuthorId AND fr.receiver_id = @UserId)
+            OR (fr.receiver_id = @AuthorId AND fr.sender_id = @UserId));";
+        using (var friendCmd = new MySqlCommand(friendSql, conn))
+        {
+          friendCmd.Parameters.AddWithValue("@AuthorId", authorId ?? 0);
+          friendCmd.Parameters.AddWithValue("@UserId", userId);
+          return Convert.ToInt32(await friendCmd.ExecuteScalarAsync()) > 0;
+        }
+      }
+      return false;
     }
 
     /// <summary>
@@ -1777,6 +1810,38 @@ namespace maxhanna.Server.Controllers
         if (stories?.Stories != null && stories.Stories.Count > 0)
         {
           return Ok(stories.Stories[0]);
+        }
+        // The story may exist but be visibility-restricted for this viewer —
+        // tell the client so it can show a friendly "Follow to view" prompt
+        // instead of a bare 404. Includes the author + visibility so the prompt
+        // can offer to follow them (an accepted friend request grants access).
+        using (var conn = new MySqlConnection(_config.GetValue<string>("ConnectionStrings:maxhanna")))
+        {
+          await conn.OpenAsync();
+          string existsSql = @"
+            SELECT s.user_id AS authorId, s.visibility, COALESCE(u.username, '') AS authorName
+            FROM maxhanna.stories s
+            LEFT JOIN maxhanna.users u ON u.id = s.user_id
+            WHERE s.id = @StoryId LIMIT 1;";
+          using (var cmd = new MySqlCommand(existsSql, conn))
+          {
+            cmd.Parameters.AddWithValue("@StoryId", id);
+            using (var rdr = await cmd.ExecuteReaderAsync())
+            {
+              if (await rdr.ReadAsync())
+              {
+                return StatusCode(403, new
+                {
+                  accessDenied = true,
+                  message = "This post is not visible to you.",
+                  visibility = rdr.IsDBNull(1) ? "" : rdr.GetString(1),
+                  authorId = rdr.IsDBNull(0) ? 0 : rdr.GetInt32(0),
+                  authorName = rdr.IsDBNull(2) ? "" : rdr.GetString(2),
+                  storyId = id
+                });
+              }
+            }
+          }
         }
         return NotFound();
       }

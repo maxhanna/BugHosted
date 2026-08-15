@@ -2,7 +2,7 @@ import { ChangeDetectorRef, Component, EventEmitter, Input, OnInit, Output } fro
 import { Compactness } from '../../services/datacontracts/user/show-posts-from';
 import { ChildComponent } from '../child.component';
 import { MetaData, Story } from '../../services/datacontracts/social/story';
-import { SocialService } from '../../services/social.service';
+import { SocialService, StoryAccessDenied, isStoryAccessDenied } from '../../services/social.service';
 import { TopicService } from '../../services/topic.service';
 import { AppComponent } from '../app.component';
 import { Topic } from '../../services/datacontracts/topics/topic';
@@ -17,6 +17,7 @@ import { TextToSpeechService } from '../../services/text-to-speech.service';
 import { CurrencyFlagPipe } from '../currency-flag.pipe';
 import { PollService } from '../../services/poll.service';
 import { FollowService } from '../../services/follow.service';
+import { FriendService } from '../../services/friend.service';
 import { ModeratorService } from '../../services/moderator.service';
 
 @Component({
@@ -44,9 +45,17 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
   minimizedStories: number[] = [];
   moderatedTopicIds: number[] = [];
   private overflowCache: Record<string, boolean> = {};
+  /** Visibility-restricted post (403 from GetStoryById) — drives the follow
+   *  prompt card. Mutually exclusive with a loaded `story`. */
+  storyAccessDenied?: StoryAccessDenied | null;
+  /** True while a follow (friend) request to the author is pending/sent. */
+  followingAuthor = false;
 
   @Input() socialId?: number;
   @Input() story?: Story;
+  /** Set when a deep link resolves to a visibility-restricted post — renders a
+   *  friendly "Follow to view" prompt instead of a bare 404 card. */
+  @Input() accessDenied?: StoryAccessDenied;
   @Input() user?: User;
   @Input() profileUserId?: number;
   @Input() commentId?: number;
@@ -71,6 +80,7 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
     private currencyFlagPipe: CurrencyFlagPipe,
     private pollService: PollService,
     private followService: FollowService,
+    private friendService: FriendService,
     private moderatorService: ModeratorService
   ) {
     super();
@@ -87,6 +97,14 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
       this.openedStoryComments.push(this.story.id);
     }
     this.loadMinimizedStories();
+
+    // A visibility-restricted post via shared link: show the follow prompt.
+    if (this.accessDenied) {
+      this.storyAccessDenied = this.accessDenied;
+      this.isLoading = false;
+      this.checkIfFollowingAuthor();
+      return;
+    }
 
     // Pre-loaded full story (deep-link) → use it directly, else fetch by id.
     if (this.story && this.story.id && this.story.storyText != null && this.story.storyText !== undefined) {
@@ -125,17 +143,60 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
     this.isLoading = true;
     const s = await this.socialService.getStoryById(this.socialId, this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id);
     if (s) {
-      try {
-        s.storyText = this.encryptionService.decryptContent(s.storyText ?? '', s.user?.id + '');
-      } catch (ex) {
-        console.error(`Failed to decrypt story ID ${s.id}:`, ex);
+      if (isStoryAccessDenied(s)) {
+        // Exists but visibility-restricted — friendly "Follow to view" prompt.
+        this.storyAccessDenied = s;
+        this.checkIfFollowingAuthor();
+      } else {
+        try {
+          s.storyText = this.encryptionService.decryptContent(s.storyText ?? '', s.user?.id + '');
+        } catch (ex) {
+          console.error(`Failed to decrypt story ID ${s.id}:`, ex);
+        }
+        this.story = s;
+        await this.afterStoryReady();
       }
-      this.story = s;
-      await this.afterStoryReady();
     } else {
       this.parentRef?.showNotification(`Could not load post #${this.socialId}.`);
     }
     this.isLoading = false;
+  }
+
+  /** If a friend request to the author is already pending, keep the button
+   *  disabled with "Request sent" instead of letting the user send a duplicate. */
+  private async checkIfFollowingAuthor() {
+    const viewerId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id;
+    const authorId = this.storyAccessDenied?.authorId;
+    if (!viewerId || !authorId || authorId === viewerId) return;
+    try {
+      const pending = await this.friendService.getFriendRequests(viewerId);
+      const list = Array.isArray(pending) ? pending : [];
+      // status 0 = Pending — an in-flight request with the author means the
+      // button should read "Request sent" (accepted would have granted access).
+      if (list.some((r: any) => r.status === 0 && (r.sender?.id === authorId || r.receiver?.id === authorId))) {
+        this.followingAuthor = true;
+      }
+    } catch { /* leave the button active */ }
+  }
+
+  /** "Follow to view": sends a friend request to the post's author — an
+   *  accepted friend request is exactly what unlocks 'following'-visibility
+   *  posts, so once they accept, the shared link will load. */
+  async followAuthor() {
+    const viewerId = this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id;
+    const authorId = this.storyAccessDenied?.authorId;
+    if (!viewerId) {
+      this.parentRef?.showNotification('You must be logged in to follow someone.');
+      return;
+    }
+    if (!authorId || authorId === viewerId) return;
+    const res = await this.friendService.sendFriendRequest(viewerId, authorId);
+    if (res && typeof res === 'string' && /error/i.test(res)) {
+      this.parentRef?.showNotification(res);
+      return;
+    }
+    this.followingAuthor = true;
+    this.parentRef?.showNotification(`Follow request sent to ${this.storyAccessDenied?.authorName || 'the author'}!`);
   }
 
   private async afterStoryReady() {

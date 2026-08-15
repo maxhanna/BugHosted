@@ -516,25 +516,35 @@ namespace maxhanna.Server.Controllers
 			if ((request.FileId ?? 0) == 0 && (request.StoryId ?? 0) == 0 && (request.RecipeId ?? 0) == 0 && (request.UserProfileId ?? 0) == 0)
 			{
 				return BadRequest("Either fileId, storyId, recipeId, or userProfileId must be provided.");
-			}
-
-			try
-			{
-				string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
-				using (var conn = new MySqlConnection(connectionString))
+			}				try
 				{
-					await conn.OpenAsync();
-
-					string whereClause;
-					string paramName;
-					int paramValue;
-
-					if (request.StoryId != null)
+					string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+					using (var conn = new MySqlConnection(connectionString))
 					{
-						whereClause = "c.story_id = @id";
-						paramName = "@id";
-						paramValue = request.StoryId.Value;
-					}
+						await conn.OpenAsync();
+
+						// Story threads honor the story's visibility with the real
+						// viewer (same rules as the feed): the author can load their
+						// own non-public posts' comment threads, followers can load
+						// 'following' threads, anonymous viewers only get public ones.
+						if (request.StoryId != null)
+						{
+							if (!await SocialController.CanViewStoryAsync(conn, request.StoryId.Value, request.UserId ?? 0))
+							{
+								return NotFound("Story not found or not visible to you.");
+							}
+						}
+
+						string whereClause;
+						string paramName;
+						int paramValue;
+
+						if (request.StoryId != null)
+						{
+							whereClause = "c.story_id = @id";
+							paramName = "@id";
+							paramValue = request.StoryId.Value;
+						}
 					else if (request.FileId != null)
 					{
 						whereClause = "c.file_id = @id";

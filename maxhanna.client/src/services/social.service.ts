@@ -1,5 +1,23 @@
 import { Injectable } from '@angular/core';
 import { Story } from './datacontracts/social/story';
+
+/** 403 from GetStoryById: the story exists but this viewer isn't allowed to
+ *  see it (visibility = 'self' or 'following' without an accepted friendship).
+ *  Carries the author + visibility so the UI can offer a follow prompt. */
+export interface StoryAccessDenied {
+  accessDenied: true;
+  message: string;
+  visibility: string;
+  authorId: number;
+  authorName: string;
+  storyId: number;
+}
+
+/** Narrowing guard: is this a getStoryById 403 (exists but not visible) rather
+ *  than a loaded Story? (`accessDenied` is the discriminator.) */
+export function isStoryAccessDenied(x: any): x is StoryAccessDenied {
+  return !!x && x.accessDenied === true;
+}
 import { FileEntry } from './datacontracts/file/file-entry';
 import { StoryResponse } from './datacontracts/social/story-response';
 import { User } from './datacontracts/user/user';
@@ -234,6 +252,14 @@ export class SocialService {
 
       if (!res.ok) {
         if (res.status === 404) return null;
+        if (res.status === 403) {
+          // The story exists but is visibility-restricted for this viewer —
+          // surface it so the UI can offer a friendly "Follow to view" prompt.
+          try {
+            const body = await res.json();
+            if (body && body.accessDenied) return body as StoryAccessDenied;
+          } catch { /* fall through to null */ }
+        }
         throw new Error('Failed to fetch story');
       }
       return await res.json() as Story;

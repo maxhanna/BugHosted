@@ -59,9 +59,11 @@ export class SocialMetadataComponent extends ChildComponent implements OnInit, O
   ngOnInit() {
     if (this.inputtedParentRef) this.parentRef = this.inputtedParentRef;
     // Render immediately. If the caller only handed us a URL (no metadata
-    // row), ask the crawler in the background — never block the page on it.
-    this.loading = !this.metadata && !!this.url;
-    if (!this.metadata && this.url) this.startFetch();
+    // row), or a YouTube link whose stored image is just the default YouTube
+    // favicon (the crawler hadn't indexed the real video when the post was
+    // made), ask the crawler in the background — never block the page on it.
+    this.loading = this.shouldFetchFromCrawler();
+    if (this.loading) this.startFetch();
   }
 
   ngOnDestroy() {
@@ -104,13 +106,48 @@ export class SocialMetadataComponent extends ChildComponent implements OnInit, O
     const detail = await this.crawlerService.getDetail(row.id, userId);
     if (this._destroyed || !detail) return;
 
+    // Replace the title/description/imageUrl with what the crawler indexed in
+    // search_results (the real YouTube thumbnail + metadata), keeping any
+    // other fields the caller already had and falling back to the stored row
+    // title when the detail row is still sparse.
+    const prev = this.metadata ?? {};
     this.metadata = {
+      ...prev,
       url: detail.url || canonical,
       title: detail.title || row.title || undefined,
       description: detail.description || undefined,
-      imageUrl: detail.imageUrl || undefined,
+      imageUrl: detail.imageUrl || prev.imageUrl,
       author: detail.author || undefined,
     };
+    // A fresh image supersedes any earlier load failure (e.g. the favicon).
+    this._imageFailed = false;
+  }
+
+  /** True when the crawler should backfill this card: no metadata at all, or
+   *  a YouTube link whose stored image is only the generic YouTube favicon
+   *  (i.e. the real title/description/thumbnail are still waiting in the
+   *  search_results table). */
+  private shouldFetchFromCrawler(): boolean {
+    const url = this.url || this.metadata?.url || '';
+    if (!url) return false;
+    if (!this.metadata) return true;
+    return this.isYoutubeUrl(url) && this.isDefaultYoutubeImage(this.metadata.imageUrl);
+  }
+
+  /** True when the image is YouTube's generic favicon (e.g.
+   *  …/s/desktop/<hash>/img/favicon.ico) — or missing entirely — rather than
+   *  a real video thumbnail, so the card should pull the real metadata. */
+  private isDefaultYoutubeImage(imageUrl?: string): boolean {
+    if (!imageUrl) return true;
+    try {
+      const u = new URL(imageUrl);
+      const host = u.hostname.toLowerCase();
+      const onYoutube = host === 'youtube.com' || host.endsWith('.youtube.com');
+      const isIcon = u.pathname.toLowerCase().endsWith('.ico') || u.pathname.toLowerCase().includes('favicon');
+      return onYoutube && isIcon;
+    } catch {
+      return false;
+    }
   }
 
   /** Canonical form used for the crawler lookup (YouTube → watch?v=…). */

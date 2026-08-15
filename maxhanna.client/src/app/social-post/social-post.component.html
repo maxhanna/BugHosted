@@ -1,3 +1,21 @@
+<!-- Visibility-restricted post via shared link: friendly follow prompt instead
+     of a bare 404. 'self' posts can't be followed — just note they're private. -->
+<div *ngIf="storyAccessDenied" class="storyDeniedCard">
+  <div class="storyDeniedIcon">{{ storyAccessDenied.visibility === 'self' ? '🔒' : '👥' }}</div>
+  <div class="storyDeniedTitle">
+    {{ storyAccessDenied.visibility === 'self' ? 'This post is private' : 'This post is visible to followers only' }}
+  </div>
+  <div class="storyDeniedText" *ngIf="storyAccessDenied.visibility !== 'self'">
+    Follow <strong>{{ storyAccessDenied.authorName || ('User ' + storyAccessDenied.authorId) }}</strong> to view this post.
+  </div>
+  <div *ngIf="storyAccessDenied.visibility !== 'self'">
+    <button *ngIf="!followingAuthor" class="coloredBgButton storyFollowBtn" (click)="followAuthor()"
+      title="Send a follow request — the author unlocks the post when they accept">
+      Follow to view
+    </button>
+    <span *ngIf="followingAuthor" class="storyDeniedSent">✓ Follow request sent — it unlocks once the author accepts.</span>
+  </div>
+</div>
 <div *ngIf="story">
   <div class="storyHeader" (click)="toggleHeaderCollapse(story.id, $event)">
     <span style="padding-right: 10px;display: flex;align-items: center;"

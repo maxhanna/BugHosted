@@ -305,6 +305,11 @@
         It's quiet here...
       </ng-container>
     </div>
+    <!-- Shared link to a visibility-restricted post: the social-post component
+         renders its "Follow to view" prompt card. -->
+    <app-social-post *ngIf="deepLinkDenied" [accessDenied]="deepLinkDenied"
+      [inputtedParentRef]="parentRef ?? parent" [user]="user" [profileUserId]="userProfileId">
+    </app-social-post>
     <div class="mainTableDiv emptyPage" *ngIf="!storyResponse && isLoading">
       <app-loading-spinner [fontSize]="'small'" [label]="'Loading...'" [icon]="'💬'"></app-loading-spinner>
     </div>

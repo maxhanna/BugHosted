@@ -2,7 +2,7 @@ import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, Input, OnDestr
 import { Compactness, ShowPostsFrom } from '../../services/datacontracts/user/show-posts-from';
 import { ChildComponent } from '../child.component';
 import { Story } from '../../services/datacontracts/social/story';
-import { SocialService } from '../../services/social.service';
+import { SocialService, StoryAccessDenied, isStoryAccessDenied } from '../../services/social.service';
 import { TopicService } from '../../services/topic.service';
 import { AppComponent } from '../app.component';
 import { Topic } from '../../services/datacontracts/topics/topic';
@@ -25,6 +25,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
   fileMetadata: any;
   youtubeMetadata: any;
   storyResponse?: StoryResponse;
+  /** Shared link resolved to a visibility-restricted post — render the
+   *  "Follow to view" prompt instead of a 404 / empty feed. */
+  deepLinkDenied?: StoryAccessDenied | null;
   trendingSearches: string[] = [];
   isMobileTopicsPanelOpen = false;
   isSearchSocialsPanelOpen = false;
@@ -415,6 +418,13 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       try {
         const single = await this.socialService.getStoryById(tmpStoryId, this.parentRef?.user?.id);
         if (single) {
+          if (isStoryAccessDenied(single)) {
+            // Visibility-restricted post (e.g. 'following' shared with a
+            // non-follower): show the follow prompt instead of a 404/empty feed.
+            this.deepLinkDenied = single;
+            this.stopLoading();
+            return;
+          }
           // Decrypt story text client-side to match normal flow
           try {
             single.storyText = this.encryptionService.decryptContent(single.storyText ?? '', single.user?.id + '');

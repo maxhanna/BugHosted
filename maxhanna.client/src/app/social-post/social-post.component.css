@@ -409,3 +409,49 @@ button.postOptionButtons,
   align-items: center;
   justify-content: flex-end;
 }
+
+/* Visibility-restricted post (shared link to a 'following'/'self' post):
+   friendly "Follow to view" prompt instead of a bare 404 card. */
+.storyDeniedCard {
+  margin: 8px 0;
+  padding: 22px 18px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.storyDeniedIcon {
+  font-size: 30px;
+  line-height: 1;
+}
+
+.storyDeniedTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.storyDeniedText {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  max-width: 380px;
+}
+
+.storyDeniedText strong {
+  color: #fff;
+}
+
+.storyFollowBtn {
+  margin-top: 2px;
+}
+
+.storyDeniedSent {
+  font-size: 12px;
+  font-weight: 600;
+  color: #8bc34a;
+}

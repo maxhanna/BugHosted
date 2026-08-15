@@ -693,30 +693,57 @@ namespace maxhanna.Server.Hubs
         }
 
         /// <summary>
-        /// Drop one marble into the lowest empty cell of a random column.
+        /// Drop one marble onto a random column.
         /// Returns false if the board is completely full (the owner loses).
         /// </summary>
         private static bool DropMarbleInto(Player p)
         {
-            var board = p.Board;
+            var added = AddMarbleToTop(p.Board, _rng.Next(1, ColorCount + 1));
+            if (!added) p.Alive = false;
+            return added;
+        }
+
+        /// <summary>
+        /// Place one marble onto a random column without disturbing anything
+        /// else: it stacks on top of the column's existing marbles, or falls
+        /// to the bottom when the stack already reaches the very top. Adding a
+        /// marble must never shift other marbles — the old version ran gravity
+        /// over the whole board here, which snapped every column with a gap
+        /// (left by a column-shift wrap) back down every time a marble arrived.
+        /// Returns false when every cell on the board is filled.
+        /// </summary>
+        private static bool AddMarbleToTop(int[][] board, int color)
+        {
             var emptyCols = new List<int>();
             for (var c = 0; c < Cols; c++)
             {
-                if (board[0][c] == 0) emptyCols.Add(c);
+                var hasSpace = false;
+                for (var r = 0; r < Rows; r++)
+                {
+                    if (board[r][c] == 0) { hasSpace = true; break; }
+                }
+                if (hasSpace) emptyCols.Add(c);
             }
-            if (emptyCols.Count == 0)
-            {
-                p.Alive = false;
-                return false;
-            }
+            if (emptyCols.Count == 0) return false;
 
             var col = emptyCols[_rng.Next(emptyCols.Count)];
-            var row = Rows - 1;
-            while (row >= 0 && board[row][col] != 0) row--;
-            var color = _rng.Next(1, ColorCount + 1);
-            board[row][col] = color;
 
-            ApplyGravity(board);
+            // Topmost filled cell in the column (row 0 is the top of the board).
+            var top = 0;
+            while (top < Rows && board[top][col] == 0) top++;
+
+            if (top > 0)
+            {
+                // Room above the stack → stack the new marble on top.
+                board[top - 1][col] = color;
+            }
+            else
+            {
+                // Stack already reaches the very top → fill the bottom instead.
+                var bottom = Rows - 1;
+                while (bottom >= 0 && board[bottom][col] != 0) bottom--;
+                board[bottom][col] = color;
+            }
             return true;
         }
 
@@ -742,19 +769,7 @@ namespace maxhanna.Server.Hubs
 
         private static void RainOne(Player target, int color)
         {
-            var board = target.Board;
-            var emptyCols = new List<int>();
-            for (var c = 0; c < Cols; c++) if (board[0][c] == 0) emptyCols.Add(c);
-            if (emptyCols.Count == 0)
-            {
-                target.Alive = false;
-                return;
-            }
-            var col = emptyCols[_rng.Next(emptyCols.Count)];
-            var row = Rows - 1;
-            while (row >= 0 && board[row][col] != 0) row--;
-            board[row][col] = color;
-            ApplyGravity(board);
+            if (!AddMarbleToTop(target.Board, color)) target.Alive = false;
         }
 
         private static Player? PickAliveOpponent(Lobby lobby, Player self)

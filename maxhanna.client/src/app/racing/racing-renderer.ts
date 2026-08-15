@@ -3,15 +3,214 @@ import { RIM_TINTS, DECAL_COLORS, RacingCarAppearance } from '../../services/dat
 export interface DecalLayoutDef {
   flank: Array<[number, number, number, number, number, number]>;
   center: Array<[number, number, number, number, number]>;
+  /** Artistic polygon decals painted onto the body surface. `path` is the
+   *  outline in the car's local [x, z] plane (x = along the car, z = across
+   *  the width / up the flank), relative to (cx, cz). `mirror` also draws it
+   *  at -cz. `lift` nudges overlapping layers apart to avoid z-fighting. */
+  shapes?: DecalShapeDef[];
 }
+
+export interface DecalShapeDef {
+  cx: number;
+  cz: number;
+  path: Array<[number, number]>;
+  mirror?: boolean;
+  scale?: number;
+  lift?: number;
+}
+
+const TAU = Math.PI * 2;
+
+/** Regular n-point star outline (alternating outer/inner radius), origin-centered. */
+function starPath(points: number, outer: number, inner: number, rot = -Math.PI / 2): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  for (let i = 0; i < points * 2; i++) {
+    const r = i % 2 === 0 ? outer : inner;
+    const a = rot + (i * Math.PI) / points;
+    out.push([Math.cos(a) * r, Math.sin(a) * r]);
+  }
+  return out;
+}
+
+/** Regular polygon (circle approximation), origin-centered. */
+function circlePath(segments: number, r: number): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  for (let i = 0; i < segments; i++) {
+    const a = (i / segments) * TAU;
+    out.push([Math.cos(a) * r, Math.sin(a) * r]);
+  }
+  return out;
+}
+
+/** Concentric ring (annulus): outer circle forward, inner circle reversed. */
+function ringPath(segments: number, rOuter: number, rInner: number): Array<[number, number]> {
+  const outer = circlePath(segments, rOuter);
+  const inner = circlePath(segments, rInner).reverse();
+  return [...outer, ...inner];
+}
+
+/** Heart outline, tip pointing toward +x (the nose). */
+function heartPath(s: number): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  const N = 40;
+  for (let i = 0; i < N; i++) {
+    const t = (i / N) * TAU;
+    const X = 16 * Math.pow(Math.sin(t), 3);
+    const Y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+    // Rotate so the heart's point (0, -17) faces the front (+x).
+    out.push([(-Y / 17) * s, (X / 17) * s]);
+  }
+  return out;
+}
+
+/** Crescent moon (thick "C"), mouth opening toward +x. */
+function crescentPath(R: number): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  const N = 26;
+  const start = Math.PI * 0.42;
+  const span = TAU - Math.PI * 0.84;
+  for (let i = 0; i <= N; i++) {
+    const t = start + (span * i) / N;
+    out.push([Math.cos(t) * R, Math.sin(t) * R]);
+  }
+  for (let i = N; i >= 0; i--) {
+    const t = start + (span * i) / N;
+    out.push([Math.cos(t) * R * 0.62, Math.sin(t) * R * 0.62]);
+  }
+  return out;
+}
+
+/** Flame tongue / teardrop pointing rearward (-x): rounded front, wavy tip. */
+function teardropPath(L: number, W: number): Array<[number, number]> {
+  return [
+    [-L * 0.62, 0],
+    [-L * 0.15, W * 0.5],
+    [L * 0.25, W * 0.95],
+    [L * 0.55, 0],
+    [L * 0.25, -W * 0.95],
+    [-L * 0.15, -W * 0.5],
+  ];
+}
+
+/** Wavy crest band (sine top + bottom edge) running along x. */
+function wavePath(length: number, amp: number, thick: number, cycles = 2): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  const N = 26;
+  for (let i = 0; i <= N; i++) {
+    const x = -length / 2 + (length * i) / N;
+    out.push([x, amp * Math.sin((i / N) * TAU * cycles)]);
+  }
+  for (let i = N; i >= 0; i--) {
+    const x = -length / 2 + (length * i) / N;
+    out.push([x, amp * Math.sin((i / N) * TAU * cycles) - thick]);
+  }
+  return out;
+}
+
+/** Irregular organic blob (deterministic radial jitter) — for camo/spot art. */
+function blobPath(r: number, seed: number, segments = 12): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  for (let i = 0; i < segments; i++) {
+    const a = (i / segments) * TAU;
+    const rr = r * (0.72 + 0.5 * Math.abs(Math.sin(seed * 13.7 + i * 2.3)));
+    out.push([Math.cos(a) * rr, Math.sin(a) * rr]);
+  }
+  return out;
+}
+
+/** Angled parallelogram slash (a rotated stripe with pointed ends). */
+function slashPath(length: number, thick: number, rise: number): Array<[number, number]> {
+  const hl = length / 2, ht = thick / 2;
+  return [
+    [-hl, -ht], [hl, -ht], [hl + rise, ht], [-hl + rise, ht],
+  ];
+}
+
+/** Thick ">" chevron (two strokes meeting at a forward point, +x = front). */
+function chevronPath(w: number, h: number): Array<[number, number]> {
+  return [
+    [-w, 0], [-w * 0.35, h], [w * 0.35, h], [w, 0], [w * 0.35, h * 0.22], [-w * 0.35, h * 0.22],
+  ];
+}
+
+/** Classic lightning bolt polygon, pointing toward +x. */
+const BOLT_PATH: Array<[number, number]> = [
+  [-0.16, 0.09], [-0.03, 0.01], [0.0, 0.09], [0.16, -0.02],
+  [0.04, -0.02], [0.16, -0.09], [-0.04, -0.01],
+];
+
+/** Signed point-in-triangle test (2D, x/z plane) — sign-consistent with the
+ * winding of (a, b, c). */
+function sign2D(p: [number, number], a: [number, number], b: [number, number]): number {
+  return (p[0] - b[0]) * (a[1] - b[1]) - (a[0] - b[0]) * (p[1] - b[1]);
+}
+function pointInTriangle(p: [number, number], a: [number, number], b: [number, number], c: [number, number]): boolean {
+  const d1 = sign2D(p, a, b), d2 = sign2D(p, b, c), d3 = sign2D(p, c, a);
+  const hasNeg = d1 < 0 || d2 < 0 || d3 < 0;
+  const hasPos = d1 > 0 || d2 > 0 || d3 > 0;
+  return !(hasNeg && hasPos);
+}
+/** Ear-clip triangulation of a simple polygon (may be concave; rings/crescents
+ * pass their inner boundary reversed so the keyhole bridge connects them).
+ * Returns index triples into `points`; falls back to a centroid fan only when
+ * no ear can be found (degenerate slivers). */
+function triangulate(points: Array<[number, number]>): Array<[number, number, number]> {
+  const n = points.length;
+  if (n < 3) return [];
+  let area = 0;
+  for (let i = 0; i < n; i++) {
+    const [x0, z0] = points[i];
+    const [x1, z1] = points[(i + 1) % n];
+    area += x0 * z1 - x1 * z0;
+  }
+  const ccw = area > 0;
+  const remaining: number[] = [];
+  for (let i = 0; i < n; i++) remaining.push(i);
+  const out: Array<[number, number, number]> = [];
+  let guard = 0;
+  while (remaining.length > 3 && guard++ < 4096) {
+    let progressed = false;
+    for (let k = 0; k < remaining.length; k++) {
+      const i0 = remaining[(k + remaining.length - 1) % remaining.length];
+      const i1 = remaining[k];
+      const i2 = remaining[(k + 1) % remaining.length];
+      const a = points[i0], b = points[i1], c = points[i2];
+      const cross = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+      const isEar = ccw ? cross > 1e-9 : cross < -1e-9;
+      if (!isEar) continue;
+      let blocked = false;
+      for (const j of remaining) {
+        if (j === i0 || j === i1 || j === i2) continue;
+        if (pointInTriangle(points[j], a, b, c)) { blocked = true; break; }
+      }
+      if (blocked) continue;
+      out.push([i0, i1, i2]);
+      remaining.splice(k, 1);
+      progressed = true;
+      break;
+    }
+    if (!progressed) break;
+  }
+  if (remaining.length === 3) {
+    out.push([remaining[0], remaining[1], remaining[2]]);
+  }
+  return out;
+}
+
 export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
   401: {
     flank: [[-0.72, 0.235, 0.50, 0.05, 0.09, 0.05], [-0.16, 0.385, 0.34, 0.05, 0.09, 0.05], [0.60, 0.235, 0.42, 0.05, 0.09, 0.05], [1.02, 0.160, 0.34, 0.05, 0.08, 0.045], [-0.16, 0.395, 0.34, 0.05, 0.06, 0.13], [0.60, 0.225, 0.40, 0.05, 0.06, 0.13]],
     center: [[0.68, 0.225, 0.30, 0.05, 0.10], [1.22, 0.13, 0.14, 0.05, 0.10]],
   },
   402: {
-    flank: [[1.15, 0.145, 0.22, 0.05, 0.08, 0.05], [0.95, 0.17, 0.26, 0.05, 0.08, 0.07], [0.72, 0.205, 0.24, 0.05, 0.07, 0.06], [0.50, 0.24, 0.20, 0.05, 0.06, 0.05]],
-    center: [[1.28, 0.125, 0.12, 0.05, 0.08], [0.68, 0.225, 0.16, 0.05, 0.08]],
+    flank: [],
+    center: [],
+    shapes: [
+      { cx: 0.88, cz: 0.16, mirror: true, path: teardropPath(0.32, 0.15) },
+      { cx: 0.52, cz: 0.20, mirror: true, path: teardropPath(0.42, 0.19) },
+      { cx: 0.12, cz: 0.22, mirror: true, path: teardropPath(0.44, 0.21) },
+      { cx: 1.24, cz: 0, path: teardropPath(0.20, 0.09), lift: 0.005 },
+    ],
   },
   // Full-body scattered patches.
   403: {
@@ -28,10 +227,14 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
     flank: [[0.85, 0.19, 0.12, 0.05, 0.06, 0.07], [-0.20, 0.40, 0.12, 0.05, 0.06, 0.07]],
     center: [[1.15, 0.145, 0.26, 0.05, 0.14], [-0.60, 0.29, 0.26, 0.05, 0.14], [0.68, 0.225, 0.12, 0.05, 0.08]],
   },
-  // Zigzag lightning slashes down the flanks.
+  // Zigzag lightning bolts down the flanks.
   406: {
-    flank: [[1.10, 0.15, 0.10, 0.05, 0.04, 0.05], [0.90, 0.175, 0.10, 0.05, 0.04, 0.09], [0.70, 0.21, 0.10, 0.05, 0.04, 0.05], [0.50, 0.24, 0.10, 0.05, 0.04, 0.09], [0.30, 0.29, 0.10, 0.05, 0.04, 0.05], [0.05, 0.33, 0.10, 0.05, 0.04, 0.09], [-0.20, 0.40, 0.10, 0.05, 0.04, 0.05]],
-    center: [[0.68, 0.225, 0.10, 0.05, 0.06]],
+    flank: [],
+    center: [],
+    shapes: [
+      { cx: 0.58, cz: 0.20, mirror: true, path: BOLT_PATH, scale: 0.95 },
+      { cx: -0.10, cz: 0.17, mirror: true, path: BOLT_PATH, scale: 0.62 },
+    ],
   },
   // Large centered emblem on the engine cover.
   407: {
@@ -66,25 +269,46 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
     flank: [[-0.80, 0.22, 0.14, 0.04, 0.06, 0.05], [-0.55, 0.29, 0.14, 0.04, 0.06, 0.08], [-0.30, 0.40, 0.12, 0.04, 0.06, 0.05], [-0.05, 0.34, 0.12, 0.04, 0.06, 0.08], [0.20, 0.30, 0.14, 0.04, 0.06, 0.05], [0.45, 0.25, 0.14, 0.04, 0.06, 0.08], [0.70, 0.22, 0.12, 0.04, 0.06, 0.05], [0.95, 0.17, 0.12, 0.04, 0.05, 0.05], [1.15, 0.145, 0.10, 0.04, 0.05, 0.04]],
     center: [[0.68, 0.225, 0.16, 0.04, 0.08], [1.25, 0.13, 0.10, 0.04, 0.06]],
   },
-  // Cheetah spots scattered across the body.
+  // Cheetah spots: irregular organic blobs scattered across the body.
   414: {
-    flank: [[0.95, 0.17, 0.06, 0.04, 0.05, 0.05], [0.70, 0.21, 0.06, 0.04, 0.05, 0.09], [0.45, 0.25, 0.06, 0.04, 0.05, 0.06], [0.15, 0.31, 0.06, 0.04, 0.05, 0.09], [-0.15, 0.38, 0.06, 0.04, 0.05, 0.05], [-0.45, 0.36, 0.06, 0.04, 0.05, 0.08], [-0.70, 0.25, 0.06, 0.04, 0.05, 0.05]],
-    center: [[0.68, 0.225, 0.08, 0.04, 0.05], [1.20, 0.13, 0.06, 0.04, 0.05]],
+    flank: [],
+    center: [],
+    shapes: [
+      { cx: 0.95, cz: 0.16, mirror: true, path: blobPath(0.065, 1) },
+      { cx: 0.70, cz: 0.21, mirror: true, path: blobPath(0.075, 2) },
+      { cx: 0.42, cz: 0.24, mirror: true, path: blobPath(0.06, 3) },
+      { cx: 0.12, cz: 0.22, mirror: true, path: blobPath(0.075, 4) },
+      { cx: -0.18, cz: 0.20, mirror: true, path: blobPath(0.06, 5) },
+      { cx: -0.48, cz: 0.16, mirror: true, path: blobPath(0.055, 6) },
+      { cx: 0.68, cz: 0, path: blobPath(0.075, 7) },
+      { cx: 1.20, cz: 0, path: blobPath(0.05, 8) },
+    ],
   },
-  // Rising-sun disc on the rear deck.
+  // Rising-sun disc with rays on the rear deck.
   415: {
-    flank: [[-0.30, 0.40, 0.10, 0.05, 0.05, 0.06]],
-    center: [[-0.60, 0.29, 0.24, 0.06, 0.12], [0.68, 0.225, 0.16, 0.05, 0.08]],
+    flank: [],
+    center: [],
+    shapes: [
+      { cx: -0.62, cz: 0, path: starPath(12, 0.20, 0.14), lift: 0.005 },
+      { cx: -0.62, cz: 0, path: circlePath(20, 0.10), lift: 0.008 },
+      { cx: 0.68, cz: 0, path: circlePath(16, 0.07), lift: 0.007 },
+    ],
   },
   // Circuit-board traces along the flanks.
   416: {
     flank: [[1.10, 0.15, 0.10, 0.05, 0.04, 0.05], [0.90, 0.175, 0.10, 0.05, 0.04, 0.09], [0.70, 0.21, 0.10, 0.05, 0.04, 0.05], [0.50, 0.24, 0.10, 0.05, 0.04, 0.09], [0.30, 0.29, 0.10, 0.05, 0.04, 0.05], [0.05, 0.33, 0.10, 0.05, 0.04, 0.09], [-0.20, 0.40, 0.10, 0.05, 0.04, 0.05]],
     center: [[0.68, 0.225, 0.10, 0.05, 0.06]],
   },
-  // Bullseye target on the engine cover.
+  // Bullseye: concentric rings on the engine cover.
   417: {
-    flank: [[0.50, 0.24, 0.08, 0.05, 0.05, 0.08]],
-    center: [[0.68, 0.225, 0.22, 0.06, 0.11], [1.20, 0.13, 0.10, 0.05, 0.07]],
+    flank: [],
+    center: [],
+    shapes: [
+      { cx: 0.68, cz: 0, path: ringPath(26, 0.17, 0.12), lift: 0.005 },
+      { cx: 0.68, cz: 0, path: ringPath(26, 0.10, 0.055), lift: 0.007 },
+      { cx: 0.68, cz: 0, path: circlePath(18, 0.04), lift: 0.009 },
+      { cx: 1.18, cz: 0, path: circlePath(14, 0.05), lift: 0.006 },
+    ],
   },
   // Union Jack on the rear deck.
   418: {
@@ -101,45 +325,83 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
     flank: [],
     center: [[0.68, 0.225, 0.18, 0.06, 0.10], [1.22, 0.13, 0.08, 0.05, 0.06]],
   },
-  // Dragon flames, front-heavy.
+  // Dragon flames: long flowing tongues streaming rearward from the nose.
   421: {
-    flank: [[1.15, 0.145, 0.22, 0.05, 0.08, 0.05], [0.95, 0.17, 0.26, 0.05, 0.08, 0.07], [0.72, 0.205, 0.24, 0.05, 0.07, 0.06], [0.50, 0.24, 0.20, 0.05, 0.06, 0.05]],
-    center: [[1.28, 0.125, 0.12, 0.05, 0.08], [0.68, 0.225, 0.16, 0.05, 0.08]],
+    flank: [],
+    center: [],
+    shapes: [
+      { cx: 0.92, cz: 0.15, mirror: true, path: teardropPath(0.30, 0.15), lift: 0.005 },
+      { cx: 0.50, cz: 0.19, mirror: true, path: teardropPath(0.52, 0.20), lift: 0.005 },
+      { cx: 0.02, cz: 0.21, mirror: true, path: teardropPath(0.60, 0.22), lift: 0.005 },
+      { cx: 1.26, cz: 0, path: teardropPath(0.26, 0.11), lift: 0.006 },
+    ],
   },
   // Bee stripes: full-length segmented stripes.
   422: {
     flank: [[-0.72, 0.235, 0.50, 0.05, 0.09, 0.05], [-0.16, 0.385, 0.34, 0.05, 0.09, 0.05], [0.60, 0.235, 0.42, 0.05, 0.09, 0.05], [1.02, 0.160, 0.34, 0.05, 0.08, 0.045], [-0.16, 0.395, 0.34, 0.05, 0.06, 0.13], [0.60, 0.225, 0.40, 0.05, 0.06, 0.13]],
     center: [[0.68, 0.225, 0.30, 0.05, 0.10], [1.22, 0.13, 0.14, 0.05, 0.10]],
   },
-  // Tiger stripes: angled flank slashes.
+  // Tiger stripes: angled flank slashes with pointed ends.
   423: {
-    flank: [[0.95, 0.17, 0.10, 0.05, 0.04, 0.06], [0.75, 0.20, 0.10, 0.05, 0.04, 0.10], [0.55, 0.24, 0.10, 0.05, 0.04, 0.06], [0.35, 0.28, 0.10, 0.05, 0.04, 0.10], [0.10, 0.32, 0.10, 0.05, 0.04, 0.06], [-0.15, 0.38, 0.10, 0.05, 0.04, 0.10], [-0.40, 0.36, 0.10, 0.05, 0.04, 0.06]],
-    center: [[0.68, 0.225, 0.12, 0.05, 0.06]],
+    flank: [],
+    center: [],
+    shapes: [
+      { cx: 0.95, cz: 0.15, mirror: true, path: slashPath(0.14, 0.07, 0.10) },
+      { cx: 0.72, cz: 0.18, mirror: true, path: slashPath(0.16, 0.08, 0.12) },
+      { cx: 0.46, cz: 0.21, mirror: true, path: slashPath(0.16, 0.08, 0.12) },
+      { cx: 0.18, cz: 0.22, mirror: true, path: slashPath(0.16, 0.08, 0.12) },
+      { cx: -0.12, cz: 0.20, mirror: true, path: slashPath(0.16, 0.08, 0.12) },
+      { cx: -0.42, cz: 0.16, mirror: true, path: slashPath(0.16, 0.08, 0.12) },
+    ],
   },
-  // Starburst rays from the nose.
+  // Starburst: real five-point star on the nose plus a small sparkle.
   424: {
-    flank: [[1.00, 0.16, 0.08, 0.05, 0.05, 0.05], [0.85, 0.19, 0.08, 0.05, 0.05, 0.09], [0.70, 0.21, 0.08, 0.05, 0.05, 0.05], [0.55, 0.24, 0.08, 0.05, 0.05, 0.09]],
-    center: [[1.22, 0.13, 0.14, 0.06, 0.09], [0.68, 0.225, 0.10, 0.05, 0.06]],
+    flank: [],
+    center: [],
+    shapes: [
+      { cx: 1.22, cz: 0, path: starPath(5, 0.14, 0.055), lift: 0.006 },
+      { cx: 0.68, cz: 0, path: starPath(8, 0.09, 0.04), lift: 0.006 },
+      { cx: -0.10, cz: 0.18, mirror: true, path: starPath(5, 0.06, 0.024), lift: 0.006 },
+    ],
   },
-  // Heart emblem on the engine cover.
+  // Heart emblem on the engine cover (real heart outline).
   425: {
-    flank: [[0.50, 0.24, 0.06, 0.05, 0.05, 0.08]],
-    center: [[0.68, 0.225, 0.16, 0.06, 0.09], [1.30, 0.115, 0.12, 0.05, 0.05]],
+    flank: [],
+    center: [],
+    shapes: [
+      { cx: 0.68, cz: 0, path: heartPath(0.10) },
+      { cx: 1.30, cz: 0, path: heartPath(0.05), lift: 0.005 },
+      { cx: -0.45, cz: 0.16, mirror: true, path: heartPath(0.05), lift: 0.005 },
+    ],
   },
-  // Arrow chevrons on the flanks.
+  // Arrow chevrons on the flanks (real ">" arrows).
   426: {
-    flank: [[-0.55, 0.29, 0.40, 0.04, 0.05, 0.06], [-0.20, 0.40, 0.30, 0.04, 0.05, 0.06], [0.15, 0.31, 0.30, 0.04, 0.05, 0.06], [0.50, 0.24, 0.30, 0.04, 0.05, 0.06], [0.85, 0.19, 0.24, 0.04, 0.05, 0.06]],
-    center: [[1.25, 0.13, 0.10, 0.04, 0.06]],
+    flank: [],
+    center: [],
+    shapes: [
+      { cx: 0.58, cz: 0.20, mirror: true, path: chevronPath(0.07, 0.12) },
+      { cx: 0.28, cz: 0.22, mirror: true, path: chevronPath(0.09, 0.15) },
+      { cx: -0.06, cz: 0.20, mirror: true, path: chevronPath(0.09, 0.15) },
+    ],
   },
-  // Ocean wave along the flanks.
+  // Ocean wave: a flowing crest band along the flanks.
   427: {
-    flank: [[-0.55, 0.29, 0.16, 0.05, 0.06, 0.06], [-0.20, 0.40, 0.16, 0.05, 0.06, 0.06], [0.15, 0.31, 0.16, 0.05, 0.06, 0.06], [0.50, 0.24, 0.16, 0.05, 0.06, 0.06]],
-    center: [[0.68, 0.225, 0.14, 0.05, 0.07]],
+    flank: [],
+    center: [],
+    shapes: [
+      { cx: 0.25, cz: 0.19, mirror: true, path: wavePath(1.4, 0.06, 0.05, 2) },
+      { cx: 0.68, cz: 0, path: wavePath(0.4, 0.035, 0.03, 2), lift: 0.006 },
+    ],
   },
-  // Crescent moon on the engine cover.
+  // Crescent moon on the engine cover (real crescent outline).
   428: {
-    flank: [[0.50, 0.24, 0.06, 0.05, 0.05, 0.08]],
-    center: [[0.68, 0.225, 0.16, 0.06, 0.09], [1.30, 0.115, 0.12, 0.05, 0.05]],
+    flank: [],
+    center: [],
+    shapes: [
+      { cx: 0.68, cz: 0, path: crescentPath(0.10), lift: 0.006 },
+      { cx: 1.30, cz: 0, path: crescentPath(0.05), lift: 0.006 },
+      { cx: -0.45, cz: 0.16, mirror: true, path: crescentPath(0.05), lift: 0.006 },
+    ],
   },
 };
 export type AccentSeg = [number, number, number, number, number, number]; // cx, cy, l, h, d, z
@@ -189,7 +451,23 @@ export function getAccentSegsForStyle(styleKey: number): AccentSeg[] {
       overlap1D(x0, x1, dcx - dl / 2, dcx + dl / 2) &&
       overlap1D(aZ0, aZ1, -dd / 2, dd / 2)
     );
-    if (!flankCollides && !centerCollides) out.push([cx, cy, l, h, d, z]);
+    // Artistic polygon decals (flames, cheetah spots, tiger slashes…) sit on
+    // the flanks with no flank/center plates, so gauge them the same way: an
+    // outboard shape (outer z-edge past the shoulder) whose x-span overlaps
+    // the accent segment suppresses the pod stripe.
+    const shapeCollides = (decal.shapes ?? []).some((s) => {
+      const sc = s.scale ?? 1;
+      let minX = Infinity, maxX = -Infinity, maxZ = 0;
+      for (const [px, pz] of s.path) {
+        const wx = s.cx + px * sc;
+        const wz = Math.abs(s.cz + pz * sc);
+        if (wx < minX) minX = wx;
+        if (wx > maxX) maxX = wx;
+        if (wz > maxZ) maxZ = wz;
+      }
+      return overlap1D(x0, x1, minX, maxX) && maxZ >= ACCENT_SHOULDER_Z;
+    });
+    if (!flankCollides && !centerCollides && !shapeCollides) out.push([cx, cy, l, h, d, z]);
   }
   return out;
 }
@@ -4992,6 +5270,17 @@ void main() { FragColor = texture(uTex, vUV); }`;
       for (const [cx, , l, , d] of layout.center) {
         this.addSurfacePlate(gv, gi, cx, 0, l, d, carBodyTopY, [1, 1, 1], 0.006, bodyClamp);
       }
+      // Artistic polygon decals: ear-clipped into triangles that hug the body
+      // surface (clamped to the loft's half-width per column so flames/emblems
+      // wrap the nose instead of floating past the mesh edge).
+      for (const shape of layout.shapes ?? []) {
+        const sc = shape.scale ?? 1;
+        const lift = shape.lift ?? 0.006;
+        this.addSurfacePolygon(gv, gi, shape.path, shape.cx, shape.cz, sc, carBodyTopY, [1, 1, 1], lift, bodyClamp);
+        if (shape.mirror) {
+          this.addSurfacePolygon(gv, gi, shape.path, shape.cx, -shape.cz, sc, carBodyTopY, [1, 1, 1], lift, bodyClamp, true);
+        }
+      }
       const decVao = gl.createVertexArray()!;
       gl.bindVertexArray(decVao);
       const dvbo = gl.createBuffer()!;
@@ -5823,6 +6112,46 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.addQuad(verts, idxs, p00, p01, p11, p10, color);
       }
     }
+  }
+  /** Artistic livery decal: an arbitrary outline (in local [x, z], relative to
+   * (cx, cz)) ear-clipped into triangles that hug the loft's top surface, each
+   * vertex clamped to the loft's physical half-width so the artwork wraps the
+   * body instead of floating off the nose/side where no mesh exists. `mirror`
+   * reflects the outline across the car's z=0 centerline. */
+  private addSurfacePolygon(
+    verts: number[], idxs: number[],
+    path: Array<[number, number]>, cx: number, cz: number, scale: number,
+    topY: (x: number, z: number) => number, color: number[], lift: number,
+    clampZ: (x: number) => [number, number], mirror = false,
+  ) {
+    const pts: Array<[number, number]> = [];
+    for (const [px, pz] of path) {
+      const wx = cx + px * scale;
+      let wz = cz + pz * scale;
+      if (mirror) wz = -wz;
+      const [zMin, zMax] = clampZ(wx);
+      wz = Math.max(zMin, Math.min(zMax, wz));
+      pts.push([wx, wz]);
+    }
+    for (const [i0, i1, i2] of triangulate(pts)) {
+      const a = [pts[i0][0], topY(pts[i0][0], pts[i0][1]) + lift, pts[i0][1]];
+      const b = [pts[i1][0], topY(pts[i1][0], pts[i1][1]) + lift, pts[i1][1]];
+      const c = [pts[i2][0], topY(pts[i2][0], pts[i2][1]) + lift, pts[i2][1]];
+      this.addTri(verts, idxs, a, b, c, color);
+    }
+  }
+  private addTri(verts: number[], idxs: number[], a: number[], b: number[], c: number[], color: number[]) {
+    const [r, g, bl] = color;
+    let nx = (b[1] - a[1]) * (c[2] - a[2]) - (b[2] - a[2]) * (c[1] - a[1]);
+    let ny = (b[2] - a[2]) * (c[0] - a[0]) - (b[0] - a[0]) * (c[2] - a[2]);
+    let nz = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+    const len = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
+    nx /= len; ny /= len; nz /= len;
+    const base = verts.length / 11;
+    for (const p of [a, b, c]) {
+      verts.push(p[0], p[1], p[2], nx, ny, nz, r, g, bl, 0, 0);
+    }
+    idxs.push(base, base + 1, base + 2);
   }
   private addQuad(verts: number[], idxs: number[], a: number[], b: number[], c: number[], d: number[], color: number[]) {
     const [r, g, bl] = color;
