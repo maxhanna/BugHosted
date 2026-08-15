@@ -1,0 +1,21 @@
+<div class="metadataContent" [class.metadataLoading]="loading" (click)="openLink()"
+  [title]="displayUrl || 'Open link'">
+  <div class="metadataCardInner">
+    <div *ngIf="displayImage" class="cursorPointerUnderlined metaImgDiv">
+      <img class="metadataImage" [src]="displayImage" [alt]="displayTitle || displayUrl" (error)="onImageError()" />
+      <button type="button" class="playButtonInMetadataImage playButton" *ngIf="isYoutubeImage(displayImage)"
+        title="Play video"></button>
+    </div>
+    <div class="metadataCardBody">
+      <div *ngIf="loading" class="metadataLoadingText">Loading link preview…</div>
+      <div *ngIf="displayTitle" class="metadataTitle">{{ displayTitle }}</div>
+      <div *ngIf="displayDescription" class="metadataDescription"
+        [innerHtml]="displayDescription | clickableUrls"></div>
+      <div class="metadataCardFooter">
+        <span class="metadataDomain" [title]="displayUrl">{{ getDomain(displayUrl) || displayUrl }}</span>
+        <button *ngIf="showDetails" type="button" class="metadataDetailsButton" (click)="onDetails($event)"
+          title="View full link metadata">ⓘ Details</button>
+      </div>
+    </div>
+  </div>
+</div>

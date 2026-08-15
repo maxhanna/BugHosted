@@ -223,9 +223,9 @@ export class SocialService {
     }
   }
 
-  async getStoryById(id: number) {
+  async getStoryById(id: number, userId?: number) {
     try {
-      const res = await fetch(`/social/getstorybyid/${id}`, {
+      const res = await fetch(`/social/getstorybyid/${id}${userId ? `?userId=${userId}` : ''}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

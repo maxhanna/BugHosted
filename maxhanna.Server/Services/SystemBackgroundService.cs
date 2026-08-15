@@ -323,7 +323,7 @@ namespace maxhanna.Server.Services
                 {
                     await _dbQueue.EnqueueAsync(async () =>
                     {
-                        // Drop expired session tokens (7-day sliding expiry) so the
+                        // Drop expired session tokens (1-hour sliding expiry) so the
                         // user_sessions table doesn't grow unbounded.
                         string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
                         int purged = await Log.PurgeExpiredSessions(cs);

@@ -253,7 +253,7 @@ public class Log
       await cleanup.ExecuteNonQueryAsync();
       await using var cmd = new MySqlCommand(@"
         INSERT INTO maxhanna.user_sessions (token, user_id, expires_at)
-        VALUES (@Token, @UserId, UTC_TIMESTAMP() + INTERVAL 7 DAY);", conn);
+        VALUES (@Token, @UserId, UTC_TIMESTAMP() + INTERVAL 1 HOUR);", conn);
       cmd.Parameters.AddWithValue("@Token", token);
       cmd.Parameters.AddWithValue("@UserId", userId);
       await cmd.ExecuteNonQueryAsync();
@@ -323,7 +323,7 @@ public class Log
   }
 
   /// Returns the session's userId if the token is valid and unexpired, otherwise null.
-  /// Sliding expiry: a valid use renews the 7-day window.
+  /// Sliding expiry: a valid use renews the 1-hour window.
   public static async Task<int?> ValidateSessionUserId(string cs, string token)
   {
     if (string.IsNullOrWhiteSpace(token)) return null;
@@ -341,7 +341,7 @@ public class Log
       int userId = Convert.ToInt32(result);
       await using var slide = new MySqlCommand(@"
         UPDATE maxhanna.user_sessions
-        SET expires_at = UTC_TIMESTAMP() + INTERVAL 7 DAY,
+        SET expires_at = UTC_TIMESTAMP() + INTERVAL 1 HOUR,
             last_used_at = UTC_TIMESTAMP()
         WHERE token = @Token;", conn);
       slide.Parameters.AddWithValue("@Token", token);

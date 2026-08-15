@@ -442,9 +442,7 @@ export class RacingRenderer {
   /** Glove meshes — one VAO per hand per part so renderCar can pivot each
    *  hand about its wrist (fingers curl with steering input, like the helmet
    *  turn) and tint the finger backs with the car's equipped accent colour
-   *  while the palm stays light. gloveGripEnabled is set from the options
-   *  toggle; when false the hands are drawn with no grip animation. */
-  gloveGripEnabled = true;
+   *  while the palm stays light. */
   private gloveLPalmVao!: WebGLVertexArrayObject;
   private gloveLPalmCount = 0;
   private gloveLFingersVao!: WebGLVertexArrayObject;
@@ -1656,8 +1654,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.skyBottom = [0.55, 0.62, 0.7];
         this.sunDir = [0.35, 0.55, 0.45];
         this.sunColor = [1.0, 0.85, 0.7];
-        this.ambientColor = [0.32, 0.3, 0.34];
-        this.fogColor = [0.62, 0.6, 0.63];
+        // Warm sunset haze: the old gray ambient + fog washed the boardwalk
+        // and beach out into gray at distance. Warmer fill light and a warm
+        // sandy fog keep the Miami colors (pink paving, golden sand, teal
+        // sea) alive all the way to the horizon.
+        this.ambientColor = [0.42, 0.36, 0.33];
+        this.fogColor = [0.8, 0.68, 0.55];
         break;
       case 'city':
         this.skyTop = [0.05, 0.08, 0.22];
@@ -2643,8 +2645,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const flatVerts: number[] = [];
     const flatIdxs: number[] = [];
     if (this.theme === 'miami') {
-      this.addOceanPlane(flatVerts, flatIdxs);
-      this.addSandBand(flatVerts, flatIdxs);
+      this.addOceanPlane(flatVerts, flatIdxs, [0.08, 0.62, 0.6]);
+      this.addMiamiGround(flatVerts, flatIdxs);
       this.addMiamiScenery(verts, idxs);
     } else if (this.theme === 'city') {
       this.addCityScenery(verts, idxs);
@@ -3301,27 +3303,45 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addBox(verts, idxs, bx + dirX * 0.7 * s, 0.25, bz + dirZ * 0.7 * s, 0.1, 0.5, 0.4, metal);
     }
   }
-  private addOceanPlane(verts: number[], idxs: number[]) {
+  private addOceanPlane(verts: number[], idxs: number[], color: [number, number, number] = [0.05, 0.5, 0.55]) {
     const c = 900;
     this.addQuad(verts, idxs,
       [-c, -0.4, -c], [c, -0.4, -c], [c, -0.4, c], [-c, -0.4, c],
-      [0.05, 0.5, 0.55]);
+      color);
   }
-  private addSandBand(verts: number[], idxs: number[]) {
+  /**
+   * Miami ground: a paved boardwalk hugging the track, then a golden beach
+   * band further out before the sea — instead of one flat gray "sand" ring
+   * covering everything. Each band alternates two warm tones per segment so
+   * the promenade reads as paving slabs and the beach as sandy bands.
+   */
+  private addMiamiGround(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
+    const walkA: [number, number, number] = [0.95, 0.87, 0.77];
+    const walkB: [number, number, number] = [0.89, 0.81, 0.71];
+    const beachA: [number, number, number] = [0.97, 0.89, 0.6];
+    const beachB: [number, number, number] = [0.91, 0.82, 0.55];
     for (let i = 0; i < pts.length; i += 2) {
       const p = pts[i];
       const n = pts[(i + 1) % pts.length];
       const ppx = -p.dirZ, ppz = p.dirX;
       const npx = -n.dirZ, npz = n.dirX;
-      const inner = p.width / 2 + 18;
-      const outer = p.width / 2 + 52;
+      const seg = Math.floor(i / 2);
+      const walkColor = seg % 2 === 0 ? walkA : walkB;
+      const beachColor = seg % 2 === 0 ? beachA : beachB;
       for (const side of [-1, 1]) {
-        const pIn = [p.x + ppx * inner * side, -0.26, p.z + ppz * inner * side];
-        const pOut = [p.x + ppx * outer * side, -0.26, p.z + ppz * outer * side];
-        const nIn = [n.x + npx * inner * side, -0.26, n.z + npz * inner * side];
-        const nOut = [n.x + npx * outer * side, -0.26, n.z + npz * outer * side];
-        this.addGroundQuad(verts, idxs, pIn, nIn, nOut, pOut, [0.85, 0.78, 0.58]);
+        // Boardwalk: track edge +18..40 — palms, benches and pastel buildings.
+        const wIn = [p.x + ppx * (p.width / 2 + 18) * side, -0.26, p.z + ppz * (p.width / 2 + 18) * side];
+        const wOut = [p.x + ppx * (p.width / 2 + 40) * side, -0.26, p.z + ppz * (p.width / 2 + 40) * side];
+        const wnIn = [n.x + npx * (n.width / 2 + 18) * side, -0.26, n.z + npz * (n.width / 2 + 18) * side];
+        const wnOut = [n.x + npx * (n.width / 2 + 40) * side, -0.26, n.z + npz * (n.width / 2 + 40) * side];
+        this.addGroundQuad(verts, idxs, wIn, wnIn, wnOut, wOut, walkColor);
+        // Beach: +40..82 — sand in the distance, sea beyond.
+        const bIn = [p.x + ppx * (p.width / 2 + 40) * side, -0.26, p.z + ppz * (p.width / 2 + 40) * side];
+        const bOut = [p.x + ppx * (p.width / 2 + 82) * side, -0.26, p.z + ppz * (p.width / 2 + 82) * side];
+        const bnIn = [n.x + npx * (n.width / 2 + 40) * side, -0.26, n.z + npz * (n.width / 2 + 40) * side];
+        const bnOut = [n.x + npx * (n.width / 2 + 82) * side, -0.26, n.z + npz * (n.width / 2 + 82) * side];
+        this.addGroundQuad(verts, idxs, bIn, bnIn, bnOut, bOut, beachColor);
       }
     }
   }
@@ -4372,8 +4392,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const p = pts[gi];
       const ppx = -p.dirZ;
       const ppz = p.dirX;
+      // Beach furniture sits out on the sand band (in the distance), not on
+      // the boardwalk hugging the track.
       for (let u = 0; u < 4; u++) {
-        const dist = p.width / 2 + 26 + Math.random() * 12;
+        const dist = p.width / 2 + 46 + Math.random() * 16;
         const side = u % 2 === 0 ? -1 : 1;
         const ux = p.x + ppx * dist * side + (Math.random() - 0.5) * 6;
         const uz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
@@ -7619,19 +7641,30 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.pMark('mirror');
   }
   renderGarage(rotY: number, rotX: number, zoom: number, appearance: RacingCarAppearance,
-    vp: { x: number; y: number; w: number; h: number }, dt: number = 0) {
+    vp: { x: number; y: number; w: number; h: number }, dt: number = 0, clearFull = true) {
     const gl = this.gl;
     this.elapsed += dt;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-    gl.clearColor(0.028, 0.028, 0.055, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.disable(gl.CULL_FACE);
     const w = Math.max(1, Math.round(vp.w));
     const h = Math.max(1, Math.round(vp.h));
+    const vpX = Math.round(vp.x);
     const vpY = Math.round(gl.canvas.height - vp.y - h);
-    gl.viewport(Math.round(vp.x), vpY, w, h);
+    if (clearFull) {
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+      gl.clearColor(0.028, 0.028, 0.055, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    } else {
+      // Hover-preview mode: keep the surrounding scene intact and clear only
+      // the depth inside the popup rect (scissored) so the car isn't culled
+      // against whatever the main scene drew behind it.
+      gl.enable(gl.SCISSOR_TEST);
+      gl.scissor(vpX, vpY, w, h);
+      gl.clear(gl.DEPTH_BUFFER_BIT);
+      gl.disable(gl.SCISSOR_TEST);
+    }
+    gl.viewport(vpX, vpY, w, h);
     const aspect = w / h;
     const dist = 4.1 / Math.max(0.45, zoom);
     const yaw = (rotY * Math.PI) / 180;
@@ -8549,29 +8582,21 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.bindVertexArray(seamVao);
       gl.drawElements(gl.TRIANGLES, seamCount, gl.UNSIGNED_SHORT, 0);
     };
-    if (this.gloveGripEnabled) {
-      const grip = 0.03 + Math.min(1, Math.abs(steer)) * 0.09 + Math.sin(this.elapsed * 0.7) * 0.012;
-      this.mat4Identity(this._animTmp);
-      this.mat4Translate(this._animTmp, [0.525, 0.278, 0.068]);
-      this.mat4RotateY(this._animTmp, grip);
-      this.mat4Translate(this._animTmp, [-0.525, -0.278, -0.068]);
-      this.mat4Multiply(this._animM, this.modelMatrix, this._animTmp);
-      drawGlove(this.gloveLPalmVao, this.gloveLPalmCount, this.gloveLFingersVao, this.gloveLFingersCount,
-        this.gloveLSeamsVao, this.gloveLSeamsCount, this._animM);
-      this.mat4Identity(this._animTmp);
-      this.mat4Translate(this._animTmp, [0.525, 0.278, -0.068]);
-      this.mat4RotateY(this._animTmp, -grip);
-      this.mat4Translate(this._animTmp, [-0.525, -0.278, 0.068]);
-      this.mat4Multiply(this._animM, this.modelMatrix, this._animTmp);
-      drawGlove(this.gloveRPalmVao, this.gloveRPalmCount, this.gloveRFingersVao, this.gloveRFingersCount,
-        this.gloveRSeamsVao, this.gloveRSeamsCount, this._animM);
-    } else {
-      // Setting off: hands stay fixed — draw with the base car matrix.
-      drawGlove(this.gloveLPalmVao, this.gloveLPalmCount, this.gloveLFingersVao, this.gloveLFingersCount,
-        this.gloveLSeamsVao, this.gloveLSeamsCount, this.modelMatrix);
-      drawGlove(this.gloveRPalmVao, this.gloveRPalmCount, this.gloveRFingersVao, this.gloveRFingersCount,
-        this.gloveRSeamsVao, this.gloveRSeamsCount, this.modelMatrix);
-    }
+    const grip = 0.03 + Math.min(1, Math.abs(steer)) * 0.09 + Math.sin(this.elapsed * 0.7) * 0.012;
+    this.mat4Identity(this._animTmp);
+    this.mat4Translate(this._animTmp, [0.525, 0.278, 0.068]);
+    this.mat4RotateY(this._animTmp, grip);
+    this.mat4Translate(this._animTmp, [-0.525, -0.278, -0.068]);
+    this.mat4Multiply(this._animM, this.modelMatrix, this._animTmp);
+    drawGlove(this.gloveLPalmVao, this.gloveLPalmCount, this.gloveLFingersVao, this.gloveLFingersCount,
+      this.gloveLSeamsVao, this.gloveLSeamsCount, this._animM);
+    this.mat4Identity(this._animTmp);
+    this.mat4Translate(this._animTmp, [0.525, 0.278, -0.068]);
+    this.mat4RotateY(this._animTmp, -grip);
+    this.mat4Translate(this._animTmp, [-0.525, -0.278, 0.068]);
+    this.mat4Multiply(this._animM, this.modelMatrix, this._animTmp);
+    drawGlove(this.gloveRPalmVao, this.gloveRPalmCount, this.gloveRFingersVao, this.gloveRFingersCount,
+      this.gloveRSeamsVao, this.gloveRSeamsCount, this._animM);
     // Restore the base model matrix + paint colour for the decal pass.
     gl.uniformMatrix4fv(this.modelLoc, false, this.modelMatrix);
     this.setNormalMatrix(this.modelMatrix);

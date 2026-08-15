@@ -99,7 +99,7 @@ namespace maxhanna.Server.Hubs
         /// Create or join a lobby for the given track.
         /// Returns full lobby state to caller and broadcasts join to others.
         /// </summary>
-        public async Task<object> JoinLobby(string trackId, string playerName, int playerId, int laps = 3, double totalTrackDist = 0, int upgradeLevel = 0)
+        public async Task<object> JoinLobby(string trackId, string playerName, int playerId, int laps = 3, double totalTrackDist = 0, int upgradeLevel = 0, CarAppearanceDto? appearance = null)
         {
             var lobbyId = $"racing_{trackId}";
 
@@ -153,6 +153,7 @@ namespace maxhanna.Server.Hubs
                 SkinId = 1,
                 UpgradeLevel = upgradeLevel
             };
+            ApplyAppearance(lp, appearance);
             lobby.Players.Add(lp);
             // Recompute every member's "in another race" flag — the joiner may
             // already be racing elsewhere, and the roster they receive must be
@@ -178,6 +179,13 @@ namespace maxhanna.Server.Hubs
                 playerId,
                 isHost = lp.IsHost,
                 skinId = lp.SkinId,
+                spoilerId = lp.SpoilerId,
+                rimId = lp.RimId,
+                exhaustId = lp.ExhaustId,
+                decalId = lp.DecalId,
+                glowId = lp.GlowId,
+                accentId = lp.AccentId,
+                glowIntensity = lp.GlowIntensity,
                 inRace = lp.InRace
             });
 
@@ -185,6 +193,23 @@ namespace maxhanna.Server.Hubs
             if (lobby.Players.Count == 1)
             {
                 StartAutoStartTimer(lobby, lobbyId);
+            }
+
+            // Mid-race catch-up: if a race is live and the host is already
+            // relaying AI drivers, send the joiner the bots' current positions
+            // so the field lines up identically instead of the joiner simulating
+            // its own divergent bots (they'd disagree with everyone else's).
+            if (lobby.RaceStatus == "racing" && lobby.BotSnapshot != null && lobby.BotSourceConnectionId != Context.ConnectionId)
+            {
+                try
+                {
+                    await Clients.Caller.SendAsync("OnBotPositionUpdate", new
+                    {
+                        connectionId = lobby.BotSourceConnectionId,
+                        bots = lobby.BotSnapshot
+                    });
+                }
+                catch { }
             }
 
             // Push the current auto-start remaining straight to the joining
@@ -218,6 +243,13 @@ namespace maxhanna.Server.Hubs
                     p.IsHost,
                     p.Ready,
                     p.SkinId,
+                    p.SpoilerId,
+                    p.RimId,
+                    p.ExhaustId,
+                    p.DecalId,
+                    p.GlowId,
+                    p.AccentId,
+                    p.GlowIntensity,
                     p.InRace
                 }).ToList(),
                 isHost = lp.IsHost,
@@ -327,6 +359,34 @@ namespace maxhanna.Server.Hubs
         }
 
         /// <summary>
+        /// Update a player's full garage appearance (skin + parts + glow).
+        /// Broadcast to the whole lobby so everyone's car matches what the
+        /// player equipped, and other clients refresh the roster + remote cars.
+        /// </summary>
+        public async Task UpdateCarAppearance(string trackId, CarAppearanceDto appearance)
+        {
+            var lobbyId = $"racing_{trackId}";
+            if (!_lobbies.TryGetValue(lobbyId, out var lobby)) return;
+
+            var p = lobby.Players.FirstOrDefault(x => x.ConnectionId == Context.ConnectionId);
+            if (p == null) return;
+            ApplyAppearance(p, appearance);
+
+            await Clients.Group(lobbyId).SendAsync("OnPlayerAppearanceChanged", new
+            {
+                connectionId = Context.ConnectionId,
+                skinId = p.SkinId,
+                spoilerId = p.SpoilerId,
+                rimId = p.RimId,
+                exhaustId = p.ExhaustId,
+                decalId = p.DecalId,
+                glowId = p.GlowId,
+                accentId = p.AccentId,
+                glowIntensity = p.GlowIntensity
+            });
+        }
+
+        /// <summary>
         /// Host starts the race — triggers countdown for all players.
         /// Can be called at any time, even with only 1 player. Cancels auto-start timer.
         /// </summary>
@@ -346,6 +406,10 @@ namespace maxhanna.Server.Hubs
             // next classification.
             lobby.RaceDist.Clear();
             lobby.FinishedConnections.Clear();
+            // Fresh race, fresh bot consensus: the previous race's relayed
+            // snapshot must not leak into the new one.
+            lobby.BotSnapshot = null;
+            lobby.BotSourceConnectionId = "";
             lobby.FinishedResults.Clear();
             lobby.StandingsSent = false;
             CancelStandingsReset(lobby);
@@ -407,7 +471,14 @@ namespace maxhanna.Server.Hubs
                     p.PlayerId,
                     p.IsHost,
                     p.Ready,
-                    p.SkinId
+                    p.SkinId,
+                    p.SpoilerId,
+                    p.RimId,
+                    p.ExhaustId,
+                    p.DecalId,
+                    p.GlowId,
+                    p.AccentId,
+                    p.GlowIntensity
                 }).ToList()
             });
         }
@@ -647,6 +718,29 @@ namespace maxhanna.Server.Hubs
         }
 
         /// <summary>
+        /// Relay AI-driver states from the authoritative bot simulator (the
+        /// lobby host) to every other client in the race. The server also keeps
+        /// a snapshot so a player who joins (or reconnects to) a running race
+        /// sees the bots exactly where everyone else does, instead of spawning
+        /// its own divergent field. Only the lobby host may publish — when the
+        /// host leaves, the promoted host takes over automatically.
+        /// </summary>
+        public async Task SyncBotPositions(string trackId, List<BotPosDto> bots)
+        {
+            var lobbyId = $"racing_{trackId}";
+            if (!_lobbies.TryGetValue(lobbyId, out var lobby)) return;
+            if (lobby.RaceStatus != "racing") return;
+            if (lobby.HostConnectionId != Context.ConnectionId) return;
+            lobby.BotSnapshot = bots;
+            lobby.BotSourceConnectionId = Context.ConnectionId;
+            await Clients.OthersInGroup(lobbyId).SendAsync("OnBotPositionUpdate", new
+            {
+                connectionId = Context.ConnectionId,
+                bots
+            });
+        }
+
+        /// <summary>
         /// Player finished the race.
         /// </summary>
         public async Task FinishRace(string trackId, int position, int totalTimeMs, int laps = 0)
@@ -821,7 +915,14 @@ namespace maxhanna.Server.Hubs
                                 p.PlayerId,
                                 p.IsHost,
                                 p.Ready,
-                                p.SkinId
+                                p.SkinId,
+                                p.SpoilerId,
+                                p.RimId,
+                                p.ExhaustId,
+                                p.DecalId,
+                                p.GlowId,
+                                p.AccentId,
+                                p.GlowIntensity
                             }).ToList()
                         });
                     }
@@ -935,6 +1036,11 @@ namespace maxhanna.Server.Hubs
             // adding it. Concurrent because every connection's SyncPosition
             // (10Hz) mutates it in parallel.
             public ConcurrentDictionary<string, double> RaceDist { get; set; } = new();
+            // Last AI-driver states relayed by the authoritative bot simulator
+            // (the lobby host), kept so mid-race joiners/reconnecting players
+            // see the bots where everyone else does.
+            public List<BotPosDto>? BotSnapshot { get; set; }
+            public string BotSourceConnectionId { get; set; } = "";
             public List<LobbyPlayer> Players { get; set; } = new();
             public HashSet<string> FinishedConnections { get; set; } = new();
             public List<RacerFinish> FinishedResults { get; set; } = new();
@@ -970,6 +1076,16 @@ namespace maxhanna.Server.Hubs
             public bool IsHost { get; set; }
             public bool Ready { get; set; }
             public int SkinId { get; set; }
+            // Garage appearance — relayed to other clients so every racer's car
+            // matches what they actually equipped (paint, spoiler, rims, exhaust,
+            // decal, neon glow and accent), not a bot-style stand-in.
+            public int SpoilerId { get; set; }
+            public int RimId { get; set; }
+            public int ExhaustId { get; set; }
+            public int DecalId { get; set; }
+            public int GlowId { get; set; }
+            public int AccentId { get; set; }
+            public int GlowIntensity { get; set; } = 50;
             // Total purchased upgrade levels across all categories. Determines
             // the starting grid order: least upgraded on pole, most upgraded at
             // the back, so a fully-tuned car has to fight through the field.
@@ -978,6 +1094,51 @@ namespace maxhanna.Server.Hubs
             // is running (or in its 10s start lights) — i.e. they're already in a
             // game elsewhere. Drives the "🏁 IN RACE" badge on lobby rosters.
             public bool InRace { get; set; }
+        }
+
+        /// <summary>One AI driver's state, relayed by the authoritative bot
+        /// simulator so every client renders the same bots in the same places.</summary>
+        public class BotPosDto
+        {
+            public int I { get; set; }
+            public double X { get; set; }
+            public double Z { get; set; }
+            public double Yaw { get; set; }
+            public double Speed { get; set; }
+            public double Dist { get; set; }
+            public double RaceDist { get; set; }
+            public int Lap { get; set; }
+            public bool Alive { get; set; }
+            public double Slide { get; set; }
+            public double BrakeCommitment { get; set; }
+            public double CrashTimer { get; set; }
+            public double RimBumpTimer { get; set; }
+        }
+
+        /// <summary>Garage appearance a client sends when joining or updating.</summary>
+        public class CarAppearanceDto
+        {
+            public int SkinId { get; set; }
+            public int SpoilerId { get; set; }
+            public int RimId { get; set; }
+            public int ExhaustId { get; set; }
+            public int DecalId { get; set; }
+            public int GlowId { get; set; }
+            public int AccentId { get; set; }
+            public int GlowIntensity { get; set; } = 50;
+        }
+
+        private static void ApplyAppearance(LobbyPlayer p, CarAppearanceDto? a)
+        {
+            if (a == null) return;
+            p.SkinId = a.SkinId;
+            p.SpoilerId = a.SpoilerId;
+            p.RimId = a.RimId;
+            p.ExhaustId = a.ExhaustId;
+            p.DecalId = a.DecalId;
+            p.GlowId = a.GlowId;
+            p.AccentId = a.AccentId;
+            p.GlowIntensity = a.GlowIntensity;
         }
 
         private class RacerState

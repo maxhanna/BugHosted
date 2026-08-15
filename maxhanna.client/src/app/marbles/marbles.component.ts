@@ -21,11 +21,22 @@ const COLORS: [number, number, number][] = [
   [142, 74, 196],  // purple
 ];
 
-/** Signature inner pattern per color id (1..6), so each colour family is
- *  recognisable by shape rather than hue alone — important for colour-blind
- *  players. 0 = swirl · 1 = flecked · 2 = cat's-eye · 3 = rings ·
- *  4 = spiral · 5 = stripes. */
-const PATTERNS: number[] = [0, 0, 1, 2, 3, 4, 5];
+/** Marble skins per color id (1..6). Every color family now has a small set
+ *  of skins (pattern types), and each marble picks one deterministically from
+ *  its seed — so same-colour marbles still vary and the splash screen can
+ *  show a random marble. The first entry is the classic signature look for
+ *  that colour.
+ *  0 = swirl · 1 = flecked · 2 = cat's-eye · 3 = rings · 4 = spiral ·
+ *  5 = stripes · 6 = starburst · 7 = dice dots. */
+const SKINS: number[][] = [
+  [],
+  [0, 6, 1],    // red: swirl, starburst, flecked
+  [1, 7, 2],    // orange: flecked, dice, cat's-eye
+  [2, 0, 5],    // yellow: cat's-eye, swirl, stripes
+  [3, 6, 7],    // green: rings, starburst, dice
+  [4, 3, 2],    // blue: spiral, rings, cat's-eye
+  [5, 1, 0],    // purple: stripes, flecked, swirl
+];
 
 type SpritePhase = 'move' | 'pop';
 
@@ -50,6 +61,12 @@ interface Sprite {
 export class MarblesComponent extends ChildComponent implements AfterViewInit, OnDestroy {
   @ViewChild('boardCanvas', { static: false }) canvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('opponentCanvas', { static: false }) opponentCanvasRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('splashCanvas', { static: false }) splashCanvasRef!: ElementRef<HTMLCanvasElement>;
+
+  /** Splash-screen marble: a random color + random skin, slowly rolling. */
+  private splashColor = 1;
+  private splashSeed = 1;
+  private splashRoll = 0;
 
   status: 'splash' | 'menu' | 'lobby' | 'playing' | 'won' = 'splash';
   playerName = '';
@@ -59,6 +76,9 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   mySent = 0;
   myReserve = 0;
   specialColor = 0;
+  // Per-match random seed offset for the opponent's board — randomized when a
+  // game starts so the opponent's marbles get fresh skins/tints every match.
+  private opponentSeedOffset = 0;
   winnerName: string | null = null;
   connected = false;
   opponents: MarblesOpponentView[] = [];
@@ -104,6 +124,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
   ngAfterViewInit(): void {
     this.resizeCanvas();
+    this.initSplash();
     window.addEventListener('resize', this._onResize);
 
     this.hub.connectionError$.subscribe(() => { this.connected = false; this.cdr.detectChanges(); });
@@ -115,6 +136,9 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       this.sprites = [];
       this._board = [];
       this.opponents = [];
+      // Fresh look every game: the opponent's board draws its marbles with a
+      // new random skin seed each match (stable within the match).
+      this.opponentSeedOffset = Math.floor(Math.random() * 100000) + 1;
       this.myReserve = 0;
       this.mySent = 0;
       this.cdr.detectChanges();
@@ -183,6 +207,9 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.vsAIDifficulty = difficulty;
     this.gameStartTime = Date.now();
     this.myScore = 0;
+    // Randomize before the first board update arrives (the server also fires
+    // OnGameStarted, which re-rolls it — either way it lands before rendering).
+    this.opponentSeedOffset = Math.floor(Math.random() * 100000) + 1;
     this.hub.startVsAI(this.roomCode, difficulty);
     this.status = 'playing';
     this.winnerName = null;
@@ -258,7 +285,71 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.loadHighScores();
     this.cdr.detectChanges();
   }
-  backToSplash(): void { this.status = 'splash'; this.cdr.detectChanges(); }
+  backToSplash(): void {
+    this.status = 'splash';
+    this.initSplash();
+    this.cdr.detectChanges();
+  }
+
+  /** Pick a fresh random color + skin for the splash marble and draw it. */
+  private initSplash(): void {
+    this.splashColor = 1 + Math.floor(Math.random() * 6);
+    this.splashSeed = 1 + Math.floor(Math.random() * 100000);
+    this.splashRoll = Math.random() * Math.PI * 2;
+    this.drawSplash();
+  }
+
+  /** Render the splash marble into its canvas (DPR-aware, soft fall shadow). */
+  private drawSplash(): void {
+    const canvas = this.splashCanvasRef?.nativeElement;
+    if (!canvas) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const size = 220;
+    if (canvas.width !== size * dpr) {
+      canvas.width = size * dpr;
+      canvas.height = size * dpr;
+    }
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, size, size);
+    // Soft drop shadow under the marble.
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(size / 2, size / 2 + 86, 70, 16, 0, 0, Math.PI * 2);
+    ctx.fill();
+    this.drawMarble(ctx, size / 2, size / 2, 88, this.splashColor, this.splashRoll, this.splashSeed, 0);
+    this.drawSplashGlint(ctx, size / 2, size / 2, 88);
+  }
+
+  /** Periodic specular shine sweeping across the splash marble — a thin,
+   *  slightly-tilted streak that fades in as it enters the sphere and out as
+   *  it leaves, once every ~4 seconds, clipped to the marble's circle so it
+   *  reads as light glinting off the glass rather than a moving bar. */
+  private drawSplashGlint(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
+    const period = 4;   // seconds between glint sweeps
+    const sweep = 0.9;  // seconds the streak takes to cross the marble
+    const t = (performance.now() / 1000) % period;
+    if (t > sweep) return; // resting between sweeps
+    const u = t / sweep;   // 0..1 across the sweep
+    const intensity = Math.sin(Math.PI * u); // fade in → peak mid-cross → fade out
+    const bandW = r * 0.55;
+    const gx = cx - r * 1.25 + u * (r * 2.5); // streak center travels left → right
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.translate(gx, cy);
+    ctx.rotate(-0.32); // slight diagonal tilt
+    ctx.globalAlpha = 0.4 * intensity;
+    const grad = ctx.createLinearGradient(-bandW / 2, 0, bandW / 2, 0);
+    grad.addColorStop(0, 'rgba(255,255,255,0)');
+    grad.addColorStop(0.5, '#ffffff');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(-bandW / 2, -r * 1.3, bandW, r * 2.6);
+    ctx.restore();
+  }
   toggleHowTo(): void { this.showHowTo = !this.showHowTo; this.playClick(); this.cdr.detectChanges(); }
 
   showMenuPanel(): void {
@@ -379,7 +470,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
   // ── Board + sprites ─────────────────────────────────────────────────────
 
-  private applyBoard(bu: { board: number[][]; popped: { row: number; col: number; color: number }[]; rained?: number; dropped?: boolean; specialColor?: number; reserve?: number; sent?: number; score?: number; alive?: boolean; winnerName?: string | null }): void {
+  private applyBoard(bu: { board: number[][]; popped: { row: number; col: number; color: number }[]; rained?: number; dropped?: boolean; rowShifted?: number; specialColor?: number; reserve?: number; sent?: number; score?: number; alive?: boolean; winnerName?: string | null }): void {
     const newBoard = bu.board;
     const oldBoard = this._board;
     this._board = newBoard;
@@ -395,12 +486,15 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
     // 2. Match surviving marbles to the new board by color, preferring
     //    shortest travel. Leftover new cells spawn from the top of their column.
-    //    IMPORTANT: a marble may only move within its own column (gravity /
-    //    column shifts) or along the pitch row (row shifts). It must NEVER
-    //    match across columns for anything else — otherwise a single new
-    //    marble dropping in could "steal" a same-colored marble from the
-    //    next column, whose cell then steals from the column after that,
-    //    and the whole board visibly shuffles sideways.
+    //
+    //    Movement rules: a marble may only move within its own column (gravity,
+    //    column shifts, drops) — the only exception is a marble sliding ALONG
+    //    the pitch row, which is only legitimate when the server says a row
+    //    shift happened this turn (rowShifted != 0). A drop adds a marble to a
+    //    single column and must never "steal" a same-colored marble from a
+    //    neighbor column, so without rowShifted every column is matched
+    //    strictly on its own pool.
+    const rowShifted = bu.rowShifted ?? 0;
     const live = this.sprites.filter(s => s.phase !== 'pop');
     const used = new Set<Sprite>();
     const next: Sprite[] = [];
@@ -410,17 +504,31 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         const color = newBoard[r]?.[c] ?? 0;
         if (!color) continue;
 
-        // Find the closest unused same-color marble.
+        // Find the closest unused same-color marble that can legally reach
+        // this cell: same column always; pitch-row slide only on a real row
+        // shift (pitch row first so the rotation animates as a slide).
         let best: Sprite | null = null;
         let bestDist = Infinity;
-        for (const s of live) {
-          if (used.has(s) || s.color !== color) continue;
-          const dr = s.row - r;
-          const dc = s.col - c;
-          // Same-column only, unless both ends are on the pitch row.
-          if (dc !== 0 && !(r === PITCH_ROW && s.row === PITCH_ROW)) continue;
-          const dist = dr * dr + dc * dc * 3;
-          if (dist < bestDist) { bestDist = dist; best = s; }
+        if (r === PITCH_ROW && rowShifted !== 0) {
+          for (const s of live) {
+            if (used.has(s) || s.color !== color || s.row !== PITCH_ROW) continue;
+            // Steps along the rotation direction to reach this cell. In a
+            // clean ±1 rotation the arriving marble is exactly 1 step away;
+            // a marble already sitting here (0 steps) means a duplicate
+            // color — prefer the one that actually rotates into the cell so
+            // the row slides as a whole instead of crossing paths. Remap so
+            // "slides 1" ranks best and "stays put" ranks worst.
+            const steps = ((c - s.col) * rowShifted + COLS) % COLS;
+            const dist = (steps + COLS - 1) % COLS;
+            if (dist < bestDist) { bestDist = dist; best = s; }
+          }
+        }
+        if (!best) {
+          for (const s of live) {
+            if (used.has(s) || s.color !== color || s.col !== c) continue;
+            const dist = Math.abs(s.row - r);
+            if (dist < bestDist) { bestDist = dist; best = s; }
+          }
         }
         if (best) {
           used.add(best);
@@ -571,7 +679,11 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.animId = requestAnimationFrame(x => this.loop(x));
     const dt = Math.min((t - this.lastTime) / 1000, 0.05);
     this.lastTime = t;
-    if (this.status === 'playing' || this.status === 'won') {
+    if (this.status === 'splash') {
+      // Slow roll so the splash marble's skin visibly spins.
+      this.splashRoll += dt * 1.1;
+      this.drawSplash();
+    } else if (this.status === 'playing' || this.status === 'won') {
       this.update(dt);
       this.draw();
       this.drawOpponent();
@@ -804,7 +916,10 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         if (!color) continue;
         const px = ox + (c + 0.5) * cell;
         const py = oy + (r + 0.5) * cell;
-        this.drawMarble(ctx, px, py, cell * 0.44, color, 0, r * COLS + c + 9000, this.opponent?.specialColor ?? 0);
+        // Cell seed + per-match random offset: the opponent's marbles keep
+        // their look while they move, but the whole board gets fresh skins and
+        // tints every game.
+        this.drawMarble(ctx, px, py, cell * 0.44, color, 0, r * COLS + c + 9000 + this.opponentSeedOffset, this.opponent?.specialColor ?? 0);
       }
     }
   }
@@ -920,7 +1035,11 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       clamp255(base[1] * (1 + tilt)),
       clamp255(base[2] * (1 + tilt)),
     ];
-    const style = PATTERNS[colorId] ?? 0;
+    // Skin per colour: each color family has a set of pattern types; the
+    // marble's seed picks which one, so the look is deterministic per marble
+    // (it keeps the same skin while sliding around the board) yet varied.
+    const skins = SKINS[colorId] ?? SKINS[1] ?? [0];
+    const style = skins[Math.floor(s0 * skins.length) % skins.length];
 
     // Soft contact shadow so each marble sits down into the dirt trench.
     ctx.fillStyle = 'rgba(0,0,0,0.26)';
@@ -1041,6 +1160,36 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
           else ctx.lineTo(px, py);
         }
         ctx.stroke();
+        break;
+      }
+      case 6: {
+        // Starburst — short rays radiating from a bright core.
+        const rays = 8 + Math.floor(s2 * 4);
+        ctx.strokeStyle = lighten(tinted, 0.42);
+        ctx.lineWidth = r * (0.06 + s3 * 0.04);
+        for (let i = 0; i < rays; i++) {
+          const a = s3 * Math.PI * 2 + (i / rays) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * r * 0.12, Math.sin(a) * r * 0.12);
+          ctx.lineTo(Math.cos(a) * r * (0.55 + s2 * 0.2), Math.sin(a) * r * (0.55 + s2 * 0.2));
+          ctx.stroke();
+        }
+        ctx.fillStyle = lighten(tinted, 0.55);
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.16, 0, Math.PI * 2);
+        ctx.fill();
+        break;
+      }
+      case 7: {
+        // Dice dots — a clear five-dot face (quincunx) that reads instantly.
+        ctx.fillStyle = darken(tinted, 0.3);
+        for (let i = 0; i < 5; i++) {
+          const ang = s3 * Math.PI * 2 + (i / 5) * Math.PI * 2 + 0.4;
+          const d = i < 4 ? r * 0.34 : 0;
+          ctx.beginPath();
+          ctx.arc(Math.cos(ang) * d, Math.sin(ang) * d, r * 0.13, 0, Math.PI * 2);
+          ctx.fill();
+        }
         break;
       }
       default: {

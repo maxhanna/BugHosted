@@ -81,28 +81,11 @@
       </div>
       <div style="display:flex; flex-wrap:wrap; gap: 15px;"
         *ngIf="isStoryExpanded(story.id) && (compactness === 'no' || compactness === 'yes' || isExpanded('storyTextContainer'+story.id)) && (compactness === 'yes' || !hasOverflow('storyTextContainer'+story.id) || (isExpanded('storyTextContainer'+story.id) && hasOverflow('storyTextContainer'+story.id)))">
-        <div *ngFor="let metadata of story?.metadata" class="metadataContent"
-          (click)="goToLink(story, metadata.url)" title="Open link">
-          <div class="metadataCardInner">
-            <div *ngIf="metadata.imageUrl" class="cursorPointerUnderlined metaImgDiv">
-              <img class="metadataImage" [src]="metadata.imageUrl" />
-              <button class="playButtonInMetadataImage playButton"
-                *ngIf="isValidYoutubeImageUrl(metadata.imageUrl)"></button>
-            </div>
-            <div class="metadataCardBody">
-              <div *ngIf="metadata.title" class="metadataTitle">{{metadata.title}}</div>
-              <div *ngIf="metadata.description" class="metadataDescription"
-                [innerHtml]="metadata.description | clickableUrls"></div>
-              <div class="metadataCardFooter">
-                <span class="metadataDomain" [title]="metadata.url">
-                  {{ getMetadataDomain(metadata.url) || metadata.url }}
-                </span>
-                <button type="button" class="metadataDetailsButton" (click)="showMetadataDetail(metadata, $event)"
-                  title="View full link metadata">ⓘ Details</button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <app-social-metadata *ngFor="let metadata of story?.metadata"
+          [url]="metadata.url ?? ''" [metadata]="metadata"
+          [inputtedParentRef]="parentRef ?? inputtedParentRef"
+          (detailsRequested)="showMetadataDetail($event)">
+        </app-social-metadata>
       </div>
     </div>
     <div *ngIf="isStoryExpanded(story.id)">

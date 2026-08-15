@@ -65,6 +65,8 @@ export interface MarblesBoardUpdate {
   rained: number;
   /** True when this update was triggered by a marble drop from the top. */
   dropped: boolean;
+  /** Non-zero when the pitch row was rotated this turn (marble slides along it are legit). */
+  rowShifted?: number;
   alive: boolean;
   winnerName: string | null;
   /** Other players' live boards (for the side-by-side / corner view). */

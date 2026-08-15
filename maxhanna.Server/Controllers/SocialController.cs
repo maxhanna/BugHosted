@@ -129,7 +129,7 @@ namespace maxhanna.Server.Controllers
       }
     }
 
-    private async Task<StoryResponse> GetStoriesAsync(GetStoryRequest request, string? search, string? topics, int page = 1, int pageSize = 10, bool showHiddenStories = false, ShowPostsFrom? showPostsFromFilter = ShowPostsFrom.All, bool includeDetails = true)
+    private async Task<StoryResponse> GetStoriesAsync(GetStoryRequest request, string? search, string? topics, int page = 1, int pageSize = 10, bool showHiddenStories = false, ShowPostsFrom? showPostsFromFilter = ShowPostsFrom.All, bool includeDetails = true, bool applyUserFilters = true)
     {
       // Private-chat boards are member-only: anonymous or non-member users get no
       // stories. Enforced against the board for chat-scoped reads AND against the
@@ -160,7 +160,12 @@ namespace maxhanna.Server.Controllers
       var whereClause = new StringBuilder(@" WHERE 1=1 ");
       var orderByClause = " ORDER BY s.id DESC ";
       var parameters = new Dictionary<string, object>();
-      if (request.UserId != 0)
+      // User-based filters (blocks, ignored topics) can be turned off for
+      // single-story lookups (GetStoryById), which still honor visibility so
+      // the author/followers can load non-public posts — but a story that a
+      // user was blocked from or a topic they ignored stays reachable by
+      // direct link, matching the old anonymous by-id behavior.
+      if (request.UserId != 0 && applyUserFilters)
       {
         whereClause.Append(@"
 					AND NOT EXISTS (
@@ -1759,13 +1764,16 @@ namespace maxhanna.Server.Controllers
     }
 
     [HttpGet("/Social/GetStoryById/{id}", Name = "GetStoryById")]
-    public async Task<IActionResult> GetStoryById(int id)
+    public async Task<IActionResult> GetStoryById(int id, [FromQuery] int? userId = null)
     {
       try
       {
-        // Call internal helper with UserId = 0 so server-side user-based blocking filters are not applied
-        var request = new GetStoryRequest { UserId = 0, StoryId = id };
-        var stories = await GetStoriesAsync(request, null, null, 1, 1, false, ShowPostsFrom.All);
+        // Pass the viewer through so visibility is honored (the author can load
+        // their own 'self'/'following' posts, followers can load 'following'
+        // posts) — but keep user-based block/ignored-topic filters off so a
+        // direct link behaves like the old anonymous path.
+        var request = new GetStoryRequest { UserId = userId ?? 0, StoryId = id };
+        var stories = await GetStoriesAsync(request, null, null, 1, 1, false, ShowPostsFrom.All, includeDetails: true, applyUserFilters: false);
         if (stories?.Stories != null && stories.Stories.Count > 0)
         {
           return Ok(stories.Stories[0]);

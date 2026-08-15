@@ -374,7 +374,7 @@ namespace maxhanna.Server.Hubs
                         0 => p => ShiftRowOn(p.Board, move.Dir),
                         _ => p => ShiftColumnOn(p.Board, move.Col, move.Dir),
                     };
-                    var (updates, winnerName) = ApplyMoveAndResolve(lobby, currentBot, apply);
+                    var (updates, winnerName) = ApplyMoveAndResolve(lobby, currentBot, apply, move.Kind == 0 ? move.Dir : 0);
                     if (updates.Count == 0) continue;
                     await SendMoveUpdatesAsync(code, updates, winnerName);
                     if (winnerName != null) return;
@@ -493,7 +493,7 @@ namespace maxhanna.Server.Hubs
         /// </summary>
         public async Task<object?> ShiftRow(string code, int dir)
         {
-            return await DoMove(code, p => ShiftRowOn(p.Board, dir));
+            return await DoMove(code, p => ShiftRowOn(p.Board, dir), dir);
         }
 
         /// <summary>
@@ -528,7 +528,7 @@ namespace maxhanna.Server.Hubs
             for (var r = 0; r < Rows; r++) board[r][col] = newCol[r];
         }
 
-        private async Task<object?> DoMove(string code, Action<Player> apply)
+        private async Task<object?> DoMove(string code, Action<Player> apply, int rowShiftDir = 0)
         {
             if (!_lobbies.TryGetValue(code, out var lobby)) return null;
             Player? mover;
@@ -539,7 +539,7 @@ namespace maxhanna.Server.Hubs
                 if (mover == null || !mover.Alive) return null;
             }
 
-            var (updates, winnerName) = ApplyMoveAndResolve(lobby, mover, apply);
+            var (updates, winnerName) = ApplyMoveAndResolve(lobby, mover, apply, rowShiftDir);
             if (updates.Count == 0) return null;
             await SendMoveUpdatesAsync(code, updates, winnerName);
             return new { ok = true };
@@ -549,8 +549,11 @@ namespace maxhanna.Server.Hubs
         /// Apply a shift to a player's board, resolve pitch-row matches,
         /// handle reserve dumps, and build the per-player update payloads.
         /// Shared by human moves and the single-player AI loop.
+        /// rowShiftDir is non-zero when the move rotated the pitch row, which
+        /// lets the client animate marbles sliding along it (and lets it know
+        /// NOT to slide them for drops, which only touch one column).
         /// </summary>
-        private static (Dictionary<string, object?> Updates, string? Winner) ApplyMoveAndResolve(Lobby lobby, Player mover, Action<Player> apply)
+        private static (Dictionary<string, object?> Updates, string? Winner) ApplyMoveAndResolve(Lobby lobby, Player mover, Action<Player> apply, int rowShiftDir = 0)
         {
             var updates = new Dictionary<string, object?>();
             var rainedBy = new Dictionary<string, int>();
@@ -582,7 +585,9 @@ namespace maxhanna.Server.Hubs
                     }
                 }
 
-                updates[mover.ConnectionId] = MakeUpdate(lobby, mover, result.Popped, 0, false);
+                var moverUpdate = MakeUpdate(lobby, mover, result.Popped, 0, false);
+                if (rowShiftDir != 0) moverUpdate["rowShifted"] = rowShiftDir;
+                updates[mover.ConnectionId] = moverUpdate;
                 foreach (var p in lobby.Players)
                 {
                     if (updates.ContainsKey(p.ConnectionId)) continue;

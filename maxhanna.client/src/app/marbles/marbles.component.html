@@ -16,7 +16,7 @@
     <!-- ── Splash screen ─────────────────────────────────────────────── -->
     <div class="marbles-splash" *ngIf="status === 'splash'" (click)="toMenu()">
       <div class="splash-marble" aria-hidden="true">
-        <div class="splash-marble-inner"></div>
+        <canvas #splashCanvas class="splash-marble-canvas" width="220" height="220"></canvas>
       </div>
       <h1 class="splash-title">
         <span>LOSE</span> <span>YOUR</span> <span>MARBLES!</span>

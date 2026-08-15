@@ -413,7 +413,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     // If a deep-linked storyId is present, fetch that single story directly (server will not apply per-user blocking when called this way)
     if (tmpStoryId) {
       try {
-        const single = await this.socialService.getStoryById(tmpStoryId);
+        const single = await this.socialService.getStoryById(tmpStoryId, this.parentRef?.user?.id);
         if (single) {
           // Decrypt story text client-side to match normal flow
           try {

@@ -23,6 +23,7 @@ import { UserListComponent } from './user-list/user-list.component';
 import { MemeComponent } from './meme/meme.component';
 import { SocialComponent } from './social/social.component';
 import { SocialPostComponent } from './social-post/social-post.component';
+import { SocialMetadataComponent } from './social-metadata/social-metadata.component';
 import { FileUploadComponent } from './file-upload/file-upload.component';
 import { NewsComponent } from './news/news.component';
 import { TopicsComponent } from './topics/topics.component';
@@ -117,6 +118,7 @@ import { ConversionComponent } from './conversion/conversion.component';
     MemeComponent,
     SocialComponent,
     SocialPostComponent,
+    SocialMetadataComponent,
     FileUploadComponent,
     NewsComponent,
     TopicsComponent,
@@ -221,6 +223,7 @@ import { ConversionComponent } from './conversion/conversion.component';
     MemeComponent,
     SocialComponent,
     SocialPostComponent,
+    SocialMetadataComponent,
     FileUploadComponent,
     NewsComponent,
     TopicsComponent,

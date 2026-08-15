@@ -2,7 +2,20 @@ import { Injectable, OnDestroy } from '@angular/core';
 import * as signalR from '@microsoft/signalr';
 import { Subject } from 'rxjs';
 
-export interface LobbyPlayer {
+/** Garage appearance synced between players so remote cars match what was
+ *  equipped: paint skin + part ids + neon glow. */
+export interface RacingCarAppearancePayload {
+  skinId: number;
+  spoilerId?: number;
+  rimId?: number;
+  exhaustId?: number;
+  decalId?: number;
+  glowId?: number;
+  accentId?: number;
+  glowIntensity?: number;
+}
+
+export interface LobbyPlayer extends RacingCarAppearancePayload {
   connectionId: string;
   playerName: string;
   playerId: number;
@@ -29,6 +42,24 @@ export interface RacingLobbySummary {
   trackId: string;
   players: number;
   status: string;
+}
+
+/** One AI driver's state, relayed from the authoritative bot simulator (the
+ *  lobby host) so every client renders the same bots in the same places. */
+export interface BotPositionPayload {
+  i: number;
+  x: number;
+  z: number;
+  yaw: number;
+  speed: number;
+  dist: number;
+  raceDist: number;
+  lap: number;
+  alive: boolean;
+  slide: number;
+  brakeCommitment: number;
+  crashTimer: number;
+  rimBumpTimer: number;
 }
 
 export interface RemoteCarPosition {
@@ -99,9 +130,13 @@ export class RacingHubService implements OnDestroy {
   readonly playerLeft$ = new Subject<string>();
   readonly playerReadyChanged$ = new Subject<{ connectionId: string; ready: boolean }>();
   readonly playerSkinChanged$ = new Subject<{ connectionId: string; skinId: number }>();
+  /** Full garage appearance changed (paint + parts + glow) for a roster member. */
+  readonly playerAppearanceChanged$ = new Subject<{ connectionId: string } & RacingCarAppearancePayload>();
   readonly raceCountdown$ = new Subject<number>();
   readonly raceStarted$ = new Subject<{ startTime: number; totalLaps: number; grid?: RaceGridSlot[] }>();
   readonly carPositionUpdate$ = new Subject<RemoteCarPosition>();
+  /** AI drivers relayed from the authoritative simulator (the lobby host). */
+  readonly botPositionUpdate$ = new Subject<{ connectionId: string; bots: BotPositionPayload[] }>();
   readonly playerFinished$ = new Subject<PlayerFinishedEvent>();
   readonly raceStandings$ = new Subject<RaceStandingsRow[]>();
   /** Winner of the just-finished race (null when nobody finished). */
@@ -152,6 +187,10 @@ export class RacingHubService implements OnDestroy {
         this.playerSkinChanged$.next(data);
       });
 
+      this.hub.on('OnPlayerAppearanceChanged', (data: { connectionId: string } & RacingCarAppearancePayload) => {
+        this.playerAppearanceChanged$.next(data);
+      });
+
       this.hub.on('OnRaceCountdown', (count: number) => {
         this.raceCountdown$.next(count);
       });
@@ -162,6 +201,10 @@ export class RacingHubService implements OnDestroy {
 
       this.hub.on('OnCarPositionUpdate', (data: RemoteCarPosition) => {
         this.carPositionUpdate$.next(data);
+      });
+
+      this.hub.on('OnBotPositionUpdate', (data: { connectionId: string; bots: BotPositionPayload[] }) => {
+        this.botPositionUpdate$.next(data);
       });
 
       this.hub.on('OnPlayerFinished', (data: PlayerFinishedEvent) => {
@@ -217,10 +260,10 @@ export class RacingHubService implements OnDestroy {
     this.hub = null;
   }
 
-  async joinLobby(trackId: string, playerName: string, playerId: number, laps = 3, totalTrackDist = 0, upgradeLevel = 0): Promise<LobbyState | null> {
+  async joinLobby(trackId: string, playerName: string, playerId: number, laps = 3, totalTrackDist = 0, upgradeLevel = 0, appearance?: RacingCarAppearancePayload): Promise<LobbyState | null> {
     try {
       if (!this.connected) await this.connect();
-      return await this.hub!.invoke<LobbyState>('JoinLobby', trackId, playerName, playerId, laps, totalTrackDist, upgradeLevel);
+      return await this.hub!.invoke<LobbyState>('JoinLobby', trackId, playerName, playerId, laps, totalTrackDist, upgradeLevel, appearance);
     } catch (err) {
       console.error('JoinLobby failed:', err);
       return null;
@@ -256,6 +299,12 @@ export class RacingHubService implements OnDestroy {
     try { await this.hub!.invoke('UpdateSkin', trackId, skinId); } catch { }
   }
 
+  /** Broadcast the caller's full garage appearance to the lobby. */
+  async updateCarAppearance(trackId: string, appearance: RacingCarAppearancePayload): Promise<void> {
+    if (!this.connected) return;
+    try { await this.hub!.invoke('UpdateCarAppearance', trackId, appearance); } catch { }
+  }
+
   async startRace(trackId: string, laps = 3, totalTrackDist = 0): Promise<void> {
     if (!this.connected) return;
     try { await this.hub!.invoke('StartRace', trackId, laps, totalTrackDist); } catch { }
@@ -269,6 +318,12 @@ export class RacingHubService implements OnDestroy {
   async syncPosition(trackId: string, data: RemoteCarPosition): Promise<void> {
     if (!this.connected) return;
     try { await this.hub!.invoke('SyncPosition', trackId, data); } catch { }
+  }
+
+  /** Publish the authoritative AI-driver states (host only; server relays them). */
+  async syncBotPositions(trackId: string, bots: BotPositionPayload[]): Promise<void> {
+    if (!this.connected) return;
+    try { await this.hub!.invoke('SyncBotPositions', trackId, bots); } catch { }
   }
 
   async finishRace(trackId: string, position: number, totalTimeMs: number, laps = 0): Promise<void> {

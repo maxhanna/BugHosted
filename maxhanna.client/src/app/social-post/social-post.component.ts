@@ -123,7 +123,7 @@ export class SocialPostComponent extends ChildComponent implements OnInit {
   private async fetchStory() {
     if (!this.socialId) { this.isLoading = false; return; }
     this.isLoading = true;
-    const s = await this.socialService.getStoryById(this.socialId);
+    const s = await this.socialService.getStoryById(this.socialId, this.parentRef?.user?.id ?? this.inputtedParentRef?.user?.id);
     if (s) {
       try {
         s.storyText = this.encryptionService.decryptContent(s.storyText ?? '', s.user?.id + '');

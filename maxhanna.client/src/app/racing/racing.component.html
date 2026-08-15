@@ -200,7 +200,8 @@
         <div class="race-mp-players" *ngIf="selectedTrack && lobbyPlayers.length > 0">
           <div class="mp-player-row" *ngFor="let p of lobbyPlayers"
             [class.mp-player-me]="p.connectionId === myConnectionId"
-            [style.border-left-color]="getPlayerColor(p.connectionId)">
+            [style.border-left-color]="getPlayerColor(p.connectionId)"
+            (mouseenter)="showPlayerPreview(p)" (mouseleave)="hidePlayerPreview()">
             <div class="mp-player-name">
               <span class="mp-player-dot" [style.background]="getPlayerColor(p.connectionId)"></span>
               {{ p.playerName }}
@@ -211,6 +212,19 @@
             <div class="mp-player-status">
               <span class="mp-ready-yes" *ngIf="p.ready">✓ READY</span>
               <span class="mp-ready-no" *ngIf="!p.ready">WAITING</span>
+            </div>
+            <!-- Hover popup: live garage-preview of this player's car, drawn by
+                 the WebGL renderer into the transparent stage below (same
+                 mechanism as the garage). pointer-events:none keeps the hover
+                 stable while the mouse passes over the popup itself. -->
+            <div class="mp-preview-popup" *ngIf="hoveredPlayer === p && p.connectionId !== myConnectionId">
+              <div class="mp-preview-head">
+                <span class="mp-player-dot" [style.background]="getPlayerColor(p.connectionId)"></span>
+                <span class="mp-preview-name">{{ p.playerName }}</span>
+                <span class="mp-host-badge" *ngIf="p.isHost">HOST</span>
+              </div>
+              <div class="mp-preview-stage" #hoverPreviewStage></div>
+              <div class="mp-preview-footer">🏁 Garage livery</div>
             </div>
           </div>
         </div>
@@ -334,10 +348,6 @@
           <label class="race-option-row">
             <span class="race-option-label">🔭 Speed zoom (FOV widens as you accelerate)</span>
             <input type="checkbox" class="race-option-check" [checked]="speedFovOn" (change)="toggleSpeedFov()">
-          </label>
-          <label class="race-option-row">
-            <span class="race-option-label">🧤 Driver grip animation (hands curl with steering)</span>
-            <input type="checkbox" class="race-option-check" [checked]="gloveGripOn" (change)="toggleGloveGrip()">
           </label>
         </div>
 

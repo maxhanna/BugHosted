@@ -1,0 +1,181 @@
+:host {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+}
+
+.metadataContent {
+  width: 100%;
+  max-width: 100%;
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid var(--main-border-color);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--main-background-color);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.metadataContent:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  border-color: var(--main-highlight-color);
+}
+
+.metadataCardInner {
+  width: 100%;
+}
+
+.metadataCardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px 10px;
+}
+
+.metadataCardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.metadataDomain {
+  font-size: 11px;
+  color: var(--secondary-font-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metadataDetailsButton {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--main-border-color);
+  background: var(--main-highlight-color);
+  color: var(--main-font-color);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.metadataDetailsButton:hover {
+  background: var(--main-highlight-color-quarter-opacity);
+}
+
+.metaImgDiv {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+}
+
+.metadataImage {
+  max-width: 100%;
+  max-height: 500px;
+}
+
+@media only screen and (max-device-width: 800px) {
+  .metadataImage {
+    max-width: 300px;
+    max-height: 300px;
+  }
+}
+
+.metadataDescription {
+  font-size: smaller;
+  color: var(--secondary-font-color);
+  text-align: center;
+}
+
+.metadataTitle {
+  font-size: small;
+  color: var(--main-font-color);
+}
+
+.metadataLoadingText {
+  font-size: smaller;
+  color: var(--secondary-font-color);
+  text-align: center;
+  animation: socialMetadataPulse 1.2s ease-in-out infinite;
+}
+
+.metadataLoading .metadataCardBody {
+  min-height: 34px;
+}
+
+@keyframes socialMetadataPulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+.playButtonInMetadataImage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 10px 20px;
+  background-color: rgba(255, 0, 0, 0.7);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.playButton {
+  background: rgba(255, 0, 0, 0.25);
+  border-radius: 50% / 10%;
+  color: #FFFFFF;
+  height: 3em;
+  margin: 20px auto;
+  padding: 0;
+  text-align: center;
+  text-indent: 0.1em;
+  transition: all 150ms ease-out;
+  width: 4em;
+  box-shadow: inset 0px 2px 5px rgba(255, 255, 255, 0.6),
+    inset 0px -2px 5px rgba(0, 0, 0, 0.5),
+    0px 5px 10px rgba(0, 0, 0, 0.5);
+}
+
+.playButton:hover {
+  background: red;
+  box-shadow: inset 0px 2px 5px rgba(255, 255, 255, 0.8), inset 0px -2px 5px rgba(0, 0, 0, 0.6), 0px 5px 15px rgba(0, 0, 0, 0.7);
+}
+
+.playButton::before {
+  background: inherit;
+  border-radius: 5% / 50%;
+  bottom: 9%;
+  content: "";
+  left: -5%;
+  position: absolute;
+  right: -5%;
+  top: 9%;
+  background: linear-gradient(60deg, rgba(255, 255, 255, 0.2) 10%, transparent 50%, rgba(0, 0, 0, 0.2) 90%);
+  clip-path: polygon(20% 10%, 80% 10%, 95% 50%, 80% 90%, 20% 90%, 6% 50%);
+}
+
+.playButton::after {
+  border-style: solid;
+  border-width: 1em 0 1em 1.732em;
+  border-color: transparent transparent transparent rgba(255, 255, 255, 0.85);
+  content: ' ';
+  font-size: 0.75em;
+  height: 0;
+  margin: -1em 0 0 -0.75em;
+  top: 50%;
+  left: 53%;
+  position: absolute;
+  width: 0;
+}

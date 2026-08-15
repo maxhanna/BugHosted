@@ -5,7 +5,7 @@ import { AppModule } from '../app.module';
 import { ChildComponent } from '../child.component';
 import { RacingRenderer, TrackPoint, DECAL_LAYOUTS, getAccentSegsForStyle } from './racing-renderer';
 import { RacingService } from '../../services/racing.service';
-import { RacingHubService, LobbyPlayer, RemoteCarPosition, RaceStandingsRow, RaceGridSlot } from '../../services/racing-hub.service';
+import { RacingHubService, LobbyPlayer, RacingCarAppearancePayload, RemoteCarPosition, RaceStandingsRow, RaceGridSlot, BotPositionPayload } from '../../services/racing-hub.service';
 import {
   RacingPlayerCar, RaceResult, RacingAppearancePart,
   TRACKS, UPGRADE_DEFS, CAR_SKINS, BOT_CONFIGS, APPEARANCE_PARTS, TrackDefinition,
@@ -135,6 +135,13 @@ interface BotCar {
   pid: number;
   lapStart: number;
   bestLap: number;
+  // Multiplayer consensus: followers don't simulate bots locally — they render
+  // the authoritative state the lobby host relays, easing toward these targets
+  // every frame so the 10Hz updates read as smooth motion instead of steps.
+  tx?: number;
+  tz?: number;
+  tyaw?: number;
+  tdist?: number;
 }
 interface RemoteAudioVoice {
   engineOsc: OscillatorNode;
@@ -161,6 +168,15 @@ interface RemoteCarVisual {
   lap: number;
   slide: number;
   raceDist?: number;
+  // Garage appearance synced from the player (fallback red until known).
+  skinId?: number;
+  spoilerId?: number;
+  rimId?: number;
+  exhaustId?: number;
+  decalId?: number;
+  glowId?: number;
+  accentId?: number;
+  glowIntensity?: number;
 }
 // Reused per-frame render slot — the live race carList used to build a fresh
 // object literal per bot/remote/player car (plus an appearance spread) every
@@ -183,6 +199,12 @@ interface CarListSlot extends RacingCarAppearance {
 export class RacingComponent extends ChildComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('raceCanvas', { static: false }) canvasRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('garageStage', { static: false }) garageStageEl?: ElementRef<HTMLDivElement>;
+  // Lobby hover preview: the roster player whose garage livery is shown in a
+  // small popup next to their row (rendered on the main canvas like the garage
+  // stage), plus its auto-rotate angle.
+  @ViewChild('hoverPreviewStage', { static: false }) hoverPreviewStageEl?: ElementRef<HTMLDivElement>;
+  hoveredPlayer: LobbyPlayer | null = null;
+  private hoverRotY = -40;
   renderer!: RacingRenderer;
   private animId = 0;
   private lastTime = 0;
@@ -411,6 +433,16 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private _botSpins = new Map<BotCar, number>();
   private _remoteSpins = new Map<string, number>();
   private _playerSpin = 0;
+  // Multiplayer bot consensus: the lobby host is the authoritative bot
+  // simulator and relays every AI driver's state to the server (~10Hz), which
+  // broadcasts it so both players render the same bots in the same places.
+  // A wall-clock ticker keeps the host's simulation advancing even when its
+  // tab is out of focus (rAF pauses in the background), so coming back to the
+  // race doesn't leave the field behind the other player's view.
+  private _botAuthoritative = false;
+  private _lastBotSimTime = 0;
+  private _botSimTicker: any = null;
+  private _botSyncTimer = 0;
   private _screechSource: AudioBufferSourceNode | null = null;
   private _screechFilter: BiquadFilterNode | null = null;
   private _screechGain: GainNode | null = null;
@@ -469,9 +501,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   showOptions = false;
   cameraShakeOn = true;
   speedFovOn = true;
-  /** 3D driver's hands curl with steering input (grip animation). Off for
-   *  players who find it distracting. Persisted. */
-  gloveGripOn = true;
   /** Opt-in frame-budget profiler (?profile=1) — logs per-subsystem ms/frame
    *  to the console every ~120 frames so a session can be driven through
    *  corners and the hot costs measured. Off = one boolean check per mark. */
@@ -499,7 +528,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     try { this.cameraShakeOn = localStorage.getItem('gp_shake') !== '0'; } catch { }
     try { this.speedFovOn = localStorage.getItem('gp_fov') !== '0'; } catch { }
     try { this.garageLivePreview = localStorage.getItem('gp_livepreview') !== '0'; } catch { }
-    try { this.gloveGripOn = localStorage.getItem('gp_glovegrip') !== '0'; } catch { }
     this.restoreGarageCam();
     this.userEventService.insertUserEvent(
       this.parentRef?.user?.id ?? 0, "racing", "Started Racing!", undefined, "Racing"
@@ -521,7 +549,30 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           if (!this.lobbyPlayers.find(x => x.connectionId === p.connectionId)) {
             this.lobbyPlayers.push(p);
           }
+          // The joiner's garage appearance is in the payload — apply it to an
+          // already-visible remote car (e.g. grid placement) right away.
+          const rc = this.remoteCars.get(p.connectionId);
+          if (rc) this.applyAppearanceToRemote(rc, p);
           this.addMessage(`${p.playerName} joined!`);
+        });
+      })
+    );
+    this._mpSubs.push(
+      this.racingHub.playerAppearanceChanged$.subscribe(data => {
+        this.ngZone.run(() => {
+          const p = this.lobbyPlayers.find(x => x.connectionId === data.connectionId);
+          if (p) {
+            p.skinId = data.skinId;
+            p.spoilerId = data.spoilerId;
+            p.rimId = data.rimId;
+            p.exhaustId = data.exhaustId;
+            p.decalId = data.decalId;
+            p.glowId = data.glowId;
+            p.accentId = data.accentId;
+            p.glowIntensity = data.glowIntensity;
+          }
+          const rc = this.remoteCars.get(data.connectionId);
+          if (rc) this.applyAppearanceToRemote(rc, data);
         });
       })
     );
@@ -643,7 +694,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           if (typeof data.raceDist === 'number') existing.raceDist = data.raceDist;
         } else {
           const player = this.lobbyPlayers.find(p => p.connectionId === data.connectionId);
-          this.remoteCars.set(data.connectionId, {
+          const rc: RemoteCarVisual = {
             connectionId: data.connectionId,
             playerName: player?.playerName || '???',
             playerId: player?.playerId || 0,
@@ -654,9 +705,20 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
             lap: data.currentLap || 0,
             slide: 0,
             raceDist: typeof data.raceDist === 'number' ? data.raceDist : undefined,
-          });
+          };
+          this.applyAppearanceToRemote(rc, player);
+          this.remoteCars.set(data.connectionId, rc);
           this.totalRacers = this.bots.length + this.lobbyPlayers.length;
         }
+      })
+    );
+    // Authoritative bot states relayed by the host — followers render these
+    // instead of simulating their own divergent bots (the consensus that keeps
+    // both players' fields identical, even after one of them returns from an
+    // out-of-focus background tab). Not wrapped in ngZone: canvas-only state.
+    this._mpSubs.push(
+      this.racingHub.botPositionUpdate$.subscribe(data => {
+        this.applyBotRelay(data.bots);
       })
     );
     this._mpSubs.push(
@@ -725,6 +787,15 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           if (me) me.isHost = true;
           this.addMessage('You are now the host!');
         });
+        // A host leaving mid-race promotes this client: take over the bot
+        // simulation from the relayed state (which it has been rendering) so
+        // the field keeps racing without a hitch.
+        if (this.gameState === 'racing' && this._mpLobbyTrackId) {
+          this._botAuthoritative = true;
+          this._lastBotSimTime = performance.now();
+          this._botSyncTimer = 0;
+          this._startBotSimTicker();
+        }
       })
     );
     this._mpSubs.push(
@@ -756,6 +827,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           this.gameState = 'menu';
           this.showMultiplayer = true;
           this.addMessage('Rematch! Ready up to race again.');
+          // The race is over — stop the authoritative sim until the next
+          // BeginRace starts it again with a fresh field.
+          this._stopBotSimTicker();
+          this._botAuthoritative = false;
         });
       })
     );
@@ -792,7 +867,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     const lowQuality = this.isMobile || ((navigator.hardwareConcurrency ?? 8) <= 4);
     this.renderer = new RacingRenderer(canvas, lowQuality);
     this.renderer.profile = this.profile;
-    this.renderer.gloveGripEnabled = this.gloveGripOn;
     this.isLoaded = true;
     this._onKeyDown = (e: KeyboardEvent) => {
       if (this._destroyed) return;
@@ -870,6 +944,11 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.stopLobbyCountsPolling();
     this.stopMpStartCountdown();
     this.stopAutoStartTicker();
+    this._stopBotSimTicker();
+    if (this._visListenerAdded) {
+      this._visListenerAdded = false;
+      document.removeEventListener('visibilitychange', this._onVisibilityChange);
+    }
     this.stopStandingsCountdown();
     this.stopReplayUiTimer();
     if (this.msgTimer) clearTimeout(this.msgTimer);
@@ -1058,7 +1137,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.trackIdStr = tid;
     this._mpLobbyTrackId = tid;
     const upgradeLevel = this.playerCar.upgrades.reduce((sum, u) => sum + (u.level || 0), 0);
-    const state = await this.racingHub.joinLobby(tid, username, userId, track.laps, this.renderer?.totalTrackDist || 0, upgradeLevel);
+    const state = await this.racingHub.joinLobby(tid, username, userId, track.laps, this.renderer?.totalTrackDist || 0, upgradeLevel, this.carAppearancePayload());
     if (state) {
       this.lobbyPlayers = state.players;
       this.isLobbyHost = state.isHost;
@@ -1310,6 +1389,19 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.spawnBots(4);
     this.totalRacers = this.bots.length + this.lobbyPlayers.length;
     this.preplaceRemotesOnGrid();
+    // Bot consensus: the lobby host owns the AI simulation and relays it to
+    // the other clients; everyone else renders the relayed state. Started here
+    // so the very first relay tick covers the grid rollout at lights-out.
+    this._botAuthoritative = this.isLobbyHost;
+    this._lastBotSimTime = performance.now();
+    this._botSyncTimer = 0;
+    this._startBotSimTicker();
+    // The roster unmounts once the lights drop — drop any open hover preview.
+    this.hoveredPlayer = null;
+    if (!this._visListenerAdded) {
+      this._visListenerAdded = true;
+      document.addEventListener('visibilitychange', this._onVisibilityChange);
+    }
     if (this.selectedTrack) {
       this.playerCar.money -= this.selectedTrack.entryFee;
       this.saveCar();
@@ -1326,6 +1418,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     await this.racingHub.leaveLobby(this._mpLobbyTrackId);
     this.stopMpStartCountdown();
     this.stopAutoStartTicker();
+    this._stopBotSimTicker();
+    this._botAuthoritative = false;
+    this.hoveredPlayer = null;
     this.autoStartSeconds = 0;
     this.autoStartDeadline = 0;
     this._autoStartTotalMs = 0;
@@ -1530,7 +1625,8 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       if (g.playerId === myId || g.connectionId === myConn) continue;
       if (this.remoteCars.has(g.connectionId)) continue;
       const pos = this.gridSlotPosition(g.slot);
-      this.remoteCars.set(g.connectionId, {
+      const lp = this.lobbyPlayers.find(x => x.connectionId === g.connectionId);
+      const rc: RemoteCarVisual = {
         connectionId: g.connectionId,
         playerName: g.playerName,
         playerId: g.playerId,
@@ -1539,7 +1635,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         colorR: 0.9, colorG: 0.3, colorB: 0.3,
         lap: 0, slide: 0,
         raceDist: this.gridPlaceForSlot(g.slot).offset,
-      });
+      };
+      this.applyAppearanceToRemote(rc, lp);
+      this.remoteCars.set(g.connectionId, rc);
       this.totalRacers = this.bots.length + this.lobbyPlayers.length;
     }
   }
@@ -1789,7 +1887,19 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (this.gameState === 'racing') {
       this.updatePhysics(dt);
       if (this.profile) this.pMark('physics');
-      this.updateBots(dt);
+      if (this._mpLobbyTrackId) {
+        // Multiplayer: one authoritative simulator (the host) drives the bots
+        // and relays them; followers render the relayed state so both players
+        // see the same field. The host's advance uses wall-clock elapsed time
+        // so a backgrounded tab (rAF paused) is caught up by the ticker.
+        if (this._botAuthoritative) {
+          this.advanceBotSim(performance.now() - this._lastBotSimTime);
+        } else {
+          this.smoothRemoteBots(dt);
+        }
+      } else {
+        this.updateBots(dt);
+      }
       if (this.profile) this.pMark('bots');
       this.checkLapCrossing();
       this.updateRacePosition();
@@ -1875,6 +1985,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
           this.renderer.renderGarage(this.carRotateY, this.carRotateX, this.carZoom,
             this.getPreviewAppearance(), vp, dt);
         }
+        this.renderPlayerPreview(dt);
         return;
       }
       const aspect = this.canvasRef.nativeElement.width / this.canvasRef.nativeElement.height;
@@ -1953,7 +2064,14 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         s.spin = spin;
         s.slide = rc.slide;
         s.id = 'r' + rc.connectionId; s.bank = rcBank;
-        this.fillBotAppearance(s, i, seed);
+        if (rc.skinId) {
+          // Real racer: use their garage appearance (paint, rims, decal, glow).
+          this.fillRemoteAppearance(s, rc);
+          if (s.skin) { s.r = s.skin[0]; s.g = s.skin[1]; s.b = s.skin[2]; }
+        } else {
+          // Appearance not synced yet — fall back to the bot-style look.
+          this.fillBotAppearance(s, i, seed);
+        }
         carList.push(s);
       });
       // During the countdown pan the camera is away from the car, so add the
@@ -1979,6 +2097,9 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       // The rear-view mirror is meaningless while the cinematic pan is active.
       this.renderer.render(eyeX, eyeY, eyeZ, yaw, pitch, aspect, carList, dt, fovZoom, shakeX, shakeY, this.isRaining, speedRatio, this.carSpeed, this.carAccel, this._playerSpin, this._playerSlide, pa, countdownPanActive, this.steerSmoothed / 90);
       if (this.profile) this.pMark('render');
+      // Lobby roster hover popup — draw the hovered player's car over the
+      // scene, in its own viewport rect, after the world pass.
+      this.renderPlayerPreview(dt);
       this.hudSpeed = Math.abs(this.carSpeed * 3.6);
       this.hudRPM = this.gameState === 'countdown'
         ? Math.min(1, this._countdownRev * 1.2)
@@ -2551,6 +2672,124 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       }
     }
   }
+  /** Advance the authoritative bot simulation by the real elapsed time and
+   *  relay the field to the server (~10Hz). Called from the frame loop while
+   *  the tab is in focus — each frame steps the sim by its own wall-clock dt
+   *  (≤0.1s), so the sim stays on real time and followers see it move smoothly. */
+  private advanceBotSim(elapsedMs: number) {
+    if (!this._botAuthoritative || this.gameState !== 'racing' || !this.renderer) return;
+    const dt = Math.min(Math.max(elapsedMs, 0) / 1000, 0.1);
+    this.updateBots(dt);
+    this._lastBotSimTime = performance.now();
+    this._botSyncTimer += dt;
+    if (this._botSyncTimer >= 0.1) {
+      this._botSyncTimer = 0;
+      this.relayBotPositions();
+    }
+  }
+
+  /** Wall-clock ticker: when rAF stops (background tab), keep the authoritative
+   *  simulation advancing at ~real time so the host isn't left behind when they
+   *  come back. Fires every 200ms but only acts when frames are actually
+   *  missing (elapsed ≥200ms), so it never doubles up with the frame loop.
+   *  Browsers throttle background setInterval (≈1s), so each tick catches the
+   *  sim up in 0.1s substeps — the same tuned step the frame loop uses. */
+  private _startBotSimTicker() {
+    this._stopBotSimTicker();
+    this._botSimTicker = setInterval(() => {
+      if (!this._botAuthoritative) return;
+      const elapsed = performance.now() - this._lastBotSimTime;
+      if (elapsed >= 200) this.catchUpBotSim(elapsed, 2000);
+    }, 200);
+  }
+
+  /** Catch the simulation up to real time in 0.1s substeps (the tuned step the
+   *  frame loop uses, so bot behavior matches a focused race), capped per call
+   *  so a single burst can't freeze the tab. Used by the background ticker and
+   *  by the visibility-change handler when the host tab returns to focus. */
+  private catchUpBotSim(elapsedMs: number, maxCatchUpMs: number) {
+    if (!this._botAuthoritative || this.gameState !== 'racing' || !this.renderer) return;
+    let remaining = Math.min(Math.max(elapsedMs, 0), maxCatchUpMs) / 1000;
+    while (remaining > 0) {
+      const dt = Math.min(0.1, remaining);
+      this.updateBots(dt);
+      remaining -= dt;
+    }
+    this._lastBotSimTime = performance.now();
+    this._botSyncTimer = 0;
+    this.relayBotPositions();
+  }
+
+  /** Publish the authoritative AI-driver states to the server, which relays
+   *  them to every other client (the consensus view). */
+  private relayBotPositions() {
+    const bots: BotPositionPayload[] = this.bots.map((b, i) => ({
+      i,
+      x: b.x, z: b.z, yaw: b.yaw, speed: b.speed,
+      dist: b.dist, raceDist: b.raceDist, lap: b.lap,
+      alive: b.alive, slide: b.slide || 0,
+      brakeCommitment: b.brakeCommitment ?? 0,
+      crashTimer: b.crashTimer, rimBumpTimer: b.rimBumpTimer,
+    }));
+    this.racingHub.syncBotPositions(this._mpLobbyTrackId, bots);
+  }
+
+  /** When the host tab comes back into focus, snap the sim up to where
+   *  followers have been seeing it the whole time (bounded burst, substeps). */
+  private _onVisibilityChange = () => {
+    if (document.hidden) return;
+    if (!this._botAuthoritative || this.gameState !== 'racing') return;
+    const elapsed = performance.now() - this._lastBotSimTime;
+    if (elapsed > 500) this.catchUpBotSim(elapsed, 15000);
+  };
+  private _visListenerAdded = false;
+  private _stopBotSimTicker() {
+    if (this._botSimTicker) {
+      clearInterval(this._botSimTicker);
+      this._botSimTicker = null;
+    }
+  }
+
+  /** Apply the authoritative bot states relayed by the host: snap the first
+   *  update (so the field doesn't ease across the whole circuit from the grid),
+   *  then record easing targets the frame loop moves toward. */
+  private applyBotRelay(bots: BotPositionPayload[]) {
+    if (this._botAuthoritative) return;
+    for (const p of bots) {
+      const b = this.bots[p.i];
+      if (!b) continue;
+      const first = b.tx === undefined;
+      if (first) {
+        b.x = p.x; b.z = p.z; b.yaw = p.yaw; b.dist = p.dist;
+      }
+      b.tx = p.x; b.tz = p.z; b.tyaw = p.yaw; b.tdist = p.dist;
+      b.speed = p.speed;
+      b.slide = p.slide;
+      b.brakeCommitment = p.brakeCommitment;
+      b.raceDist = p.raceDist;
+      b.lap = p.lap;
+      b.alive = p.alive;
+      b.crashTimer = p.crashTimer;
+      b.rimBumpTimer = p.rimBumpTimer;
+    }
+  }
+
+  /** Followers don't simulate bots locally — ease the rendered cars toward the
+   *  authoritative relayed positions so the ~10Hz updates read as smooth motion. */
+  private smoothRemoteBots(dt: number) {
+    const k = Math.min(1, dt * 14);
+    for (const b of this.bots) {
+      if (b.tx === undefined) continue;
+      b.x += ((b.tx ?? b.x) - b.x) * k;
+      b.z += ((b.tz ?? b.z) - b.z) * k;
+      let yd = (b.tyaw ?? b.yaw) - b.yaw;
+      while (yd > Math.PI) yd -= Math.PI * 2;
+      while (yd < -Math.PI) yd += Math.PI * 2;
+      b.yaw += yd * k;
+      b.dist += ((b.tdist ?? b.dist) - b.dist) * k;
+    }
+  }
+
   private checkLapCrossing() {
     const prevDist = this.lastCarDist;
     const trackLen = this.renderer.totalTrackDist;
@@ -3243,6 +3482,51 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   }
   async saveCar() {
     await this.racingService.savePlayerCar(this.playerCar);
+    // Keep any open multiplayer lobby in sync with the freshly equipped look.
+    if (this._mpLobbyTrackId) {
+      this.racingHub.updateCarAppearance(this._mpLobbyTrackId, this.carAppearancePayload());
+    }
+  }
+
+  /** The player's garage appearance, as sent to the server (JoinLobby / updates). */
+  private carAppearancePayload(): RacingCarAppearancePayload {
+    return {
+      skinId: this.playerCar.skinId || 1,
+      spoilerId: this.playerCar.spoilerId || 0,
+      rimId: this.playerCar.rimId || 0,
+      exhaustId: this.playerCar.exhaustId || 0,
+      decalId: this.playerCar.decalId || 0,
+      glowId: this.playerCar.glowId || 0,
+      accentId: this.playerCar.accentId || 0,
+      glowIntensity: this.playerCar.glowIntensity ?? 50,
+    };
+  }
+
+  /** Copy a remote player's synced appearance onto its remote-car entry. */
+  private applyAppearanceToRemote(rc: RemoteCarVisual, src?: Partial<RacingCarAppearancePayload>): void {
+    if (!src) return;
+    if (src.skinId !== undefined) rc.skinId = src.skinId;
+    if (src.spoilerId !== undefined) rc.spoilerId = src.spoilerId;
+    if (src.rimId !== undefined) rc.rimId = src.rimId;
+    if (src.exhaustId !== undefined) rc.exhaustId = src.exhaustId;
+    if (src.decalId !== undefined) rc.decalId = src.decalId;
+    if (src.glowId !== undefined) rc.glowId = src.glowId;
+    if (src.accentId !== undefined) rc.accentId = src.accentId;
+    if (src.glowIntensity !== undefined) rc.glowIntensity = src.glowIntensity;
+  }
+
+  /** Fill a render slot with a remote player's garage appearance. */
+  private fillRemoteAppearance(slot: CarListSlot, rc: RemoteCarVisual): void {
+    const skin = CAR_SKINS.find(x => x.id === (rc.skinId ?? 1)) || CAR_SKINS[0];
+    slot.rimStyle = (rc.rimId && rc.rimId > 0) ? rc.rimId : RIM_TINT_IDS[0];
+    slot.spoilerId = (rc.spoilerId && rc.spoilerId > 0) ? rc.spoilerId : undefined;
+    slot.exhaustId = (rc.exhaustId && rc.exhaustId > 0) ? rc.exhaustId : undefined;
+    slot.decalStyle = (rc.decalId && rc.decalId > 0) ? rc.decalId : undefined;
+    slot.accent = ACCENT_COLORS[rc.accentId ?? 0] ?? undefined;
+    slot.glow = GLOW_COLORS[rc.glowId ?? 0] ?? undefined;
+    slot.glowIntensity = rc.glowIntensity ?? 50;
+    slot.metallic = SKIN_FINISH_FACTOR[skin.finish] ?? 0.45;
+    slot.skin = this.hexToRgb(skin.color);
   }
   playerNameDraft = '';
   onPlayerNameInput(value: string) {
@@ -3943,6 +4227,66 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       h: sr.height * sy,
     };
   }
+  /** Hovering a lobby roster row: show a small popup previewing that player's
+   *  garage livery (their own car, rendered on the main canvas behind a
+   *  transparent stage like the garage does). */
+  showPlayerPreview(p: LobbyPlayer) {
+    if (p.connectionId === this.myConnectionId) return;
+    this.hoveredPlayer = p;
+    this.hoverRotY = -40; // start at the garage's default 3/4 view, then spin
+  }
+  hidePlayerPreview() {
+    this.hoveredPlayer = null;
+  }
+
+  /** Build the garage appearance for a lobby player from the appearance fields
+   *  synced when they joined, so the hover popup shows their exact livery. */
+  playerPreviewAppearance(p: LobbyPlayer): RacingCarAppearance {
+    const skin = CAR_SKINS.find(x => x.id === (p.skinId ?? 1)) || CAR_SKINS[0];
+    return {
+      rimStyle: (p.rimId && p.rimId > 0) ? p.rimId : RIM_TINT_IDS[0],
+      spoilerId: (p.spoilerId && p.spoilerId > 0) ? p.spoilerId : undefined,
+      exhaustId: (p.exhaustId && p.exhaustId > 0) ? p.exhaustId : undefined,
+      decalStyle: (p.decalId && p.decalId > 0) ? p.decalId : undefined,
+      accent: ACCENT_COLORS[p.accentId ?? 0] ?? undefined,
+      glow: GLOW_COLORS[p.glowId ?? 0] ?? undefined,
+      glowIntensity: p.glowIntensity ?? 50,
+      metallic: SKIN_FINISH_FACTOR[skin.finish] ?? 0.45,
+      skin: this.hexToRgb(skin.color),
+    };
+  }
+
+  /** Maps the hover popup's car-stage DOM rect into canvas pixels (same math
+   *  as the garage stage) so renderGarage fills exactly the popup's stage. */
+  private getRosterPreviewViewport(): { x: number; y: number; w: number; h: number } | null {
+    const stage = this.hoverPreviewStageEl?.nativeElement as HTMLElement | null;
+    const canvas = this.canvasRef?.nativeElement;
+    if (!stage || !canvas) return null;
+    const cr = canvas.getBoundingClientRect();
+    const sr = stage.getBoundingClientRect();
+    if (cr.width <= 0 || cr.height <= 0 || sr.width <= 0 || sr.height <= 0) return null;
+    const sx = canvas.width / cr.width;
+    const sy = canvas.height / cr.height;
+    return {
+      x: (sr.left - cr.left) * sx,
+      y: (sr.top - cr.top) * sy,
+      w: sr.width * sx,
+      h: sr.height * sy,
+    };
+  }
+
+  /** Draw the hovered player's car into the popup stage, gently auto-rotating.
+   *  Called after the main scene render while the popup is open — the
+   *  clearFull=false mode keeps the surrounding scene intact. */
+  private renderPlayerPreview(dt: number) {
+    if (!this.hoveredPlayer || !this.renderer) return;
+    if (this.hoveredPlayer.connectionId === this.myConnectionId) return;
+    const vp = this.getRosterPreviewViewport();
+    if (!vp) return;
+    this.hoverRotY += dt * 26;
+    this.renderer.renderGarage(this.hoverRotY, 20, 1, this.playerPreviewAppearance(this.hoveredPlayer), vp, dt, false);
+  }
+
   private _glowIntensitySaveTimer: any = null;
   setGlowIntensity(event: Event) {
     const target = event.target as HTMLInputElement;
@@ -4242,12 +4586,6 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.garageLivePreview = !this.garageLivePreview;
     try { localStorage.setItem('gp_livepreview', this.garageLivePreview ? '1' : '0'); } catch { }
     if (!this.garageLivePreview) { this.appearancePreview = null; this.skinPreview = null; }
-  }
-  toggleGloveGrip() {
-    if (this._destroyed) return;
-    this.gloveGripOn = !this.gloveGripOn;
-    try { localStorage.setItem('gp_glovegrip', this.gloveGripOn ? '1' : '0'); } catch { }
-    this.renderer.gloveGripEnabled = this.gloveGripOn;
   }
   toggleSound() {
     if (this._destroyed) return;
