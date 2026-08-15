@@ -4202,7 +4202,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addSphere(verts, idxs, x + ox, stemH + 0.05 * s, z + oz, 0.09 * s, 4, petals[i % petals.length]);
     }
   }
-  private addFlagOnPole(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, kind: 'canada' | 'quebec', poleH: number, size: number) {
+  private addFlagOnPole(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, kind: 'canada' | 'quebec' | 'italy', poleH: number, size: number) {
     this.addCylinder(verts, idxs, x, 0, z, 0.05 * size, poleH, 6, [0.55, 0.55, 0.58]);
     const w = 1.15 * size;
     const h = 0.7 * size;
@@ -4210,12 +4210,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const red: [number, number, number] = [0.82, 0.1, 0.12];
     const white: [number, number, number] = [0.95, 0.95, 0.95];
     const blue: [number, number, number] = [0.05, 0.2, 0.62];
+    const green: [number, number, number] = [0.05, 0.5, 0.18];
     this._flags.push({
       x, z, dirX, dirZ,
       anchorY: topY + this.groundElev(x, z), w, h,
       kind: 'rect',
-      colors: kind === 'canada' ? [red, white, red] : [blue, blue, blue],
-      emblem: kind === 'canada' ? 'maple' : 'cross',
+      colors: kind === 'canada' ? [red, white, red] : kind === 'italy' ? [green, white, red] : [blue, blue, blue],
+      emblem: kind === 'canada' ? 'maple' : kind === 'quebec' ? 'cross' : undefined,
       phase: Math.random() * Math.PI * 2,
       speed: 4 + Math.random() * 1.5,
       amp: 0.9 + Math.random() * 0.3,
@@ -4559,7 +4560,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addOrientedBox(verts, idxs, x, legH - 0.18 * s, z, 0.42 * s, 0.55 * s, 0.06, dirX, dirZ, [0.1, 0.1, 0.12]);
   }
   private pushRampQuad(verts: number[], idxs: number[],
-    a: number[], b: number[], c: number[], d: number[]) {
+    a: number[], b: number[], c: number[], d: number[], color: number[] = [0.78, 0.74, 0.66]) {
     let nx = (c[1] - a[1]) * (b[2] - a[2]) - (c[2] - a[2]) * (b[1] - a[1]);
     let ny = (c[2] - a[2]) * (b[0] - a[0]) - (c[0] - a[0]) * (b[2] - a[2]);
     let nz = (c[0] - a[0]) * (b[1] - a[1]) - (c[1] - a[1]) * (b[0] - a[0]);
@@ -4568,7 +4569,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (ny < 0) { nx = -nx; ny = -ny; nz = -nz; }
     const base = verts.length / 11;
     for (const p of [a, b, c, d]) {
-      verts.push(p[0], p[1], p[2], nx, ny, nz, 0.78, 0.74, 0.66, 0, 0);
+      verts.push(p[0], p[1], p[2], nx, ny, nz, color[0], color[1], color[2], 0, 0);
     }
     idxs.push(base, base + 2, base + 1);
     idxs.push(base + 1, base + 2, base + 3);

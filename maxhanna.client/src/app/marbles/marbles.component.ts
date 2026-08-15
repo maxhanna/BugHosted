@@ -9,6 +9,9 @@ import { MarblesService, MarblesScore } from '../../services/marbles.service';
 const COLS = 5;
 const ROWS = 12;
 const PITCH_ROW = 5;
+/** Delay (ms) before a received opponent snapshot is played back, so uneven
+ *  network delivery is absorbed before it reaches the opponent's board. */
+const OPP_BUFFER_MS = 150;
 
 /** Palette indexed by color id (1..6); 0 is empty. */
 const COLORS: [number, number, number][] = [
@@ -84,6 +87,9 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   private opponentSeedOffset = 0;
   winnerName: string | null = null;
   connected = false;
+  /** Smoothed connection health (ping RTT + jitter) for the lobby indicator. */
+  latency = 0;
+  jitter = 0;
   opponents: MarblesOpponentView[] = [];
   chatMessages: { playerName: string; message: string }[] = [];
   chatDraft = '';
@@ -124,6 +130,13 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
    *  the gap between updates instead of lurching on network jitter. */
   private _oppLastUpdateMs = 0;
   private _oppIntervalMs = 0;
+  /** Opponent snapshots waiting to be played back (jitter buffer): replayed a
+   *  fixed delay after arrival so uneven network delivery doesn't stutter the
+   *  opponent's board. */
+  private _oppQueue: Array<{ view: MarblesOpponentView; at: number }> = [];
+  /** The board state we last optimistically predicted for our own move, used
+   *  to reconcile (rather than re-animate) when the server confirms it. */
+  private _predictedBoard: number[][] | null = null;
   private _spriteSeq = 1;
   private _onResize = () => this.resizeCanvas();
   private _audio: AudioContext | null = null;
@@ -146,6 +159,11 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     window.addEventListener('resize', this._onResize);
 
     this.hub.connectionError$.subscribe(() => { this.connected = false; this.cdr.detectChanges(); });
+    this.hub.connectionHealth$.subscribe(h => this.ngZone.run(() => {
+      this.latency = h.latency;
+      this.jitter = h.jitter;
+      this.cdr.detectChanges();
+    }));
     this.hub.lobbyState$.subscribe(ls => this.ngZone.run(() => this.onLobbyState(ls)));
     this.hub.gameStarted$.subscribe(() => this.ngZone.run(() => {
       this.status = 'playing';
@@ -157,6 +175,8 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       this._oppBoard = [];
       this._oppLastUpdateMs = 0;
       this._oppIntervalMs = 0;
+      this._oppQueue = [];
+      this._predictedBoard = null;
       this.opponents = [];
       // Fresh look every game: the opponent's board draws its marbles with a
       // new random skin seed each match (stable within the match).
@@ -217,6 +237,14 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   /** True when the current room is a public one (vs a private code room). */
   get roomIsPublic(): boolean {
     return this.lobby?.isPublic ?? false;
+  }
+
+  /** Colour bucket for the lobby's connection dot, from the smoothed ping. */
+  get latencyQuality(): 'good' | 'warn' | 'bad' | 'none' {
+    if (!this.latency) return 'none';
+    if (this.latency < 80) return 'good';
+    if (this.latency < 180) return 'warn';
+    return 'bad';
   }
 
   /** Single-player: host a room, then immediately start vs the computer. */
@@ -297,6 +325,8 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this._oppBoard = [];
     this._oppLastUpdateMs = 0;
     this._oppIntervalMs = 0;
+    this._oppQueue = [];
+    this._predictedBoard = null;
     this.opponents = [];
     this.winnerName = null;
     this.isVsAI = false;
@@ -442,17 +472,24 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     if (bu.dropped) this.playDrop();
     if (bu.rained > 0) this.playRain(bu.rained);
     if ((bu.popped?.length ?? 0) > 0) this.playPop(bu.popped.length);
-    this.applyBoard(bu);
-    // Animate the opponent's board with the same pipeline (its move metadata
-    // arrives in the opponent view from the server) and echo its sounds
-    // quietly so both halves of the screen feel live.
-    const opp = this.opponents[0];
-    if (opp) {
-      this.applyOpponentBoard(opp);
-      if (opp.dropped) this.playDrop(true);
-      if (opp.rained > 0) this.playRain(opp.rained, true);
-      if ((opp.popped?.length ?? 0) > 0) this.playPop(opp.popped.length, true);
+
+    // Dead-reckoning reconcile: if this update is the server confirming a
+    // board we already predicted (and nothing else changed it — no pops,
+    // drops or rain), our sprites are already animating toward it, so skip
+    // the re-match instead of re-running the slide.
+    const confirmsPrediction = this._predictedBoard !== null && boardsEqual(bu.board, this._predictedBoard);
+    if (confirmsPrediction) {
+      this._board = bu.board;
+    } else {
+      this.applyBoard(bu);
     }
+    this._predictedBoard = null;
+
+    // Queue the opponent's snapshot in the jitter buffer: it's replayed a
+    // fixed delay later in the render loop (with its quiet sounds) so uneven
+    // delivery doesn't make the computer's side stutter.
+    const opp = this.opponents[0];
+    if (opp) this._oppQueue.push({ view: opp, at: performance.now() });
     this.cdr.detectChanges();
   }
 
@@ -532,8 +569,10 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     }
     this._oppLastUpdateMs = now;
     // Fill most of the expected gap, but cap it so a slow AI (up to ~2s
-    // between moves) doesn't make a one-cell slide crawl.
-    const moveDur = Math.round(Math.min(700, Math.max(220, this._oppIntervalMs || 350)));
+    // between moves) doesn't make a one-cell slide crawl. The higher cap lets
+    // the move after a network stall glide across the whole gap instead of
+    // snapping, which reads as smooth recovery rather than a hitch.
+    const moveDur = Math.round(Math.min(1200, Math.max(220, this._oppIntervalMs || 350)));
 
     this._oppSprites = this.matchSpritesToBoard(this._oppSprites, opp.board, oldBoard, opp.popped ?? [], opp.rowShifted ?? 0, moveDur);
   }
@@ -700,13 +739,48 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   shiftRow(dir: number): void {
     if (this.status !== 'playing') return;
     this.playClick();
+    // Dead reckoning: animate the shift locally right away so the board stays
+    // responsive even if the server confirmation is delayed by the network.
+    this.predictRowShift(dir);
     this.hub.shiftRow(this.roomCode, dir);
   }
 
   shiftColumn(dir: number): void {
     if (this.status !== 'playing') return;
     this.playClick();
+    this.predictColumnShift(this.selectedCol, dir);
     this.hub.shiftColumn(this.roomCode, this.selectedCol, dir);
+  }
+
+  /** Optimistically apply a pitch-row slide to our local board + sprites,
+   *  mirroring the server's ShiftRowOn so the confirmation reconciles 1:1. */
+  private predictRowShift(dir: number): void {
+    if (!this._board || this._board.length !== ROWS) return;
+    const oldBoard = this._board;
+    const nb = cloneBoard(oldBoard);
+    const newRow = new Array<number>(COLS);
+    for (let c = 0; c < COLS; c++) {
+      newRow[c] = nb[PITCH_ROW][(c - dir + COLS) % COLS];
+    }
+    for (let c = 0; c < COLS; c++) nb[PITCH_ROW][c] = newRow[c];
+    this._board = nb;
+    this._predictedBoard = nb;
+    this.sprites = this.matchSpritesToBoard(this.sprites, nb, oldBoard, [], dir);
+  }
+
+  /** Optimistically cycle a column up/down locally, mirroring ShiftColumnOn. */
+  private predictColumnShift(col: number, dir: number): void {
+    if (!this._board || this._board.length !== ROWS || col < 0 || col >= COLS) return;
+    const oldBoard = this._board;
+    const nb = cloneBoard(oldBoard);
+    const newCol = new Array<number>(ROWS);
+    for (let r = 0; r < ROWS; r++) {
+      newCol[r] = nb[(r - dir + ROWS) % ROWS][col];
+    }
+    for (let r = 0; r < ROWS; r++) nb[r][col] = newCol[r];
+    this._board = nb;
+    this._predictedBoard = nb;
+    this.sprites = this.matchSpritesToBoard(this.sprites, nb, oldBoard, [], 0);
   }
 
   selectColumn(c: number): void {
@@ -818,8 +892,25 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   }
 
   private update(dt: number): void {
+    // Play back opponent snapshots once their jitter-buffer delay has elapsed,
+    // so bursts of packets are spread over the buffer rather than applied all
+    // at once. A stall drains the queue smoothly and then simply holds.
+    const now = performance.now();
+    while (this._oppQueue.length > 0 && now >= this._oppQueue[0].at + OPP_BUFFER_MS) {
+      const item = this._oppQueue.shift()!;
+      this.playOpponentUpdate(item.view);
+    }
     this.sprites = this.advanceSprites(this.sprites, dt);
     this._oppSprites = this.advanceSprites(this._oppSprites, dt);
+  }
+
+  /** Apply an opponent snapshot with its quiet sound echoes, kept in lockstep
+   *  with the buffered playback so the audio matches the animation. */
+  private playOpponentUpdate(opp: MarblesOpponentView): void {
+    this.applyOpponentBoard(opp);
+    if (opp.dropped) this.playDrop(true);
+    if (opp.rained > 0) this.playRain(opp.rained, true);
+    if ((opp.popped?.length ?? 0) > 0) this.playPop(opp.popped.length, true);
   }
 
   /** Advance one sprite list toward its targets (shared by player + opponent).
@@ -1578,6 +1669,23 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
  *  and resting rather than creeping at a constant rate. */
 function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
+}
+
+/** Deep-copy a board so prediction never mutates the server-sent snapshot. */
+function cloneBoard(board: number[][]): number[][] {
+  return board.map(r => r.slice());
+}
+
+/** Cell-by-cell board equality for the dead-reckoning confirmation check. */
+function boardsEqual(a: number[][], b: number[][]): boolean {
+  if (a.length !== b.length) return false;
+  for (let r = 0; r < a.length; r++) {
+    if (!a[r] || !b[r] || a[r].length !== b[r].length) return false;
+    for (let c = 0; c < a[r].length; c++) {
+      if (a[r][c] !== b[r][c]) return false;
+    }
+  }
+  return true;
 }
 
 /** True if a pitch-row array contains 3+ consecutive same-colour marbles. */

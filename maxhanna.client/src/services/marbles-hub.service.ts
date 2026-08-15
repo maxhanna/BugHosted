@@ -97,9 +97,16 @@ export class MarblesHubService implements OnDestroy {
   readonly gameWon$ = new Subject<{ winnerName: string }>();
   readonly chatMessage$ = new Subject<{ playerName: string; message: string }>();
   readonly connectionError$ = new Subject<string>();
+  /** Smoothed round-trip latency + jitter (ms), refreshed by a periodic ping. */
+  readonly connectionHealth$ = new Subject<{ latency: number; jitter: number; connected: boolean }>();
 
   get myConnectionId(): string | null { return this.hub?.connectionId ?? null; }
   get connected(): boolean { return this.hub?.state === signalR.HubConnectionState.Connected; }
+
+  private _pingTimer: ReturnType<typeof setInterval> | null = null;
+  private _pingInFlight = false;
+  private _latency = 0;
+  private _jitter = 0;
 
   async connect(): Promise<boolean> {
     if (this.connected) return true;
@@ -122,6 +129,7 @@ export class MarblesHubService implements OnDestroy {
       this.hub.onclose(() => this.connectionError$.next('Disconnected'));
 
       await this.hub.start();
+      this.startPingLoop();
       return true;
     } catch (err) {
       console.error('MarblesHub connection failed:', err);
@@ -131,9 +139,58 @@ export class MarblesHubService implements OnDestroy {
   }
 
   async disconnect(): Promise<void> {
+    this.stopPingLoop();
     if (!this.hub) return;
     try { await this.hub.stop(); } catch { /* ignore */ }
     this.hub = null;
+  }
+
+  /** Measure one round trip to the hub, returning the latency in ms (or null
+   *  when disconnected/unreachable). */
+  private async measurePing(): Promise<number | null> {
+    if (!this.connected || !this.hub) return null;
+    const t0 = performance.now();
+    try {
+      await this.hub.invoke('Ping');
+      return performance.now() - t0;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Poll the hub every few seconds and publish smoothed latency + jitter.
+   *  Latency is an exponential moving average of the RTT; jitter is the
+   *  smoothed average deviation from it, so bursts of noise don't flicker the
+   *  indicator. */
+  private startPingLoop(): void {
+    if (this._pingTimer) return;
+    const tick = async () => {
+      if (this._pingInFlight) return;
+      this._pingInFlight = true;
+      const rtt = await this.measurePing();
+      this._pingInFlight = false;
+      if (rtt == null) {
+        this._latency = 0;
+        this._jitter = 0;
+        this.connectionHealth$.next({ latency: 0, jitter: 0, connected: false });
+        return;
+      }
+      if (this._latency === 0) {
+        this._latency = rtt;
+      } else {
+        this._jitter = this._jitter * 0.7 + Math.abs(rtt - this._latency) * 0.3;
+        this._latency = this._latency * 0.6 + rtt * 0.4;
+      }
+      this.connectionHealth$.next({ latency: Math.round(this._latency), jitter: Math.round(this._jitter), connected: true });
+    };
+    void tick();
+    this._pingTimer = setInterval(() => void tick(), 3000);
+  }
+
+  private stopPingLoop(): void {
+    if (this._pingTimer) { clearInterval(this._pingTimer); this._pingTimer = null; }
+    this._latency = 0;
+    this._jitter = 0;
   }
 
   async joinLobby(code: string, playerName: string, playerId: number, isPublic = false): Promise<MarblesJoinResult | null> {

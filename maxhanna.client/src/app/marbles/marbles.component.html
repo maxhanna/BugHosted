@@ -30,7 +30,7 @@
       <div class="win98-titlebar"><span>Lose Your Marbles</span></div>
       <div class="win98-body">
         <h2 class="marbles-title">🔮 Lose Your Marbles</h2>
-        <p class="marbles-sub">Slide marbles around the center row to line up 3+ of the same color. Every 5+ match dumps your reserve onto your opponent. First board to fill up loses!</p>
+        <p class="marbles-sub">Slide marbles to line up 3+ of the same color in any row or column. Every 5+ match dumps garbage onto your opponent. First board to fill up loses!</p>
         <div class="marbles-form">
           <input class="marbles-input" [(ngModel)]="playerName" placeholder="Your name" maxlength="16" />
           <div class="marbles-host-row">
@@ -87,12 +87,12 @@
       <div class="win98-titlebar"><span>How to Play</span></div>
       <div class="win98-body howto-body">
         <ul class="howto-list">
-          <li>The highlighted <strong>center row</strong> is the pitch line — the only place matches count.</li>
+          <li>The highlighted <strong>center row</strong> is the pitch line — it slides side to side, and each column slides up/down.</li>
           <li><strong>◀ / ▶</strong> (or <strong>←/→</strong>) shift the whole center row; marbles wrap around.</li>
-          <li>Pick a column (tap it, or press <strong>1–6</strong>) and use <strong>▲ / ▼</strong> (or <strong>↑/↓</strong>) to cycle that column's marbles up or down — or just <strong>drag the column up/down</strong> from any row.</li>
-          <li>Slide 3+ same-colored marbles <strong>side by side in the center row</strong> — they pop and the ones above fall down.</li>
+          <li>Pick a column (tap it, or press <strong>1–5</strong>) and use <strong>▲ / ▼</strong> (or <strong>↑/↓</strong>) to cycle that column's marbles up or down — or just <strong>drag the column up/down</strong> from any row.</li>
+          <li>Line up 3+ same-colored marbles <strong>touching in any row or column</strong> — they pop, the ones above fall down, and the fall can start <strong>chain matches</strong>.</li>
           <li>A <strong>special color</strong> is hot each game: popping marbles of that color fills your <strong>reserve</strong>.</li>
-          <li>Pop a <strong>5+ match</strong> to dump your reserve onto your opponent's board.</li>
+          <li>Pop a <strong>5+ match</strong> to dump garbage (your reserve, or 3 marbles) onto your opponent's board.</li>
           <li>New marbles rain in from the top — <strong>you lose when your columns fill up</strong>.</li>
         </ul>
         <button class="win98-btn" (click)="toggleHowTo()">Back</button>
@@ -101,7 +101,13 @@
 
     <!-- ── Lobby ─────────────────────────────────────────────────────── -->
     <div class="marbles-panel win98" *ngIf="status === 'lobby'">
-      <div class="win98-titlebar"><span>Room {{ roomCode }}</span></div>
+      <div class="win98-titlebar">
+        <span>Room {{ roomCode }}</span>
+        <span class="marbles-net" *ngIf="latency" [attr.title]="'Ping ' + latency + 'ms · jitter ±' + jitter + 'ms'">
+          <span class="marbles-net-dot" [class.good]="latencyQuality === 'good'" [class.warn]="latencyQuality === 'warn'" [class.bad]="latencyQuality === 'bad'"></span>
+          {{ latency }}ms<span class="marbles-net-jitter" *ngIf="jitter"> ±{{ jitter }}</span>
+        </span>
+      </div>
       <div class="win98-body">
         <h2 class="marbles-title">Room <span class="marbles-code">{{ roomCode }}</span></h2>
         <p class="marbles-sub" *ngIf="roomIsPublic">🌍 Public room — anyone can find this match in the room list and join. Fight to the first filled board!</p>
@@ -142,7 +148,7 @@
         <span class="hud-name">{{ p.playerName }}<span *ngIf="!p.alive" class="hud-out"> 💀</span></span>
         <span class="hud-sent">🚀 {{ p.sent }} sent</span>
       </div>
-      <div class="hud-hint" *ngIf="status === 'playing'">Slide 3+ together in the center row — 5+ dumps your reserve!</div>
+      <div class="hud-hint" *ngIf="status === 'playing'">Line up 3+ in any row or column — 5+ dumps garbage!</div>
     </div>
 
     <!-- ── Winner banner ─────────────────────────────────────────────── -->
@@ -178,7 +184,7 @@
         <button class="ctrl-btn wide" (click)="shiftRow(1)">▶</button>
       </div>
     </div>
-    <p class="marbles-menu-tip">Line up 3+ of a color in the center row. A 5+ match dumps your reserve onto your opponent!</p>
+    <p class="marbles-menu-tip">Line up 3+ of a color in any row or column. A 5+ match dumps garbage onto your opponent!</p>
     <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
   </div>
 </div>

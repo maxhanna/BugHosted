@@ -137,6 +137,7 @@ export class UserEventsComponent extends ChildComponent implements OnInit, OnDes
       case 'recipe_edited': return '🍳';
       case 'recipe_added': return '🍳';
       case 'racing': return '🏎️';
+      case 'marbles': return '🌀';
       default: return '📌';
     }
   } 

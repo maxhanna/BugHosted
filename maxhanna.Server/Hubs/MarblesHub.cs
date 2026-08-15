@@ -7,16 +7,18 @@ namespace maxhanna.Server.Hubs
     /// SignalR hub for "Marbles" — a faithful remake of SegaSoft's 1997
     /// "Lose Your Marbles" (the Windows 98 playground marble game).
     ///
-    /// Board: 6 columns × 12 rows of holes. A highlighted CENTER ROW (the
-    /// "pitch line") is the match zone. You shift the center row left/right
-    /// (marbles wrap around the ends) and shift individual columns up/down
-    /// (marbles cycle through the column) to bring same-colored marbles side
-    /// by side in the pitch row. 3+ in a row pop; marbles above fall down.
+    /// Board: 5 columns × 12 rows of holes. You shift the center row (the
+    /// "pitch line") left/right (marbles wrap around the ends) and shift
+    /// individual columns up/down (marbles cycle through the column) to bring
+    /// same-colored marbles together. 3+ contiguous marbles pop in ANY row or
+    /// ANY column; marbles above fall down, and the fall can line up new runs
+    /// that pop too (chain matches).
     ///
     /// A special "hot" color is designated: popping groups that contain it
-    /// fills your reserve. Popping a match of 5+ dumps your reserve onto a
-    /// random opponent's board. New marbles rain in from the top every few
-    /// seconds; whoever's columns fill up first loses.
+    /// fills your reserve. Popping a match of 5+ dumps garbage (your reserve,
+    /// or 3 marbles when empty) onto a random opponent's board. New marbles
+    /// rain in from the top every few seconds; whoever's columns fill up
+    /// first loses.
     /// </summary>
     public class MarblesHub : Hub
     {
@@ -101,6 +103,10 @@ namespace maxhanna.Server.Hubs
         }
 
         // ── Lobby lifecycle ────────────────────────────────────────────────
+
+        /// <summary>Round-trip probe so the client can measure its connection
+        /// latency and jitter for the lobby's health indicator.</summary>
+        public Task<string> Ping() => Task.FromResult("pong");
 
         public async Task<object?> JoinLobby(string code, string playerName, int playerId, bool isPublic = false)
         {
@@ -426,7 +432,13 @@ namespace maxhanna.Server.Hubs
             return best[rng.Next(best.Count)];
         }
 
-        /// <summary>Resolve matches on a throwaway board (used by the AI's move scoring).</summary>
+        /// <summary>
+        /// Resolve every match on a board: contiguous runs of 3+ same-coloured
+        /// marbles in ANY row (horizontal) or ANY column (vertical). Popping a
+        /// run applies gravity, which can line up new runs, which pop too — so
+        /// the loop repeats until the board is stable (chain matches). Tracks
+        /// reserve gain (special colour pops) and whether any run was 5+ (the
+        /// garbage-dump trigger).</summary>
         private static MoveResult SimulateResolve(int[][] board, int specialColor)
         {
             var popped = new List<object>();
@@ -436,30 +448,55 @@ namespace maxhanna.Server.Hubs
 
             for (;;)
             {
-                var runs = new List<(int start, int len)>();
-                var c = 0;
-                while (c < Cols)
-                {
-                    var color = board[PitchRow][c];
-                    if (color == 0) { c++; continue; }
-                    var runStart = c;
-                    while (c < Cols && board[PitchRow][c] == color) c++;
-                    var len = c - runStart;
-                    if (len >= 3) runs.Add((runStart, len));
-                }
-                if (runs.Count == 0) break;
+                var toPop = new HashSet<(int r, int c)>();
 
-                foreach (var (runStart, len) in runs)
+                // Horizontal runs of 3+ in any row.
+                for (var r = 0; r < Rows; r++)
                 {
-                    for (var k = runStart; k < runStart + len; k++)
+                    var c = 0;
+                    while (c < Cols)
                     {
-                        var color = board[PitchRow][k];
-                        popped.Add(new { row = PitchRow, col = k, color });
-                        board[PitchRow][k] = 0;
-                        poppedCount++;
-                        if (color == specialColor) reserveGained++;
+                        var color = board[r][c];
+                        if (color == 0) { c++; continue; }
+                        var runStart = c;
+                        while (c < Cols && board[r][c] == color) c++;
+                        var len = c - runStart;
+                        if (len >= 3)
+                        {
+                            if (len >= 5) hasFivePlus = true;
+                            for (var k = runStart; k < c; k++) toPop.Add((r, k));
+                        }
                     }
-                    if (len >= 5) hasFivePlus = true;
+                }
+
+                // Vertical runs of 3+ in any column.
+                for (var c = 0; c < Cols; c++)
+                {
+                    var r = 0;
+                    while (r < Rows)
+                    {
+                        var color = board[r][c];
+                        if (color == 0) { r++; continue; }
+                        var runStart = r;
+                        while (r < Rows && board[r][c] == color) r++;
+                        var len = r - runStart;
+                        if (len >= 3)
+                        {
+                            if (len >= 5) hasFivePlus = true;
+                            for (var k = runStart; k < r; k++) toPop.Add((k, c));
+                        }
+                    }
+                }
+
+                if (toPop.Count == 0) break;
+
+                foreach (var (r, c) in toPop)
+                {
+                    var color = board[r][c];
+                    popped.Add(new { row = r, col = c, color });
+                    board[r][c] = 0;
+                    poppedCount++;
+                    if (color == specialColor) reserveGained++;
                 }
                 ApplyGravity(board);
             }
@@ -546,7 +583,7 @@ namespace maxhanna.Server.Hubs
         }
 
         /// <summary>
-        /// Apply a shift to a player's board, resolve pitch-row matches,
+        /// Apply a shift to a player's board, resolve matches (any row/column),
         /// handle reserve dumps, and build the per-player update payloads.
         /// Shared by human moves and the single-player AI loop.
         /// rowShiftDir is non-zero when the move rotated the pitch row, which
@@ -563,18 +600,19 @@ namespace maxhanna.Server.Hubs
 
                 apply(mover);
 
-                // Resolve pitch-row matches (cascades included).
+                // Resolve all matches (cascades included).
                 var result = ResolveMatches(mover);
                 if (result.ReserveGained > 0) mover.Reserve += result.ReserveGained;
                 mover.Score += result.PoppedCount;
 
-                // A 5+ match dumps the reserve onto a random alive opponent.
+                // A 5+ match dumps garbage onto a random alive opponent: the
+                // accumulated reserve, or 3 marbles when the reserve is empty.
                 if (result.HasFivePlus)
                 {
                     var target = PickAliveOpponent(lobby, mover);
                     if (target != null)
                     {
-                        var dump = mover.Reserve > 0 ? mover.Reserve : result.PoppedCount;
+                        var dump = mover.Reserve > 0 ? mover.Reserve : 3;
                         mover.Sent += dump;
                         rainedBy[target.ConnectionId] = dump;
                         for (var i = 0; i < dump; i++)
@@ -639,7 +677,7 @@ namespace maxhanna.Server.Hubs
                             if (!p.Alive) continue;
                             if (DropMarbleInto(p))
                             {
-                                // A drop landing in the pitch row can also pop.
+                                // A drop can complete runs anywhere on the board.
                                 var pop = ResolveMatches(p);
                                 if (pop.ReserveGained > 0) p.Reserve += pop.ReserveGained;
                                 p.Score += pop.PoppedCount;
@@ -650,7 +688,7 @@ namespace maxhanna.Server.Hubs
                                     var target = PickAliveOpponent(lobby, p);
                                     if (target != null)
                                     {
-                                        var dump = p.Reserve > 0 ? p.Reserve : pop.PoppedCount;
+                                        var dump = p.Reserve > 0 ? p.Reserve : 3;
                                         p.Sent += dump;
                                         for (var i = 0; i < dump; i++) RainOne(target, _rng.Next(1, ColorCount + 1));
                                         p.Reserve = 0;
@@ -688,10 +726,10 @@ namespace maxhanna.Server.Hubs
         // ── Engine ─────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Check horizontal runs of 3+ in the pitch row; pop them, apply
-        /// gravity, and repeat until stable (cascades). Tracks how many
-        /// marbles contained the special color (reserve gain) and whether any
-        /// match was 5+ (reserve dump trigger).
+        /// Check runs of 3+ in every row and column; pop them, apply gravity,
+        /// and repeat until stable (cascades). Tracks how many marbles
+        /// contained the special color (reserve gain) and whether any match
+        /// was 5+ (garbage dump trigger).
         /// </summary>
         private static MoveResult ResolveMatches(Player p)
         {

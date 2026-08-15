@@ -142,7 +142,7 @@ export class AppComponent implements OnInit, AfterViewInit {
     { ownership: 0, icon: "⚔️", title: "Array", content: undefined },
     { ownership: 0, icon: "🧠", title: "Wordler", content: undefined },
     { ownership: 0, icon: "🎯", title: "Mastermind", content: undefined },
-    { ownership: 0, icon: "🔮", title: "Marbles", content: undefined },
+    { ownership: 0, icon: "🌀", title: "Marbles", content: undefined },
     { ownership: 0, icon: "🖼️", title: "Art", content: undefined },
     { ownership: 0, icon: "📁", title: "Files", content: undefined },
     { ownership: 0, icon: "📅", title: "Calendar", content: undefined },
@@ -1951,11 +1951,23 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         const res = await this.userService.updateLastSeen(tmpUser.id, await this.getSessionToken());
         this.lastLastSeenUpdate = now;
         tmpUser.lastSeen = new Date();
-        // A 401 on the presence ping means the token has actually expired —
-        // surface the login prompt (the server refuses to auto-renew expired
-        // tokens; only a real login mints a fresh one).
+        // A 401 on the presence ping usually means the in-memory token is
+        // stale — a newer login elsewhere evicted it (one token per user)
+        // while a perfectly valid token still lives in the HttpOnly cookie
+        // the server set at login. Recover via the cookie before treating the
+        // session as dead: only when the cookie token is also refused is the
+        // session genuinely expired.
         if (res?.status === 401) {
-          await this.redirectToLoginAfterSessionExpiry();
+          const recovered = await this.userService.renewSession();
+          if (recovered?.sessionToken) {
+            this.sessionToken = recovered.sessionToken;
+            this.sessionExpiresAt = Date.now() + this.SESSION_FULL_WINDOW_MS;
+            // Retry the presence ping with the recovered token so last_seen
+            // is updated and the server slides the token's expiry.
+            await this.userService.updateLastSeen(tmpUser.id, recovered.sessionToken);
+          } else {
+            await this.redirectToLoginAfterSessionExpiry();
+          }
           return;
         }
         // A successful presence ping extends the token to ~1 hour server-side —
@@ -1976,7 +1988,14 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     if (!this.user?.id || this._renewingSession) return false;
     this._renewingSession = true;
     try {
-      const res = await this.userService.renewSession(this.sessionToken);
+      let res = await this.userService.renewSession(this.sessionToken);
+      // A stale in-memory token (evicted by a newer login) is refused — retry
+      // without a token so the server bridges the HttpOnly cookie instead.
+      // The server only renews a still-valid token, so this can't resurrect a
+      // genuinely expired session.
+      if (!res?.sessionToken) {
+        res = await this.userService.renewSession();
+      }
       if (res?.sessionToken) {
         this.sessionToken = res.sessionToken;
         this.sessionExpiresAt = Date.now() + this.SESSION_FULL_WINDOW_MS;
