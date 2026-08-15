@@ -119,6 +119,7 @@
           <span class="project-desc" *ngIf="selectedProjectPath && getSelectedProject()?.description">— {{
             getSelectedProject()?.description }}</span>
           <button (click)="addCard()" class="btn btn-sm btn-primary">+ Add</button>
+          <app-speech-recognition (speechRecognitionEvent)="onNewCardVoice($event)"></app-speech-recognition>
           <button (click)="showSelfImproving = !showSelfImproving" class="btn btn-sm">📈 {{
             filteredSelfImproving.length }}</button>
           <button (click)="showArchived = !showArchived" class="btn btn-sm">🗄 {{ archivedCount }}</button>

@@ -30,6 +30,7 @@ namespace maxhanna.Server.Controllers
 			public int RimId = 0;
 			public int ExhaustId = 0;
 			public int DecalId = 0;
+			public int DecalColorId = 0;
 			public int GlowId = 0;
 			public int AccentId = 0;
 			public int GlowIntensity = 50;
@@ -72,7 +73,9 @@ namespace maxhanna.Server.Controllers
 			public int MaxLevel { get; set; }
 			public int Cost { get; set; }
 			public string Description { get; set; } = "";
-			public int StatBonus { get; set; }
+			// Per-stage additive delta; doubles let fine-grained tiers carry
+			// fractional bonuses (+2.5% grip etc.).
+			public double StatBonus { get; set; }
 		}
 		private readonly IConfiguration _config;
 		public RacingController(IConfiguration config, IHostApplicationLifetime appLifetime)
@@ -89,11 +92,41 @@ namespace maxhanna.Server.Controllers
 					if (!_startupLoadStarted)
 					{
 						_startupLoadStarted = true;
+						EnsureDecalColorColumn();
 						LoadAllFromDb();
 					}
 				}
 			}
 			RegisterShutdownDump(appLifetime);
+		}
+		// Idempotent, guarded schema migration: the decal recolour feature stores
+		// its palette id in a new column. Ensures it exists before any SELECT
+		// references it, so a fresh deploy never fails on a missing column.
+		private static bool _decalColorMigrationDone = false;
+		private static void EnsureDecalColorColumn()
+		{
+			if (_decalColorMigrationDone) return;
+			_decalColorMigrationDone = true;
+			try
+			{
+				var connStr = GetConnStr();
+				if (string.IsNullOrEmpty(connStr)) return;
+				using var conn = new MySqlConnection(connStr);
+				conn.Open();
+				using var check = new MySqlCommand(@"
+					SELECT COUNT(*) FROM information_schema.COLUMNS
+					WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'racing_player_car' AND COLUMN_NAME = 'decal_color_id'", conn);
+				if (Convert.ToInt64(check.ExecuteScalar()) == 0)
+				{
+					using var alter = new MySqlCommand(@"ALTER TABLE racing_player_car ADD COLUMN decal_color_id INT NOT NULL DEFAULT 0", conn);
+					alter.ExecuteNonQuery();
+					Console.WriteLine("[Racing] Added racing_player_car.decal_color_id column.");
+				}
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"[Racing] decal_color_id migration skipped: {ex.Message}");
+			}
 		}
 		private static string? GetConnStr()
 		{
@@ -124,7 +157,7 @@ namespace maxhanna.Server.Controllers
 				conn.Open();
 				using var cmd = new MySqlCommand(@"
 					SELECT upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id, glow_id, accent_id,
-					       total_races, wins, money, best_lap, total_earnings, player_name, owned_parts_json, glow_intensity
+					       total_races, wins, money, best_lap, total_earnings, player_name, owned_parts_json, glow_intensity, decal_color_id
 					FROM racing_player_car WHERE user_id = @uid", conn);
 				cmd.Parameters.AddWithValue("@uid", userId);
 				using (var rdr = cmd.ExecuteReader())
@@ -134,7 +167,7 @@ namespace maxhanna.Server.Controllers
 						if (!rdr.IsDBNull(0) && rdr.GetString(0) is { Length: > 0 } j)
 						{
 							st.Upgrades = JsonSerializer.Deserialize<List<object>>(j) ?? new List<object>();
-							if (NormalizeEngineUpgradeBonuses(st.Upgrades)) st.Dirty = true;
+							if (RebalanceUpgrades(st.Upgrades)) st.Dirty = true;
 						}
 						st.SkinId = rdr.IsDBNull(1) ? 1 : rdr.GetInt32(1);
 						st.SpoilerId = rdr.IsDBNull(2) ? 0 : rdr.GetInt32(2);
@@ -159,6 +192,7 @@ namespace maxhanna.Server.Controllers
 							catch { }
 						}
 						st.GlowIntensity = rdr.IsDBNull(15) ? 50 : Math.Clamp(rdr.GetInt32(15), 0, 100);
+						st.DecalColorId = rdr.IsDBNull(16) ? 0 : rdr.GetInt32(16);
 					}
 				}
 				using var bestCmd = new MySqlCommand(@"
@@ -183,7 +217,7 @@ namespace maxhanna.Server.Controllers
 				conn.Open();
 				using var cmd = new MySqlCommand(@"
 					SELECT user_id, upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id, glow_id, accent_id,
-					       total_races, wins, money, best_lap, total_earnings, player_name, owned_parts_json, glow_intensity
+					       total_races, wins, money, best_lap, total_earnings, player_name, owned_parts_json, glow_intensity, decal_color_id
 					FROM racing_player_car", conn);
 				int loaded = 0;
 				using (var rdr = cmd.ExecuteReader())
@@ -194,7 +228,7 @@ namespace maxhanna.Server.Controllers
 						if (!rdr.IsDBNull(1) && rdr.GetString(1) is { Length: > 0 } j)
 						{
 							st.Upgrades = JsonSerializer.Deserialize<List<object>>(j) ?? new List<object>();
-							if (NormalizeEngineUpgradeBonuses(st.Upgrades)) st.Dirty = true;
+							if (RebalanceUpgrades(st.Upgrades)) st.Dirty = true;
 						}
 						st.SkinId = rdr.IsDBNull(2) ? 1 : rdr.GetInt32(2);
 						st.SpoilerId = rdr.IsDBNull(3) ? 0 : rdr.GetInt32(3);
@@ -219,6 +253,7 @@ namespace maxhanna.Server.Controllers
 							catch { }
 						}
 						st.GlowIntensity = rdr.IsDBNull(16) ? 50 : Math.Clamp(rdr.GetInt32(16), 0, 100);
+						st.DecalColorId = rdr.IsDBNull(17) ? 0 : rdr.GetInt32(17);
 						_cars[st.UserId] = st;
 						loaded++;
 					}
@@ -255,7 +290,7 @@ namespace maxhanna.Server.Controllers
 		}
 		private static object ToCarJson(RacingCarState st)
 		{
-			int userId, skinId, spoilerId, rimId, exhaustId, decalId, glowId, accentId, glowIntensity, totalRaces, wins, money, totalEarnings;
+			int userId, skinId, spoilerId, rimId, exhaustId, decalId, decalColorId, glowId, accentId, glowIntensity, totalRaces, wins, money, totalEarnings;
 			double bestLap;
 			string playerName;
 			List<object> upgrades;
@@ -266,8 +301,8 @@ namespace maxhanna.Server.Controllers
 				userId = st.UserId;
 				upgrades = new List<object>(st.Upgrades);
 				skinId = st.SkinId; spoilerId = st.SpoilerId; rimId = st.RimId;
-				exhaustId = st.ExhaustId; decalId = st.DecalId; glowId = st.GlowId; accentId = st.AccentId;
-				glowIntensity = st.GlowIntensity;
+				exhaustId = st.ExhaustId; decalId = st.DecalId; decalColorId = st.DecalColorId;
+				glowId = st.GlowId; accentId = st.AccentId; glowIntensity = st.GlowIntensity;
 				totalRaces = st.TotalRaces; wins = st.Wins; money = st.Money;
 				bestLap = st.BestLap; totalEarnings = st.TotalEarnings;
 				bestLapsByTrack = new Dictionary<int, double>(st.BestLapsByTrack);
@@ -284,6 +319,7 @@ namespace maxhanna.Server.Controllers
 				RimId = rimId,
 				ExhaustId = exhaustId,
 				DecalId = decalId,
+				DecalColorId = decalColorId,
 				GlowId = glowId,
 				AccentId = accentId,
 				GlowIntensity = glowIntensity,
@@ -325,12 +361,12 @@ namespace maxhanna.Server.Controllers
 					if (!st.Dirty) continue;
 					int version;
 					using (var cmd = new MySqlCommand(@"
-					INSERT INTO racing_player_car (user_id, player_name, upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id, glow_id, accent_id, total_races, wins, money, best_lap, total_earnings, owned_parts_json, glow_intensity)
-					VALUES (@uid, @name, @upgrades, @skin, @sp, @rm, @ex, @dc, @glow, @acc, @races, @wins, @money, @best, @earnings, @owned, @gi)
+					INSERT INTO racing_player_car (user_id, player_name, upgrades_json, skin_id, spoiler_id, rim_id, exhaust_id, decal_id, glow_id, accent_id, total_races, wins, money, best_lap, total_earnings, owned_parts_json, glow_intensity, decal_color_id)
+					VALUES (@uid, @name, @upgrades, @skin, @sp, @rm, @ex, @dc, @glow, @acc, @races, @wins, @money, @best, @earnings, @owned, @gi, @dci)
 					ON DUPLICATE KEY UPDATE
 						player_name = @name, upgrades_json = @upgrades, skin_id = @skin, spoiler_id = @sp, rim_id = @rm,
 						exhaust_id = @ex, decal_id = @dc, glow_id = @glow, accent_id = @acc, total_races = @races, wins = @wins,
-						money = @money, best_lap = @best, total_earnings = @earnings, owned_parts_json = @owned, glow_intensity = @gi", conn))
+						money = @money, best_lap = @best, total_earnings = @earnings, owned_parts_json = @owned, glow_intensity = @gi, decal_color_id = @dci", conn))
 					{
 						lock (st)
 						{
@@ -345,6 +381,7 @@ namespace maxhanna.Server.Controllers
 						cmd.Parameters.AddWithValue("@glow", st.GlowId);
 						cmd.Parameters.AddWithValue("@acc", st.AccentId);
 						cmd.Parameters.AddWithValue("@gi", st.GlowIntensity);
+						cmd.Parameters.AddWithValue("@dci", st.DecalColorId);
 							cmd.Parameters.AddWithValue("@races", st.TotalRaces);
 							cmd.Parameters.AddWithValue("@wins", st.Wins);
 							cmd.Parameters.AddWithValue("@money", st.Money);
@@ -503,6 +540,7 @@ namespace maxhanna.Server.Controllers
 					if (body.TryGetProperty("rimId", out var rm)) st.RimId = rm.GetInt32();
 					if (body.TryGetProperty("exhaustId", out var ex)) st.ExhaustId = ex.GetInt32();
 					if (body.TryGetProperty("decalId", out var dc)) st.DecalId = dc.GetInt32();
+					if (body.TryGetProperty("decalColorId", out var dci)) st.DecalColorId = dci.GetInt32();
 					if (body.TryGetProperty("glowId", out var gl)) st.GlowId = gl.GetInt32();
 					if (body.TryGetProperty("accentId", out var ac)) st.AccentId = ac.GetInt32();
 					if (body.TryGetProperty("glowIntensity", out var gi)) st.GlowIntensity = Math.Clamp(gi.GetInt32(), 0, 100);
@@ -951,57 +989,94 @@ namespace maxhanna.Server.Controllers
 			}
 			catch { return Ok(new { results = new List<object>(), totalCount = 0, userRank = 0, bestLap = 0.0 }); }
 		}
-		private static bool NormalizeEngineUpgradeBonuses(List<object> upgrades)
+		/// <summary>
+		/// Rebuilds a player's stored upgrades from the current tier table while
+		/// preserving their progress. Each category's tiers are granted in order
+		/// until the cumulative stat bonus lands nearest the player's old total,
+		/// so re-tiering (adding finer steps, or fixing stale bonuses) never
+		/// silently strips or inflates what a car already earned.
+		/// </summary>
+		private static bool RebalanceUpgrades(List<object> upgrades)
 		{
-			bool changed = false;
-			if (upgrades == null) return false;
-			for (int i = 0; i < upgrades.Count; i++)
+			if (upgrades == null || upgrades.Count == 0) return false;
+			var totals = new Dictionary<string, double>(StringComparer.Ordinal);
+			foreach (var u in upgrades)
 			{
-				if (upgrades[i] is not JsonElement je) continue;
-				if (!je.TryGetProperty("category", out var cat) || cat.GetString() != "engine") continue;
-				if (!je.TryGetProperty("id", out var idProp) || !idProp.TryGetInt32(out int id)) continue;
-				var def = GetUpgradeDef(id);
-				if (def == null) continue;
-				bool bonusMatches = je.TryGetProperty("statBonus", out var sb) && sb.TryGetInt32(out int cur) && cur == def.StatBonus;
-				bool costMatches = je.TryGetProperty("cost", out var cp) && cp.TryGetInt32(out int storedCost) && storedCost == def.Cost;
-				if (bonusMatches && costMatches) continue;
-				try
-				{
-					var obj = JsonSerializer.Deserialize<JsonObject>(je.GetRawText());
-					if (obj == null) continue;
-					obj["statBonus"] = def.StatBonus;
-					obj["description"] = def.Description;
-					obj["cost"] = def.Cost;
-					upgrades[i] = obj;
-					changed = true;
-				}
-				catch { }
+				if (u is not JsonElement je) continue;
+				if (!je.TryGetProperty("category", out var cat) || cat.GetString() is not { } c) continue;
+				if (!je.TryGetProperty("statBonus", out var sb) || !sb.TryGetDouble(out var bonus)) continue;
+				totals[c] = totals.GetValueOrDefault(c) + bonus;
 			}
-			return changed;
-		}
-		private static UpgradeDef? GetUpgradeDef(int id)
-		{
-			return id switch
+			var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+			var rebuilt = new List<object>();
+			foreach (var group in UpgradeDefs.GroupBy(d => d.Category))
 			{
-				1 => new UpgradeDef { Id = 1, Name = "Stage 1 Engine", Category = "engine", Level = 1, MaxLevel = 5, Cost = 250, Description = "+5% Top Speed", StatBonus = 5 },
-				2 => new UpgradeDef { Id = 2, Name = "Stage 2 Engine", Category = "engine", Level = 2, MaxLevel = 5, Cost = 750, Description = "+10% Top Speed", StatBonus = 10 },
-				3 => new UpgradeDef { Id = 3, Name = "Stage 3 Engine", Category = "engine", Level = 3, MaxLevel = 5, Cost = 2000, Description = "+15% Top Speed", StatBonus = 15 },
-				4 => new UpgradeDef { Id = 4, Name = "Stage 4 Engine", Category = "engine", Level = 4, MaxLevel = 5, Cost = 6000, Description = "+20% Top Speed", StatBonus = 20 },
-				5 => new UpgradeDef { Id = 5, Name = "Stage 5 Engine", Category = "engine", Level = 5, MaxLevel = 5, Cost = 18000, Description = "+25% Top Speed", StatBonus = 25 },
-				6 => new UpgradeDef { Id = 6, Name = "Sport Tires", Category = "tires", Level = 1, MaxLevel = 4, Cost = 300, Description = "+5% Grip", StatBonus = 5 },
-				7 => new UpgradeDef { Id = 7, Name = "Racing Tires", Category = "tires", Level = 2, MaxLevel = 4, Cost = 800, Description = "+12% Grip", StatBonus = 12 },
-				8 => new UpgradeDef { Id = 8, Name = "Slick Tires", Category = "tires", Level = 3, MaxLevel = 4, Cost = 2000, Description = "+20% Grip", StatBonus = 20 },
-				9 => new UpgradeDef { Id = 9, Name = "Hyper Tires", Category = "tires", Level = 4, MaxLevel = 4, Cost = 6000, Description = "+30% Grip", StatBonus = 30 },
-				10 => new UpgradeDef { Id = 10, Name = "Sport Suspension", Category = "suspension", Level = 1, MaxLevel = 3, Cost = 400, Description = "+5% Cornering", StatBonus = 5 },
-				11 => new UpgradeDef { Id = 11, Name = "Race Suspension", Category = "suspension", Level = 2, MaxLevel = 3, Cost = 1200, Description = "+12% Cornering", StatBonus = 12 },
-				12 => new UpgradeDef { Id = 12, Name = "Pro Suspension", Category = "suspension", Level = 3, MaxLevel = 3, Cost = 3500, Description = "+20% Cornering", StatBonus = 20 },
-				13 => new UpgradeDef { Id = 13, Name = "Stage 1 Brakes", Category = "brakes", Level = 1, MaxLevel = 3, Cost = 250, Description = "+10% Braking", StatBonus = 10 },
-				14 => new UpgradeDef { Id = 14, Name = "Stage 2 Brakes", Category = "brakes", Level = 2, MaxLevel = 3, Cost = 700, Description = "+20% Braking", StatBonus = 20 },
-				15 => new UpgradeDef { Id = 15, Name = "Stage 3 Brakes", Category = "brakes", Level = 3, MaxLevel = 3, Cost = 1800, Description = "+30% Braking", StatBonus = 30 },
-				16 => new UpgradeDef { Id = 16, Name = "Carbon Body", Category = "body", Level = 1, MaxLevel = 2, Cost = 1000, Description = "-5% Weight", StatBonus = 5 },
-				17 => new UpgradeDef { Id = 17, Name = "Aero Body", Category = "body", Level = 2, MaxLevel = 2, Cost = 3000, Description = "-12% Weight", StatBonus = 12 },
-				_ => null
-			};
+				double target = totals.GetValueOrDefault(group.Key);
+				double acc = 0;
+				foreach (var def in group.OrderBy(d => d.Level))
+				{
+					double next = acc + def.StatBonus;
+					// Include this tier when it lands closer to the old total than
+					// stopping here would (nearest-match rounding).
+					if (Math.Abs(next - target) >= Math.Abs(acc - target)) break;
+					rebuilt.Add(JsonSerializer.Deserialize<object>(JsonSerializer.Serialize(def, options))!);
+					acc = next;
+				}
+			}
+			var oldIds = upgrades
+				.Select(u => u is JsonElement je && je.TryGetProperty("id", out var idProp) && idProp.TryGetInt32(out var i) ? i : -1)
+				.OrderBy(x => x).ToList();
+			var newIds = rebuilt
+				.Select(o => o is JsonElement nje && nje.TryGetProperty("id", out var idProp) && idProp.TryGetInt32(out var i) ? i : -1)
+				.OrderBy(x => x).ToList();
+			if (oldIds.SequenceEqual(newIds)) return false;
+			upgrades.Clear();
+			upgrades.AddRange(rebuilt);
+			return true;
 		}
+		// Single source of truth for upgrade tiers (mirrors the client's
+		// UPGRADE_DEFS exactly — same ids, levels, costs and stat bonuses).
+		private static readonly UpgradeDef[] UpgradeDefs = new[]
+		{
+			new UpgradeDef { Id = 1, Name = "Stage 1 Engine", Category = "engine", Level = 1, MaxLevel = 10, Cost = 250, Description = "+3% Top Speed", StatBonus = 3 },
+			new UpgradeDef { Id = 2, Name = "Stage 2 Engine", Category = "engine", Level = 2, MaxLevel = 10, Cost = 500, Description = "+4% Top Speed", StatBonus = 4 },
+			new UpgradeDef { Id = 3, Name = "Stage 3 Engine", Category = "engine", Level = 3, MaxLevel = 10, Cost = 900, Description = "+5% Top Speed", StatBonus = 5 },
+			new UpgradeDef { Id = 4, Name = "Stage 4 Engine", Category = "engine", Level = 4, MaxLevel = 10, Cost = 1500, Description = "+6% Top Speed", StatBonus = 6 },
+			new UpgradeDef { Id = 5, Name = "Stage 5 Engine", Category = "engine", Level = 5, MaxLevel = 10, Cost = 2500, Description = "+7% Top Speed", StatBonus = 7 },
+			new UpgradeDef { Id = 6, Name = "Stage 6 Engine", Category = "engine", Level = 6, MaxLevel = 10, Cost = 4000, Description = "+8% Top Speed", StatBonus = 8 },
+			new UpgradeDef { Id = 7, Name = "Stage 7 Engine", Category = "engine", Level = 7, MaxLevel = 10, Cost = 6500, Description = "+9% Top Speed", StatBonus = 9 },
+			new UpgradeDef { Id = 8, Name = "Stage 8 Engine", Category = "engine", Level = 8, MaxLevel = 10, Cost = 10000, Description = "+10% Top Speed", StatBonus = 10 },
+			new UpgradeDef { Id = 9, Name = "Stage 9 Engine", Category = "engine", Level = 9, MaxLevel = 10, Cost = 14000, Description = "+11% Top Speed", StatBonus = 11 },
+			new UpgradeDef { Id = 10, Name = "Stage 10 Engine", Category = "engine", Level = 10, MaxLevel = 10, Cost = 18000, Description = "+12% Top Speed", StatBonus = 12 },
+			new UpgradeDef { Id = 11, Name = "Sport Tires", Category = "tires", Level = 1, MaxLevel = 8, Cost = 300, Description = "+2% Grip", StatBonus = 2 },
+			new UpgradeDef { Id = 12, Name = "Street Tires", Category = "tires", Level = 2, MaxLevel = 8, Cost = 500, Description = "+2.5% Grip", StatBonus = 2.5 },
+			new UpgradeDef { Id = 13, Name = "Racing Tires", Category = "tires", Level = 3, MaxLevel = 8, Cost = 800, Description = "+3% Grip", StatBonus = 3 },
+			new UpgradeDef { Id = 14, Name = "Performance Tires", Category = "tires", Level = 4, MaxLevel = 8, Cost = 1300, Description = "+3.5% Grip", StatBonus = 3.5 },
+			new UpgradeDef { Id = 15, Name = "Slick Tires", Category = "tires", Level = 5, MaxLevel = 8, Cost = 2000, Description = "+4% Grip", StatBonus = 4 },
+			new UpgradeDef { Id = 16, Name = "Semi-Slick Tires", Category = "tires", Level = 6, MaxLevel = 8, Cost = 3200, Description = "+4.5% Grip", StatBonus = 4.5 },
+			new UpgradeDef { Id = 17, Name = "Track Tires", Category = "tires", Level = 7, MaxLevel = 8, Cost = 5000, Description = "+5% Grip", StatBonus = 5 },
+			new UpgradeDef { Id = 18, Name = "Hyper Tires", Category = "tires", Level = 8, MaxLevel = 8, Cost = 8000, Description = "+9% Grip", StatBonus = 9 },
+			new UpgradeDef { Id = 19, Name = "Sport Suspension", Category = "suspension", Level = 1, MaxLevel = 6, Cost = 400, Description = "+1.5% Cornering", StatBonus = 1.5 },
+			new UpgradeDef { Id = 20, Name = "Street Suspension", Category = "suspension", Level = 2, MaxLevel = 6, Cost = 600, Description = "+2% Cornering", StatBonus = 2 },
+			new UpgradeDef { Id = 21, Name = "Race Suspension", Category = "suspension", Level = 3, MaxLevel = 6, Cost = 1000, Description = "+2.5% Cornering", StatBonus = 2.5 },
+			new UpgradeDef { Id = 22, Name = "Performance Suspension", Category = "suspension", Level = 4, MaxLevel = 6, Cost = 1600, Description = "+3% Cornering", StatBonus = 3 },
+			new UpgradeDef { Id = 23, Name = "Track Suspension", Category = "suspension", Level = 5, MaxLevel = 6, Cost = 2600, Description = "+3.5% Cornering", StatBonus = 3.5 },
+			new UpgradeDef { Id = 24, Name = "Pro Suspension", Category = "suspension", Level = 6, MaxLevel = 6, Cost = 4500, Description = "+6% Cornering", StatBonus = 6 },
+			new UpgradeDef { Id = 25, Name = "Stage 1 Brakes", Category = "brakes", Level = 1, MaxLevel = 8, Cost = 250, Description = "+4% Braking", StatBonus = 4 },
+			new UpgradeDef { Id = 26, Name = "Stage 2 Brakes", Category = "brakes", Level = 2, MaxLevel = 8, Cost = 450, Description = "+5% Braking", StatBonus = 5 },
+			new UpgradeDef { Id = 27, Name = "Stage 3 Brakes", Category = "brakes", Level = 3, MaxLevel = 8, Cost = 800, Description = "+6% Braking", StatBonus = 6 },
+			new UpgradeDef { Id = 28, Name = "Stage 4 Brakes", Category = "brakes", Level = 4, MaxLevel = 8, Cost = 1300, Description = "+7% Braking", StatBonus = 7 },
+			new UpgradeDef { Id = 29, Name = "Stage 5 Brakes", Category = "brakes", Level = 5, MaxLevel = 8, Cost = 2100, Description = "+8% Braking", StatBonus = 8 },
+			new UpgradeDef { Id = 30, Name = "Stage 6 Brakes", Category = "brakes", Level = 6, MaxLevel = 8, Cost = 3400, Description = "+9% Braking", StatBonus = 9 },
+			new UpgradeDef { Id = 31, Name = "Stage 7 Brakes", Category = "brakes", Level = 7, MaxLevel = 8, Cost = 5500, Description = "+10% Braking", StatBonus = 10 },
+			new UpgradeDef { Id = 32, Name = "Stage 8 Brakes", Category = "brakes", Level = 8, MaxLevel = 8, Cost = 9000, Description = "+11% Braking", StatBonus = 11 },
+			new UpgradeDef { Id = 33, Name = "Carbon Body", Category = "body", Level = 1, MaxLevel = 6, Cost = 1000, Description = "-2.5% Weight", StatBonus = 2.5 },
+			new UpgradeDef { Id = 34, Name = "Sport Chassis", Category = "body", Level = 2, MaxLevel = 6, Cost = 1600, Description = "-2.5% Weight", StatBonus = 2.5 },
+			new UpgradeDef { Id = 35, Name = "Alloy Body", Category = "body", Level = 3, MaxLevel = 6, Cost = 2500, Description = "-3% Weight", StatBonus = 3 },
+			new UpgradeDef { Id = 36, Name = "Titanium Body", Category = "body", Level = 4, MaxLevel = 6, Cost = 4000, Description = "-3% Weight", StatBonus = 3 },
+			new UpgradeDef { Id = 37, Name = "Aero Body", Category = "body", Level = 5, MaxLevel = 6, Cost = 6500, Description = "-3% Weight", StatBonus = 3 },
+			new UpgradeDef { Id = 38, Name = "Full Aero Body", Category = "body", Level = 6, MaxLevel = 6, Cost = 10000, Description = "-3% Weight", StatBonus = 3 },
+		};
+		private static UpgradeDef? GetUpgradeDef(int id) => UpgradeDefs.FirstOrDefault(d => d.Id == id);
 	}
 }

@@ -183,6 +183,7 @@ namespace maxhanna.Server.Hubs
                 rimId = lp.RimId,
                 exhaustId = lp.ExhaustId,
                 decalId = lp.DecalId,
+                decalColorId = lp.DecalColorId,
                 glowId = lp.GlowId,
                 accentId = lp.AccentId,
                 glowIntensity = lp.GlowIntensity,
@@ -247,6 +248,7 @@ namespace maxhanna.Server.Hubs
                     p.RimId,
                     p.ExhaustId,
                     p.DecalId,
+                    p.DecalColorId,
                     p.GlowId,
                     p.AccentId,
                     p.GlowIntensity,
@@ -380,6 +382,7 @@ namespace maxhanna.Server.Hubs
                 rimId = p.RimId,
                 exhaustId = p.ExhaustId,
                 decalId = p.DecalId,
+                decalColorId = p.DecalColorId,
                 glowId = p.GlowId,
                 accentId = p.AccentId,
                 glowIntensity = p.GlowIntensity
@@ -476,6 +479,7 @@ namespace maxhanna.Server.Hubs
                     p.RimId,
                     p.ExhaustId,
                     p.DecalId,
+                    p.DecalColorId,
                     p.GlowId,
                     p.AccentId,
                     p.GlowIntensity
@@ -920,6 +924,7 @@ namespace maxhanna.Server.Hubs
                                 p.RimId,
                                 p.ExhaustId,
                                 p.DecalId,
+                                p.DecalColorId,
                                 p.GlowId,
                                 p.AccentId,
                                 p.GlowIntensity
@@ -1083,6 +1088,7 @@ namespace maxhanna.Server.Hubs
             public int RimId { get; set; }
             public int ExhaustId { get; set; }
             public int DecalId { get; set; }
+            public int DecalColorId { get; set; }
             public int GlowId { get; set; }
             public int AccentId { get; set; }
             public int GlowIntensity { get; set; } = 50;
@@ -1123,6 +1129,7 @@ namespace maxhanna.Server.Hubs
             public int RimId { get; set; }
             public int ExhaustId { get; set; }
             public int DecalId { get; set; }
+            public int DecalColorId { get; set; }
             public int GlowId { get; set; }
             public int AccentId { get; set; }
             public int GlowIntensity { get; set; } = 50;
@@ -1136,6 +1143,7 @@ namespace maxhanna.Server.Hubs
             p.RimId = a.RimId;
             p.ExhaustId = a.ExhaustId;
             p.DecalId = a.DecalId;
+            p.DecalColorId = a.DecalColorId;
             p.GlowId = a.GlowId;
             p.AccentId = a.AccentId;
             p.GlowIntensity = a.GlowIntensity;

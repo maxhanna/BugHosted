@@ -15,10 +15,10 @@ namespace maxhanna.Server.Hubs
     /// that pop too (chain matches).
     ///
     /// A special "hot" color is designated: popping groups that contain it
-    /// fills your reserve. Popping a match of 5+ dumps garbage (your reserve,
-    /// or 3 marbles when empty) onto a random opponent's board. New marbles
-    /// rain in from the top every few seconds; whoever's columns fill up
-    /// first loses.
+    /// fills your reserve. Every match dumps garbage onto a random opponent's
+    /// board scaled to the match size — 3-in-a-row sends 1 marble, 4 sends 2,
+    /// and 5+ sends 3. New marbles rain in from the top every few seconds;
+    /// whoever's columns fill up first loses.
     /// </summary>
     public class MarblesHub : Hub
     {
@@ -407,7 +407,7 @@ namespace maxhanna.Server.Hubs
                     Kind = kind,
                     Col = col,
                     Dir = dir,
-                    Score = result.PoppedCount * 12 + result.ReserveGained * 6 + (result.HasFivePlus ? 30 : 0),
+                    Score = result.PoppedCount * 12 + result.ReserveGained * 6 + result.Garbage * 10,
                 });
             }
 
@@ -437,13 +437,13 @@ namespace maxhanna.Server.Hubs
         /// marbles in ANY row (horizontal) or ANY column (vertical). Popping a
         /// run applies gravity, which can line up new runs, which pop too — so
         /// the loop repeats until the board is stable (chain matches). Tracks
-        /// reserve gain (special colour pops) and whether any run was 5+ (the
-        /// garbage-dump trigger).</summary>
+        /// reserve gain (special colour pops) and the garbage to dump (each run
+        /// sends 1 for 3, 2 for 4, 3 for 5+, summed across cascades).</summary>
         private static MoveResult SimulateResolve(int[][] board, int specialColor)
         {
             var popped = new List<object>();
             var reserveGained = 0;
-            var hasFivePlus = false;
+            var garbage = 0;
             var poppedCount = 0;
 
             for (;;)
@@ -463,7 +463,7 @@ namespace maxhanna.Server.Hubs
                         var len = c - runStart;
                         if (len >= 3)
                         {
-                            if (len >= 5) hasFivePlus = true;
+                            garbage += GarbageFor(len);
                             for (var k = runStart; k < c; k++) toPop.Add((r, k));
                         }
                     }
@@ -482,7 +482,7 @@ namespace maxhanna.Server.Hubs
                         var len = r - runStart;
                         if (len >= 3)
                         {
-                            if (len >= 5) hasFivePlus = true;
+                            garbage += GarbageFor(len);
                             for (var k = runStart; k < r; k++) toPop.Add((k, c));
                         }
                     }
@@ -501,8 +501,12 @@ namespace maxhanna.Server.Hubs
                 ApplyGravity(board);
             }
 
-            return new MoveResult { Popped = popped, ReserveGained = reserveGained, HasFivePlus = hasFivePlus, PoppedCount = poppedCount };
+            return new MoveResult { Popped = popped, ReserveGained = reserveGained, Garbage = garbage, PoppedCount = poppedCount };
         }
+
+        /// <summary>Garbage marbles a match of the given length dumps: 1 for a
+        /// 3-run, 2 for a 4-run, 3 for any run of 5 or more.</summary>
+        private static int GarbageFor(int len) => len == 3 ? 1 : len == 4 ? 2 : 3;
 
         private static int[][] CloneBoard(int[][] board)
         {
@@ -605,21 +609,19 @@ namespace maxhanna.Server.Hubs
                 if (result.ReserveGained > 0) mover.Reserve += result.ReserveGained;
                 mover.Score += result.PoppedCount;
 
-                // A 5+ match dumps garbage onto a random alive opponent: the
-                // accumulated reserve, or 3 marbles when the reserve is empty.
-                if (result.HasFivePlus)
+                // Every match dumps garbage scaled to its size (3 → 1, 4 → 2,
+                // 5+ → 3), summed across the move and its cascades.
+                if (result.Garbage > 0)
                 {
                     var target = PickAliveOpponent(lobby, mover);
                     if (target != null)
                     {
-                        var dump = mover.Reserve > 0 ? mover.Reserve : 3;
-                        mover.Sent += dump;
-                        rainedBy[target.ConnectionId] = dump;
-                        for (var i = 0; i < dump; i++)
+                        mover.Sent += result.Garbage;
+                        rainedBy[target.ConnectionId] = result.Garbage;
+                        for (var i = 0; i < result.Garbage; i++)
                         {
                             RainOne(target, _rng.Next(1, ColorCount + 1));
                         }
-                        mover.Reserve = 0;
                     }
                 }
 
@@ -683,16 +685,14 @@ namespace maxhanna.Server.Hubs
                                 p.Score += pop.PoppedCount;
                                 metas[p.ConnectionId].Popped = pop.Popped;
                                 metas[p.ConnectionId].Dropped = true;
-                                if (pop.HasFivePlus)
+                                if (pop.Garbage > 0)
                                 {
                                     var target = PickAliveOpponent(lobby, p);
                                     if (target != null)
                                     {
-                                        var dump = p.Reserve > 0 ? p.Reserve : 3;
-                                        p.Sent += dump;
-                                        for (var i = 0; i < dump; i++) RainOne(target, _rng.Next(1, ColorCount + 1));
-                                        p.Reserve = 0;
-                                        metas[target.ConnectionId].Rained += dump;
+                                        p.Sent += pop.Garbage;
+                                        for (var i = 0; i < pop.Garbage; i++) RainOne(target, _rng.Next(1, ColorCount + 1));
+                                        metas[target.ConnectionId].Rained += pop.Garbage;
                                     }
                                 }
                             }
@@ -728,8 +728,8 @@ namespace maxhanna.Server.Hubs
         /// <summary>
         /// Check runs of 3+ in every row and column; pop them, apply gravity,
         /// and repeat until stable (cascades). Tracks how many marbles
-        /// contained the special color (reserve gain) and whether any match
-        /// was 5+ (garbage dump trigger).
+        /// contained the special color (reserve gain) and the garbage to dump
+        /// (3 → 1, 4 → 2, 5+ → 3 per run).
         /// </summary>
         private static MoveResult ResolveMatches(Player p)
         {
@@ -959,7 +959,7 @@ namespace maxhanna.Server.Hubs
         {
             public List<object> Popped = new();
             public int ReserveGained = 0;
-            public bool HasFivePlus = false;
+            public int Garbage = 0;
             public int PoppedCount = 0;
         }
     }

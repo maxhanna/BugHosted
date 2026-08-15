@@ -655,7 +655,7 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   // --- Add card: local + remote ---
-  async addCard(selfImproving?: boolean) {
+  async addCard(selfImproving?: boolean, initialText?: string) {
     const card: WeaverCard = {
       id: Math.random().toString(36).slice(2, 9),
       text: '',
@@ -679,9 +679,11 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
       "weaver_card_created",
       "New card created in Weaver."
     );
+    const text = this.pendingCardText[card.id] || initialText || '';
+    if (text) card.text = text;
     const result = await this.sendRemoteCommand('addCard', {
       cardId: card.id,
-      text: this.pendingCardText[card.id] || '',
+      text,
       project: this.selectedProjectPath,
       selfImproving: selfImproving || false,
     });
@@ -697,6 +699,9 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
         // agent may have already fetched the addCard with its original (empty) params,
         // so send a dedicated changeCardText to guarantee the text lands.
         await this.sendRemoteCommand('changeCardText', { cardId: card.id, text: pending });
+      } else if (text) {
+        // Voice-dictated initial text: same belt-and-suspenders for the remote agent.
+        await this.sendRemoteCommand('changeCardText', { cardId: card.id, text });
       }
     }
     this.focusOnAddedCard(card.id);
@@ -1323,6 +1328,12 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   // --- Voice input ---
+  // Voice-dictated text for a brand new card (toolbar mic button).
+  onNewCardVoice(text?: string) {
+    if (!text?.trim()) return;
+    this.addCard(false, text.trim());
+  }
+
   recordVoice(card: WeaverCard) {
     if (this.isRecording) {
       this.stopRecording();

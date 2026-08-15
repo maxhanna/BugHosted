@@ -293,6 +293,146 @@ function triangulate(points: Array<[number, number]>): Array<[number, number, nu
   return out;
 }
 
+/** Axis-aligned rectangle outline (w along x, h along z), origin-centered. */
+function rectPath(w: number, h: number): Array<[number, number]> {
+  return [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]];
+}
+
+// ── Seven-segment race numbers (404 / 409 / 410 / 411) ─────────────────────
+// Blank plates were the one decal family that still looked like rectangles;
+// these spell the actual digits as painted 7-segment strokes.
+const DIGIT_SEGS: Record<string, string> = {
+  '0': 'abcdef', '1': 'bc', '2': 'abged', '3': 'abgcd', '4': 'fgbc',
+  '5': 'afgcd', '6': 'afgedc', '7': 'abc', '8': 'abcdefg', '9': 'abcdfg',
+};
+const DIGIT_SEG_LINES: Record<string, [number, number, number, number]> = {
+  a: [-0.045, 0.075, 0.045, 0.075],
+  b: [0.05, 0.0, 0.05, 0.075],
+  c: [0.05, -0.075, 0.05, 0.0],
+  d: [-0.045, -0.075, 0.045, -0.075],
+  e: [-0.05, -0.075, -0.05, 0.0],
+  f: [-0.05, 0.0, -0.05, 0.075],
+  g: [-0.045, 0.0, 0.045, 0.0],
+};
+function digitStrokePaths(d: string): Array<Array<[number, number]>> {
+  const out: Array<Array<[number, number]>> = [];
+  for (const ch of DIGIT_SEGS[d] ?? '') {
+    const line = DIGIT_SEG_LINES[ch];
+    if (line) out.push(brushStrokePath([[line[0], line[1]], [line[2], line[3]]], 0.02));
+  }
+  return out;
+}
+/** Shape defs spelling `text` as seven-segment digits centred on (cx, cz). */
+function numberShapeDefs(text: string, cx: number, cz: number, scale: number, mirror = false): DecalShapeDef[] {
+  const out: DecalShapeDef[] = [];
+  const gap = 0.15;
+  for (let i = 0; i < text.length; i++) {
+    const dx = (i - (text.length - 1) / 2) * gap;
+    for (const path of digitStrokePaths(text[i])) {
+      out.push({ cx: cx + dx * scale, cz, path, scale, lift: 0.006, mirror: mirror || undefined });
+    }
+  }
+  return out;
+}
+
+// ── Skull & crossbones (407) ───────────────────────────────────────────────
+function skullShapeDefs(cx: number, cz: number, scale: number, mirror = false): DecalShapeDef[] {
+  const m = mirror || undefined;
+  return [
+    { cx, cz, path: slashPath(0.34, 0.05, 0.13), scale, lift: 0.004, mirror: m },
+    { cx, cz, path: slashPath(0.34, 0.05, -0.13), scale, lift: 0.004, mirror: m },
+    { cx, cz: cz + 0.028 * scale, path: ringPath(26, 0.10, 0.07), scale, lift: 0.007, mirror: m },
+    { cx, cz: cz - 0.062 * scale, path: circlePath(12, 0.04), scale, lift: 0.006, mirror: m },
+    { cx: cx - 0.036 * scale, cz: cz + 0.035 * scale, path: circlePath(9, 0.02), scale, lift: 0.009, mirror: m },
+    { cx: cx + 0.036 * scale, cz: cz + 0.035 * scale, path: circlePath(9, 0.02), scale, lift: 0.009, mirror: m },
+    { cx, cz: cz + 0.005 * scale, path: circlePath(8, 0.012), scale, lift: 0.009, mirror: m },
+  ];
+}
+
+// ── Lion crest (408): sun rays + head ring + face ──────────────────────────
+function lionShapeDefs(cx: number, cz: number, scale: number, mirror = false): DecalShapeDef[] {
+  const m = mirror || undefined;
+  return [
+    { cx, cz, path: starPath(16, 0.13, 0.085), scale, lift: 0.005, mirror: m },
+    { cx, cz, path: ringPath(22, 0.075, 0.05), scale, lift: 0.007, mirror: m },
+    { cx: cx - 0.028 * scale, cz: cz + 0.016 * scale, path: circlePath(8, 0.012), scale, lift: 0.009, mirror: m },
+    { cx: cx + 0.028 * scale, cz: cz + 0.016 * scale, path: circlePath(8, 0.012), scale, lift: 0.009, mirror: m },
+    { cx, cz: cz - 0.032 * scale, path: circlePath(10, 0.02), scale, lift: 0.009, mirror: m },
+  ];
+}
+
+// ── Camo (413): organic blobs instead of scattered rectangles ──────────────
+function camoShapeDefs(): DecalShapeDef[] {
+  const spots: Array<[number, number, number, number]> = [
+    [1.15, 0.16, 0.075, 1], [0.95, 0.18, 0.085, 2], [0.70, 0.22, 0.09, 3],
+    [0.45, 0.25, 0.085, 4], [0.20, 0.30, 0.08, 5], [-0.05, 0.34, 0.075, 6],
+    [-0.30, 0.40, 0.07, 7], [-0.55, 0.29, 0.075, 8], [-0.80, 0.22, 0.065, 9],
+  ];
+  const out: DecalShapeDef[] = [];
+  for (const [cx, cz, r, seed] of spots) {
+    out.push({ cx, cz, path: blobPath(r, seed), mirror: true, lift: 0.006 });
+    out.push({ cx: cx + 0.12, cz: 0, path: blobPath(r * 0.85, seed + 11), lift: 0.006 });
+  }
+  return out;
+}
+
+// ── Circuit board (416): traces + solder pads ──────────────────────────────
+function circuitShapeDefs(): DecalShapeDef[] {
+  const out: DecalShapeDef[] = [];
+  const flank: Array<Array<[number, number]>> = [
+    brushStrokePath([[0.30, 0.26], [0.44, 0.26], [0.44, 0.20], [0.60, 0.20]], 0.018),
+    brushStrokePath([[0.66, 0.23], [0.80, 0.23], [0.80, 0.18], [0.96, 0.18]], 0.018),
+    brushStrokePath([[-0.20, 0.30], [-0.04, 0.30], [-0.04, 0.24], [0.12, 0.24]], 0.016),
+  ];
+  for (const path of flank) out.push({ cx: 0, cz: 0, path, mirror: true, lift: 0.006 });
+  out.push({ cx: 0, cz: 0, path: brushStrokePath([[0.50, 0], [0.66, 0], [0.66, -0.06], [0.82, -0.06]], 0.016), lift: 0.006 });
+  const pads: Array<[number, number, number]> = [[0.60, 0.20, 0.02], [0.96, 0.18, 0.02], [0.12, 0.24, 0.018], [0.82, -0.06, 0.018]];
+  for (const [cx, cz, r] of pads) out.push({ cx, cz, path: circlePath(10, r), mirror: cz !== 0 || undefined, lift: 0.008 });
+  return out;
+}
+
+// ── Union Jack (418): St George + St Andrew crosses ────────────────────────
+function unionJackShapeDefs(cx: number, cz: number, scale: number): DecalShapeDef[] {
+  return [
+    { cx, cz, path: rectPath(0.22, 0.05), scale, lift: 0.006 },
+    { cx, cz, path: rectPath(0.05, 0.22), scale, lift: 0.006 },
+    { cx, cz, path: slashPath(0.26, 0.035, 0.16), scale, lift: 0.008 },
+    { cx, cz, path: slashPath(0.26, 0.035, -0.16), scale, lift: 0.008 },
+  ];
+}
+
+// ── Cyber grid (419): a lattice of thin lines ──────────────────────────────
+function gridShapeDefs(cx: number, cz: number, scale: number, w: number, h: number): DecalShapeDef[] {
+  const out: DecalShapeDef[] = [];
+  const cols = 4, rows = 4;
+  for (let i = 0; i <= cols; i++) {
+    const x = -w / 2 + (w * i) / cols;
+    out.push({ cx: cx + x * scale, cz, path: rectPath(0.012, h), scale, lift: 0.007 });
+  }
+  for (let j = 0; j <= rows; j++) {
+    const z = -h / 2 + (h * j) / rows;
+    out.push({ cx, cz: cz + z * scale, path: rectPath(w, 0.012), scale, lift: 0.007 });
+  }
+  return out;
+}
+
+// ── Checkered flag (405): alternating filled squares in a band ─────────────
+function checkerShapeDefs(cx: number, cz: number, scale: number, cols: number, rows: number, cell: number): DecalShapeDef[] {
+  const out: DecalShapeDef[] = [];
+  const w = cols * cell, h = rows * cell;
+  for (let j = 0; j < rows; j++) {
+    for (let i = 0; i < cols; i++) {
+      if ((i + j) % 2 === 0) continue;
+      out.push({
+        cx: cx + (-w / 2 + (i + 0.5) * cell) * scale,
+        cz: cz + (-h / 2 + (j + 0.5) * cell) * scale,
+        path: rectPath(cell * 0.96, cell * 0.96), scale, lift: 0.007,
+      });
+    }
+  }
+  return out;
+}
+
 export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
   401: {
     flank: [[-0.72, 0.235, 0.50, 0.05, 0.09, 0.05], [-0.16, 0.385, 0.34, 0.05, 0.09, 0.05], [0.60, 0.235, 0.42, 0.05, 0.09, 0.05], [1.02, 0.160, 0.34, 0.05, 0.08, 0.045], [-0.16, 0.395, 0.34, 0.05, 0.06, 0.13], [0.60, 0.225, 0.40, 0.05, 0.06, 0.13]],
@@ -313,15 +453,30 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
     flank: [[-0.80, 0.22, 0.14, 0.04, 0.06, 0.05], [-0.55, 0.29, 0.14, 0.04, 0.06, 0.08], [-0.30, 0.40, 0.12, 0.04, 0.06, 0.05], [-0.05, 0.34, 0.12, 0.04, 0.06, 0.08], [0.20, 0.30, 0.14, 0.04, 0.06, 0.05], [0.45, 0.25, 0.14, 0.04, 0.06, 0.08], [0.70, 0.22, 0.12, 0.04, 0.06, 0.05], [0.95, 0.17, 0.12, 0.04, 0.05, 0.05], [1.15, 0.145, 0.10, 0.04, 0.05, 0.04]],
     center: [[0.68, 0.225, 0.16, 0.04, 0.08], [1.25, 0.13, 0.10, 0.04, 0.06]],
   },
-  // Big number plates on the nose and flanks.
+  // Big number plates on the nose and flanks — actual "44" digits now.
   404: {
     flank: [[0.85, 0.19, 0.14, 0.05, 0.05, 0.08], [0.50, 0.24, 0.12, 0.05, 0.05, 0.07], [-0.10, 0.38, 0.12, 0.05, 0.05, 0.06], [-0.45, 0.36, 0.12, 0.05, 0.05, 0.06]],
     center: [[1.28, 0.115, 0.24, 0.06, 0.09], [0.68, 0.225, 0.14, 0.06, 0.08]],
+    shapes: [
+      ...numberShapeDefs('44', 1.28, 0, 0.5),
+      ...numberShapeDefs('44', 0.68, 0, 0.32),
+      ...numberShapeDefs('44', 0.85, 0.19, 0.3, true),
+      ...numberShapeDefs('44', 0.50, 0.24, 0.26, true),
+      ...numberShapeDefs('44', -0.10, 0.38, 0.26, true),
+      ...numberShapeDefs('44', -0.45, 0.36, 0.26, true),
+    ],
   },
   // Checkered bands across the nose and rear deck.
   405: {
     flank: [[0.85, 0.19, 0.12, 0.05, 0.06, 0.07], [-0.20, 0.40, 0.12, 0.05, 0.06, 0.07]],
     center: [[1.15, 0.145, 0.26, 0.05, 0.14], [-0.60, 0.29, 0.26, 0.05, 0.14], [0.68, 0.225, 0.12, 0.05, 0.08]],
+    shapes: [
+      ...checkerShapeDefs(1.15, 0, 1, 4, 3, 0.045),
+      ...checkerShapeDefs(-0.60, 0, 1, 4, 3, 0.045),
+      ...checkerShapeDefs(0.68, 0, 1, 3, 3, 0.035),
+      ...checkerShapeDefs(0.85, 0.19, 1, 2, 2, 0.03),
+      ...checkerShapeDefs(-0.20, 0.40, 1, 2, 2, 0.03),
+    ],
   },
   // Zigzag lightning bolts down the flanks.
   406: {
@@ -332,38 +487,71 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
       { cx: -0.10, cz: 0.17, mirror: true, path: BOLT_PATH, scale: 0.62 },
     ],
   },
-  // Large centered emblem on the engine cover.
+  // Large centered skull-and-crossbones emblem on the engine cover.
   407: {
     flank: [[0.85, 0.19, 0.08, 0.05, 0.05, 0.08], [-0.10, 0.38, 0.08, 0.05, 0.05, 0.07]],
     center: [[0.68, 0.225, 0.30, 0.06, 0.13], [1.29, 0.115, 0.18, 0.05, 0.08], [-0.45, 0.36, 0.14, 0.05, 0.10]],
+    shapes: [
+      ...skullShapeDefs(0.68, 0, 0.9),
+      ...skullShapeDefs(1.29, 0, 0.5),
+    ],
   },
-  // Crest emblem, engine-cover dominant.
+  // Lion crest emblem, engine-cover dominant (sun rays + head).
   408: {
     flank: [[0.50, 0.24, 0.10, 0.05, 0.05, 0.07]],
     center: [[0.68, 0.225, 0.26, 0.06, 0.12], [1.29, 0.115, 0.16, 0.05, 0.08]],
+    shapes: [
+      ...lionShapeDefs(0.68, 0, 0.9),
+      ...lionShapeDefs(1.29, 0, 0.5),
+    ],
   },
-  // Racing number plates.
+  // Racing number plates with real digits.
   409: {
     flank: [[0.85, 0.19, 0.14, 0.05, 0.05, 0.08], [0.50, 0.24, 0.12, 0.05, 0.05, 0.07], [-0.10, 0.38, 0.12, 0.05, 0.05, 0.06], [-0.45, 0.36, 0.12, 0.05, 0.05, 0.06]],
     center: [[1.28, 0.115, 0.24, 0.06, 0.09], [0.68, 0.225, 0.14, 0.06, 0.08]],
+    shapes: [
+      ...numberShapeDefs('7', 1.28, 0, 0.5),
+      ...numberShapeDefs('7', 0.68, 0, 0.32),
+      ...numberShapeDefs('7', 0.85, 0.19, 0.3, true),
+      ...numberShapeDefs('7', 0.50, 0.24, 0.26, true),
+      ...numberShapeDefs('7', -0.10, 0.38, 0.26, true),
+      ...numberShapeDefs('7', -0.45, 0.36, 0.26, true),
+    ],
   },
   410: {
     flank: [[0.85, 0.19, 0.14, 0.05, 0.05, 0.08], [0.50, 0.24, 0.12, 0.05, 0.05, 0.07], [-0.10, 0.38, 0.12, 0.05, 0.05, 0.06], [-0.45, 0.36, 0.12, 0.05, 0.05, 0.06]],
     center: [[1.28, 0.115, 0.24, 0.06, 0.09], [0.68, 0.225, 0.14, 0.06, 0.08]],
+    shapes: [
+      ...numberShapeDefs('27', 1.28, 0, 0.5),
+      ...numberShapeDefs('27', 0.68, 0, 0.32),
+      ...numberShapeDefs('27', 0.85, 0.19, 0.3, true),
+      ...numberShapeDefs('27', 0.50, 0.24, 0.26, true),
+      ...numberShapeDefs('27', -0.10, 0.38, 0.26, true),
+      ...numberShapeDefs('27', -0.45, 0.36, 0.26, true),
+    ],
   },
   411: {
     flank: [[0.85, 0.19, 0.14, 0.05, 0.05, 0.08], [0.50, 0.24, 0.12, 0.05, 0.05, 0.07], [-0.10, 0.38, 0.12, 0.05, 0.05, 0.06], [-0.45, 0.36, 0.12, 0.05, 0.05, 0.06]],
     center: [[1.28, 0.115, 0.24, 0.06, 0.09], [0.68, 0.225, 0.14, 0.06, 0.08]],
+    shapes: [
+      ...numberShapeDefs('99', 1.28, 0, 0.5),
+      ...numberShapeDefs('99', 0.68, 0, 0.32),
+      ...numberShapeDefs('99', 0.85, 0.19, 0.3, true),
+      ...numberShapeDefs('99', 0.50, 0.24, 0.26, true),
+      ...numberShapeDefs('99', -0.10, 0.38, 0.26, true),
+      ...numberShapeDefs('99', -0.45, 0.36, 0.26, true),
+    ],
   },
   // Thin sponsor side stripes.
   412: {
     flank: [[-0.55, 0.29, 0.40, 0.04, 0.05, 0.06], [-0.20, 0.40, 0.30, 0.04, 0.05, 0.06], [0.15, 0.31, 0.30, 0.04, 0.05, 0.06], [0.50, 0.24, 0.30, 0.04, 0.05, 0.06], [0.85, 0.19, 0.24, 0.04, 0.05, 0.06]],
     center: [[1.25, 0.13, 0.10, 0.04, 0.06]],
   },
-  // Full-body scattered patches.
+  // Full-body camo blobs (organic, not scattered rectangles).
   413: {
     flank: [[-0.80, 0.22, 0.14, 0.04, 0.06, 0.05], [-0.55, 0.29, 0.14, 0.04, 0.06, 0.08], [-0.30, 0.40, 0.12, 0.04, 0.06, 0.05], [-0.05, 0.34, 0.12, 0.04, 0.06, 0.08], [0.20, 0.30, 0.14, 0.04, 0.06, 0.05], [0.45, 0.25, 0.14, 0.04, 0.06, 0.08], [0.70, 0.22, 0.12, 0.04, 0.06, 0.05], [0.95, 0.17, 0.12, 0.04, 0.05, 0.05], [1.15, 0.145, 0.10, 0.04, 0.05, 0.04]],
     center: [[0.68, 0.225, 0.16, 0.04, 0.08], [1.25, 0.13, 0.10, 0.04, 0.06]],
+    shapes: camoShapeDefs(),
   },
   // Cheetah spots: irregular organic blobs scattered across the body.
   414: {
@@ -390,10 +578,11 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
       { cx: 0.68, cz: 0, path: circlePath(16, 0.07), lift: 0.007 },
     ],
   },
-  // Circuit-board traces along the flanks.
+  // Circuit-board traces + solder pads along the flanks and center.
   416: {
     flank: [[1.10, 0.15, 0.10, 0.05, 0.04, 0.05], [0.90, 0.175, 0.10, 0.05, 0.04, 0.09], [0.70, 0.21, 0.10, 0.05, 0.04, 0.05], [0.50, 0.24, 0.10, 0.05, 0.04, 0.09], [0.30, 0.29, 0.10, 0.05, 0.04, 0.05], [0.05, 0.33, 0.10, 0.05, 0.04, 0.09], [-0.20, 0.40, 0.10, 0.05, 0.04, 0.05]],
     center: [[0.68, 0.225, 0.10, 0.05, 0.06]],
+    shapes: circuitShapeDefs(),
   },
   // Bullseye: concentric rings on the engine cover.
   417: {
@@ -406,15 +595,24 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
       { cx: 1.18, cz: 0, path: circlePath(14, 0.05), lift: 0.006 },
     ],
   },
-  // Union Jack on the rear deck.
+  // Union Jack on the rear deck — crossed livery stripes.
   418: {
     flank: [[-0.30, 0.40, 0.10, 0.05, 0.05, 0.06], [0.30, 0.29, 0.10, 0.05, 0.05, 0.06]],
     center: [[-0.60, 0.29, 0.26, 0.06, 0.13], [0.68, 0.225, 0.20, 0.05, 0.10], [1.20, 0.13, 0.10, 0.05, 0.06]],
+    shapes: [
+      ...unionJackShapeDefs(-0.60, 0, 0.9),
+      ...unionJackShapeDefs(0.68, 0, 0.7),
+      ...unionJackShapeDefs(1.20, 0, 0.4),
+    ],
   },
-  // Cyber grid on the nose and engine cover.
+  // Cyber grid on the nose and engine cover — a lattice of thin lines.
   419: {
     flank: [[1.00, 0.16, 0.10, 0.05, 0.04, 0.05], [0.75, 0.20, 0.10, 0.05, 0.04, 0.08], [0.45, 0.25, 0.10, 0.05, 0.04, 0.05], [0.15, 0.31, 0.10, 0.05, 0.04, 0.08]],
     center: [[0.68, 0.225, 0.14, 0.05, 0.07], [1.25, 0.13, 0.10, 0.05, 0.06]],
+    shapes: [
+      ...gridShapeDefs(0.68, 0, 1, 0.16, 0.16),
+      ...gridShapeDefs(1.25, 0, 1, 0.12, 0.12),
+    ],
   },
   // Zen kanji on the engine cover — a real 力 calligraphy glyph (two brush
   // strokes) instead of a plain rectangle.
@@ -441,10 +639,20 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
       { cx: 0.68, cz: 0, path: flamePath(0.24, 0.10, 5), lift: 0.006 },
     ],
   },
-  // Bee stripes: full-length segmented stripes.
+  // Bee stripes: full-length tapered bands wrapping over the crown.
   422: {
     flank: [[-0.72, 0.235, 0.50, 0.05, 0.09, 0.05], [-0.16, 0.385, 0.34, 0.05, 0.09, 0.05], [0.60, 0.235, 0.42, 0.05, 0.09, 0.05], [1.02, 0.160, 0.34, 0.05, 0.08, 0.045], [-0.16, 0.395, 0.34, 0.05, 0.06, 0.13], [0.60, 0.225, 0.40, 0.05, 0.06, 0.13]],
     center: [[0.68, 0.225, 0.30, 0.05, 0.10], [1.22, 0.13, 0.14, 0.05, 0.10]],
+    shapes: [
+      { cx: 1.02, cz: 0, path: crossStripePath(0.34, 0.05, 0.015) },
+      { cx: 0.80, cz: 0, path: crossStripePath(0.38, 0.05, 0.015, true) },
+      { cx: 0.58, cz: 0, path: crossStripePath(0.40, 0.055, 0.015) },
+      { cx: 0.36, cz: 0, path: crossStripePath(0.40, 0.055, 0.015, true) },
+      { cx: 0.14, cz: 0, path: crossStripePath(0.40, 0.05, 0.015) },
+      { cx: -0.08, cz: 0, path: crossStripePath(0.38, 0.05, 0.015, true) },
+      { cx: -0.30, cz: 0, path: crossStripePath(0.34, 0.045, 0.015) },
+      { cx: -0.52, cz: 0, path: crossStripePath(0.28, 0.04, 0.012, true) },
+    ],
   },
   // Tiger stripes: bowed, tapered stripes wrapping the flanks and shoulders,
   // alternating bow direction so the livery reads as painted fur.
@@ -9250,7 +9458,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.setNormalMatrix(this.modelMatrix);
     gl.uniform3f(this.colorLoc, r, g, b);
     if (app.decalStyle && DECAL_COLORS[app.decalStyle]) {
-      const dc = DECAL_COLORS[app.decalStyle];
+      const dc = app.decalColor ?? DECAL_COLORS[app.decalStyle];
       // Vinyl-wrap sheen: decal plates are drawn glossier than the base paint
       // (clear-coated wrap), so graphics catch the env reflection and specular
       // highlight as the car/turntable turns. Adaptive — a matte/satin paint

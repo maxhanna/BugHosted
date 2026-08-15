@@ -36,6 +36,7 @@ export interface RacingCarAppearance {
   exhaustId?: number;           // APPEARANCE_PARTS exhaust id (tail tips)
   accent?: [number, number, number];
   decalStyle?: number;          // APPEARANCE_PARTS decal id
+  decalColor?: [number, number, number]; // custom decal tint (DECAL_COLOR_SWATCHES), overrides DECAL_COLORS
   glow?: [number, number, number];
   glowIntensity?: number;       // 0 (subtle) .. 100 (blinding) — scales the neon underglow
   metallic?: number;            // 0 matte .. 1 mirror polish (from skin finish)
@@ -94,6 +95,44 @@ export const DECAL_COLORS: Record<number, [number, number, number]> = {
   428: [0.95, 0.9, 0.85],   // crescent moon
   429: [0.05, 0.05, 0.06],  // zebra stripes (near-black)
   430: [0.38, 0.22, 0.08],  // leopard rosettes (dark brown)
+};
+
+// Selectable decal tint swatches (id -> rgb) shown in the garage appearance
+// tab so players can recolor their equipped decal. 0 = keep the decal's stock
+// color (DECAL_COLORS).
+export const DECAL_COLOR_SWATCHES: Record<number, [number, number, number]> = {
+  701: [1.0, 1.0, 1.0],     // White
+  702: [0.06, 0.06, 0.08],  // Black
+  703: [0.62, 0.62, 0.66],  // Silver
+  704: [0.92, 0.14, 0.1],   // Red
+  705: [1.0, 0.5, 0.08],    // Orange
+  706: [1.0, 0.8, 0.18],    // Gold
+  707: [1.0, 0.92, 0.16],   // Yellow
+  708: [0.2, 0.8, 0.35],    // Green
+  709: [0.05, 0.75, 0.6],   // Teal
+  710: [0.25, 0.9, 1.0],    // Cyan
+  711: [0.22, 0.42, 0.95],  // Blue
+  712: [0.55, 0.2, 1.0],    // Violet
+  713: [1.0, 0.3, 0.72],    // Pink
+  714: [0.72, 0.1, 0.28],   // Burgundy
+  715: [0.42, 1.0, 0.72],   // Mint
+  716: [1.0, 0.5, 0.42],    // Coral
+  717: [0.35, 0.42, 0.52],  // Gunmetal
+  718: [0.96, 0.86, 0.62],  // Champagne
+  719: [0.78, 0.44, 0.18],  // Copper
+  720: [0.08, 0.12, 0.42],  // Navy
+  721: [0.88, 0.05, 0.18],  // Crimson
+  722: [0.5, 0.05, 0.9],    // Ultraviolet
+  723: [0.1, 0.9, 0.7],     // Aqua
+  724: [0.03, 0.02, 0.03],  // Obsidian
+};
+
+export const DECAL_COLOR_SWATCH_NAMES: Record<number, string> = {
+  701: 'White', 702: 'Black', 703: 'Silver', 704: 'Red', 705: 'Orange', 706: 'Gold',
+  707: 'Yellow', 708: 'Green', 709: 'Teal', 710: 'Cyan', 711: 'Blue', 712: 'Violet',
+  713: 'Pink', 714: 'Burgundy', 715: 'Mint', 716: 'Coral', 717: 'Gunmetal',
+  718: 'Champagne', 719: 'Copper', 720: 'Navy', 721: 'Crimson', 722: 'Ultraviolet',
+  723: 'Aqua', 724: 'Obsidian',
 };
 
 // Neon underglow id -> additive glow color.
@@ -173,6 +212,7 @@ export interface RacingPlayerCar {
   rimId: number;
   exhaustId: number;
   decalId: number;
+  decalColorId: number; // 0 = decal's stock color, else DECAL_COLOR_SWATCHES id
   glowId: number;
   accentId: number;
   glowIntensity: number; // 0 (subtle) .. 100 (blinding) neon underglow strength
@@ -248,29 +288,57 @@ export const BOT_CONFIGS: Record<string, RacingBotConfig> = {
   hard: { difficulty: 'hard', speedBase: 60, speedVariance: 4, cornerSkill: 0.8, aggression: 0.6, mistakeChance: 0.05 },
 };
 
+// Upgrades are per-stage additive deltas: owning every stage in a category
+// sums the statBonuses (getSpeedBonus/getGripBonus/... accumulate them), so a
+// category's real "maximum" is its total. Each category below keeps that same
+// total as before but splits it into more, smaller tiers — longer, smoother
+// progression with a bigger money sink, same fully-upgraded car.
 export const UPGRADE_DEFS: RacingCarUpgrade[] = [
-  { id: 1, name: 'Stage 1 Engine', category: 'engine', level: 1, maxLevel: 5, cost: 250, description: '+5% Top Speed', statBonus: 5 },
-  { id: 2, name: 'Stage 2 Engine', category: 'engine', level: 2, maxLevel: 5, cost: 750, description: '+10% Top Speed', statBonus: 10 },
-  { id: 3, name: 'Stage 3 Engine', category: 'engine', level: 3, maxLevel: 5, cost: 2000, description: '+15% Top Speed', statBonus: 15 },
-  { id: 4, name: 'Stage 4 Engine', category: 'engine', level: 4, maxLevel: 5, cost: 6000, description: '+20% Top Speed', statBonus: 20 },
-  { id: 5, name: 'Stage 5 Engine', category: 'engine', level: 5, maxLevel: 5, cost: 18000, description: '+25% Top Speed', statBonus: 25 },
-  // Tire grip bonuses are deliberately half of what they used to be — the old
-  // +30% Hyper Tires pushed effective grip (0.85 base) to 1.15, which made a
-  // fully-upgraded car snap across the track from a small steering input.
-  { id: 6, name: 'Sport Tires', category: 'tires', level: 1, maxLevel: 4, cost: 300, description: '+2.5% Grip', statBonus: 2.5 },
-  { id: 7, name: 'Racing Tires', category: 'tires', level: 2, maxLevel: 4, cost: 800, description: '+6% Grip', statBonus: 6 },
-  { id: 8, name: 'Slick Tires', category: 'tires', level: 3, maxLevel: 4, cost: 2000, description: '+10% Grip', statBonus: 10 },
-  { id: 9, name: 'Hyper Tires', category: 'tires', level: 4, maxLevel: 4, cost: 6000, description: '+15% Grip', statBonus: 15 },
-  // Suspension cornering bonuses are halved like the tire grip curve above, so
-  // handling upgrades stay proportional to the new tire payoff.
-  { id: 10, name: 'Sport Suspension', category: 'suspension', level: 1, maxLevel: 3, cost: 400, description: '+2.5% Cornering', statBonus: 2.5 },
-  { id: 11, name: 'Race Suspension', category: 'suspension', level: 2, maxLevel: 3, cost: 1200, description: '+6% Cornering', statBonus: 6 },
-  { id: 12, name: 'Pro Suspension', category: 'suspension', level: 3, maxLevel: 3, cost: 3500, description: '+10% Cornering', statBonus: 10 },
-  { id: 13, name: 'Stage 1 Brakes', category: 'brakes', level: 1, maxLevel: 3, cost: 250, description: '+10% Braking', statBonus: 10 },
-  { id: 14, name: 'Stage 2 Brakes', category: 'brakes', level: 2, maxLevel: 3, cost: 700, description: '+20% Braking', statBonus: 20 },
-  { id: 15, name: 'Stage 3 Brakes', category: 'brakes', level: 3, maxLevel: 3, cost: 1800, description: '+30% Braking', statBonus: 30 },
-  { id: 16, name: 'Carbon Body', category: 'body', level: 1, maxLevel: 2, cost: 1000, description: '-5% Weight', statBonus: 5 },
-  { id: 17, name: 'Aero Body', category: 'body', level: 2, maxLevel: 2, cost: 3000, description: '-12% Weight', statBonus: 12 },
+  // Engine — 10 stages, +3%..+12% (total +75% top speed, unchanged).
+  { id: 1, name: 'Stage 1 Engine', category: 'engine', level: 1, maxLevel: 10, cost: 250, description: '+3% Top Speed', statBonus: 3 },
+  { id: 2, name: 'Stage 2 Engine', category: 'engine', level: 2, maxLevel: 10, cost: 500, description: '+4% Top Speed', statBonus: 4 },
+  { id: 3, name: 'Stage 3 Engine', category: 'engine', level: 3, maxLevel: 10, cost: 900, description: '+5% Top Speed', statBonus: 5 },
+  { id: 4, name: 'Stage 4 Engine', category: 'engine', level: 4, maxLevel: 10, cost: 1500, description: '+6% Top Speed', statBonus: 6 },
+  { id: 5, name: 'Stage 5 Engine', category: 'engine', level: 5, maxLevel: 10, cost: 2500, description: '+7% Top Speed', statBonus: 7 },
+  { id: 6, name: 'Stage 6 Engine', category: 'engine', level: 6, maxLevel: 10, cost: 4000, description: '+8% Top Speed', statBonus: 8 },
+  { id: 7, name: 'Stage 7 Engine', category: 'engine', level: 7, maxLevel: 10, cost: 6500, description: '+9% Top Speed', statBonus: 9 },
+  { id: 8, name: 'Stage 8 Engine', category: 'engine', level: 8, maxLevel: 10, cost: 10000, description: '+10% Top Speed', statBonus: 10 },
+  { id: 9, name: 'Stage 9 Engine', category: 'engine', level: 9, maxLevel: 10, cost: 14000, description: '+11% Top Speed', statBonus: 11 },
+  { id: 10, name: 'Stage 10 Engine', category: 'engine', level: 10, maxLevel: 10, cost: 18000, description: '+12% Top Speed', statBonus: 12 },
+  // Tires — 8 stages, total +33.5% grip (same max as before, finer steps).
+  // Grip stays deliberately modest so a fully-upgraded car never snaps across
+  // the track from a small steering input.
+  { id: 11, name: 'Sport Tires', category: 'tires', level: 1, maxLevel: 8, cost: 300, description: '+2% Grip', statBonus: 2 },
+  { id: 12, name: 'Street Tires', category: 'tires', level: 2, maxLevel: 8, cost: 500, description: '+2.5% Grip', statBonus: 2.5 },
+  { id: 13, name: 'Racing Tires', category: 'tires', level: 3, maxLevel: 8, cost: 800, description: '+3% Grip', statBonus: 3 },
+  { id: 14, name: 'Performance Tires', category: 'tires', level: 4, maxLevel: 8, cost: 1300, description: '+3.5% Grip', statBonus: 3.5 },
+  { id: 15, name: 'Slick Tires', category: 'tires', level: 5, maxLevel: 8, cost: 2000, description: '+4% Grip', statBonus: 4 },
+  { id: 16, name: 'Semi-Slick Tires', category: 'tires', level: 6, maxLevel: 8, cost: 3200, description: '+4.5% Grip', statBonus: 4.5 },
+  { id: 17, name: 'Track Tires', category: 'tires', level: 7, maxLevel: 8, cost: 5000, description: '+5% Grip', statBonus: 5 },
+  { id: 18, name: 'Hyper Tires', category: 'tires', level: 8, maxLevel: 8, cost: 8000, description: '+9% Grip', statBonus: 9 },
+  // Suspension — 6 stages, total +18.5% cornering (same max, finer steps).
+  { id: 19, name: 'Sport Suspension', category: 'suspension', level: 1, maxLevel: 6, cost: 400, description: '+1.5% Cornering', statBonus: 1.5 },
+  { id: 20, name: 'Street Suspension', category: 'suspension', level: 2, maxLevel: 6, cost: 600, description: '+2% Cornering', statBonus: 2 },
+  { id: 21, name: 'Race Suspension', category: 'suspension', level: 3, maxLevel: 6, cost: 1000, description: '+2.5% Cornering', statBonus: 2.5 },
+  { id: 22, name: 'Performance Suspension', category: 'suspension', level: 4, maxLevel: 6, cost: 1600, description: '+3% Cornering', statBonus: 3 },
+  { id: 23, name: 'Track Suspension', category: 'suspension', level: 5, maxLevel: 6, cost: 2600, description: '+3.5% Cornering', statBonus: 3.5 },
+  { id: 24, name: 'Pro Suspension', category: 'suspension', level: 6, maxLevel: 6, cost: 4500, description: '+6% Cornering', statBonus: 6 },
+  // Brakes — 8 stages, total +60% braking (same max, finer steps).
+  { id: 25, name: 'Stage 1 Brakes', category: 'brakes', level: 1, maxLevel: 8, cost: 250, description: '+4% Braking', statBonus: 4 },
+  { id: 26, name: 'Stage 2 Brakes', category: 'brakes', level: 2, maxLevel: 8, cost: 450, description: '+5% Braking', statBonus: 5 },
+  { id: 27, name: 'Stage 3 Brakes', category: 'brakes', level: 3, maxLevel: 8, cost: 800, description: '+6% Braking', statBonus: 6 },
+  { id: 28, name: 'Stage 4 Brakes', category: 'brakes', level: 4, maxLevel: 8, cost: 1300, description: '+7% Braking', statBonus: 7 },
+  { id: 29, name: 'Stage 5 Brakes', category: 'brakes', level: 5, maxLevel: 8, cost: 2100, description: '+8% Braking', statBonus: 8 },
+  { id: 30, name: 'Stage 6 Brakes', category: 'brakes', level: 6, maxLevel: 8, cost: 3400, description: '+9% Braking', statBonus: 9 },
+  { id: 31, name: 'Stage 7 Brakes', category: 'brakes', level: 7, maxLevel: 8, cost: 5500, description: '+10% Braking', statBonus: 10 },
+  { id: 32, name: 'Stage 8 Brakes', category: 'brakes', level: 8, maxLevel: 8, cost: 9000, description: '+11% Braking', statBonus: 11 },
+  // Body — 6 stages, total -17% weight (same max, finer steps).
+  { id: 33, name: 'Carbon Body', category: 'body', level: 1, maxLevel: 6, cost: 1000, description: '-2.5% Weight', statBonus: 2.5 },
+  { id: 34, name: 'Sport Chassis', category: 'body', level: 2, maxLevel: 6, cost: 1600, description: '-2.5% Weight', statBonus: 2.5 },
+  { id: 35, name: 'Alloy Body', category: 'body', level: 3, maxLevel: 6, cost: 2500, description: '-3% Weight', statBonus: 3 },
+  { id: 36, name: 'Titanium Body', category: 'body', level: 4, maxLevel: 6, cost: 4000, description: '-3% Weight', statBonus: 3 },
+  { id: 37, name: 'Aero Body', category: 'body', level: 5, maxLevel: 6, cost: 6500, description: '-3% Weight', statBonus: 3 },
+  { id: 38, name: 'Full Aero Body', category: 'body', level: 6, maxLevel: 6, cost: 10000, description: '-3% Weight', statBonus: 3 },
 ];
 
 export const TRACKS: TrackDefinition[] = [

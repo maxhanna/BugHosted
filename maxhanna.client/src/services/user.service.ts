@@ -451,11 +451,15 @@ export class UserService {
   }
 
   /**
-   * Ask the server to mint a fresh session for a dead-but-recently-active
-   * token. The cookie is replaced server-side; the returned token refreshes
-   * the client's in-memory copy. Returns null when renewal isn't possible.
+   * Ask the server to validate/extend the current session via its token (or the
+   * HttpOnly cookie when no token is supplied, e.g. right after a page reload).
+   *
+   * Result tri-state so a transient failure is never mistaken for expiry:
+   *   - { sessionToken, userId } → renewed successfully
+   *   - null                  → definitively refused (401: expired/invalid)
+   *   - { retryable: true }   → transient failure (5xx / network) — retry later
    */
-  async renewSession(sessionToken?: string): Promise<{ sessionToken: string; userId?: number } | null> {
+  async renewSession(sessionToken?: string): Promise<{ sessionToken: string; userId?: number } | { retryable: true } | null> {
     try {
       const headers: any = { 'Content-Type': 'application/json' };
       if (sessionToken) headers['Encrypted-UserId'] = sessionToken;
@@ -463,10 +467,11 @@ export class UserService {
         method: 'POST',
         headers,
       });
-      if (!response.ok) return null;
+      if (response.status === 401) return null; // definitively expired/invalid
+      if (!response.ok) return { retryable: true }; // 5xx/503 — don't log the user out
       return await response.json();
     } catch (error) {
-      return null;
+      return { retryable: true }; // network hiccup — don't log the user out
     }
   }
 

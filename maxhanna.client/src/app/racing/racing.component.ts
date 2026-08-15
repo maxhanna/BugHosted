@@ -10,6 +10,7 @@ import {
   RacingPlayerCar, RaceResult, RacingAppearancePart,
   TRACKS, UPGRADE_DEFS, CAR_SKINS, BOT_CONFIGS, APPEARANCE_PARTS, TrackDefinition,
   RIM_TINTS, DECAL_COLORS, GLOW_COLORS, ACCENT_COLORS, SKIN_FINISH_FACTOR, RacingCarAppearance,
+  DECAL_COLOR_SWATCHES, DECAL_COLOR_SWATCH_NAMES,
   SPOILER_DOWNFORCE, SPOILER_DRAG
 } from '../../services/datacontracts/racing/racing-types';
 import { UserEventService } from '../../services/user-event.service';
@@ -174,6 +175,7 @@ interface RemoteCarVisual {
   rimId?: number;
   exhaustId?: number;
   decalId?: number;
+  decalColorId?: number;
   glowId?: number;
   accentId?: number;
   glowIntensity?: number;
@@ -250,7 +252,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   totalRacers = 1;
   playerCar: RacingPlayerCar = {
     userId: 0, playerName: '', upgrades: [], skinId: 1, spoilerId: 0, rimId: 0, exhaustId: 0, decalId: 0,
-    glowId: 0, accentId: 0, glowIntensity: 50,
+    decalColorId: 0, glowId: 0, accentId: 0, glowIntensity: 50,
     totalRaces: 0, wins: 0, money: 500, bestLap: 0, totalEarnings: 0
   };
   carX = 0; carZ = 0; carYaw = 0; carSpeed = 0;
@@ -576,6 +578,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
             p.rimId = data.rimId;
             p.exhaustId = data.exhaustId;
             p.decalId = data.decalId;
+            p.decalColorId = data.decalColorId;
             p.glowId = data.glowId;
             p.accentId = data.accentId;
             p.glowIntensity = data.glowIntensity;
@@ -2135,7 +2138,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         s.speed = 0; s.accel = 0; s.spin = 0; s.slide = 0;
         s.id = 'player'; s.bank = pBank;
         s.rimStyle = pa.rimStyle; s.spoilerId = pa.spoilerId; s.exhaustId = pa.exhaustId;
-        s.accent = pa.accent; s.decalStyle = pa.decalStyle; s.glow = pa.glow;
+        s.accent = pa.accent; s.decalStyle = pa.decalStyle; s.decalColor = pa.decalColor; s.glow = pa.glow;
         s.glowIntensity = pa.glowIntensity; s.metallic = pa.metallic; s.skin = pa.skin;
         carList.push(s);
       }
@@ -3547,6 +3550,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       rimId: this.playerCar.rimId || 0,
       exhaustId: this.playerCar.exhaustId || 0,
       decalId: this.playerCar.decalId || 0,
+      decalColorId: this.playerCar.decalColorId || 0,
       glowId: this.playerCar.glowId || 0,
       accentId: this.playerCar.accentId || 0,
       glowIntensity: this.playerCar.glowIntensity ?? 50,
@@ -3561,6 +3565,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (src.rimId !== undefined) rc.rimId = src.rimId;
     if (src.exhaustId !== undefined) rc.exhaustId = src.exhaustId;
     if (src.decalId !== undefined) rc.decalId = src.decalId;
+    if (src.decalColorId !== undefined) rc.decalColorId = src.decalColorId;
     if (src.glowId !== undefined) rc.glowId = src.glowId;
     if (src.accentId !== undefined) rc.accentId = src.accentId;
     if (src.glowIntensity !== undefined) rc.glowIntensity = src.glowIntensity;
@@ -3573,6 +3578,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     slot.spoilerId = (rc.spoilerId && rc.spoilerId > 0) ? rc.spoilerId : undefined;
     slot.exhaustId = (rc.exhaustId && rc.exhaustId > 0) ? rc.exhaustId : undefined;
     slot.decalStyle = (rc.decalId && rc.decalId > 0) ? rc.decalId : undefined;
+    slot.decalColor = DECAL_COLOR_SWATCHES[rc.decalColorId ?? 0] ?? undefined;
     slot.accent = ACCENT_COLORS[rc.accentId ?? 0] ?? undefined;
     slot.glow = GLOW_COLORS[rc.glowId ?? 0] ?? undefined;
     slot.glowIntensity = rc.glowIntensity ?? 50;
@@ -3693,15 +3699,41 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     return p.category === 'decal';
   }
   private _decalColorCache = new Map<number, string>();
-  /** Decal colour as an rgb() string for the placement map plates, floored so dark wraps stay visible on the silhouette. */
+  /** Decal colour as an rgb() string for the placement map plates, floored so dark wraps stay visible on the silhouette.
+   *  Uses the player's chosen decal tint (decalColorId) when set, else the decal's stock colour. */
   getDecalPlateColor(id: number): string {
+    const custom = this.playerCar.decalColorId ? DECAL_COLOR_SWATCHES[this.playerCar.decalColorId] : undefined;
     const cached = this._decalColorCache.get(id);
-    if (cached) return cached;
-    const c = DECAL_COLORS[id];
+    if (cached && !custom) return cached;
+    const c = custom ?? DECAL_COLORS[id];
     const to255 = (v: number) => Math.max(52, Math.round(v * 255));
     const col = c ? `rgb(${to255(c[0])}, ${to255(c[1])}, ${to255(c[2])})` : '#888';
-    this._decalColorCache.set(id, col);
+    if (!custom) this._decalColorCache.set(id, col);
     return col;
+  }
+  /** Decal tint swatch id -> css rgb() string (unfloored, for the swatch chips). */
+  getDecalSwatchColor(id: number): string {
+    const c = DECAL_COLOR_SWATCHES[id];
+    if (!c) return '#888';
+    return `rgb(${Math.round(c[0] * 255)}, ${Math.round(c[1] * 255)}, ${Math.round(c[2] * 255)})`;
+  }
+  /** Ordered decal tint swatches for the garage picker. */
+  getDecalColorSwatches(): { id: number; name: string; color: string }[] {
+    return Object.keys(DECAL_COLOR_SWATCHES).map(Number).map(id => ({
+      id, name: DECAL_COLOR_SWATCH_NAMES[id] ?? `Tint ${id}`, color: this.getDecalSwatchColor(id),
+    }));
+  }
+  /** Set the player's decal tint (0 = stock colour), debounced like the glow slider. */
+  setDecalColor(id: number) {
+    if (this.playerCar) this.playerCar.decalColorId = id || 0;
+    if (this._decalColorSaveTimer) clearTimeout(this._decalColorSaveTimer);
+    this._decalColorSaveTimer = setTimeout(() => this.saveCar(), 400);
+  }
+  private _decalColorSaveTimer: any = null;
+  /** Human-readable label for the currently selected decal tint. */
+  getDecalColorName(id: number): string {
+    if (!id) return 'Stock color';
+    return DECAL_COLOR_SWATCH_NAMES[id] ?? `Tint ${id}`;
   }
   /**
    * Top-down placement rects for a decal card, derived from DECAL_LAYOUTS so the
@@ -3731,6 +3763,21 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     }
     for (const [cx, , l, , d] of layout.center) {
       push(cx, 0, l, d);
+    }
+    // Artistic polygon decals (digits, skull, flames, stripes, spots…) have no
+    // flank/center plates, so derive a bounding rect from each shape's path so
+    // the garage card still previews where the artwork lands on the body.
+    for (const s of layout.shapes ?? []) {
+      let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+      for (const [px, pz] of s.path) {
+        const wx = s.cx + px * (s.scale ?? 1);
+        const wz = s.cz + pz * (s.scale ?? 1);
+        minX = Math.min(minX, wx); maxX = Math.max(maxX, wx);
+        minZ = Math.min(minZ, wz); maxZ = Math.max(maxZ, wz);
+      }
+      if (!Number.isFinite(minX)) continue;
+      push((minX + maxX) / 2, (minZ + maxZ) / 2, maxX - minX, maxZ - minZ);
+      if (s.mirror) push((minX + maxX) / 2, -(minZ + maxZ) / 2, maxX - minX, maxZ - minZ);
     }
     this._decalRectCache.set(p.id, rects);
     return rects;
@@ -4227,6 +4274,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       exhaustId: this.playerCar.exhaustId || undefined,
       accent: ACCENT_COLORS[this.playerCar.accentId] ?? undefined,
       decalStyle: this.playerCar.decalId,
+      decalColor: DECAL_COLOR_SWATCHES[this.playerCar.decalColorId ?? 0] ?? undefined,
       glow: GLOW_COLORS[this.playerCar.glowId] ?? undefined,
       glowIntensity: this.playerCar.glowIntensity ?? 50,
       metallic: SKIN_FINISH_FACTOR[skin.finish] ?? 0.45,
@@ -4299,6 +4347,7 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
       spoilerId: (p.spoilerId && p.spoilerId > 0) ? p.spoilerId : undefined,
       exhaustId: (p.exhaustId && p.exhaustId > 0) ? p.exhaustId : undefined,
       decalStyle: (p.decalId && p.decalId > 0) ? p.decalId : undefined,
+      decalColor: DECAL_COLOR_SWATCHES[p.decalColorId ?? 0] ?? undefined,
       accent: ACCENT_COLORS[p.accentId ?? 0] ?? undefined,
       glow: GLOW_COLORS[p.glowId ?? 0] ?? undefined,
       glowIntensity: p.glowIntensity ?? 50,

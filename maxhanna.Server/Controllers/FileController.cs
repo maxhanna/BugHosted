@@ -1943,7 +1943,7 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpPost("/File/Upload", Name = "Upload")]
-        public async Task<IActionResult> UploadFiles([FromQuery] string? folderPath, [FromQuery] Boolean? compress)
+        public async Task<IActionResult> UploadFiles([FromQuery] string? folderPath, [FromQuery] Boolean? compress, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
         {
             List<FileEntry> uploaded = new List<FileEntry>();
             try
@@ -1955,6 +1955,19 @@ namespace maxhanna.Server.Controllers
                 }
 
                 var userId = int.Parse(Request.Form["userId"]!);
+                if (userId <= 0)
+                {
+                    _ = _log.Db("Upload rejected: anonymous user (userId <= 0) attempted to upload files.", null, "FILE", true);
+                    return BadRequest("No user logged in.");
+                }
+
+                // Uploads require a valid, matching session token (the encrypted
+                // user id) — anonymous callers (userId 0/undefined) can't upload.
+                if (!await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader))
+                {
+                    return StatusCode(500, "Access Denied.");
+                }
+
                 var isPublic = bool.Parse(Request.Form["isPublic"]!);
                 var files = Request.Form.Files;
                 int conflicts = 0;

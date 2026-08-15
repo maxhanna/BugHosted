@@ -78,7 +78,68 @@
     overflow: hidden;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
     background: #8a5f38;
+    cursor: pointer;
   }
+
+  /* Tapping the mini board expands the opponent's side to full screen. */
+  .marbles-boards.viewing-opponent .board-mine {
+    display: none;
+  }
+
+  .marbles-boards.viewing-opponent .board-opponent {
+    inset: 0;
+    top: 0;
+    right: 0;
+    height: auto;
+    width: auto;
+    aspect-ratio: auto;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+/* Full-screen opponent view: back button + "who you're watching" banner. */
+.opponent-view-back {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 3;
+  padding: 8px 12px;
+  border: 2px solid #0a0a0a;
+  border-radius: 6px;
+  background: #ece9d8;
+  color: #1a1a1a;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.4);
+  font-family: inherit;
+}
+
+.opponent-view-back:active {
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.4);
+  transform: translate(1px, 1px);
+}
+
+.opponent-view-banner {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  max-width: 70%;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
 }
 
 /* ── Splash screen ─────────────────────────────────────────────────── */

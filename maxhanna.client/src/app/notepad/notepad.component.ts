@@ -81,6 +81,17 @@ export class NotepadComponent extends ChildComponent implements OnInit, OnDestro
     await this.addNote();
   }
 
+  // Voice input supplement: append captured speech to the note textarea.
+  onVoiceInput(text?: string) {
+    if (!text) return;
+    const ta = this.noteTextInput?.textarea;
+    if (!ta) return;
+    const separator = ta.value && !ta.value.endsWith(' ') ? ' ' : '';
+    ta.value = ta.value + separator + text;
+    ta.focus();
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
   clearInputs() {
     if (this.noteTextInput?.textarea) {
       this.noteTextInput.textarea.value = "";

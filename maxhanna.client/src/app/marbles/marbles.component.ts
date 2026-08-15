@@ -95,6 +95,9 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   chatDraft = '';
   showHowTo = false;
   isMenuPanelOpen = false;
+  /** Mobile: true while the full-screen opponent view is up (tapped the mini
+   *  opponent board) — hides the player's board and shows a back button. */
+  viewingOpponent = false;
   /** Open public rooms anyone can join (1:1 matches waiting for a challenger). */
   publicRooms: MarblesPublicRoom[] = [];
   /** All-time single-player high scores, best first. */
@@ -169,6 +172,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       this.status = 'playing';
       this.winnerName = null;
       this.isMenuPanelOpen = false;
+      this.viewingOpponent = false;
       this.sprites = [];
       this._board = [];
       this._oppSprites = [];
@@ -263,6 +267,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.hub.startVsAI(this.roomCode, difficulty);
     this.status = 'playing';
     this.winnerName = null;
+    this.viewingOpponent = false;
     this.cdr.detectChanges();
   }
 
@@ -319,6 +324,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.lobby = null;
     this.status = 'menu';
     this.isMenuPanelOpen = false;
+    this.viewingOpponent = false;
     this.sprites = [];
     this._board = [];
     this._oppSprites = [];
@@ -589,15 +595,17 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     moveDur = 0,
   ): Sprite[] {
     // 1. Mark sprites sitting on popped cells → pop animation. The popped
-    //    list uses post-move coordinates, so match on the sprite's rounded
-    //    cell AND its colour. Without the colour check a marble sliding
-    //    through a popped cell was mistaken for the one that vanished there,
-    //    which is what repainted marbles into the wrong colour and made
-    //    columns behave inconsistently.
+    //    list uses post-move coordinates, so match against the sprite's
+    //    TARGET cell (tRow/tCol — where it logically is or is heading), not
+    //    its mid-animation row/col. Reading the animated position here meant
+    //    a marble sliding along the pitch row got keyed to the wrong column
+    //    while the confirm arrived, so it escaped the pop and stole a
+    //    surviving marble's cell instead — the surviving marble was then
+    //    popped, which is why marbles vanished during row shifts.
     const poppedKeys = new Set<string>();
     for (const p of popped) poppedKeys.add(`${p.row},${p.col}:${p.color}`);
     for (const s of sprites) {
-      if (poppedKeys.has(`${Math.round(s.row)},${Math.round(s.col)}:${s.color}`)) {
+      if (poppedKeys.has(`${s.tRow},${s.tCol}:${s.color}`)) {
         s.phase = 'pop';
       }
     }
@@ -628,13 +636,13 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         let best: Sprite | null = null;
         let bestDist = Infinity;
         for (const s of live) {
-          if (used.has(s) || s.color !== color || s.row !== PITCH_ROW) continue;
+          if (used.has(s) || s.color !== color || s.tRow !== PITCH_ROW) continue;
           // Steps along the rotation direction to reach this cell. In a
           // clean ±1 rotation the arriving marble is exactly 1 step away;
           // a marble already sitting here (0 steps) means a duplicate
           // color — prefer the one that actually rotates into the cell so
           // the row slides as a whole instead of crossing paths.
-          const steps = ((c - s.col) * rowShifted + COLS) % COLS;
+          const steps = ((c - s.tCol) * rowShifted + COLS) % COLS;
           const dist = (steps + COLS - 1) % COLS;
           if (dist < bestDist) { bestDist = dist; best = s; }
         }
@@ -656,8 +664,8 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     // unison. Order-preserving pairing keeps a whole column shifting together.
     for (let c = 0; c < COLS; c++) {
       const colLive = live
-        .filter(s => s.col === c && !used.has(s))
-        .sort((a, b) => a.row - b.row); // top → bottom
+        .filter(s => s.tCol === c && !used.has(s))
+        .sort((a, b) => a.tRow - b.tRow); // top → bottom
       const cells: { r: number; color: number }[] = [];
       for (let r = 0; r < ROWS; r++) {
         const color = newBoard[r]?.[c] ?? 0;
@@ -804,6 +812,20 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
   selectColumn(c: number): void {
     this.selectedCol = c;
+    this.playClick();
+  }
+
+  /** Mobile: tapping the mini opponent board expands it to a full-screen
+   *  read-only view (the player's board is hidden until they go back). */
+  viewOpponent(): void {
+    if ((this.status === 'playing' || this.status === 'won')
+      && window.matchMedia('(max-width: 900px)').matches) {
+      this.viewingOpponent = true;
+    }
+  }
+
+  backToMyBoard(): void {
+    this.viewingOpponent = false;
     this.playClick();
   }
 

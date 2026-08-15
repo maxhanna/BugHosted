@@ -53,6 +53,18 @@ export class FileUploadComponent implements AfterViewInit {
   preventDisplayClose = false;
   compressMediaFiles = true;
 
+  /** Effective logged-in user id — from the component input or the parent app.
+   *  Anonymous visitors have no id (0/undefined) and must not be offered uploads. */
+  get userId(): number {
+    const u = this.user ?? this.inputtedParentRef?.user;
+    return u?.id ?? 0;
+  }
+
+  /** Uploads require a real logged-in user (no more userId 0/undefined). */
+  canUpload(): boolean {
+    return this.userId > 0;
+  }
+
   ngAfterViewInit() {
 
     setTimeout(() => {
@@ -67,6 +79,10 @@ export class FileUploadComponent implements AfterViewInit {
   }
 
   async uploadInitiate() {
+    if (!this.canUpload()) {
+      this.userNotificationEvent.emit('You must be logged in to upload files.');
+      return;
+    }
     if (this.fileInput && this.fileInput.nativeElement && this.fileInput.nativeElement.files) {
       this.displayListContainer = true;
       if (this.inputtedParentRef) {
@@ -145,6 +161,10 @@ export class FileUploadComponent implements AfterViewInit {
     }
   }
   async uploadSubmitClicked() {
+    if (!this.canUpload()) {
+      this.userNotificationEvent.emit('You must be logged in to upload files.');
+      return;
+    }
     if (this.uploadFileList.length > this.maxSelectedFiles) {
       alert(`Cannot add more then ${this.maxSelectedFiles} files! Took the first ${this.maxSelectedFiles} files for upload.`);
       this.uploadFileList = this.uploadFileList.slice(0, this.maxSelectedFiles);
@@ -175,6 +195,19 @@ export class FileUploadComponent implements AfterViewInit {
     const files = this.uploadFileList;
     if (!files || !files.length || this.uploadFileList.length == 0) {
       return alert("No file to upload!");
+    }
+
+    // Require a real logged-in user AND a valid session token (the encrypted
+    // user id) before anything leaves the client.
+    const userId = this.userId;
+    if (userId <= 0) {
+      this.userNotificationEvent.emit('You must be logged in to upload files.');
+      return;
+    }
+    const sessionToken = await this.inputtedParentRef?.getSessionToken() ?? '';
+    if (!sessionToken) {
+      this.userNotificationEvent.emit('Your session has expired. Please sign in again to upload files.');
+      return;
     }
 
     this.nonDupUploadedCount = 0;
@@ -221,7 +254,7 @@ export class FileUploadComponent implements AfterViewInit {
         const formData = new FormData();
         formData.append('files', file);
         const compress = (!this.disableFileCompression && this.compressCheckbox?.nativeElement?.checked) ?? true;
-        const uploadReq = this.fileService.uploadFileWithProgress(formData, directoryInput || undefined, isPublic, this.user?.id, compress);
+        const uploadReq = this.fileService.uploadFileWithProgress(formData, directoryInput || undefined, isPublic, userId, compress, sessionToken);
         if (uploadReq) {
           uploadReq.subscribe({
             next: async (event) => {
@@ -294,13 +327,13 @@ export class FileUploadComponent implements AfterViewInit {
         });
       }
 
-      if (this.user?.id && this.currentDirectory.toLowerCase().includes("meme")) {
-        this.fileService.notifyFollowersFileUploaded(this.user.id, this.user.username ?? "Anonymous", this.uploadedFileList[0].id, this.uploadedFileList.length);
+      if (this.userId > 0 && this.currentDirectory.toLowerCase().includes("meme")) {
+        this.fileService.notifyFollowersFileUploaded(this.userId, this.user?.username ?? this.inputtedParentRef?.user?.username ?? "Anonymous", this.uploadedFileList[0].id, this.uploadedFileList.length);
       }
       this.userUploadFinishedEvent.emit(this.uploadedFileList);
       const msg = `Uploaded ${fileUploadCount} file${fileUploadCount > 1 ? 's' : ''} to ${this.currentDirectory}.`;
       this.userNotificationEvent.emit(msg);
-      await this.userEventService.insertUserEvent(this.user?.id ?? 0, "file_upload", msg, this.uploadedFileList[0].id);
+      await this.userEventService.insertUserEvent(this.userId, "file_upload", msg, this.uploadedFileList[0].id);
       if (this.duplicateFileNames.length > 0) {
         this.userNotificationEvent.emit(`Skipped duplicates: ${this.duplicateFileNames.join(', ')}`);
       }

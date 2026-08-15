@@ -68,6 +68,20 @@ button:disabled {
   top: 6px;
 }
 
+.uploadLoginRequired {
+  display: inline-block;
+  padding: 6px 10px;
+  border: 1px dashed var(--main-border-color, #999);
+  border-radius: 6px;
+  color: var(--main-font-color, #333);
+  background: var(--component-background-color, #f5f5f5);
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.85;
+  cursor: not-allowed;
+  user-select: none;
+}
+
 .uploadFilesTitle {
   font-family: var(--title-font-family);
   color: var(--main-font-color);

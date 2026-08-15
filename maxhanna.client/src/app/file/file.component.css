@@ -196,6 +196,18 @@ tr[draggable]:hover {
   display: flex;
 }
 
+.uploadLoginRequired {
+  padding: 8px 12px;
+  border: 1px dashed var(--main-border-color, #999);
+  border-radius: 6px;
+  color: var(--main-font-color, #333);
+  background: var(--component-background-color, #f5f5f5);
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.9;
+  text-align: center;
+}
+
 .topTopicsDiv {
   white-space: nowrap;
 }

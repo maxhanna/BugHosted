@@ -162,8 +162,18 @@ export class FileComponent extends ChildComponent implements OnInit {
       this.stopLoading();
     }
   } 
+  /** True when a real account (positive user id) is signed in. */
+  get isLoggedIn(): boolean {
+    return (this.parentRef?.user?.id ?? 0) > 0;
+  }
+
   canUploadToFolder() {  
-    const isRootAndNotAdmin = (this.currentDirectory === '' && this.parentRef?.user?.id !== 1);
+    // Uploads require a real logged-in user — no more anonymous (userId 0/
+    // undefined) uploads, so the menu's upload options are hidden otherwise.
+    const userId = this.parentRef?.user?.id ?? 0;
+    if (userId <= 0) return false;
+
+    const isRootAndNotAdmin = (this.currentDirectory === '' && userId !== 1);
     const isUsersFolder = this.currentDirectory === 'Users/';
  
     return !(isRootAndNotAdmin || isUsersFolder);

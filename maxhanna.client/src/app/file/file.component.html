@@ -38,6 +38,10 @@
   <div class="popupPanelTitle" style="margin-bottom:15px;">
     File Menu
   </div>
+  <div *ngIf="!user && !isLoggedIn" class="uploadLoginRequired" style="margin-top: 12px;">
+    🔒 Log in to upload and manage files.
+  </div>
+
   <div *ngIf="!user && canUploadToFolder()" class="uploadAndNewFolderButtonDiv">
     <button (click)="showMakeDirectoryPrompt=true;" title="Make a New Folder" *ngIf="!showMakeDirectoryPrompt">📂New
       Folder</button>

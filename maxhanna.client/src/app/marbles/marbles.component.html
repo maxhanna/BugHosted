@@ -2,14 +2,23 @@
   <app-title-bar [title]="'Marbles'" [showMenu]="status === 'playing'" (menuClicked)="showMenuPanel()" (closeClicked)="remove_me('MarblesComponent')"></app-title-bar>
 
   <div class="marbles-stage">
-    <div class="marbles-boards">
+    <div class="marbles-boards" [class.viewing-opponent]="viewingOpponent">
       <div class="board-slot board-mine" (pointerdown)="onStageDown($event)"
         (pointermove)="onStageMove($event)" (pointerup)="onStageUp($event)" (pointercancel)="onStageCancel($event)">
         <canvas #boardCanvas></canvas>
       </div>
-      <div class="board-slot board-opponent" *ngIf="status === 'playing' || status === 'won'">
+      <div class="board-slot board-opponent" *ngIf="status === 'playing' || status === 'won'"
+        (click)="viewOpponent()" [attr.title]="'Tap to enlarge ' + (opponent?.playerName || 'opponent') + ' board'">
         <canvas #opponentCanvas></canvas>
-        <div class="board-label" *ngIf="opponent">{{ opponent.playerName }}</div>
+        <div class="board-label" *ngIf="opponent && !viewingOpponent">{{ opponent.playerName }}</div>
+      </div>
+
+      <!-- Full-screen opponent view (mobile): back button + who you're watching. -->
+      <button type="button" class="opponent-view-back" *ngIf="viewingOpponent" (click)="backToMyBoard()">
+        ← Back to your board
+      </button>
+      <div class="opponent-view-banner" *ngIf="viewingOpponent && opponent">
+        👀 Viewing {{ opponent.playerName }}'s board
       </div>
     </div>
 
@@ -30,7 +39,7 @@
       <div class="win98-titlebar"><span>Lose Your Marbles</span></div>
       <div class="win98-body">
         <h2 class="marbles-title">🔮 Lose Your Marbles</h2>
-        <p class="marbles-sub">Slide marbles to line up 3+ of the same color in any row or column. Every 5+ match dumps garbage onto your opponent. First board to fill up loses!</p>
+        <p class="marbles-sub">Slide marbles to line up 3+ of the same color in any row or column. Matches dump garbage on your opponent — 3 sends 1, 4 sends 2, 5+ sends 3. First board to fill up loses!</p>
         <div class="marbles-form">
           <input class="marbles-input" [(ngModel)]="playerName" placeholder="Your name" maxlength="16" />
           <div class="marbles-host-row">
@@ -92,7 +101,7 @@
           <li>Pick a column (tap it, or press <strong>1–5</strong>) and use <strong>▲ / ▼</strong> (or <strong>↑/↓</strong>) to cycle that column's marbles up or down — or just <strong>drag the column up/down</strong> from any row.</li>
           <li>Line up 3+ same-colored marbles <strong>touching in any row or column</strong> — they pop, the ones above fall down, and the fall can start <strong>chain matches</strong>.</li>
           <li>A <strong>special color</strong> is hot each game: popping marbles of that color fills your <strong>reserve</strong>.</li>
-          <li>Pop a <strong>5+ match</strong> to dump garbage (your reserve, or 3 marbles) onto your opponent's board.</li>
+          <li>Every match dumps garbage onto your opponent — <strong>3-in-a-row sends 1</strong> marble, <strong>4 sends 2</strong>, <strong>5+ sends 3</strong>.</li>
           <li>New marbles rain in from the top — <strong>you lose when your columns fill up</strong>.</li>
         </ul>
         <button class="win98-btn" (click)="toggleHowTo()">Back</button>
@@ -148,7 +157,7 @@
         <span class="hud-name">{{ p.playerName }}<span *ngIf="!p.alive" class="hud-out"> 💀</span></span>
         <span class="hud-sent">🚀 {{ p.sent }} sent</span>
       </div>
-      <div class="hud-hint" *ngIf="status === 'playing'">Line up 3+ in any row or column — 5+ dumps garbage!</div>
+      <div class="hud-hint" *ngIf="status === 'playing'">Line up 3+ in any row or column — matches dump garbage (3→1, 4→2, 5+→3)!</div>
     </div>
 
     <!-- ── Winner banner ─────────────────────────────────────────────── -->
@@ -184,7 +193,7 @@
         <button class="ctrl-btn wide" (click)="shiftRow(1)">▶</button>
       </div>
     </div>
-    <p class="marbles-menu-tip">Line up 3+ of a color in any row or column. A 5+ match dumps garbage onto your opponent!</p>
+    <p class="marbles-menu-tip">Line up 3+ of a color in any row or column. Matches dump garbage onto your opponent — 3 sends 1, 4 sends 2, 5+ sends 3!</p>
     <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
   </div>
 </div>

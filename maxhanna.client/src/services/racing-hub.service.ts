@@ -10,6 +10,7 @@ export interface RacingCarAppearancePayload {
   rimId?: number;
   exhaustId?: number;
   decalId?: number;
+  decalColorId?: number;
   glowId?: number;
   accentId?: number;
   glowIntensity?: number;

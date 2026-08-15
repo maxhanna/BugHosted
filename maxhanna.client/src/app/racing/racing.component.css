@@ -1684,6 +1684,72 @@
   background: rgba(0, 0, 0, 0.25);
 }
 
+/* Decal tint picker — same panel chrome as the glow slider. */
+.garage-decal-tint {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--main-highlight-color, #3a3a3a);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.garage-decal-tint-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.garage-decal-tint-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--third-font-color, cornflowerblue);
+}
+
+.garage-decal-tint-value {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--secondary-font-color, #fff);
+  opacity: 0.9;
+  white-space: nowrap;
+}
+
+.garage-decal-tint-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.garage-decal-tint-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  position: relative;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+  transition: transform 0.12s, border-color 0.12s;
+}
+
+.garage-decal-tint-swatch:hover {
+  transform: scale(1.12);
+}
+
+.garage-decal-tint-swatch.active {
+  border-color: var(--secondary-font-color, #fff);
+  box-shadow: 0 0 0 2px var(--main-link-color, chartreuse);
+}
+
+.garage-decal-tint-stock-mark {
+  font-size: 13px;
+  color: #fff;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+}
+
 .garage-glow-intensity-header {
   display: flex;
   align-items: center;

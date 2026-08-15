@@ -580,6 +580,27 @@
               </div>
             </div>
 
+            <!-- Decal tint picker — only shown once a decal is equipped. -->
+            <div class="garage-decal-tint" *ngIf="playerCar.decalId">
+              <div class="garage-decal-tint-header">
+                <span class="garage-decal-tint-title">🎨 DECAL COLOR</span>
+                <span class="garage-decal-tint-value">{{ getDecalColorName(playerCar.decalColorId) }}</span>
+              </div>
+              <div class="garage-decal-tint-swatches">
+                <button type="button" class="garage-decal-tint-swatch"
+                  [class.active]="!playerCar.decalColorId"
+                  title="Stock color" (click)="setDecalColor(0)"
+                  [style.background]="getDecalPlateColor(playerCar.decalId)">
+                  <span class="garage-decal-tint-stock-mark">✓</span>
+                </button>
+                <button type="button" *ngFor="let sw of getDecalColorSwatches()"
+                  class="garage-decal-tint-swatch"
+                  [class.active]="playerCar.decalColorId === sw.id"
+                  [title]="sw.name" (click)="setDecalColor(sw.id)"
+                  [style.background]="sw.color"></button>
+              </div>
+            </div>
+
             <!-- Neon intensity slider — only shown once a glow is equipped. -->
             <div class="garage-glow-intensity" *ngIf="playerCar.glowId">
               <div class="garage-glow-intensity-header">

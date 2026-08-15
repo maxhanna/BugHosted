@@ -227,8 +227,11 @@ public class Log
     }
     catch (Exception ex)
     {
+      // A transient DB/connection error is NOT "token invalid" — rethrow so the
+      // endpoint surfaces a 500/503 the client can retry, instead of a 401 that
+      // makes the client treat a perfectly valid session as expired.
       _ = Db("ValidateUserLoggedIn Exception: " + ex.Message + $".{(!string.IsNullOrEmpty(callingMethodName) ? " Calling method: " + callingMethodName : "")}", null, "SYSTEM", true);
-      return false;
+      throw;
     }
   } 
 
@@ -301,8 +304,11 @@ public class Log
     }
     catch (Exception ex)
     {
+      // null now means ONLY "invalid or expired token". A DB/connection failure
+      // must propagate so callers can distinguish "couldn't check" (retryable)
+      // from "genuinely expired" — otherwise a transient outage logs users out.
       Console.WriteLine("ValidateSessionUserId Exception: " + ex.Message);
-      return null;
+      throw;
     }
   }
 

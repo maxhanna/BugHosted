@@ -1,5 +1,5 @@
 ﻿import { Injectable } from '@angular/core';
-import { HttpClient, HttpEvent, HttpRequest } from '@angular/common/http';
+import { HttpClient, HttpEvent, HttpHeaders, HttpRequest } from '@angular/common/http';
 import { Observable } from 'rxjs/internal/Observable';
 import { User } from './datacontracts/user/user';
 import { FileEntry } from './datacontracts/file/file-entry';
@@ -644,7 +644,7 @@ export class FileService {
       throw error;
     }
   }
-  uploadFileWithProgress(formData: FormData, directory: string | undefined, isPublic: boolean, userId?: number, compress?: boolean): Observable<HttpEvent<any>> {
+  uploadFileWithProgress(formData: FormData, directory: string | undefined, isPublic: boolean, userId?: number, compress?: boolean, sessionToken?: string): Observable<HttpEvent<any>> {
     formData.append('userId', userId ? userId + "" : "0");
     formData.append('isPublic', isPublic + "");
 
@@ -654,9 +654,17 @@ export class FileService {
     } catch { }
     const url = `/file/upload${dir}`;
 
+    // The server requires a matching session token (encrypted user id) to
+    // upload — anonymous users (userId 0/undefined) are rejected server-side.
+    let headers = new HttpHeaders();
+    if (sessionToken) {
+      headers = headers.set('Encrypted-UserId', sessionToken);
+    }
+
     const req = new HttpRequest('POST', url, formData, {
       reportProgress: true,
-      responseType: 'text'
+      responseType: 'text',
+      headers: headers
     });
 
     return this.http.request(req);

@@ -114,6 +114,30 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     this.autoGrowTextarea(e.target as HTMLTextAreaElement | null);
   }
 
+  // Voice input supplement: append captured speech to the "add todo" text box.
+  onVoiceInputForAdd(text?: string) {
+    if (!text) return;
+    const input = this.todoInput?.nativeElement;
+    if (!input) return;
+    input.value = this.appendVoiceText(input.value, text);
+    input.focus();
+  }
+
+  // Voice input supplement: append captured speech to the editing textarea.
+  onVoiceInputForEdit(text?: string) {
+    if (!text) return;
+    const ta = document.getElementById('todoEditingTextarea') as HTMLTextAreaElement | null;
+    if (!ta) return;
+    ta.value = this.appendVoiceText(ta.value, text);
+    this.hasEditedTodo = true;
+    this.autoGrowTextarea(ta);
+  }
+
+  private appendVoiceText(existing: string, text: string): string {
+    const separator = existing && !existing.endsWith(' ') ? ' ' : '';
+    return existing + separator + text;
+  }
+
   // Auto-grow the todo edit textarea up to a max height, so long todos never
   // need scrolling while typing. Still user-resizable via the drag knob.
   autoGrowTextarea(el: HTMLTextAreaElement | null) {

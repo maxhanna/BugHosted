@@ -27,6 +27,10 @@
       [skipSendingNotifications]="true"
       (contentPosted)="onNoteContentPosted($event)">
     </app-text-input>
+    <div class="voiceInputRow">
+      <app-speech-recognition (speechRecognitionEvent)="onVoiceInput($event)"></app-speech-recognition>
+      <span class="voiceInputHint">Speak to dictate your note</span>
+    </div>
   </div>
   <div style="display:flex; justify-content: space-between;">
     <div style="display:flex; gap:8px; align-items:center;">

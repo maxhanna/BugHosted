@@ -1129,8 +1129,21 @@ namespace maxhanna.Server.Controllers
 
       // Presence updates must come from a real session — otherwise anyone could
       // keep any user's last_seen fresh.
-      if (string.IsNullOrWhiteSpace(encryptedUserIdHeader) || !await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader))
+      if (string.IsNullOrWhiteSpace(encryptedUserIdHeader))
         return Unauthorized("Access Denied.");
+
+      try
+      {
+        if (!await _log.ValidateUserLoggedIn(userId, encryptedUserIdHeader))
+          return Unauthorized("Access Denied.");
+      }
+      catch (Exception ex)
+      {
+        // A transient DB/connection failure must not read as "session expired"
+        // (401) — the client would log the user out. Report retryable instead.
+        _ = _log.Db("UpdateLastSeen session validation error: " + ex.Message, userId, "USER", true);
+        return StatusCode(503, "Temporarily unavailable. Please retry.");
+      }
 
       // Cache your connection string in the constructor and use a field if possible.
       var cs = _config?.GetConnectionString("maxhanna");
@@ -1888,7 +1901,18 @@ namespace maxhanna.Server.Controllers
         return Unauthorized("Access Denied. Please log in again.");
 
       string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-      int? userId = await Log.ValidateSessionUserId(cs, token);
+      int? userId;
+      try
+      {
+        userId = await Log.ValidateSessionUserId(cs, token);
+      }
+      catch (Exception ex)
+      {
+        // Transient DB/connection failure — do NOT report "expired" (401),
+        // which the client would treat as a dead session and log the user out.
+        _ = _log.Db("RenewSession validation error: " + ex.Message, null, "USER", true);
+        return StatusCode(503, "Temporarily unavailable. Please retry.");
+      }
       if (userId == null)
         return Unauthorized("Session expired. Please log in again.");
 

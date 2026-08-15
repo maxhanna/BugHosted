@@ -18,7 +18,7 @@
   <app-title-bar [title]="'Todo'" (menuClicked)="openMenuPanel()" (closeClicked)="remove_me('TodoComponent');">
   </app-title-bar>
 
-  <div style="display: flex; justify-content: center; align-items: center; gap:20px">
+  <div class="todoTypeRow">
   <select #selectedType class=selectType (change)="typeOnChange()" style="font-size:large">
   <option *ngFor="let type of todoTypes" [value]="type">{{ type }} <span *ngIf="type === selectedType.value">({{
   todoCount }})</span></option>
@@ -27,12 +27,13 @@
 
   <fieldset class="addTodoInputFieldset">
     <input type="text" id="todoInput" [placeholder]="todoPlaceholder" #todoInput required (keydown.enter)="addTodo()" />
+    <app-speech-recognition (speechRecognitionEvent)="onVoiceInputForAdd($event)"></app-speech-recognition>
     <input type="url" id="urlInput" placeholder="url?" #urlInput (keydown.enter)="addTodo()" />
     <app-media-selector #mediaSelector
       [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
       [user]="parentRef?.user" [inputtedParentRef]="parentRef" [maxSelectedFiles]="10" [uploadButtonText]="''"
       (selectFileEvent)="selectFile($event)"></app-media-selector>
-    <input type="submit" value="💾Save" (click)="addTodo()" />
+    <input type="submit" class="todoSaveBtn" value="💾Save" (click)="addTodo()" />
   </fieldset>
 
   <div [class]="onMobile() ? 'mainTableContainerMobile' : 'mainTableContainer'"
@@ -70,15 +71,18 @@
                 style="margin-left:8px; font-size:0.85em; color:#666;">by {{ item.owner_name ?? ('User ' +
                 item.ownership) }}</span>
               <div *ngIf="isEditing.includes(item)" [class.blocked]="isLoading">
-                Text: <textarea [value]="item.todo ?? ''" id="todoEditingTextarea" style="width:calc(100% - 10px)"
+                <span class="editFieldLabel">Text</span> <textarea [value]="item.todo ?? ''" id="todoEditingTextarea" style="width:calc(100% - 10px)"
                   (input)="onTodoTextInput($event)"></textarea>
               </div>
+              <div *ngIf="isEditing.includes(item)">
+                <app-speech-recognition (speechRecognitionEvent)="onVoiceInputForEdit($event)"></app-speech-recognition>
+              </div>
               <div *ngIf="isEditing.includes(item)" [class.blocked]="isLoading">
-                URL: <textarea *ngIf="isEditing.includes(item)" [value]="item.url ?? ''" id="todoEditingUrlTextarea"
+                <span class="editFieldLabel">URL</span> <textarea *ngIf="isEditing.includes(item)" [value]="item.url ?? ''" id="todoEditingUrlTextarea"
                   style="width:calc(100% - 10px)" (input)="hasEditedTodo = true"></textarea>
               </div>
               <div *ngIf="isEditing.includes(item) && !item.deleted" [class.blocked]="isLoading">
-                File:
+                <span class="editFieldLabel">File</span>
                 <app-media-selector #todoEditingFile [inputtedParentRef]="parentRef" [maxSelectedFiles]="10"
                   [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
                   (selectFileEvent)="hasEditedTodo = true"
@@ -92,12 +96,12 @@
           </td>
           <td *ngIf="item.id" class="actionTd">
             <button (click)="closeEditPopup(); $event.preventDefault();" [title]="'Edit'"
-              class="closeButton cursorPointer" *ngIf="isEditing.includes(item) && !item.deleted" id="closeOverlay"
+              class="todoActionBtn todoUpdateBtn cursorPointer" *ngIf="isEditing.includes(item) && !item.deleted" id="closeOverlay"
               [disabled]="isLoading">💾Update</button>
             <button (click)="deleteTodo(item.id!); $event.preventDefault();" [title]="'Delete'"
-              id="todoDeleteNo{{item.id}}" class="cursorPointer" *ngIf="isEditing.includes(item) && !item.deleted"
+              id="todoDeleteNo{{item.id}}" class="todoActionBtn todoDeleteBtn cursorPointer" *ngIf="isEditing.includes(item) && !item.deleted"
               [disabled]="isLoading">❌Delete</button>
-            <button (click)="closeEditPopup(false); $event.preventDefault();" [title]="'Close'" class="cursorPointer"
+            <button (click)="closeEditPopup(false); $event.preventDefault();" [title]="'Close'" class="todoActionBtn todoCloseBtn cursorPointer"
               *ngIf="isEditing.includes(item) && item.deleted" [disabled]="isLoading">Close</button>
           </td>
           <td class="todoDate" [title]="(item.date?.toString() ?? '').replace('T',' ')">
@@ -107,8 +111,11 @@
         </tr>
       </tbody>
     </table>
-    <div *ngIf="todos.length <= 0 && !isLoading">Nothing in this list yet!</div>
-    <div *ngIf="todos.length <= 0 && isLoading">Loading...</div>
+    <div *ngIf="todos.length <= 0 && !isLoading" class="todoEmptyState">
+      <span class="todoEmptyIcon">📝</span>
+      <span>Nothing in this list yet — add your first {{ selectedType.value }} above!</span>
+    </div>
+    <div *ngIf="todos.length <= 0 && isLoading" class="todoEmptyState todoLoadingState">Loading...</div>
   </div>
 </div>
 <div class="popupPanel" *ngIf="isEditListPanelOpen">
