@@ -1007,7 +1007,7 @@
       📎 Attach Files
     </div>
     <div class="popup-body">
-      <p class="picker-hint">Select files from other cards in this project:</p>
+      <p class="picker-hint">Select files from this project:</p>
       <input #pickerSearchInput id="pickerSearchInput"[(ngModel)]="pickerSearchFilter" (input)="onPickerSearchFilterChange($event)" placeholder="Search files..."
       class="weaver-input weaver-input-sm" />
       <div *ngIf="pickerSelected.length" class="picker-attached">
@@ -1022,7 +1022,7 @@
         <div *ngFor="let node of pickerTree" class="tree-node">
           <ng-container *ngTemplateOutlet="treeRecurse; context: { node: node, depth: 0 }"></ng-container>
         </div>
-        <div *ngIf="pickerTree.length === 0" class="col-empty">No files found in other cards</div>
+        <div *ngIf="pickerTree.length === 0" class="col-empty">No files found in this project</div>
       </div>
     </div>
     <div class="popup-footer">

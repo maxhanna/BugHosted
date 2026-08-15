@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using MySqlConnector;
@@ -163,7 +164,7 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 
-					var kanbanData = GzipDecompress(req.KanbanData ?? "");
+					var kanbanData = SlimKanbanData(GzipDecompress(req.KanbanData ?? ""));
 
 					string sql = @"
 						INSERT INTO maxhanna.weaver_heartbeat (user_id, client_id, status, last_heartbeat, kanban_data, weaver_address, remote_ip)
@@ -1007,6 +1008,103 @@ namespace maxhanna.Server.Controllers
 			return Ok(new { status = "ok" });
 		}
 
+		// ── Project file skeleton ──────────────────────────────────────────
+		// Aggregates every file path the localhost Weaver has synced to the DB
+		// (files it edited via weaver_file_edit, files it read/saved via
+		// weaver_file_request, and the directory-listing results it returned).
+		// This gives the frontend file picker a full "project skeleton" of known
+		// paths instead of only the files already attached to board cards.
+		[HttpGet("fileSkeleton")]
+		public async Task<IActionResult> GetFileSkeleton([FromQuery] string token, [FromQuery] string? project)
+		{
+			if (string.IsNullOrWhiteSpace(token) || !_sessions.TryGetValue(token, out var session))
+				return Unauthorized(new { error = "Invalid token" });
+
+			string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
+			using var conn = new MySqlConnection(cs);
+			await conn.OpenAsync();
+
+			var paths = new HashSet<string>(StringComparer.Ordinal);
+
+			// 1. Files the agent actually edited.
+			using (var cmd = new MySqlCommand(@"
+				SELECT DISTINCT path FROM maxhanna.weaver_file_edit
+				WHERE user_id = @UserId AND path IS NOT NULL AND path <> ''
+				LIMIT 5000", conn))
+			{
+				cmd.Parameters.AddWithValue("@UserId", session.UserId);
+				using var reader = await cmd.ExecuteReaderAsync();
+				while (await reader.ReadAsync())
+					paths.Add(reader.GetString(0));
+			}
+
+			// 2. Files requested (content/save) plus the directory listings the
+			//    localhost returned for 'listing' requests.
+			using (var cmd = new MySqlCommand(@"
+				SELECT type, path, result
+				FROM maxhanna.weaver_file_request
+				WHERE user_id = @UserId AND status = 'fulfilled'
+				ORDER BY id DESC LIMIT 5000", conn))
+			{
+				cmd.Parameters.AddWithValue("@UserId", session.UserId);
+				using var reader = await cmd.ExecuteReaderAsync();
+				while (await reader.ReadAsync())
+				{
+					string type = reader.IsDBNull(0) ? "" : reader.GetString(0);
+					string path = reader.IsDBNull(1) ? "" : reader.GetString(1);
+					string? result = reader.IsDBNull(2) ? null : reader.GetString(2);
+
+					if (type == "content" || type == "save")
+					{
+						if (!string.IsNullOrWhiteSpace(path))
+							paths.Add(path);
+					}
+					else if (type == "listing" && !string.IsNullOrWhiteSpace(result))
+					{
+						// Listing results are { path, entries: [{ name, path, isDirectory }] }.
+						try
+						{
+							using var doc = JsonDocument.Parse(result);
+							if (doc.RootElement.TryGetProperty("entries", out var entriesEl) && entriesEl.ValueKind == JsonValueKind.Array)
+							{
+								foreach (var e in entriesEl.EnumerateArray())
+								{
+									if (e.ValueKind != JsonValueKind.Object) continue;
+									// Directories are implied by file paths in the tree; only
+									// collect actual files so the picker shows leaves.
+									if (e.TryGetProperty("isDirectory", out var isDir) && isDir.ValueKind == JsonValueKind.True)
+										continue;
+									if (e.TryGetProperty("path", out var ep) && ep.ValueKind == JsonValueKind.String)
+										paths.Add(ep.GetString()!);
+								}
+							}
+						}
+						catch { /* malformed listing result — skip */ }
+					}
+				}
+			}
+
+			// Optional best-effort project filter: keep paths under the project
+			// (or relative paths), drop absolute paths under a different root.
+			IEnumerable<string> resultPaths = paths;
+			if (!string.IsNullOrWhiteSpace(project))
+			{
+				string proj = project.Replace('\\', '/').TrimEnd('/');
+				resultPaths = paths.Where(p =>
+				{
+					string np = p.Replace('\\', '/');
+					if (np.Equals(proj, StringComparison.OrdinalIgnoreCase)
+						|| np.StartsWith(proj + "/", StringComparison.OrdinalIgnoreCase))
+						return true;
+					if (np.Length >= 2 && np[1] == ':') return false; // windows absolute, other drive
+					if (np.StartsWith('/')) return false;              // unix absolute, other root
+					return true;                                        // relative path — keep
+				});
+			}
+
+			return Ok(resultPaths.OrderBy(p => p, StringComparer.OrdinalIgnoreCase).ToList());
+		}
+
 		private static string? FindRepoFile(string fileName)
 		{
 			string? current = Directory.GetCurrentDirectory();
@@ -1067,6 +1165,97 @@ namespace maxhanna.Server.Controllers
 			{
 				return input;
 			}
+		}
+
+		// ── Heartbeat payload slimming ─────────────────────────────────────
+		// Archived cards keep their full agent log/analysis/steps on the localhost,
+		// which can push a single kanban_data payload to several megabytes and blow
+		// past MySQL's max_allowed_packet / column size. The web dashboard only
+		// needs a bounded view of these fields, so cap them before storing — this
+		// keeps every board (especially large archives) syncing without dropping
+		// cards. Top-level fields (projects, userScore, rankTitle, fileListing,
+		// editorState, …) are left untouched.
+		private static string SlimKanbanData(string json)
+		{
+			if (string.IsNullOrWhiteSpace(json))
+				return json;
+			try
+			{
+				var root = JsonNode.Parse(json);
+				if (root is not JsonObject obj)
+					return json;
+
+				JsonObject? state = null;
+				foreach (var key in new[] { "state", "State" })
+				{
+					if (obj[key] is JsonObject s) { state = s; break; }
+				}
+
+				if (state != null)
+				{
+					foreach (var col in new[] { "todo", "doing", "done", "archived", "selfImproving" })
+					{
+						if (state[col] is JsonArray arr)
+						{
+							foreach (var item in arr)
+							{
+								if (item is JsonObject card)
+									SlimCard(card);
+							}
+						}
+					}
+				}
+
+				return obj.ToJsonString();
+			}
+			catch
+			{
+				// Malformed payload — store it as-is rather than corrupting it.
+				return json;
+			}
+		}
+
+		private static void SlimCard(JsonObject card)
+		{
+			// Bulky ephemeral fields the remote dashboard never renders.
+			foreach (var key in new[] { "_meetingReplay", "_appliedDiffs", "confirmedContextFiles", "_cohesion" })
+				card.Remove(key);
+
+			if (card["agentLog"] is JsonArray log)
+			{
+				while (log.Count > 15) log.RemoveAt(0);
+				foreach (var entry in log)
+				{
+					if (entry is JsonObject e)
+					{
+						CapStringField(e, "detail", 2000);
+						CapStringField(e, "message", 2000);
+					}
+				}
+			}
+
+			if (card["agentAnalysis"] is JsonObject analysis)
+			{
+				CapStringField(analysis, "thinking", 15000);
+				CapStringField(analysis, "summary", 15000);
+				CapStringField(analysis, "question", 15000);
+
+				if (analysis["steps"] is JsonArray steps)
+				{
+					while (steps.Count > 20) steps.RemoveAt(0);
+					foreach (var step in steps)
+					{
+						if (step is JsonObject s)
+							CapStringField(s, "output", 2000);
+					}
+				}
+			}
+		}
+
+		private static void CapStringField(JsonObject obj, string key, int maxLen)
+		{
+			if (obj[key] is JsonValue val && val.TryGetValue<string>(out var s) && s != null && s.Length > maxLen)
+				obj[key] = s.Substring(0, maxLen) + "…";
 		}
 	}
 

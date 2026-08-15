@@ -74,6 +74,10 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   fileHints: any[] = [];
   fileHintsDirty = false;
   fileHintsLoading = false;
+  // Every file path the localhost Weaver has synced to the DB (edits, file
+  // requests, and directory listings). Merged into the file picker so it has
+  // more datapoints than just the files already attached to board cards.
+  fileSkeleton: string[] = [];
 
   benchmarks: BenchmarkEntry[] = [];
   // Memoized grouping: the getter runs on every change-detection digest, so the map is
@@ -1105,18 +1109,29 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   }
 
   // --- File picker ---
-  openFilePicker(card: WeaverCard) {
+  async openFilePicker(card: WeaverCard) {
     this.pickerCardId = card.id;
     this.pickerSelected = this.getAttachedFiles(card).slice();
-    this.pickerTree = this.buildFileTree();
     this.pickerSearchFilter = '';
     this.pickerOpen = true;
+    // Refresh the project skeleton from the DB so the picker shows the full set
+    // of files the localhost has synced, not just card attachments.
+    await this.loadFileSkeleton();
+    this.pickerTree = this.buildFileTree();
     setTimeout(() => {
       const input = document.getElementById('pickerSearchInput');
       if(input) {
         input.focus();
       }
     }, 0);
+  }
+
+  async loadFileSkeleton() {
+    if (!this.token) return;
+    this.fileSkeleton = await this.weaverService.getFileSkeleton(
+      this.token,
+      this.selectedProjectPath || undefined,
+    );
   }
 
   closeFilePicker() {
@@ -1138,6 +1153,9 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
         }
       }
     }
+    // Add the project skeleton (filesystem datapoints synced from the localhost)
+    // so the picker suggests files beyond those already attached to cards.
+    this.fileSkeleton.forEach(f => allFiles.add(f));
     const tree: any[] = [];
     const root: any = { name: '', children: [] };
     for (const filePath of allFiles) {

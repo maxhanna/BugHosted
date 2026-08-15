@@ -506,15 +506,18 @@ export class FileService {
     }
   }
 
-  async getFileById(fileId: number, sessionToken: string, options?: { signal: AbortSignal }, userId?: number) {
+  async getFileById(fileId: number, sessionToken?: string, options?: { signal: AbortSignal }, userId?: number) {
     try {
+      const reqHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'max-age=31536000',
+      };
+      // A file id is a shared link — anonymous visitors can fetch it, so only
+      // attach the session token when one is actually present.
+      if (sessionToken) reqHeaders['Encrypted-UserId'] = sessionToken;
       const response = await fetch(`/file/getfilebyid/${encodeURIComponent(fileId)}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'max-age=31536000',
-          'Encrypted-UserId': sessionToken,
-        },
+        headers: reqHeaders,
         signal: options?.signal,
         body: JSON.stringify(userId)
       });

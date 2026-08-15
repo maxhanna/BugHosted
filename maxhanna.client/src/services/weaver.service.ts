@@ -275,6 +275,18 @@ export class WeaverService {
     } catch { return false; }
   }
 
+  // Project file skeleton: every file path the localhost Weaver has synced to
+  // the DB (edits + file requests + directory listings).
+  async getFileSkeleton(token: string, project?: string): Promise<string[]> {
+    try {
+      let url = `/weaver/fileSkeleton?token=${encodeURIComponent(token)}`;
+      if (project) url += `&project=${encodeURIComponent(project)}`;
+      const res = await fetch(url);
+      if (!res.ok) return [];
+      return res.json();
+    } catch { return []; }
+  }
+
   async getBenchmarks(token: string): Promise<BenchmarkEntry[]> {
     const res = await fetch(`/weaver/benchmarks?token=${encodeURIComponent(token)}`);
     if (!res.ok) throw new Error('Failed to fetch benchmarks');

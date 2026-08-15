@@ -792,9 +792,13 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
 
-  /** Share link for the current feed view: the Social route plus any active
-   *  topic filter as a ?topic= param, e.g. "Social?topic=Weaver". */
+  /** Share link for the current feed view. A public-chat board is identified
+   *  by its chat id (?chatId=), while a topic-filtered feed uses ?topic=.
+   *  Boards must link by id — a topic name isn't a stable/unique ref for them. */
   getSocialShareLink(): string {
+    if (this.chatId) {
+      return `Social?chatId=${this.chatId}`;
+    }
     if (this.attachedTopics && this.attachedTopics.length > 0) {
       const names = this.attachedTopics.map(t => encodeURIComponent(t.topicText)).join(',');
       return `Social?topic=${names}`;

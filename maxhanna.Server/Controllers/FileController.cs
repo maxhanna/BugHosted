@@ -1561,7 +1561,7 @@ namespace maxhanna.Server.Controllers
         }
 
         [HttpPost("/File/GetFileById/{fileId}", Name = "GetFileById")]
-        public async Task<IActionResult> GetFileById([FromBody] int? userId, int fileId, [FromHeader(Name = "Encrypted-UserId")] string encryptedUserIdHeader)
+        public async Task<IActionResult> GetFileById([FromBody] int? userId, int fileId)
         {
             try
             {

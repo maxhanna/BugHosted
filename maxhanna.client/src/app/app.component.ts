@@ -599,12 +599,13 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         else if (this.router.url.includes('Social')) {
           this.checkAndClearRouterOutlet();
           const storyId = this.router.url.toLowerCase().split('social/')[1]?.split('?')[0];
-          // Preserve a ?topic= filter from the URL so deep links like
-          // /Social?topic=Weaver pre-load that topic's feed.
+          // Preserve ?topic= / ?chatId= filters from the URL so deep links like
+          // /Social?topic=Weaver or /Social?chatId=42 pre-load that view.
           const query = new URLSearchParams((this.router.url.split('?')[1] ?? ''));
           const topic = query.get('topic') ?? undefined;
+          const boardChatId = this.parseInteger(query.get('chatId'));
           this.angLocation.replaceState(this.router.url.split('?')[0]);
-          this.createComponent("Social", { "storyId": storyId, "topic": topic });
+          this.createComponent("Social", { "storyId": storyId, "topic": topic, "chatId": boardChatId > 0 ? boardChatId : undefined });
         }
         else if (this.router.url.includes('ResetPassword')) {
           this.checkAndClearRouterOutlet();

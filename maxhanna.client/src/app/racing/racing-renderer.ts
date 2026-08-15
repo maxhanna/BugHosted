@@ -4255,6 +4255,94 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addCylinder(verts, idxs, x, y, z, r * 0.98, 0.22, 12, [0.35, 0.36, 0.4]);
     this.addCylinder(verts, idxs, x, y - 0.9, z, r * 0.6, 1.8, 10, [0.5, 0.52, 0.55]);
   }
+  /** Rustic Italian villa: plaster block, terracotta hip roof, door + windows. */
+  private addVilla(verts: number[], idxs: number[], x: number, z: number, s: number, wall: number[], roof: number[]) {
+    const w = 3.4 * s;
+    const d = 2.7 * s;
+    const h = 2.3 * s;
+    this.addBox(verts, idxs, x, h / 2, z, d, h, w, wall);
+    this.addCone(verts, idxs, x, h, z, Math.max(w, d) * 0.74, 1.15 * s, 4, roof);
+    this.addBox(verts, idxs, x, 0.55 * s, z - w / 2 - 0.03, 0.55 * s, 1.1 * s, 0.14, [0.24, 0.16, 0.1]);
+    this.addBox(verts, idxs, x - d * 0.3, h * 0.6, z - w / 2 - 0.03, 0.4 * s, 0.4 * s, 0.1, [0.32, 0.4, 0.5]);
+    this.addBox(verts, idxs, x + d * 0.3, h * 0.6, z - w / 2 - 0.03, 0.4 * s, 0.4 * s, 0.1, [0.32, 0.4, 0.5]);
+  }
+
+  /** Stone bell tower (campanile) with a terracotta pyramid cap. */
+  private addCampanile(verts: number[], idxs: number[], x: number, z: number, h: number) {
+    this.addBox(verts, idxs, x, h / 2, z, 1.5, h, 1.5, [0.87, 0.74, 0.56]);
+    this.addCone(verts, idxs, x, h, z, 1.3, 1.6, 4, [0.6, 0.24, 0.13]);
+    for (const fz of [-1, 1]) {
+      this.addBox(verts, idxs, x, h * 0.8, z + fz * 0.78, 0.5, 0.7, 0.12, [0.16, 0.12, 0.08]);
+    }
+    this.addCylinder(verts, idxs, x, h + 1.6, z, 0.05, 0.7, 5, [0.7, 0.65, 0.5]);
+  }
+
+  /** Modern timing/podium tower beside the start straight. */
+  private addPodiumTower(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number) {
+    const h = 7.5;
+    this.addBox(verts, idxs, x, h / 2, z, 1.1, h, 1.1, [0.78, 0.78, 0.82]);
+    this.addBox(verts, idxs, x, h - 0.85, z, 2.6, 0.4, 2.6, [0.3, 0.32, 0.38]);
+    this.addBox(verts, idxs, x, h - 1.6, z, 1.25, 1.0, 1.25, [0.4, 0.55, 0.65]);
+    this.addCylinder(verts, idxs, x, h - 0.45, z, 0.07, 1.7, 6, [0.85, 0.85, 0.88]);
+    this.addOrientedBox(verts, idxs, x, 1.5, z, 0.25, 2.4, 3.0, dirX, dirZ, [0.85, 0.1, 0.08]);
+  }
+
+  /** Sponsorship bridge spanning the track with a tricolore billboard. */
+  private addAdBridge(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, width: number) {
+    const ppx = -dirZ;
+    const ppz = dirX;
+    const hw = width / 2;
+    const topY = 5.0;
+    for (const side of [-1, 1]) {
+      this.addBox(verts, idxs, x + ppx * (hw + 1.1) * side, topY / 2, z + ppz * (hw + 1.1) * side, 0.55, topY, 0.55, [0.3, 0.3, 0.34]);
+    }
+    this.addOrientedBox(verts, idxs, x, topY, z, width + 2.8, 0.5, 0.8, ppx, ppz, [0.38, 0.38, 0.42]);
+    const panelLen = width + 2.4;
+    this.addOrientedBox(verts, idxs, x, topY - 1.05, z, panelLen, 1.7, 0.16, ppx, ppz, [0.95, 0.95, 0.95]);
+    const stripes: [number, number, number][] = [[0.05, 0.5, 0.18], [0.95, 0.95, 0.95], [0.82, 0.1, 0.12]];
+    for (let k = 0; k < 3; k++) {
+      const off = (k - 1) * (panelLen / 3);
+      this.addOrientedBox(verts, idxs, x + ppx * off, topY - 1.05, z + ppz * off, panelLen / 3 - 0.06, 1.5, 0.22, ppx, ppz, stripes[k]);
+    }
+  }
+
+  /** The historic Monza sopraelevata — a steep concrete banked arc rising in
+   *  the park beyond the modern circuit. */
+  private addBankedOval(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    let cx = 0, cz = 0;
+    for (const p of pts) { cx += p.x; cz += p.z; }
+    cx /= pts.length; cz /= pts.length;
+    let outer = 0;
+    for (const p of pts) {
+      const r = Math.hypot(p.x - cx, p.z - cz) + p.width / 2;
+      if (r > outer) outer = r;
+    }
+    const R = outer + 80 + Math.random() * 20;
+    const H = 6.5 + Math.random() * 3;
+    const a0 = Math.random() * Math.PI * 2;
+    const span = Math.PI * (0.75 + Math.random() * 0.55);
+    const steps = this.lowQuality ? 16 : 28;
+    const stripW = 24;
+    const concrete: number[] = [0.72, 0.7, 0.66];
+    const darker: number[] = [0.6, 0.58, 0.54];
+    for (let i = 0; i < steps; i++) {
+      const t0 = a0 + span * (i / steps);
+      const t1 = a0 + span * ((i + 1) / steps);
+      const c0 = Math.cos(t0), s0 = Math.sin(t0);
+      const c1 = Math.cos(t1), s1 = Math.sin(t1);
+      this.pushRampQuad(verts, idxs,
+        [cx + c0 * R, 0.35, cz + s0 * R],
+        [cx + c1 * R, 0.35, cz + s1 * R],
+        [cx + c0 * (R + stripW), H, cz + s0 * (R + stripW)],
+        [cx + c1 * (R + stripW), H, cz + s1 * (R + stripW)],
+        i % 3 === 0 ? darker : concrete);
+    }
+    for (let i = 0; i <= steps; i++) {
+      const t = a0 + span * (i / steps);
+      this.addCylinder(verts, idxs, cx + Math.cos(t) * (R - 1.2), 0, cz + Math.sin(t) * (R - 1.2), 0.5, 1.4, 6, [0.5, 0.48, 0.45]);
+    }
+  }
   private addItalyScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
     let treeIdx = 0;
@@ -4266,14 +4354,78 @@ void main() { FragColor = texture(uTex, vUV); }`;
         const dist = p.width / 2 + 22 + Math.random() * 18;
         const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 6;
         const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
-        const th = 1.5 + Math.random() * 1.2;
-        this.addCylinder(verts, idxs, tx, 0, tz, 0.06, th, 5, [0.3, 0.2, 0.08]);
-        this.addCone(verts, idxs, tx, th - 0.3, tz, 1.2 + Math.random() * 0.8, 0.8 + Math.random() * 0.5, 8, [0.03, 0.22, 0.05]);
-        this.addCone(verts, idxs, tx, th + 0.1, tz, 0.8 + Math.random() * 0.5, 0.5 + Math.random() * 0.3, 8, [0.05, 0.28, 0.06]);
+        if (Math.random() < 0.55) {
+          // Tall cypress columns — the classic Parco di Monza silhouette.
+          const th = 1.5 + Math.random() * 1.2;
+          this.addCylinder(verts, idxs, tx, 0, tz, 0.06, th, 5, [0.3, 0.2, 0.08]);
+          this.addCone(verts, idxs, tx, th - 0.3, tz, 1.2 + Math.random() * 0.8, 0.8 + Math.random() * 0.5, 8, [0.03, 0.22, 0.05]);
+          this.addCone(verts, idxs, tx, th + 0.1, tz, 0.8 + Math.random() * 0.5, 0.5 + Math.random() * 0.3, 8, [0.05, 0.28, 0.06]);
+        } else {
+          // Broader park trees break up the cypress rows.
+          const th = 1.6 + Math.random() * 1.2;
+          const crown = Math.random() < 0.5 ? [0.16, 0.4, 0.1] : [0.3, 0.48, 0.13];
+          this.addCylinder(verts, idxs, tx, 0, tz, 0.09, th, 5, [0.32, 0.22, 0.1]);
+          this.addSphere(verts, idxs, tx, th + 0.7, tz, 1.0 + Math.random() * 0.5, 6, crown);
+        }
         if (treeIdx++ > 150) break;
       }
       if (treeIdx > 150) break;
     }
+
+    // Distant park villas with terracotta roofs + a landmark campanile.
+    const villaWalls: [number, number, number][] = [[0.93, 0.83, 0.64], [0.86, 0.77, 0.6], [0.9, 0.79, 0.58]];
+    const villaRoofs: [number, number, number][] = [[0.62, 0.26, 0.14], [0.7, 0.32, 0.16], [0.55, 0.22, 0.12]];
+    let villaIdx = 0;
+    for (let i = 0; i < pts.length; i += 9) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 42 + Math.random() * 18;
+        const vx = p.x + ppx * dist * side + (Math.random() - 0.5) * 10;
+        const vz = p.z + ppz * dist * side + (Math.random() - 0.5) * 10;
+        this.addVilla(verts, idxs, vx, vz, 0.9 + Math.random() * 0.7, villaWalls[villaIdx % villaWalls.length], villaRoofs[villaIdx % villaRoofs.length]);
+        if (villaIdx++ > 10) break;
+      }
+      if (villaIdx > 10) break;
+    }
+    {
+      const p = pts[Math.floor(pts.length * 0.55)];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      this.addCampanile(verts, idxs, p.x + ppx * (p.width / 2 + 56), p.z + ppz * (p.width / 2 + 56), 9 + Math.random() * 4);
+    }
+
+    // Podium/timing tower beside the start straight.
+    {
+      const p = pts[0];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      this.addPodiumTower(verts, idxs, p.x + ppx * (p.width / 2 + 12), p.z + ppz * (p.width / 2 + 12), p.dirX, p.dirZ);
+    }
+
+    // Sponsorship bridges over the circuit.
+    for (const f of [0.22, 0.68]) {
+      const p = pts[Math.floor(f * pts.length)];
+      this.addAdBridge(verts, idxs, p.x, p.z, p.dirX, p.dirZ, p.width);
+    }
+
+    // Italian tricolore flags on poles.
+    let flagIdx = 0;
+    for (let i = 0; i < pts.length; i += 30) {
+      const p = pts[i];
+      const ppx = -p.dirZ;
+      const ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 6.2 + (side === 1 ? 1.8 : 0);
+        this.addFlagOnPole(verts, idxs, p.x + ppx * dist * side, p.z + ppz * dist * side, p.dirX, p.dirZ, 'italy', 3.4, 1);
+        if (flagIdx++ > 18) break;
+      }
+      if (flagIdx > 18) break;
+    }
+
+    // The historic sopraelevata bank, arcing through the park in the distance.
+    this.addBankedOval(verts, idxs);
     const turns: { i: number; t: number; s: number }[] = [];
     for (let i = 1; i < pts.length; i++) {
       const p0 = pts[i - 1];
