@@ -39,6 +39,14 @@ export interface MarblesOpponentView {
   sent: number;
   alive: boolean;
   isBot: boolean;
+  /** Cells that popped on this opponent's board this turn (for animation). */
+  popped: { row: number; col: number; color: number }[];
+  /** Non-zero when the opponent rotated the pitch row this turn. */
+  rowShifted: number;
+  /** True when this opponent's update was triggered by a marble drop. */
+  dropped: boolean;
+  /** Marbles rained onto this opponent's board this turn. */
+  rained: number;
 }
 
 export interface MarblesJoinResult extends MarblesLobbyState {

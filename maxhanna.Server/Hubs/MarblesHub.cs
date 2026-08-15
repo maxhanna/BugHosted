@@ -585,13 +585,16 @@ namespace maxhanna.Server.Hubs
                     }
                 }
 
-                var moverUpdate = MakeUpdate(lobby, mover, result.Popped, 0, false);
-                if (rowShiftDir != 0) moverUpdate["rowShifted"] = rowShiftDir;
-                updates[mover.ConnectionId] = moverUpdate;
+                var metas = new Dictionary<string, PlayerMoveMeta>();
+                foreach (var p in lobby.Players) metas[p.ConnectionId] = new PlayerMoveMeta();
+                metas[mover.ConnectionId].Popped = result.Popped;
+                metas[mover.ConnectionId].RowShifted = rowShiftDir;
+                foreach (var kv in rainedBy) metas[kv.Key].Rained = kv.Value;
+
                 foreach (var p in lobby.Players)
                 {
-                    if (updates.ContainsKey(p.ConnectionId)) continue;
-                    updates[p.ConnectionId] = MakeUpdate(lobby, p, null, rainedBy.GetValueOrDefault(p.ConnectionId), false);
+                    var m = metas[p.ConnectionId];
+                    updates[p.ConnectionId] = MakeUpdate(lobby, p, m.Popped, m.Rained, m.Dropped, m.RowShifted, metas);
                 }
             }
 
@@ -628,6 +631,9 @@ namespace maxhanna.Server.Hubs
                     lock (lobby.Sync)
                     {
                         if (lobby.Status != "playing") continue;
+                        var metas = new Dictionary<string, PlayerMoveMeta>();
+                        foreach (var p in lobby.Players) metas[p.ConnectionId] = new PlayerMoveMeta();
+
                         foreach (var p in lobby.Players)
                         {
                             if (!p.Alive) continue;
@@ -637,6 +643,8 @@ namespace maxhanna.Server.Hubs
                                 var pop = ResolveMatches(p);
                                 if (pop.ReserveGained > 0) p.Reserve += pop.ReserveGained;
                                 p.Score += pop.PoppedCount;
+                                metas[p.ConnectionId].Popped = pop.Popped;
+                                metas[p.ConnectionId].Dropped = true;
                                 if (pop.HasFivePlus)
                                 {
                                     var target = PickAliveOpponent(lobby, p);
@@ -646,17 +654,15 @@ namespace maxhanna.Server.Hubs
                                         p.Sent += dump;
                                         for (var i = 0; i < dump; i++) RainOne(target, _rng.Next(1, ColorCount + 1));
                                         p.Reserve = 0;
+                                        metas[target.ConnectionId].Rained += dump;
                                     }
                                 }
-                                updates[p.ConnectionId] = MakeUpdate(lobby, p, pop.Popped, 0, true);
                             }
                         }
                         foreach (var p in lobby.Players)
                         {
-                            if (!updates.ContainsKey(p.ConnectionId))
-                            {
-                                updates[p.ConnectionId] = MakeUpdate(lobby, p, null, 0, false);
-                            }
+                            var m = metas[p.ConnectionId];
+                            updates[p.ConnectionId] = MakeUpdate(lobby, p, m.Popped, m.Rained, m.Dropped, 0, metas);
                         }
                     }
 
@@ -818,8 +824,19 @@ namespace maxhanna.Server.Hubs
             return board;
         }
 
-        private static Dictionary<string, object?> MakeUpdate(Lobby lobby, Player p, List<object>? popped, int rained, bool dropped)
+        /// <summary>What happened to a player's board this turn — used to run the
+        ///  same slide/pop/fall animations on every client, not just the mover's.</summary>
+        private sealed class PlayerMoveMeta
         {
+            public List<object>? Popped = null;
+            public int RowShifted = 0;
+            public bool Dropped = false;
+            public int Rained = 0;
+        }
+
+        private static Dictionary<string, object?> MakeUpdate(Lobby lobby, Player p, List<object>? popped, int rained, bool dropped, int rowShifted = 0, Dictionary<string, PlayerMoveMeta>? metas = null)
+        {
+            var opponentMetas = metas ?? new Dictionary<string, PlayerMoveMeta>();
             return new Dictionary<string, object?>
             {
                 ["board"] = p.Board,
@@ -830,16 +847,19 @@ namespace maxhanna.Server.Hubs
                 ["popped"] = popped ?? new List<object>(),
                 ["rained"] = rained,
                 ["dropped"] = dropped,
+                ["rowShifted"] = rowShifted,
                 ["alive"] = p.Alive,
                 ["winnerName"] = (string?)null,
                 ["opponents"] = lobby.Players
                     .Where(o => o.ConnectionId != p.ConnectionId)
-                    .Select(o => OpponentView(o)).ToArray(),
+                    .Select(o => OpponentView(o, opponentMetas.TryGetValue(o.ConnectionId, out var m) ? m : null)).ToArray(),
             };
         }
 
-        /// <summary>Public snapshot of another player's board (for the side-by-side / corner view).</summary>
-        private static object OpponentView(Player o) => new
+        /// <summary>Public snapshot of another player's board (for the side-by-side / corner view),
+        ///  carrying that player's move metadata so watchers can animate the board exactly
+        ///  like the player who moved it.</summary>
+        private static object OpponentView(Player o, PlayerMoveMeta? meta = null) => new
         {
             connectionId = o.ConnectionId,
             playerName = o.PlayerName,
@@ -849,6 +869,10 @@ namespace maxhanna.Server.Hubs
             sent = o.Sent,
             alive = o.Alive,
             isBot = o.IsBot,
+            popped = meta?.Popped ?? new List<object>(),
+            rowShifted = meta?.RowShifted ?? 0,
+            dropped = meta?.Dropped ?? false,
+            rained = meta?.Rained ?? 0,
         };
 
         private async Task BroadcastLobbyAsync(Lobby lobby)

@@ -112,6 +112,10 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   private lastTime = 0;
   private _destroyed = false;
   private _board: number[][] = [];
+  /** Opponent's animated marbles + last-seen board (mirrors the player's
+   *  sprite pipeline so the computer's moves slide/pop instead of snapping). */
+  private _oppSprites: Sprite[] = [];
+  private _oppBoard: number[][] = [];
   private _spriteSeq = 1;
   private _onResize = () => this.resizeCanvas();
   private _audio: AudioContext | null = null;
@@ -141,6 +145,8 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       this.isMenuPanelOpen = false;
       this.sprites = [];
       this._board = [];
+      this._oppSprites = [];
+      this._oppBoard = [];
       this.opponents = [];
       // Fresh look every game: the opponent's board draws its marbles with a
       // new random skin seed each match (stable within the match).
@@ -251,6 +257,8 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.opponents = res.opponents ?? [];
     if (this.status === 'playing') {
       this.applyBoard({ board: res.myBoard, popped: [], rained: 0, dropped: false, specialColor: res.mySpecialColor, reserve: res.myReserve, sent: res.mySent, score: res.myScore, alive: true, winnerName: null });
+      const opp = this.opponents[0];
+      if (opp) this.applyOpponentBoard(opp);
     }
     this.playClick();
     this.cdr.detectChanges();
@@ -275,6 +283,8 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.isMenuPanelOpen = false;
     this.sprites = [];
     this._board = [];
+    this._oppSprites = [];
+    this._oppBoard = [];
     this.opponents = [];
     this.winnerName = null;
     this.isVsAI = false;
@@ -421,6 +431,10 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     if (bu.rained > 0) this.playRain(bu.rained);
     if ((bu.popped?.length ?? 0) > 0) this.playPop(bu.popped.length);
     this.applyBoard(bu);
+    // Animate the opponent's board with the same pipeline (its move metadata
+    // arrives in the opponent view from the server).
+    const opp = this.opponents[0];
+    if (opp) this.applyOpponentBoard(opp);
     this.cdr.detectChanges();
   }
 
@@ -477,14 +491,33 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   // ── Board + sprites ─────────────────────────────────────────────────────
 
   private applyBoard(bu: { board: number[][]; popped: { row: number; col: number; color: number }[]; rained?: number; dropped?: boolean; rowShifted?: number; specialColor?: number; reserve?: number; sent?: number; score?: number; alive?: boolean; winnerName?: string | null }): void {
-    const newBoard = bu.board;
     const oldBoard = this._board;
-    this._board = newBoard;
+    this._board = bu.board;
+    this.sprites = this.matchSpritesToBoard(this.sprites, bu.board, oldBoard, bu.popped ?? [], bu.rowShifted ?? 0);
+  }
 
+  /** Animate the opponent's board the same way as the player's: match the
+   *  previous sprites to the new board and slide/pop/spawn them. */
+  private applyOpponentBoard(opp: MarblesOpponentView): void {
+    const oldBoard = this._oppBoard;
+    this._oppBoard = opp.board;
+    this._oppSprites = this.matchSpritesToBoard(this._oppSprites, opp.board, oldBoard, opp.popped ?? [], opp.rowShifted ?? 0);
+  }
+
+  /** Match a set of sprites to a new board, producing the animated targets.
+   *  Shared by the player's board and the opponent's board so both animate
+   *  identically. */
+  private matchSpritesToBoard(
+    sprites: Sprite[],
+    newBoard: number[][],
+    oldBoard: number[][],
+    popped: { row: number; col: number; color: number }[],
+    rowShifted: number,
+  ): Sprite[] {
     // 1. Mark sprites sitting on popped cells → pop animation.
     const poppedKeys = new Set<string>();
-    for (const p of bu.popped ?? []) poppedKeys.add(`${p.row},${p.col}`);
-    for (const s of this.sprites) {
+    for (const p of popped) poppedKeys.add(`${p.row},${p.col}`);
+    for (const s of sprites) {
       if (poppedKeys.has(`${Math.round(s.row)},${s.col}`)) {
         s.phase = 'pop';
       }
@@ -501,8 +534,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     //    single column and must never "steal" a same-colored marble from a
     //    neighbor column, so without rowShifted every column is matched
     //    strictly on its own pool.
-    const rowShifted = bu.rowShifted ?? 0;
-    const live = this.sprites.filter(s => s.phase !== 'pop');
+    const live = sprites.filter(s => s.phase !== 'pop');
     const used = new Set<Sprite>();
     const next: Sprite[] = [];
 
@@ -588,12 +620,12 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     }
 
     // 3. Unmatched live sprites must have popped → pop them.
-    for (const s of this.sprites) {
+    for (const s of sprites) {
       if (s.phase === 'pop') { next.push(s); continue; }
       if (!used.has(s)) { s.phase = 'pop'; next.push(s); }
     }
 
-    this.sprites = next;
+    return next;
   }
 
   private newSprite(color: number, col: number, toRow: number): Sprite {
@@ -735,7 +767,13 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   }
 
   private update(dt: number): void {
-    for (const s of this.sprites) {
+    this.sprites = this.advanceSprites(this.sprites, dt);
+    this._oppSprites = this.advanceSprites(this._oppSprites, dt);
+  }
+
+  /** Advance one sprite list toward its targets (shared by player + opponent). */
+  private advanceSprites(sprites: Sprite[], dt: number): Sprite[] {
+    for (const s of sprites) {
       if (s.phase === 'pop') {
         s.scale -= dt * 4.5;
         continue;
@@ -769,7 +807,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         s.stretch = 1;
       }
     }
-    this.sprites = this.sprites.filter(s => !(s.phase === 'pop' && s.scale <= 0.02));
+    return sprites.filter(s => !(s.phase === 'pop' && s.scale <= 0.02));
   }
 
   private boardLayout(w: number, h: number): { cell: number; ox: number; oy: number } {
@@ -944,11 +982,11 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     return false;
   }
 
-  /** Render the opponent's live board (no animations — just the static state). */
+  /** Render the opponent's live board with the same sprite animations the
+   *  player's side uses (slides, pops, falls). */
   private drawOpponent(): void {
     const canvas = this.opponentCanvasRef?.nativeElement;
-    const board = this.opponent?.board;
-    if (!canvas || !board) return;
+    if (!canvas) return;
 
     // Keep the backing store in sync with the CSS box (slot appears mid-game).
     const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -963,16 +1001,26 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.drawBoardBackdrop(ctx, canvas.width, canvas.height);
     this.drawTrench(ctx, cell, ox, oy);
     this.drawPitchHighlight(ctx, cell, ox, oy, false);
-    for (let c = 0; c < COLS; c++) {
-      for (let r = 0; r < ROWS; r++) {
-        const color = board[r]?.[c] ?? 0;
-        if (!color) continue;
-        const px = ox + (c + 0.5) * cell;
-        const py = oy + (r + 0.5) * cell;
-        // Cell seed + per-match random offset: the opponent's marbles keep
-        // their look while they move, but the whole board gets fresh skins and
-        // tints every game.
-        this.drawMarble(ctx, px, py, cell * 0.44, color, 0, r * COLS + c + 9000 + this.opponentSeedOffset, this.opponent?.specialColor ?? 0);
+
+    // Animated marbles — same pipeline as the player's board.
+    const sorted = [...this._oppSprites].sort((a, b) => a.row - b.row);
+    const hotColor = this.opponent?.specialColor ?? 0;
+    for (const s of sorted) {
+      const px = ox + (s.col + 0.5) * cell;
+      const py = oy + (s.row + 0.5) * cell;
+      const radius = cell * 0.44 * Math.max(0, s.scale);
+      if (radius <= 0) continue;
+      const stretch = s.stretch ?? 1;
+      // s.id + per-match offset keeps each marble's look stable as it moves,
+      // while re-rolling the whole board's skins every game.
+      if (stretch !== 1) {
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.scale(stretch, 1 / stretch);
+        this.drawMarble(ctx, 0, 0, radius, s.color, s.roll, s.id + this.opponentSeedOffset, hotColor);
+        ctx.restore();
+      } else {
+        this.drawMarble(ctx, px, py, radius, s.color, s.roll, s.id + this.opponentSeedOffset, hotColor);
       }
     }
   }
