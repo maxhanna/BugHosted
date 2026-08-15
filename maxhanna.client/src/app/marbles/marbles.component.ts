@@ -57,13 +57,13 @@ interface BoardMapTheme {
   pit: [string, string, string];
   bevelLight: string;
   lip: string;
-  decor: 'dirt' | 'stars' | 'waves' | 'clouds' | 'neon' | 'lava' | 'snow' | 'cactus';
+  decor: 'playground' | 'stars' | 'waves' | 'clouds' | 'neon' | 'lava' | 'snow' | 'cactus';
 }
 
 const BOARD_MAPS: BoardMapTheme[] = [
-  { id: 'classic', name: 'Dirt Pit', emoji: '🟤', desc: 'The original packed-earth playground.',
-    bg: ['#9a6b3e', '#8a5f38', '#6f4a2b'], darkSpeckle: 'rgba(0,0,0,0.12)', lightSpeckle: 'rgba(255,225,180,0.08)',
-    pit: ['#6e4726', '#5c3a1f', '#472c16'], bevelLight: 'rgba(255,222,168,0.30)', lip: 'rgba(255,205,140,0.22)', decor: 'dirt' },
+  { id: 'classic', name: 'Sandy Pit', emoji: '⛱️', desc: 'The classic playground pit — warm sand, swings and a slide.',
+    bg: ['#eed9a6', '#e2c685', '#c5a465'], darkSpeckle: 'rgba(122,88,40,0.18)', lightSpeckle: 'rgba(255,248,222,0.38)',
+    pit: ['#a87f4a', '#8d6838', '#6f502a'], bevelLight: 'rgba(255,246,212,0.42)', lip: 'rgba(255,242,206,0.32)', decor: 'playground' },
   { id: 'beach', name: 'Tropical Bay', emoji: '🏖️', desc: 'Warm sand with lazy waves rolling in.',
     bg: ['#ecd7a2', '#dcc184', '#bc9452'], darkSpeckle: 'rgba(120,80,30,0.16)', lightSpeckle: 'rgba(255,246,214,0.32)',
     pit: ['#c9a96b', '#a9894f', '#7d6537'], bevelLight: 'rgba(255,250,225,0.40)', lip: 'rgba(255,244,214,0.30)', decor: 'waves' },
@@ -734,6 +734,39 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         if (r === PITCH_ROW && slideFilled.has(c)) continue;
         cells.push({ r, color });
       }
+      // Rotation check: a column shift rotates the settled stack in place, so
+      // the surviving sprites' colour order is preserved up to a cyclic
+      // rotation, with new marbles (drops/rain) inserted at the top of the
+      // stack. If cellSeq = [extraCells] + rotate(spriteSeq, k), pair sprites
+      // to cells by that rotation — this is what makes a wrapped/rotated
+      // marble GLIDE to its new cell instead of being popped and re-spawned
+      // (which is what left phantom holes and swapped marble skins). Falls
+      // (k = 0) are handled here too; only mixed cases fall through to the
+      // order-preserving bottom-up pairing below.
+      const spriteColors = colLive.map(s => s.color);
+      const cellColors = cells.map(x => x.color);
+      if (spriteColors.length > 0 && cellColors.length >= spriteColors.length) {
+        const extra = cellColors.length - spriteColors.length;
+        for (let k = 0; k < spriteColors.length; k++) {
+          let ok = true;
+          for (let i = 0; i < spriteColors.length; i++) {
+            if (cellColors[extra + i] !== spriteColors[(i + k) % spriteColors.length]) { ok = false; break; }
+          }
+          if (ok) {
+            for (let j = 0; j < spriteColors.length; j++) {
+              const s = colLive[j];
+              const cell = cells[extra + ((j - k + spriteColors.length) % spriteColors.length)];
+              used.add(s);
+              this.setTarget(s, c, cell.r, moveDur);
+              next.push(s);
+            }
+            for (let i = extra - 1; i >= 0; i--) {
+              next.push(this.newSprite(cells[i].color, c, cells[i].r, moveDur));
+            }
+            continue; // column handled — skip the bottom-up pairing
+          }
+        }
+      }
       // Pair surviving marbles to cells bottom-up, REQUIRING matching colours.
       // Gravity preserves the bottom-up order of survivors, so aligned pairs
       // glide together; a colour mismatch means a marble popped (its colour
@@ -856,16 +889,28 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.sprites = this.matchSpritesToBoard(this.sprites, nb, oldBoard, [], dir);
   }
 
-  /** Optimistically cycle a column up/down locally, mirroring ShiftColumnOn. */
+  /** Optimistically rotate a column's stack locally, mirroring ShiftColumnOn:
+   *  the settled stack rotates in place (up = top marble to the bottom of the
+   *  stack, down = bottom marble to the top) — marbles never float and the
+   *  column never leaves holes behind. */
   private predictColumnShift(col: number, dir: number): void {
     if (!this._board || this._board.length !== ROWS || col < 0 || col >= COLS) return;
     const oldBoard = this._board;
     const nb = cloneBoard(oldBoard);
-    const newCol = new Array<number>(ROWS);
-    for (let r = 0; r < ROWS; r++) {
-      newCol[r] = nb[(r - dir + ROWS) % ROWS][col];
+    // Compact the column first (heal any residual gap), then rotate.
+    const stack: number[] = [];
+    for (let r = ROWS - 1; r >= 0; r--) {
+      if (nb[r][col] !== 0) stack.unshift(nb[r][col]);
     }
-    for (let r = 0; r < ROWS; r++) nb[r][col] = newCol[r];
+    for (let r = 0; r < ROWS; r++) nb[r][col] = 0;
+    for (let r = 0; r < stack.length; r++) nb[ROWS - stack.length + r][col] = stack[r];
+    const len = stack.length;
+    if (len > 1) {
+      const colors = stack.slice();
+      for (let i = 0; i < len; i++) {
+        nb[ROWS - len + i][col] = colors[(i - dir + len) % len];
+      }
+    }
     this._board = nb;
     this._predictedBoard = nb;
     this.sprites = this.matchSpritesToBoard(this.sprites, nb, oldBoard, [], 0);
@@ -1130,6 +1175,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
     this.drawBoardBackdrop(ctx, canvas.width, canvas.height);
     this.drawTrench(ctx, cell, ox, oy);
+    this.drawForegroundDecor(ctx, canvas.width, canvas.height, cell, ox, oy, this.boardMap);
 
     // Pitch row highlight (the center row / match zone).
     const oneAway = this.status === 'playing' && this.pitchOneAway();
@@ -1288,6 +1334,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     const { cell, ox, oy } = this.boardLayout(canvas.width, canvas.height);
     this.drawBoardBackdrop(ctx, canvas.width, canvas.height);
     this.drawTrench(ctx, cell, ox, oy);
+    this.drawForegroundDecor(ctx, canvas.width, canvas.height, cell, ox, oy, this.boardMap);
     this.drawPitchHighlight(ctx, cell, ox, oy, false);
 
     // Animated marbles — same pipeline as the player's board.
@@ -1348,9 +1395,46 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
    *  lava cracks, cacti. Positions are deterministic per canvas size so the
    *  scene never flickers; only the star twinkle animates. */
   private drawBackdropDecor(ctx: CanvasRenderingContext2D, w: number, h: number, map: BoardMapTheme): void {
+    const t = performance.now();
     switch (map.decor) {
-      case 'dirt': {
-        // The classic pit needs no extra scenery.
+      case 'playground': {
+        // Wind-combed sand ripples across the ground.
+        ctx.strokeStyle = 'rgba(140,100,50,0.25)';
+        ctx.lineWidth = Math.max(1, h * 0.006);
+        for (let i = 0; i < 7; i++) {
+          const y = (i * 137.9) % h;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.bezierCurveTo(w * 0.25, y - h * 0.02, w * 0.6, y + h * 0.02, w, y);
+          ctx.stroke();
+        }
+        // Footprints heading across the sand.
+        ctx.fillStyle = 'rgba(150,110,55,0.35)';
+        for (let i = 0; i < 8; i++) {
+          const fx = (i * 173.3) % w;
+          const fy = (i * 97.7) % h;
+          ctx.beginPath();
+          ctx.ellipse(fx - 4, fy, 3.2, 4.6, 0.4, 0, Math.PI * 2);
+          ctx.ellipse(fx + 4, fy, 3.2, 4.6, -0.3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Pebbles + sand sparkle.
+        ctx.fillStyle = 'rgba(110,80,40,0.5)';
+        for (let i = 0; i < 12; i++) {
+          const x = (i * 61.7) % w;
+          const y = (i * 43.9) % h;
+          ctx.beginPath();
+          ctx.ellipse(x, y, 3 + (i % 3), 2 + (i % 2), 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.fillStyle = 'rgba(255,250,230,0.55)';
+        for (let i = 0; i < 10; i++) {
+          const x = (i * 89.3) % w;
+          const y = (i * 57.1) % h;
+          ctx.beginPath();
+          ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
         return;
       }
       case 'stars': {
@@ -1359,11 +1443,18 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         neb.addColorStop(1, 'rgba(140,90,220,0)');
         ctx.fillStyle = neb;
         ctx.fillRect(0, 0, w, h);
-        for (let i = 0; i < 80; i++) {
+        // A second, fainter galaxy smudge.
+        const gx = w * 0.8, gy = h * 0.55, gr = Math.min(w, h) * 0.45;
+        const gal = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
+        gal.addColorStop(0, 'rgba(80,140,255,0.10)');
+        gal.addColorStop(1, 'rgba(80,140,255,0)');
+        ctx.fillStyle = gal;
+        ctx.fillRect(gx - gr, gy - gr, gr * 2, gr * 2);
+        for (let i = 0; i < 90; i++) {
           const x = (i * 173.3) % w;
           const y = (i * 91.7) % h;
           const r = 0.6 + (i % 3) * 0.7;
-          const tw = 0.5 + 0.5 * Math.sin(performance.now() / 900 + i * 1.7);
+          const tw = 0.5 + 0.5 * Math.sin(t / 900 + i * 1.7);
           const tint = i % 5 === 0 ? '255,220,160' : (i % 4 === 0 ? '180,220,255' : '255,255,255');
           ctx.fillStyle = `rgba(${tint},${(0.35 + 0.5 * tw).toFixed(3)})`;
           ctx.beginPath();
@@ -1378,10 +1469,35 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
             ctx.stroke();
           }
         }
+        // Occasional shooting star streaking across.
+        const shoot = (t % 7000) / 7000;
+        if (shoot < 0.75) {
+          const sx = w * 0.1 + shoot * 1.15 * w;
+          const sy = h * 0.08 + shoot * h * 0.25;
+          const fade = Math.sin((shoot / 0.75) * Math.PI);
+          const tail = Math.min(w, h) * 0.14;
+          const grad = ctx.createLinearGradient(sx, sy, sx - tail, sy - tail * 0.5);
+          grad.addColorStop(0, `rgba(255,255,255,${(0.9 * fade).toFixed(3)})`);
+          grad.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(sx - tail, sy - tail * 0.5);
+          ctx.stroke();
+        }
         return;
       }
       case 'waves': {
-        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+        // Sun high on the horizon.
+        const sun = ctx.createRadialGradient(w * 0.85, h * 0.1, 0, w * 0.85, h * 0.1, Math.min(w, h) * 0.24);
+        sun.addColorStop(0, 'rgba(255,252,220,0.95)');
+        sun.addColorStop(0.3, 'rgba(255,244,180,0.4)');
+        sun.addColorStop(1, 'rgba(255,244,180,0)');
+        ctx.fillStyle = sun;
+        ctx.fillRect(0, 0, w, h);
+        // Lazy wave crests.
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
         ctx.lineWidth = Math.max(1.5, h * 0.008);
         for (let band = 0; band < 3; band++) {
           const y0 = h * (0.74 + band * 0.1);
@@ -1392,12 +1508,32 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
             ctx.stroke();
           }
         }
+        // Seagulls circling.
+        ctx.strokeStyle = 'rgba(50,50,55,0.8)';
+        ctx.lineWidth = Math.max(1.5, h * 0.006);
+        for (let i = 0; i < 3; i++) {
+          const gx = w * (0.12 + 0.76 * ((t / 6000 + i * 0.33) % 1));
+          const gy = h * (0.12 + i * 0.06) + Math.sin(t / 800 + i * 2) * h * 0.02;
+          const s = Math.max(4, h * 0.02);
+          ctx.beginPath();
+          ctx.moveTo(gx - s, gy);
+          ctx.quadraticCurveTo(gx - s * 0.5, gy - s * 0.7, gx, gy);
+          ctx.quadraticCurveTo(gx + s * 0.5, gy - s * 0.7, gx + s, gy);
+          ctx.stroke();
+        }
         return;
       }
       case 'clouds': {
+        // Sunny wash + drifting clouds.
+        const sun = ctx.createRadialGradient(w * 0.85, h * 0.12, 0, w * 0.85, h * 0.12, Math.min(w, h) * 0.22);
+        sun.addColorStop(0, 'rgba(255,250,200,0.9)');
+        sun.addColorStop(0.35, 'rgba(255,240,150,0.35)');
+        sun.addColorStop(1, 'rgba(255,240,150,0)');
+        ctx.fillStyle = sun;
+        ctx.fillRect(0, 0, w, h);
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         for (let i = 0; i < 5; i++) {
-          const x = (i * 211.7) % w;
+          const x = (i * 211.7 + t * 0.006 * (1 + (i % 3))) % (w + 120) - 60;
           const y = 14 + ((i * 97.3) % (h * 0.3));
           const r = Math.min(w, h) * (0.05 + (i % 3) * 0.012);
           ctx.beginPath();
@@ -1405,14 +1541,29 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
           ctx.ellipse(x + r, y - r * 0.2, r * 1.1, r * 0.65, 0, 0, Math.PI * 2);
           ctx.fill();
         }
+        // Birds.
+        ctx.strokeStyle = 'rgba(50,50,55,0.75)';
+        ctx.lineWidth = Math.max(1.5, h * 0.006);
+        for (let i = 0; i < 3; i++) {
+          const bx = w * (0.15 + 0.7 * ((t / 5000 + i * 0.35) % 1));
+          const by = h * 0.16 + i * 16 + Math.sin(t / 700 + i * 1.5) * h * 0.015;
+          const s = Math.max(4, h * 0.018);
+          ctx.beginPath();
+          ctx.moveTo(bx - s, by);
+          ctx.quadraticCurveTo(bx - s * 0.5, by - s * 0.7, bx, by);
+          ctx.quadraticCurveTo(bx + s * 0.5, by - s * 0.7, bx + s, by);
+          ctx.stroke();
+        }
         return;
       }
       case 'snow': {
-        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        // Gentle falling snow.
         for (let i = 0; i < 90; i++) {
-          const x = (i * 129.7) % w;
-          const y = (i * 61.3) % h;
+          const cyc = ((t * (0.008 + (i % 5) * 0.002) + i * 0.13) % 1);
+          const x = ((i * 129.7 + Math.sin(t / 2000 + i) * 26) % w + w) % w;
+          const y = (cyc * h + h) % h;
           const r = 0.8 + (i % 4) * 0.6;
+          ctx.fillStyle = `rgba(255,255,255,${(0.5 + 0.3 * Math.sin(t / 700 + i * 2)).toFixed(2)})`;
           ctx.beginPath();
           ctx.arc(x, y, r, 0, Math.PI * 2);
           ctx.fill();
@@ -1432,8 +1583,8 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
           ctx.stroke();
         }
         for (let i = 0; i <= 6; i++) {
-          const t = i / 6;
-          const y = horizon + (h - horizon) * t * t;
+          const yy = i / 6;
+          const y = horizon + (h - horizon) * yy * yy;
           ctx.beginPath();
           ctx.moveTo(0, y);
           ctx.lineTo(w, y);
@@ -1449,10 +1600,11 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         ctx.arc(sx, sy, sr, Math.PI, 0);
         ctx.fill();
         // Scattered neon dots up top.
-        ctx.fillStyle = 'rgba(0,255,255,0.5)';
         for (let i = 0; i < 26; i++) {
           const x = (i * 151.1) % w;
           const y = (i * 79.7) % Math.max(1, horizon);
+          const pulse = 0.4 + 0.6 * Math.abs(Math.sin(t / 700 + i * 1.3));
+          ctx.fillStyle = `rgba(0,255,255,${(0.25 + 0.5 * pulse).toFixed(2)})`;
           ctx.beginPath();
           ctx.arc(x, y, 1.5, 0, Math.PI * 2);
           ctx.fill();
@@ -1481,8 +1633,9 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
           const x = (i * 109.7) % w;
           const y = (i * 47.9) % h;
           const r = Math.min(w, h) * 0.05;
+          const pulse = 0.5 + 0.5 * Math.sin(t / 500 + i * 1.7);
           const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 3);
-          glow.addColorStop(0, 'rgba(255,120,40,0.5)');
+          glow.addColorStop(0, `rgba(255,120,40,${(0.3 + 0.25 * pulse).toFixed(2)})`);
           glow.addColorStop(1, 'rgba(255,120,40,0)');
           ctx.fillStyle = glow;
           ctx.fillRect(x - r * 3, y - r * 3, r * 6, r * 6);
@@ -1490,20 +1643,425 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         return;
       }
       case 'cactus': {
-        ctx.fillStyle = 'rgba(40,90,40,0.85)';
-        for (let i = 0; i < 6; i++) {
-          const x = (i * 263.3) % w;
-          const y = h - ((i * 71.9) % (h * 0.18));
-          const ch = h * (0.08 + (i % 3) * 0.02);
-          const cw = Math.max(3, h * 0.012);
-          ctx.fillRect(x, y - ch, cw, ch);
-          ctx.fillRect(x - cw * 2, y - ch * 0.62, cw * 0.8, ch * 0.38);
-          ctx.fillRect(x - cw * 2, y - ch * 0.62, cw * 2, cw * 0.8);
-          ctx.fillRect(x + cw * 1.2, y - ch * 0.5, cw * 0.8, ch * 0.3);
-          ctx.fillRect(x + cw * 1.2, y - ch * 0.5, cw, cw * 0.8);
+        // Scorching sun + distant mesa haze.
+        const sun = ctx.createRadialGradient(w * 0.12, h * 0.1, 0, w * 0.12, h * 0.1, Math.min(w, h) * 0.26);
+        sun.addColorStop(0, 'rgba(255,246,200,0.95)');
+        sun.addColorStop(0.3, 'rgba(255,236,160,0.35)');
+        sun.addColorStop(1, 'rgba(255,236,160,0)');
+        ctx.fillStyle = sun;
+        ctx.fillRect(0, 0, w, h);
+        // Vultures circling.
+        ctx.strokeStyle = 'rgba(50,45,40,0.7)';
+        ctx.lineWidth = Math.max(1.5, h * 0.006);
+        for (let i = 0; i < 3; i++) {
+          const ang = t / 3200 + i * 2.09;
+          const vx = w * (0.1 + 0.3 * i) + Math.cos(ang) * w * 0.05;
+          const vy = h * 0.14 + Math.sin(ang) * h * 0.035;
+          const s = Math.max(4, h * 0.02);
+          ctx.beginPath();
+          ctx.moveTo(vx - s, vy);
+          ctx.quadraticCurveTo(vx - s * 0.5, vy - s * 0.6, vx, vy);
+          ctx.quadraticCurveTo(vx + s * 0.5, vy - s * 0.6, vx + s, vy);
+          ctx.stroke();
         }
         return;
       }
+    }
+  }
+
+  /** Scenery that stands in front of the pit — playground equipment, trees,
+   *  buildings and other props rooted in the side/bottom margins, so nothing
+   *  gets cut off by the trench. Everything scales with `cell` and is gated
+   *  on the margin being wide enough to fit (tiny opponent mini-boards get
+   *  none of it). */
+  private drawForegroundDecor(ctx: CanvasRenderingContext2D, w: number, h: number, cell: number, ox: number, oy: number, map: BoardMapTheme): void {
+    const rightX = ox + cell * COLS;
+    const leftCx = ox / 2;
+    const rightCx = rightX + (w - rightX) / 2;
+    const leftOK = ox >= cell * 0.8;
+    const rightOK = w - rightX >= cell * 0.8;
+    const roomy = (side: number) => side >= cell * 2;
+    const t = performance.now();
+    const s = cell;
+
+    // ── swing set ────────────────────────────────────────────────────────
+    const drawSwingSet = (cx: number, gy: number) => {
+      const legBase = s * 0.9, barH = gy - s * 2.9;
+      ctx.strokeStyle = 'rgba(120,80,40,0.8)';
+      ctx.lineWidth = Math.max(2, s * 0.07);
+      ctx.beginPath();
+      ctx.moveTo(cx - legBase, gy); ctx.lineTo(cx, barH); ctx.lineTo(cx + legBase, gy);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(90,90,100,0.85)';
+      ctx.lineWidth = Math.max(2, s * 0.06);
+      ctx.beginPath(); ctx.moveTo(cx - legBase, barH); ctx.lineTo(cx + legBase, barH); ctx.stroke();
+      for (let i = -1; i <= 1; i += 2) {
+        const x0 = cx + i * legBase * 0.55;
+        const sway = Math.sin(t / 900 + i) * s * 0.12;
+        const seatY = gy - s * 0.55;
+        ctx.strokeStyle = 'rgba(70,70,80,0.7)';
+        ctx.lineWidth = Math.max(1, s * 0.03);
+        ctx.beginPath();
+        ctx.moveTo(x0, barH);
+        ctx.lineTo(x0 + sway, seatY);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(140,100,50,0.85)';
+        ctx.fillRect(x0 + sway - s * 0.18, seatY, s * 0.36, s * 0.06);
+      }
+    };
+
+    // ── slide ───────────────────────────────────────────────────────────
+    const drawSlide = (cx: number, gy: number) => {
+      const topY = gy - s * 2.4;
+      const x0 = cx - s * 0.8;
+      ctx.strokeStyle = 'rgba(120,80,40,0.85)';
+      ctx.lineWidth = Math.max(2, s * 0.06);
+      ctx.beginPath();
+      ctx.moveTo(x0, gy); ctx.lineTo(x0 + s * 0.25, topY);
+      ctx.moveTo(x0 + s * 0.55, gy); ctx.lineTo(x0 + s * 0.8, topY);
+      ctx.stroke();
+      for (let i = 1; i <= 3; i++) {
+        const tt = i / 4;
+        const y1 = gy - (gy - topY) * tt;
+        const x1 = x0 + s * 0.25 * tt, x2 = x0 + s * 0.8 - s * 0.25 * tt;
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y1); ctx.stroke();
+      }
+      ctx.strokeStyle = 'rgba(150,110,60,0.9)';
+      ctx.lineWidth = Math.max(3, s * 0.1);
+      ctx.beginPath();
+      ctx.moveTo(x0 + s * 0.8, topY + s * 0.1);
+      ctx.quadraticCurveTo(cx + s * 1.1, topY + s * 1.5, cx + s * 0.7, gy - s * 0.05);
+      ctx.stroke();
+    };
+
+    // ── monkey bars ─────────────────────────────────────────────────────
+    const drawMonkeyBars = (cx: number, gy: number) => {
+      const topY = gy - s * 2.6;
+      ctx.strokeStyle = 'rgba(90,90,100,0.85)';
+      ctx.lineWidth = Math.max(2, s * 0.055);
+      ctx.beginPath();
+      ctx.moveTo(cx - s * 0.9, gy); ctx.lineTo(cx - s * 0.6, topY);
+      ctx.moveTo(cx + s * 0.9, gy); ctx.lineTo(cx + s * 0.6, topY);
+      ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx - s * 0.6, topY); ctx.lineTo(cx + s * 0.6, topY); ctx.stroke();
+      for (let i = 0; i < 5; i++) {
+        const x = cx - s * 0.5 + i * s * 0.25;
+        ctx.beginPath(); ctx.arc(x, topY + s * 0.18, s * 0.12, Math.PI, 0); ctx.stroke();
+      }
+    };
+
+    // ── seesaw ──────────────────────────────────────────────────────────
+    const drawSeesaw = (cx: number, gy: number) => {
+      ctx.fillStyle = 'rgba(90,60,30,0.85)';
+      ctx.beginPath();
+      ctx.moveTo(cx - s * 0.15, gy); ctx.lineTo(cx + s * 0.15, gy); ctx.lineTo(cx, gy - s * 0.5);
+      ctx.closePath();
+      ctx.fill();
+      const rock = Math.sin(t / 1800) * 0.08;
+      ctx.save();
+      ctx.translate(cx, gy - s * 0.5);
+      ctx.rotate(rock);
+      ctx.fillStyle = 'rgba(150,110,60,0.9)';
+      ctx.fillRect(-s * 1.0, -s * 0.06, s * 2.0, s * 0.12);
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(90,60,30,0.9)';
+      ctx.lineWidth = Math.max(1, s * 0.04);
+      ctx.beginPath(); ctx.moveTo(cx - s * 0.7, gy - s * 0.42); ctx.lineTo(cx - s * 0.4, gy - s * 0.42); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx + s * 0.4, gy - s * 0.42); ctx.lineTo(cx + s * 0.7, gy - s * 0.42); ctx.stroke();
+    };
+
+    // ── ball ────────────────────────────────────────────────────────────
+    const drawBall = (x: number, y: number) => {
+      ctx.fillStyle = 'rgba(210,60,70,0.95)';
+      ctx.beginPath(); ctx.arc(x, y, s * 0.22, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(240,240,240,0.9)';
+      ctx.lineWidth = Math.max(1, s * 0.04);
+      ctx.beginPath(); ctx.arc(x, y, s * 0.22, -0.5, 0.5); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.beginPath(); ctx.arc(x - s * 0.08, y - s * 0.08, s * 0.05, 0, Math.PI * 2); ctx.fill();
+    };
+
+    // ── palm tree ───────────────────────────────────────────────────────
+    const drawPalm = (cx: number, gy: number) => {
+      ctx.strokeStyle = 'rgba(140,100,55,0.9)';
+      ctx.lineWidth = Math.max(2, s * 0.1);
+      ctx.beginPath();
+      ctx.moveTo(cx, gy);
+      ctx.quadraticCurveTo(cx - s * 0.3, gy - s * 1.4, cx + s * 0.1, gy - s * 2.4);
+      ctx.stroke();
+      const tx = cx + s * 0.1, ty = gy - s * 2.4;
+      ctx.strokeStyle = 'rgba(40,120,70,0.9)';
+      ctx.lineWidth = Math.max(2, s * 0.09);
+      for (let i = 0; i < 6; i++) {
+        const a = -Math.PI * 0.95 + i * Math.PI * 0.32;
+        ctx.beginPath();
+        ctx.moveTo(tx, ty);
+        ctx.quadraticCurveTo(tx + Math.cos(a) * s * 0.7, ty + Math.sin(a) * s * 0.7, tx + Math.cos(a) * s * 1.15, ty + Math.sin(a) * s * 1.15);
+        ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(90,60,30,0.9)';
+      ctx.beginPath(); ctx.arc(tx - s * 0.08, ty + s * 0.06, s * 0.07, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(tx + s * 0.1, ty + s * 0.08, s * 0.06, 0, Math.PI * 2); ctx.fill();
+    };
+
+    // ── pine tree (optionally snow-capped) ──────────────────────────────
+    const drawPine = (cx: number, gy: number, snowy = true) => {
+      ctx.fillStyle = 'rgba(90,60,30,0.9)';
+      ctx.fillRect(cx - s * 0.07, gy - s * 0.5, s * 0.14, s * 0.5);
+      ctx.fillStyle = snowy ? 'rgba(40,110,90,0.9)' : 'rgba(40,110,60,0.9)';
+      for (let i = 0; i < 3; i++) {
+        const yy = gy - s * (0.5 + i * 0.7);
+        const ww = s * (0.8 - i * 0.2);
+        ctx.beginPath();
+        ctx.moveTo(cx, yy - s * 0.7);
+        ctx.lineTo(cx - ww, yy + s * 0.15);
+        ctx.lineTo(cx + ww, yy + s * 0.15);
+        ctx.closePath();
+        ctx.fill();
+      }
+      if (snowy) {
+        ctx.fillStyle = 'rgba(240,248,255,0.9)';
+        for (let i = 0; i < 3; i++) {
+          const yy = gy - s * (0.5 + i * 0.7);
+          const ww = s * (0.8 - i * 0.2);
+          ctx.beginPath();
+          ctx.moveTo(cx, yy - s * 0.7);
+          ctx.lineTo(cx - ww * 0.55, yy - s * 0.05);
+          ctx.lineTo(cx + ww * 0.55, yy - s * 0.05);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+    };
+
+    // ── snowman ─────────────────────────────────────────────────────────
+    const drawSnowman = (cx: number, gy: number) => {
+      ctx.fillStyle = 'rgba(245,250,255,0.95)';
+      ctx.beginPath(); ctx.arc(cx, gy - s * 0.28, s * 0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx, gy - s * 0.78, s * 0.22, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx, gy - s * 1.16, s * 0.15, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(230,140,40,0.95)';
+      ctx.lineWidth = Math.max(1.5, s * 0.05);
+      ctx.beginPath(); ctx.moveTo(cx, gy - s * 1.18); ctx.lineTo(cx + s * 0.2, gy - s * 1.1); ctx.stroke();
+      ctx.fillStyle = 'rgba(30,30,40,0.95)';
+      ctx.beginPath(); ctx.arc(cx - s * 0.05, gy - s * 1.2, s * 0.025, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx + s * 0.05, gy - s * 1.2, s * 0.025, 0, Math.PI * 2); ctx.fill();
+    };
+
+    // ── rocket ──────────────────────────────────────────────────────────
+    const drawRocket = (cx: number, gy: number) => {
+      const top = gy - s * 2.6;
+      ctx.fillStyle = 'rgba(235,238,245,0.95)';
+      ctx.beginPath();
+      ctx.moveTo(cx, top);
+      ctx.lineTo(cx + s * 0.32, gy - s * 0.9);
+      ctx.lineTo(cx - s * 0.32, gy - s * 0.9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = 'rgba(120,180,255,0.95)';
+      ctx.beginPath(); ctx.arc(cx, gy - s * 1.5, s * 0.12, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(220,80,70,0.95)';
+      ctx.beginPath(); ctx.moveTo(cx - s * 0.32, gy - s * 1.1); ctx.lineTo(cx - s * 0.6, gy - s * 0.7); ctx.lineTo(cx - s * 0.2, gy - s * 0.85); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(cx + s * 0.32, gy - s * 1.1); ctx.lineTo(cx + s * 0.6, gy - s * 0.7); ctx.lineTo(cx + s * 0.2, gy - s * 0.85); ctx.closePath(); ctx.fill();
+      const fl = 0.7 + 0.3 * Math.sin(t / 90);
+      ctx.fillStyle = `rgba(255,150,60,${fl.toFixed(2)})`;
+      ctx.beginPath(); ctx.moveTo(cx - s * 0.16, gy - s * 0.85); ctx.lineTo(cx + s * 0.16, gy - s * 0.85); ctx.lineTo(cx, gy - s * 0.85 - s * 0.5 * fl); ctx.closePath(); ctx.fill();
+    };
+
+    // ── skyscraper ──────────────────────────────────────────────────────
+    const drawSkyscraper = (cx: number, gy: number, seed: number) => {
+      const hgt = s * (2.2 + (seed % 3) * 0.8);
+      const wdt = s * (0.7 + (seed % 2) * 0.25);
+      ctx.fillStyle = 'rgba(20,16,40,0.95)';
+      ctx.fillRect(cx - wdt / 2, gy - hgt, wdt, hgt);
+      ctx.strokeStyle = 'rgba(40,40,60,0.9)';
+      ctx.lineWidth = Math.max(1, s * 0.03);
+      ctx.beginPath(); ctx.moveTo(cx, gy - hgt); ctx.lineTo(cx, gy - hgt - s * 0.5); ctx.stroke();
+      for (let r = 0; r < Math.floor(hgt / (s * 0.22)); r++) {
+        for (let c = 0; c < 3; c++) {
+          const wx = cx - wdt / 2 + s * 0.1 + c * wdt * 0.3;
+          const wy = gy - hgt + s * 0.12 + r * s * 0.22;
+          if ((r * 3 + c + seed) % 4 !== 0) continue;
+          const pulse = 0.5 + 0.5 * Math.sin(t / 600 + r + c + seed);
+          ctx.fillStyle = `rgba(0,255,255,${(0.35 + 0.5 * pulse).toFixed(2)})`;
+          ctx.fillRect(wx, wy, s * 0.14, s * 0.1);
+        }
+      }
+      if (seed % 2 === 0) {
+        const pulse = 0.5 + 0.5 * Math.sin(t / 400 + seed);
+        ctx.fillStyle = `rgba(255,0,220,${(0.4 + 0.5 * pulse).toFixed(2)})`;
+        ctx.fillRect(cx - wdt * 0.4, gy - hgt - s * 0.28, wdt * 0.8, s * 0.12);
+      }
+    };
+
+    // ── oak tree ────────────────────────────────────────────────────────
+    const drawOak = (cx: number, gy: number) => {
+      ctx.fillStyle = 'rgba(100,70,35,0.9)';
+      ctx.fillRect(cx - s * 0.09, gy - s * 0.8, s * 0.18, s * 0.8);
+      ctx.fillStyle = 'rgba(60,140,70,0.95)';
+      ctx.beginPath();
+      ctx.arc(cx, gy - s * 1.3, s * 0.55, 0, Math.PI * 2);
+      ctx.arc(cx - s * 0.4, gy - s * 1.05, s * 0.4, 0, Math.PI * 2);
+      ctx.arc(cx + s * 0.4, gy - s * 1.05, s * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+    };
+
+    // ── picket fence ────────────────────────────────────────────────────
+    const drawFence = (x0: number, x1: number, gy: number) => {
+      ctx.strokeStyle = 'rgba(150,110,60,0.8)';
+      ctx.lineWidth = Math.max(1.5, s * 0.05);
+      const n = Math.max(3, Math.floor((x1 - x0) / (s * 0.4)));
+      for (let i = 0; i <= n; i++) {
+        const x = x0 + (x1 - x0) * (i / n);
+        ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x, gy - s * 0.5); ctx.stroke();
+      }
+      ctx.beginPath(); ctx.moveTo(x0, gy - s * 0.42); ctx.lineTo(x1, gy - s * 0.42); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x0, gy - s * 0.22); ctx.lineTo(x1, gy - s * 0.22); ctx.stroke();
+    };
+
+    // ── mesa ────────────────────────────────────────────────────────────
+    const drawMesa = (cx: number, gy: number) => {
+      ctx.fillStyle = 'rgba(160,90,50,0.85)';
+      ctx.beginPath();
+      ctx.moveTo(cx - s * 1.1, gy);
+      ctx.lineTo(cx - s * 0.7, gy - s * 1.6);
+      ctx.lineTo(cx + s * 0.7, gy - s * 1.6);
+      ctx.lineTo(cx + s * 1.1, gy);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = 'rgba(190,120,70,0.9)';
+      ctx.fillRect(cx - s * 0.7, gy - s * 1.6, s * 1.4, s * 0.15);
+    };
+
+    // ── cactus ──────────────────────────────────────────────────────────
+    const drawCactus = (cx: number, gy: number) => {
+      ctx.fillStyle = 'rgba(40,95,45,0.9)';
+      const cw = Math.max(2, s * 0.09);
+      const ch = s * (0.9 + ((cx * 7) % 5) * 0.08);
+      ctx.fillRect(cx - cw / 2, gy - ch, cw, ch);
+      ctx.fillRect(cx - cw * 2.2, gy - ch * 0.62, cw * 0.75, ch * 0.4);
+      ctx.fillRect(cx - cw * 2.2, gy - ch * 0.62, cw * 2.2, cw * 0.9);
+      ctx.fillRect(cx + cw * 1.4, gy - ch * 0.55, cw * 0.75, ch * 0.35);
+      ctx.fillRect(cx + cw * 1.4, gy - ch * 0.55, cw, cw * 0.9);
+    };
+
+    // ── volcano ─────────────────────────────────────────────────────────
+    const drawVolcano = (cx: number, gy: number) => {
+      ctx.fillStyle = 'rgba(50,30,26,0.95)';
+      ctx.beginPath();
+      ctx.moveTo(cx - s * 1.3, gy);
+      ctx.quadraticCurveTo(cx, gy - s * 1.2, cx + s * 1.3, gy);
+      ctx.closePath();
+      ctx.fill();
+      const pulse = 0.6 + 0.4 * Math.sin(t / 300);
+      const glow = ctx.createRadialGradient(cx, gy - s * 1.0, 0, cx, gy - s * 1.0, s * 0.55);
+      glow.addColorStop(0, `rgba(255,120,40,${(0.5 * pulse).toFixed(2)})`);
+      glow.addColorStop(1, 'rgba(255,120,40,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(cx - s * 0.6, gy - s * 1.6, s * 1.2, s * 1.2);
+      ctx.fillStyle = 'rgba(255,140,50,0.95)';
+      ctx.beginPath(); ctx.arc(cx, gy - s * 1.0, s * 0.12, 0, Math.PI * 2); ctx.fill();
+    };
+
+    switch (map.decor) {
+      case 'playground': {
+        if (leftOK) drawSwingSet(leftCx, h);
+        if (rightOK) drawSlide(rightCx, h);
+        if (leftOK && roomy(ox)) drawMonkeyBars(leftCx * 0.5, h);
+        if (rightOK && roomy(w - rightX)) {
+          drawSeesaw(rightCx - s * 1.4, h);
+          drawBall(rightCx + s * 1.3, h - s * 0.2);
+        } else if (leftOK) {
+          drawBall(leftCx, h - s * 0.2);
+        }
+        return;
+      }
+      case 'waves': {
+        if (leftOK) drawPalm(leftCx, h);
+        if (rightOK) drawPalm(rightCx, h);
+        drawBall(leftOK ? leftCx + s * 0.6 : w * 0.5, h - s * 0.2);
+        return;
+      }
+      case 'snow': {
+        if (leftOK) drawPine(leftCx, h, true);
+        if (rightOK) {
+          drawSnowman(rightCx - s * 0.8, h);
+          if (roomy(w - rightX)) drawPine(rightCx + s * 0.9, h, true);
+        }
+        return;
+      }
+      case 'stars': {
+        if (leftOK) drawRocket(leftCx, h);
+        // Ringed gas giant peeking over the horizon on the right.
+        if (rightOK) {
+          const px = rightCx, py = h - s * 0.6, pr = s * 1.5;
+          ctx.fillStyle = 'rgba(220,160,90,0.9)';
+          ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = 'rgba(230,180,110,0.85)';
+          ctx.lineWidth = Math.max(2, s * 0.14);
+          ctx.beginPath();
+          ctx.ellipse(px, py - pr * 0.15, pr * 1.7, pr * 0.5, -0.3, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = 'rgba(190,110,60,0.9)';
+          ctx.beginPath(); ctx.arc(px - pr * 0.3, py + pr * 0.2, pr * 0.45, 0, Math.PI * 2); ctx.fill();
+        }
+        return;
+      }
+      case 'neon': {
+        if (leftOK) drawSkyscraper(leftCx, h, 0);
+        if (rightOK) drawSkyscraper(rightCx, h, 1);
+        if (leftOK && roomy(ox)) drawSkyscraper(leftCx * 0.55, h, 2);
+        return;
+      }
+      case 'clouds': {
+        if (leftOK) drawOak(leftCx, h);
+        if (rightOK) drawOak(rightCx, h);
+        drawFence(0, w, h);
+        // Wildflower patch along the bottom strip.
+        for (let i = 0; i < 14; i++) {
+          const fx = (i * 97.7) % w;
+          const fy = h - 4 - ((i * 43.9) % (s * 0.7));
+          const col = ['255,120,120', '255,220,80', '200,140,255', '255,255,255'][i % 4];
+          ctx.fillStyle = `rgba(${col},0.85)`;
+          ctx.beginPath(); ctx.arc(fx, fy, Math.max(1.5, s * 0.05), 0, Math.PI * 2); ctx.fill();
+        }
+        return;
+      }
+      case 'cactus': {
+        if (leftOK) { drawMesa(leftCx, h); drawCactus(leftCx + s * 1.1, h); }
+        if (rightOK) { drawMesa(rightCx, h); drawCactus(rightCx - s * 1.1, h); }
+        // Tumbleweed rolling across the bottom strip.
+        const tw = (t / 9000) % 1;
+        const twx = tw * (w + 80) - 40;
+        const twy = h - s * 0.3 - Math.sin(tw * Math.PI * 4) * s * 0.25;
+        ctx.strokeStyle = 'rgba(140,110,60,0.8)';
+        ctx.lineWidth = Math.max(1, s * 0.03);
+        for (let i = 0; i < 5; i++) {
+          const a = tw * Math.PI * 2 + i * 1.26;
+          ctx.beginPath();
+          ctx.arc(twx + Math.cos(a) * s * 0.16, twy + Math.sin(a) * s * 0.16, s * 0.12, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        return;
+      }
+      case 'lava': {
+        if (leftOK) drawVolcano(leftCx, h);
+        if (rightOK) drawVolcano(rightCx, h);
+        // Rising embers.
+        for (let i = 0; i < 14; i++) {
+          const cyc = ((t / 2200 + i / 14) % 1);
+          const x = ((i * 61.7) % w);
+          const y = h - cyc * (h * 0.7);
+          const flick = 0.5 + 0.5 * Math.sin(t / 120 + i * 2.1);
+          ctx.fillStyle = `rgba(255,${(120 + flick * 100) | 0},50,${(0.3 + 0.4 * flick * (1 - cyc)).toFixed(2)})`;
+          ctx.beginPath();
+          ctx.arc(x, y, 1.5 + cyc * 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        return;
+      }
+      default:
+        return;
     }
   }
 

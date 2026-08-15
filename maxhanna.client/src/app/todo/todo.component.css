@@ -619,15 +619,7 @@ input:checked+.slider:before {
 
   #todoInput {
     min-width: 100%;
-  }
-
-  #urlInput {
-    width: 100%;
-  }
-
-  .todoSaveBtn {
-    width: 100%;
-  }
+  }  
 
   .actionTd {
     justify-content: center;

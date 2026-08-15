@@ -63,7 +63,7 @@
             [class.deleted]="item.deleted">
             <div *ngIf="isEditing.includes(item)" class="popupPanelTitle">Edit {{selectedType.value}}</div>
             <div>
-              <span class="todoText" *ngIf="!isEditing.includes(item)">{{ item.todo }}</span>
+              <span class="todoText" [class.deleted]="item.deleted" *ngIf="!isEditing.includes(item)">{{ item.todo }}</span>
               <button (click)="visitUrl(item.url); $event.preventDefault();" *ngIf="item.url && item.url !== 'undefined' && !isEditing?.length"
                 class="xxSmallFont cursorPointer" [title]="'Navigate to: ' + item.url">🔗</button>
               <span class="creator-badge"

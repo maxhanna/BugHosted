@@ -356,7 +356,7 @@ namespace maxhanna.Server.Hubs
                     }
                     if (bot == null) { await Task.Delay(500, ct); continue; }
 
-                    var thinkMs = bot.Difficulty switch { 0 => 2000, 1 => 1300, _ => 850 };
+                    var thinkMs = bot.Difficulty switch { 0 => 2300, 1 => 1200, _ => 750 };
                     await Task.Delay(thinkMs, ct);
                     if (!_lobbies.TryGetValue(code, out lobby)) return;
 
@@ -402,12 +402,39 @@ namespace maxhanna.Server.Hubs
                 var clone = CloneBoard(board);
                 if (kind == 0) ShiftRowOn(clone, dir); else ShiftColumnOn(clone, col, dir);
                 var result = SimulateResolve(clone, specialColor);
+
+                // Look-ahead: after this move, how likely is the NEXT random
+                // drop to complete a match (and cascade)? For every column
+                // with space and every marble colour, drop one in and count
+                // what pops. A high setup means the board keeps clearing
+                // itself — this is what makes the AI set up pairs instead of
+                // wandering when nothing matches right now. Medium/hard use
+                // it; easy plays purely reactive.
+                var setupSum = 0;
+                var dropTests = 0;
+                if (difficulty >= 1)
+                {
+                    for (var c = 0; c < Cols; c++)
+                    {
+                        if (!ColumnHasSpace(clone, c)) continue;
+                        for (var color = 1; color <= ColorCount; color++)
+                        {
+                            var test = CloneBoard(clone);
+                            if (!DropIntoColumn(test, c, color)) continue;
+                            var r2 = SimulateResolve(test, specialColor);
+                            setupSum += r2.PoppedCount * 6 + r2.ReserveGained * 3;
+                            dropTests++;
+                        }
+                    }
+                }
+                var setup = dropTests > 0 ? Math.Min(40, (setupSum / (double)dropTests) * 12) : 0;
+
                 candidates.Add(new AiMove
                 {
                     Kind = kind,
                     Col = col,
                     Dir = dir,
-                    Score = result.PoppedCount * 12 + result.ReserveGained * 6 + result.Garbage * 10,
+                    Score = result.PoppedCount * 20 + result.ReserveGained * 10 + result.Garbage * 15 + (int)setup,
                 });
             }
 
@@ -422,14 +449,49 @@ namespace maxhanna.Server.Hubs
             var bestScore = candidates.Max(x => x.Score);
             var best = candidates.Where(x => x.Score == bestScore).ToList();
 
-            // Difficulty noise: easy picks randomly among moves, hard always takes best.
-            if (difficulty == 0 && rng.Next(100) < 55) return candidates[rng.Next(candidates.Count)];
-            if (difficulty == 1 && rng.Next(100) < 25)
+            // Difficulty noise: easy still picks a random or merely-decent move
+            // fairly often, medium mostly takes the best, hard always takes it.
+            if (difficulty == 0)
             {
-                var decent = candidates.Where(x => x.Score >= bestScore - 12).ToList();
+                var roll = rng.Next(100);
+                if (roll < 30) return candidates[rng.Next(candidates.Count)];
+                if (roll < 55)
+                {
+                    var decent = candidates.Where(x => x.Score >= bestScore - 30).ToList();
+                    return decent[rng.Next(decent.Count)];
+                }
+            }
+            else if (difficulty == 1 && rng.Next(100) < 20)
+            {
+                var decent = candidates.Where(x => x.Score >= bestScore - 30).ToList();
                 return decent[rng.Next(decent.Count)];
             }
             return best[rng.Next(best.Count)];
+        }
+
+        /// <summary>True when the column has at least one empty cell.</summary>
+        private static bool ColumnHasSpace(int[][] board, int col)
+        {
+            for (var r = 0; r < Rows; r++) if (board[r][col] == 0) return true;
+            return false;
+        }
+
+        /// <summary>Stack one marble on top of a SPECIFIC column's stack (for
+        /// the AI's drop look-ahead). Returns false when that column is full.</summary>
+        private static bool DropIntoColumn(int[][] board, int col, int color)
+        {
+            var top = 0;
+            while (top < Rows && board[top][col] == 0) top++;
+            if (top > 0)
+            {
+                board[top - 1][col] = color;
+                return true;
+            }
+            var bottom = Rows - 1;
+            while (bottom >= 0 && board[bottom][col] != 0) bottom--;
+            if (bottom < 0) return false;
+            board[bottom][col] = color;
+            return true;
         }
 
         /// <summary>
@@ -538,8 +600,12 @@ namespace maxhanna.Server.Hubs
         }
 
         /// <summary>
-        /// Shift a COLUMN up (-1) or down (+1). All marbles in the column
-        /// cycle one cell; the marble at the edge wraps to the other end.
+        /// Shift a COLUMN up (-1) or down (+1). The column's stack (the
+        /// contiguous block of marbles, always settled at the bottom) is
+        /// rotated in place: up moves the top marble to the bottom of the
+        /// stack, down moves the bottom marble to the top. Same direction
+        /// feel as the classic wrap, but marbles never float — gaps are
+        /// filled because the stack never leaves holes behind.
         /// </summary>
         public async Task<object?> ShiftColumn(string code, int col, int dir)
         {
@@ -560,13 +626,51 @@ namespace maxhanna.Server.Hubs
 
         private static void ShiftColumnOn(int[][] board, int col, int dir)
         {
-            var newCol = new int[Rows];
-            for (var r = 0; r < Rows; r++)
+            // Heal any residual gap first: marbles fall down to fill holes,
+            // so the column always starts settled (no floating stacks).
+            var write = Rows - 1;
+            for (var r = Rows - 1; r >= 0; r--)
             {
-                var src = (r - dir + Rows) % Rows;
-                newCol[r] = board[src][col];
+                if (board[r][col] != 0)
+                {
+                    if (write != r)
+                    {
+                        board[write][col] = board[r][col];
+                        board[r][col] = 0;
+                    }
+                    write--;
+                }
             }
-            for (var r = 0; r < Rows; r++) board[r][col] = newCol[r];
+
+            var top = write + 1; // first row of the settled stack
+            if (top >= Rows) return; // empty column
+            var stackLen = Rows - top;
+            if (stackLen <= 1) return;
+
+            // A full column rotates through all rows (the classic wrap — no
+            // holes because the column is completely full).
+            if (stackLen == Rows)
+            {
+                var newCol = new int[Rows];
+                for (var r = 0; r < Rows; r++)
+                {
+                    var src = (r - dir + Rows) % Rows;
+                    newCol[r] = board[src][col];
+                }
+                for (var r = 0; r < Rows; r++) board[r][col] = newCol[r];
+                return;
+            }
+
+            // Partial stack: rotate the marbles within the stack's own
+            // footprint so it stays settled — no marble ever floats above a
+            // gap, and nothing wraps to the far end of the column.
+            var colors = new int[stackLen];
+            for (var i = 0; i < stackLen; i++) colors[i] = board[top + i][col];
+            for (var i = 0; i < stackLen; i++)
+            {
+                var src = (i - dir + stackLen) % stackLen;
+                board[top + i][col] = colors[src];
+            }
         }
 
         private async Task<object?> DoMove(string code, Action<Player> apply, int rowShiftDir = 0)
