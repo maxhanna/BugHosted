@@ -295,9 +295,9 @@ export class NexusComponent extends ChildComponent implements OnInit, OnDestroy 
     let startRes = await this.nexusService.start(this.parentRef.user.id, token);
 
     // A non-object response is an error string (e.g. "Access Denied. Please
-    // re-login.") — the session may have died while the page was open. Try the
-    // app-level auto-renew once (the server only mints a fresh token while the
-    // user is demonstrably active); if that fails, send them back to login.
+    // re-login.") — the session may have expired while the page was open. Try
+    // the app-level renewal once (the server only extends a still-valid token);
+    // if that fails, send them back to the login prompt.
     if (typeof startRes === 'string' && /access denied|re-login|unauthorized/i.test(startRes)) {
       const renewed = await this.parentRef?.renewSessionIfDenied();
       if (renewed) {

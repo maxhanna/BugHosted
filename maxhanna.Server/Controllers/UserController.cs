@@ -1185,17 +1185,17 @@ namespace maxhanna.Server.Controllers
           await up.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         }
 
-        // 3) Presence-based sliding session: every successful presence ping
-        //    extends the current session token by 15 minutes, so the token
-        //    lives as long as the user is actively navigating and dies ~15
-        //    minutes after they stop. (Other authenticated calls still slide
-        //    the full window via ValidateSessionUserId, but the ping keeps the
-        //    countdown pinned to presence.)
+        // 3) Presence keeps the token alive with the shared renewal rule: extend
+        //    by an hour only when less than an hour remains (ValidateUserLoggedIn
+        //    above already applied the same rule). Actively navigating users
+        //    therefore stay well ahead of the 15-minute inactivity warning and
+        //    the 1-hour expiry, so they never see a security prompt.
         await using (var slide = new MySqlCommand(@"
           UPDATE maxhanna.user_sessions
-            SET expires_at   = UTC_TIMESTAMP() + INTERVAL 15 MINUTE,
+            SET expires_at   = expires_at + INTERVAL 1 HOUR,
                 last_used_at = UTC_TIMESTAMP()
-          WHERE token = @Token;", conn))
+          WHERE token = @Token
+            AND expires_at < UTC_TIMESTAMP() + INTERVAL 1 HOUR;", conn))
         {
           slide.Parameters.Add("@Token", MySqlDbType.VarChar).Value = encryptedUserIdHeader;
           await slide.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
@@ -1870,12 +1870,10 @@ namespace maxhanna.Server.Controllers
     }
 
     /// <summary>
-    /// Auto-renewal for sessions that died (expired or evicted by the per-user
-    /// cap) while the user is still actively navigating the site. The dead
-    /// token still proves a prior login; the activity gate (recent last_seen)
-    /// stops abandoned sessions from silently renewing. On success a fresh
-    /// token is minted, the old row is replaced, and a new HttpOnly cookie is
-    /// set — so the 401 loop heals without a manual re-login.
+    /// Renewal for a still-valid session (the security warning's "Refresh"
+    /// action). Extends the current token by an hour only when it has less than
+    /// an hour left — otherwise the renewal is a no-op. Expired or unknown
+    /// tokens are refused so the client falls back to the login prompt.
     /// </summary>
     [HttpPost("/User/RenewSession", Name = "RenewSession")]
     public async Task<IActionResult> RenewSession()
@@ -1886,31 +1884,12 @@ namespace maxhanna.Server.Controllers
         return Unauthorized("Access Denied. Please log in again.");
 
       string cs = _config.GetValue<string>("ConnectionStrings:maxhanna") ?? "";
-      var session = await Log.FindSessionForRenewal(cs, token);
-      if (session == null)
-        return Unauthorized("Access Denied. Please log in again.");
-
-      // Activity gate: only auto-renew while the user is demonstrably active
-      // (presence ping within the last 15 minutes — the same window that
-      // UpdateLastSeen uses to keep the token alive). Otherwise the session is
-      // genuinely abandoned and a normal login is required.
-      if (session.Value.LastSeen < DateTime.UtcNow.AddMinutes(-15))
+      int? userId = await Log.ValidateSessionUserId(cs, token);
+      if (userId == null)
         return Unauthorized("Session expired. Please log in again.");
 
-      string newToken = await Log.CreateSession(cs, session.Value.UserId) ?? "";
-      if (string.IsNullOrEmpty(newToken))
-        return StatusCode(500, "Could not create a new session.");
-
-      Response.Cookies.Append("BHUserToken", newToken, new CookieOptions
-      {
-        HttpOnly = true,
-        Secure = Request.IsHttps,
-        SameSite = SameSiteMode.Lax,
-        Path = "/",
-        MaxAge = TimeSpan.FromDays(30)
-      });
-      _ = _log.Db($"Session auto-renewed for userId:{session.Value.UserId} (was expired/evicted, user still active).", session.Value.UserId, "USER", true);
-      return Ok(new { sessionToken = newToken, userId = session.Value.UserId });
+      _ = _log.Db($"Session renewed for userId:{userId.Value}.", userId.Value, "USER", true);
+      return Ok(new { sessionToken = token, userId = userId.Value });
     }
 
     [HttpGet("/User/Sessions", Name = "Sessions")]

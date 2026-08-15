@@ -1587,7 +1587,7 @@ namespace maxhanna.Server.Controllers
 									access_count = access_count + 1
 								WHERE id = @fileId LIMIT 1;
 
-								SELECT user_id, file_name, folder_path, is_public
+								SELECT file_name, folder_path
 								FROM maxhanna.file_uploads
 								WHERE id = @fileId LIMIT 1;";
 
@@ -1602,23 +1602,12 @@ namespace maxhanna.Server.Controllers
                                     return NotFound();
                                 }
 
-                                int userIdDb = reader.GetInt32("user_id");
                                 string fileName = reader.GetString("file_name");
                                 string folderPath = reader.GetString("folder_path");
-                                bool isPublic = reader.GetBoolean("is_public");
 
-                                // Check permissions
-                                if (!isPublic && (userId == null || userIdDb != userId))
-                                {
-                                    await _log.Db($"User does not have permission to access file with id {fileId}.", userId, "FILE", true);
-                                    return Forbid();
-                                }
-
-                                if (!isPublic && (userId == null || (!await _log.ValidateUserLoggedIn(userId.Value, encryptedUserIdHeader))))
-                                {
-                                    await _log.Db($"User does not have permission to access file with id {fileId}.", userId, "FILE", true);
-                                    return Forbid();
-                                }
+                                // Fetching by id is a shared link: anyone — logged
+                                // in or not — can download the file. No visibility
+                                // check (anonymous callers pass userId 0/undefined).
 
                                 // Close the first reader before executing next command
                                 await reader.CloseAsync();
@@ -3501,11 +3490,11 @@ namespace maxhanna.Server.Controllers
               LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
               WHERE 1=1 
                 {((fileId.HasValue && !isIdMatch || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
-                AND (
+                {(fileId.HasValue && !isIdMatch ? "" : @" AND (
                   f.is_public = 1
                   OR f.user_id = @userId
                   OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON))
-                )
+                )")}
                 {searchCondition}
                 {combinedTypeCoreCondition}
                 {visibilityCondition}
@@ -3587,7 +3576,7 @@ namespace maxhanna.Server.Controllers
             LEFT JOIN maxhanna.rom_system_overrides rso ON rso.file_id = f.id " : "")}
             WHERE 1=1
               {((fileId.HasValue && !isIdMatch || !string.IsNullOrWhiteSpace(search)) ? "" : " AND f.folder_path = @folderPath ")}
-              AND (f.is_public = 1 OR f.user_id = @userId OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON)))
+              {(fileId.HasValue && !isIdMatch ? "" : " AND (f.is_public = 1 OR f.user_id = @userId OR JSON_CONTAINS(f.shared_with_json, CAST(@userId AS JSON)))")}
               {searchCondition}
               {combinedTypeCoreCondition}
               {visibilityCondition}

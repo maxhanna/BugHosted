@@ -455,6 +455,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   private isPollLoading = false;
   isShowingUserTagPopup = false;
   isShowingSecurityPopup = false;
+  sessionRemainingText = '';
   isShowingLoginPrompt = false;
   preventShowSecurityPopup = false;
   isUploadingFile = false;
@@ -469,17 +470,17 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   loginPinData: { pin: string } | null = null;
   passwordResetResultSuccess = false;
   private securityTimeout: any = null;
+  private securityCountdown: any = null;
   /**
-   * Client-side mirror of when the current session token will expire, so the
-   * security popup can warn *before* expiry instead of after. The server
-   * windows it mirrors:
-   *  - login / RenewSession mint a token with a 7-day window (Log.CreateSession)
-   *  - UpdateLastSeen (presence ping) re-pins the token to +15 minutes
+   * Client-side mirrors of the server's token windows:
+   *  - login / RenewSession mint or extend a token to ~1 hour
+   *  - UpdateLastSeen (presence ping) extends the token the same way
+   *  - after 15 minutes of inactivity the security warning pops up so the
+   *    user can renew before the 1-hour token actually expires
    */
-  private readonly SESSION_FULL_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-  private readonly SESSION_PRESENCE_WINDOW_MS = 15 * 60 * 1000;
-  // Warn this far ahead of expiry so the user has leeway to refresh.
-  private readonly SECURITY_WARNING_LEEWAY_MS = 5 * 60 * 1000;
+  private readonly SESSION_FULL_WINDOW_MS = 60 * 60 * 1000;
+  private readonly SESSION_PRESENCE_WINDOW_MS = 60 * 60 * 1000;
+  private readonly SESSION_INACTIVITY_WARNING_MS = 15 * 60 * 1000;
   private sessionExpiresAt = 0;
   private componentMap: { [key: string]: any; } = {
     "Navigation": NavigationComponent,
@@ -1306,6 +1307,8 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.sessionExpiresAt = Date.now() + this.SESSION_FULL_WINDOW_MS;
       // A fresh login means a future session expiry can redirect again.
       this._sessionExpiryRedirected = false;
+      // Arm the inactivity warning timer for the new session.
+      this.updateLastSeenPeriodically();
       setTimeout(() => {
         this?.navigationComponent?.getThemeInfo();
       }, 50);
@@ -1862,11 +1865,10 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     event?.stopPropagation();
   }
   /**
-   * Schedules the security-token warning to fire *before* the token expires,
-   * with a leeway window so the user has time to refresh rather than being
-   * logged out mid-session. Re-armed on every presence ping / refresh; once
-   * inside the leeway window (e.g. after dismissing the popup) it re-warns
-   * at a gentle interval instead of spamming.
+   * Schedules the security warning to fire after 15 minutes of inactivity.
+   * Re-armed on every presence ping / refresh, so actively navigating users
+   * never see it (their token is also being extended server-side); it only
+   * appears once the user has gone quiet.
    */
   updateLastSeenPeriodically() {
     if (this.securityTimeout) {
@@ -1874,39 +1876,64 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
       this.securityTimeout = null;
     }
     if (!this.user?.id || this.preventShowSecurityPopup) return;
-    // Fall back to a presence window if we don't know the exact expiry yet
-    // (e.g. just after a reload, where the token lives in the HttpOnly cookie).
-    if (!this.sessionExpiresAt) {
-      this.sessionExpiresAt = Date.now() + this.SESSION_PRESENCE_WINDOW_MS;
-    }
-    const remaining = this.sessionExpiresAt - Date.now();
-    const warnIn = Math.max(60 * 1000, remaining - this.SECURITY_WARNING_LEEWAY_MS);
     this.securityTimeout = setTimeout(() => {
       if (!this.preventShowSecurityPopup && !this.isUploadingFile) {
         this.isShowingSecurityPopup = true;
+        this.startSecurityCountdown();
         this.showOverlay();
       }
-    }, warnIn);
+    }, this.SESSION_INACTIVITY_WARNING_MS);
   }
   closeSecurityPopup() {
     this.isShowingSecurityPopup = false;
+    this.stopSecurityCountdown();
     this.closeOverlay();
     // Re-arm the warning so the user keeps getting a chance to refresh before
     // the token actually expires.
     this.updateLastSeenPeriodically();
   }
+
+  /** Refresh the "expires in" text every second while the popup is open. */
+  private startSecurityCountdown() {
+    this.stopSecurityCountdown();
+    // After a reload the expiry mirror is unknown — estimate a full window
+    // (the cookie token is re-validated/slid server-side on reload).
+    if (!this.sessionExpiresAt) {
+      this.sessionExpiresAt = Date.now() + this.SESSION_FULL_WINDOW_MS;
+    }
+    this.updateSessionRemainingText();
+    this.securityCountdown = setInterval(() => this.updateSessionRemainingText(), 1000);
+  }
+
+  private stopSecurityCountdown() {
+    if (this.securityCountdown) {
+      clearInterval(this.securityCountdown);
+      this.securityCountdown = null;
+    }
+  }
+
+  updateSessionRemainingText() {
+    const remaining = this.sessionExpiresAt - Date.now();
+    if (remaining <= 0) {
+      this.sessionRemainingText = 'expired';
+      return;
+    }
+    const totalSeconds = Math.round(remaining / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    this.sessionRemainingText = minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+  }
   /**
-   * The Refresh action in the security popup: mint a fresh session token
-   * (full 7-day window) and bump presence so the idle countdown restarts.
-   * Falls back to a plain presence ping when renewal is refused, which lets
-   * the existing 401 flow auto-renew or redirect as appropriate.
+   * The Refresh action in the security popup: extend the current token by
+   * another hour and restart the inactivity countdown. If the token has
+   * already expired the renewal is refused and the login prompt takes over.
    */
   async refreshSecurityToken() {
     const renewed = await this.renewSessionIfDenied();
     if (renewed) {
       this.sessionExpiresAt = Date.now() + this.SESSION_FULL_WINDOW_MS;
       await this.updateLastSeen();
-      this.showNotification('Security token refreshed. You\u2019re signed in for longer.');
+      this.showNotification('Security token renewed. You\u2019re signed in for another hour.');
     } else {
       await this.updateLastSeen();
     }
@@ -1924,23 +1951,15 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
         const res = await this.userService.updateLastSeen(tmpUser.id, await this.getSessionToken());
         this.lastLastSeenUpdate = now;
         tmpUser.lastSeen = new Date();
-        // A 401 on the presence ping means the session died (expired or
-        // evicted by the per-user cap). First try to auto-renew — the server
-        // mints a fresh token/cookie only while the user is demonstrably
-        // active. If renewal is refused the session is genuinely dead: log
-        // out and redirect to login instead of leaving the user stuck in a
-        // 401 loop.
+        // A 401 on the presence ping means the token has actually expired —
+        // surface the login prompt (the server refuses to auto-renew expired
+        // tokens; only a real login mints a fresh one).
         if (res?.status === 401) {
-          const renewed = await this.renewSessionIfDenied();
-          if (renewed) {
-            await this.userService.updateLastSeen(tmpUser.id, this.sessionToken);
-          } else {
-            await this.redirectToLoginAfterSessionExpiry();
-            return;
-          }
+          await this.redirectToLoginAfterSessionExpiry();
+          return;
         }
-        // A successful presence ping re-pins the token to the presence window
-        // server-side — mirror it so the warning timer stays accurate.
+        // A successful presence ping extends the token to ~1 hour server-side —
+        // mirror it so the warning timer stays accurate.
         this.sessionExpiresAt = now + this.SESSION_PRESENCE_WINDOW_MS;
       }
     }
@@ -1948,10 +1967,9 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
   }
 
   /**
-   * Attempt to refresh a dead session token server- and client-side. Safe to
-   * call from anywhere a 401 surfaces: the server checks the token's previous
-   * existence and the user's last_seen activity, replaces the HttpOnly cookie,
-   * and returns a fresh token that updates the in-memory copy.
+   * Extend the current session token by an hour (the server's renewal rule:
+   * only when less than an hour remains). Returns false when the token has
+   * already expired, in which case the caller should show the login prompt.
    */
   private _renewingSession = false;
   async renewSessionIfDenied(): Promise<boolean> {
@@ -1999,6 +2017,7 @@ Retro pixel visuals, short rounds, and emergent tactics make every match intense
     // If the security-token warning is still on screen, dismiss it — the
     // token has already expired, so only the login prompt should be visible.
     this.isShowingSecurityPopup = false;
+    this.stopSecurityCountdown();
     if (this.securityTimeout) {
       clearTimeout(this.securityTimeout);
       this.securityTimeout = null;

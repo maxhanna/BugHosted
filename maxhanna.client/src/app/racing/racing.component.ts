@@ -301,6 +301,15 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
   private _mpWinnerCelebrated = false;
   keys = new Set<string>();
   isMobile = false;
+  /** Live render scale for the WebGL drawing buffer (1 = full CSS size).
+   *  Mobile starts at 0.72 and adapts down/up with measured frame time (see
+   *  adaptRenderResolution) so cornering fill-rate spikes stay smooth. */
+  renderScale = 1;
+  private _frameIndex = 0;
+  private _resAdaptSamples = 0;
+  private _resAdaptAccum = 0;
+  private static readonly MOBILE_MIN_SCALE = 0.45;
+  private static readonly MOBILE_MAX_SCALE = 0.72;
   joyActive = false;
   joyX = 0;
   joyY = 0;
@@ -859,9 +868,10 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     // size and let CSS stretch it — a ~48% pixel cut on every pass (main,
     // shadow, mirror, rain/smoke fill) for a small amount of softness that
     // phones barely notice. The DOM HUD (wheel, pedals) is unaffected.
-    const renderScale = this.isMobile ? 0.72 : 1;
-    canvas.width = Math.max(1, Math.round(window.innerWidth * renderScale));
-    canvas.height = Math.max(1, Math.round(window.innerHeight * renderScale));
+    // The scale is adaptive from here on (adaptRenderResolution).
+    this.renderScale = this.isMobile ? RacingComponent.MOBILE_MAX_SCALE : 1;
+    canvas.width = Math.max(1, Math.round(window.innerWidth * this.renderScale));
+    canvas.height = Math.max(1, Math.round(window.innerHeight * this.renderScale));
     // Mobile / low-core devices get the trimmed scenery tier (fewer conifers,
     // capped snow, smaller mirror) so the mountain & alpine circuits stay smooth.
     const lowQuality = this.isMobile || ((navigator.hardwareConcurrency ?? 8) <= 4);
@@ -1850,11 +1860,47 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this._profTimes = {};
     this._profFrames = 0;
   }
+  /** Mobile adaptive resolution: sample the raw (unclamped) frame time and,
+   *  over a 30-frame window, step the drawing-buffer scale down when frames
+   *  are sustained-slow (the fill-rate spike from smoke, glow and banked
+   *  geometry while cornering) and back up once frames are comfortably fast.
+   *  The scale moves at most one ~0.07 step per window, so the canvas resize
+   *  never thrashs back and forth on a single hiccup. */
+  private adaptRenderResolution(rawFrameMs: number) {
+    if (!this.isMobile) return;
+    this._resAdaptSamples++;
+    // Clamp so a tab-switch / single stall can't dominate the 30-frame window.
+    this._resAdaptAccum += Math.min(rawFrameMs, 100);
+    if (this._resAdaptSamples < 30) return;
+    const avgMs = this._resAdaptAccum / this._resAdaptSamples;
+    this._resAdaptSamples = 0;
+    this._resAdaptAccum = 0;
+    // ~38fps is the floor where the drop becomes visible; below that, cut pixels.
+    if (avgMs > 26 && this.renderScale > RacingComponent.MOBILE_MIN_SCALE) {
+      this.setRenderScale(Math.max(RacingComponent.MOBILE_MIN_SCALE, this.renderScale - 0.07));
+    } else if (avgMs < 15 && this.renderScale < RacingComponent.MOBILE_MAX_SCALE) {
+      this.setRenderScale(Math.min(RacingComponent.MOBILE_MAX_SCALE, this.renderScale + 0.07));
+    }
+  }
+  private setRenderScale(scale: number) {
+    if (scale === this.renderScale) return;
+    this.renderScale = scale;
+    const canvas = this.canvasRef?.nativeElement;
+    if (!canvas) return;
+    // Resizing the drawing buffer keeps aspect (same innerWidth/innerHeight),
+    // so the mirror inset, garage stage rect and every gl.viewport() call stay
+    // correct; CSS stretches the lower-res buffer to fill the screen.
+    canvas.width = Math.max(1, Math.round(window.innerWidth * scale));
+    canvas.height = Math.max(1, Math.round(window.innerHeight * scale));
+  }
   private gameLoop(time: number) {
     if (this._destroyed) return;
     this.animId = requestAnimationFrame((t) => this.gameLoop(t));
-    const dt = Math.min((time - this.lastTime) / 1000, 0.05);
+    const rawFrameMs = time - this.lastTime;
+    const dt = Math.min(rawFrameMs / 1000, 0.05);
     this.lastTime = time;
+    this._frameIndex++;
+    this.adaptRenderResolution(rawFrameMs);
     if (this.profile) this._pLast = performance.now();
     if (this.gameState === 'racing') {
       this.processInput(dt);
@@ -2094,8 +2140,13 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
         carList.push(s);
       }
       this._playerSpin += wheelRate(this.carSpeed) * dt;
-      // The rear-view mirror is meaningless while the cinematic pan is active.
-      this.renderer.render(eyeX, eyeY, eyeZ, yaw, pitch, aspect, carList, dt, fovZoom, shakeX, shakeY, this.isRaining, speedRatio, this.carSpeed, this.carAccel, this._playerSpin, this._playerSlide, pa, countdownPanActive, this.steerSmoothed / 90);
+      // The rear-view mirror is meaningless while the cinematic pan is active
+      // (skipMirror hides it). On phones the mirror re-renders the WHOLE scene
+      // (track, scenery, every car, crowd, flags) a second time each frame —
+      // refresh it every other frame instead (mirrorRefresh=false still blits
+      // the cached inset, so it never strobes). Desktop refreshes every frame.
+      const mirrorRefresh = !(this.isMobile && (this._frameIndex & 1) === 1);
+      this.renderer.render(eyeX, eyeY, eyeZ, yaw, pitch, aspect, carList, dt, fovZoom, shakeX, shakeY, this.isRaining, speedRatio, this.carSpeed, this.carAccel, this._playerSpin, this._playerSlide, pa, countdownPanActive, this.steerSmoothed / 90, mirrorRefresh);
       if (this.profile) this.pMark('render');
       // Lobby roster hover popup — draw the hovered player's car over the
       // scene, in its own viewport rect, after the world pass.

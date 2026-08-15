@@ -1934,10 +1934,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.sunColor = [1.0, 0.85, 0.7];
         // Warm sunset haze: the old gray ambient + fog washed the boardwalk
         // and beach out into gray at distance. Warmer fill light and a warm
-        // sandy fog keep the Miami colors (pink paving, golden sand, teal
-        // sea) alive all the way to the horizon.
+        // (but not sandy) fog keep the Miami colors (pink paving, golden sand,
+        // teal sea) alive all the way to the horizon — the fog is neutral
+        // enough that the road ahead never tints tan like sand.
         this.ambientColor = [0.42, 0.36, 0.33];
-        this.fogColor = [0.8, 0.68, 0.55];
+        this.fogColor = [0.68, 0.62, 0.55];
         break;
       case 'city':
         this.skyTop = [0.05, 0.08, 0.22];
@@ -3595,10 +3596,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
    */
   private addMiamiGround(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
-    const walkA: [number, number, number] = [0.95, 0.87, 0.77];
-    const walkB: [number, number, number] = [0.89, 0.81, 0.71];
-    const beachA: [number, number, number] = [0.97, 0.89, 0.6];
-    const beachB: [number, number, number] = [0.91, 0.82, 0.55];
+    // Boardwalk is real paving — cool pink-warm concrete, alternating two
+    // tones per segment so the promenade reads as slabs. NOT tan: tan bands
+    // right beside the track read as "sand on the track".
+    const walkA: [number, number, number] = [0.80, 0.73, 0.70];
+    const walkB: [number, number, number] = [0.74, 0.67, 0.64];
+    // Golden sand stays way out on the far side of the boardwalk, clearly in
+    // the distance — never up against the road.
+    const beachA: [number, number, number] = [0.93, 0.84, 0.60];
+    const beachB: [number, number, number] = [0.87, 0.78, 0.55];
     for (let i = 0; i < pts.length; i += 2) {
       const p = pts[i];
       const n = pts[(i + 1) % pts.length];
@@ -3608,17 +3614,19 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const walkColor = seg % 2 === 0 ? walkA : walkB;
       const beachColor = seg % 2 === 0 ? beachA : beachB;
       for (const side of [-1, 1]) {
-        // Boardwalk: track edge +18..40 — palms, benches and pastel buildings.
+        // Boardwalk: track edge +18..58 — a wide paved promenade with palms,
+        // benches and the pastel buildings. No sand touches the track side.
         const wIn = [p.x + ppx * (p.width / 2 + 18) * side, -0.26, p.z + ppz * (p.width / 2 + 18) * side];
-        const wOut = [p.x + ppx * (p.width / 2 + 40) * side, -0.26, p.z + ppz * (p.width / 2 + 40) * side];
+        const wOut = [p.x + ppx * (p.width / 2 + 58) * side, -0.26, p.z + ppz * (p.width / 2 + 58) * side];
         const wnIn = [n.x + npx * (n.width / 2 + 18) * side, -0.26, n.z + npz * (n.width / 2 + 18) * side];
-        const wnOut = [n.x + npx * (n.width / 2 + 40) * side, -0.26, n.z + npz * (n.width / 2 + 40) * side];
+        const wnOut = [n.x + npx * (n.width / 2 + 58) * side, -0.26, n.z + npz * (n.width / 2 + 58) * side];
         this.addGroundQuad(verts, idxs, wIn, wnIn, wnOut, wOut, walkColor);
-        // Beach: +40..82 — sand in the distance, sea beyond.
-        const bIn = [p.x + ppx * (p.width / 2 + 40) * side, -0.26, p.z + ppz * (p.width / 2 + 40) * side];
-        const bOut = [p.x + ppx * (p.width / 2 + 82) * side, -0.26, p.z + ppz * (p.width / 2 + 82) * side];
-        const bnIn = [n.x + npx * (n.width / 2 + 40) * side, -0.26, n.z + npz * (n.width / 2 + 40) * side];
-        const bnOut = [n.x + npx * (n.width / 2 + 82) * side, -0.26, n.z + npz * (n.width / 2 + 82) * side];
+        // Beach: +58..105 — the sand band, far enough out to read as "beach in
+        // the distance", sea beyond.
+        const bIn = [p.x + ppx * (p.width / 2 + 58) * side, -0.26, p.z + ppz * (p.width / 2 + 58) * side];
+        const bOut = [p.x + ppx * (p.width / 2 + 105) * side, -0.26, p.z + ppz * (p.width / 2 + 105) * side];
+        const bnIn = [n.x + npx * (n.width / 2 + 58) * side, -0.26, n.z + npz * (n.width / 2 + 58) * side];
+        const bnOut = [n.x + npx * (n.width / 2 + 105) * side, -0.26, n.z + npz * (n.width / 2 + 105) * side];
         this.addGroundQuad(verts, idxs, bIn, bnIn, bnOut, bOut, beachColor);
       }
     }
@@ -4671,9 +4679,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const ppx = -p.dirZ;
       const ppz = p.dirX;
       // Beach furniture sits out on the sand band (in the distance), not on
-      // the boardwalk hugging the track.
+      // the boardwalk hugging the track — out past the promenade (+64..+84).
       for (let u = 0; u < 4; u++) {
-        const dist = p.width / 2 + 46 + Math.random() * 16;
+        const dist = p.width / 2 + 64 + Math.random() * 20;
         const side = u % 2 === 0 ? -1 : 1;
         const ux = p.x + ppx * dist * side + (Math.random() - 0.5) * 6;
         const uz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
@@ -7880,7 +7888,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     cars: (RacingCarAppearance & { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number; accel?: number; spin?: number; slide?: number; id?: string; bank?: number })[], dt: number,
     fovZoom: number = 1.0, shakeX: number = 0, shakeY: number = 0, isRaining: boolean = false, speedRatio: number = 0,
     playerSpeed: number = 0, playerAccel: number = 0, playerSpin: number = 0, playerSlide: number = 0, playerAppearance?: RacingCarAppearance,
-    skipMirror: boolean = false, playerSteer: number = 0) {
+    skipMirror: boolean = false, playerSteer: number = 0, mirrorRefresh: boolean = true) {
     const gl = this.gl;
     this.profileStart();
     this.elapsed += dt;
@@ -7964,8 +7972,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.drawWorldScene(this.projMatrix, this.viewMatrix, eye as number[], cars, dt, isRaining, true, speedRatio);
     }
     this.pMark('world-main');
+    // skipMirror hides the rear-view inset entirely (countdown pan).
+    // mirrorRefresh=false re-renders nothing but still blits the cached mirror
+    // texture, so mobile's half-rate refresh keeps the inset visible instead
+    // of strobing.
     if (!skipMirror) {
-      this.renderMirror(eyeX, eyeY, eyeZ, yaw, cars, dt, isRaining, playerSpeed, playerAccel, playerSpin, playerSlide, playerAppearance, heatStrength, playerSteer);
+      this.renderMirror(eyeX, eyeY, eyeZ, yaw, cars, dt, isRaining, playerSpeed, playerAccel, playerSpin, playerSlide, playerAppearance, heatStrength, playerSteer, mirrorRefresh);
     }
     this.pMark('mirror');
   }
@@ -8606,8 +8618,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
   private renderMirror(eyeX: number, eyeY: number, eyeZ: number, yaw: number,
     cars: (RacingCarAppearance & { x: number; y: number; z: number; yaw: number; r: number; g: number; b: number; speed?: number; accel?: number; spin?: number; slide?: number; id?: string; bank?: number })[],
-    dt: number, isRaining: boolean, playerSpeed: number = 0, playerAccel: number = 0, playerSpin: number = 0, playerSlide: number = 0, playerAppearance?: RacingCarAppearance, heatStrength: number = 1.0, playerSteer: number = 0) {
+    dt: number, isRaining: boolean, playerSpeed: number = 0, playerAccel: number = 0, playerSpin: number = 0, playerSlide: number = 0, playerAppearance?: RacingCarAppearance, heatStrength: number = 1.0, playerSteer: number = 0, refresh: boolean = true) {
     const gl = this.gl;
+    // Brake-heat / wheel-lock / snow sim advance every frame regardless of
+    // whether the mirror re-renders — they feed the HUD and physics and must
+    // not run at half rate when the mirror refresh is skipped on mobile.
+    this.updateBrakeHeat(this._playerHeat, dt, playerSpeed, playerAccel);
+    this._playerLock = this.updateWheelLock(this._playerLock, dt, playerSpeed, playerAccel);
+    this._playerSnow = this.updateSnowCap(this._playerSnow, dt, playerSpeed);
+    if (refresh) {
     const mEye = [eyeX, eyeY + 0.22, eyeZ];
     const mYaw = yaw + Math.PI;
     const mPitch = 0.06;
@@ -8625,9 +8644,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     this.drawWorldScene(this.mirrorProj, this.mirrorView, mEye, cars, dt, isRaining, false);
     this.pMark('m-world');
-    this.updateBrakeHeat(this._playerHeat, dt, playerSpeed, playerAccel);
-    this._playerLock = this.updateWheelLock(this._playerLock, dt, playerSpeed, playerAccel);
-    this._playerSnow = this.updateSnowCap(this._playerSnow, dt, playerSpeed);
     // The player's car sits on the terrain — lift it to the road elevation so
     // the mirror lines up with the real roadbed on hilly circuits. On banked
     // corners it also rides the lateral tilt (and rolls with it).
@@ -8687,6 +8703,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.enable(gl.DEPTH_TEST);
       gl.enable(gl.CULL_FACE);
     }
+    }
+    this.drawMirrorQuad();
+  }
+  /** Blit the cached rear-view texture onto the main canvas. Runs every frame
+   *  (the mirrorFBO persists its last render), so a half-rate mirror refresh on
+   *  mobile keeps the inset visible instead of strobing. */
+  private drawMirrorQuad() {
+    const gl = this.gl;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     gl.disable(gl.DEPTH_TEST);

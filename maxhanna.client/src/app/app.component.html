@@ -183,7 +183,7 @@
 <!-- Security Alert POPUP PANEL -->
 <div class="popupPanel securityPopup" *ngIf="isShowingSecurityPopup">
   <div class="popupPanelTitle">Security Warning</div>
-  <div>Your security token will expire soon. ⚠️<br>Refresh it now to stay signed in without interruption.</div>
+  <div>Your security token will expire in <strong>{{ sessionRemainingText }}</strong>. ⚠️<br>Refresh it now to stay signed in without interruption.</div>
   <div style="margin-top: 10px; display: flex; gap: 15px">
     <button class="closeButton" id="closeOverlay" (click)="closeSecurityPopup()">Not now</button>
     <button (click)="refreshSecurityToken()">Refresh token</button></div>
