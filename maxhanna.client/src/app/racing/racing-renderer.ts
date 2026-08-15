@@ -1189,7 +1189,7 @@ export class RacingRenderer {
   ambientColor: [number, number, number] = [0.25, 0.25, 0.3];
   fogColor: [number, number, number] = [0.4, 0.45, 0.5];
   elapsed = 0;
-  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' = 'default';
+  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' = 'default';
   // Device-quality tier: set by the component for mobile / low-end GPUs. Trims
   // the heaviest scenery (conifer counts and mesh density) and per-frame effects
   // (snow flake count) so the mountain and alpine circuits stay smooth on phones.
@@ -1509,6 +1509,12 @@ export class RacingRenderer {
     if (this.theme === 'volcano') {
       return this.makeVolcanoMarkingsTex();
     }
+    if (this.theme === 'antarctica') {
+      return this.makeAntarcticaMarkingsTex();
+    }
+    if (this.theme === 'pirate') {
+      return this.makePirateMarkingsTex();
+    }
     return this.makeRacingMarkingsTex();
   }
   private makeRacingMarkingsTex(): WebGLTexture {
@@ -1589,6 +1595,66 @@ export class RacingRenderer {
         r = r * (1 - aDash) + 215 * aDash;
         g = g * (1 - aDash) + 60 * aDash;
         b = b * (1 - aDash) + 35 * aDash;
+        data[i] = Math.max(5, Math.min(250, r));
+        data[i + 1] = Math.max(5, Math.min(250, g));
+        data[i + 2] = Math.max(5, Math.min(250, b));
+      }
+    }
+    return this.makeTex(size, size, data);
+  }
+  private makeAntarcticaMarkingsTex(): WebGLTexture {
+    // Frozen bay surface: pale glacier ice with bright cyan edge lines and a
+    // white dashed centre line — the "drive on the ice shelf" paint job.
+    const size = 256;
+    const data = new Uint8Array(size * size * 3);
+    const soft = (lo: number, hi: number, vy: number, falloff: number) =>
+      Math.max(0, Math.min(1, Math.min(vy - lo, hi - vy) / falloff));
+    for (let y = 0; y < size; y++) {
+      const vy = y / size;
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 3;
+        // Pale glacial ice — not asphalt, so start from a cold blue-white.
+        let r = 168, g = 198, b = 218;
+        // Cyan edge lines.
+        const aEdge = Math.max(soft(0.03, 0.062, vy, 0.007), soft(0.938, 0.97, vy, 0.007));
+        r = r * (1 - aEdge) + 40 * aEdge;
+        g = g * (1 - aEdge) + 220 * aEdge;
+        b = b * (1 - aEdge) + 255 * aEdge;
+        // White dashed centre line.
+        const aDash = soft(0.486, 0.514, vy, 0.007) * ((x % 56) < 22 ? 1 : 0);
+        r = r * (1 - aDash) + 245 * aDash;
+        g = g * (1 - aDash) + 250 * aDash;
+        b = b * (1 - aDash) + 255 * aDash;
+        data[i] = Math.max(5, Math.min(250, r));
+        data[i + 1] = Math.max(5, Math.min(250, g));
+        data[i + 2] = Math.max(5, Math.min(250, b));
+      }
+    }
+    return this.makeTex(size, size, data);
+  }
+  private makePirateMarkingsTex(): WebGLTexture {
+    // Sun-bleached cove path: packed sand with dark wooden plank edge boards
+    // and a golden dashed centre line — the treasure trail.
+    const size = 256;
+    const data = new Uint8Array(size * size * 3);
+    const soft = (lo: number, hi: number, vy: number, falloff: number) =>
+      Math.max(0, Math.min(1, Math.min(vy - lo, hi - vy) / falloff));
+    for (let y = 0; y < size; y++) {
+      const vy = y / size;
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 3;
+        // Warm packed sand.
+        let r = 196, g = 168, b = 120;
+        // Dark wooden plank edges.
+        const aEdge = Math.max(soft(0.03, 0.062, vy, 0.007), soft(0.938, 0.97, vy, 0.007));
+        r = r * (1 - aEdge) + 92 * aEdge;
+        g = g * (1 - aEdge) + 66 * aEdge;
+        b = b * (1 - aEdge) + 38 * aEdge;
+        // Golden dashed centre line.
+        const aDash = soft(0.486, 0.514, vy, 0.007) * ((x % 56) < 22 ? 1 : 0);
+        r = r * (1 - aDash) + 245 * aDash;
+        g = g * (1 - aDash) + 200 * aDash;
+        b = b * (1 - aDash) + 70 * aDash;
         data[i] = Math.max(5, Math.min(250, r));
         data[i + 1] = Math.max(5, Math.min(250, g));
         data[i + 2] = Math.max(5, Math.min(250, b));
@@ -2150,6 +2216,18 @@ void main() { FragColor = texture(uTex, vUV); }`;
           elev: t => 2.4 * (1 - Math.cos(t * Math.PI * 4)) / 2 + 0.7 * (1 - Math.cos(t * Math.PI * 7)) / 2,
           width: t => this.TRACK_WIDTH * 0.95 + Math.sin(t * 5) * 1.3,
         };
+      case 'antarctica': // alien ice shelf — a huge serpentine over a frozen bay
+        return {
+          radius: R * 0.94, wobble: t => Math.sin(t * 2.8) * 30 + Math.sin(t * 7) * 14 + Math.sin(t * 15) * 5 + Math.sin(t * 1.6) * 12,
+          elev: t => 2.2 * (1 - Math.cos(t * Math.PI * 2.5)) / 2 + 0.8 * (1 - Math.cos(t * Math.PI * 7)) / 2,
+          width: t => this.TRACK_WIDTH + Math.sin(t * 5) * 1.6,
+        };
+      case 'pirate':     // tropical lagoon cove — broad sweeping bays and a headland pinch
+        return {
+          radius: R * 1.02, wobble: t => Math.sin(t * 3.2) * 26 + Math.sin(t * 8) * 10 + Math.sin(t * 1.9) * 13,
+          elev: t => 1.6 * (1 - Math.cos(t * Math.PI * 3)) / 2 + 0.6 * (1 - Math.cos(t * Math.PI * 6)) / 2,
+          width: t => this.TRACK_WIDTH + Math.sin(t * 5) * 1.4,
+        };
       default:           // miami + default — coastal, low and flat
         return {
           radius: R, wobble: t => Math.sin(t * 3) * 30 + Math.sin(t * 7) * 12 + Math.sin(t * 1.7) * 8,
@@ -2227,7 +2305,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
    *  centreline inherits. Coastal circuits fade out quickly so buildings by the
    *  water stay at sea level; inland circuits follow the hills all the way out. */
   private sceneryFade(dist: number): number {
-    const far = this.theme === 'monaco' || this.theme === 'monaco-night' || this.theme === 'montreal' || this.theme === 'neon' || this.theme === 'volcano' ? 12 : 200;
+    const far = this.theme === 'monaco' || this.theme === 'monaco-night' || this.theme === 'montreal' || this.theme === 'neon' || this.theme === 'volcano' || this.theme === 'antarctica' ? 12 : 200;
     return Math.max(0, Math.min(1, 1 - dist / far));
   }
   /** Banking fades out past the runoff so the infield and far scenery stay
@@ -2341,13 +2419,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
   getTrackLength(): number { return this.totalTrackDist; }
   /** Applies the environment theme for the selected track and rebuilds the
    *  scenery geometry. Call before each race (both solo and multiplayer). */
-  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano') {
+  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate') {
     this.theme = theme;
     // Fresh tyres every race — reset the wear that darkened the sidewalls.
     this._tireDist = 0;
     this.tireWear = 0;
     this._bakedTireWear = -1;
-    this.night = theme === 'monaco-night' || theme === 'neon' || theme === 'volcano';
+    this.night = theme === 'monaco-night' || theme === 'neon' || theme === 'volcano' || theme === 'antarctica';
     // Heat shimmer re-renders the whole scene into an FBO plus a mask pass
     // every frame — too expensive for the desert circuit on weak GPUs, so
     // mobile drops it (the sun still shows, just without the wavy distortion).
@@ -2474,6 +2552,29 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.sunColor = [0.85, 0.3, 0.15];
         this.ambientColor = [0.12, 0.06, 0.05];
         this.fogColor = [0.08, 0.045, 0.035];
+        break;
+      case 'antarctica':
+        // Alien frozen wasteland at polar night: near-black blue sky with a
+        // green-teal aurora glow on the horizon, icy pale fog. The dim sun is
+        // a cold white orb — everything reads as "deep south, no sun".
+        this.skyTop = [0.008, 0.02, 0.045];
+        this.skyHorizon = [0.12, 0.62, 0.5];
+        this.skyBottom = [0.03, 0.1, 0.14];
+        this.sunDir = [0.32, 0.28, 0.45];
+        this.sunColor = [0.75, 0.92, 1.0];
+        this.ambientColor = [0.05, 0.09, 0.12];
+        this.fogColor = [0.05, 0.1, 0.13];
+        break;
+      case 'pirate':
+        // Golden-hour tropical lagoon: warm amber sky, turquoise water, and a
+        // low late-afternoon sun that glints gold off the treasure.
+        this.skyTop = [0.16, 0.28, 0.55];
+        this.skyHorizon = [0.98, 0.62, 0.3];
+        this.skyBottom = [0.45, 0.6, 0.62];
+        this.sunDir = [0.42, 0.3, 0.45];
+        this.sunColor = [1.0, 0.85, 0.5];
+        this.ambientColor = [0.4, 0.33, 0.28];
+        this.fogColor = [0.62, 0.55, 0.48];
         break;
       default:
         this.skyTop = [0.1, 0.2, 0.5];
@@ -3402,6 +3503,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addNeonScenery(verts, idxs, flatVerts, flatIdxs);
     } else if (this.theme === 'volcano') {
       this.addVolcanoScenery(verts, idxs, flatVerts, flatIdxs);
+    } else if (this.theme === 'antarctica') {
+      this.addAntarcticaScenery(verts, idxs, flatVerts, flatIdxs);
+    } else if (this.theme === 'pirate') {
+      this.addOceanPlane(flatVerts, flatIdxs, [0.12, 0.5, 0.52]);
+      this.addPirateScenery(verts, idxs);
     } else {
       this.addForestScenery(verts, idxs);
     }
@@ -3464,7 +3570,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
           ? (side === -1 ? [0.3, 1.0, 1.0] : [1.0, 0.25, 0.85])
           : this.theme === 'volcano'
             ? [1.0, 0.55, 0.2]
-            : this.theme === 'miami' ? [1, 0.9, 0.65] : [1, 0.95, 0.7];
+            : this.theme === 'antarctica'
+              ? [0.45, 0.95, 1.0]
+              : this.theme === 'pirate'
+                ? [1.0, 0.85, 0.4]
+                : this.theme === 'miami' ? [1, 0.9, 0.65] : [1, 0.95, 0.7];
         this.addCylinder(verts, idxs, lx, 0, lz, 0.08, 3, 6, [0.2, 0.2, 0.2]);
         this.addSphere(verts, idxs, lx, 3, lz, 0.15, 6, lampHead);
       }
@@ -3789,6 +3899,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       case 'japan': count = 6; altMin = 60; altMax = 100; sizeScale = 1.0; this._cloudAlpha = 0.55; break;
       case 'neon': count = 4; altMin = 52; altMax = 82; sizeScale = 0.8; this._cloudAlpha = 0.45; break;
       case 'volcano': count = 3; altMin = 42; altMax = 72; sizeScale = 0.95; this._cloudAlpha = 0.6; break;
+      case 'antarctica': count = 5; altMin = 40; altMax = 70; sizeScale = 1.0; this._cloudAlpha = 0.5; break;
+      case 'pirate': count = 7; altMin = 46; altMax = 76; sizeScale = 1.0; this._cloudAlpha = 0.55; break;
       default: count = 6; altMin = 55; altMax = 90; sizeScale = 1; this._cloudAlpha = 0.6; break;
     }
     const base = this.theme === 'city'
@@ -3799,7 +3911,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
           ? [0.24, 0.09, 0.34]
           : this.theme === 'volcano'
             ? [0.3, 0.14, 0.1]
-            : [0.98, 0.98, 1.0];
+            : this.theme === 'antarctica'
+              ? [0.25, 0.7, 0.65]
+              : this.theme === 'pirate'
+                ? [0.98, 0.9, 0.75]
+                : [0.98, 0.98, 1.0];
     const verts: number[] = [];
     const idxs: number[] = [];
     const seg = 9;
@@ -4172,6 +4288,206 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addLavaCrack(verts, idxs, p.x + ppx * dist * side, p.z + ppz * dist * side, ppx * side, ppz * side, 2 + Math.random() * 2.5);
       if (crackIdx++ > (this.lowQuality ? 24 : 50)) break;
     }
+  }
+
+  // ── Aurora Glacier (alien Antarctica) ──────────────────────────────────
+  private addAntarcticaScenery(verts: number[], idxs: number[], flatVerts: number[], flatIdxs: number[]) {
+    const pts = this._trackPoints;
+    // Frozen bay: a pale glacier-blue plain with scattered pressure ridges.
+    this.addOceanPlane(flatVerts, flatIdxs, [0.5, 0.68, 0.78]);
+    const ice: [number, number, number][] = [
+      [0.62, 0.78, 0.85], [0.55, 0.72, 0.82], [0.68, 0.82, 0.88], [0.5, 0.68, 0.78],
+    ];
+    const deepIce: [number, number, number][] = [
+      [0.3, 0.55, 0.72], [0.35, 0.6, 0.75], [0.25, 0.5, 0.68],
+    ];
+    // Glowing ice cracks radiating off the road like the frozen bay is
+    // cracking — cyan bioluminescent glow, the weird Antarctic centerpiece.
+    let crackIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 16 : 8)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = (i / 8) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 2.2 + Math.random() * 2;
+      this.addIceCrack(verts, idxs, p.x + ppx * dist * side, p.z + ppz * dist * side, ppx * side, ppz * side, 2 + Math.random() * 3);
+      if (crackIdx++ > (this.lowQuality ? 26 : 54)) break;
+    }
+    // Giant crystal monoliths — jagged translucent-blue obelisks with a
+    // glowing core, the alien obelisk feel.
+    let cryIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 10 : 5)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        if (Math.random() < 0.35) continue;
+        const dist = p.width / 2 + 34 + Math.random() * 26;
+        const cx = p.x + ppx * dist * side + (Math.random() - 0.5) * 6;
+        const cz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
+        const h = 5 + Math.random() * 14;
+        const r = 1 + Math.random() * 1.6;
+        const col = ice[Math.floor(Math.random() * ice.length)];
+        // Crystal body: a tall cone with a wide base (ice spike).
+        this.addCone(verts, idxs, cx, 0, cz, r * 1.8, h, 5, col);
+        // Inner glowing vein: a thin brighter cone just off the axis.
+        this.addCone(verts, idxs, cx, 0, cz, r * 0.7, h * 0.95, 5, [0.4, 0.9, 1.0]);
+        // Frosted cap.
+        this.addSphere(verts, idxs, cx, h * 0.96, cz, r * 0.55, 6, [0.9, 0.97, 1.0]);
+        if (cryIdx++ > (this.lowQuality ? 22 : 46)) break;
+      }
+      if (cryIdx > (this.lowQuality ? 22 : 46)) break;
+    }
+    // A crashed UFO half-buried in the ice — the weird centerpiece. Saucer
+    // body tilted, glowing porthole ring, antenna and a scorched trench.
+    {
+      const p = pts[Math.floor(pts.length * 0.28)];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = p.width / 2 + 30;
+      const ux = p.x + ppx * dist * side;
+      const uz = p.z + ppz * dist * side;
+      this.addUFO(verts, idxs, ux, uz, p.dirX, p.dirZ, side);
+    }
+    // An igloo village by the ice, warm windows glowing orange against the
+    // polar night.
+    let iglooIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 14 : 7)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        if (Math.random() < 0.55) continue;
+        const dist = p.width / 2 + 12 + Math.random() * 9;
+        const ix = p.x + ppx * dist * side + (Math.random() - 0.5) * 2;
+        const iz = p.z + ppz * dist * side + (Math.random() - 0.5) * 2;
+        const s = 1.1 + Math.random() * 0.9;
+        this.addIgloo(verts, idxs, ix, iz, s);
+        if (iglooIdx++ > (this.lowQuality ? 10 : 22)) break;
+      }
+      if (iglooIdx > (this.lowQuality ? 10 : 22)) break;
+    }
+    // Research station: a couple of corrugated huts with glowing windows.
+    let hutIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 20 : 10)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = (i / 10) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 9 + Math.random() * 4;
+      const hx = p.x + ppx * dist * side + (Math.random() - 0.5) * 2;
+      const hz = p.z + ppz * dist * side + (Math.random() - 0.5) * 2;
+      this.addResearchHut(verts, idxs, hx, hz, p.dirX, p.dirZ, side);
+      if (hutIdx++ > (this.lowQuality ? 8 : 18)) break;
+    }
+    // Icebergs far off the bay.
+    for (let i = 0; i < (this.lowQuality ? 8 : 16); i++) {
+      const a = Math.random() * Math.PI * 2;
+      const dist = 140 + Math.random() * 120;
+      const ix = Math.cos(a) * dist;
+      const iz = Math.sin(a) * dist;
+      const s = 3 + Math.random() * 6;
+      const col = ice[Math.floor(Math.random() * ice.length)];
+      this.addBox(verts, idxs, ix, s * 0.5, iz, s * 1.6, s, s, col);
+      this.addBox(verts, idxs, ix + s * 0.3, s * 0.95, iz - s * 0.2, s * 0.9, s * 0.7, s * 0.8, deepIce[Math.floor(Math.random() * deepIce.length)]);
+    }
+    // Aurora curtains — faint green/teal vertical light sheets in the sky
+    // (billboards following the horizon ring).
+    let aurIdx = 0;
+    for (let i = 0; i < pts.length; i += 40) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = (i / 40) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 90 + Math.random() * 60;
+      const ax = p.x + ppx * dist * side;
+      const az = p.z + ppz * dist * side;
+      const h = 60 + Math.random() * 70;
+      const w = 26 + Math.random() * 30;
+      const tint = aurIdx % 3 === 0 ? [0.3, 0.9, 0.6] : aurIdx % 3 === 1 ? [0.5, 1.0, 0.8] : [0.9, 0.4, 0.7];
+      this.addAuroraCurtain(verts, idxs, ax, az, w, h, tint);
+      if (aurIdx++ > 10) break;
+    }
+  }
+  private addIceCrack(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, len: number) {
+    const ppx = -dirZ, ppz = dirX;
+    const segs = 5;
+    for (let i = 0; i < segs; i++) {
+      const f0 = -0.5 + i / segs;
+      const f1 = -0.5 + (i + 1) / segs;
+      const w = 0.07 + Math.random() * 0.1;
+      const glow: number[] = [0.4 + Math.random() * 0.25, 0.9, 1.0];
+      const x0 = x + dirX * len * f0 + ppx * (Math.random() - 0.5) * 0.3;
+      const z0 = z + dirZ * len * f0 + ppz * (Math.random() - 0.5) * 0.3;
+      const x1 = x + dirX * len * f1 + ppx * (Math.random() - 0.5) * 0.3;
+      const z1 = z + dirZ * len * f1 + ppz * (Math.random() - 0.5) * 0.3;
+      this.addQuad(verts, idxs,
+        [x0 - ppx * w, 0.03, z0 - ppz * w],
+        [x1 - ppx * w, 0.03, z1 - ppz * w],
+        [x1 + ppx * w, 0.03, z1 + ppz * w],
+        [x0 + ppx * w, 0.03, z0 + ppz * w], glow);
+    }
+  }
+  private addIgloo(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    // Snow dome with a dark doorway and a warm glowing window strip.
+    this.addEllipsoid(verts, idxs, x, s * 0.55, z, s, s * 0.6, s, 8, [0.92, 0.96, 0.98]);
+    const w = s * 0.42;
+    const h = s * 0.5;
+    this.addWindowQuad(verts, idxs, x, s * 0.22, z, w * 1.4, h * 0.7, 0, 1, [1.0, 0.75, 0.3]);
+  }
+  private addResearchHut(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, side: number) {
+    const ppx = -dirZ, ppz = dirX;
+    const rx = ppx * side, rz = ppz * side;
+    const w = 2.6, d = 2.0, h = 1.6;
+    this.addBox(verts, idxs, x + rx * 0.2, h / 2, z + rz * 0.2, w, h, d, [0.45, 0.5, 0.55]);
+    // Glowing windows on the road-facing wall.
+    for (let k = -1; k <= 1; k += 2) {
+      const ox = x + rx * 0.2 + (-rz) * k * w * 0.24;
+      const oz = z + rz * 0.2 + rx * k * w * 0.24;
+      this.addWindowQuad(verts, idxs, ox, h * 0.45, oz, 0.6, 0.5, -rx, -rz, [1.0, 0.85, 0.45]);
+    }
+    // Snow cap on the roof.
+    this.addBox(verts, idxs, x + rx * 0.2, h + 0.25, z + rz * 0.2, w * 0.8, 0.4, d * 0.8, [0.95, 0.97, 1.0]);
+  }
+  private addUFO(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number, side: number) {
+    const ppx = -dirZ, ppz = dirX;
+    // Scorched trench where it skidded in.
+    const tx = -ppx * side, tz = -ppz * side;
+    for (let k = 0; k < 4; k++) {
+      const f = k / 4;
+      this.addQuad(verts, idxs,
+        [x + tx * (f * 14 - 1) - ppx * 1.5, 0.05, z + tz * (f * 14 - 1) - ppz * 1.5],
+        [x + tx * (f * 14 + 1) - ppx * 1.5, 0.05, z + tz * (f * 14 + 1) - ppz * 1.5],
+        [x + tx * (f * 14 + 1) + ppx * 1.5, 0.05, z + tz * (f * 14 + 1) + ppz * 1.5],
+        [x + tx * (f * 14 - 1) + ppx * 1.5, 0.05, z + tz * (f * 14 - 1) + ppz * 1.5],
+        [0.25, 0.4, 0.5]);
+    }
+    // Saucer: a flat metallic ellipsoid tilted slightly into the ice.
+    this.addEllipsoid(verts, idxs, x, 1.2, z, 4.2, 0.8, 4.2, 10, [0.5, 0.55, 0.6]);
+    // Glowing porthole ring around the rim.
+    const segs = 10;
+    const ringCol: [number, number, number] = [0.4, 1.0, 0.9];
+    for (let k = 0; k < segs; k++) {
+      const a = (k / segs) * Math.PI * 2;
+      const px = Math.cos(a) * 3.2;
+      const pz = Math.sin(a) * 3.2;
+      const w = 0.28;
+      this.addQuad(verts, idxs,
+        [x + px - ppx * w, 1.45, z + pz - ppz * w],
+        [x + px + ppx * w, 1.45, z + pz + ppz * w],
+        [x + px + ppx * w, 1.95, z + pz + ppz * w],
+        [x + px - ppx * w, 1.95, z + pz - ppz * w], ringCol);
+    }
+    // Dome on top + antenna.
+    this.addSphere(verts, idxs, x, 2.0, z, 1.6, 8, [0.7, 0.75, 0.8]);
+    this.addCylinder(verts, idxs, x, 2.6, z, 0.06, 1.6, 4, [0.85, 0.85, 0.9]);
+    this.addSphere(verts, idxs, x, 4.3, z, 0.22, 6, [1.0, 0.5, 0.35]);
+  }
+  private addAuroraCurtain(verts: number[], idxs: number[], x: number, z: number, w: number, h: number, tint: number[]) {
+    // A tall faint billboard sheet — the shader gives it a soft glow feel at
+    // night, and the additive night pass layers a brighter band over it.
+    const ppx = -x / (Math.hypot(x, z) || 1);
+    const ppz = -z / (Math.hypot(x, z) || 1);
+    this.addQuad(verts, idxs,
+      [x - ppx * w / 2, 4, z - ppz * w / 2],
+      [x + ppx * w / 2, 4, z + ppz * w / 2],
+      [x + ppx * w / 2, h, z + ppz * w / 2],
+      [x - ppx * w / 2, h, z - ppz * w / 2], tint);
   }
   private addCityScenery(verts: number[], idxs: number[]) {
     const pts = this._trackPoints;
@@ -6303,7 +6619,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     gl.bindVertexArray(null);
   }
   private updateSnowCap(cur: number, dt: number, speed: number): number {
-    const snowing = this.theme === 'alpine' || this.theme === 'mountain';
+    const snowing = this.theme === 'alpine' || this.theme === 'mountain' || this.theme === 'antarctica';
     if (!snowing) {
       return Math.max(0, cur - 0.5 * dt);
     }
@@ -7109,6 +7425,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     if (!this.night) return;
     if (this.theme === 'neon') { this.buildNeonGlow(); return; }
     if (this.theme === 'volcano') { this.buildLavaGlow(); return; }
+    if (this.theme === 'antarctica') { this.buildAuroraGlow(); return; }
     const pts = this._trackPoints;
     if (!pts.length) return;
     const verts: number[] = [];
@@ -7318,6 +7635,108 @@ void main() { FragColor = texture(uTex, vUV); }`;
         if (poolIdx++ > 26) break;
       }
       if (poolIdx > 26) break;
+    }
+    this.finishNightMesh(verts, idxs);
+  }
+  /** Aurora Glacier additive glow: cyan ice-crack seams, igloo/hut windows,
+   *  the UFO beacon, and aurora light pillars along the horizon. */
+  private buildAuroraGlow() {
+    const pts = this._trackPoints;
+    if (!pts.length) return;
+    const verts: number[] = [];
+    const idxs: number[] = [];
+    const cyan: [number, number, number] = [0.35, 1.0, 1.0];
+    const teal: [number, number, number] = [0.25, 0.9, 0.8];
+    const warm: [number, number, number] = [1.0, 0.8, 0.42];
+    const green: [number, number, number] = [0.35, 1.0, 0.6];
+    // Ice-crack seams — thin glowing cyan lines just off both edges of the
+    // road, the bioluminescent cracks running with the track.
+    for (let i = 0; i < pts.length; i += 2) {
+      const p = pts[i];
+      const n = pts[(i + 1) % pts.length];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const npx = -n.dirZ, npz = n.dirX;
+      const side = (i / 2) % 2 === 0 ? -1 : 1;
+      const o = p.width / 2 + 3.2 + Math.random() * 1.2;
+      const q = n.width / 2 + 3.2 + Math.random() * 1.2;
+      this.addQuad(verts, idxs,
+        [p.x + ppx * o * side, -0.16, p.z + ppz * o * side],
+        [n.x + npx * q * side, -0.16, n.z + npz * q * side],
+        [n.x + npx * (q + 0.14) * side, -0.16, n.z + npz * (q + 0.14) * side],
+        [p.x + ppx * (o + 0.14) * side, -0.16, p.z + ppz * (o + 0.14) * side],
+        cyan);
+    }
+    // Glowing crystal monoliths — a soft cyan vertical glow strip on each.
+    let cryIdx = 0;
+    for (let i = 0; i < pts.length; i += 5) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        if (Math.random() < 0.45) continue;
+        const dist = p.width / 2 + 34 + Math.random() * 26;
+        const hx = p.x + ppx * dist * side;
+        const hz = p.z + ppz * dist * side;
+        const h = 5 + Math.random() * 12;
+        this.addQuad(verts, idxs,
+          [hx - ppx * 1.6, 0.3, hz - ppz * 1.6],
+          [hx + ppx * 1.6, 0.3, hz + ppz * 1.6],
+          [hx + ppx * 1.6, h, hz + ppz * 1.6],
+          [hx - ppx * 1.6, h, hz - ppz * 1.6],
+          teal);
+        if (cryIdx++ > 22) break;
+      }
+      if (cryIdx > 22) break;
+    }
+    // Igloo + research-hut windows: warm pools.
+    let winIdx = 0;
+    for (let i = 0; i < pts.length; i += 6) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        if (Math.random() < 0.5) continue;
+        const dist = p.width / 2 + 12 + Math.random() * 8;
+        const wx = p.x + ppx * dist * side;
+        const wz = p.z + ppz * dist * side;
+        const wy = 0.8 + Math.random() * 0.9;
+        this.addQuad(verts, idxs,
+          [wx - ppx * 0.7, wy, wz - ppz * 0.7],
+          [wx + ppx * 0.7, wy, wz + ppz * 0.7],
+          [wx + ppx * 0.7, wy + 0.8, wz + ppz * 0.7],
+          [wx - ppx * 0.7, wy + 0.8, wz - ppz * 0.7],
+          warm);
+        if (winIdx++ > 40) break;
+      }
+      if (winIdx > 40) break;
+    }
+    // The crashed UFO's beacon — a pulsing cyan column over the saucer.
+    {
+      const p = pts[Math.floor(pts.length * 0.28)];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const dist = p.width / 2 + 30;
+      const ux = p.x + ppx * dist * side;
+      const uz = p.z + ppz * dist * side;
+      this.addQuad(verts, idxs,
+        [ux - 1.2, 0.5, uz - 1.2], [ux + 1.2, 0.5, uz + 1.2],
+        [ux + 1.2, 6.5, uz + 1.2], [ux - 1.2, 6.5, uz - 1.2], cyan);
+    }
+    // Aurora light pillars — tall green/teal sheets around the horizon.
+    let aurIdx = 0;
+    for (let i = 0; i < pts.length; i += 40) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = (i / 40) % 2 === 0 ? -1 : 1;
+      const dist = p.width / 2 + 90 + Math.random() * 60;
+      const ax = p.x + ppx * dist * side;
+      const az = p.z + ppz * dist * side;
+      const h = 50 + Math.random() * 70;
+      this.addQuad(verts, idxs,
+        [ax - ppx * 4, 3, az - ppz * 4],
+        [ax + ppx * 4, 3, az + ppz * 4],
+        [ax + ppx * 4, h, az + ppz * 4],
+        [ax - ppx * 4, h, az - ppz * 4],
+        aurIdx % 2 === 0 ? green : teal);
+      if (aurIdx++ > 8) break;
     }
     this.finishNightMesh(verts, idxs);
   }
@@ -8117,6 +8536,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
       case 'volcano':
         return [[0.95, 0.35, 0.2], [0.6, 0.2, 0.1], [0.4, 0.4, 0.42],
         [0.85, 0.55, 0.25], [0.95, 0.7, 0.3], [0.5, 0.25, 0.2]];
+      case 'antarctica':
+        // Polar research crew — warm orange parkas on pale suits.
+        return [[0.95, 0.45, 0.15], [0.9, 0.6, 0.2], [0.85, 0.85, 0.9],
+        [0.6, 0.75, 0.9], [0.95, 0.7, 0.35], [0.75, 0.85, 0.95]];
+      case 'pirate':
+        // Pirate crew — red bandanas, striped shirts, worn leather.
+        return [[0.9, 0.2, 0.18], [0.95, 0.85, 0.5], [0.55, 0.4, 0.3],
+        [0.35, 0.6, 0.85], [0.85, 0.65, 0.4], [0.3, 0.35, 0.4]];
       default:
         return [[0.7, 0.15, 0.15], [0.15, 0.3, 0.7], [0.8, 0.7, 0.1],
         [0.9, 0.9, 0.9], [0.15, 0.5, 0.2], [0.6, 0.2, 0.6], [0.1, 0.65, 0.65], [0.95, 0.5, 0.15]];
@@ -8133,6 +8560,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
       case 'miami': return [[0.95, 0.45, 0.6], [0.2, 0.7, 0.75]];
       case 'neon': return [[0.25, 0.9, 0.95], [1.0, 0.3, 0.9]];
       case 'volcano': return [[0.95, 0.35, 0.2], [0.95, 0.7, 0.3]];
+      case 'antarctica': return [[0.25, 0.75, 0.9], [0.95, 0.95, 1.0]];
+      case 'pirate': return [[0.9, 0.2, 0.18], [0.2, 0.2, 0.25]];
       default: return this.crowdShirtsForTheme().slice(0, 2);
     }
   }
@@ -8688,7 +9117,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private _trackCenterZ = 0;
   private _animalsVao!: WebGLVertexArrayObject;
   private _animalsBuf!: WebGLBuffer;
-  private _animals: { kind: 0 | 1 | 2; x: number; z: number; yaw: number; size: number; phase: number; retr: number }[] = [];
+  private _animals: { kind: 0 | 1 | 2 | 3; x: number; z: number; yaw: number; size: number; phase: number; retr: number }[] = [];
   private _tumbleweeds: { x: number; z: number; vx: number; vz: number; spin: number; phase: number; size: number }[] = [];
   private _dustDevils: { x: number; z: number; vx: number; vz: number; phase: number; size: number; life: number; maxLife: number }[] = [];
   private _windVao!: WebGLVertexArrayObject;
@@ -8712,7 +9141,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const isDesert = this.theme === 'desert';
     const isNeon = this.theme === 'neon';
     const isVolcano = this.theme === 'volcano';
-    const birdCount = isMiami ? 26 : isHighCountry ? 24 : isDesert ? 14 : isNeon ? 8 : isVolcano ? 0 : 18;
+    const isAntarctica = this.theme === 'antarctica';
+    const isPirate = this.theme === 'pirate';
+    const birdCount = isMiami || isPirate ? 26 : isHighCountry ? 24 : isDesert ? 14 : isNeon ? 8 : isVolcano || isAntarctica ? 0 : 18;
     for (let i = 0; i < birdCount; i++) {
       const eagle = isHighCountry && i % 2 === 0;
       const vulture = isDesert && i % 2 === 0;
@@ -8753,6 +9184,27 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
     }
     this._animals = [];
+    // Penguins — little animated waddlers in the side margins (a new animal
+    // kind 3, drawn as black-and-white waddlers with orange beaks/feet).
+    if (isAntarctica) {
+      let pengIdx = 0;
+      for (let i = 0; i < pts.length; i += 12) {
+        const p = pts[i];
+        const ppx = -p.dirZ, ppz = p.dirX;
+        const side = (i / 12) % 2 === 0 ? -1 : 1;
+        const dist = p.width / 2 + 18 + Math.random() * 6;
+        this._animals.push({
+          kind: 3,
+          x: p.x + ppx * dist * side + (Math.random() - 0.5) * 2,
+          z: p.z + ppz * dist * side + (Math.random() - 0.5) * 2,
+          yaw: Math.atan2(ppx * side, ppz * side) + (Math.random() - 0.5) * 0.8,
+          size: 0.8 + Math.random() * 0.25,
+          phase: Math.random() * Math.PI * 2,
+          retr: 0,
+        });
+        if (pengIdx++ >= (this.lowQuality ? 10 : 20)) break;
+      }
+    }
     if (isHighCountry) {
       let deerIdx = 0;
       for (let i = 0; i < pts.length; i += 10) {
@@ -8796,6 +9248,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
           });
         }
       }
+    }
+    if (isHighCountry || isAntarctica) {
       this._animalsVao = gl.createVertexArray()!;
       gl.bindVertexArray(this._animalsVao);
       this._animalsBuf = gl.createBuffer()!;
@@ -9488,6 +9942,35 @@ void main() { FragColor = texture(uTex, vUV); }`;
           }
           const [tlx, tlz] = L(-0.3 * vs, 0);
           w = this.pushBoxVerts(data, w, tlx, 0.16 * vs + breathe, tlz, 0.12 * vs, 0.06 * vs, 0.08 * vs, 0.55, 0.4, 0.24);
+        }
+      }
+      if (a.kind === 3) {
+        // Penguin — waddling black-and-white with an orange beak and feet.
+        const wob = Math.sin(t * 1.6 + a.phase) * 0.05 * s;
+        const [bx0, bz0] = L(0, 0);
+        // Body (black egg).
+        w = this.pushBoxVerts(data, w, bx0, 0.5 * s + wob, bz0, 0.52 * s, 0.78 * s, 0.44 * s, 0.06, 0.08, 0.12);
+        // White belly plate on the front.
+        const [fbx, fbz] = L(0.12 * s, 0);
+        w = this.pushBoxVerts(data, w, fbx, 0.42 * s + wob, fbz, 0.34 * s, 0.5 * s, 0.26 * s, 0.96, 0.97, 0.98);
+        // Head.
+        const [hx, hz] = L(0.22 * s, 0);
+        w = this.pushBoxVerts(data, w, hx, 0.98 * s + wob, hz, 0.3 * s, 0.28 * s, 0.28 * s, 0.06, 0.08, 0.12);
+        // White face patch.
+        const [fx2, fz2] = L(0.3 * s, 0);
+        w = this.pushBoxVerts(data, w, fx2, 1.02 * s + wob, fz2, 0.18 * s, 0.16 * s, 0.16 * s, 0.96, 0.97, 0.98);
+        // Beak.
+        const [bkx, bkz] = L(0.4 * s, 0);
+        w = this.pushBoxVerts(data, w, bkx, 0.98 * s + wob, bkz, 0.1 * s, 0.07 * s, 0.07 * s, 1.0, 0.6, 0.2);
+        // Flippers (dark wings on the sides).
+        for (const sideL of [-1, 1]) {
+          const [wx, wz] = L(0.02 * s, sideL * 0.28 * s);
+          w = this.pushBoxVerts(data, w, wx, 0.58 * s + wob, wz, 0.4 * s, 0.16 * s, 0.1 * s, 0.05, 0.07, 0.1);
+        }
+        // Feet (orange, under the body).
+        for (const sideL of [-1, 1]) {
+          const [fx3, fz3] = L(-0.1 * s, sideL * 0.12 * s);
+          w = this.pushBoxVerts(data, w, fx3, 0.05 * s, fz3, 0.12 * s, 0.06 * s, 0.18 * s, 1.0, 0.62, 0.2);
         }
       }
     }
@@ -10197,7 +10680,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       gl.depthMask(true);
       gl.enable(gl.CULL_FACE);
     }
-    const isSnowing = this.theme === 'alpine' || this.theme === 'mountain';
+    const isSnowing = this.theme === 'alpine' || this.theme === 'mountain' || this.theme === 'antarctica';
     const isEmbering = this.theme === 'volcano';
     if (drawRain && (isSnowing || isEmbering)) {
       this.initSnowParticles();

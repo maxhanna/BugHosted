@@ -45,6 +45,8 @@ export interface MarblesOpponentView {
   rowShifted: number;
   /** True when this opponent's update was triggered by a marble drop. */
   dropped: boolean;
+  /** Which side the dropped marble entered its column: 0 = top, 1 = bottom. */
+  dropSide?: number;
   /** Marbles rained onto this opponent's board this turn. */
   rained: number;
 }
@@ -71,8 +73,10 @@ export interface MarblesBoardUpdate {
   popped: { row: number; col: number; color: number }[];
   /** How many marbles rained onto this board from an opponent. */
   rained: number;
-  /** True when this update was triggered by a marble drop from the top. */
+  /** True when this update was triggered by a marble drop. */
   dropped: boolean;
+  /** Which side the dropped marble entered its column: 0 = top, 1 = bottom. */
+  dropSide?: number;
   /** Non-zero when the pitch row was rotated this turn (marble slides along it are legit). */
   rowShifted?: number;
   alive: boolean;

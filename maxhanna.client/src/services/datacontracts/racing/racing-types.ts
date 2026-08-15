@@ -354,6 +354,8 @@ export const TRACKS: TrackDefinition[] = [
   { id: 10, name: 'Japan Pass', difficulty: 'hard', laps: 4, length: 2200, description: 'Initial D style downhill touge — cedar forests, hairpins and a misty valley drop', entryFee: 2500, prizePool: 10000, bestTime: 0 },
   { id: 11, name: 'Neon District GP', difficulty: 'hard', laps: 4, length: 2400, description: 'Retro synthwave street circuit — neon towers, wireframe palms and a glowing outrun grid', entryFee: 3500, prizePool: 13000, bestTime: 0 },
   { id: 12, name: 'Caldera Rush', difficulty: 'hard', laps: 4, length: 2300, description: 'A lap around an active volcano — lava rivers, basalt columns and rising embers', entryFee: 3500, prizePool: 13000, bestTime: 0 },
+  { id: 13, name: 'Aurora Glacier', difficulty: 'hard', laps: 4, length: 2400, description: 'An alien frozen wasteland — a crashed UFO on the ice, giant crystals, igloos and a dancing aurora', entryFee: 3500, prizePool: 13000, bestTime: 0 },
+  { id: 14, name: 'Pirate Treasure Cove', difficulty: 'hard', laps: 4, length: 2400, description: 'A golden-hour lagoon circuit — a beached galleon, treasure chests, cannon forts and a skull rock reef', entryFee: 3500, prizePool: 13000, bestTime: 0 },
 ];
 
 export const CAR_SKINS: RacingCarSkin[] = [

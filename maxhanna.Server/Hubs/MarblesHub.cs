@@ -476,21 +476,38 @@ namespace maxhanna.Server.Hubs
             return false;
         }
 
-        /// <summary>Stack one marble on top of a SPECIFIC column's stack (for
-        /// the AI's drop look-ahead). Returns false when that column is full.</summary>
+        /// <summary>Stack one marble into a SPECIFIC column's compacted pile (for
+        /// the AI's drop look-ahead). Mirrors AddMarble: the column is settled
+        /// first, then the marble enters from a random side. Returns false when
+        /// that column is full.</summary>
         private static bool DropIntoColumn(int[][] board, int col, int color)
         {
-            var top = 0;
-            while (top < Rows && board[top][col] == 0) top++;
-            if (top > 0)
+            // Compact the column first (marbles settle down).
+            var write = Rows - 1;
+            for (var r = Rows - 1; r >= 0; r--)
+            {
+                if (board[r][col] != 0)
+                {
+                    if (write != r)
+                    {
+                        board[write][col] = board[r][col];
+                        board[r][col] = 0;
+                    }
+                    write--;
+                }
+            }
+            var top = write + 1;
+            if (top >= Rows) { board[Rows - 1][col] = color; return true; }
+
+            if (_rng.Next(2) == 0)
             {
                 board[top - 1][col] = color;
                 return true;
             }
-            var bottom = Rows - 1;
-            while (bottom >= 0 && board[bottom][col] != 0) bottom--;
-            if (bottom < 0) return false;
-            board[bottom][col] = color;
+
+            // Enter from below: push the pile up one row.
+            for (var r = top; r < Rows; r++) board[r - 1][col] = board[r][col];
+            board[Rows - 1][col] = color;
             return true;
         }
 
@@ -781,7 +798,8 @@ namespace maxhanna.Server.Hubs
                         foreach (var p in lobby.Players)
                         {
                             if (!p.Alive) continue;
-                            if (DropMarbleInto(p))
+                            var dropSide = DropMarbleInto(p);
+                            if (dropSide >= 0)
                             {
                                 // A drop can complete runs anywhere on the board.
                                 var pop = ResolveMatches(p);
@@ -789,6 +807,7 @@ namespace maxhanna.Server.Hubs
                                 p.Score += pop.PoppedCount;
                                 metas[p.ConnectionId].Popped = pop.Popped;
                                 metas[p.ConnectionId].Dropped = true;
+                                metas[p.ConnectionId].DropSide = dropSide;
                                 if (pop.Garbage > 0)
                                 {
                                     var target = PickAliveOpponent(lobby, p);
@@ -804,7 +823,7 @@ namespace maxhanna.Server.Hubs
                         foreach (var p in lobby.Players)
                         {
                             var m = metas[p.ConnectionId];
-                            updates[p.ConnectionId] = MakeUpdate(lobby, p, m.Popped, m.Rained, m.Dropped, 0, metas);
+                            updates[p.ConnectionId] = MakeUpdate(lobby, p, m.Popped, m.Rained, m.Dropped, 0, metas, m.DropSide);
                         }
                     }
 
@@ -842,25 +861,26 @@ namespace maxhanna.Server.Hubs
 
         /// <summary>
         /// Drop one marble onto a random column.
-        /// Returns false if the board is completely full (the owner loses).
+        /// Returns the side it entered (0 = top, 1 = bottom) or -1 if the
+        /// board is completely full (the owner loses).
         /// </summary>
-        private static bool DropMarbleInto(Player p)
+        private static int DropMarbleInto(Player p)
         {
-            var added = AddMarbleToTop(p.Board, _rng.Next(1, ColorCount + 1));
-            if (!added) p.Alive = false;
-            return added;
+            var side = AddMarble(p.Board, _rng.Next(1, ColorCount + 1));
+            if (side < 0) p.Alive = false;
+            return side;
         }
 
         /// <summary>
         /// Place one marble onto a random column without disturbing anything
-        /// else: it stacks on top of the column's existing marbles, or falls
-        /// to the bottom when the stack already reaches the very top. Adding a
-        /// marble must never shift other marbles — the old version ran gravity
-        /// over the whole board here, which snapped every column with a gap
-        /// (left by a column-shift wrap) back down every time a marble arrived.
-        /// Returns false when every cell on the board is filled.
+        /// else's order. The column is compacted first (marbles settle down so
+        /// the pile has no gaps), then the new marble enters from a RANDOM
+        /// side: it either stacks on top of the pile (rolling in from above)
+        /// or pushes the pile up one row and takes the bottom cell (rolling in
+        /// from below). Returns the side it entered (0 = top, 1 = bottom) or
+        /// -1 when every cell on the board is filled.
         /// </summary>
-        private static bool AddMarbleToTop(int[][] board, int color)
+        private static int AddMarble(int[][] board, int color)
         {
             var emptyCols = new List<int>();
             for (var c = 0; c < Cols; c++)
@@ -872,27 +892,45 @@ namespace maxhanna.Server.Hubs
                 }
                 if (hasSpace) emptyCols.Add(c);
             }
-            if (emptyCols.Count == 0) return false;
+            if (emptyCols.Count == 0) return -1;
 
             var col = emptyCols[_rng.Next(emptyCols.Count)];
 
-            // Topmost filled cell in the column (row 0 is the top of the board).
-            var top = 0;
-            while (top < Rows && board[top][col] == 0) top++;
+            // Compact the column: settle all marbles to the bottom (fills any
+            // residual gap so the pile is contiguous before we grow it).
+            var write = Rows - 1;
+            for (var r = Rows - 1; r >= 0; r--)
+            {
+                if (board[r][col] != 0)
+                {
+                    if (write != r)
+                    {
+                        board[write][col] = board[r][col];
+                        board[r][col] = 0;
+                    }
+                    write--;
+                }
+            }
 
-            if (top > 0)
+            // First occupied row of the settled pile (row 0 is the board top).
+            var top = write + 1;
+
+            // Empty column → the marble simply rests on the bottom row.
+            if (top >= Rows) { board[Rows - 1][col] = color; return 0; }
+
+            if (_rng.Next(2) == 0)
             {
-                // Room above the stack → stack the new marble on top.
+                // Enter from ABOVE: stack on top of the pile.
                 board[top - 1][col] = color;
+                return 0;
             }
-            else
-            {
-                // Stack already reaches the very top → fill the bottom instead.
-                var bottom = Rows - 1;
-                while (bottom >= 0 && board[bottom][col] != 0) bottom--;
-                board[bottom][col] = color;
-            }
-            return true;
+
+            // Enter from BELOW: push the whole pile up one row and take the
+            // bottom cell. The pile was compacted (top > 0) so there is always
+            // an empty row above to shift into.
+            for (var r = top; r < Rows; r++) board[r - 1][col] = board[r][col];
+            board[Rows - 1][col] = color;
+            return 1;
         }
 
         private static void ApplyGravity(int[][] board)
@@ -917,7 +955,7 @@ namespace maxhanna.Server.Hubs
 
         private static void RainOne(Player target, int color)
         {
-            if (!AddMarbleToTop(target.Board, color)) target.Alive = false;
+            if (AddMarble(target.Board, color) < 0) target.Alive = false;
         }
 
         private static Player? PickAliveOpponent(Lobby lobby, Player self)
@@ -973,10 +1011,12 @@ namespace maxhanna.Server.Hubs
             public List<object>? Popped = null;
             public int RowShifted = 0;
             public bool Dropped = false;
+            /// <summary>Which side a dropped marble entered the column (0 = top, 1 = bottom).</summary>
+            public int DropSide = 0;
             public int Rained = 0;
         }
 
-        private static Dictionary<string, object?> MakeUpdate(Lobby lobby, Player p, List<object>? popped, int rained, bool dropped, int rowShifted = 0, Dictionary<string, PlayerMoveMeta>? metas = null)
+        private static Dictionary<string, object?> MakeUpdate(Lobby lobby, Player p, List<object>? popped, int rained, bool dropped, int rowShifted = 0, Dictionary<string, PlayerMoveMeta>? metas = null, int dropSide = 0)
         {
             var opponentMetas = metas ?? new Dictionary<string, PlayerMoveMeta>();
             return new Dictionary<string, object?>
@@ -989,6 +1029,7 @@ namespace maxhanna.Server.Hubs
                 ["popped"] = popped ?? new List<object>(),
                 ["rained"] = rained,
                 ["dropped"] = dropped,
+                ["dropSide"] = dropSide,
                 ["rowShifted"] = rowShifted,
                 ["alive"] = p.Alive,
                 ["winnerName"] = (string?)null,
@@ -1014,6 +1055,7 @@ namespace maxhanna.Server.Hubs
             popped = meta?.Popped ?? new List<object>(),
             rowShifted = meta?.RowShifted ?? 0,
             dropped = meta?.Dropped ?? false,
+            dropSide = meta?.DropSide ?? 0,
             rained = meta?.Rained ?? 0,
         };
 

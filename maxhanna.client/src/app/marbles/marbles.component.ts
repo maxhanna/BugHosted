@@ -612,10 +612,10 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
   // ── Board + sprites ─────────────────────────────────────────────────────
 
-  private applyBoard(bu: { board: number[][]; popped: { row: number; col: number; color: number }[]; rained?: number; dropped?: boolean; rowShifted?: number; specialColor?: number; reserve?: number; sent?: number; score?: number; alive?: boolean; winnerName?: string | null }): void {
+  private applyBoard(bu: { board: number[][]; popped: { row: number; col: number; color: number }[]; rained?: number; dropped?: boolean; dropSide?: number; rowShifted?: number; specialColor?: number; reserve?: number; sent?: number; score?: number; alive?: boolean; winnerName?: string | null }): void {
     const oldBoard = this._board;
     this._board = bu.board;
-    this.sprites = this.matchSpritesToBoard(this.sprites, bu.board, oldBoard, bu.popped ?? [], bu.rowShifted ?? 0);
+    this.sprites = this.matchSpritesToBoard(this.sprites, bu.board, oldBoard, bu.popped ?? [], bu.rowShifted ?? 0, 0, bu.dropSide ?? 0);
   }
 
   /** Animate the opponent's board the same way as the player's: match the
@@ -641,7 +641,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     // snapping, which reads as smooth recovery rather than a hitch.
     const moveDur = Math.round(Math.min(1200, Math.max(220, this._oppIntervalMs || 350)));
 
-    this._oppSprites = this.matchSpritesToBoard(this._oppSprites, opp.board, oldBoard, opp.popped ?? [], opp.rowShifted ?? 0, moveDur);
+    this._oppSprites = this.matchSpritesToBoard(this._oppSprites, opp.board, oldBoard, opp.popped ?? [], opp.rowShifted ?? 0, moveDur, opp.dropSide ?? 0);
   }
 
   /** Match a set of sprites to a new board, producing the animated targets.
@@ -654,6 +654,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     popped: { row: number; col: number; color: number }[],
     rowShifted: number,
     moveDur = 0,
+    dropSide = 0,
   ): Sprite[] {
     // 1. Mark sprites sitting on popped cells → pop animation. The popped
     //    list uses post-move coordinates, so match against the sprite's
@@ -736,77 +737,101 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       }
       // Rotation check: a column shift rotates the settled stack in place, so
       // the surviving sprites' colour order is preserved up to a cyclic
-      // rotation, with new marbles (drops/rain) inserted at the top of the
-      // stack. If cellSeq = [extraCells] + rotate(spriteSeq, k), pair sprites
-      // to cells by that rotation — this is what makes a wrapped/rotated
-      // marble GLIDE to its new cell instead of being popped and re-spawned
-      // (which is what left phantom holes and swapped marble skins). Falls
-      // (k = 0) are handled here too; only mixed cases fall through to the
-      // order-preserving bottom-up pairing below.
+      // rotation. A drop can enter a column from the TOP (marble stacks on
+      // the pile — cellSeq = [extraCells] + rotate(spriteSeq, k)) or from the
+      // BOTTOM (the pile shifts up and the marble takes the bottom cell —
+      // cellSeq = rotate(spriteSeq, k) + [extraCells]). Try the alignment the
+      // server reported first (dropSide) so the entering marble rolls in from
+      // the correct edge, then the other. This is what makes a wrapped/
+      // rotated marble GLIDE to its new cell instead of being popped and
+      // re-spawned (which is what left phantom holes and swapped marble
+      // skins). Falls (k = 0) are handled here too; only mixed cases fall
+      // through to the order-preserving bottom-up pairing below.
       const spriteColors = colLive.map(s => s.color);
       const cellColors = cells.map(x => x.color);
+      let columnHandled = false;
       if (spriteColors.length > 0 && cellColors.length >= spriteColors.length) {
         const extra = cellColors.length - spriteColors.length;
-        for (let k = 0; k < spriteColors.length; k++) {
-          let ok = true;
-          for (let i = 0; i < spriteColors.length; i++) {
-            if (cellColors[extra + i] !== spriteColors[(i + k) % spriteColors.length]) { ok = false; break; }
-          }
-          if (ok) {
-            for (let j = 0; j < spriteColors.length; j++) {
-              const s = colLive[j];
-              const cell = cells[extra + ((j - k + spriteColors.length) % spriteColors.length)];
-              used.add(s);
-              this.setTarget(s, c, cell.r, moveDur);
-              next.push(s);
+        const orders: { bottom: boolean }[] = dropSide === 1
+          ? [{ bottom: true }, { bottom: false }]
+          : [{ bottom: false }, { bottom: true }];
+        for (const { bottom } of orders) {
+          if (columnHandled) break;
+          for (let k = 0; k < spriteColors.length; k++) {
+            let ok = true;
+            for (let i = 0; i < spriteColors.length; i++) {
+              const cellIdx = bottom ? i : extra + i;
+              if (cellColors[cellIdx] !== spriteColors[(i + k) % spriteColors.length]) { ok = false; break; }
             }
-            for (let i = extra - 1; i >= 0; i--) {
-              next.push(this.newSprite(cells[i].color, c, cells[i].r, moveDur));
+            if (ok) {
+              columnHandled = true;
+              for (let j = 0; j < spriteColors.length; j++) {
+                const s = colLive[j];
+                const cell = bottom
+                  ? cells[(j - k + spriteColors.length) % spriteColors.length]
+                  : cells[extra + ((j - k + spriteColors.length) % spriteColors.length)];
+                used.add(s);
+                this.setTarget(s, c, cell.r, moveDur);
+                next.push(s);
+              }
+              if (bottom) {
+                // New marble(s) sit at the BOTTOM of the column — spawn below
+                // the board and roll up into place.
+                for (let i = spriteColors.length; i < cells.length; i++) {
+                  next.push(this.newSprite(cells[i].color, c, cells[i].r, moveDur, true));
+                }
+              } else {
+                for (let i = extra - 1; i >= 0; i--) {
+                  next.push(this.newSprite(cells[i].color, c, cells[i].r, moveDur));
+                }
+              }
+              break;
             }
-            continue; // column handled — skip the bottom-up pairing
           }
         }
       }
-      // Pair surviving marbles to cells bottom-up, REQUIRING matching colours.
-      // Gravity preserves the bottom-up order of survivors, so aligned pairs
-      // glide together; a colour mismatch means a marble popped (its colour
-      // vanished from the column) or a cell is new (a drop/rain arrived).
-      // Popped sprites are left unmatched so phase 3 pops them, and new cells
-      // spawn fresh marbles — a marble is never repainted into a different
-      // colour, which is what made some columns act differently and made
-      // marbles slide along the wrong axis.
-      let si = colLive.length - 1;
-      let ci = cells.length - 1;
-      while (si >= 0 && ci >= 0) {
-        const s = colLive[si];
-        const cell = cells[ci];
-        if (s.color === cell.color) {
-          used.add(s);
-          this.setTarget(s, c, cell.r, moveDur);
-          next.push(s);
-          si--; ci--;
-          continue;
+      if (!columnHandled) {
+        // Pair surviving marbles to cells bottom-up, REQUIRING matching colours.
+        // Gravity preserves the bottom-up order of survivors, so aligned pairs
+        // glide together; a colour mismatch means a marble popped (its colour
+        // vanished from the column) or a cell is new (a drop/rain arrived).
+        // Popped sprites are left unmatched so phase 3 pops them, and new cells
+        // spawn fresh marbles — a marble is never repainted into a different
+        // colour, which is what made some columns act differently and made
+        // marbles slide along the wrong axis.
+        let si = colLive.length - 1;
+        let ci = cells.length - 1;
+        while (si >= 0 && ci >= 0) {
+          const s = colLive[si];
+          const cell = cells[ci];
+          if (s.color === cell.color) {
+            used.add(s);
+            this.setTarget(s, c, cell.r, moveDur);
+            next.push(s);
+            si--; ci--;
+            continue;
+          }
+          // Work out which side is the extra item by checking whether its colour
+          // still exists among the remaining (higher) entries of the other list.
+          const spriteStillNeeded = cells.slice(0, ci + 1).some(x => x.color === s.color);
+          const cellHasSprite = colLive.slice(0, si + 1).some(x => x.color === cell.color);
+          if (!spriteStillNeeded) {
+            // This marble popped — leave it for phase 3.
+            si--;
+          } else if (!cellHasSprite) {
+            // This cell is a freshly dropped/rained marble.
+            next.push(this.newSprite(cell.color, c, cell.r, moveDur, dropSide === 1));
+            ci--;
+          } else {
+            // Both colours exist elsewhere (ambiguous) — pop the sprite to stay
+            // consistent rather than repaint it.
+            si--;
+          }
         }
-        // Work out which side is the extra item by checking whether its colour
-        // still exists among the remaining (higher) entries of the other list.
-        const spriteStillNeeded = cells.slice(0, ci + 1).some(x => x.color === s.color);
-        const cellHasSprite = colLive.slice(0, si + 1).some(x => x.color === cell.color);
-        if (!spriteStillNeeded) {
-          // This marble popped — leave it for phase 3.
-          si--;
-        } else if (!cellHasSprite) {
-          // This cell is a freshly dropped/rained marble.
-          next.push(this.newSprite(cell.color, c, cell.r, moveDur));
-          ci--;
-        } else {
-          // Both colours exist elsewhere (ambiguous) — pop the sprite to stay
-          // consistent rather than repaint it.
-          si--;
+        // Any cells higher up the column are newly added marbles.
+        for (; ci >= 0; ci--) {
+          next.push(this.newSprite(cells[ci].color, c, cells[ci].r, moveDur));
         }
-      }
-      // Any cells higher up the column are newly added marbles.
-      for (; ci >= 0; ci--) {
-        next.push(this.newSprite(cells[ci].color, c, cells[ci].r, moveDur));
       }
     }
 
@@ -819,9 +844,12 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     return next;
   }
 
-  private newSprite(color: number, col: number, toRow: number, moveDur = 0): Sprite {
-    // Spawn above the board and fall in.
-    const fromRow = -1 - (ROWS - 1 - toRow);
+  private newSprite(color: number, col: number, toRow: number, moveDur = 0, fromBottom = false): Sprite {
+    // Spawn just off the board on the side the marble enters: above it to
+    // fall in from the top, or below it to roll up from the bottom.
+    const fromRow = fromBottom
+      ? ROWS + (ROWS - 1 - toRow)
+      : -1 - (ROWS - 1 - toRow);
     return {
       id: this._spriteSeq++,
       color,
