@@ -92,42 +92,13 @@ namespace maxhanna.Server.Controllers
 					if (!_startupLoadStarted)
 					{
 						_startupLoadStarted = true;
-						EnsureDecalColorColumn();
 						LoadAllFromDb();
 					}
 				}
 			}
 			RegisterShutdownDump(appLifetime);
 		}
-		// Idempotent, guarded schema migration: the decal recolour feature stores
-		// its palette id in a new column. Ensures it exists before any SELECT
-		// references it, so a fresh deploy never fails on a missing column.
-		private static bool _decalColorMigrationDone = false;
-		private static void EnsureDecalColorColumn()
-		{
-			if (_decalColorMigrationDone) return;
-			_decalColorMigrationDone = true;
-			try
-			{
-				var connStr = GetConnStr();
-				if (string.IsNullOrEmpty(connStr)) return;
-				using var conn = new MySqlConnection(connStr);
-				conn.Open();
-				using var check = new MySqlCommand(@"
-					SELECT COUNT(*) FROM information_schema.COLUMNS
-					WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'racing_player_car' AND COLUMN_NAME = 'decal_color_id'", conn);
-				if (Convert.ToInt64(check.ExecuteScalar()) == 0)
-				{
-					using var alter = new MySqlCommand(@"ALTER TABLE racing_player_car ADD COLUMN decal_color_id INT NOT NULL DEFAULT 0", conn);
-					alter.ExecuteNonQuery();
-					Console.WriteLine("[Racing] Added racing_player_car.decal_color_id column.");
-				}
-			}
-			catch (Exception ex)
-			{
-				Console.WriteLine($"[Racing] decal_color_id migration skipped: {ex.Message}");
-			}
-		}
+		 
 		private static string? GetConnStr()
 		{
 			if (!string.IsNullOrEmpty(_connStrCache)) return _connStrCache;
