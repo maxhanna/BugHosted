@@ -78,6 +78,11 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   // requests, and directory listings). Merged into the file picker so it has
   // more datapoints than just the files already attached to board cards.
   fileSkeleton: string[] = [];
+  fileSkeletonLoading = false;
+  // Per-project cache of the skeleton so reopening the picker (or switching back
+  // to a project) reuses the last fetch instead of re-querying the DB on every open.
+  private fileSkeletonCache: { [projectPath: string]: { paths: string[]; fetchedAt: number } } = {};
+  private static readonly FILE_SKELETON_TTL_MS = 2 * 60 * 1000;
 
   benchmarks: BenchmarkEntry[] = [];
   // Memoized grouping: the getter runs on every change-detection digest, so the map is
@@ -107,6 +112,9 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
   ideSearchFilter = '';
   ideCurrentDir = '';
   ideEntries: IdeFileEntry[] = [];
+  // Project-wide explorer mode (backed by the file skeleton) vs. directory browse.
+  ideProjectView = false;
+  private ideSkeletonTree: any[] = [];
   ideTabs: IdeTab[] = [];
   ideActiveTabPath: string | null = null;
   ideLoading = false;
@@ -244,6 +252,8 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
       this.state = { todo: [], doing: [], done: [], archived: [], selfImproving: [] };
       this.commands = [];
       this.failedCommands = [];
+      this.fileSkeleton = [];
+      this.fileSkeletonCache = {};
       window.localStorage.removeItem(this.TOKEN_KEY);
     }, 50);
   }
@@ -515,6 +525,12 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     if (!this.ideSearchFilter) return this.ideEntries;
     const f = this.ideSearchFilter.toLowerCase();
     return this.ideEntries.filter(e => e.name.toLowerCase().includes(f));
+  }
+
+  // The project-wide file tree, filtered by the same search box as the directory view.
+  get filteredSkeletonTree(): any[] {
+    if (!this.ideSearchFilter) return this.ideSkeletonTree;
+    return this.filterPickerTree(this.ideSkeletonTree, this.ideSearchFilter);
   }
 
   getFileName(path: string): string {
@@ -916,6 +932,14 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
     }
   }
 
+  // Toggle between the directory browser and the project-wide skeleton explorer.
+  toggleIdeProjectView() {
+    this.ideProjectView = !this.ideProjectView;
+    if (this.ideProjectView) {
+      this.loadFileSkeleton();
+    }
+  }
+
   /** Creates a file request and polls for the result */
   async loadIdeListing(path: string) {
     if (!this.clientId) { this.ideError = 'Not connected (no clientId)'; return; }
@@ -1128,10 +1152,27 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
 
   async loadFileSkeleton() {
     if (!this.token) return;
-    this.fileSkeleton = await this.weaverService.getFileSkeleton(
-      this.token,
-      this.selectedProjectPath || undefined,
-    );
+    const projectKey = this.selectedProjectPath || '';
+    const cached = this.fileSkeletonCache[projectKey];
+    // Serve from cache unless the entry is stale, so a quick reopen of the
+    // picker is instant and only a project fetched a while ago re-queries.
+    if (cached && Date.now() - cached.fetchedAt < WeaverComponent.FILE_SKELETON_TTL_MS) {
+      this.fileSkeleton = cached.paths;
+      this.ideSkeletonTree = this.buildSkeletonTree();
+      return;
+    }
+    this.fileSkeletonLoading = true;
+    try {
+      const skeleton = await this.weaverService.getFileSkeleton(
+        this.token,
+        this.selectedProjectPath || undefined,
+      );
+      this.fileSkeletonCache[projectKey] = { paths: skeleton, fetchedAt: Date.now() };
+      this.fileSkeleton = skeleton;
+      this.ideSkeletonTree = this.buildSkeletonTree();
+    } finally {
+      this.fileSkeletonLoading = false;
+    }
   }
 
   closeFilePicker() {
@@ -1173,6 +1214,49 @@ export class WeaverComponent extends ChildComponent implements OnInit, OnDestroy
       }
     }
     return root.children;
+  }
+
+  // Build a project-wide file tree from the skeleton (all filesystem paths the
+  // localhost has synced). Paths under the selected project are shown relative
+  // to it, so the explorer reads as "the project's files" rather than absolute
+  // paths; each file node keeps its full path for openIdeFile().
+  private buildSkeletonTree(): any[] {
+    const project = this.selectedProjectPath;
+    const prefix = project ? project.replace(/\\/g, '/').replace(/\/+$/, '') + '/' : '';
+    const root: any = { name: '', children: [] };
+    for (const filePath of this.fileSkeleton) {
+      const norm = filePath.replace(/\\/g, '/');
+      const rel = prefix && norm.toLowerCase().startsWith(prefix.toLowerCase())
+        ? norm.slice(prefix.length)
+        : norm;
+      const parts = rel.split('/').filter(Boolean);
+      let node = root;
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        const isFile = i === parts.length - 1;
+        let child = node.children.find((c: any) => c.name === part);
+        if (!child) {
+          child = { name: part, path: isFile ? filePath : null, children: isFile ? undefined : [] };
+          node.children.push(child);
+        }
+        node = child;
+      }
+    }
+    return this.sortTreeNodes(root.children);
+  }
+
+  // Folders first, then files, alphabetically (case-insensitive).
+  private sortTreeNodes(nodes: any[]): any[] {
+    nodes.sort((a, b) => {
+      const aIsDir = !!a.children;
+      const bIsDir = !!b.children;
+      if (aIsDir !== bIsDir) return aIsDir ? -1 : 1;
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    });
+    for (const n of nodes) {
+      if (n.children) this.sortTreeNodes(n.children);
+    }
+    return nodes;
   }
 
   toggleFileSelect(path: string) {

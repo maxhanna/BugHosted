@@ -92,6 +92,8 @@ export const DECAL_COLORS: Record<number, [number, number, number]> = {
   426: [0.95, 0.95, 0.95],  // arrow chevrons
   427: [0.2, 0.6, 1.0],     // ocean wave
   428: [0.95, 0.9, 0.85],   // crescent moon
+  429: [0.05, 0.05, 0.06],  // zebra stripes (near-black)
+  430: [0.38, 0.22, 0.08],  // leopard rosettes (dark brown)
 };
 
 // Neon underglow id -> additive glow color.
@@ -425,6 +427,8 @@ export const APPEARANCE_PARTS: RacingAppearancePart[] = [
   { id: 426, name: 'Arrow Chevrons', category: 'decal', cost: 2400, owned: false, description: 'Speed chevron arrows' },
   { id: 427, name: 'Ocean Wave', category: 'decal', cost: 2600, owned: false, description: 'Blue wave crest graphic' },
   { id: 428, name: 'Crescent Moon', category: 'decal', cost: 3600, owned: false, description: 'Night-sky crescent emblem' },
+  { id: 429, name: 'Zebra Wrap', category: 'decal', cost: 3200, owned: false, description: 'Black zebra stripe wrap' },
+  { id: 430, name: 'Leopard Print', category: 'decal', cost: 3400, owned: false, description: 'Jungle leopard rosette wrap' },
   // Glow (neon underglow)
   { id: 501, name: 'Neon Blue', category: 'glow', cost: 1500, owned: false, description: 'Electric blue underglow' },
   { id: 502, name: 'Neon Green', category: 'glow', cost: 1500, owned: false, description: 'Alien green underglow' },

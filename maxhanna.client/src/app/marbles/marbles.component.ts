@@ -588,11 +588,16 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     rowShifted: number,
     moveDur = 0,
   ): Sprite[] {
-    // 1. Mark sprites sitting on popped cells → pop animation.
+    // 1. Mark sprites sitting on popped cells → pop animation. The popped
+    //    list uses post-move coordinates, so match on the sprite's rounded
+    //    cell AND its colour. Without the colour check a marble sliding
+    //    through a popped cell was mistaken for the one that vanished there,
+    //    which is what repainted marbles into the wrong colour and made
+    //    columns behave inconsistently.
     const poppedKeys = new Set<string>();
-    for (const p of popped) poppedKeys.add(`${p.row},${p.col}`);
+    for (const p of popped) poppedKeys.add(`${p.row},${p.col}:${p.color}`);
     for (const s of sprites) {
-      if (poppedKeys.has(`${Math.round(s.row)},${s.col}`)) {
+      if (poppedKeys.has(`${Math.round(s.row)},${Math.round(s.col)}:${s.color}`)) {
         s.phase = 'pop';
       }
     }
@@ -660,32 +665,46 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
         if (r === PITCH_ROW && slideFilled.has(c)) continue;
         cells.push({ r, color });
       }
-      // Added marbles (drop/rain) stack above the column — unless the very
-      // top cell was already filled, in which case they fill from the bottom
-      // instead. Pick which end the new marbles occupy so existing marbles
-      // are never nudged out of place.
-      const excess = cells.length - colLive.length;
-      const dropAtBottom = excess > 0 && (oldBoard[0]?.[c] ?? 0) !== 0;
-      const matchCount = Math.min(colLive.length, cells.length);
-      const liveStart = dropAtBottom ? 0 : colLive.length - matchCount;
-      const cellStart = dropAtBottom ? 0 : cells.length - matchCount;
-      for (let i = 0; i < matchCount; i++) {
-        const s = colLive[liveStart + i];
-        const cell = cells[cellStart + i];
-        used.add(s);
-        this.setTarget(s, c, cell.r, moveDur);
-        next.push(s);
+      // Pair surviving marbles to cells bottom-up, REQUIRING matching colours.
+      // Gravity preserves the bottom-up order of survivors, so aligned pairs
+      // glide together; a colour mismatch means a marble popped (its colour
+      // vanished from the column) or a cell is new (a drop/rain arrived).
+      // Popped sprites are left unmatched so phase 3 pops them, and new cells
+      // spawn fresh marbles — a marble is never repainted into a different
+      // colour, which is what made some columns act differently and made
+      // marbles slide along the wrong axis.
+      let si = colLive.length - 1;
+      let ci = cells.length - 1;
+      while (si >= 0 && ci >= 0) {
+        const s = colLive[si];
+        const cell = cells[ci];
+        if (s.color === cell.color) {
+          used.add(s);
+          this.setTarget(s, c, cell.r, moveDur);
+          next.push(s);
+          si--; ci--;
+          continue;
+        }
+        // Work out which side is the extra item by checking whether its colour
+        // still exists among the remaining (higher) entries of the other list.
+        const spriteStillNeeded = cells.slice(0, ci + 1).some(x => x.color === s.color);
+        const cellHasSprite = colLive.slice(0, si + 1).some(x => x.color === cell.color);
+        if (!spriteStillNeeded) {
+          // This marble popped — leave it for phase 3.
+          si--;
+        } else if (!cellHasSprite) {
+          // This cell is a freshly dropped/rained marble.
+          next.push(this.newSprite(cell.color, c, cell.r, moveDur));
+          ci--;
+        } else {
+          // Both colours exist elsewhere (ambiguous) — pop the sprite to stay
+          // consistent rather than repaint it.
+          si--;
+        }
       }
-      // Spawn the freshly added cells — top ones normally, bottom ones when
-      // the stack already reached the top.
-      if (dropAtBottom) {
-        for (let i = matchCount; i < cells.length; i++) {
-          next.push(this.newSprite(cells[i].color, c, cells[i].r, moveDur));
-        }
-      } else {
-        for (let i = 0; i < cellStart; i++) {
-          next.push(this.newSprite(cells[i].color, c, cells[i].r, moveDur));
-        }
+      // Any cells higher up the column are newly added marbles.
+      for (; ci >= 0; ci--) {
+        next.push(this.newSprite(cells[ci].color, c, cells[ci].r, moveDur));
       }
     }
 
@@ -1316,12 +1335,21 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     const s2 = mhash(seed + 203);
     const s3 = mhash(seed + 307);
 
-    const tilt = (s0 - 0.5) * 0.18;
+    // Per-marble glass identity: each channel jitters independently (subtle
+    // hue + value shift, not just brightness), the dominant channel is lifted
+    // for richer saturation, and a gloss factor varies the specular. All
+    // deterministic from the seed, so a marble keeps its look as it moves.
+    const t0 = clamp255(base[0] * (0.84 + s0 * 0.3));
+    const t1 = clamp255(base[1] * (0.84 + s1 * 0.3));
+    const t2 = clamp255(base[2] * (0.84 + s2 * 0.3));
+    const maxI = t0 >= t1 && t0 >= t2 ? 0 : (t1 >= t2 ? 1 : 2);
+    const sat = 16 + s3 * 18;
     const tinted: [number, number, number] = [
-      clamp255(base[0] * (1 + tilt)),
-      clamp255(base[1] * (1 + tilt)),
-      clamp255(base[2] * (1 + tilt)),
+      maxI === 0 ? clamp255(t0 + sat) : t0,
+      maxI === 1 ? clamp255(t1 + sat) : t1,
+      maxI === 2 ? clamp255(t2 + sat) : t2,
     ];
+    const gloss = 0.55 + s3 * 0.45; // per-marble shininess (0.55..1.0)
     // Skin per colour: each color family has a set of pattern types; the
     // marble's seed picks which one, so the look is deterministic per marble
     // (it keeps the same skin while sliding around the board) yet varied.
@@ -1348,15 +1376,30 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       ctx.fill();
     }
 
-    // Glass body — richer 4-stop sphere gradient (light from top-left).
-    const grad = ctx.createRadialGradient(x - r * 0.35, y - r * 0.38, r * 0.05, x, y, r);
-    grad.addColorStop(0, lighten(tinted, 0.72));
-    grad.addColorStop(0.3, lighten(tinted, 0.3));
+    // Glass body — deeper 6-stop sphere gradient with a bright core fading
+    // to a dark transparent edge, so it reads as dense glass rather than a
+    // painted disc. Light source stays top-left.
+    const grad = ctx.createRadialGradient(x - r * 0.38, y - r * 0.4, r * 0.04, x, y, r);
+    grad.addColorStop(0, lighten(tinted, 0.85));
+    grad.addColorStop(0.16, lighten(tinted, 0.52));
+    grad.addColorStop(0.38, lighten(tinted, 0.22));
     grad.addColorStop(0.62, `rgb(${tinted[0]},${tinted[1]},${tinted[2]})`);
-    grad.addColorStop(1, darken(tinted, 0.7));
+    grad.addColorStop(0.85, darken(tinted, 0.42));
+    grad.addColorStop(1, darken(tinted, 0.74));
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Molten core — a denser, brighter heart many glass marbles have. It
+    // gives the colour depth and a soft interior glow instead of a flat fill.
+    const core = ctx.createRadialGradient(x - r * 0.2, y - r * 0.18, 0, x, y, r * 0.55);
+    core.addColorStop(0, `rgba(${Math.min(255, tinted[0] + 60)},${Math.min(255, tinted[1] + 60)},${Math.min(255, tinted[2] + 60)},0.5)`);
+    core.addColorStop(0.6, `rgba(${tinted[0]},${tinted[1]},${tinted[2]},0.18)`);
+    core.addColorStop(1, `rgba(${tinted[0]},${tinted[1]},${tinted[2]},0)`);
+    ctx.fillStyle = core;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.95, 0, Math.PI * 2);
     ctx.fill();
 
     // Inner detail (clipped to the sphere), rotating as the marble rolls.
@@ -1495,6 +1538,30 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     }
     ctx.restore();
 
+    // Interior bubbles — tiny glass inclusions that stay put while the
+    // surface pattern rolls beneath them, like air pockets caught in the
+    // glass near the viewer. Count, position and size all vary per marble.
+    const bubbles = 1 + Math.floor(s3 * 2); // 1..2
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.9, 0, Math.PI * 2);
+    ctx.clip();
+    for (let i = 0; i < bubbles; i++) {
+      const bx = x + (mhash(seed + 501 + i) - 0.5) * r * 1.15;
+      const by = y + (mhash(seed + 601 + i) - 0.5) * r * 1.15;
+      const br = r * (0.04 + mhash(seed + 701 + i) * 0.06);
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      ctx.beginPath();
+      ctx.arc(bx, by, br, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.26)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(bx, by, br, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+
     // ── Sphere curvature shadow ────────────────────────────────────────
     // A soft darkening toward the rim (except where the light hits) makes
     // the flat pattern read as painted on a curved sphere instead of a
@@ -1522,18 +1589,26 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     const hx = x - r * (0.26 + s0 * 0.18);
     const hy = y - r * (0.32 + s1 * 0.16);
 
-    // Crisp core + soft halo, both pegged to the fixed light position.
-    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    // Crisp core + soft halo, pegged to the fixed light position and scaled
+    // by the marble's gloss so some marbles read shinier than others.
+    ctx.fillStyle = `rgba(255,255,255,${(0.9 * gloss).toFixed(3)})`;
     ctx.beginPath();
-    ctx.arc(hx, hy, r * 0.14, 0, Math.PI * 2);
+    ctx.arc(hx, hy, r * 0.13, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fillStyle = `rgba(255,255,255,${(0.34 * gloss).toFixed(3)})`;
     ctx.beginPath();
-    ctx.arc(hx, hy, r * 0.28, 0, Math.PI * 2);
+    ctx.arc(hx, hy, r * 0.26, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.fillStyle = `rgba(255,255,255,${(0.12 * gloss).toFixed(3)})`;
     ctx.beginPath();
-    ctx.arc(hx, hy, r * 0.5, 0, Math.PI * 2);
+    ctx.arc(hx, hy, r * 0.48, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Secondary catchlight — a faint twin reflection offset toward the edge,
+    // like a second light source reflecting in the curved glass.
+    ctx.fillStyle = `rgba(255,255,255,${(0.26 * gloss).toFixed(3)})`;
+    ctx.beginPath();
+    ctx.arc(hx + r * 0.16, hy + r * 0.2, r * 0.07, 0, Math.PI * 2);
     ctx.fill();
 
     // Rolling glint — a soft bright streak travelling with the roll,
@@ -1562,6 +1637,17 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     ctx.beginPath();
     ctx.arc(x, y, r * 0.85, Math.PI * 0.22, Math.PI * 0.78);
     ctx.stroke();
+
+    // Transmitted-light caustic — light refracted through the glass pools at
+    // the lower-right (opposite the specular). Tinted by the marble's colour,
+    // it's the strongest cue that this is solid glass rather than a sticker.
+    const cau = ctx.createRadialGradient(x + r * 0.34, y + r * 0.42, 0, x + r * 0.34, y + r * 0.42, r * 0.6);
+    cau.addColorStop(0, `rgba(${Math.min(255, tinted[0] + 120)},${Math.min(255, tinted[1] + 120)},${Math.min(255, tinted[2] + 120)},0.4)`);
+    cau.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = cau;
+    ctx.beginPath();
+    ctx.arc(x + r * 0.34, y + r * 0.42, r * 0.6, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
 
     ctx.strokeStyle = 'rgba(0,0,0,0.35)';

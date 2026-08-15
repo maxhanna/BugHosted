@@ -294,15 +294,17 @@
           <div class="detail-row" *ngIf="s.flight_status"><span class="detail-label">Status:</span><span class="flight-status-badge" [class.status-active]="s.flight_status === 'active'" [class.status-landed]="s.flight_status === 'landed'" [class.status-scheduled]="s.flight_status === 'scheduled'">{{ s.flight_status | titlecase }}</span></div>
           <div class="detail-sub-title">Departure</div>
           <div class="detail-row" *ngIf="s.departure?.airport"><span class="detail-label">From:</span><span>{{ s.departure.airport }} <span *ngIf="s.departure.iata">({{ s.departure.iata }})</span></span></div>
-          <div class="detail-row" *ngIf="s.departure?.scheduled"><span class="detail-label">Scheduled:</span><span>{{ s.departure.scheduled | date:'short' }}</span></div>
-          <div class="detail-row" *ngIf="s.departure?.estimated && s.departure.estimated !== s.departure.scheduled"><span class="detail-label">Estimated:</span><span>{{ s.departure.estimated | date:'short' }}</span></div>
-          <div class="detail-row" *ngIf="s.departure?.actual"><span class="detail-label">Actual:</span><span>{{ s.departure.actual | date:'short' }}</span></div>
+          <div class="detail-row" *ngIf="s.departure?.timezone"><span class="detail-label">Timezone:</span><span>{{ formatTz(s.departure.timezone) }}</span></div>
+          <div class="detail-row" *ngIf="s.departure?.scheduled"><span class="detail-label">Scheduled:</span><span>{{ formatInTz(s.departure.scheduled, s.departure.timezone) }}</span></div>
+          <div class="detail-row" *ngIf="s.departure?.estimated && s.departure.estimated !== s.departure.scheduled"><span class="detail-label">Estimated:</span><span>{{ formatInTz(s.departure.estimated, s.departure.timezone) }}</span></div>
+          <div class="detail-row" *ngIf="s.departure?.actual"><span class="detail-label">Actual:</span><span>{{ formatInTz(s.departure.actual, s.departure.timezone) }}</span></div>
           <div class="detail-row" *ngIf="s.departure?.gate || s.departure?.terminal"><span class="detail-label">Gate:</span><span>{{ s.departure.gate || '' }}{{ s.departure.gate && s.departure.terminal ? ' / ' : '' }}{{ s.departure.terminal ? 'T' + s.departure.terminal : '' }}</span></div>
           <div class="detail-sub-title">Arrival</div>
           <div class="detail-row" *ngIf="s.arrival?.airport"><span class="detail-label">To:</span><span>{{ s.arrival.airport }} <span *ngIf="s.arrival.iata">({{ s.arrival.iata }})</span></span></div>
-          <div class="detail-row" *ngIf="s.arrival?.scheduled"><span class="detail-label">Scheduled:</span><span>{{ s.arrival.scheduled | date:'short' }}</span></div>
-          <div class="detail-row" *ngIf="s.arrival?.estimated && s.arrival.estimated !== s.arrival.scheduled"><span class="detail-label">Estimated:</span><span>{{ s.arrival.estimated | date:'short' }}</span></div>
-          <div class="detail-row" *ngIf="s.arrival?.actual"><span class="detail-label">Actual:</span><span>{{ s.arrival.actual | date:'short' }}</span></div>
+          <div class="detail-row" *ngIf="s.arrival?.timezone"><span class="detail-label">Timezone:</span><span>{{ formatTz(s.arrival.timezone) }}</span></div>
+          <div class="detail-row" *ngIf="s.arrival?.scheduled"><span class="detail-label">Scheduled:</span><span>{{ formatInTz(s.arrival.scheduled, s.arrival.timezone) }}</span></div>
+          <div class="detail-row" *ngIf="s.arrival?.estimated && s.arrival.estimated !== s.arrival.scheduled"><span class="detail-label">Estimated:</span><span>{{ formatInTz(s.arrival.estimated, s.arrival.timezone) }}</span></div>
+          <div class="detail-row" *ngIf="s.arrival?.actual"><span class="detail-label">Actual:</span><span>{{ formatInTz(s.arrival.actual, s.arrival.timezone) }}</span></div>
           <div class="detail-row" *ngIf="s.arrival?.gate || s.arrival?.terminal"><span class="detail-label">Gate:</span><span>{{ s.arrival.gate || '' }}{{ s.arrival.gate && s.arrival.terminal ? ' / ' : '' }}{{ s.arrival.terminal ? 'T' + s.arrival.terminal : '' }}</span></div>
           <div class="detail-row" *ngIf="s.arrival?.baggage"><span class="detail-label">Baggage:</span><span>{{ s.arrival.baggage }}</span></div>
         </div>

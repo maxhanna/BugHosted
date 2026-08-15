@@ -22,15 +22,18 @@ namespace maxhanna.Server.Controllers
 	public class WeaverController : ControllerBase
 	{
 		private readonly IConfiguration _config;
+		private readonly Log _log;
 		private static readonly ConcurrentDictionary<string, WeaverSession> _sessions = new();
 		private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 		private static readonly MemoryCache _rankingsCache = new(new MemoryCacheOptions());
 		private const string RankingsCacheKey = "weaver_rankings_v1";
 		private const int RankingsCacheTtlMinutes = 30;
+		private const int OversizedKanbanDataChars = 1_000_000;
 
-		public WeaverController(IConfiguration config)
+		public WeaverController(IConfiguration config, Log log)
 		{
 			_config = config;
+			_log = log;
 		}
 
 		[HttpGet("version")]
@@ -124,15 +127,23 @@ namespace maxhanna.Server.Controllers
 		[HttpPost("heartbeat")]
 		public async Task<IActionResult> Heartbeat([FromBody] WeaverHeartbeatRequest req)
 		{
+			int? userId = null;
 			try
 			{
 				if (!await _semaphore.WaitAsync(0))
+				{
+					_ = _log.Db("Weaver heartbeat rejected — another heartbeat is already running.", null, "WEAVER");
 					return Conflict(new { Message = "Heartbeat is already running." });
+				}
 
 				try
 				{
 					if (string.IsNullOrWhiteSpace(req.Token) || !_sessions.TryGetValue(req.Token, out var session))
+					{
+						_ = _log.Db("Weaver heartbeat rejected — invalid or expired session token.", null, "WEAVER", outputToConsole: true);
 						return Unauthorized(new { error = "Invalid token" });
+					}
+					userId = session.UserId;
 
 					var remoteIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "";
 					var weaverAddress = req.WeaverAddress ?? "";
@@ -164,7 +175,12 @@ namespace maxhanna.Server.Controllers
 						}
 					}
 
-					var kanbanData = SlimKanbanData(GzipDecompress(req.KanbanData ?? ""));
+					var rawKanban = GzipDecompress(req.KanbanData ?? "");
+					if (rawKanban.Length > OversizedKanbanDataChars)
+					{
+						_ = _log.Db($"Weaver heartbeat oversized kanban_data ({rawKanban.Length:N0} chars) from user {session.UserId} — slimming before storage.", session.UserId, "WEAVER", outputToConsole: true);
+					}
+					var kanbanData = SlimKanbanData(rawKanban);
 
 					string sql = @"
 						INSERT INTO maxhanna.weaver_heartbeat (user_id, client_id, status, last_heartbeat, kanban_data, weaver_address, remote_ip)
@@ -202,21 +218,30 @@ namespace maxhanna.Server.Controllers
 					_semaphore.Release();
 				}
 			}
-			catch (MySqlConnector.MySqlException ex) when (ex.Message.Contains("Command Timeout expired"))
+			catch (MySqlConnector.MySqlException ex)
 			{
+				_ = _log.Db("Weaver heartbeat database error: " + ex.Message, userId, "WEAVER", outputToConsole: true);
+				return Ok(new { status = "abort", error = ex.Message });
+			}
+			catch (System.Net.Sockets.SocketException ex)
+			{
+				_ = _log.Db("Weaver heartbeat socket error: " + ex.Message, userId, "WEAVER", outputToConsole: true);
 				return Ok(new { status = "abort" });
 			}
-			catch (System.Net.Sockets.SocketException)
+			catch (SemaphoreFullException ex)
 			{
+				_ = _log.Db("Weaver heartbeat semaphore error: " + ex.Message, userId, "WEAVER", outputToConsole: true);
 				return Ok(new { status = "abort" });
 			}
-			catch (SemaphoreFullException)
+			catch (OperationCanceledException ex)
 			{
+				_ = _log.Db("Weaver heartbeat cancelled: " + ex.Message, userId, "WEAVER", outputToConsole: true);
 				return Ok(new { status = "abort" });
 			}
-			catch (OperationCanceledException)
+			catch (Exception ex)
 			{
-				return Ok(new { status = "abort" });
+				_ = _log.Db("Weaver heartbeat failed: " + ex.Message, userId, "WEAVER", outputToConsole: true);
+				return Ok(new { status = "abort", error = ex.Message });
 			}
 		}
 

@@ -1924,6 +1924,22 @@
   max-width: 100%;
 }
 
+/* File rows in the Remote IDE project explorer are buttons, not checkbox labels. */
+button.ide-tree-file {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+
+button.ide-tree-file:hover {
+  background: var(--surface2);
+}
+
 /* During search, show the full path under each matched file and let rows wrap. */
 .tree-item .tree-file.searching {
   flex-wrap: wrap;

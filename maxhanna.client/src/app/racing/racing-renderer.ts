@@ -126,6 +126,102 @@ function slashPath(length: number, thick: number, rise: number): Array<[number, 
   ];
 }
 
+/** Tapered, bowed stripe running across the car's width (length along z,
+ *  thickness along x) with pointed ends — the classic tiger/zebra flank
+ *  stripe. `bow` bends the stripe along x so it reads organic, not printed.
+ *  `flip` mirrors the bow direction so adjacent stripes alternate. */
+function crossStripePath(len: number, thick: number, bow: number, flip = false): Array<[number, number]> {
+  const N = 10;
+  const a: Array<[number, number]> = [];
+  const b: Array<[number, number]> = [];
+  const dir = flip ? -1 : 1;
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    const z = -len / 2 + len * t;
+    const w = thick * Math.sin(t * Math.PI);
+    const curve = bow * Math.sin(t * Math.PI) * dir;
+    a.push([curve + w / 2, z]);
+    b.push([curve - w / 2, z]);
+  }
+  return [...a, ...b.reverse()];
+}
+
+/** Leopard rosette: a ragged ring (annulus) with an offset, wobbly hole, like
+ *  the broken dark spots that make up leopard fur. */
+function rosettePath(R: number, seed: number): Array<[number, number]> {
+  const outer: Array<[number, number]> = [];
+  const inner: Array<[number, number]> = [];
+  const N = 14;
+  for (let i = 0; i < N; i++) {
+    const t = (i / N) * TAU;
+    const ro = R * (0.8 + 0.32 * Math.abs(Math.sin(seed * 7.31 + i * 2.13)));
+    outer.push([Math.cos(t) * ro, Math.sin(t) * ro]);
+  }
+  for (let i = 0; i < N; i++) {
+    const t = (i / N) * TAU;
+    const ri = R * 0.46 * (0.85 + 0.25 * Math.sin(seed * 5.17 + i * 3.07));
+    inner.push([Math.cos(t) * ri, Math.sin(t) * ri]);
+  }
+  inner.reverse();
+  return [...outer, ...inner];
+}
+
+/** A single calligraphy stroke as a tapered band around a polyline (points in
+ *  [x, z]). The band bulges mid-stroke and pinches at the ends like a brush. */
+function brushStrokePath(pts: Array<[number, number]>, width: number): Array<[number, number]> {
+  const left: Array<[number, number]> = [];
+  const right: Array<[number, number]> = [];
+  const n = pts.length;
+  for (let i = 0; i < n; i++) {
+    const prev = pts[Math.max(0, i - 1)];
+    const next = pts[Math.min(n - 1, i + 1)];
+    let dx = next[0] - prev[0], dy = next[1] - prev[1];
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    dx /= len; dy /= len;
+    const nx = -dy, ny = dx;
+    const taper = 0.4 + 0.6 * Math.abs(Math.sin((i / Math.max(1, n - 1)) * Math.PI));
+    const w = (width / 2) * taper;
+    left.push([pts[i][0] + nx * w, pts[i][1] + ny * w]);
+    right.push([pts[i][0] - nx * w, pts[i][1] - ny * w]);
+  }
+  return [...left, ...right.reverse()];
+}
+
+/** Calligraphy strokes for the kanji 力 ("power") — two brush bands drawn in a
+ *  ~0.26-unit box (px = along the car, pz = across). The glyph's vertical axis
+ *  runs along the car's length so it reads upright when viewed from the side. */
+function kanjiPowerPaths(): Array<Array<[number, number]>> {
+  return [
+    // ① héngzhégōu — top horizontal, right vertical, hook left at the foot.
+    brushStrokePath([[0.10, -0.10], [0.10, 0.10], [-0.08, 0.10], [-0.02, 0.02]], 0.046),
+    // ② piě — the long left-falling diagonal.
+    brushStrokePath([[0.03, 0.02], [-0.14, -0.11]], 0.044),
+  ];
+}
+
+/** Curvier flame tongue pointing rearward (-x): a wavy, flickering tail with a
+ *  rounded nose, like painted hot-rod flames rather than a plain teardrop. */
+function flamePath(L: number, W: number, seed = 1): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  const N = 12;
+  const phase = seed * 3.7;
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    const x = -L * 0.62 + L * t;
+    const bulge = Math.sin(t * Math.PI);
+    const wav = Math.sin(phase + t * Math.PI * 2.4) * W * 0.16;
+    out.push([x, (W * 0.55 * bulge + wav) * (1 - t * 0.22)]);
+  }
+  for (let i = N; i >= 0; i--) {
+    const t = i / N;
+    const x = -L * 0.62 + L * t;
+    const bulge = Math.sin(t * Math.PI);
+    const wav = Math.sin(phase + Math.PI + t * Math.PI * 2.4) * W * 0.16;
+    out.push([x, -(W * 0.55 * bulge + wav) * (1 - t * 0.22)]);
+  }
+  return out;
+}
+
 /** Thick ">" chevron (two strokes meeting at a forward point, +x = front). */
 function chevronPath(w: number, h: number): Array<[number, number]> {
   return [
@@ -320,20 +416,29 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
     flank: [[1.00, 0.16, 0.10, 0.05, 0.04, 0.05], [0.75, 0.20, 0.10, 0.05, 0.04, 0.08], [0.45, 0.25, 0.10, 0.05, 0.04, 0.05], [0.15, 0.31, 0.10, 0.05, 0.04, 0.08]],
     center: [[0.68, 0.225, 0.14, 0.05, 0.07], [1.25, 0.13, 0.10, 0.05, 0.06]],
   },
-  // Zen kanji on the engine cover.
+  // Zen kanji on the engine cover — a real 力 calligraphy glyph (two brush
+  // strokes) instead of a plain rectangle.
   420: {
     flank: [],
-    center: [[0.68, 0.225, 0.18, 0.06, 0.10], [1.22, 0.13, 0.08, 0.05, 0.06]],
+    center: [],
+    shapes: [
+      { cx: 0.68, cz: 0, path: kanjiPowerPaths()[0] },
+      { cx: 0.68, cz: 0, path: kanjiPowerPaths()[1] },
+      { cx: 1.22, cz: 0, path: kanjiPowerPaths()[0], scale: 0.55, lift: 0.005 },
+      { cx: 1.22, cz: 0, path: kanjiPowerPaths()[1], scale: 0.55, lift: 0.005 },
+    ],
   },
-  // Dragon flames: long flowing tongues streaming rearward from the nose.
+  // Dragon flames: long flowing, flickering tongues streaming rearward from
+  // the nose, each with a wavy tail instead of a flat teardrop.
   421: {
     flank: [],
     center: [],
     shapes: [
-      { cx: 0.92, cz: 0.15, mirror: true, path: teardropPath(0.30, 0.15), lift: 0.005 },
-      { cx: 0.50, cz: 0.19, mirror: true, path: teardropPath(0.52, 0.20), lift: 0.005 },
-      { cx: 0.02, cz: 0.21, mirror: true, path: teardropPath(0.60, 0.22), lift: 0.005 },
-      { cx: 1.26, cz: 0, path: teardropPath(0.26, 0.11), lift: 0.006 },
+      { cx: 0.92, cz: 0.15, mirror: true, path: flamePath(0.34, 0.17, 1), lift: 0.005 },
+      { cx: 0.50, cz: 0.19, mirror: true, path: flamePath(0.56, 0.22, 2), lift: 0.005 },
+      { cx: 0.02, cz: 0.21, mirror: true, path: flamePath(0.66, 0.24, 3), lift: 0.005 },
+      { cx: 1.26, cz: 0, path: flamePath(0.30, 0.13, 4), lift: 0.006 },
+      { cx: 0.68, cz: 0, path: flamePath(0.24, 0.10, 5), lift: 0.006 },
     ],
   },
   // Bee stripes: full-length segmented stripes.
@@ -341,17 +446,20 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
     flank: [[-0.72, 0.235, 0.50, 0.05, 0.09, 0.05], [-0.16, 0.385, 0.34, 0.05, 0.09, 0.05], [0.60, 0.235, 0.42, 0.05, 0.09, 0.05], [1.02, 0.160, 0.34, 0.05, 0.08, 0.045], [-0.16, 0.395, 0.34, 0.05, 0.06, 0.13], [0.60, 0.225, 0.40, 0.05, 0.06, 0.13]],
     center: [[0.68, 0.225, 0.30, 0.05, 0.10], [1.22, 0.13, 0.14, 0.05, 0.10]],
   },
-  // Tiger stripes: angled flank slashes with pointed ends.
+  // Tiger stripes: bowed, tapered stripes wrapping the flanks and shoulders,
+  // alternating bow direction so the livery reads as painted fur.
   423: {
     flank: [],
     center: [],
     shapes: [
-      { cx: 0.95, cz: 0.15, mirror: true, path: slashPath(0.14, 0.07, 0.10) },
-      { cx: 0.72, cz: 0.18, mirror: true, path: slashPath(0.16, 0.08, 0.12) },
-      { cx: 0.46, cz: 0.21, mirror: true, path: slashPath(0.16, 0.08, 0.12) },
-      { cx: 0.18, cz: 0.22, mirror: true, path: slashPath(0.16, 0.08, 0.12) },
-      { cx: -0.12, cz: 0.20, mirror: true, path: slashPath(0.16, 0.08, 0.12) },
-      { cx: -0.42, cz: 0.16, mirror: true, path: slashPath(0.16, 0.08, 0.12) },
+      { cx: 0.98, cz: 0.13, mirror: true, path: crossStripePath(0.20, 0.07, 0.03) },
+      { cx: 0.76, cz: 0.15, mirror: true, path: crossStripePath(0.24, 0.08, 0.04, true) },
+      { cx: 0.52, cz: 0.16, mirror: true, path: crossStripePath(0.26, 0.09, 0.04) },
+      { cx: 0.26, cz: 0.16, mirror: true, path: crossStripePath(0.26, 0.09, 0.04, true) },
+      { cx: -0.02, cz: 0.15, mirror: true, path: crossStripePath(0.24, 0.08, 0.04) },
+      { cx: -0.28, cz: 0.14, mirror: true, path: crossStripePath(0.22, 0.08, 0.04, true) },
+      { cx: -0.54, cz: 0.12, mirror: true, path: crossStripePath(0.20, 0.07, 0.03) },
+      { cx: 0.68, cz: 0, path: crossStripePath(0.16, 0.06, 0.02), lift: 0.005 },
     ],
   },
   // Starburst: real five-point star on the nose plus a small sparkle.
@@ -401,6 +509,40 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
       { cx: 0.68, cz: 0, path: crescentPath(0.10), lift: 0.006 },
       { cx: 1.30, cz: 0, path: crescentPath(0.05), lift: 0.006 },
       { cx: -0.45, cz: 0.16, mirror: true, path: crescentPath(0.05), lift: 0.006 },
+    ],
+  },
+  // Zebra: full-width vertical black bands wrapping from nose to tail, each
+  // clamped to the loft so the stripes hug the body as they cross the crown.
+  429: {
+    flank: [],
+    center: [],
+    shapes: [
+      { cx: 1.05, cz: 0, path: crossStripePath(0.34, 0.06, 0.02) },
+      { cx: 0.80, cz: 0, path: crossStripePath(0.38, 0.06, 0.02, true) },
+      { cx: 0.56, cz: 0, path: crossStripePath(0.40, 0.07, 0.02) },
+      { cx: 0.32, cz: 0, path: crossStripePath(0.40, 0.07, 0.02, true) },
+      { cx: 0.08, cz: 0, path: crossStripePath(0.38, 0.06, 0.02) },
+      { cx: -0.16, cz: 0, path: crossStripePath(0.34, 0.06, 0.02, true) },
+      { cx: -0.40, cz: 0, path: crossStripePath(0.30, 0.05, 0.02) },
+      { cx: -0.62, cz: 0, path: crossStripePath(0.24, 0.05, 0.02, true) },
+    ],
+  },
+  // Leopard: ragged rosettes plus a few solid spots scattered like jungle fur.
+  430: {
+    flank: [],
+    center: [],
+    shapes: [
+      { cx: 1.05, cz: 0.09, mirror: true, path: rosettePath(0.06, 1) },
+      { cx: 0.78, cz: 0.14, mirror: true, path: rosettePath(0.075, 2) },
+      { cx: 0.50, cz: 0.18, mirror: true, path: rosettePath(0.07, 3) },
+      { cx: 0.20, cz: 0.18, mirror: true, path: rosettePath(0.075, 4) },
+      { cx: -0.10, cz: 0.16, mirror: true, path: rosettePath(0.07, 5) },
+      { cx: -0.40, cz: 0.12, mirror: true, path: rosettePath(0.06, 6) },
+      { cx: 0.68, cz: 0, path: rosettePath(0.08, 7), lift: 0.005 },
+      { cx: 0.90, cz: 0, path: rosettePath(0.05, 8), lift: 0.005 },
+      { cx: 1.22, cz: 0, path: rosettePath(0.045, 9), lift: 0.005 },
+      { cx: 0.20, cz: 0, path: circlePath(12, 0.03), lift: 0.005 },
+      { cx: -0.20, cz: 0.10, mirror: true, path: circlePath(12, 0.028), lift: 0.005 },
     ],
   },
 };

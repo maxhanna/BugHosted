@@ -705,6 +705,42 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     return best;
   }
 
+  /**
+   * Human label for an IANA timezone from the flight schedule, e.g.
+   * "America/New_York" -> "America/New_York (EST)". Falls back to the raw
+   * string when Intl can't resolve it (or it's an empty value).
+   */
+  formatTz(tz?: string): string {
+    if (!tz) return '';
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' }).formatToParts(new Date());
+      const abbr = parts.find(p => p.type === 'timeZoneName')?.value;
+      if (!abbr || abbr === tz) return tz;
+      return `${tz} (${abbr})`;
+    } catch {
+      return tz;
+    }
+  }
+
+  /**
+   * Format a flight schedule timestamp in the airport's local timezone when one
+   * is available (aviationstack reports times in UTC), so the time shown matches
+   * the timezone label next to it. Falls back to the browser's local time.
+   */
+  formatInTz(value: any, tz?: string): string {
+    if (!value) return '';
+    const t = typeof value === 'number' ? value * 1000 : Date.parse(value);
+    if (isNaN(t)) return String(value);
+    if (tz) {
+      try {
+        const local = new Intl.DateTimeFormat('en-US', { timeZone: tz, dateStyle: 'short', timeStyle: 'short' }).format(new Date(t));
+        const abbr = this.formatTz(tz);
+        return abbr ? `${local} ${abbr}` : local;
+      } catch { /* fall through to browser-local */ }
+    }
+    return new Date(t).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' });
+  }
+
   closeFlightDetail(): void {
     this.showFlightDetail = false;
     this.selectedFlight = null;
@@ -2625,7 +2661,10 @@ export class GlobeComponent implements OnInit, AfterViewInit, OnDestroy {
     // toward the deepest tiers (17–19) so the 2–3 last tiers feel ~10x slower.
     const deepT = Math.min(1, Math.max(0, (tileZoom - 16) / 3));
     const closeScale = 1 - 0.9 * (0.35 * zoomT + 0.65 * deepT);
-    return Math.max(0.1, closeScale);
+    // From ~60% zoom (satellite tiles onward) the globe is too twitchy, so halve
+    // the drag sensitivity across the range. The 0.1 floor is kept so the
+    // deepest tiers still move — dropping them to 1/20 previously felt frozen.
+    return Math.max(0.1, closeScale * 0.5);
   }
 
   private checkPinHover(e: MouseEvent): void {

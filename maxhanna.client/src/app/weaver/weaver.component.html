@@ -787,23 +787,42 @@
             <!-- File browser sidebar -->
             <div class="ide-sidebar" *ngIf="ideSidebarOpen">
               <div class="ide-sidebar-header">
-                <button (click)="goUpIdeDir()" class="btn btn-xs" [disabled]="!ideCurrentDir">⬆</button>
-                <span class="ide-path-text" title="{{ ideCurrentDir || selectedProjectPath || '/' }}">{{ ideCurrentDir
-                  || selectedProjectPath || '/' }}</span>
+                <button *ngIf="!ideProjectView" (click)="goUpIdeDir()" class="btn btn-xs"
+                  [disabled]="!ideCurrentDir">⬆</button>
+                <button (click)="toggleIdeProjectView()" class="btn btn-xs" [class.btn-primary]="ideProjectView"
+                  [title]="ideProjectView ? 'Switch back to directory browsing' : 'Search every file in the project'">
+                  {{ ideProjectView ? '📂 Dir' : '🌐 Project' }}</button>
+                <span class="ide-path-text"
+                  title="{{ ideProjectView ? (selectedProjectPath || 'All projects') : (ideCurrentDir || selectedProjectPath || '/') }}">{{
+                    ideProjectView ? (selectedProjectPath || 'All projects') : (ideCurrentDir || selectedProjectPath ||
+                    '/') }}</span>
               </div>
-              <input [(ngModel)]="ideSearchFilter" (input)="false" placeholder="Filter files…"
+              <input [(ngModel)]="ideSearchFilter" (input)="false"
+                [placeholder]="ideProjectView ? 'Search project files…' : 'Filter files…'"
                 class="ide-search weaver-input-xs" />
               <div class="ide-file-list">
-                <div *ngFor="let entry of filteredIdeEntries" class="ide-entry"
-                  [class.ide-entry-dir]="entry.isDirectory" [style.display]="'flex'"
-                  [style.flexDirection]="!entry.isDirectory ? 'row' : 'column'"
-                  (click)="entry.isDirectory ? openIdeDir(entry.path) : openIdeFile(entry.path)"
-                  (dblclick)="entry.isDirectory ? null : openIdeFile(entry.path)">
-                  <span class="ide-entry-icon">{{ entry.isDirectory ? '📁' : '📄' }}</span>
-                  <span class="ide-entry-name">{{ entry.name }}</span>
-                </div>
-                <div *ngIf="filteredIdeEntries.length === 0 && !ideLoading" class="ide-empty">No files found</div>
-                <div *ngIf="ideLoading" class="ide-loading">Loading…</div>
+                <!-- Directory browse (current listing from the localhost) -->
+                <ng-container *ngIf="!ideProjectView">
+                  <div *ngFor="let entry of filteredIdeEntries" class="ide-entry"
+                    [class.ide-entry-dir]="entry.isDirectory" [style.display]="'flex'"
+                    [style.flexDirection]="!entry.isDirectory ? 'row' : 'column'"
+                    (click)="entry.isDirectory ? openIdeDir(entry.path) : openIdeFile(entry.path)"
+                    (dblclick)="entry.isDirectory ? null : openIdeFile(entry.path)">
+                    <span class="ide-entry-icon">{{ entry.isDirectory ? '📁' : '📄' }}</span>
+                    <span class="ide-entry-name">{{ entry.name }}</span>
+                  </div>
+                  <div *ngIf="filteredIdeEntries.length === 0 && !ideLoading" class="ide-empty">No files found</div>
+                  <div *ngIf="ideLoading" class="ide-loading">Loading…</div>
+                </ng-container>
+                <!-- Project-wide explorer (backed by the file skeleton) -->
+                <ng-container *ngIf="ideProjectView">
+                  <div *ngFor="let node of filteredSkeletonTree" class="tree-node">
+                    <ng-container *ngTemplateOutlet="ideTreeRecurse; context: { node: node, depth: 0 }"></ng-container>
+                  </div>
+                  <div *ngIf="fileSkeletonLoading" class="ide-loading">Loading project files…</div>
+                  <div *ngIf="!fileSkeletonLoading && filteredSkeletonTree.length === 0" class="ide-empty">
+                    No project files found{{ ideSearchFilter ? ' matching your search' : '' }}</div>
+                </ng-container>
               </div>
             </div>
 
@@ -1050,6 +1069,31 @@
           </summary>
           <div *ngFor="let child of node.children" class="tree-children">
             <ng-container *ngTemplateOutlet="treeRecurse; context: { node: child, depth: depth + 1 }"></ng-container>
+          </div>
+        </details>
+      </ng-template>
+    </div>
+  </ng-template>
+
+  <!-- Project-wide explorer tree (Remote IDE sidebar): click to open a file. -->
+  <ng-template #ideTreeRecurse let-node="node" let-depth="depth">
+    <div class="tree-item">
+      <ng-container *ngIf="isTreeLeaf(node); else ideFolderNode">
+        <button class="tree-file ide-tree-file" [class.searching]="!!ideSearchFilter" [title]="node.path"
+          [style.paddingLeft.px]="depth * 12" (click)="openIdeFile(node.path)">
+          <span class="tree-file-icon">📄</span>
+          <span class="tree-file-name">{{ node.name }}</span>
+          <span class="tree-file-path" *ngIf="ideSearchFilter">{{ node.path }}</span>
+        </button>
+      </ng-container>
+      <ng-template #ideFolderNode>
+        <details class="tree-folder" [open]="!!ideSearchFilter">
+          <summary [style.paddingLeft.px]="depth * 12">
+            <span class="tree-folder-icon">📁</span>
+            <span class="tree-folder-name">{{ node.name }}</span>
+          </summary>
+          <div *ngFor="let child of node.children" class="tree-children">
+            <ng-container *ngTemplateOutlet="ideTreeRecurse; context: { node: child, depth: depth + 1 }"></ng-container>
           </div>
         </details>
       </ng-template>
