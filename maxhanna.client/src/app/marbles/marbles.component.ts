@@ -407,6 +407,59 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     this.playClick();
   }
 
+  /** True while the styled forfeit confirmation dialog is up. */
+  showForfeitDialog = false;
+  /** What the confirmed forfeit should do: leave to menu or close the game. */
+  private forfeitAction: 'menu' | 'close' = 'menu';
+
+  /** Quit gate: a mid-match multiplayer leave is a forfeit (the server hands
+   *  the win to the remaining player), so open the styled confirmation dialog
+   *  first. Single-player vs the computer and finished games don't forfeit
+   *  anything, so they quit straight away. `action` says what the confirmed
+   *  forfeit should do ('menu' = leave to menu, 'close' = title-bar ✕). */
+  private requestForfeit(action: 'menu' | 'close'): void {
+    if (this.status === 'playing' && !this.isVsAI) {
+      this.forfeitAction = action;
+      this.showForfeitDialog = true;
+      this.cdr.detectChanges();
+      return;
+    }
+    this.completeForfeit(action);
+  }
+
+  /** Run the forfeit the player just confirmed. */
+  private completeForfeit(action: 'menu' | 'close'): void {
+    this.showForfeitDialog = false;
+    if (action === 'close') {
+      this.remove_me('MarblesComponent');
+    } else {
+      this.leaveToMenu();
+    }
+  }
+
+  /** 🚪 Quit Match button in the pause menu. */
+  confirmQuitMatch(): void {
+    this.requestForfeit('menu');
+  }
+
+  /** Cancel button on the forfeit dialog — keep playing. */
+  cancelForfeit(): void {
+    this.showForfeitDialog = false;
+    this.playClick();
+    this.cdr.detectChanges();
+  }
+
+  /** Confirm button on the forfeit dialog. */
+  confirmForfeit(): void {
+    this.playClick();
+    this.completeForfeit(this.forfeitAction);
+  }
+
+  /** Title-bar ✕ while mid-match: also a forfeit, so gate it the same way. */
+  onTitleBarClose(): void {
+    this.requestForfeit('close');
+  }
+
   async leaveToMenu(): Promise<void> {
     if (this.lobby) await this.hub.leaveLobby(this.lobby.code);
     this.hub.disconnect();
@@ -510,12 +563,19 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   showMenuPanel(): void {
     if (this.isMenuPanelOpen) { this.closeMenuPanel(); return; }
     this.isMenuPanelOpen = true;
+    // Freeze the match on the server so marbles don't keep raining (or the
+    // AI keep playing) while the explainer popup is open. The drop loop, AI
+    // loop and player shifts all stall until the menu closes.
+    if (this.status === 'playing') this.hub.pauseGame(this.roomCode);
     this.playClick();
     this.cdr.detectChanges();
   }
 
   closeMenuPanel(): void {
+    if (!this.isMenuPanelOpen) return;
     this.isMenuPanelOpen = false;
+    if (this.status === 'playing') this.hub.resumeGame(this.roomCode);
+    this.cdr.detectChanges();
   }
 
   sendChat(): void {
@@ -542,6 +602,10 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   hotColorCss(): string {
     const base = COLORS[this.specialColor] ?? COLORS[1];
     return `radial-gradient(circle at 32% 28%, ${lighten(base, 0.55)}, rgb(${base[0]},${base[1]},${base[2]}) 55%, ${darken(base, 0.5)})`;
+  }
+  /** Display name for the per-game hot (special) color id (1..6). */
+  hotColorName(): string {
+    return { 1: 'Red', 2: 'Orange', 3: 'Yellow', 4: 'Green', 5: 'Blue', 6: 'Purple' }[this.specialColor] ?? '';
   }
 
   /** Cap for the graphical "marbles sent" row — extra sends show as a +N badge. */
@@ -1067,6 +1131,9 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
   @HostListener('window:keydown', ['$event'])
   onKeyDown(e: KeyboardEvent): void {
     if (this.status !== 'playing') return;
+    // Ignore input while the in-game menu is open — the match is paused and
+    // the popup owns the keyboard.
+    if (this.isMenuPanelOpen) return;
     // Every move needs a fresh press — ignore OS key auto-repeat so holding an
     // arrow key can't chain cursor moves or column shifts.
     if (e.repeat) return;
@@ -1099,6 +1166,7 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
 
   onStageDown(e: PointerEvent): void {
     if (this.status !== 'playing') return;
+    if (this.isMenuPanelOpen) return; // paused — the popup owns input
     const cell = this.pointerToCell(e);
     if (!cell) return;
     // Only the center-row marbles are handles — tapping one selects it (the
@@ -1170,7 +1238,11 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
       this.splashRoll += dt * 1.1;
       this.drawSplash();
     } else if (this.status === 'playing' || this.status === 'won') {
-      this.update(dt);
+      // Paused (in-game menu open): freeze the animation — keep rendering the
+      // last frame behind the popup but don't advance sprites, the opponent
+      // jitter buffer or the shard bursts. The server has also paused, so no
+      // new drops/AI moves arrive while the menu is open.
+      if (!this.isMenuPanelOpen) this.update(dt);
       this.draw();
       this.drawOpponent();
     }

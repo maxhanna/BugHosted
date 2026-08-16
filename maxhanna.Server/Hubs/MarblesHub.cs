@@ -46,6 +46,7 @@ namespace maxhanna.Server.Hubs
             public string HostConnectionId = "";
             public bool IsPublic = false; // public rooms appear in the open-room list and are 1:1
             public string Status = "lobby"; // "lobby" | "playing"
+            public bool Paused = false; // true while a player has the in-game menu open
             public CancellationTokenSource? DropCts;
             public readonly List<Player> Players = new();
             public readonly object Sync = new();
@@ -234,6 +235,7 @@ namespace maxhanna.Server.Hubs
                 if (lobby.HostConnectionId != Context.ConnectionId) return;
                 if (lobby.Players.Count < 1) return;
                 lobby.Status = "playing";
+                lobby.Paused = false; // fresh match always starts unpaused
                 foreach (var p in lobby.Players)
                 {
                     p.Ready = false;
@@ -271,6 +273,30 @@ namespace maxhanna.Server.Hubs
             await Clients.Group(code).SendAsync("OnChatMessage", new { playerName = name, message = message });
         }
 
+        /// <summary>Freeze the match — a player opened the in-game menu. The
+        /// drop loop, the AI loop and player shifts all stall until the menu
+        /// closes, so marbles don't keep raining while they read the explainer.</summary>
+        public Task PauseGame(string code)
+        {
+            if (!_lobbies.TryGetValue(code, out var lobby)) return Task.CompletedTask;
+            lock (lobby.Sync)
+            {
+                lobby.Paused = true;
+            }
+            return Task.CompletedTask;
+        }
+
+        /// <summary>Unfreeze the match when the in-game menu closes.</summary>
+        public Task ResumeGame(string code)
+        {
+            if (!_lobbies.TryGetValue(code, out var lobby)) return Task.CompletedTask;
+            lock (lobby.Sync)
+            {
+                lobby.Paused = false;
+            }
+            return Task.CompletedTask;
+        }
+
         // ── Single-player vs AI ────────────────────────────────────────────
 
         /// <summary>
@@ -290,6 +316,7 @@ namespace maxhanna.Server.Hubs
                 if (lobby.HostConnectionId != Context.ConnectionId) return;
 
                 lobby.Status = "playing";
+                lobby.Paused = false; // fresh match always starts unpaused
 
                 // Reuse the existing player slot for the human; replace any old bot.
                 lobby.Players.RemoveAll(p => p.IsBot);
@@ -352,7 +379,9 @@ namespace maxhanna.Server.Hubs
                     Player? bot = null;
                     lock (lobby.Sync)
                     {
-                        if (lobby.Status != "playing") bot = null;
+                        // Paused (in-game menu open): stall the AI so it can't
+                        // keep playing while the player reads the explainer.
+                        if (lobby.Status != "playing" || lobby.Paused) bot = null;
                         else bot = lobby.Players.FirstOrDefault(p => p.IsBot && p.Alive);
                     }
                     if (bot == null) { await Task.Delay(500, ct); continue; }
@@ -366,7 +395,7 @@ namespace maxhanna.Server.Hubs
                     List<int[][]>? botBoard = null;
                     lock (lobby.Sync)
                     {
-                        if (lobby.Status != "playing") continue;
+                        if (lobby.Status != "playing" || lobby.Paused) continue;
                         currentBot = lobby.Players.FirstOrDefault(p => p.IsBot && p.Alive);
                         if (currentBot == null) continue;
                         botBoard = new List<int[][]> { CloneBoard(currentBot.Board) };
@@ -702,7 +731,7 @@ namespace maxhanna.Server.Hubs
             Player? mover;
             lock (lobby.Sync)
             {
-                if (lobby.Status != "playing") return null;
+                if (lobby.Status != "playing" || lobby.Paused) return null;
                 mover = lobby.Players.Find(p => p.ConnectionId == Context.ConnectionId);
                 if (mover == null || !mover.Alive) return null;
             }
@@ -797,7 +826,10 @@ namespace maxhanna.Server.Hubs
                     var updates = new Dictionary<string, object?>();
                     lock (lobby.Sync)
                     {
-                        if (lobby.Status != "playing") continue;
+                        // Paused: skip this drop tick entirely (the next tick
+                        // after resume drops normally, so no marbles rain while
+                        // the in-game menu is open).
+                        if (lobby.Status != "playing" || lobby.Paused) continue;
                         var metas = new Dictionary<string, PlayerMoveMeta>();
                         foreach (var p in lobby.Players) metas[p.ConnectionId] = new PlayerMoveMeta();
 

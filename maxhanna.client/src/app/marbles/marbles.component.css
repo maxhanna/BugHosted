@@ -711,6 +711,40 @@
   opacity: 0.9;
 }
 
+/* ── Pause overlay (freezes the match while the menu popup is open) ── */
+
+.marbles-pause-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(2, 6, 4, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 14vh;
+  pointer-events: none;
+  animation: marblesPauseFade 0.18s ease-out;
+}
+
+.marbles-pause-badge {
+  font-family: var(--section-font-family);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+  background: rgba(10, 30, 16, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  padding: 10px 26px;
+}
+
+@keyframes marblesPauseFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 /* ── Menu popup (explainer + quit) ───────────────────────────────── */
 
 .marbles-menu-popup {
@@ -730,6 +764,33 @@
   line-height: 1.55;
   color: var(--third-font-color);
   max-width: 330px;
+}
+
+.marbles-hot-explain {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--secondary-font-color);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 9px 12px;
+  max-width: 330px;
+}
+
+.marbles-hot-explain strong {
+  color: #fff;
+}
+
+.marbles-hot-chip {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.35);
 }
 
 .marbles-menu-explain li {

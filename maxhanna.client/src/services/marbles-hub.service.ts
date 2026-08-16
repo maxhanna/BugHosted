@@ -240,6 +240,18 @@ export class MarblesHubService implements OnDestroy {
     try { await this.hub!.invoke('StartVsAI', code, difficulty); } catch { /* ignore */ }
   }
 
+  /** Freeze the match while the in-game menu is open (stops drops + AI). */
+  async pauseGame(code: string): Promise<void> {
+    if (!this.connected) return;
+    try { await this.hub!.invoke('PauseGame', code); } catch { /* ignore */ }
+  }
+
+  /** Unfreeze the match when the in-game menu closes. */
+  async resumeGame(code: string): Promise<void> {
+    if (!this.connected) return;
+    try { await this.hub!.invoke('ResumeGame', code); } catch { /* ignore */ }
+  }
+
   /** Shift the center row: -1 = left, +1 = right (marbles wrap around). */
   async shiftRow(code: string, dir: number): Promise<void> {
     if (!this.connected) return;

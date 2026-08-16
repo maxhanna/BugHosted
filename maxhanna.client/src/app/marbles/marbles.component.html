@@ -1,5 +1,5 @@
 <div class="componentMain marbles-root">
-  <app-title-bar [title]="'Marbles'" [showMenu]="status === 'playing'" (menuClicked)="showMenuPanel()" (closeClicked)="remove_me('MarblesComponent')"></app-title-bar>
+  <app-title-bar [title]="'Marbles'" [showMenu]="status === 'playing'" (menuClicked)="showMenuPanel()" (closeClicked)="onTitleBarClose()"></app-title-bar>
 
   <div class="marbles-stage">
     <div class="marbles-boards" [class.viewing-opponent]="viewingOpponent">
@@ -175,9 +175,18 @@
     </div>
   </div>
 
+  <!-- ── Pause overlay: dims + freezes the match while the menu is open ── -->
+  <div class="marbles-pause-backdrop" *ngIf="isMenuPanelOpen && status === 'playing'">
+    <div class="marbles-pause-badge">⏸ PAUSED</div>
+  </div>
+
   <!-- ── Title-bar menu popup (game explainer + quit) ─────────────── -->
   <div class="popupPanel marbles-menu-popup" *ngIf="isMenuPanelOpen">
     <div class="popupPanelTitle">🎮 How to Play</div>
+    <div class="marbles-hot-explain" *ngIf="status === 'playing' && specialColor > 0">
+      <span class="marbles-hot-chip" [style.background]="hotColorCss()"></span>
+      <span><strong>{{ hotColorName() }}</strong> is the hot color this game — popping groups that contain it fills your <strong>reserve</strong>.</span>
+    </div>
     <ul class="marbles-menu-explain">
       <li>Move the <strong>glowing cursor</strong> along the center row with <strong>← / →</strong> (or tap a marble / press <strong>1–5</strong>).</li>
       <li><strong>↑ / ↓</strong> (or drag up/down on mobile) shifts the selected column — it can't shift past the top or bottom.</li>
@@ -186,7 +195,7 @@
       <li>Every match dumps garbage on your opponent — <strong>3 sends 1</strong>, <strong>4 sends 2</strong>, <strong>5+ sends 3</strong>.</li>
       <li>New marbles rain in from the top — <strong>you lose when your columns fill up</strong>.</li>
     </ul>
-    <button *ngIf="status === 'playing' || status === 'won'" class="win98-btn primary marbles-quit-btn" (click)="leaveToMenu()">🚪 Quit Match</button>
+    <button *ngIf="status === 'playing' || status === 'won'" class="win98-btn primary marbles-quit-btn" (click)="confirmQuitMatch()">🚪 Quit Match</button>
     <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
   </div>
 </div>

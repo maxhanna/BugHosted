@@ -1612,7 +1612,7 @@ export class RacingRenderer {
   ambientColor: [number, number, number] = [0.25, 0.25, 0.3];
   fogColor: [number, number, number] = [0.4, 0.45, 0.5];
   elapsed = 0;
-  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio' = 'default';
+  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio' | 'amazon' = 'default';
   // Device-quality tier: set by the component for mobile / low-end GPUs. Trims
   // the heaviest scenery (conifer counts and mesh density) and per-frame effects
   // (snow flake count) so the mountain and alpine circuits stay smooth on phones.
@@ -1979,6 +1979,9 @@ export class RacingRenderer {
     if (this.theme === 'rio') {
       return this.makeRioMarkingsTex();
     }
+    if (this.theme === 'amazon') {
+      return this.makeAmazonMarkingsTex();
+    }
     return this.makeRacingMarkingsTex();
   }
   private makeMiamiMarkingsTex(): WebGLTexture {
@@ -2260,6 +2263,40 @@ export class RacingRenderer {
         r = r * (1 - aDash) + 242 * aDash;
         g = g * (1 - aDash) + 196 * aDash;
         b = b * (1 - aDash) + 64 * aDash;
+        data[i] = Math.max(5, Math.min(250, r));
+        data[i + 1] = Math.max(5, Math.min(250, g));
+        data[i + 2] = Math.max(5, Math.min(250, b));
+      }
+    }
+    return this.makeTex(size, size, data);
+  }
+  private makeAmazonMarkingsTex(): WebGLTexture {
+    // Jungle rally trail: rich dark earth with faint mossy green mottle, deep
+    // packed-mud edge lines and a soft fern-green dashed centre line — no
+    // gray asphalt in the rainforest.
+    const size = 256;
+    const data = new Uint8Array(size * size * 3);
+    const soft = (lo: number, hi: number, vy: number, falloff: number) =>
+      Math.max(0, Math.min(1, Math.min(vy - lo, hi - vy) / falloff));
+    for (let y = 0; y < size; y++) {
+      const vy = y / size;
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 3;
+        // Rich dark jungle earth.
+        let r = 78, g = 62, b = 40;
+        // Faint leaf-litter mottle.
+        const mottle = Math.sin(x * 0.5) * Math.sin(y * 0.37) * Math.sin((x + y) * 0.23);
+        r += mottle * 6; g += mottle * 5; b += mottle * 3;
+        // Deep packed-mud edge lines.
+        const aEdge = Math.max(soft(0.03, 0.062, vy, 0.007), soft(0.938, 0.97, vy, 0.007));
+        r = r * (1 - aEdge) + 44 * aEdge;
+        g = g * (1 - aEdge) + 36 * aEdge;
+        b = b * (1 - aEdge) + 24 * aEdge;
+        // Fern-green dashed centre line.
+        const aDash = soft(0.486, 0.514, vy, 0.007) * ((x % 56) < 22 ? 1 : 0);
+        r = r * (1 - aDash) + 92 * aDash;
+        g = g * (1 - aDash) + 148 * aDash;
+        b = b * (1 - aDash) + 60 * aDash;
         data[i] = Math.max(5, Math.min(250, r));
         data[i + 1] = Math.max(5, Math.min(250, g));
         data[i + 2] = Math.max(5, Math.min(250, b));
@@ -2859,6 +2896,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
           elev: t => 2.8 * (1 - Math.cos(t * Math.PI * 3)) / 2 + 0.7 * (1 - Math.cos(t * Math.PI * 6)) / 2,
           width: t => this.TRACK_WIDTH + Math.sin(t * 5) * 1.5,
         };
+      case 'amazon':     // dense rainforest rally — a narrow, snaking trail
+        // with tight esses and a couple of long rollers, so the canopy walls
+        // crowd in and the elevation changes read as jungle hills.
+        return {
+          radius: R * 0.9, wobble: t => Math.sin(t * 4) * 17 + Math.sin(t * 11) * 6 + Math.sin(t * 2.2) * 10,
+          elev: t => 3.4 * (1 - Math.cos(t * Math.PI * 4)) / 2 + 0.8 * (1 - Math.cos(t * Math.PI * 7)) / 2,
+          width: t => this.TRACK_WIDTH * 0.9 + Math.sin(t * 6) * 1.2,
+        };
       default:           // miami + default — coastal, low and flat
         return {
           radius: R, wobble: t => Math.sin(t * 3) * 30 + Math.sin(t * 7) * 12 + Math.sin(t * 1.7) * 8,
@@ -3138,7 +3183,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   getTrackLength(): number { return this.totalTrackDist; }
   /** Applies the environment theme for the selected track and rebuilds the
    *  scenery geometry. Call before each race (both solo and multiplayer). */
-  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio') {
+  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio' | 'amazon') {
     this.theme = theme;
     // Fresh tyres every race — reset the wear that darkened the sidewalls
     // and drop per-car sidewall textures so a style change re-bakes.
@@ -3329,6 +3374,18 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.sunColor = [1.0, 0.93, 0.75];
         this.ambientColor = [0.36, 0.4, 0.34];
         this.fogColor = [0.55, 0.6, 0.58];
+        break;
+      case 'amazon':
+        // Deep rainforest: a high emerald canopy filters the sun into soft
+        // shafts — dark green sky through the leaves, bright humid green haze
+        // and warm light patches on the trail.
+        this.skyTop = [0.02, 0.1, 0.24];
+        this.skyHorizon = [0.45, 0.6, 0.42];
+        this.skyBottom = [0.22, 0.3, 0.2];
+        this.sunDir = [0.42, 0.5, 0.42];
+        this.sunColor = [1.0, 0.95, 0.75];
+        this.ambientColor = [0.3, 0.36, 0.26];
+        this.fogColor = [0.28, 0.36, 0.26];
         break;
       default:
         this.skyTop = [0.1, 0.2, 0.5];
@@ -4281,6 +4338,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addOceanPlane(flatVerts, flatIdxs, [0.05, 0.5, 0.55]);
       this.addRioGround(flatVerts, flatIdxs);
       this.addRioScenery(verts, idxs);
+    } else if (this.theme === 'amazon') {
+      this.addAmazonGround(flatVerts, flatIdxs);
+      this.addAmazonScenery(verts, idxs);
     } else {
       this.addForestScenery(verts, idxs);
     }
@@ -4684,6 +4744,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       case 'mushroom': count = 9; altMin = 44; altMax = 74; sizeScale = 1.15; this._cloudAlpha = 0.65; break;
       case 'hyrule': count = 8; altMin = 46; altMax = 78; sizeScale = 1.1; this._cloudAlpha = 0.6; break;
       case 'rio': count = 8; altMin = 50; altMax = 85; sizeScale = 1.0; this._cloudAlpha = 0.6; break;
+      case 'amazon': count = 6; altMin = 52; altMax = 82; sizeScale = 0.85; this._cloudAlpha = 0.5; break;
       default: count = 6; altMin = 55; altMax = 90; sizeScale = 1; this._cloudAlpha = 0.6; break;
     }
     const base = this.theme === 'city'
@@ -4704,7 +4765,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
                     ? [0.98, 0.98, 1.0]
                     : this.theme === 'rio'
                       ? [0.98, 0.98, 1.0]
-                      : [0.98, 0.98, 1.0];
+                      : this.theme === 'amazon'
+                        ? [0.62, 0.68, 0.56]
+                        : [0.98, 0.98, 1.0];
     const verts: number[] = [];
     const idxs: number[] = [];
     const seg = 9;
@@ -6232,6 +6295,195 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addCylinder(verts, idxs, bx, 0.9, bz, 0.05, 1.8, 5, [0.35, 0.35, 0.4]);
       this.addCone(verts, idxs, bx, 1.8, bz, 0.24, 0.5, 4, buntCols[Math.floor(Math.random() * buntCols.length)]);
       if (buntIdx++ > (this.lowQuality ? 22 : 46)) break;
+    }
+  }
+  // ── Amazon Rush (dense rainforest rally) ──────────────────────────────
+  /** Amazon ground: a deep leaf-littered jungle floor band hugging the
+   *  track — dark earth tones alternating per segment so it reads as mud and
+   *  fallen leaves instead of one flat gray ring. */
+  private addAmazonGround(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    const floorA: [number, number, number] = [0.13, 0.21, 0.09];
+    const floorB: [number, number, number] = [0.11, 0.18, 0.08];
+    for (let i = 0; i < pts.length; i += 1) {
+      const p = pts[i];
+      const n = pts[(i + 1) % pts.length];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const npx = -n.dirZ, npz = n.dirX;
+      const col = i % 2 === 0 ? floorA : floorB;
+      for (const side of [-1, 1]) {
+        const fIn = [p.x + ppx * (p.width / 2 + 14) * side, -0.26, p.z + ppz * (p.width / 2 + 14) * side];
+        const fOut = [p.x + ppx * (p.width / 2 + 120) * side, -0.26, p.z + ppz * (p.width / 2 + 120) * side];
+        const fnIn = [n.x + npx * (n.width / 2 + 14) * side, -0.26, n.z + npz * (n.width / 2 + 14) * side];
+        const fnOut = [n.x + npx * (n.width / 2 + 120) * side, -0.26, n.z + npz * (n.width / 2 + 120) * side];
+        this.addGroundQuad(verts, idxs, fIn, fnIn, fnOut, fOut, col);
+      }
+    }
+  }
+  /** A tall layered rainforest tree — a thick trunk with a big multi-puff
+   *  canopy, denser and taller than the coastal Rio jungle trees. */
+  private addAmazonTree(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    const lean = (Math.random() - 0.5) * 0.5;
+    const trunkH = 3.4 * s;
+    this.addCylinder(verts, idxs, x, 0, z, 0.2 * s, trunkH, 6, [0.34, 0.2, 0.08]);
+    const kinkX = x + lean * 0.4, kinkZ = z + lean * 0.3;
+    this.addCylinder(verts, idxs, kinkX, trunkH * 0.72, kinkZ, 0.14 * s, trunkH * 0.28, 6, [0.28, 0.16, 0.07]);
+    const topX = kinkX + lean * 0.5, topZ = kinkZ + lean * 0.4;
+    const r = (1.25 + Math.random() * 0.7) * s;
+    const greens: [number, number, number][] = [
+      [0.06, 0.32, 0.08], [0.09, 0.38, 0.1], [0.07, 0.28, 0.09], [0.12, 0.42, 0.12],
+    ];
+    const c0 = greens[Math.floor(Math.random() * greens.length)];
+    const c1 = greens[Math.floor(Math.random() * greens.length)];
+    // Layered canopy: a big lower puff plus smaller upper puffs.
+    this.addSphere(verts, idxs, topX, trunkH + r * 0.4, topZ, r, 8, c0);
+    this.addSphere(verts, idxs, topX + r * 0.5, trunkH + r * 0.58, topZ + r * 0.2, r * 0.8, 7, c1);
+    this.addSphere(verts, idxs, topX - r * 0.45, trunkH + r * 0.52, topZ - r * 0.25, r * 0.74, 7, c1);
+    this.addSphere(verts, idxs, topX, trunkH + r * 0.9, topZ, r * 0.58, 7, c0);
+  }
+  /** A big fern — a fan of green cones, thick on the jungle floor. */
+  private addFern(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    const fernCol: [number, number, number] = [0.12, 0.4, 0.1];
+    this.addCone(verts, idxs, x, 0.5 * s, z, 0.95 * s, 1.15 * s, 5, fernCol);
+    this.addCone(verts, idxs, x + 0.85 * s, 0.45 * s, z + 0.32 * s, 0.62 * s, 0.85 * s, 5, fernCol);
+    this.addCone(verts, idxs, x - 0.75 * s, 0.45 * s, z - 0.26 * s, 0.56 * s, 0.78 * s, 5, fernCol);
+    this.addCone(verts, idxs, x + 0.1 * s, 0.35 * s, z - 0.75 * s, 0.5 * s, 0.7 * s, 5, fernCol);
+  }
+  /** A hanging vine dangling from the high canopy down toward the road. */
+  private addHangingVine(verts: number[], idxs: number[], x: number, z: number, len: number) {
+    const vineCol: [number, number, number] = [0.15, 0.28, 0.09];
+    this.addStrut(verts, idxs, x, 6.5, z, x, 6.5 - len, z, 0.06, vineCol);
+    this.addSphere(verts, idxs, x, 6.5 - len, z, 0.15, 4, [0.2, 0.36, 0.13]);
+  }
+  private addAmazonScenery(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    // 1. Dense canopy: trees packed close to the road on both sides — this is
+    //    the "more jungle" ask, far denser than Rio's promenade palms.
+    let treeIdx = 0;
+    for (let i = 0; i < pts.length; i += 1) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 12 + Math.random() * 18;
+        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 6;
+        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
+        this.addAmazonTree(verts, idxs, tx, tz, 0.85 + Math.random() * 0.8);
+        if (treeIdx++ > (this.lowQuality ? 110 : 190)) break;
+      }
+      if (treeIdx > (this.lowQuality ? 110 : 190)) break;
+    }
+    // 2. Ferns + bushes carpeting the jungle floor between the trees.
+    let fernIdx = 0;
+    for (let i = 0; i < pts.length; i += 2) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const dist = p.width / 2 + 8 + Math.random() * 26;
+      const side = (i / 2) % 2 === 0 ? -1 : 1;
+      const fx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
+      const fz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
+      if (Math.random() < 0.55) {
+        this.addFern(verts, idxs, fx, fz, 0.8 + Math.random() * 0.8);
+      } else {
+        this.addSphere(verts, idxs, fx, 0.6, fz, 0.6 + Math.random() * 0.5, 6, [0.14, 0.42, 0.12]);
+      }
+      if (fernIdx++ > (this.lowQuality ? 60 : 110)) break;
+    }
+    // 3. Hanging vines from the canopy along the road edge.
+    let vineIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 14 : 7)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = (i / 7) % 2 === 0 ? -1 : 1;
+      const vx = p.x + ppx * (p.width / 2 + 3 + Math.random() * 4) * side;
+      const vz = p.z + ppz * (p.width / 2 + 3 + Math.random() * 4) * side;
+      this.addHangingVine(verts, idxs, vx, vz, 2 + Math.random() * 2.5);
+      if (vineIdx++ > (this.lowQuality ? 14 : 30)) break;
+    }
+    // 4. Canopy tunnels over the road — the same mossy-green arches as the
+    //    castle caves, plus extra vines hanging off them.
+    const tunnelCount = this.lowQuality ? 2 : 3;
+    for (let k = 0; k < tunnelCount; k++) {
+      const frac = (k + 0.5) / tunnelCount;
+      const ci = Math.floor(frac * pts.length) % pts.length;
+      if (ci < pts.length * 0.08 || ci > pts.length * 0.92) continue;
+      const p = pts[ci];
+      this.addCaveTunnel(verts, idxs, p.x, p.z, p.dirX, p.dirZ, p.width / 2);
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (let v = 0; v < 5; v++) {
+        const t = 0.15 + Math.random() * 0.7;
+        const vx = p.x + ppx * (t * 2 - 1) * (p.width / 2 + 5.5);
+        const vz = p.z + ppz * (t * 2 - 1) * (p.width / 2 + 5.5);
+        this.addHangingVine(verts, idxs, vx, vz, 1.5 + Math.random() * 2);
+      }
+    }
+    // 5. River through the infield: a wide band of water with a wooden plank
+    //    bridge across it and a waterfall off the far bank.
+    const riverCol: [number, number, number] = [0.1, 0.32, 0.3];
+    this.addQuad(verts, idxs,
+      [-260, -0.32, -26], [260, -0.32, -26], [260, -0.32, 26], [-260, -0.32, 26], riverCol);
+    this.addQuad(verts, idxs,
+      [-260, -0.36, -26], [260, -0.36, -26], [260, -0.36, 26], [-260, -0.36, 26], [0.05, 0.18, 0.17]);
+    // Wooden bridge over the river.
+    for (let k = -4; k <= 4; k++) {
+      const bz = k * 6.5;
+      this.addOrientedBox(verts, idxs, 0, 0.5, bz, 3.6, 0.2, 6.2, 0, 1, [0.42, 0.28, 0.13]);
+    }
+    for (const side of [-1, 1]) {
+      for (let k = -4; k <= 4; k++) {
+        this.addCylinder(verts, idxs, side * 1.7, 1.0, k * 6.5, 0.07, 1.7, 5, [0.32, 0.22, 0.11]);
+      }
+    }
+    // Waterfall at the river's end — a rock shelf with white sheets.
+    this.addBox(verts, idxs, -272, 6, 0, 8, 12, 54, [0.2, 0.28, 0.16]);
+    this.addQuad(verts, idxs, [-268, 10, -24], [-264, 10, -24], [-264, 0.1, -24], [-268, 0.1, -24], [0.85, 0.95, 1.0]);
+    this.addQuad(verts, idxs, [-268, 10, 24], [-264, 10, 24], [-264, 0.1, 24], [-268, 0.1, 24], [0.85, 0.95, 1.0]);
+    this.addQuad(verts, idxs, [-268, 10, -2], [-264, 10, -2], [-264, 0.1, -2], [-268, 0.1, -2], [0.8, 0.92, 0.97]);
+    // 6. Mayan temple ruin — a stepped stone pyramid with a carved head.
+    const tx = 150, tz = -150;
+    const stone: [number, number, number] = [0.62, 0.58, 0.48];
+    const stoneDark: [number, number, number] = [0.48, 0.44, 0.36];
+    const moss: [number, number, number] = [0.32, 0.44, 0.22];
+    this.addBox(verts, idxs, tx, 1.2, tz, 26, 2.4, 26, stone);
+    this.addBox(verts, idxs, tx, 2.9, tz, 18, 2.0, 18, stoneDark);
+    this.addBox(verts, idxs, tx, 4.5, tz, 11, 1.8, 11, stone);
+    this.addBox(verts, idxs, tx + 6.4, 1.0, tz, 5.2, 0.5, 8, stoneDark);
+    this.addBox(verts, idxs, tx, 6.1, tz, 3, 1.2, 3, stoneDark);
+    this.addSphere(verts, idxs, tx, 7.3, tz, 1.1, 8, stoneDark);
+    this.addBox(verts, idxs, tx - 0.4, 7.3, tz + 0.92, 0.36, 0.3, 0.2, [0.15, 0.13, 0.1]);
+    this.addBox(verts, idxs, tx + 0.4, 7.3, tz + 0.92, 0.36, 0.3, 0.2, [0.15, 0.13, 0.1]);
+    for (let k = 0; k < 7; k++) {
+      const a = Math.random() * TAU;
+      const r = 15 + Math.random() * 12;
+      this.addBox(verts, idxs, tx + Math.cos(a) * r, 0.4, tz + Math.sin(a) * r, 1.7, 0.8, 1.7, moss);
+    }
+    // 7. Crashed vintage biplane half-swallowed by the jungle.
+    const px = -170, pz = 190;
+    const canvas: [number, number, number] = [0.55, 0.42, 0.22];
+    this.addOrientedBox(verts, idxs, px, 1.2, pz, 8, 0.9, 1.4, 1, 0, canvas);
+    this.addOrientedBox(verts, idxs, px, 1.75, pz, 10, 0.12, 3.4, 1, 0, [0.52, 0.5, 0.32]);
+    this.addOrientedBox(verts, idxs, px, 2.45, pz, 9, 0.1, 3.0, 1, 0, [0.52, 0.5, 0.32]);
+    this.addOrientedBox(verts, idxs, px - 4.4, 2.0, pz, 1.2, 1.2, 1.2, 1, 0, [0.3, 0.26, 0.14]);
+    this.addCone(verts, idxs, px - 4.95, 2.0, pz, 0.5, 0.85, 6, [0.2, 0.18, 0.1]);
+    this.addOrientedBox(verts, idxs, px + 4.1, 1.85, pz, 1.3, 0.08, 2.4, 1, 0, canvas);
+    // 8. Expedition research camp — tents, crates and a campfire.
+    const campX = 205, campZ = 88;
+    this.addCone(verts, idxs, campX, 1.3, campZ, 2.2, 2.6, 6, [0.42, 0.48, 0.26]);
+    this.addCone(verts, idxs, campX + 4, 1.1, campZ + 2, 1.8, 2.2, 6, [0.38, 0.44, 0.24]);
+    this.addBox(verts, idxs, campX + 2.2, 0.5, campZ - 2, 1.6, 1.0, 1.4, [0.5, 0.36, 0.18]);
+    this.addBox(verts, idxs, campX - 2.4, 0.5, campZ - 1.6, 1.2, 0.9, 1.1, [0.42, 0.3, 0.16]);
+    this.addCylinder(verts, idxs, campX + 0.5, 0.12, campZ + 3, 0.7, 0.24, 7, [0.3, 0.24, 0.14]);
+    this.addCone(verts, idxs, campX + 0.5, 0.6, campZ + 3, 0.28, 0.7, 6, [0.95, 0.6, 0.2]);
+    // 9. A few giant emergent trees towering over the canopy.
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * TAU + Math.random() * 0.4;
+      const r = 258 + Math.random() * 40;
+      const gx = Math.cos(a) * r;
+      const gz = Math.sin(a) * r;
+      const s = 2.2 + Math.random() * 0.8;
+      this.addCylinder(verts, idxs, gx, 0, gz, 0.5 * s, 9 * s, 8, [0.38, 0.24, 0.09]);
+      this.addSphere(verts, idxs, gx, 9.4 * s, gz, 3.3 * s, 8, [0.07, 0.28, 0.07]);
+      this.addSphere(verts, idxs, gx + 1.5 * s, 10.8 * s, gz + 0.8 * s, 2.1 * s, 7, [0.11, 0.36, 0.09]);
+      this.addSphere(verts, idxs, gx - 1.2 * s, 10.4 * s, gz - 1.0 * s, 1.9 * s, 7, [0.09, 0.31, 0.08]);
     }
   }
   private addCityScenery(verts: number[], idxs: number[]) {
@@ -10699,6 +10951,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
         // Carnival crowd — Brazil greens, golds, blues and bright samba shirts.
         return [[0.05, 0.5, 0.2], [0.95, 0.82, 0.15], [0.1, 0.3, 0.75],
         [0.95, 0.35, 0.4], [0.1, 0.75, 0.55], [0.98, 0.6, 0.9], [0.95, 0.55, 0.2]];
+      case 'amazon':
+        // Expedition crowd — khakis, forest greens and warm earth tones.
+        return [[0.32, 0.42, 0.2], [0.55, 0.48, 0.28], [0.2, 0.34, 0.16],
+        [0.62, 0.52, 0.34], [0.28, 0.5, 0.24], [0.7, 0.58, 0.4]];
       default:
         return [[0.7, 0.15, 0.15], [0.15, 0.3, 0.7], [0.8, 0.7, 0.1],
         [0.9, 0.9, 0.9], [0.15, 0.5, 0.2], [0.6, 0.2, 0.6], [0.1, 0.65, 0.65], [0.95, 0.5, 0.15]];
@@ -10720,6 +10976,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       case 'mushroom': return [[0.9, 0.2, 0.18], [0.95, 0.95, 0.95]];
       case 'hyrule': return [[0.1, 0.55, 0.25], [0.95, 0.8, 0.2]];
       case 'rio': return [[0.05, 0.5, 0.2], [0.95, 0.82, 0.15]];
+      case 'amazon': return [[0.2, 0.4, 0.15], [0.6, 0.5, 0.3]];
       default: return this.crowdShirtsForTheme().slice(0, 2);
     }
   }
@@ -11281,7 +11538,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private _trackCenterZ = 0;
   private _animalsVao!: WebGLVertexArrayObject;
   private _animalsBuf!: WebGLBuffer;
-  private _animals: { kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11; x: number; z: number; yaw: number; size: number; phase: number; retr: number; wx?: number; wz?: number; wPause?: number }[] = [];
+  private _animals: { kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13; x: number; z: number; yaw: number; size: number; phase: number; retr: number; wx?: number; wz?: number; wPause?: number }[] = [];
   private _tumbleweeds: { x: number; z: number; vx: number; vz: number; spin: number; phase: number; size: number }[] = [];
   private _dustDevils: { x: number; z: number; vx: number; vz: number; phase: number; size: number; life: number; maxLife: number }[] = [];
   private _windVao!: WebGLVertexArrayObject;
@@ -11309,7 +11566,8 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const isPirate = this.theme === 'pirate';
     const isMushroom = this.theme === 'mushroom';
     const isHyrule = this.theme === 'hyrule';
-    const birdCount = isMiami || isPirate || isMushroom || isHyrule ? 26 : isHighCountry ? 24 : isDesert ? 14 : isNeon ? 8 : isVolcano || isAntarctica ? 0 : 18;
+    const isAmazon = this.theme === 'amazon';
+    const birdCount = isMiami || isPirate || isMushroom || isHyrule || isAmazon ? 26 : isHighCountry ? 24 : isDesert ? 14 : isNeon ? 8 : isVolcano || isAntarctica ? 0 : 18;
     for (let i = 0; i < birdCount; i++) {
       const eagle = isHighCountry && i % 2 === 0;
       const vulture = isDesert && i % 2 === 0;
@@ -11422,6 +11680,32 @@ void main() { FragColor = texture(uTex, vUV); }`;
         });
       }
     }
+    if (isAmazon) {
+      // Monkeys (12) and parrots (13) — the rainforest cast wandering the
+      // clearings between the canopy walls, away from the river band so they
+      // never stroll through the water.
+      const chCount = this.lowQuality ? 8 : 14;
+      for (let i = 0; i < chCount; i++) {
+        const kind = (i % 2) + 12; // cycles 12..13
+        const ang = Math.random() * TAU;
+        const rad = 150 + Math.random() * 105;
+        const ax = Math.cos(ang) * rad;
+        const az = Math.sin(ang) * rad;
+        // Keep clearings clear of the river (|z| < 30 around the x axis).
+        if (Math.abs(az) < 34 && Math.abs(ax) < 300) continue;
+        const sizeByKind: Record<number, number> = { 12: 0.9, 13: 0.7 };
+        this._animals.push({
+          kind: kind as 12 | 13,
+          x: ax,
+          z: az,
+          yaw: Math.random() * Math.PI * 2,
+          size: (sizeByKind[kind] ?? 0.8) * (0.85 + Math.random() * 0.25),
+          phase: Math.random() * Math.PI * 2,
+          retr: 0,
+          wx: ax, wz: az, wPause: 0.5 + Math.random() * 2,
+        });
+      }
+    }
     if (isHighCountry) {
       let deerIdx = 0;
       for (let i = 0; i < pts.length; i += 10) {
@@ -11466,7 +11750,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
         }
       }
     }
-    if (isHighCountry || isAntarctica || isMushroom || isHyrule) {
+    if (isHighCountry || isAntarctica || isMushroom || isHyrule || isAmazon) {
       this._animalsVao = gl.createVertexArray()!;
       gl.bindVertexArray(this._animalsVao);
       this._animalsBuf = gl.createBuffer()!;
@@ -12080,7 +12364,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // Wandering characters (Toads / Bob-ombs) move between targets in the
     // castle courtyard; update them before drawing so motion is frame-smooth.
     for (const a of this._animals) {
-      if (a.kind >= 4 && a.kind <= 11) this.updateWanderer(a, dt);
+      if (a.kind >= 4 && a.kind <= 13) this.updateWanderer(a, dt);
     }
     // Matches the animal GL buffer size (26 animals × 10 boxes × 36 floats) —
     // the real worst case (13 deer + marmots) is far below this, so the scratch
@@ -12355,6 +12639,50 @@ void main() { FragColor = texture(uTex, vUV); }`;
           w = this.pushBoxVerts(data, w, lx2, 0.08 * s, lz2, 0.05 * s, 0.16 * s, 0.05 * s, 1.0, 0.7, 0.2);
         }
       }
+      if (a.kind === 12) {
+        // Monkey — brown body with a tan belly and face, long curling tail,
+        // hopping and swinging its arms as it ambles through the clearings.
+        const hop = Math.abs(Math.sin(t * 3.4 + a.phase)) * 0.16 * s;
+        const [bx0, bz0] = L(0, 0);
+        w = this.pushBoxVerts(data, w, bx0, 0.42 * s + hop, bz0, 0.4 * s, 0.4 * s, 0.34 * s, 0.42, 0.3, 0.16);
+        const [bbx, bbz] = L(0.1 * s, 0);
+        w = this.pushBoxVerts(data, w, bbx, 0.36 * s + hop, bbz, 0.26 * s, 0.24 * s, 0.24 * s, 0.72, 0.58, 0.36);
+        const [hx, hz] = L(0.24 * s, 0);
+        w = this.pushBoxVerts(data, w, hx, 0.72 * s + hop, hz, 0.2 * s, 0.2 * s, 0.2 * s, 0.42, 0.3, 0.16);
+        const [fx, fz] = L(0.3 * s, 0);
+        w = this.pushBoxVerts(data, w, fx, 0.72 * s + hop, fz, 0.12 * s, 0.14 * s, 0.14 * s, 0.75, 0.6, 0.4);
+        for (const sideL of [-1, 1]) {
+          const [ex, ez] = L(0.18 * s, sideL * 0.16 * s);
+          w = this.pushBoxVerts(data, w, ex, 0.76 * s + hop, ez, 0.09 * s, 0.11 * s, 0.09 * s, 0.42, 0.3, 0.16);
+          const [ax, az] = L(-0.06 * s, sideL * 0.28 * s);
+          w = this.pushBoxVerts(data, w, ax, 0.5 * s + hop, az, 0.28 * s, 0.1 * s, 0.1 * s, 0.42, 0.3, 0.16);
+          const [lx2, lz2] = L(-0.12 * s, sideL * 0.12 * s);
+          w = this.pushBoxVerts(data, w, lx2, 0.14 * s, lz2, 0.1 * s, 0.26 * s, 0.1 * s, 0.38, 0.26, 0.14);
+        }
+        const [tlx, tlz] = L(-0.3 * s, 0);
+        w = this.pushBoxVerts(data, w, tlx, 0.42 * s + hop, tlz, 0.24 * s, 0.08 * s, 0.08 * s, 0.36, 0.24, 0.12);
+      }
+      if (a.kind === 13) {
+        // Parrot — vivid green body with red wing patches and a yellow beak,
+        // strutting and bobbing as it wanders the jungle floor.
+        const bob = Math.sin(t * 2.6 + a.phase) * 0.04 * s;
+        const [bx0, bz0] = L(0, 0);
+        w = this.pushBoxVerts(data, w, bx0, 0.4 * s + bob, bz0, 0.28 * s, 0.42 * s, 0.26 * s, 0.1, 0.5, 0.16);
+        const [hx, hz] = L(0.14 * s, 0);
+        w = this.pushBoxVerts(data, w, hx, 0.76 * s + bob, hz, 0.18 * s, 0.18 * s, 0.18 * s, 0.1, 0.55, 0.16);
+        const [bkx, bkz] = L(0.26 * s, 0);
+        w = this.pushBoxVerts(data, w, bkx, 0.76 * s + bob, bkz, 0.1 * s, 0.07 * s, 0.06 * s, 0.95, 0.75, 0.15);
+        for (const sideL of [-1, 1]) {
+          const [wx, wz] = L(0.02 * s, sideL * 0.2 * s);
+          w = this.pushBoxVerts(data, w, wx, 0.46 * s + bob, wz, 0.3 * s, 0.1 * s, 0.14 * s, 0.75, 0.16, 0.14);
+          const [fx2, fz2] = L(0.14 * s, sideL * 0.14 * s);
+          w = this.pushBoxVerts(data, w, fx2, 0.3 * s + bob, fz2, 0.14 * s, 0.26 * s, 0.12 * s, 0.95, 0.85, 0.4);
+        }
+        const [tlx, tlz] = L(-0.16 * s, 0);
+        w = this.pushBoxVerts(data, w, tlx, 0.4 * s + bob, tlz, 0.2 * s, 0.06 * s, 0.06 * s, 0.15, 0.3, 0.7);
+        const [ex, ez] = L(0.16 * s, 0);
+        w = this.pushBoxVerts(data, w, ex, 0.88 * s + bob, ez, 0.05 * s, 0.05 * s, 0.05 * s, 0.08, 0.08, 0.08);
+      }
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, this._animalsBuf);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, w));
@@ -12374,7 +12702,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const isToad = a.kind === 4;
     // Per-character amble speed (units/second): Toads scurry, Bob-ombs trundle,
     // Boos drift slowly, Koopas and Goombas amble in between.
-    const speeds: Record<number, number> = { 4: 3.4, 5: 2.4, 6: 2.0, 7: 2.8, 8: 2.6, 9: 2.0, 10: 3.6, 11: 2.6 };
+    const speeds: Record<number, number> = { 4: 3.4, 5: 2.4, 6: 2.0, 7: 2.8, 8: 2.6, 9: 2.0, 10: 3.6, 11: 2.6, 12: 3.0, 13: 2.8 };
     const speed = (speeds[a.kind] ?? 2.8) * a.size;
     if ((a.wPause ?? 0) > 0) {
       a.wPause = (a.wPause ?? 0) - dt;
