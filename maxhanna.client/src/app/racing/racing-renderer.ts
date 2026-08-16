@@ -32,6 +32,10 @@ export interface DecalLayoutDef {
    *  the width / up the flank), relative to (cx, cz). `mirror` also draws it
    *  at -cz. `lift` nudges overlapping layers apart to avoid z-fighting. */
   shapes?: DecalShapeDef[];
+  /** Full-car wrap styles (flames, camo, tiger, zebra, leopard) get a darker
+   *  full-body base plate under their artwork so the pattern reads as a true
+   *  vinyl wrap covering the whole car instead of shapes on bare paint. */
+  wrapBase?: boolean;
 }
 
 export interface DecalShapeDef {
@@ -711,6 +715,7 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
   402: {
     flank: [],
     center: [],
+    wrapBase: true,
     shapes: [
       { cx: 0.88, cz: 0.16, mirror: true, path: teardropPath(0.32, 0.15) },
       { cx: 0.52, cz: 0.20, mirror: true, path: teardropPath(0.42, 0.19) },
@@ -821,6 +826,7 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
   413: {
     flank: [[-0.80, 0.22, 0.14, 0.04, 0.06, 0.05], [-0.55, 0.29, 0.14, 0.04, 0.06, 0.08], [-0.30, 0.40, 0.12, 0.04, 0.06, 0.05], [-0.05, 0.34, 0.12, 0.04, 0.06, 0.08], [0.20, 0.30, 0.14, 0.04, 0.06, 0.05], [0.45, 0.25, 0.14, 0.04, 0.06, 0.08], [0.70, 0.22, 0.12, 0.04, 0.06, 0.05], [0.95, 0.17, 0.12, 0.04, 0.05, 0.05], [1.15, 0.145, 0.10, 0.04, 0.05, 0.04]],
     center: [[0.68, 0.225, 0.16, 0.04, 0.08], [1.25, 0.13, 0.10, 0.04, 0.06]],
+    wrapBase: true,
     shapes: camoShapeDefs(),
   },
   // Cheetah spots: irregular organic blobs scattered across the body.
@@ -929,6 +935,7 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
   423: {
     flank: [],
     center: [],
+    wrapBase: true,
     shapes: [
       { cx: 0.98, cz: 0.13, mirror: true, path: crossStripePath(0.20, 0.07, 0.03) },
       { cx: 0.76, cz: 0.15, mirror: true, path: crossStripePath(0.24, 0.08, 0.04, true) },
@@ -994,21 +1001,23 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
   429: {
     flank: [],
     center: [],
+    wrapBase: true,
     shapes: [
-      { cx: 1.05, cz: 0, path: crossStripePath(0.34, 0.06, 0.02) },
-      { cx: 0.80, cz: 0, path: crossStripePath(0.38, 0.06, 0.02, true) },
-      { cx: 0.56, cz: 0, path: crossStripePath(0.40, 0.07, 0.02) },
-      { cx: 0.32, cz: 0, path: crossStripePath(0.40, 0.07, 0.02, true) },
-      { cx: 0.08, cz: 0, path: crossStripePath(0.38, 0.06, 0.02) },
-      { cx: -0.16, cz: 0, path: crossStripePath(0.34, 0.06, 0.02, true) },
-      { cx: -0.40, cz: 0, path: crossStripePath(0.30, 0.05, 0.02) },
-      { cx: -0.62, cz: 0, path: crossStripePath(0.24, 0.05, 0.02, true) },
+      { cx: 1.05, cz: 0, path: crossStripePath(0.30, 0.07, 0.02) },
+      { cx: 0.80, cz: 0, path: crossStripePath(0.40, 0.08, 0.02, true) },
+      { cx: 0.56, cz: 0, path: crossStripePath(0.48, 0.09, 0.02) },
+      { cx: 0.32, cz: 0, path: crossStripePath(0.52, 0.09, 0.02, true) },
+      { cx: 0.08, cz: 0, path: crossStripePath(0.50, 0.08, 0.02) },
+      { cx: -0.16, cz: 0, path: crossStripePath(0.46, 0.08, 0.02, true) },
+      { cx: -0.40, cz: 0, path: crossStripePath(0.40, 0.07, 0.02) },
+      { cx: -0.62, cz: 0, path: crossStripePath(0.34, 0.07, 0.02, true) },
     ],
   },
   // Leopard: ragged rosettes plus a few solid spots scattered like jungle fur.
   430: {
     flank: [],
     center: [],
+    wrapBase: true,
     shapes: [
       { cx: 1.05, cz: 0.09, mirror: true, path: rosettePath(0.06, 1) },
       { cx: 0.78, cz: 0.14, mirror: true, path: rosettePath(0.075, 2) },
@@ -1016,10 +1025,18 @@ export const DECAL_LAYOUTS: Record<number, DecalLayoutDef> = {
       { cx: 0.20, cz: 0.18, mirror: true, path: rosettePath(0.075, 4) },
       { cx: -0.10, cz: 0.16, mirror: true, path: rosettePath(0.07, 5) },
       { cx: -0.40, cz: 0.12, mirror: true, path: rosettePath(0.06, 6) },
+      { cx: 0.92, cz: 0.05, mirror: true, path: rosettePath(0.055, 11) },
+      { cx: 0.64, cz: 0.08, mirror: true, path: rosettePath(0.06, 12) },
+      { cx: 0.36, cz: 0.09, mirror: true, path: rosettePath(0.06, 13) },
+      { cx: 0.05, cz: 0.08, mirror: true, path: rosettePath(0.055, 14) },
+      { cx: -0.25, cz: 0.07, mirror: true, path: rosettePath(0.05, 15) },
+      { cx: -0.55, cz: 0.05, mirror: true, path: rosettePath(0.045, 16) },
       { cx: 0.68, cz: 0, path: rosettePath(0.08, 7), lift: 0.005 },
       { cx: 0.90, cz: 0, path: rosettePath(0.05, 8), lift: 0.005 },
       { cx: 1.22, cz: 0, path: rosettePath(0.045, 9), lift: 0.005 },
+      { cx: 0.40, cz: 0, path: circlePath(12, 0.03), lift: 0.005 },
       { cx: 0.20, cz: 0, path: circlePath(12, 0.03), lift: 0.005 },
+      { cx: -0.45, cz: 0, path: circlePath(12, 0.026), lift: 0.005 },
       { cx: -0.20, cz: 0.10, mirror: true, path: circlePath(12, 0.028), lift: 0.005 },
     ],
   },
@@ -1938,6 +1955,9 @@ export class RacingRenderer {
     if (this.isStreetTheme) {
       return this.makeStreetMarkingsTex();
     }
+    if (this.theme === 'miami') {
+      return this.makeMiamiMarkingsTex();
+    }
     if (this.theme === 'neon') {
       return this.makeNeonMarkingsTex();
     }
@@ -1957,6 +1977,46 @@ export class RacingRenderer {
       return this.makeHyruleMarkingsTex();
     }
     return this.makeRacingMarkingsTex();
+  }
+  private makeMiamiMarkingsTex(): WebGLTexture {
+    // Sun-bleached boardwalk: warm wooden planks laid across the road with
+    // subtle grain, visible plank seams, dark wooden edge rails and a golden
+    // dashed centre line — the boardwalk-on-the-beach look. No gray asphalt:
+    // the road is the same warm timber as the surrounding promenade.
+    const size = 256;
+    const data = new Uint8Array(size * size * 3);
+    const soft = (lo: number, hi: number, vy: number, falloff: number) =>
+      Math.max(0, Math.min(1, Math.min(vy - lo, hi - vy) / falloff));
+    for (let y = 0; y < size; y++) {
+      const vy = y / size;
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 3;
+        // Warm sun-bleached timber.
+        let r = 178, g = 134, b = 86;
+        // Subtle plank grain (deterministic, very faint).
+        const grain = Math.sin(x * 0.35) * Math.sin(y * 0.13) * Math.sin((x + y) * 0.2);
+        r += grain * 7; g += grain * 5; b += grain * 3;
+        // Plank seams running across the width, repeating along the length.
+        const seam = (x % 26) < 2 ? 1 : 0;
+        r = r * (1 - seam * 0.5) + 82 * seam * 0.5;
+        g = g * (1 - seam * 0.5) + 55 * seam * 0.5;
+        b = b * (1 - seam * 0.5) + 32 * seam * 0.5;
+        // Dark wooden edge rails.
+        const aEdge = Math.max(soft(0.03, 0.062, vy, 0.007), soft(0.938, 0.97, vy, 0.007));
+        r = r * (1 - aEdge) + 92 * aEdge;
+        g = g * (1 - aEdge) + 66 * aEdge;
+        b = b * (1 - aEdge) + 38 * aEdge;
+        // Golden dashed centre line.
+        const aDash = soft(0.486, 0.514, vy, 0.007) * ((x % 56) < 22 ? 1 : 0);
+        r = r * (1 - aDash) + 245 * aDash;
+        g = g * (1 - aDash) + 200 * aDash;
+        b = b * (1 - aDash) + 70 * aDash;
+        data[i] = Math.max(5, Math.min(250, r));
+        data[i + 1] = Math.max(5, Math.min(250, g));
+        data[i + 2] = Math.max(5, Math.min(250, b));
+      }
+    }
+    return this.makeTex(size, size, data);
   }
   private makeRacingMarkingsTex(): WebGLTexture {
     // Clean asphalt with crisp painted edge lines and a dashed centre line —
@@ -2995,7 +3055,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       const d = (wx - px) * (wx - px) + (wz - pz) * (wz - pz);
       if (d < bestD) { bestD = d; bestT = (i + t) / (p.length - 1); }
     }
-    if (bestD >= 7.5 * 7.5 || bestT < 0.03 || bestT > 0.97) return null;
+    if (bestD >= 8.6 * 8.6 || bestT < 0.03 || bestT > 0.97) return null;
     return bestT;
   }
 
@@ -5253,18 +5313,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addCannonFort(verts, idxs, fx, fz, ppx * side, ppz * side);
       if (fortIdx++ > (this.lowQuality ? 3 : 7)) break;
     }
-    // Skull rocks — pale boulders with glowing eye sockets on the headland.
-    let skullIdx = 0;
-    for (let i = 0; i < pts.length; i += (this.lowQuality ? 24 : 12)) {
-      const p = pts[i];
-      const ppx = -p.dirZ, ppz = p.dirX;
-      const side = (i / 12) % 2 === 0 ? -1 : 1;
-      const dist = p.width / 2 + 52 + Math.random() * 20;
-      const kx = p.x + ppx * dist * side;
-      const kz = p.z + ppz * dist * side;
-      this.addSkullRock(verts, idxs, kx, kz, ppx * side, ppz * side);
-      if (skullIdx++ > (this.lowQuality ? 4 : 9)) break;
-    }
     // Scattered treasure: coin piles + rum barrels by the docks.
     for (let i = 0; i < (this.lowQuality ? 10 : 22); i++) {
       const a = Math.random() * Math.PI * 2;
@@ -5307,35 +5355,40 @@ void main() { FragColor = texture(uTex, vUV); }`;
     return best;
   }
 
-  /** The secret causeway: a narrow raised plank-and-sand road across the cove
-   *  neck, bridging the gap between the two track sections the shortcut joins.
-   *  Rides the track elevation profile so it meets the road flush at both
-   *  ends instead of floating over the beach. */
+  /** The secret causeway: a full-width packed-sand road across the cove neck,
+   *  bridging the two track sections the shortcut joins. It matches the main
+   *  cove road's surface and width (with the same dark plank edge boards) so
+   *  the two junctions read as one continuous road, and rides the track
+   *  elevation profile so it meets the road flush at both ends. */
   private addShortcutRoad(verts: number[], idxs: number[], sc: { pts: Array<{ x: number; z: number }>; d1: number; gap: number }) {
     const p = sc.pts;
-    const sandDark: number[] = [0.58, 0.47, 0.28];
-    const plank: number[] = [0.5, 0.36, 0.19];
+    const sand: number[] = [0.78, 0.66, 0.46];
+    const edge: number[] = [0.36, 0.26, 0.15];
     const rope: number[] = [0.42, 0.34, 0.22];
+    const HW = 8.3; // half-width — a touch wider than the main road (8) so the junction is seamless
     for (let i = 0; i < p.length - 1; i++) {
       const ax = p[i], bx = p[i + 1];
       const dx = bx.x - ax.x, dz = bx.z - ax.z;
       const dl = Math.hypot(dx, dz) || 1;
       const px = -dz / dl, pz = dx / dl;
       const t0 = i / (p.length - 1), t1 = (i + 1) / (p.length - 1);
-      const y0 = this.getTrackElevation(sc.d1 + t0 * sc.gap) + 0.05;
-      const y1 = this.getTrackElevation(sc.d1 + t1 * sc.gap) + 0.05;
-      // Sandy roadbed.
+      const y0 = this.getTrackElevation(sc.d1 + t0 * sc.gap) + 0.06;
+      const y1 = this.getTrackElevation(sc.d1 + t1 * sc.gap) + 0.06;
+      // Splay the road a touch wider at the two mouths so the causeway blends
+      // into the main road rather than butting against it at a hard edge.
+      const mouthFade = Math.min(1, Math.min(i, p.length - 2 - i));
+      const hw = HW + (1 - mouthFade) * 2.2;
+      // Full-width packed-sand roadbed.
       this.addQuad(verts, idxs,
-        [ax.x + px * 5.5, y0, ax.z + pz * 5.5],
-        [bx.x + px * 5.5, y1, bx.z + pz * 5.5],
-        [bx.x - px * 5.5, y1, bx.z - pz * 5.5],
-        [ax.x - px * 5.5, y0, ax.z - pz * 5.5], sandDark);
-      // Plank edge rails + rope posts at the mouth.
+        [ax.x + px * hw, y0, ax.z + pz * hw],
+        [bx.x + px * hw, y1, bx.z + pz * hw],
+        [bx.x - px * hw, y1, bx.z - pz * hw],
+        [ax.x - px * hw, y0, ax.z - pz * hw], sand);
       for (const s of [-1, 1]) {
-        this.addBox(verts, idxs, (ax.x + bx.x) / 2 + px * 5.7 * s, (y0 + y1) / 2, (ax.z + bx.z) / 2 + pz * 5.7 * s, dl, 0.16, 0.3, plank);
-        if (i === 0 || i === p.length - 2) {
-          this.addCylinder(verts, idxs, ax.x + px * 6.2 * s, (y0 + y1) / 2 + 0.4, ax.z + pz * 6.2 * s, 0.14, 1.0, 6, rope);
-        }
+        // Dark plank edge boards, matching the main track's edges.
+        this.addBox(verts, idxs, (ax.x + bx.x) / 2 + px * (hw + 0.18) * s, (y0 + y1) / 2, (ax.z + bx.z) / 2 + pz * (hw + 0.18) * s, dl, 0.14, 0.55, edge);
+        // Rope posts spaced along both sides.
+        this.addCylinder(verts, idxs, ax.x + px * (hw + 0.7) * s, (y0 + y1) / 2 + 0.35, ax.z + pz * (hw + 0.7) * s, 0.13, 0.9, 6, rope);
       }
     }
   }
@@ -5352,31 +5405,31 @@ void main() { FragColor = texture(uTex, vUV); }`;
     const iron: number[] = [0.22, 0.2, 0.18];
     const gold: number[] = [1.0, 0.78, 0.2];
     const t = this.getTrackElevation(this._shortcut ? this._shortcut.d1 + 0.5 * this._shortcut.gap : 0);
-    // Stern half (lifted, leaning in) and bow half (dug in) — each runs from
-    // ~6.5 to ~13 units across the road so the passage stays clear.
-    this.addTaperedBox(verts, idxs, x + dirX * 9.5, t + 0.75, z + dirZ * 9.5, 6.5, 1.25, 0.7, 1.6, 1.0, hull);
-    this.addTaperedBox(verts, idxs, x + dirX * 9.5, t + 1.35, z + dirZ * 9.5, 6.0, 0.55, 0.4, 1.3, 0.9, hullHi);
-    this.addBox(verts, idxs, x + dirX * 6.8, t + 1.5, z + dirZ * 6.8, 0.5, 1.0, 1.2, hullHi);
-    this.addTaperedBox(verts, idxs, x - dirX * 9.5, t + 0.4, z - dirZ * 9.5, 6.5, 0.8, 1.1, 1.0, 1.5, hull);
-    this.addTaperedBox(verts, idxs, x - dirX * 9.5, t + 1.0, z - dirZ * 9.5, 6.0, 0.45, 0.5, 0.9, 1.2, hullHi);
-    // A leaning mast fallen across the gap — an arch over the passage with a
-    // tattered sail hanging from it.
-    this.addStrut(verts, idxs, x + dirX * 11.5, t + 1.6, z + dirZ * 11.5, x - dirX * 6.0, t + 3.6, z - dirZ * 6.0, 0.12, mast);
+    // Stern half (lifted, leaning in) and bow half (dug in) — pushed out past
+    // the full-width causeway so the passage stays completely clear.
+    this.addTaperedBox(verts, idxs, x + dirX * 12.5, t + 0.75, z + dirZ * 12.5, 6.5, 1.25, 0.7, 1.6, 1.0, hull);
+    this.addTaperedBox(verts, idxs, x + dirX * 12.5, t + 1.35, z + dirZ * 12.5, 6.0, 0.55, 0.4, 1.3, 0.9, hullHi);
+    this.addBox(verts, idxs, x + dirX * 9.8, t + 1.5, z + dirZ * 9.8, 0.5, 1.0, 1.2, hullHi);
+    this.addTaperedBox(verts, idxs, x - dirX * 12.5, t + 0.4, z - dirZ * 12.5, 6.5, 0.8, 1.1, 1.0, 1.5, hull);
+    this.addTaperedBox(verts, idxs, x - dirX * 12.5, t + 1.0, z - dirZ * 12.5, 6.0, 0.45, 0.5, 0.9, 1.2, hullHi);
+    // A leaning mast fallen across the gap — an arch high over the passage
+    // with a tattered sail hanging from it (well above the cars).
+    this.addStrut(verts, idxs, x + dirX * 13.5, t + 1.6, z + dirZ * 13.5, x - dirX * 4.5, t + 3.9, z - dirZ * 4.5, 0.12, mast);
     this.addQuad(verts, idxs,
-      [x + dirX * 3.0, t + 2.5, z + dirZ * 3.0],
-      [x - dirX * 1.5, t + 2.9, z - dirZ * 1.5],
-      [x - dirX * 1.5, t + 4.3, z - dirZ * 1.5],
-      [x + dirX * 3.0, t + 3.9, z + dirZ * 3.0], sail);
+      [x + dirX * 2.0, t + 2.7, z + dirZ * 2.0],
+      [x - dirX * 1.0, t + 3.1, z - dirZ * 1.0],
+      [x - dirX * 1.0, t + 4.6, z - dirZ * 1.0],
+      [x + dirX * 2.0, t + 4.2, z + dirZ * 2.0], sail);
     // A cannon barrel half-buried beside the road.
-    this.addCylinder(verts, idxs, x + dirX * 12.5 + dirZ * 3.5, t + 0.35, z + dirZ * 12.5 - dirX * 3.5, 0.3, 3.2, 7, iron);
+    this.addCylinder(verts, idxs, x + dirX * 15 + dirZ * 4, t + 0.35, z + dirZ * 15 - dirX * 4, 0.3, 3.2, 7, iron);
     // Torn pirate flag on the lifted stern.
     this.addQuad(verts, idxs,
-      [x + dirX * 11.5, t + 2.6, z + dirZ * 11.5],
-      [x + dirX * 11.5 - dirZ * 0.7, t + 2.6, z + dirZ * 11.5 + dirX * 0.7],
-      [x + dirX * 11.5 - dirZ * 0.7, t + 3.2, z + dirZ * 11.5 + dirX * 0.7],
-      [x + dirX * 11.5, t + 3.2, z + dirZ * 11.5], black);
+      [x + dirX * 13.5, t + 2.6, z + dirZ * 13.5],
+      [x + dirX * 13.5 - dirZ * 0.7, t + 2.6, z + dirZ * 13.5 + dirX * 0.7],
+      [x + dirX * 13.5 - dirZ * 0.7, t + 3.2, z + dirZ * 13.5 + dirX * 0.7],
+      [x + dirX * 13.5, t + 3.2, z + dirZ * 13.5], black);
     // A coin spill at the foot of the wreck — treasure for the bold.
-    this.addCoinPile(verts, idxs, x - dirX * 12.0, z - dirZ * 12.0);
+    this.addCoinPile(verts, idxs, x - dirX * 14.5, z - dirZ * 14.5);
   }
   private addTreasureChest(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number) {
     const wood: number[] = [0.55, 0.38, 0.16];
@@ -5441,8 +5494,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addStrut(verts, idxs, x + ppx * 3.4, 1.1, z + ppz * 3.4, x + ppx * 4.4, 1.4, z + ppz * 4.4, 0.1, mast);
   }
   private addCannonFort(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number) {
-    const stone: number[] = [0.55, 0.52, 0.48];
-    const stoneDark: number[] = [0.45, 0.42, 0.38];
+    // Warm sandstone (not gray) so the emplacements read as part of the beach.
+    const stone: number[] = [0.62, 0.5, 0.36];
+    const stoneDark: number[] = [0.52, 0.42, 0.3];
     const iron: number[] = [0.25, 0.25, 0.28];
     const ppx = -dirZ, ppz = dirX;
     // Squat stone platform.
@@ -5459,22 +5513,6 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addCylinder(verts, idxs, cx, 1.15, cz, 0.22, 1.6, 7, iron);
       this.addSphere(verts, idxs, cx + dirX * 0.9, 1.15, cz + dirZ * 0.9, 0.28, 6, iron);
     }
-  }
-  private addSkullRock(verts: number[], idxs: number[], x: number, z: number, dirX: number, dirZ: number) {
-    const bone: number[] = [0.85, 0.82, 0.75];
-    const boneDark: number[] = [0.62, 0.6, 0.55];
-    const ppx = -dirZ, ppz = dirX;
-    // Cranium + jaw boulders.
-    this.addSphere(verts, idxs, x, 1.0, z, 1.5, 8, bone);
-    this.addEllipsoid(verts, idxs, x, 0.35, z, 1.2, 0.55, 0.9, 7, boneDark);
-    // Glowing eye sockets — cyan pinpricks in the dark headland.
-    for (const side of [-1, 1]) {
-      const ex = x + ppz * side * 0.55;
-      const ez = z - ppx * side * 0.55;
-      this.addSphere(verts, idxs, ex, 1.25, ez, 0.16, 6, [0.4, 1.0, 0.9]);
-    }
-    // Nose notch.
-    this.addSphere(verts, idxs, x + dirX * 0.4, 0.8, z + dirZ * 0.4, 0.18, 5, boneDark);
   }
   private addCoinPile(verts: number[], idxs: number[], x: number, z: number) {
     const gold: number[] = [1.0, 0.8, 0.25];
@@ -5498,6 +5536,50 @@ void main() { FragColor = texture(uTex, vUV); }`;
     this.addSphere(verts, idxs, x - 1.1 * s, 4.6 * s, z, 1.8 * s, 8, leafLight);
     this.addSphere(verts, idxs, x + 1.1 * s, 4.6 * s, z, 1.8 * s, 8, leafLight);
     this.addSphere(verts, idxs, x, 5.3 * s, z, 2.0 * s, 8, leafLight);
+  }
+  /** Mossy-rock cave arch the track drives through: a short torus tube
+   *  standing over the road, open at both ends. The hole clears the cars, the
+   *  tube's inner surface (facing the hole) is near-black so the cave reads
+   *  dark inside, and the outer shell is green rock. The road passes straight
+   *  through the hole, so it's a tunnel you can see out the far side of. */
+  private addCaveTunnel(verts: number[], idxs: number[], cx: number, cz: number, dirX: number, dirZ: number, roadHalfWidth: number) {
+    const nx = -dirZ, nz = dirX;                 // across the road (left)
+    const R = roadHalfWidth + 5.5;               // hole radius — cars clear it
+    const r = 3.6;                               // rock tube radius
+    const segT = 18;                             // segments around the hole
+    const segP = 12;                             // segments around the tube
+    const rock: [number, number, number] = [0.34, 0.52, 0.28];
+    const cave: [number, number, number] = [0.055, 0.07, 0.055];
+    const base = verts.length / 11;
+    const stride = segP + 1;
+    for (let i = 0; i <= segT; i++) {
+      const t = (i / segT) * TAU;
+      const ct = Math.cos(t), st = Math.sin(t);
+      const rx = nx * ct, ry = st, rz = nz * ct; // radial (outward from hole)
+      for (let j = 0; j <= segP; j++) {
+        const p = (j / segP) * TAU;
+        const cp = Math.cos(p), sp = Math.sin(p);
+        // Outward tube normal = radial·cosφ + roadDir·sinφ.
+        const Nx = rx * cp + dirX * sp;
+        const Ny = ry * cp;
+        const Nz = rz * cp + dirZ * sp;
+        const px = cx + nx * ct * R + rx * r * cp + dirX * r * sp;
+        const py = ry * R + ry * r * cp;
+        const pz = cz + nz * ct * R + rz * r * cp + dirZ * r * sp;
+        const c = cp >= 0 ? rock : cave;
+        verts.push(px, py, pz, Nx, Ny, Nz, c[0], c[1], c[2], i / segT, j / segP);
+      }
+    }
+    for (let i = 0; i < segT; i++) {
+      for (let j = 0; j < segP; j++) {
+        const a0 = base + i * stride + j;
+        const b0 = a0 + 1;
+        const c0 = a0 + stride;
+        const d0 = c0 + 1;
+        idxs.push(a0, b0, c0);
+        idxs.push(c0, b0, d0);
+      }
+    }
   }
   private addMushroomScenery(verts: number[], idxs: number[], flatVerts: number[], flatIdxs: number[]) {
     const pts = this._trackPoints;
@@ -5529,12 +5611,14 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
       if (wallIdx++ > (this.lowQuality ? 30 : 60)) break;
     }
-    // ── The castle — a Mario-64 style keep at the loop's centre: a central
-    // tower behind a wide stone keep, two tall round towers with red cone
-    // roofs, arched door, drawbridge over a moat, gold star above the gate.
+    // ── The castle — a GIANT Mario-64 style keep at the loop's centre: a
+    // central tower behind a wide stone keep, two tall round towers with red
+    // cone roofs, arched door, drawbridge over a moat, gold star above the
+    // gate. Scaled up so it dominates the infield like the N64 castle.
     const cx = 0, cz = 0;
+    const sc = 3.0;
     // Moat — a big blue water disc under the raised stone platform.
-    const moatR = 58;
+    const moatR = 58 * sc;
     const mSegs = 26;
     for (let k = 0; k < mSegs; k++) {
       const a0 = (k / mSegs) * TAU, a1 = ((k + 1) / mSegs) * TAU;
@@ -5544,65 +5628,65 @@ void main() { FragColor = texture(uTex, vUV); }`;
         [cx + Math.cos(a1) * moatR, -0.32, cz + Math.sin(a1) * moatR], water);
     }
     // Raised stone platform.
-    this.addBox(verts, idxs, cx, 1.1, cz, 80, 2.2, 80, stoneDark);
+    this.addBox(verts, idxs, cx, 1.1 * sc, cz, 80 * sc, 2.2 * sc, 80 * sc, stoneDark);
     // Compound wall around the platform with merlons.
-    const wallR = 47;
+    const wallR = 47 * sc;
     for (let k = 0; k < 22; k++) {
       const a = (k / 22) * TAU;
       const wx = cx + Math.cos(a) * wallR;
       const wz = cz + Math.sin(a) * wallR;
-      this.addBox(verts, idxs, wx, 2.0, wz, 5.6, 4.0, 0.8, stoneDark);
-      this.addBox(verts, idxs, wx - 1.6, 4.6, wz, 1.2, 1.2, 0.9, stone);
-      this.addBox(verts, idxs, wx + 1.6, 4.6, wz, 1.2, 1.2, 0.9, stone);
+      this.addBox(verts, idxs, wx, 2.0 * sc, wz, 5.6 * sc, 4.0 * sc, 0.8 * sc, stoneDark);
+      this.addBox(verts, idxs, wx - 1.6 * sc, 4.6 * sc, wz, 1.2 * sc, 1.2 * sc, 0.9 * sc, stone);
+      this.addBox(verts, idxs, wx + 1.6 * sc, 4.6 * sc, wz, 1.2 * sc, 1.2 * sc, 0.9 * sc, stone);
     }
     // Central keep — wide stone box facing +x (toward the start straight).
-    this.addBox(verts, idxs, cx, 17, cz, 44, 34, 26, stone);
+    this.addBox(verts, idxs, cx, 17 * sc, cz, 44 * sc, 34 * sc, 26 * sc, stone);
     // Keep battlements + trim.
-    for (let bz = -12; bz <= 12; bz += 4) {
-      this.addBox(verts, idxs, cx - 20, 35, cz + bz, 1.6, 1.8, 1.4, stoneDark);
-      this.addBox(verts, idxs, cx + 20, 35, cz + bz, 1.6, 1.8, 1.4, stoneDark);
+    for (let bz = -12 * sc; bz <= 12 * sc; bz += 4 * sc) {
+      this.addBox(verts, idxs, cx - 20 * sc, 35 * sc, cz + bz, 1.6 * sc, 1.8 * sc, 1.4 * sc, stoneDark);
+      this.addBox(verts, idxs, cx + 20 * sc, 35 * sc, cz + bz, 1.6 * sc, 1.8 * sc, 1.4 * sc, stoneDark);
     }
-    this.addBox(verts, idxs, cx - 20, 33.5, cz, 1.2, 0.8, 28, cream);
-    this.addBox(verts, idxs, cx + 20, 33.5, cz, 1.2, 0.8, 28, cream);
+    this.addBox(verts, idxs, cx - 20 * sc, 33.5 * sc, cz, 1.2 * sc, 0.8 * sc, 28 * sc, cream);
+    this.addBox(verts, idxs, cx + 20 * sc, 33.5 * sc, cz, 1.2 * sc, 0.8 * sc, 28 * sc, cream);
     // Side towers — round stone towers with red cone roofs + gold finials.
     for (const sx of [-1, 1]) {
-      const tx = cx + sx * 21, tz = cz;
-      this.addCylinder(verts, idxs, tx, 0, tz, 7.2, 52, 12, stone);
-      this.addCylinder(verts, idxs, tx, 0, tz, 7.9, 1.4, 12, cream);
-      this.addCone(verts, idxs, tx, 52, tz, 7.9, 15, 12, roofRed);
-      this.addCone(verts, idxs, tx, 67, tz, 0.9, 6, 8, [0.35, 0.25, 0.14]);
-      this.addSphere(verts, idxs, tx, 73.2, tz, 1.0, 7, gold);
+      const tx = cx + sx * 21 * sc, tz = cz;
+      this.addCylinder(verts, idxs, tx, 0, tz, 7.2 * sc, 52 * sc, 12, stone);
+      this.addCylinder(verts, idxs, tx, 0, tz, 7.9 * sc, 1.4 * sc, 12, cream);
+      this.addCone(verts, idxs, tx, 52 * sc, tz, 7.9 * sc, 15 * sc, 12, roofRed);
+      this.addCone(verts, idxs, tx, 67 * sc, tz, 0.9 * sc, 6 * sc, 8, [0.35, 0.25, 0.14]);
+      this.addSphere(verts, idxs, tx, 73.2 * sc, tz, 1.0 * sc, 7, gold);
     }
     // Central tower rising from behind the keep, with a taller spire + flag.
-    this.addCylinder(verts, idxs, cx, 0, cz, 9.4, 72, 14, stoneDark);
-    this.addCone(verts, idxs, cx, 72, cz, 9.9, 20, 14, roofRed);
-    this.addCone(verts, idxs, cx, 92, cz, 1.1, 9, 8, [0.35, 0.25, 0.14]);
-    this.addSphere(verts, idxs, cx, 101.5, cz, 1.4, 8, gold);
+    this.addCylinder(verts, idxs, cx, 0, cz, 9.4 * sc, 72 * sc, 14, stoneDark);
+    this.addCone(verts, idxs, cx, 72 * sc, cz, 9.9 * sc, 20 * sc, 14, roofRed);
+    this.addCone(verts, idxs, cx, 92 * sc, cz, 1.1 * sc, 9 * sc, 8, [0.35, 0.25, 0.14]);
+    this.addSphere(verts, idxs, cx, 101.5 * sc, cz, 1.4 * sc, 8, gold);
     // White pennant on the tip with a red star.
-    this.addBox(verts, idxs, cx + 3.2, 98, cz, 6.4, 2.2, 0.3, [0.95, 0.95, 0.97]);
-    this.addBox(verts, idxs, cx + 6.2, 98, cz, 0.3, 2.2, 0.3, [0.9, 0.9, 0.93]);
+    this.addBox(verts, idxs, cx + 3.2 * sc, 98 * sc, cz, 6.4 * sc, 2.2 * sc, 0.3 * sc, [0.95, 0.95, 0.97]);
+    this.addBox(verts, idxs, cx + 6.2 * sc, 98 * sc, cz, 0.3 * sc, 2.2 * sc, 0.3 * sc, [0.9, 0.9, 0.93]);
     // Arched entrance: big dark door + gold power star above it (facing +x).
-    this.addBox(verts, idxs, cx + 22.4, 9, cz, 0.8, 18, 10, [0.1, 0.08, 0.07]);
-    this.addBox(verts, idxs, cx + 22.4, 19.5, cz, 0.8, 2.6, 11, cream);
-    this.addSphere(verts, idxs, cx + 22.9, 27, cz, 1.8, 9, gold);
-    this.addSphere(verts, idxs, cx + 22.9, 28.8, cz, 0.7, 7, [1.0, 0.95, 0.6]);
+    this.addBox(verts, idxs, cx + 22.4 * sc, 9 * sc, cz, 0.8 * sc, 18 * sc, 10 * sc, [0.1, 0.08, 0.07]);
+    this.addBox(verts, idxs, cx + 22.4 * sc, 19.5 * sc, cz, 0.8 * sc, 2.6 * sc, 11 * sc, cream);
+    this.addSphere(verts, idxs, cx + 22.9 * sc, 27 * sc, cz, 1.8 * sc, 9, gold);
+    this.addSphere(verts, idxs, cx + 22.9 * sc, 28.8 * sc, cz, 0.7 * sc, 7, [1.0, 0.95, 0.6]);
     // Wooden drawbridge — stepped planks down from the door, plus a short
     // bridge across the moat.
     for (let k = 0; k < 4; k++) {
-      this.addBox(verts, idxs, cx + 23.5 + k * 2.1, 1.0 - k * 0.35, cz, 2.2, 0.5, 6.5, wood);
+      this.addBox(verts, idxs, cx + (23.5 + k * 2.1) * sc, (1.0 - k * 0.35) * sc, cz, 2.2 * sc, 0.5 * sc, 6.5 * sc, wood);
     }
-    this.addBox(verts, idxs, cx + 34, 0.7, cz, 7, 0.7, 6, wood);
+    this.addBox(verts, idxs, cx + 34 * sc, 0.7 * sc, cz, 7 * sc, 0.7 * sc, 6 * sc, wood);
     // Windows on the keep and towers.
-    for (const wz of [-7, -2.5, 2.5, 7]) {
-      this.addBox(verts, idxs, cx + 19.6, 24, cz + wz, 0.4, 4.5, 2.2, [0.12, 0.1, 0.14]);
-      this.addBox(verts, idxs, cx - 19.6, 24, cz + wz, 0.4, 4.5, 2.2, [0.12, 0.1, 0.14]);
+    for (const wz of [-7 * sc, -2.5 * sc, 2.5 * sc, 7 * sc]) {
+      this.addBox(verts, idxs, cx + 19.6 * sc, 24 * sc, cz + wz, 0.4 * sc, 4.5 * sc, 2.2 * sc, [0.12, 0.1, 0.14]);
+      this.addBox(verts, idxs, cx - 19.6 * sc, 24 * sc, cz + wz, 0.4 * sc, 4.5 * sc, 2.2 * sc, [0.12, 0.1, 0.14]);
     }
     for (const sx of [-1, 1]) {
-      const tx = cx + sx * 21;
+      const tx = cx + sx * 21 * sc;
       for (const ang of [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5]) {
-        const wx = tx + Math.cos(ang) * 7.4;
-        const wz = cz + Math.sin(ang) * 7.4;
-        this.addBox(verts, idxs, wx, 20, wz, 0.9, 5, 1.6, [0.12, 0.1, 0.14]);
+        const wx = tx + Math.cos(ang) * 7.4 * sc;
+        const wz = cz + Math.sin(ang) * 7.4 * sc;
+        this.addBox(verts, idxs, wx, 20 * sc, wz, 0.9 * sc, 5 * sc, 1.6 * sc, [0.12, 0.1, 0.14]);
       }
     }
     // Mario-style round trees scattered across the courtyard and beyond.
@@ -5620,19 +5704,21 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
       if (treeIdx > (this.lowQuality ? 26 : 54)) break;
     }
-    // Rows of trees lining the infield, framing the castle approach.
+    // Rows of trees lining the infield, framing the castle approach (moved
+    // out past the enlarged moat/wall so they ring the lawn, not the keep).
     for (let k = 0; k < 16; k++) {
       const a = (k / 16) * TAU + 0.1;
-      const r = 118 + (k % 3) * 10;
-      this.addMarioTree(verts, idxs, Math.cos(a) * r, Math.sin(a) * r, 1.4 + (k % 2) * 0.5);
+      const r = 250 + (k % 3) * 14;
+      this.addMarioTree(verts, idxs, Math.cos(a) * r, Math.sin(a) * r, 1.6 + (k % 2) * 0.6);
     }
-    // Bushes — little green puffs near the walls.
-    for (let k = 0; k < 26; k++) {
+    // Bushes — little green puffs scattered across the lawn between the wall
+    // and the tree ring.
+    for (let k = 0; k < 30; k++) {
       const a = Math.random() * TAU;
-      const r = 30 + Math.random() * 100;
+      const r = 150 + Math.random() * 95;
       const bx = Math.cos(a) * r + (Math.random() - 0.5) * 14;
       const bz = Math.sin(a) * r + (Math.random() - 0.5) * 14;
-      if (Math.hypot(bx, bz) < 30) continue;
+      if (Math.hypot(bx, bz) < 150) continue;
       this.addSphere(verts, idxs, bx, 0.7, bz, 0.9 + Math.random() * 0.7, 7, [0.16, 0.6, 0.24]);
     }
     // Golden '?'-block clusters beside the road — squat yellow boxes.
@@ -5648,10 +5734,23 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addBox(verts, idxs, bx, 1.4, bz, 2.9, 0.5, 2.9, [0.7, 0.55, 0.12]);
       if (blockIdx++ > (this.lowQuality ? 5 : 12)) break;
     }
-    // Rolling green hills on the horizon.
+    // Cave tunnels: mossy rock arches the road drives through, replacing the
+    // old giant green hills that could land on the circuit and block the view.
+    // Each cave is open at both ends so the far side stays visible, with a
+    // near-black interior so it reads dark inside.
+    const caveCount = this.lowQuality ? 2 : 4;
+    for (let k = 0; k < caveCount; k++) {
+      const frac = (k + 0.5) / caveCount;
+      const ci = Math.floor(frac * pts.length) % pts.length;
+      if (ci < pts.length * 0.08 || ci > pts.length * 0.92) continue;
+      const p = pts[ci];
+      this.addCaveTunnel(verts, idxs, p.x, p.z, p.dirX, p.dirZ, p.width / 2);
+    }
+    // Distant green hills pushed well past the road so they never overlap the
+    // circuit — pure horizon scenery now.
     for (let k = 0; k < 7; k++) {
       const a = (k / 7) * TAU + Math.random() * 0.5;
-      const r = 320 + Math.random() * 130;
+      const r = 470 + Math.random() * 90;
       const hx = Math.cos(a) * r;
       const hz = Math.sin(a) * r;
       const hs = 26 + Math.random() * 22;
@@ -5696,8 +5795,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
       if (wallIdx++ > (this.lowQuality ? 30 : 62)) break;
     }
     const cx = 0, cz = 0;
+    const sc = 2.8;
     // Wide moat around the castle grounds.
-    const moatR = 76;
+    const moatR = 76 * sc;
     const mSegs = 28;
     for (let k = 0; k < mSegs; k++) {
       const a0 = (k / mSegs) * TAU, a1 = ((k + 1) / mSegs) * TAU;
@@ -5707,85 +5807,86 @@ void main() { FragColor = texture(uTex, vUV); }`;
         [cx + Math.cos(a1) * moatR, -0.32, cz + Math.sin(a1) * moatR], water);
     }
     // The great white courtyard platform.
-    this.addBox(verts, idxs, cx, 1.2, cz, 108, 2.4, 108, stone);
+    this.addBox(verts, idxs, cx, 1.2 * sc, cz, 108 * sc, 2.4 * sc, 108 * sc, stone);
     // Two wooden bridges across the moat — the approach and the rear path.
     for (const bz of [-1, 1]) {
-      const bx = cx + bz * 62;
-      this.addBox(verts, idxs, bx, 0.6, cz, 26, 0.9, 9, wood);
-      this.addBox(verts, idxs, bx + bz * 6, 0.6, cz, 4, 0.8, 10, wood);
+      const bx = cx + bz * 62 * sc;
+      this.addBox(verts, idxs, bx, 0.6 * sc, cz, 26 * sc, 0.9 * sc, 9 * sc, wood);
+      this.addBox(verts, idxs, bx + bz * 6 * sc, 0.6 * sc, cz, 4 * sc, 0.8 * sc, 10 * sc, wood);
     }
     // Outer compound wall — tall white crenellated walls ringing the
     // platform, with four gold-capped guard towers at the cardinal points.
-    const wallR = 54;
+    const wallR = 54 * sc;
     for (let k = 0; k < 30; k++) {
       const a = (k / 30) * TAU;
       const wx = cx + Math.cos(a) * wallR;
       const wz = cz + Math.sin(a) * wallR;
-      this.addBox(verts, idxs, wx, 7, wz, 7, 14, 1.6, wallWhite);
-      this.addBox(verts, idxs, wx, 14.5, wz, 7, 0.7, 1.8, gold);
+      this.addBox(verts, idxs, wx, 7 * sc, wz, 7 * sc, 14 * sc, 1.6 * sc, wallWhite);
+      this.addBox(verts, idxs, wx, 14.5 * sc, wz, 7 * sc, 0.7 * sc, 1.8 * sc, gold);
       if (k % 2 === 0) {
-        this.addBox(verts, idxs, wx - 2, 15.6, wz, 1.1, 1.5, 1.8, wallShade);
-        this.addBox(verts, idxs, wx + 2, 15.6, wz, 1.1, 1.5, 1.8, wallShade);
+        this.addBox(verts, idxs, wx - 2 * sc, 15.6 * sc, wz, 1.1 * sc, 1.5 * sc, 1.8 * sc, wallShade);
+        this.addBox(verts, idxs, wx + 2 * sc, 15.6 * sc, wz, 1.1 * sc, 1.5 * sc, 1.8 * sc, wallShade);
       }
     }
     for (const [gx, gz] of [[wallR, 0], [-wallR, 0], [0, wallR], [0, -wallR]]) {
-      this.addCylinder(verts, idxs, cx + gx, 0, cz + gz, 4.4, 22, 10, wallWhite);
-      this.addCylinder(verts, idxs, cx + gx, 0, cz + gz, 4.9, 1.4, 10, gold);
-      this.addCone(verts, idxs, cx + gx, 22, cz + gz, 5.2, 9, 10, roofTeal);
-      this.addSphere(verts, idxs, cx + gx, 31.6, cz + gz, 0.8, 7, gold);
+      this.addCylinder(verts, idxs, cx + gx, 0, cz + gz, 4.4 * sc, 22 * sc, 10, wallWhite);
+      this.addCylinder(verts, idxs, cx + gx, 0, cz + gz, 4.9 * sc, 1.4 * sc, 10, gold);
+      this.addCone(verts, idxs, cx + gx, 22 * sc, cz + gz, 5.2 * sc, 9 * sc, 10, roofTeal);
+      this.addSphere(verts, idxs, cx + gx, 31.6 * sc, cz + gz, 0.8 * sc, 7, gold);
     }
     // ── The castle itself: a grand white keep with a tall central tower and
     // two flanking round towers, all under teal pyramid roofs, plus the
-    // Triforce emblazoned above the great gate (facing +x).
+    // Triforce emblazoned above the great gate (facing +x). Scaled up so it
+    // fills the centre of the circuit like OoT's Hyrule Castle.
     // Main keep — tall white stone block.
-    this.addBox(verts, idxs, cx, 23, cz, 46, 46, 34, wallWhite);
+    this.addBox(verts, idxs, cx, 23 * sc, cz, 46 * sc, 46 * sc, 34 * sc, wallWhite);
     // Keep roof — a big teal pyramid.
-    this.addCone(verts, idxs, cx, 46, cz, 26, 16, 4, roofTeal);
-    this.addCone(verts, idxs, cx, 62, cz, 2.4, 8, 4, roofDark);
-    this.addSphere(verts, idxs, cx, 70.5, cz, 1.2, 8, gold);
+    this.addCone(verts, idxs, cx, 46 * sc, cz, 26 * sc, 16 * sc, 4, roofTeal);
+    this.addCone(verts, idxs, cx, 62 * sc, cz, 2.4 * sc, 8 * sc, 4, roofDark);
+    this.addSphere(verts, idxs, cx, 70.5 * sc, cz, 1.2 * sc, 8, gold);
     // Central tower rising through the keep roof.
-    this.addCylinder(verts, idxs, cx, 0, cz, 8.6, 80, 14, wallShade);
-    this.addCylinder(verts, idxs, cx, 0, cz, 9.2, 1.6, 14, gold);
-    this.addCone(verts, idxs, cx, 80, cz, 9.6, 22, 14, roofTeal);
-    this.addCone(verts, idxs, cx, 102, cz, 1.2, 12, 8, roofDark);
-    this.addSphere(verts, idxs, cx, 114.5, cz, 1.6, 8, gold);
+    this.addCylinder(verts, idxs, cx, 0, cz, 8.6 * sc, 80 * sc, 14, wallShade);
+    this.addCylinder(verts, idxs, cx, 0, cz, 9.2 * sc, 1.6 * sc, 14, gold);
+    this.addCone(verts, idxs, cx, 80 * sc, cz, 9.6 * sc, 22 * sc, 14, roofTeal);
+    this.addCone(verts, idxs, cx, 102 * sc, cz, 1.2 * sc, 12 * sc, 8, roofDark);
+    this.addSphere(verts, idxs, cx, 114.5 * sc, cz, 1.6 * sc, 8, gold);
     // Side towers.
     for (const sx of [-1, 1]) {
-      const tx = cx + sx * 23, tz = cz;
-      this.addCylinder(verts, idxs, tx, 0, tz, 6.8, 56, 12, wallWhite);
-      this.addCylinder(verts, idxs, tx, 0, tz, 7.4, 1.4, 12, gold);
-      this.addCone(verts, idxs, tx, 56, tz, 7.6, 16, 10, roofTeal);
-      this.addCone(verts, idxs, tx, 72, tz, 0.9, 7, 8, roofDark);
-      this.addSphere(verts, idxs, tx, 79.4, tz, 0.9, 7, gold);
+      const tx = cx + sx * 23 * sc, tz = cz;
+      this.addCylinder(verts, idxs, tx, 0, tz, 6.8 * sc, 56 * sc, 12, wallWhite);
+      this.addCylinder(verts, idxs, tx, 0, tz, 7.4 * sc, 1.4 * sc, 12, gold);
+      this.addCone(verts, idxs, tx, 56 * sc, tz, 7.6 * sc, 16 * sc, 10, roofTeal);
+      this.addCone(verts, idxs, tx, 72 * sc, tz, 0.9 * sc, 7 * sc, 8, roofDark);
+      this.addSphere(verts, idxs, tx, 79.4 * sc, tz, 0.9 * sc, 7, gold);
     }
     // Great gate: white arch on the front face with the golden Triforce above.
-    this.addBox(verts, idxs, cx + 23.6, 9, cz, 1.2, 18, 12, wallShade);
-    this.addBox(verts, idxs, cx + 23.6, 19.5, cz, 1.2, 3, 13, gold);
-    this.addBox(verts, idxs, cx + 23.6, 11, cz - 6, 1.2, 16, 2.6, wallWhite);
-    this.addBox(verts, idxs, cx + 23.6, 11, cz + 6, 1.2, 16, 2.6, wallWhite);
+    this.addBox(verts, idxs, cx + 23.6 * sc, 9 * sc, cz, 1.2 * sc, 18 * sc, 12 * sc, wallShade);
+    this.addBox(verts, idxs, cx + 23.6 * sc, 19.5 * sc, cz, 1.2 * sc, 3 * sc, 13 * sc, gold);
+    this.addBox(verts, idxs, cx + 23.6 * sc, 11 * sc, cz - 6 * sc, 1.2 * sc, 16 * sc, 2.6 * sc, wallWhite);
+    this.addBox(verts, idxs, cx + 23.6 * sc, 11 * sc, cz + 6 * sc, 1.2 * sc, 16 * sc, 2.6 * sc, wallWhite);
     // Triforce — three gold pyramids above the gate.
-    this.addTriforcePiece(verts, idxs, cx + 24.3, cz, 5.4);
-    this.addTriforcePiece(verts, idxs, cx + 24.3, cz - 4.6, 3.2);
-    this.addTriforcePiece(verts, idxs, cx + 24.3, cz + 4.6, 3.2);
+    this.addTriforcePiece(verts, idxs, cx + 24.3 * sc, cz, 5.4 * sc);
+    this.addTriforcePiece(verts, idxs, cx + 24.3 * sc, cz - 4.6 * sc, 3.2 * sc);
+    this.addTriforcePiece(verts, idxs, cx + 24.3 * sc, cz + 4.6 * sc, 3.2 * sc);
     // Windows on the keep and side towers.
-    for (const wz of [-8, -3, 3, 8]) {
-      this.addBox(verts, idxs, cx + 22.8, 26, cz + wz, 0.5, 5, 2.4, wallDark);
-      this.addBox(verts, idxs, cx - 22.8, 26, cz + wz, 0.5, 5, 2.4, wallDark);
+    for (const wz of [-8 * sc, -3 * sc, 3 * sc, 8 * sc]) {
+      this.addBox(verts, idxs, cx + 22.8 * sc, 26 * sc, cz + wz, 0.5 * sc, 5 * sc, 2.4 * sc, wallDark);
+      this.addBox(verts, idxs, cx - 22.8 * sc, 26 * sc, cz + wz, 0.5 * sc, 5 * sc, 2.4 * sc, wallDark);
     }
     for (const sx of [-1, 1]) {
-      const tx = cx + sx * 23;
+      const tx = cx + sx * 23 * sc;
       for (const ang of [0, Math.PI * 0.5, Math.PI, Math.PI * 1.5]) {
-        const wx = tx + Math.cos(ang) * 7.0;
-        const wz = cz + Math.sin(ang) * 7.0;
-        this.addBox(verts, idxs, wx, 22, wz, 0.9, 5.4, 1.8, wallDark);
+        const wx = tx + Math.cos(ang) * 7.0 * sc;
+        const wz = cz + Math.sin(ang) * 7.0 * sc;
+        this.addBox(verts, idxs, wx, 22 * sc, wz, 0.9 * sc, 5.4 * sc, 1.8 * sc, wallDark);
       }
     }
     // Courtyard fountain between the gate and the keep — round basin, a
     // column of water, gold rim.
-    this.addCylinder(verts, idxs, cx + 14, 0.6, cz, 4.6, 1.2, 12, wallShade);
-    this.addCylinder(verts, idxs, cx + 14, 1.2, cz, 4.0, 0.5, 12, water);
-    this.addCylinder(verts, idxs, cx + 14, 1.7, cz, 1.1, 3.4, 10, wallWhite);
-    this.addSphere(verts, idxs, cx + 14, 5.2, cz, 0.7, 7, gold);
+    this.addCylinder(verts, idxs, cx + 14 * sc, 0.6 * sc, cz, 4.6 * sc, 1.2 * sc, 12, wallShade);
+    this.addCylinder(verts, idxs, cx + 14 * sc, 1.2 * sc, cz, 4.0 * sc, 0.5 * sc, 12, water);
+    this.addCylinder(verts, idxs, cx + 14 * sc, 1.7 * sc, cz, 1.1 * sc, 3.4 * sc, 10, wallWhite);
+    this.addSphere(verts, idxs, cx + 14 * sc, 5.2 * sc, cz, 0.7 * sc, 7, gold);
     // Round Hyrule trees scattered across the field and lining the approach.
     let treeIdx = 0;
     for (let i = 0; i < pts.length; i += (this.lowQuality ? 12 : 6)) {
@@ -5801,30 +5902,32 @@ void main() { FragColor = texture(uTex, vUV); }`;
       }
       if (treeIdx > (this.lowQuality ? 26 : 54)) break;
     }
-    // Rows of trees framing the castle approach.
+    // Rows of trees framing the castle approach (moved out past the enlarged
+    // wall/moat so they ring the field, not the keep).
     for (let k = 0; k < 18; k++) {
       const a = (k / 18) * TAU + 0.06;
-      const r = 128 + (k % 3) * 11;
-      this.addMarioTree(verts, idxs, Math.cos(a) * r, Math.sin(a) * r, 1.4 + (k % 2) * 0.5);
+      const r = 255 + (k % 3) * 13;
+      this.addMarioTree(verts, idxs, Math.cos(a) * r, Math.sin(a) * r, 1.5 + (k % 2) * 0.6);
     }
-    // Golden bushes.
-    for (let k = 0; k < 24; k++) {
+    // Golden bushes scattered across the field between the wall and the trees.
+    for (let k = 0; k < 28; k++) {
       const a = Math.random() * TAU;
-      const r = 34 + Math.random() * 110;
+      const r = 165 + Math.random() * 90;
       const bx = Math.cos(a) * r + (Math.random() - 0.5) * 14;
       const bz = Math.sin(a) * r + (Math.random() - 0.5) * 14;
-      if (Math.hypot(bx, bz) < 30) continue;
+      if (Math.hypot(bx, bz) < 165) continue;
       this.addSphere(verts, idxs, bx, 0.7, bz, 0.9 + Math.random() * 0.7, 7, [0.24, 0.5, 0.18]);
     }
-    // Rolling golden-green hills on the horizon.
-    for (let k = 0; k < 8; k++) {
-      const a = (k / 8) * TAU + Math.random() * 0.5;
-      const r = 320 + Math.random() * 140;
-      const hx = Math.cos(a) * r;
-      const hz = Math.sin(a) * r;
-      const hs = 24 + Math.random() * 24;
-      this.addEllipsoid(verts, idxs, hx, hs * 0.32, hz, hs * 0.9, hs * 0.68, hs * 0.9, 10, [0.26, 0.48, 0.18]);
-      this.addEllipsoid(verts, idxs, hx, hs * 0.28, hz, hs * 0.8, hs * 0.52, hs * 0.8, 8, [0.34, 0.56, 0.22]);
+    // Cave tunnels over the road — the same mossy arches as Mushroom Castle,
+    // replacing the old green hills that could land on the circuit and block
+    // the view. Open at both ends, dark inside.
+    const caveCount = this.lowQuality ? 2 : 3;
+    for (let k = 0; k < caveCount; k++) {
+      const frac = (k + 0.5) / caveCount;
+      const ci = Math.floor(frac * pts.length) % pts.length;
+      if (ci < pts.length * 0.08 || ci > pts.length * 0.92) continue;
+      const p = pts[ci];
+      this.addCaveTunnel(verts, idxs, p.x, p.z, p.dirX, p.dirZ, p.width / 2);
     }
   }
   private addCityScenery(verts: number[], idxs: number[]) {
@@ -6442,12 +6545,12 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // the distance — never up against the road.
     const beachA: [number, number, number] = [0.93, 0.84, 0.60];
     const beachB: [number, number, number] = [0.87, 0.78, 0.55];
-    for (let i = 0; i < pts.length; i += 2) {
+    for (let i = 0; i < pts.length; i += 1) {
       const p = pts[i];
       const n = pts[(i + 1) % pts.length];
       const ppx = -p.dirZ, ppz = p.dirX;
       const npx = -n.dirZ, npz = n.dirX;
-      const seg = Math.floor(i / 2);
+      const seg = i;
       const walkColor = seg % 2 === 0 ? walkA : walkB;
       const beachColor = seg % 2 === 0 ? beachA : beachB;
       for (const side of [-1, 1]) {
@@ -8833,9 +8936,17 @@ void main() { FragColor = texture(uTex, vUV); }`;
       // the artwork a defined vinyl edge instead of a single flat colour that
       // bleeds into the paint. The rim sits a hair lower so the fill overlaps
       // its centre and only the outline shows around the silhouette.
-      const keyline = [0.05, 0.055, 0.075];
-      const rimPad = 0.016;
-      const rimScale = 1.09;
+      const keyline = [0.42, 0.43, 0.46];
+      const rimPad = 0.009;
+      const rimScale = 1.05;
+      // Full-body wrap base for the big livery styles: tints the whole
+      // hood/roof/deck (right down the shoulders) a darker shade of the decal
+      // tint, so the full-brightness pattern on top reads as a car-wide vinyl
+      // wrap instead of a few shapes floating on bare paint. Drawn first at
+      // the lowest lift so every stripe, spot and flame sits above it.
+      if (layout.wrapBase) {
+        this.addSurfacePlate(gv, gi, 0.16, 0, 2.55, 0.58, carBodyTopY, [0.78, 0.78, 0.84], 0.0015, bodyClamp, [-1.05, 1.42]);
+      }
       for (const [cx, , l, , d, z] of layout.flank) {
         this.addSurfacePlate(gv, gi, cx, z, l + rimPad, d + rimPad, carBodyTopY, keyline, 0.004, bodyClamp);
         this.addSurfacePlate(gv, gi, cx, -z, l + rimPad, d + rimPad, carBodyTopY, keyline, 0.004, bodyClamp);
@@ -10861,7 +10972,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   private _trackCenterZ = 0;
   private _animalsVao!: WebGLVertexArrayObject;
   private _animalsBuf!: WebGLBuffer;
-  private _animals: { kind: 0 | 1 | 2 | 3 | 4 | 5; x: number; z: number; yaw: number; size: number; phase: number; retr: number; wx?: number; wz?: number; wPause?: number }[] = [];
+  private _animals: { kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11; x: number; z: number; yaw: number; size: number; phase: number; retr: number; wx?: number; wz?: number; wPause?: number }[] = [];
   private _tumbleweeds: { x: number; z: number; vx: number; vz: number; spin: number; phase: number; size: number }[] = [];
   private _dustDevils: { x: number; z: number; vx: number; vz: number; phase: number; size: number; life: number; maxLife: number }[] = [];
   private _windVao!: WebGLVertexArrayObject;
@@ -10956,19 +11067,46 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // They pick random targets in a ring around the castle and amble between
     // them with pauses (see updateWanderer).
     if (isMushroom) {
-      const chCount = this.lowQuality ? 6 : 12;
+      // Toads (4), Bob-ombs (5), Boos (6), Koopas (7) and Goombas (8) — the
+      // Mushroom Kingdom cast wandering the castle lawn between the enlarged
+      // compound wall and the tree ring.
+      const chCount = this.lowQuality ? 10 : 18;
       for (let i = 0; i < chCount; i++) {
-        const isToad = i % 2 === 0;
+        const kind = (i % 5) + 4; // cycles 4..8
         const ang = (i / chCount) * TAU + Math.random() * 0.6;
-        const rad = 62 + Math.random() * 78;
+        const rad = 150 + Math.random() * 85;
         const ax = Math.cos(ang) * rad;
         const az = Math.sin(ang) * rad;
+        const sizeByKind: Record<number, number> = { 4: 0.8, 5: 0.65, 6: 0.85, 7: 0.75, 8: 0.7 };
         this._animals.push({
-          kind: isToad ? 4 : 5,
+          kind: kind as 4 | 5 | 6 | 7 | 8,
           x: ax,
           z: az,
           yaw: Math.random() * Math.PI * 2,
-          size: isToad ? 0.75 + Math.random() * 0.2 : 0.6 + Math.random() * 0.15,
+          size: (sizeByKind[kind] ?? 0.75) * (0.9 + Math.random() * 0.25),
+          phase: Math.random() * Math.PI * 2,
+          retr: 0,
+          wx: ax, wz: az, wPause: 0.5 + Math.random() * 2,
+        });
+      }
+    }
+    if (isHyrule) {
+      // Gorons (9), Horses (10) and Cuccos (11) — the Hyrule Field cast
+      // wandering the lawn between the enlarged castle wall and the tree ring.
+      const chCount = this.lowQuality ? 9 : 15;
+      for (let i = 0; i < chCount; i++) {
+        const kind = (i % 3) + 9; // cycles 9..11
+        const ang = (i / chCount) * TAU + Math.random() * 0.6;
+        const rad = 165 + Math.random() * 85;
+        const ax = Math.cos(ang) * rad;
+        const az = Math.sin(ang) * rad;
+        const sizeByKind: Record<number, number> = { 9: 1.0, 10: 1.15, 11: 0.55 };
+        this._animals.push({
+          kind: kind as 9 | 10 | 11,
+          x: ax,
+          z: az,
+          yaw: Math.random() * Math.PI * 2,
+          size: (sizeByKind[kind] ?? 0.8) * (0.9 + Math.random() * 0.2),
           phase: Math.random() * Math.PI * 2,
           retr: 0,
           wx: ax, wz: az, wPause: 0.5 + Math.random() * 2,
@@ -11019,7 +11157,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
         }
       }
     }
-    if (isHighCountry || isAntarctica || isMushroom) {
+    if (isHighCountry || isAntarctica || isMushroom || isHyrule) {
       this._animalsVao = gl.createVertexArray()!;
       gl.bindVertexArray(this._animalsVao);
       this._animalsBuf = gl.createBuffer()!;
@@ -11633,7 +11771,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
     // Wandering characters (Toads / Bob-ombs) move between targets in the
     // castle courtyard; update them before drawing so motion is frame-smooth.
     for (const a of this._animals) {
-      if (a.kind === 4 || a.kind === 5) this.updateWanderer(a, dt);
+      if (a.kind >= 4 && a.kind <= 11) this.updateWanderer(a, dt);
     }
     // Matches the animal GL buffer size (26 animals × 10 boxes × 36 floats) —
     // the real worst case (13 deer + marmots) is far below this, so the scratch
@@ -11802,6 +11940,112 @@ void main() { FragColor = texture(uTex, vUV); }`;
           w = this.pushBoxVerts(data, w, fx2, 0.07 * s, fz2, 0.18 * s, 0.14 * s, 0.14 * s, 0.16, 0.16, 0.18);
         }
       }
+      if (a.kind === 6) {
+        // Boo — a white ghost floating above the lawn with a slow bob, big
+        // dark eyes and a wide mouth.
+        const float = Math.sin(t * 2.6 + a.phase) * 0.12 * s;
+        const by = 0.5 * s + float;
+        const [bx0, bz0] = L(0, 0);
+        w = this.pushBoxVerts(data, w, bx0, by, bz0, 0.5 * s, 0.72 * s, 0.5 * s, 0.96, 0.97, 0.99);
+        for (const sideL of [-1, 1]) {
+          const [ex, ez] = L(0.26 * s, sideL * 0.12 * s);
+          w = this.pushBoxVerts(data, w, ex, by + 0.1 * s, ez, 0.1 * s, 0.2 * s, 0.08 * s, 0.08, 0.09, 0.13);
+        }
+        const [mx, mz] = L(0.3 * s, 0);
+        w = this.pushBoxVerts(data, w, mx, by - 0.12 * s, mz, 0.08 * s, 0.1 * s, 0.22 * s, 0.05, 0.06, 0.1);
+      }
+      if (a.kind === 7) {
+        // Koopa Troopa — green shell with a pale head peeking out front and
+        // little legs scuttling along.
+        const [bx0, bz0] = L(0, 0);
+        w = this.pushBoxVerts(data, w, bx0, 0.3 * s, bz0, 0.52 * s, 0.36 * s, 0.5 * s, 0.16, 0.62, 0.26);
+        const [hx, hz] = L(0.32 * s, 0);
+        w = this.pushBoxVerts(data, w, hx, 0.32 * s, hz, 0.2 * s, 0.22 * s, 0.2 * s, 0.95, 0.85, 0.5);
+        for (const sideL of [-1, 1]) {
+          const [lx2, lz2] = L(0.05 * s, sideL * 0.18 * s);
+          w = this.pushBoxVerts(data, w, lx2, 0.06 * s, lz2, 0.14 * s, 0.12 * s, 0.14 * s, 0.5, 0.42, 0.2);
+        }
+      }
+      if (a.kind === 8) {
+        // Goomba — brown cap over a tan face with angry dark eyes and feet.
+        const [bx0, bz0] = L(0, 0);
+        w = this.pushBoxVerts(data, w, bx0, 0.62 * s, bz0, 0.5 * s, 0.24 * s, 0.5 * s, 0.5, 0.26, 0.12);
+        w = this.pushBoxVerts(data, w, bx0, 0.4 * s, bz0, 0.46 * s, 0.36 * s, 0.46 * s, 0.72, 0.5, 0.28);
+        for (const sideL of [-1, 1]) {
+          const [ex, ez] = L(0.24 * s, sideL * 0.1 * s);
+          w = this.pushBoxVerts(data, w, ex, 0.46 * s, ez, 0.07 * s, 0.13 * s, 0.06 * s, 0.05, 0.04, 0.04);
+        }
+        for (const sideL of [-1, 1]) {
+          const [fx, fz] = L(-0.08 * s, sideL * 0.16 * s);
+          w = this.pushBoxVerts(data, w, fx, 0.06 * s, fz, 0.2 * s, 0.12 * s, 0.2 * s, 0.22, 0.16, 0.1);
+        }
+      }
+      if (a.kind === 9) {
+        // Goron — a big round brown rock-man with a tan belly, arms and a face.
+        const bob = Math.abs(Math.sin(t * 1.4 + a.phase)) * 0.04 * s;
+        const [bx0, bz0] = L(0, 0);
+        w = this.pushBoxVerts(data, w, bx0, 0.72 * s + bob, bz0, 0.9 * s, 0.9 * s, 0.7 * s, 0.45, 0.3, 0.16);
+        const [fx, fz] = L(0.3 * s, 0);
+        w = this.pushBoxVerts(data, w, fx, 0.66 * s + bob, fz, 0.18 * s, 0.5 * s, 0.4 * s, 0.72, 0.55, 0.34);
+        for (const sideL of [-1, 1]) {
+          const [ex, ez] = L(0.44 * s, sideL * 0.15 * s);
+          w = this.pushBoxVerts(data, w, ex, 0.92 * s + bob, ez, 0.1 * s, 0.14 * s, 0.08 * s, 0.08, 0.06, 0.05);
+        }
+        for (const sideL of [-1, 1]) {
+          const [ax, az] = L(0.02 * s, sideL * 0.42 * s);
+          w = this.pushBoxVerts(data, w, ax, 0.6 * s + bob, az, 0.3 * s, 0.3 * s, 0.22 * s, 0.45, 0.3, 0.16);
+        }
+        for (const sideL of [-1, 1]) {
+          const [fx2, fz2] = L(-0.1 * s, sideL * 0.24 * s);
+          w = this.pushBoxVerts(data, w, fx2, 0.12 * s, fz2, 0.28 * s, 0.24 * s, 0.26 * s, 0.35, 0.22, 0.12);
+        }
+      }
+      if (a.kind === 10) {
+        // Horse — brown body with a neck, head, four legs and a tail, grazing
+        // the field with a subtle head bob.
+        const graze = Math.max(0, Math.sin(t * 0.5 + a.phase) - 0.55) * 2.2;
+        const [bx0, bz0] = L(0, 0);
+        w = this.pushBoxVerts(data, w, bx0, 0.62 * s, bz0, 0.9 * s, 0.5 * s, 0.34 * s, 0.5, 0.32, 0.16);
+        const [nx, nz] = L(0.4 * s, 0);
+        w = this.pushBoxVerts(data, w, nx, 0.88 * s - graze * 0.1 * s, nz, 0.16 * s, 0.4 * s, 0.16 * s, 0.5, 0.32, 0.16);
+        const [hx, hz] = L(0.52 * s, 0);
+        w = this.pushBoxVerts(data, w, hx, 1.02 * s - graze * 0.16 * s, hz, 0.3 * s, 0.24 * s, 0.16 * s, 0.45, 0.28, 0.13);
+        const [mx, mz] = L(0.34 * s, 0);
+        w = this.pushBoxVerts(data, w, mx, 1.06 * s - graze * 0.1 * s, mz, 0.2 * s, 0.14 * s, 0.12 * s, 0.22, 0.14, 0.08);
+        for (const sideL of [-1, 1]) {
+          for (const fwdL of [-1, 1]) {
+            const [lx2, lz2] = L(fwdL * 0.3 * s, sideL * 0.14 * s);
+            w = this.pushBoxVerts(data, w, lx2, 0.16 * s, lz2, 0.1 * s, 0.32 * s, 0.1 * s, 0.32, 0.2, 0.1);
+          }
+        }
+        const [tx, tz] = L(-0.52 * s, 0);
+        w = this.pushBoxVerts(data, w, tx, 0.72 * s, tz, 0.08 * s, 0.3 * s, 0.06 * s, 0.2, 0.12, 0.06);
+      }
+      if (a.kind === 11) {
+        // Cucco — a white chicken with a red comb and yellow beak, pecking as
+        // it struts around the field.
+        const peck = Math.max(0, Math.sin(t * 3.1 + a.phase) - 0.4) * 0.4;
+        const [bx0, bz0] = L(0, 0);
+        w = this.pushBoxVerts(data, w, bx0, 0.3 * s, bz0, 0.36 * s, 0.32 * s, 0.28 * s, 0.98, 0.98, 0.96);
+        const [hx, hz] = L(0.2 * s, 0);
+        w = this.pushBoxVerts(data, w, hx, 0.5 * s - peck * s, hz, 0.16 * s, 0.16 * s, 0.16 * s, 0.98, 0.98, 0.96);
+        const [cx2, cz2] = L(0.2 * s, 0);
+        w = this.pushBoxVerts(data, w, cx2, 0.62 * s - peck * s, cz2, 0.1 * s, 0.08 * s, 0.08 * s, 0.85, 0.12, 0.1);
+        const [bkx, bkz] = L(0.29 * s, 0);
+        w = this.pushBoxVerts(data, w, bkx, 0.48 * s - peck * s, bkz, 0.1 * s, 0.06 * s, 0.06 * s, 1.0, 0.7, 0.2);
+        for (const sideL of [-1, 1]) {
+          const [ex, ez] = L(0.27 * s, sideL * 0.06 * s);
+          w = this.pushBoxVerts(data, w, ex, 0.54 * s - peck * s, ez, 0.04 * s, 0.05 * s, 0.04 * s, 0.08, 0.07, 0.07);
+        }
+        for (const sideL of [-1, 1]) {
+          const [wx, wz] = L(-0.02 * s, sideL * 0.18 * s);
+          w = this.pushBoxVerts(data, w, wx, 0.3 * s, wz, 0.16 * s, 0.2 * s, 0.08 * s, 0.96, 0.95, 0.92);
+        }
+        for (const sideL of [-1, 1]) {
+          const [lx2, lz2] = L(0.06 * s, sideL * 0.08 * s);
+          w = this.pushBoxVerts(data, w, lx2, 0.08 * s, lz2, 0.05 * s, 0.16 * s, 0.05 * s, 1.0, 0.7, 0.2);
+        }
+      }
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, this._animalsBuf);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, data.subarray(0, w));
@@ -11819,7 +12063,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
    *  once it arrives. Targets stay inside the lawn ring around the castle. */
   private updateWanderer(a: { kind: number; x: number; z: number; yaw: number; size: number; wx?: number; wz?: number; wPause?: number }, dt: number): void {
     const isToad = a.kind === 4;
-    const speed = (isToad ? 3.4 : 2.4) * a.size; // units / second
+    // Per-character amble speed (units/second): Toads scurry, Bob-ombs trundle,
+    // Boos drift slowly, Koopas and Goombas amble in between.
+    const speeds: Record<number, number> = { 4: 3.4, 5: 2.4, 6: 2.0, 7: 2.8, 8: 2.6, 9: 2.0, 10: 3.6, 11: 2.6 };
+    const speed = (speeds[a.kind] ?? 2.8) * a.size;
     if ((a.wPause ?? 0) > 0) {
       a.wPause = (a.wPause ?? 0) - dt;
       return;
@@ -11845,11 +12092,13 @@ void main() { FragColor = texture(uTex, vUV); }`;
   }
 
   /** Pick a new wander target in the lawn ring around the castle (radius
-   *  60..140, inside the moat-to-tree band so characters never clip the
-   *  track, the castle, or wander off into the far scenery). */
+   *  150..235, between the enlarged compound wall and the tree ring so
+   *  characters never clip the track, the castle, or the far scenery). */
   private pickCourtyardTarget(a: { wx?: number; wz?: number }): void {
     const ang = Math.random() * Math.PI * 2;
-    const rad = 60 + Math.random() * 80;
+    // Mushroom and Hyrule lawns have slightly different wall→tree bands, so
+    // each theme's cast stays on its own courtyard grass.
+    const rad = this.theme === 'hyrule' ? 165 + Math.random() * 85 : 150 + Math.random() * 85;
     a.wx = Math.cos(ang) * rad;
     a.wz = Math.sin(ang) * rad;
   }

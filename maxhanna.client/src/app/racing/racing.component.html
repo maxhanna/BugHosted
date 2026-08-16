@@ -5,7 +5,7 @@
        returns to the lobby instead of bailing out to singleplayer. -->
   <app-title-bar [title]="'Grand Prix'" [hasMenu]="true" [badge]="garageCountdownDisplay"
     [badgeTitle]="'Multiplayer race starting soon — returning keeps you in the lobby'"
-    (menuClicked)="toggleOptions()" (closeClicked)="remove_me('RacingComponent');">
+    (menuClicked)="toggleOptions()" (closeClicked)="onTitleBarClose()">
   </app-title-bar>
 
   <div class="popupPanel" *ngIf="!parentRef?.user?.id">
@@ -533,7 +533,7 @@
                   (mouseenter)="onAppearanceCardHover(p)" (mouseleave)="onAppearanceCardHover(null)">
                   <div class="garage-appearance-preview" *ngIf="!isDecalPart(p)" [class]="getAppearancePreviewClass(p)"></div>
                   <div class="garage-decal-map" *ngIf="isDecalPart(p)">
-                    <div class="garage-decal-car"></div>
+                    <div class="garage-decal-car" [style.background]="getDecalWrapBase(p) ? getDecalWrapBaseColor(p.id) : null"></div>
                     <!-- Accent pod stripes that survive this decal style (same
                          filter as the 3D car), so the card previews the full
                          combined accent + decal livery. -->
@@ -705,7 +705,7 @@
                 [class.garage-skin-active]="playerCar.skinId === s.id" [class.buying-disabled]="isBuying"
                 [class.appearance-previewing]="skinPreview === s"
                 (click)="onSkinCardClick(s)"
-                (mouseenter)="skinPreview = s" (mouseleave)="skinPreview = null">
+                (mouseenter)="onSkinCardHover(s)" (mouseleave)="onSkinCardHover(null)">
                 <div class="garage-skin-preview" [style.background]="s.color"></div>
                 <div class="garage-skin-finish" [ngClass]="'finish-' + s.finish"
                   [title]="s.finish + ' finish shader'">{{ s.finish }}</div>
@@ -999,6 +999,7 @@
           <span class="race-title-flag">🏁</span>
           <span class="race-title-car" [class.gp-emblem-winner]="racePosition === 1">🏎️</span>
         </div>
+        <div class="gp-podium-track" *ngIf="selectedTrack">{{ getTrackFlag(selectedTrack) }} {{ selectedTrack.name }}</div>
         <div class="gp-podium-title">RACE RESULTS</div>
         <div class="gp-podium-step" *ngIf="racePosition === 1">
           <div class="gp-podium-crown">🏆</div>

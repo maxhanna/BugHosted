@@ -1543,6 +1543,16 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     this.lobbyConnectionError = '';
     this.showMultiplayer = false;
   }
+  /** Title-bar ✕ handler. From the garage it backs out one level to the Grand
+   *  Prix menu (the game's title screen) instead of tearing the whole game
+   *  down; everywhere else it behaves as before and closes the component. */
+  onTitleBarClose() {
+    if (this.gameState === 'garage') {
+      this.backToMenu();
+      return;
+    }
+    this.remove_me('RacingComponent');
+  }
   carRotateX = 20;
   carRotateY = -40;
   carZoom = 1;
@@ -3769,6 +3779,20 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
     if (!custom) this._decalColorCache.set(id, col);
     return col;
   }
+  /** Whether this decal is a full-car wrap style that gets a darker body base
+   *  under its artwork (matches DECAL_LAYOUTS[id].wrapBase in the 3D mesh). */
+  getDecalWrapBase(p: RacingAppearancePart): boolean {
+    return !!DECAL_LAYOUTS[p.id]?.wrapBase;
+  }
+  /** Wrap base colour for the garage map: the decal tint darkened by the same
+   *  factor the 3D mesh uses, so the bright pattern shapes stay visible on top. */
+  getDecalWrapBaseColor(id: number): string {
+    const custom = this.playerCar.decalColorId ? DECAL_COLOR_SWATCHES[this.playerCar.decalColorId] : undefined;
+    const c = custom ?? DECAL_COLORS[id];
+    if (!c) return 'rgb(96, 99, 108)';
+    const to255 = (v: number) => Math.max(20, Math.round(v * 255));
+    return `rgb(${to255(c[0] * 0.78)}, ${to255(c[1] * 0.78)}, ${to255(c[2] * 0.84)})`;
+  }
   /** Decal tint swatch id -> css rgb() string (unfloored, for the swatch chips). */
   getDecalSwatchColor(id: number): string {
     const c = DECAL_COLOR_SWATCHES[id];
@@ -4510,18 +4534,46 @@ export class RacingComponent extends ChildComponent implements OnInit, OnDestroy
    *  (colour + finish shader) without buying (cleared on mouse leave). */
   skinPreview: any = null;
   /** Garage catalog flow: when the pointer can hover, hovering already previews
-   *  so clicking the card buys/equips directly. Only on no-hover (touch) devices
-   *  does a tap preview instead, with the banner becoming the buy/equip button. */
+   *  so clicking the card buys/equips directly. On no-hover (touch) devices a
+   *  first tap previews and a second tap on the same card buys/equips it (the
+   *  banner stays as an alternative). */
   onAppearanceCardClick(part: RacingAppearancePart) {
-    if (!this.hasHoverPointer) { this.appearancePreview = part; this.pendingBuyPart = part; return; }
+    if (!this.hasHoverPointer) {
+      this.skinPreview = null;
+      if (this.appearancePreview === part) {
+        // Second tap on the same card commits the purchase / equip.
+        this.pendingBuyPart = part;
+        this.previewBuy();
+      } else {
+        this.appearancePreview = part;
+        this.pendingBuyPart = part;
+      }
+      return;
+    }
     this.buyAppearancePart(part);
   }
   onAppearanceCardHover(part: RacingAppearancePart | null) {
+    // Touch devices synthesize mouseenter/mouseleave right after a tap, which
+    // would instantly wipe the preview — only real hover pointers may drive it.
+    if (!this.hasHoverPointer) return;
     this.appearancePreview = part;
     if (part) this.pendingBuyPart = part;
   }
+  onSkinCardHover(skin: any) {
+    if (!this.hasHoverPointer) return;
+    this.skinPreview = skin;
+  }
   onSkinCardClick(skin: any) {
-    if (!this.hasHoverPointer) { this.skinPreview = skin; return; }
+    if (!this.hasHoverPointer) {
+      this.appearancePreview = null;
+      this.pendingBuyPart = null;
+      if (this.skinPreview === skin) {
+        this.previewBuy();
+      } else {
+        this.skinPreview = skin;
+      }
+      return;
+    }
     this.selectSkin(skin);
   }
   /** Commits the currently previewed item — the preview banner's buy/equip tap. */
