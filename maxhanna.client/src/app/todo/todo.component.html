@@ -27,7 +27,7 @@
 
   <fieldset class="addTodoInputFieldset">
     <input type="text" id="todoInput" [placeholder]="todoPlaceholder" #todoInput required (keydown.enter)="addTodo()" />
-    <app-speech-recognition (speechRecognitionEvent)="onVoiceInputForAdd($event)"></app-speech-recognition>
+    <app-speech-recognition buttonStyle="width: 40px; height: 54px; line-height: 0;" (speechRecognitionEvent)="onVoiceInputForAdd($event)"></app-speech-recognition>
     <input type="url" id="urlInput" placeholder="url?" #urlInput (keydown.enter)="addTodo()" />
     <app-media-selector #mediaSelector
       [currentDirectory]="'Users/' + (parentRef?.user && parentRef?.user?.id != 0 ? parentRef?.user?.username : 'Anonymous')"
@@ -74,8 +74,9 @@
                 <span class="editFieldLabel">Text</span> <textarea [value]="item.todo ?? ''" id="todoEditingTextarea" style="width:calc(100% - 10px)"
                   (input)="onTodoTextInput($event)"></textarea>
               </div>
-              <div *ngIf="isEditing.includes(item)">
-                <app-speech-recognition (speechRecognitionEvent)="onVoiceInputForEdit($event)"></app-speech-recognition>
+              <div *ngIf="isEditing.includes(item)" style="display: flex; align-items: center; gap: 4px;">
+                <app-speech-recognition buttonStyle="width: 40px; height: 54px; line-height: 0;" (speechRecognitionEvent)="onVoiceInputForEdit($event)"></app-speech-recognition>
+                <button (click)="copyEditedTodo()" title="Copy todo text" class="todoCopyBtn">📋</button>
               </div>
               <div *ngIf="isEditing.includes(item)" [class.blocked]="isLoading">
                 <span class="editFieldLabel">URL</span> <textarea *ngIf="isEditing.includes(item)" [value]="item.url ?? ''" id="todoEditingUrlTextarea"

@@ -1,2 +1,2 @@
-<button (click)="startListening(onResult)" *ngIf="!isListening" [disabled]="disabled || speechRecognitionUnavailable">🎤</button>
-<button (click)="stopListening()" *ngIf="isListening">🛑</button> 
+<button [style]="buttonStyle" (click)="startListening(onResult)" *ngIf="!isListening" [disabled]="disabled || speechRecognitionUnavailable">🎤</button>
+<button [style]="buttonStyle" (click)="stopListening()" *ngIf="isListening">🛑</button> 

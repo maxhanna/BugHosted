@@ -28,7 +28,7 @@
       (contentPosted)="onNoteContentPosted($event)">
     </app-text-input>
     <div class="voiceInputRow">
-      <app-speech-recognition (speechRecognitionEvent)="onVoiceInput($event)"></app-speech-recognition>
+      <app-speech-recognition buttonStyle="width: 40px; height: 54px; line-height: 0;" (speechRecognitionEvent)="onVoiceInput($event)"></app-speech-recognition>
       <span class="voiceInputHint">Speak to dictate your note</span>
     </div>
   </div>

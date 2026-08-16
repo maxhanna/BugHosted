@@ -72,13 +72,23 @@
     right: 10px;
     flex: none;
     height: min(30vh, 190px);
-    aspect-ratio: 5 / 12;
+    width: calc(min(30vh, 190px) * 5 / 12);
     border: 2px solid rgba(0, 0, 0, 0.45);
     border-radius: 6px;
     overflow: hidden;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
     background: #8a5f38;
     cursor: pointer;
+    /* Tapping the mini board smoothly zooms it into the full-screen
+     * read-only view (and back), so the expand isn't an instant snap. */
+    transition:
+      top 0.28s ease-in-out,
+      right 0.28s ease-in-out,
+      width 0.28s ease-in-out,
+      height 0.28s ease-in-out,
+      border-radius 0.28s ease-in-out,
+      border-color 0.28s ease-in-out,
+      box-shadow 0.28s ease-in-out;
   }
 
   /* Tapping the mini board expands the opponent's side to full screen. */
@@ -87,13 +97,11 @@
   }
 
   .marbles-boards.viewing-opponent .board-opponent {
-    inset: 0;
     top: 0;
     right: 0;
-    height: auto;
-    width: auto;
-    aspect-ratio: auto;
-    border: none;
+    width: 100%;
+    height: 100%;
+    border-color: transparent;
     border-radius: 0;
     box-shadow: none;
   }

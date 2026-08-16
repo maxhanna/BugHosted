@@ -133,6 +133,23 @@ export class TodoComponent extends ChildComponent implements OnInit, AfterViewIn
     this.autoGrowTextarea(ta);
   }
 
+  // Copy the todo text currently in the edit popup to the clipboard.
+  async copyEditedTodo() {
+    try {
+      const ta = document.getElementById('todoEditingTextarea') as HTMLTextAreaElement | null;
+      const text = ta?.value ?? '';
+      if (!text.trim()) {
+        this.parentRef?.showNotification?.('Nothing to copy.');
+        return;
+      }
+      await navigator.clipboard.writeText(text);
+      this.parentRef?.showNotification?.('Todo text copied to clipboard!');
+    } catch (err) {
+      console.error('Failed to copy todo text: ', err);
+      alert('Failed to copy text. Please copy manually.');
+    }
+  }
+
   private appendVoiceText(existing: string, text: string): string {
     const separator = existing && !existing.endsWith(' ') ? ' ' : '';
     return existing + separator + text;

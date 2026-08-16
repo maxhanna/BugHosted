@@ -320,10 +320,23 @@ export class HostAiComponent extends ChildComponent implements OnInit, AfterView
     // unwinds and the live bubble gets its final (stopped) state.
   }
 
+  // Live partial transcript — stream words into the input as they're spoken.
+  speechInterimEvent(transcript?: string) {
+    if (!transcript) return;
+    this.startedTalking = true;
+    this.userMessage = transcript;
+    this.chatInput.nativeElement.value = transcript;
+    this.cdr.detectChanges();
+  }
+
   speechRecognitionEvent(transcript: string | undefined) {
     if (transcript) {
       this.startedTalking = true;
-      this.chatInput.nativeElement.value += transcript;
+      // Replace (not append) since the interim stream already showed the
+      // partial — this is the finalized wording of the same utterance.
+      this.userMessage = transcript;
+      this.chatInput.nativeElement.value = transcript;
+      this.cdr.detectChanges();
       // Add a small delay to allow for finalization of speech
       setTimeout(() => {
         // Only send message if there's content and we're not in the middle of speech

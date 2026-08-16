@@ -114,4 +114,28 @@ export class CommentService {
       throw error;
     }
   }
+
+  /**
+   * Resolves a (possibly nested) comment to the story / file / recipe it hangs
+   * off of, by climbing the comment_id chain on the server. Returns
+   * { storyId, fileId, recipeId } with at most one populated.
+   */
+  async getParentByCommentId(commentId?: number) {
+    if (!commentId) {
+      return null;
+    }
+    try {
+      const response = await fetch(`/comment/getparentbycommentid`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ commentId }),
+      });
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
 }

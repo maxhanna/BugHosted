@@ -13,10 +13,20 @@ export class SpeechRecognitionComponent {
   lastSpokenMessages: { message: string }[] = []; 
   readonly MAX_HISTORY = 8;
   speechRecognitionUnavailable = false;
-  private completeTranscript = '';
-  private speechTimeout: any = null;
   
   @Input() disabled = false;
+  // Inline style applied to the mic/stop buttons, so each consumer controls the
+  // button's appearance (size, colour, spacing) instead of this component
+  // hardcoding it.
+  @Input() buttonStyle = '';
+  // Keep the microphone open across utterances. Defaults to false because the
+  // Web Speech API has no raw audio access — leaving it continuous makes the
+  // mic pick up the assistant's own speech unless the host stops it in time.
+  @Input() continuous = false;
+  // Fired on every recognition update with the live partial transcript, so
+  // consumers can show words appearing as the user speaks instead of waiting
+  // for a finalized chunk.
+  @Output() speechInterimEvent = new EventEmitter<string>();
   @Output() speechRecognitionEvent = new EventEmitter<string | undefined>();
   @Output() speechRecognitionStopListeningEvent = new EventEmitter<void>();
   @Output() speechRecognitionNotSupportedEvent = new EventEmitter<boolean>();
@@ -42,62 +52,52 @@ export class SpeechRecognitionComponent {
     if (this.isListening) return;
 
     this.isListening = true;
+    this.recognition.continuous = this.continuous;
+    this.recognition.interimResults = true;
     this.recognition.start();
 
     this.recognition.onresult = (event: any) => {
-      // Clear previous timeout
-      if (this.speechTimeout) {
-        clearTimeout(this.speechTimeout);
-      }
-      
-      let transcript = '';
-      
-      // Handle both interim and final results
+      let interimTranscript = '';
+      const finalSegments: string[] = [];
+
+      // Only process results that are new since the last event, so finalized
+      // utterances are emitted exactly once and interim text never duplicates.
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
+        const text = (result[0]?.transcript ?? '').trim();
+        if (!text) continue;
         if (result.isFinal) {
-          transcript += result[0].transcript + ' ';
+          finalSegments.push(text);
         } else {
-          // Show interim results for better user experience
-          transcript += result[0].transcript;
+          interimTranscript += (interimTranscript ? ' ' : '') + text;
         }
       }
-      
-      // Only emit final results
-      if (event.results[0].isFinal) {
-        this.completeTranscript = transcript.trim();
-        
-        this.zone.run(() => {
-          this.speechRecognitionEvent.emit(this.completeTranscript); 
-          onResult(this.completeTranscript);
-          this.lastSpokenMessages.push({ message: this.completeTranscript.toLowerCase() });
+
+      this.zone.run(() => {
+        // Stream the live partial so words appear as they're spoken, instead of
+        // the whole phrase popping in when the recognizer finalizes a chunk.
+        if (interimTranscript.trim()) {
+          this.speechInterimEvent.emit(interimTranscript.trim());
+        }
+
+        for (const finalText of finalSegments) {
+          this.speechRecognitionEvent.emit(finalText);
+          onResult(finalText);
+          this.lastSpokenMessages.push({ message: finalText.toLowerCase() });
           if (this.lastSpokenMessages.length > this.MAX_HISTORY) {
             this.lastSpokenMessages.shift();
           }
-        });
-        
-        // Set timeout to send the message after a brief pause
-        this.speechTimeout = setTimeout(() => {
-          // Message will be sent by HostAI component upon receiving this event
-        }, 500);
-      }
+        }
+      });
     };
     this.recognition.onend = () => {
       this.isListening = false;
-      // Clear any pending timeouts when recognition ends
-      if (this.speechTimeout) {
-        clearTimeout(this.speechTimeout);
-      }
     };
 
     this.recognition.onerror = (event: any) => {
       console.error('Speech recognition error:', event.error);
       this.isListening = false;
       this.speechRecognitionEvent.emit();
-       // Clear any pending timeouts when error occurs
-      if (this.speechTimeout) {
-        clearTimeout(this.speechTimeout);
-      }
     };
   }
 
@@ -108,9 +108,5 @@ export class SpeechRecognitionComponent {
     this.isListening = false;
     this.lastSpokenMessages = [];
     this.speechRecognitionStopListeningEvent.emit();
-    // Clear any pending timeouts
-    if (this.speechTimeout) {
-      clearTimeout(this.speechTimeout);
-    }
   } 
 }

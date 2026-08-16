@@ -500,13 +500,64 @@ namespace maxhanna.Server.Controllers
                     else
                     {
                         return NotFound("Comment not found.");
-                    }
-                }
-            }
+                    }				}
+			}
 			catch (Exception ex)
 			{
 				_ = _log.Db("An error occurred while retrieving comment by id. " + ex.Message, null, "COMMENT", true);
 				return StatusCode(500, "An error occurred while retrieving the comment.");
+			}
+		}
+
+		[HttpPost("/Comment/GetParentByCommentId", Name = "GetParentByCommentId")]
+		public async Task<IActionResult> GetParentByCommentId([FromBody] GetCommentByIdRequest request)
+		{
+			try
+			{
+				string? connectionString = _config.GetValue<string>("ConnectionStrings:maxhanna");
+				using (var conn = new MySqlConnection(connectionString))
+				{
+					await conn.OpenAsync();
+
+					// Walk UP the comment_id chain from the given comment until we reach
+					// a comment that is attached to a story, file or recipe (reply-to-
+					// reply comments only carry a comment_id, so their root parent must
+					// be resolved by climbing the tree).
+					string sql = @"
+						WITH RECURSIVE parent_chain (id, comment_id, story_id, file_id, recipe_id, depth) AS (
+						  SELECT id, comment_id, story_id, file_id, recipe_id, 0 FROM maxhanna.comments WHERE id = @commentId
+						  UNION ALL
+						  SELECT c.id, c.comment_id, c.story_id, c.file_id, c.recipe_id, pc.depth + 1
+						  FROM maxhanna.comments c
+						  JOIN parent_chain pc ON c.id = pc.comment_id
+						  WHERE pc.depth < 15
+						)
+						SELECT story_id, file_id, recipe_id FROM parent_chain
+						WHERE story_id IS NOT NULL OR file_id IS NOT NULL OR recipe_id IS NOT NULL
+						ORDER BY depth ASC
+						LIMIT 1;";
+
+					using (var cmd = new MySqlCommand(sql, conn))
+					{
+						cmd.Parameters.AddWithValue("@commentId", request.CommentId);
+						using (var reader = await cmd.ExecuteReaderAsync())
+						{
+							if (await reader.ReadAsync())
+							{
+								int? storyId = reader.IsDBNull(reader.GetOrdinal("story_id")) ? (int?)null : reader.GetInt32("story_id");
+								int? fileId = reader.IsDBNull(reader.GetOrdinal("file_id")) ? (int?)null : reader.GetInt32("file_id");
+								int? recipeId = reader.IsDBNull(reader.GetOrdinal("recipe_id")) ? (int?)null : reader.GetInt32("recipe_id");
+								return Ok(new { storyId, fileId, recipeId });
+							}
+						}
+					}
+				}
+				return Ok(new { storyId = (int?)null, fileId = (int?)null, recipeId = (int?)null });
+			}
+			catch (Exception ex)
+			{
+				_ = _log.Db("Error resolving comment parent by id. " + ex.Message, null, "COMMENT", true);
+				return StatusCode(500, "An error occurred while resolving the comment.");
 			}
 		}
 

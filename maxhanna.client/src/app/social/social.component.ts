@@ -13,6 +13,7 @@ import { User } from '../../services/datacontracts/user/user';
 import { MediaSelectorComponent } from '../media-selector/media-selector.component';
 import { UserService } from '../../services/user.service';
 import { FileService } from '../../services/file.service';
+import { CommentService } from '../../services/comment.service';
 import { EncryptionService } from '../../services/encryption.service';
 
 @Component({
@@ -128,6 +129,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
     private userService: UserService,
     private fileService: FileService,
     private encryptionService: EncryptionService,
+    private commentService: CommentService,
     private cd: ChangeDetectorRef,
     private renderer: Renderer2,
     private elementRef: ElementRef
@@ -421,6 +423,9 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
       // pre-filter the feed, mirroring what the topic picker does. Skip the
       // unfiltered first load — the topic search is the only fetch we need.
       await this.applyTopicDeepLink(this.topic);
+    } else if (tmpCommentId) {
+      // Comment-only deep link (no story id): resolve the parent post first.
+      await this.loadDeepLinkedStory(undefined, tmpCommentId);
     } else {
       await this.getStories();
     }
@@ -446,6 +451,24 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
    * a notification deep-links into the feed while Social is already open.
    */
   private async loadDeepLinkedStory(storyId?: number, commentId?: number): Promise<void> {
+    // A comment-only deep link (e.g. a reply-to-reply notification that only
+    // carries a commentId) has no story id — resolve the parent post first.
+    if (!storyId && commentId) {
+      try {
+        const parent = await this.commentService.getParentByCommentId(commentId);
+        if (parent?.storyId) {
+          storyId = parent.storyId;
+        } else if (parent?.fileId) {
+          this.parentRef?.createComponent('Files', { 'fileId': parent.fileId, 'commentId': commentId });
+          return;
+        } else if (parent?.recipeId) {
+          this.parentRef?.createComponent('Recipe', { 'recipeId': parent.recipeId, 'commentId': commentId });
+          return;
+        }
+      } catch (ex) {
+        console.warn('Error resolving parent story for comment deep link', ex);
+      }
+    }
     if (!storyId) return;
     // Clear any previous "follow to view" card left by an earlier deep link.
     this.deepLinkDenied = null;
@@ -727,6 +750,7 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         const storyContainer = document.getElementById(`storyDiv${storyId}`) as HTMLElement;
         if (storyContainer) {
           storyContainer.scrollIntoView();
+          this.flashNotificationTarget(storyContainer);
         }
       } else {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1121,14 +1145,30 @@ export class SocialComponent extends ChildComponent implements OnInit, OnDestroy
         const subCommentElement = document.getElementById("subComment" + commentId);
         if (subCommentElement) {
           subCommentElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          this.flashNotificationTarget(subCommentElement);
         } else {
           const parentCommentElement = document.getElementById("commentText" + commentId);
           if (parentCommentElement) {
             parentCommentElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            this.flashNotificationTarget(parentCommentElement);
           }
         }
       }, 1000);
     }
+  }
+
+  /**
+   * Plays the brief gold highlight flash on a post/comment that a notification
+   * just scrolled into view. Restarts cleanly if a second target is selected
+   * while a previous flash is still playing.
+   */
+  private flashNotificationTarget(el?: HTMLElement | null) {
+    if (!el) return;
+    el.classList.remove('notificationFlash');
+    // Force a reflow so re-adding the class replays the animation from frame 0.
+    void el.offsetWidth;
+    el.classList.add('notificationFlash');
+    setTimeout(() => el.classList.remove('notificationFlash'), 1700);
   }
 
   refreshDOM() {

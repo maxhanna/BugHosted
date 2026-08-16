@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output } from '@angular/core';
 import { NotificationService } from '../../services/notification.service';
+import { CommentService } from '../../services/comment.service';
 import { ChildComponent } from '../child.component';
 import { UserNotification } from '../../services/datacontracts/notification/user-notification';
 import { AppComponent } from '../app.component';
@@ -11,7 +12,7 @@ import { AppComponent } from '../app.component';
   standalone: false
 })
 export class NotificationsComponent extends ChildComponent implements OnInit, OnDestroy, OnChanges {
-  constructor(private notificationService: NotificationService) {
+  constructor(private notificationService: NotificationService, private commentService: CommentService) {
     super();
   }
 
@@ -303,7 +304,23 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       return this.goToFileId(notification); 
     }
 
-    alert("No parent component");
+    // Comment-only deep link (e.g. a reply to a reply): resolve the parent
+    // post so the comment can actually be shown.
+    try {
+      const parent = await this.commentService.getParentByCommentId(notification.commentId);
+      if (parent?.storyId) {
+        this.createComponent("Social", { "storyId": parent.storyId, "commentId": notification.commentId });
+      } else if (parent?.fileId) {
+        this.createComponent("Files", { "fileId": parent.fileId, "commentId": notification.commentId });
+      } else if (parent?.recipeId) {
+        this.createComponent("Recipe", { "recipeId": parent.recipeId, "commentId": notification.commentId });
+      } else {
+        alert("Could not locate the post for this comment.");
+      }
+    } catch (e) {
+      console.error('Failed to resolve comment parent', e);
+      alert("Could not locate the post for this comment.");
+    }
   }
   async delete(notification?: UserNotification) {
     const parent = this.inputtedParentRef ?? this.parentRef;
@@ -440,6 +457,8 @@ export class NotificationsComponent extends ChildComponent implements OnInit, On
       this.viewProfileByNotification(notification);
     } else if (notification.storyId) {
       this.goToStoryId(notification)
+    } else if (notification.commentId) {
+      this.goToCommentId(notification);
     } else if (notification.chatId) {
       this.goToChat(notification);
     } else if (notification?.text?.toLowerCase().includes("following")) {

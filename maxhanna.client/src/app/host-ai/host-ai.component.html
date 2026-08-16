@@ -56,7 +56,9 @@
       <!-- <button (click)="sayOutloud()" *ngIf="!startedTalking" [disabled]="isLoading || !userMessage.trim()"
         title="Repeat out loud.">🔊</button> -->
       <app-speech-recognition [disabled]="isLoading || startedTalking"
+        buttonStyle="width: 40px; height: 54px; line-height: 0;"
         (speechRecognitionEvent)="speechRecognitionEvent($event)"
+        (speechInterimEvent)="speechInterimEvent($event)"
         (speechRecognitionStopListeningEvent)="stopListening()"
         (speechRecognitionNotSupportedEvent)="speechRecognitionNotSupportedEvent($event)">
       </app-speech-recognition>

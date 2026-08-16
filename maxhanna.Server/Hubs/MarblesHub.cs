@@ -651,6 +651,13 @@ namespace maxhanna.Server.Hubs
                 newRow[c] = board[PitchRow][src];
             }
             for (var c = 0; c < Cols; c++) board[PitchRow][c] = newRow[c];
+            // A column that was floated up/down by a column shift has its pitch
+            // row empty; the rotation above can land a marble into that empty
+            // pitch row, which strands it away from the column's stack and opens
+            // an internal hole between marbles. Re-centre every column (a no-op
+            // for already-centred columns) so the "no gaps, always compacted"
+            // invariant holds after a row shift too.
+            ApplyGravity(board);
         }
 
         private static void ShiftColumnOn(int[][] board, int col, int dir)
