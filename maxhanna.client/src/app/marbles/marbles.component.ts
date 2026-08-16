@@ -544,6 +544,20 @@ export class MarblesComponent extends ChildComponent implements AfterViewInit, O
     return `radial-gradient(circle at 32% 28%, ${lighten(base, 0.55)}, rgb(${base[0]},${base[1]},${base[2]}) 55%, ${darken(base, 0.5)})`;
   }
 
+  /** Cap for the graphical "marbles sent" row — extra sends show as a +N badge. */
+  sentPipMax = 10;
+  sentPips(): number[] {
+    return Array.from({ length: Math.min(this.sentPipMax, this.mySent) }, (_, i) => i);
+  }
+  get sentPipOverflow(): number {
+    return Math.max(0, this.mySent - this.sentPipMax);
+  }
+  /** CSS marble look for the i-th sent pip, cycling through the game colours. */
+  sentMarbleBg(i: number): string {
+    const c = COLORS[1 + (i % (COLORS.length - 1))];
+    return `radial-gradient(circle at 32% 28%, ${lighten(c, 0.6)}, rgb(${c[0]},${c[1]},${c[2]}) 55%, ${darken(c, 0.45)})`;
+  }
+
   /** A single shared pulse phase for the pitch-row highlight and the
    *  hot-marble glow, so the match zone and the special colour breathe in
    *  lockstep instead of drifting out of sync. */

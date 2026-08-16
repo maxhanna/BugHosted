@@ -640,7 +640,7 @@
   color: #00007f;
 }
 
-/* ── In-game HUD ───────────────────────────────────────────────────── */
+/* ── In-game HUD: graphical marbles-sent counter ───────────────────── */
 
 .marbles-hud {
   position: absolute;
@@ -656,40 +656,62 @@
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
-.hud-row {
+.hud-sent-block {
   display: flex;
-  gap: 10px;
-  align-items: baseline;
-  flex-wrap: wrap;
-}
-
-.hud-reserve {
-  color: #ffd15c;
-  font-weight: 700;
-}
-
-.hud-score {
-  color: #7dff8e;
-  font-weight: 700;
-}
-
-.hud-hot {
-  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 12px;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 10px;
+  padding: 6px 10px;
 }
 
-.hot-marble {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
+.hud-sent-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #ffd15c;
+  white-space: nowrap;
+}
+
+.sent-marble-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: wrap;
+  max-width: 200px;
+}
+
+.sent-marble {
+  width: 15px;
+  height: 15px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.7);
-  box-shadow: 0 0 6px rgba(255, 220, 90, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), inset 0 -2px 3px rgba(0, 0, 0, 0.28);
+  animation: sent-pop 0.28s ease-out;
 }
 
-/* ── Menu popup controls ─────────────────────────────────────────── */
+@keyframes sent-pop {
+  0% {
+    transform: scale(0.2) translateY(-6px);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.15) translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.sent-over {
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  opacity: 0.9;
+}
+
+/* ── Menu popup (explainer + quit) ───────────────────────────────── */
 
 .marbles-menu-popup {
   min-width: 300px;
@@ -701,130 +723,29 @@
   color: var(--secondary-font-color);
 }
 
-.marbles-menu-block {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.marbles-menu-label {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--third-font-color);
-}
-
-.col-picker {
-  display: flex;
-  gap: 6px;
-}
-
-.col-btn {
-  width: 42px;
-  height: 42px;
-  border-radius: 8px;
-  border: 2px solid #0a0a0a;
-  background: #e9e9e9;
-  color: #000;
-  font-size: 16px;
-  font-weight: 700;
-  cursor: pointer;
-  user-select: none;
-  touch-action: manipulation;
-}
-
-.col-btn.selected {
-  background: #ffd15c;
-  border-color: #b98a1a;
-  box-shadow: 0 0 8px rgba(255, 209, 92, 0.9);
-}
-
-.controls-row {
-  display: flex;
-  gap: 8px;
-}
-
-.ctrl-btn {
-  width: 60px;
-  height: 54px;
-  border-radius: 10px;
-  border: 2px solid;
-  border-color: #ffffff #0a0a0a #0a0a0a #ffffff;
-  background: #c0c0c0;
-  color: #000;
-  font-size: 22px;
-  font-weight: 800;
-  cursor: pointer;
-  user-select: none;
-  touch-action: manipulation;
-}
-
-.ctrl-btn:active {
-  border-color: #0a0a0a #ffffff #ffffff #0a0a0a;
-}
-
-.ctrl-btn.wide {
-  width: 130px;
-}
-
-.marbles-menu-tip {
+.marbles-menu-explain {
   margin: 0;
+  padding: 0 2px 0 18px;
   font-size: 12px;
-  text-align: center;
+  line-height: 1.55;
   color: var(--third-font-color);
-  line-height: 1.4;
-  max-width: 300px;
+  max-width: 330px;
 }
 
-.hud-you {
-  font-weight: 800;
-  font-size: 15px;
-  color: #ffd15c;
+.marbles-menu-explain li {
+  margin-bottom: 7px;
 }
 
-.hud-sent {
-  font-size: 12px;
-  opacity: 0.9;
+.marbles-menu-explain strong {
+  color: #fff;
 }
 
-.hud-opponent {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 150px;
-  background: rgba(0, 0, 0, 0.45);
-  border-radius: 6px;
-  padding: 5px 8px;
+.marbles-quit-btn {
+  width: 100%;
+  margin-top: 4px;
 }
 
-.hud-name {
-  font-weight: 700;
-}
 
-.hud-out {
-  color: #ff6b6b;
-}
-
-.hud-fill {
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.2);
-  overflow: hidden;
-}
-
-.hud-fill-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #6bd66b, #ffd15c, #ff6b6b);
-  border-radius: 3px;
-  transition: width 0.3s ease;
-}
-
-.hud-hint {
-  margin-top: 8px;
-  font-size: 12px;
-  opacity: 0.85;
-  max-width: 180px;
-}
 
 /* ── Winner banner ─────────────────────────────────────────────────── */
 

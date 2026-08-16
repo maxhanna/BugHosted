@@ -154,20 +154,15 @@
       </div>
     </div>
 
-    <!-- ── In-game HUD ───────────────────────────────────────────────── -->
+    <!-- ── In-game HUD: just a graphical count of marbles sent to the opponent ── -->
     <div class="marbles-hud" *ngIf="status === 'playing' || status === 'won'">
-      <div class="hud-row">
-        <span class="hud-you">You</span>
-        <span class="hud-sent">🚀 {{ mySent }} sent</span>
-        <span class="hud-reserve">⭐ {{ myReserve }} reserve</span>
-        <span class="hud-score" *ngIf="isVsAI">🏆 {{ myScore }} cleared</span>
-        <span class="hud-hot" *ngIf="specialColor">Hot: <i class="hot-marble" [style.background]="hotColorCss()"></i></span>
+      <div class="hud-sent-block">
+        <span class="hud-sent-label">🚀 SENT</span>
+        <div class="sent-marble-row">
+          <i class="sent-marble" *ngFor="let i of sentPips()" [style.background]="sentMarbleBg(i)"></i>
+          <span class="sent-over" *ngIf="sentPipOverflow > 0">+{{ sentPipOverflow }}</span>
+        </div>
       </div>
-      <div class="hud-opponent" *ngFor="let p of otherPlayers()">
-        <span class="hud-name">{{ p.playerName }}<span *ngIf="!p.alive" class="hud-out"> 💀</span></span>
-        <span class="hud-sent">🚀 {{ p.sent }} sent</span>
-      </div>
-      <div class="hud-hint" *ngIf="status === 'playing'">Line up 3+ in any row or column — matches dump garbage (3→1, 4→2, 5+→3)!</div>
     </div>
 
     <!-- ── Winner banner ─────────────────────────────────────────────── -->
@@ -180,30 +175,18 @@
     </div>
   </div>
 
-  <!-- ── Title-bar menu popup (game controls) ───────────────────────── -->
+  <!-- ── Title-bar menu popup (game explainer + quit) ─────────────── -->
   <div class="popupPanel marbles-menu-popup" *ngIf="isMenuPanelOpen">
-    <div class="popupPanelTitle">🎮 Marbles Controls</div>
-    <div class="marbles-menu-block">
-      <span class="marbles-menu-label">Column {{ selectedCol + 1 }}</span>
-      <div class="col-picker">
-        <button *ngFor="let i of [1, 2, 3, 4, 5]" class="col-btn" [class.selected]="selectedCol === i - 1" (click)="selectColumn(i - 1)">{{ i }}</button>
-      </div>
-    </div>
-    <div class="marbles-menu-block">
-      <span class="marbles-menu-label">Shift column</span>
-      <div class="controls-row">
-        <button class="ctrl-btn" (click)="shiftColumn(-1)">▲</button>
-        <button class="ctrl-btn" (click)="shiftColumn(1)">▼</button>
-      </div>
-    </div>
-    <div class="marbles-menu-block">
-      <span class="marbles-menu-label">Shift center row</span>
-      <div class="controls-row">
-        <button class="ctrl-btn" (click)="shiftRow(-1)">◀</button>
-        <button class="ctrl-btn wide" (click)="shiftRow(1)">▶</button>
-      </div>
-    </div>
-    <p class="marbles-menu-tip">Line up 3+ of a color in any row or column. Matches dump garbage onto your opponent — 3 sends 1, 4 sends 2, 5+ sends 3!</p>
+    <div class="popupPanelTitle">🎮 How to Play</div>
+    <ul class="marbles-menu-explain">
+      <li>Move the <strong>glowing cursor</strong> along the center row with <strong>← / →</strong> (or tap a marble / press <strong>1–5</strong>).</li>
+      <li><strong>↑ / ↓</strong> (or drag up/down on mobile) shifts the selected column — it can't shift past the top or bottom.</li>
+      <li>Slide the center row with <strong>◀ / ▶</strong> (or drag it sideways on mobile).</li>
+      <li>Line up <strong>3+ same-colored marbles</strong> touching in any row or column — they pop, the ones above fall, and falls can start <strong>chain matches</strong>.</li>
+      <li>Every match dumps garbage on your opponent — <strong>3 sends 1</strong>, <strong>4 sends 2</strong>, <strong>5+ sends 3</strong>.</li>
+      <li>New marbles rain in from the top — <strong>you lose when your columns fill up</strong>.</li>
+    </ul>
+    <button *ngIf="status === 'playing' || status === 'won'" class="win98-btn primary marbles-quit-btn" (click)="leaveToMenu()">🚪 Quit Match</button>
     <button id="closeOverlay" (click)="closeMenuPanel()" class="closeButton">Close</button>
   </div>
 </div>

@@ -401,6 +401,7 @@ export const TRACKS: TrackDefinition[] = [
   { id: 14, name: 'Pirate Treasure Cove', difficulty: 'hard', laps: 4, length: 2400, description: 'A golden-hour lagoon circuit — a beached galleon, treasure chests, cannon forts and a skull rock reef', entryFee: 3500, prizePool: 13000, bestTime: 0 },
   { id: 15, name: 'Mushroom Castle', difficulty: 'hard', laps: 4, length: 2100, description: 'A storybook circuit around a replica of the Mushroom Kingdom castle — moat, drawbridge, star tower and brick battlements', entryFee: 3500, prizePool: 13000, bestTime: 0 },
   { id: 16, name: 'Hyrule Castle', difficulty: 'hard', laps: 4, length: 2100, description: 'A lap around the Kingdom of Hyrule — a replica of the Ocarina of Time castle, white walls, teal roofs, a moat and the golden Triforce', entryFee: 3500, prizePool: 13000, bestTime: 0 },
+  { id: 17, name: 'Rio de Janeiro GP', difficulty: 'hard', laps: 4, length: 2300, description: 'A jungle-meets-city street circuit — favela hillsides, Christ the Redeemer on Corcovado, Sugarloaf and a Copacabana promenade', entryFee: 4000, prizePool: 15000, bestTime: 0 },
 ];
 
 export const CAR_SKINS: RacingCarSkin[] = [

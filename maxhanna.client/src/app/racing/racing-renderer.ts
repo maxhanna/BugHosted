@@ -1612,7 +1612,7 @@ export class RacingRenderer {
   ambientColor: [number, number, number] = [0.25, 0.25, 0.3];
   fogColor: [number, number, number] = [0.4, 0.45, 0.5];
   elapsed = 0;
-  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' = 'default';
+  theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio' = 'default';
   // Device-quality tier: set by the component for mobile / low-end GPUs. Trims
   // the heaviest scenery (conifer counts and mesh density) and per-frame effects
   // (snow flake count) so the mountain and alpine circuits stay smooth on phones.
@@ -1976,6 +1976,9 @@ export class RacingRenderer {
     if (this.theme === 'hyrule') {
       return this.makeHyruleMarkingsTex();
     }
+    if (this.theme === 'rio') {
+      return this.makeRioMarkingsTex();
+    }
     return this.makeRacingMarkingsTex();
   }
   private makeMiamiMarkingsTex(): WebGLTexture {
@@ -2222,6 +2225,41 @@ export class RacingRenderer {
         r = r * (1 - aDash) + 235 * aDash;
         g = g * (1 - aDash) + 180 * aDash;
         b = b * (1 - aDash) + 60 * aDash;
+        data[i] = Math.max(5, Math.min(250, r));
+        data[i + 1] = Math.max(5, Math.min(250, g));
+        data[i + 2] = Math.max(5, Math.min(250, b));
+      }
+    }
+    return this.makeTex(size, size, data);
+  }
+  private makeRioMarkingsTex(): WebGLTexture {
+    // Rio street circuit: warm dark asphalt with bright green edge lines and
+    // a golden-yellow dashed centre line — the colours of the Brazilian flag
+    // baked into the road surface.
+    const size = 256;
+    const data = new Uint8Array(size * size * 3);
+    const soft = (lo: number, hi: number, vy: number, falloff: number) =>
+      Math.max(0, Math.min(1, Math.min(vy - lo, hi - vy) / falloff));
+    for (let y = 0; y < size; y++) {
+      const vy = y / size;
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 3;
+        // Warm dark asphalt (slightly green-grey so it never reads as plain
+        // gray, matching the jungle-city palette).
+        let r = 66, g = 74, b = 64;
+        // Subtle paving mottle, very faint.
+        const mottle = Math.sin(x * 0.4) * Math.sin(y * 0.3) * Math.sin((x + y) * 0.21);
+        r += mottle * 4; g += mottle * 4; b += mottle * 3;
+        // Bright green edge lines (Brazil green).
+        const aEdge = Math.max(soft(0.03, 0.062, vy, 0.007), soft(0.938, 0.97, vy, 0.007));
+        r = r * (1 - aEdge) + 18 * aEdge;
+        g = g * (1 - aEdge) + 168 * aEdge;
+        b = b * (1 - aEdge) + 48 * aEdge;
+        // Golden dashed centre line.
+        const aDash = soft(0.486, 0.514, vy, 0.007) * ((x % 56) < 22 ? 1 : 0);
+        r = r * (1 - aDash) + 242 * aDash;
+        g = g * (1 - aDash) + 196 * aDash;
+        b = b * (1 - aDash) + 64 * aDash;
         data[i] = Math.max(5, Math.min(250, r));
         data[i + 1] = Math.max(5, Math.min(250, g));
         data[i + 2] = Math.max(5, Math.min(250, b));
@@ -2812,6 +2850,15 @@ void main() { FragColor = texture(uTex, vUV); }`;
           elev: t => 2.4 * (1 - Math.cos(t * Math.PI * 3)) / 2 + 0.7 * (1 - Math.cos(t * Math.PI * 6)) / 2,
           width: t => this.TRACK_WIDTH + Math.sin(t * 5) * 1.5,
         };
+      case 'rio':        // jungle-meets-city street circuit — sweeping S-bends
+        // along the coast with a flowing infield, gentle rollers so the
+        // favela hillsides and the Christ statue on Corcovado read clearly
+        // against the bay.
+        return {
+          radius: R * 0.96, wobble: t => Math.sin(t * 3.4) * 20 + Math.sin(t * 9) * 8 + Math.sin(t * 1.7) * 12,
+          elev: t => 2.8 * (1 - Math.cos(t * Math.PI * 3)) / 2 + 0.7 * (1 - Math.cos(t * Math.PI * 6)) / 2,
+          width: t => this.TRACK_WIDTH + Math.sin(t * 5) * 1.5,
+        };
       default:           // miami + default — coastal, low and flat
         return {
           radius: R, wobble: t => Math.sin(t * 3) * 30 + Math.sin(t * 7) * 12 + Math.sin(t * 1.7) * 8,
@@ -2889,7 +2936,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
    *  centreline inherits. Coastal circuits fade out quickly so buildings by the
    *  water stay at sea level; inland circuits follow the hills all the way out. */
   private sceneryFade(dist: number): number {
-    const far = this.theme === 'monaco' || this.theme === 'monaco-night' || this.theme === 'montreal' || this.theme === 'neon' || this.theme === 'volcano' || this.theme === 'antarctica' || this.theme === 'pirate' ? 12 : 200;
+    const far = this.theme === 'monaco' || this.theme === 'monaco-night' || this.theme === 'montreal' || this.theme === 'neon' || this.theme === 'volcano' || this.theme === 'antarctica' || this.theme === 'pirate' || this.theme === 'rio' ? 12 : 200;
     return Math.max(0, Math.min(1, 1 - dist / far));
   }
   /** Banking fades out past the runoff so the infield and far scenery stay
@@ -3091,7 +3138,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
   getTrackLength(): number { return this.totalTrackDist; }
   /** Applies the environment theme for the selected track and rebuilds the
    *  scenery geometry. Call before each race (both solo and multiplayer). */
-  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule') {
+  setTheme(theme: 'default' | 'miami' | 'city' | 'mountain' | 'alpine' | 'desert' | 'monaco' | 'monaco-night' | 'montreal' | 'italy' | 'japan' | 'neon' | 'volcano' | 'antarctica' | 'pirate' | 'mushroom' | 'hyrule' | 'rio') {
     this.theme = theme;
     // Fresh tyres every race — reset the wear that darkened the sidewalls
     // and drop per-car sidewall textures so a style change re-bakes.
@@ -3270,6 +3317,18 @@ void main() { FragColor = texture(uTex, vUV); }`;
         this.sunColor = [1.0, 0.96, 0.82];
         this.ambientColor = [0.4, 0.46, 0.42];
         this.fogColor = [0.6, 0.72, 0.68];
+        break;
+      case 'rio':
+        // Tropical coastal city at golden hour: vivid blue sky, warm amber
+        // sun over the bay, lush green jungle glow and a soft humid haze —
+        // the Rio de Janeiro afternoon.
+        this.skyTop = [0.08, 0.3, 0.62];
+        this.skyHorizon = [0.75, 0.8, 0.88];
+        this.skyBottom = [0.45, 0.58, 0.62];
+        this.sunDir = [0.42, 0.58, 0.42];
+        this.sunColor = [1.0, 0.93, 0.75];
+        this.ambientColor = [0.36, 0.4, 0.34];
+        this.fogColor = [0.55, 0.6, 0.58];
         break;
       default:
         this.skyTop = [0.1, 0.2, 0.5];
@@ -4218,6 +4277,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
       this.addMushroomScenery(verts, idxs, flatVerts, flatIdxs);
     } else if (this.theme === 'hyrule') {
       this.addHyruleScenery(verts, idxs, flatVerts, flatIdxs);
+    } else if (this.theme === 'rio') {
+      this.addOceanPlane(flatVerts, flatIdxs, [0.05, 0.5, 0.55]);
+      this.addRioGround(flatVerts, flatIdxs);
+      this.addRioScenery(verts, idxs);
     } else {
       this.addForestScenery(verts, idxs);
     }
@@ -4288,7 +4351,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
                   ? [1.0, 0.9, 0.45]
                   : this.theme === 'hyrule'
                     ? [1.0, 0.95, 0.6]
-                    : this.theme === 'miami' ? [1, 0.9, 0.65] : [1, 0.95, 0.7];
+                    : this.theme === 'rio'
+                      ? [1.0, 0.85, 0.45]
+                      : this.theme === 'miami' ? [1, 0.9, 0.65] : [1, 0.95, 0.7];
         this.addCylinder(verts, idxs, lx, 0, lz, 0.08, 3, 6, [0.2, 0.2, 0.2]);
         this.addSphere(verts, idxs, lx, 3, lz, 0.15, 6, lampHead);
       }
@@ -4618,6 +4683,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       case 'pirate': count = 7; altMin = 46; altMax = 76; sizeScale = 1.0; this._cloudAlpha = 0.55; break;
       case 'mushroom': count = 9; altMin = 44; altMax = 74; sizeScale = 1.15; this._cloudAlpha = 0.65; break;
       case 'hyrule': count = 8; altMin = 46; altMax = 78; sizeScale = 1.1; this._cloudAlpha = 0.6; break;
+      case 'rio': count = 8; altMin = 50; altMax = 85; sizeScale = 1.0; this._cloudAlpha = 0.6; break;
       default: count = 6; altMin = 55; altMax = 90; sizeScale = 1; this._cloudAlpha = 0.6; break;
     }
     const base = this.theme === 'city'
@@ -4636,7 +4702,9 @@ void main() { FragColor = texture(uTex, vUV); }`;
                   ? [0.98, 0.98, 1.0]
                   : this.theme === 'hyrule'
                     ? [0.98, 0.98, 1.0]
-                    : [0.98, 0.98, 1.0];
+                    : this.theme === 'rio'
+                      ? [0.98, 0.98, 1.0]
+                      : [0.98, 0.98, 1.0];
     const verts: number[] = [];
     const idxs: number[] = [];
     const seg = 9;
@@ -5928,6 +5996,242 @@ void main() { FragColor = texture(uTex, vUV); }`;
       if (ci < pts.length * 0.08 || ci > pts.length * 0.92) continue;
       const p = pts[ci];
       this.addCaveTunnel(verts, idxs, p.x, p.z, p.dirX, p.dirZ, p.width / 2);
+    }
+  }
+  // ── Rio de Janeiro GP (jungle-meets-city street circuit) ──────────────
+  /** Copacabana-style ground: a pale paved promenade hugging the track, then
+   *  a golden beach band further out before the sea — no gray anywhere. */
+  private addRioGround(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    // Sun-bleached coastal promenade with the famous black-and-white wave
+    // mosaic hint — warm stones, not gray concrete.
+    const walkA: [number, number, number] = [0.86, 0.8, 0.72];
+    const walkB: [number, number, number] = [0.78, 0.72, 0.64];
+    // Golden Copacabana sand.
+    const beachA: [number, number, number] = [0.94, 0.85, 0.6];
+    const beachB: [number, number, number] = [0.88, 0.79, 0.55];
+    for (let i = 0; i < pts.length; i += 1) {
+      const p = pts[i];
+      const n = pts[(i + 1) % pts.length];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const npx = -n.dirZ, npz = n.dirX;
+      const seg = i;
+      const walkColor = seg % 2 === 0 ? walkA : walkB;
+      const beachColor = seg % 2 === 0 ? beachA : beachB;
+      for (const side of [-1, 1]) {
+        // Promenade: track edge +16..52 — warm paving stones with palms.
+        const wIn = [p.x + ppx * (p.width / 2 + 16) * side, -0.26, p.z + ppz * (p.width / 2 + 16) * side];
+        const wOut = [p.x + ppx * (p.width / 2 + 52) * side, -0.26, p.z + ppz * (p.width / 2 + 52) * side];
+        const wnIn = [n.x + npx * (n.width / 2 + 16) * side, -0.26, n.z + npz * (n.width / 2 + 16) * side];
+        const wnOut = [n.x + npx * (n.width / 2 + 52) * side, -0.26, n.z + npz * (n.width / 2 + 52) * side];
+        this.addGroundQuad(verts, idxs, wIn, wnIn, wnOut, wOut, walkColor);
+        // Beach: +52..98 — golden sand clearly in the distance.
+        const bIn = [p.x + ppx * (p.width / 2 + 52) * side, -0.26, p.z + ppz * (p.width / 2 + 52) * side];
+        const bOut = [p.x + ppx * (p.width / 2 + 98) * side, -0.26, p.z + ppz * (p.width / 2 + 98) * side];
+        const bnIn = [n.x + npx * (n.width / 2 + 52) * side, -0.26, n.z + npz * (n.width / 2 + 52) * side];
+        const bnOut = [n.x + npx * (n.width / 2 + 98) * side, -0.26, n.z + npz * (n.width / 2 + 98) * side];
+        this.addGroundQuad(verts, idxs, bIn, bnIn, bnOut, bOut, beachColor);
+      }
+    }
+  }
+  /** A lush tropical jungle tree — layered green canopy puffs on a trunk. */
+  private addJungleTree(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    const lean = (Math.random() - 0.5) * 0.6;
+    const trunkH = 2.6 * s;
+    this.addCylinder(verts, idxs, x, 0, z, 0.16 * s, trunkH * 0.7, 6, [0.4, 0.26, 0.12]);
+    const kinkX = x + lean * 0.4, kinkZ = z + lean * 0.3;
+    this.addCylinder(verts, idxs, kinkX, trunkH * 0.7, kinkZ, 0.12 * s, trunkH * 0.3, 6, [0.34, 0.22, 0.1]);
+    const topX = kinkX + lean * 0.5, topZ = kinkZ + lean * 0.4;
+    const r = (1.0 + Math.random() * 0.6) * s;
+    const greens: [number, number, number][] = [
+      [0.1, 0.42, 0.14], [0.14, 0.5, 0.16], [0.08, 0.36, 0.12], [0.18, 0.48, 0.2],
+    ];
+    const c0 = greens[Math.floor(Math.random() * greens.length)];
+    const c1 = greens[Math.floor(Math.random() * greens.length)];
+    this.addSphere(verts, idxs, topX, trunkH + r * 0.55, topZ, r, 8, c0);
+    this.addSphere(verts, idxs, topX + r * 0.5, trunkH + r * 0.4, topZ + r * 0.2, r * 0.7, 7, c1);
+    this.addSphere(verts, idxs, topX - r * 0.45, trunkH + r * 0.35, topZ - r * 0.25, r * 0.65, 7, c1);
+    this.addSphere(verts, idxs, topX + r * 0.1, trunkH + r * 0.85, topZ - r * 0.1, r * 0.55, 7, c0);
+  }
+  /** A single colourful favela house — stacked boxes, flat roof, water tank. */
+  private addFavelaHouse(verts: number[], idxs: number[], x: number, z: number, s: number, col: number[]) {
+    const h = (2.0 + Math.random() * 2.2) * s;
+    const w = (1.5 + Math.random() * 1.3) * s;
+    const d = (1.5 + Math.random() * 1.3) * s;
+    // Main box, occasionally with a second storey or roof box stacked on top.
+    this.addBox(verts, idxs, x, h / 2, z, w, h, d, col);
+    if (Math.random() < 0.4) {
+      const h2 = (1.2 + Math.random() * 1.2) * s;
+      this.addBox(verts, idxs, x + (Math.random() - 0.5) * w * 0.5, h + h2 / 2, z + (Math.random() - 0.5) * d * 0.5, w * 0.8, h2, d * 0.8, col);
+    } else {
+      this.addBox(verts, idxs, x, h + 0.12 * s, z, w * 0.9, 0.24 * s, d * 0.9, [0.75, 0.74, 0.72]);
+    }
+    // Rooftop water tank / antenna.
+    if (Math.random() < 0.65) {
+      this.addCylinder(verts, idxs, x + (Math.random() - 0.5) * w * 0.4, h + (0.5 + Math.random() * 0.4) * s, z + (Math.random() - 0.5) * d * 0.4, 0.24 * s, 0.6 * s, 6, [0.55, 0.57, 0.6]);
+    }
+    // A warm window light on the front face.
+    if (Math.random() < 0.7) {
+      const wy = h * 0.55;
+      this.addWindowQuad(verts, idxs, x, wy, z, 0.55 * s, 0.45 * s, 0, 1, [0.95, 0.88, 0.55]);
+    }
+  }
+  /** Christ the Redeemer statue on Corcovado — white robed figure on a peak. */
+  private addChristStatue(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    // The mountain: a big granite-green dome.
+    this.addEllipsoid(verts, idxs, x, 9 * s, z, 34 * s, 14 * s, 30 * s, 10, [0.24, 0.4, 0.22]);
+    this.addEllipsoid(verts, idxs, x, 7 * s, z, 30 * s, 11 * s, 26 * s, 9, [0.32, 0.46, 0.26]);
+    // Pedestal.
+    const py = 20 * s;
+    this.addBox(verts, idxs, x, py, z, 3.4 * s, 2.6 * s, 3.4 * s, [0.75, 0.76, 0.8]);
+    // Robed body.
+    const by = py + 1.3 * s;
+    this.addBox(verts, idxs, x, by + 2.2 * s, z, 1.9 * s, 4.4 * s, 1.5 * s, [0.93, 0.94, 0.97]);
+    // Outstretched arms (the iconic pose) — an oriented bar across the body.
+    this.addOrientedBox(verts, idxs, x, by + 3.6 * s, z, 7.6 * s, 0.7 * s, 0.7 * s, 1, 0, [0.93, 0.94, 0.97]);
+    // Head.
+    this.addSphere(verts, idxs, x, by + 5.6 * s, z, 0.8 * s, 8, [0.93, 0.94, 0.97]);
+  }
+  /** Sugarloaf — a pair of smooth granite domes rising out of the bay. */
+  private addSugarloaf(verts: number[], idxs: number[], x: number, z: number, s: number) {
+    this.addEllipsoid(verts, idxs, x, 12 * s, z, 30 * s, 24 * s, 26 * s, 10, [0.5, 0.55, 0.52]);
+    this.addEllipsoid(verts, idxs, x, 10 * s, z, 27 * s, 20 * s, 23 * s, 9, [0.6, 0.64, 0.6]);
+    this.addEllipsoid(verts, idxs, x + 16 * s, 8 * s, z + 8 * s, 15 * s, 14 * s, 13 * s, 9, [0.52, 0.57, 0.54]);
+  }
+  private addRioScenery(verts: number[], idxs: number[]) {
+    const pts = this._trackPoints;
+    // Palms + jungle trees lining the promenade — the jungle half of the mix.
+    let treeIdx = 0;
+    for (let i = 0; i < pts.length; i += 2) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        const dist = p.width / 2 + 18 + Math.random() * 14;
+        const tx = p.x + ppx * dist * side + (Math.random() - 0.5) * 6;
+        const tz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
+        const roll = Math.random();
+        if (roll < 0.45) {
+          this.addPalmTree(verts, idxs, tx, tz, 0.75 + Math.random() * 0.6);
+        } else if (roll < 0.8) {
+          this.addJungleTree(verts, idxs, tx, tz, 0.8 + Math.random() * 0.5);
+        } else {
+          this.addFloweringTree(verts, idxs, tx, tz, 0.7 + Math.random() * 0.5);
+        }
+        if (treeIdx++ > (this.lowQuality ? 55 : 95)) break;
+      }
+      if (treeIdx > (this.lowQuality ? 55 : 95)) break;
+    }
+    // Favela hillsides — colourful stacked houses rising away from the road
+    // (the city half, close enough to feel like a neighbourhood).
+    const favelaCols: [number, number, number][] = [
+      [0.93, 0.45, 0.4], [0.95, 0.78, 0.25], [0.35, 0.65, 0.85], [0.9, 0.6, 0.25],
+      [0.55, 0.72, 0.4], [0.85, 0.4, 0.7], [0.95, 0.55, 0.35], [0.4, 0.78, 0.75],
+      [0.7, 0.45, 0.85], [0.95, 0.88, 0.5],
+    ];
+    let favIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 6 : 3)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        if (Math.random() < 0.45) continue;
+        const dist = p.width / 2 + 26 + Math.random() * 22;
+        const hx = p.x + ppx * dist * side + (Math.random() - 0.5) * 8;
+        const hz = p.z + ppz * dist * side + (Math.random() - 0.5) * 8;
+        const s = 0.85 + Math.random() * 0.7;
+        this.addFavelaHouse(verts, idxs, hx, hz, s, favelaCols[Math.floor(Math.random() * favelaCols.length)]);
+        // Neighbouring house close by for the terraced-hillside look.
+        if (Math.random() < 0.55) {
+          this.addFavelaHouse(verts, idxs, hx + (Math.random() - 0.5) * 5, hz + (Math.random() - 0.5) * 5, s * 0.8, favelaCols[Math.floor(Math.random() * favelaCols.length)]);
+        }
+        if (favIdx++ > (this.lowQuality ? 42 : 80)) break;
+      }
+      if (favIdx > (this.lowQuality ? 42 : 80)) break;
+    }
+    // Downtown skyline far out — glass towers and mid-rises over the bay.
+    const towerCols: [number, number, number][] = [
+      [0.72, 0.78, 0.88], [0.6, 0.68, 0.8], [0.8, 0.74, 0.68], [0.68, 0.8, 0.85],
+    ];
+    let towIdx = 0;
+    for (let i = 0; i < pts.length; i += 6) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (const side of [-1, 1]) {
+        if (Math.random() < 0.35) continue;
+        const dist = p.width / 2 + 80 + Math.random() * 45;
+        const bx = p.x + ppx * dist * side + (Math.random() - 0.5) * 14;
+        const bz = p.z + ppz * dist * side + (Math.random() - 0.5) * 14;
+        const h = 16 + Math.random() * 32;
+        const w = 4 + Math.random() * 4;
+        const d = 4 + Math.random() * 4;
+        const col = towerCols[Math.floor(Math.random() * towerCols.length)];
+        const roll = Math.random();
+        if (roll < 0.45) {
+          this.addGlassTower(verts, idxs, bx, bz, h, w, d, col);
+        } else if (roll < 0.7) {
+          this.addSetbackTower(verts, idxs, bx, bz, h, w, d, col);
+        } else {
+          this.addLowRiseBlock(verts, idxs, bx, bz, h * 0.7, w, d, col);
+        }
+        if (towIdx++ > (this.lowQuality ? 14 : 26)) break;
+      }
+      if (towIdx > (this.lowQuality ? 14 : 26)) break;
+    }
+    // Landmarks: Christ the Redeemer on Corcovado and Sugarloaf, anchored to
+    // fixed points of the lap so they read clearly against the bay.
+    const anchorA = pts[Math.floor(pts.length * 0.2)];
+    const aPpx = -anchorA.dirZ, aPpz = anchorA.dirX;
+    this.addChristStatue(verts, idxs,
+      anchorA.x + aPpx * (anchorA.width / 2 + 120), anchorA.z + aPpz * (anchorA.width / 2 + 120), 1.0);
+    const anchorB = pts[Math.floor(pts.length * 0.7)];
+    const bPpx = -anchorB.dirZ, bPpz = anchorB.dirX;
+    this.addSugarloaf(verts, idxs,
+      anchorB.x - bPpx * (anchorB.width / 2 + 130), anchorB.z - bPpz * (anchorB.width / 2 + 130), 1.0);
+    // Beach furniture — umbrellas, towels and beach balls out on the sand.
+    const gsPositions = [0, Math.floor(pts.length / 4), Math.floor(pts.length / 2), Math.floor(pts.length * 3 / 4)];
+    const umbrellaColors: [number, number, number][] = [
+      [0.95, 0.3, 0.35], [0.98, 0.8, 0.2], [0.2, 0.65, 0.55], [0.25, 0.55, 0.95], [0.95, 0.55, 0.85], [0.95, 0.4, 0.9],
+    ];
+    const towelColors: [number, number, number][] = [
+      [0.95, 0.35, 0.4], [0.3, 0.7, 0.95], [0.95, 0.85, 0.2], [0.3, 0.85, 0.55], [0.95, 0.65, 0.3],
+    ];
+    for (const gi of gsPositions) {
+      const p = pts[gi];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      for (let u = 0; u < 4; u++) {
+        const dist = p.width / 2 + 58 + Math.random() * 18;
+        const side = u % 2 === 0 ? -1 : 1;
+        const ux = p.x + ppx * dist * side + (Math.random() - 0.5) * 6;
+        const uz = p.z + ppz * dist * side + (Math.random() - 0.5) * 6;
+        this.addCylinder(verts, idxs, ux, 0, uz, 0.05, 1.5, 6, [0.85, 0.8, 0.7]);
+        this.addCone(verts, idxs, ux, 1.5, uz, 0.9, 0.32, 8, umbrellaColors[Math.floor(Math.random() * umbrellaColors.length)]);
+        if (Math.random() < 0.8) {
+          const tcol = towelColors[Math.floor(Math.random() * towelColors.length)];
+          const tx = ux + (Math.random() < 0.5 ? 1.1 : -1.1);
+          const tz = uz + (Math.random() < 0.5 ? 1.0 : -1.0);
+          this.addQuad(verts, idxs,
+            [tx - 1.0, -0.23, tz - 0.55], [tx + 1.0, -0.23, tz - 0.55],
+            [tx + 1.0, -0.23, tz + 0.55], [tx - 1.0, -0.23, tz + 0.55], tcol);
+        }
+        if (Math.random() < 0.6) {
+          this.addSphere(verts, idxs, ux + (Math.random() - 0.5) * 3, 0.04, uz + (Math.random() - 0.5) * 3, 0.3, 8, [0.95, 0.35, 0.3]);
+        }
+      }
+    }
+    // Carnival bunting along the promenade rail — small colourful pennants
+    // strung between lamp posts on both sides of the road.
+    const buntCols: [number, number, number][] = [
+      [0.05, 0.5, 0.2], [0.95, 0.82, 0.15], [0.1, 0.3, 0.75], [0.95, 0.35, 0.4], [0.98, 0.6, 0.9],
+    ];
+    let buntIdx = 0;
+    for (let i = 0; i < pts.length; i += (this.lowQuality ? 12 : 6)) {
+      const p = pts[i];
+      const ppx = -p.dirZ, ppz = p.dirX;
+      const side = (i / 6) % 2 === 0 ? -1 : 1;
+      const bx = p.x + ppx * (p.width / 2 + 2.2) * side;
+      const bz = p.z + ppz * (p.width / 2 + 2.2) * side;
+      this.addCylinder(verts, idxs, bx, 0.9, bz, 0.05, 1.8, 5, [0.35, 0.35, 0.4]);
+      this.addCone(verts, idxs, bx, 1.8, bz, 0.24, 0.5, 4, buntCols[Math.floor(Math.random() * buntCols.length)]);
+      if (buntIdx++ > (this.lowQuality ? 22 : 46)) break;
     }
   }
   private addCityScenery(verts: number[], idxs: number[]) {
@@ -10391,6 +10695,10 @@ void main() { FragColor = texture(uTex, vUV); }`;
         // Hyrule crowd — Kokiri greens, Hylian blues and golden accents.
         return [[0.12, 0.55, 0.25], [0.1, 0.3, 0.7], [0.75, 0.55, 0.15],
         [0.8, 0.82, 0.7], [0.55, 0.3, 0.15], [0.25, 0.45, 0.55]];
+      case 'rio':
+        // Carnival crowd — Brazil greens, golds, blues and bright samba shirts.
+        return [[0.05, 0.5, 0.2], [0.95, 0.82, 0.15], [0.1, 0.3, 0.75],
+        [0.95, 0.35, 0.4], [0.1, 0.75, 0.55], [0.98, 0.6, 0.9], [0.95, 0.55, 0.2]];
       default:
         return [[0.7, 0.15, 0.15], [0.15, 0.3, 0.7], [0.8, 0.7, 0.1],
         [0.9, 0.9, 0.9], [0.15, 0.5, 0.2], [0.6, 0.2, 0.6], [0.1, 0.65, 0.65], [0.95, 0.5, 0.15]];
@@ -10411,6 +10719,7 @@ void main() { FragColor = texture(uTex, vUV); }`;
       case 'pirate': return [[0.9, 0.2, 0.18], [0.2, 0.2, 0.25]];
       case 'mushroom': return [[0.9, 0.2, 0.18], [0.95, 0.95, 0.95]];
       case 'hyrule': return [[0.1, 0.55, 0.25], [0.95, 0.8, 0.2]];
+      case 'rio': return [[0.05, 0.5, 0.2], [0.95, 0.82, 0.15]];
       default: return this.crowdShirtsForTheme().slice(0, 2);
     }
   }
@@ -12325,13 +12634,58 @@ void main() { FragColor = texture(uTex, vUV); }`;
     v(-hx, -hy, -hz, 0, -1, 0); v(hx, -hy, hz, 0, -1, 0); v(-hx, -hy, hz, 0, -1, 0);
     return wi;
   }
+  /** A box rotated into the flag's local frame (same 36-vertex layout as
+   *  pushBoxVerts). `rot` spins it within the flag face (0 = along the flag,
+   *  PI/2 = up); `len` runs along that direction, `wid` across it in the face
+   *  plane, and `thk` along the flag's outward normal. This lets waving flags
+   *  and their emblems orient correctly on any track heading. */
+  private pushFlagBoxVerts(d: (number[] | Float32Array), wi: number, cx: number, cy: number, cz: number,
+    dirX: number, dirZ: number, rot: number, len: number, wid: number, thk: number,
+    r: number, g: number, b: number): number {
+    const cr = Math.cos(rot), sr = Math.sin(rot);
+    const ex = cr * dirX, ey = sr, ez = cr * dirZ;   // length axis
+    const tx = -sr * dirX, ty = cr, tz = -sr * dirZ; // width axis (in-face)
+    const nx = -dirZ, nz = dirX;                     // flag normal
+    const he = len / 2, ht = wid / 2, hn = thk / 2;
+    const P = (se: number, st: number, sn: number): [number, number, number] => [
+      cx + ex * se * he + tx * st * ht + nx * sn * hn,
+      cy + ey * se * he + ty * st * ht,
+      cz + ez * se * he + tz * st * ht + nz * sn * hn,
+    ];
+    const put = (p: [number, number, number], n0: number, n1: number, n2: number) => {
+      d[wi++] = p[0]; d[wi++] = p[1]; d[wi++] = p[2];
+      d[wi++] = n0; d[wi++] = n1; d[wi++] = n2;
+      d[wi++] = r; d[wi++] = g; d[wi++] = b;
+      d[wi++] = 0; d[wi++] = 0;
+    };
+    const tri = (p1: [number, number, number], p2: [number, number, number], p3: [number, number, number], n: number[]) => {
+      put(p1, n[0], n[1], n[2]); put(p2, n[0], n[1], n[2]); put(p3, n[0], n[1], n[2]);
+    };
+    const NE = [nx, 0, nz], NW = [-nx, 0, -nz];
+    const EE = [ex, ey, ez], EW = [-ex, -ey, -ez];
+    const TE = [tx, ty, tz], TW = [-tx, -ty, -tz];
+    tri(P(-1, -1, 1), P(1, -1, 1), P(1, 1, 1), NE);
+    tri(P(-1, -1, 1), P(1, 1, 1), P(-1, 1, 1), NE);
+    tri(P(1, -1, -1), P(-1, -1, -1), P(-1, 1, -1), NW);
+    tri(P(1, -1, -1), P(-1, 1, -1), P(1, 1, -1), NW);
+    tri(P(1, -1, 1), P(1, -1, -1), P(1, 1, -1), EE);
+    tri(P(1, -1, 1), P(1, 1, -1), P(1, 1, 1), EE);
+    tri(P(-1, -1, -1), P(-1, -1, 1), P(-1, 1, 1), EW);
+    tri(P(-1, -1, -1), P(-1, 1, 1), P(-1, 1, -1), EW);
+    tri(P(-1, 1, 1), P(1, 1, 1), P(1, 1, -1), TE);
+    tri(P(-1, 1, 1), P(1, 1, -1), P(-1, 1, -1), TE);
+    tri(P(-1, -1, -1), P(1, -1, -1), P(1, -1, 1), TW);
+    tri(P(-1, -1, -1), P(1, -1, 1), P(-1, -1, 1), TW);
+    return wi;
+  }
   private static CROWD_CULL_DIST = 80;
   private buildFlagBuffers() {
     const gl = this.gl;
     if (!this._flags.length) { this._flagData = new Float32Array(0); return; }
     let cap = 0;
     for (const f of this._flags) {
-      cap += f.kind === 'tri' ? 6 : (3 + (f.emblem ? 3 : 0)) * 36;
+      const emblemBoxes = f.emblem === 'maple' ? 6 : f.emblem === 'cross' ? 18 : 0;
+      cap += f.kind === 'tri' ? 6 : (3 + emblemBoxes) * 36;
     }
     this._flagData = new Float32Array(cap * 11);
     this._flagVao = gl.createVertexArray()!;
@@ -12450,11 +12804,11 @@ void main() { FragColor = texture(uTex, vUV); }`;
           const dy = Math.sin(t * f.speed + f.phase + k * 1.1) * 0.055 * f.amp * grow;
           const roll = Math.sin(t * f.speed + f.phase * 1.7 + k * 1.7) * 0.05 * f.amp * grow;
           const [r, g, b] = f.colors[k % f.colors.length];
-          w = this.pushBoxVerts(data, w,
+          w = this.pushFlagBoxVerts(data, w,
             f.x + f.dirX * (segOff + segW / 2) + ppx * (sw + roll),
             f.anchorY - f.h / 2 + dy,
             f.z + f.dirZ * (segOff + segW / 2) + ppz * (sw + roll),
-            segW - 0.02, f.h, 0.02, r, g, b);
+            f.dirX, f.dirZ, 0, segW - 0.02, f.h, 0.02, r, g, b);
           segOff += segW;
         }
         if (f.emblem) {
@@ -12463,13 +12817,32 @@ void main() { FragColor = texture(uTex, vUV); }`;
           const cx = f.x + f.dirX * (f.w / 2) + ppx * midRoll;
           const cy = f.anchorY - f.h / 2 + midWave;
           const cz = f.z + f.dirZ * (f.w / 2) + ppz * midRoll;
+          // A box on the flag face, offset (oa along, ou up) from the emblem
+          // centre and rotated `rot` within the face (0 = along, PI/2 = up).
+          const box = (oa: number, ou: number, rot: number, len: number, wid: number, thk: number, rr: number, gg: number, bb: number) => {
+            w = this.pushFlagBoxVerts(data, w, cx + f.dirX * oa, cy + ou, cz + f.dirZ * oa,
+              f.dirX, f.dirZ, rot, len, wid, thk, rr, gg, bb);
+          };
           if (f.emblem === 'maple') {
-            w = this.pushBoxVerts(data, w, cx, cy, cz + 0.02, 0.06, f.h * 0.42, 0.035, 0.82, 0.1, 0.12);
-            w = this.pushBoxVerts(data, w, cx - f.dirZ * 0.08, cy, cz + f.dirX * 0.08 + 0.02, 0.05, f.h * 0.36, 0.035, 0.82, 0.1, 0.12);
-            w = this.pushBoxVerts(data, w, cx + f.dirZ * 0.08, cy, cz - f.dirX * 0.08 + 0.02, 0.05, f.h * 0.36, 0.035, 0.82, 0.1, 0.12);
+            // Red maple leaf: three top lobes, two side lobes and a stem.
+            box(0, 0.06, Math.PI / 2, 0.14, 0.06, 0.03, 0.82, 0.1, 0.12);
+            box(-0.035, 0.03, Math.PI / 2 + 0.75, 0.12, 0.05, 0.03, 0.82, 0.1, 0.12);
+            box(0.035, 0.03, Math.PI / 2 - 0.75, 0.12, 0.05, 0.03, 0.82, 0.1, 0.12);
+            box(-0.03, -0.01, Math.PI, 0.11, 0.05, 0.03, 0.82, 0.1, 0.12);
+            box(0.03, -0.01, 0, 0.11, 0.05, 0.03, 0.82, 0.1, 0.12);
+            box(0, -0.09, -Math.PI / 2, 0.16, 0.035, 0.03, 0.82, 0.1, 0.12);
           } else {
-            w = this.pushBoxVerts(data, w, cx, cy, cz + 0.02, 0.1, f.h, 0.035, 0.95, 0.95, 0.95);
-            w = this.pushBoxVerts(data, w, cx, cy, cz + 0.02, f.w, 0.12, 0.035, 0.95, 0.95, 0.95);
+            // Quebec: white cross over the blue field + four fleur-de-lis.
+            box(0, 0, Math.PI / 2, f.h, 0.11, 0.03, 0.95, 0.95, 0.95);
+            box(0, 0, 0, f.w, 0.11, 0.03, 0.95, 0.95, 0.95);
+            const fleur = (qx: number, qy: number) => {
+              box(qx, qy + 0.04, Math.PI / 2, 0.11, 0.035, 0.03, 0.95, 0.95, 0.95);
+              box(qx - 0.015, qy + 0.02, Math.PI / 2 + 0.6, 0.085, 0.03, 0.03, 0.95, 0.95, 0.95);
+              box(qx + 0.015, qy + 0.02, Math.PI / 2 - 0.6, 0.085, 0.03, 0.03, 0.95, 0.95, 0.95);
+              box(qx, qy - 0.025, 0, 0.1, 0.032, 0.03, 0.95, 0.95, 0.95);
+            };
+            fleur(-f.w / 4, f.h / 4); fleur(f.w / 4, f.h / 4);
+            fleur(-f.w / 4, -f.h / 4); fleur(f.w / 4, -f.h / 4);
           }
         }
       }
